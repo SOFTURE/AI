@@ -1,0 +1,12 @@
+{
+  "id": "security",
+  "version": "0.0.0",
+  "dependsOn": {},
+  "dbSchema": "security",
+  "tables": ["rate_limits"],
+  "env": [],
+  "switches": [],
+  "routes": {},
+  "mount": [],
+  "privacy": { "exports": false, "deletes": false }
+}

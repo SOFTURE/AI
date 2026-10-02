@@ -1,14 +1,167 @@
 # @softure-ai/security
 
-**Status:** wave 1 · not implemented · depends on: core, db
+Rate limits for public entry points, a client-IP resolver that matches the app's hosting, and a
+size-capped request body reader. Built from FIRE_TRACKER's limiter (`src/db/auth-attempts.ts`,
+`src/lib/read-small-body.ts`); the difference is that a client whose address cannot be resolved is
+refused instead of sharing one bucket with every other such client.
 
-Rate limiting (fixed window, atomic `INSERT … ON CONFLICT`, probabilistic cleanup) with buckets
-from configuration. Pluggable IP resolver: `cloudflareIp()`, `forwardedForIp({ trustedProxies })`
-or your own. A `readSmallBody` helper (request body size cap).
+## 1. What it provides
 
-**Tables:** `security.rate_limits(bucket, identifier, attempts, window_started_at)`
+Fixed-window rate limits in Postgres with buckets from configuration, pluggable client-IP
+resolvers and `readSmallBody`, so every public route and server action can refuse floods before
+they cost anything.
 
-**Source in FIRE_TRACKER:** `src/db/auth-attempts.ts` (+ test), `rateLimitKey` in `src/app/actions/do-auth.ts`
-and `src/app/api/mcp/route.ts`, `src/lib/read-small-body.ts`.
+## 2. Installation
 
-**Improvements:** without Cloudflare, the source puts every client into a single shared bucket.
+```bash
+npm install @softure-ai/security @softure-ai/core @softure-ai/db drizzle-orm
+```
+
+## 3. Configuration
+
+```ts
+import { defineSoftureConfig } from "@softure-ai/core";
+import { cloudflareIp, security } from "@softure-ai/security";
+
+export default defineSoftureConfig({
+  // database, locale, timezone, appOrigin …
+  modules: [
+    security({
+      clientIp: cloudflareIp(),
+      buckets: {
+        login: { limit: 50, windowMinutes: 15 },
+        "login-account": { limit: 10, windowMinutes: 15 },
+        register: { limit: 5, windowMinutes: 15 },
+      },
+    }),
+  ],
+});
+```
+
+| Option | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `clientIp` | `ClientIpResolver \| ClientIpResolver[]` | required | Where the client address comes from; several are tried in order. |
+| `buckets` | `Record<string, { limit: number; windowMinutes: number }>` | required, at least one | Named limits: `limit` attempts per fixed window of `windowMinutes` (1 to 10080). Names are lowercase letters, digits, `_`, `.` and `-`. |
+| `ipv6Subnet` | `number` (1-128) | `64` | IPv6 clients are keyed by this network; one subscriber usually owns a whole /64. |
+| `cleanupProbability` | `number` (0-1) | `0.01` | Chance that a consumed attempt also deletes expired rows. |
+
+**Resolvers.** Pick the one that matches what stands in front of the app; trusting a header the
+edge does not set or overwrite lets any client choose its own key.
+
+| Resolver | Reads | Use when |
+| --- | --- | --- |
+| `cloudflareIp()` | `CF-Connecting-IP` | the origin accepts traffic from Cloudflare only |
+| `forwardedForIp({ trustedProxies: 1 })` | `X-Forwarded-For`, n-th entry from the right | a known number of proxies (Traefik, nginx, a load balancer) append to the header |
+| `forwardedForIp({ trustedProxies: ["10.0.0.0/8"] })` | `X-Forwarded-For`, first entry from the right that is not a trusted proxy | the proxies have known addresses or ranges |
+| `headerIp("x-real-ip")` | a header holding one address | the edge overwrites that header |
+| `(headers) => string \| null` | anything | your own; the result is normalised, and a value that is not an address counts as no match |
+
+Entries left of the trusted proxies' entries came from the client and are never used. A missing,
+short or garbled header resolves to nothing. Addresses are normalised: a port and IPv6 brackets are
+removed, IPv4-mapped (and the deprecated IPv4-compatible) IPv6 becomes IPv4, IPv6 is written in full lowercase groups.
+
+**Development without a proxy** has no header to read, so every request is unidentified. Pass an
+explicit resolver for local work only, for example
+`clientIp: process.env.NODE_ENV === "production" ? cloudflareIp() : () => "127.0.0.1"`.
+
+## 4. Mounting
+
+Nothing to mount: the module has no routes or pages. Call it from your route handlers and server
+actions, before the work it guards:
+
+```ts
+import { readSmallBody } from "@softure-ai/security";
+import { consumeRateLimit, identifyClient } from "@softure-ai/security/server";
+
+export async function POST(request: Request): Promise<Response> {
+  const ctx = { db, clock: systemClock, config };
+  const client = identifyClient(ctx, request.headers);
+  if (!client.ok) return Response.json({ error: client.error }, { status: 400 });
+
+  const limit = await consumeRateLimit(ctx, { bucket: "beacon", key: client.value });
+  if (!limit.ok) {
+    return Response.json({ error: limit.error }, { status: 429, headers: { "retry-after": String(limit.retryAfterSeconds) } });
+  }
+
+  const body = await readSmallBody(request, { maxBytes: 256 });
+  if (!body.ok) return Response.json({ error: body.error }, { status: body.error === "security.body_too_large" ? 413 : 400 });
+  // … the work
+}
+```
+
+In a server action, pass `await headers()` from `next/headers` to `identifyClient`.
+
+| Function (`@softure-ai/security/server`) | Returns |
+| --- | --- |
+| `identifyClient(ctx, headers)` | `Ok<"ip:…">` or `Err<"security.client_unidentified">` |
+| `subjectKey(subject)` | `"subject:<32 hex of sha256>"`, a key for an email or a user id |
+| `consumeRateLimit(ctx, { bucket, key })` | `Ok<{ remaining, resetAt }>` or `Err<"security.rate_limited">` with `retryAfterSeconds` and `resetAt` |
+| `resetRateLimit(ctx, { bucket, key })` | forgets a key's attempts, e.g. after a successful login |
+| `pruneRateLimits(ctx)` | deletes rows two windows after they started |
+
+**Key by address and by subject separately.** A login that should stop both a flood from one
+address and a distributed attack on one account consumes two buckets: `login` with the client key
+and `login-account` with `subjectKey(email)`. Never glue them into one key (`ip|email`): a flood
+then gets a fresh bucket per email.
+
+**Failures.** Rate limits and body errors are values. An unknown bucket, an empty or over-long key
+(over 200 characters) and calling the functions when the module is not enabled throw: they are bugs.
+Database errors propagate; wrap the call like any query and answer with `safeError` from
+`@softure-ai/core`, so no SQL reaches the client.
+
+## 5. Migrations and tables
+
+Schema `security`, one migration:
+
+| Migration | Creates |
+| --- | --- |
+| `0001_create_rate_limits.sql` | `security.rate_limits(bucket, identifier, attempts, window_started_at)`, primary key `(bucket, identifier)`, an index on `window_started_at` |
+
+Constraints: the bucket name format, an identifier of 1 to 200 characters, `attempts >= 1`. Each
+attempt is one `INSERT … ON CONFLICT DO UPDATE`, so parallel requests cannot both slip under the
+limit; the counter stops at `limit + 1`. The table holds one row per bucket and key, whatever the
+number of attempts. Run `softure migrate` after enabling the module.
+
+## 6. Environment variables
+
+None.
+
+## 7. Switches
+
+None.
+
+## 8. Appearance
+
+No UI. Show the error codes through your own forms with the copy below.
+
+## 9. Copy
+
+`errors.rate_limited`, `errors.client_unidentified`, `errors.body_too_large`,
+`errors.body_unreadable` in `src/messages/en.ts` and `src/messages/pl.ts`, one per error code
+(`security.<key>`). Override them per locale: `security({ …, messages: { en: { errors: { rate_limited: "…" } } } })`.
+
+## 10. Hooks
+
+None. Custom client-IP resolvers are plain functions (section 3).
+
+## 11. GDPR
+
+The table holds rate limit keys only: client addresses (personal data) and SHA-256 prefixes of
+subjects, never an email in clear text. Nothing is
+exported per user. Cleanup deletes a row two windows after its window started; it runs on a share
+of consumed attempts (`cleanupProbability`), so with little traffic a row can stay longer. Schedule
+`pruneRateLimits` (for example hourly) when the retention period must be guaranteed.
+
+## 12. Limitations
+
+- Fixed windows: a client can make up to twice the limit across a window boundary. Good enough to
+  stop floods, not to share capacity fairly.
+- Postgres only; there is no in-memory or Redis backend.
+- No Next.js adapter yet: the route handler and server action shapes come with identity ID-1.
+- Cleanup is probabilistic; a deployment with very little traffic may keep expired rows until the
+  next cleanup or a scheduled `pruneRateLimits`.
+
+## Build
+
+`npm run build -w modules/security` runs `tsc -p tsconfig.build.json`. Tests: `npm test` at the
+repository root (PGlite, no server needed).

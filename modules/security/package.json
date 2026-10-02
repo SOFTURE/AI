@@ -1,0 +1,51 @@
+{
+  "name": "@softure-ai/security",
+  "version": "0.0.0",
+  "description": "SOFTURE AI security module: fixed-window rate limits in Postgres with buckets from configuration, client-IP resolvers and a size-capped request body reader.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SOFTURE/AI.git",
+    "directory": "modules/security"
+  },
+  "files": [
+    "dist",
+    "src",
+    "!src/**/*.test.ts",
+    "!src/**/*.test.tsx",
+    "migrations",
+    "module.json"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "exports": {
+    ".": {
+      "@softure-ai/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./server": {
+      "@softure-ai/source": "./src/server/index.ts",
+      "types": "./dist/server/index.d.ts",
+      "default": "./dist/server/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "@softure-ai/core": "^0.0.0",
+    "@softure-ai/db": "^0.0.0",
+    "zod": "^4.6.5"
+  },
+  "peerDependencies": {
+    "drizzle-orm": "^0.45.2"
+  }
+}
