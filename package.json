@@ -1,0 +1,17 @@
+{
+  "name": "softure-ai",
+  "private": true,
+  "description": "SOFTURE AI — modular, tested building blocks for AI-assembled apps",
+  "license": "MIT",
+  "workspaces": [
+    "foundation/*",
+    "modules/*",
+    "tools/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "@softure-ai/skills": "^0.1.1"
+  }
+}
