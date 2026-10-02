@@ -75,21 +75,21 @@ readiness vs liveness split, metrics.
 ### Phase 1: Core contract and health
 
 #### Automated
-- [ ] 1.1 Core health contract tests pass
-- [ ] 1.2 Health aggregation, route and database check tests pass on PGlite
-- [ ] 1.3 `module.json` equals `toModuleJson(ops)` and the package passes `tests/repo/packages.test.ts`
-- [ ] 1.4 Gates green (typecheck, lint, test, build)
+- [x] 1.1 Core health contract tests pass — 28173a3
+- [x] 1.2 Health aggregation, route and database check tests pass on PGlite — 28173a3
+- [x] 1.3 `module.json` equals `toModuleJson(ops)` and the package passes `tests/repo/packages.test.ts` — 28173a3
+- [x] 1.4 Gates green (typecheck, lint, test, build) — 28173a3
 
 ### Phase 2: Safe ops scripts
 
 #### Automated
-- [ ] 2.1 Ops script helper tests pass on PGlite
-- [ ] 2.2 pl and en dictionaries have the same keys and README links pass the link test
-- [ ] 2.3 Gates green (typecheck, lint, test)
+- [x] 2.1 Ops script helper tests pass on PGlite — 28173a3
+- [x] 2.2 pl and en dictionaries have the same keys and README links pass the link test — 28173a3
+- [x] 2.3 Gates green (typecheck, lint, test) — 28173a3
 
 ### Phase 3: Example app, e2e and container run
 
 #### Automated
-- [ ] 3.1 `npm run e2e` passes against a local PostgreSQL 16, including `ops.spec.ts`
-- [ ] 3.2 `npm run e2e:container` passes: migrate as the migrator, health 200 as the app role, 503 with Postgres stopped
-- [ ] 3.3 Gates green (typecheck, lint, test)
+- [x] 3.1 `npm run e2e` passes against a local PostgreSQL 16, including `ops.spec.ts` — c9f8b64
+- [x] 3.2 `npm run e2e:container` passes: migrate as the migrator, health 200 as the app role, 503 with Postgres stopped — c9f8b64
+- [x] 3.3 Gates green (typecheck, lint, test) — c9f8b64

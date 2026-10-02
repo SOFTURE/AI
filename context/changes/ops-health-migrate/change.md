@@ -1,7 +1,7 @@
 ---
 change_id: ops-health-migrate
 title: "Apps get a health endpoint with module checks, a container migrate step and a safe ops script helper from @softure-ai/ops"
-status: plan_reviewed
+status: implemented
 roadmap_item: ID-7
 branch: claude/id-7-ops-health-migrate-8yxme9
 created: 2026-10-02
@@ -45,5 +45,10 @@ with their `src/db/*-sql.test.ts` guards, `scripts/migrate-account.mts`.
 
 ## Notes
 
+- Verified 2026-10-02: unit tests (PGlite); `npm run e2e` against PostgreSQL 16 with the app
+  connected as `softure_app` (migrated as `softure_migrator`), 15/15; `npm run e2e:container`
+  (image built, one-off migrate, 200, DDL refused for the app role, 503 with Postgres stopped);
+  `recipes/existing-database.sql` on a database migrated as the superuser (migrator can alter, app
+  role rows only).
 - Mode: fully autonomous (owner decision 2026-10-02): self-review, merge to master, branch
   cleanup by GitHub auto-delete.
