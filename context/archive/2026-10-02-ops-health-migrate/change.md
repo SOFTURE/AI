@@ -1,12 +1,12 @@
 ---
 change_id: ops-health-migrate
 title: "Apps get a health endpoint with module checks, a container migrate step and a safe ops script helper from @softure-ai/ops"
-status: impl_reviewed
+status: archived
 roadmap_item: ID-7
 branch: claude/id-7-ops-health-migrate-8yxme9
 created: 2026-10-02
 updated: 2026-10-02
-archived_at: null
+archived_at: 2026-10-02
 ---
 
 ## Intent
@@ -52,3 +52,4 @@ with their `src/db/*-sql.test.ts` guards, `scripts/migrate-account.mts`.
   role rows only).
 - Mode: fully autonomous (owner decision 2026-10-02): self-review, merge to master, branch
   cleanup by GitHub auto-delete.
+- Archived 2026-10-02: `@softure-ai/ops` delivers `GET /api/health` with database and module checks (`defineModule({ health })` in core), the container recipe with a one-off migrate step under migrator and app roles, and the safe ops script helper, verified on PGlite, PostgreSQL 16, the example app e2e and its container run.
