@@ -27,8 +27,20 @@ export interface PrivacyContributor {
 }
 
 export interface ModuleMigrations {
-  /** The folder with the module's SQL files: `new URL("../migrations/", import.meta.url)`. */
+  /** The folder with the module's SQL files: `resolveMigrationsDir(import.meta.url, "../migrations/")`. */
   readonly dir: URL;
+}
+
+/**
+ * The URL of a module's migrations folder, relative to the file that calls it:
+ * `migrations: { dir: resolveMigrationsDir(import.meta.url, "../migrations/") }`.
+ *
+ * Write this instead of `new URL("../migrations/", import.meta.url)`: bundlers (Next.js Turbopack)
+ * treat that literal form as an asset import and fail the app's build on a folder. Only
+ * `softure migrate` reads the folder, under plain Node, where both forms give the same URL.
+ */
+export function resolveMigrationsDir(moduleUrl: string | URL, relativePath: string): URL {
+  return new URL(relativePath, moduleUrl);
 }
 
 type RouteMap = Readonly<Record<string, string>>;

@@ -4,6 +4,7 @@ import {
   defineModule,
   moduleManifestSchema,
   ok,
+  resolveMigrationsDir,
   SoftureConfigError,
   toModuleJson,
   type ModuleManifest,
@@ -165,5 +166,24 @@ describe("toModuleJson", () => {
   it("returns the same content for a factory and for its module", () => {
     const demo = defineDemo();
     expect(toModuleJson(demo())).toEqual(toModuleJson(demo));
+  });
+});
+
+describe("resolveMigrationsDir", () => {
+  it("resolves the folder against the calling file's URL, given as a string or a URL", () => {
+    const moduleUrl = "file:///app/node_modules/@softure-ai/notes/dist/index.js";
+    const expected = "file:///app/node_modules/@softure-ai/notes/migrations/";
+    expect(resolveMigrationsDir(moduleUrl, "../migrations/").href).toBe(expected);
+    expect(resolveMigrationsDir(new URL(moduleUrl), "../migrations/").href).toBe(expected);
+  });
+
+  it("gives a dir defineModule accepts", () => {
+    const dir = resolveMigrationsDir(import.meta.url, "../migrations/");
+    const factory = defineModule({ manifest, messages: { en, pl }, migrations: { dir }, privacy });
+    expect(factory().migrations?.dir.href).toBe(new URL("../migrations/", import.meta.url).href);
+  });
+
+  it("throws on a relative module URL, which is a bug in the module package", () => {
+    expect(() => resolveMigrationsDir("dist/index.js", "../migrations/")).toThrow(TypeError);
   });
 });

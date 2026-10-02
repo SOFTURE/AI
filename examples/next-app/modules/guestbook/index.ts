@@ -1,11 +1,6 @@
 // A minimal module owned by the example app: one schema, one table, one migration. It stands in for
 // a published module package, so the e2e covers the migrator and a module's tables end to end.
-import { defineModule } from "@softure-ai/core";
-
-// Turbopack resolves a literal `new URL("./x/", import.meta.url)` at build time and fails on a folder
-// ("Can't resolve './migrations/'"); it does not follow the URL through String(). Only
-// `softure migrate` reads the folder, under plain Node (context/backlog/next-integration.md).
-const MODULE_URL = String(import.meta.url);
+import { defineModule, resolveMigrationsDir } from "@softure-ai/core";
 
 export const guestbook = defineModule({
   manifest: {
@@ -22,5 +17,5 @@ export const guestbook = defineModule({
   },
   // The module has no copy of its own: the app's dictionaries in messages/ hold every text.
   messages: { en: {}, pl: {} },
-  migrations: { dir: new URL("./migrations/", MODULE_URL) },
+  migrations: { dir: resolveMigrationsDir(import.meta.url, "./migrations/") },
 });
