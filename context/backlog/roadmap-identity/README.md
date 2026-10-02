@@ -18,7 +18,7 @@ FD-8 of foundation carried over). Inside, the order follows the dependencies:
 | ID-2 | [`security-rate-limit`](../../archive/2026-10-02-security-rate-limit/change.md) | Rate limiting module | roadmap promoted | start |
 | ID-3 | [`auth-core`](../../archive/2026-10-02-auth-core/change.md) (archived) | Authentication core | ID-1 and ID-2 on main | dependency |
 | ID-4 | [`auth-roles`](../../archive/2026-10-02-auth-roles/change.md) (archived) | Roles and admin | ID-3 on main | dependency |
-| ID-5 | [`auth-password-reset`](auth-password-reset/change.md) | Password reset by token | ID-4 on main | dependency |
+| ID-5 | [`auth-password-reset`](../../changes/auth-password-reset/change.md) (in progress) | Password reset by token | ID-4 on main | dependency |
 | ID-6 | [`feature-switches`](feature-switches/change.md) | Feature switches module | ID-4 on main | dependency |
 | ID-7 | [`ops-health-migrate`](../../archive/2026-10-02-ops-health-migrate/change.md) (archived) | Health and migrate step | ID-1 on main | dependency |
 | ID-8 | [`identity-release`](identity-release/change.md) | Identity release | ID-2…ID-7 on main **and** the owner publishes | owner |
