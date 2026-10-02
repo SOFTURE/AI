@@ -17,7 +17,7 @@ follows the dependencies:
 | ID | Entry | Title | Condition | Kind |
 | --- | --- | --- | --- | --- |
 | ID-1 | [`next-actions-spike`](next-actions-spike/change.md) | Server actions and route handlers from a package | roadmap promoted | start |
-| ID-2 | [`security-rate-limit`](security-rate-limit/change.md) | Rate limiting module | roadmap promoted | start |
+| ID-2 | [`security-rate-limit`](../../changes/security-rate-limit/change.md) | Rate limiting module | roadmap promoted | start |
 | ID-3 | [`auth-core`](auth-core/change.md) | Authentication core | ID-1 and ID-2 on main | dependency |
 | ID-4 | [`auth-roles`](auth-roles/change.md) | Roles and admin | ID-3 on main | dependency |
 | ID-5 | [`auth-password-reset`](auth-password-reset/change.md) | Password reset by token | ID-4 on main | dependency |
