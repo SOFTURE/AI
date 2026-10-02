@@ -7,7 +7,7 @@
     "test": "npm test"
   },
   "integration": {
-    "local": null,
+    "local": "npm run e2e",
     "remote": null
   },
   "migrations": null,
