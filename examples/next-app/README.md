@@ -41,12 +41,13 @@ npm run dev
 
 | Path | What it shows |
 | --- | --- |
-| `softure.config.ts` | `defineSoftureConfig` with one module, registered for package code |
+| `softure.config.ts` | `defineSoftureConfig` with the guestbook and `@softure-ai/security`, registered for package code |
 | `instrumentation.ts` | the config imported at server start (Node.js runtime only) |
 | `modules/guestbook/` | a module defined in the app: manifest, `migrations/0001_create_entries.sql`, drizzle tables, queries returning `Result` |
 | `app/layout.tsx` | `ThemeScript`, `SoftureThemeProvider`, `ToastHost` |
 | `app/page.tsx` | `ThemeSwitch`, `Card`, `EmptyState`, the guestbook and the `softure.migrations` ledger |
 | `app/add-entry.tsx`, `app/actions.ts` | `Modal` with an `ActionForm` posting to a server action validated with zod |
+| `app/api/security/ping/route.ts` | a public route handler: `identifyClient`, `consumeRateLimit` and `readSmallBody` from `@softure-ai/security` |
 | `messages/` | the app's `en` and `pl` copy; no text is written inline |
 | `e2e/` | Playwright: theme switch, modal and form, migrations |
 

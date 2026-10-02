@@ -82,17 +82,17 @@ windows, a Redis backend, wiring auth (ID-3).
 ### Phase 1: Package, migration and limiter
 
 #### Automated
-- [ ] 1.1 The FIRE baseline cases and the new limiter cases pass on PGlite
-- [ ] 1.2 `module.json` equals `toModuleJson(security)` and the package passes `tests/repo/packages.test.ts`
-- [ ] 1.3 `npm run build` emits `modules/security/dist/index.js` and `dist/server/index.js`
-- [ ] 1.4 Gates green (typecheck, lint, test)
+- [x] 1.1 The FIRE baseline cases and the new limiter cases pass on PGlite — d4b9d65
+- [x] 1.2 `module.json` equals `toModuleJson(security)` and the package passes `tests/repo/packages.test.ts` — d4b9d65
+- [x] 1.3 `npm run build` emits `modules/security/dist/index.js` and `dist/server/index.js` — d4b9d65
+- [x] 1.4 Gates green (typecheck, lint, test) — d4b9d65
 
 ### Phase 2: Client identification and body reader
 
 #### Automated
-- [ ] 2.1 Resolver, key and body reader tests pass
-- [ ] 2.2 pl and en dictionaries have the same keys and README links pass the link test
-- [ ] 2.3 Gates green (typecheck, lint, test)
+- [x] 2.1 Resolver, key and body reader tests pass — d4b9d65
+- [x] 2.2 pl and en dictionaries have the same keys and README links pass the link test — d4b9d65
+- [x] 2.3 Gates green (typecheck, lint, test) — d4b9d65
 
 ### Phase 3: Example app and e2e
 
