@@ -21,7 +21,7 @@ archived_at: null
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **ID-2** (roadmap `identity`):
+From [`roadmap.md`](../../foundation/roadmap.md), item **ID-2** (roadmap `identity`):
 
 > ### ID-2: Rate limiting module
 > - **Change ID:** `security-rate-limit`
