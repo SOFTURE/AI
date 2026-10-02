@@ -40,7 +40,7 @@ backlog: context/backlog/roadmap-identity/
 | **FD-8** | `foundation-release` | core, db and ui 0.1.0 published through FD-2; docs updated; foundation verified end to end | FD-2, FD-7 | owner | blocked (deferred by the owner to a session at the keyboard) |
 | **ID-1** | `next-actions-spike` | proven way to ship server actions and route handlers from a package in Next 16, or a decided fallback | FD-3, FD-4 | autonomous | done |
 | **ID-2** | `security-rate-limit` | `@softure-ai/security`: configurable rate-limit buckets, pluggable client-IP resolvers, small-body reader | FD-3, FD-4 | autonomous | done |
-| **ID-3** | `auth-core` | `@softure-ai/auth`: register with consent hook, login, logout, sessions, change password, route guard, pages and forms | ID-1, ID-2 | autonomous | ready |
+| **ID-3** | `auth-core` | `@softure-ai/auth`: register with consent hook, login, logout, sessions, change password, route guard, pages and forms | ID-1, ID-2 | autonomous | **in_progress** (research, since 2026-10-02; cloud session, branch `claude/id-3-auth-core-vdx54s` — do not take in another session) |
 | **ID-4** | `auth-roles` | roles with `requireRole`; admin-only surfaces fail closed | ID-3 | autonomous | ready |
 | **ID-5** | `auth-password-reset` | password reset with a single-use, expiring token sent through a sender hook | ID-4 | autonomous | ready |
 | **ID-6** | `feature-switches` | `@softure-ai/feature-switches`: declared switches, env overrides, fail mode, admin-only panel | ID-4 | autonomous | ready |
@@ -134,7 +134,7 @@ item's entries.
 
 ### ID-3: Authentication core
 - **Change ID:** `auth-core`
-- **Status:** ready
+- **Status:** in_progress (research, since 2026-10-02; cloud session, branch `claude/id-3-auth-core-vdx54s` — do not take in another session)
 - **Outcome:** `@softure-ai/auth`, consisting of:
   - tables `auth.users` and `auth.sessions`;
   - scrypt password hashing (constant-time compare, dummy verification for unknown emails);
