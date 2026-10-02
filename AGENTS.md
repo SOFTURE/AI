@@ -12,7 +12,29 @@ and skill or agent instructions. This holds even when the conversation with the 
 - When you touch a file that contains Polish code, comments or identifiers, translate them in the
   same change.
 - Before every commit, check the diff for Polish (Polish diacritics and Polish words) outside
-  message dictionaries. Treat any hit as a failing gate.
+  message dictionaries. Treat any hit as a failing gate. `npm run lint:language` does this check
+  (the `pre-commit` hook runs it on staged files).
+
+## Gates and hooks
+
+```bash
+npm ci                 # installs devDependencies (also under NODE_ENV=production, see .npmrc) and the git hooks
+npm run typecheck      # tsc over the whole tree; packages resolve to src/ through the @softure-ai/source condition
+npm run lint           # ESLint (typed rules, zero warnings) + the language gate over every tracked file
+npm test               # Vitest: package tests and the repository tests in tests/repo/
+npm run build          # tsc builds of every workspace package, in dependency order
+```
+
+- `lefthook.yml`: `pre-commit` runs typecheck, ESLint on staged files and the language gate in
+  parallel (a Markdown-only commit skips typecheck and lint); `commit-msg` runs the language gate
+  on the message; `pre-push` runs `npm test`.
+- Never `--no-verify`. A red hook is a red gate: fix the cause.
+- `.github/workflows/ci.yml` runs the same gates (static, test, build) on every push and pull request.
+- The repository tests guard the docs too: the roadmap contract (WORKFLOW §5), relative links in
+  every `*.md`, and the shape of every workspace package. Start a package by copying
+  `templates/package/`.
+- Tests run with `NODE_ENV=test` and `TZ=America/New_York` whatever the shell exports
+  (`vitest.config.mts`).
 
 <!-- softure-skills:begin (managed by @softure-ai/skills, do not edit) -->
 # SOFTURE workflow and conventions
