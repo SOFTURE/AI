@@ -70,7 +70,7 @@ describe("styles.css", () => {
     const classes = new Set([...html.matchAll(/class="([^"]+)"/g)].flatMap(([, list]) => (list ?? "").split(" ")));
     expect(classes.size).toBeGreaterThan(10);
     for (const className of classes) {
-      const selector = `.${className.replace(/[:()[\]]/g, "\\$&")}`;
+      const selector = `.${className.replace(/[\\:()[\]]/g, "\\$&")}`;
       expect(layer, className).toContain(selector);
     }
   });

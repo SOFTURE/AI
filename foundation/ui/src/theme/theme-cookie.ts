@@ -2,6 +2,7 @@
 // a synchronous script in `<head>` reads before the first paint, so the page never flashes the
 // wrong theme. No cookie means "system": CSS follows `prefers-color-scheme` on its own. The server
 // does not need to read the cookie, so routes stay static (ported from FIRE_TRACKER src/lib/theme.ts).
+import { isSafeTokenValue } from "./theme-css.js";
 import type { ColorScheme } from "./tokens.js";
 
 export type ThemeChoice = ColorScheme | "system";
@@ -59,8 +60,12 @@ export interface ThemeBootScriptOptions {
  */
 export function getThemeBootScript(options: ThemeBootScriptOptions = {}): string {
   const name = getCookieName(options.cookieName);
-  const colors = JSON.stringify(options.themeColors ?? null);
-  const pattern = JSON.stringify(`(?:^|;\\s*)${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}=([^;]*)`);
+  const themeColors = options.themeColors ?? null;
+  for (const color of Object.values(themeColors ?? {})) {
+    if (!isSafeTokenValue(color)) throw new TypeError(`Invalid theme bar colour: ${JSON.stringify(color)}`);
+  }
+  const colors = toScriptLiteral(themeColors);
+  const pattern = toScriptLiteral(`(?:^|;\\s*)${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}=([^;]*)`);
   return `(function(){try{var m=document.cookie.match(new RegExp(${pattern}));var v=m&&m[1];var t=v==="dark"||v==="light"?v:null;if(!t)return;document.documentElement.setAttribute("data-theme",t);var c=${colors};if(!c)return;document.addEventListener("DOMContentLoaded",function(){var ms=document.querySelectorAll('meta[name="theme-color"]');for(var i=0;i<ms.length;i++){ms[i].setAttribute("content",c[t]);}});}catch(e){}})();`;
 }
 
@@ -90,6 +95,17 @@ export function applyThemeChoice(choice: ThemeChoice, options: ApplyThemeChoiceO
     const own: ColorScheme = (meta.getAttribute("media") ?? "").includes("dark") ? "dark" : "light";
     meta.setAttribute("content", colors[choice === "system" ? own : choice]);
   }
+}
+
+/**
+ * A JSON literal that is safe inside an inline `<script>`: `<`, `>`, `/` and the JavaScript line
+ * separators are written as `\u` escapes, so no value can close the element or the statement.
+ */
+function toScriptLiteral(value: unknown): string {
+  return JSON.stringify(value).replace(
+    /[<>/\u2028\u2029]/g,
+    (character) => `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`,
+  );
 }
 
 function getCookieName(cookieName = DEFAULT_THEME_COOKIE): string {

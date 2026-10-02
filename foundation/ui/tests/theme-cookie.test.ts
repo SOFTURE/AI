@@ -120,6 +120,16 @@ describe("boot script", () => {
     expect(() => compileScript(getThemeBootScript())(blocked)).not.toThrow();
   });
 
+  it("rejects a bar colour that would break out of the script", () => {
+    expect(() => getThemeBootScript({ themeColors: { light: "</script><script>alert(1)//", dark: "#000" } })).toThrow(
+      /bar colour/,
+    );
+  });
+
+  it("writes no raw angle bracket or slash into the script", () => {
+    expect(getThemeBootScript({ themeColors: { light: "rgb(0 0 0 / 0.5)", dark: "#000" } })).not.toMatch(/"[^"]*\/[^"]*"/);
+  });
+
   it("rejects a cookie name that would break out of the script", () => {
     expect(() => getThemeBootScript({ cookieName: 'x"]);alert(1)//' })).toThrow(/cookie name/);
   });

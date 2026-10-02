@@ -51,7 +51,10 @@ describe("ThemeScript", () => {
 
   it("renders the same code as getThemeBootScript", () => {
     const html = renderToStaticMarkup(<ThemeScript cookieName="t" />);
-    const script = html.replace(/^<script>/, "").replace(/<\/script>$/, "");
+    const open = "<script>";
+    const close = "</script>";
+    expect(html.startsWith(open) && html.endsWith(close)).toBe(true);
+    const script = html.slice(open.length, -close.length);
     expect(script).toBe(getThemeBootScript({ cookieName: "t", themeColors: { light: "#f6f7f8", dark: "#0c0c0d" } }));
   });
 });
