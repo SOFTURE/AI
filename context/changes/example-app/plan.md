@@ -103,13 +103,13 @@ Rejected: a workspace - it would fall under the package-shape tests and resolve 
 ### Phase 1: App on packed packages
 
 #### Automated
-- [ ] 1.1 `npm ci`, `npm run migrate` and `npm run build` succeed in `examples/next-app` against Postgres
-- [ ] 1.2 `npx eslint examples --max-warnings 0` passes with the app installed
-- [ ] 1.3 Gates green (typecheck, lint, test)
+- [x] 1.1 `npm ci`, `npm run migrate` and `npm run build` succeed in `examples/next-app` against Postgres — 430f8c4
+- [x] 1.2 `npx eslint examples --max-warnings 0` passes with the app installed — 430f8c4
+- [x] 1.3 Gates green (typecheck, lint, test) — 430f8c4
 
 ### Phase 2: E2e harness and CI
 
 #### Automated
-- [ ] 2.1 `npm run e2e` at the root passes against the compose Postgres
+- [x] 2.1 `npm run e2e` at the root passes against the compose Postgres — a7059ca
 - [ ] 2.2 The `e2e` workflow is green on the pull request
-- [ ] 2.3 Gates green (typecheck, lint, test)
+- [x] 2.3 Gates green (typecheck, lint, test) — a7059ca
