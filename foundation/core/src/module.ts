@@ -26,6 +26,13 @@ export interface PrivacyContributor {
   readonly deleteUserData?: (context: ModuleContext, userId: string) => Promise<Result<undefined>>;
 }
 
+/**
+ * A module's readiness probe, run by `GET /api/health` of `@softure-ai/ops` for every enabled
+ * module that has one. `ok()` means the module can serve; an `Err` or a throw marks the app
+ * unavailable. Keep it cheap: it runs on every probe.
+ */
+export type HealthCheck = (context: ModuleContext) => Promise<Result<undefined>>;
+
 export interface ModuleMigrations {
   /** The folder with the module's SQL files: `resolveMigrationsDir(import.meta.url, "../migrations/")`. */
   readonly dir: URL;
@@ -54,6 +61,7 @@ export interface ModuleSpec<TRoutes extends RouteMap, TMessages extends MessageT
   /** Required when the manifest has a `dbSchema`. */
   readonly migrations?: ModuleMigrations;
   readonly privacy?: PrivacyContributor;
+  readonly health?: HealthCheck;
 }
 
 type OptionsInput<TSchema> = TSchema extends z.ZodType ? z.input<TSchema> : object;
@@ -76,6 +84,7 @@ export interface SoftureModule<TRoutes extends RouteMap = RouteMap, TMessages ex
   readonly options: TOptions;
   readonly migrations: ModuleMigrations | null;
   readonly privacy: PrivacyContributor | null;
+  readonly health: HealthCheck | null;
 }
 
 export type AnySoftureModule = SoftureModule<RouteMap, MessageTree, unknown>;
@@ -94,13 +103,18 @@ export function defineModule<TRoutes extends RouteMap, TMessages extends Message
   spec: ModuleSpec<TRoutes, TMessages, TSchema>,
 ): ModuleFactory<TRoutes, TMessages, TSchema> {
   const manifest = parseManifest(spec.manifest);
-  const issues = [...checkMigrations(manifest, spec.migrations), ...checkPrivacy(manifest, spec.privacy)];
+  const issues = [
+    ...checkMigrations(manifest, spec.migrations),
+    ...checkPrivacy(manifest, spec.privacy),
+    ...checkHealth(spec.health),
+  ];
   if (issues.length > 0) {
     throw new SoftureConfigError(`module "${manifest.id}"`, issues);
   }
 
   const migrations = spec.migrations === undefined ? null : Object.freeze({ dir: new URL(spec.migrations.dir.href) });
   const privacy = spec.privacy === undefined ? null : Object.freeze({ ...spec.privacy });
+  const health = spec.health ?? null;
 
   const factory = (input: ModuleInput<TRoutes, TMessages, TSchema> = {} as ModuleInput<TRoutes, TMessages, TSchema>) => {
     const { routes: routeOverrides, messages: messageOverrides, ...optionsInput } = input;
@@ -120,6 +134,7 @@ export function defineModule<TRoutes extends RouteMap, TMessages extends Message
       options: options as OptionsOutput<TSchema>,
       migrations,
       privacy,
+      health,
     };
     return Object.freeze(module);
   };
@@ -139,6 +154,10 @@ function parseManifest(input: ModuleManifest): ModuleManifest {
     throw new SoftureConfigError(subject, formatIssues(result.error.issues));
   }
   return deepFreeze(structuredClone(result.data));
+}
+
+function checkHealth(health: unknown): string[] {
+  return health === undefined || typeof health === "function" ? [] : ["health: must be a function"];
 }
 
 function checkMigrations(manifest: ModuleManifest, migrations: ModuleMigrations | undefined): string[] {

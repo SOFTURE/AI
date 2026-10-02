@@ -32,6 +32,7 @@ export {
   resolveMigrationsDir,
   toModuleJson,
   type AnySoftureModule,
+  type HealthCheck,
   type ModuleContext,
   type ModuleFactory,
   type ModuleInput,

@@ -20,7 +20,7 @@ FD-8 of foundation carried over). Inside, the order follows the dependencies:
 | ID-4 | [`auth-roles`](auth-roles/change.md) | Roles and admin | ID-3 on main | dependency |
 | ID-5 | [`auth-password-reset`](auth-password-reset/change.md) | Password reset by token | ID-4 on main | dependency |
 | ID-6 | [`feature-switches`](feature-switches/change.md) | Feature switches module | ID-4 on main | dependency |
-| ID-7 | [`ops-health-migrate`](ops-health-migrate/change.md) | Health and migrate step | ID-1 on main | dependency |
+| ID-7 | [`ops-health-migrate`](../../archive/2026-10-02-ops-health-migrate/change.md) (archived) | Health and migrate step | ID-1 on main | dependency |
 | ID-8 | [`identity-release`](identity-release/change.md) | Identity release | ID-2…ID-7 on main **and** the owner publishes | owner |
 | ID-9 | [`fire-adopt-identity`](fire-adopt-identity/change.md) | FIRE_TRACKER adopts the identity modules | ID-8 published **and** the owner starts it in FIRE_TRACKER | owner |
 

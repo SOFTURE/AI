@@ -90,6 +90,13 @@ describe("defineModule", () => {
     );
     expect(extra.issues).toEqual(["privacy.deleteUserData: given but privacy.deletes is false"]);
   });
+
+  it("refuses a health check that is not a function", () => {
+    const error = catchConfigError(() =>
+      defineModule({ manifest, messages: { en, pl }, migrations, privacy, health: "select 1" as never }),
+    );
+    expect(error.issues).toEqual(["health: must be a function"]);
+  });
 });
 
 describe("a module factory", () => {
@@ -101,6 +108,13 @@ describe("a module factory", () => {
     expect(instance.options).toEqual({ pageSize: 20 });
     expect(instance.migrations?.dir.href).toBe(migrations.dir.href);
     expect(instance.privacy?.exportUserData).toBe(privacy.exportUserData);
+    expect(instance.health).toBeNull();
+  });
+
+  it("carries the module's health check to every enabled instance", () => {
+    const health = () => Promise.resolve(ok());
+    const checked = defineModule({ manifest, messages: { en, pl }, migrations, privacy, health });
+    expect(checked().health).toBe(health);
   });
 
   it("merges route and message overrides", () => {

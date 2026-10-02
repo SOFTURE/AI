@@ -72,3 +72,15 @@ jobs:
           name: e2e-test-results
           path: examples/next-app/test-results/
           retention-days: 7
+
+  container:
+    name: example app container (ops recipe)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      # Builds the image from the repository root, migrates as the migrator role, serves as the app
+      # role, and checks GET /api/health: 200, then 503 with Postgres stopped (modules/ops/README.md).
+      - run: npm run e2e:container

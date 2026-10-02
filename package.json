@@ -48,6 +48,7 @@
     "lint:language": "node scripts/check-language.mjs --all",
     "build": "node scripts/build-workspaces.mjs",
     "e2e": "node examples/next-app/scripts/e2e.mjs",
+    "e2e:container": "node examples/next-app/scripts/container.mjs",
     "release:pack": "node scripts/release/pack.mjs",
     "release:version": "node scripts/release/version.mjs",
     "prepare": "node -e \"process.exit(process.env.CI?0:1)\" || lefthook install"
