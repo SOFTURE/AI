@@ -1,7 +1,7 @@
 ---
 change_id: core-contract
 title: "Module contract in @softure-ai/core"
-status: new
+status: plan_reviewed
 roadmap_item: FD-3
 branch: claude/fd-3-core-contract-7g4u3m (cloud session)
 created: 2026-10-02
