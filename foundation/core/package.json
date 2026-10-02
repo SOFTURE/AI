@@ -1,0 +1,28 @@
+{
+  "name": "@softure-ai/core",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The SOFTURE AI module contract: app config, module definitions, Result, Clock and messages.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22"
+  },
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "@softure-ai/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "zod": "^4.6.5"
+  }
+}
