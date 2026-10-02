@@ -31,6 +31,22 @@ function getComponentClasses(): Set<string> {
   return classes;
 }
 
+/** `group` and `peer` mark an element for variants of others and compile to no rule of their own. */
+function isMarkerClass(className: string): boolean {
+  return /^sft:(?:group|peer)(?:\/[\w-]+)?$/.test(className);
+}
+
+/** Whether the CSS has a selector for exactly this class (not merely for a longer one it prefixes). */
+function hasSelector(css: string, className: string): boolean {
+  const selector = `.${escapeClassName(className)}`;
+  let index = css.indexOf(selector);
+  while (index !== -1) {
+    if (/[\s{:,).[>+~]/.test(css.charAt(index + selector.length))) return true;
+    index = css.indexOf(selector, index + 1);
+  }
+  return false;
+}
+
 /** A class name as a CSS selector writes it (the `CSS.escape` rules Tailwind follows). */
 function escapeClassName(className: string): string {
   return [...className]
@@ -93,7 +109,7 @@ describe("styles.css", () => {
     const layer = getSoftureLayer(styles);
     const classes = getComponentClasses();
     expect(classes.size).toBeGreaterThan(100);
-    const missing = [...classes].filter((className) => !layer.includes(`.${escapeClassName(className)}`));
+    const missing = [...classes].filter((className) => !isMarkerClass(className) && !hasSelector(layer, className));
     expect(missing).toEqual([]);
   });
 

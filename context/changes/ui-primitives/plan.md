@@ -150,8 +150,8 @@ shows field errors after a rejected submit.
 ### Phase 1: Foundation, buttons, icons, static blocks
 
 #### Automated
-- [ ] 1.1 The phase 1 tests pass, including the class coverage test
-- [ ] 1.2 Gates green (typecheck, lint, test)
+- [x] 1.1 The phase 1 tests pass, including the class coverage test — f951c85
+- [x] 1.2 Gates green (typecheck, lint, test) — f951c85
 
 ### Phase 2: Form controls
 
