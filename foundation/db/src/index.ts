@@ -9,6 +9,7 @@ export {
   type PostgresDatabase,
   type Queryable,
 } from "./client.js";
+export { closeSharedDatabases, getSharedDatabase } from "./shared.js";
 export { computeChecksum, readMigrationFiles, type MigrationFile } from "./migrations/files.js";
 export {
   describeProblem,
