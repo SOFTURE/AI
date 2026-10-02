@@ -11,7 +11,10 @@ updated: 2026-10-02
 # Roadmap foundation: the ground every module stands on
 
 > Run-wide orders (read by orchestrators):
-> - Push main branch: no. The owner pushes and tags.
+> - Push main branch: at the end. Also push `master` after every merge, so an ephemeral cloud
+>   container never holds the only copy. Claude reviews and merges its own changes into `master`
+>   (owner, 2026-10-02). Tags and npm publishes stay with the owner.
+> - Archive roadmap: at the end.
 > - Parallelism: up to 4 at once (`workflow.json` → `worktree.maxParallel`).
 > - After merging FD-1, run `npm ci` in the main tree: FD-1 installs git hooks (lefthook) that need
 >   the new devDependencies, also for conflict-resolution commits during later merges.
