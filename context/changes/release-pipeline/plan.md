@@ -117,17 +117,17 @@ Rejected: one workflow per package (SOFTURE/API style) - ten copies to keep in s
 ### Phase 2: Pack command and publishable template
 
 #### Automated
-- [x] 2.1 `npm run release:pack -- --all --dry-run --out <tmp>` exits 0 after `npm run build` and lists the template tarball
-- [x] 2.2 `npm run release:pack -- --tag template-module@0.0.0 --out <tmp>` exits 1 naming `private`
-- [x] 2.3 `tests/repo/release-pack.test.ts` and the new `packages.test.ts` rules pass
-- [x] 2.4 Gates green (typecheck, lint, test)
+- [x] 2.1 `npm run release:pack -- --all --dry-run --out <tmp>` exits 0 after `npm run build` and lists the template tarball — 0505922
+- [x] 2.2 `npm run release:pack -- --tag template-module@0.0.0 --out <tmp>` exits 1 naming `private` — 0505922
+- [x] 2.3 `tests/repo/release-pack.test.ts` and the new `packages.test.ts` rules pass — 0505922
+- [x] 2.4 Gates green (typecheck, lint, test) — 0505922
 
 ### Phase 3: Version command for the owner
 
 #### Automated
-- [ ] 3.1 `tests/repo/release-version.test.ts` passes after being seen red
-- [ ] 3.2 `npm run release:version -- template-module patch` refuses with "private" and leaves the tree clean
-- [ ] 3.3 Gates green (typecheck, lint, test)
+- [x] 3.1 `tests/repo/release-version.test.ts` passes after being seen red
+- [x] 3.2 `npm run release:version -- template-module patch` refuses with "private" and leaves the tree clean
+- [x] 3.3 Gates green (typecheck, lint, test)
 
 ### Phase 4: Release workflow and runbook
 
