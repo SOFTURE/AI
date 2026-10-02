@@ -166,6 +166,14 @@ no unprefixed utility, and is ≤ 20 kB gzip; `tailwind.css` maps every bridged 
 - Outline → kept as written.
 - Provider placement of the boot script → separate `ThemeScript` component, because it must sit in
   `<head>` while the provider wraps `<body>` content.
+- p1: `buildThemeCss` option is `fallback` (light values also on bare `:root`), not `complete`: it
+  names what it does, and it is only used for the layered package defaults.
+- p2: an invalid `design` throws with the `Result` error code (`ui.design_json_*`), not a field
+  name: `Err` carries only a code in core (`foundation/core/src/result.ts`).
+- p3: `build-css.mjs` adds a small static `@theme` block (`--spacing-0`, font weights) next to the
+  token mapping: Tailwind needs them for `sft:m-0` and `sft:font-semibold`, and they are not tokens.
+- p3: `buildCss` takes the theme module as an argument; the CLI entry imports it from `dist/`, the
+  test passes the sources, because `dist/` of `@softure-ai/core` does not exist in the test job.
 
 ## Progress
 
@@ -187,9 +195,9 @@ no unprefixed utility, and is ≤ 20 kB gzip; `tailwind.css` maps every bridged 
 ### Phase 3: CSS pipeline, bridge and docs
 
 #### Automated
-- [x] 3.1 `npm run build` emits `foundation/ui/dist/styles.css` and `dist/tailwind.css` and prints the gzip size
-- [x] 3.2 The phase 3 tests pass; README and docs links pass the link test
-- [x] 3.3 Gates green (typecheck, lint, test)
+- [x] 3.1 `npm run build` emits `foundation/ui/dist/styles.css` and `dist/tailwind.css` and prints the gzip size — a727dc1
+- [x] 3.2 The phase 3 tests pass; README and docs links pass the link test — a727dc1
+- [x] 3.3 Gates green (typecheck, lint, test) — a727dc1
 
 #### Manual
-- [ ] 3.4 A page with the switch renders with default tokens in light and dark and with an override theme (screenshots)
+- [x] 3.4 A page with the switch renders with default tokens in light and dark and with an override theme (screenshots) — a727dc1 (verified by agent: Chromium screenshots `reviews/theme-{light,dark,override}.png`; system mode checked with emulated dark and light color schemes: background #0c0c0d and #f6f7f8)

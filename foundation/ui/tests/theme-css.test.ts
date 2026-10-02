@@ -66,12 +66,16 @@ describe("buildThemeCss", () => {
     expect(css).toContain("--sft-space-8: 2rem;");
   });
 
-  it.each([["red;} body{display:none"], ["</style><script>"], ["a\nb"], [""], ["url(x) { }"]])(
+  it.each([["red;} body{display:none"], ["</style><script>"], ["a\nb"], [""], ["url(x) { }"], ["red /* x"], ["\\7d"]])(
     "rejects the unsafe value %j and names the token",
     (value) => {
       expect(() => buildThemeCss({ light: { "color-accent": value } })).toThrow(/color-accent/);
     },
   );
+
+  it("treats an explicit undefined as not set", () => {
+    expect(buildThemeCss({ light: { "color-accent": undefined } })).toBe("");
+  });
 
   it("rejects a token name outside the contract, and a shared token inside a scheme", () => {
     const unknownName = { light: { "color-brand": "red" } } as unknown as SoftureTheme;

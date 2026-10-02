@@ -15,8 +15,8 @@ import {
 } from "./tokens.js";
 
 // A token value lands inside a `<style>` element: anything that could close the declaration, the
-// rule or the element is refused.
-const UNSAFE_VALUE = /[;{}<>\r\n]/;
+// rule or the element, open a comment or escape the next character is refused.
+const UNSAFE_VALUE = /[;{}<>\\\r\n]|\/\*/;
 
 /** Whether `value` can be written as a token value without breaking out of its declaration. */
 export function isSafeTokenValue(value: unknown): value is string {
@@ -125,7 +125,9 @@ function readDeclarations<T extends SchemeTokenName | SharedTokenName>(
   allowed: readonly T[],
   part: ColorScheme | "shared",
 ): string[] {
-  return Object.entries(tokens ?? {}).map(([name, value]) => {
+  // An explicit `undefined` (a spread of optional values) means "not set", like a missing key.
+  const entries = Object.entries(tokens ?? {}).filter(([, value]) => value !== undefined);
+  return entries.map(([name, value]) => {
     if (!(allowed as readonly string[]).includes(name)) {
       throw new TypeError(`Theme token "${name}" is not a ${part} token of the --sft-* contract`);
     }

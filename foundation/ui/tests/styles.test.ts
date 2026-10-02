@@ -77,6 +77,7 @@ describe("styles.css", () => {
 
   it("generates prefixed utilities only", () => {
     const selectors = [...getSoftureLayer(styles).matchAll(/(?:^|[}{])\.([^{:\\]+)[{:\\]/g)].map(([, name]) => name);
+    expect(selectors.length).toBeGreaterThan(10);
     expect(selectors.filter((name) => name !== "sft")).toEqual([]);
   });
 
