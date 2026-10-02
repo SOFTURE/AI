@@ -1,9 +1,9 @@
 ---
 change_id: ui-tokens-theme
 title: "UI tokens, theme and CSS pipeline"
-status: new
+status: plan_reviewed
 roadmap_item: FD-5
-branch: null
+branch: claude/fd-5-ui-tokens-theme-ohfdkh
 created: 2026-10-02
 updated: 2026-10-02
 archived_at: null
