@@ -33,7 +33,7 @@ updated: 2026-10-02
 | --- | --- | --- | --- | --- | --- |
 | **FD-1** | `monorepo-tooling` | workspaces build typed ESM + CSS; typecheck, lint, language and unit gates run in lefthook hooks (as in FIRE_TRACKER) and in CI | — | autonomous | done |
 | **FD-2** | `release-pipeline` | a `<package>@x.y.z` tag publishes that package to npm (OIDC) and GitHub Packages and creates a GitHub Release | FD-1 | autonomous | ready |
-| **FD-3** | `core-contract` | `@softure-ai/core`: config, module contract, Result, clock, messages | FD-1 | autonomous | in_progress (implement 3/3, since 2026-10-02; cloud session, branch claude/fd-3-core-contract-7g4u3m) |
+| **FD-3** | `core-contract` | `@softure-ai/core`: config, module contract, Result, clock, messages | FD-1 | autonomous | in_progress (archive, since 2026-10-02; cloud session, branch claude/fd-3-core-contract-7g4u3m) |
 | **FD-4** | `db-migrator` | `@softure-ai/db`: client, per-module schemas, migrator with plan/adopt, PGlite test DB | FD-3 | autonomous | ready |
 | **FD-5** | `ui-tokens-theme` | `@softure-ai/ui` tokens (light/dark), theme provider + switch, compiled CSS pipeline | FD-3 | autonomous | ready |
 | **FD-6** | `ui-primitives` | Button, Modal, Toast, Select, form fields, Card, Hint, ActionForm, icons with slots and messages | FD-5 | autonomous | ready |
@@ -113,7 +113,7 @@ they come before the UI breadth (FD-6).
 
 ### FD-3: Module contract in @softure-ai/core
 - **Change ID:** `core-contract`
-- **Status:** in_progress (implement 3/3, since 2026-10-02; cloud session, branch claude/fd-3-core-contract-7g4u3m)
+- **Status:** in_progress (archive, since 2026-10-02; cloud session, branch claude/fd-3-core-contract-7g4u3m)
 - **Outcome:** `defineSoftureConfig` (zod-validated), `defineModule` (manifest, dependencies,
   migrations, routes, switches, privacy contributors), `Result<T, ErrorCode>`, `Clock`,
   messages with `pl`/`en` dictionaries and partial overrides, `locale`/`timezone`, and a

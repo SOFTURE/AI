@@ -186,6 +186,10 @@ equals the manifest.
 - Config failures throw `SoftureConfigError` → startup misconfiguration is a deployment bug; an issue list serves the future `softure doctor`.
 - Unknown placeholder in `formatMessage` stays visible → a visible bug beats a crash in render.
 - `"private": true` stays → FD-8 is the owner's publish item; FD-2 handles packaging.
+- p1: `./next` export added only in phase 3 → the package shape test requires every export target to exist.
+- p2: privacy contributor functions are readonly function properties, not methods → typed lint (`unbound-method`) rejects reading methods off the object.
+- p3: no route collision check across modules → route maps also hold redirect targets (`afterLogin: "/"`), so equal paths are legitimate; a test pins it. Mount collisions go to `softure doctor`.
+- p3: `tests/support.ts` (unplanned file) → shared test module builder for the config tests.
 
 ## Progress
 
@@ -207,7 +211,7 @@ equals the manifest.
 ### Phase 3: App config, registry and docs
 
 #### Automated
-- [ ] 3.1 The phase 3 tests fail before the sources exist and pass after
-- [ ] 3.2 The dummy module test defines, validates and lists a module in a test app config
-- [ ] 3.3 `npm run build` emits `dist/next/index.js`; README and docs links pass the link test
-- [ ] 3.4 Gates green (typecheck, lint, test)
+- [x] 3.1 The phase 3 tests fail before the sources exist and pass after — ac4724e
+- [x] 3.2 The dummy module test defines, validates and lists a module in a test app config — ac4724e
+- [x] 3.3 `npm run build` emits `dist/next/index.js`; README and docs links pass the link test — ac4724e
+- [x] 3.4 Gates green (typecheck, lint, test) — ac4724e
