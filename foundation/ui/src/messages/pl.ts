@@ -19,6 +19,7 @@ export const pl: typeof en = {
   },
   actionForm: {
     pending: "Zapisywanie…",
+    failed: "Brak połączenia z serwerem. Spróbuj ponownie.",
   },
   errors: {
     amount_invalid: "Wpisz kwotę z maksymalnie dwoma miejscami po przecinku, na przykład {example}.",

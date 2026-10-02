@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ActionForm,
+  CheckboxField,
   type ActionResult,
   getAnnouncedToast,
   getSubmitLabel,
@@ -88,6 +89,41 @@ describe("ActionForm submit", () => {
     expect(name.getAttribute("aria-invalid")).toBe("true");
     expect(screen.getByText("This name is taken.").id).toBe(name.getAttribute("aria-describedby"));
     expect(screen.getByLabelText<HTMLInputElement>("Amount").value).toBe("1 200,00");
+  });
+
+  it("turns a rejected action into a form error and keeps what was typed", async () => {
+    const report = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const failure = new TypeError("Failed to fetch");
+    const { container } = render(
+      <ActionForm action={() => Promise.reject(failure)} getErrorMessage={getErrorMessage} submitLabel="Save">
+        <TextField id="n" name="name" label="Name" />
+      </ActionForm>,
+    );
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Typed" } });
+    const form = container.querySelector("form");
+    if (form === null) throw new Error("ActionForm rendered no form");
+    await submit(form);
+    expect(screen.getByRole("alert").textContent).toBe(uiMessages.en.actionForm.failed);
+    expect(screen.getByLabelText<HTMLInputElement>("Name").value).toBe("Typed");
+    expect(report).toHaveBeenCalledWith("ActionForm: the action rejected", failure);
+    report.mockRestore();
+  });
+
+  it("replays switches all turned off as off, not as their defaults", async () => {
+    const reject = (): Promise<ActionResult> => Promise.resolve({ ok: false, error: "app.save_failed" });
+    const { container } = render(
+      <ActionForm action={reject} getErrorMessage={getErrorMessage} submitLabel="Save">
+        <CheckboxField id="e" name="email" label="Email" defaultChecked />
+        <CheckboxField id="p" name="push" label="Push" defaultChecked />
+      </ActionForm>,
+    );
+    fireEvent.click(screen.getByLabelText("Email"));
+    fireEvent.click(screen.getByLabelText("Push"));
+    const form = container.querySelector("form");
+    if (form === null) throw new Error("ActionForm rendered no form");
+    await submit(form);
+    expect(screen.getByLabelText<HTMLInputElement>("Email").checked).toBe(false);
+    expect(screen.getByLabelText<HTMLInputElement>("Push").checked).toBe(false);
   });
 
   it("after a successful submit announces the toast, calls onSuccess and shows no error", async () => {

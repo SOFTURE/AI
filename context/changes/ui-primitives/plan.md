@@ -142,6 +142,13 @@ shows field errors after a rejected submit.
 - Plan review (`reviews/plan-review.md`) applied: C1, C2, C3, W1, W2 (attribute part; a free-text
   literal scan is rejected as too noisy for class strings), W3, W4, W5, W6 (kept here with a
   harness instead of moving to FD-7), S1, S2.
+- Drift recorded at impl review (each kept, the plan text above is left as approved):
+  `Card` slots are `root, header, titleRow, title, subtitle` (children render in the section, so a
+  `body` wrapper would only add a box; `titleRow` holds the title and the hint);
+  `getUiErrorMessage(code, locale)` became `getAmountErrorMessage(code, copy)`, since the amount
+  codes are the package's only error codes; `nextSelectState` is `getNextSelectState` (verb-first
+  naming); `ActionResult` is `Ok<undefined> | (Err<ErrorCode> & { fieldErrors? })`, so field errors
+  come only with an error; `Button` has a `spinner` slot; `SegmentedControl` has its own file.
 
 ## Progress
 

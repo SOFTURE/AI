@@ -6,7 +6,9 @@ import { type ClassNames, createSlotClassGetter } from "./class-names.js";
 // Ported from FIRE_TRACKER src/components/hint.tsx.
 
 const VIEWPORT_MARGIN_PX = 8;
-const TRIGGER_GAP_PX = 8;
+// Equal to the trigger's hit area (`before:-inset-1.5`), so the pointer can move onto the bubble
+// without leaving the hint.
+const TRIGGER_GAP_PX = 6;
 /** A bubble without a size yet (still laid out) is measured again on the next frames, this often. */
 const MAX_MEASURE_RETRIES = 10;
 
@@ -176,19 +178,23 @@ export function Hint({
     function handlePointerDown(event: PointerEvent) {
       if (!(event.target instanceof Node) || !wrapperRef.current?.contains(event.target)) setIsPinned(false);
     }
+    document.addEventListener("pointerdown", handlePointerDown, true);
+    return () => document.removeEventListener("pointerdown", handlePointerDown, true);
+  }, [isPinned]);
+
+  // Escape dismisses a bubble however it opened (WCAG 1.4.13), and is captured so a surrounding
+  // modal does not close with it.
+  useEffect(() => {
+    if (!isShown) return;
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
       event.preventDefault();
       setIsPinned(false);
       setIsOpen(false);
     }
-    document.addEventListener("pointerdown", handlePointerDown, true);
     document.addEventListener("keydown", handleKeyDown, true);
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown, true);
-      document.removeEventListener("keydown", handleKeyDown, true);
-    };
-  }, [isPinned]);
+    return () => document.removeEventListener("keydown", handleKeyDown, true);
+  }, [isShown]);
 
   useLayoutEffect(() => {
     if (!isShown) return;

@@ -37,6 +37,8 @@ export interface ActionFormProps extends CopyProps<"actionForm"> {
   readonly onSuccess?: () => void;
   /** Turns the form into a modal's body and footer, with Cancel calling this. */
   readonly onCancel?: () => void;
+  /** Copy overrides for the modal footer (its Cancel label) when `onCancel` is set. */
+  readonly modalMessages?: CopyProps<"modal">["messages"];
   /** Reports a running save, for example to make the surrounding modal not dismissible. */
   readonly onPendingChange?: (isPending: boolean) => void;
   readonly classNames?: ClassNames<ActionFormSlot>;
@@ -49,7 +51,7 @@ interface FormState {
   readonly replay: FormReplay;
 }
 
-const INITIAL_STATE: FormState = { status: "idle", replay: { values: {}, fieldErrors: {}, submitCount: 0 } };
+const INITIAL_STATE: FormState = { status: "idle", replay: { values: {}, fieldErrors: {}, submitCount: 0, hasReplay: false } };
 
 /** The label of the submit button: the pending label only while a submit runs. */
 export function getSubmitLabel({
@@ -93,15 +95,25 @@ export function ActionForm({
   unstyled,
   locale,
   messages,
+  modalMessages,
 }: ActionFormProps) {
   const copy = getCopy("actionForm", { locale, messages });
   const [state, formAction, isPending] = useActionState<FormState, FormData>(async (previous, formData) => {
-    const result = await action(formData);
     const submitCount = previous.replay.submitCount + 1;
+    const values = getSubmittedValues(formData);
+    let result: ActionResult;
+    try {
+      result = await action(formData);
+    } catch (error: unknown) {
+      // A rejected action (network failure, a stale server action) would reach the error boundary
+      // and drop what the user typed; it becomes a form error instead, and the cause is reported.
+      console.error("ActionForm: the action rejected", error);
+      return { status: "error", message: copy.failed, replay: { values, fieldErrors: {}, submitCount, hasReplay: true } };
+    }
     if (result.ok) {
       onSuccess?.();
       if (successMessage !== "") announceToast(successMessage);
-      return { status: "ok", replay: { values: {}, fieldErrors: {}, submitCount } };
+      return { status: "ok", replay: { values: {}, fieldErrors: {}, submitCount, hasReplay: false } };
     }
     const fieldErrors: FieldErrors = Object.fromEntries(
       Object.entries(result.fieldErrors ?? {}).map(([name, code]) => [name, getErrorMessage(code)]),
@@ -109,7 +121,7 @@ export function ActionForm({
     return {
       status: "error",
       message: getErrorMessage(result.error),
-      replay: { values: getSubmittedValues(formData), fieldErrors, submitCount },
+      replay: { values, fieldErrors, submitCount, hasReplay: true },
     };
   }, INITIAL_STATE);
 
@@ -138,7 +150,7 @@ export function ActionForm({
       ) : (
         <ModalForm action={formAction} unstyled={unstyled}>
           <ModalBody unstyled={unstyled}>{children}</ModalBody>
-          <ModalFooter onCancel={onCancel} isPending={isPending} error={error} unstyled={unstyled} locale={locale}>
+          <ModalFooter onCancel={onCancel} isPending={isPending} error={error} unstyled={unstyled} locale={locale} messages={modalMessages}>
             <Button type="submit" variant={submitVariant} pending={isPending} unstyled={unstyled}>
               {label}
             </Button>

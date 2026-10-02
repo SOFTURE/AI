@@ -130,6 +130,32 @@ After a rejected submit the fields show what was typed (React resets the form) a
 errors; `PasswordField` never replays. The server parses amounts with the same
 `parseAmount(text, locale)` the field formats with.
 
+### Surfaces, controls and feedback
+
+```tsx
+<Card title="Net worth" subtitle="3 accounts" hint="Assets minus debts" action={<IconButton label="Add">…</IconButton>}>
+  <Stat label="Total" value="1,234,567.00" secondary="1,100,000.00 today" size="lg" />
+  <Stat label="Debt" value="-12,000.00" tone="danger" />
+</Card>
+<EmptyState title="No goals yet">Add a goal to see your progress.</EmptyState>
+<Hint label="About: Rate">Yearly interest rate before tax.</Hint>   {/* label names the "?" button */}
+
+<Select name="currency" aria-label="Currency" defaultValue="PLN"
+  options={[{ value: "PLN", label: "PLN" }, { value: "EUR", label: "EUR" }]} />
+<Switch name="included" label="Include in net worth" description="Counted in the total" defaultChecked />
+<Checkbox name="terms" label="I accept the terms" required />
+<SegmentedControl legend="Period" isLegendHidden value={period} onChange={setPeriod}
+  options={[{ value: "month", label: "Month" }, { value: "year", label: "Year" }]} />
+
+<ToastHost />                     {/* once per page, a polite live region */}
+announceToast("Saved");           // from any client code; the same text twice shows twice
+```
+
+`Select` is a select-only combobox: arrows, Home/End, PageUp/PageDown, typing to jump (matched with
+`locale`), Enter or Tab to commit, Escape to close without a change; a hidden input sends the
+value. `Hint` opens on hover and focus, pins on click, and closes on Escape, an outside press or
+focus leaving it.
+
 ### Modal
 
 Render `<Modal title onClose>` while it is open. It moves focus in, keeps Tab inside, makes the rest

@@ -19,6 +19,7 @@ export const en = {
   },
   actionForm: {
     pending: "Saving…",
+    failed: "Could not reach the server. Try again.",
   },
   errors: {
     amount_invalid: "Enter an amount with at most two decimal places, for example {example}.",

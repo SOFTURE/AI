@@ -92,7 +92,10 @@ export function Modal({
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       // A prevented Escape was handled inside (an open select list closes first).
-      if (event.key === "Escape" && !event.defaultPrevented) close();
+      // Only the top modal answers, so one Escape closes one dialog of a nested pair.
+      if (event.key !== "Escape" || event.defaultPrevented || !isTopModal(overlayRef.current)) return;
+      event.preventDefault();
+      close();
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
@@ -105,13 +108,14 @@ export function Modal({
     if (triggerRef.current === null && active instanceof HTMLElement && active !== document.body && !overlay.contains(active)) {
       triggerRef.current = active;
     }
+    openModals.push(overlay);
     const disabled = makeSiblingsInert(overlay);
     panelRef.current?.focus();
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    lockScroll();
     return () => {
-      for (const element of disabled) element.inert = false;
-      document.body.style.overflow = previousOverflow;
+      openModals.splice(openModals.indexOf(overlay), 1);
+      releaseInert(disabled);
+      unlockScroll();
       returnFocus(triggerRef.current, overlay);
     };
   }, []);
@@ -299,8 +303,19 @@ const TABBABLE = [
 function getTabbableElements(root: HTMLElement): HTMLElement[] {
   return Array.from(root.querySelectorAll<HTMLElement>(TABBABLE)).filter(
     (element) =>
-      !element.matches(":disabled") && element.getClientRects().length > 0 && getComputedStyle(element).visibility !== "hidden",
+      !element.matches(":disabled") &&
+      element.getClientRects().length > 0 &&
+      getComputedStyle(element).visibility !== "hidden" &&
+      isRadioTabStop(element, root),
   );
+}
+
+/** Tab reaches one radio per group: the checked one, else the first. */
+function isRadioTabStop(element: HTMLElement, root: HTMLElement): boolean {
+  if (!(element instanceof HTMLInputElement) || element.type !== "radio" || element.name === "") return true;
+  const group = Array.from(root.querySelectorAll<HTMLInputElement>(`input[type="radio"][name="${CSS.escape(element.name)}"]`));
+  const checked = group.find((radio) => radio.checked);
+  return element === (checked ?? group[0]);
 }
 
 function isLiveRegion(element: HTMLElement): boolean {
@@ -309,14 +324,56 @@ function isLiveRegion(element: HTMLElement): boolean {
 }
 
 /** Makes every other child of `<body>` inert and returns them, for the cleanup to restore. */
+// Page-wide state shared by every open modal, so modals closed in any order leave the page as it
+// was: the overlays in opening order, how many modals hold each element inert, and the scroll lock.
+const openModals: HTMLElement[] = [];
+const inertHolds = new Map<HTMLElement, number>();
+let scrollLocks = 0;
+let overflowBeforeLock = "";
+
+function isTopModal(overlay: HTMLElement | null): boolean {
+  return overlay !== null && openModals.at(-1) === overlay;
+}
+
+/** Makes every other child of `body` inert; elements the app made inert itself are left alone. */
 function makeSiblingsInert(overlay: HTMLElement): HTMLElement[] {
   const disabled: HTMLElement[] = [];
   for (const child of Array.from(document.body.children)) {
-    if (child === overlay || !(child instanceof HTMLElement) || child.inert || isLiveRegion(child)) continue;
-    child.inert = true;
+    if (child === overlay || !(child instanceof HTMLElement) || isLiveRegion(child)) continue;
+    const holds = inertHolds.get(child);
+    if (holds === undefined) {
+      if (child.inert) continue;
+      child.inert = true;
+    }
+    inertHolds.set(child, (holds ?? 0) + 1);
     disabled.push(child);
   }
   return disabled;
+}
+
+function releaseInert(elements: readonly HTMLElement[]): void {
+  for (const element of elements) {
+    const holds = inertHolds.get(element) ?? 1;
+    if (holds > 1) {
+      inertHolds.set(element, holds - 1);
+      continue;
+    }
+    inertHolds.delete(element);
+    element.inert = false;
+  }
+}
+
+function lockScroll(): void {
+  if (scrollLocks === 0) {
+    overflowBeforeLock = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+  }
+  scrollLocks += 1;
+}
+
+function unlockScroll(): void {
+  scrollLocks -= 1;
+  if (scrollLocks === 0) document.body.style.overflow = overflowBeforeLock;
 }
 
 /**

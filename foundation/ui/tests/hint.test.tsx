@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { getBubbleStyle, Hint, resolveBubblePlacement } from "../src/index.js";
 
 afterEach(cleanup);
@@ -71,6 +71,19 @@ describe("Hint behaviour", () => {
     expect(bubble.hidden).toBe(false);
   });
 
+  it("closes a bubble opened by hover on Escape, without letting the Escape through", () => {
+    const { trigger, bubble } = renderHint();
+    fireEvent.mouseEnter(trigger.parentElement ?? trigger);
+    const outer = vi.fn((event: KeyboardEvent) => event.defaultPrevented);
+    document.addEventListener("keydown", outer);
+    act(() => {
+      fireEvent.keyDown(document, { key: "Escape" });
+    });
+    document.removeEventListener("keydown", outer);
+    expect(bubble.hidden).toBe(true);
+    expect(outer).toHaveReturnedWith(true);
+  });
+
   it("stays open after a click until Escape", () => {
     const { trigger, bubble } = renderHint();
     fireEvent.click(trigger);
@@ -113,7 +126,7 @@ describe("resolveBubblePlacement", () => {
     expect(resolveBubblePlacement({ trigger, bubble: { width: 200, height: 50 }, viewport: VIEWPORT, isAnchoredLeft: true })).toEqual({
       isAnchoredLeft: true,
       left: 400,
-      top: 242,
+      top: 244,
       opensAbove: true,
     });
     expect(
@@ -155,7 +168,7 @@ describe("resolveBubblePlacement", () => {
       viewport: VIEWPORT,
       isAnchoredLeft: true,
     });
-    expect(placement).toMatchObject({ opensAbove: false, top: 44 });
+    expect(placement).toMatchObject({ opensAbove: false, top: 42 });
   });
 
   it("styles a placed bubble as fixed, resetting both opposite edges", () => {

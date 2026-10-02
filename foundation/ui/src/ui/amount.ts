@@ -48,8 +48,8 @@ export function formatAmountInput(cents: number, locale: Locale): string {
   }
   const { group, decimal } = INPUT_FORMAT[locale];
   const absolute = Math.abs(cents);
-  // Grouped as text, so amounts near MAX_SAFE_INTEGER never go through float division.
-  const whole = String(Math.trunc(absolute / 100));
+  // Integer arithmetic only (the remainder is removed before dividing), then grouped as text.
+  const whole = String((absolute - (absolute % 100)) / 100);
   const groups: string[] = [];
   for (let end = whole.length; end > 0; end -= 3) groups.unshift(whole.slice(Math.max(0, end - 3), end));
   const fraction = String(absolute % 100).padStart(2, "0");

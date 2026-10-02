@@ -1,12 +1,13 @@
 "use client";
 
-import { type DeepPartial, type Locale, mergeMessages } from "@softure-ai/core";
+import type { DeepPartial, Locale } from "@softure-ai/core";
 import { useState, useSyncExternalStore } from "react";
-import { type UiMessages, uiMessages } from "../messages/index.js";
+import type { UiMessages } from "../messages/index.js";
 import { applyThemeChoice, parseThemeCookie, THEME_CHOICES, type ThemeChoice } from "../theme/theme-cookie.js";
 import { getThemeColors } from "../theme/theme-css.js";
 import type { SoftureTheme } from "../theme/tokens.js";
 import type { ClassNames } from "./class-names.js";
+import { getCopy } from "./copy.js";
 import { SegmentedControl, type SegmentedControlSlot } from "./segmented-control.js";
 
 export type ThemeSwitchSlot = SegmentedControlSlot;
@@ -57,7 +58,7 @@ export function ThemeSwitch({
   );
   const [picked, setPicked] = useState<ThemeChoice | null>(null);
   const choice = picked ?? cookieChoice;
-  const copy = mergeMessages(uiMessages, { [locale]: { themeSwitch: messages } })[locale].themeSwitch;
+  const copy = getCopy("themeSwitch", { locale, messages });
   function handleChange(next: ThemeChoice) {
     applyThemeChoice(next, { cookieName, domain: cookieDomain, themeColors: getThemeColors(theme) });
     setPicked(next);

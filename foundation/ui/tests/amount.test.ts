@@ -27,8 +27,15 @@ describe("parseAmount (pl)", () => {
     expect(Object.is(result.ok && result.value, -0)).toBe(false);
   });
 
-  it("rejects an amount past the safe integer range", () => {
+  it("rejects an amount past the safe integer range, one cent past the limit included", () => {
     expect(parseAmount("99999999999999999999", "pl")).toEqual({ ok: false, error: "ui.amount_out_of_range" });
+    expect(parseAmount("90071992547409,91", "pl")).toEqual({ ok: true, value: Number.MAX_SAFE_INTEGER });
+    expect(parseAmount("90071992547409,92", "pl")).toEqual({ ok: false, error: "ui.amount_out_of_range" });
+  });
+
+  it("accepts the no-break spaces Intl puts between groups", () => {
+    expect(parseAmount("1\u00a0234,56", "pl")).toEqual({ ok: true, value: 123_456 });
+    expect(parseAmount("1\u202f234,56", "pl")).toEqual({ ok: true, value: 123_456 });
   });
 });
 

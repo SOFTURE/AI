@@ -190,6 +190,71 @@ describe("Modal behaviour", () => {
     expect(document.activeElement).toBe(opener);
     live.remove();
   });
+
+  it("closes only the top dialog of a nested pair on Escape", () => {
+    const outer = vi.fn();
+    const inner = vi.fn();
+    render(
+      <>
+        <Modal title="Outer" onClose={outer}>
+          <ModalBody>outer</ModalBody>
+        </Modal>
+        <Modal title="Inner" onClose={inner}>
+          <ModalBody>inner</ModalBody>
+        </Modal>
+      </>,
+    );
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(inner).toHaveBeenCalledOnce();
+    expect(outer).not.toHaveBeenCalled();
+  });
+
+  it("restores the page when two dialogs close out of order", () => {
+    function Page({ isFirstOpen, isSecondOpen }: { isFirstOpen: boolean; isSecondOpen: boolean }) {
+      return (
+        <>
+          <main>page</main>
+          {isFirstOpen ? (
+            <Modal title="First" onClose={() => undefined}>
+              <ModalBody>first</ModalBody>
+            </Modal>
+          ) : null}
+          {isSecondOpen ? (
+            <Modal title="Second" onClose={() => undefined}>
+              <ModalBody>second</ModalBody>
+            </Modal>
+          ) : null}
+        </>
+      );
+    }
+    const { container, rerender } = render(<Page isFirstOpen isSecondOpen={false} />);
+    rerender(<Page isFirstOpen isSecondOpen />);
+    rerender(<Page isFirstOpen={false} isSecondOpen />);
+    expect(container.inert).toBe(true);
+    expect(document.body.style.overflow).toBe("hidden");
+    rerender(<Page isFirstOpen={false} isSecondOpen={false} />);
+    expect(container.inert).toBe(false);
+    expect(document.body.style.overflow).toBe("");
+  });
+
+  it("reaches one radio per group with Tab: the checked one", () => {
+    render(
+      <Modal title="T" onClose={() => undefined}>
+        <ModalBody>
+          <input type="radio" name="period" value="month" aria-label="Month" />
+          <input type="radio" name="period" value="year" aria-label="Year" defaultChecked />
+          <input type="radio" name="period" value="all" aria-label="All" />
+        </ModalBody>
+      </Modal>,
+    );
+    const close = screen.getByRole("button", { name: uiMessages.en.modal.close });
+    const year = screen.getByRole("radio", { name: "Year" });
+    year.focus();
+    fireEvent.keyDown(year, { key: "Tab" });
+    expect(document.activeElement).toBe(close);
+    fireEvent.keyDown(close, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(year);
+  });
 });
 
 describe("getNextFocusTarget", () => {

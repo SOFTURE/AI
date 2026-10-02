@@ -22,7 +22,7 @@ function getInput(html: string): string {
 
 function withReplay(replay: Partial<FormReplay>, children: ReactNode) {
   return (
-    <FormReplayProvider replay={{ values: {}, fieldErrors: {}, submitCount: 1, ...replay }}>{children}</FormReplayProvider>
+    <FormReplayProvider replay={{ values: {}, fieldErrors: {}, submitCount: 1, hasReplay: true, ...replay }}>{children}</FormReplayProvider>
   );
 }
 
