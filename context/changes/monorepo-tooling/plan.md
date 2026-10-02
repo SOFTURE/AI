@@ -86,7 +86,7 @@ point at the three scripts and `worktree.cloudState` is still `"branch"`.
    - an empty file and a binary file (NUL byte) are clean;
    - test (a): every tracked file (`git ls-files`) passes.
 2. Implement `scripts/check-language.mjs` (`// @ts-check`, JSDoc types): diacritic class
-   `[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]` on every line; a fixed list of about 40 Polish function words that
+   (the nine Polish letters with diacritics, both cases) on every line; a fixed list of about 40 Polish function words that
    are not English words, matched whole-word and case-insensitive, not adjacent to letters, digits,
    `-`, `_`, `/` or `.`; Markdown inline code spans removed before the word match; exempt paths:
    any `messages/` segment, the gate itself and its test (they must spell the words);
@@ -237,10 +237,10 @@ Manual: the first `ci` run on GitHub is green (owner, or agent if GitHub tools a
 ### Phase 1: Toolchain and root gates
 
 #### Automated
-- [ ] 1.1 `tests/repo/test-environment.test.ts` fails under `NODE_ENV=production npx vitest run` before the pin and passes after it
-- [ ] 1.2 `npm run typecheck` and `npm run lint` exit 0 on the whole tree
-- [ ] 1.3 `context/workflow.json` gates are `npm run typecheck`, `npm run lint`, `npm test`, and `worktree.cloudState` is still `"branch"`
-- [ ] 1.4 Gates green (typecheck, lint, test)
+- [x] 1.1 `tests/repo/test-environment.test.ts` fails under `NODE_ENV=production npx vitest run` before the pin and passes after it — 03f56a1
+- [x] 1.2 `npm run typecheck` and `npm run lint` exit 0 on the whole tree — 03f56a1
+- [x] 1.3 `context/workflow.json` gates are `npm run typecheck`, `npm run lint`, `npm test`, and `worktree.cloudState` is still `"branch"` — 03f56a1
+- [x] 1.4 Gates green (typecheck, lint, test) — 03f56a1
 
 ### Phase 2: Language gate
 

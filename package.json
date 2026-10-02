@@ -25,8 +25,10 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "lint": "eslint . --max-warnings 0",
+    "lint": "npm run lint:code && npm run lint:language",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "lint:code": "eslint . --max-warnings 0",
+    "lint:language": "node scripts/check-language.mjs --all"
   }
 }
