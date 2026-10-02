@@ -1,7 +1,7 @@
 ---
 change_id: ui-primitives
 title: "UI primitives"
-status: planned
+status: impl_reviewed
 roadmap_item: FD-6
 branch: claude/fd-6-ui-primitives-7j5g3v
 created: 2026-10-02
