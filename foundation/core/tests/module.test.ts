@@ -136,6 +136,8 @@ describe("a module factory", () => {
     expect(instance.options).toBeUndefined();
     expect(instance.migrations).toBeNull();
     expect(instance.privacy).toBeNull();
+    const error = catchConfigError(() => plain({ pageSize: 5 } as never));
+    expect(error.issues).toEqual(["options.pageSize: this module takes no options"]);
   });
 
   it("returns a module whose data cannot be changed afterwards", () => {

@@ -169,6 +169,10 @@ function mergeRoutes(defaults: RouteMap, overrides: Readonly<Record<string, unkn
 
 function parseOptions(schema: z.ZodType | undefined, input: unknown, issues: string[]): unknown {
   if (schema === undefined) {
+    // Without a schema the module takes no options: a stray key is a typo, not something to drop.
+    for (const key of Object.keys(input as object)) {
+      issues.push(`options.${key}: this module takes no options`);
+    }
     return undefined;
   }
   const result = schema.safeParse(input);

@@ -164,8 +164,9 @@ export default defineSoftureConfig({
 - Server actions: `"use server"` files in the package read the configuration from a registry set in
   `instrumentation.ts` / `softure.config.ts`: `registerSoftureConfig(config)` and
   `getSoftureConfig()` from `@softure-ai/core/next`, kept on `globalThis` (provisional, FD-3).
-  **Technical risk:** server actions from `node_modules` and their encryption (`NEXT_SERVER_ACTIONS_ENCRYPTION_KEY`, `allowedOrigins`) must be
-  confirmed with a spike on `auth` in wave 1.
+  **Technical risk:** server actions from `node_modules` and their encryption
+  (`NEXT_SERVER_ACTIONS_ENCRYPTION_KEY`, `allowedOrigins`) must be confirmed with a spike on `auth`
+  in wave 1.
 - Route guard: `softureMiddleware(config)`, composed into the app's `proxy.ts`. FIRE currently mixes
   auth and channel tagging in `proxy.ts`, so these become two separate pieces.
 
