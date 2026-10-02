@@ -1,12 +1,12 @@
 ---
 change_id: auth-core
 title: "Authentication core: users, sessions, register, login, logout, change password, guard and pages"
-status: implementing
+status: archived
 roadmap_item: ID-3
 branch: claude/id-3-auth-core-vdx54s
 created: 2026-10-02
 updated: 2026-10-02
-archived_at: null
+archived_at: 2026-10-02
 ---
 
 ## Intent
@@ -58,3 +58,4 @@ What ID-1 and ID-2 left for this change (coordinator brief, 2026-10-02):
 - Mode: fully autonomous (owner decision 2026-10-02): self-review, merge to master, branch cleanup
   by GitHub auto-delete.
 - Cloud session; the branch carries the workflow state (`worktree.cloudState: "branch"`).
+- Archived 2026-10-02: `@softure-ai/auth` delivers users, scrypt passwords, database sessions, register with a consent hook, login, logout, password change, the proxy route guard, pages and forms, verified on PGlite (128 unit tests) and on PostgreSQL 16 in the example app e2e (18 scenarios, 10 of them auth). FIRE_TRACKER was not readable in this session; the baseline came from the facts recorded in this repository (research.md).

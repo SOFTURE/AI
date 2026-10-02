@@ -107,8 +107,8 @@ storage (`privacy`, engagement roadmap), sliding session renewal.
 ### Phase 3: Example app and e2e
 
 #### Automated
-- [ ] 3.1 `npm run e2e` passes against a local PostgreSQL 16, including `auth.spec.ts`
-- [ ] 3.2 Gates green (typecheck, lint, test)
+- [x] 3.1 `npm run e2e` passes against a local PostgreSQL 16, including `auth.spec.ts` — 7ff447e
+- [x] 3.2 Gates green (typecheck, lint, test) — 7ff447e
 
 #### Manual
-- [ ] 3.3 Screenshots of the login, register and change-password pages look like the rest of the example (checked by the agent)
+- [x] 3.3 Screenshots of the login, register and change-password pages look like the rest of the example (checked by the agent: login and register screenshots, ui card, tokens and spacing match the example) — 7ff447e
