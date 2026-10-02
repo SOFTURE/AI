@@ -5,8 +5,9 @@ Template for a SOFTURE AI package. It follows the layout of
 sections of §11, so agents find the same things in the same places in every module.
 
 **To start a package:** copy this folder to `modules/<name>/` (or `foundation/<name>/`), then
-rename `template-module` everywhere (package name, `module.json` id, error codes), remove
-`"private": true`, and run `npm install` at the repository root. The root tests check the result
+rename `template-module` everywhere (package name, `module.json` id, error codes), set
+`repository.directory` to the new folder, remove `"private": true`, and run `npm install` at the
+repository root. The root tests check the result
 (`tests/repo/packages.test.ts`). Add `"./styles.css"` to `exports` once the package has styles
 (the CSS build arrives with `@softure-ai/ui`).
 
@@ -65,4 +66,5 @@ Known gaps and what the module deliberately does not do.
 `npm run build -w templates/package` runs `tsc -p tsconfig.build.json`: ESM and `.d.ts` per
 source file in `dist/`, with `"use client"` and `"use server"` directives kept. In this repository
 the export condition `@softure-ai/source` points tests and type checks at `src/`, so nothing needs
-building first.
+building first. The tarball ships `src/` (without tests) next to `dist/`, so source maps and that
+condition resolve for consumers too. Releasing: [scripts/release/README.md](../../scripts/release/README.md).

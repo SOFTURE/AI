@@ -1,12 +1,12 @@
 ---
 change_id: release-pipeline
 title: "Tag-driven release pipeline"
-status: new
+status: archived
 roadmap_item: FD-2
-branch: null
+branch: claude/fd-2-release-pipeline-y0qm8t
 created: 2026-10-02
 updated: 2026-10-02
-archived_at: null
+archived_at: 2026-10-02
 ---
 
 ## Intent
@@ -46,3 +46,5 @@ Reference material: `docs/02-module-standard.md` (the standard), `docs/01-module
 - No release, tag or publish by the agent; the owner tags releases.
 
 ## Notes
+
+Archived 2026-10-02: a `<package>@x.y.z` tag stages the package on npm (OIDC, provenance), publishes it to GitHub Packages and creates a GitHub Release; the dry run is green in CI. The first real tag is the owner's (FD-8).
