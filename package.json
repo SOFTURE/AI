@@ -35,6 +35,7 @@
     "lint:code": "eslint . --max-warnings 0",
     "lint:language": "node scripts/check-language.mjs --all",
     "build": "node scripts/build-workspaces.mjs",
+    "release:pack": "node scripts/release/pack.mjs",
     "prepare": "node -e \"process.exit(process.env.CI?0:1)\" || lefthook install"
   }
 }
