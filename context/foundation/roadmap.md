@@ -31,7 +31,7 @@ updated: 2026-10-02
 
 | ID | Change | Outcome | Depends on | Mode | Status |
 | --- | --- | --- | --- | --- | --- |
-| **FD-1** | `monorepo-tooling` | workspaces build typed ESM + CSS; typecheck, lint, language and unit gates run in lefthook hooks (as in FIRE_TRACKER) and in CI | — | autonomous | **in_progress** (plan-review, since 2026-10-02; cloud session, branch `claude/project-thread-8qjd9k` — do not take in another session) |
+| **FD-1** | `monorepo-tooling` | workspaces build typed ESM + CSS; typecheck, lint, language and unit gates run in lefthook hooks (as in FIRE_TRACKER) and in CI | — | autonomous | **in_progress** (implement 1/5, since 2026-10-02; cloud session, branch `claude/project-thread-8qjd9k` — do not take in another session) |
 | **FD-2** | `release-pipeline` | a `<package>@x.y.z` tag publishes that package to npm (OIDC) and GitHub Packages and creates a GitHub Release | FD-1 | autonomous | ready |
 | **FD-3** | `core-contract` | `@softure-ai/core`: config, module contract, Result, clock, messages | FD-1 | autonomous | ready |
 | **FD-4** | `db-migrator` | `@softure-ai/db`: client, per-module schemas, migrator with plan/adopt, PGlite test DB | FD-3 | autonomous | ready |
@@ -62,7 +62,7 @@ they come before the UI breadth (FD-6).
 
 ### FD-1: Monorepo tooling and gates
 - **Change ID:** `monorepo-tooling`
-- **Status:** in_progress (plan-review, since 2026-10-02; cloud session, branch `claude/project-thread-8qjd9k` — do not take in another session)
+- **Status:** in_progress (implement 1/5, since 2026-10-02; cloud session, branch `claude/project-thread-8qjd9k` — do not take in another session)
 - **Outcome:** `npm ci && npm run typecheck && npm run lint && npm test` works at the root over
   all workspaces; each package builds ESM + `.d.ts` (tsup) and, where it has styles, compiled CSS;
   a package template (`templates/package/`) matches docs/02 §2; `context/workflow.json` gates
