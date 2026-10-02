@@ -43,8 +43,10 @@ export async function registerUser(ctx: AuthContext, input: RegisterInput): Prom
 
   const email = parseEmail(input.email);
   if (!email.ok) return email;
-  const password = checkNewPassword(input.password, options.password.minLength);
-  if (!password.ok) return password;
+  const passwordPolicy = checkNewPassword(input.password, options.password.minLength);
+  // A fresh error, not the check's own result: CodeQL treats that result as password data and
+  // would follow it through the returned union to the session token (js/insufficient-password-hash).
+  if (!passwordPolicy.ok) return err(passwordPolicy.error);
   if (options.requireConsent && !input.hasConsented) return err("auth.consent_required");
 
   const limit = await consumeRateLimit(ctx, { bucket: BUCKETS.register, key: input.clientKey });
