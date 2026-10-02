@@ -1,10 +1,10 @@
-// Password change for a signed-in user. The new hash and the end of every other session of the
-// user happen in one transaction; the session that made the change stays signed in.
+// Password change for a signed-in user. The new hash, the end of every other session of the user
+// and of a pending reset link happen in one transaction; the session that made the change stays signed in.
 import { err, ok, type Err, type Ok } from "@softure-ai/core";
 import type { RateLimitRejection } from "@softure-ai/security";
 import { consumeRateLimit } from "@softure-ai/security/server";
 import { and, eq, ne } from "drizzle-orm";
-import { sessions, users } from "../schema.js";
+import { passwordResets, sessions, users } from "../schema.js";
 import { getAuthOptions } from "./options.js";
 import { hashPassword, verifyPassword } from "./password.js";
 import { assertAuthBuckets, BUCKETS, userSubjectKey } from "./rate-limits.js";
@@ -54,6 +54,8 @@ export async function changePassword(ctx: AuthContext, input: ChangePasswordInpu
       .returning();
     if (updated.length === 0) return err("auth.current_password_invalid");
     await tx.delete(sessions).where(and(eq(sessions.userId, user.id), ne(sessions.tokenHash, hashSessionToken(input.sessionToken))));
+    // A reset link requested before the change must not outlive it.
+    await tx.delete(passwordResets).where(eq(passwordResets.userId, user.id));
     return ok();
   });
 }

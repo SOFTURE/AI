@@ -9,15 +9,18 @@ import { getSoftureConfig } from "@softure-ai/core/next";
 import { identifyClient } from "@softure-ai/security/server";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { z } from "zod";
 import type { AuthFormErrorCode, AuthFormField, AuthFormState } from "../contract.js";
 import { toSafeNextPath } from "../safe-next-path.js";
 import { changePassword } from "../server/change-password.js";
 import { loginUser } from "../server/login.js";
 import { getAuthRoutes } from "../server/options.js";
+import { deliverPasswordReset, requestPasswordReset, resetPassword } from "../server/password-reset.js";
 import { registerUser } from "../server/register.js";
 import { logoutSession } from "../server/sessions.js";
 import { getAuthContext } from "./context.js";
+import { PASSWORD_RESET_DONE_PARAM } from "./params.js";
 import { clearSessionCookie, readSessionToken, writeSessionCookie } from "./session-cookie.js";
 
 /** Longer values are cut: the server functions refuse them anyway, and nothing huge is echoed back. */
@@ -30,6 +33,8 @@ const text = z
 const loginInput = z.object({ email: text, password: text, next: text });
 const registerInput = z.object({ email: text, password: text, next: text, consent: z.string().nullable().catch(null) });
 const changePasswordInput = z.object({ currentPassword: text, newPassword: text });
+const forgotPasswordInput = z.object({ email: text });
+const resetPasswordInput = z.object({ token: text, newPassword: text });
 
 const FIELD_OF: Partial<Record<AuthFormErrorCode, AuthFormField>> = {
   "auth.email_invalid": "email",
@@ -41,6 +46,11 @@ const FIELD_OF: Partial<Record<AuthFormErrorCode, AuthFormField>> = {
 
 const CHANGE_FIELD_OF: Partial<Record<AuthFormErrorCode, AuthFormField>> = {
   "auth.current_password_invalid": "currentPassword",
+  "auth.password_too_short": "newPassword",
+  "auth.password_too_long": "newPassword",
+};
+
+const RESET_FIELD_OF: Partial<Record<AuthFormErrorCode, AuthFormField>> = {
   "auth.password_too_short": "newPassword",
   "auth.password_too_long": "newPassword",
 };
@@ -120,6 +130,61 @@ export async function changePasswordAction(_previous: AuthFormState, formData: F
   } catch (error) {
     return failure(reportFailure("password change", error));
   }
+}
+
+/**
+ * Asks for a reset link. The answer depends only on the buckets and the email's shape, never on
+ * whether the account exists: the link is issued and handed to the app's sender after the
+ * response, so neither the sender's time nor its failure shows here.
+ */
+export async function forgotPasswordAction(_previous: AuthFormState, formData: FormData): Promise<AuthFormState> {
+  const config = getSoftureConfig();
+  const input = readForm(forgotPasswordInput, formData);
+  const client = identifyClient({ config }, await headers());
+  if (!client.ok) return failure(client.error, { email: input.email });
+
+  let result;
+  try {
+    result = await requestPasswordReset(await getAuthContext(config), { email: input.email, clientKey: client.value });
+  } catch (error) {
+    return failure(reportFailure("password reset request", error), { email: input.email });
+  }
+  if (!result.ok) return failure(result.error, { field: FIELD_OF[result.error], email: input.email });
+
+  const { email } = result.value;
+  after(async () => {
+    try {
+      await deliverPasswordReset(await getAuthContext(config), email);
+    } catch (error) {
+      reportFailure("password reset delivery", error);
+    }
+  });
+  return { status: "ok" };
+}
+
+/**
+ * Sets a new password with the token from a reset link, then goes to the login page, which says so.
+ * A redirect, not an `ok` state: without JavaScript the reset page renders again after the action,
+ * and its token is used by then.
+ */
+export async function resetPasswordAction(_previous: AuthFormState, formData: FormData): Promise<AuthFormState> {
+  const config = getSoftureConfig();
+  const input = readForm(resetPasswordInput, formData);
+  const client = identifyClient({ config }, await headers());
+  if (!client.ok) return failure(client.error);
+
+  let result;
+  try {
+    result = await resetPassword(await getAuthContext(config), {
+      token: input.token,
+      newPassword: input.newPassword,
+      clientKey: client.value,
+    });
+  } catch (error) {
+    return failure(reportFailure("password reset", error));
+  }
+  if (!result.ok) return failure(result.error, { field: RESET_FIELD_OF[result.error] });
+  redirect(`${getAuthRoutes(config).login}?${PASSWORD_RESET_DONE_PARAM}=1`);
 }
 
 /** Ends the session the browser held before a login or register, so it cannot be reused. */

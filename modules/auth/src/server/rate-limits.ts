@@ -8,9 +8,12 @@ export const BUCKETS = {
   login: "login",
   loginAccount: "login-account",
   changePassword: "change-password",
+  passwordReset: "password-reset",
+  passwordResetAccount: "password-reset-account",
+  passwordResetConfirm: "password-reset-confirm",
 } as const;
 
-/** The subject key of an account's email for `login-account`. */
+/** The subject key of an account's email for `login-account` and `password-reset-account`. */
 export function emailSubjectKey(normalizedEmail: string): string {
   return subjectKey(`email:${normalizedEmail}`);
 }

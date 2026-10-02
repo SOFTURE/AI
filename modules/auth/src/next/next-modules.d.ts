@@ -10,3 +10,7 @@ declare module "next/navigation" {
 declare module "next/headers" {
   export * from "next/headers.js";
 }
+
+declare module "next/server" {
+  export * from "next/server.js";
+}

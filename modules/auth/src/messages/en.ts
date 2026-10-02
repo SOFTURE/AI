@@ -14,6 +14,7 @@ export const en = {
     pending: "Logging in…",
     noAccount: "No account yet?",
     registerLink: "Create one",
+    forgotPassword: "Forgot your password?",
   },
   register: {
     title: "Create an account",
@@ -32,6 +33,24 @@ export const en = {
     pending: "Saving…",
     success: "Your password has been changed.",
   },
+  forgotPassword: {
+    title: "Reset your password",
+    lead: "Enter the email of your account and we will send you a link to set a new password.",
+    submit: "Send the link",
+    pending: "Sending…",
+    sent: "If an account uses this email, a link to reset its password is on its way. It works for {ttlMinutes} minutes.",
+    backToLogin: "Back to login",
+  },
+  resetPassword: {
+    title: "Set a new password",
+    lead: "You will be logged out on every device.",
+    submit: "Set password",
+    pending: "Saving…",
+    success: "Your password has been changed. Log in with the new one.",
+    invalidTitle: "This link does not work",
+    invalidBody: "The link has expired or has already been used. Ask for a new one.",
+    requestNew: "Get a new link",
+  },
   logout: {
     submit: "Log out",
   },
@@ -47,6 +66,8 @@ export const en = {
       current_password_invalid: "The current password is incorrect.",
       unauthenticated: "Your session has ended. Log in again.",
       forbidden: "You do not have access to this.",
+      reset_token_invalid: "This link has expired or has already been used. Ask for a new one.",
+      password_reset_unavailable: "Password reset is not available.",
     },
     security: {
       rate_limited: "Too many attempts. Wait a few minutes and try again.",

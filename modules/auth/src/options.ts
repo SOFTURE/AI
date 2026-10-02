@@ -3,6 +3,7 @@ import type { ModuleContext } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
 import { z } from "zod";
 import type { RegisteredEvent } from "./contract.js";
+import type { PasswordResetSender } from "./password-reset-sender.js";
 import { ROLE_NAME_PATTERN } from "./roles.js";
 
 /** OWASP's scrypt cost for passwords: N = 2^17, r = 8, p = 1 (about 128 MiB per hash). */
@@ -70,6 +71,14 @@ export const authOptionsSchema = z.strictObject({
    * Auth does not verify emails, so create these accounts before deploying the list.
    */
   adminEmails: z.array(z.string().trim().toLowerCase().max(MAX_EMAIL_LENGTH).pipe(z.email("must be an email address"))).default([]),
+  passwordReset: z
+    .strictObject({
+      /** Delivers reset links. Without it password reset is off: no link, and its pages are not found. */
+      send: z.custom<PasswordResetSender>((value) => typeof value === "function", "must be a function").optional(),
+      /** How long a reset link works. */
+      ttlMinutes: z.number().int().min(5).max(1440).default(60),
+    })
+    .prefault({}),
   /** Called after an account is created, in the same transaction (e.g. to store the consent). */
   onRegistered: z.custom<OnRegisteredHook>((value) => typeof value === "function", "must be a function").optional(),
 });

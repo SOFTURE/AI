@@ -42,7 +42,7 @@ backlog: context/backlog/roadmap-identity/
 | **ID-2** | `security-rate-limit` | `@softure-ai/security`: configurable rate-limit buckets, pluggable client-IP resolvers, small-body reader | FD-3, FD-4 | autonomous | done |
 | **ID-3** | `auth-core` | `@softure-ai/auth`: register with consent hook, login, logout, sessions, change password, route guard, pages and forms | ID-1, ID-2 | autonomous | done |
 | **ID-4** | `auth-roles` | roles with `requireRole`; admin-only surfaces fail closed | ID-3 | autonomous | done |
-| **ID-5** | `auth-password-reset` | password reset with a single-use, expiring token sent through a sender hook | ID-4 | autonomous | ready |
+| **ID-5** | `auth-password-reset` | password reset with a single-use, expiring token sent through a sender hook | ID-4 | autonomous | done |
 | **ID-6** | `feature-switches` | `@softure-ai/feature-switches`: declared switches, env overrides, fail mode, admin-only panel | ID-4 | autonomous | done |
 | **ID-7** | `ops-health-migrate` | `@softure-ai/ops`: health endpoint with module checks, container migrate step, safe ops script pattern | ID-1 | autonomous | done |
 | **ID-8** | `identity-release` | security, auth, feature-switches and ops 0.1.0 published through the FD-2 pipeline | FD-8, ID-2, ID-3, ID-4, ID-5, ID-6, ID-7 | owner | ready |
@@ -174,7 +174,7 @@ item's entries.
 
 ### ID-5: Password reset by token
 - **Change ID:** `auth-password-reset`
-- **Status:** ready
+- **Status:** done
 - **Outcome:**
   - table `auth.password_resets` (only the token hash stored, single use, expiring);
   - a request page that never reveals whether the email exists, and a reset page;
@@ -282,6 +282,7 @@ item's entries.
 
 ## Done
 
+- **ID-5** `auth-password-reset`: password reset in `@softure-ai/auth`: table `auth.password_resets` (sha256 of the token only, one pending link per account, 60-minute default, single use by a conditional delete), `passwordReset.send(link, user, details)` hook with `consolePasswordResetSender` for development, forgot and reset pages that never reveal an account (issuing and sending run after the response), three rate-limit buckets, every session ended on reset, link built on `appOrigin`; archived in `archive/2026-10-02-auth-password-reset/`
 - **ID-6** `feature-switches`: `@softure-ai/feature-switches` with switches the app declares (explicit default, fail mode `closed`/`open`, label and description per locale), the derived env override `SOFTURE_SWITCH_<NAME>` over the stored value over the default, table `features.switches` with `updated_at` and `updated_by`, `isEnabled` (one read per request in Next, fresh in scripts), `setSwitch`, an admin-only panel page (`requireRole`) and action (`authorizeRole` first), a health check; auth's own switch is a follow-up; archived in `archive/2026-10-02-feature-switches/`
 - **ID-4** `auth-roles`: roles in `@softure-ai/auth`: table `auth.user_roles`, declared role names (`admin` built in), `adminEmails` initial admin list, `requireRole` (404) for pages and route handlers, `authorizeRole` (`auth.forbidden`) for actions, `hasRole` for UI, `grant-role` / `revoke-role` ops scripts; admin-only surfaces fail closed; archived in `archive/2026-10-02-auth-roles/`
 - **ID-3** `auth-core`: `@softure-ai/auth` with users, scrypt passwords, database sessions (token hash only), register with a consent hook in one transaction, login (two rate-limit buckets before hashing), logout, password change ending other sessions, `getCurrentUser` / `requireUser`, `createAuthGuard` for `proxy.ts`, pages and forms in pl + en, a health check for ops; `getSharedDatabase` in db; the next-actions spike removed; archived in `archive/2026-10-02-auth-core/`

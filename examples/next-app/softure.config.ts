@@ -6,6 +6,7 @@ import { registerSoftureConfig } from "@softure-ai/core/next";
 import { featureSwitches } from "@softure-ai/feature-switches";
 import { ops } from "@softure-ai/ops";
 import { cloudflareIp, security } from "@softure-ai/security";
+import { sendPasswordResetLink } from "./lib/password-reset-sender.ts";
 import { en } from "./messages/en.ts";
 import { pl } from "./messages/pl.ts";
 import { guestbook } from "./modules/guestbook/index.ts";
@@ -31,7 +32,7 @@ const config = defineSoftureConfig({
       clientIp: cloudflareIp(),
       buckets: { "example.ping": { limit: 3, windowMinutes: 15 }, ...AUTH_RATE_LIMIT_BUCKETS },
     }),
-    auth({ routes: { afterLogin: "/account" }, adminEmails: [EXAMPLE_ADMIN_EMAIL] }),
+    auth({ routes: { afterLogin: "/account" }, adminEmails: [EXAMPLE_ADMIN_EMAIL], passwordReset: { send: sendPasswordResetLink } }),
     // `detail: "checks"` lists each check in the answer, so e2e/ops.spec.ts can see the guestbook's.
     ops({ detail: "checks" }),
     // The panel lives at /switches: /admin is the example's own admin page.
