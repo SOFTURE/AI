@@ -10,6 +10,7 @@ coverage/
 # marketing-kit: render artifacts
 tools/marketing-kit/**/build/
 tools/marketing-kit/**/out/
+
 # softure-skills:begin (managed by @softure-ai/skills)
 /.claude/skills/softure-archive/
 /.claude/skills/softure-code-review/
