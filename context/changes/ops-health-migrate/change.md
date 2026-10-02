@@ -1,7 +1,7 @@
 ---
 change_id: ops-health-migrate
 title: "Apps get a health endpoint with module checks, a container migrate step and a safe ops script helper from @softure-ai/ops"
-status: implemented
+status: impl_reviewed
 roadmap_item: ID-7
 branch: claude/id-7-ops-health-migrate-8yxme9
 created: 2026-10-02
