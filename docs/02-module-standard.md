@@ -193,9 +193,14 @@ export default defineSoftureConfig({
 
 ## 12. Versioning and publishing
 
-- npm workspaces monorepo, versions and changelogs via **Changesets**, every module versioned
-  independently (SemVer). A database schema change requires at least a `minor` version, and a
-  breaking change a `major` with migration instructions.
-- Public publishing to **npmjs.com** under the `@softure-ai` scope (npm org: https://www.npmjs.com/org/softure-ai) with `--provenance`, through a single
-  GitHub Actions workflow that publishes only changed packages. This mirrors `release-*-package.yml` in the API repo.
+- npm workspaces monorepo; every package is versioned independently (SemVer). A database schema
+  change requires at least a `minor` version; a breaking change a `major` with migration
+  instructions. Version bumps and changelogs: Changesets or `npm version -w`, chosen in FD-2.
+- **Releases are tag-driven, one tag per package** (`<package>@x.y.z`, e.g. `core@0.1.0`), in three places,
+  exactly like SOFTURE/SKILLS (`.github/workflows/release.yml` there is the reference):
+  1. npmjs.com: `@softure-ai/<package>` through trusted publishing (OIDC) with provenance;
+  2. GitHub Packages: `@softure/<package>` (GitHub requires the scope to equal the org);
+  3. GitHub Release for the tag, with generated notes and the package tarball attached.
+- A brand-new package's first publish lands in npm staged publishing: the owner approves it once,
+  then configures the trusted publisher. Agents never tag or publish (`release.owner: true`).
 - Build: `tsup` (ESM + d.ts) for TS and the Tailwind CLI for `styles.css`.

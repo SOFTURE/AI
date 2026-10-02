@@ -11,7 +11,11 @@ archived_at: null
 
 ## Intent
 
-Button/ButtonLink/IconButton, Modal (+ ModalForm), Toast, Select (ARIA listbox), Switch/Checkbox/SegmentedControl, TextField/PasswordField/MoneyField/SelectField, Card/Stat/EmptyState, Hint, ActionForm, icons. Every component has typed `classNames` slots, `unstyled`, messages for every visible or ARIA text, and an injected `LinkComponent`. Ported from FIRE_TRACKER `src/components/*` with their tests.
+Button/ButtonLink/IconButton, Modal (+ ModalForm), Toast, Select (ARIA listbox),
+Switch/Checkbox/SegmentedControl, TextField/PasswordField/MoneyField/SelectField, Card/Stat/EmptyState,
+Hint, ActionForm, icons. Every component has typed `classNames` slots, `unstyled`, messages for
+every visible or ARIA text, and an injected `LinkComponent`. Ported from FIRE_TRACKER
+`src/components/*` with their tests.
 
 ## Context
 

@@ -11,7 +11,10 @@ archived_at: null
 
 ## Intent
 
-`examples/next-app` (Next 16) consuming core, db and ui through `softure.config.ts`, running migrations on Postgres in Docker, with Playwright e2e in `.github/workflows/e2e.yml`. This is the harness every later module adds scenarios to.
+`examples/next-app` (Next 16) consuming core, db and ui through `softure.config.ts`,
+running migrations on Postgres in Docker, with Playwright e2e in `.github/workflows/e2e.yml`.
+This is the harness every later module adds scenarios to. Sets `integration.local` in
+`context/workflow.json` to the e2e command, so orchestrators run it before READY.
 
 ## Context
 
@@ -22,7 +25,8 @@ From [`roadmap.md`](../../foundation/roadmap.md), item **FD-7** (roadmap `founda
 > - **Status:** ready
 > - **Outcome:** `examples/next-app` (Next 16) consuming core, db and ui through `softure.config.ts`,
 >   running migrations on Postgres in Docker, with Playwright e2e in `.github/workflows/e2e.yml`.
->   This is the harness every later module adds scenarios to.
+>   This is the harness every later module adds scenarios to. Sets `integration.local` in
+>   `context/workflow.json` to the e2e command, so orchestrators run it before READY.
 > - **Prerequisites:** FD-4, FD-6.
 > - **Unknowns:** workspace linking vs. packed tarballs in e2e (packed is closer to real consumers).
 > - **Risk:** low.

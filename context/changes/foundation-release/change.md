@@ -11,7 +11,10 @@ archived_at: null
 
 ## Intent
 
-`@softure-ai/core`, `@softure-ai/db` and `@softure-ai/ui` 0.1.0 published through FD-2 (the owner approves each first, staged publish and configures its trusted publisher), README status lines updated, docs/02 updated with whatever the foundation changed, and a finish review across FD-1…FD-7.
+`@softure-ai/core`, `@softure-ai/db` and `@softure-ai/ui` 0.1.0 published through
+FD-2 (the owner approves each first, staged publish and configures its trusted publisher), README
+status lines updated, docs/02 updated with whatever the foundation changed, and a finish review
+across FD-1…FD-7.
 
 ## Context
 

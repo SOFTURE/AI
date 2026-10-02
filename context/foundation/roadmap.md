@@ -13,6 +13,8 @@ updated: 2026-10-02
 > Run-wide orders (read by orchestrators):
 > - Push main branch: no. The owner pushes and tags.
 > - Parallelism: up to 4 at once (`workflow.json` → `worktree.maxParallel`).
+> - After merging FD-1, run `npm ci` in the main tree: FD-1 installs git hooks (lefthook) that need
+>   the new devDependencies, also for conflict-resolution commits during later merges.
 > - Owner at the keyboard: FD-8 (first publish of each new package on npm: approve the staged
 >   release, then configure the trusted publisher).
 >
@@ -46,6 +48,9 @@ updated: 2026-10-02
 4. **FD-6** after FD-5. It shares `foundation/ui/`, so it is not parallel with FD-5.
 5. **FD-7** after FD-4 and FD-6. It owns `examples/next-app/` and `.github/workflows/e2e.yml`.
 6. **FD-8** last. It is an owner item: tags and first publishes.
+
+Lockfile: parallel items all touch `package-lock.json`. On conflict, take the main branch's lockfile,
+then run `npm install` and commit the regenerated file.
 
 Risk first: the module contract (FD-3) and the migrator (FD-4) carry the most design risk, so
 they come before the UI breadth (FD-6).
@@ -98,8 +103,9 @@ they come before the UI breadth (FD-6).
   publisher to a workflow file name per package); changesets vs. plain `npm version -w`; how a
   brand-new package does its first publish (staged approval by the owner).
 - **Risk:** medium. Publishing mistakes are public and versions cannot be reused.
-- **Baseline:** no release path. After: a dry-run tag on a throwaway pre-release version proves
-  the flow (or a documented `workflow_dispatch` dry run).
+- **Baseline:** no release path. After: a `workflow_dispatch` dry run (pack, validate, no publish)
+  passes in CI. The first real tag is the owner's (FD-8); expect this item to end as
+  `done_code (…; waiting: first tagged release)`.
 - **PRD refs:** FR-2, G-4.
 
 ### FD-3: Module contract in @softure-ai/core
@@ -111,7 +117,8 @@ they come before the UI breadth (FD-6).
   `safeError` helper, with unit tests and a README per docs/02 §11.
 - **Prerequisites:** FD-1.
 - **Unknowns:** how server actions read the registered config (docs/02 §8, global registry vs.
-  explicit import); the shape of `module.json` vs. the TS manifest (single source of truth).
+  explicit import). Record the choice as provisional: identity ID-1 (`next-actions-spike`) confirms
+  or replaces it; the shape of `module.json` vs. the TS manifest (single source of truth).
 - **Risk:** high. Every module depends on this contract.
 - **Baseline:** none. After: a dummy module defined, validated and listed in a test app config.
 - **PRD refs:** FR-3, FR-4, NFR-6.
@@ -166,7 +173,8 @@ they come before the UI breadth (FD-6).
 - **Status:** ready
 - **Outcome:** `examples/next-app` (Next 16) consuming core, db and ui through `softure.config.ts`,
   running migrations on Postgres in Docker, with Playwright e2e in `.github/workflows/e2e.yml`.
-  This is the harness every later module adds scenarios to.
+  This is the harness every later module adds scenarios to. Sets `integration.local` in
+  `context/workflow.json` to the e2e command, so orchestrators run it before READY.
 - **Prerequisites:** FD-4, FD-6.
 - **Unknowns:** workspace linking vs. packed tarballs in e2e (packed is closer to real consumers).
 - **Risk:** low.

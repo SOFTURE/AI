@@ -11,7 +11,10 @@ archived_at: null
 
 ## Intent
 
-`@softure-ai/db` with a pg/PGlite client chosen by `DATABASE_URL`; `softure migrate` applying each module's SQL in its own schema in dependency order with a `softure.migrations` journal, checksums, an advisory lock, `--plan` and `--adopt`; and `createTestDatabase(modules)`. Bundle-friendly for a container migrate step.
+`@softure-ai/db` with a pg/PGlite client chosen by `DATABASE_URL`;
+`softure migrate` applying each module's SQL in its own schema in dependency order with a
+`softure.migrations` journal, checksums, an advisory lock, `--plan` and `--adopt`; and
+`createTestDatabase(modules)`. Bundle-friendly for a container migrate step.
 
 ## Context
 

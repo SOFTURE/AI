@@ -11,7 +11,10 @@ archived_at: null
 
 ## Intent
 
-`defineSoftureConfig` (zod-validated), `defineModule` (manifest, dependencies, migrations, routes, switches, privacy contributors), `Result<T, ErrorCode>`, `Clock`, messages with `pl`/`en` dictionaries and partial overrides, `locale`/`timezone`, and a `safeError` helper, with unit tests and a README per docs/02 §11.
+`defineSoftureConfig` (zod-validated), `defineModule` (manifest, dependencies,
+migrations, routes, switches, privacy contributors), `Result<T, ErrorCode>`, `Clock`,
+messages with `pl`/`en` dictionaries and partial overrides, `locale`/`timezone`, and a
+`safeError` helper, with unit tests and a README per docs/02 §11.
 
 ## Context
 
@@ -26,7 +29,8 @@ From [`roadmap.md`](../../foundation/roadmap.md), item **FD-3** (roadmap `founda
 >   `safeError` helper, with unit tests and a README per docs/02 §11.
 > - **Prerequisites:** FD-1.
 > - **Unknowns:** how server actions read the registered config (docs/02 §8, global registry vs.
->   explicit import); the shape of `module.json` vs. the TS manifest (single source of truth).
+>   explicit import). Record the choice as provisional: identity ID-1 (`next-actions-spike`) confirms
+>   or replaces it; the shape of `module.json` vs. the TS manifest (single source of truth).
 > - **Risk:** high. Every module depends on this contract.
 > - **Baseline:** none. After: a dummy module defined, validated and listed in a test app config.
 > - **PRD refs:** FR-3, FR-4, NFR-6.

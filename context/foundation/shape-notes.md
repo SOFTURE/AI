@@ -9,7 +9,7 @@ status: accepted
 # Shape notes: tested building blocks that AI agents assemble instead of rewriting
 
 Source: the owner's shaping session on 2026-10-02 (decisions recorded below), the module
-assessment in `docs/01-module-assessment.md` and the FIRE_TRACKER codebase (`../FIRE_TRACKER`).
+assessment in `docs/01-module-assessment.md` and the FIRE_TRACKER codebase (`../../FIRE_TRACKER`, a sibling of the SOFTURE folder; local only).
 
 ## Current system
 

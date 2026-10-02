@@ -11,7 +11,10 @@ archived_at: null
 
 ## Intent
 
-a `<package>@x.y.z` tag (e.g. `core@0.1.0`) validates the package, publishes `@softure-ai/<package>` to npm through trusted publishing with provenance, publishes `@softure/<package>` to GitHub Packages and creates a GitHub Release with the tarball, the same way as SOFTURE/SKILLS (`release.yml` there is the reference).
+a `<package>@x.y.z` tag (e.g. `core@0.1.0`) validates the package, publishes
+`@softure-ai/<package>` to npm through trusted publishing with provenance, publishes
+`@softure/<package>` to GitHub Packages and creates a GitHub Release with the tarball, the same
+way as SOFTURE/SKILLS (`release.yml` there is the reference).
 
 ## Context
 
@@ -29,8 +32,9 @@ From [`roadmap.md`](../../foundation/roadmap.md), item **FD-2** (roadmap `founda
 >   publisher to a workflow file name per package); changesets vs. plain `npm version -w`; how a
 >   brand-new package does its first publish (staged approval by the owner).
 > - **Risk:** medium. Publishing mistakes are public and versions cannot be reused.
-> - **Baseline:** no release path. After: a dry-run tag on a throwaway pre-release version proves
->   the flow (or a documented `workflow_dispatch` dry run).
+> - **Baseline:** no release path. After: a `workflow_dispatch` dry run (pack, validate, no publish)
+>   passes in CI. The first real tag is the owner's (FD-8); expect this item to end as
+>   `done_code (…; waiting: first tagged release)`.
 > - **PRD refs:** FR-2, G-4.
 
 Reference material: `docs/02-module-standard.md` (the standard), `docs/01-module-assessment.md` (source map in FIRE_TRACKER).

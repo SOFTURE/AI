@@ -52,7 +52,7 @@ source map, 02 the module standard, 03 the marketing-kit, 04 the skills, 05 the 
 | ID | Requirement (observable behaviour) | Priority | Goal | Module |
 |---|---|---|---|---|
 | FR-1 | A monorepo build produces typed ESM packages and compiled CSS; gates (typecheck, lint, unit) run in CI on every push | must | G-4 | tooling |
-| FR-2 | A `vX` tag per package publishes it to npm (OIDC, provenance) and GitHub Packages and creates a GitHub Release with the tarball | must | G-4 | tooling |
+| FR-2 | A per-package tag (`<package>@x.y.z`, e.g. `core@0.1.0`) publishes `@softure-ai/<package>` to npm (OIDC, provenance), `@softure/<package>` to GitHub Packages, and creates a GitHub Release with the tarball | must | G-4 | tooling |
 | FR-3 | `defineSoftureConfig` validates the app config at startup; a module is enabled by being listed | must | G-1 | @softure-ai/core |
 | FR-4 | Modules expose `Result`/error codes, an injectable clock and DB, and messages with partial overrides | must | G-3 | @softure-ai/core |
 | FR-5 | `softure migrate` applies each enabled module's SQL migrations in its own schema, in dependency order, with checksums, a lock, `--plan` and `--adopt` | must | G-1 | @softure-ai/db |

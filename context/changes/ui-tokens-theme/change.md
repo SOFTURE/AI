@@ -11,7 +11,9 @@ archived_at: null
 
 ## Intent
 
-`--sft-*` token contract with light and dark defaults, `SoftureThemeProvider` (object or `design.json` input), a theme switch with a no-flash boot script, a Tailwind 4 bridge file, and the build that emits `styles.css` in `@layer softure`.
+`--sft-*` token contract with light and dark defaults, `SoftureThemeProvider`
+(object or `design.json` input), a theme switch with a no-flash boot script, a Tailwind 4
+bridge file, and the build that emits `styles.css` in `@layer softure`.
 
 ## Context
 

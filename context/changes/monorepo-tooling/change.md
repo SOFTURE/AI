@@ -78,3 +78,19 @@ Reference material: `docs/02-module-standard.md` (the standard), `docs/01-module
 - No release, tag or publish by the agent; the owner tags releases.
 
 ## Notes
+
+Execution notes (readiness review, 2026-10-02):
+- Gates in `context/workflow.json` are `null` until this change. From phase 1 on, use the root
+  `npm run typecheck|lint|test` this change creates, and set the gates in this branch's `workflow.json`.
+- Language gate and test (a): allowlist backticked FIRE_TRACKER source paths and route slugs quoted in
+  docs, roadmaps and backlog (e.g. `src/app/nie-pamietam-hasla/`). They are references to real paths,
+  not prose. Do not edit files outside this change to make the gate pass.
+- Roadmap test (b): `wt-roadmap.py` writes `**in_progress** (...)` in the row and plain `in_progress (...)`
+  in the item block. Compare statuses with `**` stripped, and accept the whole WORKFLOW §5 vocabulary,
+  or every gate goes red while items are in flight.
+- The owner's shell has `NODE_ENV=production`. `.npmrc` (`include=dev`) covers installs. The test
+  script or `vitest.config` must force `NODE_ENV=test`, or React tests fail later (FD-5, FD-6).
+- `prepare` (`lefthook install`) writes into the shared `.git/hooks`. The roadmap header tells the
+  manager to run `npm ci` in the main tree after merging this change.
+- Reference sources: `../../FIRE_TRACKER/lefthook.yml`, `../../FIRE_TRACKER/eslint.config.mjs`,
+  `../../FIRE_TRACKER/vitest.config.mts`, and the pre-push gates section of `../../FIRE_TRACKER/AGENTS.md`.

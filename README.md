@@ -10,7 +10,8 @@ Sister repositories:
   that knows how to use these modules.
 - .NET libraries: [COMMON](https://github.com/SOFTURE/COMMON) and [API](https://github.com/SOFTURE/API).
 
-> Status: **foundations**. The structure, module standard and assessment are ready; there is no code yet.
+> Status: **planned, implementation starting**. Structure, module standard, PRD and roadmaps are ready;
+> package code arrives through the main roadmap (`context/foundation/roadmap.md`).
 > The first source of modules is the FIRE_TRACKER project (see `docs/01-module-assessment.md`).
 
 ## Repository layout
@@ -50,6 +51,26 @@ docs/                assessment, module standard, plans
 
 Everything in this repository is written in English: code, identifiers, comments, commit
 messages and docs. User-facing copy lives only in message dictionaries. See [AGENTS.md](AGENTS.md).
+
+## Working on this repository
+
+```bash
+npm ci        # .npmrc forces devDependencies, which installs the agent skills into .claude/skills/
+```
+
+Development runs on the `softure-*` agent workflow from [`@softure-ai/skills`](https://github.com/SOFTURE/SKILLS):
+
+| Where | What |
+|---|---|
+| `context/workflow.json` | gates, main branch, worktree setup, research sources |
+| `context/foundation/shape-notes.md`, `prd.md` | why and what (PRD v1, FR/NFR IDs) |
+| `context/foundation/roadmap.md` | **the main roadmap being executed** (foundation, FD-1…FD-8) |
+| `context/foundation/roadmaps/` | queued roadmaps: identity, engagement, monetization, marketing-kit |
+| `context/changes/` | changes in flight (one folder per change) |
+| `context/backlog/roadmap-<slug>/` | prepared entries of queued roadmaps |
+
+Run the main roadmap end to end with `/softure-worktree-manager` (parallel git worktrees, merges on
+completion), or one item with `/softure-worktree <ID>`. Agents never tag or publish; the owner does.
 
 ## License
 

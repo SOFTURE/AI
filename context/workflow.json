@@ -1,12 +1,31 @@
 {
   "language": "en",
   "mainBranch": "master",
-  "gates": { "typecheck": null, "lint": null, "test": null },
-  "integration": { "local": null, "remote": null },
+  "gates": {
+    "typecheck": null,
+    "lint": null,
+    "test": null
+  },
+  "integration": {
+    "local": null,
+    "remote": null
+  },
   "migrations": null,
-  "worktree": { "setup": ["npm ci --include=dev"], "maxParallel": 4 },
-  "release": { "owner": true },
+  "worktree": {
+    "setup": [
+      "npm ci --include=dev"
+    ],
+    "maxParallel": 4
+  },
+  "release": {
+    "owner": true
+  },
   "research": {
-    "sources": ["docs/", "../FIRE_TRACKER/"]
+    "sources": [
+      "docs/",
+      "../../FIRE_TRACKER/",
+      "../SKILLS/",
+      "../API/.github/workflows/"
+    ]
   }
 }
