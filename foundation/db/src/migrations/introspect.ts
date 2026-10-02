@@ -5,7 +5,8 @@
 // Left out on purpose: dropped columns (`attisdropped`), objects that belong to an extension
 // (`pg_depend.deptype = 'e'`), NOT NULL rows of pg_constraint (PG 18 has them, PG 16 does not;
 // nullability is compared through `attnotnull`), grants, comments, column order, row-level
-// security policies and view bodies.
+// security policies and view bodies. Composite types appear as their type line plus one column
+// line per attribute.
 import type { MigrationSession } from "./session.js";
 
 const NOT_IN_EXTENSION = (catalog: string, alias: string): string =>
@@ -22,17 +23,20 @@ const RELATION_KINDS: Readonly<Record<string, string>> = {
 
 const QUERIES = {
   relations: `
-    SELECT c.relname, c.relkind
+    SELECT c.relname, c.relkind, c.relpersistence
     FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
     WHERE n.nspname = $1 AND c.relkind IN ('r', 'p', 'v', 'm', 'S', 'f') AND ${NOT_IN_EXTENSION("pg_class", "c")}`,
   columns: `
     SELECT c.relname, a.attname, format_type(a.atttypid, a.atttypmod) AS type, a.attnotnull AS not_null,
+      CASE WHEN a.attcollation <> 0 AND a.attcollation <> t.typcollation THEN quote_ident(coll.collname) END AS collation,
       pg_get_expr(d.adbin, d.adrelid) AS default_expr, a.attidentity AS identity, a.attgenerated AS generated
     FROM pg_attribute a
       JOIN pg_class c ON c.oid = a.attrelid
       JOIN pg_namespace n ON n.oid = c.relnamespace
+      JOIN pg_type t ON t.oid = a.atttypid
+      LEFT JOIN pg_collation coll ON coll.oid = a.attcollation
       LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
-    WHERE n.nspname = $1 AND c.relkind IN ('r', 'p', 'v', 'm', 'f') AND a.attnum > 0 AND NOT a.attisdropped
+    WHERE n.nspname = $1 AND c.relkind IN ('r', 'p', 'v', 'm', 'f', 'c') AND a.attnum > 0 AND NOT a.attisdropped
       AND ${NOT_IN_EXTENSION("pg_class", "c")}`,
   constraints: `
     SELECT c.relname, con.conname, pg_get_constraintdef(con.oid, true) AS definition
@@ -46,6 +50,13 @@ const QUERIES = {
       JOIN pg_class i ON i.oid = x.indexrelid
       JOIN pg_namespace n ON n.oid = i.relnamespace
     WHERE n.nspname = $1 AND ${NOT_IN_EXTENSION("pg_class", "i")}`,
+  sequences: `
+    SELECT c.relname, format_type(s.seqtypid, NULL) AS type, s.seqstart::text AS start, s.seqincrement::text AS increment,
+      s.seqmin::text AS min, s.seqmax::text AS max, s.seqcache::text AS cache, s.seqcycle AS cycle
+    FROM pg_sequence s
+      JOIN pg_class c ON c.oid = s.seqrelid
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = $1 AND ${NOT_IN_EXTENSION("pg_class", "c")}`,
   triggers: `
     SELECT c.relname, t.tgname, pg_get_triggerdef(t.oid, true) AS definition
     FROM pg_trigger t
@@ -60,18 +71,35 @@ const QUERIES = {
   types: `
     SELECT t.typname, t.typtype,
       CASE t.typtype
+        WHEN 'r' THEN (SELECT format_type(r.rngsubtype, NULL) FROM pg_range r WHERE r.rngtypid = t.oid)
         WHEN 'e' THEN (SELECT string_agg(e.enumlabel, ', ' ORDER BY e.enumsortorder) FROM pg_enum e WHERE e.enumtypid = t.oid)
         WHEN 'd' THEN format_type(t.typbasetype, t.typtypmod)
       END AS definition
     FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
-    WHERE n.nspname = $1 AND t.typtype IN ('e', 'd') AND ${NOT_IN_EXTENSION("pg_type", "t")}`,
+    WHERE n.nspname = $1 AND ${NOT_IN_EXTENSION("pg_type", "t")}
+      AND (t.typtype IN ('e', 'd', 'r')
+        OR (t.typtype = 'c' AND (SELECT c.relkind FROM pg_class c WHERE c.oid = t.typrelid) = 'c'))`,
 } as const;
+
+const TYPE_KINDS: Readonly<Record<string, string>> = { e: "enum", d: "domain", r: "range", c: "composite type" };
+
+interface SequenceRow {
+  relname: string;
+  type: string;
+  start: string;
+  increment: string;
+  min: string;
+  max: string;
+  cache: string;
+  cycle: boolean;
+}
 
 interface ColumnRow {
   relname: string;
   attname: string;
   type: string;
   not_null: boolean;
+  collation: string | null;
   default_expr: string | null;
   identity: string;
   generated: string;
@@ -82,8 +110,12 @@ export async function describeSchema(session: MigrationSession, schema: string):
   await session.exec("BEGIN READ ONLY; SET LOCAL search_path = pg_catalog;");
   try {
     const lines = [
-      ...(await session.query<{ relname: string; relkind: string }>(QUERIES.relations, [schema])).map(
-        (row) => `${RELATION_KINDS[row.relkind] ?? row.relkind} ${schema}.${row.relname}`,
+      ...(await session.query<{ relname: string; relkind: string; relpersistence: string }>(QUERIES.relations, [schema])).map(
+        (row) => `${row.relpersistence === "u" ? "unlogged " : ""}${RELATION_KINDS[row.relkind] ?? row.relkind} ${schema}.${row.relname}`,
+      ),
+      ...(await session.query<SequenceRow>(QUERIES.sequences, [schema])).map(
+        (row) =>
+          `sequence ${schema}.${row.relname}: ${row.type} start ${row.start} increment ${row.increment} min ${row.min} max ${row.max} cache ${row.cache}${row.cycle ? " cycle" : ""}`,
       ),
       ...(await session.query<ColumnRow>(QUERIES.columns, [schema])).map((row) => describeColumn(schema, row)),
       ...(await session.query<{ relname: string; conname: string; definition: string }>(QUERIES.constraints, [schema])).map(
@@ -99,7 +131,7 @@ export async function describeSchema(session: MigrationSession, schema: string):
         (row) => `function ${schema}.${row.signature}: body ${row.definition_hash}`,
       ),
       ...(await session.query<{ typname: string; typtype: string; definition: string | null }>(QUERIES.types, [schema])).map(
-        (row) => `${row.typtype === "e" ? "enum" : "domain"} ${schema}.${row.typname}: ${row.definition ?? ""}`,
+        (row) => `${TYPE_KINDS[row.typtype] ?? row.typtype} ${schema}.${row.typname}${row.definition === null ? "" : `: ${row.definition}`}`,
       ),
     ];
     return lines.sort();
@@ -120,6 +152,7 @@ export function diffSchemas(expected: readonly string[], actual: readonly string
 
 function describeColumn(schema: string, row: ColumnRow): string {
   const parts = [`column ${schema}.${row.relname}.${row.attname} ${row.type}`];
+  if (row.collation !== null) parts.push(`collate ${row.collation}`);
   if (row.not_null) parts.push("not null");
   if (row.generated === "s" || row.generated === "v") {
     parts.push(`generated as ${row.default_expr ?? ""}${row.generated === "s" ? " stored" : " virtual"}`);

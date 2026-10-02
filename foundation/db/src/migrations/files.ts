@@ -21,9 +21,12 @@ export interface MigrationFile {
 
 const FILE_NAME = /^(\d{4})_([a-z0-9]+(?:_[a-z0-9]+)*)\.sql$/;
 const ROLLBACK_NOTE = /rollback:/i;
-// A statement line that ends or opens a transaction would split the per-file transaction.
-// PL/pgSQL `BEGIN` (no semicolon) and `END;` stay allowed.
-const TRANSACTION_CONTROL = /^\s*(?:(?:begin|commit|rollback)(?:\s+(?:transaction|work))?\s*;|start\s+transaction\b)/im;
+// Statements that end or open a transaction would split the per-file transaction (a top-level
+// `END;` commits). Bodies in quotes or dollar quotes (PL/pgSQL `BEGIN … END;`) are not statements.
+const TRANSACTION_KEYWORDS = new Set(["begin", "commit", "rollback", "end", "abort"]);
+const TRANSACTION_PHRASES = [["start", "transaction"], ["prepare", "transaction"]];
+// Comments, quoted strings, quoted identifiers and dollar-quoted bodies, in that order of match.
+const NON_CODE = /--[^\n]*|\/\*[\s\S]*?\*\/|'(?:[^']|'')*'|"(?:[^"]|"")*"|(\$[A-Za-z_]*\$)[\s\S]*?\1/g;
 
 /** Normalises line ends so a Windows checkout does not look like an edited migration. */
 export function normalizeSql(text: string): string {
@@ -47,8 +50,9 @@ export function createMigrationFile(fileName: string, text: string): MigrationFi
   if (!hasRollbackNote(sql)) {
     return 'the file must open with a comment stating the rollback plan, e.g. "-- Rollback: DROP TABLE notes;"';
   }
-  if (TRANSACTION_CONTROL.test(sql)) {
-    return "the file must not control transactions (BEGIN; COMMIT; ROLLBACK; START TRANSACTION): the migrator runs each file in its own transaction";
+  const control = findTransactionControl(sql);
+  if (control !== null) {
+    return `the file must not control transactions ("${control}"): the migrator runs each file in its own transaction`;
   }
   return { version, name: match[2] ?? "", fileName, sql, checksum: computeChecksum(sql) };
 }
@@ -90,6 +94,19 @@ function checkNumbering(moduleId: string, files: readonly MigrationFile[]): Migr
     }
   });
   return problems;
+}
+
+/** The first top-level statement that begins, ends or aborts a transaction, or null. */
+export function findTransactionControl(sql: string): string | null {
+  const statements = sql.replace(NON_CODE, " ").split(";");
+  for (const statement of statements) {
+    const words = statement.trim().toLowerCase().split(/\s+/);
+    const [first = "", second = ""] = words;
+    if (TRANSACTION_KEYWORDS.has(first) || TRANSACTION_PHRASES.some(([verb, noun]) => first === verb && second === noun)) {
+      return words.slice(0, 3).join(" ");
+    }
+  }
+  return null;
 }
 
 /** The leading `--` comment block (after blank lines) must mention "Rollback:". */

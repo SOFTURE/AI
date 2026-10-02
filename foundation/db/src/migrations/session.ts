@@ -30,6 +30,10 @@ export async function withSession<T>(handle: DatabaseHandle, run: (session: Migr
   }
 
   const client = await handle.pool.connect();
+  // A dropped connection makes pg emit 'error' on the client; without a listener Node crashes the
+  // process. The pending query rejects on its own, so the listener only has to exist.
+  const ignoreClientError = (): void => undefined;
+  client.on("error", ignoreClientError);
   try {
     return await run({
       query: async <R>(text: string, params?: readonly unknown[]) => (await client.query(text, params ? [...params] : undefined)).rows as R[],
@@ -39,5 +43,6 @@ export async function withSession<T>(handle: DatabaseHandle, run: (session: Migr
     });
   } finally {
     client.release(true);
+    client.off("error", ignoreClientError);
   }
 }

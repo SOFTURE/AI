@@ -97,17 +97,35 @@ describe("readMigrationFiles", () => {
     expect((await readMigrationFiles("notes", dir)).ok).toBe(true);
   });
 
-  it.each(["BEGIN;", "commit;", "ROLLBACK WORK;", "start transaction isolation level serializable;"])(
-    "rejects a file with the transaction statement %s",
-    async (statement) => {
-      const [problem] = await readProblems(createFolder({ "0001_a.sql": `${ROLLBACK}${statement}\nSELECT 1;\n` }));
+  it.each([
+    ["BEGIN;", "begin"],
+    ["commit;", "commit"],
+    ["ROLLBACK WORK;", "rollback work"],
+    ["start transaction isolation level serializable;", "start transaction isolation"],
+    ["SELECT 1; COMMIT;", "commit"],
+    ["SELECT 1;\nEND;", "end"],
+    ["ABORT;", "abort"],
+    ["COMMIT AND CHAIN;", "commit and chain"],
+    ["COMMIT -- done\n;", "commit"],
+    ["BEGIN ISOLATION LEVEL SERIALIZABLE;", "begin isolation level"],
+    ["PREPARE TRANSACTION 'x';", "prepare transaction"],
+  ])("rejects a file with the transaction statement %j", async (statement, found) => {
+    const [problem] = await readProblems(createFolder({ "0001_a.sql": `${ROLLBACK}CREATE TABLE a (id int);\n${statement}\n` }));
 
-      expect(problem?.code === "db.invalid_migration_file" && problem.reason).toContain("must not control transactions");
-    },
-  );
+    expect(problem?.code === "db.invalid_migration_file" && problem.reason).toBe(
+      `the file must not control transactions ("${found}"): the migrator runs each file in its own transaction`,
+    );
+  });
+
+  it("ignores transaction words inside strings, identifiers and comments", async () => {
+    const body = "-- COMMIT; here is a comment\nINSERT INTO t VALUES ('end; commit;');\nCREATE TABLE \"begin\" (id int);\n/* ROLLBACK; */ SELECT 1;\n";
+
+    expect((await readMigrationFiles("notes", createFolder({ "0001_a.sql": `${ROLLBACK}${body}` }))).ok).toBe(true);
+  });
 
   it("accepts PL/pgSQL blocks with BEGIN and END;", async () => {
-    const body = "CREATE FUNCTION f() RETURNS int LANGUAGE plpgsql AS $$\nBEGIN\n  RETURN 1;\nEND;\n$$;\n";
+    const body =
+      "CREATE FUNCTION f() RETURNS int LANGUAGE plpgsql AS $$\nBEGIN\n  RETURN 1;\nEND;\n$$;\nDO $body$ BEGIN PERFORM 1; END; $body$;\n";
 
     expect((await readMigrationFiles("notes", createFolder({ "0001_a.sql": `${ROLLBACK}${body}` }))).ok).toBe(true);
   });

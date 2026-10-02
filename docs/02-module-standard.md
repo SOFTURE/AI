@@ -78,7 +78,8 @@ Rules:
     `information_schema` and `pg_*` are reserved;
   - order follows the `dependsOn` graph, and within a module the numbering (1..n, no gaps);
   - each file runs in its own transaction with its ledger row, inside the module schema
-    (`SET LOCAL search_path TO <schema>, public`), so files must not contain `BEGIN;`/`COMMIT;`;
+    (`SET LOCAL search_path TO <schema>, public`), so no top-level statement may begin, end or
+    abort a transaction (`BEGIN`, `COMMIT`, `END`, `ROLLBACK`, `ABORT`);
   - the run holds a session `pg_advisory_lock`; every applied file is checked first (edited,
     renamed, deleted or out of order refuses the whole run before anything is applied);
   - CLI: `softure migrate` (bin, or an app script calling `runMigrateCli`, which esbuild bundles
@@ -90,7 +91,7 @@ Rules:
   then `--adopt` marks the module migrations as applied after checking that the schema in the
   database matches the expected one: the module's migrations are applied to a scratch PGlite and
   both schemas are compared through `pg_catalog` (relations, columns, constraint and index names
-  and definitions, triggers, functions, enums, domains); any difference refuses. Details in
+  and definitions, sequences, triggers, functions and types); any difference refuses. Details in
   [05](05-adoption-playbook.md).
 - Domain columns never land in module tables. The app keeps them in its own 1:1 table
   (`public.user_profiles(user_id → auth.users.id)`).

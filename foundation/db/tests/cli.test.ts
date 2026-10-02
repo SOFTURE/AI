@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -135,6 +135,30 @@ describe("softure migrate", () => {
     expect(result.errors.join("\n")).not.toContain("hunter2");
   });
 
+  it("refuses to export into a folder that holds other files", async () => {
+    const dir = createTempDir();
+    mkdirSync(join(dir, "notes"));
+    writeFileSync(join(dir, "notes", "handler.ts"), "export {};\n");
+    writeFileSync(join(dir, "notes", "0009_stale.sql"), "-- old export\n");
+
+    const result = await run(["--export-migrations", dir], null);
+
+    expect(result.code).toBe(1);
+    expect(result.errors).toEqual([`notes: ${join(dir, "notes")} holds other files (handler.ts); export into an empty folder`]);
+    expect(readdirSync(join(dir, "notes")).sort()).toEqual(["0009_stale.sql", "handler.ts"]);
+  });
+
+  it("replaces the SQL files of an earlier export", async () => {
+    const dir = createTempDir();
+    mkdirSync(join(dir, "notes"));
+    writeFileSync(join(dir, "notes", "0009_stale.sql"), "-- old export\n");
+
+    const result = await run(["--export-migrations", dir], null);
+
+    expect(result.code).toBe(0);
+    expect(readdirSync(join(dir, "notes")).sort()).toEqual(["0001_create_notes.sql", "0002_add_notes_title_index.sql"]);
+  });
+
   it("exports module files without a database and migrates from the export", async () => {
     const dir = createTempDir();
 
@@ -181,6 +205,20 @@ describe("the softure bin", () => {
     expect(notConfig).toMatchObject({ code: 1, errors: [expect.stringContaining("must export (default or as \"config\")")] });
     expect(missing).toMatchObject({ code: 1, errors: [expect.stringContaining("does not exist")] });
     expect(none).toMatchObject({ code: 1, errors: [expect.stringContaining("no config found")] });
+  });
+
+  it("prints the help without needing a config", async () => {
+    const result = await runBin(["migrate", "--help"], createTempDir());
+
+    expect(result.code).toBe(0);
+    expect(result.lines[0]).toContain("Usage: softure migrate");
+  });
+
+  it.each([[["migrate", "--config"]], [["migrate", "--config", "--plan"]]])("rejects %j without a config path", async (argv) => {
+    const result = await runBin(argv);
+
+    expect(result.code).toBe(2);
+    expect(result.errors[0]).toBe("softure migrate: --config needs a file path");
   });
 
   it("rejects an unknown command", async () => {

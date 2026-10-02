@@ -57,6 +57,9 @@ export async function createDatabase(url: string, options: CreateDatabaseOptions
     const { default: pg } = await import("pg");
     const { drizzle } = await import("drizzle-orm/node-postgres");
     const pool = new pg.Pool({ connectionString: url, max: options.max ?? 10 });
+    // An idle client that loses its connection emits 'error' on the pool; unhandled, it would
+    // crash the process. The pool drops that client and the next query opens a new one.
+    pool.on("error", () => undefined);
     return { kind: "postgres", db: drizzle({ client: pool }), pool, close: () => pool.end() };
   }
   throw new Error(

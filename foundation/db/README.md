@@ -87,7 +87,7 @@ ships as code.
 | `--plan` | print what would be applied (or adopted); change nothing |
 | `--adopt <module>@<version>` | record an existing schema as migrated after comparing it (section 5) |
 | `--migrations-dir <dir>` | read module files from `<dir>/<module id>/` |
-| `--export-migrations <dir>` | copy module files to `<dir>/<module id>/` and exit; needs no database |
+| `--export-migrations <dir>` | copy module files to `<dir>/<module id>/` and exit; needs no database; replaces older `.sql` copies and refuses a module folder holding anything else |
 
 Exit codes: 0 done, 1 a problem or failure (each printed on stderr), 2 a usage error.
 
@@ -103,8 +103,11 @@ module_version, method ('applied' | 'adopted'), applied_at`, primary key `(modul
 
 **Module files** (`migrations/NNNN_<lower_snake>.sql`, numbered 1..n without gaps):
 - the file opens with a comment block that contains `Rollback:` and says how to undo it;
-- it may not contain `BEGIN;`, `COMMIT;`, `ROLLBACK;` or `START TRANSACTION` (PL/pgSQL `BEGIN … END;`
-  is fine): each file runs in its own transaction, together with its ledger row;
+- no top-level statement may begin, end or abort a transaction (`BEGIN`, `COMMIT`, `ROLLBACK`,
+  `END`, `ABORT`, `START TRANSACTION`, `PREPARE TRANSACTION`); bodies in quotes or dollar quotes
+  (PL/pgSQL `BEGIN … END;`) are fine, SQL-standard `BEGIN ATOMIC` bodies are not. Each file runs in
+  its own transaction with its ledger row, and a file that still ended it is reported as such,
+  not as rolled back;
 - unqualified names land in the module's schema: the runner runs `CREATE SCHEMA IF NOT EXISTS` and
   `SET LOCAL search_path TO <schema>, public` first. Name other modules' tables with their schema
   (`REFERENCES notes.notes (id)`), and create extensions `WITH SCHEMA public`.
@@ -123,8 +126,9 @@ closed after the run, never returned to the pool.
 **Adoption** ([docs/05](../../docs/05-adoption-playbook.md) step 3): after the app's own migration
 moved its tables into the module's schema, `--adopt <module>@<version>` (with `--plan` first)
 builds the schema the module's migrations create on a scratch PGlite and compares it with the live
-one through `pg_catalog`: relations, columns (type, not null, default, identity, generated),
-constraints and indexes (names and definitions), triggers, functions, enums and domains. Only an
+one through `pg_catalog`: relations (and whether they are unlogged), columns (type, collation,
+not null, default, identity, generated), sequences with their parameters, constraints and indexes
+(names and definitions), triggers, functions, and enum, domain, range and composite types. Only an
 exact match records the files as `adopted`; every difference is printed (`missing in database: …`,
 `unexpected in database: …`). The version must equal the enabled module's, the module must be new
 to the ledger, and the modules it depends on must be fully migrated or adopted first. Undo:

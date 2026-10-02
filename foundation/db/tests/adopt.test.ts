@@ -1,8 +1,8 @@
-import { writeFileSync } from "node:fs";
+import { rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { adoptModule, describeProblem, migrate, type DatabaseHandle, type MigrationResult } from "@softure-ai/db";
-import { copyFixtureMigrations, createNotesModule, createTagsModule } from "./fixtures/modules.js";
+import { copyFixtureMigrations, createFixtureModule, createNotesModule, createTagsModule } from "./fixtures/modules.js";
 import { createTestDrivers } from "./support/drivers.js";
 import { execSql, hasSchema, queryRows, readLedger } from "./support/query.js";
 
@@ -133,8 +133,28 @@ describe.each(createTestDrivers())("adoptModule on $name", (driver) => {
     expect(getDifferences(result)).toEqual([
       "missing in database: column tags.tags.id integer not null default nextval('tags.tags_id_seq'::regclass)",
       "missing in database: sequence tags.tags_id_seq",
+      "missing in database: sequence tags.tags_id_seq: integer start 1 increment 1 min 1 max 2147483647 cache 1",
       "unexpected in database: column tags.tags.id integer not null default nextval('public.tags_id_seq'::regclass)",
     ]);
+  });
+
+  it.each([
+    ["a composite type", "CREATE TYPE pair AS (a int, b int);", "", "missing in database: composite type extras.pair"],
+    ["a column collation", "CREATE TABLE items (title text COLLATE \"C\");", "CREATE TABLE extras.items (title text);", 'missing in database: column extras.items.title text collate "C"'],
+    ["sequence parameters", "CREATE SEQUENCE counter START 1000 INCREMENT 5;", "CREATE SEQUENCE extras.counter;", "missing in database: sequence extras.counter: bigint start 1000 increment 5 min 1 max 9223372036854775807 cache 1"],
+    ["an unlogged table", "CREATE UNLOGGED TABLE scratch (id int);", "CREATE TABLE extras.scratch (id int);", "missing in database: unlogged table extras.scratch"],
+  ])("refuses a schema that lacks %s", async (_label, moduleSql, appSql, difference) => {
+    const handle = await openAppDatabase(`CREATE SCHEMA extras; ${appSql}`);
+    const copy = copyFixtureMigrations("notes");
+    cleanups.push(copy.cleanup);
+    rmSync(join(copy.path, "0001_create_notes.sql"));
+    rmSync(join(copy.path, "0002_add_notes_title_index.sql"));
+    writeFileSync(join(copy.path, "0001_create_extras.sql"), `-- Rollback: DROP SCHEMA extras CASCADE;\n${moduleSql}\n`);
+    const extras = createFixtureModule({ id: "extras", migrationsDir: copy.dir });
+
+    const result = await adoptModule(handle, { modules: [extras], module: "extras", version: "0.1.0" });
+
+    expect(getDifferences(result)).toContain(difference);
   });
 
   it("adopts a dependent module once its dependency is in the ledger", async () => {

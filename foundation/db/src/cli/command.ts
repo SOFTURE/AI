@@ -6,7 +6,7 @@ import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { SoftureConfig } from "@softure-ai/core";
-import { EXIT_FAILED, EXIT_USAGE, MIGRATE_USAGE, runMigrateCli, type CliOutput } from "./run.js";
+import { EXIT_FAILED, EXIT_OK, EXIT_USAGE, MIGRATE_USAGE, runMigrateCli, type CliOutput } from "./run.js";
 
 export interface RunSoftureCommandOptions {
   readonly argv: readonly string[];
@@ -31,7 +31,17 @@ export async function runSoftureCommand(options: RunSoftureCommandOptions): Prom
     return EXIT_USAGE;
   }
 
-  const { configPath, argv } = takeConfigOption(rest);
+  if (rest.includes("--help")) {
+    output.log(MIGRATE_USAGE);
+    return EXIT_OK;
+  }
+  const taken = takeConfigOption(rest);
+  if (typeof taken === "string") {
+    output.error(`softure migrate: ${taken}`);
+    output.error(MIGRATE_USAGE);
+    return EXIT_USAGE;
+  }
+  const { configPath, argv } = taken;
   const path = configPath === undefined ? findDefaultConfig(options.cwd) : resolve(options.cwd, configPath);
   if (path === undefined) {
     output.error(`softure: no config found; looked for ${DEFAULT_CONFIG_FILES.join(", ")} in ${options.cwd}; pass --config <file>`);
@@ -45,13 +55,17 @@ export async function runSoftureCommand(options: RunSoftureCommandOptions): Prom
   return runMigrateCli({ config, argv, cwd: options.cwd, output });
 }
 
-function takeConfigOption(argv: readonly string[]): { configPath: string | undefined; argv: string[] } {
+function takeConfigOption(argv: readonly string[]): { configPath: string | undefined; argv: string[] } | string {
   const rest: string[] = [];
   let configPath: string | undefined;
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index] ?? "";
     if (arg === "--config") {
-      configPath = argv[index + 1];
+      const value = argv[index + 1];
+      if (value === undefined || value.startsWith("--")) {
+        return "--config needs a file path";
+      }
+      configPath = value;
       index += 1;
     } else if (arg.startsWith("--config=")) {
       configPath = arg.slice("--config=".length);

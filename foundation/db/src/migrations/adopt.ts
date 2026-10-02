@@ -12,6 +12,7 @@ import {
   compareJournal,
   migrate,
   prepareUnits,
+  rollBack,
   withMigrationLock,
   type MigrationStep,
   type MigrationUnit,
@@ -163,14 +164,8 @@ async function writeAdoption(session: MigrationSession, units: readonly Migratio
     await session.exec("COMMIT");
     return null;
   } catch (error) {
-    await session.exec("ROLLBACK");
+    const reason = await rollBack(session, error);
     const first = unit.files[0];
-    return {
-      code: "db.migration_failed",
-      module: unit.module,
-      version: first?.version ?? 0,
-      name: first?.name ?? "",
-      reason: error instanceof Error ? error.message : String(error),
-    };
+    return { code: "db.migration_failed", module: unit.module, version: first?.version ?? 0, name: first?.name ?? "", reason };
   }
 }

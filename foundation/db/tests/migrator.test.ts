@@ -11,6 +11,9 @@ import {
   type MigrationResult,
 } from "@softure-ai/db";
 import { LEDGER_FILES } from "../src/migrations/ledger.js";
+import { applyFile } from "../src/migrations/migrator.js";
+import { withSession } from "../src/migrations/session.js";
+import { computeChecksum } from "../src/migrations/files.js";
 import { copyFixtureMigrations, createFixtureModule, createNotesModule, createTagsModule } from "./fixtures/modules.js";
 import { createTestDrivers } from "./support/drivers.js";
 import { POSTGRES_ADMIN_URL, createPostgresDatabaseUrl } from "./support/postgres.js";
@@ -198,6 +201,26 @@ describe.each(createTestDrivers())("migrator on $name", (driver) => {
     expect((await migrate(handle, { modules: [createNotesModule(notes.dir)] })).ok).toBe(true);
   });
 
+  it("does not call a file rolled back when it ended the transaction itself", async () => {
+    const handle = await driver.open();
+    await migrate(handle, { modules: [] });
+    // Bypasses the file check on purpose: the runner's own guard must still notice.
+    const sql = "CREATE TABLE committed_early (id int);\nCOMMIT;\nCREATE TABLE after_commit (id int);\n";
+    const file = { version: 1, name: "sneaky", fileName: "0001_sneaky.sql", sql, checksum: computeChecksum(sql) };
+    const unit = { module: "sneaky", schema: "sneaky", moduleVersion: "0.1.0", files: [file] };
+
+    const problem = await withSession(handle, (session) => applyFile(session, { unit, file, method: "applied" }));
+
+    expect(problem).toEqual({
+      code: "db.migration_failed",
+      module: "sneaky",
+      version: 1,
+      name: "sneaky",
+      reason: "the file ended the migrator's transaction, so the statements before that point may be committed; check the schema by hand",
+    });
+    expect(await readLedger(handle)).toEqual([{ module: "softure", version: 1, name: "ledger", method: "applied" }]);
+  });
+
   it.each([
     ["the ledger id", { id: "softure", dbSchema: "softure_data" }],
     ["the ledger schema", { id: "ledgerish", dbSchema: "softure" }],
@@ -286,6 +309,22 @@ describe.runIf(POSTGRES_ADMIN_URL !== undefined)("migrator on a shared Postgres"
     const appliedCounts = [one, two].map((result) => (result.ok ? result.value.applied.length : -1)).sort();
     expect(appliedCounts).toEqual([0, 5]);
     expect(await readLedger(first)).toHaveLength(5);
+  });
+
+  it("survives a connection lost in the middle of a run", async () => {
+    const [handle, other] = await openTwice();
+    const notes = copyFolder("notes");
+    writeFileSync(join(notes.path, "0003_lose_connection.sql"), "-- Rollback: nothing to undo.\nSELECT pg_terminate_backend(pg_backend_pid());\n");
+
+    const attempt = await migrate(handle, { modules: [createNotesModule(notes.dir)] }).then(
+      (result) => (result.ok ? "applied" : result.error),
+      (error: unknown) => (error instanceof Error ? "thrown" : "unknown"),
+    );
+
+    expect(["db.migration_failed", "thrown"]).toContain(attempt);
+    expect((await readLedger(other)).map((row) => `${row.module}/${row.version}`)).toEqual(["softure/1", "notes/1", "notes/2"]);
+    // The pool still works: the lock was released with the dead connection.
+    expect((await planMigrations(handle, { modules: [createNotesModule(notes.dir)] })).ok).toBe(true);
   });
 
   it("does not leak a SET from a migration file into later pooled queries", async () => {

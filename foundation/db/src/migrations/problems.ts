@@ -19,6 +19,7 @@ export type MigrationProblem =
   | { readonly code: "db.adopt_dependency_pending"; readonly module: string; readonly dependency: string }
   | { readonly code: "db.adopt_no_schema"; readonly module: string }
   | { readonly code: "db.adopt_reference_failed"; readonly module: string; readonly reason: string }
+  | { readonly code: "db.export_target_not_empty"; readonly module: string; readonly dir: string; readonly entries: readonly string[] }
   | { readonly code: "db.schema_mismatch"; readonly module: string; readonly schema: string; readonly differences: readonly string[] };
 
 export type MigrationErrorCode = MigrationProblem["code"];
@@ -71,6 +72,8 @@ export function describeProblem(problem: MigrationProblem): string {
       return `${problem.module}: has no dbSchema, so there is nothing to adopt`;
     case "db.adopt_reference_failed":
       return `${problem.module}: could not build the reference schema: ${problem.reason}`;
+    case "db.export_target_not_empty":
+      return `${problem.module}: ${problem.dir} holds other files (${problem.entries.join(", ")}); export into an empty folder`;
     case "db.schema_mismatch":
       return [
         `${problem.module}: schema "${problem.schema}" differs from what its migrations create:`,

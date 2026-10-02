@@ -186,8 +186,14 @@ export async function applyFile(
   const schema = quoteIdentifier(unit.schema);
   try {
     await session.exec(`BEGIN; CREATE SCHEMA IF NOT EXISTS ${schema}; SET LOCAL search_path TO ${schema}, public;`);
+    const startedAt = await readTransactionStart(session);
     if (method === "applied") {
       await session.exec(file.sql);
+    }
+    // Second line behind findTransactionControl: a file that still ended the transaction left
+    // part of itself committed, so it must not be reported as cleanly rolled back.
+    if ((await readTransactionStart(session)) !== startedAt) {
+      throw new TransactionEndedError();
     }
     await recordMigration(session, {
       module: unit.module,
@@ -200,19 +206,53 @@ export async function applyFile(
     await session.exec("COMMIT");
     return null;
   } catch (error) {
+    const reason = await rollBack(session, error);
+    return { code: "db.migration_failed", module: unit.module, version: file.version, name: file.name, reason };
+  }
+}
+
+class TransactionEndedError extends Error {
+  constructor() {
+    super("the file ended the migrator's transaction, so the statements before that point may be committed; check the schema by hand");
+  }
+}
+
+async function readTransactionStart(session: MigrationSession): Promise<string> {
+  const [row] = await session.query<{ started: string }>("SELECT now()::text AS started");
+  return row?.started ?? "";
+}
+
+/**
+ * Rolls the open transaction back and returns the reason to report. A failing ROLLBACK (a lost
+ * connection) is added to the reason instead of hiding the original error.
+ */
+export async function rollBack(session: MigrationSession, error: unknown): Promise<string> {
+  const reason = describeError(error);
+  try {
     await session.exec("ROLLBACK");
-    return { code: "db.migration_failed", module: unit.module, version: file.version, name: file.name, reason: describeError(error) };
+    return reason;
+  } catch (rollbackError) {
+    return `${reason} (and ROLLBACK failed: ${describeError(rollbackError)})`;
   }
 }
 
 /** Holds the session-level advisory lock while `run` runs; a second runner waits for it. */
 export async function withMigrationLock<T>(session: MigrationSession, run: () => Promise<T>): Promise<T> {
   await session.query("SELECT pg_advisory_lock($1)", [MIGRATION_LOCK_KEY]);
+  let result: T;
   try {
-    return await run();
-  } finally {
-    await session.query("SELECT pg_advisory_unlock($1)", [MIGRATION_LOCK_KEY]);
+    result = await run();
+  } catch (error) {
+    // The run's own error wins; an unlock failure here is secondary (the session is discarded).
+    await session.query("SELECT pg_advisory_unlock($1)", [MIGRATION_LOCK_KEY]).catch((unlockError: unknown) => {
+      throw new Error(`migration run failed (${describeError(error)}) and releasing the lock failed: ${describeError(unlockError)}`, {
+        cause: error,
+      });
+    });
+    throw error;
   }
+  await session.query("SELECT pg_advisory_unlock($1)", [MIGRATION_LOCK_KEY]);
+  return result;
 }
 
 function checkModule(module: AnySoftureModule): MigrationProblem[] {
