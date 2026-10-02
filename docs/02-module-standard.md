@@ -90,24 +90,29 @@ Rules:
 Three levels, from the most global:
 
 1. **Tokens (global theme).** `@softure-ai/ui` defines a contract of CSS variables prefixed with `--sft-`:
-   - semantic colors: `--sft-color-{background,surface,surface-raised,foreground,muted,border,accent,accent-fill,on-accent,danger,success,warning,focus}`;
-   - typography: `--sft-font-{sans,mono,heading}`, `--sft-text-{xs…display}`;
+   - semantic colors: `--sft-color-{background,surface,surface-raised,foreground,muted,border,border-strong,accent,accent-fill,accent-fill-hover,on-accent,danger,success,warning,focus}`;
+   - typography: `--sft-font-{sans,mono,heading}`, `--sft-text-{xs,sm,base,lg,xl,2xl,3xl,display}`;
    - shape: `--sft-radius-{control,card,pill}`, `--sft-space-{1…8}`, `--sft-shadow-{1,2}`;
    - motion: `--sft-duration-{fast,base,slow}`, `--sft-ease-{out,in-out}`.
 
-   Defaults cover a light and a dark theme (`[data-theme]` + `prefers-color-scheme`).
-   The app can override them in three ways: in CSS, through
-   `<SoftureThemeProvider theme={{ light: {...}, dark: {...} }}>`, or by importing a `design.json`
-   (Impeccable format). The mapping onto the app's Tailwind 4 is a ready-made file,
-   `@softure-ai/ui/tailwind.css` (`@theme inline { --color-accent: var(--sft-color-accent) … }`).
+   Defaults cover a light and a dark theme (`[data-theme]` + `prefers-color-scheme`); colours and
+   shadows have a value per scheme, the rest is shared. The app can override them in three ways: in
+   CSS, through `<SoftureThemeProvider theme={{ light: {...}, dark: {...}, shared: {...} }}>`, or by
+   passing a `design.json` (Impeccable, `schemaVersion: 2`) as `design`. The mapping onto the app's
+   Tailwind 4 is a ready-made file, `@softure-ai/ui/tailwind.css`
+   (`@theme inline { --color-accent: var(--sft-color-accent) … }`). Decided in FD-5 (`ui-tokens-theme`);
+   the token list lives in `foundation/ui/src/theme/tokens.ts`.
 2. **Slots (a single instance).** Every composite component accepts
    `classNames={{ root, header, field, label, input, error, actions, … }}`; the slot list is typed.
 3. **`unstyled`.** The component renders only structure, ARIA and behavior; the app styles the rest.
 
 **Decision:** components are written in Tailwind 4 on the `--sft-*` tokens, but we
-**publish compiled CSS** (`@softure-ai/<module>/styles.css`, `sft-*` classes,
-`@layer softure`). The app does not need Tailwind or to scan `node_modules`,
-and an app class always wins, because `@layer softure` has lower precedence.
+**publish compiled CSS** (`@softure-ai/<module>/styles.css`, `sft:` prefixed classes such as
+`sft:bg-surface`, `@layer softure`). The app does not need Tailwind or to scan `node_modules`,
+and an app class always wins: `styles.css` opens with
+`@layer theme, base, softure, components, utilities;`, so softure sits above the app's resets and
+below its components and utilities. The app imports `styles.css` before its own Tailwind. How the
+build works: [`foundation/ui/README.md`](../foundation/ui/README.md#how-the-css-is-built).
 
 Forbidden (enforced by an architecture test, as in FIRE):
 - a raw color or size outside a token;

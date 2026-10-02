@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    // The CSS build script is checked JavaScript (JSDoc), like the root scripts/.
+    "allowJs": true,
+    "checkJs": true
+  },
+  "include": ["src/**/*", "tests/**/*", "scripts/**/*"]
+}
