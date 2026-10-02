@@ -81,7 +81,7 @@ Additive only. Rollback: revert the merge; the guestbook goes back to the `Strin
 #### Automated
 - [x] 2.1 `next build` lists the package's page and API route; the package migration applies — 5f9335a
 - [x] 2.2 `npm run e2e` green locally (10 tests) — 5f9335a
-- [ ] 2.3 `e2e` workflow green on the pull request
+- [x] 2.3 `e2e` workflow green on the pull request — 4b15862 (run 37033234213)
 
 ### Phase 3: Verdict in the standard
 
