@@ -106,6 +106,12 @@ Three levels, from the most global:
    `classNames={{ root, header, field, label, input, error, actions, … }}`; the slot list is typed.
 3. **`unstyled`.** The component renders only structure, ARIA and behavior; the app styles the rest.
 
+The primitives every module builds on (Button, Modal, Toast, Select, Switch, Checkbox,
+SegmentedControl, the form fields, Card, Stat, Hint, ActionForm, icons) live in `@softure-ai/ui` and
+follow all three levels; built-in copy comes through `locale` and partial `messages`. Decided in FD-6
+(`ui-primitives`); the list and usage are in
+[`foundation/ui/README.md`](../foundation/ui/README.md#primitives).
+
 **Decision:** components are written in Tailwind 4 on the `--sft-*` tokens, but we
 **publish compiled CSS** (`@softure-ai/<module>/styles.css`, `sft:` prefixed classes such as
 `sft:bg-surface`, `@layer softure`). The app does not need Tailwind or to scan `node_modules`,

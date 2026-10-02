@@ -9,8 +9,10 @@ export type ButtonSlot = "root" | "spinner";
 
 // Height comes from one fixed `h-*` per size, never from vertical padding, so a button, a field and
 // a select in one row line up whatever the font. Icons are sized by the button (`[&>svg]`).
+// No preflight is assumed (the app may not use Tailwind): every button sets its own box, margin,
+// border and background, and links lose their underline.
 const BASE =
-  "sft:inline-flex sft:shrink-0 sft:select-none sft:items-center sft:justify-center sft:font-sans sft:transition sft:duration-(--sft-duration-fast) sft:ease-(--sft-ease-out) sft:active:scale-97 sft:focus-visible:outline-2 sft:focus-visible:outline-offset-2 sft:focus-visible:outline-focus sft:disabled:cursor-not-allowed sft:disabled:opacity-50 sft:disabled:active:scale-100 sft:aria-busy:cursor-progress sft:[&>svg]:shrink-0";
+  "sft:m-0 sft:box-border sft:inline-flex sft:shrink-0 sft:cursor-pointer sft:no-underline sft:select-none sft:items-center sft:justify-center sft:font-sans sft:transition sft:duration-(--sft-duration-fast) sft:ease-(--sft-ease-out) sft:active:scale-97 sft:focus-visible:outline-2 sft:focus-visible:outline-offset-2 sft:focus-visible:outline-focus sft:disabled:cursor-not-allowed sft:disabled:opacity-50 sft:disabled:active:scale-100 sft:aria-busy:cursor-progress sft:[&>svg]:shrink-0";
 
 const SIZE: Readonly<Record<ButtonSize, string>> = {
   sm: "sft:h-8 sft:gap-1.5 sft:rounded-control sft:px-3 sft:text-xs sft:[&>svg]:size-3.5",
@@ -19,11 +21,11 @@ const SIZE: Readonly<Record<ButtonSize, string>> = {
 };
 
 const VARIANT: Readonly<Record<ButtonVariant, string>> = {
-  primary: "sft:bg-accent-fill sft:font-semibold sft:text-on-accent sft:not-disabled:hover:bg-accent-fill-hover",
+  primary: "sft:border sft:border-transparent sft:bg-accent-fill sft:font-semibold sft:text-on-accent sft:not-disabled:hover:bg-accent-fill-hover",
   secondary:
     "sft:border sft:border-border-strong sft:bg-transparent sft:font-medium sft:text-foreground sft:not-disabled:hover:border-foreground sft:not-disabled:hover:bg-foreground/5",
   ghost:
-    "sft:font-medium sft:text-muted sft:not-disabled:hover:bg-foreground/5 sft:not-disabled:hover:text-foreground",
+    "sft:border sft:border-transparent sft:bg-transparent sft:font-medium sft:text-muted sft:not-disabled:hover:bg-foreground/5 sft:not-disabled:hover:text-foreground",
   danger:
     "sft:border sft:border-danger/40 sft:bg-danger/10 sft:font-medium sft:text-danger sft:not-disabled:hover:border-danger sft:not-disabled:hover:bg-danger sft:not-disabled:hover:text-background",
 };
@@ -164,7 +166,7 @@ export type IconButtonSize = "sm" | "md" | "lg";
 export type IconButtonSlot = "root";
 
 const ICON_BASE =
-  "sft:inline-flex sft:shrink-0 sft:items-center sft:justify-center sft:transition sft:duration-(--sft-duration-fast) sft:ease-(--sft-ease-out) sft:active:scale-94 sft:focus-visible:outline-2 sft:focus-visible:outline-offset-2 sft:focus-visible:outline-focus sft:disabled:cursor-not-allowed sft:disabled:opacity-50";
+  "sft:m-0 sft:box-border sft:inline-flex sft:shrink-0 sft:cursor-pointer sft:bg-transparent sft:p-0 sft:items-center sft:justify-center sft:transition sft:duration-(--sft-duration-fast) sft:ease-(--sft-ease-out) sft:active:scale-94 sft:focus-visible:outline-2 sft:focus-visible:outline-offset-2 sft:focus-visible:outline-focus sft:disabled:cursor-not-allowed sft:disabled:opacity-50";
 
 // sm and md share the 32 px target: sm is a row action with a smaller glyph, md stands alone.
 const ICON_SIZE: Readonly<Record<IconButtonSize, string>> = {
@@ -178,7 +180,10 @@ const ICON_TONE: Readonly<Record<IconButtonTone, string>> = {
   danger: "sft:text-muted sft:not-disabled:hover:bg-danger/10 sft:not-disabled:hover:text-danger",
 };
 
-const ICON_BORDER = { bordered: "sft:border sft:border-border-strong sft:not-disabled:hover:border-foreground", plain: "" } as const;
+const ICON_BORDER = {
+  bordered: "sft:border sft:border-border-strong sft:not-disabled:hover:border-foreground",
+  plain: "sft:border sft:border-transparent",
+} as const;
 
 export type IconButtonProps = Omit<
   ButtonHTMLAttributes<HTMLButtonElement>,

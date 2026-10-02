@@ -156,8 +156,8 @@ shows field errors after a rejected submit.
 ### Phase 2: Form controls
 
 #### Automated
-- [ ] 2.1 The phase 2 tests pass, FD-5 theme switch tests unchanged
-- [ ] 2.2 Gates green (typecheck, lint, test)
+- [x] 2.1 The phase 2 tests pass, FD-5 theme switch tests unchanged — 98480df
+- [x] 2.2 Gates green (typecheck, lint, test) — 98480df
 
 ### Phase 3: Modal, toast, action form, docs
 

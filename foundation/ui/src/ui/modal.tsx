@@ -1,0 +1,343 @@
+"use client";
+
+import {
+  type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+} from "react";
+import { createPortal } from "react-dom";
+import { Button, IconButton } from "./button.js";
+import { type ClassNames, createSlotClassGetter } from "./class-names.js";
+import { type CopyProps, getCopy } from "./copy.js";
+import { FormError } from "./feedback.js";
+import { CloseIcon } from "./icons.js";
+
+// A modal dialog: a header with the title and a close button, a scrolling body and a footer with
+// the actions. Ported from FIRE_TRACKER src/components/modal.tsx (its one-screen side panel left
+// out). While open: focus moves into the panel and Tab cycles inside it, everything else in
+// `<body>` is `inert` (live regions excepted, so a toast is still announced), the page does not
+// scroll, and closing returns focus to the element that opened it.
+
+export type ModalWidth = "form" | "confirmation";
+export type ModalSlot = "overlay" | "panel" | "header" | "heading" | "title" | "subtitle" | "close";
+
+export interface ModalProps extends CopyProps<"modal"> {
+  readonly title: string;
+  /** One line under the title; it becomes the dialog's description. */
+  readonly subtitle?: string;
+  /** `form` (default): half the screen with limits; `confirmation`: a narrow dialog. */
+  readonly width?: ModalWidth;
+  readonly onClose: () => void;
+  /**
+   * `false` while closing would lose work in progress (a save that is running): Escape, the
+   * backdrop and the close button do nothing.
+   */
+  readonly isDismissible?: boolean;
+  readonly children: ReactNode;
+  readonly classNames?: ClassNames<ModalSlot>;
+  readonly unstyled?: boolean;
+}
+
+// The overlay animates in with `@starting-style` (`starting:`), so no keyframes or extra CSS.
+const OVERLAY_BASE =
+  "sft:fixed sft:inset-0 sft:z-50 sft:flex sft:items-end sft:justify-center sft:bg-background/80 sft:font-sans sft:transition-opacity sft:duration-(--sft-duration-base) sft:ease-(--sft-ease-out) sft:starting:opacity-0 sft:motion-reduce:transition-none sft:sm:items-center sft:sm:p-4";
+
+// On a phone the dialog is a sheet from the bottom; from `sm` it stands in the middle.
+const PANEL_BASE =
+  "sft:box-border sft:flex sft:max-h-[92dvh] sft:w-full sft:flex-col sft:rounded-t-card sft:border sft:border-b-0 sft:border-border sft:bg-surface sft:text-left sft:text-sm sft:text-foreground sft:shadow-2 sft:transition-transform sft:duration-(--sft-duration-base) sft:ease-(--sft-ease-out) sft:starting:translate-y-4 sft:focus:outline-none sft:motion-reduce:transition-none sft:sm:max-h-[calc(100dvh-var(--sft-space-8)*2)] sft:sm:rounded-card sft:sm:border-b";
+
+const PANEL_WIDTH: Readonly<Record<ModalWidth, string>> = {
+  form: "sft:sm:w-1/2 sft:sm:min-w-136 sft:sm:max-w-3xl",
+  confirmation: "sft:sm:max-w-md",
+};
+
+const MODAL_CLASSES: Readonly<Record<Exclude<ModalSlot, "overlay" | "panel">, string>> = {
+  header: "sft:flex sft:shrink-0 sft:items-start sft:justify-between sft:gap-4 sft:border-b sft:border-border sft:px-5 sft:pt-4 sft:pb-3.5",
+  heading: "sft:min-w-0",
+  title: "sft:m-0 sft:font-heading sft:text-lg sft:font-semibold sft:tracking-tight sft:text-foreground",
+  subtitle: "sft:mt-1 sft:mb-0 sft:text-xs sft:text-muted",
+  close: "sft:-mr-1.5",
+};
+
+/** A dialog over the page. Render it while it is open; unmounting closes it. */
+export function Modal({
+  title,
+  subtitle,
+  width = "form",
+  onClose,
+  isDismissible = true,
+  children,
+  classNames,
+  unstyled,
+  locale,
+  messages,
+}: ModalProps) {
+  const titleId = useId();
+  const subtitleId = useId();
+  const panelRef = useRef<HTMLDivElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLElement | null>(null);
+  const pressedBackdropRef = useRef(false);
+  const copy = getCopy("modal", { locale, messages });
+
+  const close = useCallback(() => {
+    if (isDismissible) onClose();
+  }, [isDismissible, onClose]);
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      // A prevented Escape was handled inside (an open select list closes first).
+      if (event.key === "Escape" && !event.defaultPrevented) close();
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [close]);
+
+  useLayoutEffect(() => {
+    const overlay = overlayRef.current;
+    if (overlay === null) return;
+    const active = document.activeElement;
+    if (triggerRef.current === null && active instanceof HTMLElement && active !== document.body && !overlay.contains(active)) {
+      triggerRef.current = active;
+    }
+    const disabled = makeSiblingsInert(overlay);
+    panelRef.current?.focus();
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      for (const element of disabled) element.inert = false;
+      document.body.style.overflow = previousOverflow;
+      returnFocus(triggerRef.current, overlay);
+    };
+  }, []);
+
+  const handlePanelKeyDown = useCallback((event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.defaultPrevented || event.key !== "Tab" || panelRef.current === null) return;
+    const target = getNextFocusTarget(getTabbableElements(panelRef.current), document.activeElement, event.shiftKey);
+    if (target !== null) {
+      event.preventDefault();
+      target.focus();
+    }
+  }, []);
+
+  // Close only on a click that both started and ended on the backdrop: a text selection dragged
+  // out of the panel must not close the dialog.
+  function handleBackdropMouseDown(event: ReactMouseEvent) {
+    pressedBackdropRef.current = event.target === event.currentTarget;
+  }
+  function handleBackdropClick(event: ReactMouseEvent) {
+    if (event.target === event.currentTarget && pressedBackdropRef.current) close();
+    pressedBackdropRef.current = false;
+  }
+
+  const slot = createSlotClassGetter<ModalSlot>({
+    defaults: { overlay: OVERLAY_BASE, panel: `${PANEL_BASE} ${PANEL_WIDTH[width]}`, ...MODAL_CLASSES },
+    classNames,
+    unstyled,
+  });
+
+  const overlay = (
+    <div ref={overlayRef} onMouseDown={handleBackdropMouseDown} onClick={handleBackdropClick} className={slot("overlay")}>
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={subtitle === undefined ? undefined : subtitleId}
+        tabIndex={-1}
+        onKeyDown={handlePanelKeyDown}
+        className={slot("panel")}
+      >
+        <div data-modal-part="header" className={slot("header")}>
+          <div className={slot("heading")}>
+            <h2 id={titleId} className={slot("title")}>
+              {title}
+            </h2>
+            {subtitle === undefined ? null : (
+              <p id={subtitleId} className={slot("subtitle")}>
+                {subtitle}
+              </p>
+            )}
+          </div>
+          <IconButton
+            label={copy.close}
+            onClick={close}
+            disabled={!isDismissible}
+            classNames={{ root: slot("close") }}
+            unstyled={unstyled}
+          >
+            <CloseIcon />
+          </IconButton>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+
+  return typeof document === "undefined" ? overlay : createPortal(overlay, document.body);
+}
+
+export type ModalBodySlot = "root";
+
+/** The dialog's content; the only part that scrolls. */
+export function ModalBody({
+  children,
+  classNames,
+  unstyled,
+}: {
+  readonly children: ReactNode;
+  readonly classNames?: ClassNames<ModalBodySlot>;
+  readonly unstyled?: boolean;
+}) {
+  const slot = createSlotClassGetter<ModalBodySlot>({
+    defaults: { root: "sft:flex sft:min-h-0 sft:flex-col sft:gap-3 sft:overflow-y-auto sft:overscroll-contain sft:px-5 sft:py-4" },
+    classNames,
+    unstyled,
+  });
+  return (
+    <div data-modal-part="body" className={slot("root")}>
+      {children}
+    </div>
+  );
+}
+
+export type ModalFooterSlot = "root" | "actions";
+
+export interface ModalFooterProps extends CopyProps<"modal"> {
+  readonly onCancel: () => void;
+  /** A save is running: Cancel is disabled, so the dialog cannot close halfway. */
+  readonly isPending?: boolean;
+  /** The rejected save's error, above the buttons, where it is seen without scrolling. */
+  readonly error?: string;
+  /** The primary action, placed after Cancel in the right corner. */
+  readonly children?: ReactNode;
+  readonly classNames?: ClassNames<ModalFooterSlot>;
+  readonly unstyled?: boolean;
+}
+
+/** The dialog's actions: Cancel, then the primary action; leaves room for a phone's home bar. */
+export function ModalFooter({ onCancel, isPending = false, error, children, classNames, unstyled, locale, messages }: ModalFooterProps) {
+  const copy = getCopy("modal", { locale, messages });
+  const slot = createSlotClassGetter<ModalFooterSlot>({
+    defaults: {
+      root: "sft:flex sft:shrink-0 sft:flex-col sft:gap-3 sft:border-t sft:border-border sft:px-5 sft:pt-3 sft:pb-[max(var(--sft-space-3),env(safe-area-inset-bottom))]",
+      actions: "sft:flex sft:items-center sft:justify-end sft:gap-2",
+    },
+    classNames,
+    unstyled,
+  });
+  return (
+    <div data-modal-part="footer" className={slot("root")}>
+      <FormError message={error} unstyled={unstyled} />
+      <div className={slot("actions")}>
+        <Button variant="secondary" onClick={onCancel} disabled={isPending} unstyled={unstyled}>
+          {copy.cancel}
+        </Button>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * A form spanning the body and the footer, so a submit button in the footer submits the fields in
+ * the body. It takes no box of its own (`display: contents`).
+ */
+export function ModalForm({
+  action,
+  children,
+  classNames,
+  unstyled,
+}: {
+  readonly action: (formData: FormData) => void | Promise<void>;
+  readonly children: ReactNode;
+  readonly classNames?: ClassNames<"root">;
+  readonly unstyled?: boolean;
+}) {
+  const slot = createSlotClassGetter<"root">({ defaults: { root: "sft:contents" }, classNames, unstyled });
+  return (
+    <form action={action} className={slot("root")}>
+      {children}
+    </form>
+  );
+}
+
+/**
+ * Where Tab moves focus inside the dialog: from the last element to the first and back with
+ * Shift+Tab, and onto the first (or last) from the panel itself. `null` leaves the move to the
+ * browser (focus in the middle of the list).
+ */
+export function getNextFocusTarget<Element>(elements: readonly Element[], active: unknown, shiftKey: boolean): Element | null {
+  const first = elements[0];
+  const last = elements.at(-1);
+  if (first === undefined || last === undefined) return null;
+  const index = elements.findIndex((element) => element === active);
+  if (index === -1) return shiftKey ? last : first;
+  if (shiftKey && index === 0) return last;
+  if (!shiftKey && index === elements.length - 1) return first;
+  return null;
+}
+
+const TABBABLE = [
+  "a[href]",
+  "button",
+  'input:not([type="hidden"])',
+  "select",
+  "textarea",
+  "summary",
+  '[contenteditable]:not([contenteditable="false"])',
+  "[tabindex]",
+]
+  .map((selector) => `${selector}:not([tabindex="-1"])`)
+  .join(", ");
+
+function getTabbableElements(root: HTMLElement): HTMLElement[] {
+  return Array.from(root.querySelectorAll<HTMLElement>(TABBABLE)).filter(
+    (element) =>
+      !element.matches(":disabled") && element.getClientRects().length > 0 && getComputedStyle(element).visibility !== "hidden",
+  );
+}
+
+function isLiveRegion(element: HTMLElement): boolean {
+  const role = element.getAttribute("role");
+  return element.hasAttribute("aria-live") || role === "status" || role === "alert" || role === "log";
+}
+
+/** Makes every other child of `<body>` inert and returns them, for the cleanup to restore. */
+function makeSiblingsInert(overlay: HTMLElement): HTMLElement[] {
+  const disabled: HTMLElement[] = [];
+  for (const child of Array.from(document.body.children)) {
+    if (child === overlay || !(child instanceof HTMLElement) || child.inert || isLiveRegion(child)) continue;
+    child.inert = true;
+    disabled.push(child);
+  }
+  return disabled;
+}
+
+/**
+ * Returns focus to the opener, unless focus already went somewhere on purpose. An opener that a
+ * re-render replaced is found again by its `aria-label` (row actions are icon buttons).
+ */
+function returnFocus(trigger: HTMLElement | null, overlay: HTMLElement): void {
+  if (trigger === null) return;
+  const label = trigger.getAttribute("aria-label");
+  const focusTrigger = () => {
+    const active = document.activeElement;
+    const isFocusLost = active === null || active === document.body || !active.isConnected || overlay.contains(active);
+    if (!isFocusLost) return;
+    const target = trigger.isConnected ? trigger : findButtonByLabel(label);
+    target?.focus();
+  };
+  if (trigger.isConnected) focusTrigger();
+  requestAnimationFrame(focusTrigger);
+}
+
+function findButtonByLabel(label: string | null): HTMLElement | null {
+  if (label === null) return null;
+  return document.querySelector<HTMLElement>(`button[aria-label="${CSS.escape(label)}"]`);
+}

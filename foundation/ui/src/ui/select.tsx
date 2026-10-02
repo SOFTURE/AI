@@ -96,7 +96,7 @@ const DEFAULT_CLASSES: Readonly<Record<SelectSlot, string>> = {
   value: "sft:truncate",
   chevron:
     "sft:pointer-events-none sft:absolute sft:right-3 sft:top-1/2 sft:-translate-y-1/2 sft:text-muted sft:transition-[rotate] sft:duration-(--sft-duration-fast) sft:motion-reduce:transition-none",
-  list: "sft:z-40 sft:m-0 sft:max-w-[calc(100vw-var(--sft-space-4))] sft:list-none sft:overflow-y-auto sft:overscroll-contain sft:rounded-control sft:border sft:border-border-strong sft:bg-surface-raised sft:p-1 sft:shadow-2",
+  list: "sft:z-40 sft:m-0 sft:box-border sft:max-w-[calc(100vw-var(--sft-space-4))] sft:list-none sft:overflow-y-auto sft:overscroll-contain sft:rounded-control sft:border sft:border-border-strong sft:bg-surface-raised sft:p-1 sft:shadow-2",
   option:
     "sft:flex sft:min-h-10 sft:cursor-pointer sft:items-center sft:gap-2 sft:rounded-control sft:px-2.5 sft:text-sm sft:text-foreground sft:data-active:bg-accent/15 sft:aria-selected:font-medium",
   optionLabel: "sft:min-w-0 sft:flex-1",
