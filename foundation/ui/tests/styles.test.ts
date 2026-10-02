@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -18,6 +18,45 @@ beforeAll(() => {
   bridge = readFileSync(join(outDir, "tailwind.css"), "utf8");
 });
 afterAll(() => rmSync(outDir, { recursive: true, force: true }));
+
+const UI_DIR = join(import.meta.dirname, "../src/ui");
+
+/** Every `sft:` class written in the components' sources. */
+function getComponentClasses(): Set<string> {
+  const classes = new Set<string>();
+  for (const file of readdirSync(UI_DIR).filter((name) => /\.tsx?$/.test(name))) {
+    const source = readFileSync(join(UI_DIR, file), "utf8");
+    for (const [className] of source.matchAll(/\bsft:[^\s"'`]+/g)) classes.add(className);
+  }
+  return classes;
+}
+
+/** `group` and `peer` mark an element for variants of others and compile to no rule of their own. */
+function isMarkerClass(className: string): boolean {
+  return /^sft:(?:group|peer)(?:\/[\w-]+)?$/.test(className);
+}
+
+/** Whether the CSS has a selector for exactly this class (not merely for a longer one it prefixes). */
+function hasSelector(css: string, className: string): boolean {
+  const selector = `.${escapeClassName(className)}`;
+  let index = css.indexOf(selector);
+  while (index !== -1) {
+    if (/[\s{:,).[>+~]/.test(css.charAt(index + selector.length))) return true;
+    index = css.indexOf(selector, index + 1);
+  }
+  return false;
+}
+
+/** A class name as a CSS selector writes it (the `CSS.escape` rules Tailwind follows). */
+function escapeClassName(className: string): string {
+  return [...className]
+    .map((char, index) => {
+      if (/[a-zA-Z_-]/.test(char) || (/\d/.test(char) && index > 0)) return char;
+      if (/\d/.test(char)) return `\\${char.charCodeAt(0).toString(16)} `;
+      return `\\${char}`;
+    })
+    .join("");
+}
 
 /** Layer names in the order the stylesheet declares them, first declaration wins. */
 function getLayerOrder(css: string): string[] {
@@ -64,15 +103,22 @@ describe("styles.css", () => {
     expect(layer).toContain("prefers-color-scheme:dark");
   });
 
-  it("has a rule inside the softure layer for every class the theme switch renders", () => {
+  it("has a rule inside the softure layer for every class the components use", () => {
+    // A utility without a theme value compiles to nothing and no markup test notices, so every
+    // `sft:` class written in src/ui must have a selector in the compiled CSS.
     const layer = getSoftureLayer(styles);
+    const classes = getComponentClasses();
+    expect(classes.size).toBeGreaterThan(100);
+    const missing = [...classes].filter((className) => !isMarkerClass(className) && !hasSelector(layer, className));
+    expect(missing).toEqual([]);
+  });
+
+  it("renders the theme switch with classes the scan covers", () => {
     const html = renderToStaticMarkup(createElement(theme.ThemeSwitch));
-    const classes = new Set([...html.matchAll(/class="([^"]+)"/g)].flatMap(([, list]) => (list ?? "").split(" ")));
-    expect(classes.size).toBeGreaterThan(10);
-    for (const className of classes) {
-      const selector = `.${className.replace(/[\\:()[\]]/g, "\\$&")}`;
-      expect(layer, className).toContain(selector);
-    }
+    const rendered = [...html.matchAll(/class="([^"]+)"/g)].flatMap(([, list]) => (list ?? "").split(" "));
+    // Compared in the markup's escaped form: escaping the scan is one-way, so nothing is decoded twice.
+    const scanned = new Set([...getComponentClasses()].map((className) => className.replaceAll("&", "&amp;").replaceAll(">", "&gt;")));
+    expect(rendered.filter((className) => !scanned.has(className))).toEqual([]);
   });
 
   it("generates prefixed utilities only", () => {

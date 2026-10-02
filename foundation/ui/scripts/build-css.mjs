@@ -25,14 +25,35 @@ export const SIZE_BUDGET_BYTES = 20 * 1024;
  */
 export const LAYER_ORDER = "@layer theme, base, softure, components, utilities;";
 
-// Values Tailwind needs that are not tokens: zero for resets, and weights, which belong to a font,
-// not to a theme.
+// Values Tailwind needs that are not tokens. Without a theme value a utility compiles to nothing,
+// silently, so every namespace the components use is listed here:
+// - `--spacing` is the base of the numeric scale (`sft:h-10` = 2.5rem); `space-1…8` tokens still win
+//   for steps 1 to 8, so padding and gaps follow the theme;
+// - weights, line heights and tracking belong to a font, not to a theme;
+// - one breakpoint (`sft:sm:`), two container widths (modal panels) and the spinner animation.
 const STATIC_THEME = `@theme inline reference prefix(sft) {
+  --spacing: 0.25rem;
   --spacing-0: 0px;
   --font-weight-normal: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
+  --leading-none: 1;
+  --leading-snug: 1.375;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.625;
+  --tracking-tight: -0.025em;
+  --breakpoint-sm: 40rem;
+  --container-md: 28rem;
+  --container-3xl: 48rem;
+  --animate-spin: sft-spin 1s linear infinite;
+}`;
+
+/** Keyframes of `--animate-*`; a `reference` theme emits none of its own. */
+const KEYFRAMES = `@keyframes sft-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }`;
 
 /**
@@ -55,6 +76,7 @@ export function buildStylesInput(theme, sourceDir) {
     theme.buildTailwindTheme({ prefix: "sft" }),
     STATIC_THEME,
     `@layer softure {\n${theme.buildThemeCss(theme.DEFAULT_THEME, { fallback: true })}\n}`,
+    `@layer softure {\n${KEYFRAMES}\n}`,
     "",
   ].join("\n");
 }
