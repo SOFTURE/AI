@@ -74,9 +74,9 @@ options (config would import Next code; the role check already fails closed); a 
 ### Phase 1: Package, table and server functions
 
 #### Automated
-- [ ] 1.1 Server tests (options, value order, fail mode, env override, set, constraints, health) pass on PGlite
-- [ ] 1.2 `module.json` equals `toModuleJson(featureSwitches)` and the package passes `tests/repo/packages.test.ts`
-- [ ] 1.3 Gates green (typecheck, lint, test)
+- [x] 1.1 Server tests (options, value order, fail mode, env override, set, constraints, health) pass on PGlite — 17a8efb
+- [x] 1.2 `module.json` equals `toModuleJson(featureSwitches)` and the package passes `tests/repo/packages.test.ts` — 17a8efb
+- [x] 1.3 Gates green (typecheck, lint, test) — 17a8efb
 
 ### Phase 2: Next adapter, panel, example app and e2e
 

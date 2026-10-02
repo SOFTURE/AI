@@ -1,7 +1,7 @@
 ---
 change_id: feature-switches
 title: "Feature switches module: declared switches with env overrides and a fail mode, isEnabled and setSwitch, and an admin-only panel"
-status: plan_reviewed
+status: implementing
 roadmap_item: ID-6
 branch: claude/id-6-feature-switches-3xypko
 created: 2026-10-02
