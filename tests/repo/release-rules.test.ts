@@ -220,6 +220,46 @@ describe("checkPackedFiles", () => {
     ]);
   });
 
+  it.each(["dist/index.test.js", "dist/index.test.d.ts", "dist/ui/button.test.jsx"])(
+    "rejects the compiled test file %s",
+    (file) => {
+      expect(checkPackedFiles({ manifest, files: [...PACKED_FILES, file], sourceMaps: SOURCE_MAPS })).toEqual([
+        expect.stringContaining(file),
+      ]);
+    },
+  );
+
+  it("checks a string exports field as the root entry", () => {
+    const stringExports = buildManifest({ exports: "./dist/main.js" });
+    expect(checkPackedFiles({ manifest: stringExports, files: PACKED_FILES, sourceMaps: [] })).toEqual([
+      expect.stringContaining("dist/main.js"),
+    ]);
+  });
+
+  it("checks conditions nested below the first level", () => {
+    const nested = buildManifest({
+      exports: { ".": { import: { types: "./dist/index.d.ts", default: "./dist/missing.js" } } },
+    });
+    expect(checkPackedFiles({ manifest: nested, files: PACKED_FILES, sourceMaps: [] })).toEqual([
+      expect.stringMatching(/"\.".*default.*dist\/missing\.js/),
+    ]);
+  });
+
+  it("accepts a subpath pattern that matches a packed file and rejects one that matches none", () => {
+    const pattern = (target: string) => buildManifest({ exports: { "./*": target } });
+    expect(checkPackedFiles({ manifest: pattern("./dist/*.js"), files: PACKED_FILES, sourceMaps: [] })).toEqual([]);
+    expect(checkPackedFiles({ manifest: pattern("./lib/*.js"), files: PACKED_FILES, sourceMaps: [] })).toEqual([
+      expect.stringContaining("./lib/*.js"),
+    ]);
+  });
+
+  it("checks main and types when a manifest has them", () => {
+    const legacy = buildManifest({ main: "./dist/index.js", types: "./dist/types.d.ts" });
+    expect(checkPackedFiles({ manifest: legacy, files: PACKED_FILES, sourceMaps: SOURCE_MAPS })).toEqual([
+      expect.stringMatching(/types.*dist\/types\.d\.ts/),
+    ]);
+  });
+
   it("names a source map whose source is not in the tarball", () => {
     const sourceMaps = [{ path: "dist/server/index.js.map", sources: ["../../src/server/index.ts"] }];
     expect(checkPackedFiles({ manifest, files: PACKED_FILES, sourceMaps })).toEqual([

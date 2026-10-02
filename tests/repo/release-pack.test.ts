@@ -2,7 +2,7 @@
 // A copy, because packing writes into the package folder (the LICENSE) and the build writes `dist/`,
 // while other repository tests list and read the files of this checkout in parallel.
 import { execFileSync } from "node:child_process";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
@@ -72,5 +72,60 @@ describe("packPackage on the template", () => {
 
   it("refuses to release the private template", () => {
     expect(packTemplate(false).problems).toEqual([expect.stringContaining('"private": true')]);
+  });
+});
+
+describe("the pack command", () => {
+  const root = createTemplateRepository();
+  afterAll(() => rmSync(root, { recursive: true, force: true }));
+  const script = join(REPO_ROOT, "scripts/release/pack.mjs");
+
+  // A publishable package: the template without "private", at version 0.1.0 in both manifests.
+  for (const file of ["package.json", "module.json"]) {
+    const path = join(root, TEMPLATE_DIR, file);
+    const text = readFileSync(path, "utf8").replace('"version": "0.0.0"', '"version": "0.1.0"');
+    writeFileSync(path, text.replace('  "private": true,\n', ""));
+  }
+  execFileSync(join(REPO_ROOT, "node_modules/.bin/tsc"), ["-p", join(root, TEMPLATE_DIR, "tsconfig.build.json")]);
+
+  function runPack(args: string[], env: Record<string, string> = {}) {
+    try {
+      const stdout = execFileSync("node", [script, "--root", root, "--out", join(root, "out"), ...args], {
+        encoding: "utf8",
+        stdio: "pipe",
+        env: { ...process.env, GITHUB_OUTPUT: "", ...env },
+      });
+      return { status: 0, output: stdout };
+    } catch (error) {
+      const failed = error as { status: number; stdout: string; stderr: string };
+      return { status: failed.status, output: failed.stdout + failed.stderr };
+    }
+  }
+
+  it("writes the outputs the release workflow reads for a stable tag", () => {
+    const outputFile = join(root, "github-output");
+    writeFileSync(outputFile, "");
+    expect(runPack(["--tag", "template-module@0.1.0"], { GITHUB_OUTPUT: outputFile }).status).toBe(0);
+    expect(readFileSync(outputFile, "utf8").split("\n").filter(Boolean)).toEqual([
+      "tarball=softure-ai-template-module-0.1.0.tgz",
+      "name=@softure-ai/template-module",
+      "short-name=template-module",
+      "version=0.1.0",
+      "npm-tag=",
+      "prerelease=false",
+    ]);
+  });
+
+  it("refuses a tag whose version is not the package version", () => {
+    const result = runPack(["--tag", "template-module@0.2.0"]);
+    expect(result.status).toBe(1);
+    expect(result.output).toContain("the tag says 0.2.0");
+  });
+
+  it("names the known packages when a dry run asks for a missing one", () => {
+    const result = runPack(["--package", "missing", "--dry-run"]);
+    expect(result.status).toBe(1);
+    expect(result.output).toContain("@softure-ai/missing");
+    expect(result.output).toContain("@softure-ai/template-module");
   });
 });

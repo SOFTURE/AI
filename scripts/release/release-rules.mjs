@@ -10,7 +10,8 @@ export const REPOSITORY_URL = "git+https://github.com/SOFTURE/AI.git";
 const TAG_PATTERN = /^([a-z0-9][a-z0-9-]*)@(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$/;
 const TAG_FORM = "<package>@x.y.z (e.g. core@0.1.0)";
 const DEPENDENCY_FIELDS = ["dependencies", "peerDependencies", "optionalDependencies"];
-const TEST_FILE_PATTERN = /(^|\/)tests\/|\.test\.tsx?$/;
+// Sources and their compiled output: `x.test.ts`, `x.test.js`, `x.test.d.ts`, `x.test.jsx`, ….
+const TEST_FILE_PATTERN = /(^|\/)tests\/|\.test\.(d\.)?[cm]?[jt]sx?$/;
 
 /**
  * @typedef {{ ok: true, shortName: string, version: string, isPrerelease: boolean } | { ok: false, reason: string }} ParsedTag
@@ -106,7 +107,7 @@ function checkFilesField(files) {
  * @param {Map<string, string>} workspaceVersions
  * @returns {string[]}
  */
-function checkInternalRanges(manifest, workspaceVersions) {
+export function checkInternalRanges(manifest, workspaceVersions) {
   return DEPENDENCY_FIELDS.flatMap((field) => {
     const dependencies = manifest[field];
     if (!isRecord(dependencies)) return [];
@@ -171,6 +172,19 @@ function listExportTargets(target, entry, condition) {
 }
 
 /**
+ * Whether a target path (or a subpath pattern with one `*`) names at least one packed file.
+ * @param {string[]} files
+ * @param {string} target
+ * @returns {boolean}
+ */
+function hasPackedTarget(files, target) {
+  const path = posix.normalize(target);
+  if (!path.includes("*")) return files.includes(path);
+  const [prefix = "", suffix = ""] = path.split("*");
+  return files.some((file) => file.length > prefix.length + suffix.length && file.startsWith(prefix) && file.endsWith(suffix));
+}
+
+/**
  * Checks the file list of a packed tarball (paths relative to the package root).
  * @param {{ manifest: Record<string, unknown>, files: string[], sourceMaps: SourceMap[] }} input
  *   `sourceMaps` holds the `sources` of every packed `.map` file.
@@ -182,11 +196,22 @@ export function checkPackedFiles({ manifest, files, sourceMaps }) {
   for (const required of ["package.json", "README.md", "LICENSE"]) {
     if (!packed.has(required)) problems.push(`the tarball has no ${required}`);
   }
-  const exportsField = isRecord(manifest.exports) ? manifest.exports : {};
-  for (const [entry, target] of Object.entries(exportsField)) {
+  // A string or condition object is the root entry; an object keyed by subpaths lists entries.
+  const { exports: exportsField } = manifest;
+  const isSubpathMap = isRecord(exportsField) && Object.keys(exportsField).every((key) => key.startsWith("."));
+  /** @type {[string, unknown][]} */
+  const entries = isSubpathMap ? Object.entries(exportsField) : exportsField === undefined ? [] : [[".", exportsField]];
+  for (const [entry, target] of entries) {
     for (const [, condition, path] of listExportTargets(target, entry, "default")) {
-      const file = posix.normalize(path);
-      if (!packed.has(file)) problems.push(`exports "${entry}" ${condition} points at ${path}, which is not in the tarball`);
+      if (!hasPackedTarget(files, path)) {
+        problems.push(`exports "${entry}" ${condition} points at ${path}, which is not in the tarball`);
+      }
+    }
+  }
+  for (const field of ["main", "types"]) {
+    const path = manifest[field];
+    if (typeof path === "string" && !hasPackedTarget(files, path)) {
+      problems.push(`${field} points at ${path}, which is not in the tarball`);
     }
   }
   for (const file of files) {

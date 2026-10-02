@@ -14,7 +14,7 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import semver from "semver";
 import { readReleasePackages } from "./pack.mjs";
-import { findReleasePackage } from "./release-rules.mjs";
+import { checkInternalRanges, findReleasePackage } from "./release-rules.mjs";
 
 const BUMPS = ["patch", "minor", "major", "prepatch", "preminor", "premajor", "prerelease"];
 const VERSION_KEY = /"version"\s*:\s*"[^"]*"/g;
@@ -89,17 +89,40 @@ function runCli() {
     fail(`Bumping ${shortName}: "${bump}" is neither ${BUMPS.join(", ")} nor a version x.y.z`);
   }
 
-  const found = findReleasePackage(readReleasePackages(root), shortName);
+  const packages = readReleasePackages(root);
+  const found = findReleasePackage(packages, shortName);
   if (!found.ok) fail(found.reason);
   const { pkg } = found;
   if (pkg.manifest.private === true) fail(`Bumping ${pkg.name}: it is private and never released`);
   if (git(root, ["status", "--porcelain"]) !== "") fail(`Bumping ${pkg.name}: commit or stash your changes first`);
 
-  // Updates the workspace's package.json and the root lockfile; no git commit or tag of its own.
-  execFileSync("npm", ["version", bump, "-w", pkg.dir, "--no-git-tag-version"], { cwd: root, stdio: "inherit" });
-  const bumped = readReleasePackages(root).find((candidate) => candidate.dir === pkg.dir);
-  const version = String(bumped?.manifest.version);
+  const current = String(pkg.manifest.version);
+  const version = BUMPS.includes(bump) ? semver.inc(current, /** @type {semver.ReleaseType} */ (bump)) : bump;
+  if (!version || semver.lte(version, current)) fail(`Bumping ${pkg.name}: ${bump} from ${current} does not give a higher version`);
   const tag = getReleaseTag(shortName, version);
+
+  // A dependent whose range rejects the new version would make npm fetch the package from the
+  // registry instead of linking it, and fail every later release; stop before anything changes.
+  const workspaceVersions = new Map(packages.map((candidate) => [candidate.name, String(candidate.manifest.version)]));
+  workspaceVersions.set(pkg.name, version);
+  const rangeProblems = packages.flatMap((candidate) =>
+    checkInternalRanges(candidate.manifest, workspaceVersions).map((problem) => `${candidate.dir}: ${problem}`),
+  );
+  if (rangeProblems.length > 0) {
+    fail(
+      `Bumping ${pkg.name} to ${version} breaks dependents (nothing was changed):\n- ${rangeProblems.join("\n- ")}\n` +
+        "Widen their ranges in a commit of their own, then bump again.",
+    );
+  }
+
+  try {
+    // Updates the workspace's package.json and the root lockfile; no git commit or tag of its own.
+    execFileSync("npm", ["version", version, "-w", pkg.dir, "--no-git-tag-version"], { cwd: root, stdio: "inherit" });
+  } catch {
+    // npm printed its error above; the tree was clean, so restoring it loses nothing.
+    git(root, ["checkout", "--", "."]);
+    fail(`Bumping ${pkg.name} to ${version}: npm version failed (output above); the tree is restored`);
+  }
 
   const files = [join(pkg.dir, "package.json"), "package-lock.json"];
   const modulePath = join(root, pkg.dir, "module.json");

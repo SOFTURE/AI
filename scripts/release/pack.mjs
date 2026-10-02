@@ -6,6 +6,7 @@
 //   --all                      dry run of every workspace package
 //   --dry-run                  required with --package and --all
 //   --out <dir>                where the tarballs go (required)
+//   --root <dir>               repository root (default: this checkout; tests pack a copy)
 //
 // Run `npm run build` first: the tarball ships `dist/`. In a release run with GITHUB_OUTPUT set,
 // it writes `tarball`, `name`, `short-name`, `version`, `npm-tag` and `prerelease` for the
@@ -161,9 +162,9 @@ function writeGitHubOutput(values) {
 }
 
 function runCli() {
-  const root = fileURLToPath(new URL("../../", import.meta.url));
   const { values } = parseArgs({
     options: {
+      root: { type: "string" },
       tag: { type: "string" },
       package: { type: "string" },
       all: { type: "boolean", default: false },
@@ -172,6 +173,7 @@ function runCli() {
     },
   });
   if (!values.out) fail("Packing: --out <dir> is required");
+  const root = values.root ? resolve(values.root) : fileURLToPath(new URL("../../", import.meta.url));
   const modes = [values.tag !== undefined, values.package !== undefined, values.all].filter(Boolean).length;
   if (modes !== 1) fail("Packing: pass exactly one of --tag, --package or --all");
   if (values.tag !== undefined && values["dry-run"]) fail("Packing: --tag is a release run; use --package for a dry run");
@@ -201,7 +203,9 @@ function runCli() {
       name: found.pkg.name,
       "short-name": tag.shortName,
       version: tag.version,
-      "npm-tag": tag.isPrerelease ? "next" : "latest",
+      // Empty for a stable version: npm then applies `latest` itself and refuses to move it back to
+      // an older version (a backport), which an explicit `--tag latest` would silently allow.
+      "npm-tag": tag.isPrerelease ? "next" : "",
       prerelease: String(tag.isPrerelease),
     });
     return;

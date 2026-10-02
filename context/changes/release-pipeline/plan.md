@@ -132,9 +132,9 @@ Rejected: one workflow per package (SOFTURE/API style) - ten copies to keep in s
 ### Phase 4: Release workflow and runbook
 
 #### Automated
-- [ ] 4.1 The `release` workflow's `validate` job is green on this change's pull request, and the publish and release jobs are skipped
-- [x] 4.2 Links in `scripts/release/README.md` and `docs/02-module-standard.md` resolve (repository link test)
-- [x] 4.3 Gates green (typecheck, lint, test)
+- [x] 4.1 The `release` workflow's `validate` job is green on this change's pull request, and the publish and release jobs are skipped — 9fc93ca
+- [x] 4.2 Links in `scripts/release/README.md` and `docs/02-module-standard.md` resolve (repository link test) — 9fc93ca
+- [x] 4.3 Gates green (typecheck, lint, test) — 9fc93ca
 
 #### Manual
 - [ ] 4.4 A `workflow_dispatch` dry run on `master` is green after the merge

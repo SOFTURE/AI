@@ -21,13 +21,14 @@ npm run release:version -- core minor     # patch | minor | major | prerelease |
 git push origin master core@0.2.0         # the command prints the exact line
 ```
 
-`release:version` refuses a dirty tree and private packages. It runs `npm version` for the workspace
+`release:version` refuses a dirty tree, private packages and a bump that a dependent's
+`@softure-ai/*` range would no longer accept (widen that range in its own commit first). It runs `npm version` for the workspace
 (its `package.json` and the root lockfile), sets the same version in `module.json`, commits
 `chore(release): core@0.2.0` and creates the annotated tag. It does not push.
 
 The tag then runs the workflow:
 
-1. **validate and pack**: the gates (typecheck, lint, test), `npm run build`, then
+1. **validate and pack**: a check that the tag is on `master`, the gates (typecheck, lint, test), `npm run build`, then
    `npm run release:pack -- --tag core@0.2.0`. It refuses the release when the tag, `package.json` and
    `module.json` disagree on the version, the package is private, `repository` or `publishConfig` is
    wrong, an internal `@softure-ai/*` range does not accept the workspace version, or the tarball
@@ -41,8 +42,15 @@ Then **approve the staged version** on npmjs.com (package page → Staged Packag
 previous version. A wrong version is rejected instead (`npm stage reject <stage-id>`); fix it, bump
 again and tag the new version. A version number, once approved, can never be reused.
 
+GitHub Packages and the GitHub Release do not wait for that approval: if you reject the npm stage,
+delete the GitHub Release and the `@softure/<package>` version by hand (Packages → package →
+Manage versions).
+
 A version with a prerelease suffix (`1.0.0-beta.0`) goes to the `next` dist-tag on both registries
-and makes a GitHub prerelease.
+and makes a GitHub prerelease. A stable version gets npm's default `latest`; npm refuses to move
+`latest` back to a lower version, so a backport (e.g. `0.1.5` after `0.2.0`) fails until it gets a
+dist-tag of its own. Push at most three tags at once: GitHub starts no workflow for a push of more
+than three tags.
 
 ## First release of a new package
 

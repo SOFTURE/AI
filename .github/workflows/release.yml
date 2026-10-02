@@ -43,6 +43,15 @@ jobs:
       tarball: ${{ steps.pack.outputs.tarball }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          # History, so a release can check that its tag is on master.
+          fetch-depth: 0
+      # Releases come from master only: a tag on a side branch would publish unreviewed code.
+      - name: Tag is on master
+        if: github.ref_type == 'tag'
+        run: |
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/master \
+            || { echo "::error::The tag points at a commit that is not on master."; exit 1; }
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -112,10 +121,11 @@ jobs:
           TARBALL: ${{ needs.validate.outputs.tarball }}
         run: |
           # Prints "yes" when the spec resolves, "no" on E404 or an empty answer; fails on any other error.
+          # Anonymous reads: an expired NPM_TOKEN must not break a release that OIDC can make.
           lookup() {
-            if output=$(npm view "$1" version --json 2>&1); then
+            if output=$(NODE_AUTH_TOKEN= npm view "$1" version --json 2>&1); then
               if [ -n "$output" ]; then echo yes; else echo no; fi
-            elif printf '%s' "$output" | grep -q E404; then
+            elif [[ "$output" == *E404* ]]; then
               echo no
             else
               echo "::error::Reading $1 from npm failed: $output" >&2
@@ -132,7 +142,10 @@ jobs:
             echo "::error::${NAME} is not on npm yet: its first stage needs the NPM_TOKEN secret (scripts/release/README.md, first release of a package)."
             exit 1
           fi
-          npm stage publish "release-out/${TARBALL}" --provenance --access public --tag "$NPM_TAG"
+          # No --tag for a stable version: npm applies `latest` and refuses to move it to an older version.
+          tag_args=()
+          if [ -n "$NPM_TAG" ]; then tag_args=(--tag "$NPM_TAG"); fi
+          npm stage publish "release-out/${TARBALL}" --provenance --access public "${tag_args[@]}"
           echo "::notice::${NAME}@${VERSION} is staged on npm. Approve it on npmjs.com (2FA) to make it live."
 
   # After npm, so a release npm refuses (e.g. a new package without NPM_TOKEN) publishes nothing else.
@@ -181,11 +194,14 @@ jobs:
           if output=$(npm view "$spec" version --json 2>&1) && [ -n "$output" ]; then
             echo "${spec} is already on GitHub Packages, skipping."
             exit 0
-          elif [ -n "$output" ] && ! printf '%s' "$output" | grep -q E404; then
+          elif [ -n "$output" ] && [[ "$output" != *E404* ]]; then
             echo "::error::Reading ${spec} from GitHub Packages failed: $output"
             exit 1
           fi
-          npm publish ./unpacked/package --tag "$NPM_TAG"
+          tag_args=()
+          if [ -n "$NPM_TAG" ]; then tag_args=(--tag "$NPM_TAG"); fi
+          # The tarball is already built and checked: run none of its lifecycle scripts.
+          npm publish ./unpacked/package --ignore-scripts "${tag_args[@]}"
 
   github-release:
     name: create the GitHub Release
@@ -225,7 +241,7 @@ jobs:
             "" \
             "GitHub Packages: \`@softure/${SHORT_NAME}@${VERSION}\` (a token with read:packages)")
           args=(--verify-tag --generate-notes --title "$TAG" --notes "$notes")
-          previous=$(git tag --merged "$TAG" --list "${SHORT_NAME}@*" --sort=-v:refname | grep -vxF "$TAG" | head -n 1 || true)
+          previous=$(git -c versionsort.suffix=- tag --merged "$TAG" --list "${SHORT_NAME}@*" --sort=-v:refname | grep -vxF "$TAG" | head -n 1 || true)
           if [ -n "$previous" ]; then args+=(--notes-start-tag "$previous"); fi
           if [ "$PRERELEASE" = true ]; then args+=(--prerelease); fi
           gh release create "$TAG" "release-out/${TARBALL}" "${args[@]}"
