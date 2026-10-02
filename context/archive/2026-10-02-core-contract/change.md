@@ -1,12 +1,12 @@
 ---
 change_id: core-contract
 title: "Module contract in @softure-ai/core"
-status: impl_reviewed
+status: archived
 roadmap_item: FD-3
 branch: claude/fd-3-core-contract-7g4u3m (cloud session)
 created: 2026-10-02
 updated: 2026-10-02
-archived_at: null
+archived_at: 2026-10-02
 ---
 
 ## Intent
@@ -44,3 +44,5 @@ Reference material: `docs/02-module-standard.md` (the standard), `docs/01-module
 - No release, tag or publish by the agent; the owner tags releases.
 
 ## Notes
+
+Archived 2026-10-02: `@softure-ai/core` delivers the app config, module contract, Result, Clock, messages and safeError, with a dummy module listed in a test app config.
