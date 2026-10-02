@@ -1,12 +1,12 @@
 ---
 change_id: auth-roles
 title: "Roles in auth: user_roles table, requireRole, authorizeRole and hasRole; admin-only surfaces fail closed"
-status: implementing
+status: archived
 roadmap_item: ID-4
 branch: claude/id-4-auth-roles-o071gn
 created: 2026-10-02
 updated: 2026-10-02
-archived_at: null
+archived_at: 2026-10-02
 ---
 
 ## Intent
@@ -43,3 +43,5 @@ them from the session.
 - FIRE_TRACKER is read-only.
 
 ## Notes
+
+- 2026-10-02: implemented and reviewed in the cloud session on `claude/id-4-auth-roles-o071gn`; impl review approve.

@@ -87,5 +87,5 @@ surface, roadmap asks for not found); roles in the session cookie (stale after r
 ### Phase 2: Next adapter, example app and e2e
 
 #### Automated
-- [ ] 2.1 `npm run e2e` passes against a local PostgreSQL 16, including `auth-roles.spec.ts`
-- [ ] 2.2 Gates green (typecheck, lint, test, build)
+- [x] 2.1 `npm run e2e` passes against a local PostgreSQL 16, including `auth-roles.spec.ts` — e1cbdb1
+- [x] 2.2 Gates green (typecheck, lint, test, build) — e1cbdb1

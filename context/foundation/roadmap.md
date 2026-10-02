@@ -41,7 +41,7 @@ backlog: context/backlog/roadmap-identity/
 | **ID-1** | `next-actions-spike` | proven way to ship server actions and route handlers from a package in Next 16, or a decided fallback | FD-3, FD-4 | autonomous | done |
 | **ID-2** | `security-rate-limit` | `@softure-ai/security`: configurable rate-limit buckets, pluggable client-IP resolvers, small-body reader | FD-3, FD-4 | autonomous | done |
 | **ID-3** | `auth-core` | `@softure-ai/auth`: register with consent hook, login, logout, sessions, change password, route guard, pages and forms | ID-1, ID-2 | autonomous | done |
-| **ID-4** | `auth-roles` | roles with `requireRole`; admin-only surfaces fail closed | ID-3 | autonomous | **in_progress** (implement 2/2, since 2026-10-02; cloud session, branch `claude/id-4-auth-roles-o071gn` — do not take in another session) |
+| **ID-4** | `auth-roles` | roles with `requireRole`; admin-only surfaces fail closed | ID-3 | autonomous | done |
 | **ID-5** | `auth-password-reset` | password reset with a single-use, expiring token sent through a sender hook | ID-4 | autonomous | ready |
 | **ID-6** | `feature-switches` | `@softure-ai/feature-switches`: declared switches, env overrides, fail mode, admin-only panel | ID-4 | autonomous | ready |
 | **ID-7** | `ops-health-migrate` | `@softure-ai/ops`: health endpoint with module checks, container migrate step, safe ops script pattern | ID-1 | autonomous | done |
@@ -159,7 +159,7 @@ item's entries.
 
 ### ID-4: Roles and admin
 - **Change ID:** `auth-roles`
-- **Status:** in_progress (implement 2/2, since 2026-10-02; cloud session, branch `claude/id-4-auth-roles-o071gn` — do not take in another session)
+- **Status:** done
 - **Outcome:** table `auth.user_roles`, `requireRole(role)` for pages, actions and route handlers,
   and `hasRole` for UI. The admin role is granted by configuration (an initial admin list) or by a
   CLI command. Every admin-only surface fails closed when no admin is configured. Includes tests that
@@ -279,6 +279,7 @@ item's entries.
 
 ## Done
 
+- **ID-4** `auth-roles`: roles in `@softure-ai/auth`: table `auth.user_roles`, declared role names (`admin` built in), `adminEmails` initial admin list, `requireRole` (404) for pages and route handlers, `authorizeRole` (`auth.forbidden`) for actions, `hasRole` for UI, `grant-role` / `revoke-role` ops scripts; admin-only surfaces fail closed; archived in `archive/2026-10-02-auth-roles/`
 - **ID-3** `auth-core`: `@softure-ai/auth` with users, scrypt passwords, database sessions (token hash only), register with a consent hook in one transaction, login (two rate-limit buckets before hashing), logout, password change ending other sessions, `getCurrentUser` / `requireUser`, `createAuthGuard` for `proxy.ts`, pages and forms in pl + en, a health check for ops; `getSharedDatabase` in db; the next-actions spike removed; archived in `archive/2026-10-02-auth-core/`
 - **ID-7** `ops-health-migrate`: `@softure-ai/ops` with `GET /api/health` (database plus a check per enabled module through `defineModule({ health })`, 200/503, nothing revealed), the container recipe (one image, one-off `softure migrate` as `softure_migrator`, the app as `softure_app` limited to rows; verified by `npm run e2e:container` in CI) and the safe ops script helper; `.env.prod` and release notes stay app-specific; archived in `archive/2026-10-02-ops-health-migrate/`
 - **ID-2** `security-rate-limit`: `@softure-ai/security` with configurable rate-limit buckets, client-IP resolvers that refuse unidentified clients, subject keys and `readSmallBody`; archived in `archive/2026-10-02-security-rate-limit/`
