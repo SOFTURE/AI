@@ -93,6 +93,12 @@ describe("runHealthChecks", () => {
     expect(logged).toEqual(['health check "module-1" failed: TypeError']);
   });
 
+  it("marks a check that does not return a Result as failed", async () => {
+    const report = await run([{ name: "module-1", check: () => Promise.resolve(undefined as never) }]);
+    expect(report.checks).toEqual({ "module-1": "failed" });
+    expect(logged).toEqual(['health check "module-1" failed: TypeError']);
+  });
+
   it("marks a synchronous throw as failed", async () => {
     const report = await run([
       {

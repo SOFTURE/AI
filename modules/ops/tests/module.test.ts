@@ -28,13 +28,14 @@ describe("the ops module", () => {
   it("refuses options it cannot run with, listing every problem", () => {
     expect(() =>
       // @ts-expect-error: the test passes values the types already forbid, as a JavaScript config could.
-      ops({ checks: { "app.cache": "select 1" }, timeoutMs: 50, detail: "all", extra: true }),
+      ops({ checks: { "app.cache": "select 1" }, timeoutMs: 50, detail: "all", getDatabase: "db", extra: true }),
     ).toThrow(
       [
         'Invalid SOFTURE configuration in module "ops":',
         "- options.checks.app.cache: must be a function (context) => Promise<Result<undefined>>",
         "- options.timeoutMs: Too small: expected number to be >=100",
         '- options.detail: Invalid option: expected one of "status"|"checks"',
+        "- options.getDatabase: must be a function () => Promise<Queryable>, e.g. the app's own getDatabase",
         '- options: Unrecognized key: "extra"',
       ].join("\n"),
     );

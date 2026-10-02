@@ -15,6 +15,8 @@ import type { OpsOptions } from "../options.js";
 import { collectHealthChecks, DATABASE_CHECK_NAME, runHealthChecks } from "../server/health.js";
 import { getHealthDatabase } from "./database.js";
 
+const PGLITE_PREFIX = "pglite://";
+
 let inFlight: Promise<HealthReport> | null = null;
 
 export async function GET(): Promise<Response> {
@@ -41,8 +43,12 @@ export async function GET(): Promise<Response> {
 async function checkHealth(config: SoftureConfig, options: OpsOptions): Promise<HealthReport> {
   let db: Queryable | null = null;
   if (config.database !== null) {
+    if (options.getDatabase === undefined && config.database.url.startsWith(PGLITE_PREFIX)) {
+      // A setup bug, not an outage: thrown, so the route answers 500 and the log names the fix.
+      throw new Error("GET /api/health: a pglite:// database cannot be opened a second time; pass ops({ getDatabase })");
+    }
     try {
-      db = (await getHealthDatabase(config.database.url)).db;
+      db = await openDatabase(config.database.url, options);
     } catch (error) {
       // An unopenable database (e.g. an unsupported URL scheme) is a failed database check.
       console.error(`health check "${DATABASE_CHECK_NAME}" failed: could not open the database: ${errorLogLabel(error)}`);
@@ -51,4 +57,11 @@ async function checkHealth(config: SoftureConfig, options: OpsOptions): Promise<
   }
   const checks = collectHealthChecks(config, db);
   return runHealthChecks({ db, clock: systemClock, config }, { checks, timeoutMs: options.timeoutMs });
+}
+
+function openDatabase(url: string, options: OpsOptions): Promise<Queryable> {
+  if (options.getDatabase !== undefined) {
+    return options.getDatabase();
+  }
+  return getHealthDatabase(url).then((handle) => handle.db);
 }

@@ -85,19 +85,18 @@ async function runOne(
     timer = setTimeout(() => resolve("timed_out"), timeoutMs);
   });
   // A check that throws synchronously still counts as failed, not as a crash of the route.
+  // A check that resolves to something other than a Result (a JavaScript module) fails the same way.
   const settled = Promise.resolve()
     .then(() => check(context))
-    .then(
-      (result): HealthCheckState => {
-        if (result.ok) return "ok";
-        report(`failed: ${result.error}`);
-        return "failed";
-      },
-      (error: unknown): HealthCheckState => {
-        report(`failed: ${errorLogLabel(error)}`);
-        return "failed";
-      },
-    );
+    .then((result): HealthCheckState => {
+      if (result.ok) return "ok";
+      report(`failed: ${result.error}`);
+      return "failed";
+    })
+    .catch((error: unknown): HealthCheckState => {
+      report(`failed: ${errorLogLabel(error)}`);
+      return "failed";
+    });
   try {
     const state = await Promise.race([settled, timedOut]);
     if (state === "timed_out") {

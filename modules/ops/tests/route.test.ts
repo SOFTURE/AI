@@ -1,11 +1,20 @@
 // `GET /api/health` as the app mounts it: config from the registry, a real (PGlite) database.
 import { clearSoftureConfig, registerSoftureConfig } from "@softure-ai/core/next";
 import { closeHealthDatabases, GET } from "@softure-ai/ops/next";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createTestDatabase, type TestDatabase } from "@softure-ai/db/testing";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createConfig, failingCheck, passingCheck } from "./support.js";
 
 describe("GET /api/health", () => {
   let errors: unknown[][];
+  let database: TestDatabase;
+
+  beforeAll(async () => {
+    database = await createTestDatabase();
+  });
+  afterAll(async () => {
+    await database.close();
+  });
 
   beforeEach(() => {
     errors = [];
@@ -20,7 +29,7 @@ describe("GET /api/health", () => {
   });
 
   it("answers 200 and only the status when the database and every check pass", async () => {
-    registerSoftureConfig(createConfig({ modules: [passingCheck] }));
+    registerSoftureConfig(createConfig({ modules: [passingCheck], ops: { getDatabase: () => Promise.resolve(database.db) } }));
     const response = await GET();
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store");
@@ -36,7 +45,12 @@ describe("GET /api/health", () => {
   });
 
   it("lists every check with detail: checks", async () => {
-    registerSoftureConfig(createConfig({ modules: [passingCheck], ops: { detail: "checks", checks: { "app.queue": failingCheck } } }));
+    registerSoftureConfig(
+      createConfig({
+        modules: [passingCheck],
+        ops: { detail: "checks", checks: { "app.queue": failingCheck }, getDatabase: () => Promise.resolve(database.db) },
+      }),
+    );
     const response = await GET();
     expect(response.status).toBe(503);
     expect(await response.json()).toEqual({
@@ -60,6 +74,20 @@ describe("GET /api/health", () => {
     expect(response.status).toBe(503);
     expect(await response.json()).toEqual({ status: "unavailable", checks: { database: "failed" } });
     expect(errors).toEqual([['health check "database" failed: could not open the database: Error']]);
+  });
+
+  it("answers 503 when the app's getDatabase fails", async () => {
+    const getDatabase = () => Promise.reject(new RangeError("pool closed"));
+    registerSoftureConfig(createConfig({ ops: { detail: "checks", getDatabase } }));
+    const response = await GET();
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ status: "unavailable", checks: { database: "failed" } });
+    expect(errors).toEqual([['health check "database" failed: could not open the database: RangeError']]);
+  });
+
+  it("refuses to open a pglite database a second time", async () => {
+    registerSoftureConfig(createConfig({ databaseUrl: "pglite://", modules: [passingCheck] }));
+    await expect(GET()).rejects.toThrow("a pglite:// database cannot be opened a second time; pass ops({ getDatabase })");
   });
 
   it("checks nothing but the modules when the app has no database", async () => {
