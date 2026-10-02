@@ -229,6 +229,16 @@ Manual: the first `ci` run on GitHub is green (owner, or agent if GitHub tools a
   and in the editor).
 - `./styles.css` export → left to FD-5 (research Open questions).
 - Typed lint on `.mjs` → kept (the scripts are in the TS program through `checkJs`).
+- (implement p2) Word adjacency also excludes `+` and `=`, and `package-lock.json` is exempt → base64
+  integrity hashes can contain a listed word between those characters; the lockfile is generated.
+- (implement p3) Parsers live in `tests/repo/roadmap-contract.ts` and `tests/repo/markdown-links.ts`
+  (files added to phase 3) → the test files stay readable and the helpers can be unit-tested.
+- (implement p3) Repository tests read tracked plus untracked, not-ignored files
+  (`git ls-files --cached --others --exclude-standard`) → a new change folder or document is
+  checked by the gates that run before its first commit, and a link to a git-ignored file still
+  fails as it would in CI.
+- (implement p2) plan.md itself quoted the diacritic class and failed the gate → reworded; the gate
+  checks diacritics everywhere, code spans included.
 
 ## Progress
 
@@ -245,10 +255,10 @@ Manual: the first `ci` run on GitHub is green (owner, or agent if GitHub tools a
 ### Phase 2: Language gate
 
 #### Automated
-- [ ] 2.1 Language tests fail before `scripts/check-language.mjs` exists and pass after
-- [ ] 2.2 `node scripts/check-language.mjs --all` exits 0 on every tracked file
-- [ ] 2.3 A scratch file with a Polish comment makes the CLI exit 1 and print `path:line`
-- [ ] 2.4 Gates green (typecheck, lint, test)
+- [x] 2.1 Language tests fail before `scripts/check-language.mjs` exists and pass after — 366cb10
+- [x] 2.2 `node scripts/check-language.mjs --all` exits 0 on every tracked file — 366cb10
+- [x] 2.3 A scratch file with a Polish comment makes the CLI exit 1 and print `path:line` — 366cb10
+- [x] 2.4 Gates green (typecheck, lint, test) — 366cb10
 
 ### Phase 3: Roadmap contract and link tests
 

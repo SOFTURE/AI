@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { checkFiles, findPolishText, isExempt } from "../../scripts/check-language.mjs";
-import { listTrackedFiles, REPO_ROOT } from "./repo-files.js";
+import { listRepoFiles, REPO_ROOT } from "./repo-files.js";
 
 // This file is exempt from the language gate by path: it has to spell Polish to test the gate.
 describe("findPolishText", () => {
@@ -88,7 +88,7 @@ describe("checkFiles", () => {
 });
 
 describe("the repository", () => {
-  it("has no Polish text in any tracked file outside message dictionaries", () => {
-    expect(checkFiles(listTrackedFiles(), undefined, REPO_ROOT)).toEqual([]);
+  it("has no Polish text in any file outside message dictionaries", () => {
+    expect(checkFiles(listRepoFiles(), undefined, REPO_ROOT)).toEqual([]);
   });
 });
