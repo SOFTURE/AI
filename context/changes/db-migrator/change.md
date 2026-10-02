@@ -1,7 +1,7 @@
 ---
 change_id: db-migrator
 title: "Database client and module migrator"
-status: implementing
+status: implemented
 roadmap_item: FD-4
 branch: claude/fd-4-db-migrator-rm9sg7
 created: 2026-10-02

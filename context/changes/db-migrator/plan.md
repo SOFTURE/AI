@@ -287,15 +287,15 @@ missing file, and finds `softure.config.mjs` in the working directory when `--co
 ### Phase 3: Adoption
 
 #### Automated
-- [ ] 3.1 The phase 3 tests fail before the sources exist and pass after
-- [ ] 3.2 After adoption the moved table still holds the rows inserted before the move
-- [ ] 3.3 Gates green (typecheck, lint, test)
+- [x] 3.1 The phase 3 tests fail before the sources exist and pass after — 82bf451
+- [x] 3.2 After adoption the moved table still holds the rows inserted before the move — 82bf451
+- [x] 3.3 Gates green (typecheck, lint, test) — 82bf451
 
 ### Phase 4: CLI, container bundle and docs
 
 #### Automated
-- [ ] 4.1 The phase 4 CLI tests fail before the sources exist and pass after
-- [ ] 4.2 The bundle test runs the bundled CLI and finds the four ledger rows
-- [ ] 4.3 `npm run build` emits `dist/cli/bin.js` starting with `#!/usr/bin/env node`
-- [ ] 4.4 README and docs links pass the link test and the package passes `tests/repo/packages.test.ts`
-- [ ] 4.5 Gates green (typecheck, lint, test)
+- [x] 4.1 The phase 4 CLI tests fail before the sources exist and pass after — f016f63
+- [x] 4.2 The bundle test runs the bundled CLI and finds the four ledger rows — f016f63
+- [x] 4.3 `npm run build` emits `dist/cli/bin.js` starting with `#!/usr/bin/env node` — f016f63
+- [x] 4.4 README and docs links pass the link test and the package passes `tests/repo/packages.test.ts` — f016f63
+- [x] 4.5 Gates green (typecheck, lint, test) — f016f63
