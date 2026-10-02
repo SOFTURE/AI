@@ -96,9 +96,13 @@ async function main() {
     unhealthy = await readHealth();
   }
   check(unhealthy.status === 503, `GET /api/health answers 503 with Postgres stopped (got ${String(unhealthy.status)})`);
+  // `failed` when the connection is refused, `timed_out` when it hangs (on GitHub runners the
+  // stopped container's address stops answering): both mean "will not take traffic".
+  const body = /** @type {{ status?: unknown, checks?: Record<string, unknown> }} */ (unhealthy.body);
+  const isDown = (/** @type {unknown} */ state) => state === "failed" || state === "timed_out";
   check(
-    JSON.stringify(unhealthy.body) === JSON.stringify({ status: "unavailable", checks: { database: "failed", guestbook: "failed" } }),
-    `the answer names the failed checks (got ${JSON.stringify(unhealthy.body)})`,
+    body.status === "unavailable" && isDown(body.checks?.database) && isDown(body.checks?.guestbook),
+    `the answer marks the database and the guestbook check as down (got ${JSON.stringify(unhealthy.body)})`,
   );
 }
 
