@@ -83,5 +83,5 @@ admin.
 ### Phase 2: Next adapter, example app and e2e
 
 #### Automated
-- [x] 2.1 `npm run e2e` passes against a local PostgreSQL 16, including `auth-reset.spec.ts`
-- [x] 2.2 Gates green (typecheck, lint, test, build)
+- [x] 2.1 `npm run e2e` passes against a local PostgreSQL 16, including `auth-reset.spec.ts` — 1077e79
+- [x] 2.2 Gates green (typecheck, lint, test, build) — 1077e79

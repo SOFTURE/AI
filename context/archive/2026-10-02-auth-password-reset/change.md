@@ -1,12 +1,12 @@
 ---
 change_id: auth-password-reset
 title: "Password reset by token: single-use expiring link, sender hook, request and reset pages"
-status: implementing
+status: archived
 roadmap_item: ID-5
 branch: claude/id-5-auth-password-reset-3oz4vt
 created: 2026-10-02
 updated: 2026-10-02
-archived_at: null
+archived_at: 2026-10-02
 ---
 
 ## Intent
@@ -44,3 +44,4 @@ defaults" test; new error codes go into `AuthErrorCode` with en and pl copy; act
 
 - 2026-10-02: taken in the cloud session on `claude/id-5-auth-password-reset-3oz4vt`, in parallel
   with ID-6 (`modules/feature-switches/`, no shared files besides the backlog README).
+- 2026-10-02: implemented and reviewed in the cloud session; impl review approve.
