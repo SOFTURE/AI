@@ -4,6 +4,17 @@ export { changePassword, type ChangePasswordErrorCode, type ChangePasswordInput,
 export { loginUser, type LoginInput, type LoginResult } from "./login.js";
 export { getAuthOptions, getAuthRoutes, type AuthRoutes } from "./options.js";
 export { hashPassword, MAX_PASSWORD_LENGTH, needsRehash, verifyPassword } from "./password.js";
+export {
+  assertDeclaredRole,
+  findUserRoles,
+  getDeclaredRoles,
+  grantRole,
+  isConfiguredAdmin,
+  isDeclaredRole,
+  revokeRole,
+  type RoleChange,
+  type RoleErrorCode,
+} from "./roles.js";
 export { registerUser, type RegisterErrorCode, type RegisterInput, type RegisterResult } from "./register.js";
 export { createSession, findSessionUser, logoutSession, pruneSessions, type AuthContext } from "./sessions.js";
 export { isRegistrationClosed } from "./switches.js";

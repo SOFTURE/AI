@@ -48,6 +48,7 @@ export const pl: typeof en = {
       registration_closed: "Rejestracja jest zamknięta.",
       current_password_invalid: "Obecne hasło jest nieprawidłowe.",
       unauthenticated: "Sesja wygasła. Zaloguj się ponownie.",
+      forbidden: "Nie masz dostępu do tej funkcji.",
     },
     security: {
       rate_limited: "Zbyt wiele prób. Odczekaj kilka minut i spróbuj ponownie.",

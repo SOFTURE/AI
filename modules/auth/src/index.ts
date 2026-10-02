@@ -1,6 +1,6 @@
 // Public API of @softure-ai/auth: the module factory for softure.config.ts, its types, messages and
 // tables. Database work is in `@softure-ai/auth/server`, the Next.js adapter in `/next`, the route
-// guard in `/proxy` and the forms in `/ui`.
+// guard in `/proxy`, the forms in `/ui` and the role scripts in `/scripts`.
 import { defineModule, resolveMigrationsDir } from "@softure-ai/core";
 import { authMessages } from "./messages/index.js";
 import { authOptionsSchema } from "./options.js";
@@ -35,7 +35,7 @@ export const auth = defineModule({
     version: "0.0.0",
     dependsOn: { security: "^0.0.0" },
     dbSchema: "auth",
-    tables: ["users", "sessions"],
+    tables: ["users", "sessions", "user_roles"],
     env: [
       {
         name: REGISTRATION_CLOSED_ENV,
@@ -81,4 +81,5 @@ export { authMessages, getAuthErrorMessage, type AuthMessages } from "./messages
 export type { AuthOptions, AuthOptionsInput, OnRegisteredHook, ScryptParams } from "./options.js";
 export { getSessionCookie, type SessionCookie } from "./session-cookie.js";
 export { toSafeNextPath } from "./safe-next-path.js";
-export { sessions, users } from "./schema.js";
+export { ADMIN_ROLE, ROLE_NAME_PATTERN } from "./roles.js";
+export { sessions, userRoles, users } from "./schema.js";

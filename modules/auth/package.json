@@ -1,7 +1,7 @@
 {
   "name": "@softure-ai/auth",
   "version": "0.0.0",
-  "description": "SOFTURE AI auth module: users, scrypt passwords, database sessions, register with consent, login, logout, password change, a proxy route guard, and pages and forms for Next.js.",
+  "description": "SOFTURE AI auth module: users, scrypt passwords, database sessions, register with consent, login, logout, password change, roles, a proxy route guard, and pages and forms for Next.js.",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -46,6 +46,11 @@
       "types": "./dist/proxy/index.d.ts",
       "default": "./dist/proxy/index.js"
     },
+    "./scripts": {
+      "@softure-ai/source": "./src/scripts/index.ts",
+      "types": "./dist/scripts/index.d.ts",
+      "default": "./dist/scripts/index.js"
+    },
     "./ui": {
       "@softure-ai/source": "./src/ui/index.ts",
       "types": "./dist/ui/index.d.ts",
@@ -58,6 +63,7 @@
   "dependencies": {
     "@softure-ai/core": "^0.0.0",
     "@softure-ai/db": "^0.0.0",
+    "@softure-ai/ops": "^0.0.0",
     "@softure-ai/security": "^0.0.0",
     "@softure-ai/ui": "^0.0.0",
     "zod": "^4.6.5"
