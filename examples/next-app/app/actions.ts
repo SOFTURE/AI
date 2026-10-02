@@ -1,13 +1,14 @@
 "use server";
 
-// The guestbook's server action. The example has no users, so there is no authorization to check;
-// a real module checks it here before anything else (docs/02-module-standard.md §8).
+// The guestbook's server action. The example has no users, so there is no authorization to check,
+// and it is never deployed, so nothing rate-limits it; a real module checks authorization and a
+// rate limit here before anything else (docs/02-module-standard.md §8, AGENTS.md Security).
 import { err } from "@softure-ai/core";
 import type { ActionResult } from "@softure-ai/ui";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getDatabase } from "../lib/database.ts";
-import { GUESTBOOK_MESSAGE_MAX_LENGTH } from "../modules/guestbook/index.ts";
+import { GUESTBOOK_MESSAGE_MAX_LENGTH } from "../modules/guestbook/limits.ts";
 import { insertEntry } from "../modules/guestbook/queries.ts";
 
 const entryInput = z.object({

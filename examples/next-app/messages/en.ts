@@ -24,7 +24,7 @@ export const en = {
     empty: "No migrations applied. Run npm run migrate.",
   },
   errors: {
-    "guestbook.message_invalid": "Write between 1 and 200 characters.",
+    "guestbook.message_invalid": "Write between 1 and {max} characters.",
     "core.database_failed": "The database did not answer. Try again.",
     "core.unexpected": "Something went wrong. Try again.",
   },

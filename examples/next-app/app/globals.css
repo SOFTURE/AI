@@ -1,6 +1,11 @@
 /* The package CSS only: the example uses no Tailwind of its own, like an app that only consumes ui. */
 @import "@softure-ai/ui/styles.css";
 
+:root {
+  /* The reading width of the page; the token set has no layout widths. */
+  --example-page-width: 48rem;
+}
+
 body {
   margin: 0;
   background: var(--sft-color-background);
@@ -12,7 +17,7 @@ body {
   box-sizing: border-box;
   display: grid;
   gap: var(--sft-space-6);
-  max-width: 48rem;
+  max-width: var(--example-page-width);
   margin: 0 auto;
   padding: var(--sft-space-8) var(--sft-space-4);
 }

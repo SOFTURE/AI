@@ -26,7 +26,7 @@ export const pl: AppMessages = {
     empty: "Brak migracji. Uruchom npm run migrate.",
   },
   errors: {
-    "guestbook.message_invalid": "Wpisz od 1 do 200 znaków.",
+    "guestbook.message_invalid": "Wpisz od 1 do {max} znaków.",
     "core.database_failed": "Baza danych nie odpowiedziała. Spróbuj ponownie.",
     "core.unexpected": "Coś poszło nie tak. Spróbuj ponownie.",
   },

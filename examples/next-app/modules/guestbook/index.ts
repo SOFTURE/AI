@@ -2,8 +2,6 @@
 // a published module package, so the e2e covers the migrator and a module's tables end to end.
 import { defineModule } from "@softure-ai/core";
 
-export const GUESTBOOK_MESSAGE_MAX_LENGTH = 200;
-
 // Turbopack resolves a literal `new URL("./x/", import.meta.url)` at build time and fails on a folder
 // ("Can't resolve './migrations/'"); it does not follow the URL through String(). Only
 // `softure migrate` reads the folder, under plain Node (context/backlog/next-integration.md).

@@ -67,5 +67,7 @@ npm run dev
   file missing from a packed copy fails `next build`. TypeScript has no such limit: when a packed
   copy lacks its `.d.ts`, `tsc` walks up to the repository's `node_modules` and finds the workspace
   package. The release pack check (`npm run release:pack`) covers declaration files.
+- Root `npm run lint` lints this app whenever `node_modules` exists here. An install older than a
+  package change can then fail lint over code that is fine; `npm run e2e` reinstalls it.
 - No authentication: the server action has no user to authorize, and nothing is rate-limited. It is
   a test fixture, not a deployable app.

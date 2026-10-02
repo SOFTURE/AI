@@ -1,7 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
-// Black-box tests of the built app (`next build` first). Playwright starts `next start` unless a
-// server already listens on the port. The database must be migrated: `npm run migrate`.
+// Black-box tests of the built app (`next build` first). Playwright starts `next start` itself; with
+// E2E_REUSE_SERVER=1 it uses a server already on the port instead (for example `next dev` while
+// writing a test). The database must be migrated: `npm run migrate`.
 const PORT = Number(process.env.E2E_PORT ?? 3100);
 // Cloud sessions ship a Chromium of their own; CI installs the one this Playwright expects.
 const CHROMIUM_PATH = process.env.PLAYWRIGHT_CHROMIUM_PATH;
@@ -23,7 +24,8 @@ export default defineConfig({
   webServer: {
     command: `npm run start -- --port ${PORT}`,
     url: `http://localhost:${PORT}`,
-    reuseExistingServer: !process.env.CI,
+    // Never by default: a stale server left on the port would be tested instead of the fresh build.
+    reuseExistingServer: process.env.E2E_REUSE_SERVER === "1",
     timeout: 60_000,
   },
 });
