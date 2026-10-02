@@ -39,7 +39,11 @@ is set. The Turbopack migrations bug reproduces from `node_modules` and a core h
      "Invalid Server Actions request"; package actions are treated like app actions.
 3. **Can a registry set in `instrumentation.ts` / `softure.config.ts` be read in a shipped action?**
    Yes: the action, the route handlers and the page all return `appOrigin` and the module ids from
-   `getSoftureConfig()`. It is also filled while `next build` prerenders the static page.
+   `getSoftureConfig()`. Instrumentation alone covers every request, but not `next build`'s prerender
+   of a static page: with the root layout's `softure.config.ts` import removed (and the home page,
+   which imports it too, moved away), the build failed with "no SOFTURE config is registered"; with
+   the layout import back it passed. So apps import the config from the root layout as well
+   (found by the implementation review, re-measured).
 4. **What does `next build` look like?** `/spike/next-actions` prerenders as static, the API route
    is dynamic. No duplicate React: the app router aliases `react` to Next's own copy, so even the
    workspace-linked package (resolved from the repository's `node_modules`) hydrates without an

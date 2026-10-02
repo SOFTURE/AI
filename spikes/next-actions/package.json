@@ -41,7 +41,8 @@
     "build": "tsc -p tsconfig.build.json"
   },
   "dependencies": {
-    "@softure-ai/core": "^0.0.0"
+    "@softure-ai/core": "^0.0.0",
+    "zod": "^4.6.5"
   },
   "peerDependencies": {
     "react": "^19.0.0"

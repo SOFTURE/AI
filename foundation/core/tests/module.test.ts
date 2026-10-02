@@ -180,7 +180,7 @@ describe("resolveMigrationsDir", () => {
   it("gives a dir defineModule accepts", () => {
     const dir = resolveMigrationsDir(import.meta.url, "../migrations/");
     const factory = defineModule({ manifest, messages: { en, pl }, migrations: { dir }, privacy });
-    expect(factory().migrations?.dir.href).toBe(new URL("../migrations/", import.meta.url).href);
+    expect(factory().migrations?.dir.href).toMatch(/\/foundation\/core\/migrations\/$/);
   });
 
   it("throws on a relative module URL, which is a bug in the module package", () => {

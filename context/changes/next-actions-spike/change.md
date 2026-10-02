@@ -1,7 +1,7 @@
 ---
 change_id: next-actions-spike
 title: "Modules ship server actions, route handlers and pages from their package"
-status: plan_reviewed
+status: impl_reviewed
 roadmap_item: ID-1
 branch: claude/id-1-next-actions-spike-4b8sg6
 created: 2026-10-02

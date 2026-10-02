@@ -1,5 +1,7 @@
 import { getSoftureConfig } from "@softure-ai/core/next";
 
+export const ECHO_MAX_LENGTH = 200;
+
 export interface EchoState {
   readonly text: string;
   readonly tag: string;

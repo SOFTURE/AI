@@ -99,7 +99,8 @@ export const notes = defineModule({
 in module packages, which cannot import the app's `softure.config.ts`:
 
 - `registerSoftureConfig(config)`: call it in `softure.config.ts`, and import that file from
-  `instrumentation.ts` so it runs at server start;
+  `instrumentation.ts` (it runs at server start) and from the root layout (`next build` prerenders
+  static pages without running instrumentation);
 - `getSoftureConfig()`: read it inside package code; it throws when nothing was registered;
 - `clearSoftureConfig()`: for tests.
 

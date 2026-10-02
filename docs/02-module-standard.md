@@ -199,8 +199,10 @@ thin actions) are not needed.
   The app can still compose its own page from the module's components (`<LoginForm/>`).
 - **Config:** package code calls `getSoftureConfig()` from `@softure-ai/core/next`. The app calls
   `registerSoftureConfig(config)` in `softure.config.ts` and imports that file from
-  `instrumentation.ts`. Measured: the registry is filled in actions, route handlers and server
-  components, at request time and while `next build` prerenders a static page.
+  `instrumentation.ts` **and** from the root layout (`app/layout.tsx`). Measured: instrumentation
+  alone fills the registry for every request (actions, route handlers, dynamic pages), but not while
+  `next build` prerenders a static page; that failed with "no SOFTURE config is registered" until the
+  root layout imported the config too.
 - **Bound arguments are not secret.** `action.bind(null, value)` sends `value` to the browser in
   plain text and the server accepts whatever comes back (measured: a tampered bound value reached
   the action). A module never binds an identity, a role or a price: the action derives them again
@@ -215,7 +217,7 @@ thin actions) are not needed.
 - **Origins:** Next refuses an action whose `Origin` does not match the host (`x-forwarded-host`
   first). It treats package actions exactly like app actions. An app behind a proxy that changes the
   host lists the public origin in `experimental.serverActions.allowedOrigins`.
-- **Packaging:** React and Next are `peerDependencies` of a module. The app router uses Next's own
+- **Packaging:** React is a `peerDependency` of a module, and so is Next when the module imports it. The app router uses Next's own
   React, so a package resolved from another folder (a workspace link) does not get a second copy.
   Client components keep `"use client"` in `dist/` (L-001). A module that must be bundled as-is goes
   to the app's `serverExternalPackages`; none of ours needs it.

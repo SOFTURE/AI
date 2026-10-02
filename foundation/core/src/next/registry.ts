@@ -3,7 +3,8 @@
 // app registers its config once and package code reads it here.
 //
 // Confirmed by identity ID-1 (`next-actions-spike`): a registration made in `softure.config.ts`,
-// imported from `instrumentation.ts`, is visible inside shipped actions, route handlers and pages.
+// imported from `instrumentation.ts` and the root layout, is visible inside shipped actions, route
+// handlers and pages (the layout import covers pages that `next build` prerenders).
 // The value lives on `globalThis` under a `Symbol.for` key, so two copies of this file (separate
 // server bundles) share one registry.
 import type { SoftureConfig } from "../config.js";
@@ -25,7 +26,7 @@ export function getSoftureConfig(): SoftureConfig {
   if (config === undefined) {
     throw new Error(
       "getSoftureConfig: no SOFTURE config is registered. Call registerSoftureConfig(config) in softure.config.ts " +
-        "and import that file from instrumentation.ts.",
+        "and import that file from instrumentation.ts and from the root layout.",
     );
   }
   return config;

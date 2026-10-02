@@ -72,19 +72,19 @@ Additive only. Rollback: revert the merge; the guestbook goes back to the `Strin
 ### Phase 1: Migrations folder that builds
 
 #### Automated
-- [ ] 1.1 `resolveMigrationsDir` tests pass (string, URL, defineModule, relative URL throws)
-- [ ] 1.2 Example `next build` passes with the guestbook on the helper
-- [ ] 1.3 Gates green (typecheck, lint, test)
+- [x] 1.1 `resolveMigrationsDir` tests pass (string, URL, defineModule, relative URL throws) — d7cb542
+- [x] 1.2 Example `next build` passes with the guestbook on the helper — d7cb542
+- [x] 1.3 Gates green (typecheck, lint, test) — d7cb542
 
 ### Phase 2: Spike package and e2e
 
 #### Automated
-- [ ] 2.1 `next build` lists the package's page and API route; the package migration applies
-- [ ] 2.2 `npm run e2e` green locally (10 tests)
+- [x] 2.1 `next build` lists the package's page and API route; the package migration applies — 5f9335a
+- [x] 2.2 `npm run e2e` green locally (10 tests) — 5f9335a
 - [ ] 2.3 `e2e` workflow green on the pull request
 
 ### Phase 3: Verdict in the standard
 
 #### Automated
-- [ ] 3.1 docs/02 §8 holds the verdict and cites the spike and the e2e file
-- [ ] 3.2 Gates green (typecheck, lint, test)
+- [x] 3.1 docs/02 §8 holds the verdict and cites the spike and the e2e file — 6063c89
+- [x] 3.2 Gates green (typecheck, lint, test) — 6063c89
