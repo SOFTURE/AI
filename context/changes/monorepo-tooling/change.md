@@ -1,9 +1,9 @@
 ---
 change_id: monorepo-tooling
 title: "Monorepo tooling and gates"
-status: new
+status: plan_reviewed
 roadmap_item: FD-1
-branch: null
+branch: claude/project-thread-8qjd9k (cloud session, no worktree)
 created: 2026-10-02
 updated: 2026-10-02
 archived_at: null
@@ -94,3 +94,4 @@ Execution notes (readiness review, 2026-10-02):
   manager to run `npm ci` in the main tree after merging this change.
 - Reference sources: `../../FIRE_TRACKER/lefthook.yml`, `../../FIRE_TRACKER/eslint.config.mjs`,
   `../../FIRE_TRACKER/vitest.config.mts`, and the pre-push gates section of `../../FIRE_TRACKER/AGENTS.md`.
+- Framing (2026-10-02): builds use `tsc`, not tsup; see `frame.md`.
