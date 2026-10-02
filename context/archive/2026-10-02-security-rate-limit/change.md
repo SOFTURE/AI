@@ -1,12 +1,12 @@
 ---
 change_id: security-rate-limit
 title: "Rate limiting module with configurable buckets and client-IP resolvers"
-status: impl_reviewed
+status: archived
 roadmap_item: ID-2
 branch: claude/id-2-security-rate-limit-1uapih
 created: 2026-10-02
 updated: 2026-10-02
-archived_at: null
+archived_at: 2026-10-02
 ---
 
 ## Intent
@@ -68,3 +68,4 @@ Current state: `modules/security/` holds only a README stub and empty folders.
 
 - Mode: fully autonomous (owner decision 2026-10-02): self-review, merge to master, branch
   cleanup by GitHub auto-delete.
+- Archived 2026-10-02: `@softure-ai/security` delivers fixed-window rate limits with buckets from configuration, client-IP resolvers that never share a bucket between unidentified clients, subject keys and `readSmallBody`, verified on PGlite, PostgreSQL 16 and the example app e2e.

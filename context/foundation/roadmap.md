@@ -39,7 +39,7 @@ backlog: context/backlog/roadmap-identity/
 | --- | --- | --- | --- | --- | --- |
 | **FD-8** | `foundation-release` | core, db and ui 0.1.0 published through FD-2; docs updated; foundation verified end to end | FD-2, FD-7 | owner | blocked (deferred by the owner to a session at the keyboard) |
 | **ID-1** | `next-actions-spike` | proven way to ship server actions and route handlers from a package in Next 16, or a decided fallback | FD-3, FD-4 | autonomous | ready |
-| **ID-2** | `security-rate-limit` | `@softure-ai/security`: configurable rate-limit buckets, pluggable client-IP resolvers, small-body reader | FD-3, FD-4 | autonomous | in_progress (implement 3/3, since 2026-10-02; branch claude/id-2-security-rate-limit-1uapih) |
+| **ID-2** | `security-rate-limit` | `@softure-ai/security`: configurable rate-limit buckets, pluggable client-IP resolvers, small-body reader | FD-3, FD-4 | autonomous | done |
 | **ID-3** | `auth-core` | `@softure-ai/auth`: register with consent hook, login, logout, sessions, change password, route guard, pages and forms | ID-1, ID-2 | autonomous | ready |
 | **ID-4** | `auth-roles` | roles with `requireRole`; admin-only surfaces fail closed | ID-3 | autonomous | ready |
 | **ID-5** | `auth-password-reset` | password reset with a single-use, expiring token sent through a sender hook | ID-4 | autonomous | ready |
@@ -114,8 +114,8 @@ item's entries.
 
 ### ID-2: Rate limiting module
 - **Change ID:** `security-rate-limit`
-- **Status:** in_progress (implement 3/3, since 2026-10-02; branch claude/id-2-security-rate-limit-1uapih)
-- **Input:** [`changes/security-rate-limit/change.md`](../changes/security-rate-limit/change.md)
+- **Status:** done
+- **Input:** [`archive/2026-10-02-security-rate-limit/change.md`](../archive/2026-10-02-security-rate-limit/change.md)
 - **Outcome:** `@softure-ai/security`, consisting of:
   - table `security.rate_limits(bucket, identifier, attempts, window_started_at)`;
   - a fixed-window limiter (atomic `INSERT … ON CONFLICT`, probabilistic cleanup);
@@ -278,7 +278,7 @@ item's entries.
 
 ## Done
 
-(nothing yet)
+- **ID-2** `security-rate-limit`: `@softure-ai/security` with configurable rate-limit buckets, client-IP resolvers that refuse unidentified clients, subject keys and `readSmallBody`; archived in `archive/2026-10-02-security-rate-limit/`
 
 ## Decisions (auto)
 
