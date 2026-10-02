@@ -31,3 +31,5 @@ tools/marketing-kit/**/out/
 /.claude/skills/softure-worktree-manager/
 /.claude/softure-skills.json
 # softure-skills:end
+# @softure-ai/ui CSS build scratch (removed after each build)
+.css-build-*/
