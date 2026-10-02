@@ -272,9 +272,9 @@ missing file, and finds `softure.config.mjs` in the working directory when `--co
 ### Phase 1: Package shell, client and migration files
 
 #### Automated
-- [ ] 1.1 The phase 1 tests fail before the sources exist and pass after
-- [ ] 1.2 `npm run build` emits `foundation/db/dist/index.js` and `index.d.ts`
-- [ ] 1.3 Gates green (typecheck, lint, test)
+- [x] 1.1 The phase 1 tests fail before the sources exist and pass after — b2e5e18
+- [x] 1.2 `npm run build` emits `foundation/db/dist/index.js` and `index.d.ts` — b2e5e18
+- [x] 1.3 Gates green (typecheck, lint, test) — b2e5e18
 
 ### Phase 2: Migrator, ledger and test database
 

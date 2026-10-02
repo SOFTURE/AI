@@ -17,3 +17,11 @@ export {
   type MigrationProblem,
   type MigrationResult,
 } from "./migrations/problems.js";
+export {
+  migrate,
+  planMigrations,
+  type MigrateOptions,
+  type MigrationPlan,
+  type MigrationReport,
+  type MigrationStep,
+} from "./migrations/migrator.js";

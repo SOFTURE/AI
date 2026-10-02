@@ -52,7 +52,7 @@ export function describeProblem(problem: MigrationProblem): string {
     case "db.migration_failed":
       return `${problem.module}: migration ${formatFile(problem.version, problem.name)} failed and was rolled back: ${problem.reason}`;
     case "db.reserved_module":
-      return `${problem.module}: the id and schema "softure" are reserved for the migration ledger`;
+      return `${problem.module}: uses a reserved id or schema (the id "softure"; the schemas softure, public, information_schema, pg_* and names over 63 bytes)`;
     case "db.migrations_without_schema":
       return `${problem.module}: has migrations but no dbSchema in its manifest`;
     case "db.dependency_cycle":
