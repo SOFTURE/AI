@@ -1,6 +1,6 @@
 # Backlog: roadmap-identity (who the user is, what they may do, how the app runs)
 
-Roadmap of this group: [`foundation/roadmaps/roadmap-identity.md`](../../foundation/roadmaps/roadmap-identity.md).
+Roadmap of this group: [`foundation/roadmap.md`](../../foundation/roadmap.md) (the main roadmap since 2026-10-02).
 It holds the owner decisions, the order, the dependencies and the status of every item.
 
 This folder holds the **entries** (`<change-id>/change.md`, `status: backlog`): the prepared
@@ -9,10 +9,8 @@ an entry is in `backlog/`, `changes/` or `archive/`, never in two of them and ne
 
 ## When it can start
 
-The whole roadmap starts **after the foundation roadmap is done** (core, db and ui 0.1.0
-published) **and the owner promotes it** (`softure-roadmap --promote identity`). Check
-`context/foundation/roadmap.md` to see whether the main roadmap is closed. Inside, the order
-follows the dependencies:
+The owner promoted this roadmap on 2026-10-02 (`context/foundation/roadmap.md` is now identity, with
+FD-8 of foundation carried over). Inside, the order follows the dependencies:
 
 | ID | Entry | Title | Condition | Kind |
 | --- | --- | --- | --- | --- |

@@ -20,7 +20,7 @@ archived_at: null
 
 ## Context
 
-From [`roadmap-identity.md`](../../../foundation/roadmaps/roadmap-identity.md), item **ID-5** (queued roadmap `identity`):
+From [`roadmap.md`](../../../foundation/roadmap.md), item **ID-5** (roadmap `identity`):
 
 > ### ID-5: Password reset by token
 > - **Change ID:** `auth-password-reset`

@@ -18,7 +18,7 @@ across FD-1…FD-7.
 
 ## Context
 
-From [`roadmap.md`](../../foundation/roadmap.md), item **FD-8** (roadmap `foundation`):
+From [`roadmap.md`](../../foundation/roadmap.md), item **FD-8** (roadmap `foundation`, carried over to roadmap `identity` on 2026-10-02):
 
 > ### FD-8: Foundation release
 > - **Change ID:** `foundation-release`

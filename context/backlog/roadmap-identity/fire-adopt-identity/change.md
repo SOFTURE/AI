@@ -26,7 +26,7 @@ switches panel from ID-6, and moves the configured admins into `auth.user_roles`
 
 ## Context
 
-From [`roadmap-identity.md`](../../../foundation/roadmaps/roadmap-identity.md), item **ID-9** (queued roadmap `identity`):
+From [`roadmap.md`](../../../foundation/roadmap.md), item **ID-9** (roadmap `identity`):
 
 > ### ID-9: FIRE_TRACKER adopts the identity modules
 > - **Change ID:** `fire-adopt-identity`
