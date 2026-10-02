@@ -203,4 +203,7 @@ export default defineSoftureConfig({
   3. GitHub Release for the tag, with generated notes and the package tarball attached.
 - A brand-new package's first publish lands in npm staged publishing: the owner approves it once,
   then configures the trusted publisher. Agents never tag or publish (`release.owner: true`).
-- Build: `tsup` (ESM + d.ts) for TS and the Tailwind CLI for `styles.css`.
+- Build: `tsc -p tsconfig.build.json` per package (ESM + `.d.ts` per source file, so `"use client"`
+  and `"use server"` directives survive; a bundler such as tsup drops them), and the Tailwind CLI for
+  `styles.css`. `npm run build` at the root builds the workspaces in dependency order. Decided in FD-1
+  (`monorepo-tooling`); the package template is [`templates/package/`](../templates/package/).

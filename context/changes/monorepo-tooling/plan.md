@@ -231,6 +231,13 @@ Manual: the first `ci` run on GitHub is green (owner, or agent if GitHub tools a
 - Typed lint on `.mjs` → kept (the scripts are in the TS program through `checkJs`).
 - (implement p2) Word adjacency also excludes `+` and `=`, and `package-lock.json` is exempt → base64
   integrity hashes can contain a listed word between those characters; the lockfile is generated.
+- (implement p4) Shape tests were written after the template; seen red by sabotage instead (export
+  conditions reordered and the package renamed: 2 red; a Polish dictionary key renamed: parity and
+  template build red), then restored from scratchpad copies.
+- (implement p4) The template ships `migrations/README.md` instead of `.gitkeep` → it says what goes
+  there; `files` also lists `migrations` and `module.json`, which a module publishes.
+- (implement p4) Source and declaration maps point at `src/`, which `files` does not publish → left
+  for FD-2 to decide when it packs (publish `src/` or drop the maps).
 - (implement p3) Parsers live in `tests/repo/roadmap-contract.ts` and `tests/repo/markdown-links.ts`
   (files added to phase 3) → the test files stay readable and the helpers can be unit-tested.
 - (implement p3) Repository tests read tracked plus untracked, not-ignored files
@@ -263,10 +270,10 @@ Manual: the first `ci` run on GitHub is green (owner, or agent if GitHub tools a
 ### Phase 3: Roadmap contract and link tests
 
 #### Automated
-- [ ] 3.1 Roadmap fixture tests fail before the parser exists and pass after
-- [ ] 3.2 Every roadmap file passes the contract (rows, vocabulary, block equality, unique ids, one location each)
-- [ ] 3.3 Link fixture tests fail before the checker exists and pass after; every tracked `*.md` passes
-- [ ] 3.4 Gates green (typecheck, lint, test)
+- [x] 3.1 Roadmap fixture tests fail before the parser exists and pass after — 67c1cae
+- [x] 3.2 Every roadmap file passes the contract (rows, vocabulary, block equality, unique ids, one location each) — 67c1cae
+- [x] 3.3 Link fixture tests fail before the checker exists and pass after; every tracked `*.md` passes — 67c1cae
+- [x] 3.4 Gates green (typecheck, lint, test) — 67c1cae
 
 ### Phase 4: Package template and builds
 

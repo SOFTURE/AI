@@ -1,0 +1,42 @@
+{
+  "name": "@softure-ai/template-module",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Template for a SOFTURE AI package (docs/02-module-standard.md §2). Copy it, rename it, drop \"private\".",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22"
+  },
+  "files": [
+    "dist",
+    "migrations",
+    "module.json"
+  ],
+  "exports": {
+    ".": {
+      "@softure-ai/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./server": {
+      "@softure-ai/source": "./src/server/index.ts",
+      "types": "./dist/server/index.d.ts",
+      "default": "./dist/server/index.js"
+    },
+    "./next": {
+      "@softure-ai/source": "./src/next/index.ts",
+      "types": "./dist/next/index.d.ts",
+      "default": "./dist/next/index.js"
+    },
+    "./ui": {
+      "@softure-ai/source": "./src/ui/index.ts",
+      "types": "./dist/ui/index.d.ts",
+      "default": "./dist/ui/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  }
+}

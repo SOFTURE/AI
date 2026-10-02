@@ -6,7 +6,8 @@
   "workspaces": [
     "foundation/*",
     "modules/*",
-    "tools/*"
+    "tools/*",
+    "templates/*"
   ],
   "engines": {
     "node": ">=22"
@@ -29,6 +30,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint:code": "eslint . --max-warnings 0",
-    "lint:language": "node scripts/check-language.mjs --all"
+    "lint:language": "node scripts/check-language.mjs --all",
+    "build": "node scripts/build-workspaces.mjs"
   }
 }
