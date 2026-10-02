@@ -7,7 +7,7 @@ import { nextActionsMessages } from "@softure-ai/next-actions";
 const copy = nextActionsMessages.en;
 const PAGE_PATH = "/spike/next-actions";
 const API_PATH = "/api/spike/next-actions";
-const REGISTERED_MODULE_IDS = ["guestbook", "security", "next-actions"];
+const REGISTERED_MODULE_IDS = ["guestbook", "security", "next-actions", "ops"];
 // What softure.config.ts registers; the server and the tests share the environment.
 const REGISTERED_APP_ORIGIN = process.env.APP_ORIGIN ?? "http://localhost:3000";
 

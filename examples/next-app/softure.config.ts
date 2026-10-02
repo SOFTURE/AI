@@ -3,6 +3,7 @@
 import { defineSoftureConfig } from "@softure-ai/core";
 import { registerSoftureConfig } from "@softure-ai/core/next";
 import { nextActions } from "@softure-ai/next-actions";
+import { ops } from "@softure-ai/ops";
 import { cloudflareIp, security } from "@softure-ai/security";
 import { guestbook } from "./modules/guestbook/index.ts";
 
@@ -19,6 +20,8 @@ const config = defineSoftureConfig({
     // The e2e sends CF-Connecting-IP itself, standing in for Cloudflare (e2e/security.spec.ts).
     security({ clientIp: cloudflareIp(), buckets: { "example.ping": { limit: 3, windowMinutes: 15 } } }),
     nextActions(),
+    // `detail: "checks"` lists each check in the answer, so e2e/ops.spec.ts can see the guestbook's.
+    ops({ detail: "checks" }),
   ],
 });
 

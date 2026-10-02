@@ -1,0 +1,15 @@
+# Build context of examples/next-app/Dockerfile (the repository root): sources only. Dependencies,
+# builds and test output are produced inside the image.
+.git
+**/node_modules
+**/dist
+**/.next
+**/test-results
+**/playwright-report
+**/*.tsbuildinfo
+**/.env
+**/.env.*
+!**/.env.example
+.css-build-*
+examples/next-app/softure-migrations
+examples/next-app/migrate.mjs

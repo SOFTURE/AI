@@ -1,6 +1,7 @@
 // A minimal module owned by the example app: one schema, one table, one migration. It stands in for
 // a published module package, so the e2e covers the migrator and a module's tables end to end.
 import { defineModule, resolveMigrationsDir } from "@softure-ai/core";
+import { checkGuestbook } from "./health.ts";
 
 export const guestbook = defineModule({
   manifest: {
@@ -18,4 +19,5 @@ export const guestbook = defineModule({
   // The module has no copy of its own: the app's dictionaries in messages/ hold every text.
   messages: { en: {}, pl: {} },
   migrations: { dir: resolveMigrationsDir(import.meta.url, "./migrations/") },
+  health: checkGuestbook,
 });

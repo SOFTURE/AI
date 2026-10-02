@@ -1,0 +1,57 @@
+# The example app in containers, as the @softure-ai/ops recipe runs it in production
+# (modules/ops/README.md, "Container recipe"). Driven by scripts/container.mjs (`npm run e2e:container`
+# at the repository root); the passwords are local test values, not secrets.
+#
+# - postgres creates two roles on first start (modules/ops/recipes/initdb/01-roles.sql): a migrator
+#   that owns the module schemas and an app role limited to rows;
+# - migrate runs `softure migrate` once, as the migrator, and exits;
+# - app starts only after migrate succeeded, as the app role, and reports healthy through
+#   GET /api/health (HEALTHCHECK in the Dockerfile).
+name: softure-example-container
+
+x-image: &image
+  image: softure-example-app:local
+  build:
+    context: ../..
+    dockerfile: examples/next-app/Dockerfile
+    args:
+      NODE_IMAGE: ${NODE_IMAGE:-node:22-alpine}
+
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:-postgres:16}
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: softure_example
+      SOFTURE_MIGRATOR_PASSWORD: migrator-local
+      SOFTURE_APP_PASSWORD: app-local
+    volumes:
+      - ../../modules/ops/recipes/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      # Over TCP: during initdb the image runs a temporary server on the socket only, which a plain
+      # pg_isready would take for the real one.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d softure_example"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  migrate:
+    <<: *image
+    command: ["node", "migrate.mjs", "--migrations-dir", "./softure-migrations"]
+    environment:
+      DATABASE_URL: postgresql://softure_migrator:migrator-local@postgres:5432/softure_example
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  app:
+    <<: *image
+    environment:
+      DATABASE_URL: postgresql://softure_app:app-local@postgres:5432/softure_example
+      APP_ORIGIN: http://localhost:${APP_PORT:-3200}
+    ports:
+      - "${APP_PORT:-3200}:3000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully

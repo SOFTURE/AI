@@ -20,6 +20,7 @@
     "@softure-ai/core": "file:../../foundation/core",
     "@softure-ai/db": "file:../../foundation/db",
     "@softure-ai/next-actions": "file:../../spikes/next-actions",
+    "@softure-ai/ops": "file:../../modules/ops",
     "@softure-ai/security": "file:../../modules/security",
     "@softure-ai/ui": "file:../../foundation/ui",
     "drizzle-orm": "^0.45.3",
