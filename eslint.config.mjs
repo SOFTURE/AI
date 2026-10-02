@@ -1,8 +1,13 @@
 // @ts-check
+import { existsSync } from "node:fs";
 import js from "@eslint/js";
 import { defineConfig, globalIgnores } from "eslint/config";
 import globals from "globals";
 import tseslint from "typescript-eslint";
+
+// The example app is a separate npm project. Its files are linted once it is installed (`npm run e2e`
+// installs it; the e2e workflow lints it); before that its imports cannot be typed.
+const isExampleAppInstalled = existsSync(new URL("examples/next-app/node_modules", import.meta.url));
 
 export default defineConfig([
   globalIgnores([
@@ -10,6 +15,11 @@ export default defineConfig([
     "coverage/**",
     // Installed skills (git-ignored, managed by @softure-ai/skills); not our source.
     ".claude/**",
+    "examples/*/.next/**",
+    "examples/*/next-env.d.ts",
+    "examples/*/test-results/**",
+    "examples/*/playwright-report/**",
+    ...(isExampleAppInstalled ? [] : ["examples/**"]),
   ]),
   js.configs.recommended,
   tseslint.configs.recommendedTypeChecked,

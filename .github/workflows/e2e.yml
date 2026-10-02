@@ -1,0 +1,74 @@
+# End-to-end tests of examples/next-app: the foundation packages built, packed and installed into a
+# Next.js app, migrated on Postgres, and driven by Playwright. Locally: `npm run e2e`.
+# The steps mirror examples/next-app/scripts/e2e.mjs, split so a failure names its stage.
+
+name: e2e
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: example app e2e
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: softure_example
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d softure_example"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/softure_example
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            examples/next-app/package-lock.json
+      - run: npm ci
+      # The app installs the packed packages, which ship dist/.
+      - run: npm run build
+      - name: Install the example app (packed foundation packages)
+        working-directory: examples/next-app
+        run: npm ci
+      - name: Install Chromium
+        working-directory: examples/next-app
+        run: npx playwright install --with-deps chromium
+      # The root ESLint config lints the example once it is installed.
+      - run: npx eslint examples --max-warnings 0
+      - name: Migrate (softure migrate)
+        working-directory: examples/next-app
+        run: npm run migrate
+      - name: Build the app
+        working-directory: examples/next-app
+        run: npm run build
+      - name: Playwright
+        working-directory: examples/next-app
+        run: npm run e2e
+      - name: Keep traces of a failed run
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-test-results
+          path: examples/next-app/test-results/
+          retention-days: 7

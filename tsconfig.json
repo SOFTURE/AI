@@ -7,5 +7,5 @@
     "checkJs": true
   },
   "include": ["**/*.ts", "**/*.tsx", "**/*.mts", "**/*.mjs"],
-  "exclude": ["**/node_modules", "**/dist", "coverage", ".claude"]
+  "exclude": ["**/node_modules", "**/dist", "coverage", ".claude", "examples"]
 }

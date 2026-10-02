@@ -37,7 +37,7 @@ updated: 2026-10-02
 | **FD-4** | `db-migrator` | `@softure-ai/db`: client, per-module schemas, migrator with plan/adopt, PGlite test DB | FD-3 | autonomous | done |
 | **FD-5** | `ui-tokens-theme` | `@softure-ai/ui` tokens (light/dark), theme provider + switch, compiled CSS pipeline | FD-3 | autonomous | done |
 | **FD-6** | `ui-primitives` | Button, Modal, Toast, Select, form fields, Card, Hint, ActionForm, icons with slots and messages | FD-5 | autonomous | done |
-| **FD-7** | `example-app` | Next example app consuming core/db/ui, Playwright e2e in CI | FD-4, FD-6 | autonomous | ready |
+| **FD-7** | `example-app` | Next example app consuming core/db/ui, Playwright e2e in CI | FD-4, FD-6 | autonomous | done |
 | **FD-8** | `foundation-release` | core, db and ui 0.1.0 published through FD-2; docs updated; foundation verified end to end | FD-2, FD-7 | owner | ready |
 
 ## Order
@@ -173,7 +173,7 @@ they come before the UI breadth (FD-6).
 
 ### FD-7: Example app and e2e harness
 - **Change ID:** `example-app`
-- **Status:** ready
+- **Status:** done
 - **Outcome:** `examples/next-app` (Next 16) consuming core, db and ui through `softure.config.ts`,
   running migrations on Postgres in Docker, with Playwright e2e in `.github/workflows/e2e.yml`.
   This is the harness every later module adds scenarios to. Sets `integration.local` in
@@ -212,6 +212,7 @@ they come before the UI breadth (FD-6).
 - **FD-5** `ui-tokens-theme`: `@softure-ai/ui` with the `--sft-*` token contract (light/dark defaults ported from FIRE), `SoftureThemeProvider` (object or `design.json`), no-flash `ThemeScript`, `ThemeSwitch` (pl/en, slots, `unstyled`), `tailwind.css` bridge and a Tailwind 4 build of `styles.css` in `@layer softure` with `sft:` classes and the NFR-7 budget checked on build; archived in `archive/2026-10-02-ui-tokens-theme/`
 - **FD-4** `db-migrator`: `@softure-ai/db` with `createDatabase` (pg or PGlite by URL), the module migrator (own schema per module, `softure.migrations` ledger, checksums, advisory lock, `--plan`, `--adopt` with a catalog comparison), `createTestDatabase` and `softure migrate` with an export/bundle path for containers; archived in `archive/2026-10-02-db-migrator/`
 - **FD-6** `ui-primitives`: `Button`/`ButtonLink`/`IconButton`, icons, `Card`/`Stat`/`EmptyState`, `Hint`, fields (`TextField`, `PasswordField`, `MoneyField` with locale-aware `parseAmount`, `SelectField`, `CheckboxField`), `Select` (ARIA listbox), `Switch`/`Checkbox`/`SegmentedControl`, `Modal` (+ `ModalForm`), `ToastHost`, `ActionForm`; typed slots, `unstyled`, `pl`/`en` copy, `LinkComponent`; FIRE tests plus happy-dom DOM tests; archived in `archive/2026-10-02-ui-primitives/`
+- **FD-7** `example-app`: `examples/next-app` (Next 16) installs core, db and ui as packed copies (`install-links`, `turbopack.root`), migrates a `guestbook` module on Postgres, and passes six Playwright tests (theme switch, modal with a server-action form, migration ledger) through `npm run e2e` and `.github/workflows/e2e.yml`; `integration.local` is `npm run e2e`; Turbopack vs. the documented migrations URL filed in `backlog/next-integration.md`; archived in `archive/2026-10-02-example-app/`
 
 ## Decisions (auto)
 

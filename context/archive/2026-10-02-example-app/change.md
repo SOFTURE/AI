@@ -1,12 +1,12 @@
 ---
 change_id: example-app
 title: "Example app and e2e harness"
-status: new
+status: archived
 roadmap_item: FD-7
-branch: null
+branch: claude/fd-7-example-app-uknuk7
 created: 2026-10-02
 updated: 2026-10-02
-archived_at: null
+archived_at: 2026-10-02
 ---
 
 ## Intent
@@ -42,3 +42,5 @@ Reference material: `docs/02-module-standard.md` (the standard), `docs/01-module
 - No release, tag or publish by the agent; the owner tags releases.
 
 ## Notes
+
+Archived 2026-10-02: examples/next-app runs core, db and ui as packed packages with six Playwright tests in the e2e workflow; integration.local is npm run e2e.
