@@ -1,7 +1,7 @@
 ---
 change_id: monorepo-tooling
 title: "Monorepo tooling and gates"
-status: plan_reviewed
+status: implementing
 roadmap_item: FD-1
 branch: claude/project-thread-8qjd9k (cloud session, no worktree)
 created: 2026-10-02
