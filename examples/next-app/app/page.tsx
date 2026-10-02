@@ -1,8 +1,9 @@
+import { isEnabled } from "@softure-ai/feature-switches/next";
 import { Card, EmptyState, FormError, ThemeSwitch } from "@softure-ai/ui";
 import { getDatabase } from "../lib/database.ts";
 import { getErrorMessage, getMessages } from "../messages/index.ts";
 import { findAppliedMigrations, findEntries } from "../modules/guestbook/queries.ts";
-import config from "../softure.config.ts";
+import config, { WELCOME_BANNER_SWITCH } from "../softure.config.ts";
 import { AddEntry } from "./add-entry.tsx";
 
 // Reads the database on every request.
@@ -11,7 +12,11 @@ export const dynamic = "force-dynamic";
 export default async function HomePage() {
   const messages = getMessages(config.locale);
   const { db } = await getDatabase();
-  const [entries, migrations] = await Promise.all([findEntries(db), findAppliedMigrations(db)]);
+  const [entries, migrations, hasWelcomeBanner] = await Promise.all([
+    findEntries(db),
+    findAppliedMigrations(db),
+    isEnabled(WELCOME_BANNER_SWITCH),
+  ]);
 
   return (
     <main className="page">
@@ -19,6 +24,11 @@ export default async function HomePage() {
         <div>
           <h1 className="page-title">{messages.home.title}</h1>
           <p className="page-lead">{messages.home.lead}</p>
+          {hasWelcomeBanner ? (
+            <p className="page-lead" data-testid="welcome-banner">
+              {messages.home.welcomeBanner}
+            </p>
+          ) : null}
         </div>
         <ThemeSwitch locale={config.locale} />
       </header>

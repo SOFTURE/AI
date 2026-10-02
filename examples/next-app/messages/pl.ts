@@ -8,6 +8,7 @@ export const pl: AppMessages = {
   home: {
     title: "Przykładowa aplikacja SOFTURE AI",
     lead: "Core, db i ui zainstalowane jako spakowane paczki, tak jak aplikacja dostaje je z npm.",
+    welcomeBanner: "Witaj! Ten baner jest widoczny, bo administrator włączył jego przełącznik.",
   },
   guestbook: {
     title: "Księga gości",
@@ -37,6 +38,12 @@ export const pl: AppMessages = {
     messageLabel: "Ogłoszenie",
     submit: "Opublikuj",
     saved: "Ogłoszenie opublikowane",
+  },
+  switches: {
+    welcomeBanner: {
+      label: "Baner powitalny",
+      description: "Pokazuje linię powitalną na stronie głównej.",
+    },
   },
   errors: {
     "guestbook.message_invalid": "Wpisz od 1 do {max} znaków.",

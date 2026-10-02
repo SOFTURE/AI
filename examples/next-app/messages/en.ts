@@ -6,6 +6,7 @@ export const en = {
   home: {
     title: "SOFTURE AI example app",
     lead: "Core, db and ui installed as packed packages, the way an app gets them from npm.",
+    welcomeBanner: "Welcome! This banner is on because an admin turned its switch on.",
   },
   guestbook: {
     title: "Guestbook",
@@ -35,6 +36,12 @@ export const en = {
     messageLabel: "Announcement",
     submit: "Post",
     saved: "Announcement posted",
+  },
+  switches: {
+    welcomeBanner: {
+      label: "Welcome banner",
+      description: "Shows a welcome line on the home page.",
+    },
   },
   errors: {
     "guestbook.message_invalid": "Write between 1 and {max} characters.",
