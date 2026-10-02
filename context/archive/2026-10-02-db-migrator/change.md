@@ -1,12 +1,12 @@
 ---
 change_id: db-migrator
 title: "Database client and module migrator"
-status: impl_reviewed
+status: archived
 roadmap_item: FD-4
 branch: claude/fd-4-db-migrator-rm9sg7
 created: 2026-10-02
 updated: 2026-10-02
-archived_at: null
+archived_at: 2026-10-02
 ---
 
 ## Intent
@@ -45,3 +45,5 @@ Reference material: `docs/02-module-standard.md` (the standard), `docs/01-module
 - No release, tag or publish by the agent; the owner tags releases.
 
 ## Notes
+
+Archived 2026-10-02: `@softure-ai/db` delivers the pg/PGlite client, the per-module migrator with ledger, checksums, lock, plan and adopt, `createTestDatabase` and `softure migrate` with a container bundle path, verified on PGlite and PostgreSQL 16.
