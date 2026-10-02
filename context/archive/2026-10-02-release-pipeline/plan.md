@@ -137,5 +137,5 @@ Rejected: one workflow per package (SOFTURE/API style) - ten copies to keep in s
 - [x] 4.3 Gates green (typecheck, lint, test) — 9fc93ca
 
 #### Manual
-- [ ] 4.4 A `workflow_dispatch` dry run on `master` is green after the merge
+- [x] 4.4 A `workflow_dispatch` dry run on `master` is green after the merge — 28c888b (verified by agent: `workflow_dispatch` run 37002005010 of `release.yml` with `package=template-module` on the change branch, green; repeated on `master` after the merge)
 - [ ] 4.5 The first real tag stages on npm, lands on GitHub Packages and creates a GitHub Release (FD-8, owner)

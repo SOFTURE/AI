@@ -32,7 +32,7 @@ updated: 2026-10-02
 | ID | Change | Outcome | Depends on | Mode | Status |
 | --- | --- | --- | --- | --- | --- |
 | **FD-1** | `monorepo-tooling` | workspaces build typed ESM + CSS; typecheck, lint, language and unit gates run in lefthook hooks (as in FIRE_TRACKER) and in CI | — | autonomous | done |
-| **FD-2** | `release-pipeline` | a `<package>@x.y.z` tag publishes that package to npm (OIDC) and GitHub Packages and creates a GitHub Release | FD-1 | autonomous | **in_progress** (impl-review, since 2026-10-02; cloud session, branch `claude/fd-2-release-pipeline-y0qm8t` — do not take in another session) |
+| **FD-2** | `release-pipeline` | a `<package>@x.y.z` tag publishes that package to npm (OIDC) and GitHub Packages and creates a GitHub Release | FD-1 | autonomous | done_code (2026-10-02; waiting: first tagged release, FD-8) |
 | **FD-3** | `core-contract` | `@softure-ai/core`: config, module contract, Result, clock, messages | FD-1 | autonomous | done |
 | **FD-4** | `db-migrator` | `@softure-ai/db`: client, per-module schemas, migrator with plan/adopt, PGlite test DB | FD-3 | autonomous | ready |
 | **FD-5** | `ui-tokens-theme` | `@softure-ai/ui` tokens (light/dark), theme provider + switch, compiled CSS pipeline | FD-3 | autonomous | ready |
@@ -96,7 +96,7 @@ they come before the UI breadth (FD-6).
 
 ### FD-2: Tag-driven release pipeline
 - **Change ID:** `release-pipeline`
-- **Status:** in_progress (impl-review, since 2026-10-02; cloud session, branch `claude/fd-2-release-pipeline-y0qm8t` — do not take in another session)
+- **Status:** done_code (2026-10-02; waiting: first tagged release, FD-8)
 - **Outcome:** a `<package>@x.y.z` tag (e.g. `core@0.1.0`) validates the package, publishes
   `@softure-ai/<package>` to npm through trusted publishing with provenance, publishes
   `@softure/<package>` to GitHub Packages and creates a GitHub Release with the tarball, the same
@@ -201,11 +201,14 @@ they come before the UI breadth (FD-6).
 
 - [ ] **FD-8**: approve the first (staged) publish of core, db and ui on npmjs.com, then add a
   trusted publisher for each (`SOFTURE` / `AI` / the release workflow file).
+- [ ] **FD-2**: before the first tag of a new package, add the repository secret `NPM_TOKEN` (granular, `@softure-ai` scope, short expiry); after approving its staged version, add the trusted publisher `SOFTURE` / `AI` / `release.yml` (stage only) and remove the token once no new package is pending. Runbook: `scripts/release/README.md`
+- [ ] **FD-2**: the first real tag stages on npm, lands on GitHub Packages and creates a GitHub Release (Manual 4.5). archive/2026-10-02-release-pipeline/plan.md
 
 ## Done
 
 - **FD-1** `monorepo-tooling`: typecheck, lint, language and unit gates at the root, in lefthook hooks and in CI; tsc package builds and `templates/package/`; archived in `archive/2026-10-02-monorepo-tooling/`
 - **FD-3** `core-contract`: `@softure-ai/core` with `defineSoftureConfig`, `defineModule` (manifest, dependencies, migrations, routes, switches, privacy contributors), `Result`, `Clock`, `pl`/`en` messages with overrides and `safeError`; config registry in `core/next` provisional until ID-1; archived in `archive/2026-10-02-core-contract/`
+- **FD-2** `release-pipeline`: `release.yml` turns a `<package>@x.y.z` tag into a staged npm version (OIDC, provenance), a GitHub Packages `@softure/*` version and a GitHub Release; dry run on every PR; `release:pack` and `release:version` scripts; packages ship `src/`; archived in `archive/2026-10-02-release-pipeline/`
 
 ## Decisions (auto)
 
