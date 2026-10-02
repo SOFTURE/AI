@@ -1,12 +1,12 @@
 ---
 change_id: ui-tokens-theme
 title: "UI tokens, theme and CSS pipeline"
-status: impl_reviewed
+status: archived
 roadmap_item: FD-5
 branch: claude/fd-5-ui-tokens-theme-ohfdkh
 created: 2026-10-02
 updated: 2026-10-02
-archived_at: null
+archived_at: 2026-10-02
 ---
 
 ## Intent
@@ -42,3 +42,5 @@ Reference material: `docs/02-module-standard.md` (the standard), `docs/01-module
 - No release, tag or publish by the agent; the owner tags releases.
 
 ## Notes
+
+Archived 2026-10-02: `@softure-ai/ui` ships the `--sft-*` token contract with light and dark defaults, `SoftureThemeProvider` (object or `design.json`), `ThemeScript`, `ThemeSwitch` (pl/en), `tailwind.css` and a `styles.css` in `@layer softure` built by Tailwind 4 (1.6 kB gzip, budget checked on every build).
