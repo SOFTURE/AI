@@ -1,0 +1,247 @@
+# Releases one package per tag. A tag `<package>@x.y.z` (e.g. `core@0.1.0`, created by
+# `npm run release:version -- core minor`) releases @softure-ai/<package>:
+#   1. npmjs.com        @softure-ai/<package>  staged through trusted publishing (OIDC) with provenance;
+#                       live once the owner approves it with 2FA on npmjs.com
+#   2. GitHub Packages  @softure/<package>     (GitHub Packages requires the scope to equal the org)
+#   3. GitHub Release   <package>@x.y.z        (generated notes + the package tarball)
+# Pull requests and workflow_dispatch run the same build, pack and checks as a dry run, with no publish.
+#
+# Keep this file name: every package's npm trusted publisher is bound to `release.yml`.
+# Runbook: scripts/release/README.md
+
+name: release
+
+on:
+  push:
+    tags: ["*@*.*.*"]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: "Package short name (e.g. core); empty checks every package"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  # Never cancel a release halfway between registries.
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: validate and pack
+    runs-on: ubuntu-latest
+    outputs:
+      name: ${{ steps.pack.outputs.name }}
+      short-name: ${{ steps.pack.outputs.short-name }}
+      version: ${{ steps.pack.outputs.version }}
+      npm-tag: ${{ steps.pack.outputs.npm-tag }}
+      prerelease: ${{ steps.pack.outputs.prerelease }}
+      tarball: ${{ steps.pack.outputs.tarball }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # History, so a release can check that its tag is on master.
+          fetch-depth: 0
+      # Releases come from master only: a tag on a side branch would publish unreviewed code.
+      - name: Tag is on master
+        if: github.ref_type == 'tag'
+        run: |
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/master \
+            || { echo "::error::The tag points at a commit that is not on master."; exit 1; }
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # A tag can point at any commit, so a release repeats the gates `ci.yml` runs on branches.
+      - name: Gates
+        if: github.ref_type == 'tag'
+        run: |
+          npm run typecheck
+          npm run lint
+          npm test
+      - run: npm run build
+      # User-controlled text (the tag, the dispatch input) reaches the shell only through env;
+      # the pack script validates it before anything uses it.
+      - name: Pack and check
+        id: pack
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          TAG: ${{ github.ref_name }}
+          PACKAGE: ${{ inputs.package }}
+        run: |
+          if [ "$REF_TYPE" = "tag" ]; then
+            npm run release:pack -- --tag "$TAG" --out release-out
+          elif [ -n "$PACKAGE" ]; then
+            npm run release:pack -- --package "$PACKAGE" --dry-run --out release-out
+          else
+            npm run release:pack -- --all --dry-run --out release-out
+          fi
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release
+          path: release-out/*.tgz
+          if-no-files-found: error
+
+  publish-npm:
+    name: stage on npm
+    needs: validate
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: release
+          path: release-out
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      # Staged publishing needs npm >= 11.15.0; npm 12 drops some Node 22 patch releases.
+      - name: npm with staged publishing
+        run: |
+          npm install -g npm@11
+          node -e 'const [major, minor] = process.argv[1].split(".").map(Number); process.exit(major === 11 && minor >= 15 ? 0 : 1)' "$(npm -v)" \
+            || { echo "::error::npm $(npm -v) cannot stage packages (needs >= 11.15.0)"; exit 1; }
+      # Trusted publishing (OIDC) is tried first. NPM_TOKEN is only for the first stage of a package
+      # that does not exist on npm yet, when no trusted publisher can be configured; see the runbook.
+      - name: Stage on npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NAME: ${{ needs.validate.outputs.name }}
+          VERSION: ${{ needs.validate.outputs.version }}
+          NPM_TAG: ${{ needs.validate.outputs.npm-tag }}
+          TARBALL: ${{ needs.validate.outputs.tarball }}
+        run: |
+          # Prints "yes" when the spec resolves, "no" on E404 or an empty answer; fails on any other error.
+          # Anonymous reads: an expired NPM_TOKEN must not break a release that OIDC can make.
+          lookup() {
+            if output=$(NODE_AUTH_TOKEN= npm view "$1" version --json 2>&1); then
+              if [ -n "$output" ]; then echo yes; else echo no; fi
+            elif [[ "$output" == *E404* ]]; then
+              echo no
+            else
+              echo "::error::Reading $1 from npm failed: $output" >&2
+              return 1
+            fi
+          }
+          released=$(lookup "${NAME}@${VERSION}")
+          if [ "$released" = yes ]; then
+            echo "${NAME}@${VERSION} is already on npm, skipping."
+            exit 0
+          fi
+          known=$(lookup "${NAME}")
+          if [ "$known" = no ] && [ -z "$NODE_AUTH_TOKEN" ]; then
+            echo "::error::${NAME} is not on npm yet: its first stage needs the NPM_TOKEN secret (scripts/release/README.md, first release of a package)."
+            exit 1
+          fi
+          # No --tag for a stable version: npm applies `latest` and refuses to move it to an older version.
+          tag_args=()
+          if [ -n "$NPM_TAG" ]; then tag_args=(--tag "$NPM_TAG"); fi
+          npm stage publish "release-out/${TARBALL}" --provenance --access public "${tag_args[@]}"
+          echo "::notice::${NAME}@${VERSION} is staged on npm. Approve it on npmjs.com (2FA) to make it live."
+
+  # After npm, so a release npm refuses (e.g. a new package without NPM_TOKEN) publishes nothing else.
+  publish-github:
+    name: publish to GitHub Packages
+    needs: [validate, publish-npm]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: release
+          path: release-out
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          registry-url: https://npm.pkg.github.com
+          scope: "@softure"
+      # The validated tarball, renamed: no rebuild. Internal dependencies stay @softure-ai/* (npm).
+      - name: Rename to the org scope
+        env:
+          SHORT_NAME: ${{ needs.validate.outputs.short-name }}
+          TARBALL: ${{ needs.validate.outputs.tarball }}
+        run: |
+          mkdir unpacked
+          tar -xzf "release-out/${TARBALL}" -C unpacked
+          node -e '
+            const fs = require("node:fs");
+            const path = "unpacked/package/package.json";
+            const pkg = JSON.parse(fs.readFileSync(path, "utf8"));
+            pkg.name = `@softure/${process.env.SHORT_NAME}`;
+            pkg.publishConfig = { registry: "https://npm.pkg.github.com" };
+            fs.writeFileSync(path, JSON.stringify(pkg, null, 2) + "\n");
+          '
+      - name: Publish to GitHub Packages
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SHORT_NAME: ${{ needs.validate.outputs.short-name }}
+          VERSION: ${{ needs.validate.outputs.version }}
+          NPM_TAG: ${{ needs.validate.outputs.npm-tag }}
+        run: |
+          spec="@softure/${SHORT_NAME}@${VERSION}"
+          if output=$(npm view "$spec" version --json 2>&1) && [ -n "$output" ]; then
+            echo "${spec} is already on GitHub Packages, skipping."
+            exit 0
+          elif [ -n "$output" ] && [[ "$output" != *E404* ]]; then
+            echo "::error::Reading ${spec} from GitHub Packages failed: $output"
+            exit 1
+          fi
+          tag_args=()
+          if [ -n "$NPM_TAG" ]; then tag_args=(--tag "$NPM_TAG"); fi
+          # The tarball is already built and checked: run none of its lifecycle scripts.
+          npm publish ./unpacked/package --ignore-scripts "${tag_args[@]}"
+
+  github-release:
+    name: create the GitHub Release
+    needs: [validate, publish-npm, publish-github]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Tags, to start the notes at this package's previous release.
+          fetch-depth: 0
+      - uses: actions/download-artifact@v8
+        with:
+          name: release
+          path: release-out
+      - name: Create the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          NAME: ${{ needs.validate.outputs.name }}
+          SHORT_NAME: ${{ needs.validate.outputs.short-name }}
+          VERSION: ${{ needs.validate.outputs.version }}
+          PRERELEASE: ${{ needs.validate.outputs.prerelease }}
+          TARBALL: ${{ needs.validate.outputs.tarball }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "release-out/${TARBALL}" --clobber
+            exit 0
+          fi
+          download="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG//@/%40}/${TARBALL}"
+          notes=$(printf '%s\n' \
+            "npm (live once the staged version is approved): \`npm i ${NAME}@${VERSION}\`" \
+            "" \
+            "This release, no registry and no auth: \`npm i ${download}\`" \
+            "" \
+            "GitHub Packages: \`@softure/${SHORT_NAME}@${VERSION}\` (a token with read:packages)")
+          args=(--verify-tag --generate-notes --title "$TAG" --notes "$notes")
+          previous=$(git -c versionsort.suffix=- tag --merged "$TAG" --list "${SHORT_NAME}@*" --sort=-v:refname | grep -vxF "$TAG" | head -n 1 || true)
+          if [ -n "$previous" ]; then args+=(--notes-start-tag "$previous"); fi
+          if [ "$PRERELEASE" = true ]; then args+=(--prerelease); fi
+          gh release create "$TAG" "release-out/${TARBALL}" "${args[@]}"

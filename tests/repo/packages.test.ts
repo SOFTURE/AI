@@ -8,6 +8,7 @@ import { pathToFileURL } from "node:url";
 import { ESLint } from "eslint";
 import { afterAll, describe, expect, it } from "vitest";
 import { findWorkspaces } from "../../scripts/build-workspaces.mjs";
+import { checkManifest } from "../../scripts/release/release-rules.mjs";
 import { REPO_ROOT } from "./repo-files.js";
 
 const SOURCE_CONDITION = "@softure-ai/source";
@@ -17,6 +18,7 @@ const EXPECTED_NAMES: Record<string, string> = { [TEMPLATE_DIR]: "@softure-ai/te
 
 interface PackageManifest {
   name?: unknown;
+  version?: unknown;
   type?: unknown;
   files?: unknown;
   engines?: { node?: unknown };
@@ -43,6 +45,18 @@ function listKeyPaths(value: unknown, prefix = ""): string[] {
 }
 
 const packageDirs = findWorkspaces(REPO_ROOT).map((pkg) => pkg.dir);
+const workspaceVersions = new Map(
+  packageDirs.map((dir) => {
+    const manifest = readManifest(dir) as { name: string; version: string };
+    return [manifest.name, manifest.version];
+  }),
+);
+
+function readModuleVersion(dir: string): string | null {
+  const path = join(REPO_ROOT, dir, "module.json");
+  if (!existsSync(path)) return null;
+  return String((JSON.parse(readFileSync(path, "utf8")) as { version?: unknown }).version);
+}
 
 describe("workspace packages", () => {
   it("include the template, so the rules run before the first real package exists", () => {
@@ -57,6 +71,19 @@ describe("workspace packages", () => {
       expect(manifest.type).toBe("module");
       expect(manifest.engines?.node).toBe(">=22");
       expect(manifest.files).toContain("dist");
+    });
+
+    it("passes the release manifest rules, so a tag can publish it (scripts/release/README.md)", () => {
+      const problems = checkManifest({
+        manifest: manifest as Record<string, unknown>,
+        dir,
+        version: String(manifest.version),
+        moduleVersion: readModuleVersion(dir),
+        workspaceVersions,
+        // Private packages (the template) are never published, but keep the publishable shape.
+        allowPrivate: true,
+      });
+      expect(problems).toEqual([]);
     });
 
     it("builds with tsc from its own tsconfig.build.json", () => {
