@@ -25,7 +25,7 @@ archived_at: null
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **ID-3** (roadmap `identity`):
+From [`roadmap.md`](../../foundation/roadmap.md), item **ID-3** (roadmap `identity`):
 
 > ### ID-3: Authentication core
 > - **Change ID:** `auth-core`
