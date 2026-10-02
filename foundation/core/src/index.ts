@@ -18,3 +18,19 @@ export {
 export { coreMessages, type CoreMessages } from "./messages/index.js";
 export { err, ok, type Err, type ErrorCode, type Ok, type Result } from "./result.js";
 export { errorLogLabel, safeError, type CoreErrorCode } from "./safe-error.js";
+export type { SoftureConfig } from "./config.js";
+export { SoftureConfigError } from "./config-error.js";
+export { moduleManifestSchema, type ModuleManifest } from "./manifest.js";
+export {
+  defineModule,
+  toModuleJson,
+  type AnySoftureModule,
+  type ModuleContext,
+  type ModuleFactory,
+  type ModuleInput,
+  type ModuleMigrations,
+  type ModuleSpec,
+  type PrivacyContributor,
+  type SoftureModule,
+} from "./module.js";
+export { isVersion, parseVersionRange, satisfiesRange, type Version, type VersionRange } from "./version-range.js";

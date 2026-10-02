@@ -194,9 +194,9 @@ equals the manifest.
 ### Phase 1: Package shell and primitives
 
 #### Automated
-- [ ] 1.1 The phase 1 tests fail before the sources exist and pass after
-- [ ] 1.2 `npm run build` emits `foundation/core/dist/index.js` and `index.d.ts`
-- [ ] 1.3 Gates green (typecheck, lint, test)
+- [x] 1.1 The phase 1 tests fail before the sources exist and pass after — e5b3c55
+- [x] 1.2 `npm run build` emits `foundation/core/dist/index.js` and `index.d.ts` — e5b3c55
+- [x] 1.3 Gates green (typecheck, lint, test) — e5b3c55
 
 ### Phase 2: Module contract
 
