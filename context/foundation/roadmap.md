@@ -41,7 +41,7 @@ backlog: context/backlog/roadmap-identity/
 | **ID-1** | `next-actions-spike` | proven way to ship server actions and route handlers from a package in Next 16, or a decided fallback | FD-3, FD-4 | autonomous | done |
 | **ID-2** | `security-rate-limit` | `@softure-ai/security`: configurable rate-limit buckets, pluggable client-IP resolvers, small-body reader | FD-3, FD-4 | autonomous | done |
 | **ID-3** | `auth-core` | `@softure-ai/auth`: register with consent hook, login, logout, sessions, change password, route guard, pages and forms | ID-1, ID-2 | autonomous | done |
-| **ID-4** | `auth-roles` | roles with `requireRole`; admin-only surfaces fail closed | ID-3 | autonomous | ready |
+| **ID-4** | `auth-roles` | roles with `requireRole`; admin-only surfaces fail closed | ID-3 | autonomous | **in_progress** (research, since 2026-10-02; cloud session, branch `claude/id-4-auth-roles-o071gn` — do not take in another session) |
 | **ID-5** | `auth-password-reset` | password reset with a single-use, expiring token sent through a sender hook | ID-4 | autonomous | ready |
 | **ID-6** | `feature-switches` | `@softure-ai/feature-switches`: declared switches, env overrides, fail mode, admin-only panel | ID-4 | autonomous | ready |
 | **ID-7** | `ops-health-migrate` | `@softure-ai/ops`: health endpoint with module checks, container migrate step, safe ops script pattern | ID-1 | autonomous | done |
@@ -159,7 +159,7 @@ item's entries.
 
 ### ID-4: Roles and admin
 - **Change ID:** `auth-roles`
-- **Status:** ready
+- **Status:** in_progress (research, since 2026-10-02; cloud session, branch `claude/id-4-auth-roles-o071gn` — do not take in another session)
 - **Outcome:** table `auth.user_roles`, `requireRole(role)` for pages, actions and route handlers,
   and `hasRole` for UI. The admin role is granted by configuration (an initial admin list) or by a
   CLI command. Every admin-only surface fails closed when no admin is configured. Includes tests that
