@@ -22,7 +22,7 @@ archived_at: null
 
 ## Context
 
-From [`roadmap-identity.md`](../../../foundation/roadmaps/roadmap-identity.md), item **ID-6** (queued roadmap `identity`):
+From [`roadmap.md`](../../../foundation/roadmap.md), item **ID-6** (roadmap `identity`):
 
 > ### ID-6: Feature switches module
 > - **Change ID:** `feature-switches`
