@@ -97,5 +97,5 @@ windows, a Redis backend, wiring auth (ID-3).
 ### Phase 3: Example app and e2e
 
 #### Automated
-- [ ] 3.1 `npm run e2e` passes against a local PostgreSQL 16, including `security.spec.ts`
-- [ ] 3.2 Gates green (typecheck, lint, test)
+- [x] 3.1 `npm run e2e` passes against a local PostgreSQL 16, including `security.spec.ts` — d1d8121
+- [x] 3.2 Gates green (typecheck, lint, test) — d1d8121

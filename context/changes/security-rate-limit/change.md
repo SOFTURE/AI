@@ -1,7 +1,7 @@
 ---
 change_id: security-rate-limit
 title: "Rate limiting module with configurable buckets and client-IP resolvers"
-status: implementing
+status: implemented
 roadmap_item: ID-2
 branch: claude/id-2-security-rate-limit-1uapih
 created: 2026-10-02
