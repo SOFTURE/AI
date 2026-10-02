@@ -1,12 +1,12 @@
 ---
 change_id: ui-primitives
 title: "UI primitives"
-status: impl_reviewed
+status: archived
 roadmap_item: FD-6
 branch: claude/fd-6-ui-primitives-7j5g3v
 created: 2026-10-02
 updated: 2026-10-02
-archived_at: null
+archived_at: 2026-10-02
 ---
 
 ## Intent
@@ -45,3 +45,5 @@ Reference material: `docs/02-module-standard.md` (the standard), `docs/01-module
 - No release, tag or publish by the agent; the owner tags releases.
 
 ## Notes
+
+Archived 2026-10-02: `@softure-ai/ui` ships the FD-6 primitives with slots, `unstyled`, `pl`/`en` copy, FIRE behaviour tests and DOM tests (happy-dom).

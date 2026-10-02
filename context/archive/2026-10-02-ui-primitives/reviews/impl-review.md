@@ -76,7 +76,7 @@ values replayed.
 **Decision:** fix now (89482ba); test "replays switches all turned off as off, not as their defaults".
 
 ### F6 [WARNING] Unrecorded drift from the plan
-**Impact:** LOW · **Dimension:** Plan adherence · **Where:** context/changes/ui-primitives/plan.md
+**Impact:** LOW · **Dimension:** Plan adherence · **Where:** context/archive/2026-10-02-ui-primitives/plan.md
 **What:** Card slots (`titleRow`, no `body`), `getAmountErrorMessage` instead of
 `getUiErrorMessage`, `getNextSelectState`, the tighter `ActionResult`, Button `spinner` slot.
 **Fix:** each kept and explained under plan Decisions (auto).

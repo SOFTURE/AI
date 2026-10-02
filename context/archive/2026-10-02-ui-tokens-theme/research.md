@@ -81,7 +81,7 @@ None. No database, no migrations.
 - `context/archive/2026-10-02-monorepo-tooling/research.md:126,168-169`: FD-1 left `./styles.css`
   and the Tailwind CLI step to FD-5; build stays `tsc` first (L-001).
 - `context/archive/2026-10-02-core-contract/`: FD-3 fixed the messages and Result APIs used here.
-- `context/changes/ui-primitives/change.md`: FD-6 shares `foundation/ui/` and builds the primitives
+- `context/archive/2026-10-02-ui-primitives/change.md`: FD-6 shares `foundation/ui/` and builds the primitives
   on this pipeline; FD-5 must not add primitives beyond the switch.
 
 ## SOFTURE modules

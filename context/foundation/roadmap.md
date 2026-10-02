@@ -36,7 +36,7 @@ updated: 2026-10-02
 | **FD-3** | `core-contract` | `@softure-ai/core`: config, module contract, Result, clock, messages | FD-1 | autonomous | done |
 | **FD-4** | `db-migrator` | `@softure-ai/db`: client, per-module schemas, migrator with plan/adopt, PGlite test DB | FD-3 | autonomous | ready |
 | **FD-5** | `ui-tokens-theme` | `@softure-ai/ui` tokens (light/dark), theme provider + switch, compiled CSS pipeline | FD-3 | autonomous | done |
-| **FD-6** | `ui-primitives` | Button, Modal, Toast, Select, form fields, Card, Hint, ActionForm, icons with slots and messages | FD-5 | autonomous | ready |
+| **FD-6** | `ui-primitives` | Button, Modal, Toast, Select, form fields, Card, Hint, ActionForm, icons with slots and messages | FD-5 | autonomous | done |
 | **FD-7** | `example-app` | Next example app consuming core/db/ui, Playwright e2e in CI | FD-4, FD-6 | autonomous | ready |
 | **FD-8** | `foundation-release` | core, db and ui 0.1.0 published through FD-2; docs updated; foundation verified end to end | FD-2, FD-7 | owner | ready |
 
@@ -158,7 +158,7 @@ they come before the UI breadth (FD-6).
 
 ### FD-6: UI primitives
 - **Change ID:** `ui-primitives`
-- **Status:** ready
+- **Status:** done
 - **Outcome:** Button/ButtonLink/IconButton, Modal (+ ModalForm), Toast, Select (ARIA listbox),
   Switch/Checkbox/SegmentedControl, TextField/PasswordField/MoneyField/SelectField, Card/Stat/EmptyState,
   Hint, ActionForm, icons. Every component has typed `classNames` slots, `unstyled`, messages for
@@ -210,6 +210,7 @@ they come before the UI breadth (FD-6).
 - **FD-3** `core-contract`: `@softure-ai/core` with `defineSoftureConfig`, `defineModule` (manifest, dependencies, migrations, routes, switches, privacy contributors), `Result`, `Clock`, `pl`/`en` messages with overrides and `safeError`; config registry in `core/next` provisional until ID-1; archived in `archive/2026-10-02-core-contract/`
 - **FD-2** `release-pipeline`: `release.yml` turns a `<package>@x.y.z` tag into a staged npm version (OIDC, provenance), a GitHub Packages `@softure/*` version and a GitHub Release; dry run on every PR; `release:pack` and `release:version` scripts; packages ship `src/`; archived in `archive/2026-10-02-release-pipeline/`
 - **FD-5** `ui-tokens-theme`: `@softure-ai/ui` with the `--sft-*` token contract (light/dark defaults ported from FIRE), `SoftureThemeProvider` (object or `design.json`), no-flash `ThemeScript`, `ThemeSwitch` (pl/en, slots, `unstyled`), `tailwind.css` bridge and a Tailwind 4 build of `styles.css` in `@layer softure` with `sft:` classes and the NFR-7 budget checked on build; archived in `archive/2026-10-02-ui-tokens-theme/`
+- **FD-6** `ui-primitives`: `Button`/`ButtonLink`/`IconButton`, icons, `Card`/`Stat`/`EmptyState`, `Hint`, fields (`TextField`, `PasswordField`, `MoneyField` with locale-aware `parseAmount`, `SelectField`, `CheckboxField`), `Select` (ARIA listbox), `Switch`/`Checkbox`/`SegmentedControl`, `Modal` (+ `ModalForm`), `ToastHost`, `ActionForm`; typed slots, `unstyled`, `pl`/`en` copy, `LinkComponent`; FIRE tests plus happy-dom DOM tests; archived in `archive/2026-10-02-ui-primitives/`
 
 ## Decisions (auto)
 
