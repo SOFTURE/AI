@@ -174,9 +174,9 @@ no unprefixed utility, and is ≤ 20 kB gzip; `tailwind.css` maps every bridged 
 ### Phase 1: Token contract and theme logic
 
 #### Automated
-- [ ] 1.1 The phase 1 tests fail before the sources exist and pass after
-- [ ] 1.2 `npm run build` emits `foundation/ui/dist/index.js` and `index.d.ts`
-- [ ] 1.3 Gates green (typecheck, lint, test)
+- [x] 1.1 The phase 1 tests fail before the sources exist and pass after
+- [x] 1.2 `npm run build` emits `foundation/ui/dist/index.js` and `index.d.ts`
+- [x] 1.3 Gates green (typecheck, lint, test)
 
 ### Phase 2: Provider, boot script component and theme switch
 
