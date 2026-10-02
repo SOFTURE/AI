@@ -1,6 +1,6 @@
 # Example app (Next.js)
 
-A Next.js 16 app built from `@softure-ai/core`, `@softure-ai/db` and `@softure-ai/ui`, and the
+A Next.js 16 app built from `@softure-ai/core`, `@softure-ai/db`, `@softure-ai/ui` and the modules, and the
 end-to-end harness of the repository: every module adds its scenarios here
 ([roadmap FD-7](../../context/foundation/roadmap.md)).
 
@@ -52,17 +52,19 @@ npm run dev
 
 | Path | What it shows |
 | --- | --- |
-| `softure.config.ts` | `defineSoftureConfig` with the guestbook and `@softure-ai/security`, registered for package code |
+| `softure.config.ts` | `defineSoftureConfig` with the guestbook, `@softure-ai/security` and `@softure-ai/auth`, registered for package code |
 | `instrumentation.ts` | the config imported at server start (Node.js runtime only) |
 | `modules/guestbook/` | a module defined in the app: manifest, `migrations/0001_create_entries.sql`, drizzle tables, queries returning `Result` |
 | `app/layout.tsx` | `ThemeScript`, `SoftureThemeProvider`, `ToastHost` |
 | `app/page.tsx` | `ThemeSwitch`, `Card`, `EmptyState`, the guestbook and the `softure.migrations` ledger |
 | `app/add-entry.tsx`, `app/actions.ts` | `Modal` with an `ActionForm` posting to a server action validated with zod |
+| `app/login/`, `app/register/`, `app/account/password/`, `app/api/auth/session/` | pages and a route handler shipped by `@softure-ai/auth`, each mounted with one re-export line |
+| `proxy.ts`, `app/account/page.tsx` | the auth guard keeping `/account` private, and an app page with `requireUser` and `LogoutButton` |
 | `app/api/security/ping/route.ts` | a public route handler: `identifyClient`, `consumeRateLimit` and `readSmallBody` from `@softure-ai/security` |
 | `app/api/health/route.ts` | `GET /api/health` of `@softure-ai/ops`, one line; the guestbook contributes a check (`modules/guestbook/health.ts`) |
 | `Dockerfile`, `compose.container.yaml`, `scripts/migrate.ts` | the ops container recipe: one image, a one-off migrate step as the migrator role, the app as the app role |
 | `messages/` | the app's `en` and `pl` copy; no text is written inline |
-| `e2e/` | Playwright: theme switch, modal and form, migrations |
+| `e2e/` | Playwright: theme switch, modal and form, migrations, security, auth |
 
 ## Adding a scenario
 

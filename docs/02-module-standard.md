@@ -182,8 +182,9 @@ export default defineSoftureConfig({
 
 ## 8. Next.js adapter
 
-Decided by identity ID-1 (`next-actions-spike`, spike package `spikes/next-actions/`, e2e
-`examples/next-app/e2e/next-actions.spec.ts`). Measured on Next 16.3 with Turbopack, in `next dev`
+Decided by identity ID-1 (`next-actions-spike`; its spike package `spikes/next-actions/` and e2e
+`examples/next-app/e2e/next-actions.spec.ts` were removed by ID-3 once `@softure-ai/auth` shipped
+the same kinds of files, and remain in the history of `master` up to the ID-1 merge). Measured on Next 16.3 with Turbopack, in `next dev`
 and in `next build && next start`, with the package installed as a packed copy (`install-links`,
 what a registry install gives) and linked from the workspace.
 
@@ -224,8 +225,19 @@ thin actions) are not needed.
 - **Workspace links** (`npm install --install-links=false`) work once Turbopack may read the linked
   folders: `turbopack.root` must be the repository root. The example app keeps the root at its own
   folder on purpose, so it only ever tests packed copies.
-- Route guard: `softureMiddleware(config)`, composed into the app's `proxy.ts`. FIRE currently mixes
-  auth and channel tagging in `proxy.ts`, so these become two separate pieces.
+- **Database:** package code gets its handle from `getSharedDatabase(config.database.url)`
+  (`@softure-ai/db`): one handle per URL for the whole process, kept on `globalThis`, so every
+  module shares a pool and `next dev` reloads do not open new ones (decided in ID-3).
+- **Route guard and other proxy pieces** (decided in ID-3): a module that guards routes exports a
+  factory from its own `/proxy` entry point that returns `(request: Request) => Response | null`
+  (`createAuthGuard(config, { protect })` in `@softure-ai/auth/proxy`). It uses only Web `Request`
+  and `Response` and no React, so pieces chain in the app's `proxy.ts` with
+  `guard(request) ?? other(request) ?? NextResponse.next()`. FIRE mixed auth and channel tagging in
+  one `proxy.ts`; they are separate pieces now (channel tagging arrives with `analytics`).
+- **Forms that redirect** submit straight to their server action through `useActionState`
+  (`@softure-ai/auth/ui`): `redirect()` after a login then works with and without JavaScript.
+  `ActionForm` (`@softure-ai/ui`) wraps its action in a client function and treats a rejection as a
+  form error, so it suits forms that stay on the page.
 
 ## 9. Server code contract (from FIRE, generalized)
 

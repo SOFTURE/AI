@@ -48,3 +48,10 @@ body {
   padding: 0;
   list-style: none;
 }
+
+.actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sft-space-2);
+  align-items: center;
+}

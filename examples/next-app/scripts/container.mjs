@@ -77,8 +77,8 @@ async function main() {
   const healthy = await readHealth();
   check(healthy.status === 200, `GET /api/health answers 200 (got ${String(healthy.status)})`);
   check(
-    JSON.stringify(healthy.body) === JSON.stringify({ status: "ok", checks: { database: "ok", guestbook: "ok" } }),
-    `the answer lists the database and the guestbook check (got ${JSON.stringify(healthy.body)})`,
+    JSON.stringify(healthy.body) === JSON.stringify({ status: "ok", checks: { database: "ok", guestbook: "ok", auth: "ok" } }),
+    `the answer lists the database, guestbook and auth checks (got ${JSON.stringify(healthy.body)})`,
   );
 
   const ddl = compose(
@@ -101,8 +101,8 @@ async function main() {
   const body = /** @type {{ status?: unknown, checks?: Record<string, unknown> }} */ (unhealthy.body);
   const isDown = (/** @type {unknown} */ state) => state === "failed" || state === "timed_out";
   check(
-    body.status === "unavailable" && isDown(body.checks?.database) && isDown(body.checks?.guestbook),
-    `the answer marks the database and the guestbook check as down (got ${JSON.stringify(unhealthy.body)})`,
+    body.status === "unavailable" && isDown(body.checks?.database) && isDown(body.checks?.guestbook) && isDown(body.checks?.auth),
+    `the answer marks the database, guestbook and auth checks as down (got ${JSON.stringify(unhealthy.body)})`,
   );
 }
 

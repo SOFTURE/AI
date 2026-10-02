@@ -27,5 +27,7 @@ export default defineConfig({
     // Never by default: a stale server left on the port would be tested instead of the fresh build.
     reuseExistingServer: process.env.E2E_REUSE_SERVER === "1",
     timeout: 60_000,
+    // The app builds absolute URLs (the auth guard's redirect) on APP_ORIGIN: the port under test.
+    env: { APP_ORIGIN: process.env.APP_ORIGIN ?? `http://localhost:${String(PORT)}` },
   },
 });

@@ -40,7 +40,7 @@ backlog: context/backlog/roadmap-identity/
 | **FD-8** | `foundation-release` | core, db and ui 0.1.0 published through FD-2; docs updated; foundation verified end to end | FD-2, FD-7 | owner | blocked (deferred by the owner to a session at the keyboard) |
 | **ID-1** | `next-actions-spike` | proven way to ship server actions and route handlers from a package in Next 16, or a decided fallback | FD-3, FD-4 | autonomous | done |
 | **ID-2** | `security-rate-limit` | `@softure-ai/security`: configurable rate-limit buckets, pluggable client-IP resolvers, small-body reader | FD-3, FD-4 | autonomous | done |
-| **ID-3** | `auth-core` | `@softure-ai/auth`: register with consent hook, login, logout, sessions, change password, route guard, pages and forms | ID-1, ID-2 | autonomous | ready |
+| **ID-3** | `auth-core` | `@softure-ai/auth`: register with consent hook, login, logout, sessions, change password, route guard, pages and forms | ID-1, ID-2 | autonomous | done |
 | **ID-4** | `auth-roles` | roles with `requireRole`; admin-only surfaces fail closed | ID-3 | autonomous | ready |
 | **ID-5** | `auth-password-reset` | password reset with a single-use, expiring token sent through a sender hook | ID-4 | autonomous | ready |
 | **ID-6** | `feature-switches` | `@softure-ai/feature-switches`: declared switches, env overrides, fail mode, admin-only panel | ID-4 | autonomous | ready |
@@ -134,7 +134,7 @@ item's entries.
 
 ### ID-3: Authentication core
 - **Change ID:** `auth-core`
-- **Status:** ready
+- **Status:** done
 - **Outcome:** `@softure-ai/auth`, consisting of:
   - tables `auth.users` and `auth.sessions`;
   - scrypt password hashing (constant-time compare, dummy verification for unknown emails);
@@ -279,9 +279,10 @@ item's entries.
 
 ## Done
 
+- **ID-3** `auth-core`: `@softure-ai/auth` with users, scrypt passwords, database sessions (token hash only), register with a consent hook in one transaction, login (two rate-limit buckets before hashing), logout, password change ending other sessions, `getCurrentUser` / `requireUser`, `createAuthGuard` for `proxy.ts`, pages and forms in pl + en, a health check for ops; `getSharedDatabase` in db; the next-actions spike removed; archived in `archive/2026-10-02-auth-core/`
+- **ID-7** `ops-health-migrate`: `@softure-ai/ops` with `GET /api/health` (database plus a check per enabled module through `defineModule({ health })`, 200/503, nothing revealed), the container recipe (one image, one-off `softure migrate` as `softure_migrator`, the app as `softure_app` limited to rows; verified by `npm run e2e:container` in CI) and the safe ops script helper; `.env.prod` and release notes stay app-specific; archived in `archive/2026-10-02-ops-health-migrate/`
 - **ID-2** `security-rate-limit`: `@softure-ai/security` with configurable rate-limit buckets, client-IP resolvers that refuse unidentified clients, subject keys and `readSmallBody`; archived in `archive/2026-10-02-security-rate-limit/`
 - **ID-1** `next-actions-spike`: modules ship server actions, route handlers and pages from their package (docs/02 §8: one-line re-exports, config registry confirmed with a root-layout import for prerendering, bound arguments not secret, `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` for stable action ids across builds); `resolveMigrationsDir` in core fixes the Turbopack migrations build; spike package `spikes/next-actions/` with e2e; archived in `archive/2026-10-02-next-actions-spike/`
-- **ID-7** `ops-health-migrate`: `@softure-ai/ops` with `GET /api/health` (database plus a check per enabled module through `defineModule({ health })`, 200/503, nothing revealed), the container recipe (one image, one-off `softure migrate` as `softure_migrator`, the app as `softure_app` limited to rows; verified by `npm run e2e:container` in CI) and the safe ops script helper; `.env.prod` and release notes stay app-specific; archived in `archive/2026-10-02-ops-health-migrate/`
 
 ## Decisions (auto)
 
