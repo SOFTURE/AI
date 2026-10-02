@@ -54,7 +54,13 @@ export function findBrokenLinks(path: string, text: string, files: ReadonlySet<s
     if (SCHEME.test(target) || target.startsWith("#") || target.startsWith("//")) return [];
     const withoutAnchor = target.split("#")[0]?.split("?")[0] ?? "";
     if (withoutAnchor === "") return [];
-    const decoded = decodeURIComponent(withoutAnchor);
+    let decoded: string;
+    try {
+      decoded = decodeURIComponent(withoutAnchor);
+    } catch {
+      // A stray `%` that is not an escape: the link cannot resolve as written.
+      return [`${path}:${line}: link "${target}" is not a valid URL path`];
+    }
     const resolved = decoded.startsWith("/")
       ? posix.normalize(decoded.slice(1))
       : posix.normalize(posix.join(posix.dirname(path), decoded));

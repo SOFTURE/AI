@@ -22,7 +22,6 @@ export default defineConfig({
   ssr: {
     resolve: {
       conditions: [SOURCE_CONDITION, ...defaultServerConditions],
-      externalConditions: [SOURCE_CONDITION],
     },
   },
   test: {
@@ -35,8 +34,9 @@ export default defineConfig({
     sequence: { shuffle: true },
     // A percentage, not a number: CI runners have 2-4 cores, dev machines many more.
     maxWorkers: "50%",
-    // Global, not per test: some repository tests spawn `tsc`. Ten times the slowest test keeps a
-    // slow machine from failing a test that measures nothing about speed.
+    // Global, not per test: some repository tests spawn `tsc` or run ESLint. The slowest test takes
+    // about 2.5 s today (the ESLint boundary test); a wide margin keeps a loaded CI runner from
+    // failing a test that measures nothing about speed.
     testTimeout: 60_000,
   },
 });

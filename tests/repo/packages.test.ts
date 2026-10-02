@@ -60,7 +60,8 @@ describe("workspace packages", () => {
     });
 
     it("builds with tsc from its own tsconfig.build.json", () => {
-      expect(manifest.scripts?.build).toBe("tsc -p tsconfig.build.json");
+      // A package with styles appends its CSS step (`tsc -p tsconfig.build.json && …`).
+      expect(manifest.scripts?.build).toMatch(/^tsc -p tsconfig\.build\.json(?: && .+)?$/);
       expect(existsSync(join(REPO_ROOT, dir, "tsconfig.json"))).toBe(true);
       expect(existsSync(join(REPO_ROOT, dir, "tsconfig.build.json"))).toBe(true);
       expect(existsSync(join(REPO_ROOT, dir, "README.md"))).toBe(true);

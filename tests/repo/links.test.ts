@@ -37,6 +37,12 @@ describe("findBrokenLinks", () => {
     expect(findBrokenLinks("docs/a.md", "[b](b%2Emd)\n", files)).toEqual([]);
   });
 
+  it("reports a link with a malformed percent escape instead of crashing", () => {
+    expect(findBrokenLinks("docs/a.md", "[x](100%.md)\n", files)).toEqual([
+      'docs/a.md:1: link "100%.md" is not a valid URL path',
+    ]);
+  });
+
   it("reports a relative link to a missing file with file, line and target", () => {
     expect(findBrokenLinks("docs/a.md", "ok\n[c](c.md)\n", files)).toEqual(['docs/a.md:2: broken link "c.md"']);
   });

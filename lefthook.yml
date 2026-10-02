@@ -2,6 +2,7 @@
 # skipped when CI is set). Never bypass them with `--no-verify`.
 #
 #   pre-commit  typecheck, lint and language, in parallel. Seconds.
+#   commit-msg  language, on the commit message.
 #   pre-push    the full `npm test`.
 #
 # `glob` is the "was any code touched" switch: a commit that stages only Markdown skips typecheck
@@ -25,6 +26,12 @@ pre-commit:
     # English only outside messages/ dictionaries (AGENTS.md). Markdown included.
     - name: language
       run: node scripts/check-language.mjs {staged_files}
+
+# Commit messages are English too (AGENTS.md). `{1}` is the file git wrote the message to.
+commit-msg:
+  jobs:
+    - name: language
+      run: node scripts/check-language.mjs --commit-msg {1}
 
 # No glob: the suite also checks Markdown (roadmap contract, links, language), and it takes
 # seconds, unlike FIRE_TRACKER's.

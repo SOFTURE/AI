@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkFiles, findPolishText, isExempt } from "../../scripts/check-language.mjs";
+import { checkFiles, findPolishText, getCommitMessageText, isExempt } from "../../scripts/check-language.mjs";
 import { listRepoFiles, REPO_ROOT } from "./repo-files.js";
 
 // This file is exempt from the language gate by path: it has to spell Polish to test the gate.
@@ -84,6 +84,25 @@ describe("checkFiles", () => {
 
   it("skips files that cannot be read (deleted or a folder)", () => {
     expect(checkFiles(["gone.ts"], () => null)).toEqual([]);
+  });
+});
+
+describe("getCommitMessageText", () => {
+  it("drops git's comment lines and the diff below the scissors line of git commit -v", () => {
+    const raw = [
+      "feat(x): add a title",
+      "",
+      "# Please enter the commit message for your changes.",
+      "# ------------------------ >8 ------------------------",
+      '+  title: "Gdzie jest plik",',
+    ].join("\n");
+    expect(getCommitMessageText(raw)).toBe("feat(x): add a title\n\n\n");
+  });
+
+  it("keeps a Polish message so the gate can reject it", () => {
+    expect(findPolishText("COMMIT_EDITMSG", getCommitMessageText("docs: dodaj opis\n"))).toEqual([
+      { line: 1, reason: 'Polish word "dodaj"' },
+    ]);
   });
 });
 

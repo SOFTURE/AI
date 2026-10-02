@@ -67,8 +67,7 @@ export function findWorkspaces(root) {
     if (!isRecord(packageManifest) || typeof packageManifest.name !== "string") {
       throw new Error(`Reading workspace ${dir}: package.json has no "name"`);
     }
-    const workspaceDependencies = getDependencyNames(packageManifest);
-    return [{ name: packageManifest.name, dir, dependencyNames: workspaceDependencies }];
+    return [{ name: packageManifest.name, dir, dependencyNames: getDependencyNames(packageManifest) }];
   });
 }
 

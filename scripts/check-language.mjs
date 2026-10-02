@@ -3,6 +3,7 @@
 //
 //   node scripts/check-language.mjs <file>...   check these files (the pre-commit hook passes staged files)
 //   node scripts/check-language.mjs --all       check every file git tracks
+//   node scripts/check-language.mjs --commit-msg <file>   check a commit message (commit-msg hook)
 //
 // Exit code 0: clean. Exit code 1: at least one hit, each printed as `path:line: reason`.
 import { execFileSync } from "node:child_process";
@@ -111,6 +112,22 @@ export function checkFiles(paths, readFile, root = process.cwd()) {
     });
 }
 
+const SCISSORS = "# ------------------------ >8 ------------------------";
+
+/**
+ * The message part of a commit message file: git's comment lines and, with `git commit -v`,
+ * everything below the scissors line (the diff, which may touch message dictionaries) removed.
+ * @param {string} raw
+ * @returns {string}
+ */
+export function getCommitMessageText(raw) {
+  const [message = ""] = raw.split(SCISSORS);
+  return message
+    .split("\n")
+    .map((line) => (line.startsWith("#") ? "" : line))
+    .join("\n");
+}
+
 /** @returns {string[]} */
 function listTrackedFiles() {
   return execFileSync("git", ["ls-files", "-z"], { encoding: "utf8" })
@@ -120,8 +137,14 @@ function listTrackedFiles() {
 
 /** @param {string[]} args */
 function runCli(args) {
-  const paths = args.includes("--all") ? listTrackedFiles() : args;
-  const hits = checkFiles(paths);
+  const [mode, messageFile] = args;
+  const hits =
+    mode === "--commit-msg" && messageFile
+      ? checkFiles([messageFile], (path) => {
+          const raw = readTextOrNull(resolve(path));
+          return raw === null ? null : getCommitMessageText(raw);
+        })
+      : checkFiles(mode === "--all" ? listTrackedFiles() : args);
   for (const hit of hits) console.error(`${hit.path}:${hit.line}: ${hit.reason}`);
   if (hits.length > 0) {
     console.error(

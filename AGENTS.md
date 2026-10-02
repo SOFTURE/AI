@@ -26,7 +26,8 @@ npm run build          # tsc builds of every workspace package, in dependency or
 ```
 
 - `lefthook.yml`: `pre-commit` runs typecheck, ESLint on staged files and the language gate in
-  parallel (a Markdown-only commit skips typecheck and lint); `pre-push` runs `npm test`.
+  parallel (a Markdown-only commit skips typecheck and lint); `commit-msg` runs the language gate
+  on the message; `pre-push` runs `npm test`.
 - Never `--no-verify`. A red hook is a red gate: fix the cause.
 - `.github/workflows/ci.yml` runs the same gates (static, test, build) on every push and pull request.
 - The repository tests guard the docs too: the roadmap contract (WORKFLOW §5), relative links in

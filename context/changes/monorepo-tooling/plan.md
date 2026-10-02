@@ -231,6 +231,17 @@ Manual: the first `ci` run on GitHub is green (owner, or agent if GitHub tools a
 - Typed lint on `.mjs` → kept (the scripts are in the TS program through `checkJs`).
 - (implement p2) Word adjacency also excludes `+` and `=`, and `package-lock.json` is exempt → base64
   integrity hashes can contain a listed word between those characters; the lockfile is generated.
+- (impl review) A `commit-msg` job runs the language gate on the message (`--commit-msg` mode drops
+  git's comment lines and the `git commit -v` diff) → AGENTS.md makes commit messages English and
+  nothing else enforced it; see reviews/impl-review.md F1.
+- (implement p5) Hook provocations ran in a scratchpad clone at 5cfebb6: a Polish comment and an
+  unused `eslint-disable` directive (a warning) were rejected by `pre-commit`; a Markdown-only commit
+  printed `typecheck (skip) no matching staged files` and `lint (skip)` and ran `language`; a commit
+  with a failing test was rejected by `pre-push` (`1 failed | 62 passed`). In the same clone,
+  `NODE_ENV=production npm ci` installed eslint, lefthook, tsc, vitest and both hooks, `CI=1 npm ci`
+  installed no hooks, and typecheck, lint, test and build all exited 0 without a prior build.
+- (implement p5) Action versions `actions/checkout@v7` and `actions/setup-node@v7` → the newest the
+  owner already runs (FIRE_TRACKER `release.yml`, `integration-tests.yml`).
 - (implement p4) Shape tests were written after the template; seen red by sabotage instead (export
   conditions reordered and the package renamed: 2 red; a Polish dictionary key renamed: parity and
   template build red), then restored from scratchpad copies.
@@ -288,12 +299,12 @@ Manual: the first `ci` run on GitHub is green (owner, or agent if GitHub tools a
 ### Phase 5: Hooks, CI and agent docs
 
 #### Automated
-- [ ] 5.1 `NODE_ENV=production npm ci` installs devDependencies and the hooks; `CI=1 npm ci` skips the hook install
-- [ ] 5.2 `pre-commit` rejects a commit with a Polish comment and a commit with a lint warning
-- [ ] 5.3 A Markdown-only commit skips typecheck and lint and runs the language job
-- [ ] 5.4 `pre-push` rejects a push with a failing test
-- [ ] 5.5 `.github/workflows/ci.yml` parses and defines the jobs `static`, `test`, `build`
-- [ ] 5.6 Gates green (typecheck, lint, test)
+- [x] 5.1 `NODE_ENV=production npm ci` installs devDependencies and the hooks; `CI=1 npm ci` skips the hook install — 5cfebb6
+- [x] 5.2 `pre-commit` rejects a commit with a Polish comment and a commit with a lint warning — 5cfebb6
+- [x] 5.3 A Markdown-only commit skips typecheck and lint and runs the language job — 5cfebb6
+- [x] 5.4 `pre-push` rejects a push with a failing test — 5cfebb6
+- [x] 5.5 `.github/workflows/ci.yml` parses and defines the jobs `static`, `test`, `build` — 5cfebb6
+- [x] 5.6 Gates green (typecheck, lint, test) — 5cfebb6
 
 #### Manual
 - [ ] 5.7 The first `ci` workflow run on GitHub for this branch is green
