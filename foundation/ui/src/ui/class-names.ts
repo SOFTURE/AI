@@ -17,3 +17,12 @@ export function getSlotClass<Slot extends string>(options: {
   const joined = parts.filter((part) => part !== undefined && part !== "").join(" ");
   return joined === "" ? undefined : joined;
 }
+
+/** `getSlotClass` bound to one component instance: `const slot = createSlotClassGetter(…); slot("root")`. */
+export function createSlotClassGetter<Slot extends string>(options: {
+  defaults: Readonly<Record<Slot, string>>;
+  classNames: ClassNames<Slot> | undefined;
+  unstyled: boolean | undefined;
+}): (slot: Slot) => string | undefined {
+  return (slot) => getSlotClass({ slot, ...options });
+}
