@@ -81,5 +81,5 @@ options (config would import Next code; the role check already fails closed); a 
 ### Phase 2: Next adapter, panel, example app and e2e
 
 #### Automated
-- [ ] 2.1 `npm run e2e` passes against a local PostgreSQL 16, including `feature-switches.spec.ts`
-- [ ] 2.2 Gates green (typecheck, lint, test, build)
+- [x] 2.1 `npm run e2e` passes against a local PostgreSQL 16, including `feature-switches.spec.ts` — 341fe2b
+- [x] 2.2 Gates green (typecheck, lint, test, build) — 341fe2b

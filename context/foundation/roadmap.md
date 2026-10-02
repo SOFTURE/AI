@@ -43,7 +43,7 @@ backlog: context/backlog/roadmap-identity/
 | **ID-3** | `auth-core` | `@softure-ai/auth`: register with consent hook, login, logout, sessions, change password, route guard, pages and forms | ID-1, ID-2 | autonomous | done |
 | **ID-4** | `auth-roles` | roles with `requireRole`; admin-only surfaces fail closed | ID-3 | autonomous | done |
 | **ID-5** | `auth-password-reset` | password reset with a single-use, expiring token sent through a sender hook | ID-4 | autonomous | ready |
-| **ID-6** | `feature-switches` | `@softure-ai/feature-switches`: declared switches, env overrides, fail mode, admin-only panel | ID-4 | autonomous | ready |
+| **ID-6** | `feature-switches` | `@softure-ai/feature-switches`: declared switches, env overrides, fail mode, admin-only panel | ID-4 | autonomous | done |
 | **ID-7** | `ops-health-migrate` | `@softure-ai/ops`: health endpoint with module checks, container migrate step, safe ops script pattern | ID-1 | autonomous | done |
 | **ID-8** | `identity-release` | security, auth, feature-switches and ops 0.1.0 published through the FD-2 pipeline | FD-8, ID-2, ID-3, ID-4, ID-5, ID-6, ID-7 | owner | ready |
 | **ID-9** | `fire-adopt-identity` | FIRE_TRACKER runs on security, auth, roles, switches and ops and has deleted its own implementation | ID-8 | owner | ready |
@@ -192,7 +192,7 @@ item's entries.
 
 ### ID-6: Feature switches module
 - **Change ID:** `feature-switches`
-- **Status:** ready
+- **Status:** done
 - **Outcome:** `@softure-ai/feature-switches`, consisting of:
   - table `features.switches(name, enabled, updated_at, updated_by)`;
   - a registry of switches declared by the app and by modules (name, label, description, default,
@@ -274,11 +274,15 @@ item's entries.
 
 - [ ] **ID-8**: approve the first (staged) publish of security, auth, feature-switches and ops
   on npmjs.com, then add a trusted publisher for each.
+- [ ] **ID-6**: `auth.registration_closed` is still read by auth from its option and env override,
+  not through feature-switches (auth cannot import it back); the follow-up in
+  `context/backlog/identity-followups.md` (a switch-reader contract in core) must land before ID-9.
 - [ ] **ID-9**: start the adoption in the FIRE_TRACKER repository; take a production backup and
   approve the dry-run result before the release that carries the adoption migration.
 
 ## Done
 
+- **ID-6** `feature-switches`: `@softure-ai/feature-switches` with switches the app declares (explicit default, fail mode `closed`/`open`, label and description per locale), the derived env override `SOFTURE_SWITCH_<NAME>` over the stored value over the default, table `features.switches` with `updated_at` and `updated_by`, `isEnabled` (one read per request in Next, fresh in scripts), `setSwitch`, an admin-only panel page (`requireRole`) and action (`authorizeRole` first), a health check; auth's own switch is a follow-up; archived in `archive/2026-10-02-feature-switches/`
 - **ID-4** `auth-roles`: roles in `@softure-ai/auth`: table `auth.user_roles`, declared role names (`admin` built in), `adminEmails` initial admin list, `requireRole` (404) for pages and route handlers, `authorizeRole` (`auth.forbidden`) for actions, `hasRole` for UI, `grant-role` / `revoke-role` ops scripts; admin-only surfaces fail closed; archived in `archive/2026-10-02-auth-roles/`
 - **ID-3** `auth-core`: `@softure-ai/auth` with users, scrypt passwords, database sessions (token hash only), register with a consent hook in one transaction, login (two rate-limit buckets before hashing), logout, password change ending other sessions, `getCurrentUser` / `requireUser`, `createAuthGuard` for `proxy.ts`, pages and forms in pl + en, a health check for ops; `getSharedDatabase` in db; the next-actions spike removed; archived in `archive/2026-10-02-auth-core/`
 - **ID-7** `ops-health-migrate`: `@softure-ai/ops` with `GET /api/health` (database plus a check per enabled module through `defineModule({ health })`, 200/503, nothing revealed), the container recipe (one image, one-off `softure migrate` as `softure_migrator`, the app as `softure_app` limited to rows; verified by `npm run e2e:container` in CI) and the safe ops script helper; `.env.prod` and release notes stay app-specific; archived in `archive/2026-10-02-ops-health-migrate/`

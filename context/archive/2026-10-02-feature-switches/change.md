@@ -1,12 +1,12 @@
 ---
 change_id: feature-switches
 title: "Feature switches module: declared switches with env overrides and a fail mode, isEnabled and setSwitch, and an admin-only panel"
-status: implementing
+status: archived
 roadmap_item: ID-6
 branch: claude/id-6-feature-switches-3xypko
 created: 2026-10-02
 updated: 2026-10-02
-archived_at: null
+archived_at: 2026-10-02
 ---
 
 ## Intent
@@ -43,4 +43,4 @@ account and grants admin with `npm run grant-role -- --email=… --role=admin --
 
 ## Notes
 
-- 2026-10-02: taken in the cloud session on `claude/id-6-feature-switches-3xypko`.
+- 2026-10-02: implemented and reviewed in the cloud session on `claude/id-6-feature-switches-3xypko`; impl review approve.
