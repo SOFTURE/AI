@@ -1,9 +1,9 @@
 ---
 change_id: release-pipeline
 title: "Tag-driven release pipeline"
-status: new
+status: plan_reviewed
 roadmap_item: FD-2
-branch: null
+branch: claude/fd-2-release-pipeline-y0qm8t
 created: 2026-10-02
 updated: 2026-10-02
 archived_at: null
