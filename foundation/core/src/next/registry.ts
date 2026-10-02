@@ -2,10 +2,10 @@
 // (docs/02-module-standard.md §8). A package cannot import the app's `softure.config.ts`, so the
 // app registers its config once and package code reads it here.
 //
-// Provisional: identity ID-1 (`next-actions-spike`) checks that a registration made in
-// `softure.config.ts` / `instrumentation.ts` is visible inside a shipped action, and confirms or
-// replaces this mechanism. The value lives on `globalThis` under a `Symbol.for` key, so two
-// copies of this file (separate server bundles) share one registry.
+// Confirmed by identity ID-1 (`next-actions-spike`): a registration made in `softure.config.ts`,
+// imported from `instrumentation.ts`, is visible inside shipped actions, route handlers and pages.
+// The value lives on `globalThis` under a `Symbol.for` key, so two copies of this file (separate
+// server bundles) share one registry.
 import type { SoftureConfig } from "../config.js";
 
 const REGISTRY_KEY = Symbol.for("@softure-ai/core/config");
