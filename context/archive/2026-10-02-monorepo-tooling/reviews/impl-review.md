@@ -106,8 +106,8 @@ Every ticked item has evidence: test names in `tests/repo/*.test.ts` and
 `## Decisions (auto)`; the clone provocations for 5.1-5.4; the YAML parse of `ci.yml` for 5.5. Gates
 and `npm run build` re-run in this session after the fixes and after merging `origin/master`.
 Break-it check on the riskiest behaviour (the language gate in `pre-commit`): a staged Polish
-comment was rejected in the clone. Open Manual item, not a finding: 5.7 (first green `ci` run on
-GitHub; the branch is pushed at READY).
+comment was rejected in the clone. Manual item 5.7 verified by the agent after the push: `ci` run 1 green on e090779
+(https://github.com/SOFTURE/AI/actions/runs/36999490046).
 
 ## Triage summary
 Fixed: F1, F2, F3, F4, F5 · Lessons: none from findings (one from the frame, below) · Deferred: F6

@@ -1,12 +1,12 @@
 ---
 change_id: monorepo-tooling
 title: "Monorepo tooling and gates"
-status: impl_reviewed
+status: archived
 roadmap_item: FD-1
 branch: claude/project-thread-8qjd9k (cloud session, no worktree)
 created: 2026-10-02
 updated: 2026-10-02
-archived_at: null
+archived_at: 2026-10-02
 ---
 
 ## Intent
@@ -95,3 +95,5 @@ Execution notes (readiness review, 2026-10-02):
 - Reference sources: `../../FIRE_TRACKER/lefthook.yml`, `../../FIRE_TRACKER/eslint.config.mjs`,
   `../../FIRE_TRACKER/vitest.config.mts`, and the pre-push gates section of `../../FIRE_TRACKER/AGENTS.md`.
 - Framing (2026-10-02): builds use `tsc`, not tsup; see `frame.md`.
+
+Archived 2026-10-02: root typecheck, lint (with the language gate), test and build gates run in lefthook hooks and in CI; packages build with tsc from `templates/package/`.

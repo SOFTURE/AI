@@ -307,4 +307,4 @@ Manual: the first `ci` run on GitHub is green (owner, or agent if GitHub tools a
 - [x] 5.6 Gates green (typecheck, lint, test) — 5cfebb6
 
 #### Manual
-- [ ] 5.7 The first `ci` workflow run on GitHub for this branch is green
+- [x] 5.7 The first `ci` workflow run on GitHub for this branch is green — 5cfebb6 (verified by agent: run 1 https://github.com/SOFTURE/AI/actions/runs/36999490046 on e090779, jobs static, test and build all success)
