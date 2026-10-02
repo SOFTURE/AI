@@ -1,17 +1,165 @@
 # @softure-ai/core
 
-**Status:** wave 0 · not implemented
+**Status:** wave 0 · implemented in FD-3 (`core-contract`), not published yet (FD-8).
 
-The contract every module stands on:
-- `defineSoftureConfig`: application configuration validated with zod;
-- `defineModule`: manifest, dependencies, migrations, routes, switches, GDPR contributors;
-- `Result<T, ErrorCode>`;
-- `Clock` (injected `now`);
-- i18n (dictionaries + partial overrides, `locale`, `timezone`);
-- `safeError`.
+The contract every SOFTURE module stands on. Standard:
+[docs/02-module-standard.md](../../docs/02-module-standard.md). Sources in FIRE_TRACKER: the
+`{ ok, error }` action results, `src/lib/safe-error.ts` and `src/lib/plural.ts`.
 
-The `next/` subfolder holds the configuration registry for server actions and `createSoftureHandlers`.
+## 1. What it provides
 
-**Source in FIRE_TRACKER:** the `database?`/`now` convention (`src/app/actions/architecture.test.ts`),
-`src/lib/safe-error.ts`, `src/lib/plural.ts`.
-Standard: [docs/02-module-standard.md](../../docs/02-module-standard.md).
+The app configuration (`defineSoftureConfig`), the module contract (`defineModule`), `Result`
+with namespaced error codes, an injectable `Clock`, `pl`/`en` messages with partial overrides,
+and `safeError`.
+
+## 2. Installation
+
+```bash
+npm install @softure-ai/core
+```
+
+Node ≥ 22, ESM only. The only runtime dependency is `zod`.
+
+## 3. Configuration
+
+```ts
+interface SoftureConfigInput {
+  database?: { url: string } | null; // required once any module has a dbSchema
+  locale: "en" | "pl";
+  timezone: string;                  // IANA zone, e.g. "Europe/Warsaw"
+  appOrigin: string;                 // http(s) origin without a path
+  modules: SoftureModule[];          // a module is enabled by being listed
+}
+```
+
+```ts
+// softure.config.ts
+import { defineSoftureConfig } from "@softure-ai/core";
+import { registerSoftureConfig } from "@softure-ai/core/next";
+import { notes } from "@softure-ai/notes";
+
+const config = defineSoftureConfig({
+  database: { url: process.env.DATABASE_URL ?? "" },
+  locale: "pl",
+  timezone: "Europe/Warsaw",
+  appOrigin: process.env.APP_ORIGIN ?? "http://localhost:3000",
+  modules: [notes({ limit: 10, routes: { list: "/my-notes" }, messages: { en: { list: { title: "My notes" } } } })],
+});
+
+registerSoftureConfig(config);
+export default config;
+```
+
+`defineSoftureConfig` throws `SoftureConfigError` with every problem listed (`issues`): an
+unknown locale or zone, an origin with a path, a module listed twice, two modules on one database
+schema, a required dependency missing, a dependency outside its version range (also an optional
+one, when listed), a dependency cycle, or a module with a `dbSchema` and no `database`.
+`getModule(config, id)` finds an enabled module; `sortModulesByDependencies(modules)` returns the
+migration order (dependencies first, listed order otherwise).
+
+**Defining a module** (in a module package):
+
+```ts
+import { defineModule } from "@softure-ai/core";
+import { z } from "zod";
+import { en } from "./messages/en.js";
+import { pl } from "./messages/pl.js";
+
+export const notes = defineModule({
+  manifest: {
+    id: "notes", version: "0.1.0", dependsOn: { auth: "^0.1.0" }, dbSchema: "notes",
+    tables: ["notes"], env: [], switches: ["notes.read_only"], routes: { list: "/notes" },
+    mount: [], privacy: { exports: true, deletes: true },
+  },
+  messages: { en, pl },
+  options: z.object({ limit: z.number().int().positive().default(100) }),
+  migrations: { dir: new URL("../migrations/", import.meta.url) },
+  privacy: { exportUserData, deleteUserData },
+});
+```
+
+- The manifest is checked against `moduleManifestSchema` when the package is imported; a
+  `dbSchema` needs `migrations`, and each privacy flag needs its function (and only then).
+- The returned factory takes the module's options plus two reserved keys: `routes` (new paths
+  for known route names) and `messages` (partial copy per locale). It throws
+  `SoftureConfigError` naming the module and every invalid field.
+- **`module.json`** is the JSON projection of the TS manifest, which is the source of truth at
+  runtime. A module's test keeps them equal:
+  `expect(JSON.parse(readFileSync("module.json", "utf8"))).toEqual(toModuleJson(notes))`.
+- Version ranges in `dependsOn`: `x.y.z`, `^x.y.z`, `~x.y.z`, `*`, each optionally ending in `?`
+  (optional dependency). Caret follows npm on `0.x`: `^0.1.0` is `>=0.1.0 <0.2.0`.
+
+## 4. Mounting
+
+`@softure-ai/core/next` holds the config registry for server actions and route handlers shipped
+in module packages, which cannot import the app's `softure.config.ts`:
+
+- `registerSoftureConfig(config)`: call it in `softure.config.ts`, and import that file from
+  `instrumentation.ts` so it runs at server start;
+- `getSoftureConfig()`: read it inside package code; it throws when nothing was registered;
+- `clearSoftureConfig()`: for tests.
+
+**Provisional:** identity ID-1 (`next-actions-spike`) verifies this inside real shipped actions and
+confirms or replaces it. `createSoftureHandlers` and `softureMiddleware` come after that spike.
+
+## 5. Migrations and tables
+
+None. Core owns no database schema. A module points at its SQL folder with
+`migrations: { dir: URL }`; `@softure-ai/db` (FD-4) applies the files.
+
+## 6. Environment variables
+
+None. Core reads no environment variables; the app passes values into `defineSoftureConfig`.
+
+## 7. Switches
+
+None. Modules declare theirs in `manifest.switches`, each prefixed with the module id
+(`notes.read_only`); the `feature-switches` module manages them.
+
+## 8. Appearance
+
+None. Tokens, slots and styles live in `@softure-ai/ui`.
+
+## 9. Copy
+
+- `LOCALES` is `["en", "pl"]`; every module ships both dictionaries complete (`pl.ts` is typed
+  `typeof en`).
+- `mergeMessages(defaults, overrides)` applies partial overrides per locale; unknown keys and a
+  string in place of a group are ignored.
+- `formatMessage("{count} of {total}", { count, total })` fills placeholders; a missing value
+  stays visible as `{name}`.
+- `selectPlural(locale, count, { one, few, many, other })` uses `Intl.PluralRules`.
+- `getMessage(dictionary, "errors.unexpected")` reads a dotted path.
+- Core's own keys (`coreMessages`): `errors.database_failed`, `errors.unexpected`, the copy for
+  the `core.database_failed` and `core.unexpected` codes.
+
+**Errors as values.** `Result<T, E>` is `{ ok: true, value } | { ok: false, error }`, built with
+`ok(value)` / `ok()` and `err("module.code")`. Codes are namespaced by module id
+(`` `${string}.${string}` ``); the UI translates them through messages.
+`safeError(error)` turns a caught error into `core.database_failed` (a Drizzle `Failed query:` or a
+bare SQL statement) or `core.unexpected`, so no SQL or parameter reaches a caller.
+`errorLogLabel(error)` gives a log line with the error class and SQLSTATE only, never the text.
+
+**Time.** Server code receives a `Clock` (`ModuleContext.clock`) instead of calling `new Date()`.
+`systemClock` is the real one; `createTestClock(start)` has `advance(ms)` and `set(date)`.
+
+## 10. Hooks
+
+`ModuleContext` is what every server function of a module receives: `{ db, clock, config }`
+(`db` is typed by `@softure-ai/db`). Request scope (cookies, headers) stays in `next/`.
+
+## 11. GDPR
+
+Core collects nothing. It defines the contributor contract a module implements:
+`exportUserData(context, userId)` returning `Result<unknown>` and
+`deleteUserData(context, userId)` returning `Result<undefined>`, present exactly when the
+manifest's `privacy.exports` / `privacy.deletes` flag is true. The `privacy` module runs them.
+
+## 12. Limitations
+
+- The registry in `next/` is provisional until ID-1.
+- Versions are plain `x.y.z`; pre-release versions and range forms beyond `^`, `~`, exact and `*`
+  are rejected.
+- Route maps mix mounted paths and redirect targets, so two modules may share a path; mount
+  collisions are left to `softure doctor`.
+- No date or number formatting helpers yet; apps use `Intl` with `config.locale` and `config.timezone`.
