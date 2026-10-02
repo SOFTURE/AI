@@ -162,9 +162,9 @@ shows field errors after a rejected submit.
 ### Phase 3: Modal, toast, action form, docs
 
 #### Automated
-- [ ] 3.1 The phase 3 tests pass; `npm run build` prints the CSS size under budget
-- [ ] 3.2 README and docs links pass the link test
-- [ ] 3.3 Gates green (typecheck, lint, test)
+- [x] 3.1 The phase 3 tests pass; `npm run build` prints the CSS size under budget — 7d3b2f8
+- [x] 3.2 README and docs links pass the link test — 7d3b2f8
+- [x] 3.3 Gates green (typecheck, lint, test) — 7d3b2f8
 
 #### Manual
-- [ ] 3.4 A page with the primitives renders in light and dark (screenshots)
+- [x] 3.4 A page with the primitives renders in light and dark (screenshots) — 7d3b2f8
