@@ -32,7 +32,7 @@ updated: 2026-10-02
 | ID | Change | Outcome | Depends on | Mode | Status |
 | --- | --- | --- | --- | --- | --- |
 | **FD-1** | `monorepo-tooling` | workspaces build typed ESM + CSS; typecheck, lint, language and unit gates run in lefthook hooks (as in FIRE_TRACKER) and in CI | — | autonomous | done |
-| **FD-2** | `release-pipeline` | a `<package>@x.y.z` tag publishes that package to npm (OIDC) and GitHub Packages and creates a GitHub Release | FD-1 | autonomous | **in_progress** (research, since 2026-10-02; cloud session, branch `claude/fd-2-release-pipeline-y0qm8t` — do not take in another session) |
+| **FD-2** | `release-pipeline` | a `<package>@x.y.z` tag publishes that package to npm (OIDC) and GitHub Packages and creates a GitHub Release | FD-1 | autonomous | **in_progress** (plan-review, since 2026-10-02; cloud session, branch `claude/fd-2-release-pipeline-y0qm8t` — do not take in another session) |
 | **FD-3** | `core-contract` | `@softure-ai/core`: config, module contract, Result, clock, messages | FD-1 | autonomous | ready |
 | **FD-4** | `db-migrator` | `@softure-ai/db`: client, per-module schemas, migrator with plan/adopt, PGlite test DB | FD-3 | autonomous | ready |
 | **FD-5** | `ui-tokens-theme` | `@softure-ai/ui` tokens (light/dark), theme provider + switch, compiled CSS pipeline | FD-3 | autonomous | ready |
@@ -96,7 +96,7 @@ they come before the UI breadth (FD-6).
 
 ### FD-2: Tag-driven release pipeline
 - **Change ID:** `release-pipeline`
-- **Status:** in_progress (research, since 2026-10-02; cloud session, branch `claude/fd-2-release-pipeline-y0qm8t` — do not take in another session)
+- **Status:** in_progress (plan-review, since 2026-10-02; cloud session, branch `claude/fd-2-release-pipeline-y0qm8t` — do not take in another session)
 - **Outcome:** a `<package>@x.y.z` tag (e.g. `core@0.1.0`) validates the package, publishes
   `@softure-ai/<package>` to npm through trusted publishing with provenance, publishes
   `@softure/<package>` to GitHub Packages and creates a GitHub Release with the tarball, the same
