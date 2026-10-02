@@ -12,6 +12,6 @@
     "node": ">=22"
   },
   "devDependencies": {
-    "@softure-ai/skills": "^0.1.2"
+    "@softure-ai/skills": "^0.2.1"
   }
 }

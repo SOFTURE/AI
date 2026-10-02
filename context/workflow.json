@@ -15,7 +15,8 @@
     "setup": [
       "npm ci --include=dev"
     ],
-    "maxParallel": 4
+    "maxParallel": 4,
+    "cloudState": "branch"
   },
   "release": {
     "owner": true

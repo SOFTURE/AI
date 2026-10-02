@@ -18,7 +18,7 @@ and skill or agent instructions. This holds even when the conversation with the 
 # SOFTURE workflow and conventions
 
 Installed by `@softure-ai/skills`. Project-specific rules outside this block take precedence,
-except the language rule below, which always applies.
+except the language rule below (when this block carries it), which always applies.
 
 ## Language: English in everything you write to the repository (mandatory)
 
