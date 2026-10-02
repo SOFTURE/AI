@@ -13,7 +13,9 @@ export type AuthErrorCode =
   | "auth.registration_closed"
   | "auth.current_password_invalid"
   | "auth.unauthenticated"
-  | "auth.forbidden";
+  | "auth.forbidden"
+  | "auth.reset_token_invalid"
+  | "auth.password_reset_unavailable";
 
 /** Every code an auth form can show: its own, the rate limiter's and the generic ones. */
 export type AuthFormErrorCode = AuthErrorCode | Extract<SecurityErrorCode, "security.rate_limited" | "security.client_unidentified"> | CoreErrorCode;

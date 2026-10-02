@@ -1,5 +1,5 @@
 // Public API of @softure-ai/auth: the module factory for softure.config.ts, its types, messages and
-// tables. Database work is in `@softure-ai/auth/server`, the Next.js adapter in `/next`, the route
+// tables, and the development reset sender. Database work is in `@softure-ai/auth/server`, the Next.js adapter in `/next`, the route
 // guard in `/proxy`, the forms in `/ui` and the role scripts in `/scripts`.
 import { defineModule, resolveMigrationsDir } from "@softure-ai/core";
 import { authMessages } from "./messages/index.js";
@@ -16,13 +16,18 @@ export const REGISTRATION_CLOSED_ENV = "SOFTURE_SWITCH_AUTH_REGISTRATION_CLOSED"
 
 /**
  * Rate limit buckets auth consumes, with defaults to spread into `security({ buckets })`:
- * `register` and `login` per client address, `login-account` per email, `change-password` per user.
+ * `register` and `login` per client address, `login-account` per email, `change-password` per user,
+ * `password-reset` (link requests) and `password-reset-confirm` (new passwords) per client address,
+ * and `password-reset-account` per email, which bounds the mails one address can receive.
  */
 export const AUTH_RATE_LIMIT_BUCKETS = {
   register: { limit: 5, windowMinutes: 15 },
   login: { limit: 50, windowMinutes: 15 },
   "login-account": { limit: 10, windowMinutes: 15 },
   "change-password": { limit: 10, windowMinutes: 15 },
+  "password-reset": { limit: 10, windowMinutes: 15 },
+  "password-reset-account": { limit: 3, windowMinutes: 15 },
+  "password-reset-confirm": { limit: 10, windowMinutes: 15 },
 } as const;
 
 /**
@@ -35,7 +40,7 @@ export const auth = defineModule({
     version: "0.0.0",
     dependsOn: { security: "^0.0.0" },
     dbSchema: "auth",
-    tables: ["users", "sessions", "user_roles"],
+    tables: ["users", "sessions", "user_roles", "password_resets"],
     env: [
       {
         name: REGISTRATION_CLOSED_ENV,
@@ -48,6 +53,8 @@ export const auth = defineModule({
       login: "/login",
       register: "/register",
       changePassword: "/account/password",
+      forgotPassword: "/forgot-password",
+      resetPassword: "/reset-password",
       afterLogin: "/",
       afterLogout: "/login",
     },
@@ -55,6 +62,8 @@ export const auth = defineModule({
       { kind: "page", path: "app/login/page.tsx", export: "LoginPage" },
       { kind: "page", path: "app/register/page.tsx", export: "RegisterPage" },
       { kind: "page", path: "app/account/password/page.tsx", export: "ChangePasswordPage" },
+      { kind: "page", path: "app/forgot-password/page.tsx", export: "ForgotPasswordPage" },
+      { kind: "page", path: "app/reset-password/page.tsx", export: "ResetPasswordPage" },
       { kind: "route-handler", path: "app/api/auth/session/route.ts", export: "getSessionRoute" },
       { kind: "middleware", path: "proxy.ts", export: "createAuthGuard" },
     ],
@@ -79,7 +88,8 @@ export type {
 } from "./contract.js";
 export { authMessages, getAuthErrorMessage, type AuthMessages } from "./messages/index.js";
 export type { AuthOptions, AuthOptionsInput, OnRegisteredHook, ScryptParams } from "./options.js";
+export { consolePasswordResetSender, type PasswordResetDetails, type PasswordResetSender } from "./password-reset-sender.js";
 export { getSessionCookie, type SessionCookie } from "./session-cookie.js";
 export { toSafeNextPath } from "./safe-next-path.js";
 export { ADMIN_ROLE, ROLE_NAME_PATTERN } from "./roles.js";
-export { sessions, userRoles, users } from "./schema.js";
+export { passwordResets, sessions, userRoles, users } from "./schema.js";

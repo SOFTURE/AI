@@ -5,6 +5,22 @@ export { loginUser, type LoginInput, type LoginResult } from "./login.js";
 export { getAuthOptions, getAuthRoutes, type AuthRoutes } from "./options.js";
 export { hashPassword, MAX_PASSWORD_LENGTH, needsRehash, verifyPassword } from "./password.js";
 export {
+  deliverPasswordReset,
+  findPasswordResetUser,
+  getPasswordResetLink,
+  isPasswordResetEnabled,
+  issuePasswordReset,
+  prunePasswordResets,
+  requestPasswordReset,
+  resetPassword,
+  RESET_TOKEN_PARAM,
+  type PasswordResetRequestInput,
+  type PasswordResetRequestResult,
+  type ResetPasswordErrorCode,
+  type ResetPasswordInput,
+  type ResetPasswordResult,
+} from "./password-reset.js";
+export {
   assertDeclaredRole,
   findUserRoles,
   getDeclaredRoles,

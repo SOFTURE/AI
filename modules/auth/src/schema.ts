@@ -1,5 +1,6 @@
-// Drizzle view of the module's tables (migrations/0001_create_users_and_sessions.sql and
-// 0002_create_user_roles.sql). The migrations are the source of truth; this file only types the queries. App tables may reference `users.id`.
+// Drizzle view of the module's tables (migrations/0001_create_users_and_sessions.sql,
+// 0002_create_user_roles.sql and 0003_create_password_resets.sql). The migrations are the source of
+// truth; this file only types the queries. App tables may reference `users.id`.
 import { pgSchema, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 export const authSchema = pgSchema("auth");
@@ -32,3 +33,12 @@ export const userRoles = authSchema.table(
   },
   (table) => [primaryKey({ columns: [table.userId, table.role] })],
 );
+
+export const passwordResets = authSchema.table("password_resets", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  tokenHash: text("token_hash").notNull().unique("password_resets_token_hash_key"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+});

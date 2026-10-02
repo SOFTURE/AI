@@ -16,6 +16,7 @@ export const pl: typeof en = {
     pending: "Logowanie…",
     noAccount: "Nie masz jeszcze konta?",
     registerLink: "Załóż je",
+    forgotPassword: "Nie pamiętasz hasła?",
   },
   register: {
     title: "Załóż konto",
@@ -34,6 +35,25 @@ export const pl: typeof en = {
     pending: "Zapisywanie…",
     success: "Hasło zostało zmienione.",
   },
+  forgotPassword: {
+    title: "Zresetuj hasło",
+    lead: "Podaj e-mail swojego konta, a wyślemy Ci link do ustawienia nowego hasła.",
+    submit: "Wyślij link",
+    pending: "Wysyłanie…",
+    sent: "Jeśli istnieje konto z tym adresem, wysłaliśmy na niego link do zmiany hasła. Link działa przez {ttlMinutes} minut.",
+    backToLogin: "Wróć do logowania",
+  },
+  resetPassword: {
+    title: "Ustaw nowe hasło",
+    lead: "Zostaniesz wylogowany na wszystkich urządzeniach.",
+    submit: "Ustaw hasło",
+    pending: "Zapisywanie…",
+    success: "Hasło zostało zmienione. Zaloguj się nowym hasłem.",
+    loginLink: "Zaloguj się",
+    invalidTitle: "Ten link nie działa",
+    invalidBody: "Link wygasł albo został już użyty. Poproś o nowy.",
+    requestNew: "Wyślij nowy link",
+  },
   logout: {
     submit: "Wyloguj się",
   },
@@ -49,6 +69,8 @@ export const pl: typeof en = {
       current_password_invalid: "Obecne hasło jest nieprawidłowe.",
       unauthenticated: "Sesja wygasła. Zaloguj się ponownie.",
       forbidden: "Nie masz dostępu do tej funkcji.",
+      reset_token_invalid: "Ten link wygasł albo został już użyty. Poproś o nowy.",
+      password_reset_unavailable: "Reset hasła jest niedostępny.",
     },
     security: {
       rate_limited: "Zbyt wiele prób. Odczekaj kilka minut i spróbuj ponownie.",

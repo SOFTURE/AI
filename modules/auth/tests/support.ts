@@ -53,7 +53,7 @@ export async function createTestAuth(options: ConfigOptions = {}): Promise<TestA
   return { ctx: { db: database.db, clock, config }, clock, database, config };
 }
 
-export async function countRows(database: TestDatabase, table: "users" | "sessions"): Promise<number> {
+export async function countRows(database: TestDatabase, table: "users" | "sessions" | "password_resets"): Promise<number> {
   const result = await database.client.query<{ count: number }>(`SELECT count(*)::int AS count FROM auth.${table}`);
   return result.rows[0]?.count ?? 0;
 }

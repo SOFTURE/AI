@@ -74,7 +74,7 @@ describe("loginUser", () => {
     const bare = await createTestAuth({ onlyBuckets: { register: { limit: 5, windowMinutes: 15 } } });
     try {
       await expect(loginUser(bare.ctx, LOGIN)).rejects.toThrow(
-        '@softure-ai/auth: security({ buckets }) lacks "login", "login-account", "change-password"; spread AUTH_RATE_LIMIT_BUCKETS into it',
+        '@softure-ai/auth: security({ buckets }) lacks "login", "login-account", "change-password", "password-reset", "password-reset-account", "password-reset-confirm"; spread AUTH_RATE_LIMIT_BUCKETS into it',
       );
     } finally {
       await bare.database.close();

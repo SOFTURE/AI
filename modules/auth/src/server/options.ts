@@ -31,6 +31,8 @@ export function getAuthRoutes(config: SoftureConfig): AuthRoutes {
     login: read("login"),
     register: read("register"),
     changePassword: read("changePassword"),
+    forgotPassword: read("forgotPassword"),
+    resetPassword: read("resetPassword"),
     afterLogin: read("afterLogin"),
     afterLogout: read("afterLogout"),
   };
@@ -40,6 +42,8 @@ export interface AuthRoutes {
   readonly login: string;
   readonly register: string;
   readonly changePassword: string;
+  readonly forgotPassword: string;
+  readonly resetPassword: string;
   readonly afterLogin: string;
   readonly afterLogout: string;
 }
