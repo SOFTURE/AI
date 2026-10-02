@@ -2,6 +2,7 @@
 // so relative imports name their `.ts` files.
 import { defineSoftureConfig } from "@softure-ai/core";
 import { registerSoftureConfig } from "@softure-ai/core/next";
+import { nextActions } from "@softure-ai/next-actions";
 import { guestbook } from "./modules/guestbook/index.ts";
 
 // The Postgres of compose.yaml; a local, throwaway database, so its password is not a secret.
@@ -12,7 +13,7 @@ const config = defineSoftureConfig({
   locale: process.env.APP_LOCALE === "pl" ? "pl" : "en",
   timezone: "Europe/Warsaw",
   appOrigin: process.env.APP_ORIGIN ?? "http://localhost:3000",
-  modules: [guestbook()],
+  modules: [guestbook(), nextActions()],
 });
 
 registerSoftureConfig(config);
