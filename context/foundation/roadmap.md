@@ -26,7 +26,7 @@ updated: 2026-10-02
 
 | ID | Change | Outcome | Depends on | Mode | Status |
 | --- | --- | --- | --- | --- | --- |
-| **FD-1** | `monorepo-tooling` | workspaces build typed ESM + CSS; typecheck, lint, unit gates run locally and in CI | — | autonomous | ready |
+| **FD-1** | `monorepo-tooling` | workspaces build typed ESM + CSS; typecheck, lint, language and unit gates run in lefthook hooks (as in FIRE_TRACKER) and in CI | — | autonomous | ready |
 | **FD-2** | `release-pipeline` | a `<package>@x.y.z` tag publishes that package to npm (OIDC) and GitHub Packages and creates a GitHub Release | FD-1 | autonomous | ready |
 | **FD-3** | `core-contract` | `@softure-ai/core`: config, module contract, Result, clock, messages | FD-1 | autonomous | ready |
 | **FD-4** | `db-migrator` | `@softure-ai/db`: client, per-module schemas, migrator with plan/adopt, PGlite test DB | FD-3 | autonomous | ready |
@@ -57,13 +57,33 @@ they come before the UI breadth (FD-6).
 - **Status:** ready
 - **Outcome:** `npm ci && npm run typecheck && npm run lint && npm test` works at the root over
   all workspaces; each package builds ESM + `.d.ts` (tsup) and, where it has styles, compiled CSS;
-  `.github/workflows/ci.yml` runs the gates on push and PR; `context/workflow.json` gates point
-  at the real scripts; a package template (`templates/package/`) matches docs/02 §2.
+  a package template (`templates/package/`) matches docs/02 §2; `context/workflow.json` gates
+  point at the real scripts. **Git hooks via lefthook, mirroring FIRE_TRACKER's gates**
+  (`FIRE_TRACKER/lefthook.yml` and the pre-push gates section of its AGENTS.md are the reference):
+  - `pre-commit` (seconds, parallel): `tsc --noEmit` over the whole tree; `eslint
+    {staged_files} --max-warnings 0 --no-warn-ignored`; a **language gate** that fails on
+    Polish text (diacritics and common words) in staged files outside `messages/` dictionaries
+    (the mandatory English-only rule in AGENTS.md). Code jobs are skipped by `glob` when only
+    markdown changed; the language gate runs on markdown too.
+  - `pre-push`: the full `npm test`.
+  - `prepare` installs hooks only outside CI (`CI` set → skip), as FIRE does.
+  - CI (`.github/workflows/ci.yml`) runs the same `static` job (typecheck, lint, language) and
+    the unit tests on every push and PR. The suite is fast here, unlike FIRE's on-demand tests.
+  - **Repository tests from day one**, so the test gate guards something before any package
+    exists: (a) the language rule over all tracked files; (b) the roadmap contract: every row
+    in `roadmap.md` and `roadmaps/roadmap-*.md` parses with the WORKFLOW §5 regexes, the row
+    status equals the item block status, each change-id is unique and lives in exactly one of
+    `changes/`, `backlog/`, `archive/`; (c) relative links in `context/` and `docs/` resolve.
 - **Prerequisites:** none.
 - **Unknowns:** tsup vs. tsc-only builds for server-only code; how to run architecture tests
-  (docs/02 §5) once for all packages; how NODE_ENV=production on the owner's machine affects `npm ci`.
+  (docs/02 §5) once for all packages; how NODE_ENV=production on the owner's machine affects
+  `npm ci` (FIRE needs `--include=dev`); current majors (TypeScript 7, ESLint 10, Vitest 5)
+  vs. FIRE's (TS 5, ESLint 9, Vitest 4): pick deliberately and record why; lefthook `glob`
+  behaviour for the markdown-only skip.
 - **Risk:** low. Wrong choices are cheap to change before any package ships.
-- **Baseline:** no build exists. After: all four commands green on an empty package.
+- **Baseline:** no build, no hooks. After: all four commands green; a commit with a Polish
+  comment or a lint warning is rejected by `pre-commit`; a push with a failing test is rejected
+  by `pre-push`; a commit touching only `*.md` skips typecheck and lint.
 - **PRD refs:** FR-1, NFR-1, NFR-3, NFR-6.
 
 ### FD-2: Tag-driven release pipeline
