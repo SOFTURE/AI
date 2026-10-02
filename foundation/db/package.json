@@ -1,0 +1,46 @@
+{
+  "name": "@softure-ai/db",
+  "version": "0.0.0",
+  "private": true,
+  "description": "SOFTURE AI database layer: pg/PGlite client, per-module migrator with plan and adopt, PGlite test databases.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SOFTURE/AI.git",
+    "directory": "foundation/db"
+  },
+  "files": [
+    "dist",
+    "src",
+    "!src/**/*.test.ts",
+    "!src/**/*.test.tsx"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "exports": {
+    ".": {
+      "@softure-ai/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@softure-ai/core": "^0.0.0",
+    "@types/pg": "^8.23.1",
+    "pg": "^8.23.1"
+  },
+  "peerDependencies": {
+    "drizzle-orm": "^0.45.2"
+  }
+}
