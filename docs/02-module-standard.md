@@ -167,7 +167,7 @@ export default defineSoftureConfig({
   modules: [
     security({ clientIp: cloudflareIp(), buckets: { login: { limit: 50, windowMinutes: 15 } } }),
     auth({ routes: { afterLogin: "/dashboard" }, password: { minLength: 12 }, requireConsent: true }),
-    featureSwitches({ switches: [{ name: "auth.registration_closed", default: false, failMode: "closed" }] }),
+    featureSwitches({ switches: [{ name: "billing.checkout_enabled", default: false, failMode: "closed" }] }),
     mailing({ provider: resend({ apiKey: process.env.RESEND_API_KEY! }), from: "Acme <hello@…>" }),
   ],
 });
@@ -175,8 +175,10 @@ export default defineSoftureConfig({
 
 - **A module is enabled by being listed in `modules`.** No entry means no routes, no migrations
   in the plan and no entry in the GDPR export.
-- **Runtime switches** belong to the `feature-switches` module. Every module declares its own
-  (`module.json → switches`), and they appear in the admin panel automatically.
+- **Runtime switches** belong to the `feature-switches` module. Every module names its own
+  (`module.json → switches`); the app defines each switch it reads (default, fail mode, label) in
+  `featureSwitches({ switches })`, and every defined switch appears in the admin panel. Decided in
+  identity ID-6; details in [`modules/feature-switches/README.md`](../modules/feature-switches/README.md).
 - Configuration is validated (zod) at startup, and `softure doctor` checks environment variables,
   dependencies, migrations and route mounting.
 

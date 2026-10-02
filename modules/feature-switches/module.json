@@ -1,0 +1,12 @@
+{
+  "id": "feature-switches",
+  "version": "0.0.0",
+  "dependsOn": { "auth": "^0.0.0" },
+  "dbSchema": "features",
+  "tables": ["switches"],
+  "env": [],
+  "switches": [],
+  "routes": { "panel": "/admin/switches" },
+  "mount": [{ "kind": "page", "path": "app/admin/switches/page.tsx", "export": "SwitchesPage" }],
+  "privacy": { "exports": false, "deletes": false }
+}
