@@ -20,7 +20,12 @@ Instructions for the application's agent (FIRE_TRACKER first). One module is one
    1. Write an application migration that moves the existing tables into the module's schema
       (`ALTER TABLE … SET SCHEMA`, column renames, domain columns into a 1:1 table in `public`).
    2. Run `softure migrate --adopt <module>@<version> --plan`, then without `--plan`. The migrator
-      compares the schema and marks the module's migrations as applied.
+      builds the schema the module's migrations create on a scratch PGlite, compares it with the
+      database (names of constraints and indexes included) and only on an exact match marks the
+      module's migrations as `adopted`. Every difference is printed as `missing in database: …` or
+      `unexpected in database: …`; align it in the application's migration and run again. Adopt
+      the modules a module depends on first. PGlite must be installed where this runs, also in an
+      image that otherwise uses `pg`.
    3. Set the application's `drizzle.config.ts` to `schemaFilter: ["public"]` and remove the
       module's tables from `schema.ts`. Domain tables now reference the tables the module exports.
 4. **Mounting.** Add route handlers, pages and middleware as the module README describes.
