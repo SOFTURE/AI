@@ -1,0 +1,36 @@
+{
+  "name": "softure-example-next-app",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Next.js app that consumes @softure-ai/core, db and ui as packed packages; the e2e harness of SOFTURE AI.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "migrate": "softure migrate",
+    "e2e": "playwright test"
+  },
+  "dependencies": {
+    "@softure-ai/core": "file:../../foundation/core",
+    "@softure-ai/db": "file:../../foundation/db",
+    "@softure-ai/ui": "file:../../foundation/ui",
+    "drizzle-orm": "^0.45.3",
+    "next": "16.3.8",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^22.20.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "typescript": "~6.0.3"
+  }
+}

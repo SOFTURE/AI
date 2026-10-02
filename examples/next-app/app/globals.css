@@ -1,0 +1,45 @@
+/* The package CSS only: the example uses no Tailwind of its own, like an app that only consumes ui. */
+@import "@softure-ai/ui/styles.css";
+
+body {
+  margin: 0;
+  background: var(--sft-color-background);
+  color: var(--sft-color-foreground);
+  font-family: var(--sft-font-sans);
+}
+
+.page {
+  box-sizing: border-box;
+  display: grid;
+  gap: var(--sft-space-6);
+  max-width: 48rem;
+  margin: 0 auto;
+  padding: var(--sft-space-8) var(--sft-space-4);
+}
+
+.page-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sft-space-4);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.page-title {
+  margin: 0;
+  font-family: var(--sft-font-heading);
+  font-size: var(--sft-text-2xl);
+}
+
+.page-lead {
+  margin: var(--sft-space-2) 0 0;
+  color: var(--sft-color-muted);
+}
+
+.plain-list {
+  display: grid;
+  gap: var(--sft-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
