@@ -4,3 +4,6 @@ next-env.d.ts
 test-results/
 playwright-report/
 *.tsbuildinfo
+# Written by `next dev` (Next 16 agent rules); not part of the example.
+AGENTS.md
+CLAUDE.md

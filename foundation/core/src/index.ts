@@ -29,6 +29,7 @@ export { SoftureConfigError } from "./config-error.js";
 export { moduleManifestSchema, type ModuleManifest } from "./manifest.js";
 export {
   defineModule,
+  resolveMigrationsDir,
   toModuleJson,
   type AnySoftureModule,
   type ModuleContext,

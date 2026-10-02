@@ -67,6 +67,10 @@ test checks `module.json` against `toModuleJson(...)` (decided in FD-3, `core-co
 - domain tables can still reference `auth.users(id)`, because the module exports its Drizzle table.
 
 Rules:
+- A module points at its folder with
+  `migrations: { dir: resolveMigrationsDir(import.meta.url, "../migrations/") }` (`@softure-ai/core`).
+  Never `new URL("../migrations/", import.meta.url)`: Turbopack takes that literal form for an asset
+  import and fails `next build` on a folder, also inside `node_modules` (identity ID-1).
 - Migrations are **plain SQL, forward only**, in `migrations/NNNN_description.sql`. Each file starts
   with a comment describing the rollback plan (as FIRE does: "Rollback: …").
 - Table names are **fixed**; only the schema is configurable. Configurable table names hurt the
@@ -178,17 +182,48 @@ export default defineSoftureConfig({
 
 ## 8. Next.js adapter
 
-- Route handlers are mounted with one line:
-  `app/api/softure/[...path]/route.ts → export const { GET, POST } = createSoftureHandlers(config)`.
-- Pages are ready-made server components:
-  `app/login/page.tsx → export { LoginPage as default } from "@softure-ai/auth/next"`.
-  The app can also compose its own page from `<LoginForm/>`.
-- Server actions: `"use server"` files in the package read the configuration from a registry set in
-  `instrumentation.ts` / `softure.config.ts`: `registerSoftureConfig(config)` and
-  `getSoftureConfig()` from `@softure-ai/core/next`, kept on `globalThis` (provisional, FD-3).
-  **Technical risk:** server actions from `node_modules` and their encryption
-  (`NEXT_SERVER_ACTIONS_ENCRYPTION_KEY`, `allowedOrigins`) must be confirmed with a spike on `auth`
-  in wave 1.
+Decided by identity ID-1 (`next-actions-spike`, spike package `spikes/next-actions/`, e2e
+`examples/next-app/e2e/next-actions.spec.ts`). Measured on Next 16.3 with Turbopack, in `next dev`
+and in `next build && next start`, with the package installed as a packed copy (`install-links`,
+what a registry install gives) and linked from the workspace.
+
+**Verdict: modules ship their server actions, route handlers and pages from the package.** No
+`transpilePackages`, no app-side wrappers. The fallbacks (route handlers + client hooks, generated
+thin actions) are not needed.
+
+- **Mounting is one line per file**, a re-export the app owns:
+  - page: `app/login/page.tsx → export { LoginPage as default } from "@softure-ai/auth/next"`;
+  - route handlers: `app/api/auth/[...path]/route.ts → export { GET, POST } from "@softure-ai/auth/next"`;
+  - server actions need no mounting: a `"use server"` file in the package's `dist/` (tsc keeps the
+    directive) is registered when a page or client component imports it.
+  The app can still compose its own page from the module's components (`<LoginForm/>`).
+- **Config:** package code calls `getSoftureConfig()` from `@softure-ai/core/next`. The app calls
+  `registerSoftureConfig(config)` in `softure.config.ts` and imports that file from
+  `instrumentation.ts` **and** from the root layout (`app/layout.tsx`). Measured: instrumentation
+  alone fills the registry for every request (actions, route handlers, dynamic pages), but not while
+  `next build` prerenders a static page; that failed with "no SOFTURE config is registered" until the
+  root layout imported the config too.
+- **Bound arguments are not secret.** `action.bind(null, value)` sends `value` to the browser in
+  plain text and the server accepts whatever comes back (measured: a tampered bound value reached
+  the action). A module never binds an identity, a role or a price: the action derives them again
+  from the session and the database. Only closures of inline `"use server"` functions are
+  encrypted, and module actions live in top-level `"use server"` files, so they have none.
+- **`NEXT_SERVER_ACTIONS_ENCRYPTION_KEY`:** without it, every build gets new action IDs (measured:
+  two builds of the same code, different IDs), so a page from one build cannot call an action on an
+  instance from another build (rolling deploys, several containers built separately). With the key
+  set to the same value for every build, the IDs are equal. Apps that run more than one instance or
+  build per container set it (32 random bytes, base64) as a secret; instances started from one build
+  share IDs anyway.
+- **Origins:** Next refuses an action whose `Origin` does not match the host (`x-forwarded-host`
+  first). It treats package actions exactly like app actions. An app behind a proxy that changes the
+  host lists the public origin in `experimental.serverActions.allowedOrigins`.
+- **Packaging:** React is a `peerDependency` of a module, and so is Next when the module imports it. The app router uses Next's own
+  React, so a package resolved from another folder (a workspace link) does not get a second copy.
+  Client components keep `"use client"` in `dist/` (L-001). A module that must be bundled as-is goes
+  to the app's `serverExternalPackages`; none of ours needs it.
+- **Workspace links** (`npm install --install-links=false`) work once Turbopack may read the linked
+  folders: `turbopack.root` must be the repository root. The example app keeps the root at its own
+  folder on purpose, so it only ever tests packed copies.
 - Route guard: `softureMiddleware(config)`, composed into the app's `proxy.ts`. FIRE currently mixes
   auth and channel tagging in `proxy.ts`, so these become two separate pieces.
 

@@ -20,7 +20,7 @@ hooks, or app-side thin action wrappers generated per module) is chosen and docu
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **ID-1** (roadmap `identity`):
+From [`roadmap.md`](../../foundation/roadmap.md), item **ID-1** (roadmap `identity`):
 
 > ### ID-1: Server actions and route handlers from a package
 > - **Change ID:** `next-actions-spike`

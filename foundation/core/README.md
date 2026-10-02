@@ -60,7 +60,7 @@ migration order (dependencies first, listed order otherwise).
 **Defining a module** (in a module package):
 
 ```ts
-import { defineModule } from "@softure-ai/core";
+import { defineModule, resolveMigrationsDir } from "@softure-ai/core";
 import { z } from "zod";
 import { en } from "./messages/en.js";
 import { pl } from "./messages/pl.js";
@@ -73,11 +73,15 @@ export const notes = defineModule({
   },
   messages: { en, pl },
   options: z.object({ limit: z.number().int().positive().default(100) }),
-  migrations: { dir: new URL("../migrations/", import.meta.url) },
+  migrations: { dir: resolveMigrationsDir(import.meta.url, "../migrations/") },
   privacy: { exportUserData, deleteUserData },
 });
 ```
 
+- `resolveMigrationsDir(import.meta.url, "../migrations/")` gives the folder's `file:` URL. Do not
+  write `new URL("../migrations/", import.meta.url)` in a module: Next.js (Turbopack) treats that
+  literal form as an asset import and fails the app's `next build` on a folder, also from
+  `node_modules` (measured in identity ID-1).
 - The manifest is checked against `moduleManifestSchema` when the package is imported; a
   `dbSchema` needs `migrations`, and each privacy flag needs its function (and only then).
 - The returned factory takes the module's options plus two reserved keys: `routes` (new paths
@@ -95,17 +99,22 @@ export const notes = defineModule({
 in module packages, which cannot import the app's `softure.config.ts`:
 
 - `registerSoftureConfig(config)`: call it in `softure.config.ts`, and import that file from
-  `instrumentation.ts` so it runs at server start;
+  `instrumentation.ts` (it runs at server start) and from the root layout (`next build` prerenders
+  static pages without running instrumentation);
 - `getSoftureConfig()`: read it inside package code; it throws when nothing was registered;
 - `clearSoftureConfig()`: for tests.
 
-**Provisional:** identity ID-1 (`next-actions-spike`) verifies this inside real shipped actions and
-confirms or replaces it. `createSoftureHandlers` and `softureMiddleware` come after that spike.
+Confirmed by identity ID-1 (`next-actions-spike`): a server action, a route handler and a server
+component page shipped in a package all read the registered config, in `next dev` and in
+`next build && next start`, installed as a packed copy or linked from the workspace. The rules for
+package-shipped Next code are in docs/02 §8. `createSoftureHandlers` and `softureMiddleware` come
+with the first module that mounts routes.
 
 ## 5. Migrations and tables
 
 None. Core owns no database schema. A module points at its SQL folder with
-`migrations: { dir: URL }`; `@softure-ai/db` (FD-4) applies the files.
+`migrations: { dir: resolveMigrationsDir(import.meta.url, "../migrations/") }`; `@softure-ai/db`
+(FD-4) applies the files.
 
 ## 6. Environment variables
 

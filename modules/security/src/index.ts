@@ -1,15 +1,10 @@
 // Public API of @softure-ai/security: the module factory for softure.config.ts, the client-IP
 // resolvers and the body reader. Database work is in `@softure-ai/security/server`.
-import { defineModule } from "@softure-ai/core";
+import { defineModule, resolveMigrationsDir } from "@softure-ai/core";
 import { securityMessages } from "./messages/index.js";
 import { securityOptionsSchema } from "./options.js";
 
 export const MODULE_ID = "security";
-
-// Turbopack resolves a literal `new URL("../x/", import.meta.url)` at build time and fails on a
-// folder; it does not follow the URL through String(). Only `softure migrate` and the tests read
-// the folder (context/backlog/next-integration.md).
-const MODULE_URL = String(import.meta.url);
 
 /**
  * Enables rate limiting in `softure.config.ts`:
@@ -30,7 +25,7 @@ export const security = defineModule({
   },
   messages: securityMessages,
   options: securityOptionsSchema,
-  migrations: { dir: new URL("../migrations/", MODULE_URL) },
+  migrations: { dir: resolveMigrationsDir(import.meta.url, "../migrations/") },
 });
 
 export {

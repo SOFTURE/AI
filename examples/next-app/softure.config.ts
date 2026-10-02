@@ -2,6 +2,7 @@
 // so relative imports name their `.ts` files.
 import { defineSoftureConfig } from "@softure-ai/core";
 import { registerSoftureConfig } from "@softure-ai/core/next";
+import { nextActions } from "@softure-ai/next-actions";
 import { cloudflareIp, security } from "@softure-ai/security";
 import { guestbook } from "./modules/guestbook/index.ts";
 
@@ -17,6 +18,7 @@ const config = defineSoftureConfig({
     guestbook(),
     // The e2e sends CF-Connecting-IP itself, standing in for Cloudflare (e2e/security.spec.ts).
     security({ clientIp: cloudflareIp(), buckets: { "example.ping": { limit: 3, windowMinutes: 15 } } }),
+    nextActions(),
   ],
 });
 
