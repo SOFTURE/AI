@@ -7,6 +7,9 @@ import { ops } from "@softure-ai/ops";
 import { cloudflareIp, security } from "@softure-ai/security";
 import { guestbook } from "./modules/guestbook/index.ts";
 
+/** The example's initial admin (auth's `adminEmails`); e2e/auth-roles.spec.ts registers it. */
+export const EXAMPLE_ADMIN_EMAIL = "e2e-admin@example.com";
+
 // The Postgres of compose.yaml; a local, throwaway database, so its password is not a secret.
 const LOCAL_DATABASE_URL = "postgresql://postgres:postgres@localhost:5433/softure_example";
 
@@ -22,7 +25,7 @@ const config = defineSoftureConfig({
       clientIp: cloudflareIp(),
       buckets: { "example.ping": { limit: 3, windowMinutes: 15 }, ...AUTH_RATE_LIMIT_BUCKETS },
     }),
-    auth({ routes: { afterLogin: "/account" } }),
+    auth({ routes: { afterLogin: "/account" }, adminEmails: [EXAMPLE_ADMIN_EMAIL] }),
     // `detail: "checks"` lists each check in the answer, so e2e/ops.spec.ts can see the guestbook's.
     ops({ detail: "checks" }),
   ],

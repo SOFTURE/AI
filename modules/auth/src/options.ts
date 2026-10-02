@@ -3,10 +3,12 @@ import type { ModuleContext } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
 import { z } from "zod";
 import type { RegisteredEvent } from "./contract.js";
+import { ROLE_NAME_PATTERN } from "./roles.js";
 
 /** OWASP's scrypt cost for passwords: N = 2^17, r = 8, p = 1 (about 128 MiB per hash). */
 export const DEFAULT_SCRYPT_COST = 2 ** 17;
 
+const MAX_EMAIL_LENGTH = 254;
 const COOKIE_NAME = /^[A-Za-z0-9_-]{1,64}$/;
 const DOMAIN = /^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/;
 
@@ -61,6 +63,13 @@ export const authOptionsSchema = z.strictObject({
   requireConsent: z.boolean().default(true),
   /** Declared default of the `auth.registration_closed` switch. */
   registrationClosed: z.boolean().default(false),
+  /** Role names the app checks besides `admin`, which is always declared. */
+  roles: z.array(z.string().regex(ROLE_NAME_PATTERN, "must be a role name such as editor (a-z, 0-9, _ or -, at most 32)")).default([]),
+  /**
+   * Initial admin list: while an email is listed, the account with that email holds `admin`.
+   * Auth does not verify emails, so create these accounts before deploying the list.
+   */
+  adminEmails: z.array(z.string().trim().toLowerCase().max(MAX_EMAIL_LENGTH).pipe(z.email("must be an email address"))).default([]),
   /** Called after an account is created, in the same transaction (e.g. to store the consent). */
   onRegistered: z.custom<OnRegisteredHook>((value) => typeof value === "function", "must be a function").optional(),
 });

@@ -1,7 +1,7 @@
 # @softure-ai/auth
 
 Accounts for a Next.js app: register with a required consent, login, logout, password change,
-database sessions, a route guard for `proxy.ts`, and ready pages and forms. The reference module
+roles with admin-only surfaces that fail closed, database sessions, a route guard for `proxy.ts`, and ready pages and forms. The reference module
 of the SOFTURE standard (docs/02): it has every layer, from migrations to messages. Built from
 FIRE_TRACKER's auth (`src/lib/{password,session}.ts`, `src/db/sessions.ts`,
 `src/app/actions/do-auth.ts`, `src/proxy.ts`), with the rate limiter of `@softure-ai/security`
@@ -11,13 +11,16 @@ and the route guard separated from channel tagging.
 
 Users and sessions in the `auth` schema, scrypt password hashes, opaque session cookies, register,
 login, logout and password change as server actions and pages, `getCurrentUser` / `requireUser`
-for server code, `createAuthGuard` for the app's `proxy.ts`, and a health check that
-`GET /api/health` of `@softure-ai/ops` runs (both auth tables answer, no rows read).
+for server code, roles (`requireRole`, `authorizeRole`, `hasRole`, and `grant-role` /
+`revoke-role` scripts), `createAuthGuard` for the app's `proxy.ts`, and a health check that
+`GET /api/health` of `@softure-ai/ops` runs (every auth table answers, no rows read).
 
 ## 2. Installation
 
 ```bash
 npm install @softure-ai/auth @softure-ai/security @softure-ai/core @softure-ai/db @softure-ai/ui drizzle-orm
+# for the role scripts (section 4, "Roles"), already a dependency of auth:
+npm install @softure-ai/ops
 ```
 
 Peer dependencies: `next` 16, `react` 19, `drizzle-orm`.
@@ -62,6 +65,8 @@ export default config;
 | `cookie.secure` | `boolean` | `appOrigin` is https | Send the cookie over HTTPS only. |
 | `requireConsent` | `boolean` | `true` | Registration needs the consent checkbox. |
 | `registrationClosed` | `boolean` | `false` | Declared default of the `auth.registration_closed` switch. |
+| `roles` | `string[]` | `[]` | Role names the app checks besides `admin` (always declared): `a-z`, `0-9`, `_`, `-`, at most 32. |
+| `adminEmails` | `string[]` | `[]` | Initial admin list: while an email is listed, its account holds `admin`. Auth does not verify emails, so create these accounts before you deploy the list (section 4, "Roles"). |
 | `onRegistered` | `(event, ctx) => Promise<void>` | none | Called after the account is created, inside the same transaction. |
 | `routes` | `{ login, register, changePassword, afterLogin, afterLogout }` | `/login`, `/register`, `/account/password`, `/`, `/login` | Where the pages are mounted and where users land. |
 | `messages` | partial `pl` / `en` dictionaries | built in | Copy overrides (section 9). |
@@ -143,19 +148,72 @@ Next's `config`.)
 A protected prefix matches whole path segments (`/account` covers `/account/password`, not
 `/accounting`). The change-password route is always protected. Redirects are built on `appOrigin`.
 
+**Roles.** A role is a declared name (`admin`, plus `auth({ roles: ["editor"] })`) held by an
+account: as a row in `auth.user_roles`, or, for `admin` only, through `adminEmails`. Nothing is
+granted by default: with no admin listed and no rows, every admin-only surface stays closed.
+
+```tsx
+import { ADMIN_ROLE } from "@softure-ai/auth";
+import { authorizeRole, hasRole, requireRole } from "@softure-ai/auth/next";
+
+// app/admin/page.tsx (pages, layouts and route handlers)
+export default async function AdminPage() {
+  await requireRole(ADMIN_ROLE); // anyone without the role, signed in or not: Next's "not found"
+  return <main>…</main>;
+}
+
+// a server action: check first, before reading the form
+export async function publishAction(formData: FormData) {
+  const admin = await authorizeRole(ADMIN_ROLE); // Ok<AuthUser> or Err<"auth.forbidden">
+  if (!admin.ok) return admin;
+  // …
+}
+
+// UI only, e.g. whether to show a link; the target page checks again
+const showAdminLink = await hasRole(ADMIN_ROLE);
+```
+
+Roles are read once per request and never cached across requests or stored in the cookie, so a
+revoke takes effect on the next request. Asking for a role the app did not declare throws: a typo
+fails loudly instead of quietly closing (or opening) a surface. Keep admin paths out of the proxy
+guard's `protect` list, or anonymous visitors are sent to the login page instead of "not found".
+
+**The first admin.** Either list the email in `adminEmails` (register that account yourself
+before the list is deployed, or keep registration closed meanwhile: whoever registers a listed email
+first becomes admin), or, safer, grant the role with the ops script, which needs database access:
+
+```ts
+// scripts/grant-role.ts (bundled and run like the migrate step, @softure-ai/ops README)
+import { createGrantRoleScript } from "@softure-ai/auth/scripts";
+import { runOpsScript } from "@softure-ai/ops/scripts";
+import config from "../softure.config";
+
+process.exitCode = await runOpsScript({ script: createGrantRoleScript(config), argv: process.argv.slice(2), config });
+```
+
+`node grant-role.mjs --email=owner@example.com --role=admin` prints the account's roles before and
+after (by user id, never the email) and rolls back; `--commit` writes. `createRevokeRoleScript`
+is its pair. Both refuse an unknown email, an undeclared role, a role already granted (grant) or
+not stored (revoke); an `admin` that comes from `adminEmails` is removed from the list, not by the
+script. `grantRole`, `revokeRole` and `findUserRoles` in `@softure-ai/auth/server` do the same for
+your own code.
+
 **Your own forms.** `@softure-ai/auth/ui` exports `LoginForm`, `RegisterForm` and
 `ChangePasswordForm`; pass them the actions from `@softure-ai/auth/next`.
 
 ## 5. Migrations and tables
 
-`softure migrate` applies `migrations/0001_create_users_and_sessions.sql` after security's.
+`softure migrate` applies `migrations/0001_create_users_and_sessions.sql` and
+`0002_create_user_roles.sql` after security's.
 
 - `auth.users(id uuid, email, password_hash, created_at, password_changed_at)`: the email is stored
   trimmed and lowercased (`CHECK`), unique; the hash must be a `scrypt$…` string.
 - `auth.sessions(token_hash, user_id → users ON DELETE CASCADE, created_at, expires_at)`: only the
   sha256 of the cookie token is stored.
+- `auth.user_roles(user_id → users ON DELETE CASCADE, role, granted_at)`, primary key
+  `(user_id, role)`; the role name has the declared shape (`CHECK`).
 
-Your own tables reference `users.id` (exported as the Drizzle table `users`); keep app columns in
+Your own tables reference `users.id` (exported as the Drizzle table `users`; roles as `userRoles`); keep app columns in
 your own 1:1 table, never in `auth.users`. Expired sessions of a user are deleted at their next
 login; `pruneSessions(ctx)` from `@softure-ai/auth/server` deletes all of them for a scheduled job.
 
@@ -195,16 +253,18 @@ failure. `privacy` (engagement roadmap) stores the consent through it.
 
 ## 11. GDPR
 
-The module stores an email, a password hash and session rows. It does not take part in the GDPR
+The module stores an email, a password hash, session rows and role rows. It does not take part in the GDPR
 export or deletion yet (`privacy` flags are off); deleting a row in `auth.users` deletes its
-sessions.
+sessions and roles.
 
 ## 12. Limitations / known gaps
 
 - Sessions have a fixed lifetime; there is no sliding renewal and no "remember me".
 - A password change keeps the session that made it (and ends every other one); the token itself
   is not rotated. Login and register end the session the browser held before.
-- No password reset (identity ID-5), roles (ID-4) or email verification.
+- No password reset (identity ID-5) or email verification, so `adminEmails` trusts whoever
+  registers a listed email first.
+- Roles are flat: no hierarchy and no permissions per role; no UI to manage them (the scripts do).
 - The guard checks cookie presence only; the session is verified by `requireUser`.
 - A registration attempt reveals whether an email has an account (`auth.email_taken`); the
   `register` rate limit bounds how fast anyone can ask.

@@ -24,6 +24,8 @@ describe("the auth module", () => {
       cookie: { name: "softure_session" },
       requireConsent: true,
       registrationClosed: false,
+      roles: [],
+      adminEmails: [],
     });
   });
 
@@ -138,6 +140,16 @@ describe("the auth health check", () => {
     try {
       await test.database.client.query("DROP SCHEMA auth CASCADE");
       await expect(auth().health?.(test.ctx)).rejects.toThrow(/auth\.users/);
+    } finally {
+      await test.database.close();
+    }
+  });
+
+  it("throws without the roles table", async () => {
+    const test = await createTestAuth();
+    try {
+      await test.database.client.query("DROP TABLE auth.user_roles");
+      await expect(auth().health?.(test.ctx)).rejects.toThrow(/auth\.user_roles/);
     } finally {
       await test.database.close();
     }

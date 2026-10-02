@@ -29,9 +29,18 @@ export const pl: AppMessages = {
     title: "Twoje konto",
     lead: "Tę stronę widzą tylko zalogowani użytkownicy.",
     changePassword: "Zmień hasło",
+    admin: "Panel administratora",
+  },
+  admin: {
+    title: "Panel administratora",
+    lead: "Tę stronę widzą tylko administratorzy; pozostali dostają „nie znaleziono”.",
+    messageLabel: "Ogłoszenie",
+    submit: "Opublikuj",
+    saved: "Ogłoszenie opublikowane",
   },
   errors: {
     "guestbook.message_invalid": "Wpisz od 1 do {max} znaków.",
+    "auth.forbidden": "Nie masz dostępu do tej funkcji.",
     "core.database_failed": "Baza danych nie odpowiedziała. Spróbuj ponownie.",
     "core.unexpected": "Coś poszło nie tak. Spróbuj ponownie.",
   },

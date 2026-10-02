@@ -12,7 +12,8 @@ export type AuthErrorCode =
   | "auth.consent_required"
   | "auth.registration_closed"
   | "auth.current_password_invalid"
-  | "auth.unauthenticated";
+  | "auth.unauthenticated"
+  | "auth.forbidden";
 
 /** Every code an auth form can show: its own, the rate limiter's and the generic ones. */
 export type AuthFormErrorCode = AuthErrorCode | Extract<SecurityErrorCode, "security.rate_limited" | "security.client_unidentified"> | CoreErrorCode;

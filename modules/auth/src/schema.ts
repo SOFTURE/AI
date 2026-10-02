@@ -1,6 +1,6 @@
-// Drizzle view of the module's tables (migrations/0001_create_users_and_sessions.sql). The migration
-// is the source of truth; this file only types the queries. App tables may reference `users.id`.
-import { pgSchema, text, timestamp, uuid } from "drizzle-orm/pg-core";
+// Drizzle view of the module's tables (migrations/0001_create_users_and_sessions.sql and
+// 0002_create_user_roles.sql). The migrations are the source of truth; this file only types the queries. App tables may reference `users.id`.
+import { pgSchema, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 export const authSchema = pgSchema("auth");
 
@@ -20,3 +20,15 @@ export const sessions = authSchema.table("sessions", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
 });
+
+export const userRoles = authSchema.table(
+  "user_roles",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    role: text("role").notNull(),
+    grantedAt: timestamp("granted_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.role] })],
+);

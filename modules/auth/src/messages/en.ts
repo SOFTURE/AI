@@ -46,6 +46,7 @@ export const en = {
       registration_closed: "Registration is closed.",
       current_password_invalid: "The current password is incorrect.",
       unauthenticated: "Your session has ended. Log in again.",
+      forbidden: "You do not have access to this.",
     },
     security: {
       rate_limited: "Too many attempts. Wait a few minutes and try again.",

@@ -27,9 +27,18 @@ export const en = {
     title: "Your account",
     lead: "Only signed-in users see this page.",
     changePassword: "Change password",
+    admin: "Admin panel",
+  },
+  admin: {
+    title: "Admin panel",
+    lead: "Only admins see this page; everyone else gets not found.",
+    messageLabel: "Announcement",
+    submit: "Post",
+    saved: "Announcement posted",
   },
   errors: {
     "guestbook.message_invalid": "Write between 1 and {max} characters.",
+    "auth.forbidden": "You do not have access to this.",
     "core.database_failed": "The database did not answer. Try again.",
     "core.unexpected": "Something went wrong. Try again.",
   },
