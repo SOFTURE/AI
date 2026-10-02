@@ -3,7 +3,7 @@ change_id: core-contract
 title: "Module contract in @softure-ai/core"
 status: new
 roadmap_item: FD-3
-branch: null
+branch: claude/fd-3-core-contract-7g4u3m (cloud session)
 created: 2026-10-02
 updated: 2026-10-02
 archived_at: null
