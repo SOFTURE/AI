@@ -1,0 +1,231 @@
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { afterEach, describe, expect, it } from "vitest";
+import { createDatabase } from "@softure-ai/db";
+import { runMigrateCli, runSoftureCommand, type CliOutput } from "@softure-ai/db/cli";
+import { createNotesModule, createTagsModule } from "./fixtures/modules.js";
+import { execSql, queryRows, readLedger } from "./support/query.js";
+
+const cleanups: (() => void)[] = [];
+const APP_DIR = fileURLToPath(new URL("./fixtures/app/", import.meta.url));
+
+afterEach(() => {
+  for (const cleanup of cleanups.splice(0)) cleanup();
+});
+
+function createTempDir(): string {
+  const dir = mkdtempSync(join(tmpdir(), "softure-db-cli-"));
+  cleanups.push(() => rmSync(dir, { recursive: true, force: true }));
+  return dir;
+}
+
+function createOutput(): CliOutput & { lines: string[]; errors: string[] } {
+  const lines: string[] = [];
+  const errors: string[] = [];
+  return { lines, errors, log: (line) => lines.push(line), error: (line) => errors.push(line) };
+}
+
+function createConfig(url: string | null) {
+  return { database: url === null ? null : { url }, modules: [createTagsModule(), createNotesModule()] };
+}
+
+async function run(argv: string[], url: string | null = `pglite://${createTempDir()}`) {
+  const output = createOutput();
+  const code = await runMigrateCli({ config: createConfig(url), argv, output });
+  return { code, ...output };
+}
+
+describe("softure migrate", () => {
+  it("applies every migration, then has nothing to apply", async () => {
+    const url = `pglite://${createTempDir()}`;
+
+    const first = await run([], url);
+    const second = await run([], url);
+
+    expect(first).toMatchObject({ code: 0, errors: [] });
+    expect(first.lines).toEqual([
+      "applied softure 0001_ledger.sql",
+      "applied notes 0001_create_notes.sql",
+      "applied notes 0002_add_notes_title_index.sql",
+      "applied tags 0001_create_tags.sql",
+      "4 migration(s) applied",
+    ]);
+    expect(second.lines).toEqual(["nothing to apply"]);
+  });
+
+  it("plans without writing", async () => {
+    const url = `pglite://${createTempDir()}`;
+
+    const plan = await run(["--plan"], url);
+    const handle = await createDatabase(url);
+    const ledger = await queryRows(handle, "SELECT to_regclass('softure.migrations') AS ledger");
+    await handle.close();
+
+    expect(plan.code).toBe(0);
+    expect(plan.lines.at(-1)).toBe("4 migration(s) to apply");
+    expect(plan.lines[0]).toBe("pending softure 0001_ledger.sql");
+    expect(ledger).toEqual([{ ledger: null }]);
+  });
+
+  it("adopts with --adopt, as a plan first", async () => {
+    const url = `pglite://${createTempDir()}`;
+    const handle = await createDatabase(url);
+    await execSql(
+      handle,
+      `CREATE SCHEMA notes;
+       CREATE TABLE notes.notes (id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY, title text NOT NULL, created_at timestamptz NOT NULL DEFAULT now());
+       CREATE INDEX notes_title_idx ON notes.notes (title);`,
+    );
+    await handle.close();
+    const notesOnly = { database: { url }, modules: [createNotesModule()] };
+    const output = createOutput();
+
+    const planned = await runMigrateCli({ config: notesOnly, argv: ["--adopt", "notes@0.1.0", "--plan"], output });
+    const adopted = await runMigrateCli({ config: notesOnly, argv: ["--adopt=notes@0.1.0"], output });
+
+    expect([planned, adopted]).toEqual([0, 0]);
+    expect(output.lines).toContain("would adopt notes 0002_add_notes_title_index.sql");
+    expect(output.lines).toContain("notes@0.1.0: the schema matches its migrations (plan only, nothing written)");
+    expect(output.lines.at(-1)).toBe("notes@0.1.0: the schema matches its migrations; adopted");
+    const check = await createDatabase(url);
+    expect((await readLedger(check)).map((row) => row.method)).toEqual(["applied", "adopted", "adopted"]);
+    await check.close();
+  });
+
+  it("prints each problem and exits 1", async () => {
+    const result = await run(["--adopt", "notes@0.9.0"]);
+
+    expect(result.code).toBe(1);
+    expect(result.errors).toEqual(["notes: --adopt asks for 0.9.0 but 0.1.0 is enabled"]);
+  });
+
+  it.each([
+    [["--adopt", "notes"], '--adopt expects <module>@<x.y.z>, e.g. auth@0.1.0, got "notes"'],
+    [["--force"], "Unknown option '--force'"],
+    [["extra"], "Unexpected argument 'extra'"],
+    [["--export-migrations", "out", "--plan"], "--export-migrations cannot be combined with --plan"],
+  ])("rejects %j with the usage and exit code 2", async (argv, message) => {
+    const result = await run(argv);
+
+    expect(result.code).toBe(2);
+    expect(result.errors[0]).toContain(message);
+    expect(result.errors[1]).toContain("Usage: softure migrate");
+  });
+
+  it("prints the usage for --help", async () => {
+    const result = await run(["--help"]);
+
+    expect(result.code).toBe(0);
+    expect(result.lines[0]).toContain("Usage: softure migrate");
+  });
+
+  it("needs a database in the config", async () => {
+    const result = await run([], null);
+
+    expect(result).toMatchObject({ code: 1, errors: ["softure migrate: the config has no database; set database.url in softure.config"] });
+  });
+
+  it("reports an unsupported database URL without printing it", async () => {
+    const result = await run([], "mysql://root:hunter2@db/app");
+
+    expect(result.code).toBe(1);
+    expect(result.errors.join("\n")).toContain('unsupported database URL scheme "mysql:"');
+    expect(result.errors.join("\n")).not.toContain("hunter2");
+  });
+
+  it("refuses to export into a folder that holds other files", async () => {
+    const dir = createTempDir();
+    mkdirSync(join(dir, "notes"));
+    writeFileSync(join(dir, "notes", "handler.ts"), "export {};\n");
+    writeFileSync(join(dir, "notes", "0009_stale.sql"), "-- old export\n");
+
+    const result = await run(["--export-migrations", dir], null);
+
+    expect(result.code).toBe(1);
+    expect(result.errors).toEqual([`notes: ${join(dir, "notes")} holds other files (handler.ts); export into an empty folder`]);
+    expect(readdirSync(join(dir, "notes")).sort()).toEqual(["0009_stale.sql", "handler.ts"]);
+  });
+
+  it("replaces the SQL files of an earlier export", async () => {
+    const dir = createTempDir();
+    mkdirSync(join(dir, "notes"));
+    writeFileSync(join(dir, "notes", "0009_stale.sql"), "-- old export\n");
+
+    const result = await run(["--export-migrations", dir], null);
+
+    expect(result.code).toBe(0);
+    expect(readdirSync(join(dir, "notes")).sort()).toEqual(["0001_create_notes.sql", "0002_add_notes_title_index.sql"]);
+  });
+
+  it("exports module files without a database and migrates from the export", async () => {
+    const dir = createTempDir();
+
+    const exported = await run(["--export-migrations", join(dir, "migrations")], null);
+    const migrated = await run(["--migrations-dir", join(dir, "migrations")]);
+
+    expect(exported.code).toBe(0);
+    expect(exported.lines).toEqual([
+      "exported notes 0001_create_notes.sql",
+      "exported notes 0002_add_notes_title_index.sql",
+      "exported tags 0001_create_tags.sql",
+    ]);
+    expect(readdirSync(join(dir, "migrations")).sort()).toEqual(["notes", "tags"]);
+    expect(migrated.code).toBe(0);
+  });
+});
+
+describe("the softure bin", () => {
+  async function runBin(argv: string[], cwd = APP_DIR) {
+    const output = createOutput();
+    const code = await runSoftureCommand({ argv, cwd, output });
+    return { code, ...output };
+  }
+
+  it("finds softure.config.mjs in the working directory", async () => {
+    const result = await runBin(["migrate", "--plan"]);
+
+    expect(result).toMatchObject({ code: 0, errors: [] });
+    expect(result.lines.at(-1)).toBe("4 migration(s) to apply");
+  });
+
+  it("loads a config exported as config through --config", async () => {
+    const result = await runBin(["migrate", "--config", "named.config.mjs", "--plan"]);
+
+    expect(result.code).toBe(0);
+    expect(result.lines.at(-1)).toBe("3 migration(s) to apply");
+  });
+
+  it("refuses a file that is not a config, a missing file and a missing config", async () => {
+    const notConfig = await runBin(["migrate", "--config=no-modules.config.mjs"]);
+    const missing = await runBin(["migrate", "--config", "nope.mjs"]);
+    const none = await runBin(["migrate"], createTempDir());
+
+    expect(notConfig).toMatchObject({ code: 1, errors: [expect.stringContaining("must export (default or as \"config\")")] });
+    expect(missing).toMatchObject({ code: 1, errors: [expect.stringContaining("does not exist")] });
+    expect(none).toMatchObject({ code: 1, errors: [expect.stringContaining("no config found")] });
+  });
+
+  it("prints the help without needing a config", async () => {
+    const result = await runBin(["migrate", "--help"], createTempDir());
+
+    expect(result.code).toBe(0);
+    expect(result.lines[0]).toContain("Usage: softure migrate");
+  });
+
+  it.each([[["migrate", "--config"]], [["migrate", "--config", "--plan"]]])("rejects %j without a config path", async (argv) => {
+    const result = await runBin(argv);
+
+    expect(result.code).toBe(2);
+    expect(result.errors[0]).toBe("softure migrate: --config needs a file path");
+  });
+
+  it("rejects an unknown command", async () => {
+    const result = await runBin(["seed"]);
+
+    expect(result.code).toBe(2);
+    expect(result.errors[0]).toBe('softure: unknown command "seed"');
+    expect(existsSync(join(APP_DIR, "softure.config.mjs"))).toBe(true);
+  });
+});

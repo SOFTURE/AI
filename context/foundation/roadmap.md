@@ -34,7 +34,7 @@ updated: 2026-10-02
 | **FD-1** | `monorepo-tooling` | workspaces build typed ESM + CSS; typecheck, lint, language and unit gates run in lefthook hooks (as in FIRE_TRACKER) and in CI | — | autonomous | done |
 | **FD-2** | `release-pipeline` | a `<package>@x.y.z` tag publishes that package to npm (OIDC) and GitHub Packages and creates a GitHub Release | FD-1 | autonomous | done_code (2026-10-02; waiting: first tagged release, FD-8) |
 | **FD-3** | `core-contract` | `@softure-ai/core`: config, module contract, Result, clock, messages | FD-1 | autonomous | done |
-| **FD-4** | `db-migrator` | `@softure-ai/db`: client, per-module schemas, migrator with plan/adopt, PGlite test DB | FD-3 | autonomous | ready |
+| **FD-4** | `db-migrator` | `@softure-ai/db`: client, per-module schemas, migrator with plan/adopt, PGlite test DB | FD-3 | autonomous | done |
 | **FD-5** | `ui-tokens-theme` | `@softure-ai/ui` tokens (light/dark), theme provider + switch, compiled CSS pipeline | FD-3 | autonomous | done |
 | **FD-6** | `ui-primitives` | Button, Modal, Toast, Select, form fields, Card, Hint, ActionForm, icons with slots and messages | FD-5 | autonomous | done |
 | **FD-7** | `example-app` | Next example app consuming core/db/ui, Playwright e2e in CI | FD-4, FD-6 | autonomous | ready |
@@ -128,7 +128,7 @@ they come before the UI breadth (FD-6).
 
 ### FD-4: Database client and module migrator
 - **Change ID:** `db-migrator`
-- **Status:** ready
+- **Status:** done
 - **Outcome:** `@softure-ai/db` with a pg/PGlite client chosen by `DATABASE_URL`;
   `softure migrate` applying each module's SQL in its own schema in dependency order with a
   `softure.migrations` journal, checksums, an advisory lock, `--plan` and `--adopt`; and
@@ -210,6 +210,7 @@ they come before the UI breadth (FD-6).
 - **FD-3** `core-contract`: `@softure-ai/core` with `defineSoftureConfig`, `defineModule` (manifest, dependencies, migrations, routes, switches, privacy contributors), `Result`, `Clock`, `pl`/`en` messages with overrides and `safeError`; config registry in `core/next` provisional until ID-1; archived in `archive/2026-10-02-core-contract/`
 - **FD-2** `release-pipeline`: `release.yml` turns a `<package>@x.y.z` tag into a staged npm version (OIDC, provenance), a GitHub Packages `@softure/*` version and a GitHub Release; dry run on every PR; `release:pack` and `release:version` scripts; packages ship `src/`; archived in `archive/2026-10-02-release-pipeline/`
 - **FD-5** `ui-tokens-theme`: `@softure-ai/ui` with the `--sft-*` token contract (light/dark defaults ported from FIRE), `SoftureThemeProvider` (object or `design.json`), no-flash `ThemeScript`, `ThemeSwitch` (pl/en, slots, `unstyled`), `tailwind.css` bridge and a Tailwind 4 build of `styles.css` in `@layer softure` with `sft:` classes and the NFR-7 budget checked on build; archived in `archive/2026-10-02-ui-tokens-theme/`
+- **FD-4** `db-migrator`: `@softure-ai/db` with `createDatabase` (pg or PGlite by URL), the module migrator (own schema per module, `softure.migrations` ledger, checksums, advisory lock, `--plan`, `--adopt` with a catalog comparison), `createTestDatabase` and `softure migrate` with an export/bundle path for containers; archived in `archive/2026-10-02-db-migrator/`
 - **FD-6** `ui-primitives`: `Button`/`ButtonLink`/`IconButton`, icons, `Card`/`Stat`/`EmptyState`, `Hint`, fields (`TextField`, `PasswordField`, `MoneyField` with locale-aware `parseAmount`, `SelectField`, `CheckboxField`), `Select` (ARIA listbox), `Switch`/`Checkbox`/`SegmentedControl`, `Modal` (+ `ModalForm`), `ToastHost`, `ActionForm`; typed slots, `unstyled`, `pl`/`en` copy, `LinkComponent`; FIRE tests plus happy-dom DOM tests; archived in `archive/2026-10-02-ui-primitives/`
 
 ## Decisions (auto)
