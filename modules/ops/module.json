@@ -1,0 +1,12 @@
+{
+  "id": "ops",
+  "version": "0.0.0",
+  "dependsOn": {},
+  "dbSchema": null,
+  "tables": [],
+  "env": [],
+  "switches": [],
+  "routes": { "health": "/api/health" },
+  "mount": [{ "kind": "route-handler", "path": "app/api/health/route.ts" }],
+  "privacy": { "exports": false, "deletes": false }
+}

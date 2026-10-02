@@ -75,6 +75,7 @@ export const notes = defineModule({
   options: z.object({ limit: z.number().int().positive().default(100) }),
   migrations: { dir: resolveMigrationsDir(import.meta.url, "../migrations/") },
   privacy: { exportUserData, deleteUserData },
+  health: checkNotesReady, // optional: (context) => Promise<Result<undefined>>
 });
 ```
 
@@ -156,6 +157,11 @@ bare SQL statement) or `core.unexpected`, so no SQL or parameter reaches a calle
 
 `ModuleContext` is what every server function of a module receives: `{ db, clock, config }`
 (`db` is typed by `@softure-ai/db`). Request scope (cookies, headers) stays in `next/`.
+
+`health` (optional) is the module's readiness probe, a `HealthCheck`:
+`(context: ModuleContext) => Promise<Result<undefined>>`. `GET /api/health` of `@softure-ai/ops`
+runs it for every enabled module that has one; `ok()` is healthy, an `Err` or a throw is not.
+Keep it to one cheap query.
 
 ## 11. GDPR
 

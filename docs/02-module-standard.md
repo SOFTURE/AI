@@ -234,6 +234,9 @@ thin actions) are not needed.
 - The result is `Result<T, ErrorCode>` from `@softure-ai/core`. Exceptions are for programming errors only.
 - Extension hooks: `onRegistered`, `onDeleted`, `authorize(user, action)`. The module calls them,
   the app supplies them.
+- Health: a module may pass `health: (context) => Promise<Result<undefined>>` to `defineModule`;
+  `GET /api/health` of `@softure-ai/ops` runs it for every enabled module (identity ID-7). One cheap
+  query, no side effects.
 
 ## 10. Tests (a publishing requirement)
 
