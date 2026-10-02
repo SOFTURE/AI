@@ -279,10 +279,10 @@ missing file, and finds `softure.config.mjs` in the working directory when `--co
 ### Phase 2: Migrator, ledger and test database
 
 #### Automated
-- [ ] 2.1 The phase 2 tests fail before the sources exist and pass after
-- [ ] 2.2 The Postgres cases pass against a local PostgreSQL 16 with `SOFTURE_TEST_POSTGRES_URL` set
-- [ ] 2.3 After the two-module run `softure.migrations` holds exactly the four expected rows with method `applied`, on both drivers
-- [ ] 2.4 Gates green (typecheck, lint, test)
+- [x] 2.1 The phase 2 tests fail before the sources exist and pass after — 5b54184
+- [x] 2.2 The Postgres cases pass against a local PostgreSQL 16 with `SOFTURE_TEST_POSTGRES_URL` set — 5b54184
+- [x] 2.3 After the two-module run `softure.migrations` holds exactly the four expected rows with method `applied`, on both drivers — 5b54184
+- [x] 2.4 Gates green (typecheck, lint, test) — 5b54184
 
 ### Phase 3: Adoption
 

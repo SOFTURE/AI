@@ -16,6 +16,8 @@ export type MigrationProblem =
   | { readonly code: "db.adopt_unknown_module"; readonly module: string }
   | { readonly code: "db.adopt_version_mismatch"; readonly module: string; readonly requested: string; readonly enabled: string }
   | { readonly code: "db.adopt_already_applied"; readonly module: string }
+  | { readonly code: "db.adopt_dependency_pending"; readonly module: string; readonly dependency: string }
+  | { readonly code: "db.adopt_no_schema"; readonly module: string }
   | { readonly code: "db.adopt_reference_failed"; readonly module: string; readonly reason: string }
   | { readonly code: "db.schema_mismatch"; readonly module: string; readonly schema: string; readonly differences: readonly string[] };
 
@@ -63,6 +65,10 @@ export function describeProblem(problem: MigrationProblem): string {
       return `${problem.module}: --adopt asks for ${problem.requested} but ${problem.enabled} is enabled`;
     case "db.adopt_already_applied":
       return `${problem.module}: already has migrations in the ledger; adopt only works on a module the ledger has never seen`;
+    case "db.adopt_dependency_pending":
+      return `${problem.module}: depends on ${problem.dependency}, which has migrations still pending; migrate or adopt ${problem.dependency} first`;
+    case "db.adopt_no_schema":
+      return `${problem.module}: has no dbSchema, so there is nothing to adopt`;
     case "db.adopt_reference_failed":
       return `${problem.module}: could not build the reference schema: ${problem.reason}`;
     case "db.schema_mismatch":
