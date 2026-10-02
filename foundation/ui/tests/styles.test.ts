@@ -116,8 +116,9 @@ describe("styles.css", () => {
   it("renders the theme switch with classes the scan covers", () => {
     const html = renderToStaticMarkup(createElement(theme.ThemeSwitch));
     const rendered = [...html.matchAll(/class="([^"]+)"/g)].flatMap(([, list]) => (list ?? "").split(" "));
-    const scanned = getComponentClasses();
-    expect(rendered.filter((className) => !scanned.has(className.replaceAll("&amp;", "&").replaceAll("&gt;", ">")))).toEqual([]);
+    // Compared in the markup's escaped form: escaping the scan is one-way, so nothing is decoded twice.
+    const scanned = new Set([...getComponentClasses()].map((className) => className.replaceAll("&", "&amp;").replaceAll(">", "&gt;")));
+    expect(rendered.filter((className) => !scanned.has(className))).toEqual([]);
   });
 
   it("generates prefixed utilities only", () => {
