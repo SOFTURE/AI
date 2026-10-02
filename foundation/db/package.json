@@ -24,6 +24,9 @@
     "access": "public",
     "provenance": true
   },
+  "bin": {
+    "softure": "./dist/cli/bin.js"
+  },
   "exports": {
     ".": {
       "@softure-ai/source": "./src/index.ts",
@@ -34,6 +37,11 @@
       "@softure-ai/source": "./src/testing.ts",
       "types": "./dist/testing.d.ts",
       "default": "./dist/testing.js"
+    },
+    "./cli": {
+      "@softure-ai/source": "./src/cli/index.ts",
+      "types": "./dist/cli/index.d.ts",
+      "default": "./dist/cli/index.js"
     }
   },
   "scripts": {

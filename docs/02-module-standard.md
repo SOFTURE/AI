@@ -71,17 +71,27 @@ Rules:
   with a comment describing the rollback plan (as FIRE does: "Rollback: …").
 - Table names are **fixed**; only the schema is configurable. Configurable table names hurt the
   predictability of SQL and of agents.
-- The `@softure-ai/db` migrator:
-  - table `softure.migrations(module, version, name, checksum, applied_at)`;
-  - order follows the `dependsOn` graph, and within a module the numbering;
-  - every migration runs in a transaction under `pg_advisory_lock`, with checksum verification
-    (editing an applied migration is an error);
-  - CLI: `softure migrate` (dev and Docker image, bundleable with esbuild, like today's `migrate.cjs`),
-    `softure migrate --plan` (dry run), `softure migrate --adopt <module>@<version>`.
+- The `@softure-ai/db` migrator (decided in FD-4, `db-migrator`; full rules in the
+  [db README](../foundation/db/README.md) §4-5):
+  - ledger `softure.migrations(module, version, name, checksum, module_version, method, applied_at)`,
+    created by the package's own migration; the id `softure` and the schemas `softure`, `public`,
+    `information_schema` and `pg_*` are reserved;
+  - order follows the `dependsOn` graph, and within a module the numbering (1..n, no gaps);
+  - each file runs in its own transaction with its ledger row, inside the module schema
+    (`SET LOCAL search_path TO <schema>, public`), so files must not contain `BEGIN;`/`COMMIT;`;
+  - the run holds a session `pg_advisory_lock`; every applied file is checked first (edited,
+    renamed, deleted or out of order refuses the whole run before anything is applied);
+  - CLI: `softure migrate` (bin, or an app script calling `runMigrateCli`, which esbuild bundles
+    for an image), `--plan` (dry run), `--adopt <module>@<version>`, and for bundles
+    `--export-migrations <dir>` (build stage) with `--migrations-dir <dir>` (run stage);
+  - unit tests: `createTestDatabase(modules)` from `@softure-ai/db/testing`.
 - **Adoption** (moving an existing app onto a module): the app writes *its own* migration that
   moves the data into the module schema (`ALTER TABLE users SET SCHEMA auth` + column alignment),
   then `--adopt` marks the module migrations as applied after checking that the schema in the
-  database matches the expected one. Details in [05](05-adoption-playbook.md).
+  database matches the expected one: the module's migrations are applied to a scratch PGlite and
+  both schemas are compared through `pg_catalog` (relations, columns, constraint and index names
+  and definitions, triggers, functions, enums, domains); any difference refuses. Details in
+  [05](05-adoption-playbook.md).
 - Domain columns never land in module tables. The app keeps them in its own 1:1 table
   (`public.user_profiles(user_id → auth.users.id)`).
 

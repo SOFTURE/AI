@@ -26,3 +26,4 @@ export {
   type MigrationStep,
 } from "./migrations/migrator.js";
 export { adoptModule, type AdoptionReport, type AdoptOptions } from "./migrations/adopt.js";
+export { exportMigrations } from "./migrations/export.js";
