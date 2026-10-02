@@ -18,7 +18,13 @@ export {
 export { coreMessages, type CoreMessages } from "./messages/index.js";
 export { err, ok, type Err, type ErrorCode, type Ok, type Result } from "./result.js";
 export { errorLogLabel, safeError, type CoreErrorCode } from "./safe-error.js";
-export type { SoftureConfig } from "./config.js";
+export {
+  defineSoftureConfig,
+  getModule,
+  sortModulesByDependencies,
+  type SoftureConfig,
+  type SoftureConfigInput,
+} from "./config.js";
 export { SoftureConfigError } from "./config-error.js";
 export { moduleManifestSchema, type ModuleManifest } from "./manifest.js";
 export {

@@ -33,7 +33,9 @@ modules/<name>/
 
 ## 3. The `module.json` manifest
 
-The single source of truth for agents and for `softure doctor`:
+What agents and `softure doctor` read. It is the JSON projection of the TS manifest the module
+passes to `defineModule` (`@softure-ai/core`), which is the source of truth at runtime; the module's
+test checks `module.json` against `toModuleJson(...)` (decided in FD-3, `core-contract`):
 
 ```jsonc
 {
@@ -160,8 +162,9 @@ export default defineSoftureConfig({
   `app/login/page.tsx → export { LoginPage as default } from "@softure-ai/auth/next"`.
   The app can also compose its own page from `<LoginForm/>`.
 - Server actions: `"use server"` files in the package read the configuration from a registry set in
-  `instrumentation.ts` / `softure.config.ts`. **Technical risk:** server actions from `node_modules`
-  and their encryption (`NEXT_SERVER_ACTIONS_ENCRYPTION_KEY`, `allowedOrigins`) must be
+  `instrumentation.ts` / `softure.config.ts`: `registerSoftureConfig(config)` and
+  `getSoftureConfig()` from `@softure-ai/core/next`, kept on `globalThis` (provisional, FD-3).
+  **Technical risk:** server actions from `node_modules` and their encryption (`NEXT_SERVER_ACTIONS_ENCRYPTION_KEY`, `allowedOrigins`) must be
   confirmed with a spike on `auth` in wave 1.
 - Route guard: `softureMiddleware(config)`, composed into the app's `proxy.ts`. FIRE currently mixes
   auth and channel tagging in `proxy.ts`, so these become two separate pieces.

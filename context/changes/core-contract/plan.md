@@ -201,8 +201,8 @@ equals the manifest.
 ### Phase 2: Module contract
 
 #### Automated
-- [ ] 2.1 The phase 2 tests fail before the sources exist and pass after
-- [ ] 2.2 Gates green (typecheck, lint, test)
+- [x] 2.1 The phase 2 tests fail before the sources exist and pass after — 494c67d
+- [x] 2.2 Gates green (typecheck, lint, test) — 494c67d
 
 ### Phase 3: App config, registry and docs
 
