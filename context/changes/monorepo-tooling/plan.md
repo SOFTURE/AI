@@ -278,12 +278,12 @@ Manual: the first `ci` run on GitHub is green (owner, or agent if GitHub tools a
 ### Phase 4: Package template and builds
 
 #### Automated
-- [ ] 4.1 Build-order tests fail before `orderWorkspaces` exists and pass after
-- [ ] 4.2 Package shape tests pass for the template; the template build keeps `"use server"` in `next/actions.js`
-- [ ] 4.3 A test imports `@softure-ai/template-module` from source without a build
-- [ ] 4.4 `npm run build` exits 0 and `dist/` stays untracked
-- [ ] 4.5 The ESLint boundary test reports `no-restricted-imports` for `next/headers` in `src/server/`
-- [ ] 4.6 Gates green (typecheck, lint, test)
+- [x] 4.1 Build-order tests fail before `orderWorkspaces` exists and pass after — 31a70df
+- [x] 4.2 Package shape tests pass for the template; the template build keeps `"use server"` in `next/actions.js` — 31a70df
+- [x] 4.3 A test imports `@softure-ai/template-module` from source without a build — 31a70df
+- [x] 4.4 `npm run build` exits 0 and `dist/` stays untracked — 31a70df
+- [x] 4.5 The ESLint boundary test reports `no-restricted-imports` for `next/headers` in `src/server/` — 31a70df
+- [x] 4.6 Gates green (typecheck, lint, test) — 31a70df
 
 ### Phase 5: Hooks, CI and agent docs
 

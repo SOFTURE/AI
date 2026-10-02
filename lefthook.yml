@@ -1,0 +1,34 @@
+# Git hooks: the same gates as CI, earlier. Installed by `npm ci` / `npm install` (`prepare`,
+# skipped when CI is set). Never bypass them with `--no-verify`.
+#
+#   pre-commit  typecheck, lint and language, in parallel. Seconds.
+#   pre-push    the full `npm test`.
+#
+# `glob` is the "was any code touched" switch: a commit that stages only Markdown skips typecheck
+# and lint (lefthook skips a job when no staged file matches). The language job has no glob, so
+# it checks Markdown too. Typecheck gets no file list on purpose: types are project-wide, so it
+# always checks the whole tree. ESLint and the language gate check only the staged files.
+
+pre-commit:
+  parallel: true
+  jobs:
+    - name: typecheck
+      glob: "*.{ts,tsx,mts,cts,js,mjs,cjs,jsx,json}"
+      run: npx tsc --noEmit
+
+    # `--max-warnings 0`: a warning would pass the hook and fail CI after the push.
+    # `--no-warn-ignored`: a staged file under an ignore pattern is not a warning.
+    - name: lint
+      glob: "*.{ts,tsx,mts,cts,js,mjs,cjs,jsx}"
+      run: npx eslint {staged_files} --max-warnings 0 --no-warn-ignored
+
+    # English only outside messages/ dictionaries (AGENTS.md). Markdown included.
+    - name: language
+      run: node scripts/check-language.mjs {staged_files}
+
+# No glob: the suite also checks Markdown (roadmap contract, links, language), and it takes
+# seconds, unlike FIRE_TRACKER's.
+pre-push:
+  jobs:
+    - name: test
+      run: npm test
