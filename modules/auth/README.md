@@ -1,7 +1,7 @@
 # @softure-ai/auth
 
 Accounts for a Next.js app: register with a required consent, login, logout, password change,
-roles with admin-only surfaces that fail closed, database sessions, a route guard for `proxy.ts`, and ready pages and forms. The reference module
+password reset by an emailed link, roles with admin-only surfaces that fail closed, database sessions, a route guard for `proxy.ts`, and ready pages and forms. The reference module
 of the SOFTURE standard (docs/02): it has every layer, from migrations to messages. Built from
 FIRE_TRACKER's auth (`src/lib/{password,session}.ts`, `src/db/sessions.ts`,
 `src/app/actions/do-auth.ts`, `src/proxy.ts`), with the rate limiter of `@softure-ai/security`
@@ -10,7 +10,7 @@ and the route guard separated from channel tagging.
 ## 1. What it provides
 
 Users and sessions in the `auth` schema, scrypt password hashes, opaque session cookies, register,
-login, logout and password change as server actions and pages, `getCurrentUser` / `requireUser`
+login, logout, password change and password reset as server actions and pages, `getCurrentUser` / `requireUser`
 for server code, roles (`requireRole`, `authorizeRole`, `hasRole`, and `grant-role` /
 `revoke-role` scripts), `createAuthGuard` for the app's `proxy.ts`, and a health check that
 `GET /api/health` of `@softure-ai/ops` runs (every auth table answers, no rows read).
@@ -68,7 +68,9 @@ export default config;
 | `roles` | `string[]` | `[]` | Role names the app checks besides `admin` (always declared): `a-z`, `0-9`, `_`, `-`, at most 32. |
 | `adminEmails` | `string[]` | `[]` | Initial admin list: while an email is listed, its account holds `admin`. Auth does not verify emails, so create these accounts before you deploy the list (section 4, "Roles"). |
 | `onRegistered` | `(event, ctx) => Promise<void>` | none | Called after the account is created, inside the same transaction. |
-| `routes` | `{ login, register, changePassword, afterLogin, afterLogout }` | `/login`, `/register`, `/account/password`, `/`, `/login` | Where the pages are mounted and where users land. |
+| `passwordReset.send` | `(link, user, details) => Promise<void>` | none | Delivers reset links (section 4, "Password reset"). Without it password reset is off. |
+| `passwordReset.ttlMinutes` | `number` (5-1440) | `60` | How long a reset link works. |
+| `routes` | `{ login, register, changePassword, forgotPassword, resetPassword, afterLogin, afterLogout }` | `/login`, `/register`, `/account/password`, `/forgot-password`, `/reset-password`, `/`, `/login` | Where the pages are mounted and where users land. |
 | `messages` | partial `pl` / `en` dictionaries | built in | Copy overrides (section 9). |
 
 **Cookie.** Always `HttpOnly`, `SameSite=Lax`, `Path=/`, `Max-Age` = the TTL. A secure cookie gets
@@ -76,12 +78,14 @@ the prefix browsers enforce: `__Host-softure_session` when it is host-only, `__S
 with `cookie.domain`. Over plain HTTP (local development) it keeps the bare name.
 
 **Rate limits** (`AUTH_RATE_LIMIT_BUCKETS`, configured in `security`): `register` 5 and `login` 50
-per client address, `login-account` 10 per email, `change-password` 10 per user, each per 15
+per client address, `login-account` 10 per email, `change-password` 10 per user,
+`password-reset` 10 (link requests) and `password-reset-confirm` 10 (new passwords) per client
+address, `password-reset-account` 3 per email (the mails one address can get), each per 15
 minutes. Attempts are counted before any password is hashed. A successful login forgets the
 email's failed attempts, not the address's. `login-account` is a lockout by design: ten wrong
 passwords for one email, from any addresses, block logins to that account for the rest of the
 window, the owner's included. Raise its limit if that trade-off is wrong for your app. Auth checks
-at its first call that all four buckets exist and names the missing ones. A request whose client address cannot be resolved is
+at its first call that all seven buckets exist and names the missing ones. A request whose client address cannot be resolved is
 refused (`security.client_unidentified`); see the security README for resolvers.
 
 ## 4. Mounting
@@ -95,12 +99,15 @@ export { LoginPage as default } from "@softure-ai/auth/next";
 export { RegisterPage as default } from "@softure-ai/auth/next";
 // app/account/password/page.tsx
 export { ChangePasswordPage as default } from "@softure-ai/auth/next";
+// app/forgot-password/page.tsx and app/reset-password/page.tsx (with passwordReset.send)
+export { ForgotPasswordPage as default } from "@softure-ai/auth/next";
+export { ResetPasswordPage as default } from "@softure-ai/auth/next";
 // app/api/auth/session/route.ts: { user: { id, email } | null }, never cached
 export { getSessionRoute as GET } from "@softure-ai/auth/next";
 ```
 
-The server actions (`loginAction`, `registerAction`, `changePasswordAction`, `logoutAction`) need
-no mounting. In your own pages and layouts:
+The server actions (`loginAction`, `registerAction`, `changePasswordAction`, `forgotPasswordAction`,
+`resetPasswordAction`, `logoutAction`) need no mounting. In your own pages and layouts:
 
 ```tsx
 import { getCurrentUser, LogoutButton, requireUser } from "@softure-ai/auth/next";
@@ -198,13 +205,46 @@ not stored (revoke); an `admin` that comes from `adminEmails` is removed from th
 script. `grantRole`, `revokeRole` and `findUserRoles` in `@softure-ai/auth/server` do the same for
 your own code.
 
-**Your own forms.** `@softure-ai/auth/ui` exports `LoginForm`, `RegisterForm` and
-`ChangePasswordForm`; pass them the actions from `@softure-ai/auth/next`.
+**Password reset.** Auth sends no mail itself: pass a sender, and the login form links to the
+request page.
+
+```ts
+import { auth, consolePasswordResetSender } from "@softure-ai/auth";
+
+auth({
+  passwordReset: {
+    // link: `${appOrigin}/reset-password?token=…`; details: { expiresAt, locale }
+    send: async (link, user, details) => {
+      await mailer.send({ to: user.email, template: "password-reset", data: { link, expiresAt: details.expiresAt }, locale: details.locale });
+    },
+    // in development only: send: consolePasswordResetSender (it refuses under NODE_ENV=production)
+  },
+});
+```
+
+- The request page answers the same for every email: the link is issued and the sender runs after
+  the response (Next's `after()`), so neither its time nor a failure shows. A sender error is logged
+  without the link. `password-reset-account` bounds how many links one address can receive.
+- A link carries 32 random bytes; only their sha256 is stored. One link per account is pending: a
+  new request replaces it. It works for `ttlMinutes`, once. Opening it only checks it (mail scanners
+  open links too); submitting the new password consumes it, sets the password, ends **every**
+  session of the account and sends the user to the login page, which confirms the change.
+- A normal password change cancels a pending link.
+- The link is built on `appOrigin`, never on the request's Host header. A multi-host app keeps the
+  link's path and query and swaps the origin in its sender, from what it knows about the user.
+- The reset page's referrer policy is `same-origin`, so the token in its URL never reaches another
+  site. It still lands in your own access logs; it works once and expires.
+- `requestPasswordReset`, `deliverPasswordReset`, `resetPassword`, `findPasswordResetUser` and
+  `prunePasswordResets` in `@softure-ai/auth/server` do the same for your own flows.
+
+**Your own forms.** `@softure-ai/auth/ui` exports `LoginForm`, `RegisterForm`,
+`ChangePasswordForm`, `ForgotPasswordForm` and `ResetPasswordForm`; pass them the actions from
+`@softure-ai/auth/next`.
 
 ## 5. Migrations and tables
 
-`softure migrate` applies `migrations/0001_create_users_and_sessions.sql` and
-`0002_create_user_roles.sql` after security's.
+`softure migrate` applies `migrations/0001_create_users_and_sessions.sql`,
+`0002_create_user_roles.sql` and `0003_create_password_resets.sql` after security's.
 
 - `auth.users(id uuid, email, password_hash, created_at, password_changed_at)`: the email is stored
   trimmed and lowercased (`CHECK`), unique; the hash must be a `scrypt$…` string.
@@ -212,10 +252,13 @@ your own code.
   sha256 of the cookie token is stored.
 - `auth.user_roles(user_id → users ON DELETE CASCADE, role, granted_at)`, primary key
   `(user_id, role)`; the role name has the declared shape (`CHECK`).
+- `auth.password_resets(user_id → users ON DELETE CASCADE, token_hash, created_at, expires_at)`,
+  primary key `user_id` (one pending link per account), unique `token_hash` (sha256 only).
 
 Your own tables reference `users.id` (exported as the Drizzle table `users`; roles as `userRoles`); keep app columns in
 your own 1:1 table, never in `auth.users`. Expired sessions of a user are deleted at their next
-login; `pruneSessions(ctx)` from `@softure-ai/auth/server` deletes all of them for a scheduled job.
+login; `pruneSessions(ctx)` from `@softure-ai/auth/server` deletes all of them for a scheduled job,
+and `prunePasswordResets(ctx)` does the same for expired reset links.
 
 ## 6. Environment variables
 
@@ -240,7 +283,7 @@ Each form takes `classNames` for its slots (`root`, `form`, `footer`, `link`, `n
 
 `authMessages.en` and `authMessages.pl`, overridable per locale:
 `auth({ messages: { en: { login: { title: "Sign in to Acme" } } } })`. Groups: `fields`, `login`,
-`register`, `changePassword`, `logout`, and `errors.{auth,security,core}` keyed by the error code
+`register`, `changePassword`, `forgotPassword`, `resetPassword`, `logout`, and `errors.{auth,security,core}` keyed by the error code
 (`auth.invalid_credentials` → `errors.auth.invalid_credentials`). `getAuthErrorMessage(messages, code)`
 looks one up.
 
@@ -251,19 +294,23 @@ looks one up.
 `requireConsent: false`. A thrown error rolls the registration back and the user sees a generic
 failure. `privacy` (engagement roadmap) stores the consent through it.
 
+`passwordReset.send(link, user, details)`: after a reset request is answered, for an existing
+account only (section 4, "Password reset"). The `@softure-ai/mailing` adapter (engagement roadmap)
+plugs in here.
+
 ## 11. GDPR
 
-The module stores an email, a password hash, session rows and role rows. It does not take part in the GDPR
+The module stores an email, a password hash, session rows, role rows and pending reset rows. It does not take part in the GDPR
 export or deletion yet (`privacy` flags are off); deleting a row in `auth.users` deletes its
-sessions and roles.
+sessions, roles and pending resets.
 
 ## 12. Limitations / known gaps
 
 - Sessions have a fixed lifetime; there is no sliding renewal and no "remember me".
 - A password change keeps the session that made it (and ends every other one); the token itself
   is not rotated. Login and register end the session the browser held before.
-- No password reset (identity ID-5) or email verification, so `adminEmails` trusts whoever
-  registers a listed email first.
+- No email verification, so `adminEmails` trusts whoever registers a listed email first. (A reset
+  link goes to the account's email, so its owner can take the account back.)
 - Roles are flat: no hierarchy and no permissions per role; no UI to manage them (the scripts do).
 - The guard checks cookie presence only; the session is verified by `requireUser`.
 - A registration attempt reveals whether an email has an account (`auth.email_taken`); the

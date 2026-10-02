@@ -5,8 +5,12 @@ export {
   type AuthFormSlot,
   ChangePasswordForm,
   type ChangePasswordFormProps,
+  ForgotPasswordForm,
+  type ForgotPasswordFormProps,
   LoginForm,
   type LoginFormProps,
   RegisterForm,
   type RegisterFormProps,
+  ResetPasswordForm,
+  type ResetPasswordFormProps,
 } from "./auth-forms.js";

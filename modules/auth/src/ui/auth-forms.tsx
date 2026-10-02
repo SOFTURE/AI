@@ -80,20 +80,40 @@ export interface LoginFormProps extends AuthFormBaseProps {
   readonly next?: string;
   /** Link to the register page; omitted when registration is not offered. */
   readonly registerHref?: string;
+  /** Link to the password reset request page; omitted when reset is not offered. */
+  readonly forgotPasswordHref?: string;
+  /** A confirmation shown under the form, e.g. after a password reset. */
+  readonly notice?: string;
 }
 
-export function LoginForm({ action, messages, locale, next, registerHref, classNames, unstyled }: LoginFormProps) {
+export function LoginForm({ action, messages, locale, next, registerHref, forgotPasswordHref, notice, classNames, unstyled }: LoginFormProps) {
   const [state, formAction, isPending] = useActionState(action, INITIAL_AUTH_FORM_STATE);
   const errors = useErrors(state, messages);
   const slot = createSlotClassGetter({ defaults: DEFAULT_CLASSES, classNames, unstyled });
   const footer =
-    registerHref === undefined ? undefined : (
-      <p className={slot("footer")}>
-        {messages.login.noAccount}{" "}
-        <a href={registerHref} className={slot("link")}>
-          {messages.login.registerLink}
-        </a>
-      </p>
+    registerHref === undefined && forgotPasswordHref === undefined && notice === undefined ? undefined : (
+      <>
+        {notice === undefined ? null : (
+          <p role="status" className={slot("notice")}>
+            {notice}
+          </p>
+        )}
+        {forgotPasswordHref === undefined ? null : (
+          <p className={slot("footer")}>
+            <a href={forgotPasswordHref} className={slot("link")}>
+              {messages.login.forgotPassword}
+            </a>
+          </p>
+        )}
+        {registerHref === undefined ? null : (
+          <p className={slot("footer")}>
+            {messages.login.noAccount}{" "}
+            <a href={registerHref} className={slot("link")}>
+              {messages.login.registerLink}
+            </a>
+          </p>
+        )}
+      </>
     );
   return (
     <FormShell
@@ -238,6 +258,97 @@ export function ChangePasswordForm({ action, messages, locale, minPasswordLength
         unstyled={unstyled}
         locale={locale}
       />
+      <PasswordField
+        name="newPassword"
+        label={messages.fields.newPassword}
+        hint={formatMessage(messages.fields.newPasswordHint, { minLength: minPasswordLength })}
+        autoComplete="new-password"
+        minLength={minPasswordLength}
+        error={errors.at("newPassword")}
+        unstyled={unstyled}
+        locale={locale}
+      />
+    </FormShell>
+  );
+}
+
+export interface ForgotPasswordFormProps extends AuthFormBaseProps {
+  /** How long a link works, for the confirmation. */
+  readonly ttlMinutes: number;
+  readonly loginHref?: string;
+}
+
+/** Asks for a reset link. Its confirmation is the same whether or not the email has an account. */
+export function ForgotPasswordForm({ action, messages, locale, ttlMinutes, loginHref, classNames, unstyled }: ForgotPasswordFormProps) {
+  const [state, formAction, isPending] = useActionState(action, INITIAL_AUTH_FORM_STATE);
+  const errors = useErrors(state, messages);
+  const slot = createSlotClassGetter({ defaults: DEFAULT_CLASSES, classNames, unstyled });
+  const backToLogin =
+    loginHref === undefined ? undefined : (
+      <p className={slot("footer")}>
+        <a href={loginHref} className={slot("link")}>
+          {messages.forgotPassword.backToLogin}
+        </a>
+      </p>
+    );
+  if (state.status === "ok") {
+    return (
+      <div className={slot("root")}>
+        <p role="status" className={slot("notice")}>
+          {formatMessage(messages.forgotPassword.sent, { ttlMinutes })}
+        </p>
+        {backToLogin}
+      </div>
+    );
+  }
+  return (
+    <FormShell
+      formAction={formAction}
+      isPending={isPending}
+      submitLabel={messages.forgotPassword.submit}
+      pendingLabel={messages.forgotPassword.pending}
+      formError={errors.form}
+      footer={backToLogin}
+      slot={slot}
+      unstyled={unstyled}
+    >
+      <TextField
+        name="email"
+        type="email"
+        label={messages.fields.email}
+        autoComplete="email"
+        required
+        defaultValue={state.email ?? ""}
+        error={errors.at("email")}
+        unstyled={unstyled}
+        locale={locale}
+      />
+    </FormShell>
+  );
+}
+
+export interface ResetPasswordFormProps extends AuthFormBaseProps {
+  /** The token from the reset link; checked again on the server. */
+  readonly token: string;
+  readonly minPasswordLength: number;
+}
+
+/** Sets a new password from a reset link; its action goes to the login page on success. */
+export function ResetPasswordForm({ action, messages, locale, token, minPasswordLength, classNames, unstyled }: ResetPasswordFormProps) {
+  const [state, formAction, isPending] = useActionState(action, INITIAL_AUTH_FORM_STATE);
+  const errors = useErrors(state, messages);
+  const slot = createSlotClassGetter({ defaults: DEFAULT_CLASSES, classNames, unstyled });
+  return (
+    <FormShell
+      formAction={formAction}
+      isPending={isPending}
+      submitLabel={messages.resetPassword.submit}
+      pendingLabel={messages.resetPassword.pending}
+      formError={errors.form}
+      slot={slot}
+      unstyled={unstyled}
+    >
+      <input type="hidden" name="token" value={token} />
       <PasswordField
         name="newPassword"
         label={messages.fields.newPassword}

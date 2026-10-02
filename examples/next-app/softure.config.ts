@@ -5,6 +5,7 @@ import { defineSoftureConfig } from "@softure-ai/core";
 import { registerSoftureConfig } from "@softure-ai/core/next";
 import { ops } from "@softure-ai/ops";
 import { cloudflareIp, security } from "@softure-ai/security";
+import { sendPasswordResetLink } from "./lib/password-reset-sender.ts";
 import { guestbook } from "./modules/guestbook/index.ts";
 
 /** The example's initial admin (auth's `adminEmails`); e2e/auth-roles.spec.ts registers it. */
@@ -25,7 +26,7 @@ const config = defineSoftureConfig({
       clientIp: cloudflareIp(),
       buckets: { "example.ping": { limit: 3, windowMinutes: 15 }, ...AUTH_RATE_LIMIT_BUCKETS },
     }),
-    auth({ routes: { afterLogin: "/account" }, adminEmails: [EXAMPLE_ADMIN_EMAIL] }),
+    auth({ routes: { afterLogin: "/account" }, adminEmails: [EXAMPLE_ADMIN_EMAIL], passwordReset: { send: sendPasswordResetLink } }),
     // `detail: "checks"` lists each check in the answer, so e2e/ops.spec.ts can see the guestbook's.
     ops({ detail: "checks" }),
   ],

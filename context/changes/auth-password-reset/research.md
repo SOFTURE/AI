@@ -47,8 +47,10 @@ answer for every email, no Host header in the link, sessions ended after a reset
   (`DELETE … WHERE token_hash = $1 AND expires_at > now RETURNING user_id`) in the transaction that
   sets the new hash and ends the sessions, so two parallel submissions cannot both succeed.
 - **GET does not consume.** The reset page only checks the token (mail scanners prefetch links);
-  the POST consumes it. The page renders `<meta name="referrer" content="no-referrer">` so the
-  token in the URL does not leak through Referer.
+  the POST consumes it. The page renders `<meta name="referrer" content="same-origin">` so the
+  token in the URL never reaches another site through Referer. (Measured in the e2e:
+  `no-referrer` makes the browser send `Origin: null` with the plain HTML form, and Next refuses
+  the server action.)
 - **After a reset.** The form shows a success notice with a link to the login page. No automatic
   sign-in: the reset proves mailbox access, the login proves the new password works.
 - **A normal password change also cancels a pending reset** (an attacker's pending link should not

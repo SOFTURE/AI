@@ -49,7 +49,6 @@ export const pl: typeof en = {
     submit: "Ustaw hasło",
     pending: "Zapisywanie…",
     success: "Hasło zostało zmienione. Zaloguj się nowym hasłem.",
-    loginLink: "Zaloguj się",
     invalidTitle: "Ten link nie działa",
     invalidBody: "Link wygasł albo został już użyty. Poproś o nowy.",
     requestNew: "Wyślij nowy link",

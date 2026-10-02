@@ -54,7 +54,9 @@ admin.
 
 **Discipline:** test-after (wiring).
 
-- `src/next/actions.ts` (two actions, `after()`), `src/next/pages.tsx` (two pages, login link),
+- `src/next/actions.ts` (two actions, `after()`; a successful reset redirects to the login page
+  with `?reset=1`, which shows the confirmation: without JavaScript the reset page would render
+  again with a used token), `src/next/pages.tsx` (two pages, login link and notice),
   `src/ui/auth-forms.tsx` (two forms), `next-modules.d.ts` (`next/server`), exports.
 - Example: `softure.config.ts` (auth entry only), `lib/password-reset-sender.ts`,
   `app/forgot-password/page.tsx`, `app/reset-password/page.tsx`, Playwright env, `.gitignore`.
@@ -74,12 +76,12 @@ admin.
 ### Phase 1: Table, options and server functions
 
 #### Automated
-- [ ] 1.1 Reset tests (issue, request, reset, races, expiry, constraints, health, options) pass on PGlite
-- [ ] 1.2 `module.json` equals `toModuleJson(auth)` and the package passes `tests/repo/packages.test.ts`
-- [ ] 1.3 Gates green (typecheck, lint, test)
+- [x] 1.1 Reset tests (issue, request, reset, races, expiry, constraints, health, options) pass on PGlite — 1dd1834
+- [x] 1.2 `module.json` equals `toModuleJson(auth)` and the package passes `tests/repo/packages.test.ts` — 1dd1834
+- [x] 1.3 Gates green (typecheck, lint, test) — 1dd1834
 
 ### Phase 2: Next adapter, example app and e2e
 
 #### Automated
-- [ ] 2.1 `npm run e2e` passes against a local PostgreSQL 16, including `auth-reset.spec.ts`
-- [ ] 2.2 Gates green (typecheck, lint, test, build)
+- [x] 2.1 `npm run e2e` passes against a local PostgreSQL 16, including `auth-reset.spec.ts`
+- [x] 2.2 Gates green (typecheck, lint, test, build)

@@ -47,7 +47,6 @@ export const en = {
     submit: "Set password",
     pending: "Saving…",
     success: "Your password has been changed. Log in with the new one.",
-    loginLink: "Log in",
     invalidTitle: "This link does not work",
     invalidBody: "The link has expired or has already been used. Ask for a new one.",
     requestNew: "Get a new link",
