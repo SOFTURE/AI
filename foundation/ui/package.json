@@ -29,10 +29,12 @@
       "@softure-ai/source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
-    }
+    },
+    "./styles.css": "./dist/styles.css",
+    "./tailwind.css": "./dist/tailwind.css"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json"
+    "build": "tsc -p tsconfig.build.json && node scripts/build-css.mjs"
   },
   "dependencies": {
     "@softure-ai/core": "^0.0.0",

@@ -181,15 +181,15 @@ no unprefixed utility, and is ≤ 20 kB gzip; `tailwind.css` maps every bridged 
 ### Phase 2: Provider, boot script component and theme switch
 
 #### Automated
-- [x] 2.1 The phase 2 tests pass; `dist/ui/theme-switch.js` starts with `"use client"`
-- [x] 2.2 Gates green (typecheck, lint, test)
+- [x] 2.1 The phase 2 tests pass; `dist/ui/theme-switch.js` starts with `"use client"` — 07ca752
+- [x] 2.2 Gates green (typecheck, lint, test) — 07ca752
 
 ### Phase 3: CSS pipeline, bridge and docs
 
 #### Automated
-- [ ] 3.1 `npm run build` emits `foundation/ui/dist/styles.css` and `dist/tailwind.css` and prints the gzip size
-- [ ] 3.2 The phase 3 tests pass; README and docs links pass the link test
-- [ ] 3.3 Gates green (typecheck, lint, test)
+- [x] 3.1 `npm run build` emits `foundation/ui/dist/styles.css` and `dist/tailwind.css` and prints the gzip size
+- [x] 3.2 The phase 3 tests pass; README and docs links pass the link test
+- [x] 3.3 Gates green (typecheck, lint, test)
 
 #### Manual
 - [ ] 3.4 A page with the switch renders with default tokens in light and dark and with an override theme (screenshots)
