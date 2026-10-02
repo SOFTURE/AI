@@ -1,9 +1,9 @@
 ---
 change_id: example-app
 title: "Example app and e2e harness"
-status: new
+status: plan_reviewed
 roadmap_item: FD-7
-branch: null
+branch: claude/fd-7-example-app-uknuk7
 created: 2026-10-02
 updated: 2026-10-02
 archived_at: null
