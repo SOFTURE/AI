@@ -3,6 +3,7 @@
 import { auth, AUTH_RATE_LIMIT_BUCKETS } from "@softure-ai/auth";
 import { defineSoftureConfig } from "@softure-ai/core";
 import { registerSoftureConfig } from "@softure-ai/core/next";
+import { ops } from "@softure-ai/ops";
 import { cloudflareIp, security } from "@softure-ai/security";
 import { guestbook } from "./modules/guestbook/index.ts";
 
@@ -22,6 +23,8 @@ const config = defineSoftureConfig({
       buckets: { "example.ping": { limit: 3, windowMinutes: 15 }, ...AUTH_RATE_LIMIT_BUCKETS },
     }),
     auth({ routes: { afterLogin: "/account" } }),
+    // `detail: "checks"` lists each check in the answer, so e2e/ops.spec.ts can see the guestbook's.
+    ops({ detail: "checks" }),
   ],
 });
 

@@ -7,3 +7,6 @@ playwright-report/
 # Written by `next dev` (Next 16 agent rules); not part of the example.
 AGENTS.md
 CLAUDE.md
+# Container build output (Dockerfile), produced inside the image.
+softure-migrations/
+migrate.mjs

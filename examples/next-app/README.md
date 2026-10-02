@@ -24,6 +24,17 @@ With a Chromium already on the machine, `PLAYWRIGHT_CHROMIUM_PATH=<path>` skips 
 The `context/workflow.json` key `integration.local` names this command, so orchestrators run it
 before a change is ready.
 
+## Run the container check
+
+```bash
+npm run e2e:container  # at the repository root; needs Docker
+```
+
+[`scripts/container.mjs`](scripts/container.mjs) builds the image from the repository root, starts
+Postgres with the roles of `modules/ops/recipes/initdb/`, migrates as the migrator, serves as the app
+role, and checks `GET /api/health`: 200 with every check, the app role refused DDL, then 503 with
+Postgres stopped. CI runs it as the `container` job of `.github/workflows/e2e.yml`.
+
 ## Develop
 
 ```bash
@@ -50,6 +61,8 @@ npm run dev
 | `app/login/`, `app/register/`, `app/account/password/`, `app/api/auth/session/` | pages and a route handler shipped by `@softure-ai/auth`, each mounted with one re-export line |
 | `proxy.ts`, `app/account/page.tsx` | the auth guard keeping `/account` private, and an app page with `requireUser` and `LogoutButton` |
 | `app/api/security/ping/route.ts` | a public route handler: `identifyClient`, `consumeRateLimit` and `readSmallBody` from `@softure-ai/security` |
+| `app/api/health/route.ts` | `GET /api/health` of `@softure-ai/ops`, one line; the guestbook contributes a check (`modules/guestbook/health.ts`) |
+| `Dockerfile`, `compose.container.yaml`, `scripts/migrate.ts` | the ops container recipe: one image, a one-off migrate step as the migrator role, the app as the app role |
 | `messages/` | the app's `en` and `pl` copy; no text is written inline |
 | `e2e/` | Playwright: theme switch, modal and form, migrations, security, auth |
 

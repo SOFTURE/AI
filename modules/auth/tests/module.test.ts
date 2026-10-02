@@ -123,6 +123,27 @@ describe("auth tables constraints", () => {
   });
 });
 
+describe("the auth health check", () => {
+  it("passes once the tables exist", async () => {
+    const test = await createTestAuth();
+    try {
+      expect(await auth().health?.(test.ctx)).toEqual({ ok: true, value: undefined });
+    } finally {
+      await test.database.close();
+    }
+  });
+
+  it("throws without the auth tables, so the health route reports auth as failing", async () => {
+    const test = await createTestAuth();
+    try {
+      await test.database.client.query("DROP SCHEMA auth CASCADE");
+      await expect(auth().health?.(test.ctx)).rejects.toThrow(/auth\.users/);
+    } finally {
+      await test.database.close();
+    }
+  });
+});
+
 describe("the default buckets", () => {
   it("are valid security buckets", () => {
     expect(() => security({ clientIp: headerIp("x-real-ip"), buckets: AUTH_RATE_LIMIT_BUCKETS })).not.toThrow();

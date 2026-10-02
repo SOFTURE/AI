@@ -4,6 +4,7 @@
 import { defineModule, resolveMigrationsDir } from "@softure-ai/core";
 import { authMessages } from "./messages/index.js";
 import { authOptionsSchema } from "./options.js";
+import { checkAuthTables } from "./server/health.js";
 
 export const MODULE_ID = "auth";
 
@@ -62,6 +63,7 @@ export const auth = defineModule({
   messages: authMessages,
   options: authOptionsSchema,
   migrations: { dir: resolveMigrationsDir(import.meta.url, "../migrations/") },
+  health: checkAuthTables,
 });
 
 export { INITIAL_AUTH_FORM_STATE } from "./contract.js";

@@ -44,7 +44,7 @@ backlog: context/backlog/roadmap-identity/
 | **ID-4** | `auth-roles` | roles with `requireRole`; admin-only surfaces fail closed | ID-3 | autonomous | ready |
 | **ID-5** | `auth-password-reset` | password reset with a single-use, expiring token sent through a sender hook | ID-4 | autonomous | ready |
 | **ID-6** | `feature-switches` | `@softure-ai/feature-switches`: declared switches, env overrides, fail mode, admin-only panel | ID-4 | autonomous | ready |
-| **ID-7** | `ops-health-migrate` | `@softure-ai/ops`: health endpoint with module checks, container migrate step, safe ops script pattern | ID-1 | autonomous | ready |
+| **ID-7** | `ops-health-migrate` | `@softure-ai/ops`: health endpoint with module checks, container migrate step, safe ops script pattern | ID-1 | autonomous | done |
 | **ID-8** | `identity-release` | security, auth, feature-switches and ops 0.1.0 published through the FD-2 pipeline | FD-8, ID-2, ID-3, ID-4, ID-5, ID-6, ID-7 | owner | ready |
 | **ID-9** | `fire-adopt-identity` | FIRE_TRACKER runs on security, auth, roles, switches and ops and has deleted its own implementation | ID-8 | owner | ready |
 
@@ -134,7 +134,7 @@ item's entries.
 
 ### ID-3: Authentication core
 - **Change ID:** `auth-core`
-- **Status:** in_progress (research, since 2026-10-02; cloud session, branch `claude/id-3-auth-core-vdx54s` — do not take in another session)
+- **Status:** done
 - **Outcome:** `@softure-ai/auth`, consisting of:
   - tables `auth.users` and `auth.sessions`;
   - scrypt password hashing (constant-time compare, dummy verification for unknown emails);
@@ -211,7 +211,8 @@ item's entries.
 
 ### ID-7: Health and migrate step
 - **Change ID:** `ops-health-migrate`
-- **Status:** ready
+- **Status:** done
+- **Input:** [`archive/2026-10-02-ops-health-migrate/change.md`](../archive/2026-10-02-ops-health-migrate/change.md)
 - **Outcome:** `@softure-ai/ops`, consisting of:
   - `GET /health` aggregating a DB check and checks contributed by enabled modules (200 / 503);
   - a documented container recipe that runs `softure migrate` as a one-off step before the app starts
@@ -278,7 +279,8 @@ item's entries.
 
 ## Done
 
-- **ID-3** `auth-core`: `@softure-ai/auth` with users, scrypt passwords, database sessions (token hash only), register with a consent hook in one transaction, login (two rate-limit buckets before hashing), logout, password change ending other sessions, `getCurrentUser` / `requireUser`, `createAuthGuard` for `proxy.ts`, pages and forms in pl + en; `getSharedDatabase` in db; the next-actions spike removed; archived in `archive/2026-10-02-auth-core/`
+- **ID-3** `auth-core`: `@softure-ai/auth` with users, scrypt passwords, database sessions (token hash only), register with a consent hook in one transaction, login (two rate-limit buckets before hashing), logout, password change ending other sessions, `getCurrentUser` / `requireUser`, `createAuthGuard` for `proxy.ts`, pages and forms in pl + en, a health check for ops; `getSharedDatabase` in db; the next-actions spike removed; archived in `archive/2026-10-02-auth-core/`
+- **ID-7** `ops-health-migrate`: `@softure-ai/ops` with `GET /api/health` (database plus a check per enabled module through `defineModule({ health })`, 200/503, nothing revealed), the container recipe (one image, one-off `softure migrate` as `softure_migrator`, the app as `softure_app` limited to rows; verified by `npm run e2e:container` in CI) and the safe ops script helper; `.env.prod` and release notes stay app-specific; archived in `archive/2026-10-02-ops-health-migrate/`
 - **ID-2** `security-rate-limit`: `@softure-ai/security` with configurable rate-limit buckets, client-IP resolvers that refuse unidentified clients, subject keys and `readSmallBody`; archived in `archive/2026-10-02-security-rate-limit/`
 - **ID-1** `next-actions-spike`: modules ship server actions, route handlers and pages from their package (docs/02 §8: one-line re-exports, config registry confirmed with a root-layout import for prerendering, bound arguments not secret, `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` for stable action ids across builds); `resolveMigrationsDir` in core fixes the Turbopack migrations build; spike package `spikes/next-actions/` with e2e; archived in `archive/2026-10-02-next-actions-spike/`
 

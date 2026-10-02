@@ -11,7 +11,8 @@ and the route guard separated from channel tagging.
 
 Users and sessions in the `auth` schema, scrypt password hashes, opaque session cookies, register,
 login, logout and password change as server actions and pages, `getCurrentUser` / `requireUser`
-for server code, and `createAuthGuard` for the app's `proxy.ts`.
+for server code, `createAuthGuard` for the app's `proxy.ts`, and a health check that
+`GET /api/health` of `@softure-ai/ops` runs (both auth tables answer, no rows read).
 
 ## 2. Installation
 
