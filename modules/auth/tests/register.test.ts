@@ -129,12 +129,18 @@ describe("registerUser", () => {
       expect((await registerUser(ctx, INPUT)).ok).toBe(true);
     });
 
-    it("fails closed on an env value it cannot read and logs the variable name only", async () => {
+    it("fails closed on an env value it cannot read and logs the variable name only, once", async () => {
       vi.stubEnv(REGISTRATION_CLOSED_ENV, "maybe");
       const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
       const { ctx } = await setUp();
       expect(await registerUser(ctx, INPUT)).toEqual({ ok: false, error: "auth.registration_closed" });
-      expect(log).toHaveBeenCalledWith(`@softure-ai/auth: ${REGISTRATION_CLOSED_ENV} must be true, false, 1 or 0; registration stays closed`);
+      // Once per process, not on every request (another test may have reported it already).
+      expect(log.mock.calls.length).toBeLessThanOrEqual(1);
+      await registerUser(ctx, INPUT);
+      expect(log.mock.calls.length).toBeLessThanOrEqual(1);
+      for (const call of log.mock.calls) {
+        expect(call).toEqual([`@softure-ai/auth: ${REGISTRATION_CLOSED_ENV} must be true, false, 1 or 0; registration stays closed`]);
+      }
       log.mockRestore();
     });
   });

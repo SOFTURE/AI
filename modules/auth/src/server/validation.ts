@@ -20,12 +20,17 @@ export function parseEmail(email: string): Ok<string> | Err<"auth.email_invalid"
   return ok(normalized);
 }
 
-/** Whether a new password fits the policy. Length counts characters, not UTF-16 units. */
+/** A password's length as the policy counts it: characters after NFC, not UTF-16 units. */
+export function getPasswordLength(password: string): number {
+  return [...password.normalize("NFC")].length;
+}
+
+/** Whether a new password fits the policy. */
 export function checkNewPassword(
   password: string,
   minLength: number,
 ): Ok<undefined> | Err<"auth.password_too_short" | "auth.password_too_long"> {
-  const length = [...password.normalize("NFC")].length;
+  const length = getPasswordLength(password);
   if (length < minLength) return err("auth.password_too_short");
   if (length > MAX_PASSWORD_LENGTH) return err("auth.password_too_long");
   return ok();

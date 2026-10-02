@@ -1,6 +1,6 @@
 // Reading and writing the session cookie through Next's request scope.
 import type { SoftureConfig } from "@softure-ai/core";
-import { cookies } from "next/headers.js";
+import { cookies } from "next/headers";
 import type { NewSession } from "../contract.js";
 import { getSessionCookie } from "../session-cookie.js";
 

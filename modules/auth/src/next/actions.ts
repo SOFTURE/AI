@@ -4,11 +4,11 @@
 // server functions) before any work, reads the user from the session cookie (never from a bound
 // argument, which the client controls, docs/02 §8), and turns unexpected failures into
 // `safeError` codes. Next refuses an action whose Origin does not match the host.
-import { errorLogLabel, safeError } from "@softure-ai/core";
+import { errorLogLabel, safeError, type SoftureConfig } from "@softure-ai/core";
 import { getSoftureConfig } from "@softure-ai/core/next";
 import { identifyClient } from "@softure-ai/security/server";
-import { headers } from "next/headers.js";
-import { redirect } from "next/navigation.js";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import type { AuthFormErrorCode, AuthFormField, AuthFormState } from "../contract.js";
 import { toSafeNextPath } from "../safe-next-path.js";
@@ -22,7 +22,10 @@ import { clearSessionCookie, readSessionToken, writeSessionCookie } from "./sess
 
 /** Longer values are cut: the server functions refuse them anyway, and nothing huge is echoed back. */
 const MAX_FIELD_LENGTH = 4096;
-const text = z.string().max(MAX_FIELD_LENGTH).catch("");
+const text = z
+  .string()
+  .catch("")
+  .transform((value) => value.slice(0, MAX_FIELD_LENGTH));
 
 const loginInput = z.object({ email: text, password: text, next: text });
 const registerInput = z.object({ email: text, password: text, next: text, consent: z.string().nullable().catch(null) });
@@ -71,6 +74,7 @@ export async function loginAction(_previous: AuthFormState, formData: FormData):
   }
   if (!result.ok) return failure(result.error, { email: input.email });
 
+  await endPreviousSession(config);
   await writeSessionCookie(config, result.value.session);
   redirect(toSafeNextPath(input.next, getAuthRoutes(config).afterLogin));
 }
@@ -95,6 +99,7 @@ export async function registerAction(_previous: AuthFormState, formData: FormDat
   }
   if (!result.ok) return failure(result.error, { field: FIELD_OF[result.error], email: input.email });
 
+  await endPreviousSession(config);
   await writeSessionCookie(config, result.value.session);
   redirect(toSafeNextPath(input.next, getAuthRoutes(config).afterLogin));
 }
@@ -114,6 +119,17 @@ export async function changePasswordAction(_previous: AuthFormState, formData: F
     return result.ok ? { status: "ok" } : failure(result.error, { field: CHANGE_FIELD_OF[result.error] });
   } catch (error) {
     return failure(reportFailure("password change", error));
+  }
+}
+
+/** Ends the session the browser held before a login or register, so it cannot be reused. */
+async function endPreviousSession(config: SoftureConfig): Promise<void> {
+  const previous = await readSessionToken(config);
+  if (previous === null) return;
+  try {
+    await logoutSession(await getAuthContext(config), previous);
+  } catch (error) {
+    reportFailure("ending the previous session", error);
   }
 }
 

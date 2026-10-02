@@ -25,6 +25,11 @@ export const pl: AppMessages = {
     subtitle: "Wiersze rejestru softure.migrations.",
     empty: "Brak migracji. Uruchom npm run migrate.",
   },
+  account: {
+    title: "Twoje konto",
+    lead: "Tę stronę widzą tylko zalogowani użytkownicy.",
+    changePassword: "Zmień hasło",
+  },
   errors: {
     "guestbook.message_invalid": "Wpisz od 1 do {max} znaków.",
     "core.database_failed": "Baza danych nie odpowiedziała. Spróbuj ponownie.",

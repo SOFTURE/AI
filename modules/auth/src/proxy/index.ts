@@ -24,7 +24,10 @@ export function createAuthGuard(config: SoftureConfig, options: AuthGuardOptions
 
   return (request) => {
     const url = new URL(request.url);
-    if (!prefixes.some((prefix) => isUnder(url.pathname, prefix))) return null;
+    // Compared decoded and lowercased, so `/%61ccount` or `/ACCOUNT` (which a case-insensitive
+    // front proxy may route to /account) is guarded too. Undecodable paths are guarded.
+    const path = decodePath(url.pathname);
+    if (path !== null && !prefixes.some((prefix) => isUnder(path, prefix))) return null;
     if (readSessionToken(request.headers.get("cookie"), cookieName) !== null) return null;
     // Built on appOrigin: behind a proxy the request URL may carry an internal host.
     const login = new URL(routes.login, config.appOrigin);
@@ -37,7 +40,16 @@ function normalizePrefix(prefix: string): string {
   if (!prefix.startsWith("/")) {
     throw new Error(`createAuthGuard: protected path "${prefix}" must start with /`);
   }
-  return prefix.length > 1 && prefix.endsWith("/") ? prefix.slice(0, -1) : prefix;
+  const trimmed = prefix.length > 1 && prefix.endsWith("/") ? prefix.slice(0, -1) : prefix;
+  return trimmed.toLowerCase();
+}
+
+function decodePath(pathname: string): string | null {
+  try {
+    return decodeURIComponent(pathname).toLowerCase();
+  } catch {
+    return null;
+  }
 }
 
 function isUnder(pathname: string, prefix: string): boolean {

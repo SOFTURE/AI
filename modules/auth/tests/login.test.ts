@@ -61,6 +61,27 @@ describe("loginUser", () => {
     expect(password.verifyPassword).not.toHaveBeenCalled();
   });
 
+  it("accepts a valid password of astral characters longer than 1024 UTF-16 units", async () => {
+    const { ctx } = await setUp();
+    const long = "\u{1F511}".repeat(600);
+    const registered = await registerUser(ctx, { email: "emoji@example.com", password: long, hasConsented: true, clientKey: CLIENT });
+    expect(registered.ok).toBe(true);
+    expect((await loginUser(ctx, { email: "emoji@example.com", password: long, clientKey: CLIENT })).ok).toBe(true);
+  });
+
+  it("names the missing buckets when security does not configure them", async () => {
+    const { ctx } = await setUp();
+    const bare = await createTestAuth({ onlyBuckets: { register: { limit: 5, windowMinutes: 15 } } });
+    try {
+      await expect(loginUser(bare.ctx, LOGIN)).rejects.toThrow(
+        '@softure-ai/auth: security({ buckets }) lacks "login", "login-account", "change-password"; spread AUTH_RATE_LIMIT_BUCKETS into it',
+      );
+    } finally {
+      await bare.database.close();
+    }
+    expect((await loginUser(ctx, LOGIN)).ok).toBe(true);
+  });
+
   it("counts the login bucket per client before hashing and refuses once it is spent", async () => {
     const { ctx, database } = await setUp({ buckets: { register: { limit: 5, windowMinutes: 15 }, login: { limit: 2, windowMinutes: 15 }, "login-account": { limit: 9, windowMinutes: 15 } } });
     await loginUser(ctx, { ...LOGIN, password: "wrong horse battery" });

@@ -16,7 +16,10 @@ export const FAST_SCRYPT = { cost: 2 ** 10, blockSize: 8, parallelization: 1 } a
 export interface ConfigOptions {
   readonly auth?: NonNullable<Parameters<typeof auth>[0]>;
   readonly appOrigin?: string;
+  /** Bucket overrides on top of AUTH_RATE_LIMIT_BUCKETS. */
   readonly buckets?: Record<string, { limit: number; windowMinutes: number }>;
+  /** The only buckets security gets, instead of the auth defaults. */
+  readonly onlyBuckets?: Record<string, { limit: number; windowMinutes: number }>;
 }
 
 export function createConfig(options: ConfigOptions = {}): SoftureConfig {
@@ -28,7 +31,7 @@ export function createConfig(options: ConfigOptions = {}): SoftureConfig {
     modules: [
       security({
         clientIp: headerIp("x-real-ip"),
-        buckets: options.buckets ?? AUTH_RATE_LIMIT_BUCKETS,
+        buckets: options.onlyBuckets ?? { ...AUTH_RATE_LIMIT_BUCKETS, ...options.buckets },
         cleanupProbability: 0,
       }),
       auth({ ...options.auth, password: { scrypt: FAST_SCRYPT, ...options.auth?.password } }),

@@ -23,6 +23,11 @@ export const en = {
     subtitle: "Rows of the softure.migrations ledger.",
     empty: "No migrations applied. Run npm run migrate.",
   },
+  account: {
+    title: "Your account",
+    lead: "Only signed-in users see this page.",
+    changePassword: "Change password",
+  },
   errors: {
     "guestbook.message_invalid": "Write between 1 and {max} characters.",
     "core.database_failed": "The database did not answer. Try again.",

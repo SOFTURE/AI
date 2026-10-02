@@ -1,7 +1,7 @@
 // The signed-in user for server components, actions and route handlers. React's `cache` makes it
 // one session lookup per request, however many components ask.
 import { getSoftureConfig } from "@softure-ai/core/next";
-import { redirect } from "next/navigation.js";
+import { redirect } from "next/navigation";
 import { cache } from "react";
 import type { AuthUser } from "../contract.js";
 import { toSafeNextPath } from "../safe-next-path.js";

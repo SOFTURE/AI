@@ -99,10 +99,10 @@ storage (`privacy`, engagement roadmap), sliding session renewal.
 ### Phase 2: Next adapter, guard, UI and messages
 
 #### Automated
-- [ ] 2.1 Guard, cookie, next-path and form tests pass
-- [ ] 2.2 UI architecture test passes and pl and en dictionaries have the same keys
-- [ ] 2.3 `npm run build` emits `dist/next/actions.js` starting with `"use server"` and `dist/ui/auth-forms.js` with `"use client"`
-- [ ] 2.4 Gates green (typecheck, lint, test, build)
+- [x] 2.1 Guard, cookie, next-path and form tests pass — 4b08964
+- [x] 2.2 UI architecture test passes and pl and en dictionaries have the same keys — 4b08964
+- [x] 2.3 `npm run build` emits `dist/next/actions.js` starting with `"use server"` and `dist/ui/auth-forms.js` with `"use client"` — 4b08964
+- [x] 2.4 Gates green (typecheck, lint, test, build) — 4b08964
 
 ### Phase 3: Example app and e2e
 

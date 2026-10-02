@@ -7,7 +7,7 @@ import type { SignedIn } from "../contract.js";
 import { users } from "../schema.js";
 import { getAuthOptions } from "./options.js";
 import { hashPassword } from "./password.js";
-import { BUCKETS } from "./rate-limits.js";
+import { assertAuthBuckets, BUCKETS } from "./rate-limits.js";
 import { createSession, type AuthContext } from "./sessions.js";
 import { isRegistrationClosed } from "./switches.js";
 import { checkNewPassword, parseEmail } from "./validation.js";
@@ -38,6 +38,7 @@ export type RegisterResult = Ok<SignedIn> | Err<RegisterErrorCode> | RateLimitRe
  */
 export async function registerUser(ctx: AuthContext, input: RegisterInput): Promise<RegisterResult> {
   const options = getAuthOptions(ctx.config);
+  assertAuthBuckets(ctx.config);
   if (isRegistrationClosed(ctx.config)) return err("auth.registration_closed");
 
   const email = parseEmail(input.email);

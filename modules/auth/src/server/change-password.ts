@@ -7,7 +7,7 @@ import { and, eq, ne } from "drizzle-orm";
 import { sessions, users } from "../schema.js";
 import { getAuthOptions } from "./options.js";
 import { hashPassword, verifyPassword } from "./password.js";
-import { BUCKETS, userSubjectKey } from "./rate-limits.js";
+import { assertAuthBuckets, BUCKETS, userSubjectKey } from "./rate-limits.js";
 import { findSessionUser, type AuthContext } from "./sessions.js";
 import { hashSessionToken } from "./session-token.js";
 import { checkNewPassword } from "./validation.js";
@@ -30,6 +30,7 @@ export type ChangePasswordResult = Ok<undefined> | Err<ChangePasswordErrorCode> 
 /** Changes the password of the session's user and ends their other sessions. Database errors propagate. */
 export async function changePassword(ctx: AuthContext, input: ChangePasswordInput): Promise<ChangePasswordResult> {
   const options = getAuthOptions(ctx.config);
+  assertAuthBuckets(ctx.config);
   const user = await findSessionUser(ctx, input.sessionToken);
   if (user === null) return err("auth.unauthenticated");
 

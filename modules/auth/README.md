@@ -72,7 +72,10 @@ with `cookie.domain`. Over plain HTTP (local development) it keeps the bare name
 **Rate limits** (`AUTH_RATE_LIMIT_BUCKETS`, configured in `security`): `register` 5 and `login` 50
 per client address, `login-account` 10 per email, `change-password` 10 per user, each per 15
 minutes. Attempts are counted before any password is hashed. A successful login forgets the
-email's failed attempts, not the address's. A request whose client address cannot be resolved is
+email's failed attempts, not the address's. `login-account` is a lockout by design: ten wrong
+passwords for one email, from any addresses, block logins to that account for the rest of the
+window, the owner's included. Raise its limit if that trade-off is wrong for your app. Auth checks
+at its first call that all four buckets exist and names the missing ones. A request whose client address cannot be resolved is
 refused (`security.client_unidentified`); see the security README for resolvers.
 
 ## 4. Mounting
@@ -112,21 +115,29 @@ the user or `null`. Both read the session once per request.
 
 **Route guard.** `createAuthGuard` returns `(request) => Response | null`: a redirect to the login
 page (with `?next=`) for a protected path without a session cookie, `null` otherwise. It only
-checks that the cookie is present, so pages still call `requireUser`. It imports nothing from Next,
+checks that the cookie is present, so **every private page and action still calls
+`requireUser`**: the guard is a convenience, not the access check. Paths are compared decoded and
+lowercased (`/%61ccount` and `/ACCOUNT` are guarded like `/account`). It imports nothing from Next,
 so it chains with other proxy pieces:
 
 ```ts
 // proxy.ts
 import { createAuthGuard } from "@softure-ai/auth/proxy";
 import { NextResponse, type NextRequest } from "next/server";
-import config from "./softure.config";
+import softureConfig from "./softure.config";
 
-const guard = createAuthGuard(config, { protect: ["/account", "/dashboard"] });
+const guard = createAuthGuard(softureConfig, { protect: ["/account", "/dashboard"] });
 
 export function proxy(request: NextRequest) {
   return guard(request) ?? NextResponse.next();
 }
+
+// Static files never need the guard.
+export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"] };
 ```
+
+(Name the imported SOFTURE config differently, e.g. `softureConfig`, when `proxy.ts` also exports
+Next's `config`.)
 
 A protected prefix matches whole path segments (`/account` covers `/account/password`, not
 `/accounting`). The change-password route is always protected. Redirects are built on `appOrigin`.
@@ -190,6 +201,8 @@ sessions.
 ## 12. Limitations / known gaps
 
 - Sessions have a fixed lifetime; there is no sliding renewal and no "remember me".
+- A password change keeps the session that made it (and ends every other one); the token itself
+  is not rotated. Login and register end the session the browser held before.
 - No password reset (identity ID-5), roles (ID-4) or email verification.
 - The guard checks cookie presence only; the session is verified by `requireUser`.
 - A registration attempt reveals whether an email has an account (`auth.email_taken`); the

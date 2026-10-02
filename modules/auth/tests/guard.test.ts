@@ -35,6 +35,10 @@ describe("createAuthGuard", () => {
     expect(guard(request(path))?.status).toBe(307);
   });
 
+  it.each(["/%61ccount", "/ACCOUNT/password", "/Account", "/%E0%A4%A"])("guards the encoded or differently cased path %s", (path) => {
+    expect(guard(request(path))?.status).toBe(307);
+  });
+
   it("always guards the change-password route", () => {
     const bare = createAuthGuard(config, { protect: [] });
     expect(bare(request("/account/password"))?.status).toBe(307);

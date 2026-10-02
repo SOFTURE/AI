@@ -9,9 +9,9 @@ import type { SignedIn } from "../contract.js";
 import { users } from "../schema.js";
 import { getAuthOptions } from "./options.js";
 import { hashPassword, MAX_PASSWORD_LENGTH, needsRehash, verifyDummyPassword, verifyPassword } from "./password.js";
-import { BUCKETS, emailSubjectKey } from "./rate-limits.js";
+import { assertAuthBuckets, BUCKETS, emailSubjectKey } from "./rate-limits.js";
 import { createSession, deleteExpiredSessions, type AuthContext } from "./sessions.js";
-import { normalizeEmail } from "./validation.js";
+import { getPasswordLength, normalizeEmail } from "./validation.js";
 
 export interface LoginInput {
   readonly email: string;
@@ -25,11 +25,12 @@ export type LoginResult = Ok<SignedIn> | Err<"auth.invalid_credentials"> | RateL
 /** Checks the credentials and opens a session. Database errors propagate. */
 export async function loginUser(ctx: AuthContext, input: LoginInput): Promise<LoginResult> {
   const options = getAuthOptions(ctx.config);
+  assertAuthBuckets(ctx.config);
   const byClient = await consumeRateLimit(ctx, { bucket: BUCKETS.login, key: input.clientKey });
   if (!byClient.ok) return byClient;
 
   const email = normalizeEmail(input.email);
-  if (email === "" || input.password === "" || input.password.length > MAX_PASSWORD_LENGTH) {
+  if (email === "" || input.password === "" || getPasswordLength(input.password) > MAX_PASSWORD_LENGTH) {
     return err("auth.invalid_credentials");
   }
   const accountKey = emailSubjectKey(email);

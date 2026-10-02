@@ -2,7 +2,7 @@
 // Server components: they read the config and the session, and render the forms from `../ui`.
 import { getSoftureConfig } from "@softure-ai/core/next";
 import { Card } from "@softure-ai/ui";
-import { redirect } from "next/navigation.js";
+import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { toSafeNextPath } from "../safe-next-path.js";
 import { getAuthOptions, getAuthRoutes } from "../server/options.js";
