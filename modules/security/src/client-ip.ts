@@ -28,6 +28,11 @@ export function headerIp(name: string): ClientIpResolver {
   if (name.trim() === "") {
     throw new TypeError("headerIp: the header name must not be empty");
   }
+  try {
+    new Headers().get(name);
+  } catch {
+    throw new TypeError(`headerIp: "${name}" is not a valid header name`);
+  }
   return (headers) => {
     const value = headers.get(name);
     // Several values (a repeated header or a list) mean something in front did not overwrite it.
@@ -85,7 +90,7 @@ export function forwardedForIp(options: ForwardedForOptions): ClientIpResolver {
 
 /**
  * The canonical form of an address, or `null` when the value is not one: surrounding space, a port
- * and IPv6 brackets are removed, an IPv4-mapped IPv6 address becomes IPv4, and IPv6 is written in
+ * and IPv6 brackets are removed, an IPv4-mapped (or IPv4-compatible) IPv6 address becomes IPv4, and IPv6 is written in
  * full lowercase groups, so one client always has one spelling.
  */
 export function normalizeIp(value: string): string | null {
@@ -110,7 +115,7 @@ export function normalizeIp(value: string): string | null {
   }
 
   const groups = expandIpv6(address);
-  if (isIpv4Mapped(groups)) {
+  if (isIpv4Mapped(groups) || isIpv4Compatible(groups)) {
     const high = groups[6] ?? 0;
     const low = groups[7] ?? 0;
     return [high >> 8, high & 0xff, low >> 8, low & 0xff].join(".");
@@ -172,6 +177,11 @@ function expandIpv6(address: string): number[] {
   const tailGroups = rest === undefined || rest === "" ? [] : rest.split(":");
   const missing = rest === undefined ? 0 : 8 - headGroups.length - tailGroups.length;
   return [...headGroups, ...Array<string>(missing).fill("0"), ...tailGroups].map((group) => Number.parseInt(group, 16));
+}
+
+/** The deprecated `::a.b.c.d` form; `::` and `::1` are not IPv4 addresses. */
+function isIpv4Compatible(groups: readonly number[]): boolean {
+  return groups.slice(0, 6).every((group) => group === 0) && (groups[6] ?? 0) !== 0;
 }
 
 function isIpv4Mapped(groups: readonly number[]): boolean {

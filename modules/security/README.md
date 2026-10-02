@@ -58,7 +58,7 @@ edge does not set or overwrite lets any client choose its own key.
 
 Entries left of the trusted proxies' entries came from the client and are never used. A missing,
 short or garbled header resolves to nothing. Addresses are normalised: a port and IPv6 brackets are
-removed, IPv4-mapped IPv6 becomes IPv4, IPv6 is written in full lowercase groups.
+removed, IPv4-mapped (and the deprecated IPv4-compatible) IPv6 becomes IPv4, IPv6 is written in full lowercase groups.
 
 **Development without a proxy** has no header to read, so every request is unidentified. Pass an
 explicit resolver for local work only, for example
@@ -146,9 +146,11 @@ None. Custom client-IP resolvers are plain functions (section 3).
 
 ## 11. GDPR
 
-The table holds rate limit keys only: client addresses (personal data, kept for at most two
-windows of their bucket) and SHA-256 prefixes of subjects, never an email in clear text. Nothing is
-exported per user, and nothing needs deleting on account deletion: rows expire on their own.
+The table holds rate limit keys only: client addresses (personal data) and SHA-256 prefixes of
+subjects, never an email in clear text. Nothing is
+exported per user. Cleanup deletes a row two windows after its window started; it runs on a share
+of consumed attempts (`cleanupProbability`), so with little traffic a row can stay longer. Schedule
+`pruneRateLimits` (for example hourly) when the retention period must be guaranteed.
 
 ## 12. Limitations
 

@@ -82,6 +82,17 @@ describe("readSmallBody", () => {
     expect(await readSmallBody(request, { maxBytes: 64 })).toEqual({ ok: false, error: "security.body_unreadable" });
   });
 
+  it("returns body_unreadable when another reader holds the body", async () => {
+    const request = new Request(URL_, { method: "POST", body: "locked" });
+    request.body?.getReader();
+    expect(await readSmallBody(request, { maxBytes: 64 })).toEqual({ ok: false, error: "security.body_unreadable" });
+  });
+
+  it("returns body_unreadable for bytes that are not UTF-8 instead of replacing them", async () => {
+    const request = new Request(URL_, { method: "POST", body: new Uint8Array([0xff, 0xfe, 0x41]) });
+    expect(await readSmallBody(request, { maxBytes: 64 })).toEqual({ ok: false, error: "security.body_unreadable" });
+  });
+
   it.each([-1, 1.5, Number.NaN])("throws on maxBytes %s", async (maxBytes) => {
     await expect(readSmallBody(new Request(URL_), { maxBytes })).rejects.toThrow("readSmallBody: maxBytes must be a whole number of bytes");
   });

@@ -18,6 +18,8 @@ describe("normalizeIp", () => {
     ["::ffff:192.0.2.1", "192.0.2.1"],
     ["::FFFF:c000:0201", "192.0.2.1"],
     ["::1", "0:0:0:0:0:0:0:1"],
+    // The deprecated IPv4-compatible form is the IPv4 address, not one shared /64.
+    ["::1.2.3.4", "1.2.3.4"],
     ["::", "0:0:0:0:0:0:0:0"],
     ["2001:db8::", "2001:db8:0:0:0:0:0:0"],
     ["64:ff9b::192.0.2.1", "64:ff9b:0:0:0:0:c000:201"],
@@ -54,6 +56,10 @@ describe("headerIp and cloudflareIp", () => {
 
   it("throws on an empty header name", () => {
     expect(() => headerIp(" ")).toThrow("headerIp: the header name must not be empty");
+  });
+
+  it("throws at construction on an invalid header name, not on every request", () => {
+    expect(() => headerIp("x real")).toThrow('headerIp: "x real" is not a valid header name');
   });
 });
 

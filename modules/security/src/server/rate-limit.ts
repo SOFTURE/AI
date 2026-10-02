@@ -1,7 +1,7 @@
 // The fixed-window limiter (FIRE_TRACKER `src/db/auth-attempts.ts`, generalised to buckets from
 // configuration). Each attempt is counted before the work it guards, so a flood of requests that
 // would succeed is stopped as well, and before it costs anything.
-import { err, ok, type ModuleContext, type Ok } from "@softure-ai/core";
+import { err, errorLogLabel, ok, type ModuleContext, type Ok } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
 import { and, eq, lt, notInArray, or, sql } from "drizzle-orm";
 import type { RateLimitAllowance, RateLimitRejection } from "../contract.js";
@@ -30,7 +30,8 @@ const CLEANUP_AFTER_WINDOWS = 2;
  * One statement, `INSERT … ON CONFLICT DO UPDATE`: a separate read and write would let two parallel
  * requests both see room under the limit. The counter stops at `limit + 1`, so a long flood cannot
  * overflow it. Now and then (`cleanupProbability`) the call also deletes expired rows: cleanup that
- * waits for a successful login never runs during a distributed flood, when nobody logs in.
+ * waits for a successful login never runs during a distributed flood, when nobody logs in. A
+ * failed cleanup is logged and does not change the answer: the attempt is already counted.
  *
  * Database failures propagate; wrap the call and turn them into `safeError` like any query.
  */
@@ -41,7 +42,7 @@ export async function consumeRateLimit(ctx: SecurityContext, target: RateLimitTa
 
   const now = ctx.clock.now();
   const windowMs = bucket.windowMinutes * MINUTE_MS;
-  const isExpired = sql`${rateLimits.windowStartedAt} < ${new Date(now.getTime() - windowMs)}`;
+  const isExpired = sql`${rateLimits.windowStartedAt} <= ${new Date(now.getTime() - windowMs)}`;
 
   const [row] = await ctx.db
     .insert(rateLimits)
@@ -56,7 +57,7 @@ export async function consumeRateLimit(ctx: SecurityContext, target: RateLimitTa
     .returning();
 
   if (Math.random() < options.cleanupProbability) {
-    await pruneRateLimits(ctx);
+    await pruneQuietly(ctx);
   }
 
   const attempts = row?.attempts ?? 1;
@@ -110,6 +111,14 @@ export async function pruneRateLimits(ctx: SecurityContext): Promise<void> {
         ),
       ),
     );
+}
+
+async function pruneQuietly(ctx: SecurityContext): Promise<void> {
+  try {
+    await pruneRateLimits(ctx);
+  } catch (error) {
+    console.error(`@softure-ai/security: rate limit cleanup failed: ${errorLogLabel(error)}`);
+  }
 }
 
 function assertKey(key: string): void {

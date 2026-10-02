@@ -81,6 +81,13 @@ describe("consumeRateLimit: FIRE_TRACKER baseline", () => {
     });
   });
 
+  it("opens the new window exactly at the reported resetAt", async () => {
+    await consumeTimes(test, "register", IP, FIRE_BUCKETS.register.limit + 1);
+    test.clock.set(new Date(NOW.getTime() + 15 * MINUTE_MS));
+
+    expect((await consumeRateLimit(test.ctx, { bucket: "register", key: IP })).ok).toBe(true);
+  });
+
   it("keeps one row per key however many attempts there are", async () => {
     await consumeTimes(test, "register", IP, 40);
     expect(await countRows(test.database)).toBe(1);
@@ -159,6 +166,29 @@ describe("consumeRateLimit: buckets from configuration", () => {
     await consumeRateLimit(test.ctx, { bucket: "login", key: IP });
 
     expect(await countRows(test.database)).toBe(2);
+  });
+
+  it("still answers when the cleanup fails, and logs only the kind of error", async () => {
+    test = await createTestSecurity({ cleanupProbability: 1 });
+    const errors: unknown[] = [];
+    const original = console.error;
+    console.error = (...args: unknown[]) => errors.push(args.join(" "));
+    // A trigger that refuses deletes stands in for a cleanup that fails (a lock timeout, a lost row).
+    await test.database.client.exec(`
+      CREATE FUNCTION security.refuse_delete() RETURNS trigger LANGUAGE plpgsql AS $$
+        BEGIN RAISE EXCEPTION 'delete refused'; END $$;
+      CREATE TRIGGER refuse_delete BEFORE DELETE ON security.rate_limits FOR EACH STATEMENT
+        EXECUTE FUNCTION security.refuse_delete();
+    `);
+    try {
+      const result = await consumeRateLimit(test.ctx, { bucket: "login", key: IP });
+      expect(result).toMatchObject({ ok: true, value: { remaining: FIRE_BUCKETS.login.limit - 1 } });
+      expect(errors).toHaveLength(1);
+      expect(String(errors[0])).toMatch(/^@softure-ai\/security: rate limit cleanup failed: \w+/);
+      expect(String(errors[0])).not.toContain("delete refused");
+    } finally {
+      console.error = original;
+    }
   });
 
   it("prunes rows of a bucket no longer configured after two of the longest windows", async () => {
