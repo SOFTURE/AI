@@ -18,7 +18,7 @@ are updated, and a finish review runs across ID-1…ID-7.
 
 ## Context
 
-From [`roadmap-identity.md`](../../../foundation/roadmaps/roadmap-identity.md), item **ID-8** (queued roadmap `identity`):
+From [`roadmap.md`](../../../foundation/roadmap.md), item **ID-8** (roadmap `identity`):
 
 > ### ID-8: Identity release
 > - **Change ID:** `identity-release`

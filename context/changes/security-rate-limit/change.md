@@ -22,7 +22,7 @@ copying FIRE_TRACKER's limiter.
 
 Taken from the queued roadmap entry, kept as
 [`backlog-input.md`](backlog-input.md). Roadmap:
-[`roadmap-identity.md`](../../foundation/roadmaps/roadmap-identity.md), item **ID-2**:
+[`roadmap.md`](../../foundation/roadmap.md) (roadmap `identity`), item **ID-2**:
 
 > ### ID-2: Rate limiting module
 > - **Change ID:** `security-rate-limit`

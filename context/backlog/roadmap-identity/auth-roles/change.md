@@ -18,7 +18,7 @@ a non-admin gets "not found" on admin pages and a refusal on admin actions.
 
 ## Context
 
-From [`roadmap-identity.md`](../../../foundation/roadmaps/roadmap-identity.md), item **ID-4** (queued roadmap `identity`):
+From [`roadmap.md`](../../../foundation/roadmap.md), item **ID-4** (roadmap `identity`):
 
 > ### ID-4: Roles and admin
 > - **Change ID:** `auth-roles`

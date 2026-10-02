@@ -21,7 +21,7 @@ archived_at: null
 
 ## Context
 
-From [`roadmap-identity.md`](../../../foundation/roadmaps/roadmap-identity.md), item **ID-7** (queued roadmap `identity`):
+From [`roadmap.md`](../../../foundation/roadmap.md), item **ID-7** (roadmap `identity`):
 
 > ### ID-7: Health and migrate step
 > - **Change ID:** `ops-health-migrate`
