@@ -1,6 +1,6 @@
 // Shared setup: an app configuration with security and auth, and a migrated PGlite database.
 import { createTestClock, defineSoftureConfig, type SoftureConfig, type TestClock } from "@softure-ai/core";
-import { auth, AUTH_RATE_LIMIT_BUCKETS, type AuthOptionsInput } from "@softure-ai/auth";
+import { auth, AUTH_RATE_LIMIT_BUCKETS } from "@softure-ai/auth";
 import type { AuthContext } from "@softure-ai/auth/server";
 import { createTestDatabase, type TestDatabase } from "@softure-ai/db/testing";
 import { headerIp, security } from "@softure-ai/security";
@@ -14,7 +14,7 @@ export const PASSWORD = "correct horse battery";
 export const FAST_SCRYPT = { cost: 2 ** 10, blockSize: 8, parallelization: 1 } as const;
 
 export interface ConfigOptions {
-  readonly auth?: AuthOptionsInput;
+  readonly auth?: NonNullable<Parameters<typeof auth>[0]>;
   readonly appOrigin?: string;
   readonly buckets?: Record<string, { limit: number; windowMinutes: number }>;
 }

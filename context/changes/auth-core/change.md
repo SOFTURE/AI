@@ -1,7 +1,7 @@
 ---
 change_id: auth-core
 title: "Authentication core: users, sessions, register, login, logout, change password, guard and pages"
-status: plan_reviewed
+status: implementing
 roadmap_item: ID-3
 branch: claude/id-3-auth-core-vdx54s
 created: 2026-10-02

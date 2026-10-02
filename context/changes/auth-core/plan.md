@@ -91,10 +91,10 @@ storage (`privacy`, engagement roadmap), sliding session renewal.
 ### Phase 1: Package, migration and server logic
 
 #### Automated
-- [ ] 1.1 Server baseline tests (register, login, sessions, change password, switches, passwords) pass on PGlite
-- [ ] 1.2 `module.json` equals `toModuleJson(auth)` and the package passes `tests/repo/packages.test.ts`
-- [ ] 1.3 `getSharedDatabase` returns one handle per URL
-- [ ] 1.4 Gates green (typecheck, lint, test)
+- [x] 1.1 Server baseline tests (register, login, sessions, change password, switches, passwords) pass on PGlite — b24b2b5
+- [x] 1.2 `module.json` equals `toModuleJson(auth)` and the package passes `tests/repo/packages.test.ts` — b24b2b5
+- [x] 1.3 `getSharedDatabase` returns one handle per URL — b24b2b5
+- [x] 1.4 Gates green (typecheck, lint, test) — b24b2b5
 
 ### Phase 2: Next adapter, guard, UI and messages
 

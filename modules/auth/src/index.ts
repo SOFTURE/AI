@@ -64,9 +64,12 @@ export const auth = defineModule({
   migrations: { dir: resolveMigrationsDir(import.meta.url, "../migrations/") },
 });
 
+export { INITIAL_AUTH_FORM_STATE } from "./contract.js";
 export type {
   AuthErrorCode,
   AuthFormErrorCode,
+  AuthFormField,
+  AuthFormState,
   AuthUser,
   NewSession,
   RegisteredEvent,

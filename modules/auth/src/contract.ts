@@ -41,3 +41,21 @@ export interface RegisteredEvent {
   readonly user: AuthUser;
   readonly consent: { readonly acceptedAt: Date } | null;
 }
+
+/** The fields of the auth forms that can carry their own error. */
+export type AuthFormField = "email" | "password" | "currentPassword" | "newPassword" | "consent";
+
+/**
+ * What an auth server action returns to its form (`useActionState`). A successful login or
+ * register redirects instead of returning; a password change returns `ok`.
+ */
+export interface AuthFormState {
+  readonly status: "idle" | "ok" | "error";
+  /** The error to show; when `field` is set it is shown at that field. */
+  readonly error?: AuthFormErrorCode;
+  readonly field?: AuthFormField;
+  /** The submitted email, so a rejected form keeps it (passwords are never sent back). */
+  readonly email?: string;
+}
+
+export const INITIAL_AUTH_FORM_STATE: AuthFormState = { status: "idle" };
