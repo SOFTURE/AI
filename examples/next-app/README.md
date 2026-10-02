@@ -60,6 +60,7 @@ npm run dev
 | `app/add-entry.tsx`, `app/actions.ts` | `Modal` with an `ActionForm` posting to a server action validated with zod |
 | `app/login/`, `app/register/`, `app/account/password/`, `app/api/auth/session/` | pages and a route handler shipped by `@softure-ai/auth`, each mounted with one re-export line |
 | `proxy.ts`, `app/account/page.tsx` | the auth guard keeping `/account` private, and an app page with `requireUser` and `LogoutButton` |
+| `app/admin/`, `app/api/admin/status/`, `scripts/grant-role.ts`, `scripts/revoke-role.ts` | an admin-only page, action and route handler (`requireRole`, `authorizeRole`; the admin is `EXAMPLE_ADMIN_EMAIL` in `adminEmails`), and the role scripts (`npm run grant-role -- --email=… --role=admin --commit`) |
 | `app/api/security/ping/route.ts` | a public route handler: `identifyClient`, `consumeRateLimit` and `readSmallBody` from `@softure-ai/security` |
 | `app/api/health/route.ts` | `GET /api/health` of `@softure-ai/ops`, one line; the guestbook contributes a check (`modules/guestbook/health.ts`) |
 | `Dockerfile`, `compose.container.yaml`, `scripts/migrate.ts` | the ops container recipe: one image, a one-off migrate step as the migrator role, the app as the app role |

@@ -80,9 +80,9 @@ surface, roadmap asks for not found); roles in the session cookie (stale after r
 ### Phase 1: Table, server functions and scripts
 
 #### Automated
-- [ ] 1.1 Role baseline tests (roles, scripts, options, health) pass on PGlite
-- [ ] 1.2 `module.json` equals `toModuleJson(auth)` and the package passes `tests/repo/packages.test.ts`
-- [ ] 1.3 Gates green (typecheck, lint, test)
+- [x] 1.1 Role baseline tests (roles, scripts, options, health) pass on PGlite — 632b727
+- [x] 1.2 `module.json` equals `toModuleJson(auth)` and the package passes `tests/repo/packages.test.ts` — 632b727
+- [x] 1.3 Gates green (typecheck, lint, test) — 632b727
 
 ### Phase 2: Next adapter, example app and e2e
 

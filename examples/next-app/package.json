@@ -14,6 +14,8 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "migrate": "softure migrate",
+    "grant-role": "node scripts/grant-role.ts",
+    "revoke-role": "node scripts/revoke-role.ts",
     "e2e": "playwright test"
   },
   "dependencies": {

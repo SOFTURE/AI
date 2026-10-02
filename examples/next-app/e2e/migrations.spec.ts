@@ -6,6 +6,7 @@ test("the page lists the ledger and the module migrations applied by softure mig
   await expect(migrations).toHaveText([
     // Shipped inside the auth package: a packaged module's migrations apply too.
     "auth 1 create_users_and_sessions (applied)",
+    "auth 2 create_user_roles (applied)",
     "guestbook 1 create_entries (applied)",
     "security 1 create_rate_limits (applied)",
     "softure 1 ledger (applied)",

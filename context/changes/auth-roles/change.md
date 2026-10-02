@@ -1,7 +1,7 @@
 ---
 change_id: auth-roles
 title: "Roles in auth: user_roles table, requireRole, authorizeRole and hasRole; admin-only surfaces fail closed"
-status: plan_reviewed
+status: implementing
 roadmap_item: ID-4
 branch: claude/id-4-auth-roles-o071gn
 created: 2026-10-02
