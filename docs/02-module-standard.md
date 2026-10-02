@@ -195,14 +195,22 @@ export default defineSoftureConfig({
 
 - npm workspaces monorepo; every package is versioned independently (SemVer). A database schema
   change requires at least a `minor` version; a breaking change a `major` with migration
-  instructions. Version bumps and changelogs: Changesets or `npm version -w`, chosen in FD-2.
+  instructions. Version bumps: `npm run release:version -- <package> <bump>` (`npm version -w`, keeps
+  `module.json` in step, commits and tags `<package>@x.y.z`); no Changesets. Release notes are
+  generated per tag on the GitHub Release. Decided in FD-2 (`release-pipeline`); runbook:
+  [scripts/release/README.md](../scripts/release/README.md).
 - **Releases are tag-driven, one tag per package** (`<package>@x.y.z`, e.g. `core@0.1.0`), in three places,
   exactly like SOFTURE/SKILLS (`.github/workflows/release.yml` there is the reference):
-  1. npmjs.com: `@softure-ai/<package>` through trusted publishing (OIDC) with provenance;
+  1. npmjs.com: `@softure-ai/<package>` through trusted publishing (OIDC) with provenance, as a
+     **staged** version that goes live when the owner approves it with 2FA;
   2. GitHub Packages: `@softure/<package>` (GitHub requires the scope to equal the org);
   3. GitHub Release for the tag, with generated notes and the package tarball attached.
-- A brand-new package's first publish lands in npm staged publishing: the owner approves it once,
-  then configures the trusted publisher. Agents never tag or publish (`release.owner: true`).
+- A brand-new package's first stage authenticates with an `NPM_TOKEN` secret (npm binds a trusted
+  publisher only to an existing package): the owner approves it once, then configures the trusted
+  publisher (`SOFTURE` / `AI` / `release.yml`, stage only). Agents never tag or publish
+  (`release.owner: true`).
+- A tarball ships `dist/` and `src/` (without tests), `migrations/`, `module.json` and the repository
+  `LICENSE`; shipping `src/` keeps source maps and the `@softure-ai/source` export condition valid.
 - Build: `tsc -p tsconfig.build.json` per package (ESM + `.d.ts` per source file, so `"use client"`
   and `"use server"` directives survive; a bundler such as tsup drops them), and the Tailwind CLI for
   `styles.css`. `npm run build` at the root builds the workspaces in dependency order. Decided in FD-1

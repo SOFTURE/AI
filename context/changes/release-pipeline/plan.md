@@ -125,16 +125,16 @@ Rejected: one workflow per package (SOFTURE/API style) - ten copies to keep in s
 ### Phase 3: Version command for the owner
 
 #### Automated
-- [x] 3.1 `tests/repo/release-version.test.ts` passes after being seen red
-- [x] 3.2 `npm run release:version -- template-module patch` refuses with "private" and leaves the tree clean
-- [x] 3.3 Gates green (typecheck, lint, test)
+- [x] 3.1 `tests/repo/release-version.test.ts` passes after being seen red — 60aea98
+- [x] 3.2 `npm run release:version -- template-module patch` refuses with "private" and leaves the tree clean — 60aea98
+- [x] 3.3 Gates green (typecheck, lint, test) — 60aea98
 
 ### Phase 4: Release workflow and runbook
 
 #### Automated
 - [ ] 4.1 The `release` workflow's `validate` job is green on this change's pull request, and the publish and release jobs are skipped
-- [ ] 4.2 Links in `scripts/release/README.md` and `docs/02-module-standard.md` resolve (repository link test)
-- [ ] 4.3 Gates green (typecheck, lint, test)
+- [x] 4.2 Links in `scripts/release/README.md` and `docs/02-module-standard.md` resolve (repository link test)
+- [x] 4.3 Gates green (typecheck, lint, test)
 
 #### Manual
 - [ ] 4.4 A `workflow_dispatch` dry run on `master` is green after the merge

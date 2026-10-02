@@ -9,10 +9,10 @@
 //
 // Run `npm run build` first: the tarball ships `dist/`. In a release run with GITHUB_OUTPUT set,
 // it writes `tarball`, `name`, `short-name`, `version`, `npm-tag` and `prerelease` for the
-// release workflow. See scripts/release/README.md.
+// release workflow (`tarball` is the file name inside --out). See scripts/release/README.md.
 import { execFileSync } from "node:child_process";
 import { appendFileSync, copyFileSync, existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { findWorkspaces } from "../build-workspaces.mjs";
@@ -197,7 +197,7 @@ function runCli() {
     if (problems.length > 0) fail(`Releasing ${values.tag} (${found.pkg.dir}):\n- ${problems.join("\n- ")}`);
     console.log(`ok ${found.pkg.name}@${tag.version} -> ${tarball}`);
     writeGitHubOutput({
-      tarball,
+      tarball: basename(tarball),
       name: found.pkg.name,
       "short-name": tag.shortName,
       version: tag.version,
