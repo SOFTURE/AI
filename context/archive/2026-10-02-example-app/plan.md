@@ -111,5 +111,5 @@ Rejected: a workspace - it would fall under the package-shape tests and resolve 
 
 #### Automated
 - [x] 2.1 `npm run e2e` at the root passes against the compose Postgres — a7059ca
-- [ ] 2.2 The `e2e` workflow is green on the pull request
+- [x] 2.2 The `e2e` workflow is green on the pull request — a7059ca (verified by agent: run 37013256961 on PR #9)
 - [x] 2.3 Gates green (typecheck, lint, test) — a7059ca
