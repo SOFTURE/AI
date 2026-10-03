@@ -1,5 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
-import { MAIL_OUTBOX, PASSWORD_RESET_OUTBOX } from "./e2e/outbox.ts";
+import { MAIL_OUTBOX, MAILING_UNSUBSCRIBE_SECRET, PASSWORD_RESET_OUTBOX } from "./e2e/outbox.ts";
 
 // Black-box tests of the built app (`next build` first). Playwright starts `next start` itself; with
 // E2E_REUSE_SERVER=1 it uses a server already on the port instead (for example `next dev` while
@@ -30,7 +30,12 @@ export default defineConfig({
     timeout: 60_000,
     // The app builds absolute URLs (the auth guard's redirect, reset links) on APP_ORIGIN: the port
     // under test. Reset links and mail from the fake mail provider go to outbox files the e2e reads
-    // (lib/password-reset-sender.ts, softure.config.ts).
-    env: { APP_ORIGIN: process.env.APP_ORIGIN ?? `http://localhost:${String(PORT)}`, PASSWORD_RESET_OUTBOX, MAIL_OUTBOX },
+    // (lib/password-reset-sender.ts, softure.config.ts). List mail is signed with a fixed test secret.
+    env: {
+      APP_ORIGIN: process.env.APP_ORIGIN ?? `http://localhost:${String(PORT)}`,
+      PASSWORD_RESET_OUTBOX,
+      MAIL_OUTBOX,
+      MAILING_UNSUBSCRIBE_SECRET,
+    },
   },
 });

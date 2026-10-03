@@ -12,6 +12,12 @@ export const PASSWORD_RESET_OUTBOX = join(tmpdir(), "softure-example-e2e-passwor
 /** The outbox of the example's fake mail provider (`MAIL_OUTBOX`, softure.config.ts); read with `readMailOutbox`. */
 export const MAIL_OUTBOX = join(tmpdir(), "softure-example-e2e-mail-outbox.jsonl");
 
+/**
+ * The secret the app under test signs unsubscribe links with (playwright.config.ts). A test value:
+ * the e2e server is local and throwaway.
+ */
+export const MAILING_UNSUBSCRIBE_SECRET = "e2e-unsubscribe-secret-not-for-production";
+
 /** Every link sent to `email` so far, oldest first. */
 export async function readResetLinks(email: string): Promise<string[]> {
   let text: string;
