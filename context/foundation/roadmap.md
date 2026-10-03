@@ -52,7 +52,7 @@ adoption in FIRE_TRACKER follows `docs/05-adoption-playbook.md`.
 | **MO-2** | `billing-plans-pricing` | plans from config, pricing tiles, payment page and a manual payment adapter that grants entitlements | MO-1 | autonomous | ready |
 | **MO-3** | `billing-provider-adapter` | the chosen provider (Stripe or Przelewy24) behind `PaymentProvider`: checkout, webhooks, entitlement updates | MO-2 | autonomous | blocked (owner decision: Stripe vs Przelewy24) |
 | **MO-4** | `analytics-channel-tags` | `@softure-ai/analytics`: a channel parameter captured, validated and carried across redirects and sign-up | — | autonomous | done |
-| **MO-5** | `analytics-funnel` | daily aggregates (day, channel, step) without cookies or PII, beacon and pixel endpoints, report function | MO-4 | autonomous | ready |
+| **MO-5** | `analytics-funnel` | daily aggregates (day, channel, step) without cookies or PII, beacon and pixel endpoints, report function | MO-4 | autonomous | done |
 | **MO-6** | `monetization-release` | billing and analytics 0.1.0 published through the release pipeline; READMEs and docs updated | MO-2, MO-5 | owner | ready |
 
 ## Order
@@ -127,7 +127,7 @@ Risk first: MO-1 (the write guard every paid feature depends on) starts the road
 
 ### MO-5: Cookieless funnel counter
 - **Change ID:** `analytics-funnel`
-- **Status:** ready
+- **Status:** done
 - **Outcome:** `analytics.funnel_counts` holding daily aggregates per (day, channel, step) with steps from config, a cap on new channels per day with an overflow bucket, a `sendBeacon` helper plus a POST beacon and GIF pixel endpoint with a body size limit, day boundaries in the configured time zone, and a report function returning the funnel per channel.
 - **Prerequisites:** MO-4.
 - **Unknowns:** How the report reads other modules' counts (sign-ups, waitlist) without cross-schema coupling; retention of old aggregates.
@@ -156,6 +156,7 @@ Risk first: MO-1 (the write guard every paid feature depends on) starts the road
 
 - **MO-4** `analytics-channel-tags`: `@softure-ai/analytics` with `analytics({ channel: { param, pattern, maxLength } })` (default `?z=`, lowercase words, 32 characters), no schema yet; `/proxy` `createChannelTagger` with `carry` (the tag added to a same-origin redirect such as the auth guard's) and `tag` (a 307 putting the tag back on a navigation from a tagged same-origin page; Next client navigations recognised by `Next-Url`, FU-5 follows up); `/next` `getChannel` (Referer), `getChannelFromSearchParams`, `attributeRegistration` for auth's `onRegistered`; no cookie and nothing stored; the example's `proxy.ts` chains guard and tagger, `/account` shows the sign-up channel, `e2e/analytics-channel.spec.ts`; archived in `archive/2026-10-03-analytics-channel-tags/`
 - **MO-1** `billing-entitlements`: `@softure-ai/billing` with `billing.entitlements` (one row per account, FK to `auth.users` with cascade, `trial_ends_at`, `paid_until`, `is_lifetime` exclusive with it); a pure state machine (`resolveEntitlement`: paid wins, then the trial, else read-only; `applyEntitlementEvent`: grant, lifetime grant, revoke, trial extension, never shortening); trials end at the start of a local day in `config.timezone` and days left count local days; an account without a row derives its trial from `auth.users.created_at`, so reads never write and auth's `onRegistered` stays free, and the first `changeEntitlement` pins it; `getEntitlement`, `checkWriteAccess`, `changeEntitlement` in `/server`, `requireWriteAccess` and `CurrentAccessBadge` / `CurrentAccessNotice` in `/next`, `AccessBadge` / `AccessNotice` in `/ui`; privacy contributor and health check; reminder mail deferred to followups FU-6; the example's `/account/billing` with `e2e/billing-entitlements.spec.ts`; archived in `archive/2026-10-03-billing-entitlements/`
+- **MO-5** `analytics-funnel`: `analytics.funnel_counts` (migration 0001, health check) with one counter per (day, channel, step); `analytics({ funnel: { steps: [{ id, via }], channelCap } })` with `via` = `pixel`, `beacon` or `server`; `/next` `createFunnelRoute` (GET pixel, POST beacon at most 256 bytes, channel from the page's Referer, the same answer for any input, 503 on a database failure), `<FunnelPixel>`, `<FunnelBeacon>`, `countRegistration` for auth's `onRegistered` (a savepoint, never throws); `/client` `createFunnelReporter`; `/server` `recordFunnelStep` (new channels past the daily cap under `~overflow`, the day in `config.timezone`), `getFunnelReport`, `pruneFunnelCounts`; other modules' counts come in as `server` steps through hooks (FU-8 for the waitlist), the tag after the register redirect is FU-7; the example counts `/`, `/account` and sign-ups, `e2e/analytics-funnel.spec.ts`; archived in `archive/2026-10-03-analytics-funnel/`
 
 ## Decisions (auto)
 

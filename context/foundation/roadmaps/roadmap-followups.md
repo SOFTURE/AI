@@ -36,6 +36,8 @@ trigger: "every module roadmap (monetization, marketing-kit) is done; the owner 
 | **FU-4** | `waitlist-welcome-html` | HTML welcome mail for the waitlist | — | autonomous | proposed |
 | **FU-5** | `analytics-client-navigation` | Channel tag on client navigations without Next-Url | — | autonomous | proposed |
 | **FU-6** | `billing-reminder-mail` | Reminder mail before access ends | — | autonomous | proposed |
+| **FU-7** | `analytics-action-redirect-tag` | Channel tag kept through server action redirects | — | autonomous | proposed |
+| **FU-8** | `waitlist-funnel-hook` | Waitlist sign-ups as a funnel step | — | autonomous | proposed |
 
 ## Order
 
@@ -77,6 +79,28 @@ trigger: "every module roadmap (monetization, marketing-kit) is done; the owner 
 - **Baseline:** monetization MO-4 `analytics-channel-tags`: Next strips its `RSC` header before the proxy runs, so the proxy piece recognises a client navigation by the `Next-Url` header the router sends; a navigation without it is not re-tagged (README §12). After: the gap is closed and covered by unit and e2e tests.
 - **PRD refs:** FR-23.
 - **Source:** `modules/analytics/README.md` §12
+
+### FU-7: Channel tag kept through server action redirects
+- **Change ID:** `analytics-action-redirect-tag`
+- **Status:** proposed
+- **Outcome:** A server action's redirect from a tagged page (auth's sign-up and login redirect to `afterLogin`) lands on a URL that keeps the channel tag, so the views after sign-up are counted under the visit's channel (for example the auth actions adding the tag through `withChannel`, or a `/next` helper that tags an action's redirect target).
+- **Prerequisites:** none beyond the main branch.
+- **Unknowns:** Whether a redirect helper in analytics can wrap auth's actions without auth depending on analytics; how Next renders the redirect target in the action's own response (the proxy never sees a GET for it).
+- **Risk:** LOW. The counts after sign-up land under no channel; the sign-up step itself is attributed.
+- **Baseline:** monetization MO-5 `analytics-funnel`: after the register action, the account page opens at `/account` without `?z=`, so its beacon counts without a channel (`examples/next-app/e2e/analytics-funnel.spec.ts`). After: the tag survives the redirect, covered by e2e.
+- **PRD refs:** FR-23.
+- **Source:** MO-5, `examples/next-app/e2e/analytics-funnel.spec.ts` (the account view after sign-up) and `modules/analytics/README.md` §12
+
+### FU-8: Waitlist sign-ups as a funnel step
+- **Change ID:** `waitlist-funnel-hook`
+- **Status:** proposed
+- **Outcome:** The waitlist offers an `onJoined` hook (in the sign-up's transaction, like auth's `onRegistered`) so an app counts waitlist sign-ups in the analytics funnel with `recordFunnelStep` and the channel, without the funnel reading the waitlist's table.
+- **Prerequisites:** none beyond the main branch.
+- **Unknowns:** Whether the hook runs for a repeat sign-up that only widens scopes; the hook's context (the transaction) and its failure policy.
+- **Risk:** LOW. Waitlist sign-ups are missing from the funnel report until then.
+- **Baseline:** monetization MO-5 `analytics-funnel`: the funnel counts server steps through hooks (`countRegistration` for auth); the waitlist has no hook, so its sign-ups cannot be counted (FIRE_TRACKER's report read `waitlist_signups` directly, which the modules do not allow across schemas). After: an e2e where a waitlist sign-up is counted under its channel.
+- **PRD refs:** FR-23.
+- **Source:** MO-5, `modules/analytics/README.md` §12 (waitlist sign-ups)
 
 ### FU-3: Unsubscribe as consent withdrawal
 - **Change ID:** `mailing-consent-sync`

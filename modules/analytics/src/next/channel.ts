@@ -2,9 +2,11 @@
 // auth's `onRegistered` hook and pages. `next/headers` is imported when a function runs, not when
 // the file loads, so `softure.config.ts` (which `softure migrate` loads in plain Node) can import
 // `attributeRegistration` from here.
-import type { SoftureConfig } from "@softure-ai/core";
+import { errorLogLabel, type SoftureConfig } from "@softure-ai/core";
 import { getSoftureConfig } from "@softure-ai/core/next";
+import type { Queryable } from "@softure-ai/db";
 import { parseChannel, readChannel } from "../server/channel.js";
+import { recordFunnelStep, type AnalyticsContext } from "../server/funnel.js";
 import { getChannelOptions } from "../server/options.js";
 
 /** A page's `searchParams`, awaited, or any `URLSearchParams`. */
@@ -51,5 +53,23 @@ export function attributeRegistration<TContext extends { readonly config: Softur
   return async (event, ctx) => {
     const channel = await getChannel(ctx.config);
     if (channel !== null) await onChannel({ userId: event.user.id, channel }, ctx);
+  };
+}
+
+/**
+ * An `onRegistered` hook for auth that counts `step` (a `server` step of the funnel) for every
+ * sign-up, with its channel or without one. The count runs in a savepoint of the account's
+ * transaction and a failure is logged, never thrown: a broken counter must not refuse sign-ups.
+ * `auth({ onRegistered: countRegistration("signup") })`
+ */
+export function countRegistration<TContext extends AnalyticsContext>(step: string): (event: RegisteredUserEvent, ctx: TContext) => Promise<void> {
+  return async (_event, ctx) => {
+    try {
+      const channel = await getChannel(ctx.config);
+      // A failed statement aborts the whole transaction; the savepoint keeps the sign-up intact.
+      await ctx.db.transaction((tx: Queryable) => recordFunnelStep({ ...ctx, db: tx }, { step, channel }));
+    } catch (error) {
+      console.error(`@softure-ai/analytics: counting the funnel step "${step}" for a sign-up failed: ${errorLogLabel(error)}`);
+    }
   };
 }
