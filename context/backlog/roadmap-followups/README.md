@@ -34,6 +34,7 @@ share files run in one lane (see the roadmap's Order), so `dependency` below nam
 | FU-19 | [`marketing-kit-hook-shot-words`](marketing-kit-hook-shot-words/change.md) | Opening shots after the first name their word in the config check | FU-14 on main | dependency |
 | FU-20 | [`billing-partial-refunds`](billing-partial-refunds/change.md) | Partial refunds take back access by a policy | FU-11 on main | dependency |
 | FU-21 | [`billing-refund-manual-lifetime`](billing-refund-manual-lifetime/change.md) | A manual lifetime grant survives a refunded paid lifetime | FU-9 on main | dependency |
+| FU-22 | [`billing-grant-plan-script`](billing-grant-plan-script/change.md) | A `grant-plan` ops script for hosts without the admin page | FU-21 on main | dependency |
 
 Kind: `start` (can be taken as soon as the roadmap is promoted), `dependency` (waits for the listed items on the
 main branch), `owner` (needs an owner decision or the owner at the keyboard).

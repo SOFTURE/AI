@@ -95,10 +95,12 @@ describe("payment requests", () => {
     test.clock.set(later);
     const again = await recordPaymentRequest(test.ctx, { userId: adaId, planId: "monthly", invoice: { ...INVOICE, taxId: null } });
     expect(again).toBe(first);
+    const latest = new Date("2026-10-05T08:00:00Z");
+    test.clock.set(latest);
     await recordPaymentRequest(test.ctx, { userId: adaId, planId: "lifetime", invoice: INVOICE });
     expect(await listOpenRequests(test.ctx)).toEqual([
       { id: first, userId: adaId, email: "ada@example.com", planId: "monthly", invoice: { ...INVOICE, taxId: null }, requestedAt: later },
-      { id: expect.any(String) as unknown, userId: adaId, email: "ada@example.com", planId: "lifetime", invoice: INVOICE, requestedAt: later },
+      { id: expect.any(String) as unknown, userId: adaId, email: "ada@example.com", planId: "lifetime", invoice: INVOICE, requestedAt: latest },
     ]);
   });
 

@@ -1,7 +1,8 @@
 # @softure-ai/billing
 
 **Status:** wave 3 · entitlements and the write guard (MO-1); plans, pricing tiles, the payment page
-and the manual adapter (MO-2); Stripe Checkout with verified webhooks and refunds (MO-3) · depends on: core, db, ui, security, auth
+and the manual adapter (MO-2); Stripe Checkout with verified webhooks and refunds (MO-3); stored
+invoice requests, recorded manual grants with revoke and an account history (FU-9) · depends on: core, db, ui, security, auth
 
 Decides whether an account may still write: a trial every account starts with, paid access (dated
 or lifetime) and a read-only state once both end. It replaces FIRE_TRACKER's access logic
@@ -29,16 +30,19 @@ script become plans in the config, a payment page and an admin page that grants 
   unit, period (days, weeks, months, years or lifetime), feature lines; `formatPrice` and the
   period copy follow the app's locale.
 - **`PricingTiles`** (`/ui`) and **`Pricing`** (`/next`, wired to the config), a **`PaymentPage`**
-  to mount at `routes.payment`, and a **`BillingAdminPage`** where an admin grants a plan.
+  to mount at `routes.payment`, and a **`BillingAdminPage`** at `routes.admin` where an admin
+  works the open invoice requests (grant or dismiss each), grants a plan by email, and looks up an
+  account's history of grants and payments with a revoke button on each manual grant.
 - **A `PaymentProvider` interface** and its first adapter, **`manual({ onRequest })`**: the buyer
   requests an invoice, the app hands the request to its owner (a mail, a ticket), and the owner
-  grants the plan once it is paid. **`grantPlan()`** is the one path a grant takes, for the admin
-  page and the provider webhook alike.
+  grants the plan once it is paid. The request is stored in `billing.payment_requests` until the
+  admin grants or dismisses it. **`grantPlanManually()`** grants and records a plan in
+  `billing.manual_grants`; **`revokeManualGrant()`** takes back only what one grant added.
 - **`stripe()`**, a card, BLIK and transfer adapter on Stripe Checkout (one-time payments), and
   **`stripeWebhookRoute`** (`/next`): a verified Stripe webhook that grants a paid checkout's plan
   and, on a full refund, takes back what that one payment granted, exactly once per payment,
   recorded in `billing.payments` (see "Refunds" below).
-- Export and deletion of the entitlement row and the payments (`@softure-ai/privacy`), and a health check for
+- Export and deletion of the entitlement row, the payments, the invoice requests and the manual grants (`@softure-ai/privacy`), and a health check for
   `GET /api/health`.
 
 ## 2. Installation
@@ -79,6 +83,7 @@ billing({
 | `payment` | `PaymentProvider` | — | The adapter the payment page uses: `stripe()` or `manual({ onRequest })`. The payment page throws without one. |
 | `adminRole` | role | `admin` | The auth role that may grant plans in `BillingAdminPage`; declare any other in `auth({ roles })`. |
 | `routes.payment` | path | `/payment` | Where `PaymentPage` is mounted; the notice and the tiles link there, and Stripe Checkout returns there. |
+| `routes.admin` | path | `/admin/billing` | Where `BillingAdminPage` is mounted; its actions revalidate it, and the account lookup sends the admin there with `?account=<id>`. |
 | `routes.webhook` | path | `/api/billing/webhook` | Where `stripeWebhookRoute` is mounted (the Stripe endpoint's URL). |
 | `messages` | partial `en` / `pl` | — | Copy overrides. |
 
@@ -117,8 +122,7 @@ a trial that outlasts paid access takes over again when the payment ends.
 
 ## 4. Mounting
 
-Mount the payment page at `routes.payment` and the admin page wherever the app keeps its admin
-pages, one line each:
+Mount the payment page at `routes.payment` and the admin page at `routes.admin`, one line each:
 
 ```ts
 // app/payment/page.tsx
@@ -172,9 +176,27 @@ one HMAC.
 
 `PaymentPage` needs a session (a visitor goes to the login page and back) and shows the account's
 badge and the plans; with `?plan=<id>` it shows the order and the provider's form: the invoice
-details for `manual()`, one checkout button for a hosted provider. `BillingAdminPage` answers "not
-found" to anyone without `adminRole` and grants a plan to the account with a given email. Show the
-plans anywhere else, e.g. a public pricing page, with `<Pricing LinkComponent={Link} />`.
+details for `manual()`, one checkout button for a hosted provider. An account with lifetime access
+sees that it has nothing left to pay for instead of the order (`startPayment` refuses it with
+`billing.lifetime_active`). Show the plans anywhere else, e.g. a public pricing page, with
+`<Pricing LinkComponent={Link} />`.
+
+**The admin page.** `BillingAdminPage` answers "not found" to anyone without `adminRole`; every
+action checks the role from the session again before reading its form. It has three cards:
+
+- **Invoice requests**: the open requests, oldest first, with the account, the plan, when it was
+  asked for and the invoice details. **Grant** applies the plan and closes the request in one
+  transaction (`grantPaymentRequest`); **Dismiss** closes it without a grant; **History** opens the
+  account's history. A request is granted or dismissed once: a second click finds it closed.
+- **Grant access**: a plan for the account with a given email, recorded like a request's grant.
+  An account with lifetime access is refused (`billing.lifetime_active`): a dated period under
+  lifetime would be invisible.
+- **Account history**: the email lookup sends the admin to `?account=<id>` (no address in a URL),
+  which shows the account's badge and its manual grants and provider payments, newest first, each
+  with the access it added and its state. **Revoke** on an active manual grant takes back only
+  what it added, like a refund: a period loses its unused days and the periods stored after it
+  (manual or paid) move back; a lifetime ends unless another active manual lifetime or a paid
+  lifetime payment still gives it. Provider payments are refunded at the provider, not here.
 
 Guard every write action of the app, before reading any input:
 
@@ -200,10 +222,18 @@ import Link from "next/link";
 ```
 
 Server functions, for scripts and other hosts (`@softure-ai/billing/server`):
-`grantPlan(ctx, userId, planId)` grants one payment of a plan and returns the `Entitlement` after it
-(`Err<billing.plan_unknown | billing.account_unknown>` otherwise); `startPayment(ctx, input)` counts
-the `billing-payment` bucket per account, checks the plan and the invoice details and calls the
-provider; `findAccountByEmail(ctx, email)`, `getBillingPlans(config)`.
+`grantPlanManually(ctx, { userId, planId, adminId, requestId? })` grants one payment of a plan,
+records it in the account's history (closing the request when given) and returns
+`{ grantId, entitlement }` (`Err<billing.plan_unknown | billing.account_unknown |
+billing.lifetime_active | billing.request_closed>` otherwise); `grantPaymentRequest(ctx, { requestId,
+adminId })` does it for an open request; `revokeManualGrant(ctx, { grantId, adminId })` takes one
+back (`Err<billing.grant_revoked>` when it was revoked before); `getAccountHistory(ctx, userId)`,
+`listOpenRequests(ctx, limit?)`, `dismissPaymentRequest(ctx, requestId)`. `grantPlan(ctx, userId,
+planId)` grants without a record: nothing to revoke, not in the history; scripts that grant for
+an admin use `grantPlanManually`. `startPayment(ctx, input)` counts the `billing-payment` bucket
+per account, checks the plan, lifetime access and the invoice details, calls the provider and
+stores a request the provider handed over; `findAccountByEmail(ctx, email)`,
+`findAccountById(ctx, id)`, `getBillingPlans(config)`.
 `receiveStripeWebhook(ctx, { payload, signature, secret })` is the route without Next;
 `recordPayment(ctx, { provider, checkoutId, paymentId, userId, planId, amount, currency })` and
 `refundPayment(ctx, { provider, paymentId })` are its two writes, for another provider's webhook.
@@ -218,8 +248,9 @@ period without losing a concurrent grant).
 collects invoice details (`collectsInvoiceDetails`), and implements
 `startPayment(ctx, { plan, account, invoice, returnUrl })`, which resolves with
 `{ type: "redirect", url }` (a hosted checkout; the action redirects there), `{ type: "requested" }`
-(handed over; the page confirms) or `Err<billing.payment_failed>`. Granting access afterwards goes
-through `grantPlan`.
+(handed over; the page confirms and billing stores the request for the admin page) or
+`Err<billing.payment_failed>`. Granting access afterwards goes through `grantPlanManually` (an
+admin) or `recordPayment` (a webhook).
 
 ## 5. Migrations and tables
 
@@ -258,7 +289,33 @@ without a row.
 
 The insert, the grant and its grant columns share a transaction, as do the refund's conditional update and the change it makes,
 so a delivery seen twice changes nothing. Every write takes its locks in one order (account, payment,
-entitlement), like the privacy erase. An invoice request of `manual()` is not stored here.
+entitlement), like the privacy erase.
+
+`migrations/0004_create_requests_and_grants.sql` creates the manual payments' two tables:
+
+`billing.payment_requests`, one row per invoice request:
+
+| Column | Meaning |
+| --- | --- |
+| `id`, `user_id`, `plan_id` | The request, its account (`ON DELETE CASCADE`) and the plan asked for. |
+| `invoice_name`, `invoice_tax_id`, `invoice_address` | The details as typed, kept **only while the request is open**: closing it clears them (CHECK `payment_requests_details_while_open`). |
+| `status`, `requested_at`, `closed_at` | `open`, `granted` or `dismissed`; a CHECK ties `closed_at` to the status. |
+
+One open request per account and plan (partial unique index `payment_requests_one_open`): asking
+again refreshes its details and time.
+
+`billing.manual_grants`, one row per plan an admin granted:
+
+| Column | Meaning |
+| --- | --- |
+| `id`, `user_id`, `plan_id` | The grant, its account (`ON DELETE CASCADE`) and the plan. |
+| `request_id` | The request it answered (unique), or NULL for a grant by email. |
+| `granted_by`, `revoked_by` | The admins (`ON DELETE SET NULL`). |
+| `granted_at`, `grant_kind`, `granted_from`, `granted_until` | What it added, as `billing.payments` records it (CHECK `manual_grants_grant_shape`). |
+| `status`, `revoked_at` | `active` or `revoked`; CHECKs tie `revoked_at` and `revoked_by` to the status. |
+
+A grant and the request it closes share a transaction; a revoke takes the account, then its row
+with a conditional update, then the entitlement, the order every billing write follows.
 
 ## 6. Environment variables
 
@@ -303,29 +360,38 @@ details, return URL) and resolves with `Ok` once handed over, or an `Err` the bu
 ## 11. GDPR
 
 - Export: the account's entitlement row (`trialEndsAt`, `paidUntil`, `isLifetime`, `createdAt`,
-  `updatedAt`), or `entitlement: null` for an account without one, and its payments oldest first
-  (`provider`, `checkoutId`, `paymentId`, `planId`, `amount`, `currency`, `status`, `paidAt`, `refundedAt`).
-- Deletion: the row and the payments, and the foreign keys remove them with the account too.
+  `updatedAt`), or `entitlement: null` for an account without one, its payments oldest first
+  (`provider`, `checkoutId`, `paymentId`, `planId`, `amount`, `currency`, `status`, `paidAt`,
+  `refundedAt`, `grantKind`, `grantedFrom`, `grantedUntil`), its invoice requests (`planId`, the
+  invoice details while open, `status`, `requestedAt`, `closedAt`) and the plans granted to it by
+  hand (`planId`, `grantedAt`, the grant, `status`, `revokedAt`). Which admin granted or revoked
+  is the admin's data and stays out of the account's export.
+- Deletion: the row, the payments, the requests and the manual grants, and the foreign keys remove
+  them with the account too; an erased admin's id is cleared from the grants they made.
   Stripe keeps its own record of each payment (the controller's accounting record there).
-- Invoice details typed on the payment page are not stored here: they go to `onRequest`, and what
-  the app keeps of them (the mail to its owner) is the app's own data to export and delete.
+- Retention: invoice details are personal data the app needs only until the request is handled,
+  so granting or dismissing it erases them. What `onRequest` delivered (the mail to the owner) and
+  the issued invoice are the app's and the owner's own records.
 
 ## 12. Limitations
 
 - A partial refund changes nothing (followups FU-20). A refund that reaches the app before its
   checkout (Stripe does not order events) finds no payment and is not retried.
-- A refunded paid lifetime ends a lifetime the admin granted by hand too: manual grants have no
-  payment row to count (followups FU-21, after the grant history of FU-9). A dated manual grant
-  keeps its length.
+- A refunded paid lifetime ends a lifetime the admin granted by hand too: the refund counts only
+  paid lifetime payments, not `billing.manual_grants` (followups FU-21). A revoke of a manual
+  lifetime does count paid ones. A dated manual grant keeps its length.
 - A refund of a period moves the dated end back by local days; a `grant { until }` an app applies
   by hand with an end inside the stack is not a period of its own and shifts with it.
 - A payment recorded before migration `0003` has no grant: its refund revokes all paid access.
 - The Stripe adapter is tested against the sandbox's Checkout API (when `STRIPE_SECRET_KEY` holds a
   test key) and with signed webhook fixtures; a browser payment end to end in the sandbox is
   item LT-1 of the later roadmap (`context/foundation/roadmaps/roadmap-later.md`).
-- Invoice requests are not stored: the admin learns of them through `onRequest` and grants by email.
-  The admin page has no list of requests, no revoke and no history of grants (followups).
+- A grant through `grantPlan` (or a raw `changeEntitlement`) is not recorded: it is not in the
+  history and cannot be revoked. There is no `grant-plan` ops script for hosts without the admin
+  page (followups FU-22).
+- The admin page lists up to 50 open requests and 100 entries of each source in a history; there
+  is no paging.
 - The write guard is per action: a read-only account can still call a write the app did not guard.
 - No reminder mail: the notice shows in the app only (followups FU-6).
-- No history of entitlement changes: a row holds the current state. Provider payments are stored;
-  manual grants are not.
+- No history of entitlement changes beyond grants: a row holds the current state; provider
+  payments and manual grants are stored, trial extensions and raw events are not.

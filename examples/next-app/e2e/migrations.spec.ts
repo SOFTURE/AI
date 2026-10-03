@@ -12,6 +12,7 @@ test("the page lists the ledger and the module migrations applied by softure mig
     "billing 1 create_entitlements (applied)",
     "billing 2 create_payments (applied)",
     "billing 3 record_payment_grants (applied)",
+    "billing 4 create_requests_and_grants (applied)",
     "feature-switches 1 create_switches (applied)",
     "guestbook 1 create_entries (applied)",
     "mailing 1 create_suppressions (applied)",

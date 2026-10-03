@@ -45,6 +45,7 @@ export {
 } from "./options.js";
 export {
   findAccountByEmail,
+  findAccountById,
   getBillingPlans,
   getPaymentProvider,
   grantPlan,

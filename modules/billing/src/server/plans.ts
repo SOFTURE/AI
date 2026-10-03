@@ -12,6 +12,7 @@ import { getPaymentGrant } from "../refund.js";
 import { changeEntitlement, findEntitlementRecord, type BillingContext } from "./entitlements.js";
 import { getBillingOptions, getBillingRoutes } from "./options.js";
 import { recordPaymentRequest } from "./requests.js";
+import { isUserId } from "./user-id.js";
 import { assertPaymentSetup, PAYMENT_BUCKET } from "./setup.js";
 
 /** The plans of `billing({ plans })`, in their order. */
@@ -33,6 +34,13 @@ export async function findAccountByEmail(ctx: Pick<BillingContext, "db">, email:
     .from(users)
     .where(eq(users.email, email.trim().toLowerCase()))
     .limit(1);
+  return row ?? null;
+}
+
+/** The account with this id, or null (also for an id that is not a uuid). */
+export async function findAccountById(ctx: Pick<BillingContext, "db">, id: string): Promise<PaymentAccount | null> {
+  if (!isUserId(id)) return null;
+  const [row] = await ctx.db.select({ id: users.id, email: users.email }).from(users).where(eq(users.id, id));
   return row ?? null;
 }
 

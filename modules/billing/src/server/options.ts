@@ -29,14 +29,20 @@ export function getBillingMessages(config: SoftureConfig): BillingMessages {
 export interface BillingRoutes {
   /** The payment page (`PaymentPage`), where the notices and the pricing tiles send an account to pay. */
   readonly payment: string;
+  /** The admin page (`BillingAdminPage`), refreshed after an admin action and linked from a request to its account. */
+  readonly admin: string;
 }
 
 /** The module's routes with the app's overrides applied. */
 export function getBillingRoutes(config: SoftureConfig): BillingRoutes {
-  const payment = getBillingModule(config).routes.payment;
-  // The manifest declares the route, so a missing one means a broken module definition.
-  if (payment === undefined) throw new Error('@softure-ai/billing: route "payment" is missing from the module manifest');
-  return { payment };
+  const routes = getBillingModule(config).routes;
+  const read = (name: keyof BillingRoutes): string => {
+    const path = routes[name];
+    // The manifest declares every route, so a missing one means a broken module definition.
+    if (path === undefined) throw new Error(`@softure-ai/billing: route "${name}" is missing from the module manifest`);
+    return path;
+  };
+  return { payment: read("payment"), admin: read("admin") };
 }
 
 /** The state machine's policy from the options and the app's time zone. */

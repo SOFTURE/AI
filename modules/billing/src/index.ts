@@ -45,7 +45,7 @@ export const billing = defineModule({
       },
     ],
     switches: [],
-    routes: { payment: "/payment", webhook: "/api/billing/webhook" },
+    routes: { payment: "/payment", admin: "/admin/billing", webhook: "/api/billing/webhook" },
     mount: [{ kind: "route-handler", path: "app/api/billing/webhook/route.ts", export: "stripeWebhookRoute" }],
     privacy: { exports: true, deletes: true },
   },

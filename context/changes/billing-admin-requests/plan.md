@@ -157,8 +157,8 @@ hand-over test also reads the stored request row.
 ### Phase 1: Requests, manual grants and revoke on the server
 
 #### Automated
-- [ ] 1.1 Request, grant, revoke, history, refund-shift and privacy tests pass on PGlite
-- [ ] 1.2 Gates green (typecheck, lint, test)
+- [x] 1.1 Request, grant, revoke, history, refund-shift and privacy tests pass on PGlite — 0d5b298
+- [x] 1.2 Gates green (typecheck, lint, test) — 0d5b298
 
 ### Phase 2: Admin page, payment page, e2e and docs
 
