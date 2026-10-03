@@ -36,3 +36,7 @@ Taken from the queued roadmap entry, kept as [`backlog-input.md`](backlog-input.
 ## Notes
 
 - 2026-10-03: research and plan written in the cloud session (`--auto`).
+- 2026-10-03: implemented on `claude/en-3-mailing-ledger-campaigns-1u6kkr`. Decisions beyond the
+  plan: the command refuses to start without `MAILING_UNSUBSCRIBE_SECRET` (it would otherwise burn
+  every recipient's attempts); driver errors are printed without Drizzle's query text (recipient
+  keys in the parameters).

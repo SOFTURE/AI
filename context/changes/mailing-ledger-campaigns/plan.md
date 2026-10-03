@@ -63,9 +63,9 @@ lifecycle mails); markdown content (dependency and two renderings).
 ### Phase 1: Ledger, campaigns and DNS check
 
 #### Automated
-- [ ] 1.1 Ledger, campaign and DNS unit/integration tests on PGlite pass
-- [ ] 1.2 `module.json` equals `toModuleJson(mailing)`; constraints and health check tested
-- [ ] 1.3 Gates green (typecheck, lint, test)
+- [x] 1.1 Ledger, campaign and DNS unit/integration tests on PGlite pass — dc07659
+- [x] 1.2 `module.json` equals `toModuleJson(mailing)`; constraints and health check tested — dc07659
+- [x] 1.3 Gates green (typecheck, lint, test) — dc07659
 
 ### Phase 2: CLI, docs and example
 

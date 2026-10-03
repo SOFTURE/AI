@@ -11,6 +11,9 @@ import { deliverOnce, type DeliverOptions, type DeliveryContext, type DeliveryOu
 import { isSuppressed } from "./suppressions.js";
 import { getRecipientKey } from "./unsubscribe-link.js";
 
+/** Rejections the provider answered (the others never left the process). */
+const PROVIDER_REASONS: ReadonlySet<MailingErrorCode> = new Set(["mailing.rejected", "mailing.unavailable"]);
+
 /** The campaign id is taken by other content. Give the new content a new id. */
 export type CampaignErrorCode = "mailing.campaign_changed";
 
@@ -86,7 +89,7 @@ export async function sendCampaign(
     );
     countOutcome(counts, outcome);
     onDelivery?.(outcome);
-    const reachedProvider = outcome.status === "sent" || outcome.status === "retry-later" || (outcome.status === "rejected" && outcome.reason !== "mailing.suppressed");
+    const reachedProvider = outcome.status === "sent" || outcome.status === "retry-later" || (outcome.status === "rejected" && PROVIDER_REASONS.has(outcome.reason));
     if (reachedProvider && pauseMs > 0) await sleep(pauseMs);
   }
   return ok({ recipients: seen.size, ...counts });
