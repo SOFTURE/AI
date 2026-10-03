@@ -1,6 +1,11 @@
 // The Next.js adapter: the channel from the page an action was posted from, from a page's own
-// search params, handed to auth's onRegistered hook, and counted as a funnel step on sign-up.
+// search params, handed to auth's onRegistered hook, counted as a funnel step on sign-up, and the
+// channel keeper's rule handed to the browser.
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { sql } from "drizzle-orm";
+import { Suspense, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { APP_ORIGIN, createConfig, createTestFunnel, listCounts, type TestFunnel } from "./support.js";
 
@@ -11,6 +16,8 @@ const config = createConfig();
 vi.mock("@softure-ai/core/next", () => ({ getSoftureConfig: () => config }));
 
 const { attributeRegistration, countRegistration, getChannel, getChannelFromSearchParams } = await import("@softure-ai/analytics/next");
+const { ChannelKeeper } = await import("@softure-ai/analytics/next/channel-keeper");
+const { getChannelRule } = await import("@softure-ai/analytics/server");
 
 beforeEach(() => {
   for (const name of [...requestHeaders.keys()]) requestHeaders.delete(name);
@@ -118,5 +125,55 @@ describe("countRegistration", () => {
       'counting the funnel step "sign-up" for a sign-up failed',
     ]);
     expect(await listCounts(test)).toEqual([]);
+  });
+});
+
+describe("getChannelRule", () => {
+  it("hands the default channel options to the browser as plain values", () => {
+    expect(getChannelRule(createConfig())).toEqual({ param: "z", pattern: "^[a-z0-9]+(?:[-_][a-z0-9]+)*$", flags: "", maxLength: 32 });
+  });
+
+  it("hands a custom parameter, pattern with flags and length over exactly", () => {
+    expect(getChannelRule(createConfig({ channel: { param: "src", pattern: /^[a-z]+$/i, maxLength: 12 } }))).toEqual({
+      param: "src",
+      pattern: "^[a-z]+$",
+      flags: "i",
+      maxLength: 12,
+    });
+  });
+
+  it("throws when the module is not enabled", () => {
+    expect(() => getChannelRule({ ...config, modules: [] })).toThrow("@softure-ai/analytics: the module is not enabled");
+  });
+});
+
+describe("ChannelKeeper", () => {
+  it("renders the browser keeper with the app's rule inside a Suspense boundary that shows nothing", () => {
+    const element = ChannelKeeper() as ReactElement<{ fallback: unknown; children: ReactElement<{ rule: unknown }, (props: { rule: unknown }) => null> }>;
+    expect(element.type).toBe(Suspense);
+    expect(element.props.fallback).toBeNull();
+    expect(element.props.children.type.name).toBe("ChannelKeeperClient");
+    expect(element.props.children.props.rule).toEqual(getChannelRule(config));
+  });
+});
+
+describe("the /next entry point", () => {
+  it("never reaches next/navigation, so softure.config.ts can import it in plain Node", () => {
+    const sourceDir = fileURLToPath(new URL("../src/", import.meta.url));
+    const seen = new Set<string>();
+    const visit = (file: string): string[] => {
+      if (seen.has(file)) return [];
+      seen.add(file);
+      const code = readFileSync(file, "utf8");
+      const found = /from "next\/navigation"/.test(code) ? [relative(sourceDir, file)] : [];
+      for (const [, specifier] of code.matchAll(/^(?:import|export) [^;]*? from "(\.{1,2}\/[^"]+)"/gm)) {
+        const target = resolve(dirname(file), specifier ?? "");
+        const source = [target.replace(/\.js$/, ".ts"), target.replace(/\.js$/, ".tsx")].find((candidate) => existsSync(candidate));
+        if (source !== undefined) found.push(...visit(source));
+      }
+      return found;
+    };
+    expect(visit(join(sourceDir, "next/index.ts"))).toEqual([]);
+    expect(visit(join(sourceDir, "next/channel-keeper.tsx"))).toEqual(["next/channel-keeper-client.tsx"]);
   });
 });

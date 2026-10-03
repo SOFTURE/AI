@@ -2,8 +2,10 @@
 // URL; a request that has none of its own (a server action, the next page) reads the page it came
 // from through `Referer`, but only from this app's origin.
 import type { SoftureConfig } from "@softure-ai/core";
-import type { ChannelOptions } from "../options.js";
+import { parseChannel } from "../channel-rule.js";
 import { getChannelOptions } from "./options.js";
+
+export { parseChannel };
 
 /** Where a request's channel can come from. */
 export interface ChannelSources {
@@ -15,11 +17,6 @@ export interface ChannelSources {
   readonly host?: string | null;
 }
 
-/** `value` when it is a channel the options accept, else null. Values are never trimmed or cut. */
-export function parseChannel(value: string | null | undefined, options: ChannelOptions): string | null {
-  if (typeof value !== "string" || value.length === 0 || value.length > options.maxLength) return null;
-  return options.pattern.test(value) ? value : null;
-}
 
 /** The channel of a request: its URL's parameter, else the one on the same-origin page it came from. */
 export function readChannel(config: SoftureConfig, sources: ChannelSources): string | null {
