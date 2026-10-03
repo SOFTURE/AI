@@ -1,7 +1,7 @@
 ---
 change_id: marketing-kit-layout-overrides
 title: "A project can adjust a format's layout in marketing.json"
-status: implementing
+status: impl_reviewed
 roadmap_item: FU-16
 branch: claude/project-thread-92jg14
 created: 2026-10-03
