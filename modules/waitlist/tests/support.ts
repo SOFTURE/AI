@@ -9,7 +9,7 @@ import { fakeMailProvider, type FakeMailProvider } from "@softure-ai/mailing/tes
 import { privacy, PRIVACY_RATE_LIMIT_BUCKETS } from "@softure-ai/privacy";
 import { headerIp, security } from "@softure-ai/security";
 import { waitlist, WAITLIST_RATE_LIMIT_BUCKETS, type WaitlistOptionsInput } from "@softure-ai/waitlist";
-import type { WaitlistContext } from "@softure-ai/waitlist/server";
+import { withdrawWaitlistConsents, type WaitlistContext } from "@softure-ai/waitlist/server";
 
 export const NOW = new Date("2026-10-03T08:00:00Z");
 export const CLIENT = "ip:192.0.2.10";
@@ -50,7 +50,7 @@ export function createConfig(provider: FakeMailProvider, options: ConfigOptions 
         cleanupProbability: 0,
       }),
       auth({ password: { scrypt: { cost: 2 ** 10 } } }),
-      mailing({ from: "Example <hello@mail.example.com>", provider }),
+      mailing({ from: "Example <hello@mail.example.com>", provider, onUnsubscribed: withdrawWaitlistConsents }),
       privacy({ documents: options.documents ?? DOCUMENTS }),
       waitlist(options.waitlist ?? OPTIONS),
     ],

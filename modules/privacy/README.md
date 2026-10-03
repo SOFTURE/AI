@@ -123,7 +123,8 @@ await hasConsent(ctx, { subject: { userId }, purpose: "terms" }); // latest row 
 ```
 
 - `subject` is an account (`{ userId }`) or an email address without one (`{ email }`, stored as a
-  SHA-256 key, never as the address). Reads keep the two apart; the export and the deletion of an
+  SHA-256 key, never as the address; `{ emailKey }` names the same subject by that key, for a
+  caller that holds only the key, such as mailing's unsubscribe hook). Reads keep the two apart; the export and the deletion of an
   account cover both, so a waitlist consent given before registering goes with the account.
 - `purpose` and `source` are kebab-case (at most 64 characters); `document` names a declared
   document, whose configured version is recorded. A bad subject, purpose or source gives
