@@ -98,8 +98,8 @@ from `src/record/` (owned by MK-3, being rewritten in parallel).
 ### Phase 2: Command, fixture, docs, CI
 
 #### Automated
-- [x] 2.1 Options, CLI and screenshot tests pass — PHASE2
-- [x] 2.2 Gates green (typecheck, lint, test, build) — PHASE2
+- [x] 2.1 Options, CLI and screenshot tests pass — 098cd35
+- [x] 2.2 Gates green (typecheck, lint, test, build) — 098cd35
 
 #### Manual
-- [x] 2.3 The fixture screenshot opens and shows the calculator in the configured colour scheme — PHASE2
+- [x] 2.3 The fixture screenshot opens and shows the calculator in the configured colour scheme — 098cd35
