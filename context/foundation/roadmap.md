@@ -43,7 +43,7 @@ backlog: context/backlog/roadmap-followups/
 | **EN-9** | `engagement-release` | mailing, waitlist, mcp-access and privacy 0.1.0 published through the release pipeline; READMEs and docs updated | EN-1…EN-8 (done) | owner | blocked (carried over from marketing-kit: the owner's batch release at the keyboard on 2026-10-05) |
 | **MO-6** | `monetization-release` | billing and analytics 0.1.0 published through the release pipeline; READMEs and docs updated | MO-1…MO-5 (done) | owner | blocked (carried over from marketing-kit: the owner's batch release at the keyboard on 2026-10-05) |
 | **MK-8** | `marketing-kit-release` | `@softure-ai/marketing-kit` 0.1.0 published through the release pipeline, README complete | MK-1…MK-7 (done) | owner | blocked (carried over from marketing-kit: the owner's batch release at the keyboard on 2026-10-05) |
-| **FU-1** | `switch-reader-contract` | Switch-reader contract in core | — | autonomous | proposed |
+| **FU-1** | `switch-reader-contract` | Switch-reader contract in core | — | autonomous | in_progress (implement 1/2, since 2026-10-03; `claude/project-thread-mchs9d`) |
 | **FU-2** | `waitlist-double-opt-in` | Waitlist double opt-in | FU-3 | autonomous | proposed |
 | **FU-3** | `mailing-consent-sync` | Unsubscribe as consent withdrawal | — | autonomous | proposed |
 | **FU-4** | `waitlist-welcome-html` | HTML welcome mail for the waitlist | FU-2 | autonomous | proposed |
@@ -149,7 +149,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-1: Switch-reader contract in core
 - **Change ID:** `switch-reader-contract`
-- **Status:** proposed
+- **Status:** in_progress (implement 1/2, since 2026-10-03; `claude/project-thread-mchs9d`)
+- **Input:** [`changes/switch-reader-contract/change.md`](../changes/switch-reader-contract/change.md)
 - **Outcome:** A switch-reader contract in `@softure-ai/core`: feature-switches provides it, auth asks it with a fallback to its option through an async `isRegistrationClosed(ctx)`, so `auth.registration_closed` flipped in the switches panel takes effect; a report of manifest switches the app did not define.
 - **Prerequisites:** none beyond the main branch.
 - **Unknowns:** How the reader is registered (config registry vs. module manifest); whether reads stay one per request in Next.

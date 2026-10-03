@@ -17,7 +17,6 @@ share files run in one lane (see the roadmap's Order), so `dependency` below nam
 | EN-9 | [`engagement-release`](engagement-release/change.md) | Engagement modules release (carried over) | the owner at the keyboard (batch on 2026-10-05) | owner |
 | MO-6 | [`monetization-release`](monetization-release/change.md) | Monetization modules release (carried over) | the owner at the keyboard (batch on 2026-10-05) | owner |
 | MK-8 | [`marketing-kit-release`](marketing-kit-release/change.md) | marketing-kit release (carried over) | the owner at the keyboard (batch on 2026-10-05) | owner |
-| FU-1 | [`switch-reader-contract`](switch-reader-contract/change.md) | Switch-reader contract in core | roadmap promoted | start |
 | FU-2 | [`waitlist-double-opt-in`](waitlist-double-opt-in/change.md) | Waitlist double opt-in | FU-3 on main | dependency |
 | FU-3 | [`mailing-consent-sync`](mailing-consent-sync/change.md) | Unsubscribe as consent withdrawal | roadmap promoted | start |
 | FU-4 | [`waitlist-welcome-html`](waitlist-welcome-html/change.md) | HTML welcome mail for the waitlist | FU-2 on main | dependency |
