@@ -1,12 +1,12 @@
 ---
 change_id: mailing-ledger-campaigns
 title: "Delivery ledger and campaigns: exactly-once delivery per scope and recipient, a softure-mail campaign command and a sender DNS check"
-status: implementing
+status: archived
 roadmap_item: EN-3
 branch: claude/en-3-mailing-ledger-campaigns-1u6kkr
 created: 2026-10-03
 updated: 2026-10-03
-archived_at: null
+archived_at: 2026-10-03
 ---
 
 ## Intent
@@ -40,3 +40,4 @@ Taken from the queued roadmap entry, kept as [`backlog-input.md`](backlog-input.
   plan: the command refuses to start without `MAILING_UNSUBSCRIBE_SECRET` (it would otherwise burn
   every recipient's attempts); driver errors are printed without Drizzle's query text (recipient
   keys in the parameters).
+- 2026-10-03: impl review approve; archived.
