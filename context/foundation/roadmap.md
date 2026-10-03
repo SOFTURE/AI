@@ -52,7 +52,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-7** | `analytics-action-redirect-tag` | Channel tag kept through server action redirects | FU-1, FU-5 | autonomous | proposed |
 | **FU-8** | `waitlist-funnel-hook` | Waitlist sign-ups as a funnel step | FU-4 | autonomous | proposed |
 | **FU-9** | `billing-admin-requests` | Payment requests, revoke and grant history in the billing admin page | FU-11 | autonomous | proposed |
-| **FU-11** | `billing-refund-one-payment` | Refunds that take back one payment's period | — | autonomous | in_progress (implement 2/2, since 2026-10-03; cloud session, branch `claude/project-thread-wsh2og`) |
+| **FU-11** | `billing-refund-one-payment` | Refunds that take back one payment's period | — | autonomous | done |
 | **FU-12** | `billing-retro-reviews` | Retro research and plan review for MO-1 and MO-2 | — | autonomous | proposed |
 | **FU-13** | `marketing-kit-render-ci` | the marketing-kit fixture film renders to a draft MP4 on every push | — | autonomous | proposed |
 | **FU-14** | `marketing-kit-schema-docs` | every key of the marketing.json JSON Schema carries a description | — | autonomous | proposed |
@@ -251,8 +251,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-11: Refunds that take back one payment's period
 - **Change ID:** `billing-refund-one-payment`
-- **Status:** in_progress (implement 2/2, since 2026-10-03; cloud session, branch `claude/project-thread-wsh2og`)
-- **Input:** [`changes/billing-refund-one-payment/`](../changes/billing-refund-one-payment/change.md)
+- **Status:** done
+- **Input:** [`archive/2026-10-03-billing-refund-one-payment/`](../archive/2026-10-03-billing-refund-one-payment/change.md)
 - **Outcome:** A full refund removes only the access the refunded payment granted (its period, or the lifetime it bought), not every paid period of the account; optionally partial refunds handled by a policy.
 - **Prerequisites:** none beyond the main branch.
 - **Unknowns:** Storing each payment's granted start and end in `billing.payments`; a shortening entitlement event vs. recomputing access from the remaining payments; how manual grants (no payment row) count.
@@ -371,7 +371,7 @@ Carried over from marketing-kit (owner, batch at the keyboard on Monday 2026-10-
 
 ## Done
 
-(nothing yet)
+- **FU-11** `billing-refund-one-payment`: a full refund takes back only what its payment granted (one period's unused days, or one lifetime); archived in `archive/2026-10-03-billing-refund-one-payment/`
 
 ## Decisions (auto)
 
