@@ -102,8 +102,8 @@ unknown id is an error; `src/og/` imports no Playwright (architecture-style chec
 ### Phase 1: Templates, fonts, palette and renderer
 
 #### Automated
-- [ ] 1.1 Palette, font, template, renderer and snapshot tests pass
-- [ ] 1.2 Gates green (typecheck, lint, test)
+- [x] 1.1 Palette, font, template, renderer and snapshot tests pass — 1989258
+- [x] 1.2 Gates green (typecheck, lint, test) — 1989258
 
 ### Phase 2: CLI command, exports and docs
 

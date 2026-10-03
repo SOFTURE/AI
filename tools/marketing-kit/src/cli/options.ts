@@ -1,20 +1,20 @@
 import { DEFAULT_CONFIG_FILE, QUALITIES, type Quality } from "../config/schema.js";
 
 /**
- * `softure-marketing <command> <film> [flags]`: argument parsing, kept apart from the commands so it
- * is testable. A typo in a flag never passes silently: `--todya` would record the film from today
+ * `softure-marketing <command> <film> [flags]` (and `og [image]`): argument parsing, kept apart from
+ * the commands so it is testable. A typo in a flag never passes silently: `--todya` would record the film from today
  * instead of from the given day.
  */
 
-export const COMMANDS = ["all", "voice", "record", "render", "preview", "posts"] as const;
+export const COMMANDS = ["all", "voice", "record", "render", "preview", "posts", "og"] as const;
 
 export type Command = (typeof COMMANDS)[number];
 
 const KNOWN_FLAGS = ["commit", "today", "url", "quality", "config"];
 const FILM_ID = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
-export interface CliOptions {
-  command: Command;
+export interface FilmOptions {
+  command: Exclude<Command, "og">;
   filmId: string;
   /** `voice` really pays for the voiceover only with `--commit`. */
   isCommit: boolean;
@@ -28,6 +28,15 @@ export interface CliOptions {
   configPath: string;
 }
 
+/** `og [image]`: every `ogImages` entry, or the one named. */
+export interface OgOptions {
+  command: "og";
+  imageId: string | null;
+  configPath: string;
+}
+
+export type CliOptions = FilmOptions | OgOptions;
+
 export type ReadOptionsResult = { ok: true; options: CliOptions } | { ok: false; error: string };
 
 export const USAGE = [
@@ -39,6 +48,7 @@ export const USAGE = [
   "  render <film> [--quality=draft|standard|high]",
   "  preview <film>                  open the composition in the hyperframes preview",
   "  posts <film>                    post copy for the configured platforms",
+  "  og [image]                      OG images (PNG) of every ogImages entry, or of the one named",
 ].join("\n");
 
 function isCommand(value: string | undefined): value is Command {
@@ -68,6 +78,9 @@ export function readOptions(argv: string[]): ReadOptionsResult {
     }
     flags.set(name, match[2] ?? "true");
   }
+  const configPath = flags.get("config") ?? DEFAULT_CONFIG_FILE;
+  if (configPath === "true" || configPath.length === 0) return { ok: false, error: `--config needs a path, e.g. --config=${DEFAULT_CONFIG_FILE}.` };
+  if (command === "og") return readOgOptions(positional, flags, configPath);
   const filmId = positional[0];
   if (filmId === undefined) return { ok: false, error: `name the film, e.g. softure-marketing ${command} <film>.` };
   if (positional.length > 1) return { ok: false, error: `one film at a time, got ${positional.join(", ")}.` };
@@ -81,12 +94,19 @@ export function readOptions(argv: string[]): ReadOptionsResult {
   if (command === "all" && commit !== undefined) {
     return { ok: false, error: `"all" takes the voiceover from the cache only; to pay for one: softure-marketing voice ${filmId} --commit.` };
   }
-  const configPath = flags.get("config") ?? DEFAULT_CONFIG_FILE;
-  if (configPath === "true" || configPath.length === 0) return { ok: false, error: `--config needs a path, e.g. --config=${DEFAULT_CONFIG_FILE}.` };
   const url = flags.get("url");
   if (url === "true") return { ok: false, error: "--url needs an address, e.g. --url=http://localhost:3000/calculator." };
   return {
     ok: true,
     options: { command, filmId, isCommit: commit === "true", today, url, quality, configPath },
   };
+}
+
+function readOgOptions(positional: string[], flags: Map<string, string>, configPath: string): ReadOptionsResult {
+  const extra = [...flags.keys()].filter((name) => name !== "config");
+  if (extra.length > 0) return { ok: false, error: `og takes only --config, got ${extra.map((flag) => `--${flag}`).join(", ")}.` };
+  if (positional.length > 1) return { ok: false, error: `one OG image at a time, got ${positional.join(", ")}; without a name, og renders them all.` };
+  const imageId = positional[0] ?? null;
+  if (imageId !== null && !FILM_ID.test(imageId)) return { ok: false, error: `OG image name "${imageId}": lowercase letters, digits and hyphens only.` };
+  return { ok: true, options: { command: "og", imageId, configPath } };
 }

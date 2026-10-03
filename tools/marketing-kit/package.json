@@ -33,6 +33,11 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
+    "./og": {
+      "@softure-ai/source": "./src/og/index.ts",
+      "types": "./dist/og/index.d.ts",
+      "default": "./dist/og/index.js"
+    },
     "./marketing.schema.json": "./schema/marketing.schema.json"
   },
   "scripts": {
