@@ -41,6 +41,7 @@ trigger: "every module roadmap (marketing-kit and any later one) is done; the ow
 | **FU-9** | `billing-admin-requests` | Payment requests, revoke and grant history in the billing admin page | — | autonomous | proposed |
 | **FU-11** | `billing-refund-one-payment` | Refunds that take back one payment's period | — | autonomous | proposed |
 | **FU-12** | `billing-retro-reviews` | Retro research and plan review for MO-1 and MO-2 | — | autonomous | proposed |
+| **FU-13** | `marketing-kit-render-ci` | the marketing-kit fixture film renders to a draft MP4 on every push | — | autonomous | proposed |
 
 ## Order
 
@@ -169,6 +170,17 @@ trigger: "every module roadmap (marketing-kit and any later one) is done; the ow
 - **Baseline:** monetization MO-1 and MO-2 skipped phases of the SOFTURE chain (coordinator, 2026-10-03, after the owner's question); their archives have no research.md or plan-review.md. After: both archives carry the missing documents.
 - **PRD refs:** FR-22.
 - **Source:** `context/archive/2026-10-03-billing-entitlements/`, `context/archive/2026-10-03-billing-plans-pricing/`
+
+### FU-13: The marketing-kit fixture film renders in CI
+- **Change ID:** `marketing-kit-render-ci`
+- **Status:** proposed
+- **Outcome:** A CI job (or a step of an existing one) installs a Chromium, sets `PLAYWRIGHT_CHROMIUM_PATH` and `HYPERFRAMES_BROWSER_PATH`, and runs `MARKETING_KIT_RENDER=1` on `tools/marketing-kit/tests/render.test.ts`.
+- **Prerequisites:** none beyond the main branch.
+- **Unknowns:** Whether the e2e job's Playwright Chromium also serves hyperframes (a headless shell worked locally); the job's run time (about 85 s locally).
+- **Risk:** LOW.
+- **Baseline:** marketing-kit MK-1 `mk-core-port`: the render test is opt-in and ran locally only (CI's test job has no browser). After: it runs on every push.
+- **PRD refs:** FR-24.
+- **Source:** `tools/marketing-kit/tests/render.test.ts`; `context/changes/mk-core-port/research.md` (Open questions)
 
 ## Owner decisions and checks
 
