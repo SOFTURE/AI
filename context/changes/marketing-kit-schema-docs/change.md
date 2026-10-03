@@ -1,7 +1,7 @@
 ---
 change_id: marketing-kit-schema-docs
 title: "The marketing.json JSON Schema documents every key"
-status: implemented
+status: impl_reviewed
 roadmap_item: FU-14
 branch: claude/project-thread-6sox1i
 created: 2026-10-03

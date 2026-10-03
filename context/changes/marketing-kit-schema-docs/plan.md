@@ -101,11 +101,11 @@ unchanged).
 ### Phase 1: Guard test and descriptions for every key
 
 #### Automated
-- [x] 1.1 `findUndescribedKeys` reports a bare key, a bare key in a `oneOf` branch, a bare record value and a blank description, and passes a described key
-- [x] 1.2 `tests/schema.test.ts` "describes every key a project writes" passes on the committed file
-- [x] 1.3 The committed `schema/marketing.schema.json` matches the zod schema
-- [x] 1.4 The existing marketing-kit tests pass with no test file other than `schema.test.ts` edited
-- [x] 1.5 Gates green (typecheck, lint, test)
+- [x] 1.1 `findUndescribedKeys` reports a bare key, a bare key in a `oneOf` branch, a bare record value and a blank description, and passes a described key — f5ab59e
+- [x] 1.2 `tests/schema.test.ts` "describes every key a project writes" passes on the committed file — f5ab59e
+- [x] 1.3 The committed `schema/marketing.schema.json` matches the zod schema — f5ab59e
+- [x] 1.4 The existing marketing-kit tests pass with no test file other than `schema.test.ts` edited — f5ab59e
+- [x] 1.5 Gates green (typecheck, lint, test) — f5ab59e
 
 #### Manual
 - [ ] 1.6 Owner reads a few descriptions in an editor hover and finds them clear
