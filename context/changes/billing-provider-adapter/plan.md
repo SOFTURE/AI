@@ -46,9 +46,9 @@ Input: change.md, backlog-input.md, research.md. Complexity: medium (2 phases). 
 ### Phase 1: Module
 
 #### Automated
-- [ ] 1.1 Signature, event, checkout, payment and refund tests pass on PGlite
-- [ ] 1.2 Route, privacy and messages tests pass; `module.json` equals the manifest
-- [ ] 1.3 Gates green (typecheck, lint, test)
+- [x] 1.1 Signature, event, checkout, payment and refund tests pass on PGlite — f84b31c
+- [x] 1.2 Route, privacy and messages tests pass; `module.json` equals the manifest — f84b31c
+- [x] 1.3 Gates green (typecheck, lint, test) — f84b31c
 
 ### Phase 2: Example app, e2e, docs
 

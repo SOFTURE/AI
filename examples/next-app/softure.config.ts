@@ -3,7 +3,7 @@
 import { analytics } from "@softure-ai/analytics";
 import { attributeRegistration, countRegistration } from "@softure-ai/analytics/next";
 import { auth, AUTH_RATE_LIMIT_BUCKETS } from "@softure-ai/auth";
-import { billing, BILLING_RATE_LIMIT_BUCKETS, manual } from "@softure-ai/billing";
+import { billing, BILLING_RATE_LIMIT_BUCKETS, manual, stripe } from "@softure-ai/billing";
 import { mailingResetSender } from "@softure-ai/auth/mailing";
 import { defineSoftureConfig } from "@softure-ai/core";
 import { registerSoftureConfig } from "@softure-ai/core/next";
@@ -133,7 +133,9 @@ const config = defineSoftureConfig({
     // Entitlements at /account/billing (e2e/billing-entitlements.spec.ts): a 14-day trial from
     // registration, then read-only until a grant; the guarded write is app/account/billing/actions.ts.
     // Plans at /pricing and /payment, paid by invoice: a request mails the admin, who grants the
-    // plan at /admin/billing (e2e/billing-pricing.spec.ts).
+    // plan at /admin/billing (e2e/billing-pricing.spec.ts). BILLING_PROVIDER=stripe pays on Stripe
+    // Checkout instead (STRIPE_SECRET_KEY); the webhook at app/api/billing/webhook/route.ts grants
+    // and refunds either way (e2e/billing-stripe.spec.ts).
     billing({
       trial: { days: 14, reminderDays: 3 },
       paid: { reminderDays: 7 },
@@ -164,7 +166,7 @@ const config = defineSoftureConfig({
           features: en.plans.lifetime.features.map((feature, index) => ({ en: feature, pl: pl.plans.lifetime.features[index] })),
         },
       ],
-      payment: manual({ onRequest: mailInvoiceRequestsTo(EXAMPLE_ADMIN_EMAIL) }),
+      payment: process.env.BILLING_PROVIDER === "stripe" ? stripe() : manual({ onRequest: mailInvoiceRequestsTo(EXAMPLE_ADMIN_EMAIL) }),
     }),
   ],
 });
