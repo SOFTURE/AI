@@ -176,11 +176,17 @@ describe("loadMarketingConfig", () => {
     ["an opening shot waiting for a word not in the first sentence", (c: MarketingJsonInput) => c.videos[0]?.hook.shots.push({ mark: "x", scale: 1, word: "Anna" }), 'videos[0].hook.shots[2].word: "Anna" is not a word of the first sentence'],
     ["an empty screen guard", (c: MarketingJsonInput) => c.videos[0]?.screenGuard.splice(0), "videos[0].screenGuard: the screen guard needs at least one phrase"],
     ["a blank screen guard phrase", (c: MarketingJsonInput) => c.videos[0]?.screenGuard.push("  "), "videos[0].screenGuard[1]: must not be blank"],
-    ["a format not built yet", (c: MarketingJsonInput) => Object.assign(c.videos[0] ?? {}, { format: "1:1" }), "videos[0].format: "],
+    ["an unknown format", (c: MarketingJsonInput) => Object.assign(c.videos[0] ?? {}, { format: "4:5" }), "videos[0].format: "],
   ])("refuses %s, naming its path", (_case, change, message) => {
     const config = makeConfig();
     change(config);
     expect(loadError(config)).toContain(`  ${message}`);
+  });
+
+  it.each(["1:1", "16:9"] as const)("loads a %s video", (format) => {
+    const config = makeConfig();
+    Object.assign(config.videos[0] ?? {}, { format });
+    expect(load(config).videos[0]?.format).toBe(format);
   });
 
   it("refuses two videos with one id", () => {

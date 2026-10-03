@@ -126,7 +126,7 @@ folder of `marketing.json`. A complete example: [examples/fixture/marketing.json
 | | `colorScheme` (`light`), `hideSelectors` (`[]`), `screenGuardSelector` (`body`) | what the recording browser prefers; elements hidden while recording; the element whose text the screen guard reads |
 | | `device` | the recorded phone: `viewport` `[width, height]` in CSS px, `scale` (device pixels per CSS pixel), `mobile` (`true`); a video can override it |
 | `voice` | `provider` (`elevenlabs`), `voiceId`, `model` (`eleven_multilingual_v2`), `language`, `tempo` (`1`, 0.8-1.3), `cacheDir` (`marketing/voiceover`) | the voiceover; text, voice, model and language make the cache key, the tempo is applied at build time |
-| `videos[]` | `id`, `title`, `path`, `format` (`9:16`), `device`, `voice` (`voiceId`, `model`, `tempo`) | a film and its overrides |
+| `videos[]` | `id`, `title`, `path`, `format` (`9:16`, or `1:1`, `16:9`), `device`, `voice` (`voiceId`, `model`, `tempo`) | a film and its overrides |
 | | `persona`, `beats`, `hook`, `screenGuard`, `endCard` | the script, see [A film](#a-film) |
 | | `sceneModule` | the TS module exporting `scene` |
 | `social` | `linkTemplate` | the link every post carries, `{code}` replaced by the platform's channel code |
@@ -243,10 +243,12 @@ format, so its paid recordings are reused as they are, with no re-keying and no 
 ## Limitations
 
 - Scenes are TypeScript (`sceneModule`); declarative actions in `beats` are MK-3.
-- One format, 9:16; the device is config, the frame layout is fixed until MK-6.
+- Three formats: `9:16` (1080×1920), `1:1` (1080×1080) and `16:9` (1920×1080). Each is a framed phone laid
+  out by the geometry table in `src/compose/timeline.ts` (in 16:9 the phone stands left, the copy right);
+  one recording renders in every format. A desktop recording (FU-15) and layout overrides in `marketing.json` (FU-16) are not built.
 - ElevenLabs is the only real voice provider; the estimate is an upper bound in credits, not money.
 - `ogImages` is validated but no command renders it yet (MK-5).
-- Screenshots are PNG at a device scale of 1, one colour scheme per run (`app.colorScheme`).
+- Screenshots are PNG at a device scale of 1, one colour scheme per run (`app.colorScheme`); scale and light/dark pairs are FU-17.
 
 ## Development
 

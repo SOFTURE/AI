@@ -2,7 +2,7 @@
 change_id: marketing-kit-screenshot-variants
 title: "Screenshots at a device scale and in both colour schemes"
 status: backlog
-roadmap_item: FU-15
+roadmap_item: FU-17
 branch: null
 created: 2026-10-03
 updated: 2026-10-03
@@ -16,9 +16,9 @@ with one `softure-marketing shots` run.
 
 ## Context
 
-From [`roadmap-followups.md`](../../../foundation/roadmaps/roadmap-followups.md), item **FU-15** (queued roadmap `followups`):
+From [`roadmap-followups.md`](../../../foundation/roadmaps/roadmap-followups.md), item **FU-17** (queued roadmap `followups`):
 
-> ### FU-15: Screenshots at a device scale and in both colour schemes
+> ### FU-17: Screenshots at a device scale and in both colour schemes
 > - **Change ID:** `marketing-kit-screenshot-variants`
 > - **Status:** proposed
 > - **Outcome:** A `screenshots[]` entry can set a device scale (a retina capture for a store listing or a landing page) and capture the light and dark schemes in one run (`<id>-light.png`, `<id>-dark.png`), still behind the status, phrase and size gates.

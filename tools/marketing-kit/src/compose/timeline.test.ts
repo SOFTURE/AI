@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { cameraPose, captionChunks, fitScale, fitsFrame, getGeometry, rewindFrames, unionRect, widePose } from "./timeline.js";
+import { VIDEO_FORMATS, cameraPose, captionChunks, fitScale, fitsFrame, getGeometry, rewindFrames, unionRect, widePose } from "./timeline.js";
 
 /** The phone FIRE_TRACKER records: the poses below are pinned on it. */
 const PHONE = getGeometry({ width: 390, height: 844 });
@@ -49,6 +49,54 @@ describe("getGeometry", () => {
 
   it("keeps FIRE_TRACKER's phone at 1385 px of screen height", () => {
     expect(PHONE.screenHeight).toBe(1385);
+  });
+
+  it("narrows the phone to a 900 px tall box in the middle of the 1:1 frame", () => {
+    // Oracle by hand: floor(900 × 390 / 844) = 415; left = round(540 - 207.5) = 333;
+    // height = round(844 × 415 / 390) = round(898.1) = 898.
+    const geometry = getGeometry({ width: 390, height: 844 }, "1:1");
+    expect(geometry.format).toBe("1:1");
+    expect(geometry.frame).toEqual({ width: 1080, height: 1080 });
+    expect(geometry.screen).toEqual({ left: 333, top: 150, width: 415 });
+    expect(geometry.screenHeight).toBe(898);
+    expect(geometry.cameraTarget).toEqual({ x: 540, y: 480 });
+  });
+
+  it("puts the phone on the left of the 16:9 frame and the copy on the right", () => {
+    // Oracle by hand: the same 415 px screen, centred on x 600: left = round(392.5) = 393.
+    const geometry = getGeometry({ width: 390, height: 844 }, "16:9");
+    expect(geometry.frame).toEqual({ width: 1920, height: 1080 });
+    expect(geometry.screen).toEqual({ left: 393, top: 90, width: 415 });
+    expect(geometry.caption.left).toBeGreaterThan(geometry.screen.left + geometry.screen.width);
+    expect(geometry.persona.left).toBe(geometry.caption.left);
+    expect(geometry.endCard.left).toBe(geometry.caption.left);
+  });
+
+  it("keeps the screen inside every frame, and the 14 px bezel too outside 9:16, for the tallest device the schema accepts", () => {
+    for (const viewport of [{ width: 390, height: 844 }, { width: 100, height: 266 }, { width: 800, height: 600 }]) {
+      for (const format of VIDEO_FORMATS) {
+        const { frame, screen, screenHeight } = getGeometry(viewport, format);
+        // 9:16 keeps MK-1's rule: only the screen must fit, the bezel of the tallest phone may cross the edge.
+        const bezel = format === "9:16" ? 0 : 14;
+        const label = `${format} ${String(viewport.width)}x${String(viewport.height)}`;
+        expect(screen.left - bezel, label).toBeGreaterThanOrEqual(0);
+        expect(screen.top - bezel, label).toBeGreaterThanOrEqual(0);
+        expect(screen.left + screen.width + bezel, label).toBeLessThanOrEqual(frame.width);
+        expect(screen.top + screenHeight + bezel, label).toBeLessThanOrEqual(frame.height);
+      }
+    }
+  });
+
+  it("returns a copy of the layout, so a caller cannot change the table", () => {
+    const geometry = getGeometry({ width: 390, height: 844 }, "16:9");
+    geometry.endCard.phone.center.x = 0;
+    expect(getGeometry({ width: 390, height: 844 }, "16:9").endCard.phone.center.x).toBe(600);
+  });
+});
+
+describe("widePose", () => {
+  it("leaves the phone where the 16:9 layout puts it, left of the copy", () => {
+    expect(widePose(getGeometry({ width: 390, height: 844 }, "16:9"), 1)).toEqual({ scale: 1, x: 0, y: 0 });
   });
 });
 

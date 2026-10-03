@@ -43,7 +43,9 @@ trigger: "every module roadmap (marketing-kit and any later one) is done; the ow
 | **FU-12** | `billing-retro-reviews` | Retro research and plan review for MO-1 and MO-2 | — | autonomous | proposed |
 | **FU-13** | `marketing-kit-render-ci` | the marketing-kit fixture film renders to a draft MP4 on every push | — | autonomous | proposed |
 | **FU-14** | `marketing-kit-schema-docs` | every key of the marketing.json JSON Schema carries a description | — | autonomous | proposed |
-| **FU-15** | `marketing-kit-screenshot-variants` | screenshots at a device scale and in both colour schemes | — | autonomous | proposed |
+| **FU-15** | `marketing-kit-desktop-16x9` | desktop 16:9 films recorded in a browser frame instead of a phone | — | autonomous | proposed |
+| **FU-16** | `marketing-kit-layout-overrides` | per-format layout overrides (caption box, persona, end card) in marketing.json | — | autonomous | proposed |
+| **FU-17** | `marketing-kit-screenshot-variants` | screenshots at a device scale and in both colour schemes | — | autonomous | proposed |
 
 ## Order
 
@@ -195,7 +197,29 @@ trigger: "every module roadmap (marketing-kit and any later one) is done; the ow
 - **PRD refs:** FR-24.
 - **Source:** `tools/marketing-kit/src/config/schema.ts`; `context/archive/2026-10-03-mk-config-contract/reviews/impl-review.md`
 
-### FU-15: Screenshots at a device scale and in both colour schemes
+### FU-15: A 16:9 film can show the desktop app in a browser frame
+- **Change ID:** `marketing-kit-desktop-16x9`
+- **Status:** proposed
+- **Outcome:** A video can ask for a desktop recording: the recorder opens a desktop viewport (`isMobile: false`), and the 16:9 composition frames it as a browser window instead of a phone, with the same captions, persona and end card.
+- **Prerequisites:** none beyond the main branch.
+- **Unknowns:** Whether the scene of a phone film can be reused at a desktop viewport or needs its own scene; how camera focus scales map to a wider screen.
+- **Risk:** LOW.
+- **Baseline:** marketing-kit MK-6 `mk-formats`: 16:9 is a framed phone on the left with copy on the right (frame.md, framing 2 deferred). After: a 16:9 desktop film renders from the fixture project.
+- **PRD refs:** FR-24.
+- **Source:** `tools/marketing-kit/src/compose/timeline.ts` (`LAYOUTS`); `context/archive/2026-10-03-mk-formats/frame.md`
+
+### FU-16: A project can adjust a format's layout in marketing.json
+- **Change ID:** `marketing-kit-layout-overrides`
+- **Status:** proposed
+- **Outcome:** `marketing.json` can override entries of the per-format geometry table (caption box and font size, persona and end-card position, end-card phone pose), validated by the schema, so a brand with long headlines or another caption style does not need a package change.
+- **Prerequisites:** none beyond the main branch.
+- **Unknowns:** Which entries are worth exposing; whether overrides are per video or per format.
+- **Risk:** LOW.
+- **Baseline:** marketing-kit MK-6 `mk-formats`: the layout is a fixed table in `src/compose/timeline.ts` (frame.md, framing 3 deferred). After: an override in the fixture config changes the composition snapshot.
+- **PRD refs:** FR-24.
+- **Source:** `tools/marketing-kit/src/compose/timeline.ts` (`LAYOUTS`); `context/archive/2026-10-03-mk-formats/frame.md`
+
+### FU-17: Screenshots at a device scale and in both colour schemes
 - **Change ID:** `marketing-kit-screenshot-variants`
 - **Status:** proposed
 - **Outcome:** A `screenshots[]` entry can set a device scale (a retina capture for a store listing or a landing page) and capture the light and dark schemes in one run (`<id>-light.png`, `<id>-dark.png`), still behind the status, phrase and size gates.
