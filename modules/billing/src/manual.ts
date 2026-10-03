@@ -1,6 +1,7 @@
 // The manual payment adapter: the buyer asks for an invoice on the payment page, the app hands the
 // request to its owner (`onRequest`: a mail, a ticket), and the owner grants the plan in the admin
-// page once the invoice is paid. Nothing is charged and nothing is stored here.
+// page once the invoice is paid. Nothing is charged here; `startPayment` stores the request it
+// hands over, so the admin page lists it.
 import { err, ok, type Err, type ErrorCode, type Ok } from "@softure-ai/core";
 import type { PaymentContext, PaymentProvider, PaymentRequest } from "./payment.js";
 

@@ -31,7 +31,7 @@ export const billing = defineModule({
     version: "0.0.0",
     dependsOn: { security: "^0.0.0", auth: "^0.0.0" },
     dbSchema: "billing",
-    tables: ["entitlements", "payments"],
+    tables: ["entitlements", "payments", "payment_requests", "manual_grants"],
     env: [
       {
         name: "STRIPE_SECRET_KEY",
@@ -45,7 +45,7 @@ export const billing = defineModule({
       },
     ],
     switches: [],
-    routes: { payment: "/payment", webhook: "/api/billing/webhook" },
+    routes: { payment: "/payment", admin: "/admin/billing", webhook: "/api/billing/webhook" },
     mount: [{ kind: "route-handler", path: "app/api/billing/webhook/route.ts", export: "stripeWebhookRoute" }],
     privacy: { exports: true, deletes: true },
   },
@@ -59,9 +59,13 @@ export const billing = defineModule({
 export { getDayNumber, getDaysLeft, getStartOfDay, getTrialEnd } from "./calendar.js";
 export {
   ENTITLEMENT_STATUSES,
+  INITIAL_ADMIN_ACTION_STATE,
   INITIAL_GRANT_FORM_STATE,
   INITIAL_PAYMENT_FORM_STATE,
   PERIOD_UNITS,
+  type AdminActionErrorCode,
+  type AdminActionState,
+  type AdminErrorCode,
   type BillingErrorCode,
   type BillingFormErrorCode,
   type Entitlement,
@@ -105,7 +109,7 @@ export {
 export { findPlan, getLocalizedText, getPeriodEnd, getPlanGrant } from "./plans.js";
 export { getPaymentGrant, getRefundEvent, getUnusedDays, moveBackByDays } from "./refund.js";
 export { formatPrice, getMinorUnitDigits, isSupportedCurrency } from "./price.js";
-export { billingSchema, entitlements, payments } from "./schema.js";
+export { billingSchema, entitlements, manualGrants, paymentRequests, payments } from "./schema.js";
 export { getCheckoutSessionParams, stripe, STRIPE_API_BASE, STRIPE_SECRET_KEY_ENV, STRIPE_TIMEOUT_MS, type StripeOptions } from "./stripe.js";
 export {
   parseStripeEvent,

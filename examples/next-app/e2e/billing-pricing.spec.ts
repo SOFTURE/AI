@@ -1,9 +1,11 @@
 // Plans, the payment page and the manual adapter of @softure-ai/billing on the built app: the
 // public pricing page lists the plans of softure.config.ts, choosing one asks a visitor to log in
 // and comes back to it, an invoice request mails the admin and grants nothing, and the admin's
-// grant at /admin/billing flips the account's trial to paid. Every test gets its own client
-// address and accounts; the admin is an account given the role in Postgres (auth-roles.spec.ts
-// owns the configured admin).
+// grant at /admin/billing flips the account's trial to paid. The admin page lists open requests
+// (grant or dismiss each), finds an account's history and revokes a manual grant; a lifetime
+// account has nothing to pay. Every test gets its own client address and accounts; the admin is an
+// account given the role in Postgres (auth-roles.spec.ts owns the configured admin). Other tests'
+// requests share the list, so rows are always picked by the member's address.
 import { randomInt, randomUUID } from "node:crypto";
 import { expect, test, type Browser, type Page } from "@playwright/test";
 import { authMessages, userRoles, users } from "@softure-ai/auth";
@@ -157,4 +159,94 @@ test("the grant page is not found for an account without the admin role, and for
   const member = await openPage(browser);
   await register(member, newEmail());
   expect((await member.goto("/admin/billing"))?.status()).toBe(404);
+});
+
+/** Asks for an invoice for `planName` from the payment page. */
+async function requestInvoice(page: Page, planName: string): Promise<void> {
+  await page.goto("/payment");
+  await page.getByRole("link", { name: `Choose ${planName}` }).click();
+  await page.getByLabel(copy.payment.fields.name).fill("Ada Lovelace Ltd");
+  await page.getByLabel(copy.payment.fields.address).fill("1 Analytical Way, London");
+  await page.getByRole("button", { name: copy.payment.requestInvoice }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Thank you!" })).toBeVisible();
+}
+
+async function readBadgeStatus(page: Page): Promise<string | null> {
+  await page.goto("/account/billing");
+  return page.locator("[data-status]").first().getAttribute("data-status");
+}
+
+test("an invoice request waits in the admin's list; Grant gives the plan and Revoke takes it back", async ({ browser }) => {
+  const member = await openPage(browser);
+  const email = newEmail();
+  await register(member, email);
+  await requestInvoice(member, en.plans.yearly.name);
+
+  const admin = await openPage(browser);
+  await registerAdmin(admin);
+  await admin.goto("/admin/billing");
+  const request = admin.locator("[data-request-id]").filter({ hasText: email });
+  await expect(request).toContainText(`${email} · ${en.plans.yearly.name}`);
+  await expect(request).toContainText("Invoice to: Ada Lovelace Ltd, 1 Analytical Way, London");
+  await admin.getByRole("button", { name: `Grant ${en.plans.yearly.name} to ${email}` }).click();
+  await expect(request).toHaveCount(0);
+  expect(await readBadgeStatus(member)).toBe("paid");
+
+  // The history is found by email but addressed by the account's id.
+  await admin.getByLabel(copy.admin.history.email).fill(email);
+  await admin.getByRole("button", { name: copy.admin.history.submit }).click();
+  await expect(admin).toHaveURL(/\/admin\/billing\?account=[0-9a-f-]{36}$/);
+  const history = admin.getByRole("region", { name: `History of ${email}` });
+  await expect(history.locator("[data-status]")).toHaveAttribute("data-status", "paid");
+  const grant = history.locator("[data-history-id]");
+  await expect(grant).toHaveCount(1);
+  await expect(grant).toContainText(`${en.plans.yearly.name}, granted from a request`);
+  await expect(grant).toContainText(copy.admin.history.active);
+  await grant.getByRole("button", { name: new RegExp(`^Revoke ${en.plans.yearly.name} granted on `) }).click();
+  await expect(grant).toContainText("Revoked on ");
+  await expect(grant.getByRole("button")).toHaveCount(0);
+  expect(await readBadgeStatus(member)).toBe("trial");
+});
+
+test("Dismiss closes a request without a grant, and its History link shows the account", async ({ browser }) => {
+  const member = await openPage(browser);
+  const email = newEmail();
+  await register(member, email);
+  await requestInvoice(member, en.plans.monthly.name);
+
+  const admin = await openPage(browser);
+  await registerAdmin(admin);
+  await admin.goto("/admin/billing");
+  const request = admin.locator("[data-request-id]").filter({ hasText: email });
+  await request.getByRole("link", { name: copy.admin.requests.history }).click();
+  await expect(admin).toHaveURL(/\/admin\/billing\?account=[0-9a-f-]{36}$/);
+  await expect(admin.getByRole("region", { name: `History of ${email}` })).toContainText(copy.admin.history.empty);
+
+  await admin.getByRole("button", { name: `Dismiss the request of ${email} for ${en.plans.monthly.name}` }).click();
+  await expect(request).toHaveCount(0);
+  expect(await readBadgeStatus(member)).toBe("trial");
+});
+
+test("a lifetime account has nothing to pay, and the admin cannot grant it again", async ({ browser }) => {
+  const member = await openPage(browser);
+  const email = newEmail();
+  await register(member, email);
+
+  const admin = await openPage(browser);
+  await registerAdmin(admin);
+  await admin.goto("/admin/billing");
+  const grant = async () => {
+    await admin.getByLabel(copy.admin.email).fill(email);
+    await admin.getByRole("combobox", { name: copy.admin.plan }).click();
+    await admin.getByRole("option", { name: en.plans.lifetime.name }).click();
+    await admin.getByRole("button", { name: copy.admin.submit }).click();
+  };
+  await grant();
+  await expect(admin.getByRole("status").filter({ hasText: email })).toContainText(`${email} now has ${en.plans.lifetime.name}.`);
+  await grant();
+  await expect(admin.getByText(copy.errors.billing.lifetime_active)).toBeVisible();
+
+  await member.goto("/payment?plan=monthly");
+  await expect(member.getByText(copy.payment.lifetime)).toBeVisible();
+  await expect(member.getByText(copy.payment.orderTitle)).toHaveCount(0);
 });
