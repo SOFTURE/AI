@@ -1,0 +1,46 @@
+{
+  "name": "@softure-ai/marketing-kit",
+  "version": "0.0.0",
+  "description": "SOFTURE AI marketing kit: a CLI that turns a project's real app into a vertical film (cached voiceover, frame-by-frame recording, HTML composition, hyperframes render) plus per-platform post copy.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SOFTURE/AI.git",
+    "directory": "tools/marketing-kit"
+  },
+  "files": [
+    "dist",
+    "src",
+    "!src/**/*.test.ts",
+    "!src/**/*.test.tsx"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "bin": {
+    "softure-marketing": "./dist/cli/main.js"
+  },
+  "exports": {
+    ".": {
+      "@softure-ai/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "gsap": "^3.15.0",
+    "hyperframes": "0.8.85",
+    "playwright": "^1.63.0",
+    "tsx": "^4.23.0",
+    "zod": "^4.6.5"
+  }
+}

@@ -1,0 +1,70 @@
+/* The token layout of FIRE_TRACKER's src/app/globals.css at 58e6c84: a palette and light roles in
+   :root, a dark override for the viewer's system theme, an explicit dark theme block shared with a
+   dark band class, and a light theme block. Comments and unrelated rules trimmed. */
+:root {
+  --duration-fast: 160ms;
+
+  --ink: #0c0c0d;
+  --ink-raised: #17181a;
+  --ink-line: #2a2c30;
+  --ink-muted: #a3a6ad;
+  --lime: #cff26b;
+  --lime-deep: #356912;
+  --paper: #ffffff;
+  --graphite-muted: #5b606b;
+  --paper-line: #e6e7ea;
+  --data-accessible-paper: #0f766e;
+  --data-locked-paper: #b45309;
+  --data-debt-paper: #be123c;
+
+  color-scheme: light;
+  --background: #f6f7f8;
+  --surface: var(--paper);
+  --surface-raised: var(--paper);
+  --border: var(--paper-line);
+  --foreground: #16171a;
+  --muted: var(--graphite-muted);
+  --accent: var(--lime-deep);
+  --accessible: var(--data-accessible-paper);
+  --locked: var(--data-locked-paper);
+  --debt: var(--data-debt-paper);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --background: var(--ink);
+    --accent: var(--lime);
+  }
+}
+
+[data-theme="dark"],
+.dark-band {
+  color-scheme: dark;
+  --background: var(--ink);
+  --surface: var(--ink-raised);
+  --surface-raised: #1f2023;
+  --border: var(--ink-line);
+  --foreground: #f2f3f5;
+  --muted: var(--ink-muted);
+  --accent: var(--lime);
+  --accessible: #2dd4bf;
+  --locked: #fbbf24;
+  --debt: #f87171;
+}
+
+[data-theme="light"],
+.paper-band {
+  color-scheme: light;
+  --background: #f6f7f8;
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --muted: #b0c0d0;
+  }
+}
+
+body {
+  background: var(--background);
+}

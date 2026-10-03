@@ -1,9 +1,6 @@
 # @softure-ai/marketing-kit
 
-**Status:** in parallel from wave 1 · not implemented
-
-A CLI that takes `marketing.json` and a brand and generates video (voiceover, frame-by-frame recording
-of the app, composition, render), screenshots with quality gates, OG images and post copy.
-Full plan and JSON contract: [docs/03-marketing-kit.md](../../docs/03-marketing-kit.md).
-
-**Source in FIRE_TRACKER:** `video/**`, `scripts/screenshot.mts`, `src/app/**/opengraph-image.tsx`, `src/lib/og-*`.
+A CLI and a library that turn a project's real app into a vertical film for Instagram Reels,
+TikTok and Facebook Reels, plus the post copy for each platform. Ported from FIRE_TRACKER's
+`video/` pipeline (roadmap item MK-1); the configuration is still FIRE-shaped until the
+`marketing.json` contract lands (MK-2). Full plan: [docs/03-marketing-kit.md](../../docs/03-marketing-kit.md).
