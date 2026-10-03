@@ -38,14 +38,21 @@ export function getDayNumber(instant: Date, timezone: string): number {
   return Math.floor(getLocalWallTime(instant.getTime(), timezone) / DAY_MS);
 }
 
+const HOUR_MS = 60 * 60 * 1000;
+
 /**
- * The instant a local day starts (00:00 there). Two passes settle the offset across a DST change;
- * a zone that skips midnight itself gets the first instant after the gap.
+ * The instant a local day starts (00:00 there). Two passes settle the offset across a DST change.
+ * In a zone that skips midnight itself (America/Santiago, America/Havana) 00:00 does not exist and
+ * the passes land in the previous day, so the result moves on by hours to the first instant of
+ * the day: 01:00 after a one-hour gap.
  */
 export function getStartOfDay(dayNumber: number, timezone: string): Date {
   const wallTime = dayNumber * DAY_MS;
   let instant = wallTime;
   for (let pass = 0; pass < 2; pass += 1) instant = wallTime - (getLocalWallTime(instant, timezone) - instant);
+  for (let step = 0; step < 3 && getDayNumber(new Date(instant), timezone) < dayNumber; step += 1) {
+    instant = Math.floor(instant / HOUR_MS) * HOUR_MS + HOUR_MS;
+  }
   return new Date(instant);
 }
 

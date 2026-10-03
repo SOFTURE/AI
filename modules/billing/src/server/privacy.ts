@@ -1,5 +1,6 @@
 // The billing part of a GDPR export and deletion (`@softure-ai/privacy`): the account's entitlement
 // row. An account without a row has nothing stored here (its trial is derived from the account).
+import { users } from "@softure-ai/auth";
 import { ok, type ModuleContext, type Ok, type PrivacyContributor } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
 import { eq } from "drizzle-orm";
@@ -37,6 +38,9 @@ export async function exportBillingUserData(context: ModuleContext, userId: stri
 export async function deleteBillingUserData(context: ModuleContext, userId: string): Promise<Ok<undefined>> {
   if (!isUserId(userId)) return ok();
   const db = context.db as Queryable;
+  // Lock the account first, in the order `changeEntitlement` takes its locks (account, then
+  // entitlement): a change running at the same time then waits instead of deadlocking the erase.
+  await db.select({ id: users.id }).from(users).where(eq(users.id, userId)).for("update");
   await db.delete(entitlements).where(eq(entitlements.userId, userId));
   return ok();
 }

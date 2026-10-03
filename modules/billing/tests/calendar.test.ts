@@ -23,6 +23,12 @@ describe("getStartOfDay", () => {
     expect(getStartOfDay(Date.UTC(2026, 9, 25) / 86_400_000, "Europe/Warsaw")).toEqual(new Date("2026-10-24T22:00:00Z"));
     expect(getStartOfDay(Date.UTC(2026, 2, 29) / 86_400_000, "Europe/Warsaw")).toEqual(new Date("2026-03-28T23:00:00Z"));
   });
+
+  it("starts a day that skips midnight at the first instant after the gap", () => {
+    // Santiago moves from 00:00 to 01:00 on 6 September 2026 (UTC-4 to UTC-3).
+    expect(getStartOfDay(Date.UTC(2026, 8, 6) / 86_400_000, "America/Santiago")).toEqual(new Date("2026-09-06T04:00:00Z"));
+    expect(getTrialEnd(new Date("2026-09-01T15:00:00Z"), 5, "America/Santiago")).toEqual(new Date("2026-09-06T04:00:00Z"));
+  });
 });
 
 describe("getDaysLeft", () => {
