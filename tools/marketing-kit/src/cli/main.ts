@@ -15,6 +15,7 @@ import { takeScreenshots, type ScreenshotEntry } from "../screenshot/screenshot.
 import { splitIntoBeats } from "../voice/voiceover.js";
 import { CliFailure, fail } from "./failure.js";
 import { loadFilm, type LoadedFilm } from "./films.js";
+import { writeOgImages } from "./og.js";
 import { readOptions, type FilmOptions, type ShotsOptions } from "./options.js";
 import { ensureServer } from "./server.js";
 import { getVoiceoverPaths, produceVoiceover, readJson, requireVoiceover } from "./voice.js";
@@ -28,6 +29,7 @@ import { getVoiceoverPaths, produceVoiceover, readJson, requireVoiceover } from 
  *   render <film> [--quality=draft|standard|high]
  *   preview <film>
  *   posts <film>
+ *   og [image]
  *   shots [<id>] [--url=...]
  */
 
@@ -182,6 +184,10 @@ async function main(argv: string[]): Promise<void> {
   const loaded = loadMarketingConfig(options.configPath);
   if (!loaded.ok) fail(loaded.error);
   const { config } = loaded;
+  if (options.command === "og") {
+    await writeOgImages(config, options.imageId);
+    return;
+  }
   if (options.command === "shots") {
     await shots(config, options);
     return;

@@ -21,6 +21,7 @@ softure-marketing record <video> [--today=YYYY-MM-DD] [--url=...]
 softure-marketing render <video> [--quality=draft|standard|high]
 softure-marketing preview <video>                 # the composition in the hyperframes preview
 softure-marketing posts <video>                   # post copy only
+softure-marketing og [image]                      # OG images (PNG) of every ogImages entry, or of one
 softure-marketing shots [<id>] [--url=...]        # the screenshots entries (or one), each behind its gates
 ```
 
@@ -38,8 +39,8 @@ the screen guard refused the recording (the screen did not show what the voiceov
 - Every command checks that the video's scene module exists; `render`, `preview` and `all` also check
   the brand files (logo, fonts, sound effects). A missing one is reported by its JSON path.
 
-Output: `<output.dir>/<video>/<video>.mp4` and `posts.md`; recordings and compositions in
-`<output.buildDir>/<video>/`. Neither belongs in git.
+Output: `<output.dir>/<video>/<video>.mp4` and `posts.md`, OG images in `<output.dir>/og/<image>.png`;
+recordings and compositions in `<output.buildDir>/<video>/`. None of it belongs in git.
 
 ### Screenshots
 
@@ -133,7 +134,7 @@ folder of `marketing.json`. A complete example: [examples/fixture/marketing.json
 | | `platforms` | `instagram`, `facebook`, `tiktok`, `youtube`, `linkedin`, `x`: `code`, `linkInBio` (true for Instagram, TikTok, YouTube) |
 | | `posts[]` | `video`, `caption`, `hashtags`, `codes` (this video's own codes); a video without one gets no `posts.md` |
 | `screenshots[]` | `id`, `path`, `width`, `height`, `full` (`false`), `expect`, `motion` (`reduce`), `minBytes` (`40000`) | for `softure-marketing shots`, see [Screenshots](#screenshots) |
-| `ogImages[]` | `id`, `template`, `size` (`[1200, 630]`), `data` (`{}`) | for `softure-marketing og` (MK-5) |
+| `ogImages[]` | `id`, `template` (`headline-cta`, `headline-chart`), `size` (`[1200, 630]`), `data` | for `softure-marketing og`, see [OG images](#og-images) |
 | `sfx` | `tap`, `key`, `whoosh`, `sparkle`, `pop` | sound effects; a missing one is silent |
 | `output` | `dir` (`marketing/out`), `buildDir` (`marketing/build`), `quality` (`standard`) | where films go; `--quality` wins |
 
@@ -222,6 +223,58 @@ format, so its paid recordings are reused as they are, with no re-keying and no 
    `from the cache`; an estimate line means the text, voice or model differs from FIRE's, and nothing
    was spent.
 
+## OG images
+
+`softure-marketing og` renders each `ogImages` entry with [Satori](https://github.com/vercel/satori)
+and resvg to `<output.dir>/og/<id>.png`, at `size` (1200×630 by default), outside Next. The brand
+supplies everything around the copy: the background and text colours, the logo and name in the top
+corner, and the fonts. `data` is the template's input, checked by its own schema (each template's
+fields are in the JSON Schema):
+
+| Template | `data` |
+| --- | --- |
+| `headline-cta` | `headline` (≤ 90 characters), `eyebrow` (≤ 40), `cta` (≤ 32, a pill in `cta`/`onCta` colours), `tiles` (≤ 4 of `label` ≤ 24, `value` ≤ 16) |
+| `headline-chart` | `headline`, `eyebrow`, `tiles` (≤ 3), `chart`: `viewBox` `[width, height]` and `paths` (1-8) of `d` (SVG path data), `tone` (`accent`, `cta`, `foreground`, `muted`), `fill` (a tint instead of a line), `strokeWidth` (view box units) |
+
+Values the app computes, such as a chart or a projected date, are computed by the app and arrive in
+`data` as numbers, text or SVG paths; the package only draws them.
+
+**Fonts.** Satori reads static `.ttf`, `.otf` and `.woff` files only, so OG images refuse a `.woff2`
+file or a variable range (`"100 900"`) in `brand.fonts`, by its JSON path; add a static file for OG
+next to it. Templates ask for a weight (the headline for 700, the copy for 400 and 600) and get the
+nearest one the brand loads, so a card never names a weight that is not loaded (Satori would draw
+another one silently). Glyphs missing from a subset font (e.g. a `latin` file and Polish letters)
+are not detected; ship a file that covers the copy's language.
+
+**A thin Next route.** The `@softure-ai/marketing-kit/og` entry does not load Playwright, so a route
+can render the same card per request, with live values in place of the configured `data`:
+
+```ts
+// app/calculator/opengraph-image.ts
+import { join } from "node:path";
+import { loadMarketingConfig, renderConfiguredOgImage } from "@softure-ai/marketing-kit/og";
+
+export const runtime = "nodejs"; // resvg is a native module
+export const size = { width: 1200, height: 630 };
+export const contentType = "image/png";
+
+export default async function Image(): Promise<Response> {
+  const loaded = loadMarketingConfig(join(process.cwd(), "marketing.json"));
+  if (!loaded.ok) throw new Error(loaded.error);
+  const png = await renderConfiguredOgImage({
+    config: loaded.config,
+    id: "calculator",
+    data: { headline: "Stop working at 49", cta: "Count your date" }, // optional: per-request values
+  });
+  if (!png.ok) throw new Error(png.error);
+  return new Response(new Uint8Array(png.value), { headers: { "content-type": contentType } });
+}
+```
+
+`@resvg/resvg-js` is a native module: if the bundler tries to bundle it, list it in
+`serverExternalPackages` in `next.config.ts`. `renderOgImage({ template, data, size, brand, fonts })`
+renders without a `marketing.json` at all.
+
 ## Requirements
 
 - Node 22, **ffmpeg** in PATH.
@@ -239,6 +292,7 @@ format, so its paid recordings are reused as they are, with no re-keying and no 
 | Fonts | the project's | not bundled; `brand.fonts` names the files, copied next to the composition at render time |
 | Sound effects | the project's | not bundled; `sfx` names the files |
 | ElevenLabs | paid API | key from `ELEVENLABS_API_KEY`, only with `--commit` |
+| satori, @resvg/resvg-js | MPL-2.0 | npm dependencies, unmodified; resvg ships a prebuilt native binary per platform |
 
 ## Limitations
 
@@ -247,8 +301,8 @@ format, so its paid recordings are reused as they are, with no re-keying and no 
   out by the geometry table in `src/compose/timeline.ts` (in 16:9 the phone stands left, the copy right);
   one recording renders in every format. A desktop recording (FU-15) and layout overrides in `marketing.json` (FU-16) are not built.
 - ElevenLabs is the only real voice provider; the estimate is an upper bound in credits, not money.
-- `ogImages` is validated but no command renders it yet (MK-5).
-- Screenshots are PNG at a device scale of 1, one colour scheme per run (`app.colorScheme`); scale and light/dark pairs are FU-17.
+- Two OG templates; glyphs missing from a font are not detected.
+- Screenshots are PNG at a device scale of 1, one colour scheme per run (`app.colorScheme`); scale and light/dark pairs are FU-18.
 
 ## Development
 

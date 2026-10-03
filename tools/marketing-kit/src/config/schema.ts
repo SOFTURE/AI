@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { VIDEO_FORMATS, fitsFrame } from "../compose/timeline.js";
 import { MARKETING_LOCALES, type MarketingLocale } from "../messages/index.js";
+import { headlineChartDataSchema, headlineCtaDataSchema } from "../og/templates/schemas.js";
 import { CHANNEL_CODE_MAX_LENGTH, CHANNEL_CODE_PATTERN, PLATFORMS } from "../platforms.js";
 import { ELEVENLABS_DEFAULT_MODEL } from "../voice/voiceover.js";
 import { COLOR_ROLES, COLOR_THEMES, isHexColor } from "./colors.js";
@@ -250,13 +251,16 @@ const screenshotSchema = z.strictObject({
   minBytes: z.number().int().min(0).default(40_000),
 });
 
-const ogImageSchema = z.strictObject({
+const ogImageBase = {
   id,
-  template: id,
   size: z.tuple([pixels(4000), pixels(4000)]).default([1200, 630]),
-  /** The template's input; values the app computes (charts) arrive precomputed. */
-  data: z.record(z.string(), z.unknown()).default({}),
-});
+};
+
+/** One entry per template; `data` is the template's input, and values the app computes (charts) arrive precomputed. */
+const ogImageSchema = z.discriminatedUnion("template", [
+  z.strictObject({ ...ogImageBase, template: z.literal("headline-cta"), data: headlineCtaDataSchema }),
+  z.strictObject({ ...ogImageBase, template: z.literal("headline-chart"), data: headlineChartDataSchema }),
+]);
 
 const sfxShape = Object.fromEntries(SFX_EVENTS.map((event) => [event, relativePath.optional()])) as Record<SfxEvent, z.ZodOptional<typeof relativePath>>;
 

@@ -27,6 +27,17 @@ describe("readOptions", () => {
     expect(readOptions(["posts", "a"]).ok).toBe(true);
   });
 
+  it("reads og without an image as every image", () => {
+    expect(readOptions(["og"])).toEqual({ ok: true, options: { command: "og", imageId: null, configPath: "marketing.json" } });
+  });
+
+  it("reads og with one image and a config", () => {
+    expect(readOptions(["og", "calculator", "--config=site/marketing.json"])).toEqual({
+      ok: true,
+      options: { command: "og", imageId: "calculator", configPath: "site/marketing.json" },
+    });
+  });
+
   it("accepts --commit on voice", () => {
     expect(readOptions(["voice", "a", "--commit"])).toMatchObject({ ok: true, options: { isCommit: true } });
   });
@@ -44,6 +55,10 @@ describe("readOptions", () => {
     ["--commit on all, which never pays", ["all", "a", "--commit"], /from the cache only/],
     ["--config without a path", ["render", "a", "--config"], /--config needs a path/],
     ["--url without an address", ["record", "a", "--url"], /--url needs an address/],
+    ["two OG images", ["og", "a", "b"], /one OG image at a time/],
+    ["an OG image id with uppercase", ["og", "Calculator"], /lowercase letters, digits and hyphens/],
+    ["a film flag on og", ["og", "--quality=draft"], /og takes only --config, got --quality/],
+    ["--config without a path on og", ["og", "--config"], /--config needs a path/],
   ])("refuses %s", (_case, argv, message) => {
     const result = readOptions(argv);
     expect(result.ok).toBe(false);

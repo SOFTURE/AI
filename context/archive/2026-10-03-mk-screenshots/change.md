@@ -55,4 +55,4 @@ only (`src/config/schema.ts`, `screenshotSchema`); no command reads it.
 
 - Research: done ([`research.md`](research.md)). Framing: done ([`frame.md`](frame.md)), short,
   because the outcome is fixed by the roadmap and the open choice is only how much of the CLI changes.
-- Archived 2026-10-03: `softure-marketing shots` renders the `screenshots` entries behind the status, phrase and size gates, tested against static pages and the fixture app in CI (PR #38). Review F1-F2 fixed before the PR; device scale and light/dark pairs deferred to FU-17.
+- Archived 2026-10-03: `softure-marketing shots` renders the `screenshots` entries behind the status, phrase and size gates, tested against static pages and the fixture app in CI (PR #38). Review F1-F2 fixed before the PR; device scale and light/dark pairs deferred to FU-18.

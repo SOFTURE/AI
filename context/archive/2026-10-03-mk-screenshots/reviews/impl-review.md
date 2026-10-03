@@ -57,7 +57,7 @@ conflict.
 ### F4 [SUGGESTION] Screenshots only at device scale 1 and one colour scheme
 
 A retina capture or a light/dark pair needs schema fields. Not asked by the roadmap (frame.md option C);
-added to the followups roadmap as FU-17.
+added to the followups roadmap as FU-18.
 
 ## Gates
 
