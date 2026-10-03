@@ -1,28 +1,56 @@
-// Public API of @softure-ai/marketing-kit: the film model a project's film modules are typed with,
-// and the pure building blocks of the pipeline (voiceover cache, timeline, composition, posts).
-// The `softure-marketing` CLI (`src/cli/main.ts`) runs the whole pipeline from a config file.
+// Public API of @softure-ai/marketing-kit: the `marketing.json` contract (schema, loading, brand
+// colours), the film model a project's scene modules are typed with, and the pure building blocks of
+// the pipeline (voiceover cache, timeline, composition, posts). The `softure-marketing` CLI
+// (`src/cli/main.ts`) runs the whole pipeline from `marketing.json`.
+export {
+  DEFAULT_CONFIG_FILE,
+  MARKETING_SCHEMA_URL,
+  QUALITIES,
+  SFX_EVENTS,
+  getMarketingJsonSchema,
+  marketingSchema,
+  type MarketingJson,
+  type MarketingJsonInput,
+  type Quality,
+  type SfxEvent,
+} from "./config/schema.js";
+export {
+  findMissingFiles,
+  findVideo,
+  loadMarketingConfig,
+  type BrandFont,
+  type FontFile,
+  type LoadConfigResult,
+  type MarketingConfig,
+  type PlatformChannel,
+  type VideoConfig,
+  type VideoPost,
+} from "./config/config.js";
+export { COLOR_ROLES, COLOR_THEMES, type BrandColors, type ColorRole, type ColorTheme, type ColorsResult } from "./config/colors.js";
+export { resolveBrandColors, type BrandColorsResult } from "./config/brand.js";
+export { readCssColors } from "./config/css-colors.js";
+export { readDesignJsonColors } from "./config/design-json.js";
+export { formatIssuePath, type ConfigIssue } from "./config/issues.js";
 export {
   CUES,
-  PLATFORMS,
   containsPhrase,
-  isChannelCode,
   sceneBeats,
-  validateFilm,
   type Beat,
   type CueName,
+  type Device,
   type Director,
   type EndCard,
   type Film,
+  type FilmScript,
   type HookShot,
   type Persona,
-  type Platform,
-  type PostCopy,
+  type Scene,
   type VoiceSettings,
 } from "./film.js";
+export { CHANNEL_CODE_MAX_LENGTH, CHANNEL_CODE_PATTERN, DEFAULT_LINK_IN_BIO, PLATFORMS, channelLink, isChannelCode, type Platform } from "./platforms.js";
 export {
   ELEVENLABS_API_URL,
   ELEVENLABS_DEFAULT_MODEL,
-  ELEVENLABS_DEFAULT_VOICE,
   buildTtsRequest,
   readTimestampsResponse,
   splitIntoBeats,
@@ -35,21 +63,21 @@ export {
   type TtsRequest,
 } from "./voice/voiceover.js";
 export {
-  CAMERA_TARGET,
-  FRAME,
-  SCREEN,
-  SCREEN_HEIGHT,
-  SCREEN_SCALE,
-  VIEWPORT,
+  VIDEO_FORMATS,
   cameraPose,
   captionChunks,
   fitScale,
+  fitsFrame,
+  getGeometry,
   rewindFrames,
   unionRect,
   widePose,
   type CameraPose,
   type CaptionChunk,
+  type Geometry,
   type Rect,
+  type VideoFormat,
+  type Viewport,
 } from "./compose/timeline.js";
 export {
   composeFilm,
@@ -57,12 +85,13 @@ export {
   resolveCameraTweens,
   type CameraTween,
   type ComposeAssets,
+  type ComposeFont,
   type ComposeInput,
+  type FontFace,
   type ResolvedTween,
 } from "./compose/compose.js";
-export { SITE_COLOR_TOKENS, readSiteTokens, type SiteColorToken, type SiteTokens } from "./compose/site-tokens.js";
-export { buildPosts, channelLink, postsMarkdown, type PlatformPost, type PostsOptions } from "./posts/posts.js";
-export { FPS, ScreenGuardError, type CameraCue, type RecordingLog } from "./record/record.js";
+export { buildPosts, postsMarkdown, type PlatformPost, type PostsInput } from "./posts/posts.js";
+export { FPS, ScreenGuardError, type BrowserSettings, type CameraCue, type RecordingLog } from "./record/record.js";
 export {
   MARKETING_LOCALES,
   formatMessage,

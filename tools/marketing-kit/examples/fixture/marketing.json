@@ -1,0 +1,64 @@
+{
+  "$schema": "../../schema/marketing.schema.json",
+  "brand": {
+    "name": "Fixture Plan",
+    "locale": "en-US",
+    "timezone": "UTC",
+    "logo": { "svg": "brand/mark.svg" },
+    "tokensFrom": {
+      "css": "app/styles.css",
+      "theme": "dark",
+      "roles": { "cta": "accessible", "onCta": "background", "captionText": "background" }
+    },
+    "colors": { "captionBackground": "#ecf1f7f7", "captionHighlight": "#0f766e" }
+  },
+  "app": {
+    "baseUrl": "http://localhost:3199",
+    "port": 3198,
+    "startCommand": ["node", "app/serve.mjs", "{port}"],
+    "colorScheme": "dark",
+    "screenGuardSelector": "main",
+    "device": { "viewport": [390, 844], "scale": 3 }
+  },
+  "voice": { "voiceId": "fixture-voice", "model": "fixture-model", "language": "en", "tempo": 1.1, "cacheDir": "voiceover" },
+  "videos": [
+    {
+      "id": "fixture-tour",
+      "title": "The fixture counts its date",
+      "path": "/",
+      "persona": { "name": "Robin", "age": 36, "tagline": "works out when to stop working" },
+      "beats": [
+        { "id": "hook", "text": "Forty-nine years. That is the exit age." },
+        { "id": "age", "text": "Robin types thirty-six and taps next." },
+        { "id": "cta", "text": "Count your own date today." }
+      ],
+      "hook": {
+        "still": "result",
+        "shots": [
+          { "mark": "exit-age", "scale": 1.6 },
+          { "mark": "exit-date", "scale": 1.3, "word": "That" }
+        ]
+      },
+      "screenGuard": ["49 years", "March 2040"],
+      "endCard": { "headline": "Count your date", "url": "example.com/calculator", "note": "Free, no account" },
+      "sceneModule": "films/fixture-tour.ts"
+    }
+  ],
+  "social": {
+    "linkTemplate": "https://example.com/calculator?z={code}",
+    "platforms": {
+      "instagram": { "code": "ig-01" },
+      "facebook": { "code": "fb-01" },
+      "tiktok": { "code": "tiktok-01" }
+    },
+    "posts": [{ "video": "fixture-tour", "caption": "Robin is 36 and can stop working at 49.", "hashtags": ["fire", "#money"] }]
+  },
+  "sfx": {
+    "tap": "assets/sfx/tap.mp3",
+    "key": "assets/sfx/key.mp3",
+    "whoosh": "assets/sfx/whoosh.mp3",
+    "sparkle": "assets/sfx/sparkle.mp3",
+    "pop": "assets/sfx/pop.mp3"
+  },
+  "output": { "dir": "out", "buildDir": "build", "quality": "draft" }
+}

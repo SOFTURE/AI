@@ -2,8 +2,9 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { loadMarketingConfig, type MarketingConfig } from "../config/config.js";
-import { sceneBeats, type Film } from "../film.js";
+import { findMissingFiles, formatConfigIssues, loadMarketingConfig, type MarketingConfig } from "../config/config.js";
+import { getGeometry } from "../compose/timeline.js";
+import { sceneBeats } from "../film.js";
 import { getMarketingMessages } from "../messages/index.js";
 import { postsMarkdown } from "../posts/posts.js";
 import { recordFilm, ScreenGuardError, type RecordingLog } from "../record/record.js";
@@ -12,7 +13,7 @@ import { runHyperframes } from "../render/hyperframes.js";
 import { renderFilm } from "../render/render.js";
 import { splitIntoBeats } from "../voice/voiceover.js";
 import { CliFailure, fail } from "./failure.js";
-import { getFilmPath, loadFilm } from "./films.js";
+import { loadFilm, type LoadedFilm } from "./films.js";
 import { readOptions, type CliOptions } from "./options.js";
 import { ensureServer } from "./server.js";
 import { getVoiceoverPaths, produceVoiceover, readJson, requireVoiceover } from "./voice.js";
@@ -28,18 +29,20 @@ import { getVoiceoverPaths, produceVoiceover, readJson, requireVoiceover } from 
  *   posts <film>
  */
 
-const getBuildDir = (config: MarketingConfig, film: Film) => join(config.paths.build, film.id);
-const getOutDir = (config: MarketingConfig, film: Film) => join(config.paths.out, film.id);
+const getBuildDir = (config: MarketingConfig, film: LoadedFilm) => join(config.output.buildDir, film.id);
+const getOutDir = (config: MarketingConfig, film: LoadedFilm) => join(config.output.dir, film.id);
 
-function preflight(config: MarketingConfig, needsRender: boolean): void {
+function preflight(config: MarketingConfig, film: LoadedFilm, needsRender: boolean): void {
   const problem = findMachineProblem({ needsRender, cwd: config.root });
   if (problem !== null) fail(problem);
+  const missing = needsRender ? findMissingFiles(config, film, true) : [];
+  if (missing.length > 0) fail(formatConfigIssues(config, missing));
 }
 
-async function record(config: MarketingConfig, film: Film, options: CliOptions): Promise<RecordingLog> {
+async function record(config: MarketingConfig, film: LoadedFilm, options: CliOptions): Promise<RecordingLog> {
   const voiceover = requireVoiceover(config, film);
   const voices = splitIntoBeats(voiceover.words, film.beats, film.voice.tempo);
-  const server = await ensureServer(config, options.url);
+  const server = await ensureServer(config, film, options.url);
   mkdirSync(getBuildDir(config, film), { recursive: true });
   let log: RecordingLog;
   try {
@@ -51,8 +54,15 @@ async function record(config: MarketingConfig, film: Film, options: CliOptions):
       voices,
       voiceoverKey: getVoiceoverPaths(config, film).key,
       today: options.today,
-      filmPath: getFilmPath(config, film.id),
+      filmPath: film.sceneModule,
       executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH || undefined,
+      browser: {
+        colorScheme: config.app.colorScheme,
+        locale: config.brand.locale,
+        timezone: config.brand.timezone,
+        hideSelectors: config.app.hideSelectors,
+        screenGuardSelector: config.app.screenGuardSelector,
+      },
     });
   } catch (error) {
     if (error instanceof ScreenGuardError) fail(error.message, 2);
@@ -64,14 +74,25 @@ async function record(config: MarketingConfig, film: Film, options: CliOptions):
   return log;
 }
 
-function writePosts(config: MarketingConfig, film: Film): string {
+/** Writes `posts.md`; null when the video has no `social.posts` entry. */
+function writePosts(config: MarketingConfig, film: LoadedFilm): string | null {
+  if (config.social === null || film.post === null) return null;
   const path = join(getOutDir(config, film), "posts.md");
   mkdirSync(getOutDir(config, film), { recursive: true });
-  writeFileSync(path, postsMarkdown(film, { site: config.posts.site, messages: getMarketingMessages(config.locale) }));
+  writeFileSync(
+    path,
+    postsMarkdown({ title: film.title, post: film.post, linkTemplate: config.social.linkTemplate, messages: getMarketingMessages(config.brand.language) }),
+  );
   return path;
 }
 
-function render(config: MarketingConfig, film: Film, options: CliOptions): void {
+function describePosts(config: MarketingConfig, film: LoadedFilm, path: string | null): string {
+  if (path === null) return `no post copy: social.posts has no entry for "${film.id}" in ${config.file}.`;
+  const labels = (film.post?.channels ?? []).map((channel) => getMarketingMessages(config.brand.language).posts.platforms[channel.platform]);
+  return `✓ ${path}: post copy for ${labels.join(", ")}`;
+}
+
+function render(config: MarketingConfig, film: LoadedFilm, options: CliOptions): void {
   const dir = getBuildDir(config, film);
   const logPath = join(dir, "log.json");
   if (!existsSync(logPath)) fail(`no recording: run softure-marketing record ${film.id} first.`);
@@ -91,21 +112,22 @@ function render(config: MarketingConfig, film: Film, options: CliOptions): void 
     voices: splitIntoBeats(voiceover.words, film.beats, film.voice.tempo),
     buildDir: dir,
     voiceoverAudio: voiceover.audio,
-    fontsDir: config.paths.fonts,
-    sfxDir: config.paths.sfx,
-    siteCss: config.siteCss,
+    fonts: config.brand.fonts,
+    logo: config.brand.logo,
+    sfx: config.sfx,
+    colors: config.brand.colors,
     brandName: config.brand.name,
-    locale: config.locale,
-    messages: getMarketingMessages(config.locale),
-    quality: options.quality,
+    locale: config.brand.locale,
+    messages: getMarketingMessages(config.brand.language),
+    quality: options.quality ?? config.output.quality,
     output,
   });
-  const posts = writePosts(config, film);
-  console.log(`\n✓ ${output} (${seconds.toFixed(1)} s, 1080×1920: Reels, TikTok, Facebook Reels)`);
-  console.log(`✓ ${posts}: post copy for Instagram, Facebook and TikTok with ?z= channel codes`);
+  const { frame } = getGeometry(film.device.viewport);
+  console.log(`\n✓ ${output} (${seconds.toFixed(1)} s, ${frame.width}×${frame.height}, ${film.format})`);
+  console.log(describePosts(config, film, writePosts(config, film)));
 }
 
-function preview(config: MarketingConfig, film: Film): void {
+function preview(config: MarketingConfig, film: LoadedFilm): void {
   const dir = getBuildDir(config, film);
   if (!existsSync(join(dir, "index.html"))) fail(`no composition: run softure-marketing render ${film.id} first.`);
   const result = runHyperframes(["preview"], { cwd: dir, stdio: "inherit" });
@@ -126,22 +148,25 @@ async function main(argv: string[]): Promise<void> {
       await produceVoiceover(config, film, options.isCommit);
       return;
     case "record":
-      preflight(config, false);
+      preflight(config, film, false);
       await record(config, film, options);
       return;
     case "render":
-      preflight(config, true);
+      preflight(config, film, true);
       render(config, film, options);
       return;
     case "preview":
-      preflight(config, true);
+      preflight(config, film, true);
       preview(config, film);
       return;
-    case "posts":
-      console.log(`✓ ${writePosts(config, film)}`);
+    case "posts": {
+      const path = writePosts(config, film);
+      if (path === null) fail(`no post copy for "${film.id}": add an entry with "video": "${film.id}" to social.posts in ${config.file}.`);
+      console.log(describePosts(config, film, path));
       return;
+    }
     case "all": {
-      preflight(config, true);
+      preflight(config, film, true);
       if ((await produceVoiceover(config, film, false)) === null) fail("no voiceover; see the message above.");
       await record(config, film, options);
       render(config, film, options);

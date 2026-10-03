@@ -1,28 +1,22 @@
-import { PLATFORMS, type Film, type Platform } from "../film.js";
+import type { VideoPost } from "../config/config.js";
 import { formatMessage, type MarketingMessages } from "../messages/index.js";
+import { channelLink, type Platform } from "../platforms.js";
 
 /**
- * Post copy for a film: one `posts.md` with ready text for every platform and a link carrying the
- * channel code (`?z=`), so a visit from the film can be counted.
+ * Post copy for a film: one `posts.md` with ready text for every configured platform and a link
+ * carrying the platform's channel code, so a visit from the film can be counted.
  *
- * Instagram and TikTok do not turn a link in the caption into a clickable link: there the link goes
- * to the bio and the caption says so. Facebook links in the post.
+ * Where a link in the caption is not clickable (Instagram, TikTok by default) the link goes to the
+ * bio and the caption says so; elsewhere it is in the post.
  */
 
-const LINK_IN_BIO: Record<Platform, boolean> = {
-  instagram: true,
-  facebook: false,
-  tiktok: true,
-};
-
-export interface PostsOptions {
-  /** The page the film promotes, e.g. `https://example.com/calculator`; the channel code is appended. */
-  site: string;
+export interface PostsInput {
+  /** The film's title, the heading of `posts.md`. */
+  title: string;
+  post: VideoPost;
+  /** `social.linkTemplate`: the link with `{code}` where the channel code goes. */
+  linkTemplate: string;
   messages: MarketingMessages;
-}
-
-export function channelLink(site: string, code: string): string {
-  return `${site}?z=${code}`;
 }
 
 export interface PlatformPost {
@@ -30,31 +24,30 @@ export interface PlatformPost {
   label: string;
   /** Text to paste under the film. */
   text: string;
-  /** Link with the channel code: in the caption (Facebook) or in the bio (the rest). */
+  /** Link with the channel code: in the caption, or in the bio. */
   link: string;
   linkInBio: boolean;
 }
 
-export function buildPosts(film: Film, options: PostsOptions): PlatformPost[] {
-  const copy = options.messages.posts;
-  const hashtags = film.post.hashtags.map((tag) => `#${tag.replace(/^#/, "")}`).join(" ");
-  return PLATFORMS.map((platform) => {
-    const link = channelLink(options.site, film.channels[platform]);
-    const linkInBio = LINK_IN_BIO[platform];
+export function buildPosts(input: PostsInput): PlatformPost[] {
+  const copy = input.messages.posts;
+  const hashtags = input.post.hashtags.map((tag) => `#${tag.replace(/^#/, "")}`).join(" ");
+  return input.post.channels.map(({ platform, code, linkInBio }) => {
+    const link = channelLink(input.linkTemplate, code);
     const call = linkInBio ? copy.linkInBio : link;
     return {
       platform,
       label: copy.platforms[platform],
-      text: [film.post.caption.trim(), call, hashtags].filter((part) => part.length > 0).join("\n\n"),
+      text: [input.post.caption.trim(), call, hashtags].filter((part) => part.length > 0).join("\n\n"),
       link,
       linkInBio,
     };
   });
 }
 
-export function postsMarkdown(film: Film, options: PostsOptions): string {
-  const copy = options.messages.posts;
-  const sections = buildPosts(film, options).map((post) =>
+export function postsMarkdown(input: PostsInput): string {
+  const copy = input.messages.posts;
+  const sections = buildPosts(input).map((post) =>
     [
       `## ${post.label}`,
       "",
@@ -65,5 +58,5 @@ export function postsMarkdown(film: Film, options: PostsOptions): string {
       "```",
     ].join("\n"),
   );
-  return [`# ${formatMessage(copy.title, { title: film.title })}`, "", ...sections.flatMap((s) => [s, ""])].join("\n");
+  return [`# ${formatMessage(copy.title, { title: input.title })}`, "", ...sections.flatMap((s) => [s, ""])].join("\n");
 }

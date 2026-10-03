@@ -1,87 +1,147 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 
-import { z } from "zod";
-
-import { MARKETING_LOCALES, type MarketingLocale } from "../messages/index.js";
+import type { FilmScript } from "../film.js";
+import type { MarketingLocale } from "../messages/index.js";
+import { DEFAULT_LINK_IN_BIO, PLATFORMS, type Platform } from "../platforms.js";
+import { resolveBrandColors } from "./brand.js";
+import type { BrandColors, ColorTheme } from "./colors.js";
+import { formatIssues, type ConfigIssue } from "./issues.js";
+import { SFX_EVENTS, marketingSchema, type MarketingJson, type Quality, type SfxEvent } from "./schema.js";
 
 /**
- * `marketing.config.json`: what the FIRE pipeline used to take from its repository root. Still
- * FIRE-shaped (the `marketing.json` contract replaces it in MK-2); every path in it resolves against
- * the folder of the config file, never against the current directory or a repository.
+ * `marketing.json`, loaded: validated by the schema, every path absolute (resolved against the
+ * config file's folder, never the current directory), brand colours resolved and per-video settings
+ * merged with the defaults of `app` and `voice`.
  */
 
-export const DEFAULT_CONFIG_FILE = "marketing.config.json";
+export { DEFAULT_CONFIG_FILE } from "./schema.js";
 
-const nonEmpty = z.string().min(1);
+export interface FontFile {
+  path: string;
+  /** A weight or a range, as CSS writes it (`400`, `100 900`). */
+  weight: string;
+  style: "normal" | "italic";
+  unicodeRange: string | null;
+}
 
-const configSchema = z.strictObject({
-  /** Language of the film's copy (the persona card, `<html lang>`) and of the post copy. */
-  // `MARKETING_LOCALES` lists the dictionaries, so it is never empty.
-  locale: z.enum(MARKETING_LOCALES as [MarketingLocale, ...MarketingLocale[]]),
-  brand: z.strictObject({
-    /** Brand name on the end card. */
-    name: nonEmpty,
-  }),
-  app: z.strictObject({
-    /** Where an already running app answers, e.g. `http://localhost:3000`. */
-    baseUrl: z.url(),
-    /** The page the film records, e.g. `/calculator`. */
-    path: z.string().startsWith("/"),
-    /** Port of the app the CLI starts itself when `baseUrl` does not answer. */
-    port: z.number().int().min(1).max(65535),
-    /** Command that starts the app, as arguments (no shell); `{port}` is replaced. Runs in the config folder. */
-    startCommand: z.array(nonEmpty).min(1),
-  }),
-  /** The app's stylesheet the film's colours are read from. */
-  siteCss: nonEmpty,
-  posts: z.strictObject({
-    /** The page the posts link to; each platform's channel code is appended as `?z=`. */
-    site: z.url(),
-  }),
-  paths: z.strictObject({
-    /** Film modules: `<films>/<id>.ts`. */
-    films: nonEmpty,
-    /** Paid voiceover cache (`<key>.mp3` + `<key>.json`); commit it. */
-    voiceover: nonEmpty,
-    /** Recordings and compositions (`<build>/<id>/`); not committed. */
-    build: nonEmpty,
-    /** Finished films and post copy (`<out>/<id>/`); not committed. */
-    out: nonEmpty,
-    /** The project's font files the composition loads (`geist-*.woff2`, `newsreader-*.woff2`). */
-    fonts: nonEmpty,
-    /** The project's sound effects (`click-soft`, `key-press`, `whoosh`, `sparkle`, `pop` as `.mp3`). */
-    sfx: nonEmpty,
-  }),
-});
+export interface BrandFont {
+  family: string;
+  fallback: string;
+  files: FontFile[];
+}
+
+export interface PlatformChannel {
+  platform: Platform;
+  code: string;
+  linkInBio: boolean;
+}
+
+export interface VideoPost {
+  caption: string;
+  hashtags: string[];
+  /** The configured platforms in `PLATFORMS` order, with this video's codes. */
+  channels: PlatformChannel[];
+}
+
+export interface VideoConfig extends FilmScript {
+  /** The entry's position in `videos`, for errors about it. */
+  index: number;
+  /** The recorded page on the already running app, and on the app the CLI starts. */
+  url: string;
+  ownUrl: string;
+  sceneModule: string;
+  /** The post copy, or null when `social.posts` has no entry for this video. */
+  post: VideoPost | null;
+}
 
 export interface MarketingConfig {
   /** Absolute path of the config file and the folder every path resolves against. */
   file: string;
   root: string;
-  locale: MarketingLocale;
-  brand: { name: string };
+  brand: {
+    name: string;
+    /** BCP 47, e.g. `en-US`. */
+    locale: string;
+    /** The dictionary of the copy: the locale's language. */
+    language: MarketingLocale;
+    timezone: string;
+    logo: string | null;
+    colors: BrandColors;
+    fonts: { heading: BrandFont | null; body: BrandFont | null };
+  };
   app: {
-    /** The recorded page on the already running app. */
-    url: string;
-    /** The recorded page on the app the CLI starts. */
-    ownUrl: string;
+    baseUrl: string;
     port: number;
     startCommand: string[];
+    colorScheme: ColorTheme;
+    hideSelectors: string[];
+    screenGuardSelector: string;
   };
-  siteCss: string;
-  posts: { site: string };
-  paths: { films: string; voiceover: string; build: string; out: string; fonts: string; sfx: string };
+  voice: { provider: "elevenlabs"; cacheDir: string };
+  videos: VideoConfig[];
+  social: { linkTemplate: string } | null;
+  screenshots: MarketingJson["screenshots"];
+  ogImages: MarketingJson["ogImages"];
+  sfx: Partial<Record<SfxEvent, string>>;
+  output: { dir: string; buildDir: string; quality: Quality };
 }
 
 export type LoadConfigResult = { ok: true; config: MarketingConfig } | { ok: false; error: string };
 
-function formatIssues(file: string, error: z.ZodError): string {
-  const lines = error.issues.map((issue) => `  ${issue.path.length === 0 ? "(root)" : issue.path.join(".")}: ${issue.message}`);
-  return `${file} is not a valid marketing config:\n${lines.join("\n")}`;
+function resolveFont(font: MarketingJson["brand"]["fonts"]["body"], at: (relative: string) => string): BrandFont | null {
+  if (font === undefined) return null;
+  return {
+    family: font.family,
+    fallback: font.fallback,
+    files: font.files.map((file) => ({ path: at(file.path), weight: String(file.weight), style: file.style, unicodeRange: file.unicodeRange ?? null })),
+  };
 }
 
-/** Reads and validates the config file; paths come back absolute. */
+function resolveVideos(data: MarketingJson, at: (relative: string) => string): VideoConfig[] {
+  const posts = new Map((data.social?.posts ?? []).map((post) => [post.video, post]));
+  return data.videos.map((video, index) => {
+    const device = video.device ?? data.app.device;
+    const post = posts.get(video.id);
+    const platforms = data.social?.platforms ?? {};
+    return {
+      index,
+      id: video.id,
+      title: video.title,
+      path: video.path,
+      format: video.format,
+      device: { viewport: { width: device.viewport[0], height: device.viewport[1] }, scale: device.scale, isMobile: device.mobile },
+      persona: video.persona,
+      voice: {
+        voiceId: video.voice?.voiceId ?? data.voice.voiceId,
+        modelId: video.voice?.model ?? data.voice.model,
+        language: data.voice.language,
+        tempo: video.voice?.tempo ?? data.voice.tempo,
+      },
+      beats: video.beats,
+      hook: video.hook,
+      screenGuard: video.screenGuard,
+      endCard: video.endCard,
+      url: new URL(video.path, data.app.baseUrl).href,
+      ownUrl: `http://localhost:${data.app.port}${video.path}`,
+      sceneModule: at(video.sceneModule),
+      post:
+        post === undefined
+          ? null
+          : {
+              caption: post.caption,
+              hashtags: post.hashtags,
+              channels: PLATFORMS.flatMap((platform) => {
+                const channel = platforms[platform];
+                if (channel === undefined) return [];
+                return [{ platform, code: post.codes?.[platform] ?? channel.code, linkInBio: channel.linkInBio ?? DEFAULT_LINK_IN_BIO[platform] }];
+              }),
+            },
+    };
+  });
+}
+
+/** Reads and validates `marketing.json`; every problem comes back at once, by JSON path. */
 export function loadMarketingConfig(path: string): LoadConfigResult {
   const file = resolve(path);
   let text: string;
@@ -96,34 +156,75 @@ export function loadMarketingConfig(path: string): LoadConfigResult {
   } catch (error) {
     return { ok: false, error: `Reading the marketing config ${file}: not JSON (${error instanceof Error ? error.message : String(error)}).` };
   }
-  const parsed = configSchema.safeParse(raw);
-  if (!parsed.success) return { ok: false, error: formatIssues(file, parsed.error) };
+  const parsed = marketingSchema.safeParse(raw);
+  if (!parsed.success) return { ok: false, error: formatIssues(file, parsed.error.issues) };
   const data = parsed.data;
   const root = dirname(file);
   const at = (relative: string) => resolve(root, relative);
+  const colors = resolveBrandColors(data.brand, root);
+  if (!colors.ok) return { ok: false, error: formatIssues(file, colors.issues) };
   return {
     ok: true,
     config: {
       file,
       root,
-      locale: data.locale,
-      brand: data.brand,
+      brand: {
+        name: data.brand.name,
+        locale: data.brand.locale,
+        // The schema refuses a locale whose language has no dictionary.
+        language: data.brand.locale.split("-")[0] as MarketingLocale,
+        timezone: data.brand.timezone,
+        logo: data.brand.logo === undefined ? null : at(data.brand.logo.svg),
+        colors: colors.colors,
+        fonts: { heading: resolveFont(data.brand.fonts.heading, at), body: resolveFont(data.brand.fonts.body, at) },
+      },
       app: {
-        url: new URL(data.app.path, data.app.baseUrl).href,
-        ownUrl: `http://localhost:${data.app.port}${data.app.path}`,
+        baseUrl: data.app.baseUrl,
         port: data.app.port,
         startCommand: data.app.startCommand.map((part) => part.replaceAll("{port}", String(data.app.port))),
+        colorScheme: data.app.colorScheme,
+        hideSelectors: data.app.hideSelectors,
+        screenGuardSelector: data.app.screenGuardSelector,
       },
-      siteCss: at(data.siteCss),
-      posts: data.posts,
-      paths: {
-        films: at(data.paths.films),
-        voiceover: at(data.paths.voiceover),
-        build: at(data.paths.build),
-        out: at(data.paths.out),
-        fonts: at(data.paths.fonts),
-        sfx: at(data.paths.sfx),
-      },
+      voice: { provider: data.voice.provider, cacheDir: at(data.voice.cacheDir) },
+      videos: resolveVideos(data, at),
+      social: data.social === undefined ? null : { linkTemplate: data.social.linkTemplate },
+      screenshots: data.screenshots,
+      ogImages: data.ogImages,
+      sfx: Object.fromEntries(SFX_EVENTS.flatMap((event) => (data.sfx[event] === undefined ? [] : [[event, at(data.sfx[event])]]))),
+      output: { dir: at(data.output.dir), buildDir: at(data.output.buildDir), quality: data.output.quality },
     },
   };
+}
+
+/** Finds a video by id; null when the config has none. */
+export function findVideo(config: MarketingConfig, id: string): VideoConfig | null {
+  return config.videos.find((video) => video.id === id) ?? null;
+}
+
+/**
+ * Files the pipeline reads, checked before anything slow starts: the scene module always, and with
+ * `isRendering` the logo, the fonts and the sound effects too. Returns the problems by JSON path.
+ */
+export function findMissingFiles(config: MarketingConfig, video: VideoConfig, isRendering: boolean): ConfigIssue[] {
+  const issues: ConfigIssue[] = [];
+  const check = (path: PropertyKey[], file: string) => {
+    if (!existsSync(file)) issues.push({ path, message: `no file at ${file}` });
+  };
+  check(["videos", video.index, "sceneModule"], video.sceneModule);
+  if (!isRendering) return issues;
+  if (config.brand.logo !== null) check(["brand", "logo", "svg"], config.brand.logo);
+  for (const kind of ["heading", "body"] as const) {
+    config.brand.fonts[kind]?.files.forEach((font, index) => check(["brand", "fonts", kind, "files", index, "path"], font.path));
+  }
+  for (const event of SFX_EVENTS) {
+    const sound = config.sfx[event];
+    if (sound !== undefined) check(["sfx", event], sound);
+  }
+  return issues;
+}
+
+/** Problems found after loading, in the same format as the load errors. */
+export function formatConfigIssues(config: MarketingConfig, issues: readonly ConfigIssue[]): string {
+  return formatIssues(config.file, issues);
 }

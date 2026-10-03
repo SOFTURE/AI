@@ -12,14 +12,7 @@ import type { Beat } from "../film.js";
 
 export const ELEVENLABS_API_URL = "https://api.elevenlabs.io";
 export const ELEVENLABS_DEFAULT_MODEL = "eleven_multilingual_v2";
-/** FIRE's narrator voice (Polish, male, narration), chosen by the owner on 2026-09-29. */
-export const ELEVENLABS_DEFAULT_VOICE = "P9yx385KN0FOmLll8Lkx";
 const OUTPUT_FORMAT = "mp3_44100_128";
-/**
- * The voiceover language. Fixed to Polish while the config is FIRE-shaped: it is part of the cache
- * key, so changing it would orphan every paid recording (the language becomes config in MK-7).
- */
-const VOICEOVER_LANGUAGE = "pl";
 
 export interface TimedWord {
   text: string;
@@ -49,24 +42,25 @@ export function voiceoverText(beats: Beat[]): string {
 }
 
 /**
- * Key of a paid recording in the voiceover cache. A different text, voice or model is a new
- * recording; the tempo is **not** part of the key.
+ * Key of a paid recording in the voiceover cache. A different text, voice, model or language is a
+ * new recording; the tempo is **not** part of the key. The hashed shape is FIRE_TRACKER's, so its
+ * paid recordings (language `pl`) keep their keys.
  */
-export function voiceoverKey(text: string, voiceId: string, modelId: string): string {
+export function voiceoverKey(text: string, voiceId: string, modelId: string, language: string): string {
   return createHash("sha256")
-    .update(JSON.stringify({ text, voice: voiceId, model: modelId, lang: VOICEOVER_LANGUAGE }))
+    .update(JSON.stringify({ text, voice: voiceId, model: modelId, lang: language }))
     .digest("hex")
     .slice(0, 16);
 }
 
-export function buildTtsRequest(text: string, voiceId: string, modelId: string): TtsRequest {
+export function buildTtsRequest(text: string, voiceId: string, modelId: string, language: string): TtsRequest {
   return {
     url: `${ELEVENLABS_API_URL}/v1/text-to-speech/${encodeURIComponent(voiceId)}/with-timestamps?output_format=${OUTPUT_FORMAT}`,
     body: {
       text,
       model_id: modelId,
       // Without an explicit language, numbers and abbreviations are normalised as English.
-      language_code: VOICEOVER_LANGUAGE,
+      language_code: language,
       voice_settings: { stability: 0.5, similarity_boost: 0.75, style: 0, speed: 1 },
     },
   };

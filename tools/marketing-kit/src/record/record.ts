@@ -3,16 +3,17 @@ import { join } from "node:path";
 
 import { chromium, type Locator } from "playwright";
 
-import { fitScale, unionRect, VIEWPORT, type Rect } from "../compose/timeline.js";
+import { fitScale, getGeometry, unionRect, type Rect } from "../compose/timeline.js";
+import type { ColorTheme } from "../config/colors.js";
 import { containsPhrase, sceneBeats, type CueName, type Director, type Film } from "../film.js";
 import type { BeatVoice } from "../voice/voiceover.js";
 
 /**
  * Recording of the real app **frame by frame**, with the page clock frozen.
  *
- * Why not a screen capture: `Page.startScreencast` always returns CSS pixels (390 px) whatever the
+ * Why not a screen capture: `Page.startScreencast` always returns CSS pixels whatever the
  * `deviceScaleFactor`, too soft for a 1080 px frame (measured on FIRE's prototype). Here every frame
- * is an @3× screenshot (1170×2532), and between screenshots the page clock (`page.clock`) and every
+ * is a screenshot at the device's scale, and between screenshots the page clock (`page.clock`) and every
  * CSS animation move by 1/30 s (the clock in whole ms, without accumulating drift), so counters,
  * bars and fireworks come out smooth and the same on every recording.
  */
@@ -61,12 +62,28 @@ export interface RecordOptions {
   filmPath: string;
   /** A Chromium to use instead of Playwright's own (`PLAYWRIGHT_CHROMIUM_PATH`). */
   executablePath?: string;
+  browser: BrowserSettings;
+}
+
+/** How the recording browser presents itself to the app, from `marketing.json`. */
+export interface BrowserSettings {
+  colorScheme: ColorTheme;
+  /** BCP 47, e.g. `en-US`. */
+  locale: string;
+  /** IANA zone, e.g. `Europe/London`. */
+  timezone: string;
+  /** Elements hidden while recording (a dev overlay, a floating banner). */
+  hideSelectors: string[];
+  /** The element whose text the screen guard reads. */
+  screenGuardSelector: string;
 }
 
 const ease = (t: number): number => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
 export async function recordFilm(options: RecordOptions): Promise<RecordingLog> {
-  const { film, url, outDir, voices, filmPath } = options;
+  const { film, url, outDir, voices, filmPath, browser: settings } = options;
+  const viewport = film.device.viewport;
+  const geometry = getGeometry(viewport);
   const framesDir = join(outDir, "frames");
   rmSync(framesDir, { recursive: true, force: true });
   // An old log next to new (or partial) frames would give a render with wrong times.
@@ -92,27 +109,27 @@ export async function recordFilm(options: RecordOptions): Promise<RecordingLog> 
   const browser = await chromium.launch(options.executablePath === undefined ? {} : { executablePath: options.executablePath });
   try {
     const context = await browser.newContext({
-      viewport: { ...VIEWPORT },
-      deviceScaleFactor: 3,
-      isMobile: true,
+      viewport: { ...viewport },
+      deviceScaleFactor: film.device.scale,
+      isMobile: film.device.isMobile,
       hasTouch: true,
-      colorScheme: "dark",
-      locale: "pl-PL",
-      timezoneId: "Europe/Warsaw",
+      colorScheme: settings.colorScheme,
+      locale: settings.locale,
+      timezoneId: settings.timezone,
     });
     const page = await context.newPage();
     // Limit of every Playwright action: taps, typing and reading the screen too.
     page.setDefaultTimeout(ACTION_TIMEOUT_MS);
-    // Noon UTC is the same day in Warsaw in winter and in summer.
+    // Noon UTC is the same calendar day in every zone from UTC-11 to UTC+11.
     const start = options.today === undefined ? new Date() : new Date(`${options.today}T12:00:00Z`);
     await page.clock.install({ time: start });
     await page.goto(url, { waitUntil: "networkidle" });
-    // While recording: no Next.js dev indicator and no floating mailing-list pill (it covers the
-    // bottom of the result screen); instant scrolling, because the browser's "smooth" runs in real time.
-    await page.addStyleTag({
-      content:
-        "nextjs-portal{display:none!important} [data-testid=lista-przyklejona]{display:none!important} html{scroll-behavior:auto!important}",
-    });
+    // While recording: the configured elements hidden (a dev indicator, a floating banner that covers
+    // the screen); instant scrolling, because the browser's "smooth" runs in real time. One tag per
+    // selector, so a selector the browser cannot parse (an unclosed quote) drops only its own rule.
+    for (const content of [...settings.hideSelectors.map((selector) => `${selector}{display:none!important}`), "html{scroll-behavior:auto!important}"]) {
+      await page.addStyleTag({ content });
+    }
     await page.evaluate(() => document.fonts.ready);
     // A slow load (a fresh next dev) can pass a fixed "+5 s" and then pauseAt throws "Cannot
     // fast-forward to the past", so the pause counts from the page's time.
@@ -206,7 +223,7 @@ export async function recordFilm(options: RecordOptions): Promise<RecordingLog> 
     /** Tap only a visible point: off screen a touch hits nothing. */
     async function ensureVisible(target: Locator): Promise<void> {
       const rect = await rectOf(target);
-      if (rect.y < 70 || rect.y + rect.h > VIEWPORT.height - 40) await bring(target, 180, 0.45);
+      if (rect.y < 70 || rect.y + rect.h > viewport.height - 40) await bring(target, 180, 0.45);
     }
 
     const director: Director = {
@@ -280,14 +297,14 @@ export async function recordFilm(options: RecordOptions): Promise<RecordingLog> 
       async focus(target, focusOptions) {
         const rect = await rectOfAll(target);
         if (focusOptions?.height !== undefined) rect.h = focusOptions.height;
-        log.camera.push({ f: frame, kind: "focus", rect, scale: focusOptions?.scale ?? fitScale(rect), whoosh: false });
+        log.camera.push({ f: frame, kind: "focus", rect, scale: focusOptions?.scale ?? fitScale(geometry, rect), whoosh: false });
       },
 
       wide(wideOptions) {
         log.camera.push({
           f: frame,
           kind: "wide",
-          rect: { x: 0, y: 0, w: VIEWPORT.width, h: VIEWPORT.height },
+          rect: { x: 0, y: 0, w: viewport.width, h: viewport.height },
           scale: wideOptions?.scale ?? 1,
           whoosh: wideOptions?.whoosh ?? false,
         });
@@ -309,7 +326,7 @@ export async function recordFilm(options: RecordOptions): Promise<RecordingLog> 
       },
 
       async checkScreen() {
-        const text = (await page.locator("main").innerText()).replace(/\s+/g, " ");
+        const text = (await page.locator(settings.screenGuardSelector).first().innerText()).replace(/\s+/g, " ");
         const missing = film.screenGuard.filter((phrase) => !containsPhrase(text, phrase));
         if (missing.length > 0) {
           throw new ScreenGuardError(

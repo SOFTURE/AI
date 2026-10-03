@@ -1,35 +1,62 @@
 import { describe, expect, it } from "vitest";
 
-import { CAMERA_TARGET, SCREEN, SCREEN_SCALE, cameraPose, captionChunks, fitScale, rewindFrames, unionRect, widePose } from "./timeline.js";
+import { cameraPose, captionChunks, fitScale, fitsFrame, getGeometry, rewindFrames, unionRect, widePose } from "./timeline.js";
+
+/** The phone FIRE_TRACKER records: the poses below are pinned on it. */
+const PHONE = getGeometry({ width: 390, height: 844 });
 
 /** A page point (CSS px) after passing through the phone and the camera: a path independent of `cameraPose`. */
 function project(point: { x: number; y: number }, pose: { scale: number; x: number; y: number }) {
-  const inFrameX = SCREEN.left + SCREEN_SCALE * point.x;
-  const inFrameY = SCREEN.top + SCREEN_SCALE * point.y;
+  const inFrameX = PHONE.screen.left + (640 / 390) * point.x;
+  const inFrameY = PHONE.screen.top + (640 / 390) * point.y;
   return { x: pose.scale * inFrameX + pose.x, y: pose.scale * inFrameY + pose.y };
 }
 
 describe("cameraPose", () => {
   it.each([1, 1.55])("puts the field's centre on the frame's target point at scale %s", (scale) => {
     const rect = { x: 41, y: 327, w: 308, h: 40 };
-    const center = project({ x: rect.x + rect.w / 2, y: rect.y + rect.h / 2 }, cameraPose(rect, scale));
-    expect(center.x).toBeCloseTo(CAMERA_TARGET.x, 2);
-    expect(center.y).toBeCloseTo(CAMERA_TARGET.y, 2);
+    const center = project({ x: rect.x + rect.w / 2, y: rect.y + rect.h / 2 }, cameraPose(PHONE, rect, scale));
+    expect(center.x).toBeCloseTo(540, 2);
+    expect(center.y).toBeCloseTo(900, 2);
   });
 
   it("leaves the phone where it stands at scale 1 on the whole screen", () => {
-    expect(widePose(1)).toEqual({ scale: 1, x: 0, y: 0 });
+    expect(widePose(PHONE, 1)).toEqual({ scale: 1, x: 0, y: 0 });
   });
 });
 
 describe("fitScale", () => {
   it("does not zoom a narrow button beyond the recording's sharpness", () => {
-    expect(fitScale({ x: 0, y: 0, w: 60, h: 40 })).toBe(1.7);
+    expect(fitScale(PHONE, { x: 0, y: 0, w: 60, h: 40 })).toBe(1.7);
   });
 
   it("fills 80% of the frame with an element as wide as the phone", () => {
     // Oracle by hand: the screen is 640 px, 80% of the frame is 864 px -> 864 / 640 = 1.35.
-    expect(fitScale({ x: 0, y: 0, w: 390, h: 40 })).toBe(1.35);
+    expect(fitScale(PHONE, { x: 0, y: 0, w: 390, h: 40 })).toBe(1.35);
+  });
+});
+
+describe("getGeometry", () => {
+  it("puts any device's screen 640 px wide at the same place in the 9:16 frame", () => {
+    // Oracle by hand: 640 / 412 = 1.5534; 915 × 1.5534 = 1421.4 -> 1421.
+    const geometry = getGeometry({ width: 412, height: 915 });
+    expect(geometry.frame).toEqual({ width: 1080, height: 1920 });
+    expect(geometry.screen).toEqual({ left: 220, top: 214, width: 640 });
+    expect(geometry.screenScale).toBeCloseTo(1.5534, 4);
+    expect(geometry.screenHeight).toBe(1421);
+    expect(widePose(geometry, 1)).toEqual({ scale: 1, x: 0, y: 0 });
+  });
+
+  it("keeps FIRE_TRACKER's phone at 1385 px of screen height", () => {
+    expect(PHONE.screenHeight).toBe(1385);
+  });
+});
+
+describe("fitsFrame", () => {
+  it("accepts a phone and refuses a screen taller than the frame below its top edge", () => {
+    // Oracle by hand: 214 + 640 × 2.66 = 1916 fits; 214 + 640 × 2.7 = 1942 does not.
+    expect(fitsFrame({ width: 100, height: 266 })).toBe(true);
+    expect(fitsFrame({ width: 100, height: 270 })).toBe(false);
   });
 });
 

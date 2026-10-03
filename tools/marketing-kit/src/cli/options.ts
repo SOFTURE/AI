@@ -1,4 +1,4 @@
-import { DEFAULT_CONFIG_FILE } from "../config/config.js";
+import { DEFAULT_CONFIG_FILE, QUALITIES, type Quality } from "../config/schema.js";
 
 /**
  * `softure-marketing <command> <film> [flags]`: argument parsing, kept apart from the commands so it
@@ -9,10 +9,6 @@ import { DEFAULT_CONFIG_FILE } from "../config/config.js";
 export const COMMANDS = ["all", "voice", "record", "render", "preview", "posts"] as const;
 
 export type Command = (typeof COMMANDS)[number];
-
-export const QUALITIES = ["draft", "standard", "high"] as const;
-
-export type Quality = (typeof QUALITIES)[number];
 
 const KNOWN_FLAGS = ["commit", "today", "url", "quality", "config"];
 const FILM_ID = /^[a-z0-9]+(-[a-z0-9]+)*$/;
@@ -26,7 +22,8 @@ export interface CliOptions {
   today?: string;
   /** Another address of the recorded page. */
   url?: string;
-  quality: Quality;
+  /** `--quality`; without it, `output.quality` from the config. */
+  quality?: Quality;
   /** Path of the config file, relative to the current directory. */
   configPath: string;
 }
@@ -34,14 +31,14 @@ export interface CliOptions {
 export type ReadOptionsResult = { ok: true; options: CliOptions } | { ok: false; error: string };
 
 export const USAGE = [
-  "Usage: softure-marketing <command> <film> [--config=marketing.config.json]",
+  `Usage: softure-marketing <command> <film> [--config=${DEFAULT_CONFIG_FILE}]`,
   "",
   "  all <film>                      voiceover from the cache -> recording -> render -> post copy",
   "  voice <film> [--commit]         voiceover; without --commit it only counts the characters",
   "  record <film> [--today=YYYY-MM-DD] [--url=...]",
   "  render <film> [--quality=draft|standard|high]",
   "  preview <film>                  open the composition in the hyperframes preview",
-  "  posts <film>                    post copy for Instagram, Facebook and TikTok",
+  "  posts <film>                    post copy for the configured platforms",
 ].join("\n");
 
 function isCommand(value: string | undefined): value is Command {
@@ -77,15 +74,15 @@ export function readOptions(argv: string[]): ReadOptionsResult {
   if (!FILM_ID.test(filmId)) return { ok: false, error: `film name "${filmId}": lowercase letters, digits and hyphens only.` };
   const today = flags.get("today");
   if (today !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(today)) return { ok: false, error: `--today=${today}: expected YYYY-MM-DD.` };
-  const quality = flags.get("quality") ?? "standard";
-  if (!isQuality(quality)) return { ok: false, error: `--quality=${quality}: expected ${QUALITIES.join(" | ")}.` };
+  const quality = flags.get("quality");
+  if (quality !== undefined && !isQuality(quality)) return { ok: false, error: `--quality=${quality}: expected ${QUALITIES.join(" | ")}.` };
   const commit = flags.get("commit");
   if (commit !== undefined && commit !== "true") return { ok: false, error: `--commit takes no value (got "${commit}").` };
   if (command === "all" && commit !== undefined) {
     return { ok: false, error: `"all" takes the voiceover from the cache only; to pay for one: softure-marketing voice ${filmId} --commit.` };
   }
   const configPath = flags.get("config") ?? DEFAULT_CONFIG_FILE;
-  if (configPath === "true" || configPath.length === 0) return { ok: false, error: "--config needs a path, e.g. --config=marketing.config.json." };
+  if (configPath === "true" || configPath.length === 0) return { ok: false, error: `--config needs a path, e.g. --config=${DEFAULT_CONFIG_FILE}.` };
   const url = flags.get("url");
   if (url === "true") return { ok: false, error: "--url needs an address, e.g. --url=http://localhost:3000/calculator." };
   return {

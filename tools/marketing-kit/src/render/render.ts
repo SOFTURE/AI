@@ -1,13 +1,15 @@
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { dirname, join } from "node:path";
+import { dirname, extname, join } from "node:path";
 
-import { composeFilm, filmTimes } from "../compose/compose.js";
-import { readSiteTokens } from "../compose/site-tokens.js";
-import { rewindFrames } from "../compose/timeline.js";
+import { composeFilm, filmTimes, type ComposeFont } from "../compose/compose.js";
+import { getGeometry, rewindFrames } from "../compose/timeline.js";
+import type { BrandColors } from "../config/colors.js";
+import type { BrandFont } from "../config/config.js";
+import type { SfxEvent } from "../config/schema.js";
 import type { Film } from "../film.js";
-import type { MarketingLocale, MarketingMessages } from "../messages/index.js";
+import type { MarketingMessages } from "../messages/index.js";
 import type { RecordingLog } from "../record/record.js";
 import type { BeatVoice } from "../voice/voiceover.js";
 import { runHyperframes } from "./hyperframes.js";
@@ -22,13 +24,14 @@ export interface RenderInput {
   buildDir: string;
   /** The cached voiceover recording (before the tempo change). */
   voiceoverAudio: string;
-  /** The project's font and SFX folders, copied next to the composition. */
-  fontsDir: string;
-  sfxDir: string;
-  /** The app's stylesheet the colours are read from. */
-  siteCss: string;
+  /** The brand's assets, copied next to the composition. */
+  fonts: { heading: BrandFont | null; body: BrandFont | null };
+  logo: string | null;
+  sfx: Partial<Record<SfxEvent, string>>;
+  colors: BrandColors;
   brandName: string;
-  locale: MarketingLocale;
+  /** BCP 47, e.g. `en-US`. */
+  locale: string;
   messages: MarketingMessages;
   quality: string;
   /** The finished MP4. */
@@ -41,6 +44,27 @@ function run(command: string, args: string[]): void {
   if (result.error !== undefined) throw new Error(`${label} did not start: ${result.error.message}.`);
   if (result.signal !== null) throw new Error(`${label} was stopped by signal ${result.signal}.`);
   if (result.status !== 0) throw new Error(`${label} ended with code ${String(result.status)}.`);
+}
+
+/** Copies each font file as `<n>.<ext>`: two files with one name cannot overwrite each other, and the name is safe inside url("…"). */
+function copyFonts(fonts: RenderInput["fonts"], dir: string): { heading: ComposeFont | null; body: ComposeFont | null } {
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  let count = 0;
+  const copy = (font: BrandFont | null): ComposeFont | null => {
+    if (font === null) return null;
+    return {
+      family: font.family,
+      fallback: font.fallback,
+      faces: font.files.map((file) => {
+        const name = `${count}${extname(file.path).toLowerCase()}`;
+        count += 1;
+        cpSync(file.path, join(dir, name));
+        return { src: `assets/fonts/${name}`, weight: file.weight, style: file.style, unicodeRange: file.unicodeRange };
+      }),
+    };
+  };
+  return { body: copy(fonts.body), heading: copy(fonts.heading) };
 }
 
 function getFramePath(dir: string, index: number): string {
@@ -69,12 +93,21 @@ export function buildComposition(input: RenderInput): string {
   cpSync(getFramePath(dir, still), join(assetsDir, "hook.jpg"));
   cpSync(getFramePath(dir, log.frames - 1), join(assetsDir, "last.jpg"));
   ff(["-i", input.voiceoverAudio, "-filter:a", `atempo=${film.voice.tempo}`, "-c:a", "libmp3lame", "-q:a", "2", join(assetsDir, "voiceover.mp3")]);
-  cpSync(input.fontsDir, join(assetsDir, "fonts"), { recursive: true });
-  cpSync(input.sfxDir, join(assetsDir, "sfx"), { recursive: true });
+  const fonts = copyFonts(input.fonts, join(assetsDir, "fonts"));
+  const logo = input.logo === null ? null : "assets/logo.svg";
+  if (input.logo !== null) cpSync(input.logo, join(assetsDir, "logo.svg"));
+  const sfxDir = join(assetsDir, "sfx");
+  rmSync(sfxDir, { recursive: true, force: true });
+  mkdirSync(sfxDir, { recursive: true });
+  const sfx: Partial<Record<SfxEvent, string>> = {};
+  for (const [event, source] of Object.entries(input.sfx) as [SfxEvent, string][]) {
+    const name = `${event}${extname(source)}`;
+    cpSync(source, join(sfxDir, name));
+    sfx[event] = `assets/sfx/${name}`;
+  }
   // GSAP comes from its own npm package at render time; no third-party file ships inside this package.
   cpSync(require.resolve("gsap/dist/gsap.min.js"), join(assetsDir, "gsap.min.js"));
 
-  const tokens = readSiteTokens(readFileSync(input.siteCss, "utf8"));
   const html = join(dir, "index.html");
   writeFileSync(
     html,
@@ -82,13 +115,17 @@ export function buildComposition(input: RenderInput): string {
       film,
       log,
       voices: input.voices,
-      tokens,
+      colors: input.colors,
+      geometry: getGeometry(film.device.viewport),
+      fonts,
       assets: {
         screen: "assets/screen.mp4",
         rewind: "assets/rewind.mp4",
         hookStill: "assets/hook.jpg",
         lastFrame: "assets/last.jpg",
         voiceover: "assets/voiceover.mp3",
+        logo,
+        sfx,
       },
       brandName: input.brandName,
       locale: input.locale,

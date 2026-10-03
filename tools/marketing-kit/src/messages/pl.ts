@@ -11,6 +11,9 @@ export const pl: typeof en = {
       instagram: "Instagram (Reels)",
       facebook: "Facebook (Reels / post)",
       tiktok: "TikTok",
+      youtube: "YouTube (Shorts)",
+      linkedin: "LinkedIn",
+      x: "X",
     },
   },
   film: {
