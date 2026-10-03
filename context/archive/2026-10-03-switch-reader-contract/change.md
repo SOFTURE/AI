@@ -1,12 +1,12 @@
 ---
 change_id: switch-reader-contract
 title: "auth.registration_closed flipped in the switches panel takes effect"
-status: plan_reviewed
+status: archived
 roadmap_item: FU-1
 branch: claude/project-thread-mchs9d
 created: 2026-10-03
 updated: 2026-10-03
-archived_at: null
+archived_at: 2026-10-03
 ---
 
 ## Intent
@@ -49,3 +49,4 @@ not to define the switch.
 - Framing: skipped. The problem and its outcome are fixed by the roadmap item and the ID-6 baseline
   (a known gap with a known cause, not a symptom of unclear origin), so there is no problem to reframe.
 - FU-7 (`analytics-action-redirect-tag`) waits for this change on master (shared auth files).
+- Archived 2026-10-03: auth reads `auth.registration_closed` through core's switch reader, which feature-switches provides, so the panel opens and closes registration; the panel reports manifest switches the app did not define.

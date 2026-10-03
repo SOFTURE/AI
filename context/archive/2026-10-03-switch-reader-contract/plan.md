@@ -53,14 +53,14 @@ already lists the modules); logging the report at startup (noise in every proces
 ### Phase 1: Contract, provider, auth
 
 #### Automated
-- [ ] 1.1 Core, feature-switches and auth tests pass, including registration closed by a stored row
-- [ ] 1.2 Gates green (typecheck, lint, test)
+- [x] 1.1 Core, feature-switches and auth tests pass, including registration closed by a stored row — 0d17c24
+- [x] 1.2 Gates green (typecheck, lint, test) — 0d17c24
 
 ### Phase 2: Example app, e2e, docs
 
 #### Automated
-- [ ] 2.1 Gates green (typecheck, lint, test, build)
-- [ ] 2.2 `npm run e2e` passes, including `e2e/registration-switch.serial.spec.ts`
+- [x] 2.1 Gates green (typecheck, lint, test, build) — 5e57620
+- [x] 2.2 `npm run e2e` passes, including `e2e/registration-switch.serial.spec.ts` — 5e57620
 
 #### Manual
-- [ ] 2.3 Impl review recorded in `reviews/impl-review.md`
+- [x] 2.3 Impl review recorded in `reviews/impl-review.md` — 5e57620
