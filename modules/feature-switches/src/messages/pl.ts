@@ -7,6 +7,8 @@ export const pl: typeof en = {
     empty: "Aplikacja nie deklaruje żadnych przełączników.",
     on: "Włączony",
     off: "Wyłączony",
+    undefinedTitle: "Przełączniki czytane przez moduły, których aplikacja nie definiuje",
+    undefinedItem: "{name} (moduł {module}) używa domyślnej wartości modułu. Zdefiniuj go w przełącznikach aplikacji, aby zmieniać go tutaj.",
   },
   source: {
     env: "Ustawiony zmienną środowiskową {envName}. Zmień go tam.",

@@ -1,6 +1,6 @@
 "use client";
 
-import type { Locale } from "@softure-ai/core";
+import { formatMessage, type Locale } from "@softure-ai/core";
 import { type ClassNames, createSlotClassGetter, FormError, Switch } from "@softure-ai/ui";
 import { useActionState, useState, useTransition } from "react";
 import type { SwitchFormState } from "../contract.js";
@@ -13,7 +13,7 @@ import { type FeatureSwitchesMessages, getSwitchErrorMessage } from "../messages
 
 export type SwitchPanelAction = (previous: SwitchFormState, formData: FormData) => Promise<SwitchFormState>;
 
-export type SwitchPanelSlot = "root" | "list" | "item" | "note" | "empty";
+export type SwitchPanelSlot = "root" | "list" | "item" | "note" | "empty" | "undefined";
 
 /** One switch as the panel renders it; the page prepares it on the server. */
 export interface SwitchPanelRow {
@@ -27,8 +27,16 @@ export interface SwitchPanelRow {
   readonly note: string;
 }
 
+/** A switch a module names in its manifest that the app did not define (`listUndefinedManifestSwitches`). */
+export interface SwitchPanelUndefinedSwitch {
+  readonly name: string;
+  readonly moduleId: string;
+}
+
 export interface SwitchPanelProps {
   readonly switches: readonly SwitchPanelRow[];
+  /** Listed under the switches as a report; nothing is shown when empty or omitted. */
+  readonly undefinedSwitches?: readonly SwitchPanelUndefinedSwitch[];
   readonly action: SwitchPanelAction;
   readonly messages: FeatureSwitchesMessages;
   /** Locale of the built-in copy of the ui primitives. */
@@ -43,6 +51,7 @@ const DEFAULT_CLASSES: Readonly<Record<SwitchPanelSlot, string>> = {
   item: "sft:flex sft:flex-col sft:gap-1",
   note: "sft:m-0 sft:text-xs sft:text-muted",
   empty: "sft:m-0 sft:text-sm sft:text-muted",
+  undefined: "sft:m-0 sft:flex sft:flex-col sft:gap-1 sft:text-xs sft:text-muted",
 };
 
 function SwitchItem({
@@ -90,8 +99,11 @@ function SwitchItem({
   );
 }
 
-/** Every declared switch with its toggle; the empty state when the app declares none. */
-export function SwitchPanel({ switches, action, messages, locale, classNames, unstyled }: SwitchPanelProps) {
+/**
+ * Every declared switch with its toggle; the empty state when the app declares none. Below them, the
+ * switches modules read that the app did not define, so an admin knows they cannot be flipped here.
+ */
+export function SwitchPanel({ switches, undefinedSwitches = [], action, messages, locale, classNames, unstyled }: SwitchPanelProps) {
   const slot = createSlotClassGetter({ defaults: DEFAULT_CLASSES, classNames, unstyled });
   return (
     <div className={slot("root")}>
@@ -103,6 +115,16 @@ export function SwitchPanel({ switches, action, messages, locale, classNames, un
             <SwitchItem key={row.name} row={row} action={action} messages={messages} locale={locale} slot={slot} unstyled={unstyled} />
           ))}
         </ul>
+      )}
+      {undefinedSwitches.length > 0 && (
+        <section className={slot("undefined")} aria-label={messages.panel.undefinedTitle}>
+          <p className={unstyled === true ? undefined : "sft:m-0 sft:font-medium"}>{messages.panel.undefinedTitle}</p>
+          {undefinedSwitches.map((entry) => (
+            <p key={entry.name} className={unstyled === true ? undefined : "sft:m-0"}>
+              {formatMessage(messages.panel.undefinedItem, { name: entry.name, module: entry.moduleId })}
+            </p>
+          ))}
+        </section>
       )}
     </div>
   );

@@ -14,7 +14,11 @@ export const SWITCHES: SwitchDefinitionInput[] = [
   { name: "app.beta_banner", default: true, failMode: "open" },
 ];
 
-export function createConfig(switches: SwitchDefinitionInput[] = SWITCHES, locale: "en" | "pl" = "en"): SoftureConfig {
+export function createConfig(
+  switches: SwitchDefinitionInput[] = SWITCHES,
+  locale: "en" | "pl" = "en",
+  authOptions: { readonly registrationClosed?: boolean } = {},
+): SoftureConfig {
   return defineSoftureConfig({
     database: { url: "pglite://" },
     locale,
@@ -22,7 +26,7 @@ export function createConfig(switches: SwitchDefinitionInput[] = SWITCHES, local
     appOrigin: "http://localhost:3000",
     modules: [
       security({ clientIp: headerIp("x-real-ip"), buckets: AUTH_RATE_LIMIT_BUCKETS, cleanupProbability: 0 }),
-      auth({ password: { scrypt: { cost: 2 ** 10 } } }),
+      auth({ password: { scrypt: { cost: 2 ** 10 } }, ...authOptions }),
       featureSwitches({ switches }),
     ],
   });

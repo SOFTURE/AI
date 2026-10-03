@@ -6,12 +6,15 @@ import { featureSwitchesMessages } from "./messages/index.js";
 import { featureSwitchesOptionsSchema } from "./options.js";
 import { checkSwitchesTable } from "./server/health.js";
 import { switchesPrivacyContributor } from "./server/privacy.js";
+import { readDeclaredSwitch } from "./server/reader.js";
 
 export const MODULE_ID = "feature-switches";
 
 /**
  * Enables runtime switches in `softure.config.ts` (after `auth({ ... })`, which guards the panel):
  * `featureSwitches({ switches: [{ name: "billing.checkout_enabled", default: false }] })`.
+ * The module is the app's switch provider: other modules read the switches they name in their
+ * manifests through `readSwitch` of `@softure-ai/core` once the app defines them here.
  */
 export const featureSwitches = defineModule({
   manifest: {
@@ -31,6 +34,7 @@ export const featureSwitches = defineModule({
   migrations: { dir: resolveMigrationsDir(import.meta.url, "../migrations/") },
   privacy: switchesPrivacyContributor,
   health: checkSwitchesTable,
+  switchReader: readDeclaredSwitch,
 });
 
 export type { FeatureSwitchesErrorCode, SwitchFormErrorCode, SwitchFormState, SwitchSource, SwitchView } from "./contract.js";
