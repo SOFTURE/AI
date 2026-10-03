@@ -55,6 +55,7 @@ Snapshot: a7c5f35 on claude/project-thread-ekulai (from master), 2026-10-03.
 - First CI probe (run 37160186638): `ensure --force` downloaded and printed "Ready to render." within 4 s, then never
   exited (cancelled after 6 min). Without a download (`HYPERFRAMES_BROWSER_PATH` set, or the cache present) the same
   command exits in about 1 s locally.
+- CI with the workaround (run 37161219144): download and stop in a few seconds, render test 82 s, job about 2 min 10 s.
 
 ## Risks
 - ffmpeg on the runner: ubuntu-latest may not ship it; install it with apt when `command -v ffmpeg` fails.

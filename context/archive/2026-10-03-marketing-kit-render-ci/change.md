@@ -1,12 +1,12 @@
 ---
 change_id: marketing-kit-render-ci
 title: "The marketing-kit fixture film renders in CI"
-status: implementing
+status: archived
 roadmap_item: FU-13
 branch: claude/project-thread-ekulai
 created: 2026-10-03
 updated: 2026-10-03
-archived_at: null
+archived_at: 2026-10-03
 ---
 
 ## Intent
@@ -31,7 +31,7 @@ From [`roadmap.md`](../../foundation/roadmap.md), item **FU-13** (roadmap `follo
 > - **Source:** `tools/marketing-kit/tests/render.test.ts`; `context/archive/2026-10-03-mk-core-port/research.md` (Open questions)
 
 The MK-1 research decided the render test stays opt-in and named a CI job as a followup gap
-([`research.md`, Open questions](../../archive/2026-10-03-mk-core-port/research.md)). Since MK-4 the `test` job of
+([`research.md`, Open questions](../2026-10-03-mk-core-port/research.md)). Since MK-4 the `test` job of
 `.github/workflows/ci.yml` sets `PLAYWRIGHT_CHROMIUM_PATH=/usr/bin/google-chrome`, so the screenshot tests already
 drive a browser in CI; the render test is still skipped there. The backlog entry this change was opened from is
 [`backlog-input.md`](backlog-input.md).
@@ -51,3 +51,4 @@ drive a browser in CI; the render test is still skipped there. The backlog entry
   hyperframes' browser resolution.
 - Framing skipped: the outcome is not bug-shaped, the roadmap item pins the scope (one CI job running one existing
   test), and nothing questions whether the problem is the right one.
+- Archived 2026-10-03: the fixture film renders in the `render` job of ci.yml on every push (82 s test, about 2 min job).

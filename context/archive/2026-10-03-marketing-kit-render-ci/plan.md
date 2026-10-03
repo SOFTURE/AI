@@ -71,6 +71,6 @@ root `vitest.config.mts`, so `NODE_ENV=test` and the TZ pin hold.
 ### Phase 1: The render job
 
 #### Automated
-- [ ] 1.1 The `render` job is green on the PR head and its log shows the render test passed, not skipped
-- [ ] 1.2 `HYPERFRAMES_BROWSER_PATH` points into `~/.cache/hyperframes` (guard step passes)
-- [ ] 1.3 Gates green (typecheck, lint, test)
+- [x] 1.1 The `render` job is green on the PR head and its log shows the render test passed, not skipped — ac37f0e
+- [x] 1.2 `HYPERFRAMES_BROWSER_PATH` points into `~/.cache/hyperframes` (guard step passes) — ac37f0e
+- [x] 1.3 Gates green (typecheck, lint, test) — ac37f0e
