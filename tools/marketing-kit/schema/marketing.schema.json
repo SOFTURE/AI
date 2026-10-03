@@ -3,6 +3,7 @@
   "type": "object",
   "properties": {
     "$schema": {
+      "description": "The JSON Schema this file follows, for editor completion and these descriptions.",
       "type": "string"
     },
     "brand": {
@@ -10,16 +11,20 @@
       "properties": {
         "name": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "description": "The product's name, shown on the end card."
         },
         "locale": {
           "type": "string",
-          "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$"
+          "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$",
+          "description": "BCP 47 locale (en-US): the recording browser's locale, <html lang> and the language of the copy. Its language needs a message dictionary: en, pl."
         },
         "timezone": {
-          "type": "string"
+          "type": "string",
+          "description": "IANA zone of the recording browser, e.g. Europe/London."
         },
         "logo": {
+          "description": "The end card's logo next to the name; without it, the name alone.",
           "type": "object",
           "properties": {
             "svg": {
@@ -27,7 +32,7 @@
               "minLength": 1,
               "format": "ends_with",
               "pattern": ".*\\.svg$",
-              "description": "A path relative to the folder of marketing.json."
+              "description": "The logo as an .svg file, relative to the folder of marketing.json."
             }
           },
           "required": [
@@ -36,54 +41,66 @@
           "additionalProperties": false
         },
         "colors": {
+          "description": "The colour roles as hex colours; a colour set here wins over tokensFrom.",
           "default": {},
           "type": "object",
           "properties": {
             "background": {
+              "description": "The frame behind the phone and the vignette; #rrggbb, because the vignette appends an alpha. A hex colour; without it, the colour comes from tokensFrom.",
               "type": "string"
             },
             "foreground": {
+              "description": "Text on the background: the persona card's name, the end card. A hex colour; without it, the colour comes from tokensFrom.",
               "type": "string"
             },
             "muted": {
+              "description": "Secondary text: the persona card's tagline, the end card's note. A hex colour; without it, the colour comes from tokensFrom.",
               "type": "string"
             },
             "accent": {
+              "description": "The touch ring and the end of the avatar's gradient. A hex colour; without it, the colour comes from tokensFrom.",
               "type": "string"
             },
             "cta": {
+              "description": "The end card's link pill and the start of the avatar's gradient. A hex colour; without it, the colour comes from tokensFrom.",
               "type": "string"
             },
             "onCta": {
+              "description": "Text on the cta colour. A hex colour; without it, the colour comes from tokensFrom.",
               "type": "string"
             },
             "captionBackground": {
+              "description": "The caption pill. A hex colour; without it, the colour comes from tokensFrom.",
               "type": "string"
             },
             "captionText": {
+              "description": "Caption words not spoken yet. A hex colour; without it, the colour comes from tokensFrom.",
               "type": "string"
             },
             "captionHighlight": {
+              "description": "The word being spoken. A hex colour; without it, the colour comes from tokensFrom.",
               "type": "string"
             }
           },
           "additionalProperties": false
         },
         "tokensFrom": {
+          "description": "Where the colours not set in colors come from: the app's stylesheet or an Impeccable design.json.",
           "type": "object",
           "properties": {
             "css": {
+              "description": "The app's stylesheet whose custom properties hold the tokens; give this or designJson.",
               "type": "string",
-              "minLength": 1,
-              "description": "A path relative to the folder of marketing.json."
+              "minLength": 1
             },
             "designJson": {
+              "description": "An Impeccable design.json (schemaVersion 2) holding the tokens; give this or css.",
               "type": "string",
-              "minLength": 1,
-              "description": "A path relative to the folder of marketing.json."
+              "minLength": 1
             },
             "theme": {
               "default": "dark",
+              "description": "Which theme's token values to read.",
               "type": "string",
               "enum": [
                 "light",
@@ -91,42 +108,52 @@
               ]
             },
             "roles": {
+              "description": "The source token each role reads; by default the role's own name in kebab case (onCta reads on-cta).",
               "default": {},
               "type": "object",
               "properties": {
                 "background": {
+                  "description": "The source token for the background role (The frame behind the phone and the vignette; #rrggbb, because the vignette appends an alpha.) Default: the role's name in kebab case.",
                   "type": "string",
                   "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
                 },
                 "foreground": {
+                  "description": "The source token for the foreground role (Text on the background: the persona card's name, the end card.) Default: the role's name in kebab case.",
                   "type": "string",
                   "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
                 },
                 "muted": {
+                  "description": "The source token for the muted role (Secondary text: the persona card's tagline, the end card's note.) Default: the role's name in kebab case.",
                   "type": "string",
                   "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
                 },
                 "accent": {
+                  "description": "The source token for the accent role (The touch ring and the end of the avatar's gradient.) Default: the role's name in kebab case.",
                   "type": "string",
                   "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
                 },
                 "cta": {
+                  "description": "The source token for the cta role (The end card's link pill and the start of the avatar's gradient.) Default: the role's name in kebab case.",
                   "type": "string",
                   "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
                 },
                 "onCta": {
+                  "description": "The source token for the onCta role (Text on the cta colour.) Default: the role's name in kebab case.",
                   "type": "string",
                   "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
                 },
                 "captionBackground": {
+                  "description": "The source token for the captionBackground role (The caption pill.) Default: the role's name in kebab case.",
                   "type": "string",
                   "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
                 },
                 "captionText": {
+                  "description": "The source token for the captionText role (Caption words not spoken yet.) Default: the role's name in kebab case.",
                   "type": "string",
                   "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
                 },
                 "captionHighlight": {
+                  "description": "The source token for the captionHighlight role (The word being spoken.) Default: the role's name in kebab case.",
                   "type": "string",
                   "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
                 }
@@ -137,18 +164,22 @@
           "additionalProperties": false
         },
         "fonts": {
+          "description": "The brand fonts the composition loads.",
           "default": {},
           "type": "object",
           "properties": {
             "heading": {
+              "description": "The end card's and the avatar's font; without it, the body font.",
               "type": "object",
               "properties": {
                 "family": {
                   "type": "string",
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9 _-]*$"
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9 _-]*$",
+                  "description": "The CSS family name the composition declares and uses, e.g. Inter."
                 },
                 "fallback": {
                   "default": "sans-serif",
+                  "description": "The generic family used while the files load, or alone when there are no files.",
                   "type": "string",
                   "enum": [
                     "serif",
@@ -159,6 +190,7 @@
                 },
                 "files": {
                   "default": [],
+                  "description": "The files of the family, one per weight and style; none: only the fallback is used.",
                   "type": "array",
                   "items": {
                     "type": "object",
@@ -167,7 +199,7 @@
                         "type": "string",
                         "minLength": 1,
                         "pattern": "\\.(?:woff2|woff|ttf|otf)$",
-                        "description": "A path relative to the folder of marketing.json."
+                        "description": "The font file (.woff2, .woff, .ttf or .otf), relative to the folder of marketing.json."
                       },
                       "weight": {
                         "anyOf": [
@@ -180,10 +212,12 @@
                             "type": "string",
                             "pattern": "^\\d{1,4}( \\d{1,4})?$"
                           }
-                        ]
+                        ],
+                        "description": "The weight this file draws (400), or a variable font's range (\"100 900\")."
                       },
                       "style": {
                         "default": "normal",
+                        "description": "Whether this file is the upright or the italic face.",
                         "type": "string",
                         "enum": [
                           "normal",
@@ -191,6 +225,7 @@
                         ]
                       },
                       "unicodeRange": {
+                        "description": "The characters this file covers, as a CSS unicode-range (U+0000-00FF,U+20AC); without it, all of them.",
                         "type": "string",
                         "pattern": "^U\\+[0-9A-Fa-f?]{1,6}(-[0-9A-Fa-f]{1,6})?(, ?U\\+[0-9A-Fa-f?]{1,6}(-[0-9A-Fa-f]{1,6})?)*$"
                       }
@@ -209,14 +244,17 @@
               "additionalProperties": false
             },
             "body": {
+              "description": "The captions' and the cards' font; without it, the system's sans-serif.",
               "type": "object",
               "properties": {
                 "family": {
                   "type": "string",
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9 _-]*$"
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9 _-]*$",
+                  "description": "The CSS family name the composition declares and uses, e.g. Inter."
                 },
                 "fallback": {
                   "default": "sans-serif",
+                  "description": "The generic family used while the files load, or alone when there are no files.",
                   "type": "string",
                   "enum": [
                     "serif",
@@ -227,6 +265,7 @@
                 },
                 "files": {
                   "default": [],
+                  "description": "The files of the family, one per weight and style; none: only the fallback is used.",
                   "type": "array",
                   "items": {
                     "type": "object",
@@ -235,7 +274,7 @@
                         "type": "string",
                         "minLength": 1,
                         "pattern": "\\.(?:woff2|woff|ttf|otf)$",
-                        "description": "A path relative to the folder of marketing.json."
+                        "description": "The font file (.woff2, .woff, .ttf or .otf), relative to the folder of marketing.json."
                       },
                       "weight": {
                         "anyOf": [
@@ -248,10 +287,12 @@
                             "type": "string",
                             "pattern": "^\\d{1,4}( \\d{1,4})?$"
                           }
-                        ]
+                        ],
+                        "description": "The weight this file draws (400), or a variable font's range (\"100 900\")."
                       },
                       "style": {
                         "default": "normal",
+                        "description": "Whether this file is the upright or the italic face.",
                         "type": "string",
                         "enum": [
                           "normal",
@@ -259,6 +300,7 @@
                         ]
                       },
                       "unicodeRange": {
+                        "description": "The characters this file covers, as a CSS unicode-range (U+0000-00FF,U+20AC); without it, all of them.",
                         "type": "string",
                         "pattern": "^U\\+[0-9A-Fa-f?]{1,6}(-[0-9A-Fa-f]{1,6})?(, ?U\\+[0-9A-Fa-f?]{1,6}(-[0-9A-Fa-f]{1,6})?)*$"
                       }
@@ -285,19 +327,22 @@
         "locale",
         "timezone"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "description": "The product's name, language, colours, fonts and logo."
     },
     "app": {
       "type": "object",
       "properties": {
         "baseUrl": {
           "type": "string",
-          "format": "uri"
+          "format": "uri",
+          "description": "Where an already running app answers, e.g. http://localhost:3000."
         },
         "port": {
           "type": "integer",
           "minimum": 1,
-          "maximum": 65535
+          "maximum": 65535,
+          "description": "Port of the app the CLI starts itself when baseUrl does not answer."
         },
         "startCommand": {
           "minItems": 1,
@@ -305,10 +350,12 @@
           "items": {
             "type": "string",
             "minLength": 1
-          }
+          },
+          "description": "The command that starts the app, as arguments (no shell), run in the folder of marketing.json; {port} is replaced by port."
         },
         "colorScheme": {
           "default": "light",
+          "description": "The colour scheme the recording browser prefers.",
           "type": "string",
           "enum": [
             "light",
@@ -317,6 +364,7 @@
         },
         "hideSelectors": {
           "default": [],
+          "description": "CSS selectors of elements hidden while recording, e.g. a dev overlay or a floating banner.",
           "type": "array",
           "items": {
             "type": "string",
@@ -325,6 +373,7 @@
         },
         "screenGuardSelector": {
           "default": "body",
+          "description": "The element whose text the screen guard reads.",
           "type": "string",
           "pattern": "^(?!.*\\/\\*)[^{};<>\\\\]+$"
         },
@@ -347,15 +396,18 @@
               ],
               "items": false,
               "minItems": 2,
-              "maxItems": 2
+              "maxItems": 2,
+              "description": "The recorded screen in CSS pixels, [width, height]; at most about 2.6 times as tall as wide."
             },
             "scale": {
               "type": "number",
               "minimum": 1,
-              "maximum": 4
+              "maximum": 4,
+              "description": "Device pixels per CSS pixel (1-4); the frame needs about 1080 / (640 / width) to stay sharp."
             },
             "mobile": {
               "default": true,
+              "description": "Whether the browser behaves as a phone (touch, mobile viewport).",
               "type": "boolean"
             }
           },
@@ -363,7 +415,8 @@
             "viewport",
             "scale"
           ],
-          "additionalProperties": false
+          "additionalProperties": false,
+          "description": "The recorded phone; a video can override it."
         }
       },
       "required": [
@@ -372,13 +425,15 @@
         "startCommand",
         "device"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "description": "The app the films and screenshots are recorded from."
     },
     "voice": {
       "type": "object",
       "properties": {
         "provider": {
           "default": "elevenlabs",
+          "description": "The text-to-speech service that records the voiceover.",
           "type": "string",
           "enum": [
             "elevenlabs"
@@ -386,35 +441,40 @@
         },
         "voiceId": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "description": "The provider's id of the voice; part of the voiceover cache key."
         },
         "model": {
           "default": "eleven_multilingual_v2",
+          "description": "The provider's speech model; part of the voiceover cache key.",
           "type": "string",
           "minLength": 1
         },
         "language": {
           "type": "string",
-          "pattern": "^[a-z]{2,3}$"
+          "pattern": "^[a-z]{2,3}$",
+          "description": "ISO 639 code the voice speaks (en, pl); part of the voiceover cache key."
         },
         "tempo": {
           "default": 1,
+          "description": "Speed-up (0.8-1.3) applied at build time, not in the API, so the paid cache stays valid.",
           "type": "number",
           "minimum": 0.8,
           "maximum": 1.3
         },
         "cacheDir": {
           "default": "marketing/voiceover",
+          "description": "The paid voiceover cache (<key>.mp3 and <key>.json), relative to the folder of marketing.json; commit it.",
           "type": "string",
-          "minLength": 1,
-          "description": "A path relative to the folder of marketing.json."
+          "minLength": 1
         }
       },
       "required": [
         "voiceId",
         "language"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "description": "The voiceover: provider, voice, language and the paid cache."
     },
     "videos": {
       "minItems": 1,
@@ -424,19 +484,23 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+            "description": "The film's id: its folder under output.dir and the name social.posts refer to."
           },
           "title": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "description": "The film's title: the heading of its posts.md and the composition's <title>."
           },
           "path": {
             "type": "string",
             "format": "starts_with",
-            "pattern": "^\\/.*"
+            "pattern": "^\\/.*",
+            "description": "The recorded page of the app, e.g. /calculator."
           },
           "format": {
             "default": "9:16",
+            "description": "The film's aspect ratio: 9:16 (full screen), 1:1 or 16:9 (a framed phone next to the copy).",
             "type": "string",
             "enum": [
               "9:16",
@@ -445,6 +509,7 @@
             ]
           },
           "device": {
+            "description": "The recorded phone for this film; without it, app.device.",
             "type": "object",
             "properties": {
               "viewport": {
@@ -463,15 +528,18 @@
                 ],
                 "items": false,
                 "minItems": 2,
-                "maxItems": 2
+                "maxItems": 2,
+                "description": "The recorded screen in CSS pixels, [width, height]; at most about 2.6 times as tall as wide."
               },
               "scale": {
                 "type": "number",
                 "minimum": 1,
-                "maximum": 4
+                "maximum": 4,
+                "description": "Device pixels per CSS pixel (1-4); the frame needs about 1080 / (640 / width) to stay sharp."
               },
               "mobile": {
                 "default": true,
+                "description": "Whether the browser behaves as a phone (touch, mobile viewport).",
                 "type": "boolean"
               }
             },
@@ -482,17 +550,21 @@
             "additionalProperties": false
           },
           "voice": {
+            "description": "Voice settings for this film only; each key falls back to voice.",
             "type": "object",
             "properties": {
               "voiceId": {
+                "description": "This film's voice; without it, voice.voiceId.",
                 "type": "string",
                 "minLength": 1
               },
               "model": {
+                "description": "This film's speech model; without it, voice.model.",
                 "type": "string",
                 "minLength": 1
               },
               "tempo": {
+                "description": "This film's speed-up (0.8-1.3); without it, voice.tempo.",
                 "type": "number",
                 "minimum": 0.8,
                 "maximum": 1.3
@@ -505,15 +577,18 @@
             "properties": {
               "name": {
                 "type": "string",
-                "minLength": 1
+                "minLength": 1,
+                "description": "The persona's name on the persona card."
               },
               "age": {
                 "type": "integer",
                 "minimum": 0,
-                "maximum": 150
+                "maximum": 150,
+                "description": "The persona's age on the persona card."
               },
               "tagline": {
-                "type": "string"
+                "type": "string",
+                "description": "One line about the persona under the name."
               }
             },
             "required": [
@@ -521,7 +596,8 @@
               "age",
               "tagline"
             ],
-            "additionalProperties": false
+            "additionalProperties": false,
+            "description": "The person the film is about, on the persona card from the start of the scene until the persona-out cue or the end card."
           },
           "beats": {
             "minItems": 3,
@@ -531,17 +607,21 @@
               "properties": {
                 "id": {
                   "type": "string",
-                  "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                  "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+                  "description": "The sentence's id, unique within the film."
                 },
                 "text": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "What the voiceover says; also the captions."
                 },
                 "pad": {
+                  "description": "Seconds held after the voiceover ends the sentence (0-5, default 0.35); only with actions.",
                   "type": "number",
                   "minimum": 0,
                   "maximum": 5
                 },
                 "actions": {
+                  "description": "What happens on screen during the sentence, in order; required on every sentence after the first when the film has no sceneModule.",
                   "type": "array",
                   "items": {
                     "oneOf": [
@@ -550,14 +630,17 @@
                         "properties": {
                           "do": {
                             "type": "string",
-                            "const": "wide"
+                            "const": "wide",
+                            "description": "Camera on the whole phone screen."
                           },
                           "scale": {
+                            "description": "Camera zoom (0.5-4, default 1).",
                             "type": "number",
                             "minimum": 0.5,
                             "maximum": 4
                           },
                           "whoosh": {
+                            "description": "Play the whoosh sound with the move (default false).",
                             "type": "boolean"
                           }
                         },
@@ -571,12 +654,15 @@
                         "properties": {
                           "do": {
                             "type": "string",
-                            "const": "tap"
+                            "const": "tap",
+                            "description": "Scrolls the element into view if needed and taps its centre."
                           },
                           "target": {
+                            "description": "The element, as a locator descriptor with exactly one of role, text, label, testId, css.",
                             "type": "object",
                             "properties": {
                               "role": {
+                                "description": "Find by ARIA role (Playwright getByRole), e.g. button; narrow it with name.",
                                 "type": "string",
                                 "enum": [
                                   "alert",
@@ -664,6 +750,7 @@
                                 ]
                               },
                               "name": {
+                                "description": "The accessible name, with role: a string or { regex, flags }.",
                                 "anyOf": [
                                   {
                                     "type": "string",
@@ -674,10 +761,12 @@
                                     "properties": {
                                       "regex": {
                                         "type": "string",
-                                        "minLength": 1
+                                        "minLength": 1,
+                                        "description": "A JavaScript regular expression source, without slashes."
                                       },
                                       "flags": {
                                         "default": "",
+                                        "description": "Any of i, m, s, u, each at most once.",
                                         "type": "string",
                                         "pattern": "^(?!.*(.).*\\1)[imsu]*$"
                                       }
@@ -690,6 +779,7 @@
                                 ]
                               },
                               "text": {
+                                "description": "Find by visible text (Playwright getByText): a substring, or { regex, flags }.",
                                 "anyOf": [
                                   {
                                     "type": "string",
@@ -700,10 +790,12 @@
                                     "properties": {
                                       "regex": {
                                         "type": "string",
-                                        "minLength": 1
+                                        "minLength": 1,
+                                        "description": "A JavaScript regular expression source, without slashes."
                                       },
                                       "flags": {
                                         "default": "",
+                                        "description": "Any of i, m, s, u, each at most once.",
                                         "type": "string",
                                         "pattern": "^(?!.*(.).*\\1)[imsu]*$"
                                       }
@@ -716,6 +808,7 @@
                                 ]
                               },
                               "label": {
+                                "description": "Find a form control by its label (Playwright getByLabel): a substring, or { regex, flags }.",
                                 "anyOf": [
                                   {
                                     "type": "string",
@@ -726,10 +819,12 @@
                                     "properties": {
                                       "regex": {
                                         "type": "string",
-                                        "minLength": 1
+                                        "minLength": 1,
+                                        "description": "A JavaScript regular expression source, without slashes."
                                       },
                                       "flags": {
                                         "default": "",
+                                        "description": "Any of i, m, s, u, each at most once.",
                                         "type": "string",
                                         "pattern": "^(?!.*(.).*\\1)[imsu]*$"
                                       }
@@ -742,14 +837,17 @@
                                 ]
                               },
                               "testId": {
+                                "description": "Find by data-testid (Playwright getByTestId).",
                                 "type": "string",
                                 "minLength": 1
                               },
                               "css": {
+                                "description": "Find by CSS selector; narrow it with hasText.",
                                 "type": "string",
                                 "minLength": 1
                               },
                               "hasText": {
+                                "description": "Only elements containing this text, with css.",
                                 "anyOf": [
                                   {
                                     "type": "string",
@@ -760,10 +858,12 @@
                                     "properties": {
                                       "regex": {
                                         "type": "string",
-                                        "minLength": 1
+                                        "minLength": 1,
+                                        "description": "A JavaScript regular expression source, without slashes."
                                       },
                                       "flags": {
                                         "default": "",
+                                        "description": "Any of i, m, s, u, each at most once.",
                                         "type": "string",
                                         "pattern": "^(?!.*(.).*\\1)[imsu]*$"
                                       }
@@ -776,9 +876,11 @@
                                 ]
                               },
                               "exact": {
+                                "description": "Whole and case-sensitive match of a string name, text or label (default false).",
                                 "type": "boolean"
                               },
                               "nth": {
+                                "description": "The n-th match (0 = the first); without it, a locator that matches several elements fails.",
                                 "type": "integer",
                                 "minimum": 0,
                                 "maximum": 9007199254740991
@@ -787,6 +889,7 @@
                             "additionalProperties": false
                           },
                           "after": {
+                            "description": "Seconds held after the tap (0-10, default 0.35).",
                             "type": "number",
                             "minimum": 0,
                             "maximum": 10
@@ -803,13 +906,16 @@
                         "properties": {
                           "do": {
                             "type": "string",
-                            "const": "type"
+                            "const": "type",
+                            "description": "Types into the focused element, one key at a time."
                           },
                           "text": {
                             "type": "string",
-                            "minLength": 1
+                            "minLength": 1,
+                            "description": "The text to type."
                           },
                           "perChar": {
+                            "description": "Seconds per key (0-10, default 0.13).",
                             "type": "number",
                             "minimum": 0,
                             "maximum": 10
@@ -826,14 +932,17 @@
                         "properties": {
                           "do": {
                             "type": "string",
-                            "const": "fill"
+                            "const": "fill",
+                            "description": "Taps input[name=<input>], moves the camera onto it and types the value."
                           },
                           "input": {
                             "type": "string",
-                            "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$"
+                            "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+                            "description": "The name attribute of the input, e.g. age."
                           },
                           "value": {
-                            "type": "string"
+                            "type": "string",
+                            "description": "The text typed into the input."
                           }
                         },
                         "required": [
@@ -848,7 +957,8 @@
                         "properties": {
                           "do": {
                             "type": "string",
-                            "const": "blur"
+                            "const": "blur",
+                            "description": "Takes the focus off the active element."
                           }
                         },
                         "required": [
@@ -861,7 +971,8 @@
                         "properties": {
                           "do": {
                             "type": "string",
-                            "const": "focus"
+                            "const": "focus",
+                            "description": "Camera on the element, or on the rectangle around several."
                           },
                           "target": {
                             "anyOf": [
@@ -869,6 +980,7 @@
                                 "type": "object",
                                 "properties": {
                                   "role": {
+                                    "description": "Find by ARIA role (Playwright getByRole), e.g. button; narrow it with name.",
                                     "type": "string",
                                     "enum": [
                                       "alert",
@@ -956,6 +1068,7 @@
                                     ]
                                   },
                                   "name": {
+                                    "description": "The accessible name, with role: a string or { regex, flags }.",
                                     "anyOf": [
                                       {
                                         "type": "string",
@@ -966,10 +1079,12 @@
                                         "properties": {
                                           "regex": {
                                             "type": "string",
-                                            "minLength": 1
+                                            "minLength": 1,
+                                            "description": "A JavaScript regular expression source, without slashes."
                                           },
                                           "flags": {
                                             "default": "",
+                                            "description": "Any of i, m, s, u, each at most once.",
                                             "type": "string",
                                             "pattern": "^(?!.*(.).*\\1)[imsu]*$"
                                           }
@@ -982,6 +1097,7 @@
                                     ]
                                   },
                                   "text": {
+                                    "description": "Find by visible text (Playwright getByText): a substring, or { regex, flags }.",
                                     "anyOf": [
                                       {
                                         "type": "string",
@@ -992,10 +1108,12 @@
                                         "properties": {
                                           "regex": {
                                             "type": "string",
-                                            "minLength": 1
+                                            "minLength": 1,
+                                            "description": "A JavaScript regular expression source, without slashes."
                                           },
                                           "flags": {
                                             "default": "",
+                                            "description": "Any of i, m, s, u, each at most once.",
                                             "type": "string",
                                             "pattern": "^(?!.*(.).*\\1)[imsu]*$"
                                           }
@@ -1008,6 +1126,7 @@
                                     ]
                                   },
                                   "label": {
+                                    "description": "Find a form control by its label (Playwright getByLabel): a substring, or { regex, flags }.",
                                     "anyOf": [
                                       {
                                         "type": "string",
@@ -1018,10 +1137,12 @@
                                         "properties": {
                                           "regex": {
                                             "type": "string",
-                                            "minLength": 1
+                                            "minLength": 1,
+                                            "description": "A JavaScript regular expression source, without slashes."
                                           },
                                           "flags": {
                                             "default": "",
+                                            "description": "Any of i, m, s, u, each at most once.",
                                             "type": "string",
                                             "pattern": "^(?!.*(.).*\\1)[imsu]*$"
                                           }
@@ -1034,14 +1155,17 @@
                                     ]
                                   },
                                   "testId": {
+                                    "description": "Find by data-testid (Playwright getByTestId).",
                                     "type": "string",
                                     "minLength": 1
                                   },
                                   "css": {
+                                    "description": "Find by CSS selector; narrow it with hasText.",
                                     "type": "string",
                                     "minLength": 1
                                   },
                                   "hasText": {
+                                    "description": "Only elements containing this text, with css.",
                                     "anyOf": [
                                       {
                                         "type": "string",
@@ -1052,10 +1176,12 @@
                                         "properties": {
                                           "regex": {
                                             "type": "string",
-                                            "minLength": 1
+                                            "minLength": 1,
+                                            "description": "A JavaScript regular expression source, without slashes."
                                           },
                                           "flags": {
                                             "default": "",
+                                            "description": "Any of i, m, s, u, each at most once.",
                                             "type": "string",
                                             "pattern": "^(?!.*(.).*\\1)[imsu]*$"
                                           }
@@ -1068,9 +1194,11 @@
                                     ]
                                   },
                                   "exact": {
+                                    "description": "Whole and case-sensitive match of a string name, text or label (default false).",
                                     "type": "boolean"
                                   },
                                   "nth": {
+                                    "description": "The n-th match (0 = the first); without it, a locator that matches several elements fails.",
                                     "type": "integer",
                                     "minimum": 0,
                                     "maximum": 9007199254740991
@@ -1085,6 +1213,7 @@
                                   "type": "object",
                                   "properties": {
                                     "role": {
+                                      "description": "Find by ARIA role (Playwright getByRole), e.g. button; narrow it with name.",
                                       "type": "string",
                                       "enum": [
                                         "alert",
@@ -1172,6 +1301,7 @@
                                       ]
                                     },
                                     "name": {
+                                      "description": "The accessible name, with role: a string or { regex, flags }.",
                                       "anyOf": [
                                         {
                                           "type": "string",
@@ -1182,10 +1312,12 @@
                                           "properties": {
                                             "regex": {
                                               "type": "string",
-                                              "minLength": 1
+                                              "minLength": 1,
+                                              "description": "A JavaScript regular expression source, without slashes."
                                             },
                                             "flags": {
                                               "default": "",
+                                              "description": "Any of i, m, s, u, each at most once.",
                                               "type": "string",
                                               "pattern": "^(?!.*(.).*\\1)[imsu]*$"
                                             }
@@ -1198,6 +1330,7 @@
                                       ]
                                     },
                                     "text": {
+                                      "description": "Find by visible text (Playwright getByText): a substring, or { regex, flags }.",
                                       "anyOf": [
                                         {
                                           "type": "string",
@@ -1208,10 +1341,12 @@
                                           "properties": {
                                             "regex": {
                                               "type": "string",
-                                              "minLength": 1
+                                              "minLength": 1,
+                                              "description": "A JavaScript regular expression source, without slashes."
                                             },
                                             "flags": {
                                               "default": "",
+                                              "description": "Any of i, m, s, u, each at most once.",
                                               "type": "string",
                                               "pattern": "^(?!.*(.).*\\1)[imsu]*$"
                                             }
@@ -1224,6 +1359,7 @@
                                       ]
                                     },
                                     "label": {
+                                      "description": "Find a form control by its label (Playwright getByLabel): a substring, or { regex, flags }.",
                                       "anyOf": [
                                         {
                                           "type": "string",
@@ -1234,10 +1370,12 @@
                                           "properties": {
                                             "regex": {
                                               "type": "string",
-                                              "minLength": 1
+                                              "minLength": 1,
+                                              "description": "A JavaScript regular expression source, without slashes."
                                             },
                                             "flags": {
                                               "default": "",
+                                              "description": "Any of i, m, s, u, each at most once.",
                                               "type": "string",
                                               "pattern": "^(?!.*(.).*\\1)[imsu]*$"
                                             }
@@ -1250,14 +1388,17 @@
                                       ]
                                     },
                                     "testId": {
+                                      "description": "Find by data-testid (Playwright getByTestId).",
                                       "type": "string",
                                       "minLength": 1
                                     },
                                     "css": {
+                                      "description": "Find by CSS selector; narrow it with hasText.",
                                       "type": "string",
                                       "minLength": 1
                                     },
                                     "hasText": {
+                                      "description": "Only elements containing this text, with css.",
                                       "anyOf": [
                                         {
                                           "type": "string",
@@ -1268,10 +1409,12 @@
                                           "properties": {
                                             "regex": {
                                               "type": "string",
-                                              "minLength": 1
+                                              "minLength": 1,
+                                              "description": "A JavaScript regular expression source, without slashes."
                                             },
                                             "flags": {
                                               "default": "",
+                                              "description": "Any of i, m, s, u, each at most once.",
                                               "type": "string",
                                               "pattern": "^(?!.*(.).*\\1)[imsu]*$"
                                             }
@@ -1284,9 +1427,11 @@
                                       ]
                                     },
                                     "exact": {
+                                      "description": "Whole and case-sensitive match of a string name, text or label (default false).",
                                       "type": "boolean"
                                     },
                                     "nth": {
+                                      "description": "The n-th match (0 = the first); without it, a locator that matches several elements fails.",
                                       "type": "integer",
                                       "minimum": 0,
                                       "maximum": 9007199254740991
@@ -1295,14 +1440,17 @@
                                   "additionalProperties": false
                                 }
                               }
-                            ]
+                            ],
+                            "description": "One element, or several meaning the rectangle around them all."
                           },
                           "scale": {
+                            "description": "Camera zoom (0.5-4); default: the zoom that fits the element.",
                             "type": "number",
                             "minimum": 0.5,
                             "maximum": 4
                           },
                           "height": {
+                            "description": "The height of the framed rectangle in CSS pixels, instead of the element's own.",
                             "type": "integer",
                             "minimum": 1,
                             "maximum": 4000
@@ -1319,12 +1467,15 @@
                         "properties": {
                           "do": {
                             "type": "string",
-                            "const": "bring"
+                            "const": "bring",
+                            "description": "Scrolls so the element's top edge stands top pixels from the top of the screen."
                           },
                           "target": {
+                            "description": "The element, as a locator descriptor with exactly one of role, text, label, testId, css.",
                             "type": "object",
                             "properties": {
                               "role": {
+                                "description": "Find by ARIA role (Playwright getByRole), e.g. button; narrow it with name.",
                                 "type": "string",
                                 "enum": [
                                   "alert",
@@ -1412,6 +1563,7 @@
                                 ]
                               },
                               "name": {
+                                "description": "The accessible name, with role: a string or { regex, flags }.",
                                 "anyOf": [
                                   {
                                     "type": "string",
@@ -1422,10 +1574,12 @@
                                     "properties": {
                                       "regex": {
                                         "type": "string",
-                                        "minLength": 1
+                                        "minLength": 1,
+                                        "description": "A JavaScript regular expression source, without slashes."
                                       },
                                       "flags": {
                                         "default": "",
+                                        "description": "Any of i, m, s, u, each at most once.",
                                         "type": "string",
                                         "pattern": "^(?!.*(.).*\\1)[imsu]*$"
                                       }
@@ -1438,6 +1592,7 @@
                                 ]
                               },
                               "text": {
+                                "description": "Find by visible text (Playwright getByText): a substring, or { regex, flags }.",
                                 "anyOf": [
                                   {
                                     "type": "string",
@@ -1448,10 +1603,12 @@
                                     "properties": {
                                       "regex": {
                                         "type": "string",
-                                        "minLength": 1
+                                        "minLength": 1,
+                                        "description": "A JavaScript regular expression source, without slashes."
                                       },
                                       "flags": {
                                         "default": "",
+                                        "description": "Any of i, m, s, u, each at most once.",
                                         "type": "string",
                                         "pattern": "^(?!.*(.).*\\1)[imsu]*$"
                                       }
@@ -1464,6 +1621,7 @@
                                 ]
                               },
                               "label": {
+                                "description": "Find a form control by its label (Playwright getByLabel): a substring, or { regex, flags }.",
                                 "anyOf": [
                                   {
                                     "type": "string",
@@ -1474,10 +1632,12 @@
                                     "properties": {
                                       "regex": {
                                         "type": "string",
-                                        "minLength": 1
+                                        "minLength": 1,
+                                        "description": "A JavaScript regular expression source, without slashes."
                                       },
                                       "flags": {
                                         "default": "",
+                                        "description": "Any of i, m, s, u, each at most once.",
                                         "type": "string",
                                         "pattern": "^(?!.*(.).*\\1)[imsu]*$"
                                       }
@@ -1490,14 +1650,17 @@
                                 ]
                               },
                               "testId": {
+                                "description": "Find by data-testid (Playwright getByTestId).",
                                 "type": "string",
                                 "minLength": 1
                               },
                               "css": {
+                                "description": "Find by CSS selector; narrow it with hasText.",
                                 "type": "string",
                                 "minLength": 1
                               },
                               "hasText": {
+                                "description": "Only elements containing this text, with css.",
                                 "anyOf": [
                                   {
                                     "type": "string",
@@ -1508,10 +1671,12 @@
                                     "properties": {
                                       "regex": {
                                         "type": "string",
-                                        "minLength": 1
+                                        "minLength": 1,
+                                        "description": "A JavaScript regular expression source, without slashes."
                                       },
                                       "flags": {
                                         "default": "",
+                                        "description": "Any of i, m, s, u, each at most once.",
                                         "type": "string",
                                         "pattern": "^(?!.*(.).*\\1)[imsu]*$"
                                       }
@@ -1524,9 +1689,11 @@
                                 ]
                               },
                               "exact": {
+                                "description": "Whole and case-sensitive match of a string name, text or label (default false).",
                                 "type": "boolean"
                               },
                               "nth": {
+                                "description": "The n-th match (0 = the first); without it, a locator that matches several elements fails.",
                                 "type": "integer",
                                 "minimum": 0,
                                 "maximum": 9007199254740991
@@ -1535,11 +1702,13 @@
                             "additionalProperties": false
                           },
                           "top": {
+                            "description": "Distance from the top of the screen in CSS pixels (default 140).",
                             "type": "integer",
                             "minimum": -4000,
                             "maximum": 4000
                           },
                           "seconds": {
+                            "description": "Duration of the scroll in seconds (0-10, default 0.5).",
                             "type": "number",
                             "minimum": 0,
                             "maximum": 10
@@ -1556,11 +1725,13 @@
                         "properties": {
                           "do": {
                             "type": "string",
-                            "const": "mark"
+                            "const": "mark",
+                            "description": "Remembers the element's rectangle under a name, e.g. for an opening shot (hook.shots[].mark)."
                           },
                           "name": {
                             "type": "string",
-                            "minLength": 1
+                            "minLength": 1,
+                            "description": "The name hook.shots refer to."
                           },
                           "target": {
                             "anyOf": [
@@ -1568,6 +1739,7 @@
                                 "type": "object",
                                 "properties": {
                                   "role": {
+                                    "description": "Find by ARIA role (Playwright getByRole), e.g. button; narrow it with name.",
                                     "type": "string",
                                     "enum": [
                                       "alert",
@@ -1655,6 +1827,7 @@
                                     ]
                                   },
                                   "name": {
+                                    "description": "The accessible name, with role: a string or { regex, flags }.",
                                     "anyOf": [
                                       {
                                         "type": "string",
@@ -1665,10 +1838,12 @@
                                         "properties": {
                                           "regex": {
                                             "type": "string",
-                                            "minLength": 1
+                                            "minLength": 1,
+                                            "description": "A JavaScript regular expression source, without slashes."
                                           },
                                           "flags": {
                                             "default": "",
+                                            "description": "Any of i, m, s, u, each at most once.",
                                             "type": "string",
                                             "pattern": "^(?!.*(.).*\\1)[imsu]*$"
                                           }
@@ -1681,6 +1856,7 @@
                                     ]
                                   },
                                   "text": {
+                                    "description": "Find by visible text (Playwright getByText): a substring, or { regex, flags }.",
                                     "anyOf": [
                                       {
                                         "type": "string",
@@ -1691,10 +1867,12 @@
                                         "properties": {
                                           "regex": {
                                             "type": "string",
-                                            "minLength": 1
+                                            "minLength": 1,
+                                            "description": "A JavaScript regular expression source, without slashes."
                                           },
                                           "flags": {
                                             "default": "",
+                                            "description": "Any of i, m, s, u, each at most once.",
                                             "type": "string",
                                             "pattern": "^(?!.*(.).*\\1)[imsu]*$"
                                           }
@@ -1707,6 +1885,7 @@
                                     ]
                                   },
                                   "label": {
+                                    "description": "Find a form control by its label (Playwright getByLabel): a substring, or { regex, flags }.",
                                     "anyOf": [
                                       {
                                         "type": "string",
@@ -1717,10 +1896,12 @@
                                         "properties": {
                                           "regex": {
                                             "type": "string",
-                                            "minLength": 1
+                                            "minLength": 1,
+                                            "description": "A JavaScript regular expression source, without slashes."
                                           },
                                           "flags": {
                                             "default": "",
+                                            "description": "Any of i, m, s, u, each at most once.",
                                             "type": "string",
                                             "pattern": "^(?!.*(.).*\\1)[imsu]*$"
                                           }
@@ -1733,14 +1914,17 @@
                                     ]
                                   },
                                   "testId": {
+                                    "description": "Find by data-testid (Playwright getByTestId).",
                                     "type": "string",
                                     "minLength": 1
                                   },
                                   "css": {
+                                    "description": "Find by CSS selector; narrow it with hasText.",
                                     "type": "string",
                                     "minLength": 1
                                   },
                                   "hasText": {
+                                    "description": "Only elements containing this text, with css.",
                                     "anyOf": [
                                       {
                                         "type": "string",
@@ -1751,10 +1935,12 @@
                                         "properties": {
                                           "regex": {
                                             "type": "string",
-                                            "minLength": 1
+                                            "minLength": 1,
+                                            "description": "A JavaScript regular expression source, without slashes."
                                           },
                                           "flags": {
                                             "default": "",
+                                            "description": "Any of i, m, s, u, each at most once.",
                                             "type": "string",
                                             "pattern": "^(?!.*(.).*\\1)[imsu]*$"
                                           }
@@ -1767,9 +1953,11 @@
                                     ]
                                   },
                                   "exact": {
+                                    "description": "Whole and case-sensitive match of a string name, text or label (default false).",
                                     "type": "boolean"
                                   },
                                   "nth": {
+                                    "description": "The n-th match (0 = the first); without it, a locator that matches several elements fails.",
                                     "type": "integer",
                                     "minimum": 0,
                                     "maximum": 9007199254740991
@@ -1784,6 +1972,7 @@
                                   "type": "object",
                                   "properties": {
                                     "role": {
+                                      "description": "Find by ARIA role (Playwright getByRole), e.g. button; narrow it with name.",
                                       "type": "string",
                                       "enum": [
                                         "alert",
@@ -1871,6 +2060,7 @@
                                       ]
                                     },
                                     "name": {
+                                      "description": "The accessible name, with role: a string or { regex, flags }.",
                                       "anyOf": [
                                         {
                                           "type": "string",
@@ -1881,10 +2071,12 @@
                                           "properties": {
                                             "regex": {
                                               "type": "string",
-                                              "minLength": 1
+                                              "minLength": 1,
+                                              "description": "A JavaScript regular expression source, without slashes."
                                             },
                                             "flags": {
                                               "default": "",
+                                              "description": "Any of i, m, s, u, each at most once.",
                                               "type": "string",
                                               "pattern": "^(?!.*(.).*\\1)[imsu]*$"
                                             }
@@ -1897,6 +2089,7 @@
                                       ]
                                     },
                                     "text": {
+                                      "description": "Find by visible text (Playwright getByText): a substring, or { regex, flags }.",
                                       "anyOf": [
                                         {
                                           "type": "string",
@@ -1907,10 +2100,12 @@
                                           "properties": {
                                             "regex": {
                                               "type": "string",
-                                              "minLength": 1
+                                              "minLength": 1,
+                                              "description": "A JavaScript regular expression source, without slashes."
                                             },
                                             "flags": {
                                               "default": "",
+                                              "description": "Any of i, m, s, u, each at most once.",
                                               "type": "string",
                                               "pattern": "^(?!.*(.).*\\1)[imsu]*$"
                                             }
@@ -1923,6 +2118,7 @@
                                       ]
                                     },
                                     "label": {
+                                      "description": "Find a form control by its label (Playwright getByLabel): a substring, or { regex, flags }.",
                                       "anyOf": [
                                         {
                                           "type": "string",
@@ -1933,10 +2129,12 @@
                                           "properties": {
                                             "regex": {
                                               "type": "string",
-                                              "minLength": 1
+                                              "minLength": 1,
+                                              "description": "A JavaScript regular expression source, without slashes."
                                             },
                                             "flags": {
                                               "default": "",
+                                              "description": "Any of i, m, s, u, each at most once.",
                                               "type": "string",
                                               "pattern": "^(?!.*(.).*\\1)[imsu]*$"
                                             }
@@ -1949,14 +2147,17 @@
                                       ]
                                     },
                                     "testId": {
+                                      "description": "Find by data-testid (Playwright getByTestId).",
                                       "type": "string",
                                       "minLength": 1
                                     },
                                     "css": {
+                                      "description": "Find by CSS selector; narrow it with hasText.",
                                       "type": "string",
                                       "minLength": 1
                                     },
                                     "hasText": {
+                                      "description": "Only elements containing this text, with css.",
                                       "anyOf": [
                                         {
                                           "type": "string",
@@ -1967,10 +2168,12 @@
                                           "properties": {
                                             "regex": {
                                               "type": "string",
-                                              "minLength": 1
+                                              "minLength": 1,
+                                              "description": "A JavaScript regular expression source, without slashes."
                                             },
                                             "flags": {
                                               "default": "",
+                                              "description": "Any of i, m, s, u, each at most once.",
                                               "type": "string",
                                               "pattern": "^(?!.*(.).*\\1)[imsu]*$"
                                             }
@@ -1983,9 +2186,11 @@
                                       ]
                                     },
                                     "exact": {
+                                      "description": "Whole and case-sensitive match of a string name, text or label (default false).",
                                       "type": "boolean"
                                     },
                                     "nth": {
+                                      "description": "The n-th match (0 = the first); without it, a locator that matches several elements fails.",
                                       "type": "integer",
                                       "minimum": 0,
                                       "maximum": 9007199254740991
@@ -1994,7 +2199,8 @@
                                   "additionalProperties": false
                                 }
                               }
-                            ]
+                            ],
+                            "description": "One element, or several meaning the rectangle around them all."
                           }
                         },
                         "required": [
@@ -2009,11 +2215,13 @@
                         "properties": {
                           "do": {
                             "type": "string",
-                            "const": "still"
+                            "const": "still",
+                            "description": "Remembers the current frame under a name, e.g. as the opening frame (hook.still)."
                           },
                           "name": {
                             "type": "string",
-                            "minLength": 1
+                            "minLength": 1,
+                            "description": "The name hook.still refers to."
                           }
                         },
                         "required": [
@@ -2027,14 +2235,16 @@
                         "properties": {
                           "do": {
                             "type": "string",
-                            "const": "cue"
+                            "const": "cue",
+                            "description": "Puts an event on the film's timeline."
                           },
                           "name": {
                             "type": "string",
                             "enum": [
                               "sparkle",
                               "persona-out"
-                            ]
+                            ],
+                            "description": "The event: sparkle, persona-out."
                           }
                         },
                         "required": [
@@ -2048,12 +2258,14 @@
                         "properties": {
                           "do": {
                             "type": "string",
-                            "const": "hold"
+                            "const": "hold",
+                            "description": "Lets the screen run."
                           },
                           "seconds": {
                             "type": "number",
                             "minimum": 0,
-                            "maximum": 30
+                            "maximum": 30,
+                            "description": "How long, in seconds (0-30)."
                           }
                         },
                         "required": [
@@ -2067,11 +2279,13 @@
                         "properties": {
                           "do": {
                             "type": "string",
-                            "const": "until"
+                            "const": "until",
+                            "description": "Waits until the voiceover says a word of the current sentence."
                           },
                           "word": {
                             "type": "string",
-                            "minLength": 1
+                            "minLength": 1,
+                            "description": "A word of this sentence, punctuation ignored."
                           }
                         },
                         "required": [
@@ -2085,7 +2299,8 @@
                         "properties": {
                           "do": {
                             "type": "string",
-                            "const": "checkScreen"
+                            "const": "checkScreen",
+                            "description": "Runs the screen guard now: every screenGuard phrase must be on screen."
                           }
                         },
                         "required": [
@@ -2102,14 +2317,16 @@
                 "text"
               ],
               "additionalProperties": false
-            }
+            },
+            "description": "Voiceover sentences in order (at least three): the first plays over the opening frame, the scene records the rest, the last ends with the end card."
           },
           "hook": {
             "type": "object",
             "properties": {
               "still": {
                 "type": "string",
-                "minLength": 1
+                "minLength": 1,
+                "description": "The name of the still action whose frame opens the film."
               },
               "shots": {
                 "minItems": 1,
@@ -2119,14 +2336,17 @@
                   "properties": {
                     "mark": {
                       "type": "string",
-                      "minLength": 1
+                      "minLength": 1,
+                      "description": "The name of the mark action whose rectangle this shot frames."
                     },
                     "scale": {
                       "type": "number",
                       "minimum": 0.5,
-                      "maximum": 4
+                      "maximum": 4,
+                      "description": "Camera zoom on the mark (0.5-4)."
                     },
                     "word": {
+                      "description": "The word of the first sentence on which this shot starts; required on every shot after the first, which starts with the film.",
                       "type": "string",
                       "minLength": 1
                     }
@@ -2136,35 +2356,41 @@
                     "scale"
                   ],
                   "additionalProperties": false
-                }
+                },
+                "description": "Camera moves over the opening frame, at least one."
               }
             },
             "required": [
               "still",
               "shots"
             ],
-            "additionalProperties": false
+            "additionalProperties": false,
+            "description": "The opening: the result frame the first sentence plays over."
           },
           "screenGuard": {
             "minItems": 1,
             "type": "array",
             "items": {
               "type": "string"
-            }
+            },
+            "description": "Phrases the voiceover says that the screen must show; a missing one stops the recording."
           },
           "endCard": {
             "type": "object",
             "properties": {
               "headline": {
                 "type": "string",
-                "minLength": 1
+                "minLength": 1,
+                "description": "The end card's headline."
               },
               "url": {
                 "type": "string",
-                "minLength": 1
+                "minLength": 1,
+                "description": "The address shown in the end card's link pill, as written (e.g. example.com)."
               },
               "note": {
                 "default": "",
+                "description": "A small line under the link; empty: none.",
                 "type": "string"
               }
             },
@@ -2172,12 +2398,13 @@
               "headline",
               "url"
             ],
-            "additionalProperties": false
+            "additionalProperties": false,
+            "description": "The closing card shown during the last sentence."
           },
           "sceneModule": {
+            "description": "A TS module exporting scene(director), relative to the folder of marketing.json: what happens on screen, instead of beat actions.",
             "type": "string",
-            "minLength": 1,
-            "description": "A path relative to the folder of marketing.json."
+            "minLength": 1
           }
         },
         "required": [
@@ -2191,13 +2418,16 @@
           "endCard"
         ],
         "additionalProperties": false
-      }
+      },
+      "description": "The films, at least one."
     },
     "social": {
+      "description": "Post copy for the films: the link, the platforms and their channel codes.",
       "type": "object",
       "properties": {
         "linkTemplate": {
-          "type": "string"
+          "type": "string",
+          "description": "The absolute link every post carries, with {code} where the platform's channel code goes."
         },
         "platforms": {
           "type": "object",
@@ -2218,39 +2448,48 @@
               "code": {
                 "type": "string",
                 "maxLength": 32,
-                "pattern": "^[a-z0-9]+(?:[-_][a-z0-9]+)*$"
+                "pattern": "^[a-z0-9]+(?:[-_][a-z0-9]+)*$",
+                "description": "The channel code the platform's link carries, so a visit from the film is counted (e.g. ig-01)."
               },
               "linkInBio": {
+                "description": "Whether the caption points to the link in the bio instead of carrying it; default true for instagram, tiktok, youtube.",
                 "type": "boolean"
               }
             },
             "required": [
               "code"
             ],
-            "additionalProperties": false
-          }
+            "additionalProperties": false,
+            "description": "The platform's channel code and link placement."
+          },
+          "description": "The platforms posts go to, at least one: instagram, facebook, tiktok, youtube, linkedin, x."
         },
         "posts": {
           "default": [],
+          "description": "Post copy per film; a film without a post gets no posts.md.",
           "type": "array",
           "items": {
             "type": "object",
             "properties": {
               "video": {
                 "type": "string",
-                "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+                "description": "The id of the film in videos this post is for."
               },
               "caption": {
-                "type": "string"
+                "type": "string",
+                "description": "The post's text."
               },
               "hashtags": {
                 "default": [],
+                "description": "Hashtags appended to the caption.",
                 "type": "array",
                 "items": {
                   "type": "string"
                 }
               },
               "codes": {
+                "description": "Channel codes for this film only, per platform; each falls back to platforms.<platform>.code.",
                 "type": "object",
                 "propertyNames": {
                   "type": "string",
@@ -2266,7 +2505,8 @@
                 "additionalProperties": {
                   "type": "string",
                   "maxLength": 32,
-                  "pattern": "^[a-z0-9]+(?:[-_][a-z0-9]+)*$"
+                  "pattern": "^[a-z0-9]+(?:[-_][a-z0-9]+)*$",
+                  "description": "The platform's channel code for this film."
                 }
               }
             },
@@ -2286,38 +2526,46 @@
     },
     "screenshots": {
       "default": [],
+      "description": "Screenshots taken by softure-marketing shots.",
       "type": "array",
       "items": {
         "type": "object",
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+            "description": "The screenshot's id: the file <output.dir>/screenshots/<id>.png."
           },
           "path": {
             "type": "string",
             "format": "starts_with",
-            "pattern": "^\\/.*"
+            "pattern": "^\\/.*",
+            "description": "The page of the app to capture, e.g. /pricing."
           },
           "width": {
             "type": "integer",
             "minimum": 1,
-            "maximum": 8000
+            "maximum": 8000,
+            "description": "The browser viewport's width in CSS pixels."
           },
           "height": {
             "type": "integer",
             "minimum": 1,
-            "maximum": 8000
+            "maximum": 8000,
+            "description": "The browser viewport's height in CSS pixels."
           },
           "full": {
             "default": false,
+            "description": "Capture the whole page, scrolled first so lazy images load, instead of the viewport.",
             "type": "boolean"
           },
           "expect": {
-            "type": "string"
+            "type": "string",
+            "description": "A phrase the page must show within 5 s of loading, or the screenshot is refused."
           },
           "motion": {
             "default": "reduce",
+            "description": "The reduced-motion preference of the browser.",
             "type": "string",
             "enum": [
               "reduce",
@@ -2326,6 +2574,7 @@
           },
           "minBytes": {
             "default": 40000,
+            "description": "Smaller files are deleted and refused (a blank or broken page).",
             "type": "integer",
             "minimum": 0,
             "maximum": 9007199254740991
@@ -2343,6 +2592,7 @@
     },
     "ogImages": {
       "default": [],
+      "description": "Open Graph images rendered by softure-marketing og.",
       "type": "array",
       "items": {
         "oneOf": [
@@ -2351,13 +2601,15 @@
             "properties": {
               "id": {
                 "type": "string",
-                "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+                "description": "The image's id: the file <output.dir>/og/<id>.png."
               },
               "size": {
                 "default": [
                   1200,
                   630
                 ],
+                "description": "The image size in pixels, [width, height].",
                 "type": "array",
                 "prefixItems": [
                   {
@@ -2377,25 +2629,30 @@
               },
               "template": {
                 "type": "string",
-                "const": "headline-cta"
+                "const": "headline-cta",
+                "description": "A headline with an optional eyebrow, call to action and tiles."
               },
               "data": {
                 "type": "object",
                 "properties": {
                   "eyebrow": {
+                    "description": "A short line above the headline, at most 40 characters.",
                     "type": "string",
                     "maxLength": 40
                   },
                   "headline": {
                     "type": "string",
-                    "maxLength": 90
+                    "maxLength": 90,
+                    "description": "The card's headline, at most 90 characters."
                   },
                   "cta": {
+                    "description": "The call to action, drawn as a pill in the cta colours at the bottom; at most 32 characters.",
                     "type": "string",
                     "maxLength": 32
                   },
                   "tiles": {
                     "default": [],
+                    "description": "Up to four label and value tiles.",
                     "maxItems": 4,
                     "type": "array",
                     "items": {
@@ -2403,11 +2660,13 @@
                       "properties": {
                         "label": {
                           "type": "string",
-                          "maxLength": 24
+                          "maxLength": 24,
+                          "description": "The tile's caption, at most 24 characters."
                         },
                         "value": {
                           "type": "string",
-                          "maxLength": 16
+                          "maxLength": 16,
+                          "description": "The tile's value, at most 16 characters."
                         }
                       },
                       "required": [
@@ -2421,7 +2680,8 @@
                 "required": [
                   "headline"
                 ],
-                "additionalProperties": false
+                "additionalProperties": false,
+                "description": "The headline-cta template's input."
               }
             },
             "required": [
@@ -2436,13 +2696,15 @@
             "properties": {
               "id": {
                 "type": "string",
-                "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+                "description": "The image's id: the file <output.dir>/og/<id>.png."
               },
               "size": {
                 "default": [
                   1200,
                   630
                 ],
+                "description": "The image size in pixels, [width, height].",
                 "type": "array",
                 "prefixItems": [
                   {
@@ -2462,18 +2724,21 @@
               },
               "template": {
                 "type": "string",
-                "const": "headline-chart"
+                "const": "headline-chart",
+                "description": "A headline over a chart the app computed, with optional tiles."
               },
               "data": {
                 "type": "object",
                 "properties": {
                   "eyebrow": {
+                    "description": "A short line above the headline, at most 40 characters.",
                     "type": "string",
                     "maxLength": 40
                   },
                   "headline": {
                     "type": "string",
-                    "maxLength": 90
+                    "maxLength": 90,
+                    "description": "The card's headline, at most 90 characters."
                   },
                   "chart": {
                     "type": "object",
@@ -2492,7 +2757,8 @@
                         ],
                         "items": false,
                         "minItems": 2,
-                        "maxItems": 2
+                        "maxItems": 2,
+                        "description": "The coordinate space of the paths, [width, height]."
                       },
                       "paths": {
                         "minItems": 1,
@@ -2505,10 +2771,12 @@
                               "type": "string",
                               "minLength": 1,
                               "maxLength": 20000,
-                              "pattern": "^[MmLlHhVvCcSsQqTtAaZz0-9eE.,+\\-\\s]+$"
+                              "pattern": "^[MmLlHhVvCcSsQqTtAaZz0-9eE.,+\\-\\s]+$",
+                              "description": "SVG path data in viewBox coordinates (commands and numbers only)."
                             },
                             "tone": {
                               "default": "accent",
+                              "description": "The brand colour role the path is drawn in.",
                               "type": "string",
                               "enum": [
                                 "accent",
@@ -2519,9 +2787,11 @@
                             },
                             "fill": {
                               "default": false,
+                              "description": "Fills the shape with a light tint of the tone instead of stroking the line.",
                               "type": "boolean"
                             },
                             "strokeWidth": {
+                              "description": "Line width in viewBox units; by default a hundredth of the view box's width.",
                               "type": "number",
                               "exclusiveMinimum": 0
                             }
@@ -2530,17 +2800,20 @@
                             "d"
                           ],
                           "additionalProperties": false
-                        }
+                        },
+                        "description": "The chart's paths, one to eight, drawn in order."
                       }
                     },
                     "required": [
                       "viewBox",
                       "paths"
                     ],
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "description": "A chart the app computed: paths in the coordinates of viewBox."
                   },
                   "tiles": {
                     "default": [],
+                    "description": "Up to three label and value tiles.",
                     "maxItems": 3,
                     "type": "array",
                     "items": {
@@ -2548,11 +2821,13 @@
                       "properties": {
                         "label": {
                           "type": "string",
-                          "maxLength": 24
+                          "maxLength": 24,
+                          "description": "The tile's caption, at most 24 characters."
                         },
                         "value": {
                           "type": "string",
-                          "maxLength": 16
+                          "maxLength": 16,
+                          "description": "The tile's value, at most 16 characters."
                         }
                       },
                       "required": [
@@ -2567,7 +2842,8 @@
                   "headline",
                   "chart"
                 ],
-                "additionalProperties": false
+                "additionalProperties": false,
+                "description": "The headline-chart template's input."
               }
             },
             "required": [
@@ -2581,55 +2857,58 @@
       }
     },
     "sfx": {
+      "description": "Sound effects of the composition; a missing one is silent.",
       "default": {},
       "type": "object",
       "properties": {
         "tap": {
+          "description": "Played on every tap. An audio file relative to the folder of marketing.json; without it, silence.",
           "type": "string",
-          "minLength": 1,
-          "description": "A path relative to the folder of marketing.json."
+          "minLength": 1
         },
         "key": {
+          "description": "Played on every typed key. An audio file relative to the folder of marketing.json; without it, silence.",
           "type": "string",
-          "minLength": 1,
-          "description": "A path relative to the folder of marketing.json."
+          "minLength": 1
         },
         "whoosh": {
+          "description": "Played on camera moves that ask for it, into the opening and into the end card. An audio file relative to the folder of marketing.json; without it, silence.",
           "type": "string",
-          "minLength": 1,
-          "description": "A path relative to the folder of marketing.json."
+          "minLength": 1
         },
         "sparkle": {
+          "description": "Played on the sparkle cue. An audio file relative to the folder of marketing.json; without it, silence.",
           "type": "string",
-          "minLength": 1,
-          "description": "A path relative to the folder of marketing.json."
+          "minLength": 1
         },
         "pop": {
+          "description": "Played when the end card's link pill appears. An audio file relative to the folder of marketing.json; without it, silence.",
           "type": "string",
-          "minLength": 1,
-          "description": "A path relative to the folder of marketing.json."
+          "minLength": 1
         }
       },
       "additionalProperties": false
     },
     "output": {
+      "description": "Where the outputs go and at what quality.",
       "default": {},
       "type": "object",
       "properties": {
         "dir": {
           "default": "marketing/out",
+          "description": "Finished films and post copy (<dir>/<video>/), relative to the folder of marketing.json; not committed.",
           "type": "string",
-          "minLength": 1,
-          "description": "A path relative to the folder of marketing.json."
+          "minLength": 1
         },
         "buildDir": {
           "default": "marketing/build",
+          "description": "Recordings and compositions (<buildDir>/<video>/), relative to the folder of marketing.json; not committed.",
           "type": "string",
-          "minLength": 1,
-          "description": "A path relative to the folder of marketing.json."
+          "minLength": 1
         },
         "quality": {
           "default": "standard",
+          "description": "The render quality; the --quality flag wins.",
           "type": "string",
           "enum": [
             "draft",
@@ -2648,6 +2927,7 @@
     "videos"
   ],
   "additionalProperties": false,
+  "description": "marketing.json: everything product-specific about a project's marketing material, for @softure-ai/marketing-kit.",
   "$id": "https://unpkg.com/@softure-ai/marketing-kit/schema/marketing.schema.json",
   "title": "marketing.json for @softure-ai/marketing-kit"
 }

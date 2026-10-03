@@ -55,11 +55,12 @@ backlog: context/backlog/roadmap-followups/
 | **FU-11** | `billing-refund-one-payment` | Refunds that take back one payment's period | — | autonomous | proposed |
 | **FU-12** | `billing-retro-reviews` | Retro research and plan review for MO-1 and MO-2 | — | autonomous | proposed |
 | **FU-13** | `marketing-kit-render-ci` | the marketing-kit fixture film renders to a draft MP4 on every push | — | autonomous | proposed |
-| **FU-14** | `marketing-kit-schema-docs` | every key of the marketing.json JSON Schema carries a description | — | autonomous | proposed |
+| **FU-14** | `marketing-kit-schema-docs` | every key of the marketing.json JSON Schema carries a description | — | autonomous | done_code (2026-10-03; waiting: owner editor check, MK-8 release) |
 | **FU-15** | `marketing-kit-desktop-16x9` | desktop 16:9 films recorded in a browser frame instead of a phone | FU-16 | autonomous | proposed |
 | **FU-16** | `marketing-kit-layout-overrides` | per-format layout overrides (caption box, persona, end card) in marketing.json | FU-14 | autonomous | proposed |
 | **FU-17** | `marketing-kit-og-glyphs` | OG images refuse copy the brand fonts cannot draw | — | autonomous | proposed |
 | **FU-18** | `marketing-kit-screenshot-variants` | screenshots at a device scale and in both colour schemes | FU-14 | autonomous | proposed |
+| **FU-19** | `marketing-kit-hook-shot-words` | opening shots after the first without a `word` are refused when the config loads | FU-14 | autonomous | proposed |
 
 ## Order
 
@@ -72,14 +73,14 @@ after another; different lanes run in parallel, up to 4 at once.
 | B: waitlist and consent | FU-3 → FU-2 → FU-4 → FU-8 | `modules/waitlist/` (FU-3 also `modules/mailing/`, `modules/privacy/`) |
 | C: billing | FU-11 → FU-9 → FU-6; FU-12 any time | `modules/billing/` and its migrations; FU-12 writes archive documents only |
 | D: analytics | FU-5 → FU-7 (FU-7 also after FU-1) | `modules/analytics/` channel propagation; FU-7 may touch auth's redirects |
-| E: marketing-kit config | FU-14 → FU-16 → FU-15; FU-14 → FU-18 | `tools/marketing-kit/src/config/schema.ts`, `schema/`, `src/compose/` (FU-15, FU-16) |
+| E: marketing-kit config | FU-14 → FU-16 → FU-15; FU-14 → FU-18 → FU-19 | `tools/marketing-kit/src/config/schema.ts`, `schema/`, `src/compose/` (FU-15, FU-16) |
 | F: independent | FU-13, FU-17 | `.github/workflows/ci.yml`; `tools/marketing-kit/src/og/` |
 
 1. **First wave: FU-1, FU-3, FU-11, FU-14.** The two HIGH items first (FU-1 must land before FIRE_TRACKER
    adopts the switches; FU-3 fixes a consent ledger that can contradict an unsubscribe), then the MEDIUM refund
    fix and the schema descriptions that every later marketing-kit config item extends.
 2. **Each free slot** takes the first item of this list whose lane is idle and whose dependencies are on `master`:
-   FU-2, FU-5, FU-13, FU-17, FU-9, FU-16, FU-18, FU-4, FU-7, FU-12, FU-6, FU-15, FU-8.
+   FU-2, FU-5, FU-13, FU-17, FU-9, FU-16, FU-18, FU-4, FU-7, FU-12, FU-6, FU-15, FU-8, FU-19.
 3. **MK-8, EN-9 and MO-6** (owner, carried over): the owner's batch release on 2026-10-05; they wait for no FU item,
    and no FU item waits for them.
 
@@ -111,6 +112,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 | FU-16 | no | a validated `layout` section merged into the geometry table |
 | FU-17 | no | a glyph check against the loaded fonts; tested with a subset font |
 | FU-18 | no | Playwright device scale and colour schemes; tested against the static fixture page |
+| FU-19 | no | a refinement in the config schema and a config test |
 
 ## Items
 
@@ -281,7 +283,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-14: The marketing.json JSON Schema documents every key
 - **Change ID:** `marketing-kit-schema-docs`
-- **Status:** proposed
+- **Status:** done_code (2026-10-03; waiting: owner editor check, MK-8 release)
+- **Input:** [`archive/2026-10-03-marketing-kit-schema-docs/change.md`](../archive/2026-10-03-marketing-kit-schema-docs/change.md)
 - **Outcome:** Every key of `tools/marketing-kit/schema/marketing.schema.json` carries a `description` (from `.describe()` on the zod schema instead of doc comments), so editors and agents writing a `marketing.json` see what each key means and its default.
 - **Prerequisites:** none beyond the main branch; best after MK-3…MK-7 have added their keys.
 - **Unknowns:** Whether `z.toJSONSchema` keeps descriptions on keys wrapped in `.default()` and `.prefault()`.
@@ -334,6 +337,17 @@ owner's own machine, a product decision only the owner can make, or a change in 
 - **PRD refs:** FR-25.
 - **Source:** `tools/marketing-kit/README.md` "Limitations"; `context/archive/2026-10-03-mk-screenshots/reviews/impl-review.md` F4
 
+### FU-19: Opening shots after the first name their word in the config check
+- **Change ID:** `marketing-kit-hook-shot-words`
+- **Status:** proposed
+- **Outcome:** A `videos[].hook.shots[]` entry after the first without `word` is refused when `marketing.json` loads, on the path `videos[i].hook.shots[j].word`, instead of failing at compose time after the recording with an error that names an empty word.
+- **Prerequisites:** FU-14 on `master` (shared files, see Order).
+- **Unknowns:** none.
+- **Risk:** LOW.
+- **Baseline:** marketing-kit MK-2 `mk-config-contract`: `word` is optional on every shot (`src/config/schema.ts`), and `src/compose/compose.ts` throws for a later shot without one. After: a config test refuses it, and the schema description says when it is required.
+- **PRD refs:** FR-24.
+- **Source:** FU-14 (`marketing-kit-schema-docs`) implementation review F2; `tools/marketing-kit/src/compose/compose.ts` (opening shots)
+
 ## Owner decisions and checks
 
 Carried over from marketing-kit (owner, batch at the keyboard on Monday 2026-10-05):
@@ -345,8 +359,13 @@ Carried over from marketing-kit (owner, batch at the keyboard on Monday 2026-10-
 - [ ] **MK-8**: approve the first (staged) publish of `@softure-ai/marketing-kit` on npmjs.com, then add its trusted
   publisher.
 
+Open from FU-14:
+
+- [ ] **FU-14**: Owner reads a few descriptions in an editor hover and finds them clear (Manual 1.6). archive/2026-10-03-marketing-kit-schema-docs/plan.md
+
 ## Done
 
+- **FU-14** `marketing-kit-schema-docs`: every key of the marketing.json JSON Schema carries a description, guarded by a test; archived in `archive/2026-10-03-marketing-kit-schema-docs/`
 - **FU-3** `mailing-consent-sync`: an unsubscribe withdraws the waitlist's consents in its transaction (mailing `onUnsubscribed`), and a new sign-up lifts the person's own opt-out; archived in `archive/2026-10-03-mailing-consent-sync/`
 
 ## Decisions (auto)
