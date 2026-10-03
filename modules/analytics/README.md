@@ -232,8 +232,8 @@ belong to the app's own privacy contributor.
   `searchParams` instead.
 - **A server action's redirect drops the tag.** After sign-up, auth's redirect to `afterLogin`
   opens without `?z=`, so steps after it count without a channel until a tagged page is opened
-  (FU-6). The sign-up step itself is attributed.
-- **Waitlist sign-ups are not a step yet.** The waitlist has no hook to count them from (FU-7);
+  (FU-7). The sign-up step itself is attributed.
+- **Waitlist sign-ups are not a step yet.** The waitlist has no hook to count them from (FU-8);
   the funnel never reads another module's table.
 - **The funnel is a noise filter, not a defence.** Its endpoint checks that a request comes from one
   of the app's pages, but those headers come from the client: a forged `Referer` passes. The counts

@@ -35,8 +35,9 @@ trigger: "every module roadmap (monetization, marketing-kit) is done; the owner 
 | **FU-3** | `mailing-consent-sync` | Unsubscribe as consent withdrawal | — | autonomous | proposed |
 | **FU-4** | `waitlist-welcome-html` | HTML welcome mail for the waitlist | — | autonomous | proposed |
 | **FU-5** | `analytics-client-navigation` | Channel tag on client navigations without Next-Url | — | autonomous | proposed |
-| **FU-6** | `analytics-action-redirect-tag` | Channel tag kept through server action redirects | — | autonomous | proposed |
-| **FU-7** | `waitlist-funnel-hook` | Waitlist sign-ups as a funnel step | — | autonomous | proposed |
+| **FU-6** | `billing-reminder-mail` | Reminder mail before access ends | — | autonomous | proposed |
+| **FU-7** | `analytics-action-redirect-tag` | Channel tag kept through server action redirects | — | autonomous | proposed |
+| **FU-8** | `waitlist-funnel-hook` | Waitlist sign-ups as a funnel step | — | autonomous | proposed |
 
 ## Order
 
@@ -79,7 +80,7 @@ trigger: "every module roadmap (monetization, marketing-kit) is done; the owner 
 - **PRD refs:** FR-23.
 - **Source:** `modules/analytics/README.md` §12
 
-### FU-6: Channel tag kept through server action redirects
+### FU-7: Channel tag kept through server action redirects
 - **Change ID:** `analytics-action-redirect-tag`
 - **Status:** proposed
 - **Outcome:** A server action's redirect from a tagged page (auth's sign-up and login redirect to `afterLogin`) lands on a URL that keeps the channel tag, so the views after sign-up are counted under the visit's channel (for example the auth actions adding the tag through `withChannel`, or a `/next` helper that tags an action's redirect target).
@@ -90,7 +91,7 @@ trigger: "every module roadmap (monetization, marketing-kit) is done; the owner 
 - **PRD refs:** FR-23.
 - **Source:** MO-5, `examples/next-app/e2e/analytics-funnel.spec.ts` (the account view after sign-up) and `modules/analytics/README.md` §12
 
-### FU-7: Waitlist sign-ups as a funnel step
+### FU-8: Waitlist sign-ups as a funnel step
 - **Change ID:** `waitlist-funnel-hook`
 - **Status:** proposed
 - **Outcome:** The waitlist offers an `onJoined` hook (in the sign-up's transaction, like auth's `onRegistered`) so an app counts waitlist sign-ups in the analytics funnel with `recordFunnelStep` and the channel, without the funnel reading the waitlist's table.
@@ -122,6 +123,17 @@ trigger: "every module roadmap (monetization, marketing-kit) is done; the owner 
 - **Baseline:** engagement EN-5 `waitlist`: the welcome mail is text only (README §12). After: the gap is closed and covered by unit and e2e tests.
 - **PRD refs:** FR-18.
 - **Source:** `modules/waitlist/README.md` §12
+
+### FU-6: Reminder mail before access ends
+- **Change ID:** `billing-reminder-mail`
+- **Status:** proposed
+- **Outcome:** A reminder mail before an account's trial or paid access ends (and when it has ended), sent once per window through mailing's delivery ledger, next to the in-app notice billing already shows.
+- **Prerequisites:** none beyond the main branch.
+- **Unknowns:** What triggers the run (a scheduled script through ops vs. a request-time check); how accounts in a window are found without scanning every account (accounts without a row derive their trial from `auth.users.created_at`).
+- **Risk:** LOW.
+- **Baseline:** monetization MO-1 `billing-entitlements`: the reminder windows only drive the in-app badge and notice; no mail is sent (README §12). After: the gap is closed and covered by unit and e2e tests.
+- **PRD refs:** FR-22.
+- **Source:** `modules/billing/README.md` §12
 
 ## Owner decisions and checks
 

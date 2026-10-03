@@ -55,3 +55,8 @@ body {
   gap: var(--sft-space-2);
   align-items: center;
 }
+
+.stack {
+  display: grid;
+  gap: var(--sft-space-4);
+}

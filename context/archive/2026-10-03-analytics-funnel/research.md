@@ -25,7 +25,7 @@ health check, migrations).
 | --- | --- | --- |
 | Steps | `funnel.steps: [{ id, via }]`, `via` = `pixel`, `beacon` or `server` | the endpoint refuses `server` steps, so sign-ups cannot be inflated from outside |
 | Channel of a beacon | read from the page's Referer, not the body | same rule as the rest of the module (`readChannel`); the body carries only the step |
-| Other modules' counts (unknown in the roadmap) | the app counts them as `server` steps through hooks; the report reads only `funnel_counts` | no cross-schema reads; auth has `onRegistered` (`countRegistration`), the waitlist has no hook yet (FU-7) |
+| Other modules' counts (unknown in the roadmap) | the app counts them as `server` steps through hooks; the report reads only `funnel_counts` | no cross-schema reads; auth has `onRegistered` (`countRegistration`), the waitlist has no hook yet (FU-8) |
 | Day | `Intl` with `config.timezone` | independent of the server's zone; one function for counting and for the report window |
 | Cap | `channelCap` (default 100), overflow key `~overflow`; the options refuse a pattern that accepts it | FIRE's bound, configurable |
 | Retention (unknown in the roadmap) | kept until the app calls `pruneFunnelCounts({ keepDays })` | the sums hold no personal data |

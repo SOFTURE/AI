@@ -29,7 +29,7 @@ See research §2.
 ## Phase 2: Example app, e2e, docs
 
 - Config, pages, route, `e2e/analytics-funnel.spec.ts`, migrations/ops/container expectations, READMEs.
-- Gaps found: FU-6 (the tag after a server action's redirect), FU-7 (a waitlist hook to count its sign-ups).
+- Gaps found: FU-7 (the tag after a server action's redirect), FU-8 (a waitlist hook to count its sign-ups).
 
 ## Progress
 

@@ -2,7 +2,7 @@
 change_id: waitlist-funnel-hook
 title: "Waitlist sign-ups as a funnel step"
 status: backlog
-roadmap_item: FU-7
+roadmap_item: FU-8
 branch: null
 created: 2026-10-03
 updated: 2026-10-03
@@ -15,9 +15,9 @@ The waitlist offers an `onJoined` hook (in the sign-up's transaction, like auth'
 
 ## Context
 
-From [`roadmap-followups.md`](../../../foundation/roadmaps/roadmap-followups.md), item **FU-7** (queued roadmap `followups`):
+From [`roadmap-followups.md`](../../../foundation/roadmaps/roadmap-followups.md), item **FU-8** (queued roadmap `followups`):
 
-> ### FU-7: Waitlist sign-ups as a funnel step
+> ### FU-8: Waitlist sign-ups as a funnel step
 > - **Change ID:** `waitlist-funnel-hook`
 > - **Status:** proposed
 > - **Outcome:** The waitlist offers an `onJoined` hook (in the sign-up's transaction, like auth's `onRegistered`) so an app counts waitlist sign-ups in the analytics funnel with `recordFunnelStep` and the channel, without the funnel reading the waitlist's table.

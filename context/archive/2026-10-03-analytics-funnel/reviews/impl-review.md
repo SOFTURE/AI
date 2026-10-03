@@ -11,11 +11,11 @@ throw into auth's transaction and refuse the sign-up. **Fixed:** the channel is 
 ### S1 [SUGGESTION] The tag is lost after the register action's redirect
 Measured in e2e: after sign-up the account page opens at `/account` without `?z=`, so its beacon counts
 without a channel. The proxy never sees a GET for the redirect target (Next renders it in the action's
-response). **Decision:** deferred to the followups roadmap as FU-6 (`analytics-action-redirect-tag`); the
+response). **Decision:** deferred to the followups roadmap as FU-7 (`analytics-action-redirect-tag`); the
 sign-up step itself is attributed; README §12 says so.
 
 ### S2 [SUGGESTION] Waitlist sign-ups cannot be counted
-The waitlist has no hook, and the funnel reads no other module's table. **Decision:** FU-7
+The waitlist has no hook, and the funnel reads no other module's table. **Decision:** FU-8
 (`waitlist-funnel-hook`); README §12 says so.
 
 Checked without findings: the beacon carries the step only; the channel comes from the page's Referer, never

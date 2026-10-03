@@ -2,7 +2,7 @@
 change_id: analytics-action-redirect-tag
 title: "Channel tag kept through server action redirects"
 status: backlog
-roadmap_item: FU-6
+roadmap_item: FU-7
 branch: null
 created: 2026-10-03
 updated: 2026-10-03
@@ -15,9 +15,9 @@ A server action's redirect from a tagged page (auth's sign-up and login redirect
 
 ## Context
 
-From [`roadmap-followups.md`](../../../foundation/roadmaps/roadmap-followups.md), item **FU-6** (queued roadmap `followups`):
+From [`roadmap-followups.md`](../../../foundation/roadmaps/roadmap-followups.md), item **FU-7** (queued roadmap `followups`):
 
-> ### FU-6: Channel tag kept through server action redirects
+> ### FU-7: Channel tag kept through server action redirects
 > - **Change ID:** `analytics-action-redirect-tag`
 > - **Status:** proposed
 > - **Outcome:** A server action's redirect from a tagged page (auth's sign-up and login redirect to `afterLogin`) lands on a URL that keeps the channel tag, so the views after sign-up are counted under the visit's channel (for example the auth actions adding the tag through `withChannel`, or a `/next` helper that tags an action's redirect target).

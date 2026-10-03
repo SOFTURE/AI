@@ -35,6 +35,14 @@ export const pl: AppMessages = {
     testMail: "Wyślij wiadomość testową",
     privacy: "Twoje dane",
     signupChannel: "Konto założone z kanału:",
+    billing: "Twój plan",
+  },
+  billing: {
+    title: "Twój plan",
+    lead: "Stan Twojego konta i zapis, który może zrobić tylko konto z dostępem.",
+    messageLabel: "Wiadomość członka",
+    submit: "Podpisz jako członek",
+    saved: "Wpis zapisany",
   },
   admin: {
     title: "Panel administratora",
@@ -105,6 +113,7 @@ export const pl: AppMessages = {
     "guestbook.message_invalid": "Wpisz od 1 do {max} znaków.",
     "auth.forbidden": "Nie masz dostępu do tej funkcji.",
     "auth.unauthenticated": "Twoja sesja wygasła. Zaloguj się ponownie.",
+    "billing.read_only": "Konto jest w trybie tylko do odczytu, więc nic nie zapisano. Wybierz plan, żeby znów zapisywać.",
     "core.database_failed": "Baza danych nie odpowiedziała. Spróbuj ponownie.",
     "mailing.invalid_input": "Tej wiadomości nie da się wysłać. Sprawdź temat i spróbuj ponownie.",
     "mailing.rejected": "Usługa pocztowa odrzuciła tę wiadomość.",
