@@ -2,7 +2,9 @@
 // revoke (`revokeManualGrant`): a period loses its unused days and every period stored after it
 // moves back by as many days, in both tables (provider payments and manual grants), so their stored
 // dates keep saying where their access lies; a lifetime ends unless something else still pays for
-// it. The caller holds the account's lock and has flipped its own row; this locks the entitlement.
+// it. Lock order: the caller takes the account (key share), then the entitlement
+// (`lockEntitlementRow`), then flips its own row; the shift then updates other rows under the
+// entitlement lock, so two take-backs of one account never wait on each other's rows.
 import type { Queryable } from "@softure-ai/db";
 import { and, eq, gte, ne, type SQL } from "drizzle-orm";
 import type { Entitlement, EntitlementEvent, EntitlementRecord, PaymentGrant } from "../contract.js";
@@ -13,6 +15,14 @@ import { changeEntitlement, findEntitlementRecord, type BillingContext } from ".
 import { getEntitlementPolicy } from "./options.js";
 
 type PeriodGrant = Extract<PaymentGrant, { kind: "period" }>;
+
+/**
+ * Locks the account's entitlement row until the transaction ends (nothing when it has none yet).
+ * Taken before a refund's or a revoke's own row, so every take-back of the account queues here.
+ */
+export async function lockEntitlementRow(tx: Queryable, userId: string): Promise<void> {
+  await tx.select({ userId: entitlements.userId }).from(entitlements).where(eq(entitlements.userId, userId)).for("update");
+}
 
 /** Whether a paid payment of the account (other than `exceptId`) bought lifetime access. */
 export async function hasPaidLifetimePayment(tx: Queryable, userId: string, exceptId?: string): Promise<boolean> {
@@ -93,13 +103,12 @@ async function getTakeBackEvent(ctx: BillingContext, input: TakeBackGrantInput, 
 
 /**
  * Takes back what one grant added, inside the caller's transaction (`ctx.db` is it), and returns
- * where the account stands after. The caller locked the account and flipped its row first.
+ * where the account stands after. The caller locked the account and the entitlement
+ * (`lockEntitlementRow`) and flipped its row first: a lifetime granted at the same time is either
+ * committed and seen below, or waits for the entitlement lock and is applied after.
  */
 export async function takeBackGrant(ctx: BillingContext, input: TakeBackGrantInput): Promise<Entitlement> {
   const tx = ctx.db;
-  // The entitlement next, locked until the end: a lifetime granted at the same time is either
-  // committed and seen below, or waits for this lock and is applied after.
-  await tx.select({ userId: entitlements.userId }).from(entitlements).where(eq(entitlements.userId, input.userId)).for("update");
   const record = await findEntitlementRecord(ctx, input.userId);
   // The caller's row references the account, which its key share lock keeps.
   if (record === null) throw new Error("@softure-ai/billing: a grant to take back has no account");

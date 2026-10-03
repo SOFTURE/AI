@@ -1,19 +1,19 @@
 // Plans an admin grants by hand (the manual adapter's second half): each grant is recorded in
 // `billing.manual_grants` with what it added, who granted it and the request it answered, so a
 // mistaken one is revoked by taking back only that, and an account's history lists it beside its
-// provider payments. Locks follow `refundPayment`'s order (account, then the grant or request
-// row, then the entitlement), so none of them deadlock.
+// provider payments. Locks follow `refundPayment`'s order (account, then the entitlement, then the
+// grant or request row), so none of them deadlock.
 import { users } from "@softure-ai/auth";
 import { err, ok, type Err, type Ok } from "@softure-ai/core";
 import { and, desc, eq } from "drizzle-orm";
 import type { AdminErrorCode, Entitlement, PaymentGrant } from "../contract.js";
 import { findPlan } from "../plans.js";
-import { entitlements, manualGrants, paymentRequests, payments } from "../schema.js";
+import { manualGrants, paymentRequests, payments } from "../schema.js";
 import { findEntitlementRecord, type BillingContext } from "./entitlements.js";
 import { getGrantColumns, readGrant } from "./payments.js";
 import { applyPlan, getBillingPlans } from "./plans.js";
 import { findOpenRequest, getClosedRequestColumns } from "./requests.js";
-import { hasActiveManualLifetime, hasPaidLifetimePayment, takeBackGrant } from "./take-back.js";
+import { hasActiveManualLifetime, hasPaidLifetimePayment, lockEntitlementRow, takeBackGrant } from "./take-back.js";
 import { isUserId, isUuid } from "./user-id.js";
 
 export interface GrantPlanManuallyInput {
@@ -49,7 +49,7 @@ export async function grantPlanManually(ctx: BillingContext, input: GrantPlanMan
     const [account] = await tx.select({ id: users.id }).from(users).where(eq(users.id, input.userId)).for("key share");
     if (account === undefined) return err("billing.account_unknown");
     // The entitlement locked before the check, so a lifetime granted meanwhile is seen here.
-    await tx.select({ userId: entitlements.userId }).from(entitlements).where(eq(entitlements.userId, input.userId)).for("update");
+    await lockEntitlementRow(tx, input.userId);
     const record = await findEntitlementRecord({ ...ctx, db: tx }, input.userId);
     if (record?.isLifetime === true) return err("billing.lifetime_active");
 
@@ -116,8 +116,9 @@ export async function revokeManualGrant(ctx: BillingContext, input: RevokeManual
     const now = ctx.clock.now();
     const [found] = await tx.select({ userId: manualGrants.userId }).from(manualGrants).where(eq(manualGrants.id, input.grantId));
     if (found === undefined) return err("billing.grant_revoked");
-    // The account first (the lock order of every change), then the conditional update.
+    // The account first (the lock order of every change), the entitlement, then the conditional update.
     await tx.select({ id: users.id }).from(users).where(eq(users.id, found.userId)).for("key share");
+    await lockEntitlementRow(tx, found.userId);
     const [revoked] = await tx
       .update(manualGrants)
       .set({ status: "revoked", revokedAt: now, revokedBy: input.adminId })

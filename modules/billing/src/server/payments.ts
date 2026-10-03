@@ -2,8 +2,10 @@
 // takes back what that payment granted, each exactly once. `billing.payments` holds one row per paid
 // checkout with the grant it caused (a period or lifetime), written in the transaction of the grant,
 // so a delivery Stripe repeats (or two events for one checkout) finds the row and changes nothing.
-// Locks follow `changeEntitlement`'s order (account, then payment, then entitlement), like the
-// privacy erase, so none of them deadlock.
+// Locks: the account first (key share), like `changeEntitlement` and the privacy erase; a refund
+// then takes the entitlement before its payment row (`lockEntitlementRow`), as a manual revoke does,
+// so a refund and a revoke of one account queue on the entitlement instead of deadlocking on the
+// rows each moves back.
 import { users } from "@softure-ai/auth";
 import { err, ok, type Err, type Ok } from "@softure-ai/core";
 import { and, eq } from "drizzle-orm";
@@ -13,7 +15,7 @@ import { payments } from "../schema.js";
 import { readStripeWebhook, type PaidCheckout, type StripeWebhookError } from "../stripe-webhook.js";
 import type { BillingContext } from "./entitlements.js";
 import { applyPlan, getBillingPlans } from "./plans.js";
-import { hasPaidLifetimePayment, takeBackGrant } from "./take-back.js";
+import { hasPaidLifetimePayment, lockEntitlementRow, takeBackGrant } from "./take-back.js";
 import { isUserId } from "./user-id.js";
 
 /** The name of `stripe()`, under which its webhook stores payments. */
@@ -120,8 +122,9 @@ export async function refundPayment(ctx: BillingContext, input: RefundPaymentInp
     const match = and(eq(payments.provider, input.provider), eq(payments.paymentId, input.paymentId));
     const [payment] = await tx.select({ userId: payments.userId }).from(payments).where(match);
     if (payment === undefined) return ok({ status: "unknown_payment" });
-    // The account first (the lock order of every change), then the conditional update.
+    // The account first (the lock order of every change), the entitlement, then the conditional update.
     await tx.select({ id: users.id }).from(users).where(eq(users.id, payment.userId)).for("key share");
+    await lockEntitlementRow(tx, payment.userId);
     const [refunded] = await tx
       .update(payments)
       .set({ status: "refunded", refundedAt: now })

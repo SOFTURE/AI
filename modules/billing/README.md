@@ -288,8 +288,9 @@ without a row.
 `paid_until` NULL under lifetime.
 
 The insert, the grant and its grant columns share a transaction, as do the refund's conditional update and the change it makes,
-so a delivery seen twice changes nothing. Every write takes its locks in one order (account, payment,
-entitlement), like the privacy erase.
+so a delivery seen twice changes nothing. Every write takes the account first (like the privacy
+erase); a refund and a manual revoke then take the entitlement before their own row, since moving
+the later periods back updates other rows under that lock.
 
 `migrations/0004_create_requests_and_grants.sql` creates the manual payments' two tables:
 
@@ -314,8 +315,8 @@ again refreshes its details and time.
 | `granted_at`, `grant_kind`, `granted_from`, `granted_until` | What it added, as `billing.payments` records it (CHECK `manual_grants_grant_shape`). |
 | `status`, `revoked_at` | `active` or `revoked`; CHECKs tie `revoked_at` and `revoked_by` to the status. |
 
-A grant and the request it closes share a transaction; a revoke takes the account, then its row
-with a conditional update, then the entitlement, the order every billing write follows.
+A grant and the request it closes share a transaction; a grant and a revoke take the account, then
+the entitlement, then their row (a conditional update), the order of a refund.
 
 ## 6. Environment variables
 

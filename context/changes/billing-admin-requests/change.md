@@ -1,7 +1,7 @@
 ---
 change_id: billing-admin-requests
 title: "The billing admin page lists invoice requests, grants from them, revokes a grant and shows each account's history"
-status: implementing
+status: impl_reviewed
 roadmap_item: FU-9
 branch: claude/project-thread-43muam
 created: 2026-10-03

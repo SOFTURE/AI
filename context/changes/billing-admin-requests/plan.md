@@ -163,5 +163,5 @@ hand-over test also reads the stored request row.
 ### Phase 2: Admin page, payment page, e2e and docs
 
 #### Automated
-- [ ] 2.1 `npm run e2e` passes `billing-pricing.spec.ts`, `billing-stripe.spec.ts` and `migrations.spec.ts` locally
-- [ ] 2.2 Gates green (typecheck, lint, test, build)
+- [x] 2.1 `npm run e2e` passes `billing-pricing.spec.ts`, `billing-stripe.spec.ts` and `migrations.spec.ts` locally — 63a224c
+- [x] 2.2 Gates green (typecheck, lint, test, build) — 63a224c
