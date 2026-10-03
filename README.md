@@ -26,7 +26,7 @@ modules/             feature modules (each one works on its own on top of the fo
   auth/              registration, login, sessions, password change and reset, roles
   feature-switches/  runtime switches + admin panel
   mailing/           mail transport, unsubscribe (RFC 8058), delivery ledger, campaigns
-  waitlist/          waitlist with consent
+  waitlist/          sign-ups with consent scopes, welcome mail, standalone form
   mcp-access/        access tokens + MCP endpoint (Bearer) + token UI
   billing/           trial/paid/read-only entitlements, pricing, write guard
   privacy/           GDPR: data export and deletion, consent ledger, legal page shell

@@ -1,0 +1,12 @@
+{
+  "id": "waitlist",
+  "version": "0.0.0",
+  "dependsOn": { "security": "^0.0.0", "mailing": "^0.0.0", "privacy": "^0.0.0" },
+  "dbSchema": "waitlist",
+  "tables": ["signups"],
+  "env": [],
+  "switches": [],
+  "routes": {},
+  "mount": [],
+  "privacy": { "exports": true, "deletes": true }
+}

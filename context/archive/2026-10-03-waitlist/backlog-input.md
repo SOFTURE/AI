@@ -15,7 +15,7 @@ archived_at: null
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **EN-5** (roadmap `engagement`, main since 2026-10-03):
+From [`roadmap.md`](../../foundation/roadmap.md), item **EN-5** (roadmap `engagement`, main since 2026-10-03):
 
 > ### EN-5: Waitlist with consent scopes
 > - **Change ID:** `waitlist`
@@ -27,8 +27,8 @@ From [`roadmap.md`](../../../foundation/roadmap.md), item **EN-5** (roadmap `eng
 > - **Baseline:** FIRE: the form is embedded in a domain component, scopes are CHECK constraints. After: the example app signs up, widens the scope, receives the welcome mail and unsubscribes (e2e).
 > - **PRD refs:** FR-18, NFR-5.
 
-Reference material: [`docs/02-module-standard.md`](../../../../docs/02-module-standard.md) (the standard),
-[`docs/01-module-assessment.md`](../../../../docs/01-module-assessment.md) (source map in FIRE_TRACKER).
+Reference material: [`docs/02-module-standard.md`](../../../docs/02-module-standard.md) (the standard),
+[`docs/01-module-assessment.md`](../../../docs/01-module-assessment.md) (source map in FIRE_TRACKER).
 
 ## Constraints
 
