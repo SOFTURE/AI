@@ -82,14 +82,14 @@ were unconfirmed at rollback would count as sign-ups without consent rows: delet
 ### Phase 1: Module
 
 #### Automated
-- [ ] 1.1 Waitlist tests for the option, the pending join, the confirmation, the prune and the mails pass
-- [ ] 1.2 Gates green (typecheck, lint, test)
+- [x] 1.1 Waitlist tests for the option, the pending join, the confirmation, the prune and the mails pass — baeb87f
+- [x] 1.2 Gates green (typecheck, lint, test) — baeb87f
 
 ### Phase 2: Example app and e2e
 
 #### Automated
-- [ ] 2.1 Gates green (typecheck, lint, test, build)
-- [ ] 2.2 `npm run e2e` passes, including the changed tests in `e2e/waitlist.spec.ts`
+- [x] 2.1 Gates green (typecheck, lint, test, build) — 34a5689
+- [x] 2.2 `npm run e2e` passes, including the changed tests in `e2e/waitlist.spec.ts` — 34a5689
 
 #### Manual
-- [ ] 2.3 Impl review recorded in `reviews/impl-review.md`
+- [x] 2.3 Impl review recorded in `reviews/impl-review.md` — 34a5689
