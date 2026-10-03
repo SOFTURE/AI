@@ -1,4 +1,5 @@
-# The gates of lefthook.yml, on GitHub, for every push and pull request.
+# The gates of lefthook.yml, on GitHub, for every push and pull request, plus the marketing-kit fixture
+# film rendered end to end (too slow and too browser-bound for a hook).
 # Tags are not built here: releases have their own workflow.
 
 name: ci
@@ -64,6 +65,55 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+
+  render:
+    name: marketing-kit fixture film render
+    runs-on: ubuntu-latest
+    # The test allows 10 minutes; a hung download must not hold a runner for hours.
+    timeout-minutes: 15
+    env:
+      # The recorder drives the runner's Chrome, as the screenshot tests in `test` do.
+      PLAYWRIGHT_CHROMIUM_PATH: /usr/bin/google-chrome
+      HYPERFRAMES_NO_TELEMETRY: "1"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # The fixture's voiceover and sound effects are tones generated with ffmpeg; the test probes the MP4 with ffprobe.
+      - name: Install ffmpeg
+        run: command -v ffmpeg || (sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg)
+      # hyperframes would settle for the runner's Chrome and fall back to its slower screenshot capture; `--force`
+      # downloads the chrome-headless-shell it pins, so CI renders the way a real film does.
+      - name: Install hyperframes' Chrome
+        timeout-minutes: 5
+        run: |
+          # After a download, `browser ensure` prints "Ready to render." but never exits (hyperframes 0.8.85, seen
+          # on the runner), so it runs as a job in its own process group (`set -m`), stopped once that line appears.
+          set -m
+          log="$RUNNER_TEMP/hyperframes-ensure.log"
+          npx hyperframes browser ensure --force > "$log" 2>&1 &
+          ensure=$!
+          until grep -q "Ready to render" "$log"; do
+            if ! kill -0 "$ensure" 2>/dev/null; then
+              grep -q "Ready to render" "$log" && break
+              cat "$log"; exit 1
+            fi
+            sleep 1
+          done
+          kill -- "-$ensure" 2>/dev/null || true
+          cat "$log"
+          browser="$(npx hyperframes browser path)"
+          case "$browser" in
+            "$HOME/.cache/hyperframes/"*) echo "HYPERFRAMES_BROWSER_PATH=$browser" >> "$GITHUB_ENV" ;;
+            *) echo "hyperframes resolved $browser, not its own headless shell" >&2; exit 1 ;;
+          esac
+      - name: Render the fixture film
+        run: npx vitest run tools/marketing-kit/tests/render.test.ts --reporter=verbose
+        env:
+          MARKETING_KIT_RENDER: "1"
 
   build:
     name: build packages

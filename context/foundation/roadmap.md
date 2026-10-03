@@ -54,7 +54,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-9** | `billing-admin-requests` | Payment requests, revoke and grant history in the billing admin page | FU-11 | autonomous | proposed |
 | **FU-11** | `billing-refund-one-payment` | Refunds that take back one payment's period | — | autonomous | done |
 | **FU-12** | `billing-retro-reviews` | Retro research and plan review for MO-1 and MO-2 | — | autonomous | proposed |
-| **FU-13** | `marketing-kit-render-ci` | the marketing-kit fixture film renders to a draft MP4 on every push | — | autonomous | proposed |
+| **FU-13** | `marketing-kit-render-ci` | the marketing-kit fixture film renders to a draft MP4 on every push | — | autonomous | done |
 | **FU-14** | `marketing-kit-schema-docs` | every key of the marketing.json JSON Schema carries a description | — | autonomous | done_code (2026-10-03; waiting: owner editor check, MK-8 release) |
 | **FU-15** | `marketing-kit-desktop-16x9` | desktop 16:9 films recorded in a browser frame instead of a phone | FU-16 | autonomous | proposed |
 | **FU-16** | `marketing-kit-layout-overrides` | per-format layout overrides (caption box, persona, end card) in marketing.json | FU-14 | autonomous | proposed |
@@ -280,7 +280,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-13: The marketing-kit fixture film renders in CI
 - **Change ID:** `marketing-kit-render-ci`
-- **Status:** proposed
+- **Status:** done
+- **Input:** [`archive/2026-10-03-marketing-kit-render-ci/change.md`](../archive/2026-10-03-marketing-kit-render-ci/change.md)
 - **Outcome:** A CI job (or a step of an existing one) installs a Chromium, sets `PLAYWRIGHT_CHROMIUM_PATH` and `HYPERFRAMES_BROWSER_PATH`, and runs `MARKETING_KIT_RENDER=1` on `tools/marketing-kit/tests/render.test.ts`.
 - **Prerequisites:** none beyond the main branch.
 - **Unknowns:** Whether the e2e job's Playwright Chromium also serves hyperframes (a headless shell worked locally); the job's run time (about 85 s locally).
@@ -398,6 +399,7 @@ Open from FU-14:
 - **FU-14** `marketing-kit-schema-docs`: every key of the marketing.json JSON Schema carries a description, guarded by a test; archived in `archive/2026-10-03-marketing-kit-schema-docs/`
 - **FU-2** `waitlist-double-opt-in`: `waitlist({ doubleOptIn })`, a single-use confirmation link (transactional mail) before consents, the opt-out lift and list mail; expiry 7 days by default, `pruneUnconfirmedSignups`; archived in `archive/2026-10-03-waitlist-double-opt-in/`
 - **FU-3** `mailing-consent-sync`: an unsubscribe withdraws the waitlist's consents in its transaction (mailing `onUnsubscribed`), and a new sign-up lifts the person's own opt-out; archived in `archive/2026-10-03-mailing-consent-sync/`
+- **FU-13** `marketing-kit-render-ci`: a `render` job in ci.yml records, composes and renders the fixture film on hyperframes' own headless shell on every push; archived in `archive/2026-10-03-marketing-kit-render-ci/`
 - **FU-11** `billing-refund-one-payment`: a full refund takes back only what its payment granted (one period's unused days, or one lifetime); archived in `archive/2026-10-03-billing-refund-one-payment/`
 
 ## Decisions (auto)
