@@ -26,7 +26,6 @@ share files run in one lane (see the roadmap's Order), so `dependency` below nam
 | FU-7 | [`analytics-action-redirect-tag`](analytics-action-redirect-tag/change.md) | Channel tag kept through server action redirects | FU-1 and FU-5 on main | dependency |
 | FU-8 | [`waitlist-funnel-hook`](waitlist-funnel-hook/change.md) | Waitlist sign-ups as a funnel step | FU-4 on main | dependency |
 | FU-9 | [`billing-admin-requests`](billing-admin-requests/change.md) | Payment requests, revoke and grant history in the billing admin page | FU-11 on main | dependency |
-| FU-11 | [`billing-refund-one-payment`](billing-refund-one-payment/change.md) | Refunds that take back one payment's period | roadmap promoted | start |
 | FU-12 | [`billing-retro-reviews`](billing-retro-reviews/change.md) | Retro research and plan review for MO-1 and MO-2 | roadmap promoted | start |
 | FU-13 | [`marketing-kit-render-ci`](marketing-kit-render-ci/change.md) | The marketing-kit fixture film renders in CI | roadmap promoted | start |
 | FU-14 | [`marketing-kit-schema-docs`](marketing-kit-schema-docs/change.md) | The marketing.json JSON Schema documents every key | roadmap promoted | start |
