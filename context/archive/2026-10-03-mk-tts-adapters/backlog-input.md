@@ -17,7 +17,7 @@ archived_at: null
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **MK-7** (roadmap `marketing-kit`, main since 2026-10-03):
+From [`roadmap.md`](../../foundation/roadmap.md), item **MK-7** (roadmap `marketing-kit`, main since 2026-10-03):
 
 > ### MK-7: TTS provider adapters
 > - **Change ID:** `mk-tts-adapters`
@@ -34,7 +34,7 @@ From [`roadmap.md`](../../../foundation/roadmap.md), item **MK-7** (roadmap `mar
 > - **Baseline:** FIRE voiceover tests. After: the same tests run through the interface with a fake provider; no network in CI.
 > - **PRD refs:** FR-24.
 
-Reference material: [`docs/03-marketing-kit.md`](../../../../docs/03-marketing-kit.md) (architecture, JSON contract, licenses), PRD FR-24 and FR-25, and the source in FIRE_TRACKER `video/**`, `scripts/screenshot.mts`, `src/app/**/opengraph-image.tsx`.
+Reference material: [`docs/03-marketing-kit.md`](../../../docs/03-marketing-kit.md) (architecture, JSON contract, licenses), PRD FR-24 and FR-25, and the source in FIRE_TRACKER `video/**`, `scripts/screenshot.mts`, `src/app/**/opengraph-image.tsx`.
 
 ## Constraints
 

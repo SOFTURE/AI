@@ -24,7 +24,7 @@ tools/marketing-kit/
   schema/marketing.schema.json   JSON Schema (generated from zod), the contract for projects and agents
   src/
     config/       load marketing.json + brand (or .impeccable/design.json) + validation
-    voice/        TtsProvider interface; ElevenLabs adapter (from FIRE); cache by hash(text, voice, model, language)
+    voice/        TtsProvider interface (estimate + synthesize); ElevenLabs and fake adapters; cache by hash(text, voice, model, language)
     record/       frame-by-frame recording (Playwright), Director, declarative JSON actions → Director calls
     compose/      HTML composition (phone, camera, word-level captions, persona card, hook, end card)
     render/       ffmpeg + hyperframes (npm dependency, Apache-2.0), formats 9:16 / 1:1 / 16:9
