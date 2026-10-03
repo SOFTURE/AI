@@ -134,7 +134,7 @@ test("an admin turns the welcome banner on and off, the home page follows and th
   await expect(page.getByText(switchesCopy.panel.title, { exact: true })).toBeVisible();
   const toggle = page.getByRole("switch", { name: BANNER_LABEL });
   await expect(toggle).not.toBeChecked();
-  await expect(page.getByText(switchesCopy.source.default)).toBeVisible();
+  await expect(page.getByRole("listitem").filter({ has: toggle }).getByText(switchesCopy.source.default)).toBeVisible();
 
   await flipAndWait(page);
   await expect(toggle).toBeChecked();

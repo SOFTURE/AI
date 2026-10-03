@@ -83,6 +83,10 @@ export const pl: AppMessages = {
       label: "Baner powitalny",
       description: "Pokazuje linię powitalną na stronie głównej.",
     },
+    registrationClosed: {
+      label: "Rejestracja zamknięta",
+      description: "Nie można zakładać nowych kont; strona rejestracji pokazuje komunikat.",
+    },
   },
   mcp: {
     whoami: "Mówi asystentowi, do którego konta należy token.",
