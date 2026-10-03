@@ -25,7 +25,7 @@ share files run in one lane (see the roadmap's Order), so `dependency` below nam
 | FU-8 | [`waitlist-funnel-hook`](waitlist-funnel-hook/change.md) | Waitlist sign-ups as a funnel step | FU-4 on main | dependency |
 | FU-9 | [`billing-admin-requests`](billing-admin-requests/change.md) | Payment requests, revoke and grant history in the billing admin page | FU-11 on main | dependency |
 | FU-12 | [`billing-retro-reviews`](billing-retro-reviews/change.md) | Retro research and plan review for MO-1 and MO-2 | roadmap promoted | start |
-| FU-13 | [`marketing-kit-render-ci`](marketing-kit-render-ci/change.md) | The marketing-kit fixture film renders in CI | roadmap promoted | start |
+| FU-13 | [`marketing-kit-render-ci`](../../changes/marketing-kit-render-ci/change.md) | The marketing-kit fixture film renders in CI | taken 2026-10-03 | start |
 | FU-14 | [`marketing-kit-schema-docs`](../../archive/2026-10-03-marketing-kit-schema-docs/change.md) | The marketing.json JSON Schema documents every key | archived 2026-10-03 | start |
 | FU-15 | [`marketing-kit-desktop-16x9`](marketing-kit-desktop-16x9/change.md) | A 16:9 film can show the desktop app in a browser frame | FU-16 on main | dependency |
 | FU-16 | [`marketing-kit-layout-overrides`](marketing-kit-layout-overrides/change.md) | A project can adjust a format's layout in marketing.json | FU-14 on main | dependency |

@@ -379,7 +379,8 @@ PLAYWRIGHT_CHROMIUM_PATH=... HYPERFRAMES_BROWSER_PATH=... \
 
 The render test copies [examples/fixture/](examples/fixture/) into a temporary folder, generates a tone
 as its voiceover and tones as its sound effects with ffmpeg, runs `softure-marketing all` and checks the
-MP4 with ffprobe. `MARKETING_KIT_KEEP=1` keeps the folder.
+MP4 with ffprobe. `MARKETING_KIT_KEEP=1` keeps the folder. CI runs it on every push in the `render` job of
+[ci.yml](../../.github/workflows/ci.yml), with hyperframes on its own chrome-headless-shell.
 
 The screenshot tests (`tests/screenshot.test.ts`, `tests/shots-cli.test.ts`) drive a browser against
 static pages and the fixture app. They run whenever a Chromium is available (`PLAYWRIGHT_CHROMIUM_PATH`
