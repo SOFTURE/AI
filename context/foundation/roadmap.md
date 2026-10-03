@@ -48,7 +48,7 @@ adoption in FIRE_TRACKER follows `docs/05-adoption-playbook.md`.
 | ID | Change | Outcome | Depends on | Mode | Status |
 | --- | --- | --- | --- | --- | --- |
 | **EN-9** | `engagement-release` | mailing, waitlist, mcp-access and privacy 0.1.0 published through the release pipeline; READMEs and docs updated | EN-1…EN-8 (done) | owner | blocked (carried over from engagement: the owner's release at the keyboard) |
-| **MO-1** | `billing-entitlements` | `@softure-ai/billing`: trial / paid / read_only state machine in `billing.entitlements`, `requireWriteAccess` | — | autonomous | ready |
+| **MO-1** | `billing-entitlements` | `@softure-ai/billing`: trial / paid / read_only state machine in `billing.entitlements`, `requireWriteAccess` | — | autonomous | done |
 | **MO-2** | `billing-plans-pricing` | plans from config, pricing tiles, payment page and a manual payment adapter that grants entitlements | MO-1 | autonomous | ready |
 | **MO-3** | `billing-provider-adapter` | the chosen provider (Stripe or Przelewy24) behind `PaymentProvider`: checkout, webhooks, entitlement updates | MO-2 | autonomous | blocked (owner decision: Stripe vs Przelewy24) |
 | **MO-4** | `analytics-channel-tags` | `@softure-ai/analytics`: a channel parameter captured, validated and carried across redirects and sign-up | — | autonomous | done |
@@ -87,7 +87,7 @@ Risk first: MO-1 (the write guard every paid feature depends on) starts the road
 
 ### MO-1: Entitlements and the write guard
 - **Change ID:** `billing-entitlements`
-- **Status:** ready
+- **Status:** done
 - **Outcome:** A pure entitlement state machine (`trial | paid | read_only`) with trial length and reminder windows from config; `billing.entitlements` (one row per user, separate from `auth.users`); `getEntitlement()` and `requireWriteAccess()` for app write actions; access badge and notice components with slots and messages; a privacy contributor for export and deletion.
 - **Prerequisites:** roadmap-engagement done (privacy registry on the main branch); met on 2026-10-03.
 - **Unknowns:** How a new user gets a trial row (auth `onRegistered` hook vs. lazy creation); an unlimited/lifetime representation; time-zone handling of trial end.
@@ -155,6 +155,7 @@ Risk first: MO-1 (the write guard every paid feature depends on) starts the road
 ## Done
 
 - **MO-4** `analytics-channel-tags`: `@softure-ai/analytics` with `analytics({ channel: { param, pattern, maxLength } })` (default `?z=`, lowercase words, 32 characters), no schema yet; `/proxy` `createChannelTagger` with `carry` (the tag added to a same-origin redirect such as the auth guard's) and `tag` (a 307 putting the tag back on a navigation from a tagged same-origin page; Next client navigations recognised by `Next-Url`, FU-5 follows up); `/next` `getChannel` (Referer), `getChannelFromSearchParams`, `attributeRegistration` for auth's `onRegistered`; no cookie and nothing stored; the example's `proxy.ts` chains guard and tagger, `/account` shows the sign-up channel, `e2e/analytics-channel.spec.ts`; archived in `archive/2026-10-03-analytics-channel-tags/`
+- **MO-1** `billing-entitlements`: `@softure-ai/billing` with `billing.entitlements` (one row per account, FK to `auth.users` with cascade, `trial_ends_at`, `paid_until`, `is_lifetime` exclusive with it); a pure state machine (`resolveEntitlement`: paid wins, then the trial, else read-only; `applyEntitlementEvent`: grant, lifetime grant, revoke, trial extension, never shortening); trials end at the start of a local day in `config.timezone` and days left count local days; an account without a row derives its trial from `auth.users.created_at`, so reads never write and auth's `onRegistered` stays free, and the first `changeEntitlement` pins it; `getEntitlement`, `checkWriteAccess`, `changeEntitlement` in `/server`, `requireWriteAccess` and `CurrentAccessBadge` / `CurrentAccessNotice` in `/next`, `AccessBadge` / `AccessNotice` in `/ui`; privacy contributor and health check; reminder mail deferred to followups FU-6; the example's `/account/billing` with `e2e/billing-entitlements.spec.ts`; archived in `archive/2026-10-03-billing-entitlements/`
 
 ## Decisions (auto)
 

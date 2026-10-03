@@ -18,6 +18,7 @@ gets an entry here and a row in the roadmap.
 | FU-3 | [`mailing-consent-sync`](mailing-consent-sync/change.md) | Unsubscribe as consent withdrawal | roadmap promoted | start |
 | FU-4 | [`waitlist-welcome-html`](waitlist-welcome-html/change.md) | HTML welcome mail for the waitlist | roadmap promoted | start |
 | FU-5 | [`analytics-client-navigation`](analytics-client-navigation/change.md) | Channel tag on client navigations without Next-Url | roadmap promoted | start |
+| FU-6 | [`billing-reminder-mail`](billing-reminder-mail/change.md) | Reminder mail before access ends | roadmap promoted | start |
 
 Kind: `start` (can be taken as soon as the roadmap is promoted), `dependency` (waits for the listed items on the
 main branch), `owner` (needs an owner decision or the owner at the keyboard).

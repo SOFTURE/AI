@@ -33,6 +33,9 @@ export default async function AccountPage() {
           <ButtonLink href="/account/privacy" variant="secondary" LinkComponent={Link}>
             {messages.account.privacy}
           </ButtonLink>
+          <ButtonLink href="/account/billing" variant="secondary">
+            {messages.account.billing}
+          </ButtonLink>
           <ButtonLink href="/account/mcp" variant="secondary">
             {messages.account.assistant}
           </ButtonLink>
