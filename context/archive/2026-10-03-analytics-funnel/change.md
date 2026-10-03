@@ -1,12 +1,12 @@
 ---
 change_id: analytics-funnel
 title: "Cookieless funnel counter"
-status: implemented
+status: archived
 roadmap_item: MO-5
 branch: claude/mo-5-analytics-funnel-ntufkm
 created: 2026-10-03
 updated: 2026-10-03
-archived_at: null
+archived_at: 2026-10-03
 ---
 
 ## Intent
