@@ -1,7 +1,7 @@
 ---
 change_id: mk-tts-adapters
 title: "The voiceover is recorded through a swappable TTS provider and prices itself first"
-status: plan_reviewed
+status: implementing
 roadmap_item: MK-7
 branch: claude/project-thread-h3430z
 created: 2026-10-03

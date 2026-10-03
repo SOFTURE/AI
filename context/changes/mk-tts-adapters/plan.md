@@ -92,8 +92,8 @@ changes), `src/index.ts`, `README.md`, `docs/03-marketing-kit.md` (voice line on
 ### Phase 1: Provider interface, adapters and orchestration
 
 #### Automated
-- [ ] 1.1 Adapter, fake, cache and orchestration tests pass
-- [ ] 1.2 Gates green (typecheck, lint, test)
+- [x] 1.1 Adapter, fake, cache and orchestration tests pass — 5d7c1e5
+- [x] 1.2 Gates green (typecheck, lint, test) — 5d7c1e5
 
 ### Phase 2: CLI wiring, exports and docs
 
