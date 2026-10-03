@@ -38,12 +38,12 @@ Input: change.md, research.md. Complexity: small (2 phases). Risk: low.
 ### Phase 1: Module
 
 #### Automated
-- [x] 1.1 Parsing, propagation, carry and adapter tests pass
-- [x] 1.2 Module test passes; `module.json` equals the manifest
-- [x] 1.3 Gates green (typecheck, lint, test)
+- [x] 1.1 Parsing, propagation, carry and adapter tests pass — 69b995d
+- [x] 1.2 Module test passes; `module.json` equals the manifest — 69b995d
+- [x] 1.3 Gates green (typecheck, lint, test) — 69b995d
 
 ### Phase 2: Example app, e2e, docs
 
 #### Automated
-- [x] 2.1 e2e `analytics-channel.spec.ts` passes with the rest of the suite
-- [x] 2.2 Gates green (typecheck, lint, test, build)
+- [x] 2.1 e2e `analytics-channel.spec.ts` passes with the rest of the suite — 69b995d
+- [x] 2.2 Gates green (typecheck, lint, test, build) — 69b995d
