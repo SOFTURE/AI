@@ -1,7 +1,8 @@
 // @softure-ai/waitlist on the built app: the form on the home page signs an address up with the
 // required scope, a second sign-up widens it to the newsletter, each consent lands in
 // privacy.consents with its document version, one welcome mail goes out as list mail, and its
-// footer link unsubscribes the address. Every test gets its own client address and email.
+// footer link unsubscribes the address, withdrawing the consents; signing up again lifts the
+// opt-out. Every test gets its own client address and email.
 import { randomInt, randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { deliveries, mailingMessages, suppressions } from "@softure-ai/mailing";
@@ -117,6 +118,33 @@ test("the welcome mail's footer link unsubscribes the address from list mail", a
   try {
     const rows = await database.db.select().from(suppressions).where(eq(suppressions.recipientKey, getEmailKey(email)));
     expect(rows).toHaveLength(1);
+  } finally {
+    await database.close();
+  }
+  const { consents: recorded } = await readSignup(email);
+  expect(recorded.map((row) => `${row.purpose} ${String(row.granted)} ${row.source}`)).toEqual([
+    "launch true waitlist",
+    "newsletter true waitlist",
+    "launch false unsubscribe",
+    "newsletter false unsubscribe",
+  ]);
+});
+
+test("signing up again after unsubscribing lifts the opt-out and grants only what is checked now", async ({ page }) => {
+  const email = newEmail();
+  await signUp(page, email, { withNewsletter: true });
+  const [mail] = await readWelcomeMails(email);
+  await page.goto(mail?.text.split("\n").at(-1) ?? "");
+  await page.getByRole("button", { name: mailingMessages.en.unsubscribe.submit }).click();
+  await expect(page.getByRole("heading", { name: mailingMessages.en.unsubscribe.doneTitle })).toBeVisible();
+
+  await signUp(page, email, { withNewsletter: false });
+  const { signup, consents: recorded } = await readSignup(email);
+  expect(signup?.scopes).toEqual(["launch"]);
+  expect(recorded.map((row) => `${row.purpose} ${String(row.granted)}`)).toEqual(["launch true", "newsletter true", "launch false", "newsletter false", "launch true"]);
+  const database = await openTestDatabase();
+  try {
+    expect(await database.db.select().from(suppressions).where(eq(suppressions.recipientKey, getEmailKey(email)))).toEqual([]);
   } finally {
     await database.close();
   }

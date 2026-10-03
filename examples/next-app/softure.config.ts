@@ -16,6 +16,7 @@ import { privacy, PRIVACY_RATE_LIMIT_BUCKETS } from "@softure-ai/privacy";
 import { recordRegistrationConsent } from "@softure-ai/privacy/server";
 import { cloudflareIp, security } from "@softure-ai/security";
 import { waitlist, WAITLIST_RATE_LIMIT_BUCKETS } from "@softure-ai/waitlist";
+import { withdrawWaitlistConsents } from "@softure-ai/waitlist/server";
 import { en } from "./messages/en.ts";
 import { pl } from "./messages/pl.ts";
 import { mailInvoiceRequestsTo } from "./lib/invoice-requests.ts";
@@ -93,11 +94,13 @@ const config = defineSoftureConfig({
     }),
     // Resend when a key is set; otherwise the fake provider, which the e2e reads through the outbox
     // file Playwright sets (MAIL_OUTBOX, e2e/mailing-transport.spec.ts). Without either, the fake
-    // refuses to send under `next start`, so no mail silently disappears.
+    // refuses to send under `next start`, so no mail silently disappears. An unsubscribe withdraws
+    // the waitlist's consents in the same transaction (e2e/waitlist.spec.ts).
     mailing({
       from: "SOFTURE example <hello@mail.example.com>",
       replyTo: "support@example.com",
       provider: process.env.RESEND_API_KEY ? resend() : fakeMailProvider({ outboxFile: process.env.MAIL_OUTBOX || undefined }),
+      onUnsubscribed: withdrawWaitlistConsents,
     }),
     // The export and account deletion at /account/privacy (e2e/privacy-export-delete.spec.ts). The
     // guestbook holds no user data, so the modules' own contributors are all there is to collect.

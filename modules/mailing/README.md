@@ -34,8 +34,11 @@ FIRE ran deployment-specific scripts.
 - The unsubscribe page (`/unsubscribe`) and the one-click route (`/api/mailing/unsubscribe`) in `/next`,
   each mounted with one line (section 4).
 - `@softure-ai/mailing/server`: `isSuppressed(ctx, address)`, `suppressRecipient(ctx, address)` (for
-  scripts, bounce or complaint handlers), `unsubscribe(ctx, token, source)`, `buildUnsubscribeLinks`,
-  `getRecipientKey`, and the footer and header helpers.
+  scripts, bounce or complaint handlers), `unsubscribe(ctx, token, source)`,
+  `liftSuppression(ctx, address)` (a new explicit consent lifts the person's own opt-out),
+  `buildUnsubscribeLinks`, `getRecipientKey`, and the footer and header helpers.
+- **An `onUnsubscribed` hook**, run in the opt-out's transaction, so the consent ledger can record
+  the withdrawal (section 10).
 - **Sending once.** `deliverOnce(ctx, { scope, mail })` (`/server`, and `deliverOnce({ scope, mail })`
   in `/next`) sends a mail at most once per scope and recipient through the delivery ledger.
 - **Campaigns.** `sendCampaign`, `planCampaign` and the content file parser in `/server`; the
@@ -199,6 +202,7 @@ mailing({
 | `replyTo` | `string` | none | One address for replies; may be on another domain (DMARC does not check it). |
 | `provider` | `MailProvider` | required | `resend()`, `fakeMailProvider()` or your own adapter. |
 | `timeoutMs` | `number` | `10000` | 1000 to 60000. |
+| `onUnsubscribed` | `(event, ctx) => Promise<void>` | — | Runs on every verified unsubscribe, in its transaction (section 10). |
 | `routes` | `{ unsubscribe?, oneClick? }` | `/unsubscribe`, `/api/mailing/unsubscribe` | Where you mount the page and the route; links are built on `appOrigin` plus these paths. |
 
 `resend({ apiKey?, endpoint?, fetch? })`: without `apiKey` it reads `RESEND_API_KEY` on every send,
@@ -289,6 +293,25 @@ override any text with `mailing({ messages: { en: { footer: { text: "…" } } } 
 
 The provider is the extension point (section 3).
 
+**`onUnsubscribed(event, ctx)`** runs on every verified unsubscribe (the page's button or a mail
+client's one-click POST), also a repeated one, in the transaction that stores the opt-out:
+`event` is `{ recipientKey, source }` (the key is privacy's email key of the same address, never the
+address), `ctx.db` is the transaction. A throw rolls the opt-out back: the route answers 500 and the
+page offers a retry, so the opt-out and what the hook records never disagree. It does not run for
+`suppressRecipient` (a bounce or a script is not the person's choice). Wire the waitlist's handler,
+which withdraws its consents in privacy's ledger:
+
+```ts
+import { withdrawWaitlistConsents } from "@softure-ai/waitlist/server";
+
+mailing({ from: "…", provider: resend(), onUnsubscribed: withdrawWaitlistConsents }),
+```
+
+**`liftSuppression(ctx, address)`** is the other direction: a module that has just recorded a new
+explicit consent (the waitlist's sign-up) calls it in that consent's transaction. It deletes the
+row only when its source is `page` or `one-click`; an `operator` row stays. It returns whether it
+lifted one.
+
 **Tests and e2e:** `fakeMailProvider()` keeps accepted mail in `provider.sent` (with the id it
 answered) and honours idempotency keys like a real provider. `respond: (message) => ({ status:
 "rejected" })` simulates failures. With `outboxFile` it also appends each mail as one JSON line, so a
@@ -313,8 +336,9 @@ personal data. So the module neither exports nor deletes per user (`privacy: { e
   provider accepted a mail and before the outcome was written, with the row taken over more than
   24 hours later, sends that mail twice. No delivery, bounce or complaint webhooks yet.
 - Campaigns have no personalisation, scheduling or markdown: the body is sent as written.
-- Suppression is global per address: no per-list preferences and no resubscribe flow yet. To let a
-  person back in, delete their row (`getRecipientKey(address)`).
+- Suppression is global per address: no per-list preferences. A person comes back in through a
+  module's explicit consent (`liftSuppression`, e.g. a new waitlist sign-up); an operator row is
+  removed by hand (`getRecipientKey(address)`).
 - Lowercasing the whole address merges `Ada@` and `ada@` (allowed to differ by RFC 5321, never in
   practice); an unsubscribe then covers both.
 - The display name in `from` cannot contain commas, semicolons or quotes (no RFC 5322 quoting).

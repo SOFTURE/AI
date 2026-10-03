@@ -14,8 +14,10 @@ export type PrivacyErrorCode =
 /**
  * Whose consent it is: an account, or an email address that has none (a waitlist sign-up). An
  * account's consents and its email's consents are both its own in the export and the deletion.
+ * `{ emailKey }` names the same email subject by its stored key (`getEmailKey`), for a caller that
+ * only holds the key, such as mailing's unsubscribe link.
  */
-export type ConsentSubject = { readonly userId: string } | { readonly email: string };
+export type ConsentSubject = { readonly userId: string } | { readonly email: string } | { readonly emailKey: string };
 
 /** One row of the ledger: a consent given (`granted`) or withdrawn. */
 export interface ConsentRecord {

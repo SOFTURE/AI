@@ -1,7 +1,7 @@
 // The options an app passes to `mailing({ ... })` in softure.config.ts, parsed at startup.
 import { z } from "zod";
 import { isMailbox, isSingleAddress } from "./address.js";
-import type { MailProvider } from "./contract.js";
+import type { MailProvider, OnUnsubscribedHook } from "./contract.js";
 
 export const DEFAULT_TIMEOUT_MS = 10_000;
 
@@ -23,6 +23,11 @@ export const mailingOptionsSchema = z.strictObject({
   provider: z.custom<MailProvider>(isMailProvider, "must be a mail provider such as resend()"),
   /** How long one send may take before it reads as `mailing.unavailable`. */
   timeoutMs: z.number().int().min(1_000).max(60_000).default(DEFAULT_TIMEOUT_MS),
+  /**
+   * Reacts to an unsubscribe in its transaction, e.g. `withdrawWaitlistConsents` of
+   * `@softure-ai/waitlist/server`, which records the withdrawal in privacy's consent ledger.
+   */
+  onUnsubscribed: z.custom<OnUnsubscribedHook>((value) => typeof value === "function", "must be a function").optional(),
 });
 
 export type MailingOptionsInput = z.input<typeof mailingOptionsSchema>;

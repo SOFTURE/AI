@@ -1,6 +1,7 @@
 // Result types, error codes and the provider contract of the mailing module. No user-facing copy
 // here: the UI translates codes through `messages` (docs/02-module-standard.md §6).
-import type { Result } from "@softure-ai/core";
+import type { ModuleContext, Result } from "@softure-ai/core";
+import type { Queryable } from "@softure-ai/db";
 
 export type MailingErrorCode =
   /** The mail or its options were refused before anything left the process. Fix the input; do not retry. */
@@ -20,6 +21,20 @@ export const TRANSACTIONAL_KIND = "transactional";
 
 /** How an opt-out arrived: a mail client's one-click POST, the page's button, or an operator. */
 export type SuppressionSource = "one-click" | "page" | "operator";
+
+/** What `onUnsubscribed` receives: who opted out (never the address) and how. */
+export interface UnsubscribeEvent {
+  /** The recipient key of the link: privacy's email key of the same address (`getEmailKey`). */
+  readonly recipientKey: string;
+  readonly source: Exclude<SuppressionSource, "operator">;
+}
+
+/**
+ * Called on every verified unsubscribe, in the suppression's transaction (`ctx.db` is that
+ * transaction): a throw rolls the opt-out back and the unsubscribe fails, so the consent ledger
+ * and the suppression list never disagree. Set in `mailing({ onUnsubscribed })`.
+ */
+export type OnUnsubscribedHook = (event: UnsubscribeEvent, ctx: ModuleContext<Queryable>) => Promise<void>;
 
 /** One mail to one recipient. A mail to a list is a loop over recipients, never a list in `to`. */
 export interface OutgoingMail {

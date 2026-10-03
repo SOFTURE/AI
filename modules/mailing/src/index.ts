@@ -68,6 +68,7 @@ export { TRANSACTIONAL_KIND } from "./contract.js";
 export type {
   MailingErrorCode,
   MailProvider,
+  OnUnsubscribedHook,
   OutgoingMail,
   ProviderMessage,
   ProviderOutcome,
@@ -76,6 +77,7 @@ export type {
   SentMail,
   SuppressionSource,
   UnsubscribeErrorCode,
+  UnsubscribeEvent,
 } from "./contract.js";
 export { getMailingErrorMessage, mailingMessages, type MailingMessages } from "./messages/index.js";
 export { DEFAULT_TIMEOUT_MS, type MailingOptions, type MailingOptionsInput } from "./options.js";

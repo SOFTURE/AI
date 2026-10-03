@@ -14,4 +14,5 @@ export {
   type ListSignupsFilter,
   type WaitlistContext,
 } from "./signups.js";
+export { UNSUBSCRIBE_CONSENT_SOURCE, withdrawWaitlistConsents } from "./unsubscribe.js";
 export { deliverWelcomeMail, getWelcomeMailScope, WAITLIST_MAIL_KIND } from "./welcome-mail.js";
