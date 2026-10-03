@@ -16,7 +16,7 @@ every key means and what it defaults to, without opening the package README.
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-14** (roadmap `followups`, main since 2026-10-03):
+From [`roadmap.md`](../../foundation/roadmap.md), item **FU-14** (roadmap `followups`, main since 2026-10-03):
 
 > ### FU-14: The marketing.json JSON Schema documents every key
 > - **Change ID:** `marketing-kit-schema-docs`
