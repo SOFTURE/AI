@@ -1,30 +1,17 @@
-// The files the example appends outgoing mail to while the e2e runs: reset links
-// (lib/password-reset-sender.ts) and the fake mail provider's outbox (softure.config.ts).
-import { readFile } from "node:fs/promises";
+// The outbox file of the example's fake mail provider (MAIL_OUTBOX, softure.config.ts), which
+// Playwright sets for the server it starts. Every mail lands there, password reset mails included.
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { z } from "zod";
+import { readMailOutbox } from "@softure-ai/mailing/testing";
 
-const outboxLine = z.object({ email: z.string(), link: z.string() });
-
-export const PASSWORD_RESET_OUTBOX = join(tmpdir(), "softure-example-e2e-password-reset-outbox.jsonl");
-
-/** The outbox of the example's fake mail provider (`MAIL_OUTBOX`, softure.config.ts); read with `readMailOutbox`. */
+/** The outbox of the example's fake mail provider; read with `readMailOutbox`. */
 export const MAIL_OUTBOX = join(tmpdir(), "softure-example-e2e-mail-outbox.jsonl");
 
-/** Every link sent to `email` so far, oldest first. */
+/** A reset link as auth builds it: the reset route with a 43-character token. */
+const RESET_LINK = /^https?:\/\/\S+\/reset-password\?token=[A-Za-z0-9_-]{43}$/m;
+
+/** Every reset link mailed to `email` so far, oldest first (the link is a line of the text body). */
 export async function readResetLinks(email: string): Promise<string[]> {
-  let text: string;
-  try {
-    text = await readFile(PASSWORD_RESET_OUTBOX, "utf8");
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
-    throw error;
-  }
-  return text
-    .split("\n")
-    .filter((line) => line !== "")
-    .map((line) => outboxLine.parse(JSON.parse(line)))
-    .filter((line) => line.email === email)
-    .map((line) => line.link);
+  const mails = await readMailOutbox(MAIL_OUTBOX, { to: email });
+  return mails.flatMap((mail) => mail.text.match(RESET_LINK) ?? []);
 }

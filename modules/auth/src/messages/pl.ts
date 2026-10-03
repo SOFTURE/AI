@@ -53,6 +53,15 @@ export const pl: typeof en = {
     invalidBody: "Link wygasł albo został już użyty. Poproś o nowy.",
     requestNew: "Wyślij nowy link",
   },
+  resetMail: {
+    subject: "Zresetuj hasło",
+    greeting: "Dzień dobry,",
+    intro: "Otrzymaliśmy prośbę o zresetowanie hasła do Twojego konta. Otwórz ten link, aby ustawić nowe:",
+    action: "Ustaw nowe hasło",
+    expiry: "Link działa przez {duration} i tylko raz.",
+    minutes: { one: "{count} minutę", few: "{count} minuty", many: "{count} minut", other: "{count} minuty" },
+    ignore: "Jeśli to nie Ty, zignoruj tę wiadomość: Twoje hasło się nie zmieni.",
+  },
   logout: {
     submit: "Wyloguj się",
   },

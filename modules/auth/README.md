@@ -14,6 +14,8 @@ login, logout, password change and password reset as server actions and pages, `
 for server code, roles (`requireRole`, `authorizeRole`, `hasRole`, and `grant-role` /
 `revoke-role` scripts), `createAuthGuard` for the app's `proxy.ts`, and a health check that
 `GET /api/health` of `@softure-ai/ops` runs (every auth table answers, no rows read).
+`@softure-ai/auth/mailing` sends password reset mails through `@softure-ai/mailing`
+(`mailingResetSender()`).
 
 ## 2. Installation
 
@@ -23,7 +25,8 @@ npm install @softure-ai/auth @softure-ai/security @softure-ai/core @softure-ai/d
 npm install @softure-ai/ops
 ```
 
-Peer dependencies: `next` 16, `react` 19, `drizzle-orm`.
+Peer dependencies: `next` 16, `react` 19, `drizzle-orm`; `@softure-ai/mailing` (optional) for
+`@softure-ai/auth/mailing`.
 
 ## 3. Configuration
 
@@ -205,8 +208,27 @@ not stored (revoke); an `admin` that comes from `adminEmails` is removed from th
 script. `grantRole`, `revokeRole` and `findUserRoles` in `@softure-ai/auth/server` do the same for
 your own code.
 
-**Password reset.** Auth sends no mail itself: pass a sender, and the login form links to the
-request page.
+**Password reset.** Pass a sender, and the login form links to the request page. With
+`@softure-ai/mailing` enabled, `mailingResetSender()` is that sender:
+
+```ts
+import { auth } from "@softure-ai/auth";
+import { mailingResetSender } from "@softure-ai/auth/mailing";
+import { mailing, resend } from "@softure-ai/mailing";
+
+modules: [
+  auth({ passwordReset: { send: mailingResetSender() } }),
+  mailing({ from: "Acme <hello@mail.acme.com>", provider: resend() }),
+];
+```
+
+It mails the account's address in the app's locale: subject, a plain-text body with the link and an
+HTML body with it as an anchor, from `resetMail` in the dictionaries (section 9), with how long the
+link works (`ttlMinutes`, in the locale's plural form). It is a transactional mail: no unsubscribe
+link. It reads the registered config (`registerSoftureConfig`) when it runs; a failed send
+(`mailing.rejected`, `mailing.unavailable`, or mailing not enabled) is logged like any sender error.
+`renderPasswordResetMail(messages, locale, { link, ttlMinutes })` renders the same mail for an app
+that sends it another way. Any other sender works too:
 
 ```ts
 import { auth, consolePasswordResetSender } from "@softure-ai/auth";
@@ -283,7 +305,8 @@ Each form takes `classNames` for its slots (`root`, `form`, `footer`, `link`, `n
 
 `authMessages.en` and `authMessages.pl`, overridable per locale:
 `auth({ messages: { en: { login: { title: "Sign in to Acme" } } } })`. Groups: `fields`, `login`,
-`register`, `changePassword`, `forgotPassword`, `resetPassword`, `logout`, and `errors.{auth,security,core}` keyed by the error code
+`register`, `changePassword`, `forgotPassword`, `resetPassword`, `resetMail` (the reset mail of
+`mailingResetSender()`; `minutes` holds plural forms), `logout`, and `errors.{auth,security,core}` keyed by the error code
 (`auth.invalid_credentials` → `errors.auth.invalid_credentials`). `getAuthErrorMessage(messages, code)`
 looks one up.
 
@@ -295,8 +318,8 @@ looks one up.
 failure. `privacy` (engagement roadmap) stores the consent through it.
 
 `passwordReset.send(link, user, details)`: after a reset request is answered, for an existing
-account only (section 4, "Password reset"). The `@softure-ai/mailing` adapter (engagement roadmap)
-plugs in here.
+account only (section 4, "Password reset"). `mailingResetSender()` from `@softure-ai/auth/mailing`
+plugs `@softure-ai/mailing` in here.
 
 ## 11. GDPR
 

@@ -15,7 +15,7 @@ An app that enables both auth and mailing gets password-reset mails without writ
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **EN-4** (roadmap `engagement`, main since 2026-10-03):
+From [`roadmap.md`](../../foundation/roadmap.md), item **EN-4** (roadmap `engagement`, main since 2026-10-03):
 
 > ### EN-4: Password reset mails through the mailing module
 > - **Change ID:** `auth-reset-via-mailing`
@@ -27,8 +27,8 @@ From [`roadmap.md`](../../../foundation/roadmap.md), item **EN-4** (roadmap `eng
 > - **Baseline:** Identity ships reset with a pluggable sender only. After: the example app resets a password end to end through the fake mail provider.
 > - **PRD refs:** FR-12, FR-16.
 
-Reference material: [`docs/02-module-standard.md`](../../../../docs/02-module-standard.md) (the standard),
-[`docs/01-module-assessment.md`](../../../../docs/01-module-assessment.md) (source map in FIRE_TRACKER).
+Reference material: [`docs/02-module-standard.md`](../../../docs/02-module-standard.md) (the standard),
+[`docs/01-module-assessment.md`](../../../docs/01-module-assessment.md) (source map in FIRE_TRACKER).
 
 ## Constraints
 
