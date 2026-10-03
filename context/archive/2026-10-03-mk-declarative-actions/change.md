@@ -1,12 +1,12 @@
 ---
 change_id: mk-declarative-actions
 title: "A film's scene is written as JSON actions in marketing.json"
-status: planned
+status: archived
 roadmap_item: MK-3
 branch: claude/project-thread-vfwcqk
 created: 2026-10-03
 updated: 2026-10-03
-archived_at: null
+archived_at: 2026-10-03
 ---
 
 ## Intent
@@ -62,3 +62,6 @@ Handoff notes from MK-2 (coordinator brief, 2026-10-03):
 - Runs in parallel with MK-4, MK-6, MK-7 (roadmap order step 3).
 - Research: done (FIRE's scene inventory: which Playwright locator calls and options it uses).
   Framing: done (option B, JSON actions with a strict descriptor and static checks at load time).
+- Archived 2026-10-03: beat `actions` with locator descriptors drive the Director; load-time checks and runtime
+  errors name JSON paths; the fixture's JSON twin records the same log, and FIRE's film in JSON makes the same
+  Director calls. Review findings F1-F4 fixed in 1cf8a01, F5 in 4cbe3e5. No follow-ups.
