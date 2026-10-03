@@ -18,7 +18,7 @@ archived_at: null
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **MK-3** (roadmap `marketing-kit`, main since 2026-10-03):
+From [`roadmap.md`](../../foundation/roadmap.md), item **MK-3** (roadmap `marketing-kit`, main since 2026-10-03):
 
 > ### MK-3: Declarative scene actions
 > - **Change ID:** `mk-declarative-actions`
@@ -34,7 +34,7 @@ From [`roadmap.md`](../../../foundation/roadmap.md), item **MK-3** (roadmap `mar
 > - **Baseline:** FIRE film recording log (`RecordingLog`). After: the JSON version produces an equivalent log (same beats, marks and stills; frame counts within tolerance).
 > - **PRD refs:** FR-24.
 
-Reference material: [`docs/03-marketing-kit.md`](../../../../docs/03-marketing-kit.md) (architecture, JSON contract, licenses), PRD FR-24 and FR-25, and the source in FIRE_TRACKER `video/**`, `scripts/screenshot.mts`, `src/app/**/opengraph-image.tsx`.
+Reference material: [`docs/03-marketing-kit.md`](../../../docs/03-marketing-kit.md) (architecture, JSON contract, licenses), PRD FR-24 and FR-25, and the source in FIRE_TRACKER `video/**`, `scripts/screenshot.mts`, `src/app/**/opengraph-image.tsx`.
 
 ## Constraints
 

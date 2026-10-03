@@ -3,10 +3,9 @@ import type { Locator, Page } from "playwright";
 import type { VideoFormat, Viewport } from "./compose/timeline.js";
 
 /**
- * Film = script (data from `marketing.json`) + scene (code, a project's TS module).
- *
- * The scene is code, not JSON, because it is made of Playwright locators, the order of actions and
- * waiting for a word of the voiceover; declarative actions are roadmap item MK-3.
+ * Film = script (data from `marketing.json`) + scene: the beats' `actions` in the same file
+ * (`src/record/actions.ts` plays them on the Director), or a project's TS module (`sceneModule`) when
+ * the scene needs logic.
  */
 
 /** One sentence of the voiceover and the screen time that goes with it. */

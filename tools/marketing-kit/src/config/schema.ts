@@ -5,6 +5,7 @@ import { MARKETING_LOCALES, type MarketingLocale } from "../messages/index.js";
 import { headlineChartDataSchema, headlineCtaDataSchema } from "../og/templates/schemas.js";
 import { CHANNEL_CODE_MAX_LENGTH, CHANNEL_CODE_PATTERN, PLATFORMS } from "../platforms.js";
 import { ELEVENLABS_DEFAULT_MODEL } from "../voice/voiceover.js";
+import { actionSchema, type SceneAction } from "./actions-schema.js";
 import { COLOR_ROLES, COLOR_THEMES, isHexColor } from "./colors.js";
 
 /**
@@ -173,6 +174,63 @@ const voiceSchema = z.strictObject({
   cacheDir: relativePath.default("marketing/voiceover"),
 });
 
+type VideoBeat = { id: string; text: string; pad?: number | undefined; actions?: SceneAction[] | undefined };
+
+interface SceneShape {
+  beats: VideoBeat[];
+  hook: { still: string; shots: { mark: string }[] };
+  sceneModule?: string | undefined;
+}
+
+/**
+ * A video's scene is either a `sceneModule` or the beats' `actions`, never both. With actions, what
+ * the recording would only find out at its end is checked here, by path: the words `until` waits for,
+ * the opening still and marks, and the screen guard.
+ */
+function checkScene(video: SceneShape, context: z.RefinementCtx): void {
+  const [opening, ...sceneBeats] = video.beats;
+  for (const key of ["actions", "pad"] as const) {
+    if (opening?.[key] !== undefined) {
+      context.addIssue({ code: "custom", path: ["beats", 0, key], message: "the opening sentence plays over the still; the scene starts at the second sentence" });
+    }
+  }
+  if (video.sceneModule !== undefined) {
+    video.beats.forEach((beat, index) => {
+      for (const key of ["actions", "pad"] as const) {
+        if (index > 0 && beat[key] !== undefined) {
+          context.addIssue({ code: "custom", path: ["beats", index, key], message: "the video has a sceneModule; use one or the other" });
+        }
+      }
+    });
+    return;
+  }
+  const stills = new Set<string>();
+  const marks = new Set<string>();
+  let hasCheckScreen = false;
+  sceneBeats.forEach((beat, offset) => {
+    const index = offset + 1;
+    if (beat.actions === undefined) {
+      context.addIssue({ code: "custom", path: ["beats", index, "actions"], message: "is required when the video has no sceneModule" });
+      return;
+    }
+    const words = getWords(beat.text);
+    beat.actions.forEach((action, actionIndex) => {
+      if (action.do === "until" && !words.includes(action.word)) {
+        context.addIssue({ code: "custom", path: ["beats", index, "actions", actionIndex, "word"], message: `"${action.word}" is not a word of this sentence (${words.join(" ")})` });
+      }
+      if (action.do === "still") stills.add(action.name);
+      if (action.do === "mark") marks.add(action.name);
+      if (action.do === "checkScreen") hasCheckScreen = true;
+    });
+  });
+  if (sceneBeats.some((beat) => beat.actions === undefined)) return;
+  if (!stills.has(video.hook.still)) context.addIssue({ code: "custom", path: ["hook", "still"], message: `no "still" action saves "${video.hook.still}"` });
+  video.hook.shots.forEach((shot, index) => {
+    if (!marks.has(shot.mark)) context.addIssue({ code: "custom", path: ["hook", "shots", index, "mark"], message: `no "mark" action saves "${shot.mark}"` });
+  });
+  if (!hasCheckScreen) context.addIssue({ code: "custom", path: ["beats"], message: 'needs a "checkScreen" action: the screen guard must run before the film can say what the screen shows' });
+}
+
 const videoSchema = z
   .strictObject({
     id,
@@ -187,7 +245,18 @@ const videoSchema = z
      * Voiceover sentences in order. The first plays over the opening (the result frame), the scene
      * records the rest, and the last ends with the end card.
      */
-    beats: z.array(z.strictObject({ id, text: nonBlank })).min(3, "a film needs at least three sentences: opening, scene, end card"),
+    beats: z
+      .array(
+        z.strictObject({
+          id,
+          text: nonBlank,
+          /** Seconds held after the voiceover ends the sentence (default 0.35); only with `actions`. */
+          pad: z.number().min(0).max(5).optional(),
+          /** What happens on screen during the sentence, when the video has no `sceneModule`. */
+          actions: z.array(actionSchema).optional(),
+        }),
+      )
+      .min(3, "a film needs at least three sentences: opening, scene, end card"),
     hook: z.strictObject({
       /** The `still` the scene saves as the opening frame. */
       still: nonEmpty,
@@ -198,10 +267,11 @@ const videoSchema = z
     /** Phrases the voiceover says that the screen must show; a missing one stops the recording. */
     screenGuard: z.array(nonBlank).min(1, "the screen guard needs at least one phrase"),
     endCard: z.strictObject({ headline: nonEmpty, url: nonEmpty, note: z.string().default("") }),
-    /** A TS module exporting `scene(director)`: what happens on screen. */
-    sceneModule: relativePath,
+    /** A TS module exporting `scene(director)`: what happens on screen, instead of beat `actions`. */
+    sceneModule: relativePath.optional(),
   })
   .superRefine((video, context) => {
+    checkScene(video, context);
     const seen = new Set<string>();
     video.beats.forEach((beat, index) => {
       if (seen.has(beat.id)) context.addIssue({ code: "custom", path: ["beats", index, "id"], message: `"${beat.id}" appears twice` });

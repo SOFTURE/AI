@@ -83,7 +83,7 @@ describe("loadMarketingConfig", () => {
     expect(loaded.sfx).toEqual({ tap: join(dir, "marketing", "sfx", "tap.mp3") });
     expect(loaded.voice.cacheDir).toBe(join(dir, "marketing", "marketing", "voiceover"));
     expect(loaded.output).toEqual({ dir: join(dir, "out"), buildDir: join(dir, "marketing", "marketing", "build"), quality: "standard" });
-    expect(loaded.videos[0]?.sceneModule).toBe(join(dir, "marketing", "scenes", "anna-calculator.ts"));
+    expect(loaded.videos[0]?.sceneSource).toEqual({ kind: "module", path: join(dir, "marketing", "scenes", "anna-calculator.ts") });
   });
 
   it("fills the defaults a project does not write", () => {

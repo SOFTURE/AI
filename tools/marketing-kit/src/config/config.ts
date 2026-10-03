@@ -4,9 +4,10 @@ import { dirname, resolve } from "node:path";
 import type { FilmScript } from "../film.js";
 import type { MarketingLocale } from "../messages/index.js";
 import { DEFAULT_LINK_IN_BIO, PLATFORMS, type Platform } from "../platforms.js";
+import type { SceneAction } from "./actions-schema.js";
 import { resolveBrandColors } from "./brand.js";
 import type { BrandColors, ColorTheme } from "./colors.js";
-import { formatIssues, type ConfigIssue } from "./issues.js";
+import { expandUnionIssues, formatIssues, type ConfigIssue } from "./issues.js";
 import { SFX_EVENTS, marketingSchema, type MarketingJson, type Quality, type SfxEvent } from "./schema.js";
 
 /**
@@ -44,13 +45,25 @@ export interface VideoPost {
   channels: PlatformChannel[];
 }
 
+/** A sentence the scene records, with its actions; `index` is its position in `videos[].beats`. */
+export interface ActionBeat {
+  id: string;
+  index: number;
+  /** Seconds held after the sentence; null for the Director's default. */
+  pad: number | null;
+  actions: SceneAction[];
+}
+
+/** Where a video's scene comes from: a TS module, or the beats' `actions`. */
+export type SceneSource = { kind: "module"; path: string } | { kind: "actions"; beats: ActionBeat[] };
+
 export interface VideoConfig extends FilmScript {
   /** The entry's position in `videos`, for errors about it. */
   index: number;
   /** The recorded page on the already running app, and on the app the CLI starts. */
   url: string;
   ownUrl: string;
-  sceneModule: string;
+  sceneSource: SceneSource;
   /** The post copy, or null when `social.posts` has no entry for this video. */
   post: VideoPost | null;
 }
@@ -118,13 +131,20 @@ function resolveVideos(data: MarketingJson, at: (relative: string) => string): V
         language: data.voice.language,
         tempo: video.voice?.tempo ?? data.voice.tempo,
       },
-      beats: video.beats,
+      beats: video.beats.map((beat) => ({ id: beat.id, text: beat.text })),
       hook: video.hook,
       screenGuard: video.screenGuard,
       endCard: video.endCard,
       url: new URL(video.path, data.app.baseUrl).href,
       ownUrl: `http://localhost:${data.app.port}${video.path}`,
-      sceneModule: at(video.sceneModule),
+      sceneSource:
+        video.sceneModule === undefined
+          ? {
+              kind: "actions",
+              // The schema requires actions on every beat after the opening when there is no module.
+              beats: video.beats.slice(1).map((beat, offset) => ({ id: beat.id, index: offset + 1, pad: beat.pad ?? null, actions: beat.actions ?? [] })),
+            }
+          : { kind: "module", path: at(video.sceneModule) },
       post:
         post === undefined
           ? null
@@ -157,7 +177,7 @@ export function loadMarketingConfig(path: string): LoadConfigResult {
     return { ok: false, error: `Reading the marketing config ${file}: not JSON (${error instanceof Error ? error.message : String(error)}).` };
   }
   const parsed = marketingSchema.safeParse(raw);
-  if (!parsed.success) return { ok: false, error: formatIssues(file, parsed.error.issues) };
+  if (!parsed.success) return { ok: false, error: formatIssues(file, expandUnionIssues(parsed.error.issues)) };
   const data = parsed.data;
   const root = dirname(file);
   const at = (relative: string) => resolve(root, relative);
@@ -203,7 +223,7 @@ export function findVideo(config: MarketingConfig, id: string): VideoConfig | nu
 }
 
 /**
- * Files the pipeline reads, checked before anything slow starts: the scene module always, and with
+ * Files the pipeline reads, checked before anything slow starts: the scene module (if any) always, and with
  * `isRendering` the logo, the fonts and the sound effects too. Returns the problems by JSON path.
  */
 export function findMissingFiles(config: MarketingConfig, video: VideoConfig, isRendering: boolean): ConfigIssue[] {
@@ -211,7 +231,7 @@ export function findMissingFiles(config: MarketingConfig, video: VideoConfig, is
   const check = (path: PropertyKey[], file: string) => {
     if (!existsSync(file)) issues.push({ path, message: `no file at ${file}` });
   };
-  check(["videos", video.index, "sceneModule"], video.sceneModule);
+  if (video.sceneSource.kind === "module") check(["videos", video.index, "sceneModule"], video.sceneSource.path);
   if (!isRendering) return issues;
   if (config.brand.logo !== null) check(["brand", "logo", "svg"], config.brand.logo);
   for (const kind of ["heading", "body"] as const) {
