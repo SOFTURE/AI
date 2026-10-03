@@ -27,7 +27,7 @@ From [`roadmap-followups.md`](../../../foundation/roadmaps/roadmap-followups.md)
 > - **Risk:** LOW.
 > - **Baseline:** marketing-kit MK-2 `mk-config-contract`: the schema has types, patterns and defaults but no descriptions; the meaning lives in doc comments in `src/config/schema.ts` and the README table. After: a test checks that every property has a description.
 > - **PRD refs:** FR-24.
-> - **Source:** `tools/marketing-kit/src/config/schema.ts`; `context/changes/mk-config-contract/reviews/impl-review.md`
+> - **Source:** `tools/marketing-kit/src/config/schema.ts`; `context/archive/2026-10-03-mk-config-contract/reviews/impl-review.md`
 
 ## Constraints
 

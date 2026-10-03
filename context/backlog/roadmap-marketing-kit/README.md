@@ -27,7 +27,7 @@ carried-over owner items. Inside it, the order comes from dependencies:
 | EN-9 | [`engagement-release`](engagement-release/change.md) | Engagement modules release (carried over) | the owner at the keyboard (batch on 2026-10-05) | owner |
 | MO-6 | [`monetization-release`](monetization-release/change.md) | Monetization modules release (carried over) | the owner at the keyboard (batch on 2026-10-05) | owner |
 | MK-1 | [`mk-core-port`](../../archive/2026-10-03-mk-core-port/change.md) (archived) | Port the FIRE video core | roadmap promoted | start |
-| MK-2 | [`mk-config-contract`](../../changes/mk-config-contract/change.md) (taken) | Config contract: marketing.json and brand | MK-1 on main | dependency |
+| MK-2 | [`mk-config-contract`](../../archive/2026-10-03-mk-config-contract/change.md) (archived) | Config contract: marketing.json and brand | MK-1 on main | dependency |
 | MK-3 | [`mk-declarative-actions`](mk-declarative-actions/change.md) | Declarative scene actions | MK-2 on main | dependency |
 | MK-7 | [`mk-tts-adapters`](mk-tts-adapters/change.md) | TTS provider adapters | MK-2 on main | dependency |
 | MK-6 | [`mk-formats`](mk-formats/change.md) | Render formats 1:1 and 16:9 | MK-2 on main | dependency |

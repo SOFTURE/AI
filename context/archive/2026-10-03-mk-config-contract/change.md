@@ -1,12 +1,12 @@
 ---
 change_id: mk-config-contract
 title: "A project describes its films and brand in one validated marketing.json"
-status: plan_reviewed
+status: archived
 roadmap_item: MK-2
 branch: claude/project-thread-xaujo8
 created: 2026-10-03
 updated: 2026-10-03
-archived_at: null
+archived_at: 2026-10-03
 ---
 
 ## Intent
@@ -68,3 +68,8 @@ Handoff notes from MK-1 (coordinator brief, 2026-10-03):
 ## Notes
 
 - Runs alone after MK-1 (roadmap order step 2).
+- Research: done (an inventory of the 18 FIRE constants). Framing: done (option B, the scene stays a
+  TS module until MK-3).
+- Archived 2026-10-03: a project describes its films and brand in one `marketing.json`, validated by
+  zod and published as `schema/marketing.schema.json`; the fixture film renders from it. Review
+  findings F1-F7 fixed in 58eb620; JSON Schema descriptions deferred to FU-14.

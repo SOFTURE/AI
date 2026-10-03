@@ -152,20 +152,20 @@ films: a scene module without `scene` is refused; architecture: no inventory lit
 ### Phase 1: The contract
 
 #### Automated
-- [ ] 1.1 Config, brand, CSS-reader and schema tests pass
-- [ ] 1.2 Gates green (typecheck, lint, test)
+- [x] 1.1 Config, brand, CSS-reader and schema tests pass — e49cea4
+- [x] 1.2 Gates green (typecheck, lint, test) — e49cea4
 
 ### Phase 2: The pipeline reads the contract
 
 #### Automated
-- [ ] 2.1 Timeline, compose, posts, voiceover, film and architecture tests pass
-- [ ] 2.2 Gates green (typecheck, lint, test, build)
+- [x] 2.1 Timeline, compose, posts, voiceover, film and architecture tests pass — e49cea4
+- [x] 2.2 Gates green (typecheck, lint, test, build) — e49cea4
 
 ### Phase 3: Fixture, docs and the render
 
 #### Automated
-- [ ] 3.1 The opt-in render test passes locally
-- [ ] 3.2 Gates green (typecheck, lint, test, build)
+- [x] 3.1 The opt-in render test passes locally — e49cea4
+- [x] 3.2 Gates green (typecheck, lint, test, build) — e49cea4
 
 #### Manual
-- [ ] 3.3 A frame of the draft MP4 shows the logo, the end card and a caption in the configured colours
+- [x] 3.3 A frame of the draft MP4 shows the logo, the end card and a caption in the configured colours — e49cea4
