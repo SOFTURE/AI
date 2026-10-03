@@ -1,0 +1,78 @@
+import type { en } from "./en.js";
+
+export const pl: typeof en = {
+  page: {
+    title: "Dostęp dla asystenta AI",
+    lead: "Połącz asystenta AI, na przykład Claude, ze swoim kontem przez MCP. Każdy asystent dostaje własny token, który możesz w każdej chwili unieważnić.",
+  },
+  tools: {
+    title: "Co może asystent",
+    empty: "Aplikacja nie udostępnia jeszcze żadnych narzędzi.",
+    read: "Odczyt",
+    write: "Zmienia dane",
+    writeUnavailable: "Zmienia dane (wyłączone w tej aplikacji)",
+  },
+  issue: {
+    title: "Nowy token",
+    name: "Nazwa",
+    nameHint: "Gdzie go użyjesz, na przykład Laptop albo Claude Desktop.",
+    canWrite: "Pozwól na zmiany",
+    canWriteHint: "Bez tego asystent może tylko czytać.",
+    submit: "Utwórz token",
+    pending: "Tworzenie…",
+    limit: "Możesz mieć najwyżej {max} aktywnych tokenów.",
+  },
+  issued: {
+    title: "Utworzono token: {name}",
+    once: "Skopiuj go teraz. Pokazujemy go tylko raz; gdy opuścisz tę stronę, zostanie tylko jego nazwa.",
+    expires: "Działa do {date}.",
+    readOnly: "Ten token może tylko czytać.",
+    readWrite: "Ten token może czytać i zmieniać dane.",
+    promptTitle: "Najprościej: niech Claude Code sam to skonfiguruje",
+    promptHint: "Wklej to do rozmowy z Claude Code. Wykona polecenie i sprawdzi połączenie.",
+    openClaudeCode: "Otwórz w Claude Code",
+    commandTitle: "Polecenie w terminalu (Claude Code)",
+    jsonTitle: "Plik konfiguracyjny (Cursor, VS Code, Windsurf)",
+    desktopTitle: "Claude Desktop (claude_desktop_config.json)",
+    headerTitle: "Inne klienty: adres serwera i nagłówek Authorization",
+    copy: "Kopiuj",
+    copied: "Skopiowano",
+    done: "Gotowe, ukryj token",
+  },
+  setup: {
+    assistantPrompt: "Połącz się z moim kontem {serverName} przez MCP.\nWykonaj: {command}\nPotem sprawdź /mcp i powiedz mi, czy serwer „{serverName}” jest połączony.",
+  },
+  list: {
+    title: "Twoje tokeny",
+    empty: "Nie masz jeszcze żadnych tokenów.",
+    readOnly: "Tylko odczyt",
+    readWrite: "Odczyt i zmiany",
+    active: "Aktywny",
+    expired: "Wygasł",
+    expiresToday: "Wygasa dziś",
+    expiresTomorrow: "Wygasa jutro",
+    expiresInDays: "Wygasa za {days} dni",
+    expiresOn: "Ważny do {date}",
+    expiredOn: "Wygasł {date}",
+    createdOn: "Utworzony {date}",
+    lastUsed: "Ostatnio użyty {date}",
+    neverUsed: "Jeszcze nieużywany",
+    revoke: "Unieważnij",
+    revoking: "Unieważnianie…",
+  },
+  errors: {
+    "mcp-access": {
+      name_required: "Nadaj tokenowi nazwę, żeby odróżnić go od pozostałych.",
+      name_too_long: "Nazwa jest za długa.",
+      token_limit_reached: "Masz już najwięcej aktywnych tokenów, ile można. Unieważnij któryś, zanim utworzysz nowy.",
+      token_not_found: "Ten token już nie istnieje. Mógł zostać unieważniony.",
+    },
+    auth: {
+      unauthenticated: "Twoja sesja wygasła. Zaloguj się ponownie.",
+    },
+    core: {
+      database_failed: "Coś poszło nie tak po naszej stronie. Spróbuj ponownie za chwilę.",
+      unexpected: "Coś poszło nie tak po naszej stronie. Spróbuj ponownie za chwilę.",
+    },
+  },
+};

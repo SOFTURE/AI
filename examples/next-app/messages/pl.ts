@@ -31,6 +31,7 @@ export const pl: AppMessages = {
     lead: "Tę stronę widzą tylko zalogowani użytkownicy.",
     changePassword: "Zmień hasło",
     admin: "Panel administratora",
+    assistant: "Dostęp dla asystenta AI",
     testMail: "Wyślij wiadomość testową",
   },
   admin: {
@@ -54,6 +55,11 @@ export const pl: AppMessages = {
       label: "Baner powitalny",
       description: "Pokazuje linię powitalną na stronie głównej.",
     },
+  },
+  mcp: {
+    whoami: "Mówi asystentowi, do którego konta należy token.",
+    listEntries: "Czyta najnowsze wpisy z księgi gości.",
+    signGuestbook: "Dodaje wpis do księgi gości.",
   },
   errors: {
     "guestbook.message_invalid": "Wpisz od 1 do {max} znaków.",

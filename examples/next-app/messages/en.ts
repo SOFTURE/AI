@@ -29,6 +29,7 @@ export const en = {
     lead: "Only signed-in users see this page.",
     changePassword: "Change password",
     admin: "Admin panel",
+    assistant: "AI assistant access",
     testMail: "Send a test mail",
   },
   admin: {
@@ -52,6 +53,11 @@ export const en = {
       label: "Welcome banner",
       description: "Shows a welcome line on the home page.",
     },
+  },
+  mcp: {
+    whoami: "Tells the assistant which account the token belongs to.",
+    listEntries: "Reads the newest guestbook entries.",
+    signGuestbook: "Adds an entry to the guestbook.",
   },
   errors: {
     "guestbook.message_invalid": "Write between 1 and {max} characters.",

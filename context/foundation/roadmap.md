@@ -51,7 +51,7 @@ app (mail, waitlist), to agents (MCP access) and to regulators (privacy). Every 
 | **EN-3** | `mailing-ledger-campaigns` | exactly-once delivery ledger, campaigns sent from a content file, SPF/DKIM/DMARC check | EN-2 | autonomous | ready |
 | **EN-4** | `auth-reset-via-mailing` | the auth password-reset sender hook is wired to `@softure-ai/mailing`, with pl + en templates | EN-1 | autonomous | ready |
 | **EN-5** | `waitlist` | `@softure-ai/waitlist`: sign-up with configurable consent scopes, welcome mail, unsubscribe, `WaitlistForm` | EN-1, EN-2, EN-8 | autonomous | ready |
-| **EN-6** | `mcp-access` | `@softure-ai/mcp-access`: hashed, scoped, expiring tokens, Bearer endpoint around the app's MCP server factory, token UI | — | autonomous | ready |
+| **EN-6** | `mcp-access` | `@softure-ai/mcp-access`: hashed, scoped, expiring tokens, Bearer endpoint around the app's MCP server factory, token UI | — | autonomous | done |
 | **EN-7** | `privacy-registry` | `@softure-ai/privacy`: modules and the app register export/delete contributors; self-service export and account deletion | — | autonomous | **in_progress** (research, since 2026-10-03; cloud session, branch `claude/en-7-privacy-registry-d44kyj` — do not take in another session) |
 | **EN-8** | `privacy-consents-legal` | `privacy.consents` ledger (who, what, when, document version) and a `LegalDocument` shell with content from the app | EN-7 | autonomous | ready |
 | **EN-9** | `engagement-release` | mailing, waitlist, mcp-access and privacy 0.1.0 published through the release pipeline; READMEs and docs updated | EN-3, EN-4, EN-5, EN-6, EN-8 | owner | ready |
@@ -131,7 +131,7 @@ contributor contract every module with user data depends on) start the roadmap.
 
 ### EN-6: MCP access tokens and Bearer endpoint
 - **Change ID:** `mcp-access`
-- **Status:** ready
+- **Status:** done
 - **Outcome:** `mcp.access_tokens` (sha256 only, name, read/write scope, expiry, last use, per-account limit); token issue/revoke actions and UI that show the plaintext once; `POST /api/mcp` (rate limit, Bearer verification, `mcp:read` / `mcp:write` scopes) wrapping an app-provided `createServer({ userId, canWrite })`; writes need both an `allowWrites` config flag and a write token; client configuration instructions generated from config (server name, URL).
 - **Prerequisites:** roadmap-identity done (auth, security).
 - **Unknowns:** The supported `@modelcontextprotocol/server` version range; whether OAuth for MCP is in scope (likely a later item); how the app passes its tool catalog to the UI.
@@ -175,6 +175,7 @@ contributor contract every module with user data depends on) start the roadmap.
 
 ## Done
 
+- **EN-6** `mcp-access`: `@softure-ai/mcp-access` with table `mcp.access_tokens` (sha256 of `sftmcp_` tokens only, name, write flag, expiry, last use at most once a minute), issue under a per-user advisory lock with a per-account limit, owner-scoped revoke, `POST /api/mcp` through `createMcpRoute({ createServer })` (client identified, bucket `mcp` counted before the Bearer check, one 401 for unknown, revoked and expired tokens, 1 MiB body limit, a fresh server per request with `{ userId, canWrite, tokenId }`), writes only with `allowWrites` and a write token, the tool catalog in options, a token page with setup for Claude Code, file-configured clients and Claude Desktop; `@modelcontextprotocol/server` `^2.0.0` as a peer; OAuth for MCP left for later; archived in `archive/2026-10-03-mcp-access/`
 - **EN-1** `mailing-transport`: `@softure-ai/mailing` with `sendMail` (server, and `/next` on the registered config) returning `Result<{ id, provider }, mailing.invalid_input | mailing.rejected | mailing.unavailable>`, never throwing for a failed send; one recipient, text required and HTML optional (plain strings), sender and reply-to from config, `Idempotency-Key`, a timeout that also races providers ignoring their signal, reserved headers and line breaks refused, a log line without any mail content; `resend()` (key read from `RESEND_API_KEY` per send, 408/429/5xx/busy key as unavailable, other 4xx as rejected) and `fakeMailProvider()` in `/testing` (memory, JSON-lines outbox read by `readMailOutbox`, idempotency, refuses production without an outbox); the example's `/account/mail` page and e2e; archived in `archive/2026-10-03-mailing-transport/`
 
 ## Decisions (auto)

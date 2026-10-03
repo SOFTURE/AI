@@ -15,7 +15,7 @@ archived_at: null
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **EN-6** (roadmap `engagement`, main since 2026-10-03):
+From [`roadmap.md`](../../foundation/roadmap.md), item **EN-6** (roadmap `engagement`, main since 2026-10-03):
 
 > ### EN-6: MCP access tokens and Bearer endpoint
 > - **Change ID:** `mcp-access`
@@ -27,8 +27,8 @@ From [`roadmap.md`](../../../foundation/roadmap.md), item **EN-6** (roadmap `eng
 > - **Baseline:** FIRE has the full flow with a domain server. After: the example app issues a token and calls a demo MCP tool through the endpoint (e2e), unit tests cover expiry, revocation, scope and limits.
 > - **PRD refs:** FR-19, NFR-5.
 
-Reference material: [`docs/02-module-standard.md`](../../../../docs/02-module-standard.md) (the standard),
-[`docs/01-module-assessment.md`](../../../../docs/01-module-assessment.md) (source map in FIRE_TRACKER).
+Reference material: [`docs/02-module-standard.md`](../../../docs/02-module-standard.md) (the standard),
+[`docs/01-module-assessment.md`](../../../docs/01-module-assessment.md) (source map in FIRE_TRACKER).
 
 ## Constraints
 
