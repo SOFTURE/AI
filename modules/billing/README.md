@@ -148,5 +148,5 @@ None. Apps react to a change in their own code around `changeEntitlement`.
 - No plans, prices, payment page or payment adapter yet (MO-2: plans and a manual adapter; MO-3: a
   provider). `routes.payment` points at a page the app or MO-2 provides.
 - The write guard is per action: a read-only account can still call a write the app did not guard.
-- No reminder mail: the notice shows in the app only.
+- No reminder mail: the notice shows in the app only (followups FU-5).
 - No history of changes: a row holds the current state; payment records belong to the adapters.

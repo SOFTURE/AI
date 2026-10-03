@@ -1,6 +1,7 @@
 // The app's SOFTURE configuration. `softure migrate` loads this file with Node's type stripping,
 // so relative imports name their `.ts` files.
 import { auth, AUTH_RATE_LIMIT_BUCKETS } from "@softure-ai/auth";
+import { billing } from "@softure-ai/billing";
 import { mailingResetSender } from "@softure-ai/auth/mailing";
 import { defineSoftureConfig } from "@softure-ai/core";
 import { registerSoftureConfig } from "@softure-ai/core/next";
@@ -99,6 +100,9 @@ const config = defineSoftureConfig({
       ],
       placements: ["home"],
     }),
+    // Entitlements at /account/billing (e2e/billing-entitlements.spec.ts): a 14-day trial from
+    // registration, then read-only until a grant; the guarded write is app/account/billing/actions.ts.
+    billing({ trial: { days: 14, reminderDays: 3 }, paid: { reminderDays: 7 } }),
   ],
 });
 

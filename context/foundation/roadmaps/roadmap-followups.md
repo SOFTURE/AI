@@ -34,6 +34,7 @@ trigger: "every module roadmap (monetization, marketing-kit) is done; the owner 
 | **FU-2** | `waitlist-double-opt-in` | Waitlist double opt-in | — | autonomous | proposed |
 | **FU-3** | `mailing-consent-sync` | Unsubscribe as consent withdrawal | — | autonomous | proposed |
 | **FU-4** | `waitlist-welcome-html` | HTML welcome mail for the waitlist | — | autonomous | proposed |
+| **FU-5** | `billing-reminder-mail` | Reminder mail before access ends | — | autonomous | proposed |
 
 ## Order
 
@@ -86,6 +87,17 @@ trigger: "every module roadmap (monetization, marketing-kit) is done; the owner 
 - **Baseline:** engagement EN-5 `waitlist`: the welcome mail is text only (README §12). After: the gap is closed and covered by unit and e2e tests.
 - **PRD refs:** FR-18.
 - **Source:** `modules/waitlist/README.md` §12
+
+### FU-5: Reminder mail before access ends
+- **Change ID:** `billing-reminder-mail`
+- **Status:** proposed
+- **Outcome:** A reminder mail before an account's trial or paid access ends (and when it has ended), sent once per window through mailing's delivery ledger, next to the in-app notice billing already shows.
+- **Prerequisites:** none beyond the main branch.
+- **Unknowns:** What triggers the run (a scheduled script through ops vs. a request-time check); how accounts in a window are found without scanning every account (accounts without a row derive their trial from `auth.users.created_at`).
+- **Risk:** LOW.
+- **Baseline:** monetization MO-1 `billing-entitlements`: the reminder windows only drive the in-app badge and notice; no mail is sent (README §12). After: the gap is closed and covered by unit and e2e tests.
+- **PRD refs:** FR-22.
+- **Source:** `modules/billing/README.md` §12
 
 ## Owner decisions and checks
 

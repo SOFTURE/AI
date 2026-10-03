@@ -32,6 +32,14 @@ export const en = {
     assistant: "AI assistant access",
     testMail: "Send a test mail",
     privacy: "Your data",
+    billing: "Your plan",
+  },
+  billing: {
+    title: "Your plan",
+    lead: "Where your account stands, and a write that only an account with access can make.",
+    messageLabel: "Member message",
+    submit: "Sign as a member",
+    saved: "Entry saved",
   },
   admin: {
     title: "Admin panel",
@@ -102,6 +110,7 @@ export const en = {
     "guestbook.message_invalid": "Write between 1 and {max} characters.",
     "auth.forbidden": "You do not have access to this.",
     "auth.unauthenticated": "Your session has ended. Sign in again.",
+    "billing.read_only": "Your account is read-only, so nothing was saved. Choose a plan to write again.",
     "core.database_failed": "The database did not answer. Try again.",
     "mailing.invalid_input": "This message cannot be sent. Check the subject and try again.",
     "mailing.rejected": "The mail service refused this message.",
