@@ -1,12 +1,13 @@
 // Public API of @softure-ai/billing: the module factory for softure.config.ts, its rate limit bucket,
-// the manual payment adapter, the pure entitlement state machine and plan periods, prices, types,
-// messages and the entitlements table. Reading and changing entitlements, granting plans and
-// starting payments is in `@softure-ai/billing/server`, the Next.js adapter (write guard, payment
-// and admin pages, actions, current badge and notice) in `/next`, the components in `/ui`.
+// the manual and Stripe payment adapters, Stripe's webhook signature, the pure entitlement state
+// machine and plan periods, prices, types, messages and the tables. Reading and changing
+// entitlements, granting plans, starting payments and recording provider payments is in
+// `@softure-ai/billing/server`, the Next.js adapter (write guard, payment and admin pages, actions,
+// the Stripe webhook route, current badge and notice) in `/next`, the components in `/ui`.
 import { defineModule, resolveMigrationsDir } from "@softure-ai/core";
 import { billingMessages } from "./messages/index.js";
 import { billingOptionsSchema } from "./options.js";
-import { checkEntitlementsTable } from "./server/health.js";
+import { checkBillingTables } from "./server/health.js";
 import { billingPrivacyContributor } from "./server/privacy.js";
 
 export const MODULE_ID = "billing";
@@ -21,7 +22,8 @@ export const BILLING_RATE_LIMIT_BUCKETS = {
 
 /**
  * Enables entitlements, plans and payments in `softure.config.ts` (after `security` and `auth`):
- * `billing({ trial: { days: 14 }, plans: [{ id: "monthly", name: { en: "Monthly" }, price: { amount: 2900, currency: "PLN" }, period: "month" }], payment: manual({ onRequest }) })`.
+ * `billing({ trial: { days: 14 }, plans: [{ id: "monthly", name: { en: "Monthly" }, price: { amount: 2900, currency: "PLN" }, period: "month" }], payment: stripe() })`
+ * (or `manual({ onRequest })` for invoices).
  */
 export const billing = defineModule({
   manifest: {
@@ -29,18 +31,29 @@ export const billing = defineModule({
     version: "0.0.0",
     dependsOn: { security: "^0.0.0", auth: "^0.0.0" },
     dbSchema: "billing",
-    tables: ["entitlements"],
-    env: [],
+    tables: ["entitlements", "payments"],
+    env: [
+      {
+        name: "STRIPE_SECRET_KEY",
+        required: false,
+        description: "Secret API key of the stripe() payment adapter (sk_test_... in the sandbox), read on every payment; not needed with stripe({ secretKey }) or another adapter.",
+      },
+      {
+        name: "STRIPE_WEBHOOK_SECRET",
+        required: false,
+        description: "Signing secret (whsec_...) of the Stripe webhook endpoint that points at stripeWebhookRoute; required when that route is mounted.",
+      },
+    ],
     switches: [],
-    routes: { payment: "/payment" },
-    mount: [],
+    routes: { payment: "/payment", webhook: "/api/billing/webhook" },
+    mount: [{ kind: "route-handler", path: "app/api/billing/webhook/route.ts", export: "stripeWebhookRoute" }],
     privacy: { exports: true, deletes: true },
   },
   messages: billingMessages,
   options: billingOptionsSchema,
   migrations: { dir: resolveMigrationsDir(import.meta.url, "../migrations/") },
   privacy: billingPrivacyContributor,
-  health: checkEntitlementsTable,
+  health: checkBillingTables,
 });
 
 export { getDayNumber, getDaysLeft, getStartOfDay, getTrialEnd } from "./calendar.js";
@@ -67,6 +80,7 @@ export {
   type PlanPrice,
 } from "./contract.js";
 export { applyEntitlementEvent, hasWriteAccess, resolveEntitlement, type EntitlementPolicy } from "./entitlement.js";
+export { CHECKOUT_PARAM, CHECKOUT_RESULTS, type CheckoutResult } from "./fields.js";
 export { manual, type ManualPaymentOptions } from "./manual.js";
 export { billingMessages, getBillingErrorMessage, type BillingMessages } from "./messages/index.js";
 export {
@@ -89,4 +103,19 @@ export {
 } from "./payment.js";
 export { findPlan, getLocalizedText, getPeriodEnd, getPlanGrant } from "./plans.js";
 export { formatPrice, getMinorUnitDigits, isSupportedCurrency } from "./price.js";
-export { billingSchema, entitlements } from "./schema.js";
+export { billingSchema, entitlements, payments } from "./schema.js";
+export { getCheckoutSessionParams, stripe, STRIPE_API_BASE, STRIPE_SECRET_KEY_ENV, STRIPE_TIMEOUT_MS, type StripeOptions } from "./stripe.js";
+export {
+  parseStripeEvent,
+  readStripeWebhook,
+  signStripePayload,
+  STRIPE_METADATA,
+  STRIPE_SIGNATURE_HEADER,
+  STRIPE_SIGNATURE_TOLERANCE_SECONDS,
+  verifyStripeSignature,
+  type PaidCheckout,
+  type SignStripePayloadInput,
+  type StripeWebhookError,
+  type StripeWebhookEvent,
+  type VerifyStripeSignatureInput,
+} from "./stripe-webhook.js";

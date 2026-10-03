@@ -50,7 +50,7 @@ adoption in FIRE_TRACKER follows `docs/05-adoption-playbook.md`.
 | **EN-9** | `engagement-release` | mailing, waitlist, mcp-access and privacy 0.1.0 published through the release pipeline; READMEs and docs updated | EN-1…EN-8 (done) | owner | blocked (carried over from engagement: the owner's release at the keyboard) |
 | **MO-1** | `billing-entitlements` | `@softure-ai/billing`: trial / paid / read_only state machine in `billing.entitlements`, `requireWriteAccess` | — | autonomous | done |
 | **MO-2** | `billing-plans-pricing` | plans from config, pricing tiles, payment page and a manual payment adapter that grants entitlements | MO-1 | autonomous | done |
-| **MO-3** | `billing-provider-adapter` | the chosen provider (Stripe or Przelewy24) behind `PaymentProvider`: checkout, webhooks, entitlement updates | MO-2 | autonomous | blocked (owner decision: Stripe vs Przelewy24) |
+| **MO-3** | `billing-provider-adapter` | the chosen provider (Stripe or Przelewy24) behind `PaymentProvider`: checkout, webhooks, entitlement updates | MO-2 | autonomous | ready |
 | **MO-4** | `analytics-channel-tags` | `@softure-ai/analytics`: a channel parameter captured, validated and carried across redirects and sign-up | — | autonomous | done |
 | **MO-5** | `analytics-funnel` | daily aggregates (day, channel, step) without cookies or PII, beacon and pixel endpoints, report function | MO-4 | autonomous | done |
 | **MO-6** | `monetization-release` | billing and analytics 0.1.0 published through the release pipeline; READMEs and docs updated | MO-2, MO-5 | owner | ready |
@@ -107,7 +107,7 @@ Risk first: MO-1 (the write guard every paid feature depends on) starts the road
 
 ### MO-3: Payment provider adapter
 - **Change ID:** `billing-provider-adapter`
-- **Status:** blocked (owner decision: Stripe vs Przelewy24)
+- **Status:** ready
 - **Outcome:** A provider adapter implementing `PaymentProvider`: checkout session creation, verified webhooks with idempotent processing, entitlement updates on payment and refund, and test-mode e2e against the provider's sandbox.
 - **Prerequisites:** MO-2; the owner's choice of provider and sandbox credentials.
 - **Unknowns:** Which provider; webhook signature verification and replay protection; whether a payment-events table is needed for idempotency.
@@ -149,7 +149,8 @@ Risk first: MO-1 (the write guard every paid feature depends on) starts the road
 
 - [ ] **EN-9** (carried over): approve the first (staged) publish of mailing, waitlist, mcp-access and privacy on
   npmjs.com, then add a trusted publisher for each.
-- [ ] **MO-3**: choose the payment provider to implement after the manual adapter (Stripe or Przelewy24) and provide test-mode credentials.
+- [x] **MO-3**: choose the payment provider to implement after the manual adapter (Stripe or Przelewy24): Stripe (2026-10-03).
+- [ ] **MO-3**: add the Stripe test-mode secrets `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` to the repository (the sandbox test runs once the key is set; FU-10 uses both).
 - [ ] **MO-6**: approve the first (staged) publish of billing and analytics on npmjs.com, then add a trusted publisher for each.
 
 ## Done

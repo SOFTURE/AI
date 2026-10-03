@@ -6,7 +6,7 @@ import { requireRole, requireUser } from "@softure-ai/auth/next";
 import { formatMessage } from "@softure-ai/core";
 import { getSoftureConfig } from "@softure-ai/core/next";
 import { ButtonLink, Card, EmptyState } from "@softure-ai/ui";
-import { PLAN_FIELD } from "../fields.js";
+import { CHECKOUT_PARAM, CHECKOUT_RESULTS, PLAN_FIELD, type CheckoutResult } from "../fields.js";
 import { findPlan, getLocalizedText } from "../plans.js";
 import { formatPrice } from "../price.js";
 import { getBillingMessages, getBillingOptions, getBillingRoutes } from "../server/options.js";
@@ -28,21 +28,30 @@ export interface PaymentPageProps {
 const LAYOUT_CLASS = "sft:mx-auto sft:box-border sft:flex sft:w-full sft:flex-col sft:gap-4 sft:sm:max-w-md sft:px-4 sft:py-4";
 const STACK_CLASS = "sft:flex sft:flex-col sft:gap-4";
 const LEAD_CLASS = "sft:m-0 sft:font-sans sft:text-sm sft:text-muted";
+const NOTICE_CLASS =
+  "sft:m-0 sft:rounded-control sft:border sft:border-border-strong sft:bg-surface-raised sft:px-4 sft:py-2.5 sft:font-sans sft:text-sm sft:text-foreground";
 
 async function readParam(searchParams: SearchParams | undefined, name: string): Promise<string | undefined> {
   const value = (await searchParams)?.[name];
   return Array.isArray(value) ? value[0] : value;
 }
 
+function isCheckoutResult(value: string | undefined): value is CheckoutResult {
+  return CHECKOUT_RESULTS.some((result) => result === value);
+}
+
 /**
  * The plans and, with `?plan=<id>`, the order: the plan's price and the provider's form (the
  * invoice request of the manual adapter, a checkout button of a hosted provider). Without a session
  * it sends the visitor to log in and back. A read-only account reaches it too: it is where to pay.
+ * A hosted checkout comes back with `?checkout=success` or `?checkout=cancelled`, shown as a notice
+ * (the access itself changes when the provider's webhook confirms the payment).
  */
 export async function PaymentPage({ searchParams }: PaymentPageProps) {
   const config = getSoftureConfig();
   const route = getBillingRoutes(config).payment;
   const planId = await readParam(searchParams, PLAN_FIELD);
+  const checkout = await readParam(searchParams, CHECKOUT_PARAM);
   const user = await requireUser({ next: planId === undefined ? route : getPlanPaymentHref(route, planId) });
   const provider = getPaymentProvider(config);
   const messages = getBillingMessages(config);
@@ -50,10 +59,16 @@ export async function PaymentPage({ searchParams }: PaymentPageProps) {
   const plans = getBillingPlans(config);
   const plan = planId === undefined ? undefined : findPlan(plans, planId);
   const planName = plan === undefined ? "" : getLocalizedText(plan.name, config.locale);
+  const checkoutNotice = isCheckoutResult(checkout) ? (checkout === "success" ? copy.checkoutSuccess : copy.checkoutCancelled) : null;
   return (
     <main className={LAYOUT_CLASS}>
       <Card title={copy.title} subtitle={copy.lead}>
         <div className={STACK_CLASS}>
+          {checkoutNotice === null ? null : (
+            <p role="status" className={NOTICE_CLASS} data-checkout={checkout}>
+              {checkoutNotice}
+            </p>
+          )}
           <div>
             <CurrentAccessBadge />
           </div>

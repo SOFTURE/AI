@@ -15,7 +15,7 @@ A provider adapter implementing `PaymentProvider`: checkout session creation, ve
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **MO-3** (roadmap `monetization`, main since 2026-10-03):
+From [`roadmap.md`](../../foundation/roadmap.md), item **MO-3** (roadmap `monetization`, main since 2026-10-03):
 
 > ### MO-3: Payment provider adapter
 > - **Change ID:** `billing-provider-adapter`
@@ -27,8 +27,8 @@ From [`roadmap.md`](../../../foundation/roadmap.md), item **MO-3** (roadmap `mon
 > - **Baseline:** Only the manual adapter exists. After: a sandbox payment turns a trial into paid without owner action.
 > - **PRD refs:** FR-22, NFR-5.
 
-Reference material: [`docs/02-module-standard.md`](../../../../docs/02-module-standard.md) (the standard),
-[`docs/01-module-assessment.md`](../../../../docs/01-module-assessment.md) (source map in FIRE_TRACKER).
+Reference material: [`docs/02-module-standard.md`](../../../docs/02-module-standard.md) (the standard),
+[`docs/01-module-assessment.md`](../../../docs/01-module-assessment.md) (source map in FIRE_TRACKER).
 
 ## Constraints
 

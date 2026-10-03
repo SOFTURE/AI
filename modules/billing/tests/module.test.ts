@@ -1,7 +1,7 @@
 // The module definition: its manifest, its options, its dependencies and its health check.
 import { readFileSync } from "node:fs";
 import { billing, manual } from "@softure-ai/billing";
-import { checkEntitlementsTable, getBillingRoutes } from "@softure-ai/billing/server";
+import { checkBillingTables, getBillingRoutes } from "@softure-ai/billing/server";
 import { defineSoftureConfig, ok, toModuleJson } from "@softure-ai/core";
 import { describe, expect, it } from "vitest";
 import { createConfig, createTestBilling } from "./support.js";
@@ -98,9 +98,9 @@ describe("the billing module", () => {
   it("reports healthy once its table exists", async () => {
     const test = await createTestBilling();
     try {
-      expect(await checkEntitlementsTable(test.ctx)).toEqual({ ok: true, value: undefined });
+      expect(await checkBillingTables(test.ctx)).toEqual({ ok: true, value: undefined });
       await test.database.client.exec("DROP TABLE billing.entitlements");
-      await expect(checkEntitlementsTable(test.ctx)).rejects.toThrow();
+      await expect(checkBillingTables(test.ctx)).rejects.toThrow();
     } finally {
       await test.database.close();
     }

@@ -44,6 +44,8 @@ export const en = {
     checkout: "Go to payment",
     pending: "Sending…",
     requested: "Thank you! Your invoice request for {plan} has been sent. We will email the invoice to {email}; your access starts once it is paid.",
+    checkoutSuccess: "Thank you for your payment! Your access is updated as soon as the payment is confirmed, usually within a minute.",
+    checkoutCancelled: "The payment was cancelled and nothing was charged. You can try again or choose another plan.",
   },
   admin: {
     title: "Grant access",

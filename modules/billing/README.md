@@ -1,7 +1,7 @@
 # @softure-ai/billing
 
 **Status:** wave 3 · entitlements and the write guard (MO-1); plans, pricing tiles, the payment page
-and the manual adapter (MO-2); a card provider arrives with MO-3 · depends on: core, db, ui, security, auth
+and the manual adapter (MO-2); Stripe Checkout with verified webhooks and refunds (MO-3) · depends on: core, db, ui, security, auth
 
 Decides whether an account may still write: a trial every account starts with, paid access (dated
 or lifetime) and a read-only state once both end. It replaces FIRE_TRACKER's access logic
@@ -33,8 +33,11 @@ script become plans in the config, a payment page and an admin page that grants 
 - **A `PaymentProvider` interface** and its first adapter, **`manual({ onRequest })`**: the buyer
   requests an invoice, the app hands the request to its owner (a mail, a ticket), and the owner
   grants the plan once it is paid. **`grantPlan()`** is the one path a grant takes, for the admin
-  page here and a provider's webhook later.
-- Export and deletion of the entitlement row (`@softure-ai/privacy`), and a health check for
+  page and the provider webhook alike.
+- **`stripe()`**, a card, BLIK and transfer adapter on Stripe Checkout (one-time payments), and
+  **`stripeWebhookRoute`** (`/next`): a verified Stripe webhook that grants a paid checkout's plan
+  and revokes paid access on a full refund, exactly once per payment, recorded in `billing.payments`.
+- Export and deletion of the entitlement row and the payments (`@softure-ai/privacy`), and a health check for
   `GET /api/health`.
 
 ## 2. Installation
@@ -72,9 +75,10 @@ billing({
 | `trial.reminderDays` | integer 0 to 365 | `3` | From how many days left the trial counts as ending (badge tone, notice). `0`: never. |
 | `paid.reminderDays` | integer 0 to 365 | `7` | The same for dated paid access. Lifetime access never ends. |
 | `plans` | array, at most 12 | `[]` | The plans, in the order the tiles show them (see below). |
-| `payment` | `PaymentProvider` | — | The adapter the payment page uses, e.g. `manual({ onRequest })`. The payment page throws without one. |
+| `payment` | `PaymentProvider` | — | The adapter the payment page uses: `stripe()` or `manual({ onRequest })`. The payment page throws without one. |
 | `adminRole` | role | `admin` | The auth role that may grant plans in `BillingAdminPage`; declare any other in `auth({ roles })`. |
-| `routes.payment` | path | `/payment` | Where `PaymentPage` is mounted; the notice and the tiles link there. |
+| `routes.payment` | path | `/payment` | Where `PaymentPage` is mounted; the notice and the tiles link there, and Stripe Checkout returns there. |
+| `routes.webhook` | path | `/api/billing/webhook` | Where `stripeWebhookRoute` is mounted (the Stripe endpoint's URL). |
 | `messages` | partial `en` / `pl` | — | Copy overrides. |
 
 **A plan** is `{ id, name, description?, price: { amount, currency }, period, features?, isFeatured? }`:
@@ -92,6 +96,18 @@ and each grant adds one period. A month keeps the day of the month where it can:
 ends with 27 February (the 28th starts the next period), and renewals then continue from the 28th.
 A lifetime plan grants lifetime access; a dated grant to a lifetime account changes nothing.
 
+**Stripe.** `stripe({ secretKey?, apiBase?, fetch? })` reads `STRIPE_SECRET_KEY` on every payment
+(so the config loads at build time without it) and creates one Checkout session per payment
+(`mode: "payment"`): the plan's price as a one-off line item in its currency, the plan's name in the
+app's locale, the buyer's email, and the account id and plan id in the session's and the
+PaymentIntent's metadata (`softure_user_id`, `softure_plan_id`). The buyer returns to
+`routes.payment` with `?checkout=success` (the page thanks them; access follows the webhook, usually
+within seconds) or `?plan=<id>&checkout=cancelled`. Payment methods are the ones enabled in the
+Stripe dashboard (cards, BLIK, Przelewy24, transfers). A refusal, a timeout or a missing key is
+`billing.payment_failed` for the buyer and one log line (HTTP status and Stripe's error type and
+code, never its message or the key). Subscriptions are not used: each payment buys one period, and
+renewing is paying again, as with `manual()`.
+
 **Days and time zones.** Trials end at the start of a local day in `config.timezone`: a 14-day
 trial begun at any hour of 3 October ends when 17 October begins there, so 16 October is its last
 day. Days left count local calendar days, today included (1 on the last day). Access covers every
@@ -108,7 +124,29 @@ pages, one line each:
 export { PaymentPage as default } from "@softure-ai/billing/next";
 // app/admin/billing/page.tsx
 export { BillingAdminPage as default } from "@softure-ai/billing/next";
+// app/api/billing/webhook/route.ts (with stripe(); public, outside any auth guard)
+export { stripeWebhookRoute as POST } from "@softure-ai/billing/next";
 ```
+
+**The Stripe webhook.** In the Stripe dashboard, add an endpoint at `<appOrigin>/api/billing/webhook`
+for `checkout.session.completed`, `checkout.session.async_payment_succeeded` and `charge.refunded`,
+and put its signing secret in `STRIPE_WEBHOOK_SECRET` (locally: `stripe listen --forward-to
+localhost:3000/api/billing/webhook` prints one). The route checks `Stripe-Signature` (HMAC-SHA256,
+at most five minutes old, any `v1` entry during a secret rotation) before it parses the body (at
+most 256 KiB) or touches the database, then:
+
+| Delivery | Effect | Answer |
+| --- | --- | --- |
+| a paid checkout (`completed` with `payment_status` `paid` or `no_payment_required`, or `async_payment_succeeded`) | the payment is stored and its plan granted, in one transaction | 200 |
+| the same checkout again (a retry, or both events of a delayed payment) | nothing | 200 |
+| a checkout still waiting for a transfer, a partial refund, any other event, a session billing did not create | nothing | 200 |
+| `charge.refunded` with `refunded: true` for a stored payment | the payment is marked refunded and paid access revoked, once | 200 |
+| a paid checkout whose account was deleted or whose plan left the config | nothing stored; one log line with the checkout id to refund in Stripe | 200 |
+| no or a wrong signature, a replay, a body that is not a Stripe event | nothing | 400 |
+| no `STRIPE_WEBHOOK_SECRET`, a database failure | nothing; Stripe retries | 500 |
+
+There is no rate limit on the route: Stripe sends from a few addresses, and an unsigned request costs
+one HMAC.
 
 `PaymentPage` needs a session (a visitor goes to the login page and back) and shows the account's
 badge and the plans; with `?plan=<id>` it shows the order and the provider's form: the invoice
@@ -144,6 +182,9 @@ Server functions, for scripts and other hosts (`@softure-ai/billing/server`):
 (`Err<billing.plan_unknown | billing.account_unknown>` otherwise); `startPayment(ctx, input)` counts
 the `billing-payment` bucket per account, checks the plan and the invoice details and calls the
 provider; `findAccountByEmail(ctx, email)`, `getBillingPlans(config)`.
+`receiveStripeWebhook(ctx, { payload, signature, secret })` is the route without Next;
+`recordPayment(ctx, { provider, checkoutId, paymentId, userId, planId, amount, currency })` and
+`refundPayment(ctx, { provider, paymentId })` are its two writes, for another provider's webhook.
 `getEntitlement(ctx, userId)` returns the `Entitlement` or null for an unknown account;
 `checkWriteAccess(ctx, userId)` returns `Ok<Entitlement>` or `Err<billing.read_only | billing.account_unknown>`;
 `changeEntitlement(ctx, userId, event)` returns the `Entitlement` after the change or
@@ -177,11 +218,28 @@ change (`changeEntitlement`) stores that derived trial end with the event applie
 never moves when a row appears. Until then, a change of `trial.days` changes the trial of accounts
 without a row.
 
-Payments add no table: an invoice request is handed to `onRequest` and not stored here.
+`migrations/0002_create_payments.sql` creates `billing.payments`, one row per paid provider checkout:
+
+| Column | Meaning |
+| --- | --- |
+| `id` | `uuid`, primary key. |
+| `user_id` | The account, references `auth.users(id)` `ON DELETE CASCADE`. |
+| `provider` | The adapter's name, `stripe`. |
+| `checkout_id` | The provider's checkout (`cs_...`); unique per provider: a checkout grants once. |
+| `payment_id` | The provider's payment (`pi_...`) refunds name; unique per provider; NULL for a free checkout. |
+| `plan_id`, `amount`, `currency` | The plan and what the provider charged, in the currency's minor unit. |
+| `status`, `paid_at`, `refunded_at` | `paid` or `refunded`; a CHECK ties `refunded_at` to the status. |
+
+The insert and the grant share a transaction, as do the refund's conditional update and the revoke,
+so a delivery seen twice changes nothing. Every write takes its locks in one order (account, payment,
+entitlement), like the privacy erase. An invoice request of `manual()` is not stored here.
 
 ## 6. Environment variables
 
-None.
+| Name | Required | Meaning |
+| --- | --- | --- |
+| `STRIPE_SECRET_KEY` | with `stripe()` unless `stripe({ secretKey })` | The secret API key (`sk_test_...` in the sandbox), read on every payment. |
+| `STRIPE_WEBHOOK_SECRET` | when `stripeWebhookRoute` is mounted | The webhook endpoint's signing secret (`whsec_...`). |
 
 ## 7. Switches
 
@@ -203,7 +261,8 @@ tile gets `--sft-border-strong` and a shadow, and sets `data-plan`, `data-featur
 
 `billingMessages` (`en`, `pl`): `badge` (status names, `daysLeft` plural forms, `until`), `notice`
 (the four notices and their two link texts), `pricing` (period plural forms per unit, `lifetime`,
-`featured`, `choose`, `empty`), `payment` (the payment page and the invoice form), `admin` (the
+`featured`, `choose`, `empty`), `payment` (the payment page, the invoice form and the notices after a
+hosted checkout, `checkoutSuccess` and `checkoutCancelled`), `admin` (the
 grant form) and `errors`. Plan names, descriptions and features come from the config, per locale. `{date}` is the last day of access in
 the app's locale and time zone, `{count}` the days left. Override them with
 `billing({ messages: { en: { notice: { choosePlan: "See plans" } } } })`.
@@ -213,21 +272,30 @@ the app's locale and time zone, `{count}` the days left. Override them with
 `manual({ onRequest(request, ctx) })` receives every invoice request (plan, account, invoice
 details, return URL) and resolves with `Ok` once handed over, or an `Err` the buyer sees as
 `billing.payment_failed`. Apps react to a change in their own code around `changeEntitlement` and
-`grantPlan`.
+`grantPlan`. The Stripe webhook has no hook yet; its effect shows in `getEntitlement`.
 
 ## 11. GDPR
 
 - Export: the account's entitlement row (`trialEndsAt`, `paidUntil`, `isLifetime`, `createdAt`,
-  `updatedAt`), or `{ entitlement: null }` for an account without one.
-- Deletion: the row, and the foreign key removes it with the account too.
+  `updatedAt`), or `entitlement: null` for an account without one, and its payments oldest first
+  (`provider`, `checkoutId`, `paymentId`, `planId`, `amount`, `currency`, `status`, `paidAt`, `refundedAt`).
+- Deletion: the row and the payments, and the foreign keys remove them with the account too.
+  Stripe keeps its own record of each payment (the controller's accounting record there).
 - Invoice details typed on the payment page are not stored here: they go to `onRequest`, and what
   the app keeps of them (the mail to its owner) is the app's own data to export and delete.
 
 ## 12. Limitations
 
-- Only the manual adapter so far; a card provider (Stripe) with verified webhooks arrives with MO-3.
+- A full refund revokes all paid access, not only the refunded payment's period: with two stacked
+  months, or a lifetime bought separately, the admin grants the rest again (followups FU-11).
+- A partial refund changes nothing. A refund that reaches the app before its checkout (Stripe does
+  not order events) finds no payment and is not retried.
+- The Stripe adapter is tested against the sandbox's Checkout API (when `STRIPE_SECRET_KEY` holds a
+  test key) and with signed webhook fixtures; a browser payment end to end in the sandbox is a
+  followup (FU-10).
 - Invoice requests are not stored: the admin learns of them through `onRequest` and grants by email.
   The admin page has no list of requests, no revoke and no history of grants (followups).
 - The write guard is per action: a read-only account can still call a write the app did not guard.
 - No reminder mail: the notice shows in the app only (followups FU-6).
-- No history of changes: a row holds the current state; payment records belong to the adapters.
+- No history of entitlement changes: a row holds the current state. Provider payments are stored;
+  manual grants are not.
