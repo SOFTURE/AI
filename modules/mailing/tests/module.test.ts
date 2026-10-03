@@ -61,6 +61,8 @@ describe("the mailing module", () => {
     ["a display name without an address", "Example <>"],
     ["a display name with a comma", "Doe, John <hello@example.com>"],
     ["a quoted display name", '"Doe" <hello@example.com>'],
+    ["an address without a display name in brackets", "<hello@example.com>"],
+    ["an address over 254 characters", `${"a".repeat(250)}@example.com`],
   ])("refuses %s", (_case, from) => {
     expect(() => mailing({ from, provider: fakeMailProvider() })).toThrow("options.from");
   });

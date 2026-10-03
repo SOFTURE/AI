@@ -1,13 +1,19 @@
 // Address and header rules shared by the options schema and the mail validation.
 
-/** One address: an `@`, no list separators, no whitespace, no angle brackets. */
-const ADDRESS = /^[^\s@,;<>"]+@[^\s@,;<>"]+\.[^\s@,;<>"]+$/;
+/**
+ * One address: an `@`, a dot-separated domain, no list separators, no whitespace, no angle
+ * brackets. Each part excludes its own separator, so matching stays linear on any input.
+ */
+const ADDRESS = /^[^\s@,;<>"]+@[^\s@,;<>".]+(?:\.[^\s@,;<>".]+)+$/;
 
 /**
- * A display name and an address: `Plan <hello@example.com>`. The name has no commas, semicolons or
- * quotes: unquoted, RFC 5322 reads a comma as a second address, and quoting is left out on purpose.
+ * A display name: no commas, semicolons or quotes. Unquoted, RFC 5322 reads a comma as a second
+ * address, and quoting is left out on purpose.
  */
-const NAMED_ADDRESS = /^([^<>\r\n",;]*[^\s<>",;])\s*<([^<>]+)>$/;
+const DISPLAY_NAME = /^[^<>",;\r\n]+$/;
+
+/** The longest address SMTP carries (RFC 5321 path limit). */
+export const MAX_ADDRESS_LENGTH = 254;
 
 /** RFC 5322 field name: printable ASCII except the colon. */
 const HEADER_NAME = /^[!-9;-~]+$/;
@@ -35,14 +41,16 @@ export const MAX_SUBJECT_LENGTH = 998;
 export const MAX_IDEMPOTENCY_KEY_LENGTH = 256;
 
 export function isSingleAddress(value: string): boolean {
-  return ADDRESS.test(value);
+  return value.length <= MAX_ADDRESS_LENGTH && ADDRESS.test(value);
 }
 
 /** `addr` or `Name <addr>`, on one line. */
 export function isMailbox(value: string): boolean {
   if (hasLineBreak(value)) return false;
-  const named = NAMED_ADDRESS.exec(value);
-  return named === null ? isSingleAddress(value) : isSingleAddress(named[2] ?? "");
+  if (!value.endsWith(">")) return isSingleAddress(value);
+  const open = value.lastIndexOf("<");
+  const name = value.slice(0, Math.max(open, 0)).trim();
+  return open > 0 && name !== "" && DISPLAY_NAME.test(name) && isSingleAddress(value.slice(open + 1, -1));
 }
 
 export function hasLineBreak(value: string): boolean {

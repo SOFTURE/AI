@@ -1,7 +1,7 @@
 # Implementation review: mailing-transport
 
 Reviewed: commits 46a7f8b (p1) and 09e34d7 (p2) against plan.md (author's review, `--auto`).
-Verdict: approve. Findings: 0 critical, 1 warning, 2 suggestions; S1 fixed.
+Verdict: approve. Findings: 0 critical, 2 warnings, 2 suggestions; W2 and S1 fixed.
 Evidence: gates green (typecheck, lint, 1155 unit tests, build); `npm run e2e` on PostgreSQL 16:
 37 passed, including the three tests of `e2e/mailing-transport.spec.ts`.
 
@@ -20,6 +20,14 @@ Evidence: gates green (typecheck, lint, 1155 unit tests, build); `npm run e2e` o
 (scrypt-heavy logins under CPU contention).
 **Decision:** No change - the full Playwright suite passed 37/37 when run alone; the test and the
 code it covers are untouched by this change, and CI runs the suites in separate jobs.
+
+### W2 [WARNING] The address pattern could backtrack polynomially (CodeQL, PR #19)
+**Where:** `src/address.ts`, `ADDRESS` and the display-name pattern
+**Problem:** `[^…]+\.[^…]+` let the domain's dots be split many ways, so a hostile `to` such as
+`!@!.` followed by many `!.` took polynomial time; the display-name pattern had the same shape.
+**Decision:** Fixed - domain labels exclude the dot (`label(.label)+`), addresses are capped at 254
+characters before matching, and the display name is split off with `lastIndexOf("<")` instead of a
+regular expression; a test sends a 100 000-character hostile address.
 
 ### S1 [SUGGESTION] Display names with commas were accepted unquoted
 **Where:** `src/address.ts`, `isMailbox`

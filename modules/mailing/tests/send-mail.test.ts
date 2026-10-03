@@ -115,6 +115,8 @@ describe("sendMail", () => {
       ["a recipient list", { ...MAIL, to: "ada@example.org;eve@example.org" }, {}, "to"],
       ["a recipient without a domain", { ...MAIL, to: "ada" }, {}, "to"],
       ["a named recipient", { ...MAIL, to: "Ada <ada@example.org>" }, {}, "to"],
+      ["a recipient with an empty domain label", { ...MAIL, to: "ada@example..org" }, {}, "to"],
+      ["a recipient over 254 characters", { ...MAIL, to: `${"a".repeat(250)}@example.org` }, {}, "to"],
       ["an empty subject", { ...MAIL, subject: "  " }, {}, "subject"],
       ["a subject with a line break", { ...MAIL, subject: "Hi\r\nBcc: eve@example.org" }, {}, "subject"],
       ["a subject over 998 characters", { ...MAIL, subject: "x".repeat(999) }, {}, "subject"],
@@ -157,6 +159,13 @@ describe("sendMail", () => {
       { idempotencyKey: "k".repeat(256) },
     );
     expect(result.ok).toBe(true);
+  });
+
+  it("checks a long hostile address quickly (no polynomial backtracking)", async () => {
+    const { provider } = answer({ status: "sent", id: "never" });
+    const started = performance.now();
+    await sendMail({ config: createConfig(provider) }, { ...MAIL, to: `!@!.${"!.".repeat(50_000)}` });
+    expect(performance.now() - started).toBeLessThan(500);
   });
 
   it("never writes the address, subject, body or key to the log", async () => {

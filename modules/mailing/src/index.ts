@@ -34,7 +34,7 @@ export const mailing = defineModule({
   options: mailingOptionsSchema,
 });
 
-export { isMailbox, isSingleAddress, MAX_IDEMPOTENCY_KEY_LENGTH, MAX_SUBJECT_LENGTH, RESERVED_HEADERS } from "./address.js";
+export { isMailbox, isSingleAddress, MAX_ADDRESS_LENGTH, MAX_IDEMPOTENCY_KEY_LENGTH, MAX_SUBJECT_LENGTH, RESERVED_HEADERS } from "./address.js";
 export type {
   MailingErrorCode,
   MailProvider,
