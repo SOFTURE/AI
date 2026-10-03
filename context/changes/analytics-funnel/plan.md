@@ -38,12 +38,12 @@ See research §2.
 ### Phase 1: Module
 
 #### Automated
-- [ ] 1.1 Counter, report, endpoint, client and adapter tests pass
-- [ ] 1.2 Module test passes; `module.json` equals the manifest
-- [ ] 1.3 Gates green (typecheck, lint, test)
+- [x] 1.1 Counter, report, endpoint, client and adapter tests pass — 2800332
+- [x] 1.2 Module test passes; `module.json` equals the manifest — 2800332
+- [x] 1.3 Gates green (typecheck, lint, test) — 2800332
 
 ### Phase 2: Example app, e2e, docs
 
 #### Automated
-- [ ] 2.1 e2e `analytics-funnel.spec.ts` passes with the rest of the suite
-- [ ] 2.2 Gates green (typecheck, lint, test, build)
+- [x] 2.1 e2e `analytics-funnel.spec.ts` passes with the rest of the suite — 2800332
+- [x] 2.2 Gates green (typecheck, lint, test, build) — 2800332
