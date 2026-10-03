@@ -92,14 +92,14 @@ from `src/record/` (owned by MK-3, being rewritten in parallel).
 ### Phase 1: Capture and gates
 
 #### Automated
-- [ ] 1.1 Screenshot tests pass with a local Chromium
-- [ ] 1.2 Gates green (typecheck, lint, test)
+- [x] 1.1 Screenshot tests pass with a local Chromium — 0af1dbb
+- [x] 1.2 Gates green (typecheck, lint, test) — 0af1dbb
 
 ### Phase 2: Command, fixture, docs, CI
 
 #### Automated
-- [ ] 2.1 Options, CLI and screenshot tests pass
-- [ ] 2.2 Gates green (typecheck, lint, test, build)
+- [x] 2.1 Options, CLI and screenshot tests pass — PHASE2
+- [x] 2.2 Gates green (typecheck, lint, test, build) — PHASE2
 
 #### Manual
-- [ ] 2.3 The fixture screenshot opens and shows the calculator in the configured colour scheme
+- [x] 2.3 The fixture screenshot opens and shows the calculator in the configured colour scheme — PHASE2

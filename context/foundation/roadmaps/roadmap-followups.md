@@ -43,6 +43,7 @@ trigger: "every module roadmap (marketing-kit and any later one) is done; the ow
 | **FU-12** | `billing-retro-reviews` | Retro research and plan review for MO-1 and MO-2 | — | autonomous | proposed |
 | **FU-13** | `marketing-kit-render-ci` | the marketing-kit fixture film renders to a draft MP4 on every push | — | autonomous | proposed |
 | **FU-14** | `marketing-kit-schema-docs` | every key of the marketing.json JSON Schema carries a description | — | autonomous | proposed |
+| **FU-15** | `marketing-kit-screenshot-variants` | screenshots at a device scale and in both colour schemes | — | autonomous | proposed |
 
 ## Order
 
@@ -193,6 +194,17 @@ trigger: "every module roadmap (marketing-kit and any later one) is done; the ow
 - **Baseline:** marketing-kit MK-2 `mk-config-contract`: the schema has types, patterns and defaults but no descriptions; the meaning lives in doc comments in `src/config/schema.ts` and the README table. After: a test checks that every property has a description.
 - **PRD refs:** FR-24.
 - **Source:** `tools/marketing-kit/src/config/schema.ts`; `context/archive/2026-10-03-mk-config-contract/reviews/impl-review.md`
+
+### FU-15: Screenshots at a device scale and in both colour schemes
+- **Change ID:** `marketing-kit-screenshot-variants`
+- **Status:** proposed
+- **Outcome:** A `screenshots[]` entry can set a device scale (a retina capture for a store listing or a landing page) and capture the light and dark schemes in one run (`<id>-light.png`, `<id>-dark.png`), still behind the status, phrase and size gates.
+- **Prerequisites:** none beyond the main branch.
+- **Unknowns:** Whether the size gate's 40 kB default should scale with the device scale.
+- **Risk:** LOW.
+- **Baseline:** marketing-kit MK-4 `mk-screenshots`: PNG at Playwright's default scale (1), one scheme per run (`app.colorScheme`). After: the schema takes `scale` and a scheme list, the tests cover both.
+- **PRD refs:** FR-25.
+- **Source:** `tools/marketing-kit/README.md` "Limitations"; `context/archive/2026-10-03-mk-screenshots/reviews/impl-review.md` F4
 
 ## Owner decisions and checks
 

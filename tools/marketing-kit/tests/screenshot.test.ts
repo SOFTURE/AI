@@ -85,6 +85,12 @@ describe.runIf(hasChromium)("takeScreenshots against static pages", () => {
     expect(existsSync(getScreenshotFile(outDir, "missing"))).toBe(false);
   });
 
+  it("refuses an app that does not answer, as the load gate", async () => {
+    const [result] = await take([makeEntry({ id: "down", path: "/noise.html", expect: "Count your date" })], { baseUrl: "http://127.0.0.1:1" });
+    expect(result).toMatchObject({ ok: false, id: "down", gate: "load" });
+    expect(result?.ok === false && result.message).toMatch(/^loading http:\/\/127\.0\.0\.1:1\/noise\.html: .*net::ERR_/);
+  });
+
   it("refuses a page without the expected phrase", async () => {
     const [result] = await take([makeEntry({ id: "wrong-phrase", path: "/plain.html", expect: "Count your date" })]);
     expect(result).toEqual({ ok: false, id: "wrong-phrase", gate: "phrase", message: `${baseUrl}/plain.html does not show "Count your date"` });

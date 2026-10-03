@@ -1,7 +1,7 @@
 import { mkdirSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-import { chromium, type Page } from "playwright";
+import { chromium, errors, type Page } from "playwright";
 
 import type { ColorTheme } from "../config/colors.js";
 import type { MarketingJson } from "../config/schema.js";
@@ -78,16 +78,32 @@ async function waitForPhrase(page: Page, phrase: string): Promise<boolean> {
   }
 }
 
+function describeError(error: unknown): string {
+  return error instanceof Error ? (error.message.split("\n")[0] ?? error.name) : String(error);
+}
+
 async function takeOne(page: Page, entry: ScreenshotEntry, url: string, file: string): Promise<ScreenshotResult> {
   let status: number | null;
   try {
     const response = await page.goto(url, { waitUntil: "networkidle", timeout: NAVIGATION_TIMEOUT_MS });
     status = response?.status() ?? null;
   } catch (error) {
-    return { ok: false, id: entry.id, gate: "load", message: `loading ${url}: ${error instanceof Error ? error.message.split("\n")[0] : String(error)}` };
+    // Any navigation failure (refused connection, DNS, timeout) is the page's, not a bug of ours.
+    return { ok: false, id: entry.id, gate: "load", message: `loading ${url}: ${describeError(error)}` };
   }
   const statusFailure = findStatusFailure(status, url);
   if (statusFailure !== null) return { ok: false, id: entry.id, gate: "status", message: statusFailure };
+  try {
+    return await captureLoadedPage(page, entry, url, file);
+  } catch (error) {
+    // A page that never settles (long polling keeps the network busy, a frozen script) times out;
+    // any other error is a bug and propagates.
+    if (!(error instanceof errors.TimeoutError)) throw error;
+    return { ok: false, id: entry.id, gate: "load", message: `capturing ${url}: ${describeError(error)}` };
+  }
+}
+
+async function captureLoadedPage(page: Page, entry: ScreenshotEntry, url: string, file: string): Promise<ScreenshotResult> {
   await page.evaluate(() => document.fonts.ready);
   if (entry.full) await scrollThroughPage(page);
   if (!(await waitForPhrase(page, entry.expect))) {

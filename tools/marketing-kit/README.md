@@ -21,6 +21,7 @@ softure-marketing record <video> [--today=YYYY-MM-DD] [--url=...]
 softure-marketing render <video> [--quality=draft|standard|high]
 softure-marketing preview <video>                 # the composition in the hyperframes preview
 softure-marketing posts <video>                   # post copy only
+softure-marketing shots [<id>] [--url=...]        # the screenshots entries (or one), each behind its gates
 ```
 
 Every command takes `--config=<path>` (default `./marketing.json`). Exit codes: `0` done, `1` failed, `2`
@@ -37,6 +38,25 @@ the screen guard refused the recording (the screen did not show what the voiceov
 
 Output: `<output.dir>/<video>/<video>.mp4` and `posts.md`; recordings and compositions in
 `<output.buildDir>/<video>/`. Neither belongs in git.
+
+### Screenshots
+
+`shots` captures every `screenshots[]` entry, or the one named, into `<output.dir>/screenshots/<id>.png`.
+Each entry gets a fresh browser at `width`×`height` CSS px with `app.colorScheme`, `brand.locale`,
+`brand.timezone`, `app.hideSelectors` hidden and its own `motion` preference (`reduce` by default).
+`full: true` first scrolls the page one screen at a time to the bottom, so lazy images and sections
+load, then captures the whole page. A screenshot is kept only when it passes every gate:
+
+| Gate | Refused when |
+| --- | --- |
+| `status` | the page answers with HTTP 400 or above, or not at all (`load`: it did not load within 30 s) |
+| `phrase` | the page does not show `expect` within 5 s of loading (hidden elements do not count) |
+| `size` | the file is smaller than `minBytes` (40 kB by default: a blank or broken page); the file is deleted |
+
+A failed entry leaves no file, not even an older one, and the others still run; any failure ends with
+exit code `1`. `--url` points at another address of the app; without it, `shots` uses `app.baseUrl` or
+starts `app.startCommand` as `record` does. A plain page can be smaller than 40 kB: set `minBytes` for it
+(the fixture's calculator, a dark page with one form, is about 16 kB and sets 5000).
 
 ## `marketing.json`
 
@@ -110,7 +130,7 @@ folder of `marketing.json`. A complete example: [examples/fixture/marketing.json
 | `social` | `linkTemplate` | the link every post carries, `{code}` replaced by the platform's channel code |
 | | `platforms` | `instagram`, `facebook`, `tiktok`, `youtube`, `linkedin`, `x`: `code`, `linkInBio` (true for Instagram, TikTok, YouTube) |
 | | `posts[]` | `video`, `caption`, `hashtags`, `codes` (this video's own codes); a video without one gets no `posts.md` |
-| `screenshots[]` | `id`, `path`, `width`, `height`, `full` (`false`), `expect`, `motion` (`reduce`), `minBytes` (`40000`) | for `softure-marketing shots` (MK-4) |
+| `screenshots[]` | `id`, `path`, `width`, `height`, `full` (`false`), `expect`, `motion` (`reduce`), `minBytes` (`40000`) | for `softure-marketing shots`, see [Screenshots](#screenshots) |
 | `ogImages[]` | `id`, `template`, `size` (`[1200, 630]`), `data` (`{}`) | for `softure-marketing og` (MK-5) |
 | `sfx` | `tap`, `key`, `whoosh`, `sparkle`, `pop` | sound effects; a missing one is silent |
 | `output` | `dir` (`marketing/out`), `buildDir` (`marketing/build`), `quality` (`standard`) | where films go; `--quality` wins |
@@ -170,7 +190,7 @@ A film is a `videos[]` entry plus a scene module. The fixture film is a complete
 ## Requirements
 
 - Node 22, **ffmpeg** in PATH.
-- A Chromium for the recording: Playwright's own, or `PLAYWRIGHT_CHROMIUM_PATH=<path>`.
+- A Chromium for the recording and the screenshots: Playwright's own, or `PLAYWRIGHT_CHROMIUM_PATH=<path>`.
 - A Chrome for hyperframes: downloaded on the first render (into `~/.cache/puppeteer`), or
   `HYPERFRAMES_BROWSER_PATH=<path>` (a Chromium headless shell works).
 - The CLI runs hyperframes with `HYPERFRAMES_NO_TELEMETRY=1` unless you set it yourself.
@@ -190,7 +210,8 @@ A film is a `videos[]` entry plus a scene module. The fixture film is a complete
 - Scenes are TypeScript (`sceneModule`); declarative actions in `beats` are MK-3.
 - One format, 9:16; the device is config, the frame layout is fixed until MK-6.
 - ElevenLabs is the only voice provider; the provider interface and a cost estimate are MK-7.
-- `screenshots` and `ogImages` are validated but no command renders them yet (MK-4, MK-5).
+- `ogImages` is validated but no command renders it yet (MK-5).
+- Screenshots are PNG at a device scale of 1, one colour scheme per run (`app.colorScheme`).
 
 ## Development
 
@@ -205,3 +226,8 @@ PLAYWRIGHT_CHROMIUM_PATH=... HYPERFRAMES_BROWSER_PATH=... \
 The render test copies [examples/fixture/](examples/fixture/) into a temporary folder, generates a tone
 as its voiceover and tones as its sound effects with ffmpeg, runs `softure-marketing all` and checks the
 MP4 with ffprobe. `MARKETING_KIT_KEEP=1` keeps the folder.
+
+The screenshot tests (`tests/screenshot.test.ts`, `tests/shots-cli.test.ts`) drive a browser against
+static pages and the fixture app. They run whenever a Chromium is available (`PLAYWRIGHT_CHROMIUM_PATH`
+or Playwright's own) and fail if `PLAYWRIGHT_CHROMIUM_PATH` names a missing file; CI points it at the
+runner's Chrome.

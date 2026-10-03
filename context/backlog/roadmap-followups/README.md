@@ -26,6 +26,7 @@ gets an entry here and a row in the roadmap.
 | FU-12 | [`billing-retro-reviews`](billing-retro-reviews/change.md) | Retro research and plan review for MO-1 and MO-2 | roadmap promoted | start |
 | FU-13 | [`marketing-kit-render-ci`](marketing-kit-render-ci/change.md) | The marketing-kit fixture film renders in CI | roadmap promoted | start |
 | FU-14 | [`marketing-kit-schema-docs`](marketing-kit-schema-docs/change.md) | The marketing.json JSON Schema documents every key | roadmap promoted | start |
+| FU-15 | [`marketing-kit-screenshot-variants`](marketing-kit-screenshot-variants/change.md) | Screenshots at a device scale and in both colour schemes | roadmap promoted | start |
 
 Kind: `start` (can be taken as soon as the roadmap is promoted), `dependency` (waits for the listed items on the
 main branch), `owner` (needs an owner decision or the owner at the keyboard).
