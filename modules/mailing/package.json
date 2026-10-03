@@ -1,7 +1,7 @@
 {
   "name": "@softure-ai/mailing",
   "version": "0.0.0",
-  "description": "SOFTURE AI mailing module: sendMail over a provider adapter (Resend first) with plain-text and HTML bodies, sender and reply-to from config, idempotency keys, a timeout and a typed result; signed one-click unsubscribe (RFC 8058) with a suppression list for list mail; a fake provider for tests.",
+  "description": "SOFTURE AI mailing module: sendMail over a provider adapter (Resend first) with plain-text and HTML bodies, sender and reply-to from config, idempotency keys, a timeout and a typed result; signed one-click unsubscribe (RFC 8058) with a suppression list for list mail; an exactly-once delivery ledger, campaigns sent from a content file by the softure-mail command, and a sender DNS check; a fake provider for tests.",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -25,6 +25,9 @@
     "access": "public",
     "provenance": true
   },
+  "bin": {
+    "softure-mail": "./dist/cli/bin.js"
+  },
   "exports": {
     ".": {
       "@softure-ai/source": "./src/index.ts",
@@ -45,6 +48,11 @@
       "@softure-ai/source": "./src/testing/index.ts",
       "types": "./dist/testing/index.d.ts",
       "default": "./dist/testing/index.js"
+    },
+    "./cli": {
+      "@softure-ai/source": "./src/cli/index.ts",
+      "types": "./dist/cli/index.d.ts",
+      "default": "./dist/cli/index.js"
     }
   },
   "scripts": {
