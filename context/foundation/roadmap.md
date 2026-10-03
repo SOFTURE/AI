@@ -44,7 +44,7 @@ backlog: context/backlog/roadmap-followups/
 | **MO-6** | `monetization-release` | billing and analytics 0.1.0 published through the release pipeline; READMEs and docs updated | MO-1…MO-5 (done) | owner | blocked (carried over from marketing-kit: the owner's batch release at the keyboard on 2026-10-05) |
 | **MK-8** | `marketing-kit-release` | `@softure-ai/marketing-kit` 0.1.0 published through the release pipeline, README complete | MK-1…MK-7 (done) | owner | blocked (carried over from marketing-kit: the owner's batch release at the keyboard on 2026-10-05) |
 | **FU-1** | `switch-reader-contract` | Switch-reader contract in core | — | autonomous | proposed |
-| **FU-2** | `waitlist-double-opt-in` | Waitlist double opt-in | FU-3 | autonomous | in_progress (implement 0/2, since 2026-10-03; cloud session, branch `claude/project-thread-mepk9s`) |
+| **FU-2** | `waitlist-double-opt-in` | Waitlist double opt-in | FU-3 | autonomous | done |
 | **FU-3** | `mailing-consent-sync` | Unsubscribe as consent withdrawal | — | autonomous | done |
 | **FU-4** | `waitlist-welcome-html` | HTML welcome mail for the waitlist | FU-2 | autonomous | proposed |
 | **FU-5** | `analytics-client-navigation` | Channel tag on client navigations without Next-Url | — | autonomous | proposed |
@@ -162,8 +162,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-2: Waitlist double opt-in
 - **Change ID:** `waitlist-double-opt-in`
-- **Status:** in_progress (implement 0/2, since 2026-10-03; cloud session, branch `claude/project-thread-mepk9s`)
-- **Input:** [`changes/waitlist-double-opt-in/change.md`](../changes/waitlist-double-opt-in/change.md)
+- **Status:** done
+- **Input:** [`archive/2026-10-03-waitlist-double-opt-in/change.md`](../archive/2026-10-03-waitlist-double-opt-in/change.md)
 - **Outcome:** Double opt-in as a waitlist option: a `confirmed_at` column, a signed confirmation link in the welcome mail, and list mail and consent rows that wait for the confirmation when the option is on.
 - **Prerequisites:** FU-3 on `master` (shared files, see Order).
 - **Unknowns:** Whether consent rows are recorded at sign-up and confirmed later or only at confirmation; expiry of unconfirmed sign-ups.
@@ -367,6 +367,7 @@ Open from FU-14:
 ## Done
 
 - **FU-14** `marketing-kit-schema-docs`: every key of the marketing.json JSON Schema carries a description, guarded by a test; archived in `archive/2026-10-03-marketing-kit-schema-docs/`
+- **FU-2** `waitlist-double-opt-in`: `waitlist({ doubleOptIn })`, a single-use confirmation link (transactional mail) before consents, the opt-out lift and list mail; expiry 7 days by default, `pruneUnconfirmedSignups`; archived in `archive/2026-10-03-waitlist-double-opt-in/`
 - **FU-3** `mailing-consent-sync`: an unsubscribe withdraws the waitlist's consents in its transaction (mailing `onUnsubscribed`), and a new sign-up lifts the person's own opt-out; archived in `archive/2026-10-03-mailing-consent-sync/`
 
 ## Decisions (auto)

@@ -1,12 +1,12 @@
 ---
 change_id: waitlist-double-opt-in
 title: "A waitlist sign-up can wait for the address owner's confirmation"
-status: plan_reviewed
+status: archived
 roadmap_item: FU-2
 branch: claude/project-thread-mepk9s
 created: 2026-10-03
 updated: 2026-10-03
-archived_at: null
+archived_at: 2026-10-03
 ---
 
 ## Intent
@@ -49,3 +49,4 @@ waitlist option (off by default), so no product decision; expiry is a configurab
   (option off by default, no product decision); research answers the two unknowns.
 - From FU-3: with double opt-in, the lift of the opt-out and the scope replacement belong to the
   confirmation, not to the unconfirmed sign-up (`backlog-input.md`, Notes).
+- Archived 2026-10-03: `waitlist({ doubleOptIn })` makes a sign-up wait for a single-use link before consents, the lift and list mail; the example app runs with it on.
