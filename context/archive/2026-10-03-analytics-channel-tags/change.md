@@ -1,12 +1,12 @@
 ---
 change_id: analytics-channel-tags
 title: "Channel tags"
-status: implementing
+status: archived
 roadmap_item: MO-4
 branch: claude/mo-4-analytics-channel-tags-q9v7rh
 created: 2026-10-03
 updated: 2026-10-03
-archived_at: null
+archived_at: 2026-10-03
 ---
 
 ## Intent
