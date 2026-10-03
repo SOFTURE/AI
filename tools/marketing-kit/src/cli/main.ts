@@ -124,7 +124,7 @@ function render(config: MarketingConfig, film: LoadedFilm, options: FilmOptions)
     quality: options.quality ?? config.output.quality,
     output,
   });
-  const { frame } = getGeometry(film.device.viewport);
+  const { frame } = getGeometry(film.device.viewport, film.format);
   console.log(`\n✓ ${output} (${seconds.toFixed(1)} s, ${frame.width}×${frame.height}, ${film.format})`);
   console.log(describePosts(config, film, writePosts(config, film)));
 }
