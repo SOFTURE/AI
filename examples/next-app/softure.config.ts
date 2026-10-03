@@ -12,6 +12,7 @@ import { ops } from "@softure-ai/ops";
 import { privacy, PRIVACY_RATE_LIMIT_BUCKETS } from "@softure-ai/privacy";
 import { recordRegistrationConsent } from "@softure-ai/privacy/server";
 import { cloudflareIp, security } from "@softure-ai/security";
+import { waitlist, WAITLIST_RATE_LIMIT_BUCKETS } from "@softure-ai/waitlist";
 import { en } from "./messages/en.ts";
 import { pl } from "./messages/pl.ts";
 import { guestbook } from "./modules/guestbook/index.ts";
@@ -35,7 +36,7 @@ const config = defineSoftureConfig({
     // The e2e sends CF-Connecting-IP itself, standing in for Cloudflare (e2e/security.spec.ts).
     security({
       clientIp: cloudflareIp(),
-      buckets: { "example.ping": { limit: 3, windowMinutes: 15 }, ...AUTH_RATE_LIMIT_BUCKETS, ...MCP_RATE_LIMIT_BUCKETS, ...PRIVACY_RATE_LIMIT_BUCKETS },
+      buckets: { "example.ping": { limit: 3, windowMinutes: 15 }, ...AUTH_RATE_LIMIT_BUCKETS, ...MCP_RATE_LIMIT_BUCKETS, ...PRIVACY_RATE_LIMIT_BUCKETS, ...WAITLIST_RATE_LIMIT_BUCKETS },
     }),
     // Reset links go out as mail through the mailing module below (e2e/auth-reset-mail.spec.ts).
     // The registration checkbox accepts the legal documents of privacy() below; the hook records
@@ -88,6 +89,15 @@ const config = defineSoftureConfig({
         { id: "terms", version: "2026-10-01" },
         { id: "privacy-policy", version: "2026-10-01" },
       ],
+    }),
+    // The form on the home page (e2e/waitlist.spec.ts): `launch` is required and tied to the privacy
+    // policy, `newsletter` is optional; the welcome mail goes to the outbox like any list mail.
+    waitlist({
+      scopes: [
+        { id: "launch", required: true, document: "privacy-policy", label: { en: en.waitlist.launch, pl: pl.waitlist.launch } },
+        { id: "newsletter", label: { en: en.waitlist.newsletter, pl: pl.waitlist.newsletter } },
+      ],
+      placements: ["home"],
     }),
   ],
 });

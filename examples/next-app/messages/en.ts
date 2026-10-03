@@ -62,6 +62,12 @@ export const en = {
     listEntries: "Reads the newest guestbook entries.",
     signGuestbook: "Adds an entry to the guestbook.",
   },
+  waitlist: {
+    title: "Waitlist",
+    subtitle: "Sign-ups of @softure-ai/waitlist, with consents recorded in privacy.consents.",
+    launch: "Tell me when the example opens (privacy policy applies).",
+    newsletter: "Send me the occasional newsletter.",
+  },
   legal: {
     footer: {
       terms: "Terms of service",

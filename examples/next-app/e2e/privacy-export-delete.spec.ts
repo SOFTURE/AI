@@ -82,7 +82,7 @@ test("a signed-in user downloads every module's part of their data as a JSON fil
   const text = await readFile(path, "utf8");
   const document = JSON.parse(text) as { format: string; data: Record<string, { account?: { email: string } }> };
   expect(document.format).toBe("softure.privacy-export");
-  expect(Object.keys(document.data)).toEqual(["auth", "feature-switches", "mcp-access", "privacy"]);
+  expect(Object.keys(document.data)).toEqual(["auth", "feature-switches", "mcp-access", "privacy", "waitlist"]);
   expect(document.data["auth"]?.account?.email).toBe(email);
   expect(text).not.toContain("scrypt$");
 

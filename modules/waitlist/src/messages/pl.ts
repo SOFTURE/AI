@@ -5,7 +5,7 @@ export const pl: typeof en = {
     email: "E-mail",
     submit: "Zapisz mnie na listę",
     pending: "Zapisywanie…",
-    success: "Jesteś na liście. Wysłaliśmy Ci wiadomość powitalną.",
+    success: "Jesteś na liście. Dziękujemy!",
   },
   welcomeMail: {
     subject: "Jesteś na liście oczekujących",

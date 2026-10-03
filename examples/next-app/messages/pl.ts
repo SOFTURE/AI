@@ -64,6 +64,12 @@ export const pl: AppMessages = {
     listEntries: "Czyta najnowsze wpisy z księgi gości.",
     signGuestbook: "Dodaje wpis do księgi gości.",
   },
+  waitlist: {
+    title: "Lista oczekujących",
+    subtitle: "Zapisy z @softure-ai/waitlist, ze zgodami zapisanymi w privacy.consents.",
+    launch: "Daj mi znać, gdy przykład wystartuje (obowiązuje polityka prywatności).",
+    newsletter: "Wysyłaj mi od czasu do czasu newsletter.",
+  },
   legal: {
     footer: {
       terms: "Regulamin",

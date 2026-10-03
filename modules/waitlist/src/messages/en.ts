@@ -3,7 +3,7 @@ export const en = {
     email: "Email",
     submit: "Join the waitlist",
     pending: "Joining…",
-    success: "You are on the list. We sent you a welcome mail.",
+    success: "You are on the list. Thank you!",
   },
   welcomeMail: {
     subject: "You are on the waitlist",

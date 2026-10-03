@@ -1,5 +1,6 @@
 import { isEnabled } from "@softure-ai/feature-switches/next";
 import { Card, EmptyState, FormError, ThemeSwitch } from "@softure-ai/ui";
+import { Waitlist } from "@softure-ai/waitlist/next";
 import { getDatabase } from "../lib/database.ts";
 import { getErrorMessage, getMessages } from "../messages/index.ts";
 import { findAppliedMigrations, findEntries } from "../modules/guestbook/queries.ts";
@@ -45,6 +46,10 @@ export default async function HomePage() {
             ))}
           </ul>
         )}
+      </Card>
+
+      <Card title={messages.waitlist.title} subtitle={messages.waitlist.subtitle}>
+        <Waitlist placement="home" />
       </Card>
 
       <Card title={messages.migrations.title} subtitle={messages.migrations.subtitle}>
