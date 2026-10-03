@@ -15,7 +15,7 @@ archived_at: null
 
 ## Context
 
-From [`roadmap-engagement.md`](../../../foundation/roadmaps/roadmap-engagement.md), item **EN-6** (queued roadmap `engagement`):
+From [`roadmap.md`](../../../foundation/roadmap.md), item **EN-6** (roadmap `engagement`, main since 2026-10-03):
 
 > ### EN-6: MCP access tokens and Bearer endpoint
 > - **Change ID:** `mcp-access`

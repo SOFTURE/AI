@@ -15,13 +15,13 @@ archived_at: null
 
 ## Context
 
-From [`roadmap-engagement.md`](../../../foundation/roadmaps/roadmap-engagement.md), item **EN-1** (queued roadmap `engagement`):
+From [`roadmap.md`](../../../foundation/roadmap.md), item **EN-1** (roadmap `engagement`, main since 2026-10-03):
 
 > ### EN-1: Mail transport with provider adapters
 > - **Change ID:** `mailing-transport`
 > - **Status:** ready
 > - **Outcome:** `@softure-ai/mailing` exposes `sendMail()` over a `MailProvider` adapter interface with `resend()` as the first adapter: plain-text + HTML bodies, sender and reply-to from config, `Idempotency-Key`, timeout, protection of reserved headers, and a result union `sent | invalid-input | rejected | unavailable`. A fake provider ships for tests and the example app.
-> - **Prerequisites:** roadmap-identity done (core, db, ui, security released).
+> - **Prerequisites:** roadmap-identity done (core, db, ui and security on the main branch).
 > - **Unknowns:** Whether HTML templates are plain strings or React email components; how the fake provider exposes sent mail to e2e tests; which provider errors map to `rejected` vs. `unavailable`.
 > - **Risk:** medium. Every mail-sending module builds on this contract.
 > - **Baseline:** FIRE sends plain text only through a hand-written fetch. After: unit tests per result branch and an e2e scenario that captures a mail through the fake provider.

@@ -1,6 +1,6 @@
 # Backlog: roadmap-engagement (mail, waitlist, MCP access and privacy)
 
-Roadmap of this group: [`foundation/roadmaps/roadmap-engagement.md`](../../foundation/roadmaps/roadmap-engagement.md):
+Roadmap of this group: [`foundation/roadmap.md`](../../foundation/roadmap.md) (the main roadmap since 2026-10-03):
 order, dependencies, owner decisions and the status of every item.
 
 This folder holds the **prepared entries** (`<change-id>/change.md`, `status: backlog`). One topic lives in
@@ -8,7 +8,7 @@ exactly one place: `backlog/`, `changes/` or `archive/`, never copied and never 
 
 ## When it can start
 
-The whole roadmap: **roadmap-identity is done (auth released and adopted by FIRE) and the owner promotes it**. Inside it, the order follows the dependencies below.
+The roadmap was promoted on 2026-10-03, when roadmap-identity closed. Inside it, the order follows the dependencies below.
 
 | ID | Entry | Title | Condition | Kind |
 | --- | --- | --- | --- | --- |
@@ -21,7 +21,6 @@ The whole roadmap: **roadmap-identity is done (auth released and adopted by FIRE
 | EN-7 | [`privacy-registry`](privacy-registry/change.md) | GDPR export and deletion registry | roadmap promoted | start |
 | EN-8 | [`privacy-consents-legal`](privacy-consents-legal/change.md) | Consent records and legal document shell | EN-7 on the main branch | dependency |
 | EN-9 | [`engagement-release`](engagement-release/change.md) | Engagement modules release | EN-3 to EN-8 on the main branch, and the owner at the keyboard | owner |
-| EN-10 | [`fire-adopt-engagement`](fire-adopt-engagement/change.md) | FIRE_TRACKER adopts the engagement modules | EN-9 published, and the owner schedules the FIRE run | owner |
 
 Kind: `start` (can be taken as soon as the roadmap is promoted), `dependency` (waits for the listed items on the
 main branch), `owner` (needs an owner decision or the owner at the keyboard).

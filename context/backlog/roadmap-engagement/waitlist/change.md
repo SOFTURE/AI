@@ -15,7 +15,7 @@ archived_at: null
 
 ## Context
 
-From [`roadmap-engagement.md`](../../../foundation/roadmaps/roadmap-engagement.md), item **EN-5** (queued roadmap `engagement`):
+From [`roadmap.md`](../../../foundation/roadmap.md), item **EN-5** (roadmap `engagement`, main since 2026-10-03):
 
 > ### EN-5: Waitlist with consent scopes
 > - **Change ID:** `waitlist`

@@ -1,6 +1,6 @@
 # @softure-ai/db
 
-**Status:** wave 0 · implemented in FD-4 (`db-migrator`), not published yet (FD-8).
+**Status:** wave 0 · implemented in FD-4 (`db-migrator`), not published yet (the owner publishes the foundation and identity packages in one batch once the release pipeline is set up).
 
 The database layer every SOFTURE module stands on. Standard:
 [docs/02-module-standard.md](../../docs/02-module-standard.md) §4. Sources in FIRE_TRACKER:

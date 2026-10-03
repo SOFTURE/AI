@@ -33,4 +33,3 @@ Inside it, the order comes from dependencies:
 | MK-4 | [`mk-screenshots`](mk-screenshots/change.md) | Screenshots with quality gates | MK-2 on main | dependency |
 | MK-5 | [`mk-og-images`](mk-og-images/change.md) | OG images outside Next | MK-2 on main | dependency |
 | MK-8 | [`marketing-kit-release`](marketing-kit-release/change.md) | marketing-kit release | MK-3…MK-7 on main **and** the owner approves the first npm publish | dependency + owner |
-| MK-9 | [`fire-adopt-marketing-kit`](fire-adopt-marketing-kit/change.md) | FIRE_TRACKER adopts marketing-kit | MK-8 published; runs in FIRE_TRACKER | dependency + owner |

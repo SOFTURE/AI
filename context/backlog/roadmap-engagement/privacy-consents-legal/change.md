@@ -15,7 +15,7 @@ archived_at: null
 
 ## Context
 
-From [`roadmap-engagement.md`](../../../foundation/roadmaps/roadmap-engagement.md), item **EN-8** (queued roadmap `engagement`):
+From [`roadmap.md`](../../../foundation/roadmap.md), item **EN-8** (roadmap `engagement`, main since 2026-10-03):
 
 > ### EN-8: Consent records and legal document shell
 > - **Change ID:** `privacy-consents-legal`

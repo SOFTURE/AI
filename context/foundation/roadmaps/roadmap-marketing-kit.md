@@ -18,8 +18,11 @@ trigger: "FD-1 (monorepo tooling) and FD-2 (release pipeline) are done; independ
 > Run-wide orders (read by orchestrators once promoted):
 > - Push main branch: no. The owner pushes and tags.
 > - Parallelism: up to 4 at once (`workflow.json` → `worktree.maxParallel`).
-> - Owner at the keyboard: MK-8 (first publish and trusted publisher), MK-9 (runs in
->   FIRE_TRACKER; paid TTS only with the owner's `--commit`).
+> - Owner at the keyboard: MK-8 (first publish and trusted publisher).
+>
+> FIRE_TRACKER adoption (owner, 2026-10-03): no item here adopts the modules in FIRE_TRACKER. The adoption
+> runs in FIRE_TRACKER's own roadmap and sessions once this repository reports the code ready; this
+> repository delivers the modules and their release.
 >
 > **Waiting.** Nothing here runs until the owner promotes this roadmap (`softure-roadmap --promote marketing-kit`).
 
@@ -35,7 +38,6 @@ trigger: "FD-1 (monorepo tooling) and FD-2 (release pipeline) are done; independ
 | **MK-4** | `mk-screenshots` | `softure-marketing shots` with quality gates (HTTP status, expected phrase, minimum size, full-page scroll) | MK-2 | autonomous | ready |
 | **MK-5** | `mk-og-images` | OG images rendered with Satori outside Next from templates + data | MK-2 | autonomous | ready |
 | **MK-8** | `marketing-kit-release` | `@softure-ai/marketing-kit` 0.1.0 published through the FD-2 pipeline, README complete | MK-3, MK-4, MK-5, MK-6, MK-7 | owner | ready |
-| **MK-9** | `fire-adopt-marketing-kit` | FIRE_TRACKER deletes `video/` and renders its film from `marketing.json` + brand + its voiceover cache, same scenes and timing | MK-8 | owner | ready |
 
 ## Order
 
@@ -52,7 +54,6 @@ trigger: "FD-1 (monorepo tooling) and FD-2 (release pipeline) are done; independ
    MK-6 owns `src/compose/` and `src/render/` geometry. It runs alongside the others, except MK-3,
    if MK-3 needs compose changes. Assign `src/compose/` to MK-6 and keep MK-3 to recording.
 4. **MK-8** once all features are merged.
-5. **MK-9** in FIRE_TRACKER after the package is on npm (adoption playbook, docs/05).
 
 Risk first: MK-1 proves the port is faithful. MK-2 fixes the contract every later item builds on.
 
@@ -186,25 +187,9 @@ Risk first: MK-1 proves the port is faithful. MK-2 fixes the contract every late
 - **Baseline:** package absent from npm. After: `npx @softure-ai/marketing-kit --help` works from npm and from the GitHub Release tarball.
 - **PRD refs:** FR-24, FR-25, FR-2.
 
-### MK-9: FIRE_TRACKER adopts marketing-kit
-- **Change ID:** `fire-adopt-marketing-kit`
-- **Status:** ready
-- **Outcome:** FIRE_TRACKER follows the adoption playbook (docs/05):
-  - it deletes `video/src/**`, `scripts/screenshot.mts` and the OG generation code;
-  - it keeps `marketing.json`, the brand files and its committed voiceover cache;
-  - it renders its current film with `@softure-ai/marketing-kit`. The output has the same scenes, beat timing, captions and end card as before.
-
-  Paid TTS is not re-run, and the cache is reused.
-- **Prerequisites:** MK-8.
-- **Unknowns:** whether FIRE's channel-tag reader is fully replaced by the link template in config; how its OG routes become thin wrappers.
-- **Risk:** medium. This is the real-world verification.
-- **Baseline:** the current FIRE film (scene list, beat timestamps, duration). After: matches within one frame per beat; FIRE CI green.
-- **PRD refs:** FR-26, G-2.
-
 ## Owner decisions and checks
 
 - [ ] **MK-8**: approve the first (staged) publish of `@softure-ai/marketing-kit` on npmjs.com, then add its trusted publisher.
-- [ ] **MK-9**: run any paid TTS step yourself (`--commit`). The adoption must reuse the existing voiceover cache.
 
 ## Done
 
@@ -216,3 +201,5 @@ Risk first: MK-1 proves the port is faithful. MK-2 fixes the contract every late
 - MK-7 (TTS adapters) was split out of MK-2. → The cache-key change needs its own migration of FIRE's committed cache.
 - MK-6 owns `src/compose/`, and MK-3 stays in `src/record/`. → It keeps the parallel group disjoint.
 - Table order follows execution, not number. → MK-7 and MK-6 come before MK-4 and MK-5 because they touch the core path, and IDs stay stable.
+- MK-9 (FIRE_TRACKER adoption) was dropped by the owner on 2026-10-03. → The adoption runs in FIRE_TRACKER's own
+  roadmap and sessions; paid TTS there stays with the owner's `--commit`.

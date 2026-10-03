@@ -15,13 +15,13 @@ A contributor contract in `@softure-ai/privacy` that every module and the app us
 
 ## Context
 
-From [`roadmap-engagement.md`](../../../foundation/roadmaps/roadmap-engagement.md), item **EN-7** (queued roadmap `engagement`):
+From [`roadmap.md`](../../../foundation/roadmap.md), item **EN-7** (roadmap `engagement`, main since 2026-10-03):
 
 > ### EN-7: GDPR export and deletion registry
 > - **Change ID:** `privacy-registry`
 > - **Status:** ready
 > - **Outcome:** A contributor contract in `@softure-ai/privacy` that every module and the app use to register `export(userId)` and `delete(userId)`; a JSON export endpoint and a self-service account deletion flow (confirmation, transaction across contributors, session cleanup); the already released identity modules register their contributors.
-> - **Prerequisites:** roadmap-identity done (auth released).
+> - **Prerequisites:** roadmap-identity done (auth on the main branch).
 > - **Unknowns:** Ordering of delete contributors with foreign keys across schemas; whether some contributors may veto deletion (e.g. legal retention) and how that is shown; export size limits.
 > - **Risk:** high. Deleting data wrongly is irreversible.
 > - **Baseline:** FIRE lists tables by hand and deletes accounts only from a CLI. After: export contains every registered contributor's data, deletion leaves no rows for the user in any module schema (verified by a test that scans all schemas).
