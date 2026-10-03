@@ -5,6 +5,7 @@ import { mailingResetSender } from "@softure-ai/auth/mailing";
 import { defineSoftureConfig } from "@softure-ai/core";
 import { registerSoftureConfig } from "@softure-ai/core/next";
 import { featureSwitches } from "@softure-ai/feature-switches";
+import { MCP_RATE_LIMIT_BUCKETS, mcpAccess } from "@softure-ai/mcp-access";
 import { mailing, resend } from "@softure-ai/mailing";
 import { fakeMailProvider } from "@softure-ai/mailing/testing";
 import { ops } from "@softure-ai/ops";
@@ -32,7 +33,7 @@ const config = defineSoftureConfig({
     // The e2e sends CF-Connecting-IP itself, standing in for Cloudflare (e2e/security.spec.ts).
     security({
       clientIp: cloudflareIp(),
-      buckets: { "example.ping": { limit: 3, windowMinutes: 15 }, ...AUTH_RATE_LIMIT_BUCKETS },
+      buckets: { "example.ping": { limit: 3, windowMinutes: 15 }, ...AUTH_RATE_LIMIT_BUCKETS, ...MCP_RATE_LIMIT_BUCKETS },
     }),
     // Reset links go out as mail through the mailing module below (e2e/auth-reset-mail.spec.ts).
     auth({ routes: { afterLogin: "/account" }, adminEmails: [EXAMPLE_ADMIN_EMAIL], passwordReset: { send: mailingResetSender() } }),
@@ -48,6 +49,17 @@ const config = defineSoftureConfig({
           description: { en: en.switches.welcomeBanner.description, pl: pl.switches.welcomeBanner.description },
           default: false,
         },
+      ],
+    }),
+    // The token page lives at /account/mcp and the endpoint at /api/mcp; the demo server is
+    // lib/mcp-server.ts, whose tools e2e/mcp-access.spec.ts compares with this catalog.
+    mcpAccess({
+      serverName: "softure-example",
+      allowWrites: true,
+      tools: [
+        { name: "whoami", access: "read", description: { en: en.mcp.whoami, pl: pl.mcp.whoami } },
+        { name: "list_entries", access: "read", description: { en: en.mcp.listEntries, pl: pl.mcp.listEntries } },
+        { name: "sign_guestbook", access: "write", description: { en: en.mcp.signGuestbook, pl: pl.mcp.signGuestbook } },
       ],
     }),
     // Resend when a key is set; otherwise the fake provider, which the e2e reads through the outbox

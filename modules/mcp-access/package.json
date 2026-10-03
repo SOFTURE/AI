@@ -1,0 +1,67 @@
+{
+  "name": "@softure-ai/mcp-access",
+  "version": "0.0.0",
+  "description": "SOFTURE AI MCP access module: hashed, scoped, expiring access tokens, a rate-limited Bearer endpoint around the app's MCP server factory, and a token page with client setup instructions for Next.js.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SOFTURE/AI.git",
+    "directory": "modules/mcp-access"
+  },
+  "files": [
+    "dist",
+    "src",
+    "!src/**/*.test.ts",
+    "!src/**/*.test.tsx",
+    "migrations",
+    "module.json"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "exports": {
+    ".": {
+      "@softure-ai/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./server": {
+      "@softure-ai/source": "./src/server/index.ts",
+      "types": "./dist/server/index.d.ts",
+      "default": "./dist/server/index.js"
+    },
+    "./next": {
+      "@softure-ai/source": "./src/next/index.ts",
+      "types": "./dist/next/index.d.ts",
+      "default": "./dist/next/index.js"
+    },
+    "./ui": {
+      "@softure-ai/source": "./src/ui/index.ts",
+      "types": "./dist/ui/index.d.ts",
+      "default": "./dist/ui/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "@softure-ai/auth": "^0.0.0",
+    "@softure-ai/core": "^0.0.0",
+    "@softure-ai/db": "^0.0.0",
+    "@softure-ai/security": "^0.0.0",
+    "@softure-ai/ui": "^0.0.0",
+    "zod": "^4.6.5"
+  },
+  "peerDependencies": {
+    "@modelcontextprotocol/server": "^2.0.0",
+    "drizzle-orm": "^0.45.2",
+    "next": "^16.0.0",
+    "react": "^19.0.0"
+  }
+}
