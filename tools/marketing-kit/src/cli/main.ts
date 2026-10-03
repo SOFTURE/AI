@@ -14,7 +14,8 @@ import { renderFilm } from "../render/render.js";
 import { splitIntoBeats } from "../voice/voiceover.js";
 import { CliFailure, fail } from "./failure.js";
 import { loadFilm, type LoadedFilm } from "./films.js";
-import { readOptions, type CliOptions } from "./options.js";
+import { writeOgImages } from "./og.js";
+import { readOptions, type FilmOptions } from "./options.js";
 import { ensureServer } from "./server.js";
 import { getVoiceoverPaths, produceVoiceover, readJson, requireVoiceover } from "./voice.js";
 
@@ -27,6 +28,7 @@ import { getVoiceoverPaths, produceVoiceover, readJson, requireVoiceover } from 
  *   render <film> [--quality=draft|standard|high]
  *   preview <film>
  *   posts <film>
+ *   og [image]
  */
 
 const getBuildDir = (config: MarketingConfig, film: LoadedFilm) => join(config.output.buildDir, film.id);
@@ -39,7 +41,7 @@ function preflight(config: MarketingConfig, film: LoadedFilm, needsRender: boole
   if (missing.length > 0) fail(formatConfigIssues(config, missing));
 }
 
-async function record(config: MarketingConfig, film: LoadedFilm, options: CliOptions): Promise<RecordingLog> {
+async function record(config: MarketingConfig, film: LoadedFilm, options: FilmOptions): Promise<RecordingLog> {
   const voiceover = requireVoiceover(config, film);
   const voices = splitIntoBeats(voiceover.words, film.beats, film.voice.tempo);
   const server = await ensureServer(config, film, options.url);
@@ -92,7 +94,7 @@ function describePosts(config: MarketingConfig, film: LoadedFilm, path: string |
   return `✓ ${path}: post copy for ${labels.join(", ")}`;
 }
 
-function render(config: MarketingConfig, film: LoadedFilm, options: CliOptions): void {
+function render(config: MarketingConfig, film: LoadedFilm, options: FilmOptions): void {
   const dir = getBuildDir(config, film);
   const logPath = join(dir, "log.json");
   if (!existsSync(logPath)) fail(`no recording: run softure-marketing record ${film.id} first.`);
@@ -141,6 +143,10 @@ async function main(argv: string[]): Promise<void> {
   const loaded = loadMarketingConfig(options.configPath);
   if (!loaded.ok) fail(loaded.error);
   const { config } = loaded;
+  if (options.command === "og") {
+    await writeOgImages(config, options.imageId);
+    return;
+  }
   const film = await loadFilm(config, options.filmId);
 
   switch (options.command) {

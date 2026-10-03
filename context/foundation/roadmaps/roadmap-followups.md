@@ -45,6 +45,7 @@ trigger: "every module roadmap (marketing-kit and any later one) is done; the ow
 | **FU-14** | `marketing-kit-schema-docs` | every key of the marketing.json JSON Schema carries a description | — | autonomous | proposed |
 | **FU-15** | `marketing-kit-desktop-16x9` | desktop 16:9 films recorded in a browser frame instead of a phone | — | autonomous | proposed |
 | **FU-16** | `marketing-kit-layout-overrides` | per-format layout overrides (caption box, persona, end card) in marketing.json | — | autonomous | proposed |
+| **FU-17** | `marketing-kit-og-glyphs` | OG images refuse copy the brand fonts cannot draw | — | autonomous | proposed |
 
 ## Order
 
@@ -217,6 +218,17 @@ trigger: "every module roadmap (marketing-kit and any later one) is done; the ow
 - **Baseline:** marketing-kit MK-6 `mk-formats`: the layout is a fixed table in `src/compose/timeline.ts` (frame.md, framing 3 deferred). After: an override in the fixture config changes the composition snapshot.
 - **PRD refs:** FR-24.
 - **Source:** `tools/marketing-kit/src/compose/timeline.ts` (`LAYOUTS`); `context/archive/2026-10-03-mk-formats/frame.md`
+
+### FU-17: OG images refuse copy the brand fonts cannot draw
+- **Change ID:** `marketing-kit-og-glyphs`
+- **Status:** proposed
+- **Outcome:** Before laying out an OG card, the renderer checks every character of the template's text against the loaded fonts' character maps and returns an error naming the image, the JSON path and the missing characters (e.g. Polish letters with a `latin` subset file).
+- **Prerequisites:** none beyond the main branch.
+- **Unknowns:** Whether Satori exposes its parsed fonts or the check needs its own font parser (opentype.js is already a Satori dependency); how emoji should be treated.
+- **Risk:** LOW.
+- **Baseline:** marketing-kit MK-5 `mk-og-images`: Satori draws nothing for a missing glyph and reports no error; the README tells projects to ship fonts that cover their language. After: a test with a `latin` subset font and Polish copy gets the error.
+- **PRD refs:** FR-25.
+- **Source:** `tools/marketing-kit/src/og/fonts.ts`; `context/archive/2026-10-03-mk-og-images/research.md` (Constraints and risks)
 
 ## Owner decisions and checks
 
