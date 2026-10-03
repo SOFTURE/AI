@@ -46,7 +46,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-1** | `switch-reader-contract` | Switch-reader contract in core | — | autonomous | done |
 | **FU-2** | `waitlist-double-opt-in` | Waitlist double opt-in | FU-3 | autonomous | done |
 | **FU-3** | `mailing-consent-sync` | Unsubscribe as consent withdrawal | — | autonomous | done |
-| **FU-4** | `waitlist-welcome-html` | HTML welcome mail for the waitlist | FU-2 | autonomous | proposed |
+| **FU-4** | `waitlist-welcome-html` | HTML welcome mail for the waitlist | FU-2 | autonomous | in_progress |
 | **FU-5** | `analytics-client-navigation` | Channel tag on client navigations without Next-Url | — | autonomous | done_code (2026-10-03; waiting: MO-6 release of `@softure-ai/analytics`) |
 | **FU-6** | `billing-reminder-mail` | Reminder mail before access ends | FU-9 | autonomous | proposed |
 | **FU-7** | `analytics-action-redirect-tag` | Channel tag kept through server action redirects | FU-1, FU-5 | autonomous | proposed |
@@ -225,7 +225,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-4: HTML welcome mail for the waitlist
 - **Change ID:** `waitlist-welcome-html`
-- **Status:** proposed
+- **Status:** in_progress
+- **Input:** [`changes/waitlist-welcome-html/change.md`](../changes/waitlist-welcome-html/change.md)
 - **Outcome:** An option for the app's HTML template of the waitlist welcome mail, next to the text version.
 - **Prerequisites:** FU-2 on `master` (shared files, see Order).
 - **Unknowns:** Template shape (function of locale and links vs. a component).
