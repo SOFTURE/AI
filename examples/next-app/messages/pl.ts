@@ -43,6 +43,21 @@ export const pl: AppMessages = {
     messageLabel: "Wiadomość członka",
     submit: "Podpisz jako członek",
     saved: "Wpis zapisany",
+    seePlans: "Zobacz plany",
+  },
+  pricing: {
+    title: "Plany",
+    lead: "Każde konto zaczyna od 14-dniowego okresu próbnego. Wybierz plan, żeby potem dalej pisać.",
+  },
+  plans: {
+    monthly: { name: "Miesięczny", description: "Płacisz co miesiąc.", features: ["Bez limitu wpisów w księdze gości", "Wsparcie mailowe"] },
+    yearly: { name: "Roczny", description: "Dwa miesiące gratis w porównaniu z miesięcznym.", features: ["Wszystko z planu miesięcznego", "Priorytetowe wsparcie"] },
+    lifetime: { name: "Dożywotni", description: "Płacisz raz, dostęp zostaje na zawsze.", features: ["Wszystko z planu rocznego", "Wszystkie przyszłe aktualizacje"] },
+  },
+  invoiceMail: {
+    subject: "Prośba o fakturę: {plan} dla {email}",
+    body: "{email} prosi o fakturę.\n\nPlan: {plan}, {price}\nImię i nazwisko lub firma: {name}\nNIP: {taxId}\nAdres: {address}\n\nPo opłaceniu nadaj plan na {adminUrl}",
+    noTaxId: "brak",
   },
   admin: {
     title: "Panel administratora",
@@ -50,6 +65,7 @@ export const pl: AppMessages = {
     messageLabel: "Ogłoszenie",
     submit: "Opublikuj",
     saved: "Ogłoszenie opublikowane",
+    grantPlans: "Nadawanie planów",
   },
   mail: {
     title: "Wiadomość testowa",

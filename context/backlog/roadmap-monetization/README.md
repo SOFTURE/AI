@@ -14,7 +14,7 @@ decision. Inside it, the order follows the dependencies below.
 | ID | Entry | Title | Condition | Kind |
 | --- | --- | --- | --- | --- |
 | EN-9 | [`engagement-release`](engagement-release/change.md) | Engagement modules release (carried over from engagement) | the owner at the keyboard | owner |
-| MO-2 | [`billing-plans-pricing`](billing-plans-pricing/change.md) | Plans, pricing tiles and the manual payment flow | MO-1 on the main branch | dependency |
+| MO-2 | [`billing-plans-pricing`](../../archive/2026-10-03-billing-plans-pricing/change.md) (archived) | Plans, pricing tiles and the manual payment flow | MO-1 on the main branch | dependency |
 | MO-3 | [`billing-provider-adapter`](billing-provider-adapter/change.md) | Payment provider adapter | MO-2 on the main branch and the owner's provider decision | owner |
 | MO-4 | [`analytics-channel-tags`](../../archive/2026-10-03-analytics-channel-tags/change.md) (archived) | Channel tags | roadmap promoted | start |
 | MO-5 | [`analytics-funnel`](../../archive/2026-10-03-analytics-funnel/change.md) (archived) | Cookieless funnel counter | MO-4 on the main branch | dependency |

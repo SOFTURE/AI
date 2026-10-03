@@ -41,6 +41,21 @@ export const en = {
     messageLabel: "Member message",
     submit: "Sign as a member",
     saved: "Entry saved",
+    seePlans: "See plans",
+  },
+  pricing: {
+    title: "Plans",
+    lead: "Every account starts with a 14-day trial. Pick a plan to keep writing after it.",
+  },
+  plans: {
+    monthly: { name: "Monthly", description: "Pay month by month.", features: ["Unlimited guestbook entries", "Email support"] },
+    yearly: { name: "Yearly", description: "Two months free compared with monthly.", features: ["Everything in Monthly", "Priority support"] },
+    lifetime: { name: "Lifetime", description: "Pay once, keep access for good.", features: ["Everything in Yearly", "All future updates"] },
+  },
+  invoiceMail: {
+    subject: "Invoice request: {plan} for {email}",
+    body: "{email} asks for an invoice.\n\nPlan: {plan}, {price}\nName or company: {name}\nTax ID: {taxId}\nAddress: {address}\n\nOnce it is paid, grant the plan at {adminUrl}",
+    noTaxId: "none",
   },
   admin: {
     title: "Admin panel",
@@ -48,6 +63,7 @@ export const en = {
     messageLabel: "Announcement",
     submit: "Post",
     saved: "Announcement posted",
+    grantPlans: "Grant plans",
   },
   mail: {
     title: "Test mail",
