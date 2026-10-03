@@ -14,6 +14,8 @@ import { findLegalDocument } from "./legal-documents.js";
 const MAX_NAME_LENGTH = 64;
 const MAX_EMAIL_LENGTH = 254;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** A SHA-256 digest in unpadded base64url, the shape of every stored email key. */
+const EMAIL_KEY = /^[A-Za-z0-9_-]{43}$/;
 const emailSchema = z.email();
 
 export interface RecordConsentInput {
@@ -42,9 +44,10 @@ export function getEmailKey(email: string): string {
 
 const isName = (value: string) => value.length <= MAX_NAME_LENGTH && CONTRIBUTOR_ID_PATTERN.test(value);
 
-/** The subject's column values, or null when it cannot name anyone (not a UUID, not an address). */
+/** The subject's column values, or null when it cannot name anyone (not a UUID, an address or a key). */
 function toSubjectColumns(subject: ConsentSubject): { userId: string; emailKey: null } | { userId: null; emailKey: string } | null {
   if ("userId" in subject) return UUID.test(subject.userId) ? { userId: subject.userId, emailKey: null } : null;
+  if ("emailKey" in subject) return EMAIL_KEY.test(subject.emailKey) ? { userId: null, emailKey: subject.emailKey } : null;
   const email = subject.email.trim().toLowerCase();
   if (email.length > MAX_EMAIL_LENGTH || !emailSchema.safeParse(email).success) return null;
   return { userId: null, emailKey: getEmailKey(email) };

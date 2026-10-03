@@ -35,7 +35,7 @@ export { checkMailingTables } from "./health.js";
 export { addHtmlFooter, addTextFooter, getListUnsubscribeHeaders, SIGNATURE_SEPARATOR } from "./list-mail.js";
 export { getMailingModule, getMailingOptions, getMailingRoutes, type MailingRoutes } from "./options.js";
 export { sendMail, type MailContext } from "./send-mail.js";
-export { isSuppressed, suppressRecipient, unsubscribe, type SuppressionContext } from "./suppressions.js";
+export { isSuppressed, liftSuppression, suppressRecipient, unsubscribe, type SuppressionContext } from "./suppressions.js";
 export {
   buildUnsubscribeLinks,
   getRecipientKey,

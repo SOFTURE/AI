@@ -76,6 +76,16 @@ describe("the consent ledger", () => {
     expect(getEmailKey("eve@example.com")).toMatch(/^[A-Za-z0-9_-]{43}$/);
   });
 
+  it("names an email subject by its key alone, the same subject as its address", async () => {
+    const key = getEmailKey("eve@example.com");
+    await recordConsent(test.ctx, { subject: { email: "Eve@example.com" }, purpose: "newsletter", granted: true, source: "waitlist" });
+    const result = await recordConsent(test.ctx, { subject: { emailKey: key }, purpose: "newsletter", granted: false, source: "unsubscribe" });
+    expect(result.ok).toBe(true);
+    expect(await getConsent(test.ctx, { subject: { emailKey: key }, purpose: "newsletter" })).toMatchObject({ granted: false, source: "unsubscribe" });
+    expect(await hasConsent(test.ctx, { subject: { email: "eve@example.com" }, purpose: "newsletter" })).toBe(false);
+    expect((await listConsents(test.ctx, { emailKey: key })).map((record) => `${record.source} ${String(record.granted)}`)).toEqual(["waitlist true", "unsubscribe false"]);
+  });
+
   it("keeps an account's consents and its email's consents apart when reading", async () => {
     await recordConsent(test.ctx, { subject: { email: ada.email }, purpose: "newsletter", granted: true, source: "waitlist" });
     expect(await hasConsent(test.ctx, { subject: { userId: ada.id }, purpose: "newsletter" })).toBe(false);
@@ -87,11 +97,14 @@ describe("the consent ledger", () => {
     expect(await getConsent(test.ctx, { subject: { userId: "not-a-uuid" }, purpose: "terms" })).toBeNull();
     expect(await getConsent(test.ctx, { subject: { email: "not an address" }, purpose: "terms" })).toBeNull();
     expect(await listConsents(test.ctx, { email: "not an address" })).toEqual([]);
+    expect(await getConsent(test.ctx, { subject: { emailKey: "eve@example.com" }, purpose: "terms" })).toBeNull();
+    expect(await listConsents(test.ctx, { emailKey: "short" })).toEqual([]);
   });
 
   it.each([
     ["a user id that is not a UUID", { subject: { userId: "42" }, purpose: "terms", source: "account" }],
     ["an email that is not an address", { subject: { email: "ada" }, purpose: "terms", source: "account" }],
+    ["an email key that is not a SHA-256 digest", { subject: { emailKey: "ada@example.com" }, purpose: "terms", source: "account" }],
     ["a purpose that is not kebab-case", { subject: { email: "ada@example.com" }, purpose: "Terms of Service", source: "account" }],
     ["a purpose longer than 64 characters", { subject: { email: "ada@example.com" }, purpose: "a".repeat(65), source: "account" }],
     ["a source that is not kebab-case", { subject: { email: "ada@example.com" }, purpose: "terms", source: "sign up" }],

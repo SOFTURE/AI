@@ -1,9 +1,12 @@
 // Sign-ups: joining the waitlist (new or repeat), and reading sign-ups back. A repeat sign-up widens
 // the stored scopes and never narrows them. Each requested scope the consent ledger does not
 // currently grant (never given, withdrawn, or given to an older document version) is recorded in
-// privacy.consents, in the same transaction as the sign-up.
+// privacy.consents, in the same transaction as the sign-up. A sign-up is an explicit consent, so it
+// also lifts the address's own mailing opt-out; after an opt-out, which withdrew every scope, the
+// stored scopes become the requested ones instead of widening.
 import { err, ok, type Err, type ModuleContext, type Ok } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
+import { liftSuppression } from "@softure-ai/mailing/server";
 import { hasConsent, recordConsent } from "@softure-ai/privacy/server";
 import type { RateLimitRejection } from "@softure-ai/security";
 import { consumeRateLimit, subjectKey } from "@softure-ai/security/server";
@@ -99,26 +102,36 @@ export async function joinWaitlist(ctx: WaitlistContext, input: JoinWaitlistInpu
       .values({ email, scopes: scopes.value, placement: input.placement, locale: ctx.config.locale, createdAt: now, updatedAt: now })
       .onConflictDoNothing({ target: signups.email })
       .returning();
-    const signup = inserted[0] ?? (await widenSignup(txCtx, email, scopes.value));
+    const isOptOutLifted = await liftSuppression(txCtx, email);
+    const signup = inserted[0] ?? (await updateSignup(txCtx, email, scopes.value, isOptOutLifted ? "replace" : "widen"));
     const recordedScopes = await recordConsents(txCtx, email, scopes.value);
     return ok({ signup: toSignup(signup), isNew: inserted.length > 0, recordedScopes });
   });
 }
 
-/** Adds the scopes a known sign-up lacks, under a row lock, keeping the config's order. */
-async function widenSignup(ctx: WaitlistContext, email: string, requested: readonly string[]): Promise<SignupRow> {
+/**
+ * Updates a known sign-up under a row lock. `widen` adds the scopes it lacks, keeping the config's
+ * order; `replace` (after an opt-out was lifted) stores exactly the requested scopes, which are
+ * already in the config's order.
+ */
+async function updateSignup(ctx: WaitlistContext, email: string, requested: readonly string[], mode: "widen" | "replace"): Promise<SignupRow> {
   const [current] = await ctx.db.select().from(signups).where(eq(signups.email, email)).for("update");
   // The insert just conflicted on this email, and only the privacy contributor deletes rows.
-  if (current === undefined) throw new Error("@softure-ai/waitlist: a sign-up vanished while it was being widened");
-  if (requested.every((scope) => current.scopes.includes(scope))) return current;
+  if (current === undefined) throw new Error("@softure-ai/waitlist: a sign-up vanished while it was being updated");
+  const next = mode === "replace" ? [...requested] : getWidenedScopes(ctx, current.scopes, requested);
+  if (next.length === current.scopes.length && next.every((scope, index) => current.scopes[index] === scope)) return current;
 
-  const granted = new Set([...current.scopes, ...requested]);
+  const [updated] = await ctx.db.update(signups).set({ scopes: next, updatedAt: ctx.clock.now() }).where(eq(signups.id, current.id)).returning();
+  if (updated === undefined) throw new Error("@softure-ai/waitlist: updating a locked sign-up changed no row");
+  return updated;
+}
+
+/** The union of the stored and the requested scopes, declared ones in the config's order first. */
+function getWidenedScopes(ctx: WaitlistContext, stored: readonly string[], requested: readonly string[]): string[] {
+  const granted = new Set([...stored, ...requested]);
   const order = getWaitlistOptions(ctx.config).scopes.map((scope) => scope.id);
   // Scopes the config no longer declares stay, after the declared ones: a sign-up never narrows.
-  const widened = [...order.filter((id) => granted.has(id)), ...current.scopes.filter((id) => !order.includes(id))];
-  const [updated] = await ctx.db.update(signups).set({ scopes: widened, updatedAt: ctx.clock.now() }).where(eq(signups.id, current.id)).returning();
-  if (updated === undefined) throw new Error("@softure-ai/waitlist: widening a locked sign-up updated no row");
-  return updated;
+  return [...order.filter((id) => granted.has(id)), ...stored.filter((id) => !order.includes(id))];
 }
 
 /** Records each requested scope the ledger does not currently grant; returns their ids. */
