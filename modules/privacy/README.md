@@ -21,7 +21,7 @@ a CLI.
   a failure rolls everything back. The sessions end with the account, the cookie is cleared, and the
   browser lands on `afterDelete`.
 
-`@softure-ai/auth` and `@softure-ai/feature-switches` contribute already (their README section 11).
+`@softure-ai/auth`, `@softure-ai/feature-switches` and `@softure-ai/mcp-access` contribute already (their README section 11).
 
 ## 2. Installation
 

@@ -2,7 +2,7 @@
   "name": "softure-example-next-app",
   "version": "0.0.0",
   "private": true,
-  "description": "Next.js app that consumes @softure-ai/core, db, ui, security, auth, ops, feature-switches and privacy as packed packages; the e2e harness of SOFTURE AI.",
+  "description": "Next.js app that consumes @softure-ai/core, db, ui, security, auth, ops, feature-switches, mailing, mcp-access and privacy as packed packages; the e2e harness of SOFTURE AI.",
   "license": "MIT",
   "type": "module",
   "engines": {
@@ -19,10 +19,13 @@
     "e2e": "playwright test"
   },
   "dependencies": {
+    "@modelcontextprotocol/server": "^2.3.0",
     "@softure-ai/auth": "file:../../modules/auth",
     "@softure-ai/core": "file:../../foundation/core",
     "@softure-ai/db": "file:../../foundation/db",
     "@softure-ai/feature-switches": "file:../../modules/feature-switches",
+    "@softure-ai/mailing": "file:../../modules/mailing",
+    "@softure-ai/mcp-access": "file:../../modules/mcp-access",
     "@softure-ai/ops": "file:../../modules/ops",
     "@softure-ai/privacy": "file:../../modules/privacy",
     "@softure-ai/security": "file:../../modules/security",

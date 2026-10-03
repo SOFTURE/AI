@@ -29,6 +29,8 @@ export const en = {
     lead: "Only signed-in users see this page.",
     changePassword: "Change password",
     admin: "Admin panel",
+    assistant: "AI assistant access",
+    testMail: "Send a test mail",
     privacy: "Your data",
   },
   admin: {
@@ -38,16 +40,34 @@ export const en = {
     submit: "Post",
     saved: "Announcement posted",
   },
+  mail: {
+    title: "Test mail",
+    lead: "Sends a mail to your own address through @softure-ai/mailing.",
+    subjectLabel: "Subject",
+    defaultSubject: "Hello from the SOFTURE example",
+    body: "This is a test mail from the SOFTURE example app.",
+    submit: "Send me a test mail",
+    sent: "Test mail sent to your address",
+  },
   switches: {
     welcomeBanner: {
       label: "Welcome banner",
       description: "Shows a welcome line on the home page.",
     },
   },
+  mcp: {
+    whoami: "Tells the assistant which account the token belongs to.",
+    listEntries: "Reads the newest guestbook entries.",
+    signGuestbook: "Adds an entry to the guestbook.",
+  },
   errors: {
     "guestbook.message_invalid": "Write between 1 and {max} characters.",
     "auth.forbidden": "You do not have access to this.",
+    "auth.unauthenticated": "Your session has ended. Sign in again.",
     "core.database_failed": "The database did not answer. Try again.",
+    "mailing.invalid_input": "This message cannot be sent. Check the subject and try again.",
+    "mailing.rejected": "The mail service refused this message.",
+    "mailing.unavailable": "The mail service is not answering. Try again in a moment.",
     "core.unexpected": "Something went wrong. Try again.",
   },
 };

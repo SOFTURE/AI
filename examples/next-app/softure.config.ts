@@ -4,6 +4,9 @@ import { auth, AUTH_RATE_LIMIT_BUCKETS } from "@softure-ai/auth";
 import { defineSoftureConfig } from "@softure-ai/core";
 import { registerSoftureConfig } from "@softure-ai/core/next";
 import { featureSwitches } from "@softure-ai/feature-switches";
+import { MCP_RATE_LIMIT_BUCKETS, mcpAccess } from "@softure-ai/mcp-access";
+import { mailing, resend } from "@softure-ai/mailing";
+import { fakeMailProvider } from "@softure-ai/mailing/testing";
 import { ops } from "@softure-ai/ops";
 import { privacy, PRIVACY_RATE_LIMIT_BUCKETS } from "@softure-ai/privacy";
 import { cloudflareIp, security } from "@softure-ai/security";
@@ -31,7 +34,7 @@ const config = defineSoftureConfig({
     // The e2e sends CF-Connecting-IP itself, standing in for Cloudflare (e2e/security.spec.ts).
     security({
       clientIp: cloudflareIp(),
-      buckets: { "example.ping": { limit: 3, windowMinutes: 15 }, ...AUTH_RATE_LIMIT_BUCKETS, ...PRIVACY_RATE_LIMIT_BUCKETS },
+      buckets: { "example.ping": { limit: 3, windowMinutes: 15 }, ...AUTH_RATE_LIMIT_BUCKETS, ...MCP_RATE_LIMIT_BUCKETS, ...PRIVACY_RATE_LIMIT_BUCKETS },
     }),
     auth({ routes: { afterLogin: "/account" }, adminEmails: [EXAMPLE_ADMIN_EMAIL], passwordReset: { send: sendPasswordResetLink } }),
     // `detail: "checks"` lists each check in the answer, so e2e/ops.spec.ts can see the guestbook's.
@@ -47,6 +50,25 @@ const config = defineSoftureConfig({
           default: false,
         },
       ],
+    }),
+    // The token page lives at /account/mcp and the endpoint at /api/mcp; the demo server is
+    // lib/mcp-server.ts, whose tools e2e/mcp-access.spec.ts compares with this catalog.
+    mcpAccess({
+      serverName: "softure-example",
+      allowWrites: true,
+      tools: [
+        { name: "whoami", access: "read", description: { en: en.mcp.whoami, pl: pl.mcp.whoami } },
+        { name: "list_entries", access: "read", description: { en: en.mcp.listEntries, pl: pl.mcp.listEntries } },
+        { name: "sign_guestbook", access: "write", description: { en: en.mcp.signGuestbook, pl: pl.mcp.signGuestbook } },
+      ],
+    }),
+    // Resend when a key is set; otherwise the fake provider, which the e2e reads through the outbox
+    // file Playwright sets (MAIL_OUTBOX, e2e/mailing-transport.spec.ts). Without either, the fake
+    // refuses to send under `next start`, so no mail silently disappears.
+    mailing({
+      from: "SOFTURE example <hello@mail.example.com>",
+      replyTo: "support@example.com",
+      provider: process.env.RESEND_API_KEY ? resend() : fakeMailProvider({ outboxFile: process.env.MAIL_OUTBOX || undefined }),
     }),
     // The export and account deletion at /account/privacy (e2e/privacy-export-delete.spec.ts). The
     // guestbook holds no user data, so the modules' own contributors are all there is to collect.

@@ -12,12 +12,12 @@ The roadmap was promoted on 2026-10-03, when roadmap-identity closed. Inside it,
 
 | ID | Entry | Title | Condition | Kind |
 | --- | --- | --- | --- | --- |
-| EN-1 | [`mailing-transport`](mailing-transport/change.md) | Mail transport with provider adapters | roadmap promoted | start |
+| EN-1 | [`mailing-transport`](../../archive/2026-10-03-mailing-transport/change.md) (archived) | Mail transport with provider adapters | roadmap promoted | start |
 | EN-2 | [`mailing-unsubscribe`](mailing-unsubscribe/change.md) | Signed one-click unsubscribe and suppressions | EN-1 on the main branch | dependency |
 | EN-3 | [`mailing-ledger-campaigns`](mailing-ledger-campaigns/change.md) | Delivery ledger and campaigns | EN-2 on the main branch | dependency |
 | EN-4 | [`auth-reset-via-mailing`](auth-reset-via-mailing/change.md) | Password reset mails through the mailing module | EN-1 on the main branch | dependency |
 | EN-5 | [`waitlist`](waitlist/change.md) | Waitlist with consent scopes | EN-1, EN-2 and EN-8 on the main branch | dependency |
-| EN-6 | [`mcp-access`](mcp-access/change.md) | MCP access tokens and Bearer endpoint | roadmap promoted | start |
+| EN-6 | [`mcp-access`](../../archive/2026-10-03-mcp-access/change.md) (archived) | MCP access tokens and Bearer endpoint | roadmap promoted | start |
 | EN-7 | [`privacy-registry`](../../archive/2026-10-03-privacy-registry/change.md) (archived) | GDPR export and deletion registry | roadmap promoted | start |
 | EN-8 | [`privacy-consents-legal`](privacy-consents-legal/change.md) | Consent records and legal document shell | EN-7 on the main branch | dependency |
 | EN-9 | [`engagement-release`](engagement-release/change.md) | Engagement modules release | EN-3 to EN-8 on the main branch, and the owner at the keyboard | owner |
