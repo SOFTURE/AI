@@ -1,6 +1,6 @@
 // Public API of @softure-ai/marketing-kit: the `marketing.json` contract (schema, loading, brand
 // colours), the film model a project's scene modules are typed with, and the pure building blocks of
-// the pipeline (voiceover cache, timeline, composition, posts). The `softure-marketing` CLI
+// the pipeline (TTS providers, voiceover cache, timeline, composition, posts). The `softure-marketing` CLI
 // (`src/cli/main.ts`) runs the whole pipeline from `marketing.json`.
 export {
   DEFAULT_CONFIG_FILE,
@@ -62,6 +62,12 @@ export {
   type TimedWord,
   type TtsRequest,
 } from "./voice/voiceover.js";
+export type { TtsEstimate, TtsInput, TtsProvider, TtsRecording, TtsResult } from "./voice/provider.js";
+export { ELEVENLABS_API_KEY_ENV, ELEVENLABS_PROVIDER_ID, createElevenLabsProvider, type ElevenLabsOptions } from "./voice/elevenlabs.js";
+export { createFakeTtsProvider, type FakeTtsOptions, type FakeTtsProvider } from "./voice/fake.js";
+export { createTtsProvider, type CreateTtsProviderOptions, type TtsProviderId } from "./voice/providers.js";
+export { getVoiceoverPaths, readCachedVoiceover, writeVoiceover, type Voiceover, type VoiceoverPaths } from "./voice/cache.js";
+export { describeEstimate, produceVoiceover, type ProduceVoiceoverOptions, type VoiceoverOutcome } from "./voice/produce.js";
 export {
   LAYOUTS,
   VIDEO_FORMATS,
