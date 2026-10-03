@@ -50,7 +50,7 @@ app (mail, waitlist), to agents (MCP access) and to regulators (privacy). Every 
 | **EN-2** | `mailing-unsubscribe` | HMAC-signed unsubscribe links, RFC 8058 headers, one-click endpoint, unsubscribe page and a suppression list | EN-1 | autonomous | done |
 | **EN-3** | `mailing-ledger-campaigns` | exactly-once delivery ledger, campaigns sent from a content file, SPF/DKIM/DMARC check | EN-2 | autonomous | done |
 | **EN-4** | `auth-reset-via-mailing` | the auth password-reset sender hook is wired to `@softure-ai/mailing`, with pl + en templates | EN-1 | autonomous | done |
-| **EN-5** | `waitlist` | `@softure-ai/waitlist`: sign-up with configurable consent scopes, welcome mail, unsubscribe, `WaitlistForm` | EN-1, EN-2, EN-8 | autonomous | ready |
+| **EN-5** | `waitlist` | `@softure-ai/waitlist`: sign-up with configurable consent scopes, welcome mail, unsubscribe, `WaitlistForm` | EN-1, EN-2, EN-8 | autonomous | in_progress (implement 1/2, since 2026-10-03; cloud session, branch `claude/en-5-waitlist-486z3d`) |
 | **EN-6** | `mcp-access` | `@softure-ai/mcp-access`: hashed, scoped, expiring tokens, Bearer endpoint around the app's MCP server factory, token UI | — | autonomous | done |
 | **EN-7** | `privacy-registry` | `@softure-ai/privacy`: modules and the app register export/delete contributors; self-service export and account deletion | — | autonomous | done |
 | **EN-8** | `privacy-consents-legal` | `privacy.consents` ledger (who, what, when, document version) and a `LegalDocument` shell with content from the app | EN-7 | autonomous | done |
@@ -121,7 +121,7 @@ contributor contract every module with user data depends on) start the roadmap.
 
 ### EN-5: Waitlist with consent scopes
 - **Change ID:** `waitlist`
-- **Status:** ready
+- **Status:** in_progress (implement 1/2, since 2026-10-03; cloud session, branch `claude/en-5-waitlist-486z3d`)
 - **Outcome:** `waitlist.signups` (unique on normalised email) with consent scopes and form placements from config instead of hard-coded CHECK values; widening the consent scope on a repeat sign-up; welcome mail sent after the response through mailing; unsubscribe through EN-2; consent recorded through EN-8; rate-limited public action; a standalone `<WaitlistForm/>` with slots and messages.
 - **Prerequisites:** EN-1, EN-2, EN-8.
 - **Unknowns:** Whether consent scopes need a DB enum or a validated text column; double opt-in as an option; how placement analytics hand over to the analytics module later.
