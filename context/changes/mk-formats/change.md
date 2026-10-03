@@ -1,7 +1,7 @@
 ---
 change_id: mk-formats
 title: "A film renders in 9:16, 1:1 or 16:9 from one recording"
-status: plan_reviewed
+status: impl_reviewed
 roadmap_item: MK-6
 branch: claude/project-thread-9mamf6
 created: 2026-10-03

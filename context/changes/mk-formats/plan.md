@@ -101,14 +101,14 @@ a config with `format: "16:9"` loads; `format: "4:5"` is refused with `videos[0]
 ### Phase 1: Baseline and geometry table
 
 #### Automated
-- [ ] 1.1 9:16 snapshot committed from unchanged code
-- [ ] 1.2 Timeline tests pass; Gates green (typecheck, lint, test)
+- [x] 1.1 9:16 snapshot committed from unchanged code — 6dd2705
+- [x] 1.2 Timeline tests pass; Gates green (typecheck, lint, test) — 8f62900
 
 ### Phase 2: The composition, render and contract read the format
 
 #### Automated
-- [ ] 2.1 Compose and config tests pass, 9:16 snapshot untouched
-- [ ] 2.2 Gates green (typecheck, lint, test, build)
+- [x] 2.1 Compose and config tests pass, 9:16 snapshot untouched — b8ee00c
+- [x] 2.2 Gates green (typecheck, lint, test, build) — b8ee00c
 
 #### Manual
-- [ ] 2.3 Fixture film rendered in 9:16, 1:1 and 16:9; frames checked by eye
+- [x] 2.3 Fixture film rendered in 9:16, 1:1 and 16:9; frames checked by eye — b8ee00c (verified by agent: draft renders 1080×1920, 1080×1080, 1920×1080 by ffprobe; frames at 2, 6 and 10 s show phone, captions, persona and end card inside the frame, 16:9 copy right of the phone)
