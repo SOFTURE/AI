@@ -27,7 +27,7 @@ one is accepted.
 
 | Phase | Commit | Delivered | Notes |
 | --- | --- | --- | --- |
-| 1 Character maps and the check | 943275b | yes | `character-map.ts`, `glyphs.ts`, `fonts.ts`, `render.ts`, exports, README, FU-22 |
+| 1 Character maps and the check | 943275b | yes | `character-map.ts`, `glyphs.ts`, `fonts.ts`, `render.ts`, exports, README, FU-23 |
 
 Files: planned and changed 10 · unplanned 2 (`src/og/character-map.ts` split out of `glyphs.ts`;
 `tests/og/helpers.ts` gains `getInterExtFile`) · planned, not changed 0.

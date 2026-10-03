@@ -63,7 +63,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-19** | `marketing-kit-hook-shot-words` | opening shots after the first without a `word` are refused when the config loads | FU-14 | autonomous | proposed |
 | **FU-20** | `billing-partial-refunds` | partial refunds take back access by a policy | FU-11 | autonomous | proposed |
 | **FU-21** | `billing-refund-manual-lifetime` | a manual lifetime grant survives a refunded paid lifetime | FU-9 | autonomous | proposed |
-| **FU-22** | `marketing-kit-og-subset-fonts` | OG images use every subset file of a weight | FU-17 | autonomous | proposed |
+| **FU-23** | `marketing-kit-og-subset-fonts` | OG images use every subset file of a weight | FU-17 | autonomous | proposed |
 
 ## Order
 
@@ -77,13 +77,13 @@ after another; different lanes run in parallel, up to 4 at once.
 | C: billing | FU-11 → FU-9 → FU-6 → FU-20 → FU-21; FU-12 any time | `modules/billing/` and its migrations; FU-12 writes archive documents only |
 | D: analytics | FU-5 → FU-7 (FU-7 also after FU-1) | `modules/analytics/` channel propagation; FU-7 may touch auth's redirects |
 | E: marketing-kit config | FU-14 → FU-16 → FU-15; FU-14 → FU-18 → FU-19 | `tools/marketing-kit/src/config/schema.ts`, `schema/`, `src/compose/` (FU-15, FU-16) |
-| F: independent | FU-13, FU-17 → FU-22 | `.github/workflows/ci.yml`; `tools/marketing-kit/src/og/` |
+| F: independent | FU-13, FU-17 → FU-23 | `.github/workflows/ci.yml`; `tools/marketing-kit/src/og/` |
 
 1. **First wave: FU-1, FU-3, FU-11, FU-14.** The two HIGH items first (FU-1 must land before FIRE_TRACKER
    adopts the switches; FU-3 fixes a consent ledger that can contradict an unsubscribe), then the MEDIUM refund
    fix and the schema descriptions that every later marketing-kit config item extends.
 2. **Each free slot** takes the first item of this list whose lane is idle and whose dependencies are on `master`:
-   FU-2, FU-5, FU-13, FU-17, FU-9, FU-16, FU-18, FU-4, FU-7, FU-12, FU-6, FU-15, FU-8, FU-19, FU-20, FU-21, FU-22.
+   FU-2, FU-5, FU-13, FU-17, FU-9, FU-16, FU-18, FU-4, FU-7, FU-12, FU-6, FU-15, FU-8, FU-19, FU-20, FU-21, FU-23.
 3. **MK-8, EN-9 and MO-6** (owner, carried over): the owner's batch release on 2026-10-05; they wait for no FU item,
    and no FU item waits for them.
 
@@ -118,7 +118,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 | FU-19 | no | a refinement in the config schema and a config test |
 | FU-20 | no | a refund policy in billing with a documented default; signed webhook fixtures, no Stripe secrets |
 | FU-21 | no | reads FU-9's grant history in the refund; unit tests on PGlite |
-| FU-22 | no | font registration in `src/og/fonts.ts`; tested with Inter's `latin` and `latin-ext` files |
+| FU-23 | no | font registration in `src/og/fonts.ts`; tested with Inter's `latin` and `latin-ext` files |
 
 ## Items
 
@@ -377,7 +377,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 - **Baseline:** FU-11 `billing-refund-one-payment`: a refunded paid lifetime ends lifetime unless another paid lifetime payment exists; manual grants have no payment row (README §12). After: manual lifetime grants count, covered by unit tests.
 - **Source:** FU-11 research ("Answers to unknowns", manual grants); `modules/billing/README.md` §12
 
-### FU-22: OG images use every subset file of a weight
+### FU-23: OG images use every subset file of a weight
 - **Change ID:** `marketing-kit-og-subset-fonts`
 - **Status:** proposed
 - **Outcome:** A brand font listing several files of one weight (e.g. Fontsource `latin` and `latin-ext`, split by `unicodeRange` for the video renderer) draws Polish copy in OG images too: each further file of a weight is registered with Satori so its fallback reaches it, at the requested weight.

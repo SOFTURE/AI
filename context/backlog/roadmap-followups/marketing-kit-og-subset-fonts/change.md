@@ -2,7 +2,7 @@
 change_id: marketing-kit-og-subset-fonts
 title: "OG images use every subset file of a weight"
 status: backlog
-roadmap_item: FU-22
+roadmap_item: FU-23
 branch: null
 created: 2026-10-03
 updated: 2026-10-03
@@ -16,9 +16,9 @@ gets Polish copy drawn in OG images, not the missing-glyph error.
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-22** (roadmap `followups`):
+From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-23** (roadmap `followups`):
 
-> ### FU-22: OG images use every subset file of a weight
+> ### FU-23: OG images use every subset file of a weight
 > - **Change ID:** `marketing-kit-og-subset-fonts`
 > - **Status:** proposed
 > - **Outcome:** A brand font listing several files of one weight (e.g. Fontsource `latin` and `latin-ext`, split by `unicodeRange` for the video renderer) draws Polish copy in OG images too: each further file of a weight is registered with Satori so its fallback reaches it, at the requested weight.

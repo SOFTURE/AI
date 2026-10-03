@@ -370,7 +370,7 @@ renders without a `marketing.json` at all.
   out by the geometry table in `src/compose/timeline.ts` (in 16:9 the phone stands left, the copy right);
   one recording renders in every format. A desktop recording (FU-15) and layout overrides in `marketing.json` (FU-16) are not built.
 - ElevenLabs is the only real voice provider; the estimate is an upper bound in credits, not money.
-- Two OG templates; a second subset file of the same weight is not used for OG images (FU-22).
+- Two OG templates; a second subset file of the same weight is not used for OG images (FU-23).
 - Screenshots are PNG at a device scale of 1, one colour scheme per run (`app.colorScheme`); scale and light/dark pairs are FU-18.
 
 ## Development

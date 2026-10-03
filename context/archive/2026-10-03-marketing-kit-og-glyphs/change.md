@@ -42,4 +42,4 @@ risks; `reviews/impl-review.md`).
 
 - Framing skipped: the problem, the outcome and the test are stated by the roadmap item and the MK-5
   review; the two unknowns are technical and research settles them.
-- Archived 2026-10-03: OG images refuse copy no font Satori would try can draw, naming the image, the JSON path and the characters; subset files of one weight filed as FU-22.
+- Archived 2026-10-03: OG images refuse copy no font Satori would try can draw, naming the image, the JSON path and the characters; subset files of one weight filed as FU-23.
