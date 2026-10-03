@@ -18,6 +18,7 @@ An entry is never in two places, neither as a copy nor as a pointer.
 - **An entry done or rejected elsewhere:** move it into that change's archive folder as `backlog-input.md`.
 - **Loose findings** (deferred review items, ideas without a roadmap) go to `context/backlog/<topic>.md`
   as `- [ ] <date> <source>: <finding> (<severity>) <evidence>`.
+- **Gaps found while delivering a roadmap** become items of the catch-all `roadmap-followups` (owner, 2026-10-03).
 
 ## Queued roadmaps
 
@@ -25,3 +26,4 @@ An entry is never in two places, neither as a copy nor as a pointer.
 | --- | --- | --- |
 | [`roadmap-monetization/`](roadmap-monetization/) | [monetization](../foundation/roadmap.md) | promoted 2026-10-03 (main roadmap) |
 | [`roadmap-marketing-kit/`](roadmap-marketing-kit/) | [marketing-kit](../foundation/roadmaps/roadmap-marketing-kit.md) | FD-1 and FD-2 done; any time after |
+| [`roadmap-followups/`](roadmap-followups/) | [followups](../foundation/roadmaps/roadmap-followups.md) | every module roadmap done; promoted last |

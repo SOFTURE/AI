@@ -8,6 +8,7 @@ Finished main roadmaps move to `../archive/<YYYY-MM-DD>-roadmap.md`.
 | Roadmap | Theme | Prefix | Status |
 | --- | --- | --- | --- |
 | [`roadmap-marketing-kit.md`](roadmap-marketing-kit.md) | video, screenshot and OG generator | `MK-` | waiting |
+| [`roadmap-followups.md`](roadmap-followups.md) | catch-all for gaps found in the other roadmaps; runs last | `FU-` | waiting |
 
 Main roadmap now: [`monetization`](../roadmap.md) (`MO-`, with EN-9 carried over). Archived:
 [`foundation`](../archive/2026-10-02-roadmap.md), [`identity`](../archive/2026-10-03-roadmap.md),

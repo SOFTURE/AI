@@ -37,6 +37,7 @@ backlog: context/backlog/roadmap-monetization/
 >
 > Queued after this one (WORKFLOW §5.1, files in `roadmaps/`, entries in `context/backlog/`):
 > 1. [`roadmap-marketing-kit`](roadmaps/roadmap-marketing-kit.md): video, screenshot and OG generator. Independent, so it can be promoted any time.
+> 2. [`roadmap-followups`](roadmaps/roadmap-followups.md): the catch-all for gaps found in every roadmap; promoted last.
 
 Wave 3 of the module catalog (`docs/01-module-assessment.md`): entitlements and pricing, and the cookieless
 channel analytics that measure where paying users come from. Every module follows `docs/02-module-standard.md`;
