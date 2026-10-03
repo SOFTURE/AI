@@ -306,8 +306,14 @@ Values the app computes, such as a chart or a projected date, are computed by th
 file or a variable range (`"100 900"`) in `brand.fonts`, by its JSON path; add a static file for OG
 next to it. Templates ask for a weight (the headline for 700, the copy for 400 and 600) and get the
 nearest one the brand loads, so a card never names a weight that is not loaded (Satori would draw
-another one silently). Glyphs missing from a subset font (e.g. a `latin` file and Polish letters)
-are not detected; ship a file that covers the copy's language.
+another one silently). Satori draws nothing, or an empty box, for a character no font maps, so a
+card is checked before layout: a character of the copy (or of `brand.name`) that none of the fonts
+Satori would try has is refused with the image id, the JSON path and the characters, e.g.
+`ogImages[0].data.headline: "…" (U+0105)` for a Polish letter with a `latin` subset file. Satori
+tries one file per family, weight and style (the first one listed), then the other family, so a
+second subset file of the same weight (`latin-ext` next to `latin`) is not used: ship one file per
+weight that covers the copy's language. Whitespace, format characters and variation selectors are
+not checked; emoji are, and need a font that has them.
 
 **A thin Next route.** The `@softure-ai/marketing-kit/og` entry does not load Playwright, so a route
 can render the same card per request, with live values in place of the configured `data`:
@@ -364,7 +370,7 @@ renders without a `marketing.json` at all.
   out by the geometry table in `src/compose/timeline.ts` (in 16:9 the phone stands left, the copy right);
   one recording renders in every format. A desktop recording (FU-15) and layout overrides in `marketing.json` (FU-16) are not built.
 - ElevenLabs is the only real voice provider; the estimate is an upper bound in credits, not money.
-- Two OG templates; glyphs missing from a font are not detected.
+- Two OG templates; a second subset file of the same weight is not used for OG images (FU-22).
 - Screenshots are PNG at a device scale of 1, one colour scheme per run (`app.colorScheme`); scale and light/dark pairs are FU-18.
 
 ## Development
