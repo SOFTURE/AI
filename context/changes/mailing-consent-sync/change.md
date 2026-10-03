@@ -1,7 +1,7 @@
 ---
 change_id: mailing-consent-sync
 title: "An unsubscribe withdraws consent and a new sign-up lifts the suppression"
-status: plan_reviewed
+status: impl_reviewed
 roadmap_item: FU-3
 branch: claude/project-thread-6u8qf0
 created: 2026-10-03

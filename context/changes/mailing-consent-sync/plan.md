@@ -63,14 +63,14 @@ waitlist handler; the page shows its retry state).
 ### Phase 1: Modules
 
 #### Automated
-- [ ] 1.1 privacy, mailing and waitlist tests for the hook, the key subject, withdrawal and lift pass
-- [ ] 1.2 Gates green (typecheck, lint, test)
+- [x] 1.1 privacy, mailing and waitlist tests for the hook, the key subject, withdrawal and lift pass — 9c64be0
+- [x] 1.2 Gates green (typecheck, lint, test) — 9c64be0
 
 ### Phase 2: Example app and e2e
 
 #### Automated
-- [ ] 2.1 Gates green (typecheck, lint, test, build)
-- [ ] 2.2 `npm run e2e` passes, including the new tests in `e2e/waitlist.spec.ts`
+- [x] 2.1 Gates green (typecheck, lint, test, build) — e0f16b2
+- [x] 2.2 `npm run e2e` passes, including the new tests in `e2e/waitlist.spec.ts` — e0f16b2
 
 #### Manual
-- [ ] 2.3 Impl review recorded in `reviews/impl-review.md`
+- [x] 2.3 Impl review recorded in `reviews/impl-review.md` — e0f16b2
