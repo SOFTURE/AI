@@ -6,6 +6,7 @@ import { err, ok } from "@softure-ai/core";
 import { CHECKOUT_PARAM, PLAN_FIELD, type CheckoutResult } from "./fields.js";
 import type { PaymentContext, PaymentProvider, PaymentRequest } from "./payment.js";
 import { getLocalizedText } from "./plans.js";
+import { STRIPE_PROVIDER } from "./server/payments.js";
 import { STRIPE_METADATA } from "./stripe-webhook.js";
 
 export const STRIPE_API_BASE = "https://api.stripe.com";
@@ -79,7 +80,7 @@ function describeStripeError(payload: unknown): string {
 export function stripe(options: StripeOptions = {}): PaymentProvider {
   const apiBase = options.apiBase ?? STRIPE_API_BASE;
   return {
-    name: "stripe",
+    name: STRIPE_PROVIDER,
     collectsInvoiceDetails: false,
     async startPayment(ctx, request) {
       const secretKey = (options.secretKey ?? process.env[STRIPE_SECRET_KEY_ENV] ?? "").trim();

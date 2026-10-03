@@ -14,7 +14,7 @@ import { changeEntitlement, type BillingContext } from "./entitlements.js";
 import { getBillingPlans, grantPlan } from "./plans.js";
 import { isUserId } from "./user-id.js";
 
-/** The provider name `stripe()` and its webhook store payments under. */
+/** The name of `stripe()`, under which its webhook stores payments. */
 export const STRIPE_PROVIDER = "stripe";
 
 export interface RecordPaymentInput extends PaidCheckout {

@@ -53,5 +53,5 @@ Input: change.md, backlog-input.md, research.md. Complexity: medium (2 phases). 
 ### Phase 2: Example app, e2e, docs
 
 #### Automated
-- [ ] 2.1 Example app builds; `e2e/billing-stripe.spec.ts` and the existing specs pass
-- [ ] 2.2 Gates green (typecheck, lint, test, build)
+- [x] 2.1 Example app builds; `e2e/billing-stripe.spec.ts` and the existing specs pass — 870773e
+- [x] 2.2 Gates green (typecheck, lint, test, build) — 870773e
