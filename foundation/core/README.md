@@ -1,6 +1,6 @@
 # @softure-ai/core
 
-**Status:** wave 0 · implemented in FD-3 (`core-contract`), not published yet (FD-8).
+**Status:** wave 0 · implemented in FD-3 (`core-contract`), not published yet (the owner publishes the foundation and identity packages in one batch once the release pipeline is set up).
 
 The contract every SOFTURE module stands on. Standard:
 [docs/02-module-standard.md](../../docs/02-module-standard.md). Sources in FIRE_TRACKER: the

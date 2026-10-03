@@ -15,13 +15,13 @@ An app that enables both auth and mailing gets password-reset mails without writ
 
 ## Context
 
-From [`roadmap-engagement.md`](../../../foundation/roadmaps/roadmap-engagement.md), item **EN-4** (queued roadmap `engagement`):
+From [`roadmap.md`](../../../foundation/roadmap.md), item **EN-4** (roadmap `engagement`, main since 2026-10-03):
 
 > ### EN-4: Password reset mails through the mailing module
 > - **Change ID:** `auth-reset-via-mailing`
 > - **Status:** ready
 > - **Outcome:** An app that enables both auth and mailing gets password-reset mails without writing a sender: a ready `mailingResetSender()` adapter for the auth reset hook, transactional kind (never suppressed), `pl` and `en` templates, and an e2e scenario from request to new password.
-> - **Prerequisites:** EN-1; ID-5 `auth-password-reset` of roadmap-identity (sender hook) released.
+> - **Prerequisites:** EN-1; ID-5 `auth-password-reset` of roadmap-identity (sender hook) on the main branch.
 > - **Unknowns:** Where the adapter lives (auth depends on mailing optionally, or mailing ships the auth adapter); link expiry copy per locale.
 > - **Risk:** low.
 > - **Baseline:** Identity ships reset with a pluggable sender only. After: the example app resets a password end to end through the fake mail provider.

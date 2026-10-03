@@ -18,7 +18,11 @@ trigger: "roadmap-engagement is done and the owner has chosen the payment provid
 > Run-wide orders once promoted (read by orchestrators):
 > - Push main branch: no. The owner pushes and tags.
 > - Parallelism: up to 4 at once (`workflow.json` → `worktree.maxParallel`).
-> - Owner at the keyboard: MO-3 (payment provider decision), MO-6 (tags and first staged publishes), MO-7 (adoption run in FIRE_TRACKER).
+> - Owner at the keyboard: MO-3 (payment provider decision), MO-6 (tags and first staged publishes).
+>
+> FIRE_TRACKER adoption (owner, 2026-10-03): no item here adopts the modules in FIRE_TRACKER. The adoption
+> runs in FIRE_TRACKER's own roadmap and sessions once this repository reports the code ready; this
+> repository delivers the modules and their release.
 
 Wave 3 of the module catalog (`docs/01-module-assessment.md`): entitlements and pricing, and the cookieless
 channel analytics that measure where paying users come from. Every module follows `docs/02-module-standard.md`;
@@ -34,7 +38,6 @@ adoption in FIRE_TRACKER follows `docs/05-adoption-playbook.md`.
 | **MO-4** | `analytics-channel-tags` | `@softure-ai/analytics`: a channel parameter captured, validated and carried across redirects and sign-up | — | autonomous | ready |
 | **MO-5** | `analytics-funnel` | daily aggregates (day, channel, step) without cookies or PII, beacon and pixel endpoints, report function | MO-4 | autonomous | ready |
 | **MO-6** | `monetization-release` | billing and analytics 0.1.0 published through the release pipeline; READMEs and docs updated | MO-2, MO-5 | owner | ready |
-| **MO-7** | `fire-adopt-monetization` | FIRE_TRACKER replaces its access/trial, pricing and channel funnel code with the released modules | MO-6 | owner | ready |
 
 ## Order
 
@@ -46,7 +49,7 @@ At most one migration-adding item per parallel group (each module still has its 
    (owns `modules/analytics/` funnel counter, migration) after MO-4.
 3. **Group C:** MO-3 (owns `modules/billing/` provider adapter, may add a payment-events migration) after MO-2,
    once the owner has chosen the provider.
-4. **MO-6** (owner) after MO-2 and MO-5, and after MO-3 when it is unblocked in time; then **MO-7** (owner, runs in FIRE_TRACKER).
+4. **MO-6** (owner) after MO-2 and MO-5, and after MO-3 when it is unblocked in time.
 
 Hot shared files: the example app gets one scenario file per item (`examples/next-app/e2e/<module>-*.spec.ts`).
 The route guard composition in the example app (`proxy.ts`) is edited only by MO-4.
@@ -59,7 +62,7 @@ Risk first: MO-1 (the write guard every paid feature depends on) starts the road
 - **Change ID:** `billing-entitlements`
 - **Status:** ready
 - **Outcome:** A pure entitlement state machine (`trial | paid | read_only`) with trial length and reminder windows from config; `billing.entitlements` (one row per user, separate from `auth.users`); `getEntitlement()` and `requireWriteAccess()` for app write actions; access badge and notice components with slots and messages; a privacy contributor for export and deletion.
-- **Prerequisites:** roadmap-engagement done (privacy registry released).
+- **Prerequisites:** roadmap-engagement done (privacy registry on the main branch).
 - **Unknowns:** How a new user gets a trial row (auth `onRegistered` hook vs. lazy creation); an unlimited/lifetime representation; time-zone handling of trial end.
 - **Risk:** medium. A wrong guard either blocks paying users or leaks paid features.
 - **Baseline:** FIRE keeps `paid_until` / `trial_ends_at` on its users table with a hand-written guard. After: state machine unit tests for every transition and an e2e scenario where a read-only account cannot write.
@@ -115,21 +118,10 @@ Risk first: MO-1 (the write guard every paid feature depends on) starts the road
 - **Baseline:** packages absent from npm. After: installable from npm and from GitHub Releases.
 - **PRD refs:** FR-2, G-4.
 
-### MO-7: FIRE_TRACKER adopts billing and analytics
-- **Change ID:** `fire-adopt-monetization`
-- **Status:** ready
-- **Outcome:** Following `docs/05-adoption-playbook.md`, FIRE_TRACKER adopts billing and analytics: trial and paid columns move from its users table into `billing.entitlements`, its funnel table moves into `analytics.funnel_counts`, its own implementations and unit tests are deleted, its integration suite stays green, and gaps become issues in SOFTURE/AI.
-- **Prerequisites:** MO-6.
-- **Unknowns:** Mapping FIRE's early-account rules and prices into plan config; keeping historical funnel rows across the move.
-- **Risk:** high. Production data and paid access are moved.
-- **Baseline:** FIRE runs its own copies. After: those copies are gone, FIRE CI is green, CHANGELOG entries say `verified in: FIRE_TRACKER@<sha>`.
-- **PRD refs:** FR-26, G-2.
-
 ## Owner decisions and checks
 
 - [ ] **MO-3**: choose the payment provider to implement after the manual adapter (Stripe or Przelewy24) and provide test-mode credentials.
 - [ ] **MO-6**: approve the first (staged) publish of billing and analytics on npmjs.com, then add a trusted publisher for each.
-- [ ] **MO-7**: schedule the FIRE_TRACKER adoption run; confirm a production database copy is available for the `--adopt --plan` dry run.
 
 ## Done
 
@@ -140,3 +132,4 @@ Risk first: MO-1 (the write guard every paid feature depends on) starts the road
 - The provider adapter is a separate, blocked item instead of part of MO-2. → The manual adapter ships value without waiting for the provider decision.
 - Channel tags (MO-4) and the funnel counter (MO-5) are split. → Tagging has no table and unblocks attribution of sign-ups early; the counter adds the only analytics migration.
 - MO-6 does not wait for MO-3. → A blocked provider decision must not hold back the release of the rest.
+- MO-7 (FIRE_TRACKER adoption) was dropped by the owner on 2026-10-03. → The adoption runs in FIRE_TRACKER's own roadmap and sessions.

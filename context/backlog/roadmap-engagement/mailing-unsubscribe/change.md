@@ -15,7 +15,7 @@ Every non-transactional mail carries an HMAC-signed unsubscribe link and RFC 805
 
 ## Context
 
-From [`roadmap-engagement.md`](../../../foundation/roadmaps/roadmap-engagement.md), item **EN-2** (queued roadmap `engagement`):
+From [`roadmap.md`](../../../foundation/roadmap.md), item **EN-2** (roadmap `engagement`, main since 2026-10-03):
 
 > ### EN-2: Signed one-click unsubscribe and suppressions
 > - **Change ID:** `mailing-unsubscribe`

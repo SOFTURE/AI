@@ -15,7 +15,7 @@ archived_at: null
 
 ## Context
 
-From [`roadmap-engagement.md`](../../../foundation/roadmaps/roadmap-engagement.md), item **EN-9** (queued roadmap `engagement`):
+From [`roadmap.md`](../../../foundation/roadmap.md), item **EN-9** (roadmap `engagement`, main since 2026-10-03):
 
 > ### EN-9: Engagement modules release
 > - **Change ID:** `engagement-release`

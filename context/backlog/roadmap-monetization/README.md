@@ -18,7 +18,6 @@ The whole roadmap: **roadmap-engagement is done and the owner has chosen the pay
 | MO-4 | [`analytics-channel-tags`](analytics-channel-tags/change.md) | Channel tags | roadmap promoted | start |
 | MO-5 | [`analytics-funnel`](analytics-funnel/change.md) | Cookieless funnel counter | MO-4 on the main branch | dependency |
 | MO-6 | [`monetization-release`](monetization-release/change.md) | Monetization modules release | MO-2 and MO-5 on the main branch, and the owner at the keyboard | owner |
-| MO-7 | [`fire-adopt-monetization`](fire-adopt-monetization/change.md) | FIRE_TRACKER adopts billing and analytics | MO-6 published, and the owner schedules the FIRE run | owner |
 
 Kind: `start` (can be taken as soon as the roadmap is promoted), `dependency` (waits for the listed items on the
 main branch), `owner` (needs an owner decision or the owner at the keyboard).

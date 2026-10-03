@@ -11,7 +11,7 @@ WORKFLOW §3.
   (`examples/next-app/modules/guestbook/index.ts`). Measured for a module inside the app; a module
   package in `node_modules` is bundled the same way unless listed in `serverExternalPackages`
   (inferred, not measured). The module contract or docs/02 should give module authors a form that
-  builds; candidates for FD-8 or identity ID-1: a core helper (`migrationsDir(import.meta.url,
+  builds; candidates for identity ID-1: a core helper (`migrationsDir(import.meta.url,
   "../migrations/")`), or `dir` accepting a path string (HIGH: every module with tables hits it)
   `foundation/core/README.md` §3, `docs/02-module-standard.md` §4
   Resolved in identity ID-1 (`next-actions-spike`): `resolveMigrationsDir(import.meta.url,
