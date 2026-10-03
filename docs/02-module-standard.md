@@ -253,6 +253,9 @@ thin actions) are not needed.
   the enabled modules (and the app's own from `privacy({ contributors })`) for the self-service
   export and account deletion: exports in dependency order, deletions in reverse in one transaction,
   and a contributor refuses a deletion with an `Err` (engagement EN-7; [`modules/privacy/README.md`](../modules/privacy/README.md)).
+- Consent: a module that asks for consent (a checkbox, a scope) records it with `recordConsent` from
+  `@softure-ai/privacy/server` instead of a column of its own; legal documents and their versions
+  are declared once in `privacy({ documents })` (engagement EN-8).
 - Health: a module may pass `health: (context) => Promise<Result<undefined>>` to `defineModule`;
   `GET /api/health` of `@softure-ai/ops` runs it for every enabled module (identity ID-7). One cheap
   query, no side effects.

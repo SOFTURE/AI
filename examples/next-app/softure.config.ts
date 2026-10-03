@@ -10,6 +10,7 @@ import { mailing, resend } from "@softure-ai/mailing";
 import { fakeMailProvider } from "@softure-ai/mailing/testing";
 import { ops } from "@softure-ai/ops";
 import { privacy, PRIVACY_RATE_LIMIT_BUCKETS } from "@softure-ai/privacy";
+import { recordRegistrationConsent } from "@softure-ai/privacy/server";
 import { cloudflareIp, security } from "@softure-ai/security";
 import { en } from "./messages/en.ts";
 import { pl } from "./messages/pl.ts";
@@ -37,7 +38,14 @@ const config = defineSoftureConfig({
       buckets: { "example.ping": { limit: 3, windowMinutes: 15 }, ...AUTH_RATE_LIMIT_BUCKETS, ...MCP_RATE_LIMIT_BUCKETS, ...PRIVACY_RATE_LIMIT_BUCKETS },
     }),
     // Reset links go out as mail through the mailing module below (e2e/auth-reset-mail.spec.ts).
-    auth({ routes: { afterLogin: "/account" }, adminEmails: [EXAMPLE_ADMIN_EMAIL], passwordReset: { send: mailingResetSender() } }),
+    // The registration checkbox accepts the legal documents of privacy() below; the hook records
+    // that consent with their versions, in the account's transaction (e2e/privacy-consents.spec.ts).
+    auth({
+      routes: { afterLogin: "/account" },
+      adminEmails: [EXAMPLE_ADMIN_EMAIL],
+      passwordReset: { send: mailingResetSender() },
+      onRegistered: recordRegistrationConsent(),
+    }),
     // `detail: "checks"` lists each check in the answer, so e2e/ops.spec.ts can see the guestbook's.
     ops({ detail: "checks" }),
     // The panel lives at /switches: /admin is the example's own admin page.
@@ -73,7 +81,14 @@ const config = defineSoftureConfig({
     }),
     // The export and account deletion at /account/privacy (e2e/privacy-export-delete.spec.ts). The
     // guestbook holds no user data, so the modules' own contributors are all there is to collect.
-    privacy(),
+    // The legal documents and their versions: /legal/terms and /legal/privacy show them, and
+    // registration records consent to them.
+    privacy({
+      documents: [
+        { id: "terms", version: "2026-10-01" },
+        { id: "privacy-policy", version: "2026-10-01" },
+      ],
+    }),
   ],
 });
 

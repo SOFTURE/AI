@@ -64,6 +64,36 @@ export const pl: AppMessages = {
     listEntries: "Czyta najnowsze wpisy z księgi gości.",
     signGuestbook: "Dodaje wpis do księgi gości.",
   },
+  legal: {
+    footer: {
+      terms: "Regulamin",
+      privacy: "Polityka prywatności",
+      note: "Przykładowa aplikacja SOFTURE AI: demo, nie prawdziwa usługa.",
+    },
+    terms: {
+      title: "Regulamin",
+      intro: "Ten regulamin dotyczy przykładowej aplikacji SOFTURE AI, demonstracji modułów SOFTURE.",
+      sections: [
+        { id: "service", title: "1. Usługa", body: "Aplikacja pokazuje, jak moduły SOFTURE działają razem. Służy wyłącznie do testów." },
+        { id: "account", title: "2. Twoje konto", body: "Nie udostępniaj nikomu hasła. Konto możesz usunąć w każdej chwili w zakładce Twoje dane." },
+        { id: "content", title: "3. Twoje treści", body: "Wpisy w księdze gości są publiczne. Nie publikuj niczego, czego inni nie powinni czytać." },
+      ],
+      changes: [
+        { version: "2026-10-01", date: "2026-10-01", summary: "W punkcie 2 dodano usuwanie konta." },
+        { version: "2026-09-01", date: "2026-09-01", summary: "Pierwsza wersja." },
+      ],
+    },
+    privacy: {
+      title: "Polityka prywatności",
+      intro: "Ta polityka mówi, co przykładowa aplikacja o Tobie przechowuje i co możesz z tym zrobić.",
+      sections: [
+        { id: "data", title: "1. Co przechowujemy", body: "Twój adres email, skrót hasła, Twoje sesje i Twoje zgody." },
+        { id: "consents", title: "2. Twoje zgody", body: "Przy rejestracji zapisujemy, że akceptujesz te dokumenty, wraz z ich wersjami i czasem." },
+        { id: "rights", title: "3. Twoje prawa", body: "Pobierz swoje dane albo usuń konto w zakładce Twoje dane. Usunięcie konta usuwa też Twoje zgody." },
+      ],
+      changes: [{ version: "2026-10-01", date: "2026-10-01", summary: "Pierwsza wersja." }],
+    },
+  },
   errors: {
     "guestbook.message_invalid": "Wpisz od 1 do {max} znaków.",
     "auth.forbidden": "Nie masz dostępu do tej funkcji.",
