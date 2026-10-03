@@ -47,7 +47,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-2** | `waitlist-double-opt-in` | Waitlist double opt-in | FU-3 | autonomous | proposed |
 | **FU-3** | `mailing-consent-sync` | Unsubscribe as consent withdrawal | — | autonomous | done |
 | **FU-4** | `waitlist-welcome-html` | HTML welcome mail for the waitlist | FU-2 | autonomous | proposed |
-| **FU-5** | `analytics-client-navigation` | Channel tag on client navigations without Next-Url | — | autonomous | proposed |
+| **FU-5** | `analytics-client-navigation` | Channel tag on client navigations without Next-Url | — | autonomous | in_progress |
 | **FU-6** | `billing-reminder-mail` | Reminder mail before access ends | FU-9 | autonomous | proposed |
 | **FU-7** | `analytics-action-redirect-tag` | Channel tag kept through server action redirects | FU-1, FU-5 | autonomous | proposed |
 | **FU-8** | `waitlist-funnel-hook` | Waitlist sign-ups as a funnel step | FU-4 | autonomous | proposed |
@@ -173,7 +173,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-5: Channel tag on client navigations without Next-Url
 - **Change ID:** `analytics-client-navigation`
-- **Status:** proposed
+- **Status:** in_progress
+- **Input:** [`changes/analytics-client-navigation/change.md`](../changes/analytics-client-navigation/change.md)
 - **Outcome:** Every Next.js client navigation from a tagged page keeps the channel tag, without relying on the router's `Next-Url` header (for example a client component of `/next` that re-applies the tag after router navigations, or a link component that adds it).
 - **Prerequisites:** none beyond the main branch.
 - **Unknowns:** Whether Next exposes a stable signal for router requests in the proxy; a client component vs. a link wrapper.

@@ -15,7 +15,7 @@ Keep the channel tag on every Next.js client navigation without relying on the r
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-5** (roadmap `followups`, main since 2026-10-03):
+From [`roadmap.md`](../../foundation/roadmap.md), item **FU-5** (roadmap `followups`, main since 2026-10-03):
 
 > ### FU-5: Channel tag on client navigations without Next-Url
 > - **Change ID:** `analytics-client-navigation`
@@ -28,7 +28,7 @@ From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-5** (roadmap `fol
 > - **PRD refs:** FR-23.
 > - **Source:** `modules/analytics/README.md` §12
 
-Reference material: [`docs/02-module-standard.md`](../../../../docs/02-module-standard.md) (the standard).
+Reference material: [`docs/02-module-standard.md`](../../../docs/02-module-standard.md) (the standard).
 
 ## Constraints
 
