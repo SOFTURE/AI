@@ -2,17 +2,31 @@
   "id": "mailing",
   "version": "0.0.0",
   "dependsOn": {},
-  "dbSchema": null,
-  "tables": [],
+  "dbSchema": "mailing",
+  "tables": ["suppressions"],
   "env": [
     {
       "name": "RESEND_API_KEY",
       "required": false,
       "description": "API key of the resend() provider, read on every send; not needed with resend({ apiKey }) or another provider."
+    },
+    {
+      "name": "MAILING_UNSUBSCRIBE_SECRET",
+      "required": false,
+      "description": "Signs and verifies unsubscribe links, at least 32 characters; required to send list mail (any kind but transactional). Never change it without moving the old value to MAILING_UNSUBSCRIBE_SECRET_PREVIOUS."
+    },
+    {
+      "name": "MAILING_UNSUBSCRIBE_SECRET_PREVIOUS",
+      "required": false,
+      "description": "The secret before a rotation, at least 32 characters: verifies links in mail already sent, never signs."
     }
   ],
   "switches": [],
-  "routes": {},
-  "mount": [],
+  "routes": { "unsubscribe": "/unsubscribe", "oneClick": "/api/mailing/unsubscribe" },
+  "mount": [
+    { "kind": "page", "path": "app/unsubscribe/page.tsx", "export": "UnsubscribePage" },
+    { "kind": "route-handler", "path": "app/api/mailing/unsubscribe/route.ts", "export": "postUnsubscribeRoute" },
+    { "kind": "route-handler", "path": "app/api/mailing/unsubscribe/route.ts", "export": "getUnsubscribeRoute" }
+  ],
   "privacy": { "exports": false, "deletes": false }
 }

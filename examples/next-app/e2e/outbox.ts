@@ -7,6 +7,12 @@ import { readMailOutbox } from "@softure-ai/mailing/testing";
 /** The outbox of the example's fake mail provider; read with `readMailOutbox`. */
 export const MAIL_OUTBOX = join(tmpdir(), "softure-example-e2e-mail-outbox.jsonl");
 
+/**
+ * The secret the app under test signs unsubscribe links with (playwright.config.ts). A test value:
+ * the e2e server is local and throwaway.
+ */
+export const MAILING_UNSUBSCRIBE_SECRET = "e2e-unsubscribe-secret-not-for-production";
+
 /** A reset link as auth builds it: the reset route with a 43-character token. */
 const RESET_LINK = /^https?:\/\/\S+\/reset-password\?token=[A-Za-z0-9_-]{43}$/m;
 

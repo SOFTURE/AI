@@ -64,12 +64,13 @@ npm run dev
 | `app/admin/`, `app/api/admin/status/`, `scripts/grant-role.ts`, `scripts/revoke-role.ts` | an admin-only page, action and route handler (`requireRole`, `authorizeRole`; the admin is `EXAMPLE_ADMIN_EMAIL` in `adminEmails`), and the role scripts (`npm run grant-role -- --email=… --role=admin --commit`) |
 | `app/switches/page.tsx`, the welcome banner in `app/page.tsx` | the admin-only panel of `@softure-ai/feature-switches` mounted with one re-export line at `/switches`, and `isEnabled("example.welcome_banner")` read on the home page |
 | `app/account/mcp/page.tsx`, `app/api/mcp/route.ts`, `lib/mcp-server.ts` | the token page of `@softure-ai/mcp-access` and its MCP endpoint around the example's server (`whoami`, `list_entries`, and `sign_guestbook` for write tokens), each mounted with one line |
-| `app/account/mail/`, the `mailing(...)` entry in `softure.config.ts` | `sendMail` of `@softure-ai/mailing` from a server action, to the signed-in user's own address; `resend()` when `RESEND_API_KEY` is set, else the fake provider writing to the e2e outbox file (`MAIL_OUTBOX`, set by `playwright.config.ts`) |
+| `app/account/mail/`, the `mailing(...)` entry in `softure.config.ts` | `sendMail` of `@softure-ai/mailing` from a server action, to the signed-in user's own address; `resend()` when `RESEND_API_KEY` is set, else the fake provider writing to the e2e outbox file (`MAIL_OUTBOX`, set by `playwright.config.ts`); the newsletter option sends it as list mail |
+| `app/unsubscribe/`, `app/api/mailing/unsubscribe/` | the unsubscribe page and the RFC 8058 one-click route shipped by `@softure-ai/mailing`, each mounted with one re-export line; links are signed with `MAILING_UNSUBSCRIBE_SECRET` |
 | `app/api/security/ping/route.ts` | a public route handler: `identifyClient`, `consumeRateLimit` and `readSmallBody` from `@softure-ai/security` |
 | `app/api/health/route.ts` | `GET /api/health` of `@softure-ai/ops`, one line; the guestbook contributes a check (`modules/guestbook/health.ts`) |
 | `Dockerfile`, `compose.container.yaml`, `scripts/migrate.ts` | the ops container recipe: one image, a one-off migrate step as the migrator role, the app as the app role |
 | `messages/` | the app's `en` and `pl` copy; no text is written inline |
-| `e2e/` | Playwright: theme switch, modal and form, migrations, security, auth, password reset, roles, switches, mail, reset mail |
+| `e2e/` | Playwright: theme switch, modal and form, migrations, security, auth, password reset, roles, switches, mail, reset mail, unsubscribe |
 
 ## Adding a scenario
 

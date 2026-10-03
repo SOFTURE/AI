@@ -1,7 +1,7 @@
 "use client";
 
 import type { Locale } from "@softure-ai/core";
-import { ActionForm, TextField } from "@softure-ai/ui";
+import { ActionForm, CheckboxField, TextField } from "@softure-ai/ui";
 import { getErrorMessage, getMessages } from "../../../messages/index.ts";
 import { sendTestMail } from "./actions.ts";
 
@@ -16,6 +16,7 @@ export function TestMailForm({ locale }: { readonly locale: Locale }) {
       locale={locale}
     >
       <TextField name="subject" label={messages.mail.subjectLabel} defaultValue={messages.mail.defaultSubject} required />
+      <CheckboxField name="newsletter" label={messages.mail.newsletterLabel} hint={messages.mail.newsletterHint} labelAs="statement" locale={locale} />
     </ActionForm>
   );
 }

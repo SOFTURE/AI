@@ -1,7 +1,7 @@
 import { getMailingErrorMessage, mailingMessages, type MailingErrorCode } from "@softure-ai/mailing";
 import { describe, expect, it } from "vitest";
 
-const CODES: MailingErrorCode[] = ["mailing.invalid_input", "mailing.rejected", "mailing.unavailable"];
+const CODES: MailingErrorCode[] = ["mailing.invalid_input", "mailing.rejected", "mailing.unavailable", "mailing.suppressed"];
 
 describe("mailing messages", () => {
   it.each(["en", "pl"] as const)("have distinct copy in %s for every error code", (locale) => {
@@ -19,5 +19,17 @@ describe("mailing messages", () => {
 
   it("are translated, not copied", () => {
     expect(mailingMessages.pl.errors.mailing.rejected).not.toBe(mailingMessages.en.errors.mailing.rejected);
+    expect(mailingMessages.pl.footer.text).not.toBe(mailingMessages.en.footer.text);
+    expect(mailingMessages.pl.unsubscribe.submit).not.toBe(mailingMessages.en.unsubscribe.submit);
+  });
+
+  it("have every footer and page text in both languages", () => {
+    const keys = (tree: object): string[] =>
+      Object.entries(tree).flatMap(([key, value]) => (typeof value === "string" ? [key] : keys(value as object).map((child) => `${key}.${child}`)));
+    expect(keys(mailingMessages.pl)).toEqual(keys(mailingMessages.en));
+    for (const locale of ["en", "pl"] as const) {
+      const { footer, unsubscribe } = mailingMessages[locale];
+      expect([...Object.values(footer), ...Object.values(unsubscribe)].every((text) => text.trim() !== "")).toBe(true);
+    }
   });
 });
