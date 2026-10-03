@@ -2,7 +2,7 @@
 change_id: billing-admin-requests
 title: "Payment requests, revoke and grant history in the billing admin page"
 status: backlog
-roadmap_item: FU-7
+roadmap_item: FU-9
 branch: null
 created: 2026-10-03
 updated: 2026-10-03
@@ -17,12 +17,12 @@ history of grants per account; optionally a `grant-plan` script for hosts withou
 
 ## Context
 
-From [`roadmap-followups.md`](../../../foundation/roadmaps/roadmap-followups.md), item **FU-7** (queued roadmap `followups`):
+From [`roadmap-followups.md`](../../../foundation/roadmaps/roadmap-followups.md), item **FU-9** (queued roadmap `followups`):
 
-> ### FU-7: Payment requests, revoke and grant history in the billing admin page
+> ### FU-9: Payment requests, revoke and grant history in the billing admin page
 > - **Change ID:** `billing-admin-requests`
 > - **Status:** proposed
-> - **Outcome:** Invoice requests stored in a billing table and listed in `BillingAdminPage` with a one-click grant; a revoke action; a history of grants per account; optionally a `grant-plan` script.
+> - **Outcome:** Invoice requests stored in a billing table and listed in `BillingAdminPage` with a one-click grant; a revoke action; a history of grants per account; optionally a `grant-plan` script; the payment page and the grant form tell a lifetime account apart (today it can still request an invoice, and a dated grant to it is a silent no-op).
 > - **Prerequisites:** none beyond the main branch (MO-3 may add a payment-events table to share).
 > - **Unknowns:** One table for manual requests and provider payment events vs. two; retention of invoice details (personal data, privacy contributor).
 > - **Risk:** LOW.

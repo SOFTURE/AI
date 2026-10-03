@@ -15,7 +15,6 @@ import { getBillingMessages, getBillingOptions, getBillingRoutes } from "../serv
 import { findAccountByEmail, getBillingPlans, grantPlan, startPayment } from "../server/plans.js";
 import { formatLastDay } from "../ui/format.js";
 import { getBillingContext } from "./context.js";
-import { getPlanPaymentHref } from "./pricing.js";
 
 /** Longer values are cut: the server functions refuse them anyway, and nothing huge is echoed back. */
 const MAX_FIELD_LENGTH = 1024;
@@ -36,8 +35,8 @@ function reportFailure(operation: string, error: unknown): CoreErrorCode {
  */
 export async function startPaymentAction(_previous: PaymentFormState, formData: FormData): Promise<PaymentFormState> {
   const config = getSoftureConfig();
+  const user = await requireUser({ next: getBillingRoutes(config).payment });
   const planId = readText(formData, PLAN_FIELD);
-  const user = await requireUser({ next: getPlanPaymentHref(getBillingRoutes(config).payment, planId) });
   const invoice = { name: readText(formData, INVOICE_FIELDS.name), taxId: readText(formData, INVOICE_FIELDS.taxId), address: readText(formData, INVOICE_FIELDS.address) };
   const values = { [INVOICE_FIELDS.name]: invoice.name, [INVOICE_FIELDS.taxId]: invoice.taxId, [INVOICE_FIELDS.address]: invoice.address };
 

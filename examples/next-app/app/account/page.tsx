@@ -2,6 +2,8 @@
 // requireUser checks the session itself before anything renders. hasRole only decides whether the
 // admin link shows; the admin page checks the role itself. "Your data" is a client-side link
 // (next/link), so e2e/analytics-channel.spec.ts sees the channel tag survive a client navigation.
+// Each view counts the funnel's `account` step with a beacon (e2e/analytics-funnel.spec.ts).
+import { FunnelBeacon } from "@softure-ai/analytics/next";
 import { ADMIN_ROLE } from "@softure-ai/auth";
 import { hasRole, LogoutButton, requireUser } from "@softure-ai/auth/next";
 import { ButtonLink, Card } from "@softure-ai/ui";
@@ -19,6 +21,7 @@ export default async function AccountPage() {
   const signupChannel = findSignupChannel(user.id);
   return (
     <main className="page">
+      <FunnelBeacon step="account" />
       <Card title={messages.account.title} subtitle={messages.account.lead}>
         <p data-testid="account-email">{user.email}</p>
         {signupChannel === null ? null : (

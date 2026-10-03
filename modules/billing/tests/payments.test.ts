@@ -45,8 +45,11 @@ describe("grantPlan", () => {
     );
   });
 
-  it("adds a period for each grant, also when two run at once", async () => {
-    await Promise.all([grantPlan(test.ctx, adaId, "monthly"), grantPlan(test.ctx, adaId, "monthly")]);
+  it("adds a period for each grant", async () => {
+    // PGlite has one connection, so this runs the grants one after the other; the lock that makes
+    // concurrent grants add up was checked against Postgres (reviews/impl-review.md).
+    await grantPlan(test.ctx, adaId, "monthly");
+    await grantPlan(test.ctx, adaId, "monthly");
     expect(await getEntitlement(test.ctx, adaId)).toMatchObject({ status: "paid", endsAt: new Date("2026-12-16T23:00:00Z") });
   });
 

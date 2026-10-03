@@ -15,7 +15,7 @@ archived_at: null
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **MO-5** (roadmap `monetization`, main since 2026-10-03):
+From [`roadmap.md`](../../foundation/roadmap.md), item **MO-5** (roadmap `monetization`, main since 2026-10-03):
 
 > ### MO-5: Cookieless funnel counter
 > - **Change ID:** `analytics-funnel`
@@ -27,8 +27,8 @@ From [`roadmap.md`](../../../foundation/roadmap.md), item **MO-5** (roadmap `mon
 > - **Baseline:** FIRE counts its domain wizard steps with a report script. After: configurable steps counted in the example app, report covered by unit tests on PGlite.
 > - **PRD refs:** FR-23, NFR-5.
 
-Reference material: [`docs/02-module-standard.md`](../../../../docs/02-module-standard.md) (the standard),
-[`docs/01-module-assessment.md`](../../../../docs/01-module-assessment.md) (source map in FIRE_TRACKER).
+Reference material: [`docs/02-module-standard.md`](../../../docs/02-module-standard.md) (the standard),
+[`docs/01-module-assessment.md`](../../../docs/01-module-assessment.md) (source map in FIRE_TRACKER).
 
 ## Constraints
 

@@ -88,7 +88,9 @@ deploy, and a payment record (with the price paid) belongs to the provider.
 **A paid period** runs in local calendar days like a trial, the start day included: a month granted
 on 3 October covers every day to 2 November and ends when 3 November begins. It starts when the
 access the account already has ends (a running trial or paid access), so paying early loses no day,
-and each grant adds one period. A lifetime plan grants lifetime access.
+and each grant adds one period. A month keeps the day of the month where it can: from 31 January it
+ends with 27 February (the 28th starts the next period), and renewals then continue from the 28th.
+A lifetime plan grants lifetime access; a dated grant to a lifetime account changes nothing.
 
 **Days and time zones.** Trials end at the start of a local day in `config.timezone`: a 14-day
 trial begun at any hour of 3 October ends when 17 October begins there, so 16 October is its last
