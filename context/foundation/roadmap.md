@@ -45,7 +45,7 @@ backlog: context/backlog/roadmap-followups/
 | **MK-8** | `marketing-kit-release` | `@softure-ai/marketing-kit` 0.1.0 published through the release pipeline, README complete | MK-1…MK-7 (done) | owner | blocked (carried over from marketing-kit: the owner's batch release at the keyboard on 2026-10-05) |
 | **FU-1** | `switch-reader-contract` | Switch-reader contract in core | — | autonomous | proposed |
 | **FU-2** | `waitlist-double-opt-in` | Waitlist double opt-in | FU-3 | autonomous | proposed |
-| **FU-3** | `mailing-consent-sync` | Unsubscribe as consent withdrawal | — | autonomous | proposed |
+| **FU-3** | `mailing-consent-sync` | Unsubscribe as consent withdrawal | — | autonomous | in_progress |
 | **FU-4** | `waitlist-welcome-html` | HTML welcome mail for the waitlist | FU-2 | autonomous | proposed |
 | **FU-5** | `analytics-client-navigation` | Channel tag on client navigations without Next-Url | — | autonomous | proposed |
 | **FU-6** | `billing-reminder-mail` | Reminder mail before access ends | FU-9 | autonomous | proposed |
@@ -204,7 +204,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-3: Unsubscribe as consent withdrawal
 - **Change ID:** `mailing-consent-sync`
-- **Status:** proposed
+- **Status:** in_progress (implement 1/2, since 2026-10-03; cloud session, branch `claude/project-thread-6u8qf0`)
+- **Input:** [`changes/mailing-consent-sync/change.md`](../changes/mailing-consent-sync/change.md)
 - **Outcome:** A mailing hook on unsubscribe and on a new explicit consent: an unsubscribe through mailing's link records a withdrawal in `privacy.consents`, and a new explicit sign-up lifts the mailing suppression, so the consent ledger matches what the recipient receives.
 - **Prerequisites:** none beyond the main branch.
 - **Unknowns:** Which module owns the mapping from a mail kind to a consent purpose; whether lifting a suppression needs a fresh consent row in the same transaction.
