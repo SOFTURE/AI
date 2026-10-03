@@ -85,5 +85,5 @@ Rejected: a parser dependency (B) and Satori's `loadAdditionalAsset` (C), see re
 ### Phase 1: Character maps and the check
 
 #### Automated
-- [ ] 1.1 Glyph, font and render tests pass
-- [ ] 1.2 Gates green (typecheck, lint, test, build)
+- [x] 1.1 Glyph, font and render tests pass — 943275b
+- [x] 1.2 Gates green (typecheck, lint, test, build) — 943275b

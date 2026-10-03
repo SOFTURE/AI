@@ -58,7 +58,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-14** | `marketing-kit-schema-docs` | every key of the marketing.json JSON Schema carries a description | — | autonomous | done_code (2026-10-03; waiting: owner editor check, MK-8 release) |
 | **FU-15** | `marketing-kit-desktop-16x9` | desktop 16:9 films recorded in a browser frame instead of a phone | FU-16 | autonomous | proposed |
 | **FU-16** | `marketing-kit-layout-overrides` | per-format layout overrides (caption box, persona, end card) in marketing.json | FU-14 | autonomous | proposed |
-| **FU-17** | `marketing-kit-og-glyphs` | OG images refuse copy the brand fonts cannot draw | — | autonomous | in_progress (implement 1/1, since 2026-10-03; claude/project-thread-l02pfg) |
+| **FU-17** | `marketing-kit-og-glyphs` | OG images refuse copy the brand fonts cannot draw | — | autonomous | done_code (2026-10-03; waiting: MK-8 release) |
 | **FU-18** | `marketing-kit-screenshot-variants` | screenshots at a device scale and in both colour schemes | FU-14 | autonomous | proposed |
 | **FU-19** | `marketing-kit-hook-shot-words` | opening shots after the first without a `word` are refused when the config loads | FU-14 | autonomous | proposed |
 | **FU-20** | `billing-partial-refunds` | partial refunds take back access by a policy | FU-11 | autonomous | proposed |
@@ -326,7 +326,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-17: OG images refuse copy the brand fonts cannot draw
 - **Change ID:** `marketing-kit-og-glyphs`
-- **Status:** in_progress (implement 1/1, since 2026-10-03; claude/project-thread-l02pfg)
+- **Status:** done_code (2026-10-03; waiting: MK-8 release)
 - **Outcome:** Before laying out an OG card, the renderer checks every character of the template's text against the loaded fonts' character maps and returns an error naming the image, the JSON path and the missing characters (e.g. Polish letters with a `latin` subset file).
 - **Prerequisites:** none beyond the main branch.
 - **Unknowns:** Whether Satori exposes its parsed fonts or the check needs its own font parser (opentype.js is already a Satori dependency); how emoji should be treated.
@@ -386,7 +386,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 - **Risk:** LOW.
 - **Baseline:** FU-17 `marketing-kit-og-glyphs`: Satori keeps one file per family, weight and style (the first), so such a brand gets the missing-glyph error; the README says to ship one covering file per weight. After: the `latin` + `latin-ext` brand renders Polish copy, covered by a render test and the glyph check.
 - **PRD refs:** FR-25.
-- **Source:** FU-17 plan review C1 (`context/archive/*-marketing-kit-og-glyphs/reviews/plan-review.md`); `tools/marketing-kit/src/og/fonts.ts`
+- **Source:** FU-17 plan review C1 (`context/archive/2026-10-03-marketing-kit-og-glyphs/reviews/plan-review.md`); `tools/marketing-kit/src/og/fonts.ts`
 
 ## Owner decisions and checks
 
@@ -407,6 +407,7 @@ Open from FU-14:
 
 - **FU-1** `switch-reader-contract`: auth reads `auth.registration_closed` through the switch-reader contract in core, provided by feature-switches; the panel flips it and reports undefined manifest switches; archived in `archive/2026-10-03-switch-reader-contract/`
 - **FU-14** `marketing-kit-schema-docs`: every key of the marketing.json JSON Schema carries a description, guarded by a test; archived in `archive/2026-10-03-marketing-kit-schema-docs/`
+- **FU-17** `marketing-kit-og-glyphs`: OG images refuse copy no font Satori would try can draw, naming the image, the JSON path and the characters; archived in `archive/2026-10-03-marketing-kit-og-glyphs/`
 - **FU-2** `waitlist-double-opt-in`: `waitlist({ doubleOptIn })`, a single-use confirmation link (transactional mail) before consents, the opt-out lift and list mail; expiry 7 days by default, `pruneUnconfirmedSignups`; archived in `archive/2026-10-03-waitlist-double-opt-in/`
 - **FU-3** `mailing-consent-sync`: an unsubscribe withdraws the waitlist's consents in its transaction (mailing `onUnsubscribed`), and a new sign-up lifts the person's own opt-out; archived in `archive/2026-10-03-mailing-consent-sync/`
 - **FU-11** `billing-refund-one-payment`: a full refund takes back only what its payment granted (one period's unused days, or one lifetime); archived in `archive/2026-10-03-billing-refund-one-payment/`
