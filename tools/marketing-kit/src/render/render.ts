@@ -116,7 +116,7 @@ export function buildComposition(input: RenderInput): string {
       log,
       voices: input.voices,
       colors: input.colors,
-      geometry: getGeometry(film.device.viewport, film.format),
+      geometry: getGeometry(film.device.viewport, film.format, film.layout),
       fonts,
       assets: {
         screen: "assets/screen.mp4",

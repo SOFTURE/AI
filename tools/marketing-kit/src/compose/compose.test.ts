@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { getFixtureVideo } from "../../examples/fixture/prepare.js";
 import type { Film } from "../film.js";
 import { getMarketingMessages } from "../messages/index.js";
 import type { RecordingLog } from "../record/record.js";
@@ -13,6 +14,7 @@ const film = {
   persona: { name: "Anna", age: 36, tagline: "counts" },
   path: "/",
   format: "9:16",
+  layout: {},
   device: { viewport: { width: 390, height: 844 }, scale: 3, isMobile: true },
   voice: { voiceId: "v", modelId: "m", language: "en", tempo: 1 },
   beats: [
@@ -250,6 +252,15 @@ describe("composeFilm", () => {
     expect(html).toContain(".caption{position:absolute;left:1100px;right:120px;top:700px;");
     expect(html).toContain(".persona{position:absolute;left:1100px;right:120px;top:150px;");
     expect(html).toContain(".endcard{position:absolute;left:1100px;right:120px;top:330px;");
+  });
+
+  it("composes the fixture project's layout override, which changes only the caption font size", async () => {
+    const { layout } = getFixtureVideo();
+    expect(layout).toEqual({ caption: { fontSize: 56 } });
+    const html = composeFilm({ ...input, film: { ...film, layout }, geometry: getGeometry({ width: 390, height: 844 }, "9:16", layout) });
+    await expect(html).toMatchFileSnapshot("../../tests/snapshots/film-9x16-layout.html");
+    expect(html).toContain(".pill{font-weight:650;font-size:56px;");
+    expect(html.replace(".pill{font-weight:650;font-size:56px;", ".pill{font-weight:650;font-size:50px;")).toBe(composeFilm(input));
   });
 
   it("shrinks the phone to the format's end-card pose", () => {

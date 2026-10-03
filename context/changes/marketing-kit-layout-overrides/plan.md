@@ -101,6 +101,10 @@ Each new schema key needs a `.describe()` (guard in `tests/schema.test.ts`); reg
 ## Decisions (auto)
 - Complexity → small (one package, pure table, no data).
 - Scope and keys → per format, caption/persona/endCard (research Answers).
+- Implementation drift (small): the fixture-override composition test lives in `src/compose/compose.test.ts` next to
+  the other snapshot tests (it reuses that file's film, log and assets) instead of a new `tests/layout.test.ts`;
+  `film.test.ts` and `compose.test.ts` add `layout: {}` to their hand-built films (the field is required);
+  `backlog-input.md` lost one `../` on its roadmap link (moved file, links test).
 - `MIN_TEXT_WIDTH` → 200 px (narrowest default box is 700 px at 16:9; 200 px still fits a short caption at 50 px).
 
 ## Progress
@@ -110,9 +114,9 @@ Each new schema key needs a `.describe()` (guard in `tests/schema.test.ts`); reg
 ### Phase 1: Layout overrides in the geometry
 
 #### Automated
-- [ ] 1.1 The new `timeline.test.ts` cases for `resolveLayout` and `getGeometry` with an override pass
-- [ ] 1.2 The three composition snapshots are unchanged
-- [ ] 1.3 Gates green (typecheck, lint, test)
+- [x] 1.1 The new `timeline.test.ts` cases for `resolveLayout` and `getGeometry` with an override pass — 0f71705
+- [x] 1.2 The three composition snapshots are unchanged — 0f71705
+- [x] 1.3 Gates green (typecheck, lint, test) — 0f71705
 
 ### Phase 2: The layout section in marketing.json
 
