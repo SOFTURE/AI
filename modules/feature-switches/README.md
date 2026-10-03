@@ -12,7 +12,8 @@ panel behind a role from `@softure-ai/auth`.
 The table `features.switches`, the app's declared switches (`featureSwitches({ switches })`),
 `isEnabled(name)` for server code (one read per request in Next, fresh in scripts), `setSwitch` with
 `updated_at` and `updated_by`, an admin-only panel page and its server action, a `SwitchPanel`
-client component, and a health check that `GET /api/health` of `@softure-ai/ops` runs.
+client component, a health check that `GET /api/health` of `@softure-ai/ops` runs, and the app's
+switch reader, through which other modules (auth) read the switches they name (section 7).
 
 A switch's value is, in this order:
 
@@ -129,21 +130,39 @@ The module declares none of its own; it is the registry. Module manifests name t
 module reads (`module.json → switches`), and the app defines each one it uses in
 `featureSwitches({ switches })`.
 
-`auth.registration_closed` is an exception for now: auth cannot read through this module (this
-module depends on auth), so auth still reads its own `registrationClosed` option and
-`SOFTURE_SWITCH_AUTH_REGISTRATION_CLOSED`. Do not define it here until auth reads it through a
-shared contract (follow-up in `context/backlog/identity-followups.md` of the SOFTURE AI repository):
-the panel would show a toggle that auth ignores.
+The module is the app's **switch provider** (`switchReader` of `@softure-ai/core`): a module that
+this one depends on, and so cannot import it, reads its switch with `readSwitch(ctx, name)` from
+core. For a switch defined here the reader answers its value (override, stored, default, fail mode;
+one row read by name, no throw on a database failure); for any other name it answers `undeclared`,
+and the module falls back to its own default.
+
+Auth reads `auth.registration_closed` this way. Define it to close and open registration from the
+panel, with `failMode: "open"` so a failed read keeps registration closed:
+
+```ts
+import { REGISTRATION_CLOSED_SWITCH } from "@softure-ai/auth";
+
+featureSwitches({
+  switches: [{ name: REGISTRATION_CLOSED_SWITCH, label: { en: "Registration closed" }, default: false, failMode: "open" }],
+}),
+```
+
+The panel lists, under the switches, every switch an enabled module names in its manifest that
+the app did not define here (with the module's id): those modules use their own defaults and
+cannot be flipped from the panel. `listUndefinedManifestSwitches(config)` from `/server` returns the
+same list for a script or a test.
 
 ## 8. Appearance
 
 The panel is built from `@softure-ai/ui` (`Card`, `Switch`, `FormError`) and uses only its compiled
 classes, so `@softure-ai/ui/styles.css` styles it and the `--sft-*` tokens theme it. `SwitchPanel`
-takes `classNames` for its slots (`root`, `list`, `item`, `note`, `empty`) and `unstyled`.
+takes `classNames` for its slots (`root`, `list`, `item`, `note`, `empty`, `undefined`) and `unstyled`,
+and `undefinedSwitches` for the report of section 7 (the page passes it).
 
 ## 9. Copy
 
-`featureSwitchesMessages.{en,pl}`: `panel` (title, lead, empty state, on/off), `source` (where the
+`featureSwitchesMessages.{en,pl}`: `panel` (title, lead, empty state, on/off, the report of
+undefined switches), `source` (where the
 value comes from: environment `{envName}`, stored `{date}`, default, fail mode) and `errors` for every
 code the panel can show (`feature-switches.unknown_switch`, `auth.forbidden`, `core.*`). Override
 any of them with `featureSwitches({ messages: { pl: { panel: { title: "…" } } } })`. Switch labels
@@ -167,5 +186,6 @@ contributes to `@softure-ai/privacy` (`privacy` flags on):
 
 - No history: only the last change (when and by whom) is kept.
 - Global switches only: no per-user, per-plan or percentage rollouts.
-- `auth.registration_closed` is not read through this module yet (section 7).
-- Switches a module names in its manifest but the app does not define are not listed or reported.
+- Only one switch provider per app: a second module passing `switchReader` fails at startup.
+- A read through `readSwitch` (another module's switch) is one row read per call, not cached per
+  request like `isEnabled` from `/next`.

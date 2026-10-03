@@ -76,6 +76,7 @@ export const notes = defineModule({
   migrations: { dir: resolveMigrationsDir(import.meta.url, "../migrations/") },
   privacy: { exportUserData, deleteUserData },
   health: checkNotesReady, // optional: (context) => Promise<Result<undefined>>
+  // switchReader: optional, only for the app's switch provider (section 7)
 });
 ```
 
@@ -123,8 +124,28 @@ None. Core reads no environment variables; the app passes values into `defineSof
 
 ## 7. Switches
 
-None. Modules declare theirs in `manifest.switches`, each prefixed with the module id
+None of its own. Modules declare theirs in `manifest.switches`, each prefixed with the module id
 (`notes.read_only`); the `feature-switches` module manages them.
+
+Core holds the **switch-reader contract**, so a module can read a switch without importing the
+module that stores them (feature-switches depends on auth, so auth could not import it back):
+
+```ts
+import { readSwitch } from "@softure-ai/core";
+
+const reading = await readSwitch(ctx, "notes.read_only");
+const isReadOnly = reading.kind === "value" ? reading.isEnabled : getNotesOptions(ctx.config).readOnly;
+```
+
+- `readSwitch(ctx, name)` asks the enabled module that passed `switchReader` to `defineModule`
+  and returns `SwitchReading`: `{ kind: "value", isEnabled }`, or `{ kind: "undeclared" }` when no
+  module provides a reader or the app did not define that switch there. On `undeclared` the module
+  uses its own default.
+- A `SwitchReader` is `(context, name) => Promise<SwitchReading>`. It resolves read failures itself
+  (a fail mode) and never throws for an unknown name. `@softure-ai/feature-switches` is the provider.
+- `defineSoftureConfig` refuses two enabled modules that provide a reader; `findSwitchReader(config)`
+  returns the one there is, or `null`.
+- `readSwitch` caches nothing: each call is one read by the provider. Ask once per request.
 
 ## 8. Appearance
 

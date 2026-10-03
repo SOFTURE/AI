@@ -39,7 +39,7 @@ export type RegisterResult = Ok<SignedIn> | Err<RegisterErrorCode> | RateLimitRe
 export async function registerUser(ctx: AuthContext, input: RegisterInput): Promise<RegisterResult> {
   const options = getAuthOptions(ctx.config);
   assertAuthBuckets(ctx.config);
-  if (isRegistrationClosed(ctx.config)) return err("auth.registration_closed");
+  if (await isRegistrationClosed(ctx)) return err("auth.registration_closed");
 
   const email = parseEmail(input.email);
   if (!email.ok) return email;
