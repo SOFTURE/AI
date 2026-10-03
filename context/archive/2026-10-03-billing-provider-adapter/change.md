@@ -1,12 +1,12 @@
 ---
 change_id: billing-provider-adapter
 title: "Payment provider adapter (Stripe)"
-status: impl_reviewed
+status: archived
 roadmap_item: MO-3
 branch: claude/mo-3-billing-stripe-0aam5s
 created: 2026-10-03
 updated: 2026-10-03
-archived_at: null
+archived_at: 2026-10-03
 ---
 
 ## Intent

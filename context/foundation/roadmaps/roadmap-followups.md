@@ -169,7 +169,7 @@ trigger: "every module roadmap (monetization, marketing-kit) is done; the owner 
 - **Risk:** MEDIUM.
 - **Baseline:** monetization MO-3 `billing-provider-adapter`: `charge.refunded` revokes all paid access (`revoke`), so a refund of one of two stacked months, or of a monthly payment next to a lifetime, takes everything (README §12, plan review W4). After: the gap is closed and covered by unit and e2e tests.
 - **PRD refs:** FR-22.
-- **Source:** `modules/billing/README.md` §12; `context/archive/*-billing-provider-adapter/reviews/plan-review.md` W4
+- **Source:** `modules/billing/README.md` §12; `context/archive/2026-10-03-billing-provider-adapter/reviews/plan-review.md` W4
 
 ### FU-12: Retro research and plan review for MO-1 and MO-2
 - **Change ID:** `billing-retro-reviews`
