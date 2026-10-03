@@ -133,7 +133,8 @@ test("the admin's grant flips the account's trial to paid", async ({ browser }) 
   await admin.getByLabel(copy.admin.email).fill(email);
   // The plan select starts on the first plan: Monthly.
   await admin.getByRole("button", { name: copy.admin.submit }).click();
-  await expect(admin.getByRole("status").filter({ hasText: email })).toHaveText(new RegExp(`^${email.replace(/[.]/g, "\\.")} now has ${en.plans.monthly.name}, with access until `));
+  // Plain text, not a pattern: the address is compared as typed.
+  await expect(admin.getByRole("status").filter({ hasText: email })).toContainText(`${email} now has ${en.plans.monthly.name}, with access until `);
 
   await member.goto("/account/billing");
   const badge = member.locator("[data-status]").first();
