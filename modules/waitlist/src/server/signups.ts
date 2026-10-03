@@ -1,19 +1,22 @@
-// Sign-ups: joining the waitlist (new or repeat), and reading sign-ups back. A repeat sign-up widens
-// the stored scopes and never narrows them. Each requested scope the consent ledger does not
-// currently grant (never given, withdrawn, or given to an older document version) is recorded in
-// privacy.consents, in the same transaction as the sign-up. A sign-up is an explicit consent, so it
-// also lifts the address's own mailing opt-out; after an opt-out, which withdrew every scope, the
-// stored scopes become the requested ones instead of widening.
+// Sign-ups: joining the waitlist (new or repeat), confirming a request by its link, and reading
+// sign-ups back. A request is applied in one transaction: the address's own mailing opt-out is
+// lifted (a sign-up is an explicit consent), the stored scopes widen and never narrow (after a lifted
+// opt-out, which withdrew every scope, they become the requested ones), and each requested scope the
+// consent ledger does not currently grant (never given, withdrawn, or given to an older document
+// version) is recorded in privacy.consents. Without double opt-in a request is applied when it is
+// made; with it, the request waits on the row with a single-use link until the link is used, and
+// nothing is lifted or recorded before.
 import { err, ok, type Err, type ModuleContext, type Ok } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
 import { liftSuppression } from "@softure-ai/mailing/server";
 import { hasConsent, recordConsent } from "@softure-ai/privacy/server";
 import type { RateLimitRejection } from "@softure-ai/security";
 import { consumeRateLimit, subjectKey } from "@softure-ai/security/server";
-import { and, arrayContains, asc, eq, type SQL } from "drizzle-orm";
+import { and, arrayContains, asc, eq, isNotNull, isNull, lte, type SQL } from "drizzle-orm";
 import { z } from "zod";
-import type { WaitlistErrorCode, WaitlistSignup } from "../contract.js";
+import type { WaitlistConfirmationErrorCode, WaitlistErrorCode, WaitlistSignup } from "../contract.js";
 import { signups } from "../schema.js";
+import { createConfirmationToken, hashConfirmationToken, isConfirmationTokenShape } from "./confirmation-token.js";
 import { getWaitlistOptions } from "./options.js";
 import { assertWaitlistSetup, BUCKETS } from "./setup.js";
 
@@ -23,6 +26,7 @@ export type WaitlistContext = ModuleContext<Queryable>;
 export const CONSENT_SOURCE = "waitlist";
 
 const MAX_EMAIL_LENGTH = 254;
+const HOUR_MS = 60 * 60 * 1000;
 const emailSchema = z.email();
 
 export interface JoinWaitlistInput {
@@ -35,15 +39,45 @@ export interface JoinWaitlistInput {
   readonly clientKey: string;
 }
 
-export type JoinWaitlistResult =
+/** A request applied at once (no double opt-in). */
+export interface JoinedSignup {
+  readonly status: "joined";
+  readonly signup: WaitlistSignup;
+  /** True for the first sign-up of this address. */
+  readonly isNew: boolean;
+  /** The scopes whose consent was recorded now. */
+  readonly recordedScopes: readonly string[];
+}
+
+/** A request that waits for its link (double opt-in): nothing was recorded or lifted yet. */
+export interface PendingSignup {
+  readonly status: "confirmation_required";
+  readonly signup: WaitlistSignup;
+  /** True for the first sign-up of this address. */
+  readonly isNew: boolean;
+  /** The link's token, for `deliverConfirmationMail`. A credential: never log or return it to the client. */
+  readonly token: string;
+  readonly expiresAt: Date;
+}
+
+export type JoinWaitlistResult = Ok<JoinedSignup | PendingSignup> | Err<WaitlistErrorCode> | RateLimitRejection;
+
+export interface ConfirmSignupInput {
+  /** The token of the confirmation link. */
+  readonly token: string;
+  /** The client's rate limit key (`identifyClient`). */
+  readonly clientKey: string;
+}
+
+export type ConfirmSignupResult =
   | Ok<{
       readonly signup: WaitlistSignup;
-      /** True for the first sign-up of this address. */
-      readonly isNew: boolean;
-      /** The scopes whose consent was recorded now. */
+      /** The scopes whose consent was recorded now; none for a link already used. */
       readonly recordedScopes: readonly string[];
+      /** True when this confirmation made the sign-up count for the first time. */
+      readonly isFirstConfirmation: boolean;
     }>
-  | Err<WaitlistErrorCode>
+  | Err<WaitlistConfirmationErrorCode>
   | RateLimitRejection;
 
 type SignupRow = typeof signups.$inferSelect;
@@ -57,6 +91,7 @@ function toSignup(row: SignupRow): WaitlistSignup {
     locale: row.locale,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
+    confirmedAt: row.confirmedAt,
   };
 }
 
@@ -78,9 +113,10 @@ function checkScopes(ctx: WaitlistContext, requested: readonly string[], placeme
 
 /**
  * Signs `email` up for the checked scopes: counts `waitlist` per client, checks the form, counts
- * `waitlist-email` per address, then stores the sign-up (or widens a known one) and records the
- * consents in one transaction. The result does not tell a new address from a known one to the
- * client; `isNew` is for the caller. Database errors propagate.
+ * `waitlist-email` per address, then, in one transaction, applies the request (`joined`) or, with
+ * double opt-in, stores it with a new link that replaces any earlier one (`confirmation_required`).
+ * The result does not tell a new address from a known one to the client; `isNew` is for the caller.
+ * Database errors propagate.
  */
 export async function joinWaitlist(ctx: WaitlistContext, input: JoinWaitlistInput): Promise<JoinWaitlistResult> {
   assertWaitlistSetup(ctx.config);
@@ -94,36 +130,128 @@ export async function joinWaitlist(ctx: WaitlistContext, input: JoinWaitlistInpu
   const byEmail = await consumeRateLimit(ctx, { bucket: BUCKETS.email, key: subjectKey(`email:${email}`) });
   if (!byEmail.ok) return byEmail;
 
+  const request: SignupRequest = { email, scopes: scopes.value, placement: input.placement };
+  const doubleOptIn = getWaitlistOptions(ctx.config).doubleOptIn;
   return ctx.db.transaction(async (tx) => {
     const txCtx: WaitlistContext = { ...ctx, db: tx };
-    const now = ctx.clock.now();
-    const inserted = await tx
-      .insert(signups)
-      .values({ email, scopes: scopes.value, placement: input.placement, locale: ctx.config.locale, createdAt: now, updatedAt: now })
-      .onConflictDoNothing({ target: signups.email })
-      .returning();
-    const isOptOutLifted = await liftSuppression(txCtx, email);
-    const signup = inserted[0] ?? (await updateSignup(txCtx, email, scopes.value, isOptOutLifted ? "replace" : "widen"));
-    const recordedScopes = await recordConsents(txCtx, email, scopes.value);
-    return ok({ signup: toSignup(signup), isNew: inserted.length > 0, recordedScopes });
+    return ok(doubleOptIn === null ? await joinNow(txCtx, request) : await requestConfirmation(txCtx, request, doubleOptIn.expiresInHours));
   });
 }
 
-/**
- * Updates a known sign-up under a row lock. `widen` adds the scopes it lacks, keeping the config's
- * order; `replace` (after an opt-out was lifted) stores exactly the requested scopes, which are
- * already in the config's order.
- */
-async function updateSignup(ctx: WaitlistContext, email: string, requested: readonly string[], mode: "widen" | "replace"): Promise<SignupRow> {
-  const [current] = await ctx.db.select().from(signups).where(eq(signups.email, email)).for("update");
-  // The insert just conflicted on this email, and only the privacy contributor deletes rows.
-  if (current === undefined) throw new Error("@softure-ai/waitlist: a sign-up vanished while it was being updated");
-  const next = mode === "replace" ? [...requested] : getWidenedScopes(ctx, current.scopes, requested);
-  if (next.length === current.scopes.length && next.every((scope, index) => current.scopes[index] === scope)) return current;
+interface SignupRequest {
+  readonly email: string;
+  /** Checked against the config, in its order. */
+  readonly scopes: readonly string[];
+  readonly placement: string;
+}
 
-  const [updated] = await ctx.db.update(signups).set({ scopes: next, updatedAt: ctx.clock.now() }).where(eq(signups.id, current.id)).returning();
+/** Applies a request at once: a new row confirmed now, or the known row updated. */
+async function joinNow(ctx: WaitlistContext, request: SignupRequest): Promise<JoinedSignup> {
+  const now = ctx.clock.now();
+  const [inserted] = await ctx.db
+    .insert(signups)
+    .values({ ...request, scopes: [...request.scopes], locale: ctx.config.locale, createdAt: now, updatedAt: now, confirmedAt: now })
+    .onConflictDoNothing({ target: signups.email })
+    .returning();
+  if (inserted !== undefined) {
+    await liftSuppression(ctx, request.email);
+    const recordedScopes = await recordConsents(ctx, request.email, request.scopes);
+    return { status: "joined", signup: toSignup(inserted), isNew: true, recordedScopes };
+  }
+  const applied = await applyRequest(ctx, await lockSignup(ctx, request.email), request.scopes);
+  return { status: "joined", signup: toSignup(applied.row), isNew: false, recordedScopes: applied.recordedScopes };
+}
+
+/**
+ * Stores a request that waits for its link, with a new token that replaces any earlier one. An
+ * unconfirmed row takes the requested scopes (nothing was granted yet); a confirmed row keeps its
+ * scopes until the link is used.
+ */
+async function requestConfirmation(ctx: WaitlistContext, request: SignupRequest, expiresInHours: number): Promise<PendingSignup> {
+  const now = ctx.clock.now();
+  const expiresAt = new Date(now.getTime() + expiresInHours * HOUR_MS);
+  const { token, tokenHash } = createConfirmationToken();
+  const link = { pendingScopes: [...request.scopes], confirmationTokenHash: tokenHash, confirmationExpiresAt: expiresAt };
+  const [inserted] = await ctx.db
+    .insert(signups)
+    .values({ ...request, scopes: [...request.scopes], locale: ctx.config.locale, createdAt: now, updatedAt: now, confirmedAt: null, ...link })
+    .onConflictDoNothing({ target: signups.email })
+    .returning();
+  if (inserted !== undefined) return { status: "confirmation_required", signup: toSignup(inserted), isNew: true, token, expiresAt };
+
+  const current = await lockSignup(ctx, request.email);
+  const [updated] = await ctx.db
+    .update(signups)
+    .set({ ...link, ...(current.confirmedAt === null ? { scopes: [...request.scopes] } : {}), updatedAt: now })
+    .where(eq(signups.id, current.id))
+    .returning();
   if (updated === undefined) throw new Error("@softure-ai/waitlist: updating a locked sign-up changed no row");
-  return updated;
+  return { status: "confirmation_required", signup: toSignup(updated), isNew: false, token, expiresAt };
+}
+
+/**
+ * Confirms the request behind a link: counts `waitlist` per client, then, under a row lock, applies
+ * the pending request. A link already used answers ok with nothing recorded (a second click, a mail
+ * preview); a link replaced by a newer one is `confirmation_invalid`. Database errors propagate.
+ */
+export async function confirmSignup(ctx: WaitlistContext, input: ConfirmSignupInput): Promise<ConfirmSignupResult> {
+  assertWaitlistSetup(ctx.config);
+  const byClient = await consumeRateLimit(ctx, { bucket: BUCKETS.client, key: input.clientKey });
+  if (!byClient.ok) return byClient;
+  if (!isConfirmationTokenShape(input.token)) return err("waitlist.confirmation_invalid");
+
+  const tokenHash = hashConfirmationToken(input.token);
+  return ctx.db.transaction(async (tx) => {
+    const txCtx: WaitlistContext = { ...ctx, db: tx };
+    const [current] = await tx.select().from(signups).where(eq(signups.confirmationTokenHash, tokenHash)).for("update");
+    if (current === undefined) return err("waitlist.confirmation_invalid");
+    if (current.pendingScopes === null) return ok({ signup: toSignup(current), recordedScopes: [], isFirstConfirmation: false });
+    if (current.confirmationExpiresAt === null || current.confirmationExpiresAt <= ctx.clock.now()) return err("waitlist.confirmation_expired");
+
+    // A scope the config dropped since the request is not granted.
+    const declared = new Set(getWaitlistOptions(ctx.config).scopes.map((scope) => scope.id));
+    const requested = current.pendingScopes.filter((id) => declared.has(id));
+    if (requested.length === 0) return err("waitlist.confirmation_invalid");
+    const applied = await applyRequest(txCtx, current, requested);
+    return ok({ signup: toSignup(applied.row), recordedScopes: applied.recordedScopes, isFirstConfirmation: current.confirmedAt === null });
+  });
+}
+
+/** The sign-up of `email`, locked for the rest of the transaction. */
+async function lockSignup(ctx: WaitlistContext, email: string): Promise<SignupRow> {
+  const [current] = await ctx.db.select().from(signups).where(eq(signups.email, email)).for("update");
+  // The caller just found this row (an insert conflict), and only the privacy contributor and the
+  // prune delete rows.
+  if (current === undefined) throw new Error("@softure-ai/waitlist: a sign-up vanished while it was being updated");
+  return current;
+}
+
+/**
+ * Applies a request to a locked row: lifts the address's own opt-out, sets the scopes (the requested
+ * ones for a row that never counted or after a lifted opt-out, else the union), marks the row
+ * confirmed, clears a pending request and records the consents.
+ */
+async function applyRequest(ctx: WaitlistContext, current: SignupRow, requested: readonly string[]): Promise<{ row: SignupRow; recordedScopes: string[] }> {
+  const isOptOutLifted = await liftSuppression(ctx, current.email);
+  const next = current.confirmedAt === null || isOptOutLifted ? [...requested] : getWidenedScopes(ctx, current.scopes, requested);
+  const isUnchanged =
+    current.confirmedAt !== null &&
+    current.pendingScopes === null &&
+    next.length === current.scopes.length &&
+    next.every((scope, index) => current.scopes[index] === scope);
+
+  let row = current;
+  if (!isUnchanged) {
+    const now = ctx.clock.now();
+    const [updated] = await ctx.db
+      .update(signups)
+      .set({ scopes: next, confirmedAt: current.confirmedAt ?? now, pendingScopes: null, updatedAt: now })
+      .where(eq(signups.id, current.id))
+      .returning();
+    if (updated === undefined) throw new Error("@softure-ai/waitlist: updating a locked sign-up changed no row");
+    row = updated;
+  }
+  return { row, recordedScopes: await recordConsents(ctx, current.email, requested) };
 }
 
 /** The union of the stored and the requested scopes, declared ones in the config's order first. */
@@ -150,7 +278,7 @@ async function recordConsents(ctx: WaitlistContext, email: string, requested: re
   return recorded;
 }
 
-/** The sign-up of `email`, or null. */
+/** The sign-up of `email`, or null; confirmed or not (`confirmedAt`). */
 export async function getSignup(ctx: Pick<WaitlistContext, "db">, email: string): Promise<WaitlistSignup | null> {
   const normalized = normalizeEmail(email);
   if (normalized === null) return null;
@@ -165,9 +293,9 @@ export interface ListSignupsFilter {
   readonly placement?: string;
 }
 
-/** Sign-ups oldest first, optionally by scope and placement. */
+/** Confirmed sign-ups (the ones that count) oldest first, optionally by scope and placement. */
 export async function listSignups(ctx: Pick<WaitlistContext, "db">, filter: ListSignupsFilter = {}): Promise<WaitlistSignup[]> {
-  const conditions: SQL[] = [];
+  const conditions: SQL[] = [isNotNull(signups.confirmedAt)];
   if (filter.scope !== undefined) conditions.push(arrayContains(signups.scopes, [filter.scope]));
   if (filter.placement !== undefined) conditions.push(eq(signups.placement, filter.placement));
   const rows = await ctx.db
@@ -176,4 +304,23 @@ export async function listSignups(ctx: Pick<WaitlistContext, "db">, filter: List
     .where(and(...conditions))
     .orderBy(asc(signups.createdAt), asc(signups.id));
   return rows.map(toSignup);
+}
+
+/**
+ * Deletes the sign-ups that never counted and whose link expired, and drops the expired links of
+ * confirmed ones; for a scheduled job. Returns how many sign-ups were deleted.
+ */
+export async function pruneUnconfirmedSignups(ctx: WaitlistContext): Promise<number> {
+  const now = ctx.clock.now();
+  return ctx.db.transaction(async (tx) => {
+    const deleted = await tx
+      .delete(signups)
+      .where(and(isNull(signups.confirmedAt), lte(signups.confirmationExpiresAt, now)))
+      .returning();
+    await tx
+      .update(signups)
+      .set({ pendingScopes: null, confirmationTokenHash: null, confirmationExpiresAt: null })
+      .where(and(isNotNull(signups.confirmedAt), lte(signups.confirmationExpiresAt, now)));
+    return deleted.length;
+  });
 }

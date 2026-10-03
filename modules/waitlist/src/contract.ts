@@ -10,6 +10,13 @@ export type WaitlistErrorCode =
   /** A scope or placement the config does not declare: a tampered or outdated form. */
   | "waitlist.form_invalid";
 
+/** Why a confirmation link was refused. */
+export type WaitlistConfirmationErrorCode =
+  /** Missing, malformed, or replaced by a newer link. */
+  | "waitlist.confirmation_invalid"
+  /** Past its expiry; signing up again sends a new one. */
+  | "waitlist.confirmation_expired";
+
 /** Every code the form can show: its own, the client and rate limit refusals, the generic ones. */
 export type WaitlistFormErrorCode = WaitlistErrorCode | "security.rate_limited" | "security.client_unidentified" | CoreErrorCode;
 
@@ -17,7 +24,8 @@ export type WaitlistFormField = "email" | "consent";
 
 /** What the join action returns to its form (`useActionState`). */
 export interface WaitlistFormState {
-  readonly status: "idle" | "ok" | "error";
+  /** `ok`: the sign-up counts; `confirmation_sent`: it waits for the link mailed to the address. */
+  readonly status: "idle" | "ok" | "confirmation_sent" | "error";
   readonly error?: WaitlistFormErrorCode;
   /** The field the error belongs to; none for a form-level error. */
   readonly field?: WaitlistFormField;
@@ -42,4 +50,6 @@ export interface WaitlistSignup {
   readonly locale: string;
   readonly createdAt: Date;
   readonly updatedAt: Date;
+  /** When it first counted; null while its first request waits for the confirmation link. */
+  readonly confirmedAt: Date | null;
 }
