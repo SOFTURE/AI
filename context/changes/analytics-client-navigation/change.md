@@ -1,7 +1,7 @@
 ---
 change_id: analytics-client-navigation
 title: "Channel tag on client navigations without Next-Url"
-status: plan_reviewed
+status: implementing
 roadmap_item: FU-5
 branch: claude/project-thread-y037s0
 created: 2026-10-03

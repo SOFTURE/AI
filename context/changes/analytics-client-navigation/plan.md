@@ -96,6 +96,12 @@ cases plus the existing channel and funnel specs.
 ## Decisions (auto)
 - Complexity → small (one module, one phase).
 - Component over link wrapper (research).
+- Implementation drift (small): the client component lives in `src/next/channel-keeper-client.tsx`, not `src/ui/`
+  (ESLint's NFR-3 rule keeps `ui/` free of `next/*` imports). `<ChannelKeeper />` has its own entry point
+  `@softure-ai/analytics/next/channel-keeper`, and `getChannelRule` moved to `/server`: the first e2e run showed
+  `softure migrate` failing because `softure.config.ts` imports `/next` in plain Node, which cannot resolve the bare
+  `next/navigation`. A test in `tests/next.test.ts` now walks the source graph of `/next` and fails if it reaches
+  `next/navigation`. `next.test.ts` imports `ChannelKeeper` from the new entry point.
 
 ## Progress
 
