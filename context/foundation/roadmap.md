@@ -48,7 +48,7 @@ backlog: context/backlog/roadmap-marketing-kit/
 | **MK-7** | `mk-tts-adapters` | `TtsProvider` interface, ElevenLabs adapter, cache key includes voice, model and language; paid calls only with `--commit` | MK-2 | autonomous | done |
 | **MK-6** | `mk-formats` | 1:1 and 16:9 render formats next to 9:16, geometry from config | MK-2 | autonomous | ready |
 | **MK-4** | `mk-screenshots` | `softure-marketing shots` with quality gates (HTTP status, expected phrase, minimum size, full-page scroll) | MK-2 | autonomous | ready |
-| **MK-5** | `mk-og-images` | OG images rendered with Satori outside Next from templates + data | MK-2 | autonomous | ready |
+| **MK-5** | `mk-og-images` | OG images rendered with Satori outside Next from templates + data | MK-2 | autonomous | **in_progress** (implement 1/2, since 2026-10-03; cloud session, branch `claude/project-thread-of0rsf`) |
 | **MK-8** | `marketing-kit-release` | `@softure-ai/marketing-kit` 0.1.0 published through the FD-2 pipeline, README complete | MK-3, MK-4, MK-5, MK-6, MK-7 | owner | ready |
 
 ## Order
@@ -196,7 +196,7 @@ Risk first: MK-1 proves the port is faithful. MK-2 fixes the contract every late
 
 ### MK-5: OG images outside Next
 - **Change ID:** `mk-og-images`
-- **Status:** ready
+- **Status:** in_progress (implement 1/2, since 2026-10-03; cloud session, branch `claude/project-thread-of0rsf`)
 - **Outcome:**
   - `softure-marketing og` renders `ogImages` entries with Satori to PNG, at 1200×630 by default.
   - Templates take `data`, for example `headline-cta` with headline, CTA and tiles.
