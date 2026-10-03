@@ -15,7 +15,7 @@ Plans declared in config (name, price, currency, period, features); `<PricingTil
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **MO-2** (roadmap `monetization`, main since 2026-10-03):
+From [`roadmap.md`](../../foundation/roadmap.md), item **MO-2** (roadmap `monetization`, main since 2026-10-03):
 
 > ### MO-2: Plans, pricing tiles and the manual payment flow
 > - **Change ID:** `billing-plans-pricing`
@@ -27,8 +27,8 @@ From [`roadmap.md`](../../../foundation/roadmap.md), item **MO-2** (roadmap `mon
 > - **Baseline:** FIRE has hard-coded prices and grants access with a script. After: the example app shows plans from config and an admin grant flips a trial to paid (e2e).
 > - **PRD refs:** FR-22.
 
-Reference material: [`docs/02-module-standard.md`](../../../../docs/02-module-standard.md) (the standard),
-[`docs/01-module-assessment.md`](../../../../docs/01-module-assessment.md) (source map in FIRE_TRACKER).
+Reference material: [`docs/02-module-standard.md`](../../../docs/02-module-standard.md) (the standard),
+[`docs/01-module-assessment.md`](../../../docs/01-module-assessment.md) (source map in FIRE_TRACKER).
 
 ## Constraints
 

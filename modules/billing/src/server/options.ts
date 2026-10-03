@@ -27,7 +27,7 @@ export function getBillingMessages(config: SoftureConfig): BillingMessages {
 }
 
 export interface BillingRoutes {
-  /** Where the notices send an account to pay (the payment page arrives with plans, MO-2). */
+  /** The payment page (`PaymentPage`), where the notices and the pricing tiles send an account to pay. */
   readonly payment: string;
 }
 

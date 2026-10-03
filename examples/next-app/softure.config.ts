@@ -3,7 +3,7 @@
 import { analytics } from "@softure-ai/analytics";
 import { attributeRegistration } from "@softure-ai/analytics/next";
 import { auth, AUTH_RATE_LIMIT_BUCKETS } from "@softure-ai/auth";
-import { billing } from "@softure-ai/billing";
+import { billing, BILLING_RATE_LIMIT_BUCKETS, manual } from "@softure-ai/billing";
 import { mailingResetSender } from "@softure-ai/auth/mailing";
 import { defineSoftureConfig } from "@softure-ai/core";
 import { registerSoftureConfig } from "@softure-ai/core/next";
@@ -18,6 +18,7 @@ import { cloudflareIp, security } from "@softure-ai/security";
 import { waitlist, WAITLIST_RATE_LIMIT_BUCKETS } from "@softure-ai/waitlist";
 import { en } from "./messages/en.ts";
 import { pl } from "./messages/pl.ts";
+import { mailInvoiceRequestsTo } from "./lib/invoice-requests.ts";
 import { rememberSignupChannel } from "./lib/signup-channels.ts";
 import { guestbook } from "./modules/guestbook/index.ts";
 
@@ -47,7 +48,7 @@ const config = defineSoftureConfig({
     // The e2e sends CF-Connecting-IP itself, standing in for Cloudflare (e2e/security.spec.ts).
     security({
       clientIp: cloudflareIp(),
-      buckets: { "example.ping": { limit: 3, windowMinutes: 15 }, ...AUTH_RATE_LIMIT_BUCKETS, ...MCP_RATE_LIMIT_BUCKETS, ...PRIVACY_RATE_LIMIT_BUCKETS, ...WAITLIST_RATE_LIMIT_BUCKETS },
+      buckets: { "example.ping": { limit: 3, windowMinutes: 15 }, ...AUTH_RATE_LIMIT_BUCKETS, ...MCP_RATE_LIMIT_BUCKETS, ...PRIVACY_RATE_LIMIT_BUCKETS, ...WAITLIST_RATE_LIMIT_BUCKETS, ...BILLING_RATE_LIMIT_BUCKETS },
     }),
     // Reset links go out as mail through the mailing module below (e2e/auth-reset-mail.spec.ts).
     // The registration checkbox accepts the legal documents of privacy() below; the hook records
@@ -118,7 +119,40 @@ const config = defineSoftureConfig({
     analytics(),
     // Entitlements at /account/billing (e2e/billing-entitlements.spec.ts): a 14-day trial from
     // registration, then read-only until a grant; the guarded write is app/account/billing/actions.ts.
-    billing({ trial: { days: 14, reminderDays: 3 }, paid: { reminderDays: 7 } }),
+    // Plans at /pricing and /payment, paid by invoice: a request mails the admin, who grants the
+    // plan at /admin/billing (e2e/billing-pricing.spec.ts).
+    billing({
+      trial: { days: 14, reminderDays: 3 },
+      paid: { reminderDays: 7 },
+      plans: [
+        {
+          id: "monthly",
+          name: { en: en.plans.monthly.name, pl: pl.plans.monthly.name },
+          description: { en: en.plans.monthly.description, pl: pl.plans.monthly.description },
+          price: { amount: 2900, currency: "PLN" },
+          period: "month",
+          features: en.plans.monthly.features.map((feature, index) => ({ en: feature, pl: pl.plans.monthly.features[index] })),
+        },
+        {
+          id: "yearly",
+          name: { en: en.plans.yearly.name, pl: pl.plans.yearly.name },
+          description: { en: en.plans.yearly.description, pl: pl.plans.yearly.description },
+          price: { amount: 29000, currency: "PLN" },
+          period: "year",
+          features: en.plans.yearly.features.map((feature, index) => ({ en: feature, pl: pl.plans.yearly.features[index] })),
+          isFeatured: true,
+        },
+        {
+          id: "lifetime",
+          name: { en: en.plans.lifetime.name, pl: pl.plans.lifetime.name },
+          description: { en: en.plans.lifetime.description, pl: pl.plans.lifetime.description },
+          price: { amount: 79000, currency: "PLN" },
+          period: "lifetime",
+          features: en.plans.lifetime.features.map((feature, index) => ({ en: feature, pl: pl.plans.lifetime.features[index] })),
+        },
+      ],
+      payment: manual({ onRequest: mailInvoiceRequestsTo(EXAMPLE_ADMIN_EMAIL) }),
+    }),
   ],
 });
 

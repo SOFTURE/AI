@@ -64,14 +64,25 @@ async function lockStoredRecord(tx: Queryable, userId: string): Promise<Entitlem
   return row;
 }
 
+/** The event to apply, decided from the account's current record under its lock. */
+export type EntitlementEventResolver = (record: EntitlementRecord, now: Date) => EntitlementEvent;
+
 /**
  * Applies `event` to the account's entitlement in one transaction and returns where it stands
  * after; a refused event writes nothing. An account without a row gets one holding its derived
  * trial with the event applied, so the trial end never moves when a row appears. A concurrent
  * change that inserted first is waited for and applied on. Database errors propagate.
+ *
+ * `event` may be a function of the current record (a paid period that starts where access ends,
+ * `grantPlan`); it runs under the lock, so two changes at once both count.
  */
-export async function changeEntitlement(ctx: BillingContext, userId: string, event: EntitlementEvent): Promise<Ok<Entitlement> | Err<BillingErrorCode>> {
+export async function changeEntitlement(
+  ctx: BillingContext,
+  userId: string,
+  event: EntitlementEvent | EntitlementEventResolver,
+): Promise<Ok<Entitlement> | Err<BillingErrorCode>> {
   if (!isUserId(userId)) return err("billing.account_unknown");
+  const resolveEvent: EntitlementEventResolver = typeof event === "function" ? event : () => event;
   return ctx.db.transaction(async (tx) => {
     const now = ctx.clock.now();
     const policy = getEntitlementPolicy(ctx.config);
@@ -81,7 +92,8 @@ export async function changeEntitlement(ctx: BillingContext, userId: string, eve
 
     const stored = await lockStoredRecord(tx, userId);
     if (stored === undefined) {
-      const next = applyEntitlementEvent(getDefaultRecord(ctx, account.createdAt), event, now);
+      const derived = getDefaultRecord(ctx, account.createdAt);
+      const next = applyEntitlementEvent(derived, resolveEvent(derived, now), now);
       if (!next.ok) return next;
       const inserted = await tx
         .insert(entitlements)
@@ -95,7 +107,7 @@ export async function changeEntitlement(ctx: BillingContext, userId: string, eve
     // for that transaction, so the row is visible now).
     const current = stored ?? (await lockStoredRecord(tx, userId));
     if (current === undefined) throw new Error("@softure-ai/billing: an entitlement row vanished while it was being changed");
-    const next = applyEntitlementEvent(current, event, now);
+    const next = applyEntitlementEvent(current, resolveEvent(current, now), now);
     if (!next.ok) return next;
     await tx
       .update(entitlements)

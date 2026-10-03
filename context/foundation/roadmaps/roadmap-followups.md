@@ -36,6 +36,7 @@ trigger: "every module roadmap (monetization, marketing-kit) is done; the owner 
 | **FU-4** | `waitlist-welcome-html` | HTML welcome mail for the waitlist | — | autonomous | proposed |
 | **FU-5** | `analytics-client-navigation` | Channel tag on client navigations without Next-Url | — | autonomous | proposed |
 | **FU-6** | `billing-reminder-mail` | Reminder mail before access ends | — | autonomous | proposed |
+| **FU-7** | `billing-admin-requests` | Payment requests, revoke and grant history in the billing admin page | — | autonomous | proposed |
 
 ## Order
 
@@ -108,6 +109,16 @@ trigger: "every module roadmap (monetization, marketing-kit) is done; the owner 
 - **Unknowns:** What triggers the run (a scheduled script through ops vs. a request-time check); how accounts in a window are found without scanning every account (accounts without a row derive their trial from `auth.users.created_at`).
 - **Risk:** LOW.
 - **Baseline:** monetization MO-1 `billing-entitlements`: the reminder windows only drive the in-app badge and notice; no mail is sent (README §12). After: the gap is closed and covered by unit and e2e tests.
+- **PRD refs:** FR-22.
+
+### FU-7: Payment requests, revoke and grant history in the billing admin page
+- **Change ID:** `billing-admin-requests`
+- **Status:** proposed
+- **Outcome:** Invoice requests stored in a billing table and listed in `BillingAdminPage` with a one-click grant; a revoke action; a history of grants per account; optionally a `grant-plan` script.
+- **Prerequisites:** none beyond the main branch (MO-3 may add a payment-events table to share).
+- **Unknowns:** One table for manual requests and provider payment events vs. two; retention of invoice details (personal data, privacy contributor).
+- **Risk:** LOW.
+- **Baseline:** monetization MO-2 `billing-plans-pricing`: requests reach the owner only through `manual({ onRequest })` (the example mails them); the admin grants by email, cannot revoke and sees no history (README §12). After: the gap is closed and covered by unit and e2e tests.
 - **PRD refs:** FR-22.
 - **Source:** `modules/billing/README.md` §12
 

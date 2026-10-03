@@ -71,11 +71,12 @@ npm run dev
 | `<Waitlist placement="home" />` in `app/page.tsx`, the `waitlist(...)` entry in `softure.config.ts` | the form of `@softure-ai/waitlist` in one line: a required `launch` scope tied to the privacy policy and an optional `newsletter`; consents land in `privacy.consents`, the welcome mail goes out once as list mail with mailing's unsubscribe link |
 | the `analytics()` entry and the `onRegistered` hook in `softure.config.ts`, `lib/signup-channels.ts` | the `?z=` tag of `@softure-ai/analytics` handed to auth's hook by `attributeRegistration`; the demo keeps it in process memory (a real app saves it in its own table or counts it) |
 | `app/account/billing/`, the `billing(...)` entry in `softure.config.ts` | `CurrentAccessBadge` and `CurrentAccessNotice` of `@softure-ai/billing` in one line each, and a write guarded by `requireWriteAccess`: a new account is on a 14-day trial, a read-only one gets `billing.read_only` and writes nothing |
+| `app/pricing/`, `app/payment/`, `app/admin/billing/`, `lib/invoice-requests.ts` | the plans of `billing({ plans })` as `<Pricing />` on a public page, `PaymentPage` and `BillingAdminPage` mounted with one re-export line each, and `manual({ onRequest })` mailing each invoice request to the admin, who grants the plan at `/admin/billing` |
 | `app/api/security/ping/route.ts` | a public route handler: `identifyClient`, `consumeRateLimit` and `readSmallBody` from `@softure-ai/security` |
 | `app/api/health/route.ts` | `GET /api/health` of `@softure-ai/ops`, one line; the guestbook contributes a check (`modules/guestbook/health.ts`) |
 | `Dockerfile`, `compose.container.yaml`, `scripts/migrate.ts` | the ops container recipe: one image, a one-off migrate step as the migrator role, the app as the app role |
 | `messages/` | the app's `en` and `pl` copy; no text is written inline |
-| `e2e/` | Playwright: theme switch, modal and form, migrations, security, auth, password reset, roles, switches, mail, reset mail, unsubscribe, MCP access, privacy export and deletion, legal pages and consents, waitlist, channel tags, billing entitlements |
+| `e2e/` | Playwright: theme switch, modal and form, migrations, security, auth, password reset, roles, switches, mail, reset mail, unsubscribe, MCP access, privacy export and deletion, legal pages and consents, waitlist, channel tags, billing entitlements, plans and the manual payment flow |
 
 ## Adding a scenario
 

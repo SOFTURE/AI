@@ -7,6 +7,7 @@ export {
   getDefaultRecord,
   getEntitlement,
   type BillingContext,
+  type EntitlementEventResolver,
 } from "./entitlements.js";
 export { checkEntitlementsTable } from "./health.js";
 export {
@@ -17,4 +18,17 @@ export {
   getEntitlementPolicy,
   type BillingRoutes,
 } from "./options.js";
+export {
+  findAccountByEmail,
+  getBillingPlans,
+  getPaymentProvider,
+  grantPlan,
+  parseInvoiceDetails,
+  startPayment,
+  type InvoiceDetailsError,
+  type InvoiceInput,
+  type StartPaymentInput,
+  type StartPaymentResult,
+} from "./plans.js";
 export { billingPrivacyContributor, deleteBillingUserData, exportBillingUserData, type BillingUserData } from "./privacy.js";
+export { assertPaymentSetup, PAYMENT_BUCKET } from "./setup.js";

@@ -1,7 +1,7 @@
 {
   "id": "billing",
   "version": "0.0.0",
-  "dependsOn": { "auth": "^0.0.0" },
+  "dependsOn": { "security": "^0.0.0", "auth": "^0.0.0" },
   "dbSchema": "billing",
   "tables": ["entitlements"],
   "env": [],
