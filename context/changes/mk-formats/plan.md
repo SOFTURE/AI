@@ -58,6 +58,9 @@ Rejected: per-format compose templates - three copies of one HTML; a desktop rec
 2. `timeline.ts`: `VIDEO_FORMATS = ["9:16", "1:1", "16:9"]`; `Layout` and `LAYOUTS`; `Geometry` gains
    `format`, `caption`, `persona`, `endCard`; `getGeometry(viewport: Viewport, format: VideoFormat = "9:16")`;
    `fitsFrame` reads the 9:16 entry; `widePose` targets the screen's centre.
+3. Moved here from Phase 2 during implementation (the enum change turns the schema drift test and
+   `config.test.ts` red at once): regenerate `schema/marketing.schema.json`; `config.test.ts` accepts
+   `1:1`/`16:9` and refuses `4:5`.
 
 **Tests:** 1:1 and 16:9 geometry for 390×844 (screen width 415, left 333 / 393, height 898) from paper;
 9:16 unchanged for 412×915; every format keeps the phone (with its 14 px bezel) inside the frame for
