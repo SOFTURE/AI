@@ -15,7 +15,7 @@ A configurable channel parameter (name, pattern, length) read on entry, carried 
 
 ## Context
 
-From [`roadmap-monetization.md`](../../../foundation/roadmaps/roadmap-monetization.md), item **MO-4** (queued roadmap `monetization`):
+From [`roadmap.md`](../../../foundation/roadmap.md), item **MO-4** (roadmap `monetization`, main since 2026-10-03):
 
 > ### MO-4: Channel tags
 > - **Change ID:** `analytics-channel-tags`

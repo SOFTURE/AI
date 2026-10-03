@@ -15,7 +15,7 @@ archived_at: null
 
 ## Context
 
-From [`roadmap-monetization.md`](../../../foundation/roadmaps/roadmap-monetization.md), item **MO-6** (queued roadmap `monetization`):
+From [`roadmap.md`](../../../foundation/roadmap.md), item **MO-6** (roadmap `monetization`, main since 2026-10-03):
 
 > ### MO-6: Monetization modules release
 > - **Change ID:** `monetization-release`

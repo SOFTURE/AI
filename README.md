@@ -64,8 +64,8 @@ Development runs on the `softure-*` agent workflow from [`@softure-ai/skills`](h
 |---|---|
 | `context/workflow.json` | gates, main branch, worktree setup, research sources |
 | `context/foundation/shape-notes.md`, `prd.md` | why and what (PRD v1, FR/NFR IDs) |
-| `context/foundation/roadmap.md` | **the main roadmap being executed** (engagement, EN-1…EN-8) |
-| `context/foundation/roadmaps/` | queued roadmaps: monetization, marketing-kit |
+| `context/foundation/roadmap.md` | **the main roadmap being executed** (monetization, MO-1…MO-6, with EN-9 carried over) |
+| `context/foundation/roadmaps/` | queued roadmaps: marketing-kit, followups (gaps, last) |
 | `context/changes/` | changes in flight (one folder per change) |
 | `context/backlog/roadmap-<slug>/` | prepared entries of queued roadmaps |
 

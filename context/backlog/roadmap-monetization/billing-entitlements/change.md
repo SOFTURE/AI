@@ -15,7 +15,7 @@ A pure entitlement state machine (`trial | paid | read_only`) with trial length 
 
 ## Context
 
-From [`roadmap-monetization.md`](../../../foundation/roadmaps/roadmap-monetization.md), item **MO-1** (queued roadmap `monetization`):
+From [`roadmap.md`](../../../foundation/roadmap.md), item **MO-1** (roadmap `monetization`, main since 2026-10-03):
 
 > ### MO-1: Entitlements and the write guard
 > - **Change ID:** `billing-entitlements`

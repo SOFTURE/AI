@@ -1,6 +1,6 @@
 # Backlog: roadmap-monetization (billing and channel analytics)
 
-Roadmap of this group: [`foundation/roadmaps/roadmap-monetization.md`](../../foundation/roadmaps/roadmap-monetization.md):
+Roadmap of this group: [`foundation/roadmap.md`](../../foundation/roadmap.md) (the main roadmap since 2026-10-03):
 order, dependencies, owner decisions and the status of every item.
 
 This folder holds the **prepared entries** (`<change-id>/change.md`, `status: backlog`). One topic lives in
@@ -8,10 +8,12 @@ exactly one place: `backlog/`, `changes/` or `archive/`, never copied and never 
 
 ## When it can start
 
-The whole roadmap: **roadmap-engagement is done and the owner has chosen the payment provider after the manual adapter**. Inside it, the order follows the dependencies below.
+The roadmap was promoted on 2026-10-03, when roadmap-engagement closed; MO-3 still waits for the owner's provider
+decision. Inside it, the order follows the dependencies below.
 
 | ID | Entry | Title | Condition | Kind |
 | --- | --- | --- | --- | --- |
+| EN-9 | [`engagement-release`](engagement-release/change.md) | Engagement modules release (carried over from engagement) | the owner at the keyboard | owner |
 | MO-1 | [`billing-entitlements`](billing-entitlements/change.md) | Entitlements and the write guard | roadmap promoted | start |
 | MO-2 | [`billing-plans-pricing`](billing-plans-pricing/change.md) | Plans, pricing tiles and the manual payment flow | MO-1 on the main branch | dependency |
 | MO-3 | [`billing-provider-adapter`](billing-provider-adapter/change.md) | Payment provider adapter | MO-2 on the main branch and the owner's provider decision | owner |
