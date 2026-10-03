@@ -102,6 +102,10 @@ cases plus the existing channel and funnel specs.
   `softure migrate` failing because `softure.config.ts` imports `/next` in plain Node, which cannot resolve the bare
   `next/navigation`. A test in `tests/next.test.ts` now walks the source graph of `/next` and fails if it reaches
   `next/navigation`. `next.test.ts` imports `ChannelKeeper` from the new entry point.
+- CI drift: the login page's register link is a plain anchor, so the first e2e draft of 1.3 and 1.4 passed through
+  full page loads (the proxy's job) and raced hydration in CI. Both now click the account page's `next/link` once
+  React has hydrated it and check the page was not reloaded; 1.3 no longer goes through sign-up (the funnel e2e, 1.5,
+  covers an action's redirect). With `<ChannelKeeper />` removed from the layout, 1.3, 1.4 and 1.5 fail (checked).
 
 ## Progress
 
