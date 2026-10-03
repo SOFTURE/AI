@@ -1,0 +1,60 @@
+{
+  "name": "@softure-ai/analytics",
+  "version": "0.0.0",
+  "description": "SOFTURE AI analytics module: a cookieless acquisition channel tag read from the URL, validated against the app's pattern, carried through first-party navigations and redirects by a proxy piece, and handed to the app and to auth's onRegistered hook.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SOFTURE/AI.git",
+    "directory": "modules/analytics"
+  },
+  "files": [
+    "dist",
+    "src",
+    "!src/**/*.test.ts",
+    "!src/**/*.test.tsx",
+    "migrations",
+    "module.json"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "exports": {
+    ".": {
+      "@softure-ai/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./server": {
+      "@softure-ai/source": "./src/server/index.ts",
+      "types": "./dist/server/index.d.ts",
+      "default": "./dist/server/index.js"
+    },
+    "./next": {
+      "@softure-ai/source": "./src/next/index.ts",
+      "types": "./dist/next/index.d.ts",
+      "default": "./dist/next/index.js"
+    },
+    "./proxy": {
+      "@softure-ai/source": "./src/proxy/index.ts",
+      "types": "./dist/proxy/index.d.ts",
+      "default": "./dist/proxy/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "@softure-ai/core": "^0.0.0",
+    "zod": "^4.6.5"
+  },
+  "peerDependencies": {
+    "next": "^16.0.0"
+  }
+}

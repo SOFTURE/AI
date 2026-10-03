@@ -32,6 +32,7 @@ export const en = {
     assistant: "AI assistant access",
     testMail: "Send a test mail",
     privacy: "Your data",
+    signupChannel: "Signed up from channel:",
     billing: "Your plan",
   },
   billing: {

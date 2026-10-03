@@ -1,5 +1,7 @@
 // The app's SOFTURE configuration. `softure migrate` loads this file with Node's type stripping,
 // so relative imports name their `.ts` files.
+import { analytics } from "@softure-ai/analytics";
+import { attributeRegistration } from "@softure-ai/analytics/next";
 import { auth, AUTH_RATE_LIMIT_BUCKETS } from "@softure-ai/auth";
 import { billing } from "@softure-ai/billing";
 import { mailingResetSender } from "@softure-ai/auth/mailing";
@@ -16,6 +18,7 @@ import { cloudflareIp, security } from "@softure-ai/security";
 import { waitlist, WAITLIST_RATE_LIMIT_BUCKETS } from "@softure-ai/waitlist";
 import { en } from "./messages/en.ts";
 import { pl } from "./messages/pl.ts";
+import { rememberSignupChannel } from "./lib/signup-channels.ts";
 import { guestbook } from "./modules/guestbook/index.ts";
 
 /** The example's switch: a welcome line on the home page (e2e/feature-switches.spec.ts flips it). */
@@ -23,6 +26,13 @@ export const WELCOME_BANNER_SWITCH = "example.welcome_banner";
 
 /** The example's initial admin (auth's `adminEmails`); e2e/auth-roles.spec.ts registers it. */
 export const EXAMPLE_ADMIN_EMAIL = "e2e-admin@example.com";
+
+// Two registration hooks in the account's transaction: privacy records the consent, analytics hands
+// over the channel the sign-up came from (e2e/analytics-channel.spec.ts).
+const recordConsent = recordRegistrationConsent();
+const attributeChannel = attributeRegistration(({ userId, channel }) => {
+  rememberSignupChannel(userId, channel);
+});
 
 // The Postgres of compose.yaml; a local, throwaway database, so its password is not a secret.
 const LOCAL_DATABASE_URL = "postgresql://postgres:postgres@localhost:5433/softure_example";
@@ -41,12 +51,16 @@ const config = defineSoftureConfig({
     }),
     // Reset links go out as mail through the mailing module below (e2e/auth-reset-mail.spec.ts).
     // The registration checkbox accepts the legal documents of privacy() below; the hook records
-    // that consent with their versions, in the account's transaction (e2e/privacy-consents.spec.ts).
+    // that consent with their versions, in the account's transaction (e2e/privacy-consents.spec.ts),
+    // and the channel of a tagged sign-up is remembered for the account page.
     auth({
       routes: { afterLogin: "/account" },
       adminEmails: [EXAMPLE_ADMIN_EMAIL],
       passwordReset: { send: mailingResetSender() },
-      onRegistered: recordRegistrationConsent(),
+      onRegistered: async (event, ctx) => {
+        await recordConsent(event, ctx);
+        await attributeChannel(event, ctx);
+      },
     }),
     // `detail: "checks"` lists each check in the answer, so e2e/ops.spec.ts can see the guestbook's.
     ops({ detail: "checks" }),
@@ -100,6 +114,8 @@ const config = defineSoftureConfig({
       ],
       placements: ["home"],
     }),
+    // The channel tag `?z=` with its defaults; proxy.ts carries it from page to page.
+    analytics(),
     // Entitlements at /account/billing (e2e/billing-entitlements.spec.ts): a 14-day trial from
     // registration, then read-only until a grant; the guarded write is app/account/billing/actions.ts.
     billing({ trial: { days: 14, reminderDays: 3 }, paid: { reminderDays: 7 } }),

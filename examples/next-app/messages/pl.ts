@@ -34,6 +34,7 @@ export const pl: AppMessages = {
     assistant: "Dostęp dla asystenta AI",
     testMail: "Wyślij wiadomość testową",
     privacy: "Twoje dane",
+    signupChannel: "Konto założone z kanału:",
     billing: "Twój plan",
   },
   billing: {
