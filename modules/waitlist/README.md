@@ -23,6 +23,10 @@ constraints into the app's configuration and the form out of the domain componen
 - **A welcome mail after the response**, through mailing's delivery ledger: at most once per
   sign-up (scope `waitlist.welcome:<id>`), as list mail of kind `waitlist`, so it carries mailing's
   unsubscribe link and RFC 8058 headers and is never sent to an address that unsubscribed.
+- **The ledger follows unsubscribes.** `withdrawWaitlistConsents`, wired as mailing's
+  `onUnsubscribed`, records a withdrawal of every scope the address still grants, in the opt-out's
+  transaction. A new sign-up lifts the address's own opt-out (`liftSuppression`) in its
+  transaction and, after one, stores exactly the scopes checked this time.
 - **A rate-limited public action**: bucket `waitlist` per client, `waitlist-email` per address.
 - `<Waitlist placement="hero" />` (`/next`), the form wired in one line, and `WaitlistForm` (`/ui`)
   with slots, `unstyled` and messages for an app that composes its own.
@@ -46,13 +50,15 @@ import { mailing, resend } from "@softure-ai/mailing";
 import { privacy } from "@softure-ai/privacy";
 import { cloudflareIp, security } from "@softure-ai/security";
 import { waitlist, WAITLIST_RATE_LIMIT_BUCKETS } from "@softure-ai/waitlist";
+import { withdrawWaitlistConsents } from "@softure-ai/waitlist/server";
 import { en } from "./messages/en";
 import { pl } from "./messages/pl";
 
 // in defineSoftureConfig({ modules: [...] }):
 security({ clientIp: cloudflareIp(), buckets: { ...AUTH_RATE_LIMIT_BUCKETS, ...WAITLIST_RATE_LIMIT_BUCKETS } }),
 auth({ ... }),
-mailing({ from: "Acme <hello@mail.acme.com>", provider: resend() }),
+// An unsubscribe withdraws the waitlist's consents (section 10):
+mailing({ from: "Acme <hello@mail.acme.com>", provider: resend(), onUnsubscribed: withdrawWaitlistConsents }),
 privacy({ documents: [{ id: "privacy-policy", version: "2026-10-01" }] }),
 waitlist({
   scopes: [
@@ -97,6 +103,7 @@ with the scopes it prepared (`{ id, label, required }`), the placement and the m
 Server functions, for scripts and other hosts (`@softure-ai/waitlist/server`):
 `joinWaitlist(ctx, { email, scopes, placement, clientKey })` returns
 `Ok<{ signup, isNew, recordedScopes }>` or `Err<waitlist.email_invalid | waitlist.consent_required | waitlist.form_invalid | security.rate_limited>`;
+`withdrawWaitlistConsents(event, ctx)` is mailing's `onUnsubscribed` handler (section 10);
 `deliverWelcomeMail(ctx, signup)` returns mailing's `DeliveryOutcome` or `{ status: "skipped" }`;
 `getSignup(ctx, email)`; `listSignups(ctx, { scope?, placement? })`, oldest first. A launch mail is
 a loop over `listSignups(ctx, { scope: "launch" })` with mailing's `deliverOnce` (or a mailing
@@ -142,8 +149,21 @@ the app's, in `scopes[].label` or `consentLabels`.
 
 ## 10. Hooks
 
-None. `joinWaitlist` returns `isNew` and `recordedScopes` for an app that reacts to a sign-up in its
-own server code.
+None of its own. `joinWaitlist` returns `isNew` and `recordedScopes` for an app that reacts to a
+sign-up in its own server code.
+
+The waitlist plugs into mailing's `onUnsubscribed` with `withdrawWaitlistConsents`. Mailing's
+opt-out covers every list mail and its link names only the recipient key, so the handler withdraws
+each declared scope whose latest record grants it (`granted: false`, source `unsubscribe`, subject
+`{ emailKey }`); a repeated unsubscribe adds nothing. Without it, the ledger keeps showing granted
+consents for an address that unsubscribed, and a later sign-up's lift erases the only record of
+the opt-out. If the app has other mail consents, compose: `onUnsubscribed: async (event, ctx) => {
+await withdrawWaitlistConsents(event, ctx); await withdrawMine(event, ctx); }`.
+
+A sign-up is an explicit consent: `joinWaitlist` calls mailing's `liftSuppression` in its
+transaction, which removes an opt-out the person made themselves (never an operator's). When it
+removed one, the sign-up's scopes become the ones checked now instead of the union, because the
+opt-out withdrew all of them.
 
 ## 11. GDPR
 
@@ -160,8 +180,8 @@ own server code.
 
 - No double opt-in: a sign-up counts at once. A confirmation step can come later as an option (a
   `confirmed_at` column and a link in the welcome mail).
-- Unsubscribing through mailing's link stops list mail but does not record a withdrawal in the
-  consent ledger, and signing up again does not lift a mailing suppression: both need a mailing hook.
+- Without double opt-in, anyone who types an address can lift that address's opt-out by signing it
+  up (bounded by the `waitlist-email` bucket). The lift moves to the confirmation with double opt-in.
 - The placement is stored per sign-up; handing placement counts to `@softure-ai/analytics` belongs
   to the analytics roadmap.
 - The welcome mail's copy is text only; an HTML version needs an option for the app's template.
