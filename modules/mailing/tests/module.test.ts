@@ -59,6 +59,8 @@ describe("the mailing module", () => {
     ["a sender with a line break", "Example <hello@example.com>\r\nBcc: eve@example.com"],
     ["a sender without a domain", "hello"],
     ["a display name without an address", "Example <>"],
+    ["a display name with a comma", "Doe, John <hello@example.com>"],
+    ["a quoted display name", '"Doe" <hello@example.com>'],
   ])("refuses %s", (_case, from) => {
     expect(() => mailing({ from, provider: fakeMailProvider() })).toThrow("options.from");
   });

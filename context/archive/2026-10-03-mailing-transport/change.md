@@ -1,12 +1,12 @@
 ---
 change_id: mailing-transport
 title: "Mail transport with provider adapters: sendMail over a MailProvider, resend() first, a fake provider for tests and the example app"
-status: in_progress
+status: archived
 roadmap_item: EN-1
 branch: claude/en-1-mailing-transport-xyrr0a
 created: 2026-10-03
 updated: 2026-10-03
-archived_at: null
+archived_at: 2026-10-03
 ---
 
 ## Intent
@@ -36,3 +36,5 @@ risk and baseline are quoted there. The source is FIRE_TRACKER `src/lib/mail.ts`
 - No release, tag or publish by the agent; the owner tags releases. FIRE_TRACKER is read-only.
 
 ## Notes
+
+- 2026-10-03: implemented and reviewed in the cloud session on `claude/en-1-mailing-transport-xyrr0a`; impl review approve.

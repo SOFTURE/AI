@@ -72,7 +72,7 @@ mailing({
 
 | Option | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `from` | `string` | required | `addr` or `Name <addr>`. Must be on the domain the provider signs (DKIM); with DMARC `adkim=s` exactly that subdomain. |
+| `from` | `string` | required | `addr` or `Name <addr>` (no commas, semicolons or quotes in the name). Must be on the domain the provider signs (DKIM); with DMARC `adkim=s` exactly that subdomain. |
 | `replyTo` | `string` | none | One address for replies; may be on another domain (DMARC does not check it). |
 | `provider` | `MailProvider` | required | `resend()`, `fakeMailProvider()` or your own adapter. |
 | `timeoutMs` | `number` | `10000` | 1000 to 60000. |
@@ -146,6 +146,7 @@ The module stores nothing. Addresses and content go to the provider only; never 
 - No retries: the caller retries `unavailable` with the same `idempotencyKey` (Resend keeps keys for
   24 hours). The delivery ledger (EN-3) will make campaign sends exactly-once.
 - No unsubscribe links or suppressions yet (EN-2); every mail is sent as given.
+- The display name in `from` cannot contain commas, semicolons or quotes (no RFC 5322 quoting).
 - Address checks are structural (one `@`, a dot in the domain, no separators); the provider has the
   last word.
 

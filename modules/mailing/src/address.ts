@@ -3,8 +3,11 @@
 /** One address: an `@`, no list separators, no whitespace, no angle brackets. */
 const ADDRESS = /^[^\s@,;<>"]+@[^\s@,;<>"]+\.[^\s@,;<>"]+$/;
 
-/** A display name and an address: `Plan <hello@example.com>`. */
-const NAMED_ADDRESS = /^([^<>\r\n"]*[^\s<>"])\s*<([^<>]+)>$/;
+/**
+ * A display name and an address: `Plan <hello@example.com>`. The name has no commas, semicolons or
+ * quotes: unquoted, RFC 5322 reads a comma as a second address, and quoting is left out on purpose.
+ */
+const NAMED_ADDRESS = /^([^<>\r\n",;]*[^\s<>",;])\s*<([^<>]+)>$/;
 
 /** RFC 5322 field name: printable ASCII except the colon. */
 const HEADER_NAME = /^[!-9;-~]+$/;

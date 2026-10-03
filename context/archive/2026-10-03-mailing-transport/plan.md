@@ -72,12 +72,12 @@ refusal message (it can carry the address).
 ### Phase 1: Package, contract and providers
 
 #### Automated
-- [ ] 1.1 Unit tests for every result branch, validation, timeout, logs, Resend mapping and the fake pass
-- [ ] 1.2 `module.json` equals `toModuleJson(mailing)` and the package passes `tests/repo/packages.test.ts`
-- [ ] 1.3 Gates green (typecheck, lint, test)
+- [x] 1.1 Unit tests for every result branch, validation, timeout, logs, Resend mapping and the fake pass — 46a7f8b
+- [x] 1.2 `module.json` equals `toModuleJson(mailing)` and the package passes `tests/repo/packages.test.ts` — 46a7f8b
+- [x] 1.3 Gates green (typecheck, lint, test) — 46a7f8b
 
 ### Phase 2: Next adapter, example app and e2e
 
 #### Automated
-- [ ] 2.1 `npm run e2e` passes against a local PostgreSQL 16, including `mailing-transport.spec.ts`
-- [ ] 2.2 Gates green (typecheck, lint, test, build)
+- [x] 2.1 `npm run e2e` passes against a local PostgreSQL 16, including `mailing-transport.spec.ts` — 09e34d7
+- [x] 2.2 Gates green (typecheck, lint, test, build) — 09e34d7
