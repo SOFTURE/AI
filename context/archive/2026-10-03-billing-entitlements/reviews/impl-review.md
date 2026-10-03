@@ -15,4 +15,4 @@ Checked without findings: access covers instants before its end (read-only at th
 guard fails closed (`requireWriteAccess` maps a missing entitlement to `billing.read_only`), the
 privacy export and deletion are scoped to the account id, and the e2e cleans up only its worker's rows.
 
-Deferred: a reminder mail before access ends, recorded as followups FU-5 (`billing-reminder-mail`).
+Deferred: a reminder mail before access ends, recorded as followups FU-6 (`billing-reminder-mail`).

@@ -34,7 +34,7 @@ trigger: "every module roadmap (monetization, marketing-kit) is done; the owner 
 | **FU-2** | `waitlist-double-opt-in` | Waitlist double opt-in | — | autonomous | proposed |
 | **FU-3** | `mailing-consent-sync` | Unsubscribe as consent withdrawal | — | autonomous | proposed |
 | **FU-4** | `waitlist-welcome-html` | HTML welcome mail for the waitlist | — | autonomous | proposed |
-| **FU-5** | `billing-reminder-mail` | Reminder mail before access ends | — | autonomous | proposed |
+| **FU-6** | `billing-reminder-mail` | Reminder mail before access ends | — | autonomous | proposed |
 
 ## Order
 
@@ -88,7 +88,7 @@ trigger: "every module roadmap (monetization, marketing-kit) is done; the owner 
 - **PRD refs:** FR-18.
 - **Source:** `modules/waitlist/README.md` §12
 
-### FU-5: Reminder mail before access ends
+### FU-6: Reminder mail before access ends
 - **Change ID:** `billing-reminder-mail`
 - **Status:** proposed
 - **Outcome:** A reminder mail before an account's trial or paid access ends (and when it has ended), sent once per window through mailing's delivery ledger, next to the in-app notice billing already shows.

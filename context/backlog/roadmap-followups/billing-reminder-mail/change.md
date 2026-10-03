@@ -2,7 +2,7 @@
 change_id: billing-reminder-mail
 title: "Reminder mail before access ends"
 status: backlog
-roadmap_item: FU-5
+roadmap_item: FU-6
 branch: null
 created: 2026-10-03
 updated: 2026-10-03
@@ -16,9 +16,9 @@ window through mailing's delivery ledger, next to the in-app notice billing alre
 
 ## Context
 
-From [`roadmap-followups.md`](../../../foundation/roadmaps/roadmap-followups.md), item **FU-5** (queued roadmap `followups`):
+From [`roadmap-followups.md`](../../../foundation/roadmaps/roadmap-followups.md), item **FU-6** (queued roadmap `followups`):
 
-> ### FU-5: Reminder mail before access ends
+> ### FU-6: Reminder mail before access ends
 > - **Change ID:** `billing-reminder-mail`
 > - **Status:** proposed
 > - **Outcome:** A reminder mail before an account's trial or paid access ends (and when it has ended), sent once per window through mailing's delivery ledger, next to the in-app notice billing already shows.
