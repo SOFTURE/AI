@@ -18,6 +18,7 @@
     "src",
     "!src/**/*.test.ts",
     "!src/**/*.test.tsx",
+    "migrations",
     "module.json"
   ],
   "publishConfig": {

@@ -24,7 +24,7 @@ describe("collectUserData", () => {
     if (!result.ok) throw new Error(result.error);
     const { document } = result.value;
     expect(document).toMatchObject({ format: "softure.privacy-export", version: 1, userId: ada.id, exportedAt: NOW.toISOString() });
-    expect(Object.keys(document.data)).toEqual(["auth", "feature-switches", "notes", "profile"]);
+    expect(Object.keys(document.data)).toEqual(["auth", "feature-switches", "notes", "privacy", "profile"]);
     expect(document.data["auth"]).toMatchObject({
       account: { id: ada.id, email: "ada@example.com" },
       roles: [{ role: "admin", grantedAt: NOW }],
@@ -33,6 +33,19 @@ describe("collectUserData", () => {
     });
     expect(document.data["feature-switches"]).toEqual({ lastSetSwitches: [] });
     expect(document.data["notes"]).toEqual({ notes: ["note of ada@example.com"] });
+    expect(document.data["privacy"]).toEqual({
+      consents: [
+        { purpose: "terms", granted: true, document: { id: "terms", version: "2026-09-01" }, source: "registration", recordedAt: NOW, subject: "account" },
+        {
+          purpose: "privacy-policy",
+          granted: true,
+          document: { id: "privacy-policy", version: "2026-09-01" },
+          source: "registration",
+          recordedAt: NOW,
+          subject: "account",
+        },
+      ],
+    });
     expect(document.data["profile"]).toEqual({ displayName: "name of ada@example.com" });
   });
 
@@ -61,6 +74,7 @@ describe("collectUserData", () => {
     if (!result.ok) throw new Error(result.error);
     expect(result.value.document.data["auth"]).toEqual({ account: null, roles: [], sessions: [], passwordReset: null });
     expect(result.value.document.data["notes"]).toEqual({ notes: [] });
+    expect(result.value.document.data["privacy"]).toEqual({ consents: [] });
   });
 
   it("fails the whole export when one contributor fails, and logs which one", async () => {

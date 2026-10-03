@@ -13,19 +13,19 @@ describe("the privacy registry", () => {
       "module:auth",
       "module:feature-switches",
       "module:notes",
+      "module:privacy",
       "app:profile",
     ]);
   });
 
   it("leaves out modules without user data", () => {
     expect(ids(getPrivacyContributors(createConfig()))).not.toContain("security");
-    expect(ids(getPrivacyContributors(createConfig()))).not.toContain("privacy");
   });
 
   it("exports in registry order and deletes in reverse: the app first, auth last", () => {
     const config = createConfig();
-    expect(ids(getExportingContributors(config))).toEqual(["auth", "feature-switches", "notes", "profile"]);
-    expect(ids(getDeletingContributors(config))).toEqual(["profile", "notes", "feature-switches", "auth"]);
+    expect(ids(getExportingContributors(config))).toEqual(["auth", "feature-switches", "notes", "privacy", "profile"]);
+    expect(ids(getDeletingContributors(config))).toEqual(["profile", "privacy", "notes", "feature-switches", "auth"]);
   });
 
   it("keeps an export-only or delete-only app contributor out of the other list", () => {
@@ -35,8 +35,8 @@ describe("the privacy registry", () => {
         { id: "cache", deleteUserData: () => Promise.resolve(ok()) },
       ],
     });
-    expect(ids(getExportingContributors(config))).toEqual(["auth", "feature-switches", "notes", "stats"]);
-    expect(ids(getDeletingContributors(config))).toEqual(["cache", "notes", "feature-switches", "auth"]);
+    expect(ids(getExportingContributors(config))).toEqual(["auth", "feature-switches", "notes", "privacy", "stats"]);
+    expect(ids(getDeletingContributors(config))).toEqual(["cache", "privacy", "notes", "feature-switches", "auth"]);
   });
 
   it("refuses an app contributor with the id of an enabled module", () => {

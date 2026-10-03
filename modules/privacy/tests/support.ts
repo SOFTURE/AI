@@ -1,5 +1,6 @@
-// Shared setup: an app with security, auth, feature-switches, a test module holding user data
-// (`notes`), privacy, and an app contributor for an app table (`public.profiles`).
+// Shared setup: an app with security, auth (registration records consent to the legal documents),
+// feature-switches, a test module holding user data (`notes`), privacy, and an app contributor for
+// an app table (`public.profiles`).
 import { auth, AUTH_RATE_LIMIT_BUCKETS } from "@softure-ai/auth";
 import { registerUser } from "@softure-ai/auth/server";
 import { createTestClock, defineSoftureConfig, err, ok, type ModuleContext, type SoftureConfig, type TestClock } from "@softure-ai/core";
@@ -8,7 +9,7 @@ import { createTestDatabase, type TestDatabase } from "@softure-ai/db/testing";
 import { featureSwitches } from "@softure-ai/feature-switches";
 import { setSwitch } from "@softure-ai/feature-switches/server";
 import { privacy, PRIVACY_RATE_LIMIT_BUCKETS, type PrivacyOptionsInput } from "@softure-ai/privacy";
-import type { PrivacyContext } from "@softure-ai/privacy/server";
+import { recordRegistrationConsent, type PrivacyContext } from "@softure-ai/privacy/server";
 import { headerIp, security } from "@softure-ai/security";
 import { sql } from "drizzle-orm";
 import { notes } from "./fixtures/notes.js";
@@ -36,6 +37,13 @@ export const profileContributor = {
   },
 };
 
+/** The legal documents of the test app; registration accepts both. */
+export const DOCUMENTS = [
+  { id: "terms", version: "2026-09-01" },
+  { id: "privacy-policy", version: "2026-09-01" },
+];
+
+/** The test app's config; `options` replace the default contributors, the documents stay unless given. */
 export function createConfig(options: PrivacyOptionsInput = { contributors: [profileContributor] }): SoftureConfig {
   return defineSoftureConfig({
     database: { url: "pglite://" },
@@ -44,10 +52,10 @@ export function createConfig(options: PrivacyOptionsInput = { contributors: [pro
     appOrigin: "http://localhost:3000",
     modules: [
       security({ clientIp: headerIp("x-real-ip"), buckets: { ...AUTH_RATE_LIMIT_BUCKETS, ...PRIVACY_RATE_LIMIT_BUCKETS }, cleanupProbability: 0 }),
-      auth({ password: { scrypt: { cost: 2 ** 10 } } }),
+      auth({ password: { scrypt: { cost: 2 ** 10 } }, onRegistered: recordRegistrationConsent() }),
       featureSwitches({ switches: [{ name: "app.beta", default: false }] }),
       notes(),
-      privacy(options),
+      privacy({ documents: DOCUMENTS, ...options }),
     ],
   });
 }
@@ -77,8 +85,8 @@ export interface SeededUser {
 }
 
 /**
- * A user with a row in every table that can hold user data: a session (registration), a role, a
- * pending reset link, a switch they set, a note and a profile.
+ * A user with a row in every table that can hold user data: a session and consents (registration),
+ * a role, a pending reset link, a switch they set, a note and a profile.
  */
 export async function seedUser(test: TestPrivacy, email: string): Promise<SeededUser> {
   const registered = await registerUser(test.ctx, { email, password: PASSWORD, hasConsented: true, clientKey: CLIENT });

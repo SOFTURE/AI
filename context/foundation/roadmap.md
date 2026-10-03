@@ -53,7 +53,7 @@ app (mail, waitlist), to agents (MCP access) and to regulators (privacy). Every 
 | **EN-5** | `waitlist` | `@softure-ai/waitlist`: sign-up with configurable consent scopes, welcome mail, unsubscribe, `WaitlistForm` | EN-1, EN-2, EN-8 | autonomous | ready |
 | **EN-6** | `mcp-access` | `@softure-ai/mcp-access`: hashed, scoped, expiring tokens, Bearer endpoint around the app's MCP server factory, token UI | — | autonomous | done |
 | **EN-7** | `privacy-registry` | `@softure-ai/privacy`: modules and the app register export/delete contributors; self-service export and account deletion | — | autonomous | done |
-| **EN-8** | `privacy-consents-legal` | `privacy.consents` ledger (who, what, when, document version) and a `LegalDocument` shell with content from the app | EN-7 | autonomous | ready |
+| **EN-8** | `privacy-consents-legal` | `privacy.consents` ledger (who, what, when, document version) and a `LegalDocument` shell with content from the app | EN-7 | autonomous | in_progress (implement 1/2, since 2026-10-03; cloud session, branch `claude/en-8-privacy-consents-legal-qbtwcv`) |
 | **EN-9** | `engagement-release` | mailing, waitlist, mcp-access and privacy 0.1.0 published through the release pipeline; READMEs and docs updated | EN-3, EN-4, EN-5, EN-6, EN-8 | owner | ready |
 
 ## Order
@@ -151,7 +151,7 @@ contributor contract every module with user data depends on) start the roadmap.
 
 ### EN-8: Consent records and legal document shell
 - **Change ID:** `privacy-consents-legal`
-- **Status:** ready
+- **Status:** in_progress (implement 1/2, since 2026-10-03; cloud session, branch `claude/en-8-privacy-consents-legal-qbtwcv`)
 - **Outcome:** `privacy.consents` records every consent with subject, purpose, document version and timestamp; an API to record and query consent used by auth registration and the waitlist; `LegalDocument`, `LegalSection` and `LegalFooter` components (table of contents, change history) that render app-provided content.
 - **Prerequisites:** EN-7.
 - **Unknowns:** Consent withdrawal semantics (new row vs. update); how document versions are declared by the app; whether auth's stored consent from identity migrates into this ledger.

@@ -18,6 +18,13 @@ export const pl: typeof en = {
     submit: "Usuń moje konto",
     pending: "Usuwanie…",
   },
+  legal: {
+    contents: "Spis treści",
+    version: "Wersja",
+    effectiveFrom: "Obowiązuje od",
+    changes: "Historia zmian",
+    footer: "Informacje prawne",
+  },
   errors: {
     privacy: {
       export_failed: "Nie udało się zebrać Twoich danych. Spróbuj ponownie za chwilę.",

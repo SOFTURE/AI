@@ -16,6 +16,13 @@ export const en = {
     submit: "Delete my account",
     pending: "Deleting…",
   },
+  legal: {
+    contents: "Contents",
+    version: "Version",
+    effectiveFrom: "Effective from",
+    changes: "Change history",
+    footer: "Legal information",
+  },
   errors: {
     privacy: {
       export_failed: "Your data could not be collected. Try again in a moment.",

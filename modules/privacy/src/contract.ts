@@ -7,7 +7,35 @@ export type PrivacyErrorCode =
   | "privacy.export_too_large"
   | "privacy.deletion_refused"
   | "privacy.password_invalid"
-  | "privacy.confirmation_required";
+  | "privacy.confirmation_required"
+  | "privacy.consent_invalid"
+  | "privacy.document_unknown";
+
+/**
+ * Whose consent it is: an account, or an email address that has none (a waitlist sign-up). An
+ * account's consents and its email's consents are both its own in the export and the deletion.
+ */
+export type ConsentSubject = { readonly userId: string } | { readonly email: string };
+
+/** One row of the ledger: a consent given (`granted`) or withdrawn. */
+export interface ConsentRecord {
+  readonly purpose: string;
+  readonly granted: boolean;
+  /** The legal document and its version at the moment of consent; null for a purpose without one. */
+  readonly document: { readonly id: string; readonly version: string } | null;
+  /** Where it was given, e.g. `registration`, `waitlist`. */
+  readonly source: string;
+  readonly recordedAt: Date;
+}
+
+/** The current state of one purpose: its latest record, checked against the configured version. */
+export interface ConsentState extends ConsentRecord {
+  /**
+   * False when the record names a document version that is no longer the configured one (or a
+   * document the app no longer declares): the person agreed to an earlier text.
+   */
+  readonly isCurrentVersion: boolean;
+}
 
 /** The file a user downloads: every contributor's part under its id. */
 export interface PrivacyExport {

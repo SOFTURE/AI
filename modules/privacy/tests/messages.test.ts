@@ -34,5 +34,9 @@ describe("privacy messages", () => {
 
   it("are translated, not copied", () => {
     expect(privacyMessages.pl.delete.title).not.toBe(privacyMessages.en.delete.title);
+    for (const key of Object.keys(privacyMessages.en.legal) as (keyof typeof privacyMessages.en.legal)[]) {
+      expect(privacyMessages.pl.legal[key], key).not.toBe(privacyMessages.en.legal[key]);
+      expect(privacyMessages.en.legal[key], key).not.toBe("");
+    }
   });
 });

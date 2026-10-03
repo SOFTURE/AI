@@ -19,7 +19,7 @@ The roadmap was promoted on 2026-10-03, when roadmap-identity closed. Inside it,
 | EN-5 | [`waitlist`](waitlist/change.md) | Waitlist with consent scopes | EN-1, EN-2 and EN-8 on the main branch | dependency |
 | EN-6 | [`mcp-access`](../../archive/2026-10-03-mcp-access/change.md) (archived) | MCP access tokens and Bearer endpoint | roadmap promoted | start |
 | EN-7 | [`privacy-registry`](../../archive/2026-10-03-privacy-registry/change.md) (archived) | GDPR export and deletion registry | roadmap promoted | start |
-| EN-8 | [`privacy-consents-legal`](privacy-consents-legal/change.md) | Consent records and legal document shell | EN-7 on the main branch | dependency |
+| EN-8 | [`privacy-consents-legal`](../../changes/privacy-consents-legal/change.md) (in progress) | Consent records and legal document shell | EN-7 on the main branch | dependency |
 | EN-9 | [`engagement-release`](engagement-release/change.md) | Engagement modules release | EN-3 to EN-8 on the main branch, and the owner at the keyboard | owner |
 
 Kind: `start` (can be taken as soon as the roadmap is promoted), `dependency` (waits for the listed items on the
