@@ -1,12 +1,12 @@
 ---
 change_id: marketing-kit-layout-overrides
 title: "A project can adjust a format's layout in marketing.json"
-status: impl_reviewed
+status: archived
 roadmap_item: FU-16
 branch: claude/project-thread-92jg14
 created: 2026-10-03
 updated: 2026-10-03
-archived_at: null
+archived_at: 2026-10-03
 ---
 
 ## Intent
@@ -55,3 +55,4 @@ breaking the contract." The backlog entry this change was opened from is [`backl
   checked the premise (the layout is a table the composition reads, nothing in the recording depends on it); the
   remaining questions are which keys and at what scope, which research answers from the code, not a choice between
   problems.
+- Archived 2026-10-03: `marketing.json` `layout` overrides the caption, persona and end card of a format, validated against the frame and merged in `getGeometry`; the fixture carries a 9:16 caption override.
