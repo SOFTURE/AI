@@ -46,7 +46,7 @@ backlog: context/backlog/roadmap-marketing-kit/
 | **MK-2** | `mk-config-contract` | `marketing.json` + brand validated by zod, published as JSON Schema; every hard-coded constant becomes config; `design.json` import | MK-1 | autonomous | done |
 | **MK-3** | `mk-declarative-actions` | scenes described as JSON actions with locator descriptors; `sceneModule` TS escape hatch kept | MK-2 | autonomous | ready |
 | **MK-7** | `mk-tts-adapters` | `TtsProvider` interface, ElevenLabs adapter, cache key includes voice, model and language; paid calls only with `--commit` | MK-2 | autonomous | ready |
-| **MK-6** | `mk-formats` | 1:1 and 16:9 render formats next to 9:16, geometry from config | MK-2 | autonomous | ready |
+| **MK-6** | `mk-formats` | 1:1 and 16:9 render formats next to 9:16, geometry from config | MK-2 | autonomous | **in_progress** (research, since 2026-10-03; cloud session, branch `claude/project-thread-9mamf6`) |
 | **MK-4** | `mk-screenshots` | `softure-marketing shots` with quality gates (HTTP status, expected phrase, minimum size, full-page scroll) | MK-2 | autonomous | ready |
 | **MK-5** | `mk-og-images` | OG images rendered with Satori outside Next from templates + data | MK-2 | autonomous | ready |
 | **MK-8** | `marketing-kit-release` | `@softure-ai/marketing-kit` 0.1.0 published through the FD-2 pipeline, README complete | MK-3, MK-4, MK-5, MK-6, MK-7 | owner | ready |
@@ -168,7 +168,8 @@ Risk first: MK-1 proves the port is faithful. MK-2 fixes the contract every late
 
 ### MK-6: Render formats 1:1 and 16:9
 - **Change ID:** `mk-formats`
-- **Status:** ready
+- **Status:** **in_progress** (research, since 2026-10-03; cloud session, branch `claude/project-thread-9mamf6`)
+- **Input:** `context/changes/mk-formats/`
 - **Outcome:**
   - `format` per video: `9:16`, `1:1` or `16:9`.
   - Frame size, device viewport placement, camera targets and caption layout come from a geometry table, not constants.
