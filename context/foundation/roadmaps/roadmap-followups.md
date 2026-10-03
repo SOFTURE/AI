@@ -46,6 +46,7 @@ trigger: "every module roadmap (marketing-kit and any later one) is done; the ow
 | **FU-15** | `marketing-kit-desktop-16x9` | desktop 16:9 films recorded in a browser frame instead of a phone | — | autonomous | proposed |
 | **FU-16** | `marketing-kit-layout-overrides` | per-format layout overrides (caption box, persona, end card) in marketing.json | — | autonomous | proposed |
 | **FU-17** | `marketing-kit-og-glyphs` | OG images refuse copy the brand fonts cannot draw | — | autonomous | proposed |
+| **FU-18** | `marketing-kit-screenshot-variants` | screenshots at a device scale and in both colour schemes | — | autonomous | proposed |
 
 ## Order
 
@@ -229,6 +230,17 @@ trigger: "every module roadmap (marketing-kit and any later one) is done; the ow
 - **Baseline:** marketing-kit MK-5 `mk-og-images`: Satori draws nothing for a missing glyph and reports no error; the README tells projects to ship fonts that cover their language. After: a test with a `latin` subset font and Polish copy gets the error.
 - **PRD refs:** FR-25.
 - **Source:** `tools/marketing-kit/src/og/fonts.ts`; `context/archive/2026-10-03-mk-og-images/research.md` (Constraints and risks)
+
+### FU-18: Screenshots at a device scale and in both colour schemes
+- **Change ID:** `marketing-kit-screenshot-variants`
+- **Status:** proposed
+- **Outcome:** A `screenshots[]` entry can set a device scale (a retina capture for a store listing or a landing page) and capture the light and dark schemes in one run (`<id>-light.png`, `<id>-dark.png`), still behind the status, phrase and size gates.
+- **Prerequisites:** none beyond the main branch.
+- **Unknowns:** Whether the size gate's 40 kB default should scale with the device scale.
+- **Risk:** LOW.
+- **Baseline:** marketing-kit MK-4 `mk-screenshots`: PNG at Playwright's default scale (1), one scheme per run (`app.colorScheme`). After: the schema takes `scale` and a scheme list, the tests cover both.
+- **PRD refs:** FR-25.
+- **Source:** `tools/marketing-kit/README.md` "Limitations"; `context/archive/2026-10-03-mk-screenshots/reviews/impl-review.md` F4
 
 ## Owner decisions and checks
 

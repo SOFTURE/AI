@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Tall</title>
+    <style>
+      .spacer { height: 3000px; }
+    </style>
+  </head>
+  <body>
+    <h1>A long page</h1>
+    <div class="spacer"></div>
+    <section id="lazy"></section>
+    <script>
+      // The lazy section fills in only once it scrolls into view, like a lazy image.
+      const lazy = document.getElementById("lazy");
+      new IntersectionObserver((entries, observer) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return;
+        lazy.textContent = "Lazy section loaded";
+        observer.disconnect();
+      }).observe(lazy);
+    </script>
+  </body>
+</html>

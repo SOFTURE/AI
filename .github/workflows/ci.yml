@@ -53,6 +53,9 @@ jobs:
       # A Stripe test-mode key runs billing's sandbox test (modules/billing/tests/stripe-sandbox.test.ts);
       # without the secret (forks, a repository that has not set it) that test is skipped.
       STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+      # The marketing-kit screenshot tests drive a browser; the runner image ships Google Chrome, so no
+      # download (tools/marketing-kit/tests/chromium.ts fails them if this path is missing).
+      PLAYWRIGHT_CHROMIUM_PATH: /usr/bin/google-chrome
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7

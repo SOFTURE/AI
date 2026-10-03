@@ -28,6 +28,8 @@ gets an entry here and a row in the roadmap.
 | FU-14 | [`marketing-kit-schema-docs`](marketing-kit-schema-docs/change.md) | The marketing.json JSON Schema documents every key | roadmap promoted | start |
 | FU-15 | [`marketing-kit-desktop-16x9`](marketing-kit-desktop-16x9/change.md) | A 16:9 film can show the desktop app in a browser frame | roadmap promoted | start |
 | FU-16 | [`marketing-kit-layout-overrides`](marketing-kit-layout-overrides/change.md) | A project can adjust a format's layout in marketing.json | roadmap promoted | start |
+| FU-17 | [`marketing-kit-og-glyphs`](marketing-kit-og-glyphs/change.md) | OG images refuse copy the brand fonts cannot draw | roadmap promoted | start |
+| FU-18 | [`marketing-kit-screenshot-variants`](marketing-kit-screenshot-variants/change.md) | Screenshots at a device scale and in both colour schemes | roadmap promoted | start |
 
 Kind: `start` (can be taken as soon as the roadmap is promoted), `dependency` (waits for the listed items on the
 main branch), `owner` (needs an owner decision or the owner at the keyboard).

@@ -11,11 +11,12 @@ import { recordFilm, ScreenGuardError, type RecordingLog } from "../record/recor
 import { findMachineProblem } from "../render/preflight.js";
 import { runHyperframes } from "../render/hyperframes.js";
 import { renderFilm } from "../render/render.js";
+import { takeScreenshots, type ScreenshotEntry } from "../screenshot/screenshot.js";
 import { splitIntoBeats } from "../voice/voiceover.js";
 import { CliFailure, fail } from "./failure.js";
 import { loadFilm, type LoadedFilm } from "./films.js";
 import { writeOgImages } from "./og.js";
-import { readOptions, type FilmOptions } from "./options.js";
+import { readOptions, type FilmOptions, type ShotsOptions } from "./options.js";
 import { ensureServer } from "./server.js";
 import { getVoiceoverPaths, produceVoiceover, readJson, requireVoiceover } from "./voice.js";
 
@@ -29,6 +30,7 @@ import { getVoiceoverPaths, produceVoiceover, readJson, requireVoiceover } from 
  *   preview <film>
  *   posts <film>
  *   og [image]
+ *   shots [<id>] [--url=...]
  */
 
 const getBuildDir = (config: MarketingConfig, film: LoadedFilm) => join(config.output.buildDir, film.id);
@@ -136,6 +138,45 @@ function preview(config: MarketingConfig, film: LoadedFilm): void {
   if (result.status !== 0) fail(`hyperframes preview ended with code ${String(result.status)}.`);
 }
 
+function selectScreenshots(config: MarketingConfig, shotId: string | undefined): [ScreenshotEntry, ...ScreenshotEntry[]] {
+  const [first, ...rest] = shotId === undefined ? config.screenshots : config.screenshots.filter((entry) => entry.id === shotId);
+  if (first !== undefined) return [first, ...rest];
+  if (shotId === undefined) fail(`no screenshots in ${config.file}: add entries to "screenshots".`);
+  fail(`no screenshot "${shotId}" in ${config.file}; known: ${config.screenshots.map((entry) => entry.id).join(", ") || "none"}.`);
+}
+
+async function shots(config: MarketingConfig, options: ShotsOptions): Promise<void> {
+  const entries = selectScreenshots(config, options.shotId);
+  const [first] = entries;
+  const target = { url: new URL(first.path, config.app.baseUrl).href, ownUrl: `http://localhost:${config.app.port}${first.path}` };
+  const server = await ensureServer(config, target, options.url === undefined ? undefined : new URL(first.path, options.url).href);
+  const outDir = join(config.output.dir, "screenshots");
+  let results;
+  try {
+    console.log(`screenshots: ${entries.length} from ${new URL(server.url).origin}.`);
+    results = await takeScreenshots({
+      entries,
+      baseUrl: server.url,
+      outDir,
+      executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH || undefined,
+      browser: {
+        colorScheme: config.app.colorScheme,
+        locale: config.brand.locale,
+        timezone: config.brand.timezone,
+        hideSelectors: config.app.hideSelectors,
+      },
+    });
+  } finally {
+    server.stop();
+  }
+  for (const result of results) {
+    if (result.ok) console.log(`✓ ${result.file} (${(result.bytes / 1000).toFixed(0)} kB)`);
+    else console.error(`✗ ${result.id}: ${result.message}`);
+  }
+  const failed = results.filter((result) => !result.ok).length;
+  if (failed > 0) fail(`${failed} of ${results.length} screenshots failed their gates; see above.`);
+}
+
 async function main(argv: string[]): Promise<void> {
   const parsed = readOptions(argv);
   if (!parsed.ok) fail(parsed.error);
@@ -145,6 +186,10 @@ async function main(argv: string[]): Promise<void> {
   const { config } = loaded;
   if (options.command === "og") {
     await writeOgImages(config, options.imageId);
+    return;
+  }
+  if (options.command === "shots") {
+    await shots(config, options);
     return;
   }
   const film = await loadFilm(config, options.filmId);
