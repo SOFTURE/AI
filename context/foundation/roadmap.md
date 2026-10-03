@@ -43,7 +43,7 @@ backlog: context/backlog/roadmap-marketing-kit/
 | **EN-9** | `engagement-release` | mailing, waitlist, mcp-access and privacy 0.1.0 published through the release pipeline; READMEs and docs updated | EN-1…EN-8 (done) | owner | blocked (carried over from monetization: the owner's batch release at the keyboard on 2026-10-05) |
 | **MO-6** | `monetization-release` | billing and analytics 0.1.0 published through the release pipeline; READMEs and docs updated | MO-1…MO-5 (done) | owner | blocked (carried over from monetization: the owner's batch release at the keyboard on 2026-10-05) |
 | **MK-1** | `mk-core-port` | FIRE's video pipeline (voiceover cache, timeline, recorder/Director, compose, render, posts) runs from `tools/marketing-kit` with its tests, config still FIRE-shaped | — | autonomous | done |
-| **MK-2** | `mk-config-contract` | `marketing.json` + brand validated by zod, published as JSON Schema; every hard-coded constant becomes config; `design.json` import | MK-1 | autonomous | ready |
+| **MK-2** | `mk-config-contract` | `marketing.json` + brand validated by zod, published as JSON Schema; every hard-coded constant becomes config; `design.json` import | MK-1 | autonomous | in_progress |
 | **MK-3** | `mk-declarative-actions` | scenes described as JSON actions with locator descriptors; `sceneModule` TS escape hatch kept | MK-2 | autonomous | ready |
 | **MK-7** | `mk-tts-adapters` | `TtsProvider` interface, ElevenLabs adapter, cache key includes voice, model and language; paid calls only with `--commit` | MK-2 | autonomous | ready |
 | **MK-6** | `mk-formats` | 1:1 and 16:9 render formats next to 9:16, geometry from config | MK-2 | autonomous | ready |
@@ -116,7 +116,8 @@ Risk first: MK-1 proves the port is faithful. MK-2 fixes the contract every late
 
 ### MK-2: Config contract: marketing.json and brand
 - **Change ID:** `mk-config-contract`
-- **Status:** ready
+- **Status:** in_progress
+- **Input:** [`changes/mk-config-contract/change.md`](../changes/mk-config-contract/change.md)
 - **Outcome:** a zod schema for `marketing.json` (brand, app, voice, videos, social, screenshots, ogImages, output), published as `schema/marketing.schema.json`. Every FIRE hard-coded constant (about 20) becomes config:
   - default URL, port and start command;
   - hidden selectors;

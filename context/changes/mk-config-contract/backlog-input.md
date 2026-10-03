@@ -25,7 +25,7 @@ The brand can come inline or from an Impeccable `design.json`. Validation errors
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **MK-2** (roadmap `marketing-kit`, main since 2026-10-03):
+From [`roadmap.md`](../../foundation/roadmap.md), item **MK-2** (roadmap `marketing-kit`, main since 2026-10-03):
 
 > ### MK-2: Config contract: marketing.json and brand
 > - **Change ID:** `mk-config-contract`
@@ -49,7 +49,7 @@ From [`roadmap.md`](../../../foundation/roadmap.md), item **MK-2** (roadmap `mar
 > - **Baseline:** constants grep in MK-1 output. After: zero product-specific literals in `src/` (architecture test), and the example config validates.
 > - **PRD refs:** FR-24, NFR-6.
 
-Reference material: [`docs/03-marketing-kit.md`](../../../../docs/03-marketing-kit.md) (architecture, JSON contract, licenses), PRD FR-24 and FR-25, and the source in FIRE_TRACKER `video/**`, `scripts/screenshot.mts`, `src/app/**/opengraph-image.tsx`.
+Reference material: [`docs/03-marketing-kit.md`](../../../docs/03-marketing-kit.md) (architecture, JSON contract, licenses), PRD FR-24 and FR-25, and the source in FIRE_TRACKER `video/**`, `scripts/screenshot.mts`, `src/app/**/opengraph-image.tsx`.
 
 ## Constraints
 
