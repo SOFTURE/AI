@@ -1,13 +1,14 @@
 // The Stripe webhook of @softure-ai/billing on the built app, with the test playing Stripe: it signs
 // deliveries with the webhook secret Playwright gives the server (STRIPE_WEBHOOK_SECRET). A paid
 // checkout turns the account's trial into paid access without the owner, a repeated delivery
-// changes nothing, an unsigned one is refused, and a full refund takes the access back. The payment
+// changes nothing, an unsigned one is refused, and a full refund takes back what that one payment
+// granted: the access of a single payment, or one month of two stacked ones. The payment
 // page shows where a hosted checkout returned. Stripe's own API is covered by the sandbox test in
 // modules/billing/tests/stripe-sandbox.test.ts.
 import { randomInt, randomUUID } from "node:crypto";
 import { expect, test, type APIRequestContext, type Browser, type Page } from "@playwright/test";
 import { authMessages, users } from "@softure-ai/auth";
-import { billingMessages, payments, signStripePayload, STRIPE_METADATA, STRIPE_SIGNATURE_HEADER } from "@softure-ai/billing";
+import { billingMessages, entitlements, payments, signStripePayload, STRIPE_METADATA, STRIPE_SIGNATURE_HEADER } from "@softure-ai/billing";
 import { eq, inArray } from "drizzle-orm";
 import { openTestDatabase } from "./database.ts";
 import { STRIPE_WEBHOOK_SECRET } from "./outbox.ts";
@@ -116,6 +117,34 @@ test("a paid Stripe checkout turns the trial into paid access once, and a full r
   const refund = stripeEvent("charge.refunded", { id: "ch_e2e", object: "charge", payment_intent: paymentId, refunded: true });
   expect(await deliver(request, refund)).toBe(200);
   expect(await readStatus(page)).toBe("trial");
+});
+
+/** The account's dated paid end, and the end of the period each of its payments granted (by payment id). */
+async function readPaidEnds(userId: string): Promise<{ paidUntil: Date | null; grantedUntil: Map<string | null, Date | null> }> {
+  const database = await openTestDatabase();
+  try {
+    const [row] = await database.db.select({ paidUntil: entitlements.paidUntil }).from(entitlements).where(eq(entitlements.userId, userId));
+    const rows = await database.db.select({ paymentId: payments.paymentId, grantedUntil: payments.grantedUntil }).from(payments).where(eq(payments.userId, userId));
+    return { paidUntil: row?.paidUntil ?? null, grantedUntil: new Map(rows.map((payment) => [payment.paymentId, payment.grantedUntil])) };
+  } finally {
+    await database.close();
+  }
+}
+
+test("a full refund of one of two stacked months takes back only that month", async ({ browser, request }) => {
+  const page = await openPage(browser);
+  const userId = await register(page);
+  const firstPayment = `pi_e2e_${randomUUID().replaceAll("-", "")}`;
+  const secondPayment = `pi_e2e_${randomUUID().replaceAll("-", "")}`;
+  expect(await deliver(request, paidCheckout(userId, `cs_e2e_${randomUUID().replaceAll("-", "")}`, firstPayment))).toBe(200);
+  expect(await deliver(request, paidCheckout(userId, `cs_e2e_${randomUUID().replaceAll("-", "")}`, secondPayment))).toBe(200);
+  const stacked = await readPaidEnds(userId);
+  expect(stacked.paidUntil).toEqual(stacked.grantedUntil.get(secondPayment));
+
+  const refund = stripeEvent("charge.refunded", { id: "ch_e2e", object: "charge", payment_intent: secondPayment, refunded: true });
+  expect(await deliver(request, refund)).toBe(200);
+  expect(await readStatus(page)).toBe("paid");
+  expect((await readPaidEnds(userId)).paidUntil).toEqual(stacked.grantedUntil.get(firstPayment));
 });
 
 test("the webhook refuses a delivery Stripe did not sign and grants nothing", async ({ browser, request }) => {

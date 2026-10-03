@@ -41,22 +41,35 @@ function getLater(first: Date, second: Date): Date {
   return first > second ? first : second;
 }
 
+/** The earlier of two instants. */
+function getEarlier(first: Date, second: Date): Date {
+  return first < second ? first : second;
+}
+
 /**
  * The record after `event` at `now`. Grants and trial extensions must end after `now` and never
- * shorten what the account already has; a revoke ends paid access, lifetime included.
+ * shorten what the account already has; a revoke ends paid access, lifetime included. The dated
+ * end lives on under lifetime access: a grant still extends it, and ending lifetime falls back to it.
  */
 export function applyEntitlementEvent(record: EntitlementRecord, event: EntitlementEvent, now: Date): Ok<EntitlementRecord> | Err<BillingErrorCode> {
   switch (event.type) {
     case "grant": {
       if (event.until <= now) return err("billing.end_not_in_future");
-      if (record.isLifetime) return ok(record);
       const paidUntil = record.paidUntil === null ? event.until : getLater(record.paidUntil, event.until);
       return ok({ ...record, paidUntil });
     }
     case "grant_lifetime":
-      return ok({ ...record, paidUntil: null, isLifetime: true });
+      return ok({ ...record, isLifetime: true });
     case "revoke":
       return ok({ ...record, paidUntil: null, isLifetime: false });
+    case "shorten": {
+      if (record.paidUntil === null) return ok(record);
+      const paidUntil = getEarlier(record.paidUntil, event.until);
+      // Paid access that would end inside the trial adds nothing: the account is back on its trial.
+      return ok({ ...record, paidUntil: paidUntil > record.trialEndsAt ? paidUntil : null });
+    }
+    case "end_lifetime":
+      return ok({ ...record, isLifetime: false });
     case "extend_trial":
       if (event.until <= now) return err("billing.end_not_in_future");
       return ok({ ...record, trialEndsAt: getLater(record.trialEndsAt, event.until) });

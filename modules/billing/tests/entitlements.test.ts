@@ -117,7 +117,7 @@ describe("changeEntitlement", () => {
     const later = new Date("2026-11-01T08:00:00Z");
     test.clock.set(later);
     expect(await changeEntitlement(test.ctx, adaId, { type: "grant_lifetime" })).toEqual({ ok: true, value: { status: "paid", endsAt: null, daysLeft: null, isEnding: false } });
-    expect(await readRow(test, adaId)).toEqual({ trial_ends_at: TRIAL_END, paid_until: null, is_lifetime: true, created_at: NOW, updated_at: later });
+    expect(await readRow(test, adaId)).toEqual({ trial_ends_at: TRIAL_END, paid_until: PAID_END, is_lifetime: true, created_at: NOW, updated_at: later });
   });
 
   it("brings a read-only account back to paid", async () => {
@@ -169,8 +169,9 @@ describe("the entitlements table", () => {
       [userId, paidUntil, isLifetime, createdAt, updatedAt],
     );
 
-  it("refuses lifetime access with an end", async () => {
-    await expect(insert(adaId, "2026-11-30T23:00:00Z", true)).rejects.toThrow(/entitlements_lifetime_without_end/);
+  it("stores lifetime access with a dated end beside it, lifetime winning", async () => {
+    await insert(adaId, "2026-11-30T23:00:00Z", true);
+    expect(await getEntitlement(test.ctx, adaId)).toEqual({ status: "paid", endsAt: null, daysLeft: null, isEnding: false });
   });
 
   it("refuses a change stamped before the row's creation", async () => {

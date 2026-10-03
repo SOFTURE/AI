@@ -4,10 +4,11 @@ import { users } from "@softure-ai/auth";
 import { err, ok, type Err, type Ok, type SoftureConfig } from "@softure-ai/core";
 import { consumeRateLimit, subjectKey } from "@softure-ai/security/server";
 import { eq } from "drizzle-orm";
-import type { BillingErrorCode, Entitlement, PaymentErrorCode, Plan } from "../contract.js";
+import type { BillingErrorCode, Entitlement, EntitlementEvent, PaymentErrorCode, PaymentGrant, Plan } from "../contract.js";
 import { INVOICE_FIELDS, INVOICE_LIMITS, type InvoiceField } from "../fields.js";
 import type { InvoiceDetails, PaymentAccount, PaymentProvider, PaymentStart } from "../payment.js";
 import { findPlan, getPlanGrant } from "../plans.js";
+import { getPaymentGrant } from "../refund.js";
 import { changeEntitlement, type BillingContext } from "./entitlements.js";
 import { getBillingOptions, getBillingRoutes } from "./options.js";
 import { assertPaymentSetup, PAYMENT_BUCKET } from "./setup.js";
@@ -34,14 +35,36 @@ export async function findAccountByEmail(ctx: Pick<BillingContext, "db">, email:
   return row ?? null;
 }
 
+/** Where the account stands after a plan grant, and what the grant added (null when it added nothing). */
+export interface AppliedPlan {
+  readonly entitlement: Entitlement;
+  readonly grant: PaymentGrant | null;
+}
+
+/**
+ * `grantPlan` that also says what the grant added, for the payment row that pays for it. The event
+ * is computed under the entitlement's lock and may be computed twice (a concurrent first change), so
+ * the grant is taken from the last computation, the one applied.
+ */
+export async function applyPlan(ctx: BillingContext, userId: string, planId: string): Promise<Ok<AppliedPlan> | Err<BillingErrorCode | "billing.plan_unknown">> {
+  const plan = findPlan(getBillingPlans(ctx.config), planId);
+  if (plan === undefined) return err("billing.plan_unknown");
+  let grant = null as PaymentGrant | null;
+  const changed = await changeEntitlement(ctx, userId, (record, now): EntitlementEvent => {
+    const event = getPlanGrant(record, plan, now, ctx.config.timezone);
+    grant = getPaymentGrant(record, event, now);
+    return event;
+  });
+  return changed.ok ? ok({ entitlement: changed.value, grant }) : changed;
+}
+
 /**
  * Grants one payment of the plan: a paid period that starts when the account's current access ends,
  * or lifetime access. Computed under the entitlement's lock, so two grants at once give two periods.
  */
 export async function grantPlan(ctx: BillingContext, userId: string, planId: string): Promise<Ok<Entitlement> | Err<BillingErrorCode | "billing.plan_unknown">> {
-  const plan = findPlan(getBillingPlans(ctx.config), planId);
-  if (plan === undefined) return err("billing.plan_unknown");
-  return changeEntitlement(ctx, userId, (record, now) => getPlanGrant(record, plan, now, ctx.config.timezone));
+  const applied = await applyPlan(ctx, userId, planId);
+  return applied.ok ? ok(applied.value.entitlement) : applied;
 }
 
 /** Invoice details as the form sent them, untrimmed. */
