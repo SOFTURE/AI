@@ -1,12 +1,12 @@
 ---
 change_id: privacy-registry
 title: "Privacy module: export and deletion contributors from modules and the app, a JSON export endpoint and self-service account deletion"
-status: in_progress
+status: archived
 roadmap_item: EN-7
 branch: claude/en-7-privacy-registry-d44kyj
 created: 2026-10-03
 updated: 2026-10-03
-archived_at: null
+archived_at: 2026-10-03
 ---
 
 ## Intent
@@ -42,3 +42,5 @@ unknowns, risk and baseline are quoted there.
 - No release, tag or publish by the agent; the owner tags releases. FIRE_TRACKER is read-only.
 
 ## Notes
+
+- 2026-10-03: implemented and reviewed in the cloud session on `claude/en-7-privacy-registry-d44kyj`; impl review approve.

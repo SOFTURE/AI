@@ -52,7 +52,7 @@ app (mail, waitlist), to agents (MCP access) and to regulators (privacy). Every 
 | **EN-4** | `auth-reset-via-mailing` | the auth password-reset sender hook is wired to `@softure-ai/mailing`, with pl + en templates | EN-1 | autonomous | ready |
 | **EN-5** | `waitlist` | `@softure-ai/waitlist`: sign-up with configurable consent scopes, welcome mail, unsubscribe, `WaitlistForm` | EN-1, EN-2, EN-8 | autonomous | ready |
 | **EN-6** | `mcp-access` | `@softure-ai/mcp-access`: hashed, scoped, expiring tokens, Bearer endpoint around the app's MCP server factory, token UI | — | autonomous | ready |
-| **EN-7** | `privacy-registry` | `@softure-ai/privacy`: modules and the app register export/delete contributors; self-service export and account deletion | — | autonomous | **in_progress** (research, since 2026-10-03; cloud session, branch `claude/en-7-privacy-registry-d44kyj` — do not take in another session) |
+| **EN-7** | `privacy-registry` | `@softure-ai/privacy`: modules and the app register export/delete contributors; self-service export and account deletion | — | autonomous | done |
 | **EN-8** | `privacy-consents-legal` | `privacy.consents` ledger (who, what, when, document version) and a `LegalDocument` shell with content from the app | EN-7 | autonomous | ready |
 | **EN-9** | `engagement-release` | mailing, waitlist, mcp-access and privacy 0.1.0 published through the release pipeline; READMEs and docs updated | EN-3, EN-4, EN-5, EN-6, EN-8 | owner | ready |
 
@@ -141,7 +141,7 @@ contributor contract every module with user data depends on) start the roadmap.
 
 ### EN-7: GDPR export and deletion registry
 - **Change ID:** `privacy-registry`
-- **Status:** in_progress (research, since 2026-10-03; cloud session, branch `claude/en-7-privacy-registry-d44kyj` — do not take in another session)
+- **Status:** done
 - **Outcome:** A contributor contract in `@softure-ai/privacy` that every module and the app use to register `export(userId)` and `delete(userId)`; a JSON export endpoint and a self-service account deletion flow (confirmation, transaction across contributors, session cleanup); the already released identity modules register their contributors.
 - **Prerequisites:** roadmap-identity done (auth on the main branch).
 - **Unknowns:** Ordering of delete contributors with foreign keys across schemas; whether some contributors may veto deletion (e.g. legal retention) and how that is shown; export size limits.
@@ -175,7 +175,7 @@ contributor contract every module with user data depends on) start the roadmap.
 
 ## Done
 
-(nothing yet)
+- **EN-7** `privacy-registry`: `@softure-ai/privacy` with a contributor registry (the enabled modules through `defineModule({ privacy })`, the app through `privacy({ contributors })`), a JSON export (`GET /api/privacy/export`, one read-only transaction, `export.maxBytes`) and self-service account deletion (current password and confirmation, per-user rate limits, one transaction in reverse dependency order, a contributor `Err` refuses and rolls back, session cookie cleared); auth and feature-switches contribute; a test scans every schema after a deletion; archived in `archive/2026-10-03-privacy-registry/`
 
 ## Decisions (auto)
 

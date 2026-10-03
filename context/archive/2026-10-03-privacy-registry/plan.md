@@ -80,15 +80,15 @@ to the config); cascading from `auth.users` only (misses tables without a FK, su
 ### Phase 1: Package, registry, export and deletion, contributors
 
 #### Automated
-- [ ] 1.1 Server tests (options, order, export, size, deletion order, refusal rollback, schema scan, self-service) pass on PGlite
-- [ ] 1.2 auth and feature-switches contributors tested; `module.json` files equal their manifests
-- [ ] 1.3 Gates green (typecheck, lint, test)
+- [x] 1.1 Server tests (options, order, export, size, deletion order, refusal rollback, schema scan, self-service) pass on PGlite — ad4a0f2
+- [x] 1.2 auth and feature-switches contributors tested; `module.json` files equal their manifests — ad4a0f2
+- [x] 1.3 Gates green (typecheck, lint, test) — ad4a0f2
 
 ### Phase 2: Next adapter, form, example app and e2e
 
 #### Automated
-- [ ] 2.1 Form and architecture tests pass; gates green (typecheck, lint, test, build)
-- [ ] 2.2 `npm run e2e` passes, including `e2e/privacy-export-delete.spec.ts`
+- [x] 2.1 Form and architecture tests pass; gates green (typecheck, lint, test, build) — f54331e
+- [x] 2.2 `npm run e2e` passes, including `e2e/privacy-export-delete.spec.ts` — f54331e
 
 #### Manual
-- [ ] 2.3 Impl review recorded in `reviews/impl-review.md`
+- [x] 2.3 Impl review recorded in `reviews/impl-review.md` — f54331e
