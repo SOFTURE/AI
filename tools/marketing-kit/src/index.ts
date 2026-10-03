@@ -1,8 +1,8 @@
 // Public API of @softure-ai/marketing-kit: the `marketing.json` contract (schema, loading, brand
 // colours), the film model a project's scene modules are typed with, the declarative scene actions,
 // and the pure building blocks of the pipeline (TTS providers, voiceover cache, timeline, composition,
-// posts, OG images). OG images also have their own entry, `@softure-ai/marketing-kit/og`, for routes
-// that must not load Playwright. The `softure-marketing` CLI
+// posts, OG images, screenshots). OG images also have their own entry, `@softure-ai/marketing-kit/og`,
+// for routes that must not load Playwright. The `softure-marketing` CLI
 // (`src/cli/main.ts`) runs the whole pipeline from `marketing.json`.
 export {
   DEFAULT_CONFIG_FILE,
@@ -135,6 +135,15 @@ export {
 export { buildPosts, postsMarkdown, type PlatformPost, type PostsInput } from "./posts/posts.js";
 export { createActionScene, getLocator, runAction, type LocatorSource } from "./record/actions.js";
 export { FPS, ScreenGuardError, type BrowserSettings, type CameraCue, type RecordingLog } from "./record/record.js";
+export {
+  getScreenshotFile,
+  takeScreenshots,
+  type ScreenshotBrowser,
+  type ScreenshotEntry,
+  type ScreenshotResult,
+  type TakeScreenshotsOptions,
+} from "./screenshot/screenshot.js";
+export { MIN_FAILING_STATUS, SCREENSHOT_GATES, findSizeFailure, findStatusFailure, type ScreenshotGate } from "./screenshot/gates.js";
 export {
   MARKETING_LOCALES,
   formatMessage,

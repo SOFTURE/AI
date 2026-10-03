@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Noise</title>
+  </head>
+  <body>
+    <h1>Count your date</h1>
+    <canvas id="noise" width="600" height="400"></canvas>
+    <script>
+      // Random pixels compress badly, so the PNG is far above the 40 kB default.
+      const canvas = document.getElementById("noise");
+      const context = canvas.getContext("2d");
+      const image = context.createImageData(canvas.width, canvas.height);
+      for (let i = 0; i < image.data.length; i += 1) image.data[i] = i % 4 === 3 ? 255 : Math.floor(Math.random() * 256);
+      context.putImageData(image, 0, 0);
+    </script>
+  </body>
+</html>

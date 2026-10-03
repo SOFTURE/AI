@@ -1,20 +1,22 @@
 import { DEFAULT_CONFIG_FILE, QUALITIES, type Quality } from "../config/schema.js";
 
 /**
- * `softure-marketing <command> <film> [flags]` (and `og [image]`): argument parsing, kept apart from
+ * `softure-marketing <command> <film> [flags]` (and `og [image]`, `shots [<id>]`): argument parsing, kept apart from
  * the commands so it is testable. A typo in a flag never passes silently: `--todya` would record the film from today
  * instead of from the given day.
  */
 
-export const COMMANDS = ["all", "voice", "record", "render", "preview", "posts", "og"] as const;
+export const COMMANDS = ["all", "voice", "record", "render", "preview", "posts", "og", "shots"] as const;
 
 export type Command = (typeof COMMANDS)[number];
 
 const KNOWN_FLAGS = ["commit", "today", "url", "quality", "config"];
+/** `shots` takes no film, so only the address and the config apply. */
+const SHOTS_FLAGS = ["url", "config"];
 const FILM_ID = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 export interface FilmOptions {
-  command: Exclude<Command, "og">;
+  command: Exclude<Command, "og" | "shots">;
   filmId: string;
   /** `voice` really pays for the voiceover only with `--commit`. */
   isCommit: boolean;
@@ -35,7 +37,17 @@ export interface OgOptions {
   configPath: string;
 }
 
-export type CliOptions = FilmOptions | OgOptions;
+/** `shots [<id>]`: every `screenshots` entry, or the one named. */
+export interface ShotsOptions {
+  command: "shots";
+  /** One `screenshots` entry; without it, every entry. */
+  shotId?: string;
+  /** Another address of the app; each entry's path resolves against it. */
+  url?: string;
+  configPath: string;
+}
+
+export type CliOptions = FilmOptions | OgOptions | ShotsOptions;
 
 export type ReadOptionsResult = { ok: true; options: CliOptions } | { ok: false; error: string };
 
@@ -49,6 +61,7 @@ export const USAGE = [
   "  preview <film>                  open the composition in the hyperframes preview",
   "  posts <film>                    post copy for the configured platforms",
   "  og [image]                      OG images (PNG) of every ogImages entry, or of the one named",
+  "  shots [<id>] [--url=...]        the screenshots entries (or one), each behind its quality gates",
 ].join("\n");
 
 function isCommand(value: string | undefined): value is Command {
@@ -81,6 +94,7 @@ export function readOptions(argv: string[]): ReadOptionsResult {
   const configPath = flags.get("config") ?? DEFAULT_CONFIG_FILE;
   if (configPath === "true" || configPath.length === 0) return { ok: false, error: `--config needs a path, e.g. --config=${DEFAULT_CONFIG_FILE}.` };
   if (command === "og") return readOgOptions(positional, flags, configPath);
+  if (command === "shots") return readShotsOptions(positional, flags, configPath);
   const filmId = positional[0];
   if (filmId === undefined) return { ok: false, error: `name the film, e.g. softure-marketing ${command} <film>.` };
   if (positional.length > 1) return { ok: false, error: `one film at a time, got ${positional.join(", ")}.` };
@@ -109,4 +123,21 @@ function readOgOptions(positional: string[], flags: Map<string, string>, configP
   const imageId = positional[0] ?? null;
   if (imageId !== null && !FILM_ID.test(imageId)) return { ok: false, error: `OG image name "${imageId}": lowercase letters, digits and hyphens only.` };
   return { ok: true, options: { command: "og", imageId, configPath } };
+}
+
+/** `localhost:3000` parses as a URL with the scheme `localhost:`; only http(s) addresses reach an app. */
+function isHttpAddress(value: string): boolean {
+  return URL.canParse(value) && ["http:", "https:"].includes(new URL(value).protocol);
+}
+
+function readShotsOptions(positional: string[], flags: Map<string, string>, configPath: string): ReadOptionsResult {
+  const unknown = [...flags.keys()].find((flag) => !SHOTS_FLAGS.includes(flag));
+  if (unknown !== undefined) return { ok: false, error: `--${unknown} does not apply to shots. Known: ${SHOTS_FLAGS.map((flag) => `--${flag}`).join(", ")}.` };
+  if (positional.length > 1) return { ok: false, error: `one screenshot at a time, got ${positional.join(", ")}; without an id, shots takes them all.` };
+  const shotId = positional[0];
+  if (shotId !== undefined && !FILM_ID.test(shotId)) return { ok: false, error: `screenshot id "${shotId}": lowercase letters, digits and hyphens only.` };
+  const url = flags.get("url");
+  if (url === "true") return { ok: false, error: "--url needs an address, e.g. --url=http://localhost:3000." };
+  if (url !== undefined && !isHttpAddress(url)) return { ok: false, error: `--url=${url}: expected an address such as http://localhost:3000.` };
+  return { ok: true, options: { command: "shots", shotId, url, configPath } };
 }

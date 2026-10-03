@@ -31,7 +31,7 @@ carried-over owner items. Inside it, the order comes from dependencies:
 | MK-3 | [`mk-declarative-actions`](../../archive/2026-10-03-mk-declarative-actions/change.md) (archived) | Declarative scene actions | MK-2 on main | dependency |
 | MK-7 | [`mk-tts-adapters`](../../archive/2026-10-03-mk-tts-adapters/change.md) (archived) | TTS provider adapters | MK-2 on main | dependency |
 | MK-6 | [`mk-formats`](../../archive/2026-10-03-mk-formats/change.md) (archived) | Render formats 1:1 and 16:9 | MK-2 on main | dependency |
-| MK-4 | [`mk-screenshots`](mk-screenshots/change.md) | Screenshots with quality gates | MK-2 on main | dependency |
+| MK-4 | [`mk-screenshots`](../../archive/2026-10-03-mk-screenshots/change.md) (archived) | Screenshots with quality gates | MK-2 on main | dependency |
 | MK-5 | [`mk-og-images`](../../archive/2026-10-03-mk-og-images/change.md) (archived) | OG images outside Next | MK-2 on main | dependency |
 | MK-8 | [`marketing-kit-release`](marketing-kit-release/change.md) | marketing-kit release | MK-3…MK-7 on main **and** the owner approves the first npm publish | dependency + owner |
 

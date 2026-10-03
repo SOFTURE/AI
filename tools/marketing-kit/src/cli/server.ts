@@ -2,7 +2,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { mkdirSync, openSync } from "node:fs";
 import { join } from "node:path";
 
-import type { MarketingConfig, VideoConfig } from "../config/config.js";
+import type { MarketingConfig } from "../config/config.js";
 import { fail } from "./failure.js";
 
 const START_TIMEOUT_SECONDS = 90;
@@ -17,11 +17,17 @@ async function isUp(url: string): Promise<boolean> {
   }
 }
 
-/** A running app, or one the CLI starts in the config folder for the recording and stops afterwards. */
-export async function ensureServer(config: MarketingConfig, video: VideoConfig, explicitUrl?: string): Promise<{ url: string; stop: () => void }> {
-  const url = explicitUrl ?? video.url;
+/** A page of the app: at its configured address, and at the address of the app the CLI starts itself. */
+export interface AppTarget {
+  url: string;
+  ownUrl: string;
+}
+
+/** A running app, or one the CLI starts in the config folder for the recording or the screenshots and stops afterwards. */
+export async function ensureServer(config: MarketingConfig, target: AppTarget, explicitUrl?: string): Promise<{ url: string; stop: () => void }> {
+  const url = explicitUrl ?? target.url;
   if (await isUp(url)) {
-    console.log(`server: recording ${url}; make sure it serves this checkout (${config.root}).`);
+    console.log(`server: using ${url}; make sure it serves this checkout (${config.root}).`);
     return { url, stop: () => {} };
   }
   if (explicitUrl !== undefined) fail(`${url} does not answer.`);
@@ -60,9 +66,9 @@ export async function ensureServer(config: MarketingConfig, video: VideoConfig, 
   process.once("SIGINT", () => process.exit(130));
   for (let i = 0; i < START_TIMEOUT_SECONDS; i += 1) {
     if (state.exited !== null) fail(`the app ${state.exited}; log: ${serverLog}.`);
-    if (await isUp(video.ownUrl)) return { url: video.ownUrl, stop };
+    if (await isUp(target.ownUrl)) return { url: target.ownUrl, stop };
     await new Promise((done) => setTimeout(done, 1000));
   }
   stop();
-  fail(`the app did not answer at ${video.ownUrl} within ${START_TIMEOUT_SECONDS} s; log: ${serverLog}.`);
+  fail(`the app did not answer at ${target.ownUrl} within ${START_TIMEOUT_SECONDS} s; log: ${serverLog}.`);
 }

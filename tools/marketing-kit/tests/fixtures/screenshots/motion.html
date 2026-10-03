@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Motion</title>
+  </head>
+  <body>
+    <p id="motion"></p>
+    <p id="scheme"></p>
+    <script>
+      const isReduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+      document.getElementById("motion").textContent = isReduced ? "Motion reduced" : "Motion allowed";
+      const isDark = matchMedia("(prefers-color-scheme: dark)").matches;
+      document.getElementById("scheme").textContent = isDark ? "Scheme dark" : "Scheme light";
+    </script>
+  </body>
+</html>

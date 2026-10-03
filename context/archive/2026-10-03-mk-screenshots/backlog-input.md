@@ -20,7 +20,7 @@ Flags and messages are in English.
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **MK-4** (roadmap `marketing-kit`, main since 2026-10-03):
+From [`roadmap.md`](../../foundation/roadmap.md), item **MK-4** (roadmap `marketing-kit`, main since 2026-10-03):
 
 > ### MK-4: Screenshots with quality gates
 > - **Change ID:** `mk-screenshots`
@@ -37,7 +37,7 @@ From [`roadmap.md`](../../../foundation/roadmap.md), item **MK-4** (roadmap `mar
 > - **Baseline:** FIRE screenshot script behaviour. After: the same gates, covered by tests against a static fixture page.
 > - **PRD refs:** FR-25.
 
-Reference material: [`docs/03-marketing-kit.md`](../../../../docs/03-marketing-kit.md) (architecture, JSON contract, licenses), PRD FR-24 and FR-25, and the source in FIRE_TRACKER `video/**`, `scripts/screenshot.mts`, `src/app/**/opengraph-image.tsx`.
+Reference material: [`docs/03-marketing-kit.md`](../../../docs/03-marketing-kit.md) (architecture, JSON contract, licenses), PRD FR-24 and FR-25, and the source in FIRE_TRACKER `video/**`, `scripts/screenshot.mts`, `src/app/**/opengraph-image.tsx`.
 
 ## Constraints
 
