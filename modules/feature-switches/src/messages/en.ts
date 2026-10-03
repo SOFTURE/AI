@@ -5,6 +5,8 @@ export const en = {
     empty: "The app declares no switches.",
     on: "On",
     off: "Off",
+    undefinedTitle: "Switches modules read that this app does not define",
+    undefinedItem: "{name} (module {module}) uses the module's own default. Define it in the app's switches to change it here.",
   },
   source: {
     env: "Set by the environment variable {envName}. Change it there.",

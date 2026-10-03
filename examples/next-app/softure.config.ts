@@ -2,7 +2,7 @@
 // so relative imports name their `.ts` files.
 import { analytics } from "@softure-ai/analytics";
 import { attributeRegistration, countRegistration } from "@softure-ai/analytics/next";
-import { auth, AUTH_RATE_LIMIT_BUCKETS } from "@softure-ai/auth";
+import { auth, AUTH_RATE_LIMIT_BUCKETS, REGISTRATION_CLOSED_SWITCH } from "@softure-ai/auth";
 import { billing, BILLING_RATE_LIMIT_BUCKETS, manual, stripe } from "@softure-ai/billing";
 import { mailingResetSender } from "@softure-ai/auth/mailing";
 import { defineSoftureConfig } from "@softure-ai/core";
@@ -78,6 +78,16 @@ const config = defineSoftureConfig({
           label: { en: en.switches.welcomeBanner.label, pl: pl.switches.welcomeBanner.label },
           description: { en: en.switches.welcomeBanner.description, pl: pl.switches.welcomeBanner.description },
           default: false,
+        },
+        // Auth reads it through feature-switches once it is defined here, so the panel closes and
+        // opens registration (e2e/registration-switch.serial.spec.ts). Fail mode open: a failed
+        // read keeps registration closed.
+        {
+          name: REGISTRATION_CLOSED_SWITCH,
+          label: { en: en.switches.registrationClosed.label, pl: pl.switches.registrationClosed.label },
+          description: { en: en.switches.registrationClosed.description, pl: pl.switches.registrationClosed.description },
+          default: false,
+          failMode: "open",
         },
       ],
     }),

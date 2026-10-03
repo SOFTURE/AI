@@ -19,6 +19,10 @@ export interface BillingPaymentData {
   readonly status: "paid" | "refunded";
   readonly paidAt: Date;
   readonly refundedAt: Date | null;
+  /** What the payment granted: `period` (from, until) or `lifetime`; null when recorded before grants were. */
+  readonly grantKind: "period" | "lifetime" | null;
+  readonly grantedFrom: Date | null;
+  readonly grantedUntil: Date | null;
 }
 
 /** What billing holds about one user, as it appears in their export. */
@@ -59,6 +63,9 @@ export async function exportBillingUserData(context: ModuleContext, userId: stri
       status: payments.status,
       paidAt: payments.paidAt,
       refundedAt: payments.refundedAt,
+      grantKind: payments.grantKind,
+      grantedFrom: payments.grantedFrom,
+      grantedUntil: payments.grantedUntil,
     })
     .from(payments)
     .where(eq(payments.userId, userId))

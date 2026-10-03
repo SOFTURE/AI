@@ -15,7 +15,7 @@ A switch-reader contract in `@softure-ai/core`: feature-switches provides it, au
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-1** (roadmap `followups`, main since 2026-10-03):
+From [`roadmap.md`](../../foundation/roadmap.md), item **FU-1** (roadmap `followups`, main since 2026-10-03):
 
 > ### FU-1: Switch-reader contract in core
 > - **Change ID:** `switch-reader-contract`
@@ -28,7 +28,7 @@ From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-1** (roadmap `fol
 > - **PRD refs:** FR-14.
 > - **Source:** `modules/auth/src/server/switches.ts`, `modules/feature-switches/README.md`
 
-Reference material: [`docs/02-module-standard.md`](../../../../docs/02-module-standard.md) (the standard).
+Reference material: [`docs/02-module-standard.md`](../../../docs/02-module-standard.md) (the standard).
 
 ## Constraints
 

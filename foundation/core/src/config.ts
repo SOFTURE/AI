@@ -129,6 +129,11 @@ function checkModules(modules: readonly AnySoftureModule[]): string[] {
     }
   });
 
+  const providers = modules.filter((module) => typeof module.switchReader === "function").map((module) => module.id);
+  if (providers.length > 1) {
+    issues.push(`modules: only one module may provide the switch reader; ${providers.join(", ")} all do`);
+  }
+
   const { remaining } = orderModules([...byId.values()]);
   if (remaining.length > 0) {
     issues.push(`modules: dependency cycle between ${remaining.map((module) => module.id).join(", ")}`);

@@ -8,6 +8,7 @@ import { formatIssues, SoftureConfigError } from "./config-error.js";
 import { mergeMessages, type Dictionaries, type MessageOverrides, type MessageTree } from "./i18n.js";
 import { moduleManifestSchema, type ModuleManifest } from "./manifest.js";
 import type { Result } from "./result.js";
+import type { SwitchReader } from "./switches.js";
 
 /** What every server function of a module receives; it never reads request scope. */
 export interface ModuleContext<TDatabase = unknown> {
@@ -62,6 +63,8 @@ export interface ModuleSpec<TRoutes extends RouteMap, TMessages extends MessageT
   readonly migrations?: ModuleMigrations;
   readonly privacy?: PrivacyContributor;
   readonly health?: HealthCheck;
+  /** Makes this module the app's switch provider (`readSwitch`); at most one enabled module may. */
+  readonly switchReader?: SwitchReader;
 }
 
 type OptionsInput<TSchema> = TSchema extends z.ZodType ? z.input<TSchema> : object;
@@ -85,6 +88,7 @@ export interface SoftureModule<TRoutes extends RouteMap = RouteMap, TMessages ex
   readonly migrations: ModuleMigrations | null;
   readonly privacy: PrivacyContributor | null;
   readonly health: HealthCheck | null;
+  readonly switchReader: SwitchReader | null;
 }
 
 export type AnySoftureModule = SoftureModule<RouteMap, MessageTree, unknown>;
@@ -106,7 +110,8 @@ export function defineModule<TRoutes extends RouteMap, TMessages extends Message
   const issues = [
     ...checkMigrations(manifest, spec.migrations),
     ...checkPrivacy(manifest, spec.privacy),
-    ...checkHealth(spec.health),
+    ...checkFunction("health", spec.health),
+    ...checkFunction("switchReader", spec.switchReader),
   ];
   if (issues.length > 0) {
     throw new SoftureConfigError(`module "${manifest.id}"`, issues);
@@ -115,6 +120,7 @@ export function defineModule<TRoutes extends RouteMap, TMessages extends Message
   const migrations = spec.migrations === undefined ? null : Object.freeze({ dir: new URL(spec.migrations.dir.href) });
   const privacy = spec.privacy === undefined ? null : Object.freeze({ ...spec.privacy });
   const health = spec.health ?? null;
+  const switchReader = spec.switchReader ?? null;
 
   const factory = (input: ModuleInput<TRoutes, TMessages, TSchema> = {} as ModuleInput<TRoutes, TMessages, TSchema>) => {
     const { routes: routeOverrides, messages: messageOverrides, ...optionsInput } = input;
@@ -135,6 +141,7 @@ export function defineModule<TRoutes extends RouteMap, TMessages extends Message
       migrations,
       privacy,
       health,
+      switchReader,
     };
     return Object.freeze(module);
   };
@@ -156,8 +163,8 @@ function parseManifest(input: ModuleManifest): ModuleManifest {
   return deepFreeze(structuredClone(result.data));
 }
 
-function checkHealth(health: unknown): string[] {
-  return health === undefined || typeof health === "function" ? [] : ["health: must be a function"];
+function checkFunction(key: string, value: unknown): string[] {
+  return value === undefined || typeof value === "function" ? [] : [`${key}: must be a function`];
 }
 
 function checkMigrations(manifest: ModuleManifest, migrations: ModuleMigrations | undefined): string[] {

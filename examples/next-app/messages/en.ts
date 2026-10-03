@@ -81,6 +81,10 @@ export const en = {
       label: "Welcome banner",
       description: "Shows a welcome line on the home page.",
     },
+    registrationClosed: {
+      label: "Registration closed",
+      description: "New accounts cannot be created; the register page shows a notice.",
+    },
   },
   mcp: {
     whoami: "Tells the assistant which account the token belongs to.",

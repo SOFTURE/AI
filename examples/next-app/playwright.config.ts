@@ -21,7 +21,12 @@ export default defineConfig({
     screenshot: "only-on-failure",
     launchOptions: CHROMIUM_PATH ? { executablePath: CHROMIUM_PATH } : {},
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  // `*.serial.spec.ts` files change state every other spec relies on (closing registration), so they
+  // run alone, after the parallel project has finished.
+  projects: [
+    { name: "chromium", use: { ...devices["Desktop Chrome"] }, testIgnore: /\.serial\.spec\.ts$/ },
+    { name: "serial", use: { ...devices["Desktop Chrome"] }, testMatch: /\.serial\.spec\.ts$/, dependencies: ["chromium"] },
+  ],
   webServer: {
     command: `npm run start -- --port ${PORT}`,
     url: `http://localhost:${PORT}`,

@@ -1,8 +1,31 @@
-import { REGISTRATION_CLOSED_ENV, users } from "@softure-ai/auth";
-import { findSessionUser, registerUser, verifyPassword, type RegisterInput } from "@softure-ai/auth/server";
+import { REGISTRATION_CLOSED_ENV, REGISTRATION_CLOSED_SWITCH, users } from "@softure-ai/auth";
+import { defineModule, type SwitchReader, type SwitchReading } from "@softure-ai/core";
+import { findSessionUser, isRegistrationClosed, registerUser, verifyPassword, type RegisterInput } from "@softure-ai/auth/server";
 import { createHash } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CLIENT, countRows, createTestAuth, DAY_MS, listAttempts, NOW, PASSWORD, type ConfigOptions, type TestAuth } from "./support.js";
+
+/** A switch provider that knows only the switches in `values`, as feature-switches does for the app's definitions. */
+function switchProvider(values: Readonly<Record<string, boolean>>, calls: string[] = []) {
+  const switchReader: SwitchReader = (_context, name) => {
+    calls.push(name);
+    const isEnabled = values[name];
+    return Promise.resolve<SwitchReading>(isEnabled === undefined ? { kind: "undeclared" } : { kind: "value", isEnabled });
+  };
+  const manifest = {
+    id: "switch-provider",
+    version: "0.0.0",
+    dependsOn: {},
+    dbSchema: null,
+    tables: [],
+    env: [],
+    switches: [],
+    routes: {},
+    mount: [],
+    privacy: { exports: false, deletes: false },
+  };
+  return defineModule({ manifest, messages: { en: {}, pl: {} }, switchReader })();
+}
 
 const INPUT: RegisterInput = { email: "  Ada@Example.com ", password: PASSWORD, hasConsented: true, clientKey: CLIENT };
 
@@ -127,6 +150,27 @@ describe("registerUser", () => {
       vi.stubEnv(REGISTRATION_CLOSED_ENV, value);
       const { ctx } = await setUp({ auth: { registrationClosed: true } });
       expect((await registerUser(ctx, INPUT)).ok).toBe(true);
+    });
+
+    it("follows the app's switch provider over the declared default and the env override", async () => {
+      vi.stubEnv(REGISTRATION_CLOSED_ENV, "true");
+      const calls: string[] = [];
+      const { ctx, database } = await setUp({ auth: { registrationClosed: true }, modules: [switchProvider({ [REGISTRATION_CLOSED_SWITCH]: false }, calls)] });
+      expect(await isRegistrationClosed(ctx)).toBe(false);
+      expect((await registerUser(ctx, INPUT)).ok).toBe(true);
+      expect(await countRows(database, "users")).toBe(1);
+      expect(calls).toEqual([REGISTRATION_CLOSED_SWITCH, REGISTRATION_CLOSED_SWITCH]);
+    });
+
+    it("refuses when the app's switch provider has it on", async () => {
+      const { ctx, database } = await setUp({ modules: [switchProvider({ [REGISTRATION_CLOSED_SWITCH]: true })] });
+      expect(await registerUser(ctx, INPUT)).toEqual({ ok: false, error: "auth.registration_closed" });
+      expect(await listAttempts(database)).toEqual([]);
+    });
+
+    it("falls back to the declared default when the provider does not define the switch", async () => {
+      const { ctx } = await setUp({ auth: { registrationClosed: true }, modules: [switchProvider({})] });
+      expect(await isRegistrationClosed(ctx)).toBe(true);
     });
 
     it("fails closed on an env value it cannot read and logs the variable name only, once", async () => {

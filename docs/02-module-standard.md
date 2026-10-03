@@ -179,6 +179,11 @@ export default defineSoftureConfig({
   (`module.json → switches`); the app defines each switch it reads (default, fail mode, label) in
   `featureSwitches({ switches })`, and every defined switch appears in the admin panel. Decided in
   identity ID-6; details in [`modules/feature-switches/README.md`](../modules/feature-switches/README.md).
+- **Reading a switch from a module** that feature-switches depends on (auth) goes through
+  `readSwitch(ctx, name)` of `@softure-ai/core`: the app's switch provider (feature-switches, which
+  passes `switchReader` to `defineModule`) answers `{ kind: "value", isEnabled }` for a defined
+  switch, else `{ kind: "undeclared" }`, and the module falls back to its own default. At most one
+  enabled module provides the reader (followups FU-1).
 - Configuration is validated (zod) at startup, and `softure doctor` checks environment variables,
   dependencies, migrations and route mounting.
 
