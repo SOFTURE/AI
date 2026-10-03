@@ -16,7 +16,7 @@ archived_at: null
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-17** (roadmap `followups`, main since 2026-10-03):
+From [`roadmap.md`](../../foundation/roadmap.md), item **FU-17** (roadmap `followups`, main since 2026-10-03):
 
 > ### FU-17: OG images refuse copy the brand fonts cannot draw
 > - **Change ID:** `marketing-kit-og-glyphs`
