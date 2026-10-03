@@ -1,5 +1,5 @@
 // The waitlist options of the running app, read from the configuration in the module context.
-import { getModule, type AnySoftureModule, type Locale, type SoftureConfig } from "@softure-ai/core";
+import { getModule, isLocale, type AnySoftureModule, type Locale, type SoftureConfig } from "@softure-ai/core";
 import type { WaitlistMessages } from "../messages/index.js";
 import type { WaitlistOptions } from "../options.js";
 
@@ -23,6 +23,23 @@ export function getWaitlistOptions(config: SoftureConfig): WaitlistOptions {
 export function getWaitlistMessages(config: SoftureConfig): WaitlistMessages {
   // The module factory merged the dictionaries; their shape is the module's own.
   return getWaitlistModule(config).messages[config.locale] as WaitlistMessages;
+}
+
+/** The module's copy in a stored locale (a sign-up's), falling back to the app's locale. */
+export function getWaitlistMessagesIn(config: SoftureConfig, locale: string): WaitlistMessages {
+  // The module factory merged the dictionaries; their shape is the module's own.
+  return getWaitlistModule(config).messages[isLocale(locale) ? locale : config.locale] as WaitlistMessages;
+}
+
+/** The path of the confirmation page (overridable in `waitlist({ routes })`). */
+export interface WaitlistRoutes {
+  readonly confirm: string;
+}
+
+/** The module's routes, with the app's overrides. */
+export function getWaitlistRoutes(config: SoftureConfig): WaitlistRoutes {
+  // The manifest declares the route; the factory only replaces its path.
+  return getWaitlistModule(config).routes as unknown as WaitlistRoutes;
 }
 
 /** A label from the config in `locale`, falling back to `en` (which the options require). */

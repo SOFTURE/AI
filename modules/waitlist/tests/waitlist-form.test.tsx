@@ -56,6 +56,13 @@ describe("WaitlistForm", () => {
     expect(screen.queryByRole("button", { name: en.form.submit })).toBeNull();
   });
 
+  it("tells the person to confirm through the mail with double opt-in", async () => {
+    renderForm(answering({ status: "confirmation_sent" }));
+    await submit();
+    expect(screen.getByRole("status").textContent).toBe(en.form.confirmationSent);
+    expect(screen.queryByRole("button", { name: en.form.submit })).toBeNull();
+  });
+
   it("shows an invalid address under the field and keeps what was typed and checked", async () => {
     renderForm(answering({ status: "error", error: "waitlist.email_invalid", field: "email", email: "ada.example.com", scopes: ["newsletter"] }));
     await submit();

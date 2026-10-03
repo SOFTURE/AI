@@ -11,7 +11,12 @@ constraints into the app's configuration and the form out of the domain componen
 ## 1. What it provides
 
 - The table `waitlist.signups`: the address (trimmed, lowercased, unique), the granted scopes in
-  the config's order, the placement of the first sign-up, the locale, two timestamps.
+  the config's order, the placement of the first sign-up, the locale, its timestamps and, with
+  double opt-in, the request that waits for its confirmation link.
+- **Double opt-in as an option** (`doubleOptIn`, off by default). A sign-up then waits for the link
+  in a confirmation mail: until it is used, nothing is recorded, no opt-out is lifted, no list mail
+  goes out and `listSignups` leaves the address out. The link applies the request and sends the
+  welcome mail.
 - **Consent scopes from configuration.** The app declares them in `waitlist({ scopes })`, with
   labels per locale, which ones are required and the legal document each refers to. The table
   checks only their shape; nothing app-specific is hard-coded in a migration.
@@ -73,7 +78,9 @@ waitlist({
 | --- | --- | --- | --- |
 | `scopes` | `{ id, required?, document?, label: { en, pl? } }[]`, 1 to 16 | required | The checkboxes, in order. `id` is kebab-case (at most 64 characters) and becomes the consent purpose in `privacy.consents`. `required` scopes must be checked; without any required scope, at least one must be. `document` names a document of `privacy({ documents })`, whose version is recorded with the consent. |
 | `placements` | kebab-case `string[]` | `["default"]` | Where the app embeds the form. Each sign-up stores the placement of its first form. |
-| `welcomeMail` | `boolean` | `true` | Sends the welcome mail. Off, the app sends its own (or none). |
+| `welcomeMail` | `boolean` | `true` | Sends the welcome mail (with double opt-in, after the confirmation). Off, the app sends its own (or none). |
+| `doubleOptIn` | `boolean` or `{ expiresInHours? }` | `false` | A sign-up counts only after the link in a confirmation mail is used. `true` keeps the link working for 168 hours (7 days); `expiresInHours` sets 1 to 720. Section 10. |
+| `routes` | `{ confirm? }` | `{ confirm: "/waitlist/confirm" }` | The path of the confirmation page, when the app mounts it elsewhere. |
 | `messages` | partial `en` / `pl` | — | Copy overrides, the welcome mail's subject and text included. |
 
 `WAITLIST_RATE_LIMIT_BUCKETS` is `{ waitlist: { limit: 10, windowMinutes: 15 }, "waitlist-email": { limit: 3, windowMinutes: 60 } }`.
@@ -82,12 +89,12 @@ address from being signed up over and over. The first sign-up checks once that b
 configured and that every scope's document is declared, and throws naming what is missing.
 
 The welcome mail is list mail, so mailing needs `MAILING_UNSUBSCRIBE_SECRET` (mailing README §6);
-without it the mail is refused and the sign-up still succeeds.
+without it the mail is refused and the sign-up still succeeds. The confirmation mail is
+transactional and needs no secret.
 
 ## 4. Mounting
 
-Nothing to mount: the form posts to a server action that ships in the package. Embed it in any
-server component:
+The form posts to a server action that ships in the package. Embed it in any server component:
 
 ```tsx
 import { Waitlist } from "@softure-ai/waitlist/next";
@@ -97,22 +104,42 @@ import { Waitlist } from "@softure-ai/waitlist/next";
 <Waitlist placement="footer" consentLabels={{ launch: <>Tell me when it opens (<a href="/legal/privacy">privacy policy</a>).</> }} />
 ```
 
+With double opt-in, mount the confirmation page (the link in the mail opens it):
+
+```tsx
+// app/waitlist/confirm/page.tsx
+export { ConfirmSignupPage as default } from "@softure-ai/waitlist/next";
+```
+
+Opening the page changes nothing (mail scanners open links): it shows a button that posts
+`confirmSignupAction`, which confirms and redirects back with `?status=done` (or `invalid`,
+`expired`, `limited`, `failed`; the last two keep the link for a retry).
+
 An app that composes its own form passes `joinWaitlistAction` (`/next`) to `WaitlistForm` (`/ui`)
 with the scopes it prepared (`{ id, label, required }`), the placement and the messages.
 
 Server functions, for scripts and other hosts (`@softure-ai/waitlist/server`):
 `joinWaitlist(ctx, { email, scopes, placement, clientKey })` returns
-`Ok<{ signup, isNew, recordedScopes }>` or `Err<waitlist.email_invalid | waitlist.consent_required | waitlist.form_invalid | security.rate_limited>`;
+`Ok<{ status: "joined", signup, isNew, recordedScopes }>` (applied at once),
+`Ok<{ status: "confirmation_required", signup, isNew, token, expiresAt }>` (double opt-in: pass
+`signup` and `token` to `deliverConfirmationMail(ctx, signup, token)`, never to the client) or
+`Err<waitlist.email_invalid | waitlist.consent_required | waitlist.form_invalid | security.rate_limited>`;
+`confirmSignup(ctx, { token, clientKey })` returns `Ok<{ signup, recordedScopes, isFirstConfirmation }>`
+or `Err<waitlist.confirmation_invalid | waitlist.confirmation_expired | security.rate_limited>`;
+`pruneUnconfirmedSignups(ctx)` deletes sign-ups whose link expired unused (for a scheduled job;
+returns the count); `getConfirmationLink(config, token)` builds the link;
 `withdrawWaitlistConsents(event, ctx)` is mailing's `onUnsubscribed` handler (section 10);
 `deliverWelcomeMail(ctx, signup)` returns mailing's `DeliveryOutcome` or `{ status: "skipped" }`;
-`getSignup(ctx, email)`; `listSignups(ctx, { scope?, placement? })`, oldest first. A launch mail is
+`getSignup(ctx, email)` (confirmed or not, see `confirmedAt`); `listSignups(ctx, { scope?, placement? })`,
+the confirmed sign-ups oldest first. A launch mail is
 a loop over `listSignups(ctx, { scope: "launch" })` with mailing's `deliverOnce` (or a mailing
 campaign): unsubscribed addresses are refused there.
 
 ## 5. Migrations and tables
 
 `migrations/0001_create_signups.sql` creates `waitlist.signups` and the function
-`waitlist.is_scope_list(text[])` its check uses:
+`waitlist.is_scope_list(text[])` its check uses; `0002_add_confirmation.sql` adds the double opt-in
+columns, with checks that an unconfirmed row has a pending request and a pending request has a link:
 
 | Column | Meaning |
 | --- | --- |
@@ -121,18 +148,24 @@ campaign): unsubscribed addresses are refused there.
 | `scopes` | `text[]`: 1 to 16 distinct kebab-case ids of at most 64 characters, in the config's order. GIN index for lists by scope. |
 | `placement` | Kebab-case, the first sign-up's form. |
 | `locale` | The app's locale at the first sign-up: the welcome mail's language. |
-| `created_at`, `updated_at` | The first sign-up and the last widening. |
+| `created_at`, `updated_at` | The first sign-up and the last change. |
+| `confirmed_at` | When the sign-up first counted (at once without double opt-in); NULL while its first request waits for the link. Rows from before migration 2 are confirmed at `created_at`. |
+| `pending_scopes` | The scopes of a request that waits for its link (a first sign-up, or more scopes later), or NULL. |
+| `confirmation_token_hash`, `confirmation_expires_at` | sha256 (hex, unique) of the latest link's token and its expiry; set together. A used link keeps its hash until the next request replaces it, so a second click answers "confirmed". |
 
 Scope ids are validated text, not an enum or a CHECK list: they are the app's, and a list in the
 database would need a module migration for every app's change of copy.
 
 ## 6. Environment variables
 
-None of its own. The welcome mail needs mailing's `MAILING_UNSUBSCRIBE_SECRET`.
+None of its own. The welcome mail needs mailing's `MAILING_UNSUBSCRIBE_SECRET`; the confirmation
+link is a random token stored as a hash, so double opt-in needs no secret.
 
 ## 7. Switches
 
-None. `welcomeMail: false` turns the mail off.
+None. `welcomeMail: false` turns the mail off; `doubleOptIn` is an option, not a switch, because
+turning it off while requests wait would leave them unconfirmed (a later sign-up of the same
+address applies them).
 
 ## 8. Appearance
 
@@ -142,15 +175,17 @@ passes both through.
 
 ## 9. Copy
 
-`waitlistMessages` (`en`, `pl`): `form` (field label, button, pending text, the confirmation),
-`welcomeMail` (subject and text; mailing appends the unsubscribe footer) and `errors`. Override
+`waitlistMessages` (`en`, `pl`): `form` (field label, button, pending text, the confirmation and,
+with double opt-in, `confirmationSent`), `welcomeMail` (subject and text; mailing appends the
+unsubscribe footer), `confirmationMail` (subject and text; the link follows the text), `confirm`
+(the confirmation page: its states and button) and `errors`. Override
 them with `waitlist({ messages: { pl: { welcomeMail: { subject: "…" } } } })`. Scope labels are
 the app's, in `scopes[].label` or `consentLabels`.
 
 ## 10. Hooks
 
-None of its own. `joinWaitlist` returns `isNew` and `recordedScopes` for an app that reacts to a
-sign-up in its own server code.
+None of its own. `joinWaitlist` returns `isNew` and `recordedScopes` (and `confirmSignup` returns
+`isFirstConfirmation`) for an app that reacts to a sign-up in its own server code.
 
 The waitlist plugs into mailing's `onUnsubscribed` with `withdrawWaitlistConsents`. Mailing's
 opt-out covers every list mail and its link names only the recipient key, so the handler withdraws
@@ -160,28 +195,52 @@ consents for an address that unsubscribed, and a later sign-up's lift erases the
 the opt-out. If the app has other mail consents, compose: `onUnsubscribed: async (event, ctx) => {
 await withdrawWaitlistConsents(event, ctx); await withdrawMine(event, ctx); }`.
 
-A sign-up is an explicit consent: `joinWaitlist` calls mailing's `liftSuppression` in its
+A sign-up is an explicit consent: applying it calls mailing's `liftSuppression` in its
 transaction, which removes an opt-out the person made themselves (never an operator's). When it
 removed one, the sign-up's scopes become the ones checked now instead of the union, because the
-opt-out withdrew all of them.
+opt-out withdrew all of them. Without double opt-in this happens in `joinWaitlist`; with it, only
+in `confirmSignup`, so typing someone's address cannot undo their opt-out.
+
+### Double opt-in
+
+With `doubleOptIn` on, `joinWaitlist` stores the request on the row (`pending_scopes`) with a new
+single-use link that replaces any earlier one, and the join action mails it as transactional mail
+(it must reach an address that opted out and signs up again). Nothing else happens until the link
+is used: no consent row, no lift, no welcome mail, and `listSignups` leaves a sign-up that never
+counted out. A repeat request on an unconfirmed sign-up replaces its scopes; on a confirmed one it
+waits beside the granted scopes, which stay until its link is used. `confirmSignup` applies the
+request as above, records the consents (with the document version in force at confirmation), sets
+`confirmed_at` the first time, and the confirm action sends the welcome mail. Consents are recorded
+only at confirmation: the ledger is insert-only, and a row written before would claim a consent
+nobody proved. Run `pruneUnconfirmedSignups(ctx)` from a scheduled job to delete sign-ups whose link
+expired unused; until then they count nowhere, and a new sign-up of the address reuses the row.
 
 ## 11. GDPR
 
 - The waitlist contributes to `@softure-ai/privacy`: the export of an account holds the sign-up of
-  its email address (scopes, placement, dates), and deleting the account deletes that sign-up.
+  its email address (scopes, placement, dates, `confirmedAt`, a pending request's scopes), and
+  deleting the account deletes that sign-up.
   Privacy's own part covers the consents the sign-up recorded.
 - Consents are recorded per scope with the document version in force, so the app can show what a
   person agreed to and when (`listConsents` of `@softure-ai/privacy/server`, subject `{ email }`).
+  With double opt-in that is the version in force when the link is used; a document changed
+  between the form and the link (at most the link's lifetime) is recorded in its newer version.
+- With double opt-in, an address that never confirms is deleted by `pruneUnconfirmedSignups` once
+  its link expires.
 - A person without an account who asks for erasure: delete their row with
   `DELETE FROM waitlist.signups WHERE email = lower(btrim($1))` and their consents in
   `privacy.consents` by `email_key` (an operator task; there is no self-service page without an account).
 
 ## 12. Limitations
 
-- No double opt-in: a sign-up counts at once. A confirmation step can come later as an option (a
-  `confirmed_at` column and a link in the welcome mail).
-- Without double opt-in, anyone who types an address can lift that address's opt-out by signing it
-  up (bounded by the `waitlist-email` bucket). The lift moves to the confirmation with double opt-in.
+- Double opt-in is off by default: without it a sign-up counts at once, so a typo or a third
+  party's address joins the list, and anyone who types an address can lift that address's opt-out
+  by signing it up (bounded by the `waitlist-email` bucket).
+- With double opt-in, anyone can make the module send a confirmation mail to any address, also one
+  that opted out (it is transactional): bounded by the `waitlist-email` bucket, 3 per hour per
+  address. The mail carries only the link and says to ignore it.
+- Expired unconfirmed sign-ups stay until the app runs `pruneUnconfirmedSignups`; the module has
+  no scheduler of its own.
 - The placement is stored per sign-up; handing placement counts to `@softure-ai/analytics` belongs
   to the analytics roadmap.
 - The welcome mail's copy is text only; an HTML version needs an option for the app's template.

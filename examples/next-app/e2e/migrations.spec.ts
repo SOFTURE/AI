@@ -21,5 +21,6 @@ test("the page lists the ledger and the module migrations applied by softure mig
     "security 1 create_rate_limits (applied)",
     "softure 1 ledger (applied)",
     "waitlist 1 create_signups (applied)",
+    "waitlist 2 add_confirmation (applied)",
   ]);
 });
