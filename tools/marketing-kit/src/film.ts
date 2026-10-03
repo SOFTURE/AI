@@ -1,15 +1,13 @@
 import type { Locator, Page } from "playwright";
 
+import type { VideoFormat, Viewport } from "./compose/timeline.js";
+
 /**
- * Film = script (data) + scene (code), one module per film in the project's films folder.
+ * Film = script (data from `marketing.json`) + scene (code, a project's TS module).
  *
  * The scene is code, not JSON, because it is made of Playwright locators, the order of actions and
- * waiting for a word of the voiceover; types catch a typo in a beat name that JSON would not.
+ * waiting for a word of the voiceover; declarative actions are roadmap item MK-3.
  */
-
-export const PLATFORMS = ["instagram", "facebook", "tiktok"] as const;
-
-export type Platform = (typeof PLATFORMS)[number];
 
 /** One sentence of the voiceover and the screen time that goes with it. */
 export interface Beat {
@@ -27,6 +25,8 @@ export interface Persona {
 export interface VoiceSettings {
   voiceId: string;
   modelId: string;
+  /** ISO 639 code the voice speaks; part of the voiceover cache key. */
+  language: string;
   /**
    * Voiceover speed-up applied at build time (`ffmpeg atempo`), not in the API, so the paid
    * voiceover cache stays valid when the tempo changes.
@@ -34,16 +34,18 @@ export interface VoiceSettings {
   tempo: number;
 }
 
+/** The recorded phone. */
+export interface Device {
+  viewport: Viewport;
+  /** Device pixels per CSS pixel. */
+  scale: number;
+  isMobile: boolean;
+}
+
 export interface EndCard {
   headline: string;
   url: string;
   note: string;
-}
-
-export interface PostCopy {
-  /** Text shared by the three platforms; `posts.ts` adds the link and the hashtags. */
-  caption: string;
-  hashtags: string[];
 }
 
 /**
@@ -57,9 +59,14 @@ export interface HookShot {
   word?: string;
 }
 
-export interface Film {
+/** A film's data, validated by the `marketing.json` schema. */
+export interface FilmScript {
   id: string;
   title: string;
+  /** The recorded page, e.g. `/calculator`. */
+  path: string;
+  format: VideoFormat;
+  device: Device;
   persona: Persona;
   voice: VoiceSettings;
   /**
@@ -73,10 +80,14 @@ export interface Film {
    * stops and the render never starts.
    */
   screenGuard: string[];
-  channels: Record<Platform, string>;
   endCard: EndCard;
-  post: PostCopy;
-  scene: (director: Director) => Promise<void>;
+}
+
+/** What happens on screen, sentence by sentence; a project's scene module exports it as `scene`. */
+export type Scene = (director: Director) => Promise<void>;
+
+export interface Film extends FilmScript {
+  scene: Scene;
 }
 
 /** The scene's access to the page and to the actions recorded frame by frame. */
@@ -111,57 +122,6 @@ export interface Director {
 export const CUES = ["sparkle", "persona-out"] as const;
 
 export type CueName = (typeof CUES)[number];
-
-/** Longest channel code; long enough for `fb-some-group`, too short for a URL or a sentence. */
-const CHANNEL_CODE_MAX_LENGTH = 20;
-const CHANNEL_CODE_SHAPE = /^[a-z0-9-]+$/;
-
-/**
- * Whether a channel code survives the app's channel tag reader unchanged (FIRE's `readChannelTag`
- * rule: lowercase letters, digits and hyphens, at most 20 characters). Any other code would make
- * visits from the film uncountable.
- */
-export function isChannelCode(code: string): boolean {
-  return code.length > 0 && code.length <= CHANNEL_CODE_MAX_LENGTH && CHANNEL_CODE_SHAPE.test(code);
-}
-
-export function validateFilm(film: Film): void {
-  const problems: string[] = [];
-  const ids = film.beats.map((beat) => beat.id);
-  if (film.beats.length < 3) {
-    problems.push("a film needs at least three sentences: opening, scene, end card");
-  }
-  const duplicate = ids.find((id, index) => ids.indexOf(id) !== index);
-  if (duplicate !== undefined) problems.push(`sentence "${duplicate}" appears twice`);
-  if (film.beats.some((beat) => beat.text.trim().length === 0)) {
-    problems.push("empty voiceover sentence");
-  }
-  if (film.screenGuard.length === 0 || film.screenGuard.some((phrase) => phrase.trim() === "")) {
-    problems.push("the screen guard needs non-empty phrases");
-  }
-  if (!(film.voice.tempo >= 0.8 && film.voice.tempo <= 1.3)) {
-    problems.push(`voiceover tempo ${film.voice.tempo} outside 0.8-1.3`);
-  }
-  for (const platform of PLATFORMS) {
-    const code = film.channels[platform];
-    if (!isChannelCode(code)) {
-      problems.push(`channel code for ${platform} "${code}" is not lowercase letters, digits and hyphens (at most ${CHANNEL_CODE_MAX_LENGTH})`);
-    }
-  }
-  if (film.hook.shots.length === 0) problems.push("the opening needs at least one shot");
-  const badId = ids.find((id) => !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(id));
-  if (badId !== undefined) problems.push(`sentence id "${badId}": lowercase letters, digits and hyphens only`);
-  const hookWords = (film.beats[0]?.text ?? "").split(/\s+/).map((word) => word.replace(/[.,?!:;]/g, ""));
-  for (const shot of film.hook.shots) {
-    if (shot.word !== undefined && !hookWords.includes(shot.word)) {
-      problems.push(`opening shot "${shot.mark}" waits for the word "${shot.word}", which is not in the first sentence`);
-    }
-  }
-
-  if (problems.length > 0) {
-    throw new Error(`Film ${film.id}: ${problems.join("; ")}.`);
-  }
-}
 
 /** Sentences recorded by the scene: all but the opening. */
 export function sceneBeats(film: Film): Beat[] {

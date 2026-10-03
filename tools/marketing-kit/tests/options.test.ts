@@ -12,15 +12,15 @@ describe("readOptions", () => {
         isCommit: false,
         today: undefined,
         url: undefined,
-        quality: "standard",
-        configPath: "marketing.config.json",
+        quality: undefined,
+        configPath: "marketing.json",
       },
     });
   });
 
   it("reads every flag", () => {
-    const result = readOptions(["record", "a", "--today=2026-09-29", "--url=http://localhost:4000/x", "--config=video/marketing.config.json"]);
-    expect(result.ok && result.options).toMatchObject({ today: "2026-09-29", url: "http://localhost:4000/x", configPath: "video/marketing.config.json" });
+    const result = readOptions(["record", "a", "--today=2026-09-29", "--url=http://localhost:4000/x", "--config=video/marketing.json"]);
+    expect(result.ok && result.options).toMatchObject({ today: "2026-09-29", url: "http://localhost:4000/x", configPath: "video/marketing.json" });
   });
 
   it("accepts the posts command", () => {

@@ -1,17 +1,9 @@
+import type { BrandColors } from "../config/colors.js";
+import type { SfxEvent } from "../config/schema.js";
 import type { Film } from "../film.js";
-import { formatMessage, type MarketingLocale, type MarketingMessages } from "../messages/index.js";
+import { formatMessage, type MarketingMessages } from "../messages/index.js";
 import type { RecordingLog } from "../record/record.js";
-import type { SiteTokens } from "./site-tokens.js";
-import {
-  FRAME,
-  SCREEN,
-  SCREEN_HEIGHT,
-  SCREEN_SCALE,
-  cameraPose,
-  captionChunks,
-  widePose,
-  type CameraPose,
-} from "./timeline.js";
+import { cameraPose, captionChunks, widePose, type CameraPose, type Geometry } from "./timeline.js";
 import type { BeatVoice } from "../voice/voiceover.js";
 
 /**
@@ -33,8 +25,6 @@ const REWIND = 0.8;
 const END_TAIL = 1.6;
 /** The end card enters this long after the start of the last sentence. */
 const END_CARD_DELAY = 0.9;
-/** Green of the spoken word in a caption: darker than `--accessible`, because it sits on a light pill. */
-const CAPTION_HIGHLIGHT = "#059669";
 
 export interface ComposeAssets {
   /** Screen recording (mp4 from frames), the rewind clip, the opening frame, the last frame, the tempo-shifted voiceover. */
@@ -43,18 +33,41 @@ export interface ComposeAssets {
   hookStill: string;
   lastFrame: string;
   voiceover: string;
+  /** The brand's logo (SVG), or null for the name alone. */
+  logo: string | null;
+  /** Sound effects by event; a missing one is silent. */
+  sfx: Partial<Record<SfxEvent, string>>;
+}
+
+/** One `@font-face` of a brand font, its file already next to the composition. */
+export interface FontFace {
+  src: string;
+  /** A weight or a range, as CSS writes it (`400`, `100 900`). */
+  weight: string;
+  style: "normal" | "italic";
+  unicodeRange: string | null;
+}
+
+export interface ComposeFont {
+  /** Validated by the config schema: letters, digits, spaces, `-` and `_`. */
+  family: string;
+  /** A generic family: `serif`, `sans-serif`, `monospace` or `system-ui`. */
+  fallback: string;
+  faces: FontFace[];
 }
 
 export interface ComposeInput {
   film: Film;
   log: RecordingLog;
   voices: BeatVoice[];
-  tokens: SiteTokens;
+  colors: BrandColors;
+  geometry: Geometry;
+  fonts: { heading: ComposeFont | null; body: ComposeFont | null };
   assets: ComposeAssets;
   /** The brand name on the end card. */
   brandName: string;
-  /** The composition's language and its copy (the persona card). */
-  locale: MarketingLocale;
+  /** The composition's language (BCP 47) and its copy (the persona card). */
+  locale: string;
   messages: MarketingMessages;
 }
 
@@ -115,6 +128,27 @@ function escapeHtml(text: string): string {
   return text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 }
 
+const FONT_FORMATS: Record<string, string> = { woff2: "woff2", woff: "woff", ttf: "truetype", otf: "opentype" };
+
+function getFontFormat(src: string): string {
+  const extension = src.split(".").at(-1)?.toLowerCase() ?? "";
+  const format = FONT_FORMATS[extension];
+  if (format === undefined) throw new Error(`Font ${src}: expected a .woff2, .woff, .ttf or .otf file.`);
+  return format;
+}
+
+function fontFaces(font: ComposeFont | null): string[] {
+  if (font === null) return [];
+  return font.faces.map((face) => {
+    const range = face.unicodeRange === null ? "" : `;unicode-range:${face.unicodeRange}`;
+    return `@font-face{font-family:"${font.family}";src:url("${escapeHtml(face.src)}") format("${getFontFormat(face.src)}");font-weight:${face.weight};font-style:${face.style}${range}}`;
+  });
+}
+
+function fontStack(font: ComposeFont | null, fallback: string): string {
+  return font === null ? fallback : `"${font.family}",${font.fallback}`;
+}
+
 /** The film's timeline derived from the recording and the voiceover: one place for every time. */
 export function filmTimes(film: Film, log: RecordingLog, voices: BeatVoice[]) {
   const voice = new Map(voices.map((v) => [v.id, v]));
@@ -142,7 +176,8 @@ export function filmTimes(film: Film, log: RecordingLog, voices: BeatVoice[]) {
 }
 
 export function composeFilm(input: ComposeInput): string {
-  const { film, log, voices, tokens, assets, brandName, locale, messages } = input;
+  const { film, log, voices, colors, geometry, fonts, assets, brandName, locale, messages } = input;
+  const { frame, screen, screenHeight, screenScale } = geometry;
   const times = filmTimes(film, log, voices);
   const { at } = times;
   // `filmTimes` refuses a recording that leaves any sentence without a start.
@@ -151,9 +186,9 @@ export function composeFilm(input: ComposeInput): string {
   const hookVoice = voice.get(getHookBeat(film).id);
   if (hookVoice === undefined) throw new Error("No voiceover for the opening sentence.");
 
-  if (!/^#[0-9a-f]{6}$/i.test(tokens.background)) {
+  if (!/^#[0-9a-f]{6}$/i.test(colors.background)) {
     // The vignette appends an alpha channel ("cc"), which works only on #rrggbb.
-    throw new Error(`Background colour ${tokens.background} must have the form #rrggbb.`);
+    throw new Error(`Background colour ${colors.background} must have the form #rrggbb.`);
   }
 
   // --- Camera ---
@@ -161,10 +196,10 @@ export function composeFilm(input: ComposeInput): string {
   film.hook.shots.forEach((shot, index) => {
     const mark = log.marks[shot.mark];
     if (mark === undefined) throw new Error(`No mark "${shot.mark}" for the opening shot: record the film again (softure-marketing record).`);
-    const pose = cameraPose(mark, shot.scale);
+    const pose = cameraPose(geometry, mark, shot.scale);
     if (index === 0) {
       camera.push({ t: 0, pose, dur: 0, ease: "none" });
-      camera.push({ t: 0.2, pose: cameraPose(mark, r3(shot.scale * 0.93)), dur: 1.3, ease: "sine.inOut" });
+      camera.push({ t: 0.2, pose: cameraPose(geometry, mark, r3(shot.scale * 0.93)), dur: 1.3, ease: "sine.inOut" });
       return;
     }
     const word = hookVoice.words.find((w) => w.text.replace(/[.,?!:;]/g, "") === shot.word);
@@ -173,12 +208,12 @@ export function composeFilm(input: ComposeInput): string {
     }
     camera.push({ t: r3(HOOK_LEAD + word.start - 0.1), pose, dur: 1.1, ease: "power3.inOut" });
   });
-  camera.push({ t: r3(times.hook - 1.05), pose: widePose(1), dur: 0.9, ease: "power3.inOut" });
+  camera.push({ t: r3(times.hook - 1.05), pose: widePose(geometry, 1), dur: 0.9, ease: "power3.inOut" });
   for (const cue of log.camera) {
     if (cue.kind === "wide") {
-      camera.push({ t: r3(at(cue.f) - 0.1), pose: widePose(cue.scale), dur: 0.5, ease: "power3.inOut" });
+      camera.push({ t: r3(at(cue.f) - 0.1), pose: widePose(geometry, cue.scale), dur: 0.5, ease: "power3.inOut" });
     } else {
-      camera.push({ t: r3(at(cue.f) - 0.3), pose: cameraPose(cue.rect, cue.scale), dur: 0.6, ease: "power3.inOut" });
+      camera.push({ t: r3(at(cue.f) - 0.3), pose: cameraPose(geometry, cue.rect, cue.scale), dur: 0.6, ease: "power3.inOut" });
     }
   }
   const endScale = 0.58;
@@ -186,8 +221,8 @@ export function composeFilm(input: ComposeInput): string {
     t: times.endCard,
     pose: {
       scale: endScale,
-      x: r3(FRAME.width / 2 - endScale * (SCREEN.left + SCREEN.width / 2)),
-      y: r3(640 - endScale * (SCREEN.top + SCREEN_HEIGHT / 2)),
+      x: r3(frame.width / 2 - endScale * (screen.left + screen.width / 2)),
+      y: r3(640 - endScale * (screen.top + screenHeight / 2)),
     },
     dur: 0.9,
     ease: "power3.inOut",
@@ -195,7 +230,7 @@ export function composeFilm(input: ComposeInput): string {
   const cameraPlan = resolveCameraTweens(camera);
 
   // --- Taps ---
-  const taps = log.taps.map((tap, i) => ({ i, t: at(tap.f), x: r3(tap.x * SCREEN_SCALE), y: r3(tap.y * SCREEN_SCALE) }));
+  const taps = log.taps.map((tap, i) => ({ i, t: at(tap.f), x: r3(tap.x * screenScale), y: r3(tap.y * screenScale) }));
 
   // --- Captions: every sentence but the last (the end card says the same) ---
   const lastId = film.beats.at(-1)?.id;
@@ -223,13 +258,17 @@ export function composeFilm(input: ComposeInput): string {
 
   // --- Sound ---
   const sfx: { src: string; t: number; volume: number; dur: number }[] = [];
-  for (const tap of taps) sfx.push({ src: "click-soft.mp3", t: tap.t, volume: 0.55, dur: 0.37 });
-  for (const key of log.keys) sfx.push({ src: "key-press.mp3", t: at(key), volume: 0.22, dur: 0.4 });
-  for (const cue of log.camera) if (cue.whoosh) sfx.push({ src: "whoosh.mp3", t: at(cue.f), volume: 0.22, dur: 0.57 });
-  for (const cue of log.cues) if (cue.name === "sparkle") sfx.push({ src: "sparkle.mp3", t: at(cue.f), volume: 0.5, dur: 1.8 });
-  sfx.push({ src: "whoosh.mp3", t: r3(times.hook - 0.1), volume: 0.5, dur: 0.57 });
-  sfx.push({ src: "whoosh.mp3", t: times.endCard, volume: 0.3, dur: 0.57 });
-  sfx.push({ src: "pop.mp3", t: r3(times.endCard + 0.9), volume: 0.35, dur: 0.72 });
+  const play = (event: SfxEvent, t: number, volume: number, dur: number) => {
+    const src = assets.sfx[event];
+    if (src !== undefined) sfx.push({ src, t, volume, dur });
+  };
+  for (const tap of taps) play("tap", tap.t, 0.55, 0.37);
+  for (const key of log.keys) play("key", at(key), 0.22, 0.4);
+  for (const cue of log.camera) if (cue.whoosh) play("whoosh", at(cue.f), 0.22, 0.57);
+  for (const cue of log.cues) if (cue.name === "sparkle") play("sparkle", at(cue.f), 0.5, 1.8);
+  play("whoosh", r3(times.hook - 0.1), 0.5, 0.57);
+  play("whoosh", times.endCard, 0.3, 0.57);
+  play("pop", r3(times.endCard + 0.9), 0.35, 0.72);
 
   const voiceHtml = film.beats
     .map((beat, index) => {
@@ -245,59 +284,60 @@ export function composeFilm(input: ComposeInput): string {
     })
     .join("\n  ");
   const sfxHtml = sfx
-    .map((s, i) => `<audio id="sfx${i}" src="assets/sfx/${s.src}" data-start="${r3(s.t)}" data-duration="${s.dur}" data-volume="${s.volume}"></audio>`)
+    .map((s, i) => `<audio id="sfx${i}" src="${escapeHtml(s.src)}" data-start="${r3(s.t)}" data-duration="${s.dur}" data-volume="${s.volume}"></audio>`)
     .join("\n  ");
 
   const personaOut = log.cues.find((cue) => cue.name === "persona-out");
   const screenStart = r3(times.hook + times.rewind);
   const screenDuration = r3(times.screenEnd - screenStart);
   const tail = r3(Math.max(0.04, times.end - times.screenEnd));
-  const c = tokens;
+  const c = colors;
+  const bodyFont = fontStack(fonts.body, "sans-serif");
+  const headingFont = fonts.heading === null ? bodyFont : fontStack(fonts.heading, "sans-serif");
+  const faces = [...fontFaces(fonts.body), ...fontFaces(fonts.heading)];
   // The plan always starts with the first opening shot at t = 0.
   const firstPose = (cameraPlan[0] as ResolvedTween).pose;
 
   return `<!doctype html>
-<html lang="${locale}">
+<html lang="${escapeHtml(locale)}">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=${FRAME.width}, height=${FRAME.height}" />
+<meta name="viewport" content="width=${frame.width}, height=${frame.height}" />
 <title>${escapeHtml(film.title)}</title>
 <script src="assets/gsap.min.js"></script>
 <style>
-@font-face{font-family:"Geist";src:url("assets/fonts/geist-latin-wght-normal.woff2") format("woff2");font-weight:100 900;unicode-range:U+0000-00FF,U+2000-206F,U+20AC}
-@font-face{font-family:"Geist";src:url("assets/fonts/geist-latin-ext-wght-normal.woff2") format("woff2");font-weight:100 900;unicode-range:U+0100-02AF,U+1E00-1EFF}
-@font-face{font-family:"Newsreader";src:url("assets/fonts/newsreader-latin-wght-normal.woff2") format("woff2");font-weight:200 800;unicode-range:U+0000-00FF,U+2000-206F,U+20AC}
-@font-face{font-family:"Newsreader";src:url("assets/fonts/newsreader-latin-ext-wght-normal.woff2") format("woff2");font-weight:200 800;unicode-range:U+0100-02AF,U+1E00-1EFF}
+${faces.join("\n")}
 *{margin:0;padding:0;box-sizing:border-box}
-html,body{width:${FRAME.width}px;height:${FRAME.height}px;overflow:hidden;background:${c.background}}
-#root{position:relative;width:${FRAME.width}px;height:${FRAME.height}px;overflow:hidden;background:${c.background};font-family:Geist,sans-serif;color:${c.foreground}}
+html,body{width:${frame.width}px;height:${frame.height}px;overflow:hidden;background:${c.background}}
+#root{position:relative;width:${frame.width}px;height:${frame.height}px;overflow:hidden;background:${c.background};font-family:${bodyFont};color:${c.foreground}}
 .backdrop{position:absolute;inset:0;overflow:hidden}
 .blur{position:absolute;left:-15%;top:-10%;width:130%;height:120%;object-fit:cover;filter:blur(70px) saturate(1.4);opacity:.38}
 .vignette{position:absolute;inset:0;background:radial-gradient(90% 60% at 50% 45%, transparent 0%, ${c.background}cc 70%, ${c.background} 100%)}
-#camera{position:absolute;left:0;top:0;width:${FRAME.width}px;height:${FRAME.height}px;transform-origin:0 0}
-.phone{position:absolute;left:${SCREEN.left - 14}px;top:${SCREEN.top - 14}px;width:${SCREEN.width + 28}px;height:${SCREEN_HEIGHT + 28}px;border-radius:66px;background:linear-gradient(160deg,#2a3441,#0e131a 40%,#1b232d);box-shadow:0 0 0 2px #3a4655 inset,0 60px 140px rgba(0,0,0,.65),0 0 0 1px #05070a}
-.screen{position:absolute;left:14px;top:14px;width:${SCREEN.width}px;height:${SCREEN_HEIGHT}px;border-radius:52px;overflow:hidden;background:${c.background}}
+#camera{position:absolute;left:0;top:0;width:${frame.width}px;height:${frame.height}px;transform-origin:0 0}
+.phone{position:absolute;left:${screen.left - 14}px;top:${screen.top - 14}px;width:${screen.width + 28}px;height:${screenHeight + 28}px;border-radius:66px;background:linear-gradient(160deg,#2a3441,#0e131a 40%,#1b232d);box-shadow:0 0 0 2px #3a4655 inset,0 60px 140px rgba(0,0,0,.65),0 0 0 1px #05070a}
+.screen{position:absolute;left:14px;top:14px;width:${screen.width}px;height:${screenHeight}px;border-radius:52px;overflow:hidden;background:${c.background}}
 .screen img,.screen video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .touch{position:absolute;width:0;height:0}
 .touch .dot{position:absolute;left:-34px;top:-34px;width:68px;height:68px;border-radius:50%;background:rgba(232,238,245,.34);border:2px solid rgba(232,238,245,.75);opacity:0}
 .touch .ring{position:absolute;left:-34px;top:-34px;width:68px;height:68px;border-radius:50%;border:3px solid ${c.accent};opacity:0}
 .caption{position:absolute;left:60px;right:60px;top:1470px;display:flex;justify-content:center}
-.pill{font-weight:650;font-size:50px;line-height:1.18;letter-spacing:-.01em;text-align:center;padding:16px 28px;border-radius:22px;background:rgba(236,241,247,.97);box-shadow:0 14px 44px rgba(0,0,0,.5);color:${c.background}}
+.pill{font-weight:650;font-size:50px;line-height:1.18;letter-spacing:-.01em;text-align:center;padding:16px 28px;border-radius:22px;background:${c.captionBackground};box-shadow:0 14px 44px rgba(0,0,0,.5);color:${c.captionText}}
 .pill span{display:inline-block}
 .persona{position:absolute;left:0;right:0;top:78px;display:flex;justify-content:center}
 .persona .card{display:flex;align-items:center;gap:20px;padding:14px 30px 14px 14px;border-radius:999px;background:rgba(19,26,35,.9);border:1px solid rgba(130,150,173,.28)}
-.avatar{width:66px;height:66px;border-radius:50%;display:grid;place-items:center;font-family:Newsreader,serif;font-size:38px;font-weight:600;color:${c.background};background:linear-gradient(135deg,${c.accessible},${c.accent})}
+.avatar{width:66px;height:66px;border-radius:50%;display:grid;place-items:center;font-family:${headingFont};font-size:38px;font-weight:600;color:${c.onCta};background:linear-gradient(135deg,${c.cta},${c.accent})}
 .persona b{display:block;font-size:34px;font-weight:650}
 .persona span{display:block;font-size:25px;color:${c.muted};margin-top:2px}
 .endcard{position:absolute;left:0;right:0;top:1180px;text-align:center}
-.brand{display:flex;justify-content:center;align-items:center;gap:18px;font-family:Newsreader,serif;font-size:46px}
-.headline{font-family:Newsreader,serif;font-weight:500;font-size:96px;letter-spacing:-.025em;line-height:1.02;margin-top:44px}
-.url{display:inline-block;margin-top:40px;padding:20px 38px;border-radius:999px;font-size:44px;font-weight:600;color:${c.background};background:${c.accessible}}
+.brand{display:flex;justify-content:center;align-items:center;gap:18px;font-family:${headingFont};font-size:46px}
+.logo{height:60px;width:auto}
+.headline{font-family:${headingFont};font-weight:500;font-size:96px;letter-spacing:-.025em;line-height:1.02;margin-top:44px}
+.url{display:inline-block;margin-top:40px;padding:20px 38px;border-radius:999px;font-size:44px;font-weight:600;color:${c.onCta};background:${c.cta}}
 .note{margin-top:26px;font-size:30px;color:${c.muted}}
 </style>
 </head>
 <body>
-<div id="root" data-composition-id="${COMPOSITION_ID}" data-start="0" data-duration="${times.end}" data-width="${FRAME.width}" data-height="${FRAME.height}">
+<div id="root" data-composition-id="${COMPOSITION_ID}" data-start="0" data-duration="${times.end}" data-width="${frame.width}" data-height="${frame.height}">
   <div class="backdrop">
     <img id="bg-hook" class="clip blur" src="${assets.hookStill}" data-start="0" data-duration="${screenStart}" />
     <video id="bg-screen" class="clip blur" src="${assets.screen}" data-start="${screenStart}" data-media-start="${r3(times.firstFrame / log.fps)}" data-duration="${screenDuration}" muted playsinline></video>
@@ -318,7 +358,7 @@ html,body{width:${FRAME.width}px;height:${FRAME.height}px;overflow:hidden;backgr
   <div class="persona"><div class="card" id="persona"><div class="avatar">${escapeHtml(film.persona.name.slice(0, 1))}</div><div><b>${escapeHtml(formatMessage(messages.film.persona, { name: film.persona.name, age: film.persona.age }))}</b><span>${escapeHtml(film.persona.tagline)}</span></div></div></div>
   ${captionHtml}
   <div class="endcard">
-    <div class="brand" id="ec-brand"><svg viewBox="0 0 40 26" width="92" height="60"><defs><linearGradient id="arc" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="${c.locked}"/><stop offset="48%" stop-color="${c.locked}"/><stop offset="100%" stop-color="${c.accessible}"/></linearGradient></defs><path d="M2 23C2 12.5 8 4 20 4s18 8.5 18 19" fill="none" stroke="url(#arc)" stroke-width="2.4" stroke-linecap="round"/><path d="M2 21v3.5M38 21v3.5" stroke="${c.muted}" stroke-width="2.4" stroke-linecap="round" opacity=".42"/><circle cx="20" cy="4" r="4" fill="${c.background}"/><circle cx="20" cy="4" r="2.6" fill="${c.accessible}"/></svg><span>${escapeHtml(brandName)}</span></div>
+    <div class="brand" id="ec-brand">${assets.logo === null ? "" : `<img class="logo" src="${escapeHtml(assets.logo)}" alt="" />`}<span>${escapeHtml(brandName)}</span></div>
     <p class="headline" id="ec-headline">${escapeHtml(film.endCard.headline)}</p>
     <p class="url" id="ec-url">${escapeHtml(film.endCard.url)}</p>
     <p class="note" id="ec-note">${escapeHtml(film.endCard.note)}</p>
@@ -340,7 +380,7 @@ for (const t of ${JSON.stringify(taps.map((tap) => ({ i: tap.i, t: tap.t })))}) 
 const captions = ${JSON.stringify(caption.map((chunk) => chunk.words.map((w) => w.t)))};
 captions.forEach((words, i) => {
   tl.fromTo("#cap" + i + " .pill", { y: 14, opacity: 0 }, { y: 0, opacity: 1, duration: 0.16, ease: "power3.out" }, words[0] - 0.05);
-  words.forEach((t, j) => tl.fromTo("#cw" + i + "_" + j, { color: "${c.background}" }, { color: "${CAPTION_HIGHLIGHT}", duration: 0.06, immediateRender: false }, t).to("#cw" + i + "_" + j, { color: "${c.background}", duration: 0.2 }, t + 0.32));
+  words.forEach((t, j) => tl.fromTo("#cw" + i + "_" + j, { color: "${c.captionText}" }, { color: "${c.captionHighlight}", duration: 0.06, immediateRender: false }, t).to("#cw" + i + "_" + j, { color: "${c.captionText}", duration: 0.2 }, t + 0.32));
 });
 tl.fromTo("#persona", { y: -30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, ${r3(screenStart + 0.05)});
 tl.to("#persona", { y: -30, opacity: 0, duration: 0.35, ease: "power2.in" }, ${personaOut === undefined ? times.endCard : r3(at(personaOut.f) - 0.1)});

@@ -1,33 +1,29 @@
-import { existsSync, readdirSync } from "node:fs";
-import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { tsImport } from "tsx/esm/api";
 
-import type { MarketingConfig } from "../config/config.js";
-import { validateFilm, type Film } from "../film.js";
+import { findMissingFiles, findVideo, formatConfigIssues, type MarketingConfig, type VideoConfig } from "../config/config.js";
+import type { Film, Scene } from "../film.js";
 import { fail } from "./failure.js";
 
+/** A video from `marketing.json` with its scene module loaded. */
+export type LoadedFilm = VideoConfig & Film;
+
 export function listFilms(config: MarketingConfig): string[] {
-  if (!existsSync(config.paths.films)) return [];
-  return readdirSync(config.paths.films)
-    .filter((name) => name.endsWith(".ts") && !name.endsWith(".test.ts"))
-    .map((name) => name.replace(/\.ts$/, ""))
-    .sort();
+  return config.videos.map((video) => video.id).sort();
 }
 
-export function getFilmPath(config: MarketingConfig, id: string): string {
-  return join(config.paths.films, `${id}.ts`);
+function isScene(value: unknown): value is Scene {
+  return typeof value === "function";
 }
 
-/** Imports `<films>/<id>.ts` (TypeScript, through tsx), checks its export and validates the script. */
-export async function loadFilm(config: MarketingConfig, id: string): Promise<Film> {
-  const path = getFilmPath(config, id);
-  if (!existsSync(path)) fail(`no film "${id}" in ${config.paths.films}. Available: ${listFilms(config).join(", ") || "none"}.`);
-  const imported = (await tsImport(pathToFileURL(path).href, import.meta.url)) as { film?: Film };
-  const film = imported.film;
-  if (film === undefined) fail(`${path} does not export "film".`);
-  if (film.id !== id) fail(`${path} has id "${film.id}": the id must equal the file name.`);
-  validateFilm(film);
-  return film;
+/** The video's entry and its scene (`sceneModule`, TypeScript through tsx), after its files are checked. */
+export async function loadFilm(config: MarketingConfig, id: string): Promise<LoadedFilm> {
+  const video = findVideo(config, id);
+  if (video === null) fail(`no video "${id}" in ${config.file}. Available: ${listFilms(config).join(", ") || "none"}.`);
+  const missing = findMissingFiles(config, video);
+  if (missing.length > 0) fail(formatConfigIssues(config, missing));
+  const imported = (await tsImport(pathToFileURL(video.sceneModule).href, import.meta.url)) as { scene?: unknown };
+  if (!isScene(imported.scene)) fail(`videos[${video.index}].sceneModule: ${video.sceneModule} does not export a "scene" function.`);
+  return { ...video, scene: imported.scene };
 }

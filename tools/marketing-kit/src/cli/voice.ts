@@ -19,8 +19,8 @@ export interface Voiceover {
 }
 
 export function getVoiceoverPaths(config: MarketingConfig, film: Film) {
-  const key = voiceoverKey(voiceoverText(film.beats), film.voice.voiceId, film.voice.modelId);
-  return { key, audio: join(config.paths.voiceover, `${key}.mp3`), words: join(config.paths.voiceover, `${key}.json`) };
+  const key = voiceoverKey(voiceoverText(film.beats), film.voice.voiceId, film.voice.modelId, film.voice.language);
+  return { key, audio: join(config.voice.cacheDir, `${key}.mp3`), words: join(config.voice.cacheDir, `${key}.json`) };
 }
 
 function isTimedWords(value: unknown): value is TimedWord[] {
@@ -78,7 +78,7 @@ export async function produceVoiceover(config: MarketingConfig, film: Film, isCo
   }
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (apiKey === undefined || apiKey.length === 0) fail("no ELEVENLABS_API_KEY in the environment.");
-  const request = buildTtsRequest(text, film.voice.voiceId, film.voice.modelId);
+  const request = buildTtsRequest(text, film.voice.voiceId, film.voice.modelId, film.voice.language);
   let response: Response;
   try {
     response = await fetch(request.url, {
@@ -101,9 +101,9 @@ export async function produceVoiceover(config: MarketingConfig, film: Film, isCo
   }
   const parsed = readTimestampsResponse(body);
   const words = wordsFromAlignment(parsed.alignment);
-  mkdirSync(config.paths.voiceover, { recursive: true });
+  mkdirSync(config.voice.cacheDir, { recursive: true });
   writeFileSync(paths.audio, parsed.audio);
   writeFileSync(paths.words, `${JSON.stringify(words, null, 1)}\n`);
-  console.log(`voiceover: spent ${text.length} characters, saved ${paths.key}.{mp3,json} in ${config.paths.voiceover} (commit them).`);
+  console.log(`voiceover: spent ${text.length} characters, saved ${paths.key}.{mp3,json} in ${config.voice.cacheDir} (commit them).`);
   return { audio: paths.audio, words };
 }

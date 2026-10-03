@@ -3,18 +3,55 @@ import type { TimedWord } from "../voice/voiceover.js";
 /**
  * Frame and time geometry: pure functions the composition is built from.
  *
- * Frame 1080×1920 (9:16, the same for Reels, TikTok and Facebook Reels). The phone is recorded at
- * 390×844 CSS px (@3×) and its screen is 640 px wide in the frame, so every rectangle from the page
- * is multiplied by `SCREEN_SCALE`.
+ * The 9:16 frame is 1080×1920 (the same for Reels, TikTok and Facebook Reels). The phone's screen is
+ * 640 px wide in the frame whatever the recorded device, so every rectangle from the page is
+ * multiplied by `screenScale` (640 / the device's CSS width).
  */
 
-export const FRAME = { width: 1080, height: 1920 } as const;
-export const VIEWPORT = { width: 390, height: 844 } as const;
-export const SCREEN = { left: 220, top: 214, width: 640 } as const;
-export const SCREEN_SCALE = SCREEN.width / VIEWPORT.width;
-export const SCREEN_HEIGHT = Math.round(VIEWPORT.height * SCREEN_SCALE);
-/** The point of the frame where the camera puts the centre of the watched element. */
-export const CAMERA_TARGET = { x: 540, y: 900 } as const;
+/** Render formats; the layout below is the 9:16 one (other formats are roadmap item MK-6). */
+export const VIDEO_FORMATS = ["9:16"] as const;
+
+export type VideoFormat = (typeof VIDEO_FORMATS)[number];
+
+export interface Viewport {
+  width: number;
+  height: number;
+}
+
+export interface Geometry {
+  frame: { width: number; height: number };
+  /** The recorded device's CSS viewport. */
+  viewport: Viewport;
+  /** Where the phone's screen sits in the frame. */
+  screen: { left: number; top: number; width: number };
+  screenScale: number;
+  /** The screen's height in the frame, rounded to px for CSS. */
+  screenHeight: number;
+  /** The point of the frame where the camera puts the centre of the watched element. */
+  cameraTarget: { x: number; y: number };
+}
+
+const FRAME_9_16 = { width: 1080, height: 1920 } as const;
+const SCREEN_9_16 = { left: 220, top: 214, width: 640 } as const;
+const CAMERA_TARGET_9_16 = { x: 540, y: 900 } as const;
+
+/** Whether a device's screen fits the 9:16 frame below the screen's top edge. */
+export function fitsFrame(viewport: Viewport): boolean {
+  return SCREEN_9_16.top + (viewport.height * SCREEN_9_16.width) / viewport.width <= FRAME_9_16.height;
+}
+
+/** The 9:16 layout for a recorded device. */
+export function getGeometry(viewport: Viewport): Geometry {
+  const screenScale = SCREEN_9_16.width / viewport.width;
+  return {
+    frame: { ...FRAME_9_16 },
+    viewport: { ...viewport },
+    screen: { ...SCREEN_9_16 },
+    screenScale,
+    screenHeight: Math.round(viewport.height * screenScale),
+    cameraTarget: { ...CAMERA_TARGET_9_16 },
+  };
+}
 
 export interface Rect {
   x: number;
@@ -36,28 +73,30 @@ const round = (value: number): number => Math.round(value * 1000) / 1000 || 0;
  * Camera pose (scale + offset of the layer holding the phone, origin in the top left corner) that
  * puts the centre of a page rectangle on `target`.
  */
-export function cameraPose(rect: Rect, scale: number, target: { x: number; y: number } = CAMERA_TARGET): CameraPose {
-  const centerX = SCREEN.left + SCREEN_SCALE * (rect.x + rect.w / 2);
-  const centerY = SCREEN.top + SCREEN_SCALE * (rect.y + rect.h / 2);
+export function cameraPose(geometry: Geometry, rect: Rect, scale: number, target: { x: number; y: number } = geometry.cameraTarget): CameraPose {
+  const { screen, screenScale } = geometry;
+  const centerX = screen.left + screenScale * (rect.x + rect.w / 2);
+  const centerY = screen.top + screenScale * (rect.y + rect.h / 2);
   return { scale, x: round(target.x - scale * centerX), y: round(target.y - scale * centerY) };
 }
 
 /** The whole phone screen in the frame, centred on the screen's centre. */
-export function widePose(scale = 1): CameraPose {
-  return cameraPose({ x: 0, y: 0, w: VIEWPORT.width, h: VIEWPORT.height }, scale, {
-    x: FRAME.width / 2,
-    // The exact height, not `SCREEN_HEIGHT` (rounded to px for CSS); otherwise "the whole screen"
+export function widePose(geometry: Geometry, scale = 1): CameraPose {
+  const { viewport, screen, screenScale, frame } = geometry;
+  return cameraPose(geometry, { x: 0, y: 0, w: viewport.width, h: viewport.height }, scale, {
+    x: frame.width / 2,
+    // The exact height, not `screenHeight` (rounded to px for CSS); otherwise "the whole screen"
     // moves by a fraction of a pixel.
-    y: SCREEN.top + (VIEWPORT.height * SCREEN_SCALE) / 2,
+    y: screen.top + (viewport.height * screenScale) / 2,
   });
 }
 
 /**
  * Scale at which the element fills ~80% of the frame width, capped because the recording has
- * 1170 px for 640 px of screen: above 1.8× the picture stops being sharp.
+ * (device scale × CSS width) px for the screen's width: above 1.8× the picture stops being sharp.
  */
-export function fitScale(rect: Rect, max = 1.7): number {
-  const fill = (FRAME.width * 0.8) / (SCREEN_SCALE * rect.w);
+export function fitScale(geometry: Geometry, rect: Rect, max = 1.7): number {
+  const fill = (geometry.frame.width * 0.8) / (geometry.screenScale * rect.w);
   return round(Math.min(max, Math.max(1, fill)));
 }
 

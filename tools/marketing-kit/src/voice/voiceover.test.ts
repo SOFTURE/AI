@@ -10,21 +10,23 @@ import {
 } from "./voiceover.js";
 
 describe("voiceoverKey", () => {
-  it("gives the same key for the same text, voice and model, so a paid recording is never repeated", () => {
-    expect(voiceoverKey("Anna has a cat.", "v", "m")).toBe(voiceoverKey("Anna has a cat.", "v", "m"));
-    expect(voiceoverKey("Anna has a cat.", "v", "m")).toMatch(/^[0-9a-f]{16}$/);
+  it("gives the same key for the same text, voice, model and language, so a paid recording is never repeated", () => {
+    expect(voiceoverKey("Anna has a cat.", "v", "m", "en")).toBe(voiceoverKey("Anna has a cat.", "v", "m", "en"));
+    expect(voiceoverKey("Anna has a cat.", "v", "m", "en")).toMatch(/^[0-9a-f]{16}$/);
   });
 
-  it("gives a new key for another text or another voice", () => {
-    const base = voiceoverKey("Anna has a cat.", "v", "m");
-    expect(voiceoverKey("Anna has a dog.", "v", "m")).not.toBe(base);
-    expect(voiceoverKey("Anna has a cat.", "w", "m")).not.toBe(base);
+  it("gives a new key for another text, voice, model or language", () => {
+    const base = voiceoverKey("Anna has a cat.", "v", "m", "en");
+    expect(voiceoverKey("Anna has a dog.", "v", "m", "en")).not.toBe(base);
+    expect(voiceoverKey("Anna has a cat.", "w", "m", "en")).not.toBe(base);
+    expect(voiceoverKey("Anna has a cat.", "v", "n", "en")).not.toBe(base);
+    expect(voiceoverKey("Anna has a cat.", "v", "m", "pl")).not.toBe(base);
   });
 
-  it("matches the key FIRE_TRACKER computes, so its paid voiceover cache keeps matching", () => {
-    // Oracle: FIRE_TRACKER video/src/voiceover.ts at 58e6c84, run on the same input.
+  it("matches the key FIRE_TRACKER computes for Polish, so its paid voiceover cache keeps matching", () => {
+    // Oracle: FIRE_TRACKER video/src/voiceover.ts at 58e6c84 (language fixed to "pl"), run on the same input.
     const text = "Forty-nine years. That is when Anna stops working.";
-    expect(voiceoverKey(text, "P9yx385KN0FOmLll8Lkx", "eleven_multilingual_v2")).toBe("619a27159288f1e1");
+    expect(voiceoverKey(text, "P9yx385KN0FOmLll8Lkx", "eleven_multilingual_v2", "pl")).toBe("619a27159288f1e1");
   });
 });
 
@@ -35,8 +37,8 @@ describe("voiceoverText", () => {
 });
 
 describe("buildTtsRequest", () => {
-  it("asks for Polish, the language of the cached voiceovers, and encodes the voice id", () => {
-    const request = buildTtsRequest("Text", "voice id", "model");
+  it("asks for the configured language and encodes the voice id", () => {
+    const request = buildTtsRequest("Text", "voice id", "model", "pl");
     expect(request.body.language_code).toBe("pl");
     expect(request.url).toContain("/voice%20id/with-timestamps");
   });

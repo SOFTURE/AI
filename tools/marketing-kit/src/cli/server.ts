@@ -2,7 +2,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { mkdirSync, openSync } from "node:fs";
 import { join } from "node:path";
 
-import type { MarketingConfig } from "../config/config.js";
+import type { MarketingConfig, VideoConfig } from "../config/config.js";
 import { fail } from "./failure.js";
 
 const START_TIMEOUT_SECONDS = 90;
@@ -18,8 +18,8 @@ async function isUp(url: string): Promise<boolean> {
 }
 
 /** A running app, or one the CLI starts in the config folder for the recording and stops afterwards. */
-export async function ensureServer(config: MarketingConfig, explicitUrl?: string): Promise<{ url: string; stop: () => void }> {
-  const url = explicitUrl ?? config.app.url;
+export async function ensureServer(config: MarketingConfig, video: VideoConfig, explicitUrl?: string): Promise<{ url: string; stop: () => void }> {
+  const url = explicitUrl ?? video.url;
   if (await isUp(url)) {
     console.log(`server: recording ${url}; make sure it serves this checkout (${config.root}).`);
     return { url, stop: () => {} };
@@ -29,8 +29,8 @@ export async function ensureServer(config: MarketingConfig, explicitUrl?: string
   // The config schema requires at least one element.
   const executable = command as string;
   console.log(`server: ${url} does not answer; starting ${config.app.startCommand.join(" ")} in ${config.root}.`);
-  mkdirSync(config.paths.build, { recursive: true });
-  const serverLog = join(config.paths.build, "server.log");
+  mkdirSync(config.output.buildDir, { recursive: true });
+  const serverLog = join(config.output.buildDir, "server.log");
   const logFd = openSync(serverLog, "w");
   const child: ChildProcess = spawn(executable, args, { cwd: config.root, stdio: ["ignore", logFd, logFd], detached: true });
   // An object, not a `let`: the listeners write it later, which control-flow narrowing cannot see.
@@ -60,9 +60,9 @@ export async function ensureServer(config: MarketingConfig, explicitUrl?: string
   process.once("SIGINT", () => process.exit(130));
   for (let i = 0; i < START_TIMEOUT_SECONDS; i += 1) {
     if (state.exited !== null) fail(`the app ${state.exited}; log: ${serverLog}.`);
-    if (await isUp(config.app.ownUrl)) return { url: config.app.ownUrl, stop };
+    if (await isUp(video.ownUrl)) return { url: video.ownUrl, stop };
     await new Promise((done) => setTimeout(done, 1000));
   }
   stop();
-  fail(`the app did not answer at ${config.app.ownUrl} within ${START_TIMEOUT_SECONDS} s; log: ${serverLog}.`);
+  fail(`the app did not answer at ${video.ownUrl} within ${START_TIMEOUT_SECONDS} s; log: ${serverLog}.`);
 }

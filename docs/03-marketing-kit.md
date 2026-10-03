@@ -38,7 +38,13 @@ CLI: `softure-marketing <all|voice|record|render|preview|shots|og|posts> [--film
 The FIRE rule stays: **paid steps (TTS) run only with `--commit`**, and the voiceover cache is
 committed to the project repository.
 
-## `marketing.json` contract (draft)
+## `marketing.json` contract
+
+The contract is fixed by MK-2: the zod schema in `tools/marketing-kit/src/config/schema.ts`, published as
+[`schema/marketing.schema.json`](../tools/marketing-kit/schema/marketing.schema.json), with the reference
+in the [package README](../tools/marketing-kit/README.md#marketingjson). The sketch below is the
+original draft: beat `actions` and `role` are still to come (MK-3), and the final key names differ in
+places (`brand.timezone`, `app.device`, `voice.cacheDir`, `social.platforms.<p>.code`, `sfx`).
 
 ```jsonc
 {

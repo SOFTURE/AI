@@ -16,6 +16,7 @@
   "files": [
     "dist",
     "src",
+    "schema",
     "!src/**/*.test.ts",
     "!src/**/*.test.tsx"
   ],
@@ -31,10 +32,12 @@
       "@softure-ai/source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
-    }
+    },
+    "./marketing.schema.json": "./schema/marketing.schema.json"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json"
+    "build": "tsc -p tsconfig.build.json",
+    "schema": "tsx scripts/write-schema.ts"
   },
   "dependencies": {
     "gsap": "^3.15.0",

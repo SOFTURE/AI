@@ -5,12 +5,16 @@ import { getMarketingMessages } from "../messages/index.js";
 import type { RecordingLog } from "../record/record.js";
 import type { BeatVoice } from "../voice/voiceover.js";
 import { composeFilm, filmTimes, resolveCameraTweens, type CameraTween, type ComposeInput } from "./compose.js";
+import { getGeometry } from "./timeline.js";
 
 const film = {
   id: "test",
   title: "Test",
   persona: { name: "Anna", age: 36, tagline: "counts" },
-  voice: { voiceId: "v", modelId: "m", tempo: 1 },
+  path: "/",
+  format: "9:16",
+  device: { viewport: { width: 390, height: 844 }, scale: 3, isMobile: true },
+  voice: { voiceId: "v", modelId: "m", language: "en", tempo: 1 },
   beats: [
     { id: "hook", text: "One That." },
     { id: "a", text: "Middle." },
@@ -18,9 +22,7 @@ const film = {
   ],
   hook: { still: "s", shots: [{ mark: "m", scale: 1.5 }] },
   screenGuard: ["x"],
-  channels: { instagram: "ig-01", facebook: "fb-01", tiktok: "tiktok-01" },
   endCard: { headline: "Count", url: "example.com/calculator", note: "" },
-  post: { caption: "", hashtags: [] },
   scene: async () => {},
 } as Film;
 
@@ -50,26 +52,35 @@ const log: RecordingLog = {
   cues: [],
 };
 
-const tokens = {
+const colors = {
   background: "#0b0f14",
-  surface: "#131a23",
-  "surface-raised": "#1a232e",
-  border: "#243040",
   foreground: "#e8eef5",
   muted: "#8296ad",
-  accessible: "#34d399",
-  locked: "#fbbf24",
-  debt: "#f87171",
   accent: "#60a5fa",
+  cta: "#34d399",
+  onCta: "#0b0f15",
+  captionBackground: "#ecf1f7f7",
+  captionText: "#0b0f16",
+  captionHighlight: "#059670",
 };
 
-const assets = { screen: "s.mp4", rewind: "r.mp4", hookStill: "h.jpg", lastFrame: "l.jpg", voiceover: "v.mp3" };
+const assets = {
+  screen: "s.mp4",
+  rewind: "r.mp4",
+  hookStill: "h.jpg",
+  lastFrame: "l.jpg",
+  voiceover: "v.mp3",
+  logo: null,
+  sfx: { tap: "assets/sfx/tap.mp3", pop: "assets/sfx/pop.wav" },
+};
 
 const input: ComposeInput = {
   film,
   log,
   voices,
-  tokens,
+  colors,
+  geometry: getGeometry({ width: 390, height: 844 }),
+  fonts: { heading: null, body: null },
   assets,
   brandName: "Acme <Plan>",
   locale: "en",
@@ -148,7 +159,7 @@ describe("composeFilm", () => {
   });
 
   it("refuses a background colour that cannot take an alpha channel", () => {
-    expect(() => composeFilm({ ...input, tokens: { ...tokens, background: "#000" } })).toThrow(/#rrggbb/);
+    expect(() => composeFilm({ ...input, colors: { ...colors, background: "#000" } })).toThrow(/#rrggbb/);
   });
 
   it("writes the persona card, the language and the escaped brand name from the input", () => {
@@ -160,9 +171,55 @@ describe("composeFilm", () => {
 
   it("writes the persona card in Polish for the pl locale", () => {
     const messages = getMarketingMessages("pl");
-    const html = composeFilm({ ...input, locale: "pl", messages });
-    expect(html).toContain('<html lang="pl">');
+    const html = composeFilm({ ...input, locale: "pl-PL", messages });
+    expect(html).toContain('<html lang="pl-PL">');
     expect(html).toContain(`<b>${messages.film.persona.replace("{name}", "Anna").replace("{age}", "36")}</b>`);
+  });
+
+  it("paints with the brand's colours, each in its role", () => {
+    const html = composeFilm(input);
+    expect(html).toContain("border:3px solid #60a5fa"); // accent: the touch ring
+    expect(html).toContain("color:#0b0f15;background:#34d399"); // onCta on cta: the link pill
+    expect(html).toContain("background:#ecf1f7f7;box-shadow"); // the caption pill
+    expect(html).toContain('{ color: "#0b0f16" }, { color: "#059670"'); // a word lights up from captionText to captionHighlight
+  });
+
+  it("declares the brand's fonts and uses the heading font on the end card", () => {
+    const html = composeFilm({
+      ...input,
+      fonts: {
+        body: { family: "Body Sans", fallback: "sans-serif", faces: [{ src: "assets/fonts/0-body.woff2", weight: "100 900", style: "normal", unicodeRange: "U+0000-00FF" }] },
+        heading: { family: "Head", fallback: "serif", faces: [{ src: "assets/fonts/1-head.ttf", weight: "700", style: "italic", unicodeRange: null }] },
+      },
+    });
+    expect(html).toContain('@font-face{font-family:"Body Sans";src:url("assets/fonts/0-body.woff2") format("woff2");font-weight:100 900;font-style:normal;unicode-range:U+0000-00FF}');
+    expect(html).toContain('@font-face{font-family:"Head";src:url("assets/fonts/1-head.ttf") format("truetype");font-weight:700;font-style:italic}');
+    expect(html).toContain('font-family:"Body Sans",sans-serif;color:');
+    expect(html).toContain('.headline{font-family:"Head",serif;');
+  });
+
+  it("falls back to the system's sans-serif without brand fonts", () => {
+    const html = composeFilm(input);
+    expect(html).not.toContain("@font-face");
+    expect(html).toContain(".headline{font-family:sans-serif;");
+  });
+
+  it("shows the logo next to the brand name only when the brand has one", () => {
+    expect(composeFilm(input)).not.toContain('class="logo"');
+    expect(composeFilm({ ...input, assets: { ...assets, logo: "assets/logo.svg" } })).toContain('<img class="logo" src="assets/logo.svg" alt="" /><span>Acme &lt;Plan&gt;</span>');
+  });
+
+  it("plays only the configured sound effects", () => {
+    const html = composeFilm(input);
+    expect(html).toContain('src="assets/sfx/tap.mp3"');
+    expect(html).toContain('src="assets/sfx/pop.wav"');
+    expect(html).not.toContain("whoosh");
+  });
+
+  it("sizes the frame and the phone from the geometry", () => {
+    const html = composeFilm({ ...input, geometry: getGeometry({ width: 412, height: 915 }) });
+    expect(html).toContain('data-width="1080" data-height="1920"');
+    expect(html).toContain(".screen{position:absolute;left:14px;top:14px;width:640px;height:1421px;");
   });
 
   it("refuses a recording without the opening shot's mark", () => {
