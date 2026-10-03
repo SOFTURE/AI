@@ -15,7 +15,7 @@ A contributor contract in `@softure-ai/privacy` that every module and the app us
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **EN-7** (roadmap `engagement`, main since 2026-10-03):
+From [`roadmap.md`](../../foundation/roadmap.md), item **EN-7** (roadmap `engagement`, main since 2026-10-03):
 
 > ### EN-7: GDPR export and deletion registry
 > - **Change ID:** `privacy-registry`
@@ -27,8 +27,8 @@ From [`roadmap.md`](../../../foundation/roadmap.md), item **EN-7** (roadmap `eng
 > - **Baseline:** FIRE lists tables by hand and deletes accounts only from a CLI. After: export contains every registered contributor's data, deletion leaves no rows for the user in any module schema (verified by a test that scans all schemas).
 > - **PRD refs:** FR-20, NFR-5.
 
-Reference material: [`docs/02-module-standard.md`](../../../../docs/02-module-standard.md) (the standard),
-[`docs/01-module-assessment.md`](../../../../docs/01-module-assessment.md) (source map in FIRE_TRACKER).
+Reference material: [`docs/02-module-standard.md`](../../../docs/02-module-standard.md) (the standard),
+[`docs/01-module-assessment.md`](../../../docs/01-module-assessment.md) (source map in FIRE_TRACKER).
 
 ## Constraints
 
