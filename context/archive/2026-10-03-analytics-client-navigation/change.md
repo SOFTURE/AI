@@ -1,12 +1,12 @@
 ---
 change_id: analytics-client-navigation
 title: "Channel tag on client navigations without Next-Url"
-status: impl_reviewed
+status: archived
 roadmap_item: FU-5
 branch: claude/project-thread-y037s0
 created: 2026-10-03
 updated: 2026-10-03
-archived_at: null
+archived_at: 2026-10-03
 ---
 
 ## Intent
@@ -52,3 +52,4 @@ that sends it. The backlog entry this change was opened from is [`backlog-input.
 - Framing skipped: the gap is documented and confirmed (README §12, research), the outcome and its proof are pinned by
   the roadmap item, and nothing questions whether this is the right problem; the solution choice the roadmap leaves
   open (client component or link wrapper) is a plan decision.
+- Archived 2026-10-03: `<ChannelKeeper />` (`@softure-ai/analytics/next/channel-keeper`) restores the channel tag after client navigations the proxy misses, proven by an e2e without `Next-Url`.
