@@ -48,7 +48,7 @@ app (mail, waitlist), to agents (MCP access) and to regulators (privacy). Every 
 | --- | --- | --- | --- | --- | --- |
 | **EN-1** | `mailing-transport` | `@softure-ai/mailing` sends plain + HTML mail through an adapter (Resend first) with idempotency and a typed result | — | autonomous | done |
 | **EN-2** | `mailing-unsubscribe` | HMAC-signed unsubscribe links, RFC 8058 headers, one-click endpoint, unsubscribe page and a suppression list | EN-1 | autonomous | done |
-| **EN-3** | `mailing-ledger-campaigns` | exactly-once delivery ledger, campaigns sent from a content file, SPF/DKIM/DMARC check | EN-2 | autonomous | ready |
+| **EN-3** | `mailing-ledger-campaigns` | exactly-once delivery ledger, campaigns sent from a content file, SPF/DKIM/DMARC check | EN-2 | autonomous | **in_progress** (implement, since 2026-10-03; cloud session, branch `claude/en-3-mailing-ledger-campaigns-1u6kkr` — do not take in another session) |
 | **EN-4** | `auth-reset-via-mailing` | the auth password-reset sender hook is wired to `@softure-ai/mailing`, with pl + en templates | EN-1 | autonomous | done |
 | **EN-5** | `waitlist` | `@softure-ai/waitlist`: sign-up with configurable consent scopes, welcome mail, unsubscribe, `WaitlistForm` | EN-1, EN-2, EN-8 | autonomous | ready |
 | **EN-6** | `mcp-access` | `@softure-ai/mcp-access`: hashed, scoped, expiring tokens, Bearer endpoint around the app's MCP server factory, token UI | — | autonomous | done |
@@ -101,7 +101,7 @@ contributor contract every module with user data depends on) start the roadmap.
 
 ### EN-3: Delivery ledger and campaigns
 - **Change ID:** `mailing-ledger-campaigns`
-- **Status:** ready
+- **Status:** in_progress (implement, since 2026-10-03; cloud session, branch `claude/en-3-mailing-ledger-campaigns-1u6kkr` — do not take in another session)
 - **Outcome:** `mailing.deliveries` and `mailing.campaigns` give exactly-once delivery (claim → sent | rejected, one outcome per recipient); a `softure-mail campaign` command sends a campaign from a content file over a regular database connection, honouring suppressions; a DNS check reports SPF, DKIM and DMARC for the sender domain.
 - **Prerequisites:** EN-2.
 - **Unknowns:** Batch size and retry policy for claimed-but-unsent rows; content file format (frontmatter + markdown?); how lifecycle mails (trial ending, etc.) register their kinds.

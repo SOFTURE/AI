@@ -15,7 +15,7 @@ archived_at: null
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **EN-3** (roadmap `engagement`, main since 2026-10-03):
+From [`roadmap.md`](../../foundation/roadmap.md), item **EN-3** (roadmap `engagement`, main since 2026-10-03):
 
 > ### EN-3: Delivery ledger and campaigns
 > - **Change ID:** `mailing-ledger-campaigns`
@@ -27,8 +27,8 @@ From [`roadmap.md`](../../../foundation/roadmap.md), item **EN-3** (roadmap `eng
 > - **Baseline:** FIRE runs campaigns through deployment-specific scripts. After: a campaign to N recipients produces exactly N ledger outcomes, re-running sends nothing new (unit + integration on PGlite).
 > - **PRD refs:** FR-16, FR-17.
 
-Reference material: [`docs/02-module-standard.md`](../../../../docs/02-module-standard.md) (the standard),
-[`docs/01-module-assessment.md`](../../../../docs/01-module-assessment.md) (source map in FIRE_TRACKER).
+Reference material: [`docs/02-module-standard.md`](../../../docs/02-module-standard.md) (the standard),
+[`docs/01-module-assessment.md`](../../../docs/01-module-assessment.md) (source map in FIRE_TRACKER).
 
 ## Constraints
 

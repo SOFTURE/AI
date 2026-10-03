@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "dependsOn": {},
   "dbSchema": "mailing",
-  "tables": ["suppressions"],
+  "tables": ["suppressions", "campaigns", "deliveries"],
   "env": [
     {
       "name": "RESEND_API_KEY",
