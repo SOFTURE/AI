@@ -29,7 +29,7 @@ carried-over owner items. Inside it, the order comes from dependencies:
 | MK-1 | [`mk-core-port`](../../archive/2026-10-03-mk-core-port/change.md) (archived) | Port the FIRE video core | roadmap promoted | start |
 | MK-2 | [`mk-config-contract`](../../archive/2026-10-03-mk-config-contract/change.md) (archived) | Config contract: marketing.json and brand | MK-1 on main | dependency |
 | MK-3 | [`mk-declarative-actions`](mk-declarative-actions/change.md) | Declarative scene actions | MK-2 on main | dependency |
-| MK-7 | [`mk-tts-adapters`](mk-tts-adapters/change.md) | TTS provider adapters | MK-2 on main | dependency |
+| MK-7 | [`mk-tts-adapters`](../../archive/2026-10-03-mk-tts-adapters/change.md) (archived) | TTS provider adapters | MK-2 on main | dependency |
 | MK-6 | [`mk-formats`](mk-formats/change.md) | Render formats 1:1 and 16:9 | MK-2 on main | dependency |
 | MK-4 | [`mk-screenshots`](mk-screenshots/change.md) | Screenshots with quality gates | MK-2 on main | dependency |
 | MK-5 | [`mk-og-images`](mk-og-images/change.md) | OG images outside Next | MK-2 on main | dependency |

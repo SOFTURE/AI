@@ -16,7 +16,7 @@ TTS providers (MK-7), screenshots (MK-4) and OG images (MK-5) build on it. Backg
 
 ```bash
 softure-marketing all <video>                     # voiceover from the cache -> recording -> render -> post copy
-softure-marketing voice <video> [--commit]        # voiceover; without --commit it only counts the characters
+softure-marketing voice <video> [--commit]        # voiceover; without --commit it only prints the cost estimate
 softure-marketing record <video> [--today=YYYY-MM-DD] [--url=...]
 softure-marketing render <video> [--quality=draft|standard|high]
 softure-marketing preview <video>                 # the composition in the hyperframes preview
@@ -26,9 +26,11 @@ softure-marketing posts <video>                   # post copy only
 Every command takes `--config=<path>` (default `./marketing.json`). Exit codes: `0` done, `1` failed, `2`
 the screen guard refused the recording (the screen did not show what the voiceover says).
 
-- **`--commit`** is the only way to spend money: `voice` calls ElevenLabs (`ELEVENLABS_API_KEY` from the
-  environment) and writes `<key>.mp3` + `<key>.json` into `voice.cacheDir`. Commit them: the next render
-  of the same text costs nothing. `all` never pays.
+- **`--commit`** is the only way to spend money: `voice` prints the cost estimate, then calls the
+  configured TTS provider (ElevenLabs, `ELEVENLABS_API_KEY` from the environment) and writes
+  `<key>.mp3` + `<key>.json` into `voice.cacheDir`. Commit them: the next render of the same text costs
+  nothing. `all` never pays; on a cache miss it prints the estimate and stops. See
+  [Voiceover providers and cost](#voiceover-providers-and-cost).
 - **`--today`** records the app as of another day, only to reproduce an old film.
 - **Server:** when the configured app does not answer, `record` starts `app.startCommand` in the config
   folder on `app.port` and stops it afterwards (log in `<output.buildDir>/server.log`).
@@ -167,6 +169,39 @@ A film is a `videos[]` entry plus a scene module. The fixture film is a complete
 - **`screenGuard`**: every number the voiceover says, as the screen writes it. If the screen does not
   show one, the recording stops with code 2 and no film is made.
 
+## Voiceover providers and cost
+
+The voiceover goes through a `TtsProvider` (`src/voice/provider.ts`): `estimate(input)` is free and
+needs no key, `synthesize(input)` returns the audio and the time of every word, or an error value.
+`input` is `{ text, voiceId, model, language }`, and those four make the cache key
+(`sha256({text, voice, model, lang})`, 16 hex characters). The tempo is applied at build time, so
+changing it costs nothing.
+
+| Run | What happens |
+| --- | --- |
+| the cache has `<key>.mp3` and `<key>.json` | `voiceover: from the cache <key>, nothing spent.` |
+| no cache, no `--commit` | `voiceover estimate (elevenlabs): 412 characters, at most 412 ElevenLabs credits.` and a dry-run line; no request is sent |
+| no cache, `--commit` | the same estimate line **first**, then one paid request, then the files are written |
+
+ElevenLabs bills per input character, at most one credit each; API plans may discount it, so the
+estimate is an upper bound. Providers available to `voice.provider`: `elevenlabs`. For tests, the
+package exports `createFakeTtsProvider()` (deterministic audio, evenly spaced words, records its calls)
+and `produceVoiceover({ cacheDir, input, provider, isCommit, log })`, so a project can test its films
+without the network. A second real provider must add its id to the cache key, so that its recordings
+never collide with ElevenLabs's under the same voice and model names.
+
+### Migrating FIRE_TRACKER's voiceover cache
+
+FIRE's key hashed the same object with the language fixed to `pl`, and its words files have the same
+format, so its paid recordings are reused as they are, with no re-keying and no new paid call:
+
+1. Copy FIRE's voiceover folder (`<key>.mp3` + `<key>.json` pairs) into `voice.cacheDir`.
+2. Set `voice.language` to `"pl"`, and `voice.voiceId` and `voice.model` (or a video's `voice`
+   override) to the values FIRE used.
+3. Run `softure-marketing voice <video>` **without** `--commit` for every video. Each must print
+   `from the cache`; an estimate line means the text, voice or model differs from FIRE's, and nothing
+   was spent.
+
 ## Requirements
 
 - Node 22, **ffmpeg** in PATH.
@@ -189,7 +224,7 @@ A film is a `videos[]` entry plus a scene module. The fixture film is a complete
 
 - Scenes are TypeScript (`sceneModule`); declarative actions in `beats` are MK-3.
 - One format, 9:16; the device is config, the frame layout is fixed until MK-6.
-- ElevenLabs is the only voice provider; the provider interface and a cost estimate are MK-7.
+- ElevenLabs is the only real voice provider; the estimate is an upper bound in credits, not money.
 - `screenshots` and `ogImages` are validated but no command renders them yet (MK-4, MK-5).
 
 ## Development
