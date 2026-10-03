@@ -12,7 +12,7 @@ The roadmap was promoted on 2026-10-03, when roadmap-identity closed. Inside it,
 
 | ID | Entry | Title | Condition | Kind |
 | --- | --- | --- | --- | --- |
-| EN-1 | [`mailing-transport`](mailing-transport/change.md) | Mail transport with provider adapters | roadmap promoted | start |
+| EN-1 | [`mailing-transport`](../../changes/mailing-transport/change.md) (in progress) | Mail transport with provider adapters | roadmap promoted | start |
 | EN-2 | [`mailing-unsubscribe`](mailing-unsubscribe/change.md) | Signed one-click unsubscribe and suppressions | EN-1 on the main branch | dependency |
 | EN-3 | [`mailing-ledger-campaigns`](mailing-ledger-campaigns/change.md) | Delivery ledger and campaigns | EN-2 on the main branch | dependency |
 | EN-4 | [`auth-reset-via-mailing`](auth-reset-via-mailing/change.md) | Password reset mails through the mailing module | EN-1 on the main branch | dependency |
