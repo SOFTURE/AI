@@ -15,7 +15,7 @@ archived_at: null
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **EN-8** (roadmap `engagement`, main since 2026-10-03):
+From [`roadmap.md`](../../foundation/roadmap.md), item **EN-8** (roadmap `engagement`, main since 2026-10-03):
 
 > ### EN-8: Consent records and legal document shell
 > - **Change ID:** `privacy-consents-legal`
@@ -27,8 +27,8 @@ From [`roadmap.md`](../../../foundation/roadmap.md), item **EN-8** (roadmap `eng
 > - **Baseline:** FIRE checks consent at registration but does not store it. After: registration and waitlist sign-up both produce consent rows (unit + e2e), legal pages render from app content.
 > - **PRD refs:** FR-21.
 
-Reference material: [`docs/02-module-standard.md`](../../../../docs/02-module-standard.md) (the standard),
-[`docs/01-module-assessment.md`](../../../../docs/01-module-assessment.md) (source map in FIRE_TRACKER).
+Reference material: [`docs/02-module-standard.md`](../../../docs/02-module-standard.md) (the standard),
+[`docs/01-module-assessment.md`](../../../docs/01-module-assessment.md) (source map in FIRE_TRACKER).
 
 ## Constraints
 

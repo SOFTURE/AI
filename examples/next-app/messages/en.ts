@@ -62,6 +62,36 @@ export const en = {
     listEntries: "Reads the newest guestbook entries.",
     signGuestbook: "Adds an entry to the guestbook.",
   },
+  legal: {
+    footer: {
+      terms: "Terms of service",
+      privacy: "Privacy policy",
+      note: "SOFTURE AI example app: a demo, not a real service.",
+    },
+    terms: {
+      title: "Terms of service",
+      intro: "These terms apply to the SOFTURE AI example app, a demo of the SOFTURE modules.",
+      sections: [
+        { id: "service", title: "1. The service", body: "The app shows how the SOFTURE modules work together. It is provided for testing only." },
+        { id: "account", title: "2. Your account", body: "Keep your password to yourself. You can delete your account at any time from Your data." },
+        { id: "content", title: "3. Your content", body: "Guestbook entries are public. Do not post anything you do not want others to read." },
+      ],
+      changes: [
+        { version: "2026-10-01", date: "2026-10-01", summary: "Account deletion added to section 2." },
+        { version: "2026-09-01", date: "2026-09-01", summary: "First version." },
+      ],
+    },
+    privacy: {
+      title: "Privacy policy",
+      intro: "This policy says what the example app stores about you and what you can do about it.",
+      sections: [
+        { id: "data", title: "1. What we store", body: "Your email address, a hash of your password, your sessions and the consents you gave." },
+        { id: "consents", title: "2. Your consents", body: "When you register, we record that you accepted these documents, with their versions and the time." },
+        { id: "rights", title: "3. Your rights", body: "Download your data or delete your account from Your data. Deleting the account removes your consents too." },
+      ],
+      changes: [{ version: "2026-10-01", date: "2026-10-01", summary: "First version." }],
+    },
+  },
   errors: {
     "guestbook.message_invalid": "Write between 1 and {max} characters.",
     "auth.forbidden": "You do not have access to this.",

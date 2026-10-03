@@ -14,6 +14,7 @@ const SEEDED_TRACES = [
   "features.switches.updated_by",
   "notes.notes.body",
   "notes.notes.user_id",
+  "privacy.consents.user_id",
   "public.profiles.display_name",
   "public.profiles.user_id",
 ];

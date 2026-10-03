@@ -5,6 +5,9 @@ import { z } from "zod";
 /** Kebab-case, like a module id: contributor ids are the keys of the export. */
 export const CONTRIBUTOR_ID_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 
+/** A document version as the app writes it, e.g. `2026-10-01` or `1.2`. */
+export const DOCUMENT_VERSION_PATTERN = /^[0-9A-Za-z][0-9A-Za-z._-]{0,31}$/;
+
 const MEBIBYTE = 1024 * 1024;
 
 /** The export size limit when the app sets none. */
@@ -28,6 +31,16 @@ const appContributorSchema = z
     message: "needs exportUserData, deleteUserData or both",
   });
 
+const legalDocumentSchema = z.strictObject({
+  /** Names the document in consent records and in `getLegalDocument`, e.g. `terms`. */
+  id: z.string().max(64, "must be at most 64 characters").regex(CONTRIBUTOR_ID_PATTERN, "must be kebab-case, e.g. privacy-policy"),
+  /**
+   * The version in force, stamped on every consent given to the document. Change it whenever the
+   * published text changes, e.g. to the date the new text takes effect.
+   */
+  version: z.string().regex(DOCUMENT_VERSION_PATTERN, "must be 1-32 letters, digits, '.', '_' or '-', e.g. 2026-10-01"),
+});
+
 export const privacyOptionsSchema = z
   .strictObject({
     /**
@@ -35,6 +48,8 @@ export const privacyOptionsSchema = z
      * and delete before them, so app tables that reference module tables go first.
      */
     contributors: z.array(appContributorSchema).default([]),
+    /** The app's legal documents (terms, privacy policy) and their current versions. */
+    documents: z.array(legalDocumentSchema).default([]),
     export: z
       .strictObject({
         /** The largest export, in bytes of JSON; a larger one is refused instead of sent. */
@@ -57,8 +72,16 @@ export const privacyOptionsSchema = z
       }
       seen.add(contributor.id);
     });
+    const documentIds = new Set<string>();
+    options.documents.forEach((document, index) => {
+      if (documentIds.has(document.id)) {
+        context.addIssue({ code: "custom", path: ["documents", index, "id"], message: `"${document.id}" is declared twice` });
+      }
+      documentIds.add(document.id);
+    });
   });
 
 export type PrivacyOptionsInput = z.input<typeof privacyOptionsSchema>;
 export type PrivacyOptions = z.output<typeof privacyOptionsSchema>;
 export type AppPrivacyContributor = PrivacyOptions["contributors"][number];
+export type LegalDocumentDeclaration = PrivacyOptions["documents"][number];

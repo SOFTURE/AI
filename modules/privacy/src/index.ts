@@ -1,9 +1,12 @@
-// Public API of @softure-ai/privacy: the module factory for softure.config.ts, its types, messages
-// and rate limit buckets. The registry, export and deletion are in `@softure-ai/privacy/server`,
-// the Next.js adapter (page, export route, delete action) in `/next`, the delete form in `/ui`.
-import { defineModule } from "@softure-ai/core";
+// Public API of @softure-ai/privacy: the module factory for softure.config.ts, its types, messages,
+// rate limit buckets and the consents table. The registry, export, deletion and the consent ledger
+// are in `@softure-ai/privacy/server`, the Next.js adapter (page, export route, delete action) in
+// `/next`, the delete form and the legal document shell in `/ui`.
+import { defineModule, resolveMigrationsDir } from "@softure-ai/core";
 import { privacyMessages } from "./messages/index.js";
 import { privacyOptionsSchema } from "./options.js";
+import { privacyConsentsContributor } from "./server/consents-contributor.js";
+import { checkConsentsTable } from "./server/health.js";
 
 export const MODULE_ID = "privacy";
 
@@ -18,8 +21,9 @@ export const PRIVACY_RATE_LIMIT_BUCKETS = {
 } as const;
 
 /**
- * Enables the GDPR export and self-service account deletion in `softure.config.ts` (after
- * `auth({ ... })`): `privacy({ contributors: [{ id: "profile", exportUserData, deleteUserData }] })`.
+ * Enables the GDPR export, self-service account deletion and the consent ledger in
+ * `softure.config.ts` (after `auth({ ... })`):
+ * `privacy({ documents: [{ id: "terms", version: "2026-10-01" }], contributors: [{ id: "profile", exportUserData, deleteUserData }] })`.
  * Every enabled module with user data contributes its own part; `contributors` adds the app's.
  */
 export const privacy = defineModule({
@@ -27,8 +31,8 @@ export const privacy = defineModule({
     id: MODULE_ID,
     version: "0.0.0",
     dependsOn: { auth: "^0.0.0", security: "^0.0.0" },
-    dbSchema: null,
-    tables: [],
+    dbSchema: "privacy",
+    tables: ["consents"],
     env: [],
     switches: [],
     routes: { account: "/account/privacy", export: "/api/privacy/export", afterDelete: "/" },
@@ -36,14 +40,20 @@ export const privacy = defineModule({
       { kind: "page", path: "app/account/privacy/page.tsx", export: "PrivacyPage" },
       { kind: "route-handler", path: "app/api/privacy/export/route.ts", export: "exportRoute" },
     ],
-    privacy: { exports: false, deletes: false },
+    privacy: { exports: true, deletes: true },
   },
   messages: privacyMessages,
   options: privacyOptionsSchema,
+  migrations: { dir: resolveMigrationsDir(import.meta.url, "../migrations/") },
+  privacy: privacyConsentsContributor,
+  health: checkConsentsTable,
 });
 
 export {
   INITIAL_DELETE_ACCOUNT_STATE,
+  type ConsentRecord,
+  type ConsentState,
+  type ConsentSubject,
   type DeleteAccountErrorCode,
   type DeleteAccountField,
   type DeleteAccountFormState,
@@ -54,7 +64,10 @@ export { getPrivacyErrorMessage, privacyMessages, type PrivacyMessages } from ".
 export {
   CONTRIBUTOR_ID_PATTERN,
   DEFAULT_EXPORT_MAX_BYTES,
+  DOCUMENT_VERSION_PATTERN,
   type AppPrivacyContributor,
+  type LegalDocumentDeclaration,
   type PrivacyOptions,
   type PrivacyOptionsInput,
 } from "./options.js";
+export { consents, privacySchema } from "./schema.js";

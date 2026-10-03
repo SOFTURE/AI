@@ -1,11 +1,14 @@
 # @softure-ai/privacy
 
-GDPR self-service for a Next.js app: a signed-in user downloads everything the app stores about
-them as JSON, or deletes their account, and neither lists tables by hand. Every enabled module that
+GDPR self-service and consent evidence for a Next.js app: a signed-in user downloads everything
+the app stores about them as JSON, or deletes their account, and neither lists tables by hand; every
+consent is recorded with the version of the legal document it was given to; legal pages render
+from the app's own text. Every enabled module that
 holds user data contributes its own export and deletion; the app adds its own contributors. Built
 from FIRE_TRACKER's `src/db/{account-export,account-deletion}.ts`, `src/app/api/moje-dane/` and
 `scripts/delete-empty-account.mts`, where the tables were listed by hand and deletion ran only from
-a CLI.
+a CLI, and FIRE's `components/{legal-document,legal-section,legal-footer}.tsx`; FIRE checked the
+registration checkbox but stored nothing.
 
 ## 1. What it provides
 
@@ -20,6 +23,12 @@ a CLI.
   password and an explicit confirmation. Every contributor deletes in one transaction; a refusal or
   a failure rolls everything back. The sessions end with the account, the cookie is cleared, and the
   browser lands on `afterDelete`.
+- **The consent ledger.** `privacy.consents` records who agreed to what, when, where and against
+  which version of which legal document. It is append-only: a withdrawal is a new row, and the
+  database refuses to update one. A ready hook records the registration checkbox of
+  `@softure-ai/auth`; other modules (the waitlist) record their own scopes.
+- **The legal document shell.** `LegalDocument`, `LegalSection` and `LegalFooter` render the app's
+  terms and privacy policy: version, effective date, table of contents, change history.
 
 `@softure-ai/auth`, `@softure-ai/feature-switches` and `@softure-ai/mcp-access` contribute already (their README section 11).
 
@@ -43,7 +52,12 @@ import { deleteProfile, exportProfile } from "./lib/profile-privacy";
 // in defineSoftureConfig({ modules: [...] }):
 security({ clientIp: cloudflareIp(), buckets: { ...AUTH_RATE_LIMIT_BUCKETS, ...PRIVACY_RATE_LIMIT_BUCKETS } }),
 auth({ ... }),
+auth({ onRegistered: recordRegistrationConsent() }), // from @softure-ai/privacy/server
 privacy({
+  documents: [
+    { id: "terms", version: "2026-10-01" },
+    { id: "privacy-policy", version: "2026-10-01" },
+  ],
   contributors: [{ id: "profile", exportUserData: exportProfile, deleteUserData: deleteProfile }],
 }),
 ```
@@ -52,6 +66,9 @@ privacy({
 | --- | --- | --- | --- |
 | `contributors` | `AppPrivacyContributor[]` | `[]` | The app's own data: `{ id, exportUserData?, deleteUserData? }`, at least one function each. |
 | `contributors[].id` | `string` | required | Kebab-case, at most 64 characters, unique, and not the id of an enabled module: it is the key of the contributor's part of the export. |
+| `documents` | `{ id, version }[]` | `[]` | The app's legal documents and the versions in force. A consent names a document by id and privacy records this version with it. Change `version` whenever the published text changes (a date such as `2026-10-01` works well). |
+| `documents[].id` | `string` | required | Kebab-case, at most 64 characters, unique, e.g. `terms`, `privacy-policy`. |
+| `documents[].version` | `string` | required | 1-32 letters, digits, `.`, `_` or `-`. |
 | `export.maxBytes` | `number` | `10485760` (10 MiB) | The largest export, in bytes of JSON (1 KiB to 100 MiB). A larger one is refused with `privacy.export_too_large`. |
 | `export.fileName` | `string` | `account-data` | The download's name before the date. |
 | `routes` | `{ account, export, afterDelete }` | `/account/privacy`, `/api/privacy/export`, `/` | Where the page and the route are mounted, and where a deleted account lands. |
@@ -94,6 +111,37 @@ the app's contributors in their listed order. The deletion runs the reverse: the
 first (last listed first), then each module before the modules it depends on, auth last. A row is
 therefore always deleted before the rows it references, whatever its foreign key's `ON DELETE`.
 
+### Consents
+
+```ts
+import { getConsent, hasConsent, listConsents, recordConsent } from "@softure-ai/privacy/server";
+
+await recordConsent(ctx, { subject: { userId }, purpose: "newsletter", granted: true, source: "account" });
+await recordConsent(ctx, { subject: { email }, purpose: "newsletter", granted: false, source: "unsubscribe" });
+await recordConsent(ctx, { subject: { userId }, purpose: "terms", granted: true, document: "terms", source: "account" });
+await hasConsent(ctx, { subject: { userId }, purpose: "terms" }); // latest row granted, current version
+```
+
+- `subject` is an account (`{ userId }`) or an email address without one (`{ email }`, stored as a
+  SHA-256 key, never as the address). Reads keep the two apart; the export and the deletion of an
+  account cover both, so a waitlist consent given before registering goes with the account.
+- `purpose` and `source` are kebab-case (at most 64 characters); `document` names a declared
+  document, whose configured version is recorded. A bad subject, purpose or source gives
+  `privacy.consent_invalid`, an undeclared document `privacy.document_unknown`.
+- A withdrawal is `granted: false`: a new row, the earlier one stays as evidence. The state of a
+  purpose is its latest row: `getConsent` returns it with `isCurrentVersion` (false once the
+  document's configured version moved on, or the document is no longer declared), `hasConsent` is
+  true only for a granted row of the current version, `listConsents` gives the whole history.
+- Call these inside the transaction of the action they belong to (`ctx.db` being the transaction),
+  so the action and its evidence commit together.
+
+**Registration.** `recordRegistrationConsent({ documents? })` is an `onRegistered` hook for auth:
+when the app keeps `requireConsent` on, it records one row per document (purpose = the document's
+id, source `registration`) at the account's creation time, in the account's transaction. By
+default it records every declared document; `documents: ["terms"]` narrows it. With no document
+declared, or an undeclared one named, it throws and the registration rolls back: an account never
+exists without the evidence of its consent.
+
 ## 4. Mounting
 
 ```ts
@@ -107,6 +155,34 @@ export const dynamic = "force-dynamic";
 export { exportRoute as GET } from "@softure-ai/privacy/next";
 ```
 
+Legal pages are the app's own pages around `LegalDocument`, with the text from the app's
+dictionaries or content files and the version from the config:
+
+```tsx
+// app/legal/terms/page.tsx
+import { getPrivacyMessages } from "@softure-ai/privacy/next";
+import { getLegalDocument } from "@softure-ai/privacy/server";
+import { LegalDocument } from "@softure-ai/privacy/ui";
+import config from "../../../softure.config";
+import { terms } from "../../../content/terms";
+
+export default function TermsPage() {
+  return (
+    <LegalDocument
+      title={terms.title}
+      version={getLegalDocument(config, "terms").version}
+      effectiveFrom="2026-10-01"
+      sections={terms.sections} // [{ id: "your-account", title: "2. Your account", content: <p>…</p> }]
+      changes={terms.changes} // newest first: [{ version, date: "2026-10-01", summary }]
+      messages={getPrivacyMessages(config)}
+      locale={config.locale}
+    />
+  );
+}
+```
+
+`LegalFooter` (`links: [{ href, label }]`, an optional `note`) goes into the root layout.
+
 Link the page from the app's account page. To build your own page, compose `DeleteAccountForm`
 from `@softure-ai/privacy/ui` with `deleteAccountAction` from `/next`, and link to the export route.
 
@@ -119,7 +195,14 @@ password.
 
 ## 5. Migrations and tables
 
-None: the module keeps nothing of its own. Every contributor works on its own tables.
+Schema `privacy`, one migration:
+
+| Table | Columns | Notes |
+| --- | --- | --- |
+| `consents` | `id` (identity), `user_id` (FK `auth.users`, cascade) or `email_key` (base64url SHA-256 of the trimmed, lowercased address), `purpose`, `granted`, `document_id` + `document_version` (both or neither), `source`, `recorded_at` | exactly one subject (`consents_one_subject`); a `BEFORE UPDATE` trigger refuses every update; indexed by subject, purpose and time |
+
+The export and the deletion run every other contributor on its own tables. `GET /api/health` of
+`@softure-ai/ops` checks that the table answers.
 
 ## 6. Environment variables
 
@@ -136,10 +219,18 @@ The page is built from `@softure-ai/ui` (`Card`, `ButtonLink`, `PasswordField`, 
 `@softure-ai/ui/styles.css` styles it and the `--sft-*` tokens theme it. `DeleteAccountForm` takes
 `classNames` for its slots (`root`, `description`, `form`) and `unstyled`.
 
+The legal components are server components with the same rules. `LegalDocument` slots: `root`,
+`header`, `title`, `meta`, `intro`, `contents`, `contentsTitle`, `contentsList`, `link`, `changes`,
+`changesTitle`, `changesList`, `change`, `changeMeta`, and `sectionClassNames` for every
+`LegalSection` (`root`, `title`, `body`). `LegalFooter` slots: `root`, `list`, `link`, `note`.
+Sections scroll into view below a sticky header through `scroll-mt`; dates (`YYYY-MM-DD`) are
+written in the app's locale, in UTC so the server's time zone cannot move them.
+
 ## 9. Copy
 
 `privacyMessages.{en,pl}`: `page` (title, lead), `export` (title, description, button), `delete`
-(title, description, password label, confirmation, submit and pending labels) and `errors` for every
+(title, description, password label, confirmation, submit and pending labels), `legal` (contents,
+version, effective from, change history, the footer's navigation name) and `errors` for every
 code the form and the route can give (`privacy.*`, `auth.unauthenticated`, `security.rate_limited`,
 `core.*`). Override any of them with
 `privacy({ messages: { pl: { errors: { privacy: { deletion_refused: "…" } } } } })`, for example to
@@ -147,15 +238,23 @@ say how to reach the app's support.
 
 ## 10. Hooks
 
-The contributors (section 3) are the hooks. The rate limit buckets, both per user, are
+The contributors (section 3) are the hooks. `recordRegistrationConsent()` is a ready hook for
+auth's `onRegistered` (section 3). The rate limit buckets, both per user, are
 `PRIVACY_RATE_LIMIT_BUCKETS`: `privacy-export` (5 an hour) and `privacy-delete` (5 attempts in 15
 minutes, each a password check). Spread them into `security({ buckets })`; a missing bucket throws
 on first use and names it.
 
 ## 11. GDPR
 
-This module is the GDPR surface: right of access (the export) and right to erasure (the deletion).
-It stores nothing itself. What each module exports and deletes is in that module's section 11.
+This module is the GDPR surface: right of access (the export) and right to erasure (the deletion),
+and the evidence of consent (Art. 7(1)). What each module exports and deletes is in that module's
+section 11.
+
+Its own part is the consent ledger. The export lists every consent of the account and of its email
+address (`privacy.consents`, oldest first, each marked `account` or `email`; the email key is left
+out). The deletion removes them: once the data is gone there is nothing left to prove consent for.
+An email subject is stored only as a SHA-256 key, so the table holds no address; the key is a
+pseudonym, not anonymous data, because anyone with the address can compute it.
 Rate limit rows of `security` hold only SHA-256 prefixes of user ids and emails and are pruned two
 windows after they start.
 
@@ -166,4 +265,8 @@ windows after they start.
 - Deletion is immediate: there is no grace period and no undo. Back up the database if the app
   needs to restore accounts.
 - No deletion by an admin or from a CLI yet; call `eraseUserData` from a script of the app.
-- Consents and the legal document shell arrive with the next item of the roadmap (`privacy.consents`).
+- No page to review or withdraw consents yet; withdrawals come from the module that asked (the
+  waitlist, an unsubscribe) or from the app calling `recordConsent` with `granted: false`.
+- A new document version does not ask anyone to accept it again: `hasConsent` turns false and the
+  app decides what to show.
+- Legal text is the app's: the shell renders it, it does not write it.

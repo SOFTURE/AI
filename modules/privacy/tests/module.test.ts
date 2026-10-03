@@ -18,8 +18,8 @@ describe("the privacy module", () => {
     expect(privacy.manifest.version).toBe(manifest.version);
   });
 
-  it("fills in the defaults: no app contributors, a 10 MiB export named account-data", () => {
-    expect(privacy().options).toEqual({ contributors: [], export: { maxBytes: DEFAULT_EXPORT_MAX_BYTES, fileName: "account-data" } });
+  it("fills in the defaults: no app contributors, no documents, a 10 MiB export named account-data", () => {
+    expect(privacy().options).toEqual({ contributors: [], documents: [], export: { maxBytes: DEFAULT_EXPORT_MAX_BYTES, fileName: "account-data" } });
     expect(DEFAULT_EXPORT_MAX_BYTES).toBe(10 * 1024 * 1024);
   });
 
@@ -44,6 +44,26 @@ describe("the privacy module", () => {
         "- options.contributors.4.deleteUserData: must be a function",
         "- options.export.maxBytes: Too small: expected number to be >=1024",
         "- options.export.fileName: must be 1-64 lowercase letters, digits or -",
+      ].join("\n"),
+    );
+  });
+
+  it("refuses legal documents it cannot stamp on a consent, listing every problem", () => {
+    expect(() =>
+      privacy({
+        documents: [
+          { id: "Terms", version: "1" },
+          { id: "terms", version: "first draft" },
+          { id: "privacy-policy", version: "2026-10-01" },
+          { id: "privacy-policy", version: "2026-11-01" },
+        ],
+      }),
+    ).toThrow(
+      [
+        'Invalid SOFTURE configuration in module "privacy":',
+        "- options.documents.0.id: must be kebab-case, e.g. privacy-policy",
+        "- options.documents.1.version: must be 1-32 letters, digits, '.', '_' or '-', e.g. 2026-10-01",
+        '- options.documents.3.id: "privacy-policy" is declared twice',
       ].join("\n"),
     );
   });
