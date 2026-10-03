@@ -24,6 +24,7 @@ export interface SchemaIssue {
   readonly code: string;
   readonly path: readonly PropertyKey[];
   readonly message: string;
+  readonly expected?: string;
   readonly errors?: readonly (readonly SchemaIssue[])[];
 }
 
@@ -43,6 +44,11 @@ export function expandUnionIssues(issues: readonly SchemaIssue[]): ConfigIssue[]
       const meant = issue.errors.filter((branch) => !isTypeMismatch(branch));
       if (meant.length === 1 && meant[0] !== undefined) {
         return expandUnionIssues(meant[0].map((inner) => ({ ...inner, path: [...issue.path, ...inner.path] })));
+      }
+      // Every branch failed on the type alone: name the types the union takes.
+      const expected = [...new Set(issue.errors.flatMap((branch) => branch.flatMap((inner) => (inner.expected === undefined ? [] : [inner.expected]))))];
+      if (meant.length === 0 && issue.errors.length > 0 && expected.length > 0) {
+        return [{ path: issue.path, message: `must be ${expected.join(" or ")}` }];
       }
     }
     return [{ path: issue.path, message: issue.message }];

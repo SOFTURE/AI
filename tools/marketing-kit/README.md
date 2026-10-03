@@ -215,10 +215,17 @@ A **target** is a locator descriptor with exactly one of these keys, plus `nth` 
 whole text, case-sensitive) or a regex: `{ "regex": "^Next$", "flags": "i" }` (flags from `imsu`).
 Without `nth`, a target that matches several elements fails while recording: add `nth`, or narrow it.
 
+Actions cover what FIRE's film uses, not all of Playwright: no chained or filtered locators, no
+`getByPlaceholder`, `getByAltText` or `getByTitle`, no role options beyond `name` and `exact`, no regex
+`testId`; numbers stay in ranges that catch unit slips (`scale` 0.5-4, `after`, `perChar` and `seconds`
+up to 10 s, `hold` up to 30 s, whole pixels for `top` and `height`). A scene that needs more is a
+`sceneModule`.
+
 What can be checked without a browser is checked when the config loads, by JSON path: an `until` word
 the sentence does not say, a `hook.still` or `hook.shots[].mark` no action saves, a scene without
-`checkScreen`, actions on the opening sentence, actions next to a `sceneModule`. An action that fails
-while recording names its path and the config file:
+`checkScreen`, actions on the opening sentence, actions next to a `sceneModule`. The checks that span
+sentences run once the rest of the config is valid, so fixing one round of errors can reveal the next.
+An action that fails while recording names its path and the config file:
 
 ```text
 ✗ videos[0].beats[1].actions[2] (tap): sentence "age": getByRole('button', { name: /^Next$/ }) did not appear within 5 s. …

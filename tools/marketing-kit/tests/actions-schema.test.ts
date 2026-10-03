@@ -158,7 +158,7 @@ describe("beat actions in marketing.json", () => {
     ]);
   });
 
-  it("names the key of a broken descriptor, alone or inside a target array", () => {
+  it("names the key of a broken descriptor, alone or inside a target array, and the types a union takes", () => {
     expect(
       loadErrors(
         withSceneActions([
@@ -166,6 +166,7 @@ describe("beat actions in marketing.json", () => {
           { do: "focus", target: [{ css: "#a" }, { role: "buton" }] },
           { do: "tap", target: { text: "Age", css: "#age" } },
           { do: "tap", target: { text: { regex: "Age", flag: "i" } } },
+          { do: "tap", target: { role: "button", name: 5 } },
         ]),
       ),
     ).toEqual([
@@ -174,6 +175,7 @@ describe("beat actions in marketing.json", () => {
       "videos[0].beats[1].actions[8].target[1].role: must be an ARIA role Playwright knows, such as button, heading, link or textbox",
       "videos[0].beats[1].actions[9].target: needs exactly one of role, text, label, testId, css (found text, css)",
       'videos[0].beats[1].actions[10].target.text: Unrecognized key: "flag"',
+      "videos[0].beats[1].actions[11].target.name: must be string or object",
     ]);
   });
 
@@ -221,7 +223,7 @@ describe("beat actions in marketing.json", () => {
 
   it("refuses an until word the sentence does not say, with the sentence's punctuation ignored", () => {
     expect(loadErrors(withSceneActions([{ do: "until", word: "next" }, { do: "until", word: "Count" }]))).toEqual([
-      'videos[0].beats[1].actions[8].word: "Count" is not a word of this sentence',
+      'videos[0].beats[1].actions[8].word: "Count" is not a word of this sentence (Anna types her age and taps next)',
     ]);
   });
 

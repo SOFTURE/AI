@@ -215,7 +215,7 @@ function checkScene(video: SceneShape, context: z.RefinementCtx): void {
     const words = getWords(beat.text);
     beat.actions.forEach((action, actionIndex) => {
       if (action.do === "until" && !words.includes(action.word)) {
-        context.addIssue({ code: "custom", path: ["beats", index, "actions", actionIndex, "word"], message: `"${action.word}" is not a word of this sentence` });
+        context.addIssue({ code: "custom", path: ["beats", index, "actions", actionIndex, "word"], message: `"${action.word}" is not a word of this sentence (${words.join(" ")})` });
       }
       if (action.do === "still") stills.add(action.name);
       if (action.do === "mark") marks.add(action.name);

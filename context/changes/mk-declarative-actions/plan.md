@@ -136,20 +136,20 @@ the fixture's TS scene and its JSON twin make the same Director calls.
 ### Phase 1: The contract
 
 #### Automated
-- [ ] 1.1 Action schema and config tests pass
-- [ ] 1.2 Gates green (typecheck, lint, test)
+- [x] 1.1 Action schema and config tests pass — 4cbe3e5
+- [x] 1.2 Gates green (typecheck, lint, test) — 4cbe3e5
 
 ### Phase 2: The interpreter
 
 #### Automated
-- [ ] 2.1 Interpreter tests pass, including the fixture trace
-- [ ] 2.2 Gates green (typecheck, lint, test, build)
+- [x] 2.1 Interpreter tests pass, including the fixture trace — 4cbe3e5
+- [x] 2.2 Gates green (typecheck, lint, test, build) — 4cbe3e5
 
 ### Phase 3: Fixture, baseline and docs
 
 #### Automated
-- [ ] 3.1 The opt-in render test passes with equal logs
-- [ ] 3.2 Gates green (typecheck, lint, test, build)
+- [x] 3.1 The opt-in render test passes with equal logs — 4cbe3e5
+- [x] 3.2 Gates green (typecheck, lint, test, build) — 4cbe3e5
 
 #### Manual
-- [ ] 3.3 FIRE's JSON scene makes the same Director calls as its TS scene
+- [x] 3.3 FIRE's JSON scene makes the same Director calls as its TS scene — 4cbe3e5
