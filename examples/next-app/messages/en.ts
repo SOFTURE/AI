@@ -29,6 +29,7 @@ export const en = {
     lead: "Only signed-in users see this page.",
     changePassword: "Change password",
     admin: "Admin panel",
+    privacy: "Your data",
   },
   admin: {
     title: "Admin panel",

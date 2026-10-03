@@ -5,6 +5,7 @@ import { defineSoftureConfig } from "@softure-ai/core";
 import { registerSoftureConfig } from "@softure-ai/core/next";
 import { featureSwitches } from "@softure-ai/feature-switches";
 import { ops } from "@softure-ai/ops";
+import { privacy, PRIVACY_RATE_LIMIT_BUCKETS } from "@softure-ai/privacy";
 import { cloudflareIp, security } from "@softure-ai/security";
 import { sendPasswordResetLink } from "./lib/password-reset-sender.ts";
 import { en } from "./messages/en.ts";
@@ -30,7 +31,7 @@ const config = defineSoftureConfig({
     // The e2e sends CF-Connecting-IP itself, standing in for Cloudflare (e2e/security.spec.ts).
     security({
       clientIp: cloudflareIp(),
-      buckets: { "example.ping": { limit: 3, windowMinutes: 15 }, ...AUTH_RATE_LIMIT_BUCKETS },
+      buckets: { "example.ping": { limit: 3, windowMinutes: 15 }, ...AUTH_RATE_LIMIT_BUCKETS, ...PRIVACY_RATE_LIMIT_BUCKETS },
     }),
     auth({ routes: { afterLogin: "/account" }, adminEmails: [EXAMPLE_ADMIN_EMAIL], passwordReset: { send: sendPasswordResetLink } }),
     // `detail: "checks"` lists each check in the answer, so e2e/ops.spec.ts can see the guestbook's.
@@ -47,6 +48,9 @@ const config = defineSoftureConfig({
         },
       ],
     }),
+    // The export and account deletion at /account/privacy (e2e/privacy-export-delete.spec.ts). The
+    // guestbook holds no user data, so the modules' own contributors are all there is to collect.
+    privacy(),
   ],
 });
 

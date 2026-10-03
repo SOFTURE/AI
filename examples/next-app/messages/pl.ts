@@ -31,6 +31,7 @@ export const pl: AppMessages = {
     lead: "Tę stronę widzą tylko zalogowani użytkownicy.",
     changePassword: "Zmień hasło",
     admin: "Panel administratora",
+    privacy: "Twoje dane",
   },
   admin: {
     title: "Panel administratora",

@@ -248,6 +248,11 @@ thin actions) are not needed.
 - The result is `Result<T, ErrorCode>` from `@softure-ai/core`. Exceptions are for programming errors only.
 - Extension hooks: `onRegistered`, `onDeleted`, `authorize(user, action)`. The module calls them,
   the app supplies them.
+- GDPR: a module that holds user data passes `privacy: { exportUserData, deleteUserData }` to
+  `defineModule`, matching its manifest's `privacy` flags. `@softure-ai/privacy` collects them from
+  the enabled modules (and the app's own from `privacy({ contributors })`) for the self-service
+  export and account deletion: exports in dependency order, deletions in reverse in one transaction,
+  and a contributor refuses a deletion with an `Err` (engagement EN-7; [`modules/privacy/README.md`](../modules/privacy/README.md)).
 - Health: a module may pass `health: (context) => Promise<Result<undefined>>` to `defineModule`;
   `GET /api/health` of `@softure-ai/ops` runs it for every enabled module (identity ID-7). One cheap
   query, no side effects.

@@ -82,8 +82,8 @@ Rules for a contributor:
 
 - Query through `context.db` only: it is the transaction. A query on another handle is outside the
   rollback and, under Postgres, waits on the transaction's locks.
-- Export plain JSON values (dates become ISO strings). Never export secrets: password hashes,
-  token hashes, API keys.
+- `exportUserData` only reads: the export runs in a read-only transaction. Export plain JSON
+  values (dates become ISO strings), and never secrets: password hashes, token hashes, API keys.
 - Delete (or anonymise) everything that names the user. To keep data for a legal reason, return an
   `Err` from `deleteUserData`: nothing is deleted, the user sees `privacy.deletion_refused`, and the
   contributor's id and code are logged.
