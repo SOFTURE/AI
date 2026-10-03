@@ -66,6 +66,9 @@ export const en = {
       plan_unknown: "This plan is no longer available. Choose another one.",
       invoice_details_invalid: "Fill in this field (it may not be too long).",
       payment_failed: "The payment could not be started. Try again in a moment.",
+      lifetime_active: "This account already has lifetime access: there is nothing to pay for or grant.",
+      request_closed: "This request was granted or dismissed already.",
+      grant_revoked: "This grant was revoked already.",
     },
     security: {
       rate_limited: "Too many attempts. Try again later.",

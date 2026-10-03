@@ -68,6 +68,9 @@ export const pl: typeof en = {
       plan_unknown: "Ten plan nie jest już dostępny. Wybierz inny.",
       invoice_details_invalid: "Wypełnij to pole (nie może być zbyt długie).",
       payment_failed: "Nie udało się rozpocząć płatności. Spróbuj za chwilę.",
+      lifetime_active: "To konto ma już dostęp dożywotni: nie ma za co płacić ani czego nadawać.",
+      request_closed: "Ta prośba została już obsłużona lub odrzucona.",
+      grant_revoked: "Ten dostęp został już cofnięty.",
     },
     security: {
       rate_limited: "Zbyt wiele prób. Spróbuj później.",

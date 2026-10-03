@@ -9,8 +9,9 @@ import { INVOICE_FIELDS, INVOICE_LIMITS, type InvoiceField } from "../fields.js"
 import type { InvoiceDetails, PaymentAccount, PaymentProvider, PaymentStart } from "../payment.js";
 import { findPlan, getPlanGrant } from "../plans.js";
 import { getPaymentGrant } from "../refund.js";
-import { changeEntitlement, type BillingContext } from "./entitlements.js";
+import { changeEntitlement, findEntitlementRecord, type BillingContext } from "./entitlements.js";
 import { getBillingOptions, getBillingRoutes } from "./options.js";
+import { recordPaymentRequest } from "./requests.js";
 import { assertPaymentSetup, PAYMENT_BUCKET } from "./setup.js";
 
 /** The plans of `billing({ plans })`, in their order. */
@@ -61,6 +62,8 @@ export async function applyPlan(ctx: BillingContext, userId: string, planId: str
 /**
  * Grants one payment of the plan: a paid period that starts when the account's current access ends,
  * or lifetime access. Computed under the entitlement's lock, so two grants at once give two periods.
+ * It records nothing: a grant made here is not in the account's history and cannot be revoked; an
+ * admin's grant goes through `grantPlanManually`.
  */
 export async function grantPlan(ctx: BillingContext, userId: string, planId: string): Promise<Ok<Entitlement> | Err<BillingErrorCode | "billing.plan_unknown">> {
   const applied = await applyPlan(ctx, userId, planId);
@@ -99,9 +102,10 @@ export interface StartPaymentInput {
 export type StartPaymentResult = Ok<PaymentStart> | Err<Exclude<PaymentErrorCode, "billing.invoice_details_invalid"> | "security.rate_limited"> | InvoiceDetailsError;
 
 /**
- * Starts paying for a plan: counts `billing-payment` per account first, checks the plan and, for a
- * provider that needs them, the invoice details, then hands over to the provider. Database errors
- * and provider throws propagate.
+ * Starts paying for a plan: counts `billing-payment` per account first, checks the plan, that the
+ * account has no lifetime access yet and, for a provider that needs them, the invoice details, then
+ * hands over to the provider. A request the provider hands over (`requested`) is stored for the
+ * admin page. Database errors and provider throws propagate.
  */
 export async function startPayment(ctx: BillingContext, input: StartPaymentInput): Promise<StartPaymentResult> {
   assertPaymentSetup(ctx.config);
@@ -111,6 +115,8 @@ export async function startPayment(ctx: BillingContext, input: StartPaymentInput
 
   const plan = findPlan(getBillingPlans(ctx.config), input.planId);
   if (plan === undefined) return err("billing.plan_unknown");
+  const record = await findEntitlementRecord(ctx, input.account.id);
+  if (record?.isLifetime === true) return err("billing.lifetime_active");
   let invoice: InvoiceDetails | null = null;
   if (provider.collectsInvoiceDetails) {
     const parsed = parseInvoiceDetails(input.invoice);
@@ -118,5 +124,7 @@ export async function startPayment(ctx: BillingContext, input: StartPaymentInput
     invoice = parsed.value;
   }
   const returnUrl = new URL(getBillingRoutes(ctx.config).payment, ctx.config.appOrigin).toString();
-  return provider.startPayment(ctx, { plan, account: input.account, invoice, returnUrl });
+  const started = await provider.startPayment(ctx, { plan, account: input.account, invoice, returnUrl });
+  if (started.ok && started.value.type === "requested") await recordPaymentRequest(ctx, { userId: input.account.id, planId: plan.id, invoice });
+  return started;
 }

@@ -119,13 +119,25 @@ export type PaymentErrorCode =
   /** The invoice details are missing or too long; `fieldErrors` says which. */
   | "billing.invoice_details_invalid"
   /** The payment provider refused or failed; nothing was charged or requested. */
-  | "billing.payment_failed";
+  | "billing.payment_failed"
+  /** The account has lifetime access: there is nothing left to pay for or grant. */
+  | "billing.lifetime_active";
 
 /** Every code the payment form can show. */
 export type PaymentFormErrorCode = PaymentErrorCode | "security.rate_limited" | CoreErrorCode;
 
 /** Every code the admin grant form can show. */
-export type GrantFormErrorCode = "billing.plan_unknown" | "billing.account_unknown" | "auth.forbidden" | CoreErrorCode;
+export type GrantFormErrorCode = "billing.plan_unknown" | "billing.account_unknown" | "billing.lifetime_active" | "auth.forbidden" | CoreErrorCode;
+
+/** Why an admin could not act on a request or a manual grant. */
+export type AdminErrorCode =
+  /** The request was granted or dismissed already, or never existed. */
+  | "billing.request_closed"
+  /** The grant was revoked already, or never existed. */
+  | "billing.grant_revoked";
+
+/** Every code the admin page's buttons and account lookup can show. */
+export type AdminActionErrorCode = AdminErrorCode | GrantFormErrorCode;
 
 /** What the payment action returns to its form (`useActionState`). */
 export interface PaymentFormState {
@@ -151,3 +163,11 @@ export interface GrantFormState {
 }
 
 export const INITIAL_GRANT_FORM_STATE: GrantFormState = { status: "idle" };
+
+/** What an admin button (grant or dismiss a request, revoke a grant, find an account) returns to its form. */
+export type AdminActionState =
+  | { readonly status: "idle" }
+  | { readonly status: "done" }
+  | { readonly status: "error"; readonly error: AdminActionErrorCode; readonly email?: string };
+
+export const INITIAL_ADMIN_ACTION_STATE: AdminActionState = { status: "idle" };

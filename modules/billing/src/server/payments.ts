@@ -6,17 +6,14 @@
 // privacy erase, so none of them deadlock.
 import { users } from "@softure-ai/auth";
 import { err, ok, type Err, type Ok } from "@softure-ai/core";
-import type { Queryable } from "@softure-ai/db";
-import { and, eq, gte, ne } from "drizzle-orm";
-import type { Entitlement, EntitlementEvent, EntitlementRecord, PaymentGrant } from "../contract.js";
+import { and, eq } from "drizzle-orm";
+import type { Entitlement, PaymentGrant } from "../contract.js";
 import { findPlan } from "../plans.js";
-import { getRefundEvent, getUnusedDays, moveBackByDays } from "../refund.js";
-import { entitlements, payments } from "../schema.js";
+import { payments } from "../schema.js";
 import { readStripeWebhook, type PaidCheckout, type StripeWebhookError } from "../stripe-webhook.js";
-import { resolveEntitlement } from "../entitlement.js";
-import { changeEntitlement, findEntitlementRecord, type BillingContext } from "./entitlements.js";
-import { getEntitlementPolicy } from "./options.js";
+import type { BillingContext } from "./entitlements.js";
 import { applyPlan, getBillingPlans } from "./plans.js";
+import { hasPaidLifetimePayment, takeBackGrant } from "./take-back.js";
 import { isUserId } from "./user-id.js";
 
 /** The name of `stripe()`, under which its webhook stores payments. */
@@ -92,78 +89,23 @@ export interface RefundPaymentInput {
   readonly paymentId: string;
 }
 
-interface GrantColumns {
+export interface GrantColumns {
   readonly grantKind: "period" | "lifetime" | null;
   readonly grantedFrom: Date | null;
   readonly grantedUntil: Date | null;
 }
 
 /** The payment row's columns for what its grant added. */
-function getGrantColumns(grant: PaymentGrant): GrantColumns {
+export function getGrantColumns(grant: PaymentGrant): GrantColumns {
   if (grant.kind === "lifetime") return { grantKind: "lifetime", grantedFrom: null, grantedUntil: null };
   return { grantKind: "period", grantedFrom: grant.from, grantedUntil: grant.until };
 }
 
 /** The grant a payment row records, or null for a row stored before grants were. */
-function readGrant(row: GrantColumns): PaymentGrant | null {
+export function readGrant(row: GrantColumns): PaymentGrant | null {
   if (row.grantKind === "lifetime") return { kind: "lifetime" };
   if (row.grantKind === "period" && row.grantedFrom !== null && row.grantedUntil !== null) return { kind: "period", from: row.grantedFrom, until: row.grantedUntil };
   return null;
-}
-
-/** Whether another payment of the account still pays for lifetime access. */
-async function hasOtherLifetimePayment(tx: Queryable, userId: string, paymentRowId: string): Promise<boolean> {
-  const [other] = await tx
-    .select({ id: payments.id })
-    .from(payments)
-    .where(and(eq(payments.userId, userId), eq(payments.grantKind, "lifetime"), eq(payments.status, "paid"), ne(payments.id, paymentRowId)))
-    .limit(1);
-  return other !== undefined;
-}
-
-interface ShiftLaterPeriodsInput {
-  readonly userId: string;
-  /** The refunded period. */
-  readonly grant: Extract<PaymentGrant, { kind: "period" }>;
-  readonly days: number;
-  readonly timezone: string;
-}
-
-/**
- * Moves the stored periods of the account's paid payments that follow the refunded one back by the
- * days the refund took, so they still say where their access lies and a later refund of one of them
- * takes back the right days.
- */
-async function shiftLaterPeriods(tx: Queryable, input: ShiftLaterPeriodsInput): Promise<void> {
-  const later = await tx
-    .select({ id: payments.id, grantedFrom: payments.grantedFrom, grantedUntil: payments.grantedUntil })
-    .from(payments)
-    .where(and(eq(payments.userId, input.userId), eq(payments.grantKind, "period"), eq(payments.status, "paid"), gte(payments.grantedFrom, input.grant.until)));
-  for (const row of later) {
-    if (row.grantedFrom === null || row.grantedUntil === null) continue;
-    await tx
-      .update(payments)
-      .set({ grantedFrom: moveBackByDays(row.grantedFrom, input.days, input.timezone), grantedUntil: moveBackByDays(row.grantedUntil, input.days, input.timezone) })
-      .where(eq(payments.id, row.id));
-  }
-}
-
-interface RefundChangeInput {
-  readonly record: EntitlementRecord;
-  /** What the payment granted; null for a row stored before grants were recorded. */
-  readonly grant: PaymentGrant | null;
-  readonly paymentRowId: string;
-  readonly userId: string;
-  readonly now: Date;
-  readonly timezone: string;
-}
-
-/** The change a refund makes, decided under the entitlement lock, or null when it takes nothing back. */
-async function getRefundChange(tx: Queryable, input: RefundChangeInput): Promise<EntitlementEvent | null> {
-  const { record, grant } = input;
-  if (grant === null) return { type: "revoke" };
-  if (grant.kind === "lifetime" && (await hasOtherLifetimePayment(tx, input.userId, input.paymentRowId))) return null;
-  return getRefundEvent(record, grant, input.now, input.timezone);
 }
 
 /**
@@ -188,23 +130,11 @@ export async function refundPayment(ctx: BillingContext, input: RefundPaymentInp
     // Refunded by a concurrent delivery, or erased with the account in the meantime.
     if (refunded === undefined) return ok({ status: "duplicate" });
 
-    // The entitlement next, locked until the end: a lifetime bought at the same time is either
-    // committed and seen below, or waits for this lock and is granted after the refund.
-    await tx.select({ userId: entitlements.userId }).from(entitlements).where(eq(entitlements.userId, payment.userId)).for("update");
-    const record = await findEntitlementRecord({ ...ctx, db: tx }, payment.userId);
-    // The payment row references the account, which the key share lock above keeps.
-    if (record === null) throw new Error("@softure-ai/billing: a refunded payment has no account");
-    const grant = readGrant(refunded);
-    const { timezone } = ctx.config;
-    const event = await getRefundChange(tx, { record, grant, paymentRowId: refunded.id, userId: payment.userId, now, timezone });
-    if (grant?.kind === "period" && event !== null) {
-      await shiftLaterPeriods(tx, { userId: payment.userId, grant, days: getUnusedDays(grant, now, timezone), timezone });
-    }
-    if (event === null) return ok({ status: "refunded", entitlement: resolveEntitlement(record, now, getEntitlementPolicy(ctx.config)) });
-    const changed = await changeEntitlement({ ...ctx, db: tx }, payment.userId, event);
-    // The payment row exists, so its account does (ON DELETE CASCADE), and these events are never refused.
-    if (!changed.ok) throw new Error(`@softure-ai/billing: taking back a refunded payment failed with ${changed.error}`);
-    return ok({ status: "refunded", entitlement: changed.value });
+    const entitlement = await takeBackGrant(
+      { ...ctx, db: tx },
+      { userId: payment.userId, grant: readGrant(refunded), now, hasOtherLifetime: () => hasPaidLifetimePayment(tx, payment.userId, refunded.id) },
+    );
+    return ok({ status: "refunded", entitlement });
   });
 }
 

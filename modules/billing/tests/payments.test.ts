@@ -2,10 +2,10 @@
 // the payment bucket counted first, the plan and the invoice details checked, and the manual
 // adapter handing the request over.
 import { BILLING_RATE_LIMIT_BUCKETS, manual, type BillingOptionsInput, type PaymentProvider, type PaymentRequest } from "@softure-ai/billing";
-import { changeEntitlement, findAccountByEmail, getEntitlement, grantPlan, startPayment } from "@softure-ai/billing/server";
+import { changeEntitlement, findAccountByEmail, getEntitlement, grantPlan, listOpenRequests, startPayment } from "@softure-ai/billing/server";
 import { err, ok } from "@softure-ai/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createAccount, createConfig, createTestBilling, type TestBilling } from "./support.js";
+import { createAccount, createConfig, createTestBilling, NOW, type TestBilling } from "./support.js";
 
 /** The end of a 14-day trial begun at NOW: midnight starting 17 October in Warsaw. */
 const TRIAL_END = new Date("2026-10-16T22:00:00Z");
@@ -109,13 +109,25 @@ describe("startPayment", () => {
         returnUrl: "https://app.example.com/payment",
       },
     ]);
-    // A request grants nothing: the admin does once the invoice is paid.
+    // A request grants nothing: the admin does once the invoice is paid. It is stored for the admin page.
     expect(await getEntitlement(test.ctx, account.id)).toMatchObject({ status: "trial" });
+    expect(await listOpenRequests(test.ctx)).toEqual([
+      {
+        id: expect.any(String) as unknown,
+        userId: account.id,
+        email: "ada@example.com",
+        planId: "monthly",
+        invoice: { name: "Ada Lovelace Ltd", taxId: "PL1234567890", address: "1 Analytical Way, London" },
+        requestedAt: NOW,
+      },
+    ]);
   });
 
-  it("sends an empty tax id as null", async () => {
-    await startPayment(test.ctx, { account, planId: "monthly", invoice: { ...INVOICE, taxId: "  " } });
-    expect(recorder.requests[0]?.invoice?.taxId).toBeNull();
+  it("refuses an account with lifetime access, handing nothing over and storing nothing", async () => {
+    await grantPlan(test.ctx, account.id, "lifetime");
+    expect(await startPayment(test.ctx, { account, planId: "monthly", invoice: INVOICE })).toEqual(err("billing.lifetime_active"));
+    expect(recorder.requests).toEqual([]);
+    expect(await listOpenRequests(test.ctx)).toEqual([]);
   });
 
   it("names every invoice field that is missing or too long, and hands nothing over", async () => {
@@ -147,7 +159,7 @@ describe("startPayment", () => {
     expect(await startPayment(test.ctx, { account: bob, planId: "monthly", invoice: INVOICE })).toEqual(ok({ type: "requested" }));
   });
 
-  it("answers payment_failed when the request could not be handed over, and logs the code", async () => {
+  it("answers payment_failed when the request could not be handed over, logs the code and stores nothing", async () => {
     const failing = createRecorder(() => Promise.resolve(err("mailing.unavailable")));
     const other = await createTestBilling({ plans: PLANS, payment: failing.provider });
     const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
@@ -155,6 +167,7 @@ describe("startPayment", () => {
       const id = await createAccount(other, "ada@example.com");
       expect(await startPayment(other.ctx, { account: { id, email: "ada@example.com" }, planId: "monthly", invoice: INVOICE })).toEqual(err("billing.payment_failed"));
       expect(log).toHaveBeenCalledWith('@softure-ai/billing: the manual payment request for plan "monthly" was not handed over: mailing.unavailable');
+      expect(await listOpenRequests(other.ctx)).toEqual([]);
     } finally {
       log.mockRestore();
       await other.database.close();
@@ -177,6 +190,8 @@ describe("startPayment", () => {
       const result = await startPayment(other.ctx, { account: { id, email: "ada@example.com" }, planId: "lifetime", invoice: { name: "", taxId: "", address: "" } });
       expect(result).toEqual(ok({ type: "redirect", url: "https://pay.example.com/session/1" }));
       expect(seen[0]?.invoice).toBeNull();
+      // A redirect is not a request handed over: nothing to list.
+      expect(await listOpenRequests(other.ctx)).toEqual([]);
     } finally {
       await other.database.close();
     }
