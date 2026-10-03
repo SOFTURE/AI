@@ -1,0 +1,60 @@
+// Address and header rules shared by the options schema and the mail validation.
+
+/** One address: an `@`, no list separators, no whitespace, no angle brackets. */
+const ADDRESS = /^[^\s@,;<>"]+@[^\s@,;<>"]+\.[^\s@,;<>"]+$/;
+
+/** A display name and an address: `Plan <hello@example.com>`. */
+const NAMED_ADDRESS = /^([^<>\r\n"]*[^\s<>"])\s*<([^<>]+)>$/;
+
+/** RFC 5322 field name: printable ASCII except the colon. */
+const HEADER_NAME = /^[!-9;-~]+$/;
+
+/**
+ * Headers that would take over the envelope, the sender or the body's encoding. The `headers`
+ * field is for list headers (RFC 8058) and similar; a different `From:` fails DMARC, an added
+ * recipient is mail nobody asked for.
+ */
+export const RESERVED_HEADERS: ReadonlySet<string> = new Set([
+  "from",
+  "sender",
+  "to",
+  "cc",
+  "bcc",
+  "reply-to",
+  "subject",
+  "return-path",
+  "content-type",
+  "content-transfer-encoding",
+  "mime-version",
+]);
+
+export const MAX_SUBJECT_LENGTH = 998;
+export const MAX_IDEMPOTENCY_KEY_LENGTH = 256;
+
+export function isSingleAddress(value: string): boolean {
+  return ADDRESS.test(value);
+}
+
+/** `addr` or `Name <addr>`, on one line. */
+export function isMailbox(value: string): boolean {
+  if (hasLineBreak(value)) return false;
+  const named = NAMED_ADDRESS.exec(value);
+  return named === null ? isSingleAddress(value) : isSingleAddress(named[2] ?? "");
+}
+
+export function hasLineBreak(value: string): boolean {
+  return /[\r\n]/.test(value);
+}
+
+export function isHeaderName(name: string): boolean {
+  return HEADER_NAME.test(name);
+}
+
+export function isReservedHeader(name: string): boolean {
+  return RESERVED_HEADERS.has(name.toLowerCase());
+}
+
+/** 1 to 256 visible ASCII characters. */
+export function isIdempotencyKey(key: string): boolean {
+  return key.length <= MAX_IDEMPOTENCY_KEY_LENGTH && /^[!-~]+$/.test(key);
+}
