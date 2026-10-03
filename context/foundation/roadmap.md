@@ -52,7 +52,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-7** | `analytics-action-redirect-tag` | Channel tag kept through server action redirects | FU-1, FU-5 | autonomous | proposed |
 | **FU-8** | `waitlist-funnel-hook` | Waitlist sign-ups as a funnel step | FU-4 | autonomous | proposed |
 | **FU-9** | `billing-admin-requests` | Payment requests, revoke and grant history in the billing admin page | FU-11 | autonomous | proposed |
-| **FU-11** | `billing-refund-one-payment` | Refunds that take back one payment's period | — | autonomous | in_progress (claude/project-thread-wsh2og) |
+| **FU-11** | `billing-refund-one-payment` | Refunds that take back one payment's period | — | autonomous | in_progress (implement 2/2, since 2026-10-03; cloud session, branch `claude/project-thread-wsh2og`) |
 | **FU-12** | `billing-retro-reviews` | Retro research and plan review for MO-1 and MO-2 | — | autonomous | proposed |
 | **FU-13** | `marketing-kit-render-ci` | the marketing-kit fixture film renders to a draft MP4 on every push | — | autonomous | proposed |
 | **FU-14** | `marketing-kit-schema-docs` | every key of the marketing.json JSON Schema carries a description | — | autonomous | proposed |
@@ -60,6 +60,8 @@ backlog: context/backlog/roadmap-followups/
 | **FU-16** | `marketing-kit-layout-overrides` | per-format layout overrides (caption box, persona, end card) in marketing.json | FU-14 | autonomous | proposed |
 | **FU-17** | `marketing-kit-og-glyphs` | OG images refuse copy the brand fonts cannot draw | — | autonomous | proposed |
 | **FU-18** | `marketing-kit-screenshot-variants` | screenshots at a device scale and in both colour schemes | FU-14 | autonomous | proposed |
+| **FU-19** | `billing-partial-refunds` | partial refunds take back access by a policy | FU-11 | autonomous | proposed |
+| **FU-20** | `billing-refund-manual-lifetime` | a manual lifetime grant survives a refunded paid lifetime | FU-9 | autonomous | proposed |
 
 ## Order
 
@@ -70,7 +72,7 @@ after another; different lanes run in parallel, up to 4 at once.
 | --- | --- | --- |
 | A: switches | FU-1 | `foundation/core/`, `modules/auth/`, `modules/feature-switches/` |
 | B: waitlist and consent | FU-3 → FU-2 → FU-4 → FU-8 | `modules/waitlist/` (FU-3 also `modules/mailing/`, `modules/privacy/`) |
-| C: billing | FU-11 → FU-9 → FU-6; FU-12 any time | `modules/billing/` and its migrations; FU-12 writes archive documents only |
+| C: billing | FU-11 → FU-9 → FU-6 → FU-19 → FU-20; FU-12 any time | `modules/billing/` and its migrations; FU-12 writes archive documents only |
 | D: analytics | FU-5 → FU-7 (FU-7 also after FU-1) | `modules/analytics/` channel propagation; FU-7 may touch auth's redirects |
 | E: marketing-kit config | FU-14 → FU-16 → FU-15; FU-14 → FU-18 | `tools/marketing-kit/src/config/schema.ts`, `schema/`, `src/compose/` (FU-15, FU-16) |
 | F: independent | FU-13, FU-17 | `.github/workflows/ci.yml`; `tools/marketing-kit/src/og/` |
@@ -79,7 +81,7 @@ after another; different lanes run in parallel, up to 4 at once.
    adopts the switches; FU-3 fixes a consent ledger that can contradict an unsubscribe), then the MEDIUM refund
    fix and the schema descriptions that every later marketing-kit config item extends.
 2. **Each free slot** takes the first item of this list whose lane is idle and whose dependencies are on `master`:
-   FU-2, FU-5, FU-13, FU-17, FU-9, FU-16, FU-18, FU-4, FU-7, FU-12, FU-6, FU-15, FU-8.
+   FU-2, FU-5, FU-13, FU-17, FU-9, FU-16, FU-18, FU-4, FU-7, FU-12, FU-6, FU-15, FU-8, FU-19, FU-20.
 3. **MK-8, EN-9 and MO-6** (owner, carried over): the owner's batch release on 2026-10-05; they wait for no FU item,
    and no FU item waits for them.
 
@@ -111,6 +113,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 | FU-16 | no | a validated `layout` section merged into the geometry table |
 | FU-17 | no | a glyph check against the loaded fonts; tested with a subset font |
 | FU-18 | no | Playwright device scale and colour schemes; tested against the static fixture page |
+| FU-19 | no | a refund policy in billing with a documented default; signed webhook fixtures, no Stripe secrets |
+| FU-20 | no | reads FU-9's grant history in the refund; unit tests on PGlite |
 
 ## Items
 
@@ -247,7 +251,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-11: Refunds that take back one payment's period
 - **Change ID:** `billing-refund-one-payment`
-- **Status:** in_progress (claude/project-thread-wsh2og)
+- **Status:** in_progress (implement 2/2, since 2026-10-03; cloud session, branch `claude/project-thread-wsh2og`)
 - **Input:** [`changes/billing-refund-one-payment/`](../changes/billing-refund-one-payment/change.md)
 - **Outcome:** A full refund removes only the access the refunded payment granted (its period, or the lifetime it bought), not every paid period of the account; optionally partial refunds handled by a policy.
 - **Prerequisites:** none beyond the main branch.
@@ -333,6 +337,26 @@ owner's own machine, a product decision only the owner can make, or a change in 
 - **Baseline:** marketing-kit MK-4 `mk-screenshots`: PNG at Playwright's default scale (1), one scheme per run (`app.colorScheme`). After: the schema takes `scale` and a scheme list, the tests cover both.
 - **PRD refs:** FR-25.
 - **Source:** `tools/marketing-kit/README.md` "Limitations"; `context/archive/2026-10-03-mk-screenshots/reviews/impl-review.md` F4
+
+### FU-19: Partial refunds take back access by a policy
+- **Change ID:** `billing-partial-refunds`
+- **Status:** proposed
+- **Outcome:** A partial refund changes access by a documented policy; partial refunds summing to the full amount act like one full refund.
+- **Prerequisites:** FU-11 on `master` (payments record their grant); runs in lane C after FU-6 (shared files).
+- **Unknowns:** Pro rata by amount vs. a fixed rule; rounding of days; tracking the refunded amount per payment (`charge.amount_refunded`); whether the policy is an option of `billing()`.
+- **Risk:** LOW.
+- **Baseline:** FU-11 `billing-refund-one-payment`: `charge.refunded` with `refunded: false` is ignored (README §12). After: a partial refund follows the policy, covered by unit tests with signed webhook fixtures.
+- **Source:** FU-11 (the optional half of its outcome, deferred in its research); `modules/billing/README.md` §12
+
+### FU-20: A manual lifetime grant survives a refunded paid lifetime
+- **Change ID:** `billing-refund-manual-lifetime`
+- **Status:** proposed
+- **Outcome:** A refunded paid lifetime keeps lifetime access when the admin also granted it by hand.
+- **Prerequisites:** FU-9 on `master` (its grant history records manual grants).
+- **Unknowns:** Whether FU-9's grant history can be read in the refund's transaction under the entitlement lock; how a manual revoke after a manual lifetime counts.
+- **Risk:** LOW.
+- **Baseline:** FU-11 `billing-refund-one-payment`: a refunded paid lifetime ends lifetime unless another paid lifetime payment exists; manual grants have no payment row (README §12). After: manual lifetime grants count, covered by unit tests.
+- **Source:** FU-11 research ("Answers to unknowns", manual grants); `modules/billing/README.md` §12
 
 ## Owner decisions and checks
 

@@ -15,7 +15,7 @@ script become plans in the config, a payment page and an admin page that grants 
 - **A pure state machine** (`resolveEntitlement`, `applyEntitlementEvent` from the root entry): a
   record (trial end, paid until, lifetime) and an instant give `trial | paid | read_only`, with the
   days left and whether the reminder window is open; an event (`grant`, `grant_lifetime`, `revoke`,
-  `extend_trial`) gives the next record. No database and no clock.
+  `shorten`, `end_lifetime`, `extend_trial`) gives the next record. No database and no clock.
 - **`billing.entitlements`**, at most one row per account, apart from `auth.users`. An account
   without a row is on the trial that starts at its `auth.users.created_at` (see §5).
 - **The write guard**: `requireWriteAccess()` (`/next`) for server actions, `checkWriteAccess()`
@@ -36,7 +36,8 @@ script become plans in the config, a payment page and an admin page that grants 
   page and the provider webhook alike.
 - **`stripe()`**, a card, BLIK and transfer adapter on Stripe Checkout (one-time payments), and
   **`stripeWebhookRoute`** (`/next`): a verified Stripe webhook that grants a paid checkout's plan
-  and revokes paid access on a full refund, exactly once per payment, recorded in `billing.payments`.
+  and, on a full refund, takes back what that one payment granted, exactly once per payment,
+  recorded in `billing.payments` (see "Refunds" below).
 - Export and deletion of the entitlement row and the payments (`@softure-ai/privacy`), and a health check for
   `GET /api/health`.
 
@@ -140,10 +141,29 @@ most 256 KiB) or touches the database, then:
 | a paid checkout (`completed` with `payment_status` `paid` or `no_payment_required`, or `async_payment_succeeded`) | the payment is stored and its plan granted, in one transaction | 200 |
 | the same checkout again (a retry, or both events of a delayed payment) | nothing | 200 |
 | a checkout still waiting for a transfer, a partial refund, any other event, a session billing did not create | nothing | 200 |
-| `charge.refunded` with `refunded: true` for a stored payment | the payment is marked refunded and paid access revoked, once | 200 |
+| `charge.refunded` with `refunded: true` for a stored payment | the payment is marked refunded and what it granted taken back, once | 200 |
 | a paid checkout whose account was deleted or whose plan left the config | nothing stored; one log line with the checkout id to refund in Stripe | 200 |
 | no or a wrong signature, a replay, a body that is not a Stripe event | nothing | 400 |
 | no `STRIPE_WEBHOOK_SECRET`, a database failure | nothing; Stripe retries | 500 |
+
+**Refunds.** Each payment row records what its grant added: a period (from where access ended, the
+trial's end or the payment's instant, to the period's end) or lifetime access. A full refund takes
+back only that, with the pure `getRefundEvent` (root entry):
+
+- **A period** loses its unused days, `[max(from, now), until)`, counted in local days of the app's
+  time zone: the dated end moves back by that many days. Access ahead of now is one unbroken run
+  (every grant starts where running access ends), so the other stacked periods, manual grants and
+  the trial keep their length. A period already used up takes nothing back, and an old payment
+  refunded after a lapse never touches a newer period. A dated end moved to the trial's end or
+  before it drops paid access: the account is back on its trial.
+- **A lifetime** ends lifetime access unless another lifetime payment of the account is still
+  `paid`. Lifetime keeps the dated end beside it (a grant on lifetime still extends it), so the
+  months bought next to a refunded lifetime stay.
+- **A payment stored before grants were recorded** (no grant columns) revokes paid access, as
+  before.
+
+The decision is made under the entitlement row's lock, so a lifetime bought at the same moment is
+either seen or granted after the refund.
 
 There is no rate limit on the route: Stripe sends from a few addresses, and an unsigned request costs
 one HMAC.
@@ -207,8 +227,8 @@ through `grantPlan`.
 | --- | --- |
 | `user_id` | `uuid`, primary key, references `auth.users(id)` `ON DELETE CASCADE`. |
 | `trial_ends_at` | The first instant the trial no longer covers. |
-| `paid_until` | The first instant paid access no longer covers; NULL when never paid, revoked, or lifetime. |
-| `is_lifetime` | Paid access without an end; a CHECK keeps it exclusive with `paid_until`. |
+| `paid_until` | The first instant dated paid access no longer covers; NULL when never paid or revoked. Kept under lifetime (since `0003`). |
+| `is_lifetime` | Paid access without an end; it wins over `paid_until`. |
 | `created_at`, `updated_at` | The first change and the last one. |
 
 **No row until something changes.** Reads never write: an account without a row gets its trial
@@ -229,8 +249,12 @@ without a row.
 | `payment_id` | The provider's payment (`pi_...`) refunds name; unique per provider; NULL for a free checkout. |
 | `plan_id`, `amount`, `currency` | The plan and what the provider charged, in the currency's minor unit. |
 | `status`, `paid_at`, `refunded_at` | `paid` or `refunded`; a CHECK ties `refunded_at` to the status. |
+| `grant_kind`, `granted_from`, `granted_until` | What the payment granted (`0003`): `period` with its start and end, or `lifetime` with no dates; all NULL for rows recorded before. A CHECK (`payments_grant_shape`) ties the dates to the kind. |
 
-The insert and the grant share a transaction, as do the refund's conditional update and the revoke,
+`migrations/0003_record_payment_grants.sql` adds the grant columns and drops the CHECK that kept
+`paid_until` NULL under lifetime.
+
+The insert, the grant and its grant columns share a transaction, as do the refund's conditional update and the change it makes,
 so a delivery seen twice changes nothing. Every write takes its locks in one order (account, payment,
 entitlement), like the privacy erase. An invoice request of `manual()` is not stored here.
 
@@ -286,10 +310,14 @@ details, return URL) and resolves with `Ok` once handed over, or an `Err` the bu
 
 ## 12. Limitations
 
-- A full refund revokes all paid access, not only the refunded payment's period: with two stacked
-  months, or a lifetime bought separately, the admin grants the rest again (followups FU-11).
-- A partial refund changes nothing. A refund that reaches the app before its checkout (Stripe does
-  not order events) finds no payment and is not retried.
+- A partial refund changes nothing (followups FU-19). A refund that reaches the app before its
+  checkout (Stripe does not order events) finds no payment and is not retried.
+- A refunded paid lifetime ends a lifetime the admin granted by hand too: manual grants have no
+  payment row to count (followups FU-20, after the grant history of FU-9). A dated manual grant
+  keeps its length.
+- A refund of a period moves the dated end back by local days; a `grant { until }` an app applies
+  by hand with an end inside the stack is not a period of its own and shifts with it.
+- A payment recorded before migration `0003` has no grant: its refund revokes all paid access.
 - The Stripe adapter is tested against the sandbox's Checkout API (when `STRIPE_SECRET_KEY` holds a
   test key) and with signed webhook fixtures; a browser payment end to end in the sandbox is
   item LT-1 of the later roadmap (`context/foundation/roadmaps/roadmap-later.md`).
