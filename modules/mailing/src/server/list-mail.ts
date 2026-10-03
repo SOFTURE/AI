@@ -20,8 +20,9 @@ export function addTextFooter(text: string, links: UnsubscribeLinks, copy: Foote
  */
 export function addHtmlFooter(html: string, links: UnsubscribeLinks, copy: FooterCopy): string {
   const footer = `<p>${escapeHtml(copy.htmlLead)} <a href="${escapeHtml(links.page)}">${escapeHtml(copy.htmlLink)}</a></p>`;
-  const bodyEnd = html.toLowerCase().lastIndexOf("</body>");
-  return bodyEnd === -1 ? `${html}\n${footer}` : `${html.slice(0, bodyEnd)}${footer}\n${html.slice(bodyEnd)}`;
+  // Searched on the original string: lowercasing can change its length (`İ` becomes two characters).
+  const bodyEnd = [...html.matchAll(/<\/body>/gi)].at(-1)?.index;
+  return bodyEnd === undefined ? `${html}\n${footer}` : `${html.slice(0, bodyEnd)}${footer}\n${html.slice(bodyEnd)}`;
 }
 
 /**

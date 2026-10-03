@@ -20,6 +20,13 @@ describe("sendMail from /next", () => {
     expect(provider.sent[0]?.idempotencyKey).toBe("k1");
   });
 
+  it("sends transactional mail without opening the database", async () => {
+    const provider = fakeMailProvider();
+    const config = createConfig(provider);
+    registerSoftureConfig({ ...config, database: { url: "unsupported://never-opened" } });
+    expect((await sendMail(MAIL)).ok).toBe(true);
+  });
+
   it("fails loudly when no configuration is registered", async () => {
     await expect(sendMail(MAIL)).rejects.toThrow("getSoftureConfig: no SOFTURE config is registered");
   });

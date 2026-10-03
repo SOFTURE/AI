@@ -1,12 +1,12 @@
 ---
 change_id: mailing-unsubscribe
 title: "Signed one-click unsubscribe and a suppression list: list mail carries RFC 8058 headers and a footer link, sendMail refuses suppressed recipients"
-status: in_progress
+status: archived
 roadmap_item: EN-2
 branch: claude/en-2-mailing-unsubscribe-uerzdo
 created: 2026-10-03
 updated: 2026-10-03
-archived_at: null
+archived_at: 2026-10-03
 ---
 
 ## Intent
@@ -44,3 +44,4 @@ FIRE_TRACKER `src/lib/unsubscribe-link.ts`, `src/lib/unsubscribe-footer.ts`,
   Decisions beyond research: the one-click route answers 400 (not 200) for a link that does not
   verify, since the signature check reveals nothing about suppression state and a 400 helps
   diagnosis; the example's test-mail page gained a newsletter option instead of a separate page.
+- 2026-10-03: impl review approve (CodeQL escaping, footer position and lazy database fixed).

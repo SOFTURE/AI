@@ -47,7 +47,7 @@ app (mail, waitlist), to agents (MCP access) and to regulators (privacy). Every 
 | ID | Change | Outcome | Depends on | Mode | Status |
 | --- | --- | --- | --- | --- | --- |
 | **EN-1** | `mailing-transport` | `@softure-ai/mailing` sends plain + HTML mail through an adapter (Resend first) with idempotency and a typed result | — | autonomous | done |
-| **EN-2** | `mailing-unsubscribe` | HMAC-signed unsubscribe links, RFC 8058 headers, one-click endpoint, unsubscribe page and a suppression list | EN-1 | autonomous | **in_progress** (implement 2/2, since 2026-10-03; cloud session, branch `claude/en-2-mailing-unsubscribe-uerzdo` — do not take in another session) |
+| **EN-2** | `mailing-unsubscribe` | HMAC-signed unsubscribe links, RFC 8058 headers, one-click endpoint, unsubscribe page and a suppression list | EN-1 | autonomous | done |
 | **EN-3** | `mailing-ledger-campaigns` | exactly-once delivery ledger, campaigns sent from a content file, SPF/DKIM/DMARC check | EN-2 | autonomous | ready |
 | **EN-4** | `auth-reset-via-mailing` | the auth password-reset sender hook is wired to `@softure-ai/mailing`, with pl + en templates | EN-1 | autonomous | ready |
 | **EN-5** | `waitlist` | `@softure-ai/waitlist`: sign-up with configurable consent scopes, welcome mail, unsubscribe, `WaitlistForm` | EN-1, EN-2, EN-8 | autonomous | ready |
@@ -91,7 +91,7 @@ contributor contract every module with user data depends on) start the roadmap.
 
 ### EN-2: Signed one-click unsubscribe and suppressions
 - **Change ID:** `mailing-unsubscribe`
-- **Status:** in_progress (implement 2/2, since 2026-10-03; cloud session, branch `claude/en-2-mailing-unsubscribe-uerzdo` — do not take in another session)
+- **Status:** done
 - **Outcome:** Every non-transactional mail carries an HMAC-signed unsubscribe link and RFC 8058 `List-Unsubscribe` / `List-Unsubscribe-Post` headers; a one-click POST endpoint and an unsubscribe page (Next adapter) record the opt-out in `mailing.suppressions`; `sendMail()` refuses suppressed recipients for non-transactional kinds.
 - **Prerequisites:** EN-1.
 - **Unknowns:** Secret rotation for the HMAC key (accept old and new during rotation?); whether suppressions are per mail kind or global; footer rendering in HTML vs. plain text.
@@ -176,6 +176,7 @@ contributor contract every module with user data depends on) start the roadmap.
 ## Done
 
 - **EN-1** `mailing-transport`: `@softure-ai/mailing` with `sendMail` (server, and `/next` on the registered config) returning `Result<{ id, provider }, mailing.invalid_input | mailing.rejected | mailing.unavailable>`, never throwing for a failed send; one recipient, text required and HTML optional (plain strings), sender and reply-to from config, `Idempotency-Key`, a timeout that also races providers ignoring their signal, reserved headers and line breaks refused, a log line without any mail content; `resend()` (key read from `RESEND_API_KEY` per send, 408/429/5xx/busy key as unavailable, other 4xx as rejected) and `fakeMailProvider()` in `/testing` (memory, JSON-lines outbox read by `readMailOutbox`, idempotency, refuses production without an outbox); the example's `/account/mail` page and e2e; archived in `archive/2026-10-03-mailing-transport/`
+- **EN-2** `mailing-unsubscribe`: list mail (any `kind` but `transactional`, the default) gets a footer with a signed unsubscribe link in text and HTML and the RFC 8058 `List-Unsubscribe` / `List-Unsubscribe-Post` headers, and `sendMail` refuses it with `mailing.suppressed` for a suppressed recipient (fails closed without the secret or the list); links carry a SHA-256 key of the address and an HMAC over it (`MAILING_UNSUBSCRIBE_SECRET`, `_PREVIOUS` for rotation), so no address in URLs or the table; `mailing.suppressions` (first migration of the schema, global per address) with a health check; `/next` ships the unsubscribe page (plain form), its action and the one-click route (200/400/500, GET redirects to the page, no per-IP limit by design); `/server` exports `isSuppressed`, `suppressRecipient`, `unsubscribe`, `buildUnsubscribeLinks`, `getRecipientKey`; the example's newsletter option and e2e; archived in `archive/2026-10-03-mailing-unsubscribe/`
 
 ## Decisions (auto)
 

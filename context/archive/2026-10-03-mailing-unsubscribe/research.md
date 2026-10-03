@@ -59,7 +59,7 @@ session; both headers must be covered by the DKIM signature, which the provider 
   `List-Unsubscribe-Post` is `invalid_input`: the module owns those two for list mail.
 - **Database handle.** `MailContext` gains an optional `db`. Transactional mail needs none (EN-4
   keeps calling `sendMail({ config }, …)`); list mail without `db` throws: that is a wiring bug.
-  `/next` always passes the shared handle. The module now has `dbSchema: "mailing"`, so an app that
+  `/next` passes the shared handle for list mail only. The module now has `dbSchema: "mailing"`, so an app that
   lists `mailing()` needs a database (it already has one wherever auth runs).
 - **One-click route.** `POST` reads `r` and `t` from the URL (the body is the fixed
   `List-Unsubscribe=One-Click` and proves nothing), verifies before touching the database, answers

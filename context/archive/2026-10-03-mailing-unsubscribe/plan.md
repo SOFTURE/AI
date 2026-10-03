@@ -78,12 +78,12 @@ would put the kind into the signature).
 ### Phase 1: Table, links and sendMail
 
 #### Automated
-- [ ] 1.1 Unit tests for links, footer, headers, suppression and every new `sendMail` branch pass
-- [ ] 1.2 `module.json` equals `toModuleJson(mailing)`; table constraints and health check tested
-- [ ] 1.3 Gates green (typecheck, lint, test)
+- [x] 1.1 Unit tests for links, footer, headers, suppression and every new `sendMail` branch pass — 3617d97
+- [x] 1.2 `module.json` equals `toModuleJson(mailing)`; table constraints and health check tested — 3617d97
+- [x] 1.3 Gates green (typecheck, lint, test) — 3617d97
 
 ### Phase 2: Next adapter, example and e2e
 
 #### Automated
-- [ ] 2.1 `npm run e2e` passes against a local PostgreSQL 16, including `mailing-unsubscribe.spec.ts`
-- [ ] 2.2 Gates green (typecheck, lint, test, build)
+- [x] 2.1 `npm run e2e` passes against a local PostgreSQL 16, including `mailing-unsubscribe.spec.ts` — f55b835
+- [x] 2.2 Gates green (typecheck, lint, test, build) — f55b835

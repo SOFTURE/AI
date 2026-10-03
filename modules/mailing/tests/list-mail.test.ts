@@ -29,6 +29,10 @@ describe("addHtmlFooter", () => {
     expect(addHtmlFooter("<html><body><p>Hi</p></BODY></html>", LINKS, COPY)).toBe(`<html><body><p>Hi</p>${FOOTER}\n</BODY></html>`);
   });
 
+  it("finds </body> in the original string, even after characters that lowercase to two", () => {
+    expect(addHtmlFooter("<p>İ</p></body>", LINKS, COPY)).toBe(`<p>İ</p>${FOOTER}\n</body>`);
+  });
+
   it("escapes the copy", () => {
     const html = addHtmlFooter("<p>Hi</p>", LINKS, { ...COPY, htmlLead: `<script>"x" & y</script>`, htmlLink: "<b>Go</b>" });
     expect(html).toContain("&lt;script&gt;&quot;x&quot; &amp; y&lt;/script&gt;");
