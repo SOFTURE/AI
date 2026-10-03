@@ -19,7 +19,7 @@ archived_at: null
 
 ## Context
 
-From [`roadmap-marketing-kit.md`](../../../foundation/roadmaps/roadmap-marketing-kit.md), item **MK-5** (queued roadmap `marketing-kit`):
+From [`roadmap.md`](../../../foundation/roadmap.md), item **MK-5** (roadmap `marketing-kit`, main since 2026-10-03):
 
 > ### MK-5: OG images outside Next
 > - **Change ID:** `mk-og-images`

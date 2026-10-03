@@ -20,11 +20,13 @@ An entry is never in two places, neither as a copy nor as a pointer.
   as `- [ ] <date> <source>: <finding> (<severity>) <evidence>`.
 - **Gaps and unfinished parts found while delivering a roadmap** become items of the catch-all
   [`roadmap-followups/`](roadmap-followups/) (owner, 2026-10-03), which runs last: see its README, "Adding a gap".
+- **Work that is ready but waits only on the owner at the keyboard** (repository secrets, a provider account)
+  becomes an item of [`roadmap-later/`](roadmap-later/) (owner, 2026-10-03): see its README, "Adding an item".
 
 ## Queued roadmaps
 
 | Folder | Roadmap | Starts when |
 | --- | --- | --- |
-| [`roadmap-monetization/`](roadmap-monetization/) | [monetization](../foundation/roadmap.md) | promoted 2026-10-03 (main roadmap) |
-| [`roadmap-marketing-kit/`](roadmap-marketing-kit/) | [marketing-kit](../foundation/roadmaps/roadmap-marketing-kit.md) | FD-1 and FD-2 done; any time after |
+| [`roadmap-marketing-kit/`](roadmap-marketing-kit/) | [marketing-kit](../foundation/roadmap.md) | promoted 2026-10-03 (main roadmap, with EN-9 and MO-6 carried over) |
+| [`roadmap-later/`](roadmap-later/) | [later](../foundation/roadmaps/roadmap-later.md) | the owner step each item waits on is done |
 | [`roadmap-followups/`](roadmap-followups/) | [followups](../foundation/roadmaps/roadmap-followups.md) | every module roadmap done; promoted last |

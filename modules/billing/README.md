@@ -291,8 +291,8 @@ details, return URL) and resolves with `Ok` once handed over, or an `Err` the bu
 - A partial refund changes nothing. A refund that reaches the app before its checkout (Stripe does
   not order events) finds no payment and is not retried.
 - The Stripe adapter is tested against the sandbox's Checkout API (when `STRIPE_SECRET_KEY` holds a
-  test key) and with signed webhook fixtures; a browser payment end to end in the sandbox is a
-  followup (FU-10).
+  test key) and with signed webhook fixtures; a browser payment end to end in the sandbox is
+  item LT-1 of the later roadmap (`context/foundation/roadmaps/roadmap-later.md`).
 - Invoice requests are not stored: the admin learns of them through `onRequest` and grants by email.
   The admin page has no list of requests, no revoke and no history of grants (followups).
 - The write guard is per action: a read-only account can still call a write the app did not guard.

@@ -7,7 +7,7 @@ prd_version: 1
 created: 2026-10-03
 updated: 2026-10-03
 backlog: context/backlog/roadmap-followups/
-trigger: "every module roadmap (monetization, marketing-kit) is done; the owner promotes it last"
+trigger: "every module roadmap (marketing-kit and any later one) is done; the owner promotes it last"
 ---
 
 # Roadmap followups: gaps found while delivering the other roadmaps
@@ -39,7 +39,6 @@ trigger: "every module roadmap (monetization, marketing-kit) is done; the owner 
 | **FU-7** | `analytics-action-redirect-tag` | Channel tag kept through server action redirects | — | autonomous | proposed |
 | **FU-8** | `waitlist-funnel-hook` | Waitlist sign-ups as a funnel step | — | autonomous | proposed |
 | **FU-9** | `billing-admin-requests` | Payment requests, revoke and grant history in the billing admin page | — | autonomous | proposed |
-| **FU-10** | `billing-stripe-sandbox-e2e` | Stripe sandbox payment end to end | — | owner | proposed |
 | **FU-11** | `billing-refund-one-payment` | Refunds that take back one payment's period | — | autonomous | proposed |
 | **FU-12** | `billing-retro-reviews` | Retro research and plan review for MO-1 and MO-2 | — | autonomous | proposed |
 
@@ -149,17 +148,6 @@ trigger: "every module roadmap (monetization, marketing-kit) is done; the owner 
 - **PRD refs:** FR-22.
 - **Source:** `modules/billing/README.md` §12
 
-### FU-10: Stripe sandbox payment end to end
-- **Change ID:** `billing-stripe-sandbox-e2e`
-- **Status:** proposed
-- **Outcome:** A browser payment on Stripe's sandbox Checkout (test card) whose webhook reaches the app (Stripe CLI forwarding or a reachable preview) and turns the trial into paid, run in CI when the Stripe test secrets are set.
-- **Prerequisites:** the owner's Stripe test-mode secrets (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`) in the repository; the Stripe CLI or a public URL for the e2e server.
-- **Unknowns:** How the webhook reaches a CI run (`stripe listen` in the job vs. a deployed preview); how stable Stripe's hosted page is for Playwright.
-- **Risk:** MEDIUM.
-- **Baseline:** monetization MO-3 `billing-provider-adapter`: the Checkout API is tested against the sandbox (`modules/billing/tests/stripe-sandbox.test.ts`, only with the key) and the webhook with signed fixtures (`e2e/billing-stripe.spec.ts`); no test pays in the sandbox and receives Stripe's own delivery (README §12). After: the gap is closed and covered by an e2e test.
-- **PRD refs:** FR-22.
-- **Source:** `modules/billing/README.md` §12
-
 ### FU-11: Refunds that take back one payment's period
 - **Change ID:** `billing-refund-one-payment`
 - **Status:** proposed
@@ -184,7 +172,7 @@ trigger: "every module roadmap (monetization, marketing-kit) is done; the owner 
 
 ## Owner decisions and checks
 
-- [ ] **FU-10**: add the Stripe test-mode secrets `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` to the repository.
+(none)
 
 ## Done
 
@@ -195,3 +183,6 @@ trigger: "every module roadmap (monetization, marketing-kit) is done; the owner 
 - The loose follow-up files become this roadmap's entries. → The owner wants every gap in one catch-all roadmap
   at the end (2026-10-03); `identity-followups.md` keeps its entry ticked with a pointer.
 - Waitlist placement analytics is not an item here. → It belongs to MO-5 (`analytics-funnel`) of monetization.
+- FU-10 (`billing-stripe-sandbox-e2e`) moved to [`roadmap-later`](roadmap-later.md) as LT-1 (owner, 2026-10-03). →
+  It waits only on the owner's Stripe secrets (set on 2026-10-05), not on the end of every roadmap. The number
+  FU-10 is not reused.

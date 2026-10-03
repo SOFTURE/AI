@@ -20,7 +20,7 @@ Flags and messages are in English.
 
 ## Context
 
-From [`roadmap-marketing-kit.md`](../../../foundation/roadmaps/roadmap-marketing-kit.md), item **MK-4** (queued roadmap `marketing-kit`):
+From [`roadmap.md`](../../../foundation/roadmap.md), item **MK-4** (roadmap `marketing-kit`, main since 2026-10-03):
 
 > ### MK-4: Screenshots with quality gates
 > - **Change ID:** `mk-screenshots`

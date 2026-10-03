@@ -25,7 +25,7 @@ The brand can come inline or from an Impeccable `design.json`. Validation errors
 
 ## Context
 
-From [`roadmap-marketing-kit.md`](../../../foundation/roadmaps/roadmap-marketing-kit.md), item **MK-2** (queued roadmap `marketing-kit`):
+From [`roadmap.md`](../../../foundation/roadmap.md), item **MK-2** (roadmap `marketing-kit`, main since 2026-10-03):
 
 > ### MK-2: Config contract: marketing.json and brand
 > - **Change ID:** `mk-config-contract`

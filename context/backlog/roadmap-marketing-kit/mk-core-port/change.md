@@ -24,7 +24,7 @@ Config may still be FIRE-shaped. Paths resolve relative to a config file, not th
 
 ## Context
 
-From [`roadmap-marketing-kit.md`](../../../foundation/roadmaps/roadmap-marketing-kit.md), item **MK-1** (queued roadmap `marketing-kit`):
+From [`roadmap.md`](../../../foundation/roadmap.md), item **MK-1** (roadmap `marketing-kit`, main since 2026-10-03):
 
 > ### MK-1: Port the FIRE video core
 > - **Change ID:** `mk-core-port`
