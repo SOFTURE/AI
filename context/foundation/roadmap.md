@@ -51,7 +51,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-6** | `billing-reminder-mail` | Reminder mail before access ends | FU-9 | autonomous | proposed |
 | **FU-7** | `analytics-action-redirect-tag` | Channel tag kept through server action redirects | FU-1, FU-5 | autonomous | proposed |
 | **FU-8** | `waitlist-funnel-hook` | Waitlist sign-ups as a funnel step | FU-4 | autonomous | proposed |
-| **FU-9** | `billing-admin-requests` | Payment requests, revoke and grant history in the billing admin page | FU-11 | autonomous | in_progress (impl-review, since 2026-10-03; claude/project-thread-43muam) |
+| **FU-9** | `billing-admin-requests` | Payment requests, revoke and grant history in the billing admin page | FU-11 | autonomous | done |
 | **FU-11** | `billing-refund-one-payment` | Refunds that take back one payment's period | — | autonomous | done |
 | **FU-12** | `billing-retro-reviews` | Retro research and plan review for MO-1 and MO-2 | — | autonomous | proposed |
 | **FU-13** | `marketing-kit-render-ci` | the marketing-kit fixture film renders to a draft MP4 on every push | — | autonomous | proposed |
@@ -246,8 +246,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-9: Payment requests, revoke and grant history in the billing admin page
 - **Change ID:** `billing-admin-requests`
-- **Status:** in_progress (impl-review, since 2026-10-03; claude/project-thread-43muam)
-- **Input:** [`changes/billing-admin-requests/`](../changes/billing-admin-requests/change.md)
+- **Status:** done
+- **Input:** [`archive/2026-10-03-billing-admin-requests/`](../archive/2026-10-03-billing-admin-requests/change.md)
 - **Outcome:** Invoice requests stored in a billing table and listed in `BillingAdminPage` with a one-click grant; a revoke action; a history of grants per account; optionally a `grant-plan` script; the payment page and the grant form tell a lifetime account apart (today it can still request an invoice, and a dated grant to it is a silent no-op).
 - **Prerequisites:** FU-11 on `master` (shared files, see Order; MO-3 may add a payment-events table to share).
 - **Unknowns:** One table for manual requests and provider payment events vs. two; retention of invoice details (personal data, privacy contributor).
@@ -408,6 +408,7 @@ Open from FU-14:
 - **FU-14** `marketing-kit-schema-docs`: every key of the marketing.json JSON Schema carries a description, guarded by a test; archived in `archive/2026-10-03-marketing-kit-schema-docs/`
 - **FU-3** `mailing-consent-sync`: an unsubscribe withdraws the waitlist's consents in its transaction (mailing `onUnsubscribed`), and a new sign-up lifts the person's own opt-out; archived in `archive/2026-10-03-mailing-consent-sync/`
 - **FU-11** `billing-refund-one-payment`: a full refund takes back only what its payment granted (one period's unused days, or one lifetime); archived in `archive/2026-10-03-billing-refund-one-payment/`
+- **FU-9** `billing-admin-requests`: the billing admin page lists stored invoice requests (grant or dismiss), records and revokes manual grants one by one and shows an account's history; a lifetime account cannot pay or be granted again; archived in `archive/2026-10-03-billing-admin-requests/`
 
 ## Decisions (auto)
 

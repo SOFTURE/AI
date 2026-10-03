@@ -1,12 +1,12 @@
 ---
 change_id: billing-admin-requests
 title: "The billing admin page lists invoice requests, grants from them, revokes a grant and shows each account's history"
-status: impl_reviewed
+status: archived
 roadmap_item: FU-9
 branch: claude/project-thread-43muam
 created: 2026-10-03
-updated: 2026-10-03
-archived_at: null
+updated: 2026-10-04
+archived_at: 2026-10-04
 ---
 
 ## Intent
@@ -52,3 +52,4 @@ still invisible to the admin.
   README §12 limitation; the open questions are design unknowns (tables, retention), which
   research answers.
 - The optional `grant-plan` script is decided in research.
+- Archived 2026-10-04: invoice requests are stored and worked in the admin page (grant or dismiss), manual grants are recorded and revoked one by one, an account's history merges manual grants and provider payments, and a lifetime account can neither pay nor be granted again; the `grant-plan` script was filed as FU-22, and counting manual lifetimes in a refund stays FU-21.
