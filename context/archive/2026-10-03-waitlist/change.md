@@ -1,12 +1,12 @@
 ---
 change_id: waitlist
 title: "Waitlist with consent scopes"
-status: in_progress
+status: archived
 roadmap_item: EN-5
 branch: claude/en-5-waitlist-486z3d
 created: 2026-10-03
 updated: 2026-10-03
-archived_at: null
+archived_at: 2026-10-03
 ---
 
 ## Intent

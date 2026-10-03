@@ -53,15 +53,15 @@ already keeps when each scope was granted).
 ### Phase 1: Module
 
 #### Automated
-- [ ] 1.1 Join, welcome mail, contributor and health tests pass on PGlite
-- [ ] 1.2 Form, messages and module tests pass; `module.json` equals the manifest
-- [ ] 1.3 Gates green (typecheck, lint, test)
+- [x] 1.1 Join, welcome mail, contributor and health tests pass on PGlite — 9d32ca1
+- [x] 1.2 Form, messages and module tests pass; `module.json` equals the manifest — 9d32ca1
+- [x] 1.3 Gates green (typecheck, lint, test) — 9d32ca1
 
 ### Phase 2: Example app, e2e, docs
 
 #### Automated
-- [ ] 2.1 Gates green (typecheck, lint, test, build)
-- [ ] 2.2 `npm run e2e` passes, including `e2e/waitlist.spec.ts`
+- [x] 2.1 Gates green (typecheck, lint, test, build) — b8440a8
+- [x] 2.2 `npm run e2e` passes, including `e2e/waitlist.spec.ts` — b8440a8
 
 #### Manual
-- [ ] 2.3 Impl review recorded in `reviews/impl-review.md`
+- [x] 2.3 Impl review recorded in `reviews/impl-review.md` — b8440a8
