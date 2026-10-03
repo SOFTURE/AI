@@ -4,6 +4,7 @@ test("the page lists the ledger and the module migrations applied by softure mig
   await page.goto("/");
   const migrations = page.getByTestId("applied-migrations").getByRole("listitem");
   await expect(migrations).toHaveText([
+    "analytics 1 create_funnel_counts (applied)",
     // Shipped inside the auth package: a packaged module's migrations apply too.
     "auth 1 create_users_and_sessions (applied)",
     "auth 2 create_user_roles (applied)",

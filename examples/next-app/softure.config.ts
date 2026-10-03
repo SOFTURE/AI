@@ -1,7 +1,7 @@
 // The app's SOFTURE configuration. `softure migrate` loads this file with Node's type stripping,
 // so relative imports name their `.ts` files.
 import { analytics } from "@softure-ai/analytics";
-import { attributeRegistration } from "@softure-ai/analytics/next";
+import { attributeRegistration, countRegistration } from "@softure-ai/analytics/next";
 import { auth, AUTH_RATE_LIMIT_BUCKETS } from "@softure-ai/auth";
 import { mailingResetSender } from "@softure-ai/auth/mailing";
 import { defineSoftureConfig } from "@softure-ai/core";
@@ -26,12 +26,14 @@ export const WELCOME_BANNER_SWITCH = "example.welcome_banner";
 /** The example's initial admin (auth's `adminEmails`); e2e/auth-roles.spec.ts registers it. */
 export const EXAMPLE_ADMIN_EMAIL = "e2e-admin@example.com";
 
-// Two registration hooks in the account's transaction: privacy records the consent, analytics hands
-// over the channel the sign-up came from (e2e/analytics-channel.spec.ts).
+// Registration hooks in the account's transaction: privacy records the consent, analytics hands
+// over the channel the sign-up came from (e2e/analytics-channel.spec.ts) and counts the sign-up as
+// the funnel's last step (e2e/analytics-funnel.spec.ts).
 const recordConsent = recordRegistrationConsent();
 const attributeChannel = attributeRegistration(({ userId, channel }) => {
   rememberSignupChannel(userId, channel);
 });
+const countSignup = countRegistration("signup");
 
 // The Postgres of compose.yaml; a local, throwaway database, so its password is not a secret.
 const LOCAL_DATABASE_URL = "postgresql://postgres:postgres@localhost:5433/softure_example";
@@ -59,6 +61,7 @@ const config = defineSoftureConfig({
       onRegistered: async (event, ctx) => {
         await recordConsent(event, ctx);
         await attributeChannel(event, ctx);
+        await countSignup(event, ctx);
       },
     }),
     // `detail: "checks"` lists each check in the answer, so e2e/ops.spec.ts can see the guestbook's.
@@ -113,8 +116,18 @@ const config = defineSoftureConfig({
       ],
       placements: ["home"],
     }),
-    // The channel tag `?z=` with its defaults; proxy.ts carries it from page to page.
-    analytics(),
+    // The channel tag `?z=` with its defaults; proxy.ts carries it from page to page. The funnel
+    // counts the home page (a pixel), the account page (a beacon) and sign-ups (the hook above);
+    // its endpoint is app/api/analytics/funnel/route.ts (e2e/analytics-funnel.spec.ts).
+    analytics({
+      funnel: {
+        steps: [
+          { id: "landing", via: "pixel" },
+          { id: "account", via: "beacon" },
+          { id: "signup", via: "server" },
+        ],
+      },
+    }),
   ],
 });
 

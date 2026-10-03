@@ -1,3 +1,4 @@
+import { FunnelPixel } from "@softure-ai/analytics/next";
 import { isEnabled } from "@softure-ai/feature-switches/next";
 import { Card, EmptyState, FormError, ThemeSwitch } from "@softure-ai/ui";
 import { Waitlist } from "@softure-ai/waitlist/next";
@@ -33,6 +34,7 @@ export default async function HomePage() {
         </div>
         <ThemeSwitch locale={config.locale} />
       </header>
+      <FunnelPixel step="landing" />
 
       <Card title={messages.guestbook.title} subtitle={messages.guestbook.subtitle} action={<AddEntry locale={config.locale} />}>
         {!entries.ok ? (

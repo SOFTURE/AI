@@ -52,7 +52,7 @@ adoption in FIRE_TRACKER follows `docs/05-adoption-playbook.md`.
 | **MO-2** | `billing-plans-pricing` | plans from config, pricing tiles, payment page and a manual payment adapter that grants entitlements | MO-1 | autonomous | ready |
 | **MO-3** | `billing-provider-adapter` | the chosen provider (Stripe or Przelewy24) behind `PaymentProvider`: checkout, webhooks, entitlement updates | MO-2 | autonomous | blocked (owner decision: Stripe vs Przelewy24) |
 | **MO-4** | `analytics-channel-tags` | `@softure-ai/analytics`: a channel parameter captured, validated and carried across redirects and sign-up | — | autonomous | done |
-| **MO-5** | `analytics-funnel` | daily aggregates (day, channel, step) without cookies or PII, beacon and pixel endpoints, report function | MO-4 | autonomous | ready |
+| **MO-5** | `analytics-funnel` | daily aggregates (day, channel, step) without cookies or PII, beacon and pixel endpoints, report function | MO-4 | autonomous | in_progress (implement 2/2, since 2026-10-03; cloud session, branch `claude/mo-5-analytics-funnel-ntufkm`) |
 | **MO-6** | `monetization-release` | billing and analytics 0.1.0 published through the release pipeline; READMEs and docs updated | MO-2, MO-5 | owner | ready |
 
 ## Order
@@ -127,7 +127,7 @@ Risk first: MO-1 (the write guard every paid feature depends on) starts the road
 
 ### MO-5: Cookieless funnel counter
 - **Change ID:** `analytics-funnel`
-- **Status:** ready
+- **Status:** in_progress (implement 2/2, since 2026-10-03; cloud session, branch `claude/mo-5-analytics-funnel-ntufkm`)
 - **Outcome:** `analytics.funnel_counts` holding daily aggregates per (day, channel, step) with steps from config, a cap on new channels per day with an overflow bucket, a `sendBeacon` helper plus a POST beacon and GIF pixel endpoint with a body size limit, day boundaries in the configured time zone, and a report function returning the funnel per channel.
 - **Prerequisites:** MO-4.
 - **Unknowns:** How the report reads other modules' counts (sign-ups, waitlist) without cross-schema coupling; retention of old aggregates.
