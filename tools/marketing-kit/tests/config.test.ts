@@ -217,7 +217,7 @@ describe("loadMarketingConfig", () => {
       ogImages: [{ id: "calculator", template: "headline-cta", data: { headline: "Count" } }],
     });
     expect(loaded.screenshots).toEqual([{ id: "landing", path: "/", width: 1440, height: 900, full: false, expect: "Count your date", motion: "reduce", minBytes: 40_000 }]);
-    expect(loaded.ogImages).toEqual([{ id: "calculator", template: "headline-cta", size: [1200, 630], data: { headline: "Count" } }]);
+    expect(loaded.ogImages).toEqual([{ id: "calculator", template: "headline-cta", size: [1200, 630], data: { headline: "Count", tiles: [] } }]);
   });
 
   it("reports a missing file with its path", () => {

@@ -110,6 +110,7 @@ the beat `role` was dropped, because the first and last sentences already play t
 | Pixabay SFX (copied into FIRE today) | Pixabay Content License: no standalone redistribution | **not bundled**. The project supplies its own SFX; the package may ship a CC0 set |
 | Geist/Newsreader (OFL) and Ubuntu (UFL) fonts | OFL/UFL | **not bundled**; fonts come from the project's brand |
 | ElevenLabs | paid API | key from env (`ELEVENLABS_API_KEY`), swappable adapter |
+| satori, @resvg/resvg-js (OG images) | MPL-2.0 | npm dependencies, unmodified |
 
 ## Machine requirements
 
