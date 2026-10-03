@@ -222,6 +222,10 @@ describe("composeFilm", () => {
     expect(html).toContain(".screen{position:absolute;left:14px;top:14px;width:640px;height:1421px;");
   });
 
+  it("composes the 9:16 film exactly as the baseline", async () => {
+    await expect(composeFilm(input)).toMatchFileSnapshot("../../tests/snapshots/film-9x16.html");
+  });
+
   it("refuses a recording without the opening shot's mark", () => {
     expect(() => composeFilm({ ...input, log: { ...log, marks: {} } })).toThrow(/No mark "m"/);
   });
