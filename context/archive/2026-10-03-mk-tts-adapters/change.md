@@ -1,12 +1,12 @@
 ---
 change_id: mk-tts-adapters
 title: "The voiceover is recorded through a swappable TTS provider and prices itself first"
-status: impl_reviewed
+status: archived
 roadmap_item: MK-7
 branch: claude/project-thread-h3430z
 created: 2026-10-03
 updated: 2026-10-03
-archived_at: null
+archived_at: 2026-10-03
 ---
 
 ## Intent
@@ -57,3 +57,4 @@ and a test pins FIRE's key for `pl` (`619a27159288f1e1`). `voice.provider` in th
 - Research: done (light; the code is small and already ported). Framing: skipped, because the outcome
   and scope are fixed by the roadmap item, nothing is bug-shaped, and the one design fork (where the
   cost estimate lives) is settled in the plan.
+- Archived 2026-10-03: the voiceover is recorded through a `TtsProvider` (ElevenLabs and fake adapters), the cost estimate is printed in every dry run and before every paid call, and FIRE's paid cache is reused without re-keying.

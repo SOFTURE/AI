@@ -45,7 +45,7 @@ backlog: context/backlog/roadmap-marketing-kit/
 | **MK-1** | `mk-core-port` | FIRE's video pipeline (voiceover cache, timeline, recorder/Director, compose, render, posts) runs from `tools/marketing-kit` with its tests, config still FIRE-shaped | — | autonomous | done |
 | **MK-2** | `mk-config-contract` | `marketing.json` + brand validated by zod, published as JSON Schema; every hard-coded constant becomes config; `design.json` import | MK-1 | autonomous | done |
 | **MK-3** | `mk-declarative-actions` | scenes described as JSON actions with locator descriptors; `sceneModule` TS escape hatch kept | MK-2 | autonomous | ready |
-| **MK-7** | `mk-tts-adapters` | `TtsProvider` interface, ElevenLabs adapter, cache key includes voice, model and language; paid calls only with `--commit` | MK-2 | autonomous | **in_progress** (integration, since 2026-10-03; cloud session, branch `claude/project-thread-h3430z`) |
+| **MK-7** | `mk-tts-adapters` | `TtsProvider` interface, ElevenLabs adapter, cache key includes voice, model and language; paid calls only with `--commit` | MK-2 | autonomous | done |
 | **MK-6** | `mk-formats` | 1:1 and 16:9 render formats next to 9:16, geometry from config | MK-2 | autonomous | ready |
 | **MK-4** | `mk-screenshots` | `softure-marketing shots` with quality gates (HTTP status, expected phrase, minimum size, full-page scroll) | MK-2 | autonomous | ready |
 | **MK-5** | `mk-og-images` | OG images rendered with Satori outside Next from templates + data | MK-2 | autonomous | ready |
@@ -153,8 +153,7 @@ Risk first: MK-1 proves the port is faithful. MK-2 fixes the contract every late
 
 ### MK-7: TTS provider adapters
 - **Change ID:** `mk-tts-adapters`
-- **Status:** **in_progress** (integration, since 2026-10-03; cloud session, branch `claude/project-thread-h3430z`)
-- **Input:** [`changes/mk-tts-adapters/`](../changes/mk-tts-adapters/change.md)
+- **Status:** done
 - **Outcome:**
   - A `TtsProvider` interface (text in; audio plus word timings out) and an ElevenLabs adapter (key from `ELEVENLABS_API_KEY`).
   - The cache key covers text, voice, model and language. FIRE's key had the language hard-coded; existing caches stay readable through a documented migration.
@@ -235,6 +234,7 @@ Risk first: MK-1 proves the port is faithful. MK-2 fixes the contract every late
 
 - **MK-1** `mk-core-port`: `@softure-ai/marketing-kit` runs FIRE's video pipeline (`softure-marketing all|voice|record|render|preview|posts`) from `marketing.config.json`, FIRE's tests pass in the package, a fixture film renders a draft MP4 locally; archived in `archive/2026-10-03-mk-core-port/`
 - **MK-2** `mk-config-contract`: one `marketing.json` (brand, app, voice, videos, social, screenshots, ogImages, output) validated by zod and published as `schema/marketing.schema.json`; brand colours inline, from the app's stylesheet or a `design.json`; errors name the JSON path; no FIRE constant left in `src/` (architecture test); archived in `archive/2026-10-03-mk-config-contract/`
+- **MK-7** `mk-tts-adapters`: the voiceover is recorded through a `TtsProvider` (ElevenLabs adapter, a fake for tests), the cost estimate is printed before any paid call, and FIRE's paid cache is reused as is; archived in `archive/2026-10-03-mk-tts-adapters/`
 
 ## Decisions (auto)
 
