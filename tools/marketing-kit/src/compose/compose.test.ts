@@ -226,6 +226,39 @@ describe("composeFilm", () => {
     await expect(composeFilm(input)).toMatchFileSnapshot("../../tests/snapshots/film-9x16.html");
   });
 
+  it.each([
+    ["1:1", "film-1x1.html"],
+    ["16:9", "film-16x9.html"],
+  ] as const)("composes the %s film from the same recording", async (format, snapshot) => {
+    const html = composeFilm({ ...input, film: { ...film, format }, geometry: getGeometry({ width: 390, height: 844 }, format) });
+    await expect(html).toMatchFileSnapshot(`../../tests/snapshots/${snapshot}`);
+  });
+
+  it("sizes the 1:1 frame and moves captions, persona and end card into it", () => {
+    const html = composeFilm({ ...input, geometry: getGeometry({ width: 390, height: 844 }, "1:1") });
+    expect(html).toContain('data-width="1080" data-height="1080"');
+    expect(html).toContain(".caption{position:absolute;left:60px;right:60px;top:830px;");
+    expect(html).toContain(".pill{font-weight:650;font-size:44px;");
+    expect(html).toContain(".persona{position:absolute;left:0;right:0;top:30px;");
+    expect(html).toContain(".endcard{position:absolute;left:0;right:0;top:470px;");
+    expect(html).toContain("font-size:72px;letter-spacing");
+  });
+
+  it("puts the 16:9 copy in a column right of the phone", () => {
+    const html = composeFilm({ ...input, geometry: getGeometry({ width: 390, height: 844 }, "16:9") });
+    expect(html).toContain('data-width="1920" data-height="1080"');
+    expect(html).toContain(".caption{position:absolute;left:1100px;right:120px;top:700px;");
+    expect(html).toContain(".persona{position:absolute;left:1100px;right:120px;top:150px;");
+    expect(html).toContain(".endcard{position:absolute;left:1100px;right:120px;top:330px;");
+  });
+
+  it("shrinks the phone to the format's end-card pose", () => {
+    // Oracle by hand (16:9, 390×844): screen 415 px at left 393, top 90, height 898; centre (600.5, 539);
+    // scale 0.85 → x = 600 - 0.85 × 600.5 = 89.575, y = 540 - 0.85 × 539 = 81.85.
+    const html = composeFilm({ ...input, geometry: getGeometry({ width: 390, height: 844 }, "16:9") });
+    expect(html).toContain('"pose":{"scale":0.85,"x":89.575,"y":81.85}');
+  });
+
   it("refuses a recording without the opening shot's mark", () => {
     expect(() => composeFilm({ ...input, log: { ...log, marks: {} } })).toThrow(/No mark "m"/);
   });

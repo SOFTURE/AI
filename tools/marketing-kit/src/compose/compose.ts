@@ -117,6 +117,9 @@ export function resolveCameraTweens(tweens: CameraTween[]): ResolvedTween[] {
 
 const r3 = (value: number): number => Math.round(value * 1000) / 1000 || 0;
 
+/** A CSS length; zero without a unit, as the 9:16 baseline writes it. */
+const px = (value: number): string => (value === 0 ? "0" : `${String(value)}px`);
+
 /** The opening sentence; `validateFilm` guarantees a film has one. */
 function getHookBeat(film: Film): Film["beats"][number] {
   const beat = film.beats[0];
@@ -177,7 +180,7 @@ export function filmTimes(film: Film, log: RecordingLog, voices: BeatVoice[]) {
 
 export function composeFilm(input: ComposeInput): string {
   const { film, log, voices, colors, geometry, fonts, assets, brandName, locale, messages } = input;
-  const { frame, screen, screenHeight, screenScale } = geometry;
+  const { frame, screen, screenHeight, screenScale, caption: captionBox, persona, endCard } = geometry;
   const times = filmTimes(film, log, voices);
   const { at } = times;
   // `filmTimes` refuses a recording that leaves any sentence without a start.
@@ -216,13 +219,13 @@ export function composeFilm(input: ComposeInput): string {
       camera.push({ t: r3(at(cue.f) - 0.3), pose: cameraPose(geometry, cue.rect, cue.scale), dur: 0.6, ease: "power3.inOut" });
     }
   }
-  const endScale = 0.58;
+  const endPhone = endCard.phone;
   camera.push({
     t: times.endCard,
     pose: {
-      scale: endScale,
-      x: r3(frame.width / 2 - endScale * (screen.left + screen.width / 2)),
-      y: r3(640 - endScale * (screen.top + screenHeight / 2)),
+      scale: endPhone.scale,
+      x: r3(endPhone.center.x - endPhone.scale * (screen.left + screen.width / 2)),
+      y: r3(endPhone.center.y - endPhone.scale * (screen.top + screenHeight / 2)),
     },
     dur: 0.9,
     ease: "power3.inOut",
@@ -320,18 +323,18 @@ html,body{width:${frame.width}px;height:${frame.height}px;overflow:hidden;backgr
 .touch{position:absolute;width:0;height:0}
 .touch .dot{position:absolute;left:-34px;top:-34px;width:68px;height:68px;border-radius:50%;background:rgba(232,238,245,.34);border:2px solid rgba(232,238,245,.75);opacity:0}
 .touch .ring{position:absolute;left:-34px;top:-34px;width:68px;height:68px;border-radius:50%;border:3px solid ${c.accent};opacity:0}
-.caption{position:absolute;left:60px;right:60px;top:1470px;display:flex;justify-content:center}
-.pill{font-weight:650;font-size:50px;line-height:1.18;letter-spacing:-.01em;text-align:center;padding:16px 28px;border-radius:22px;background:${c.captionBackground};box-shadow:0 14px 44px rgba(0,0,0,.5);color:${c.captionText}}
+.caption{position:absolute;left:${captionBox.left}px;right:${captionBox.right}px;top:${captionBox.top}px;display:flex;justify-content:center}
+.pill{font-weight:650;font-size:${captionBox.fontSize}px;line-height:1.18;letter-spacing:-.01em;text-align:center;padding:16px 28px;border-radius:22px;background:${c.captionBackground};box-shadow:0 14px 44px rgba(0,0,0,.5);color:${c.captionText}}
 .pill span{display:inline-block}
-.persona{position:absolute;left:0;right:0;top:78px;display:flex;justify-content:center}
+.persona{position:absolute;left:${px(persona.left)};right:${px(persona.right)};top:${persona.top}px;display:flex;justify-content:center}
 .persona .card{display:flex;align-items:center;gap:20px;padding:14px 30px 14px 14px;border-radius:999px;background:rgba(19,26,35,.9);border:1px solid rgba(130,150,173,.28)}
 .avatar{width:66px;height:66px;border-radius:50%;display:grid;place-items:center;font-family:${headingFont};font-size:38px;font-weight:600;color:${c.onCta};background:linear-gradient(135deg,${c.cta},${c.accent})}
 .persona b{display:block;font-size:34px;font-weight:650}
 .persona span{display:block;font-size:25px;color:${c.muted};margin-top:2px}
-.endcard{position:absolute;left:0;right:0;top:1180px;text-align:center}
+.endcard{position:absolute;left:${px(endCard.left)};right:${px(endCard.right)};top:${endCard.top}px;text-align:center}
 .brand{display:flex;justify-content:center;align-items:center;gap:18px;font-family:${headingFont};font-size:46px}
 .logo{height:60px;width:auto}
-.headline{font-family:${headingFont};font-weight:500;font-size:96px;letter-spacing:-.025em;line-height:1.02;margin-top:44px}
+.headline{font-family:${headingFont};font-weight:500;font-size:${endCard.headlineSize}px;letter-spacing:-.025em;line-height:1.02;margin-top:44px}
 .url{display:inline-block;margin-top:40px;padding:20px 38px;border-radius:999px;font-size:44px;font-weight:600;color:${c.onCta};background:${c.cta}}
 .note{margin-top:26px;font-size:30px;color:${c.muted}}
 </style>

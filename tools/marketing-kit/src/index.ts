@@ -63,6 +63,7 @@ export {
   type TtsRequest,
 } from "./voice/voiceover.js";
 export {
+  LAYOUTS,
   VIDEO_FORMATS,
   cameraPose,
   captionChunks,
@@ -74,8 +75,13 @@ export {
   widePose,
   type CameraPose,
   type CaptionChunk,
+  type CaptionLayout,
+  type EndCardLayout,
   type Geometry,
+  type Layout,
+  type Point,
   type Rect,
+  type TextBox,
   type VideoFormat,
   type Viewport,
 } from "./compose/timeline.js";
