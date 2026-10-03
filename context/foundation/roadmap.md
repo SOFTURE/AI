@@ -47,7 +47,7 @@ backlog: context/backlog/roadmap-marketing-kit/
 | **MK-3** | `mk-declarative-actions` | scenes described as JSON actions with locator descriptors; `sceneModule` TS escape hatch kept | MK-2 | autonomous | ready |
 | **MK-7** | `mk-tts-adapters` | `TtsProvider` interface, ElevenLabs adapter, cache key includes voice, model and language; paid calls only with `--commit` | MK-2 | autonomous | ready |
 | **MK-6** | `mk-formats` | 1:1 and 16:9 render formats next to 9:16, geometry from config | MK-2 | autonomous | ready |
-| **MK-4** | `mk-screenshots` | `softure-marketing shots` with quality gates (HTTP status, expected phrase, minimum size, full-page scroll) | MK-2 | autonomous | **in_progress** (research, since 2026-10-03; cloud session, branch `claude/project-thread-p5jnbq`) |
+| **MK-4** | `mk-screenshots` | `softure-marketing shots` with quality gates (HTTP status, expected phrase, minimum size, full-page scroll) | MK-2 | autonomous | **in_progress** (implement 1/2, since 2026-10-03; cloud session, branch `claude/project-thread-p5jnbq`) |
 | **MK-5** | `mk-og-images` | OG images rendered with Satori outside Next from templates + data | MK-2 | autonomous | ready |
 | **MK-8** | `marketing-kit-release` | `@softure-ai/marketing-kit` 0.1.0 published through the FD-2 pipeline, README complete | MK-3, MK-4, MK-5, MK-6, MK-7 | owner | ready |
 
@@ -181,7 +181,7 @@ Risk first: MK-1 proves the port is faithful. MK-2 fixes the contract every late
 
 ### MK-4: Screenshots with quality gates
 - **Change ID:** `mk-screenshots`
-- **Status:** in_progress (research, since 2026-10-03; cloud session, branch `claude/project-thread-p5jnbq`)
+- **Status:** in_progress (implement 1/2, since 2026-10-03; cloud session, branch `claude/project-thread-p5jnbq`)
 - **Outcome:** `softure-marketing shots` renders the `screenshots` entries of `marketing.json`. Options cover width, height, full page with a lazy-load scroll, and motion reduce/no-preference. It applies the FIRE gates:
   - HTTP status below 400;
   - the expected phrase is present;
