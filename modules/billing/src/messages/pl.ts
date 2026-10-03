@@ -46,6 +46,8 @@ export const pl: typeof en = {
     checkout: "Przejdź do płatności",
     pending: "Wysyłanie…",
     requested: "Dziękujemy! Prośba o fakturę za {plan} została wysłana. Fakturę wyślemy na adres {email}; dostęp zacznie się po jej opłaceniu.",
+    checkoutSuccess: "Dziękujemy za płatność! Dostęp zaktualizujemy, gdy płatność zostanie potwierdzona, zwykle w ciągu minuty.",
+    checkoutCancelled: "Płatność została anulowana i nic nie pobrano. Możesz spróbować ponownie albo wybrać inny plan.",
   },
   admin: {
     title: "Nadaj dostęp",

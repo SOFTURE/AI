@@ -1,0 +1,141 @@
+// The Stripe webhook of @softure-ai/billing on the built app, with the test playing Stripe: it signs
+// deliveries with the webhook secret Playwright gives the server (STRIPE_WEBHOOK_SECRET). A paid
+// checkout turns the account's trial into paid access without the owner, a repeated delivery
+// changes nothing, an unsigned one is refused, and a full refund takes the access back. The payment
+// page shows where a hosted checkout returned. Stripe's own API is covered by the sandbox test in
+// modules/billing/tests/stripe-sandbox.test.ts.
+import { randomInt, randomUUID } from "node:crypto";
+import { expect, test, type APIRequestContext, type Browser, type Page } from "@playwright/test";
+import { authMessages, users } from "@softure-ai/auth";
+import { billingMessages, payments, signStripePayload, STRIPE_METADATA, STRIPE_SIGNATURE_HEADER } from "@softure-ai/billing";
+import { eq, inArray } from "drizzle-orm";
+import { openTestDatabase } from "./database.ts";
+import { STRIPE_WEBHOOK_SECRET } from "./outbox.ts";
+
+const authCopy = authMessages.en;
+const copy = billingMessages.en;
+const PASSWORD = "correct horse battery";
+const WEBHOOK = "/api/billing/webhook";
+const createdEmails: string[] = [];
+
+/** A fresh address per context (198.18.0.0/15), so the register bucket never fills up. */
+function randomAddress(): string {
+  return `198.${String(18 + randomInt(2))}.${String(randomInt(256))}.${String(randomInt(1, 255))}`;
+}
+
+test.afterAll(async () => {
+  if (createdEmails.length === 0) return;
+  const database = await openTestDatabase();
+  try {
+    // Entitlement and payment rows go with the accounts (ON DELETE CASCADE).
+    await database.db.delete(users).where(inArray(users.email, createdEmails));
+  } finally {
+    await database.close();
+  }
+});
+
+async function openPage(browser: Browser): Promise<Page> {
+  const context = await browser.newContext({ extraHTTPHeaders: { "cf-connecting-ip": randomAddress() } });
+  return context.newPage();
+}
+
+/** Registers a fresh account in `page` and returns its id. */
+async function register(page: Page): Promise<string> {
+  const email = `e2e-stripe-${randomUUID()}@example.com`;
+  createdEmails.push(email);
+  await page.goto("/register");
+  await page.getByLabel(authCopy.fields.email, { exact: true }).fill(email);
+  await page.getByLabel(authCopy.fields.password, { exact: true }).fill(PASSWORD);
+  await page.getByLabel(authCopy.fields.consent).check();
+  await page.getByRole("button", { name: authCopy.register.submit }).click();
+  await expect(page).toHaveURL("/account");
+  const database = await openTestDatabase();
+  try {
+    const [account] = await database.db.select({ id: users.id }).from(users).where(eq(users.email, email));
+    if (account === undefined) throw new Error(`register: no account for ${email}`);
+    return account.id;
+  } finally {
+    await database.close();
+  }
+}
+
+/** A Stripe event around `object`, as Stripe delivers it. */
+function stripeEvent(type: string, object: Record<string, unknown>): string {
+  return JSON.stringify({ id: `evt_e2e_${randomUUID()}`, object: "event", type, data: { object } });
+}
+
+function paidCheckout(userId: string, checkoutId: string, paymentId: string): string {
+  return stripeEvent("checkout.session.completed", {
+    id: checkoutId,
+    object: "checkout.session",
+    mode: "payment",
+    payment_status: "paid",
+    payment_intent: paymentId,
+    amount_total: 2900,
+    currency: "pln",
+    client_reference_id: userId,
+    metadata: { [STRIPE_METADATA.userId]: userId, [STRIPE_METADATA.planId]: "monthly" },
+  });
+}
+
+async function deliver(request: APIRequestContext, payload: string, secret = STRIPE_WEBHOOK_SECRET): Promise<number> {
+  const header = signStripePayload({ payload, secret, timestamp: Math.floor(Date.now() / 1000) });
+  const response = await request.post(WEBHOOK, { data: payload, headers: { "content-type": "application/json", [STRIPE_SIGNATURE_HEADER]: header } });
+  return response.status();
+}
+
+async function readStatus(page: Page): Promise<string | null> {
+  await page.goto("/account/billing");
+  return page.locator("[data-status]").first().getAttribute("data-status");
+}
+
+async function countPayments(userId: string): Promise<number> {
+  const database = await openTestDatabase();
+  try {
+    return (await database.db.select({ id: payments.id }).from(payments).where(eq(payments.userId, userId))).length;
+  } finally {
+    await database.close();
+  }
+}
+
+test("a paid Stripe checkout turns the trial into paid access once, and a full refund takes it back", async ({ browser, request }) => {
+  const page = await openPage(browser);
+  const userId = await register(page);
+  expect(await readStatus(page)).toBe("trial");
+
+  const paymentId = `pi_e2e_${randomUUID().replaceAll("-", "")}`;
+  const completed = paidCheckout(userId, `cs_e2e_${randomUUID().replaceAll("-", "")}`, paymentId);
+  expect(await deliver(request, completed)).toBe(200);
+  expect(await readStatus(page)).toBe("paid");
+  await expect(page.locator("[data-status]").first()).toHaveText(new RegExp(`^${copy.badge.paid}until `));
+
+  // Stripe retries until it sees a 2xx: the same delivery again changes nothing.
+  expect(await deliver(request, completed)).toBe(200);
+  expect(await countPayments(userId)).toBe(1);
+
+  const refund = stripeEvent("charge.refunded", { id: "ch_e2e", object: "charge", payment_intent: paymentId, refunded: true });
+  expect(await deliver(request, refund)).toBe(200);
+  expect(await readStatus(page)).toBe("trial");
+});
+
+test("the webhook refuses a delivery Stripe did not sign and grants nothing", async ({ browser, request }) => {
+  const page = await openPage(browser);
+  const userId = await register(page);
+  const completed = paidCheckout(userId, `cs_e2e_${randomUUID().replaceAll("-", "")}`, `pi_e2e_${randomUUID().replaceAll("-", "")}`);
+
+  expect(await deliver(request, completed, "whsec_forged")).toBe(400);
+  expect((await request.post(WEBHOOK, { data: completed, headers: { "content-type": "application/json" } })).status()).toBe(400);
+  expect(await countPayments(userId)).toBe(0);
+  expect(await readStatus(page)).toBe("trial");
+});
+
+test("the payment page says where a hosted checkout returned", async ({ browser }) => {
+  const page = await openPage(browser);
+  await register(page);
+  await page.goto("/payment?checkout=success");
+  await expect(page.getByRole("status").filter({ hasText: copy.payment.checkoutSuccess })).toBeVisible();
+
+  await page.goto("/payment?plan=monthly&checkout=cancelled");
+  await expect(page.getByRole("status").filter({ hasText: copy.payment.checkoutCancelled })).toBeVisible();
+  await expect(page.getByText(copy.payment.orderTitle)).toBeVisible();
+});

@@ -50,6 +50,9 @@ jobs:
           --health-retries 10
     env:
       SOFTURE_TEST_POSTGRES_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      # A Stripe test-mode key runs billing's sandbox test (modules/billing/tests/stripe-sandbox.test.ts);
+      # without the secret (forks, a repository that has not set it) that test is skipped.
+      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7

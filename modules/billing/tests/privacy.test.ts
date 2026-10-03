@@ -1,4 +1,5 @@
-// The billing part of a GDPR export and deletion: the account's entitlement row, if it has one.
+// The billing part of a GDPR export and deletion: the account's entitlement row, if it has one
+// (payments: stripe-payments.test.ts).
 import { changeEntitlement, exportBillingUserData, getEntitlement } from "@softure-ai/billing/server";
 import { collectUserData, eraseUserData } from "@softure-ai/privacy/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -26,14 +27,15 @@ describe("the billing privacy contributor", () => {
     const data = JSON.parse(collected.value.json) as { data: Record<string, unknown> };
     expect(data.data.billing).toEqual({
       entitlement: { trialEndsAt: "2026-10-16T22:00:00.000Z", paidUntil: PAID_END.toISOString(), isLifetime: false, createdAt: NOW.toISOString(), updatedAt: NOW.toISOString() },
+      payments: [],
     });
   });
 
   it("exports nothing for an account without a row, an unknown id or a malformed one", async () => {
     const bobId = await createAccount(test, "bob@example.com");
-    expect(await exportBillingUserData(test.ctx, bobId)).toEqual({ ok: true, value: { entitlement: null } });
-    expect(await exportBillingUserData(test.ctx, "00000000-0000-4000-8000-000000000000")).toEqual({ ok: true, value: { entitlement: null } });
-    expect(await exportBillingUserData(test.ctx, "not-a-uuid")).toEqual({ ok: true, value: { entitlement: null } });
+    expect(await exportBillingUserData(test.ctx, bobId)).toEqual({ ok: true, value: { entitlement: null, payments: [] } });
+    expect(await exportBillingUserData(test.ctx, "00000000-0000-4000-8000-000000000000")).toEqual({ ok: true, value: { entitlement: null, payments: [] } });
+    expect(await exportBillingUserData(test.ctx, "not-a-uuid")).toEqual({ ok: true, value: { entitlement: null, payments: [] } });
   });
 
   it("deletes the account's row with the account and leaves other accounts alone", async () => {

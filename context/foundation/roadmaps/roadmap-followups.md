@@ -39,6 +39,9 @@ trigger: "every module roadmap (monetization, marketing-kit) is done; the owner 
 | **FU-7** | `analytics-action-redirect-tag` | Channel tag kept through server action redirects | — | autonomous | proposed |
 | **FU-8** | `waitlist-funnel-hook` | Waitlist sign-ups as a funnel step | — | autonomous | proposed |
 | **FU-9** | `billing-admin-requests` | Payment requests, revoke and grant history in the billing admin page | — | autonomous | proposed |
+| **FU-10** | `billing-stripe-sandbox-e2e` | Stripe sandbox payment end to end | — | owner | proposed |
+| **FU-11** | `billing-refund-one-payment` | Refunds that take back one payment's period | — | autonomous | proposed |
+| **FU-12** | `billing-retro-reviews` | Retro research and plan review for MO-1 and MO-2 | — | autonomous | proposed |
 
 ## Order
 
@@ -146,9 +149,42 @@ trigger: "every module roadmap (monetization, marketing-kit) is done; the owner 
 - **PRD refs:** FR-22.
 - **Source:** `modules/billing/README.md` §12
 
+### FU-10: Stripe sandbox payment end to end
+- **Change ID:** `billing-stripe-sandbox-e2e`
+- **Status:** proposed
+- **Outcome:** A browser payment on Stripe's sandbox Checkout (test card) whose webhook reaches the app (Stripe CLI forwarding or a reachable preview) and turns the trial into paid, run in CI when the Stripe test secrets are set.
+- **Prerequisites:** the owner's Stripe test-mode secrets (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`) in the repository; the Stripe CLI or a public URL for the e2e server.
+- **Unknowns:** How the webhook reaches a CI run (`stripe listen` in the job vs. a deployed preview); how stable Stripe's hosted page is for Playwright.
+- **Risk:** MEDIUM.
+- **Baseline:** monetization MO-3 `billing-provider-adapter`: the Checkout API is tested against the sandbox (`modules/billing/tests/stripe-sandbox.test.ts`, only with the key) and the webhook with signed fixtures (`e2e/billing-stripe.spec.ts`); no test pays in the sandbox and receives Stripe's own delivery (README §12). After: the gap is closed and covered by an e2e test.
+- **PRD refs:** FR-22.
+- **Source:** `modules/billing/README.md` §12
+
+### FU-11: Refunds that take back one payment's period
+- **Change ID:** `billing-refund-one-payment`
+- **Status:** proposed
+- **Outcome:** A full refund removes only the access the refunded payment granted (its period, or the lifetime it bought), not every paid period of the account; optionally partial refunds handled by a policy.
+- **Prerequisites:** none beyond the main branch.
+- **Unknowns:** Storing each payment's granted start and end in `billing.payments`; a shortening entitlement event vs. recomputing access from the remaining payments; how manual grants (no payment row) count.
+- **Risk:** MEDIUM.
+- **Baseline:** monetization MO-3 `billing-provider-adapter`: `charge.refunded` revokes all paid access (`revoke`), so a refund of one of two stacked months, or of a monthly payment next to a lifetime, takes everything (README §12, plan review W4). After: the gap is closed and covered by unit and e2e tests.
+- **PRD refs:** FR-22.
+- **Source:** `modules/billing/README.md` §12; `context/archive/2026-10-03-billing-provider-adapter/reviews/plan-review.md` W4
+
+### FU-12: Retro research and plan review for MO-1 and MO-2
+- **Change ID:** `billing-retro-reviews`
+- **Status:** proposed
+- **Outcome:** `research.md` and `reviews/plan-review.md` written after the fact for `billing-entitlements` (MO-1, plan review skipped) and `billing-plans-pricing` (MO-2, research and plan review skipped); every finding that still applies to the code is fixed or filed as its own FU item.
+- **Prerequisites:** none beyond the main branch.
+- **Unknowns:** Whether findings need code changes in `modules/billing/` (then they become their own items).
+- **Risk:** LOW.
+- **Baseline:** monetization MO-1 and MO-2 skipped phases of the SOFTURE chain (coordinator, 2026-10-03, after the owner's question); their archives have no research.md or plan-review.md. After: both archives carry the missing documents.
+- **PRD refs:** FR-22.
+- **Source:** `context/archive/2026-10-03-billing-entitlements/`, `context/archive/2026-10-03-billing-plans-pricing/`
+
 ## Owner decisions and checks
 
-(nothing yet)
+- [ ] **FU-10**: add the Stripe test-mode secrets `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` to the repository.
 
 ## Done
 

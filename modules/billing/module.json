@@ -3,10 +3,21 @@
   "version": "0.0.0",
   "dependsOn": { "security": "^0.0.0", "auth": "^0.0.0" },
   "dbSchema": "billing",
-  "tables": ["entitlements"],
-  "env": [],
+  "tables": ["entitlements", "payments"],
+  "env": [
+    {
+      "name": "STRIPE_SECRET_KEY",
+      "required": false,
+      "description": "Secret API key of the stripe() payment adapter (sk_test_... in the sandbox), read on every payment; not needed with stripe({ secretKey }) or another adapter."
+    },
+    {
+      "name": "STRIPE_WEBHOOK_SECRET",
+      "required": false,
+      "description": "Signing secret (whsec_...) of the Stripe webhook endpoint that points at stripeWebhookRoute; required when that route is mounted."
+    }
+  ],
   "switches": [],
-  "routes": { "payment": "/payment" },
-  "mount": [],
+  "routes": { "payment": "/payment", "webhook": "/api/billing/webhook" },
+  "mount": [{ "kind": "route-handler", "path": "app/api/billing/webhook/route.ts", "export": "stripeWebhookRoute" }],
   "privacy": { "exports": true, "deletes": true }
 }

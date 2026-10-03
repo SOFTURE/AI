@@ -9,7 +9,19 @@ export {
   type BillingContext,
   type EntitlementEventResolver,
 } from "./entitlements.js";
-export { checkEntitlementsTable } from "./health.js";
+export { checkBillingTables } from "./health.js";
+export {
+  receiveStripeWebhook,
+  recordPayment,
+  refundPayment,
+  STRIPE_PROVIDER,
+  type PaymentOutcome,
+  type ReceiveStripeWebhookInput,
+  type RecordPaymentError,
+  type RecordPaymentInput,
+  type RefundPaymentInput,
+  type StripeWebhookReceipt,
+} from "./payments.js";
 export {
   getBillingMessages,
   getBillingModule,
@@ -30,5 +42,5 @@ export {
   type StartPaymentInput,
   type StartPaymentResult,
 } from "./plans.js";
-export { billingPrivacyContributor, deleteBillingUserData, exportBillingUserData, type BillingUserData } from "./privacy.js";
+export { billingPrivacyContributor, deleteBillingUserData, exportBillingUserData, type BillingPaymentData, type BillingUserData } from "./privacy.js";
 export { assertPaymentSetup, PAYMENT_BUCKET } from "./setup.js";

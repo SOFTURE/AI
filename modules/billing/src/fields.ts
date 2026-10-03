@@ -15,3 +15,10 @@ export const INVOICE_LIMITS = {
   taxId: 32,
   address: 500,
 } as const;
+
+/** The payment page's parameter a hosted checkout returns with: `?checkout=success` or `?checkout=cancelled`. */
+export const CHECKOUT_PARAM = "checkout";
+
+export const CHECKOUT_RESULTS = ["success", "cancelled"] as const;
+
+export type CheckoutResult = (typeof CHECKOUT_RESULTS)[number];

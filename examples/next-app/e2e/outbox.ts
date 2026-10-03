@@ -21,3 +21,9 @@ export async function readResetLinks(email: string): Promise<string[]> {
   const mails = await readMailOutbox(MAIL_OUTBOX, { to: email });
   return mails.flatMap((mail) => mail.text.match(RESET_LINK) ?? []);
 }
+
+/**
+ * The signing secret of the Stripe webhook in the app under test (playwright.config.ts). A test
+ * value: the e2e plays Stripe and signs its own deliveries.
+ */
+export const STRIPE_WEBHOOK_SECRET = "whsec_e2e_webhook_secret_not_for_production";
