@@ -110,9 +110,9 @@ cases plus the existing channel and funnel specs.
 ### Phase 1: The keeper, the component and the docs
 
 #### Automated
-- [ ] 1.1 `createChannelKeeper` passes every case of step 1
-- [ ] 1.2 `getChannelRule` and `<ChannelKeeper />` tests pass; existing analytics tests pass unchanged
-- [ ] 1.3 e2e "a client navigation without Next-Url keeps the tag and reaches sign-up" passes
-- [ ] 1.4 e2e "the tag comes back after the page drops it with replaceState" passes
-- [ ] 1.5 e2e funnel counts the account view after sign-up under the channel
-- [ ] 1.6 Gates green (typecheck, lint, test, build) and the example app's `next build`
+- [x] 1.1 `createChannelKeeper` passes every case of step 1 — bcde444
+- [x] 1.2 `getChannelRule` and `<ChannelKeeper />` tests pass; existing analytics tests pass unchanged — bcde444
+- [x] 1.3 e2e "a client navigation without Next-Url keeps the tag and reaches sign-up" passes — bcde444
+- [x] 1.4 e2e "the tag comes back after the page drops it with replaceState" passes — bcde444
+- [x] 1.5 e2e funnel counts the account view after sign-up under the channel — bcde444
+- [x] 1.6 Gates green (typecheck, lint, test, build) and the example app's `next build` — bcde444
