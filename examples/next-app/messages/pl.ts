@@ -33,6 +33,7 @@ export const pl: AppMessages = {
     admin: "Panel administratora",
     assistant: "Dostęp dla asystenta AI",
     testMail: "Wyślij wiadomość testową",
+    privacy: "Twoje dane",
   },
   admin: {
     title: "Panel administratora",

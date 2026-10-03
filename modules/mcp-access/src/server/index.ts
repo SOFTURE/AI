@@ -13,6 +13,12 @@ export {
 export { checkAccessTokensTable } from "./health.js";
 export { getMcpAccessMessages, getMcpAccessOptions, getMcpAccessRoutes, getMcpEndpointUrl, type McpAccessRoutes } from "./options.js";
 export {
+  deleteMcpAccessUserData,
+  exportMcpAccessUserData,
+  mcpAccessPrivacyContributor,
+  type McpAccessUserData,
+} from "./privacy.js";
+export {
   ACCESS_TOKEN_PREFIX,
   hashAccessToken,
   isAccessTokenShape,

@@ -5,6 +5,7 @@ import { defineModule, resolveMigrationsDir } from "@softure-ai/core";
 import { featureSwitchesMessages } from "./messages/index.js";
 import { featureSwitchesOptionsSchema } from "./options.js";
 import { checkSwitchesTable } from "./server/health.js";
+import { switchesPrivacyContributor } from "./server/privacy.js";
 
 export const MODULE_ID = "feature-switches";
 
@@ -23,11 +24,12 @@ export const featureSwitches = defineModule({
     switches: [],
     routes: { panel: "/admin/switches" },
     mount: [{ kind: "page", path: "app/admin/switches/page.tsx", export: "SwitchesPage" }],
-    privacy: { exports: false, deletes: false },
+    privacy: { exports: true, deletes: true },
   },
   messages: featureSwitchesMessages,
   options: featureSwitchesOptionsSchema,
   migrations: { dir: resolveMigrationsDir(import.meta.url, "../migrations/") },
+  privacy: switchesPrivacyContributor,
   health: checkSwitchesTable,
 });
 

@@ -1,0 +1,15 @@
+{
+  "id": "privacy",
+  "version": "0.0.0",
+  "dependsOn": { "auth": "^0.0.0", "security": "^0.0.0" },
+  "dbSchema": null,
+  "tables": [],
+  "env": [],
+  "switches": [],
+  "routes": { "account": "/account/privacy", "export": "/api/privacy/export", "afterDelete": "/" },
+  "mount": [
+    { "kind": "page", "path": "app/account/privacy/page.tsx", "export": "PrivacyPage" },
+    { "kind": "route-handler", "path": "app/api/privacy/export/route.ts", "export": "exportRoute" }
+  ],
+  "privacy": { "exports": false, "deletes": false }
+}

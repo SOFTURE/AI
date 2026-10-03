@@ -107,7 +107,7 @@ Schema `features`, migration `0001_create_switches.sql`:
 
 | Table | Columns | Notes |
 | --- | --- | --- |
-| `switches` | `name` (PK), `enabled`, `updated_at`, `updated_by` | `name` has the shape `CHECK`. `updated_by` is the auth user id of the admin who set it (null when set outside a session), with no foreign key: deleting an account does not touch a switch. |
+| `switches` | `name` (PK), `enabled`, `updated_at`, `updated_by` | `name` has the shape `CHECK`. `updated_by` is the auth user id of the admin who set it (null when set outside a session), with no foreign key: deleting an account clears it through `@softure-ai/privacy` (section 11) and keeps the switch. |
 
 A switch with no row reads as its default. Rows of switches the app no longer declares are ignored,
 never deleted: declaring the switch again brings back its last stored value. Run `softure migrate`
@@ -155,8 +155,13 @@ None. Authorization is the auth role named by `panelRole`.
 
 ## 11. GDPR
 
-Nothing to export or delete: the only user-related value is `updated_by`, an account id that refers
-to nobody once the account is deleted.
+The only user-related value is `updated_by`, the id of whoever set a switch last. The module
+contributes to `@softure-ai/privacy` (`privacy` flags on):
+
+- **Export** (`exportSwitchesUserData`): `lastSetSwitches`, the switches the user set last, with
+  their value and date.
+- **Deletion** (`deleteSwitchesUserData`): sets `updated_by` to null on those switches. The switch's
+  value and `updated_at` stay: the switch belongs to the app, and deleting an account must not flip it.
 
 ## 12. Limitations
 

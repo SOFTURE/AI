@@ -18,7 +18,7 @@ The roadmap was promoted on 2026-10-03, when roadmap-identity closed. Inside it,
 | EN-4 | [`auth-reset-via-mailing`](../../archive/2026-10-03-auth-reset-via-mailing/change.md) (archived) | Password reset mails through the mailing module | EN-1 on the main branch | dependency |
 | EN-5 | [`waitlist`](waitlist/change.md) | Waitlist with consent scopes | EN-1, EN-2 and EN-8 on the main branch | dependency |
 | EN-6 | [`mcp-access`](../../archive/2026-10-03-mcp-access/change.md) (archived) | MCP access tokens and Bearer endpoint | roadmap promoted | start |
-| EN-7 | [`privacy-registry`](privacy-registry/change.md) | GDPR export and deletion registry | roadmap promoted | start |
+| EN-7 | [`privacy-registry`](../../archive/2026-10-03-privacy-registry/change.md) (archived) | GDPR export and deletion registry | roadmap promoted | start |
 | EN-8 | [`privacy-consents-legal`](privacy-consents-legal/change.md) | Consent records and legal document shell | EN-7 on the main branch | dependency |
 | EN-9 | [`engagement-release`](engagement-release/change.md) | Engagement modules release | EN-3 to EN-8 on the main branch, and the owner at the keyboard | owner |
 
