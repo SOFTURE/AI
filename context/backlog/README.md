@@ -23,6 +23,5 @@ An entry is never in two places, neither as a copy nor as a pointer.
 
 | Folder | Roadmap | Starts when |
 | --- | --- | --- |
-| [`roadmap-engagement/`](roadmap-engagement/) | [engagement](../foundation/roadmap.md) | promoted 2026-10-03 (main roadmap) |
-| [`roadmap-monetization/`](roadmap-monetization/) | [monetization](../foundation/roadmaps/roadmap-monetization.md) | engagement done + payment provider chosen |
+| [`roadmap-monetization/`](roadmap-monetization/) | [monetization](../foundation/roadmap.md) | promoted 2026-10-03 (main roadmap) |
 | [`roadmap-marketing-kit/`](roadmap-marketing-kit/) | [marketing-kit](../foundation/roadmaps/roadmap-marketing-kit.md) | FD-1 and FD-2 done; any time after |

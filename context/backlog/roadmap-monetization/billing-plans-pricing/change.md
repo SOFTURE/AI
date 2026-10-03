@@ -15,7 +15,7 @@ Plans declared in config (name, price, currency, period, features); `<PricingTil
 
 ## Context
 
-From [`roadmap-monetization.md`](../../../foundation/roadmaps/roadmap-monetization.md), item **MO-2** (queued roadmap `monetization`):
+From [`roadmap.md`](../../../foundation/roadmap.md), item **MO-2** (roadmap `monetization`, main since 2026-10-03):
 
 > ### MO-2: Plans, pricing tiles and the manual payment flow
 > - **Change ID:** `billing-plans-pricing`

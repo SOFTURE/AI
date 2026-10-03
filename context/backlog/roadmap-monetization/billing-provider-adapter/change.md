@@ -15,7 +15,7 @@ A provider adapter implementing `PaymentProvider`: checkout session creation, ve
 
 ## Context
 
-From [`roadmap-monetization.md`](../../../foundation/roadmaps/roadmap-monetization.md), item **MO-3** (queued roadmap `monetization`):
+From [`roadmap.md`](../../../foundation/roadmap.md), item **MO-3** (roadmap `monetization`, main since 2026-10-03):
 
 > ### MO-3: Payment provider adapter
 > - **Change ID:** `billing-provider-adapter`

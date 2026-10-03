@@ -5,7 +5,7 @@ status: backlog
 roadmap_item: EN-9
 branch: null
 created: 2026-10-02
-updated: 2026-10-02
+updated: 2026-10-03
 archived_at: null
 ---
 
@@ -15,11 +15,12 @@ archived_at: null
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **EN-9** (roadmap `engagement`, main since 2026-10-03):
+From [`roadmap.md`](../../../foundation/roadmap.md), item **EN-9** (carried over on 2026-10-03 from roadmap `engagement`,
+archived in [`2026-10-03-2-roadmap.md`](../../../foundation/archive/2026-10-03-2-roadmap.md), to roadmap `monetization`):
 
 > ### EN-9: Engagement modules release
 > - **Change ID:** `engagement-release`
-> - **Status:** ready
+> - **Status:** blocked (carried over from engagement: the owner's release at the keyboard)
 > - **Outcome:** `@softure-ai/mailing`, `@softure-ai/waitlist`, `@softure-ai/mcp-access` and `@softure-ai/privacy` 0.1.0 published through the FD-2 pipeline (owner approves each first, staged publish and adds its trusted publisher); module READMEs and status lines updated; a finish review across EN-1…EN-8.
 > - **Prerequisites:** EN-3, EN-4, EN-5, EN-6, EN-8.
 > - **Unknowns:** none beyond the owner's npm steps.
