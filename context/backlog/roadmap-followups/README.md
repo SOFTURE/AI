@@ -21,6 +21,17 @@ gets an entry here and a row in the roadmap.
 Kind: `start` (can be taken as soon as the roadmap is promoted), `dependency` (waits for the listed items on the
 main branch), `owner` (needs an owner decision or the owner at the keyboard).
 
+## Adding a gap
+
+Any thread that finds a gap or leaves part of its item undone (a review finding it defers, a README
+"Limitations" line, an owner check it cannot close) records it here in the same change, not in a loose file:
+
+1. Take the next free `FU-<n>` and a kebab-case change-id.
+2. Write `<change-id>/change.md` like the entries above (`status: backlog`, the item block quoted in Context,
+   **Source** naming the roadmap item and the evidence `file` or section).
+3. Add the row to the table here and the row plus item block to
+   [`roadmap-followups.md`](../../foundation/roadmaps/roadmap-followups.md) (status `proposed`; severity in **Risk**).
+
 ## Taking an entry
 
 1. `git mv context/backlog/roadmap-followups/<change-id>/change.md context/changes/<change-id>/backlog-input.md`

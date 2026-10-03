@@ -18,7 +18,8 @@ An entry is never in two places, neither as a copy nor as a pointer.
 - **An entry done or rejected elsewhere:** move it into that change's archive folder as `backlog-input.md`.
 - **Loose findings** (deferred review items, ideas without a roadmap) go to `context/backlog/<topic>.md`
   as `- [ ] <date> <source>: <finding> (<severity>) <evidence>`.
-- **Gaps found while delivering a roadmap** become items of the catch-all `roadmap-followups` (owner, 2026-10-03).
+- **Gaps and unfinished parts found while delivering a roadmap** become items of the catch-all
+  [`roadmap-followups/`](roadmap-followups/) (owner, 2026-10-03), which runs last: see its README, "Adding a gap".
 
 ## Queued roadmaps
 
