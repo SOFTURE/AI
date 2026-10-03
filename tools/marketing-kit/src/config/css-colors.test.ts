@@ -159,4 +159,19 @@ describe("readCssColors", () => {
   it("refuses a token name that could break out of the lookup", () => {
     expect(readCssColors(":root{}", ["a)|(b"], "dark")).toEqual({ ok: false, error: '"a)|(b" is not a custom property name (lowercase letters, digits and hyphens)' });
   });
+
+  it("reads an unquoted theme selector and a last declaration without a semicolon, as minifiers write them", () => {
+    const minified = ':root{--accent:#111111}[data-theme=dark]{--background:#0c0c0d;--accent:#cff26b}';
+    expect(readCssColors(minified, ["background", "accent"], "dark")).toEqual({ ok: true, colors: { background: "#0c0c0d", accent: "#cff26b" } });
+  });
+
+  it("does not take a themed :root rule for the plain :root block", () => {
+    const themedRoot = ':root[data-theme="light"]{--accent:#ffffff}:root{--accent:#000000}';
+    expect(readCssColors(themedRoot, ["accent"], "dark")).toEqual({ ok: false, error: 'the stylesheet has theme blocks but no top-level [data-theme="dark"]' });
+  });
+
+  it("refuses a theme the stylesheet does not have instead of reading another theme's colours", () => {
+    const lightOnly = ':root{--accent:#000000}[data-theme="light"]{--accent:#ffffff}';
+    expect(readCssColors(lightOnly, ["accent"], "dark")).toEqual({ ok: false, error: 'the stylesheet has theme blocks but no top-level [data-theme="dark"]' });
+  });
 });

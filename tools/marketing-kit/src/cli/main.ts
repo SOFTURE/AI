@@ -2,7 +2,7 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { loadMarketingConfig, type MarketingConfig } from "../config/config.js";
+import { findMissingFiles, formatConfigIssues, loadMarketingConfig, type MarketingConfig } from "../config/config.js";
 import { getGeometry } from "../compose/timeline.js";
 import { sceneBeats } from "../film.js";
 import { getMarketingMessages } from "../messages/index.js";
@@ -32,9 +32,11 @@ import { getVoiceoverPaths, produceVoiceover, readJson, requireVoiceover } from 
 const getBuildDir = (config: MarketingConfig, film: LoadedFilm) => join(config.output.buildDir, film.id);
 const getOutDir = (config: MarketingConfig, film: LoadedFilm) => join(config.output.dir, film.id);
 
-function preflight(config: MarketingConfig, needsRender: boolean): void {
+function preflight(config: MarketingConfig, film: LoadedFilm, needsRender: boolean): void {
   const problem = findMachineProblem({ needsRender, cwd: config.root });
   if (problem !== null) fail(problem);
+  const missing = needsRender ? findMissingFiles(config, film, true) : [];
+  if (missing.length > 0) fail(formatConfigIssues(config, missing));
 }
 
 async function record(config: MarketingConfig, film: LoadedFilm, options: CliOptions): Promise<RecordingLog> {
@@ -146,15 +148,15 @@ async function main(argv: string[]): Promise<void> {
       await produceVoiceover(config, film, options.isCommit);
       return;
     case "record":
-      preflight(config, false);
+      preflight(config, film, false);
       await record(config, film, options);
       return;
     case "render":
-      preflight(config, true);
+      preflight(config, film, true);
       render(config, film, options);
       return;
     case "preview":
-      preflight(config, true);
+      preflight(config, film, true);
       preview(config, film);
       return;
     case "posts": {
@@ -164,7 +166,7 @@ async function main(argv: string[]): Promise<void> {
       return;
     }
     case "all": {
-      preflight(config, true);
+      preflight(config, film, true);
       if ((await produceVoiceover(config, film, false)) === null) fail("no voiceover; see the message above.");
       await record(config, film, options);
       render(config, film, options);

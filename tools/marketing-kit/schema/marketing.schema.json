@@ -166,6 +166,7 @@
                       "path": {
                         "type": "string",
                         "minLength": 1,
+                        "pattern": "\\.(?:woff2|woff|ttf|otf)$",
                         "description": "A path relative to the folder of marketing.json."
                       },
                       "weight": {
@@ -233,6 +234,7 @@
                       "path": {
                         "type": "string",
                         "minLength": 1,
+                        "pattern": "\\.(?:woff2|woff|ttf|otf)$",
                         "description": "A path relative to the folder of marketing.json."
                       },
                       "weight": {
@@ -318,13 +320,13 @@
           "type": "array",
           "items": {
             "type": "string",
-            "pattern": "^[^{};<>]+$"
+            "pattern": "^(?!.*\\/\\*)[^{};<>\\\\]+$"
           }
         },
         "screenGuardSelector": {
           "default": "body",
           "type": "string",
-          "pattern": "^[^{};<>]+$"
+          "pattern": "^(?!.*\\/\\*)[^{};<>\\\\]+$"
         },
         "device": {
           "type": "object",

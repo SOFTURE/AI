@@ -6,11 +6,12 @@
  * guessing: a missing token, or a value that is not a colour literal (`color-mix(…)`), is an error
  * that names the token.
  *
- * It reads one theme: the top-level `[data-theme="<theme>"]` block first, then the first `:root`
- * block, because the film lives in the brand's world, not in the viewer's system theme. Roles point
- * at a palette through `var(--…)`, so references resolve through the same two blocks. A stylesheet
- * without theme blocks is read from `:root` alone. Overrides inside `@media` rules are for the site
- * visitor's browser, not for the film.
+ * It reads one theme: the top-level `[data-theme="<theme>"]` block (also written `:root[…]` or
+ * `html[…]`) first, then the first `:root` block, because the film lives in the brand's world, not in
+ * the viewer's system theme. A stylesheet with theme blocks but not the configured one is an error.
+ * Roles point at a palette through `var(--…)`, so references resolve through the same two blocks. A
+ * stylesheet without theme blocks is read from `:root` alone. Overrides inside `@media` rules are for
+ * the site visitor's browser, not for the film.
  */
 
 import type { ColorTheme, ColorsResult } from "./colors.js";
@@ -30,40 +31,47 @@ function stripComments(css: string): string {
   return result;
 }
 
-function findTopLevelBlock(css: string, selectorStart: string): string | null {
+/** A selector with its whitespace and attribute quotes dropped, so `[data-theme=dark]` and `[data-theme="dark"]` compare equal. */
+function normalizeSelector(selector: string): string {
+  return selector.replace(/\s+/g, "").replace(/["']/g, "");
+}
+
+/** The top-level rules of the stylesheet, as selector lists and bodies; at-rules and their nested rules are skipped. */
+function listTopLevelRules(css: string): { selectors: string[]; body: string }[] {
+  const rules: { selectors: string[]; body: string }[] = [];
   let depth = 0;
   let ruleStart = 0;
+  let bodyStart = 0;
+  let selectors: string[] = [];
   for (let i = 0; i < css.length; i += 1) {
     const char = css[i];
     if (char === "{") {
-      if (depth === 0 && css.slice(ruleStart, i).trim().startsWith(selectorStart)) {
-        let inner = 0;
-        for (let j = i; j < css.length; j += 1) {
-          if (css[j] === "{") inner += 1;
-          if (css[j] === "}") inner -= 1;
-          if (inner === 0) {
-            return css.slice(i + 1, j);
-          }
-        }
-        return null;
+      if (depth === 0) {
+        selectors = css.slice(ruleStart, i).split(",").map(normalizeSelector);
+        bodyStart = i + 1;
       }
       depth += 1;
-      continue;
-    }
-    if (char === "}") {
+    } else if (char === "}") {
       depth -= 1;
-      if (depth === 0) ruleStart = i + 1;
-      continue;
-    }
-    if (char === ";" && depth === 0) {
+      if (depth === 0) {
+        rules.push({ selectors, body: css.slice(bodyStart, i) });
+        ruleStart = i + 1;
+      }
+    } else if (char === ";" && depth === 0) {
       ruleStart = i + 1;
     }
   }
-  return null;
+  return rules;
+}
+
+/** The body of the first top-level rule whose selector list holds exactly one of these selectors. */
+function findTopLevelBlock(rules: { selectors: string[]; body: string }[], selectors: readonly string[]): string | null {
+  const wanted = selectors.map(normalizeSelector);
+  return rules.find((rule) => rule.selectors.some((selector) => wanted.includes(selector)))?.body ?? null;
 }
 
 function readDeclaration(block: string, name: string): string | null {
-  const match = new RegExp(`(?:^|[;{\\s])--${name}\\s*:\\s*([^;]+);`).exec(block);
+  const match = new RegExp(`(?:^|[;{\\s])--${name}\\s*:\\s*([^;]+)(?:;|$)`).exec(block);
   return match?.[1] === undefined ? null : match[1].trim();
 }
 
@@ -76,10 +84,13 @@ const TOKEN_NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 export function readCssColors(css: string, names: readonly string[], theme: ColorTheme): ColorsResult {
   const badName = names.find((name) => !TOKEN_NAME.test(name));
   if (badName !== undefined) return { ok: false, error: `"${badName}" is not a custom property name (lowercase letters, digits and hyphens)` };
-  const clean = stripComments(css);
-  const root = findTopLevelBlock(clean, ":root");
+  const rules = listTopLevelRules(stripComments(css));
+  const root = findTopLevelBlock(rules, [":root"]);
   if (root === null) return { ok: false, error: "the stylesheet has no top-level :root block" };
-  const themed = findTopLevelBlock(clean, `[data-theme="${theme}"]`);
+  const themed = findTopLevelBlock(rules, [`[data-theme="${theme}"]`, `:root[data-theme="${theme}"]`, `html[data-theme="${theme}"]`]);
+  const hasThemes = rules.some((rule) => rule.selectors.some((selector) => selector.includes("[data-theme=")));
+  // A stylesheet with themes but not this one would silently give the film the other theme's colours.
+  if (themed === null && hasThemes) return { ok: false, error: `the stylesheet has theme blocks but no top-level [data-theme="${theme}"]` };
   const blocks = themed === null ? [root] : [themed, root];
   const lookup = (name: string): string | null => {
     for (const block of blocks) {

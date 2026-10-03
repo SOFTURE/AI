@@ -163,7 +163,11 @@ describe("loadMarketingConfig", () => {
     ["a locale without a dictionary", (c: MarketingJsonInput) => (c.brand.locale = "de-DE"), "brand.locale: needs a language with message dictionaries: en, pl"],
     ["an unknown timezone", (c: MarketingJsonInput) => (c.brand.timezone = "Mars/Base"), "brand.timezone: must be an IANA timezone such as Europe/London"],
     ["an empty start command", (c: MarketingJsonInput) => (c.app.startCommand = []), "app.startCommand: "],
-    ["a selector that could end the style rule", (c: MarketingJsonInput) => (c.app.hideSelectors = ["a{}"]), "app.hideSelectors[0]: must be a CSS selector without { } ; < >"],
+    ["a timezone given as an offset", (c: MarketingJsonInput) => (c.brand.timezone = "+01:00"), "brand.timezone: must be an IANA timezone such as Europe/London"],
+    ["a timezone in the wrong case", (c: MarketingJsonInput) => (c.brand.timezone = "europe/london"), "brand.timezone: must be an IANA timezone such as Europe/London"],
+    ["a selector that could end the style rule", (c: MarketingJsonInput) => (c.app.hideSelectors = ["a{}"]), "app.hideSelectors[0]: must be a CSS selector without { } ; < > \\ or /*"],
+    ["a selector that opens a comment", (c: MarketingJsonInput) => (c.app.hideSelectors = ["a/*"]), "app.hideSelectors[0]: must be a CSS selector without { } ; < > \\ or /*"],
+    ["a font file the browser cannot load", (c: MarketingJsonInput) => (c.brand.fonts = { body: { family: "Body", files: [{ path: "body.svg", weight: 400 }] } }), "brand.fonts.body.files[0].path: must be a .woff2, .woff, .ttf or .otf file"],
     ["a phone too tall for the frame", (c: MarketingJsonInput) => (c.app.device.viewport = [300, 900]), "app.device.viewport: is too tall for the 9:16 frame"],
     ["a tempo outside 0.8-1.3", (c: MarketingJsonInput) => (c.voice.tempo = 2), "voice.tempo: "],
     ["a film with two sentences", (c: MarketingJsonInput) => c.videos[0]?.beats.splice(1, 1), "videos[0].beats: a film needs at least three sentences: opening, scene, end card"],
@@ -234,7 +238,7 @@ describe("findMissingFiles", () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  it("names every file a render reads that is not there, by JSON path", () => {
+  it("names every file a render reads that is not there by JSON path, and only the scene module otherwise", () => {
     const config = {
       ...makeConfig(),
       sfx: { tap: "sfx/tap.mp3" },
@@ -246,13 +250,14 @@ describe("findMissingFiles", () => {
     if (!loaded.ok) throw new Error(loaded.error);
     const video = loaded.config.videos[0];
     if (video === undefined) throw new Error("no video");
-    expect(findMissingFiles(loaded.config, video).map((issue) => issue.path.join("."))).toEqual([
+    expect(findMissingFiles(loaded.config, video, true).map((issue) => issue.path.join("."))).toEqual([
+      "videos.0.sceneModule",
       "brand.logo.svg",
       "brand.fonts.body.files.0.path",
       "sfx.tap",
-      "videos.0.sceneModule",
     ]);
     writeFileSync(join(dir, "mark.svg"), "<svg/>");
-    expect(findMissingFiles(loaded.config, video)).toHaveLength(3);
+    expect(findMissingFiles(loaded.config, video, true)).toHaveLength(3);
+    expect(findMissingFiles(loaded.config, video, false).map((issue) => issue.path.join("."))).toEqual(["videos.0.sceneModule"]);
   });
 });

@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { cpSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { basename, dirname, extname, join } from "node:path";
+import { dirname, extname, join } from "node:path";
 
 import { composeFilm, filmTimes, type ComposeFont } from "../compose/compose.js";
 import { getGeometry, rewindFrames } from "../compose/timeline.js";
@@ -46,7 +46,7 @@ function run(command: string, args: string[]): void {
   if (result.status !== 0) throw new Error(`${label} ended with code ${String(result.status)}.`);
 }
 
-/** Copies each font file as `<n>-<name>`, so two files with one name cannot overwrite each other. */
+/** Copies each font file as `<n>.<ext>`: two files with one name cannot overwrite each other, and the name is safe inside url("…"). */
 function copyFonts(fonts: RenderInput["fonts"], dir: string): { heading: ComposeFont | null; body: ComposeFont | null } {
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
@@ -57,7 +57,7 @@ function copyFonts(fonts: RenderInput["fonts"], dir: string): { heading: Compose
       family: font.family,
       fallback: font.fallback,
       faces: font.files.map((file) => {
-        const name = `${count}-${basename(file.path)}`;
+        const name = `${count}${extname(file.path).toLowerCase()}`;
         count += 1;
         cpSync(file.path, join(dir, name));
         return { src: `assets/fonts/${name}`, weight: file.weight, style: file.style, unicodeRange: file.unicodeRange };

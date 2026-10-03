@@ -32,8 +32,8 @@ the screen guard refused the recording (the screen did not show what the voiceov
 - **`--today`** records the app as of another day, only to reproduce an old film.
 - **Server:** when the configured app does not answer, `record` starts `app.startCommand` in the config
   folder on `app.port` and stops it afterwards (log in `<output.buildDir>/server.log`).
-- Before recording or rendering, the files the config names (logo, fonts, sound effects, scene module)
-  are checked; a missing one is reported by its JSON path.
+- Every command checks that the video's scene module exists; `render`, `preview` and `all` also check
+  the brand files (logo, fonts, sound effects). A missing one is reported by its JSON path.
 
 Output: `<output.dir>/<video>/<video>.mp4` and `posts.md`; recordings and compositions in
 `<output.buildDir>/<video>/`. Neither belongs in git.
@@ -129,7 +129,8 @@ lowercase words joined by single dashes or underscores, at most 32 characters.
 | `captionBackground`, `captionText`, `captionHighlight` | the caption pill, its words, the word being spoken |
 
 A colour in `brand.colors` wins. Otherwise the role reads a token from `brand.tokensFrom`: the app's
-stylesheet (`css`, custom properties in `[data-theme="<theme>"]`, then `:root`, `var()` resolved) or an
+stylesheet (`css`, custom properties in `[data-theme="<theme>"]`, then `:root`, `var()` resolved; a
+stylesheet with other themes but not this one is an error) or an
 Impeccable `design.json` (`designJson`, schemaVersion 2, `themes.<theme>.roles`). A role reads the token
 of its own kebab name (`onCta` reads `on-cta`) unless `tokensFrom.roles` names another one, e.g.
 `"roles": { "cta": "accessible", "onCta": "background" }`. A role with no colour is an error, never a

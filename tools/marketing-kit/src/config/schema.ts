@@ -26,7 +26,9 @@ export type SfxEvent = (typeof SFX_EVENTS)[number];
 const ID_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const TOKEN_NAME_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 /** Characters that would end a CSS rule or an HTML attribute; none belongs in a selector we inject. */
-const SELECTOR_PATTERN = /^[^{};<>]+$/;
+/** No braces, semicolons, angle brackets, backslashes or comment openers: the selector lands inside a <style>. */
+const SELECTOR_PATTERN = /^(?!.*\/\*)[^{};<>\\]+$/;
+const FONT_FILE_PATTERN = /\.(?:woff2|woff|ttf|otf)$/i;
 const FONT_FAMILY_PATTERN = /^[A-Za-z0-9][A-Za-z0-9 _-]*$/;
 const FONT_WEIGHT_RANGE_PATTERN = /^\d{1,4}( \d{1,4})?$/;
 const UNICODE_RANGE_PATTERN = /^U\+[0-9A-Fa-f?]{1,6}(-[0-9A-Fa-f]{1,6})?(, ?U\+[0-9A-Fa-f?]{1,6}(-[0-9A-Fa-f]{1,6})?)*$/;
@@ -41,11 +43,17 @@ const hexColor = z.string().refine(isHexColor, "must be a hex colour such as #0c
 const pagePath = z.string().startsWith("/", "must start with /");
 const pixels = (max: number) => z.number().int().min(1).max(max);
 
+/** An IANA zone name as written in the tz database (`Europe/London`, `UTC`), not an offset such as `+01:00`. */
+const TIMEZONE_PATTERN = /^[A-Za-z][A-Za-z0-9_+-]*(?:\/[A-Za-z0-9_+-]+)*$/;
+
 function isKnownTimezone(zone: string): boolean {
+  if (!TIMEZONE_PATTERN.test(zone)) return false;
   try {
     // An unknown zone throws RangeError; `Intl.supportedValuesOf` would miss aliases such as UTC.
-    new Intl.DateTimeFormat("en", { timeZone: zone });
-    return true;
+    const resolved = new Intl.DateTimeFormat("en", { timeZone: zone }).resolvedOptions().timeZone;
+    // Intl accepts any case; the config takes the tz database spelling only (`europe/london` is refused),
+    // the one every consumer, the browser's timezone emulation included, is sure to accept.
+    return resolved === zone || resolved.toLowerCase() !== zone.toLowerCase();
   } catch {
     return false;
   }
@@ -73,7 +81,7 @@ const fontSchema = z.strictObject({
   files: z
     .array(
       z.strictObject({
-        path: relativePath,
+        path: relativePath.regex(FONT_FILE_PATTERN, "must be a .woff2, .woff, .ttf or .otf file"),
         /** A weight (`400`) or a variable font's range (`"100 900"`). */
         weight: z.union([z.number().int().min(1).max(1000), z.string().regex(FONT_WEIGHT_RANGE_PATTERN, 'must be a weight such as 400 or a range such as "100 900"')]),
         style: z.enum(["normal", "italic"]).default("normal"),
@@ -143,9 +151,9 @@ const appSchema = z.strictObject({
   startCommand: z.array(nonEmpty).min(1),
   colorScheme: z.enum(COLOR_THEMES).default("light"),
   /** Elements hidden while recording, e.g. a dev overlay or a floating banner. */
-  hideSelectors: z.array(z.string().regex(SELECTOR_PATTERN, "must be a CSS selector without { } ; < >")).default([]),
+  hideSelectors: z.array(z.string().regex(SELECTOR_PATTERN, "must be a CSS selector without { } ; < > \\ or /*")).default([]),
   /** The element whose text the screen guard reads. */
-  screenGuardSelector: z.string().regex(SELECTOR_PATTERN, "must be a CSS selector without { } ; < >").default("body"),
+  screenGuardSelector: z.string().regex(SELECTOR_PATTERN, "must be a CSS selector without { } ; < > \\ or /*").default("body"),
   /** The recorded phone; a video can override it. */
   device: deviceSchema,
 });

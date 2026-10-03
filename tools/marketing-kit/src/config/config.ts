@@ -203,14 +203,16 @@ export function findVideo(config: MarketingConfig, id: string): VideoConfig | nu
 }
 
 /**
- * Files a recording or a render of the video reads, checked before anything slow starts: the logo,
- * the fonts, the sound effects and the scene module. Returns the problems by JSON path.
+ * Files the pipeline reads, checked before anything slow starts: the scene module always, and with
+ * `isRendering` the logo, the fonts and the sound effects too. Returns the problems by JSON path.
  */
-export function findMissingFiles(config: MarketingConfig, video: VideoConfig): ConfigIssue[] {
+export function findMissingFiles(config: MarketingConfig, video: VideoConfig, isRendering: boolean): ConfigIssue[] {
   const issues: ConfigIssue[] = [];
   const check = (path: PropertyKey[], file: string) => {
     if (!existsSync(file)) issues.push({ path, message: `no file at ${file}` });
   };
+  check(["videos", video.index, "sceneModule"], video.sceneModule);
+  if (!isRendering) return issues;
   if (config.brand.logo !== null) check(["brand", "logo", "svg"], config.brand.logo);
   for (const kind of ["heading", "body"] as const) {
     config.brand.fonts[kind]?.files.forEach((font, index) => check(["brand", "fonts", kind, "files", index, "path"], font.path));
@@ -219,7 +221,6 @@ export function findMissingFiles(config: MarketingConfig, video: VideoConfig): C
     const sound = config.sfx[event];
     if (sound !== undefined) check(["sfx", event], sound);
   }
-  check(["videos", video.index, "sceneModule"], video.sceneModule);
   return issues;
 }
 

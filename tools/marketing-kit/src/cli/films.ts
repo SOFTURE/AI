@@ -17,11 +17,11 @@ function isScene(value: unknown): value is Scene {
   return typeof value === "function";
 }
 
-/** The video's entry and its scene (`sceneModule`, TypeScript through tsx), after its files are checked. */
+/** The video's entry and its scene (`sceneModule`, TypeScript through tsx). */
 export async function loadFilm(config: MarketingConfig, id: string): Promise<LoadedFilm> {
   const video = findVideo(config, id);
   if (video === null) fail(`no video "${id}" in ${config.file}. Available: ${listFilms(config).join(", ") || "none"}.`);
-  const missing = findMissingFiles(config, video);
+  const missing = findMissingFiles(config, video, false);
   if (missing.length > 0) fail(formatConfigIssues(config, missing));
   const imported = (await tsImport(pathToFileURL(video.sceneModule).href, import.meta.url)) as { scene?: unknown };
   if (!isScene(imported.scene)) fail(`videos[${video.index}].sceneModule: ${video.sceneModule} does not export a "scene" function.`);

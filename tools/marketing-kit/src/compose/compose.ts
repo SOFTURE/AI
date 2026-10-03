@@ -141,7 +141,7 @@ function fontFaces(font: ComposeFont | null): string[] {
   if (font === null) return [];
   return font.faces.map((face) => {
     const range = face.unicodeRange === null ? "" : `;unicode-range:${face.unicodeRange}`;
-    return `@font-face{font-family:"${font.family}";src:url("${escapeHtml(face.src)}") format("${getFontFormat(face.src)}");font-weight:${face.weight};font-style:${face.style}${range}}`;
+    return `@font-face{font-family:"${font.family}";src:url("${face.src}") format("${getFontFormat(face.src)}");font-weight:${face.weight};font-style:${face.style}${range}}`;
   });
 }
 

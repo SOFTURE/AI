@@ -125,10 +125,11 @@ export async function recordFilm(options: RecordOptions): Promise<RecordingLog> 
     await page.clock.install({ time: start });
     await page.goto(url, { waitUntil: "networkidle" });
     // While recording: the configured elements hidden (a dev indicator, a floating banner that covers
-    // the screen); instant scrolling, because the browser's "smooth" runs in real time.
-    await page.addStyleTag({
-      content: [...settings.hideSelectors.map((selector) => `${selector}{display:none!important}`), "html{scroll-behavior:auto!important}"].join(" "),
-    });
+    // the screen); instant scrolling, because the browser's "smooth" runs in real time. One tag per
+    // selector, so a selector the browser cannot parse (an unclosed quote) drops only its own rule.
+    for (const content of [...settings.hideSelectors.map((selector) => `${selector}{display:none!important}`), "html{scroll-behavior:auto!important}"]) {
+      await page.addStyleTag({ content });
+    }
     await page.evaluate(() => document.fonts.ready);
     // A slow load (a fresh next dev) can pass a fixed "+5 s" and then pauseAt throws "Cannot
     // fast-forward to the past", so the pause counts from the page's time.
