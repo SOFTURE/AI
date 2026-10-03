@@ -86,12 +86,37 @@ describe("applyEntitlementEvent", () => {
     expect(applyEntitlementEvent(TRIAL, { type: "extend_trial", until: at("2026-10-01T00:00:00Z") }, NOW)).toEqual({ ok: false, error: "billing.end_not_in_future" });
   });
 
-  it("leaves lifetime access as it is on a dated grant", () => {
-    expect(applyEntitlementEvent(LIFETIME, { type: "grant", until: PAID_END }, NOW)).toEqual({ ok: true, value: LIFETIME });
+  it("extends the dated end under lifetime access, which still wins", () => {
+    const granted = applyEntitlementEvent(LIFETIME, { type: "grant", until: PAID_END }, NOW);
+    expect(granted).toEqual({ ok: true, value: { ...LIFETIME, paidUntil: PAID_END } });
+    expect(granted.ok && resolveEntitlement(granted.value, NOW, POLICY)).toEqual({ status: "paid", endsAt: null, daysLeft: null, isEnding: false });
   });
 
-  it("turns any access into lifetime access, dropping its end", () => {
-    expect(applyEntitlementEvent(PAID, { type: "grant_lifetime" }, NOW)).toEqual({ ok: true, value: LIFETIME });
+  it("turns any access into lifetime access, keeping the dated end beside it", () => {
+    expect(applyEntitlementEvent(PAID, { type: "grant_lifetime" }, NOW)).toEqual({ ok: true, value: { ...PAID, isLifetime: true } });
+  });
+
+  it("shortens dated paid access and never lengthens it", () => {
+    const earlier = at("2026-11-15T23:00:00Z");
+    expect(applyEntitlementEvent(PAID, { type: "shorten", until: earlier }, NOW)).toEqual({ ok: true, value: { ...PAID, paidUntil: earlier } });
+    expect(applyEntitlementEvent(PAID, { type: "shorten", until: at("2026-12-31T23:00:00Z") }, NOW)).toEqual({ ok: true, value: PAID });
+    expect(applyEntitlementEvent(TRIAL, { type: "shorten", until: earlier }, NOW)).toEqual({ ok: true, value: TRIAL });
+  });
+
+  it("drops dated paid access shortened to the trial's end or before it, back to the trial", () => {
+    expect(applyEntitlementEvent(PAID, { type: "shorten", until: TRIAL_END }, NOW)).toEqual({ ok: true, value: TRIAL });
+    expect(applyEntitlementEvent(PAID, { type: "shorten", until: at("2026-10-10T22:00:00Z") }, NOW)).toEqual({ ok: true, value: TRIAL });
+  });
+
+  it("shortens to an end in the past: the account is read-only since then", () => {
+    const later = at("2026-11-20T08:00:00Z");
+    const shortened = applyEntitlementEvent(PAID, { type: "shorten", until: at("2026-11-10T23:00:00Z") }, later);
+    expect(shortened.ok && resolveEntitlement(shortened.value, later, POLICY)).toEqual({ status: "read_only", since: at("2026-11-10T23:00:00Z"), reason: "paid_ended" });
+  });
+
+  it("ends lifetime access back to the dated end beside it", () => {
+    expect(applyEntitlementEvent({ ...PAID, isLifetime: true }, { type: "end_lifetime" }, NOW)).toEqual({ ok: true, value: PAID });
+    expect(applyEntitlementEvent(LIFETIME, { type: "end_lifetime" }, NOW)).toEqual({ ok: true, value: TRIAL });
   });
 
   it("revokes paid access back to the trial, or to read-only once the trial is over", () => {

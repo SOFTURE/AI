@@ -66,7 +66,7 @@ describe("stripeWebhookRoute", () => {
     expect(await getEntitlement(test.ctx, adaId)).toMatchObject({ status: "paid", endsAt: new Date("2026-11-16T23:00:00Z") });
   });
 
-  it("revokes on a full refund and answers 200 for events it ignores", async () => {
+  it("takes the refunded period back on a full refund and answers 200 for events it ignores", async () => {
     await post(stripeEvent("checkout.session.completed", checkoutSession({ userId: adaId, planId: "monthly" })));
     expect((await post(stripeEvent("customer.created", { id: "cus_1" }))).status).toBe(200);
     expect((await post(stripeEvent("charge.refunded", charge("pi_test_a1", true)))).status).toBe(200);
