@@ -9,6 +9,11 @@ export function formatLastDay(end: Date, locale: Locale, timezone: string): stri
   return new Intl.DateTimeFormat(locale, { dateStyle: "long", timeZone: timezone }).format(new Date(end.getTime() - 1));
 }
 
+/** The local day of an instant, e.g. "October 3, 2026" in en: when something happened, or a first day of access. */
+export function formatDay(instant: Date, locale: Locale, timezone: string): string {
+  return new Intl.DateTimeFormat(locale, { dateStyle: "long", timeZone: timezone }).format(instant);
+}
+
 export function formatDaysLeft(days: number, locale: Locale, messages: BillingMessages): string {
   return formatMessage(selectPlural(locale, days, messages.badge.daysLeft), { count: days });
 }

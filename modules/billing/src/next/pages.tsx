@@ -1,22 +1,32 @@
 // Pages ready to mount with one line each:
 // `export { PaymentPage as default } from "@softure-ai/billing/next"` at `routes.payment`, and
-// `export { BillingAdminPage as default } from "@softure-ai/billing/next"` at an admin path.
+// `export { BillingAdminPage as default } from "@softure-ai/billing/next"` at `routes.admin`.
 // Server components: they read the config and the session, and render the forms from `../ui`.
 import { requireRole, requireUser } from "@softure-ai/auth/next";
-import { formatMessage } from "@softure-ai/core";
+import { formatMessage, type Locale, type SoftureConfig } from "@softure-ai/core";
 import { getSoftureConfig } from "@softure-ai/core/next";
 import { ButtonLink, Card, EmptyState } from "@softure-ai/ui";
-import { CHECKOUT_PARAM, CHECKOUT_RESULTS, PLAN_FIELD, type CheckoutResult } from "../fields.js";
+import type { PaymentGrant, Plan } from "../contract.js";
+import { ACCOUNT_PARAM, CHECKOUT_PARAM, CHECKOUT_RESULTS, PLAN_FIELD, type CheckoutResult } from "../fields.js";
+import type { BillingMessages } from "../messages/index.js";
 import { findPlan, getLocalizedText } from "../plans.js";
 import { formatPrice } from "../price.js";
+import { getEntitlement } from "../server/entitlements.js";
+import { getAccountHistory, type AccountHistoryEntry } from "../server/grants.js";
 import { getBillingMessages, getBillingOptions, getBillingRoutes } from "../server/options.js";
-import { getBillingPlans, getPaymentProvider } from "../server/plans.js";
-import { formatPeriod } from "../ui/format.js";
+import { findAccountById, getBillingPlans, getPaymentProvider } from "../server/plans.js";
+import { listOpenRequests, type OpenPaymentRequest } from "../server/requests.js";
+import { AccessBadge } from "../ui/access-badge.js";
+import { formatDay, formatLastDay, formatPeriod } from "../ui/format.js";
 import { GrantForm } from "../ui/grant-form.js";
+import { AccountLookup, GrantHistory, type GrantHistoryRow } from "../ui/grant-history.js";
 import { PaymentForm } from "../ui/payment-form.js";
+import { PaymentRequestList, type PaymentRequestRow } from "../ui/payment-requests.js";
 import { PricingTiles } from "../ui/pricing-tiles.js";
 import { CurrentAccessBadge } from "./access.js";
-import { grantPlanAction, startPaymentAction } from "./actions.js";
+import { dismissRequestAction, findAccountAction, grantPlanAction, grantRequestAction, revokeGrantAction, startPaymentAction } from "./actions.js";
+import { getBillingContext } from "./context.js";
+import { getCurrentEntitlement } from "./current-entitlement.js";
 import { getPlanPaymentHref } from "./pricing.js";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -60,6 +70,9 @@ export async function PaymentPage({ searchParams }: PaymentPageProps) {
   const plan = planId === undefined ? undefined : findPlan(plans, planId);
   const planName = plan === undefined ? "" : getLocalizedText(plan.name, config.locale);
   const checkoutNotice = isCheckoutResult(checkout) ? (checkout === "success" ? copy.checkoutSuccess : copy.checkoutCancelled) : null;
+  const entitlement = await getCurrentEntitlement();
+  // Lifetime access leaves nothing to pay for: no order form (startPayment refuses it too).
+  const hasLifetime = entitlement?.status === "paid" && entitlement.endsAt === null;
   return (
     <main className={LAYOUT_CLASS}>
       <Card title={copy.title} subtitle={copy.lead}>
@@ -72,6 +85,11 @@ export async function PaymentPage({ searchParams }: PaymentPageProps) {
           <div>
             <CurrentAccessBadge />
           </div>
+          {hasLifetime ? (
+            <p role="status" className={NOTICE_CLASS} data-lifetime="true">
+              {copy.lifetime}
+            </p>
+          ) : null}
           <PricingTiles
             plans={plans}
             messages={messages}
@@ -82,7 +100,7 @@ export async function PaymentPage({ searchParams }: PaymentPageProps) {
           />
         </div>
       </Card>
-      {plan === undefined ? null : (
+      {plan === undefined || hasLifetime ? null : (
         <Card
           title={copy.orderTitle}
           subtitle={formatMessage(copy.orderLead, { plan: planName, price: formatPrice(plan.price, config.locale), period: formatPeriod(plan.period, config.locale, messages) })}
@@ -110,23 +128,129 @@ export async function PaymentPage({ searchParams }: PaymentPageProps) {
   );
 }
 
+/** The plan's name in the app's locale, or its id when the config no longer has it. */
+function getPlanName(plans: readonly Plan[], planId: string, locale: Locale): string {
+  const plan = findPlan(plans, planId);
+  return plan === undefined ? planId : getLocalizedText(plan.name, locale);
+}
+
+interface RowContext {
+  readonly config: SoftureConfig;
+  readonly messages: BillingMessages;
+  readonly plans: readonly Plan[];
+}
+
+function getHistoryHref(config: SoftureConfig, userId: string): string {
+  return `${getBillingRoutes(config).admin}?${new URLSearchParams({ [ACCOUNT_PARAM]: userId }).toString()}`;
+}
+
+function toRequestRow(request: OpenPaymentRequest, { config, messages, plans }: RowContext): PaymentRequestRow {
+  const copy = messages.admin.requests;
+  const values = { email: request.email, plan: getPlanName(plans, request.planId, config.locale) };
+  const { invoice } = request;
+  const details = [formatMessage(copy.requestedOn, { date: formatDay(request.requestedAt, config.locale, config.timezone) })];
+  if (invoice === null) details.push(copy.noInvoice);
+  else {
+    details.push(formatMessage(copy.invoice, { name: invoice.name, address: invoice.address }));
+    if (invoice.taxId !== null) details.push(formatMessage(copy.taxId, { taxId: invoice.taxId }));
+  }
+  return {
+    id: request.id,
+    title: formatMessage(copy.line, values),
+    details,
+    historyHref: getHistoryHref(config, request.userId),
+    grantLabel: formatMessage(copy.grantLabel, values),
+    dismissLabel: formatMessage(copy.dismissLabel, values),
+  };
+}
+
+function describeGrant(grant: PaymentGrant | null, { config, messages }: RowContext): string {
+  const copy = messages.admin.history;
+  if (grant === null) return copy.noGrant;
+  if (grant.kind === "lifetime") return copy.lifetime;
+  return formatMessage(copy.period, { from: formatDay(grant.from, config.locale, config.timezone), to: formatLastDay(grant.until, config.locale, config.timezone) });
+}
+
+function toHistoryRow(entry: AccountHistoryEntry, context: RowContext): GrantHistoryRow {
+  const { config, messages, plans } = context;
+  const copy = messages.admin.history;
+  const plan = getPlanName(plans, entry.planId, config.locale);
+  const formatDate = (date: Date) => formatDay(date, config.locale, config.timezone);
+  if (entry.source === "manual") {
+    const isActive = entry.status === "active";
+    return {
+      id: entry.id,
+      title: formatMessage(entry.isFromRequest ? copy.fromRequest : copy.manual, { plan }),
+      statusText: isActive || entry.revokedAt === null ? copy.active : formatMessage(copy.revokedOn, { date: formatDate(entry.revokedAt) }),
+      isCurrent: isActive,
+      details: [formatMessage(copy.grantedOn, { date: formatDate(entry.at) }), describeGrant(entry.grant, context)],
+      revokeLabel: isActive ? formatMessage(copy.revokeLabel, { plan, date: formatDate(entry.at) }) : null,
+    };
+  }
+  const isPaid = entry.status === "paid";
+  return {
+    id: entry.id,
+    title: formatMessage(copy.provider, { plan, provider: entry.provider }),
+    statusText: isPaid || entry.refundedAt === null ? copy.paid : formatMessage(copy.refundedOn, { date: formatDate(entry.refundedAt) }),
+    isCurrent: isPaid,
+    details: [
+      formatMessage(copy.paidOn, { amount: formatPrice({ amount: entry.amount, currency: entry.currency }, config.locale), date: formatDate(entry.at) }),
+      describeGrant(entry.grant, context),
+    ],
+    revokeLabel: null,
+  };
+}
+
+export interface BillingAdminPageProps {
+  readonly searchParams?: SearchParams;
+}
+
 /**
- * The admin page that grants plans (the manual adapter's second half). Anyone without the role of
- * `billing({ adminRole })`, signed in or not, gets Next's "not found".
+ * The admin page of manual payments: the open invoice requests (grant or dismiss each), the grant
+ * form, and an account's history (`?account=<id>`, reached by the email lookup or a request's
+ * link) with its access and a revoke button on each active manual grant. Anyone without the role
+ * of `billing({ adminRole })`, signed in or not, gets Next's "not found".
  */
-export async function BillingAdminPage() {
+export async function BillingAdminPage({ searchParams }: BillingAdminPageProps) {
   const config = getSoftureConfig();
   await requireRole(getBillingOptions(config).adminRole);
   const messages = getBillingMessages(config);
-  const plans = getBillingPlans(config).map((plan) => ({ value: plan.id, label: getLocalizedText(plan.name, config.locale) }));
+  const plans = getBillingPlans(config);
+  const context: RowContext = { config, messages, plans };
+  const ctx = await getBillingContext(config);
+  const requests = (await listOpenRequests(ctx)).map((request) => toRequestRow(request, context));
+  const accountId = await readParam(searchParams, ACCOUNT_PARAM);
+  const account = accountId === undefined ? null : await findAccountById(ctx, accountId);
+  const entitlement = account === null ? null : await getEntitlement(ctx, account.id);
+  const history = account === null ? [] : (await getAccountHistory(ctx, account.id)).map((entry) => toHistoryRow(entry, context));
+  const planOptions = plans.map((plan) => ({ value: plan.id, label: getLocalizedText(plan.name, config.locale) }));
   return (
     <main className={LAYOUT_CLASS}>
+      <Card title={messages.admin.requests.title} subtitle={messages.admin.requests.lead}>
+        <PaymentRequestList requests={requests} grantAction={grantRequestAction} dismissAction={dismissRequestAction} messages={messages} />
+      </Card>
       <Card title={messages.admin.title} subtitle={messages.admin.lead}>
-        {plans.length === 0 ? (
+        {planOptions.length === 0 ? (
           <EmptyState title={messages.admin.noPlans} />
         ) : (
-          <GrantForm action={grantPlanAction} plans={plans} messages={messages} locale={config.locale} />
+          <GrantForm action={grantPlanAction} plans={planOptions} messages={messages} locale={config.locale} />
         )}
+      </Card>
+      <Card title={messages.admin.history.title} subtitle={messages.admin.history.lead}>
+        <div className={STACK_CLASS}>
+          <AccountLookup action={findAccountAction} messages={messages} locale={config.locale} />
+          {account === null ? null : (
+            <section className={STACK_CLASS} aria-label={formatMessage(messages.admin.history.accountTitle, { email: account.email })}>
+              <p className={LEAD_CLASS}>{formatMessage(messages.admin.history.accountTitle, { email: account.email })}</p>
+              {entitlement === null ? null : (
+                <div>
+                  <AccessBadge entitlement={entitlement} messages={messages} locale={config.locale} timezone={config.timezone} />
+                </div>
+              )}
+              <GrantHistory rows={history} revokeAction={revokeGrantAction} messages={messages} />
+            </section>
+          )}
+        </div>
       </Card>
     </main>
   );

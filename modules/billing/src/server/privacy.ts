@@ -1,11 +1,13 @@
 // The billing part of a GDPR export and deletion (`@softure-ai/privacy`): the account's entitlement
-// row and its provider payments. An account without an entitlement row has no stored entitlement
-// (its trial is derived from the account). The provider keeps its own records of the payments.
+// row, its provider payments, its invoice requests and the plans granted to it by hand. An account
+// without an entitlement row has no stored entitlement (its trial is derived from the account). The
+// provider keeps its own records of the payments. Which admin granted or revoked a plan is the
+// admin's data, not the account's, and is left out of the export.
 import { users } from "@softure-ai/auth";
 import { ok, type ModuleContext, type Ok, type PrivacyContributor } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
 import { asc, eq } from "drizzle-orm";
-import { entitlements, payments } from "../schema.js";
+import { entitlements, manualGrants, paymentRequests, payments } from "../schema.js";
 import { isUserId } from "./user-id.js";
 
 /** One provider payment, as it appears in an export. */
@@ -25,6 +27,28 @@ export interface BillingPaymentData {
   readonly grantedUntil: Date | null;
 }
 
+/** One invoice request, as it appears in an export; the details are gone once it was closed. */
+export interface BillingPaymentRequestData {
+  readonly planId: string;
+  readonly invoiceName: string | null;
+  readonly invoiceTaxId: string | null;
+  readonly invoiceAddress: string | null;
+  readonly status: "open" | "granted" | "dismissed";
+  readonly requestedAt: Date;
+  readonly closedAt: Date | null;
+}
+
+/** One plan granted by hand, as it appears in an export. */
+export interface BillingManualGrantData {
+  readonly planId: string;
+  readonly grantedAt: Date;
+  readonly grantKind: "period" | "lifetime";
+  readonly grantedFrom: Date | null;
+  readonly grantedUntil: Date | null;
+  readonly status: "active" | "revoked";
+  readonly revokedAt: Date | null;
+}
+
 /** What billing holds about one user, as it appears in their export. */
 export interface BillingUserData {
   readonly entitlement: {
@@ -36,10 +60,16 @@ export interface BillingUserData {
   } | null;
   /** Oldest first. */
   readonly payments: readonly BillingPaymentData[];
+  /** Oldest first. */
+  readonly paymentRequests: readonly BillingPaymentRequestData[];
+  /** Oldest first. */
+  readonly manualGrants: readonly BillingManualGrantData[];
 }
 
+const EMPTY_USER_DATA: BillingUserData = { entitlement: null, payments: [], paymentRequests: [], manualGrants: [] };
+
 export async function exportBillingUserData(context: ModuleContext, userId: string): Promise<Ok<BillingUserData>> {
-  if (!isUserId(userId)) return ok({ entitlement: null, payments: [] });
+  if (!isUserId(userId)) return ok(EMPTY_USER_DATA);
   // Core types `db` as unknown; privacy passes the @softure-ai/db handle or its transaction.
   const db = context.db as Queryable;
   const [row] = await db
@@ -70,7 +100,33 @@ export async function exportBillingUserData(context: ModuleContext, userId: stri
     .from(payments)
     .where(eq(payments.userId, userId))
     .orderBy(asc(payments.paidAt), asc(payments.id));
-  return ok({ entitlement: row ?? null, payments: paymentRows });
+  const requestRows = await db
+    .select({
+      planId: paymentRequests.planId,
+      invoiceName: paymentRequests.invoiceName,
+      invoiceTaxId: paymentRequests.invoiceTaxId,
+      invoiceAddress: paymentRequests.invoiceAddress,
+      status: paymentRequests.status,
+      requestedAt: paymentRequests.requestedAt,
+      closedAt: paymentRequests.closedAt,
+    })
+    .from(paymentRequests)
+    .where(eq(paymentRequests.userId, userId))
+    .orderBy(asc(paymentRequests.requestedAt), asc(paymentRequests.id));
+  const grantRows = await db
+    .select({
+      planId: manualGrants.planId,
+      grantedAt: manualGrants.grantedAt,
+      grantKind: manualGrants.grantKind,
+      grantedFrom: manualGrants.grantedFrom,
+      grantedUntil: manualGrants.grantedUntil,
+      status: manualGrants.status,
+      revokedAt: manualGrants.revokedAt,
+    })
+    .from(manualGrants)
+    .where(eq(manualGrants.userId, userId))
+    .orderBy(asc(manualGrants.grantedAt), asc(manualGrants.id));
+  return ok({ entitlement: row ?? null, payments: paymentRows, paymentRequests: requestRows, manualGrants: grantRows });
 }
 
 export async function deleteBillingUserData(context: ModuleContext, userId: string): Promise<Ok<undefined>> {
@@ -81,6 +137,9 @@ export async function deleteBillingUserData(context: ModuleContext, userId: stri
   await db.select({ id: users.id }).from(users).where(eq(users.id, userId)).for("update");
   await db.delete(entitlements).where(eq(entitlements.userId, userId));
   await db.delete(payments).where(eq(payments.userId, userId));
+  // Grants first: they reference the requests they answered.
+  await db.delete(manualGrants).where(eq(manualGrants.userId, userId));
+  await db.delete(paymentRequests).where(eq(paymentRequests.userId, userId));
   return ok();
 }
 

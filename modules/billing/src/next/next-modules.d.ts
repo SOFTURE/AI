@@ -15,3 +15,7 @@ declare module "next/headers" {
 declare module "next/server" {
   export * from "next/server.js";
 }
+
+declare module "next/cache" {
+  export * from "next/cache.js";
+}
