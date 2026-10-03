@@ -62,15 +62,7 @@ export {
   type TimedWord,
   type TtsRequest,
 } from "./voice/voiceover.js";
-export {
-  err as ttsError,
-  ok as ttsOk,
-  type TtsEstimate,
-  type TtsInput,
-  type TtsProvider,
-  type TtsRecording,
-  type TtsResult,
-} from "./voice/provider.js";
+export type { TtsEstimate, TtsInput, TtsProvider, TtsRecording, TtsResult } from "./voice/provider.js";
 export { ELEVENLABS_API_KEY_ENV, ELEVENLABS_PROVIDER_ID, createElevenLabsProvider, type ElevenLabsOptions } from "./voice/elevenlabs.js";
 export { createFakeTtsProvider, type FakeTtsOptions, type FakeTtsProvider } from "./voice/fake.js";
 export { createTtsProvider, type CreateTtsProviderOptions, type TtsProviderId } from "./voice/providers.js";

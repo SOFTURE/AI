@@ -1,8 +1,9 @@
+import type { MarketingConfig } from "../config/config.js";
 import { createElevenLabsProvider, ELEVENLABS_API_KEY_ENV } from "./elevenlabs.js";
 import type { TtsProvider } from "./provider.js";
 
-/** The providers `voice.provider` may name in `marketing.json`. */
-export type TtsProviderId = "elevenlabs";
+/** The providers `voice.provider` may name in `marketing.json` (the schema's enum). */
+export type TtsProviderId = MarketingConfig["voice"]["provider"];
 
 export interface CreateTtsProviderOptions {
   env: Record<string, string | undefined>;

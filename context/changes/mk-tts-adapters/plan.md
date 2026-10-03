@@ -98,7 +98,7 @@ changes), `src/index.ts`, `README.md`, `docs/03-marketing-kit.md` (voice line on
 ### Phase 2: CLI wiring, exports and docs
 
 #### Automated
-- [ ] 2.1 Gates green (typecheck, lint, test, build)
+- [x] 2.1 Gates green (typecheck, lint, test, build) — 5560c94
 
 #### Manual
-- [ ] 2.2 The fixture's dry run prints the estimate and spends nothing
+- [x] 2.2 The fixture's dry run prints the estimate and spends nothing — 5560c94
