@@ -52,6 +52,9 @@ Snapshot: a7c5f35 on claude/project-thread-ekulai (from master), 2026-10-03.
   Playwright's headless shell 1194): 1 passed, 96.8 s test duration, 1 min 38 s wall clock.
 - The hyperframes download cannot be probed here: the sandbox proxy answers 403 for `storage.googleapis.com`. GitHub's
   runners reach it; the first CI run is the probe.
+- First CI probe (run 37160186638): `ensure --force` downloaded and printed "Ready to render." within 4 s, then never
+  exited (cancelled after 6 min). Without a download (`HYPERFRAMES_BROWSER_PATH` set, or the cache present) the same
+  command exits in about 1 s locally.
 
 ## Risks
 - ffmpeg on the runner: ubuntu-latest may not ship it; install it with apt when `command -v ffmpeg` fails.

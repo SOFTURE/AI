@@ -88,8 +88,23 @@ jobs:
       # hyperframes would settle for the runner's Chrome and fall back to its slower screenshot capture; `--force`
       # downloads the chrome-headless-shell it pins, so CI renders the way a real film does.
       - name: Install hyperframes' Chrome
+        timeout-minutes: 5
         run: |
-          npx hyperframes browser ensure --force
+          # After a download, `browser ensure` prints "Ready to render." but never exits (hyperframes 0.8.85, seen
+          # on the runner), so it runs as a job in its own process group (`set -m`), stopped once that line appears.
+          set -m
+          log="$RUNNER_TEMP/hyperframes-ensure.log"
+          npx hyperframes browser ensure --force > "$log" 2>&1 &
+          ensure=$!
+          until grep -q "Ready to render" "$log"; do
+            if ! kill -0 "$ensure" 2>/dev/null; then
+              grep -q "Ready to render" "$log" && break
+              cat "$log"; exit 1
+            fi
+            sleep 1
+          done
+          kill -- "-$ensure" 2>/dev/null || true
+          cat "$log"
           browser="$(npx hyperframes browser path)"
           case "$browser" in
             "$HOME/.cache/hyperframes/"*) echo "HYPERFRAMES_BROWSER_PATH=$browser" >> "$GITHUB_ENV" ;;

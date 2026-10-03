@@ -59,6 +59,10 @@ root `vitest.config.mts`, so `NODE_ENV=test` and the TZ pin hold.
 ## Decisions (auto)
 - Complexity → small (one workflow file).
 - No cache for the headless shell (research §Open questions).
+- Implementation drift (CI probe): on the first run `hyperframes browser ensure --force` downloaded the headless shell
+  in 4 s and printed "Ready to render." but never exited, so the step hung until cancelled. The step now runs it as a
+  background job in its own process group (`set -m`), waits for that line (or fails with the log if the process ends
+  without it) and stops the group; the `browser path` guard still proves the cache holds the binary. Step timeout 5 min.
 
 ## Progress
 
