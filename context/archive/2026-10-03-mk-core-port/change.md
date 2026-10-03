@@ -1,12 +1,12 @@
 ---
 change_id: mk-core-port
 title: "FIRE's video pipeline runs from tools/marketing-kit with its tests"
-status: impl_reviewed
+status: archived
 roadmap_item: MK-1
 branch: claude/project-thread-minoa1
 created: 2026-10-03
 updated: 2026-10-03
-archived_at: null
+archived_at: 2026-10-03
 ---
 
 ## Intent
@@ -55,3 +55,4 @@ source is FIRE_TRACKER `video/src/*.ts` (about 1.9k lines with tests) at `58e6c8
   outcome and the scope; there is no problem in doubt to frame.
 - Owner rules for this thread (2026-10-03): full SOFTURE process; master is the source of truth and
   conflicts are resolved without asking; gaps go to the followups roadmap, not fixed here.
+- Archived 2026-10-03: `@softure-ai/marketing-kit` runs FIRE's video pipeline from `marketing.config.json` with FIRE's tests in English, and the fixture film renders a draft MP4 locally.

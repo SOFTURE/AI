@@ -42,7 +42,7 @@ backlog: context/backlog/roadmap-marketing-kit/
 | --- | --- | --- | --- | --- | --- |
 | **EN-9** | `engagement-release` | mailing, waitlist, mcp-access and privacy 0.1.0 published through the release pipeline; READMEs and docs updated | EN-1…EN-8 (done) | owner | blocked (carried over from monetization: the owner's batch release at the keyboard on 2026-10-05) |
 | **MO-6** | `monetization-release` | billing and analytics 0.1.0 published through the release pipeline; READMEs and docs updated | MO-1…MO-5 (done) | owner | blocked (carried over from monetization: the owner's batch release at the keyboard on 2026-10-05) |
-| **MK-1** | `mk-core-port` | FIRE's video pipeline (voiceover cache, timeline, recorder/Director, compose, render, posts) runs from `tools/marketing-kit` with its tests, config still FIRE-shaped | — | autonomous | in_progress (implement 2/3, since 2026-10-03; cloud session, branch `claude/project-thread-minoa1`) |
+| **MK-1** | `mk-core-port` | FIRE's video pipeline (voiceover cache, timeline, recorder/Director, compose, render, posts) runs from `tools/marketing-kit` with its tests, config still FIRE-shaped | — | autonomous | done |
 | **MK-2** | `mk-config-contract` | `marketing.json` + brand validated by zod, published as JSON Schema; every hard-coded constant becomes config; `design.json` import | MK-1 | autonomous | ready |
 | **MK-3** | `mk-declarative-actions` | scenes described as JSON actions with locator descriptors; `sceneModule` TS escape hatch kept | MK-2 | autonomous | ready |
 | **MK-7** | `mk-tts-adapters` | `TtsProvider` interface, ElevenLabs adapter, cache key includes voice, model and language; paid calls only with `--commit` | MK-2 | autonomous | ready |
@@ -94,8 +94,8 @@ Risk first: MK-1 proves the port is faithful. MK-2 fixes the contract every late
 
 ### MK-1: Port the FIRE video core
 - **Change ID:** `mk-core-port`
-- **Status:** in_progress (implement 2/3, since 2026-10-03; cloud session, branch `claude/project-thread-minoa1`)
-- **Input:** [`changes/mk-core-port/change.md`](../changes/mk-core-port/change.md)
+- **Status:** done
+- **Input:** [`archive/2026-10-03-mk-core-port/change.md`](../archive/2026-10-03-mk-core-port/change.md)
 - **Outcome:** `tools/marketing-kit` contains the FIRE_TRACKER pipeline, ported 1:1 with its tests:
   - `voiceover` (cache by content hash, word timings);
   - `timeline` (beats, caption chunking);
@@ -231,7 +231,7 @@ Risk first: MK-1 proves the port is faithful. MK-2 fixes the contract every late
 
 ## Done
 
-(nothing yet)
+- **MK-1** `mk-core-port`: `@softure-ai/marketing-kit` runs FIRE's video pipeline (`softure-marketing all|voice|record|render|preview|posts`) from `marketing.config.json`, FIRE's tests pass in the package, a fixture film renders a draft MP4 locally; archived in `archive/2026-10-03-mk-core-port/`
 
 ## Decisions (auto)
 

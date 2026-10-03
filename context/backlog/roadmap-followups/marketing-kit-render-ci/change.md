@@ -28,7 +28,7 @@ From [`roadmap-followups.md`](../../../foundation/roadmaps/roadmap-followups.md)
 > - **Risk:** LOW.
 > - **Baseline:** marketing-kit MK-1 `mk-core-port`: the render test is opt-in and ran locally only (CI's test job has no browser). After: it runs on every push.
 > - **PRD refs:** FR-24.
-> - **Source:** `tools/marketing-kit/tests/render.test.ts`; `context/changes/mk-core-port/research.md` (Open questions)
+> - **Source:** `tools/marketing-kit/tests/render.test.ts`; `context/archive/2026-10-03-mk-core-port/research.md` (Open questions)
 
 ## Constraints
 
