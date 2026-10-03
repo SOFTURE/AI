@@ -55,7 +55,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-11** | `billing-refund-one-payment` | Refunds that take back one payment's period | — | autonomous | proposed |
 | **FU-12** | `billing-retro-reviews` | Retro research and plan review for MO-1 and MO-2 | — | autonomous | proposed |
 | **FU-13** | `marketing-kit-render-ci` | the marketing-kit fixture film renders to a draft MP4 on every push | — | autonomous | proposed |
-| **FU-14** | `marketing-kit-schema-docs` | every key of the marketing.json JSON Schema carries a description | — | autonomous | **in_progress** (implement 1/1, since 2026-10-03; cloud session, branch `claude/project-thread-6sox1i`) |
+| **FU-14** | `marketing-kit-schema-docs` | every key of the marketing.json JSON Schema carries a description | — | autonomous | done_code (2026-10-03; waiting: owner editor check, MK-8 release) |
 | **FU-15** | `marketing-kit-desktop-16x9` | desktop 16:9 films recorded in a browser frame instead of a phone | FU-16 | autonomous | proposed |
 | **FU-16** | `marketing-kit-layout-overrides` | per-format layout overrides (caption box, persona, end card) in marketing.json | FU-14 | autonomous | proposed |
 | **FU-17** | `marketing-kit-og-glyphs` | OG images refuse copy the brand fonts cannot draw | — | autonomous | proposed |
@@ -282,8 +282,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-14: The marketing.json JSON Schema documents every key
 - **Change ID:** `marketing-kit-schema-docs`
-- **Status:** **in_progress** (implement 1/1, since 2026-10-03; cloud session, branch `claude/project-thread-6sox1i`)
-- **Input:** [`changes/marketing-kit-schema-docs/change.md`](../changes/marketing-kit-schema-docs/change.md)
+- **Status:** done_code (2026-10-03; waiting: owner editor check, MK-8 release)
+- **Input:** [`archive/2026-10-03-marketing-kit-schema-docs/change.md`](../archive/2026-10-03-marketing-kit-schema-docs/change.md)
 - **Outcome:** Every key of `tools/marketing-kit/schema/marketing.schema.json` carries a `description` (from `.describe()` on the zod schema instead of doc comments), so editors and agents writing a `marketing.json` see what each key means and its default.
 - **Prerequisites:** none beyond the main branch; best after MK-3…MK-7 have added their keys.
 - **Unknowns:** Whether `z.toJSONSchema` keeps descriptions on keys wrapped in `.default()` and `.prefault()`.
@@ -358,9 +358,13 @@ Carried over from marketing-kit (owner, batch at the keyboard on Monday 2026-10-
 - [ ] **MK-8**: approve the first (staged) publish of `@softure-ai/marketing-kit` on npmjs.com, then add its trusted
   publisher.
 
+Open from FU-14:
+
+- [ ] **FU-14**: Owner reads a few descriptions in an editor hover and finds them clear (Manual 1.6). archive/2026-10-03-marketing-kit-schema-docs/plan.md
+
 ## Done
 
-(nothing yet)
+- **FU-14** `marketing-kit-schema-docs`: every key of the marketing.json JSON Schema carries a description, guarded by a test; archived in `archive/2026-10-03-marketing-kit-schema-docs/`
 
 ## Decisions (auto)
 

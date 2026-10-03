@@ -1,12 +1,12 @@
 ---
 change_id: marketing-kit-schema-docs
 title: "The marketing.json JSON Schema documents every key"
-status: impl_reviewed
+status: archived
 roadmap_item: FU-14
 branch: claude/project-thread-6sox1i
 created: 2026-10-03
 updated: 2026-10-03
-archived_at: null
+archived_at: 2026-10-03
 ---
 
 ## Intent
@@ -52,3 +52,4 @@ from is [`backlog-input.md`](backlog-input.md).
 - Framing skipped: the outcome is not bug-shaped, its scope is pinned by the roadmap item (every key, a
   description, a guarding test), and nothing in it questions whether the problem is the right one.
 - Research done (quick depth): the one roadmap Unknown needs a probe of `z.toJSONSchema`.
+- Archived 2026-10-03: every key of the marketing.json JSON Schema carries a description, guarded by tests/schema.test.ts.
