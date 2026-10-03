@@ -113,13 +113,16 @@ const config = defineSoftureConfig({
       ],
     }),
     // The form on the home page (e2e/waitlist.spec.ts): `launch` is required and tied to the privacy
-    // policy, `newsletter` is optional; the welcome mail goes to the outbox like any list mail.
+    // policy, `newsletter` is optional. Double opt-in: a sign-up counts once the link in its
+    // confirmation mail is used (app/waitlist/confirm/page.tsx); then the welcome mail goes to the
+    // outbox like any list mail.
     waitlist({
       scopes: [
         { id: "launch", required: true, document: "privacy-policy", label: { en: en.waitlist.launch, pl: pl.waitlist.launch } },
         { id: "newsletter", label: { en: en.waitlist.newsletter, pl: pl.waitlist.newsletter } },
       ],
       placements: ["home"],
+      doubleOptIn: true,
     }),
     // The channel tag `?z=` with its defaults; proxy.ts carries it from page to page. The funnel
     // counts the home page (a pixel), the account page (a beacon) and sign-ups (the hook above);
