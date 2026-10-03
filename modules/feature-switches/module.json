@@ -8,5 +8,5 @@
   "switches": [],
   "routes": { "panel": "/admin/switches" },
   "mount": [{ "kind": "page", "path": "app/admin/switches/page.tsx", "export": "SwitchesPage" }],
-  "privacy": { "exports": false, "deletes": false }
+  "privacy": { "exports": true, "deletes": true }
 }

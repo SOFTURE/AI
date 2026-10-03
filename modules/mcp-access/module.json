@@ -11,5 +11,5 @@
     { "kind": "page", "path": "app/account/mcp/page.tsx", "export": "McpAccessPage" },
     { "kind": "route-handler", "path": "app/api/mcp/route.ts", "export": "createMcpRoute" }
   ],
-  "privacy": { "exports": false, "deletes": false }
+  "privacy": { "exports": true, "deletes": true }
 }

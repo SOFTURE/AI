@@ -5,6 +5,7 @@ import { defineModule, resolveMigrationsDir } from "@softure-ai/core";
 import { authMessages } from "./messages/index.js";
 import { authOptionsSchema } from "./options.js";
 import { checkAuthTables } from "./server/health.js";
+import { authPrivacyContributor } from "./server/privacy.js";
 
 export const MODULE_ID = "auth";
 
@@ -67,11 +68,12 @@ export const auth = defineModule({
       { kind: "route-handler", path: "app/api/auth/session/route.ts", export: "getSessionRoute" },
       { kind: "middleware", path: "proxy.ts", export: "createAuthGuard" },
     ],
-    privacy: { exports: false, deletes: false },
+    privacy: { exports: true, deletes: true },
   },
   messages: authMessages,
   options: authOptionsSchema,
   migrations: { dir: resolveMigrationsDir(import.meta.url, "../migrations/") },
+  privacy: authPrivacyContributor,
   health: checkAuthTables,
 });
 

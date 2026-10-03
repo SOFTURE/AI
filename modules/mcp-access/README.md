@@ -161,9 +161,13 @@ The MCP server factory passed to `createMcpRoute` is the module's only hook. `/s
 
 ## 11. GDPR
 
-Exports nothing and registers no delete contributor yet (`privacy` arrives in EN-7). The rows hold
-no personal data beyond the owner's id and the token names; deleting the account deletes them
-through the foreign key.
+The rows hold no personal data beyond the owner's id and the token names. The module contributes
+to `@softure-ai/privacy` (`privacy` flags on):
+
+- **Export** (`exportMcpAccessUserData`): `accessTokens`, each token's name, write flag and
+  created, expiry and last-use dates. Never the token hash.
+- **Deletion** (`deleteMcpAccessUserData`): every token of the user, before auth deletes the
+  account (the foreign key's cascade would remove them too).
 
 ## 12. Limitations / known gaps
 

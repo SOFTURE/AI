@@ -31,6 +31,8 @@ export {
   type RoleChange,
   type RoleErrorCode,
 } from "./roles.js";
+export { authPrivacyContributor, deleteAuthUserData, exportAuthUserData, type AuthUserData } from "./privacy.js";
+export { isCurrentPassword } from "./reauthenticate.js";
 export { registerUser, type RegisterErrorCode, type RegisterInput, type RegisterResult } from "./register.js";
 export { createSession, findSessionUser, logoutSession, pruneSessions, type AuthContext } from "./sessions.js";
 export { isRegistrationClosed } from "./switches.js";

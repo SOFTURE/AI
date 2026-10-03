@@ -2,6 +2,12 @@
 // (`{ db, clock, config }`) and never reads request scope.
 export { checkSwitchesTable } from "./health.js";
 export { readEnvOverride, type Env, type EnvOverride } from "./env-override.js";
+export {
+  deleteSwitchesUserData,
+  exportSwitchesUserData,
+  switchesPrivacyContributor,
+  type SwitchesUserData,
+} from "./privacy.js";
 export { findSwitchDefinition, getFeatureSwitchesOptions, getSwitchDefinition, getSwitchDefinitions } from "./options.js";
 export {
   isEnabled,

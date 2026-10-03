@@ -6,6 +6,7 @@ import { defineModule, resolveMigrationsDir } from "@softure-ai/core";
 import { mcpAccessMessages } from "./messages/index.js";
 import { mcpAccessOptionsSchema } from "./options.js";
 import { checkAccessTokensTable } from "./server/health.js";
+import { mcpAccessPrivacyContributor } from "./server/privacy.js";
 
 export const MODULE_ID = "mcp-access";
 
@@ -36,11 +37,12 @@ export const mcpAccess = defineModule({
       { kind: "page", path: "app/account/mcp/page.tsx", export: "McpAccessPage" },
       { kind: "route-handler", path: "app/api/mcp/route.ts", export: "createMcpRoute" },
     ],
-    privacy: { exports: false, deletes: false },
+    privacy: { exports: true, deletes: true },
   },
   messages: mcpAccessMessages,
   options: mcpAccessOptionsSchema,
   migrations: { dir: resolveMigrationsDir(import.meta.url, "../migrations/") },
+  privacy: mcpAccessPrivacyContributor,
   health: checkAccessTokensTable,
 });
 

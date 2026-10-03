@@ -31,6 +31,7 @@ export const en = {
     admin: "Admin panel",
     assistant: "AI assistant access",
     testMail: "Send a test mail",
+    privacy: "Your data",
   },
   admin: {
     title: "Admin panel",

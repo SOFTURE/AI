@@ -9,6 +9,7 @@ import { MCP_RATE_LIMIT_BUCKETS, mcpAccess } from "@softure-ai/mcp-access";
 import { mailing, resend } from "@softure-ai/mailing";
 import { fakeMailProvider } from "@softure-ai/mailing/testing";
 import { ops } from "@softure-ai/ops";
+import { privacy, PRIVACY_RATE_LIMIT_BUCKETS } from "@softure-ai/privacy";
 import { cloudflareIp, security } from "@softure-ai/security";
 import { en } from "./messages/en.ts";
 import { pl } from "./messages/pl.ts";
@@ -33,7 +34,7 @@ const config = defineSoftureConfig({
     // The e2e sends CF-Connecting-IP itself, standing in for Cloudflare (e2e/security.spec.ts).
     security({
       clientIp: cloudflareIp(),
-      buckets: { "example.ping": { limit: 3, windowMinutes: 15 }, ...AUTH_RATE_LIMIT_BUCKETS, ...MCP_RATE_LIMIT_BUCKETS },
+      buckets: { "example.ping": { limit: 3, windowMinutes: 15 }, ...AUTH_RATE_LIMIT_BUCKETS, ...MCP_RATE_LIMIT_BUCKETS, ...PRIVACY_RATE_LIMIT_BUCKETS },
     }),
     // Reset links go out as mail through the mailing module below (e2e/auth-reset-mail.spec.ts).
     auth({ routes: { afterLogin: "/account" }, adminEmails: [EXAMPLE_ADMIN_EMAIL], passwordReset: { send: mailingResetSender() } }),
@@ -70,6 +71,9 @@ const config = defineSoftureConfig({
       replyTo: "support@example.com",
       provider: process.env.RESEND_API_KEY ? resend() : fakeMailProvider({ outboxFile: process.env.MAIL_OUTBOX || undefined }),
     }),
+    // The export and account deletion at /account/privacy (e2e/privacy-export-delete.spec.ts). The
+    // guestbook holds no user data, so the modules' own contributors are all there is to collect.
+    privacy(),
   ],
 });
 
