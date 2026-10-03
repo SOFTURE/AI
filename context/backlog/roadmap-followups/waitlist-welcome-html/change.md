@@ -15,7 +15,7 @@ An option for the app's HTML template of the waitlist welcome mail, next to the 
 
 ## Context
 
-From [`roadmap-followups.md`](../../../foundation/roadmaps/roadmap-followups.md), item **FU-4** (queued roadmap `followups`):
+From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-4** (roadmap `followups`, main since 2026-10-03):
 
 > ### FU-4: HTML welcome mail for the waitlist
 > - **Change ID:** `waitlist-welcome-html`

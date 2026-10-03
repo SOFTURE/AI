@@ -1,35 +1,39 @@
 # Backlog: roadmap-followups (gaps found while delivering the other roadmaps)
 
-Roadmap of this group: [`foundation/roadmaps/roadmap-followups.md`](../../foundation/roadmaps/roadmap-followups.md):
-order, dependencies, owner decisions and the status of every item.
+Roadmap of this group: [`foundation/roadmap.md`](../../foundation/roadmap.md) (the main roadmap since 2026-10-03):
+order, lanes, dependencies, owner decisions and the status of every item.
 
 This folder holds the **prepared entries** (`<change-id>/change.md`, `status: backlog`). One topic lives in
 exactly one place: `backlog/`, `changes/` or `archive/`, never copied and never as a pointer stub (WORKFLOW §5.1).
 
 ## When it can start
 
-The whole roadmap: **every module roadmap is done and the owner promotes it last**. A new gap found in any roadmap
-gets an entry here and a row in the roadmap.
+The roadmap was promoted last on 2026-10-03, when roadmap-marketing-kit closed; MK-8, EN-9 and MO-6 came with it as
+carried-over owner items. A new gap found in any roadmap gets an entry here and a row in the roadmap. Items that
+share files run in one lane (see the roadmap's Order), so `dependency` below names the item before it in its lane.
 
 | ID | Entry | Title | Condition | Kind |
 | --- | --- | --- | --- | --- |
+| EN-9 | [`engagement-release`](engagement-release/change.md) | Engagement modules release (carried over) | the owner at the keyboard (batch on 2026-10-05) | owner |
+| MO-6 | [`monetization-release`](monetization-release/change.md) | Monetization modules release (carried over) | the owner at the keyboard (batch on 2026-10-05) | owner |
+| MK-8 | [`marketing-kit-release`](marketing-kit-release/change.md) | marketing-kit release (carried over) | the owner at the keyboard (batch on 2026-10-05) | owner |
 | FU-1 | [`switch-reader-contract`](switch-reader-contract/change.md) | Switch-reader contract in core | roadmap promoted | start |
-| FU-2 | [`waitlist-double-opt-in`](waitlist-double-opt-in/change.md) | Waitlist double opt-in | roadmap promoted | start |
+| FU-2 | [`waitlist-double-opt-in`](waitlist-double-opt-in/change.md) | Waitlist double opt-in | FU-3 on main | dependency |
 | FU-3 | [`mailing-consent-sync`](mailing-consent-sync/change.md) | Unsubscribe as consent withdrawal | roadmap promoted | start |
-| FU-4 | [`waitlist-welcome-html`](waitlist-welcome-html/change.md) | HTML welcome mail for the waitlist | roadmap promoted | start |
+| FU-4 | [`waitlist-welcome-html`](waitlist-welcome-html/change.md) | HTML welcome mail for the waitlist | FU-2 on main | dependency |
 | FU-5 | [`analytics-client-navigation`](analytics-client-navigation/change.md) | Channel tag on client navigations without Next-Url | roadmap promoted | start |
-| FU-6 | [`billing-reminder-mail`](billing-reminder-mail/change.md) | Reminder mail before access ends | roadmap promoted | start |
-| FU-7 | [`analytics-action-redirect-tag`](analytics-action-redirect-tag/change.md) | Channel tag kept through server action redirects | roadmap promoted | start |
-| FU-8 | [`waitlist-funnel-hook`](waitlist-funnel-hook/change.md) | Waitlist sign-ups as a funnel step | roadmap promoted | start |
-| FU-9 | [`billing-admin-requests`](billing-admin-requests/change.md) | Payment requests, revoke and grant history in the billing admin page | roadmap promoted | start |
+| FU-6 | [`billing-reminder-mail`](billing-reminder-mail/change.md) | Reminder mail before access ends | FU-9 on main | dependency |
+| FU-7 | [`analytics-action-redirect-tag`](analytics-action-redirect-tag/change.md) | Channel tag kept through server action redirects | FU-1 and FU-5 on main | dependency |
+| FU-8 | [`waitlist-funnel-hook`](waitlist-funnel-hook/change.md) | Waitlist sign-ups as a funnel step | FU-4 on main | dependency |
+| FU-9 | [`billing-admin-requests`](billing-admin-requests/change.md) | Payment requests, revoke and grant history in the billing admin page | FU-11 on main | dependency |
 | FU-11 | [`billing-refund-one-payment`](billing-refund-one-payment/change.md) | Refunds that take back one payment's period | roadmap promoted | start |
 | FU-12 | [`billing-retro-reviews`](billing-retro-reviews/change.md) | Retro research and plan review for MO-1 and MO-2 | roadmap promoted | start |
 | FU-13 | [`marketing-kit-render-ci`](marketing-kit-render-ci/change.md) | The marketing-kit fixture film renders in CI | roadmap promoted | start |
 | FU-14 | [`marketing-kit-schema-docs`](marketing-kit-schema-docs/change.md) | The marketing.json JSON Schema documents every key | roadmap promoted | start |
-| FU-15 | [`marketing-kit-desktop-16x9`](marketing-kit-desktop-16x9/change.md) | A 16:9 film can show the desktop app in a browser frame | roadmap promoted | start |
-| FU-16 | [`marketing-kit-layout-overrides`](marketing-kit-layout-overrides/change.md) | A project can adjust a format's layout in marketing.json | roadmap promoted | start |
+| FU-15 | [`marketing-kit-desktop-16x9`](marketing-kit-desktop-16x9/change.md) | A 16:9 film can show the desktop app in a browser frame | FU-16 on main | dependency |
+| FU-16 | [`marketing-kit-layout-overrides`](marketing-kit-layout-overrides/change.md) | A project can adjust a format's layout in marketing.json | FU-14 on main | dependency |
 | FU-17 | [`marketing-kit-og-glyphs`](marketing-kit-og-glyphs/change.md) | OG images refuse copy the brand fonts cannot draw | roadmap promoted | start |
-| FU-18 | [`marketing-kit-screenshot-variants`](marketing-kit-screenshot-variants/change.md) | Screenshots at a device scale and in both colour schemes | roadmap promoted | start |
+| FU-18 | [`marketing-kit-screenshot-variants`](marketing-kit-screenshot-variants/change.md) | Screenshots at a device scale and in both colour schemes | FU-14 on main | dependency |
 
 Kind: `start` (can be taken as soon as the roadmap is promoted), `dependency` (waits for the listed items on the
 main branch), `owner` (needs an owner decision or the owner at the keyboard).
@@ -43,7 +47,8 @@ Any thread that finds a gap or leaves part of its item undone (a review finding 
 2. Write `<change-id>/change.md` like the entries above (`status: backlog`, the item block quoted in Context,
    **Source** naming the roadmap item and the evidence `file` or section).
 3. Add the row to the table here and the row plus item block to
-   [`roadmap-followups.md`](../../foundation/roadmaps/roadmap-followups.md) (status `proposed`; severity in **Risk**).
+   [`roadmap.md`](../../foundation/roadmap.md) (status `proposed`; severity in **Risk**; **Mode** `owner` with a
+   reason when it needs the owner at the keyboard, and a row in its "Owner at the keyboard?" table either way).
 
 ## Taking an entry
 

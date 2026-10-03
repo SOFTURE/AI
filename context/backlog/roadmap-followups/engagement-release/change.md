@@ -17,11 +17,12 @@ archived_at: null
 
 From [`roadmap.md`](../../../foundation/roadmap.md), item **EN-9** (carried over on 2026-10-03 from roadmap `engagement`,
 archived in [`2026-10-03-2-roadmap.md`](../../../foundation/archive/2026-10-03-2-roadmap.md), to roadmap `monetization`,
-archived in [`2026-10-03-3-roadmap.md`](../../../foundation/archive/2026-10-03-3-roadmap.md), and on to roadmap `marketing-kit`):
+archived in [`2026-10-03-3-roadmap.md`](../../../foundation/archive/2026-10-03-3-roadmap.md), to roadmap `marketing-kit`,
+archived in [`2026-10-03-4-roadmap.md`](../../../foundation/archive/2026-10-03-4-roadmap.md), and on to roadmap `followups`):
 
 > ### EN-9: Engagement modules release
 > - **Change ID:** `engagement-release`
-> - **Status:** blocked (carried over from monetization: the owner's batch release at the keyboard on 2026-10-05)
+> - **Status:** blocked (carried over from marketing-kit: the owner's batch release at the keyboard on 2026-10-05)
 > - **Outcome:** `@softure-ai/mailing`, `@softure-ai/waitlist`, `@softure-ai/mcp-access` and `@softure-ai/privacy` 0.1.0 published through the FD-2 pipeline (owner approves each first, staged publish and adds its trusted publisher); module READMEs and status lines updated; a finish review across EN-1…EN-8.
 > - **Prerequisites:** EN-3, EN-4, EN-5, EN-6, EN-8.
 > - **Unknowns:** none beyond the owner's npm steps.

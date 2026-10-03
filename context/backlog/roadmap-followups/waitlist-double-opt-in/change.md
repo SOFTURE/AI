@@ -15,7 +15,7 @@ Double opt-in as a waitlist option: a `confirmed_at` column, a signed confirmati
 
 ## Context
 
-From [`roadmap-followups.md`](../../../foundation/roadmaps/roadmap-followups.md), item **FU-2** (queued roadmap `followups`):
+From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-2** (roadmap `followups`, main since 2026-10-03):
 
 > ### FU-2: Waitlist double opt-in
 > - **Change ID:** `waitlist-double-opt-in`

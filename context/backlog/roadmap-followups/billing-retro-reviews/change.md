@@ -15,7 +15,7 @@ archived_at: null
 
 ## Context
 
-From [`roadmap-followups.md`](../../../foundation/roadmaps/roadmap-followups.md), item **FU-12** (queued roadmap `followups`):
+From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-12** (roadmap `followups`, main since 2026-10-03):
 
 > ### FU-12: Retro research and plan review for MO-1 and MO-2
 > - **Change ID:** `billing-retro-reviews`
