@@ -85,6 +85,7 @@ export { createTtsProvider, type CreateTtsProviderOptions, type TtsProviderId } 
 export { getVoiceoverPaths, readCachedVoiceover, writeVoiceover, type Voiceover, type VoiceoverPaths } from "./voice/cache.js";
 export { describeEstimate, produceVoiceover, type ProduceVoiceoverOptions, type VoiceoverOutcome } from "./voice/produce.js";
 export {
+  LAYOUTS,
   VIDEO_FORMATS,
   cameraPose,
   captionChunks,
@@ -96,8 +97,13 @@ export {
   widePose,
   type CameraPose,
   type CaptionChunk,
+  type CaptionLayout,
+  type EndCardLayout,
   type Geometry,
+  type Layout,
+  type Point,
   type Rect,
+  type TextBox,
   type VideoFormat,
   type Viewport,
 } from "./compose/timeline.js";

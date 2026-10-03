@@ -17,7 +17,7 @@ archived_at: null
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **MK-6** (roadmap `marketing-kit`, main since 2026-10-03):
+From [`roadmap.md`](../../foundation/roadmap.md), item **MK-6** (roadmap `marketing-kit`, main since 2026-10-03):
 
 > ### MK-6: Render formats 1:1 and 16:9
 > - **Change ID:** `mk-formats`
@@ -32,7 +32,7 @@ From [`roadmap.md`](../../../foundation/roadmap.md), item **MK-6** (roadmap `mar
 > - **Baseline:** 9:16 output of MK-1 (composition snapshot). After: snapshots for all three formats, and 9:16 is unchanged.
 > - **PRD refs:** FR-24.
 
-Reference material: [`docs/03-marketing-kit.md`](../../../../docs/03-marketing-kit.md) (architecture, JSON contract, licenses), PRD FR-24 and FR-25, and the source in FIRE_TRACKER `video/**`, `scripts/screenshot.mts`, `src/app/**/opengraph-image.tsx`.
+Reference material: [`docs/03-marketing-kit.md`](../../../docs/03-marketing-kit.md) (architecture, JSON contract, licenses), PRD FR-24 and FR-25, and the source in FIRE_TRACKER `video/**`, `scripts/screenshot.mts`, `src/app/**/opengraph-image.tsx`.
 
 ## Constraints
 
