@@ -300,9 +300,22 @@ plugs in here.
 
 ## 11. GDPR
 
-The module stores an email, a password hash, session rows, role rows and pending reset rows. It does not take part in the GDPR
-export or deletion yet (`privacy` flags are off); deleting a row in `auth.users` deletes its
-sessions, roles and pending resets.
+The module stores an email, a password hash, session rows, role rows and pending reset rows. It
+contributes to `@softure-ai/privacy` (`privacy` flags on):
+
+- **Export** (`exportAuthUserData`): the account (id, email, `createdAt`, `passwordChangedAt`),
+  stored roles with their grant dates, sessions (created and expiry dates) and a pending reset link
+  (created and expiry dates). Never the password hash or a token hash. A role held through
+  `adminEmails` is configuration, so it is not in the export.
+- **Deletion** (`deleteAuthUserData`): the user's sessions, pending reset, roles and then the
+  account row, so every session ends with the account. Privacy runs auth after the modules that
+  depend on it, and the app's contributors before all modules.
+
+`isCurrentPassword(ctx, userId, password)` (`/server`) checks the password again before an action
+that cannot be undone, such as the account deletion; the caller counts the attempt first.
+
+Rate limit rows of `security` hold only SHA-256 prefixes of the email and user id
+(`subjectKey`), pruned two windows after they start; they are not exported or deleted.
 
 ## 12. Limitations / known gaps
 
