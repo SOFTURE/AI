@@ -15,7 +15,7 @@ The roadmap was promoted on 2026-10-03, when roadmap-identity closed. Inside it,
 | EN-1 | [`mailing-transport`](../../archive/2026-10-03-mailing-transport/change.md) (archived) | Mail transport with provider adapters | roadmap promoted | start |
 | EN-2 | [`mailing-unsubscribe`](../../archive/2026-10-03-mailing-unsubscribe/change.md) (archived) | Signed one-click unsubscribe and suppressions | EN-1 on the main branch | dependency |
 | EN-3 | [`mailing-ledger-campaigns`](mailing-ledger-campaigns/change.md) | Delivery ledger and campaigns | EN-2 on the main branch | dependency |
-| EN-4 | [`auth-reset-via-mailing`](auth-reset-via-mailing/change.md) | Password reset mails through the mailing module | EN-1 on the main branch | dependency |
+| EN-4 | [`auth-reset-via-mailing`](../../archive/2026-10-03-auth-reset-via-mailing/change.md) (archived) | Password reset mails through the mailing module | EN-1 on the main branch | dependency |
 | EN-5 | [`waitlist`](waitlist/change.md) | Waitlist with consent scopes | EN-1, EN-2 and EN-8 on the main branch | dependency |
 | EN-6 | [`mcp-access`](../../archive/2026-10-03-mcp-access/change.md) (archived) | MCP access tokens and Bearer endpoint | roadmap promoted | start |
 | EN-7 | [`privacy-registry`](privacy-registry/change.md) | GDPR export and deletion registry | roadmap promoted | start |

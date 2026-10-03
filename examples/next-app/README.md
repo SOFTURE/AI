@@ -60,7 +60,7 @@ npm run dev
 | `app/add-entry.tsx`, `app/actions.ts` | `Modal` with an `ActionForm` posting to a server action validated with zod |
 | `app/login/`, `app/register/`, `app/account/password/`, `app/api/auth/session/` | pages and a route handler shipped by `@softure-ai/auth`, each mounted with one re-export line |
 | `proxy.ts`, `app/account/page.tsx` | the auth guard keeping `/account` private, and an app page with `requireUser` and `LogoutButton` |
-| `app/forgot-password/`, `app/reset-password/`, `lib/password-reset-sender.ts` | password reset pages shipped by `@softure-ai/auth`, and the example's sender: it appends links to the e2e outbox file (`PASSWORD_RESET_OUTBOX`, set by `playwright.config.ts`) or prints them with auth's development sender |
+| `app/forgot-password/`, `app/reset-password/` | password reset pages shipped by `@softure-ai/auth`; the links go out as mail through `mailingResetSender()` from `@softure-ai/auth/mailing` and the mailing module (the fake provider's outbox in the e2e) |
 | `app/admin/`, `app/api/admin/status/`, `scripts/grant-role.ts`, `scripts/revoke-role.ts` | an admin-only page, action and route handler (`requireRole`, `authorizeRole`; the admin is `EXAMPLE_ADMIN_EMAIL` in `adminEmails`), and the role scripts (`npm run grant-role -- --email=… --role=admin --commit`) |
 | `app/switches/page.tsx`, the welcome banner in `app/page.tsx` | the admin-only panel of `@softure-ai/feature-switches` mounted with one re-export line at `/switches`, and `isEnabled("example.welcome_banner")` read on the home page |
 | `app/account/mcp/page.tsx`, `app/api/mcp/route.ts`, `lib/mcp-server.ts` | the token page of `@softure-ai/mcp-access` and its MCP endpoint around the example's server (`whoami`, `list_entries`, and `sign_guestbook` for write tokens), each mounted with one line |
@@ -70,7 +70,7 @@ npm run dev
 | `app/api/health/route.ts` | `GET /api/health` of `@softure-ai/ops`, one line; the guestbook contributes a check (`modules/guestbook/health.ts`) |
 | `Dockerfile`, `compose.container.yaml`, `scripts/migrate.ts` | the ops container recipe: one image, a one-off migrate step as the migrator role, the app as the app role |
 | `messages/` | the app's `en` and `pl` copy; no text is written inline |
-| `e2e/` | Playwright: theme switch, modal and form, migrations, security, auth, password reset, roles, switches, mail, unsubscribe |
+| `e2e/` | Playwright: theme switch, modal and form, migrations, security, auth, password reset, roles, switches, mail, reset mail, unsubscribe |
 
 ## Adding a scenario
 

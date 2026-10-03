@@ -1,5 +1,5 @@
 // The hook through which auth hands a password reset link to the app, which delivers it (a mail,
-// later the `@softure-ai/mailing` adapter). Auth never sends anything itself.
+// e.g. through `mailingResetSender()` of `@softure-ai/auth/mailing`). Auth never sends anything itself.
 import type { Locale } from "@softure-ai/core";
 import type { AuthUser } from "./contract.js";
 
