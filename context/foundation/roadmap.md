@@ -48,7 +48,7 @@ adoption in FIRE_TRACKER follows `docs/05-adoption-playbook.md`.
 | ID | Change | Outcome | Depends on | Mode | Status |
 | --- | --- | --- | --- | --- | --- |
 | **EN-9** | `engagement-release` | mailing, waitlist, mcp-access and privacy 0.1.0 published through the release pipeline; READMEs and docs updated | EN-1…EN-8 (done) | owner | blocked (carried over from engagement: the owner's release at the keyboard) |
-| **MO-1** | `billing-entitlements` | `@softure-ai/billing`: trial / paid / read_only state machine in `billing.entitlements`, `requireWriteAccess` | — | autonomous | ready |
+| **MO-1** | `billing-entitlements` | `@softure-ai/billing`: trial / paid / read_only state machine in `billing.entitlements`, `requireWriteAccess` | — | autonomous | in_progress (plan, since 2026-10-03; cloud session, branch `claude/mo-1-billing-entitlements-go58sf`) |
 | **MO-2** | `billing-plans-pricing` | plans from config, pricing tiles, payment page and a manual payment adapter that grants entitlements | MO-1 | autonomous | ready |
 | **MO-3** | `billing-provider-adapter` | the chosen provider (Stripe or Przelewy24) behind `PaymentProvider`: checkout, webhooks, entitlement updates | MO-2 | autonomous | blocked (owner decision: Stripe vs Przelewy24) |
 | **MO-4** | `analytics-channel-tags` | `@softure-ai/analytics`: a channel parameter captured, validated and carried across redirects and sign-up | — | autonomous | ready |
@@ -87,7 +87,7 @@ Risk first: MO-1 (the write guard every paid feature depends on) starts the road
 
 ### MO-1: Entitlements and the write guard
 - **Change ID:** `billing-entitlements`
-- **Status:** ready
+- **Status:** in_progress (plan, since 2026-10-03; cloud session, branch `claude/mo-1-billing-entitlements-go58sf`)
 - **Outcome:** A pure entitlement state machine (`trial | paid | read_only`) with trial length and reminder windows from config; `billing.entitlements` (one row per user, separate from `auth.users`); `getEntitlement()` and `requireWriteAccess()` for app write actions; access badge and notice components with slots and messages; a privacy contributor for export and deletion.
 - **Prerequisites:** roadmap-engagement done (privacy registry on the main branch); met on 2026-10-03.
 - **Unknowns:** How a new user gets a trial row (auth `onRegistered` hook vs. lazy creation); an unlimited/lifetime representation; time-zone handling of trial end.

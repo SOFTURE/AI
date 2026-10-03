@@ -15,7 +15,7 @@ A pure entitlement state machine (`trial | paid | read_only`) with trial length 
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **MO-1** (roadmap `monetization`, main since 2026-10-03):
+From [`roadmap.md`](../../foundation/roadmap.md), item **MO-1** (roadmap `monetization`, main since 2026-10-03):
 
 > ### MO-1: Entitlements and the write guard
 > - **Change ID:** `billing-entitlements`
@@ -27,8 +27,8 @@ From [`roadmap.md`](../../../foundation/roadmap.md), item **MO-1** (roadmap `mon
 > - **Baseline:** FIRE keeps `paid_until` / `trial_ends_at` on its users table with a hand-written guard. After: state machine unit tests for every transition and an e2e scenario where a read-only account cannot write.
 > - **PRD refs:** FR-22, NFR-5.
 
-Reference material: [`docs/02-module-standard.md`](../../../../docs/02-module-standard.md) (the standard),
-[`docs/01-module-assessment.md`](../../../../docs/01-module-assessment.md) (source map in FIRE_TRACKER).
+Reference material: [`docs/02-module-standard.md`](../../../docs/02-module-standard.md) (the standard),
+[`docs/01-module-assessment.md`](../../../docs/01-module-assessment.md) (source map in FIRE_TRACKER).
 
 ## Constraints
 

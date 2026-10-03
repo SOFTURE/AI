@@ -1,0 +1,12 @@
+{
+  "id": "billing",
+  "version": "0.0.0",
+  "dependsOn": { "auth": "^0.0.0" },
+  "dbSchema": "billing",
+  "tables": ["entitlements"],
+  "env": [],
+  "switches": [],
+  "routes": { "payment": "/payment" },
+  "mount": [],
+  "privacy": { "exports": true, "deletes": true }
+}
