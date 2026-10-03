@@ -97,6 +97,13 @@ describe("defineModule", () => {
     );
     expect(error.issues).toEqual(["health: must be a function"]);
   });
+
+  it("refuses a switch reader that is not a function", () => {
+    const error = catchConfigError(() =>
+      defineModule({ manifest, messages: { en, pl }, migrations, privacy, switchReader: {} as never }),
+    );
+    expect(error.issues).toEqual(["switchReader: must be a function"]);
+  });
 });
 
 describe("a module factory", () => {

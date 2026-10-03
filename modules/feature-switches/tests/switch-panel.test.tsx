@@ -66,4 +66,24 @@ describe("SwitchPanel", () => {
     expect(screen.getByText(en.panel.empty)).toBeDefined();
     expect(screen.queryByRole("switch")).toBeNull();
   });
+
+  it("reports the switches modules read that the app does not define, under the switches", () => {
+    render(
+      <SwitchPanel
+        switches={[CHECKOUT]}
+        undefinedSwitches={[{ name: "auth.registration_closed", moduleId: "auth" }]}
+        action={answering({ status: "ok" })}
+        messages={en}
+      />,
+    );
+    const report = screen.getByRole("region", { name: en.panel.undefinedTitle });
+    expect(report.textContent).toBe(
+      `${en.panel.undefinedTitle}auth.registration_closed (module auth) uses the module's own default. Define it in the app's switches to change it here.`,
+    );
+  });
+
+  it("shows no report when every switch modules read is defined", () => {
+    render(<SwitchPanel switches={[CHECKOUT]} undefinedSwitches={[]} action={answering({ status: "ok" })} messages={en} />);
+    expect(screen.queryByRole("region")).toBeNull();
+  });
 });

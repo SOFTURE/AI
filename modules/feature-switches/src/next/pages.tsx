@@ -8,6 +8,7 @@ import { Card } from "@softure-ai/ui";
 import type { SwitchView } from "../contract.js";
 import type { FeatureSwitchesMessages } from "../messages/index.js";
 import { getFeatureSwitchesOptions } from "../server/options.js";
+import { listUndefinedManifestSwitches } from "../server/reader.js";
 import { listSwitches } from "../server/switches.js";
 import { SwitchPanel, type SwitchPanelRow } from "../ui/switch-panel.js";
 import { setSwitchAction } from "./actions.js";
@@ -47,7 +48,7 @@ export async function SwitchesPage() {
   return (
     <main className={LAYOUT_CLASS}>
       <Card title={messages.panel.title} subtitle={messages.panel.lead}>
-        <SwitchPanel switches={rows} action={setSwitchAction} messages={messages} locale={config.locale} />
+        <SwitchPanel switches={rows} undefinedSwitches={listUndefinedManifestSwitches(config)} action={setSwitchAction} messages={messages} locale={config.locale} />
       </Card>
     </main>
   );

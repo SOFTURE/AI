@@ -286,13 +286,27 @@ and `prunePasswordResets(ctx)` does the same for expired reset links.
 
 | Name | Required | Meaning |
 | --- | --- | --- |
-| `SOFTURE_SWITCH_AUTH_REGISTRATION_CLOSED` | no | `true` / `1` closes registration, `false` / `0` opens it, over the declared default. Any other value closes it and logs the variable name. |
+| `SOFTURE_SWITCH_AUTH_REGISTRATION_CLOSED` | no | `true` / `1` closes registration, `false` / `0` opens it, over the declared default. Any other value closes it and logs the variable name. When the app defines the switch in `@softure-ai/feature-switches`, that module reads this variable by its own rules (`on` / `off` too; an unreadable value gives the fail mode). |
 
 ## 7. Switches
 
-`auth.registration_closed`: when on, the register page shows a notice instead of the form and the
-register action refuses with `auth.registration_closed`. Until `@softure-ai/feature-switches`
-exists, its value is the `registrationClosed` option overridden by the env variable above.
+`auth.registration_closed`: when on, the register page shows a notice instead of the form, the
+login page drops its register link, and the register action refuses with `auth.registration_closed`.
+
+Auth reads it through `readSwitch` of `@softure-ai/core`. When the app defines it in
+`@softure-ai/feature-switches`, the switches panel flips it and the stored value applies from the
+next request (environment override, stored value, default, fail mode, as that module resolves
+them). Define it with `failMode: "open"`, so a failed read keeps registration closed:
+
+```ts
+featureSwitches({
+  switches: [{ name: REGISTRATION_CLOSED_SWITCH, label: { en: "Registration closed" }, default: false, failMode: "open" }],
+}),
+```
+
+Without feature-switches, or while the app does not define the switch there, its value is the
+`registrationClosed` option overridden by the env variable above. `isRegistrationClosed(ctx)` from
+`@softure-ai/auth/server` is async and gives the same answer the pages and the action use.
 
 ## 8. Appearance
 
