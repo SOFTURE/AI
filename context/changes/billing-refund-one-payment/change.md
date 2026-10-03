@@ -1,7 +1,7 @@
 ---
 change_id: billing-refund-one-payment
 title: "Refunds that take back one payment's period"
-status: implementing
+status: impl_reviewed
 roadmap_item: FU-11
 branch: claude/project-thread-wsh2og
 created: 2026-10-03
