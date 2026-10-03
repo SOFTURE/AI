@@ -24,7 +24,7 @@ Config may still be FIRE-shaped. Paths resolve relative to a config file, not th
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **MK-1** (roadmap `marketing-kit`, main since 2026-10-03):
+From [`roadmap.md`](../../foundation/roadmap.md), item **MK-1** (roadmap `marketing-kit`, main since 2026-10-03):
 
 > ### MK-1: Port the FIRE video core
 > - **Change ID:** `mk-core-port`
@@ -47,7 +47,7 @@ From [`roadmap.md`](../../../foundation/roadmap.md), item **MK-1** (roadmap `mar
 > - **Baseline:** FIRE `video/**` tests (film, timeline, voiceover, compose, posts, site tokens). After: the same tests are green in the package, and a fixture film renders a draft MP4 in CI or locally.
 > - **PRD refs:** FR-24, NFR-1, NFR-2.
 
-Reference material: [`docs/03-marketing-kit.md`](../../../../docs/03-marketing-kit.md) (architecture, JSON contract, licenses), PRD FR-24 and FR-25, and the source in FIRE_TRACKER `video/**`, `scripts/screenshot.mts`, `src/app/**/opengraph-image.tsx`.
+Reference material: [`docs/03-marketing-kit.md`](../../../docs/03-marketing-kit.md) (architecture, JSON contract, licenses), PRD FR-24 and FR-25, and the source in FIRE_TRACKER `video/**`, `scripts/screenshot.mts`, `src/app/**/opengraph-image.tsx`.
 
 ## Constraints
 
