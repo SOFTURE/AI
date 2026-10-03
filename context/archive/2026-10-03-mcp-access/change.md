@@ -1,12 +1,12 @@
 ---
 change_id: mcp-access
 title: "MCP access module: hashed, scoped, expiring tokens, a Bearer endpoint around the app's MCP server factory, and a token page"
-status: implementing
+status: archived
 roadmap_item: EN-6
 branch: claude/en-6-mcp-access-y3v1d0
 created: 2026-10-03
 updated: 2026-10-03
-archived_at: null
+archived_at: 2026-10-03
 ---
 
 ## Intent
@@ -37,3 +37,5 @@ risk and baseline are quoted there. Source: FIRE_TRACKER `src/db/access-tokens.t
 - No release, tag or publish by the agent; the owner tags releases. FIRE_TRACKER is read-only.
 
 ## Notes
+
+- 2026-10-03: implemented and reviewed in the cloud session on `claude/en-6-mcp-access-y3v1d0`; impl review approve.

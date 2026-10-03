@@ -72,12 +72,12 @@ lever on a public endpoint); OAuth now (no client needs it for a personal token)
 ### Phase 1: Package, table, server functions and endpoint
 
 #### Automated
-- [ ] 1.1 Server tests (issue, limit, list, revoke, expiry, last use, verification, endpoint, constraints, health) pass on PGlite
-- [ ] 1.2 `module.json` equals `toModuleJson(mcpAccess)` and the package passes `tests/repo/packages.test.ts`
-- [ ] 1.3 Gates green (typecheck, lint, test)
+- [x] 1.1 Server tests (issue, limit, list, revoke, expiry, last use, verification, endpoint, constraints, health) pass on PGlite — b1fa952
+- [x] 1.2 `module.json` equals `toModuleJson(mcpAccess)` and the package passes `tests/repo/packages.test.ts` — b1fa952
+- [x] 1.3 Gates green (typecheck, lint, test) — b1fa952
 
 ### Phase 2: Next adapter, page, example app and e2e
 
 #### Automated
-- [ ] 2.1 `npm run e2e` passes against a local PostgreSQL 16, including `mcp-access.spec.ts`
-- [ ] 2.2 Gates green (typecheck, lint, test, build)
+- [x] 2.1 `npm run e2e` passes against a local PostgreSQL 16, including `mcp-access.spec.ts` — e083f00
+- [x] 2.2 Gates green (typecheck, lint, test, build) — e083f00
