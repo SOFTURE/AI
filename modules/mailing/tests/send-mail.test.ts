@@ -223,7 +223,7 @@ describe("sendMail for list mail", () => {
     expect(provider.sent[0]).toMatchObject({
       to: "ada@example.org",
       text: ["Hello Ada, here is your summary.", "", "-- ", "Don't want these emails? Unsubscribe here:", PAGE].join("\n"),
-      html: `<p>Hello Ada.</p>\n<p>Don't want these emails? <a href="${PAGE.replace("&", "&amp;")}">Unsubscribe</a></p>`,
+      html: `<p>Hello Ada.</p>\n<p>Don't want these emails? <a href="${PAGE.replaceAll("&", "&amp;")}">Unsubscribe</a></p>`,
       headers: { "X-Campaign": "42", "List-Unsubscribe": `<${ONE_CLICK}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" },
     });
     expect(log).not.toHaveBeenCalled();

@@ -94,7 +94,7 @@ test("a list mail carries the one-click headers and a footer link on the app's o
   expect(pageLink.startsWith(`${baseURL ?? ""}/unsubscribe?`)).toBe(true);
   expect(pageLink).toMatch(query);
   expect(mail?.text).toContain(`\n-- \n${mailingMessages.en.footer.text}\n`);
-  expect(mail?.html).toContain(`<a href="${pageLink.replace("&", "&amp;")}">${mailingMessages.en.footer.htmlLink}</a>`);
+  expect(mail?.html).toContain(`<a href="${pageLink.replaceAll("&", "&amp;")}">${mailingMessages.en.footer.htmlLink}</a>`);
   expect(`${oneClick} ${pageLink}`).not.toContain("e2e-unsubscribe");
 });
 
