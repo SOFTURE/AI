@@ -1,12 +1,12 @@
 ---
 change_id: privacy-consents-legal
 title: "Privacy consents ledger and legal document shell"
-status: in_progress
+status: archived
 roadmap_item: EN-8
 branch: claude/en-8-privacy-consents-legal-qbtwcv
 created: 2026-10-03
 updated: 2026-10-03
-archived_at: null
+archived_at: 2026-10-03
 ---
 
 ## Intent

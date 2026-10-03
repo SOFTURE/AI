@@ -65,8 +65,8 @@ owns its scopes, EN-5).
 ### Phase 2: Example app, e2e, docs
 
 #### Automated
-- [x] 2.1 Gates green (typecheck, lint, test, build)
-- [x] 2.2 `npm run e2e` passes, including `e2e/privacy-consents.spec.ts`
+- [x] 2.1 Gates green (typecheck, lint, test, build) — 43441e1
+- [x] 2.2 `npm run e2e` passes, including `e2e/privacy-consents.spec.ts` — 43441e1
 
 #### Manual
-- [x] 2.3 Impl review recorded in `reviews/impl-review.md`
+- [x] 2.3 Impl review recorded in `reviews/impl-review.md` — 43441e1
