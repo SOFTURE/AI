@@ -1,6 +1,6 @@
 // Public API of @softure-ai/marketing-kit: the `marketing.json` contract (schema, loading, brand
 // colours), the film model a project's scene modules are typed with, and the pure building blocks of
-// the pipeline (voiceover cache, timeline, composition, posts). The `softure-marketing` CLI
+// the pipeline (voiceover cache, timeline, composition, posts, screenshots). The `softure-marketing` CLI
 // (`src/cli/main.ts`) runs the whole pipeline from `marketing.json`.
 export {
   DEFAULT_CONFIG_FILE,
@@ -92,6 +92,15 @@ export {
 } from "./compose/compose.js";
 export { buildPosts, postsMarkdown, type PlatformPost, type PostsInput } from "./posts/posts.js";
 export { FPS, ScreenGuardError, type BrowserSettings, type CameraCue, type RecordingLog } from "./record/record.js";
+export {
+  getScreenshotFile,
+  takeScreenshots,
+  type ScreenshotBrowser,
+  type ScreenshotEntry,
+  type ScreenshotResult,
+  type TakeScreenshotsOptions,
+} from "./screenshot/screenshot.js";
+export { MIN_FAILING_STATUS, SCREENSHOT_GATES, findSizeFailure, findStatusFailure, type ScreenshotGate } from "./screenshot/gates.js";
 export {
   MARKETING_LOCALES,
   formatMessage,
