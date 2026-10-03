@@ -27,11 +27,12 @@ share files run in one lane (see the roadmap's Order), so `dependency` below nam
 | FU-9 | [`billing-admin-requests`](billing-admin-requests/change.md) | Payment requests, revoke and grant history in the billing admin page | FU-11 on main | dependency |
 | FU-12 | [`billing-retro-reviews`](billing-retro-reviews/change.md) | Retro research and plan review for MO-1 and MO-2 | roadmap promoted | start |
 | FU-13 | [`marketing-kit-render-ci`](marketing-kit-render-ci/change.md) | The marketing-kit fixture film renders in CI | roadmap promoted | start |
-| FU-14 | [`marketing-kit-schema-docs`](marketing-kit-schema-docs/change.md) | The marketing.json JSON Schema documents every key | roadmap promoted | start |
+| FU-14 | [`marketing-kit-schema-docs`](../../archive/2026-10-03-marketing-kit-schema-docs/change.md) | The marketing.json JSON Schema documents every key | archived 2026-10-03 | start |
 | FU-15 | [`marketing-kit-desktop-16x9`](marketing-kit-desktop-16x9/change.md) | A 16:9 film can show the desktop app in a browser frame | FU-16 on main | dependency |
 | FU-16 | [`marketing-kit-layout-overrides`](marketing-kit-layout-overrides/change.md) | A project can adjust a format's layout in marketing.json | FU-14 on main | dependency |
 | FU-17 | [`marketing-kit-og-glyphs`](marketing-kit-og-glyphs/change.md) | OG images refuse copy the brand fonts cannot draw | roadmap promoted | start |
 | FU-18 | [`marketing-kit-screenshot-variants`](marketing-kit-screenshot-variants/change.md) | Screenshots at a device scale and in both colour schemes | FU-14 on main | dependency |
+| FU-19 | [`marketing-kit-hook-shot-words`](marketing-kit-hook-shot-words/change.md) | Opening shots after the first name their word in the config check | FU-14 on main | dependency |
 | FU-20 | [`billing-partial-refunds`](billing-partial-refunds/change.md) | Partial refunds take back access by a policy | FU-11 on main | dependency |
 | FU-21 | [`billing-refund-manual-lifetime`](billing-refund-manual-lifetime/change.md) | A manual lifetime grant survives a refunded paid lifetime | FU-9 on main | dependency |
 

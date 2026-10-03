@@ -3,16 +3,17 @@ import { z } from "zod";
 import { VIDEO_FORMATS, fitsFrame } from "../compose/timeline.js";
 import { MARKETING_LOCALES, type MarketingLocale } from "../messages/index.js";
 import { headlineChartDataSchema, headlineCtaDataSchema } from "../og/templates/schemas.js";
-import { CHANNEL_CODE_MAX_LENGTH, CHANNEL_CODE_PATTERN, PLATFORMS } from "../platforms.js";
+import { CHANNEL_CODE_MAX_LENGTH, CHANNEL_CODE_PATTERN, DEFAULT_LINK_IN_BIO, PLATFORMS } from "../platforms.js";
 import { ELEVENLABS_DEFAULT_MODEL } from "../voice/voiceover.js";
 import { actionSchema, type SceneAction } from "./actions-schema.js";
-import { COLOR_ROLES, COLOR_THEMES, isHexColor } from "./colors.js";
+import { COLOR_ROLES, COLOR_THEMES, isHexColor, type ColorRole } from "./colors.js";
 
 /**
  * `marketing.json`: everything product-specific about a project's marketing material. One zod schema
  * is the contract; `schema/marketing.schema.json` is generated from it (`npm run schema`). Paths are
  * relative to the folder of the config file. Refinements that span fields name the path they check,
- * so every error points at the key to fix.
+ * so every error points at the key to fix. Every key carries a `.describe()`: the text an editor shows
+ * for it in marketing.json (tests/schema.test.ts refuses a key without one).
  */
 
 export const DEFAULT_CONFIG_FILE = "marketing.json";
@@ -27,7 +28,6 @@ export type SfxEvent = (typeof SFX_EVENTS)[number];
 
 const ID_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const TOKEN_NAME_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
-/** Characters that would end a CSS rule or an HTML attribute; none belongs in a selector we inject. */
 /** No braces, semicolons, angle brackets, backslashes or comment openers: the selector lands inside a <style>. */
 const SELECTOR_PATTERN = /^(?!.*\/\*)[^{};<>\\]+$/;
 const FONT_FILE_PATTERN = /\.(?:woff2|woff|ttf|otf)$/i;
@@ -76,68 +76,99 @@ const channelCode = z
   .regex(CHANNEL_CODE_PATTERN, "must be lowercase words joined by single dashes or underscores, e.g. ig-01");
 
 const fontSchema = z.strictObject({
-  /** The CSS family name the composition declares and uses. */
-  family: z.string().regex(FONT_FAMILY_PATTERN, "must be letters, digits, spaces, - and _"),
-  /** The generic family used while the files load or when there are none. */
-  fallback: z.enum(["serif", "sans-serif", "monospace", "system-ui"]).default("sans-serif"),
+  family: z.string().regex(FONT_FAMILY_PATTERN, "must be letters, digits, spaces, - and _").describe("The CSS family name the composition declares and uses, e.g. Inter."),
+  fallback: z
+    .enum(["serif", "sans-serif", "monospace", "system-ui"])
+    .default("sans-serif")
+    .describe("The generic family used while the files load, or alone when there are no files."),
   files: z
     .array(
       z.strictObject({
-        path: relativePath.regex(FONT_FILE_PATTERN, "must be a .woff2, .woff, .ttf or .otf file"),
-        /** A weight (`400`) or a variable font's range (`"100 900"`). */
-        weight: z.union([z.number().int().min(1).max(1000), z.string().regex(FONT_WEIGHT_RANGE_PATTERN, 'must be a weight such as 400 or a range such as "100 900"')]),
-        style: z.enum(["normal", "italic"]).default("normal"),
-        unicodeRange: z.string().regex(UNICODE_RANGE_PATTERN, "must be a CSS unicode-range such as U+0000-00FF,U+20AC").optional(),
+        path: relativePath.regex(FONT_FILE_PATTERN, "must be a .woff2, .woff, .ttf or .otf file").describe("The font file (.woff2, .woff, .ttf or .otf), relative to the folder of marketing.json."),
+        weight: z
+          .union([z.number().int().min(1).max(1000), z.string().regex(FONT_WEIGHT_RANGE_PATTERN, 'must be a weight such as 400 or a range such as "100 900"')])
+          .describe('The weight this file draws (400), or a variable font\'s range ("100 900").'),
+        style: z.enum(["normal", "italic"]).default("normal").describe("Whether this file is the upright or the italic face."),
+        unicodeRange: z
+          .string()
+          .regex(UNICODE_RANGE_PATTERN, "must be a CSS unicode-range such as U+0000-00FF,U+20AC")
+          .optional()
+          .describe("The characters this file covers, as a CSS unicode-range (U+0000-00FF,U+20AC); without it, all of them."),
       }),
     )
-    .default([]),
+    .default([])
+    .describe("The files of the family, one per weight and style; none: only the fallback is used."),
 });
 
-const colorRolesShape = Object.fromEntries(COLOR_ROLES.map((role) => [role, hexColor.optional()])) as Record<
+/** What each colour role paints; the descriptions of `brand.colors` and `brand.tokensFrom.roles`. */
+const COLOR_ROLE_DESCRIPTIONS: Record<ColorRole, string> = {
+  background: "The frame behind the phone and the vignette; #rrggbb, because the vignette appends an alpha.",
+  foreground: "Text on the background: the persona card's name, the end card.",
+  muted: "Secondary text: the persona card's tagline, the end card's note.",
+  accent: "The touch ring and the end of the avatar's gradient.",
+  cta: "The end card's link pill and the start of the avatar's gradient.",
+  onCta: "Text on the cta colour.",
+  captionBackground: "The caption pill.",
+  captionText: "Caption words not spoken yet.",
+  captionHighlight: "The word being spoken.",
+};
+
+const colorRolesShape = Object.fromEntries(
+  COLOR_ROLES.map((role) => [role, hexColor.optional().describe(`${COLOR_ROLE_DESCRIPTIONS[role]} A hex colour; without it, the colour comes from tokensFrom.`)]),
+) as Record<
   (typeof COLOR_ROLES)[number],
   z.ZodOptional<typeof hexColor>
 >;
 
 const tokenName = z.string().regex(TOKEN_NAME_PATTERN, "must be a token name such as accent-fill");
 
-const roleTokensShape = Object.fromEntries(COLOR_ROLES.map((role) => [role, tokenName.optional()])) as Record<
+const roleTokensShape = Object.fromEntries(
+  COLOR_ROLES.map((role) => [role, tokenName.optional().describe(`The source token for the ${role} role (${COLOR_ROLE_DESCRIPTIONS[role]}) Default: the role's name in kebab case.`)]),
+) as Record<
   (typeof COLOR_ROLES)[number],
   z.ZodOptional<typeof tokenName>
 >;
 
 const brandSchema = z.strictObject({
-  name: nonEmpty,
-  /** BCP 47, e.g. `en-US`: the recording browser's locale, `<html lang>`, and the language of the copy. */
+  name: nonEmpty.describe("The product's name, shown on the end card."),
   locale: z
     .string()
     .regex(LOCALE_PATTERN, "must be a BCP 47 locale such as en-US")
-    .refine(hasMessages, `needs a language with message dictionaries: ${MARKETING_LOCALES.join(", ")}`),
-  /** IANA zone of the recording browser, e.g. `Europe/London`. */
-  timezone: z.string().refine(isKnownTimezone, "must be an IANA timezone such as Europe/London"),
-  logo: z.strictObject({ svg: relativePath.endsWith(".svg", "must be an .svg file") }).optional(),
-  /** Colours set here win over `tokensFrom`. */
-  colors: z.strictObject(colorRolesShape).prefault({}),
-  /** Where the colours not set in `colors` come from: the app's stylesheet or an Impeccable design.json. */
+    .refine(hasMessages, `needs a language with message dictionaries: ${MARKETING_LOCALES.join(", ")}`)
+    .describe(`BCP 47 locale (en-US): the recording browser's locale, <html lang> and the language of the copy. Its language needs a message dictionary: ${MARKETING_LOCALES.join(", ")}.`),
+  timezone: z.string().refine(isKnownTimezone, "must be an IANA timezone such as Europe/London").describe("IANA zone of the recording browser, e.g. Europe/London."),
+  logo: z
+    .strictObject({ svg: relativePath.endsWith(".svg", "must be an .svg file").describe("The logo as an .svg file, relative to the folder of marketing.json.") })
+    .optional()
+    .describe("The end card's logo next to the name; without it, the name alone."),
+  colors: z.strictObject(colorRolesShape).prefault({}).describe("The colour roles as hex colours; a colour set here wins over tokensFrom."),
   tokensFrom: z
     .strictObject({
-      css: relativePath.optional(),
-      designJson: relativePath.optional(),
-      theme: z.enum(COLOR_THEMES).default("dark"),
-      /** The source token each role reads; by default the role's own name in kebab case (`onCta` → `on-cta`). */
-      roles: z.strictObject(roleTokensShape).prefault({}),
+      css: relativePath.optional().describe("The app's stylesheet whose custom properties hold the tokens; give this or designJson."),
+      designJson: relativePath.optional().describe("An Impeccable design.json (schemaVersion 2) holding the tokens; give this or css."),
+      theme: z.enum(COLOR_THEMES).default("dark").describe("Which theme's token values to read."),
+      roles: z
+        .strictObject(roleTokensShape)
+        .prefault({})
+        .describe("The source token each role reads; by default the role's own name in kebab case (onCta reads on-cta)."),
     })
     .refine((source) => (source.css === undefined) !== (source.designJson === undefined), "needs exactly one of css and designJson")
-    .optional(),
-  fonts: z.strictObject({ heading: fontSchema.optional(), body: fontSchema.optional() }).prefault({}),
+    .optional()
+    .describe("Where the colours not set in colors come from: the app's stylesheet or an Impeccable design.json."),
+  fonts: z
+    .strictObject({
+      heading: fontSchema.optional().describe("The end card's and the avatar's font; without it, the body font."),
+      body: fontSchema.optional().describe("The captions' and the cards' font; without it, the system's sans-serif."),
+    })
+    .prefault({})
+    .describe("The brand fonts the composition loads."),
 });
 
 const deviceSchema = z
   .strictObject({
-    /** CSS pixels, [width, height]. */
-    viewport: z.tuple([pixels(2000), pixels(4000)]),
-    /** Device pixels per CSS pixel; the frame needs about 1080 / (640 / width) to stay sharp. */
-    scale: z.number().min(1).max(4),
-    mobile: z.boolean().default(true),
+    viewport: z.tuple([pixels(2000), pixels(4000)]).describe("The recorded screen in CSS pixels, [width, height]; at most about 2.6 times as tall as wide."),
+    scale: z.number().min(1).max(4).describe("Device pixels per CSS pixel (1-4); the frame needs about 1080 / (640 / width) to stay sharp."),
+    mobile: z.boolean().default(true).describe("Whether the browser behaves as a phone (touch, mobile viewport)."),
   })
   .refine((device) => fitsFrame({ width: device.viewport[0], height: device.viewport[1] }), {
     message: "is too tall for the 9:16 frame (height at most about 2.6 × width)",
@@ -145,33 +176,37 @@ const deviceSchema = z
   });
 
 const appSchema = z.strictObject({
-  /** Where an already running app answers, e.g. `http://localhost:3000`. */
-  baseUrl: z.url(),
-  /** Port of the app the CLI starts itself when `baseUrl` does not answer. */
-  port: z.number().int().min(1).max(65535),
-  /** Command that starts the app, as arguments (no shell); `{port}` is replaced. Runs in the config folder. */
-  startCommand: z.array(nonEmpty).min(1),
-  colorScheme: z.enum(COLOR_THEMES).default("light"),
-  /** Elements hidden while recording, e.g. a dev overlay or a floating banner. */
-  hideSelectors: z.array(z.string().regex(SELECTOR_PATTERN, "must be a CSS selector without { } ; < > \\ or /*")).default([]),
-  /** The element whose text the screen guard reads. */
-  screenGuardSelector: z.string().regex(SELECTOR_PATTERN, "must be a CSS selector without { } ; < > \\ or /*").default("body"),
-  /** The recorded phone; a video can override it. */
-  device: deviceSchema,
+  baseUrl: z.url().describe("Where an already running app answers, e.g. http://localhost:3000."),
+  port: z.number().int().min(1).max(65535).describe("Port of the app the CLI starts itself when baseUrl does not answer."),
+  startCommand: z
+    .array(nonEmpty)
+    .min(1)
+    .describe("The command that starts the app, as arguments (no shell), run in the folder of marketing.json; {port} is replaced by port."),
+  colorScheme: z.enum(COLOR_THEMES).default("light").describe("The colour scheme the recording browser prefers."),
+  hideSelectors: z
+    .array(z.string().regex(SELECTOR_PATTERN, "must be a CSS selector without { } ; < > \\ or /*"))
+    .default([])
+    .describe("CSS selectors of elements hidden while recording, e.g. a dev overlay or a floating banner."),
+  screenGuardSelector: z
+    .string()
+    .regex(SELECTOR_PATTERN, "must be a CSS selector without { } ; < > \\ or /*")
+    .default("body")
+    .describe("The element whose text the screen guard reads."),
+  device: deviceSchema.describe("The recorded phone; a video can override it."),
 });
 
 const tempo = z.number().min(0.8).max(1.3);
 
 const voiceSchema = z.strictObject({
-  provider: z.enum(["elevenlabs"]).default("elevenlabs"),
-  voiceId: nonEmpty,
-  model: nonEmpty.default(ELEVENLABS_DEFAULT_MODEL),
-  /** ISO 639 code the voice speaks (`en`, `pl`); part of the voiceover cache key. */
-  language: z.string().regex(LANGUAGE_PATTERN, "must be an ISO 639 language code such as en"),
-  /** Speed-up applied at build time, not in the API, so the paid cache stays valid. */
-  tempo: tempo.default(1),
-  /** The paid voiceover cache (`<key>.mp3` + `<key>.json`); commit it. */
-  cacheDir: relativePath.default("marketing/voiceover"),
+  provider: z.enum(["elevenlabs"]).default("elevenlabs").describe("The text-to-speech service that records the voiceover."),
+  voiceId: nonEmpty.describe("The provider's id of the voice; part of the voiceover cache key."),
+  model: nonEmpty.default(ELEVENLABS_DEFAULT_MODEL).describe("The provider's speech model; part of the voiceover cache key."),
+  language: z
+    .string()
+    .regex(LANGUAGE_PATTERN, "must be an ISO 639 language code such as en")
+    .describe("ISO 639 code the voice speaks (en, pl); part of the voiceover cache key."),
+  tempo: tempo.default(1).describe("Speed-up (0.8-1.3) applied at build time, not in the API, so the paid cache stays valid."),
+  cacheDir: relativePath.default("marketing/voiceover").describe("The paid voiceover cache (<key>.mp3 and <key>.json), relative to the folder of marketing.json; commit it."),
 });
 
 type VideoBeat = { id: string; text: string; pad?: number | undefined; actions?: SceneAction[] | undefined };
@@ -233,42 +268,69 @@ function checkScene(video: SceneShape, context: z.RefinementCtx): void {
 
 const videoSchema = z
   .strictObject({
-    id,
-    title: nonEmpty,
-    /** The recorded page, e.g. `/calculator`. */
-    path: pagePath,
-    format: z.enum(VIDEO_FORMATS).default("9:16"),
-    device: deviceSchema.optional(),
-    voice: z.strictObject({ voiceId: nonEmpty.optional(), model: nonEmpty.optional(), tempo: tempo.optional() }).optional(),
-    persona: z.strictObject({ name: nonEmpty, age: z.number().int().min(0).max(150), tagline: z.string() }),
-    /**
-     * Voiceover sentences in order. The first plays over the opening (the result frame), the scene
-     * records the rest, and the last ends with the end card.
-     */
+    id: id.describe("The film's id: its folder under output.dir and the name social.posts refer to."),
+    title: nonEmpty.describe("The film's title: the heading of its posts.md and the composition's <title>."),
+    path: pagePath.describe("The recorded page of the app, e.g. /calculator."),
+    format: z.enum(VIDEO_FORMATS).default("9:16").describe("The film's aspect ratio: 9:16 (full screen), 1:1 or 16:9 (a framed phone next to the copy)."),
+    device: deviceSchema.optional().describe("The recorded phone for this film; without it, app.device."),
+    voice: z
+      .strictObject({
+        voiceId: nonEmpty.optional().describe("This film's voice; without it, voice.voiceId."),
+        model: nonEmpty.optional().describe("This film's speech model; without it, voice.model."),
+        tempo: tempo.optional().describe("This film's speed-up (0.8-1.3); without it, voice.tempo."),
+      })
+      .optional()
+      .describe("Voice settings for this film only; each key falls back to voice."),
+    persona: z
+      .strictObject({
+        name: nonEmpty.describe("The persona's name on the persona card."),
+        age: z.number().int().min(0).max(150).describe("The persona's age on the persona card."),
+        tagline: z.string().describe("One line about the persona under the name."),
+      })
+      .describe("The person the film is about, on the persona card from the start of the scene until the persona-out cue or the end card."),
     beats: z
       .array(
         z.strictObject({
-          id,
-          text: nonBlank,
-          /** Seconds held after the voiceover ends the sentence (default 0.35); only with `actions`. */
-          pad: z.number().min(0).max(5).optional(),
-          /** What happens on screen during the sentence, when the video has no `sceneModule`. */
-          actions: z.array(actionSchema).optional(),
+          id: id.describe("The sentence's id, unique within the film."),
+          text: nonBlank.describe("What the voiceover says; also the captions."),
+          pad: z.number().min(0).max(5).optional().describe("Seconds held after the voiceover ends the sentence (0-5, default 0.35); only with actions."),
+          actions: z
+            .array(actionSchema)
+            .optional()
+            .describe("What happens on screen during the sentence, in order; required on every sentence after the first when the film has no sceneModule."),
         }),
       )
-      .min(3, "a film needs at least three sentences: opening, scene, end card"),
-    hook: z.strictObject({
-      /** The `still` the scene saves as the opening frame. */
-      still: nonEmpty,
-      shots: z
-        .array(z.strictObject({ mark: nonEmpty, scale: z.number().min(0.5).max(4), word: nonEmpty.optional() }))
-        .min(1, "the opening needs at least one shot"),
-    }),
-    /** Phrases the voiceover says that the screen must show; a missing one stops the recording. */
-    screenGuard: z.array(nonBlank).min(1, "the screen guard needs at least one phrase"),
-    endCard: z.strictObject({ headline: nonEmpty, url: nonEmpty, note: z.string().default("") }),
-    /** A TS module exporting `scene(director)`: what happens on screen, instead of beat `actions`. */
-    sceneModule: relativePath.optional(),
+      .min(3, "a film needs at least three sentences: opening, scene, end card")
+      .describe("Voiceover sentences in order (at least three): the first plays over the opening frame, the scene records the rest, the last ends with the end card."),
+    hook: z
+      .strictObject({
+        still: nonEmpty.describe("The name of the still action whose frame opens the film."),
+        shots: z
+          .array(
+            z.strictObject({
+              mark: nonEmpty.describe("The name of the mark action whose rectangle this shot frames."),
+              scale: z.number().min(0.5).max(4).describe("Camera zoom on the mark (0.5-4)."),
+              word: nonEmpty.optional().describe("The word of the first sentence on which this shot starts; required on every shot after the first, which starts with the film."),
+            }),
+          )
+          .min(1, "the opening needs at least one shot")
+          .describe("Camera moves over the opening frame, at least one."),
+      })
+      .describe("The opening: the result frame the first sentence plays over."),
+    screenGuard: z
+      .array(nonBlank)
+      .min(1, "the screen guard needs at least one phrase")
+      .describe("Phrases the voiceover says that the screen must show; a missing one stops the recording."),
+    endCard: z
+      .strictObject({
+        headline: nonEmpty.describe("The end card's headline."),
+        url: nonEmpty.describe("The address shown in the end card's link pill, as written (e.g. example.com)."),
+        note: z.string().default("").describe("A small line under the link; empty: none."),
+      })
+      .describe("The closing card shown during the last sentence."),
+    sceneModule: relativePath
+      .optional()
+      .describe("A TS module exporting scene(director), relative to the folder of marketing.json: what happens on screen, instead of beat actions."),
   })
   .superRefine((video, context) => {
     checkScene(video, context);
@@ -285,76 +347,107 @@ const videoSchema = z
     });
   });
 
+const LINK_IN_BIO_DEFAULTS = PLATFORMS.filter((platform) => DEFAULT_LINK_IN_BIO[platform]).join(", ");
+
 const socialSchema = z.strictObject({
-  /** The link each post carries, with `{code}` where the platform's channel code goes. */
   linkTemplate: z
     .string()
     .refine((template) => template.includes("{code}"), "must contain {code}")
-    .refine((template) => URL.canParse(template.replaceAll("{code}", "code")), "must be an absolute URL"),
+    .refine((template) => URL.canParse(template.replaceAll("{code}", "code")), "must be an absolute URL")
+    .describe("The absolute link every post carries, with {code} where the platform's channel code goes."),
   platforms: z
-    .partialRecord(z.enum(PLATFORMS), z.strictObject({ code: channelCode, linkInBio: z.boolean().optional() }))
-    .refine((platforms) => Object.keys(platforms).length > 0, "needs at least one platform"),
+    .partialRecord(
+      z.enum(PLATFORMS),
+      z
+        .strictObject({
+          code: channelCode.describe("The channel code the platform's link carries, so a visit from the film is counted (e.g. ig-01)."),
+          linkInBio: z
+            .boolean()
+            .optional()
+            .describe(`Whether the caption points to the link in the bio instead of carrying it; default true for ${LINK_IN_BIO_DEFAULTS}.`),
+        })
+        .describe("The platform's channel code and link placement."),
+    )
+    .refine((platforms) => Object.keys(platforms).length > 0, "needs at least one platform")
+    .describe(`The platforms posts go to, at least one: ${PLATFORMS.join(", ")}.`),
   posts: z
     .array(
       z.strictObject({
-        video: id,
-        caption: z.string(),
-        hashtags: z.array(z.string()).default([]),
-        /** Channel codes for this video only. */
-        codes: z.partialRecord(z.enum(PLATFORMS), channelCode).optional(),
+        video: id.describe("The id of the film in videos this post is for."),
+        caption: z.string().describe("The post's text."),
+        hashtags: z.array(z.string()).default([]).describe("Hashtags appended to the caption."),
+        codes: z
+          .partialRecord(z.enum(PLATFORMS), channelCode.describe("The platform's channel code for this film."))
+          .optional()
+          .describe("Channel codes for this film only, per platform; each falls back to platforms.<platform>.code."),
       }),
     )
-    .default([]),
+    .default([])
+    .describe("Post copy per film; a film without a post gets no posts.md."),
 });
 
 const screenshotSchema = z.strictObject({
-  id,
-  path: pagePath,
-  width: pixels(8000),
-  height: pixels(8000),
-  /** The whole page, scrolled first so lazy images load. */
-  full: z.boolean().default(false),
-  /** A phrase the page must show, or the screenshot is refused. */
-  expect: nonBlank,
-  motion: z.enum(["reduce", "no-preference"]).default("reduce"),
-  /** Smaller files are deleted and refused (a blank or broken page). */
-  minBytes: z.number().int().min(0).default(40_000),
+  id: id.describe("The screenshot's id: the file <output.dir>/screenshots/<id>.png."),
+  path: pagePath.describe("The page of the app to capture, e.g. /pricing."),
+  width: pixels(8000).describe("The browser viewport's width in CSS pixels."),
+  height: pixels(8000).describe("The browser viewport's height in CSS pixels."),
+  full: z.boolean().default(false).describe("Capture the whole page, scrolled first so lazy images load, instead of the viewport."),
+  expect: nonBlank.describe("A phrase the page must show within 5 s of loading, or the screenshot is refused."),
+  motion: z.enum(["reduce", "no-preference"]).default("reduce").describe("The reduced-motion preference of the browser."),
+  minBytes: z.number().int().min(0).default(40_000).describe("Smaller files are deleted and refused (a blank or broken page)."),
 });
 
 const ogImageBase = {
-  id,
-  size: z.tuple([pixels(4000), pixels(4000)]).default([1200, 630]),
+  id: id.describe("The image's id: the file <output.dir>/og/<id>.png."),
+  size: z.tuple([pixels(4000), pixels(4000)]).default([1200, 630]).describe("The image size in pixels, [width, height]."),
 };
 
 /** One entry per template; `data` is the template's input, and values the app computes (charts) arrive precomputed. */
 const ogImageSchema = z.discriminatedUnion("template", [
-  z.strictObject({ ...ogImageBase, template: z.literal("headline-cta"), data: headlineCtaDataSchema }),
-  z.strictObject({ ...ogImageBase, template: z.literal("headline-chart"), data: headlineChartDataSchema }),
+  z.strictObject({
+    ...ogImageBase,
+    template: z.literal("headline-cta").describe("A headline with an optional eyebrow, call to action and tiles."),
+    data: headlineCtaDataSchema.describe("The headline-cta template's input."),
+  }),
+  z.strictObject({
+    ...ogImageBase,
+    template: z.literal("headline-chart").describe("A headline over a chart the app computed, with optional tiles."),
+    data: headlineChartDataSchema.describe("The headline-chart template's input."),
+  }),
 ]);
 
-const sfxShape = Object.fromEntries(SFX_EVENTS.map((event) => [event, relativePath.optional()])) as Record<SfxEvent, z.ZodOptional<typeof relativePath>>;
+/** When each sound effect plays; the descriptions of the `sfx` keys. */
+const SFX_DESCRIPTIONS: Record<SfxEvent, string> = {
+  tap: "Played on every tap.",
+  key: "Played on every typed key.",
+  whoosh: "Played on camera moves that ask for it, into the opening and into the end card.",
+  sparkle: "Played on the sparkle cue.",
+  pop: "Played when the end card's link pill appears.",
+};
+
+const sfxShape = Object.fromEntries(
+  SFX_EVENTS.map((event) => [event, relativePath.optional().describe(`${SFX_DESCRIPTIONS[event]} An audio file relative to the folder of marketing.json; without it, silence.`)]),
+) as Record<SfxEvent, z.ZodOptional<typeof relativePath>>;
 
 export const marketingSchema = z
   .strictObject({
-    $schema: z.string().optional(),
-    brand: brandSchema,
-    app: appSchema,
-    voice: voiceSchema,
-    videos: z.array(videoSchema).min(1, "needs at least one video"),
-    social: socialSchema.optional(),
-    screenshots: z.array(screenshotSchema).default([]),
-    ogImages: z.array(ogImageSchema).default([]),
-    /** Sound effects of the composition; a missing one is silent. */
-    sfx: z.strictObject(sfxShape).prefault({}),
+    $schema: z.string().optional().describe("The JSON Schema this file follows, for editor completion and these descriptions."),
+    brand: brandSchema.describe("The product's name, language, colours, fonts and logo."),
+    app: appSchema.describe("The app the films and screenshots are recorded from."),
+    voice: voiceSchema.describe("The voiceover: provider, voice, language and the paid cache."),
+    videos: z.array(videoSchema).min(1, "needs at least one video").describe("The films, at least one."),
+    social: socialSchema.optional().describe("Post copy for the films: the link, the platforms and their channel codes."),
+    screenshots: z.array(screenshotSchema).default([]).describe("Screenshots taken by softure-marketing shots."),
+    ogImages: z.array(ogImageSchema).default([]).describe("Open Graph images rendered by softure-marketing og."),
+    sfx: z.strictObject(sfxShape).prefault({}).describe("Sound effects of the composition; a missing one is silent."),
     output: z
       .strictObject({
-        /** Finished films and post copy (`<dir>/<video>/`); not committed. */
-        dir: relativePath.default("marketing/out"),
-        /** Recordings and compositions (`<buildDir>/<video>/`); not committed. */
-        buildDir: relativePath.default("marketing/build"),
-        quality: z.enum(QUALITIES).default("standard"),
+        dir: relativePath.default("marketing/out").describe("Finished films and post copy (<dir>/<video>/), relative to the folder of marketing.json; not committed."),
+        buildDir: relativePath.default("marketing/build").describe("Recordings and compositions (<buildDir>/<video>/), relative to the folder of marketing.json; not committed."),
+        quality: z.enum(QUALITIES).default("standard").describe("The render quality; the --quality flag wins."),
       })
-      .prefault({}),
+      .prefault({})
+      .describe("Where the outputs go and at what quality."),
   })
   .superRefine((config, context) => {
     const checkUnique = (key: "videos" | "screenshots" | "ogImages") => {
@@ -381,7 +474,8 @@ export const marketingSchema = z
         }
       }
     });
-  });
+   })
+  .describe("marketing.json: everything product-specific about a project's marketing material, for @softure-ai/marketing-kit.");
 
 export type MarketingJson = z.output<typeof marketingSchema>;
 export type MarketingJsonInput = z.input<typeof marketingSchema>;
