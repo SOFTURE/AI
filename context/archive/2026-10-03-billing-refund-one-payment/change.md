@@ -46,4 +46,4 @@ clears `paid_until` and `is_lifetime` (`modules/billing/src/entitlement.ts`).
   the remaining unknowns.
 - Partial refunds (the optional half of the outcome) stay ignored unless research finds a cheap,
   safe policy; if not, they stay a README limitation.
-- Archived 2026-10-03: a full refund takes back only what its payment granted (the unused days of one period, or one lifetime), with the periods stacked after it moved back; partial refunds and manual lifetime grants filed as FU-19 and FU-20.
+- Archived 2026-10-03: a full refund takes back only what its payment granted (the unused days of one period, or one lifetime), with the periods stacked after it moved back; partial refunds and manual lifetime grants filed as FU-20 and FU-21.

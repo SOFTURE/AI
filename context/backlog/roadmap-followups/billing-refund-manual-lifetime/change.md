@@ -2,7 +2,7 @@
 change_id: billing-refund-manual-lifetime
 title: "A manual lifetime grant survives a refunded paid lifetime"
 status: backlog
-roadmap_item: FU-20
+roadmap_item: FU-21
 branch: null
 created: 2026-10-03
 updated: 2026-10-03
@@ -16,9 +16,9 @@ later refunded, the account keeps lifetime access.
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-20** (roadmap `followups`):
+From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-21** (roadmap `followups`):
 
-> ### FU-20: A manual lifetime grant survives a refunded paid lifetime
+> ### FU-21: A manual lifetime grant survives a refunded paid lifetime
 > - **Change ID:** `billing-refund-manual-lifetime`
 > - **Status:** proposed
 > - **Outcome:** A refunded paid lifetime keeps lifetime access when the admin also granted it by hand.

@@ -96,7 +96,7 @@ order stays account → payment → entitlement.
 1. e2e: two paid checkouts, refund the first → status `paid`, end one month after the trial.
 2. `migrations.spec.ts`: `billing 3 record_payment_grants (applied)`.
 3. README: §1, webhook table, §5 columns, §12 limitations (partial refunds; manual lifetime; old rows).
-4. File FU-19 (partial refund policy) and FU-20 (manual lifetime grant kept on a paid lifetime
+4. File FU-20 (partial refund policy) and FU-21 (manual lifetime grant kept on a paid lifetime
    refund, after FU-9).
 
 **Done when:**

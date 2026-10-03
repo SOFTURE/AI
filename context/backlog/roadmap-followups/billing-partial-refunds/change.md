@@ -2,7 +2,7 @@
 change_id: billing-partial-refunds
 title: "Partial refunds take back access by a policy"
 status: backlog
-roadmap_item: FU-19
+roadmap_item: FU-20
 branch: null
 created: 2026-10-03
 updated: 2026-10-03
@@ -17,9 +17,9 @@ several partial refunds that add up to the full amount behave like one full refu
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-19** (roadmap `followups`):
+From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-20** (roadmap `followups`):
 
-> ### FU-19: Partial refunds take back access by a policy
+> ### FU-20: Partial refunds take back access by a policy
 > - **Change ID:** `billing-partial-refunds`
 > - **Status:** proposed
 > - **Outcome:** A partial refund changes access by a documented policy; partial refunds summing to the full amount act like one full refund.

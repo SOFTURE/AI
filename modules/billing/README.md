@@ -312,10 +312,10 @@ details, return URL) and resolves with `Ok` once handed over, or an `Err` the bu
 
 ## 12. Limitations
 
-- A partial refund changes nothing (followups FU-19). A refund that reaches the app before its
+- A partial refund changes nothing (followups FU-20). A refund that reaches the app before its
   checkout (Stripe does not order events) finds no payment and is not retried.
 - A refunded paid lifetime ends a lifetime the admin granted by hand too: manual grants have no
-  payment row to count (followups FU-20, after the grant history of FU-9). A dated manual grant
+  payment row to count (followups FU-21, after the grant history of FU-9). A dated manual grant
   keeps its length.
 - A refund of a period moves the dated end back by local days; a `grant { until }` an app applies
   by hand with an end inside the stack is not a period of its own and shifts with it.

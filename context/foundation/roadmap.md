@@ -60,8 +60,8 @@ backlog: context/backlog/roadmap-followups/
 | **FU-16** | `marketing-kit-layout-overrides` | per-format layout overrides (caption box, persona, end card) in marketing.json | FU-14 | autonomous | proposed |
 | **FU-17** | `marketing-kit-og-glyphs` | OG images refuse copy the brand fonts cannot draw | — | autonomous | proposed |
 | **FU-18** | `marketing-kit-screenshot-variants` | screenshots at a device scale and in both colour schemes | FU-14 | autonomous | proposed |
-| **FU-19** | `billing-partial-refunds` | partial refunds take back access by a policy | FU-11 | autonomous | proposed |
-| **FU-20** | `billing-refund-manual-lifetime` | a manual lifetime grant survives a refunded paid lifetime | FU-9 | autonomous | proposed |
+| **FU-20** | `billing-partial-refunds` | partial refunds take back access by a policy | FU-11 | autonomous | proposed |
+| **FU-21** | `billing-refund-manual-lifetime` | a manual lifetime grant survives a refunded paid lifetime | FU-9 | autonomous | proposed |
 
 ## Order
 
@@ -72,7 +72,7 @@ after another; different lanes run in parallel, up to 4 at once.
 | --- | --- | --- |
 | A: switches | FU-1 | `foundation/core/`, `modules/auth/`, `modules/feature-switches/` |
 | B: waitlist and consent | FU-3 → FU-2 → FU-4 → FU-8 | `modules/waitlist/` (FU-3 also `modules/mailing/`, `modules/privacy/`) |
-| C: billing | FU-11 → FU-9 → FU-6 → FU-19 → FU-20; FU-12 any time | `modules/billing/` and its migrations; FU-12 writes archive documents only |
+| C: billing | FU-11 → FU-9 → FU-6 → FU-20 → FU-21; FU-12 any time | `modules/billing/` and its migrations; FU-12 writes archive documents only |
 | D: analytics | FU-5 → FU-7 (FU-7 also after FU-1) | `modules/analytics/` channel propagation; FU-7 may touch auth's redirects |
 | E: marketing-kit config | FU-14 → FU-16 → FU-15; FU-14 → FU-18 | `tools/marketing-kit/src/config/schema.ts`, `schema/`, `src/compose/` (FU-15, FU-16) |
 | F: independent | FU-13, FU-17 | `.github/workflows/ci.yml`; `tools/marketing-kit/src/og/` |
@@ -81,7 +81,7 @@ after another; different lanes run in parallel, up to 4 at once.
    adopts the switches; FU-3 fixes a consent ledger that can contradict an unsubscribe), then the MEDIUM refund
    fix and the schema descriptions that every later marketing-kit config item extends.
 2. **Each free slot** takes the first item of this list whose lane is idle and whose dependencies are on `master`:
-   FU-2, FU-5, FU-13, FU-17, FU-9, FU-16, FU-18, FU-4, FU-7, FU-12, FU-6, FU-15, FU-8, FU-19, FU-20.
+   FU-2, FU-5, FU-13, FU-17, FU-9, FU-16, FU-18, FU-4, FU-7, FU-12, FU-6, FU-15, FU-8, FU-20, FU-21.
 3. **MK-8, EN-9 and MO-6** (owner, carried over): the owner's batch release on 2026-10-05; they wait for no FU item,
    and no FU item waits for them.
 
@@ -113,8 +113,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 | FU-16 | no | a validated `layout` section merged into the geometry table |
 | FU-17 | no | a glyph check against the loaded fonts; tested with a subset font |
 | FU-18 | no | Playwright device scale and colour schemes; tested against the static fixture page |
-| FU-19 | no | a refund policy in billing with a documented default; signed webhook fixtures, no Stripe secrets |
-| FU-20 | no | reads FU-9's grant history in the refund; unit tests on PGlite |
+| FU-20 | no | a refund policy in billing with a documented default; signed webhook fixtures, no Stripe secrets |
+| FU-21 | no | reads FU-9's grant history in the refund; unit tests on PGlite |
 
 ## Items
 
@@ -338,7 +338,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 - **PRD refs:** FR-25.
 - **Source:** `tools/marketing-kit/README.md` "Limitations"; `context/archive/2026-10-03-mk-screenshots/reviews/impl-review.md` F4
 
-### FU-19: Partial refunds take back access by a policy
+### FU-20: Partial refunds take back access by a policy
 - **Change ID:** `billing-partial-refunds`
 - **Status:** proposed
 - **Outcome:** A partial refund changes access by a documented policy; partial refunds summing to the full amount act like one full refund.
@@ -348,7 +348,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 - **Baseline:** FU-11 `billing-refund-one-payment`: `charge.refunded` with `refunded: false` is ignored (README §12). After: a partial refund follows the policy, covered by unit tests with signed webhook fixtures.
 - **Source:** FU-11 (the optional half of its outcome, deferred in its research); `modules/billing/README.md` §12
 
-### FU-20: A manual lifetime grant survives a refunded paid lifetime
+### FU-21: A manual lifetime grant survives a refunded paid lifetime
 - **Change ID:** `billing-refund-manual-lifetime`
 - **Status:** proposed
 - **Outcome:** A refunded paid lifetime keeps lifetime access when the admin also granted it by hand.

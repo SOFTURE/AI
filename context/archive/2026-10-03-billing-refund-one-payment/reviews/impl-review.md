@@ -25,7 +25,7 @@ was a real correctness bug in a three-payment stack); two are accepted with evid
 | Phase | Commit | Delivered | Notes |
 | --- | --- | --- | --- |
 | 1 Grant record and per-payment refund | 00c14f9 | yes | migration, events, `refund.ts`, `applyPlan`, refund flow, privacy export, tests |
-| 2 e2e, docs, followups | f934d38 | yes | stacked-month e2e, ledger line, README, FU-19 and FU-20 |
+| 2 e2e, docs, followups | f934d38 | yes | stacked-month e2e, ledger line, README, FU-20 and FU-21 |
 
 Files: planned and changed 17 · unplanned 0 · planned, not changed 0. Fixes from this review:
 c75eac4.

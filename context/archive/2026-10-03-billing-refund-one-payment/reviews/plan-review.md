@@ -50,7 +50,7 @@ did not name them, so Done-when could be met by deleting them.
 ### S1 [SUGGESTION] Partial refunds and manual lifetime grants need a home
 **Effort:** low. **Lens:** Cost and defaults. **Where:** Goal, Out of scope
 **Problem:** both are left out; without an FU entry they become silent limitations.
-**Fix:** file FU-19 and FU-20 in Phase 2 (already step 4) and name them in README §12.
+**Fix:** file FU-20 and FU-21 in Phase 2 (already step 4) and name them in README §12.
 **Decision:** Fix now (applied) - Phase 2 step 3 and 4 already carry it; kept.
 
 ## Triage summary
