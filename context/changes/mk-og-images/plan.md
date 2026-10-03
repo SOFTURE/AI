@@ -108,7 +108,7 @@ unknown id is an error; `src/og/` imports no Playwright (architecture-style chec
 ### Phase 2: CLI command, exports and docs
 
 #### Automated
-- [ ] 2.1 Gates green (typecheck, lint, test, build)
+- [x] 2.1 Gates green (typecheck, lint, test, build) — 313910a
 
 #### Manual
-- [ ] 2.2 `softure-marketing og` writes the fixture's PNGs and they look right
+- [x] 2.2 `softure-marketing og` writes the fixture's PNGs and they look right — 313910a
