@@ -1,5 +1,5 @@
-// The module's readiness probe for `GET /api/health` of `@softure-ai/ops`: the entitlements and
-// payments tables exist and answer, i.e. `softure migrate` ran. It reads no rows.
+// The module's readiness probe for `GET /api/health` of `@softure-ai/ops`: the entitlements,
+// payments, payment requests and manual grants tables exist and answer, i.e. `softure migrate` ran. It reads no rows.
 import { ok, type HealthCheck } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
 import { sql } from "drizzle-orm";
@@ -9,5 +9,7 @@ export const checkBillingTables: HealthCheck = async (context) => {
   const db = context.db as Queryable;
   await db.execute(sql`select 1 from billing.entitlements limit 0`);
   await db.execute(sql`select 1 from billing.payments limit 0`);
+  await db.execute(sql`select 1 from billing.payment_requests limit 0`);
+  await db.execute(sql`select 1 from billing.manual_grants limit 0`);
   return ok();
 };

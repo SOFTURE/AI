@@ -1,5 +1,6 @@
 // Drizzle view of the module's tables (migrations/0001_create_entitlements.sql,
-// 0002_create_payments.sql and 0003_record_payment_grants.sql). The migrations are the source of truth; this file only types the queries.
+// 0002_create_payments.sql, 0003_record_payment_grants.sql and 0004_create_requests_and_grants.sql).
+// The migrations are the source of truth; this file only types the queries.
 import { bigint, boolean, pgSchema, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 export const billingSchema = pgSchema("billing");
@@ -28,4 +29,31 @@ export const payments = billingSchema.table("payments", {
   grantKind: text("grant_kind", { enum: ["period", "lifetime"] }),
   grantedFrom: timestamp("granted_from", { withTimezone: true }),
   grantedUntil: timestamp("granted_until", { withTimezone: true }),
+});
+
+export const paymentRequests = billingSchema.table("payment_requests", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull(),
+  planId: text("plan_id").notNull(),
+  invoiceName: text("invoice_name"),
+  invoiceTaxId: text("invoice_tax_id"),
+  invoiceAddress: text("invoice_address"),
+  status: text("status", { enum: ["open", "granted", "dismissed"] }).notNull(),
+  requestedAt: timestamp("requested_at", { withTimezone: true }).notNull(),
+  closedAt: timestamp("closed_at", { withTimezone: true }),
+});
+
+export const manualGrants = billingSchema.table("manual_grants", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull(),
+  planId: text("plan_id").notNull(),
+  requestId: uuid("request_id"),
+  grantedBy: uuid("granted_by"),
+  grantedAt: timestamp("granted_at", { withTimezone: true }).notNull(),
+  grantKind: text("grant_kind", { enum: ["period", "lifetime"] }).notNull(),
+  grantedFrom: timestamp("granted_from", { withTimezone: true }),
+  grantedUntil: timestamp("granted_until", { withTimezone: true }),
+  status: text("status", { enum: ["active", "revoked"] }).notNull(),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  revokedBy: uuid("revoked_by"),
 });
