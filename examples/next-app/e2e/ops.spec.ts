@@ -7,5 +7,5 @@ test("GET /api/health answers 200 with the database and module checks, never cac
   const response = await request.get("/api/health");
   expect(response.status()).toBe(200);
   expect(response.headers()["cache-control"]).toBe("no-store");
-  expect(await response.json()).toEqual({ status: "ok", checks: { database: "ok", guestbook: "ok", auth: "ok", "feature-switches": "ok", "mcp-access": "ok" } });
+  expect(await response.json()).toEqual({ status: "ok", checks: { database: "ok", guestbook: "ok", auth: "ok", "feature-switches": "ok", "mcp-access": "ok", mailing: "ok" } });
 });

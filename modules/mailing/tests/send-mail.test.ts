@@ -1,9 +1,9 @@
 // sendMail: every branch of the result, the boundary checks, the timeout and the log line.
-import type { MailProvider, OutgoingMail, ProviderMessage, ProviderOutcome } from "@softure-ai/mailing";
-import { sendMail } from "@softure-ai/mailing/server";
+import { mailingMessages, type MailProvider, type OutgoingMail, type ProviderMessage, type ProviderOutcome } from "@softure-ai/mailing";
+import { getRecipientKey, sendMail, signRecipientKey, suppressRecipient } from "@softure-ai/mailing/server";
 import { fakeMailProvider } from "@softure-ai/mailing/testing";
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
-import { createConfig, FROM, MAIL, REPLY_TO } from "./support.js";
+import { createConfig, createTestMailing, FROM, MAIL, REPLY_TO, SECRET, type TestMailing } from "./support.js";
 
 /** A provider that answers `outcome` (or runs `send`) and records what it was given. */
 function createProvider(send: (message: ProviderMessage, signal: AbortSignal) => Promise<unknown>) {
@@ -132,6 +132,11 @@ describe("sendMail", () => {
       ["an idempotency key with a space", MAIL, { idempotencyKey: "a b" }, "idempotencyKey"],
       ["an idempotency key over 256 characters", MAIL, { idempotencyKey: "k".repeat(257) }, "idempotencyKey"],
       ["a mail that is not an object", null, {}, "mail"],
+      ["an empty kind", { ...MAIL, kind: "" }, {}, "kind"],
+      ["an uppercase kind", { ...MAIL, kind: "Newsletter" }, {}, "kind"],
+      ["a kind over 64 characters", { ...MAIL, kind: "k".repeat(65) }, {}, "kind"],
+      ["a list mail with its own List-Unsubscribe", { ...MAIL, kind: "newsletter", headers: { "list-unsubscribe": "<https://evil.example>" } }, {}, "headers"],
+      ["a list mail with its own List-Unsubscribe-Post", { ...MAIL, kind: "newsletter", headers: { "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" } }, {}, "headers"],
     ];
 
     it.each(invalid)("%s", async (_case, mail, options, field) => {
@@ -181,5 +186,108 @@ describe("sendMail", () => {
     const provider = fakeMailProvider();
     const result = await sendMail({ config: createConfig(provider) }, MAIL);
     expect(result).toEqual({ ok: true, value: { id: provider.sent[0]?.id, provider: "fake" } });
+  });
+});
+
+describe("sendMail for list mail", () => {
+  const KEY = getRecipientKey("ada@example.org");
+  const QUERY = `r=${KEY}&t=${signRecipientKey(KEY, SECRET)}`;
+  const PAGE = `https://app.example.com/unsubscribe?${QUERY}`;
+  const ONE_CLICK = `https://app.example.com/api/mailing/unsubscribe?${QUERY}`;
+  const NEWSLETTER: OutgoingMail = { ...MAIL, kind: "newsletter" };
+
+  let test: TestMailing;
+  let log: MockInstance<typeof console.error>;
+
+  beforeEach(async () => {
+    test = await createTestMailing();
+    vi.stubEnv("MAILING_UNSUBSCRIBE_SECRET", SECRET);
+    log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  });
+  afterEach(async () => {
+    await test.database.close();
+    vi.unstubAllEnvs();
+    log.mockRestore();
+  });
+
+  const logged = () => log.mock.calls.map((call) => call.join(" ")).join("\n");
+
+  function send(mail: OutgoingMail, provider: MailProvider, options: { locale?: "en" | "pl" } = {}) {
+    return sendMail({ config: createConfig(provider, options), db: test.database.db }, mail);
+  }
+
+  it("adds the footer to both bodies and the RFC 8058 headers next to the mail's own", async () => {
+    const provider = fakeMailProvider();
+    const result = await send({ ...NEWSLETTER, html: "<p>Hello Ada.</p>", headers: { "X-Campaign": "42" } }, provider);
+    expect(result.ok).toBe(true);
+    expect(provider.sent[0]).toMatchObject({
+      to: "ada@example.org",
+      text: ["Hello Ada, here is your summary.", "", "-- ", "Don't want these emails? Unsubscribe here:", PAGE].join("\n"),
+      html: `<p>Hello Ada.</p>\n<p>Don't want these emails? <a href="${PAGE.replaceAll("&", "&amp;")}">Unsubscribe</a></p>`,
+      headers: { "X-Campaign": "42", "List-Unsubscribe": `<${ONE_CLICK}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" },
+    });
+    expect(log).not.toHaveBeenCalled();
+  });
+
+  it("writes the footer in the app's locale", async () => {
+    const provider = fakeMailProvider();
+    await send(NEWSLETTER, provider, { locale: "pl" });
+    expect(provider.sent[0]?.text).toContain(mailingMessages.pl.footer.text);
+  });
+
+  it("leaves transactional mail as it was, even to a suppressed recipient and without a secret", async () => {
+    await suppressRecipient(test.ctx, "ada@example.org");
+    vi.stubEnv("MAILING_UNSUBSCRIBE_SECRET", "");
+    const provider = fakeMailProvider();
+    expect((await send({ ...MAIL, kind: "transactional" }, provider)).ok).toBe(true);
+    expect((await send(MAIL, provider)).ok).toBe(true);
+    expect(provider.sent.map((mail) => [mail.text, mail.headers])).toEqual([
+      [MAIL.text, {}],
+      [MAIL.text, {}],
+    ]);
+  });
+
+  it("refuses a recipient who unsubscribed, in any spelling, and sends nothing", async () => {
+    await suppressRecipient(test.ctx, "ADA@example.org");
+    const provider = fakeMailProvider();
+    expect(await send({ ...NEWSLETTER, to: "Ada@Example.org" }, provider)).toEqual({ ok: false, error: "mailing.suppressed" });
+    expect(await send({ ...NEWSLETTER, kind: "product-updates" }, provider)).toEqual({ ok: false, error: "mailing.suppressed" });
+    expect(provider.sent).toEqual([]);
+    expect(logged()).toBe(
+      ["mailing: send failed provider=fake reason=suppressed status=none cause=unsubscribed", "mailing: send failed provider=fake reason=suppressed status=none cause=unsubscribed"].join("\n"),
+    );
+  });
+
+  it("sends nothing without the secret, and says which variable is missing", async () => {
+    vi.stubEnv("MAILING_UNSUBSCRIBE_SECRET", SECRET.slice(1));
+    const provider = fakeMailProvider();
+    expect(await send(NEWSLETTER, provider)).toEqual({ ok: false, error: "mailing.unavailable" });
+    expect(provider.sent).toEqual([]);
+    expect(logged()).toBe(
+      [
+        "mailing: list mail needs MAILING_UNSUBSCRIBE_SECRET (at least 32 characters) to sign unsubscribe links",
+        "mailing: send failed provider=fake reason=unavailable status=none cause=no_unsubscribe_secret",
+      ].join("\n"),
+    );
+  });
+
+  it("sends nothing when the suppression list cannot be read, and logs no query", async () => {
+    await test.database.client.query("DROP TABLE mailing.suppressions");
+    const provider = fakeMailProvider();
+    expect(await send(NEWSLETTER, provider)).toEqual({ ok: false, error: "mailing.unavailable" });
+    expect(provider.sent).toEqual([]);
+    expect(logged()).toBe("mailing: send failed provider=fake reason=unavailable status=none cause=suppressions_unreadable");
+  });
+
+  it("never logs the address or the link", async () => {
+    await suppressRecipient(test.ctx, "ada@example.org");
+    await send(NEWSLETTER, fakeMailProvider());
+    expect(logged()).not.toMatch(/ada|example\.org|unsubscribe\?/);
+  });
+
+  it("throws for list mail without the database handle: that is a wiring bug", async () => {
+    await expect(sendMail({ config: createConfig(fakeMailProvider()) }, NEWSLETTER)).rejects.toThrow(
+      "@softure-ai/mailing: list mail needs the database handle; call sendMail({ config, db }, ...)",
+    );
   });
 });

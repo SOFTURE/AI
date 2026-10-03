@@ -15,7 +15,7 @@ Every non-transactional mail carries an HMAC-signed unsubscribe link and RFC 805
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **EN-2** (roadmap `engagement`, main since 2026-10-03):
+From [`roadmap.md`](../../foundation/roadmap.md), item **EN-2** (roadmap `engagement`, main since 2026-10-03):
 
 > ### EN-2: Signed one-click unsubscribe and suppressions
 > - **Change ID:** `mailing-unsubscribe`
@@ -27,8 +27,8 @@ From [`roadmap.md`](../../../foundation/roadmap.md), item **EN-2** (roadmap `eng
 > - **Baseline:** FIRE: signed links and headers exist, suppression is a column on its waitlist table. After: suppression works for any mail kind, covered by unit tests and an e2e one-click scenario.
 > - **PRD refs:** FR-16, NFR-5.
 
-Reference material: [`docs/02-module-standard.md`](../../../../docs/02-module-standard.md) (the standard),
-[`docs/01-module-assessment.md`](../../../../docs/01-module-assessment.md) (source map in FIRE_TRACKER).
+Reference material: [`docs/02-module-standard.md`](../../../docs/02-module-standard.md) (the standard),
+[`docs/01-module-assessment.md`](../../../docs/01-module-assessment.md) (source map in FIRE_TRACKER).
 
 ## Constraints
 

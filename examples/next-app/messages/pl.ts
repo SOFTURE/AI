@@ -50,6 +50,8 @@ export const pl: AppMessages = {
     body: "To jest wiadomość testowa z przykładowej aplikacji SOFTURE.",
     submit: "Wyślij mi wiadomość testową",
     sent: "Wiadomość testowa wysłana na Twój adres",
+    newsletterLabel: "Wyślij jako newsletter",
+    newsletterHint: "Poczta do listy: dostaje odnośnik do wypisania i nie wychodzi, gdy się wypiszesz.",
   },
   switches: {
     welcomeBanner: {
@@ -70,6 +72,7 @@ export const pl: AppMessages = {
     "mailing.invalid_input": "Tej wiadomości nie da się wysłać. Sprawdź temat i spróbuj ponownie.",
     "mailing.rejected": "Usługa pocztowa odrzuciła tę wiadomość.",
     "mailing.unavailable": "Usługa pocztowa nie odpowiada. Spróbuj ponownie za chwilę.",
+    "mailing.suppressed": "Ten adres wypisał się z newslettera, więc nic nie wysłano.",
     "core.unexpected": "Coś poszło nie tak. Spróbuj ponownie.",
   },
 };

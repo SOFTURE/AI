@@ -48,6 +48,8 @@ export const en = {
     body: "This is a test mail from the SOFTURE example app.",
     submit: "Send me a test mail",
     sent: "Test mail sent to your address",
+    newsletterLabel: "Send it as a newsletter",
+    newsletterHint: "List mail: it gets an unsubscribe link and is not sent once you unsubscribe.",
   },
   switches: {
     welcomeBanner: {
@@ -68,6 +70,7 @@ export const en = {
     "mailing.invalid_input": "This message cannot be sent. Check the subject and try again.",
     "mailing.rejected": "The mail service refused this message.",
     "mailing.unavailable": "The mail service is not answering. Try again in a moment.",
+    "mailing.suppressed": "You unsubscribed from newsletters, so nothing was sent.",
     "core.unexpected": "Something went wrong. Try again.",
   },
 };
