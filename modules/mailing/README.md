@@ -1,13 +1,15 @@
 # @softure-ai/mailing
 
-**Status:** wave 2 · transport (EN-1) and unsubscribe (EN-2) · the delivery ledger with campaigns
-(EN-3) comes next.
+**Status:** wave 2 · transport (EN-1), unsubscribe (EN-2), delivery ledger, campaigns and sender DNS
+check (EN-3).
 
 Sends one mail to one recipient through a provider adapter and answers with a typed result, never a
 throw. Ported from FIRE_TRACKER `src/lib/mail.ts` (a hand-written Resend `fetch`, plain text only),
 with the sender, reply-to, provider and timeout taken from configuration, an HTML body, and a fake
 provider for tests. List mail gets signed one-click unsubscribe (RFC 8058) and a suppression list,
-ported from FIRE_TRACKER `src/lib/unsubscribe-*.ts` and `/wypisz`.
+ported from FIRE_TRACKER `src/lib/unsubscribe-*.ts` and `/wypisz`. A delivery ledger sends a mail
+at most once per scope and recipient, and `softure-mail` sends campaigns from a content file where
+FIRE ran deployment-specific scripts.
 
 ## 1. What it provides
 
@@ -34,6 +36,11 @@ ported from FIRE_TRACKER `src/lib/unsubscribe-*.ts` and `/wypisz`.
 - `@softure-ai/mailing/server`: `isSuppressed(ctx, address)`, `suppressRecipient(ctx, address)` (for
   scripts, bounce or complaint handlers), `unsubscribe(ctx, token, source)`, `buildUnsubscribeLinks`,
   `getRecipientKey`, and the footer and header helpers.
+- **Sending once.** `deliverOnce(ctx, { scope, mail })` (`/server`, and `deliverOnce({ scope, mail })`
+  in `/next`) sends a mail at most once per scope and recipient through the delivery ledger.
+- **Campaigns.** `sendCampaign`, `planCampaign` and the content file parser in `/server`; the
+  `softure-mail campaign` command sends a campaign from a content file.
+- **Sender DNS.** `checkSenderDns(domain)` and `softure-mail dns` report SPF, DKIM and DMARC.
 - The `MailProvider` contract and `resend()`, the first adapter.
 - `@softure-ai/mailing/testing`: `fakeMailProvider()` and `readMailOutbox(file)`.
 
@@ -80,6 +87,89 @@ links. The one-click route takes a mail client's POST without a session, verifie
 the database and answers 200 (recorded, also again), 400 (link does not verify) or 500 (database
 failure, so the client retries); a GET redirects to the page. The whole link is a credential: it is
 never logged.
+
+### Sending once: the delivery ledger
+
+`deliverOnce` claims a row in `mailing.deliveries` for the scope and the recipient before it calls
+`sendMail`, and closes it with one outcome. A second call for the same scope and recipient (any
+case or spacing of the address) sends nothing:
+
+```ts
+import { deliverOnce } from "@softure-ai/mailing/next";
+
+const outcome = await deliverOnce({
+  scope: `billing.trial-ending:${subscription.id}`,
+  mail: { to: user.email, subject, text, kind: "account-notices" },
+});
+```
+
+| Outcome | Meaning |
+| --- | --- |
+| `{ status: "sent", id }` | sent now |
+| `{ status: "rejected", reason }` | refused now, for good: `mailing.suppressed`, `rejected`, `invalid_input`, or `unavailable` on the last attempt |
+| `{ status: "done", outcome }` | an earlier call closed it (`sent` or `rejected`); nothing sent |
+| `{ status: "in-flight" }` | another sender holds a fresh claim; nothing sent |
+| `{ status: "retry-later" }` | the provider was unavailable; the claim is released, call again later |
+
+- **Scopes** name what the mail is about and are the only registration a lifecycle mail needs:
+  `<module>.<event>:<entity>` (`billing.trial-ending:sub_42`, `waitlist.welcome:<signup id>`).
+  Lowercase letters, digits and `._:-`, at most 128 characters. Campaigns use `campaign:<id>`.
+- **Idempotency key.** The ledger sends with `<scope>:<recipient key>`; callers do not pass one.
+- **Retries.** `unavailable` releases the claim (`pending`); the fifth attempt (`maxAttempts`) that
+  is still unavailable closes the row as `rejected`. A process that dies between the send and the
+  outcome leaves a claim; after 15 minutes (`staleClaimMs`) another call takes it over and sends
+  again with the same idempotency key, which the provider folds into the first send while it keeps
+  the key (Resend: 24 hours). Outcomes are fenced by the attempt number, so a sender that lost its
+  claim cannot overwrite the one that took over.
+- A malformed scope or kind throws (a bug); a database failure propagates.
+
+### Campaigns: `softure-mail campaign`
+
+A campaign is one list mail to many recipients through the ledger. The content file is frontmatter
+and a plain-text body; `html` (optional) names a file next to it:
+
+```text
+---
+id: 2026-10-launch
+kind: newsletter
+subject: Something new in Plan
+html: launch.html
+---
+Hello,
+
+we shipped something.
+```
+
+```bash
+softure-mail campaign launch.md --recipients recipients.txt --dry-run   # counts, sends nothing
+softure-mail campaign launch.md --recipients recipients.txt              # sends
+```
+
+- The recipients file holds one address per line (`#` comments and blank lines skipped).
+- The command loads `softure.config.*` like `softure migrate` (or `--config <file>`), opens its own
+  database connection (`database.url`) and needs `MAILING_UNSUBSCRIBE_SECRET` (campaigns are list
+  mail). Run `softure migrate` first.
+- Sends go one at a time with a 500 ms pause (`--pause-ms`; Resend allows 2 requests per second by
+  default). Unsubscribed recipients are rejected without a send and never retried.
+- **Re-runs are safe.** Recipients with an outcome are skipped; the command exits 1 while some have
+  none yet (`retry later`, `in flight`): run the same command again. `mailing.campaigns` pins the
+  content by hash: other content under the same id is refused, so a changed campaign needs a new id.
+- From a script (a bundled container, a list built from the database), call
+  `runMailCli({ config, argv })` from `@softure-ai/mailing/cli`, or `sendCampaign(ctx, { campaign,
+  recipients })` from `/server`, where `recipients` may be an async iterable.
+
+### Sender DNS check: `softure-mail dns`
+
+```bash
+softure-mail dns                                       # the domain of `from` in the config
+softure-mail dns --domain mail.example.com --spf-host send.mail.example.com
+```
+
+It reads TXT records and reports each check as `pass`, `warn` or `fail`, exiting 1 on any `fail`:
+SPF (one `v=spf1` record on the domain or each `--spf-host`; `+all` warns), DKIM (a non-empty `p=`
+at `<selector>._domainkey.<domain>`; selector `resend` unless `--dkim-selector` is given) and DMARC
+(`_dmarc.<domain>` or a parent domain's record; `p=none` warns: it only reports). Resend publishes
+SPF on `send.<domain>`. It cannot see whether the provider signs with the published key.
 
 ## 2. Installation
 
@@ -160,9 +250,11 @@ Schema `mailing`, applied by `softure migrate`:
 | Migration | Table | What it holds |
 | --- | --- | --- |
 | `0001_create_suppressions.sql` | `mailing.suppressions` | `recipient_key` (primary key, 43-character base64url), `source` (`one-click`, `page`, `operator`), `created_at`. One row per address, the first opt-out kept. |
+| `0002_create_campaigns_and_deliveries.sql` | `mailing.campaigns` | `id` (kebab-case), `kind` (never `transactional`), `subject`, `content_hash` (sha256 of kind, subject and bodies), `created_at`. |
+| | `mailing.deliveries` | primary key (`scope`, `recipient_key`), `kind`, `campaign_id` (then `scope` is `campaign:<id>`), `status` (`pending`, `claimed`, `sent`, `rejected`), `attempts`, `claimed_at`, `finished_at`, `provider_message_id` (exactly when sent), `reason` (exactly when rejected). |
 
-The health check (`checkSuppressionsTable`) runs `select 1 from mailing.suppressions limit 0`.
-The delivery ledger (EN-3) adds its tables to the same schema.
+The health check (`checkMailingTables`) runs `select 1 from mailing.<table> limit 0` for the three
+tables.
 
 ## 6. Environment variables
 
@@ -209,13 +301,18 @@ vanish. The example app sets `MAIL_OUTBOX` for its e2e (`examples/next-app/e2e/m
 Addresses and content go to the provider only; never to logs or results. The suppression list
 stores a SHA-256 of the address, not the address: pseudonymous data (it can be matched against a
 known address), kept after an account is deleted because it records the person's objection to
-mail. So the module neither exports nor deletes per user (`privacy: { exports: false, deletes: false }`).
+mail. The delivery ledger also stores recipient keys, never addresses, and campaigns hold no
+personal data. So the module neither exports nor deletes per user (`privacy: { exports: false, deletes: false }`).
 
 ## 12. Limitations
 
 - One recipient per call; no cc, bcc or attachments.
-- No retries: the caller retries `unavailable` with the same `idempotencyKey` (Resend keeps keys for
-  24 hours). The delivery ledger (EN-3) will make campaign sends exactly-once.
+- `sendMail` does not retry: the caller retries `unavailable` with the same `idempotencyKey` (Resend
+  keeps keys for 24 hours), or uses `deliverOnce`, which keeps the state between runs.
+- Exactly-once ends where the provider's idempotency window ends: a sender that dies after the
+  provider accepted a mail and before the outcome was written, with the row taken over more than
+  24 hours later, sends that mail twice. No delivery, bounce or complaint webhooks yet.
+- Campaigns have no personalisation, scheduling or markdown: the body is sent as written.
 - Suppression is global per address: no per-list preferences and no resubscribe flow yet. To let a
   person back in, delete their row (`getRecipientKey(address)`).
 - Lowercasing the whole address merges `Ada@` and `ada@` (allowed to differ by RFC 5321, never in

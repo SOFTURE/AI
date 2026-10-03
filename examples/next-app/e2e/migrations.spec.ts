@@ -11,6 +11,7 @@ test("the page lists the ledger and the module migrations applied by softure mig
     "feature-switches 1 create_switches (applied)",
     "guestbook 1 create_entries (applied)",
     "mailing 1 create_suppressions (applied)",
+    "mailing 2 create_campaigns_and_deliveries (applied)",
     "mcp-access 1 create_access_tokens (applied)",
     "privacy 1 create_consents (applied)",
     "security 1 create_rate_limits (applied)",

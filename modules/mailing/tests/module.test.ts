@@ -18,9 +18,9 @@ describe("the mailing module", () => {
     expect(mailing.manifest.version).toBe(manifest.version);
   });
 
-  it("keeps its suppression list in the mailing schema and needs no other module", () => {
+  it("keeps its suppression list, campaigns and delivery ledger in the mailing schema and needs no other module", () => {
     expect(mailing.manifest.dbSchema).toBe("mailing");
-    expect(mailing.manifest.tables).toEqual(["suppressions"]);
+    expect(mailing.manifest.tables).toEqual(["suppressions", "campaigns", "deliveries"]);
     expect(mailing.manifest.dependsOn).toEqual({});
   });
 
@@ -134,12 +134,20 @@ describe("the suppressions table", () => {
 });
 
 describe("the mailing health check", () => {
-  it("passes once the table exists and throws without it", async () => {
+  it("passes once the tables exist", async () => {
     const test = await createTestMailing();
     try {
       expect(await mailing({ from: FROM, provider: fakeMailProvider() }).health?.(test.ctx)).toEqual({ ok: true, value: undefined });
-      await test.database.client.query("DROP TABLE mailing.suppressions");
-      await expect(mailing({ from: FROM, provider: fakeMailProvider() }).health?.(test.ctx)).rejects.toThrow(/mailing\.suppressions/);
+    } finally {
+      await test.database.close();
+    }
+  });
+
+  it.each(["suppressions", "deliveries", "campaigns"])("throws without mailing.%s", async (table) => {
+    const test = await createTestMailing();
+    try {
+      await test.database.client.query(`DROP TABLE mailing.${table} CASCADE`);
+      await expect(mailing({ from: FROM, provider: fakeMailProvider() }).health?.(test.ctx)).rejects.toThrow(new RegExp(`mailing\\.${table}`));
     } finally {
       await test.database.close();
     }

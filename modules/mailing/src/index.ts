@@ -1,11 +1,12 @@
 // Public API of @softure-ai/mailing: the module factory for softure.config.ts, the provider
-// contract, the Resend adapter, types, messages and the suppressions table. Sending and the
-// suppression list are in `@softure-ai/mailing/server` (and `/next` on the registered config,
-// with the unsubscribe page and one-click route); the fake provider for tests is in `/testing`.
+// contract, the Resend adapter, types, messages and the tables. Sending, the suppression list, the
+// delivery ledger and campaigns are in `@softure-ai/mailing/server` (and `/next` on the registered
+// config, with the unsubscribe page and one-click route); the `softure-mail` command is in `/cli`;
+// the fake provider for tests is in `/testing`.
 import { defineModule, resolveMigrationsDir } from "@softure-ai/core";
 import { mailingMessages } from "./messages/index.js";
 import { mailingOptionsSchema } from "./options.js";
-import { checkSuppressionsTable } from "./server/health.js";
+import { checkMailingTables } from "./server/health.js";
 
 export const MODULE_ID = "mailing";
 
@@ -19,7 +20,7 @@ export const mailing = defineModule({
     version: "0.0.0",
     dependsOn: {},
     dbSchema: "mailing",
-    tables: ["suppressions"],
+    tables: ["suppressions", "campaigns", "deliveries"],
     env: [
       {
         name: "RESEND_API_KEY",
@@ -49,7 +50,7 @@ export const mailing = defineModule({
   messages: mailingMessages,
   options: mailingOptionsSchema,
   migrations: { dir: resolveMigrationsDir(import.meta.url, "../migrations/") },
-  health: checkSuppressionsTable,
+  health: checkMailingTables,
 });
 
 export {
@@ -79,4 +80,4 @@ export type {
 export { getMailingErrorMessage, mailingMessages, type MailingMessages } from "./messages/index.js";
 export { DEFAULT_TIMEOUT_MS, type MailingOptions, type MailingOptionsInput } from "./options.js";
 export { resend, RESEND_API_KEY_ENV, RESEND_ENDPOINT, type ResendOptions } from "./providers/resend.js";
-export { mailingSchema, suppressions } from "./schema.js";
+export { campaigns, deliveries, mailingSchema, suppressions, type DeliveryStatus } from "./schema.js";
