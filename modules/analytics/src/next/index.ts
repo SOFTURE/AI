@@ -1,5 +1,5 @@
 // The Next.js adapter: the request's channel for actions, hooks and pages, the funnel endpoint and
-// the funnel steps for pages.
+// the funnel steps for pages. `<ChannelKeeper />` has its own entry point, `/next/channel-keeper`.
 export {
   attributeRegistration,
   countRegistration,

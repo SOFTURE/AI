@@ -1,5 +1,6 @@
 // The analytics options of the running app, read from the configuration.
 import { getModule, type SoftureConfig } from "@softure-ai/core";
+import type { ChannelRule } from "../client/channel-keeper.js";
 import type { AnalyticsOptions, ChannelOptions } from "../options.js";
 
 const MODULE_ID = "analytics";
@@ -21,6 +22,12 @@ export function getAnalyticsOptions(config: SoftureConfig): AnalyticsOptions {
 
 export function getChannelOptions(config: SoftureConfig): ChannelOptions {
   return getAnalyticsOptions(config).channel;
+}
+
+/** The channel options as plain values for the browser (`<ChannelKeeper />`). Throws when the module is not enabled. */
+export function getChannelRule(config: SoftureConfig): ChannelRule {
+  const { param, pattern, maxLength } = getChannelOptions(config);
+  return { param, pattern: pattern.source, flags: pattern.flags, maxLength };
 }
 
 /** The path of the funnel endpoint (`routes.funnel`, `/api/analytics/funnel` by default). */

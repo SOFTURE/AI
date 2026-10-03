@@ -9,7 +9,8 @@ import { getWaitlistErrorMessage, type WaitlistMessages } from "../messages/inde
 
 // The waitlist form: an email field, one checkbox per consent scope and the submit button. It
 // submits straight to its server action through `useActionState`, so it works before (and without)
-// JavaScript; after a sign-up it shows the confirmation instead of the form. Copy comes from the
+// JavaScript; after a sign-up it shows the confirmation (or, with double opt-in, where to confirm)
+// instead of the form. Copy comes from the
 // module's messages and the scope labels the server prepared; styling only from @softure-ai/ui.
 
 export type WaitlistFormAction = (previous: WaitlistFormState, formData: FormData) => Promise<WaitlistFormState>;
@@ -47,11 +48,11 @@ const DEFAULT_CLASSES: Readonly<Record<WaitlistFormSlot, string>> = {
 export function WaitlistForm({ action, scopes, placement, messages, locale, classNames, unstyled }: WaitlistFormProps) {
   const [state, formAction, isPending] = useActionState(action, INITIAL_WAITLIST_FORM_STATE);
   const slot = createSlotClassGetter({ defaults: DEFAULT_CLASSES, classNames, unstyled });
-  if (state.status === "ok") {
+  if (state.status === "ok" || state.status === "confirmation_sent") {
     return (
       <div className={slot("root")}>
         <p role="status" className={slot("notice")}>
-          {messages.form.success}
+          {state.status === "ok" ? messages.form.success : messages.form.confirmationSent}
         </p>
       </div>
     );

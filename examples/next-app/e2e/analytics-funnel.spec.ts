@@ -65,10 +65,8 @@ test("a tagged visit is counted on the home page, at sign-up and on the account 
 
   await page.goto(`/login?z=${channel}`);
   await register(page, `e2e-funnel-${randomUUID()}@example.com`);
-  await expect.poll(() => readCounts(channel)).toEqual({ landing: 1, signup: 1 });
-  // The register action's redirect to /account drops the tag (FU-7), so that view counts without a
-  // channel; a tagged view of the account page counts under it.
-  await page.goto(`/account?z=${channel}`);
+  // The register action's redirect to /account renders without the tag; <ChannelKeeper /> in the
+  // layout puts it back before the account page's beacon runs, so that view counts under it.
   await expect.poll(() => readCounts(channel)).toEqual({ landing: 1, signup: 1, account: 1 });
 
   const cookies = await context.cookies();

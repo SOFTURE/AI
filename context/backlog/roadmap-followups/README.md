@@ -17,9 +17,8 @@ share files run in one lane (see the roadmap's Order), so `dependency` below nam
 | EN-9 | [`engagement-release`](engagement-release/change.md) | Engagement modules release (carried over) | the owner at the keyboard (batch on 2026-10-05) | owner |
 | MO-6 | [`monetization-release`](monetization-release/change.md) | Monetization modules release (carried over) | the owner at the keyboard (batch on 2026-10-05) | owner |
 | MK-8 | [`marketing-kit-release`](marketing-kit-release/change.md) | marketing-kit release (carried over) | the owner at the keyboard (batch on 2026-10-05) | owner |
-| FU-2 | [`waitlist-double-opt-in`](waitlist-double-opt-in/change.md) | Waitlist double opt-in | FU-3 on main | dependency |
 | FU-4 | [`waitlist-welcome-html`](waitlist-welcome-html/change.md) | HTML welcome mail for the waitlist | FU-2 on main | dependency |
-| FU-5 | [`analytics-client-navigation`](analytics-client-navigation/change.md) | Channel tag on client navigations without Next-Url | roadmap promoted | start |
+| FU-5 | [`analytics-client-navigation`](../../archive/2026-10-03-analytics-client-navigation/change.md) | Channel tag on client navigations without Next-Url | archived 2026-10-03 | start |
 | FU-6 | [`billing-reminder-mail`](billing-reminder-mail/change.md) | Reminder mail before access ends | FU-9 on main | dependency |
 | FU-7 | [`analytics-action-redirect-tag`](analytics-action-redirect-tag/change.md) | Channel tag kept through server action redirects | FU-1 and FU-5 on main | dependency |
 | FU-8 | [`waitlist-funnel-hook`](waitlist-funnel-hook/change.md) | Waitlist sign-ups as a funnel step | FU-4 on main | dependency |

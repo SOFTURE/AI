@@ -28,6 +28,14 @@ zone moved into configuration and the report turned into a function.
     307 to the same URL plus the tag. Fetches, images, beacons and server actions pass untouched.
   - `carry(request, response)`: a same-origin redirect another proxy piece answered with (auth's
     guard sending `/account?z=ads` to login) gets the request's channel added to its `Location`.
+- **The tag on client navigations** (`/next/channel-keeper`, `<ChannelKeeper />` in the root
+  layout): the proxy cannot recognise every Next.js client navigation (Next strips its router
+  headers before the proxy runs, and a route served from the router's cache sends no request), so a
+  small client component remembers the last valid tag seen in the address bar and puts it back with
+  `history.replaceState` when a navigation (`next/link`, `router.push`, a server action's redirect,
+  a `replaceState` from the page) lands without the parameter. It runs before the page's own
+  effects, so a beacon already sends the tagged page. It stores nothing; `createChannelKeeper(rule)`
+  (`/client`) is its logic and `getChannelRule(config)` (`/server`) its options as plain values.
 - **The channel for the app** (`/next`): `getChannel()` in server actions, route handlers and
   hooks (read from the page the request was sent from), `getChannelFromSearchParams()` in pages.
 - **Attribution of sign-ups**: `attributeRegistration(onChannel)` is an `onRegistered` hook for
@@ -140,6 +148,20 @@ export function proxy(request: NextRequest): Response {
 }
 ```
 
+The keeper, once in the root layout (inside `<body>`; it renders nothing and wraps itself in
+`<Suspense>`). It has its own entry point because its client part imports `next/navigation`, which
+plain Node (and so `softure migrate` loading `softure.config.ts`) cannot load from `/next`:
+
+```tsx
+// app/layout.tsx
+import { ChannelKeeper } from "@softure-ai/analytics/next/channel-keeper";
+
+<body>
+  <ChannelKeeper />
+  {children}
+</body>
+```
+
 `createChannelTagger` throws at startup when `analytics()` is not in the configuration. Keep the
 proxy's `matcher` on pages (static files excluded); API routes the matcher reaches are not
 navigations, so `tag` passes them.
@@ -220,19 +242,21 @@ belong to the app's own privacy contributor.
   `same-origin` and the browser default keep it.
 - **First party only.** A hop through another origin (a payment provider, a mail link) loses the
   tag unless the app puts it on the return URL itself (`withChannel`).
-- **Client navigations are recognised by `Next-Url`.** Next.js strips its `RSC` header before the
-  proxy runs, so a router request counts as a navigation when it carries the `Next-Url` header the
-  router sends; a client navigation without it is not re-tagged, and the next page load or link
-  from a tagged URL puts the tag back.
-- **Client-side state.** A page that changes its URL without a navigation (`history.replaceState`
-  dropping the query) drops the tag for the next request.
+- **A client navigation the proxy misses renders untagged on the server.** The proxy re-tags a
+  router request that carries `Next-Url`; one without it (or served from the router's cache) is
+  tagged by `<ChannelKeeper />` in the browser after it renders, so that page's own server render
+  (`getChannelFromSearchParams`) reads no channel. Actions, beacons and later pages see it. Without
+  `<ChannelKeeper />` (or without JavaScript) such navigations stay untagged.
+- **The keeper puts a dropped tag back.** A page that removes the parameter with
+  `history.replaceState` gets it back; only another valid tag (or an invalid value, which ends the
+  chain) replaces it.
 - **Last tag wins.** A URL with its own tag replaces the earlier one; there is no first-touch memory
   without storage.
 - `getChannel()` reads the page the request came from; a page's own render reads its
   `searchParams` instead.
-- **A server action's redirect drops the tag.** After sign-up, auth's redirect to `afterLogin`
-  opens without `?z=`, so steps after it count without a channel until a tagged page is opened
-  (FU-7). The sign-up step itself is attributed.
+- **A server action's redirect renders untagged on the server.** After sign-up, auth's redirect to
+  `afterLogin` is rendered without `?z=`; `<ChannelKeeper />` tags it in the browser before the
+  page's beacon runs, but that render (and a client without JavaScript) sees no channel (FU-7).
 - **Waitlist sign-ups are not a step yet.** The waitlist has no hook to count them from (FU-8);
   the funnel never reads another module's table.
 - **The funnel is a noise filter, not a defence.** Its endpoint checks that a request comes from one

@@ -1,21 +1,26 @@
 "use server";
 
-// The join action of the waitlist form. It identifies the client and counts its attempt (inside
-// `joinWaitlist`) before any work, answers the same for a new and a known address, and sends the
-// welcome mail after the response, so neither the mail's time nor its failure shows in the answer.
-// Unexpected failures become `safeError` codes. Next refuses an action whose Origin does not match
-// the host.
-import { errorLogLabel, safeError } from "@softure-ai/core";
+// The waitlist's server actions: the form's join and the confirmation page's confirm. Each
+// identifies the client and counts its attempt (inside the server function) before any work. The
+// join answers the same for a new and a known address and sends its mail (the welcome mail, or the
+// confirmation link with double opt-in) after the response, so neither the mail's time nor its
+// failure shows in the answer. Unexpected failures become `safeError` codes. Next refuses an action
+// whose Origin does not match the host.
+import { errorLogLabel, safeError, type SoftureConfig } from "@softure-ai/core";
 import { getSoftureConfig } from "@softure-ai/core/next";
 import { identifyClient } from "@softure-ai/security/server";
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { after } from "next/server";
 import type { WaitlistFormErrorCode, WaitlistFormState } from "../contract.js";
 import { EMAIL_FIELD, getScopeFieldName, PLACEMENT_FIELD } from "../fields.js";
-import { getWaitlistOptions } from "../server/options.js";
-import { joinWaitlist } from "../server/signups.js";
+import { CONFIRMATION_TOKEN_PARAM, deliverConfirmationMail } from "../server/confirmation-mail.js";
+import { getWaitlistOptions, getWaitlistRoutes } from "../server/options.js";
+import { confirmSignup, joinWaitlist } from "../server/signups.js";
 import { deliverWelcomeMail } from "../server/welcome-mail.js";
+import type { WaitlistSignup } from "../contract.js";
 import { getWaitlistContext } from "./context.js";
+import { CONFIRM_STATUS_PARAM, type ConfirmStatus } from "./params.js";
 
 /** Longer values are cut: the server functions refuse them anyway, and nothing huge is echoed back. */
 const MAX_FIELD_LENGTH = 512;
@@ -52,7 +57,24 @@ export async function joinWaitlistAction(_previous: WaitlistFormState, formData:
     return { status: "error", error: result.error, ...(field === undefined ? {} : { field }), ...echo };
   }
 
-  const { signup } = result.value;
+  const joined = result.value;
+  if (joined.status === "confirmation_required") {
+    after(async () => {
+      try {
+        const sent = await deliverConfirmationMail(await getWaitlistContext(config), joined.signup, joined.token);
+        if (!sent.ok) console.error(`@softure-ai/waitlist: the confirmation mail was refused: ${sent.error}`);
+      } catch (error) {
+        reportFailure("the confirmation mail", error);
+      }
+    });
+    return { status: "confirmation_sent" };
+  }
+  sendWelcomeMailAfter(config, joined.signup);
+  return { status: "ok" };
+}
+
+/** Sends the welcome mail after the response; it goes out once per sign-up whoever calls. */
+function sendWelcomeMailAfter(config: SoftureConfig, signup: WaitlistSignup): void {
   after(async () => {
     try {
       const outcome = await deliverWelcomeMail(await getWaitlistContext(config), signup);
@@ -62,5 +84,36 @@ export async function joinWaitlistAction(_previous: WaitlistFormState, formData:
       reportFailure("the welcome mail", error);
     }
   });
-  return { status: "ok" };
+}
+
+/**
+ * The confirmation page's action: confirms the link's request and redirects to the page's outcome.
+ * No session is involved: the link's token is the authorization. A failure that a retry can fix
+ * keeps the token in the redirect, so the button comes back.
+ */
+export async function confirmSignupAction(formData: FormData): Promise<void> {
+  const config = getSoftureConfig();
+  const token = readText(formData, CONFIRMATION_TOKEN_PARAM);
+  let status: ConfirmStatus;
+  const client = identifyClient({ config }, await headers());
+  if (!client.ok) {
+    status = "failed";
+  } else {
+    try {
+      const result = await confirmSignup(await getWaitlistContext(config), { token, clientKey: client.value });
+      if (result.ok) {
+        status = "done";
+        sendWelcomeMailAfter(config, result.value.signup);
+      } else {
+        status = result.error === "security.rate_limited" ? "limited" : result.error === "waitlist.confirmation_expired" ? "expired" : "invalid";
+      }
+    } catch (error) {
+      // The label names the kind of failure, never its text: that can carry the token.
+      console.error(`@softure-ai/waitlist: confirming a sign-up failed: ${errorLogLabel(error)}`);
+      status = "failed";
+    }
+  }
+  const query = new URLSearchParams({ [CONFIRM_STATUS_PARAM]: status });
+  if (status === "failed" || status === "limited") query.set(CONFIRMATION_TOKEN_PARAM, token);
+  redirect(`${getWaitlistRoutes(config).confirm}?${query.toString()}`);
 }

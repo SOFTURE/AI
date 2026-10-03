@@ -27,6 +27,7 @@ describe("the waitlist module", () => {
       scopes: [{ id: "launch", required: false, label: LABEL }],
       placements: ["default"],
       welcomeMail: true,
+      doubleOptIn: null,
     });
     expect(waitlist(OPTIONS).options.scopes.map((scope) => [scope.id, scope.required, scope.document])).toEqual([
       ["launch", true, "privacy-policy"],
@@ -57,6 +58,21 @@ describe("the waitlist module", () => {
     expect(() => waitlist({ scopes: [{ id: "news", label: LABEL }, { id: "news", label: LABEL }], placements: ["hero", "hero"] })).toThrow(
       ['- options.scopes.1.id: "news" is listed twice', '- options.placements.1: "hero" is listed twice'].join("\n"),
     );
+  });
+
+  it("parses double opt-in to null or its link expiry, 7 days unless set", () => {
+    const scopes = [{ id: "launch", label: LABEL }];
+    expect(waitlist({ scopes, doubleOptIn: false }).options.doubleOptIn).toBeNull();
+    expect(waitlist({ scopes, doubleOptIn: true }).options.doubleOptIn).toEqual({ expiresInHours: 168 });
+    expect(waitlist({ scopes, doubleOptIn: {} }).options.doubleOptIn).toEqual({ expiresInHours: 168 });
+    expect(waitlist({ scopes, doubleOptIn: { expiresInHours: 24 } }).options.doubleOptIn).toEqual({ expiresInHours: 24 });
+    expect(() => waitlist({ scopes, doubleOptIn: { expiresInHours: 721 } })).toThrow("options.doubleOptIn.expiresInHours");
+    expect(() => waitlist({ scopes, doubleOptIn: { expiresInHours: 0 } })).toThrow("options.doubleOptIn.expiresInHours");
+  });
+
+  it("declares the confirmation page, whose path the app can move", () => {
+    expect(waitlist({ scopes: [{ id: "launch", label: LABEL }] }).routes).toEqual({ confirm: "/waitlist/confirm" });
+    expect(waitlist({ scopes: [{ id: "launch", label: LABEL }], routes: { confirm: "/join/confirm" } }).routes).toEqual({ confirm: "/join/confirm" });
   });
 
   it("needs security, mailing and privacy in the config", () => {

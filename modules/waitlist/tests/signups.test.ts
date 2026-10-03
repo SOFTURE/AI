@@ -1,7 +1,7 @@
 // Joining the waitlist: a first sign-up, repeat sign-ups that widen the scopes and never narrow
 // them, consents recorded in privacy's ledger, refused forms, rate limits and setup checks.
 import { getEmailKey, recordConsent } from "@softure-ai/privacy/server";
-import { getSignup, joinWaitlist, listSignups, type JoinWaitlistInput } from "@softure-ai/waitlist/server";
+import { getSignup, joinWaitlist, listSignups, type JoinWaitlistInput, type JoinWaitlistResult } from "@softure-ai/waitlist/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { CLIENT, createTestWaitlist, DOCUMENTS, listConsentRows, NOW, type TestWaitlist } from "./support.js";
 
@@ -11,6 +11,11 @@ const JOIN: JoinWaitlistInput = { email: ADA, scopes: ["launch"], placement: "he
 
 async function join(test: TestWaitlist, input: Partial<JoinWaitlistInput> = {}) {
   return joinWaitlist(test.ctx, { ...JOIN, ...input });
+}
+
+/** The scopes a join recorded; undefined when it did not apply the request at once. */
+function getRecordedScopes(result: JoinWaitlistResult): readonly string[] | undefined {
+  return result.ok && result.value.status === "joined" ? result.value.recordedScopes : undefined;
 }
 
 async function countSignups(test: TestWaitlist): Promise<number> {
@@ -31,7 +36,8 @@ describe("joinWaitlist", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.value.isNew).toBe(true);
-    expect(result.value.recordedScopes).toEqual(["launch", "newsletter"]);
+    expect(result.value.status).toBe("joined");
+    expect(getRecordedScopes(result)).toEqual(["launch", "newsletter"]);
     expect(result.value.signup).toEqual({
       id: expect.stringMatching(/^[0-9a-f-]{36}$/) as unknown,
       email: ADA,
@@ -40,6 +46,7 @@ describe("joinWaitlist", () => {
       locale: "en",
       createdAt: NOW,
       updatedAt: NOW,
+      confirmedAt: NOW,
     });
     expect(await getSignup(test.ctx, "ADA@example.com")).toEqual(result.value.signup);
     expect(await listConsentRows(test, getEmailKey(ADA))).toEqual([
@@ -54,6 +61,7 @@ describe("joinWaitlist", () => {
     const second = await join(test, { email: "ADA@example.com", scopes: ["launch", "newsletter"], placement: "footer" });
 
     expect(second.ok && second.value).toEqual({
+      status: "joined",
       signup: { ...(first.ok ? first.value.signup : {}), scopes: ["launch", "newsletter"], updatedAt: LATER },
       isNew: false,
       recordedScopes: ["newsletter"],
@@ -71,7 +79,7 @@ describe("joinWaitlist", () => {
     const again = await join(test, { scopes: ["launch"] });
     expect(again.ok && again.value.signup.scopes).toEqual(["launch", "newsletter"]);
     expect(again.ok && again.value.signup.updatedAt).toEqual(NOW);
-    expect(again.ok && again.value.recordedScopes).toEqual([]);
+    expect(getRecordedScopes(again)).toEqual([]);
     expect(await listConsentRows(test, getEmailKey(ADA))).toHaveLength(2);
   });
 
@@ -80,7 +88,7 @@ describe("joinWaitlist", () => {
     test.clock.set(LATER);
     await recordConsent(test.ctx, { subject: { email: ADA }, purpose: "newsletter", granted: false, source: "account" });
     const again = await join(test, { scopes: ["launch", "newsletter"] });
-    expect(again.ok && again.value.recordedScopes).toEqual(["newsletter"]);
+    expect(getRecordedScopes(again)).toEqual(["newsletter"]);
     expect((await listConsentRows(test, getEmailKey(ADA))).map((row) => [row.purpose, row.granted])).toEqual([
       ["launch", true],
       ["newsletter", true],
@@ -96,7 +104,7 @@ describe("joinWaitlist", () => {
       // The same database under a config whose privacy policy changed.
       const ctx = { ...test.ctx, config: newer.config };
       const again = await joinWaitlist(ctx, JOIN);
-      expect(again.ok && again.value.recordedScopes).toEqual(["launch"]);
+      expect(getRecordedScopes(again)).toEqual(["launch"]);
       expect((await listConsentRows(test, getEmailKey(ADA))).map((row) => row.document_version)).toEqual(["2026-09-01", "2026-12-01"]);
     } finally {
       await newer.database.close();
@@ -197,11 +205,25 @@ describe("the signups table", () => {
   afterEach(() => test.database.close());
 
   const insert = (email: string, scopes: (string | null)[], placement = "hero") =>
-    test.database.client.query("INSERT INTO waitlist.signups (email, scopes, placement, locale, created_at, updated_at) VALUES ($1, $2, $3, 'en', now(), now())", [
-      email,
-      scopes,
-      placement,
-    ]);
+    test.database.client.query(
+      "INSERT INTO waitlist.signups (email, scopes, placement, locale, created_at, updated_at, confirmed_at) VALUES ($1, $2, $3, 'en', now(), now(), now())",
+      [email, scopes, placement],
+    );
+
+  interface ConfirmationColumns {
+    confirmed_at: Date | null;
+    pending_scopes: string[] | null;
+    confirmation_token_hash: string | null;
+    confirmation_expires_at: Date | null;
+  }
+
+  const insertConfirmation = (columns: ConfirmationColumns) =>
+    test.database.client.query(
+      "INSERT INTO waitlist.signups (email, scopes, placement, locale, created_at, updated_at, confirmed_at, pending_scopes, confirmation_token_hash, confirmation_expires_at) VALUES ($1, '{launch}', 'hero', 'en', $2, $2, $3, $4, $5, $6)",
+      [ADA, NOW, columns.confirmed_at, columns.pending_scopes, columns.confirmation_token_hash, columns.confirmation_expires_at],
+    );
+  const HASH = "a".repeat(64);
+  const LINK = { confirmation_token_hash: HASH, confirmation_expires_at: LATER };
 
   it.each([
     ["an address that is not normalised", "Ada@example.com", ["launch"], "hero"],
@@ -214,6 +236,23 @@ describe("the signups table", () => {
     ["a placement that is not kebab-case", ADA, ["launch"], "Hero Banner"],
   ])("refuses %s", async (_case, email, scopes, placement) => {
     await expect(insert(email, scopes, placement)).rejects.toThrow(/check constraint/);
+  });
+
+  it.each<[string, ConfirmationColumns]>([
+    ["an unconfirmed row without a pending request", { confirmed_at: null, pending_scopes: null, ...LINK }],
+    ["a pending request without a link", { confirmed_at: null, pending_scopes: ["launch"], confirmation_token_hash: null, confirmation_expires_at: null }],
+    ["a link without an expiry", { confirmed_at: NOW, pending_scopes: null, confirmation_token_hash: HASH, confirmation_expires_at: null }],
+    ["a token hash that is not sha256 hex", { confirmed_at: null, pending_scopes: ["launch"], confirmation_token_hash: "not-a-hash", confirmation_expires_at: LATER }],
+    ["pending scopes it could not store", { confirmed_at: null, pending_scopes: ["Launch"], ...LINK }],
+    ["a confirmation before the sign-up", { confirmed_at: new Date(NOW.getTime() - 1000), pending_scopes: null, confirmation_token_hash: null, confirmation_expires_at: null }],
+  ])("refuses %s", async (_case, columns) => {
+    await expect(insertConfirmation(columns)).rejects.toThrow(/check constraint/);
+  });
+
+  it("accepts an unconfirmed request, and a confirmed row that keeps its used link", async () => {
+    await insertConfirmation({ confirmed_at: null, pending_scopes: ["launch"], ...LINK });
+    await test.database.client.query("DELETE FROM waitlist.signups");
+    await insertConfirmation({ confirmed_at: NOW, pending_scopes: null, ...LINK });
   });
 
   it("accepts any declared shape the app chooses, and one row per address", async () => {

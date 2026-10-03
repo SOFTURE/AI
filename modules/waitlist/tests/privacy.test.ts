@@ -30,7 +30,7 @@ describe("the waitlist privacy contributor", () => {
     expect(collected.ok).toBe(true);
     if (!collected.ok) return;
     const data = JSON.parse(collected.value.json) as { data: Record<string, unknown> };
-    expect(data.data.waitlist).toEqual({ signup: { scopes: ["launch", "newsletter"], placement: "footer", createdAt: NOW.toISOString(), updatedAt: NOW.toISOString() } });
+    expect(data.data.waitlist).toEqual({ signup: { scopes: ["launch", "newsletter"], placement: "footer", createdAt: NOW.toISOString(), updatedAt: NOW.toISOString(), confirmedAt: NOW.toISOString(), pendingScopes: null } });
     expect((data.data.privacy as { consents: { purpose: string; source: string }[] }).consents.map((consent) => [consent.purpose, consent.source])).toEqual([
       ["launch", "waitlist"],
       ["newsletter", "waitlist"],

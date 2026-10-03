@@ -14,6 +14,10 @@ export interface WaitlistUserData {
     readonly placement: string;
     readonly createdAt: Date;
     readonly updatedAt: Date;
+    /** Null while the first request waits for its confirmation link. */
+    readonly confirmedAt: Date | null;
+    /** The scopes of a request that waits for its link, or null. */
+    readonly pendingScopes: readonly string[] | null;
   } | null;
 }
 
@@ -32,7 +36,14 @@ export async function exportWaitlistUserData(context: ModuleContext, userId: str
   const email = await findAccountEmail(db, userId);
   if (email === null) return ok({ signup: null });
   const [row] = await db
-    .select({ scopes: signups.scopes, placement: signups.placement, createdAt: signups.createdAt, updatedAt: signups.updatedAt })
+    .select({
+      scopes: signups.scopes,
+      placement: signups.placement,
+      createdAt: signups.createdAt,
+      updatedAt: signups.updatedAt,
+      confirmedAt: signups.confirmedAt,
+      pendingScopes: signups.pendingScopes,
+    })
     .from(signups)
     .where(eq(signups.email, email));
   return ok({ signup: row ?? null });

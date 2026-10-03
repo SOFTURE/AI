@@ -1,3 +1,4 @@
+import { ChannelKeeper } from "@softure-ai/analytics/next/channel-keeper";
 import { getPrivacyMessages } from "@softure-ai/privacy/next";
 import { LegalFooter } from "@softure-ai/privacy/ui";
 import { SoftureThemeProvider, ThemeScript, ToastHost } from "@softure-ai/ui";
@@ -22,6 +23,7 @@ export default function RootLayout({ children }: { readonly children: ReactNode 
       </head>
       <body>
         <SoftureThemeProvider>
+          <ChannelKeeper />
           {children}
           <LegalFooter
             links={[
