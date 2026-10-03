@@ -21,6 +21,9 @@ export default async function AccountPage() {
           <ButtonLink href="/account/password" variant="secondary">
             {messages.account.changePassword}
           </ButtonLink>
+          <ButtonLink href="/account/mail" variant="secondary">
+            {messages.account.testMail}
+          </ButtonLink>
           {isAdmin ? (
             <ButtonLink href="/admin" variant="secondary">
               {messages.account.admin}

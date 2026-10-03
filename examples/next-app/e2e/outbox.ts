@@ -1,4 +1,5 @@
-// The file the example's reset sender appends links to while the e2e runs (lib/password-reset-sender.ts).
+// The files the example appends outgoing mail to while the e2e runs: reset links
+// (lib/password-reset-sender.ts) and the fake mail provider's outbox (softure.config.ts).
 import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -7,6 +8,9 @@ import { z } from "zod";
 const outboxLine = z.object({ email: z.string(), link: z.string() });
 
 export const PASSWORD_RESET_OUTBOX = join(tmpdir(), "softure-example-e2e-password-reset-outbox.jsonl");
+
+/** The outbox of the example's fake mail provider (`MAIL_OUTBOX`, softure.config.ts); read with `readMailOutbox`. */
+export const MAIL_OUTBOX = join(tmpdir(), "softure-example-e2e-mail-outbox.jsonl");
 
 /** Every link sent to `email` so far, oldest first. */
 export async function readResetLinks(email: string): Promise<string[]> {
