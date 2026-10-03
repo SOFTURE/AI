@@ -51,7 +51,7 @@ adoption in FIRE_TRACKER follows `docs/05-adoption-playbook.md`.
 | **MO-1** | `billing-entitlements` | `@softure-ai/billing`: trial / paid / read_only state machine in `billing.entitlements`, `requireWriteAccess` | — | autonomous | ready |
 | **MO-2** | `billing-plans-pricing` | plans from config, pricing tiles, payment page and a manual payment adapter that grants entitlements | MO-1 | autonomous | ready |
 | **MO-3** | `billing-provider-adapter` | the chosen provider (Stripe or Przelewy24) behind `PaymentProvider`: checkout, webhooks, entitlement updates | MO-2 | autonomous | blocked (owner decision: Stripe vs Przelewy24) |
-| **MO-4** | `analytics-channel-tags` | `@softure-ai/analytics`: a channel parameter captured, validated and carried across redirects and sign-up | — | autonomous | ready |
+| **MO-4** | `analytics-channel-tags` | `@softure-ai/analytics`: a channel parameter captured, validated and carried across redirects and sign-up | — | autonomous | in_progress (implement 1/2, since 2026-10-03; cloud session, branch `claude/mo-4-analytics-channel-tags-q9v7rh`) |
 | **MO-5** | `analytics-funnel` | daily aggregates (day, channel, step) without cookies or PII, beacon and pixel endpoints, report function | MO-4 | autonomous | ready |
 | **MO-6** | `monetization-release` | billing and analytics 0.1.0 published through the release pipeline; READMEs and docs updated | MO-2, MO-5 | owner | ready |
 
@@ -117,7 +117,7 @@ Risk first: MO-1 (the write guard every paid feature depends on) starts the road
 
 ### MO-4: Channel tags
 - **Change ID:** `analytics-channel-tags`
-- **Status:** ready
+- **Status:** in_progress (implement 1/2, since 2026-10-03; cloud session, branch `claude/mo-4-analytics-channel-tags-q9v7rh`)
 - **Outcome:** A configurable channel parameter (name, pattern, length) read on entry, carried through redirects and the referer, exposed to the app and to auth's `onRegistered` hook for attribution; a composable middleware piece for `proxy.ts` that does not mix with the auth route guard.
 - **Prerequisites:** roadmap-engagement done; met on 2026-10-03.
 - **Unknowns:** Where attribution is stored without a cookie (first-party query propagation only?); interaction with the auth guard ordering in `proxy.ts`.

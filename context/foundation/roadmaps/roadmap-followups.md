@@ -34,6 +34,7 @@ trigger: "every module roadmap (monetization, marketing-kit) is done; the owner 
 | **FU-2** | `waitlist-double-opt-in` | Waitlist double opt-in | — | autonomous | proposed |
 | **FU-3** | `mailing-consent-sync` | Unsubscribe as consent withdrawal | — | autonomous | proposed |
 | **FU-4** | `waitlist-welcome-html` | HTML welcome mail for the waitlist | — | autonomous | proposed |
+| **FU-5** | `analytics-client-navigation` | Channel tag on client navigations without Next-Url | — | autonomous | proposed |
 
 ## Order
 
@@ -64,6 +65,17 @@ trigger: "every module roadmap (monetization, marketing-kit) is done; the owner 
 - **Baseline:** engagement EN-5 `waitlist`: a sign-up counts at once (README §12). After: the gap is closed and covered by unit and e2e tests.
 - **PRD refs:** FR-18, NFR-5.
 - **Source:** `modules/waitlist/README.md` §12
+
+### FU-5: Channel tag on client navigations without Next-Url
+- **Change ID:** `analytics-client-navigation`
+- **Status:** proposed
+- **Outcome:** Every Next.js client navigation from a tagged page keeps the channel tag, without relying on the router's `Next-Url` header (for example a client component of `/next` that re-applies the tag after router navigations, or a link component that adds it).
+- **Prerequisites:** none beyond the main branch.
+- **Unknowns:** Whether Next exposes a stable signal for router requests in the proxy; a client component vs. a link wrapper.
+- **Risk:** LOW.
+- **Baseline:** monetization MO-4 `analytics-channel-tags`: Next strips its `RSC` header before the proxy runs, so the proxy piece recognises a client navigation by the `Next-Url` header the router sends; a navigation without it is not re-tagged (README §12). After: the gap is closed and covered by unit and e2e tests.
+- **PRD refs:** FR-23.
+- **Source:** `modules/analytics/README.md` §12
 
 ### FU-3: Unsubscribe as consent withdrawal
 - **Change ID:** `mailing-consent-sync`

@@ -17,7 +17,7 @@ decision. Inside it, the order follows the dependencies below.
 | MO-1 | [`billing-entitlements`](billing-entitlements/change.md) | Entitlements and the write guard | roadmap promoted | start |
 | MO-2 | [`billing-plans-pricing`](billing-plans-pricing/change.md) | Plans, pricing tiles and the manual payment flow | MO-1 on the main branch | dependency |
 | MO-3 | [`billing-provider-adapter`](billing-provider-adapter/change.md) | Payment provider adapter | MO-2 on the main branch and the owner's provider decision | owner |
-| MO-4 | [`analytics-channel-tags`](analytics-channel-tags/change.md) | Channel tags | roadmap promoted | start |
+| MO-4 | [`analytics-channel-tags`](../../changes/analytics-channel-tags/change.md) (in progress) | Channel tags | roadmap promoted | start |
 | MO-5 | [`analytics-funnel`](analytics-funnel/change.md) | Cookieless funnel counter | MO-4 on the main branch | dependency |
 | MO-6 | [`monetization-release`](monetization-release/change.md) | Monetization modules release | MO-2 and MO-5 on the main branch, and the owner at the keyboard | owner |
 

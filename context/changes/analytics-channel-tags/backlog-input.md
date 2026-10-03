@@ -15,7 +15,7 @@ A configurable channel parameter (name, pattern, length) read on entry, carried 
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **MO-4** (roadmap `monetization`, main since 2026-10-03):
+From [`roadmap.md`](../../foundation/roadmap.md), item **MO-4** (roadmap `monetization`, main since 2026-10-03):
 
 > ### MO-4: Channel tags
 > - **Change ID:** `analytics-channel-tags`
@@ -27,8 +27,8 @@ From [`roadmap.md`](../../../foundation/roadmap.md), item **MO-4** (roadmap `mon
 > - **Baseline:** FIRE mixes channel redirects into its auth proxy. After: unit tests on parsing and propagation, e2e that a tagged visit reaches sign-up with its channel.
 > - **PRD refs:** FR-23.
 
-Reference material: [`docs/02-module-standard.md`](../../../../docs/02-module-standard.md) (the standard),
-[`docs/01-module-assessment.md`](../../../../docs/01-module-assessment.md) (source map in FIRE_TRACKER).
+Reference material: [`docs/02-module-standard.md`](../../../docs/02-module-standard.md) (the standard),
+[`docs/01-module-assessment.md`](../../../docs/01-module-assessment.md) (source map in FIRE_TRACKER).
 
 ## Constraints
 
