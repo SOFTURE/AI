@@ -1,12 +1,12 @@
 ---
 change_id: mk-og-images
 title: "OG images rendered from templates and data outside Next"
-status: in_progress
+status: archived
 roadmap_item: MK-5
 branch: claude/project-thread-of0rsf
 created: 2026-10-02
 updated: 2026-10-03
-archived_at: null
+archived_at: 2026-10-03
 ---
 
 ## Intent
@@ -58,3 +58,4 @@ Reference material: [`docs/03-marketing-kit.md`](../../../docs/03-marketing-kit.
 - Framing: skipped. The outcome, owner directory and contract are fixed by the roadmap item and MK-2;
   nothing is bug-shaped; the design forks (template set, font rules, snapshot form) are settled in
   the plan.
+- Archived 2026-10-03: `softure-marketing og` renders `headline-cta` and `headline-chart` cards with Satori from the brand's fonts, palette and logo; `@softure-ai/marketing-kit/og` serves thin Next routes; glyph coverage is FU-17.
