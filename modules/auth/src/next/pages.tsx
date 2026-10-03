@@ -50,6 +50,7 @@ export async function LoginPage({ searchParams }: AuthPageProps) {
   const next = await readNext(searchParams, routes.afterLogin);
   if ((await getCurrentUser()) !== null) redirect(next);
   const messages = getAuthMessages(config);
+  const isClosed = await isRegistrationClosed(await getAuthContext(config));
   return (
     <AuthLayout title={messages.login.title} lead={messages.login.lead}>
       <LoginForm
@@ -57,7 +58,7 @@ export async function LoginPage({ searchParams }: AuthPageProps) {
         messages={messages}
         locale={config.locale}
         next={next}
-        registerHref={isRegistrationClosed(config) ? undefined : routes.register}
+        registerHref={isClosed ? undefined : routes.register}
         forgotPasswordHref={isPasswordResetEnabled(config) ? routes.forgotPassword : undefined}
         notice={(await readParam(searchParams, PASSWORD_RESET_DONE_PARAM)) === "1" ? messages.resetPassword.success : undefined}
       />
@@ -71,7 +72,7 @@ export async function RegisterPage({ searchParams }: AuthPageProps) {
   const next = await readNext(searchParams, routes.afterLogin);
   if ((await getCurrentUser()) !== null) redirect(next);
   const messages = getAuthMessages(config);
-  if (isRegistrationClosed(config)) {
+  if (await isRegistrationClosed(await getAuthContext(config))) {
     return (
       <AuthLayout title={messages.register.closedTitle} lead={messages.register.closedBody}>
         {null}

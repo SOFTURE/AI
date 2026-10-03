@@ -12,7 +12,10 @@ export const MODULE_ID = "auth";
 /** Name of the runtime switch that closes registration. */
 export const REGISTRATION_CLOSED_SWITCH = "auth.registration_closed";
 
-/** The env override of that switch until `feature-switches` exists: `true`/`1` or `false`/`0`. */
+/**
+ * The env override of that switch: `true`/`1` or `false`/`0` while auth reads it itself. When the app
+ * defines the switch in `@softure-ai/feature-switches`, that module reads the same variable.
+ */
 export const REGISTRATION_CLOSED_ENV = "SOFTURE_SWITCH_AUTH_REGISTRATION_CLOSED";
 
 /**

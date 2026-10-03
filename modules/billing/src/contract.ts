@@ -21,9 +21,12 @@ export type EntitlementStatus = (typeof ENTITLEMENT_STATUSES)[number];
 export interface EntitlementRecord {
   /** The first instant the trial no longer covers. */
   readonly trialEndsAt: Date;
-  /** The first instant paid access no longer covers; null when never paid or revoked. */
+  /**
+   * The first instant dated paid access no longer covers; null when never paid or revoked. Kept
+   * under lifetime access, so a refunded lifetime falls back to the periods bought beside it.
+   */
   readonly paidUntil: Date | null;
-  /** Paid access without an end. `paidUntil` is then null. */
+  /** Paid access without an end; it wins over `paidUntil`. */
   readonly isLifetime: boolean;
 }
 
@@ -58,12 +61,25 @@ export type Entitlement =
 export type EntitlementEvent =
   /** Paid access until `until`; never shortens a later end already granted. */
   | { readonly type: "grant"; readonly until: Date }
-  /** Paid access without an end. */
+  /** Paid access without an end; the dated end stays beside it. */
   | { readonly type: "grant_lifetime" }
-  /** Removes paid access (a refund, a mistaken grant); the trial stays as it was. */
+  /** Removes all paid access (a mistaken grant), lifetime included; the trial stays as it was. */
   | { readonly type: "revoke" }
+  /**
+   * Moves dated paid access back to end at `until` (a refunded period); never lengthens it. An end
+   * at or before the trial's end drops dated paid access: the account is back on its trial.
+   */
+  | { readonly type: "shorten"; readonly until: Date }
+  /** Ends lifetime access (a refunded lifetime); dated paid access stays. */
+  | { readonly type: "end_lifetime" }
   /** Moves the trial end to `until`; never shortens it. */
   | { readonly type: "extend_trial"; readonly until: Date };
+
+/** What one payment of a plan added to an account, stored with the payment so a refund takes back only that. */
+export type PaymentGrant =
+  /** A paid period from where access ended (or the payment's instant) to the period's end. */
+  | { readonly kind: "period"; readonly from: Date; readonly until: Date }
+  | { readonly kind: "lifetime" };
 
 /** Copy per locale; a locale without its own text falls back to `en`. */
 export type LocalizedText = Readonly<Partial<Record<Locale, string>>>;
