@@ -1,0 +1,87 @@
+/* The fixture app's tokens, in the shape the film reads (src/compose/site-tokens.ts). */
+:root {
+  --background: #0c0c0d;
+  --surface: #17181a;
+  --surface-raised: #1f2023;
+  --border: #2a2c30;
+  --foreground: #f2f3f5;
+  --muted: #a3a6ad;
+  --accessible: #2dd4bf;
+  --locked: #fbbf24;
+  --debt: #f87171;
+  --accent: #cff26b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: sans-serif;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+main {
+  padding: 32px 20px;
+}
+
+h1 {
+  font-size: 26px;
+}
+
+label {
+  display: block;
+  margin: 24px 0 8px;
+  color: var(--muted);
+}
+
+input {
+  width: 100%;
+  padding: 14px;
+  font-size: 20px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--foreground);
+}
+
+button {
+  margin-top: 20px;
+  width: 100%;
+  padding: 16px;
+  font-size: 20px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--background);
+}
+
+.result {
+  margin-top: 40px;
+  padding: 20px;
+  border-radius: 16px;
+  background: var(--surface-raised);
+  animation: rise 600ms ease-out;
+}
+
+.result[hidden] {
+  display: none;
+}
+
+.result p {
+  margin: 8px 0;
+  font-size: 22px;
+}
+
+.result strong {
+  color: var(--accessible);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+}

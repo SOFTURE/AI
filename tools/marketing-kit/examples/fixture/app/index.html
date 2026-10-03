@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Fixture calculator</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main>
+      <h1>When can you stop working?</h1>
+      <label for="age">Your age</label>
+      <input id="age" name="age" inputmode="numeric" autocomplete="off" />
+      <button type="button" id="next">Next</button>
+      <section class="result" id="result" hidden>
+        <p id="exit-age">Exit age <strong>49 years</strong></p>
+        <p id="exit-date">You can stop in <strong>March 2040</strong></p>
+      </section>
+    </main>
+    <script>
+      document.getElementById("next").addEventListener("click", () => {
+        document.getElementById("result").hidden = false;
+      });
+    </script>
+  </body>
+</html>
