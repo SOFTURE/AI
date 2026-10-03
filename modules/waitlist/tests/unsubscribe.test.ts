@@ -64,7 +64,7 @@ describe("an unsubscribe and the waitlist's consents", () => {
     test.clock.set(MUCH_LATER);
 
     const again = await joinWaitlist(test.ctx, { ...JOIN, scopes: ["launch"] });
-    expect(again.ok && again.value).toMatchObject({ isNew: false, recordedScopes: ["launch"], signup: { scopes: ["launch"], updatedAt: MUCH_LATER } });
+    expect(again.ok && again.value).toMatchObject({ status: "joined", isNew: false, recordedScopes: ["launch"], signup: { scopes: ["launch"], updatedAt: MUCH_LATER } });
     expect(await isSuppressed(test.ctx, ADA)).toBe(false);
     expect(await hasConsent(test.ctx, { subject: { email: ADA }, purpose: "launch" })).toBe(true);
     expect(await hasConsent(test.ctx, { subject: { email: ADA }, purpose: "newsletter" })).toBe(false);

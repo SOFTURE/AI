@@ -1,8 +1,9 @@
-// @softure-ai/waitlist on the built app: the form on the home page signs an address up with the
-// required scope, a second sign-up widens it to the newsletter, each consent lands in
-// privacy.consents with its document version, one welcome mail goes out as list mail, and its
-// footer link unsubscribes the address, withdrawing the consents; signing up again lifts the
-// opt-out. Every test gets its own client address and email.
+// @softure-ai/waitlist on the built app, with double opt-in: the form on the home page stores a
+// request and mails a confirmation link, and nothing counts until it is used; the link records each
+// consent in privacy.consents with its document version and sends one welcome mail as list mail; a
+// second request widens the scopes through its own link; the welcome mail's footer link
+// unsubscribes the address, withdrawing the consents; signing up again lifts the opt-out only once
+// the new link is used. Every test gets its own client address and email.
 import { randomInt, randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { deliveries, mailingMessages, suppressions } from "@softure-ai/mailing";
@@ -51,7 +52,7 @@ async function signUp(page: Page, email: string, { withNewsletter }: { withNewsl
   await page.getByLabel(en.waitlist.launch).check();
   if (withNewsletter) await page.getByLabel(en.waitlist.newsletter).check();
   await page.getByRole("button", { name: copy.form.submit }).click();
-  await expect(page.getByText(copy.form.success)).toBeVisible();
+  await expect(page.getByText(copy.form.confirmationSent)).toBeVisible();
 }
 
 async function readSignup(email: string) {
@@ -69,58 +70,112 @@ async function readSignup(email: string) {
   }
 }
 
-/** The welcome mail(s) sent to `email`; the action sends after its answer, so this waits for one. */
-async function readWelcomeMails(email: string) {
-  await expect.poll(async () => (await readMailOutbox(MAIL_OUTBOX, { to: email })).length).toBeGreaterThan(0);
-  return readMailOutbox(MAIL_OUTBOX, { to: email });
+async function readSuppressions(email: string) {
+  const database = await openTestDatabase();
+  try {
+    return await database.db.select().from(suppressions).where(eq(suppressions.recipientKey, getEmailKey(email)));
+  } finally {
+    await database.close();
+  }
 }
 
-test("a sign-up stores the address with its scope, records the consent and sends one welcome mail", async ({ page }) => {
+async function readMails(email: string, subject: string) {
+  return (await readMailOutbox(MAIL_OUTBOX, { to: email })).filter((mail) => mail.subject === subject);
+}
+
+/** The link of confirmation mail number `count`; the action sends after its answer, so this waits for it. */
+async function readConfirmationLink(email: string, count = 1): Promise<string> {
+  await expect.poll(async () => (await readMails(email, copy.confirmationMail.subject)).length).toBe(count);
+  const link = (await readMails(email, copy.confirmationMail.subject)).at(-1)?.text.split("\n").at(-1) ?? "";
+  expect(link).toMatch(/\/waitlist\/confirm\?token=[A-Za-z0-9_-]{43}$/);
+  return link;
+}
+
+async function confirm(page: Page, link: string): Promise<void> {
+  await page.goto(link);
+  await page.getByRole("button", { name: copy.confirm.submit }).click();
+  await expect(page.getByRole("heading", { name: copy.confirm.doneTitle })).toBeVisible();
+}
+
+/** The welcome mail(s) sent to `email`; the confirm action sends after its answer, so this waits for one. */
+async function readWelcomeMails(email: string) {
+  await expect.poll(async () => (await readMails(email, copy.welcomeMail.subject)).length).toBeGreaterThan(0);
+  return readMails(email, copy.welcomeMail.subject);
+}
+
+async function unsubscribeThroughWelcomeMail(page: Page, email: string): Promise<void> {
+  const [mail] = await readWelcomeMails(email);
+  const link = mail?.text.split("\n").at(-1) ?? "";
+  expect(link).toMatch(/\/unsubscribe\?r=/);
+  await page.goto(link);
+  await page.getByRole("button", { name: mailingMessages.en.unsubscribe.submit }).click();
+  await expect(page.getByRole("heading", { name: mailingMessages.en.unsubscribe.doneTitle })).toBeVisible();
+}
+
+test("a sign-up waits for its link: it records no consent and gets no list mail", async ({ page }) => {
   const email = newEmail();
   await signUp(page, email, { withNewsletter: false });
+  await readConfirmationLink(email);
 
   const { signup, consents: recorded } = await readSignup(email);
-  expect(signup).toMatchObject({ scopes: ["launch"], placement: "home", locale: config.locale });
-  expect(recorded).toEqual([{ purpose: "launch", granted: true, documentVersion: getLegalDocument(config, "privacy-policy").version, source: "waitlist" }]);
-
-  const mails = await readWelcomeMails(email);
-  expect(mails).toHaveLength(1);
-  expect(mails[0]?.subject).toBe(copy.welcomeMail.subject);
-  expect(mails[0]?.headers["List-Unsubscribe-Post"]).toBe("List-Unsubscribe=One-Click");
+  expect(signup).toMatchObject({ scopes: ["launch"], placement: "home", locale: config.locale, confirmedAt: null, pendingScopes: ["launch"] });
+  expect(recorded).toEqual([]);
+  // The answer is out before the mail; give a welcome mail the time it would need, then count.
+  await page.waitForTimeout(500);
+  expect(await readMails(email, copy.welcomeMail.subject)).toEqual([]);
 });
 
-test("signing up again widens the scopes, records only the new consent and sends no second mail", async ({ page }) => {
+test("the link records the consent, counts the sign-up and sends one welcome mail, also on a second click", async ({ page }) => {
   const email = newEmail();
   await signUp(page, email, { withNewsletter: false });
+  const link = await readConfirmationLink(email);
+  await confirm(page, link);
+
+  const { signup, consents: recorded } = await readSignup(email);
+  expect(signup).toMatchObject({ scopes: ["launch"], pendingScopes: null });
+  expect(signup?.confirmedAt).toBeInstanceOf(Date);
+  expect(recorded).toEqual([{ purpose: "launch", granted: true, documentVersion: getLegalDocument(config, "privacy-policy").version, source: "waitlist" }]);
+  const mails = await readWelcomeMails(email);
+  expect(mails).toHaveLength(1);
+  expect(mails[0]?.headers["List-Unsubscribe-Post"]).toBe("List-Unsubscribe=One-Click");
+
+  await confirm(page, link);
+  await page.waitForTimeout(500);
+  expect(await readMails(email, copy.welcomeMail.subject)).toHaveLength(1);
+  expect((await readSignup(email)).consents).toHaveLength(1);
+});
+
+test("a link that does not work says so", async ({ page }) => {
+  await page.goto(`/waitlist/confirm?token=${"A".repeat(43)}`);
+  await page.getByRole("button", { name: copy.confirm.submit }).click();
+  await expect(page.getByRole("heading", { name: copy.confirm.invalidTitle })).toBeVisible();
+});
+
+test("signing up again widens the scopes through its own link, records only the new consent and sends no second welcome mail", async ({ page }) => {
+  const email = newEmail();
+  await signUp(page, email, { withNewsletter: false });
+  await confirm(page, await readConfirmationLink(email));
   await readWelcomeMails(email);
 
   await signUp(page, email.toUpperCase(), { withNewsletter: true });
+  const link = await readConfirmationLink(email, 2);
+  expect((await readSignup(email)).signup?.scopes).toEqual(["launch"]);
+  await confirm(page, link);
+
   const { signup, consents: recorded } = await readSignup(email);
   expect(signup?.scopes).toEqual(["launch", "newsletter"]);
   expect(recorded.map((row) => row.purpose)).toEqual(["launch", "newsletter"]);
-  // The answer is out before the mail; give a second mail the time it would need, then count.
   await page.waitForTimeout(500);
-  expect(await readMailOutbox(MAIL_OUTBOX, { to: email })).toHaveLength(1);
+  expect(await readMails(email, copy.welcomeMail.subject)).toHaveLength(1);
 });
 
 test("the welcome mail's footer link unsubscribes the address from list mail", async ({ page }) => {
   const email = newEmail();
   await signUp(page, email, { withNewsletter: true });
-  const [mail] = await readWelcomeMails(email);
-  const link = mail?.text.split("\n").at(-1) ?? "";
-  expect(link).toMatch(/\/unsubscribe\?r=/);
+  await confirm(page, await readConfirmationLink(email));
+  await unsubscribeThroughWelcomeMail(page, email);
 
-  await page.goto(link);
-  await page.getByRole("button", { name: mailingMessages.en.unsubscribe.submit }).click();
-  await expect(page.getByRole("heading", { name: mailingMessages.en.unsubscribe.doneTitle })).toBeVisible();
-
-  const database = await openTestDatabase();
-  try {
-    const rows = await database.db.select().from(suppressions).where(eq(suppressions.recipientKey, getEmailKey(email)));
-    expect(rows).toHaveLength(1);
-  } finally {
-    await database.close();
-  }
+  expect(await readSuppressions(email)).toHaveLength(1);
   const { consents: recorded } = await readSignup(email);
   expect(recorded.map((row) => `${row.purpose} ${String(row.granted)} ${row.source}`)).toEqual([
     "launch true waitlist",
@@ -130,24 +185,22 @@ test("the welcome mail's footer link unsubscribes the address from list mail", a
   ]);
 });
 
-test("signing up again after unsubscribing lifts the opt-out and grants only what is checked now", async ({ page }) => {
+test("signing up again after unsubscribing lifts the opt-out only through the link, granting what is checked now", async ({ page }) => {
   const email = newEmail();
   await signUp(page, email, { withNewsletter: true });
-  const [mail] = await readWelcomeMails(email);
-  await page.goto(mail?.text.split("\n").at(-1) ?? "");
-  await page.getByRole("button", { name: mailingMessages.en.unsubscribe.submit }).click();
-  await expect(page.getByRole("heading", { name: mailingMessages.en.unsubscribe.doneTitle })).toBeVisible();
+  await confirm(page, await readConfirmationLink(email));
+  await unsubscribeThroughWelcomeMail(page, email);
 
+  // The confirmation mail is transactional: it reaches the address that opted out.
   await signUp(page, email, { withNewsletter: false });
+  const link = await readConfirmationLink(email, 2);
+  expect(await readSuppressions(email)).toHaveLength(1);
+
+  await confirm(page, link);
   const { signup, consents: recorded } = await readSignup(email);
   expect(signup?.scopes).toEqual(["launch"]);
   expect(recorded.map((row) => `${row.purpose} ${String(row.granted)}`)).toEqual(["launch true", "newsletter true", "launch false", "newsletter false", "launch true"]);
-  const database = await openTestDatabase();
-  try {
-    expect(await database.db.select().from(suppressions).where(eq(suppressions.recipientKey, getEmailKey(email)))).toEqual([]);
-  } finally {
-    await database.close();
-  }
+  expect(await readSuppressions(email)).toEqual([]);
 });
 
 test("the form refuses an address that is not one, keeping what was checked", async ({ page }) => {
