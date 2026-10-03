@@ -6,6 +6,7 @@
 // `sendBeacon`, not `fetch`: the browser queues the beacon and sends it even when the tab closes
 // mid-step, which is the drop-off the funnel is there to see. Without `sendBeacon` (an old browser)
 // nothing is counted and the page works on.
+export { createChannelKeeper, type ChannelRule } from "./channel-keeper.js";
 
 /** The part of `navigator` the reporter needs. */
 export interface FunnelBeaconTarget {

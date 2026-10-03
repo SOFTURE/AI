@@ -1,7 +1,7 @@
 // @softure-ai/analytics on the built app: the `?z=` tag stays on the address bar from a tagged page
-// to the next one (a full page load and a client-side navigation) and through the auth guard's
-// redirect to login, and reaches the register action, whose onRegistered hook hands it over (the
-// account page shows it). No cookie carries it.
+// to the next one (a full page load and a client-side navigation, with or without the router's
+// Next-Url header) and through the auth guard's redirect to login, and reaches the register action,
+// whose onRegistered hook hands it over (the account page shows it). No cookie carries it.
 import { randomInt, randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { authMessages, users } from "@softure-ai/auth";
@@ -61,6 +61,51 @@ test("a full page load and a client-side navigation from a tagged page keep the 
   await page.goto("/account?z=spring-promo");
   // "Your data" is a next/link: the router's request is redirected like a page load.
   await page.getByRole("link", { name: en.account.privacy }).click();
+  await expect(page).toHaveURL("/account/privacy?z=spring-promo");
+});
+
+/**
+ * Clicks a next/link once React has hydrated it, and checks the page was not reloaded: a click
+ * before hydration is a plain page load, which the proxy tags without the keeper's help.
+ */
+async function clickClientLink(page: Page, name: string): Promise<void> {
+  const link = page.getByRole("link", { name });
+  await expect
+    .poll(() => link.evaluate((element) => Object.keys(element).some((key) => key.startsWith("__reactProps"))))
+    .toBe(true);
+  await page.evaluate(() => {
+    Object.assign(window, { e2eSamePage: true });
+  });
+  const before = new URL(page.url()).pathname;
+  await link.click();
+  await page.waitForURL((url) => url.pathname !== before);
+  expect(await page.evaluate(() => "e2eSamePage" in window)).toBe(true);
+}
+
+test("a client navigation without Next-Url keeps the tag", async ({ page }) => {
+  // The proxy cannot recognise such a router request; <ChannelKeeper /> in the layout puts the tag back.
+  await page.route("**/*", (route) => {
+    const headers = route.request().headers();
+    if (!("next-url" in headers)) return route.continue();
+    return route.continue({ headers: Object.fromEntries(Object.entries(headers).filter(([name]) => name !== "next-url")) });
+  });
+  await page.goto("/login");
+  await registerFromLogin(page, newEmail());
+  await page.goto("/account?z=spring-promo");
+  await clickClientLink(page, en.account.privacy);
+  await expect(page).toHaveURL("/account/privacy?z=spring-promo");
+});
+
+test("the tag comes back after the page drops it with replaceState", async ({ page }) => {
+  // A client navigation first: the router and the keeper are running before the page drops the tag.
+  await page.goto("/login");
+  await registerFromLogin(page, newEmail());
+  await page.goto("/account?z=spring-promo");
+  await clickClientLink(page, en.account.privacy);
+  await expect(page).toHaveURL("/account/privacy?z=spring-promo");
+  await page.evaluate(() => {
+    window.history.replaceState(null, "", "/account/privacy");
+  });
   await expect(page).toHaveURL("/account/privacy?z=spring-promo");
 });
 
