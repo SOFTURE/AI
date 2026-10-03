@@ -3,7 +3,7 @@
 import { createHash } from "node:crypto";
 import { getRecipientKey, isSuppressed, signRecipientKey, suppressRecipient, unsubscribe } from "@softure-ai/mailing/server";
 import { getEmailKey } from "@softure-ai/privacy/server";
-import { waitlistMessages, type WaitlistSignup } from "@softure-ai/waitlist";
+import { waitlistMessages, type WaitlistMailTemplateInput, type WaitlistSignup } from "@softure-ai/waitlist";
 import {
   confirmSignup,
   deliverConfirmationMail,
@@ -265,6 +265,33 @@ describe("the double opt-in mails", () => {
     expect(mail?.subject).toBe(waitlistMessages.en.confirmationMail.subject);
     expect(mail?.text).toBe(`${waitlistMessages.en.confirmationMail.text}\n\nhttps://app.example.com/waitlist/confirm?token=${token}`);
     expect(mail?.headers["List-Unsubscribe"]).toBeUndefined();
+    const copy = waitlistMessages.en.confirmationMail;
+    expect(mail?.html).toBe(
+      [
+        "<p>Hello,</p>",
+        `<p>${copy.text.split("\n\n")[1] ?? ""}</p>`,
+        `<p><a href="https://app.example.com/waitlist/confirm?token=${token}">${copy.action}</a></p>`,
+      ].join("\n"),
+    );
+  });
+
+  it("hands the app's mailTemplate the link and its label", async () => {
+    const inputs: WaitlistMailTemplateInput[] = [];
+    const mailTemplate = (mail: WaitlistMailTemplateInput): string => {
+      inputs.push(mail);
+      return mail.kind === "confirmation" ? `<a class="button" href="${mail.action.href}">${mail.action.label}</a>` : mail.body;
+    };
+    test = await createTestWaitlist({ locale: "pl", waitlist: { ...OPTIONS, doubleOptIn: true, mailTemplate } });
+    const { signup, token } = await requestSignup(test);
+    expect((await deliverConfirmationMail(test.ctx, signup, token)).ok).toBe(true);
+
+    const copy = waitlistMessages.pl.confirmationMail;
+    const href = `https://app.example.com/waitlist/confirm?token=${token}`;
+    expect(inputs).toHaveLength(1);
+    expect(inputs[0]).toMatchObject({ kind: "confirmation", locale: "pl", subject: copy.subject, action: { href, label: copy.action } });
+    expect(inputs[0]?.body.endsWith(`<p><a href="${href}">${copy.action}</a></p>`)).toBe(true);
+    expect(test.provider.sent[0]?.html).toBe(`<a class="button" href="${href}">${copy.action}</a>`);
+    expect(test.provider.sent[0]?.text).toBe(`${copy.text}\n\n${href}`);
   });
 
   it("writes in the sign-up's locale and follows a moved confirmation page", async () => {

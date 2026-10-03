@@ -2,11 +2,12 @@
 // sign-up's language, never to an address that unsubscribed, and not at all when turned off.
 import { getRecipientKey, suppressRecipient } from "@softure-ai/mailing/server";
 import { deliverWelcomeMail, getWelcomeMailScope, joinWaitlist } from "@softure-ai/waitlist/server";
-import { waitlistMessages, type WaitlistSignup } from "@softure-ai/waitlist";
+import { waitlistMessages, type WaitlistMailTemplateInput, type WaitlistSignup } from "@softure-ai/waitlist";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CLIENT, createTestWaitlist, OPTIONS, type ConfigOptions, type TestWaitlist } from "./support.js";
 
 const ADA = "ada@example.com";
+const UNSUBSCRIBE_ANCHOR = /<p>[^<]+ <a href="https:\/\/app\.example\.com\/unsubscribe\?r=[^"]+">[^<]+<\/a><\/p>$/;
 
 async function signUp(test: TestWaitlist): Promise<WaitlistSignup> {
   const result = await joinWaitlist(test.ctx, { email: ADA, scopes: ["launch"], placement: "hero", clientKey: CLIENT });
@@ -61,6 +62,48 @@ describe("deliverWelcomeMail", () => {
     const signup = await signUp(test);
     await suppressRecipient(test.ctx, ADA);
     expect(await deliverWelcomeMail(test.ctx, signup)).toEqual({ status: "rejected", reason: "mailing.suppressed" });
+    expect(test.provider.sent).toEqual([]);
+  });
+
+  it("sends an HTML body built from the same copy, with mailing's unsubscribe link", async () => {
+    await setUp();
+    await deliverWelcomeMail(test.ctx, await signUp(test));
+    const html = test.provider.sent[0]?.html ?? "";
+    expect(html.startsWith("<p>Hello,</p>\n<p>thank you for joining the waitlist. We will write to you as soon as we open.</p>\n<p>")).toBe(true);
+    expect(html).toMatch(UNSUBSCRIBE_ANCHOR);
+  });
+
+  it("escapes the app's copy in the HTML body and keeps its line breaks", async () => {
+    await setUp({ waitlist: { ...OPTIONS, messages: { en: { welcomeMail: { text: "Hi <b>Ada</b> & co,\nline two\n\n\n  last  " } } } } });
+    await deliverWelcomeMail(test.ctx, await signUp(test));
+    expect(test.provider.sent[0]?.html?.startsWith("<p>Hi &lt;b&gt;Ada&lt;/b&gt; &amp; co,<br>line two</p>\n<p>last</p>\n<p>")).toBe(true);
+  });
+
+  it("renders the HTML body with the app's mailTemplate, and mailing adds its footer inside the body", async () => {
+    const inputs: WaitlistMailTemplateInput[] = [];
+    const mailTemplate = (mail: WaitlistMailTemplateInput): string => {
+      inputs.push(mail);
+      return `<html><body><h1>Acme</h1>${mail.body}</body></html>`;
+    };
+    await setUp({ locale: "pl", waitlist: { ...OPTIONS, mailTemplate } });
+    await deliverWelcomeMail(test.ctx, await signUp(test));
+
+    const copy = waitlistMessages.pl.welcomeMail;
+    // The Polish copy has no character HTML escapes, so its paragraphs appear as they are.
+    const body = copy.text
+      .split("\n\n")
+      .map((paragraph) => `<p>${paragraph}</p>`)
+      .join("\n");
+    expect(inputs).toEqual([{ kind: "welcome", locale: "pl", subject: copy.subject, paragraphs: copy.text.split("\n\n"), body }]);
+    const html = test.provider.sent[0]?.html ?? "";
+    expect(html.startsWith(`<html><body><h1>Acme</h1>${body}<p>`)).toBe(true);
+    expect(html.endsWith("</a></p>\n</body></html>")).toBe(true);
+    expect(test.provider.sent[0]?.text.startsWith(copy.text)).toBe(true);
+  });
+
+  it("throws, sending nothing, when the app's mailTemplate returns blank HTML", async () => {
+    await setUp({ waitlist: { ...OPTIONS, mailTemplate: () => "  " } });
+    await expect(deliverWelcomeMail(test.ctx, await signUp(test))).rejects.toThrow("mailTemplate returned no HTML for the welcome mail");
     expect(test.provider.sent).toEqual([]);
   });
 

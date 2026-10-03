@@ -1,7 +1,7 @@
 ---
 change_id: waitlist-welcome-html
 title: "The waitlist's mails carry an HTML body the app can template"
-status: plan_reviewed
+status: implementing
 roadmap_item: FU-4
 branch: claude/project-thread-lsci7g
 created: 2026-10-03
