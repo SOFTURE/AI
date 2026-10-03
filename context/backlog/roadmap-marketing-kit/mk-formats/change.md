@@ -17,7 +17,7 @@ archived_at: null
 
 ## Context
 
-From [`roadmap-marketing-kit.md`](../../../foundation/roadmaps/roadmap-marketing-kit.md), item **MK-6** (queued roadmap `marketing-kit`):
+From [`roadmap.md`](../../../foundation/roadmap.md), item **MK-6** (roadmap `marketing-kit`, main since 2026-10-03):
 
 > ### MK-6: Render formats 1:1 and 16:9
 > - **Change ID:** `mk-formats`

@@ -1,22 +1,24 @@
 ---
 project: "SOFTURE AI"
-roadmap: monetization
+roadmap: marketing-kit
 version: 1
 status: ready
 prd_version: 1
 created: 2026-10-02
 updated: 2026-10-03
-backlog: context/backlog/roadmap-monetization/
+backlog: context/backlog/roadmap-marketing-kit/
 ---
 
-# Roadmap monetization: billing and channel analytics
+# Roadmap marketing-kit: videos, screenshots and OG images from a JSON file and a brand
 
-> Entries: [`context/backlog/roadmap-monetization/`](../backlog/roadmap-monetization/). An entry is taken
+> Entries: [`context/backlog/roadmap-marketing-kit/`](../backlog/roadmap-marketing-kit/). An entry is taken
 > (moved to `context/changes/<id>/`) when its item starts.
+> Reference: [`docs/03-marketing-kit.md`](../../docs/03-marketing-kit.md), PRD FR-24 and FR-25.
 >
-> Promoted by the owner on 2026-10-03, when the engagement roadmap closed (archived in
-> [`archive/2026-10-03-2-roadmap.md`](archive/2026-10-03-2-roadmap.md)). The provider decision (MO-3) was not
-> made yet, so MO-3 stays blocked and the rest starts. EN-9 (engagement release) is carried over here.
+> Promoted by the owner on 2026-10-03, when the monetization roadmap closed (archived in
+> [`archive/2026-10-03-3-roadmap.md`](archive/2026-10-03-3-roadmap.md)). EN-9 (engagement release) and MO-6
+> (monetization release) are carried over here as blocked owner items: the owner publishes them in one batch at
+> the keyboard on Monday 2026-10-05.
 >
 > Run-wide orders (read by orchestrators):
 > - Push main branch: at the end. Also push `master` after every merge, so an ephemeral cloud
@@ -24,60 +26,55 @@ backlog: context/backlog/roadmap-monetization/
 >   (owner, 2026-10-02). Tags and npm publishes stay with the owner.
 > - Archive roadmap: at the end.
 > - Parallelism: up to 4 at once (`workflow.json` → `worktree.maxParallel`).
-> - Owner at the keyboard: EN-9 (carried over), MO-3 (payment provider decision), MO-6 (tags and first
->   staged publishes).
+> - Owner at the keyboard: EN-9 and MO-6 (carried over), MK-8 (first publish and trusted publisher).
 >
 > FIRE_TRACKER adoption (owner, 2026-10-03): no item here adopts the modules in FIRE_TRACKER. The adoption
 > runs in FIRE_TRACKER's own roadmap and sessions once this repository reports the code ready; this
 > repository delivers the modules and their release.
 >
-> Pending release (owner, 2026-10-03, a one-off): the foundation and identity packages (core, db, ui,
-> security, auth, feature-switches, ops) were not published, because the release pipeline is not set up
-> yet. The owner publishes them in one batch at the keyboard. Normally every roadmap ends with its own release item.
->
 > Queued after this one (WORKFLOW §5.1, files in `roadmaps/`, entries in `context/backlog/`):
-> 1. [`roadmap-marketing-kit`](roadmaps/roadmap-marketing-kit.md): video, screenshot and OG generator. Independent, so it can be promoted any time.
+> 1. [`roadmap-later`](roadmaps/roadmap-later.md): items parked until an owner step (secrets, accounts) is done.
 > 2. [`roadmap-followups`](roadmaps/roadmap-followups.md): the catch-all for gaps found in every roadmap; promoted last.
-
-Wave 3 of the module catalog (`docs/01-module-assessment.md`): entitlements and pricing, and the cookieless
-channel analytics that measure where paying users come from. Every module follows `docs/02-module-standard.md`;
-adoption in FIRE_TRACKER follows `docs/05-adoption-playbook.md`.
 
 ## At a glance
 
 | ID | Change | Outcome | Depends on | Mode | Status |
 | --- | --- | --- | --- | --- | --- |
-| **EN-9** | `engagement-release` | mailing, waitlist, mcp-access and privacy 0.1.0 published through the release pipeline; READMEs and docs updated | EN-1…EN-8 (done) | owner | blocked (carried over from engagement: the owner's release at the keyboard) |
-| **MO-1** | `billing-entitlements` | `@softure-ai/billing`: trial / paid / read_only state machine in `billing.entitlements`, `requireWriteAccess` | — | autonomous | done |
-| **MO-2** | `billing-plans-pricing` | plans from config, pricing tiles, payment page and a manual payment adapter that grants entitlements | MO-1 | autonomous | done |
-| **MO-3** | `billing-provider-adapter` | the chosen provider (Stripe or Przelewy24) behind `PaymentProvider`: checkout, webhooks, entitlement updates | MO-2 | autonomous | done |
-| **MO-4** | `analytics-channel-tags` | `@softure-ai/analytics`: a channel parameter captured, validated and carried across redirects and sign-up | — | autonomous | done |
-| **MO-5** | `analytics-funnel` | daily aggregates (day, channel, step) without cookies or PII, beacon and pixel endpoints, report function | MO-4 | autonomous | done |
-| **MO-6** | `monetization-release` | billing and analytics 0.1.0 published through the release pipeline; READMEs and docs updated | MO-2, MO-5 | owner | ready |
+| **EN-9** | `engagement-release` | mailing, waitlist, mcp-access and privacy 0.1.0 published through the release pipeline; READMEs and docs updated | EN-1…EN-8 (done) | owner | blocked (carried over from monetization: the owner's batch release at the keyboard on 2026-10-05) |
+| **MO-6** | `monetization-release` | billing and analytics 0.1.0 published through the release pipeline; READMEs and docs updated | MO-1…MO-5 (done) | owner | blocked (carried over from monetization: the owner's batch release at the keyboard on 2026-10-05) |
+| **MK-1** | `mk-core-port` | FIRE's video pipeline (voiceover cache, timeline, recorder/Director, compose, render, posts) runs from `tools/marketing-kit` with its tests, config still FIRE-shaped | — | autonomous | ready |
+| **MK-2** | `mk-config-contract` | `marketing.json` + brand validated by zod, published as JSON Schema; every hard-coded constant becomes config; `design.json` import | MK-1 | autonomous | ready |
+| **MK-3** | `mk-declarative-actions` | scenes described as JSON actions with locator descriptors; `sceneModule` TS escape hatch kept | MK-2 | autonomous | ready |
+| **MK-7** | `mk-tts-adapters` | `TtsProvider` interface, ElevenLabs adapter, cache key includes voice, model and language; paid calls only with `--commit` | MK-2 | autonomous | ready |
+| **MK-6** | `mk-formats` | 1:1 and 16:9 render formats next to 9:16, geometry from config | MK-2 | autonomous | ready |
+| **MK-4** | `mk-screenshots` | `softure-marketing shots` with quality gates (HTTP status, expected phrase, minimum size, full-page scroll) | MK-2 | autonomous | ready |
+| **MK-5** | `mk-og-images` | OG images rendered with Satori outside Next from templates + data | MK-2 | autonomous | ready |
+| **MK-8** | `marketing-kit-release` | `@softure-ai/marketing-kit` 0.1.0 published through the FD-2 pipeline, README complete | MK-3, MK-4, MK-5, MK-6, MK-7 | owner | ready |
 
 ## Order
 
-At most one migration-adding item per parallel group (each module still has its own migrations folder and schema).
+1. **MK-1 alone.** It owns `tools/marketing-kit/` as a whole while the code moves in. A faithful
+   port first: behaviour is proven by FIRE's own tests before anything is generalised.
+2. **MK-2 alone.** It owns `tools/marketing-kit/src/config/` and `schema/`, and it touches every
+   module that read a constant.
+3. **Then in parallel, after MK-2:**
+   - MK-3 owns `src/record/` (actions, Director);
+   - MK-7 owns `src/voice/`;
+   - MK-4 owns `src/screenshot/`;
+   - MK-5 owns `src/og/`.
 
-1. **Group A (start):** MO-1 (owns `modules/billing/` entitlements, migration) and MO-4 (owns `modules/analytics/`
-   channel tagging, no migration).
-2. **Group B:** MO-2 (owns `modules/billing/` plans, pricing and payment page, no migration) after MO-1, and MO-5
-   (owns `modules/analytics/` funnel counter, migration) after MO-4.
-3. **Group C:** MO-3 (owns `modules/billing/` provider adapter, may add a payment-events migration) after MO-2,
-   once the owner has chosen the provider.
-4. **MO-6** (owner) after MO-2 and MO-5, and after MO-3 when it is unblocked in time.
-5. **EN-9** (owner, carried over) any time: it needs no item of this roadmap.
+   MK-6 owns `src/compose/` and `src/render/` geometry. It runs alongside the others, except MK-3,
+   if MK-3 needs compose changes. Assign `src/compose/` to MK-6 and keep MK-3 to recording.
+4. **MK-8** once all features are merged.
+5. **EN-9 and MO-6** (owner, carried over) any time: they need no item of this roadmap.
 
-Hot shared files: the example app gets one scenario file per item (`examples/next-app/e2e/<module>-*.spec.ts`).
-The route guard composition in the example app (`proxy.ts`) is edited only by MO-4.
-
-Risk first: MO-1 (the write guard every paid feature depends on) starts the roadmap.
+Risk first: MK-1 proves the port is faithful. MK-2 fixes the contract every later item builds on.
 
 ## Items
 
 ### EN-9: Engagement modules release (carried over)
 - **Change ID:** `engagement-release`
-- **Status:** blocked (carried over from engagement: the owner's release at the keyboard)
+- **Status:** blocked (carried over from monetization: the owner's batch release at the keyboard on 2026-10-05)
 - **Outcome:** `@softure-ai/mailing`, `@softure-ai/waitlist`, `@softure-ai/mcp-access` and `@softure-ai/privacy` 0.1.0 published through the FD-2 pipeline (owner approves each first, staged publish and adds its trusted publisher); module READMEs and status lines updated; a finish review across EN-1…EN-8.
 - **Prerequisites:** EN-1…EN-8 (done, see [`archive/2026-10-03-2-roadmap.md`](archive/2026-10-03-2-roadmap.md)).
 - **Unknowns:** none beyond the owner's npm steps.
@@ -85,89 +82,163 @@ Risk first: MO-1 (the write guard every paid feature depends on) starts the road
 - **Baseline:** packages absent from npm. After: installable from npm and from GitHub Releases.
 - **PRD refs:** FR-2, G-4.
 
-### MO-1: Entitlements and the write guard
-- **Change ID:** `billing-entitlements`
-- **Status:** done
-- **Outcome:** A pure entitlement state machine (`trial | paid | read_only`) with trial length and reminder windows from config; `billing.entitlements` (one row per user, separate from `auth.users`); `getEntitlement()` and `requireWriteAccess()` for app write actions; access badge and notice components with slots and messages; a privacy contributor for export and deletion.
-- **Prerequisites:** roadmap-engagement done (privacy registry on the main branch); met on 2026-10-03.
-- **Unknowns:** How a new user gets a trial row (auth `onRegistered` hook vs. lazy creation); an unlimited/lifetime representation; time-zone handling of trial end.
-- **Risk:** medium. A wrong guard either blocks paying users or leaks paid features.
-- **Baseline:** FIRE keeps `paid_until` / `trial_ends_at` on its users table with a hand-written guard. After: state machine unit tests for every transition and an e2e scenario where a read-only account cannot write.
-- **PRD refs:** FR-22, NFR-5.
-
-### MO-2: Plans, pricing tiles and the manual payment flow
-- **Change ID:** `billing-plans-pricing`
-- **Status:** done
-- **Outcome:** Plans declared in config (name, price, currency, period, features); `<PricingTiles/>` and a payment page; a `manual()` payment adapter (request an invoice, owner grants access through an admin action guarded by auth roles) that updates `billing.entitlements`; a `PaymentProvider` interface ready for real providers.
-- **Prerequisites:** MO-1.
-- **Unknowns:** The admin surface for granting access (page vs. CLI command); multi-currency formatting through messages; whether plans need a DB table for price history.
-- **Risk:** low.
-- **Baseline:** FIRE has hard-coded prices and grants access with a script. After: the example app shows plans from config and an admin grant flips a trial to paid (e2e).
-- **PRD refs:** FR-22.
-
-### MO-3: Payment provider adapter
-- **Change ID:** `billing-provider-adapter`
-- **Status:** done
-- **Outcome:** A provider adapter implementing `PaymentProvider`: checkout session creation, verified webhooks with idempotent processing, entitlement updates on payment and refund, and test-mode e2e against the provider's sandbox.
-- **Prerequisites:** MO-2; the owner's choice of provider and sandbox credentials.
-- **Unknowns:** Which provider; webhook signature verification and replay protection; whether a payment-events table is needed for idempotency.
-- **Risk:** high. Money and webhooks.
-- **Baseline:** Only the manual adapter exists. After: a sandbox payment turns a trial into paid without owner action.
-- **PRD refs:** FR-22, NFR-5.
-
-### MO-4: Channel tags
-- **Change ID:** `analytics-channel-tags`
-- **Status:** done
-- **Outcome:** A configurable channel parameter (name, pattern, length) read on entry, carried through redirects and the referer, exposed to the app and to auth's `onRegistered` hook for attribution; a composable middleware piece for `proxy.ts` that does not mix with the auth route guard.
-- **Prerequisites:** roadmap-engagement done; met on 2026-10-03.
-- **Unknowns:** Where attribution is stored without a cookie (first-party query propagation only?); interaction with the auth guard ordering in `proxy.ts`.
-- **Risk:** low.
-- **Baseline:** FIRE mixes channel redirects into its auth proxy. After: unit tests on parsing and propagation, e2e that a tagged visit reaches sign-up with its channel.
-- **PRD refs:** FR-23.
-
-### MO-5: Cookieless funnel counter
-- **Change ID:** `analytics-funnel`
-- **Status:** done
-- **Outcome:** `analytics.funnel_counts` holding daily aggregates per (day, channel, step) with steps from config, a cap on new channels per day with an overflow bucket, a `sendBeacon` helper plus a POST beacon and GIF pixel endpoint with a body size limit, day boundaries in the configured time zone, and a report function returning the funnel per channel.
-- **Prerequisites:** MO-4.
-- **Unknowns:** How the report reads other modules' counts (sign-ups, waitlist) without cross-schema coupling; retention of old aggregates.
-- **Risk:** low. No personal data is stored.
-- **Baseline:** FIRE counts its domain wizard steps with a report script. After: configurable steps counted in the example app, report covered by unit tests on PGlite.
-- **PRD refs:** FR-23, NFR-5.
-
-### MO-6: Monetization modules release
+### MO-6: Monetization modules release (carried over)
 - **Change ID:** `monetization-release`
-- **Status:** ready
-- **Outcome:** `@softure-ai/billing` and `@softure-ai/analytics` 0.1.0 published through the FD-2 pipeline (owner approves each first, staged publish and adds its trusted publisher), including MO-3 if it is done in time; module READMEs and status lines updated; a finish review across the merged items.
-- **Prerequisites:** MO-2, MO-5 (MO-3 optional).
+- **Status:** blocked (carried over from monetization: the owner's batch release at the keyboard on 2026-10-05)
+- **Outcome:** `@softure-ai/billing` and `@softure-ai/analytics` 0.1.0 published through the FD-2 pipeline (owner approves each first, staged publish and adds its trusted publisher); module READMEs and status lines updated; a finish review across MO-1…MO-5.
+- **Prerequisites:** MO-1…MO-5 (done, see [`archive/2026-10-03-3-roadmap.md`](archive/2026-10-03-3-roadmap.md)).
 - **Unknowns:** none beyond the owner's npm steps.
 - **Risk:** low.
 - **Baseline:** packages absent from npm. After: installable from npm and from GitHub Releases.
 - **PRD refs:** FR-2, G-4.
 
+### MK-1: Port the FIRE video core
+- **Change ID:** `mk-core-port`
+- **Status:** ready
+- **Outcome:** `tools/marketing-kit` contains the FIRE_TRACKER pipeline, ported 1:1 with its tests:
+  - `voiceover` (cache by content hash, word timings);
+  - `timeline` (beats, caption chunking);
+  - `record` (frame-by-frame Playwright, frozen clock, Director DSL, screen guard);
+  - `compose` (HTML composition: phone frame, camera, captions, persona card, hook, end card);
+  - `render` (ffmpeg + pinned hyperframes);
+  - `posts`;
+  - a CLI `softure-marketing <all|voice|record|render|preview|posts>` with preflight (ffmpeg, hyperframes).
+
+  Config may still be FIRE-shaped. Paths resolve relative to a config file, not the repo.
+- **Prerequisites:** FD-1, FD-2 (roadmap trigger).
+- **Unknowns:**
+  - Which tests depend on the FIRE app itself (site-token parsing of `globals.css`, channel tags) and how to stub them.
+  - Whether GSAP and hyperframes can be npm dependencies with no files copied into the package (GSAP is under its own no-charge license, hyperframes is Apache-2.0).
+- **Risk:** medium. ~2.5k LOC with external binaries (ffmpeg, Chromium).
+- **Baseline:** FIRE `video/**` tests (film, timeline, voiceover, compose, posts, site tokens). After: the same tests are green in the package, and a fixture film renders a draft MP4 in CI or locally.
+- **PRD refs:** FR-24, NFR-1, NFR-2.
+
+### MK-2: Config contract: marketing.json and brand
+- **Change ID:** `mk-config-contract`
+- **Status:** ready
+- **Outcome:** a zod schema for `marketing.json` (brand, app, voice, videos, social, screenshots, ogImages, output), published as `schema/marketing.schema.json`. Every FIRE hard-coded constant (about 20) becomes config:
+  - default URL, port and start command;
+  - hidden selectors;
+  - locale and timezone;
+  - TTS language and default voice;
+  - fonts and logo;
+  - caption colours;
+  - platforms and the channel link template;
+  - geometry.
+
+  The brand can come inline or from an Impeccable `design.json`. Validation errors name the JSON path. Messages are in English.
+- **Prerequisites:** MK-1.
+- **Unknowns:**
+  - Which `design.json` roles map to the brand colour roles.
+  - Whether FIRE's TS film modules convert to JSON losslessly apart from scenes (scenes are MK-3).
+- **Risk:** medium. This is the contract every later item builds on.
+- **Baseline:** constants grep in MK-1 output. After: zero product-specific literals in `src/` (architecture test), and the example config validates.
+- **PRD refs:** FR-24, NFR-6.
+
+### MK-3: Declarative scene actions
+- **Change ID:** `mk-declarative-actions`
+- **Status:** ready
+- **Outcome:**
+  - Beats carry an `actions` list (`wide`, `tap`, `type`, `fill`, `blur`, `focus`, `bring`, `mark`, `still`, `cue`, `hold`, `until`, `checkScreen`). The list maps 1:1 to Director methods.
+  - Targets use locator descriptors: `{role,name}`, `{text,exact,nth}`, `{label}`, `{testId}`, `{css}`, or an array meaning a union.
+  - `sceneModule` remains as a TS escape hatch.
+  - The FIRE example film expressed in JSON records the same log (beats, taps, marks) as its TS version.
+- **Prerequisites:** MK-2.
+- **Unknowns:** whether conditional waits in FIRE's film need anything beyond `until(word)`; how to report a failing locator with its JSON path.
+- **Risk:** medium.
+- **Baseline:** FIRE film recording log (`RecordingLog`). After: the JSON version produces an equivalent log (same beats, marks and stills; frame counts within tolerance).
+- **PRD refs:** FR-24.
+
+### MK-7: TTS provider adapters
+- **Change ID:** `mk-tts-adapters`
+- **Status:** ready
+- **Outcome:**
+  - A `TtsProvider` interface (text in; audio plus word timings out) and an ElevenLabs adapter (key from `ELEVENLABS_API_KEY`).
+  - The cache key covers text, voice, model and language. FIRE's key had the language hard-coded; existing caches stay readable through a documented migration.
+  - Paid calls run only with `--commit`, and the cost estimate is printed before any call.
+- **Prerequisites:** MK-2.
+- **Unknowns:**
+  - Whether the FIRE cache files can be re-keyed without new paid calls.
+  - A second provider worth stubbing for tests (a fake provider is mandatory).
+- **Risk:** low.
+- **Baseline:** FIRE voiceover tests. After: the same tests run through the interface with a fake provider; no network in CI.
+- **PRD refs:** FR-24.
+
+### MK-6: Render formats 1:1 and 16:9
+- **Change ID:** `mk-formats`
+- **Status:** ready
+- **Outcome:**
+  - `format` per video: `9:16`, `1:1` or `16:9`.
+  - Frame size, device viewport placement, camera targets and caption layout come from a geometry table, not constants.
+  - The end card and persona card adapt per format.
+- **Prerequisites:** MK-2.
+- **Unknowns:** whether 16:9 needs a desktop viewport recording or a framed phone; how captions wrap in 1:1.
+- **Risk:** low.
+- **Baseline:** 9:16 output of MK-1 (composition snapshot). After: snapshots for all three formats, and 9:16 is unchanged.
+- **PRD refs:** FR-24.
+
+### MK-4: Screenshots with quality gates
+- **Change ID:** `mk-screenshots`
+- **Status:** ready
+- **Outcome:** `softure-marketing shots` renders the `screenshots` entries of `marketing.json`. Options cover width, height, full page with a lazy-load scroll, and motion reduce/no-preference. It applies the FIRE gates:
+  - HTTP status below 400;
+  - the expected phrase is present;
+  - the file is at least 40 kB, and smaller output is deleted.
+
+  Flags and messages are in English.
+- **Prerequisites:** MK-2.
+- **Unknowns:** whether a shared app-start helper with the recorder (`app.startCommand`) is enough for both.
+- **Risk:** low. FIRE's `scripts/screenshot.mts` is almost package-ready.
+- **Baseline:** FIRE screenshot script behaviour. After: the same gates, covered by tests against a static fixture page.
+- **PRD refs:** FR-25.
+
+### MK-5: OG images outside Next
+- **Change ID:** `mk-og-images`
+- **Status:** ready
+- **Outcome:**
+  - `softure-marketing og` renders `ogImages` entries with Satori to PNG, at 1200×630 by default.
+  - Templates take `data`, for example `headline-cta` with headline, CTA and tiles.
+  - Fonts and palette come from the brand.
+  - Values computed by the app (charts) arrive precomputed in `data` (numbers or SVG paths).
+  - Apps can keep a thin Next route that calls the package.
+- **Prerequisites:** MK-2.
+- **Unknowns:** whether `satori` + `@resvg/resvg-js` reproduce FIRE's current cards closely enough; font loading rules (only weights that are actually loaded, as FIRE's OG tests require).
+- **Risk:** low.
+- **Baseline:** FIRE OG card tests (`og-card`, `og-palette`). After: equivalent tests on templates, and a PNG snapshot per template.
+- **PRD refs:** FR-25.
+
+### MK-8: marketing-kit release
+- **Change ID:** `marketing-kit-release`
+- **Status:** ready
+- **Outcome:**
+  - `@softure-ai/marketing-kit` 0.1.0 is published through the FD-2 pipeline. The owner approves the first, staged publish and configures the trusted publisher.
+  - The README lists system requirements (ffmpeg, Chromium, hyperframes), the full config reference, and the license notes: GSAP as a dependency, no bundled SFX or fonts.
+  - An example `marketing.json` and brand ship in `examples/`.
+- **Prerequisites:** MK-3, MK-4, MK-5, MK-6, MK-7.
+- **Unknowns:** none beyond the owner's npm steps.
+- **Risk:** low.
+- **Baseline:** package absent from npm. After: `npx @softure-ai/marketing-kit --help` works from npm and from the GitHub Release tarball.
+- **PRD refs:** FR-24, FR-25, FR-2.
+
 ## Owner decisions and checks
 
 - [ ] **EN-9** (carried over): approve the first (staged) publish of mailing, waitlist, mcp-access and privacy on
-  npmjs.com, then add a trusted publisher for each.
-- [x] **MO-3**: choose the payment provider to implement after the manual adapter (Stripe or Przelewy24): Stripe (2026-10-03).
-- [ ] **MO-3**: add the Stripe test-mode secrets `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` to the repository (the sandbox test runs once the key is set; FU-10 uses both).
-- [ ] **MO-6**: approve the first (staged) publish of billing and analytics on npmjs.com, then add a trusted publisher for each.
+  npmjs.com, then add a trusted publisher for each (batch on 2026-10-05).
+- [ ] **MO-6** (carried over): approve the first (staged) publish of billing and analytics on npmjs.com, then add a
+  trusted publisher for each (batch on 2026-10-05).
+- [ ] **MK-8**: approve the first (staged) publish of `@softure-ai/marketing-kit` on npmjs.com, then add its trusted publisher.
 
 ## Done
 
-- **MO-4** `analytics-channel-tags`: `@softure-ai/analytics` with `analytics({ channel: { param, pattern, maxLength } })` (default `?z=`, lowercase words, 32 characters), no schema yet; `/proxy` `createChannelTagger` with `carry` (the tag added to a same-origin redirect such as the auth guard's) and `tag` (a 307 putting the tag back on a navigation from a tagged same-origin page; Next client navigations recognised by `Next-Url`, FU-5 follows up); `/next` `getChannel` (Referer), `getChannelFromSearchParams`, `attributeRegistration` for auth's `onRegistered`; no cookie and nothing stored; the example's `proxy.ts` chains guard and tagger, `/account` shows the sign-up channel, `e2e/analytics-channel.spec.ts`; archived in `archive/2026-10-03-analytics-channel-tags/`
-- **MO-1** `billing-entitlements`: `@softure-ai/billing` with `billing.entitlements` (one row per account, FK to `auth.users` with cascade, `trial_ends_at`, `paid_until`, `is_lifetime` exclusive with it); a pure state machine (`resolveEntitlement`: paid wins, then the trial, else read-only; `applyEntitlementEvent`: grant, lifetime grant, revoke, trial extension, never shortening); trials end at the start of a local day in `config.timezone` and days left count local days; an account without a row derives its trial from `auth.users.created_at`, so reads never write and auth's `onRegistered` stays free, and the first `changeEntitlement` pins it; `getEntitlement`, `checkWriteAccess`, `changeEntitlement` in `/server`, `requireWriteAccess` and `CurrentAccessBadge` / `CurrentAccessNotice` in `/next`, `AccessBadge` / `AccessNotice` in `/ui`; privacy contributor and health check; reminder mail deferred to followups FU-6; the example's `/account/billing` with `e2e/billing-entitlements.spec.ts`; archived in `archive/2026-10-03-billing-entitlements/`
-- **MO-5** `analytics-funnel`: `analytics.funnel_counts` (migration 0001, health check) with one counter per (day, channel, step); `analytics({ funnel: { steps: [{ id, via }], channelCap } })` with `via` = `pixel`, `beacon` or `server`; `/next` `createFunnelRoute` (GET pixel, POST beacon at most 256 bytes, channel from the page's Referer, the same answer for any input, 503 on a database failure), `<FunnelPixel>`, `<FunnelBeacon>`, `countRegistration` for auth's `onRegistered` (a savepoint, never throws); `/client` `createFunnelReporter`; `/server` `recordFunnelStep` (new channels past the daily cap under `~overflow`, the day in `config.timezone`), `getFunnelReport`, `pruneFunnelCounts`; other modules' counts come in as `server` steps through hooks (FU-8 for the waitlist), the tag after the register redirect is FU-7; the example counts `/`, `/account` and sign-ups, `e2e/analytics-funnel.spec.ts`; archived in `archive/2026-10-03-analytics-funnel/`
-- **MO-2** `billing-plans-pricing`: `billing({ plans, payment, adminRole })` with plans in config (price in the currency's minor unit, period `day|week|month|year|lifetime` or `{ unit, count }`, features, `isFeatured`; no table); paid periods in local calendar days that start where current access ends; `PaymentProvider` (`name`, `collectsInvoiceDetails`, `startPayment` → redirect, requested or `billing.payment_failed`) and `manual({ onRequest })`; `/server` `grantPlan` (under the row lock via `changeEntitlement`'s event resolver), `startPayment` (`billing-payment` bucket per account, `BILLING_RATE_LIMIT_BUCKETS`), `findAccountByEmail`; `/ui` `PricingTiles`, `PaymentForm`, `GrantForm`; `/next` `Pricing`, `PaymentPage`, `BillingAdminPage` and their actions; billing now depends on security; the example's `/pricing`, `/payment`, `/admin/billing` with invoice requests mailed to the admin, `e2e/billing-pricing.spec.ts`; stored requests, revoke and history deferred to followups FU-9; archived in `archive/2026-10-03-billing-plans-pricing/`
-- **MO-3** `billing-provider-adapter`: Stripe (owner, 2026-10-03); `stripe({ secretKey, apiBase, fetch })` creates one-time Checkout sessions over Stripe's HTTP API (no SDK) with the account and plan in the metadata and returns to the payment page with `?checkout=success|cancelled`; `billing.payments` (migration 0002, unique per provider and checkout and per provider and payment); `/server` `recordPayment` (insert-or-skip and `grantPlan` in one transaction), `refundPayment` (conditional update and `revoke`), `receiveStripeWebhook`; `/next` `stripeWebhookRoute` (HMAC `Stripe-Signature`, 5-minute tolerance, 400/200/500); privacy export and erase of payments; the sandbox test of the Checkout API runs in CI once `STRIPE_SECRET_KEY` is set; the example's `app/api/billing/webhook`, `BILLING_PROVIDER=stripe`, `e2e/billing-stripe.spec.ts`; followups FU-10 (sandbox payment e2e, owner secrets), FU-11 (refund of one payment's period), FU-12 (retro reviews of MO-1 and MO-2); archived in `archive/2026-10-03-billing-provider-adapter/`
+(nothing yet)
 
 ## Decisions (auto)
 
-- The provider adapter is a separate, blocked item instead of part of MO-2. → The manual adapter ships value without waiting for the provider decision.
-- Channel tags (MO-4) and the funnel counter (MO-5) are split. → Tagging has no table and unblocks attribution of sign-ups early; the counter adds the only analytics migration.
-- MO-6 does not wait for MO-3. → A blocked provider decision must not hold back the release of the rest.
-- The roadmap is promoted before the provider decision. → Only MO-3 needs it; MO-1, MO-2, MO-4 and MO-5 deliver
-  without it, and MO-6 does not wait for MO-3.
-- EN-9 is carried over from engagement as a blocked owner item. → A release at the keyboard must not hold the
-  next roadmap back, and later roadmaps keep their release item.
-- MO-7 (FIRE_TRACKER adoption) was dropped by the owner on 2026-10-03. → The adoption runs in FIRE_TRACKER's own roadmap and sessions.
+- MK-1 is a faithful port before any generalisation. → FIRE's tests prove behaviour while the code moves; generalising and moving at once would hide regressions.
+- MK-7 (TTS adapters) was split out of MK-2. → The cache-key change needs its own migration of FIRE's committed cache.
+- MK-6 owns `src/compose/`, and MK-3 stays in `src/record/`. → It keeps the parallel group disjoint.
+- Table order follows execution, not number. → MK-7 and MK-6 come before MK-4 and MK-5 because they touch the core path, and IDs stay stable.
+- EN-9 and MO-6 are carried over from monetization as blocked owner items (owner, 2026-10-03). → The batch release
+  at the keyboard on 2026-10-05 must not hold this roadmap back.
+- MK-9 (FIRE_TRACKER adoption) was dropped by the owner on 2026-10-03. → The adoption runs in FIRE_TRACKER's own
+  roadmap and sessions; paid TTS there stays with the owner's `--commit`.

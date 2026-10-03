@@ -5,23 +5,24 @@ status: backlog
 roadmap_item: MO-6
 branch: null
 created: 2026-10-02
-updated: 2026-10-02
+updated: 2026-10-03
 archived_at: null
 ---
 
 ## Intent
 
-`@softure-ai/billing` and `@softure-ai/analytics` 0.1.0 published through the FD-2 pipeline (owner approves each first, staged publish and adds its trusted publisher), including MO-3 if it is done in time; module READMEs and status lines updated; a finish review across the merged items.
+`@softure-ai/billing` and `@softure-ai/analytics` 0.1.0 published through the FD-2 pipeline (owner approves each first, staged publish and adds its trusted publisher); module READMEs and status lines updated; a finish review across MO-1…MO-5.
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **MO-6** (roadmap `monetization`, main since 2026-10-03):
+From [`roadmap.md`](../../../foundation/roadmap.md), item **MO-6** (carried over on 2026-10-03 from roadmap `monetization`,
+archived in [`2026-10-03-3-roadmap.md`](../../../foundation/archive/2026-10-03-3-roadmap.md), to roadmap `marketing-kit`):
 
 > ### MO-6: Monetization modules release
 > - **Change ID:** `monetization-release`
-> - **Status:** ready
-> - **Outcome:** `@softure-ai/billing` and `@softure-ai/analytics` 0.1.0 published through the FD-2 pipeline (owner approves each first, staged publish and adds its trusted publisher), including MO-3 if it is done in time; module READMEs and status lines updated; a finish review across the merged items.
-> - **Prerequisites:** MO-2, MO-5 (MO-3 optional).
+> - **Status:** blocked (carried over from monetization: the owner's batch release at the keyboard on 2026-10-05)
+> - **Outcome:** `@softure-ai/billing` and `@softure-ai/analytics` 0.1.0 published through the FD-2 pipeline (owner approves each first, staged publish and adds its trusted publisher); module READMEs and status lines updated; a finish review across MO-1…MO-5.
+> - **Prerequisites:** MO-1…MO-5 (done).
 > - **Unknowns:** none beyond the owner's npm steps.
 > - **Risk:** low.
 > - **Baseline:** packages absent from npm. After: installable from npm and from GitHub Releases.

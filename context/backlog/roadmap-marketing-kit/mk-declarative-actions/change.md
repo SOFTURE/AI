@@ -18,7 +18,7 @@ archived_at: null
 
 ## Context
 
-From [`roadmap-marketing-kit.md`](../../../foundation/roadmaps/roadmap-marketing-kit.md), item **MK-3** (queued roadmap `marketing-kit`):
+From [`roadmap.md`](../../../foundation/roadmap.md), item **MK-3** (roadmap `marketing-kit`, main since 2026-10-03):
 
 > ### MK-3: Declarative scene actions
 > - **Change ID:** `mk-declarative-actions`

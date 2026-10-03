@@ -17,7 +17,7 @@ archived_at: null
 
 ## Context
 
-From [`roadmap-marketing-kit.md`](../../../foundation/roadmaps/roadmap-marketing-kit.md), item **MK-7** (queued roadmap `marketing-kit`):
+From [`roadmap.md`](../../../foundation/roadmap.md), item **MK-7** (roadmap `marketing-kit`, main since 2026-10-03):
 
 > ### MK-7: TTS provider adapters
 > - **Change ID:** `mk-tts-adapters`

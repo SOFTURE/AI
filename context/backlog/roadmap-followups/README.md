@@ -22,7 +22,6 @@ gets an entry here and a row in the roadmap.
 | FU-7 | [`analytics-action-redirect-tag`](analytics-action-redirect-tag/change.md) | Channel tag kept through server action redirects | roadmap promoted | start |
 | FU-8 | [`waitlist-funnel-hook`](waitlist-funnel-hook/change.md) | Waitlist sign-ups as a funnel step | roadmap promoted | start |
 | FU-9 | [`billing-admin-requests`](billing-admin-requests/change.md) | Payment requests, revoke and grant history in the billing admin page | roadmap promoted | start |
-| FU-10 | [`billing-stripe-sandbox-e2e`](billing-stripe-sandbox-e2e/change.md) | Stripe sandbox payment end to end | roadmap promoted and the owner's Stripe secrets | owner |
 | FU-11 | [`billing-refund-one-payment`](billing-refund-one-payment/change.md) | Refunds that take back one payment's period | roadmap promoted | start |
 | FU-12 | [`billing-retro-reviews`](billing-retro-reviews/change.md) | Retro research and plan review for MO-1 and MO-2 | roadmap promoted | start |
 
@@ -34,7 +33,7 @@ main branch), `owner` (needs an owner decision or the owner at the keyboard).
 Any thread that finds a gap or leaves part of its item undone (a review finding it defers, a README
 "Limitations" line, an owner check it cannot close) records it here in the same change, not in a loose file:
 
-1. Take the next free `FU-<n>` and a kebab-case change-id.
+1. Take the next free `FU-<n>` (numbers are never reused: FU-10 moved to `roadmap-later`) and a kebab-case change-id.
 2. Write `<change-id>/change.md` like the entries above (`status: backlog`, the item block quoted in Context,
    **Source** naming the roadmap item and the evidence `file` or section).
 3. Add the row to the table here and the row plus item block to

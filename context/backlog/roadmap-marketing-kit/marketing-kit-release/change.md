@@ -17,7 +17,7 @@ archived_at: null
 
 ## Context
 
-From [`roadmap-marketing-kit.md`](../../../foundation/roadmaps/roadmap-marketing-kit.md), item **MK-8** (queued roadmap `marketing-kit`):
+From [`roadmap.md`](../../../foundation/roadmap.md), item **MK-8** (roadmap `marketing-kit`, main since 2026-10-03):
 
 > ### MK-8: marketing-kit release
 > - **Change ID:** `marketing-kit-release`
