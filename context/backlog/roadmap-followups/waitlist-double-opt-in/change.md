@@ -37,3 +37,7 @@ Reference material: [`docs/02-module-standard.md`](../../../../docs/02-module-st
 - No release, tag or publish by the agent; the owner tags releases.
 
 ## Notes
+
+- From FU-3 (`mailing-consent-sync`): `joinWaitlist` lifts the address's own mailing opt-out
+  (`liftSuppression`) and replaces the sign-up's scopes when it did. With double opt-in, that lift
+  and the scope replacement belong to the confirmation, not to the unconfirmed sign-up.

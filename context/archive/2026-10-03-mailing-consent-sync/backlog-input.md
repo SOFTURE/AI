@@ -15,7 +15,7 @@ A mailing hook on unsubscribe and on a new explicit consent: an unsubscribe thro
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-3** (roadmap `followups`, main since 2026-10-03):
+From [`roadmap.md`](../../foundation/roadmap.md), item **FU-3** (roadmap `followups`, main since 2026-10-03):
 
 > ### FU-3: Unsubscribe as consent withdrawal
 > - **Change ID:** `mailing-consent-sync`
@@ -28,7 +28,7 @@ From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-3** (roadmap `fol
 > - **PRD refs:** FR-16, FR-18, FR-21.
 > - **Source:** `modules/waitlist/README.md` §12, `modules/mailing/README.md`
 
-Reference material: [`docs/02-module-standard.md`](../../../../docs/02-module-standard.md) (the standard).
+Reference material: [`docs/02-module-standard.md`](../../../docs/02-module-standard.md) (the standard).
 
 ## Constraints
 
