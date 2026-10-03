@@ -47,7 +47,7 @@ backlog: context/backlog/roadmap-marketing-kit/
 | **MK-3** | `mk-declarative-actions` | scenes described as JSON actions with locator descriptors; `sceneModule` TS escape hatch kept | MK-2 | autonomous | ready |
 | **MK-7** | `mk-tts-adapters` | `TtsProvider` interface, ElevenLabs adapter, cache key includes voice, model and language; paid calls only with `--commit` | MK-2 | autonomous | done |
 | **MK-6** | `mk-formats` | 1:1 and 16:9 render formats next to 9:16, geometry from config | MK-2 | autonomous | ready |
-| **MK-4** | `mk-screenshots` | `softure-marketing shots` with quality gates (HTTP status, expected phrase, minimum size, full-page scroll) | MK-2 | autonomous | **in_progress** (impl-review, since 2026-10-03; cloud session, branch `claude/project-thread-p5jnbq`) |
+| **MK-4** | `mk-screenshots` | `softure-marketing shots` with quality gates (HTTP status, expected phrase, minimum size, full-page scroll) | MK-2 | autonomous | done |
 | **MK-5** | `mk-og-images` | OG images rendered with Satori outside Next from templates + data | MK-2 | autonomous | ready |
 | **MK-8** | `marketing-kit-release` | `@softure-ai/marketing-kit` 0.1.0 published through the FD-2 pipeline, README complete | MK-3, MK-4, MK-5, MK-6, MK-7 | owner | ready |
 
@@ -181,7 +181,7 @@ Risk first: MK-1 proves the port is faithful. MK-2 fixes the contract every late
 
 ### MK-4: Screenshots with quality gates
 - **Change ID:** `mk-screenshots`
-- **Status:** in_progress (impl-review, since 2026-10-03; cloud session, branch `claude/project-thread-p5jnbq`)
+- **Status:** done
 - **Outcome:** `softure-marketing shots` renders the `screenshots` entries of `marketing.json`. Options cover width, height, full page with a lazy-load scroll, and motion reduce/no-preference. It applies the FIRE gates:
   - HTTP status below 400;
   - the expected phrase is present;
@@ -235,6 +235,7 @@ Risk first: MK-1 proves the port is faithful. MK-2 fixes the contract every late
 - **MK-1** `mk-core-port`: `@softure-ai/marketing-kit` runs FIRE's video pipeline (`softure-marketing all|voice|record|render|preview|posts`) from `marketing.config.json`, FIRE's tests pass in the package, a fixture film renders a draft MP4 locally; archived in `archive/2026-10-03-mk-core-port/`
 - **MK-2** `mk-config-contract`: one `marketing.json` (brand, app, voice, videos, social, screenshots, ogImages, output) validated by zod and published as `schema/marketing.schema.json`; brand colours inline, from the app's stylesheet or a `design.json`; errors name the JSON path; no FIRE constant left in `src/` (architecture test); archived in `archive/2026-10-03-mk-config-contract/`
 - **MK-7** `mk-tts-adapters`: the voiceover is recorded through a `TtsProvider` (ElevenLabs adapter, a fake for tests), the cost estimate is printed before any paid call, and FIRE's paid cache is reused as is; archived in `archive/2026-10-03-mk-tts-adapters/`
+- **MK-4** `mk-screenshots`: `softure-marketing shots [<id>]` renders the `screenshots` entries of `marketing.json` (viewport, full page with a lazy-load scroll, motion) and keeps only those that answer below HTTP 400, show the expected phrase and reach `minBytes`; archived in `archive/2026-10-03-mk-screenshots/`
 
 ## Decisions (auto)
 

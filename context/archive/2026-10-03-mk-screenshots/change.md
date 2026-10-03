@@ -1,12 +1,12 @@
 ---
 change_id: mk-screenshots
 title: "softure-marketing shots renders the configured screenshots behind quality gates"
-status: active
+status: archived
 roadmap_item: MK-4
 branch: claude/project-thread-p5jnbq
 created: 2026-10-03
 updated: 2026-10-03
-archived_at: null
+archived_at: 2026-10-03
 ---
 
 ## Intent
@@ -55,3 +55,4 @@ only (`src/config/schema.ts`, `screenshotSchema`); no command reads it.
 
 - Research: done ([`research.md`](research.md)). Framing: done ([`frame.md`](frame.md)), short,
   because the outcome is fixed by the roadmap and the open choice is only how much of the CLI changes.
+- Archived 2026-10-03: `softure-marketing shots` renders the `screenshots` entries behind the status, phrase and size gates, tested against static pages and the fixture app in CI (PR #38). Review F1-F2 fixed before the PR; device scale and light/dark pairs deferred to FU-15.
