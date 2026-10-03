@@ -20,7 +20,7 @@ share files run in one lane (see the roadmap's Order), so `dependency` below nam
 | FU-4 | [`waitlist-welcome-html`](waitlist-welcome-html/change.md) | HTML welcome mail for the waitlist | FU-2 on main | dependency |
 | FU-5 | [`analytics-client-navigation`](../../archive/2026-10-03-analytics-client-navigation/change.md) | Channel tag on client navigations without Next-Url | archived 2026-10-03 | start |
 | FU-6 | [`billing-reminder-mail`](billing-reminder-mail/change.md) | Reminder mail before access ends | FU-9 on main | dependency |
-| FU-7 | [`analytics-action-redirect-tag`](analytics-action-redirect-tag/change.md) | Channel tag kept through server action redirects | FU-1 and FU-5 on main | dependency |
+| FU-7 | [`analytics-action-redirect-tag`](../../changes/analytics-action-redirect-tag/change.md) | Channel tag kept through server action redirects | taken 2026-10-03 | dependency |
 | FU-8 | [`waitlist-funnel-hook`](waitlist-funnel-hook/change.md) | Waitlist sign-ups as a funnel step | FU-4 on main | dependency |
 | FU-12 | [`billing-retro-reviews`](billing-retro-reviews/change.md) | Retro research and plan review for MO-1 and MO-2 | roadmap promoted | start |
 | FU-13 | [`marketing-kit-render-ci`](../../archive/2026-10-03-marketing-kit-render-ci/change.md) | The marketing-kit fixture film renders in CI | archived 2026-10-03 | start |
