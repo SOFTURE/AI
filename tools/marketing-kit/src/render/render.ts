@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 import { composeFilm, filmTimes } from "../compose/compose.js";
 import { readSiteTokens } from "../compose/site-tokens.js";
@@ -101,7 +101,7 @@ export function buildComposition(input: RenderInput): string {
 /** Builds the composition and renders it with hyperframes. Returns the film's length in seconds. */
 export function renderFilm(input: RenderInput): number {
   buildComposition(input);
-  mkdirSync(join(input.output, ".."), { recursive: true });
+  mkdirSync(dirname(input.output), { recursive: true });
   const result = runHyperframes(["render", "--quality", input.quality, "-o", input.output], { cwd: input.buildDir, stdio: "inherit" });
   if (result.error !== undefined) throw new Error(`hyperframes render did not start: ${result.error.message}.`);
   if (result.status !== 0) throw new Error(`hyperframes render ended with code ${String(result.status)} (signal ${result.signal ?? "-"}).`);

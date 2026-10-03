@@ -1,7 +1,7 @@
 ---
 change_id: mk-core-port
 title: "FIRE's video pipeline runs from tools/marketing-kit with its tests"
-status: plan_reviewed
+status: impl_reviewed
 roadmap_item: MK-1
 branch: claude/project-thread-minoa1
 created: 2026-10-03

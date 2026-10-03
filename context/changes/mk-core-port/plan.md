@@ -115,20 +115,20 @@ options: unknown flag, bad film id, `--commit` with `all`, bad `--today`, bad `-
 ### Phase 1: Package and pure core
 
 #### Automated
-- [ ] 1.1 Ported tests pass; the package passes `tests/repo/packages.test.ts`
-- [ ] 1.2 Gates green (typecheck, lint, test)
+- [x] 1.1 Ported tests pass; the package passes `tests/repo/packages.test.ts` — 458f292
+- [x] 1.2 Gates green (typecheck, lint, test) — 310a012
 
 ### Phase 2: Recorder, render and CLI
 
 #### Automated
-- [ ] 2.1 Config and options tests pass; the build emits `dist/cli/main.js` with a shebang
-- [ ] 2.2 Gates green (typecheck, lint, test)
+- [x] 2.1 Config and options tests pass; the build emits `dist/cli/main.js` with a shebang — 310a012
+- [x] 2.2 Gates green (typecheck, lint, test) — 310a012
 
 ### Phase 3: Fixture film and the draft MP4
 
 #### Automated
-- [ ] 3.1 The opt-in render test passes locally
-- [ ] 3.2 Gates green (typecheck, lint, test, build)
+- [x] 3.1 The opt-in render test passes locally — 62f03bc
+- [x] 3.2 Gates green (typecheck, lint, test, build) — 62f03bc
 
 #### Manual
-- [ ] 3.3 A frame of the draft MP4 shows the phone, a caption and the end card
+- [x] 3.3 A frame of the draft MP4 shows the phone, a caption and the end card — 62f03bc
