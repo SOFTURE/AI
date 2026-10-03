@@ -41,12 +41,12 @@ Input: change.md, research.md. Complexity: medium (2 phases). Risk: medium.
 ### Phase 1: Module
 
 #### Automated
-- [ ] 1.1 Entitlement core, server, contributor and health tests pass on PGlite
-- [ ] 1.2 Component, messages and module tests pass; `module.json` equals the manifest
-- [ ] 1.3 Gates green (typecheck, lint, test)
+- [x] 1.1 Entitlement core, server, contributor and health tests pass on PGlite — 80a59d7
+- [x] 1.2 Component, messages and module tests pass; `module.json` equals the manifest — 80a59d7
+- [x] 1.3 Gates green (typecheck, lint, test) — 80a59d7
 
 ### Phase 2: Example app, e2e, docs
 
 #### Automated
-- [ ] 2.1 Example app builds; `e2e/billing-entitlements.spec.ts` and the touched specs pass
-- [ ] 2.2 Gates green (typecheck, lint, test, build)
+- [x] 2.1 Example app builds; `e2e/billing-entitlements.spec.ts` and the touched specs pass — f3f5aa7
+- [x] 2.2 Gates green (typecheck, lint, test, build) — f3f5aa7

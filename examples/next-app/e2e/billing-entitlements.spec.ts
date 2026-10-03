@@ -92,7 +92,8 @@ test("the billing page is private: a visitor without a session goes to the login
 test("a new account is on its 14-day trial and may write", async ({ page }) => {
   await registerAndOpenBillingPage(page);
   const badge = page.locator("[data-status]").first();
-  await expect(badge).toHaveText(`${copy.badge.trial}14 days left`);
+  // 14 on the registration day; 13 if the page renders after midnight in Warsaw.
+  await expect(badge).toHaveText(new RegExp(`^${copy.badge.trial}1[34] days left$`));
   await expect(badge).toHaveAttribute("data-status", "trial");
   // Outside the reminder window there is nothing to tell.
   await expect(page.getByRole("link", { name: copy.notice.choosePlan })).toHaveCount(0);

@@ -1,12 +1,12 @@
 ---
 change_id: billing-entitlements
 title: "Entitlements and the write guard"
-status: implementing
+status: archived
 roadmap_item: MO-1
 branch: claude/mo-1-billing-entitlements-go58sf
 created: 2026-10-03
 updated: 2026-10-03
-archived_at: null
+archived_at: 2026-10-03
 ---
 
 ## Intent
