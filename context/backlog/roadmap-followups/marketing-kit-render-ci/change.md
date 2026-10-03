@@ -17,7 +17,7 @@ surfacing at the next real film.
 
 ## Context
 
-From [`roadmap-followups.md`](../../../foundation/roadmaps/roadmap-followups.md), item **FU-13** (queued roadmap `followups`):
+From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-13** (roadmap `followups`, main since 2026-10-03):
 
 > ### FU-13: The marketing-kit fixture film renders in CI
 > - **Change ID:** `marketing-kit-render-ci`

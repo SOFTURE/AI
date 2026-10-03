@@ -17,7 +17,7 @@ history of grants per account; optionally a `grant-plan` script for hosts withou
 
 ## Context
 
-From [`roadmap-followups.md`](../../../foundation/roadmaps/roadmap-followups.md), item **FU-9** (queued roadmap `followups`):
+From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-9** (roadmap `followups`, main since 2026-10-03):
 
 > ### FU-9: Payment requests, revoke and grant history in the billing admin page
 > - **Change ID:** `billing-admin-requests`

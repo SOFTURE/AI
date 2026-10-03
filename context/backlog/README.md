@@ -27,6 +27,5 @@ An entry is never in two places, neither as a copy nor as a pointer.
 
 | Folder | Roadmap | Starts when |
 | --- | --- | --- |
-| [`roadmap-marketing-kit/`](roadmap-marketing-kit/) | [marketing-kit](../foundation/roadmap.md) | promoted 2026-10-03 (main roadmap, with EN-9 and MO-6 carried over) |
 | [`roadmap-later/`](roadmap-later/) | [later](../foundation/roadmaps/roadmap-later.md) | the owner step each item waits on is done |
-| [`roadmap-followups/`](roadmap-followups/) | [followups](../foundation/roadmaps/roadmap-followups.md) | every module roadmap done; promoted last |
+| [`roadmap-followups/`](roadmap-followups/) | [followups](../foundation/roadmap.md) | promoted 2026-10-03, last (main roadmap, with MK-8, EN-9 and MO-6 carried over) |

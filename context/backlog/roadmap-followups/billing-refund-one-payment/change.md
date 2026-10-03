@@ -15,7 +15,7 @@ A full refund removes only the access the refunded payment granted (its period, 
 
 ## Context
 
-From [`roadmap-followups.md`](../../../foundation/roadmaps/roadmap-followups.md), item **FU-11** (queued roadmap `followups`):
+From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-11** (roadmap `followups`, main since 2026-10-03):
 
 > ### FU-11: Refunds that take back one payment's period
 > - **Change ID:** `billing-refund-one-payment`

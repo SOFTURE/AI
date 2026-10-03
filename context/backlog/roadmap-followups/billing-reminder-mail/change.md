@@ -16,7 +16,7 @@ window through mailing's delivery ledger, next to the in-app notice billing alre
 
 ## Context
 
-From [`roadmap-followups.md`](../../../foundation/roadmaps/roadmap-followups.md), item **FU-6** (queued roadmap `followups`):
+From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-6** (roadmap `followups`, main since 2026-10-03):
 
 > ### FU-6: Reminder mail before access ends
 > - **Change ID:** `billing-reminder-mail`

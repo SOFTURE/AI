@@ -8,11 +8,11 @@ Finished main roadmaps move to `../archive/<YYYY-MM-DD>-roadmap.md`.
 | Roadmap | Theme | Prefix | Status |
 | --- | --- | --- | --- |
 | [`roadmap-later.md`](roadmap-later.md) | items parked until an owner step (secrets, accounts) is done | `LT-` | waiting |
-| [`roadmap-followups.md`](roadmap-followups.md) | catch-all for gaps found in the other roadmaps; runs last | `FU-` | waiting |
 
-Main roadmap now: [`marketing-kit`](../roadmap.md) (`MK-`, with EN-9 and MO-6 carried over). Archived:
-[`foundation`](../archive/2026-10-02-roadmap.md), [`identity`](../archive/2026-10-03-roadmap.md),
-[`engagement`](../archive/2026-10-03-2-roadmap.md), [`monetization`](../archive/2026-10-03-3-roadmap.md).
+Main roadmap now: [`followups`](../roadmap.md) (`FU-`, the catch-all for gaps, promoted last, with MK-8, EN-9 and
+MO-6 carried over). Archived: [`foundation`](../archive/2026-10-02-roadmap.md),
+[`identity`](../archive/2026-10-03-roadmap.md), [`engagement`](../archive/2026-10-03-2-roadmap.md),
+[`monetization`](../archive/2026-10-03-3-roadmap.md), [`marketing-kit`](../archive/2026-10-03-4-roadmap.md).
 
 No roadmap carries a FIRE_TRACKER adoption item (owner, 2026-10-03): FIRE_TRACKER adopts the modules in its own
 roadmap and sessions. Each roadmap still ends with its own release item.

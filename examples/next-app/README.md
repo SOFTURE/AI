@@ -2,7 +2,7 @@
 
 A Next.js 16 app built from `@softure-ai/core`, `@softure-ai/db`, `@softure-ai/ui` and the modules, and the
 end-to-end harness of the repository: every module adds its scenarios here
-([roadmap FD-7](../../context/foundation/roadmap.md)).
+([roadmap FD-7](../../context/foundation/archive/2026-10-02-roadmap.md)).
 
 It installs the foundation packages the way an app gets them from npm: `.npmrc` sets
 `install-links`, so `npm ci` packs `../../foundation/*` (their `files` and `exports`, built

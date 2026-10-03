@@ -15,7 +15,7 @@ The waitlist offers an `onJoined` hook (in the sign-up's transaction, like auth'
 
 ## Context
 
-From [`roadmap-followups.md`](../../../foundation/roadmaps/roadmap-followups.md), item **FU-8** (queued roadmap `followups`):
+From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-8** (roadmap `followups`, main since 2026-10-03):
 
 > ### FU-8: Waitlist sign-ups as a funnel step
 > - **Change ID:** `waitlist-funnel-hook`
