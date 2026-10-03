@@ -1,7 +1,8 @@
 // The boundary check of `sendMail`: a mail and its options are parsed before anything leaves the
 // process. Failures name the fields, never their values (an address is personal data).
 import { z } from "zod";
-import { hasLineBreak, isHeaderName, isIdempotencyKey, isReservedHeader, isSingleAddress, MAX_SUBJECT_LENGTH } from "../address.js";
+import { hasLineBreak, isHeaderName, isIdempotencyKey, isListMailHeader, isMailKind, isReservedHeader, isSingleAddress, MAX_SUBJECT_LENGTH } from "../address.js";
+import { TRANSACTIONAL_KIND } from "../contract.js";
 
 const headersSchema = z.record(z.string(), z.string()).superRefine((headers, context) => {
   for (const [name, value] of Object.entries(headers)) {
@@ -22,6 +23,12 @@ const mailSchema = z.object({
     .refine((html) => html.trim() !== "")
     .optional(),
   headers: headersSchema.optional(),
+  kind: z.string().refine(isMailKind).default(TRANSACTIONAL_KIND),
+}).superRefine((mail, context) => {
+  // The module writes these two on list mail; a second, unsigned copy would confuse clients.
+  if (mail.kind !== TRANSACTIONAL_KIND && Object.keys(mail.headers ?? {}).some(isListMailHeader)) {
+    context.addIssue({ code: "custom", path: ["headers"], message: "list mail gets its unsubscribe headers from the module" });
+  }
 });
 
 const optionsSchema = z.object({
@@ -34,6 +41,8 @@ export interface ValidMail {
   readonly text: string;
   readonly html: string | null;
   readonly headers: Readonly<Record<string, string>>;
+  /** `transactional` or a list kind. */
+  readonly kind: string;
   readonly idempotencyKey: string | null;
 }
 
@@ -41,7 +50,7 @@ export type MailValidation = { readonly ok: true; readonly value: ValidMail } | 
 
 /**
  * Checks one mail and its send options. `fields` lists what failed (`to`, `subject`, `text`,
- * `html`, `headers`, `idempotencyKey`, or `mail` when the input is not an object).
+ * `html`, `headers`, `kind`, `idempotencyKey`, or `mail` when the input is not an object).
  */
 export function validateMail(mail: unknown, options: unknown = {}): MailValidation {
   const parsedMail = mailSchema.safeParse(mail);
@@ -51,9 +60,9 @@ export function validateMail(mail: unknown, options: unknown = {}): MailValidati
     const fields = new Set(issues.map((issue) => (issue.path.length === 0 ? "mail" : String(issue.path[0]))));
     return { ok: false, fields: [...fields] };
   }
-  const { to, subject, text, html, headers } = parsedMail.data;
+  const { to, subject, text, html, headers, kind } = parsedMail.data;
   return {
     ok: true,
-    value: { to, subject, text, html: html ?? null, headers: headers ?? {}, idempotencyKey: parsedOptions.data.idempotencyKey ?? null },
+    value: { to, subject, text, html: html ?? null, headers: headers ?? {}, kind, idempotencyKey: parsedOptions.data.idempotencyKey ?? null },
   };
 }

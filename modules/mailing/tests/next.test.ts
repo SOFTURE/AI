@@ -1,13 +1,15 @@
 // The Next adapter sends with the registered configuration.
 import { clearSoftureConfig, registerSoftureConfig } from "@softure-ai/core/next";
+import { closeSharedDatabases } from "@softure-ai/db";
 import { sendMail } from "@softure-ai/mailing/next";
 import { fakeMailProvider } from "@softure-ai/mailing/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { createConfig, MAIL } from "./support.js";
 
 describe("sendMail from /next", () => {
-  afterEach(() => {
+  afterEach(async () => {
     clearSoftureConfig();
+    await closeSharedDatabases();
   });
 
   it("sends through the provider of the registered configuration", async () => {

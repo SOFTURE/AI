@@ -8,7 +8,18 @@ export type MailingErrorCode =
   /** The provider refused the mail. Retrying the same request will not help. */
   | "mailing.rejected"
   /** The provider could not be reached or did not answer in time. Retry later, with the same idempotency key. */
-  | "mailing.unavailable";
+  | "mailing.unavailable"
+  /** A list mail to a recipient who unsubscribed. Nothing was sent; do not retry. */
+  | "mailing.suppressed";
+
+/** Why an unsubscribe link was refused: missing, malformed, or not signed by a current secret. */
+export type UnsubscribeErrorCode = "mailing.invalid_link";
+
+/** The kind of every mail that is not list mail: sent whatever the recipient unsubscribed from. */
+export const TRANSACTIONAL_KIND = "transactional";
+
+/** How an opt-out arrived: a mail client's one-click POST, the page's button, or an operator. */
+export type SuppressionSource = "one-click" | "page" | "operator";
 
 /** One mail to one recipient. A mail to a list is a loop over recipients, never a list in `to`. */
 export interface OutgoingMail {
@@ -25,6 +36,14 @@ export interface OutgoingMail {
    * the body's encoding: reserved names are refused (`RESERVED_HEADERS`).
    */
   readonly headers?: Readonly<Record<string, string>>;
+  /**
+   * `transactional` (the default) for mail the recipient needs whatever they unsubscribed from:
+   * password resets, receipts, account notices. Any other kebab-case name (e.g. `newsletter`) is
+   * list mail: it gets a signed unsubscribe link in a footer and the RFC 8058 headers, and is
+   * refused with `mailing.suppressed` for a recipient who unsubscribed. Unsubscribing covers every
+   * list kind.
+   */
+  readonly kind?: string;
 }
 
 export interface SendMailOptions {

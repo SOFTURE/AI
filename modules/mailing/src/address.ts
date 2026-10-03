@@ -37,6 +37,16 @@ export const RESERVED_HEADERS: ReadonlySet<string> = new Set([
   "mime-version",
 ]);
 
+/**
+ * Headers the module writes on every list mail. A list mail that brings its own is refused: two
+ * `List-Unsubscribe` headers, one of them unsigned, is worse than none.
+ */
+export const LIST_MAIL_HEADERS: ReadonlySet<string> = new Set(["list-unsubscribe", "list-unsubscribe-post"]);
+
+/** A mail kind: kebab-case, 1 to 64 characters, e.g. `newsletter`. */
+const MAIL_KIND = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
+export const MAX_MAIL_KIND_LENGTH = 64;
+
 export const MAX_SUBJECT_LENGTH = 998;
 export const MAX_IDEMPOTENCY_KEY_LENGTH = 256;
 
@@ -63,6 +73,14 @@ export function isHeaderName(name: string): boolean {
 
 export function isReservedHeader(name: string): boolean {
   return RESERVED_HEADERS.has(name.toLowerCase());
+}
+
+export function isListMailHeader(name: string): boolean {
+  return LIST_MAIL_HEADERS.has(name.toLowerCase());
+}
+
+export function isMailKind(kind: string): boolean {
+  return kind.length <= MAX_MAIL_KIND_LENGTH && MAIL_KIND.test(kind);
 }
 
 /** 1 to 256 visible ASCII characters. */

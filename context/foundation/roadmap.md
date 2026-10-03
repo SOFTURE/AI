@@ -47,7 +47,7 @@ app (mail, waitlist), to agents (MCP access) and to regulators (privacy). Every 
 | ID | Change | Outcome | Depends on | Mode | Status |
 | --- | --- | --- | --- | --- | --- |
 | **EN-1** | `mailing-transport` | `@softure-ai/mailing` sends plain + HTML mail through an adapter (Resend first) with idempotency and a typed result | — | autonomous | done |
-| **EN-2** | `mailing-unsubscribe` | HMAC-signed unsubscribe links, RFC 8058 headers, one-click endpoint, unsubscribe page and a suppression list | EN-1 | autonomous | ready |
+| **EN-2** | `mailing-unsubscribe` | HMAC-signed unsubscribe links, RFC 8058 headers, one-click endpoint, unsubscribe page and a suppression list | EN-1 | autonomous | **in_progress** (implement 2/2, since 2026-10-03; cloud session, branch `claude/en-2-mailing-unsubscribe-uerzdo` — do not take in another session) |
 | **EN-3** | `mailing-ledger-campaigns` | exactly-once delivery ledger, campaigns sent from a content file, SPF/DKIM/DMARC check | EN-2 | autonomous | ready |
 | **EN-4** | `auth-reset-via-mailing` | the auth password-reset sender hook is wired to `@softure-ai/mailing`, with pl + en templates | EN-1 | autonomous | ready |
 | **EN-5** | `waitlist` | `@softure-ai/waitlist`: sign-up with configurable consent scopes, welcome mail, unsubscribe, `WaitlistForm` | EN-1, EN-2, EN-8 | autonomous | ready |
@@ -91,7 +91,7 @@ contributor contract every module with user data depends on) start the roadmap.
 
 ### EN-2: Signed one-click unsubscribe and suppressions
 - **Change ID:** `mailing-unsubscribe`
-- **Status:** ready
+- **Status:** in_progress (implement 2/2, since 2026-10-03; cloud session, branch `claude/en-2-mailing-unsubscribe-uerzdo` — do not take in another session)
 - **Outcome:** Every non-transactional mail carries an HMAC-signed unsubscribe link and RFC 8058 `List-Unsubscribe` / `List-Unsubscribe-Post` headers; a one-click POST endpoint and an unsubscribe page (Next adapter) record the opt-out in `mailing.suppressions`; `sendMail()` refuses suppressed recipients for non-transactional kinds.
 - **Prerequisites:** EN-1.
 - **Unknowns:** Secret rotation for the HMAC key (accept old and new during rotation?); whether suppressions are per mail kind or global; footer rendering in HTML vs. plain text.
