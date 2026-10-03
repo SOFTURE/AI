@@ -58,7 +58,7 @@ export interface RecordOptions {
   voiceoverKey: string;
   /** The day the app counts from: today by default; another day only to reproduce an old film. */
   today?: string;
-  /** Path of the film module, named in errors that ask for a scene fix. */
+  /** The file that holds the scene (its module, or marketing.json for actions), named in errors that ask for a scene fix. */
   filmPath: string;
   /** A Chromium to use instead of Playwright's own (`PLAYWRIGHT_CHROMIUM_PATH`). */
   executablePath?: string;
@@ -157,6 +157,13 @@ export async function recordFilm(options: RecordOptions): Promise<RecordingLog> 
 
     const where = (): string => (current === null ? "before the first sentence" : `sentence "${current.id}"`);
     const failLocator = (target: Locator, error: unknown): never => {
+      // Playwright's strict mode: the locator found several elements, not none.
+      if (String(error).includes("strict mode violation")) {
+        throw new Error(
+          `${where()}: ${String(target)} matches more than one element; pick one with nth or narrow the locator. ` +
+            `Fix the scene: ${filmPath} (${String(error).split("\n")[0]})`,
+        );
+      }
       throw new Error(
         `${where()}: ${String(target)} did not appear within ${ACTION_TIMEOUT_MS / 1000} s. Did the app change? ` +
           `Fix the scene: ${filmPath} (${String(error).split("\n")[0]})`,

@@ -9,7 +9,8 @@ import { prepareFixture } from "../examples/fixture/prepare.js";
 
 /**
  * The whole pipeline on the fixture film: start the fixture app, record it frame by frame, compose
- * and render a draft MP4 with hyperframes, write the post copy.
+ * and render a draft MP4 with hyperframes, write the post copy; then record the film's JSON twin
+ * (beat actions instead of the scene module) and compare the two recording logs.
  *
  * Opt-in (`MARKETING_KIT_RENDER=1`): it needs ffmpeg, a Chromium for Playwright
  * (`PLAYWRIGHT_CHROMIUM_PATH` or Playwright's own) and a Chrome for hyperframes
@@ -47,5 +48,12 @@ describe.runIf(isEnabled)("softure-marketing all on the fixture film", () => {
 
     const posts = readFileSync(join(target, "out", "fixture-tour", "posts.md"), "utf8");
     expect(posts).toContain("Link for the bio: https://example.com/calculator?z=ig-01");
+
+    // The same film with its scene as beat actions records the same log: beats, taps, keys, camera,
+    // marks, stills and cues, frame for frame.
+    const twin = spawnSync(TSX, [join(PACKAGE_DIR, "src", "cli", "main.ts"), "record", "fixture-tour-actions", `--config=${config}`], { encoding: "utf8" });
+    expect(twin.status, `${twin.stdout}\n${twin.stderr}`).toBe(0);
+    const readLog = (id: string): unknown => JSON.parse(readFileSync(join(target, "build", id, "log.json"), "utf8"));
+    expect(readLog("fixture-tour-actions")).toEqual(readLog("fixture-tour"));
   }, 600_000);
 });

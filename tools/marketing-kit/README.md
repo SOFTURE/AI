@@ -8,7 +8,7 @@ screen frame by frame while a scene types and taps; the camera follows the thumb
 voiceover word by word, and hyperframes renders the HTML composition to MP4.
 
 Ported from FIRE_TRACKER's `video/` pipeline (roadmap item MK-1). Everything product-specific comes
-from one `marketing.json` (MK-2); declarative scene actions (MK-3), the 1:1 and 16:9 formats (MK-6),
+from one `marketing.json` (MK-2), the scene included as declarative actions (MK-3); the 1:1 and 16:9 formats (MK-6),
 TTS providers (MK-7), screenshots (MK-4) and OG images (MK-5) build on it. Background:
 [docs/03-marketing-kit.md](../../docs/03-marketing-kit.md).
 
@@ -32,7 +32,7 @@ the screen guard refused the recording (the screen did not show what the voiceov
 - **`--today`** records the app as of another day, only to reproduce an old film.
 - **Server:** when the configured app does not answer, `record` starts `app.startCommand` in the config
   folder on `app.port` and stops it afterwards (log in `<output.buildDir>/server.log`).
-- Every command checks that the video's scene module exists; `render`, `preview` and `all` also check
+- Every command checks that the video's scene module exists (when it has one); `render`, `preview` and `all` also check
   the brand files (logo, fonts, sound effects). A missing one is reported by its JSON path.
 
 Output: `<output.dir>/<video>/<video>.mp4` and `posts.md`; recordings and compositions in
@@ -76,13 +76,19 @@ folder of `marketing.json`. A complete example: [examples/fixture/marketing.json
     "persona": { "name": "Anna", "age": 36, "tagline": "works out when she can stop working" },
     "beats": [
       { "id": "hook", "text": "Forty-nine years. That is when Anna stops working." },
-      { "id": "age", "text": "She types her age and taps next." },
-      { "id": "cta", "text": "Count your own date." }
+      { "id": "age", "text": "She types her age and taps next.", "actions": [
+          { "do": "fill", "input": "age", "value": "36" },
+          { "do": "until", "word": "taps" },
+          { "do": "tap", "target": { "role": "button", "name": { "regex": "^Next$" } }, "after": 0.3 },
+          { "do": "mark", "name": "exit-age", "target": { "testId": "exit-age" } },
+          { "do": "focus", "target": [{ "text": "Exit age", "exact": true }, { "testId": "exit-age" }], "scale": 1.4 },
+          { "do": "checkScreen" },
+          { "do": "still", "name": "result" } ] },
+      { "id": "cta", "text": "Count your own date.", "pad": 1.2, "actions": [{ "do": "wide" }] }
     ],
     "hook": { "still": "result", "shots": [{ "mark": "exit-age", "scale": 1.6 }] },
     "screenGuard": ["49 years"],
-    "endCard": { "headline": "Count your date", "url": "example.com/calculator", "note": "Free, no account" },
-    "sceneModule": "scenes/calculator-tour.ts"
+    "endCard": { "headline": "Count your date", "url": "example.com/calculator", "note": "Free, no account" }
   }],
   "social": {
     "linkTemplate": "https://example.com/calculator?ref={code}",
@@ -106,7 +112,8 @@ folder of `marketing.json`. A complete example: [examples/fixture/marketing.json
 | `voice` | `provider` (`elevenlabs`), `voiceId`, `model` (`eleven_multilingual_v2`), `language`, `tempo` (`1`, 0.8-1.3), `cacheDir` (`marketing/voiceover`) | the voiceover; text, voice, model and language make the cache key, the tempo is applied at build time |
 | `videos[]` | `id`, `title`, `path`, `format` (`9:16`), `device`, `voice` (`voiceId`, `model`, `tempo`) | a film and its overrides |
 | | `persona`, `beats`, `hook`, `screenGuard`, `endCard` | the script, see [A film](#a-film) |
-| | `sceneModule` | the TS module exporting `scene` |
+| | `beats[].actions`, `beats[].pad` | the scene as data, see [Scene actions](#scene-actions) |
+| | `sceneModule` | instead of actions: the TS module exporting `scene` |
 | `social` | `linkTemplate` | the link every post carries, `{code}` replaced by the platform's channel code |
 | | `platforms` | `instagram`, `facebook`, `tiktok`, `youtube`, `linkedin`, `x`: `code`, `linkInBio` (true for Instagram, TikTok, YouTube) |
 | | `posts[]` | `video`, `caption`, `hashtags`, `codes` (this video's own codes); a video without one gets no `posts.md` |
@@ -141,7 +148,7 @@ default. Values must be hex literals (`#rgb`, `#rrggbb`, `#rrggbbaa`).
 | What MK-1 still had in code | Where it is now |
 | --- | --- |
 | `marketing.config.json` (`locale`, `brand.name`, `app`, `siteCss`, `posts.site`, `paths`) | `marketing.json`: `brand`, `app`, `brand.tokensFrom.css`, `social.linkTemplate`, `voice.cacheDir`, `output`, `sfx`, `brand.fonts` |
-| film modules with data and scene | the data in `videos[]`, the scene in `sceneModule` (`export const scene: Scene`) |
+| film modules with data and scene | the data in `videos[]`, the scene in `beats[].actions` (or `sceneModule`, `export const scene: Scene`) |
 | phone 390×844 @3, mobile | `app.device` |
 | `pl-PL`, `Europe/Warsaw`, dark scheme | `brand.locale`, `brand.timezone`, `app.colorScheme` |
 | hidden `nextjs-portal` and the mailing-list pill | `app.hideSelectors` |
@@ -155,17 +162,65 @@ default. Values must be hex literals (`#rgb`, `#rrggbb`, `#rrggbbaa`).
 
 ## A film
 
-A film is a `videos[]` entry plus a scene module. The fixture film is a complete example: its entry in
-[examples/fixture/marketing.json](examples/fixture/marketing.json) and its scene in
-[examples/fixture/films/fixture-tour.ts](examples/fixture/films/fixture-tour.ts).
+A film is a `videos[]` entry: the script and the scene, either as beat `actions` or as a scene module.
+The fixture has the same film both ways in [examples/fixture/marketing.json](examples/fixture/marketing.json):
+`fixture-tour-actions` with actions, `fixture-tour` with the module
+[examples/fixture/films/fixture-tour.ts](examples/fixture/films/fixture-tour.ts). Both record the same log.
 
 - **`beats`**: the voiceover sentences. The first plays over the opening (a frame of the result with a
   rewind), the last ends on the end card. Changing the text means a new, paid recording.
-- **`scene`** (exported by `sceneModule`, typed `Scene`): what happens on screen, sentence by sentence,
-  through the Director: `d.beat(id, …)`, `d.fill(name, value)`, `d.tap(locator)`, `d.until(word)`,
-  `d.focus(…)`, `d.wide()`, `d.mark(…)`, `d.still(…)`, `d.cue("sparkle" | "persona-out")`, `d.checkScreen()`.
+- **`actions`** on every beat after the first: what happens on screen during that sentence (below).
+- **`sceneModule`**, the escape hatch for a scene that needs logic: a TS module exporting `scene`
+  (typed `Scene`) that drives the Director itself: `d.beat(id, …, { pad })`, then the same methods as
+  the actions (`d.fill(name, value)`, `d.tap(locator)`, `d.until(word)`, …). A video uses one or the other.
 - **`screenGuard`**: every number the voiceover says, as the screen writes it. If the screen does not
   show one, the recording stops with code 2 and no film is made.
+
+### Scene actions
+
+Each action is `{ "do": "<name>", …arguments }` and calls the Director method of the same name.
+Optional arguments left out keep the Director's defaults.
+
+| `do` | Arguments (default) | What it does |
+| --- | --- | --- |
+| `wide` | `scale` (`1`), `whoosh` (`false`) | camera on the whole phone screen |
+| `tap` | `target`, `after` (`0.35` s) | scrolls the element into view if needed and taps its centre |
+| `type` | `text`, `perChar` (`0.13` s) | types into the focused element, one key at a time |
+| `fill` | `input`, `value` | taps `input[name=<input>]`, moves the camera onto it and types the value |
+| `blur` | | takes the focus off the active element |
+| `focus` | `target` (one or many), `scale` (fits the element), `height` | camera on the element, or on the rectangle around several |
+| `bring` | `target`, `top` (`140` px), `seconds` (`0.5`) | scrolls so the element's top edge stands `top` px from the top |
+| `mark` | `name`, `target` (one or many) | remembers the rectangle, e.g. for an opening shot |
+| `still` | `name` | remembers the current frame as the opening frame |
+| `cue` | `name` (`sparkle`, `persona-out`) | an event on the film's timeline |
+| `hold` | `seconds` (0-30) | lets the screen run |
+| `until` | `word` | waits until the voiceover says this word of the sentence |
+| `checkScreen` | | the screen guard, now |
+
+A beat's `pad` (`0.35` s) is how long the screen holds after the voiceover ends the sentence.
+
+A **target** is a locator descriptor with exactly one of these keys, plus `nth` (0 = the first match):
+
+| Descriptor | Playwright | Options |
+| --- | --- | --- |
+| `{ "role": "button", "name": "Next" }` | `getByRole` | `name` (the accessible name), `exact` |
+| `{ "text": "Your wealth today" }` | `getByText` | `exact` |
+| `{ "label": "Age" }` | `getByLabel` | `exact` |
+| `{ "testId": "exit-age" }` | `getByTestId` | |
+| `{ "css": "label", "hasText": "I want to know" }` | `locator` | `hasText` |
+
+`name`, `text`, `label` and `hasText` take a string (a case-insensitive substring; with `exact: true` the
+whole text, case-sensitive) or a regex: `{ "regex": "^Next$", "flags": "i" }` (flags from `imsu`).
+Without `nth`, a target that matches several elements fails while recording: add `nth`, or narrow it.
+
+What can be checked without a browser is checked when the config loads, by JSON path: an `until` word
+the sentence does not say, a `hook.still` or `hook.shots[].mark` no action saves, a scene without
+`checkScreen`, actions on the opening sentence, actions next to a `sceneModule`. An action that fails
+while recording names its path and the config file:
+
+```text
+✗ videos[0].beats[1].actions[2] (tap): sentence "age": getByRole('button', { name: /^Next$/ }) did not appear within 5 s. …
+```
 
 ## Requirements
 
@@ -187,7 +242,7 @@ A film is a `videos[]` entry plus a scene module. The fixture film is a complete
 
 ## Limitations
 
-- Scenes are TypeScript (`sceneModule`); declarative actions in `beats` are MK-3.
+- Actions have no conditions or loops; a scene that needs them stays a `sceneModule`.
 - One format, 9:16; the device is config, the frame layout is fixed until MK-6.
 - ElevenLabs is the only voice provider; the provider interface and a cost estimate are MK-7.
 - `screenshots` and `ogImages` are validated but no command renders them yet (MK-4, MK-5).

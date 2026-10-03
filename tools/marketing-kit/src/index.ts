@@ -1,5 +1,5 @@
 // Public API of @softure-ai/marketing-kit: the `marketing.json` contract (schema, loading, brand
-// colours), the film model a project's scene modules are typed with, and the pure building blocks of
+// colours), the film model a project's scene modules are typed with, the declarative scene actions, and the pure building blocks of
 // the pipeline (voiceover cache, timeline, composition, posts). The `softure-marketing` CLI
 // (`src/cli/main.ts`) runs the whole pipeline from `marketing.json`.
 export {
@@ -15,6 +15,19 @@ export {
   type SfxEvent,
 } from "./config/schema.js";
 export {
+  ACTION_NAMES,
+  ARIA_ROLES,
+  actionSchema,
+  locatorSchema,
+  textMatchSchema,
+  type ActionName,
+  type AriaRole,
+  type LocatorDescriptor,
+  type SceneAction,
+  type SceneActionInput,
+  type TextMatch,
+} from "./config/actions-schema.js";
+export {
   findMissingFiles,
   findVideo,
   loadMarketingConfig,
@@ -22,7 +35,9 @@ export {
   type FontFile,
   type LoadConfigResult,
   type MarketingConfig,
+  type ActionBeat,
   type PlatformChannel,
+  type SceneSource,
   type VideoConfig,
   type VideoPost,
 } from "./config/config.js";
@@ -30,7 +45,7 @@ export { COLOR_ROLES, COLOR_THEMES, type BrandColors, type ColorRole, type Color
 export { resolveBrandColors, type BrandColorsResult } from "./config/brand.js";
 export { readCssColors } from "./config/css-colors.js";
 export { readDesignJsonColors } from "./config/design-json.js";
-export { formatIssuePath, type ConfigIssue } from "./config/issues.js";
+export { expandUnionIssues, formatIssuePath, type ConfigIssue, type SchemaIssue } from "./config/issues.js";
 export {
   CUES,
   containsPhrase,
@@ -91,6 +106,7 @@ export {
   type ResolvedTween,
 } from "./compose/compose.js";
 export { buildPosts, postsMarkdown, type PlatformPost, type PostsInput } from "./posts/posts.js";
+export { createActionScene, getLocator, runAction, type LocatorSource } from "./record/actions.js";
 export { FPS, ScreenGuardError, type BrowserSettings, type CameraCue, type RecordingLog } from "./record/record.js";
 export {
   MARKETING_LOCALES,

@@ -42,6 +42,51 @@
       "screenGuard": ["49 years", "March 2040"],
       "endCard": { "headline": "Count your date", "url": "example.com/calculator", "note": "Free, no account" },
       "sceneModule": "films/fixture-tour.ts"
+    },
+    {
+      "id": "fixture-tour-actions",
+      "title": "The fixture counts its date, scene in JSON",
+      "path": "/",
+      "persona": { "name": "Robin", "age": 36, "tagline": "works out when to stop working" },
+      "beats": [
+        { "id": "hook", "text": "Forty-nine years. That is the exit age." },
+        {
+          "id": "age",
+          "text": "Robin types thirty-six and taps next.",
+          "actions": [
+            { "do": "fill", "input": "age", "value": "36" },
+            { "do": "until", "word": "taps" },
+            { "do": "cue", "name": "sparkle" },
+            { "do": "tap", "target": { "role": "button", "name": { "regex": "^Next$" } }, "after": 0.3 },
+            { "do": "cue", "name": "persona-out" },
+            { "do": "wide", "whoosh": true },
+            { "do": "mark", "name": "exit-age", "target": { "css": "#exit-age" } },
+            { "do": "mark", "name": "exit-date", "target": { "css": "#exit-date" } },
+            { "do": "focus", "target": [{ "css": "#exit-age" }, { "css": "#exit-date" }], "scale": 1.3 },
+            { "do": "checkScreen" },
+            { "do": "hold", "seconds": 0.6 },
+            { "do": "still", "name": "result" }
+          ]
+        },
+        {
+          "id": "cta",
+          "text": "Count your own date today.",
+          "pad": 1.2,
+          "actions": [
+            { "do": "wide" },
+            { "do": "bring", "target": { "role": "heading" }, "top": 40, "seconds": 0.4 }
+          ]
+        }
+      ],
+      "hook": {
+        "still": "result",
+        "shots": [
+          { "mark": "exit-age", "scale": 1.6 },
+          { "mark": "exit-date", "scale": 1.3, "word": "That" }
+        ]
+      },
+      "screenGuard": ["49 years", "March 2040"],
+      "endCard": { "headline": "Count your date", "url": "example.com/calculator", "note": "Free, no account" }
     }
   ],
   "social": {

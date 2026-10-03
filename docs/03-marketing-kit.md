@@ -43,8 +43,10 @@ committed to the project repository.
 The contract is fixed by MK-2: the zod schema in `tools/marketing-kit/src/config/schema.ts`, published as
 [`schema/marketing.schema.json`](../tools/marketing-kit/schema/marketing.schema.json), with the reference
 in the [package README](../tools/marketing-kit/README.md#marketingjson). The sketch below is the
-original draft: beat `actions` and `role` are still to come (MK-3), and the final key names differ in
-places (`brand.timezone`, `app.device`, `voice.cacheDir`, `social.platforms.<p>.code`, `sfx`).
+original draft; the final key names differ in places (`brand.timezone`, `app.device`, `voice.cacheDir`,
+`social.platforms.<p>.code`, `sfx`). Beat `actions` arrived with MK-3 as sketched, with regexes written as
+`{ "regex": "^Next$" }` (reference: [Scene actions](../tools/marketing-kit/README.md#scene-actions));
+the beat `role` was dropped, because the first and last sentences already play the opening and the end card.
 
 ```jsonc
 {
@@ -92,8 +94,8 @@ places (`brand.timezone`, `app.device`, `voice.cacheDir`, `social.platforms.<p>.
 }
 ```
 
-- `target` is a locator descriptor: `{role,name}` | `{text,exact,nth}` | `{label}` | `{testId}` | `{css}`.
-  An array means a union.
+- `target` is a locator descriptor: `{role,name}` | `{text,exact,nth}` | `{label}` | `{testId}` | `{css,hasText}`.
+  An array means a union (for `focus` and `mark`).
 - **`sceneModule`** is the TS escape hatch. When a scene needs logic, the project supplies a module
   with `scene(d: Director)`, as FIRE does today.
 - OG images with domain-computed data (e.g. the FIRE chart): the project passes precomputed values

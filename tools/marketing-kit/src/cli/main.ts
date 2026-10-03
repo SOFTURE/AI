@@ -54,7 +54,7 @@ async function record(config: MarketingConfig, film: LoadedFilm, options: CliOpt
       voices,
       voiceoverKey: getVoiceoverPaths(config, film).key,
       today: options.today,
-      filmPath: film.sceneModule,
+      filmPath: film.scenePath,
       executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH || undefined,
       browser: {
         colorScheme: config.app.colorScheme,
