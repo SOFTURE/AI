@@ -1,12 +1,12 @@
 ---
 change_id: mk-formats
 title: "A film renders in 9:16, 1:1 or 16:9 from one recording"
-status: impl_reviewed
+status: archived
 roadmap_item: MK-6
 branch: claude/project-thread-9mamf6
 created: 2026-10-03
 updated: 2026-10-03
-archived_at: null
+archived_at: 2026-10-03
 ---
 
 ## Intent
@@ -49,3 +49,4 @@ the caption box, persona card, end card and the end-card camera pose in px for a
 - Taken from `context/backlog/roadmap-marketing-kit/mk-formats/` on 2026-10-03 (roadmap promoted, MK-2 on master).
 - Research and framing both run: research answers the two unknowns from the code; framing settles the
   16:9 shape (desktop recording vs. framed phone), which changes what the item delivers.
+- Archived 2026-10-03: a film renders in 9:16, 1:1 or 16:9 from one recording, laid out by a per-format geometry table; 9:16 is byte-identical to the baseline.
