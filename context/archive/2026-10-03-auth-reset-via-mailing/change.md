@@ -1,12 +1,12 @@
 ---
 change_id: auth-reset-via-mailing
 title: "Password reset mails through the mailing module: mailingResetSender() for auth's reset hook, pl and en templates"
-status: in_progress
+status: archived
 roadmap_item: EN-4
 branch: claude/en-4-auth-reset-via-mailing-y9s3pe
 created: 2026-10-03
 updated: 2026-10-03
-archived_at: null
+archived_at: 2026-10-03
 ---
 
 ## Intent
@@ -34,3 +34,5 @@ comes from identity ID-5 (`passwordReset.send`), the transport from EN-1 (`sendM
 - No release, tag or publish by the agent; the owner tags releases.
 
 ## Notes
+
+- 2026-10-03: implemented and reviewed in the cloud session on `claude/en-4-auth-reset-via-mailing-y9s3pe`; impl review approve.

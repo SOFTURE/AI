@@ -7,7 +7,7 @@ Findings: 0 critical, 2 warnings, 1 suggestion.
 
 ### W1 [WARNING] "{ttlMinutes} minutes" is wrong Polish for most durations
 **Where:** Approach, expiry copy
-**Problem:** Polish has three plural forms (1 minutę, 22 minuty, 60 minut); one template string
+**Problem:** Polish has three plural forms for minutes (one, few, many); one template string
 reads wrong for 22, 23, 24 or 32 minutes, which `ttlMinutes` allows.
 **Decision:** Fix now (applied) - `resetMail.minutes` holds forms per `Intl.PluralRules` category,
 picked with `selectPlural`; tests cover one, few and many.

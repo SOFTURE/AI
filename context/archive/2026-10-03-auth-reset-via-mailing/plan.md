@@ -51,6 +51,6 @@ data in mail bodies).
 ### Phase 1: Adapter, copy, example and e2e
 
 #### Automated
-- [ ] 1.1 Unit tests for the renderer and the sender pass
-- [ ] 1.2 `npm run e2e` passes against a local PostgreSQL 16, including `auth-reset-mail.spec.ts` and `auth-reset.spec.ts`
-- [ ] 1.3 Gates green (typecheck, lint, test, build)
+- [x] 1.1 Unit tests for the renderer and the sender pass — 5b9a6a1
+- [x] 1.2 `npm run e2e` passes against a local PostgreSQL 16, including `auth-reset-mail.spec.ts` and `auth-reset.spec.ts` — 5b9a6a1
+- [x] 1.3 Gates green (typecheck, lint, test, build) — 5b9a6a1

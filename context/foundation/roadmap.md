@@ -49,7 +49,7 @@ app (mail, waitlist), to agents (MCP access) and to regulators (privacy). Every 
 | **EN-1** | `mailing-transport` | `@softure-ai/mailing` sends plain + HTML mail through an adapter (Resend first) with idempotency and a typed result | — | autonomous | done |
 | **EN-2** | `mailing-unsubscribe` | HMAC-signed unsubscribe links, RFC 8058 headers, one-click endpoint, unsubscribe page and a suppression list | EN-1 | autonomous | ready |
 | **EN-3** | `mailing-ledger-campaigns` | exactly-once delivery ledger, campaigns sent from a content file, SPF/DKIM/DMARC check | EN-2 | autonomous | ready |
-| **EN-4** | `auth-reset-via-mailing` | the auth password-reset sender hook is wired to `@softure-ai/mailing`, with pl + en templates | EN-1 | autonomous | ready |
+| **EN-4** | `auth-reset-via-mailing` | the auth password-reset sender hook is wired to `@softure-ai/mailing`, with pl + en templates | EN-1 | autonomous | done |
 | **EN-5** | `waitlist` | `@softure-ai/waitlist`: sign-up with configurable consent scopes, welcome mail, unsubscribe, `WaitlistForm` | EN-1, EN-2, EN-8 | autonomous | ready |
 | **EN-6** | `mcp-access` | `@softure-ai/mcp-access`: hashed, scoped, expiring tokens, Bearer endpoint around the app's MCP server factory, token UI | — | autonomous | ready |
 | **EN-7** | `privacy-registry` | `@softure-ai/privacy`: modules and the app register export/delete contributors; self-service export and account deletion | — | autonomous | **in_progress** (research, since 2026-10-03; cloud session, branch `claude/en-7-privacy-registry-d44kyj` — do not take in another session) |
@@ -111,7 +111,7 @@ contributor contract every module with user data depends on) start the roadmap.
 
 ### EN-4: Password reset mails through the mailing module
 - **Change ID:** `auth-reset-via-mailing`
-- **Status:** ready
+- **Status:** done
 - **Outcome:** An app that enables both auth and mailing gets password-reset mails without writing a sender: a ready `mailingResetSender()` adapter for the auth reset hook, transactional kind (never suppressed), `pl` and `en` templates, and an e2e scenario from request to new password.
 - **Prerequisites:** EN-1; ID-5 `auth-password-reset` of roadmap-identity (sender hook) on the main branch.
 - **Unknowns:** Where the adapter lives (auth depends on mailing optionally, or mailing ships the auth adapter); link expiry copy per locale.
@@ -176,6 +176,7 @@ contributor contract every module with user data depends on) start the roadmap.
 ## Done
 
 - **EN-1** `mailing-transport`: `@softure-ai/mailing` with `sendMail` (server, and `/next` on the registered config) returning `Result<{ id, provider }, mailing.invalid_input | mailing.rejected | mailing.unavailable>`, never throwing for a failed send; one recipient, text required and HTML optional (plain strings), sender and reply-to from config, `Idempotency-Key`, a timeout that also races providers ignoring their signal, reserved headers and line breaks refused, a log line without any mail content; `resend()` (key read from `RESEND_API_KEY` per send, 408/429/5xx/busy key as unavailable, other 4xx as rejected) and `fakeMailProvider()` in `/testing` (memory, JSON-lines outbox read by `readMailOutbox`, idempotency, refuses production without an outbox); the example's `/account/mail` page and e2e; archived in `archive/2026-10-03-mailing-transport/`
+- **EN-4** `auth-reset-via-mailing`: `mailingResetSender()` in `@softure-ai/auth/mailing` (mailing an optional peer) for `passwordReset.send`: the reset mail rendered from `resetMail` in auth's en/pl dictionaries in the app's locale (plain text with the link, HTML with an escaped anchor, the link lifetime in the locale's plural form), sent with mailing's `sendMail` as a transactional mail, a failed send thrown as a code-only error that auth logs; `renderPasswordResetMail()` for apps sending it another way; the example resets passwords through the fake provider's outbox (`e2e/auth-reset-mail.spec.ts`, and the ID-5 scenarios now read links from mail); archived in `archive/2026-10-03-auth-reset-via-mailing/`
 
 ## Decisions (auto)
 
