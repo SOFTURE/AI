@@ -41,12 +41,12 @@ Input: change.md, backlog-input.md. Complexity: medium (2 phases). Risk: low.
 ### Phase 1: Module
 
 #### Automated
-- [ ] 1.1 Period, grant, price, options, grant and payment tests pass on PGlite
-- [ ] 1.2 Component and messages tests pass; `module.json` equals the manifest
-- [ ] 1.3 Gates green (typecheck, lint, test)
+- [x] 1.1 Period, grant, price, options, grant and payment tests pass on PGlite — 8b6bbae
+- [x] 1.2 Component and messages tests pass; `module.json` equals the manifest — 8b6bbae
+- [x] 1.3 Gates green (typecheck, lint, test) — 8b6bbae
 
 ### Phase 2: Example app, e2e, docs
 
 #### Automated
-- [ ] 2.1 Example app builds; `e2e/billing-pricing.spec.ts` and the existing specs pass
-- [ ] 2.2 Gates green (typecheck, lint, test, build)
+- [x] 2.1 Example app builds; `e2e/billing-pricing.spec.ts` and the existing specs pass — 1e2a3d3
+- [x] 2.2 Gates green (typecheck, lint, test, build) — 1e2a3d3

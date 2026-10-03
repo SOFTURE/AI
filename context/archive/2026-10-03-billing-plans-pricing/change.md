@@ -1,12 +1,12 @@
 ---
 change_id: billing-plans-pricing
 title: "Plans, pricing tiles and the manual payment flow"
-status: implementing
+status: archived
 roadmap_item: MO-2
 branch: claude/mo-2-billing-plans-pricing-ivvxjw
 created: 2026-10-03
 updated: 2026-10-03
-archived_at: null
+archived_at: 2026-10-03
 ---
 
 ## Intent
