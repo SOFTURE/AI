@@ -90,6 +90,9 @@ unchanged).
 - Complexity → small (one package, one pattern, no data).
 - Guard scope → `properties` and object record values (research decision).
 - Version bump → none (unpublished `0.0.0`).
+- Implementation drift (small): a stale duplicate JSDoc line above `SELECTOR_PATTERN` (`schema.ts`) was removed with the
+  comments that became descriptions; the root description sits after `.superRefine()` so the refined schema carries it;
+  the fixture example in `family` names Inter, because `tests/architecture.test.ts` refuses FIRE's font names in `src/`.
 
 ## Progress
 
@@ -98,11 +101,11 @@ unchanged).
 ### Phase 1: Guard test and descriptions for every key
 
 #### Automated
-- [ ] 1.1 `findUndescribedKeys` reports a bare key, a bare key in a `oneOf` branch, a bare record value and a blank description, and passes a described key
-- [ ] 1.2 `tests/schema.test.ts` "describes every key a project writes" passes on the committed file
-- [ ] 1.3 The committed `schema/marketing.schema.json` matches the zod schema
-- [ ] 1.4 The existing marketing-kit tests pass with no test file other than `schema.test.ts` edited
-- [ ] 1.5 Gates green (typecheck, lint, test)
+- [x] 1.1 `findUndescribedKeys` reports a bare key, a bare key in a `oneOf` branch, a bare record value and a blank description, and passes a described key
+- [x] 1.2 `tests/schema.test.ts` "describes every key a project writes" passes on the committed file
+- [x] 1.3 The committed `schema/marketing.schema.json` matches the zod schema
+- [x] 1.4 The existing marketing-kit tests pass with no test file other than `schema.test.ts` edited
+- [x] 1.5 Gates green (typecheck, lint, test)
 
 #### Manual
 - [ ] 1.6 Owner reads a few descriptions in an editor hover and finds them clear

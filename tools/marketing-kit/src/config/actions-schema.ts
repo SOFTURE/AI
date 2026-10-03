@@ -119,9 +119,8 @@ export const textMatchSchema = z.union([
   z.string().min(1),
   z
     .strictObject({
-      regex: z.string().min(1),
-      /** Any of `i`, `m`, `s`, `u`, each once. */
-      flags: z.string().regex(REGEX_FLAGS_PATTERN, "must be any of i, m, s, u, each at most once").default(""),
+      regex: z.string().min(1).describe("A JavaScript regular expression source, without slashes."),
+      flags: z.string().regex(REGEX_FLAGS_PATTERN, "must be any of i, m, s, u, each at most once").default("").describe("Any of i, m, s, u, each at most once."),
     })
     // Bad flags are reported on their own key; the source is checked with valid ones only.
     .refine((match) => !REGEX_FLAGS_PATTERN.test(match.flags) || compiles(match.regex, match.flags), { message: "is not a valid regular expression", path: ["regex"] }),
@@ -143,19 +142,18 @@ export type LocatorDescriptor =
  */
 export const locatorSchema = z
   .strictObject({
-    role: z.enum(ARIA_ROLES, { error: "must be an ARIA role Playwright knows, such as button, heading, link or textbox" }).optional(),
-    /** The accessible name, with `role`. */
-    name: textMatchSchema.optional(),
-    text: textMatchSchema.optional(),
-    label: textMatchSchema.optional(),
-    testId: z.string().min(1).optional(),
-    css: z.string().min(1).optional(),
-    /** Only elements containing this text, with `css`. */
-    hasText: textMatchSchema.optional(),
-    /** Whole and case-sensitive string match, for `name`, `text` and `label`. */
-    exact: z.boolean().optional(),
-    /** The n-th match (0 = the first). Without it, a locator that matches several elements fails. */
-    nth: z.number().int().min(0).optional(),
+    role: z
+      .enum(ARIA_ROLES, { error: "must be an ARIA role Playwright knows, such as button, heading, link or textbox" })
+      .optional()
+      .describe("Find by ARIA role (Playwright getByRole), e.g. button; narrow it with name."),
+    name: textMatchSchema.optional().describe("The accessible name, with role: a string or { regex, flags }."),
+    text: textMatchSchema.optional().describe("Find by visible text (Playwright getByText): a substring, or { regex, flags }."),
+    label: textMatchSchema.optional().describe("Find a form control by its label (Playwright getByLabel): a substring, or { regex, flags }."),
+    testId: z.string().min(1).optional().describe("Find by data-testid (Playwright getByTestId)."),
+    css: z.string().min(1).optional().describe("Find by CSS selector; narrow it with hasText."),
+    hasText: textMatchSchema.optional().describe("Only elements containing this text, with css."),
+    exact: z.boolean().optional().describe("Whole and case-sensitive match of a string name, text or label (default false)."),
+    nth: z.number().int().min(0).optional().describe("The n-th match (0 = the first); without it, a locator that matches several elements fails."),
   })
   .superRefine((descriptor, context) => {
     const kinds = LOCATOR_KINDS.filter((kind) => descriptor[kind] !== undefined);
@@ -182,31 +180,70 @@ export const locatorSchema = z
   });
 
 /** One element, or several meaning the rectangle that encloses them all. */
-const targetsSchema = z.union([locatorSchema, z.array(locatorSchema).min(1, "needs at least one locator")]);
+const targetsSchema = z.union([locatorSchema, z.array(locatorSchema).min(1, "needs at least one locator")]).describe("One element, or several meaning the rectangle around them all.");
 
 const scale = z.number().min(0.5).max(4);
 const seconds = z.number().min(0).max(10);
 const nonEmpty = z.string().min(1);
 
+const target = locatorSchema.describe("The element, as a locator descriptor with exactly one of role, text, label, testId, css.");
+
 export const actionSchema = z.discriminatedUnion("do", [
-  /** Camera on the whole phone screen. */
-  z.strictObject({ do: z.literal("wide"), scale: scale.optional(), whoosh: z.boolean().optional() }),
-  z.strictObject({ do: z.literal("tap"), target: locatorSchema, after: seconds.optional() }),
-  /** Types into the focused element, one key at a time. */
-  z.strictObject({ do: z.literal("type"), text: nonEmpty, perChar: seconds.optional() }),
-  /** Taps `input[name=<input>]`, moves the camera onto it and types the value. */
-  z.strictObject({ do: z.literal("fill"), input: z.string().regex(INPUT_NAME_PATTERN, "must be an input name such as age or returnRate"), value: z.string() }),
-  z.strictObject({ do: z.literal("blur") }),
-  z.strictObject({ do: z.literal("focus"), target: targetsSchema, scale: scale.optional(), height: z.number().int().min(1).max(4000).optional() }),
-  /** Scrolls so the element's top edge stands `top` px from the top of the screen. */
-  z.strictObject({ do: z.literal("bring"), target: locatorSchema, top: z.number().int().min(-4000).max(4000).optional(), seconds: seconds.optional() }),
-  z.strictObject({ do: z.literal("mark"), name: nonEmpty, target: targetsSchema }),
-  z.strictObject({ do: z.literal("still"), name: nonEmpty }),
-  z.strictObject({ do: z.literal("cue"), name: z.enum(CUES) }),
-  z.strictObject({ do: z.literal("hold"), seconds: z.number().min(0).max(30) }),
-  /** Waits until the voiceover says this word of the current sentence. */
-  z.strictObject({ do: z.literal("until"), word: nonEmpty }),
-  z.strictObject({ do: z.literal("checkScreen") }),
+  z.strictObject({
+    do: z.literal("wide").describe("Camera on the whole phone screen."),
+    scale: scale.optional().describe("Camera zoom (0.5-4, default 1)."),
+    whoosh: z.boolean().optional().describe("Play the whoosh sound with the move (default false)."),
+  }),
+  z.strictObject({
+    do: z.literal("tap").describe("Scrolls the element into view if needed and taps its centre."),
+    target,
+    after: seconds.optional().describe("Seconds held after the tap (0-10, default 0.35)."),
+  }),
+  z.strictObject({
+    do: z.literal("type").describe("Types into the focused element, one key at a time."),
+    text: nonEmpty.describe("The text to type."),
+    perChar: seconds.optional().describe("Seconds per key (0-10, default 0.13)."),
+  }),
+  z.strictObject({
+    do: z.literal("fill").describe("Taps input[name=<input>], moves the camera onto it and types the value."),
+    input: z.string().regex(INPUT_NAME_PATTERN, "must be an input name such as age or returnRate").describe("The name attribute of the input, e.g. age."),
+    value: z.string().describe("The text typed into the input."),
+  }),
+  z.strictObject({ do: z.literal("blur").describe("Takes the focus off the active element.") }),
+  z.strictObject({
+    do: z.literal("focus").describe("Camera on the element, or on the rectangle around several."),
+    target: targetsSchema,
+    scale: scale.optional().describe("Camera zoom (0.5-4); default: the zoom that fits the element."),
+    height: z.number().int().min(1).max(4000).optional().describe("The height of the framed rectangle in CSS pixels, instead of the element's own."),
+  }),
+  z.strictObject({
+    do: z.literal("bring").describe("Scrolls so the element's top edge stands top pixels from the top of the screen."),
+    target,
+    top: z.number().int().min(-4000).max(4000).optional().describe("Distance from the top of the screen in CSS pixels (default 140)."),
+    seconds: seconds.optional().describe("Duration of the scroll in seconds (0-10, default 0.5)."),
+  }),
+  z.strictObject({
+    do: z.literal("mark").describe("Remembers the element's rectangle under a name, e.g. for an opening shot (hook.shots[].mark)."),
+    name: nonEmpty.describe("The name hook.shots refer to."),
+    target: targetsSchema,
+  }),
+  z.strictObject({
+    do: z.literal("still").describe("Remembers the current frame under a name, e.g. as the opening frame (hook.still)."),
+    name: nonEmpty.describe("The name hook.still refers to."),
+  }),
+  z.strictObject({
+    do: z.literal("cue").describe("Puts an event on the film's timeline."),
+    name: z.enum(CUES).describe(`The event: ${CUES.join(", ")}.`),
+  }),
+  z.strictObject({
+    do: z.literal("hold").describe("Lets the screen run."),
+    seconds: z.number().min(0).max(30).describe("How long, in seconds (0-30)."),
+  }),
+  z.strictObject({
+    do: z.literal("until").describe("Waits until the voiceover says a word of the current sentence."),
+    word: nonEmpty.describe("A word of this sentence, punctuation ignored."),
+  }),
+  z.strictObject({ do: z.literal("checkScreen").describe("Runs the screen guard now: every screenGuard phrase must be on screen.") }),
 ]);
 
 export type SceneAction = z.output<typeof actionSchema>;

@@ -65,7 +65,8 @@ starts `app.startCommand` as `record` does. A plain page can be smaller than 40 
 
 The contract is one zod schema (`src/config/schema.ts`), published as
 [`schema/marketing.schema.json`](schema/marketing.schema.json) (also `@softure-ai/marketing-kit/marketing.schema.json`).
-Point `$schema` at it for editor completion. A broken file is refused with every problem at once, each
+Point `$schema` at it for editor completion: every key carries a description (what it does, and its default when
+the schema cannot state one), so an editor or an agent sees the reference below while typing. A broken file is refused with every problem at once, each
 on its JSON path (`videos[0].beats[2].id: "scene" appears twice`). Every path resolves against the
 folder of `marketing.json`. A complete example: [examples/fixture/marketing.json](examples/fixture/marketing.json).
 
