@@ -51,7 +51,7 @@ adoption in FIRE_TRACKER follows `docs/05-adoption-playbook.md`.
 | **MO-1** | `billing-entitlements` | `@softure-ai/billing`: trial / paid / read_only state machine in `billing.entitlements`, `requireWriteAccess` | — | autonomous | ready |
 | **MO-2** | `billing-plans-pricing` | plans from config, pricing tiles, payment page and a manual payment adapter that grants entitlements | MO-1 | autonomous | ready |
 | **MO-3** | `billing-provider-adapter` | the chosen provider (Stripe or Przelewy24) behind `PaymentProvider`: checkout, webhooks, entitlement updates | MO-2 | autonomous | blocked (owner decision: Stripe vs Przelewy24) |
-| **MO-4** | `analytics-channel-tags` | `@softure-ai/analytics`: a channel parameter captured, validated and carried across redirects and sign-up | — | autonomous | ready |
+| **MO-4** | `analytics-channel-tags` | `@softure-ai/analytics`: a channel parameter captured, validated and carried across redirects and sign-up | — | autonomous | done |
 | **MO-5** | `analytics-funnel` | daily aggregates (day, channel, step) without cookies or PII, beacon and pixel endpoints, report function | MO-4 | autonomous | ready |
 | **MO-6** | `monetization-release` | billing and analytics 0.1.0 published through the release pipeline; READMEs and docs updated | MO-2, MO-5 | owner | ready |
 
@@ -117,7 +117,7 @@ Risk first: MO-1 (the write guard every paid feature depends on) starts the road
 
 ### MO-4: Channel tags
 - **Change ID:** `analytics-channel-tags`
-- **Status:** ready
+- **Status:** done
 - **Outcome:** A configurable channel parameter (name, pattern, length) read on entry, carried through redirects and the referer, exposed to the app and to auth's `onRegistered` hook for attribution; a composable middleware piece for `proxy.ts` that does not mix with the auth route guard.
 - **Prerequisites:** roadmap-engagement done; met on 2026-10-03.
 - **Unknowns:** Where attribution is stored without a cookie (first-party query propagation only?); interaction with the auth guard ordering in `proxy.ts`.
@@ -154,7 +154,7 @@ Risk first: MO-1 (the write guard every paid feature depends on) starts the road
 
 ## Done
 
-(nothing yet)
+- **MO-4** `analytics-channel-tags`: `@softure-ai/analytics` with `analytics({ channel: { param, pattern, maxLength } })` (default `?z=`, lowercase words, 32 characters), no schema yet; `/proxy` `createChannelTagger` with `carry` (the tag added to a same-origin redirect such as the auth guard's) and `tag` (a 307 putting the tag back on a navigation from a tagged same-origin page; Next client navigations recognised by `Next-Url`, FU-5 follows up); `/next` `getChannel` (Referer), `getChannelFromSearchParams`, `attributeRegistration` for auth's `onRegistered`; no cookie and nothing stored; the example's `proxy.ts` chains guard and tagger, `/account` shows the sign-up channel, `e2e/analytics-channel.spec.ts`; archived in `archive/2026-10-03-analytics-channel-tags/`
 
 ## Decisions (auto)
 

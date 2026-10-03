@@ -1,6 +1,7 @@
 // The route guard for the app's `proxy.ts` (roadmap ID-3, unknown 1). It uses only Web `Request`
 // and `Response`, imports nothing from Next and no React, so it chains with other proxy pieces:
-// `return guard(request) ?? tagChannel(request) ?? NextResponse.next()`.
+// `return channels.carry(request, guard(request)) ?? channels.tag(request) ?? NextResponse.next()`
+// (the channel piece of @softure-ai/analytics/proxy).
 //
 // It checks that the session cookie is present, nothing more: an optimistic check that keeps
 // anonymous visitors off private pages without a database round trip in the proxy. Pages and
