@@ -51,6 +51,16 @@ export const en = {
     invalidBody: "The link has expired or has already been used. Ask for a new one.",
     requestNew: "Get a new link",
   },
+  resetMail: {
+    subject: "Reset your password",
+    greeting: "Hello,",
+    intro: "We got a request to reset the password of your account. Open this link to set a new one:",
+    action: "Set a new password",
+    expiry: "The link works for {duration} and only once.",
+    /** `{count}` minutes, by the locale's plural rules (Intl.PluralRules categories). */
+    minutes: { one: "{count} minute", few: "{count} minutes", many: "{count} minutes", other: "{count} minutes" },
+    ignore: "If you did not ask for this, ignore this mail: your password stays as it is.",
+  },
   logout: {
     submit: "Log out",
   },
