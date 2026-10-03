@@ -1,12 +1,12 @@
 ---
 change_id: mailing-consent-sync
 title: "An unsubscribe withdraws consent and a new sign-up lifts the suppression"
-status: impl_reviewed
+status: archived
 roadmap_item: FU-3
 branch: claude/project-thread-6u8qf0
 created: 2026-10-03
 updated: 2026-10-03
-archived_at: null
+archived_at: 2026-10-03
 ---
 
 ## Intent
@@ -43,3 +43,4 @@ never reads or clears the suppression.
 
 - Framing skipped: the problem is a recorded gap with a stated outcome (README §12 of the waitlist,
   EN-5's plan review S1); nothing about what to build is in doubt. Research answers the two unknowns.
+- Archived 2026-10-03: an unsubscribe withdraws the waitlist's consents in its transaction, and a new sign-up lifts the person's own opt-out.
