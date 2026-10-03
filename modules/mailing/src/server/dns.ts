@@ -61,7 +61,11 @@ export async function checkSenderDns(domain: string, options: CheckSenderDnsOpti
 
 /** The domain part of a sender (`Plan <hello@mail.example.com>` gives `mail.example.com`). */
 export function getSenderDomain(from: string): string {
-  const address = /<([^>]+)>\s*$/.exec(from)?.[1] ?? from;
+  // Index arithmetic, not a regular expression: `from` may come from anywhere, and a pattern over
+  // `<...>` backtracks polynomially on input like "<<<<".
+  const open = from.lastIndexOf("<");
+  const close = from.lastIndexOf(">");
+  const address = open !== -1 && close > open ? from.slice(open + 1, close) : from;
   return address.slice(address.lastIndexOf("@") + 1).trim().toLowerCase();
 }
 

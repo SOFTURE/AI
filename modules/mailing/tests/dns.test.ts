@@ -96,6 +96,12 @@ describe("checkSenderDns", () => {
 });
 
 describe("getSenderDomain", () => {
+  it("reads a long run of angle brackets in linear time", () => {
+    const started = performance.now();
+    getSenderDomain(`<${"<=".repeat(100_000)}`);
+    expect(performance.now() - started).toBeLessThan(1_000);
+  });
+
   it.each([
     ["Plan <hello@Mail.Example.com>", "mail.example.com"],
     ["hello@example.com", "example.com"],
