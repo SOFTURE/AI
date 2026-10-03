@@ -5,6 +5,8 @@ import { defineSoftureConfig } from "@softure-ai/core";
 import { registerSoftureConfig } from "@softure-ai/core/next";
 import { featureSwitches } from "@softure-ai/feature-switches";
 import { MCP_RATE_LIMIT_BUCKETS, mcpAccess } from "@softure-ai/mcp-access";
+import { mailing, resend } from "@softure-ai/mailing";
+import { fakeMailProvider } from "@softure-ai/mailing/testing";
 import { ops } from "@softure-ai/ops";
 import { cloudflareIp, security } from "@softure-ai/security";
 import { sendPasswordResetLink } from "./lib/password-reset-sender.ts";
@@ -58,6 +60,14 @@ const config = defineSoftureConfig({
         { name: "list_entries", access: "read", description: { en: en.mcp.listEntries, pl: pl.mcp.listEntries } },
         { name: "sign_guestbook", access: "write", description: { en: en.mcp.signGuestbook, pl: pl.mcp.signGuestbook } },
       ],
+    }),
+    // Resend when a key is set; otherwise the fake provider, which the e2e reads through the outbox
+    // file Playwright sets (MAIL_OUTBOX, e2e/mailing-transport.spec.ts). Without either, the fake
+    // refuses to send under `next start`, so no mail silently disappears.
+    mailing({
+      from: "SOFTURE example <hello@mail.example.com>",
+      replyTo: "support@example.com",
+      provider: process.env.RESEND_API_KEY ? resend() : fakeMailProvider({ outboxFile: process.env.MAIL_OUTBOX || undefined }),
     }),
   ],
 });

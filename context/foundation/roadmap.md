@@ -46,7 +46,7 @@ app (mail, waitlist), to agents (MCP access) and to regulators (privacy). Every 
 
 | ID | Change | Outcome | Depends on | Mode | Status |
 | --- | --- | --- | --- | --- | --- |
-| **EN-1** | `mailing-transport` | `@softure-ai/mailing` sends plain + HTML mail through an adapter (Resend first) with idempotency and a typed result | — | autonomous | ready |
+| **EN-1** | `mailing-transport` | `@softure-ai/mailing` sends plain + HTML mail through an adapter (Resend first) with idempotency and a typed result | — | autonomous | done |
 | **EN-2** | `mailing-unsubscribe` | HMAC-signed unsubscribe links, RFC 8058 headers, one-click endpoint, unsubscribe page and a suppression list | EN-1 | autonomous | ready |
 | **EN-3** | `mailing-ledger-campaigns` | exactly-once delivery ledger, campaigns sent from a content file, SPF/DKIM/DMARC check | EN-2 | autonomous | ready |
 | **EN-4** | `auth-reset-via-mailing` | the auth password-reset sender hook is wired to `@softure-ai/mailing`, with pl + en templates | EN-1 | autonomous | ready |
@@ -81,7 +81,7 @@ contributor contract every module with user data depends on) start the roadmap.
 
 ### EN-1: Mail transport with provider adapters
 - **Change ID:** `mailing-transport`
-- **Status:** ready
+- **Status:** done
 - **Outcome:** `@softure-ai/mailing` exposes `sendMail()` over a `MailProvider` adapter interface with `resend()` as the first adapter: plain-text + HTML bodies, sender and reply-to from config, `Idempotency-Key`, timeout, protection of reserved headers, and a result union `sent | invalid-input | rejected | unavailable`. A fake provider ships for tests and the example app.
 - **Prerequisites:** roadmap-identity done (core, db, ui and security on the main branch).
 - **Unknowns:** Whether HTML templates are plain strings or React email components; how the fake provider exposes sent mail to e2e tests; which provider errors map to `rejected` vs. `unavailable`.
@@ -176,6 +176,7 @@ contributor contract every module with user data depends on) start the roadmap.
 ## Done
 
 - **EN-6** `mcp-access`: `@softure-ai/mcp-access` with table `mcp.access_tokens` (sha256 of `sftmcp_` tokens only, name, write flag, expiry, last use at most once a minute), issue under a per-user advisory lock with a per-account limit, owner-scoped revoke, `POST /api/mcp` through `createMcpRoute({ createServer })` (client identified, bucket `mcp` counted before the Bearer check, one 401 for unknown, revoked and expired tokens, 1 MiB body limit, a fresh server per request with `{ userId, canWrite, tokenId }`), writes only with `allowWrites` and a write token, the tool catalog in options, a token page with setup for Claude Code, file-configured clients and Claude Desktop; `@modelcontextprotocol/server` `^2.0.0` as a peer; OAuth for MCP left for later; archived in `archive/2026-10-03-mcp-access/`
+- **EN-1** `mailing-transport`: `@softure-ai/mailing` with `sendMail` (server, and `/next` on the registered config) returning `Result<{ id, provider }, mailing.invalid_input | mailing.rejected | mailing.unavailable>`, never throwing for a failed send; one recipient, text required and HTML optional (plain strings), sender and reply-to from config, `Idempotency-Key`, a timeout that also races providers ignoring their signal, reserved headers and line breaks refused, a log line without any mail content; `resend()` (key read from `RESEND_API_KEY` per send, 408/429/5xx/busy key as unavailable, other 4xx as rejected) and `fakeMailProvider()` in `/testing` (memory, JSON-lines outbox read by `readMailOutbox`, idempotency, refuses production without an outbox); the example's `/account/mail` page and e2e; archived in `archive/2026-10-03-mailing-transport/`
 
 ## Decisions (auto)
 
