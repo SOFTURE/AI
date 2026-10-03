@@ -391,6 +391,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 - **Risk:** LOW.
 - **Baseline:** FU-9 `billing-admin-requests`: manual grants are recorded only through the admin page or the server API; the roadmap's optional script was left out (README §12). After: the scripts exist, covered by unit tests, and the example ships them next to `grant-role`.
 - **Source:** FU-9 research ("Answers to unknowns", 6); `modules/billing/README.md` §12
+
 ### FU-23: OG images use every subset file of a weight
 - **Change ID:** `marketing-kit-og-subset-fonts`
 - **Status:** proposed
