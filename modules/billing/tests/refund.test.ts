@@ -1,6 +1,6 @@
 // Refunds, pure: what a plan grant added and what a full refund of it takes back, at exact instants
 // in Warsaw time (the tests themselves run in New York time), across the October DST change.
-import { getPaymentGrant, getRefundEvent, type EntitlementRecord, type PaymentGrant } from "@softure-ai/billing";
+import { getPaymentGrant, getRefundEvent, getUnusedDays, type EntitlementRecord, type PaymentGrant } from "@softure-ai/billing";
 import { describe, expect, it } from "vitest";
 
 const TIMEZONE = "Europe/Warsaw";
@@ -41,6 +41,16 @@ describe("getPaymentGrant", () => {
     expect(getPaymentGrant(TRIAL, { type: "extend_trial", until: MONTH_AFTER_TRIAL }, NOW)).toBeNull();
     // A dated grant that ends before current access does adds nothing.
     expect(getPaymentGrant(STACKED, { type: "grant", until: MONTH_AFTER_TRIAL }, NOW)).toBeNull();
+  });
+});
+
+describe("getUnusedDays", () => {
+  const period = { kind: "period", from: TRIAL_END, until: MONTH_AFTER_TRIAL } as const;
+
+  it("counts a future period whole, a running one from today, and an ended one as zero", () => {
+    expect(getUnusedDays(period, NOW, TIMEZONE)).toBe(31);
+    expect(getUnusedDays(period, new Date("2026-11-16T22:59:59Z"), TIMEZONE)).toBe(1);
+    expect(getUnusedDays(period, MONTH_AFTER_TRIAL, TIMEZONE)).toBe(0);
   });
 });
 

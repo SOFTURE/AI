@@ -193,6 +193,22 @@ describe("refunding one payment among several", () => {
     expect(await refund("pi_test_b2")).toMatchObject(ok({ status: "refunded", entitlement: { status: "paid", endsAt: MONTH_AFTER_TRIAL } }));
   });
 
+  it("moves the periods stacked after a refunded month, so a later refund takes back the right days", async () => {
+    await recordPayment(test.ctx, paid(adaId));
+    await recordPayment(test.ctx, paid(adaId, { checkoutId: "cs_test_b2", paymentId: "pi_test_b2" }));
+    await recordPayment(test.ctx, paid(adaId, { checkoutId: "cs_test_c3", paymentId: "pi_test_c3" }));
+    test.clock.set(new Date("2026-10-05T08:00:00Z"));
+    await refund("pi_test_a1");
+    // 31 days off: the second month now covers 17 October to 16 November, the third 16 November to 17 December.
+    expect((await readGrants(test)).slice(1)).toEqual([
+      { payment_id: "pi_test_b2", grant_kind: "period", granted_from: TRIAL_END, granted_until: new Date("2026-11-15T23:00:00Z") },
+      { payment_id: "pi_test_c3", grant_kind: "period", granted_from: new Date("2026-11-15T23:00:00Z"), granted_until: TWO_MONTHS_AFTER_TRIAL },
+    ]);
+    // The second month is used up by 20 November: refunding it leaves the third month whole.
+    test.clock.set(new Date("2026-11-20T08:00:00Z"));
+    expect(await refund("pi_test_b2")).toMatchObject(ok({ status: "refunded", entitlement: { status: "paid", endsAt: TWO_MONTHS_AFTER_TRIAL } }));
+  });
+
   it("refunding a month already used up leaves the month after it untouched", async () => {
     await recordPayment(test.ctx, paid(adaId));
     await recordPayment(test.ctx, paid(adaId, { checkoutId: "cs_test_b2", paymentId: "pi_test_b2" }));

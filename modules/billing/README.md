@@ -154,8 +154,10 @@ back only that, with the pure `getRefundEvent` (root entry):
   time zone: the dated end moves back by that many days. Access ahead of now is one unbroken run
   (every grant starts where running access ends), so the other stacked periods, manual grants and
   the trial keep their length. A period already used up takes nothing back, and an old payment
-  refunded after a lapse never touches a newer period. A dated end moved to the trial's end or
-  before it drops paid access: the account is back on its trial.
+  refunded after a lapse never touches a newer period. The stored periods of the payments stacked
+  after it move back by the same days, so a later refund of one of them takes back the right
+  days. A dated end moved to the trial's end or before it drops paid access: the account is back
+  on its trial.
 - **A lifetime** ends lifetime access unless another lifetime payment of the account is still
   `paid`. Lifetime keeps the dated end beside it (a grant on lifetime still extends it), so the
   months bought next to a refunded lifetime stay.

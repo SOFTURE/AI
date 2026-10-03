@@ -118,11 +118,11 @@ order stays account → payment → entitlement.
 ### Phase 1: Grant record and per-payment refund
 
 #### Automated
-- [ ] 1.1 Refund and grant-record tests pass on PGlite
-- [ ] 1.2 Gates green (typecheck, lint, test)
+- [x] 1.1 Refund and grant-record tests pass on PGlite — 00c14f9
+- [x] 1.2 Gates green (typecheck, lint, test) — 00c14f9
 
 ### Phase 2: e2e, docs, followups
 
 #### Automated
-- [ ] 2.1 `npm run e2e` passes `billing-stripe.spec.ts` and `migrations.spec.ts` locally
-- [ ] 2.2 Gates green (typecheck, lint, test, build)
+- [x] 2.1 `npm run e2e` passes `billing-stripe.spec.ts` and `migrations.spec.ts` locally — f934d38
+- [x] 2.2 Gates green (typecheck, lint, test, build) — f934d38
