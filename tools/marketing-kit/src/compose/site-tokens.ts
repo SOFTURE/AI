@@ -33,8 +33,18 @@ export type SiteTokens = Record<SiteColorToken, string>;
 
 const HEX_COLOR = /^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
 
+/** Drops every closed CSS comment in one linear pass (no backtracking regex); an unclosed one stays as written. */
 function stripComments(css: string): string {
-  return css.replace(/\/\*[\s\S]*?\*\//g, "");
+  let result = "";
+  let index = 0;
+  while (index < css.length) {
+    const start = css.indexOf("/*", index);
+    const end = start === -1 ? -1 : css.indexOf("*/", start + 2);
+    if (end === -1) return result + css.slice(index);
+    result += css.slice(index, start);
+    index = end + 2;
+  }
+  return result;
 }
 
 function findTopLevelBlock(css: string, selectorStart: string): string | null {

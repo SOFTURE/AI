@@ -57,6 +57,18 @@ describe("readSiteTokens", () => {
     expect(() => readSiteTokens(withMix)).toThrow(/--accent/);
   });
 
+  it("reads past a comment holding a long run of comment openers in linear time", () => {
+    const hostile = `/*${"a/*".repeat(100_000)}\n${css}`;
+    const started = performance.now();
+    expect(readSiteTokens(hostile).accent).toBe("#60a5fa");
+    expect(performance.now() - started).toBeLessThan(1_000);
+  });
+
+  it("drops a comment between declarations", () => {
+    const commented = css.replace("--accent: #60a5fa;", "/* --accent: #000000; */ --accent: #60a5fa; /* trailing */");
+    expect(readSiteTokens(commented).accent).toBe("#60a5fa");
+  });
+
   it("refuses a stylesheet without a :root block", () => {
     expect(() => readSiteTokens("body { color: red; }")).toThrow(/:root/);
   });
