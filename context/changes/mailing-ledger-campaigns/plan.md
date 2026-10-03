@@ -70,5 +70,5 @@ lifecycle mails); markdown content (dependency and two renderings).
 ### Phase 2: CLI, docs and example
 
 #### Automated
-- [ ] 2.1 `runMailCli` tests (campaign, dry run, dns, usage errors) pass
-- [ ] 2.2 Gates green (typecheck, lint, test, build)
+- [x] 2.1 `runMailCli` tests (campaign, dry run, dns, usage errors) pass — 1803a7b
+- [x] 2.2 Gates green (typecheck, lint, test, build) — 1803a7b
