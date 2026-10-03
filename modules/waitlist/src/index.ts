@@ -1,7 +1,7 @@
 // Public API of @softure-ai/waitlist: the module factory for softure.config.ts, its rate limit
-// buckets, types, messages and the sign-ups table. Joining, the welcome mail and reading sign-ups
-// are in `@softure-ai/waitlist/server`, the Next.js adapter (join action, `Waitlist` component) in
-// `/next`, the form in `/ui`.
+// buckets, types, messages and the sign-ups table. Joining, confirming, the mails and reading
+// sign-ups are in `@softure-ai/waitlist/server`, the Next.js adapter (actions, `Waitlist` component,
+// confirmation page) in `/next`, the form in `/ui`.
 import { defineModule, resolveMigrationsDir } from "@softure-ai/core";
 import { waitlistMessages } from "./messages/index.js";
 import { waitlistOptionsSchema } from "./options.js";
@@ -33,8 +33,8 @@ export const waitlist = defineModule({
     tables: ["signups"],
     env: [],
     switches: [],
-    routes: {},
-    mount: [],
+    routes: { confirm: "/waitlist/confirm" },
+    mount: [{ kind: "page", path: "app/waitlist/confirm/page.tsx", export: "ConfirmSignupPage" }],
     privacy: { exports: true, deletes: true },
   },
   messages: waitlistMessages,
@@ -46,6 +46,7 @@ export const waitlist = defineModule({
 
 export {
   INITIAL_WAITLIST_FORM_STATE,
+  type WaitlistConfirmationErrorCode,
   type WaitlistErrorCode,
   type WaitlistFormErrorCode,
   type WaitlistFormField,
@@ -55,6 +56,8 @@ export {
 export { EMAIL_FIELD, getScopeFieldName, PLACEMENT_FIELD } from "./fields.js";
 export { getWaitlistErrorMessage, waitlistMessages, type WaitlistMessages } from "./messages/index.js";
 export {
+  DEFAULT_CONFIRMATION_HOURS,
+  MAX_CONFIRMATION_HOURS,
   MAX_NAME_LENGTH,
   MAX_SCOPES,
   NAME_PATTERN,

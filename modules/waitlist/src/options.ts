@@ -10,6 +10,26 @@ export const MAX_SCOPES = 16;
 
 const nameSchema = z.string().max(MAX_NAME_LENGTH, `must be at most ${String(MAX_NAME_LENGTH)} characters`).regex(NAME_PATTERN, "must be kebab-case, e.g. launch-news");
 
+/** How long a confirmation link works by default: 7 days. */
+export const DEFAULT_CONFIRMATION_HOURS = 168;
+/** The longest a confirmation link can work: 30 days. */
+export const MAX_CONFIRMATION_HOURS = 720;
+
+/**
+ * `false` (a sign-up counts at once), `true` (the default expiry) or `{ expiresInHours }`; parsed to
+ * `null` or the expiry, so code reads one shape.
+ */
+const doubleOptInSchema = z
+  .union([
+    z.boolean(),
+    z.strictObject({
+      /** How long the link in the confirmation mail works, in hours. */
+      expiresInHours: z.number().int().min(1).max(MAX_CONFIRMATION_HOURS).default(DEFAULT_CONFIRMATION_HOURS),
+    }),
+  ])
+  .default(false)
+  .transform((value) => (value === false ? null : value === true ? { expiresInHours: DEFAULT_CONFIRMATION_HOURS } : value));
+
 /** Copy per locale; a locale without its own text falls back to `en`. */
 const localizedTextSchema = z
   .partialRecord(z.enum(LOCALES), z.string().trim().min(1).max(500))
@@ -34,6 +54,11 @@ export const waitlistOptionsSchema = z
     placements: z.array(nameSchema).min(1, "needs at least one placement").default(["default"]),
     /** Sends the welcome mail after a first sign-up. Off, the app sends its own (or none). */
     welcomeMail: z.boolean().default(true),
+    /**
+     * Double opt-in: a sign-up waits for the link in a confirmation mail before it counts (consents,
+     * list mail, `listSignups`). Off by default.
+     */
+    doubleOptIn: doubleOptInSchema,
   })
   .superRefine((options, context) => {
     const findDuplicates = (values: readonly string[], toPath: (index: number) => (string | number)[]) => {

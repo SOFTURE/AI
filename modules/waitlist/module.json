@@ -6,7 +6,7 @@
   "tables": ["signups"],
   "env": [],
   "switches": [],
-  "routes": {},
-  "mount": [],
+  "routes": { "confirm": "/waitlist/confirm" },
+  "mount": [{ "kind": "page", "path": "app/waitlist/confirm/page.tsx", "export": "ConfirmSignupPage" }],
   "privacy": { "exports": true, "deletes": true }
 }
