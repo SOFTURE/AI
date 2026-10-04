@@ -16,7 +16,7 @@ later refunded, the account keeps lifetime access.
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-21** (roadmap `followups`):
+From [`roadmap.md`](../../foundation/roadmap.md), item **FU-21** (roadmap `followups`):
 
 > ### FU-21: A manual lifetime grant survives a refunded paid lifetime
 > - **Change ID:** `billing-refund-manual-lifetime`
