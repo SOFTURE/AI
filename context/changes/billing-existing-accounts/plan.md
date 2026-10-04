@@ -143,10 +143,10 @@ trials stay; duplicate emails differing only in case are refused; a row with no 
 ### Phase 1: Trial floor
 
 #### Automated
-- [ ] 1.1 An account created before `trial.startsAt` has a trial of `trial.days` from the floor day; later accounts are unchanged
-- [ ] 1.2 An invalid `trial.startsAt` fails config parsing
-- [ ] 1.3 Reminder mail finds accounts under the floor in the floor trial's window
-- [ ] 1.4 Gates green (typecheck, lint, test)
+- [x] 1.1 An account created before `trial.startsAt` has a trial of `trial.days` from the floor day; later accounts are unchanged
+- [x] 1.2 An invalid `trial.startsAt` fails config parsing
+- [x] 1.3 Reminder mail finds accounts under the floor in the floor trial's window
+- [x] 1.4 Gates green (typecheck, lint, test)
 
 ### Phase 2: Import and pin
 

@@ -4,7 +4,7 @@
 import { getAccessReminder } from "@softure-ai/billing";
 import { changeEntitlement, findAccessReminders, findEntitlementRecord, getEntitlementPolicy, type AccessReminderDue } from "@softure-ai/billing/server";
 import { afterEach, describe, expect, it } from "vitest";
-import { createAccount, createTestBilling, type TestBilling } from "./support.js";
+import { createAccount, createTestBilling, type BillingInput, type TestBilling } from "./support.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** Midnight starting 17 October in Warsaw: the end of a 14-day trial begun on 3 October. */
@@ -17,8 +17,8 @@ afterEach(async () => {
   test = undefined;
 });
 
-async function setUp(): Promise<TestBilling> {
-  test = await createTestBilling();
+async function setUp(options?: BillingInput): Promise<TestBilling> {
+  test = await createTestBilling(options);
   return test;
 }
 
@@ -83,6 +83,32 @@ describe("findAccessReminders", () => {
     expect(await findAccessReminders(billing.ctx)).toEqual([]);
   });
 
+  it("finds every account created before trial.startsAt in the floor trial's windows, and only then", async () => {
+    const billing = await setUp({ trial: { startsAt: "2026-10-05" } });
+    // Old accounts share the floor's trial: 5 to 18 October, ending when 19 October begins.
+    const floorEnd = new Date("2026-10-18T22:00:00Z");
+    await createAccountAt(billing, "old1@example.com", new Date("2026-01-10T08:00:00Z"));
+    await createAccountAt(billing, "old2@example.com", new Date("2026-06-20T08:00:00Z"));
+    // Created after the floor: its own trial, 10 to 23 October.
+    await createAccountAt(billing, "new@example.com", new Date("2026-10-10T08:00:00Z"));
+
+    billing.clock.set(new Date("2026-10-15T08:00:00Z"));
+    expect(await findAccessReminders(billing.ctx)).toEqual([]);
+    billing.clock.set(new Date("2026-10-16T08:00:00Z"));
+    // Same end: ordered by account id, so compared sorted.
+    expect(summarize(await findAccessReminders(billing.ctx)).toSorted()).toEqual([
+      `old1@example.com trial-ending ${floorEnd.toISOString()}`,
+      `old2@example.com trial-ending ${floorEnd.toISOString()}`,
+    ]);
+    billing.clock.set(new Date("2026-10-20T08:00:00Z"));
+    expect(summarize(await findAccessReminders(billing.ctx)).toSorted()).toEqual([
+      `old1@example.com trial-ended ${floorEnd.toISOString()}`,
+      `old2@example.com trial-ended ${floorEnd.toISOString()}`,
+    ]);
+    billing.clock.set(new Date("2026-10-23T08:00:00Z"));
+    expect(summarize(await findAccessReminders(billing.ctx))).toEqual([`new@example.com trial-ending ${new Date("2026-10-23T22:00:00Z").toISOString()}`]);
+  });
+
   it("refuses a catch-up window that is not a whole number of days from 0 to 365", async () => {
     const billing = await setUp();
     await expect(findAccessReminders(billing.ctx, { catchUpDays: -1 })).rejects.toThrow(/catchUpDays/);
@@ -90,8 +116,11 @@ describe("findAccessReminders", () => {
     await expect(findAccessReminders(billing.ctx, { catchUpDays: 366 })).rejects.toThrow(/catchUpDays/);
   });
 
-  it("finds exactly the accounts the pure rule picks out of all of them", async () => {
-    const billing = await setUp();
+  it.each([
+    ["without a trial floor", undefined],
+    ["with a trial floor inside the spread", "2026-09-25"],
+  ])("finds exactly the accounts the pure rule picks out of all of them, %s", async (_case, startsAt) => {
+    const billing = await setUp(startsAt === undefined ? undefined : { trial: { startsAt } });
     const start = new Date("2026-09-10T05:30:00Z");
     const userIds: string[] = [];
     // One account a day at shifting hours (midnight in Warsaw included), some with a stored row.

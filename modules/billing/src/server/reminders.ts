@@ -1,15 +1,16 @@
 // The accounts due a reminder mail now. Two bounded range queries find the candidates: stored rows
 // whose trial or dated paid access ends inside the widest window, and accounts without a row whose
 // derived trial does (its end day is the creation day plus `trial.days`, so the window is a range
-// on `auth.users.created_at`, indexed by auth). The pure rule then decides each candidate exactly,
+// on `auth.users.created_at`, indexed by auth, plus every account under `trial.startsAt` when the
+// floor's trial ends in it). The pure rule then decides each candidate exactly,
 // so the ranges only need to be wide enough, never exact.
 import { users } from "@softure-ai/auth";
-import { and, asc, eq, gte, isNull, lt, or } from "drizzle-orm";
+import { and, asc, eq, gte, isNull, lt, or, type SQL } from "drizzle-orm";
 import { getDayNumber, getStartOfDay } from "../calendar.js";
 import type { EntitlementRecord } from "../contract.js";
 import { DEFAULT_CATCH_UP_DAYS, getAccessReminder, MAX_CATCH_UP_DAYS, type AccessReminderKind } from "../reminder.js";
 import { entitlements } from "../schema.js";
-import { getDefaultRecord, type BillingContext } from "./entitlements.js";
+import { getDefaultRecord, getTrialFloorDay, type BillingContext } from "./entitlements.js";
 import { getBillingOptions, getEntitlementPolicy } from "./options.js";
 
 export interface FindAccessRemindersOptions {
@@ -85,6 +86,8 @@ async function findStoredCandidates(ctx: BillingContext, now: Date, catchUpDays:
 /**
  * Accounts without a row whose derived trial ends in the same span: a trial ends at the start of
  * the creation day plus `trial.days`, so the span moves back by `trial.days` onto `created_at`.
+ * Under `trial.startsAt` every account created before the floor day shares one trial end; when that
+ * end lies in the span, they are all candidates.
  */
 async function findDerivedCandidates(ctx: BillingContext, now: Date, catchUpDays: number): Promise<Candidate[]> {
   const { timezone } = ctx.config;
@@ -92,11 +95,19 @@ async function findDerivedCandidates(ctx: BillingContext, now: Date, catchUpDays
   const today = getDayNumber(now, timezone);
   const from = getStartOfDay(today - catchUpDays - trial.days, timezone);
   const to = getStartOfDay(today + trial.reminderDays + 1 - trial.days, timezone);
+  let createdInSpan: SQL | undefined = and(gte(users.createdAt, from), lt(users.createdAt, to));
+  const floorDay = getTrialFloorDay(ctx);
+  if (floorDay !== null) {
+    const floorEndDay = floorDay + trial.days;
+    if (floorEndDay >= today - catchUpDays && floorEndDay <= today + trial.reminderDays) {
+      createdInSpan = or(createdInSpan, lt(users.createdAt, getStartOfDay(floorDay, timezone)));
+    }
+  }
   const rows = await ctx.db
     .select({ userId: users.id, email: users.email, createdAt: users.createdAt })
     .from(users)
     .leftJoin(entitlements, eq(entitlements.userId, users.id))
-    .where(and(isNull(entitlements.userId), gte(users.createdAt, from), lt(users.createdAt, to)))
+    .where(and(isNull(entitlements.userId), createdInSpan))
     .orderBy(asc(users.id));
   return rows.map((account) => ({ ...account, record: getDefaultRecord(ctx, account.createdAt) }));
 }

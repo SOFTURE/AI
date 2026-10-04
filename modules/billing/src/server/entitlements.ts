@@ -1,11 +1,12 @@
 // Reading and changing an account's entitlement. An account without a row is on the trial that
-// starts at its `auth.users.created_at`, derived on every read, so reads never write. A change pins
-// that derived record into a row first, then applies the event under the row's lock.
+// starts at its `auth.users.created_at` (or at `trial.startsAt` when later), derived on every read,
+// so reads never write. A change pins that derived record into a row first, then applies the event
+// under the row's lock.
 import { users } from "@softure-ai/auth";
 import { err, ok, type Err, type ModuleContext, type Ok } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
 import { eq } from "drizzle-orm";
-import { getTrialEnd } from "../calendar.js";
+import { getDayNumber, getStartOfDay, parseDay } from "../calendar.js";
 import type { BillingErrorCode, Entitlement, EntitlementEvent, EntitlementRecord } from "../contract.js";
 import { applyEntitlementEvent, resolveEntitlement } from "../entitlement.js";
 import { entitlements } from "../schema.js";
@@ -14,9 +15,32 @@ import { isUserId } from "./user-id.js";
 
 export type BillingContext = ModuleContext<Queryable>;
 
-/** The trial an account without a row is on: `trial.days` from the day it was created. */
+/**
+ * The local day an account without a row starts its trial on: the day it was created, or
+ * `trial.startsAt` when that is later.
+ */
+function getTrialStartDay(ctx: Pick<BillingContext, "config">, accountCreatedAt: Date): number {
+  const createdDay = getDayNumber(accountCreatedAt, ctx.config.timezone);
+  const floorDay = getTrialFloorDay(ctx);
+  return floorDay === null ? createdDay : Math.max(createdDay, floorDay);
+}
+
+/** The day number of `trial.startsAt`, or null without one. */
+export function getTrialFloorDay(ctx: Pick<BillingContext, "config">): number | null {
+  const { startsAt } = getBillingOptions(ctx.config).trial;
+  if (startsAt === undefined) return null;
+  const day = parseDay(startsAt);
+  // The option's schema refused anything else at startup.
+  if (day === null) throw new Error(`@softure-ai/billing: trial.startsAt "${startsAt}" is not a calendar day`);
+  return day;
+}
+
+/**
+ * The trial an account without a row is on: `trial.days` from the day it was created, or from
+ * `trial.startsAt` for an account created before that day.
+ */
 export function getDefaultRecord(ctx: Pick<BillingContext, "config">, accountCreatedAt: Date): EntitlementRecord {
-  const trialEndsAt = getTrialEnd(accountCreatedAt, getBillingOptions(ctx.config).trial.days, ctx.config.timezone);
+  const trialEndsAt = getStartOfDay(getTrialStartDay(ctx, accountCreatedAt) + getBillingOptions(ctx.config).trial.days, ctx.config.timezone);
   return { trialEndsAt, paidUntil: null, isLifetime: false };
 }
 

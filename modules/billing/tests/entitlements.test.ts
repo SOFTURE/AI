@@ -49,6 +49,61 @@ describe("getEntitlement", () => {
     }
   });
 
+  it("starts the trial of an account created before trial.startsAt on that day, writing nothing", async () => {
+    const floored = await createTestBilling({ trial: { startsAt: "2026-11-01" } });
+    try {
+      const id = await createAccount(floored, "bob@example.com");
+      // 1 to 14 November in Warsaw (winter time by then): it ends when 15 November begins.
+      expect(await getEntitlement(floored.ctx, id)).toEqual({ status: "trial", endsAt: new Date("2026-11-14T23:00:00Z"), daysLeft: 43, isEnding: false });
+      expect(await readRow(floored, id)).toBeUndefined();
+    } finally {
+      await floored.database.close();
+    }
+  });
+
+  it("leaves accounts created on or after trial.startsAt on their own trial", async () => {
+    const floored = await createTestBilling({ trial: { startsAt: "2026-10-01" } });
+    try {
+      // Created on the floor day itself, late in the evening (already 1 October in Warsaw).
+      floored.clock.set(new Date("2026-09-30T22:30:00Z"));
+      const onTheDay = await createAccount(floored, "day@example.com");
+      floored.clock.set(NOW);
+      const after = await createAccount(floored, "after@example.com");
+      expect(await getEntitlement(floored.ctx, onTheDay)).toMatchObject({ status: "trial", endsAt: new Date("2026-10-14T22:00:00Z") });
+      expect(await getEntitlement(floored.ctx, after)).toMatchObject({ status: "trial", endsAt: TRIAL_END });
+    } finally {
+      await floored.database.close();
+    }
+  });
+
+  it("ends a floored trial that is over, and keeps zero trial days writing until the floor day", async () => {
+    const past = await createTestBilling({ trial: { startsAt: "2026-09-01" } });
+    const none = await createTestBilling({ trial: { days: 0, startsAt: "2026-11-01" } });
+    try {
+      past.clock.set(new Date("2026-06-01T08:00:00Z"));
+      const old = await createAccount(past, "old@example.com");
+      past.clock.set(NOW);
+      expect(await getEntitlement(past.ctx, old)).toEqual({ status: "read_only", since: new Date("2026-09-14T22:00:00Z"), reason: "trial_ended" });
+      const id = await createAccount(none, "bob@example.com");
+      // No trial days: access ends when 1 November begins, the day billing starts for older accounts.
+      expect(await getEntitlement(none.ctx, id)).toEqual({ status: "trial", endsAt: new Date("2026-10-31T23:00:00Z"), daysLeft: 29, isEnding: false });
+    } finally {
+      await past.database.close();
+      await none.database.close();
+    }
+  });
+
+  it("stores the floored trial when the first change pins it", async () => {
+    const floored = await createTestBilling({ trial: { startsAt: "2026-11-01" } });
+    try {
+      const id = await createAccount(floored, "bob@example.com");
+      expect((await changeEntitlement(floored.ctx, id, { type: "grant", until: PAID_END })).ok).toBe(true);
+      expect(await readRow(floored, id)).toMatchObject({ trial_ends_at: new Date("2026-11-14T23:00:00Z"), paid_until: PAID_END });
+    } finally {
+      await floored.database.close();
+    }
+  });
+
   it("knows no entitlement for an unknown or malformed account id", async () => {
     expect(await getEntitlement(test.ctx, UNKNOWN_ID)).toBeNull();
     expect(await getEntitlement(test.ctx, "not-a-uuid")).toBeNull();
