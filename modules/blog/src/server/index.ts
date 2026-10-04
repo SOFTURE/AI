@@ -1,0 +1,23 @@
+// Server-only API of @softure-ai/blog. Every function receives the module context
+// (`{ db, clock, config }`) and never reads request scope; `next/*` imports are not allowed here.
+export { computeContentHash, parseArticleFile, type ArticleFileResult, type ParseArticleFileOptions } from "../content/article-file.js";
+export {
+  findArticleBySlug,
+  findSlugRedirect,
+  getPublishedArticle,
+  listArticles,
+  publishArticle,
+  type BlogContext,
+  type ListArticlesFilter,
+} from "../db/articles.js";
+export {
+  runBlogPublish,
+  type ArticleFile,
+  type BlogPublishRun,
+  type PublishedChange,
+  type PublishGate,
+  type PublishProblem,
+  type RunBlogPublishOptions,
+} from "../db/publish-run.js";
+export { checkArticlesTable } from "./health.js";
+export { getBlogOptions } from "./options.js";

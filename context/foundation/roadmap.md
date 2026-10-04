@@ -50,7 +50,7 @@ backlog: context/backlog/roadmap-blog/
 | ID | Change | Outcome | Depends on | Mode | Status |
 | --- | --- | --- | --- | --- | --- |
 | **BL-1** | `seo-crawler-access` | `@softure-ai/seo`: `robots` with explicit AI crawler lists, `htmlLimitedBots` that keeps Next's defaults, sitemap builder, canonical host, IndexNow key and submit | — | autonomous | ready |
-| **BL-2** | `blog-content-store` | `@softure-ai/blog`: article and term tables in the module's schema, Markdown files with a strict frontmatter, `softure-blog publish` (dry run by default), slug history | — | autonomous | ready |
+| **BL-2** | `blog-content-store` | `@softure-ai/blog`: article and term tables in the module's schema, Markdown files with a strict frontmatter, `softure-blog publish` (dry run by default), slug history | — | autonomous | **in_progress** (implement 3/3, since 2026-10-04; cloud session, branch `claude/project-thread-rfkrmt` — do not take in another session) |
 | **BL-3** | `blog-markdown-renderer` | server-side Markdown renderer with an allowlist, heading anchors, glossary auto-links from term forms and a block plugin API | BL-2 | autonomous | ready |
 | **BL-4** | `blog-pages` | `/blog`, article and glossary pages from the package: ISR, JSON-LD, summary box, sources, disclaimer and CTA slots, 301/410, OG image per article | BL-3 | autonomous | ready |
 | **BL-5** | `blog-discovery` | RSS feed, blog sitemap entries with a real `lastmod`, IndexNow ping on publish, "read next" by cluster with the pillar first | BL-1, BL-4 | autonomous | ready |
@@ -123,7 +123,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### BL-2: Blog content store and publish script
 - **Change ID:** `blog-content-store`
-- **Status:** ready
+- **Status:** in_progress (implement 3/3, since 2026-10-04; cloud session, branch `claude/project-thread-rfkrmt` — do not take in another session)
+- **Input:** [`context/changes/blog-content-store/`](../changes/blog-content-store/change.md)
 - **Outcome:** A new module `@softure-ai/blog` (`modules/blog/`, copied from `templates/package/`) with its own schema and forward-only migrations:
   - `articles` (kind `article` or `term`, status `draft`/`published`/`withdrawn`, summary, sources, FAQ, term forms, cluster and pillar flag, `current_as_of`, content hash) and `slug_history`;
   - database constraints for every invariant that can be one (a published article has a date, slugs unique, statuses closed);

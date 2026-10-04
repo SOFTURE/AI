@@ -15,7 +15,7 @@ archived_at: null
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **BL-2** (roadmap `blog`, main since 2026-10-04):
+From [`roadmap.md`](../../foundation/roadmap.md), item **BL-2** (roadmap `blog`, main since 2026-10-04):
 
 > ### BL-2: Blog content store and publish script
 > - **Change ID:** `blog-content-store`
@@ -35,8 +35,8 @@ From [`roadmap.md`](../../../foundation/roadmap.md), item **BL-2** (roadmap `blo
 > - **PRD refs:** FR-28, NFR-2, NFR-4.
 > - **Source (FIRE_TRACKER, read only):** `src/db/blog.ts`, `src/db/blog-publish.ts`, `src/db/blog-transport.ts`, `src/lib/blog-article-file.ts`, `src/lib/blog-paths.ts`, `scripts/blog-publikuj.ts`, `drizzle/0050`–`0053`
 
-Reference material: [`docs/06-fire-extraction-2.md`](../../../../docs/06-fire-extraction-2.md) (the FIRE_TRACKER source map and the split rules),
-[`docs/02-module-standard.md`](../../../../docs/02-module-standard.md) (the standard). FIRE_TRACKER is read only:
+Reference material: [`docs/06-fire-extraction-2.md`](../../../docs/06-fire-extraction-2.md) (the FIRE_TRACKER source map and the split rules),
+[`docs/02-module-standard.md`](../../../docs/02-module-standard.md) (the standard). FIRE_TRACKER is read only:
 copy its code, never change it.
 
 ## Constraints
