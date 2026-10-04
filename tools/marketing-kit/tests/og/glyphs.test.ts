@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import { loadCharacterMap, readCharacterMap } from "../../src/og/character-map.js";
 import { h } from "../../src/og/element.js";
-import { describeCharacter, findMissingGlyphs, selectSatoriFont } from "../../src/og/glyphs.js";
+import { describeCharacter, findMissingGlyphs, parseFontFamily, selectSatoriFont } from "../../src/og/glyphs.js";
 import type { SatoriFont } from "../../src/og/fonts.js";
 import { getInterFile } from "./helpers.js";
 
@@ -20,6 +20,7 @@ const ROCKET = "\u{1F680}";
 const LATIN = readFileSync(getInterFile(400));
 const LATIN_BOLD = readFileSync(getInterFile(700));
 const LATIN_EXT = readFileSync(require.resolve("@fontsource/inter/files/inter-latin-ext-400-normal.woff"));
+const LATIN_EXT_BOLD = readFileSync(require.resolve("@fontsource/inter/files/inter-latin-ext-700-normal.woff"));
 
 function font(data: Buffer, weight: SatoriFont["weight"], name = "Inter", style: SatoriFont["style"] = "normal"): SatoriFont {
   return { name, data, weight, style };
@@ -208,11 +209,37 @@ describe("findMissingGlyphs", () => {
     expect(findMissingGlyphs(tree, [font(LATIN, 400)])).toEqual({ ok: true, value: [{ text, characters: [ROCKET] }] });
   });
 
+  it("draws from the subset families named after the family, at the text's weight", () => {
+    const fonts = [font(LATIN, 400), font(LATIN_BOLD, 700), font(LATIN_EXT, 400, "Inter #2"), font(LATIN_EXT_BOLD, 700, "Inter #2")];
+    const tree = card({ family: "Inter, Inter #2", text: `Zacznij ${A_OGONEK}` }, { family: "Inter, Inter #2", weight: 700, text: E_OGONEK });
+    expect(findMissingGlyphs(tree, fonts)).toEqual({ ok: true, value: [] });
+  });
+
+  it("refuses a character only a subset family at another weight maps", () => {
+    const tree = card({ family: "Inter, Inter #2", weight: 700, text: `Zacznij ${A_OGONEK}` });
+    expect(findMissingGlyphs(tree, [font(LATIN, 400), font(LATIN_BOLD, 700), font(LATIN_EXT, 400, "Inter #2")])).toEqual({
+      ok: true,
+      value: [{ text: `Zacznij ${A_OGONEK}`, characters: [A_OGONEK] }],
+    });
+  });
+
+  it("tries the named families before a family loaded earlier, as Satori does", () => {
+    const fonts = [font(LATIN_EXT_BOLD, 700, "Inter Ext"), font(LATIN, 400), font(LATIN_BOLD, 700), font(LATIN_EXT, 400, "Inter #2")];
+    expect(findMissingGlyphs(card({ family: "Inter, Inter #2", weight: 700, text: A_OGONEK }), fonts)).toEqual({ ok: true, value: [{ text: A_OGONEK, characters: [A_OGONEK] }] });
+    expect(findMissingGlyphs(card({ family: "Inter", weight: 700, text: A_OGONEK }), fonts)).toEqual({ ok: true, value: [] });
+  });
+
   it("returns a font it cannot read as an error", () => {
     expect(findMissingGlyphs(card({ text: "a" }), [font(Buffer.from("not a font"), 400)])).toEqual({
       ok: false,
       error: 'the font "Inter" 400 normal: the file is not a TrueType, OpenType or WOFF font',
     });
+  });
+});
+
+describe("parseFontFamily", () => {
+  it("splits like Satori: by comma, trimmed, outer quotes stripped, lowercased", () => {
+    expect(parseFontFamily(`Inter, 'Inter #2' ,"Body Face"`)).toEqual(["inter", "inter #2", "body face"]);
   });
 });
 
