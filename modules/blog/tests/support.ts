@@ -3,6 +3,7 @@
 import { createTestClock, defineSoftureConfig, type SoftureConfig, type TestClock } from "@softure-ai/core";
 import { createTestDatabase, type TestDatabase } from "@softure-ai/db/testing";
 import { blog, type BlogOptionsInput } from "@softure-ai/blog";
+import type { BlogArticle } from "@softure-ai/blog";
 import type { ArticleFile, BlogContext } from "@softure-ai/blog/server";
 import { stringify } from "yaml";
 
@@ -57,4 +58,46 @@ export function buildArticleText(overrides: Readonly<Record<string, unknown>> = 
 export function buildArticleFile(overrides: Readonly<Record<string, unknown>> = {}, body?: string): ArticleFile {
   const slug = (overrides.slug as string | undefined) ?? "index-funds";
   return { name: `${slug}.md`, text: buildArticleText(overrides, body) };
+}
+
+/** A stored, published article row for page tests; tests override fields. */
+export function buildStoredArticle(overrides: Partial<BlogArticle> = {}): BlogArticle {
+  return {
+    id: "index-funds",
+    slug: "index-funds",
+    kind: "article",
+    cluster: "investing-basics",
+    isPillar: false,
+    title: "Index funds in plain words",
+    description: "What an index fund is and what it costs.",
+    summary: null,
+    bodyMarkdown: "An index fund buys the whole market.",
+    status: "published",
+    currentAsOf: "2026-10-01",
+    // 22:30 UTC on 14 September is 00:30 on 15 September in Warsaw.
+    publishedAt: new Date("2026-09-14T22:30:00Z"),
+    updatedAt: null,
+    sources: [{ name: "Fund factsheet", url: "https://example.com/factsheet" }],
+    faq: [],
+    termForms: [],
+    fields: {},
+    contentSha256: "a".repeat(64),
+    createdAt: new Date("2026-09-14T22:30:00Z"),
+    ...overrides,
+  };
+}
+
+/** A stored, published glossary term. */
+export function buildStoredTerm(overrides: Partial<BlogArticle> = {}): BlogArticle {
+  return buildStoredArticle({
+    id: "expense-ratio",
+    slug: "expense-ratio",
+    kind: "term",
+    cluster: null,
+    title: "Expense ratio",
+    description: "The yearly cost of a fund as a share of the money in it.",
+    bodyMarkdown: "The expense ratio is the yearly cost of a fund.",
+    termForms: ["expense ratio"],
+    ...overrides,
+  });
 }

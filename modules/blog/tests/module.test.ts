@@ -1,8 +1,8 @@
 // The module definition: its manifest, its options and its health check.
 import { readFileSync } from "node:fs";
-import { toModuleJson } from "@softure-ai/core";
+import { defineSoftureConfig, toModuleJson } from "@softure-ai/core";
 import { blog } from "@softure-ai/blog";
-import { checkArticlesTable, getBlogOptions } from "@softure-ai/blog/server";
+import { checkArticlesTable, getBlogOptions, getBlogReservedSlugs, getBlogRoutes } from "@softure-ai/blog/server";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { createConfig, createTestBlog } from "./support.js";
@@ -18,14 +18,59 @@ describe("the blog module", () => {
     expect(blog.manifest.version).toBe(manifest.version);
   });
 
-  it("fills in the defaults: content/blog, no reserved slugs, no app fields", () => {
-    expect(blog().options).toEqual({ contentDir: "content/blog", reservedSlugs: [] });
+  it("fills in the defaults: content/blog, no reserved slugs, no app fields, no brand or method page", () => {
+    expect(blog().options).toEqual({ contentDir: "content/blog", reservedSlugs: [], methodPage: false, clusters: {}, blocks: [], siteHosts: [], revalidateSeconds: 300 });
+  });
+
+  it("serves its pages under /blog unless the app moves them, and reserves their slugs", () => {
+    expect(getBlogRoutes(createConfig())).toEqual({ index: "/blog", glossary: "/blog/glossary", method: "/blog/how-we-write" });
+    const config = defineSoftureConfig({
+      database: { url: "pglite://" },
+      locale: "en",
+      timezone: "UTC",
+      appOrigin: "https://app.example.com",
+      modules: [blog({ routes: { index: "/articles/", glossary: "/articles/terms" }, methodPage: true, reservedSlugs: ["about"] })],
+    });
+    expect(getBlogRoutes(config)).toEqual({ index: "/articles", glossary: "/articles/terms", method: "/blog/how-we-write" });
+    expect(getBlogReservedSlugs(config)).toEqual(["about", "terms"]);
+  });
+
+  it("takes a brand, a disclaimer, cluster labels and block plugins", () => {
+    const chart = { type: "chart", render: () => ({ kind: "html" as const, html: "<figure></figure>" }) };
+    const options = blog({
+      brand: { name: "Example", colors: { accent: "#cff26b" } },
+      disclaimer: { en: "Not advice." },
+      clusters: { "investing-basics": { en: "Investing basics", pl: "Podstawy" } },
+      blocks: [chart],
+      siteHosts: ["docs.example.com"],
+    }).options;
+    expect(options).toMatchObject({ brand: { name: "Example", colors: { accent: "#cff26b" } }, disclaimer: { en: "Not advice." }, blocks: [chart] });
+  });
+
+  it("refuses page options it cannot use", () => {
+    expect(() =>
+      blog({
+        brand: { name: "Example", colors: { accent: "lime" } },
+        // @ts-expect-error: a block plugin needs a render function.
+        blocks: [{ type: "chart" }],
+        siteHosts: ["https://example.com"],
+        revalidateSeconds: 0,
+      }),
+    ).toThrow(
+      [
+        'Invalid SOFTURE configuration in module "blog":',
+        "- options.brand.colors.accent: must be a six-digit hex colour, e.g. #0c0c0d",
+        '- options.blocks.0: must be a block plugin: { type: "chart", render(block) }',
+        "- options.siteHosts.0: must be a host name, e.g. example.com",
+        "- options.revalidateSeconds: Too small: expected number to be >=1",
+      ].join("\n"),
+    );
   });
 
   it("takes the app's folder, reserved slugs and fields schema", () => {
     const fields = z.object({ scenario: z.string().optional() });
     const options = blog({ contentDir: "posts", reservedSlugs: ["glossary"], fields }).options;
-    expect(options).toEqual({ contentDir: "posts", reservedSlugs: ["glossary"], fields });
+    expect(options).toMatchObject({ contentDir: "posts", reservedSlugs: ["glossary"], fields });
     expect(getBlogOptions(createConfig({ contentDir: "posts" })).contentDir).toBe("posts");
   });
 

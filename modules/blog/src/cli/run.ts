@@ -12,7 +12,7 @@ import { parseArgs } from "node:util";
 import { systemClock, type Clock, type SoftureConfig } from "@softure-ai/core";
 import { createDatabase, type DatabaseHandle } from "@softure-ai/db";
 import { runBlogPublish, type ArticleFile, type BlogPublishRun, type PublishedChange, type PublishGate, type PublishProblem } from "../db/publish-run.js";
-import { getBlogOptions } from "../server/options.js";
+import { getBlogOptions, getBlogReservedSlugs } from "../server/options.js";
 
 export interface CliOutput {
   readonly log: (line: string) => void;
@@ -146,7 +146,7 @@ async function runPublish(command: Extract<BlogCommand, { kind: "publish" }>, op
       {
         commit: command.commit,
         withdraw: command.withdraw,
-        reservedSlugs: blogOptions.reservedSlugs,
+        reservedSlugs: getBlogReservedSlugs(config),
         ...(blogOptions.fields === undefined ? {} : { fields: blogOptions.fields }),
         ...(options.gate === undefined ? {} : { gate: options.gate }),
       },
