@@ -70,8 +70,8 @@ function checkGlyphs(input: OgImageInput, tree: OgNode, strings: readonly { path
   if (missing.value.length === 0) return ok(null);
   const lines = formatMissingGlyphs(missing.value, [...strings, { path: "brand.name", text: input.brand.name }]);
   return err(
-    `${describeCard(input)}: template "${input.template}" has characters none of the loaded fonts can draw:\n${lines.join("\n")}\n` +
-      "Use font files that cover them. OG images use one file per family, weight and style (the first listed), so a second subset file of the same weight is not used.",
+    `${describeCard(input)}: template "${input.template}" has characters none of the loaded fonts can draw at the text's weight and style:\n${lines.join("\n")}\n` +
+      "Use font files that cover them at every weight the copy uses. Several files of one weight and style (subset files such as latin and latin-ext) are tried in the order listed.",
   );
 }
 

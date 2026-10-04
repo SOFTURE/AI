@@ -321,11 +321,15 @@ nearest one the brand loads, so a card never names a weight that is not loaded (
 another one silently). Satori draws nothing, or an empty box, for a character no font maps, so a
 card is checked before layout: a character of the copy (or of `brand.name`) that none of the fonts
 Satori would try has is refused with the image id, the JSON path and the characters, e.g.
-`ogImages[0].data.headline: "…" (U+0105)` for a Polish letter with a `latin` subset file. Satori
-tries one file per family, weight and style (the first one listed), then the other family, so a
-second subset file of the same weight (`latin-ext` next to `latin`) is not used: ship one file per
-weight that covers the copy's language. Whitespace, format characters and variation selectors are
-not checked; emoji are, and need a font that has them.
+`ogImages[0].data.headline: "…" (U+0105)` for a Polish letter with a `latin` subset file.
+Subset files work: list `latin` and `latin-ext` (or more) for each weight, as Fontsource ships them,
+and a text tries them in the order listed, then the other family. Satori uses one file per family,
+weight and style, so the second file of a weight and style is registered as the family `<family> #2`
+(the third as `#3`) and templates write `font-family: <family>, <family> #2`; `unicodeRange` does
+not steer this, the first listed file that has the character draws it. A subset file must exist at
+every weight the copy uses: a letter only a `latin-ext` file of another weight has would come out
+lighter or heavier than its line, so it is refused like a missing one. Whitespace, format characters
+and variation selectors are not checked; emoji are, and need a font that has them.
 
 **A thin Next route.** The `@softure-ai/marketing-kit/og` entry does not load Playwright, so a route
 can render the same card per request, with live values in place of the configured `data`:
@@ -383,7 +387,7 @@ renders without a `marketing.json` at all.
   one recording renders in every format; `layout` in `marketing.json` moves the copy and the end card, not the
   phone. A desktop recording (FU-15) is not built.
 - ElevenLabs is the only real voice provider; the estimate is an upper bound in credits, not money.
-- Two OG templates; a second subset file of the same weight is not used for OG images (FU-23).
+- Two OG templates.
 
 ## Development
 

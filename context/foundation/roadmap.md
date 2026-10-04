@@ -64,12 +64,13 @@ backlog: context/backlog/roadmap-followups/
 | **FU-20** | `billing-partial-refunds` | partial refunds take back access by a policy | FU-11 | autonomous | done |
 | **FU-21** | `billing-refund-manual-lifetime` | a manual lifetime grant survives a refunded paid lifetime | FU-9 | autonomous | proposed |
 | **FU-22** | `billing-grant-plan-script` | a `grant-plan` ops script grants and revokes plans without the admin page | FU-9 | autonomous | proposed |
-| **FU-23** | `marketing-kit-og-subset-fonts` | OG images use every subset file of a weight | FU-17 | autonomous | proposed |
+| **FU-23** | `marketing-kit-og-subset-fonts` | OG images use every subset file of a weight | FU-17 | autonomous | done_code (2026-10-04; waiting: MK-8 release) |
 | **FU-24** | `billing-existing-accounts` | existing accounts keep their access when billing is enabled (import, trial floor, pinned trials) | FU-22 | autonomous | proposed |
 | **FU-25** | `billing-stripe-currency-units` | Stripe charges the plan's price in every currency (special-case units) | FU-24 | autonomous | proposed |
 | **FU-26** | `billing-guard-race-tests` | billing guards and lock races tested where they can fail | FU-25 | autonomous | proposed |
 | **FU-27** | `billing-invoice-request-hygiene` | invoice requests stored before the owner's mail, validated, expired and priced | FU-26 | autonomous | proposed |
 | **FU-28** | `auth-page-redirect-tag` | a signed-in visitor's redirect from a tagged login page keeps the tag | FU-7 | autonomous | proposed |
+| **FU-29** | `marketing-kit-font-files-description` | the marketing.json font files description admits subset files | FU-23 | autonomous | proposed |
 | **FU-30** | `billing-failed-refund-access` | a refund that fails gives back the access it took | FU-27 | autonomous | proposed |
 
 ## Order
@@ -83,14 +84,14 @@ after another; different lanes run in parallel, up to 4 at once.
 | B: waitlist and consent | FU-3 → FU-2 → FU-4 → FU-8 | `modules/waitlist/` (FU-3 also `modules/mailing/`, `modules/privacy/`) |
 | C: billing | FU-11 → FU-9 → FU-6 → FU-20 → FU-21 → FU-22 → FU-24 → FU-25 → FU-26 → FU-27 → FU-30; FU-12 any time | `modules/billing/` and its migrations; FU-12 writes documents only (archives and followup entries) |
 | D: analytics | FU-5 → FU-7 → FU-28 (FU-7 also after FU-1) | `modules/analytics/` channel propagation; FU-7 may touch auth's redirects |
-| E: marketing-kit config | FU-14 → FU-16 → FU-15; FU-14 → FU-18 → FU-19 | `tools/marketing-kit/src/config/schema.ts`, `schema/`, `src/compose/` (FU-15, FU-16) |
+| E: marketing-kit config | FU-14 → FU-16 → FU-15; FU-14 → FU-18 → FU-19 → FU-29 | `tools/marketing-kit/src/config/schema.ts`, `schema/`, `src/compose/` (FU-15, FU-16) |
 | F: independent | FU-13, FU-17 → FU-23 | `.github/workflows/ci.yml`; `tools/marketing-kit/src/og/` |
 
 1. **First wave: FU-1, FU-3, FU-11, FU-14.** The two HIGH items first (FU-1 must land before FIRE_TRACKER
    adopts the switches; FU-3 fixes a consent ledger that can contradict an unsubscribe), then the MEDIUM refund
    fix and the schema descriptions that every later marketing-kit config item extends.
 2. **Each free slot** takes the first item of this list whose lane is idle and whose dependencies are on `master`:
-   FU-2, FU-5, FU-13, FU-17, FU-9, FU-16, FU-18, FU-4, FU-7, FU-12, FU-6, FU-15, FU-8, FU-19, FU-20, FU-21, FU-22, FU-23, FU-24, FU-25, FU-26, FU-27, FU-28, FU-30.
+   FU-2, FU-5, FU-13, FU-17, FU-9, FU-16, FU-18, FU-4, FU-7, FU-12, FU-6, FU-15, FU-8, FU-19, FU-20, FU-21, FU-22, FU-23, FU-24, FU-25, FU-26, FU-27, FU-28, FU-29, FU-30.
 3. **MK-8, EN-9 and MO-6** (owner, carried over): the owner's batch release on 2026-10-05; they wait for no FU item,
    and no FU item waits for them.
 
@@ -132,6 +133,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 | FU-26 | no | unit tests, Postgres tests on the CI service and one e2e |
 | FU-27 | no | a migration and server changes tested on PGlite; the fake mail provider covers the e2e |
 | FU-28 | no | auth's page redirect through the same rewrite; covered by the example app's e2e |
+| FU-29 | no | one `.describe()` text in the config schema and the regenerated JSON Schema |
 | FU-30 | no | a billing webhook path with signed fixtures; no Stripe secrets |
 
 ## Items
@@ -413,7 +415,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-23: OG images use every subset file of a weight
 - **Change ID:** `marketing-kit-og-subset-fonts`
-- **Status:** proposed
+- **Status:** done_code (2026-10-04; waiting: MK-8 release)
+- **Input:** [`archive/2026-10-04-marketing-kit-og-subset-fonts/change.md`](../archive/2026-10-04-marketing-kit-og-subset-fonts/change.md)
 - **Outcome:** A brand font listing several files of one weight (e.g. Fontsource `latin` and `latin-ext`, split by `unicodeRange` for the video renderer) draws Polish copy in OG images too: each further file of a weight is registered with Satori so its fallback reaches it, at the requested weight.
 - **Prerequisites:** FU-17 on `master`.
 - **Unknowns:** Registering further files under derived family names (Satori falls back across families, not files) vs. merging; the order Satori tries them in; whether `unicodeRange` should steer the choice.
@@ -477,6 +480,16 @@ owner's own machine, a product decision only the owner can make, or a change in 
 - **PRD refs:** FR-23.
 - **Source:** FU-7 research ("Open questions"); `modules/analytics/README.md` §12
 
+### FU-29: The marketing.json font files description admits subset files
+- **Change ID:** `marketing-kit-font-files-description`
+- **Status:** proposed
+- **Outcome:** The `.describe()` of `brand.fonts.<kind>.files` in `tools/marketing-kit/src/config/schema.ts` says the files cover weights and styles and that one weight and style may take several subset files, tried in the listed order (OG images) or chosen by `unicodeRange` (the film); `schema/marketing.schema.json` is regenerated.
+- **Prerequisites:** FU-23 on `master`; lane E (after FU-19, shared `schema.ts`).
+- **Unknowns:** none.
+- **Risk:** LOW. Documentation only; the description today steers a project away from the subset setup FU-23 supports.
+- **Baseline:** FU-23 `marketing-kit-og-subset-fonts`: OG images use every subset file of a weight; the schema still says "The files of the family, one per weight and style". After: the description matches, the schema drift test passes.
+- **PRD refs:** FR-25.
+- **Source:** FU-23 (lane F could not touch `schema.ts`, lane E owns it); `tools/marketing-kit/src/config/schema.ts` (`files` of the brand font)
 ### FU-30: A refund that fails gives back the access it took
 - **Change ID:** `billing-failed-refund-access`
 - **Status:** proposed
@@ -504,6 +517,7 @@ Open from FU-14:
 
 ## Done
 
+- **FU-23** `marketing-kit-og-subset-fonts`: OG images use every subset file of a weight (registered as `<family> #n` subset families and written as a font stack), at the line's weight; a letter only another weight's subset file has is refused; covered by font, glyph and render tests; archived in `archive/2026-10-04-marketing-kit-og-subset-fonts/`
 - **FU-20** `billing-partial-refunds`: a partial Stripe refund records the cumulative `amount_refunded` (`billing.payments.refunded_amount`, migration `0005`) and, under `billing({ partialRefunds: "pro_rata" })` (the default), takes back the refunded share of the payment's unused days, rounded down; partial refunds summing to the amount end where one full refund does; `keep_access` takes nothing until then; covered by unit tests with signed webhook fixtures; archived in `archive/2026-10-04-billing-partial-refunds/`
 - **FU-6** `billing-reminder-mail`: `sendAccessReminders` (`@softure-ai/billing/mailing`, mailing an optional peer) mails accounts whose trial or paid access ends soon or ended in the last `catchUpDays` days, once per account and window through `mailing.deliveries`; candidates from two range queries (auth `0004` indexes `users.created_at`); the example app runs it from `npm run access-reminders`; archived in `archive/2026-10-04-billing-reminder-mail/`
 - **FU-8** `waitlist-funnel-hook`: `waitlist({ onJoined })` runs in the sign-up's transaction when a sign-up first counts; analytics' `countFunnelStep` counts it under its channel, kept through double opt-in by `rewriteConfirmationLink`; covered by unit and e2e tests; archived in `archive/2026-10-04-waitlist-funnel-hook/`
