@@ -70,7 +70,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-26** | `billing-guard-race-tests` | billing guards and lock races tested where they can fail | FU-25 | autonomous | proposed |
 | **FU-27** | `billing-invoice-request-hygiene` | invoice requests stored before the owner's mail, validated, expired and priced | FU-26 | autonomous | proposed |
 | **FU-28** | `auth-page-redirect-tag` | a signed-in visitor's redirect from a tagged login page keeps the tag | FU-7 | autonomous | proposed |
-| **FU-29** | `marketing-kit-font-files-description` | the marketing.json font files description admits subset files | FU-23 | autonomous | proposed |
+| **FU-29** | `marketing-kit-font-files-description` | the marketing.json font files description admits subset files | FU-23 | autonomous | in_progress (implement 0/1, since 2026-10-04; branch `claude/fu-29-font-files-description-i3mims`) |
 | **FU-30** | `billing-failed-refund-access` | a refund that fails gives back the access it took | FU-27 | autonomous | proposed |
 
 ## Order
@@ -483,7 +483,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-29: The marketing.json font files description admits subset files
 - **Change ID:** `marketing-kit-font-files-description`
-- **Status:** proposed
+- **Status:** in_progress (implement 0/1, since 2026-10-04; branch `claude/fu-29-font-files-description-i3mims`)
 - **Outcome:** The `.describe()` of `brand.fonts.<kind>.files` in `tools/marketing-kit/src/config/schema.ts` says the files cover weights and styles and that one weight and style may take several subset files, tried in the listed order (OG images) or chosen by `unicodeRange` (the film); `schema/marketing.schema.json` is regenerated.
 - **Prerequisites:** FU-23 on `master`; lane E (after FU-19, shared `schema.ts`).
 - **Unknowns:** none.
