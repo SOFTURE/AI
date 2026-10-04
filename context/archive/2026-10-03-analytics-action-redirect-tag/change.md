@@ -1,12 +1,12 @@
 ---
 change_id: analytics-action-redirect-tag
 title: "Channel tag kept through server action redirects"
-status: impl_reviewed
+status: archived
 roadmap_item: FU-7
 branch: claude/project-thread-ooknrg
 created: 2026-10-03
 updated: 2026-10-04
-archived_at: null
+archived_at: 2026-10-04
 ---
 
 ## Intent
@@ -56,3 +56,4 @@ JavaScript keeps the untagged URL. The auth actions redirect in `modules/auth/sr
 - Framing skipped: the gap is documented (analytics README §12) and narrowed by FU-5, the outcome and its proof are
   pinned by the roadmap item, and nothing questions whether this is the right problem; the remaining choice (a hook
   in auth vs. a wrapper in analytics) is a plan decision grounded by research.
+- Archived 2026-10-04: auth's action redirects keep the channel tag through `auth({ rewriteRedirect: tagRedirect })`, so the action answers the tagged URL with and without JavaScript, covered by unit and e2e tests.

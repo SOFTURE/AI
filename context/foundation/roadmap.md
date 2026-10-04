@@ -5,7 +5,7 @@ version: 1
 status: ready
 prd_version: 1
 created: 2026-10-03
-updated: 2026-10-03
+updated: 2026-10-04
 backlog: context/backlog/roadmap-followups/
 ---
 
@@ -49,7 +49,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-4** | `waitlist-welcome-html` | HTML welcome mail for the waitlist | FU-2 | autonomous | proposed |
 | **FU-5** | `analytics-client-navigation` | Channel tag on client navigations without Next-Url | — | autonomous | done_code (2026-10-03; waiting: MO-6 release of `@softure-ai/analytics`) |
 | **FU-6** | `billing-reminder-mail` | Reminder mail before access ends | FU-9 | autonomous | proposed |
-| **FU-7** | `analytics-action-redirect-tag` | Channel tag kept through server action redirects | FU-1, FU-5 | autonomous | in_progress (implement 1/1, since 2026-10-03; cloud session, branch `claude/project-thread-ooknrg`) |
+| **FU-7** | `analytics-action-redirect-tag` | Channel tag kept through server action redirects | FU-1, FU-5 | autonomous | done_code (2026-10-04; waiting: MO-6 release of `@softure-ai/analytics` and the next `@softure-ai/auth` release) |
 | **FU-8** | `waitlist-funnel-hook` | Waitlist sign-ups as a funnel step | FU-4 | autonomous | proposed |
 | **FU-9** | `billing-admin-requests` | Payment requests, revoke and grant history in the billing admin page | FU-11 | autonomous | done |
 | **FU-11** | `billing-refund-one-payment` | Refunds that take back one payment's period | — | autonomous | done |
@@ -195,8 +195,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-7: Channel tag kept through server action redirects
 - **Change ID:** `analytics-action-redirect-tag`
-- **Status:** in_progress (implement 1/1, since 2026-10-03; cloud session, branch `claude/project-thread-ooknrg`)
-- **Input:** [`changes/analytics-action-redirect-tag/change.md`](../changes/analytics-action-redirect-tag/change.md)
+- **Status:** done_code (2026-10-04; waiting: MO-6 release of `@softure-ai/analytics` and the next `@softure-ai/auth` release)
+- **Input:** [`archive/2026-10-03-analytics-action-redirect-tag/change.md`](../archive/2026-10-03-analytics-action-redirect-tag/change.md)
 - **Outcome:** A server action's redirect from a tagged page (auth's sign-up and login redirect to `afterLogin`) lands on a URL that keeps the channel tag, so the views after sign-up are counted under the visit's channel (for example the auth actions adding the tag through `withChannel`, or a `/next` helper that tags an action's redirect target).
 - **Prerequisites:** FU-1, FU-5 on `master` (shared files, see Order).
 - **Unknowns:** Whether a redirect helper in analytics can wrap auth's actions without auth depending on analytics; how Next renders the redirect target in the action's own response (the proxy never sees a GET for it).
@@ -421,6 +421,7 @@ Open from FU-14:
 
 ## Done
 
+- **FU-7** `analytics-action-redirect-tag`: auth's action redirects keep the channel tag through `rewriteRedirect` and analytics' `tagRedirect`, with and without JavaScript, covered by unit and e2e tests; archived in `archive/2026-10-03-analytics-action-redirect-tag/`
 - **FU-5** `analytics-client-navigation`: `<ChannelKeeper />` keeps the channel tag on client navigations without `Next-Url`, covered by unit and e2e tests; archived in `archive/2026-10-03-analytics-client-navigation/`
 - **FU-1** `switch-reader-contract`: auth reads `auth.registration_closed` through the switch-reader contract in core, provided by feature-switches; the panel flips it and reports undefined manifest switches; archived in `archive/2026-10-03-switch-reader-contract/`
 - **FU-14** `marketing-kit-schema-docs`: every key of the marketing.json JSON Schema carries a description, guarded by a test; archived in `archive/2026-10-03-marketing-kit-schema-docs/`
