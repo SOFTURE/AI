@@ -8,4 +8,11 @@ export const pl = {
     published: "Opublikowany",
     withdrawn: "Wycofany",
   },
+  render: {
+    footnotesHeading: "Przypisy",
+    footnoteLabel: "Przypis {number}",
+    backToText: "Wróć do tekstu",
+    opensInNewTab: "(otwiera się w nowej karcie)",
+    tableOfContents: "Spis treści",
+  },
 };
