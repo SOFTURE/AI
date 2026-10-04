@@ -3,7 +3,8 @@
 // connection holds the contested lock until both changes wait on it, so the interleaving is the
 // same on every run: the race happens, it is not hoped for.
 import { type BillingOptionsInput } from "@softure-ai/billing";
-import { changeEntitlement, getEntitlement, grantPlan, grantPlanManually } from "@softure-ai/billing/server";
+import { changeEntitlement, getEntitlement, grantPlan, grantPlanManually, recordPaymentRequest } from "@softure-ai/billing/server";
+import { err } from "@softure-ai/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createPostgresBilling, isPostgresRequired, openBlocker, POSTGRES_ADMIN_URL, waitForLockWaiters, type Blocker, type PostgresBilling } from "./postgres.js";
 import { createAccount, NOW } from "./support.js";
@@ -96,5 +97,53 @@ describe.skipIf(POSTGRES_ADMIN_URL === undefined)("billing locks on two connecti
       { granted_from: MONTH_AFTER_TRIAL, granted_until: TWO_MONTHS_AFTER_TRIAL },
       { granted_from: TWO_MONTHS_AFTER_TRIAL, granted_until: THREE_MONTHS_AFTER_TRIAL },
     ]);
+  });
+
+  async function readManualGrantKinds(): Promise<string[]> {
+    const result = await test.handle.pool.query<{ grant_kind: string }>(
+      "SELECT grant_kind FROM billing.manual_grants WHERE user_id = $1 AND status = 'active' ORDER BY granted_at",
+      [adaId],
+    );
+    return result.rows.map((row) => row.grant_kind);
+  }
+
+  it("refuses the second of two lifetime grants made at once on an account without a row", async () => {
+    // The blocker plays a change that inserts the account's first row: both grants start before
+    // the row exists and must still see each other's lifetime.
+    blocker = await openBlocker(test);
+    await blocker.query(
+      "INSERT INTO billing.entitlements (user_id, trial_ends_at, paid_until, is_lifetime, created_at, updated_at) VALUES ($1, $2, NULL, false, $3, $3)",
+      [adaId, TRIAL_END, NOW],
+    );
+    const grants = Promise.all([
+      grantPlanManually(test.ctx, { userId: adaId, planId: "lifetime", adminId: null }),
+      grantPlanManually(test.ctx, { userId: adaId, planId: "lifetime", adminId: null }),
+    ]);
+    await waitForLockWaiters(test, 2);
+    await blocker.release();
+
+    const results = await grants;
+    expect(results.filter((result) => result.ok)).toHaveLength(1);
+    expect(results.filter((result) => !result.ok)).toEqual([err("billing.lifetime_active")]);
+    expect(await readManualGrantKinds()).toEqual(["lifetime"]);
+    expect(await readStoredRow()).toEqual([{ trial_ends_at: TRIAL_END, paid_until: null, is_lifetime: true }]);
+  });
+
+  it("refuses a period grant made while a lifetime grant is still open on an account without a row", async () => {
+    const requestId = await recordPaymentRequest(test.ctx, { userId: adaId, planId: "lifetime", invoice: null, price: { amount: 49900, currency: "PLN" } });
+    // The blocker holds the lifetime grant at its request, after it took the account's entitlement.
+    blocker = await openBlocker(test);
+    await blocker.query("SELECT 1 FROM billing.payment_requests WHERE id = $1 FOR UPDATE", [requestId]);
+    const lifetime = grantPlanManually(test.ctx, { userId: adaId, planId: "lifetime", adminId: null, requestId });
+    await waitForLockWaiters(test, 1);
+    // The period grant must wait for the lifetime grant, not slip in before its row exists.
+    const period = grantPlanManually(test.ctx, { userId: adaId, planId: "monthly", adminId: null });
+    await waitForLockWaiters(test, 2);
+    await blocker.release();
+
+    expect((await lifetime).ok).toBe(true);
+    expect(await period).toEqual(err("billing.lifetime_active"));
+    expect(await readManualGrantKinds()).toEqual(["lifetime"]);
+    expect(await getEntitlement(test.ctx, adaId)).toMatchObject({ status: "paid", endsAt: null });
   });
 });

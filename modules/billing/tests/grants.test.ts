@@ -268,6 +268,13 @@ describe("granting by hand", () => {
     expect(await getEntitlement(test.ctx, adaId)).toMatchObject({ status: "trial" });
   });
 
+  it("leaves no entitlement row behind when it refuses a grant on an account that had none", async () => {
+    const eveId = await createAccount(test, "eve@example.com");
+    const eves = await recordPaymentRequest(test.ctx, { userId: eveId, planId: "monthly", invoice: INVOICE, price: PRICE });
+    expect(await grantPlanManually(test.ctx, { userId: adaId, planId: "monthly", adminId, requestId: eves })).toEqual(err("billing.request_closed"));
+    expect(await readRow(test, adaId)).toBeUndefined();
+  });
+
   it("refuses an account with lifetime access, leaving its request open", async () => {
     await grantPlanManually(test.ctx, { userId: adaId, planId: "lifetime", adminId });
     const requestId = await recordPaymentRequest(test.ctx, { userId: adaId, planId: "monthly", invoice: INVOICE, price: PRICE });
