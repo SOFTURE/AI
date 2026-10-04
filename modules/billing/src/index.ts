@@ -90,6 +90,7 @@ export { invoiceDetailsSchema, type InvoiceFieldErrorCode } from "./invoice.js";
 export { manual, type ManualPaymentOptions } from "./manual.js";
 export { billingMessages, getBillingErrorMessage, type BillingMessages } from "./messages/index.js";
 export {
+  DEFAULT_REQUEST_EXPIRY_DAYS,
   MAX_DAYS,
   MAX_FEATURES,
   MAX_PERIOD_COUNT,

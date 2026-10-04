@@ -4,9 +4,11 @@
 // grant at /admin/billing flips the account's trial to paid. The admin page lists open requests
 // (grant or dismiss each), finds an account's history and revokes a manual grant; a lifetime
 // account has nothing to pay. The grant-plan and revoke-grant scripts write the same history the
-// admin page shows. Every test gets its own client address and accounts; the admin is an
-// account given the role in Postgres (auth-roles.spec.ts owns the configured admin). Other tests'
-// requests share the list, so rows are always picked by the member's address.
+// admin page shows. Asking again does not mail the admin twice, a field the server refuses says
+// why, and the expire-invoice-requests script closes a request nobody asked again for. Every test
+// gets its own client address and accounts; the admin is an account given the role in Postgres
+// (auth-roles.spec.ts owns the configured admin). Other tests' requests share the list, so rows
+// are always picked by the member's address.
 import { spawnSync } from "node:child_process";
 import { randomInt, randomUUID } from "node:crypto";
 import { dirname, resolve } from "node:path";
@@ -15,7 +17,7 @@ import { expect, test, type Browser, type Page } from "@playwright/test";
 import { authMessages, userRoles, users } from "@softure-ai/auth";
 import { billingMessages } from "@softure-ai/billing";
 import { readMailOutbox } from "@softure-ai/mailing/testing";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { en } from "../messages/en.ts";
 import { EXAMPLE_ADMIN_EMAIL } from "../softure.config.ts";
 import { openTestDatabase } from "./database.ts";
@@ -328,4 +330,33 @@ test("a plan granted with the grant-plan script is in the admin's history, and r
   expect(await readBadgeStatus(member)).toBe("trial");
   await admin.reload();
   await expect(grant).toContainText("Revoked on ");
+});
+
+test("a request nobody asked again for expires through the expire-invoice-requests script", async ({ browser }) => {
+  const member = await openPage(browser);
+  const email = newEmail();
+  await register(member, email);
+  await requestInvoice(member, en.plans.monthly.name);
+
+  const database = await openTestDatabase();
+  try {
+    // 31 days ago: older than the default 30-day age.
+    await database.db.execute(
+      sql`UPDATE billing.payment_requests AS request SET requested_at = now() - interval '31 days', handed_over_at = now() - interval '31 days' FROM auth.users AS account WHERE account.id = request.user_id AND account.email = ${email}`,
+    );
+    const result = spawnSync("npm", ["run", "--silent", "expire-invoice-requests"], { cwd: APP_DIR, encoding: "utf8" });
+    expect(result.status, `${result.stdout}${result.stderr}`).toBe(0);
+    expect((JSON.parse(result.stdout.trim()) as { expired: number }).expired).toBeGreaterThanOrEqual(1);
+    const rows = await database.db.execute<{ status: string; invoice_name: string | null }>(
+      sql`SELECT request.status, request.invoice_name FROM billing.payment_requests AS request JOIN auth.users AS account ON account.id = request.user_id WHERE account.email = ${email}`,
+    );
+    expect(rows.rows).toEqual([{ status: "expired", invoice_name: null }]);
+  } finally {
+    await database.close();
+  }
+
+  const admin = await openPage(browser);
+  await registerAdmin(admin);
+  await admin.goto("/admin/billing");
+  await expect(admin.locator("[data-request-id]").filter({ hasText: email })).toHaveCount(0);
 });

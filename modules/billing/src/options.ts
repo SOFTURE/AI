@@ -16,6 +16,8 @@ export const MAX_FEATURES = 20;
 export const MAX_PRICE_AMOUNT = 100_000_000;
 /** The most units one period counts. */
 export const MAX_PERIOD_COUNT = 1000;
+/** How long an open invoice request waits by default before it expires, in days. */
+export const DEFAULT_REQUEST_EXPIRY_DAYS = 30;
 /**
  * What a partial refund of a provider payment does to access: `pro_rata` takes back the refunded
  * share of the payment's unused days, `keep_access` takes back nothing until the whole payment is
@@ -78,6 +80,16 @@ export const billingOptionsSchema = z.strictObject({
     .strictObject({
       /** From how many days left the renewal notice shows; 0 never. Lifetime access never ends. */
       reminderDays: daysSchema.default(7),
+    })
+    .prefault({}),
+  requests: z
+    .strictObject({
+      /**
+       * Days an open invoice request waits for the admin, counted from the buyer's last ask:
+       * `expireStaleRequests` (run daily) then closes it as `expired` and clears its invoice
+       * details. From 1 to 365.
+       */
+      expireAfterDays: z.number().int().min(1).max(MAX_DAYS).default(DEFAULT_REQUEST_EXPIRY_DAYS),
     })
     .prefault({}),
   /** The plans the pricing tiles and the payment page offer, in the order they show them. */

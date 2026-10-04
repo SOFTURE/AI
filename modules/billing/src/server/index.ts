@@ -69,9 +69,11 @@ export {
 } from "./privacy.js";
 export {
   dismissPaymentRequest,
+  expireStaleRequests,
   listOpenRequests,
   OPEN_REQUESTS_LIMIT,
   recordPaymentRequest,
+  type ExpiredRequestsSummary,
   type OpenPaymentRequest,
   type RecordPaymentRequestInput,
 } from "./requests.js";

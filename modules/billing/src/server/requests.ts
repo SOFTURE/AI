@@ -7,12 +7,15 @@
 import { users } from "@softure-ai/auth";
 import { err, ok, type Err, type Ok } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
-import { and, asc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, isNull, lt, sql } from "drizzle-orm";
 import type { PlanPrice } from "../contract.js";
 import type { InvoiceDetails } from "../payment.js";
 import { paymentRequests } from "../schema.js";
 import type { BillingContext } from "./entitlements.js";
+import { getBillingOptions } from "./options.js";
 import { isUuid } from "./user-id.js";
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** How many open requests the admin page lists by default. */
 export const OPEN_REQUESTS_LIMIT = 50;
@@ -143,6 +146,28 @@ export async function dismissPaymentRequest(ctx: Pick<BillingContext, "db" | "cl
     .where(and(eq(paymentRequests.id, requestId), eq(paymentRequests.status, "open")))
     .returning();
   return closed === undefined ? err("billing.request_closed") : ok();
+}
+
+export interface ExpiredRequestsSummary {
+  /** Open requests closed as `expired` by this run. */
+  readonly expired: number;
+}
+
+/**
+ * Closes the open requests nobody asked again for in `requests.expireAfterDays` days as `expired`
+ * and clears their invoice details: personal data kept no longer than the request waits. Run it
+ * daily (a scheduler); a repeated run closes nothing new. Database errors propagate.
+ */
+export async function expireStaleRequests(ctx: BillingContext): Promise<ExpiredRequestsSummary> {
+  const now = ctx.clock.now();
+  const { expireAfterDays } = getBillingOptions(ctx.config).requests;
+  const cutoff = new Date(now.getTime() - expireAfterDays * DAY_MS);
+  const expired = await ctx.db
+    .update(paymentRequests)
+    .set(getClosedRequestColumns("expired", now))
+    .where(and(eq(paymentRequests.status, "open"), lt(paymentRequests.requestedAt, cutoff)))
+    .returning();
+  return { expired: expired.length };
 }
 
 /** A stored price, or null when the row has none (a CHECK stores both or neither). */

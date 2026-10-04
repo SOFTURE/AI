@@ -18,7 +18,7 @@ describe("the billing module", () => {
   });
 
   it("fills in the defaults: a 14-day trial, reminders 3 and 7 days ahead, pro rata partial refunds, payment at /payment, the admin page at /admin/billing", () => {
-    expect(billing({}).options).toEqual({ trial: { days: 14, reminderDays: 3 }, paid: { reminderDays: 7 }, plans: [], partialRefunds: "pro_rata", adminRole: "admin" });
+    expect(billing({}).options).toEqual({ trial: { days: 14, reminderDays: 3 }, paid: { reminderDays: 7 }, requests: { expireAfterDays: 30 }, plans: [], partialRefunds: "pro_rata", adminRole: "admin" });
     expect(getBillingRoutes(createConfig())).toEqual({ payment: "/payment", admin: "/admin/billing" });
     expect(getBillingRoutes(createConfig({ routes: { payment: "/pricing", admin: "/staff/billing" } }))).toEqual({ payment: "/pricing", admin: "/staff/billing" });
   });
@@ -103,6 +103,12 @@ describe("the billing module", () => {
   it("refuses a payment provider whose price check is not a function", () => {
     const provider = { ...stripe(), checkPrice: "yes" };
     expect(() => billing({ payment: provider as never })).toThrow("- options.payment: must be a payment provider such as manual()");
+  });
+
+  it("takes an invoice request expiry from 1 to 365 days and refuses the rest", () => {
+    expect(billing({ requests: { expireAfterDays: 1 } }).options).toMatchObject({ requests: { expireAfterDays: 1 } });
+    expect(billing({ requests: { expireAfterDays: 365 } }).options).toMatchObject({ requests: { expireAfterDays: 365 } });
+    for (const days of [0, 366, 1.5]) expect(() => billing({ requests: { expireAfterDays: days } }), String(days)).toThrow("- options.requests.expireAfterDays:");
   });
 
   it("takes keep_access as the partial refund policy and refuses any other", () => {

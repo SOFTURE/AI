@@ -4,6 +4,7 @@
 import { type BillingOptionsInput } from "@softure-ai/billing";
 import {
   dismissPaymentRequest,
+  expireStaleRequests,
   getAccountHistory,
   getEntitlement,
   grantPaymentRequest,
@@ -124,6 +125,44 @@ describe("payment requests", () => {
       ["ada@example.com", null],
     ]);
     expect(await listOpenRequests(test.ctx, 1)).toHaveLength(1);
+  });
+
+  it("expires open requests not asked again within requests.expireAfterDays, clearing their details", async () => {
+    const eveId = await createAccount(test, "eve@example.com");
+    const stale = await recordPaymentRequest(test.ctx, { userId: adaId, planId: "monthly", invoice: INVOICE, price: PRICE });
+    const dismissed = await recordPaymentRequest(test.ctx, { userId: adaId, planId: "lifetime", invoice: INVOICE, price: LIFETIME_PRICE });
+    await dismissPaymentRequest(test.ctx, dismissed);
+    await recordPaymentRequest(test.ctx, { userId: eveId, planId: "monthly", invoice: INVOICE, price: PRICE });
+    // Eve asks again a day later: her request's age starts over.
+    test.clock.set(new Date("2026-10-04T08:00:00Z"));
+    await recordPaymentRequest(test.ctx, { userId: eveId, planId: "monthly", invoice: INVOICE, price: PRICE });
+
+    // Exactly 30 days after Ada's ask: not older than the age yet.
+    test.clock.set(new Date("2026-11-02T08:00:00Z"));
+    expect(await expireStaleRequests(test.ctx)).toEqual({ expired: 0 });
+    const expiredAt = new Date("2026-11-02T08:00:01Z");
+    test.clock.set(expiredAt);
+    expect(await expireStaleRequests(test.ctx)).toEqual({ expired: 1 });
+    expect(await expireStaleRequests(test.ctx)).toEqual({ expired: 0 });
+    expect((await listOpenRequests(test.ctx)).map((request) => request.email)).toEqual(["eve@example.com"]);
+    const rows = await test.database.client.query<{ id: string; status: string; invoice_name: string | null; invoice_address: string | null; closed_at: Date | null }>(
+      "SELECT id, status, invoice_name, invoice_address, closed_at FROM billing.payment_requests WHERE id = ANY($1)",
+      [[stale, dismissed]],
+    );
+    expect(rows.rows.find((row) => row.id === stale)).toEqual({ id: stale, status: "expired", invoice_name: null, invoice_address: null, closed_at: expiredAt });
+    expect(rows.rows.find((row) => row.id === dismissed)).toMatchObject({ status: "dismissed", closed_at: NOW });
+  });
+
+  it("expires by the configured age", async () => {
+    const quick = await createTestBilling({ plans: PLANS, requests: { expireAfterDays: 1 } });
+    try {
+      const id = await createAccount(quick, "ada@example.com");
+      await recordPaymentRequest(quick.ctx, { userId: id, planId: "monthly", invoice: INVOICE, price: PRICE });
+      quick.clock.set(new Date("2026-10-04T08:00:01Z"));
+      expect(await expireStaleRequests(quick.ctx)).toEqual({ expired: 1 });
+    } finally {
+      await quick.database.close();
+    }
   });
 
   it("dismisses an open request once and clears its invoice details", async () => {

@@ -40,8 +40,9 @@ import of what the old system knew (`import-entitlements`) and a pin step for de
   account's history of grants and payments with a revoke button on each manual grant.
 - **A `PaymentProvider` interface** and its first adapter, **`manual({ onRequest })`**: the buyer
   requests an invoice, the app hands the request to its owner (a mail, a ticket), and the owner
-  grants the plan once it is paid. The request is stored in `billing.payment_requests` until the
-  admin grants or dismisses it. **`grantPlanManually()`** grants and records a plan in
+  grants the plan once it is paid. The request is stored in `billing.payment_requests` before it is
+  handed over, reaches the owner once however often the buyer asks again, and stays until the
+  admin grants or dismisses it or it expires (`expireStaleRequests`). **`grantPlanManually()`** grants and records a plan in
   `billing.manual_grants`; **`revokeManualGrant()`** takes back only what one grant added.
 - **`stripe()`**, a card, BLIK and transfer adapter on Stripe Checkout (one-time payments), and
   **`stripeWebhookRoute`** (`/next`): a verified Stripe webhook that grants a paid checkout's plan
@@ -103,6 +104,7 @@ billing({
 | `plans` | array, at most 12 | `[]` | The plans, in the order the tiles show them (see below). |
 | `payment` | `PaymentProvider` | — | The adapter the payment page uses: `stripe()` or `manual({ onRequest })`. The payment page throws without one. |
 | `partialRefunds` | `"pro_rata"` or `"keep_access"` | `"pro_rata"` | What a partial provider refund does to access (see "Refunds" in §4): `pro_rata` takes back the refunded share of the payment's unused days, `keep_access` nothing until the whole payment is refunded. |
+| `requests.expireAfterDays` | 1-365 | `30` | Days an open invoice request waits, counted from the buyer's last ask; `expireStaleRequests` (run daily, see "Invoice requests" in §4) then closes it as `expired` and clears its invoice details. |
 | `adminRole` | role | `admin` | The auth role that may grant plans in `BillingAdminPage`; declare any other in `auth({ roles })`. A role auth does not declare fails the first billing request and the readiness probe. |
 | `routes.payment` | path | `/payment` | Where `PaymentPage` is mounted; the notice and the tiles link there, and Stripe Checkout returns there. |
 | `routes.admin` | path | `/admin/billing` | Where `BillingAdminPage` is mounted; its actions revalidate it, and the account lookup sends the admin there with `?account=<id>`. |
@@ -233,7 +235,8 @@ sees that it has nothing left to pay for instead of the order (`startPayment` re
 action checks the role from the session again before reading its form. It has three cards:
 
 - **Invoice requests**: the open requests, oldest first, with the account, the plan, when it was
-  asked for and the invoice details. **Grant** applies the plan and closes the request in one
+  asked for, the price it quoted and the invoice details (the latest ones: a buyer who asks again
+  refreshes them without a new hand-over, so the owner's mail may hold older ones). **Grant** applies the plan and closes the request in one
   transaction (`grantPaymentRequest`); **Dismiss** closes it without a grant; **History** opens the
   account's history. A request is granted or dismissed once: a second click finds it closed.
 - **Grant access**: a plan for the account with a given email, recorded like a request's grant.
@@ -241,10 +244,38 @@ action checks the role from the session again before reading its form. It has th
   lifetime would be invisible.
 - **Account history**: the email lookup sends the admin to `?account=<id>` (no address in a URL),
   which shows the account's badge and its manual grants and provider payments, newest first, each
-  with the access it added and its state. **Revoke** on an active manual grant takes back only
+  with its price, the access it added and its state. **Revoke** on an active manual grant takes back only
   what it added, like a refund: a period loses its unused days and the periods stored after it
   (manual or paid) move back; a lifetime ends unless another active manual lifetime or a paid
   lifetime payment still gives it. Provider payments are refunded at the provider, not here.
+
+**Invoice requests.** `startPayment` stores a manual request first, then claims its hand-over on
+the row and calls `onRequest`; an open request is handed over once, and asking again only
+refreshes its details, price and time. When `onRequest` answers an `Err` or throws, the claim is
+released: the buyer sees `billing.payment_failed`, the admin page still lists the request, and the
+next ask hands it over. Invoice details are refused with a code per field:
+`billing.invoice_field_required`, `billing.invoice_field_too_long` (the copy names the limit:
+200, 32, 500) or `billing.invoice_field_control_characters` (line breaks, tabs and other control
+characters, in every field, so a name cannot add lines to the owner's mail; the database refuses
+them too). Run `expireStaleRequests(ctx)` (`/server`) daily, like the reminder mail, to close
+requests nobody asked again for in `requests.expireAfterDays` days; it returns `{ expired }`, and
+a repeated run closes nothing new:
+
+```ts
+// scripts/expire-invoice-requests.ts (cron: 0 3 * * *)
+import { expireStaleRequests } from "@softure-ai/billing/server";
+import { systemClock } from "@softure-ai/core";
+import { createDatabase } from "@softure-ai/db";
+import config from "../softure.config.ts";
+
+if (config.database === null) throw new Error("expire-invoice-requests: the config has no database");
+const database = await createDatabase(config.database.url, { max: 1 });
+try {
+  console.log(JSON.stringify(await expireStaleRequests({ db: database.db, clock: systemClock, config })));
+} finally {
+  await database.close();
+}
+```
 
 **Reminder mail.** With `mailing({ ... })` in the config, run `sendAccessReminders` on a schedule,
 e.g. a daily cron job (or a platform scheduler) running a script:
@@ -314,8 +345,10 @@ back (`Err<billing.grant_revoked>` when it was revoked before); `getAccountHisto
 `listOpenRequests(ctx, limit?)`, `dismissPaymentRequest(ctx, requestId)`. `grantPlan(ctx, userId,
 planId)` grants without a record: nothing to revoke, not in the history; scripts that grant for
 an admin use `grantPlanManually`. `startPayment(ctx, input)` counts the `billing-payment` bucket
-per account, checks the plan, lifetime access and the invoice details, calls the provider and
-stores a request the provider handed over; `findAccountByEmail(ctx, email)`,
+per account, checks the plan, lifetime access and the invoice details (`parseInvoiceDetails`, a zod
+schema, `invoiceDetailsSchema` from the root entry), stores a request for a provider that hands
+requests over and calls the provider once per open request (see "Invoice requests");
+`expireStaleRequests(ctx)` closes requests older than `requests.expireAfterDays`; `findAccountByEmail(ctx, email)`,
 `findAccountById(ctx, id)`, `getBillingPlans(config)`.
 `receiveStripeWebhook(ctx, { payload, signature, secret })` is the route without Next;
 `recordPayment(ctx, { provider, checkoutId, paymentId, userId, planId, amount, currency })` and
@@ -409,10 +442,12 @@ older than `trial.days` read-only at once. Three tools, in this order, keep thei
 Both scripts take `{ clock? }` for tests, like the plan scripts.
 
 **A payment provider** (`PaymentProvider` from the root entry) has a `name`, says whether the page
-collects invoice details (`collectsInvoiceDetails`), and implements
+collects invoice details (`collectsInvoiceDetails`) and whether it hands requests to the owner
+instead of sending the buyer to a checkout (`handsOverRequests`: billing then stores the request
+before the call and makes the call once per open request), and implements
 `startPayment(ctx, { plan, account, invoice, returnUrl })`, which resolves with
 `{ type: "redirect", url }` (a hosted checkout; the action redirects there), `{ type: "requested" }`
-(handed over; the page confirms and billing stores the request for the admin page) or
+(handed over, only for `handsOverRequests: true`; the page confirms) or
 `Err<billing.payment_failed>`. Granting access afterwards goes through `grantPlanManually` (an
 admin) or `recordPayment` (a webhook).
 
@@ -463,6 +498,9 @@ Run `pin-trials` before such a change to keep existing trials where they are.
 `migrations/0003_record_payment_grants.sql` adds the grant columns and drops the CHECK that kept
 `paid_until` NULL under lifetime. `migrations/0005_record_refunded_amounts.sql` adds
 `refunded_amount` (set to `amount` on payments refunded before).
+`migrations/0006_record_request_handover_and_prices.sql` adds `handed_over_at` (set to
+`requested_at` on open requests, which were all handed over), the price columns of both manual
+tables, the `expired` status and the control-character CHECKs.
 
 The insert, the grant and its grant columns share a transaction, as do the refund's conditional update and the change it makes,
 so a delivery seen twice changes nothing. Every write takes the account first (like the privacy
@@ -476,8 +514,10 @@ the later periods back updates other rows under that lock.
 | Column | Meaning |
 | --- | --- |
 | `id`, `user_id`, `plan_id` | The request, its account (`ON DELETE CASCADE`) and the plan asked for. |
-| `invoice_name`, `invoice_tax_id`, `invoice_address` | The details as typed, kept **only while the request is open**: closing it clears them (CHECK `payment_requests_details_while_open`). |
-| `status`, `requested_at`, `closed_at` | `open`, `granted` or `dismissed`; a CHECK ties `closed_at` to the status. |
+| `invoice_name`, `invoice_tax_id`, `invoice_address` | The details as typed, kept **only while the request is open**: closing it clears them (CHECK `payment_requests_details_while_open`). No control characters in new values (`0006`, CHECKs `payment_requests_invoice_*_printable`, `NOT VALID`: older rows are not rewritten). |
+| `status`, `requested_at`, `closed_at` | `open`, `granted`, `dismissed` or `expired` (`0006`); a CHECK ties `closed_at` to the status. `requested_at` is the last ask. |
+| `handed_over_at` | When the hand-over to the owner was claimed (`0006`); NULL while it was not handed over (or failed and was released). |
+| `amount`, `currency` | The plan's price at the last ask, in the currency's minor unit (`0006`); NULL on rows stored before. |
 
 One open request per account and plan (partial unique index `payment_requests_one_open`): asking
 again refreshes its details and time.
@@ -491,6 +531,7 @@ again refreshes its details and time.
 | `granted_by`, `revoked_by` | The admins (`ON DELETE SET NULL`). |
 | `granted_at`, `grant_kind`, `granted_from`, `granted_until` | What it added, as `billing.payments` records it (CHECK `manual_grants_grant_shape`). |
 | `status`, `revoked_at` | `active` or `revoked`; CHECKs tie `revoked_at` and `revoked_by` to the status. |
+| `amount`, `currency` | What it was granted for (`0006`): the price its request quoted, else the plan's price when granted; NULL on rows stored before. |
 
 A grant and the request it closes share a transaction; a grant and a revoke take the account, then
 the entitlement, then their row (a conditional update), the order of a refund.
@@ -542,8 +583,9 @@ details, return URL) and resolves with `Ok` once handed over, or an `Err` the bu
   `updatedAt`), or `entitlement: null` for an account without one, its payments oldest first
   (`provider`, `checkoutId`, `paymentId`, `planId`, `amount`, `currency`, `status`, `paidAt`,
   `refundedAt`, `refundedAmount`, `grantKind`, `grantedFrom`, `grantedUntil`), its invoice requests (`planId`, the
-  invoice details while open, `status`, `requestedAt`, `closedAt`) and the plans granted to it by
-  hand (`planId`, `grantedAt`, the grant, `status`, `revokedAt`). Which admin granted or revoked
+  invoice details while open, `amount`, `currency`, `status`, `requestedAt`, `closedAt`) and the
+  plans granted to it by hand (`planId`, `grantedAt`, the grant, `status`, `revokedAt`, `amount`,
+  `currency`). Which admin granted or revoked
   is the admin's data and stays out of the account's export.
 - Deletion: the row, the payments, the requests and the manual grants, and the foreign keys remove
   them with the account too; an erased admin's id is cleared from the grants they made.
@@ -552,7 +594,8 @@ details, return URL) and resolves with `Ok` once handed over, or an `Err` the bu
   address) and a scope naming the account id and the end; mailing keeps that ledger after an account
   is deleted (see its README §11), when the id no longer points at anyone.
 - Retention: invoice details are personal data the app needs only until the request is handled,
-  so granting or dismissing it erases them. What `onRequest` delivered (the mail to the owner) and
+  so granting or dismissing it erases them, and `expireStaleRequests` erases them from a request
+  nobody asked again for in `requests.expireAfterDays` days (30 by default). What `onRequest` delivered (the mail to the owner) and
   the issued invoice are the app's and the owner's own records.
 
 ## 12. Limitations
@@ -572,6 +615,11 @@ details, return URL) and resolves with `Ok` once handed over, or an `Err` the bu
   item LT-1 of the later roadmap (`context/foundation/roadmaps/roadmap-later.md`).
 - A grant through `grantPlan` (or a raw `changeEntitlement`, an import) is not recorded: it is not
   in the history and cannot be revoked; the `grant-plan` script records its grants.
+- The owner hears of an open request once: a buyer who corrects the details later changes the
+  admin page, not the mail already sent. Two asks at once for the same plan hand over once; if that
+  hand-over fails, the other ask has already answered "sent", and the next ask retries.
+- A hand-over that crashes the process after its claim and before `onRequest` returns stays
+  claimed: the admin page lists the request, but the owner's mail may not have gone out.
 - The admin page lists up to 50 open requests and 100 entries of each source in a history; there
   is no paging.
 - The write guard is per action: a read-only account can still call a write the app did not guard.

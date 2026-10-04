@@ -21,6 +21,7 @@
     "import-entitlements": "node scripts/import-entitlements.ts",
     "pin-trials": "node scripts/pin-trials.ts",
     "access-reminders": "node scripts/send-access-reminders.ts",
+    "expire-invoice-requests": "node scripts/expire-invoice-requests.ts",
     "e2e": "playwright test"
   },
   "dependencies": {
