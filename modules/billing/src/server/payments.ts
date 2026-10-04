@@ -20,7 +20,7 @@ import { readStripeWebhook, type PaidCheckout, type StripeWebhookError } from ".
 import type { BillingContext } from "./entitlements.js";
 import { getBillingOptions } from "./options.js";
 import { applyPlan, getBillingPlans } from "./plans.js";
-import { hasPaidLifetimePayment, lockEntitlementRow, takeBackGrant } from "./take-back.js";
+import { hasActiveManualLifetime, hasPaidLifetimePayment, lockEntitlementRow, takeBackGrant } from "./take-back.js";
 import { isUserId } from "./user-id.js";
 
 /** The name of `stripe()`, under which its webhook stores payments. */
@@ -125,15 +125,16 @@ export function readGrant(row: GrantColumns): PaymentGrant | null {
 
 /**
  * Records a refund of a payment and takes back what it granted, in one transaction. A full refund
- * marks it refunded: a period loses its unused days, a lifetime ends unless another lifetime payment
- * still pays for it, and a payment stored before grants were recorded revokes paid access. A partial
- * refund keeps it paid and follows `billing({ partialRefunds })`: `pro_rata` takes back the share of
- * the unused days that the newly refunded money is of the money not refunded before (rounded down)
- * and shortens the payment's stored period by them; `keep_access` takes nothing back. Partial
- * refunds never end a lifetime nor revoke a payment without a recorded grant; the refund that
- * completes the amount does what a full refund does. `duplicate` when the refund adds nothing to
- * what was recorded (a repeated or stale delivery), `unknown_payment` when billing never recorded
- * the payment. Database errors propagate.
+ * marks it refunded: a period loses its unused days, a lifetime ends unless another paid lifetime
+ * payment or an active manual lifetime grant still gives it, and a payment stored before grants were
+ * recorded revokes paid access. A partial refund keeps it paid and follows
+ * `billing({ partialRefunds })`: `pro_rata` takes back the share of the unused days that the newly
+ * refunded money is of the money not refunded before (rounded down) and shortens the payment's
+ * stored period by them; `keep_access` takes nothing back. Partial refunds never end a lifetime
+ * nor revoke a payment without a recorded grant; the refund that completes the amount does what a
+ * full refund does. `duplicate` when the refund adds nothing to what was recorded (a repeated or
+ * stale delivery), `unknown_payment` when billing never recorded the payment. Database errors
+ * propagate.
  */
 export async function refundPayment(ctx: BillingContext, input: RefundPaymentInput): Promise<Ok<PaymentOutcome>> {
   return ctx.db.transaction(async (tx) => {
@@ -161,7 +162,13 @@ export async function refundPayment(ctx: BillingContext, input: RefundPaymentInp
     const grant = readGrant(payment);
     const { entitlement, days } = await takeBackGrant(
       { ...ctx, db: tx },
-      { userId, grant, now, share, hasOtherLifetime: () => hasPaidLifetimePayment(tx, userId, payment.id) },
+      {
+        userId,
+        grant,
+        now,
+        share,
+        hasOtherLifetime: async () => (await hasActiveManualLifetime(tx, userId)) || (await hasPaidLifetimePayment(tx, userId, payment.id)),
+      },
     );
     // The payment stays paid: its stored period ends where the access it still pays for does.
     if (!isFull && days > 0 && grant?.kind === "period") {

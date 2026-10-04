@@ -62,7 +62,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-18** | `marketing-kit-screenshot-variants` | screenshots at a device scale and in both colour schemes | FU-14 | autonomous | done_code (2026-10-04; waiting: MK-8 release) |
 | **FU-19** | `marketing-kit-hook-shot-words` | opening shots after the first without a `word` are refused when the config loads | FU-14 | autonomous | done_code (2026-10-04; waiting: MK-8 release) |
 | **FU-20** | `billing-partial-refunds` | partial refunds take back access by a policy | FU-11 | autonomous | done |
-| **FU-21** | `billing-refund-manual-lifetime` | a manual lifetime grant survives a refunded paid lifetime | FU-9 | autonomous | proposed |
+| **FU-21** | `billing-refund-manual-lifetime` | a manual lifetime grant survives a refunded paid lifetime | FU-9 | autonomous | done |
 | **FU-22** | `billing-grant-plan-script` | a `grant-plan` ops script grants and revokes plans without the admin page | FU-9 | autonomous | proposed |
 | **FU-23** | `marketing-kit-og-subset-fonts` | OG images use every subset file of a weight | FU-17 | autonomous | done_code (2026-10-04; waiting: MK-8 release) |
 | **FU-24** | `billing-existing-accounts` | existing accounts keep their access when billing is enabled (import, trial floor, pinned trials) | FU-22 | autonomous | proposed |
@@ -70,7 +70,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-26** | `billing-guard-race-tests` | billing guards and lock races tested where they can fail | FU-25 | autonomous | proposed |
 | **FU-27** | `billing-invoice-request-hygiene` | invoice requests stored before the owner's mail, validated, expired and priced | FU-26 | autonomous | proposed |
 | **FU-28** | `auth-page-redirect-tag` | a signed-in visitor's redirect from a tagged login page keeps the tag | FU-7 | autonomous | done_code (2026-10-04; waiting: the next releases of `@softure-ai/auth` and `@softure-ai/analytics`) |
-| **FU-29** | `marketing-kit-font-files-description` | the marketing.json font files description admits subset files | FU-23 | autonomous | proposed |
+| **FU-29** | `marketing-kit-font-files-description` | the marketing.json font files description admits subset files | FU-23 | autonomous | done_code (2026-10-04; waiting: MK-8 release) |
 | **FU-30** | `billing-failed-refund-access` | a refund that fails gives back the access it took | FU-27 | autonomous | proposed |
 | **FU-31** | `auth-require-user-redirect-tag` | `requireUser`'s redirect to login keeps the channel tag | FU-28 | autonomous | done_code (2026-10-04; waiting: the next releases of `@softure-ai/auth` and `@softure-ai/billing`) |
 
@@ -398,7 +398,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-21: A manual lifetime grant survives a refunded paid lifetime
 - **Change ID:** `billing-refund-manual-lifetime`
-- **Status:** proposed
+- **Status:** done
+- **Input:** [`archive/2026-10-04-billing-refund-manual-lifetime/`](../archive/2026-10-04-billing-refund-manual-lifetime/change.md)
 - **Outcome:** A refunded paid lifetime keeps lifetime access when the admin also granted it by hand.
 - **Prerequisites:** FU-9 on `master` (its grant history records manual grants).
 - **Unknowns:** Whether FU-9's grant history can be read in the refund's transaction under the entitlement lock; how a manual revoke after a manual lifetime counts.
@@ -486,7 +487,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-29: The marketing.json font files description admits subset files
 - **Change ID:** `marketing-kit-font-files-description`
-- **Status:** proposed
+- **Status:** done_code (2026-10-04; waiting: MK-8 release)
 - **Outcome:** The `.describe()` of `brand.fonts.<kind>.files` in `tools/marketing-kit/src/config/schema.ts` says the files cover weights and styles and that one weight and style may take several subset files, tried in the listed order (OG images) or chosen by `unicodeRange` (the film); `schema/marketing.schema.json` is regenerated.
 - **Prerequisites:** FU-23 on `master`; lane E (after FU-19, shared `schema.ts`).
 - **Unknowns:** none.
