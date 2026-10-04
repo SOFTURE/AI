@@ -43,6 +43,7 @@ trigger: "the blog roadmap closes; the owner promotes it or takes single items"
 | **BF-6** | `blog-check-without-database` | `softure-blog check` runs with an app config that has no database URL | — | autonomous | ready |
 | **BF-7** | `blog-seo-canonical` | the blog's canonical, OG and JSON-LD URLs follow `@softure-ai/seo`'s canonical host and trailing-slash rule | — | autonomous | ready |
 | **BF-8** | `blog-og-fonts` | `blog({ brand: { fonts } })` gives the article OG card the brand's fonts | — | autonomous | ready |
+| **BF-9** | `blog-skill-app-notes` | the generated writing skill carries the app's own sections across reinstalls | — | autonomous | ready |
 
 ## Order
 
@@ -121,6 +122,15 @@ Lanes are set when the roadmap is promoted, by shared files, like the followups 
 - **Mode:** autonomous.
 - **Source:** BL-4 `blog-pages` impl review R2.
 
+### BF-9: The app's own sections in the generated writing skill
+- **Change ID:** `blog-skill-app-notes`
+- **Status:** ready
+- **Input:** [`blog-skill-app-notes`](../../backlog/roadmap-blog-followups/blog-skill-app-notes/change.md)
+- **Outcome:** the generated skill carries the app's own sections, from an option such as `blog({ skill: { notes } })` or from a local file the install preserves; FIRE_TRACKER's engine numbers, calculator scenario and chart block fit there; `--check` covers them.
+- **Prerequisites:** none.
+- **Risk:** low. Today an app keeps such guidance in a second skill of its own.
+- **Mode:** autonomous.
+- **Source:** BL-7 `blog-writing-skill` research, "Gaps".
 
 ## Owner decisions and checks
 

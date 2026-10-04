@@ -5,7 +5,7 @@ brings the module's tables to the state of those files. The files are the source
 editor and no CMS, a text changes only through a commit and `softure-blog publish`.
 
 This release holds the content store (roadmap item BL-2), the server-side renderer (BL-3), the pages
-(BL-4) and the text quality gate (BL-6). RSS, sitemap and IndexNow (BL-5) build on them.
+(BL-4), the text quality gate (BL-6) and the writing skill (BL-7). RSS, sitemap and IndexNow (BL-5) build on them.
 
 ## 1. What it provides
 
@@ -29,6 +29,8 @@ This release holds the content store (roadmap item BL-2), the server-side render
 - A text quality gate: `softure-blog check` reports structure, link, style, voice and YMYL findings
   with file and line, and `publish` refuses a text going public with an error. Language rulesets
   (`en`, `pl`), severity overrides and rule plugins for the app's own domain.
+- `softure-blog skill install`: an agent skill for writing the texts, generated from the gate's rules
+  and the app's config, with `--check` for CI.
 
 ## 2. Installation
 
@@ -217,6 +219,7 @@ The commands:
 ```bash
 softure-blog publish [<path>...] [--commit] [--withdraw] [--config <file>]
 softure-blog check [<path>...] [--external] [--today <YYYY-MM-DD>] [--config <file>]
+softure-blog skill install [--dir <path>] [--command <cmd>] [--check] [--config <file>]
 ```
 
 - `<path>` is a file or a folder (every `*.md` but `README.md`, by name); without one, `contentDir`.
@@ -265,6 +268,28 @@ Exit codes: 0 green (warnings allowed), 1 an error, 2 usage error. `--external` 
 external link (HEAD, then GET when a server refuses HEAD; 2xx after redirects). Run it weekly with the
 reusable workflow of this repository, `.github/workflows/blog-links.yml` (its header holds the
 snippet for the app).
+
+### The writing skill
+
+`softure-blog skill install` writes an agent skill for writing the blog's texts into
+`.claude/skills/blog-write/` (`--dir` to change). It walks the agent through a text: the question,
+facts with sources, a draft by an answer-first structure, a rewrite by the rules, `check`, a
+sceptical second agent with its own prompt, `check --external`, and `publish`. The package ships the
+templates in `skill/`; the command fills them from the app's config:
+
+- the language of the texts, the content folder, the article and glossary paths and every limit;
+- `references/rules.md`: exactly the rules the app's gate enforces (`listQualityRules`), each with
+  its effective severity, what the gate looks for and what to write instead; the app's voice
+  phrases and plugin rules with their own descriptions; a rule set to `"off"` is left out;
+- the YMYL passages (sources, footnotes, the own calculation mark) only when `ymyl` is on, and the
+  editors' "we" when `voice.forbidFirstPersonSingular` is on.
+
+`--command` sets how the skill runs the commands (default `npx softure-blog`; an app with a
+`runBlogCli` script passes e.g. `--command "npm run blog --"`). Commit the folder, so agents in a
+fresh clone have it, and run `softure-blog skill install --check` (with the same options) in CI: it
+writes nothing and exits 1, naming the files, when the folder differs from what the config gives.
+Install overwrites only a folder whose `SKILL.md` it generated, so it never replaces a skill the app
+wrote itself. With `quality: false` it refuses: the skill is built on the gate.
 
 ### Rendering an article
 
@@ -403,7 +428,7 @@ Articles hold editorial content, no personal data: nothing to export or delete.
 - The content hash is part of the contract: a field added later enters it only when present.
 - No `--stdin` (a deploy transport) and no IndexNow submit (BL-5).
 - The pages' URLs (canonical, JSON-LD, OG) are built on `appOrigin`, not on the canonical host and
-  trailing-slash rule of `@softure-ai/seo` (BF-7).
+  trailing-slash rule of `@softure-ai/seo` (BF-9).
 - The OG card uses the default font of `next/og`; an app passes `fonts` to `renderArticleOgImage` for another.
 - The renderer has no images and no raw HTML. A plugin fence inside a list or a quote stays a code
   block (a block node cannot sit inside a list's HTML).
@@ -414,7 +439,9 @@ Articles hold editorial content, no personal data: nothing to export or delete.
   `ownOrigins`, `privateRouteSegments: ["api", "(app)"]`, and `rules-facts.ts` and `rules-chart.ts`
   as plugins (the package's tests hold stand-ins of both). Rule ids are English now (`kluczowy` →
   `crucial`, `myslniki` → `dashes`, …; the map is in the change archive), and the writing skill
-  (BL-7) names them.
+  (`skill install`, replacing FIRE's `blog-pisz`) names them.
+- The generated skill has no sections of the app's own yet (FIRE_TRACKER's engine numbers,
+  calculator scenario and chart block); keep them in a second skill of the app (BF-9).
 - **Adopting from FIRE_TRACKER:** rename the frontmatter keys once (`typ` → `kind` with `artykul` →
   `article` and `termin` → `term`, `formy` → `forms`, `klaster` → `cluster`, `filar` → `pillar`,
   `tytul` → `title`, `opis` → `description`, `w_skrocie` → `summary`, `aktualne_na` →

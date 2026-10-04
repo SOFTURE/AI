@@ -15,7 +15,7 @@ A writing skill shipped with the blog module and installed into the app, kept in
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **BL-7** (roadmap `blog`, main since 2026-10-04):
+From [`roadmap.md`](../../foundation/roadmap.md), item **BL-7** (roadmap `blog`, main since 2026-10-04):
 
 > ### BL-7: Article writing skill
 > - **Change ID:** `blog-writing-skill`
@@ -31,8 +31,8 @@ From [`roadmap.md`](../../../foundation/roadmap.md), item **BL-7** (roadmap `blo
 > - **PRD refs:** FR-30, NFR-6.
 > - **Source (FIRE_TRACKER, read only):** `.claude/skills/blog-pisz/`, `src/lib/blog/quality/skill-sync.test.ts`
 
-Reference material: [`docs/06-fire-extraction-2.md`](../../../../docs/06-fire-extraction-2.md) (the FIRE_TRACKER source map and the split rules),
-[`docs/02-module-standard.md`](../../../../docs/02-module-standard.md) (the standard). FIRE_TRACKER is read only:
+Reference material: [`docs/06-fire-extraction-2.md`](../../../docs/06-fire-extraction-2.md) (the FIRE_TRACKER source map and the split rules),
+[`docs/02-module-standard.md`](../../../docs/02-module-standard.md) (the standard). FIRE_TRACKER is read only:
 copy its code, never change it.
 
 ## Constraints

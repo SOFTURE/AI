@@ -35,5 +35,6 @@ moved file lose one `../`.
 | BF-6 | [`blog-check-without-database`](blog-check-without-database/change.md) | softure-blog check without a database URL | roadmap promoted | start |
 | BF-7 | [`blog-seo-canonical`](blog-seo-canonical/change.md) | Blog URLs follow the seo canonical rule | roadmap promoted | start |
 | BF-8 | [`blog-og-fonts`](blog-og-fonts/change.md) | The OG card takes the brand's fonts | roadmap promoted | start |
+| BF-9 | [`blog-skill-app-notes`](blog-skill-app-notes/change.md) | The app's own sections in the generated writing skill | roadmap promoted | start |
 
 Kind: `start`, `dependency` or `owner`, as in the other roadmap backlogs.
