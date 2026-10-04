@@ -58,6 +58,11 @@ describe("buildHtmlLimitedBots", () => {
     expect(bots.test("Mozilla/5.0 (compatible; acme.bot/2.0)")).toBe(true);
     expect(bots.test("Mozilla/5.0 (compatible; AcmeXBot/2.0)")).toBe(false);
   });
+
+  it("ignores blank tokens, which would catch every browser", () => {
+    expect(buildHtmlLimitedBots(["", "  "]).test(BROWSER)).toBe(false);
+    expect(buildHtmlLimitedBots([" AcmeBot "]).test("AcmeBot/1.0")).toBe(true);
+  });
 });
 
 describe("the crawler lists", () => {

@@ -146,8 +146,8 @@ Each phase is one commit; reverting it removes the module or the example's use o
 ### Phase 2: Example app and e2e
 
 #### Automated
-- [x] 2.1 `npm run e2e` passes, including `e2e/seo.spec.ts`
-- [x] 2.2 Gates green (typecheck, lint, test, build)
+- [x] 2.1 `npm run e2e` passes, including `e2e/seo.spec.ts` — af58b19
+- [x] 2.2 Gates green (typecheck, lint, test, build) — af58b19
 
 #### Manual
 - [ ] 2.3 Impl review recorded in `reviews/impl-review.md`

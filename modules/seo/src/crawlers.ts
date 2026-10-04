@@ -67,7 +67,9 @@ export const AI_HTML_LIMITED_BOTS = [
  * <head>, instead of streamed into <body>, which they may never read.
  */
 export function buildHtmlLimitedBots(extra: readonly string[] = []): RegExp {
-  const tokens = [...AI_HTML_LIMITED_BOTS, ...extra].map(escapeRegExp);
+  // A blank token would be an empty alternative, which matches every user agent: every browser
+  // would wait for blocking metadata.
+  const tokens = [...AI_HTML_LIMITED_BOTS, ...extra.map((token) => token.trim()).filter((token) => token !== "")].map(escapeRegExp);
   return new RegExp([NEXT_DEFAULT_HTML_LIMITED_BOTS, ...tokens].join("|"), "i");
 }
 
