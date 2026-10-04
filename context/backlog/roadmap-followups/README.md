@@ -37,6 +37,7 @@ share files run in one lane (see the roadmap's Order), so `dependency` below nam
 | FU-26 | [`billing-guard-race-tests`](billing-guard-race-tests/change.md) | Billing guards and lock races are tested where they can fail | FU-25 on main | dependency |
 | FU-27 | [`billing-invoice-request-hygiene`](billing-invoice-request-hygiene/change.md) | Invoice requests are stored before the owner hears of them and keep only what they need | FU-26 on main | dependency |
 | FU-28 | [`auth-page-redirect-tag`](auth-page-redirect-tag/change.md) | A signed-in visitor's redirect from a tagged login page keeps the tag | FU-7 on main | dependency |
+| FU-30 | [`billing-failed-refund-access`](billing-failed-refund-access/change.md) | A refund that fails gives back the access it took | FU-27 on main | dependency |
 
 Kind: `start` (can be taken as soon as the roadmap is promoted), `dependency` (waits for the listed items on the
 main branch), `owner` (needs an owner decision or the owner at the keyboard).

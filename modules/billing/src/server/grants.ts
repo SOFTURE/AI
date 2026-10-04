@@ -164,6 +164,8 @@ export type AccountHistoryEntry =
       readonly currency: string;
       readonly status: "paid" | "refunded";
       readonly refundedAt: Date | null;
+      /** The total refunded so far: part of `amount` while the payment is still paid. */
+      readonly refundedAmount: number;
     };
 
 /** How many entries of each source the history reads. */
@@ -203,6 +205,7 @@ export async function getAccountHistory(ctx: Pick<BillingContext, "db">, userId:
       currency: row.currency,
       status: row.status,
       refundedAt: row.refundedAt,
+      refundedAmount: row.refundedAmount,
     });
   }
   return entries.sort((first, second) => second.at.getTime() - first.at.getTime());

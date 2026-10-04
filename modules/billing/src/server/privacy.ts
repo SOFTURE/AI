@@ -21,6 +21,8 @@ export interface BillingPaymentData {
   readonly status: "paid" | "refunded";
   readonly paidAt: Date;
   readonly refundedAt: Date | null;
+  /** The total refunded so far, in the currency's minor unit. */
+  readonly refundedAmount: number;
   /** What the payment granted: `period` (from, until) or `lifetime`; null when recorded before grants were. */
   readonly grantKind: "period" | "lifetime" | null;
   readonly grantedFrom: Date | null;
@@ -93,6 +95,7 @@ export async function exportBillingUserData(context: ModuleContext, userId: stri
       status: payments.status,
       paidAt: payments.paidAt,
       refundedAt: payments.refundedAt,
+      refundedAmount: payments.refundedAmount,
       grantKind: payments.grantKind,
       grantedFrom: payments.grantedFrom,
       grantedUntil: payments.grantedUntil,

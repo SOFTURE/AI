@@ -2,7 +2,7 @@
 // under `keep_access`), partial refunds that add up to the payment end where one full refund does,
 // a lifetime ends only when refunded in full, and a repeated or stale delivery changes nothing.
 import { type BillingOptionsInput } from "@softure-ai/billing";
-import { getEntitlement, receiveStripeWebhook, recordPayment, refundPayment } from "@softure-ai/billing/server";
+import { exportBillingUserData, getAccountHistory, getEntitlement, receiveStripeWebhook, recordPayment, refundPayment } from "@softure-ai/billing/server";
 import { ok } from "@softure-ai/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { charge, signature, stripeEvent, WEBHOOK_SECRET } from "./stripe-fixtures.js";
@@ -62,6 +62,13 @@ describe("a partial refund under the default pro_rata policy", () => {
       granted_from: TRIAL_END,
       granted_until: HALF_MONTH_LEFT,
     });
+  });
+
+  it("shows the refunded amount in the account's history and export", async () => {
+    await refund("pi_test_a1", 1450);
+    expect(await getAccountHistory(test.ctx, adaId)).toMatchObject([{ source: "provider", status: "paid", refundedAt: null, refundedAmount: 1450 }]);
+    const exported = await exportBillingUserData(test.ctx, adaId);
+    expect(exported.ok && exported.value.payments).toMatchObject([{ status: "paid", refundedAmount: 1450, grantedUntil: HALF_MONTH_LEFT }]);
   });
 
   it("ends where one full refund does once the halves add up, with the payment refunded", async () => {

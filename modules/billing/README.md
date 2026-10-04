@@ -42,8 +42,9 @@ script become plans in the config, a payment page and an admin page that grants 
   `billing.manual_grants`; **`revokeManualGrant()`** takes back only what one grant added.
 - **`stripe()`**, a card, BLIK and transfer adapter on Stripe Checkout (one-time payments), and
   **`stripeWebhookRoute`** (`/next`): a verified Stripe webhook that grants a paid checkout's plan
-  and, on a full refund, takes back what that one payment granted, exactly once per payment,
-  recorded in `billing.payments` (see "Refunds" below).
+  and, on a refund, takes back what that one payment granted (a partial refund its share, by the
+  `partialRefunds` policy), exactly once per payment, recorded in `billing.payments` (see
+  "Refunds" below).
 - **Reminder mail** (`@softure-ai/billing/mailing`): `sendAccessReminders(ctx)` mails every
   account whose trial or dated paid access is in its reminder window, or ended in the last few
   days, once per account and window through `@softure-ai/mailing`'s delivery ledger; the app runs
@@ -89,6 +90,7 @@ billing({
 | `paid.reminderDays` | integer 0 to 365 | `7` | The same for dated paid access. Lifetime access never ends. |
 | `plans` | array, at most 12 | `[]` | The plans, in the order the tiles show them (see below). |
 | `payment` | `PaymentProvider` | — | The adapter the payment page uses: `stripe()` or `manual({ onRequest })`. The payment page throws without one. |
+| `partialRefunds` | `"pro_rata"` or `"keep_access"` | `"pro_rata"` | What a partial provider refund does to access (see "Refunds" in §4): `pro_rata` takes back the refunded share of the payment's unused days, `keep_access` nothing until the whole payment is refunded. |
 | `adminRole` | role | `admin` | The auth role that may grant plans in `BillingAdminPage`; declare any other in `auth({ roles })`. |
 | `routes.payment` | path | `/payment` | Where `PaymentPage` is mounted; the notice and the tiles link there, and Stripe Checkout returns there. |
 | `routes.admin` | path | `/admin/billing` | Where `BillingAdminPage` is mounted; its actions revalidate it, and the account lookup sends the admin there with `?account=<id>`. |
@@ -152,8 +154,9 @@ most 256 KiB) or touches the database, then:
 | --- | --- | --- |
 | a paid checkout (`completed` with `payment_status` `paid` or `no_payment_required`, or `async_payment_succeeded`) | the payment is stored and its plan granted, in one transaction | 200 |
 | the same checkout again (a retry, or both events of a delayed payment) | nothing | 200 |
-| a checkout still waiting for a transfer, a partial refund, any other event, a session billing did not create | nothing | 200 |
+| a checkout still waiting for a transfer, a charge with nothing refunded, any other event, a session billing did not create | nothing | 200 |
 | `charge.refunded` with `refunded: true` for a stored payment | the payment is marked refunded and what it granted taken back, once | 200 |
+| `charge.refunded` with `refunded: false` for a stored payment | `amount_refunded` (the total so far) is recorded and access follows `partialRefunds`; a total not above the stored one (a retry, a late delivery) changes nothing | 200 |
 | a paid checkout whose account was deleted or whose plan left the config | nothing stored; one log line with the checkout id to refund in Stripe | 200 |
 | no or a wrong signature, a replay, a body that is not a Stripe event | nothing | 400 |
 | no `STRIPE_WEBHOOK_SECRET`, a database failure | nothing; Stripe retries | 500 |
@@ -175,6 +178,18 @@ back only that, with the pure `getRefundEvent` (root entry):
   months bought next to a refunded lifetime stay.
 - **A payment stored before grants were recorded** (no grant columns) revokes paid access, as
   before.
+
+**Partial refunds.** A payment keeps the total refunded so far (`refunded_amount`, from Stripe's
+cumulative `amount_refunded`) and stays `paid` until that total reaches its amount. Under
+`partialRefunds: "pro_rata"` (the default) each partial refund takes back the share of the period's
+unused days that the newly refunded money is of the money not refunded before, rounded down to
+whole days (the account keeps a part of a day), and the payment's stored period ends that many days
+earlier; the periods stacked after it move back too. Refunding 14.50 of a 29.00 month bought for 31
+unused days takes back 15. The refund that completes the amount is a full refund, so partial refunds
+that add up to the payment end exactly where one full refund at the time of the last one would.
+Under `"keep_access"` (refunds as goodwill or compensation) a partial refund takes nothing back,
+and the completing one takes back every unused day left. Either way a partial refund never ends a
+lifetime nor revokes a payment stored before grants were recorded: only the completing refund does.
 
 The decision is made under the entitlement row's lock, so a lifetime bought at the same moment is
 either seen or granted after the refund.
@@ -325,10 +340,12 @@ without a row.
 | `payment_id` | The provider's payment (`pi_...`) refunds name; unique per provider; NULL for a free checkout. |
 | `plan_id`, `amount`, `currency` | The plan and what the provider charged, in the currency's minor unit. |
 | `status`, `paid_at`, `refunded_at` | `paid` or `refunded`; a CHECK ties `refunded_at` to the status. |
-| `grant_kind`, `granted_from`, `granted_until` | What the payment granted (`0003`): `period` with its start and end, or `lifetime` with no dates; all NULL for rows recorded before. A CHECK (`payments_grant_shape`) ties the dates to the kind. |
+| `grant_kind`, `granted_from`, `granted_until` | What the payment granted (`0003`): `period` with its start and end, or `lifetime` with no dates; all NULL for rows recorded before. A CHECK (`payments_grant_shape`) ties the dates to the kind. A partial refund moves `granted_until` back by the days it took. |
+| `refunded_amount` | The total refunded so far, in the currency's minor unit (`0005`): `amount` once `refunded`, below it while `paid` (CHECK `payments_refunded_amount_by_status`). |
 
 `migrations/0003_record_payment_grants.sql` adds the grant columns and drops the CHECK that kept
-`paid_until` NULL under lifetime.
+`paid_until` NULL under lifetime. `migrations/0005_record_refunded_amounts.sql` adds
+`refunded_amount` (set to `amount` on payments refunded before).
 
 The insert, the grant and its grant columns share a transaction, as do the refund's conditional update and the change it makes,
 so a delivery seen twice changes nothing. Every write takes the account first (like the privacy
@@ -407,7 +424,7 @@ details, return URL) and resolves with `Ok` once handed over, or an `Err` the bu
 - Export: the account's entitlement row (`trialEndsAt`, `paidUntil`, `isLifetime`, `createdAt`,
   `updatedAt`), or `entitlement: null` for an account without one, its payments oldest first
   (`provider`, `checkoutId`, `paymentId`, `planId`, `amount`, `currency`, `status`, `paidAt`,
-  `refundedAt`, `grantKind`, `grantedFrom`, `grantedUntil`), its invoice requests (`planId`, the
+  `refundedAt`, `refundedAmount`, `grantKind`, `grantedFrom`, `grantedUntil`), its invoice requests (`planId`, the
   invoice details while open, `status`, `requestedAt`, `closedAt`) and the plans granted to it by
   hand (`planId`, `grantedAt`, the grant, `status`, `revokedAt`). Which admin granted or revoked
   is the admin's data and stays out of the account's export.
@@ -423,8 +440,12 @@ details, return URL) and resolves with `Ok` once handed over, or an `Err` the bu
 
 ## 12. Limitations
 
-- A partial refund changes nothing (followups FU-20). A refund that reaches the app before its
-  checkout (Stripe does not order events) finds no payment and is not retried.
+- A refund that reaches the app before its checkout (Stripe does not order events) finds no
+  payment and is not retried.
+- A refund that fails after Stripe reported it (`refund.failed`, the bank or card refuses it)
+  lowers Stripe's `amount_refunded` again, but billing keeps what it took back and the payment
+  stays refunded (followups FU-30). The charge's currency is not compared with the payment's: a
+  Checkout payment has one charge, in the session's currency.
 - A refunded paid lifetime ends a lifetime the admin granted by hand too: the refund counts only
   paid lifetime payments, not `billing.manual_grants` (followups FU-21). A revoke of a manual
   lifetime does count paid ones. A dated manual grant keeps its length.

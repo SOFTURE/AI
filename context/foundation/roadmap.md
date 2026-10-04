@@ -70,6 +70,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-26** | `billing-guard-race-tests` | billing guards and lock races tested where they can fail | FU-25 | autonomous | proposed |
 | **FU-27** | `billing-invoice-request-hygiene` | invoice requests stored before the owner's mail, validated, expired and priced | FU-26 | autonomous | proposed |
 | **FU-28** | `auth-page-redirect-tag` | a signed-in visitor's redirect from a tagged login page keeps the tag | FU-7 | autonomous | proposed |
+| **FU-30** | `billing-failed-refund-access` | a refund that fails gives back the access it took | FU-27 | autonomous | proposed |
 
 ## Order
 
@@ -80,7 +81,7 @@ after another; different lanes run in parallel, up to 4 at once.
 | --- | --- | --- |
 | A: switches | FU-1 | `foundation/core/`, `modules/auth/`, `modules/feature-switches/` |
 | B: waitlist and consent | FU-3 → FU-2 → FU-4 → FU-8 | `modules/waitlist/` (FU-3 also `modules/mailing/`, `modules/privacy/`) |
-| C: billing | FU-11 → FU-9 → FU-6 → FU-20 → FU-21 → FU-22 → FU-24 → FU-25 → FU-26 → FU-27; FU-12 any time | `modules/billing/` and its migrations; FU-12 writes documents only (archives and followup entries) |
+| C: billing | FU-11 → FU-9 → FU-6 → FU-20 → FU-21 → FU-22 → FU-24 → FU-25 → FU-26 → FU-27 → FU-30; FU-12 any time | `modules/billing/` and its migrations; FU-12 writes documents only (archives and followup entries) |
 | D: analytics | FU-5 → FU-7 → FU-28 (FU-7 also after FU-1) | `modules/analytics/` channel propagation; FU-7 may touch auth's redirects |
 | E: marketing-kit config | FU-14 → FU-16 → FU-15; FU-14 → FU-18 → FU-19 | `tools/marketing-kit/src/config/schema.ts`, `schema/`, `src/compose/` (FU-15, FU-16) |
 | F: independent | FU-13, FU-17 → FU-23 | `.github/workflows/ci.yml`; `tools/marketing-kit/src/og/` |
@@ -89,7 +90,7 @@ after another; different lanes run in parallel, up to 4 at once.
    adopts the switches; FU-3 fixes a consent ledger that can contradict an unsubscribe), then the MEDIUM refund
    fix and the schema descriptions that every later marketing-kit config item extends.
 2. **Each free slot** takes the first item of this list whose lane is idle and whose dependencies are on `master`:
-   FU-2, FU-5, FU-13, FU-17, FU-9, FU-16, FU-18, FU-4, FU-7, FU-12, FU-6, FU-15, FU-8, FU-19, FU-20, FU-21, FU-22, FU-23, FU-24, FU-25, FU-26, FU-27, FU-28.
+   FU-2, FU-5, FU-13, FU-17, FU-9, FU-16, FU-18, FU-4, FU-7, FU-12, FU-6, FU-15, FU-8, FU-19, FU-20, FU-21, FU-22, FU-23, FU-24, FU-25, FU-26, FU-27, FU-28, FU-30.
 3. **MK-8, EN-9 and MO-6** (owner, carried over): the owner's batch release on 2026-10-05; they wait for no FU item,
    and no FU item waits for them.
 
@@ -131,6 +132,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 | FU-26 | no | unit tests, Postgres tests on the CI service and one e2e |
 | FU-27 | no | a migration and server changes tested on PGlite; the fake mail provider covers the e2e |
 | FU-28 | no | auth's page redirect through the same rewrite; covered by the example app's e2e |
+| FU-30 | no | a billing webhook path with signed fixtures; no Stripe secrets |
 
 ## Items
 
@@ -474,6 +476,16 @@ owner's own machine, a product decision only the owner can make, or a change in 
 - **Baseline:** FU-7 `analytics-action-redirect-tag`: actions keep the tag through `rewriteRedirect`; the pages' `redirect(next)` in `modules/auth/src/next/pages.tsx` does not use it, and the follow-up request's `Referer` is the page before the tagged one (analytics README §12). After: the page redirect keeps the tag, covered by e2e.
 - **PRD refs:** FR-23.
 - **Source:** FU-7 research ("Open questions"); `modules/analytics/README.md` §12
+
+### FU-30: A refund that fails gives back the access it took
+- **Change ID:** `billing-failed-refund-access`
+- **Status:** proposed
+- **Outcome:** A failed provider refund restores the access the refund took back and the payment's refunded total and status.
+- **Prerequisites:** FU-27 on `master` (lane C).
+- **Unknowns:** Which Stripe event to trust (`refund.failed` vs. a lower cumulative `amount_refunded` on `charge.refunded` or `charge.refund.updated`); how to give back days when other grants moved in between (extend by the days taken, as a grant at the end); whether a failed refund of a lifetime restores lifetime.
+- **Risk:** LOW. Failed refunds are rare (a closed card or bank account), and the owner sees them in Stripe.
+- **Baseline:** FU-20 `billing-partial-refunds`: a lower cumulative `amount_refunded` is a stale delivery and changes nothing; a full refund keeps the payment `refunded` (README §12). After: the gap is closed and covered by unit tests with signed webhook fixtures.
+- **Source:** FU-20 research ("Risks"); `modules/billing/README.md` §12
 
 ## Owner decisions and checks
 
