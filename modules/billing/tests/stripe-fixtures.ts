@@ -30,9 +30,17 @@ export function checkoutSession(input: SessionInput): Record<string, unknown> {
   };
 }
 
-/** A charge of 2900 refunded in full, or in part up to `amountRefunded` (the total so far, 900 by default). */
-export function charge(paymentIntent: string, refunded: boolean, amountRefunded = refunded ? 2900 : 900): Record<string, unknown> {
-  return { id: "ch_test_a1", object: "charge", payment_intent: paymentIntent, refunded, amount: 2900, amount_refunded: amountRefunded };
+/**
+ * A charge of PLN 29.00 (or `amount` in `currency`, Stripe's unit) refunded in full, or in part up to
+ * `amountRefunded` (the total so far, 900 by default).
+ */
+export function charge(
+  paymentIntent: string,
+  refunded: boolean,
+  amountRefunded = refunded ? 2900 : 900,
+  { amount = 2900, currency = "pln" }: { amount?: number; currency?: string } = {},
+): Record<string, unknown> {
+  return { id: "ch_test_a1", object: "charge", payment_intent: paymentIntent, refunded, amount, amount_refunded: amountRefunded, currency };
 }
 
 export function stripeEvent(type: string, object: unknown, id = `evt_test_${type.replaceAll(".", "_")}`): string {

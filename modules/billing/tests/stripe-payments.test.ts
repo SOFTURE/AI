@@ -294,6 +294,22 @@ describe("receiveStripeWebhook", () => {
     expect(await getEntitlement(test.ctx, adaId)).toMatchObject({ status: "trial" });
   });
 
+  it("records an ISK payment and its refunds in billing's unit, not Stripe's", async () => {
+    // ISK 1,500: billing's amount 1500 (no minor unit in Intl), Stripe's 150000 (two decimals, always 00).
+    test = await createTestBilling({ plans: [{ id: "monthly", name: { en: "Monthly" }, price: { amount: 1500, currency: "ISK" }, period: "month" }] });
+    const ada = await createAccount(test, "ada@example.com");
+    const iskCharge = { amount: 150000, currency: "isk" };
+    await deliver(stripeEvent("checkout.session.completed", checkoutSession({ userId: ada, planId: "monthly", amount: 150000, currency: "isk" })));
+    expect(await readPayments(test)).toMatchObject([{ amount: "1500", currency: "ISK", status: "paid" }]);
+
+    expect(await deliver(stripeEvent("charge.refunded", charge("pi_test_a1", false, 50000, iskCharge)))).toMatchObject(ok({ outcome: { status: "partially_refunded" } }));
+    const partial = await test.database.client.query<{ refunded_amount: string }>("SELECT refunded_amount::text FROM billing.payments");
+    expect(partial.rows).toEqual([{ refunded_amount: "500" }]);
+
+    expect(await deliver(stripeEvent("charge.refunded", charge("pi_test_a1", true, 150000, iskCharge)))).toMatchObject(ok({ outcome: { status: "refunded" } }));
+    expect(await readPayments(test)).toMatchObject([{ amount: "1500", status: "refunded" }]);
+  });
+
   it("grants a delayed payment when it succeeds, not when the checkout completes", async () => {
     const session = checkoutSession({ userId: adaId, planId: "monthly", paymentStatus: "unpaid" });
     expect(await deliver(stripeEvent("checkout.session.completed", session))).toMatchObject(ok({ outcome: { status: "ignored" } }));

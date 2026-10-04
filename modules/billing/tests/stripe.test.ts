@@ -37,7 +37,27 @@ function request(planIndex = 0): PaymentRequest {
   return { plan, account: ACCOUNT, invoice: null, returnUrl: "https://app.example.com/payment" };
 }
 
+function requestFor(price: { amount: number; currency: string }): PaymentRequest {
+  const config = createConfig({ plans: [{ id: "monthly", name: { en: "Monthly" }, price, period: "month" }] });
+  const plan = (config.modules.find((module) => module.manifest.id === "billing")?.options as { plans: PaymentRequest["plan"][] }).plans[0];
+  if (plan === undefined) throw new Error("test: no plan");
+  return { plan, account: ACCOUNT, invoice: null, returnUrl: "https://app.example.com/payment" };
+}
+
 describe("getCheckoutSessionParams", () => {
+  it("sends the price in Stripe's unit for the currency", () => {
+    const config = createConfig({ plans: PLANS });
+    const unitAmount = (price: { amount: number; currency: string }) => getCheckoutSessionParams({ config }, requestFor(price)).get("line_items[0][price_data][unit_amount]");
+    // ISK 1,500 and UGX 5,000: no minor unit in Intl, two decimals (always 00) at Stripe.
+    expect(unitAmount({ amount: 1500, currency: "ISK" })).toBe("150000");
+    expect(unitAmount({ amount: 5000, currency: "UGX" })).toBe("500000");
+    expect(unitAmount({ amount: 1500, currency: "ALL" })).toBe("150000");
+    expect(unitAmount({ amount: 1500, currency: "JPY" })).toBe("1500");
+    expect(unitAmount({ amount: 2950, currency: "HUF" })).toBe("2950");
+    expect(unitAmount({ amount: 2950, currency: "TWD" })).toBe("2950");
+    expect(unitAmount({ amount: 1250, currency: "KWD" })).toBe("1250");
+  });
+
   it("asks for a one-time payment of the plan's price, back to the payment page", () => {
     const config = createConfig({ plans: PLANS });
     expect(Object.fromEntries(getCheckoutSessionParams({ config }, request()))).toEqual({
@@ -108,6 +128,17 @@ describe("stripe()", () => {
     await provider.startPayment(ctx, request());
     expect(calls[0]?.url).toBe("http://127.0.0.1:12111/v1/checkout/sessions");
     expect(calls[0]?.init.headers).toMatchObject({ Authorization: "Bearer sk_test_env" });
+  });
+
+  it("fails for a price it cannot charge exactly, calling nothing; building its params is a bug", async () => {
+    // KWD 12.345: Stripe takes three decimals only when the last one is 0. The config refuses it
+    // under stripe(); a config built without the provider check reaches startPayment.
+    const unchargeable = requestFor({ amount: 12345, currency: "KWD" });
+    const { calls, fetch } = createFetch();
+    expect(await stripe({ secretKey: "sk_test_123", fetch }).startPayment(ctx, unchargeable)).toEqual(err("billing.payment_failed"));
+    expect(calls).toHaveLength(0);
+    expect(logged()).toContain('plan "monthly": stripe() charges KWD in multiples of 10');
+    expect(() => getCheckoutSessionParams(ctx, unchargeable)).toThrow('stripe() cannot charge the price of plan "monthly"');
   });
 
   it("fails without a secret key, calling nothing", async () => {

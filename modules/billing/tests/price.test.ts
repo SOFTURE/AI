@@ -22,6 +22,12 @@ describe("prices", () => {
     expect(plain(formatPrice({ amount: 1500, currency: "JPY" }, "en"))).toBe("¥1,500");
   });
 
+  it("formats a three-decimal currency with its three digits", () => {
+    expect(getMinorUnitDigits("KWD")).toBe(3);
+    expect(plain(formatPrice({ amount: 1250, currency: "KWD" }, "en"))).toBe("KWD 1.250");
+    expect(plain(formatPrice({ amount: 1250, currency: "KWD" }, "pl"))).toBe("1,250 KWD");
+  });
+
   it("tells a known currency code from a made-up one", () => {
     expect(isSupportedCurrency("PLN")).toBe(true);
     expect(isSupportedCurrency("XYZ")).toBe(false);

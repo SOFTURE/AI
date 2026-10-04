@@ -124,6 +124,14 @@ export { formatPrice, getMinorUnitDigits, isSupportedCurrency } from "./price.js
 export { billingSchema, entitlements, manualGrants, paymentRequests, payments } from "./schema.js";
 export { getCheckoutSessionParams, stripe, STRIPE_API_BASE, STRIPE_SECRET_KEY_ENV, STRIPE_TIMEOUT_MS, type StripeOptions } from "./stripe.js";
 export {
+  describeStripePriceProblem,
+  fromStripeAmount,
+  getStripeMinorUnitDigits,
+  STRIPE_THREE_DECIMAL_CURRENCIES,
+  STRIPE_ZERO_DECIMAL_CURRENCIES,
+  toStripeAmount,
+} from "./stripe-currency.js";
+export {
   parseStripeEvent,
   readStripeWebhook,
   signStripePayload,

@@ -91,6 +91,14 @@ describe("parseStripeEvent", () => {
     );
   });
 
+  it("reads ISK amounts in billing's unit: Stripe sends them with two decimals, always 00", () => {
+    const session = checkoutSession({ userId: USER_ID, planId: "monthly", amount: 150000, currency: "isk" });
+    expect(parseStripeEvent(stripeEvent("checkout.session.completed", session))).toMatchObject(ok({ checkout: { amount: 1500, currency: "ISK" } }));
+    expect(parseStripeEvent(stripeEvent("charge.refunded", charge("pi_test_a1", false, 50000, { amount: 150000, currency: "isk" })))).toMatchObject(
+      ok({ type: "payment_partially_refunded", amountRefunded: 500 }),
+    );
+  });
+
   it.each([
     ["a charge with nothing refunded", stripeEvent("charge.refunded", charge("pi_test_a1", false, 0))],
     ["a checkout still waiting for a transfer", stripeEvent("checkout.session.completed", checkoutSession({ userId: USER_ID, planId: "monthly", paymentStatus: "unpaid" }))],
@@ -110,6 +118,7 @@ describe("parseStripeEvent", () => {
     ["a checkout without an id", stripeEvent("checkout.session.completed", { ...checkoutSession({ userId: USER_ID, planId: "monthly" }), id: "" })],
     ["a refund without the refunded flag", stripeEvent("charge.refunded", { payment_intent: "pi_1" })],
     ["a partial refund without the amount refunded", stripeEvent("charge.refunded", { payment_intent: "pi_1", refunded: false })],
+    ["a partial refund without its currency", stripeEvent("charge.refunded", { payment_intent: "pi_1", refunded: false, amount_refunded: 900 })],
     ["a partial refund with a negative amount", stripeEvent("charge.refunded", charge("pi_test_a1", false, -1))],
   ])("refuses %s", (_case, payload) => {
     expect(parseStripeEvent(payload)).toEqual(err("billing.webhook_invalid"));

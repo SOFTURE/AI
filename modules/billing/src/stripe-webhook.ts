@@ -5,6 +5,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { err, ok, type Err, type Ok } from "@softure-ai/core";
 import { z } from "zod";
+import { fromStripeAmount } from "./stripe-currency.js";
 
 /** The header Stripe signs every delivery with (lower case, as `Headers` returns it). */
 export const STRIPE_SIGNATURE_HEADER = "stripe-signature";
@@ -79,7 +80,7 @@ export interface PaidCheckout {
   readonly paymentId: string | null;
   readonly userId: string;
   readonly planId: string;
-  /** What Stripe charged, in the currency's minor unit. */
+  /** What Stripe charged, in billing's unit (`Intl`'s minor unit, converted from Stripe's). */
   readonly amount: number;
   /** ISO 4217, upper case. */
   readonly currency: string;
@@ -91,7 +92,7 @@ export type StripeWebhookEvent =
   | { readonly type: "checkout_paid"; readonly eventId: string; readonly checkout: PaidCheckout }
   /** A charge refunded in full: take back the access its payment gave, once. */
   | { readonly type: "payment_refunded"; readonly eventId: string; readonly paymentId: string }
-  /** A charge refunded in part: `amountRefunded` is the total refunded so far, in the currency's minor unit. */
+  /** A charge refunded in part: `amountRefunded` is the total refunded so far, in billing's unit. */
   | { readonly type: "payment_partially_refunded"; readonly eventId: string; readonly paymentId: string; readonly amountRefunded: number }
   /** Nothing to do: another event type, a checkout still waiting for its money, a charge with nothing refunded, a session billing did not create. */
   | { readonly type: "ignored"; readonly eventId: string; readonly reason: string };
@@ -120,6 +121,8 @@ const sessionSchema = z.object({
 const chargeSchema = z.object({
   payment_intent: referenceSchema.nullish(),
   refunded: z.boolean(),
+  /** Stripe sends it on every charge; needed only for a partial refund, to convert the amount. */
+  currency: z.string().regex(/^[a-zA-Z]{3}$/).optional(),
   /** The total refunded so far (Stripe sends it on every charge); needed only for a partial refund. */
   amount_refunded: z.number().int().min(0).optional(),
 });
@@ -141,6 +144,7 @@ function readCheckout(eventId: string, object: unknown): StripeWebhookEvent | nu
     return { type: "ignored", eventId, reason: `a checkout whose payment is ${session.payment_status}` };
   }
   if (session.amount_total === null || session.amount_total === undefined || session.currency === null || session.currency === undefined) return null;
+  const currency = session.currency.toUpperCase();
   return {
     type: "checkout_paid",
     eventId,
@@ -149,8 +153,8 @@ function readCheckout(eventId: string, object: unknown): StripeWebhookEvent | nu
       paymentId: session.payment_intent ?? null,
       userId,
       planId,
-      amount: session.amount_total,
-      currency: session.currency.toUpperCase(),
+      amount: fromStripeAmount(session.amount_total, currency),
+      currency,
     },
   };
 }
@@ -161,10 +165,10 @@ function readRefund(eventId: string, object: unknown): StripeWebhookEvent | null
   const paymentId = parsed.data.payment_intent;
   if (paymentId === null || paymentId === undefined) return { type: "ignored", eventId, reason: "a refunded charge without a payment" };
   if (parsed.data.refunded) return { type: "payment_refunded", eventId, paymentId };
-  const amountRefunded = parsed.data.amount_refunded;
-  if (amountRefunded === undefined) return null;
+  const { amount_refunded: amountRefunded, currency } = parsed.data;
+  if (amountRefunded === undefined || currency === undefined) return null;
   if (amountRefunded === 0) return { type: "ignored", eventId, reason: "a charge with nothing refunded" };
-  return { type: "payment_partially_refunded", eventId, paymentId, amountRefunded };
+  return { type: "payment_partially_refunded", eventId, paymentId, amountRefunded: fromStripeAmount(amountRefunded, currency.toUpperCase()) };
 }
 
 /**

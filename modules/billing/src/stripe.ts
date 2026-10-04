@@ -7,6 +7,7 @@ import { CHECKOUT_PARAM, PLAN_FIELD, type CheckoutResult } from "./fields.js";
 import type { PaymentContext, PaymentProvider, PaymentRequest } from "./payment.js";
 import { getLocalizedText } from "./plans.js";
 import { STRIPE_PROVIDER } from "./server/payments.js";
+import { describeStripePriceProblem, toStripeAmount } from "./stripe-currency.js";
 import { STRIPE_METADATA } from "./stripe-webhook.js";
 
 export const STRIPE_API_BASE = "https://api.stripe.com";
@@ -35,12 +36,15 @@ function getReturnUrl(returnUrl: string, result: CheckoutResult, planId: string 
 
 /**
  * The form body of `POST /v1/checkout/sessions` for one payment of the plan: its price as a one-off
- * line item, the account in `client_reference_id` and the metadata the webhook reads (copied onto
+ * line item in Stripe's unit (`toStripeAmount`), the account in `client_reference_id` and the metadata the webhook reads (copied onto
  * the PaymentIntent, so the charge in Stripe's dashboard names the account too).
  */
 export function getCheckoutSessionParams(ctx: Pick<PaymentContext, "config">, request: PaymentRequest): URLSearchParams {
   const { plan, account } = request;
   const { locale } = ctx.config;
+  const unitAmount = toStripeAmount(plan.price);
+  // The config refuses such a price (`checkPrice`) and `startPayment` checks it first.
+  if (unitAmount === null) throw new Error(`@softure-ai/billing: stripe() cannot charge the price of plan "${plan.id}"`);
   const params = new URLSearchParams({
     mode: "payment",
     locale,
@@ -50,7 +54,7 @@ export function getCheckoutSessionParams(ctx: Pick<PaymentContext, "config">, re
     cancel_url: getReturnUrl(request.returnUrl, "cancelled", plan.id),
     "line_items[0][quantity]": "1",
     "line_items[0][price_data][currency]": plan.price.currency.toLowerCase(),
-    "line_items[0][price_data][unit_amount]": String(plan.price.amount),
+    "line_items[0][price_data][unit_amount]": String(unitAmount),
     "line_items[0][price_data][product_data][name]": getLocalizedText(plan.name, locale),
     [`metadata[${STRIPE_METADATA.userId}]`]: account.id,
     [`metadata[${STRIPE_METADATA.planId}]`]: plan.id,
@@ -82,7 +86,14 @@ export function stripe(options: StripeOptions = {}): PaymentProvider {
   return {
     name: STRIPE_PROVIDER,
     collectsInvoiceDetails: false,
+    checkPrice: describeStripePriceProblem,
     async startPayment(ctx, request) {
+      const priceProblem = describeStripePriceProblem(request.plan.price);
+      if (priceProblem !== null) {
+        // Only a config built around billing({ ... }) gets here; the options schema refuses it.
+        console.error(`@softure-ai/billing: plan "${request.plan.id}": ${priceProblem}`);
+        return err("billing.payment_failed");
+      }
       const secretKey = (options.secretKey ?? process.env[STRIPE_SECRET_KEY_ENV] ?? "").trim();
       if (secretKey === "") {
         // A deployment without the key cannot take payments until it is set; never the buyer's fault.
