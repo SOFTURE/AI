@@ -18,7 +18,7 @@ that order.
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-35** (roadmap `followups`):
+From [`roadmap.md`](../../foundation/roadmap.md), item **FU-35** (roadmap `followups`):
 
 > ### FU-35: A new refund is not lost when an earlier refund's failure arrives late
 > - **Change ID:** `billing-refund-after-late-failure`

@@ -76,7 +76,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-32** | `billing-price-minor-units` | a plan's price means the same amount on every runtime (pinned minor units) | FU-30 | autonomous | done_code (2026-10-04; waiting: the next release of `@softure-ai/billing`) |
 | **FU-33** | `billing-lifetime-grant-race` | lifetime grants made at once on a new row are refused after the first | FU-32 | autonomous | done_code (2026-10-04; waiting: the next release of `@softure-ai/billing`) |
 | **FU-34** | `billing-stale-handover-claim` | a request whose hand-over was cut off is handed over on a later ask | FU-33 | autonomous | done_code (2026-10-04; waiting: the next release of `@softure-ai/billing`) |
-| **FU-35** | `billing-refund-after-late-failure` | a new refund is not lost when an earlier refund's failure arrives late | FU-34 | autonomous | proposed |
+| **FU-35** | `billing-refund-after-late-failure` | a new refund is not lost when an earlier refund's failure arrives late | FU-34 | autonomous | done_code (2026-10-04; waiting: the next release of `@softure-ai/billing`) |
 
 ## Order
 
@@ -568,7 +568,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-35: A new refund is not lost when an earlier refund's failure arrives late
 - **Change ID:** `billing-refund-after-late-failure`
-- **Status:** proposed
+- **Status:** done_code (2026-10-04; waiting: the next release of `@softure-ai/billing`)
+- **Input:** [`archive/2026-10-04-billing-refund-after-late-failure/change.md`](../archive/2026-10-04-billing-refund-after-late-failure/change.md)
 - **Outcome:** A charge state that reports less than billing recorded but is newer than the state it recorded (a failure billing has not heard of yet) is kept, and the failure that follows applies it: the new refund takes back its share once.
 - **Prerequisites:** FU-34 on `master` (lane C).
 - **Unknowns:** Store the newest reported state (`amount_refunded`, `created`) beside the applied one, or re-read the charge from Stripe when a failure arrives; how the take-back of the newer refund runs inside `failRefund`'s transaction.
@@ -593,6 +594,7 @@ Open from FU-14:
 
 ## Done
 
+- **FU-35** `billing-refund-after-late-failure`: a charge state newer than every one billing recorded that reports no more than it counts (a new refund reported before an earlier refund's late failure) is kept on the payment (`pending_refunded_amount`, `pending_refunds_seen_at`, migration `0009`); each refund failure gives back what it took and then applies the kept state when, less the failures it still counts, it reports more than billing counts, so the new refund is taken back once; `refundPayment` and `failRefund` share `applyChargeState`; covered by eight PGlite tests, one with signed webhook fixtures; archived in `archive/2026-10-04-billing-refund-after-late-failure/`
 - **FU-34** `billing-stale-handover-claim`: the hand-over claim of an invoice request moved to `handover_claimed_at` (migration `0008`) and blocks other asks for a minute; `handed_over_at` now records a hand-over that answered `Ok` and is never repeated; a claim left without an answer (the process stopped) is taken over by the first ask a minute later, so the owner hears of the request; after a crash the hand-over is at least once; covered by three PGlite tests; archived in `archive/2026-10-04-billing-stale-handover-claim/`
 - **FU-33** `billing-lifetime-grant-race`: `grantPlanManually` pins the account's derived entitlement row (`pinEntitlementRow`, insert `ON CONFLICT DO NOTHING`) before it locks the row and checks `billing.lifetime_active`, so two grants made at once on an account without a row are serialised and the second is refused after a lifetime; a `request_closed` refusal deletes the row it pinned, so refusals still write nothing; `startPayment`'s early check stays unlocked (it only refuses early); covered by two Postgres races and a PGlite test; archived in `archive/2026-10-04-billing-lifetime-grant-race/`
 - **FU-32** `billing-price-minor-units`: the minor unit of every plan price comes from a table billing pins (`CURRENCY_MINOR_UNIT_DIGITS`: ISO 4217 List One of 2024-06-25 without funds and non-price units, MGA counted without a minor unit, XCG added), not from the runtime's `Intl`/CLDR; config validation, `formatPrice` (through `Intl` with the table's digits) and Stripe's conversion read it, so HUF 29.50 is 29.50 on every Node build; a test formats every pinned currency on the runtime and fails if its digits change a price; README "Minor units" tells deployers which currencies' amounts differ from `Intl`'s; archived in `archive/2026-10-04-billing-price-minor-units/`

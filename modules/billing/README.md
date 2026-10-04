@@ -193,7 +193,7 @@ most 256 KiB) or touches the database, then:
 | the same checkout again (a retry, or both events of a delayed payment) | nothing | 200 |
 | a checkout still waiting for a transfer, a charge with nothing refunded, any other event, a session billing did not create | nothing | 200 |
 | `charge.refunded` with `refunded: true` for a stored payment | the payment is marked refunded and what it granted taken back, once | 200 |
-| `charge.refunded` with `refunded: false` for a stored payment | `amount_refunded` (the total so far) is recorded and access follows `partialRefunds`; a total not above the stored one (a retry, a late delivery) changes nothing | 200 |
+| `charge.refunded` with `refunded: false` for a stored payment | `amount_refunded` (the total so far) is recorded and access follows `partialRefunds`; a total not above the stored one (a retry, a late delivery) changes nothing; when that state is newer than every one recorded, it is kept for a late failure (see "Failed refunds") | 200 |
 | `refund.failed` (or `refund.updated` / `charge.refund.updated` with `status` `failed` or `canceled`) for a stored payment | what the refund took is given back, once per refund (see "Failed refunds") | 200 |
 | `charge.refunded` or a Refund event without the event's `created` | nothing | 400 |
 | a paid checkout whose account was deleted or whose plan left the config | nothing stored; one log line with the checkout id to refund in Stripe | 200 |
@@ -252,6 +252,16 @@ Stripe does not order events, so billing keeps the time of the newest charge sta
 before it, was never counted: it is recorded and gives back nothing. A charge state taken before a
 failure (a late retry of `charge.refunded`) still counts the failed refund; billing subtracts it, so
 the delivery changes nothing. A lower `amount_refunded` on its own is never read as a failure.
+
+A new refund can be reported before the failure of an earlier one: the bank refuses refund A, then
+refund B's `charge.refunded` arrives with an `amount_refunded` that no longer counts A, so it is not
+above what billing recorded. When such a state is newer than every one billing recorded, the
+payment keeps it (`pending_refunded_amount`, `pending_refunds_seen_at`; only the newest) and the
+delivery answers `duplicate`. Each failure billing records then gives back what the failed refund
+took and applies the kept state if, less the failures it still counts, it reports more than billing
+now counts: B is taken back once, by the `partialRefunds` policy (in full when it completes the
+amount). A kept state waits through as many failures as it needs, and a state applied at or after
+its time clears it.
 
 The decision is made under the entitlement row's lock, so a lifetime bought at the same moment is
 either seen or granted after the refund.
@@ -532,6 +542,7 @@ Run `pin-trials` before such a change to keep existing trials where they are.
 | `refunded_amount` | The total refunded so far, in the currency's minor unit (`0005`): `amount` once `refunded`, below it while `paid` (CHECK `payments_refunded_amount_by_status`). |
 | `taken_back_days` | The local days refunds took from the payment's period so far (`0007`); a failed refund gives back its share. |
 | `refunds_seen_at` | When Stripe took the newest charge state billing recorded (`0007`, the event's `created`); NULL before any refund. |
+| `pending_refunded_amount`, `pending_refunds_seen_at` | The newest charge state billing did not apply because it reported no more than billing counted (`0009`): Stripe's raw `amount_refunded` and the event's `created`, applied by a later failure; both NULL when none is kept (CHECK `payments_pending_charge_state_shape`). |
 
 `migrations/0003_record_payment_grants.sql` adds the grant columns and drops the CHECK that kept
 `paid_until` NULL under lifetime. `migrations/0005_record_refunded_amounts.sql` adds
@@ -547,6 +558,8 @@ time, on payments with a refund), and creates `billing.refund_failures`, one row
 `(payment_id, refund_id)`.
 `migrations/0008_record_request_handover_claims.sql` adds `handover_claimed_at`; `handed_over_at`
 keeps its values, so requests from before count as handed over.
+`migrations/0009_record_pending_charge_states.sql` adds `pending_refunded_amount` and
+`pending_refunds_seen_at` (NULL on every payment from before: nothing was kept).
 
 The insert, the grant and its grant columns share a transaction, as do the refund's conditional update and the change it makes,
 so a delivery seen twice changes nothing. Every write takes the account first (like the privacy
@@ -656,9 +669,9 @@ details, return URL) and resolves with `Ok` once handed over, or an `Err` the bu
   before migration `0007` recorded no taken days, so their failure gives back the status and the
   amount only. Times are Stripe's whole seconds: a refund created in the second of a charge state
   counts as included in it.
-- A new refund whose `charge.refunded` arrives before the failure of an earlier refund of the same
-  payment reports a lower total than billing recorded and changes nothing; the failure then gives
-  back the earlier refund, and the new one is not taken back (followups FU-35).
+- A new refund kept until a late failure explains it (see "Failed refunds") takes back its share
+  of the days unused when that failure arrives, not when Stripe reported the refund, as a late
+  `charge.refunded` delivery would. A state reported before migration `0009` was not kept.
 - The charge's currency is not compared with the payment's: a Checkout payment has one charge, in
   the session's currency.
 - A dated manual grant keeps its length when a refund or a revoke takes back another period.
