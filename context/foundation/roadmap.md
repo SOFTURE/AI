@@ -48,7 +48,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-3** | `mailing-consent-sync` | Unsubscribe as consent withdrawal | — | autonomous | done |
 | **FU-4** | `waitlist-welcome-html` | HTML welcome mail for the waitlist | FU-2 | autonomous | done |
 | **FU-5** | `analytics-client-navigation` | Channel tag on client navigations without Next-Url | — | autonomous | done_code (2026-10-03; waiting: MO-6 release of `@softure-ai/analytics`) |
-| **FU-6** | `billing-reminder-mail` | Reminder mail before access ends | FU-9 | autonomous | proposed |
+| **FU-6** | `billing-reminder-mail` | Reminder mail before access ends | FU-9 | autonomous | done |
 | **FU-7** | `analytics-action-redirect-tag` | Channel tag kept through server action redirects | FU-1, FU-5 | autonomous | done_code (2026-10-04; waiting: MO-6 release of `@softure-ai/analytics` and the next `@softure-ai/auth` release) |
 | **FU-8** | `waitlist-funnel-hook` | Waitlist sign-ups as a funnel step | FU-4 | autonomous | done |
 | **FU-9** | `billing-admin-requests` | Payment requests, revoke and grant history in the billing admin page | FU-11 | autonomous | done |
@@ -253,7 +253,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-6: Reminder mail before access ends
 - **Change ID:** `billing-reminder-mail`
-- **Status:** proposed
+- **Status:** done
+- **Input:** [`archive/2026-10-04-billing-reminder-mail/`](../archive/2026-10-04-billing-reminder-mail/change.md)
 - **Outcome:** A reminder mail before an account's trial or paid access ends (and when it has ended), sent once per window through mailing's delivery ledger, next to the in-app notice billing already shows.
 - **Prerequisites:** FU-9 on `master` (shared files, see Order).
 - **Unknowns:** What triggers the run (a scheduled script through ops vs. a request-time check); how accounts in a window are found without scanning every account (accounts without a row derive their trial from `auth.users.created_at`).
@@ -490,6 +491,7 @@ Open from FU-14:
 
 ## Done
 
+- **FU-6** `billing-reminder-mail`: `sendAccessReminders` (`@softure-ai/billing/mailing`, mailing an optional peer) mails accounts whose trial or paid access ends soon or ended in the last `catchUpDays` days, once per account and window through `mailing.deliveries`; candidates from two range queries (auth `0004` indexes `users.created_at`); the example app runs it from `npm run access-reminders`; archived in `archive/2026-10-04-billing-reminder-mail/`
 - **FU-8** `waitlist-funnel-hook`: `waitlist({ onJoined })` runs in the sign-up's transaction when a sign-up first counts; analytics' `countFunnelStep` counts it under its channel, kept through double opt-in by `rewriteConfirmationLink`; covered by unit and e2e tests; archived in `archive/2026-10-04-waitlist-funnel-hook/`
 - **FU-7** `analytics-action-redirect-tag`: auth's action redirects keep the channel tag through `rewriteRedirect` and analytics' `tagRedirect`, with and without JavaScript, covered by unit and e2e tests; archived in `archive/2026-10-03-analytics-action-redirect-tag/`
 - **FU-16** `marketing-kit-layout-overrides`: `marketing.json` `layout` overrides a format's caption box and size, persona card, end card and its phone pose, validated against the frame; archived in `archive/2026-10-03-marketing-kit-layout-overrides/`

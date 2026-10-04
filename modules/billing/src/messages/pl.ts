@@ -17,6 +17,24 @@ export const pl: typeof en = {
     choosePlan: "Wybierz plan",
     renew: "Przedłuż dostęp",
   },
+  reminderMail: {
+    trialEnding: {
+      subject: "Okres próbny kończy się {date}",
+      body: "Okres próbny kończy się {date}. Wybierz plan, żeby potem dalej wprowadzać zmiany; Twoje dane i tak pozostaną bezpieczne.",
+    },
+    paidEnding: {
+      subject: "Dostęp kończy się {date}",
+      body: "Dostęp kończy się {date}. Przedłuż go, żeby potem dalej wprowadzać zmiany; Twoje dane i tak pozostaną bezpieczne.",
+    },
+    trialEnded: {
+      subject: "Okres próbny się skończył",
+      body: "Okres próbny się skończył. Twoje dane są bezpieczne i nadal możesz je przeglądać; wybierz plan, żeby znów wprowadzać zmiany.",
+    },
+    paidEnded: {
+      subject: "Dostęp się skończył",
+      body: "Dostęp się skończył. Twoje dane są bezpieczne i nadal możesz je przeglądać; przedłuż go, żeby znów wprowadzać zmiany.",
+    },
+  },
   pricing: {
     period: {
       day: { one: "za dzień", few: "za {count} dni", many: "za {count} dni", other: "za {count} dnia" },

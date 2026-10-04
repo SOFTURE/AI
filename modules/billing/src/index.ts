@@ -108,6 +108,16 @@ export {
 } from "./payment.js";
 export { findPlan, getLocalizedText, getPeriodEnd, getPlanGrant } from "./plans.js";
 export { getPaymentGrant, getRefundEvent, getUnusedDays, moveBackByDays } from "./refund.js";
+export {
+  ACCESS_REMINDER_KINDS,
+  DEFAULT_CATCH_UP_DAYS,
+  getAccessReminder,
+  getAccessReminderScope,
+  MAX_CATCH_UP_DAYS,
+  type AccessReminder,
+  type AccessReminderInput,
+  type AccessReminderKind,
+} from "./reminder.js";
 export { formatPrice, getMinorUnitDigits, isSupportedCurrency } from "./price.js";
 export { billingSchema, entitlements, manualGrants, paymentRequests, payments } from "./schema.js";
 export { getCheckoutSessionParams, stripe, STRIPE_API_BASE, STRIPE_SECRET_KEY_ENV, STRIPE_TIMEOUT_MS, type StripeOptions } from "./stripe.js";

@@ -16,7 +16,7 @@ window through mailing's delivery ledger, next to the in-app notice billing alre
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-6** (roadmap `followups`, main since 2026-10-03):
+From [`roadmap.md`](../../foundation/roadmap.md), item **FU-6** (roadmap `followups`, main since 2026-10-03):
 
 > ### FU-6: Reminder mail before access ends
 > - **Change ID:** `billing-reminder-mail`
@@ -29,7 +29,7 @@ From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-6** (roadmap `fol
 > - **PRD refs:** FR-22.
 > - **Source:** `modules/billing/README.md` §12
 
-Reference material: [`docs/02-module-standard.md`](../../../../docs/02-module-standard.md) (the standard).
+Reference material: [`docs/02-module-standard.md`](../../../docs/02-module-standard.md) (the standard).
 
 ## Constraints
 
