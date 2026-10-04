@@ -5,13 +5,19 @@
 // takes nothing back, and a lapse between payments never lets an old refund eat a new period.
 // A partial refund takes back the same share of those days as the share of the money not refunded
 // before that it returns, rounded down: the refund that completes the amount has a share of one, so
-// partial refunds that add up to the whole payment take back what one full refund would.
+// partial refunds that add up to the whole payment take back what one full refund would. A refund
+// that fails later gives back the failed money's share of the days refunds took.
 import { getDayNumber, getStartOfDay } from "./calendar.js";
 import type { EntitlementEvent, EntitlementRecord, PaymentGrant } from "./contract.js";
 
 /** The later of two instants. */
 function getLater(first: Date, second: Date): Date {
   return first > second ? first : second;
+}
+
+/** Where a grant added to `record` at `now` starts: the latest of the trial's end, dated paid access and `now`. */
+export function getGrantStart(record: EntitlementRecord, now: Date): Date {
+  return [record.trialEndsAt, ...(record.paidUntil === null ? [] : [record.paidUntil])].reduce(getLater, now);
 }
 
 /**
@@ -24,7 +30,7 @@ export function getPaymentGrant(record: EntitlementRecord, event: EntitlementEve
     case "grant_lifetime":
       return { kind: "lifetime" };
     case "grant": {
-      const from = [record.trialEndsAt, ...(record.paidUntil === null ? [] : [record.paidUntil])].reduce(getLater, now);
+      const from = getGrantStart(record, now);
       return from < event.until ? { kind: "period", from, until: event.until } : null;
     }
     default:
@@ -94,4 +100,36 @@ export function getRefundEvent(record: EntitlementRecord, grant: PaymentGrant, t
   const days = getTakenBackDays(grant, timing);
   if (record.paidUntil === null || days === 0) return null;
   return { type: "shorten", until: moveBackByDays(record.paidUntil, days, timing.timezone) };
+}
+
+/** `instant` moved forward by `days` local days in `timezone`, as `moveBackByDays` moves it back. */
+export function moveForwardByDays(instant: Date, days: number, timezone: string): Date {
+  return moveBackByDays(instant, -days, timezone);
+}
+
+export interface RestoredDaysInput {
+  /** The local days refunds took from the payment's period so far. */
+  readonly takenBackDays: number;
+  /** The payment's refunded total before the failure. */
+  readonly refundedAmount: number;
+  /** The part of that total the failure gives back (at most `refundedAmount`). */
+  readonly restoredAmount: number;
+  /** The app's `partialRefunds` policy. */
+  readonly policy: "pro_rata" | "keep_access";
+}
+
+/**
+ * The local days a failed refund gives back. Under `pro_rata` the share of the days refunds took
+ * that the failed money is of the money refunded, rounded down, and every day once nothing stays
+ * refunded, so failures that undo every refund give back exactly what was taken. Under
+ * `keep_access` only the refund that completed the payment took days, so any failure gives them
+ * all back: the payment is no longer refunded in full.
+ */
+export function getRestoredDays({ takenBackDays, refundedAmount, restoredAmount, policy }: RestoredDaysInput): number {
+  if (takenBackDays <= 0 || restoredAmount <= 0 || refundedAmount <= 0) return 0;
+  const remaining = refundedAmount - restoredAmount;
+  if (remaining <= 0) return takenBackDays;
+  if (policy === "keep_access") return takenBackDays;
+  // Integers: at most 10^8 minor units times a period's days stays a safe integer.
+  return Math.floor((takenBackDays * restoredAmount) / refundedAmount);
 }

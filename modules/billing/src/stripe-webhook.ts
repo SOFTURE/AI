@@ -86,22 +86,49 @@ export interface PaidCheckout {
   readonly currency: string;
 }
 
+/** A refund Stripe reports as failed or canceled: its money is back with the customer's payment. */
+export interface FailedRefund {
+  /** The PaymentIntent id (`pi_...`) of the refunded payment. */
+  readonly paymentId: string;
+  /** The Refund id (`re_...`). */
+  readonly refundId: string;
+  /** What the refund was for, in billing's unit. */
+  readonly amount: number;
+  /** When Stripe created the refund. */
+  readonly refundCreatedAt: Date;
+  /** When Stripe reported the failure (the event's `created`). */
+  readonly failedAt: Date;
+}
+
 /** What one delivery asks of billing. */
 export type StripeWebhookEvent =
   /** A paid checkout: grant its plan, once. */
   | { readonly type: "checkout_paid"; readonly eventId: string; readonly checkout: PaidCheckout }
-  /** A charge refunded in full: take back the access its payment gave, once. */
-  | { readonly type: "payment_refunded"; readonly eventId: string; readonly paymentId: string }
-  /** A charge refunded in part: `amountRefunded` is the total refunded so far, in billing's unit. */
-  | { readonly type: "payment_partially_refunded"; readonly eventId: string; readonly paymentId: string; readonly amountRefunded: number }
+  /** A charge refunded in full: take back the access its payment gave, once. `snapshotAt`: when Stripe took the charge's state (the event's `created`). */
+  | { readonly type: "payment_refunded"; readonly eventId: string; readonly paymentId: string; readonly snapshotAt: Date }
+  /** A charge refunded in part: `amountRefunded` is the total refunded so far, in billing's unit, as of `snapshotAt`. */
+  | {
+      readonly type: "payment_partially_refunded";
+      readonly eventId: string;
+      readonly paymentId: string;
+      readonly amountRefunded: number;
+      readonly snapshotAt: Date;
+    }
+  /** A refund that failed (or was canceled): give back what it took, once per refund. */
+  | { readonly type: "refund_failed"; readonly eventId: string; readonly failure: FailedRefund }
   /** Nothing to do: another event type, a checkout still waiting for its money, a charge with nothing refunded, a session billing did not create. */
   | { readonly type: "ignored"; readonly eventId: string; readonly reason: string };
 
 const idSchema = z.string().min(1).max(MAX_ID_LENGTH);
 
+/** Unix seconds, as Stripe dates every event and object (up to the end of year 9999). */
+const unixSecondsSchema = z.number().int().min(0).max(253_402_300_799);
+
 const envelopeSchema = z.object({
   id: idSchema,
   type: z.string().min(1).max(MAX_ID_LENGTH),
+  /** When the event (and the snapshot of its object) was made; billing needs it for refunds only. */
+  created: unixSecondsSchema.optional(),
   data: z.object({ object: z.unknown() }),
 });
 
@@ -126,6 +153,18 @@ const chargeSchema = z.object({
   /** The total refunded so far (Stripe sends it on every charge); needed only for a partial refund. */
   amount_refunded: z.number().int().min(0).optional(),
 });
+
+const refundSchema = z.object({
+  id: idSchema,
+  payment_intent: referenceSchema.nullish(),
+  amount: z.number().int().min(0),
+  currency: z.string().regex(/^[a-zA-Z]{3}$/),
+  created: unixSecondsSchema,
+  status: z.string().nullish(),
+});
+
+/** Refund statuses whose money went back to the payment: the refund took nothing in the end. */
+const FAILED_REFUND_STATUSES: ReadonlySet<string> = new Set(["failed", "canceled"]);
 
 /** Payment statuses of a checkout that has its money (`no_payment_required`: a 100% discount). */
 const SETTLED_PAYMENT_STATUSES: ReadonlySet<string> = new Set(["paid", "no_payment_required"]);
@@ -159,16 +198,41 @@ function readCheckout(eventId: string, object: unknown): StripeWebhookEvent | nu
   };
 }
 
-function readRefund(eventId: string, object: unknown): StripeWebhookEvent | null {
+function fromUnixSeconds(seconds: number): Date {
+  return new Date(seconds * 1000);
+}
+
+function readRefund(eventId: string, object: unknown, created: number | undefined): StripeWebhookEvent | null {
   const parsed = chargeSchema.safeParse(object);
-  if (!parsed.success) return null;
+  if (!parsed.success || created === undefined) return null;
   const paymentId = parsed.data.payment_intent;
   if (paymentId === null || paymentId === undefined) return { type: "ignored", eventId, reason: "a refunded charge without a payment" };
-  if (parsed.data.refunded) return { type: "payment_refunded", eventId, paymentId };
+  const snapshotAt = fromUnixSeconds(created);
+  if (parsed.data.refunded) return { type: "payment_refunded", eventId, paymentId, snapshotAt };
   const { amount_refunded: amountRefunded, currency } = parsed.data;
   if (amountRefunded === undefined || currency === undefined) return null;
   if (amountRefunded === 0) return { type: "ignored", eventId, reason: "a charge with nothing refunded" };
-  return { type: "payment_partially_refunded", eventId, paymentId, amountRefunded: fromStripeAmount(amountRefunded, currency.toUpperCase()) };
+  return { type: "payment_partially_refunded", eventId, paymentId, amountRefunded: fromStripeAmount(amountRefunded, currency.toUpperCase()), snapshotAt };
+}
+
+/** A Refund event: `refund.failed` always reports a failure, the update events only with a failed or canceled status. */
+function readFailedRefund(eventId: string, object: unknown, created: number | undefined, isFailure: boolean): StripeWebhookEvent | null {
+  const parsed = refundSchema.safeParse(object);
+  if (!parsed.success || created === undefined) return null;
+  const refund = parsed.data;
+  if (!isFailure && !FAILED_REFUND_STATUSES.has(refund.status ?? "")) {
+    return { type: "ignored", eventId, reason: `a refund whose status is ${refund.status ?? "unknown"}` };
+  }
+  const paymentId = refund.payment_intent;
+  if (paymentId === null || paymentId === undefined) return { type: "ignored", eventId, reason: "a failed refund without a payment" };
+  const failure: FailedRefund = {
+    paymentId,
+    refundId: refund.id,
+    amount: fromStripeAmount(refund.amount, refund.currency.toUpperCase()),
+    refundCreatedAt: fromUnixSeconds(refund.created),
+    failedAt: fromUnixSeconds(created),
+  };
+  return { type: "refund_failed", eventId, failure };
 }
 
 /**
@@ -184,7 +248,7 @@ export function parseStripeEvent(payload: string): Ok<StripeWebhookEvent> | Err<
   }
   const envelope = envelopeSchema.safeParse(json);
   if (!envelope.success) return err("billing.webhook_invalid");
-  const { id, type, data } = envelope.data;
+  const { id, type, data, created } = envelope.data;
   let event: StripeWebhookEvent | null;
   switch (type) {
     case "checkout.session.completed":
@@ -192,7 +256,14 @@ export function parseStripeEvent(payload: string): Ok<StripeWebhookEvent> | Err<
       event = readCheckout(id, data.object);
       break;
     case "charge.refunded":
-      event = readRefund(id, data.object);
+      event = readRefund(id, data.object, created);
+      break;
+    case "refund.failed":
+      event = readFailedRefund(id, data.object, created, true);
+      break;
+    case "refund.updated":
+    case "charge.refund.updated":
+      event = readFailedRefund(id, data.object, created, false);
       break;
     default:
       event = { type: "ignored", eventId: id, reason: `the event type ${type}` };

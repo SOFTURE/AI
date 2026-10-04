@@ -1,6 +1,17 @@
-// Refunds, pure: what a plan grant added and what a full or partial refund of it takes back, at exact instants
+// Refunds, pure: what a plan grant added, what a full or partial refund of it takes back and what a
+// failed refund gives back, at exact instants
 // in Warsaw time (the tests themselves run in New York time), across the October DST change.
-import { getPaymentGrant, getRefundEvent, getTakenBackDays, getUnusedDays, isFullShare, type EntitlementRecord, type PaymentGrant } from "@softure-ai/billing";
+import {
+  getPaymentGrant,
+  getRefundEvent,
+  getRestoredDays,
+  getTakenBackDays,
+  getUnusedDays,
+  isFullShare,
+  moveForwardByDays,
+  type EntitlementRecord,
+  type PaymentGrant,
+} from "@softure-ai/billing";
 import { describe, expect, it } from "vitest";
 
 const TIMEZONE = "Europe/Warsaw";
@@ -136,5 +147,38 @@ describe("getRefundEvent with a partial share", () => {
 
   it("takes nothing when the share rounds to no day", () => {
     expect(getRefundEvent(STACKED, FIRST_MONTH, { now: NOW, timezone: TIMEZONE, share: { refunded: 1, outstanding: 2900 } })).toBeNull();
+  });
+});
+
+describe("getRestoredDays", () => {
+  const restored = (overrides: Partial<Parameters<typeof getRestoredDays>[0]>) =>
+    getRestoredDays({ takenBackDays: 31, refundedAmount: 2900, restoredAmount: 2900, policy: "pro_rata", ...overrides });
+
+  it("gives back every taken day when the failure leaves nothing refunded", () => {
+    expect(restored({})).toBe(31);
+    expect(restored({ refundedAmount: 1450, restoredAmount: 1450, takenBackDays: 15 })).toBe(15);
+  });
+
+  it("gives back the failed money's share of the taken days, rounded down, under pro_rata", () => {
+    // 1450 of 2900 refunded failed: half of 31 days, rounded down.
+    expect(restored({ restoredAmount: 1450 })).toBe(15);
+    expect(restored({ restoredAmount: 1 })).toBe(0);
+  });
+
+  it("gives back every taken day under keep_access: only the completing refund took any", () => {
+    expect(restored({ restoredAmount: 1, policy: "keep_access" })).toBe(31);
+  });
+
+  it("gives back nothing when nothing was taken or nothing is restored", () => {
+    expect(restored({ takenBackDays: 0 })).toBe(0);
+    expect(restored({ restoredAmount: 0 })).toBe(0);
+    expect(restored({ refundedAmount: 0, restoredAmount: 0 })).toBe(0);
+  });
+});
+
+describe("moveForwardByDays", () => {
+  it("moves by local days, keeping the local time across the DST change", () => {
+    // 17 October (CEST) plus 31 local days is 17 November (CET), midnight both times.
+    expect(moveForwardByDays(TRIAL_END, 31, TIMEZONE)).toEqual(MONTH_AFTER_TRIAL);
   });
 });

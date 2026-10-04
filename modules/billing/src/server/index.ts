@@ -28,10 +28,12 @@ export {
 export { checkBillingTables } from "./health.js";
 export { findAccessReminders, type AccessReminderDue, type FindAccessRemindersOptions } from "./reminders.js";
 export {
+  failRefund,
   receiveStripeWebhook,
   recordPayment,
   refundPayment,
   STRIPE_PROVIDER,
+  type FailRefundInput,
   type PaymentOutcome,
   type ReceiveStripeWebhookInput,
   type RecordPaymentError,
@@ -65,6 +67,7 @@ export {
   type BillingManualGrantData,
   type BillingPaymentData,
   type BillingPaymentRequestData,
+  type BillingRefundFailureData,
   type BillingUserData,
 } from "./privacy.js";
 export {

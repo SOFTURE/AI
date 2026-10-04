@@ -47,8 +47,8 @@ import of what the old system knew (`import-entitlements`) and a pin step for de
 - **`stripe()`**, a card, BLIK and transfer adapter on Stripe Checkout (one-time payments), and
   **`stripeWebhookRoute`** (`/next`): a verified Stripe webhook that grants a paid checkout's plan
   and, on a refund, takes back what that one payment granted (a partial refund its share, by the
-  `partialRefunds` policy), exactly once per payment, recorded in `billing.payments` (see
-  "Refunds" below).
+  `partialRefunds` policy), exactly once per payment, recorded in `billing.payments`, and gives it
+  back when the refund fails (see "Refunds" and "Failed refunds" below).
 - **Reminder mail** (`@softure-ai/billing/mailing`): `sendAccessReminders(ctx)` mails every
   account whose trial or dated paid access is in its reminder window, or ended in the last few
   days, once per account and window through `@softure-ai/mailing`'s delivery ledger; the app runs
@@ -170,8 +170,8 @@ export { stripeWebhookRoute as POST } from "@softure-ai/billing/next";
 ```
 
 **The Stripe webhook.** In the Stripe dashboard, add an endpoint at `<appOrigin>/api/billing/webhook`
-for `checkout.session.completed`, `checkout.session.async_payment_succeeded` and `charge.refunded`,
-and put its signing secret in `STRIPE_WEBHOOK_SECRET` (locally: `stripe listen --forward-to
+for `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `charge.refunded` and
+`refund.failed`, and put its signing secret in `STRIPE_WEBHOOK_SECRET` (locally: `stripe listen --forward-to
 localhost:3000/api/billing/webhook` prints one). The route checks `Stripe-Signature` (HMAC-SHA256,
 at most five minutes old, any `v1` entry during a secret rotation) before it parses the body (at
 most 256 KiB) or touches the database, then:
@@ -183,6 +183,8 @@ most 256 KiB) or touches the database, then:
 | a checkout still waiting for a transfer, a charge with nothing refunded, any other event, a session billing did not create | nothing | 200 |
 | `charge.refunded` with `refunded: true` for a stored payment | the payment is marked refunded and what it granted taken back, once | 200 |
 | `charge.refunded` with `refunded: false` for a stored payment | `amount_refunded` (the total so far) is recorded and access follows `partialRefunds`; a total not above the stored one (a retry, a late delivery) changes nothing | 200 |
+| `refund.failed` (or `refund.updated` / `charge.refund.updated` with `status` `failed` or `canceled`) for a stored payment | what the refund took is given back, once per refund (see "Failed refunds") | 200 |
+| `charge.refunded` or a Refund event without the event's `created` | nothing | 400 |
 | a paid checkout whose account was deleted or whose plan left the config | nothing stored; one log line with the checkout id to refund in Stripe | 200 |
 | no or a wrong signature, a replay, a body that is not a Stripe event | nothing | 400 |
 | no `STRIPE_WEBHOOK_SECRET`, a database failure | nothing; Stripe retries | 500 |
@@ -217,6 +219,28 @@ that add up to the payment end exactly where one full refund at the time of the 
 Under `"keep_access"` (refunds as goodwill or compensation) a partial refund takes nothing back,
 and the completing one takes back every unused day left. Either way a partial refund never ends a
 lifetime nor revokes a payment stored before grants were recorded: only the completing refund does.
+
+**Failed refunds.** A refund the bank or card refuses after Stripe reported it (`refund.failed`)
+gives back what it took, once per refund id (`billing.refund_failures`):
+
+- the payment's `refunded_amount` drops by the refund's amount, and a payment refunded in full is
+  `paid` again;
+- a lifetime payment refunded in full gives lifetime access back;
+- a period gets back days: each payment keeps the local days refunds took from it
+  (`taken_back_days`), and a failure gives back the failed money's share of them under
+  `pro_rata` (rounded down; the failure that leaves nothing refunded gives back the rest), all of
+  them under `keep_access` (only the completing refund took any). While the payment is still paid
+  and its period still ahead, the days go back right after that period and the periods stacked
+  after it move forward again, the refund in reverse. Otherwise (refunded in full, or the period
+  used up) they are a grant at the end of the account's access, from the latest of the trial's end,
+  dated access and now, and the payment's stored period becomes that grant;
+- a payment stored before grants were recorded gets its total and status back, not its access.
+
+Stripe does not order events, so billing keeps the time of the newest charge state it recorded
+(`refunds_seen_at`, the event's `created`). A failure of a refund created after that state, or failed
+before it, was never counted: it is recorded and gives back nothing. A charge state taken before a
+failure (a late retry of `charge.refunded`) still counts the failed refund; billing subtracts it, so
+the delivery changes nothing. A lower `amount_refunded` on its own is never read as a failure.
 
 The decision is made under the entitlement row's lock, so a lifetime bought at the same moment is
 either seen or granted after the refund.
@@ -494,6 +518,8 @@ Run `pin-trials` before such a change to keep existing trials where they are.
 | `status`, `paid_at`, `refunded_at` | `paid` or `refunded`; a CHECK ties `refunded_at` to the status. |
 | `grant_kind`, `granted_from`, `granted_until` | What the payment granted (`0003`): `period` with its start and end, or `lifetime` with no dates; all NULL for rows recorded before. A CHECK (`payments_grant_shape`) ties the dates to the kind. A partial refund moves `granted_until` back by the days it took. |
 | `refunded_amount` | The total refunded so far, in the currency's minor unit (`0005`): `amount` once `refunded`, below it while `paid` (CHECK `payments_refunded_amount_by_status`). |
+| `taken_back_days` | The local days refunds took from the payment's period so far (`0007`); a failed refund gives back its share. |
+| `refunds_seen_at` | When Stripe took the newest charge state billing recorded (`0007`, the event's `created`); NULL before any refund. |
 
 `migrations/0003_record_payment_grants.sql` adds the grant columns and drops the CHECK that kept
 `paid_until` NULL under lifetime. `migrations/0005_record_refunded_amounts.sql` adds
@@ -501,6 +527,12 @@ Run `pin-trials` before such a change to keep existing trials where they are.
 `migrations/0006_record_request_handover_and_prices.sql` adds `handed_over_at` (set to
 `requested_at` on open requests, which were all handed over), the price columns of both manual
 tables, the `expired` status and the control-character CHECKs.
+`migrations/0007_record_failed_refunds.sql` adds `taken_back_days` (0 on payments refunded before:
+their failure gives back no days) and `refunds_seen_at` (set to `refunded_at`, or the migration's
+time, on payments with a refund), and creates `billing.refund_failures`, one row per failed refund:
+`payment_id` (references `billing.payments(id)` `ON DELETE CASCADE`), `refund_id`, `amount`,
+`refund_created_at`, `failed_at` (the event's `created`) and `recorded_at`, primary key
+`(payment_id, refund_id)`.
 
 The insert, the grant and its grant columns share a transaction, as do the refund's conditional update and the change it makes,
 so a delivery seen twice changes nothing. Every write takes the account first (like the privacy
@@ -582,12 +614,13 @@ details, return URL) and resolves with `Ok` once handed over, or an `Err` the bu
 - Export: the account's entitlement row (`trialEndsAt`, `paidUntil`, `isLifetime`, `createdAt`,
   `updatedAt`), or `entitlement: null` for an account without one, its payments oldest first
   (`provider`, `checkoutId`, `paymentId`, `planId`, `amount`, `currency`, `status`, `paidAt`,
-  `refundedAt`, `refundedAmount`, `grantKind`, `grantedFrom`, `grantedUntil`), its invoice requests (`planId`, the
+  `refundedAt`, `refundedAmount`, `grantKind`, `grantedFrom`, `grantedUntil`), the refunds of them that
+  failed (`paymentId`, `refundId`, `amount`, `refundCreatedAt`, `failedAt`), its invoice requests (`planId`, the
   invoice details while open, `amount`, `currency`, `status`, `requestedAt`, `closedAt`) and the
   plans granted to it by hand (`planId`, `grantedAt`, the grant, `status`, `revokedAt`, `amount`,
   `currency`). Which admin granted or revoked
   is the admin's data and stays out of the account's export.
-- Deletion: the row, the payments, the requests and the manual grants, and the foreign keys remove
+- Deletion: the row, the payments (their failed refunds with them), the requests and the manual grants, and the foreign keys remove
   them with the account too; an erased admin's id is cleared from the grants they made.
   Stripe keeps its own record of each payment (the controller's accounting record there).
 - Reminder mail: what was sent is in `mailing.deliveries` under a recipient key (never the
@@ -602,10 +635,17 @@ details, return URL) and resolves with `Ok` once handed over, or an `Err` the bu
 
 - A refund that reaches the app before its checkout (Stripe does not order events) finds no
   payment and is not retried.
-- A refund that fails after Stripe reported it (`refund.failed`, the bank or card refuses it)
-  lowers Stripe's `amount_refunded` again, but billing keeps what it took back and the payment
-  stays refunded (followups FU-30). The charge's currency is not compared with the payment's: a
-  Checkout payment has one charge, in the session's currency.
+- A failed refund gives back a share of the days refunds took, not the exact days that refund took
+  at its time: under `pro_rata` a failed completing refund may give back a day more or less than it
+  took, while failures that undo every refund give back exactly what was taken. Payments refunded
+  before migration `0007` recorded no taken days, so their failure gives back the status and the
+  amount only. Times are Stripe's whole seconds: a refund created in the second of a charge state
+  counts as included in it.
+- A new refund whose `charge.refunded` arrives before the failure of an earlier refund of the same
+  payment reports a lower total than billing recorded and changes nothing; the failure then gives
+  back the earlier refund, and the new one is not taken back (followups FU-35).
+- The charge's currency is not compared with the payment's: a Checkout payment has one charge, in
+  the session's currency.
 - A dated manual grant keeps its length when a refund or a revoke takes back another period.
 - A refund of a period moves the dated end back by local days; a `grant { until }` an app applies
   by hand with an end inside the stack is not a period of its own and shifts with it.

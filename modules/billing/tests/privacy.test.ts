@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createAccount, createTestBilling, NOW, readRow, type TestBilling } from "./support.js";
 
 const PAID_END = new Date("2026-11-30T23:00:00Z");
-const EMPTY = { entitlement: null, payments: [], paymentRequests: [], manualGrants: [] };
+const EMPTY = { entitlement: null, payments: [], refundFailures: [], paymentRequests: [], manualGrants: [] };
 const INVOICE = { name: "Ada Lovelace Ltd", taxId: null, address: "1 Analytical Way, London" };
 const PRICE = { amount: 2900, currency: "PLN" };
 
@@ -37,6 +37,7 @@ describe("the billing privacy contributor", () => {
     expect(data.data.billing).toEqual({
       entitlement: { trialEndsAt: "2026-10-16T22:00:00.000Z", paidUntil: "2026-12-31T23:00:00.000Z", isLifetime: false, createdAt: NOW.toISOString(), updatedAt: later.toISOString() },
       payments: [],
+      refundFailures: [],
       paymentRequests: [
         { planId: "monthly", invoiceName: null, invoiceTaxId: null, invoiceAddress: null, amount: 2900, currency: "PLN", status: "dismissed", requestedAt: NOW.toISOString(), closedAt: NOW.toISOString() },
         { planId: "monthly", invoiceName: INVOICE.name, invoiceTaxId: null, invoiceAddress: INVOICE.address, amount: 2900, currency: "PLN", status: "open", requestedAt: later.toISOString(), closedAt: null },

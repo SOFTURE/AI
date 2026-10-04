@@ -2,12 +2,19 @@
 import { parseStripeEvent, readStripeWebhook, signStripePayload, STRIPE_METADATA, verifyStripeSignature } from "@softure-ai/billing";
 import { err, ok } from "@softure-ai/core";
 import { describe, expect, it } from "vitest";
-import { charge, checkoutSession, signature, stripeEvent, WEBHOOK_SECRET } from "./stripe-fixtures.js";
+import { charge, checkoutSession, refund, signature, stripeEvent, WEBHOOK_SECRET } from "./stripe-fixtures.js";
 import { NOW } from "./support.js";
 
 const USER_ID = "6f1c2d3e-4b5a-4c6d-8e7f-9a0b1c2d3e4f";
 const PAYLOAD = stripeEvent("checkout.session.completed", checkoutSession({ userId: USER_ID, planId: "monthly" }));
 const NOW_SECONDS = Math.floor(NOW.getTime() / 1000);
+
+/** `payload` as an event without `created`. */
+function withoutCreated(payload: string): string {
+  const event = JSON.parse(payload) as Record<string, unknown>;
+  delete event.created;
+  return JSON.stringify(event);
+}
 
 function verify(header: string | null, options: { payload?: string; secret?: string; now?: Date } = {}) {
   return verifyStripeSignature({ payload: options.payload ?? PAYLOAD, header, secret: options.secret ?? WEBHOOK_SECRET, now: options.now ?? NOW });
@@ -75,19 +82,19 @@ describe("parseStripeEvent", () => {
 
   it("reads a full refund by its PaymentIntent", () => {
     expect(parseStripeEvent(stripeEvent("charge.refunded", charge("pi_test_a1", true), "evt_3"))).toEqual(
-      ok({ type: "payment_refunded", eventId: "evt_3", paymentId: "pi_test_a1" }),
+      ok({ type: "payment_refunded", eventId: "evt_3", paymentId: "pi_test_a1", snapshotAt: NOW }),
     );
   });
 
   it("reads a full refund that carries no amount, as the e2e sends it", () => {
     expect(parseStripeEvent(stripeEvent("charge.refunded", { payment_intent: "pi_test_a1", refunded: true }, "evt_3"))).toEqual(
-      ok({ type: "payment_refunded", eventId: "evt_3", paymentId: "pi_test_a1" }),
+      ok({ type: "payment_refunded", eventId: "evt_3", paymentId: "pi_test_a1", snapshotAt: NOW }),
     );
   });
 
   it("reads a partial refund with the total refunded so far", () => {
     expect(parseStripeEvent(stripeEvent("charge.refunded", charge("pi_test_a1", false, 1450), "evt_4"))).toEqual(
-      ok({ type: "payment_partially_refunded", eventId: "evt_4", paymentId: "pi_test_a1", amountRefunded: 1450 }),
+      ok({ type: "payment_partially_refunded", eventId: "evt_4", paymentId: "pi_test_a1", amountRefunded: 1450, snapshotAt: NOW }),
     );
   });
 
@@ -99,6 +106,30 @@ describe("parseStripeEvent", () => {
     );
   });
 
+  it("reads a failed refund with its amount and both times", () => {
+    const failedAt = new Date(NOW.getTime() + 86_400_000);
+    const created = new Date(NOW.getTime() - 60_000);
+    expect(parseStripeEvent(stripeEvent("refund.failed", refund({ created, amount: 1450 }), "evt_5", failedAt))).toEqual(
+      ok({
+        type: "refund_failed",
+        eventId: "evt_5",
+        failure: { paymentId: "pi_test_a1", refundId: "re_test_a1", amount: 1450, refundCreatedAt: created, failedAt },
+      }),
+    );
+  });
+
+  it.each([
+    ["refund.updated", "failed"],
+    ["refund.updated", "canceled"],
+    ["charge.refund.updated", "failed"],
+  ])("reads %s with the status %s as a failed refund", (type, status) => {
+    expect(parseStripeEvent(stripeEvent(type, refund({ status })))).toMatchObject(ok({ type: "refund_failed", failure: { refundId: "re_test_a1", amount: 900 } }));
+  });
+
+  it("reads a failed refund in billing's unit", () => {
+    expect(parseStripeEvent(stripeEvent("refund.failed", refund({ amount: 150000, currency: "isk" })))).toMatchObject(ok({ failure: { amount: 1500 } }));
+  });
+
   it.each([
     ["a charge with nothing refunded", stripeEvent("charge.refunded", charge("pi_test_a1", false, 0))],
     ["a checkout still waiting for a transfer", stripeEvent("checkout.session.completed", checkoutSession({ userId: USER_ID, planId: "monthly", paymentStatus: "unpaid" }))],
@@ -107,6 +138,9 @@ describe("parseStripeEvent", () => {
     ["a checkout without metadata", stripeEvent("checkout.session.completed", { ...checkoutSession({ userId: USER_ID, planId: "monthly" }), metadata: null })],
     ["a refunded charge without a PaymentIntent", stripeEvent("charge.refunded", { ...charge("pi_x", true), payment_intent: null })],
     ["another event type", stripeEvent("customer.created", { id: "cus_1" })],
+    ["a refund update that succeeded", stripeEvent("refund.updated", refund({ status: "succeeded" }))],
+    ["a refund update still pending", stripeEvent("charge.refund.updated", refund({ status: "pending" }))],
+    ["a failed refund without a PaymentIntent", stripeEvent("refund.failed", refund({ paymentIntent: null }))],
   ])("ignores %s", (_case, payload) => {
     expect(parseStripeEvent(payload)).toMatchObject(ok({ type: "ignored" }));
   });
@@ -120,6 +154,11 @@ describe("parseStripeEvent", () => {
     ["a partial refund without the amount refunded", stripeEvent("charge.refunded", { payment_intent: "pi_1", refunded: false })],
     ["a partial refund without its currency", stripeEvent("charge.refunded", { payment_intent: "pi_1", refunded: false, amount_refunded: 900 })],
     ["a partial refund with a negative amount", stripeEvent("charge.refunded", charge("pi_test_a1", false, -1))],
+    ["a refund without the event's time", withoutCreated(stripeEvent("charge.refunded", charge("pi_test_a1", true)))],
+    ["a failed refund without the event's time", withoutCreated(stripeEvent("refund.failed", refund()))],
+    ["a failed refund without its amount", stripeEvent("refund.failed", { ...refund(), amount: undefined })],
+    ["a failed refund without its own time", stripeEvent("refund.failed", { ...refund(), created: undefined })],
+    ["a failed refund without an id", stripeEvent("refund.failed", { ...refund(), id: "" })],
   ])("refuses %s", (_case, payload) => {
     expect(parseStripeEvent(payload)).toEqual(err("billing.webhook_invalid"));
   });

@@ -1,8 +1,9 @@
 // Drizzle view of the module's tables (migrations/0001_create_entitlements.sql,
 // 0002_create_payments.sql, 0003_record_payment_grants.sql, 0004_create_requests_and_grants.sql,
-// 0005_record_refunded_amounts.sql and 0006_record_request_handover_and_prices.sql).
+// 0005_record_refunded_amounts.sql, 0006_record_request_handover_and_prices.sql and
+// 0007_record_failed_refunds.sql).
 // The migrations are the source of truth; this file only types the queries.
-import { bigint, boolean, pgSchema, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { bigint, boolean, integer, pgSchema, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 export const billingSchema = pgSchema("billing");
 
@@ -31,7 +32,22 @@ export const payments = billingSchema.table("payments", {
   grantedFrom: timestamp("granted_from", { withTimezone: true }),
   grantedUntil: timestamp("granted_until", { withTimezone: true }),
   refundedAmount: bigint("refunded_amount", { mode: "number" }).notNull().default(0),
+  takenBackDays: integer("taken_back_days").notNull().default(0),
+  refundsSeenAt: timestamp("refunds_seen_at", { withTimezone: true }),
 });
+
+export const refundFailures = billingSchema.table(
+  "refund_failures",
+  {
+    paymentId: uuid("payment_id").notNull(),
+    refundId: text("refund_id").notNull(),
+    amount: bigint("amount", { mode: "number" }).notNull(),
+    refundCreatedAt: timestamp("refund_created_at", { withTimezone: true }).notNull(),
+    failedAt: timestamp("failed_at", { withTimezone: true }).notNull(),
+    recordedAt: timestamp("recorded_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.paymentId, table.refundId] })],
+);
 
 export const paymentRequests = billingSchema.table("payment_requests", {
   id: uuid("id").primaryKey().defaultRandom(),
