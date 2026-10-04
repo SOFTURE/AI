@@ -17,7 +17,7 @@ import type { FetchLike } from "../quality/external-links.js";
 import { createQualityGate } from "../quality/gate.js";
 import { createInternalLinkResolver, findAppDir, readContentFolder, readPublishedContent } from "../quality/link-targets.js";
 import { getLocalDate } from "../quality/settings.js";
-import { getBlogOptions, getQualitySettings } from "../server/options.js";
+import { getBlogOptions, getBlogReservedSlugs, getQualitySettings } from "../server/options.js";
 
 export interface CliOutput {
   readonly log: (line: string) => void;
@@ -198,7 +198,7 @@ async function runPublish(command: Extract<BlogCommand, { kind: "publish" }>, op
       {
         commit: command.commit,
         withdraw: command.withdraw,
-        reservedSlugs: blogOptions.reservedSlugs,
+        reservedSlugs: getBlogReservedSlugs(config),
         ...(blogOptions.fields === undefined ? {} : { fields: blogOptions.fields }),
         ...(gate === undefined ? {} : { gate }),
       },
@@ -252,7 +252,7 @@ async function runCheck(command: Extract<BlogCommand, { kind: "check" }>, option
     settings,
     today: command.today ?? getLocalDate((options.clock ?? systemClock).now(), settings.timeZone),
     resolveInternalLink,
-    parse: { reservedSlugs: blogOptions.reservedSlugs, ...(blogOptions.fields === undefined ? {} : { fields: blogOptions.fields }) },
+    parse: { reservedSlugs: getBlogReservedSlugs(options.config), ...(blogOptions.fields === undefined ? {} : { fields: blogOptions.fields }) },
     ...(command.external ? { fetch: options.fetch ?? fetch } : {}),
   });
   return reportCheck(results, files, cwd, output);

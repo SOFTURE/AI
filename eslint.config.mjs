@@ -35,7 +35,7 @@ export default defineConfig([
   {
     // NFR-3 / docs/02-module-standard.md §5, §8: module logic and UI stay framework-free. Only the
     // `next/` adapter may import Next.js; UI gets links through an injected `LinkComponent`.
-    files: ["**/src/server/**", "**/src/ui/**"],
+    files: ["**/src/server/**", "**/src/ui/**", "**/src/pages/**"],
     rules: {
       "no-restricted-imports": [
         "error",

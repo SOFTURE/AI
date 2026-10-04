@@ -6,7 +6,15 @@
   "tables": ["articles", "slug_history"],
   "env": [],
   "switches": [],
-  "routes": {},
-  "mount": [],
+  "routes": { "index": "/blog", "glossary": "/blog/glossary", "method": "/blog/how-we-write" },
+  "mount": [
+    { "kind": "page", "path": "app/blog/page.tsx", "export": "BlogIndexPage" },
+    { "kind": "page", "path": "app/blog/[slug]/page.tsx", "export": "BlogArticlePage" },
+    { "kind": "route-handler", "path": "app/blog/[slug]/opengraph-image.tsx", "export": "BlogArticleOgImage" },
+    { "kind": "page", "path": "app/blog/glossary/page.tsx", "export": "GlossaryIndexPage" },
+    { "kind": "page", "path": "app/blog/glossary/[slug]/page.tsx", "export": "GlossaryTermPage" },
+    { "kind": "page", "path": "app/blog/how-we-write/page.tsx", "export": "BlogMethodPage" },
+    { "kind": "middleware", "path": "proxy.ts", "export": "createBlogRedirects" }
+  ],
   "privacy": { "exports": false, "deletes": false }
 }

@@ -1,7 +1,7 @@
 {
   "name": "@softure-ai/blog",
   "version": "0.0.0",
-  "description": "SOFTURE AI blog module: articles and glossary terms kept as Markdown files with a strict YAML frontmatter (extendable by the app's own fields), stored in the module's Postgres schema by the softure-blog publish command (dry run by default, all or nothing, content hash, slug history, one pillar per cluster), read functions for the blog pages, and a server-side Markdown renderer (no raw HTML, safe links, glossary links, block plugins), and a text quality gate (softure-blog check, run before every publish) with language rulesets and rule plugins.",
+  "description": "SOFTURE AI blog module: articles and glossary terms kept as Markdown files with a strict YAML frontmatter (extendable by the app's own fields), stored in the module's Postgres schema by the softure-blog publish command (dry run by default, all or nothing, content hash, slug history, one pillar per cluster), a server-side Markdown renderer (no raw HTML, safe links, glossary links, block plugins), a text quality gate (softure-blog check, run before every publish) with language rulesets and rule plugins, and the blog's pages ready to mount in Next.js (listing, article, glossary, method page, OG image, JSON-LD) with a proxy piece for 301 and 410.",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -19,7 +19,8 @@
     "!src/**/*.test.ts",
     "!src/**/*.test.tsx",
     "migrations",
-    "module.json"
+    "module.json",
+    "styles.css"
   ],
   "publishConfig": {
     "access": "public",
@@ -39,11 +40,27 @@
       "types": "./dist/server/index.d.ts",
       "default": "./dist/server/index.js"
     },
+    "./next": {
+      "@softure-ai/source": "./src/next/index.ts",
+      "types": "./dist/next/index.d.ts",
+      "default": "./dist/next/index.js"
+    },
+    "./ui": {
+      "@softure-ai/source": "./src/ui/index.ts",
+      "types": "./dist/ui/index.d.ts",
+      "default": "./dist/ui/index.js"
+    },
+    "./proxy": {
+      "@softure-ai/source": "./src/proxy/index.ts",
+      "types": "./dist/proxy/index.d.ts",
+      "default": "./dist/proxy/index.js"
+    },
     "./cli": {
       "@softure-ai/source": "./src/cli/index.ts",
       "types": "./dist/cli/index.d.ts",
       "default": "./dist/cli/index.js"
-    }
+    },
+    "./styles.css": "./styles.css"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json"
@@ -51,13 +68,16 @@
   "dependencies": {
     "@softure-ai/core": "^0.0.0",
     "@softure-ai/db": "^0.0.0",
+    "@softure-ai/ui": "^0.0.0",
     "markdown-it": "^15.0.2",
     "markdown-it-footnote": "^4.0.0",
     "yaml": "^2.9.1",
     "zod": "^4.6.5"
   },
   "peerDependencies": {
-    "drizzle-orm": "^0.45.2"
+    "drizzle-orm": "^0.45.2",
+    "next": "^16.0.0",
+    "react": "^19.0.0"
   },
   "devDependencies": {
     "@types/markdown-it": "^14.2.0",
