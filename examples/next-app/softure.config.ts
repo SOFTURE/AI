@@ -1,6 +1,7 @@
 // The app's SOFTURE configuration. `softure migrate` loads this file with Node's type stripping,
 // so relative imports name their `.ts` files.
 import { analytics } from "@softure-ai/analytics";
+import { blog } from "@softure-ai/blog";
 import { attributeRegistration, countFunnelStep, countRegistration, tagRedirect } from "@softure-ai/analytics/next";
 import { auth, AUTH_RATE_LIMIT_BUCKETS, REGISTRATION_CLOSED_SWITCH } from "@softure-ai/auth";
 import { billing, BILLING_RATE_LIMIT_BUCKETS, manual, stripe } from "@softure-ai/billing";
@@ -140,7 +141,7 @@ const config = defineSoftureConfig({
         { id: "launch", required: true, document: "privacy-policy", label: { en: en.waitlist.launch, pl: pl.waitlist.launch } },
         { id: "newsletter", label: { en: en.waitlist.newsletter, pl: pl.waitlist.newsletter } },
       ],
-      placements: ["home"],
+      placements: ["home", "blog"],
       doubleOptIn: true,
       mailTemplate: waitlistMailLayout,
       onJoined: countFunnelStep("waitlist"),
@@ -204,6 +205,14 @@ const config = defineSoftureConfig({
       robots: { disallow: ["/account", "/admin", "/api", "/switches"] },
       sitemap: { entries: [{ path: "/", priority: 1 }, { path: "/pricing", priority: 0.8 }, { path: "/legal/terms" }, { path: "/legal/privacy" }] },
       indexNow: { key: EXAMPLE_INDEXNOW_KEY },
+    }),
+    // The blog at /blog with the fixture texts of content/blog (npm run blog:fixtures; e2e/blog.spec.ts):
+    // listing, articles, glossary, the method page, 301 and 410 from proxy.ts, an OG card per article.
+    blog({
+      brand: { name: en.blog.brand },
+      methodPage: true,
+      disclaimer: { en: en.blog.disclaimer, pl: pl.blog.disclaimer },
+      clusters: { "investing-basics": { en: en.blog.clusters.investingBasics, pl: pl.blog.clusters.investingBasics } },
     }),
   ],
 });

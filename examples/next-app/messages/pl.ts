@@ -129,6 +129,13 @@ export const pl: AppMessages = {
       changes: [{ version: "2026-10-01", date: "2026-10-01", summary: "Pierwsza wersja." }],
     },
   },
+  blog: {
+    brand: "SOFTURE example",
+    disclaimer: "Te teksty wyjaśniają, jak działają finanse; nie są poradą finansową.",
+    clusters: { investingBasics: "Podstawy inwestowania" },
+    ctaLead: "Chcesz policzyć plan na swoich liczbach?",
+    ctaLink: "Zobacz plany",
+  },
   errors: {
     "guestbook.message_invalid": "Wpisz od 1 do {max} znaków.",
     "auth.forbidden": "Nie masz dostępu do tej funkcji.",

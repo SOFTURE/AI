@@ -127,6 +127,13 @@ export const en = {
       changes: [{ version: "2026-10-01", date: "2026-10-01", summary: "First version." }],
     },
   },
+  blog: {
+    brand: "SOFTURE example",
+    disclaimer: "These texts explain how things work; they are not financial advice.",
+    clusters: { investingBasics: "Investing basics" },
+    ctaLead: "Ready to plan with your own numbers?",
+    ctaLink: "See the plans",
+  },
   errors: {
     "guestbook.message_invalid": "Write between 1 and {max} characters.",
     "auth.forbidden": "You do not have access to this.",
