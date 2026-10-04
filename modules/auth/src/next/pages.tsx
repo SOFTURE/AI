@@ -1,9 +1,11 @@
 // Pages ready to mount with one line: `export { LoginPage as default } from "@softure-ai/auth/next"`.
 // Server components: they read the config and the session, and render the forms from `../ui`.
+import type { SoftureConfig } from "@softure-ai/core";
 import { getSoftureConfig } from "@softure-ai/core/next";
 import { Card } from "@softure-ai/ui";
 import { notFound, redirect } from "next/navigation";
 import type { ReactNode } from "react";
+import { resolveRedirectTarget } from "../redirect-target.js";
 import { toSafeNextPath } from "../safe-next-path.js";
 import { getAuthOptions, getAuthRoutes } from "../server/options.js";
 import { findPasswordResetUser, isPasswordResetEnabled, RESET_TOKEN_PARAM } from "../server/password-reset.js";
@@ -44,11 +46,25 @@ async function readNext(searchParams: SearchParams | undefined, fallback: string
   return toSafeNextPath(await readParam(searchParams, "next"), fallback);
 }
 
+/** The page's own query, every value of a repeated name kept, for the app's redirect rewrite. */
+async function readSearchParams(searchParams: SearchParams | undefined): Promise<URLSearchParams> {
+  const query = new URLSearchParams();
+  for (const [name, value] of Object.entries((await searchParams) ?? {})) {
+    for (const item of Array.isArray(value) ? value : [value]) if (item !== undefined) query.append(name, item);
+  }
+  return query;
+}
+
+/** Sends a signed-in visitor on from the login or register page, through the app's redirect rewrite. */
+async function redirectSignedIn(config: SoftureConfig, next: string, searchParams: SearchParams | undefined): Promise<never> {
+  redirect(await resolveRedirectTarget(config, next, await readSearchParams(searchParams)));
+}
+
 export async function LoginPage({ searchParams }: AuthPageProps) {
   const config = getSoftureConfig();
   const routes = getAuthRoutes(config);
   const next = await readNext(searchParams, routes.afterLogin);
-  if ((await getCurrentUser()) !== null) redirect(next);
+  if ((await getCurrentUser()) !== null) await redirectSignedIn(config, next, searchParams);
   const messages = getAuthMessages(config);
   const isClosed = await isRegistrationClosed(await getAuthContext(config));
   return (
@@ -70,7 +86,7 @@ export async function RegisterPage({ searchParams }: AuthPageProps) {
   const config = getSoftureConfig();
   const routes = getAuthRoutes(config);
   const next = await readNext(searchParams, routes.afterLogin);
-  if ((await getCurrentUser()) !== null) redirect(next);
+  if ((await getCurrentUser()) !== null) await redirectSignedIn(config, next, searchParams);
   const messages = getAuthMessages(config);
   if (await isRegistrationClosed(await getAuthContext(config))) {
     return (

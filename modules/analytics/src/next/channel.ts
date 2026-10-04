@@ -32,15 +32,24 @@ export function getChannelFromSearchParams(searchParams: SearchParamsInput, conf
   return parseChannel(typeof value === "string" ? value : value?.[0], options);
 }
 
+/** What `tagRedirect` reads besides the path; auth's `rewriteRedirect` context fits it. */
+export interface TagRedirectContext {
+  readonly config: SoftureConfig;
+  /** A page's own search params, when the page redirects while it renders. */
+  readonly searchParams?: SearchParamsInput;
+}
+
 /**
- * `path` with the channel of the request being handled, for a server action's `redirect()`: Next
- * renders the redirect target (and a browser without JavaScript follows it) from that URL, where
- * the proxy cannot tag it. The path is returned unchanged without a channel or when it already
- * carries the parameter. Fits auth's option: `auth({ rewriteRedirect: tagRedirect })`; in the app's
- * own actions: `redirect(await tagRedirect("/thanks"))`.
+ * `path` with the channel of the request being handled, for a `redirect()`: Next renders the
+ * redirect target (and a browser without JavaScript follows it) from that URL, where the proxy
+ * cannot tag it. For an action the channel comes from the page it was posted from (`Referer`); for
+ * a page's own redirect, from `ctx.searchParams` alone (the render's `Referer` is the page before).
+ * The path is returned unchanged without a channel or when it already carries the parameter. Fits
+ * auth's option: `auth({ rewriteRedirect: tagRedirect })`; in the app's own actions:
+ * `redirect(await tagRedirect("/thanks"))`; in a page: `redirect(await tagRedirect("/", { config, searchParams }))`.
  */
-export async function tagRedirect(path: string, ctx: { readonly config: SoftureConfig } = { config: getSoftureConfig() }): Promise<string> {
-  const channel = await getChannel(ctx.config);
+export async function tagRedirect(path: string, ctx: TagRedirectContext = { config: getSoftureConfig() }): Promise<string> {
+  const channel = ctx.searchParams === undefined ? await getChannel(ctx.config) : getChannelFromSearchParams(ctx.searchParams, ctx.config);
   return channel === null ? path : tagPath(ctx.config, path, channel);
 }
 

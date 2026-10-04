@@ -92,7 +92,7 @@ export type {
   SignedIn,
 } from "./contract.js";
 export { authMessages, getAuthErrorMessage, type AuthMessages } from "./messages/index.js";
-export type { AuthOptions, AuthOptionsInput, OnRegisteredHook, RewriteRedirect, ScryptParams } from "./options.js";
+export type { AuthOptions, AuthOptionsInput, OnRegisteredHook, RewriteRedirect, RewriteRedirectContext, ScryptParams } from "./options.js";
 export { consolePasswordResetSender, type PasswordResetDetails, type PasswordResetSender } from "./password-reset-sender.js";
 export { getSessionCookie, type SessionCookie } from "./session-cookie.js";
 export { toSafeNextPath } from "./safe-next-path.js";

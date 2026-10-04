@@ -10,6 +10,7 @@ export {
   type RegistrationAttribution,
   tagRedirect,
   type SearchParamsInput,
+  type TagRedirectContext,
 } from "./channel.js";
 export { getAnalyticsContext } from "./context.js";
 export { FunnelBeacon, FunnelPixel, type FunnelStepProps } from "./funnel.js";
