@@ -3,10 +3,14 @@
 // and comes back to it, an invoice request mails the admin and grants nothing, and the admin's
 // grant at /admin/billing flips the account's trial to paid. The admin page lists open requests
 // (grant or dismiss each), finds an account's history and revokes a manual grant; a lifetime
-// account has nothing to pay. Every test gets its own client address and accounts; the admin is an
+// account has nothing to pay. The grant-plan and revoke-grant scripts write the same history the
+// admin page shows. Every test gets its own client address and accounts; the admin is an
 // account given the role in Postgres (auth-roles.spec.ts owns the configured admin). Other tests'
 // requests share the list, so rows are always picked by the member's address.
+import { spawnSync } from "node:child_process";
 import { randomInt, randomUUID } from "node:crypto";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { expect, test, type Browser, type Page } from "@playwright/test";
 import { authMessages, userRoles, users } from "@softure-ai/auth";
 import { billingMessages } from "@softure-ai/billing";
@@ -17,6 +21,7 @@ import { EXAMPLE_ADMIN_EMAIL } from "../softure.config.ts";
 import { openTestDatabase } from "./database.ts";
 import { MAIL_OUTBOX } from "./outbox.ts";
 
+const APP_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const authCopy = authMessages.en;
 const copy = billingMessages.en;
 const PASSWORD = "correct horse battery";
@@ -249,4 +254,40 @@ test("a lifetime account has nothing to pay, and the admin cannot grant it again
   await member.goto("/payment?plan=monthly");
   await expect(member.getByText(copy.payment.lifetime)).toBeVisible();
   await expect(member.getByText(copy.payment.orderTitle)).toHaveCount(0);
+});
+
+/** Runs a billing script of the example app with `--commit`. */
+function runPlanScript(script: "grant-plan" | "revoke-grant", args: readonly string[]): { status: number | null; output: string } {
+  const result = spawnSync("npm", ["run", "--silent", script, "--", ...args, "--commit"], { cwd: APP_DIR, encoding: "utf8" });
+  return { status: result.status, output: `${result.stdout}${result.stderr}` };
+}
+
+test("a plan granted with the grant-plan script is in the admin's history, and revoke-grant takes it back", async ({ browser }) => {
+  const member = await openPage(browser);
+  const email = newEmail();
+  await register(member, email);
+
+  const granted = runPlanScript("grant-plan", [`--email=${email}`, "--plan=monthly"]);
+  expect(granted.status, granted.output).toBe(0);
+  expect(granted.output).toContain("COMMITTED");
+  expect(granted.output).not.toContain(email);
+  expect(await readBadgeStatus(member)).toBe("paid");
+
+  const admin = await openPage(browser);
+  await registerAdmin(admin);
+  await admin.goto("/admin/billing");
+  await admin.getByLabel(copy.admin.history.email).fill(email);
+  await admin.getByRole("button", { name: copy.admin.history.submit }).click();
+  const grant = admin.getByRole("region", { name: `History of ${email}` }).locator("[data-history-id]");
+  await expect(grant).toHaveCount(1);
+  await expect(grant).toContainText(`${en.plans.monthly.name}, granted by hand`);
+  const grantId = await grant.getAttribute("data-history-id");
+  expect(grantId).toMatch(/^[0-9a-f-]{36}$/);
+
+  const revoked = runPlanScript("revoke-grant", [`--email=${email}`, `--grant=${grantId ?? ""}`]);
+  expect(revoked.status, revoked.output).toBe(0);
+  expect(revoked.output).toContain("COMMITTED");
+  expect(await readBadgeStatus(member)).toBe("trial");
+  await admin.reload();
+  await expect(grant).toContainText("Revoked on ");
 });

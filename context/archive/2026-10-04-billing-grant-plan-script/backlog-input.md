@@ -17,7 +17,7 @@ exactly like one made in the admin page.
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-22** (roadmap `followups`):
+From [`roadmap.md`](../../foundation/roadmap.md), item **FU-22** (roadmap `followups`):
 
 > - **Outcome:** `@softure-ai/billing/scripts` exports `grant-plan` and `revoke-grant` ops scripts (dry run by default, `--commit` writes) that grant a plan to an account by email and revoke a manual grant, recorded in the account's history like the admin page's grants.
 > - **Unknowns:** Whether billing may depend on `@softure-ai/ops` (auth does, for `grant-role`); how the script names a grant to revoke (its id from the history vs. the latest active grant of a plan).
