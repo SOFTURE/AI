@@ -144,11 +144,11 @@ partial refunds of one payment compute their shares from committed values; lock 
 ### Phase 1: Partial refunds take back access
 
 #### Automated
-- [ ] 1.1 Partial refund tests pass on PGlite and in the pure suites
-- [ ] 1.2 Gates green (typecheck, lint, test)
+- [x] 1.1 Partial refund tests pass on PGlite and in the pure suites — d8c0936
+- [x] 1.2 Gates green (typecheck, lint, test) — d8c0936
 
 ### Phase 2: Admin history, export, docs, e2e ledger
 
 #### Automated
-- [ ] 2.1 `npm run e2e` passes `migrations.spec.ts` and `billing-stripe.spec.ts` locally
-- [ ] 2.2 Gates green (typecheck, lint, test, build)
+- [x] 2.1 `npm run e2e` passes `migrations.spec.ts` and `billing-stripe.spec.ts` locally — 5aa5c34
+- [x] 2.2 Gates green (typecheck, lint, test, build) — 5aa5c34

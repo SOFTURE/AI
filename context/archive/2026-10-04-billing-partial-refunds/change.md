@@ -1,12 +1,12 @@
 ---
 change_id: billing-partial-refunds
 title: "Partial refunds take back access by a policy"
-status: implementing
+status: archived
 roadmap_item: FU-20
 branch: claude/fu-20-ke8s4w
 created: 2026-10-04
 updated: 2026-10-04
-archived_at: null
+archived_at: 2026-10-04
 ---
 
 ## Intent
@@ -55,3 +55,4 @@ refund changes nothing (followups FU-20)".
 - Framing skipped: the gap is recorded with a stated outcome and an owner assessment ("a refund
   policy with a documented default"); it is not bug-shaped and its scope is not in doubt. Research
   answers the four unknowns.
+- Archived 2026-10-04: a partial refund records Stripe's cumulative `amount_refunded` (`billing.payments.refunded_amount`, migration `0005`) and, under the default `partialRefunds: "pro_rata"`, takes back the refunded share of the payment's unused days; partial refunds summing to the amount end where one full refund does; `keep_access` takes nothing until the completing refund.

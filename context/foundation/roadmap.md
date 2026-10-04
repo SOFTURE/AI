@@ -61,7 +61,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-17** | `marketing-kit-og-glyphs` | OG images refuse copy the brand fonts cannot draw | — | autonomous | done_code (2026-10-03; waiting: MK-8 release) |
 | **FU-18** | `marketing-kit-screenshot-variants` | screenshots at a device scale and in both colour schemes | FU-14 | autonomous | done_code (2026-10-04; waiting: MK-8 release) |
 | **FU-19** | `marketing-kit-hook-shot-words` | opening shots after the first without a `word` are refused when the config loads | FU-14 | autonomous | done_code (2026-10-04; waiting: MK-8 release) |
-| **FU-20** | `billing-partial-refunds` | partial refunds take back access by a policy | FU-11 | autonomous | in_progress (implement 1/2, since 2026-10-04; branch `claude/fu-20-ke8s4w`) |
+| **FU-20** | `billing-partial-refunds` | partial refunds take back access by a policy | FU-11 | autonomous | done |
 | **FU-21** | `billing-refund-manual-lifetime` | a manual lifetime grant survives a refunded paid lifetime | FU-9 | autonomous | proposed |
 | **FU-22** | `billing-grant-plan-script` | a `grant-plan` ops script grants and revokes plans without the admin page | FU-9 | autonomous | proposed |
 | **FU-23** | `marketing-kit-og-subset-fonts` | OG images use every subset file of a weight | FU-17 | autonomous | proposed |
@@ -382,8 +382,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-20: Partial refunds take back access by a policy
 - **Change ID:** `billing-partial-refunds`
-- **Status:** in_progress (implement 1/2, since 2026-10-04; branch `claude/fu-20-ke8s4w`)
-- **Input:** [`changes/billing-partial-refunds/change.md`](../changes/billing-partial-refunds/change.md)
+- **Status:** done
+- **Input:** [`archive/2026-10-04-billing-partial-refunds/`](../archive/2026-10-04-billing-partial-refunds/change.md)
 - **Outcome:** A partial refund changes access by a documented policy; partial refunds summing to the full amount act like one full refund.
 - **Prerequisites:** FU-11 on `master` (payments record their grant); runs in lane C after FU-6 (shared files).
 - **Unknowns:** Pro rata by amount vs. a fixed rule; rounding of days; tracking the refunded amount per payment (`charge.amount_refunded`); whether the policy is an option of `billing()`.
@@ -504,6 +504,7 @@ Open from FU-14:
 
 ## Done
 
+- **FU-20** `billing-partial-refunds`: a partial Stripe refund records the cumulative `amount_refunded` (`billing.payments.refunded_amount`, migration `0005`) and, under `billing({ partialRefunds: "pro_rata" })` (the default), takes back the refunded share of the payment's unused days, rounded down; partial refunds summing to the amount end where one full refund does; `keep_access` takes nothing until then; covered by unit tests with signed webhook fixtures; archived in `archive/2026-10-04-billing-partial-refunds/`
 - **FU-6** `billing-reminder-mail`: `sendAccessReminders` (`@softure-ai/billing/mailing`, mailing an optional peer) mails accounts whose trial or paid access ends soon or ended in the last `catchUpDays` days, once per account and window through `mailing.deliveries`; candidates from two range queries (auth `0004` indexes `users.created_at`); the example app runs it from `npm run access-reminders`; archived in `archive/2026-10-04-billing-reminder-mail/`
 - **FU-8** `waitlist-funnel-hook`: `waitlist({ onJoined })` runs in the sign-up's transaction when a sign-up first counts; analytics' `countFunnelStep` counts it under its channel, kept through double opt-in by `rewriteConfirmationLink`; covered by unit and e2e tests; archived in `archive/2026-10-04-waitlist-funnel-hook/`
 - **FU-7** `analytics-action-redirect-tag`: auth's action redirects keep the channel tag through `rewriteRedirect` and analytics' `tagRedirect`, with and without JavaScript, covered by unit and e2e tests; archived in `archive/2026-10-03-analytics-action-redirect-tag/`
