@@ -1,4 +1,4 @@
-import type { ColorTheme } from "./colors.js";
+import { COLOR_THEMES, type ColorTheme } from "./colors.js";
 
 /**
  * The files a `screenshots[]` entry writes: `<id>.png` in the app's colour scheme, or one
@@ -22,7 +22,10 @@ export function getScreenshotShots(entry: ScreenshotNaming, defaultScheme: Color
   return entry.colorSchemes.map((scheme) => ({ name: `${entry.id}-${scheme}`, scheme }));
 }
 
-/** The names of the files the entry writes, whatever the app's colour scheme. */
-export function getScreenshotNames(entry: ScreenshotNaming): string[] {
-  return getScreenshotShots(entry, "light").map((shot) => shot.name);
+/**
+ * Every name an entry with this id writes with or without `colorSchemes`: `<id>`, `<id>-light`,
+ * `<id>-dark`. The capture removes all of them before an entry runs, so no two entries may share one.
+ */
+export function getScreenshotNames(id: string): string[] {
+  return [id, ...COLOR_THEMES.map((scheme) => `${id}-${scheme}`)];
 }

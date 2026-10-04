@@ -3,11 +3,11 @@ import { join } from "node:path";
 
 import { chromium, errors, type Browser, type Page } from "playwright";
 
-import { COLOR_THEMES, type ColorTheme } from "../config/colors.js";
+import type { ColorTheme } from "../config/colors.js";
 import type { MarketingJson } from "../config/schema.js";
+import { getScreenshotNames, getScreenshotShots, type ScreenshotShot } from "../config/screenshot-names.js";
 import { containsPhrase } from "../film.js";
 import { findSizeFailure, findStatusFailure, type ScreenshotGate } from "./gates.js";
-import { getScreenshotNames, getScreenshotShots, type ScreenshotShot } from "../config/screenshot-names.js";
 
 /**
  * `softure-marketing shots`: the `screenshots` entries of `marketing.json`. Each shot of an entry
@@ -136,8 +136,7 @@ async function captureLoadedPage(page: Page, target: ShotTarget): Promise<Screen
 
 /** Removes every file the entry could have written in an earlier run, with or without `colorSchemes`. */
 function removeEntryFiles(outDir: string, entry: ScreenshotEntry): void {
-  const names = new Set([...getScreenshotNames({ id: entry.id }), ...getScreenshotNames({ id: entry.id, colorSchemes: COLOR_THEMES })]);
-  for (const name of names) rmSync(getScreenshotFile(outDir, name), { force: true });
+  for (const name of getScreenshotNames(entry.id)) rmSync(getScreenshotFile(outDir, name), { force: true });
 }
 
 interface TakeShotOptions {

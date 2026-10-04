@@ -547,10 +547,10 @@ export const marketingSchema = z
     checkUnique("ogImages");
     const fileOwners = new Map<string, number>();
     config.screenshots.forEach((entry, index) => {
-      for (const name of getScreenshotNames(entry)) {
+      for (const name of getScreenshotNames(entry.id)) {
         const owner = fileOwners.get(name);
         if (owner !== undefined && owner !== index) {
-          context.addIssue({ code: "custom", path: ["screenshots", index, "id"], message: `writes ${name}.png, as screenshots[${owner}] does` });
+          context.addIssue({ code: "custom", path: ["screenshots", index, "id"], message: `may write ${name}.png, as screenshots[${owner}] may (<id>.png, <id>-light.png, <id>-dark.png)` });
         }
         fileOwners.set(name, owner ?? index);
       }

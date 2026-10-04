@@ -50,7 +50,8 @@ Each entry gets a fresh browser at `width`×`height` CSS px with `app.colorSchem
 `scale` sets the device pixels per CSS pixel (1-4, default 1): at `2` an 800×600 entry is a 1600×1200 PNG,
 sharp on a retina screen or a store listing. `colorSchemes` (e.g. `["light", "dark"]`) captures the entry
 once per scheme, in its own browser, into `<id>-light.png` and `<id>-dark.png`; without it, one `<id>.png`
-in `app.colorScheme`. `shots <id>` takes the entry's id and writes all of its files.
+in `app.colorScheme`. `shots <id>` takes the entry's id and writes all of its files. Since an entry may
+write any of those three names, an id that is another entry's `<id>-light` or `<id>-dark` is refused.
 `full: true` first scrolls the page one screen at a time to the bottom, so lazy images and sections
 load, then captures the whole page. A screenshot is kept only when it passes every gate:
 

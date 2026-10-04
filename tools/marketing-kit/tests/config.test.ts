@@ -263,7 +263,12 @@ describe("loadMarketingConfig", () => {
         { ...shot, colorSchemes: ["light", "dark"] },
         { ...shot, id: "hero-dark" },
       ],
-      "screenshots[1].id: writes hero-dark.png, as screenshots[0] does",
+      "screenshots[1].id: may write hero-dark.png, as screenshots[0] may (<id>.png, <id>-light.png, <id>-dark.png)",
+    ],
+    [
+      "an id that is another entry's scheme file, even without scheme lists",
+      [shot, { ...shot, id: "hero-light" }],
+      "screenshots[1].id: may write hero-light.png, as screenshots[0] may (<id>.png, <id>-light.png, <id>-dark.png)",
     ],
   ])("refuses %s in screenshots, naming its path", (_case, screenshots, message) => {
     expect(loadError({ ...makeConfig(), screenshots })).toContain(`  ${message}`);
