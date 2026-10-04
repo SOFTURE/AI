@@ -77,7 +77,7 @@ async function main() {
   const healthy = await readHealth();
   check(healthy.status === 200, `GET /api/health answers 200 (got ${String(healthy.status)})`);
   check(
-    JSON.stringify(healthy.body) === JSON.stringify({ status: "ok", checks: { database: "ok", guestbook: "ok", auth: "ok", "feature-switches": "ok", "mcp-access": "ok", mailing: "ok", privacy: "ok", waitlist: "ok", analytics: "ok", billing: "ok" } }),
+    JSON.stringify(healthy.body) === JSON.stringify({ status: "ok", checks: { database: "ok", guestbook: "ok", auth: "ok", "feature-switches": "ok", "mcp-access": "ok", mailing: "ok", privacy: "ok", waitlist: "ok", analytics: "ok", billing: "ok", blog: "ok" } }),
     `the answer lists the database, guestbook, auth, feature-switches, mcp-access, mailing, privacy, waitlist, analytics and billing checks (got ${JSON.stringify(healthy.body)})`,
   );
 

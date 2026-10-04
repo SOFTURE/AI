@@ -14,7 +14,7 @@ Verdict: **approved**; no blocking findings, two recorded below.
 | 1.3 tests | Renderer cases; defaults and a FIRE-like `pl` config; no `{{` left; exact catalog in the rules file. |
 | 1.4 sync | Template rows equal the built-in rules of both languages with every switch on; prose mentions are catalog ids. |
 | 2.1 command | `skill install [--dir] [--command] [--check]`, no database, refuses `quality: false` and a foreign `SKILL.md`. |
-| 2.2-2.3 | `files` ships `skill/`; README section and limitation; BF-7. |
+| 2.2-2.3 | `files` ships `skill/`; README section and limitation; BF-9. |
 | Plan review F1-F5 | Four-column rules table (F1); `rules.md` declared authoritative in `SKILL.md` (F2); marker without date or version, render is deterministic (F3, test); `--dir` relative to `cwd`, parents created, folder shown relative (F4); term and article limits filled separately (F5). |
 
 ## Checks

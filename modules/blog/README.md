@@ -4,8 +4,8 @@ Articles and glossary terms kept as Markdown files in the app's repository, and 
 brings the module's tables to the state of those files. The files are the source of truth: there is no
 editor and no CMS, a text changes only through a commit and `softure-blog publish`.
 
-This release holds the content store (roadmap item BL-2), the server-side renderer (BL-3), the text
-quality gate (BL-6) and the writing skill (BL-7). The pages (BL-4) and RSS, sitemap and IndexNow (BL-5) build on them.
+This release holds the content store (roadmap item BL-2), the server-side renderer (BL-3), the pages
+(BL-4), the text quality gate (BL-6) and the writing skill (BL-7). RSS, sitemap and IndexNow (BL-5) build on them.
 
 ## 1. What it provides
 
@@ -19,6 +19,13 @@ quality gate (BL-6) and the writing skill (BL-7). The pages (BL-4) and RSS, site
 - `renderArticle(markdown, options)`: the body as safe HTML on the server (no raw HTML, safe link
   schemes only, marked external links), heading ids and an optional table of contents, glossary links
   on the first mention of a term, block plugins for the app's own fenced blocks, reading time.
+- Pages, each mounted with one re-export line (`@softure-ai/blog/next`): the listing grouped by cluster
+  with the pillar first, an article (dates, summary, contents, FAQ, sources, signature, disclaimer,
+  `BlogPosting`/`BreadcrumbList`/`FAQPage` JSON-LD), the glossary index and a term page (`DefinedTerm`,
+  the articles that explain it), the optional "how our texts are made" page, an article's OG card.
+- `createBlogRedirects` (`@softure-ai/blog/proxy`): 301 from an old slug, 410 for a withdrawn text,
+  in the app's `proxy.ts`.
+- `@softure-ai/blog/styles.css`: the pages and the rendered body on the `--sft-*` tokens.
 - A text quality gate: `softure-blog check` reports structure, link, style, voice and YMYL findings
   with file and line, and `publish` refuses a text going public with an error. Language rulesets
   (`en`, `pl`), severity overrides and rule plugins for the app's own domain.
@@ -37,17 +44,38 @@ Then add `blog()` to the modules of `softure.config.ts` and run `softure migrate
 
 ```ts
 import { blog } from "@softure-ai/blog";
+import { pl } from "./messages/pl";
 import { z } from "zod";
 
 blog({
   // The folder `softure-blog publish` reads when no path is given. Default: "content/blog".
   contentDir: "content/blog",
-  // Slugs taken by the blog's static pages (a glossary index, a method page). Default: none.
-  reservedSlugs: ["glossary"],
+  // Extra slugs an article may not take. The routes' own segments (the glossary, the method page
+  // when on) are reserved by themselves. Default: none.
+  reservedSlugs: [],
   // The app's own frontmatter keys, checked by the app's schema. Default: none.
   fields: z.object({ scenario: z.string().regex(/^[a-z]=\d+(&[a-z]=\d+)*$/).optional() }),
+  // The pages' brand: title suffix, signature, JSON-LD author and publisher, OG card colours (hex).
+  // Default: none (no suffix, no author, the ui theme's dark colours).
+  brand: { name: "FIRE Tracker", colors: { background: "#0b0b0c", foreground: "#f5f5f5", accent: "#7aa2f7" } },
+  // Mount the method page at routes.method. Default: false (the route answers 404).
+  methodPage: true,
+  // A note under every article and term, per locale (en required). Default: none.
+  disclaimer: { en: "Education, not financial advice.", pl: pl.blog.disclaimer },
+  // The heading of each cluster on the listing, per locale; a missing key shows the key. Default: {}.
+  clusters: { "investing-basics": { en: "Investing basics", pl: pl.blog.investingBasics } },
+  // Block plugins of renderArticle, used by the pages. Default: [].
+  blocks: [],
+  // Hosts of the app besides APP_ORIGIN's, whose links are not external. Default: [].
+  siteHosts: ["www.example.com"],
+  // How long the cached reads hold; keep equal to the pages' `revalidate`. Default: 300.
+  revalidateSeconds: 300,
+  // Every route can move: blog({ routes: { index: "/articles" } }).
 });
 ```
+
+Routes: `index` `/blog` (articles at `/blog/<slug>`), `glossary` `/blog/glossary` (terms at
+`/blog/glossary/<slug>`), `method` `/blog/how-we-write`.
 
 `fields` may not reuse a key of the module (`FRONTMATTER_KEYS`). Its parsed value is stored in
 `articles.fields`, enters the content hash and must be plain JSON.
@@ -140,7 +168,53 @@ Rules:
 
 ## 4. Mounting
 
-Nothing yet: the pages arrive with BL-4. The commands:
+Each page is one file in the app. Next reads `dynamic` and `revalidate` only as literals in the app's
+own file, so they stay there; `revalidate` should equal `revalidateSeconds`.
+
+```tsx
+// app/blog/page.tsx: the listing, rendered per request over cached reads
+export { BlogIndexPage as default, generateBlogIndexMetadata as generateMetadata } from "@softure-ai/blog/next";
+export const dynamic = "force-dynamic";
+
+// app/blog/[slug]/page.tsx: an article, kept for 300 s (ISR); slots take the app's components
+import { BlogArticlePage, type BlogArticlePageProps } from "@softure-ai/blog/next";
+export { generateArticleMetadata as generateMetadata, generateBlogStaticParams as generateStaticParams } from "@softure-ai/blog/next";
+export const revalidate = 300;
+export default function Page({ params }: Pick<BlogArticlePageProps, "params">) {
+  return <BlogArticlePage params={params} cta={<MyCta />} afterArticle={<Waitlist placement="blog" />} />;
+}
+
+// app/blog/[slug]/opengraph-image.tsx
+export { BlogArticleOgImage as default, generateBlogStaticParams as generateStaticParams } from "@softure-ai/blog/next";
+export const size = { width: 1200, height: 630 };
+export const contentType = "image/png";
+export const revalidate = 300;
+
+// app/blog/glossary/page.tsx          GlossaryIndexPage, generateGlossaryIndexMetadata; dynamic = "force-dynamic"
+// app/blog/glossary/[slug]/page.tsx   GlossaryTermPage, generateTermMetadata, generateBlogStaticParams; revalidate
+// app/blog/how-we-write/page.tsx      BlogMethodPage, generateMethodMetadata (with methodPage: true)
+```
+
+301 and 410 are answered before the page, in `proxy.ts` (Node.js runtime, Next 16):
+
+```ts
+import { createBlogRedirects } from "@softure-ai/blog/proxy";
+const blogRedirects = createBlogRedirects(softureConfig);
+
+export async function proxy(request: NextRequest) {
+  return (await blogRedirects(request)) ?? NextResponse.next();
+}
+```
+
+It handles GET and HEAD on the blog's text paths only, keeps the query on a redirect, remembers a
+decision for 60 s (`ttlMs`) and passes a request on when the database fails. Import the styles after
+ui's: `@import "@softure-ai/blog/styles.css";`. A data change shows after `revalidateSeconds`, or at
+once with `revalidateTag(BLOG_CACHE_TAG)`. Custom OG fonts: an own `opengraph-image.tsx` calling `renderArticleOgImage({ title, label, brand, fonts })`.
+
+The quality gate resolves internal links through `quality.paths` (default `/blog` and
+`/blog/glossary`, the default routes); an app that moves `routes` sets `quality.paths` to match.
+
+The commands:
 
 ```bash
 softure-blog publish [<path>...] [--commit] [--withdraw] [--config <file>]
@@ -298,15 +372,18 @@ None.
 
 ## 8. Appearance
 
-No components yet (BL-4). The rendered body uses these classes for the app's styles:
-`blog-external`, `blog-external-marker`, `blog-visually-hidden` (must hide visually, keep for screen
-readers), `blog-term`, `blog-toc`, `blog-footnote-ref`, `blog-footnotes`, `blog-footnote-back`.
+`styles.css` styles every `blog-*` class of the pages and of the rendered body (`blog-external`,
+`blog-external-marker`, `blog-visually-hidden`, `blog-term`, `blog-toc`, `blog-footnote-ref`,
+`blog-footnotes`, `blog-footnote-back`) with the `--sft-*` tokens of `@softure-ai/ui`, in the
+`softure` layer, so the app's own rules win. The OG card takes `brand.colors`, else ui's dark theme.
 
 ## 9. Copy
 
 `src/messages/`: labels of the kinds (`kinds.article`, `kinds.term`) and statuses (`statuses.*`) in
 `en` and `pl`; the renderer's copy under `render.*` (notes heading, footnote label with `{number}`,
-back to text, opens in a new tab, contents label), passed as `renderArticle({ messages })`. Command output and file errors are developer output, in English.
+back to text, opens in a new tab, contents label), passed as `renderArticle({ messages })`; the pages'
+copy under `pages.*`, `glossary.*`, `method.*`, `gone.*` (the 410 page) and `og.*`. Override any of it
+with `blog({ messages: { pl: { pages: { readMore: "..." } } } })`. Command output and file errors are developer output, in English.
 
 ## 10. Hooks
 
@@ -336,7 +413,9 @@ export const tickerPlugin: QualityPlugin = {
   plugins in `quality.blocks` (type, info, fence line, `requires`), `today` and the language `ruleset` (for
   its number notation); the text helpers (`toProse`, `splitSentences`, `findSignificantNumbers`, …) are
   exported from `@softure-ai/blog/server`.
-- `renderArticle({ blocks })`: block plugins for the app's fenced blocks (FIRE_TRACKER's engine chart).
+- `renderArticle({ blocks })` and `blog({ blocks })`: block plugins for the app's fenced blocks
+  (FIRE_TRACKER's engine chart).
+- The pages' `cta` and `afterArticle` slots: the app's call to action and blocks (a waitlist form).
 
 ## 11. GDPR
 
@@ -348,6 +427,9 @@ Articles hold editorial content, no personal data: nothing to export or delete.
   fails on the unique constraint instead of reporting `blog.slug_taken`.
 - The content hash is part of the contract: a field added later enters it only when present.
 - No `--stdin` (a deploy transport) and no IndexNow submit (BL-5).
+- The pages' URLs (canonical, JSON-LD, OG) are built on `appOrigin`, not on the canonical host and
+  trailing-slash rule of `@softure-ai/seo` (BF-9).
+- The OG card uses the default font of `next/og`; an app passes `fonts` to `renderArticleOgImage` for another.
 - The renderer has no images and no raw HTML. A plugin fence inside a list or a quote stays a code
   block (a block node cannot sit inside a list's HTML).
 - The gate reads Markdown line by line (blocks, not a syntax tree): enough for the rules, not a
@@ -359,7 +441,7 @@ Articles hold editorial content, no personal data: nothing to export or delete.
   `crucial`, `myslniki` → `dashes`, …; the map is in the change archive), and the writing skill
   (`skill install`, replacing FIRE's `blog-pisz`) names them.
 - The generated skill has no sections of the app's own yet (FIRE_TRACKER's engine numbers,
-  calculator scenario and chart block); keep them in a second skill of the app (BF-7).
+  calculator scenario and chart block); keep them in a second skill of the app (BF-9).
 - **Adopting from FIRE_TRACKER:** rename the frontmatter keys once (`typ` → `kind` with `artykul` →
   `article` and `termin` → `term`, `formy` → `forms`, `klaster` → `cluster`, `filar` → `pillar`,
   `tytul` → `title`, `opis` → `description`, `w_skrocie` → `summary`, `aktualne_na` →

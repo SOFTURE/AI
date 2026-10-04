@@ -28,6 +28,10 @@ describe("findBrokenLinks", () => {
     expect(findBrokenLinks("docs/a.md", text, files)).toEqual([]);
   });
 
+  it("ignores footnote definitions", () => {
+    expect(findBrokenLinks("docs/a.md", "Text.[^fee]\n\n[^fee]: The fee is listed.\n", files)).toEqual([]);
+  });
+
   it("ignores external links, mail links and same-page anchors", () => {
     const text = "[web](https://example.com/x.md) [mail](mailto:a@b.c) [top](#top)\n";
     expect(findBrokenLinks("docs/a.md", text, files)).toEqual([]);

@@ -57,7 +57,7 @@ and with `--check` only compares.
    install overwrites; a folder with a foreign `SKILL.md` is refused and untouched; `--check` green
    after install, red after a config change and on a missing folder; `quality: false` refused;
    usage errors exit 2.
-5. Gap BF-7 in `roadmap-blog-followups` (app sections in the generated skill).
+5. Gap BF-9 in `roadmap-blog-followups` (app sections in the generated skill).
 
 ### Phase 2 checks
 

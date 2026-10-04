@@ -7,7 +7,8 @@ export interface LinkTarget {
 
 const FENCE = /^\s{0,3}(```|~~~)/;
 const INLINE_LINK = /\[[^\]]*\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)/g;
-const REFERENCE_DEFINITION = /^\s{0,3}\[[^\]]+\]:\s*<?(\S+?)>?(?:\s|$)/;
+// A footnote definition (`[^note]: text`) is not a link reference.
+const REFERENCE_DEFINITION = /^\s{0,3}\[(?!\^)[^\]]+\]:\s*<?(\S+?)>?(?:\s|$)/;
 const SCHEME = /^[a-z][a-z0-9+.-]*:/i;
 
 function removeCodeSpans(line: string): string {

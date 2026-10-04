@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import type { SoftureConfig } from "@softure-ai/core";
 import { listQualityRules, type QualityCatalogRule } from "../quality/catalog.js";
 import type { QualitySettings } from "../quality/settings.js";
-import { getBlogOptions, getQualitySettings } from "../server/options.js";
+import { getBlogOptions, getBlogReservedSlugs, getQualitySettings } from "../server/options.js";
 
 /** The folder the skill installs into, relative to the app's root. */
 export const DEFAULT_SKILL_DIR = ".claude/skills/blog-write";
@@ -53,6 +53,7 @@ export function getSkillValues(config: SoftureConfig, settings: QualitySettings,
   const blogOptions = getBlogOptions(config);
   const { limits, ymyl, voice, paths, plugins } = settings.options;
   const fieldKeys = Object.keys(blogOptions.fields?.shape ?? {});
+  const reservedSlugs = getBlogReservedSlugs(config);
   return {
     command: options.command ?? DEFAULT_SKILL_COMMAND,
     language: settings.ruleset.language,
@@ -82,8 +83,8 @@ export function getSkillValues(config: SoftureConfig, settings: QualitySettings,
     plugins: plugins.length > 0,
     fields: fieldKeys.length > 0,
     fieldKeys: fieldKeys.map((key) => `\`${key}\``).join(", "),
-    reservedSlugs: blogOptions.reservedSlugs.length > 0,
-    reservedSlugList: blogOptions.reservedSlugs.map((slug) => `\`${slug}\``).join(", "),
+    reservedSlugs: reservedSlugs.length > 0,
+    reservedSlugList: reservedSlugs.map((slug) => `\`${slug}\``).join(", "),
     appRules: "",
   };
 }

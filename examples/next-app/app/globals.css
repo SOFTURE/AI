@@ -1,5 +1,6 @@
 /* The package CSS only: the example uses no Tailwind of its own, like an app that only consumes ui. */
 @import "@softure-ai/ui/styles.css";
+@import "@softure-ai/blog/styles.css";
 
 :root {
   /* The reading width of the page; the token set has no layout widths. */
@@ -59,4 +60,19 @@ body {
 .stack {
   display: grid;
   gap: var(--sft-space-4);
+}
+
+/* The example's call to action on the blog (app/blog/blog-cta.tsx). */
+.blog-example-cta {
+  display: grid;
+  justify-items: start;
+  gap: var(--sft-space-3);
+  padding: var(--sft-space-6);
+  border-radius: var(--sft-radius-card);
+  background: var(--sft-color-surface);
+  border: 1px solid var(--sft-color-border);
+}
+
+.blog-example-cta p {
+  margin: 0;
 }
