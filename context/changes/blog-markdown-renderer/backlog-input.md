@@ -15,7 +15,7 @@ Server-side Markdown renderer with an allowlist, heading anchors, glossary auto-
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **BL-3** (roadmap `blog`, main since 2026-10-04):
+From [`roadmap.md`](../../foundation/roadmap.md), item **BL-3** (roadmap `blog`, main since 2026-10-04):
 
 > ### BL-3: Safe Markdown renderer with glossary links
 > - **Change ID:** `blog-markdown-renderer`
@@ -35,8 +35,8 @@ From [`roadmap.md`](../../../foundation/roadmap.md), item **BL-3** (roadmap `blo
 > - **PRD refs:** FR-29, NFR-5.
 > - **Source (FIRE_TRACKER, read only):** `src/lib/blog-markdown.ts`, `src/lib/blog-glossary.ts`, `src/lib/blog-chart-html.ts` (only as the plugin example)
 
-Reference material: [`docs/06-fire-extraction-2.md`](../../../../docs/06-fire-extraction-2.md) (the FIRE_TRACKER source map and the split rules),
-[`docs/02-module-standard.md`](../../../../docs/02-module-standard.md) (the standard). FIRE_TRACKER is read only:
+Reference material: [`docs/06-fire-extraction-2.md`](../../../docs/06-fire-extraction-2.md) (the FIRE_TRACKER source map and the split rules),
+[`docs/02-module-standard.md`](../../../docs/02-module-standard.md) (the standard). FIRE_TRACKER is read only:
 copy its code, never change it.
 
 ## Constraints
