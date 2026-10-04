@@ -1,7 +1,19 @@
 // The options an app passes to `waitlist({ ... })` in softure.config.ts, parsed at startup.
-import { LOCALES } from "@softure-ai/core";
+import { LOCALES, type ModuleContext, type SoftureConfig } from "@softure-ai/core";
+import type { Queryable } from "@softure-ai/db";
 import { z } from "zod";
+import type { WaitlistJoinedEvent } from "./contract.js";
 import type { WaitlistMailTemplate } from "./mail-template.js";
+
+/** Runs inside the sign-up's transaction; a thrown error rolls the sign-up back. */
+export type OnJoinedHook = (event: WaitlistJoinedEvent, ctx: ModuleContext<Queryable>) => Promise<void> | void;
+
+/**
+ * Rewrites the path of the confirmation link (the confirm route with its token), e.g. to add the
+ * analytics channel tag. A result that is not a path on this app, or that drops the token, and a
+ * failure leave the module's own path.
+ */
+export type RewriteConfirmationLink = (path: string, ctx: { readonly config: SoftureConfig }) => Promise<string> | string;
 
 /** Kebab-case, at most 64 characters: scope ids are consent purposes in privacy's ledger. */
 export const NAME_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
@@ -65,6 +77,13 @@ export const waitlistOptionsSchema = z
      * Without it, the module sends a plain HTML body built from the same copy.
      */
     mailTemplate: z.custom<WaitlistMailTemplate>((value) => typeof value === "function", "must be a function").optional(),
+    /**
+     * Called when a sign-up counts for the first time (at once, or when its link is used), in the
+     * same transaction (e.g. to count it in the analytics funnel). Not called for repeat sign-ups.
+     */
+    onJoined: z.custom<OnJoinedHook>((value) => typeof value === "function", "must be a function").optional(),
+    /** Rewrites the confirmation link's path (e.g. to keep the analytics channel tag through the mail). */
+    rewriteConfirmationLink: z.custom<RewriteConfirmationLink>((value) => typeof value === "function", "must be a function").optional(),
   })
   .superRefine((options, context) => {
     const findDuplicates = (values: readonly string[], toPath: (index: number) => (string | number)[]) => {

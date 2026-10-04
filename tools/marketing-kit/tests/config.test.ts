@@ -239,8 +239,39 @@ describe("loadMarketingConfig", () => {
       screenshots: [{ id: "landing", path: "/", width: 1440, height: 900, expect: "Count your date" }],
       ogImages: [{ id: "calculator", template: "headline-cta", data: { headline: "Count" } }],
     });
-    expect(loaded.screenshots).toEqual([{ id: "landing", path: "/", width: 1440, height: 900, full: false, expect: "Count your date", motion: "reduce", minBytes: 40_000 }]);
+    expect(loaded.screenshots).toEqual([
+      { id: "landing", path: "/", width: 1440, height: 900, full: false, expect: "Count your date", motion: "reduce", minBytes: 40_000, scale: 1 },
+    ]);
     expect(loaded.ogImages).toEqual([{ id: "calculator", template: "headline-cta", size: [1200, 630], data: { headline: "Count", tiles: [] } }]);
+  });
+
+  const shot = { id: "hero", path: "/", width: 1440, height: 900, expect: "Count your date" };
+
+  it("takes a screenshot's device scale and colour schemes as written", () => {
+    const loaded = load({ ...makeConfig(), screenshots: [{ ...shot, scale: 2, colorSchemes: ["dark", "light"] }] });
+    expect(loaded.screenshots[0]).toMatchObject({ scale: 2, colorSchemes: ["dark", "light"] });
+  });
+
+  it.each([
+    ["a scale below 1", [{ ...shot, scale: 0.5 }], "screenshots[0].scale: Too small: expected number to be >=1"],
+    ["a scale above 4", [{ ...shot, scale: 5 }], "screenshots[0].scale: Too big: expected number to be <=4"],
+    ["an empty scheme list", [{ ...shot, colorSchemes: [] }], "screenshots[0].colorSchemes: Too small: expected array to have >=1 items"],
+    ["a scheme listed twice", [{ ...shot, colorSchemes: ["dark", "dark"] }], "screenshots[0].colorSchemes: lists a scheme twice"],
+    [
+      "two entries writing one file",
+      [
+        { ...shot, colorSchemes: ["light", "dark"] },
+        { ...shot, id: "hero-dark" },
+      ],
+      "screenshots[1].id: may write hero-dark.png, as screenshots[0] may (<id>.png, <id>-light.png, <id>-dark.png)",
+    ],
+    [
+      "an id that is another entry's scheme file, even without scheme lists",
+      [shot, { ...shot, id: "hero-light" }],
+      "screenshots[1].id: may write hero-light.png, as screenshots[0] may (<id>.png, <id>-light.png, <id>-dark.png)",
+    ],
+  ])("refuses %s in screenshots, naming its path", (_case, screenshots, message) => {
+    expect(loadError({ ...makeConfig(), screenshots })).toContain(`  ${message}`);
   });
 
   it("reports a missing file with its path", () => {

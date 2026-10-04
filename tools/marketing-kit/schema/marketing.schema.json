@@ -2574,10 +2574,29 @@
           },
           "minBytes": {
             "default": 40000,
-            "description": "Smaller files are deleted and refused (a blank or broken page).",
+            "description": "Smaller files are deleted and refused (a blank or broken page); applies to every file of the entry, whatever its scale.",
             "type": "integer",
             "minimum": 0,
             "maximum": 9007199254740991
+          },
+          "scale": {
+            "default": 1,
+            "description": "Device pixels per CSS pixel (1-4): the PNG is width × scale by height × scale pixels, e.g. 2 for a retina store listing.",
+            "type": "number",
+            "minimum": 1,
+            "maximum": 4
+          },
+          "colorSchemes": {
+            "description": "Capture each listed scheme into its own <id>-<scheme>.png, e.g. [\"light\", \"dark\"]; without it, one <id>.png in app.colorScheme.",
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "light",
+                "dark"
+              ]
+            }
           }
         },
         "required": [

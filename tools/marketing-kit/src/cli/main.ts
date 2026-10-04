@@ -171,7 +171,7 @@ async function shots(config: MarketingConfig, options: ShotsOptions): Promise<vo
   }
   for (const result of results) {
     if (result.ok) console.log(`✓ ${result.file} (${(result.bytes / 1000).toFixed(0)} kB)`);
-    else console.error(`✗ ${result.id}: ${result.message}`);
+    else console.error(`✗ ${result.name}: ${result.message}`);
   }
   const failed = results.filter((result) => !result.ok).length;
   if (failed > 0) fail(`${failed} of ${results.length} screenshots failed their gates; see above.`);

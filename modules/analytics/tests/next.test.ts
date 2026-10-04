@@ -15,7 +15,7 @@ vi.mock("next/headers", () => ({ headers: () => Promise.resolve(requestHeaders) 
 const config = createConfig();
 vi.mock("@softure-ai/core/next", () => ({ getSoftureConfig: () => config }));
 
-const { attributeRegistration, countRegistration, getChannel, getChannelFromSearchParams, tagRedirect } = await import("@softure-ai/analytics/next");
+const { attributeRegistration, countFunnelStep, countRegistration, getChannel, getChannelFromSearchParams, tagRedirect } = await import("@softure-ai/analytics/next");
 const { ChannelKeeper } = await import("@softure-ai/analytics/next/channel-keeper");
 const { getChannelRule } = await import("@softure-ai/analytics/server");
 
@@ -108,6 +108,20 @@ describe("attributeRegistration", () => {
     requestHeaders.set("referer", `${APP_ORIGIN}/register?z=newsletter`);
     const hook = attributeRegistration(() => Promise.reject(new Error("channel store is down")));
     await expect(hook(event, { config })).rejects.toThrow("channel store is down");
+  });
+});
+
+describe("countFunnelStep", () => {
+  it("counts any module's event (here a waitlist sign-up) under its step and channel", async () => {
+    const test = await createTestFunnel();
+    try {
+      requestHeaders.set("referer", `${APP_ORIGIN}/?z=newsletter`);
+      const hook = countFunnelStep("signup");
+      await test.database.db.transaction((tx) => hook({ signup: { id: "signup-1" }, via: "confirmation" }, { ...test.ctx, db: tx }));
+      expect((await listCounts(test)).map(({ channel, step, count }) => ({ channel, step, count }))).toEqual([{ channel: "newsletter", step: "signup", count: 1 }]);
+    } finally {
+      await test.database.close();
+    }
   });
 });
 
