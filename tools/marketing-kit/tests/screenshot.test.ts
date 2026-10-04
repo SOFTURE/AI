@@ -7,18 +7,24 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { findSizeFailure, findStatusFailure } from "../src/screenshot/gates.js";
+import { getScreenshotShots } from "../src/config/screenshot-names.js";
 import { getScreenshotFile, takeScreenshots, type ScreenshotEntry, type TakeScreenshotsOptions } from "../src/screenshot/screenshot.js";
 import { CHROMIUM_PATH, hasChromium } from "./chromium.js";
 
 const PAGES = join(import.meta.dirname, "fixtures", "screenshots");
 
 function makeEntry(overrides: Partial<ScreenshotEntry> & Pick<ScreenshotEntry, "id" | "path" | "expect">): ScreenshotEntry {
-  return { width: 800, height: 600, full: false, motion: "reduce", minBytes: 0, ...overrides };
+  return { width: 800, height: 600, full: false, motion: "reduce", minBytes: 0, scale: 1, ...overrides };
 }
 
 /** Height of a PNG from its IHDR chunk. */
 function readPngHeight(file: string): number {
   return readFileSync(file).readUInt32BE(20);
+}
+
+/** Width of a PNG from its IHDR chunk. */
+function readPngWidth(file: string): number {
+  return readFileSync(file).readUInt32BE(16);
 }
 
 describe("screenshot gates", () => {
@@ -36,6 +42,19 @@ describe("screenshot gates", () => {
   it("passes a file of exactly minBytes and refuses one byte less", () => {
     expect(findSizeFailure(40_000, 40_000)).toBeNull();
     expect(findSizeFailure(39_999, 40_000)).toBe("the file has 39999 bytes, below minBytes 40000 (a blank or broken page); deleted");
+  });
+});
+
+describe("screenshot shots", () => {
+  it("takes one shot named by the id in the app's scheme without colorSchemes", () => {
+    expect(getScreenshotShots({ id: "hero" }, "dark")).toEqual([{ name: "hero", scheme: "dark" }]);
+  });
+
+  it("takes one suffixed shot per listed scheme, in the listed order", () => {
+    expect(getScreenshotShots({ id: "hero", colorSchemes: ["dark", "light"] }, "light")).toEqual([
+      { name: "hero-dark", scheme: "dark" },
+      { name: "hero-light", scheme: "light" },
+    ]);
   });
 });
 
@@ -81,7 +100,7 @@ describe.runIf(hasChromium)("takeScreenshots against static pages", () => {
 
   it("refuses an HTTP 404 even when the error page shows the phrase, and writes no file", async () => {
     const [result] = await take([makeEntry({ id: "missing", path: "/missing.html", expect: "Count your date" })]);
-    expect(result).toEqual({ ok: false, id: "missing", gate: "status", message: `HTTP 404 from ${baseUrl}/missing.html` });
+    expect(result).toEqual({ ok: false, id: "missing", name: "missing", gate: "status", message: `HTTP 404 from ${baseUrl}/missing.html` });
     expect(existsSync(getScreenshotFile(outDir, "missing"))).toBe(false);
   });
 
@@ -93,7 +112,7 @@ describe.runIf(hasChromium)("takeScreenshots against static pages", () => {
 
   it("refuses a page without the expected phrase", async () => {
     const [result] = await take([makeEntry({ id: "wrong-phrase", path: "/plain.html", expect: "Count your date" })]);
-    expect(result).toEqual({ ok: false, id: "wrong-phrase", gate: "phrase", message: `${baseUrl}/plain.html does not show "Count your date"` });
+    expect(result).toEqual({ ok: false, id: "wrong-phrase", name: "wrong-phrase", gate: "phrase", message: `${baseUrl}/plain.html does not show "Count your date"` });
     expect(existsSync(getScreenshotFile(outDir, "wrong-phrase"))).toBe(false);
   });
 
@@ -144,6 +163,35 @@ describe.runIf(hasChromium)("takeScreenshots against static pages", () => {
       browser: { colorScheme: "light", locale: "en-US", timezone: "UTC", hideSelectors: [".banner"] },
     });
     expect(result).toMatchObject({ ok: false, gate: "phrase" });
+  });
+
+  it("captures at the entry's device scale", async () => {
+    const [result] = await take([makeEntry({ id: "retina", path: "/plain.html", expect: "Almost empty", scale: 2 })]);
+    expect(result).toMatchObject({ ok: true, name: "retina" });
+    const file = getScreenshotFile(outDir, "retina");
+    expect([readPngWidth(file), readPngHeight(file)]).toEqual([1600, 1200]);
+  });
+
+  it("captures and gates each listed scheme on its own file", async () => {
+    const results = await take([makeEntry({ id: "pair", path: "/motion.html", expect: "Scheme dark", colorSchemes: ["light", "dark"] })]);
+    expect(results).toEqual([
+      { ok: false, id: "pair", name: "pair-light", gate: "phrase", message: `${baseUrl}/motion.html does not show "Scheme dark"` },
+      { ok: true, id: "pair", name: "pair-dark", file: getScreenshotFile(outDir, "pair-dark"), bytes: expect.any(Number) as number },
+    ]);
+    expect(existsSync(getScreenshotFile(outDir, "pair-light"))).toBe(false);
+    expect(existsSync(getScreenshotFile(outDir, "pair-dark"))).toBe(true);
+  });
+
+  it("removes the older single file of an entry that now lists its schemes, and the pair of one that no longer does", async () => {
+    mkdirSync(outDir, { recursive: true });
+    writeFileSync(getScreenshotFile(outDir, "switched"), "an old screenshot");
+    await take([makeEntry({ id: "switched", path: "/motion.html", expect: "Scheme", colorSchemes: ["light", "dark"] })]);
+    expect(existsSync(getScreenshotFile(outDir, "switched"))).toBe(false);
+    expect(existsSync(getScreenshotFile(outDir, "switched-light"))).toBe(true);
+    await take([makeEntry({ id: "switched", path: "/motion.html", expect: "Scheme" })]);
+    expect(existsSync(getScreenshotFile(outDir, "switched-light"))).toBe(false);
+    expect(existsSync(getScreenshotFile(outDir, "switched-dark"))).toBe(false);
+    expect(existsSync(getScreenshotFile(outDir, "switched"))).toBe(true);
   });
 
   it("goes on after a failed entry", async () => {

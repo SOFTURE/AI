@@ -7,6 +7,7 @@ import { CHANNEL_CODE_MAX_LENGTH, CHANNEL_CODE_PATTERN, DEFAULT_LINK_IN_BIO, PLA
 import { ELEVENLABS_DEFAULT_MODEL } from "../voice/voiceover.js";
 import { actionSchema, type SceneAction } from "./actions-schema.js";
 import { COLOR_ROLES, COLOR_THEMES, isHexColor, type ColorRole } from "./colors.js";
+import { getScreenshotNames } from "./screenshot-names.js";
 
 /**
  * `marketing.json`: everything product-specific about a project's marketing material. One zod schema
@@ -394,7 +395,14 @@ const screenshotSchema = z.strictObject({
   full: z.boolean().default(false).describe("Capture the whole page, scrolled first so lazy images load, instead of the viewport."),
   expect: nonBlank.describe("A phrase the page must show within 5 s of loading, or the screenshot is refused."),
   motion: z.enum(["reduce", "no-preference"]).default("reduce").describe("The reduced-motion preference of the browser."),
-  minBytes: z.number().int().min(0).default(40_000).describe("Smaller files are deleted and refused (a blank or broken page)."),
+  minBytes: z.number().int().min(0).default(40_000).describe("Smaller files are deleted and refused (a blank or broken page); applies to every file of the entry, whatever its scale."),
+  scale: z.number().min(1).max(4).default(1).describe("Device pixels per CSS pixel (1-4): the PNG is width × scale by height × scale pixels, e.g. 2 for a retina store listing."),
+  colorSchemes: z
+    .array(z.enum(COLOR_THEMES))
+    .min(1)
+    .refine((schemes) => new Set(schemes).size === schemes.length, "lists a scheme twice")
+    .optional()
+    .describe('Capture each listed scheme into its own <id>-<scheme>.png, e.g. ["light", "dark"]; without it, one <id>.png in app.colorScheme.'),
 });
 
 const ogImageBase = {
@@ -537,6 +545,16 @@ export const marketingSchema = z
     checkUnique("videos");
     checkUnique("screenshots");
     checkUnique("ogImages");
+    const fileOwners = new Map<string, number>();
+    config.screenshots.forEach((entry, index) => {
+      for (const name of getScreenshotNames(entry)) {
+        const owner = fileOwners.get(name);
+        if (owner !== undefined && owner !== index) {
+          context.addIssue({ code: "custom", path: ["screenshots", index, "id"], message: `writes ${name}.png, as screenshots[${owner}] does` });
+        }
+        fileOwners.set(name, owner ?? index);
+      }
+    });
     const videoIds = new Set(config.videos.map((video) => video.id));
     const posted = new Set<string>();
     config.social?.posts.forEach((post, index) => {

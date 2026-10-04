@@ -1,24 +1,27 @@
 import { mkdirSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-import { chromium, errors, type Page } from "playwright";
+import { chromium, errors, type Browser, type Page } from "playwright";
 
-import type { ColorTheme } from "../config/colors.js";
+import { COLOR_THEMES, type ColorTheme } from "../config/colors.js";
 import type { MarketingJson } from "../config/schema.js";
 import { containsPhrase } from "../film.js";
 import { findSizeFailure, findStatusFailure, type ScreenshotGate } from "./gates.js";
+import { getScreenshotNames, getScreenshotShots, type ScreenshotShot } from "../config/screenshot-names.js";
 
 /**
- * `softure-marketing shots`: the `screenshots` entries of `marketing.json`, each in a fresh browser
- * context with its own viewport and motion preference, kept only when it passes every gate
- * (`gates.ts`). A failed entry leaves no file behind, not even an older one: a stale PNG must never
- * look like a fresh pass.
+ * `softure-marketing shots`: the `screenshots` entries of `marketing.json`. Each shot of an entry
+ * (one per colour scheme, `config/screenshot-names.ts`) gets a fresh browser context with the entry's viewport, device
+ * scale and motion preference, and is kept only when it passes every gate (`gates.ts`) on its own.
+ * Every file an entry could write is removed before it runs, so a failed shot leaves no file behind,
+ * not even an older one: a stale PNG must never look like a fresh pass.
  */
 
 export type ScreenshotEntry = MarketingJson["screenshots"][number];
 
 /** How the browser presents itself to the app, from `marketing.json`. */
 export interface ScreenshotBrowser {
+  /** The scheme of an entry without `colorSchemes`. */
   colorScheme: ColorTheme;
   /** BCP 47, e.g. `en-US`. */
   locale: string;
@@ -32,16 +35,17 @@ export interface TakeScreenshotsOptions {
   entries: ScreenshotEntry[];
   /** The app's address; each entry's `path` resolves against it. */
   baseUrl: string;
-  /** Folder of the PNG files (`<outDir>/<id>.png`). */
+  /** Folder of the PNG files (`<outDir>/<name>.png`). */
   outDir: string;
   browser: ScreenshotBrowser;
   /** A Chromium to use instead of Playwright's own (`PLAYWRIGHT_CHROMIUM_PATH`). */
   executablePath?: string;
 }
 
+/** `id` is the entry's, `name` the file's without `.png` (`<id>` or `<id>-<scheme>`). */
 export type ScreenshotResult =
-  | { ok: true; id: string; file: string; bytes: number }
-  | { ok: false; id: string; gate: ScreenshotGate; message: string };
+  | { ok: true; id: string; name: string; file: string; bytes: number }
+  | { ok: false; id: string; name: string; gate: ScreenshotGate; message: string };
 
 const NAVIGATION_TIMEOUT_MS = 30_000;
 /** How long client-side rendering gets to show the expected phrase after the page loaded. */
@@ -51,8 +55,8 @@ const PHRASE_POLL_MS = 250;
 const MAX_SCROLL_STEPS = 100;
 const SCROLL_PAUSE_MS = 150;
 
-export function getScreenshotFile(outDir: string, id: string): string {
-  return join(outDir, `${id}.png`);
+export function getScreenshotFile(outDir: string, name: string): string {
+  return join(outDir, `${name}.png`);
 }
 
 /** Scrolls one viewport at a time to the bottom so lazy images and sections load, then back to the top. */
@@ -82,44 +86,102 @@ function describeError(error: unknown): string {
   return error instanceof Error ? (error.message.split("\n")[0] ?? error.name) : String(error);
 }
 
-async function takeOne(page: Page, entry: ScreenshotEntry, url: string, file: string): Promise<ScreenshotResult> {
+/** One file to capture: the entry it belongs to, its name, the page and the file. */
+interface ShotTarget {
+  entry: ScreenshotEntry;
+  name: string;
+  url: string;
+  file: string;
+}
+
+async function takeOne(page: Page, target: ShotTarget): Promise<ScreenshotResult> {
+  const { entry, name, url } = target;
+  const refuse = (gate: ScreenshotGate, message: string): ScreenshotResult => ({ ok: false, id: entry.id, name, gate, message });
   let status: number | null;
   try {
     const response = await page.goto(url, { waitUntil: "networkidle", timeout: NAVIGATION_TIMEOUT_MS });
     status = response?.status() ?? null;
   } catch (error) {
     // Any navigation failure (refused connection, DNS, timeout) is the page's, not a bug of ours.
-    return { ok: false, id: entry.id, gate: "load", message: `loading ${url}: ${describeError(error)}` };
+    return refuse("load", `loading ${url}: ${describeError(error)}`);
   }
   const statusFailure = findStatusFailure(status, url);
-  if (statusFailure !== null) return { ok: false, id: entry.id, gate: "status", message: statusFailure };
+  if (statusFailure !== null) return refuse("status", statusFailure);
   try {
-    return await captureLoadedPage(page, entry, url, file);
+    return await captureLoadedPage(page, target);
   } catch (error) {
     // A page that never settles (long polling keeps the network busy, a frozen script) times out;
     // any other error is a bug and propagates.
     if (!(error instanceof errors.TimeoutError)) throw error;
-    return { ok: false, id: entry.id, gate: "load", message: `capturing ${url}: ${describeError(error)}` };
+    return refuse("load", `capturing ${url}: ${describeError(error)}`);
   }
 }
 
-async function captureLoadedPage(page: Page, entry: ScreenshotEntry, url: string, file: string): Promise<ScreenshotResult> {
+async function captureLoadedPage(page: Page, target: ShotTarget): Promise<ScreenshotResult> {
+  const { entry, name, url, file } = target;
   await page.evaluate(() => document.fonts.ready);
   if (entry.full) await scrollThroughPage(page);
   if (!(await waitForPhrase(page, entry.expect))) {
-    return { ok: false, id: entry.id, gate: "phrase", message: `${url} does not show "${entry.expect}"` };
+    return { ok: false, id: entry.id, name, gate: "phrase", message: `${url} does not show "${entry.expect}"` };
   }
   await page.screenshot({ path: file, fullPage: entry.full });
   const bytes = statSync(file).size;
   const sizeFailure = findSizeFailure(bytes, entry.minBytes);
   if (sizeFailure !== null) {
     rmSync(file, { force: true });
-    return { ok: false, id: entry.id, gate: "size", message: sizeFailure };
+    return { ok: false, id: entry.id, name, gate: "size", message: sizeFailure };
   }
-  return { ok: true, id: entry.id, file, bytes };
+  return { ok: true, id: entry.id, name, file, bytes };
 }
 
-/** Takes every entry in order; one failing entry does not stop the others. */
+/** Removes every file the entry could have written in an earlier run, with or without `colorSchemes`. */
+function removeEntryFiles(outDir: string, entry: ScreenshotEntry): void {
+  const names = new Set([...getScreenshotNames({ id: entry.id }), ...getScreenshotNames({ id: entry.id, colorSchemes: COLOR_THEMES })]);
+  for (const name of names) rmSync(getScreenshotFile(outDir, name), { force: true });
+}
+
+interface TakeShotOptions {
+  browser: Browser;
+  settings: ScreenshotBrowser;
+  entry: ScreenshotEntry;
+  shot: ScreenshotShot;
+  baseUrl: string;
+  outDir: string;
+}
+
+async function takeShot(options: TakeShotOptions): Promise<ScreenshotResult> {
+  const { browser, settings, entry, shot } = options;
+  const context = await browser.newContext({
+    viewport: { width: entry.width, height: entry.height },
+    deviceScaleFactor: entry.scale,
+    colorScheme: shot.scheme,
+    locale: settings.locale,
+    timezoneId: settings.timezone,
+    reducedMotion: entry.motion,
+  });
+  try {
+    const page = await context.newPage();
+    // One tag per selector, so a selector the browser cannot parse drops only its own rule;
+    // instant scrolling, because "smooth" would still be moving when the full page is captured.
+    // An init script, so the rules hold from the first paint, before the gates read the page.
+    const css = [...settings.hideSelectors.map((selector) => `${selector}{display:none!important}`), "html{scroll-behavior:auto!important}"];
+    await page.addInitScript((rules: string[]) => {
+      document.addEventListener("DOMContentLoaded", () => {
+        for (const rule of rules) {
+          const style = document.createElement("style");
+          style.textContent = rule;
+          document.head.append(style);
+        }
+      });
+    }, css);
+    const target = { entry, name: shot.name, url: new URL(entry.path, options.baseUrl).href, file: getScreenshotFile(options.outDir, shot.name) };
+    return await takeOne(page, target);
+  } finally {
+    await context.close();
+  }
+}
+
+/** Takes every shot of every entry in order; one failing shot does not stop the others. */
 export async function takeScreenshots(options: TakeScreenshotsOptions): Promise<ScreenshotResult[]> {
   const { entries, baseUrl, outDir, browser: settings } = options;
   mkdirSync(outDir, { recursive: true });
@@ -127,33 +189,9 @@ export async function takeScreenshots(options: TakeScreenshotsOptions): Promise<
   const results: ScreenshotResult[] = [];
   try {
     for (const entry of entries) {
-      const file = getScreenshotFile(outDir, entry.id);
-      rmSync(file, { force: true });
-      const context = await browser.newContext({
-        viewport: { width: entry.width, height: entry.height },
-        colorScheme: settings.colorScheme,
-        locale: settings.locale,
-        timezoneId: settings.timezone,
-        reducedMotion: entry.motion,
-      });
-      try {
-        const page = await context.newPage();
-        // One tag per selector, so a selector the browser cannot parse drops only its own rule;
-        // instant scrolling, because "smooth" would still be moving when the full page is captured.
-        // An init script, so the rules hold from the first paint, before the gates read the page.
-        const css = [...settings.hideSelectors.map((selector) => `${selector}{display:none!important}`), "html{scroll-behavior:auto!important}"];
-        await page.addInitScript((rules: string[]) => {
-          document.addEventListener("DOMContentLoaded", () => {
-            for (const rule of rules) {
-              const style = document.createElement("style");
-              style.textContent = rule;
-              document.head.append(style);
-            }
-          });
-        }, css);
-        results.push(await takeOne(page, entry, new URL(entry.path, baseUrl).href, file));
-      } finally {
-        await context.close();
+      removeEntryFiles(outDir, entry);
+      for (const shot of getScreenshotShots(entry, settings.colorScheme)) {
+        results.push(await takeShot({ browser, settings, entry, shot, baseUrl, outDir }));
       }
     }
   } finally {

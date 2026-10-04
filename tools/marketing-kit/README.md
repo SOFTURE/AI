@@ -47,6 +47,10 @@ recordings and compositions in `<output.buildDir>/<video>/`. None of it belongs 
 `shots` captures every `screenshots[]` entry, or the one named, into `<output.dir>/screenshots/<id>.png`.
 Each entry gets a fresh browser at `width`×`height` CSS px with `app.colorScheme`, `brand.locale`,
 `brand.timezone`, `app.hideSelectors` hidden and its own `motion` preference (`reduce` by default).
+`scale` sets the device pixels per CSS pixel (1-4, default 1): at `2` an 800×600 entry is a 1600×1200 PNG,
+sharp on a retina screen or a store listing. `colorSchemes` (e.g. `["light", "dark"]`) captures the entry
+once per scheme, in its own browser, into `<id>-light.png` and `<id>-dark.png`; without it, one `<id>.png`
+in `app.colorScheme`. `shots <id>` takes the entry's id and writes all of its files.
 `full: true` first scrolls the page one screen at a time to the bottom, so lazy images and sections
 load, then captures the whole page. A screenshot is kept only when it passes every gate:
 
@@ -56,7 +60,12 @@ load, then captures the whole page. A screenshot is kept only when it passes eve
 | `phrase` | the page does not show `expect` within 5 s of loading (hidden elements do not count) |
 | `size` | the file is smaller than `minBytes` (40 kB by default: a blank or broken page); the file is deleted |
 
-A failed entry leaves no file, not even an older one, and the others still run; any failure ends with
+Each file of an entry passes the gates on its own, so a page that shows its phrase only in the dark scheme
+keeps `<id>-dark.png` and refuses `<id>-light.png`. `minBytes` applies to every file as written, whatever the
+`scale`: a larger scale only makes the file bigger, so the default floor stays safe.
+
+A failed file is not left behind, nor is an older file of its entry (any of `<id>.png`, `<id>-light.png`,
+`<id>-dark.png`), and the others still run; any failure ends with
 exit code `1`. `--url` points at another address of the app; without it, `shots` uses `app.baseUrl` or
 starts `app.startCommand` as `record` does. A plain page can be smaller than 40 kB: set `minBytes` for it
 (the fixture's calculator, a dark page with one form, is about 16 kB and sets 5000).
@@ -141,7 +150,7 @@ folder of `marketing.json`. A complete example: [examples/fixture/marketing.json
 | `social` | `linkTemplate` | the link every post carries, `{code}` replaced by the platform's channel code |
 | | `platforms` | `instagram`, `facebook`, `tiktok`, `youtube`, `linkedin`, `x`: `code`, `linkInBio` (true for Instagram, TikTok, YouTube) |
 | | `posts[]` | `video`, `caption`, `hashtags`, `codes` (this video's own codes); a video without one gets no `posts.md` |
-| `screenshots[]` | `id`, `path`, `width`, `height`, `full` (`false`), `expect`, `motion` (`reduce`), `minBytes` (`40000`) | for `softure-marketing shots`, see [Screenshots](#screenshots) |
+| `screenshots[]` | `id`, `path`, `width`, `height`, `full` (`false`), `expect`, `motion` (`reduce`), `minBytes` (`40000`), `scale` (`1`), `colorSchemes` | for `softure-marketing shots`, see [Screenshots](#screenshots) |
 | `ogImages[]` | `id`, `template` (`headline-cta`, `headline-chart`), `size` (`[1200, 630]`), `data` | for `softure-marketing og`, see [OG images](#og-images) |
 | `layout` | per format (`9:16`, `1:1`, `16:9`): `caption` (`top`, `left`, `right`, `fontSize`), `persona` (`top`, `left`, `right`), `endCard` (`top`, `left`, `right`, `headlineSize`, `phone.scale`, `phone.center`) | overrides of the format's geometry table for every film of that format, in frame px; a missing key keeps the table's value. Values must fit the frame and each box's margins must leave at least 200 px for its text. The frame, the phone box and the camera target are fixed |
 | `sfx` | `tap`, `key`, `whoosh`, `sparkle`, `pop` | sound effects; a missing one is silent |
@@ -373,7 +382,6 @@ renders without a `marketing.json` at all.
   phone. A desktop recording (FU-15) is not built.
 - ElevenLabs is the only real voice provider; the estimate is an upper bound in credits, not money.
 - Two OG templates; a second subset file of the same weight is not used for OG images (FU-23).
-- Screenshots are PNG at a device scale of 1, one colour scheme per run (`app.colorScheme`); scale and light/dark pairs are FU-18.
 
 ## Development
 
