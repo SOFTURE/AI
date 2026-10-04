@@ -62,14 +62,14 @@ strict options schema refuses unknown keys).
 ### Phase 1: Module
 
 #### Automated
-- [ ] 1.1 Waitlist tests for the default HTML, the template, escaping and the option pass
-- [ ] 1.2 Gates green (typecheck, lint, test)
+- [x] 1.1 Waitlist tests for the default HTML, the template, escaping and the option pass — c4331b1
+- [x] 1.2 Gates green (typecheck, lint, test) — c4331b1
 
 ### Phase 2: Example app and e2e
 
 #### Automated
-- [ ] 2.1 Gates green (typecheck, lint, test, build)
-- [ ] 2.2 `npm run e2e` passes, including the changed tests in `e2e/waitlist.spec.ts`
+- [x] 2.1 Gates green (typecheck, lint, test, build) — 1aaa24e
+- [x] 2.2 `npm run e2e` passes, including the changed tests in `e2e/waitlist.spec.ts` — 1aaa24e
 
 #### Manual
-- [ ] 2.3 Impl review recorded in `reviews/impl-review.md`
+- [x] 2.3 Impl review recorded in `reviews/impl-review.md` — 1aaa24e

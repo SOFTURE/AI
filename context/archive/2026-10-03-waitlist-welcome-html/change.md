@@ -1,12 +1,12 @@
 ---
 change_id: waitlist-welcome-html
 title: "The waitlist's mails carry an HTML body the app can template"
-status: implementing
+status: archived
 roadmap_item: FU-4
 branch: claude/project-thread-lsci7g
 created: 2026-10-03
-updated: 2026-10-03
-archived_at: null
+updated: 2026-10-04
+archived_at: 2026-10-04
 ---
 
 ## Intent
@@ -50,3 +50,4 @@ Mailing already takes `html` and adds its unsubscribe footer to an HTML list mai
 - Framing skipped: a tightly scoped recorded gap with a stated outcome and no premise to test
   (the module already sends both mails; only their body format changes). Research answers the
   one unknown.
+- Archived 2026-10-04: both waitlist mails carry an HTML body built from their copy, and `waitlist({ mailTemplate })` lets the app render it in its own layout.
