@@ -1,12 +1,12 @@
 ---
 change_id: blog-discovery
 title: "The blog is found: an RSS feed, sitemap entries with real dates, IndexNow on publish and \"read next\" under each article"
-status: active
+status: archived
 roadmap_item: BL-5
 branch: claude/bl-5-2yucrl
 created: 2026-10-04
 updated: 2026-10-04
-archived_at: null
+archived_at: 2026-10-04
 ---
 
 ## Intent
@@ -68,6 +68,8 @@ master; BL-7 runs in parallel. Notes from BL-1: the sitemap entries come through
 - Research done: [`research.md`](research.md) answers the unknown and the questions the port raises
   (how blog reaches seo without depending on it, which origin each URL uses, cache freshness after a
   publish).
+- Done: implementation review approved ([`reviews/impl-review.md`](reviews/impl-review.md)); gap BF-9
+  filed in the followups roadmap.
 - Framing skipped: the roadmap item names the outcome, the baseline and the source files; the work is
   a port of FIRE's tested discovery code onto seams BL-1 and BL-4 already built. The problem itself is
   not in doubt.
