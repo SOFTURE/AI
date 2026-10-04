@@ -60,9 +60,9 @@ manual grants `{ id, planId, grantedAt, grant }` from `getAccountHistory`.
 
 ## Progress
 
-- [ ] 1. package export and dependency
-- [ ] 2. scripts
-- [ ] 3. tests
-- [ ] 4. example app scripts and e2e
-- [ ] 5. README
-- [ ] 6. gates
+- [x] 1. package export and dependency
+- [x] 2. scripts
+- [x] 3. tests
+- [x] 4. example app scripts and e2e
+- [x] 5. README
+- [x] 6. gates

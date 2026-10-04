@@ -50,6 +50,9 @@ script become plans in the config, a payment page and an admin page that grants 
   days, once per account and window through `@softure-ai/mailing`'s delivery ledger; the app runs
   it on a schedule (see "Reminder mail" in §4). `findAccessReminders` (`/server`) is the same list
   without mail, for an app that sends its own.
+- **Plan scripts** (`@softure-ai/billing/scripts`): `grant-plan` and `revoke-grant`, ops scripts
+  (dry run by default, `--commit` writes) for a host without the admin page; their grants are in
+  the account's history like the admin page's (see "Scripts" in §4).
 - Export and deletion of the entitlement row, the payments, the invoice requests and the manual grants (`@softure-ai/privacy`), and a health check for
   `GET /api/health`.
 
@@ -303,6 +306,33 @@ stores a request the provider handed over; `findAccountByEmail(ctx, email)`,
 may also be a function of the current record, run under the row's lock (how `grantPlan` extends a
 period without losing a concurrent grant).
 
+**Scripts.** `@softure-ai/billing/scripts` builds two ops scripts on `@softure-ai/ops/scripts` (dry run by
+default, `--commit` writes, one transaction), for an operator without the admin page or at a
+terminal. The app bundles them like its other scripts and runs them with its database URL:
+
+```ts
+// scripts/grant-plan.ts: npm run grant-plan -- --email=member@example.com --plan=monthly [--commit]
+import { createGrantPlanScript } from "@softure-ai/billing/scripts";
+import { runOpsScript } from "@softure-ai/ops/scripts";
+import config from "../softure.config";
+
+process.exitCode = await runOpsScript({ script: createGrantPlanScript(config), argv: process.argv.slice(2), config });
+```
+
+- `grant-plan --email=… --plan=<plan id>` grants one payment of a declared plan through
+  `grantPlanManually` (no admin: `granted_by` is null), so it is in the account's history and the
+  admin page can revoke it. Refuses an undeclared plan (naming the declared ones), an unknown email
+  and an account with lifetime access.
+- `revoke-grant --email=… --grant=<id>` revokes one active manual grant of that account through
+  `revokeManualGrant` (a script's or the admin page's) and takes back what it added. Refuses an
+  unknown email and an id that is not an active manual grant of the account (another account's,
+  revoked, mistyped).
+
+Both print the account's state `before` and `after`: the user id (never the email), the
+entitlement and the active manual grants with their ids, newest first; a dry run of either script
+shows the id `revoke-grant` takes. `createGrantPlanScript(config, { clock? })` and
+`createRevokeGrantScript(config, { clock? })` take a clock for tests (`executeOpsScript`).
+
 **A payment provider** (`PaymentProvider` from the root entry) has a `name`, says whether the page
 collects invoice details (`collectsInvoiceDetails`), and implements
 `startPayment(ctx, { plan, account, invoice, returnUrl })`, which resolves with
@@ -455,8 +485,7 @@ details, return URL) and resolves with `Ok` once handed over, or an `Err` the bu
   test key) and with signed webhook fixtures; a browser payment end to end in the sandbox is
   item LT-1 of the later roadmap (`context/foundation/roadmaps/roadmap-later.md`).
 - A grant through `grantPlan` (or a raw `changeEntitlement`) is not recorded: it is not in the
-  history and cannot be revoked. There is no `grant-plan` ops script for hosts without the admin
-  page (followups FU-22).
+  history and cannot be revoked; the `grant-plan` script records its grants.
 - The admin page lists up to 50 open requests and 100 entries of each source in a history; there
   is no paging.
 - The write guard is per action: a read-only account can still call a write the app did not guard.

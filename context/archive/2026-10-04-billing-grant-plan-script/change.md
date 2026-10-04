@@ -1,12 +1,12 @@
 ---
 change_id: billing-grant-plan-script
 title: "A grant-plan ops script grants and revokes plans without the admin page"
-status: in_progress
+status: archived
 roadmap_item: FU-22
 branch: claude/fu-22-8tf7fa
 created: 2026-10-04
 updated: 2026-10-04
-archived_at: null
+archived_at: 2026-10-04
 ---
 
 ## Intent
@@ -41,3 +41,7 @@ The pattern to follow is `modules/auth/src/scripts/role-scripts.ts` (`createGran
 
 - Framing skipped: the outcome, its baseline and the pattern to copy are stated; the problem is not
   in doubt. Research is kept short: it answers the two unknowns and checks the nested transaction.
+- Archived 2026-10-04: `@softure-ai/billing/scripts` exports `createGrantPlanScript` and
+  `createRevokeGrantScript` (`grant-plan --email --plan`, `revoke-grant --email --grant`), dry run by
+  default, writing through `grantPlanManually` / `revokeManualGrant`; the example app runs them as
+  `npm run grant-plan` / `revoke-grant`, with an e2e next to the admin page's.

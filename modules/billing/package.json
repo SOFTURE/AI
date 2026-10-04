@@ -1,7 +1,7 @@
 {
   "name": "@softure-ai/billing",
   "version": "0.0.0",
-  "description": "SOFTURE AI billing module: trial, paid and read-only entitlements from a pure state machine, billing.entitlements apart from auth.users, a write guard for server actions, access badge and notice components, and a privacy contributor, and reminder mail before access ends over @softure-ai/mailing.",
+  "description": "SOFTURE AI billing module: trial, paid and read-only entitlements from a pure state machine, billing.entitlements apart from auth.users, a write guard for server actions, access badge and notice components, a privacy contributor, reminder mail before access ends over @softure-ai/mailing, and grant-plan and revoke-grant ops scripts.",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -46,6 +46,11 @@
       "types": "./dist/next/index.d.ts",
       "default": "./dist/next/index.js"
     },
+    "./scripts": {
+      "@softure-ai/source": "./src/scripts/index.ts",
+      "types": "./dist/scripts/index.d.ts",
+      "default": "./dist/scripts/index.js"
+    },
     "./ui": {
       "@softure-ai/source": "./src/ui/index.ts",
       "types": "./dist/ui/index.d.ts",
@@ -59,6 +64,7 @@
     "@softure-ai/auth": "^0.0.0",
     "@softure-ai/core": "^0.0.0",
     "@softure-ai/db": "^0.0.0",
+    "@softure-ai/ops": "^0.0.0",
     "@softure-ai/security": "^0.0.0",
     "@softure-ai/ui": "^0.0.0",
     "zod": "^4.6.5"
