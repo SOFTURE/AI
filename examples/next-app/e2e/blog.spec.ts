@@ -1,6 +1,6 @@
 // @softure-ai/blog on the built app, over the fixture texts of content/blog (npm run blog:fixtures):
-// the listing, an article with its slots and JSON-LD, the glossary, the method page, the OG card,
-// 301 from an old slug, 410 for withdrawn texts and 404 for a draft.
+// the listing, an article with its slots, JSON-LD and "read next", the glossary, the method page, the OG
+// card, the feed and the sitemap entries, 301 from an old slug, 410 for withdrawn texts and 404 for a draft.
 import { expect, test } from "@playwright/test";
 
 test("the listing groups the articles by cluster with the pillar first", async ({ page }) => {
@@ -43,6 +43,45 @@ test("an article shows its dates, summary, contents, glossary link, FAQ, sources
   expect(jsonLd["@graph"].map((node) => node["@type"])).toEqual(["BlogPosting", "BreadcrumbList", "FAQPage"]);
   expect(jsonLd["@graph"][0]?.url).toBe(`${String(baseURL)}/blog/index-funds`);
   await expect(page.locator('meta[property="og:image"]')).toHaveAttribute("content", /\/blog\/index-funds\/opengraph-image/);
+});
+
+test("an article ends with \"read next\": its cluster first, then the other texts, newest first", async ({ page }) => {
+  await page.goto("/blog/index-funds");
+  const related = page.getByRole("region", { name: "Read next" });
+  await expect(related.getByRole("heading", { level: 3 })).toHaveText(["Bonds in plain words", "How big an emergency fund should be", "How much of your income to save"]);
+  await expect(related.getByRole("link", { name: "Bonds in plain words" })).toHaveAttribute("href", "/blog/bond-basics");
+  await expect(page.locator('link[rel="alternate"][type="application/rss+xml"]')).toHaveAttribute("href", /\/blog\/rss\.xml$/);
+});
+
+test("the feed lists the published articles and terms, newest first, and nothing else", async ({ request, baseURL }) => {
+  const response = await request.get("/blog/rss.xml");
+  expect(response.status()).toBe(200);
+  expect(response.headers()["content-type"]).toBe("application/rss+xml; charset=utf-8");
+  const xml = await response.text();
+
+  expect(xml).toContain(`<atom:link href="${String(baseURL)}/blog/rss.xml" rel="self" type="application/rss+xml"/>`);
+  const links = [...xml.matchAll(/<item>\s*<title>[^<]*<\/title>\s*<link>([^<]*)<\/link>/g)].map((match) => match[1]?.replace(String(baseURL), ""));
+  expect(links).toEqual(["/blog/bond-basics", "/blog/index-funds", "/blog/glossary/expense-ratio", "/blog/emergency-fund", "/blog/saving-rate"]);
+  expect(xml).toContain("<category>Investing basics</category>");
+});
+
+test("the sitemap lists the blog's texts with their dates, and no withdrawn text or draft", async ({ request, baseURL }) => {
+  const xml = await (await request.get("/sitemap.xml")).text();
+  const entries = new Map([...xml.matchAll(/<url>([\s\S]*?)<\/url>/g)].map((match) => [/<loc>([^<]*)<\/loc>/.exec(match[1] ?? "")?.[1]?.replace(String(baseURL), ""), match[1] ?? ""]));
+  const blogPaths = [...entries.keys()].filter((path) => path?.startsWith("/blog"));
+  expect(blogPaths).toEqual([
+    "/blog",
+    "/blog/bond-basics",
+    "/blog/index-funds",
+    "/blog/emergency-fund",
+    "/blog/saving-rate",
+    "/blog/glossary",
+    "/blog/glossary/expense-ratio",
+    "/blog/how-we-write",
+  ]);
+  for (const path of blogPaths.filter((path) => path !== "/blog/how-we-write")) expect(entries.get(path), path).toMatch(/<lastmod>2026-/);
+  // The method page has no content date, so it has no <lastmod> rather than an invented one.
+  expect(entries.get("/blog/how-we-write")).not.toContain("<lastmod>");
 });
 
 test("the article's OG card is a PNG", async ({ request }) => {

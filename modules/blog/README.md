@@ -205,8 +205,8 @@ With `@softure-ai/seo`, the blog joins its sitemap through a contributor; `app/s
 `force-dynamic` (the contributor reads the database):
 
 ```ts
-// softure.config.ts
-import { blogSitemap } from "@softure-ai/blog/next";
+// softure.config.ts (the root entry: this file also loads in plain Node, where /next cannot)
+import { blog, blogSitemap } from "@softure-ai/blog";
 seo({ sitemap: { contributors: [blogSitemap()] }, indexNow: { key: "..." } });
 ```
 

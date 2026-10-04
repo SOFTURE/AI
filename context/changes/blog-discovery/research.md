@@ -53,10 +53,12 @@ absolute links in its XML; it uses `appOrigin`, the origin every blog page's can
 feed link and the page's canonical never disagree. Moving all blog URLs to the seo rule is BF-7.
 
 **Q3. Where does the contributor read from?** From the cached reads of `src/next/data.ts` (one query per
-`revalidateSeconds`, tag `softure-blog`), like the pages. So it lives in `@softure-ai/blog/next`, and
-`softure.config.ts` imports it from there (the example already imports `@softure-ai/analytics/next` and
-`@softure-ai/core/next` in its config). It takes the config lazily (`getSoftureConfig()` at call time),
-because the contributor is created while the config is still being defined. A read failure throws, and
+`revalidateSeconds`, tag `softure-blog`), like the pages. It takes the config lazily
+(`getSoftureConfig()` at call time), because the contributor is created while the config is still
+being defined. *Updated in implementation:* `softure.config.ts` also loads in plain Node (`softure
+migrate`, the blog command), and there `@softure-ai/blog/next` fails to load (`next/cache` without an
+extension resolves only in a bundler). So `blogSitemap()` lives in the root entry and imports the Next
+reader (`readBlogSitemap`) when the sitemap is requested. A read failure throws, and
 seo's `buildSitemap` logs it and leaves the blog out, as FIRE did.
 
 **Q4. Feed path.** A new module route `rss: "/blog/rss.xml"` (overridable like the others); the proxy

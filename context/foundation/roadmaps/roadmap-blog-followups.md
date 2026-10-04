@@ -43,6 +43,7 @@ trigger: "the blog roadmap closes; the owner promotes it or takes single items"
 | **BF-6** | `blog-check-without-database` | `softure-blog check` runs with an app config that has no database URL | — | autonomous | ready |
 | **BF-7** | `blog-seo-canonical` | the blog's canonical, OG and JSON-LD URLs follow `@softure-ai/seo`'s canonical host and trailing-slash rule | — | autonomous | ready |
 | **BF-8** | `blog-og-fonts` | `blog({ brand: { fonts } })` gives the article OG card the brand's fonts | — | autonomous | ready |
+| **BF-9** | `blog-publish-cache-refresh` | `softure-blog publish --commit` refreshes the running app's blog cache before the IndexNow submit | — | autonomous | ready |
 
 ## Order
 
@@ -121,6 +122,15 @@ Lanes are set when the roadmap is promoted, by shared files, like the followups 
 - **Mode:** autonomous.
 - **Source:** BL-4 `blog-pages` impl review R2.
 
+### BF-9: A command-line publish refreshes the app's cache
+- **Change ID:** `blog-publish-cache-refresh`
+- **Status:** ready
+- **Input:** [`blog-publish-cache-refresh`](../../backlog/roadmap-blog-followups/blog-publish-cache-refresh/change.md)
+- **Outcome:** an authenticated route handler from `@softure-ai/blog/next` (a secret from the environment, rate-limited) calls `revalidateTag("softure-blog")`; `softure-blog publish --commit` calls it before the IndexNow submit when the app gives its URL; without it the command says the app refreshes after `revalidateSeconds`.
+- **Prerequisites:** none.
+- **Risk:** low. Today the window is `revalidateSeconds` (300 s by default), as in FIRE_TRACKER.
+- **Mode:** autonomous.
+- **Source:** BL-5 `blog-discovery` research Q5.
 
 ## Owner decisions and checks
 

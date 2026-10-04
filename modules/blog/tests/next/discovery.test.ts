@@ -2,7 +2,8 @@
 // replaced as in pages.test.tsx: the config and the database are the test's, the data cache calls through.
 import type { SoftureConfig } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
-import { blogSitemap, serveBlogRss } from "@softure-ai/blog/next";
+import { blogSitemap } from "@softure-ai/blog";
+import { serveBlogRss } from "@softure-ai/blog/next";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NOW, type TestBlog } from "../support.js";
 import { createPublishedBlog } from "./support.js";

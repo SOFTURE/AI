@@ -51,10 +51,14 @@ test("sitemap.xml lists the public pages on the app's origin, and no private pat
   expect(response.status()).toBe(200);
   const xml = await response.text();
 
-  const urls = [...xml.matchAll(/<loc>([^<]*)<\/loc>/g)].map((match) => match[1]);
-  expect(urls).toEqual([`${String(baseURL)}/`, `${String(baseURL)}/pricing`, `${String(baseURL)}/legal/terms`, `${String(baseURL)}/legal/privacy`]);
-  // No invented dates: the example gives none, so there is no <lastmod>.
-  expect(xml).not.toContain("<lastmod>");
+  const entries = [...xml.matchAll(/<url>([\s\S]*?)<\/url>/g)].map((match) => match[1] ?? "");
+  const urls = entries.map((entry) => /<loc>([^<]*)<\/loc>/.exec(entry)?.[1]);
+  // The app's own pages first; the blog's contributor follows (e2e/blog.spec.ts).
+  expect(urls.slice(0, 4)).toEqual([`${String(baseURL)}/`, `${String(baseURL)}/pricing`, `${String(baseURL)}/legal/terms`, `${String(baseURL)}/legal/privacy`]);
+  expect(urls.slice(4).every((url) => url?.startsWith(`${String(baseURL)}/blog`))).toBe(true);
+  for (const path of PRIVATE_PATHS) expect(urls.some((url) => url?.startsWith(`${String(baseURL)}${path}`)), path).toBe(false);
+  // No invented dates: the example gives its own pages none, so they have no <lastmod>.
+  for (const entry of entries.slice(0, 4)) expect(entry).not.toContain("<lastmod>");
 });
 
 test("the IndexNow key file answers the key as plain text", async ({ request }) => {

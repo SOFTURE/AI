@@ -1,7 +1,7 @@
 // The app's SOFTURE configuration. `softure migrate` loads this file with Node's type stripping,
 // so relative imports name their `.ts` files.
 import { analytics } from "@softure-ai/analytics";
-import { blog } from "@softure-ai/blog";
+import { blog, blogSitemap } from "@softure-ai/blog";
 import { attributeRegistration, countFunnelStep, countRegistration, tagRedirect } from "@softure-ai/analytics/next";
 import { auth, AUTH_RATE_LIMIT_BUCKETS, REGISTRATION_CLOSED_SWITCH } from "@softure-ai/auth";
 import { billing, BILLING_RATE_LIMIT_BUCKETS, manual, stripe } from "@softure-ai/billing";
@@ -200,14 +200,20 @@ const config = defineSoftureConfig({
       payment: process.env.BILLING_PROVIDER === "stripe" ? stripe() : manual({ onRequest: mailInvoiceRequestsTo(EXAMPLE_ADMIN_EMAIL) }),
     }),
     // robots.txt, sitemap.xml and the IndexNow key file (e2e/seo.spec.ts): the public pages are open,
-    // the account, admin and API paths closed to every crawler, AI crawlers named.
+    // the account, admin and API paths closed to every crawler, AI crawlers named. The blog adds its
+    // published texts to the sitemap with their real dates (e2e/blog.spec.ts), and a committed
+    // `softure-blog publish` submits the changed addresses with this key (blog:fixtures opts out).
     seo({
       robots: { disallow: ["/account", "/admin", "/api", "/switches"] },
-      sitemap: { entries: [{ path: "/", priority: 1 }, { path: "/pricing", priority: 0.8 }, { path: "/legal/terms" }, { path: "/legal/privacy" }] },
+      sitemap: {
+        entries: [{ path: "/", priority: 1 }, { path: "/pricing", priority: 0.8 }, { path: "/legal/terms" }, { path: "/legal/privacy" }],
+        contributors: [blogSitemap()],
+      },
       indexNow: { key: EXAMPLE_INDEXNOW_KEY },
     }),
     // The blog at /blog with the fixture texts of content/blog (npm run blog:fixtures; e2e/blog.spec.ts):
-    // listing, articles, glossary, the method page, 301 and 410 from proxy.ts, an OG card per article.
+    // listing, articles with "read next", glossary, the method page, 301 and 410 from proxy.ts, an OG
+    // card per article, and the feed at /blog/rss.xml.
     blog({
       brand: { name: en.blog.brand },
       methodPage: true,

@@ -23,7 +23,7 @@
     "access-reminders": "node scripts/send-access-reminders.ts",
     "expire-invoice-requests": "node scripts/expire-invoice-requests.ts",
     "blog:publish": "node scripts/blog.ts publish",
-    "blog:fixtures": "node scripts/blog.ts publish e2e/fixtures/blog-renamed --commit && node scripts/blog.ts publish --commit",
+    "blog:fixtures": "node scripts/blog.ts publish e2e/fixtures/blog-renamed --commit --no-indexnow && node scripts/blog.ts publish --commit --no-indexnow",
     "e2e": "playwright test"
   },
   "dependencies": {

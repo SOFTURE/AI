@@ -1,11 +1,9 @@
-// The blog's discovery pieces in Next: the RSS feed route and the sitemap contributor for
-// `@softure-ai/seo`, both over the cached reads of `data.ts` (one query per `revalidateSeconds`).
+// The blog's discovery pieces in Next: the RSS feed route and the sitemap entries behind
+// `blogSitemap()` (`../sitemap.ts`), both over the cached reads of `data.ts` (one query per
+// `revalidateSeconds`).
 //
 //   app/blog/rss.xml/route.ts   export { serveBlogRss as GET } from "@softure-ai/blog/next";
 //                               export const dynamic = "force-dynamic";
-//   softure.config.ts           seo({ sitemap: { contributors: [blogSitemap()] } })
-//
-// With a contributor that reads the database, `app/sitemap.ts` must be `force-dynamic` too.
 import { errorLogLabel, formatMessage, type SoftureConfig } from "@softure-ai/core";
 import { getSoftureConfig } from "@softure-ai/core/next";
 import { buildBlogRss } from "../discovery/rss.js";
@@ -53,16 +51,11 @@ export async function serveBlogRss(): Promise<Response> {
 }
 
 /**
- * A sitemap contributor for `seo({ sitemap: { contributors: [blogSitemap()] } })`: the listing, the
- * articles, the glossary, its terms and the method page, each with the date of its last real change.
- * The config is read when the sitemap is requested, not when the contributor is created (the config
- * is still being defined then). A failed read throws; seo logs it and serves the rest of the sitemap.
+ * The blog's sitemap entries: the listing, the articles, the glossary, its terms and the method page,
+ * each with the date of its last real change. A failed read throws; seo logs it and serves the rest.
  */
-export function blogSitemap(config?: SoftureConfig): () => Promise<BlogSitemapEntry[]> {
-  return async () => {
-    const current = config ?? getSoftureConfig();
-    const context = getPageContext(current);
-    const [articles, terms] = await Promise.all([getPublishedArticles(current), getPublishedTerms(current)]);
-    return getBlogSitemapEntries({ articles, terms, routes: context.routes, methodPath: context.methodPath });
-  };
+export async function readBlogSitemap(config: SoftureConfig = getSoftureConfig()): Promise<BlogSitemapEntry[]> {
+  const context = getPageContext(config);
+  const [articles, terms] = await Promise.all([getPublishedArticles(config), getPublishedTerms(config)]);
+  return getBlogSitemapEntries({ articles, terms, routes: context.routes, methodPath: context.methodPath });
 }
