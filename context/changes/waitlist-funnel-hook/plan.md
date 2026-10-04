@@ -65,14 +65,14 @@ options schema).
 ### Phase 1: Modules
 
 #### Automated
-- [ ] 1.1 Waitlist and analytics tests for the hook, the rewrite and `countFunnelStep` pass
-- [ ] 1.2 Gates green (typecheck, lint, test)
+- [x] 1.1 Waitlist and analytics tests for the hook, the rewrite and `countFunnelStep` pass — 9d16d99
+- [x] 1.2 Gates green (typecheck, lint, test) — 9d16d99
 
 ### Phase 2: Example app and e2e
 
 #### Automated
-- [ ] 2.1 Gates green (typecheck, lint, test, build)
-- [ ] 2.2 `npm run e2e` passes, including the new test in `e2e/analytics-funnel.spec.ts`
+- [x] 2.1 Gates green (typecheck, lint, test, build) — e05001d
+- [x] 2.2 `npm run e2e` passes, including the new test in `e2e/analytics-funnel.spec.ts` — e05001d
 
 #### Manual
-- [ ] 2.3 Impl review recorded in `reviews/impl-review.md`
+- [x] 2.3 Impl review recorded in `reviews/impl-review.md` — e05001d

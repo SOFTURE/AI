@@ -1,7 +1,7 @@
 ---
 change_id: waitlist-funnel-hook
 title: "Waitlist sign-ups are counted in the analytics funnel under their channel"
-status: implementing
+status: implemented
 roadmap_item: FU-8
 branch: claude/fu-8-waitlist-funnel-rx6rhh
 created: 2026-10-04
