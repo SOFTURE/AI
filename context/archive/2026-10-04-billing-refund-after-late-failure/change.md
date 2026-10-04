@@ -1,12 +1,12 @@
 ---
 change_id: billing-refund-after-late-failure
 title: "A new refund is not lost when an earlier refund's failure arrives late"
-status: in_progress
+status: archived
 roadmap_item: FU-35
 branch: claude/project-thread-m9szln
 created: 2026-10-04
 updated: 2026-10-04
-archived_at: null
+archived_at: 2026-10-04
 ---
 
 ## Intent
@@ -44,3 +44,9 @@ From [`roadmap.md`](../../foundation/roadmap.md), item **FU-35** (roadmap `follo
 - Framing skipped: the problem is a documented limitation (README §12, FU-30 impl review) with file
   references and an outcome the roadmap states; nothing about the problem is in doubt, only how
   to close it.
+- Archived 2026-10-04: a charge state newer than every one recorded that reports no more than
+  billing counts is kept on the payment (`pending_refunded_amount`, `pending_refunds_seen_at`,
+  migration `0009`); each refund failure, after giving back what it took, applies the kept state
+  when, corrected, it reports more than billing counts, so the new refund is taken back once. The
+  apply shares one function with `refundPayment` (`applyChargeState`). Covered by eight PGlite tests,
+  one through signed webhook fixtures. No new gap found.
