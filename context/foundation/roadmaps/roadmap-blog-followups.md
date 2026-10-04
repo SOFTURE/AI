@@ -38,8 +38,10 @@ trigger: "the blog roadmap closes; the owner promotes it or takes single items"
 | --- | --- | --- | --- | --- | --- |
 | **BF-1** | `cli-config-loader` | `softure migrate`, `softure-mail` and `softure-blog` load the app config through one shared loader | — | autonomous | ready |
 | **BF-2** | `blog-publish-slug-race` | two publishes racing for one slug report `blog.slug_taken`, not a driver error | — | autonomous | ready |
-| **BF-3** | `markdown-footnote-links` | the repository link check skips Markdown footnote definitions instead of reporting them as broken links | — | autonomous | ready |
-| **BF-4** | `blog-check-without-database` | `softure-blog check` runs with an app config that has no database URL | — | autonomous | ready |
+| **BF-3** | `blog-article-images` | images in article bodies under a hosting policy (allowed sources, alt, dimensions) | — | autonomous | ready |
+| **BF-4** | `blog-glossary-form-conflicts` | a glossary form claimed by two terms is refused, naming both | — | autonomous | ready |
+| **BF-5** | `markdown-footnote-links` | the repository link check skips Markdown footnote definitions instead of reporting them as broken links | — | autonomous | ready |
+| **BF-6** | `blog-check-without-database` | `softure-blog check` runs with an app config that has no database URL | — | autonomous | ready |
 
 ## Order
 
@@ -68,7 +70,27 @@ Lanes are set when the roadmap is promoted, by shared files, like the followups 
 - **Mode:** autonomous.
 - **Source:** BL-2 `blog-content-store` impl review R2.
 
-### BF-3: The repository link check skips footnote definitions
+### BF-3: Images in article bodies
+- **Change ID:** `blog-article-images`
+- **Status:** ready
+- **Input:** [`blog-article-images`](../../backlog/roadmap-blog-followups/blog-article-images/change.md)
+- **Outcome:** `renderArticle({ images })` takes an image policy (allowed sources, a resolver that gives width and height); an image outside it stays text; the quality gate (BL-6) reports a missing alt or a refused source.
+- **Prerequisites:** none.
+- **Risk:** low. The renderer disables images today, so nothing unsafe ships; texts just cannot show one.
+- **Mode:** autonomous.
+- **Source:** BL-3 `blog-markdown-renderer` impl review R1.
+
+### BF-4: A glossary form belongs to one term
+- **Change ID:** `blog-glossary-form-conflicts`
+- **Status:** ready
+- **Input:** [`blog-glossary-form-conflicts`](../../backlog/roadmap-blog-followups/blog-glossary-form-conflicts/change.md)
+- **Outcome:** a check over the whole content folder (a publish-run problem or a BL-6 rule) refuses a form claimed by two terms, naming both slugs; the renderer's "first term wins" stays as the deterministic fallback.
+- **Prerequisites:** none.
+- **Risk:** low. An editorial mistake that links a phrase to the wrong definition; no security impact.
+- **Mode:** autonomous.
+- **Source:** BL-3 `blog-markdown-renderer` impl review R2.
+
+### BF-5: The repository link check skips footnote definitions
 - **Change ID:** `markdown-footnote-links`
 - **Status:** ready
 - **Input:** [`markdown-footnote-links`](../../backlog/roadmap-blog-followups/markdown-footnote-links/change.md)
@@ -78,7 +100,7 @@ Lanes are set when the roadmap is promoted, by shared files, like the followups 
 - **Mode:** autonomous.
 - **Source:** BL-6 `blog-quality-gate` impl review R1.
 
-### BF-4: softure-blog check without a database URL
+### BF-6: softure-blog check without a database URL
 - **Change ID:** `blog-check-without-database`
 - **Status:** ready
 - **Input:** [`blog-check-without-database`](../../backlog/roadmap-blog-followups/blog-check-without-database/change.md)

@@ -2,10 +2,12 @@
 // `softure-blog check`, the publish gate and the tests. Pure: the parsed article, today and the link
 // resolver come in; the network check of external links is separate.
 import type { BlogArticleInput } from "../contract.js";
+import { findArticleBlocks, type FoundBlock } from "../render/render-article.js";
 import { parseArticleFile, type ParseArticleFileOptions } from "../content/article-file.js";
 import { splitArticleBody, splitBlocks } from "./blocks.js";
 import { sortFindings, type QualityFinding } from "./finding.js";
 import type { QualityPlugin } from "./plugin.js";
+import { checkBlockRequires } from "./rules/blocks.js";
 import type { RuleInput } from "./rules/input.js";
 import { checkLinks, collectLinks, type InternalLinkResolver } from "./rules/links.js";
 import { checkFootnotes, checkLead, checkLength, checkMetadata, checkSections } from "./rules/structure.js";
@@ -35,6 +37,7 @@ export function checkArticle(input: CheckArticleInput): QualityCheckResult {
   const { article, settings, today } = input;
   const split = splitArticleBody(input.text);
   const blocks = split === null ? splitBlocks(article.bodyMarkdown) : splitBlocks(split.body, split.bodyStartLine);
+  const pluginBlocks = findPluginBlocks(split?.body ?? article.bodyMarkdown, split?.bodyStartLine ?? 1, settings);
   const ruleInput: RuleInput = { article, blocks, settings, today };
   const links = collectLinks(ruleInput);
 
@@ -49,8 +52,9 @@ export function checkArticle(input: CheckArticleInput): QualityCheckResult {
     ...checkLinks(ruleInput, links, input.resolveInternalLink ?? (() => true)),
     ...checkStyle(ruleInput),
     ...checkRhythm(ruleInput),
+    ...checkBlockRequires(article, pluginBlocks),
   ];
-  const fromPlugins = settings.options.plugins.flatMap((plugin) => runPlugin(plugin, { article, blocks, today, ruleset: settings.ruleset }));
+  const fromPlugins = settings.options.plugins.flatMap((plugin) => runPlugin(plugin, { article, blocks, pluginBlocks, today, ruleset: settings.ruleset }));
   return { findings: applySeverity(settings, [...builtIn, ...fromPlugins]), externalLinks: links.external };
 }
 
@@ -68,6 +72,12 @@ export function checkArticleText(input: CheckArticleTextInput): QualityCheckResu
     return { findings: applySeverity(input.settings, parsed.errors.map((message) => ({ rule: "file", severity: "error", message }))), externalLinks: [] };
   }
   return checkArticle({ ...input, article: parsed.article });
+}
+
+/** The app's plugin blocks with file lines; none without `quality.blocks`. */
+function findPluginBlocks(body: string, bodyStartLine: number, settings: QualitySettings): FoundBlock[] {
+  if (settings.options.blocks.length === 0) return [];
+  return findArticleBlocks(body, settings.options.blocks).map((block) => ({ ...block, line: block.line + bodyStartLine - 1 }));
 }
 
 function runPlugin(plugin: QualityPlugin, context: Parameters<QualityPlugin["check"]>[0]): QualityFinding[] {

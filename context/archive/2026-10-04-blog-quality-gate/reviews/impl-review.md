@@ -32,11 +32,11 @@ Two gaps go to the blog-followups roadmap (R1, R2); nothing blocks the merge.
 
 ## Findings
 
-- R1 (gap, BF-3): `tests/repo/markdown-links.ts` reads a footnote definition (`[^id]: text`) as a
+- R1 (gap, BF-5): `tests/repo/markdown-links.ts` reads a footnote definition (`[^id]: text`) as a
   reference link and reports its first word as a broken link; it also reads an article's site paths
   as file links. The article fixtures are `.txt` files here; the footnote half is a real gap of the
   repository check. Not fixed (owner's rule on gaps).
-- R2 (gap, BF-4): an app config with `blog()` must carry a database URL even for `check`, which never
+- R2 (gap, BF-6): an app config with `blog()` must carry a database URL even for `check`, which never
   connects. The reusable workflow passes a placeholder `DATABASE_URL`; a command-level opt-out belongs
   in core or the bin loader (next to BF-1).
 - R3 (fixed before commit): the `length` message said "a article"; it names the kind with its article.
@@ -46,3 +46,7 @@ Two gaps go to the blog-followups roadmap (R1, R2); nothing blocks the merge.
   may have no app folder). `check` in CI resolves them; the README says so.
 - R6 (accepted): FIRE's three chart cases that run its real chart engine stay in FIRE; the stand-in
   plugin covers the same rule shape with fixed tables.
+- R7 (added in the merge of BL-3): BL-3's block plugins declare `requires` (frontmatter keys), and
+  `findArticleBlocks` lists them. `quality.blocks` takes the app's block plugins; the new
+  `block-requires` error reports a fenced block whose article lacks a required key, at its fence
+  line, and rule plugins get the same blocks as `pluginBlocks`. Tested in `tests/quality/settings.test.ts`.

@@ -1,6 +1,7 @@
 // The rule plugin API: an app adds its domain rules (FIRE: legal figures equal the engine's, numbers
 // next to a chart stand in its table) to `blog({ quality: { plugins } })`.
 import type { BlogArticleInput } from "../contract.js";
+import type { FoundBlock } from "../render/render-article.js";
 import type { Block } from "./blocks.js";
 import type { QualityFinding, QualitySeverity } from "./finding.js";
 import type { LanguageRuleset } from "./rulesets/types.js";
@@ -16,8 +17,10 @@ export interface QualityRuleInfo {
 export interface QualityPluginContext {
   /** The parsed file: frontmatter values, the app's `fields` and the Markdown body. */
   readonly article: BlogArticleInput;
-  /** The body cut into blocks with file lines; directives (`::name{…}`) are blocks of their own. */
+  /** The body cut into blocks with file lines; fenced code is skipped, `::name{…}` directives are blocks of their own. */
   readonly blocks: readonly Block[];
+  /** The fenced blocks of the app's block plugins (`quality.blocks`), with the file line of the opening fence. */
+  readonly pluginBlocks: readonly FoundBlock[];
   /** `YYYY-MM-DD` in the app's time zone. */
   readonly today: string;
   /** The app's language ruleset, for its number notation. */

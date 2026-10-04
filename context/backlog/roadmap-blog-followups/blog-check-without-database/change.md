@@ -2,7 +2,7 @@
 change_id: blog-check-without-database
 title: "softure-blog check without a database URL"
 status: backlog
-roadmap_item: BF-4
+roadmap_item: BF-6
 branch: null
 created: 2026-10-04
 updated: 2026-10-04
@@ -15,9 +15,9 @@ archived_at: null
 
 ## Context
 
-From [`roadmap-blog-followups.md`](../../../foundation/roadmaps/roadmap-blog-followups.md), item **BF-4**:
+From [`roadmap-blog-followups.md`](../../../foundation/roadmaps/roadmap-blog-followups.md), item **BF-6**:
 
-> ### BF-4: softure-blog check without a database URL
+> ### BF-6: softure-blog check without a database URL
 > - **Change ID:** `blog-check-without-database`
 > - **Status:** ready
 > - **Outcome:** `softure-blog check` loads an app config that has no database URL (or a placeholder) without failing: either core lets a command opt out of the database requirement, or the blog bin builds a check-only config; the weekly workflow drops its placeholder `DATABASE_URL`.

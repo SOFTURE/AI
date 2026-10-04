@@ -2,7 +2,7 @@
 // writing skill, and the options it refuses.
 import { readFileSync } from "node:fs";
 import { blog } from "@softure-ai/blog";
-import { checkArticleText, listQualityRules, qualityOptionsSchema, resolveQualitySettings, type QualityOptionsInput, type QualityPlugin } from "@softure-ai/blog/server";
+import { checkArticleText, listQualityRules, qualityOptionsSchema, resolveQualitySettings, type BlockPlugin, type QualityOptionsInput, type QualityPlugin } from "@softure-ai/blog/server";
 import { describe, expect, it } from "vitest";
 
 const MODEL = readFileSync(new URL("./fixtures/index-funds.txt", import.meta.url), "utf8");
@@ -47,6 +47,23 @@ describe("rule plugins", () => {
   });
 });
 
+const chart: BlockPlugin = { type: "chart", requires: ["current_as_of", "scenario"], render: () => ({ kind: "html", html: "" }) };
+const WITH_CHART = MODEL.replace("## What does an index fund charge?", "```chart wealth\nwealth over 20 years\n```\n\n## What does an index fund charge?");
+
+describe("block plugins", () => {
+  it("reports a block whose frontmatter key is missing, at the line of its fence", () => {
+    expect(check({ blocks: [chart] }, WITH_CHART)).toEqual([{ rule: "block-requires", severity: "error", message: "the chart block needs scenario in the frontmatter", line: 20 }]);
+    expect(check({}, WITH_CHART)).toEqual([]);
+  });
+
+  it("hands the plugin blocks to rule plugins", () => {
+    const seen: string[] = [];
+    const spy: QualityPlugin = { name: "spy", rules: [], check: ({ pluginBlocks }) => { seen.push(...pluginBlocks.map((block) => `${block.type}:${block.line}`)); return []; } };
+    check({ blocks: [chart], plugins: [spy], severity: { "block-requires": "off" } }, WITH_CHART);
+    expect(seen).toEqual(["chart:20"]);
+  });
+});
+
 describe("listQualityRules", () => {
   it("lists the rules of the settings with their effective severity", () => {
     const ids = (options: QualityOptionsInput) => listQualityRules(settingsOf(options)).map((rule) => rule.id);
@@ -57,6 +74,8 @@ describe("listQualityRules", () => {
     expect(ids({ ymyl: true })).toContain("number-source");
     expect(ids({ voice: { forbidFirstPersonSingular: true } })).toContain("first-person-singular");
     expect(ids({ plugins: [shout] })).toEqual(expect.arrayContaining(["no-fees-word", "plugin-failed"]));
+    expect(ids({})).not.toContain("block-requires");
+    expect(ids({ blocks: [chart] })).toContain("block-requires");
     expect(ids({ severity: { crucial: "off" } })).not.toContain("crucial");
     expect(listQualityRules(settingsOf({ severity: { stale: "error" } })).find((rule) => rule.id === "stale")?.severity).toBe("error");
   });

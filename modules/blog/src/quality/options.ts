@@ -1,10 +1,17 @@
 // `blog({ quality })`: the gate's options, parsed at startup with the rest of the blog's options.
 import { z } from "zod";
+import type { BlockPlugin } from "../render/render-article.js";
 import { QUALITY_SEVERITIES } from "./finding.js";
 import { isQualityPlugin, type QualityPlugin } from "./plugin.js";
 import { QUALITY_LANGUAGES } from "./rulesets/types.js";
 
 const KEBAB = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+
+function isBlockPlugin(value: unknown): value is BlockPlugin {
+  if (typeof value !== "object" || value === null) return false;
+  const candidate = value as { type?: unknown; render?: unknown };
+  return typeof candidate.type === "string" && typeof candidate.render === "function";
+}
 
 function compiles(source: string): boolean {
   try {
@@ -80,6 +87,8 @@ export const qualityOptionsSchema = z.strictObject({
   /** Route folders that are no link target (API, pages behind a login). Route groups count too, e.g. "(app)". */
   privateRouteSegments: z.array(z.string().min(1)).default(["api"]),
   plugins: z.array(z.custom<QualityPlugin>(isQualityPlugin, "must be a plugin: { name, rules, check }")).default([]),
+  /** The block plugins the app renders with (`renderArticle({ blocks })`): their `requires` keys must be in the frontmatter. */
+  blocks: z.array(z.custom<BlockPlugin>(isBlockPlugin, "must be a block plugin: { type, render }")).default([]),
 });
 
 export type QualityOptionsInput = z.input<typeof qualityOptionsSchema>;
