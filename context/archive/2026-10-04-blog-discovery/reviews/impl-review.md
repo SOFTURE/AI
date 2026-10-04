@@ -31,7 +31,7 @@ plan-review.md and FIRE's `blog-discovery.ts`, `indexnow.ts` and feed route. Gat
 - R2 (fixed in the change): seo's `submitToIndexNow` resolves a path on the site origin without the
   trailing-slash rule, so a path would be submitted as a non-canonical URL with
   `canonical.trailingSlash: true`. The blog passes `buildCanonicalUrl` results; tested.
-- R3 (gap, BF-9): the command runs outside the app and cannot `revalidateTag`; the running app and
+- R3 (gap, BF-10): the command runs outside the app and cannot `revalidateTag`; the running app and
   IndexNow's crawlers see a change after `revalidateSeconds`, as in FIRE. Filed as
   `blog-publish-cache-refresh` in the followups roadmap.
 - Not a finding: the feed's links use `appOrigin` like every blog page (BF-7 moves both to the seo rule).

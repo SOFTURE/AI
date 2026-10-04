@@ -12,7 +12,7 @@ publishing path), and "read next" under every article. The example app mounts it
 fixture articles in the feed and the sitemap.
 
 **Out of scope:** blog URLs on the seo canonical rule (BF-7); refreshing a running app's cache after a
-CLI publish (BF-9, research Q5); FIRE's calculator reading list and copy.
+CLI publish (BF-10, research Q5); FIRE's calculator reading list and copy.
 
 ## Approach
 

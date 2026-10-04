@@ -16,7 +16,7 @@ steps (none blocking).
 | Baseline | FIRE's `blog-discovery.test.ts` (sitemap, RSS, related), `indexnow.test.ts` (paths) and the feed route test (200, 503) map to 1.1 and 2.3; FIRE-only cases (key file in `public/`, calculator reading) are out of scope by design: seo owns the key file. |
 | Contract | No change to tables, content hash, `src/content/`, `src/db/`, `src/render/`, `src/quality/`. The publish run already reports `PublishedChange` with `statusBefore`, `previousSlug` and `kind`: the IndexNow paths need nothing more. |
 | Package standard | Route handler from `./next`, server function from `./server`, optional peer like `auth` → `mailing`; copy in dictionaries; tokens only. |
-| Scope | BF-7 stays out; the cache window after a CLI publish becomes BF-9. |
+| Scope | BF-7 stays out; the cache window after a CLI publish becomes BF-10. |
 | Language | English code and copy keys; Polish copy only in `messages/pl.ts`. |
 
 ## Findings

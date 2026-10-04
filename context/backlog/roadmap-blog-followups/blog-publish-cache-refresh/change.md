@@ -2,7 +2,7 @@
 change_id: blog-publish-cache-refresh
 title: "A publish from the command line refreshes the running app's blog cache"
 status: backlog
-roadmap_item: BF-9
+roadmap_item: BF-10
 branch: null
 created: 2026-10-04
 updated: 2026-10-04
@@ -16,9 +16,9 @@ After `softure-blog publish --commit`, the running app shows the change at once 
 
 ## Context
 
-From [`roadmap-blog-followups.md`](../../../foundation/roadmaps/roadmap-blog-followups.md), item **BF-9**:
+From [`roadmap-blog-followups.md`](../../../foundation/roadmaps/roadmap-blog-followups.md), item **BF-10**:
 
-> ### BF-9: A command-line publish refreshes the app's cache
+> ### BF-10: A command-line publish refreshes the app's cache
 > - **Change ID:** `blog-publish-cache-refresh`
 > - **Status:** ready
 > - **Outcome:** an authenticated route handler from `@softure-ai/blog/next` (a secret from the environment, rate-limited) calls `revalidateTag("softure-blog")`; `softure-blog publish --commit` calls it before the IndexNow submit when the app gives its URL; without it the command says the app refreshes after `revalidateSeconds`.

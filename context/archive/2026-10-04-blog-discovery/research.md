@@ -69,7 +69,7 @@ through the cache and is `force-dynamic` in the app's file.
 `revalidateTag`; a running app keeps serving the cached lists and ISR pages for up to
 `revalidateSeconds` (300 s), so a crawler that answers the IndexNow ping at once may see the old page.
 FIRE has the same window. Closing it needs an authenticated revalidation endpoint in the app: a gap
-for the followups roadmap (BF-9), not this change.
+for the followups roadmap (BF-10), not this change.
 
 **Q6. The example app and IndexNow.** The example sets an IndexNow key, and `blog:fixtures` publishes
 with `--commit`. Without an opt-out, every e2e setup would POST `http://localhost:3000/...` to
