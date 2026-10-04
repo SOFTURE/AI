@@ -63,7 +63,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-19** | `marketing-kit-hook-shot-words` | opening shots after the first without a `word` are refused when the config loads | FU-14 | autonomous | done_code (2026-10-04; waiting: MK-8 release) |
 | **FU-20** | `billing-partial-refunds` | partial refunds take back access by a policy | FU-11 | autonomous | done |
 | **FU-21** | `billing-refund-manual-lifetime` | a manual lifetime grant survives a refunded paid lifetime | FU-9 | autonomous | done |
-| **FU-22** | `billing-grant-plan-script` | a `grant-plan` ops script grants and revokes plans without the admin page | FU-9 | autonomous | proposed |
+| **FU-22** | `billing-grant-plan-script` | a `grant-plan` ops script grants and revokes plans without the admin page | FU-9 | autonomous | in_progress (implement 0/6, since 2026-10-04; branch `claude/fu-22-8tf7fa`) |
 | **FU-23** | `marketing-kit-og-subset-fonts` | OG images use every subset file of a weight | FU-17 | autonomous | done_code (2026-10-04; waiting: MK-8 release) |
 | **FU-24** | `billing-existing-accounts` | existing accounts keep their access when billing is enabled (import, trial floor, pinned trials) | FU-22 | autonomous | proposed |
 | **FU-25** | `billing-stripe-currency-units` | Stripe charges the plan's price in every currency (special-case units) | FU-24 | autonomous | proposed |
@@ -409,7 +409,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-22: A `grant-plan` ops script for hosts without the admin page
 - **Change ID:** `billing-grant-plan-script`
-- **Status:** proposed
+- **Status:** in_progress (implement 0/6, since 2026-10-04; branch `claude/fu-22-8tf7fa`)
+- **Input:** [`changes/billing-grant-plan-script/change.md`](../changes/billing-grant-plan-script/change.md)
 - **Outcome:** `@softure-ai/billing/scripts` exports `grant-plan` and `revoke-grant` ops scripts (dry run by default, `--commit` writes) that grant a plan to an account by email and revoke a manual grant, recorded in the account's history like the admin page's grants.
 - **Prerequisites:** FU-9 on `master` (`grantPlanManually`, `revokeManualGrant`).
 - **Unknowns:** Whether billing may depend on `@softure-ai/ops` (auth does, for `grant-role`); how the script names a grant to revoke (its id from the history vs. the latest active grant of a plan).
