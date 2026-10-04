@@ -186,8 +186,8 @@ the copy.
 ### Phase 3: Example app script and e2e
 
 #### Automated
-- [x] 3.1 `npm run e2e` passes, including `billing-reminders.spec.ts` and the ledger list
-- [x] 3.2 Gates green (typecheck, lint, test, build)
+- [x] 3.1 `npm run e2e` passes, including `billing-reminders.spec.ts` and the ledger list — 8fa0a35
+- [x] 3.2 Gates green (typecheck, lint, test, build) — 8fa0a35
 
 #### Manual
 - [ ] 3.3 Impl review recorded in `reviews/impl-review.md`

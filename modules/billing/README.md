@@ -414,6 +414,9 @@ details, return URL) and resolves with `Ok` once handed over, or an `Err` the bu
 - Deletion: the row, the payments, the requests and the manual grants, and the foreign keys remove
   them with the account too; an erased admin's id is cleared from the grants they made.
   Stripe keeps its own record of each payment (the controller's accounting record there).
+- Reminder mail: what was sent is in `mailing.deliveries` under a recipient key (never the
+  address) and a scope naming the account id and the end; mailing keeps that ledger after an account
+  is deleted (see its README §11), when the id no longer points at anyone.
 - Retention: invoice details are personal data the app needs only until the request is handled,
   so granting or dismissing it erases them. What `onRequest` delivered (the mail to the owner) and
   the issued invoice are the app's and the owner's own records.
