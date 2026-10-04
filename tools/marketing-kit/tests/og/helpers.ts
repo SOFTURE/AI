@@ -12,6 +12,11 @@ export function getInterFile(weight: 400 | 700, format: "woff" | "woff2" = "woff
   return require.resolve(`@fontsource/inter/files/inter-latin-${weight}-normal.${format}`);
 }
 
+/** Inter's `latin-ext` subset: Polish and other Central European letters, no basic latin. */
+export function getInterExtFile(weight: 400 | 700 = 400): string {
+  return require.resolve(`@fontsource/inter/files/inter-latin-ext-${weight}-normal.woff`);
+}
+
 export function makeFont(files: { path: string; weight: string; style?: "normal" | "italic" }[], family = "Inter"): BrandFont {
   return { family, fallback: "sans-serif", files: files.map((file) => ({ style: "normal", unicodeRange: null, ...file })) };
 }
