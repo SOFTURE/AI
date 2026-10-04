@@ -1,12 +1,12 @@
 ---
 change_id: seo-crawler-access
 title: "Any app serves robots, sitemap, canonical URLs and IndexNow from @softure-ai/seo"
-status: impl_reviewed
+status: archived
 roadmap_item: BL-1
 branch: claude/project-thread-c4o57h
 created: 2026-10-04
 updated: 2026-10-04
-archived_at: null
+archived_at: 2026-10-04
 ---
 
 ## Intent
@@ -61,3 +61,4 @@ Source (FIRE_TRACKER, read only, commit `15ec77e`): `src/lib/ai-crawlers.ts`, `s
 - Framing skipped: the outcome, scope and source are fixed by the roadmap item and the owner's
   FIRE analysis (`docs/06-fire-extraction-2.md`); this is a port of working, tested FIRE code into a
   module, with no doubt about the problem itself. Research is done (two roadmap unknowns).
+- Archived 2026-10-04: `@softure-ai/seo` ships robots with AI crawler lists, `htmlLimitedBots`, the sitemap, canonical URLs and the IndexNow key and submit; the example app serves the three files under an e2e.

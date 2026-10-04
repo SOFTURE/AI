@@ -49,7 +49,7 @@ backlog: context/backlog/roadmap-blog/
 
 | ID | Change | Outcome | Depends on | Mode | Status |
 | --- | --- | --- | --- | --- | --- |
-| **BL-1** | `seo-crawler-access` | `@softure-ai/seo`: `robots` with explicit AI crawler lists, `htmlLimitedBots` that keeps Next's defaults, sitemap builder, canonical host, IndexNow key and submit | — | autonomous | **in_progress** (implement 2/2, since 2026-10-04; cloud session, branch `claude/project-thread-c4o57h` — do not take in another session) |
+| **BL-1** | `seo-crawler-access` | `@softure-ai/seo`: `robots` with explicit AI crawler lists, `htmlLimitedBots` that keeps Next's defaults, sitemap builder, canonical host, IndexNow key and submit | — | autonomous | done_code (2026-10-04; waiting: first npm release of @softure-ai/seo, BL-8) |
 | **BL-2** | `blog-content-store` | `@softure-ai/blog`: article and term tables in the module's schema, Markdown files with a strict frontmatter, `softure-blog publish` (dry run by default), slug history | — | autonomous | ready |
 | **BL-3** | `blog-markdown-renderer` | server-side Markdown renderer with an allowlist, heading anchors, glossary auto-links from term forms and a block plugin API | BL-2 | autonomous | ready |
 | **BL-4** | `blog-pages` | `/blog`, article and glossary pages from the package: ISR, JSON-LD, summary box, sources, disclaimer and CTA slots, 301/410, OG image per article | BL-3 | autonomous | ready |
@@ -103,8 +103,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### BL-1: SEO and AI crawler access
 - **Change ID:** `seo-crawler-access`
-- **Status:** in_progress (implement 2/2, since 2026-10-04; cloud session, branch `claude/project-thread-c4o57h` — do not take in another session)
-- **Input:** [`context/changes/seo-crawler-access/change.md`](../changes/seo-crawler-access/change.md)
+- **Status:** done_code (2026-10-04; waiting: first npm release of @softure-ai/seo, BL-8)
+- **Input:** [`context/archive/2026-10-04-seo-crawler-access/change.md`](../archive/2026-10-04-seo-crawler-access/change.md)
 - **Outcome:** A new module `@softure-ai/seo` (`modules/seo/`, copied from `templates/package/`, no database) that any app uses with or without the blog:
   - `buildRobots(config)`: explicit allow lists for AI crawlers in three categories (search, on-demand fetchers, training), each switchable off as one list; private paths disallowed for everyone;
   - `buildHtmlLimitedBots(extra)`: extends Next's default `htmlLimitedBots` instead of replacing it, with a guard test that compares the copied default with the installed Next;
@@ -250,4 +250,4 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ## Done
 
-(nothing yet)
+- **BL-1** `seo-crawler-access`: `@softure-ai/seo` with robots and AI crawler lists, `htmlLimitedBots`, sitemap contributors, canonical URLs and IndexNow (dry run by default); the example app serves robots, sitemap and the key file under an e2e; archived in `archive/2026-10-04-seo-crawler-access/`
