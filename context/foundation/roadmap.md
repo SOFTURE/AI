@@ -73,7 +73,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-29** | `marketing-kit-font-files-description` | the marketing.json font files description admits subset files | FU-23 | autonomous | done_code (2026-10-04; waiting: MK-8 release) |
 | **FU-30** | `billing-failed-refund-access` | a refund that fails gives back the access it took | FU-27 | autonomous | done_code (2026-10-04; waiting: the next release of `@softure-ai/billing`) |
 | **FU-31** | `auth-require-user-redirect-tag` | `requireUser`'s redirect to login keeps the channel tag | FU-28 | autonomous | done_code (2026-10-04; waiting: the next releases of `@softure-ai/auth` and `@softure-ai/billing`) |
-| **FU-32** | `billing-price-minor-units` | a plan's price means the same amount on every runtime (pinned minor units) | FU-30 | autonomous | in_progress |
+| **FU-32** | `billing-price-minor-units` | a plan's price means the same amount on every runtime (pinned minor units) | FU-30 | autonomous | in_progress (implement 1/1, since 2026-10-04; branch `claude/project-thread-9fohl9`) |
 | **FU-33** | `billing-lifetime-grant-race` | lifetime grants made at once on a new row are refused after the first | FU-32 | autonomous | proposed |
 | **FU-34** | `billing-stale-handover-claim` | a request whose hand-over was cut off is handed over on a later ask | FU-33 | autonomous | proposed |
 | **FU-35** | `billing-refund-after-late-failure` | a new refund is not lost when an earlier refund's failure arrives late | FU-34 | autonomous | proposed |
@@ -533,7 +533,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-32: A plan's price means the same amount on every runtime
 - **Change ID:** `billing-price-minor-units`
-- **Status:** in_progress
+- **Status:** in_progress (implement 1/1, since 2026-10-04; branch `claude/project-thread-9fohl9`)
 - **Input:** [`changes/billing-price-minor-units/change.md`](../changes/billing-price-minor-units/change.md)
 - **Outcome:** The minor unit of a plan's `price.amount` comes from a table billing pins (ISO 4217, with the overrides billing chooses), not from the runtime's `Intl`/CLDR, so a HUF 29.50 plan is formatted and charged the same on every Node build; a test fails if the pinned table and the runtime disagree in a way that changes a price.
 - **Prerequisites:** FU-30 on `master` (lane C).

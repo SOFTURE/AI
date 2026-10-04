@@ -80,7 +80,7 @@ export interface PaidCheckout {
   readonly paymentId: string | null;
   readonly userId: string;
   readonly planId: string;
-  /** What Stripe charged, in billing's unit (`Intl`'s minor unit, converted from Stripe's). */
+  /** What Stripe charged, in billing's unit (the pinned minor unit, converted from Stripe's). */
   readonly amount: number;
   /** ISO 4217, upper case. */
   readonly currency: string;

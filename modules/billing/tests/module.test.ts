@@ -72,10 +72,10 @@ describe("the billing module", () => {
         "- options.plans.0.id: must be kebab-case, e.g. pro-yearly",
         "- options.plans.0.name: needs at least an en text",
         "- options.plans.0.price.amount: Invalid input: expected int, received number",
-        "- options.plans.0.price.currency: must be an upper-case ISO 4217 currency code, e.g. PLN",
+        "- options.plans.0.price.currency: must be an upper-case ISO 4217 currency code billing knows, e.g. PLN",
         "- options.plans.0.period.count: Too small: expected number to be >=1",
         "- options.plans.1.price.amount: Too small: expected number to be >=0",
-        "- options.plans.1.price.currency: must be an upper-case ISO 4217 currency code, e.g. PLN",
+        "- options.plans.1.price.currency: must be an upper-case ISO 4217 currency code billing knows, e.g. PLN",
         "- options.plans.1.period: Invalid input",
       ].join("\n"),
     );

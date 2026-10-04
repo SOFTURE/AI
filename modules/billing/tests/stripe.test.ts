@@ -1,6 +1,6 @@
 // The Stripe adapter with Stripe's API replaced by a recording `fetch`: the Checkout session it asks
 // for, the redirect it answers, and every way Stripe can fail turned into `billing.payment_failed`.
-import { getCheckoutSessionParams, getMinorUnitDigits, stripe, type BillingOptionsInput, type PaymentRequest } from "@softure-ai/billing";
+import { getCheckoutSessionParams, stripe, type BillingOptionsInput, type PaymentRequest } from "@softure-ai/billing";
 import { startPayment } from "@softure-ai/billing/server";
 import { err, ok } from "@softure-ai/core";
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
@@ -48,13 +48,15 @@ describe("getCheckoutSessionParams", () => {
   it("sends the price in Stripe's unit for the currency", () => {
     const config = createConfig({ plans: PLANS });
     const unitAmount = (price: { amount: number; currency: string }) => getCheckoutSessionParams({ config }, requestFor(price)).get("line_items[0][price_data][unit_amount]");
-    // ISK 1,500 and UGX 5,000: no minor unit in Intl, two decimals (always 00) at Stripe.
+    // ISK 1,500 and UGX 5,000: no minor unit in ISO 4217, two decimals (always 00) at Stripe.
     expect(unitAmount({ amount: 1500, currency: "ISK" })).toBe("150000");
     expect(unitAmount({ amount: 5000, currency: "UGX" })).toBe("500000");
-    expect(unitAmount({ amount: 1500, currency: "ALL" })).toBe("150000");
+    // ALL 15.00: two decimals in ISO 4217 and at Stripe, whatever the runtime's CLDR shows.
+    expect(unitAmount({ amount: 1500, currency: "ALL" })).toBe("1500");
     expect(unitAmount({ amount: 1500, currency: "JPY" })).toBe("1500");
-    // HUF and TWD are two-decimal at Stripe; Intl's digits for them depend on the runtime's CLDR.
-    for (const currency of ["HUF", "TWD"]) expect(unitAmount({ amount: 2950, currency })).toBe(String(2950 * 10 ** (2 - getMinorUnitDigits(currency))));
+    expect(unitAmount({ amount: 1500, currency: "MGA" })).toBe("1500");
+    // HUF and TWD are two-decimal in billing and at Stripe on every runtime.
+    for (const currency of ["HUF", "TWD"]) expect(unitAmount({ amount: 2950, currency })).toBe("2950");
     expect(unitAmount({ amount: 1250, currency: "KWD" })).toBe("1250");
   });
 
