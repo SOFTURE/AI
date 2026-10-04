@@ -16,6 +16,12 @@ export const INVOICE_LIMITS = {
   address: 500,
 } as const;
 
+/** The limit of the invoice field with this form name, for the too-long message. */
+export function getInvoiceFieldLimit(field: string): number | undefined {
+  const key = (Object.keys(INVOICE_FIELDS) as (keyof typeof INVOICE_FIELDS)[]).find((name) => INVOICE_FIELDS[name] === field);
+  return key === undefined ? undefined : INVOICE_LIMITS[key];
+}
+
 /** The payment page's parameter a hosted checkout returns with: `?checkout=success` or `?checkout=cancelled`. */
 export const CHECKOUT_PARAM = "checkout";
 

@@ -190,16 +190,17 @@ describe("startPayment", () => {
     expect(await listOpenRequests(test.ctx)).toEqual([]);
   });
 
-  it("names every invoice field that is missing or too long, and hands nothing over", async () => {
-    expect(await startPayment(test.ctx, { account, planId: "monthly", invoice: { name: " ", taxId: "x".repeat(33), address: "a".repeat(501) } })).toEqual({
+  it("names every invoice field that is missing, too long or has control characters, and stores and hands nothing over", async () => {
+    expect(await startPayment(test.ctx, { account, planId: "monthly", invoice: { name: " ", taxId: "x".repeat(33), address: "1 Way\nPlan: Lifetime" } })).toEqual({
       ...err("billing.invoice_details_invalid"),
       fieldErrors: {
-        invoiceName: "billing.invoice_details_invalid",
-        invoiceTaxId: "billing.invoice_details_invalid",
-        invoiceAddress: "billing.invoice_details_invalid",
+        invoiceName: "billing.invoice_field_required",
+        invoiceTaxId: "billing.invoice_field_too_long",
+        invoiceAddress: "billing.invoice_field_control_characters",
       },
     });
     expect(recorder.requests).toEqual([]);
+    expect(await listOpenRequests(test.ctx)).toEqual([]);
   });
 
   it("refuses a plan the config does not declare", async () => {

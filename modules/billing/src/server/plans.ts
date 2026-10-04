@@ -5,7 +5,7 @@ import { err, ok, type Err, type Ok, type SoftureConfig } from "@softure-ai/core
 import { consumeRateLimit, subjectKey } from "@softure-ai/security/server";
 import { eq } from "drizzle-orm";
 import type { BillingErrorCode, Entitlement, EntitlementEvent, PaymentErrorCode, PaymentGrant, Plan } from "../contract.js";
-import { INVOICE_FIELDS, INVOICE_LIMITS, type InvoiceField } from "../fields.js";
+import { parseInvoiceDetails, type InvoiceDetailsError, type InvoiceInput } from "../invoice.js";
 import type { InvoiceDetails, PaymentAccount, PaymentProvider, PaymentStart } from "../payment.js";
 import { findPlan, getPlanGrant } from "../plans.js";
 import { getPaymentGrant } from "../refund.js";
@@ -76,28 +76,6 @@ export async function applyPlan(ctx: BillingContext, userId: string, planId: str
 export async function grantPlan(ctx: BillingContext, userId: string, planId: string): Promise<Ok<Entitlement> | Err<BillingErrorCode | "billing.plan_unknown">> {
   const applied = await applyPlan(ctx, userId, planId);
   return applied.ok ? ok(applied.value.entitlement) : applied;
-}
-
-/** Invoice details as the form sent them, untrimmed. */
-export interface InvoiceInput {
-  readonly name: string;
-  readonly taxId: string;
-  readonly address: string;
-}
-
-export type InvoiceDetailsError = Err<"billing.invoice_details_invalid"> & { readonly fieldErrors: Readonly<Partial<Record<InvoiceField, "billing.invoice_details_invalid">>> };
-
-/** Trimmed invoice details, or the fields that are missing or too long. */
-export function parseInvoiceDetails(input: InvoiceInput): Ok<InvoiceDetails> | InvoiceDetailsError {
-  const name = input.name.trim();
-  const taxId = input.taxId.trim();
-  const address = input.address.trim();
-  const fieldErrors: Partial<Record<InvoiceField, "billing.invoice_details_invalid">> = {};
-  if (name === "" || name.length > INVOICE_LIMITS.name) fieldErrors[INVOICE_FIELDS.name] = "billing.invoice_details_invalid";
-  if (taxId.length > INVOICE_LIMITS.taxId) fieldErrors[INVOICE_FIELDS.taxId] = "billing.invoice_details_invalid";
-  if (address === "" || address.length > INVOICE_LIMITS.address) fieldErrors[INVOICE_FIELDS.address] = "billing.invoice_details_invalid";
-  if (Object.keys(fieldErrors).length > 0) return { ...err("billing.invoice_details_invalid"), fieldErrors };
-  return ok({ name, taxId: taxId === "" ? null : taxId, address });
 }
 
 export interface StartPaymentInput {

@@ -107,7 +107,7 @@ describe("PaymentForm", () => {
     let answer: PaymentFormState = {
       status: "error",
       error: "billing.invoice_details_invalid",
-      fieldErrors: { invoiceAddress: "billing.invoice_details_invalid" },
+      fieldErrors: { invoiceAddress: "billing.invoice_field_required", invoiceTaxId: "billing.invoice_field_too_long" },
       values: { invoiceName: "Ada Ltd", invoiceTaxId: "", invoiceAddress: "" },
     };
     render(<PaymentForm action={() => Promise.resolve(answer)} planId="monthly" planName="Monthly" email="ada@example.com" collectsInvoiceDetails messages={en} />);
@@ -115,8 +115,11 @@ describe("PaymentForm", () => {
     fireEvent.change(screen.getByLabelText(en.payment.fields.name), { target: { value: "Ada Ltd" } });
     fireEvent.change(screen.getByLabelText(en.payment.fields.address), { target: { value: "x" } });
     fireEvent.click(screen.getByRole("button", { name: en.payment.requestInvoice }));
-    await waitFor(() => expect(screen.getByText(en.errors.billing.invoice_details_invalid)).toBeDefined());
+    await waitFor(() => expect(screen.getByText(en.errors.billing.invoice_field_required)).toBeDefined());
     expect(screen.getByLabelText(en.payment.fields.address).getAttribute("aria-invalid")).toBe("true");
+    // The too-long text names the field's own limit.
+    expect(screen.getByText("Use at most 32 characters.")).toBeDefined();
+    expect(screen.queryByText(en.errors.billing.invoice_details_invalid)).toBeNull();
     expect(screen.getByLabelText<HTMLInputElement>(en.payment.fields.name).value).toBe("Ada Ltd");
     expect(screen.queryByRole("alert")).toBeNull();
 

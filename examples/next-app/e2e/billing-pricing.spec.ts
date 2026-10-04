@@ -127,6 +127,25 @@ test("an invoice request mails the admin the details and grants nothing yet", as
   await expect(page.locator("[data-status]").first()).toHaveAttribute("data-status", "trial");
 });
 
+test("a too-long tax id gets its own message, and nothing is stored or mailed", async ({ browser }) => {
+  const page = await openPage(browser);
+  const email = newEmail();
+  await register(page, email);
+  await page.goto("/payment?plan=monthly");
+  const taxId = page.getByLabel(copy.payment.fields.taxId);
+  // The field's maxLength stops a browser; a crafted request does not, and the server says why.
+  await taxId.evaluate((input) => input.removeAttribute("maxlength"));
+  await page.getByLabel(copy.payment.fields.name).fill("Ada Lovelace Ltd");
+  await taxId.fill("P".repeat(33));
+  await page.getByLabel(copy.payment.fields.address).fill("1 Analytical Way, London");
+  await page.getByRole("button", { name: copy.payment.requestInvoice }).click();
+  await expect(page.getByText("Use at most 32 characters.")).toBeVisible();
+  await expect(taxId).toHaveAttribute("aria-invalid", "true");
+
+  const mails = (await readMailOutbox(MAIL_OUTBOX, { to: EXAMPLE_ADMIN_EMAIL })).filter((mail) => mail.subject.endsWith(` for ${email}`));
+  expect(mails).toHaveLength(0);
+});
+
 test("asking again for the same plan refreshes the request without mailing the admin again", async ({ browser }) => {
   const member = await openPage(browser);
   const email = newEmail();
