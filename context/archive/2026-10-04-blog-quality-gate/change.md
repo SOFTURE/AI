@@ -1,12 +1,12 @@
 ---
 change_id: blog-quality-gate
 title: "Blog texts pass a quality gate before every publish and in CI"
-status: impl_reviewed
+status: archived
 roadmap_item: BL-6
 branch: claude/bl-6-dj6zv0
 created: 2026-10-04
 updated: 2026-10-04
-archived_at: null
+archived_at: 2026-10-04
 ---
 
 ## Intent
@@ -63,3 +63,4 @@ publish run with the gate hook, the `softure-blog` bin with one command (`publis
   Polish rule data passes the language gate.
 - Framing skipped: the problem is not in doubt. The roadmap names the outcome, the source files and the
   baseline; the open questions are design choices that research settles.
+- Archived 2026-10-04: `@softure-ai/blog` checks texts with a quality gate in `src/quality/` (structure, links, `en`/`pl` style rulesets, voice, YMYL switch, severity overrides, limits, rule plugins and a rule catalog for BL-7), `softure-blog check` runs it without a database and `publish` refuses a text going public with an error; the reusable `blog-links` workflow runs it weekly with `--external`; FIRE's fixtures give FIRE's findings through the `pl` ruleset and stand-in plugins. Gaps BF-3 and BF-4.

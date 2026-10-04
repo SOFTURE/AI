@@ -28,7 +28,7 @@ The roadmap was promoted on 2026-10-04, when it was written. Inside it, the orde
 | BL-3 | [`blog-markdown-renderer`](blog-markdown-renderer/change.md) | Safe Markdown renderer with glossary links | BL-2 on master | dependency |
 | BL-4 | [`blog-pages`](blog-pages/change.md) | Blog pages | BL-3 on master | dependency |
 | BL-5 | [`blog-discovery`](blog-discovery/change.md) | Blog discovery: RSS, sitemap and IndexNow | BL-1 and BL-4 on master | dependency |
-| BL-6 | `blog-quality-gate` (in progress, in [`context/changes/`](../../changes/blog-quality-gate/change.md)) | Text quality gate | BL-2 on master | dependency |
+| BL-6 | `blog-quality-gate` (done, in [`context/archive/`](../../archive/2026-10-04-blog-quality-gate/change.md)) | Text quality gate | BL-2 on master | dependency |
 | BL-7 | [`blog-writing-skill`](blog-writing-skill/change.md) | Article writing skill | BL-6 on master | dependency |
 | BL-8 | [`blog-release`](blog-release/change.md) | SEO and blog release | BL-1…BL-7 on master **and** the owner approves the first npm publish | dependency + owner |
 

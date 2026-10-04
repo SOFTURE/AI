@@ -54,7 +54,7 @@ backlog: context/backlog/roadmap-blog/
 | **BL-3** | `blog-markdown-renderer` | server-side Markdown renderer with an allowlist, heading anchors, glossary auto-links from term forms and a block plugin API | BL-2 | autonomous | ready |
 | **BL-4** | `blog-pages` | `/blog`, article and glossary pages from the package: ISR, JSON-LD, summary box, sources, disclaimer and CTA slots, 301/410, OG image per article | BL-3 | autonomous | ready |
 | **BL-5** | `blog-discovery` | RSS feed, blog sitemap entries with a real `lastmod`, IndexNow ping on publish, "read next" by cluster with the pillar first | BL-1, BL-4 | autonomous | ready |
-| **BL-6** | `blog-quality-gate` | `softure-blog check`: structure, links, style and YMYL rules with language rulesets and rule plugins; publish refuses errors | BL-2 | autonomous | in_progress (impl-review, since 2026-10-04; claude/bl-6-dj6zv0) |
+| **BL-6** | `blog-quality-gate` | `softure-blog check`: structure, links, style and YMYL rules with language rulesets and rule plugins; publish refuses errors | BL-2 | autonomous | done_code (2026-10-04; waiting: the first release of `@softure-ai/blog`, BL-8) |
 | **BL-7** | `blog-writing-skill` | a writing skill shipped with the blog module and installed into the app, kept in sync with the gate's rules | BL-6 | autonomous | ready |
 | **BL-8** | `blog-release` | `@softure-ai/seo` and `@softure-ai/blog` 0.1.0 published through the release pipeline; READMEs, adoption guides and docs updated | BL-1…BL-7 | owner | blocked (waits for BL-1…BL-7 and the owner's first npm publish at the keyboard) |
 
@@ -198,7 +198,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### BL-6: Text quality gate
 - **Change ID:** `blog-quality-gate`
-- **Status:** in_progress (impl-review, since 2026-10-04; claude/bl-6-dj6zv0)
+- **Status:** done_code (2026-10-04; waiting: the first release of `@softure-ai/blog`, BL-8)
 - **Outcome:** A quality gate in `@softure-ai/blog` that runs before every publish and in CI:
   - structure rules (answer first, heading order, length, summary present);
   - link rules (internal targets exist, glossary terms resolve; external links checked only with `--external`);
@@ -251,5 +251,6 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ## Done
 
+- **BL-6** `blog-quality-gate`: a text quality gate in `@softure-ai/blog` (`src/quality/`): structure, link, style (`en` and `pl` rulesets with English rule ids), voice and switchable YMYL rules, severity overrides, limits, rule plugins and `listQualityRules` for BL-7; `softure-blog check [--external] [--today]` without a database, and `publish` refuses a text going public with an error; reusable weekly workflow `.github/workflows/blog-links.yml`; the language gate exempts `pl/` folders of language data; gaps BF-3 and BF-4; archived in `archive/2026-10-04-blog-quality-gate/`
 - **BL-2** `blog-content-store`: `@softure-ai/blog` keeps articles and glossary terms in `blog.articles` and `blog.slug_history` (migration `0001`; every row invariant a constraint, one pillar per cluster as an exclusion deferred to commit); article files are Markdown with a strict English YAML frontmatter plus the app's own `fields`; `softure-blog publish` is a dry run by default and all or nothing with `--commit`, skips unchanged files by content hash, keeps old slugs as redirects and takes a quality gate hook (BL-6); reads for the pages: `getPublishedArticle`, `findArticleBySlug`, `findSlugRedirect`, `listArticles`; gaps BF-1 and BF-2; archived in `archive/2026-10-04-blog-content-store/`
 - **BL-1** `seo-crawler-access`: `@softure-ai/seo` with robots and AI crawler lists, `htmlLimitedBots`, sitemap contributors, canonical URLs and IndexNow (dry run by default); the example app serves robots, sitemap and the key file under an e2e; archived in `archive/2026-10-04-seo-crawler-access/`
