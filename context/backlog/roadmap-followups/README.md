@@ -34,13 +34,14 @@ share files run in one lane (see the roadmap's Order), so `dependency` below nam
 | FU-23 | [`marketing-kit-og-subset-fonts`](../../archive/2026-10-04-marketing-kit-og-subset-fonts/change.md) | OG images use every subset file of a weight | archived 2026-10-04 | dependency |
 | FU-24 | [`billing-existing-accounts`](../../archive/2026-10-04-billing-existing-accounts/change.md) | Existing accounts keep their access when billing is enabled | archived 2026-10-04 | dependency |
 | FU-25 | [`billing-stripe-currency-units`](../../archive/2026-10-04-billing-stripe-currency-units/change.md) | Stripe charges the plan's price in every currency | archived 2026-10-04 | dependency |
-| FU-26 | [`billing-guard-race-tests`](billing-guard-race-tests/change.md) | Billing guards and lock races are tested where they can fail | FU-25 on main | dependency |
+| FU-26 | [`billing-guard-race-tests`](../../archive/2026-10-04-billing-guard-race-tests/change.md) | Billing guards and lock races are tested where they can fail | archived 2026-10-04 | dependency |
 | FU-27 | [`billing-invoice-request-hygiene`](billing-invoice-request-hygiene/change.md) | Invoice requests are stored before the owner hears of them and keep only what they need | FU-26 on main | dependency |
 | FU-28 | [`auth-page-redirect-tag`](../../archive/2026-10-04-auth-page-redirect-tag/change.md) | A signed-in visitor's redirect from a tagged login page keeps the tag | archived 2026-10-04 | dependency |
 | FU-29 | [`marketing-kit-font-files-description`](../../archive/2026-10-04-marketing-kit-font-files-description/change.md) | The marketing.json font files description admits subset files | archived 2026-10-04 | dependency |
 | FU-30 | [`billing-failed-refund-access`](billing-failed-refund-access/change.md) | A refund that fails gives back the access it took | FU-27 on main | dependency |
 | FU-31 | [`auth-require-user-redirect-tag`](../../archive/2026-10-04-auth-require-user-redirect-tag/change.md) | `requireUser`'s redirect to login keeps the channel tag | archived 2026-10-04 | dependency |
 | FU-32 | [`billing-price-minor-units`](billing-price-minor-units/change.md) | A plan's price means the same amount on every runtime | FU-30 on main | dependency |
+| FU-33 | [`billing-lifetime-grant-race`](billing-lifetime-grant-race/change.md) | Lifetime grants made at once on a new row are refused after the first | FU-32 on main | dependency |
 
 Kind: `start` (can be taken as soon as the roadmap is promoted), `dependency` (waits for the listed items on the
 main branch), `owner` (needs an owner decision or the owner at the keyboard).

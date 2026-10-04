@@ -19,7 +19,8 @@ const PASSWORD = "correct horse battery";
 /** The billing options and reserved keys (`routes`, `messages`). */
 export type BillingInput = Parameters<typeof billing>[0];
 
-export function createConfig(options: BillingInput = {}): SoftureConfig {
+/** `authRoles` are the roles `auth({ roles })` declares beside `admin`. */
+export function createConfig(options: BillingInput = {}, authRoles: readonly string[] = []): SoftureConfig {
   return defineSoftureConfig({
     database: { url: "pglite://" },
     locale: "en",
@@ -27,7 +28,7 @@ export function createConfig(options: BillingInput = {}): SoftureConfig {
     appOrigin: "https://app.example.com",
     modules: [
       security({ clientIp: headerIp("x-real-ip"), buckets: { ...AUTH_RATE_LIMIT_BUCKETS, ...PRIVACY_RATE_LIMIT_BUCKETS, ...BILLING_RATE_LIMIT_BUCKETS }, cleanupProbability: 0 }),
-      auth({ password: { scrypt: { cost: 2 ** 10 } }, requireConsent: false }),
+      auth({ password: { scrypt: { cost: 2 ** 10 } }, requireConsent: false, roles: [...authRoles] }),
       privacy(),
       billing(options),
     ],
@@ -49,7 +50,7 @@ export async function createTestBilling(options: BillingInput = {}): Promise<Tes
 }
 
 /** Registers an account at the clock's current instant and returns its id. */
-export async function createAccount(test: TestBilling, email: string): Promise<string> {
+export async function createAccount(test: Pick<TestBilling, "ctx">, email: string): Promise<string> {
   const registered = await registerUser(test.ctx, { email, password: PASSWORD, hasConsented: false, clientKey: CLIENT });
   if (!registered.ok) throw new Error(`registration failed with ${registered.error}`);
   return registered.value.user.id;

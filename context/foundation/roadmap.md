@@ -67,13 +67,14 @@ backlog: context/backlog/roadmap-followups/
 | **FU-23** | `marketing-kit-og-subset-fonts` | OG images use every subset file of a weight | FU-17 | autonomous | done_code (2026-10-04; waiting: MK-8 release) |
 | **FU-24** | `billing-existing-accounts` | existing accounts keep their access when billing is enabled (import, trial floor, pinned trials) | FU-22 | autonomous | done_code (2026-10-04; waiting: the next release of `@softure-ai/billing`) |
 | **FU-25** | `billing-stripe-currency-units` | Stripe charges the plan's price in every currency (special-case units) | FU-24 | autonomous | done_code (2026-10-04; waiting: the next release of `@softure-ai/billing`) |
-| **FU-26** | `billing-guard-race-tests` | billing guards and lock races tested where they can fail | FU-25 | autonomous | proposed |
+| **FU-26** | `billing-guard-race-tests` | billing guards and lock races tested where they can fail | FU-25 | autonomous | done_code (2026-10-04; waiting: the next release of `@softure-ai/billing`) |
 | **FU-27** | `billing-invoice-request-hygiene` | invoice requests stored before the owner's mail, validated, expired and priced | FU-26 | autonomous | proposed |
 | **FU-28** | `auth-page-redirect-tag` | a signed-in visitor's redirect from a tagged login page keeps the tag | FU-7 | autonomous | done_code (2026-10-04; waiting: the next releases of `@softure-ai/auth` and `@softure-ai/analytics`) |
 | **FU-29** | `marketing-kit-font-files-description` | the marketing.json font files description admits subset files | FU-23 | autonomous | done_code (2026-10-04; waiting: MK-8 release) |
 | **FU-30** | `billing-failed-refund-access` | a refund that fails gives back the access it took | FU-27 | autonomous | proposed |
 | **FU-31** | `auth-require-user-redirect-tag` | `requireUser`'s redirect to login keeps the channel tag | FU-28 | autonomous | done_code (2026-10-04; waiting: the next releases of `@softure-ai/auth` and `@softure-ai/billing`) |
 | **FU-32** | `billing-price-minor-units` | a plan's price means the same amount on every runtime (pinned minor units) | FU-30 | autonomous | proposed |
+| **FU-33** | `billing-lifetime-grant-race` | lifetime grants made at once on a new row are refused after the first | FU-32 | autonomous | proposed |
 
 ## Order
 
@@ -84,7 +85,7 @@ after another; different lanes run in parallel, up to 4 at once.
 | --- | --- | --- |
 | A: switches | FU-1 | `foundation/core/`, `modules/auth/`, `modules/feature-switches/` |
 | B: waitlist and consent | FU-3 → FU-2 → FU-4 → FU-8 | `modules/waitlist/` (FU-3 also `modules/mailing/`, `modules/privacy/`) |
-| C: billing | FU-11 → FU-9 → FU-6 → FU-20 → FU-21 → FU-22 → FU-24 → FU-25 → FU-26 → FU-27 → FU-30 → FU-32; FU-12 any time | `modules/billing/` and its migrations; FU-12 writes documents only (archives and followup entries) |
+| C: billing | FU-11 → FU-9 → FU-6 → FU-20 → FU-21 → FU-22 → FU-24 → FU-25 → FU-26 → FU-27 → FU-30 → FU-32 → FU-33; FU-12 any time | `modules/billing/` and its migrations; FU-12 writes documents only (archives and followup entries) |
 | D: analytics | FU-5 → FU-7 → FU-28 → FU-31 (FU-7 also after FU-1) | `modules/analytics/` channel propagation; FU-7 may touch auth's redirects |
 | E: marketing-kit config | FU-14 → FU-16 → FU-15; FU-14 → FU-18 → FU-19 → FU-29 | `tools/marketing-kit/src/config/schema.ts`, `schema/`, `src/compose/` (FU-15, FU-16) |
 | F: independent | FU-13, FU-17 → FU-23 | `.github/workflows/ci.yml`; `tools/marketing-kit/src/og/` |
@@ -93,7 +94,7 @@ after another; different lanes run in parallel, up to 4 at once.
    adopts the switches; FU-3 fixes a consent ledger that can contradict an unsubscribe), then the MEDIUM refund
    fix and the schema descriptions that every later marketing-kit config item extends.
 2. **Each free slot** takes the first item of this list whose lane is idle and whose dependencies are on `master`:
-   FU-2, FU-5, FU-13, FU-17, FU-9, FU-16, FU-18, FU-4, FU-7, FU-12, FU-6, FU-15, FU-8, FU-19, FU-20, FU-21, FU-22, FU-23, FU-24, FU-25, FU-26, FU-27, FU-28, FU-29, FU-30, FU-31, FU-32.
+   FU-2, FU-5, FU-13, FU-17, FU-9, FU-16, FU-18, FU-4, FU-7, FU-12, FU-6, FU-15, FU-8, FU-19, FU-20, FU-21, FU-22, FU-23, FU-24, FU-25, FU-26, FU-27, FU-28, FU-29, FU-30, FU-31, FU-32, FU-33.
 3. **MK-8, EN-9 and MO-6** (owner, carried over): the owner's batch release on 2026-10-05; they wait for no FU item,
    and no FU item waits for them.
 
@@ -139,6 +140,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 | FU-30 | no | a billing webhook path with signed fixtures; no Stripe secrets |
 | FU-31 | no | auth's `requireUser` and the same rewrite; covered by the example app's e2e |
 | FU-32 | no | a pinned table in `src/price.ts` and unit tests; no secrets |
+| FU-33 | no | a lock change in `grantPlanManually` and a two-connection Postgres test |
 
 ## Items
 
@@ -458,7 +460,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-26: Billing guards and lock races are tested where they can fail
 - **Change ID:** `billing-guard-race-tests`
-- **Status:** proposed
+- **Status:** done_code (2026-10-04; waiting: the next release of `@softure-ai/billing`)
+- **Input:** [`archive/2026-10-04-billing-guard-race-tests/change.md`](../archive/2026-10-04-billing-guard-race-tests/change.md)
 - **Outcome:** CI proves billing's guards and locks: `requireWriteAccess` and every billing server action are unit-tested as anonymous, member and admin; the first-insert race of `changeEntitlement` and two concurrent plan grants run on two Postgres connections; an e2e covers a paid period that ended; a misspelt `adminRole` (not among `auth({ roles })`) fails at setup instead of silently locking every admin out.
 - **Prerequisites:** FU-25 on `master` (lane C).
 - **Unknowns:** How a unit test mocks the Next session for `/next` actions (auth's test helpers vs. a module mock); running the two-connection tests against the CI Postgres service vs. the e2e database.
@@ -532,6 +535,17 @@ owner's own machine, a product decision only the owner can make, or a change in 
 - **Baseline:** MO-2 `billing-plans-pricing`: amounts in `Intl`'s minor unit (`src/price.ts`); FU-25 converts to Stripe's unit from those digits, so it inherits the runtime dependence. After: the gap is closed and covered by unit tests that pin the digits.
 - **Source:** FU-25 `billing-stripe-currency-units` CI (unit tests on HUF failed on the runner with 295000 for 2950); `modules/billing/src/price.ts`
 
+### FU-33: Lifetime grants made at once on a new row are refused after the first
+- **Change ID:** `billing-lifetime-grant-race`
+- **Status:** proposed
+- **Outcome:** Two lifetime grants (or a lifetime and a period grant) made at once on an account without an entitlement row cannot both pass the `billing.lifetime_active` check: `grantPlanManually` (and every other path that checks lifetime before granting) holds a lock that exists before the row does, and a Postgres test in `tests/lock-races.test.ts` (two connections, order forced by a blocker) proves the second grant is refused.
+- **Prerequisites:** FU-32 on `master` (lane C).
+- **Unknowns:** Pin the derived row first (insert `ON CONFLICT DO NOTHING`, then `lockEntitlementRow`) vs. a stronger lock on the `auth.users` row (`FOR NO KEY UPDATE`, which would also serialise reads that take `KEY SHARE`); whether `startPayment`'s lifetime check needs the same (it only refuses early; the grant is the real check).
+- **Risk:** LOW. `lockEntitlementRow` locks nothing while the account has no row (`modules/billing/src/server/take-back.ts:24-26`), so two grants that start before the row exists both read `isLifetime: false`; measured on Postgres 16 by FU-26: two manual lifetime grants at once both succeed and two active lifetime grants are recorded. Access is still right (lifetime), but the history shows a grant the rule forbids, and a period grant can land on top of a lifetime in the same way.
+- **Baseline:** FU-9 `billing-admin-requests`: the lock order is account (key share), entitlement row (`FOR UPDATE`, nothing without a row), own row; `changeEntitlement` handles the first insert, but the lifetime check runs before it. After: the gap is closed and covered by a two-connection Postgres test.
+- **PRD refs:** FR-22.
+- **Source:** FU-26 `billing-guard-race-tests` research finding 5 (`context/archive/2026-10-04-billing-guard-race-tests/research.md`); `modules/billing/src/server/grants.ts:41-56`
+
 ## Owner decisions and checks
 
 Carried over from marketing-kit (owner, batch at the keyboard on Monday 2026-10-05):
@@ -551,6 +565,7 @@ Open from FU-14:
 
 - **FU-24** `billing-existing-accounts`: `trial.startsAt` floors the derived trial of accounts created before a chosen day, `import-entitlements` (and `importEntitlement()`) records known trial ends, paid periods and lifetime access without shortening access, and `pin-trials` (and `pinDerivedTrials()`) pins derived trials before a config change; README §5 lists the config effects; covered by unit tests on PGlite and an e2e; archived in `archive/2026-10-04-billing-existing-accounts/`
 - **FU-25** `billing-stripe-currency-units`: `stripe()` charges in Stripe's unit per currency (ISK, UGX, ALL and the other currencies `Intl` shows without decimals go ×100), the webhook records paid totals and partial refunds in the plan's unit, and a price Stripe cannot charge exactly (a three-decimal amount not ending in 0, LYD fractions) is refused when the config loads; HUF and TWD needed nothing (their divisible-by-100 rule is for payouts); covered by unit tests on the Checkout body and signed webhook fixtures on PGlite; archived in `archive/2026-10-04-billing-stripe-currency-units/`
+- **FU-26** `billing-guard-race-tests`: every billing server action and `requireWriteAccess` are unit-tested as anonymous, member and admin through the real auth checks (request scope faked); the first-insert race of `changeEntitlement` and concurrent manual grants run on two Postgres connections (CI's service, `SOFTURE_TEST_POSTGRES_URL`) with the order forced by a blocker connection, and fail when a lock is dropped; an `adminRole` that `auth({ roles })` does not declare fails the first billing request and the readiness probe; the e2e covers an ended paid period; the lifetime-grant race the spike found is FU-33; archived in `archive/2026-10-04-billing-guard-race-tests/`
 - **FU-31** `auth-require-user-redirect-tag`: `requireUser({ next, searchParams })` sends a visitor without a session to login through `rewriteRedirect` with the page's own search params (without them, as for an action), so analytics' `tagRedirect` keeps the channel tag; billing's payment page passes its parameters; covered by unit and e2e tests; archived in `archive/2026-10-04-auth-require-user-redirect-tag/`
 - **FU-28** `auth-page-redirect-tag`: auth's login and register pages redirect a signed-in visitor with the page's own channel tag through `rewriteRedirect` (now handed the page's `searchParams`) and analytics' `tagRedirect`, covered by unit and e2e tests; archived in `archive/2026-10-04-auth-page-redirect-tag/`
 - **FU-23** `marketing-kit-og-subset-fonts`: OG images use every subset file of a weight (registered as `<family> #n` subset families and written as a font stack), at the line's weight; a letter only another weight's subset file has is refused; covered by font, glyph and render tests; archived in `archive/2026-10-04-marketing-kit-og-subset-fonts/`

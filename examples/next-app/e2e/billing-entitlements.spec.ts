@@ -1,7 +1,7 @@
 // @softure-ai/billing on the built app: a new account is on its 14-day trial and its write goes
 // through; once its trial is over (moved into the past in Postgres) the badge and the notice say it
 // is read-only, the notice links to the payment page, and the same write is refused and stores
-// nothing. An account older than its trial gets its paid period back from the import-entitlements
+// nothing. A paid period that ended is read-only the same way, with the renew notice. An account older than its trial gets its paid period back from the import-entitlements
 // script, and pin-trials reports the trials it would pin. Every test gets its own client address
 // and account.
 import { spawnSync } from "node:child_process";
@@ -76,21 +76,31 @@ async function countEntries(message: string): Promise<number> {
   }
 }
 
-/** Ends the account's trial a minute ago, the way time would. */
-async function endTrial(email: string): Promise<void> {
+/** Stores the account's entitlement row as given, the way time would have left it. */
+async function storeEntitlement(email: string, record: { trialEndsAt: Date; paidUntil: Date | null }): Promise<void> {
   const database = await openTestDatabase();
   try {
     const [account] = await database.db.select({ id: users.id }).from(users).where(eq(users.email, email));
-    if (account === undefined) throw new Error(`endTrial: no account for ${email}`);
+    if (account === undefined) throw new Error(`storeEntitlement: no account for ${email}`);
     const now = new Date();
-    const trialEndsAt = new Date(now.getTime() - 60_000);
     await database.db
       .insert(entitlements)
-      .values({ userId: account.id, trialEndsAt, paidUntil: null, isLifetime: false, createdAt: now, updatedAt: now })
-      .onConflictDoUpdate({ target: entitlements.userId, set: { trialEndsAt, updatedAt: now } });
+      .values({ userId: account.id, ...record, isLifetime: false, createdAt: now, updatedAt: now })
+      .onConflictDoUpdate({ target: entitlements.userId, set: { ...record, updatedAt: now } });
   } finally {
     await database.close();
   }
+}
+
+/** Ends the account's trial a minute ago. */
+function endTrial(email: string): Promise<void> {
+  return storeEntitlement(email, { trialEndsAt: new Date(Date.now() - 60_000), paidUntil: null });
+}
+
+/** Ends a paid period a minute ago, after a trial that ended a month before it. */
+function endPaidPeriod(email: string): Promise<void> {
+  const now = Date.now();
+  return storeEntitlement(email, { trialEndsAt: new Date(now - 30 * DAY_MS), paidUntil: new Date(now - 60_000) });
 }
 
 test("the billing page is private: a visitor without a session goes to the login page", async ({ page }) => {
@@ -121,6 +131,21 @@ test("a read-only account sees why, is sent to the payment page, and cannot writ
   await expect(page.locator("[data-status]").first()).toHaveText(copy.badge.readOnly);
   await expect(page.getByRole("status").filter({ hasText: copy.notice.trialEnded })).toBeVisible();
   await expect(page.getByRole("link", { name: copy.notice.choosePlan })).toHaveAttribute("href", "/payment");
+
+  const message = newMessage();
+  await signAsMember(page, message);
+  await expect(page.getByText(en.errors["billing.read_only"])).toBeVisible();
+  expect(await countEntries(message)).toBe(0);
+});
+
+test("an account whose paid period ended is asked to renew and cannot write", async ({ page }) => {
+  const email = await registerAndOpenBillingPage(page);
+  await endPaidPeriod(email);
+  await page.reload();
+
+  await expect(page.locator("[data-status]").first()).toHaveText(copy.badge.readOnly);
+  await expect(page.getByRole("status").filter({ hasText: copy.notice.paidEnded })).toBeVisible();
+  await expect(page.getByRole("link", { name: copy.notice.renew })).toHaveAttribute("href", "/payment");
 
   const message = newMessage();
   await signAsMember(page, message);
