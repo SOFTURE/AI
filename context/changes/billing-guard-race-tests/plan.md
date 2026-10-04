@@ -46,16 +46,16 @@ through `SOFTURE_TEST_POSTGRES_URL` with a database per test (finding 2); a bloc
 ## Phase 1: Guards and locks
 
 **Discipline:** test-after (tests of existing behaviour), each new test checked to fail by a
-temporary mutation of the code it guards. **Files:** `tests/actions.test.ts` (new),
-`tests/write-access.test.ts` (new), `tests/postgres.ts` (new), `tests/lock-races.test.ts` (new),
+temporary mutation of the code it guards. **Files:** `tests/next-guards.test.ts` (new; the
+actions and `requireWriteAccess` share one set of request-scope mocks), `tests/postgres.ts` (new), `tests/lock-races.test.ts` (new),
 `tests/support.ts` (a `createAccount` that takes any context).
 
-1. `tests/actions.test.ts`: request-scope mocks; per admin action: anonymous and member get
+1. `tests/next-guards.test.ts`: request-scope mocks; per admin action: anonymous and member get
    `auth.forbidden` and nothing is written (row counts / entitlement unchanged), admin gets the
    change (grant recorded, request closed, grant revoked, redirect to the account history).
    `startPaymentAction`: anonymous → redirect to login with `next=/payment`, member → `requested`
    and a stored request.
-2. `tests/write-access.test.ts`: `requireWriteAccess` with no session (redirect), a trial (`Ok`
+2. Same file: `requireWriteAccess` with no session (redirect), a trial (`Ok`
    with user and entitlement), a read-only account (`billing.read_only`).
 3. `tests/postgres.ts` and `tests/lock-races.test.ts`: the first-insert race (blocker inserts the
    row), a plain two-change race, concurrent `grantPlanManually` (blocker holds the row); the CI

@@ -49,7 +49,7 @@ export async function createTestBilling(options: BillingInput = {}): Promise<Tes
 }
 
 /** Registers an account at the clock's current instant and returns its id. */
-export async function createAccount(test: TestBilling, email: string): Promise<string> {
+export async function createAccount(test: Pick<TestBilling, "ctx">, email: string): Promise<string> {
   const registered = await registerUser(test.ctx, { email, password: PASSWORD, hasConsented: false, clientKey: CLIENT });
   if (!registered.ok) throw new Error(`registration failed with ${registered.error}`);
   return registered.value.user.id;

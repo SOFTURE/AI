@@ -1,0 +1,100 @@
+// Billing's locks on a real Postgres (tests/postgres.ts): changes that overlap in time, on separate
+// connections, where PGlite's single connection would run them one after the other. A blocker
+// connection holds the contested lock until both changes wait on it, so the interleaving is the
+// same on every run: the race happens, it is not hoped for.
+import { type BillingOptionsInput } from "@softure-ai/billing";
+import { changeEntitlement, getEntitlement, grantPlan, grantPlanManually } from "@softure-ai/billing/server";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { createPostgresBilling, isPostgresRequired, openBlocker, POSTGRES_ADMIN_URL, waitForLockWaiters, type Blocker, type PostgresBilling } from "./postgres.js";
+import { createAccount, NOW } from "./support.js";
+
+const PLANS: BillingOptionsInput["plans"] = [
+  { id: "monthly", name: { en: "Monthly" }, price: { amount: 2900, currency: "PLN" }, period: "month" },
+  { id: "lifetime", name: { en: "Lifetime" }, price: { amount: 49900, currency: "PLN" }, period: "lifetime" },
+];
+/** The end of a 14-day trial begun at NOW, and one, two and three months on top. */
+const TRIAL_END = new Date("2026-10-16T22:00:00Z");
+const MONTH_AFTER_TRIAL = new Date("2026-11-16T23:00:00Z");
+const TWO_MONTHS_AFTER_TRIAL = new Date("2026-12-16T23:00:00Z");
+const THREE_MONTHS_AFTER_TRIAL = new Date("2027-01-16T23:00:00Z");
+
+describe("the Postgres server for billing's lock tests", () => {
+  it.runIf(isPostgresRequired)("is configured in CI", () => {
+    expect(POSTGRES_ADMIN_URL).toMatch(/^postgres(ql)?:\/\//);
+  });
+});
+
+describe.skipIf(POSTGRES_ADMIN_URL === undefined)("billing locks on two connections", () => {
+  let test: PostgresBilling;
+  let adaId: string;
+  let blocker: Blocker | undefined;
+
+  beforeEach(async () => {
+    test = await createPostgresBilling({ plans: PLANS });
+    adaId = await createAccount(test, "ada@example.com");
+  });
+  afterEach(async () => {
+    await blocker?.release();
+    blocker = undefined;
+    await test.close();
+  });
+
+  async function readStoredRow(): Promise<{ trial_ends_at: Date; paid_until: Date | null; is_lifetime: boolean }[]> {
+    const result = await test.handle.pool.query<{ trial_ends_at: Date; paid_until: Date | null; is_lifetime: boolean }>(
+      "SELECT trial_ends_at, paid_until, is_lifetime FROM billing.entitlements WHERE user_id = $1",
+      [adaId],
+    );
+    return result.rows;
+  }
+
+  it("applies both first changes of a new account when another change inserts its row first", async () => {
+    // The blocker plays the change that inserts first: its row is not visible to the two changes,
+    // so both take the insert branch and wait on its key, then find the row and apply on top.
+    blocker = await openBlocker(test);
+    await blocker.query(
+      "INSERT INTO billing.entitlements (user_id, trial_ends_at, paid_until, is_lifetime, created_at, updated_at) VALUES ($1, $2, NULL, false, $3, $3)",
+      [adaId, TRIAL_END, NOW],
+    );
+    const changes = Promise.all([grantPlan(test.ctx, adaId, "monthly"), grantPlan(test.ctx, adaId, "monthly")]);
+    await waitForLockWaiters(test, 2);
+    await blocker.release();
+
+    const [first, second] = await changes;
+    expect(first.ok && second.ok).toBe(true);
+    expect(await readStoredRow()).toEqual([{ trial_ends_at: TRIAL_END, paid_until: TWO_MONTHS_AFTER_TRIAL, is_lifetime: false }]);
+  });
+
+  it("keeps one row and both changes when two first changes race", async () => {
+    const [first, second] = await Promise.all([
+      changeEntitlement(test.ctx, adaId, { type: "grant", until: MONTH_AFTER_TRIAL }),
+      changeEntitlement(test.ctx, adaId, { type: "extend_trial", until: new Date("2026-10-23T22:00:00Z") }),
+    ]);
+    expect(first.ok && second.ok).toBe(true);
+    expect(await readStoredRow()).toEqual([{ trial_ends_at: new Date("2026-10-23T22:00:00Z"), paid_until: MONTH_AFTER_TRIAL, is_lifetime: false }]);
+  });
+
+  it("adds a period for each of two plan grants made at once", async () => {
+    await grantPlan(test.ctx, adaId, "monthly");
+    blocker = await openBlocker(test);
+    await blocker.query("SELECT 1 FROM billing.entitlements WHERE user_id = $1 FOR UPDATE", [adaId]);
+    const grants = Promise.all([
+      grantPlanManually(test.ctx, { userId: adaId, planId: "monthly", adminId: null }),
+      grantPlanManually(test.ctx, { userId: adaId, planId: "monthly", adminId: null }),
+    ]);
+    await waitForLockWaiters(test, 2);
+    await blocker.release();
+
+    const [first, second] = await grants;
+    expect(first.ok && second.ok).toBe(true);
+    expect(await getEntitlement(test.ctx, adaId)).toMatchObject({ status: "paid", endsAt: THREE_MONTHS_AFTER_TRIAL });
+    // Each grant recorded the month it added, one after the other.
+    const periods = await test.handle.pool.query<{ granted_from: Date; granted_until: Date }>(
+      "SELECT granted_from, granted_until FROM billing.manual_grants WHERE user_id = $1 ORDER BY granted_from",
+      [adaId],
+    );
+    expect(periods.rows).toEqual([
+      { granted_from: MONTH_AFTER_TRIAL, granted_until: TWO_MONTHS_AFTER_TRIAL },
+      { granted_from: TWO_MONTHS_AFTER_TRIAL, granted_until: THREE_MONTHS_AFTER_TRIAL },
+    ]);
+  });
+});
