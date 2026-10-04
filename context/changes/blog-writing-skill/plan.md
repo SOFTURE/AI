@@ -81,14 +81,14 @@ and with `--check` only compares.
 ### Phase 1: Templates and renderer
 
 #### Automated
-- [ ] 1.1 Renderer, rendered skill and sync tests pass
-- [ ] 1.2 Gates green (typecheck, lint, test)
+- [x] 1.1 Renderer, rendered skill and sync tests pass — d3b333c
+- [x] 1.2 Gates green (typecheck, lint, test) — d3b333c
 
 ### Phase 2: Command and docs
 
 #### Automated
-- [ ] 2.1 Skill CLI tests pass
-- [ ] 2.2 Gates green (typecheck, lint, test, build)
+- [x] 2.1 Skill CLI tests pass — d3b333c
+- [x] 2.2 Gates green (typecheck, lint, test, build) — d3b333c
 
 #### Manual
-- [ ] 2.3 `softure-blog skill install` from the built bin in a throwaway app
+- [x] 2.3 `softure-blog skill install` from the built bin in a throwaway app — d3b333c (verified by agent: built `dist/cli/bin.js` in a throwaway app with `softure.config.mjs` and `blog()`; install wrote the five files, `--check` was green, then red with exit 1 after a file was edited; `skill nope` exits 2 with the usage; `npm pack --dry-run` ships `skill/`)
