@@ -18,8 +18,8 @@ trigger: "the owner promotes it, at the earliest when the blog roadmap closes"
 > nothing here runs until the owner promotes it to `roadmap.md` (`softure-roadmap --promote charts`).
 >
 > Written on 2026-10-04 from the second FIRE_TRACKER analysis, next to the main roadmap
-> [`blog`](../roadmap.md). Chart primitives were in the scope of `@softure-ai/ui` in the module assessment
-> (`docs/01`) but never landed; they get their own package so `@softure-ai/ui` stays within NFR-7.
+> [`blog`](../archive/2026-10-04-2-roadmap.md) (closed on 2026-10-04). Chart primitives were in the scope of
+> `@softure-ai/ui` in the module assessment (`docs/01`) but never landed; they get their own package so `@softure-ai/ui` stays within NFR-7.
 >
 > Run-wide orders (read by orchestrators once promoted):
 > - Push main branch: at the end. Also push `master` after every merge. Claude reviews and merges its own

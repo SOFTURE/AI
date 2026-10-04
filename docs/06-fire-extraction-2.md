@@ -5,7 +5,7 @@ Source: FIRE_TRACKER `master` as of 2026-10-04 (read only, like the first analys
 (migrations 0050–0053), and two older candidates never landed here: chart primitives (in `ui`'s scope in `01`) and
 the deploy pipeline.
 
-The owner chose three roadmaps on 2026-10-04: [`blog`](../context/foundation/roadmap.md) (main),
+The owner chose three roadmaps on 2026-10-04: [`blog`](../context/foundation/archive/2026-10-04-2-roadmap.md) (main, closed on 2026-10-04),
 [`charts`](../context/foundation/roadmaps/roadmap-charts.md) and
 [`deploy`](../context/foundation/roadmaps/roadmap-deploy.md) (queued).
 

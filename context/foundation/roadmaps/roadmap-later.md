@@ -26,13 +26,18 @@ trigger: "the owner step each item waits on (secrets, accounts) is done; the own
 > the owner's batch release at the keyboard (Monday 2026-10-05). They moved here with their IDs, since they wait only
 > on the owner, and no main roadmap was promoted in followups' place.
 >
+> Carried over (2026-10-04): the blog roadmap closed (archived in
+> [`../archive/2026-10-04-2-roadmap.md`](../archive/2026-10-04-2-roadmap.md)) with BL-8, the first npm publish of
+> `@softure-ai/seo` and `@softure-ai/blog`, waiting on the owner at the keyboard. It moved here with its ID, and no
+> main roadmap was promoted in blog's place.
+>
 > Run-wide orders (read by orchestrators once promoted):
 > - Push main branch: at the end. Also push `master` after every merge. Claude reviews and merges its own
 >   changes into `master` (owner, 2026-10-02). Tags and npm publishes stay with the owner.
 > - Archive roadmap: at the end.
 > - Parallelism: up to 4 at once (`workflow.json` → `worktree.maxParallel`).
 > - Release: each item that changes a published package bumps it; the owner releases at the keyboard.
-> - Owner at the keyboard: every item (LT-1 the Stripe secrets; MK-8, EN-9 and MO-6 the first npm publishes).
+> - Owner at the keyboard: every item (LT-1 the Stripe secrets; MK-8, EN-9, MO-6 and BL-8 the first npm publishes).
 
 ## At a glance
 
@@ -42,12 +47,15 @@ trigger: "the owner step each item waits on (secrets, accounts) is done; the own
 | **EN-9** | `engagement-release` | mailing, waitlist, mcp-access and privacy 0.1.0 published through the release pipeline; READMEs and docs updated | EN-1…EN-8 (done) | owner | blocked (carried over from followups: the owner's batch release at the keyboard on 2026-10-05) |
 | **MO-6** | `monetization-release` | billing and analytics 0.1.0 published through the release pipeline; READMEs and docs updated | MO-1…MO-5 (done) | owner | blocked (carried over from followups: the owner's batch release at the keyboard on 2026-10-05) |
 | **MK-8** | `marketing-kit-release` | `@softure-ai/marketing-kit` 0.1.0 published through the release pipeline, README complete | MK-1…MK-7 (done) | owner | blocked (carried over from followups: the owner's batch release at the keyboard on 2026-10-05) |
+| **BL-8** | `blog-release` | `@softure-ai/seo` and `@softure-ai/blog` 0.1.0 published through the release pipeline; READMEs, adoption guides and docs updated | BL-1…BL-7 (done) | owner | blocked (carried over from blog: the owner's first npm publish at the keyboard) |
 
 ## Order
 
 1. **LT-1** once the owner has set the Stripe test-mode secrets (planned for Monday 2026-10-05).
 2. **MK-8, EN-9 and MO-6**: the owner's batch release at the keyboard (Monday 2026-10-05). They wait for no other
    item, and LT-1 does not wait for them.
+3. **BL-8**: the first publish of `@softure-ai/seo` and `@softure-ai/blog`, at the keyboard. It waits for no other
+   item; the owner can take it in the same batch as MK-8, EN-9 and MO-6.
 
 ## Items
 
@@ -95,6 +103,22 @@ trigger: "the owner step each item waits on (secrets, accounts) is done; the own
 - **Baseline:** package absent from npm. After: `npx @softure-ai/marketing-kit --help` works from npm and from the GitHub Release tarball.
 - **PRD refs:** FR-24, FR-25, FR-2.
 
+### BL-8: SEO and blog release (carried over)
+- **Change ID:** `blog-release`
+- **Status:** blocked (carried over from blog: the owner's first npm publish at the keyboard)
+- **Outcome:** `@softure-ai/seo` and `@softure-ai/blog` 0.1.0 published through the FD-2 pipeline (the owner approves each first, staged publish and adds its trusted publisher); module READMEs with an adoption guide for FIRE_TRACKER (its blog plugins: engine chart, facts rules, calculator scenario); a finish review across BL-1…BL-7.
+- **Prerequisites:** BL-1…BL-7 (done, see [`archive/2026-10-04-2-roadmap.md`](../archive/2026-10-04-2-roadmap.md)).
+- **Unknowns:** none beyond the owner's npm steps.
+- **Risk:** low.
+- **Baseline:** packages absent from npm. After: installable from npm and from GitHub Releases.
+- **PRD refs:** FR-2, FR-26, G-4.
+
+## Before the next release
+
+Carried over from blog with BL-8:
+
+- [ ] `@softure-ai/seo` and `@softure-ai/blog` enter the release pipeline's package list (**BL-8**).
+
 ## Owner decisions and checks
 
 - [ ] **LT-1**: add the Stripe test-mode secrets `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` to the repository
@@ -111,6 +135,11 @@ Carried over from followups with their items (owner, batch at the keyboard on Mo
 - [ ] **FU-14** (open from followups, done in `archive/2026-10-03-marketing-kit-schema-docs/`): read a few
   marketing.json descriptions in an editor hover and find them clear (Manual 1.6).
 
+Carried over from blog with its item:
+
+- [ ] **BL-8**: approve the first (staged) publish of `@softure-ai/seo` and `@softure-ai/blog` on npmjs.com, then add
+  a trusted publisher for each.
+
 ## Done
 
 (nothing yet)
@@ -122,3 +151,5 @@ Carried over from followups with their items (owner, batch at the keyboard on Mo
 - MK-8, EN-9 and MO-6 moved here when followups closed, keeping their IDs (2026-10-04). → They wait only on the
   owner at the keyboard, which is what this roadmap holds, and the owner's batch release on 2026-10-05 knows them by
   these IDs; renumbering them as `LT-` would break that link.
+- BL-8 moved here when blog closed, keeping its ID (2026-10-04). → Same reason as MK-8, EN-9 and MO-6: it waits only
+  on the owner's first npm publish at the keyboard.

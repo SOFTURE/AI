@@ -15,13 +15,15 @@ archived_at: null
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **BL-8** (roadmap `blog`, main since 2026-10-04):
+From [`roadmap-later.md`](../../../foundation/roadmaps/roadmap-later.md), item **BL-8** (carried over on 2026-10-04
+from roadmap `blog`, archived in [`2026-10-04-2-roadmap.md`](../../../foundation/archive/2026-10-04-2-roadmap.md),
+to the queued roadmap `later`):
 
 > ### BL-8: SEO and blog release
 > - **Change ID:** `blog-release`
-> - **Status:** blocked (waits for BL-1…BL-7 and the owner's first npm publish at the keyboard)
+> - **Status:** blocked (carried over from blog: the owner's first npm publish at the keyboard)
 > - **Outcome:** `@softure-ai/seo` and `@softure-ai/blog` 0.1.0 published through the FD-2 pipeline (the owner approves each first, staged publish and adds its trusted publisher); module READMEs with an adoption guide for FIRE_TRACKER (its blog plugins: engine chart, facts rules, calculator scenario); a finish review across BL-1…BL-7.
-> - **Prerequisites:** BL-1…BL-7.
+> - **Prerequisites:** BL-1…BL-7 (done).
 > - **Unknowns:** none beyond the owner's npm steps.
 > - **Risk:** low.
 > - **Baseline:** packages absent from npm. After: installable from npm and from GitHub Releases.
