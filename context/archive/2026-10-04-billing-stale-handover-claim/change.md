@@ -1,12 +1,12 @@
 ---
 change_id: billing-stale-handover-claim
 title: "A request whose hand-over was cut off is handed over on a later ask"
-status: new
+status: archived
 roadmap_item: FU-34
 branch: claude/project-thread-fo2e3z
 created: 2026-10-04
 updated: 2026-10-04
-archived_at: null
+archived_at: 2026-10-04
 ---
 
 ## Intent
@@ -40,3 +40,8 @@ From [`roadmap.md`](../../foundation/roadmap.md), item **FU-34** (roadmap `follo
   means today and on the paths that read or write it, checked in the code on `master` (d36276f).
 - Framing skipped: the problem is a documented limitation (README §12, FU-27 research) with file
   references; nothing about the problem is in doubt, only how to close it.
+- Archived 2026-10-04: the hand-over claim moved to `handover_claimed_at` (migration `0008`) and
+  blocks other asks for a minute; `handed_over_at` records a hand-over that answered `Ok`
+  (`confirmHandOver`) and is never repeated; a claim left without an answer is taken over by the
+  first ask a minute later. After a crash the hand-over is at least once (README §12). Covered by
+  three PGlite tests. No new gap found.
