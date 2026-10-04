@@ -179,15 +179,15 @@ the copy.
 ### Phase 2: The reminder mail through mailing
 
 #### Automated
-- [x] 2.1 `reminder-mail.test.ts` passes
-- [x] 2.2 `@softure-ai/billing/mailing` builds and the package shape test passes
-- [x] 2.3 Gates green (typecheck, lint, test)
+- [x] 2.1 `reminder-mail.test.ts` passes — b1d1452
+- [x] 2.2 `@softure-ai/billing/mailing` builds and the package shape test passes — b1d1452
+- [x] 2.3 Gates green (typecheck, lint, test) — b1d1452
 
 ### Phase 3: Example app script and e2e
 
 #### Automated
-- [ ] 3.1 `npm run e2e` passes, including `billing-reminders.spec.ts` and the ledger list
-- [ ] 3.2 Gates green (typecheck, lint, test, build)
+- [x] 3.1 `npm run e2e` passes, including `billing-reminders.spec.ts` and the ledger list
+- [x] 3.2 Gates green (typecheck, lint, test, build)
 
 #### Manual
 - [ ] 3.3 Impl review recorded in `reviews/impl-review.md`
