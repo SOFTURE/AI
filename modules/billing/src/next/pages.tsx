@@ -188,13 +188,17 @@ function toHistoryRow(entry: AccountHistoryEntry, context: RowContext): GrantHis
     };
   }
   const isPaid = entry.status === "paid";
+  const formatAmount = (amount: number) => formatPrice({ amount, currency: entry.currency }, config.locale);
+  let statusText = copy.paid;
+  if (!isPaid && entry.refundedAt !== null) statusText = formatMessage(copy.refundedOn, { date: formatDate(entry.refundedAt) });
+  else if (entry.refundedAmount > 0) statusText = formatMessage(copy.partlyRefunded, { amount: formatAmount(entry.refundedAmount) });
   return {
     id: entry.id,
     title: formatMessage(copy.provider, { plan, provider: entry.provider }),
-    statusText: isPaid || entry.refundedAt === null ? copy.paid : formatMessage(copy.refundedOn, { date: formatDate(entry.refundedAt) }),
+    statusText,
     isCurrent: isPaid,
     details: [
-      formatMessage(copy.paidOn, { amount: formatPrice({ amount: entry.amount, currency: entry.currency }, config.locale), date: formatDate(entry.at) }),
+      formatMessage(copy.paidOn, { amount: formatAmount(entry.amount), date: formatDate(entry.at) }),
       describeGrant(entry.grant, context),
     ],
     revokeLabel: null,

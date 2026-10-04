@@ -79,12 +79,24 @@ describe("parseStripeEvent", () => {
     );
   });
 
+  it("reads a full refund that carries no amount, as the e2e sends it", () => {
+    expect(parseStripeEvent(stripeEvent("charge.refunded", { payment_intent: "pi_test_a1", refunded: true }, "evt_3"))).toEqual(
+      ok({ type: "payment_refunded", eventId: "evt_3", paymentId: "pi_test_a1" }),
+    );
+  });
+
+  it("reads a partial refund with the total refunded so far", () => {
+    expect(parseStripeEvent(stripeEvent("charge.refunded", charge("pi_test_a1", false, 1450), "evt_4"))).toEqual(
+      ok({ type: "payment_partially_refunded", eventId: "evt_4", paymentId: "pi_test_a1", amountRefunded: 1450 }),
+    );
+  });
+
   it.each([
+    ["a charge with nothing refunded", stripeEvent("charge.refunded", charge("pi_test_a1", false, 0))],
     ["a checkout still waiting for a transfer", stripeEvent("checkout.session.completed", checkoutSession({ userId: USER_ID, planId: "monthly", paymentStatus: "unpaid" }))],
     ["a subscription checkout", stripeEvent("checkout.session.completed", { ...checkoutSession({ userId: USER_ID, planId: "monthly" }), mode: "subscription" })],
     ["a checkout another app created", stripeEvent("checkout.session.completed", { ...checkoutSession({ userId: USER_ID, planId: "monthly" }), metadata: { order: "42" } })],
     ["a checkout without metadata", stripeEvent("checkout.session.completed", { ...checkoutSession({ userId: USER_ID, planId: "monthly" }), metadata: null })],
-    ["a partial refund", stripeEvent("charge.refunded", charge("pi_test_a1", false))],
     ["a refunded charge without a PaymentIntent", stripeEvent("charge.refunded", { ...charge("pi_x", true), payment_intent: null })],
     ["another event type", stripeEvent("customer.created", { id: "cus_1" })],
   ])("ignores %s", (_case, payload) => {
@@ -97,6 +109,8 @@ describe("parseStripeEvent", () => {
     ["a paid checkout without an amount", stripeEvent("checkout.session.completed", { ...checkoutSession({ userId: USER_ID, planId: "monthly" }), amount_total: null })],
     ["a checkout without an id", stripeEvent("checkout.session.completed", { ...checkoutSession({ userId: USER_ID, planId: "monthly" }), id: "" })],
     ["a refund without the refunded flag", stripeEvent("charge.refunded", { payment_intent: "pi_1" })],
+    ["a partial refund without the amount refunded", stripeEvent("charge.refunded", { payment_intent: "pi_1", refunded: false })],
+    ["a partial refund with a negative amount", stripeEvent("charge.refunded", charge("pi_test_a1", false, -1))],
   ])("refuses %s", (_case, payload) => {
     expect(parseStripeEvent(payload)).toEqual(err("billing.webhook_invalid"));
   });

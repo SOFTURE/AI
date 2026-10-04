@@ -28,7 +28,7 @@ share files run in one lane (see the roadmap's Order), so `dependency` below nam
 | FU-17 | [`marketing-kit-og-glyphs`](../../archive/2026-10-03-marketing-kit-og-glyphs/change.md) | OG images refuse copy the brand fonts cannot draw | archived 2026-10-03 | start |
 | FU-18 | [`marketing-kit-screenshot-variants`](../../archive/2026-10-04-marketing-kit-screenshot-variants/change.md) | Screenshots at a device scale and in both colour schemes | archived 2026-10-04 | dependency |
 | FU-19 | [`marketing-kit-hook-shot-words`](../../archive/2026-10-04-marketing-kit-hook-shot-words/change.md) | Opening shots after the first name their word in the config check | archived 2026-10-04 | dependency |
-| FU-20 | [`billing-partial-refunds`](billing-partial-refunds/change.md) | Partial refunds take back access by a policy | FU-11 on main | dependency |
+| FU-20 | [`billing-partial-refunds`](../../archive/2026-10-04-billing-partial-refunds/change.md) | Partial refunds take back access by a policy | archived 2026-10-04 | dependency |
 | FU-21 | [`billing-refund-manual-lifetime`](billing-refund-manual-lifetime/change.md) | A manual lifetime grant survives a refunded paid lifetime | FU-9 on main | dependency |
 | FU-22 | [`billing-grant-plan-script`](billing-grant-plan-script/change.md) | A `grant-plan` ops script for hosts without the admin page | FU-21 on main | dependency |
 | FU-23 | [`marketing-kit-og-subset-fonts`](../../archive/2026-10-04-marketing-kit-og-subset-fonts/change.md) | OG images use every subset file of a weight | archived 2026-10-04 | dependency |
@@ -38,6 +38,7 @@ share files run in one lane (see the roadmap's Order), so `dependency` below nam
 | FU-27 | [`billing-invoice-request-hygiene`](billing-invoice-request-hygiene/change.md) | Invoice requests are stored before the owner hears of them and keep only what they need | FU-26 on main | dependency |
 | FU-28 | [`auth-page-redirect-tag`](auth-page-redirect-tag/change.md) | A signed-in visitor's redirect from a tagged login page keeps the tag | FU-7 on main | dependency |
 | FU-29 | [`marketing-kit-font-files-description`](marketing-kit-font-files-description/change.md) | The marketing.json font files description admits subset files | FU-23 and FU-19 on main | dependency |
+| FU-30 | [`billing-failed-refund-access`](billing-failed-refund-access/change.md) | A refund that fails gives back the access it took | FU-27 on main | dependency |
 
 Kind: `start` (can be taken as soon as the roadmap is promoted), `dependency` (waits for the listed items on the
 main branch), `owner` (needs an owner decision or the owner at the keyboard).

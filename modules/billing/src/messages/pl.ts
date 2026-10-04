@@ -115,6 +115,7 @@ export const pl: typeof en = {
       revokedOn: "Cofnięty {date}",
       paid: "Opłacona",
       refundedOn: "Zwrócona {date}",
+      partlyRefunded: "Opłacona, zwrócono {amount}",
       revoke: "Cofnij",
       revoking: "Cofanie…",
       revokeLabel: "Cofnij {plan} nadany {date}",

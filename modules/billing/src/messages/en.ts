@@ -113,6 +113,7 @@ export const en = {
       revokedOn: "Revoked on {date}",
       paid: "Paid",
       refundedOn: "Refunded on {date}",
+      partlyRefunded: "Paid, {amount} refunded",
       revoke: "Revoke",
       revoking: "Revoking…",
       revokeLabel: "Revoke {plan} granted on {date}",

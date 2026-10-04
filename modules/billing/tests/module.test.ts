@@ -17,8 +17,8 @@ describe("the billing module", () => {
     expect(billing.manifest.version).toBe(manifest.version);
   });
 
-  it("fills in the defaults: a 14-day trial, reminders 3 and 7 days ahead, payment at /payment, the admin page at /admin/billing", () => {
-    expect(billing({}).options).toEqual({ trial: { days: 14, reminderDays: 3 }, paid: { reminderDays: 7 }, plans: [], adminRole: "admin" });
+  it("fills in the defaults: a 14-day trial, reminders 3 and 7 days ahead, pro rata partial refunds, payment at /payment, the admin page at /admin/billing", () => {
+    expect(billing({}).options).toEqual({ trial: { days: 14, reminderDays: 3 }, paid: { reminderDays: 7 }, plans: [], partialRefunds: "pro_rata", adminRole: "admin" });
     expect(getBillingRoutes(createConfig())).toEqual({ payment: "/payment", admin: "/admin/billing" });
     expect(getBillingRoutes(createConfig({ routes: { payment: "/pricing", admin: "/staff/billing" } }))).toEqual({ payment: "/pricing", admin: "/staff/billing" });
   });
@@ -77,6 +77,11 @@ describe("the billing module", () => {
   it("refuses two plans with one id", () => {
     const yearly = { name: { en: "Yearly" }, price: { amount: 100, currency: "PLN" }, period: "year" } as const;
     expect(() => billing({ plans: [{ id: "yearly", ...yearly }, { id: "yearly", ...yearly }] })).toThrow('- options.plans.1.id: repeats the plan id "yearly"');
+  });
+
+  it("takes keep_access as the partial refund policy and refuses any other", () => {
+    expect(billing({ partialRefunds: "keep_access" }).options).toMatchObject({ partialRefunds: "keep_access" });
+    expect(() => billing({ partialRefunds: "half" as never })).toThrow("- options.partialRefunds:");
   });
 
   it("refuses a payment adapter that is not one", () => {

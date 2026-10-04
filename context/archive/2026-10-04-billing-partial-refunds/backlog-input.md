@@ -17,7 +17,7 @@ several partial refunds that add up to the full amount behave like one full refu
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-20** (roadmap `followups`):
+From [`roadmap.md`](../../foundation/roadmap.md), item **FU-20** (roadmap `followups`):
 
 > ### FU-20: Partial refunds take back access by a policy
 > - **Change ID:** `billing-partial-refunds`

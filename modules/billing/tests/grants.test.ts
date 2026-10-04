@@ -326,6 +326,7 @@ describe("an account's history", () => {
           currency: "PLN",
           status: "paid",
           refundedAt: null,
+          refundedAmount: 0,
         },
         {
           source: "manual",
