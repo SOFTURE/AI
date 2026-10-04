@@ -1,0 +1,16 @@
+{
+  "id": "seo",
+  "version": "0.0.0",
+  "dependsOn": {},
+  "dbSchema": null,
+  "tables": [],
+  "env": [],
+  "switches": [],
+  "routes": { "sitemap": "/sitemap.xml", "indexNowKey": "/indexnow-key.txt" },
+  "mount": [
+    { "kind": "route-handler", "path": "app/robots.ts", "export": "robots" },
+    { "kind": "route-handler", "path": "app/sitemap.ts", "export": "sitemap" },
+    { "kind": "route-handler", "path": "app/indexnow-key.txt/route.ts", "export": "serveIndexNowKey" }
+  ],
+  "privacy": { "exports": false, "deletes": false }
+}

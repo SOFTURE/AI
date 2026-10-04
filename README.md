@@ -32,6 +32,7 @@ modules/             feature modules (each one works on its own on top of the fo
   privacy/           GDPR: data export and deletion, consent ledger, legal page shell
   analytics/         channel tags (?z=) and a cookieless funnel counter
   ops/               health check, migration runner in the image, safe SQL operations pattern
+  seo/               robots.txt with AI crawler lists, sitemap, canonical URLs, IndexNow
 tools/
   marketing-kit/     materials generator: video, screenshots, OG images from JSON and a brand
 docs/                assessment, module standard, plans
