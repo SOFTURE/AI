@@ -43,7 +43,7 @@ share files run in one lane (see the roadmap's Order), so `dependency` below nam
 | FU-32 | [`billing-price-minor-units`](../../archive/2026-10-04-billing-price-minor-units/change.md) | A plan's price means the same amount on every runtime | archived 2026-10-04 | dependency |
 | FU-33 | [`billing-lifetime-grant-race`](../../archive/2026-10-04-billing-lifetime-grant-race/change.md) | Lifetime grants made at once on a new row are refused after the first | archived 2026-10-04 | dependency |
 | FU-34 | [`billing-stale-handover-claim`](../../archive/2026-10-04-billing-stale-handover-claim/change.md) | A request whose hand-over was cut off is handed over on a later ask | archived 2026-10-04 | dependency |
-| FU-35 | [`billing-refund-after-late-failure`](billing-refund-after-late-failure/change.md) | A new refund is not lost when an earlier refund's failure arrives late | FU-34 on main | dependency |
+| FU-35 | [`billing-refund-after-late-failure`](../../changes/billing-refund-after-late-failure/change.md) | A new refund is not lost when an earlier refund's failure arrives late | taken 2026-10-04 | dependency |
 
 Kind: `start` (can be taken as soon as the roadmap is promoted), `dependency` (waits for the listed items on the
 main branch), `owner` (needs an owner decision or the owner at the keyboard).

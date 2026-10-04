@@ -76,7 +76,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-32** | `billing-price-minor-units` | a plan's price means the same amount on every runtime (pinned minor units) | FU-30 | autonomous | done_code (2026-10-04; waiting: the next release of `@softure-ai/billing`) |
 | **FU-33** | `billing-lifetime-grant-race` | lifetime grants made at once on a new row are refused after the first | FU-32 | autonomous | done_code (2026-10-04; waiting: the next release of `@softure-ai/billing`) |
 | **FU-34** | `billing-stale-handover-claim` | a request whose hand-over was cut off is handed over on a later ask | FU-33 | autonomous | done_code (2026-10-04; waiting: the next release of `@softure-ai/billing`) |
-| **FU-35** | `billing-refund-after-late-failure` | a new refund is not lost when an earlier refund's failure arrives late | FU-34 | autonomous | proposed |
+| **FU-35** | `billing-refund-after-late-failure` | a new refund is not lost when an earlier refund's failure arrives late | FU-34 | autonomous | in_progress (implement 1/1, since 2026-10-04; branch `claude/project-thread-m9szln`) |
 
 ## Order
 
@@ -568,7 +568,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-35: A new refund is not lost when an earlier refund's failure arrives late
 - **Change ID:** `billing-refund-after-late-failure`
-- **Status:** proposed
+- **Status:** in_progress (implement 1/1, since 2026-10-04; branch `claude/project-thread-m9szln`)
+- **Input:** [`changes/billing-refund-after-late-failure/change.md`](../changes/billing-refund-after-late-failure/change.md)
 - **Outcome:** A charge state that reports less than billing recorded but is newer than the state it recorded (a failure billing has not heard of yet) is kept, and the failure that follows applies it: the new refund takes back its share once.
 - **Prerequisites:** FU-34 on `master` (lane C).
 - **Unknowns:** Store the newest reported state (`amount_refunded`, `created`) beside the applied one, or re-read the charge from Stripe when a failure arrives; how the take-back of the newer refund runs inside `failRefund`'s transaction.
