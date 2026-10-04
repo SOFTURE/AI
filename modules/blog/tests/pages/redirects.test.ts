@@ -3,7 +3,7 @@ import type { BlogArticleKind, BlogArticleStatus } from "@softure-ai/blog";
 import { buildGonePage, createCachedBlogPathDecider, decideBlogPath, type BlogPathLookup, type BlogRoutes } from "@softure-ai/blog/server";
 import { describe, expect, it, vi } from "vitest";
 
-const ROUTES: BlogRoutes = { index: "/blog", glossary: "/blog/glossary", method: "/blog/how-we-write" };
+const ROUTES: BlogRoutes = { index: "/blog", glossary: "/blog/glossary", method: "/blog/how-we-write", rss: "/blog/rss.xml" };
 
 type Row = { status: BlogArticleStatus; kind: BlogArticleKind };
 

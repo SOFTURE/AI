@@ -36,7 +36,7 @@ export function getBlogRoutes(config: SoftureConfig): BlogRoutes {
     if (path === undefined) throw new Error(`@softure-ai/blog: route "${name}" is missing from the module manifest`);
     return normalizeRoute(path);
   };
-  return { index: read("index"), glossary: read("glossary"), method: read("method") };
+  return { index: read("index"), glossary: read("glossary"), method: read("method"), rss: read("rss") };
 }
 
 /** The slugs no article may take: the app's `reservedSlugs` and the static pages under the listing. */

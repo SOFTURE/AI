@@ -22,6 +22,7 @@ export {
 } from "../db/publish-run.js";
 export { checkArticlesTable } from "./health.js";
 export { getBlogMessages, getBlogOptions, getBlogReservedSlugs, getBlogRoutes, getQualitySettings } from "./options.js";
+export * from "../discovery/index.js";
 export * from "../pages/index.js";
 export * from "../quality/index.js";
 export * from "../render/index.js";

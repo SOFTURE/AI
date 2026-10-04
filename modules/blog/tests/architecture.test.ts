@@ -60,10 +60,17 @@ describe("blog markup and styles", () => {
     for (const { file, source } of markup) expect(findInlineCopy(source), file).toEqual([]);
   });
 
-  it("keeps Next.js out of the components, the page logic and the proxy piece", () => {
-    for (const { file, source } of [...readSources("ui"), ...readSources("pages"), ...readSources("proxy")]) {
+  it("keeps Next.js out of the components, the page logic, discovery and the proxy piece", () => {
+    for (const { file, source } of [...readSources("ui"), ...readSources("pages"), ...readSources("discovery"), ...readSources("proxy")]) {
       expect(source, file).not.toMatch(/from "next(?:\/[a-z]+)?"/);
     }
+  });
+
+  it("reaches the optional @softure-ai/seo only through a dynamic import, and keeps the root entry off the Next adapter", () => {
+    const sources = [...readSources(""), ...readSources("discovery"), ...readSources("cli"), ...readSources("server"), ...readSources("next")];
+    for (const { file, source } of sources) expect(source, file).not.toMatch(/^import [^;]*from "@softure-ai\/seo/m);
+    // softure.config.ts imports the root entry, and plain Node or a bundle outside Next loads it.
+    for (const { file, source } of readSources("")) expect(source, file).not.toMatch(/(?:from|import\() *"(?:\.\/next\/|next\/)/);
   });
 
   it("styles every blog class the components and the renderer write", () => {

@@ -2,7 +2,7 @@
 import { getArticlePath, getReservedSlugs, getTermPath, matchBlogPath, normalizeRoute, type BlogRoutes } from "@softure-ai/blog/server";
 import { describe, expect, it } from "vitest";
 
-const ROUTES: BlogRoutes = { index: "/blog", glossary: "/blog/glossary", method: "/blog/how-we-write" };
+const ROUTES: BlogRoutes = { index: "/blog", glossary: "/blog/glossary", method: "/blog/how-we-write", rss: "/blog/rss.xml" };
 
 describe("blog paths", () => {
   it("puts articles under the listing and terms under the glossary", () => {
@@ -21,7 +21,7 @@ describe("blog paths", () => {
   it("reserves the static pages one segment under the listing, the method page only when mounted", () => {
     expect(getReservedSlugs(ROUTES, { methodPage: false, reservedSlugs: [] })).toEqual(["glossary"]);
     expect(getReservedSlugs(ROUTES, { methodPage: true, reservedSlugs: ["about", "glossary"] })).toEqual(["about", "glossary", "how-we-write"]);
-    expect(getReservedSlugs({ index: "/blog", glossary: "/glossary", method: "/blog/a/b" }, { methodPage: true, reservedSlugs: [] })).toEqual([]);
+    expect(getReservedSlugs({ index: "/blog", glossary: "/glossary", method: "/blog/a/b", rss: "/blog/rss.xml" }, { methodPage: true, reservedSlugs: [] })).toEqual([]);
   });
 
   it.each([

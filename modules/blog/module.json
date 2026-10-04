@@ -1,12 +1,12 @@
 {
   "id": "blog",
   "version": "0.0.0",
-  "dependsOn": {},
+  "dependsOn": { "seo": "^0.0.0?" },
   "dbSchema": "blog",
   "tables": ["articles", "slug_history"],
   "env": [],
   "switches": [],
-  "routes": { "index": "/blog", "glossary": "/blog/glossary", "method": "/blog/how-we-write" },
+  "routes": { "index": "/blog", "glossary": "/blog/glossary", "method": "/blog/how-we-write", "rss": "/blog/rss.xml" },
   "mount": [
     { "kind": "page", "path": "app/blog/page.tsx", "export": "BlogIndexPage" },
     { "kind": "page", "path": "app/blog/[slug]/page.tsx", "export": "BlogArticlePage" },
@@ -14,6 +14,7 @@
     { "kind": "page", "path": "app/blog/glossary/page.tsx", "export": "GlossaryIndexPage" },
     { "kind": "page", "path": "app/blog/glossary/[slug]/page.tsx", "export": "GlossaryTermPage" },
     { "kind": "page", "path": "app/blog/how-we-write/page.tsx", "export": "BlogMethodPage" },
+    { "kind": "route-handler", "path": "app/blog/rss.xml/route.ts", "export": "serveBlogRss" },
     { "kind": "middleware", "path": "proxy.ts", "export": "createBlogRedirects" }
   ],
   "privacy": { "exports": false, "deletes": false }

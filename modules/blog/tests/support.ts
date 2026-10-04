@@ -1,6 +1,6 @@
 // Shared setup: an app with the blog module on a fresh PGlite database, a test clock, and article
 // files built from a frontmatter object.
-import { createTestClock, defineSoftureConfig, type SoftureConfig, type TestClock } from "@softure-ai/core";
+import { createTestClock, defineSoftureConfig, type AnySoftureModule, type SoftureConfig, type TestClock } from "@softure-ai/core";
 import { createTestDatabase, type TestDatabase } from "@softure-ai/db/testing";
 import { blog, type BlogOptionsInput } from "@softure-ai/blog";
 import type { BlogArticle } from "@softure-ai/blog";
@@ -9,13 +9,14 @@ import { stringify } from "yaml";
 
 export const NOW = new Date("2026-10-04T08:00:00Z");
 
-export function createConfig(options: BlogOptionsInput = {}): SoftureConfig {
+/** `others`: modules listed before the blog, e.g. `seo()`. */
+export function createConfig(options: BlogOptionsInput = {}, others: readonly AnySoftureModule[] = []): SoftureConfig {
   return defineSoftureConfig({
     database: { url: "pglite://" },
     locale: "en",
     timezone: "UTC",
     appOrigin: "https://app.example.com",
-    modules: [blog(options)],
+    modules: [...others, blog(options)],
   });
 }
 
@@ -26,8 +27,8 @@ export interface TestBlog {
   readonly config: SoftureConfig;
 }
 
-export async function createTestBlog(options: BlogOptionsInput = {}): Promise<TestBlog> {
-  const config = createConfig(options);
+export async function createTestBlog(options: BlogOptionsInput = {}, others: readonly AnySoftureModule[] = []): Promise<TestBlog> {
+  const config = createConfig(options, others);
   const database = await createTestDatabase(config.modules);
   const clock = createTestClock(NOW);
   return { ctx: { db: database.db, clock, config }, clock, database, config };

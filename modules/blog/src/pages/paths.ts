@@ -8,6 +8,8 @@ export interface BlogRoutes {
   readonly glossary: string;
   /** The "how our texts are made" page (only with `blog({ methodPage: true })`). */
   readonly method: string;
+  /** The RSS feed of the published texts. */
+  readonly rss: string;
 }
 
 export type BlogPathKind = "article" | "term";

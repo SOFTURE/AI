@@ -26,6 +26,10 @@ This release holds the content store (roadmap item BL-2), the server-side render
 - `createBlogRedirects` (`@softure-ai/blog/proxy`): 301 from an old slug, 410 for a withdrawn text,
   in the app's `proxy.ts`.
 - `@softure-ai/blog/styles.css`: the pages and the rendered body on the `--sft-*` tokens.
+- Discovery: an RSS 2.0 feed (`serveBlogRss`), "read next" under every article (its cluster first, the
+  pillar on top), and, with `@softure-ai/seo` (optional): sitemap entries with each text's real
+  `lastmod` (`blogSitemap()`) and an IndexNow submit of the changed addresses after
+  `softure-blog publish --commit` (`submitBlogChanges` for an app's own publishing path).
 - A text quality gate: `softure-blog check` reports structure, link, style, voice and YMYL findings
   with file and line, and `publish` refuses a text going public with an error. Language rulesets
   (`en`, `pl`), severity overrides and rule plugins for the app's own domain.
@@ -193,7 +197,25 @@ export const revalidate = 300;
 // app/blog/glossary/page.tsx          GlossaryIndexPage, generateGlossaryIndexMetadata; dynamic = "force-dynamic"
 // app/blog/glossary/[slug]/page.tsx   GlossaryTermPage, generateTermMetadata, generateBlogStaticParams; revalidate
 // app/blog/how-we-write/page.tsx      BlogMethodPage, generateMethodMetadata (with methodPage: true)
+
+// app/blog/rss.xml/route.ts: the feed of published articles and terms, linked from the listing and articles
+export { serveBlogRss as GET } from "@softure-ai/blog/next";
+export const dynamic = "force-dynamic";
 ```
+
+With `@softure-ai/seo`, the blog joins its sitemap through a contributor; `app/sitemap.ts` must then be
+`force-dynamic` (the contributor reads the database):
+
+```ts
+// softure.config.ts (the root entry: this file also loads in plain Node and in bundles outside Next)
+import { blog, blogSitemap } from "@softure-ai/blog";
+seo({ sitemap: { contributors: [blogSitemap()] }, indexNow: { key: "..." } });
+```
+
+The entries are the listing, the articles, the glossary and its terms, each dated by its last content
+change (`updated_at`, else `published_at`), and the method page without a date; an empty listing or
+glossary is left out (it is `noindex`). Paths only: seo makes them absolute with its canonical rule.
+The contributor reads with one query per sitemap request, not through the pages' Next cache.
 
 301 and 410 are answered before the page, in `proxy.ts` (Node.js runtime, Next 16):
 
@@ -217,7 +239,7 @@ The quality gate resolves internal links through `quality.paths` (default `/blog
 The commands:
 
 ```bash
-softure-blog publish [<path>...] [--commit] [--withdraw] [--config <file>]
+softure-blog publish [<path>...] [--commit] [--withdraw] [--no-indexnow] [--config <file>]
 softure-blog check [<path>...] [--external] [--today <YYYY-MM-DD>] [--config <file>]
 softure-blog skill install [--dir <path>] [--command <cmd>] [--check] [--config <file>]
 ```
@@ -226,6 +248,11 @@ softure-blog skill install [--dir <path>] [--command <cmd>] [--check] [--config 
 - `--commit` writes; without it the command prints what it would do and writes nothing.
 - `--withdraw` publishes the one given file as `withdrawn` (taking a text down at once); set the file's
   status too, or the next full publish brings the text back.
+- With `seo({ indexNow: { key } })` enabled, a run ends with one `indexnow:` line. A commit submits the
+  addresses whose answer changed (a text public before or after, its old slug after a rename, the
+  listing or the glossary of its kind) as canonical URLs on seo's origin; a dry run prints them;
+  `--no-indexnow` skips the submit (e.g. a local or CI database). A failed submit is a warning: the
+  publish stays written and the exit code stays 0.
 - Exit codes: 0 done, 1 refused or failed (nothing written), 2 usage error.
 
 Output, one line per text, then a summary:
@@ -254,6 +281,9 @@ process.exitCode = await runBlogCli({ config, argv: process.argv.slice(2) });
 one error refuses the run. The gate in `publish` does not resolve internal link targets, since a
 container that publishes may hold no app folder; run `check` in CI for those. `runBlogCli({ gate })`
 replaces the gate; `runBlogPublish` in `@softure-ai/blog/server` is the same run without a command line.
+After an app's own run, `submitBlogChanges(config, run.changes, { commit: run.committed })` submits the
+same addresses; inside Next, call `revalidateTag(BLOG_CACHE_TAG)` first, so a crawler that answers the
+ping at once gets the new text.
 
 `check` needs no database. It reads the files (default: `contentDir`), resolves internal links against
 the app's routes and the published texts of `contentDir`, and prints one line per finding:
@@ -382,7 +412,7 @@ None.
 `src/messages/`: labels of the kinds (`kinds.article`, `kinds.term`) and statuses (`statuses.*`) in
 `en` and `pl`; the renderer's copy under `render.*` (notes heading, footnote label with `{number}`,
 back to text, opens in a new tab, contents label), passed as `renderArticle({ messages })`; the pages'
-copy under `pages.*`, `glossary.*`, `method.*`, `gone.*` (the 410 page) and `og.*`. Override any of it
+copy under `pages.*`, `glossary.*`, `method.*`, `gone.*` (the 410 page), `og.*` and `feed.*` (the feed's 503 body); "read next" is `pages.readNext`. Override any of it
 with `blog({ messages: { pl: { pages: { readMore: "..." } } } })`. Command output and file errors are developer output, in English.
 
 ## 10. Hooks
@@ -426,9 +456,11 @@ Articles hold editorial content, no personal data: nothing to export or delete.
 - One publish at a time per article: concurrent runs take row locks, and a run that loses a slug race
   fails on the unique constraint instead of reporting `blog.slug_taken`.
 - The content hash is part of the contract: a field added later enters it only when present.
-- No `--stdin` (a deploy transport) and no IndexNow submit (BL-5).
-- The pages' URLs (canonical, JSON-LD, OG) are built on `appOrigin`, not on the canonical host and
-  trailing-slash rule of `@softure-ai/seo` (BF-9).
+- No `--stdin` (a deploy transport).
+- `softure-blog publish` runs outside the app and cannot refresh its cache: the running app shows the
+  change, and IndexNow's crawlers see it, after `revalidateSeconds` (BF-10).
+- The pages' URLs (canonical, JSON-LD, OG) and the feed's links are built on `appOrigin`, not on the canonical host and
+  trailing-slash rule of `@softure-ai/seo` (BF-7).
 - The OG card uses the default font of `next/og`; an app passes `fonts` to `renderArticleOgImage` for another.
 - The renderer has no images and no raw HTML. A plugin fence inside a list or a quote stays a code
   block (a block node cannot sit inside a list's HTML).

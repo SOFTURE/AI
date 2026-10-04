@@ -38,6 +38,7 @@ export const pl = {
     disclaimerLabel: "Zastrzeżenie",
     glossaryLink: "Słownik pojęć",
     glossaryTeaser: "krótkie definicje pojęć, których używają teksty.",
+    readNext: "Przeczytaj też",
   },
   glossary: {
     title: "Słownik pojęć",
@@ -65,6 +66,10 @@ export const pl = {
     heading: "Ten tekst został wycofany",
     body: "Zdjęliśmy go, bo przestał być aktualny albo poprawny.",
     link: "Zobacz pozostałe teksty na blogu",
+  },
+  feed: {
+    /** The plain-text body of a 503 when the texts cannot be read. */
+    unavailable: "Kanał jest chwilowo niedostępny. Spróbuj ponownie za kilka minut.",
   },
   og: {
     alt: "Artykuł z bloga",

@@ -25,7 +25,7 @@ describe("the blog module", () => {
   });
 
   it("serves its pages under /blog unless the app moves them, and reserves their slugs", () => {
-    expect(getBlogRoutes(createConfig())).toEqual({ index: "/blog", glossary: "/blog/glossary", method: "/blog/how-we-write" });
+    expect(getBlogRoutes(createConfig())).toEqual({ index: "/blog", glossary: "/blog/glossary", method: "/blog/how-we-write", rss: "/blog/rss.xml" });
     const config = defineSoftureConfig({
       database: { url: "pglite://" },
       locale: "en",
@@ -33,7 +33,7 @@ describe("the blog module", () => {
       appOrigin: "https://app.example.com",
       modules: [blog({ routes: { index: "/articles/", glossary: "/articles/terms" }, methodPage: true, reservedSlugs: ["about"] })],
     });
-    expect(getBlogRoutes(config)).toEqual({ index: "/articles", glossary: "/articles/terms", method: "/blog/how-we-write" });
+    expect(getBlogRoutes(config)).toEqual({ index: "/articles", glossary: "/articles/terms", method: "/blog/how-we-write", rss: "/blog/rss.xml" });
     expect(getBlogReservedSlugs(config)).toEqual(["about", "terms"]);
   });
 
