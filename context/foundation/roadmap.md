@@ -55,7 +55,7 @@ backlog: context/backlog/roadmap-blog/
 | **BL-4** | `blog-pages` | `/blog`, article and glossary pages from the package: ISR, JSON-LD, summary box, sources, disclaimer and CTA slots, 301/410, OG image per article | BL-3 | autonomous | ready |
 | **BL-5** | `blog-discovery` | RSS feed, blog sitemap entries with a real `lastmod`, IndexNow ping on publish, "read next" by cluster with the pillar first | BL-1, BL-4 | autonomous | ready |
 | **BL-6** | `blog-quality-gate` | `softure-blog check`: structure, links, style and YMYL rules with language rulesets and rule plugins; publish refuses errors | BL-2 | autonomous | done_code (2026-10-04; waiting: the first release of `@softure-ai/blog`, BL-8) |
-| **BL-7** | `blog-writing-skill` | a writing skill shipped with the blog module and installed into the app, kept in sync with the gate's rules | BL-6 | autonomous | ready |
+| **BL-7** | `blog-writing-skill` | a writing skill shipped with the blog module and installed into the app, kept in sync with the gate's rules | BL-6 | autonomous | in_progress (plan, since 2026-10-04; branch claude/bl-7-0rg37c) |
 | **BL-8** | `blog-release` | `@softure-ai/seo` and `@softure-ai/blog` 0.1.0 published through the release pipeline; READMEs, adoption guides and docs updated | BL-1…BL-7 | owner | blocked (waits for BL-1…BL-7 and the owner's first npm publish at the keyboard) |
 
 ## Order
@@ -219,7 +219,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### BL-7: Article writing skill
 - **Change ID:** `blog-writing-skill`
-- **Status:** ready
+- **Status:** in_progress (plan, since 2026-10-04; branch claude/bl-7-0rg37c)
 - **Outcome:**
   - a skill (`SKILL.md` plus references) in `@softure-ai/blog` that walks an agent through writing an article: brief, sources, structure, frontmatter, the gate, publish;
   - `softure-blog skill install` copies it into the app's `.claude/skills/`, filled from the app's ruleset and voice;
