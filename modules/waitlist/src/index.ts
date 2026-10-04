@@ -51,6 +51,7 @@ export {
   type WaitlistFormErrorCode,
   type WaitlistFormField,
   type WaitlistFormState,
+  type WaitlistJoinedEvent,
   type WaitlistSignup,
 } from "./contract.js";
 export { EMAIL_FIELD, getScopeFieldName, PLACEMENT_FIELD } from "./fields.js";
@@ -68,6 +69,8 @@ export {
   MAX_NAME_LENGTH,
   MAX_SCOPES,
   NAME_PATTERN,
+  type OnJoinedHook,
+  type RewriteConfirmationLink,
   type WaitlistOptions,
   type WaitlistOptionsInput,
   type WaitlistScope,

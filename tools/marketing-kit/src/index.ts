@@ -146,6 +146,7 @@ export {
   type TakeScreenshotsOptions,
 } from "./screenshot/screenshot.js";
 export { MIN_FAILING_STATUS, SCREENSHOT_GATES, findSizeFailure, findStatusFailure, type ScreenshotGate } from "./screenshot/gates.js";
+export { getScreenshotNames, getScreenshotShots, type ScreenshotNaming, type ScreenshotShot } from "./config/screenshot-names.js";
 export {
   MARKETING_LOCALES,
   formatMessage,

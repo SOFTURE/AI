@@ -2,6 +2,7 @@
 // the funnel steps for pages. `<ChannelKeeper />` has its own entry point, `/next/channel-keeper`.
 export {
   attributeRegistration,
+  countFunnelStep,
   countRegistration,
   getChannel,
   getChannelFromSearchParams,

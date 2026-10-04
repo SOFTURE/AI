@@ -15,7 +15,7 @@ The waitlist offers an `onJoined` hook (in the sign-up's transaction, like auth'
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-8** (roadmap `followups`, main since 2026-10-03):
+From [`roadmap.md`](../../foundation/roadmap.md), item **FU-8** (roadmap `followups`, main since 2026-10-03):
 
 > ### FU-8: Waitlist sign-ups as a funnel step
 > - **Change ID:** `waitlist-funnel-hook`
@@ -28,7 +28,7 @@ From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-8** (roadmap `fol
 > - **PRD refs:** FR-23.
 > - **Source:** MO-5, `modules/analytics/README.md` §12 (waitlist sign-ups)
 
-Reference material: [`docs/02-module-standard.md`](../../../../docs/02-module-standard.md) (the standard).
+Reference material: [`docs/02-module-standard.md`](../../../docs/02-module-standard.md) (the standard).
 
 ## Constraints
 

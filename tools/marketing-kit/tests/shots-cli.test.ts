@@ -41,6 +41,20 @@ describe("softure-marketing shots", () => {
     expect(readFileSync(file).subarray(1, 4).toString("latin1")).toBe("PNG");
   });
 
+  it.runIf(hasChromium)("writes a light and a dark file at the entry's device scale", () => {
+    const pair = join(target, "pair.json");
+    const data = JSON.parse(readFileSync(config, "utf8")) as { screenshots: Record<string, unknown>[] };
+    data.screenshots = data.screenshots.map((entry) => ({ ...entry, scale: 2, colorSchemes: ["light", "dark"] }));
+    writeFileSync(pair, JSON.stringify(data));
+    const result = runShots(pair, "calculator");
+    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
+    for (const scheme of ["light", "dark"]) {
+      const file = join(target, "out", "screenshots", `calculator-${scheme}.png`);
+      expect(result.stdout).toContain(`✓ ${file} (`);
+      expect(readFileSync(file).readUInt32BE(16)).toBe(2560);
+    }
+  });
+
   it.runIf(hasChromium)("exits with 1 and names the gate when a screenshot fails", () => {
     const failing = join(target, "failing.json");
     const data = JSON.parse(readFileSync(config, "utf8")) as { screenshots: { expect: string }[] };

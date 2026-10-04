@@ -16,7 +16,7 @@ with one `softure-marketing shots` run.
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-18** (roadmap `followups`, main since 2026-10-03):
+From [`roadmap.md`](../../foundation/roadmap.md), item **FU-18** (roadmap `followups`, main since 2026-10-03):
 
 > ### FU-18: Screenshots at a device scale and in both colour schemes
 > - **Change ID:** `marketing-kit-screenshot-variants`

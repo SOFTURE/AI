@@ -1,7 +1,7 @@
 // The app's SOFTURE configuration. `softure migrate` loads this file with Node's type stripping,
 // so relative imports name their `.ts` files.
 import { analytics } from "@softure-ai/analytics";
-import { attributeRegistration, countRegistration, tagRedirect } from "@softure-ai/analytics/next";
+import { attributeRegistration, countFunnelStep, countRegistration, tagRedirect } from "@softure-ai/analytics/next";
 import { auth, AUTH_RATE_LIMIT_BUCKETS, REGISTRATION_CLOSED_SWITCH } from "@softure-ai/auth";
 import { billing, BILLING_RATE_LIMIT_BUCKETS, manual, stripe } from "@softure-ai/billing";
 import { mailingResetSender } from "@softure-ai/auth/mailing";
@@ -129,6 +129,8 @@ const config = defineSoftureConfig({
     // policy, `newsletter` is optional. Double opt-in: a sign-up counts once the link in its
     // confirmation mail is used (app/waitlist/confirm/page.tsx); then the welcome mail goes to the
     // outbox like any list mail. Both mails' HTML bodies use the app's layout (lib/waitlist-mail.ts).
+    // A sign-up that counts is the funnel's `waitlist` step; the confirmation link carries the
+    // form page's channel so the count keeps it (e2e/analytics-funnel.spec.ts).
     waitlist({
       scopes: [
         { id: "launch", required: true, document: "privacy-policy", label: { en: en.waitlist.launch, pl: pl.waitlist.launch } },
@@ -137,14 +139,18 @@ const config = defineSoftureConfig({
       placements: ["home"],
       doubleOptIn: true,
       mailTemplate: waitlistMailLayout,
+      onJoined: countFunnelStep("waitlist"),
+      rewriteConfirmationLink: tagRedirect,
     }),
     // The channel tag `?z=` with its defaults; proxy.ts carries it from page to page. The funnel
-    // counts the home page (a pixel), the account page (a beacon) and sign-ups (the hook above);
-    // its endpoint is app/api/analytics/funnel/route.ts (e2e/analytics-funnel.spec.ts).
+    // counts the home page (a pixel), waitlist sign-ups (the waitlist's hook), the account page (a
+    // beacon) and sign-ups (the auth hook above); its endpoint is app/api/analytics/funnel/route.ts
+    // (e2e/analytics-funnel.spec.ts).
     analytics({
       funnel: {
         steps: [
           { id: "landing", via: "pixel" },
+          { id: "waitlist", via: "server" },
           { id: "account", via: "beacon" },
           { id: "signup", via: "server" },
         ],
