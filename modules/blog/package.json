@@ -1,7 +1,7 @@
 {
   "name": "@softure-ai/blog",
   "version": "0.0.0",
-  "description": "SOFTURE AI blog module: articles and glossary terms kept as Markdown files with a strict YAML frontmatter (extendable by the app's own fields), stored in the module's Postgres schema by the softure-blog publish command (dry run by default, all or nothing, content hash, slug history, one pillar per cluster), read functions for the blog pages, and a server-side Markdown renderer (no raw HTML, safe links, glossary links, block plugins), and a text quality gate (softure-blog check, run before every publish) with language rulesets and rule plugins.",
+  "description": "SOFTURE AI blog module: articles and glossary terms kept as Markdown files with a strict YAML frontmatter (extendable by the app's own fields), stored in the module's Postgres schema by the softure-blog publish command (dry run by default, all or nothing, content hash, slug history, one pillar per cluster), read functions for the blog pages, and a server-side Markdown renderer (no raw HTML, safe links, glossary links, block plugins), and a text quality gate (softure-blog check, run before every publish) with language rulesets and rule plugins, and an article writing skill (softure-blog skill install) generated from the gate's rules.",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -19,7 +19,8 @@
     "!src/**/*.test.ts",
     "!src/**/*.test.tsx",
     "migrations",
-    "module.json"
+    "module.json",
+    "skill"
   ],
   "publishConfig": {
     "access": "public",

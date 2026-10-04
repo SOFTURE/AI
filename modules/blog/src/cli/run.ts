@@ -6,8 +6,8 @@
 //   import { runBlogCli } from "@softure-ai/blog/cli";
 //   import config from "../softure.config";
 //   process.exitCode = await runBlogCli({ config, argv: process.argv.slice(2) });
-import { readdir, readFile, stat } from "node:fs/promises";
-import { basename, join, relative, resolve } from "node:path";
+import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { basename, dirname, join, relative, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { systemClock, type Clock, type SoftureConfig } from "@softure-ai/core";
 import { createDatabase, type DatabaseHandle } from "@softure-ai/db";
@@ -18,6 +18,7 @@ import { createQualityGate } from "../quality/gate.js";
 import { createInternalLinkResolver, findAppDir, readContentFolder, readPublishedContent } from "../quality/link-targets.js";
 import { getLocalDate } from "../quality/settings.js";
 import { getBlogOptions, getQualitySettings } from "../server/options.js";
+import { DEFAULT_SKILL_COMMAND, DEFAULT_SKILL_DIR, renderBlogSkill, SKILL_MARKER, type SkillFile } from "./skill.js";
 
 export interface CliOutput {
   readonly log: (line: string) => void;
@@ -48,6 +49,7 @@ export const EXIT_USAGE = 2;
 export const BLOG_USAGE = `Usage:
   softure-blog publish [<path>...] [--commit] [--withdraw]
   softure-blog check [<path>...] [--external] [--today <YYYY-MM-DD>]
+  softure-blog skill install [--dir <path>] [--command <cmd>] [--check]
 
 publish   Brings the blog's tables to the state of the article files. A <path> is a file or a
           folder (every *.md in it except README.md); without one, blog({ contentDir }).
@@ -61,6 +63,13 @@ check     Runs the quality gate of blog({ quality }) over the files, without a d
   --external    also request every external link (2xx after redirects)
   --today       the date to check freshness against; default: today in the app's time zone
 
+skill install
+          Writes the article writing skill, filled from blog({ quality }), into
+          ${DEFAULT_SKILL_DIR}. Overwrites only a skill it generated before.
+  --dir         the skill folder; default ${DEFAULT_SKILL_DIR}
+  --command     how the skill runs this command; default "${DEFAULT_SKILL_COMMAND}"
+  --check       write nothing; exit 1 when the folder differs from what install would write
+
 Options:
   --config <file>    the app's softure.config file (bin only)
   --help             show this help`;
@@ -73,7 +82,8 @@ const consoleOutput: CliOutput = {
 export type BlogCommand =
   | { readonly kind: "help" }
   | { readonly kind: "publish"; readonly paths: readonly string[]; readonly commit: boolean; readonly withdraw: boolean }
-  | { readonly kind: "check"; readonly paths: readonly string[]; readonly external: boolean; readonly today: string | null };
+  | { readonly kind: "check"; readonly paths: readonly string[]; readonly external: boolean; readonly today: string | null }
+  | { readonly kind: "skill-install"; readonly dir: string; readonly command: string; readonly check: boolean };
 
 /** Runs the command and returns the process exit code: 0 done, 1 refused or failed, 2 usage error. */
 export async function runBlogCli(options: RunBlogCliOptions): Promise<number> {
@@ -88,16 +98,18 @@ export async function runBlogCli(options: RunBlogCliOptions): Promise<number> {
     output.log(BLOG_USAGE);
     return EXIT_OK;
   }
+  if (command.kind === "skill-install") return runSkillInstall(command, options, output);
   return command.kind === "check" ? runCheck(command, options, output) : runPublish(command, options, output);
 }
 
 /** The command the arguments name, or why they name none. Reads nothing. */
 export function parseBlogCommand(argv: readonly string[]): BlogCommand | string {
   const [name, ...rest] = argv;
-  if (name === undefined) return "missing command; use publish or check";
+  if (name === undefined) return "missing command; use publish, check or skill install";
   if (name === "--help") return { kind: "help" };
   if (name === "check") return parseCheckCommand(rest);
-  if (name !== "publish") return `unknown command "${name}"; use publish or check`;
+  if (name === "skill") return parseSkillCommand(rest);
+  if (name !== "publish") return `unknown command "${name}"; use publish, check or skill install`;
 
   let parsed: ReturnType<typeof parsePublishArgs>;
   try {
@@ -124,6 +136,40 @@ function parseCheckCommand(args: readonly string[]): BlogCommand | string {
   const today = values.today ?? null;
   if (today !== null && (!/^\d{4}-\d{2}-\d{2}$/.test(today) || Number.isNaN(Date.parse(`${today}T00:00:00Z`)))) return `--today needs a date YYYY-MM-DD, not "${today}"`;
   return { kind: "check", paths: positionals, external: values.external === true, today };
+}
+
+function parseSkillCommand(args: readonly string[]): BlogCommand | string {
+  const [subcommand, ...rest] = args;
+  if (subcommand === "--help") return { kind: "help" };
+  if (subcommand !== "install") return subcommand === undefined ? "skill needs a subcommand: install" : `unknown skill subcommand "${subcommand}"; use install`;
+  let parsed: ReturnType<typeof parseSkillArgs>;
+  try {
+    parsed = parseSkillArgs(rest);
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+  const { values, positionals } = parsed;
+  if (values.help === true) return { kind: "help" };
+  if (positionals.length > 0) return `skill install takes no paths; use --dir <path>, not "${positionals.join(" ")}"`;
+  const dir = values.dir ?? DEFAULT_SKILL_DIR;
+  const command = values.command ?? DEFAULT_SKILL_COMMAND;
+  if (dir.trim() === "") return "--dir needs a folder";
+  if (command.trim() === "") return "--command needs the command, e.g. \"npm run blog --\"";
+  return { kind: "skill-install", dir, command: command.trim(), check: values.check === true };
+}
+
+function parseSkillArgs(args: readonly string[]) {
+  return parseArgs({
+    args: [...args],
+    options: {
+      dir: { type: "string" },
+      command: { type: "string" },
+      check: { type: "boolean" },
+      help: { type: "boolean" },
+    },
+    strict: true,
+    allowPositionals: true,
+  });
 }
 
 function parseCheckArgs(args: readonly string[]) {
@@ -256,6 +302,52 @@ async function runCheck(command: Extract<BlogCommand, { kind: "check" }>, option
     ...(command.external ? { fetch: options.fetch ?? fetch } : {}),
   });
   return reportCheck(results, files, cwd, output);
+}
+
+async function runSkillInstall(command: Extract<BlogCommand, { kind: "skill-install" }>, options: RunBlogCliOptions, output: CliOutput): Promise<number> {
+  const cwd = options.cwd ?? process.cwd();
+  const dir = resolve(cwd, command.dir);
+  const shown = relative(cwd, dir) || ".";
+  let files: SkillFile[];
+  try {
+    files = renderBlogSkill(options.config, { command: command.command });
+  } catch (error) {
+    output.error(`softure-blog skill install: ${describeError(error)}`);
+    return EXIT_FAILED;
+  }
+
+  if (command.check) {
+    const stale: string[] = [];
+    for (const file of files) {
+      if ((await readText(join(dir, file.path))) !== file.text) stale.push(file.path);
+    }
+    if (stale.length === 0) {
+      output.log(`skill: ${shown} is up to date`);
+      return EXIT_OK;
+    }
+    for (const path of stale) output.error(`skill: ${join(shown, path)} differs from the blog config`);
+    output.error("skill: run softure-blog skill install with the same options and commit the folder");
+    return EXIT_FAILED;
+  }
+
+  const existing = await readText(join(dir, "SKILL.md"));
+  if (existing !== null && !existing.includes(SKILL_MARKER)) {
+    output.error(`softure-blog skill install: ${join(shown, "SKILL.md")} was not generated by this command; refusing to overwrite it (choose another --dir)`);
+    return EXIT_FAILED;
+  }
+  try {
+    for (const file of files) {
+      const path = join(dir, file.path);
+      await mkdir(dirname(path), { recursive: true });
+      await writeFile(path, file.text, "utf8");
+    }
+  } catch (error) {
+    output.error(`softure-blog skill install: cannot write ${shown}: ${describeError(error)}`);
+    return EXIT_FAILED;
+  }
+  for (const file of files) output.log(`wrote ${join(shown, file.path)}`);
+  output.log(`skill: installed into ${shown}; commit it, and run skill install --check in CI`);
+  return EXIT_OK;
 }
 
 function reportCheck(results: readonly FileCheckResult[], files: readonly ReadArticleFile[], cwd: string, output: CliOutput): number {

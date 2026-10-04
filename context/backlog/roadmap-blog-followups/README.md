@@ -33,5 +33,6 @@ moved file lose one `../`.
 | BF-4 | [`blog-glossary-form-conflicts`](blog-glossary-form-conflicts/change.md) | A glossary form belongs to one term | roadmap promoted | start |
 | BF-5 | [`markdown-footnote-links`](markdown-footnote-links/change.md) | The repository link check skips footnote definitions | roadmap promoted | start |
 | BF-6 | [`blog-check-without-database`](blog-check-without-database/change.md) | softure-blog check without a database URL | roadmap promoted | start |
+| BF-7 | [`blog-skill-app-notes`](blog-skill-app-notes/change.md) | The app's own sections in the generated writing skill | roadmap promoted | start |
 
 Kind: `start`, `dependency` or `owner`, as in the other roadmap backlogs.
