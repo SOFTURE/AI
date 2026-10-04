@@ -111,7 +111,19 @@ export {
   type PaymentStart,
 } from "./payment.js";
 export { findPlan, getLocalizedText, getPeriodEnd, getPlanGrant } from "./plans.js";
-export { getPaymentGrant, getRefundEvent, getTakenBackDays, getUnusedDays, isFullShare, moveBackByDays, type RefundShare, type RefundTiming } from "./refund.js";
+export {
+  getPaymentGrant,
+  getRefundEvent,
+  getRestoredDays,
+  getTakenBackDays,
+  getUnusedDays,
+  isFullShare,
+  moveBackByDays,
+  moveForwardByDays,
+  type RefundShare,
+  type RefundTiming,
+  type RestoredDaysInput,
+} from "./refund.js";
 export {
   ACCESS_REMINDER_KINDS,
   DEFAULT_CATCH_UP_DAYS,
@@ -141,6 +153,7 @@ export {
   STRIPE_SIGNATURE_HEADER,
   STRIPE_SIGNATURE_TOLERANCE_SECONDS,
   verifyStripeSignature,
+  type FailedRefund,
   type PaidCheckout,
   type SignStripePayloadInput,
   type StripeWebhookError,

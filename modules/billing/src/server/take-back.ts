@@ -4,17 +4,16 @@
 // payments and manual grants), so their stored dates keep saying where their access lies; a
 // lifetime ends unless something else still pays for it (a partial refund never ends it). Lock order: the caller takes the account (key share), then the entitlement
 // (`lockEntitlementRow`), then flips its own row; the shift then updates other rows under the
-// entitlement lock, so two take-backs of one account never wait on each other's rows.
+// entitlement lock, so two take-backs of one account never wait on each other's rows. A refund that
+// fails later gives days back (`giveBackDays`) the same way in reverse.
 import type { Queryable } from "@softure-ai/db";
 import { and, eq, gte, ne, type SQL } from "drizzle-orm";
 import type { Entitlement, EntitlementEvent, EntitlementRecord, PaymentGrant } from "../contract.js";
 import { resolveEntitlement } from "../entitlement.js";
-import { getRefundEvent, getTakenBackDays, isFullShare, moveBackByDays, type RefundShare } from "../refund.js";
+import { getGrantStart, getRefundEvent, getTakenBackDays, isFullShare, moveBackByDays, moveForwardByDays, type RefundShare } from "../refund.js";
 import { entitlements, manualGrants, payments } from "../schema.js";
 import { changeEntitlement, findEntitlementRecord, type BillingContext } from "./entitlements.js";
 import { getEntitlementPolicy } from "./options.js";
-
-type PeriodGrant = Extract<PaymentGrant, { kind: "period" }>;
 
 /**
  * Locks the account's entitlement row until the transaction ends (nothing when it has none yet).
@@ -40,11 +39,13 @@ export async function hasActiveManualLifetime(tx: Queryable, userId: string, exc
   return other !== undefined;
 }
 
-interface ShiftLaterPeriodsInput {
+export interface ShiftLaterPeriodsInput {
   readonly userId: string;
-  /** The period taken back. */
-  readonly grant: PeriodGrant;
+  /** Stored periods starting at or after this instant move (the end of the period taken back or given back). */
+  readonly after: Date;
   readonly days: number;
+  /** `back` when days are taken back, `forward` when a failed refund gives them back. */
+  readonly direction: "back" | "forward";
   readonly timezone: string;
 }
 
@@ -54,22 +55,23 @@ interface StoredPeriod {
   readonly grantedUntil: Date | null;
 }
 
-/** The stored period moved back by `days` local days. */
+/** The stored period moved by `days` local days in the input's direction. */
 function getShiftedPeriod(row: StoredPeriod, input: ShiftLaterPeriodsInput): { grantedFrom: Date; grantedUntil: Date } | null {
   if (row.grantedFrom === null || row.grantedUntil === null) return null;
-  return { grantedFrom: moveBackByDays(row.grantedFrom, input.days, input.timezone), grantedUntil: moveBackByDays(row.grantedUntil, input.days, input.timezone) };
+  const days = input.direction === "back" ? input.days : -input.days;
+  return { grantedFrom: moveBackByDays(row.grantedFrom, days, input.timezone), grantedUntil: moveBackByDays(row.grantedUntil, days, input.timezone) };
 }
 
 /**
- * Moves the stored periods that follow the one taken back (paid provider payments and active manual
- * grants starting at or after its end) back by the days taken, so a later refund or revoke of one
- * of them takes back the right days.
+ * Moves the stored periods that follow the one taken back or given back (paid provider payments and
+ * active manual grants starting at or after `after`) by the days, so a later refund or revoke of one
+ * of them takes back the right days. The caller holds the entitlement lock.
  */
-async function shiftLaterPeriods(tx: Queryable, input: ShiftLaterPeriodsInput): Promise<void> {
+export async function shiftLaterPeriods(tx: Queryable, input: ShiftLaterPeriodsInput): Promise<void> {
   const laterPayments = await tx
     .select({ id: payments.id, grantedFrom: payments.grantedFrom, grantedUntil: payments.grantedUntil })
     .from(payments)
-    .where(and(eq(payments.userId, input.userId), eq(payments.grantKind, "period"), eq(payments.status, "paid"), gte(payments.grantedFrom, input.grant.until)));
+    .where(and(eq(payments.userId, input.userId), eq(payments.grantKind, "period"), eq(payments.status, "paid"), gte(payments.grantedFrom, input.after)));
   for (const row of laterPayments) {
     const shifted = getShiftedPeriod(row, input);
     if (shifted !== null) await tx.update(payments).set(shifted).where(eq(payments.id, row.id));
@@ -77,7 +79,7 @@ async function shiftLaterPeriods(tx: Queryable, input: ShiftLaterPeriodsInput): 
   const laterGrants = await tx
     .select({ id: manualGrants.id, grantedFrom: manualGrants.grantedFrom, grantedUntil: manualGrants.grantedUntil })
     .from(manualGrants)
-    .where(and(eq(manualGrants.userId, input.userId), eq(manualGrants.grantKind, "period"), eq(manualGrants.status, "active"), gte(manualGrants.grantedFrom, input.grant.until)));
+    .where(and(eq(manualGrants.userId, input.userId), eq(manualGrants.grantKind, "period"), eq(manualGrants.status, "active"), gte(manualGrants.grantedFrom, input.after)));
   for (const row of laterGrants) {
     const shifted = getShiftedPeriod(row, input);
     if (shifted !== null) await tx.update(manualGrants).set(shifted).where(eq(manualGrants.id, row.id));
@@ -130,10 +132,58 @@ export async function takeBackGrant(ctx: BillingContext, input: TakeBackGrantInp
   let days = 0;
   if (grant?.kind === "period") {
     days = getTakenBackDays(grant, { now: input.now, timezone, share: input.share });
-    await shiftLaterPeriods(tx, { userId: input.userId, grant, days, timezone });
+    await shiftLaterPeriods(tx, { userId: input.userId, after: grant.until, days, direction: "back", timezone });
   }
   const changed = await changeEntitlement(ctx, input.userId, event);
   // The account is locked and these events are never refused.
   if (!changed.ok) throw new Error(`@softure-ai/billing: taking back a grant failed with ${changed.error}`);
   return { entitlement: changed.value, days };
+}
+
+export interface GiveBackDaysInput {
+  readonly userId: string;
+  /** The period the refunded payment stores now. */
+  readonly grant: Extract<PaymentGrant, { kind: "period" }>;
+  /** Whether the payment was still paid (refunded in part) before the failure. */
+  readonly isPaid: boolean;
+  readonly days: number;
+  readonly now: Date;
+}
+
+/** Where the account stands after days were given back, and the period the payment pays for now. */
+export interface GiveBack {
+  readonly entitlement: Entitlement;
+  readonly period: Extract<PaymentGrant, { kind: "period" }>;
+}
+
+/**
+ * Gives back `days` local days a failed refund had taken, inside the caller's transaction, under the
+ * same locks as `takeBackGrant`. While the payment is paid and its period still ahead, the days go
+ * back right after that period: dated access and every later stored period move forward by them
+ * (the take-back in reverse). Otherwise (refunded in full, or the period used up) they are a grant
+ * at the end, from the latest of the trial's end, dated access and now, and that is the period the
+ * payment pays for.
+ */
+export async function giveBackDays(ctx: BillingContext, input: GiveBackDaysInput): Promise<GiveBack> {
+  const record = await findEntitlementRecord(ctx, input.userId);
+  // The caller's payment row references the account, which its key share lock keeps.
+  if (record === null) throw new Error("@softure-ai/billing: days to give back have no account");
+  const { timezone } = ctx.config;
+  const { grant, days, now } = input;
+  const { paidUntil } = record;
+  let period: GiveBack["period"];
+  let until: Date;
+  if (input.isPaid && grant.until > now && paidUntil !== null && paidUntil >= grant.until) {
+    await shiftLaterPeriods(ctx.db, { userId: input.userId, after: grant.until, days, direction: "forward", timezone });
+    period = { kind: "period", from: grant.from, until: moveForwardByDays(grant.until, days, timezone) };
+    until = moveForwardByDays(paidUntil, days, timezone);
+  } else {
+    const from = getGrantStart(record, now);
+    until = moveForwardByDays(from, days, timezone);
+    period = { kind: "period", from, until };
+  }
+  const changed = await changeEntitlement(ctx, input.userId, { type: "grant", until });
+  // The account is locked and the end lies at least a day past dated access and now.
+  if (!changed.ok) throw new Error(`@softure-ai/billing: giving back refunded days failed with ${changed.error}`);
+  return { entitlement: changed.value, period };
 }
