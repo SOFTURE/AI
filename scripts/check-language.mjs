@@ -30,8 +30,9 @@ const WORD = new RegExp(
   "iu",
 );
 
-// Files allowed to hold Polish: message dictionaries (user-facing copy), the gate and its test
-// (they must spell the words), and the generated lockfile (base64 hashes, no prose).
+// Files allowed to hold Polish: message dictionaries (user-facing copy), Polish language data in a
+// folder named after the locale (`pl/`: a text ruleset's word lists, Polish test articles), the gate
+// and its test (they must spell the words), and the generated lockfile (base64 hashes, no prose).
 const EXEMPT_FILES = new Set(["scripts/check-language.mjs", "tests/repo/language.test.ts", "package-lock.json"]);
 
 /**
@@ -46,7 +47,8 @@ const EXEMPT_FILES = new Set(["scripts/check-language.mjs", "tests/repo/language
  */
 export function isExempt(path) {
   const normalized = path.replaceAll("\\", "/");
-  return EXEMPT_FILES.has(normalized) || normalized.split("/").slice(0, -1).includes("messages");
+  const folders = normalized.split("/").slice(0, -1);
+  return EXEMPT_FILES.has(normalized) || folders.includes("messages") || folders.includes("pl");
 }
 
 /**

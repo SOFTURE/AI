@@ -1,0 +1,67 @@
+# The blog quality gate with the network (@softure-ai/blog, BL-6): a reusable workflow an app calls
+# on a weekly schedule. Source links (laws, statistics offices, fact sheets) move, and a text
+# published once lives for years; `npm test` and publishing never depend on other people's servers,
+# so dead links are found here. A red run means a text to fix and publish again.
+#
+# In the app, `.github/workflows/blog-links.yml`:
+#
+#   on:
+#     schedule:
+#       - cron: "0 6 * * 1"   # Mondays 6:00 UTC
+#     workflow_dispatch:
+#   permissions:
+#     contents: read
+#   jobs:
+#     links:
+#       uses: SOFTURE/AI/.github/workflows/blog-links.yml@master
+#
+# The app's config must load in Node (softure.config.mjs or .js), or `command` names an app script
+# that calls runBlogCli. `check` never connects to the database; a config that requires a database
+# URL gets the placeholder in DATABASE_URL.
+
+name: blog-links
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: Node.js version of the app
+        type: string
+        default: "22"
+      working-directory:
+        description: The app's folder in its repository
+        type: string
+        default: "."
+      command:
+        description: The gate with external links
+        type: string
+        default: "npx softure-blog check --external"
+      database-url:
+        description: DATABASE_URL for a config that requires one; check never connects
+        type: string
+        default: "postgres://unused:unused@localhost:5432/unused"
+
+permissions:
+  contents: read
+
+jobs:
+  links:
+    name: blog gate + external links
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    env:
+      LEFTHOOK: "0"
+      DATABASE_URL: ${{ inputs.database-url }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ inputs.node-version }}
+      - run: npm ci
+      # Through the environment, not interpolated into the script.
+      - name: Gate with external links
+        env:
+          GATE_COMMAND: ${{ inputs.command }}
+        run: bash -c "$GATE_COMMAND"

@@ -1,0 +1,72 @@
+---
+id: model
+slug: model
+kind: article
+cluster: ike-ikze
+title: Limit IKE w 2026 roku i ile z niego zostaje po 20 latach
+description: Limit wpłat na IKE w 2026 roku wynosi 28 260 zł. Liczymy, ile daje pełne wpłacanie przez 20 lat i ile podatku Belki omija.
+summary: Na IKE wpłacisz w 2026 roku najwyżej 28 260 zł. Po 20 latach pełnych wpłat konto omija ponad 70 tys. zł podatku Belki.
+status: published
+current_as_of: 2026-10-01
+published_at: 2026-10-01
+scenario: "w=40&d=0&e=0&s=2355&k=6000&r=5"
+sources:
+  - name: Obwieszczenie MRPiPS w sprawie limitu wpłat na IKE na 2026 rok
+    url: https://isap.sejm.gov.pl/isap.nsf/DocDetails.xsp?id=WMP20250001202
+  - name: Ustawa o indywidualnych kontach emerytalnych oraz indywidualnych kontach zabezpieczenia emerytalnego
+    url: https://isap.sejm.gov.pl/isap.nsf/DocDetails.xsp?id=WDU20041161205
+faq:
+  - question: Ile można wpłacić na IKE w 2026 roku?
+    answer: 28 260 zł w ciągu roku kalendarzowego.
+---
+
+W 2026 roku na IKE wpłacisz najwyżej 28 260 zł[^limit]. Kto robi to przez 20 lat przy 5% realnego zwrotu rocznie, kończy z kwotą około 934 tys. zł w dzisiejszych pieniądzach, a podatek Belki od tego zysku wyniósłby ponad 70 tys. zł[^wyliczenie]. Ten podatek na IKE nie istnieje, jeśli wypłacisz pieniądze po 60. urodzinach.
+
+Limit to trzykrotność prognozowanego przeciętnego wynagrodzenia z ustawy budżetowej. Rośnie więc co roku razem z płacami, a ministerstwo ogłasza go jesienią na kolejny rok.
+
+## Ile można wpłacić na IKE w 2026 roku?
+
+Limit IKE na 2026 rok to 28 260 zł przez cały rok kalendarzowy, czyli 2 355 zł miesięcznie[^limit]. Limit dotyczy osoby, nie konta. Dwa IKE w dwóch instytucjach dzielą jedną pulę, a nadwyżkę instytucja zwraca.
+
+Wpłaty liczy się według daty wpływu na konto, nie daty przelewu. Przelew zlecony 31 grudnia, który dotrze 2 stycznia, zje już pulę nowego roku. Kto chce domknąć limit w grudniu, robi to kilka dni wcześniej. Małżonkowie mają osobne limity, więc para może razem wpłacić dwa razy tyle[^limit].
+
+Niewykorzystanej części nie przeniesiesz na następny rok. Jeśli w styczniu wpłacisz 10 tys. zł i do grudnia nic więcej, reszta tegorocznej puli przepada[^limit].
+
+## Co daje pełny limit przez 20 lat?
+
+Policzyliśmy to dla osoby, która ma 40 lat, zaczyna od zera i co miesiąc wpłaca 2 355 zł. Przyjęliśmy 5% zwrotu rocznie ponad inflację. To założenie, nie prognoza, więc w kalkulatorze wpiszesz własną stopę[^wyliczenie].
+
+| Po ilu latach | Wpłacone | Na koncie |
+| --- | --- | --- |
+| 10 | 282 600 zł | 355 450 zł |
+| 20 | 565 200 zł | 934 445 zł |
+
+Tabela pokazuje kwoty w dzisiejszej sile nabywczej[^wyliczenie]. Po 20 latach zysk to 369 245 zł, a 19% z tego to 70 157 zł podatku, który na zwykłym rachunku maklerskim zabrałby urząd skarbowy przy sprzedaży[^wyliczenie].
+
+Swój wariant sprawdzisz w [kalkulatorze z tym scenariuszem](/kalkulator#w=40&d=0&e=0&s=2355&k=6000&r=5). Zmień wiek albo kwotę wpłaty, a data, od której pieniądze z IKE są dostępne bez podatku, przesunie się razem z nimi.
+
+## Kiedy IKE przestaje się opłacać?
+
+Gdy pieniądze będą potrzebne przed 60. urodzinami. Wypłata wcześniej oznacza zwrot, a od zysku pobiera się wtedy zwykły podatek od zysków kapitałowych[^ustawa]. Dla kogoś, kto planuje odejść z pracy w wieku 50 lat, część oszczędności musi więc leżeć poza IKE, żeby pokryć dziesięć lat do 60.
+
+Tę lukę nazywamy mostem. Kalkulator liczy ją osobno: pokazuje, ile majątku dostępnego bez kar trzeba mieć w dniu odejścia, a ile może czekać na IKE i IKZE. Most liczony [dla 50-latka z tym samym planem](/kalkulator#w=50&d=300000&e=0&s=2355&k=6000&r=5) wychodzi zwykle większy, niż ludzie zakładają, bo przez dziesięć lat żyje się wyłącznie z niego.
+
+## IKE czy IKZE na pierwszy ogień?
+
+Przy dochodzie w pierwszym progu podatkowym IKE zwykle wygrywa elastycznością. IKZE daje ulgę od razu, ale przy wypłacie pobiera 10% zryczałtowanego podatku od całej kwoty[^ustawa]. Przy drugim progu ulga rośnie i rachunek się odwraca.
+
+Nie trzeba wybierać jednego. Najpierw pełny limit tam, gdzie zysk po podatku jest większy w twojej sytuacji, potem drugie konto. Kolejność dla konkretnych zarobków pokazuje kalkulator po wpisaniu formy zatrudnienia, bo od niej zależy także limit IKZE.
+
+## Co sprawdzić przed pierwszą wpłatą
+
+Opłaty instytucji. Przy 20 latach różnica 1 punktu procentowego rocznie zjada około 10% końcowej kwoty, więc konto maklerskie IKE z tanimi funduszami indeksowymi zwykle wygrywa z IKE w formie polisy[^wyliczenie].
+
+Dostęp do pieniędzy. Wypłata częściowa przed 60. rokiem życia jest możliwa, ale każda złotówka wyjęta wcześniej traci zwolnienie z podatku i zamyka konto przy wypłacie całości[^ustawa].
+
+Formę konta. IKE prowadzą domy maklerskie, fundusze inwestycyjne, banki i ubezpieczyciele. Przeniesienie do innej instytucji nie odbiera zwolnienia z podatku[^ustawa], ale opłatę za nie ustala regulamin, więc sprawdź ją przed wyborem.
+
+Dziedziczenie. Środki z IKE przechodzą na wskazane osoby poza masą spadkową, więc najlepiej wskazać je od razu przy zakładaniu konta[^ustawa].
+
+[^limit]: Obwieszczenie MRPiPS, M.P. 2025 poz. 1202: https://isap.sejm.gov.pl/isap.nsf/DocDetails.xsp?id=WMP20250001202
+[^ustawa]: Ustawa o IKE i IKZE, tekst jednolity: https://isap.sejm.gov.pl/isap.nsf/DocDetails.xsp?id=WDU20041161205
+[^wyliczenie]: Wyliczenie Plan Majątku: wpłata 2 355 zł miesięcznie, zwrot 5% realnie, kapitalizacja roczna, stan na 2026-10-01.

@@ -1,6 +1,7 @@
 // The blog options of the running app, read from the configuration.
 import { getModule, type SoftureConfig } from "@softure-ai/core";
 import type { BlogOptions } from "../options.js";
+import { resolveQualitySettings, type QualitySettings } from "../quality/settings.js";
 
 const MODULE_ID = "blog";
 
@@ -12,4 +13,10 @@ export function getBlogOptions(config: SoftureConfig): BlogOptions {
   }
   // The module factory parsed these options with blogOptionsSchema.
   return module.options as BlogOptions;
+}
+
+/** The quality gate's settings, or `null` when the app turned the gate off (`quality: false`). */
+export function getQualitySettings(config: SoftureConfig): QualitySettings | null {
+  const { quality } = getBlogOptions(config);
+  return quality === false ? null : resolveQualitySettings(quality, config);
 }

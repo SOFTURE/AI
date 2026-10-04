@@ -19,13 +19,15 @@ describe("the blog module", () => {
   });
 
   it("fills in the defaults: content/blog, no reserved slugs, no app fields", () => {
-    expect(blog().options).toEqual({ contentDir: "content/blog", reservedSlugs: [] });
+    const { quality, ...rest } = blog().options;
+    expect(rest).toEqual({ contentDir: "content/blog", reservedSlugs: [] });
+    expect(quality).toMatchObject({ language: "en", ymyl: null, paths: { articles: "/blog", terms: "/blog/glossary" }, plugins: [] });
   });
 
   it("takes the app's folder, reserved slugs and fields schema", () => {
     const fields = z.object({ scenario: z.string().optional() });
     const options = blog({ contentDir: "posts", reservedSlugs: ["glossary"], fields }).options;
-    expect(options).toEqual({ contentDir: "posts", reservedSlugs: ["glossary"], fields });
+    expect(options).toMatchObject({ contentDir: "posts", reservedSlugs: ["glossary"], fields });
     expect(getBlogOptions(createConfig({ contentDir: "posts" })).contentDir).toBe("posts");
   });
 

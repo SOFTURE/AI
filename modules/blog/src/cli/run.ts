@@ -7,12 +7,17 @@
 //   import config from "../softure.config";
 //   process.exitCode = await runBlogCli({ config, argv: process.argv.slice(2) });
 import { readdir, readFile, stat } from "node:fs/promises";
-import { basename, join, resolve } from "node:path";
+import { basename, join, relative, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { systemClock, type Clock, type SoftureConfig } from "@softure-ai/core";
 import { createDatabase, type DatabaseHandle } from "@softure-ai/db";
 import { runBlogPublish, type ArticleFile, type BlogPublishRun, type PublishedChange, type PublishGate, type PublishProblem } from "../db/publish-run.js";
-import { getBlogOptions } from "../server/options.js";
+import { checkArticleFiles, type FileCheckResult } from "../quality/check-files.js";
+import type { FetchLike } from "../quality/external-links.js";
+import { createQualityGate } from "../quality/gate.js";
+import { createInternalLinkResolver, findAppDir, readContentFolder, readPublishedContent } from "../quality/link-targets.js";
+import { getLocalDate } from "../quality/settings.js";
+import { getBlogOptions, getQualitySettings } from "../server/options.js";
 
 export interface CliOutput {
   readonly log: (line: string) => void;
@@ -29,9 +34,11 @@ export interface RunBlogCliOptions {
   readonly output?: CliOutput;
   /** Opens the database connection. Default: `createDatabase(url, { max: 1 })`. */
   readonly openDatabase?: (url: string) => Promise<DatabaseHandle>;
-  /** The quality gate for files going public (BL-6). Default: none. */
+  /** The gate for files going public. Default: the quality gate of `blog({ quality })`, none with `quality: false`. */
   readonly gate?: PublishGate;
   readonly clock?: Clock;
+  /** For `check --external`. Default: the global `fetch`. */
+  readonly fetch?: FetchLike;
 }
 
 export const EXIT_OK = 0;
@@ -40,12 +47,19 @@ export const EXIT_USAGE = 2;
 
 export const BLOG_USAGE = `Usage:
   softure-blog publish [<path>...] [--commit] [--withdraw]
+  softure-blog check [<path>...] [--external] [--today <YYYY-MM-DD>]
 
 publish   Brings the blog's tables to the state of the article files. A <path> is a file or a
           folder (every *.md in it except README.md); without one, blog({ contentDir }).
           Every file is checked before the first write, and one problem writes nothing.
   --commit      write the changes; without it, a dry run that shows them and writes nothing
   --withdraw    publish the one given file as withdrawn, whatever its status
+          Files going public pass the quality gate first; an error writes nothing.
+
+check     Runs the quality gate of blog({ quality }) over the files, without a database, and
+          prints every finding as file:line: severity [rule] message. Exits 1 on any error.
+  --external    also request every external link (2xx after redirects)
+  --today       the date to check freshness against; default: today in the app's time zone
 
 Options:
   --config <file>    the app's softure.config file (bin only)
@@ -56,7 +70,10 @@ const consoleOutput: CliOutput = {
   error: (line) => console.error(line),
 };
 
-export type BlogCommand = { readonly kind: "help" } | { readonly kind: "publish"; readonly paths: readonly string[]; readonly commit: boolean; readonly withdraw: boolean };
+export type BlogCommand =
+  | { readonly kind: "help" }
+  | { readonly kind: "publish"; readonly paths: readonly string[]; readonly commit: boolean; readonly withdraw: boolean }
+  | { readonly kind: "check"; readonly paths: readonly string[]; readonly external: boolean; readonly today: string | null };
 
 /** Runs the command and returns the process exit code: 0 done, 1 refused or failed, 2 usage error. */
 export async function runBlogCli(options: RunBlogCliOptions): Promise<number> {
@@ -71,15 +88,16 @@ export async function runBlogCli(options: RunBlogCliOptions): Promise<number> {
     output.log(BLOG_USAGE);
     return EXIT_OK;
   }
-  return runPublish(command, options, output);
+  return command.kind === "check" ? runCheck(command, options, output) : runPublish(command, options, output);
 }
 
 /** The command the arguments name, or why they name none. Reads nothing. */
 export function parseBlogCommand(argv: readonly string[]): BlogCommand | string {
   const [name, ...rest] = argv;
-  if (name === undefined) return "missing command; use publish";
+  if (name === undefined) return "missing command; use publish or check";
   if (name === "--help") return { kind: "help" };
-  if (name !== "publish") return `unknown command "${name}"; use publish`;
+  if (name === "check") return parseCheckCommand(rest);
+  if (name !== "publish") return `unknown command "${name}"; use publish or check`;
 
   let parsed: ReturnType<typeof parsePublishArgs>;
   try {
@@ -92,6 +110,33 @@ export function parseBlogCommand(argv: readonly string[]): BlogCommand | string 
   const withdraw = values.withdraw === true;
   if (withdraw && positionals.length !== 1) return "--withdraw takes exactly one article file";
   return { kind: "publish", paths: positionals, commit: values.commit === true, withdraw };
+}
+
+function parseCheckCommand(args: readonly string[]): BlogCommand | string {
+  let parsed: ReturnType<typeof parseCheckArgs>;
+  try {
+    parsed = parseCheckArgs(args);
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+  const { values, positionals } = parsed;
+  if (values.help === true) return { kind: "help" };
+  const today = values.today ?? null;
+  if (today !== null && (!/^\d{4}-\d{2}-\d{2}$/.test(today) || Number.isNaN(Date.parse(`${today}T00:00:00Z`)))) return `--today needs a date YYYY-MM-DD, not "${today}"`;
+  return { kind: "check", paths: positionals, external: values.external === true, today };
+}
+
+function parseCheckArgs(args: readonly string[]) {
+  return parseArgs({
+    args: [...args],
+    options: {
+      external: { type: "boolean" },
+      today: { type: "string" },
+      help: { type: "boolean" },
+    },
+    strict: true,
+    allowPositionals: true,
+  });
 }
 
 function parsePublishArgs(args: readonly string[]) {
@@ -132,6 +177,13 @@ async function runPublish(command: Extract<BlogCommand, { kind: "publish" }>, op
     return EXIT_FAILED;
   }
 
+  const clock = options.clock ?? systemClock;
+  let gate = options.gate;
+  if (gate === undefined) {
+    const settings = getQualitySettings(config);
+    if (settings !== null) gate = createQualityGate(settings, clock);
+  }
+
   let handle: DatabaseHandle;
   try {
     handle = await (options.openDatabase ?? openDatabase)(config.database.url);
@@ -141,14 +193,14 @@ async function runPublish(command: Extract<BlogCommand, { kind: "publish" }>, op
   }
   try {
     const run = await runBlogPublish(
-      { db: handle.db, clock: options.clock ?? systemClock, config },
+      { db: handle.db, clock, config },
       files,
       {
         commit: command.commit,
         withdraw: command.withdraw,
         reservedSlugs: blogOptions.reservedSlugs,
         ...(blogOptions.fields === undefined ? {} : { fields: blogOptions.fields }),
-        ...(options.gate === undefined ? {} : { gate: options.gate }),
+        ...(gate === undefined ? {} : { gate }),
       },
     );
     return reportRun(run, output);
@@ -159,6 +211,67 @@ async function runPublish(command: Extract<BlogCommand, { kind: "publish" }>, op
   } finally {
     await handle.close();
   }
+}
+
+async function runCheck(command: Extract<BlogCommand, { kind: "check" }>, options: RunBlogCliOptions, output: CliOutput): Promise<number> {
+  const cwd = options.cwd ?? process.cwd();
+  let blogOptions: ReturnType<typeof getBlogOptions>;
+  let settings: ReturnType<typeof getQualitySettings>;
+  try {
+    blogOptions = getBlogOptions(options.config);
+    settings = getQualitySettings(options.config);
+  } catch (error) {
+    output.error(`softure-blog check: ${describeError(error)}`);
+    return EXIT_FAILED;
+  }
+  if (settings === null) {
+    output.error("softure-blog check: the quality gate is off (blog({ quality: false })); nothing to check");
+    return EXIT_FAILED;
+  }
+  const contentDir = resolve(cwd, blogOptions.contentDir);
+  const paths = command.paths.length > 0 ? command.paths.map((path) => resolve(cwd, path)) : [contentDir];
+  const files = await readArticleFiles(paths);
+  if (typeof files === "string") {
+    output.error(`softure-blog check: ${files}`);
+    return EXIT_FAILED;
+  }
+  if (files.length === 0) {
+    output.log("check: no article files");
+    return EXIT_OK;
+  }
+
+  // Link targets: the published texts of the content folder and of the checked files, and the app's routes.
+  const content = readPublishedContent([...readContentFolder(contentDir), ...files]);
+  const resolveInternalLink = createInternalLinkResolver({
+    appDir: findAppDir(cwd, settings.options.appDir),
+    privateRouteSegments: settings.options.privateRouteSegments,
+    paths: settings.options.paths,
+    content,
+  });
+  const results = await checkArticleFiles(files, {
+    settings,
+    today: command.today ?? getLocalDate((options.clock ?? systemClock).now(), settings.timeZone),
+    resolveInternalLink,
+    parse: { reservedSlugs: blogOptions.reservedSlugs, ...(blogOptions.fields === undefined ? {} : { fields: blogOptions.fields }) },
+    ...(command.external ? { fetch: options.fetch ?? fetch } : {}),
+  });
+  return reportCheck(results, files, cwd, output);
+}
+
+function reportCheck(results: readonly FileCheckResult[], files: readonly ReadArticleFile[], cwd: string, output: CliOutput): number {
+  let errors = 0;
+  let warnings = 0;
+  for (const [index, result] of results.entries()) {
+    const shown = relative(cwd, files[index]?.path ?? result.file) || result.file;
+    if (result.findings.length === 0) output.log(`${shown}: OK`);
+    for (const finding of result.findings) {
+      output.log(`${finding.line === undefined ? shown : `${shown}:${String(finding.line)}`}: ${finding.severity} [${finding.rule}] ${finding.message}`);
+      if (finding.severity === "error") errors += 1;
+      else warnings += 1;
+    }
+  }
+  output.log(`check: ${String(results.length)} file(s), ${String(errors)} error(s), ${String(warnings)} warning(s): ${errors > 0 ? "red, do not publish" : "green"}`);
+  return errors > 0 ? EXIT_FAILED : EXIT_OK;
 }
 
 function reportRun(run: BlogPublishRun, output: CliOutput): number {
@@ -187,9 +300,13 @@ function formatProblem(problem: PublishProblem): string {
   return `${problem.subject}: ${problem.message}`;
 }
 
+interface ReadArticleFile extends ArticleFile {
+  readonly path: string;
+}
+
 /** The files the paths name, sorted by name within a folder, or why they cannot be read. */
-async function readArticleFiles(paths: readonly string[]): Promise<ArticleFile[] | string> {
-  const files: ArticleFile[] = [];
+async function readArticleFiles(paths: readonly string[]): Promise<ReadArticleFile[] | string> {
+  const files: ReadArticleFile[] = [];
   for (const path of paths) {
     const kind = await getPathKind(path);
     if (kind === null) return `cannot read ${path}`;
@@ -203,7 +320,7 @@ async function readArticleFiles(paths: readonly string[]): Promise<ArticleFile[]
     for (const filePath of filePaths) {
       const text = await readText(filePath);
       if (text === null) return `cannot read ${filePath}`;
-      files.push({ name: basename(filePath), text });
+      files.push({ name: basename(filePath), text, path: filePath });
     }
   }
   return files;

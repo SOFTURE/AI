@@ -4,8 +4,8 @@ Articles and glossary terms kept as Markdown files in the app's repository, and 
 brings the module's tables to the state of those files. The files are the source of truth: there is no
 editor and no CMS, a text changes only through a commit and `softure-blog publish`.
 
-This release holds the content store (roadmap item BL-2). The renderer (BL-3), the pages (BL-4), RSS,
-sitemap and IndexNow (BL-5) and the quality gate (BL-6) build on it.
+This release holds the content store (roadmap item BL-2) and the text quality gate (BL-6). The renderer
+(BL-3), the pages (BL-4) and RSS, sitemap and IndexNow (BL-5) build on it.
 
 ## 1. What it provides
 
@@ -16,6 +16,9 @@ sitemap and IndexNow (BL-5) and the quality gate (BL-6) build on it.
   skipped by their content hash; a slug change keeps the old slug as a redirect; one pillar per cluster.
 - Read functions for the pages: `getPublishedArticle`, `findArticleBySlug`, `findSlugRedirect`,
   `listArticles`.
+- A text quality gate: `softure-blog check` reports structure, link, style, voice and YMYL findings
+  with file and line, and `publish` refuses a text going public with an error. Language rulesets
+  (`en`, `pl`), severity overrides and rule plugins for the app's own domain.
 
 ## 2. Installation
 
@@ -43,6 +46,50 @@ blog({
 
 `fields` may not reuse a key of the module (`FRONTMATTER_KEYS`). Its parsed value is stored in
 `articles.fields`, enters the content hash and must be plain JSON.
+
+### The quality gate
+
+On by default with the `en` ruleset; `quality: false` turns it off. Every key is optional:
+
+```ts
+blog({
+  quality: {
+    language: "pl",                        // the ruleset: "en" (default) or "pl"
+    ymyl: { ownCalculationMark: "our calculation" }, // or true / false (default): sources, sourced numbers, no profit promises
+    voice: {
+      forbidFirstPersonSingular: true,     // texts signed by the editors: no "I", "my"
+      phrases: [{ id: "finance-cliche", pattern: "in the world of finance", message: "say what happens instead" }],
+    },
+    limits: { words: { article: { min: 600, max: 4000 } }, answerWords: 70 }, // FIRE's values are the defaults
+    severity: { exclamation: "error", "lead-number": "off" }, // per rule: "error", "warning" or "off"
+    paths: { articles: "/blog", terms: "/blog/glossary" },    // where internal links to texts point
+    ownOrigins: ["https://www.example.com"], // absolute links that count as internal, besides appOrigin
+    appDir: "src/app",                     // routes for internal links; default src/app, else app
+    privateRouteSegments: ["api", "(app)"], // route folders that are no link target; default ["api"]
+    plugins: [factsPlugin],                // the app's own rules, see Hooks
+  },
+});
+```
+
+The rules, by group (`listQualityRules(getQualitySettings(config))` lists them with their effective
+severity; the writing skill is kept in step with it):
+
+| Group | Rules (errors **bold**) |
+| --- | --- |
+| file | **`file`**: the frontmatter parses and the slug equals the file name |
+| structure | `title-length`, `description-length`, **`as-of-future`**, `stale`, **`summary-missing`**, **`lead`** (a paragraph first), `lead-length`, **`lead-number`**, **`heading-h1`**, **`heading-order`**, **`sections`** (two `##`), **`section-question`**, **`section-answer`**, `section-answer-length`, **`length`** (a warning above the maximum), **`footnote-undefined`**, `footnote-unused` |
+| links | **`internal-links`** (a warning for a term), **`internal-link-target`** (`check` only), `external-link-https`, **`external-link-dead`** (`--external` only) |
+| style (ruleset) | **`announcement`**, **`these-days`**, **`not-only-but-also`**, **`not-x-but-y`**, **`meta-commentary`**, **`throat-clearing`**, **`empty-conclusion`**, **`crucial`**, **`plays-a-role`**, **`puffery`**, **`chatbot-phrases`**, **`emoji`**, `filler-words`, `exclamation`, `straight-quotes` (`pl`), `title-case-heading` (`pl`) |
+| style (rhythm) | **`dashes`**, `dashes-paragraph`, `bold-density`, `bold-labels`, `triads`, `long-sentences`, `monotone-rhythm`, `repeated-openings` |
+| voice | **`first-person-singular`** and the app's phrases, when configured |
+| ymyl | **`sources-missing`**, **`source-https`**, **`number-source`**, **`footnote-source`**, **`footnote-not-in-sources`**, **`profit-promise`**, when `ymyl` is on |
+| plugin | the plugins' rules, **`plugin-failed`**, **`plugin-rule-undeclared`** |
+
+Style patterns match the prose of the body and the title, description and summary (errors only
+there). A warning pattern is reported once per text with its count. A significant number is an
+amount, a percentage or a number from 1000 up, in the ruleset's notation; years, ages, small counts
+and legal references ("art. 27", "section 401") need no source. Messages are English: they are read
+by developers and by the agents that write the texts.
 
 ### The article file
 
@@ -85,10 +132,11 @@ Rules:
 
 ## 4. Mounting
 
-Nothing yet: the pages arrive with BL-4. The command:
+Nothing yet: the pages arrive with BL-4. The commands:
 
 ```bash
 softure-blog publish [<path>...] [--commit] [--withdraw] [--config <file>]
+softure-blog check [<path>...] [--external] [--today <YYYY-MM-DD>] [--config <file>]
 ```
 
 - `<path>` is a file or a folder (every `*.md` but `README.md`, by name); without one, `contentDir`.
@@ -119,8 +167,24 @@ import config from "../softure.config";
 process.exitCode = await runBlogCli({ config, argv: process.argv.slice(2) });
 ```
 
-`runBlogCli({ gate })` takes the quality gate (BL-6) for files going public; `runBlogPublish` in
-`@softure-ai/blog/server` is the same run without a command line.
+`publish` runs the quality gate on every file going public (status `published`, not `--withdraw`);
+one error refuses the run. The gate in `publish` does not resolve internal link targets, since a
+container that publishes may hold no app folder; run `check` in CI for those. `runBlogCli({ gate })`
+replaces the gate; `runBlogPublish` in `@softure-ai/blog/server` is the same run without a command line.
+
+`check` needs no database. It reads the files (default: `contentDir`), resolves internal links against
+the app's routes and the published texts of `contentDir`, and prints one line per finding:
+
+```text
+content/blog/index-funds.md:12: error [crucial] "crucial": a favourite word of language models; name what depends on the thing
+content/blog/bonds.md: OK
+check: 2 file(s), 1 error(s), 0 warning(s): red, do not publish
+```
+
+Exit codes: 0 green (warnings allowed), 1 an error, 2 usage error. `--external` also requests every
+external link (HEAD, then GET when a server refuses HEAD; 2xx after redirects). Run it weekly with the
+reusable workflow of this repository, `.github/workflows/blog-links.yml` (its header holds the
+snippet for the app).
 
 ## 5. Migrations and tables
 
@@ -158,7 +222,29 @@ No components yet (BL-4).
 
 - `blog({ fields })`: the app's frontmatter schema (FIRE_TRACKER's calculator scenario lives here).
 - `gate` of `runBlogPublish` and `runBlogCli`: `(file, article) => problems`, called only for files
-  going public; any problem refuses the whole run.
+  going public; any problem refuses the whole run. Default in `runBlogCli`: `createQualityGate`.
+- `blog({ quality: { plugins } })`: the app's domain rules. A plugin declares its rules and checks one
+  text at a time; it is pure (no network, no file system) and its findings take part in severity
+  overrides and the catalog. A throw becomes `plugin-failed`, an undeclared rule id
+  `plugin-rule-undeclared`.
+
+```ts
+import type { QualityPlugin } from "@softure-ai/blog/server";
+
+export const tickerPlugin: QualityPlugin = {
+  name: "tickers",
+  rules: [{ id: "ticker-format", severity: "error", description: "tickers are written in capitals" }],
+  check: ({ blocks }) =>
+    blocks
+      .filter((block) => /\$[a-z]{2,5}\b/.test(block.text))
+      .map((block) => ({ rule: "ticker-format", severity: "error", message: "write the ticker in capitals", line: block.line })),
+};
+```
+
+  The context holds the parsed `article` (with the app's `fields`), the body `blocks` with file lines
+  (directives such as `::chart{…}` are blocks of their own), `today` and the language `ruleset` (for
+  its number notation); the text helpers (`toProse`, `splitSentences`, `findSignificantNumbers`, …) are
+  exported from `@softure-ai/blog/server`.
 
 ## 11. GDPR
 
@@ -170,6 +256,14 @@ Articles hold editorial content, no personal data: nothing to export or delete.
   fails on the unique constraint instead of reporting `blog.slug_taken`.
 - The content hash is part of the contract: a field added later enters it only when present.
 - No `--stdin` (a deploy transport) and no IndexNow submit (BL-5).
+- The gate reads Markdown line by line (blocks, not a syntax tree): enough for the rules, not a
+  renderer. Fenced code and HTML comments are skipped.
+- **Adopting FIRE_TRACKER's gate:** `language: "pl"`, `ymyl: { ownCalculationMark }` with its calculation
+  footnote's phrase, `voice.forbidFirstPersonSingular: true` plus its finance phrases, its domain as
+  `ownOrigins`, `privateRouteSegments: ["api", "(app)"]`, and `rules-facts.ts` and `rules-chart.ts`
+  as plugins (the package's tests hold stand-ins of both). Rule ids are English now (`kluczowy` →
+  `crucial`, `myslniki` → `dashes`, …; the map is in the change archive), and the writing skill
+  (BL-7) names them.
 - **Adopting from FIRE_TRACKER:** rename the frontmatter keys once (`typ` → `kind` with `artykul` →
   `article` and `termin` → `term`, `formy` → `forms`, `klaster` → `cluster`, `filar` → `pillar`,
   `tytul` → `title`, `opis` → `description`, `w_skrocie` → `summary`, `aktualne_na` →

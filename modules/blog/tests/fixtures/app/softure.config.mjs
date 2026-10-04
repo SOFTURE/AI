@@ -7,5 +7,6 @@ export default defineSoftureConfig({
   locale: "en",
   timezone: "UTC",
   appOrigin: "https://app.example.com",
-  modules: [blog({ contentDir: "../content" })],
+  // The fixture articles are too short for the quality gate; the gate has its own tests.
+  modules: [blog({ contentDir: "../content", quality: false })],
 });
