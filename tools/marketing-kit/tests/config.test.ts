@@ -174,6 +174,7 @@ describe("loadMarketingConfig", () => {
     ["a repeated sentence id", (c: MarketingJsonInput) => c.videos[0]?.beats.push({ id: "scene", text: "Again." }), 'videos[0].beats[3].id: "scene" appears twice'],
     ["a sentence id that does not fit an HTML attribute", (c: MarketingJsonInput) => c.videos[0]?.beats.splice(1, 1, { id: "Bad id", text: "b" }), "videos[0].beats[1].id: must be lowercase letters"],
     ["an opening shot waiting for a word not in the first sentence", (c: MarketingJsonInput) => c.videos[0]?.hook.shots.push({ mark: "x", scale: 1, word: "Anna" }), 'videos[0].hook.shots[2].word: "Anna" is not a word of the first sentence'],
+    ["an opening shot after the first without a word", (c: MarketingJsonInput) => c.videos[0]?.hook.shots.push({ mark: "x", scale: 1 }), "videos[0].hook.shots[2].word: every shot after the first needs the word of the first sentence it starts on"],
     ["an empty screen guard", (c: MarketingJsonInput) => c.videos[0]?.screenGuard.splice(0), "videos[0].screenGuard: the screen guard needs at least one phrase"],
     ["a blank screen guard phrase", (c: MarketingJsonInput) => c.videos[0]?.screenGuard.push("  "), "videos[0].screenGuard[1]: must not be blank"],
     ["an unknown format", (c: MarketingJsonInput) => Object.assign(c.videos[0] ?? {}, { format: "4:5" }), "videos[0].format: "],
@@ -181,6 +182,12 @@ describe("loadMarketingConfig", () => {
     const config = makeConfig();
     change(config);
     expect(loadError(config)).toContain(`  ${message}`);
+  });
+
+  it("loads a one-shot opening without a word, since the first shot starts with the film", () => {
+    const config = makeConfig();
+    config.videos[0]?.hook.shots.splice(1);
+    expect(load(config).videos[0]?.hook.shots).toEqual([{ mark: "age", scale: 1.6 }]);
   });
 
   it.each(["1:1", "16:9"] as const)("loads a %s video", (format) => {
