@@ -1,7 +1,7 @@
 ---
 change_id: marketing-kit-desktop-16x9
 title: "A 16:9 film can show the desktop app in a browser frame"
-status: planned
+status: implementing
 roadmap_item: FU-15
 branch: claude/fu-15-fn0uxc
 created: 2026-10-04

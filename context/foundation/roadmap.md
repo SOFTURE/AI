@@ -56,7 +56,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-12** | `billing-retro-reviews` | Retro research and plan review for MO-1 and MO-2 | — | autonomous | done |
 | **FU-13** | `marketing-kit-render-ci` | the marketing-kit fixture film renders to a draft MP4 on every push | — | autonomous | done |
 | **FU-14** | `marketing-kit-schema-docs` | every key of the marketing.json JSON Schema carries a description | — | autonomous | done_code (2026-10-03; waiting: owner editor check, MK-8 release) |
-| **FU-15** | `marketing-kit-desktop-16x9` | desktop 16:9 films recorded in a browser frame instead of a phone | FU-16 | autonomous | in_progress (implement 0/3, since 2026-10-04; branch `claude/fu-15-fn0uxc`) |
+| **FU-15** | `marketing-kit-desktop-16x9` | desktop 16:9 films recorded in a browser frame instead of a phone | FU-16 | autonomous | in_progress (implement 3/3, since 2026-10-04; branch `claude/fu-15-fn0uxc`) |
 | **FU-16** | `marketing-kit-layout-overrides` | per-format layout overrides (caption box, persona, end card) in marketing.json | FU-14 | autonomous | done_code (2026-10-03; waiting: MK-8 release) |
 | **FU-17** | `marketing-kit-og-glyphs` | OG images refuse copy the brand fonts cannot draw | — | autonomous | done_code (2026-10-03; waiting: MK-8 release) |
 | **FU-18** | `marketing-kit-screenshot-variants` | screenshots at a device scale and in both colour schemes | FU-14 | autonomous | done_code (2026-10-04; waiting: MK-8 release) |
@@ -324,7 +324,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-15: A 16:9 film can show the desktop app in a browser frame
 - **Change ID:** `marketing-kit-desktop-16x9`
-- **Status:** in_progress (implement 0/3, since 2026-10-04; branch `claude/fu-15-fn0uxc`)
+- **Status:** in_progress (implement 3/3, since 2026-10-04; branch `claude/fu-15-fn0uxc`)
 - **Input:** [`changes/marketing-kit-desktop-16x9/change.md`](../changes/marketing-kit-desktop-16x9/change.md)
 - **Outcome:** A video can ask for a desktop recording: the recorder opens a desktop viewport (`isMobile: false`), and the 16:9 composition frames it as a browser window instead of a phone, with the same captions, persona and end card.
 - **Prerequisites:** FU-16 on `master` (shared files, see Order).

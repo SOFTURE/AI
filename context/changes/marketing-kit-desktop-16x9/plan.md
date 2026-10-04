@@ -133,6 +133,15 @@ Every new schema key gets a `.describe()`; regenerate the JSON Schema.
 - Layout name `desktop` in `marketing.json` `layout` (not `16:9-desktop`): only 16:9 has a desktop layout, and the key
   reads as the device the films use.
 - Neutral grey window dots, not traffic-light colours: the window must fit any brand's background.
+- Implementation drift (small): `Device` became the discriminated union in phase 1, not phase 2, because the desktop
+  composition test builds a desktop film and the phase had to typecheck (the config built `kind: "phone"` until
+  phase 2); `BROWSER_BAR_HEIGHT` lives in `timeline.ts` next to the desktop entry (the screen box's `top` leaves room
+  for it) and `compose.ts` reads it; phase 2 adds a sixth refusal (an unknown device kind) and a desktop `layout`
+  margin refusal; the Director's `tap` doc comment says it clicks on a desktop (`src/film.ts`).
+- Implementation review fixes (reviews/impl-review.md): the desktop screen box starts at 180 (camera target y 570,
+  caption top 890) so the persona card (up to ~110 px) never covers the window's bar; `mobile` is refused on a desktop
+  whatever its value; `fill` on a desktop zooms at most to what still fits the frame (a page-wide field at 1.55 cropped
+  its label in the first render); comments and README say "screen" where any screen is meant.
 
 ## Progress
 
@@ -141,22 +150,22 @@ Every new schema key gets a `.describe()`; regenerate the JSON Schema.
 ### Phase 1: A desktop layout and a browser window in the composition
 
 #### Automated
-- [ ] 1.1 The new timeline and compose tests pass
-- [ ] 1.2 The four phone snapshots are unchanged
-- [ ] 1.3 Gates green (typecheck, lint, test)
+- [x] 1.1 The new timeline and compose tests pass — 669358a
+- [x] 1.2 The four phone snapshots are unchanged — 669358a
+- [x] 1.3 Gates green (typecheck, lint, test) — 669358a
 
 ### Phase 2: The desktop device in marketing.json
 
 #### Automated
-- [ ] 2.1 The new config tests pass (load, kind default and the five refusals with their paths)
-- [ ] 2.2 `tests/schema.test.ts` passes on the regenerated file
-- [ ] 2.3 Gates green (typecheck, lint, test) and build
+- [x] 2.1 The new config tests pass (load, kind default and the five refusals with their paths) — 8336fa8
+- [x] 2.2 `tests/schema.test.ts` passes on the regenerated file — 8336fa8
+- [x] 2.3 Gates green (typecheck, lint, test) and build — 8336fa8
 
 ### Phase 3: The recorder's desktop mode and the fixture's desktop film
 
 #### Automated
-- [ ] 3.1 The opt-in render test passes with both films
-- [ ] 3.2 Gates green (typecheck, lint, test) and build
+- [x] 3.1 The opt-in render test passes with both films — aa12a41
+- [x] 3.2 Gates green (typecheck, lint, test) and build — aa12a41
 
 #### Manual
-- [ ] 3.3 Frames of the rendered desktop film show the app in a browser window, the opening's text whole and the caption over its foot
+- [x] 3.3 Frames of the rendered desktop film show the app in a browser window, the opening's text whole and the caption over its foot — aa12a41 (verified by agent: frames at 1 s, 4.9 s, 6 s and 9.8 s of the rendered fixture-desktop MP4 show the window with the address bar, the opening's "49 years" whole, the caption over the window's foot, the persona card above the bar, and the end card right of the shrunk window)
