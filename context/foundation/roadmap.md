@@ -64,7 +64,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-20** | `billing-partial-refunds` | partial refunds take back access by a policy | FU-11 | autonomous | proposed |
 | **FU-21** | `billing-refund-manual-lifetime` | a manual lifetime grant survives a refunded paid lifetime | FU-9 | autonomous | proposed |
 | **FU-22** | `billing-grant-plan-script` | a `grant-plan` ops script grants and revokes plans without the admin page | FU-9 | autonomous | proposed |
-| **FU-23** | `marketing-kit-og-subset-fonts` | OG images use every subset file of a weight | FU-17 | autonomous | proposed |
+| **FU-23** | `marketing-kit-og-subset-fonts` | OG images use every subset file of a weight | FU-17 | autonomous | in_progress (implementing, since 2026-10-04; thread FU-23) |
 | **FU-24** | `billing-existing-accounts` | existing accounts keep their access when billing is enabled (import, trial floor, pinned trials) | FU-22 | autonomous | proposed |
 | **FU-25** | `billing-stripe-currency-units` | Stripe charges the plan's price in every currency (special-case units) | FU-24 | autonomous | proposed |
 | **FU-26** | `billing-guard-race-tests` | billing guards and lock races tested where they can fail | FU-25 | autonomous | proposed |
@@ -409,7 +409,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-23: OG images use every subset file of a weight
 - **Change ID:** `marketing-kit-og-subset-fonts`
-- **Status:** proposed
+- **Input:** [`changes/marketing-kit-og-subset-fonts/change.md`](../changes/marketing-kit-og-subset-fonts/change.md)
+- **Status:** in_progress (implementing, since 2026-10-04; thread FU-23)
 - **Outcome:** A brand font listing several files of one weight (e.g. Fontsource `latin` and `latin-ext`, split by `unicodeRange` for the video renderer) draws Polish copy in OG images too: each further file of a weight is registered with Satori so its fallback reaches it, at the requested weight.
 - **Prerequisites:** FU-17 on `master`.
 - **Unknowns:** Registering further files under derived family names (Satori falls back across families, not files) vs. merging; the order Satori tries them in; whether `unicodeRange` should steer the choice.
