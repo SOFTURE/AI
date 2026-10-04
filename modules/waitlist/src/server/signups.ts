@@ -5,7 +5,8 @@
 // consent ledger does not currently grant (never given, withdrawn, or given to an older document
 // version) is recorded in privacy.consents. Without double opt-in a request is applied when it is
 // made; with it, the request waits on the row with a single-use link until the link is used, and
-// nothing is lifted or recorded before.
+// nothing is lifted or recorded before. The app's `onJoined` hook runs in the same transaction when
+// a sign-up counts for the first time.
 import { err, ok, type Err, type ModuleContext, type Ok } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
 import { liftSuppression } from "@softure-ai/mailing/server";
@@ -14,7 +15,7 @@ import type { RateLimitRejection } from "@softure-ai/security";
 import { consumeRateLimit, subjectKey } from "@softure-ai/security/server";
 import { and, arrayContains, asc, eq, isNotNull, isNull, lte, type SQL } from "drizzle-orm";
 import { z } from "zod";
-import type { WaitlistConfirmationErrorCode, WaitlistErrorCode, WaitlistSignup } from "../contract.js";
+import type { WaitlistConfirmationErrorCode, WaitlistErrorCode, WaitlistJoinedEvent, WaitlistSignup } from "../contract.js";
 import { signups } from "../schema.js";
 import { createConfirmationToken, hashConfirmationToken, isConfirmationTokenShape } from "./confirmation-token.js";
 import { getWaitlistOptions } from "./options.js";
@@ -156,10 +157,16 @@ async function joinNow(ctx: WaitlistContext, request: SignupRequest): Promise<Jo
   if (inserted !== undefined) {
     await liftSuppression(ctx, request.email);
     const recordedScopes = await recordConsents(ctx, request.email, request.scopes);
-    return { status: "joined", signup: toSignup(inserted), isNew: true, recordedScopes };
+    const signup = toSignup(inserted);
+    await notifyJoined(ctx, { signup, via: "join" });
+    return { status: "joined", signup, isNew: true, recordedScopes };
   }
-  const applied = await applyRequest(ctx, await lockSignup(ctx, request.email), request.scopes);
-  return { status: "joined", signup: toSignup(applied.row), isNew: false, recordedScopes: applied.recordedScopes };
+  const current = await lockSignup(ctx, request.email);
+  const applied = await applyRequest(ctx, current, request.scopes);
+  const signup = toSignup(applied.row);
+  // A row left unconfirmed (double opt-in was on when it was made) counts for the first time now.
+  if (current.confirmedAt === null) await notifyJoined(ctx, { signup, via: "join" });
+  return { status: "joined", signup, isNew: false, recordedScopes: applied.recordedScopes };
 }
 
 /**
@@ -213,8 +220,16 @@ export async function confirmSignup(ctx: WaitlistContext, input: ConfirmSignupIn
     const requested = current.pendingScopes.filter((id) => declared.has(id));
     if (requested.length === 0) return err("waitlist.confirmation_invalid");
     const applied = await applyRequest(txCtx, current, requested);
-    return ok({ signup: toSignup(applied.row), recordedScopes: applied.recordedScopes, isFirstConfirmation: current.confirmedAt === null });
+    const signup = toSignup(applied.row);
+    const isFirstConfirmation = current.confirmedAt === null;
+    if (isFirstConfirmation) await notifyJoined(txCtx, { signup, via: "confirmation" });
+    return ok({ signup, recordedScopes: applied.recordedScopes, isFirstConfirmation });
   });
+}
+
+/** Calls the app's `onJoined` hook in the sign-up's transaction; what it throws rolls the sign-up back. */
+async function notifyJoined(ctx: WaitlistContext, event: WaitlistJoinedEvent): Promise<void> {
+  await getWaitlistOptions(ctx.config).onJoined?.(event, ctx);
 }
 
 /** The sign-up of `email`, locked for the rest of the transaction. */

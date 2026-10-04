@@ -82,6 +82,8 @@ waitlist({
 | `welcomeMail` | `boolean` | `true` | Sends the welcome mail (with double opt-in, after the confirmation). Off, the app sends its own (or none). |
 | `doubleOptIn` | `boolean` or `{ expiresInHours? }` | `false` | A sign-up counts only after the link in a confirmation mail is used. `true` keeps the link working for 168 hours (7 days); `expiresInHours` sets 1 to 720. Section 10. |
 | `mailTemplate` | `(mail) => string` | — | Renders the HTML body of the welcome and confirmation mails (below). Without it, a plain HTML body built from the same copy. |
+| `onJoined` | `(event, ctx) => void \| Promise<void>` | — | Called in the sign-up's transaction when a sign-up counts for the first time, e.g. to count it in the analytics funnel. Section 10. |
+| `rewriteConfirmationLink` | `(path, { config }) => string \| Promise<string>` | — | Rewrites the confirmation link's path, e.g. to keep the analytics channel tag through the mail. Section 10. |
 | `routes` | `{ confirm? }` | `{ confirm: "/waitlist/confirm" }` | The path of the confirmation page, when the app mounts it elsewhere. |
 | `messages` | partial `en` / `pl` | — | Copy overrides, the welcome mail's subject and text included. |
 
@@ -208,8 +210,43 @@ the app's, in `scopes[].label` or `consentLabels`.
 
 ## 10. Hooks
 
-None of its own. `joinWaitlist` returns `isNew` and `recordedScopes` (and `confirmSignup` returns
-`isFirstConfirmation`) for an app that reacts to a sign-up in its own server code.
+`onJoined(event, ctx)` runs when a sign-up counts for the first time, inside its transaction (`ctx`
+is the module context with the transaction as `db`, like auth's `onRegistered`): a new sign-up
+without double opt-in (`via: "join"`), or the first use of its link with it (`via: "confirmation"`).
+`event.signup` is the sign-up as it stands. A repeat request that only widens the scopes, a second
+link, or a link used again does not call it: the consent ledger records those. An error the hook
+throws rolls the sign-up back (the form or the confirmation page answers the generic error, and the
+link stays usable), so a hook that must never refuse a sign-up catches its own errors, as
+analytics' `countFunnelStep` does:
+
+```ts
+import { countFunnelStep, getChannel } from "@softure-ai/analytics/next";
+import { withChannel } from "@softure-ai/analytics/server";
+
+waitlist({
+  scopes: [...],
+  doubleOptIn: true,
+  // Counts each sign-up as the funnel's `waitlist` step (a `server` step) under the visit's channel.
+  onJoined: countFunnelStep("waitlist"),
+  // With double opt-in the sign-up counts on the confirmation page, opened from a mail: the link
+  // carries the channel of the form's page so the count keeps it.
+  rewriteConfirmationLink: async (path, { config }) => {
+    const channel = await getChannel(config);
+    if (channel === null) return path;
+    const url = withChannel(config, new URL(path, config.appOrigin), channel);
+    return `${url.pathname}${url.search}`;
+  },
+}),
+```
+
+`rewriteConfirmationLink(path, { config })` gets the link's path (the confirm route with its
+token) where the confirmation mail is built: in the join action, after the response, where Next
+still exposes the request's headers. Its result is used only when it is the confirm route on this
+app with the same token; anything else, or an error, mails the module's own link with a log line.
+`resolveConfirmationLink(config, token)` from `/server` gives the link as it will be mailed.
+
+`joinWaitlist` also returns `isNew` and `recordedScopes` (and `confirmSignup` returns
+`isFirstConfirmation`) for an app that reacts to every request in its own server code.
 
 The waitlist plugs into mailing's `onUnsubscribed` with `withdrawWaitlistConsents`. Mailing's
 opt-out covers every list mail and its link names only the recipient key, so the handler withdraws
@@ -265,5 +302,8 @@ expired unused; until then they count nowhere, and a new sign-up of the address 
   address. The mail carries only the link and says to ignore it.
 - Expired unconfirmed sign-ups stay until the app runs `pruneUnconfirmedSignups`; the module has
   no scheduler of its own.
+- With double opt-in, a sign-up's channel reaches `onJoined` only through the confirmation link
+  (`rewriteConfirmationLink`, section 10); a link opened on another device still carries it, a
+  sign-up confirmed from an untagged link counts without one.
 - The placement is stored per sign-up; handing placement counts to `@softure-ai/analytics` belongs
   to the analytics roadmap.

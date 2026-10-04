@@ -50,7 +50,8 @@ zone moved into configuration and the report turned into a function.
   - `beacon`: `<FunnelBeacon step="pricing" />` (`/next`) or `createFunnelReporter(endpoint)`
     (`/client`) sends `navigator.sendBeacon` with `step=<id>` and nothing else, once per step;
   - `server`: only the app's code counts it, with `recordFunnelStep(ctx, { step, channel })`
-    (`/server`) or `countRegistration("signup")` (`/next`, an auth `onRegistered` hook). The public
+    (`/server`), `countRegistration("signup")` (`/next`, an auth `onRegistered` hook) or
+    `countFunnelStep("waitlist")` (`/next`, any module's hook, e.g. the waitlist's `onJoined`). The public
     endpoint refuses these steps, so nobody outside can inflate them.
 - **The endpoint** (`/next`, `createFunnelRoute()`): `POST` takes beacons (body at most 256 bytes),
   `GET` serves the pixel. Both count only requests sent from one of the app's pages (`Referer`,
@@ -113,6 +114,11 @@ import { countRegistration } from "@softure-ai/analytics/next";
 const countSignup = countRegistration("signup");
 auth({ onRegistered: async (event, ctx) => { await recordConsent(event, ctx); await countSignup(event, ctx); } }),
 ```
+
+Waitlist sign-ups count the same way through the waitlist's `onJoined` hook:
+`waitlist({ onJoined: countFunnelStep("waitlist") })`. With double opt-in the sign-up counts on the
+confirmation page, so the mailed link must carry the channel (`rewriteConfirmationLink`, waitlist
+README §10).
 
 Attribution in auth, next to another hook (privacy's consent):
 
@@ -225,8 +231,11 @@ copy. The `en` and `pl` dictionaries in `src/messages/` are empty.
 
 - `attributeRegistration(onChannel)` builds an auth `onRegistered` hook (§3). `onChannel` runs in
   the account's transaction with the hook's context; an error it throws rolls the account back.
-- `countRegistration(step)` builds an auth `onRegistered` hook that counts every sign-up (with its
-  channel or without one) as a `server` step; it never throws.
+- `countFunnelStep(step)` builds a hook for any module's server event (auth's `onRegistered`, the
+  waitlist's `onJoined`) that counts it (with the request's channel or without one) as a `server`
+  step, in a savepoint of the event's transaction; it never throws. For waitlist sign-ups with double
+  opt-in, the confirmation link must carry the channel: waitlist README §10.
+- `countRegistration(step)` is `countFunnelStep(step)` typed for auth's `onRegistered`.
 
 ## 11. GDPR
 
@@ -257,8 +266,6 @@ belong to the app's own privacy contributor.
 - **A server action's redirect renders untagged on the server.** After sign-up, auth's redirect to
   `afterLogin` is rendered without `?z=`; `<ChannelKeeper />` tags it in the browser before the
   page's beacon runs, but that render (and a client without JavaScript) sees no channel (FU-7).
-- **Waitlist sign-ups are not a step yet.** The waitlist has no hook to count them from (FU-8);
-  the funnel never reads another module's table.
 - **The funnel is a noise filter, not a defence.** Its endpoint checks that a request comes from one
   of the app's pages, but those headers come from the client: a forged `Referer` passes. The counts
   open nothing and the cap bounds the table, so the endpoint has no per-address rate limit on
