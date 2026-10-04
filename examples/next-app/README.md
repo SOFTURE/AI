@@ -80,9 +80,10 @@ npm run dev
 | `scripts/expire-invoice-requests.ts` | `expireStaleRequests` of `@softure-ai/billing/server` as a script a scheduler runs daily (`npm run expire-invoice-requests`): invoice requests nobody asked again for in 30 days close as `expired` and lose their invoice details |
 | `app/api/security/ping/route.ts` | a public route handler: `identifyClient`, `consumeRateLimit` and `readSmallBody` from `@softure-ai/security` |
 | `app/api/health/route.ts` | `GET /api/health` of `@softure-ai/ops`, one line; the guestbook contributes a check (`modules/guestbook/health.ts`) |
+| `app/robots.ts`, `app/sitemap.ts`, `app/indexnow-key.txt/route.ts`, the `seo(...)` entry in `softure.config.ts`, `htmlLimitedBots` in `next.config.ts` | `@softure-ai/seo`: robots.txt naming the AI crawlers with the account, admin and API paths closed in every group, a sitemap of the public pages, the IndexNow key file; each file one import and a default export, dynamic so the origin is `APP_ORIGIN` at runtime |
 | `Dockerfile`, `compose.container.yaml`, `scripts/migrate.ts` | the ops container recipe: one image, a one-off migrate step as the migrator role, the app as the app role |
 | `messages/` | the app's `en` and `pl` copy; no text is written inline |
-| `e2e/` | Playwright: theme switch, modal and form, migrations, security, auth, password reset, roles, switches, mail, reset mail, unsubscribe, MCP access, privacy export and deletion, legal pages and consents, waitlist, channel tags, billing entitlements, plans and the manual payment flow, the Stripe webhook, reminder mail, the funnel |
+| `e2e/` | Playwright: theme switch, modal and form, migrations, security, auth, password reset, roles, switches, mail, reset mail, unsubscribe, MCP access, privacy export and deletion, legal pages and consents, waitlist, channel tags, billing entitlements, plans and the manual payment flow, the Stripe webhook, reminder mail, the funnel, robots.txt, sitemap and the IndexNow key file |
 
 ## Adding a scenario
 

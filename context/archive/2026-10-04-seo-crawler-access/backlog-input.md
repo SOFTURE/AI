@@ -15,7 +15,7 @@ archived_at: null
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **BL-1** (roadmap `blog`, main since 2026-10-04):
+From [`roadmap.md`](../../foundation/roadmap.md), item **BL-1** (roadmap `blog`, main since 2026-10-04):
 
 > ### BL-1: SEO and AI crawler access
 > - **Change ID:** `seo-crawler-access`
@@ -37,8 +37,8 @@ From [`roadmap.md`](../../../foundation/roadmap.md), item **BL-1** (roadmap `blo
 > - **PRD refs:** FR-27, NFR-1, NFR-5.
 > - **Source (FIRE_TRACKER, read only):** `src/lib/ai-crawlers.ts`, `src/lib/indexnow.ts` (key and submit part), `src/app/robots.ts`, `src/app/sitemap.ts`, `next.config.ts` (`htmlLimitedBots`)
 
-Reference material: [`docs/06-fire-extraction-2.md`](../../../../docs/06-fire-extraction-2.md) (the FIRE_TRACKER source map and the split rules),
-[`docs/02-module-standard.md`](../../../../docs/02-module-standard.md) (the standard). FIRE_TRACKER is read only:
+Reference material: [`docs/06-fire-extraction-2.md`](../../../docs/06-fire-extraction-2.md) (the FIRE_TRACKER source map and the split rules),
+[`docs/02-module-standard.md`](../../../docs/02-module-standard.md) (the standard). FIRE_TRACKER is read only:
 copy its code, never change it.
 
 ## Constraints
