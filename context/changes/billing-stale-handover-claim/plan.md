@@ -68,7 +68,7 @@ now expires after the minute instead of staying forever.
 ### Phase 1: Claims that expire, hand-overs that are confirmed
 
 #### Automated
-- [ ] 1.1 A claim left without an answer is handed over by an ask a minute later
-- [ ] 1.2 A confirmed hand-over is never repeated
-- [ ] 1.3 A late `Ok` after a re-claim leaves the request handed over once more, not again
-- [ ] 1.4 Gates green (typecheck, lint, test, build)
+- [x] 1.1 A claim left without an answer is handed over by an ask a minute later — 5d5b655
+- [x] 1.2 A confirmed hand-over is never repeated — 5d5b655
+- [x] 1.3 A late `Ok` after a re-claim leaves the request handed over once more, not again — 5d5b655
+- [x] 1.4 Gates green (typecheck, lint, test, build) — 5d5b655
