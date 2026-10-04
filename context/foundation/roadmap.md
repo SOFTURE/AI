@@ -57,7 +57,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-13** | `marketing-kit-render-ci` | the marketing-kit fixture film renders to a draft MP4 on every push | — | autonomous | done |
 | **FU-14** | `marketing-kit-schema-docs` | every key of the marketing.json JSON Schema carries a description | — | autonomous | done_code (2026-10-03; waiting: owner editor check, MK-8 release) |
 | **FU-15** | `marketing-kit-desktop-16x9` | desktop 16:9 films recorded in a browser frame instead of a phone | FU-16 | autonomous | proposed |
-| **FU-16** | `marketing-kit-layout-overrides` | per-format layout overrides (caption box, persona, end card) in marketing.json | FU-14 | autonomous | proposed |
+| **FU-16** | `marketing-kit-layout-overrides` | per-format layout overrides (caption box, persona, end card) in marketing.json | FU-14 | autonomous | done_code (2026-10-03; waiting: MK-8 release) |
 | **FU-17** | `marketing-kit-og-glyphs` | OG images refuse copy the brand fonts cannot draw | — | autonomous | done_code (2026-10-03; waiting: MK-8 release) |
 | **FU-18** | `marketing-kit-screenshot-variants` | screenshots at a device scale and in both colour schemes | FU-14 | autonomous | proposed |
 | **FU-19** | `marketing-kit-hook-shot-words` | opening shots after the first without a `word` are refused when the config loads | FU-14 | autonomous | proposed |
@@ -321,7 +321,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-16: A project can adjust a format's layout in marketing.json
 - **Change ID:** `marketing-kit-layout-overrides`
-- **Status:** proposed
+- **Status:** done_code (2026-10-03; waiting: MK-8 release)
+- **Input:** [`archive/2026-10-03-marketing-kit-layout-overrides/change.md`](../archive/2026-10-03-marketing-kit-layout-overrides/change.md)
 - **Outcome:** `marketing.json` can override entries of the per-format geometry table (caption box and font size, persona and end-card position, end-card phone pose), validated by the schema, so a brand with long headlines or another caption style does not need a package change.
 - **Prerequisites:** FU-14 on `master` (shared files, see Order).
 - **Unknowns:** Which entries are worth exposing; whether overrides are per video or per format.
@@ -421,6 +422,7 @@ Open from FU-14:
 
 ## Done
 
+- **FU-16** `marketing-kit-layout-overrides`: `marketing.json` `layout` overrides a format's caption box and size, persona card, end card and its phone pose, validated against the frame; archived in `archive/2026-10-03-marketing-kit-layout-overrides/`
 - **FU-4** `waitlist-welcome-html`: both waitlist mails carry an HTML body built from their copy (the confirmation link as an anchor); `waitlist({ mailTemplate })` renders it in the app's layout; archived in `archive/2026-10-03-waitlist-welcome-html/`
 - **FU-5** `analytics-client-navigation`: `<ChannelKeeper />` keeps the channel tag on client navigations without `Next-Url`, covered by unit and e2e tests; archived in `archive/2026-10-03-analytics-client-navigation/`
 - **FU-1** `switch-reader-contract`: auth reads `auth.registration_closed` through the switch-reader contract in core, provided by feature-switches; the panel flips it and reports undefined manifest switches; archived in `archive/2026-10-03-switch-reader-contract/`

@@ -143,6 +143,7 @@ folder of `marketing.json`. A complete example: [examples/fixture/marketing.json
 | | `posts[]` | `video`, `caption`, `hashtags`, `codes` (this video's own codes); a video without one gets no `posts.md` |
 | `screenshots[]` | `id`, `path`, `width`, `height`, `full` (`false`), `expect`, `motion` (`reduce`), `minBytes` (`40000`) | for `softure-marketing shots`, see [Screenshots](#screenshots) |
 | `ogImages[]` | `id`, `template` (`headline-cta`, `headline-chart`), `size` (`[1200, 630]`), `data` | for `softure-marketing og`, see [OG images](#og-images) |
+| `layout` | per format (`9:16`, `1:1`, `16:9`): `caption` (`top`, `left`, `right`, `fontSize`), `persona` (`top`, `left`, `right`), `endCard` (`top`, `left`, `right`, `headlineSize`, `phone.scale`, `phone.center`) | overrides of the format's geometry table for every film of that format, in frame px; a missing key keeps the table's value. Values must fit the frame and each box's margins must leave at least 200 px for its text. The frame, the phone box and the camera target are fixed |
 | `sfx` | `tap`, `key`, `whoosh`, `sparkle`, `pop` | sound effects; a missing one is silent |
 | `output` | `dir` (`marketing/out`), `buildDir` (`marketing/build`), `quality` (`standard`) | where films go; `--quality` wins |
 
@@ -368,7 +369,8 @@ renders without a `marketing.json` at all.
 - Actions have no conditions or loops; a scene that needs them stays a `sceneModule`.
 - Three formats: `9:16` (1080×1920), `1:1` (1080×1080) and `16:9` (1920×1080). Each is a framed phone laid
   out by the geometry table in `src/compose/timeline.ts` (in 16:9 the phone stands left, the copy right);
-  one recording renders in every format. A desktop recording (FU-15) and layout overrides in `marketing.json` (FU-16) are not built.
+  one recording renders in every format; `layout` in `marketing.json` moves the copy and the end card, not the
+  phone. A desktop recording (FU-15) is not built.
 - ElevenLabs is the only real voice provider; the estimate is an upper bound in credits, not money.
 - Two OG templates; a second subset file of the same weight is not used for OG images (FU-23).
 - Screenshots are PNG at a device scale of 1, one colour scheme per run (`app.colorScheme`); scale and light/dark pairs are FU-18.

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { VIDEO_FORMATS, fitsFrame } from "../compose/timeline.js";
+import { LAYOUTS, VIDEO_FORMATS, fitsFrame, resolveLayout, type VideoFormat } from "../compose/timeline.js";
 import { MARKETING_LOCALES, type MarketingLocale } from "../messages/index.js";
 import { headlineChartDataSchema, headlineCtaDataSchema } from "../og/templates/schemas.js";
 import { CHANNEL_CODE_MAX_LENGTH, CHANNEL_CODE_PATTERN, DEFAULT_LINK_IN_BIO, PLATFORMS } from "../platforms.js";
@@ -429,6 +429,80 @@ const sfxShape = Object.fromEntries(
   SFX_EVENTS.map((event) => [event, relativePath.optional().describe(`${SFX_DESCRIPTIONS[event]} An audio file relative to the folder of marketing.json; without it, silence.`)]),
 ) as Record<SfxEvent, z.ZodOptional<typeof relativePath>>;
 
+/** The narrowest text column an override may leave between a box's margins, in px. */
+const MIN_TEXT_WIDTH = 200;
+
+/**
+ * One format's layout override: every key optional, bounded by the format's frame, and described with the
+ * format's default from `LAYOUTS`. The margins are checked on the merged box, so an override of one margin
+ * is refused when the table's other margin leaves too little room.
+ */
+function layoutOverrideSchema(format: VideoFormat) {
+  const { frame, caption, persona, endCard } = LAYOUTS[format];
+  const x = (text: string, value: number) => z.number().int().min(0).max(frame.width).optional().describe(`${text} Default ${value}.`);
+  const y = (text: string, value: number) => z.number().int().min(0).max(frame.height).optional().describe(`${text} Default ${value}.`);
+  return z
+    .strictObject({
+      caption: z
+        .strictObject({
+          top: y("The caption's top edge, in px from the frame's top.", caption.top),
+          left: x("The caption's left margin, in px from the frame's left edge.", caption.left),
+          right: x("The caption's right margin, in px from the frame's right edge.", caption.right),
+          fontSize: z.number().int().min(16).max(200).optional().describe(`The caption's font size in px (16-200). Default ${caption.fontSize}.`),
+        })
+        .optional()
+        .describe("The caption box over the film and its font size."),
+      persona: z
+        .strictObject({
+          top: y("The persona card's top edge, in px from the frame's top.", persona.top),
+          left: x("The persona card's left margin, in px from the frame's left edge.", persona.left),
+          right: x("The persona card's right margin, in px from the frame's right edge.", persona.right),
+        })
+        .optional()
+        .describe("The box the persona card is centred in."),
+      endCard: z
+        .strictObject({
+          top: y("The end card's top edge, in px from the frame's top.", endCard.top),
+          left: x("The end card's left margin, in px from the frame's left edge.", endCard.left),
+          right: x("The end card's right margin, in px from the frame's right edge.", endCard.right),
+          headlineSize: z.number().int().min(16).max(300).optional().describe(`The end card's headline size in px (16-300). Default ${endCard.headlineSize}.`),
+          phone: z
+            .strictObject({
+              scale: z.number().min(0.2).max(1.5).optional().describe(`The phone's scale while the end card shows (0.2-1.5). Default ${endCard.phone.scale}.`),
+              center: z
+                .strictObject({
+                  x: x("Where the screen's centre goes, in px from the frame's left edge.", endCard.phone.center.x),
+                  y: y("Where the screen's centre goes, in px from the frame's top.", endCard.phone.center.y),
+                })
+                .optional()
+                .describe("Where the phone's screen centre goes while the end card shows."),
+            })
+            .optional()
+            .describe("The phone's pose while the end card shows."),
+        })
+        .optional()
+        .describe("The end card's box, headline size and the phone's pose behind it."),
+    })
+    .superRefine((override, context) => {
+      const layout = resolveLayout(format, override);
+      for (const box of ["caption", "persona", "endCard"] as const) {
+        const width = frame.width - layout[box].left - layout[box].right;
+        if (width < MIN_TEXT_WIDTH) {
+          context.addIssue({ code: "custom", path: [box], message: `left and right margins leave ${width} px for the text; at least ${MIN_TEXT_WIDTH}` });
+        }
+      }
+    });
+}
+
+const layoutSchema = z.strictObject(
+  Object.fromEntries(
+    VIDEO_FORMATS.map((format) => {
+      const { width, height } = LAYOUTS[format].frame;
+      return [format, layoutOverrideSchema(format).optional().describe(`Overrides for every ${format} film (${width}×${height} px); a missing key keeps the default.`)];
+    }),
+  ) as Record<VideoFormat, z.ZodOptional<ReturnType<typeof layoutOverrideSchema>>>,
+);
+
 export const marketingSchema = z
   .strictObject({
     $schema: z.string().optional().describe("The JSON Schema this file follows, for editor completion and these descriptions."),
@@ -439,6 +513,9 @@ export const marketingSchema = z
     social: socialSchema.optional().describe("Post copy for the films: the link, the platforms and their channel codes."),
     screenshots: z.array(screenshotSchema).default([]).describe("Screenshots taken by softure-marketing shots."),
     ogImages: z.array(ogImageSchema).default([]).describe("Open Graph images rendered by softure-marketing og."),
+    layout: layoutSchema
+      .optional()
+      .describe("Per format, overrides of where the caption, the persona card and the end card go, and the end card's phone pose."),
     sfx: z.strictObject(sfxShape).prefault({}).describe("Sound effects of the composition; a missing one is silent."),
     output: z
       .strictObject({

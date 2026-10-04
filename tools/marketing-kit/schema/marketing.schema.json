@@ -2856,6 +2856,391 @@
         ]
       }
     },
+    "layout": {
+      "description": "Per format, overrides of where the caption, the persona card and the end card go, and the end card's phone pose.",
+      "type": "object",
+      "properties": {
+        "9:16": {
+          "description": "Overrides for every 9:16 film (1080×1920 px); a missing key keeps the default.",
+          "type": "object",
+          "properties": {
+            "caption": {
+              "description": "The caption box over the film and its font size.",
+              "type": "object",
+              "properties": {
+                "top": {
+                  "description": "The caption's top edge, in px from the frame's top. Default 1470.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1920
+                },
+                "left": {
+                  "description": "The caption's left margin, in px from the frame's left edge. Default 60.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1080
+                },
+                "right": {
+                  "description": "The caption's right margin, in px from the frame's right edge. Default 60.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1080
+                },
+                "fontSize": {
+                  "description": "The caption's font size in px (16-200). Default 50.",
+                  "type": "integer",
+                  "minimum": 16,
+                  "maximum": 200
+                }
+              },
+              "additionalProperties": false
+            },
+            "persona": {
+              "description": "The box the persona card is centred in.",
+              "type": "object",
+              "properties": {
+                "top": {
+                  "description": "The persona card's top edge, in px from the frame's top. Default 78.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1920
+                },
+                "left": {
+                  "description": "The persona card's left margin, in px from the frame's left edge. Default 0.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1080
+                },
+                "right": {
+                  "description": "The persona card's right margin, in px from the frame's right edge. Default 0.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1080
+                }
+              },
+              "additionalProperties": false
+            },
+            "endCard": {
+              "description": "The end card's box, headline size and the phone's pose behind it.",
+              "type": "object",
+              "properties": {
+                "top": {
+                  "description": "The end card's top edge, in px from the frame's top. Default 1180.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1920
+                },
+                "left": {
+                  "description": "The end card's left margin, in px from the frame's left edge. Default 0.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1080
+                },
+                "right": {
+                  "description": "The end card's right margin, in px from the frame's right edge. Default 0.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1080
+                },
+                "headlineSize": {
+                  "description": "The end card's headline size in px (16-300). Default 96.",
+                  "type": "integer",
+                  "minimum": 16,
+                  "maximum": 300
+                },
+                "phone": {
+                  "description": "The phone's pose while the end card shows.",
+                  "type": "object",
+                  "properties": {
+                    "scale": {
+                      "description": "The phone's scale while the end card shows (0.2-1.5). Default 0.58.",
+                      "type": "number",
+                      "minimum": 0.2,
+                      "maximum": 1.5
+                    },
+                    "center": {
+                      "description": "Where the phone's screen centre goes while the end card shows.",
+                      "type": "object",
+                      "properties": {
+                        "x": {
+                          "description": "Where the screen's centre goes, in px from the frame's left edge. Default 540.",
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1080
+                        },
+                        "y": {
+                          "description": "Where the screen's centre goes, in px from the frame's top. Default 640.",
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1920
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "1:1": {
+          "description": "Overrides for every 1:1 film (1080×1080 px); a missing key keeps the default.",
+          "type": "object",
+          "properties": {
+            "caption": {
+              "description": "The caption box over the film and its font size.",
+              "type": "object",
+              "properties": {
+                "top": {
+                  "description": "The caption's top edge, in px from the frame's top. Default 830.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1080
+                },
+                "left": {
+                  "description": "The caption's left margin, in px from the frame's left edge. Default 60.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1080
+                },
+                "right": {
+                  "description": "The caption's right margin, in px from the frame's right edge. Default 60.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1080
+                },
+                "fontSize": {
+                  "description": "The caption's font size in px (16-200). Default 44.",
+                  "type": "integer",
+                  "minimum": 16,
+                  "maximum": 200
+                }
+              },
+              "additionalProperties": false
+            },
+            "persona": {
+              "description": "The box the persona card is centred in.",
+              "type": "object",
+              "properties": {
+                "top": {
+                  "description": "The persona card's top edge, in px from the frame's top. Default 30.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1080
+                },
+                "left": {
+                  "description": "The persona card's left margin, in px from the frame's left edge. Default 0.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1080
+                },
+                "right": {
+                  "description": "The persona card's right margin, in px from the frame's right edge. Default 0.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1080
+                }
+              },
+              "additionalProperties": false
+            },
+            "endCard": {
+              "description": "The end card's box, headline size and the phone's pose behind it.",
+              "type": "object",
+              "properties": {
+                "top": {
+                  "description": "The end card's top edge, in px from the frame's top. Default 470.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1080
+                },
+                "left": {
+                  "description": "The end card's left margin, in px from the frame's left edge. Default 0.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1080
+                },
+                "right": {
+                  "description": "The end card's right margin, in px from the frame's right edge. Default 0.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1080
+                },
+                "headlineSize": {
+                  "description": "The end card's headline size in px (16-300). Default 72.",
+                  "type": "integer",
+                  "minimum": 16,
+                  "maximum": 300
+                },
+                "phone": {
+                  "description": "The phone's pose while the end card shows.",
+                  "type": "object",
+                  "properties": {
+                    "scale": {
+                      "description": "The phone's scale while the end card shows (0.2-1.5). Default 0.42.",
+                      "type": "number",
+                      "minimum": 0.2,
+                      "maximum": 1.5
+                    },
+                    "center": {
+                      "description": "Where the phone's screen centre goes while the end card shows.",
+                      "type": "object",
+                      "properties": {
+                        "x": {
+                          "description": "Where the screen's centre goes, in px from the frame's left edge. Default 540.",
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1080
+                        },
+                        "y": {
+                          "description": "Where the screen's centre goes, in px from the frame's top. Default 250.",
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1080
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "16:9": {
+          "description": "Overrides for every 16:9 film (1920×1080 px); a missing key keeps the default.",
+          "type": "object",
+          "properties": {
+            "caption": {
+              "description": "The caption box over the film and its font size.",
+              "type": "object",
+              "properties": {
+                "top": {
+                  "description": "The caption's top edge, in px from the frame's top. Default 700.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1080
+                },
+                "left": {
+                  "description": "The caption's left margin, in px from the frame's left edge. Default 1100.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1920
+                },
+                "right": {
+                  "description": "The caption's right margin, in px from the frame's right edge. Default 120.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1920
+                },
+                "fontSize": {
+                  "description": "The caption's font size in px (16-200). Default 50.",
+                  "type": "integer",
+                  "minimum": 16,
+                  "maximum": 200
+                }
+              },
+              "additionalProperties": false
+            },
+            "persona": {
+              "description": "The box the persona card is centred in.",
+              "type": "object",
+              "properties": {
+                "top": {
+                  "description": "The persona card's top edge, in px from the frame's top. Default 150.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1080
+                },
+                "left": {
+                  "description": "The persona card's left margin, in px from the frame's left edge. Default 1100.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1920
+                },
+                "right": {
+                  "description": "The persona card's right margin, in px from the frame's right edge. Default 120.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1920
+                }
+              },
+              "additionalProperties": false
+            },
+            "endCard": {
+              "description": "The end card's box, headline size and the phone's pose behind it.",
+              "type": "object",
+              "properties": {
+                "top": {
+                  "description": "The end card's top edge, in px from the frame's top. Default 330.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1080
+                },
+                "left": {
+                  "description": "The end card's left margin, in px from the frame's left edge. Default 1100.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1920
+                },
+                "right": {
+                  "description": "The end card's right margin, in px from the frame's right edge. Default 120.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1920
+                },
+                "headlineSize": {
+                  "description": "The end card's headline size in px (16-300). Default 80.",
+                  "type": "integer",
+                  "minimum": 16,
+                  "maximum": 300
+                },
+                "phone": {
+                  "description": "The phone's pose while the end card shows.",
+                  "type": "object",
+                  "properties": {
+                    "scale": {
+                      "description": "The phone's scale while the end card shows (0.2-1.5). Default 0.85.",
+                      "type": "number",
+                      "minimum": 0.2,
+                      "maximum": 1.5
+                    },
+                    "center": {
+                      "description": "Where the phone's screen centre goes while the end card shows.",
+                      "type": "object",
+                      "properties": {
+                        "x": {
+                          "description": "Where the screen's centre goes, in px from the frame's left edge. Default 600.",
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1920
+                        },
+                        "y": {
+                          "description": "Where the screen's centre goes, in px from the frame's top. Default 540.",
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1080
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
     "sfx": {
       "description": "Sound effects of the composition; a missing one is silent.",
       "default": {},

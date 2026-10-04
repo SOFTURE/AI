@@ -25,7 +25,7 @@ share files run in one lane (see the roadmap's Order), so `dependency` below nam
 | FU-13 | [`marketing-kit-render-ci`](../../archive/2026-10-03-marketing-kit-render-ci/change.md) | The marketing-kit fixture film renders in CI | archived 2026-10-03 | start |
 | FU-14 | [`marketing-kit-schema-docs`](../../archive/2026-10-03-marketing-kit-schema-docs/change.md) | The marketing.json JSON Schema documents every key | archived 2026-10-03 | start |
 | FU-15 | [`marketing-kit-desktop-16x9`](marketing-kit-desktop-16x9/change.md) | A 16:9 film can show the desktop app in a browser frame | FU-16 on main | dependency |
-| FU-16 | [`marketing-kit-layout-overrides`](marketing-kit-layout-overrides/change.md) | A project can adjust a format's layout in marketing.json | FU-14 on main | dependency |
+| FU-16 | [`marketing-kit-layout-overrides`](../../archive/2026-10-03-marketing-kit-layout-overrides/change.md) | A project can adjust a format's layout in marketing.json | archived 2026-10-03 | dependency |
 | FU-17 | [`marketing-kit-og-glyphs`](../../archive/2026-10-03-marketing-kit-og-glyphs/change.md) | OG images refuse copy the brand fonts cannot draw | archived 2026-10-03 | start |
 | FU-18 | [`marketing-kit-screenshot-variants`](marketing-kit-screenshot-variants/change.md) | Screenshots at a device scale and in both colour schemes | FU-14 on main | dependency |
 | FU-19 | [`marketing-kit-hook-shot-words`](marketing-kit-hook-shot-words/change.md) | Opening shots after the first name their word in the config check | FU-14 on main | dependency |

@@ -1,6 +1,18 @@
 import { describe, expect, it } from "vitest";
 
-import { VIDEO_FORMATS, cameraPose, captionChunks, fitScale, fitsFrame, getGeometry, rewindFrames, unionRect, widePose } from "./timeline.js";
+import {
+  LAYOUTS,
+  VIDEO_FORMATS,
+  cameraPose,
+  captionChunks,
+  fitScale,
+  fitsFrame,
+  getGeometry,
+  resolveLayout,
+  rewindFrames,
+  unionRect,
+  widePose,
+} from "./timeline.js";
 
 /** The phone FIRE_TRACKER records: the poses below are pinned on it. */
 const PHONE = getGeometry({ width: 390, height: 844 });
@@ -36,7 +48,52 @@ describe("fitScale", () => {
   });
 });
 
+describe("resolveLayout", () => {
+  it.each(VIDEO_FORMATS)("returns a fresh copy of the %s table without an override", (format) => {
+    const layout = resolveLayout(format, {});
+    expect(layout).toEqual(LAYOUTS[format]);
+    expect(layout).not.toBe(LAYOUTS[format]);
+    expect(layout.endCard.phone.center).not.toBe(LAYOUTS[format].endCard.phone.center);
+  });
+
+  it("changes only the caption font size it is given", () => {
+    const layout = resolveLayout("16:9", { caption: { fontSize: 44 } });
+    expect(layout.caption).toEqual({ top: 700, left: 1100, right: 120, fontSize: 44 });
+    expect({ ...layout, caption: LAYOUTS["16:9"].caption }).toEqual(LAYOUTS["16:9"]);
+  });
+
+  it("moves the end-card phone's centre on one axis and keeps the other and the scale", () => {
+    const layout = resolveLayout("9:16", { endCard: { phone: { center: { x: 500 } } } });
+    expect(layout.endCard.phone).toEqual({ scale: 0.58, center: { x: 500, y: 640 } });
+  });
+
+  it("keeps the table's value for a key set to undefined", () => {
+    const layout = resolveLayout("1:1", { persona: { top: undefined, left: 40 }, endCard: { headlineSize: undefined } });
+    expect(layout.persona).toEqual({ top: 30, left: 40, right: 0 });
+    expect(layout.endCard.headlineSize).toBe(72);
+  });
+
+  it("leaves the table unchanged", () => {
+    const before = structuredClone(LAYOUTS);
+    resolveLayout("9:16", { caption: { top: 1400 }, persona: { right: 20 }, endCard: { top: 1100, phone: { scale: 0.5 } } });
+    expect(LAYOUTS).toEqual(before);
+  });
+});
+
 describe("getGeometry", () => {
+  it("lays out the caption, persona and end card from an override", () => {
+    const geometry = getGeometry({ width: 390, height: 844 }, "16:9", {
+      caption: { top: 760, fontSize: 40 },
+      persona: { left: 1000 },
+      endCard: { headlineSize: 64, phone: { scale: 0.8 } },
+    });
+    expect(geometry.caption).toEqual({ top: 760, left: 1100, right: 120, fontSize: 40 });
+    expect(geometry.persona).toEqual({ top: 150, left: 1000, right: 120 });
+    expect(geometry.endCard).toEqual({ top: 330, left: 1100, right: 120, headlineSize: 64, phone: { scale: 0.8, center: { x: 600, y: 540 } } });
+    // The frame and the phone's place do not depend on the override.
+    expect(geometry.screen).toEqual(getGeometry({ width: 390, height: 844 }, "16:9").screen);
+  });
+
   it("puts any device's screen 640 px wide at the same place in the 9:16 frame", () => {
     // Oracle by hand: 640 / 412 = 1.5534; 915 × 1.5534 = 1421.4 -> 1421.
     const geometry = getGeometry({ width: 412, height: 915 });

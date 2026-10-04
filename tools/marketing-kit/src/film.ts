@@ -1,6 +1,6 @@
 import type { Locator, Page } from "playwright";
 
-import type { VideoFormat, Viewport } from "./compose/timeline.js";
+import type { LayoutOverride, VideoFormat, Viewport } from "./compose/timeline.js";
 
 /**
  * Film = script (data from `marketing.json`) + scene: the beats' `actions` in the same file
@@ -65,6 +65,8 @@ export interface FilmScript {
   /** The recorded page, e.g. `/calculator`. */
   path: string;
   format: VideoFormat;
+  /** The project's override of this format's layout (`marketing.json` `layout`); empty: the table as it is. */
+  layout: LayoutOverride;
   device: Device;
   persona: Persona;
   voice: VoiceSettings;
