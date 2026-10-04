@@ -108,7 +108,7 @@ const fontSchema = z.strictObject({
       }),
     )
     .default([])
-    .describe("The files of the family, one per weight and style; none: only the fallback is used."),
+    .describe("The files of the family: one or more per weight and style, e.g. Fontsource's latin and latin-ext subsets of one weight, each with its unicodeRange. The film picks the file of a character by unicodeRange; OG images try the files in the listed order. None: only the fallback is used."),
 });
 
 /** What each colour role paints; the descriptions of `brand.colors` and `brand.tokensFrom.roles`. */

@@ -17,7 +17,7 @@ its `unicodeRange`), which both the film and the OG images use, instead of "one 
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-29** (roadmap `followups`):
+From [`roadmap.md`](../../foundation/roadmap.md), item **FU-29** (roadmap `followups`):
 
 > ### FU-29: The marketing.json font files description admits subset files
 > - **Change ID:** `marketing-kit-font-files-description`
