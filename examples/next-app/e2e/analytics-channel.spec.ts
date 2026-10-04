@@ -1,7 +1,8 @@
 // @softure-ai/analytics on the built app: the `?z=` tag stays on the address bar from a tagged page
 // to the next one (a full page load and a client-side navigation, with or without the router's
 // Next-Url header) and through the auth guard's redirect to login, and reaches the register action,
-// whose onRegistered hook hands it over (the account page shows it). No cookie carries it.
+// whose onRegistered hook hands it over (the account page shows it) and whose redirect keeps it,
+// with or without JavaScript. No cookie carries it.
 import { randomInt, randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { authMessages, users } from "@softure-ai/auth";
@@ -33,12 +34,17 @@ test.afterAll(async () => {
   }
 });
 
-/** From the login page to the register page through its link, then the form. */
-async function registerFromLogin(page: Page, email: string): Promise<void> {
-  await page.getByRole("link", { name: copy.login.registerLink }).click();
+/** Fills the register form; the caller submits it. */
+async function fillRegisterForm(page: Page, email: string): Promise<void> {
   await page.getByLabel(copy.fields.email, { exact: true }).fill(email);
   await page.getByLabel(copy.fields.password, { exact: true }).fill(PASSWORD);
   await page.getByLabel(copy.fields.consent).check();
+}
+
+/** From the login page to the register page through its link, then the form. */
+async function registerFromLogin(page: Page, email: string): Promise<void> {
+  await page.getByRole("link", { name: copy.login.registerLink }).click();
+  await fillRegisterForm(page, email);
   await page.getByRole("button", { name: copy.register.submit }).click();
   await expect(page.getByTestId("account-email")).toHaveText(email);
 }
@@ -107,6 +113,33 @@ test("the tag comes back after the page drops it with replaceState", async ({ pa
     window.history.replaceState(null, "", "/account/privacy");
   });
   await expect(page).toHaveURL("/account/privacy?z=spring-promo");
+});
+
+test("the sign-up action answers with the tagged account page", async ({ page }) => {
+  await page.goto("/register?z=spring-promo");
+  await fillRegisterForm(page, newEmail());
+  const answer = page.waitForResponse((response) => response.request().method() === "POST" && "x-action-redirect" in response.headers());
+  await page.getByRole("button", { name: copy.register.submit }).click();
+  // `<url>;<push|replace>`: Next renders this URL for the browser, so the account page's own server
+  // render already reads the tag; <ChannelKeeper /> has nothing to put back.
+  const redirect = (await answer).headers()["x-action-redirect"] ?? "";
+  expect(redirect.slice(0, redirect.lastIndexOf(";"))).toBe("/account?z=spring-promo");
+  await expect(page).toHaveURL("/account?z=spring-promo");
+});
+
+test.describe("without JavaScript", () => {
+  test.use({ javaScriptEnabled: false });
+
+  test("sign-up lands on the tagged account page", async ({ page }) => {
+    await page.goto("/login?z=spring-promo");
+    // The form posts as a plain HTML form; the action answers a 303 to the tagged page itself,
+    // rather than leaving the proxy to re-tag the follow-up request from its Referer.
+    const answer = page.waitForResponse((response) => response.request().method() === "POST" && response.status() === 303);
+    await registerFromLogin(page, newEmail());
+    expect((await answer).headers()["location"]).toBe("/account?z=spring-promo");
+    await expect(page).toHaveURL("/account?z=spring-promo");
+    await expect(page.getByTestId("account-signup-channel")).toHaveText(`${en.account.signupChannel} spring-promo`);
+  });
 });
 
 test("the auth guard's redirect to login keeps the tag", async ({ page }) => {
