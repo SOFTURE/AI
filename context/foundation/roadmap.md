@@ -71,7 +71,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-27** | `billing-invoice-request-hygiene` | invoice requests stored before the owner's mail, validated, expired and priced | FU-26 | autonomous | done_code (2026-10-04; waiting: the next release of `@softure-ai/billing`) |
 | **FU-28** | `auth-page-redirect-tag` | a signed-in visitor's redirect from a tagged login page keeps the tag | FU-7 | autonomous | done_code (2026-10-04; waiting: the next releases of `@softure-ai/auth` and `@softure-ai/analytics`) |
 | **FU-29** | `marketing-kit-font-files-description` | the marketing.json font files description admits subset files | FU-23 | autonomous | done_code (2026-10-04; waiting: MK-8 release) |
-| **FU-30** | `billing-failed-refund-access` | a refund that fails gives back the access it took | FU-27 | autonomous | in_progress |
+| **FU-30** | `billing-failed-refund-access` | a refund that fails gives back the access it took | FU-27 | autonomous | in_progress (implement 1/2, since 2026-10-04; cloud session, branch `claude/project-thread-8sum2d`) |
 | **FU-31** | `auth-require-user-redirect-tag` | `requireUser`'s redirect to login keeps the channel tag | FU-28 | autonomous | done_code (2026-10-04; waiting: the next releases of `@softure-ai/auth` and `@softure-ai/billing`) |
 | **FU-32** | `billing-price-minor-units` | a plan's price means the same amount on every runtime (pinned minor units) | FU-30 | autonomous | proposed |
 | **FU-33** | `billing-lifetime-grant-race` | lifetime grants made at once on a new row are refused after the first | FU-32 | autonomous | proposed |
@@ -508,7 +508,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 - **Source:** FU-23 (lane F could not touch `schema.ts`, lane E owns it); `tools/marketing-kit/src/config/schema.ts` (`files` of the brand font)
 ### FU-30: A refund that fails gives back the access it took
 - **Change ID:** `billing-failed-refund-access`
-- **Status:** in_progress
+- **Status:** in_progress (implement 1/2, since 2026-10-04; cloud session, branch `claude/project-thread-8sum2d`)
 - **Input:** [`changes/billing-failed-refund-access/change.md`](../changes/billing-failed-refund-access/change.md)
 - **Outcome:** A failed provider refund restores the access the refund took back and the payment's refunded total and status.
 - **Prerequisites:** FU-27 on `master` (lane C).

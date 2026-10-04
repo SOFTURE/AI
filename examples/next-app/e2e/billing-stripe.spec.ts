@@ -62,7 +62,7 @@ async function register(page: Page): Promise<string> {
 
 /** A Stripe event around `object`, as Stripe delivers it. */
 function stripeEvent(type: string, object: Record<string, unknown>): string {
-  return JSON.stringify({ id: `evt_e2e_${randomUUID()}`, object: "event", type, data: { object } });
+  return JSON.stringify({ id: `evt_e2e_${randomUUID()}`, object: "event", type, created: Math.floor(Date.now() / 1000), data: { object } });
 }
 
 function paidCheckout(userId: string, checkoutId: string, paymentId: string): string {
