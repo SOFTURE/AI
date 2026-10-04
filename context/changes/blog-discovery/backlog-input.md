@@ -15,7 +15,7 @@ RSS feed, blog sitemap entries with a real `lastmod`, IndexNow ping on publish, 
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **BL-5** (roadmap `blog`, main since 2026-10-04):
+From [`roadmap.md`](../../foundation/roadmap.md), item **BL-5** (roadmap `blog`, main since 2026-10-04):
 
 > ### BL-5: Blog discovery: RSS, sitemap and IndexNow
 > - **Change ID:** `blog-discovery`
@@ -32,8 +32,8 @@ From [`roadmap.md`](../../../foundation/roadmap.md), item **BL-5** (roadmap `blo
 > - **PRD refs:** FR-27, FR-29.
 > - **Source (FIRE_TRACKER, read only):** `src/lib/blog-discovery.ts`, `src/lib/indexnow.ts`, `src/app/blog/rss.xml/route.ts`, `src/app/sitemap.ts` (blog part)
 
-Reference material: [`docs/06-fire-extraction-2.md`](../../../../docs/06-fire-extraction-2.md) (the FIRE_TRACKER source map and the split rules),
-[`docs/02-module-standard.md`](../../../../docs/02-module-standard.md) (the standard). FIRE_TRACKER is read only:
+Reference material: [`docs/06-fire-extraction-2.md`](../../../docs/06-fire-extraction-2.md) (the FIRE_TRACKER source map and the split rules),
+[`docs/02-module-standard.md`](../../../docs/02-module-standard.md) (the standard). FIRE_TRACKER is read only:
 copy its code, never change it.
 
 ## Constraints
