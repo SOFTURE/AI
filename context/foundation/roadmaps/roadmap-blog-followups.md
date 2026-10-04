@@ -16,7 +16,7 @@ trigger: "the blog roadmap closes; the owner promotes it or takes single items"
 > (WORKFLOW §5.1): nothing here runs until the owner promotes it to `roadmap.md`
 > (`softure-roadmap --promote blog-followups`) or moves a single item into the main roadmap.
 >
-> The catch-all of the [`blog`](../roadmap.md) roadmap (owner, 2026-10-03: gaps found while delivering a roadmap are
+> The catch-all of the [`blog`](../archive/2026-10-04-2-roadmap.md) roadmap (owner, 2026-10-03: gaps found while delivering a roadmap are
 > collected in a catch-all roadmap, not fixed on the spot). It starts empty. A thread that finds a gap or a
 > deferred review finding:
 > 1. takes the next free `BF-<n>` and a kebab-case change-id;

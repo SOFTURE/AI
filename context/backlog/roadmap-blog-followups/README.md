@@ -1,8 +1,8 @@
 # Backlog: roadmap-blog-followups (gaps found while delivering the blog roadmap)
 
 Roadmap of this group: [`foundation/roadmaps/roadmap-blog-followups.md`](../../foundation/roadmaps/roadmap-blog-followups.md)
-(queued, the catch-all of the [blog roadmap](../../foundation/roadmap.md)). That file holds the order, owner
-decisions and the status of each item, and says how a thread adds a gap.
+(queued, the catch-all of the [blog roadmap](../../foundation/archive/2026-10-04-2-roadmap.md), closed on
+2026-10-04). That file holds the order, owner decisions and the status of each item, and says how a thread adds a gap.
 
 This folder holds the **entries** (`<change-id>/change.md`, `status: backlog`). An entry is in exactly
 one place: here, in `context/changes/` or in `context/archive/`.
@@ -10,8 +10,8 @@ one place: here, in `context/changes/` or in `context/archive/`.
 ## Adding an item
 
 1. Take the next free `BF-<n>` and a kebab-case change-id.
-2. Write `<change-id>/change.md` like the entries of [`roadmap-blog/`](../roadmap-blog/) (`status: backlog`, the
-   item block quoted in Context, **Source** naming the change and the finding).
+2. Write `<change-id>/change.md` like the entries already here (`status: backlog`, the item block quoted in Context,
+   **Source** naming the change and the finding).
 3. Add the row to the table here and the row plus item block to the roadmap.
 
 ## Taking an entry

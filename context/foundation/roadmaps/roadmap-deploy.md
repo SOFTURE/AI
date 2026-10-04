@@ -19,7 +19,7 @@ trigger: "the owner promotes it, at the earliest when the blog roadmap closes"
 > nothing here runs until the owner promotes it to `roadmap.md` (`softure-roadmap --promote deploy`).
 >
 > Written on 2026-10-04 from the second FIRE_TRACKER analysis, next to the main roadmap
-> [`blog`](../roadmap.md). The split (owner, 2026-10-04, on the analysis): logic that does not change from app to
+> [`blog`](../archive/2026-10-04-2-roadmap.md) (closed on 2026-10-04). The split (owner, 2026-10-04, on the analysis): logic that does not change from app to
 > app (pipeline, secret rendering, backup, schema guard, verify) goes into `@softure-ai/deploy` and reusable
 > workflows; whatever describes one app (compose, Traefik rules, Dockerfile) is generated once by
 > `softure-deploy init` and then owned by the app.
