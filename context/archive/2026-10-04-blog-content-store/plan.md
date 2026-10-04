@@ -124,20 +124,20 @@ a deferrable exclusion constraint holds it).
 ### Phase 1: Module, migration and file format
 
 #### Automated
-- [ ] 1.1 Article file, module and messages tests pass
-- [ ] 1.2 Gates green (typecheck, lint, test)
+- [x] 1.1 Article file, module and messages tests pass — 477e525
+- [x] 1.2 Gates green (typecheck, lint, test) — 477e525
 
 ### Phase 2: Store and publish run
 
 #### Automated
-- [ ] 2.1 Store, constraint and run tests pass on PGlite
-- [ ] 2.2 Gates green (typecheck, lint, test)
+- [x] 2.1 Store, constraint and run tests pass on PGlite — 477e525
+- [x] 2.2 Gates green (typecheck, lint, test) — 477e525
 
 ### Phase 3: CLI and docs
 
 #### Automated
-- [ ] 3.1 CLI tests pass
-- [ ] 3.2 Gates green (typecheck, lint, test, build)
+- [x] 3.1 CLI tests pass — 477e525
+- [x] 3.2 Gates green (typecheck, lint, test, build) — 477e525
 
 #### Manual
-- [ ] 3.3 `softure-blog publish` dry run and commit against the local Postgres 16
+- [x] 3.3 `softure-blog publish` dry run and commit against the local Postgres 16 — 477e525 (verified by agent: migrate, dry run, commit, unchanged, draft to published, unknown option, a second pillar refused at commit)

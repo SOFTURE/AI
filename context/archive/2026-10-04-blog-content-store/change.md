@@ -1,12 +1,12 @@
 ---
 change_id: blog-content-store
 title: "Blog articles live in Markdown files and reach the database through a publish command"
-status: implementing
+status: archived
 roadmap_item: BL-2
 branch: claude/project-thread-rfkrmt
 created: 2026-10-04
 updated: 2026-10-04
-archived_at: null
+archived_at: 2026-10-04
 ---
 
 ## Intent
@@ -63,3 +63,4 @@ Known state: no `modules/blog/` yet. `@softure-ai/mailing` ships the closest pat
   SOFTURE contracts (module schema, migrator, config loading).
 - FIRE's `src/db/blog-transport.ts` does not exist; its test (`blog-transport.test.ts`) covers the
   `ssh` shell transport of FIRE's deploy, which belongs to the deploy roadmap, not to this package.
+- Archived 2026-10-04: `@softure-ai/blog` (`modules/blog/`) holds articles and terms in `blog.articles` and `blog.slug_history` (migration `0001`, every row invariant a constraint, one pillar per cluster as a deferred exclusion); `parseArticleFile` reads the strict English frontmatter plus the app's `fields`; `publishArticle`, `runBlogPublish` (all or nothing, dry run by default, gate hook) and `softure-blog publish`; reads `getPublishedArticle`, `findArticleBySlug`, `findSlugRedirect`, `listArticles`. Gaps BF-1 (shared config loader) and BF-2 (slug race message).
