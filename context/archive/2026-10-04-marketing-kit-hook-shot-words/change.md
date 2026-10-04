@@ -1,12 +1,12 @@
 ---
 change_id: marketing-kit-hook-shot-words
 title: "Opening shots after the first name their word in the config check"
-status: plan_reviewed
+status: archived
 roadmap_item: FU-19
 branch: claude/fu-19-8dscst
 created: 2026-10-04
 updated: 2026-10-04
-archived_at: null
+archived_at: 2026-10-04
 ---
 
 ## Intent
@@ -41,3 +41,5 @@ opened from is [`backlog-input.md`](backlog-input.md).
 - Framing skipped: the problem and the outcome are fixed by the roadmap (path, timing, description); there is one
   reasonable place for the check (the video `superRefine` that already checks shot words), so there are no
   alternatives to weigh.
+- Archived 2026-10-04: a later opening shot without `word` is refused at load on `videos[i].hook.shots[j].word`; a
+  one-shot opening needs none; the JSON Schema is unchanged (the description already stated the rule).
