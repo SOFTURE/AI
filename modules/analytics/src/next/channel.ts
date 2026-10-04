@@ -1,7 +1,8 @@
 // The Next.js adapter: the channel of the current request, for server actions (and their
-// redirects), route handlers, auth's hooks and pages. `next/headers` is imported when a function
-// runs, not when the file loads, so `softure.config.ts` (which `softure migrate` loads in plain
-// Node) can import `attributeRegistration` and `tagRedirect` from here.
+// redirects), route handlers, module hooks (auth's `onRegistered`, the waitlist's `onJoined`) and
+// pages. `next/headers` is imported when a function runs, not when the file loads, so
+// `softure.config.ts` (which `softure migrate` loads in plain Node) can import
+// `attributeRegistration` and `tagRedirect` from here.
 import { errorLogLabel, type SoftureConfig } from "@softure-ai/core";
 import { getSoftureConfig } from "@softure-ai/core/next";
 import type { Queryable } from "@softure-ai/db";
@@ -69,12 +70,13 @@ export function attributeRegistration<TContext extends { readonly config: Softur
 }
 
 /**
- * An `onRegistered` hook for auth that counts `step` (a `server` step of the funnel) for every
- * sign-up, with its channel or without one. The count runs in a savepoint of the account's
- * transaction and a failure is logged, never thrown: a broken counter must not refuse sign-ups.
- * `auth({ onRegistered: countRegistration("signup") })`
+ * A hook for any module's server event (auth's `onRegistered`, the waitlist's `onJoined`) that
+ * counts `step` (a `server` step of the funnel) with the request's channel, or without one. The
+ * count runs in a savepoint of the event's transaction and a failure is logged, never thrown: a
+ * broken counter must not refuse the sign-up.
+ * `waitlist({ onJoined: countFunnelStep("waitlist") })`
  */
-export function countRegistration<TContext extends AnalyticsContext>(step: string): (event: RegisteredUserEvent, ctx: TContext) => Promise<void> {
+export function countFunnelStep<TContext extends AnalyticsContext>(step: string): (event: unknown, ctx: TContext) => Promise<void> {
   return async (_event, ctx) => {
     try {
       const channel = await getChannel(ctx.config);
@@ -84,4 +86,12 @@ export function countRegistration<TContext extends AnalyticsContext>(step: strin
       console.error(`@softure-ai/analytics: counting the funnel step "${step}" for a sign-up failed: ${errorLogLabel(error)}`);
     }
   };
+}
+
+/**
+ * An `onRegistered` hook for auth that counts every sign-up as `step`: `countFunnelStep` typed for
+ * auth's event. `auth({ onRegistered: countRegistration("signup") })`
+ */
+export function countRegistration<TContext extends AnalyticsContext>(step: string): (event: RegisteredUserEvent, ctx: TContext) => Promise<void> {
+  return countFunnelStep<TContext>(step);
 }

@@ -53,3 +53,10 @@ export interface WaitlistSignup {
   /** When it first counted; null while its first request waits for the confirmation link. */
   readonly confirmedAt: Date | null;
 }
+
+/** What `onJoined` receives: a sign-up that counts for the first time, and how it came to count. */
+export interface WaitlistJoinedEvent {
+  readonly signup: WaitlistSignup;
+  /** `join`: applied when it was made (no double opt-in); `confirmation`: its link was used. */
+  readonly via: "join" | "confirmation";
+}
