@@ -71,7 +71,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-27** | `billing-invoice-request-hygiene` | invoice requests stored before the owner's mail, validated, expired and priced | FU-26 | autonomous | done_code (2026-10-04; waiting: the next release of `@softure-ai/billing`) |
 | **FU-28** | `auth-page-redirect-tag` | a signed-in visitor's redirect from a tagged login page keeps the tag | FU-7 | autonomous | done_code (2026-10-04; waiting: the next releases of `@softure-ai/auth` and `@softure-ai/analytics`) |
 | **FU-29** | `marketing-kit-font-files-description` | the marketing.json font files description admits subset files | FU-23 | autonomous | done_code (2026-10-04; waiting: MK-8 release) |
-| **FU-30** | `billing-failed-refund-access` | a refund that fails gives back the access it took | FU-27 | autonomous | in_progress (implement 1/2, since 2026-10-04; cloud session, branch `claude/project-thread-8sum2d`) |
+| **FU-30** | `billing-failed-refund-access` | a refund that fails gives back the access it took | FU-27 | autonomous | done_code (2026-10-04; waiting: the next release of `@softure-ai/billing`) |
 | **FU-31** | `auth-require-user-redirect-tag` | `requireUser`'s redirect to login keeps the channel tag | FU-28 | autonomous | done_code (2026-10-04; waiting: the next releases of `@softure-ai/auth` and `@softure-ai/billing`) |
 | **FU-32** | `billing-price-minor-units` | a plan's price means the same amount on every runtime (pinned minor units) | FU-30 | autonomous | proposed |
 | **FU-33** | `billing-lifetime-grant-race` | lifetime grants made at once on a new row are refused after the first | FU-32 | autonomous | proposed |
@@ -510,8 +510,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 - **Source:** FU-23 (lane F could not touch `schema.ts`, lane E owns it); `tools/marketing-kit/src/config/schema.ts` (`files` of the brand font)
 ### FU-30: A refund that fails gives back the access it took
 - **Change ID:** `billing-failed-refund-access`
-- **Status:** in_progress (implement 1/2, since 2026-10-04; cloud session, branch `claude/project-thread-8sum2d`)
-- **Input:** [`changes/billing-failed-refund-access/change.md`](../changes/billing-failed-refund-access/change.md)
+- **Status:** done_code (2026-10-04; waiting: the next release of `@softure-ai/billing`)
+- **Input:** [`archive/2026-10-04-billing-failed-refund-access/change.md`](../archive/2026-10-04-billing-failed-refund-access/change.md)
 - **Outcome:** A failed provider refund restores the access the refund took back and the payment's refunded total and status.
 - **Prerequisites:** FU-27 on `master` (lane C).
 - **Unknowns:** Which Stripe event to trust (`refund.failed` vs. a lower cumulative `amount_refunded` on `charge.refunded` or `charge.refund.updated`); how to give back days when other grants moved in between (extend by the days taken, as a grant at the end); whether a failed refund of a lifetime restores lifetime.
@@ -590,6 +590,7 @@ Open from FU-14:
 
 ## Done
 
+- **FU-30** `billing-failed-refund-access`: a Stripe refund that fails (`refund.failed`, or a refund update with a failed or canceled status) gives back what it took, once per refund (`billing.refund_failures`, migration `0007`): the payment's refunded total and status, a refunded lifetime, and the failed money's share of the days refunds took (`taken_back_days`), after the payment's period while it is ahead, else at the end; charge snapshots are dated by the event's `created`, so a stale one is corrected and a failure billing never counted gives back nothing; failures are exported; a new refund reported before a late failure is FU-35; archived in `archive/2026-10-04-billing-failed-refund-access/`
 - **FU-24** `billing-existing-accounts`: `trial.startsAt` floors the derived trial of accounts created before a chosen day, `import-entitlements` (and `importEntitlement()`) records known trial ends, paid periods and lifetime access without shortening access, and `pin-trials` (and `pinDerivedTrials()`) pins derived trials before a config change; README §5 lists the config effects; covered by unit tests on PGlite and an e2e; archived in `archive/2026-10-04-billing-existing-accounts/`
 - **FU-25** `billing-stripe-currency-units`: `stripe()` charges in Stripe's unit per currency (ISK, UGX, ALL and the other currencies `Intl` shows without decimals go ×100), the webhook records paid totals and partial refunds in the plan's unit, and a price Stripe cannot charge exactly (a three-decimal amount not ending in 0, LYD fractions) is refused when the config loads; HUF and TWD needed nothing (their divisible-by-100 rule is for payouts); covered by unit tests on the Checkout body and signed webhook fixtures on PGlite; archived in `archive/2026-10-04-billing-stripe-currency-units/`
 - **FU-26** `billing-guard-race-tests`: every billing server action and `requireWriteAccess` are unit-tested as anonymous, member and admin through the real auth checks (request scope faked); the first-insert race of `changeEntitlement` and concurrent manual grants run on two Postgres connections (CI's service, `SOFTURE_TEST_POSTGRES_URL`) with the order forced by a blocker connection, and fail when a lock is dropped; an `adminRole` that `auth({ roles })` does not declare fails the first billing request and the readiness probe; the e2e covers an ended paid period; the lifetime-grant race the spike found is FU-33; archived in `archive/2026-10-04-billing-guard-race-tests/`

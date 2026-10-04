@@ -1,12 +1,12 @@
 ---
 change_id: billing-failed-refund-access
 title: "A refund that fails gives back the access it took"
-status: implemented
+status: archived
 roadmap_item: FU-30
 branch: claude/project-thread-8sum2d
 created: 2026-10-04
 updated: 2026-10-04
-archived_at: null
+archived_at: 2026-10-04
 ---
 
 ## Intent
@@ -53,3 +53,4 @@ Today `parseStripeEvent` (`modules/billing/src/stripe-webhook.ts`) acts on `char
 
 - Framing skipped: the gap is stated with its outcome, baseline and the unknowns to answer; it is
   not in doubt and not bug-shaped beyond the documented limitation. Research answers the unknowns.
+- Archived 2026-10-04: Stripe's `refund.failed` (and `refund.updated` / `charge.refund.updated` with a failed or canceled status) is recorded once per refund in `billing.refund_failures` (migration `0007`) and gives back the payment's refunded total and status, a refunded lifetime, and the failed money's share of the days refunds took (`payments.taken_back_days`), after the payment's period while it is still ahead, else at the end of access; charge snapshots carry the event's `created`, so a snapshot taken before a failure is corrected and a failure billing never counted gives back nothing. A new refund reported before an earlier refund's late failure is FU-35.
