@@ -3,7 +3,8 @@
 // Next-Url header) and through the auth guard's redirect to login, and reaches the register action,
 // whose onRegistered hook hands it over (the account page shows it) and whose redirect keeps it,
 // with or without JavaScript; the login and register pages' own redirect of a signed-in visitor
-// keeps it too. No cookie carries it.
+// keeps it too, and so does the redirect to login of a page outside the guard (requireUser). No
+// cookie carries it.
 import { randomInt, randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { authMessages, users } from "@softure-ai/auth";
@@ -172,6 +173,30 @@ test.describe("a signed-in visitor", () => {
 
   test("a next path with its own tag keeps it", async ({ page }) => {
     expect(await readPageRedirect(page, `/login?next=${encodeURIComponent("/account?z=mail")}&z=spring-promo`)).toBe("/account?z=mail");
+  });
+});
+
+test.describe("a signed-out visitor on a page that requires a session", () => {
+  test("is sent to log in with the page's tag and comes back to the tagged page", async ({ page, context }) => {
+    // An account to log in with; then signed out. /payment is not behind the proxy's guard, so the
+    // redirect to login is the page's own (requireUser with the page's searchParams).
+    const email = newEmail();
+    await page.goto("/register");
+    await fillRegisterForm(page, email);
+    await page.getByRole("button", { name: copy.register.submit }).click();
+    await expect(page.getByTestId("account-email")).toBeVisible();
+    await context.clearCookies();
+
+    // page.goto sends no Referer, so the follow-up request has nothing the proxy could re-tag from.
+    const response = await page.goto("/payment?plan=monthly&z=spring-promo");
+    const redirect = await response?.request().redirectedFrom()?.response();
+    expect(redirect?.status()).toBe(307);
+    expect(redirect?.headers()["location"]).toBe(`/login?next=${encodeURIComponent("/payment?plan=monthly")}&z=spring-promo`);
+
+    await page.getByLabel(copy.fields.email, { exact: true }).fill(email);
+    await page.getByLabel(copy.fields.password, { exact: true }).fill(PASSWORD);
+    await page.getByRole("button", { name: copy.login.submit }).click();
+    await expect(page).toHaveURL("/payment?plan=monthly&z=spring-promo");
   });
 });
 

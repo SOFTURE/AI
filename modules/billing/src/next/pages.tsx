@@ -62,7 +62,7 @@ export async function PaymentPage({ searchParams }: PaymentPageProps) {
   const route = getBillingRoutes(config).payment;
   const planId = await readParam(searchParams, PLAN_FIELD);
   const checkout = await readParam(searchParams, CHECKOUT_PARAM);
-  const user = await requireUser({ next: planId === undefined ? route : getPlanPaymentHref(route, planId) });
+  const user = await requireUser({ next: planId === undefined ? route : getPlanPaymentHref(route, planId), searchParams: await searchParams });
   const provider = getPaymentProvider(config);
   const messages = getBillingMessages(config);
   const copy = messages.payment;
