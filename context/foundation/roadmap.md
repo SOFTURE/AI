@@ -58,12 +58,13 @@ backlog: context/backlog/roadmap-followups/
 | **FU-14** | `marketing-kit-schema-docs` | every key of the marketing.json JSON Schema carries a description | — | autonomous | done_code (2026-10-03; waiting: owner editor check, MK-8 release) |
 | **FU-15** | `marketing-kit-desktop-16x9` | desktop 16:9 films recorded in a browser frame instead of a phone | FU-16 | autonomous | proposed |
 | **FU-16** | `marketing-kit-layout-overrides` | per-format layout overrides (caption box, persona, end card) in marketing.json | FU-14 | autonomous | done_code (2026-10-03; waiting: MK-8 release) |
-| **FU-17** | `marketing-kit-og-glyphs` | OG images refuse copy the brand fonts cannot draw | — | autonomous | proposed |
+| **FU-17** | `marketing-kit-og-glyphs` | OG images refuse copy the brand fonts cannot draw | — | autonomous | done_code (2026-10-03; waiting: MK-8 release) |
 | **FU-18** | `marketing-kit-screenshot-variants` | screenshots at a device scale and in both colour schemes | FU-14 | autonomous | proposed |
 | **FU-19** | `marketing-kit-hook-shot-words` | opening shots after the first without a `word` are refused when the config loads | FU-14 | autonomous | proposed |
 | **FU-20** | `billing-partial-refunds` | partial refunds take back access by a policy | FU-11 | autonomous | proposed |
 | **FU-21** | `billing-refund-manual-lifetime` | a manual lifetime grant survives a refunded paid lifetime | FU-9 | autonomous | proposed |
 | **FU-22** | `billing-grant-plan-script` | a `grant-plan` ops script grants and revokes plans without the admin page | FU-9 | autonomous | proposed |
+| **FU-23** | `marketing-kit-og-subset-fonts` | OG images use every subset file of a weight | FU-17 | autonomous | proposed |
 
 ## Order
 
@@ -77,13 +78,13 @@ after another; different lanes run in parallel, up to 4 at once.
 | C: billing | FU-11 → FU-9 → FU-6 → FU-20 → FU-21 → FU-22; FU-12 any time | `modules/billing/` and its migrations; FU-12 writes archive documents only |
 | D: analytics | FU-5 → FU-7 (FU-7 also after FU-1) | `modules/analytics/` channel propagation; FU-7 may touch auth's redirects |
 | E: marketing-kit config | FU-14 → FU-16 → FU-15; FU-14 → FU-18 → FU-19 | `tools/marketing-kit/src/config/schema.ts`, `schema/`, `src/compose/` (FU-15, FU-16) |
-| F: independent | FU-13, FU-17 | `.github/workflows/ci.yml`; `tools/marketing-kit/src/og/` |
+| F: independent | FU-13, FU-17 → FU-23 | `.github/workflows/ci.yml`; `tools/marketing-kit/src/og/` |
 
 1. **First wave: FU-1, FU-3, FU-11, FU-14.** The two HIGH items first (FU-1 must land before FIRE_TRACKER
    adopts the switches; FU-3 fixes a consent ledger that can contradict an unsubscribe), then the MEDIUM refund
    fix and the schema descriptions that every later marketing-kit config item extends.
 2. **Each free slot** takes the first item of this list whose lane is idle and whose dependencies are on `master`:
-   FU-2, FU-5, FU-13, FU-17, FU-9, FU-16, FU-18, FU-4, FU-7, FU-12, FU-6, FU-15, FU-8, FU-19, FU-20, FU-21, FU-22.
+   FU-2, FU-5, FU-13, FU-17, FU-9, FU-16, FU-18, FU-4, FU-7, FU-12, FU-6, FU-15, FU-8, FU-19, FU-20, FU-21, FU-22, FU-23.
 3. **MK-8, EN-9 and MO-6** (owner, carried over): the owner's batch release on 2026-10-05; they wait for no FU item,
    and no FU item waits for them.
 
@@ -119,6 +120,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 | FU-20 | no | a refund policy in billing with a documented default; signed webhook fixtures, no Stripe secrets |
 | FU-21 | no | reads FU-9's grant history in the refund; unit tests on PGlite |
 | FU-22 | no | an ops script on `grantPlanManually` and `revokeManualGrant`, dry run by default; unit tests on PGlite |
+| FU-23 | no | font registration in `src/og/fonts.ts`; tested with Inter's `latin` and `latin-ext` files |
 
 ## Items
 
@@ -330,7 +332,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-17: OG images refuse copy the brand fonts cannot draw
 - **Change ID:** `marketing-kit-og-glyphs`
-- **Status:** proposed
+- **Status:** done_code (2026-10-03; waiting: MK-8 release)
 - **Outcome:** Before laying out an OG card, the renderer checks every character of the template's text against the loaded fonts' character maps and returns an error naming the image, the JSON path and the missing characters (e.g. Polish letters with a `latin` subset file).
 - **Prerequisites:** none beyond the main branch.
 - **Unknowns:** Whether Satori exposes its parsed fonts or the check needs its own font parser (opentype.js is already a Satori dependency); how emoji should be treated.
@@ -391,6 +393,17 @@ owner's own machine, a product decision only the owner can make, or a change in 
 - **Baseline:** FU-9 `billing-admin-requests`: manual grants are recorded only through the admin page or the server API; the roadmap's optional script was left out (README §12). After: the scripts exist, covered by unit tests, and the example ships them next to `grant-role`.
 - **Source:** FU-9 research ("Answers to unknowns", 6); `modules/billing/README.md` §12
 
+### FU-23: OG images use every subset file of a weight
+- **Change ID:** `marketing-kit-og-subset-fonts`
+- **Status:** proposed
+- **Outcome:** A brand font listing several files of one weight (e.g. Fontsource `latin` and `latin-ext`, split by `unicodeRange` for the video renderer) draws Polish copy in OG images too: each further file of a weight is registered with Satori so its fallback reaches it, at the requested weight.
+- **Prerequisites:** FU-17 on `master`.
+- **Unknowns:** Registering further files under derived family names (Satori falls back across families, not files) vs. merging; the order Satori tries them in; whether `unicodeRange` should steer the choice.
+- **Risk:** LOW.
+- **Baseline:** FU-17 `marketing-kit-og-glyphs`: Satori keeps one file per family, weight and style (the first), so such a brand gets the missing-glyph error; the README says to ship one covering file per weight. After: the `latin` + `latin-ext` brand renders Polish copy, covered by a render test and the glyph check.
+- **PRD refs:** FR-25.
+- **Source:** FU-17 plan review C1 (`context/archive/2026-10-03-marketing-kit-og-glyphs/reviews/plan-review.md`); `tools/marketing-kit/src/og/fonts.ts`
+
 ## Owner decisions and checks
 
 Carried over from marketing-kit (owner, batch at the keyboard on Monday 2026-10-05):
@@ -412,6 +425,7 @@ Open from FU-14:
 - **FU-5** `analytics-client-navigation`: `<ChannelKeeper />` keeps the channel tag on client navigations without `Next-Url`, covered by unit and e2e tests; archived in `archive/2026-10-03-analytics-client-navigation/`
 - **FU-1** `switch-reader-contract`: auth reads `auth.registration_closed` through the switch-reader contract in core, provided by feature-switches; the panel flips it and reports undefined manifest switches; archived in `archive/2026-10-03-switch-reader-contract/`
 - **FU-14** `marketing-kit-schema-docs`: every key of the marketing.json JSON Schema carries a description, guarded by a test; archived in `archive/2026-10-03-marketing-kit-schema-docs/`
+- **FU-17** `marketing-kit-og-glyphs`: OG images refuse copy no font Satori would try can draw, naming the image, the JSON path and the characters; archived in `archive/2026-10-03-marketing-kit-og-glyphs/`
 - **FU-2** `waitlist-double-opt-in`: `waitlist({ doubleOptIn })`, a single-use confirmation link (transactional mail) before consents, the opt-out lift and list mail; expiry 7 days by default, `pruneUnconfirmedSignups`; archived in `archive/2026-10-03-waitlist-double-opt-in/`
 - **FU-3** `mailing-consent-sync`: an unsubscribe withdraws the waitlist's consents in its transaction (mailing `onUnsubscribed`), and a new sign-up lifts the person's own opt-out; archived in `archive/2026-10-03-mailing-consent-sync/`
 - **FU-13** `marketing-kit-render-ci`: a `render` job in ci.yml records, composes and renders the fixture film on hyperframes' own headless shell on every push; archived in `archive/2026-10-03-marketing-kit-render-ci/`
