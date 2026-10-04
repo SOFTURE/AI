@@ -15,7 +15,7 @@ A project whose product lives on the desktop shows it as it is used, in a 16:9 f
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-15** (roadmap `followups`, main since 2026-10-03):
+From [`roadmap.md`](../../foundation/roadmap.md), item **FU-15** (roadmap `followups`, main since 2026-10-03):
 
 > ### FU-15: A 16:9 film can show the desktop app in a browser frame
 > - **Change ID:** `marketing-kit-desktop-16x9`
