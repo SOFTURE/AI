@@ -17,7 +17,7 @@ payment's recorded refunded total and status follow the provider's.
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-30** (roadmap `followups`):
+From [`roadmap.md`](../../foundation/roadmap.md), item **FU-30** (roadmap `followups`):
 
 > ### FU-30: A refund that fails gives back the access it took
 > - **Change ID:** `billing-failed-refund-access`
