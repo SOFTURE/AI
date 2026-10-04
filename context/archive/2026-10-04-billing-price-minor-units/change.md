@@ -1,12 +1,12 @@
 ---
 change_id: billing-price-minor-units
 title: "A plan's price means the same amount on every runtime"
-status: active
+status: archived
 roadmap_item: FU-32
 branch: claude/project-thread-9fohl9
 created: 2026-10-04
 updated: 2026-10-04
-archived_at: null
+archived_at: 2026-10-04
 ---
 
 ## Intent
@@ -42,3 +42,7 @@ From [`roadmap.md`](../../foundation/roadmap.md), item **FU-32** (roadmap `follo
 - Framing skipped: the problem is stated and reproduced (FU-25's CI run, HUF 0 vs 2 digits); the
   open choices (which digits, formatting through `Intl`, telling deployers) are design decisions the
   research and plan make, not doubts about the problem.
+- Archived 2026-10-04: billing pins each currency's minor unit (`CURRENCY_MINOR_UNIT_DIGITS`, ISO 4217
+  List One 2024-06-25, MGA 0, XCG added); validation, formatting and Stripe's conversion read it, and
+  `Intl` only supplies the notation. ALL, RSD, LAK and the other ISO-2/CLDR-0 currencies now go to
+  Stripe unchanged; IQD has three decimals; HUF and TWD have two on every runtime.
