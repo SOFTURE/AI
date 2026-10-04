@@ -57,7 +57,7 @@ export function getSkillValues(config: SoftureConfig, settings: QualitySettings,
     command: options.command ?? DEFAULT_SKILL_COMMAND,
     language: settings.ruleset.language,
     languageName: LANGUAGE_NAMES[settings.ruleset.language] ?? settings.ruleset.language,
-    contentDir: blogOptions.contentDir.replace(/\/+$/, ""),
+    contentDir: trimTrailingSlashes(blogOptions.contentDir),
     articlesPath: paths.articles,
     termsPath: paths.terms,
     articleWordsMin: String(limits.words.article.min),
@@ -86,6 +86,13 @@ export function getSkillValues(config: SoftureConfig, settings: QualitySettings,
     reservedSlugList: blogOptions.reservedSlugs.map((slug) => `\`${slug}\``).join(", "),
     appRules: "",
   };
+}
+
+/** Without trailing slashes; a loop, not a regular expression, so a long run of slashes stays linear. */
+function trimTrailingSlashes(path: string): string {
+  let end = path.length;
+  while (end > 1 && path[end - 1] === "/") end -= 1;
+  return path.slice(0, end);
 }
 
 const STANDALONE_SECTION_TAG = /^[ \t]*(\{\{[#^/][A-Za-z]+\}\})[ \t]*\r?\n/gm;
