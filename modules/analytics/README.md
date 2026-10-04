@@ -288,7 +288,7 @@ belong to the app's own privacy contributor.
   `searchParams` instead.
 - **`requireUser`'s redirect to login is not tagged.** A page that calls `requireUser()` while it
   renders sends a visitor without a session to login without the tag: the render has no search
-  params to hand over and its `Referer` is the page before (FU-29). The proxy's auth guard keeps the
+  params to hand over and its `Referer` is the page before (FU-30). The proxy's auth guard keeps the
   tag on the pages it protects (`carry`).
 - **The funnel is a noise filter, not a defence.** Its endpoint checks that a request comes from one
   of the app's pages, but those headers come from the client: a forged `Referer` passes. The counts
