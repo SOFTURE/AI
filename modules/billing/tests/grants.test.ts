@@ -75,6 +75,11 @@ async function readPaymentPeriods(test: TestBilling): Promise<{ payment_id: stri
   return result.rows;
 }
 
+async function readPaymentGrantKinds(test: TestBilling): Promise<(string | null)[]> {
+  const result = await test.database.client.query<{ grant_kind: string | null }>("SELECT grant_kind FROM billing.payments ORDER BY paid_at, checkout_id");
+  return result.rows.map((row) => row.grant_kind);
+}
+
 function paid(userId: string, overrides: Partial<Parameters<typeof recordPayment>[1]> = {}): Parameters<typeof recordPayment>[1] {
   return { provider: "stripe", checkoutId: "cs_test_a1", paymentId: "pi_test_a1", userId, planId: "monthly", amount: 2900, currency: "PLN", ...overrides };
 }
@@ -297,6 +302,42 @@ describe("revoking a manual grant", () => {
     await expect(test.database.client.query("UPDATE billing.manual_grants SET status = 'revoked'")).rejects.toThrow(/manual_grants_revoked_at_with_status/);
     await expect(test.database.client.query("UPDATE billing.manual_grants SET granted_until = NULL")).rejects.toThrow(/manual_grants_grant_shape/);
     await expect(test.database.client.query("UPDATE billing.manual_grants SET revoked_by = granted_by")).rejects.toThrow(/manual_grants_revoked_by_when_revoked/);
+  });
+});
+
+describe("refunding a paid lifetime beside a manual lifetime", () => {
+  let test: TestBilling;
+  let adaId: string;
+  let adminId: string;
+  let grantId: string;
+
+  beforeEach(async () => {
+    test = await createTestBilling({ plans: PLANS });
+    adaId = await createAccount(test, "ada@example.com");
+    adminId = await createAccount(test, "admin@example.com");
+    const granted = await grantPlanManually(test.ctx, { userId: adaId, planId: "lifetime", adminId });
+    if (!granted.ok) throw new Error(`grant failed with ${granted.error}`);
+    grantId = granted.value.grantId;
+    // A checkout started before the admin's grant and paid after it: the webhook records it anyway.
+    await recordPayment(test.ctx, paid(adaId, { planId: "lifetime", amount: 49900 }));
+  });
+  afterEach(() => test.database.close());
+
+  it("keeps lifetime access while the manual lifetime grant is active", async () => {
+    expect(await readPaymentGrantKinds(test)).toEqual(["lifetime"]);
+    expect(await refundPayment(test.ctx, { provider: "stripe", paymentId: "pi_test_a1" })).toEqual(
+      ok({ status: "refunded", entitlement: { status: "paid", endsAt: null, daysLeft: null, isEnding: false } }),
+    );
+    expect(await readRow(test, adaId)).toMatchObject({ is_lifetime: true });
+    // The manual grant still gives lifetime: revoking it now ends it.
+    expect(await revokeManualGrant(test.ctx, { grantId, adminId })).toMatchObject(ok({ status: "trial" }));
+  });
+
+  it("ends lifetime access once the manual lifetime grant was revoked", async () => {
+    // The paid lifetime kept access through the revoke.
+    expect(await revokeManualGrant(test.ctx, { grantId, adminId })).toMatchObject(ok({ status: "paid", endsAt: null }));
+    expect(await refundPayment(test.ctx, { provider: "stripe", paymentId: "pi_test_a1" })).toMatchObject(ok({ status: "refunded", entitlement: { status: "trial" } }));
+    expect(await readRow(test, adaId)).toMatchObject({ is_lifetime: false });
   });
 });
 

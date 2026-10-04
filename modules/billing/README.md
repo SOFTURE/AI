@@ -174,8 +174,9 @@ back only that, with the pure `getRefundEvent` (root entry):
   days. A dated end moved to the trial's end or before it drops paid access: the account is back
   on its trial.
 - **A lifetime** ends lifetime access unless another lifetime payment of the account is still
-  `paid`. Lifetime keeps the dated end beside it (a grant on lifetime still extends it), so the
-  months bought next to a refunded lifetime stay.
+  `paid` or an active manual lifetime grant (`billing.manual_grants`) still gives it. Lifetime
+  keeps the dated end beside it (a grant on lifetime still extends it), so the months bought next
+  to a refunded lifetime stay.
 - **A payment stored before grants were recorded** (no grant columns) revokes paid access, as
   before.
 
@@ -446,9 +447,7 @@ details, return URL) and resolves with `Ok` once handed over, or an `Err` the bu
   lowers Stripe's `amount_refunded` again, but billing keeps what it took back and the payment
   stays refunded (followups FU-30). The charge's currency is not compared with the payment's: a
   Checkout payment has one charge, in the session's currency.
-- A refunded paid lifetime ends a lifetime the admin granted by hand too: the refund counts only
-  paid lifetime payments, not `billing.manual_grants` (followups FU-21). A revoke of a manual
-  lifetime does count paid ones. A dated manual grant keeps its length.
+- A dated manual grant keeps its length when a refund or a revoke takes back another period.
 - A refund of a period moves the dated end back by local days; a `grant { until }` an app applies
   by hand with an end inside the stack is not a period of its own and shifts with it.
 - A payment recorded before migration `0003` has no grant: its refund revokes all paid access.
