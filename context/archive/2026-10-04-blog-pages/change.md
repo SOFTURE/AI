@@ -1,12 +1,12 @@
 ---
 change_id: blog-pages
 title: "The blog's listing, article and glossary pages ship from @softure-ai/blog and mount in one line each"
-status: in_progress
+status: archived
 roadmap_item: BL-4
 branch: claude/bl-4-fv973f
 created: 2026-10-04
 updated: 2026-10-04
-archived_at: null
+archived_at: 2026-10-04
 ---
 
 ## Intent

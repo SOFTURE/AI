@@ -40,6 +40,8 @@ trigger: "the blog roadmap closes; the owner promotes it or takes single items"
 | **BF-2** | `blog-publish-slug-race` | two publishes racing for one slug report `blog.slug_taken`, not a driver error | — | autonomous | ready |
 | **BF-3** | `blog-article-images` | images in article bodies under a hosting policy (allowed sources, alt, dimensions) | — | autonomous | ready |
 | **BF-4** | `blog-glossary-form-conflicts` | a glossary form claimed by two terms is refused, naming both | — | autonomous | ready |
+| **BF-5** | `blog-seo-canonical` | the blog's canonical, OG and JSON-LD URLs follow `@softure-ai/seo`'s canonical host and trailing-slash rule | — | autonomous | ready |
+| **BF-6** | `blog-og-fonts` | `blog({ brand: { fonts } })` gives the article OG card the brand's fonts | — | autonomous | ready |
 
 ## Order
 
@@ -87,6 +89,26 @@ Lanes are set when the roadmap is promoted, by shared files, like the followups 
 - **Risk:** low. An editorial mistake that links a phrase to the wrong definition; no security impact.
 - **Mode:** autonomous.
 - **Source:** BL-3 `blog-markdown-renderer` impl review R2.
+
+### BF-5: Blog URLs follow the seo canonical rule
+- **Change ID:** `blog-seo-canonical`
+- **Status:** ready
+- **Input:** [`blog-seo-canonical`](../../backlog/roadmap-blog-followups/blog-seo-canonical/change.md)
+- **Outcome:** the blog's pages build canonical, OG and JSON-LD URLs through `@softure-ai/seo`'s canonical URL helper when `seo()` is in the config, and on `appOrigin` otherwise; a test covers a canonical host that differs from `appOrigin` and a trailing-slash rule.
+- **Prerequisites:** none.
+- **Risk:** low. The example app's canonical host equals `appOrigin`; only an app with another canonical host is affected.
+- **Mode:** autonomous.
+- **Source:** BL-4 `blog-pages` impl review R1.
+
+### BF-6: The OG card takes the brand's fonts
+- **Change ID:** `blog-og-fonts`
+- **Status:** ready
+- **Input:** [`blog-og-fonts`](../../backlog/roadmap-blog-followups/blog-og-fonts/change.md)
+- **Outcome:** `brand.fonts` (name, weight, a path or URL the server reads once and caches) feeds `BlogArticleOgImage`; a missing file fails with a message naming it; marketing-kit's subset fonts are a candidate source.
+- **Prerequisites:** none.
+- **Risk:** low. Cosmetic: the card uses `next/og`'s default font today.
+- **Mode:** autonomous.
+- **Source:** BL-4 `blog-pages` impl review R2.
 
 ## Owner decisions and checks
 

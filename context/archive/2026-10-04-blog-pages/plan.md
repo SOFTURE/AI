@@ -130,23 +130,23 @@ documents mounting.
 ### Phase 1: pure page logic and options
 
 #### Automated
-- [ ] 1.1 Options, routes, reserved slugs; CLI passes them
-- [ ] 1.2 Paths, dates, clusters, crumbs, JSON-LD, path decisions with FIRE's cases
-- [ ] 1.3 Gates green (typecheck, lint, test)
+- [x] 1.1 Options, routes, reserved slugs; CLI passes them — cdfdbeb
+- [x] 1.2 Paths, dates, clusters, crumbs, JSON-LD, path decisions with FIRE's cases — cdfdbeb
+- [x] 1.3 Gates green (typecheck, lint, test) — cdfdbeb
 
 ### Phase 2: components, Next adapters, proxy, OG, styles, copy
 
 #### Automated
-- [ ] 2.1 Copy in `en` and `pl`
-- [ ] 2.2 Server components and their render tests
-- [ ] 2.3 Next adapters, OG image, proxy piece, package exports
-- [ ] 2.4 Stylesheet and architecture tests
-- [ ] 2.5 Gates green (typecheck, lint, test, build)
+- [x] 2.1 Copy in `en` and `pl` — 2c8469b
+- [x] 2.2 Server components and their render tests — 2c8469b
+- [x] 2.3 Next adapters, OG image, proxy piece, package exports — 2c8469b
+- [x] 2.4 Stylesheet and architecture tests — 2c8469b
+- [x] 2.5 Gates green (typecheck, lint, test, build) — 2c8469b
 
 ### Phase 3: example app and e2e
 
 #### Automated
-- [ ] 3.1 Example app mounts the blog with fixtures
-- [ ] 3.2 e2e for listing, article, glossary, method, 301, 410
-- [ ] 3.3 CI, e2e script and container check updated; README
-- [ ] 3.4 `npm run e2e` green locally
+- [x] 3.1 Example app mounts the blog with fixtures — 2467a3e
+- [x] 3.2 e2e for listing, article, glossary, method, 301, 410 — 2467a3e
+- [x] 3.3 CI, e2e script and container check updated; README — 2467a3e
+- [x] 3.4 `npm run e2e` green locally — 2467a3e
