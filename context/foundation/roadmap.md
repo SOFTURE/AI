@@ -60,7 +60,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-16** | `marketing-kit-layout-overrides` | per-format layout overrides (caption box, persona, end card) in marketing.json | FU-14 | autonomous | done_code (2026-10-03; waiting: MK-8 release) |
 | **FU-17** | `marketing-kit-og-glyphs` | OG images refuse copy the brand fonts cannot draw | — | autonomous | done_code (2026-10-03; waiting: MK-8 release) |
 | **FU-18** | `marketing-kit-screenshot-variants` | screenshots at a device scale and in both colour schemes | FU-14 | autonomous | done_code (2026-10-04; waiting: MK-8 release) |
-| **FU-19** | `marketing-kit-hook-shot-words` | opening shots after the first without a `word` are refused when the config loads | FU-14 | autonomous | proposed |
+| **FU-19** | `marketing-kit-hook-shot-words` | opening shots after the first without a `word` are refused when the config loads | FU-14 | autonomous | in_progress (implement 0/1, since 2026-10-04; branch `claude/fu-19-8dscst`) |
 | **FU-20** | `billing-partial-refunds` | partial refunds take back access by a policy | FU-11 | autonomous | proposed |
 | **FU-21** | `billing-refund-manual-lifetime` | a manual lifetime grant survives a refunded paid lifetime | FU-9 | autonomous | proposed |
 | **FU-22** | `billing-grant-plan-script` | a `grant-plan` ops script grants and revokes plans without the admin page | FU-9 | autonomous | proposed |
@@ -368,7 +368,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-19: Opening shots after the first name their word in the config check
 - **Change ID:** `marketing-kit-hook-shot-words`
-- **Status:** proposed
+- **Status:** in_progress (implement 0/1, since 2026-10-04; branch `claude/fu-19-8dscst`)
 - **Outcome:** A `videos[].hook.shots[]` entry after the first without `word` is refused when `marketing.json` loads, on the path `videos[i].hook.shots[j].word`, instead of failing at compose time after the recording with an error that names an empty word.
 - **Prerequisites:** FU-14 on `master` (shared files, see Order).
 - **Unknowns:** none.
