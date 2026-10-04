@@ -2,7 +2,8 @@
 // to the next one (a full page load and a client-side navigation, with or without the router's
 // Next-Url header) and through the auth guard's redirect to login, and reaches the register action,
 // whose onRegistered hook hands it over (the account page shows it) and whose redirect keeps it,
-// with or without JavaScript. No cookie carries it.
+// with or without JavaScript; the login and register pages' own redirect of a signed-in visitor
+// keeps it too. No cookie carries it.
 import { randomInt, randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { authMessages, users } from "@softure-ai/auth";
@@ -139,6 +140,38 @@ test.describe("without JavaScript", () => {
     expect((await answer).headers()["location"]).toBe("/account?z=spring-promo");
     await expect(page).toHaveURL("/account?z=spring-promo");
     await expect(page.getByTestId("account-signup-channel")).toHaveText(`${en.account.signupChannel} spring-promo`);
+  });
+});
+
+test.describe("a signed-in visitor", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto("/register");
+    await fillRegisterForm(page, newEmail());
+    await page.getByRole("button", { name: copy.register.submit }).click();
+    await expect(page.getByTestId("account-email")).toBeVisible();
+  });
+
+  /** The redirect the page answered with while it rendered (the proxy let the tagged URL through). */
+  async function readPageRedirect(page: Page, path: string): Promise<string | undefined> {
+    const response = await page.goto(path);
+    const redirect = await response?.request().redirectedFrom()?.response();
+    expect(redirect?.status()).toBe(307);
+    return redirect?.headers()["location"];
+  }
+
+  test("the login page sends them on with its own tag", async ({ page }) => {
+    // page.goto sends no Referer, so the follow-up request has nothing the proxy could re-tag from.
+    expect(await readPageRedirect(page, "/login?z=spring-promo")).toBe("/account?z=spring-promo");
+    await expect(page).toHaveURL("/account?z=spring-promo");
+  });
+
+  test("the register page sends them to next with its own tag", async ({ page }) => {
+    expect(await readPageRedirect(page, "/register?next=%2Faccount%2Fprivacy&z=spring-promo")).toBe("/account/privacy?z=spring-promo");
+    await expect(page).toHaveURL("/account/privacy?z=spring-promo");
+  });
+
+  test("a next path with its own tag keeps it", async ({ page }) => {
+    expect(await readPageRedirect(page, `/login?next=${encodeURIComponent("/account?z=mail")}&z=spring-promo`)).toBe("/account?z=mail");
   });
 });
 
