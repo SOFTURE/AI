@@ -1,12 +1,12 @@
 ---
 change_id: billing-reminder-mail
 title: "An account gets a reminder mail before its access ends and when it has ended"
-status: impl_reviewed
+status: archived
 roadmap_item: FU-6
 branch: claude/fu-6-3xpjg4
 created: 2026-10-04
 updated: 2026-10-04
-archived_at: null
+archived_at: 2026-10-04
 ---
 
 ## Intent
@@ -54,3 +54,4 @@ scope and recipient (`modules/mailing/src/server/deliveries.ts`).
 - Framing skipped: the gap is recorded with a stated outcome and an owner assessment (a run
   function, scheduling with the app), so the problem itself is not in doubt; research answers the
   two unknowns.
+- Archived 2026-10-04: `sendAccessReminders` (`@softure-ai/billing/mailing`) mails the notice's four states once per account and window through mailing's ledger; the example app runs it from a script.
