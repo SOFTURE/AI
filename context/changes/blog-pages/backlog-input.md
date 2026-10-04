@@ -15,7 +15,7 @@ archived_at: null
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **BL-4** (roadmap `blog`, main since 2026-10-04):
+From [`roadmap.md`](../../foundation/roadmap.md), item **BL-4** (roadmap `blog`, main since 2026-10-04):
 
 > ### BL-4: Blog pages
 > - **Change ID:** `blog-pages`
@@ -39,8 +39,8 @@ From [`roadmap.md`](../../../foundation/roadmap.md), item **BL-4** (roadmap `blo
 > - **PRD refs:** FR-29, FR-9, NFR-3, NFR-6.
 > - **Source (FIRE_TRACKER, read only):** `src/app/blog/**`, `src/lib/blog-page.ts`, `src/lib/blog-route.ts`, `src/lib/blog-proxy.ts`, `src/lib/blog-data.ts`
 
-Reference material: [`docs/06-fire-extraction-2.md`](../../../../docs/06-fire-extraction-2.md) (the FIRE_TRACKER source map and the split rules),
-[`docs/02-module-standard.md`](../../../../docs/02-module-standard.md) (the standard). FIRE_TRACKER is read only:
+Reference material: [`docs/06-fire-extraction-2.md`](../../../docs/06-fire-extraction-2.md) (the FIRE_TRACKER source map and the split rules),
+[`docs/02-module-standard.md`](../../../docs/02-module-standard.md) (the standard). FIRE_TRACKER is read only:
 copy its code, never change it.
 
 ## Constraints
