@@ -23,7 +23,7 @@ Input: change.md, backlog-input.md (roadmap MO-2). Depth: deep (money). Snapshot
 
 - **Plans.** Options schema `src/options.ts` (ISO 4217 code `/^[A-Z]{3}$/` and `isSupportedCurrency`,
   `:43`; unique ids; period shorthand or `{ unit, count }`). Pure helpers in `src/plans.ts`:
-  `getPeriodEnd` (local days, month clamp, `:23-47`), `getPlanGrant` (a period starts where access
+  `addMonths` and `getPeriodEnd` (local days, month clamp, `:23-47`), `getPlanGrant` (a period starts where access
   ends, `:59-63`).
 - **Prices.** `formatPrice` and `getMinorUnitDigits` take the digits from `Intl`
   (`src/price.ts:20-31`): JPY 0, KWD and BHD 3, PLN 2. Tests cover PLN, EUR, USD, JPY

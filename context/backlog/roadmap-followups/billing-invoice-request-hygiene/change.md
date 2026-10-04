@@ -17,10 +17,16 @@ A manual invoice request is stored before it is handed to the provider (the owne
 
 From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-27** (roadmap `followups`):
 
+> ### FU-27: Invoice requests are stored before the owner hears of them and keep only what they need
+> - **Change ID:** `billing-invoice-request-hygiene`
+> - **Status:** proposed
 > - **Outcome:** A manual invoice request is stored before it is handed to the provider (the owner's mail), a refresh of an open request does not mail the owner again, invoice fields are parsed by a zod schema that refuses control characters, a too-long field gets its own message, open requests older than a configurable age are closed with their details cleared, and requests and manual grants record the plan's amount and currency.
 > - **Prerequisites:** FU-26 on `master` (lane C).
 > - **Unknowns:** The default age for closing a stale request; whether the price snapshot needs a migration `0005` on both tables (likely) and how existing rows are left (NULL).
+> - **Risk:** LOW.
 > - **Baseline:** monetization MO-2 `billing-plans-pricing` and FU-9 `billing-admin-requests`: `startPayment` hands the request over before `recordPaymentRequest` (`src/server/plans.ts`), a refresh mails again, a newline in the name adds lines to the owner's mail, one text says "fill in" for a too-long optional tax ID, an unclosed request keeps personal data forever, and a manual grant records no price. After: the gap is closed and covered by unit and e2e tests.
+> - **PRD refs:** FR-22.
+> - **Source:** FU-12 retro plan review of MO-2, S1-S4 (`context/archive/2026-10-03-billing-plans-pricing/reviews/plan-review.md`); `modules/billing/src/server/plans.ts`, `src/fields.ts`, `migrations/0004_create_requests_and_grants.sql`
 
 ## Constraints
 

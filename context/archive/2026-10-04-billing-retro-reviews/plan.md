@@ -62,5 +62,5 @@ archived documents that already exist.
 ### Phase 2: Followup items
 
 #### Automated
-- [ ] 2.1 Four entries exist with `status: backlog`; the roadmap table, blocks, lane C and order list name them
-- [ ] 2.2 Gates green (typecheck, lint, test)
+- [x] 2.1 Four entries exist with `status: backlog`; the roadmap table, blocks, lane C and order list name them — 71c912f
+- [x] 2.2 Gates green (typecheck, lint, test) — 71c912f

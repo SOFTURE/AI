@@ -17,10 +17,16 @@ CI proves billing's guards and locks: `requireWriteAccess` and every billing ser
 
 From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-26** (roadmap `followups`):
 
+> ### FU-26: Billing guards and lock races are tested where they can fail
+> - **Change ID:** `billing-guard-race-tests`
+> - **Status:** proposed
 > - **Outcome:** CI proves billing's guards and locks: `requireWriteAccess` and every billing server action are unit-tested as anonymous, member and admin; the first-insert race of `changeEntitlement` and two concurrent plan grants run on two Postgres connections; an e2e covers a paid period that ended; a misspelt `adminRole` (not among `auth({ roles })`) fails at setup instead of silently locking every admin out.
 > - **Prerequisites:** FU-25 on `master` (lane C).
 > - **Unknowns:** How a unit test mocks the Next session for `/next` actions (auth's test helpers vs. a module mock); running the two-connection tests against the CI Postgres service vs. the e2e database.
+> - **Risk:** LOW.
 > - **Baseline:** monetization MO-1 and MO-2: the guards are correct today but no unit test calls them without a session or role; the race tests run on PGlite, one connection, so they cannot fail (MO-1 impl review #5, MO-2 impl review #1). After: the gap is closed by the tests themselves.
+> - **PRD refs:** FR-22.
+> - **Source:** FU-12 retro plan reviews: MO-1 W3, S1, S2; MO-2 W2, W3, S5 (`context/archive/2026-10-03-billing-entitlements/reviews/plan-review.md`, `context/archive/2026-10-03-billing-plans-pricing/reviews/plan-review.md`)
 
 ## Constraints
 

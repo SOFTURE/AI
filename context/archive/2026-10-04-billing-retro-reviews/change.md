@@ -1,12 +1,12 @@
 ---
 change_id: billing-retro-reviews
 title: "MO-1 and MO-2 carry their missing research and plan reviews, checked against today's code"
-status: implementing
+status: archived
 roadmap_item: FU-12
 branch: claude/fu-12-retro-review-0g3oj6
 created: 2026-10-04
 updated: 2026-10-04
-archived_at: null
+archived_at: 2026-10-04
 ---
 
 ## Intent
@@ -51,3 +51,4 @@ grants, revoke, history, migration 0004).
 - Research: done (`research.md` here), since the retro documents must rest on today's code.
 - Framing skipped: the problem and the outcome are fixed by the roadmap item; there is no
   solution in doubt, only findings to collect.
+- Archived 2026-10-04: MO-1 has its retro plan review, MO-2 its retro research and plan review, all checked against b6c92c4; the findings that still apply are filed as FU-24 (existing accounts), FU-25 (Stripe currency units), FU-26 (guard and race tests) and FU-27 (invoice request hygiene) in lane C.

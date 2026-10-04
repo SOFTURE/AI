@@ -53,7 +53,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-8** | `waitlist-funnel-hook` | Waitlist sign-ups as a funnel step | FU-4 | autonomous | proposed |
 | **FU-9** | `billing-admin-requests` | Payment requests, revoke and grant history in the billing admin page | FU-11 | autonomous | done |
 | **FU-11** | `billing-refund-one-payment` | Refunds that take back one payment's period | — | autonomous | done |
-| **FU-12** | `billing-retro-reviews` | Retro research and plan review for MO-1 and MO-2 | — | autonomous | in_progress (implement 2/2, since 2026-10-04; claude/fu-12-retro-review-0g3oj6) |
+| **FU-12** | `billing-retro-reviews` | Retro research and plan review for MO-1 and MO-2 | — | autonomous | done |
 | **FU-13** | `marketing-kit-render-ci` | the marketing-kit fixture film renders to a draft MP4 on every push | — | autonomous | done |
 | **FU-14** | `marketing-kit-schema-docs` | every key of the marketing.json JSON Schema carries a description | — | autonomous | done_code (2026-10-03; waiting: owner editor check, MK-8 release) |
 | **FU-15** | `marketing-kit-desktop-16x9` | desktop 16:9 films recorded in a browser frame instead of a phone | FU-16 | autonomous | proposed |
@@ -79,7 +79,7 @@ after another; different lanes run in parallel, up to 4 at once.
 | --- | --- | --- |
 | A: switches | FU-1 | `foundation/core/`, `modules/auth/`, `modules/feature-switches/` |
 | B: waitlist and consent | FU-3 → FU-2 → FU-4 → FU-8 | `modules/waitlist/` (FU-3 also `modules/mailing/`, `modules/privacy/`) |
-| C: billing | FU-11 → FU-9 → FU-6 → FU-20 → FU-21 → FU-22 → FU-24 → FU-25 → FU-26 → FU-27; FU-12 any time | `modules/billing/` and its migrations; FU-12 writes archive documents only |
+| C: billing | FU-11 → FU-9 → FU-6 → FU-20 → FU-21 → FU-22 → FU-24 → FU-25 → FU-26 → FU-27; FU-12 any time | `modules/billing/` and its migrations; FU-12 writes documents only (archives and followup entries) |
 | D: analytics | FU-5 → FU-7 (FU-7 also after FU-1) | `modules/analytics/` channel propagation; FU-7 may touch auth's redirects |
 | E: marketing-kit config | FU-14 → FU-16 → FU-15; FU-14 → FU-18 → FU-19 | `tools/marketing-kit/src/config/schema.ts`, `schema/`, `src/compose/` (FU-15, FU-16) |
 | F: independent | FU-13, FU-17 → FU-23 | `.github/workflows/ci.yml`; `tools/marketing-kit/src/og/` |
@@ -282,8 +282,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-12: Retro research and plan review for MO-1 and MO-2
 - **Change ID:** `billing-retro-reviews`
-- **Status:** in_progress (implement 2/2, since 2026-10-04; claude/fu-12-retro-review-0g3oj6)
-- **Input:** [`changes/billing-retro-reviews/change.md`](../changes/billing-retro-reviews/change.md)
+- **Status:** done
+- **Input:** [`archive/2026-10-04-billing-retro-reviews/change.md`](../archive/2026-10-04-billing-retro-reviews/change.md)
 - **Outcome:** `research.md` and `reviews/plan-review.md` written after the fact for `billing-entitlements` (MO-1, plan review skipped) and `billing-plans-pricing` (MO-2, research and plan review skipped); every finding that still applies to the code is fixed or filed as its own FU item.
 - **Prerequisites:** none beyond the main branch.
 - **Unknowns:** Whether findings need code changes in `modules/billing/` (then they become their own items).
@@ -421,7 +421,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 - **Risk:** MEDIUM.
 - **Baseline:** monetization MO-1 `billing-entitlements`: a row-less account's trial starts at `auth.users.created_at`, so every account older than `trial.days` is read-only on the first read after billing is enabled; FIRE's `trial_ends_at` / `paid_until` have no import path; a change of `trial.days` or `config.timezone` moves every derived trial (README §5 names only `trial.days`). After: the gap is closed and covered by unit tests on PGlite and an e2e.
 - **PRD refs:** FR-22.
-- **Source:** FU-12 retro plan review of MO-1, W1 and W2 (`context/archive/2026-10-03-billing-entitlements/reviews/plan-review.md`); `modules/billing/src/server/entitlements.ts`, `modules/billing/README.md` §1 and §5
+- **Source:** FU-12 retro plan review of MO-1, W1 and W2 (`context/archive/2026-10-03-billing-entitlements/reviews/plan-review.md`); `modules/billing/src/server/entitlements.ts`, `modules/billing/README.md` intro and §5
 
 ### FU-25: Stripe charges the plan's price in every currency
 - **Change ID:** `billing-stripe-currency-units`

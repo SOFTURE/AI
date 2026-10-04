@@ -22,7 +22,7 @@ share files run in one lane (see the roadmap's Order), so `dependency` below nam
 | FU-6 | [`billing-reminder-mail`](billing-reminder-mail/change.md) | Reminder mail before access ends | FU-9 on main | dependency |
 | FU-7 | [`analytics-action-redirect-tag`](analytics-action-redirect-tag/change.md) | Channel tag kept through server action redirects | FU-1 and FU-5 on main | dependency |
 | FU-8 | [`waitlist-funnel-hook`](waitlist-funnel-hook/change.md) | Waitlist sign-ups as a funnel step | FU-4 on main | dependency |
-| FU-12 | [`billing-retro-reviews`](../../changes/billing-retro-reviews/change.md) | Retro research and plan review for MO-1 and MO-2 | taken 2026-10-04 | start |
+| FU-12 | [`billing-retro-reviews`](../../archive/2026-10-04-billing-retro-reviews/change.md) | Retro research and plan review for MO-1 and MO-2 | archived 2026-10-04 | start |
 | FU-13 | [`marketing-kit-render-ci`](../../archive/2026-10-03-marketing-kit-render-ci/change.md) | The marketing-kit fixture film renders in CI | archived 2026-10-03 | start |
 | FU-14 | [`marketing-kit-schema-docs`](../../archive/2026-10-03-marketing-kit-schema-docs/change.md) | The marketing.json JSON Schema documents every key | archived 2026-10-03 | start |
 | FU-15 | [`marketing-kit-desktop-16x9`](marketing-kit-desktop-16x9/change.md) | A 16:9 film can show the desktop app in a browser frame | FU-16 on main | dependency |
