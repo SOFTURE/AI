@@ -1,12 +1,12 @@
 ---
 change_id: billing-guard-race-tests
 title: "Billing guards and lock races are tested where they can fail"
-status: planned
+status: archived
 roadmap_item: FU-26
 branch: claude/fu-26-billing-guard-race-tests-kvrgtv
 created: 2026-10-04
 updated: 2026-10-04
-archived_at: null
+archived_at: 2026-10-04
 ---
 
 ## Intent
@@ -45,3 +45,8 @@ From [`roadmap.md`](../../foundation/roadmap.md), item **FU-26** (roadmap `follo
   a real race (filed as a new FU item, see research finding 5).
 - Framing skipped: the problem is stated by six retro findings with file references and confirmed by
   research; nothing about the problem is in doubt, only how to test it.
+- Archived 2026-10-04: every billing server action and `requireWriteAccess` are unit-tested as
+  anonymous, member and admin with the real auth checks; the first-insert race and concurrent manual
+  grants run on Postgres (CI's service) with the order forced by a blocker connection, and each was
+  seen failing under a mutation; an undeclared `adminRole` fails the first billing request and the
+  readiness probe; the e2e covers an ended paid period. The spike's lifetime-grant race is FU-33.

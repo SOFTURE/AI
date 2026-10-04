@@ -92,17 +92,17 @@ actions and `requireWriteAccess` share one set of request-scope mocks), `tests/p
 ### Phase 1: Guards and locks
 
 #### Automated
-- [ ] 1.1 Every admin action refuses anonymous and member callers with `auth.forbidden` and writes nothing; admin succeeds
-- [ ] 1.2 `startPaymentAction` sends an anonymous visitor to login and takes a member's request
-- [ ] 1.3 `requireWriteAccess`: redirect, `Ok`, `billing.read_only`
-- [ ] 1.4 First-insert race and concurrent manual grants pass on Postgres with a forced order; CI guard present
-- [ ] 1.5 Mutations of the guarded locks and checks fail the new tests (recorded in impl review)
-- [ ] 1.6 Gates green (typecheck, lint, test, build)
+- [x] 1.1 Every admin action refuses anonymous and member callers with `auth.forbidden` and writes nothing; admin succeeds — c73d440
+- [x] 1.2 `startPaymentAction` sends an anonymous visitor to login and takes a member's request — c73d440
+- [x] 1.3 `requireWriteAccess`: redirect, `Ok`, `billing.read_only` — c73d440
+- [x] 1.4 First-insert race and concurrent manual grants pass on Postgres with a forced order; CI guard present — c73d440
+- [x] 1.5 Mutations of the guarded locks and checks fail the new tests (recorded in impl review) — c73d440
+- [x] 1.6 Gates green (typecheck, lint, test, build) — c73d440
 
 ### Phase 2: Admin role check and e2e
 
 #### Automated
-- [ ] 2.1 A misspelt `adminRole` throws at `getBillingContext` and fails the readiness probe, naming the option
-- [ ] 2.2 The e2e covers a paid period that ended
-- [ ] 2.3 The lifetime-grant race is filed as a new FU item
-- [ ] 2.4 Gates green (typecheck, lint, test, build, e2e for the billing specs)
+- [x] 2.1 A misspelt `adminRole` throws at `getBillingContext` and fails the readiness probe, naming the option — 6ef38a1
+- [x] 2.2 The e2e covers a paid period that ended — 6ef38a1
+- [x] 2.3 The lifetime-grant race is filed as a new FU item — 6ef38a1
+- [x] 2.4 Gates green (typecheck, lint, test, build, e2e for the billing specs) — 6ef38a1
