@@ -37,9 +37,13 @@ describe("Stripe's currency units", () => {
   it("sends two-, zero- and three-decimal amounts unchanged", () => {
     expect(toStripeAmount({ amount: 2900, currency: "PLN" })).toBe(2900);
     expect(toStripeAmount({ amount: 1500, currency: "JPY" })).toBe(1500);
-    // HUF and TWD: two-decimal charges; only payouts must be divisible by 100.
-    expect(toStripeAmount({ amount: 2950, currency: "HUF" })).toBe(2950);
-    expect(toStripeAmount({ amount: 80045, currency: "TWD" })).toBe(80045);
+    // HUF and TWD: two-decimal charges (only payouts must be divisible by 100). Intl's digits for
+    // them depend on the runtime's CLDR (HUF has 2 in some Node builds, 0 in others), so the amount
+    // Stripe gets follows Intl's unit to two decimals.
+    for (const currency of ["HUF", "TWD"]) {
+      expect(getStripeMinorUnitDigits(currency)).toBe(2);
+      expect(toStripeAmount({ amount: 2950, currency })).toBe(2950 * 10 ** (2 - getMinorUnitDigits(currency)));
+    }
     expect(toStripeAmount({ amount: 1250, currency: "KWD" })).toBe(1250);
   });
 

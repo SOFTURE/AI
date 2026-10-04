@@ -67,6 +67,11 @@ names the plan, as the other option errors do.
 
 ## Risks
 
+- `Intl`'s digits depend on the runtime's CLDR: the CI runner's Node 22 gives HUF 0 digits, the
+  local Node 22.22 gives 2 (found by this change's CI). The conversion follows `Intl`'s unit, so it is
+  right on both; the plan amount's meaning changing with the runtime is older than this change and
+  filed as FU-32.
+
 - A1/A2 rest on Stripe's earlier guide where the current export is silent. Both lists are constants
   in one file with the source named, so a change is a one-line edit; the sandbox e2e (LT-1) charges a
   real amount.

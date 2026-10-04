@@ -1,6 +1,6 @@
 // The Stripe adapter with Stripe's API replaced by a recording `fetch`: the Checkout session it asks
 // for, the redirect it answers, and every way Stripe can fail turned into `billing.payment_failed`.
-import { getCheckoutSessionParams, stripe, type BillingOptionsInput, type PaymentRequest } from "@softure-ai/billing";
+import { getCheckoutSessionParams, getMinorUnitDigits, stripe, type BillingOptionsInput, type PaymentRequest } from "@softure-ai/billing";
 import { startPayment } from "@softure-ai/billing/server";
 import { err, ok } from "@softure-ai/core";
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
@@ -53,8 +53,8 @@ describe("getCheckoutSessionParams", () => {
     expect(unitAmount({ amount: 5000, currency: "UGX" })).toBe("500000");
     expect(unitAmount({ amount: 1500, currency: "ALL" })).toBe("150000");
     expect(unitAmount({ amount: 1500, currency: "JPY" })).toBe("1500");
-    expect(unitAmount({ amount: 2950, currency: "HUF" })).toBe("2950");
-    expect(unitAmount({ amount: 2950, currency: "TWD" })).toBe("2950");
+    // HUF and TWD are two-decimal at Stripe; Intl's digits for them depend on the runtime's CLDR.
+    for (const currency of ["HUF", "TWD"]) expect(unitAmount({ amount: 2950, currency })).toBe(String(2950 * 10 ** (2 - getMinorUnitDigits(currency))));
     expect(unitAmount({ amount: 1250, currency: "KWD" })).toBe("1250");
   });
 

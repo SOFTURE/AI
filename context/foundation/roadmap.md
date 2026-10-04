@@ -73,6 +73,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-29** | `marketing-kit-font-files-description` | the marketing.json font files description admits subset files | FU-23 | autonomous | done_code (2026-10-04; waiting: MK-8 release) |
 | **FU-30** | `billing-failed-refund-access` | a refund that fails gives back the access it took | FU-27 | autonomous | proposed |
 | **FU-31** | `auth-require-user-redirect-tag` | `requireUser`'s redirect to login keeps the channel tag | FU-28 | autonomous | done_code (2026-10-04; waiting: the next releases of `@softure-ai/auth` and `@softure-ai/billing`) |
+| **FU-32** | `billing-price-minor-units` | a plan's price means the same amount on every runtime (pinned minor units) | FU-30 | autonomous | proposed |
 
 ## Order
 
@@ -83,7 +84,7 @@ after another; different lanes run in parallel, up to 4 at once.
 | --- | --- | --- |
 | A: switches | FU-1 | `foundation/core/`, `modules/auth/`, `modules/feature-switches/` |
 | B: waitlist and consent | FU-3 → FU-2 → FU-4 → FU-8 | `modules/waitlist/` (FU-3 also `modules/mailing/`, `modules/privacy/`) |
-| C: billing | FU-11 → FU-9 → FU-6 → FU-20 → FU-21 → FU-22 → FU-24 → FU-25 → FU-26 → FU-27 → FU-30; FU-12 any time | `modules/billing/` and its migrations; FU-12 writes documents only (archives and followup entries) |
+| C: billing | FU-11 → FU-9 → FU-6 → FU-20 → FU-21 → FU-22 → FU-24 → FU-25 → FU-26 → FU-27 → FU-30 → FU-32; FU-12 any time | `modules/billing/` and its migrations; FU-12 writes documents only (archives and followup entries) |
 | D: analytics | FU-5 → FU-7 → FU-28 → FU-31 (FU-7 also after FU-1) | `modules/analytics/` channel propagation; FU-7 may touch auth's redirects |
 | E: marketing-kit config | FU-14 → FU-16 → FU-15; FU-14 → FU-18 → FU-19 → FU-29 | `tools/marketing-kit/src/config/schema.ts`, `schema/`, `src/compose/` (FU-15, FU-16) |
 | F: independent | FU-13, FU-17 → FU-23 | `.github/workflows/ci.yml`; `tools/marketing-kit/src/og/` |
@@ -92,7 +93,7 @@ after another; different lanes run in parallel, up to 4 at once.
    adopts the switches; FU-3 fixes a consent ledger that can contradict an unsubscribe), then the MEDIUM refund
    fix and the schema descriptions that every later marketing-kit config item extends.
 2. **Each free slot** takes the first item of this list whose lane is idle and whose dependencies are on `master`:
-   FU-2, FU-5, FU-13, FU-17, FU-9, FU-16, FU-18, FU-4, FU-7, FU-12, FU-6, FU-15, FU-8, FU-19, FU-20, FU-21, FU-22, FU-23, FU-24, FU-25, FU-26, FU-27, FU-28, FU-29, FU-30, FU-31.
+   FU-2, FU-5, FU-13, FU-17, FU-9, FU-16, FU-18, FU-4, FU-7, FU-12, FU-6, FU-15, FU-8, FU-19, FU-20, FU-21, FU-22, FU-23, FU-24, FU-25, FU-26, FU-27, FU-28, FU-29, FU-30, FU-31, FU-32.
 3. **MK-8, EN-9 and MO-6** (owner, carried over): the owner's batch release on 2026-10-05; they wait for no FU item,
    and no FU item waits for them.
 
@@ -137,6 +138,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 | FU-29 | no | one `.describe()` text in the config schema and the regenerated JSON Schema |
 | FU-30 | no | a billing webhook path with signed fixtures; no Stripe secrets |
 | FU-31 | no | auth's `requireUser` and the same rewrite; covered by the example app's e2e |
+| FU-32 | no | a pinned table in `src/price.ts` and unit tests; no secrets |
 
 ## Items
 
@@ -519,6 +521,16 @@ owner's own machine, a product decision only the owner can make, or a change in 
 - **Baseline:** FU-28 `auth-page-redirect-tag`: the login and register pages' redirect of a signed-in visitor keeps the tag through `rewriteRedirect` with the page's `searchParams`; `requireUser` (`modules/auth/src/next/current-user.ts`) redirects to login with neither. After: the redirect keeps the tag, covered by e2e.
 - **PRD refs:** FR-23.
 - **Source:** FU-28 research ("Open questions"); `modules/analytics/README.md` §12
+
+### FU-32: A plan's price means the same amount on every runtime
+- **Change ID:** `billing-price-minor-units`
+- **Status:** proposed
+- **Outcome:** The minor unit of a plan's `price.amount` comes from a table billing pins (ISO 4217, with the overrides billing chooses), not from the runtime's `Intl`/CLDR, so a HUF 29.50 plan is formatted and charged the same on every Node build; a test fails if the pinned table and the runtime disagree in a way that changes a price.
+- **Prerequisites:** FU-30 on `master` (lane C).
+- **Unknowns:** Which digits to pin for currencies where ISO 4217 and CLDR differ (HUF, TWD, ISK, ALL, IQD ...); whether to keep formatting through `Intl` with `minimumFractionDigits`/`maximumFractionDigits` set from the table; how to tell deployers whose plans were written against the other unit.
+- **Risk:** MEDIUM. `getMinorUnitDigits` reads `Intl`, whose digits vary with the runtime's CLDR: HUF has 2 digits on Node 22.22 locally and 0 on the CI runner's Node 22 (FU-25's first CI run), so `amount: 2950` is HUF 29.50 on one and HUF 2,950 on the other, in the tiles and at Stripe alike.
+- **Baseline:** MO-2 `billing-plans-pricing`: amounts in `Intl`'s minor unit (`src/price.ts`); FU-25 converts to Stripe's unit from those digits, so it inherits the runtime dependence. After: the gap is closed and covered by unit tests that pin the digits.
+- **Source:** FU-25 `billing-stripe-currency-units` CI (unit tests on HUF failed on the runner with 295000 for 2950); `modules/billing/src/price.ts`
 
 ## Owner decisions and checks
 

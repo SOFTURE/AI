@@ -27,5 +27,10 @@ against plan.md and the plan review. Verdict: **approved**, no open findings.
 
 ## Findings
 
-None. No new gaps for the followups roadmap: Stripe's minimum and maximum amounts and unsupported
-currencies are Stripe's own refusals at Checkout (research "Not gaps").
+None open. Stripe's minimum and maximum amounts and unsupported currencies are Stripe's own refusals
+at Checkout (research "Not gaps").
+
+CI found one thing local runs could not: the runner's Node 22 gives HUF 0 digits in `Intl` where the
+local Node 22.22 gives 2. The conversion was right on both (it follows `Intl`'s unit); two tests had
+hard-coded the local digits and now derive them. The runtime dependence itself predates this change
+(MO-2 reads the minor unit from `Intl`) and is filed as **FU-32** `billing-price-minor-units`.
