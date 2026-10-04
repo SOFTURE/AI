@@ -23,6 +23,7 @@ export {
   type RevokeManualGrantInput,
 } from "./grants.js";
 export { checkBillingTables } from "./health.js";
+export { findAccessReminders, type AccessReminderDue, type FindAccessRemindersOptions } from "./reminders.js";
 export {
   receiveStripeWebhook,
   recordPayment,

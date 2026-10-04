@@ -267,7 +267,9 @@ auth({
 ## 5. Migrations and tables
 
 `softure migrate` applies `migrations/0001_create_users_and_sessions.sql`,
-`0002_create_user_roles.sql` and `0003_create_password_resets.sql` after security's.
+`0002_create_user_roles.sql`, `0003_create_password_resets.sql` and
+`0004_index_users_created_at.sql` (an index on `users.created_at` for billing's reminder mail)
+after security's.
 
 - `auth.users(id uuid, email, password_hash, created_at, password_changed_at)`: the email is stored
   trimmed and lowercased (`CHECK`), unique; the hash must be a `scrypt$…` string.

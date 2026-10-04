@@ -15,6 +15,24 @@ export const en = {
     choosePlan: "Choose a plan",
     renew: "Renew access",
   },
+  reminderMail: {
+    trialEnding: {
+      subject: "Your trial ends on {date}",
+      body: "Your trial ends on {date}. Choose a plan to keep writing after that; your data stays safe either way.",
+    },
+    paidEnding: {
+      subject: "Your access ends on {date}",
+      body: "Your access ends on {date}. Renew it to keep writing after that; your data stays safe either way.",
+    },
+    trialEnded: {
+      subject: "Your trial has ended",
+      body: "Your trial has ended. Your data is safe and you can still read it; choose a plan to write again.",
+    },
+    paidEnded: {
+      subject: "Your access has ended",
+      body: "Your access has ended. Your data is safe and you can still read it; renew it to write again.",
+    },
+  },
   pricing: {
     period: {
       day: { one: "per day", few: "per {count} days", many: "per {count} days", other: "per {count} days" },
