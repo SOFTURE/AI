@@ -69,7 +69,8 @@ backlog: context/backlog/roadmap-followups/
 | **FU-25** | `billing-stripe-currency-units` | Stripe charges the plan's price in every currency (special-case units) | FU-24 | autonomous | proposed |
 | **FU-26** | `billing-guard-race-tests` | billing guards and lock races tested where they can fail | FU-25 | autonomous | proposed |
 | **FU-27** | `billing-invoice-request-hygiene` | invoice requests stored before the owner's mail, validated, expired and priced | FU-26 | autonomous | proposed |
-| **FU-28** | `auth-page-redirect-tag` | a signed-in visitor's redirect from a tagged login page keeps the tag | FU-7 | autonomous | proposed |
+| **FU-28** | `auth-page-redirect-tag` | a signed-in visitor's redirect from a tagged login page keeps the tag | FU-7 | autonomous | in_progress (impl-review, since 2026-10-04; claude/fu-28-auth-page-redirect-tag-jxa369) |
+| **FU-29** | `auth-require-user-redirect-tag` | `requireUser`'s redirect to login keeps the channel tag | FU-28 | autonomous | proposed |
 
 ## Order
 
@@ -81,7 +82,7 @@ after another; different lanes run in parallel, up to 4 at once.
 | A: switches | FU-1 | `foundation/core/`, `modules/auth/`, `modules/feature-switches/` |
 | B: waitlist and consent | FU-3 → FU-2 → FU-4 → FU-8 | `modules/waitlist/` (FU-3 also `modules/mailing/`, `modules/privacy/`) |
 | C: billing | FU-11 → FU-9 → FU-6 → FU-20 → FU-21 → FU-22 → FU-24 → FU-25 → FU-26 → FU-27; FU-12 any time | `modules/billing/` and its migrations; FU-12 writes documents only (archives and followup entries) |
-| D: analytics | FU-5 → FU-7 → FU-28 (FU-7 also after FU-1) | `modules/analytics/` channel propagation; FU-7 may touch auth's redirects |
+| D: analytics | FU-5 → FU-7 → FU-28 → FU-29 (FU-7 also after FU-1) | `modules/analytics/` channel propagation; FU-7 may touch auth's redirects |
 | E: marketing-kit config | FU-14 → FU-16 → FU-15; FU-14 → FU-18 → FU-19 | `tools/marketing-kit/src/config/schema.ts`, `schema/`, `src/compose/` (FU-15, FU-16) |
 | F: independent | FU-13, FU-17 → FU-23 | `.github/workflows/ci.yml`; `tools/marketing-kit/src/og/` |
 
@@ -89,7 +90,7 @@ after another; different lanes run in parallel, up to 4 at once.
    adopts the switches; FU-3 fixes a consent ledger that can contradict an unsubscribe), then the MEDIUM refund
    fix and the schema descriptions that every later marketing-kit config item extends.
 2. **Each free slot** takes the first item of this list whose lane is idle and whose dependencies are on `master`:
-   FU-2, FU-5, FU-13, FU-17, FU-9, FU-16, FU-18, FU-4, FU-7, FU-12, FU-6, FU-15, FU-8, FU-19, FU-20, FU-21, FU-22, FU-23, FU-24, FU-25, FU-26, FU-27, FU-28.
+   FU-2, FU-5, FU-13, FU-17, FU-9, FU-16, FU-18, FU-4, FU-7, FU-12, FU-6, FU-15, FU-8, FU-19, FU-20, FU-21, FU-22, FU-23, FU-24, FU-25, FU-26, FU-27, FU-28, FU-29.
 3. **MK-8, EN-9 and MO-6** (owner, carried over): the owner's batch release on 2026-10-05; they wait for no FU item,
    and no FU item waits for them.
 
@@ -131,6 +132,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 | FU-26 | no | unit tests, Postgres tests on the CI service and one e2e |
 | FU-27 | no | a migration and server changes tested on PGlite; the fake mail provider covers the e2e |
 | FU-28 | no | auth's page redirect through the same rewrite; covered by the example app's e2e |
+| FU-29 | no | auth's `requireUser` and the same rewrite; covered by the example app's e2e |
 
 ## Items
 
@@ -463,7 +465,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-28: A signed-in visitor's redirect from a tagged login page keeps the tag
 - **Change ID:** `auth-page-redirect-tag`
-- **Status:** proposed
+- **Status:** in_progress (impl-review, since 2026-10-04; claude/fu-28-auth-page-redirect-tag-jxa369)
+- **Input:** [`changes/auth-page-redirect-tag/change.md`](../changes/auth-page-redirect-tag/change.md)
 - **Outcome:** Auth's login and register pages redirect a signed-in visitor to a URL that keeps the page's own channel tag (for example `rewriteRedirect` given the page's search parameters, or a page-level counterpart of `tagRedirect` that reads them instead of `Referer`).
 - **Prerequisites:** FU-7 on `master` (shared files, see Order).
 - **Unknowns:** Whether `rewriteRedirect` can read the page's own URL in a render (it reads `Referer` today); whether the case matters enough beyond the account page's beacon.
@@ -471,6 +474,17 @@ owner's own machine, a product decision only the owner can make, or a change in 
 - **Baseline:** FU-7 `analytics-action-redirect-tag`: actions keep the tag through `rewriteRedirect`; the pages' `redirect(next)` in `modules/auth/src/next/pages.tsx` does not use it, and the follow-up request's `Referer` is the page before the tagged one (analytics README §12). After: the page redirect keeps the tag, covered by e2e.
 - **PRD refs:** FR-23.
 - **Source:** FU-7 research ("Open questions"); `modules/analytics/README.md` §12
+
+### FU-29: `requireUser`'s redirect to login keeps the channel tag
+- **Change ID:** `auth-require-user-redirect-tag`
+- **Status:** proposed
+- **Outcome:** A page that calls `requireUser()` while it renders sends a visitor without a session to the login page at a URL that keeps the page's channel tag (for example a `searchParams` option on `requireUser` handed to the app's `rewriteRedirect`, or a documented rule that such pages sit behind the proxy's auth guard).
+- **Prerequisites:** FU-28 on `master` (shared files, see Order).
+- **Unknowns:** Whether pages outside the proxy's guard are common enough to need it; how a page hands its search params to `requireUser` without changing every call.
+- **Risk:** LOW. Only pages the proxy's auth guard does not protect; the login page and the sign-up after it land under no channel.
+- **Baseline:** FU-28 `auth-page-redirect-tag`: the login and register pages' redirect of a signed-in visitor keeps the tag through `rewriteRedirect` with the page's `searchParams`; `requireUser` (`modules/auth/src/next/current-user.ts`) redirects to login with neither. After: the redirect keeps the tag, covered by e2e.
+- **PRD refs:** FR-23.
+- **Source:** FU-28 research ("Open questions"); `modules/analytics/README.md` §12
 
 ## Owner decisions and checks
 

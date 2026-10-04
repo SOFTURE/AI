@@ -73,6 +73,18 @@ describe("tagRedirect", () => {
     requestHeaders.set("referer", `${APP_ORIGIN}/register?z=newsletter`);
     expect(await tagRedirect("/account?z=ads")).toBe("/account?z=ads");
   });
+
+  it("tags a page's own redirect with the channel of the page's search params, not the Referer", async () => {
+    requestHeaders.set("referer", `${APP_ORIGIN}/pricing?z=newsletter`);
+    expect(await tagRedirect("/account", { config, searchParams: new URLSearchParams("z=ads&next=%2Faccount") })).toBe("/account?z=ads");
+    expect(await tagRedirect("/account", { config, searchParams: { z: ["ads", "other"] } })).toBe("/account?z=ads");
+  });
+
+  it("leaves a page's own redirect untagged when the page's search params carry no valid channel", async () => {
+    requestHeaders.set("referer", `${APP_ORIGIN}/pricing?z=newsletter`);
+    expect(await tagRedirect("/account", { config, searchParams: new URLSearchParams() })).toBe("/account");
+    expect(await tagRedirect("/account", { config, searchParams: { z: "Bad Value" } })).toBe("/account");
+  });
 });
 
 describe("attributeRegistration", () => {

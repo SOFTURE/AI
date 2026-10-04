@@ -42,8 +42,9 @@ zone moved into configuration and the report turned into a function.
   auth that calls `onChannel({ userId, channel }, ctx)` inside the account's transaction when the
   sign-up came with a channel. Where the attribution goes (a column, a counter) is the app's choice.
 - **Redirects that keep the tag** (`/next`): `tagRedirect(path)` adds the request's channel to a
-  server action's redirect path; auth takes it as `rewriteRedirect`, so its login, sign-up, reset
-  and logout redirects land on a tagged URL.
+  server action's redirect path (or a page's, from its own search params); auth takes it as
+  `rewriteRedirect`, so its login, sign-up, reset and logout redirects, and its login and register
+  pages' redirect of a signed-in visitor, land on a tagged URL.
 - **Framework-free reading** (`/server`): `parseChannel`, `readChannel(config, { url, referer, host })`,
   `withChannel`, `tagPath`, `hasChannelParam`, `isFirstParty`.
 - **The funnel** (`analytics({ funnel: { steps } })`): `analytics.funnel_counts` holds one counter
@@ -140,7 +141,10 @@ auth({ rewriteRedirect: tagRedirect }),
 ```
 
 The app's own actions use it the same way: `redirect(await tagRedirect("/thanks"))`. A path that
-already carries the parameter is left as it is.
+already carries the parameter is left as it is. A page that redirects while it renders passes its
+own `searchParams` (its render's `Referer` is the page before): `redirect(await tagRedirect("/", {
+config, searchParams }))`; auth's login and register pages do this for a signed-in visitor through
+the same `rewriteRedirect` option.
 
 `/next` imports `next/headers` only when a function runs, so `softure.config.ts` (which
 `softure migrate` loads in plain Node) can import it.
@@ -244,7 +248,7 @@ copy. The `en` and `pl` dictionaries in `src/messages/` are empty.
 - `countRegistration(step)` builds an auth `onRegistered` hook that counts every sign-up (with its
   channel or without one) as a `server` step; it never throws.
 - `tagRedirect(path, ctx?)` fits auth's `rewriteRedirect` option (§3); auth keeps its own path if
-  it throws.
+  it throws. With `ctx.searchParams` (a page's own redirect) it reads the channel from them alone.
 
 ## 11. GDPR
 
@@ -272,10 +276,10 @@ belong to the app's own privacy contributor.
   without storage.
 - `getChannel()` reads the page the request came from; a page's own render reads its
   `searchParams` instead.
-- **A page's own redirect is not tagged.** Auth's action redirects keep the tag (`tagRedirect`),
-  but a page that redirects while it renders (auth's login and register pages send a signed-in
-  visitor to `afterLogin`) answers a full page load without it: that request's `Referer` is the
-  page before, not the tagged one (FU-28).
+- **`requireUser`'s redirect to login is not tagged.** A page that calls `requireUser()` while it
+  renders sends a visitor without a session to login without the tag: the render has no search
+  params to hand over and its `Referer` is the page before (FU-29). The proxy's auth guard keeps the
+  tag on the pages it protects (`carry`).
 - **Waitlist sign-ups are not a step yet.** The waitlist has no hook to count them from (FU-8);
   the funnel never reads another module's table.
 - **The funnel is a noise filter, not a defence.** Its endpoint checks that a request comes from one
