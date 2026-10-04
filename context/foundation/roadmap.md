@@ -49,7 +49,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-4** | `waitlist-welcome-html` | HTML welcome mail for the waitlist | FU-2 | autonomous | done |
 | **FU-5** | `analytics-client-navigation` | Channel tag on client navigations without Next-Url | — | autonomous | done_code (2026-10-03; waiting: MO-6 release of `@softure-ai/analytics`) |
 | **FU-6** | `billing-reminder-mail` | Reminder mail before access ends | FU-9 | autonomous | proposed |
-| **FU-7** | `analytics-action-redirect-tag` | Channel tag kept through server action redirects | FU-1, FU-5 | autonomous | proposed |
+| **FU-7** | `analytics-action-redirect-tag` | Channel tag kept through server action redirects | FU-1, FU-5 | autonomous | done_code (2026-10-04; waiting: MO-6 release of `@softure-ai/analytics` and the next `@softure-ai/auth` release) |
 | **FU-8** | `waitlist-funnel-hook` | Waitlist sign-ups as a funnel step | FU-4 | autonomous | proposed |
 | **FU-9** | `billing-admin-requests` | Payment requests, revoke and grant history in the billing admin page | FU-11 | autonomous | done |
 | **FU-11** | `billing-refund-one-payment` | Refunds that take back one payment's period | — | autonomous | done |
@@ -69,6 +69,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-25** | `billing-stripe-currency-units` | Stripe charges the plan's price in every currency (special-case units) | FU-24 | autonomous | proposed |
 | **FU-26** | `billing-guard-race-tests` | billing guards and lock races tested where they can fail | FU-25 | autonomous | proposed |
 | **FU-27** | `billing-invoice-request-hygiene` | invoice requests stored before the owner's mail, validated, expired and priced | FU-26 | autonomous | proposed |
+| **FU-28** | `auth-page-redirect-tag` | a signed-in visitor's redirect from a tagged login page keeps the tag | FU-7 | autonomous | proposed |
 
 ## Order
 
@@ -80,7 +81,7 @@ after another; different lanes run in parallel, up to 4 at once.
 | A: switches | FU-1 | `foundation/core/`, `modules/auth/`, `modules/feature-switches/` |
 | B: waitlist and consent | FU-3 → FU-2 → FU-4 → FU-8 | `modules/waitlist/` (FU-3 also `modules/mailing/`, `modules/privacy/`) |
 | C: billing | FU-11 → FU-9 → FU-6 → FU-20 → FU-21 → FU-22 → FU-24 → FU-25 → FU-26 → FU-27; FU-12 any time | `modules/billing/` and its migrations; FU-12 writes documents only (archives and followup entries) |
-| D: analytics | FU-5 → FU-7 (FU-7 also after FU-1) | `modules/analytics/` channel propagation; FU-7 may touch auth's redirects |
+| D: analytics | FU-5 → FU-7 → FU-28 (FU-7 also after FU-1) | `modules/analytics/` channel propagation; FU-7 may touch auth's redirects |
 | E: marketing-kit config | FU-14 → FU-16 → FU-15; FU-14 → FU-18 → FU-19 | `tools/marketing-kit/src/config/schema.ts`, `schema/`, `src/compose/` (FU-15, FU-16) |
 | F: independent | FU-13, FU-17 → FU-23 | `.github/workflows/ci.yml`; `tools/marketing-kit/src/og/` |
 
@@ -88,7 +89,7 @@ after another; different lanes run in parallel, up to 4 at once.
    adopts the switches; FU-3 fixes a consent ledger that can contradict an unsubscribe), then the MEDIUM refund
    fix and the schema descriptions that every later marketing-kit config item extends.
 2. **Each free slot** takes the first item of this list whose lane is idle and whose dependencies are on `master`:
-   FU-2, FU-5, FU-13, FU-17, FU-9, FU-16, FU-18, FU-4, FU-7, FU-12, FU-6, FU-15, FU-8, FU-19, FU-20, FU-21, FU-22, FU-23, FU-24, FU-25, FU-26, FU-27.
+   FU-2, FU-5, FU-13, FU-17, FU-9, FU-16, FU-18, FU-4, FU-7, FU-12, FU-6, FU-15, FU-8, FU-19, FU-20, FU-21, FU-22, FU-23, FU-24, FU-25, FU-26, FU-27, FU-28.
 3. **MK-8, EN-9 and MO-6** (owner, carried over): the owner's batch release on 2026-10-05; they wait for no FU item,
    and no FU item waits for them.
 
@@ -129,6 +130,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 | FU-25 | no | unit tests on the Checkout request body; no Stripe secrets or sandbox call |
 | FU-26 | no | unit tests, Postgres tests on the CI service and one e2e |
 | FU-27 | no | a migration and server changes tested on PGlite; the fake mail provider covers the e2e |
+| FU-28 | no | auth's page redirect through the same rewrite; covered by the example app's e2e |
 
 ## Items
 
@@ -203,7 +205,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-7: Channel tag kept through server action redirects
 - **Change ID:** `analytics-action-redirect-tag`
-- **Status:** proposed
+- **Status:** done_code (2026-10-04; waiting: MO-6 release of `@softure-ai/analytics` and the next `@softure-ai/auth` release)
+- **Input:** [`archive/2026-10-03-analytics-action-redirect-tag/change.md`](../archive/2026-10-03-analytics-action-redirect-tag/change.md)
 - **Outcome:** A server action's redirect from a tagged page (auth's sign-up and login redirect to `afterLogin`) lands on a URL that keeps the channel tag, so the views after sign-up are counted under the visit's channel (for example the auth actions adding the tag through `withChannel`, or a `/next` helper that tags an action's redirect target).
 - **Prerequisites:** FU-1, FU-5 on `master` (shared files, see Order).
 - **Unknowns:** Whether a redirect helper in analytics can wrap auth's actions without auth depending on analytics; how Next renders the redirect target in the action's own response (the proxy never sees a GET for it).
@@ -458,6 +461,17 @@ owner's own machine, a product decision only the owner can make, or a change in 
 - **PRD refs:** FR-22.
 - **Source:** FU-12 retro plan review of MO-2, S1-S4 (`context/archive/2026-10-03-billing-plans-pricing/reviews/plan-review.md`); `modules/billing/src/server/plans.ts`, `src/fields.ts`, `migrations/0004_create_requests_and_grants.sql`
 
+### FU-28: A signed-in visitor's redirect from a tagged login page keeps the tag
+- **Change ID:** `auth-page-redirect-tag`
+- **Status:** proposed
+- **Outcome:** Auth's login and register pages redirect a signed-in visitor to a URL that keeps the page's own channel tag (for example `rewriteRedirect` given the page's search parameters, or a page-level counterpart of `tagRedirect` that reads them instead of `Referer`).
+- **Prerequisites:** FU-7 on `master` (shared files, see Order).
+- **Unknowns:** Whether `rewriteRedirect` can read the page's own URL in a render (it reads `Referer` today); whether the case matters enough beyond the account page's beacon.
+- **Risk:** LOW. Only a signed-in visitor opening a tagged login link with a full page load; the account view lands under no channel.
+- **Baseline:** FU-7 `analytics-action-redirect-tag`: actions keep the tag through `rewriteRedirect`; the pages' `redirect(next)` in `modules/auth/src/next/pages.tsx` does not use it, and the follow-up request's `Referer` is the page before the tagged one (analytics README §12). After: the page redirect keeps the tag, covered by e2e.
+- **PRD refs:** FR-23.
+- **Source:** FU-7 research ("Open questions"); `modules/analytics/README.md` §12
+
 ## Owner decisions and checks
 
 Carried over from marketing-kit (owner, batch at the keyboard on Monday 2026-10-05):
@@ -475,6 +489,7 @@ Open from FU-14:
 
 ## Done
 
+- **FU-7** `analytics-action-redirect-tag`: auth's action redirects keep the channel tag through `rewriteRedirect` and analytics' `tagRedirect`, with and without JavaScript, covered by unit and e2e tests; archived in `archive/2026-10-03-analytics-action-redirect-tag/`
 - **FU-16** `marketing-kit-layout-overrides`: `marketing.json` `layout` overrides a format's caption box and size, persona card, end card and its phone pose, validated against the frame; archived in `archive/2026-10-03-marketing-kit-layout-overrides/`
 - **FU-4** `waitlist-welcome-html`: both waitlist mails carry an HTML body built from their copy (the confirmation link as an anchor); `waitlist({ mailTemplate })` renders it in the app's layout; archived in `archive/2026-10-03-waitlist-welcome-html/`
 - **FU-5** `analytics-client-navigation`: `<ChannelKeeper />` keeps the channel tag on client navigations without `Next-Url`, covered by unit and e2e tests; archived in `archive/2026-10-03-analytics-client-navigation/`

@@ -7,6 +7,7 @@ export {
   getChannelFromSearchParams,
   type RegisteredUserEvent,
   type RegistrationAttribution,
+  tagRedirect,
   type SearchParamsInput,
 } from "./channel.js";
 export { getAnalyticsContext } from "./context.js";

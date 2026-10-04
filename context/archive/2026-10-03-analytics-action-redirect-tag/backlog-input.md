@@ -15,7 +15,7 @@ A server action's redirect from a tagged page (auth's sign-up and login redirect
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-7** (roadmap `followups`, main since 2026-10-03):
+From [`roadmap.md`](../../foundation/roadmap.md), item **FU-7** (roadmap `followups`, main since 2026-10-03):
 
 > ### FU-7: Channel tag kept through server action redirects
 > - **Change ID:** `analytics-action-redirect-tag`
@@ -28,7 +28,7 @@ From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-7** (roadmap `fol
 > - **PRD refs:** FR-23.
 > - **Source:** MO-5, `examples/next-app/e2e/analytics-funnel.spec.ts` (the account view after sign-up) and `modules/analytics/README.md` §12
 
-Reference material: [`docs/02-module-standard.md`](../../../../docs/02-module-standard.md) (the standard).
+Reference material: [`docs/02-module-standard.md`](../../../docs/02-module-standard.md) (the standard).
 
 ## Constraints
 
