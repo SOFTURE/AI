@@ -126,7 +126,7 @@ export async function revokeManualGrant(ctx: BillingContext, input: RevokeManual
       .returning();
     // Revoked by a concurrent click, or erased with the account in the meantime.
     if (revoked === undefined) return err("billing.grant_revoked");
-    const entitlement = await takeBackGrant(
+    const { entitlement } = await takeBackGrant(
       { ...ctx, db: tx },
       {
         userId: found.userId,
@@ -164,6 +164,8 @@ export type AccountHistoryEntry =
       readonly currency: string;
       readonly status: "paid" | "refunded";
       readonly refundedAt: Date | null;
+      /** The total refunded so far: part of `amount` while the payment is still paid. */
+      readonly refundedAmount: number;
     };
 
 /** How many entries of each source the history reads. */
@@ -203,6 +205,7 @@ export async function getAccountHistory(ctx: Pick<BillingContext, "db">, userId:
       currency: row.currency,
       status: row.status,
       refundedAt: row.refundedAt,
+      refundedAmount: row.refundedAmount,
     });
   }
   return entries.sort((first, second) => second.at.getTime() - first.at.getTime());

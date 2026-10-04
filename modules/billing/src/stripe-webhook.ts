@@ -91,7 +91,9 @@ export type StripeWebhookEvent =
   | { readonly type: "checkout_paid"; readonly eventId: string; readonly checkout: PaidCheckout }
   /** A charge refunded in full: take back the access its payment gave, once. */
   | { readonly type: "payment_refunded"; readonly eventId: string; readonly paymentId: string }
-  /** Nothing to do: another event type, a checkout still waiting for its money, a partial refund, a session billing did not create. */
+  /** A charge refunded in part: `amountRefunded` is the total refunded so far, in the currency's minor unit. */
+  | { readonly type: "payment_partially_refunded"; readonly eventId: string; readonly paymentId: string; readonly amountRefunded: number }
+  /** Nothing to do: another event type, a checkout still waiting for its money, a charge with nothing refunded, a session billing did not create. */
   | { readonly type: "ignored"; readonly eventId: string; readonly reason: string };
 
 const idSchema = z.string().min(1).max(MAX_ID_LENGTH);
@@ -118,6 +120,8 @@ const sessionSchema = z.object({
 const chargeSchema = z.object({
   payment_intent: referenceSchema.nullish(),
   refunded: z.boolean(),
+  /** The total refunded so far (Stripe sends it on every charge); needed only for a partial refund. */
+  amount_refunded: z.number().int().min(0).optional(),
 });
 
 /** Payment statuses of a checkout that has its money (`no_payment_required`: a 100% discount). */
@@ -156,8 +160,11 @@ function readRefund(eventId: string, object: unknown): StripeWebhookEvent | null
   if (!parsed.success) return null;
   const paymentId = parsed.data.payment_intent;
   if (paymentId === null || paymentId === undefined) return { type: "ignored", eventId, reason: "a refunded charge without a payment" };
-  if (!parsed.data.refunded) return { type: "ignored", eventId, reason: "a partial refund" };
-  return { type: "payment_refunded", eventId, paymentId };
+  if (parsed.data.refunded) return { type: "payment_refunded", eventId, paymentId };
+  const amountRefunded = parsed.data.amount_refunded;
+  if (amountRefunded === undefined) return null;
+  if (amountRefunded === 0) return { type: "ignored", eventId, reason: "a charge with nothing refunded" };
+  return { type: "payment_partially_refunded", eventId, paymentId, amountRefunded };
 }
 
 /**

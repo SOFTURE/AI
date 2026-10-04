@@ -1,8 +1,11 @@
 // Refunds, pure: what one payment of a plan added to an account (stored with the payment) and the
-// change a full refund of it makes. A refund takes back the part of the payment's period not used
+// change a refund of it makes. A full refund takes back the part of the payment's period not used
 // yet. Access ahead of now is one unbroken run (every grant starts where running access ends), so
 // taking back those days moves the dated end back by as many local days; a period already used up
 // takes nothing back, and a lapse between payments never lets an old refund eat a new period.
+// A partial refund takes back the same share of those days as the share of the money not refunded
+// before that it returns, rounded down: the refund that completes the amount has a share of one, so
+// partial refunds that add up to the whole payment take back what one full refund would.
 import { getDayNumber, getStartOfDay } from "./calendar.js";
 import type { EntitlementEvent, EntitlementRecord, PaymentGrant } from "./contract.js";
 
@@ -49,15 +52,46 @@ export function getUnusedDays(grant: Extract<PaymentGrant, { kind: "period" }>, 
   return Math.max(0, getDayNumber(grant.until, timezone) - getDayNumber(getLater(grant.from, now), timezone));
 }
 
+/** The part of a payment a refund returns: `refunded` newly refunded out of the `outstanding` amount not refunded before. */
+export interface RefundShare {
+  readonly refunded: number;
+  readonly outstanding: number;
+}
+
+export interface RefundTiming {
+  readonly now: Date;
+  readonly timezone: string;
+  /** The part of the payment refunded; omitted for a full refund. */
+  readonly share?: RefundShare;
+}
+
+/** Whether `share` returns everything not refunded before (or is absent: a full refund). */
+export function isFullShare(share: RefundShare | undefined): boolean {
+  return share === undefined || share.refunded >= share.outstanding;
+}
+
 /**
- * The change a full refund of a payment that granted `grant` makes to `record` at `now`: a period
- * moves dated paid access back by its unused days (`getUnusedDays`), and a lifetime ends lifetime
- * access. Null when nothing is left to take back (the period is used up, or dated access is
- * already gone).
+ * The local days a refund takes back from a period: all its unused days (`getUnusedDays`) for a
+ * full share, else that share of them rounded down, so the account keeps any part of a day.
  */
-export function getRefundEvent(record: EntitlementRecord, grant: PaymentGrant, now: Date, timezone: string): EntitlementEvent | null {
-  if (grant.kind === "lifetime") return { type: "end_lifetime" };
-  const unusedDays = getUnusedDays(grant, now, timezone);
-  if (record.paidUntil === null || unusedDays === 0) return null;
-  return { type: "shorten", until: moveBackByDays(record.paidUntil, unusedDays, timezone) };
+export function getTakenBackDays(grant: Extract<PaymentGrant, { kind: "period" }>, timing: RefundTiming): number {
+  const unusedDays = getUnusedDays(grant, timing.now, timing.timezone);
+  const { share } = timing;
+  if (share === undefined || isFullShare(share)) return unusedDays;
+  if (share.refunded <= 0) return 0;
+  // Integers: at most 10^8 minor units times a period's days stays a safe integer.
+  return Math.floor((unusedDays * share.refunded) / share.outstanding);
+}
+
+/**
+ * The change a refund of a payment that granted `grant` makes to `record`: a period moves dated
+ * paid access back by the days it takes back (`getTakenBackDays`), and a full refund of a lifetime
+ * ends lifetime access. Null when nothing is taken back (the period is used up, the share rounds to
+ * no day, a partial refund of a lifetime, or dated access is already gone).
+ */
+export function getRefundEvent(record: EntitlementRecord, grant: PaymentGrant, timing: RefundTiming): EntitlementEvent | null {
+  if (grant.kind === "lifetime") return isFullShare(timing.share) ? { type: "end_lifetime" } : null;
+  const days = getTakenBackDays(grant, timing);
+  if (record.paidUntil === null || days === 0) return null;
+  return { type: "shorten", until: moveBackByDays(record.paidUntil, days, timing.timezone) };
 }

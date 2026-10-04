@@ -288,7 +288,7 @@ describe("receiveStripeWebhook", () => {
     expect(await deliver(completed)).toMatchObject(ok({ eventId: "evt_test_checkout_session_completed", outcome: { status: "granted" } }));
     expect(await deliver(completed)).toEqual(ok({ eventId: "evt_test_checkout_session_completed", outcome: { status: "duplicate" } }));
 
-    expect(await deliver(stripeEvent("charge.refunded", charge("pi_test_a1", false)))).toMatchObject(ok({ outcome: { status: "ignored", reason: "a partial refund" } }));
+    expect(await deliver(stripeEvent("charge.refunded", charge("pi_test_a1", false)))).toMatchObject(ok({ outcome: { status: "partially_refunded" } }));
     expect(await getEntitlement(test.ctx, adaId)).toMatchObject({ status: "paid" });
     expect(await deliver(stripeEvent("charge.refunded", charge("pi_test_a1", true)))).toMatchObject(ok({ outcome: { status: "refunded" } }));
     expect(await getEntitlement(test.ctx, adaId)).toMatchObject({ status: "trial" });
@@ -342,6 +342,7 @@ describe("payments in the privacy export and erase", () => {
           status: "paid",
           paidAt: NOW,
           refundedAt: null,
+          refundedAmount: 0,
           grantKind: "period",
           grantedFrom: TRIAL_END,
           grantedUntil: MONTH_AFTER_TRIAL,
@@ -356,6 +357,7 @@ describe("payments in the privacy export and erase", () => {
           status: "refunded",
           paidAt: new Date("2026-10-04T08:00:00Z"),
           refundedAt: new Date("2026-10-04T08:00:00Z"),
+          refundedAmount: 49900,
           grantKind: "lifetime",
           grantedFrom: null,
           grantedUntil: null,

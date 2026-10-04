@@ -88,7 +88,7 @@ existing channel and funnel specs.
 - 1.3 failing run (plan review W1): with the pages' old `redirect(next)` restored on a local build, "the login page
   sends them on with its own tag" and "the register page sends them to next with its own tag" fail (`/account` and
   `/account/privacy` received); "a next path with its own tag keeps it" passes either way (it guards the own-tag rule).
-- New gap FU-30 `auth-require-user-redirect-tag` (`requireUser`'s render redirect to login).
+- New gap FU-31 `auth-require-user-redirect-tag` (`requireUser`'s render redirect to login).
 
 ## Progress
 

@@ -94,6 +94,8 @@ export {
   MAX_PERIOD_COUNT,
   MAX_PLANS,
   MAX_PRICE_AMOUNT,
+  PARTIAL_REFUND_POLICIES,
+  type PartialRefundPolicy,
   type BillingOptions,
   type BillingOptionsInput,
 } from "./options.js";
@@ -107,7 +109,7 @@ export {
   type PaymentStart,
 } from "./payment.js";
 export { findPlan, getLocalizedText, getPeriodEnd, getPlanGrant } from "./plans.js";
-export { getPaymentGrant, getRefundEvent, getUnusedDays, moveBackByDays } from "./refund.js";
+export { getPaymentGrant, getRefundEvent, getTakenBackDays, getUnusedDays, isFullShare, moveBackByDays, type RefundShare, type RefundTiming } from "./refund.js";
 export {
   ACCESS_REMINDER_KINDS,
   DEFAULT_CATCH_UP_DAYS,

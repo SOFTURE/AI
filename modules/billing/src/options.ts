@@ -15,6 +15,13 @@ export const MAX_FEATURES = 20;
 export const MAX_PRICE_AMOUNT = 100_000_000;
 /** The most units one period counts. */
 export const MAX_PERIOD_COUNT = 1000;
+/**
+ * What a partial refund of a provider payment does to access: `pro_rata` takes back the refunded
+ * share of the payment's unused days, `keep_access` takes back nothing until the whole payment is
+ * refunded.
+ */
+export const PARTIAL_REFUND_POLICIES = ["pro_rata", "keep_access"] as const;
+export type PartialRefundPolicy = (typeof PARTIAL_REFUND_POLICIES)[number];
 
 const daysSchema = z.number().int().min(0).max(MAX_DAYS);
 
@@ -77,6 +84,13 @@ export const billingOptionsSchema = z.strictObject({
     }),
   /** The payment adapter, e.g. `manual({ onRequest })`; the payment page needs one. */
   payment: z.custom<PaymentProvider>(isPaymentProvider, "must be a payment provider such as manual()").optional(),
+  /**
+   * A partial refund of a provider payment: `pro_rata` takes back the share of the payment's unused
+   * days that the refunded money is of the money not refunded before (whole days, rounded down);
+   * `keep_access` takes back nothing. Either way the refund that completes the amount acts as a
+   * full refund, and a lifetime ends only then.
+   */
+  partialRefunds: z.enum(PARTIAL_REFUND_POLICIES).default("pro_rata"),
   /** The auth role that may grant plans in the admin page; declared in `auth({ roles })` unless `admin`. */
   adminRole: z.string().min(1).default("admin"),
 });

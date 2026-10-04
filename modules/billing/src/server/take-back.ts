@@ -1,15 +1,15 @@
 // Taking back what one grant added, shared by a provider refund (`refundPayment`) and an admin's
-// revoke (`revokeManualGrant`): a period loses its unused days and every period stored after it
-// moves back by as many days, in both tables (provider payments and manual grants), so their stored
-// dates keep saying where their access lies; a lifetime ends unless something else still pays for
-// it. Lock order: the caller takes the account (key share), then the entitlement
+// revoke (`revokeManualGrant`): a period loses its unused days (a partial refund only its share of
+// them) and every period stored after it moves back by as many days, in both tables (provider
+// payments and manual grants), so their stored dates keep saying where their access lies; a
+// lifetime ends unless something else still pays for it (a partial refund never ends it). Lock order: the caller takes the account (key share), then the entitlement
 // (`lockEntitlementRow`), then flips its own row; the shift then updates other rows under the
 // entitlement lock, so two take-backs of one account never wait on each other's rows.
 import type { Queryable } from "@softure-ai/db";
 import { and, eq, gte, ne, type SQL } from "drizzle-orm";
 import type { Entitlement, EntitlementEvent, EntitlementRecord, PaymentGrant } from "../contract.js";
 import { resolveEntitlement } from "../entitlement.js";
-import { getRefundEvent, getUnusedDays, moveBackByDays } from "../refund.js";
+import { getRefundEvent, getTakenBackDays, isFullShare, moveBackByDays, type RefundShare } from "../refund.js";
 import { entitlements, manualGrants, payments } from "../schema.js";
 import { changeEntitlement, findEntitlementRecord, type BillingContext } from "./entitlements.js";
 import { getEntitlementPolicy } from "./options.js";
@@ -91,36 +91,49 @@ export interface TakeBackGrantInput {
   readonly now: Date;
   /** Whether something else still pays for lifetime access; asked under the entitlement lock. */
   readonly hasOtherLifetime: () => Promise<boolean>;
+  /** The part of a payment a partial refund returns; omitted to take back the whole grant. */
+  readonly share?: RefundShare;
+}
+
+/** Where the account stands after a take-back, and the local days its period lost (0 when nothing moved). */
+export interface TakeBack {
+  readonly entitlement: Entitlement;
+  readonly days: number;
 }
 
 /** The change taking back `grant` makes, decided under the entitlement lock, or null when it takes nothing back. */
 async function getTakeBackEvent(ctx: BillingContext, input: TakeBackGrantInput, record: EntitlementRecord): Promise<EntitlementEvent | null> {
-  const { grant } = input;
+  const { grant, share } = input;
+  // A partial refund of a payment without a recorded grant, or of a lifetime, takes nothing back.
+  if (!isFullShare(share) && grant?.kind !== "period") return null;
   if (grant === null) return { type: "revoke" };
   if (grant.kind === "lifetime" && (await input.hasOtherLifetime())) return null;
-  return getRefundEvent(record, grant, input.now, ctx.config.timezone);
+  return getRefundEvent(record, grant, { now: input.now, timezone: ctx.config.timezone, share });
 }
 
 /**
- * Takes back what one grant added, inside the caller's transaction (`ctx.db` is it), and returns
- * where the account stands after. The caller locked the account and the entitlement
- * (`lockEntitlementRow`) and flipped its row first: a lifetime granted at the same time is either
- * committed and seen below, or waits for the entitlement lock and is applied after.
+ * Takes back what one grant added (its share, for a partial refund), inside the caller's transaction
+ * (`ctx.db` is it), and returns where the account stands after and how many days its period lost.
+ * The caller locked the account and the entitlement (`lockEntitlementRow`) and flipped its row
+ * first: a lifetime granted at the same time is either committed and seen below, or waits for the
+ * entitlement lock and is applied after.
  */
-export async function takeBackGrant(ctx: BillingContext, input: TakeBackGrantInput): Promise<Entitlement> {
+export async function takeBackGrant(ctx: BillingContext, input: TakeBackGrantInput): Promise<TakeBack> {
   const tx = ctx.db;
   const record = await findEntitlementRecord(ctx, input.userId);
   // The caller's row references the account, which its key share lock keeps.
   if (record === null) throw new Error("@softure-ai/billing: a grant to take back has no account");
   const event = await getTakeBackEvent(ctx, input, record);
+  if (event === null) return { entitlement: resolveEntitlement(record, input.now, getEntitlementPolicy(ctx.config)), days: 0 };
   const { grant } = input;
   const { timezone } = ctx.config;
-  if (grant?.kind === "period" && event !== null) {
-    await shiftLaterPeriods(tx, { userId: input.userId, grant, days: getUnusedDays(grant, input.now, timezone), timezone });
+  let days = 0;
+  if (grant?.kind === "period") {
+    days = getTakenBackDays(grant, { now: input.now, timezone, share: input.share });
+    await shiftLaterPeriods(tx, { userId: input.userId, grant, days, timezone });
   }
-  if (event === null) return resolveEntitlement(record, input.now, getEntitlementPolicy(ctx.config));
   const changed = await changeEntitlement(ctx, input.userId, event);
   // The account is locked and these events are never refused.
   if (!changed.ok) throw new Error(`@softure-ai/billing: taking back a grant failed with ${changed.error}`);
-  return changed.value;
+  return { entitlement: changed.value, days };
 }
