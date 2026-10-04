@@ -65,7 +65,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-21** | `billing-refund-manual-lifetime` | a manual lifetime grant survives a refunded paid lifetime | FU-9 | autonomous | done |
 | **FU-22** | `billing-grant-plan-script` | a `grant-plan` ops script grants and revokes plans without the admin page | FU-9 | autonomous | done |
 | **FU-23** | `marketing-kit-og-subset-fonts` | OG images use every subset file of a weight | FU-17 | autonomous | done_code (2026-10-04; waiting: MK-8 release) |
-| **FU-24** | `billing-existing-accounts` | existing accounts keep their access when billing is enabled (import, trial floor, pinned trials) | FU-22 | autonomous | in_progress (implement 3/3, since 2026-10-04; branch `claude/fu-24-billing-existing-accounts-ijtwes`) |
+| **FU-24** | `billing-existing-accounts` | existing accounts keep their access when billing is enabled (import, trial floor, pinned trials) | FU-22 | autonomous | done_code (2026-10-04; waiting: the next release of `@softure-ai/billing`) |
 | **FU-25** | `billing-stripe-currency-units` | Stripe charges the plan's price in every currency (special-case units) | FU-24 | autonomous | proposed |
 | **FU-26** | `billing-guard-race-tests` | billing guards and lock races tested where they can fail | FU-25 | autonomous | proposed |
 | **FU-27** | `billing-invoice-request-hygiene` | invoice requests stored before the owner's mail, validated, expired and priced | FU-26 | autonomous | proposed |
@@ -432,8 +432,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-24: Existing accounts keep their access when billing is enabled
 - **Change ID:** `billing-existing-accounts`
-- **Status:** in_progress (implement 3/3, since 2026-10-04; branch `claude/fu-24-billing-existing-accounts-ijtwes`)
-- **Input:** [`changes/billing-existing-accounts/change.md`](../changes/billing-existing-accounts/change.md)
+- **Status:** done_code (2026-10-04; waiting: the next release of `@softure-ai/billing`)
+- **Input:** [`archive/2026-10-04-billing-existing-accounts/change.md`](../archive/2026-10-04-billing-existing-accounts/change.md)
 - **Outcome:** An app that turns billing on (FIRE_TRACKER first) keeps its existing users' access: known trial ends and paid periods are imported into `billing.entitlements`, accounts created before a chosen date can get a trial from that date instead of from their sign-up, derived trials can be pinned before a `trial.days` or time zone change, and the README says what each config change does to accounts without a row.
 - **Prerequisites:** FU-22 on `master` (lane C).
 - **Unknowns:** An import format (ops script reading rows vs. a server function the app calls); whether the trial floor is an option (`trial.startsAt`) or only part of the import; how imported paid periods and lifetime access are recorded (manual grants vs. raw entitlement rows).
@@ -536,6 +536,7 @@ Open from FU-14:
 
 ## Done
 
+- **FU-24** `billing-existing-accounts`: `trial.startsAt` floors the derived trial of accounts created before a chosen day, `import-entitlements` (and `importEntitlement()`) records known trial ends, paid periods and lifetime access without shortening access, and `pin-trials` (and `pinDerivedTrials()`) pins derived trials before a config change; README §5 lists the config effects; covered by unit tests on PGlite and an e2e; archived in `archive/2026-10-04-billing-existing-accounts/`
 - **FU-31** `auth-require-user-redirect-tag`: `requireUser({ next, searchParams })` sends a visitor without a session to login through `rewriteRedirect` with the page's own search params (without them, as for an action), so analytics' `tagRedirect` keeps the channel tag; billing's payment page passes its parameters; covered by unit and e2e tests; archived in `archive/2026-10-04-auth-require-user-redirect-tag/`
 - **FU-28** `auth-page-redirect-tag`: auth's login and register pages redirect a signed-in visitor with the page's own channel tag through `rewriteRedirect` (now handed the page's `searchParams`) and analytics' `tagRedirect`, covered by unit and e2e tests; archived in `archive/2026-10-04-auth-page-redirect-tag/`
 - **FU-23** `marketing-kit-og-subset-fonts`: OG images use every subset file of a weight (registered as `<family> #n` subset families and written as a font stack), at the line's weight; a letter only another weight's subset file has is refused; covered by font, glyph and render tests; archived in `archive/2026-10-04-marketing-kit-og-subset-fonts/`

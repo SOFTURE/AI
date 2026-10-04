@@ -1,12 +1,12 @@
 ---
 change_id: billing-existing-accounts
 title: "Existing accounts keep their access when billing is enabled"
-status: plan_reviewed
+status: archived
 roadmap_item: FU-24
 branch: claude/fu-24-billing-existing-accounts-ijtwes
 created: 2026-10-04
 updated: 2026-10-04
-archived_at: null
+archived_at: 2026-10-04
 ---
 
 ## Intent
@@ -53,3 +53,8 @@ The source findings, quoted from that review:
 - Research: kept (money and existing data are involved; it answers the three unknowns).
 - Framing skipped: the problem and its fix are stated by the retro review (W1, W2) and the roadmap
   item; the scope is not in doubt.
+- Archived 2026-10-04: `trial.startsAt` gives accounts created before a chosen day a trial from it
+  (reads, the guard and reminder mail), `import-entitlements` / `importEntitlement()` merge known
+  trial ends, paid periods and lifetime access into `billing.entitlements` without ever shortening
+  access, and `pin-trials` / `pinDerivedTrials()` write derived trials into rows before a config
+  change; README §5 lists what each config change does to accounts without a row.

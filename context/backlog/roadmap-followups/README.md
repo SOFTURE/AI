@@ -32,7 +32,7 @@ share files run in one lane (see the roadmap's Order), so `dependency` below nam
 | FU-21 | [`billing-refund-manual-lifetime`](../../archive/2026-10-04-billing-refund-manual-lifetime/change.md) | A manual lifetime grant survives a refunded paid lifetime | archived 2026-10-04 | dependency |
 | FU-22 | [`billing-grant-plan-script`](../../archive/2026-10-04-billing-grant-plan-script/change.md) | A `grant-plan` ops script for hosts without the admin page | archived 2026-10-04 | dependency |
 | FU-23 | [`marketing-kit-og-subset-fonts`](../../archive/2026-10-04-marketing-kit-og-subset-fonts/change.md) | OG images use every subset file of a weight | archived 2026-10-04 | dependency |
-| FU-24 | [`billing-existing-accounts`](../../changes/billing-existing-accounts/change.md) | Existing accounts keep their access when billing is enabled | taken 2026-10-04 | dependency |
+| FU-24 | [`billing-existing-accounts`](../../archive/2026-10-04-billing-existing-accounts/change.md) | Existing accounts keep their access when billing is enabled | archived 2026-10-04 | dependency |
 | FU-25 | [`billing-stripe-currency-units`](billing-stripe-currency-units/change.md) | Stripe charges the plan's price in every currency | FU-24 on main | dependency |
 | FU-26 | [`billing-guard-race-tests`](billing-guard-race-tests/change.md) | Billing guards and lock races are tested where they can fail | FU-25 on main | dependency |
 | FU-27 | [`billing-invoice-request-hygiene`](billing-invoice-request-hygiene/change.md) | Invoice requests are stored before the owner hears of them and keep only what they need | FU-26 on main | dependency |

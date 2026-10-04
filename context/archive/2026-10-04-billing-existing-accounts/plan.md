@@ -159,8 +159,8 @@ trials stay; duplicate emails differing only in case are refused; a row with no 
 ### Phase 3: Example app and README
 
 #### Automated
-- [x] 3.1 The e2e (old account read-only, import makes it paid, pin dry run) passes
-- [x] 3.2 Gates green (typecheck, lint, test)
+- [x] 3.1 The e2e (old account read-only, import makes it paid, pin dry run) passes — 19a5605
+- [x] 3.2 Gates green (typecheck, lint, test) — 19a5605
 
 #### Manual
-- [x] 3.3 The README's adoption steps read as one procedure an operator can follow
+- [x] 3.3 The README's adoption steps read as one procedure an operator can follow — 19a5605 (verified by agent: README §4 "Existing accounts" read end to end as floor, import, pin)
