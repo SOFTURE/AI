@@ -68,7 +68,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-24** | `billing-existing-accounts` | existing accounts keep their access when billing is enabled (import, trial floor, pinned trials) | FU-22 | autonomous | done_code (2026-10-04; waiting: the next release of `@softure-ai/billing`) |
 | **FU-25** | `billing-stripe-currency-units` | Stripe charges the plan's price in every currency (special-case units) | FU-24 | autonomous | done_code (2026-10-04; waiting: the next release of `@softure-ai/billing`) |
 | **FU-26** | `billing-guard-race-tests` | billing guards and lock races tested where they can fail | FU-25 | autonomous | done_code (2026-10-04; waiting: the next release of `@softure-ai/billing`) |
-| **FU-27** | `billing-invoice-request-hygiene` | invoice requests stored before the owner's mail, validated, expired and priced | FU-26 | autonomous | in_progress (research, since 2026-10-04; branch `claude/fu-27-invoice-request-hygiene-y4gxer`) |
+| **FU-27** | `billing-invoice-request-hygiene` | invoice requests stored before the owner's mail, validated, expired and priced | FU-26 | autonomous | in_progress (implement 1/3, since 2026-10-04; branch `claude/fu-27-invoice-request-hygiene-y4gxer`) |
 | **FU-28** | `auth-page-redirect-tag` | a signed-in visitor's redirect from a tagged login page keeps the tag | FU-7 | autonomous | done_code (2026-10-04; waiting: the next releases of `@softure-ai/auth` and `@softure-ai/analytics`) |
 | **FU-29** | `marketing-kit-font-files-description` | the marketing.json font files description admits subset files | FU-23 | autonomous | done_code (2026-10-04; waiting: MK-8 release) |
 | **FU-30** | `billing-failed-refund-access` | a refund that fails gives back the access it took | FU-27 | autonomous | proposed |
@@ -472,7 +472,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-27: Invoice requests are stored before the owner hears of them and keep only what they need
 - **Change ID:** `billing-invoice-request-hygiene`
-- **Status:** in_progress (research, since 2026-10-04; branch `claude/fu-27-invoice-request-hygiene-y4gxer`)
+- **Status:** in_progress (implement 1/3, since 2026-10-04; branch `claude/fu-27-invoice-request-hygiene-y4gxer`)
 - **Input:** [`changes/billing-invoice-request-hygiene/change.md`](../changes/billing-invoice-request-hygiene/change.md)
 - **Outcome:** A manual invoice request is stored before it is handed to the provider (the owner's mail), a refresh of an open request does not mail the owner again, invoice fields are parsed by a zod schema that refuses control characters, a too-long field gets its own message, open requests older than a configurable age are closed with their details cleared, and requests and manual grants record the plan's amount and currency.
 - **Prerequisites:** FU-26 on `master` (lane C).

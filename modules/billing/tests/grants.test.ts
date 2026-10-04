@@ -30,6 +30,8 @@ const TWO_MONTHS_AFTER_TRIAL = new Date("2026-12-16T23:00:00Z");
 const SHIFTED_END = new Date("2026-11-15T23:00:00Z");
 const UNKNOWN_ID = "00000000-0000-4000-8000-000000000000";
 const INVOICE = { name: "Ada Lovelace Ltd", taxId: "PL1234567890", address: "1 Analytical Way, London" };
+const PRICE = { amount: 2900, currency: "PLN" };
+const LIFETIME_PRICE = { amount: 49900, currency: "PLN" };
 
 interface RequestRow {
   plan_id: string;
@@ -61,6 +63,8 @@ interface ManualGrantRow {
   status: string;
   revoked_at: Date | null;
   revoked_by: string | null;
+  amount: number | null;
+  currency: string | null;
 }
 
 async function readManualGrants(test: TestBilling): Promise<ManualGrantRow[]> {
@@ -94,26 +98,27 @@ describe("payment requests", () => {
   });
   afterEach(() => test.database.close());
 
-  it("keeps one open request per account and plan, refreshed when asked again", async () => {
-    const first = await recordPaymentRequest(test.ctx, { userId: adaId, planId: "monthly", invoice: INVOICE });
+  it("keeps one open request per account and plan, refreshed (details, price, time) when asked again", async () => {
+    const first = await recordPaymentRequest(test.ctx, { userId: adaId, planId: "monthly", invoice: INVOICE, price: PRICE });
     const later = new Date("2026-10-04T08:00:00Z");
     test.clock.set(later);
-    const again = await recordPaymentRequest(test.ctx, { userId: adaId, planId: "monthly", invoice: { ...INVOICE, taxId: null } });
+    const raised = { amount: 3500, currency: "PLN" };
+    const again = await recordPaymentRequest(test.ctx, { userId: adaId, planId: "monthly", invoice: { ...INVOICE, taxId: null }, price: raised });
     expect(again).toBe(first);
     const latest = new Date("2026-10-05T08:00:00Z");
     test.clock.set(latest);
-    await recordPaymentRequest(test.ctx, { userId: adaId, planId: "lifetime", invoice: INVOICE });
+    await recordPaymentRequest(test.ctx, { userId: adaId, planId: "lifetime", invoice: INVOICE, price: LIFETIME_PRICE });
     expect(await listOpenRequests(test.ctx)).toEqual([
-      { id: first, userId: adaId, email: "ada@example.com", planId: "monthly", invoice: { ...INVOICE, taxId: null }, requestedAt: later },
-      { id: expect.any(String) as unknown, userId: adaId, email: "ada@example.com", planId: "lifetime", invoice: INVOICE, requestedAt: latest },
+      { id: first, userId: adaId, email: "ada@example.com", planId: "monthly", invoice: { ...INVOICE, taxId: null }, price: raised, requestedAt: later },
+      { id: expect.any(String) as unknown, userId: adaId, email: "ada@example.com", planId: "lifetime", invoice: INVOICE, price: LIFETIME_PRICE, requestedAt: latest },
     ]);
   });
 
   it("lists open requests oldest first, up to the limit", async () => {
     const eveId = await createAccount(test, "eve@example.com");
-    await recordPaymentRequest(test.ctx, { userId: eveId, planId: "monthly", invoice: INVOICE });
+    await recordPaymentRequest(test.ctx, { userId: eveId, planId: "monthly", invoice: INVOICE, price: PRICE });
     test.clock.set(new Date("2026-10-04T08:00:00Z"));
-    await recordPaymentRequest(test.ctx, { userId: adaId, planId: "monthly", invoice: null });
+    await recordPaymentRequest(test.ctx, { userId: adaId, planId: "monthly", invoice: null, price: PRICE });
     expect((await listOpenRequests(test.ctx)).map((request) => [request.email, request.invoice])).toEqual([
       ["eve@example.com", INVOICE],
       ["ada@example.com", null],
@@ -122,7 +127,7 @@ describe("payment requests", () => {
   });
 
   it("dismisses an open request once and clears its invoice details", async () => {
-    const id = await recordPaymentRequest(test.ctx, { userId: adaId, planId: "monthly", invoice: INVOICE });
+    const id = await recordPaymentRequest(test.ctx, { userId: adaId, planId: "monthly", invoice: INVOICE, price: PRICE });
     test.clock.set(new Date("2026-10-04T08:00:00Z"));
     expect(await dismissPaymentRequest(test.ctx, id)).toEqual(ok());
     expect(await dismissPaymentRequest(test.ctx, id)).toEqual(err("billing.request_closed"));
@@ -135,15 +140,15 @@ describe("payment requests", () => {
   });
 
   it("opens a fresh request after a closed one, never reopening it", async () => {
-    const closed = await recordPaymentRequest(test.ctx, { userId: adaId, planId: "monthly", invoice: INVOICE });
+    const closed = await recordPaymentRequest(test.ctx, { userId: adaId, planId: "monthly", invoice: INVOICE, price: PRICE });
     await dismissPaymentRequest(test.ctx, closed);
-    const fresh = await recordPaymentRequest(test.ctx, { userId: adaId, planId: "monthly", invoice: INVOICE });
+    const fresh = await recordPaymentRequest(test.ctx, { userId: adaId, planId: "monthly", invoice: INVOICE, price: PRICE });
     expect(fresh).not.toBe(closed);
     expect((await readRequests(test)).map((row) => row.status)).toEqual(["dismissed", "open"]);
   });
 
   it("is refused by the database for a closed request that keeps its details, or one without an address", async () => {
-    await recordPaymentRequest(test.ctx, { userId: adaId, planId: "monthly", invoice: INVOICE });
+    await recordPaymentRequest(test.ctx, { userId: adaId, planId: "monthly", invoice: INVOICE, price: PRICE });
     await expect(test.database.client.query("UPDATE billing.payment_requests SET status = 'dismissed', closed_at = now()")).rejects.toThrow(/payment_requests_details_while_open/);
     await expect(test.database.client.query("UPDATE billing.payment_requests SET invoice_address = NULL")).rejects.toThrow(/payment_requests_name_with_address/);
     await expect(test.database.client.query("UPDATE billing.payment_requests SET status = 'granted'")).rejects.toThrow(/payment_requests_closed_at_with_status/);
@@ -163,7 +168,7 @@ describe("granting by hand", () => {
   afterEach(() => test.database.close());
 
   it("grants a request's plan, closes the request and records what the grant added", async () => {
-    const requestId = await recordPaymentRequest(test.ctx, { userId: adaId, planId: "monthly", invoice: INVOICE });
+    const requestId = await recordPaymentRequest(test.ctx, { userId: adaId, planId: "monthly", invoice: INVOICE, price: PRICE });
     const granted = await grantPaymentRequest(test.ctx, { requestId, adminId });
     expect(granted).toEqual(ok({ grantId: expect.any(String) as unknown, entitlement: { status: "paid", endsAt: MONTH_AFTER_TRIAL, daysLeft: 45, isEnding: false } }));
     expect(await readRequests(test)).toEqual([
@@ -183,12 +188,28 @@ describe("granting by hand", () => {
         status: "active",
         revoked_at: null,
         revoked_by: null,
+        amount: 2900,
+        currency: "PLN",
       },
     ]);
   });
 
+  it("records the price the request quoted, and the plan's price for a grant by email", async () => {
+    // The request was asked for at an older price; the grant is for what was invoiced.
+    const quoted = { amount: 2500, currency: "PLN" };
+    const requestId = await recordPaymentRequest(test.ctx, { userId: adaId, planId: "monthly", invoice: INVOICE, price: quoted });
+    await grantPaymentRequest(test.ctx, { requestId, adminId });
+    test.clock.set(new Date("2026-10-04T08:00:00Z"));
+    await grantPlanManually(test.ctx, { userId: adaId, planId: "monthly", adminId });
+    expect((await readManualGrants(test)).map((row) => [row.request_id, row.amount, row.currency])).toEqual([
+      [requestId, 2500, "PLN"],
+      [null, 2900, "PLN"],
+    ]);
+    expect((await getAccountHistory(test.ctx, adaId)).map((entry) => (entry.source === "manual" ? entry.price : null))).toEqual([PRICE, quoted]);
+  });
+
   it("grants a request once: a second grant or a dismissal finds it closed and changes nothing", async () => {
-    const requestId = await recordPaymentRequest(test.ctx, { userId: adaId, planId: "monthly", invoice: INVOICE });
+    const requestId = await recordPaymentRequest(test.ctx, { userId: adaId, planId: "monthly", invoice: INVOICE, price: PRICE });
     await grantPaymentRequest(test.ctx, { requestId, adminId });
     expect(await grantPaymentRequest(test.ctx, { requestId, adminId })).toEqual(err("billing.request_closed"));
     expect(await dismissPaymentRequest(test.ctx, requestId)).toEqual(err("billing.request_closed"));
@@ -197,10 +218,10 @@ describe("granting by hand", () => {
   });
 
   it("leaves a request open when its plan is gone from the config or the request is another account's", async () => {
-    const gone = await recordPaymentRequest(test.ctx, { userId: adaId, planId: "weekly", invoice: INVOICE });
+    const gone = await recordPaymentRequest(test.ctx, { userId: adaId, planId: "weekly", invoice: INVOICE, price: PRICE });
     expect(await grantPaymentRequest(test.ctx, { requestId: gone, adminId })).toEqual(err("billing.plan_unknown"));
     const eveId = await createAccount(test, "eve@example.com");
-    const eves = await recordPaymentRequest(test.ctx, { userId: eveId, planId: "monthly", invoice: INVOICE });
+    const eves = await recordPaymentRequest(test.ctx, { userId: eveId, planId: "monthly", invoice: INVOICE, price: PRICE });
     expect(await grantPlanManually(test.ctx, { userId: adaId, planId: "monthly", adminId, requestId: eves })).toEqual(err("billing.request_closed"));
     expect(await grantPaymentRequest(test.ctx, { requestId: "not-a-uuid", adminId })).toEqual(err("billing.request_closed"));
     expect((await listOpenRequests(test.ctx)).map((request) => request.planId).sort()).toEqual(["monthly", "weekly"]);
@@ -210,7 +231,7 @@ describe("granting by hand", () => {
 
   it("refuses an account with lifetime access, leaving its request open", async () => {
     await grantPlanManually(test.ctx, { userId: adaId, planId: "lifetime", adminId });
-    const requestId = await recordPaymentRequest(test.ctx, { userId: adaId, planId: "monthly", invoice: INVOICE });
+    const requestId = await recordPaymentRequest(test.ctx, { userId: adaId, planId: "monthly", invoice: INVOICE, price: PRICE });
     expect(await grantPaymentRequest(test.ctx, { requestId, adminId })).toEqual(err("billing.lifetime_active"));
     expect(await grantPlanManually(test.ctx, { userId: adaId, planId: "lifetime", adminId })).toEqual(err("billing.lifetime_active"));
     expect(await listOpenRequests(test.ctx)).toHaveLength(1);
@@ -346,7 +367,7 @@ describe("an account's history", () => {
     const test = await createTestBilling({ plans: PLANS });
     try {
       const adaId = await createAccount(test, "ada@example.com");
-      const requestId = await recordPaymentRequest(test.ctx, { userId: adaId, planId: "monthly", invoice: INVOICE });
+      const requestId = await recordPaymentRequest(test.ctx, { userId: adaId, planId: "monthly", invoice: INVOICE, price: PRICE });
       const granted = await grantPaymentRequest(test.ctx, { requestId, adminId: null });
       const paidAt = new Date("2026-10-04T08:00:00Z");
       test.clock.set(paidAt);
@@ -378,6 +399,7 @@ describe("an account's history", () => {
           status: "revoked",
           revokedAt,
           isFromRequest: true,
+          price: PRICE,
         },
       ]);
       expect(await getAccountHistory(test.ctx, UNKNOWN_ID)).toEqual([]);

@@ -154,7 +154,7 @@ describe("the Next adapter's guards", () => {
     let requestId: string;
 
     beforeEach(async () => {
-      requestId = await recordPaymentRequest(test.ctx, { userId: ada.id, planId: "monthly", invoice: null });
+      requestId = await recordPaymentRequest(test.ctx, { userId: ada.id, planId: "monthly", invoice: null, price: { amount: 2900, currency: "PLN" } });
     });
 
     const actions = [

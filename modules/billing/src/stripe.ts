@@ -86,6 +86,7 @@ export function stripe(options: StripeOptions = {}): PaymentProvider {
   return {
     name: STRIPE_PROVIDER,
     collectsInvoiceDetails: false,
+    handsOverRequests: false,
     checkPrice: describeStripePriceProblem,
     async startPayment(ctx, request) {
       const priceProblem = describeStripePriceProblem(request.plan.price);

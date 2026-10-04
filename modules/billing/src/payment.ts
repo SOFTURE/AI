@@ -46,6 +46,12 @@ export interface PaymentProvider {
   /** Whether the payment page asks for invoice details before `startPayment`. */
   readonly collectsInvoiceDetails: boolean;
   /**
+   * Whether `startPayment` hands a request to the owner and answers `requested` (the manual
+   * adapter) rather than sending the buyer to a checkout. Such a request is stored before the
+   * call, and the call is made once per open request: asking again only refreshes the stored one.
+   */
+  readonly handsOverRequests: boolean;
+  /**
    * Starts paying for `request.plan`. An expected failure (the provider refused, a notification
    * could not be sent) is `billing.payment_failed`; anything thrown is a bug or an outage.
    */
@@ -64,6 +70,7 @@ export function isPaymentProvider(value: unknown): value is PaymentProvider {
     typeof candidate.name === "string" &&
     candidate.name !== "" &&
     typeof candidate.collectsInvoiceDetails === "boolean" &&
+    typeof candidate.handsOverRequests === "boolean" &&
     typeof candidate.startPayment === "function" &&
     (candidate.checkPrice === undefined || typeof candidate.checkPrice === "function")
   );

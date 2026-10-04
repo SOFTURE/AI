@@ -127,6 +127,24 @@ test("an invoice request mails the admin the details and grants nothing yet", as
   await expect(page.locator("[data-status]").first()).toHaveAttribute("data-status", "trial");
 });
 
+test("asking again for the same plan refreshes the request without mailing the admin again", async ({ browser }) => {
+  const member = await openPage(browser);
+  const email = newEmail();
+  await register(member, email);
+  await requestInvoice(member, en.plans.monthly.name);
+  await requestInvoice(member, en.plans.monthly.name, "2 Difference Lane, London");
+
+  const mails = (await readMailOutbox(MAIL_OUTBOX, { to: EXAMPLE_ADMIN_EMAIL })).filter((mail) => mail.subject === `Invoice request: ${en.plans.monthly.name} for ${email}`);
+  expect(mails).toHaveLength(1);
+  const admin = await openPage(browser);
+  await registerAdmin(admin);
+  await admin.goto("/admin/billing");
+  const request = admin.locator("[data-request-id]").filter({ hasText: email });
+  await expect(request).toHaveCount(1);
+  await expect(request).toContainText("Invoice to: Ada Lovelace Ltd, 2 Difference Lane, London");
+  expect(plain(await request.textContent())).toContain("Price: PLN 29.00");
+});
+
 test("the admin's grant flips the account's trial to paid", async ({ browser }) => {
   const member = await openPage(browser);
   const email = newEmail();
@@ -167,11 +185,11 @@ test("the grant page is not found for an account without the admin role, and for
 });
 
 /** Asks for an invoice for `planName` from the payment page. */
-async function requestInvoice(page: Page, planName: string): Promise<void> {
+async function requestInvoice(page: Page, planName: string, address = "1 Analytical Way, London"): Promise<void> {
   await page.goto("/payment");
   await page.getByRole("link", { name: `Choose ${planName}` }).click();
   await page.getByLabel(copy.payment.fields.name).fill("Ada Lovelace Ltd");
-  await page.getByLabel(copy.payment.fields.address).fill("1 Analytical Way, London");
+  await page.getByLabel(copy.payment.fields.address).fill(address);
   await page.getByRole("button", { name: copy.payment.requestInvoice }).click();
   await expect(page.getByRole("status").filter({ hasText: "Thank you!" })).toBeVisible();
 }
@@ -206,6 +224,7 @@ test("an invoice request waits in the admin's list; Grant gives the plan and Rev
   const grant = history.locator("[data-history-id]");
   await expect(grant).toHaveCount(1);
   await expect(grant).toContainText(`${en.plans.yearly.name}, granted from a request`);
+  expect(plain(await grant.textContent())).toContain("Granted for PLN 290.00 on ");
   await expect(grant).toContainText(copy.admin.history.active);
   await grant.getByRole("button", { name: new RegExp(`^Revoke ${en.plans.yearly.name} granted on `) }).click();
   await expect(grant).toContainText("Revoked on ");

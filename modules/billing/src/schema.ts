@@ -1,6 +1,6 @@
 // Drizzle view of the module's tables (migrations/0001_create_entitlements.sql,
-// 0002_create_payments.sql, 0003_record_payment_grants.sql, 0004_create_requests_and_grants.sql and
-// 0005_record_refunded_amounts.sql).
+// 0002_create_payments.sql, 0003_record_payment_grants.sql, 0004_create_requests_and_grants.sql,
+// 0005_record_refunded_amounts.sql and 0006_record_request_handover_and_prices.sql).
 // The migrations are the source of truth; this file only types the queries.
 import { bigint, boolean, pgSchema, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
@@ -40,9 +40,12 @@ export const paymentRequests = billingSchema.table("payment_requests", {
   invoiceName: text("invoice_name"),
   invoiceTaxId: text("invoice_tax_id"),
   invoiceAddress: text("invoice_address"),
-  status: text("status", { enum: ["open", "granted", "dismissed"] }).notNull(),
+  status: text("status", { enum: ["open", "granted", "dismissed", "expired"] }).notNull(),
   requestedAt: timestamp("requested_at", { withTimezone: true }).notNull(),
   closedAt: timestamp("closed_at", { withTimezone: true }),
+  handedOverAt: timestamp("handed_over_at", { withTimezone: true }),
+  amount: bigint("amount", { mode: "number" }),
+  currency: text("currency"),
 });
 
 export const manualGrants = billingSchema.table("manual_grants", {
@@ -58,4 +61,6 @@ export const manualGrants = billingSchema.table("manual_grants", {
   status: text("status", { enum: ["active", "revoked"] }).notNull(),
   revokedAt: timestamp("revoked_at", { withTimezone: true }),
   revokedBy: uuid("revoked_by"),
+  amount: bigint("amount", { mode: "number" }),
+  currency: text("currency"),
 });

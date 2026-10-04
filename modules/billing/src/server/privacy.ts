@@ -35,7 +35,10 @@ export interface BillingPaymentRequestData {
   readonly invoiceName: string | null;
   readonly invoiceTaxId: string | null;
   readonly invoiceAddress: string | null;
-  readonly status: "open" | "granted" | "dismissed";
+  /** The plan's price the request quoted, in the currency's minor unit; null before prices were recorded. */
+  readonly amount: number | null;
+  readonly currency: string | null;
+  readonly status: "open" | "granted" | "dismissed" | "expired";
   readonly requestedAt: Date;
   readonly closedAt: Date | null;
 }
@@ -49,6 +52,9 @@ export interface BillingManualGrantData {
   readonly grantedUntil: Date | null;
   readonly status: "active" | "revoked";
   readonly revokedAt: Date | null;
+  /** What it was granted for, in the currency's minor unit; null before prices were recorded. */
+  readonly amount: number | null;
+  readonly currency: string | null;
 }
 
 /** What billing holds about one user, as it appears in their export. */
@@ -109,6 +115,8 @@ export async function exportBillingUserData(context: ModuleContext, userId: stri
       invoiceName: paymentRequests.invoiceName,
       invoiceTaxId: paymentRequests.invoiceTaxId,
       invoiceAddress: paymentRequests.invoiceAddress,
+      amount: paymentRequests.amount,
+      currency: paymentRequests.currency,
       status: paymentRequests.status,
       requestedAt: paymentRequests.requestedAt,
       closedAt: paymentRequests.closedAt,
@@ -125,6 +133,8 @@ export async function exportBillingUserData(context: ModuleContext, userId: stri
       grantedUntil: manualGrants.grantedUntil,
       status: manualGrants.status,
       revokedAt: manualGrants.revokedAt,
+      amount: manualGrants.amount,
+      currency: manualGrants.currency,
     })
     .from(manualGrants)
     .where(eq(manualGrants.userId, userId))

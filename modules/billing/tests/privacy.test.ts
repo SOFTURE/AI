@@ -8,6 +8,7 @@ import { createAccount, createTestBilling, NOW, readRow, type TestBilling } from
 const PAID_END = new Date("2026-11-30T23:00:00Z");
 const EMPTY = { entitlement: null, payments: [], paymentRequests: [], manualGrants: [] };
 const INVOICE = { name: "Ada Lovelace Ltd", taxId: null, address: "1 Analytical Way, London" };
+const PRICE = { amount: 2900, currency: "PLN" };
 
 describe("the billing privacy contributor", () => {
   let test: TestBilling;
@@ -23,11 +24,11 @@ describe("the billing privacy contributor", () => {
   afterEach(() => test.database.close());
 
   it("exports the account's entitlement row, its requests (details only while open) and its manual grants", async () => {
-    const dismissed = await recordPaymentRequest(test.ctx, { userId: adaId, planId: "monthly", invoice: INVOICE });
+    const dismissed = await recordPaymentRequest(test.ctx, { userId: adaId, planId: "monthly", invoice: INVOICE, price: PRICE });
     await dismissPaymentRequest(test.ctx, dismissed);
     const later = new Date("2026-10-04T08:00:00Z");
     test.clock.set(later);
-    await recordPaymentRequest(test.ctx, { userId: adaId, planId: "monthly", invoice: INVOICE });
+    await recordPaymentRequest(test.ctx, { userId: adaId, planId: "monthly", invoice: INVOICE, price: PRICE });
     await grantPlanManually(test.ctx, { userId: adaId, planId: "monthly", adminId: eveId });
     const collected = await collectUserData(test.ctx, adaId);
     expect(collected.ok).toBe(true);
@@ -37,12 +38,12 @@ describe("the billing privacy contributor", () => {
       entitlement: { trialEndsAt: "2026-10-16T22:00:00.000Z", paidUntil: "2026-12-31T23:00:00.000Z", isLifetime: false, createdAt: NOW.toISOString(), updatedAt: later.toISOString() },
       payments: [],
       paymentRequests: [
-        { planId: "monthly", invoiceName: null, invoiceTaxId: null, invoiceAddress: null, status: "dismissed", requestedAt: NOW.toISOString(), closedAt: NOW.toISOString() },
-        { planId: "monthly", invoiceName: INVOICE.name, invoiceTaxId: null, invoiceAddress: INVOICE.address, status: "open", requestedAt: later.toISOString(), closedAt: null },
+        { planId: "monthly", invoiceName: null, invoiceTaxId: null, invoiceAddress: null, amount: 2900, currency: "PLN", status: "dismissed", requestedAt: NOW.toISOString(), closedAt: NOW.toISOString() },
+        { planId: "monthly", invoiceName: INVOICE.name, invoiceTaxId: null, invoiceAddress: INVOICE.address, amount: 2900, currency: "PLN", status: "open", requestedAt: later.toISOString(), closedAt: null },
       ],
       // The admin who granted it (eve) is the admin's data, not ada's.
       manualGrants: [
-        { planId: "monthly", grantedAt: later.toISOString(), grantKind: "period", grantedFrom: PAID_END.toISOString(), grantedUntil: "2026-12-31T23:00:00.000Z", status: "active", revokedAt: null },
+        { planId: "monthly", grantedAt: later.toISOString(), grantKind: "period", grantedFrom: PAID_END.toISOString(), grantedUntil: "2026-12-31T23:00:00.000Z", status: "active", revokedAt: null, amount: 2900, currency: "PLN" },
       ],
     });
   });
@@ -55,7 +56,7 @@ describe("the billing privacy contributor", () => {
   });
 
   it("deletes the account's rows with the account and leaves other accounts alone", async () => {
-    await recordPaymentRequest(test.ctx, { userId: adaId, planId: "monthly", invoice: INVOICE });
+    await recordPaymentRequest(test.ctx, { userId: adaId, planId: "monthly", invoice: INVOICE, price: PRICE });
     await grantPlanManually(test.ctx, { userId: adaId, planId: "monthly", adminId: eveId });
     await grantPlanManually(test.ctx, { userId: eveId, planId: "monthly", adminId: adaId });
     expect(await eraseUserData(test.ctx, adaId)).toEqual({ ok: true, value: undefined });

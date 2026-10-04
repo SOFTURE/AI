@@ -149,6 +149,7 @@ function toRequestRow(request: OpenPaymentRequest, { config, messages, plans }: 
   const values = { email: request.email, plan: getPlanName(plans, request.planId, config.locale) };
   const { invoice } = request;
   const details = [formatMessage(copy.requestedOn, { date: formatDay(request.requestedAt, config.locale, config.timezone) })];
+  if (request.price !== null) details.push(formatMessage(copy.price, { price: formatPrice(request.price, config.locale) }));
   if (invoice === null) details.push(copy.noInvoice);
   else {
     details.push(formatMessage(copy.invoice, { name: invoice.name, address: invoice.address }));
@@ -183,7 +184,12 @@ function toHistoryRow(entry: AccountHistoryEntry, context: RowContext): GrantHis
       title: formatMessage(entry.isFromRequest ? copy.fromRequest : copy.manual, { plan }),
       statusText: isActive || entry.revokedAt === null ? copy.active : formatMessage(copy.revokedOn, { date: formatDate(entry.revokedAt) }),
       isCurrent: isActive,
-      details: [formatMessage(copy.grantedOn, { date: formatDate(entry.at) }), describeGrant(entry.grant, context)],
+      details: [
+        entry.price === null
+          ? formatMessage(copy.grantedOn, { date: formatDate(entry.at) })
+          : formatMessage(copy.grantedFor, { amount: formatPrice(entry.price, config.locale), date: formatDate(entry.at) }),
+        describeGrant(entry.grant, context),
+      ],
       revokeLabel: isActive ? formatMessage(copy.revokeLabel, { plan, date: formatDate(entry.at) }) : null,
     };
   }
