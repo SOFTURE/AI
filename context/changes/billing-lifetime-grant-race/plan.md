@@ -74,7 +74,7 @@ updates it (no second insert). The refusal deletes only when this transaction in
 ### Phase 1: Pin before the lifetime check
 
 #### Automated
-- [ ] 1.1 Two lifetime grants at once on a new row: the second is refused (Postgres)
-- [ ] 1.2 A period grant made while a lifetime grant is open waits and is refused (Postgres)
-- [ ] 1.3 A refused grant on an account without a row leaves no row (PGlite)
-- [ ] 1.4 Gates green (typecheck, lint, test, build)
+- [x] 1.1 Two lifetime grants at once on a new row: the second is refused (Postgres) — baac224
+- [x] 1.2 A period grant made while a lifetime grant is open waits and is refused (Postgres) — baac224
+- [x] 1.3 A refused grant on an account without a row leaves no row (PGlite) — baac224
+- [x] 1.4 Gates green (typecheck, lint, test, build) — baac224
