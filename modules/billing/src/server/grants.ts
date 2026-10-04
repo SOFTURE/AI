@@ -126,7 +126,7 @@ export async function revokeManualGrant(ctx: BillingContext, input: RevokeManual
       .returning();
     // Revoked by a concurrent click, or erased with the account in the meantime.
     if (revoked === undefined) return err("billing.grant_revoked");
-    const entitlement = await takeBackGrant(
+    const { entitlement } = await takeBackGrant(
       { ...ctx, db: tx },
       {
         userId: found.userId,

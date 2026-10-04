@@ -1,5 +1,6 @@
 // Drizzle view of the module's tables (migrations/0001_create_entitlements.sql,
-// 0002_create_payments.sql, 0003_record_payment_grants.sql and 0004_create_requests_and_grants.sql).
+// 0002_create_payments.sql, 0003_record_payment_grants.sql, 0004_create_requests_and_grants.sql and
+// 0005_record_refunded_amounts.sql).
 // The migrations are the source of truth; this file only types the queries.
 import { bigint, boolean, pgSchema, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
@@ -29,6 +30,7 @@ export const payments = billingSchema.table("payments", {
   grantKind: text("grant_kind", { enum: ["period", "lifetime"] }),
   grantedFrom: timestamp("granted_from", { withTimezone: true }),
   grantedUntil: timestamp("granted_until", { withTimezone: true }),
+  refundedAmount: bigint("refunded_amount", { mode: "number" }).notNull().default(0),
 });
 
 export const paymentRequests = billingSchema.table("payment_requests", {

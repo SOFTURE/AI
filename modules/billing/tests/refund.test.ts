@@ -1,6 +1,6 @@
-// Refunds, pure: what a plan grant added and what a full refund of it takes back, at exact instants
+// Refunds, pure: what a plan grant added and what a full or partial refund of it takes back, at exact instants
 // in Warsaw time (the tests themselves run in New York time), across the October DST change.
-import { getPaymentGrant, getRefundEvent, getUnusedDays, type EntitlementRecord, type PaymentGrant } from "@softure-ai/billing";
+import { getPaymentGrant, getRefundEvent, getTakenBackDays, getUnusedDays, isFullShare, type EntitlementRecord, type PaymentGrant } from "@softure-ai/billing";
 import { describe, expect, it } from "vitest";
 
 const TIMEZONE = "Europe/Warsaw";
@@ -57,36 +57,84 @@ describe("getUnusedDays", () => {
 describe("getRefundEvent", () => {
   it("takes a future period's local days out of the stack, across the DST change", () => {
     // 31 days (17 October to 17 November) come off 17 December: the second month now ends on 16 November.
-    expect(getRefundEvent(STACKED, FIRST_MONTH, NOW, TIMEZONE)).toEqual({ type: "shorten", until: new Date("2026-11-15T23:00:00Z") });
+    expect(getRefundEvent(STACKED, FIRST_MONTH, { now: NOW, timezone: TIMEZONE })).toEqual({ type: "shorten", until: new Date("2026-11-15T23:00:00Z") });
     // The second month's 30 days come off: the first month stays as it was.
-    expect(getRefundEvent(STACKED, SECOND_MONTH, NOW, TIMEZONE)).toEqual({ type: "shorten", until: MONTH_AFTER_TRIAL });
+    expect(getRefundEvent(STACKED, SECOND_MONTH, { now: NOW, timezone: TIMEZONE })).toEqual({ type: "shorten", until: MONTH_AFTER_TRIAL });
   });
 
   it("takes back only the unused days of a running period, today included", () => {
     const running = new Date("2026-10-20T08:00:00Z");
     // 28 days (20 October to 17 November) come off: access ends when 20 October began.
-    expect(getRefundEvent({ ...TRIAL, paidUntil: MONTH_AFTER_TRIAL }, FIRST_MONTH, running, TIMEZONE)).toEqual({
+    expect(getRefundEvent({ ...TRIAL, paidUntil: MONTH_AFTER_TRIAL }, FIRST_MONTH, { now: running, timezone: TIMEZONE })).toEqual({
       type: "shorten",
       until: new Date("2026-10-19T22:00:00Z"),
     });
   });
 
   it("takes nothing back for a period already used up", () => {
-    expect(getRefundEvent(STACKED, FIRST_MONTH, new Date("2026-11-20T08:00:00Z"), TIMEZONE)).toBeNull();
-    expect(getRefundEvent(STACKED, FIRST_MONTH, MONTH_AFTER_TRIAL, TIMEZONE)).toBeNull();
+    expect(getRefundEvent(STACKED, FIRST_MONTH, { now: new Date("2026-11-20T08:00:00Z"), timezone: TIMEZONE })).toBeNull();
+    expect(getRefundEvent(STACKED, FIRST_MONTH, { now: MONTH_AFTER_TRIAL, timezone: TIMEZONE })).toBeNull();
   });
 
   it("takes nothing back when dated access is already gone", () => {
-    expect(getRefundEvent(TRIAL, FIRST_MONTH, NOW, TIMEZONE)).toBeNull();
+    expect(getRefundEvent(TRIAL, FIRST_MONTH, { now: NOW, timezone: TIMEZONE })).toBeNull();
   });
 
   it("keeps the local time of day of an end that is not midnight", () => {
     const paidUntil = new Date("2026-12-01T14:30:00Z");
     const week: PaymentGrant = { kind: "period", from: new Date("2026-11-23T23:00:00Z"), until: new Date("2026-11-30T23:00:00Z") };
-    expect(getRefundEvent({ ...TRIAL, paidUntil }, week, NOW, TIMEZONE)).toEqual({ type: "shorten", until: new Date("2026-11-24T14:30:00Z") });
+    expect(getRefundEvent({ ...TRIAL, paidUntil }, week, { now: NOW, timezone: TIMEZONE })).toEqual({ type: "shorten", until: new Date("2026-11-24T14:30:00Z") });
   });
 
   it("ends lifetime access for a refunded lifetime", () => {
-    expect(getRefundEvent({ ...STACKED, isLifetime: true }, { kind: "lifetime" }, NOW, TIMEZONE)).toEqual({ type: "end_lifetime" });
+    expect(getRefundEvent({ ...STACKED, isLifetime: true }, { kind: "lifetime" }, { now: NOW, timezone: TIMEZONE })).toEqual({ type: "end_lifetime" });
+  });
+});
+
+describe("getTakenBackDays", () => {
+  const period = { kind: "period", from: TRIAL_END, until: MONTH_AFTER_TRIAL } as const;
+  const timing = { now: NOW, timezone: TIMEZONE };
+
+  it("takes every unused day for a full refund, and for a share that covers what is left", () => {
+    expect(getTakenBackDays(period, timing)).toBe(31);
+    expect(getTakenBackDays(period, { ...timing, share: { refunded: 1450, outstanding: 1450 } })).toBe(31);
+    expect(getTakenBackDays(period, { ...timing, share: { refunded: 2000, outstanding: 1450 } })).toBe(31);
+  });
+
+  it("takes the refunded share of the unused days, rounded down", () => {
+    // 1450 of 2900 is half of 31 days: 15.5, so 15.
+    expect(getTakenBackDays(period, { ...timing, share: { refunded: 1450, outstanding: 2900 } })).toBe(15);
+    // 1 of 2900 is a sliver of a day: nothing.
+    expect(getTakenBackDays(period, { ...timing, share: { refunded: 1, outstanding: 2900 } })).toBe(0);
+    expect(getTakenBackDays(period, { ...timing, share: { refunded: 0, outstanding: 2900 } })).toBe(0);
+  });
+
+  it("takes nothing from a period already used up, whatever the share", () => {
+    expect(getTakenBackDays(period, { now: MONTH_AFTER_TRIAL, timezone: TIMEZONE, share: { refunded: 1450, outstanding: 2900 } })).toBe(0);
+  });
+
+  it("calls a missing share or one that covers the rest full", () => {
+    expect(isFullShare(undefined)).toBe(true);
+    expect(isFullShare({ refunded: 2900, outstanding: 2900 })).toBe(true);
+    expect(isFullShare({ refunded: 2899, outstanding: 2900 })).toBe(false);
+  });
+});
+
+describe("getRefundEvent with a partial share", () => {
+  const half = { refunded: 1450, outstanding: 2900 };
+
+  it("moves dated access back by the share of the unused days", () => {
+    // Half of the first month's 31 days: 15 come off 17 December, which then ends on 2 December.
+    expect(getRefundEvent(STACKED, FIRST_MONTH, { now: NOW, timezone: TIMEZONE, share: half })).toEqual({ type: "shorten", until: new Date("2026-12-01T23:00:00Z") });
+  });
+
+  it("keeps lifetime access until the whole payment is refunded", () => {
+    const lifetime = { ...STACKED, isLifetime: true };
+    expect(getRefundEvent(lifetime, { kind: "lifetime" }, { now: NOW, timezone: TIMEZONE, share: half })).toBeNull();
+    expect(getRefundEvent(lifetime, { kind: "lifetime" }, { now: NOW, timezone: TIMEZONE, share: { refunded: 1450, outstanding: 1450 } })).toEqual({ type: "end_lifetime" });
+  });
+
+  it("takes nothing when the share rounds to no day", () => {
+    expect(getRefundEvent(STACKED, FIRST_MONTH, { now: NOW, timezone: TIMEZONE, share: { refunded: 1, outstanding: 2900 } })).toBeNull();
   });
 });

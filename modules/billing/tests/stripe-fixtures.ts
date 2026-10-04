@@ -30,8 +30,9 @@ export function checkoutSession(input: SessionInput): Record<string, unknown> {
   };
 }
 
-export function charge(paymentIntent: string, refunded: boolean): Record<string, unknown> {
-  return { id: "ch_test_a1", object: "charge", payment_intent: paymentIntent, refunded, amount: 2900, amount_refunded: refunded ? 2900 : 900 };
+/** A charge of 2900 refunded in full, or in part up to `amountRefunded` (the total so far, 900 by default). */
+export function charge(paymentIntent: string, refunded: boolean, amountRefunded = refunded ? 2900 : 900): Record<string, unknown> {
+  return { id: "ch_test_a1", object: "charge", payment_intent: paymentIntent, refunded, amount: 2900, amount_refunded: amountRefunded };
 }
 
 export function stripeEvent(type: string, object: unknown, id = `evt_test_${type.replaceAll(".", "_")}`): string {
