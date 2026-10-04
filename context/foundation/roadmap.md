@@ -72,7 +72,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-28** | `auth-page-redirect-tag` | a signed-in visitor's redirect from a tagged login page keeps the tag | FU-7 | autonomous | done_code (2026-10-04; waiting: the next releases of `@softure-ai/auth` and `@softure-ai/analytics`) |
 | **FU-29** | `marketing-kit-font-files-description` | the marketing.json font files description admits subset files | FU-23 | autonomous | done_code (2026-10-04; waiting: MK-8 release) |
 | **FU-30** | `billing-failed-refund-access` | a refund that fails gives back the access it took | FU-27 | autonomous | proposed |
-| **FU-31** | `auth-require-user-redirect-tag` | `requireUser`'s redirect to login keeps the channel tag | FU-28 | autonomous | proposed |
+| **FU-31** | `auth-require-user-redirect-tag` | `requireUser`'s redirect to login keeps the channel tag | FU-28 | autonomous | done_code (2026-10-04; waiting: the next releases of `@softure-ai/auth` and `@softure-ai/billing`) |
 
 ## Order
 
@@ -507,7 +507,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-31: `requireUser`'s redirect to login keeps the channel tag
 - **Change ID:** `auth-require-user-redirect-tag`
-- **Status:** proposed
+- **Status:** done_code (2026-10-04; waiting: the next releases of `@softure-ai/auth` and `@softure-ai/billing`)
+- **Input:** [`archive/2026-10-04-auth-require-user-redirect-tag/change.md`](../archive/2026-10-04-auth-require-user-redirect-tag/change.md)
 - **Outcome:** A page that calls `requireUser()` while it renders sends a visitor without a session to the login page at a URL that keeps the page's channel tag (for example a `searchParams` option on `requireUser` handed to the app's `rewriteRedirect`, or a documented rule that such pages sit behind the proxy's auth guard).
 - **Prerequisites:** FU-28 on `master` (shared files, see Order).
 - **Unknowns:** Whether pages outside the proxy's guard are common enough to need it; how a page hands its search params to `requireUser` without changing every call.
@@ -533,6 +534,7 @@ Open from FU-14:
 
 ## Done
 
+- **FU-31** `auth-require-user-redirect-tag`: `requireUser({ next, searchParams })` sends a visitor without a session to login through `rewriteRedirect` with the page's own search params (without them, as for an action), so analytics' `tagRedirect` keeps the channel tag; billing's payment page passes its parameters; covered by unit and e2e tests; archived in `archive/2026-10-04-auth-require-user-redirect-tag/`
 - **FU-28** `auth-page-redirect-tag`: auth's login and register pages redirect a signed-in visitor with the page's own channel tag through `rewriteRedirect` (now handed the page's `searchParams`) and analytics' `tagRedirect`, covered by unit and e2e tests; archived in `archive/2026-10-04-auth-page-redirect-tag/`
 - **FU-23** `marketing-kit-og-subset-fonts`: OG images use every subset file of a weight (registered as `<family> #n` subset families and written as a font stack), at the line's weight; a letter only another weight's subset file has is refused; covered by font, glyph and render tests; archived in `archive/2026-10-04-marketing-kit-og-subset-fonts/`
 - **FU-20** `billing-partial-refunds`: a partial Stripe refund records the cumulative `amount_refunded` (`billing.payments.refunded_amount`, migration `0005`) and, under `billing({ partialRefunds: "pro_rata" })` (the default), takes back the refunded share of the payment's unused days, rounded down; partial refunds summing to the amount end where one full refund does; `keep_access` takes nothing until then; covered by unit tests with signed webhook fixtures; archived in `archive/2026-10-04-billing-partial-refunds/`

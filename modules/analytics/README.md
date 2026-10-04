@@ -43,8 +43,8 @@ zone moved into configuration and the report turned into a function.
   sign-up came with a channel. Where the attribution goes (a column, a counter) is the app's choice.
 - **Redirects that keep the tag** (`/next`): `tagRedirect(path)` adds the request's channel to a
   server action's redirect path (or a page's, from its own search params); auth takes it as
-  `rewriteRedirect`, so its login, sign-up, reset and logout redirects, and its login and register
-  pages' redirect of a signed-in visitor, land on a tagged URL.
+  `rewriteRedirect`, so its login, sign-up, reset and logout redirects, its login and register
+  pages' redirect of a signed-in visitor and `requireUser`'s redirect to login land on a tagged URL.
 - **Framework-free reading** (`/server`): `parseChannel`, `readChannel(config, { url, referer, host })`,
   `withChannel`, `tagPath`, `hasChannelParam`, `isFirstParty`.
 - **The funnel** (`analytics({ funnel: { steps } })`): `analytics.funnel_counts` holds one counter
@@ -150,7 +150,8 @@ The app's own actions use it the same way: `redirect(await tagRedirect("/thanks"
 already carries the parameter is left as it is. A page that redirects while it renders passes its
 own `searchParams` (its render's `Referer` is the page before): `redirect(await tagRedirect("/", {
 config, searchParams }))`; auth's login and register pages do this for a signed-in visitor through
-the same `rewriteRedirect` option.
+the same `rewriteRedirect` option, and so does `requireUser({ next, searchParams })` for a visitor
+without a session (billing's payment page passes its parameters).
 
 `/next` imports `next/headers` only when a function runs, so `softure.config.ts` (which
 `softure migrate` loads in plain Node) can import it.
@@ -286,10 +287,11 @@ belong to the app's own privacy contributor.
   without storage.
 - `getChannel()` reads the page the request came from; a page's own render reads its
   `searchParams` instead.
-- **`requireUser`'s redirect to login is not tagged.** A page that calls `requireUser()` while it
-  renders sends a visitor without a session to login without the tag: the render has no search
-  params to hand over and its `Referer` is the page before (FU-31). The proxy's auth guard keeps the
-  tag on the pages it protects (`carry`).
+- **A page that calls `requireUser()` without its search params** sends a visitor without a
+  session to login tagged from its render's `Referer`, the page before: the channel the proxy would
+  have tagged it with, but not the page's own tag when the two differ, and none on a direct visit.
+  Such pages pass `searchParams`, or sit behind the proxy's auth guard, which keeps the tag on the
+  pages it protects (`carry`).
 - **The funnel is a noise filter, not a defence.** Its endpoint checks that a request comes from one
   of the app's pages, but those headers come from the client: a forged `Referer` passes. The counts
   open nothing and the cap bounds the table, so the endpoint has no per-address rate limit on

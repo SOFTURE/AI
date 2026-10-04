@@ -71,7 +71,7 @@ export default config;
 | `roles` | `string[]` | `[]` | Role names the app checks besides `admin` (always declared): `a-z`, `0-9`, `_`, `-`, at most 32. |
 | `adminEmails` | `string[]` | `[]` | Initial admin list: while an email is listed, its account holds `admin`. Auth does not verify emails, so create these accounts before you deploy the list (section 4, "Roles"). |
 | `onRegistered` | `(event, ctx) => Promise<void>` | none | Called after the account is created, inside the same transaction. |
-| `rewriteRedirect` | `(path, { config, searchParams? }) => string \| Promise<string>` | none | Rewrites the path of every auth redirect: the actions' (login, sign-up, password reset, logout) and the login and register pages' redirect of a signed-in visitor, e.g. `tagRedirect` from `@softure-ai/analytics/next`, which keeps the channel tag. A page passes its own `searchParams` (`URLSearchParams`); an action passes none, and during a page's render the `Referer` is the page before, not the page itself. A result that is not a path on this app, or an error, leaves auth's own path. |
+| `rewriteRedirect` | `(path, { config, searchParams? }) => string \| Promise<string>` | none | Rewrites the path of every auth redirect: the actions' (login, sign-up, password reset, logout), the login and register pages' redirect of a signed-in visitor and `requireUser`'s redirect to login, e.g. `tagRedirect` from `@softure-ai/analytics/next`, which keeps the channel tag. A page passes its own `searchParams` (`URLSearchParams`; `requireUser` hands over the ones the page gives it); an action passes none, and during a page's render the `Referer` is the page before, not the page itself. A result that is not a path on this app, or an error, leaves auth's own path. |
 | `passwordReset.send` | `(link, user, details) => Promise<void>` | none | Delivers reset links (section 4, "Password reset"). Without it password reset is off. |
 | `passwordReset.ttlMinutes` | `number` (5-1440) | `60` | How long a reset link works. |
 | `routes` | `{ login, register, changePassword, forgotPassword, resetPassword, afterLogin, afterLogout }` | `/login`, `/register`, `/account/password`, `/forgot-password`, `/reset-password`, `/`, `/login` | Where the pages are mounted and where users land. |
@@ -128,7 +128,19 @@ export default async function AccountPage() {
 ```
 
 `requireUser({ next: "/account" })` brings the user back after login; `getCurrentUser()` returns
-the user or `null`. Both read the session once per request.
+the user or `null`. Both read the session once per request. The redirect to login goes through the
+app's `rewriteRedirect` (options table); a page outside the proxy's guard passes its own search
+params so the login URL can keep its channel tag:
+
+```tsx
+export default async function SettingsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const user = await requireUser({ next: "/settings", searchParams: await searchParams });
+  // …
+}
+```
+
+Private prefixes still belong behind the route guard below; the option covers the pages outside it
+(billing's payment page passes its parameters).
 
 **Route guard.** `createAuthGuard` returns `(request) => Response | null`: a redirect to the login
 page (with `?next=`) for a protected path without a session cookie, `null` otherwise. It only

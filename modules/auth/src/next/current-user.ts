@@ -6,11 +6,13 @@ import { getSoftureConfig } from "@softure-ai/core/next";
 import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
 import type { AuthUser } from "../contract.js";
+import { resolveRedirectTarget } from "../redirect-target.js";
 import { toSafeNextPath } from "../safe-next-path.js";
 import { getAuthRoutes } from "../server/options.js";
 import { assertDeclaredRole, findUserRoles } from "../server/roles.js";
 import { findSessionUser } from "../server/sessions.js";
 import { getAuthContext } from "./context.js";
+import { toUrlSearchParams, type PageSearchParams } from "./search-params.js";
 import { readSessionToken } from "./session-cookie.js";
 
 /** The user of the request's session, or null. Database failures propagate to the error page. */
@@ -24,15 +26,26 @@ export const getCurrentUser = cache(async (): Promise<AuthUser | null> => {
 export interface RequireUserOptions {
   /** Where to come back after login; a same-origin path. */
   readonly next?: string;
+  /**
+   * A page's own search params (awaited), handed to the app's `rewriteRedirect` so the login URL
+   * can keep the page's channel tag. Without them the rewrite reads as for an action.
+   */
+  readonly searchParams?: PageSearchParams | undefined;
 }
 
-/** The signed-in user; without one, a redirect to the login page (with `next` when given). */
+/**
+ * The signed-in user; without one, a redirect to the login page (with `next` when given), through
+ * the app's `rewriteRedirect`.
+ */
 export async function requireUser(options: RequireUserOptions = {}): Promise<AuthUser> {
   const user = await getCurrentUser();
   if (user !== null) return user;
-  const login = getAuthRoutes(getSoftureConfig()).login;
+  const config = getSoftureConfig();
+  const login = getAuthRoutes(config).login;
   const next = options.next === undefined ? null : toSafeNextPath(options.next, "");
-  redirect(next === null || next === "" ? login : `${login}?next=${encodeURIComponent(next)}`);
+  const path = next === null || next === "" ? login : `${login}?next=${encodeURIComponent(next)}`;
+  const searchParams = options.searchParams === undefined ? undefined : toUrlSearchParams(options.searchParams);
+  redirect(await resolveRedirectTarget(config, path, searchParams));
 }
 
 const NO_ROLES: ReadonlySet<string> = new Set();

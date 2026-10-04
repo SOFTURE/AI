@@ -16,6 +16,7 @@ import { getAuthContext } from "./context.js";
 import { getCurrentUser, requireUser } from "./current-user.js";
 import { getAuthMessages } from "./messages.js";
 import { PASSWORD_RESET_DONE_PARAM } from "./params.js";
+import { toUrlSearchParams } from "./search-params.js";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -46,18 +47,9 @@ async function readNext(searchParams: SearchParams | undefined, fallback: string
   return toSafeNextPath(await readParam(searchParams, "next"), fallback);
 }
 
-/** The page's own query, every value of a repeated name kept, for the app's redirect rewrite. */
-async function readSearchParams(searchParams: SearchParams | undefined): Promise<URLSearchParams> {
-  const query = new URLSearchParams();
-  for (const [name, value] of Object.entries((await searchParams) ?? {})) {
-    for (const item of Array.isArray(value) ? value : [value]) if (item !== undefined) query.append(name, item);
-  }
-  return query;
-}
-
 /** Sends a signed-in visitor on from the login or register page, through the app's redirect rewrite. */
 async function redirectSignedIn(config: SoftureConfig, next: string, searchParams: SearchParams | undefined): Promise<never> {
-  redirect(await resolveRedirectTarget(config, next, await readSearchParams(searchParams)));
+  redirect(await resolveRedirectTarget(config, next, toUrlSearchParams(await searchParams)));
 }
 
 export async function LoginPage({ searchParams }: AuthPageProps) {
