@@ -78,8 +78,8 @@ against `Intl` (C).
 ### Phase 1: Pinned minor units
 
 #### Automated
-- [ ] 1.1 Digits come from the pinned table (HUF/TWD 2, ISK/JPY/MGA 0, KWD/IQD 3, ALL 2, XCG 2)
-- [ ] 1.2 `formatPrice` prints the table's digits on any runtime; the runtime agreement test covers every pinned currency
-- [ ] 1.3 The config accepts exactly the pinned codes (HRK, SLL refused)
-- [ ] 1.4 Stripe amounts follow the table (ALL unchanged, ISK ×100, IQD refused unless it ends in 0)
-- [ ] 1.5 Gates green (typecheck, lint, test, build)
+- [x] 1.1 Digits come from the pinned table (HUF/TWD 2, ISK/JPY/MGA 0, KWD/IQD 3, ALL 2, XCG 2) — fdd8efa
+- [x] 1.2 `formatPrice` prints the table's digits on any runtime; the runtime agreement test covers every pinned currency — fdd8efa
+- [x] 1.3 The config accepts exactly the pinned codes (HRK, SLL refused) — fdd8efa
+- [x] 1.4 Stripe amounts follow the table (ALL unchanged, ISK ×100, IQD refused unless it ends in 0) — fdd8efa
+- [x] 1.5 Gates green (typecheck, lint, test, build) — fdd8efa
