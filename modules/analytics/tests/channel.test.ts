@@ -1,5 +1,5 @@
 // Reading the channel: the URL's own parameter decides, else a same-origin Referer's.
-import { hasChannelParam, parseChannel, readChannel, withChannel } from "@softure-ai/analytics/server";
+import { hasChannelParam, parseChannel, readChannel, tagPath, withChannel } from "@softure-ai/analytics/server";
 import { describe, expect, it } from "vitest";
 import { APP_ORIGIN, createConfig } from "./support.js";
 
@@ -91,5 +91,32 @@ describe("hasChannelParam and withChannel", () => {
     const url = new URL(`${APP_ORIGIN}/login?next=%2Faccount#form`);
     expect(withChannel(config, url, "ads").href).toBe(`${APP_ORIGIN}/login?next=%2Faccount&z=ads#form`);
     expect(url.href).toBe(`${APP_ORIGIN}/login?next=%2Faccount#form`);
+  });
+});
+
+describe("tagPath", () => {
+  const config = createConfig();
+
+  it("adds the channel to an app path, keeping the path, the query and the hash", () => {
+    expect(tagPath(config, "/account", "ads")).toBe("/account?z=ads");
+    expect(tagPath(config, "/account?tab=billing#plans", "ads")).toBe("/account?tab=billing&z=ads#plans");
+  });
+
+  it("leaves a path that already carries the parameter, whatever its value", () => {
+    expect(tagPath(config, "/account?z=other", "ads")).toBe("/account?z=other");
+    expect(tagPath(config, "/account?z=", "ads")).toBe("/account?z=");
+  });
+
+  it("returns anything that is not a path on this app unchanged", () => {
+    expect(tagPath(config, "//elsewhere.example.com/account", "ads")).toBe("//elsewhere.example.com/account");
+    expect(tagPath(config, "/\\elsewhere.example.com", "ads")).toBe("/\\elsewhere.example.com");
+    expect(tagPath(config, "https://elsewhere.example.com/account", "ads")).toBe("https://elsewhere.example.com/account");
+    expect(tagPath(config, "account", "ads")).toBe("account");
+    expect(tagPath(config, "", "ads")).toBe("");
+  });
+
+  it("uses the parameter the app configured", () => {
+    const custom = createConfig({ channel: { param: "via" } });
+    expect(tagPath(custom, "/account", "ads")).toBe("/account?via=ads");
   });
 });

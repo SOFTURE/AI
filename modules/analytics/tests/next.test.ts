@@ -1,6 +1,6 @@
 // The Next.js adapter: the channel from the page an action was posted from, from a page's own
-// search params, handed to auth's onRegistered hook, counted as a funnel step on sign-up, and the
-// channel keeper's rule handed to the browser.
+// search params, added to an action's redirect path, handed to auth's onRegistered hook, counted
+// as a funnel step on sign-up, and the channel keeper's rule handed to the browser.
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -15,7 +15,7 @@ vi.mock("next/headers", () => ({ headers: () => Promise.resolve(requestHeaders) 
 const config = createConfig();
 vi.mock("@softure-ai/core/next", () => ({ getSoftureConfig: () => config }));
 
-const { attributeRegistration, countRegistration, getChannel, getChannelFromSearchParams } = await import("@softure-ai/analytics/next");
+const { attributeRegistration, countRegistration, getChannel, getChannelFromSearchParams, tagRedirect } = await import("@softure-ai/analytics/next");
 const { ChannelKeeper } = await import("@softure-ai/analytics/next/channel-keeper");
 const { getChannelRule } = await import("@softure-ai/analytics/server");
 
@@ -56,6 +56,22 @@ describe("getChannelFromSearchParams", () => {
   it("reads URLSearchParams", () => {
     expect(getChannelFromSearchParams(new URLSearchParams("z=ads&z=other"), config)).toBe("ads");
     expect(getChannelFromSearchParams(new URLSearchParams("y=ads"), config)).toBeNull();
+  });
+});
+
+describe("tagRedirect", () => {
+  it("tags an action's redirect path with the channel of the page the action was posted from", async () => {
+    requestHeaders.set("referer", `${APP_ORIGIN}/register?z=newsletter`);
+    expect(await tagRedirect("/account")).toBe("/account?z=newsletter");
+    expect(await tagRedirect("/login?reset=1", { config })).toBe("/login?reset=1&z=newsletter");
+  });
+
+  it("returns the path unchanged without a channel, from another origin, or when it has its own tag", async () => {
+    expect(await tagRedirect("/account")).toBe("/account");
+    requestHeaders.set("referer", `https://evil.example.com/register?z=newsletter`);
+    expect(await tagRedirect("/account")).toBe("/account");
+    requestHeaders.set("referer", `${APP_ORIGIN}/register?z=newsletter`);
+    expect(await tagRedirect("/account?z=ads")).toBe("/account?z=ads");
   });
 });
 

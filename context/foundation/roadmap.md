@@ -49,7 +49,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-4** | `waitlist-welcome-html` | HTML welcome mail for the waitlist | FU-2 | autonomous | proposed |
 | **FU-5** | `analytics-client-navigation` | Channel tag on client navigations without Next-Url | — | autonomous | done_code (2026-10-03; waiting: MO-6 release of `@softure-ai/analytics`) |
 | **FU-6** | `billing-reminder-mail` | Reminder mail before access ends | FU-9 | autonomous | proposed |
-| **FU-7** | `analytics-action-redirect-tag` | Channel tag kept through server action redirects | FU-1, FU-5 | autonomous | in_progress (2026-10-03) |
+| **FU-7** | `analytics-action-redirect-tag` | Channel tag kept through server action redirects | FU-1, FU-5 | autonomous | in_progress (implement 1/1, since 2026-10-03; cloud session, branch `claude/project-thread-ooknrg`) |
 | **FU-8** | `waitlist-funnel-hook` | Waitlist sign-ups as a funnel step | FU-4 | autonomous | proposed |
 | **FU-9** | `billing-admin-requests` | Payment requests, revoke and grant history in the billing admin page | FU-11 | autonomous | done |
 | **FU-11** | `billing-refund-one-payment` | Refunds that take back one payment's period | — | autonomous | done |
@@ -64,6 +64,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-20** | `billing-partial-refunds` | partial refunds take back access by a policy | FU-11 | autonomous | proposed |
 | **FU-21** | `billing-refund-manual-lifetime` | a manual lifetime grant survives a refunded paid lifetime | FU-9 | autonomous | proposed |
 | **FU-22** | `billing-grant-plan-script` | a `grant-plan` ops script grants and revokes plans without the admin page | FU-9 | autonomous | proposed |
+| **FU-23** | `auth-page-redirect-tag` | a signed-in visitor's redirect from a tagged login page keeps the tag | FU-7 | autonomous | proposed |
 
 ## Order
 
@@ -75,7 +76,7 @@ after another; different lanes run in parallel, up to 4 at once.
 | A: switches | FU-1 | `foundation/core/`, `modules/auth/`, `modules/feature-switches/` |
 | B: waitlist and consent | FU-3 → FU-2 → FU-4 → FU-8 | `modules/waitlist/` (FU-3 also `modules/mailing/`, `modules/privacy/`) |
 | C: billing | FU-11 → FU-9 → FU-6 → FU-20 → FU-21 → FU-22; FU-12 any time | `modules/billing/` and its migrations; FU-12 writes archive documents only |
-| D: analytics | FU-5 → FU-7 (FU-7 also after FU-1) | `modules/analytics/` channel propagation; FU-7 may touch auth's redirects |
+| D: analytics | FU-5 → FU-7 → FU-23 (FU-7 also after FU-1) | `modules/analytics/` channel propagation; FU-7 may touch auth's redirects |
 | E: marketing-kit config | FU-14 → FU-16 → FU-15; FU-14 → FU-18 → FU-19 | `tools/marketing-kit/src/config/schema.ts`, `schema/`, `src/compose/` (FU-15, FU-16) |
 | F: independent | FU-13, FU-17 | `.github/workflows/ci.yml`; `tools/marketing-kit/src/og/` |
 
@@ -83,7 +84,7 @@ after another; different lanes run in parallel, up to 4 at once.
    adopts the switches; FU-3 fixes a consent ledger that can contradict an unsubscribe), then the MEDIUM refund
    fix and the schema descriptions that every later marketing-kit config item extends.
 2. **Each free slot** takes the first item of this list whose lane is idle and whose dependencies are on `master`:
-   FU-2, FU-5, FU-13, FU-17, FU-9, FU-16, FU-18, FU-4, FU-7, FU-12, FU-6, FU-15, FU-8, FU-19, FU-20, FU-21, FU-22.
+   FU-2, FU-5, FU-13, FU-17, FU-9, FU-16, FU-18, FU-4, FU-7, FU-12, FU-6, FU-15, FU-8, FU-19, FU-20, FU-21, FU-22, FU-23.
 3. **MK-8, EN-9 and MO-6** (owner, carried over): the owner's batch release on 2026-10-05; they wait for no FU item,
    and no FU item waits for them.
 
@@ -119,6 +120,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 | FU-20 | no | a refund policy in billing with a documented default; signed webhook fixtures, no Stripe secrets |
 | FU-21 | no | reads FU-9's grant history in the refund; unit tests on PGlite |
 | FU-22 | no | an ops script on `grantPlanManually` and `revokeManualGrant`, dry run by default; unit tests on PGlite |
+| FU-23 | no | auth's page redirect through the same rewrite; covered by the example app's e2e |
 
 ## Items
 
@@ -193,7 +195,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-7: Channel tag kept through server action redirects
 - **Change ID:** `analytics-action-redirect-tag`
-- **Status:** in_progress (2026-10-03)
+- **Status:** in_progress (implement 1/1, since 2026-10-03; cloud session, branch `claude/project-thread-ooknrg`)
 - **Input:** [`changes/analytics-action-redirect-tag/change.md`](../changes/analytics-action-redirect-tag/change.md)
 - **Outcome:** A server action's redirect from a tagged page (auth's sign-up and login redirect to `afterLogin`) lands on a URL that keeps the channel tag, so the views after sign-up are counted under the visit's channel (for example the auth actions adding the tag through `withChannel`, or a `/next` helper that tags an action's redirect target).
 - **Prerequisites:** FU-1, FU-5 on `master` (shared files, see Order).
@@ -390,6 +392,17 @@ owner's own machine, a product decision only the owner can make, or a change in 
 - **Risk:** LOW.
 - **Baseline:** FU-9 `billing-admin-requests`: manual grants are recorded only through the admin page or the server API; the roadmap's optional script was left out (README §12). After: the scripts exist, covered by unit tests, and the example ships them next to `grant-role`.
 - **Source:** FU-9 research ("Answers to unknowns", 6); `modules/billing/README.md` §12
+
+### FU-23: A signed-in visitor's redirect from a tagged login page keeps the tag
+- **Change ID:** `auth-page-redirect-tag`
+- **Status:** proposed
+- **Outcome:** Auth's login and register pages redirect a signed-in visitor to a URL that keeps the page's own channel tag (for example `rewriteRedirect` given the page's search parameters, or a page-level counterpart of `tagRedirect` that reads them instead of `Referer`).
+- **Prerequisites:** FU-7 on `master` (shared files, see Order).
+- **Unknowns:** Whether `rewriteRedirect` can read the page's own URL in a render (it reads `Referer` today); whether the case matters enough beyond the account page's beacon.
+- **Risk:** LOW. Only a signed-in visitor opening a tagged login link with a full page load; the account view lands under no channel.
+- **Baseline:** FU-7 `analytics-action-redirect-tag`: actions keep the tag through `rewriteRedirect`; the pages' `redirect(next)` in `modules/auth/src/next/pages.tsx` does not use it, and the follow-up request's `Referer` is the page before the tagged one (analytics README §12). After: the page redirect keeps the tag, covered by e2e.
+- **PRD refs:** FR-23.
+- **Source:** FU-7 research ("Open questions"); `modules/analytics/README.md` §12
 
 ## Owner decisions and checks
 

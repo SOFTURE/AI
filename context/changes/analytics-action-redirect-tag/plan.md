@@ -89,6 +89,17 @@ existing channel and funnel specs.
 - An app that already passes `next` with its own tag keeps it (the rewrite leaves a tagged path alone).
 - Rollback: revert the phase commit; without the option auth behaves exactly as before.
 
+## Decisions (auto)
+- Complexity → small (one phase).
+- Implementation drift (small): `resolveRedirectTarget` lives in `modules/auth/src/redirect-target.ts` (next to
+  `safe-next-path.ts`), not in `src/server/`: the `/server` entry promises functions that take the module context and
+  never read request scope, while the rewrite it calls reads `next/headers`. It is internal; the test imports it by path.
+- Implementation drift (small): the first draft of 1.4 checked only the final URL and passed without the option (the
+  browser's `GET /account` after the `303` carries the register page as `Referer`, so the proxy's `tag` re-tagged it).
+  1.4 now asserts the action's own `303 Location`. Plan review W1 check: with `rewriteRedirect` removed from the
+  example's config, 1.3 and 1.4 both fail (`/account` received), checked on a local build.
+- New gap FU-23 `auth-page-redirect-tag` (the login and register pages' redirect of a signed-in visitor).
+
 ## Progress
 
 > `- [ ]` pending, `- [x]` done. A phase ends with ` — <commit sha>` on its done items. Never rename items.
@@ -96,9 +107,9 @@ existing channel and funnel specs.
 ### Phase 1: The option, the helper and the proof
 
 #### Automated
-- [ ] 1.1 `tagPath` and `tagRedirect` unit cases pass
-- [ ] 1.2 `resolveRedirectTarget` unit cases pass, including the unsafe and throwing rewrites
-- [ ] 1.3 e2e "the sign-up action answers with the tagged account page" passes
-- [ ] 1.4 e2e "without JavaScript, sign-up lands on the tagged account page" passes
-- [ ] 1.5 the existing channel and funnel e2e specs pass
-- [ ] 1.6 Gates green (typecheck, lint, test, build) and the example app's `next build`
+- [x] 1.1 `tagPath` and `tagRedirect` unit cases pass
+- [x] 1.2 `resolveRedirectTarget` unit cases pass, including the unsafe and throwing rewrites
+- [x] 1.3 e2e "the sign-up action answers with the tagged account page" passes
+- [x] 1.4 e2e "without JavaScript, sign-up lands on the tagged account page" passes
+- [x] 1.5 the existing channel and funnel e2e specs pass
+- [x] 1.6 Gates green (typecheck, lint, test, build) and the example app's `next build`
