@@ -3,20 +3,35 @@ import type { TimedWord } from "../voice/voiceover.js";
 /**
  * Frame and time geometry: pure functions the composition is built from.
  *
- * Each format has a layout (`LAYOUTS`): the frame, the box the phone's screen fits in, the camera
- * target, the caption box, the persona card and the end card. The screen takes the box's full width
- * unless the device is too tall for its height, so every rectangle from the page is multiplied by
- * `screenScale` (screen width / the device's CSS width).
+ * Each layout (`LAYOUTS`) is one format with one window around the recorded screen: a phone in every format, or a
+ * browser window in 16:9 for a desktop recording (`desktop`). It holds the frame, the box the screen fits in, the
+ * camera target, the caption box, the persona card and the end card. The screen takes the box's full width unless the
+ * device is too tall for its height, so every rectangle from the page is multiplied by `screenScale` (screen width /
+ * the device's CSS width).
  *
- * Camera scales are relative to the phone, not to the frame, so one recording renders in every format.
+ * Camera scales are relative to the screen, not to the frame, so one phone recording renders in every format. A
+ * desktop recording renders in the desktop layout only.
  *
- * A project can override the copy and the end card of a format (`marketing.json` `layout`, see `LayoutOverride`),
- * never the frame, the phone box or the camera target: the recorder sizes its camera moves from those.
+ * A project can override the copy and the end card of a layout (`marketing.json` `layout`, see `LayoutOverride`),
+ * never the frame, the screen box or the camera target: the recorder sizes its camera moves from those.
  */
 
 export const VIDEO_FORMATS = ["9:16", "1:1", "16:9"] as const;
 
 export type VideoFormat = (typeof VIDEO_FORMATS)[number];
+
+/** What records the film: a phone (every format) or a desktop browser (16:9 only). */
+export const DEVICE_KINDS = ["phone", "desktop"] as const;
+
+export type DeviceKind = (typeof DEVICE_KINDS)[number];
+
+/** A layout per format for phone films, and `desktop` for 16:9 desktop films. */
+export const LAYOUT_NAMES = [...VIDEO_FORMATS, "desktop"] as const;
+
+export type LayoutName = (typeof LAYOUT_NAMES)[number];
+
+/** What the composition draws around the screen. */
+export type WindowKind = "phone" | "browser";
 
 export interface Viewport {
   width: number;
@@ -46,9 +61,11 @@ export interface EndCardLayout extends TextBox {
 }
 
 export interface Layout {
+  format: VideoFormat;
+  window: WindowKind;
   frame: { width: number; height: number };
   /** The screen is centred on `centerX`, starts at `top`, and is at most `maxWidth` × `maxHeight`. */
-  phoneBox: { centerX: number; top: number; maxWidth: number; maxHeight: number };
+  screenBox: { centerX: number; top: number; maxWidth: number; maxHeight: number };
   /** The point of the frame where the camera puts the centre of the watched element. */
   cameraTarget: Point;
   caption: CaptionLayout;
@@ -59,37 +76,63 @@ export interface Layout {
 /**
  * 9:16 (Reels, TikTok): the phone fills the width, captions over its foot, the end card below a small phone.
  * 1:1 (feed): a shorter phone, the same column. 16:9 (YouTube, LinkedIn): the phone on the left, copy on the right.
+ * Desktop (16:9): a browser window across the frame (its bar stands above the screen box), captions over its foot,
+ * the persona card above it; at the end card the window shrinks to the left and the copy stands on the right.
  */
-export const LAYOUTS: Record<VideoFormat, Layout> = {
+export const LAYOUTS: Record<LayoutName, Layout> = {
   "9:16": {
+    format: "9:16",
+    window: "phone",
     frame: { width: 1080, height: 1920 },
-    phoneBox: { centerX: 540, top: 214, maxWidth: 640, maxHeight: 1706 },
+    screenBox: { centerX: 540, top: 214, maxWidth: 640, maxHeight: 1706 },
     cameraTarget: { x: 540, y: 900 },
     caption: { top: 1470, left: 60, right: 60, fontSize: 50 },
     persona: { top: 78, left: 0, right: 0 },
     endCard: { top: 1180, left: 0, right: 0, headlineSize: 96, phone: { scale: 0.58, center: { x: 540, y: 640 } } },
   },
   "1:1": {
+    format: "1:1",
+    window: "phone",
     frame: { width: 1080, height: 1080 },
-    phoneBox: { centerX: 540, top: 150, maxWidth: 640, maxHeight: 900 },
+    screenBox: { centerX: 540, top: 150, maxWidth: 640, maxHeight: 900 },
     cameraTarget: { x: 540, y: 480 },
     caption: { top: 830, left: 60, right: 60, fontSize: 44 },
     persona: { top: 30, left: 0, right: 0 },
     endCard: { top: 470, left: 0, right: 0, headlineSize: 72, phone: { scale: 0.42, center: { x: 540, y: 250 } } },
   },
   "16:9": {
+    format: "16:9",
+    window: "phone",
     frame: { width: 1920, height: 1080 },
-    phoneBox: { centerX: 600, top: 90, maxWidth: 640, maxHeight: 900 },
+    screenBox: { centerX: 600, top: 90, maxWidth: 640, maxHeight: 900 },
     cameraTarget: { x: 600, y: 500 },
     caption: { top: 700, left: 1100, right: 120, fontSize: 50 },
     persona: { top: 150, left: 1100, right: 120 },
     endCard: { top: 330, left: 1100, right: 120, headlineSize: 80, phone: { scale: 0.85, center: { x: 600, y: 540 } } },
   },
+  desktop: {
+    format: "16:9",
+    window: "browser",
+    frame: { width: 1920, height: 1080 },
+    screenBox: { centerX: 960, top: 168, maxWidth: 1600, maxHeight: 840 },
+    cameraTarget: { x: 960, y: 560 },
+    caption: { top: 880, left: 260, right: 260, fontSize: 50 },
+    persona: { top: 14, left: 0, right: 0 },
+    endCard: { top: 330, left: 1080, right: 100, headlineSize: 80, phone: { scale: 0.5, center: { x: 560, y: 540 } } },
+  },
 };
 
+/** The height of the browser window's bar (dots and address), drawn above the desktop screen box. */
+export const BROWSER_BAR_HEIGHT = 52;
+
+/** The layout a film composes in: `desktop` for a desktop device, else its format's. */
+export function getLayoutName(format: VideoFormat, deviceKind: DeviceKind): LayoutName {
+  return deviceKind === "desktop" ? "desktop" : format;
+}
+
 /**
- * What a project may change in a format's layout: the caption box and font size, the persona card's box, the end
- * card's box, headline size and phone pose. A missing (or undefined) key keeps the table's value.
+ * What a project may change in a layout: the caption box and font size, the persona card's box, the end card's box,
+ * headline size and the pose of the phone (or the browser window) behind it. A missing (or undefined) key keeps the table's value.
  */
 export interface LayoutOverride {
   caption?: Partial<CaptionLayout>;
@@ -101,14 +144,16 @@ function mergeTextBox(base: TextBox, override: Partial<TextBox> = {}): TextBox {
   return { top: override.top ?? base.top, left: override.left ?? base.left, right: override.right ?? base.right };
 }
 
-/** A format's layout with a project's override merged in, key by key; always fresh objects, never the table's. */
-export function resolveLayout(format: VideoFormat, override: LayoutOverride = {}): Layout {
-  const base = LAYOUTS[format];
+/** A layout with a project's override merged in, key by key; always fresh objects, never the table's. */
+export function resolveLayout(name: LayoutName, override: LayoutOverride = {}): Layout {
+  const base = LAYOUTS[name];
   const endCard = override.endCard ?? {};
   const phone = endCard.phone ?? {};
   return {
+    format: base.format,
+    window: base.window,
     frame: { ...base.frame },
-    phoneBox: { ...base.phoneBox },
+    screenBox: { ...base.screenBox },
     cameraTarget: { ...base.cameraTarget },
     caption: { ...mergeTextBox(base.caption, override.caption), fontSize: override.caption?.fontSize ?? base.caption.fontSize },
     persona: mergeTextBox(base.persona, override.persona),
@@ -124,11 +169,13 @@ export function resolveLayout(format: VideoFormat, override: LayoutOverride = {}
 }
 
 export interface Geometry {
+  layout: LayoutName;
   format: VideoFormat;
+  window: WindowKind;
   frame: { width: number; height: number };
   /** The recorded device's CSS viewport. */
   viewport: Viewport;
-  /** Where the phone's screen sits in the frame. */
+  /** Where the recorded screen sits in the frame. */
   screen: { left: number; top: number; width: number };
   screenScale: number;
   /** The screen's height in the frame, rounded to px for CSS. */
@@ -144,25 +191,35 @@ export interface Geometry {
  * other formats the screen narrows to fit, so any device that passes here fits them too.
  */
 export function fitsFrame(viewport: Viewport): boolean {
-  const { phoneBox } = LAYOUTS["9:16"];
-  return (viewport.height * phoneBox.maxWidth) / viewport.width <= phoneBox.maxHeight;
+  const { screenBox } = LAYOUTS["9:16"];
+  return (viewport.height * screenBox.maxWidth) / viewport.width <= screenBox.maxHeight;
+}
+
+/** The narrowest desktop viewport, in CSS px: below it most apps switch to their tablet or phone layout. */
+export const MIN_DESKTOP_WIDTH = 1024;
+
+/** Whether a viewport is a desktop browser's: at least `MIN_DESKTOP_WIDTH` wide and landscape (or square). */
+export function isDesktopViewport(viewport: Viewport): boolean {
+  return viewport.width >= MIN_DESKTOP_WIDTH && viewport.height <= viewport.width;
 }
 
 /**
- * The layout of a format for a recorded device, with the project's override of that format. The recorder
- * uses the 9:16 default without an override: its camera scales are relative to the phone and serve every
- * format, and no override changes the frame or the phone box it reads.
+ * A layout for a recorded device, with the project's override of that layout. A phone recorder uses the 9:16
+ * default without an override: its camera scales are relative to the phone and serve every format, and no
+ * override changes the frame or the screen box it reads. A desktop recorder uses `desktop`.
  */
-export function getGeometry(viewport: Viewport, format: VideoFormat = "9:16", override: LayoutOverride = {}): Geometry {
-  const layout = resolveLayout(format, override);
-  const { phoneBox } = layout;
-  const width = Math.min(phoneBox.maxWidth, Math.floor((phoneBox.maxHeight * viewport.width) / viewport.height));
+export function getGeometry(viewport: Viewport, name: LayoutName = "9:16", override: LayoutOverride = {}): Geometry {
+  const layout = resolveLayout(name, override);
+  const { screenBox } = layout;
+  const width = Math.min(screenBox.maxWidth, Math.floor((screenBox.maxHeight * viewport.width) / viewport.height));
   const screenScale = width / viewport.width;
   return {
-    format,
+    layout: name,
+    format: layout.format,
+    window: layout.window,
     frame: layout.frame,
     viewport: { ...viewport },
-    screen: { left: Math.round(phoneBox.centerX - width / 2), top: phoneBox.top, width },
+    screen: { left: Math.round(screenBox.centerX - width / 2), top: screenBox.top, width },
     screenScale,
     screenHeight: Math.round(viewport.height * screenScale),
     cameraTarget: layout.cameraTarget,
@@ -199,7 +256,7 @@ export function cameraPose(geometry: Geometry, rect: Rect, scale: number, target
   return { scale, x: round(target.x - scale * centerX), y: round(target.y - scale * centerY) };
 }
 
-/** The whole phone screen in the frame, kept where the layout puts it (its centre stays in place). */
+/** The whole screen in the frame, kept where the layout puts it (its centre stays in place). */
 export function widePose(geometry: Geometry, scale = 1): CameraPose {
   const { viewport, screen, screenScale } = geometry;
   return cameraPose(geometry, { x: 0, y: 0, w: viewport.width, h: viewport.height }, scale, {

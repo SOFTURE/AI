@@ -109,7 +109,7 @@ describe("loadMarketingConfig", () => {
     expect(video?.url).toBe("http://localhost:3000/calculator");
     expect(video?.ownUrl).toBe("http://localhost:3100/calculator");
     expect(video?.format).toBe("9:16");
-    expect(video?.device).toEqual({ viewport: { width: 390, height: 844 }, scale: 3, isMobile: true });
+    expect(video?.device).toEqual({ kind: "phone", viewport: { width: 390, height: 844 }, scale: 3, isMobile: true });
     expect(video?.voice).toEqual({ voiceId: "voice-1", modelId: "eleven_multilingual_v2", language: "en", tempo: 1 });
   });
 
@@ -120,7 +120,7 @@ describe("loadMarketingConfig", () => {
     video.device = { viewport: [412, 915], scale: 2.625, mobile: false };
     video.voice = { voiceId: "voice-2", tempo: 1.1 };
     const loaded = load(config).videos[0];
-    expect(loaded?.device).toEqual({ viewport: { width: 412, height: 915 }, scale: 2.625, isMobile: false });
+    expect(loaded?.device).toEqual({ kind: "phone", viewport: { width: 412, height: 915 }, scale: 2.625, isMobile: false });
     expect(loaded?.voice).toEqual({ voiceId: "voice-2", modelId: "eleven_multilingual_v2", language: "en", tempo: 1.1 });
   });
 

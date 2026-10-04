@@ -15,7 +15,7 @@ const film = {
   path: "/",
   format: "9:16",
   layout: {},
-  device: { viewport: { width: 390, height: 844 }, scale: 3, isMobile: true },
+  device: { kind: "phone", viewport: { width: 390, height: 844 }, scale: 3, isMobile: true },
   voice: { voiceId: "v", modelId: "m", language: "en", tempo: 1 },
   beats: [
     { id: "hook", text: "One That." },
@@ -268,6 +268,33 @@ describe("composeFilm", () => {
     // scale 0.85 → x = 600 - 0.85 × 600.5 = 89.575, y = 540 - 0.85 × 539 = 81.85.
     const html = composeFilm({ ...input, geometry: getGeometry({ width: 390, height: 844 }, "16:9") });
     expect(html).toContain('"pose":{"scale":0.85,"x":89.575,"y":81.85}');
+  });
+
+  describe("a desktop film", () => {
+    const desktopFilm: Film = { ...film, format: "16:9", device: { kind: "desktop", viewport: { width: 1280, height: 800 }, scale: 1.5 } };
+    const desktopInput = { ...input, film: desktopFilm, geometry: getGeometry({ width: 1280, height: 800 }, "desktop") };
+
+    it("composes the recording in a browser window", async () => {
+      await expect(composeFilm(desktopInput)).toMatchFileSnapshot("../../tests/snapshots/film-16x9-desktop.html");
+    });
+
+    it("draws a browser window with the end card's URL in the address bar instead of a phone", () => {
+      const html = composeFilm({ ...desktopInput, film: { ...desktopFilm, endCard: { ...desktopFilm.endCard, url: "acme.example/<plan>" } } });
+      expect(html).toContain('<div class="window">');
+      expect(html).toContain('<span class="address">acme.example/&lt;plan&gt;</span>');
+      expect(html).not.toContain('class="phone"');
+      // The window's bar (52 px) stands above the screen: 168 - 52 = 116.
+      expect(html).toContain(".window{position:absolute;left:288px;top:116px;width:1344px;height:892px;");
+      expect(html).toContain(".screen{position:absolute;left:0;top:52px;width:1344px;height:840px;");
+      expect(html).toContain('data-width="1920" data-height="1080"');
+      expect(html).toContain(".caption{position:absolute;left:260px;right:260px;top:880px;");
+    });
+
+    it("shrinks the window to the desktop end-card pose", () => {
+      // Oracle by hand (1280×800): screen 1344 px at left 288, top 168, height 840; centre (960, 588);
+      // scale 0.5 → x = 560 - 0.5 × 960 = 80, y = 540 - 0.5 × 588 = 246.
+      expect(composeFilm(desktopInput)).toContain('"pose":{"scale":0.5,"x":80,"y":246}');
+    });
   });
 
   it("refuses a recording without the opening shot's mark", () => {

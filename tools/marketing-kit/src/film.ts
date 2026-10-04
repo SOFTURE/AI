@@ -33,13 +33,24 @@ export interface VoiceSettings {
   tempo: number;
 }
 
-/** The recorded phone. */
-export interface Device {
-  viewport: Viewport;
-  /** Device pixels per CSS pixel. */
-  scale: number;
-  isMobile: boolean;
-}
+/**
+ * What records the film: a phone (touch; `isMobile` emulates a mobile browser), or a desktop browser (mouse, never
+ * mobile), which only a 16:9 film can use and which the film frames as a browser window.
+ */
+export type Device =
+  | {
+      kind: "phone";
+      viewport: Viewport;
+      /** Device pixels per CSS pixel. */
+      scale: number;
+      isMobile: boolean;
+    }
+  | {
+      kind: "desktop";
+      viewport: Viewport;
+      /** Device pixels per CSS pixel. */
+      scale: number;
+    };
 
 export interface EndCard {
   headline: string;

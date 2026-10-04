@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1920, height=1080" />
+<title>Test</title>
+<script src="assets/gsap.min.js"></script>
+<style>
+
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:1920px;height:1080px;overflow:hidden;background:#0b0f14}
+#root{position:relative;width:1920px;height:1080px;overflow:hidden;background:#0b0f14;font-family:sans-serif;color:#e8eef5}
+.backdrop{position:absolute;inset:0;overflow:hidden}
+.blur{position:absolute;left:-15%;top:-10%;width:130%;height:120%;object-fit:cover;filter:blur(70px) saturate(1.4);opacity:.38}
+.vignette{position:absolute;inset:0;background:radial-gradient(90% 60% at 50% 45%, transparent 0%, #0b0f14cc 70%, #0b0f14 100%)}
+#camera{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:0 0}
+.window{position:absolute;left:288px;top:116px;width:1344px;height:892px;border-radius:18px;overflow:hidden;background:linear-gradient(180deg,#2a3441,#1b232d 52px);box-shadow:0 0 0 2px #3a4655 inset,0 60px 140px rgba(0,0,0,.65),0 0 0 1px #05070a}
+.bar{position:absolute;left:0;top:0;right:0;height:52px;display:flex;align-items:center;gap:28px;padding:0 24px}
+.dots{display:flex;gap:10px}
+.dots i{width:14px;height:14px;border-radius:50%;background:#3a4655}
+.address{flex:1;margin-right:96px;height:32px;border-radius:999px;background:#0e131a;color:#8296ad;font-size:18px;line-height:32px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.screen{position:absolute;left:0;top:52px;width:1344px;height:840px;overflow:hidden;background:#0b0f14}
+.screen img,.screen video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.touch{position:absolute;width:0;height:0}
+.touch .dot{position:absolute;left:-34px;top:-34px;width:68px;height:68px;border-radius:50%;background:rgba(232,238,245,.34);border:2px solid rgba(232,238,245,.75);opacity:0}
+.touch .ring{position:absolute;left:-34px;top:-34px;width:68px;height:68px;border-radius:50%;border:3px solid #60a5fa;opacity:0}
+.caption{position:absolute;left:260px;right:260px;top:880px;display:flex;justify-content:center}
+.pill{font-weight:650;font-size:50px;line-height:1.18;letter-spacing:-.01em;text-align:center;padding:16px 28px;border-radius:22px;background:#ecf1f7f7;box-shadow:0 14px 44px rgba(0,0,0,.5);color:#0b0f16}
+.pill span{display:inline-block}
+.persona{position:absolute;left:0;right:0;top:14px;display:flex;justify-content:center}
+.persona .card{display:flex;align-items:center;gap:20px;padding:14px 30px 14px 14px;border-radius:999px;background:rgba(19,26,35,.9);border:1px solid rgba(130,150,173,.28)}
+.avatar{width:66px;height:66px;border-radius:50%;display:grid;place-items:center;font-family:sans-serif;font-size:38px;font-weight:600;color:#0b0f15;background:linear-gradient(135deg,#34d399,#60a5fa)}
+.persona b{display:block;font-size:34px;font-weight:650}
+.persona span{display:block;font-size:25px;color:#8296ad;margin-top:2px}
+.endcard{position:absolute;left:1080px;right:100px;top:330px;text-align:center}
+.brand{display:flex;justify-content:center;align-items:center;gap:18px;font-family:sans-serif;font-size:46px}
+.logo{height:60px;width:auto}
+.headline{font-family:sans-serif;font-weight:500;font-size:80px;letter-spacing:-.025em;line-height:1.02;margin-top:44px}
+.url{display:inline-block;margin-top:40px;padding:20px 38px;border-radius:999px;font-size:44px;font-weight:600;color:#0b0f15;background:#34d399}
+.note{margin-top:26px;font-size:30px;color:#8296ad}
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="film" data-start="0" data-duration="12" data-width="1920" data-height="1080">
+  <div class="backdrop">
+    <img id="bg-hook" class="clip blur" src="h.jpg" data-start="0" data-duration="4.6" />
+    <video id="bg-screen" class="clip blur" src="s.mp4" data-start="4.6" data-media-start="0.2" data-duration="9.8" muted playsinline></video>
+    <img id="bg-last" class="clip blur" src="l.jpg" data-start="14.4" data-duration="0.04" />
+    <div class="vignette"></div>
+  </div>
+  <div id="camera">
+    <div class="window">
+      <div class="bar"><span class="dots"><i></i><i></i><i></i></span><span class="address">example.com/calculator</span></div>
+      <div class="screen">
+        <img id="hook" class="clip" src="h.jpg" data-start="0" data-duration="3.8" />
+        <video id="rewind" class="clip" src="r.mp4" data-start="3.8" data-duration="0.8" muted playsinline></video>
+        <video id="recording" class="clip" src="s.mp4" data-start="4.6" data-media-start="0.2" data-duration="9.8" muted playsinline></video>
+        <img id="last" class="clip" src="l.jpg" data-start="14.4" data-duration="0.04" />
+        <div class="touch" style="left:105px;top:210px"><div class="dot" id="td0"></div><div class="ring" id="tr0"></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="persona"><div class="card" id="persona"><div class="avatar">A</div><div><b>Anna, 36</b><span>counts</span></div></div></div>
+  <div id="cap0" class="clip caption" data-start="0.25" data-duration="2.4"><p class="pill"><span id="cw0_0">One</span> <span id="cw0_1">That.</span></p></div>
+  <div id="cap1" class="clip caption" data-start="4.55" data-duration="1.4"><p class="pill"><span id="cw1_0">Middle.</span></p></div>
+  <div class="endcard">
+    <div class="brand" id="ec-brand"><span>Acme &lt;Plan&gt;</span></div>
+    <p class="headline" id="ec-headline">Count</p>
+    <p class="url" id="ec-url">example.com/calculator</p>
+    <p class="note" id="ec-note"></p>
+  </div>
+  <audio id="vo-hook" src="v.mp3" data-start="0.3" data-media-start="0" data-duration="2.25" data-volume="1"></audio>
+  <audio id="vo-a" src="v.mp3" data-start="4.6" data-media-start="2.95" data-duration="1.25" data-volume="1"></audio>
+  <audio id="vo-cta" src="v.mp3" data-start="9.4" data-media-start="4.95" data-duration="1.25" data-volume="1"></audio>
+  <audio id="sfx0" src="assets/sfx/tap.mp3" data-start="5.4" data-duration="0.37" data-volume="0.55"></audio>
+  <audio id="sfx1" src="assets/sfx/pop.wav" data-start="11.2" data-duration="0.72" data-volume="0.35"></audio>
+</div>
+<script>
+const tl = gsap.timeline({ paused: true });
+const camera = [{"t":0,"pose":{"scale":1.5,"x":449.25,"y":229.25},"dur":0,"ease":"none","from":{"scale":1.5,"x":449.25,"y":229.25}},{"t":0.2,"pose":{"scale":1.395,"x":485.003,"y":252.402},"dur":1.3,"ease":"sine.inOut","from":{"scale":1.5,"x":449.25,"y":229.25}},{"t":2.75,"pose":{"scale":1,"x":0,"y":0},"dur":0.9,"ease":"power3.inOut","from":{"scale":1.395,"x":485.003,"y":252.402}},{"t":5.1,"pose":{"scale":1.5,"x":291.75,"y":119},"dur":0.4,"ease":"power3.inOut","from":{"scale":1,"x":0,"y":0}},{"t":5.5,"pose":{"scale":1,"x":0,"y":0},"dur":0.5,"ease":"power3.inOut","from":{"scale":1.5,"x":291.75,"y":119}},{"t":10.3,"pose":{"scale":0.5,"x":80,"y":246},"dur":0.9,"ease":"power3.inOut","from":{"scale":1,"x":0,"y":0}}];
+gsap.set("#camera", { scale: 1.5, x: 449.25, y: 229.25 });
+for (const c of camera) if (c.dur > 0) tl.fromTo("#camera", { scale: c.from.scale, x: c.from.x, y: c.from.y }, { scale: c.pose.scale, x: c.pose.x, y: c.pose.y, duration: c.dur, ease: c.ease, immediateRender: false }, c.t);
+for (const t of [{"i":0,"t":5.4}]) {
+  tl.fromTo("#td" + t.i, { opacity: 0, scale: 1.45 }, { opacity: 1, scale: 1, duration: 0.14, ease: "power2.out", immediateRender: false }, t.t - 0.16);
+  tl.to("#td" + t.i, { scale: 0.82, duration: 0.07, ease: "power2.in" }, t.t - 0.02);
+  tl.to("#td" + t.i, { scale: 1, opacity: 0, duration: 0.3, ease: "power2.out" }, t.t + 0.06);
+  tl.fromTo("#tr" + t.i, { opacity: 0.9, scale: 0.6 }, { opacity: 0, scale: 2.3, duration: 0.5, ease: "power3.out", immediateRender: false }, t.t);
+}
+const captions = [[0.3,1.3],[4.6]];
+captions.forEach((words, i) => {
+  tl.fromTo("#cap" + i + " .pill", { y: 14, opacity: 0 }, { y: 0, opacity: 1, duration: 0.16, ease: "power3.out" }, words[0] - 0.05);
+  words.forEach((t, j) => tl.fromTo("#cw" + i + "_" + j, { color: "#0b0f16" }, { color: "#059670", duration: 0.06, immediateRender: false }, t).to("#cw" + i + "_" + j, { color: "#0b0f16", duration: 0.2 }, t + 0.32));
+});
+tl.fromTo("#persona", { y: -30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, 4.65);
+tl.to("#persona", { y: -30, opacity: 0, duration: 0.35, ease: "power2.in" }, 10.3);
+tl.fromTo("#ec-brand", { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, 10.65);
+tl.fromTo("#ec-headline", { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, ease: "power3.out" }, 10.8);
+tl.fromTo("#ec-url", { y: 30, opacity: 0, scale: 0.94 }, { y: 0, opacity: 1, scale: 1, duration: 0.55, ease: "power3.out" }, 11.2);
+tl.fromTo("#ec-note", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power2.out" }, 11.6);
+tl.set({}, {}, 12);
+window.__timelines = window.__timelines || {};
+window.__timelines["film"] = tl;
+</script>
+</body>
+</html>

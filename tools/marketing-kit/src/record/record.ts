@@ -111,7 +111,7 @@ export async function recordFilm(options: RecordOptions): Promise<RecordingLog> 
     const context = await browser.newContext({
       viewport: { ...viewport },
       deviceScaleFactor: film.device.scale,
-      isMobile: film.device.isMobile,
+      isMobile: film.device.kind === "phone" && film.device.isMobile,
       hasTouch: true,
       colorScheme: settings.colorScheme,
       locale: settings.locale,

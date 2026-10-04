@@ -10,7 +10,7 @@ function makeFilm(overrides: Partial<Film> = {}): Film {
     path: "/",
     format: "9:16",
     layout: {},
-    device: { viewport: { width: 390, height: 844 }, scale: 3, isMobile: true },
+    device: { kind: "phone", viewport: { width: 390, height: 844 }, scale: 3, isMobile: true },
     voice: { voiceId: "v", modelId: "m", language: "en", tempo: 1.1 },
     beats: [
       { id: "hook", text: "Opening." },

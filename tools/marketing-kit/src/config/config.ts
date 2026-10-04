@@ -124,7 +124,7 @@ function resolveVideos(data: MarketingJson, at: (relative: string) => string): V
       path: video.path,
       format: video.format,
       layout: data.layout?.[video.format] ?? {},
-      device: { viewport: { width: device.viewport[0], height: device.viewport[1] }, scale: device.scale, isMobile: device.mobile },
+      device: { kind: "phone", viewport: { width: device.viewport[0], height: device.viewport[1] }, scale: device.scale, isMobile: device.mobile },
       persona: video.persona,
       voice: {
         voiceId: video.voice?.voiceId ?? data.voice.voiceId,
