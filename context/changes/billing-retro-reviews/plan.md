@@ -56,8 +56,8 @@ archived documents that already exist.
 ### Phase 1: Retro documents
 
 #### Automated
-- [ ] 1.1 Both archives hold the new files; every finding names its decision and, when deferred, its FU id
-- [ ] 1.2 Gates green (typecheck, lint, test)
+- [x] 1.1 Both archives hold the new files; every finding names its decision and, when deferred, its FU id — a7c54d1
+- [x] 1.2 Gates green (typecheck, lint, test) — a7c54d1
 
 ### Phase 2: Followup items
 
