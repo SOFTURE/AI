@@ -5,7 +5,7 @@ import { buildStoredArticle, buildStoredTerm } from "../support.js";
 
 const CTX: JsonLdContext = {
   origin: "https://example.com",
-  routes: { index: "/blog", glossary: "/blog/glossary", method: "/blog/how-we-write" },
+  routes: { index: "/blog", glossary: "/blog/glossary", method: "/blog/how-we-write", rss: "/blog/rss.xml" },
   locale: "en",
   timezone: "Europe/Warsaw",
   brand: "Example",

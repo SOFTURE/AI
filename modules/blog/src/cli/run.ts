@@ -11,6 +11,7 @@ import { basename, join, relative, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { systemClock, type Clock, type SoftureConfig } from "@softure-ai/core";
 import { createDatabase, type DatabaseHandle } from "@softure-ai/db";
+import { submitBlogChanges, type BlogIndexNowSubmit } from "../discovery/submit.js";
 import { runBlogPublish, type ArticleFile, type BlogPublishRun, type PublishedChange, type PublishGate, type PublishProblem } from "../db/publish-run.js";
 import { checkArticleFiles, type FileCheckResult } from "../quality/check-files.js";
 import type { FetchLike } from "../quality/external-links.js";
@@ -39,6 +40,8 @@ export interface RunBlogCliOptions {
   readonly clock?: Clock;
   /** For `check --external`. Default: the global `fetch`. */
   readonly fetch?: FetchLike;
+  /** For the IndexNow submit after `publish`. Default: the global `fetch`. */
+  readonly indexNowFetch?: typeof fetch;
 }
 
 export const EXIT_OK = 0;
@@ -46,7 +49,7 @@ export const EXIT_FAILED = 1;
 export const EXIT_USAGE = 2;
 
 export const BLOG_USAGE = `Usage:
-  softure-blog publish [<path>...] [--commit] [--withdraw]
+  softure-blog publish [<path>...] [--commit] [--withdraw] [--no-indexnow]
   softure-blog check [<path>...] [--external] [--today <YYYY-MM-DD>]
 
 publish   Brings the blog's tables to the state of the article files. A <path> is a file or a
@@ -54,7 +57,10 @@ publish   Brings the blog's tables to the state of the article files. A <path> i
           Every file is checked before the first write, and one problem writes nothing.
   --commit      write the changes; without it, a dry run that shows them and writes nothing
   --withdraw    publish the one given file as withdrawn, whatever its status
+  --no-indexnow do not submit the changed addresses to IndexNow
           Files going public pass the quality gate first; an error writes nothing.
+          With seo({ indexNow }) enabled, a commit submits the addresses whose answer
+          changed (the text, its old slug, its listing) to IndexNow; a dry run prints them.
 
 check     Runs the quality gate of blog({ quality }) over the files, without a database, and
           prints every finding as file:line: severity [rule] message. Exits 1 on any error.
@@ -72,7 +78,7 @@ const consoleOutput: CliOutput = {
 
 export type BlogCommand =
   | { readonly kind: "help" }
-  | { readonly kind: "publish"; readonly paths: readonly string[]; readonly commit: boolean; readonly withdraw: boolean }
+  | { readonly kind: "publish"; readonly paths: readonly string[]; readonly commit: boolean; readonly withdraw: boolean; readonly indexNow: boolean }
   | { readonly kind: "check"; readonly paths: readonly string[]; readonly external: boolean; readonly today: string | null };
 
 /** Runs the command and returns the process exit code: 0 done, 1 refused or failed, 2 usage error. */
@@ -109,7 +115,7 @@ export function parseBlogCommand(argv: readonly string[]): BlogCommand | string 
   if (values.help === true) return { kind: "help" };
   const withdraw = values.withdraw === true;
   if (withdraw && positionals.length !== 1) return "--withdraw takes exactly one article file";
-  return { kind: "publish", paths: positionals, commit: values.commit === true, withdraw };
+  return { kind: "publish", paths: positionals, commit: values.commit === true, withdraw, indexNow: values["no-indexnow"] !== true };
 }
 
 function parseCheckCommand(args: readonly string[]): BlogCommand | string {
@@ -145,6 +151,7 @@ function parsePublishArgs(args: readonly string[]) {
     options: {
       commit: { type: "boolean" },
       withdraw: { type: "boolean" },
+      "no-indexnow": { type: "boolean" },
       help: { type: "boolean" },
     },
     strict: true,
@@ -203,7 +210,11 @@ async function runPublish(command: Extract<BlogCommand, { kind: "publish" }>, op
         ...(gate === undefined ? {} : { gate }),
       },
     );
-    return reportRun(run, output);
+    const code = reportRun(run, output);
+    if (run.status === "done" && command.indexNow) {
+      reportIndexNow(await submitBlogChanges(config, run.changes, { commit: run.committed, ...(options.indexNowFetch === undefined ? {} : { fetchImpl: options.indexNowFetch }) }), output);
+    }
+    return code;
   } catch (error) {
     // Driver errors: the message only, never a stack or the database URL.
     output.error(`softure-blog publish: ${describeError(error)} (did softure migrate run?)`);
@@ -289,6 +300,27 @@ function reportRun(run: BlogPublishRun, output: CliOutput): number {
   output.log(`summary: added ${count("added")}, changed ${count("changed")}, unchanged ${count("unchanged")}`);
   output.log(run.committed ? "written" : "dry run: nothing written; pass --commit to write");
   return EXIT_OK;
+}
+
+/** One line about the IndexNow submit; a failure is a warning and never changes the exit code. */
+function reportIndexNow({ paths, outcome }: BlogIndexNowSubmit, output: CliOutput): void {
+  switch (outcome.kind) {
+    case "not_configured":
+      output.log(`indexnow: off, ${outcome.reason}`);
+      return;
+    case "skipped":
+      output.log("indexnow: no public address changed, nothing to submit");
+      return;
+    case "dry_run":
+      output.log(`indexnow: dry run, a commit would submit ${String(outcome.urls.length)} URL(s): ${outcome.urls.join(" ")}`);
+      return;
+    case "submitted":
+      output.log(`indexnow: submitted ${String(outcome.count)} URL(s) (${String(outcome.status)}): ${paths.join(" ")}`);
+      return;
+    case "failed":
+      output.error(`warning indexnow: ${outcome.reason} (${outcome.code}); the publish is written, submit the addresses later: ${paths.join(" ")}`);
+      return;
+  }
 }
 
 function formatChange(change: PublishedChange): string {

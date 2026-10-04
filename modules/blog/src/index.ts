@@ -11,18 +11,20 @@ export const MODULE_ID = "blog";
 /**
  * Enables the blog in `softure.config.ts`: `blog()`, or with options
  * `blog({ brand: { name: "Example" }, methodPage: true, fields: z.object({ scenario: z.string().optional() }) })`.
- * Pages mount under `routes` (`index` `/blog`, `glossary` `/blog/glossary`, `method` `/blog/how-we-write`).
+ * Pages mount under `routes` (`index` `/blog`, `glossary` `/blog/glossary`, `method` `/blog/how-we-write`,
+ * `rss` `/blog/rss.xml`). With `seo()` listed too, `blogSitemap()` feeds its sitemap and a publish pings IndexNow.
  */
 export const blog = defineModule({
   manifest: {
     id: MODULE_ID,
     version: "0.0.0",
-    dependsOn: {},
+    // seo is optional: with it the sitemap lists the texts and a publish pings IndexNow.
+    dependsOn: { seo: "^0.0.0?" },
     dbSchema: "blog",
     tables: ["articles", "slug_history"],
     env: [],
     switches: [],
-    routes: { index: "/blog", glossary: "/blog/glossary", method: "/blog/how-we-write" },
+    routes: { index: "/blog", glossary: "/blog/glossary", method: "/blog/how-we-write", rss: "/blog/rss.xml" },
     mount: [
       { kind: "page", path: "app/blog/page.tsx", export: "BlogIndexPage" },
       { kind: "page", path: "app/blog/[slug]/page.tsx", export: "BlogArticlePage" },
@@ -30,6 +32,7 @@ export const blog = defineModule({
       { kind: "page", path: "app/blog/glossary/page.tsx", export: "GlossaryIndexPage" },
       { kind: "page", path: "app/blog/glossary/[slug]/page.tsx", export: "GlossaryTermPage" },
       { kind: "page", path: "app/blog/how-we-write/page.tsx", export: "BlogMethodPage" },
+      { kind: "route-handler", path: "app/blog/rss.xml/route.ts", export: "serveBlogRss" },
       { kind: "middleware", path: "proxy.ts", export: "createBlogRedirects" },
     ],
     privacy: { exports: false, deletes: false },

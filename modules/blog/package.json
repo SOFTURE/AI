@@ -75,12 +75,19 @@
     "zod": "^4.6.5"
   },
   "peerDependencies": {
+    "@softure-ai/seo": "^0.0.0",
     "drizzle-orm": "^0.45.2",
     "next": "^16.0.0",
     "react": "^19.0.0"
   },
   "devDependencies": {
+    "@softure-ai/seo": "^0.0.0",
     "@types/markdown-it": "^14.2.0",
     "@types/markdown-it-footnote": "^3.0.4"
+  },
+  "peerDependenciesMeta": {
+    "@softure-ai/seo": {
+      "optional": true
+    }
   }
 }

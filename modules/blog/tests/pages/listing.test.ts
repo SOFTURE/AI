@@ -3,7 +3,7 @@ import { formatDay, getArticleCrumbs, getArticleDates, getClusterLabel, getTermC
 import { describe, expect, it } from "vitest";
 import { buildStoredArticle, buildStoredTerm } from "../support.js";
 
-const ROUTES: BlogRoutes = { index: "/blog", glossary: "/blog/glossary", method: "/blog/how-we-write" };
+const ROUTES: BlogRoutes = { index: "/blog", glossary: "/blog/glossary", method: "/blog/how-we-write", rss: "/blog/rss.xml" };
 const LABELS = { blog: "Blog", glossary: "Glossary", cluster: (cluster: string) => `#${cluster}` };
 
 describe("article dates", () => {

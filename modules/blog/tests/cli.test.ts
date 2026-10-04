@@ -5,11 +5,14 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runBlogCli, runBlogCommand, type CliOutput, type RunBlogCliOptions } from "@softure-ai/blog/cli";
 import { findArticleBySlug } from "@softure-ai/blog/server";
+import { seo } from "@softure-ai/seo";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildArticleText, createTestBlog, type TestBlog } from "./support.js";
 
 const FIXTURES_DIR = fileURLToPath(new URL("./fixtures/", import.meta.url));
 const APP_DIR = fileURLToPath(new URL("./fixtures/app/", import.meta.url));
+
+const INDEXNOW_OFF = "indexnow: off, the seo module is not enabled; add seo({ indexNow: { key } }) to modules";
 
 function createOutput(): { output: CliOutput; lines: string[]; errors: string[] } {
   const lines: string[] = [];
@@ -58,6 +61,7 @@ describe("softure-blog publish", () => {
         "added tax-wrapper none -> draft/tax-wrapper",
         "summary: added 2, changed 0, unchanged 0",
         "dry run: nothing written; pass --commit to write",
+        INDEXNOW_OFF,
       ],
       errors: [],
     });
@@ -66,12 +70,13 @@ describe("softure-blog publish", () => {
   });
 
   it("writes with --commit; the same files again are unchanged", async () => {
-    expect((await run(["publish", "content", "--commit"])).lines.slice(-1)).toEqual(["written"]);
+    expect((await run(["publish", "content", "--commit"])).lines.slice(-2)).toEqual(["written", INDEXNOW_OFF]);
     expect(await findArticleBySlug(test.ctx, "index-funds")).toMatchObject({ status: "published", isPillar: true });
     expect((await run(["publish", "content/index-funds.md", "--commit"])).lines).toEqual([
       "unchanged index-funds published/index-funds -> published/index-funds",
       "summary: added 0, changed 0, unchanged 1",
       "written",
+      INDEXNOW_OFF,
     ]);
   });
 
@@ -86,7 +91,7 @@ describe("softure-blog publish", () => {
       ]);
       expect(await run(["publish", join(dir, "funds.md"), "--withdraw", "--commit"])).toMatchObject({
         code: 0,
-        lines: ["changed index-funds published/funds -> withdrawn/funds", "summary: added 0, changed 1, unchanged 0", "written"],
+        lines: ["changed index-funds published/funds -> withdrawn/funds", "summary: added 0, changed 1, unchanged 0", "written", INDEXNOW_OFF],
         errors: ["warning funds.md: the file says status: published; set it to withdrawn, or the next full publish brings the text back"],
       });
     } finally {
@@ -155,6 +160,88 @@ describe("softure-blog publish", () => {
   it("reports a database error without the URL", async () => {
     const result = await run(["publish"], { openDatabase: () => Promise.reject(new Error("connect ECONNREFUSED 127.0.0.1:5432")) });
     expect(result).toMatchObject({ code: 1, errors: ["softure-blog publish: connect ECONNREFUSED 127.0.0.1:5432"] });
+  });
+});
+
+describe("softure-blog publish with seo({ indexNow })", () => {
+  const KEY = "5f0c8a2e7b1d4c39a6e8f2b7d0c4a913";
+  let test: TestBlog;
+  let requests: { url: string; body: unknown }[];
+
+  beforeEach(async () => {
+    test = await createTestBlog({ contentDir: "content", quality: false }, [seo({ origin: "https://www.example.com", canonical: { host: "apex" }, indexNow: { key: KEY } })]);
+    requests = [];
+  });
+  afterEach(async () => {
+    await test.database.close();
+  });
+
+  async function run(argv: string[], status = 200) {
+    const { output, lines, errors } = createOutput();
+    const code = await runBlogCli({
+      config: test.config,
+      argv,
+      cwd: FIXTURES_DIR,
+      output,
+      clock: test.clock,
+      openDatabase: () => Promise.resolve({ kind: "pglite", db: test.database.db, client: test.database.client, close: () => Promise.resolve() }),
+      indexNowFetch: (url, init) => {
+        requests.push({ url: typeof url === "string" ? url : url instanceof URL ? url.href : url.url, body: JSON.parse(typeof init?.body === "string" ? init.body : "null") });
+        return Promise.resolve(new Response(null, { status }));
+      },
+    });
+    return { code, lines, errors };
+  }
+
+  it("prints the URLs a commit would submit on a dry run and sends nothing", async () => {
+    expect((await run(["publish"])).lines.slice(-1)).toEqual([
+      "indexnow: dry run, a commit would submit 2 URL(s): https://example.com/blog/index-funds https://example.com/blog",
+    ]);
+    expect(requests).toEqual([]);
+  });
+
+  it("submits the changed addresses on the seo origin after a commit, and nothing for an unchanged run", async () => {
+    expect((await run(["publish", "--commit"])).lines.slice(-1)).toEqual(["indexnow: submitted 2 URL(s) (200): /blog/index-funds /blog"]);
+    expect(requests).toEqual([
+      {
+        url: "https://api.indexnow.org/indexnow",
+        body: { host: "example.com", key: KEY, keyLocation: "https://example.com/indexnow-key.txt", urlList: ["https://example.com/blog/index-funds", "https://example.com/blog"] },
+      },
+    ]);
+    expect((await run(["publish", "--commit"])).lines.slice(-1)).toEqual(["indexnow: no public address changed, nothing to submit"]);
+    expect(requests).toHaveLength(1);
+  });
+
+  it("submits the new and the old address after a rename, and the address of a withdrawn text", async () => {
+    await run(["publish", "--commit"]);
+    const dir = mkdtempSync(join(tmpdir(), "softure-blog-"));
+    try {
+      writeFileSync(join(dir, "funds.md"), buildArticleText({ id: "index-funds", slug: "funds", cluster: "investing-basics", pillar: true }));
+      expect((await run(["publish", join(dir, "funds.md"), "--commit"])).lines.slice(-1)).toEqual(["indexnow: submitted 3 URL(s) (200): /blog/funds /blog/index-funds /blog"]);
+      expect((await run(["publish", join(dir, "funds.md"), "--withdraw", "--commit"])).lines.slice(-1)).toEqual(["indexnow: submitted 2 URL(s) (200): /blog/funds /blog"]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps exit code 0 when IndexNow refuses, with a warning that names the addresses", async () => {
+    expect(await run(["publish", "--commit"], 403)).toMatchObject({
+      code: 0,
+      errors: ["warning indexnow: IndexNow answered 403 for 2 URLs (seo.indexnow_rejected); the publish is written, submit the addresses later: /blog/index-funds /blog"],
+    });
+    expect(await findArticleBySlug(test.ctx, "index-funds")).toMatchObject({ status: "published" });
+  });
+
+  it("sends nothing with --no-indexnow", async () => {
+    const result = await run(["publish", "--commit", "--no-indexnow"]);
+    expect(result.lines.slice(-1)).toEqual(["written"]);
+    expect(requests).toEqual([]);
+  });
+
+  it("says when seo has no IndexNow key", async () => {
+    await test.database.close();
+    test = await createTestBlog({ contentDir: "content", quality: false }, [seo()]);
+    expect((await run(["publish"])).lines.slice(-1)).toEqual(["indexnow: off, seo has no IndexNow key; set seo({ indexNow: { key } })"]);
   });
 });
 
