@@ -53,13 +53,11 @@ export {
   getBillingPlans,
   getPaymentProvider,
   grantPlan,
-  parseInvoiceDetails,
   startPayment,
-  type InvoiceDetailsError,
-  type InvoiceInput,
   type StartPaymentInput,
   type StartPaymentResult,
 } from "./plans.js";
+export { parseInvoiceDetails, type InvoiceDetailsError, type InvoiceInput } from "../invoice.js";
 export {
   billingPrivacyContributor,
   deleteBillingUserData,
@@ -71,9 +69,11 @@ export {
 } from "./privacy.js";
 export {
   dismissPaymentRequest,
+  expireStaleRequests,
   listOpenRequests,
   OPEN_REQUESTS_LIMIT,
   recordPaymentRequest,
+  type ExpiredRequestsSummary,
   type OpenPaymentRequest,
   type RecordPaymentRequestInput,
 } from "./requests.js";

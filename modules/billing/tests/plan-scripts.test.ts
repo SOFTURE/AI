@@ -89,7 +89,7 @@ describe("the plan scripts", () => {
       const [row] = await readGrants(test);
       expect(row).toMatchObject({ plan_id: "monthly", granted_by: null, granted_at: NOW, status: "active" });
       expect(await getAccountHistory(test.ctx, adaId)).toEqual([
-        { source: "manual", id: row?.id, planId: "monthly", at: NOW, grant: { kind: "period", from: TRIAL_END, until: MONTH_AFTER_TRIAL }, status: "active", revokedAt: null, isFromRequest: false },
+        { source: "manual", id: row?.id, planId: "monthly", at: NOW, grant: { kind: "period", from: TRIAL_END, until: MONTH_AFTER_TRIAL }, status: "active", revokedAt: null, isFromRequest: false, price: { amount: 2900, currency: "PLN" } },
       ]);
       expect(await getEntitlement(test.ctx, adaId)).toMatchObject({ status: "paid", endsAt: MONTH_AFTER_TRIAL });
     });

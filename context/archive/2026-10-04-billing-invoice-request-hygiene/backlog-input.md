@@ -15,7 +15,7 @@ A manual invoice request is stored before it is handed to the provider (the owne
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-27** (roadmap `followups`):
+From [`roadmap.md`](../../foundation/roadmap.md), item **FU-27** (roadmap `followups`):
 
 > ### FU-27: Invoice requests are stored before the owner hears of them and keep only what they need
 > - **Change ID:** `billing-invoice-request-hygiene`

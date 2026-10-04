@@ -54,7 +54,7 @@ export const en = {
   },
   invoiceMail: {
     subject: "Invoice request: {plan} for {email}",
-    body: "{email} asks for an invoice.\n\nPlan: {plan}, {price}\nName or company: {name}\nTax ID: {taxId}\nAddress: {address}\n\nOnce it is paid, grant the plan at {adminUrl}",
+    body: "{email} asks for an invoice.\n\nPlan: {plan}, {price}\nName or company: {name}\nTax ID: {taxId}\nAddress: {address}\n\nThe buyer may correct these details later without a new mail: check the latest ones at {adminUrl}, and grant the plan there once it is paid.",
     noTaxId: "none",
   },
   admin: {

@@ -1,7 +1,7 @@
 // The manual payment adapter: the buyer asks for an invoice on the payment page, the app hands the
 // request to its owner (`onRequest`: a mail, a ticket), and the owner grants the plan in the admin
-// page once the invoice is paid. Nothing is charged here; `startPayment` stores the request it
-// hands over, so the admin page lists it.
+// page once the invoice is paid. Nothing is charged here; `startPayment` stores the request before
+// it is handed over, so the admin page lists it, and hands an open request over once.
 import { err, ok, type Err, type ErrorCode, type Ok } from "@softure-ai/core";
 import type { PaymentContext, PaymentProvider, PaymentRequest } from "./payment.js";
 
@@ -18,6 +18,7 @@ export function manual(options: ManualPaymentOptions): PaymentProvider {
   return {
     name: "manual",
     collectsInvoiceDetails: true,
+    handsOverRequests: true,
     async startPayment(ctx, request) {
       const handed = await options.onRequest(request, ctx);
       if (!handed.ok) {

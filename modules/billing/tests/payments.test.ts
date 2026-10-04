@@ -118,9 +118,69 @@ describe("startPayment", () => {
         email: "ada@example.com",
         planId: "monthly",
         invoice: { name: "Ada Lovelace Ltd", taxId: "PL1234567890", address: "1 Analytical Way, London" },
+        price: { amount: 2900, currency: "PLN" },
         requestedAt: NOW,
       },
     ]);
+  });
+
+  it("stores the request before handing it over", async () => {
+    const seen: unknown[] = [];
+    const provider = manual({
+      onRequest: async (_request, ctx) => {
+        seen.push((await listOpenRequests({ db: ctx.db })).map((request) => request.planId));
+        return ok();
+      },
+    });
+    const other = await createTestBilling({ plans: PLANS, payment: provider });
+    try {
+      const id = await createAccount(other, "ada@example.com");
+      expect(await startPayment(other.ctx, { account: { id, email: "ada@example.com" }, planId: "monthly", invoice: INVOICE })).toEqual(ok({ type: "requested" }));
+      expect(seen).toEqual([["monthly"]]);
+    } finally {
+      await other.database.close();
+    }
+  });
+
+  it("hands an open request over once: asking again refreshes it without a second hand-over", async () => {
+    await startPayment(test.ctx, { account, planId: "monthly", invoice: INVOICE });
+    const later = new Date("2026-10-04T08:00:00Z");
+    test.clock.set(later);
+    const corrected = { ...INVOICE, address: "2 Difference Lane, London" };
+    expect(await startPayment(test.ctx, { account, planId: "monthly", invoice: corrected })).toEqual(ok({ type: "requested" }));
+    expect(recorder.requests).toHaveLength(1);
+    expect(await listOpenRequests(test.ctx)).toMatchObject([{ planId: "monthly", invoice: { address: "2 Difference Lane, London" }, requestedAt: later }]);
+    // Another plan is another request, handed over on its own.
+    await startPayment(test.ctx, { account, planId: "lifetime", invoice: INVOICE });
+    expect(recorder.requests.map((request) => request.plan.id)).toEqual(["monthly", "lifetime"]);
+  });
+
+  it("hands over once when two asks run at once", async () => {
+    let finish = (): void => undefined;
+    const held = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    const slow = createRecorder(async () => {
+      await held;
+      return ok();
+    });
+    const other = await createTestBilling({ plans: PLANS, payment: slow.provider });
+    try {
+      const id = await createAccount(other, "ada@example.com");
+      const ada = { id, email: "ada@example.com" };
+      const first = startPayment(other.ctx, { account: ada, planId: "monthly", invoice: INVOICE });
+      await vi.waitFor(() => {
+        expect(slow.requests).toHaveLength(1);
+      });
+      // The first hand-over holds its claim: the second ask is stored and answered without one.
+      expect(await startPayment(other.ctx, { account: ada, planId: "monthly", invoice: INVOICE })).toEqual(ok({ type: "requested" }));
+      finish();
+      expect(await first).toEqual(ok({ type: "requested" }));
+      expect(slow.requests).toHaveLength(1);
+      expect(await listOpenRequests(other.ctx)).toHaveLength(1);
+    } finally {
+      await other.database.close();
+    }
   });
 
   it("refuses an account with lifetime access, handing nothing over and storing nothing", async () => {
@@ -130,16 +190,17 @@ describe("startPayment", () => {
     expect(await listOpenRequests(test.ctx)).toEqual([]);
   });
 
-  it("names every invoice field that is missing or too long, and hands nothing over", async () => {
-    expect(await startPayment(test.ctx, { account, planId: "monthly", invoice: { name: " ", taxId: "x".repeat(33), address: "a".repeat(501) } })).toEqual({
+  it("names every invoice field that is missing, too long or has control characters, and stores and hands nothing over", async () => {
+    expect(await startPayment(test.ctx, { account, planId: "monthly", invoice: { name: " ", taxId: "x".repeat(33), address: "1 Way\nPlan: Lifetime" } })).toEqual({
       ...err("billing.invoice_details_invalid"),
       fieldErrors: {
-        invoiceName: "billing.invoice_details_invalid",
-        invoiceTaxId: "billing.invoice_details_invalid",
-        invoiceAddress: "billing.invoice_details_invalid",
+        invoiceName: "billing.invoice_field_required",
+        invoiceTaxId: "billing.invoice_field_too_long",
+        invoiceAddress: "billing.invoice_field_control_characters",
       },
     });
     expect(recorder.requests).toEqual([]);
+    expect(await listOpenRequests(test.ctx)).toEqual([]);
   });
 
   it("refuses a plan the config does not declare", async () => {
@@ -153,24 +214,64 @@ describe("startPayment", () => {
       expect((await startPayment(test.ctx, { account, planId: attempt === 0 ? "weekly" : "monthly", invoice: INVOICE })).ok, String(attempt)).toBe(attempt !== 0);
     }
     expect(await startPayment(test.ctx, { account, planId: "monthly", invoice: INVOICE })).toEqual(err("security.rate_limited"));
-    expect(recorder.requests).toHaveLength(limit - 1);
+    // The first good ask handed the request over; the others only refreshed it.
+    expect(recorder.requests).toHaveLength(1);
     // Another account has its own count.
     const bob = { id: await createAccount(test, "bob@example.com"), email: "bob@example.com" };
     expect(await startPayment(test.ctx, { account: bob, planId: "monthly", invoice: INVOICE })).toEqual(ok({ type: "requested" }));
   });
 
-  it("answers payment_failed when the request could not be handed over, logs the code and stores nothing", async () => {
-    const failing = createRecorder(() => Promise.resolve(err("mailing.unavailable")));
+  it("answers payment_failed when the request could not be handed over, keeps it open and hands it over on the next ask", async () => {
+    let answer: Awaited<ReturnType<Parameters<typeof manual>[0]["onRequest"]>> = err("mailing.unavailable");
+    const failing = createRecorder(() => Promise.resolve(answer));
     const other = await createTestBilling({ plans: PLANS, payment: failing.provider });
     const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
     try {
-      const id = await createAccount(other, "ada@example.com");
-      expect(await startPayment(other.ctx, { account: { id, email: "ada@example.com" }, planId: "monthly", invoice: INVOICE })).toEqual(err("billing.payment_failed"));
+      const ada = { id: await createAccount(other, "ada@example.com"), email: "ada@example.com" };
+      expect(await startPayment(other.ctx, { account: ada, planId: "monthly", invoice: INVOICE })).toEqual(err("billing.payment_failed"));
       expect(log).toHaveBeenCalledWith('@softure-ai/billing: the manual payment request for plan "monthly" was not handed over: mailing.unavailable');
-      expect(await listOpenRequests(other.ctx)).toEqual([]);
+      // Stored first, so the admin page lists it even though the owner was not told.
+      expect(await listOpenRequests(other.ctx)).toHaveLength(1);
+      answer = ok();
+      expect(await startPayment(other.ctx, { account: ada, planId: "monthly", invoice: INVOICE })).toEqual(ok({ type: "requested" }));
+      expect(await startPayment(other.ctx, { account: ada, planId: "monthly", invoice: INVOICE })).toEqual(ok({ type: "requested" }));
+      expect(failing.requests).toHaveLength(2);
+      expect(await listOpenRequests(other.ctx)).toHaveLength(1);
     } finally {
       log.mockRestore();
       await other.database.close();
+    }
+  });
+
+  it("releases the hand-over when the provider throws, and lets the throw through", async () => {
+    let shouldThrow = true;
+    const throwing = createRecorder(() => (shouldThrow ? Promise.reject(new Error("smtp down")) : Promise.resolve(ok())));
+    const other = await createTestBilling({ plans: PLANS, payment: throwing.provider });
+    try {
+      const ada = { id: await createAccount(other, "ada@example.com"), email: "ada@example.com" };
+      await expect(startPayment(other.ctx, { account: ada, planId: "monthly", invoice: INVOICE })).rejects.toThrow("smtp down");
+      shouldThrow = false;
+      expect(await startPayment(other.ctx, { account: ada, planId: "monthly", invoice: INVOICE })).toEqual(ok({ type: "requested" }));
+      expect(throwing.requests).toHaveLength(2);
+    } finally {
+      await other.database.close();
+    }
+  });
+
+  it("throws when a provider's answer contradicts handsOverRequests", async () => {
+    const redirect = ok({ type: "redirect" as const, url: "https://pay.example.com/session/1" });
+    const cases: [PaymentProvider, string][] = [
+      [{ name: "liar", collectsInvoiceDetails: false, handsOverRequests: true, startPayment: () => Promise.resolve(redirect) }, 'provider "liar" sets handsOverRequests but answered redirect'],
+      [{ name: "quiet", collectsInvoiceDetails: false, handsOverRequests: false, startPayment: () => Promise.resolve(ok({ type: "requested" as const })) }, 'provider "quiet" answered requested but does not set handsOverRequests'],
+    ];
+    for (const [provider, message] of cases) {
+      const other = await createTestBilling({ plans: PLANS, payment: provider });
+      try {
+        const id = await createAccount(other, "ada@example.com");
+        await expect(startPayment(other.ctx, { account: { id, email: "ada@example.com" }, planId: "monthly", invoice: INVOICE })).rejects.toThrow(message);
+      } finally {
+        await other.database.close();
+      }
     }
   });
 
@@ -179,6 +280,7 @@ describe("startPayment", () => {
     const hosted: PaymentProvider = {
       name: "hosted",
       collectsInvoiceDetails: false,
+      handsOverRequests: false,
       startPayment: (_ctx, request) => {
         seen.push(request);
         return Promise.resolve(ok({ type: "redirect", url: "https://pay.example.com/session/1" }));

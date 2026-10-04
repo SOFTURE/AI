@@ -6,13 +6,13 @@
 import { users } from "@softure-ai/auth";
 import { err, ok, type Err, type Ok } from "@softure-ai/core";
 import { and, desc, eq } from "drizzle-orm";
-import type { AdminErrorCode, Entitlement, PaymentGrant } from "../contract.js";
+import type { AdminErrorCode, Entitlement, PaymentGrant, PlanPrice } from "../contract.js";
 import { findPlan } from "../plans.js";
 import { manualGrants, paymentRequests, payments } from "../schema.js";
 import { findEntitlementRecord, type BillingContext } from "./entitlements.js";
 import { getGrantColumns, readGrant } from "./payments.js";
 import { applyPlan, getBillingPlans } from "./plans.js";
-import { findOpenRequest, getClosedRequestColumns } from "./requests.js";
+import { findOpenRequest, getClosedRequestColumns, readPrice } from "./requests.js";
 import { hasActiveManualLifetime, hasPaidLifetimePayment, lockEntitlementRow, takeBackGrant } from "./take-back.js";
 import { isUserId, isUuid } from "./user-id.js";
 
@@ -40,7 +40,8 @@ export type GrantPlanManuallyError = "billing.plan_unknown" | "billing.account_u
  * Database errors propagate.
  */
 export async function grantPlanManually(ctx: BillingContext, input: GrantPlanManuallyInput): Promise<Ok<ManualGrantResult> | Err<GrantPlanManuallyError>> {
-  if (findPlan(getBillingPlans(ctx.config), input.planId) === undefined) return err("billing.plan_unknown");
+  const plan = findPlan(getBillingPlans(ctx.config), input.planId);
+  if (plan === undefined) return err("billing.plan_unknown");
   if (!isUserId(input.userId)) return err("billing.account_unknown");
   if (input.requestId !== undefined && !isUuid(input.requestId)) return err("billing.request_closed");
   return ctx.db.transaction(async (tx) => {
@@ -53,6 +54,8 @@ export async function grantPlanManually(ctx: BillingContext, input: GrantPlanMan
     const record = await findEntitlementRecord({ ...ctx, db: tx }, input.userId);
     if (record?.isLifetime === true) return err("billing.lifetime_active");
 
+    // The price the grant is for: what its request quoted, else the plan's price now.
+    let price: PlanPrice = plan.price;
     if (input.requestId !== undefined) {
       const [closed] = await tx
         .update(paymentRequests)
@@ -61,6 +64,7 @@ export async function grantPlanManually(ctx: BillingContext, input: GrantPlanMan
         .returning();
       // Nothing written yet: the request was granted or dismissed meanwhile, or is another account's.
       if (closed === undefined) return err("billing.request_closed");
+      price = readPrice(closed.amount, closed.currency) ?? price;
     }
 
     const applied = await applyPlan({ ...ctx, db: tx }, input.userId, input.planId);
@@ -80,6 +84,8 @@ export async function grantPlanManually(ctx: BillingContext, input: GrantPlanMan
         ...getGrantColumns(grant),
         grantKind: grant.kind,
         status: "active",
+        amount: price.amount,
+        currency: price.currency,
       })
       .returning();
     if (row === undefined) throw new Error("@softure-ai/billing: recording a manual grant returned no row");
@@ -151,6 +157,8 @@ export type AccountHistoryEntry =
       readonly revokedAt: Date | null;
       /** Whether it answered an invoice request. */
       readonly isFromRequest: boolean;
+      /** What it was granted for; null for a grant recorded before prices were. */
+      readonly price: PlanPrice | null;
     }
   | {
       readonly source: "provider";
@@ -191,7 +199,7 @@ export async function getAccountHistory(ctx: Pick<BillingContext, "db">, userId:
     const grant = readGrant(row);
     // The CHECK on manual_grants requires a complete grant on every row.
     if (grant === null) throw new Error(`@softure-ai/billing: manual grant ${row.id} has no grant recorded`);
-    entries.push({ source: "manual", id: row.id, planId: row.planId, at: row.grantedAt, grant, status: row.status, revokedAt: row.revokedAt, isFromRequest: row.requestId !== null });
+    entries.push({ source: "manual", id: row.id, planId: row.planId, at: row.grantedAt, grant, status: row.status, revokedAt: row.revokedAt, isFromRequest: row.requestId !== null, price: readPrice(row.amount, row.currency) });
   }
   for (const row of paymentRows) {
     entries.push({

@@ -4,7 +4,7 @@ import { formatMessage, type Locale } from "@softure-ai/core";
 import { Button, type ClassNames, createSlotClassGetter, FormError, TextField } from "@softure-ai/ui";
 import { useActionState } from "react";
 import { INITIAL_PAYMENT_FORM_STATE, type PaymentFormState } from "../contract.js";
-import { INVOICE_FIELDS, INVOICE_LIMITS, PLAN_FIELD } from "../fields.js";
+import { getInvoiceFieldLimit, INVOICE_FIELDS, INVOICE_LIMITS, PLAN_FIELD } from "../fields.js";
 import { getBillingErrorMessage, type BillingMessages } from "../messages/index.js";
 
 // The form that starts paying for the chosen plan. With a provider that needs them (the manual
@@ -55,7 +55,9 @@ export function PaymentForm({ action, planId, planName, email, collectsInvoiceDe
   const values = state.values ?? {};
   const fieldError = (name: string): string | undefined => {
     const code = state.fieldErrors?.[name];
-    return code === undefined ? undefined : getBillingErrorMessage(messages, code);
+    if (code === undefined) return undefined;
+    const limit = getInvoiceFieldLimit(name);
+    return formatMessage(getBillingErrorMessage(messages, code), limit === undefined ? {} : { max: limit });
   };
   const hasFieldErrors = Object.keys(state.fieldErrors ?? {}).length > 0;
   const formError = state.error === undefined || hasFieldErrors ? undefined : getBillingErrorMessage(messages, state.error);

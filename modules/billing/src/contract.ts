@@ -1,6 +1,7 @@
 // Result types and error codes of the billing module. No user-facing copy here: the UI translates
 // codes through `messages` (docs/02-module-standard.md §6).
 import type { CoreErrorCode, Locale } from "@softure-ai/core";
+import type { InvoiceFieldErrorCode } from "./invoice.js";
 
 export type BillingErrorCode =
   /** The account may read but not write: its trial or its paid access ended. */
@@ -123,15 +124,15 @@ export interface Plan {
 export type PaymentErrorCode =
   /** A plan id the config does not declare: a tampered or outdated form. */
   | "billing.plan_unknown"
-  /** The invoice details are missing or too long; `fieldErrors` says which. */
+  /** An invoice field is missing, too long or has control characters; `fieldErrors` says which. */
   | "billing.invoice_details_invalid"
   /** The payment provider refused or failed; nothing was charged or requested. */
   | "billing.payment_failed"
   /** The account has lifetime access: there is nothing left to pay for or grant. */
   | "billing.lifetime_active";
 
-/** Every code the payment form can show. */
-export type PaymentFormErrorCode = PaymentErrorCode | "security.rate_limited" | CoreErrorCode;
+/** Every code the payment form can show, the invoice fields' own included. */
+export type PaymentFormErrorCode = PaymentErrorCode | InvoiceFieldErrorCode | "security.rate_limited" | CoreErrorCode;
 
 /** Every code the admin grant form can show. */
 export type GrantFormErrorCode = "billing.plan_unknown" | "billing.account_unknown" | "billing.lifetime_active" | "auth.forbidden" | CoreErrorCode;

@@ -56,7 +56,7 @@ export const pl: AppMessages = {
   },
   invoiceMail: {
     subject: "Prośba o fakturę: {plan} dla {email}",
-    body: "{email} prosi o fakturę.\n\nPlan: {plan}, {price}\nImię i nazwisko lub firma: {name}\nNIP: {taxId}\nAdres: {address}\n\nPo opłaceniu nadaj plan na {adminUrl}",
+    body: "{email} prosi o fakturę.\n\nPlan: {plan}, {price}\nImię i nazwisko lub firma: {name}\nNIP: {taxId}\nAdres: {address}\n\nKupujący może później poprawić te dane bez nowego maila: sprawdź aktualne na {adminUrl} i tam nadaj plan po opłaceniu.",
     noTaxId: "brak",
   },
   admin: {
