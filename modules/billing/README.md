@@ -103,7 +103,7 @@ billing({
 | `plans` | array, at most 12 | `[]` | The plans, in the order the tiles show them (see below). |
 | `payment` | `PaymentProvider` | — | The adapter the payment page uses: `stripe()` or `manual({ onRequest })`. The payment page throws without one. |
 | `partialRefunds` | `"pro_rata"` or `"keep_access"` | `"pro_rata"` | What a partial provider refund does to access (see "Refunds" in §4): `pro_rata` takes back the refunded share of the payment's unused days, `keep_access` nothing until the whole payment is refunded. |
-| `adminRole` | role | `admin` | The auth role that may grant plans in `BillingAdminPage`; declare any other in `auth({ roles })`. |
+| `adminRole` | role | `admin` | The auth role that may grant plans in `BillingAdminPage`; declare any other in `auth({ roles })`. A role auth does not declare fails the first billing request and the readiness probe. |
 | `routes.payment` | path | `/payment` | Where `PaymentPage` is mounted; the notice and the tiles link there, and Stripe Checkout returns there. |
 | `routes.admin` | path | `/admin/billing` | Where `BillingAdminPage` is mounted; its actions revalidate it, and the account lookup sends the admin there with `?account=<id>`. |
 | `routes.webhook` | path | `/api/billing/webhook` | Where `stripeWebhookRoute` is mounted (the Stripe endpoint's URL). |

@@ -74,6 +74,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-30** | `billing-failed-refund-access` | a refund that fails gives back the access it took | FU-27 | autonomous | proposed |
 | **FU-31** | `auth-require-user-redirect-tag` | `requireUser`'s redirect to login keeps the channel tag | FU-28 | autonomous | done_code (2026-10-04; waiting: the next releases of `@softure-ai/auth` and `@softure-ai/billing`) |
 | **FU-32** | `billing-price-minor-units` | a plan's price means the same amount on every runtime (pinned minor units) | FU-30 | autonomous | proposed |
+| **FU-33** | `billing-lifetime-grant-race` | lifetime grants made at once on a new row are refused after the first | FU-32 | autonomous | proposed |
 
 ## Order
 
@@ -84,7 +85,7 @@ after another; different lanes run in parallel, up to 4 at once.
 | --- | --- | --- |
 | A: switches | FU-1 | `foundation/core/`, `modules/auth/`, `modules/feature-switches/` |
 | B: waitlist and consent | FU-3 → FU-2 → FU-4 → FU-8 | `modules/waitlist/` (FU-3 also `modules/mailing/`, `modules/privacy/`) |
-| C: billing | FU-11 → FU-9 → FU-6 → FU-20 → FU-21 → FU-22 → FU-24 → FU-25 → FU-26 → FU-27 → FU-30 → FU-32; FU-12 any time | `modules/billing/` and its migrations; FU-12 writes documents only (archives and followup entries) |
+| C: billing | FU-11 → FU-9 → FU-6 → FU-20 → FU-21 → FU-22 → FU-24 → FU-25 → FU-26 → FU-27 → FU-30 → FU-32 → FU-33; FU-12 any time | `modules/billing/` and its migrations; FU-12 writes documents only (archives and followup entries) |
 | D: analytics | FU-5 → FU-7 → FU-28 → FU-31 (FU-7 also after FU-1) | `modules/analytics/` channel propagation; FU-7 may touch auth's redirects |
 | E: marketing-kit config | FU-14 → FU-16 → FU-15; FU-14 → FU-18 → FU-19 → FU-29 | `tools/marketing-kit/src/config/schema.ts`, `schema/`, `src/compose/` (FU-15, FU-16) |
 | F: independent | FU-13, FU-17 → FU-23 | `.github/workflows/ci.yml`; `tools/marketing-kit/src/og/` |
@@ -93,7 +94,7 @@ after another; different lanes run in parallel, up to 4 at once.
    adopts the switches; FU-3 fixes a consent ledger that can contradict an unsubscribe), then the MEDIUM refund
    fix and the schema descriptions that every later marketing-kit config item extends.
 2. **Each free slot** takes the first item of this list whose lane is idle and whose dependencies are on `master`:
-   FU-2, FU-5, FU-13, FU-17, FU-9, FU-16, FU-18, FU-4, FU-7, FU-12, FU-6, FU-15, FU-8, FU-19, FU-20, FU-21, FU-22, FU-23, FU-24, FU-25, FU-26, FU-27, FU-28, FU-29, FU-30, FU-31, FU-32.
+   FU-2, FU-5, FU-13, FU-17, FU-9, FU-16, FU-18, FU-4, FU-7, FU-12, FU-6, FU-15, FU-8, FU-19, FU-20, FU-21, FU-22, FU-23, FU-24, FU-25, FU-26, FU-27, FU-28, FU-29, FU-30, FU-31, FU-32, FU-33.
 3. **MK-8, EN-9 and MO-6** (owner, carried over): the owner's batch release on 2026-10-05; they wait for no FU item,
    and no FU item waits for them.
 
@@ -139,6 +140,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 | FU-30 | no | a billing webhook path with signed fixtures; no Stripe secrets |
 | FU-31 | no | auth's `requireUser` and the same rewrite; covered by the example app's e2e |
 | FU-32 | no | a pinned table in `src/price.ts` and unit tests; no secrets |
+| FU-33 | no | a lock change in `grantPlanManually` and a two-connection Postgres test |
 
 ## Items
 
@@ -532,6 +534,17 @@ owner's own machine, a product decision only the owner can make, or a change in 
 - **Risk:** MEDIUM. `getMinorUnitDigits` reads `Intl`, whose digits vary with the runtime's CLDR: HUF has 2 digits on Node 22.22 locally and 0 on the CI runner's Node 22 (FU-25's first CI run), so `amount: 2950` is HUF 29.50 on one and HUF 2,950 on the other, in the tiles and at Stripe alike.
 - **Baseline:** MO-2 `billing-plans-pricing`: amounts in `Intl`'s minor unit (`src/price.ts`); FU-25 converts to Stripe's unit from those digits, so it inherits the runtime dependence. After: the gap is closed and covered by unit tests that pin the digits.
 - **Source:** FU-25 `billing-stripe-currency-units` CI (unit tests on HUF failed on the runner with 295000 for 2950); `modules/billing/src/price.ts`
+
+### FU-33: Lifetime grants made at once on a new row are refused after the first
+- **Change ID:** `billing-lifetime-grant-race`
+- **Status:** proposed
+- **Outcome:** Two lifetime grants (or a lifetime and a period grant) made at once on an account without an entitlement row cannot both pass the `billing.lifetime_active` check: `grantPlanManually` (and every other path that checks lifetime before granting) holds a lock that exists before the row does, and a Postgres test in `tests/lock-races.test.ts` (two connections, order forced by a blocker) proves the second grant is refused.
+- **Prerequisites:** FU-32 on `master` (lane C).
+- **Unknowns:** Pin the derived row first (insert `ON CONFLICT DO NOTHING`, then `lockEntitlementRow`) vs. a stronger lock on the `auth.users` row (`FOR NO KEY UPDATE`, which would also serialise reads that take `KEY SHARE`); whether `startPayment`'s lifetime check needs the same (it only refuses early; the grant is the real check).
+- **Risk:** LOW. `lockEntitlementRow` locks nothing while the account has no row (`modules/billing/src/server/take-back.ts:24-26`), so two grants that start before the row exists both read `isLifetime: false`; measured on Postgres 16 by FU-26: two manual lifetime grants at once both succeed and two active lifetime grants are recorded. Access is still right (lifetime), but the history shows a grant the rule forbids, and a period grant can land on top of a lifetime in the same way.
+- **Baseline:** FU-9 `billing-admin-requests`: the lock order is account (key share), entitlement row (`FOR UPDATE`, nothing without a row), own row; `changeEntitlement` handles the first insert, but the lifetime check runs before it. After: the gap is closed and covered by a two-connection Postgres test.
+- **PRD refs:** FR-22.
+- **Source:** FU-26 `billing-guard-race-tests` research finding 5 (`context/archive/2026-10-04-billing-guard-race-tests/research.md`); `modules/billing/src/server/grants.ts:41-56`
 
 ## Owner decisions and checks
 

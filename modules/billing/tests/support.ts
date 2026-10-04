@@ -19,7 +19,8 @@ const PASSWORD = "correct horse battery";
 /** The billing options and reserved keys (`routes`, `messages`). */
 export type BillingInput = Parameters<typeof billing>[0];
 
-export function createConfig(options: BillingInput = {}): SoftureConfig {
+/** `authRoles` are the roles `auth({ roles })` declares beside `admin`. */
+export function createConfig(options: BillingInput = {}, authRoles: readonly string[] = []): SoftureConfig {
   return defineSoftureConfig({
     database: { url: "pglite://" },
     locale: "en",
@@ -27,7 +28,7 @@ export function createConfig(options: BillingInput = {}): SoftureConfig {
     appOrigin: "https://app.example.com",
     modules: [
       security({ clientIp: headerIp("x-real-ip"), buckets: { ...AUTH_RATE_LIMIT_BUCKETS, ...PRIVACY_RATE_LIMIT_BUCKETS, ...BILLING_RATE_LIMIT_BUCKETS }, cleanupProbability: 0 }),
-      auth({ password: { scrypt: { cost: 2 ** 10 } }, requireConsent: false }),
+      auth({ password: { scrypt: { cost: 2 ** 10 } }, requireConsent: false, roles: [...authRoles] }),
       privacy(),
       billing(options),
     ],

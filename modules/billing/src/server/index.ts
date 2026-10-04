@@ -77,4 +77,4 @@ export {
   type OpenPaymentRequest,
   type RecordPaymentRequestInput,
 } from "./requests.js";
-export { assertPaymentSetup, PAYMENT_BUCKET } from "./setup.js";
+export { assertAdminRoleDeclared, assertPaymentSetup, PAYMENT_BUCKET } from "./setup.js";

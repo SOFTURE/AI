@@ -15,7 +15,7 @@ CI proves billing's guards and locks: `requireWriteAccess` and every billing ser
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-26** (roadmap `followups`):
+From [`roadmap.md`](../../foundation/roadmap.md), item **FU-26** (roadmap `followups`):
 
 > ### FU-26: Billing guards and lock races are tested where they can fail
 > - **Change ID:** `billing-guard-race-tests`

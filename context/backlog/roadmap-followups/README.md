@@ -41,6 +41,7 @@ share files run in one lane (see the roadmap's Order), so `dependency` below nam
 | FU-30 | [`billing-failed-refund-access`](billing-failed-refund-access/change.md) | A refund that fails gives back the access it took | FU-27 on main | dependency |
 | FU-31 | [`auth-require-user-redirect-tag`](../../archive/2026-10-04-auth-require-user-redirect-tag/change.md) | `requireUser`'s redirect to login keeps the channel tag | archived 2026-10-04 | dependency |
 | FU-32 | [`billing-price-minor-units`](billing-price-minor-units/change.md) | A plan's price means the same amount on every runtime | FU-30 on main | dependency |
+| FU-33 | [`billing-lifetime-grant-race`](billing-lifetime-grant-race/change.md) | Lifetime grants made at once on a new row are refused after the first | FU-32 on main | dependency |
 
 Kind: `start` (can be taken as soon as the roadmap is promoted), `dependency` (waits for the listed items on the
 main branch), `owner` (needs an owner decision or the owner at the keyboard).
