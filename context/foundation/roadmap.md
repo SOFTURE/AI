@@ -64,7 +64,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-20** | `billing-partial-refunds` | partial refunds take back access by a policy | FU-11 | autonomous | proposed |
 | **FU-21** | `billing-refund-manual-lifetime` | a manual lifetime grant survives a refunded paid lifetime | FU-9 | autonomous | proposed |
 | **FU-22** | `billing-grant-plan-script` | a `grant-plan` ops script grants and revokes plans without the admin page | FU-9 | autonomous | proposed |
-| **FU-23** | `marketing-kit-og-subset-fonts` | OG images use every subset file of a weight | FU-17 | autonomous | in_progress (implement 1/1, since 2026-10-04; branch claude/fu-23-og-subset-fonts-m8zb8g) |
+| **FU-23** | `marketing-kit-og-subset-fonts` | OG images use every subset file of a weight | FU-17 | autonomous | done_code (2026-10-04; waiting: MK-8 release) |
 | **FU-24** | `billing-existing-accounts` | existing accounts keep their access when billing is enabled (import, trial floor, pinned trials) | FU-22 | autonomous | proposed |
 | **FU-25** | `billing-stripe-currency-units` | Stripe charges the plan's price in every currency (special-case units) | FU-24 | autonomous | proposed |
 | **FU-26** | `billing-guard-race-tests` | billing guards and lock races tested where they can fail | FU-25 | autonomous | proposed |
@@ -411,8 +411,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-23: OG images use every subset file of a weight
 - **Change ID:** `marketing-kit-og-subset-fonts`
-- **Status:** in_progress (implement 1/1, since 2026-10-04; branch claude/fu-23-og-subset-fonts-m8zb8g)
-- **Input:** [`changes/marketing-kit-og-subset-fonts/change.md`](../changes/marketing-kit-og-subset-fonts/change.md)
+- **Status:** done_code (2026-10-04; waiting: MK-8 release)
+- **Input:** [`archive/2026-10-04-marketing-kit-og-subset-fonts/change.md`](../archive/2026-10-04-marketing-kit-og-subset-fonts/change.md)
 - **Outcome:** A brand font listing several files of one weight (e.g. Fontsource `latin` and `latin-ext`, split by `unicodeRange` for the video renderer) draws Polish copy in OG images too: each further file of a weight is registered with Satori so its fallback reaches it, at the requested weight.
 - **Prerequisites:** FU-17 on `master`.
 - **Unknowns:** Registering further files under derived family names (Satori falls back across families, not files) vs. merging; the order Satori tries them in; whether `unicodeRange` should steer the choice.
@@ -504,6 +504,7 @@ Open from FU-14:
 
 ## Done
 
+- **FU-23** `marketing-kit-og-subset-fonts`: OG images use every subset file of a weight (registered as `<family> #n` subset families and written as a font stack), at the line's weight; a letter only another weight's subset file has is refused; covered by font, glyph and render tests; archived in `archive/2026-10-04-marketing-kit-og-subset-fonts/`
 - **FU-8** `waitlist-funnel-hook`: `waitlist({ onJoined })` runs in the sign-up's transaction when a sign-up first counts; analytics' `countFunnelStep` counts it under its channel, kept through double opt-in by `rewriteConfirmationLink`; covered by unit and e2e tests; archived in `archive/2026-10-04-waitlist-funnel-hook/`
 - **FU-7** `analytics-action-redirect-tag`: auth's action redirects keep the channel tag through `rewriteRedirect` and analytics' `tagRedirect`, with and without JavaScript, covered by unit and e2e tests; archived in `archive/2026-10-03-analytics-action-redirect-tag/`
 - **FU-16** `marketing-kit-layout-overrides`: `marketing.json` `layout` overrides a format's caption box and size, persona card, end card and its phone pose, validated against the frame; archived in `archive/2026-10-03-marketing-kit-layout-overrides/`

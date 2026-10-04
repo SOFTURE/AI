@@ -1,12 +1,12 @@
 ---
 change_id: marketing-kit-og-subset-fonts
 title: "OG images use every subset file of a weight"
-status: impl_reviewed
+status: archived
 roadmap_item: FU-23
 branch: claude/fu-23-og-subset-fonts-m8zb8g
 created: 2026-10-04
 updated: 2026-10-04
-archived_at: null
+archived_at: 2026-10-04
 ---
 
 ## Intent
@@ -47,3 +47,4 @@ second subset file of a weight is not used. Found in the FU-17 plan review (C1,
   unknowns of the item.
 - Framing skipped: the problem, the outcome and the test are stated by the roadmap item and the
   FU-17 plan review; the open questions are technical and research answers them.
+- Archived 2026-10-04: OG images draw copy from every subset file of a weight (`latin` + `latin-ext`) at the line's weight, and refuse a letter only another weight's subset file has; schema description gap filed as FU-29.
