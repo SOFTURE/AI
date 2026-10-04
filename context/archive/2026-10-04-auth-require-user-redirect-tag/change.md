@@ -1,12 +1,12 @@
 ---
 change_id: auth-require-user-redirect-tag
 title: "requireUser's redirect to login keeps the channel tag"
-status: plan_reviewed
+status: archived
 roadmap_item: FU-31
 branch: claude/fu-31-require-user-redirect-tag-z0d58o
 created: 2026-10-04
 updated: 2026-10-04
-archived_at: null
+archived_at: 2026-10-04
 ---
 
 ## Intent
@@ -51,3 +51,4 @@ this change was opened from is [`backlog-input.md`](backlog-input.md).
 - Placement: roadmap `followups`, item FU-31 (taken from `context/backlog/roadmap-followups/`).
 - Research: quick depth, for the second Unknown (how a page hands its parameters to `requireUser`).
 - Framing: short, for the first Unknown (whether pages outside the guard are common enough).
+- Archived 2026-10-04: `requireUser` sends a visitor without a session to login through `rewriteRedirect` with the page's own search params, so billing's payment page keeps the channel tag through login, covered by unit and e2e tests (proven to fail without the fix).

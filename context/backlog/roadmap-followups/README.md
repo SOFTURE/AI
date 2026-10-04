@@ -39,7 +39,7 @@ share files run in one lane (see the roadmap's Order), so `dependency` below nam
 | FU-28 | [`auth-page-redirect-tag`](../../archive/2026-10-04-auth-page-redirect-tag/change.md) | A signed-in visitor's redirect from a tagged login page keeps the tag | archived 2026-10-04 | dependency |
 | FU-29 | [`marketing-kit-font-files-description`](marketing-kit-font-files-description/change.md) | The marketing.json font files description admits subset files | FU-23 and FU-19 on main | dependency |
 | FU-30 | [`billing-failed-refund-access`](billing-failed-refund-access/change.md) | A refund that fails gives back the access it took | FU-27 on main | dependency |
-| FU-31 | [`auth-require-user-redirect-tag`](../../changes/auth-require-user-redirect-tag/change.md) | `requireUser`'s redirect to login keeps the channel tag | FU-28 on main | dependency |
+| FU-31 | [`auth-require-user-redirect-tag`](../../archive/2026-10-04-auth-require-user-redirect-tag/change.md) | `requireUser`'s redirect to login keeps the channel tag | archived 2026-10-04 | dependency |
 
 Kind: `start` (can be taken as soon as the roadmap is promoted), `dependency` (waits for the listed items on the
 main branch), `owner` (needs an owner decision or the owner at the keyboard).

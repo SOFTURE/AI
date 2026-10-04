@@ -79,6 +79,8 @@ channel, funnel and billing specs.
 - Complexity → small (one phase).
 - Plan review W1: `redirect` mocked in the unit test (Next's digest format is internal).
 - Plan review S1: the READMEs keep the guard as the first line for private prefixes.
+- 1.2 failing run: with `requireUser`'s old `redirect(path)` restored on a local build, the case fails (`Location:
+  /login?next=%2Fpayment%3Fplan%3Dmonthly`, no tag).
 
 ## Progress
 
@@ -87,7 +89,7 @@ channel, funnel and billing specs.
 ### Phase 1: requireUser through the rewrite, and the proof
 
 #### Automated
-- [ ] 1.1 `requireUser` unit cases pass (with and without a rewrite and page parameters, the safety cases)
-- [ ] 1.2 the e2e payment-page case passes and fails with `requireUser`'s old redirect
-- [ ] 1.3 the existing channel, funnel and billing e2e specs pass
-- [ ] 1.4 Gates green (typecheck, lint, test, build) and the example app's `next build`
+- [x] 1.1 `requireUser` unit cases pass (with and without a rewrite and page parameters, the safety cases) — 2ba9a5b
+- [x] 1.2 the e2e payment-page case passes and fails with `requireUser`'s old redirect — 2ba9a5b
+- [x] 1.3 the existing channel, funnel and billing e2e specs pass — 2ba9a5b
+- [x] 1.4 Gates green (typecheck, lint, test, build) and the example app's `next build` — 2ba9a5b
