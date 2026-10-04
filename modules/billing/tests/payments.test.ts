@@ -258,6 +258,87 @@ describe("startPayment", () => {
     }
   });
 
+  it("hands a request over again on an ask a minute after a hand-over that never answered", async () => {
+    let calls = 0;
+    // The first hand-over never settles, as when the process dies between the claim and the answer.
+    const cutOff = createRecorder(() => {
+      calls += 1;
+      return calls === 1 ? new Promise<never>(() => undefined) : Promise.resolve(ok());
+    });
+    const other = await createTestBilling({ plans: PLANS, payment: cutOff.provider });
+    try {
+      const ada = { id: await createAccount(other, "ada@example.com"), email: "ada@example.com" };
+      void startPayment(other.ctx, { account: ada, planId: "monthly", invoice: INVOICE });
+      await vi.waitFor(() => {
+        expect(cutOff.requests).toHaveLength(1);
+      });
+      other.clock.set(new Date(NOW.getTime() + 59_000));
+      expect(await startPayment(other.ctx, { account: ada, planId: "monthly", invoice: INVOICE })).toEqual(ok({ type: "requested" }));
+      expect(cutOff.requests).toHaveLength(1);
+      other.clock.set(new Date(NOW.getTime() + 60_000));
+      expect(await startPayment(other.ctx, { account: ada, planId: "monthly", invoice: INVOICE })).toEqual(ok({ type: "requested" }));
+      expect(cutOff.requests).toHaveLength(2);
+      // That hand-over answered: later asks only refresh the request.
+      other.clock.set(new Date(NOW.getTime() + 10 * 60_000));
+      expect(await startPayment(other.ctx, { account: ada, planId: "monthly", invoice: INVOICE })).toEqual(ok({ type: "requested" }));
+      expect(cutOff.requests).toHaveLength(2);
+      expect(await listOpenRequests(other.ctx)).toHaveLength(1);
+    } finally {
+      await other.database.close();
+    }
+  });
+
+  it("never hands a request over again once a hand-over answered, however late the ask", async () => {
+    await startPayment(test.ctx, { account, planId: "monthly", invoice: INVOICE });
+    test.clock.set(new Date("2026-10-04T08:00:00Z"));
+    expect(await startPayment(test.ctx, { account, planId: "monthly", invoice: INVOICE })).toEqual(ok({ type: "requested" }));
+    expect(recorder.requests).toHaveLength(1);
+  });
+
+  it("counts a hand-over that answers after another ask took over its claim, and hands over nothing more", async () => {
+    let finishFirst = (): void => undefined;
+    const firstHeld = new Promise<void>((resolve) => {
+      finishFirst = resolve;
+    });
+    let finishSecond = (): void => undefined;
+    const secondHeld = new Promise<void>((resolve) => {
+      finishSecond = resolve;
+    });
+    let calls = 0;
+    const slow = createRecorder(async () => {
+      calls += 1;
+      const isFirst = calls === 1;
+      await (isFirst ? firstHeld : secondHeld);
+      return isFirst ? ok() : err("mailing.unavailable");
+    });
+    const other = await createTestBilling({ plans: PLANS, payment: slow.provider });
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      const ada = { id: await createAccount(other, "ada@example.com"), email: "ada@example.com" };
+      const first = startPayment(other.ctx, { account: ada, planId: "monthly", invoice: INVOICE });
+      await vi.waitFor(() => {
+        expect(slow.requests).toHaveLength(1);
+      });
+      // The first hand-over outlives its claim: a later ask claims the request again.
+      other.clock.set(new Date(NOW.getTime() + 60_000));
+      const second = startPayment(other.ctx, { account: ada, planId: "monthly", invoice: INVOICE });
+      await vi.waitFor(() => {
+        expect(slow.requests).toHaveLength(2);
+      });
+      finishFirst();
+      expect(await first).toEqual(ok({ type: "requested" }));
+      // The second fails after the first went out: its release leaves the request handed over.
+      finishSecond();
+      expect(await second).toEqual(err("billing.payment_failed"));
+      other.clock.set(new Date(NOW.getTime() + 10 * 60_000));
+      expect(await startPayment(other.ctx, { account: ada, planId: "monthly", invoice: INVOICE })).toEqual(ok({ type: "requested" }));
+      expect(slow.requests).toHaveLength(2);
+    } finally {
+      log.mockRestore();
+      await other.database.close();
+    }
+  });
+
   it("throws when a provider's answer contradicts handsOverRequests", async () => {
     const redirect = ok({ type: "redirect" as const, url: "https://pay.example.com/session/1" });
     const cases: [PaymentProvider, string][] = [

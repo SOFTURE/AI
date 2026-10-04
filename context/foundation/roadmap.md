@@ -75,7 +75,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-31** | `auth-require-user-redirect-tag` | `requireUser`'s redirect to login keeps the channel tag | FU-28 | autonomous | done_code (2026-10-04; waiting: the next releases of `@softure-ai/auth` and `@softure-ai/billing`) |
 | **FU-32** | `billing-price-minor-units` | a plan's price means the same amount on every runtime (pinned minor units) | FU-30 | autonomous | done_code (2026-10-04; waiting: the next release of `@softure-ai/billing`) |
 | **FU-33** | `billing-lifetime-grant-race` | lifetime grants made at once on a new row are refused after the first | FU-32 | autonomous | done_code (2026-10-04; waiting: the next release of `@softure-ai/billing`) |
-| **FU-34** | `billing-stale-handover-claim` | a request whose hand-over was cut off is handed over on a later ask | FU-33 | autonomous | proposed |
+| **FU-34** | `billing-stale-handover-claim` | a request whose hand-over was cut off is handed over on a later ask | FU-33 | autonomous | done_code (2026-10-04; waiting: the next release of `@softure-ai/billing`) |
 | **FU-35** | `billing-refund-after-late-failure` | a new refund is not lost when an earlier refund's failure arrives late | FU-34 | autonomous | proposed |
 
 ## Order
@@ -556,7 +556,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-34: A request whose hand-over was cut off is handed over on a later ask
 - **Change ID:** `billing-stale-handover-claim`
-- **Status:** proposed
+- **Status:** done_code (2026-10-04; waiting: the next release of `@softure-ai/billing`)
+- **Input:** [`archive/2026-10-04-billing-stale-handover-claim/change.md`](../archive/2026-10-04-billing-stale-handover-claim/change.md)
 - **Outcome:** An invoice request whose hand-over claim is older than a bounded time (the process stopped between the claim and `onRequest`'s answer) counts as not handed over: the next ask claims it again and the owner hears of it; a unit test drives a claim left behind.
 - **Prerequisites:** FU-33 on `master` (lane C).
 - **Unknowns:** How long a claim may stand (a provider's mail call takes seconds; a minute is generous) vs. a separate `handed_over` flag set only after `onRequest` answers `Ok` (two writes, no timeout); whether a retried hand-over can mail twice when the first did go out.
@@ -592,6 +593,7 @@ Open from FU-14:
 
 ## Done
 
+- **FU-34** `billing-stale-handover-claim`: the hand-over claim of an invoice request moved to `handover_claimed_at` (migration `0008`) and blocks other asks for a minute; `handed_over_at` now records a hand-over that answered `Ok` and is never repeated; a claim left without an answer (the process stopped) is taken over by the first ask a minute later, so the owner hears of the request; after a crash the hand-over is at least once; covered by three PGlite tests; archived in `archive/2026-10-04-billing-stale-handover-claim/`
 - **FU-33** `billing-lifetime-grant-race`: `grantPlanManually` pins the account's derived entitlement row (`pinEntitlementRow`, insert `ON CONFLICT DO NOTHING`) before it locks the row and checks `billing.lifetime_active`, so two grants made at once on an account without a row are serialised and the second is refused after a lifetime; a `request_closed` refusal deletes the row it pinned, so refusals still write nothing; `startPayment`'s early check stays unlocked (it only refuses early); covered by two Postgres races and a PGlite test; archived in `archive/2026-10-04-billing-lifetime-grant-race/`
 - **FU-32** `billing-price-minor-units`: the minor unit of every plan price comes from a table billing pins (`CURRENCY_MINOR_UNIT_DIGITS`: ISO 4217 List One of 2024-06-25 without funds and non-price units, MGA counted without a minor unit, XCG added), not from the runtime's `Intl`/CLDR; config validation, `formatPrice` (through `Intl` with the table's digits) and Stripe's conversion read it, so HUF 29.50 is 29.50 on every Node build; a test formats every pinned currency on the runtime and fails if its digits change a price; README "Minor units" tells deployers which currencies' amounts differ from `Intl`'s; archived in `archive/2026-10-04-billing-price-minor-units/`
 - **FU-30** `billing-failed-refund-access`: a Stripe refund that fails (`refund.failed`, or a refund update with a failed or canceled status) gives back what it took, once per refund (`billing.refund_failures`, migration `0007`): the payment's refunded total and status, a refunded lifetime, and the failed money's share of the days refunds took (`taken_back_days`), after the payment's period while it is ahead, else at the end; charge snapshots are dated by the event's `created`, so a stale one is corrected and a failure billing never counted gives back nothing; failures are exported; a new refund reported before a late failure is FU-35; archived in `archive/2026-10-04-billing-failed-refund-access/`
