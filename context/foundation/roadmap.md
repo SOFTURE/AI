@@ -66,7 +66,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-22** | `billing-grant-plan-script` | a `grant-plan` ops script grants and revokes plans without the admin page | FU-9 | autonomous | done |
 | **FU-23** | `marketing-kit-og-subset-fonts` | OG images use every subset file of a weight | FU-17 | autonomous | done_code (2026-10-04; waiting: MK-8 release) |
 | **FU-24** | `billing-existing-accounts` | existing accounts keep their access when billing is enabled (import, trial floor, pinned trials) | FU-22 | autonomous | done_code (2026-10-04; waiting: the next release of `@softure-ai/billing`) |
-| **FU-25** | `billing-stripe-currency-units` | Stripe charges the plan's price in every currency (special-case units) | FU-24 | autonomous | proposed |
+| **FU-25** | `billing-stripe-currency-units` | Stripe charges the plan's price in every currency (special-case units) | FU-24 | autonomous | in_progress (implement 0/1, since 2026-10-04; branch `claude/fu-25-stripe-currency-units-hokmce`) |
 | **FU-26** | `billing-guard-race-tests` | billing guards and lock races tested where they can fail | FU-25 | autonomous | proposed |
 | **FU-27** | `billing-invoice-request-hygiene` | invoice requests stored before the owner's mail, validated, expired and priced | FU-26 | autonomous | proposed |
 | **FU-28** | `auth-page-redirect-tag` | a signed-in visitor's redirect from a tagged login page keeps the tag | FU-7 | autonomous | done_code (2026-10-04; waiting: the next releases of `@softure-ai/auth` and `@softure-ai/analytics`) |
@@ -444,7 +444,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-25: Stripe charges the plan's price in every currency
 - **Change ID:** `billing-stripe-currency-units`
-- **Status:** proposed
+- **Status:** in_progress (implement 0/1, since 2026-10-04; branch `claude/fu-25-stripe-currency-units-hokmce`)
+- **Input:** [`changes/billing-stripe-currency-units/change.md`](../changes/billing-stripe-currency-units/change.md)
 - **Outcome:** The Stripe adapter sends each plan's price in the unit Stripe expects for its currency: special-case currencies (ISK and UGX sent ×100; HUF and TWD amounts divisible by 100, per Stripe's currency guide) are scaled or refused when the config loads, and formatting is tested for a 3-decimal currency (KWD).
 - **Prerequisites:** FU-24 on `master` (lane C).
 - **Unknowns:** The exact list and rules in Stripe's current currency guide (confirm first; the FU-12 session could not fetch it); scale in the adapter vs. refuse the currency.

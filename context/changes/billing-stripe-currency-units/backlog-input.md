@@ -15,7 +15,7 @@ The Stripe adapter sends each plan's price in the unit Stripe expects for its cu
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-25** (roadmap `followups`):
+From [`roadmap.md`](../../foundation/roadmap.md), item **FU-25** (roadmap `followups`):
 
 > ### FU-25: Stripe charges the plan's price in every currency
 > - **Change ID:** `billing-stripe-currency-units`
