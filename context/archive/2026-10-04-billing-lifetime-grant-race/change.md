@@ -1,12 +1,12 @@
 ---
 change_id: billing-lifetime-grant-race
 title: "Lifetime grants made at once on a new row are refused after the first"
-status: active
+status: archived
 roadmap_item: FU-33
 branch: claude/project-thread-3ronhj
 created: 2026-10-04
 updated: 2026-10-04
-archived_at: null
+archived_at: 2026-10-04
 ---
 
 ## Intent
@@ -43,3 +43,8 @@ From [`roadmap.md`](../../foundation/roadmap.md), item **FU-33** (roadmap `follo
 - Framing skipped: the problem is a measured race (FU-26's spike on Postgres 16) with file
   references, checked again on `master` (99c50bc) today; nothing about the problem is in doubt,
   only how to close it.
+- Archived 2026-10-04: `grantPlanManually` pins the account's derived entitlement row
+  (`pinEntitlementRow`, insert `ON CONFLICT DO NOTHING`) before `lockEntitlementRow` and the
+  `billing.lifetime_active` check, so a second grant made at once waits for the first and is
+  refused; a `billing.request_closed` refusal deletes the row it pinned; covered by two Postgres
+  races in `tests/lock-races.test.ts` and a PGlite test. No new gap found.
