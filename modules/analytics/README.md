@@ -275,7 +275,7 @@ belong to the app's own privacy contributor.
 - **A page's own redirect is not tagged.** Auth's action redirects keep the tag (`tagRedirect`),
   but a page that redirects while it renders (auth's login and register pages send a signed-in
   visitor to `afterLogin`) answers a full page load without it: that request's `Referer` is the
-  page before, not the tagged one (FU-24).
+  page before, not the tagged one (FU-28).
 - **Waitlist sign-ups are not a step yet.** The waitlist has no hook to count them from (FU-8);
   the funnel never reads another module's table.
 - **The funnel is a noise filter, not a defence.** Its endpoint checks that a request comes from one

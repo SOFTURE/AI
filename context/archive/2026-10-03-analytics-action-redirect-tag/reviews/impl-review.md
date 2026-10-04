@@ -26,7 +26,7 @@ with the option removed (checked locally). Auth does not import analytics. One f
 | 1: The option, the helper and the proof | a82a351 | yes | helper in `src/redirect-target.ts` (drift, recorded) |
 
 Files: planned 19, changed 21. Unplanned: `context/backlog/roadmap-followups/auth-page-redirect-tag/change.md` and
-`context/backlog/roadmap-followups/README.md` (the FU-24 gap the plan named), `modules/auth/src/redirect-target.ts`
+`context/backlog/roadmap-followups/README.md` (the FU-28 gap the plan named), `modules/auth/src/redirect-target.ts`
 instead of `src/server/redirect-target.ts` (drift). Existing test cases: none edited or removed; the e2e helper
 `registerFromLogin` was split into `fillRegisterForm` + submit without changing what it asserts.
 
