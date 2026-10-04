@@ -67,7 +67,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-23** | `marketing-kit-og-subset-fonts` | OG images use every subset file of a weight | FU-17 | autonomous | done_code (2026-10-04; waiting: MK-8 release) |
 | **FU-24** | `billing-existing-accounts` | existing accounts keep their access when billing is enabled (import, trial floor, pinned trials) | FU-22 | autonomous | done_code (2026-10-04; waiting: the next release of `@softure-ai/billing`) |
 | **FU-25** | `billing-stripe-currency-units` | Stripe charges the plan's price in every currency (special-case units) | FU-24 | autonomous | done_code (2026-10-04; waiting: the next release of `@softure-ai/billing`) |
-| **FU-26** | `billing-guard-race-tests` | billing guards and lock races tested where they can fail | FU-25 | autonomous | proposed |
+| **FU-26** | `billing-guard-race-tests` | billing guards and lock races tested where they can fail | FU-25 | autonomous | in_progress (implement 0/2, since 2026-10-04; branch `claude/fu-26-billing-guard-race-tests-kvrgtv`) |
 | **FU-27** | `billing-invoice-request-hygiene` | invoice requests stored before the owner's mail, validated, expired and priced | FU-26 | autonomous | proposed |
 | **FU-28** | `auth-page-redirect-tag` | a signed-in visitor's redirect from a tagged login page keeps the tag | FU-7 | autonomous | done_code (2026-10-04; waiting: the next releases of `@softure-ai/auth` and `@softure-ai/analytics`) |
 | **FU-29** | `marketing-kit-font-files-description` | the marketing.json font files description admits subset files | FU-23 | autonomous | done_code (2026-10-04; waiting: MK-8 release) |
@@ -458,7 +458,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-26: Billing guards and lock races are tested where they can fail
 - **Change ID:** `billing-guard-race-tests`
-- **Status:** proposed
+- **Status:** in_progress (implement 0/2, since 2026-10-04; branch `claude/fu-26-billing-guard-race-tests-kvrgtv`)
+- **Input:** [`changes/billing-guard-race-tests/change.md`](../changes/billing-guard-race-tests/change.md)
 - **Outcome:** CI proves billing's guards and locks: `requireWriteAccess` and every billing server action are unit-tested as anonymous, member and admin; the first-insert race of `changeEntitlement` and two concurrent plan grants run on two Postgres connections; an e2e covers a paid period that ended; a misspelt `adminRole` (not among `auth({ roles })`) fails at setup instead of silently locking every admin out.
 - **Prerequisites:** FU-25 on `master` (lane C).
 - **Unknowns:** How a unit test mocks the Next session for `/next` actions (auth's test helpers vs. a module mock); running the two-connection tests against the CI Postgres service vs. the e2e database.
