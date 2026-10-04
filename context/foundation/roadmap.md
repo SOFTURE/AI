@@ -61,7 +61,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-17** | `marketing-kit-og-glyphs` | OG images refuse copy the brand fonts cannot draw | — | autonomous | done_code (2026-10-03; waiting: MK-8 release) |
 | **FU-18** | `marketing-kit-screenshot-variants` | screenshots at a device scale and in both colour schemes | FU-14 | autonomous | done_code (2026-10-04; waiting: MK-8 release) |
 | **FU-19** | `marketing-kit-hook-shot-words` | opening shots after the first without a `word` are refused when the config loads | FU-14 | autonomous | done_code (2026-10-04; waiting: MK-8 release) |
-| **FU-20** | `billing-partial-refunds` | partial refunds take back access by a policy | FU-11 | autonomous | proposed |
+| **FU-20** | `billing-partial-refunds` | partial refunds take back access by a policy | FU-11 | autonomous | in_progress (implement 1/2, since 2026-10-04; branch `claude/fu-20-ke8s4w`) |
 | **FU-21** | `billing-refund-manual-lifetime` | a manual lifetime grant survives a refunded paid lifetime | FU-9 | autonomous | proposed |
 | **FU-22** | `billing-grant-plan-script` | a `grant-plan` ops script grants and revokes plans without the admin page | FU-9 | autonomous | proposed |
 | **FU-23** | `marketing-kit-og-subset-fonts` | OG images use every subset file of a weight | FU-17 | autonomous | proposed |
@@ -380,7 +380,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-20: Partial refunds take back access by a policy
 - **Change ID:** `billing-partial-refunds`
-- **Status:** proposed
+- **Status:** in_progress (implement 1/2, since 2026-10-04; branch `claude/fu-20-ke8s4w`)
+- **Input:** [`changes/billing-partial-refunds/change.md`](../changes/billing-partial-refunds/change.md)
 - **Outcome:** A partial refund changes access by a documented policy; partial refunds summing to the full amount act like one full refund.
 - **Prerequisites:** FU-11 on `master` (payments record their grant); runs in lane C after FU-6 (shared files).
 - **Unknowns:** Pro rata by amount vs. a fixed rule; rounding of days; tracking the refunded amount per payment (`charge.amount_refunded`); whether the policy is an option of `billing()`.
