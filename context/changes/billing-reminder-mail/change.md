@@ -1,7 +1,7 @@
 ---
 change_id: billing-reminder-mail
 title: "An account gets a reminder mail before its access ends and when it has ended"
-status: new
+status: implementing
 roadmap_item: FU-6
 branch: claude/fu-6-3xpjg4
 created: 2026-10-04

@@ -1,6 +1,7 @@
 // Drizzle view of the module's tables (migrations/0001_create_users_and_sessions.sql,
-// 0002_create_user_roles.sql and 0003_create_password_resets.sql). The migrations are the source of
-// truth; this file only types the queries. App tables may reference `users.id`.
+// 0002_create_user_roles.sql, 0003_create_password_resets.sql and the users.created_at index of
+// 0004_index_users_created_at.sql). The migrations are the source of truth; this file only types
+// the queries. App tables may reference `users.id`.
 import { pgSchema, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 export const authSchema = pgSchema("auth");
