@@ -74,7 +74,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-30** | `billing-failed-refund-access` | a refund that fails gives back the access it took | FU-27 | autonomous | done_code (2026-10-04; waiting: the next release of `@softure-ai/billing`) |
 | **FU-31** | `auth-require-user-redirect-tag` | `requireUser`'s redirect to login keeps the channel tag | FU-28 | autonomous | done_code (2026-10-04; waiting: the next releases of `@softure-ai/auth` and `@softure-ai/billing`) |
 | **FU-32** | `billing-price-minor-units` | a plan's price means the same amount on every runtime (pinned minor units) | FU-30 | autonomous | done_code (2026-10-04; waiting: the next release of `@softure-ai/billing`) |
-| **FU-33** | `billing-lifetime-grant-race` | lifetime grants made at once on a new row are refused after the first | FU-32 | autonomous | proposed |
+| **FU-33** | `billing-lifetime-grant-race` | lifetime grants made at once on a new row are refused after the first | FU-32 | autonomous | done_code (2026-10-04; waiting: the next release of `@softure-ai/billing`) |
 | **FU-34** | `billing-stale-handover-claim` | a request whose hand-over was cut off is handed over on a later ask | FU-33 | autonomous | proposed |
 | **FU-35** | `billing-refund-after-late-failure` | a new refund is not lost when an earlier refund's failure arrives late | FU-34 | autonomous | proposed |
 
@@ -544,7 +544,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-33: Lifetime grants made at once on a new row are refused after the first
 - **Change ID:** `billing-lifetime-grant-race`
-- **Status:** proposed
+- **Status:** done_code (2026-10-04; waiting: the next release of `@softure-ai/billing`)
+- **Input:** [`archive/2026-10-04-billing-lifetime-grant-race/change.md`](../archive/2026-10-04-billing-lifetime-grant-race/change.md)
 - **Outcome:** Two lifetime grants (or a lifetime and a period grant) made at once on an account without an entitlement row cannot both pass the `billing.lifetime_active` check: `grantPlanManually` (and every other path that checks lifetime before granting) holds a lock that exists before the row does, and a Postgres test in `tests/lock-races.test.ts` (two connections, order forced by a blocker) proves the second grant is refused.
 - **Prerequisites:** FU-32 on `master` (lane C).
 - **Unknowns:** Pin the derived row first (insert `ON CONFLICT DO NOTHING`, then `lockEntitlementRow`) vs. a stronger lock on the `auth.users` row (`FOR NO KEY UPDATE`, which would also serialise reads that take `KEY SHARE`); whether `startPayment`'s lifetime check needs the same (it only refuses early; the grant is the real check).
@@ -591,6 +592,7 @@ Open from FU-14:
 
 ## Done
 
+- **FU-33** `billing-lifetime-grant-race`: `grantPlanManually` pins the account's derived entitlement row (`pinEntitlementRow`, insert `ON CONFLICT DO NOTHING`) before it locks the row and checks `billing.lifetime_active`, so two grants made at once on an account without a row are serialised and the second is refused after a lifetime; a `request_closed` refusal deletes the row it pinned, so refusals still write nothing; `startPayment`'s early check stays unlocked (it only refuses early); covered by two Postgres races and a PGlite test; archived in `archive/2026-10-04-billing-lifetime-grant-race/`
 - **FU-32** `billing-price-minor-units`: the minor unit of every plan price comes from a table billing pins (`CURRENCY_MINOR_UNIT_DIGITS`: ISO 4217 List One of 2024-06-25 without funds and non-price units, MGA counted without a minor unit, XCG added), not from the runtime's `Intl`/CLDR; config validation, `formatPrice` (through `Intl` with the table's digits) and Stripe's conversion read it, so HUF 29.50 is 29.50 on every Node build; a test formats every pinned currency on the runtime and fails if its digits change a price; README "Minor units" tells deployers which currencies' amounts differ from `Intl`'s; archived in `archive/2026-10-04-billing-price-minor-units/`
 - **FU-30** `billing-failed-refund-access`: a Stripe refund that fails (`refund.failed`, or a refund update with a failed or canceled status) gives back what it took, once per refund (`billing.refund_failures`, migration `0007`): the payment's refunded total and status, a refunded lifetime, and the failed money's share of the days refunds took (`taken_back_days`), after the payment's period while it is ahead, else at the end; charge snapshots are dated by the event's `created`, so a stale one is corrected and a failure billing never counted gives back nothing; failures are exported; a new refund reported before a late failure is FU-35; archived in `archive/2026-10-04-billing-failed-refund-access/`
 - **FU-24** `billing-existing-accounts`: `trial.startsAt` floors the derived trial of accounts created before a chosen day, `import-entitlements` (and `importEntitlement()`) records known trial ends, paid periods and lifetime access without shortening access, and `pin-trials` (and `pinDerivedTrials()`) pins derived trials before a config change; README §5 lists the config effects; covered by unit tests on PGlite and an e2e; archived in `archive/2026-10-04-billing-existing-accounts/`

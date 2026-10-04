@@ -44,6 +44,28 @@ export function getDefaultRecord(ctx: Pick<BillingContext, "config">, accountCre
   return { trialEndsAt, paidUntil: null, isLifetime: false };
 }
 
+export interface PinEntitlementRowInput {
+  readonly userId: string;
+  /** The account's `auth.users.created_at`, which its derived trial starts from. */
+  readonly accountCreatedAt: Date;
+}
+
+/**
+ * Writes the account's derived trial into a row when it has none (exactly what reads derive), so a
+ * check made before the first change has a row to lock: a concurrent change that inserted first is
+ * waited for. Returns whether this call inserted the row. The caller holds the account (key share)
+ * and runs it in its transaction.
+ */
+export async function pinEntitlementRow(ctx: Pick<BillingContext, "db" | "config" | "clock">, input: PinEntitlementRowInput): Promise<boolean> {
+  const now = ctx.clock.now();
+  const inserted = await ctx.db
+    .insert(entitlements)
+    .values({ userId: input.userId, ...getDefaultRecord(ctx, input.accountCreatedAt), createdAt: now, updatedAt: now })
+    .onConflictDoNothing({ target: entitlements.userId })
+    .returning();
+  return inserted.length > 0;
+}
+
 /** The account's stored or derived record, or null when no account has this id. */
 export async function findEntitlementRecord(ctx: Pick<BillingContext, "db" | "config">, userId: string): Promise<EntitlementRecord | null> {
   if (!isUserId(userId)) return null;

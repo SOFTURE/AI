@@ -16,7 +16,7 @@ entitlement row yet: the second grant waits for the first and is refused.
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-33** (roadmap `followups`):
+From [`roadmap.md`](../../foundation/roadmap.md), item **FU-33** (roadmap `followups`):
 
 > ### FU-33: Lifetime grants made at once on a new row are refused after the first
 > - **Change ID:** `billing-lifetime-grant-race`

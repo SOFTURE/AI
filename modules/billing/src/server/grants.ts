@@ -2,14 +2,15 @@
 // `billing.manual_grants` with what it added, who granted it and the request it answered, so a
 // mistaken one is revoked by taking back only that, and an account's history lists it beside its
 // provider payments. Locks follow `refundPayment`'s order (account, then the entitlement, then the
-// grant or request row), so none of them deadlock.
+// grant or request row), so none of them deadlock. A grant pins the account's derived row before it
+// locks it, so its lifetime check holds even before the account's first change.
 import { users } from "@softure-ai/auth";
 import { err, ok, type Err, type Ok } from "@softure-ai/core";
 import { and, desc, eq } from "drizzle-orm";
 import type { AdminErrorCode, Entitlement, PaymentGrant, PlanPrice } from "../contract.js";
 import { findPlan } from "../plans.js";
-import { manualGrants, paymentRequests, payments } from "../schema.js";
-import { findEntitlementRecord, type BillingContext } from "./entitlements.js";
+import { entitlements, manualGrants, paymentRequests, payments } from "../schema.js";
+import { findEntitlementRecord, pinEntitlementRow, type BillingContext } from "./entitlements.js";
 import { getGrantColumns, readGrant } from "./payments.js";
 import { applyPlan, getBillingPlans } from "./plans.js";
 import { findOpenRequest, getClosedRequestColumns, readPrice } from "./requests.js";
@@ -47,9 +48,11 @@ export async function grantPlanManually(ctx: BillingContext, input: GrantPlanMan
   return ctx.db.transaction(async (tx) => {
     const now = ctx.clock.now();
     // A shared lock: the account cannot be deleted before the grant below.
-    const [account] = await tx.select({ id: users.id }).from(users).where(eq(users.id, input.userId)).for("key share");
+    const [account] = await tx.select({ createdAt: users.createdAt }).from(users).where(eq(users.id, input.userId)).for("key share");
     if (account === undefined) return err("billing.account_unknown");
-    // The entitlement locked before the check, so a lifetime granted meanwhile is seen here.
+    // The entitlement pinned and locked before the check, so a lifetime granted meanwhile is seen
+    // here, also by a grant that started before the account had a row.
+    const isPinned = await pinEntitlementRow({ ...ctx, db: tx }, { userId: input.userId, accountCreatedAt: account.createdAt });
     await lockEntitlementRow(tx, input.userId);
     const record = await findEntitlementRecord({ ...ctx, db: tx }, input.userId);
     if (record?.isLifetime === true) return err("billing.lifetime_active");
@@ -62,8 +65,12 @@ export async function grantPlanManually(ctx: BillingContext, input: GrantPlanMan
         .set(getClosedRequestColumns("granted", now))
         .where(and(eq(paymentRequests.id, input.requestId), eq(paymentRequests.userId, input.userId), eq(paymentRequests.status, "open")))
         .returning();
-      // Nothing written yet: the request was granted or dismissed meanwhile, or is another account's.
-      if (closed === undefined) return err("billing.request_closed");
+      // The request was granted or dismissed meanwhile, or is another account's: undo the pin, so
+      // the refusal writes nothing (the row is this transaction's, nobody else has seen it).
+      if (closed === undefined) {
+        if (isPinned) await tx.delete(entitlements).where(eq(entitlements.userId, input.userId));
+        return err("billing.request_closed");
+      }
       price = readPrice(closed.amount, closed.currency) ?? price;
     }
 

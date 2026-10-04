@@ -16,7 +16,8 @@ import { changeEntitlement, findEntitlementRecord, type BillingContext } from ".
 import { getEntitlementPolicy } from "./options.js";
 
 /**
- * Locks the account's entitlement row until the transaction ends (nothing when it has none yet).
+ * Locks the account's entitlement row until the transaction ends (nothing when it has none yet:
+ * a check that must hold before the first change pins the row first, `pinEntitlementRow`).
  * Taken before a refund's or a revoke's own row, so every take-back of the account queues here.
  */
 export async function lockEntitlementRow(tx: Queryable, userId: string): Promise<void> {
