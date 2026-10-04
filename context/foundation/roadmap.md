@@ -5,7 +5,7 @@ version: 1
 status: ready
 prd_version: 1
 created: 2026-10-03
-updated: 2026-10-03
+updated: 2026-10-04
 backlog: context/backlog/roadmap-followups/
 ---
 
@@ -46,7 +46,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-1** | `switch-reader-contract` | Switch-reader contract in core | — | autonomous | done |
 | **FU-2** | `waitlist-double-opt-in` | Waitlist double opt-in | FU-3 | autonomous | done |
 | **FU-3** | `mailing-consent-sync` | Unsubscribe as consent withdrawal | — | autonomous | done |
-| **FU-4** | `waitlist-welcome-html` | HTML welcome mail for the waitlist | FU-2 | autonomous | proposed |
+| **FU-4** | `waitlist-welcome-html` | HTML welcome mail for the waitlist | FU-2 | autonomous | done |
 | **FU-5** | `analytics-client-navigation` | Channel tag on client navigations without Next-Url | — | autonomous | done_code (2026-10-03; waiting: MO-6 release of `@softure-ai/analytics`) |
 | **FU-6** | `billing-reminder-mail` | Reminder mail before access ends | FU-9 | autonomous | proposed |
 | **FU-7** | `analytics-action-redirect-tag` | Channel tag kept through server action redirects | FU-1, FU-5 | autonomous | proposed |
@@ -229,7 +229,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-4: HTML welcome mail for the waitlist
 - **Change ID:** `waitlist-welcome-html`
-- **Status:** proposed
+- **Status:** done
+- **Input:** [`archive/2026-10-03-waitlist-welcome-html/change.md`](../archive/2026-10-03-waitlist-welcome-html/change.md)
 - **Outcome:** An option for the app's HTML template of the waitlist welcome mail, next to the text version.
 - **Prerequisites:** FU-2 on `master` (shared files, see Order).
 - **Unknowns:** Template shape (function of locale and links vs. a component).
@@ -422,6 +423,7 @@ Open from FU-14:
 ## Done
 
 - **FU-16** `marketing-kit-layout-overrides`: `marketing.json` `layout` overrides a format's caption box and size, persona card, end card and its phone pose, validated against the frame; archived in `archive/2026-10-03-marketing-kit-layout-overrides/`
+- **FU-4** `waitlist-welcome-html`: both waitlist mails carry an HTML body built from their copy (the confirmation link as an anchor); `waitlist({ mailTemplate })` renders it in the app's layout; archived in `archive/2026-10-03-waitlist-welcome-html/`
 - **FU-5** `analytics-client-navigation`: `<ChannelKeeper />` keeps the channel tag on client navigations without `Next-Url`, covered by unit and e2e tests; archived in `archive/2026-10-03-analytics-client-navigation/`
 - **FU-1** `switch-reader-contract`: auth reads `auth.registration_closed` through the switch-reader contract in core, provided by feature-switches; the panel flips it and reports undefined manifest switches; archived in `archive/2026-10-03-switch-reader-contract/`
 - **FU-14** `marketing-kit-schema-docs`: every key of the marketing.json JSON Schema carries a description, guarded by a test; archived in `archive/2026-10-03-marketing-kit-schema-docs/`

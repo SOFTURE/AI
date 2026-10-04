@@ -70,6 +70,14 @@ describe("the waitlist module", () => {
     expect(() => waitlist({ scopes, doubleOptIn: { expiresInHours: 0 } })).toThrow("options.doubleOptIn.expiresInHours");
   });
 
+  it("takes a mailTemplate function and refuses anything else", () => {
+    const scopes = [{ id: "launch", label: LABEL }];
+    const mailTemplate = () => "<p>Hi</p>";
+    expect(waitlist({ scopes, mailTemplate }).options.mailTemplate).toBe(mailTemplate);
+    // @ts-expect-error: a string is not a template function.
+    expect(() => waitlist({ scopes, mailTemplate: "<p>Hi</p>" })).toThrow("options.mailTemplate: must be a function");
+  });
+
   it("declares the confirmation page, whose path the app can move", () => {
     expect(waitlist({ scopes: [{ id: "launch", label: LABEL }] }).routes).toEqual({ confirm: "/waitlist/confirm" });
     expect(waitlist({ scopes: [{ id: "launch", label: LABEL }], routes: { confirm: "/join/confirm" } }).routes).toEqual({ confirm: "/join/confirm" });

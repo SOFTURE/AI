@@ -54,6 +54,13 @@ export {
   type WaitlistSignup,
 } from "./contract.js";
 export { EMAIL_FIELD, getScopeFieldName, PLACEMENT_FIELD } from "./fields.js";
+export {
+  escapeHtml,
+  type ConfirmationMailTemplateInput,
+  type WaitlistMailTemplate,
+  type WaitlistMailTemplateInput,
+  type WelcomeMailTemplateInput,
+} from "./mail-template.js";
 export { getWaitlistErrorMessage, waitlistMessages, type WaitlistMessages } from "./messages/index.js";
 export {
   DEFAULT_CONFIRMATION_HOURS,
