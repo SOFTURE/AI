@@ -46,6 +46,7 @@ docs/                assessment, module standard, plans
 | [docs/03-marketing-kit.md](docs/03-marketing-kit.md) | `@softure-ai/marketing-kit`: architecture and JSON contract |
 | [docs/04-skills.md](docs/04-skills.md) | Agent skills: where they live (SOFTURE/SKILLS) |
 | [docs/05-adoption-playbook.md](docs/05-adoption-playbook.md) | Playbook for an application agent that removes its own code and switches to a module |
+| [docs/06-fire-extraction-2.md](docs/06-fire-extraction-2.md) | Second extraction from FIRE_TRACKER: blog with SEO, charts, deploy and test tools; what stays in FIRE |
 
 ## Contributing
 
@@ -63,11 +64,11 @@ Development runs on the `softure-*` agent workflow from [`@softure-ai/skills`](h
 | Where | What |
 |---|---|
 | `context/workflow.json` | gates, main branch, worktree setup, research sources |
-| `context/foundation/shape-notes.md`, `prd.md` | why and what (PRD v1, FR/NFR IDs) |
-| `context/foundation/roadmap.md` | the main roadmap being executed; none since followups closed on 2026-10-04 (archived in `context/foundation/archive/`) |
-| `context/foundation/roadmaps/` | queued roadmaps: later (waits on owner steps) |
+| `context/foundation/shape-notes.md`, `prd.md` | why and what (PRD v2, FR/NFR IDs) |
+| `context/foundation/roadmap.md` | the main roadmap being executed: blog (since 2026-10-04); finished ones in `context/foundation/archive/` |
+| `context/foundation/roadmaps/` | queued roadmaps: blog-followups (gaps of the blog roadmap), charts, deploy, later (waits on owner steps) |
 | `context/changes/` | changes in flight (one folder per change) |
-| `context/backlog/roadmap-<slug>/` | prepared entries of queued roadmaps |
+| `context/backlog/roadmap-<slug>/` | prepared entries of the main and the queued roadmaps |
 
 Run the main roadmap end to end with `/softure-worktree-manager` (parallel git worktrees, merges on
 completion), or one item with `/softure-worktree <ID>`. Agents never tag or publish; the owner does.
