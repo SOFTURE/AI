@@ -1,7 +1,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 
-import type { FilmScript } from "../film.js";
+import { getLayoutName } from "../compose/timeline.js";
+import type { Device, FilmScript } from "../film.js";
 import type { MarketingLocale } from "../messages/index.js";
 import { DEFAULT_LINK_IN_BIO, PLATFORMS, type Platform } from "../platforms.js";
 import type { SceneAction } from "./actions-schema.js";
@@ -111,6 +112,13 @@ function resolveFont(font: MarketingJson["brand"]["fonts"]["body"], at: (relativ
   };
 }
 
+function resolveDevice(device: MarketingJson["app"]["device"]): Device {
+  const viewport = { width: device.viewport[0], height: device.viewport[1] };
+  // The schema refuses `mobile: true` on a desktop; a phone is a mobile browser unless it says otherwise.
+  if (device.kind === "desktop") return { kind: "desktop", viewport, scale: device.scale };
+  return { kind: "phone", viewport, scale: device.scale, isMobile: device.mobile ?? true };
+}
+
 function resolveVideos(data: MarketingJson, at: (relative: string) => string): VideoConfig[] {
   const posts = new Map((data.social?.posts ?? []).map((post) => [post.video, post]));
   return data.videos.map((video, index) => {
@@ -123,8 +131,8 @@ function resolveVideos(data: MarketingJson, at: (relative: string) => string): V
       title: video.title,
       path: video.path,
       format: video.format,
-      layout: data.layout?.[video.format] ?? {},
-      device: { viewport: { width: device.viewport[0], height: device.viewport[1] }, scale: device.scale, isMobile: device.mobile },
+      layout: data.layout?.[getLayoutName(video.format, device.kind)] ?? {},
+      device: resolveDevice(device),
       persona: video.persona,
       voice: {
         voiceId: video.voice?.voiceId ?? data.voice.voiceId,

@@ -380,6 +380,15 @@
         "device": {
           "type": "object",
           "properties": {
+            "kind": {
+              "default": "phone",
+              "description": "What records the film: a phone (touch, framed as a phone) or a desktop browser (mouse, framed as a browser window, 16:9 films only).",
+              "type": "string",
+              "enum": [
+                "phone",
+                "desktop"
+              ]
+            },
             "viewport": {
               "type": "array",
               "prefixItems": [
@@ -397,17 +406,16 @@
               "items": false,
               "minItems": 2,
               "maxItems": 2,
-              "description": "The recorded screen in CSS pixels, [width, height]; at most about 2.6 times as tall as wide."
+              "description": "The recorded screen in CSS pixels, [width, height]; a phone's at most about 2.6 times as tall as wide, a desktop's at least 1024 wide and not taller than wide."
             },
             "scale": {
               "type": "number",
               "minimum": 1,
               "maximum": 4,
-              "description": "Device pixels per CSS pixel (1-4); the frame needs about 1080 / (640 / width) to stay sharp."
+              "description": "Device pixels per CSS pixel (1-4); a phone needs about 1080 / (640 / width) to stay sharp, a desktop 1.5-2."
             },
             "mobile": {
-              "default": true,
-              "description": "Whether the browser behaves as a phone (touch, mobile viewport).",
+              "description": "Whether a phone's browser behaves as a mobile one (mobile viewport, default true); not allowed on a desktop.",
               "type": "boolean"
             }
           },
@@ -416,7 +424,7 @@
             "scale"
           ],
           "additionalProperties": false,
-          "description": "The recorded phone; a video can override it."
+          "description": "The recording device (a phone or a desktop browser); a video can override it."
         }
       },
       "required": [
@@ -500,7 +508,7 @@
           },
           "format": {
             "default": "9:16",
-            "description": "The film's aspect ratio: 9:16 (full screen), 1:1 or 16:9 (a framed phone next to the copy).",
+            "description": "The film's aspect ratio: 9:16 (full screen), 1:1 or 16:9 (a framed phone next to the copy, or a browser window with a desktop device).",
             "type": "string",
             "enum": [
               "9:16",
@@ -509,9 +517,18 @@
             ]
           },
           "device": {
-            "description": "The recorded phone for this film; without it, app.device.",
+            "description": "The recording device for this film; without it, app.device.",
             "type": "object",
             "properties": {
+              "kind": {
+                "default": "phone",
+                "description": "What records the film: a phone (touch, framed as a phone) or a desktop browser (mouse, framed as a browser window, 16:9 films only).",
+                "type": "string",
+                "enum": [
+                  "phone",
+                  "desktop"
+                ]
+              },
               "viewport": {
                 "type": "array",
                 "prefixItems": [
@@ -529,17 +546,16 @@
                 "items": false,
                 "minItems": 2,
                 "maxItems": 2,
-                "description": "The recorded screen in CSS pixels, [width, height]; at most about 2.6 times as tall as wide."
+                "description": "The recorded screen in CSS pixels, [width, height]; a phone's at most about 2.6 times as tall as wide, a desktop's at least 1024 wide and not taller than wide."
               },
               "scale": {
                 "type": "number",
                 "minimum": 1,
                 "maximum": 4,
-                "description": "Device pixels per CSS pixel (1-4); the frame needs about 1080 / (640 / width) to stay sharp."
+                "description": "Device pixels per CSS pixel (1-4); a phone needs about 1080 / (640 / width) to stay sharp, a desktop 1.5-2."
               },
               "mobile": {
-                "default": true,
-                "description": "Whether the browser behaves as a phone (touch, mobile viewport).",
+                "description": "Whether a phone's browser behaves as a mobile one (mobile viewport, default true); not allowed on a desktop.",
                 "type": "boolean"
               }
             },
@@ -2876,11 +2892,11 @@
       }
     },
     "layout": {
-      "description": "Per format, overrides of where the caption, the persona card and the end card go, and the end card's phone pose.",
+      "description": "Per format (9:16, 1:1, 16:9 for phone films; desktop for desktop films), overrides of where the caption, the persona card and the end card go, and the end card's phone or window pose.",
       "type": "object",
       "properties": {
         "9:16": {
-          "description": "Overrides for every 9:16 film (1080×1920 px); a missing key keeps the default.",
+          "description": "Overrides for every 9:16 phone film (1080×1920 px); a missing key keeps the default.",
           "type": "object",
           "properties": {
             "caption": {
@@ -3006,7 +3022,7 @@
           "additionalProperties": false
         },
         "1:1": {
-          "description": "Overrides for every 1:1 film (1080×1080 px); a missing key keeps the default.",
+          "description": "Overrides for every 1:1 phone film (1080×1080 px); a missing key keeps the default.",
           "type": "object",
           "properties": {
             "caption": {
@@ -3132,7 +3148,7 @@
           "additionalProperties": false
         },
         "16:9": {
-          "description": "Overrides for every 16:9 film (1920×1080 px); a missing key keeps the default.",
+          "description": "Overrides for every 16:9 phone film (1920×1080 px); a missing key keeps the default.",
           "type": "object",
           "properties": {
             "caption": {
@@ -3235,6 +3251,132 @@
                       "properties": {
                         "x": {
                           "description": "Where the screen's centre goes, in px from the frame's left edge. Default 600.",
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1920
+                        },
+                        "y": {
+                          "description": "Where the screen's centre goes, in px from the frame's top. Default 540.",
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1080
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "desktop": {
+          "description": "Overrides for every desktop (16:9, browser window) film (1920×1080 px); a missing key keeps the default.",
+          "type": "object",
+          "properties": {
+            "caption": {
+              "description": "The caption box over the film and its font size.",
+              "type": "object",
+              "properties": {
+                "top": {
+                  "description": "The caption's top edge, in px from the frame's top. Default 890.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1080
+                },
+                "left": {
+                  "description": "The caption's left margin, in px from the frame's left edge. Default 260.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1920
+                },
+                "right": {
+                  "description": "The caption's right margin, in px from the frame's right edge. Default 260.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1920
+                },
+                "fontSize": {
+                  "description": "The caption's font size in px (16-200). Default 50.",
+                  "type": "integer",
+                  "minimum": 16,
+                  "maximum": 200
+                }
+              },
+              "additionalProperties": false
+            },
+            "persona": {
+              "description": "The box the persona card is centred in.",
+              "type": "object",
+              "properties": {
+                "top": {
+                  "description": "The persona card's top edge, in px from the frame's top. Default 14.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1080
+                },
+                "left": {
+                  "description": "The persona card's left margin, in px from the frame's left edge. Default 0.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1920
+                },
+                "right": {
+                  "description": "The persona card's right margin, in px from the frame's right edge. Default 0.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1920
+                }
+              },
+              "additionalProperties": false
+            },
+            "endCard": {
+              "description": "The end card's box, headline size and the browser window's pose behind it.",
+              "type": "object",
+              "properties": {
+                "top": {
+                  "description": "The end card's top edge, in px from the frame's top. Default 330.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1080
+                },
+                "left": {
+                  "description": "The end card's left margin, in px from the frame's left edge. Default 1080.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1920
+                },
+                "right": {
+                  "description": "The end card's right margin, in px from the frame's right edge. Default 100.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1920
+                },
+                "headlineSize": {
+                  "description": "The end card's headline size in px (16-300). Default 80.",
+                  "type": "integer",
+                  "minimum": 16,
+                  "maximum": 300
+                },
+                "phone": {
+                  "description": "The browser window's pose while the end card shows.",
+                  "type": "object",
+                  "properties": {
+                    "scale": {
+                      "description": "The browser window's scale while the end card shows (0.2-1.5). Default 0.5.",
+                      "type": "number",
+                      "minimum": 0.2,
+                      "maximum": 1.5
+                    },
+                    "center": {
+                      "description": "Where the browser window's screen centre goes while the end card shows.",
+                      "type": "object",
+                      "properties": {
+                        "x": {
+                          "description": "Where the screen's centre goes, in px from the frame's left edge. Default 560.",
                           "type": "integer",
                           "minimum": 0,
                           "maximum": 1920

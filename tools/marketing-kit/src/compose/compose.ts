@@ -3,11 +3,11 @@ import type { SfxEvent } from "../config/schema.js";
 import type { Film } from "../film.js";
 import { formatMessage, type MarketingMessages } from "../messages/index.js";
 import type { RecordingLog } from "../record/record.js";
-import { cameraPose, captionChunks, widePose, type CameraPose, type Geometry } from "./timeline.js";
+import { BROWSER_BAR_HEIGHT, cameraPose, captionChunks, widePose, type CameraPose, type Geometry } from "./timeline.js";
 import type { BeatVoice } from "../voice/voiceover.js";
 
 /**
- * HyperFrames composition from the recording: the phone with the real screen, a camera that follows
+ * HyperFrames composition from the recording: the phone (or, for a desktop recording, a browser window) with the real screen, a camera that follows
  * the thumb, a touch marker, captions in one place, the persona card, an opening from the result
  * frame with a rewind, the end card and sounds.
  *
@@ -146,6 +146,29 @@ function fontFaces(font: ComposeFont | null): string[] {
     const range = face.unicodeRange === null ? "" : `;unicode-range:${face.unicodeRange}`;
     return `@font-face{font-family:"${font.family}";src:url("${face.src}") format("${getFontFormat(face.src)}");font-weight:${face.weight};font-style:${face.style}${range}}`;
   });
+}
+
+/** The CSS and the opening markup of what stands around the screen: a phone's bezel or a browser window. */
+function getWindowParts(geometry: Geometry, colors: BrandColors, address: string): { css: string; open: string } {
+  const { screen, screenHeight } = geometry;
+  if (geometry.window === "phone") {
+    return {
+      css: `.phone{position:absolute;left:${screen.left - 14}px;top:${screen.top - 14}px;width:${screen.width + 28}px;height:${screenHeight + 28}px;border-radius:66px;background:linear-gradient(160deg,#2a3441,#0e131a 40%,#1b232d);box-shadow:0 0 0 2px #3a4655 inset,0 60px 140px rgba(0,0,0,.65),0 0 0 1px #05070a}
+.screen{position:absolute;left:14px;top:14px;width:${screen.width}px;height:${screenHeight}px;border-radius:52px;overflow:hidden;background:${colors.background}}`,
+      open: `<div class="phone">`,
+    };
+  }
+  const bar = BROWSER_BAR_HEIGHT;
+  return {
+    css: `.window{position:absolute;left:${screen.left}px;top:${screen.top - bar}px;width:${screen.width}px;height:${screenHeight + bar}px;border-radius:18px;overflow:hidden;background:linear-gradient(180deg,#2a3441,#1b232d ${bar}px);box-shadow:0 0 0 2px #3a4655 inset,0 60px 140px rgba(0,0,0,.65),0 0 0 1px #05070a}
+.bar{position:absolute;left:0;top:0;right:0;height:${bar}px;display:flex;align-items:center;gap:28px;padding:0 24px}
+.dots{display:flex;gap:10px}
+.dots i{width:14px;height:14px;border-radius:50%;background:#3a4655}
+.address{flex:1;margin-right:96px;height:32px;border-radius:999px;background:#0e131a;color:${colors.muted};font-size:18px;line-height:32px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.screen{position:absolute;left:0;top:${bar}px;width:${screen.width}px;height:${screenHeight}px;overflow:hidden;background:${colors.background}}`,
+    open: `<div class="window">
+      <div class="bar"><span class="dots"><i></i><i></i><i></i></span><span class="address">${escapeHtml(address)}</span></div>`,
+  };
 }
 
 function fontStack(font: ComposeFont | null, fallback: string): string {
@@ -300,6 +323,8 @@ export function composeFilm(input: ComposeInput): string {
   const faces = [...fontFaces(fonts.body), ...fontFaces(fonts.heading)];
   // The plan always starts with the first opening shot at t = 0.
   const firstPose = (cameraPlan[0] as ResolvedTween).pose;
+  // The address bar shows the public URL the end card names, never the recorded (local) one.
+  const windowParts = getWindowParts(geometry, c, film.endCard.url);
 
   return `<!doctype html>
 <html lang="${escapeHtml(locale)}">
@@ -317,8 +342,7 @@ html,body{width:${frame.width}px;height:${frame.height}px;overflow:hidden;backgr
 .blur{position:absolute;left:-15%;top:-10%;width:130%;height:120%;object-fit:cover;filter:blur(70px) saturate(1.4);opacity:.38}
 .vignette{position:absolute;inset:0;background:radial-gradient(90% 60% at 50% 45%, transparent 0%, ${c.background}cc 70%, ${c.background} 100%)}
 #camera{position:absolute;left:0;top:0;width:${frame.width}px;height:${frame.height}px;transform-origin:0 0}
-.phone{position:absolute;left:${screen.left - 14}px;top:${screen.top - 14}px;width:${screen.width + 28}px;height:${screenHeight + 28}px;border-radius:66px;background:linear-gradient(160deg,#2a3441,#0e131a 40%,#1b232d);box-shadow:0 0 0 2px #3a4655 inset,0 60px 140px rgba(0,0,0,.65),0 0 0 1px #05070a}
-.screen{position:absolute;left:14px;top:14px;width:${screen.width}px;height:${screenHeight}px;border-radius:52px;overflow:hidden;background:${c.background}}
+${windowParts.css}
 .screen img,.screen video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .touch{position:absolute;width:0;height:0}
 .touch .dot{position:absolute;left:-34px;top:-34px;width:68px;height:68px;border-radius:50%;background:rgba(232,238,245,.34);border:2px solid rgba(232,238,245,.75);opacity:0}
@@ -348,7 +372,7 @@ html,body{width:${frame.width}px;height:${frame.height}px;overflow:hidden;backgr
     <div class="vignette"></div>
   </div>
   <div id="camera">
-    <div class="phone">
+    ${windowParts.open}
       <div class="screen">
         <img id="hook" class="clip" src="${assets.hookStill}" data-start="0" data-duration="${times.hook}" />
         <video id="rewind" class="clip" src="${assets.rewind}" data-start="${times.hook}" data-duration="${times.rewind}" muted playsinline></video>

@@ -10,7 +10,8 @@ import { prepareFixture } from "../examples/fixture/prepare.js";
 /**
  * The whole pipeline on the fixture film: start the fixture app, record it frame by frame, compose
  * and render a draft MP4 with hyperframes, write the post copy; then record the film's JSON twin
- * (beat actions instead of the scene module) and compare the two recording logs.
+ * (beat actions instead of the scene module) and compare the two recording logs; then record and render the same
+ * scene as a desktop film in a browser window (16:9).
  *
  * Opt-in (`MARKETING_KIT_RENDER=1`): it needs ffmpeg, a Chromium for Playwright
  * (`PLAYWRIGHT_CHROMIUM_PATH` or Playwright's own) and a Chrome for hyperframes
@@ -20,6 +21,17 @@ import { prepareFixture } from "../examples/fixture/prepare.js";
 const isEnabled = process.env.MARKETING_KIT_RENDER === "1";
 const PACKAGE_DIR = join(import.meta.dirname, "..");
 const TSX = join(PACKAGE_DIR, "..", "..", "node_modules", ".bin", "tsx");
+
+interface Probe {
+  streams: { codec_type: string; width?: number; height?: number }[];
+  format: { duration: string };
+}
+
+function probe(video: string): Probe {
+  return JSON.parse(
+    execFileSync("ffprobe", ["-v", "error", "-show_entries", "stream=codec_type,width,height:format=duration", "-of", "json", video], { encoding: "utf8" }),
+  ) as Probe;
+}
 
 describe.runIf(isEnabled)("softure-marketing all on the fixture film", () => {
   const target = mkdtempSync(join(tmpdir(), "marketing-kit-fixture-"));
@@ -36,15 +48,13 @@ describe.runIf(isEnabled)("softure-marketing all on the fixture film", () => {
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
 
     const video = join(target, "out", "fixture-tour", "fixture-tour.mp4");
-    const probe = JSON.parse(
-      execFileSync("ffprobe", ["-v", "error", "-show_entries", "stream=codec_type,width,height:format=duration", "-of", "json", video], { encoding: "utf8" }),
-    ) as { streams: { codec_type: string; width?: number; height?: number }[]; format: { duration: string } };
-    const videoStream = probe.streams.find((stream) => stream.codec_type === "video");
+    const phoneProbe = probe(video);
+    const videoStream = phoneProbe.streams.find((stream) => stream.codec_type === "video");
     expect([videoStream?.width, videoStream?.height]).toEqual([1080, 1920]);
-    expect(probe.streams.some((stream) => stream.codec_type === "audio")).toBe(true);
+    expect(phoneProbe.streams.some((stream) => stream.codec_type === "audio")).toBe(true);
     // The composition's length is printed by the CLI ("(12.3 s, 1080×1920 ...").
     const printed = Number(/\((\d+(?:\.\d+)?) s, 1080×1920/.exec(result.stdout)?.[1]);
-    expect(Math.abs(Number(probe.format.duration) - printed)).toBeLessThan(0.5);
+    expect(Math.abs(Number(phoneProbe.format.duration) - printed)).toBeLessThan(0.5);
 
     const posts = readFileSync(join(target, "out", "fixture-tour", "posts.md"), "utf8");
     expect(posts).toContain("Link for the bio: https://example.com/calculator?z=ig-01");
@@ -55,5 +65,22 @@ describe.runIf(isEnabled)("softure-marketing all on the fixture film", () => {
     expect(twin.status, `${twin.stdout}\n${twin.stderr}`).toBe(0);
     const readLog = (id: string): unknown => JSON.parse(readFileSync(join(target, "build", id, "log.json"), "utf8"));
     expect(readLog("fixture-tour-actions")).toEqual(readLog("fixture-tour"));
+
+    // The same scene recorded in a desktop browser and framed as a browser window in 16:9.
+    const desktop = spawnSync(TSX, [join(PACKAGE_DIR, "src", "cli", "main.ts"), "all", "fixture-desktop", `--config=${config}`, "--quality=draft"], {
+      encoding: "utf8",
+    });
+    expect(desktop.status, `${desktop.stdout}\n${desktop.stderr}`).toBe(0);
+    const desktopProbe = probe(join(target, "out", "fixture-desktop", "fixture-desktop.mp4"));
+    const desktopStream = desktopProbe.streams.find((stream) => stream.codec_type === "video");
+    expect([desktopStream?.width, desktopStream?.height]).toEqual([1920, 1080]);
+    expect(desktopProbe.streams.some((stream) => stream.codec_type === "audio")).toBe(true);
+    const desktopPrinted = Number(/\((\d+(?:\.\d+)?) s, 1920×1080, 16:9\)/.exec(desktop.stdout)?.[1]);
+    expect(Math.abs(Number(desktopProbe.format.duration) - desktopPrinted)).toBeLessThan(0.5);
+    // The desktop recording clicks where the phone recording taps, sentence for sentence.
+    const phoneLog = readLog("fixture-tour") as { beatIds: string[]; taps: unknown[] };
+    const desktopLog = readLog("fixture-desktop") as { beatIds: string[]; taps: unknown[] };
+    expect(desktopLog.beatIds).toEqual(phoneLog.beatIds);
+    expect(desktopLog.taps).toHaveLength(phoneLog.taps.length);
   }, 600_000);
 });
