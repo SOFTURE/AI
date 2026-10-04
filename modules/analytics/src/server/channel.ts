@@ -40,6 +40,20 @@ export function withChannel(config: SoftureConfig, url: URL, channel: string): U
   return tagged;
 }
 
+/**
+ * `path` with the channel parameter set to `channel`, for a redirect inside the app: only a path
+ * that starts with a single `/` is tagged, and one that already carries the parameter (with any
+ * value) is left as it is. Anything else comes back unchanged.
+ */
+export function tagPath(config: SoftureConfig, path: string, channel: string): string {
+  if (!path.startsWith("/") || path.startsWith("//") || path.startsWith("/\\")) return path;
+  const origin = new URL(config.appOrigin).origin;
+  const url = new URL(path, origin);
+  if (url.origin !== origin || hasChannelParam(config, url)) return path;
+  const tagged = withChannel(config, url, channel);
+  return `${tagged.pathname}${tagged.search}${tagged.hash}`;
+}
+
 interface FirstPartyContext {
   readonly config: SoftureConfig;
   readonly url: URL | null;

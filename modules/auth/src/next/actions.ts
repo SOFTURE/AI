@@ -3,7 +3,8 @@
 // The auth server actions. Each one identifies the client and counts its attempt (inside the
 // server functions) before any work, reads the user from the session cookie (never from a bound
 // argument, which the client controls, docs/02 §8), and turns unexpected failures into
-// `safeError` codes. Next refuses an action whose Origin does not match the host.
+// `safeError` codes. Next refuses an action whose Origin does not match the host. Every redirect
+// goes through the app's `rewriteRedirect` (`resolveRedirectTarget`).
 import { errorLogLabel, safeError, type SoftureConfig } from "@softure-ai/core";
 import { getSoftureConfig } from "@softure-ai/core/next";
 import { identifyClient } from "@softure-ai/security/server";
@@ -12,6 +13,7 @@ import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { z } from "zod";
 import type { AuthFormErrorCode, AuthFormField, AuthFormState } from "../contract.js";
+import { resolveRedirectTarget } from "../redirect-target.js";
 import { toSafeNextPath } from "../safe-next-path.js";
 import { changePassword } from "../server/change-password.js";
 import { loginUser } from "../server/login.js";
@@ -86,7 +88,7 @@ export async function loginAction(_previous: AuthFormState, formData: FormData):
 
   await endPreviousSession(config);
   await writeSessionCookie(config, result.value.session);
-  redirect(toSafeNextPath(input.next, getAuthRoutes(config).afterLogin));
+  redirect(await resolveRedirectTarget(config, toSafeNextPath(input.next, getAuthRoutes(config).afterLogin)));
 }
 
 export async function registerAction(_previous: AuthFormState, formData: FormData): Promise<AuthFormState> {
@@ -111,7 +113,7 @@ export async function registerAction(_previous: AuthFormState, formData: FormDat
 
   await endPreviousSession(config);
   await writeSessionCookie(config, result.value.session);
-  redirect(toSafeNextPath(input.next, getAuthRoutes(config).afterLogin));
+  redirect(await resolveRedirectTarget(config, toSafeNextPath(input.next, getAuthRoutes(config).afterLogin)));
 }
 
 export async function changePasswordAction(_previous: AuthFormState, formData: FormData): Promise<AuthFormState> {
@@ -184,7 +186,7 @@ export async function resetPasswordAction(_previous: AuthFormState, formData: Fo
     return failure(reportFailure("password reset", error));
   }
   if (!result.ok) return failure(result.error, { field: RESET_FIELD_OF[result.error] });
-  redirect(`${getAuthRoutes(config).login}?${PASSWORD_RESET_DONE_PARAM}=1`);
+  redirect(await resolveRedirectTarget(config, `${getAuthRoutes(config).login}?${PASSWORD_RESET_DONE_PARAM}=1`));
 }
 
 /** Ends the session the browser held before a login or register, so it cannot be reused. */
@@ -210,5 +212,5 @@ export async function logoutAction(): Promise<void> {
     }
   }
   await clearSessionCookie(config);
-  redirect(getAuthRoutes(config).afterLogout);
+  redirect(await resolveRedirectTarget(config, getAuthRoutes(config).afterLogout));
 }

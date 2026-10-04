@@ -1,7 +1,7 @@
 // The app's SOFTURE configuration. `softure migrate` loads this file with Node's type stripping,
 // so relative imports name their `.ts` files.
 import { analytics } from "@softure-ai/analytics";
-import { attributeRegistration, countFunnelStep, countRegistration } from "@softure-ai/analytics/next";
+import { attributeRegistration, countFunnelStep, countRegistration, tagRedirect } from "@softure-ai/analytics/next";
 import { auth, AUTH_RATE_LIMIT_BUCKETS, REGISTRATION_CLOSED_SWITCH } from "@softure-ai/auth";
 import { billing, BILLING_RATE_LIMIT_BUCKETS, manual, stripe } from "@softure-ai/billing";
 import { mailingResetSender } from "@softure-ai/auth/mailing";
@@ -21,7 +21,6 @@ import { en } from "./messages/en.ts";
 import { pl } from "./messages/pl.ts";
 import { mailInvoiceRequestsTo } from "./lib/invoice-requests.ts";
 import { rememberSignupChannel } from "./lib/signup-channels.ts";
-import { tagConfirmationLink } from "./lib/waitlist-channel.ts";
 import { waitlistMailLayout } from "./lib/waitlist-mail.ts";
 import { guestbook } from "./modules/guestbook/index.ts";
 
@@ -58,11 +57,13 @@ const config = defineSoftureConfig({
     // Reset links go out as mail through the mailing module below (e2e/auth-reset-mail.spec.ts).
     // The registration checkbox accepts the legal documents of privacy() below; the hook records
     // that consent with their versions, in the account's transaction (e2e/privacy-consents.spec.ts),
-    // and the channel of a tagged sign-up is remembered for the account page.
+    // and the channel of a tagged sign-up is remembered for the account page. Every auth action's
+    // redirect keeps the channel tag (e2e/analytics-channel.spec.ts).
     auth({
       routes: { afterLogin: "/account" },
       adminEmails: [EXAMPLE_ADMIN_EMAIL],
       passwordReset: { send: mailingResetSender() },
+      rewriteRedirect: tagRedirect,
       onRegistered: async (event, ctx) => {
         await recordConsent(event, ctx);
         await attributeChannel(event, ctx);
@@ -139,7 +140,7 @@ const config = defineSoftureConfig({
       doubleOptIn: true,
       mailTemplate: waitlistMailLayout,
       onJoined: countFunnelStep("waitlist"),
-      rewriteConfirmationLink: tagConfirmationLink,
+      rewriteConfirmationLink: tagRedirect,
     }),
     // The channel tag `?z=` with its defaults; proxy.ts carries it from page to page. The funnel
     // counts the home page (a pixel), waitlist sign-ups (the waitlist's hook), the account page (a

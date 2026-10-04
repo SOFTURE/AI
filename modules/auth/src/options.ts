@@ -1,5 +1,5 @@
 // The options an app passes to `auth({ ... })` in softure.config.ts, parsed at startup.
-import type { ModuleContext } from "@softure-ai/core";
+import type { ModuleContext, SoftureConfig } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
 import { z } from "zod";
 import type { RegisteredEvent } from "./contract.js";
@@ -15,6 +15,13 @@ const DOMAIN = /^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](
 
 /** Runs inside the registration transaction; a thrown error rolls the registration back. */
 export type OnRegisteredHook = (event: RegisteredEvent, ctx: ModuleContext<Queryable>) => Promise<void>;
+
+/**
+ * Rewrites the path an auth action redirects to (after login, sign-up, a password reset and logout),
+ * e.g. analytics' `tagRedirect`, which keeps the channel tag. A result that is not a path on this
+ * app, or a failure, leaves auth's own path.
+ */
+export type RewriteRedirect = (path: string, ctx: { readonly config: SoftureConfig }) => Promise<string> | string;
 
 function isPowerOfTwo(value: number): boolean {
   return Number.isInteger(Math.log2(value));
@@ -81,6 +88,8 @@ export const authOptionsSchema = z.strictObject({
     .prefault({}),
   /** Called after an account is created, in the same transaction (e.g. to store the consent). */
   onRegistered: z.custom<OnRegisteredHook>((value) => typeof value === "function", "must be a function").optional(),
+  /** Rewrites the path of every action's redirect (e.g. `tagRedirect` from `@softure-ai/analytics/next`). */
+  rewriteRedirect: z.custom<RewriteRedirect>((value) => typeof value === "function", "must be a function").optional(),
 });
 
 export type AuthOptionsInput = z.input<typeof authOptionsSchema>;

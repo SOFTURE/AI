@@ -41,8 +41,11 @@ zone moved into configuration and the report turned into a function.
 - **Attribution of sign-ups**: `attributeRegistration(onChannel)` is an `onRegistered` hook for
   auth that calls `onChannel({ userId, channel }, ctx)` inside the account's transaction when the
   sign-up came with a channel. Where the attribution goes (a column, a counter) is the app's choice.
+- **Redirects that keep the tag** (`/next`): `tagRedirect(path)` adds the request's channel to a
+  server action's redirect path; auth takes it as `rewriteRedirect`, so its login, sign-up, reset
+  and logout redirects land on a tagged URL.
 - **Framework-free reading** (`/server`): `parseChannel`, `readChannel(config, { url, referer, host })`,
-  `withChannel`, `hasChannelParam`, `isFirstParty`.
+  `withChannel`, `tagPath`, `hasChannelParam`, `isFirstParty`.
 - **The funnel** (`analytics({ funnel: { steps } })`): `analytics.funnel_counts` holds one counter
   per (day, channel, step). Each step is counted one way:
   - `pixel`: `<FunnelPixel step="landing" />` (`/next`) renders a 1×1 image; a page view counts
@@ -131,6 +134,19 @@ const attributeChannel = attributeRegistration(({ userId, channel }, ctx) => sav
 
 auth({ onRegistered: async (event, ctx) => { await recordConsent(event, ctx); await attributeChannel(event, ctx); } }),
 ```
+
+Auth's redirects keep the tag: Next renders an action's redirect target (and a browser without
+JavaScript follows its `303`) from the URL the action passes to `redirect()`, which the proxy never
+sees as a navigation. `tagRedirect` adds the channel of the page the action was posted from:
+
+```ts
+import { tagRedirect } from "@softure-ai/analytics/next";
+
+auth({ rewriteRedirect: tagRedirect }),
+```
+
+The app's own actions use it the same way: `redirect(await tagRedirect("/thanks"))`. A path that
+already carries the parameter is left as it is.
 
 `/next` imports `next/headers` only when a function runs, so `softure.config.ts` (which
 `softure migrate` loads in plain Node) can import it.
@@ -236,6 +252,8 @@ copy. The `en` and `pl` dictionaries in `src/messages/` are empty.
   step, in a savepoint of the event's transaction; it never throws. For waitlist sign-ups with double
   opt-in, the confirmation link must carry the channel: waitlist README §10.
 - `countRegistration(step)` is `countFunnelStep(step)` typed for auth's `onRegistered`.
+- `tagRedirect(path, ctx?)` fits auth's `rewriteRedirect` option (§3) and the waitlist's
+  `rewriteConfirmationLink`; auth (and the waitlist) keep their own path if it throws.
 
 ## 11. GDPR
 
@@ -263,9 +281,10 @@ belong to the app's own privacy contributor.
   without storage.
 - `getChannel()` reads the page the request came from; a page's own render reads its
   `searchParams` instead.
-- **A server action's redirect renders untagged on the server.** After sign-up, auth's redirect to
-  `afterLogin` is rendered without `?z=`; `<ChannelKeeper />` tags it in the browser before the
-  page's beacon runs, but that render (and a client without JavaScript) sees no channel (FU-7).
+- **A page's own redirect is not tagged.** Auth's action redirects keep the tag (`tagRedirect`),
+  but a page that redirects while it renders (auth's login and register pages send a signed-in
+  visitor to `afterLogin`) answers a full page load without it: that request's `Referer` is the
+  page before, not the tagged one (FU-28).
 - **The funnel is a noise filter, not a defence.** Its endpoint checks that a request comes from one
   of the app's pages, but those headers come from the client: a forged `Referer` passes. The counts
   open nothing and the cap bounds the table, so the endpoint has no per-address rate limit on

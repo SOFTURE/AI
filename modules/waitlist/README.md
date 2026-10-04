@@ -220,8 +220,7 @@ link stays usable), so a hook that must never refuse a sign-up catches its own e
 analytics' `countFunnelStep` does:
 
 ```ts
-import { countFunnelStep, getChannel } from "@softure-ai/analytics/next";
-import { withChannel } from "@softure-ai/analytics/server";
+import { countFunnelStep, tagRedirect } from "@softure-ai/analytics/next";
 
 waitlist({
   scopes: [...],
@@ -230,12 +229,7 @@ waitlist({
   onJoined: countFunnelStep("waitlist"),
   // With double opt-in the sign-up counts on the confirmation page, opened from a mail: the link
   // carries the channel of the form's page so the count keeps it.
-  rewriteConfirmationLink: async (path, { config }) => {
-    const channel = await getChannel(config);
-    if (channel === null) return path;
-    const url = withChannel(config, new URL(path, config.appOrigin), channel);
-    return `${url.pathname}${url.search}`;
-  },
+  rewriteConfirmationLink: tagRedirect,
 }),
 ```
 

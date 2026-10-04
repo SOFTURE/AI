@@ -47,9 +47,8 @@ says a hook that must never refuse catches its own errors, and `countFunnelStep`
 pins the tagged link, and a failure only falls back to the untagged link (logged), never breaks it.
 
 ### S1 [SUGGESTION] Use FU-7's `tagRedirect` in the example once it lands
-**Decision:** Deferred to whichever of FU-7 and this change merges second: `tagRedirect(path, ctx)`
-has the same shape as `rewriteConfirmationLink`, so `lib/waitlist-channel.ts` can be replaced by it.
-Not a gap: the example works either way.
+**Decision:** Applied when FU-7 reached master first: the example and waitlist README §10 use
+`rewriteConfirmationLink: tagRedirect` (same shape), and `lib/waitlist-channel.ts` is gone.
 
 ## Progress audit
 

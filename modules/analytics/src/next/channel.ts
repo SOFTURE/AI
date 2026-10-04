@@ -1,11 +1,12 @@
-// The Next.js adapter: the channel of the current request, for server actions, route handlers,
-// module hooks (auth's `onRegistered`, the waitlist's `onJoined`) and pages. `next/headers` is
-// imported when a function runs, not when the file loads, so `softure.config.ts` (which
-// `softure migrate` loads in plain Node) can import `attributeRegistration` from here.
+// The Next.js adapter: the channel of the current request, for server actions (and their
+// redirects), route handlers, module hooks (auth's `onRegistered`, the waitlist's `onJoined`) and
+// pages. `next/headers` is imported when a function runs, not when the file loads, so
+// `softure.config.ts` (which `softure migrate` loads in plain Node) can import
+// `attributeRegistration` and `tagRedirect` from here.
 import { errorLogLabel, type SoftureConfig } from "@softure-ai/core";
 import { getSoftureConfig } from "@softure-ai/core/next";
 import type { Queryable } from "@softure-ai/db";
-import { parseChannel, readChannel } from "../server/channel.js";
+import { parseChannel, readChannel, tagPath } from "../server/channel.js";
 import { recordFunnelStep, type AnalyticsContext } from "../server/funnel.js";
 import { getChannelOptions } from "../server/options.js";
 
@@ -29,6 +30,18 @@ export function getChannelFromSearchParams(searchParams: SearchParamsInput, conf
   if (searchParams instanceof URLSearchParams) return parseChannel(searchParams.get(options.param), options);
   const value = searchParams[options.param];
   return parseChannel(typeof value === "string" ? value : value?.[0], options);
+}
+
+/**
+ * `path` with the channel of the request being handled, for a server action's `redirect()`: Next
+ * renders the redirect target (and a browser without JavaScript follows it) from that URL, where
+ * the proxy cannot tag it. The path is returned unchanged without a channel or when it already
+ * carries the parameter. Fits auth's option: `auth({ rewriteRedirect: tagRedirect })`; in the app's
+ * own actions: `redirect(await tagRedirect("/thanks"))`.
+ */
+export async function tagRedirect(path: string, ctx: { readonly config: SoftureConfig } = { config: getSoftureConfig() }): Promise<string> {
+  const channel = await getChannel(ctx.config);
+  return channel === null ? path : tagPath(ctx.config, path, channel);
 }
 
 /** What `attributeRegistration` hands the app: the new account and the channel it came from. */
