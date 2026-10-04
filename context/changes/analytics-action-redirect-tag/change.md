@@ -1,7 +1,7 @@
 ---
 change_id: analytics-action-redirect-tag
 title: "Channel tag kept through server action redirects"
-status: implemented
+status: impl_reviewed
 roadmap_item: FU-7
 branch: claude/project-thread-ooknrg
 created: 2026-10-03

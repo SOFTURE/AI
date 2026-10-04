@@ -107,9 +107,9 @@ existing channel and funnel specs.
 ### Phase 1: The option, the helper and the proof
 
 #### Automated
-- [x] 1.1 `tagPath` and `tagRedirect` unit cases pass
-- [x] 1.2 `resolveRedirectTarget` unit cases pass, including the unsafe and throwing rewrites
-- [x] 1.3 e2e "the sign-up action answers with the tagged account page" passes
-- [x] 1.4 e2e "without JavaScript, sign-up lands on the tagged account page" passes
-- [x] 1.5 the existing channel and funnel e2e specs pass
-- [x] 1.6 Gates green (typecheck, lint, test, build) and the example app's `next build`
+- [x] 1.1 `tagPath` and `tagRedirect` unit cases pass — a82a351
+- [x] 1.2 `resolveRedirectTarget` unit cases pass, including the unsafe and throwing rewrites — a82a351
+- [x] 1.3 e2e "the sign-up action answers with the tagged account page" passes — a82a351
+- [x] 1.4 e2e "without JavaScript, sign-up lands on the tagged account page" passes — a82a351
+- [x] 1.5 the existing channel and funnel e2e specs pass — a82a351
+- [x] 1.6 Gates green (typecheck, lint, test, build) and the example app's `next build` — a82a351
