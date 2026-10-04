@@ -70,7 +70,7 @@ exports, and cannot change a `redirect()` thrown inside); catching Next's redire
     rewritten to the new truth (the action answers the tagged URL); the expectation stays.
 11. READMEs: auth options table gets `rewriteRedirect`; analytics §4 the wiring line, §1/§5 `tagRedirect`/`tagPath`,
     §12 the FU-7 bullet goes (the page-level redirect gap named instead).
-12. New followups gap (FU-23): the page-level redirect of a signed-in visitor from a tagged `/login` drops the tag.
+12. New followups gap (FU-24): the page-level redirect of a signed-in visitor from a tagged `/login` drops the tag.
 
 **Tests:** steps 1, 3, 5 unit cases; existing analytics and auth tests unchanged; the two new e2e cases plus the
 existing channel and funnel specs.
@@ -98,7 +98,7 @@ existing channel and funnel specs.
   browser's `GET /account` after the `303` carries the register page as `Referer`, so the proxy's `tag` re-tagged it).
   1.4 now asserts the action's own `303 Location`. Plan review W1 check: with `rewriteRedirect` removed from the
   example's config, 1.3 and 1.4 both fail (`/account` received), checked on a local build.
-- New gap FU-23 `auth-page-redirect-tag` (the login and register pages' redirect of a signed-in visitor).
+- New gap FU-24 `auth-page-redirect-tag` (the login and register pages' redirect of a signed-in visitor).
 
 ## Progress
 

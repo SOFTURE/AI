@@ -8,6 +8,7 @@ import type { MarketingConfig } from "../config/config.js";
 import { formatIssuePath } from "../config/issues.js";
 import type { OgNode } from "./element.js";
 import { loadOgFonts, type OgFonts, type ReadFontFile } from "./fonts.js";
+import { describeCharacter, findMissingGlyphs, type MissingGlyphs } from "./glyphs.js";
 import { getOgPalette } from "./palette.js";
 import { err, ok, type OgResult } from "./result.js";
 import { BASE_WIDTH } from "./templates/context.js";
@@ -32,34 +33,78 @@ export interface OgImageInput {
   size?: readonly [number, number];
   brand: OgBrand;
   fonts: OgFonts;
+  /** Names the card in errors, e.g. its `ogImages` id. */
+  id?: string;
+  /** Where `data` sits in the caller's JSON, for error paths; `["data"]` by default. */
+  dataPath?: readonly PropertyKey[];
+}
+
+/** At most this many characters are listed per text; the rest is counted. */
+const MAX_LISTED_CHARACTERS = 10;
+
+function describeCard(input: OgImageInput): string {
+  return input.id === undefined ? "OG image" : `OG image "${input.id}"`;
+}
+
+/** Every string in the data with its JSON path. */
+function listStrings(value: unknown, path: readonly PropertyKey[]): { path: string; text: string }[] {
+  if (typeof value === "string") return [{ path: formatIssuePath(path), text: value }];
+  if (Array.isArray(value)) return value.flatMap((item, index) => listStrings(item, [...path, index]));
+  if (typeof value === "object" && value !== null) return Object.entries(value).flatMap(([key, item]) => listStrings(item, [...path, key]));
+  return [];
+}
+
+function formatMissingGlyphs(missing: readonly MissingGlyphs[], sources: readonly { path: string; text: string }[]): string[] {
+  return missing.flatMap(({ text, characters }) => {
+    const listed = characters.slice(0, MAX_LISTED_CHARACTERS).map(describeCharacter).join(", ");
+    const more = characters.length > MAX_LISTED_CHARACTERS ? ` and ${characters.length - MAX_LISTED_CHARACTERS} more` : "";
+    const paths = sources.filter((source) => source.text === text).map((source) => source.path);
+    return (paths.length > 0 ? paths : [`text ${JSON.stringify(text)}`]).map((path) => `  ${path}: ${listed}${more}`);
+  });
+}
+
+/** Refuses a tree with characters Satori would leave out; `strings` name each text by its JSON path. */
+function checkGlyphs(input: OgImageInput, tree: OgNode, strings: readonly { path: string; text: string }[]): OgResult<null> {
+  const missing = findMissingGlyphs(tree, input.fonts.satoriFonts);
+  if (!missing.ok) return err(`${describeCard(input)}: reading ${missing.error}.`);
+  if (missing.value.length === 0) return ok(null);
+  const lines = formatMissingGlyphs(missing.value, [...strings, { path: "brand.name", text: input.brand.name }]);
+  return err(
+    `${describeCard(input)}: template "${input.template}" has characters none of the loaded fonts can draw:\n${lines.join("\n")}\n` +
+      "Use font files that cover them. OG images use one file per family, weight and style (the first listed), so a second subset file of the same weight is not used.",
+  );
 }
 
 function toDataUri(svg: string): string {
   return `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
 }
 
-/** The element tree of a card, after its data passed the template's schema. */
+/**
+ * The element tree of a card, after its data passed the template's schema and every character it
+ * draws has a glyph in the fonts Satori would use for it.
+ */
 export function buildOgTree(input: OgImageInput): OgResult<OgNode> {
   if (!isOgTemplateId(input.template)) {
-    return err(`OG image: unknown template "${input.template}"; known: ${OG_TEMPLATE_IDS.join(", ")}.`);
+    return err(`${describeCard(input)}: unknown template "${input.template}"; known: ${OG_TEMPLATE_IDS.join(", ")}.`);
   }
+  const dataPath = input.dataPath ?? ["data"];
   const template = OG_TEMPLATES[input.template];
   const parsed = template.schema.safeParse(input.data);
   if (!parsed.success) {
-    const lines = parsed.error.issues.map((issue) => `  ${formatIssuePath(["data", ...issue.path])}: ${issue.message}`);
-    return err(`OG image: the data of template "${input.template}" is not valid:\n${lines.join("\n")}`);
+    const lines = parsed.error.issues.map((issue) => `  ${formatIssuePath([...dataPath, ...issue.path])}: ${issue.message}`);
+    return err(`${describeCard(input)}: the data of template "${input.template}" is not valid:\n${lines.join("\n")}`);
   }
   const [width, height] = input.size ?? DEFAULT_OG_SIZE;
-  return ok(
-    template.build(parsed.data, {
-      width,
-      height,
-      scale: width / BASE_WIDTH,
-      palette: getOgPalette(input.brand.colors),
-      fonts: { heading: input.fonts.heading, body: input.fonts.body },
-      brand: { name: input.brand.name, logo: input.brand.logoSvg === null ? null : toDataUri(input.brand.logoSvg) },
-    }),
-  );
+  const tree = template.build(parsed.data, {
+    width,
+    height,
+    scale: width / BASE_WIDTH,
+    palette: getOgPalette(input.brand.colors),
+    fonts: { heading: input.fonts.heading, body: input.fonts.body },
+    brand: { name: input.brand.name, logo: input.brand.logoSvg === null ? null : toDataUri(input.brand.logoSvg) },
+  });
+  const glyphs = checkGlyphs(input, tree, listStrings(parsed.data, dataPath));
+  return glyphs.ok ? ok(tree) : glyphs;
 }
 
 /** The card as SVG (Satori's output, text drawn as paths). */
@@ -72,7 +117,7 @@ export async function renderOgSvg(input: OgImageInput): Promise<OgResult<string>
     const svg = await satori(tree.value as unknown as Parameters<typeof satori>[0], { width, height, fonts: input.fonts.satoriFonts });
     return ok(svg);
   } catch (error) {
-    return err(`OG image: laying out template "${input.template}" failed: ${error instanceof Error ? error.message : String(error)}.`);
+    return err(`${describeCard(input)}: laying out template "${input.template}" failed: ${error instanceof Error ? error.message : String(error)}.`);
   }
 }
 
@@ -84,7 +129,7 @@ export async function renderOgImage(input: OgImageInput): Promise<OgResult<Buffe
     const png = new Resvg(svg.value, { fitTo: { mode: "original" }, font: { loadSystemFonts: false } }).render().asPng();
     return ok(png);
   } catch (error) {
-    return err(`OG image: rasterising template "${input.template}" failed: ${error instanceof Error ? error.message : String(error)}.`);
+    return err(`${describeCard(input)}: rasterising template "${input.template}" failed: ${error instanceof Error ? error.message : String(error)}.`);
   }
 }
 
@@ -111,7 +156,8 @@ function readLogo(path: string | null, read: (path: string) => Buffer): OgResult
 export async function renderConfiguredOgImage(options: ConfiguredOgImageOptions): Promise<OgResult<Buffer>> {
   const { config, id } = options;
   const read = options.readFile ?? readFileSync;
-  const entry = config.ogImages.find((image) => image.id === id);
+  const index = config.ogImages.findIndex((image) => image.id === id);
+  const entry = config.ogImages[index];
   if (entry === undefined) {
     const known = config.ogImages.map((image) => image.id);
     return err(`OG image: no "${id}" in ogImages of ${config.file}${known.length > 0 ? `; known: ${known.join(", ")}` : ""}.`);
@@ -126,5 +172,7 @@ export async function renderConfiguredOgImage(options: ConfiguredOgImageOptions)
     size: entry.size,
     brand: { name: config.brand.name, colors: config.brand.colors, logoSvg: logo.value },
     fonts: fonts.value,
+    id,
+    dataPath: options.data === undefined ? ["ogImages", index, "data"] : ["data"],
   });
 }

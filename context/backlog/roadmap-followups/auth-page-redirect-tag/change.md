@@ -2,7 +2,7 @@
 change_id: auth-page-redirect-tag
 title: "A signed-in visitor's redirect from a tagged login page keeps the tag"
 status: backlog
-roadmap_item: FU-23
+roadmap_item: FU-24
 branch: null
 created: 2026-10-04
 updated: 2026-10-04
@@ -16,7 +16,7 @@ A signed-in visitor who opens a tagged `/login` or `/register` (`?z=ads`) with a
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-23** (roadmap `followups`):
+From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-24** (roadmap `followups`):
 
 > - **Outcome:** Auth's login and register pages redirect a signed-in visitor to a URL that keeps the page's own channel tag (for example `rewriteRedirect` given the page's search parameters, or a page-level counterpart of `tagRedirect` that reads them instead of `Referer`).
 > - **Unknowns:** Whether `rewriteRedirect` can read the page's own URL in a render (it reads `Referer` today); whether the case matters enough beyond the account page's beacon.
