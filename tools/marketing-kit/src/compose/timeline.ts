@@ -56,7 +56,7 @@ export interface CaptionLayout extends TextBox {
 
 export interface EndCardLayout extends TextBox {
   headlineSize: number;
-  /** The phone while the end card shows: its scale and where the screen's centre goes. */
+  /** The phone (or browser window) while the end card shows: its scale and where the screen's centre goes. */
   phone: { scale: number; center: Point };
 }
 
@@ -114,9 +114,9 @@ export const LAYOUTS: Record<LayoutName, Layout> = {
     format: "16:9",
     window: "browser",
     frame: { width: 1920, height: 1080 },
-    screenBox: { centerX: 960, top: 168, maxWidth: 1600, maxHeight: 840 },
-    cameraTarget: { x: 960, y: 560 },
-    caption: { top: 880, left: 260, right: 260, fontSize: 50 },
+    screenBox: { centerX: 960, top: 180, maxWidth: 1600, maxHeight: 840 },
+    cameraTarget: { x: 960, y: 570 },
+    caption: { top: 890, left: 260, right: 260, fontSize: 50 },
     persona: { top: 14, left: 0, right: 0 },
     endCard: { top: 330, left: 1080, right: 100, headlineSize: 80, phone: { scale: 0.5, center: { x: 560, y: 540 } } },
   },
@@ -205,7 +205,7 @@ export function isDesktopViewport(viewport: Viewport): boolean {
 
 /**
  * A layout for a recorded device, with the project's override of that layout. A phone recorder uses the 9:16
- * default without an override: its camera scales are relative to the phone and serve every format, and no
+ * default without an override: its camera scales are relative to the screen and serve every format, and no
  * override changes the frame or the screen box it reads. A desktop recorder uses `desktop`.
  */
 export function getGeometry(viewport: Viewport, name: LayoutName = "9:16", override: LayoutOverride = {}): Geometry {
@@ -246,7 +246,7 @@ export interface CameraPose {
 const round = (value: number): number => Math.round(value * 1000) / 1000 || 0;
 
 /**
- * Camera pose (scale + offset of the layer holding the phone, origin in the top left corner) that
+ * Camera pose (scale + offset of the layer holding the phone or window, origin in the top left corner) that
  * puts the centre of a page rectangle on `target`.
  */
 export function cameraPose(geometry: Geometry, rect: Rect, scale: number, target: Point = geometry.cameraTarget): CameraPose {

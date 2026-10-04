@@ -189,7 +189,7 @@ const deviceSchema = z
       .tuple([pixels(2000), pixels(4000)])
       .describe(`The recorded screen in CSS pixels, [width, height]; a phone's at most about 2.6 times as tall as wide, a desktop's at least ${MIN_DESKTOP_WIDTH} wide and not taller than wide.`),
     scale: z.number().min(1).max(4).describe("Device pixels per CSS pixel (1-4); a phone needs about 1080 / (640 / width) to stay sharp, a desktop 1.5-2."),
-    mobile: z.boolean().optional().describe("Whether a phone's browser behaves as a mobile one (mobile viewport, default true); a desktop never does."),
+    mobile: z.boolean().optional().describe("Whether a phone's browser behaves as a mobile one (mobile viewport, default true); not allowed on a desktop."),
   })
   .superRefine((device, context) => {
     const viewport = { width: device.viewport[0], height: device.viewport[1] };
@@ -197,7 +197,7 @@ const deviceSchema = z
       if (!fitsFrame(viewport)) context.addIssue({ code: "custom", path: ["viewport"], message: "is too tall for the 9:16 frame (height at most about 2.6 × width)" });
       return;
     }
-    if (device.mobile === true) context.addIssue({ code: "custom", path: ["mobile"], message: "a desktop browser is never a mobile one; remove it or set kind to phone" });
+    if (device.mobile !== undefined) context.addIssue({ code: "custom", path: ["mobile"], message: "is a phone's setting; a desktop browser is never a mobile one, so remove it" });
     if (!isDesktopViewport(viewport)) {
       context.addIssue({ code: "custom", path: ["viewport"], message: `a desktop viewport is at least ${MIN_DESKTOP_WIDTH} px wide and not taller than wide` });
     }

@@ -112,6 +112,7 @@ export interface Director {
   hold(seconds: number): Promise<void>;
   /** Scroll so the element's top edge stands `top` px from the top of the screen. */
   bring(target: Locator, options?: { top?: number; seconds?: number }): Promise<void>;
+  /** Touch the element on a phone, click it on a desktop. */
   tap(target: Locator, options?: { after?: number }): Promise<void>;
   type(text: string, options?: { perChar?: number }): Promise<void>;
   /** Tap the `input[name=…]` field, move the camera onto it and type the value. */

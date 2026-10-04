@@ -283,17 +283,17 @@ describe("composeFilm", () => {
       expect(html).toContain('<div class="window">');
       expect(html).toContain('<span class="address">acme.example/&lt;plan&gt;</span>');
       expect(html).not.toContain('class="phone"');
-      // The window's bar (52 px) stands above the screen: 168 - 52 = 116.
-      expect(html).toContain(".window{position:absolute;left:288px;top:116px;width:1344px;height:892px;");
+      // The window's bar (52 px) stands above the screen: 180 - 52 = 128.
+      expect(html).toContain(".window{position:absolute;left:288px;top:128px;width:1344px;height:892px;");
       expect(html).toContain(".screen{position:absolute;left:0;top:52px;width:1344px;height:840px;");
       expect(html).toContain('data-width="1920" data-height="1080"');
-      expect(html).toContain(".caption{position:absolute;left:260px;right:260px;top:880px;");
+      expect(html).toContain(".caption{position:absolute;left:260px;right:260px;top:890px;");
     });
 
     it("shrinks the window to the desktop end-card pose", () => {
-      // Oracle by hand (1280×800): screen 1344 px at left 288, top 168, height 840; centre (960, 588);
-      // scale 0.5 → x = 560 - 0.5 × 960 = 80, y = 540 - 0.5 × 588 = 246.
-      expect(composeFilm(desktopInput)).toContain('"pose":{"scale":0.5,"x":80,"y":246}');
+      // Oracle by hand (1280×800): screen 1344 px at left 288, top 180, height 840; centre (960, 600);
+      // scale 0.5 → x = 560 - 0.5 × 960 = 80, y = 540 - 0.5 × 600 = 240.
+      expect(composeFilm(desktopInput)).toContain('"pose":{"scale":0.5,"x":80,"y":240}');
     });
   });
 

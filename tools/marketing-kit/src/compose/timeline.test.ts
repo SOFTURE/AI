@@ -165,7 +165,7 @@ describe("the desktop layout", () => {
     expect(DESKTOP.format).toBe("16:9");
     expect(DESKTOP.window).toBe("browser");
     expect(DESKTOP.frame).toEqual({ width: 1920, height: 1080 });
-    expect(DESKTOP.screen).toEqual({ left: 288, top: 168, width: 1344 });
+    expect(DESKTOP.screen).toEqual({ left: 288, top: 180, width: 1344 });
     expect(DESKTOP.screenScale).toBe(1.05);
     expect(DESKTOP.screenHeight).toBe(840);
   });
@@ -176,8 +176,9 @@ describe("the desktop layout", () => {
       const label = `${String(viewport.width)}x${String(viewport.height)}`;
       expect(screen.left, label).toBeGreaterThanOrEqual(0);
       expect(screen.left + screen.width, label).toBeLessThanOrEqual(frame.width);
-      // The persona card is about 96 px tall (a 66 px avatar and 14 px of padding above and below).
-      expect(screen.top - BROWSER_BAR_HEIGHT, label).toBeGreaterThanOrEqual(persona.top + 96);
+      // The persona card is up to about 110 px tall: two lines of text (34 px and 25 px at line-height 1.2-1.3, a 2 px
+      // gap), 14 px of padding above and below and a 1 px border.
+      expect(screen.top - BROWSER_BAR_HEIGHT, label).toBeGreaterThanOrEqual(persona.top + 110);
       expect(screen.top + screenHeight, label).toBeLessThanOrEqual(frame.height);
     }
   });

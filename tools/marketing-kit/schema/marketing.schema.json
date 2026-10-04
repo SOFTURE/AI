@@ -415,7 +415,7 @@
               "description": "Device pixels per CSS pixel (1-4); a phone needs about 1080 / (640 / width) to stay sharp, a desktop 1.5-2."
             },
             "mobile": {
-              "description": "Whether a phone's browser behaves as a mobile one (mobile viewport, default true); a desktop never does.",
+              "description": "Whether a phone's browser behaves as a mobile one (mobile viewport, default true); not allowed on a desktop.",
               "type": "boolean"
             }
           },
@@ -555,7 +555,7 @@
                 "description": "Device pixels per CSS pixel (1-4); a phone needs about 1080 / (640 / width) to stay sharp, a desktop 1.5-2."
               },
               "mobile": {
-                "description": "Whether a phone's browser behaves as a mobile one (mobile viewport, default true); a desktop never does.",
+                "description": "Whether a phone's browser behaves as a mobile one (mobile viewport, default true); not allowed on a desktop.",
                 "type": "boolean"
               }
             },
@@ -3282,7 +3282,7 @@
               "type": "object",
               "properties": {
                 "top": {
-                  "description": "The caption's top edge, in px from the frame's top. Default 880.",
+                  "description": "The caption's top edge, in px from the frame's top. Default 890.",
                   "type": "integer",
                   "minimum": 0,
                   "maximum": 1080

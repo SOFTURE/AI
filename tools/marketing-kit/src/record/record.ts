@@ -16,6 +16,10 @@ import type { BeatVoice } from "../voice/voiceover.js";
  * is a screenshot at the device's scale, and between screenshots the page clock (`page.clock`) and every
  * CSS animation move by 1/30 s (the clock in whole ms, without accumulating drift), so counters,
  * bars and fireworks come out smooth and the same on every recording.
+ *
+ * A phone records with touch (and, unless the device says otherwise, as a mobile browser); a desktop records as a
+ * desktop browser and clicks with the mouse. Camera moves are sized from the layout the recording renders in: the 9:16
+ * one for a phone (its scales serve every format) and the desktop one for a desktop.
  */
 
 export const FPS = 30;
@@ -83,7 +87,8 @@ const ease = (t: number): number => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 *
 export async function recordFilm(options: RecordOptions): Promise<RecordingLog> {
   const { film, url, outDir, voices, filmPath, browser: settings } = options;
   const viewport = film.device.viewport;
-  const geometry = getGeometry(viewport);
+  const isDesktop = film.device.kind === "desktop";
+  const geometry = getGeometry(viewport, isDesktop ? "desktop" : "9:16");
   const framesDir = join(outDir, "frames");
   rmSync(framesDir, { recursive: true, force: true });
   // An old log next to new (or partial) frames would give a render with wrong times.
@@ -112,7 +117,7 @@ export async function recordFilm(options: RecordOptions): Promise<RecordingLog> 
       viewport: { ...viewport },
       deviceScaleFactor: film.device.scale,
       isMobile: film.device.kind === "phone" && film.device.isMobile,
-      hasTouch: true,
+      hasTouch: !isDesktop,
       colorScheme: settings.colorScheme,
       locale: settings.locale,
       timezoneId: settings.timezone,
@@ -227,7 +232,7 @@ export async function recordFilm(options: RecordOptions): Promise<RecordingLog> 
       await scrollTo(scrollY + rect.y - top, seconds);
     }
 
-    /** Tap only a visible point: off screen a touch hits nothing. */
+    /** Tap only a visible point: off screen a touch (or a click) hits nothing. */
     async function ensureVisible(target: Locator): Promise<void> {
       const rect = await rectOf(target);
       if (rect.y < 70 || rect.y + rect.h > viewport.height - 40) await bring(target, 180, 0.45);
@@ -276,7 +281,8 @@ export async function recordFilm(options: RecordOptions): Promise<RecordingLog> 
         const x = rect.x + rect.w / 2;
         const y = rect.y + rect.h / 2;
         log.taps.push({ f: frame, x, y });
-        await page.touchscreen.tap(x, y);
+        if (isDesktop) await page.mouse.click(x, y);
+        else await page.touchscreen.tap(x, y);
         await hold(tapOptions?.after ?? 0.35);
       },
 
@@ -292,7 +298,9 @@ export async function recordFilm(options: RecordOptions): Promise<RecordingLog> 
         const input = page.locator(`input[name=${name}]`);
         await ensureVisible(input);
         const rect = await rectOf(input);
-        log.camera.push({ f: frame, kind: "focus", rect, scale: 1.55, whoosh: false });
+        // A desktop field can span the page: zoom only as far as it still fits the frame.
+        const scale = isDesktop ? Math.min(1.55, fitScale(geometry, rect)) : 1.55;
+        log.camera.push({ f: frame, kind: "focus", rect, scale, whoosh: false });
         await director.tap(input, { after: 0.2 });
         await director.type(value);
       },

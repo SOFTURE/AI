@@ -4,7 +4,7 @@ A CLI and a library that turn a project's **real app** into a vertical film (108
 Instagram Reels, TikTok and Facebook Reels) plus ready post copy for each platform.
 
 The film is not an animation that imitates the app. Playwright walks through the real page on a phone
-screen frame by frame while a scene types and taps; the camera follows the thumb, captions follow the
+screen (or a desktop browser, framed as a browser window in 16:9) frame by frame while a scene types and taps; the camera follows the thumb, captions follow the
 voiceover word by word, and hyperframes renders the HTML composition to MP4.
 
 Ported from FIRE_TRACKER's `video/` pipeline (roadmap item MK-1). Everything product-specific comes
@@ -142,7 +142,7 @@ folder of `marketing.json`. A complete example: [examples/fixture/marketing.json
 | | `fonts.body`, `fonts.heading` | `family`, `fallback` (`sans-serif`), `files`: `path`, `weight` (`400` or `"100 900"`), `style` (`normal`), `unicodeRange`; none: the system's sans-serif. The heading font is the end card's and the avatar's; without one, the body font |
 | `app` | `baseUrl`, `port`, `startCommand` | the running app, or the one the CLI starts (`startCommand` as arguments, no shell, `{port}` replaced) |
 | | `colorScheme` (`light`), `hideSelectors` (`[]`), `screenGuardSelector` (`body`) | what the recording browser prefers; elements hidden while recording; the element whose text the screen guard reads |
-| | `device` | the recording device: `kind` (`phone`, or `desktop` for a browser window in a 16:9 film), `viewport` `[width, height]` in CSS px (a desktop's at least 1024 wide, not taller than wide), `scale` (device pixels per CSS pixel), `mobile` (a phone's, default `true`; never on a desktop); a video can override it |
+| | `device` | the recording device: `kind` (`phone`, or `desktop` for a browser window in a 16:9 film), `viewport` `[width, height]` in CSS px (a desktop's at least 1024 wide, not taller than wide), `scale` (device pixels per CSS pixel), `mobile` (a phone's, default `true`; not allowed on a desktop); a video can override it |
 | `voice` | `provider` (`elevenlabs`), `voiceId`, `model` (`eleven_multilingual_v2`), `language`, `tempo` (`1`, 0.8-1.3), `cacheDir` (`marketing/voiceover`) | the voiceover; text, voice, model and language make the cache key, the tempo is applied at build time |
 | `videos[]` | `id`, `title`, `path`, `format` (`9:16`, or `1:1`, `16:9`), `device`, `voice` (`voiceId`, `model`, `tempo`) | a film and its overrides |
 | | `persona`, `beats`, `hook`, `screenGuard`, `endCard` | the script, see [A film](#a-film) |
@@ -218,10 +218,10 @@ Optional arguments left out keep the Director's defaults.
 
 | `do` | Arguments (default) | What it does |
 | --- | --- | --- |
-| `wide` | `scale` (`1`), `whoosh` (`false`) | camera on the whole phone screen |
-| `tap` | `target`, `after` (`0.35` s) | scrolls the element into view if needed and taps its centre |
+| `wide` | `scale` (`1`), `whoosh` (`false`) | camera on the whole screen |
+| `tap` | `target`, `after` (`0.35` s) | scrolls the element into view if needed and taps its centre (clicks it on a desktop) |
 | `type` | `text`, `perChar` (`0.13` s) | types into the focused element, one key at a time |
-| `fill` | `input`, `value` | taps `input[name=<input>]`, moves the camera onto it and types the value |
+| `fill` | `input`, `value` | taps `input[name=<input>]`, moves the camera onto it (1.55×; on a desktop at most what still fits the frame) and types the value |
 | `blur` | | takes the focus off the active element |
 | `focus` | `target` (one or many), `scale` (fits the element), `height` | camera on the element, or on the rectangle around several |
 | `bring` | `target`, `top` (`140` px), `seconds` (`0.5`) | scrolls so the element's top edge stands `top` px from the top |
