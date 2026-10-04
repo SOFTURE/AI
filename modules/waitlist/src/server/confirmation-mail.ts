@@ -6,7 +6,8 @@ import { TRANSACTIONAL_KIND, type SendMailResult } from "@softure-ai/mailing";
 import { sendMail } from "@softure-ai/mailing/server";
 import type { SoftureConfig } from "@softure-ai/core";
 import type { WaitlistSignup } from "../contract.js";
-import { getWaitlistMessagesIn, getWaitlistRoutes } from "./options.js";
+import { renderMailHtml } from "./mail-html.js";
+import { getWaitlistMessagesIn, getWaitlistRoutes, resolveLocale } from "./options.js";
 import type { WaitlistContext } from "./signups.js";
 
 /** The query parameter of the confirmation link that carries the token. */
@@ -20,10 +21,18 @@ export function getConfirmationLink(config: SoftureConfig, token: string): strin
 
 /**
  * Mails the confirmation link of a request (`joinWaitlist` answered `confirmation_required`) in the
- * sign-up's locale. Returns mailing's result; nothing is retried, a new sign-up sends a new link.
+ * sign-up's locale, as text (the link on its last line) and HTML (the link as an anchor). Returns
+ * mailing's result; nothing is retried, a new sign-up sends a new link. A failing `mailTemplate` throws.
  */
 export async function deliverConfirmationMail(ctx: WaitlistContext, signup: WaitlistSignup, token: string): Promise<SendMailResult> {
   const messages = getWaitlistMessagesIn(ctx.config, signup.locale).confirmationMail;
-  const text = `${messages.text}\n\n${getConfirmationLink(ctx.config, token)}`;
-  return sendMail(ctx, { to: signup.email, subject: messages.subject, text, kind: TRANSACTIONAL_KIND });
+  const link = getConfirmationLink(ctx.config, token);
+  const html = renderMailHtml(ctx.config, {
+    kind: "confirmation",
+    locale: resolveLocale(ctx.config, signup.locale),
+    subject: messages.subject,
+    text: messages.text,
+    action: { href: link, label: messages.action },
+  });
+  return sendMail(ctx, { to: signup.email, subject: messages.subject, text: `${messages.text}\n\n${link}`, html, kind: TRANSACTIONAL_KIND });
 }

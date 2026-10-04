@@ -28,7 +28,7 @@ describe("waitlist messages", () => {
   });
 
   it("are translated, not copied", () => {
-    for (const group of ["form", "welcomeMail"] as const) {
+    for (const group of ["form", "welcomeMail", "confirmationMail"] as const) {
       for (const [key, text] of Object.entries(waitlistMessages.en[group])) {
         expect(text, `${group}.${key}`).not.toBe("");
         expect((waitlistMessages.pl[group] as Record<string, string>)[key], `${group}.${key}`).not.toBe(text);

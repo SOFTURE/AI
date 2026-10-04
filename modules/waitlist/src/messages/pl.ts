@@ -11,6 +11,7 @@ export const pl: typeof en = {
   confirmationMail: {
     subject: "Potwierdź zapis na listę oczekujących",
     text: "Cześć,\n\nktoś, mamy nadzieję, że Ty, chce zapisać ten adres na listę oczekujących. Otwórz link poniżej i potwierdź zapis. Jeśli to nie Ty, zignoruj tę wiadomość: bez potwierdzenia adres nie zostanie dodany.",
+    action: "Potwierdzam zapis",
   },
   confirm: {
     title: "Potwierdź zapis",
