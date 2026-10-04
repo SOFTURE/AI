@@ -11,7 +11,7 @@ import { findPlan, getPlanGrant } from "../plans.js";
 import { getPaymentGrant } from "../refund.js";
 import { changeEntitlement, findEntitlementRecord, type BillingContext } from "./entitlements.js";
 import { getBillingOptions, getBillingRoutes } from "./options.js";
-import { claimHandOver, recordPaymentRequest, releaseHandOver } from "./requests.js";
+import { claimHandOver, confirmHandOver, recordPaymentRequest, releaseHandOver } from "./requests.js";
 import { isUserId } from "./user-id.js";
 import { assertPaymentSetup, PAYMENT_BUCKET } from "./setup.js";
 
@@ -93,7 +93,8 @@ export type StartPaymentResult = Ok<PaymentStart> | Err<Exclude<PaymentErrorCode
  * starts the provider. A provider that hands requests over (`handsOverRequests`, the manual adapter)
  * gets the request stored first and is called once per open request: asking again refreshes the
  * stored request and answers `requested` without a second hand-over, and a hand-over that failed
- * (an `Err` or a throw) is released, so the next ask tries again. Database errors and provider
+ * (an `Err` or a throw) is released, so the next ask tries again; a claim left without an answer (the
+ * process stopped) is taken over by an ask a minute later. Database errors and provider
  * throws propagate; a provider whose answer contradicts `handsOverRequests` throws.
  */
 export async function startPayment(ctx: BillingContext, input: StartPaymentInput): Promise<StartPaymentResult> {
@@ -122,7 +123,8 @@ export async function startPayment(ctx: BillingContext, input: StartPaymentInput
 
   const requestId = await recordPaymentRequest(ctx, { userId: input.account.id, planId: plan.id, invoice, price: plan.price });
   const claimedAt = await claimHandOver(ctx, requestId);
-  // Handed over before (asking again refreshed its details), or being handed over by a concurrent ask.
+  // Handed over before (asking again refreshed its details), or being handed over by a concurrent ask
+  // whose claim is younger than a minute.
   if (claimedAt === null) return ok({ type: "requested" });
   let started: Awaited<ReturnType<PaymentProvider["startPayment"]>>;
   try {
@@ -136,5 +138,6 @@ export async function startPayment(ctx: BillingContext, input: StartPaymentInput
     return started;
   }
   if (started.value.type !== "requested") throw new Error(`@softure-ai/billing: provider "${provider.name}" sets handsOverRequests but answered ${started.value.type}`);
+  await confirmHandOver(ctx, requestId);
   return started;
 }

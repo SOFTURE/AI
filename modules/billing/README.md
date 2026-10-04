@@ -288,7 +288,8 @@ action checks the role from the session again before reading its form. It has th
 the row and calls `onRequest`; an open request is handed over once, and asking again only
 refreshes its details, price and time. When `onRequest` answers an `Err` or throws, the claim is
 released: the buyer sees `billing.payment_failed`, the admin page still lists the request, and the
-next ask hands it over. Invoice details are refused with a code per field:
+next ask hands it over. A claim left without an answer (the process stopped while `onRequest` ran)
+blocks other asks for a minute; the first ask after that hands the request over again. Invoice details are refused with a code per field:
 `billing.invoice_field_required`, `billing.invoice_field_too_long` (the copy names the limit:
 200, 32, 500) or `billing.invoice_field_control_characters` (line breaks, tabs and other control
 characters, in every field, so a name cannot add lines to the owner's mail; the database refuses
@@ -544,6 +545,8 @@ time, on payments with a refund), and creates `billing.refund_failures`, one row
 `payment_id` (references `billing.payments(id)` `ON DELETE CASCADE`), `refund_id`, `amount`,
 `refund_created_at`, `failed_at` (the event's `created`) and `recorded_at`, primary key
 `(payment_id, refund_id)`.
+`migrations/0008_record_request_handover_claims.sql` adds `handover_claimed_at`; `handed_over_at`
+keeps its values, so requests from before count as handed over.
 
 The insert, the grant and its grant columns share a transaction, as do the refund's conditional update and the change it makes,
 so a delivery seen twice changes nothing. Every write takes the account first (like the privacy
@@ -559,7 +562,8 @@ the later periods back updates other rows under that lock.
 | `id`, `user_id`, `plan_id` | The request, its account (`ON DELETE CASCADE`) and the plan asked for. |
 | `invoice_name`, `invoice_tax_id`, `invoice_address` | The details as typed, kept **only while the request is open**: closing it clears them (CHECK `payment_requests_details_while_open`). No control characters in new values (`0006`, CHECKs `payment_requests_invoice_*_printable`, `NOT VALID`: older rows are not rewritten). |
 | `status`, `requested_at`, `closed_at` | `open`, `granted`, `dismissed` or `expired` (`0006`); a CHECK ties `closed_at` to the status. `requested_at` is the last ask. |
-| `handed_over_at` | When the hand-over to the owner was claimed (`0006`); NULL while it was not handed over (or failed and was released). |
+| `handed_over_at` | When the hand-over to the owner answered `Ok` (`0006`; since `0008`, before it the claim time): never handed over again once set. |
+| `handover_claimed_at` | When an ask claimed the hand-over (`0008`); NULL when none runs, the claim failed and was released, or the hand-over answered. A claim a minute old is taken over by the next ask. |
 | `amount`, `currency` | The plan's price at the last ask, in the currency's minor unit (`0006`); NULL on rows stored before. |
 
 One open request per account and plan (partial unique index `payment_requests_one_open`): asking
@@ -669,8 +673,10 @@ details, return URL) and resolves with `Ok` once handed over, or an `Err` the bu
 - The owner hears of an open request once: a buyer who corrects the details later changes the
   admin page, not the mail already sent. Two asks at once for the same plan hand over once; if that
   hand-over fails, the other ask has already answered "sent", and the next ask retries.
-- A hand-over that crashes the process after its claim and before `onRequest` returns stays
-  claimed: the admin page lists the request, but the owner's mail may not have gone out (followups FU-34).
+- A hand-over cut off after its claim (the process stopped while `onRequest` ran) is handed over
+  by the first ask a minute later; an ask within that minute answers "sent" without one. If the
+  owner's mail did go out before the stop (or `onRequest` answered but recording it failed), the
+  retry mails again: after a crash the hand-over is at least once.
 - The admin page lists up to 50 open requests and 100 entries of each source in a history; there
   is no paging.
 - The write guard is per action: a read-only account can still call a write the app did not guard.

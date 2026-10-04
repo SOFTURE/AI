@@ -1,13 +1,14 @@
 // Invoice requests in billing: stored before a provider hands a request over (the manual adapter),
 // listed in the admin page until the admin grants or dismisses them or they expire. One open
 // request per account and plan: asking again refreshes its details and price. The hand-over is
-// claimed on the row (`handed_over_at`), so an open request reaches the owner once, and a failed
-// hand-over is released for the next ask. Closing a request clears its invoice details, which are
+// claimed on the row (`handover_claimed_at`) and recorded once it answered (`handed_over_at`), so
+// an open request reaches the owner once; a failed hand-over is released for the next ask, and a
+// claim left without an answer (the process stopped) is taken over after a minute. Closing a request clears its invoice details, which are
 // personal data the app no longer needs (the migration's CHECK holds closed rows empty).
 import { users } from "@softure-ai/auth";
 import { err, ok, type Err, type Ok } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
-import { and, asc, eq, isNull, lt, sql } from "drizzle-orm";
+import { and, asc, eq, isNull, lt, lte, or, sql } from "drizzle-orm";
 import type { PlanPrice } from "../contract.js";
 import type { InvoiceDetails } from "../payment.js";
 import { paymentRequests } from "../schema.js";
@@ -16,6 +17,9 @@ import { getBillingOptions } from "./options.js";
 import { isUuid } from "./user-id.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** How long a hand-over claim blocks other asks: a provider's mail call takes seconds. */
+const HANDOVER_CLAIM_TIMEOUT_MS = 60 * 1000;
 
 /** How many open requests the admin page lists by default. */
 export const OPEN_REQUESTS_LIMIT = 50;
@@ -48,7 +52,7 @@ export function getClosedRequestColumns(status: "granted" | "dismissed" | "expir
 
 /**
  * Stores a request before it is handed over to the owner, or refreshes the account's open request
- * for the same plan (its details, price and time; whether it was handed over stays). Returns the
+ * for the same plan (its details, price and time; its hand-over and claim stay). Returns the
  * request's id. Database errors propagate.
  */
 export async function recordPaymentRequest(ctx: Pick<BillingContext, "db" | "clock">, input: RecordPaymentRequestInput): Promise<string> {
@@ -76,17 +80,38 @@ export async function recordPaymentRequest(ctx: Pick<BillingContext, "db" | "clo
 
 /**
  * Claims the hand-over of an open request that was not handed over yet: the time it was claimed,
- * or null when it was handed over (or is being handed over) already, or is no longer open. A
- * conditional update, so two asks at once hand it over once. Database errors propagate.
+ * or null when it was handed over already, is being handed over (a claim younger than
+ * `HANDOVER_CLAIM_TIMEOUT_MS`), or is no longer open. An older claim was left without an answer and
+ * is taken over. A conditional update, so two asks at once hand it over once. Database errors
+ * propagate.
  */
 export async function claimHandOver(ctx: Pick<BillingContext, "db" | "clock">, requestId: string): Promise<Date | null> {
   const now = ctx.clock.now();
+  const staleBefore = new Date(now.getTime() - HANDOVER_CLAIM_TIMEOUT_MS);
   const [claimed] = await ctx.db
     .update(paymentRequests)
-    .set({ handedOverAt: now })
-    .where(and(eq(paymentRequests.id, requestId), eq(paymentRequests.status, "open"), isNull(paymentRequests.handedOverAt)))
+    .set({ handoverClaimedAt: now })
+    .where(
+      and(
+        eq(paymentRequests.id, requestId),
+        eq(paymentRequests.status, "open"),
+        isNull(paymentRequests.handedOverAt),
+        or(isNull(paymentRequests.handoverClaimedAt), lte(paymentRequests.handoverClaimedAt, staleBefore)),
+      ),
+    )
     .returning();
   return claimed === undefined ? null : now;
+}
+
+/**
+ * Records a hand-over that answered: the request is never handed over again, whichever ask holds
+ * the claim now. The first record wins. Database errors propagate.
+ */
+export async function confirmHandOver(ctx: Pick<BillingContext, "db" | "clock">, requestId: string): Promise<void> {
+  await ctx.db
+    .update(paymentRequests)
+    .set({ handedOverAt: ctx.clock.now(), handoverClaimedAt: null })
+    .where(and(eq(paymentRequests.id, requestId), isNull(paymentRequests.handedOverAt)));
 }
 
 /**
@@ -96,8 +121,8 @@ export async function claimHandOver(ctx: Pick<BillingContext, "db" | "clock">, r
 export async function releaseHandOver(ctx: Pick<BillingContext, "db">, requestId: string, claimedAt: Date): Promise<void> {
   await ctx.db
     .update(paymentRequests)
-    .set({ handedOverAt: null })
-    .where(and(eq(paymentRequests.id, requestId), eq(paymentRequests.handedOverAt, claimedAt)));
+    .set({ handoverClaimedAt: null })
+    .where(and(eq(paymentRequests.id, requestId), eq(paymentRequests.handoverClaimedAt, claimedAt)));
 }
 
 /** The open requests, oldest first, with each account's email. */
