@@ -1,12 +1,12 @@
 ---
 change_id: billing-stripe-currency-units
 title: "Stripe charges the plan's price in every currency"
-status: planned
+status: archived
 roadmap_item: FU-25
 branch: claude/fu-25-stripe-currency-units-hokmce
 created: 2026-10-04
 updated: 2026-10-04
-archived_at: null
+archived_at: 2026-10-04
 ---
 
 ## Intent
@@ -51,3 +51,8 @@ The source finding, quoted from that review:
   the scope: HUF and TWD need nothing for charges, while more currencies than ISK and UGX differ).
 - Framing skipped: the problem is stated by the retro finding and confirmed by research; the only
   open choice (scale vs. refuse) is a design decision the plan makes, not a doubt about the problem.
+- Archived 2026-10-04: `stripe()` sends amounts in Stripe's unit per currency (ISK, UGX and the other
+  `Intl`-zero / Stripe-two currencies ×100), the webhook records paid totals and partial refunds in
+  billing's unit, and a price Stripe cannot charge exactly is refused when the config loads through
+  the provider's optional `checkPrice`. HUF and TWD needed nothing (Stripe's rule for them is for
+  payouts).

@@ -66,7 +66,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-22** | `billing-grant-plan-script` | a `grant-plan` ops script grants and revokes plans without the admin page | FU-9 | autonomous | done |
 | **FU-23** | `marketing-kit-og-subset-fonts` | OG images use every subset file of a weight | FU-17 | autonomous | done_code (2026-10-04; waiting: MK-8 release) |
 | **FU-24** | `billing-existing-accounts` | existing accounts keep their access when billing is enabled (import, trial floor, pinned trials) | FU-22 | autonomous | done_code (2026-10-04; waiting: the next release of `@softure-ai/billing`) |
-| **FU-25** | `billing-stripe-currency-units` | Stripe charges the plan's price in every currency (special-case units) | FU-24 | autonomous | in_progress (implement 0/1, since 2026-10-04; branch `claude/fu-25-stripe-currency-units-hokmce`) |
+| **FU-25** | `billing-stripe-currency-units` | Stripe charges the plan's price in every currency (special-case units) | FU-24 | autonomous | done_code (2026-10-04; waiting: the next release of `@softure-ai/billing`) |
 | **FU-26** | `billing-guard-race-tests` | billing guards and lock races tested where they can fail | FU-25 | autonomous | proposed |
 | **FU-27** | `billing-invoice-request-hygiene` | invoice requests stored before the owner's mail, validated, expired and priced | FU-26 | autonomous | proposed |
 | **FU-28** | `auth-page-redirect-tag` | a signed-in visitor's redirect from a tagged login page keeps the tag | FU-7 | autonomous | done_code (2026-10-04; waiting: the next releases of `@softure-ai/auth` and `@softure-ai/analytics`) |
@@ -444,8 +444,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-25: Stripe charges the plan's price in every currency
 - **Change ID:** `billing-stripe-currency-units`
-- **Status:** in_progress (implement 0/1, since 2026-10-04; branch `claude/fu-25-stripe-currency-units-hokmce`)
-- **Input:** [`changes/billing-stripe-currency-units/change.md`](../changes/billing-stripe-currency-units/change.md)
+- **Status:** done_code (2026-10-04; waiting: the next release of `@softure-ai/billing`)
+- **Input:** [`archive/2026-10-04-billing-stripe-currency-units/change.md`](../archive/2026-10-04-billing-stripe-currency-units/change.md)
 - **Outcome:** The Stripe adapter sends each plan's price in the unit Stripe expects for its currency: special-case currencies (ISK and UGX sent ×100; HUF and TWD amounts divisible by 100, per Stripe's currency guide) are scaled or refused when the config loads, and formatting is tested for a 3-decimal currency (KWD).
 - **Prerequisites:** FU-24 on `master` (lane C).
 - **Unknowns:** The exact list and rules in Stripe's current currency guide (confirm first; the FU-12 session could not fetch it); scale in the adapter vs. refuse the currency.
@@ -538,6 +538,7 @@ Open from FU-14:
 ## Done
 
 - **FU-24** `billing-existing-accounts`: `trial.startsAt` floors the derived trial of accounts created before a chosen day, `import-entitlements` (and `importEntitlement()`) records known trial ends, paid periods and lifetime access without shortening access, and `pin-trials` (and `pinDerivedTrials()`) pins derived trials before a config change; README §5 lists the config effects; covered by unit tests on PGlite and an e2e; archived in `archive/2026-10-04-billing-existing-accounts/`
+- **FU-25** `billing-stripe-currency-units`: `stripe()` charges in Stripe's unit per currency (ISK, UGX, ALL and the other currencies `Intl` shows without decimals go ×100), the webhook records paid totals and partial refunds in the plan's unit, and a price Stripe cannot charge exactly (a three-decimal amount not ending in 0, LYD fractions) is refused when the config loads; HUF and TWD needed nothing (their divisible-by-100 rule is for payouts); covered by unit tests on the Checkout body and signed webhook fixtures on PGlite; archived in `archive/2026-10-04-billing-stripe-currency-units/`
 - **FU-31** `auth-require-user-redirect-tag`: `requireUser({ next, searchParams })` sends a visitor without a session to login through `rewriteRedirect` with the page's own search params (without them, as for an action), so analytics' `tagRedirect` keeps the channel tag; billing's payment page passes its parameters; covered by unit and e2e tests; archived in `archive/2026-10-04-auth-require-user-redirect-tag/`
 - **FU-28** `auth-page-redirect-tag`: auth's login and register pages redirect a signed-in visitor with the page's own channel tag through `rewriteRedirect` (now handed the page's `searchParams`) and analytics' `tagRedirect`, covered by unit and e2e tests; archived in `archive/2026-10-04-auth-page-redirect-tag/`
 - **FU-23** `marketing-kit-og-subset-fonts`: OG images use every subset file of a weight (registered as `<family> #n` subset families and written as a font stack), at the line's weight; a letter only another weight's subset file has is refused; covered by font, glyph and render tests; archived in `archive/2026-10-04-marketing-kit-og-subset-fonts/`

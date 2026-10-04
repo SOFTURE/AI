@@ -76,8 +76,8 @@ set. Rejected: refusing ISK/UGX (option B), Stripe-unit config (option C), a che
 ### Phase 1: Stripe units
 
 #### Automated
-- [ ] 1.1 `unit_amount` is Stripe's unit for ISK, UGX, ALL; unchanged for PLN, JPY, HUF, TWD, KWD
-- [ ] 1.2 A price Stripe cannot charge exactly fails config parsing, naming the plan; manual() accepts it
-- [ ] 1.3 Webhook amounts (paid checkout, partial refund, full refund) are recorded in billing's unit through the handler
-- [ ] 1.4 KWD formats with three decimals
-- [ ] 1.5 Gates green (typecheck, lint, test, build)
+- [x] 1.1 `unit_amount` is Stripe's unit for ISK, UGX, ALL; unchanged for PLN, JPY, HUF, TWD, KWD — fc2b359
+- [x] 1.2 A price Stripe cannot charge exactly fails config parsing, naming the plan; manual() accepts it — fc2b359
+- [x] 1.3 Webhook amounts (paid checkout, partial refund, full refund) are recorded in billing's unit through the handler — fc2b359
+- [x] 1.4 KWD formats with three decimals — fc2b359
+- [x] 1.5 Gates green (typecheck, lint, test, build) — fc2b359
