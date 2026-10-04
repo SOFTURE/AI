@@ -65,7 +65,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-21** | `billing-refund-manual-lifetime` | a manual lifetime grant survives a refunded paid lifetime | FU-9 | autonomous | done |
 | **FU-22** | `billing-grant-plan-script` | a `grant-plan` ops script grants and revokes plans without the admin page | FU-9 | autonomous | done |
 | **FU-23** | `marketing-kit-og-subset-fonts` | OG images use every subset file of a weight | FU-17 | autonomous | done_code (2026-10-04; waiting: MK-8 release) |
-| **FU-24** | `billing-existing-accounts` | existing accounts keep their access when billing is enabled (import, trial floor, pinned trials) | FU-22 | autonomous | proposed |
+| **FU-24** | `billing-existing-accounts` | existing accounts keep their access when billing is enabled (import, trial floor, pinned trials) | FU-22 | autonomous | in_progress (implement 0/3, since 2026-10-04; branch `claude/fu-24-billing-existing-accounts-ijtwes`) |
 | **FU-25** | `billing-stripe-currency-units` | Stripe charges the plan's price in every currency (special-case units) | FU-24 | autonomous | proposed |
 | **FU-26** | `billing-guard-race-tests` | billing guards and lock races tested where they can fail | FU-25 | autonomous | proposed |
 | **FU-27** | `billing-invoice-request-hygiene` | invoice requests stored before the owner's mail, validated, expired and priced | FU-26 | autonomous | proposed |
@@ -432,7 +432,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-24: Existing accounts keep their access when billing is enabled
 - **Change ID:** `billing-existing-accounts`
-- **Status:** proposed
+- **Status:** in_progress (implement 0/3, since 2026-10-04; branch `claude/fu-24-billing-existing-accounts-ijtwes`)
+- **Input:** [`changes/billing-existing-accounts/change.md`](../changes/billing-existing-accounts/change.md)
 - **Outcome:** An app that turns billing on (FIRE_TRACKER first) keeps its existing users' access: known trial ends and paid periods are imported into `billing.entitlements`, accounts created before a chosen date can get a trial from that date instead of from their sign-up, derived trials can be pinned before a `trial.days` or time zone change, and the README says what each config change does to accounts without a row.
 - **Prerequisites:** FU-22 on `master` (lane C).
 - **Unknowns:** An import format (ops script reading rows vs. a server function the app calls); whether the trial floor is an option (`trial.startsAt`) or only part of the import; how imported paid periods and lifetime access are recorded (manual grants vs. raw entitlement rows).

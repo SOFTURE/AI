@@ -15,7 +15,7 @@ An app that turns billing on (FIRE_TRACKER first) keeps its existing users' acce
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-24** (roadmap `followups`):
+From [`roadmap.md`](../../foundation/roadmap.md), item **FU-24** (roadmap `followups`):
 
 > ### FU-24: Existing accounts keep their access when billing is enabled
 > - **Change ID:** `billing-existing-accounts`
