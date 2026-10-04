@@ -1,6 +1,7 @@
-// The Next.js adapter of @softure-ai/blog: the pages, their metadata, the article's OG image and the
-// cached reads (docs/02-module-standard.md §8).
+// The Next.js adapter of @softure-ai/blog: the pages, their metadata, the article's OG image, the RSS
+// feed, the sitemap contributor and the cached reads (docs/02-module-standard.md §8).
 export { getBlogContext, getPageContext } from "./context.js";
+export { blogSitemap, serveBlogRss } from "./discovery.js";
 export { BLOG_CACHE_TAG, getPublishedArticles, getPublishedTerms, getTextBySlug } from "./data.js";
 export { BlogArticleOgImage, getOgColors, OG_IMAGE_SIZE, renderArticleOgImage, type OgFont, type RenderArticleOgImageInput } from "./og-image.js";
 export {

@@ -43,6 +43,7 @@ export const en = {
     disclaimerLabel: "Disclaimer",
     glossaryLink: "Glossary",
     glossaryTeaser: "short definitions of the terms the texts use.",
+    readNext: "Read next",
   },
   glossary: {
     title: "Glossary",
@@ -70,6 +71,10 @@ export const en = {
     heading: "This text has been withdrawn",
     body: "We took it down because it was no longer current or correct.",
     link: "See the other texts on the blog",
+  },
+  feed: {
+    /** The plain-text body of a 503 when the texts cannot be read. */
+    unavailable: "The feed is unavailable for a moment. Try again in a few minutes.",
   },
   og: {
     alt: "An article from the blog",

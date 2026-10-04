@@ -96,6 +96,15 @@ describe("blog pages", () => {
     expect(html).toContain('<form aria-label="Join"></form>');
   });
 
+  it("puts \"read next\" between the app's two slots: the cluster's satellites under a pillar, then the newest", async () => {
+    const html = await render(BlogArticlePage({ ...params("index-funds"), cta: <p>Try it</p>, afterArticle: <form aria-label="Join" /> }));
+    const section = html.slice(html.indexOf('<section aria-labelledby="blog-related"'), html.indexOf("</section>", html.indexOf('aria-labelledby="blog-related"')));
+    expect(section).toContain('<h2 id="blog-related">Read next</h2>');
+    expect([...section.matchAll(/<h3><a href="([^"]+)">/g)].map((match) => match[1])).toEqual(["/blog/bond-basics", "/blog/renamed-after", "/blog/taxes"]);
+    expect(html.indexOf("<p>Try it</p>")).toBeLessThan(html.indexOf('aria-labelledby="blog-related"'));
+    expect(html.indexOf('aria-labelledby="blog-related"')).toBeLessThan(html.indexOf('<form aria-label="Join"></form>'));
+  });
+
   it("answers 404 for a draft, a withdrawn text, a term and an unknown slug at the article path", async () => {
     for (const slug of ["draft", "stale", "expense-ratio", "missing"]) {
       await expect(BlogArticlePage(params(slug)), slug).rejects.toBeInstanceOf(NotFoundSignal);
@@ -108,7 +117,10 @@ describe("blog pages", () => {
       title: "Index funds in plain words | Example",
       description: "What an index fund is and what it costs.",
       robots: { index: true, follow: true },
-      alternates: { canonical: "https://app.example.com/blog/index-funds" },
+      alternates: {
+        canonical: "https://app.example.com/blog/index-funds",
+        types: { "application/rss+xml": [{ url: "https://app.example.com/blog/rss.xml", title: "Blog | Example" }] },
+      },
       openGraph: {
         type: "article",
         title: "Index funds in plain words",
@@ -121,6 +133,13 @@ describe("blog pages", () => {
       },
     });
     expect(generateBlogStaticParams()).toEqual([]);
+  });
+
+  it("links the feed from the listing", async () => {
+    expect((await generateBlogIndexMetadata()).alternates).toEqual({
+      canonical: "https://app.example.com/blog",
+      types: { "application/rss+xml": [{ url: "https://app.example.com/blog/rss.xml", title: "Blog | Example" }] },
+    });
   });
 
   it("keeps an empty listing and an empty glossary out of the index", async () => {

@@ -7,6 +7,7 @@
 //   app/blog/glossary/page.tsx         GlossaryIndexPage, generateGlossaryIndexMetadata; dynamic
 //   app/blog/glossary/[slug]/page.tsx  GlossaryTermPage, generateTermMetadata, generateBlogStaticParams; revalidate
 //   app/blog/how-we-write/page.tsx     BlogMethodPage, generateMethodMetadata (with `blog({ methodPage: true })`)
+//   app/blog/rss.xml/route.ts          serveBlogRss as GET; dynamic (see discovery.ts)
 //
 // Next reads `dynamic` and `revalidate` statically, so they stay literals in the app's files: the
 // listing and the glossary index render per request (a build has no database) over cached reads;
@@ -21,6 +22,7 @@ import type { Metadata } from "next/types.js";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import type { BlogArticle } from "../contract.js";
+import { getRelatedArticles } from "../discovery/related.js";
 import { findArticlesLinkingTerm, renderPageBody, type RenderPageBodyOptions } from "../pages/body.js";
 import { getArticleDates } from "../pages/dates.js";
 import { getArticleJsonLd, getGlossaryJsonLd, getTermJsonLd, serializeJsonLd, type JsonLdContext } from "../pages/json-ld.js";
@@ -90,25 +92,30 @@ function getAbsoluteUrl(config: SoftureConfig, path: string): string {
   return `${config.appOrigin}${path}`;
 }
 
+/** The feed link a reader finds in `<head>` (`<link rel="alternate" type="application/rss+xml">`). */
+function getFeedAlternates(config: SoftureConfig, context: BlogPageContext): NonNullable<Metadata["alternates"]>["types"] {
+  return { "application/rss+xml": [{ url: getAbsoluteUrl(config, context.routes.rss), title: withBrand(context.messages.pages.blogTitle, context) }] };
+}
+
 /** Metadata of a page with a fixed path; an empty listing stays out of the index (thin content). */
-function getStaticMetadata(config: SoftureConfig, context: BlogPageContext, page: { title: string; description: string; path: string; isEmpty?: boolean }): Metadata {
+function getStaticMetadata(config: SoftureConfig, context: BlogPageContext, page: { title: string; description: string; path: string; isEmpty?: boolean; hasFeed?: boolean }): Metadata {
   return {
     title: withBrand(page.title, context),
     description: page.description,
     robots: { index: page.isEmpty !== true, follow: true },
-    alternates: { canonical: getAbsoluteUrl(config, page.path) },
+    alternates: { canonical: getAbsoluteUrl(config, page.path), ...(page.hasFeed === true ? { types: getFeedAlternates(config, context) } : {}) },
     openGraph: { type: "website", title: page.title, description: page.description, url: getAbsoluteUrl(config, page.path), ...(context.brand === null ? {} : { siteName: context.brand }) },
   };
 }
 
-function getTextMetadata(config: SoftureConfig, context: BlogPageContext, text: BlogArticle, path: string): Metadata {
+function getTextMetadata(config: SoftureConfig, context: BlogPageContext, text: BlogArticle, path: string, options: { hasFeed?: boolean } = {}): Metadata {
   const dates = getArticleDates(text, config.timezone);
   const url = getAbsoluteUrl(config, path);
   return {
     title: withBrand(text.title, context),
     description: text.description,
     robots: { index: true, follow: true },
-    alternates: { canonical: url },
+    alternates: { canonical: url, ...(options.hasFeed === true ? { types: getFeedAlternates(config, context) } : {}) },
     openGraph: {
       type: "article",
       title: text.title,
@@ -127,7 +134,7 @@ export async function generateBlogIndexMetadata(): Promise<Metadata> {
   const context = getPageContext(config);
   const articles = await getPublishedArticles(config);
   const copy = context.messages.pages;
-  return getStaticMetadata(config, context, { title: copy.blogTitle, description: copy.blogDescription, path: context.routes.index, isEmpty: articles.length === 0 });
+  return getStaticMetadata(config, context, { title: copy.blogTitle, description: copy.blogDescription, path: context.routes.index, isEmpty: articles.length === 0, hasFeed: true });
 }
 
 /** The listing: cards grouped by cluster, the pillar first. Mount with `dynamic = "force-dynamic"`. */
@@ -146,17 +153,18 @@ export async function generateArticleMetadata({ params }: { readonly params: Slu
   const article = await getTextBySlug(config, slug);
   if (!isPublished(article, "article")) return {};
   const context = getPageContext(config);
-  return getTextMetadata(config, context, article, getArticlePath(context.routes, article.slug));
+  return getTextMetadata(config, context, article, getArticlePath(context.routes, article.slug), { hasFeed: true });
 }
 
-/** An article. Mount with `revalidate` and `generateBlogStaticParams`. */
+/** An article with "read next" under it. Mount with `revalidate` and `generateBlogStaticParams`. */
 export async function BlogArticlePage({ params, cta, afterArticle }: BlogArticlePageProps) {
   const config = getSoftureConfig();
   const { slug } = await params;
   const article = await getTextBySlug(config, slug);
   if (!isPublished(article, "article")) notFound();
   const context = getPageContext(config);
-  const body = renderPageBody<ReactNode>(article, getBodyOptions(config, context, await getPublishedTerms(config)));
+  const [terms, published] = await Promise.all([getPublishedTerms(config), getPublishedArticles(config)]);
+  const body = renderPageBody<ReactNode>(article, getBodyOptions(config, context, terms));
   const crumbs = getArticleCrumbs(article, context.routes, getCrumbLabels(config, context));
   const jsonLd = serializeJsonLd(getArticleJsonLd(article, crumbs, getJsonLdContext(config, context)));
   return (
@@ -169,6 +177,7 @@ export async function BlogArticlePage({ params, cta, afterArticle }: BlogArticle
       jsonLd={jsonLd}
       cta={cta}
       afterArticle={afterArticle}
+      related={getRelatedArticles(article, published)}
     />
   );
 }

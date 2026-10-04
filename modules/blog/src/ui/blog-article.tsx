@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 import type { BlogArticle, BlogSource } from "../contract.js";
 import { formatDay, type ArticleDates } from "../pages/dates.js";
 import type { Crumb } from "../pages/listing.js";
+import { getArticlePath } from "../pages/paths.js";
 import type { ArticleHeading, ArticleSegment } from "../render/render-article.js";
 import { BlogFooterNote, BlogLayout, JsonLdScript } from "./blog-layout.js";
 import type { BlogPageContext } from "./page-context.js";
@@ -29,6 +30,8 @@ export interface BlogArticleViewProps {
   readonly cta?: ReactNode;
   /** The app's block under the article, e.g. `<Waitlist placement="blog" />`. */
   readonly afterArticle?: ReactNode;
+  /** "Read next" (`getRelatedArticles`); none or empty: no section. */
+  readonly related?: readonly Pick<BlogArticle, "id" | "slug" | "title" | "description">[];
 }
 
 /** The body in order: HTML segments from the renderer, node segments (the app's block plugins) as they are. */
@@ -95,6 +98,29 @@ export function SourceList({ sources, heading }: { readonly sources: readonly Bl
   );
 }
 
+/**
+ * "Read next": texts of the same cluster, then of others, chosen without manual lists. After the app's
+ * call to action: the text has just made its point, so the app's next step comes first, this second.
+ */
+export function RelatedList({ articles, context }: { readonly articles: readonly Pick<BlogArticle, "id" | "slug" | "title" | "description">[]; readonly context: BlogPageContext }) {
+  if (articles.length === 0) return null;
+  return (
+    <section aria-labelledby="blog-related" className="blog-section blog-related">
+      <h2 id="blog-related">{context.messages.pages.readNext}</h2>
+      <ul>
+        {articles.map((article) => (
+          <li key={article.id}>
+            <h3>
+              <a href={getArticlePath(context.routes, article.slug)}>{article.title}</a>
+            </h3>
+            <p>{article.description}</p>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 function Contents({ headings, label }: { readonly headings: readonly ArticleHeading[]; readonly label: string }) {
   const sections = headings.filter((heading) => heading.level === 2);
   if (sections.length < 2) return null;
@@ -114,7 +140,7 @@ function Contents({ headings, label }: { readonly headings: readonly ArticleHead
   );
 }
 
-export function BlogArticleView({ context, article, dates, body, crumbs, jsonLd, cta, afterArticle }: BlogArticleViewProps) {
+export function BlogArticleView({ context, article, dates, body, crumbs, jsonLd, cta, afterArticle, related = [] }: BlogArticleViewProps) {
   const copy = context.messages.pages;
   return (
     <BlogLayout
@@ -153,6 +179,7 @@ export function BlogArticleView({ context, article, dates, body, crumbs, jsonLd,
         </article>
       </div>
       {cta === undefined ? null : <div className="blog-slot">{cta}</div>}
+      <RelatedList articles={related} context={context} />
       {afterArticle === undefined ? null : <div className="blog-slot">{afterArticle}</div>}
     </BlogLayout>
   );

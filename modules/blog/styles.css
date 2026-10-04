@@ -330,6 +330,29 @@
     overflow-wrap: anywhere;
   }
 
+  .blog-related ul {
+    max-width: var(--blog-measure);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--sft-color-border);
+  }
+
+  .blog-related li {
+    padding: var(--sft-space-4) 0;
+    border-bottom: 1px solid var(--sft-color-border);
+  }
+
+  .blog-related h3 {
+    margin: 0;
+    font-size: var(--sft-text-lg);
+  }
+
+  .blog-related p {
+    margin: var(--sft-space-1) 0 0;
+    color: var(--sft-color-muted);
+  }
+
   .blog-footer-note {
     margin-top: var(--sft-space-8);
     color: var(--sft-color-muted);
