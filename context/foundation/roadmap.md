@@ -59,7 +59,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-15** | `marketing-kit-desktop-16x9` | desktop 16:9 films recorded in a browser frame instead of a phone | FU-16 | autonomous | proposed |
 | **FU-16** | `marketing-kit-layout-overrides` | per-format layout overrides (caption box, persona, end card) in marketing.json | FU-14 | autonomous | done_code (2026-10-03; waiting: MK-8 release) |
 | **FU-17** | `marketing-kit-og-glyphs` | OG images refuse copy the brand fonts cannot draw | — | autonomous | done_code (2026-10-03; waiting: MK-8 release) |
-| **FU-18** | `marketing-kit-screenshot-variants` | screenshots at a device scale and in both colour schemes | FU-14 | autonomous | in_progress (implement 1/1, since 2026-10-04; branch `claude/fu-18-bnv06i`) |
+| **FU-18** | `marketing-kit-screenshot-variants` | screenshots at a device scale and in both colour schemes | FU-14 | autonomous | done_code (2026-10-04; waiting: MK-8 release) |
 | **FU-19** | `marketing-kit-hook-shot-words` | opening shots after the first without a `word` are refused when the config loads | FU-14 | autonomous | proposed |
 | **FU-20** | `billing-partial-refunds` | partial refunds take back access by a policy | FU-11 | autonomous | proposed |
 | **FU-21** | `billing-refund-manual-lifetime` | a manual lifetime grant survives a refunded paid lifetime | FU-9 | autonomous | proposed |
@@ -344,7 +344,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-18: Screenshots at a device scale and in both colour schemes
 - **Change ID:** `marketing-kit-screenshot-variants`
-- **Status:** in_progress (implement 1/1, since 2026-10-04; branch `claude/fu-18-bnv06i`)
+- **Status:** done_code (2026-10-04; waiting: MK-8 release)
 - **Outcome:** A `screenshots[]` entry can set a device scale (a retina capture for a store listing or a landing page) and capture the light and dark schemes in one run (`<id>-light.png`, `<id>-dark.png`), still behind the status, phrase and size gates.
 - **Prerequisites:** FU-14 on `master` (shared files, see Order).
 - **Unknowns:** Whether the size gate's 40 kB default should scale with the device scale.

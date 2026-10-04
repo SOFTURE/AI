@@ -1,12 +1,12 @@
 ---
 change_id: marketing-kit-screenshot-variants
 title: "Screenshots at a device scale and in both colour schemes"
-status: implementing
+status: archived
 roadmap_item: FU-18
 branch: claude/fu-18-bnv06i
 created: 2026-10-04
 updated: 2026-10-04
-archived_at: null
+archived_at: 2026-10-04
 ---
 
 ## Intent
@@ -43,3 +43,4 @@ and the README "Limitations" line. The backlog entry this change was opened from
 - Research: done (quick depth); it answers the roadmap Unknown (the size gate) from the code and Playwright's API.
 - Framing skipped: the problem is settled (MK-4 frame.md option C deferred exactly this, and the roadmap names the
   outcome and the file names); the open points are key names and the size-gate default, which research answers.
+- Archived 2026-10-04: `screenshots[]` entries take `scale` and `colorSchemes`; each scheme is its own `<id>-<scheme>.png` behind the gates, `minBytes` per file and not scaled; ids that could share a file are refused.

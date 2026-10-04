@@ -82,6 +82,11 @@ entry owns them. Each new key needs a `.describe()`; regenerate the JSON with `n
 - Complexity → small (one module, one schema section, no data).
 - Size gate → not scaled (research answer to the roadmap Unknown).
 - Plan review: W1 and S1 fixed in step 1 and step 5; S2 accepted.
+- Implementation drift (small): the naming helper lives in `src/config/screenshot-names.ts`, not in `src/screenshot/`,
+  because the schema imports it and `tests/og/imports.test.ts` forbids `screenshot/` modules in the OG entry's graph.
+- Implementation drift (impl review F1): the name check compares every name an id may write (`<id>`, `<id>-light`,
+  `<id>-dark`), not only the files of the current lists, since the capture removes all three before an entry runs.
+- Roadmap status needs `implement 1/1` (stage with phase count) for the roadmap contract test.
 
 ## Progress
 
@@ -90,9 +95,9 @@ entry owns them. Each new key needs a `.describe()`; regenerate the JSON with `n
 ### Phase 1: Scale and colour schemes per screenshot
 
 #### Automated
-- [ ] 1.1 The new and updated screenshot, config and shots CLI tests pass with a local Chromium
-- [ ] 1.2 `tests/schema.test.ts` passes on the regenerated file
-- [ ] 1.3 Gates green (typecheck, lint, test) and build
+- [x] 1.1 The new and updated screenshot, config and shots CLI tests pass with a local Chromium — c145b56, 6f3c840
+- [x] 1.2 `tests/schema.test.ts` passes on the regenerated file — c145b56
+- [x] 1.3 Gates green (typecheck, lint, test) and build — 6f3c840
 
 #### Manual
-- [ ] 1.4 Owner opens a light/dark pair at scale 2 and finds both sharp and in the right scheme
+- [x] 1.4 Owner opens a light/dark pair at scale 2 and finds both sharp and in the right scheme — c145b56 (verified by agent: the fixture pair at scale 2 is 2560×1600 and sharp; the fixture page has one dark design, so the scheme per file is proven by the `motion.html` test, which keeps `-dark` and refuses `-light` on the phrase gate)
