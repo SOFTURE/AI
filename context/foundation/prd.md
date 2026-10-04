@@ -1,9 +1,9 @@
 ---
 project: "SOFTURE AI"
-version: 1
+version: 2
 status: accepted
 created: 2026-10-02
-updated: 2026-10-02
+updated: 2026-10-04
 source: shape-notes.md (session 1)
 ---
 
@@ -77,6 +77,15 @@ source map, 02 the module standard, 03 the marketing-kit, 04 the skills, 05 the 
 | FR-24 | Marketing-kit CLI renders videos from `marketing.json` + brand, reproducing FIRE's current film (same scenes, timing and output format) | should | G-1 | @softure-ai/marketing-kit |
 | FR-25 | Marketing-kit renders screenshots with quality gates and OG images from templates outside Next | could | G-1 | @softure-ai/marketing-kit |
 | FR-26 | Each module has an adoption guide; FIRE_TRACKER adopts it and deletes its own implementation | must | G-2 | all |
+| FR-27 | `robots` names AI crawlers in explicit, switchable lists (search, on-demand, training); a sitemap carries real `lastmod` values from contributors; changed URLs are submitted through IndexNow | should | G-1 | @softure-ai/seo |
+| FR-28 | Articles and glossary terms live as Markdown files with a validated frontmatter and are published to the module's tables by a CLI (dry run by default) that keeps slug history | should | G-1 | @softure-ai/blog |
+| FR-29 | The blog renders on the server with a safe Markdown renderer and glossary links, and ships listing, article and glossary pages with JSON-LD, 301/410, OG images, RSS and "read next" | should | G-1 | @softure-ai/blog |
+| FR-30 | A quality gate (structure, links, style rulesets, YMYL, rule plugins) blocks publishing a failing text; a writing skill installed into the app follows the same rules | should | G-1 | @softure-ai/blog |
+| FR-31 | SVG chart primitives (scales, ticks, axes, lines, legend, flags) render on the server; a cursor works with the keyboard and a data table backs every chart | could | G-1 | @softure-ai/charts |
+| FR-32 | Test helpers check WCAG contrast in both themes and colour distance under colour-vision simulation, for ui tokens and chart palettes | could | G-2 | @softure-ai/ui, @softure-ai/charts |
+| FR-33 | A deploy CLI renders production env from secrets, writes release notes, backs up and guards the schema before a deploy, and verifies production from config; reusable workflows build, deploy over SSH and verify | could | G-1 | @softure-ai/deploy |
+| FR-34 | `softure-deploy init` generates the app-owned deploy files (compose, Traefik rules, Dockerfile, server script, caller workflow) once | could | G-1 | @softure-ai/deploy |
+| FR-35 | Test tools: a Vitest clock shift and generic Playwright helpers used by the example app | could | G-2 | @softure-ai/testing |
 
 Acceptance criteria per FR are written in the roadmap item that delivers it and refined in that
 change's research and plan. This PRD does not duplicate them.
@@ -115,8 +124,9 @@ change's research and plan. This PRD does not duplicate them.
 
 ## Out of scope
 
-Landing sections, SEO helpers and the public shell (possible later theme), domain-specific MCP
-tools, the CMS/blog engine.
+Landing sections and the public shell (possible later theme), domain-specific MCP tools, a CMS with a
+web editor (the blog publishes Markdown files from the repository), server provisioning (the owner's Ansible
+collection).
 
 ## Open questions
 
@@ -126,3 +136,5 @@ tools, the CMS/blog engine.
 ## Changelog
 
 - v1 2026-10-02: first version, from shaping session 1 and docs 01–05.
+- v2 2026-10-04: FR-27…FR-35 from the second FIRE_TRACKER extraction (`docs/06-fire-extraction-2.md`): blog with
+  SEO, charts with accessibility guards, deploy and test tools. SEO helpers and the blog engine leave "Out of scope".

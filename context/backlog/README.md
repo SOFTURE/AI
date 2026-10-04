@@ -7,7 +7,7 @@ Everything planned for "later", and nothing that is in flight (WORKFLOW §5.1 in
 | Folder | What lives there |
 | --- | --- |
 | `context/changes/` | only what the **main** roadmap (`foundation/roadmap.md`) is delivering now |
-| `context/backlog/roadmap-<slug>/` | prepared entries of a **queued** roadmap (`foundation/roadmaps/roadmap-<slug>.md`) |
+| `context/backlog/roadmap-<slug>/` | prepared entries of a **queued** roadmap (`foundation/roadmaps/roadmap-<slug>.md`), and of the main roadmap until each is taken |
 | `context/archive/` | delivered or rejected |
 
 An entry is never in two places, neither as a copy nor as a pointer.
@@ -20,7 +20,8 @@ An entry is never in two places, neither as a copy nor as a pointer.
   as `- [ ] <date> <source>: <finding> (<severity>) <evidence>`.
 - **Gaps and unfinished parts found while delivering a roadmap** became items of the catch-all followups roadmap
   (owner, 2026-10-03), closed on 2026-10-04 ([archive](../foundation/archive/2026-10-04-roadmap.md)). New gaps go to
-  the main roadmap of the day, or to a loose `<topic>.md` file while no main roadmap runs.
+  the main roadmap's catch-all: for the blog roadmap, [`roadmap-blog-followups/`](roadmap-blog-followups/) (owner,
+  2026-10-03); see its README, "Adding an item".
 - **Work that is ready but waits only on the owner at the keyboard** (repository secrets, a provider account)
   becomes an item of [`roadmap-later/`](roadmap-later/) (owner, 2026-10-03): see its README, "Adding an item".
 
@@ -28,4 +29,8 @@ An entry is never in two places, neither as a copy nor as a pointer.
 
 | Folder | Roadmap | Starts when |
 | --- | --- | --- |
+| [`roadmap-blog/`](roadmap-blog/) | [blog](../foundation/roadmap.md) (the **main** roadmap) | promoted on 2026-10-04; entries are taken as their items start |
+| [`roadmap-blog-followups/`](roadmap-blog-followups/) | [blog-followups](../foundation/roadmaps/roadmap-blog-followups.md) | the blog roadmap closes (empty until a gap is found) |
+| [`roadmap-charts/`](roadmap-charts/) | [charts](../foundation/roadmaps/roadmap-charts.md) | the owner promotes it, at the earliest when blog closes |
+| [`roadmap-deploy/`](roadmap-deploy/) | [deploy](../foundation/roadmaps/roadmap-deploy.md) | the owner promotes it, at the earliest when blog closes |
 | [`roadmap-later/`](roadmap-later/) | [later](../foundation/roadmaps/roadmap-later.md) | the owner step each item waits on is done (LT-1; MK-8, EN-9 and MO-6 carried over from followups) |
