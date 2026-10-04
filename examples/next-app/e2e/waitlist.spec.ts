@@ -3,7 +3,8 @@
 // consent in privacy.consents with its document version and sends one welcome mail as list mail; a
 // second request widens the scopes through its own link; the welcome mail's footer link
 // unsubscribes the address, withdrawing the consents; signing up again lifts the opt-out only once
-// the new link is used. Every test gets its own client address and email.
+// the new link is used. Both mails carry an HTML body in the app's layout. Every test gets its own
+// client address and email.
 import { randomInt, randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { deliveries, mailingMessages, suppressions } from "@softure-ai/mailing";
@@ -138,6 +139,13 @@ test("the link records the consent, counts the sign-up and sends one welcome mai
   const mails = await readWelcomeMails(email);
   expect(mails).toHaveLength(1);
   expect(mails[0]?.headers["List-Unsubscribe-Post"]).toBe("List-Unsubscribe=One-Click");
+
+  // Both HTML bodies use the app's layout (lib/waitlist-mail.ts); the anchor is the text's link.
+  const [confirmationMail] = await readMails(email, copy.confirmationMail.subject);
+  expect(confirmationMail?.html).toContain(`<h1 data-app-mail="confirmation">${en.meta.title}</h1>`);
+  expect(confirmationMail?.html).toContain(`<p><a href="${link}">${copy.confirmationMail.action}</a></p>`);
+  expect(mails[0]?.html).toContain(`<h1 data-app-mail="welcome">${en.meta.title}</h1>`);
+  expect(mails[0]?.html).toMatch(/<a href="[^"]+\/unsubscribe\?r=[^"]+">[^<]+<\/a><\/p>\n<\/body>\n<\/html>$/);
 
   await confirm(page, link);
   await page.waitForTimeout(500);
