@@ -255,8 +255,9 @@ up to 10 s, `hold` up to 30 s, whole pixels for `top` and `height`). A scene tha
 `sceneModule`.
 
 What can be checked without a browser is checked when the config loads, by JSON path: an `until` word
-the sentence does not say, a `hook.still` or `hook.shots[].mark` no action saves, a scene without
-`checkScreen`, actions on the opening sentence, actions next to a `sceneModule`. The checks that span
+the sentence does not say, a `hook.still` or `hook.shots[].mark` no action saves, an opening shot after
+the first without the `word` it starts on, a scene without `checkScreen`, actions on the opening sentence,
+actions next to a `sceneModule`. The checks that span
 sentences run once the rest of the config is valid, so fixing one round of errors can reveal the next.
 An action that fails while recording names its path and the config file:
 

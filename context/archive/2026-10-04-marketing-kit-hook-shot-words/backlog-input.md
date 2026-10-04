@@ -16,7 +16,7 @@ A project that writes several opening shots learns that every shot after the fir
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-19** (roadmap `followups`, main since 2026-10-03):
+From [`roadmap.md`](../../foundation/roadmap.md), item **FU-19** (roadmap `followups`, main since 2026-10-03):
 
 > ### FU-19: Opening shots after the first name their word in the config check
 > - **Change ID:** `marketing-kit-hook-shot-words`
