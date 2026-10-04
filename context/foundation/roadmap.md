@@ -50,7 +50,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-5** | `analytics-client-navigation` | Channel tag on client navigations without Next-Url | — | autonomous | done_code (2026-10-03; waiting: MO-6 release of `@softure-ai/analytics`) |
 | **FU-6** | `billing-reminder-mail` | Reminder mail before access ends | FU-9 | autonomous | proposed |
 | **FU-7** | `analytics-action-redirect-tag` | Channel tag kept through server action redirects | FU-1, FU-5 | autonomous | proposed |
-| **FU-8** | `waitlist-funnel-hook` | Waitlist sign-ups as a funnel step | FU-4 | autonomous | proposed |
+| **FU-8** | `waitlist-funnel-hook` | Waitlist sign-ups as a funnel step | FU-4 | autonomous | in_progress (implement 1/2, since 2026-10-04; cloud session, branch `claude/fu-8-waitlist-funnel-rx6rhh`) |
 | **FU-9** | `billing-admin-requests` | Payment requests, revoke and grant history in the billing admin page | FU-11 | autonomous | done |
 | **FU-11** | `billing-refund-one-payment` | Refunds that take back one payment's period | — | autonomous | done |
 | **FU-12** | `billing-retro-reviews` | Retro research and plan review for MO-1 and MO-2 | — | autonomous | proposed |
@@ -206,7 +206,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-8: Waitlist sign-ups as a funnel step
 - **Change ID:** `waitlist-funnel-hook`
-- **Status:** proposed
+- **Status:** in_progress (implement 1/2, since 2026-10-04; cloud session, branch `claude/fu-8-waitlist-funnel-rx6rhh`)
+- **Input:** [`changes/waitlist-funnel-hook/change.md`](../changes/waitlist-funnel-hook/change.md)
 - **Outcome:** The waitlist offers an `onJoined` hook (in the sign-up's transaction, like auth's `onRegistered`) so an app counts waitlist sign-ups in the analytics funnel with `recordFunnelStep` and the channel, without the funnel reading the waitlist's table.
 - **Prerequisites:** FU-4 on `master` (shared files, see Order).
 - **Unknowns:** Whether the hook runs for a repeat sign-up that only widens scopes; the hook's context (the transaction) and its failure policy.
