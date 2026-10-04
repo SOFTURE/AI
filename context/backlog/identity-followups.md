@@ -9,4 +9,4 @@ Findings from the identity roadmap that are not roadmap items yet. Entry format:
   with a fallback to its option), an async `isRegistrationClosed(ctx)` in auth, and a report of
   manifest switches the app did not define. Must land before FIRE_TRACKER adopts the switches,
   whose registration switch is flipped from its panel (HIGH) `modules/auth/src/server/switches.ts`
-  → item FU-1 (`switch-reader-contract`) of [`roadmap-followups`](../foundation/roadmap.md)
+  → item FU-1 (`switch-reader-contract`) of [`roadmap-followups`](../foundation/archive/2026-10-04-roadmap.md)

@@ -10,11 +10,15 @@ exactly one place: `backlog/`, `changes/` or `archive/`, never copied and never 
 
 Each item starts once the owner step it waits on is done (secrets, a provider account). The owner promotes the
 roadmap or moves a single item into the main roadmap. An item ready to build that waits only on the owner at the
-keyboard lands here (owner, 2026-10-03), not in [`roadmap-followups/`](../roadmap-followups/).
+keyboard lands here (owner, 2026-10-03). MK-8, EN-9 and MO-6 moved here with their IDs when the followups roadmap
+closed (2026-10-04).
 
 | ID | Entry | Title | Condition | Kind |
 | --- | --- | --- | --- | --- |
 | LT-1 | [`billing-stripe-sandbox-e2e`](billing-stripe-sandbox-e2e/change.md) | Stripe sandbox payment end to end (was FU-10) | the owner's Stripe test-mode secrets in the repository (planned for 2026-10-05) | owner |
+| EN-9 | [`engagement-release`](engagement-release/change.md) | Engagement modules release (carried over from followups) | the owner at the keyboard (batch on 2026-10-05) | owner |
+| MO-6 | [`monetization-release`](monetization-release/change.md) | Monetization modules release (carried over from followups) | the owner at the keyboard (batch on 2026-10-05) | owner |
+| MK-8 | [`marketing-kit-release`](marketing-kit-release/change.md) | marketing-kit release (carried over from followups) | the owner at the keyboard (batch on 2026-10-05) | owner |
 
 Kind: `start` (can be taken as soon as the roadmap is promoted), `dependency` (waits for the listed items on the
 main branch), `owner` (needs an owner decision or the owner at the keyboard).
