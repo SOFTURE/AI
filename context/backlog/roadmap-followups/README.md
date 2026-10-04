@@ -27,7 +27,7 @@ share files run in one lane (see the roadmap's Order), so `dependency` below nam
 | FU-15 | [`marketing-kit-desktop-16x9`](marketing-kit-desktop-16x9/change.md) | A 16:9 film can show the desktop app in a browser frame | FU-16 on main | dependency |
 | FU-16 | [`marketing-kit-layout-overrides`](../../archive/2026-10-03-marketing-kit-layout-overrides/change.md) | A project can adjust a format's layout in marketing.json | archived 2026-10-03 | dependency |
 | FU-17 | [`marketing-kit-og-glyphs`](../../archive/2026-10-03-marketing-kit-og-glyphs/change.md) | OG images refuse copy the brand fonts cannot draw | archived 2026-10-03 | start |
-| FU-18 | [`marketing-kit-screenshot-variants`](marketing-kit-screenshot-variants/change.md) | Screenshots at a device scale and in both colour schemes | FU-14 on main | dependency |
+| FU-18 | [`marketing-kit-screenshot-variants`](../../changes/marketing-kit-screenshot-variants/change.md) | Screenshots at a device scale and in both colour schemes | taken 2026-10-04 | dependency |
 | FU-19 | [`marketing-kit-hook-shot-words`](marketing-kit-hook-shot-words/change.md) | Opening shots after the first name their word in the config check | FU-14 on main | dependency |
 | FU-20 | [`billing-partial-refunds`](billing-partial-refunds/change.md) | Partial refunds take back access by a policy | FU-11 on main | dependency |
 | FU-21 | [`billing-refund-manual-lifetime`](billing-refund-manual-lifetime/change.md) | A manual lifetime grant survives a refunded paid lifetime | FU-9 on main | dependency |
