@@ -172,16 +172,16 @@ the copy.
 ### Phase 1: Which accounts are due a reminder
 
 #### Automated
-- [x] 1.1 `reminder.test.ts` and `reminders.test.ts` pass, including the brute-force cross-check
-- [x] 1.2 `auth.users_created_at_idx` exists after migrating a test database
-- [x] 1.3 Gates green (typecheck, lint, test)
+- [x] 1.1 `reminder.test.ts` and `reminders.test.ts` pass, including the brute-force cross-check — a9cccf2
+- [x] 1.2 `auth.users_created_at_idx` exists after migrating a test database — a9cccf2
+- [x] 1.3 Gates green (typecheck, lint, test) — a9cccf2
 
 ### Phase 2: The reminder mail through mailing
 
 #### Automated
-- [ ] 2.1 `reminder-mail.test.ts` passes
-- [ ] 2.2 `@softure-ai/billing/mailing` builds and the package shape test passes
-- [ ] 2.3 Gates green (typecheck, lint, test)
+- [x] 2.1 `reminder-mail.test.ts` passes
+- [x] 2.2 `@softure-ai/billing/mailing` builds and the package shape test passes
+- [x] 2.3 Gates green (typecheck, lint, test)
 
 ### Phase 3: Example app script and e2e
 
