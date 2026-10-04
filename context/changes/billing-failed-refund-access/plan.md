@@ -135,11 +135,11 @@ without a grant; an unknown payment; the end to end webhook with signed fixtures
 ### Phase 1: Failed refunds give back access
 
 #### Automated
-- [ ] 1.1 Failed refund tests pass on PGlite and in the pure suites
-- [ ] 1.2 Gates green (typecheck, lint, test)
+- [x] 1.1 Failed refund tests pass on PGlite and in the pure suites — e16b891 (the PGlite test file landed in c8163d3)
+- [x] 1.2 Gates green (typecheck, lint, test) — e16b891
 
 ### Phase 2: Export, docs, e2e
 
 #### Automated
-- [ ] 2.1 `npm run e2e` passes `migrations.spec.ts` and `billing-stripe.spec.ts` locally
-- [ ] 2.2 Gates green (typecheck, lint, test, build)
+- [x] 2.1 `npm run e2e` passes `migrations.spec.ts` and `billing-stripe.spec.ts` locally — c8163d3
+- [x] 2.2 Gates green (typecheck, lint, test, build) — c8163d3

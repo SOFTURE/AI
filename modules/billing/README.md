@@ -641,6 +641,9 @@ details, return URL) and resolves with `Ok` once handed over, or an `Err` the bu
   before migration `0007` recorded no taken days, so their failure gives back the status and the
   amount only. Times are Stripe's whole seconds: a refund created in the second of a charge state
   counts as included in it.
+- A new refund whose `charge.refunded` arrives before the failure of an earlier refund of the same
+  payment reports a lower total than billing recorded and changes nothing; the failure then gives
+  back the earlier refund, and the new one is not taken back (followups FU-35).
 - The charge's currency is not compared with the payment's: a Checkout payment has one charge, in
   the session's currency.
 - A dated manual grant keeps its length when a refund or a revoke takes back another period.

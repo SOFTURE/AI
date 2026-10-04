@@ -1,7 +1,7 @@
 ---
 change_id: billing-failed-refund-access
 title: "A refund that fails gives back the access it took"
-status: plan_reviewed
+status: implemented
 roadmap_item: FU-30
 branch: claude/project-thread-8sum2d
 created: 2026-10-04

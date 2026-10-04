@@ -76,6 +76,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-32** | `billing-price-minor-units` | a plan's price means the same amount on every runtime (pinned minor units) | FU-30 | autonomous | proposed |
 | **FU-33** | `billing-lifetime-grant-race` | lifetime grants made at once on a new row are refused after the first | FU-32 | autonomous | proposed |
 | **FU-34** | `billing-stale-handover-claim` | a request whose hand-over was cut off is handed over on a later ask | FU-33 | autonomous | proposed |
+| **FU-35** | `billing-refund-after-late-failure` | a new refund is not lost when an earlier refund's failure arrives late | FU-34 | autonomous | proposed |
 
 ## Order
 
@@ -86,7 +87,7 @@ after another; different lanes run in parallel, up to 4 at once.
 | --- | --- | --- |
 | A: switches | FU-1 | `foundation/core/`, `modules/auth/`, `modules/feature-switches/` |
 | B: waitlist and consent | FU-3 → FU-2 → FU-4 → FU-8 | `modules/waitlist/` (FU-3 also `modules/mailing/`, `modules/privacy/`) |
-| C: billing | FU-11 → FU-9 → FU-6 → FU-20 → FU-21 → FU-22 → FU-24 → FU-25 → FU-26 → FU-27 → FU-30 → FU-32 → FU-33 → FU-34; FU-12 any time | `modules/billing/` and its migrations; FU-12 writes documents only (archives and followup entries) |
+| C: billing | FU-11 → FU-9 → FU-6 → FU-20 → FU-21 → FU-22 → FU-24 → FU-25 → FU-26 → FU-27 → FU-30 → FU-32 → FU-33 → FU-34 → FU-35; FU-12 any time | `modules/billing/` and its migrations; FU-12 writes documents only (archives and followup entries) |
 | D: analytics | FU-5 → FU-7 → FU-28 → FU-31 (FU-7 also after FU-1) | `modules/analytics/` channel propagation; FU-7 may touch auth's redirects |
 | E: marketing-kit config | FU-14 → FU-16 → FU-15; FU-14 → FU-18 → FU-19 → FU-29 | `tools/marketing-kit/src/config/schema.ts`, `schema/`, `src/compose/` (FU-15, FU-16) |
 | F: independent | FU-13, FU-17 → FU-23 | `.github/workflows/ci.yml`; `tools/marketing-kit/src/og/` |
@@ -95,7 +96,7 @@ after another; different lanes run in parallel, up to 4 at once.
    adopts the switches; FU-3 fixes a consent ledger that can contradict an unsubscribe), then the MEDIUM refund
    fix and the schema descriptions that every later marketing-kit config item extends.
 2. **Each free slot** takes the first item of this list whose lane is idle and whose dependencies are on `master`:
-   FU-2, FU-5, FU-13, FU-17, FU-9, FU-16, FU-18, FU-4, FU-7, FU-12, FU-6, FU-15, FU-8, FU-19, FU-20, FU-21, FU-22, FU-23, FU-24, FU-25, FU-26, FU-27, FU-28, FU-29, FU-30, FU-31, FU-32, FU-33, FU-34.
+   FU-2, FU-5, FU-13, FU-17, FU-9, FU-16, FU-18, FU-4, FU-7, FU-12, FU-6, FU-15, FU-8, FU-19, FU-20, FU-21, FU-22, FU-23, FU-24, FU-25, FU-26, FU-27, FU-28, FU-29, FU-30, FU-31, FU-32, FU-33, FU-34, FU-35.
 3. **MK-8, EN-9 and MO-6** (owner, carried over): the owner's batch release on 2026-10-05; they wait for no FU item,
    and no FU item waits for them.
 
@@ -143,6 +144,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 | FU-32 | no | a pinned table in `src/price.ts` and unit tests; no secrets |
 | FU-33 | no | a lock change in `grantPlanManually` and a two-connection Postgres test |
 | FU-34 | no | a change in `startPayment`'s claim and unit tests; no secrets |
+| FU-35 | no | a billing webhook path with signed fixtures; no Stripe secrets |
 
 ## Items
 
@@ -560,6 +562,16 @@ owner's own machine, a product decision only the owner can make, or a change in 
 - **Baseline:** FU-27 `billing-invoice-request-hygiene`: `claimHandOver` sets `handed_over_at` before `onRequest` and `releaseHandOver` clears it on an `Err` or a throw; a process that dies in between leaves the claim, so later asks only refresh the request (`modules/billing/README.md` §12). After: the gap is closed and covered by unit tests.
 - **PRD refs:** FR-22.
 - **Source:** FU-27 `billing-invoice-request-hygiene` research (Risks) and README §12; `modules/billing/src/server/requests.ts` (`claimHandOver`), `modules/billing/src/server/plans.ts` (`startPayment`)
+
+### FU-35: A new refund is not lost when an earlier refund's failure arrives late
+- **Change ID:** `billing-refund-after-late-failure`
+- **Status:** proposed
+- **Outcome:** A charge state that reports less than billing recorded but is newer than the state it recorded (a failure billing has not heard of yet) is kept, and the failure that follows applies it: the new refund takes back its share once.
+- **Prerequisites:** FU-34 on `master` (lane C).
+- **Unknowns:** Store the newest reported state (`amount_refunded`, `created`) beside the applied one, or re-read the charge from Stripe when a failure arrives; how the take-back of the newer refund runs inside `failRefund`'s transaction.
+- **Risk:** LOW. Needs a refund failure delivered after a later refund's own event, days apart; Stripe sends `refund.failed` when the bank refuses, usually before any new refund of the same payment.
+- **Baseline:** FU-30 `billing-failed-refund-access`: a newer charge state with a lower total is `duplicate` (only higher totals are applied), so a refund it carries is dropped when the earlier failure arrives after it (`modules/billing/README.md` §12). After: the gap is closed and covered by unit tests.
+- **Source:** FU-30 `billing-failed-refund-access` impl review; `modules/billing/src/server/payments.ts` (`refundPayment`, `failRefund`)
 
 ## Owner decisions and checks
 
