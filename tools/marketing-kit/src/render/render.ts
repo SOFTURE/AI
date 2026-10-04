@@ -4,7 +4,7 @@ import { createRequire } from "node:module";
 import { dirname, extname, join } from "node:path";
 
 import { composeFilm, filmTimes, type ComposeFont } from "../compose/compose.js";
-import { getGeometry, rewindFrames } from "../compose/timeline.js";
+import { getGeometry, getLayoutName, rewindFrames } from "../compose/timeline.js";
 import type { BrandColors } from "../config/colors.js";
 import type { BrandFont } from "../config/config.js";
 import type { SfxEvent } from "../config/schema.js";
@@ -116,7 +116,7 @@ export function buildComposition(input: RenderInput): string {
       log,
       voices: input.voices,
       colors: input.colors,
-      geometry: getGeometry(film.device.viewport, film.format, film.layout),
+      geometry: getGeometry(film.device.viewport, getLayoutName(film.format, film.device.kind), film.layout),
       fonts,
       assets: {
         screen: "assets/screen.mp4",

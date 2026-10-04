@@ -109,7 +109,7 @@ describe("loadMarketingConfig", () => {
     expect(video?.url).toBe("http://localhost:3000/calculator");
     expect(video?.ownUrl).toBe("http://localhost:3100/calculator");
     expect(video?.format).toBe("9:16");
-    expect(video?.device).toEqual({ viewport: { width: 390, height: 844 }, scale: 3, isMobile: true });
+    expect(video?.device).toEqual({ kind: "phone", viewport: { width: 390, height: 844 }, scale: 3, isMobile: true });
     expect(video?.voice).toEqual({ voiceId: "voice-1", modelId: "eleven_multilingual_v2", language: "en", tempo: 1 });
   });
 
@@ -120,7 +120,7 @@ describe("loadMarketingConfig", () => {
     video.device = { viewport: [412, 915], scale: 2.625, mobile: false };
     video.voice = { voiceId: "voice-2", tempo: 1.1 };
     const loaded = load(config).videos[0];
-    expect(loaded?.device).toEqual({ viewport: { width: 412, height: 915 }, scale: 2.625, isMobile: false });
+    expect(loaded?.device).toEqual({ kind: "phone", viewport: { width: 412, height: 915 }, scale: 2.625, isMobile: false });
     expect(loaded?.voice).toEqual({ voiceId: "voice-2", modelId: "eleven_multilingual_v2", language: "en", tempo: 1.1 });
   });
 
@@ -203,6 +203,59 @@ describe("loadMarketingConfig", () => {
     config.videos.push({ ...video, id: "anna-wide", format: "16:9" });
     const loaded = load({ ...config, layout: { "16:9": { caption: { fontSize: 44 }, endCard: { phone: { center: { x: 560 } } } } } });
     expect(loaded.videos.map((entry) => entry.layout)).toEqual([{}, { caption: { fontSize: 44 }, endCard: { phone: { center: { x: 560 } } } }]);
+  });
+
+  describe("a desktop device", () => {
+    // A fresh object per use: tests change it in place.
+    const makeDesktop = (): { kind: "desktop"; viewport: [number, number]; scale: number } => ({ kind: "desktop", viewport: [1280, 800], scale: 1.5 });
+
+    it("loads a 16:9 desktop film without a mobile flag and gives it the desktop layout override", () => {
+      const config = makeConfig();
+      Object.assign(config.videos[0] ?? {}, { format: "16:9", device: makeDesktop() });
+      const loaded = load({ ...config, layout: { "16:9": { caption: { fontSize: 44 } }, desktop: { caption: { top: 860 } } } }).videos[0];
+      expect(loaded?.device).toEqual({ kind: "desktop", viewport: { width: 1280, height: 800 }, scale: 1.5 });
+      expect(loaded?.layout).toEqual({ caption: { top: 860 } });
+    });
+
+    it.each([
+      ["a desktop device on a 9:16 film", (c: MarketingJsonInput) => Object.assign(c.videos[0] ?? {}, { device: makeDesktop() }), "videos[0].format: is 9:16, but a desktop device records 16:9 films only"],
+      ["a shared desktop device on a film of the default format", (c: MarketingJsonInput) => (c.app.device = makeDesktop()), "videos[0].format: is 9:16, but a desktop device records 16:9 films only"],
+      ["a mobile desktop", (c: MarketingJsonInput) => Object.assign(c.videos[0] ?? {}, { format: "16:9", device: { ...makeDesktop(), mobile: true } }), "videos[0].device.mobile: is a phone's setting"],
+      ["a desktop with mobile set to false", (c: MarketingJsonInput) => Object.assign(c.videos[0] ?? {}, { format: "16:9", device: { ...makeDesktop(), mobile: false } }), "videos[0].device.mobile: is a phone's setting"],
+      ["a portrait desktop viewport", (c: MarketingJsonInput) => Object.assign(c.videos[0] ?? {}, { format: "16:9", device: { ...makeDesktop(), viewport: [1280, 1600] } }), "videos[0].device.viewport: a desktop viewport is at least 1024 px wide and not taller than wide"],
+      ["a desktop viewport narrower than a desktop", (c: MarketingJsonInput) => Object.assign(c.videos[0] ?? {}, { format: "16:9", device: { ...makeDesktop(), viewport: [800, 600] } }), "videos[0].device.viewport: a desktop viewport is at least 1024 px wide"],
+      ["an unknown device kind", (c: MarketingJsonInput) => Object.assign(c.app.device, { kind: "tablet" }), "app.device.kind: "],
+    ])("refuses %s, naming its path", (_case, change, message) => {
+      const config = makeConfig();
+      change(config);
+      expect(loadError(config)).toContain(`  ${message}`);
+    });
+
+    it("lets a video's phone win over a shared desktop device, and gives a phone 16:9 film the 16:9 layout", () => {
+      const config = makeConfig();
+      config.app.device = makeDesktop();
+      Object.assign(config.videos[0] ?? {}, { format: "16:9", device: { viewport: [390, 844], scale: 3 } });
+      const loaded = load({ ...config, layout: { "16:9": { caption: { fontSize: 44 } }, desktop: { caption: { top: 860 } } } }).videos[0];
+      expect(loaded?.device).toEqual({ kind: "phone", viewport: { width: 390, height: 844 }, scale: 3, isMobile: true });
+      expect(loaded?.layout).toEqual({ caption: { fontSize: 44 } });
+    });
+
+    it("refuses desktop layout margins that leave the caption too narrow", () => {
+      expect(loadError({ ...makeConfig(), layout: { desktop: { caption: { left: 1000, right: 800 } } } })).toContain(
+        "  layout.desktop.caption: left and right margins leave 120 px for the text; at least 200",
+      );
+    });
+  });
+
+  it("loads the fixture project's desktop film as a 16:9 desktop recording of the phone film's scene", () => {
+    const loaded = loadMarketingConfig(join(import.meta.dirname, "..", "examples", "fixture", "marketing.json"));
+    if (!loaded.ok) throw new Error(loaded.error);
+    const phone = loaded.config.videos.find((video) => video.id === "fixture-tour");
+    const desktop = loaded.config.videos.find((video) => video.id === "fixture-desktop");
+    expect(desktop?.format).toBe("16:9");
+    expect(desktop?.device).toEqual({ kind: "desktop", viewport: { width: 1280, height: 800 }, scale: 1.5 });
+    expect(desktop?.sceneSource).toEqual(phone?.sceneSource);
+    expect(desktop?.beats).toEqual(phone?.beats);
   });
 
   it("gives every video an empty layout override when there is no layout section", () => {

@@ -4,7 +4,7 @@ A CLI and a library that turn a project's **real app** into a vertical film (108
 Instagram Reels, TikTok and Facebook Reels) plus ready post copy for each platform.
 
 The film is not an animation that imitates the app. Playwright walks through the real page on a phone
-screen frame by frame while a scene types and taps; the camera follows the thumb, captions follow the
+screen (or a desktop browser, framed as a browser window in 16:9) frame by frame while a scene types and taps; the camera follows the thumb, captions follow the
 voiceover word by word, and hyperframes renders the HTML composition to MP4.
 
 Ported from FIRE_TRACKER's `video/` pipeline (roadmap item MK-1). Everything product-specific comes
@@ -142,7 +142,7 @@ folder of `marketing.json`. A complete example: [examples/fixture/marketing.json
 | | `fonts.body`, `fonts.heading` | `family`, `fallback` (`sans-serif`), `files`: `path`, `weight` (`400` or `"100 900"`), `style` (`normal`), `unicodeRange`; none: the system's sans-serif. The heading font is the end card's and the avatar's; without one, the body font |
 | `app` | `baseUrl`, `port`, `startCommand` | the running app, or the one the CLI starts (`startCommand` as arguments, no shell, `{port}` replaced) |
 | | `colorScheme` (`light`), `hideSelectors` (`[]`), `screenGuardSelector` (`body`) | what the recording browser prefers; elements hidden while recording; the element whose text the screen guard reads |
-| | `device` | the recorded phone: `viewport` `[width, height]` in CSS px, `scale` (device pixels per CSS pixel), `mobile` (`true`); a video can override it |
+| | `device` | the recording device: `kind` (`phone`, or `desktop` for a browser window in a 16:9 film), `viewport` `[width, height]` in CSS px (a desktop's at least 1024 wide, not taller than wide), `scale` (device pixels per CSS pixel), `mobile` (a phone's, default `true`; not allowed on a desktop); a video can override it |
 | `voice` | `provider` (`elevenlabs`), `voiceId`, `model` (`eleven_multilingual_v2`), `language`, `tempo` (`1`, 0.8-1.3), `cacheDir` (`marketing/voiceover`) | the voiceover; text, voice, model and language make the cache key, the tempo is applied at build time |
 | `videos[]` | `id`, `title`, `path`, `format` (`9:16`, or `1:1`, `16:9`), `device`, `voice` (`voiceId`, `model`, `tempo`) | a film and its overrides |
 | | `persona`, `beats`, `hook`, `screenGuard`, `endCard` | the script, see [A film](#a-film) |
@@ -153,7 +153,7 @@ folder of `marketing.json`. A complete example: [examples/fixture/marketing.json
 | | `posts[]` | `video`, `caption`, `hashtags`, `codes` (this video's own codes); a video without one gets no `posts.md` |
 | `screenshots[]` | `id`, `path`, `width`, `height`, `full` (`false`), `expect`, `motion` (`reduce`), `minBytes` (`40000`), `scale` (`1`), `colorSchemes` | for `softure-marketing shots`, see [Screenshots](#screenshots) |
 | `ogImages[]` | `id`, `template` (`headline-cta`, `headline-chart`), `size` (`[1200, 630]`), `data` | for `softure-marketing og`, see [OG images](#og-images) |
-| `layout` | per format (`9:16`, `1:1`, `16:9`): `caption` (`top`, `left`, `right`, `fontSize`), `persona` (`top`, `left`, `right`), `endCard` (`top`, `left`, `right`, `headlineSize`, `phone.scale`, `phone.center`) | overrides of the format's geometry table for every film of that format, in frame px; a missing key keeps the table's value. Values must fit the frame and each box's margins must leave at least 200 px for its text. The frame, the phone box and the camera target are fixed |
+| `layout` | per layout (`9:16`, `1:1`, `16:9` for phone films; `desktop` for desktop films): `caption` (`top`, `left`, `right`, `fontSize`), `persona` (`top`, `left`, `right`), `endCard` (`top`, `left`, `right`, `headlineSize`, `phone.scale`, `phone.center`) | overrides of the layout's geometry table for every film of that layout, in frame px (`endCard.phone` is the browser window's pose in `desktop`); a missing key keeps the table's value. Values must fit the frame and each box's margins must leave at least 200 px for its text. The frame, the screen box and the camera target are fixed |
 | `sfx` | `tap`, `key`, `whoosh`, `sparkle`, `pop` | sound effects; a missing one is silent |
 | `output` | `dir` (`marketing/out`), `buildDir` (`marketing/build`), `quality` (`standard`) | where films go; `--quality` wins |
 
@@ -218,10 +218,10 @@ Optional arguments left out keep the Director's defaults.
 
 | `do` | Arguments (default) | What it does |
 | --- | --- | --- |
-| `wide` | `scale` (`1`), `whoosh` (`false`) | camera on the whole phone screen |
-| `tap` | `target`, `after` (`0.35` s) | scrolls the element into view if needed and taps its centre |
+| `wide` | `scale` (`1`), `whoosh` (`false`) | camera on the whole screen |
+| `tap` | `target`, `after` (`0.35` s) | scrolls the element into view if needed and taps its centre (clicks it on a desktop) |
 | `type` | `text`, `perChar` (`0.13` s) | types into the focused element, one key at a time |
-| `fill` | `input`, `value` | taps `input[name=<input>]`, moves the camera onto it and types the value |
+| `fill` | `input`, `value` | taps `input[name=<input>]`, moves the camera onto it (1.55×; on a desktop at most what still fits the frame) and types the value |
 | `blur` | | takes the focus off the active element |
 | `focus` | `target` (one or many), `scale` (fits the element), `height` | camera on the element, or on the rectangle around several |
 | `bring` | `target`, `top` (`140` px), `seconds` (`0.5`) | scrolls so the element's top edge stands `top` px from the top |
@@ -382,10 +382,13 @@ renders without a `marketing.json` at all.
 ## Limitations
 
 - Actions have no conditions or loops; a scene that needs them stays a `sceneModule`.
-- Three formats: `9:16` (1080×1920), `1:1` (1080×1080) and `16:9` (1920×1080). Each is a framed phone laid
+- Three formats: `9:16` (1080×1920), `1:1` (1080×1080) and `16:9` (1920×1080). A phone film is a framed phone laid
   out by the geometry table in `src/compose/timeline.ts` (in 16:9 the phone stands left, the copy right);
-  one recording renders in every format; `layout` in `marketing.json` moves the copy and the end card, not the
-  phone. A desktop recording (FU-15) is not built.
+  one phone recording renders in every format; `layout` in `marketing.json` moves the copy and the end card, not the
+  phone. A desktop film (`device.kind: "desktop"`) is 16:9 only: the recorder opens a desktop browser (no touch,
+  mouse clicks) and the film frames it as a browser window whose address bar shows the end card's URL. The same
+  scene can record both when the app is responsive. Camera scales are relative to the screen, so an element as wide
+  as a desktop page needs a lower scale (about 1.2) than on a phone, or the zoom crops it.
 - ElevenLabs is the only real voice provider; the estimate is an upper bound in credits, not money.
 - Two OG templates.
 

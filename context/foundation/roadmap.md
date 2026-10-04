@@ -56,7 +56,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-12** | `billing-retro-reviews` | Retro research and plan review for MO-1 and MO-2 | — | autonomous | done |
 | **FU-13** | `marketing-kit-render-ci` | the marketing-kit fixture film renders to a draft MP4 on every push | — | autonomous | done |
 | **FU-14** | `marketing-kit-schema-docs` | every key of the marketing.json JSON Schema carries a description | — | autonomous | done_code (2026-10-03; waiting: owner editor check, MK-8 release) |
-| **FU-15** | `marketing-kit-desktop-16x9` | desktop 16:9 films recorded in a browser frame instead of a phone | FU-16 | autonomous | proposed |
+| **FU-15** | `marketing-kit-desktop-16x9` | desktop 16:9 films recorded in a browser frame instead of a phone | FU-16 | autonomous | done_code (2026-10-04; waiting: MK-8 release) |
 | **FU-16** | `marketing-kit-layout-overrides` | per-format layout overrides (caption box, persona, end card) in marketing.json | FU-14 | autonomous | done_code (2026-10-03; waiting: MK-8 release) |
 | **FU-17** | `marketing-kit-og-glyphs` | OG images refuse copy the brand fonts cannot draw | — | autonomous | done_code (2026-10-03; waiting: MK-8 release) |
 | **FU-18** | `marketing-kit-screenshot-variants` | screenshots at a device scale and in both colour schemes | FU-14 | autonomous | done_code (2026-10-04; waiting: MK-8 release) |
@@ -69,9 +69,10 @@ backlog: context/backlog/roadmap-followups/
 | **FU-25** | `billing-stripe-currency-units` | Stripe charges the plan's price in every currency (special-case units) | FU-24 | autonomous | proposed |
 | **FU-26** | `billing-guard-race-tests` | billing guards and lock races tested where they can fail | FU-25 | autonomous | proposed |
 | **FU-27** | `billing-invoice-request-hygiene` | invoice requests stored before the owner's mail, validated, expired and priced | FU-26 | autonomous | proposed |
-| **FU-28** | `auth-page-redirect-tag` | a signed-in visitor's redirect from a tagged login page keeps the tag | FU-7 | autonomous | proposed |
+| **FU-28** | `auth-page-redirect-tag` | a signed-in visitor's redirect from a tagged login page keeps the tag | FU-7 | autonomous | done_code (2026-10-04; waiting: the next releases of `@softure-ai/auth` and `@softure-ai/analytics`) |
 | **FU-29** | `marketing-kit-font-files-description` | the marketing.json font files description admits subset files | FU-23 | autonomous | proposed |
 | **FU-30** | `billing-failed-refund-access` | a refund that fails gives back the access it took | FU-27 | autonomous | proposed |
+| **FU-31** | `auth-require-user-redirect-tag` | `requireUser`'s redirect to login keeps the channel tag | FU-28 | autonomous | proposed |
 
 ## Order
 
@@ -83,7 +84,7 @@ after another; different lanes run in parallel, up to 4 at once.
 | A: switches | FU-1 | `foundation/core/`, `modules/auth/`, `modules/feature-switches/` |
 | B: waitlist and consent | FU-3 → FU-2 → FU-4 → FU-8 | `modules/waitlist/` (FU-3 also `modules/mailing/`, `modules/privacy/`) |
 | C: billing | FU-11 → FU-9 → FU-6 → FU-20 → FU-21 → FU-22 → FU-24 → FU-25 → FU-26 → FU-27 → FU-30; FU-12 any time | `modules/billing/` and its migrations; FU-12 writes documents only (archives and followup entries) |
-| D: analytics | FU-5 → FU-7 → FU-28 (FU-7 also after FU-1) | `modules/analytics/` channel propagation; FU-7 may touch auth's redirects |
+| D: analytics | FU-5 → FU-7 → FU-28 → FU-31 (FU-7 also after FU-1) | `modules/analytics/` channel propagation; FU-7 may touch auth's redirects |
 | E: marketing-kit config | FU-14 → FU-16 → FU-15; FU-14 → FU-18 → FU-19 → FU-29 | `tools/marketing-kit/src/config/schema.ts`, `schema/`, `src/compose/` (FU-15, FU-16) |
 | F: independent | FU-13, FU-17 → FU-23 | `.github/workflows/ci.yml`; `tools/marketing-kit/src/og/` |
 
@@ -91,7 +92,7 @@ after another; different lanes run in parallel, up to 4 at once.
    adopts the switches; FU-3 fixes a consent ledger that can contradict an unsubscribe), then the MEDIUM refund
    fix and the schema descriptions that every later marketing-kit config item extends.
 2. **Each free slot** takes the first item of this list whose lane is idle and whose dependencies are on `master`:
-   FU-2, FU-5, FU-13, FU-17, FU-9, FU-16, FU-18, FU-4, FU-7, FU-12, FU-6, FU-15, FU-8, FU-19, FU-20, FU-21, FU-22, FU-23, FU-24, FU-25, FU-26, FU-27, FU-28, FU-29, FU-30.
+   FU-2, FU-5, FU-13, FU-17, FU-9, FU-16, FU-18, FU-4, FU-7, FU-12, FU-6, FU-15, FU-8, FU-19, FU-20, FU-21, FU-22, FU-23, FU-24, FU-25, FU-26, FU-27, FU-28, FU-29, FU-30, FU-31.
 3. **MK-8, EN-9 and MO-6** (owner, carried over): the owner's batch release on 2026-10-05; they wait for no FU item,
    and no FU item waits for them.
 
@@ -135,6 +136,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 | FU-28 | no | auth's page redirect through the same rewrite; covered by the example app's e2e |
 | FU-29 | no | one `.describe()` text in the config schema and the regenerated JSON Schema |
 | FU-30 | no | a billing webhook path with signed fixtures; no Stripe secrets |
+| FU-31 | no | auth's `requireUser` and the same rewrite; covered by the example app's e2e |
 
 ## Items
 
@@ -328,7 +330,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-15: A 16:9 film can show the desktop app in a browser frame
 - **Change ID:** `marketing-kit-desktop-16x9`
-- **Status:** proposed
+- **Status:** done_code (2026-10-04; waiting: MK-8 release)
+- **Input:** [`archive/2026-10-04-marketing-kit-desktop-16x9/change.md`](../archive/2026-10-04-marketing-kit-desktop-16x9/change.md)
 - **Outcome:** A video can ask for a desktop recording: the recorder opens a desktop viewport (`isMobile: false`), and the 16:9 composition frames it as a browser window instead of a phone, with the same captions, persona and end card.
 - **Prerequisites:** FU-16 on `master` (shared files, see Order).
 - **Unknowns:** Whether the scene of a phone film can be reused at a desktop viewport or needs its own scene; how camera focus scales map to a wider screen.
@@ -472,7 +475,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-28: A signed-in visitor's redirect from a tagged login page keeps the tag
 - **Change ID:** `auth-page-redirect-tag`
-- **Status:** proposed
+- **Status:** done_code (2026-10-04; waiting: the next releases of `@softure-ai/auth` and `@softure-ai/analytics`)
+- **Input:** [`archive/2026-10-04-auth-page-redirect-tag/change.md`](../archive/2026-10-04-auth-page-redirect-tag/change.md)
 - **Outcome:** Auth's login and register pages redirect a signed-in visitor to a URL that keeps the page's own channel tag (for example `rewriteRedirect` given the page's search parameters, or a page-level counterpart of `tagRedirect` that reads them instead of `Referer`).
 - **Prerequisites:** FU-7 on `master` (shared files, see Order).
 - **Unknowns:** Whether `rewriteRedirect` can read the page's own URL in a render (it reads `Referer` today); whether the case matters enough beyond the account page's beacon.
@@ -501,6 +505,17 @@ owner's own machine, a product decision only the owner can make, or a change in 
 - **Baseline:** FU-20 `billing-partial-refunds`: a lower cumulative `amount_refunded` is a stale delivery and changes nothing; a full refund keeps the payment `refunded` (README §12). After: the gap is closed and covered by unit tests with signed webhook fixtures.
 - **Source:** FU-20 research ("Risks"); `modules/billing/README.md` §12
 
+### FU-31: `requireUser`'s redirect to login keeps the channel tag
+- **Change ID:** `auth-require-user-redirect-tag`
+- **Status:** proposed
+- **Outcome:** A page that calls `requireUser()` while it renders sends a visitor without a session to the login page at a URL that keeps the page's channel tag (for example a `searchParams` option on `requireUser` handed to the app's `rewriteRedirect`, or a documented rule that such pages sit behind the proxy's auth guard).
+- **Prerequisites:** FU-28 on `master` (shared files, see Order).
+- **Unknowns:** Whether pages outside the proxy's guard are common enough to need it; how a page hands its search params to `requireUser` without changing every call.
+- **Risk:** LOW. Only pages the proxy's auth guard does not protect; the login page and the sign-up after it land under no channel.
+- **Baseline:** FU-28 `auth-page-redirect-tag`: the login and register pages' redirect of a signed-in visitor keeps the tag through `rewriteRedirect` with the page's `searchParams`; `requireUser` (`modules/auth/src/next/current-user.ts`) redirects to login with neither. After: the redirect keeps the tag, covered by e2e.
+- **PRD refs:** FR-23.
+- **Source:** FU-28 research ("Open questions"); `modules/analytics/README.md` §12
+
 ## Owner decisions and checks
 
 Carried over from marketing-kit (owner, batch at the keyboard on Monday 2026-10-05):
@@ -518,6 +533,7 @@ Open from FU-14:
 
 ## Done
 
+- **FU-28** `auth-page-redirect-tag`: auth's login and register pages redirect a signed-in visitor with the page's own channel tag through `rewriteRedirect` (now handed the page's `searchParams`) and analytics' `tagRedirect`, covered by unit and e2e tests; archived in `archive/2026-10-04-auth-page-redirect-tag/`
 - **FU-23** `marketing-kit-og-subset-fonts`: OG images use every subset file of a weight (registered as `<family> #n` subset families and written as a font stack), at the line's weight; a letter only another weight's subset file has is refused; covered by font, glyph and render tests; archived in `archive/2026-10-04-marketing-kit-og-subset-fonts/`
 - **FU-20** `billing-partial-refunds`: a partial Stripe refund records the cumulative `amount_refunded` (`billing.payments.refunded_amount`, migration `0005`) and, under `billing({ partialRefunds: "pro_rata" })` (the default), takes back the refunded share of the payment's unused days, rounded down; partial refunds summing to the amount end where one full refund does; `keep_access` takes nothing until then; covered by unit tests with signed webhook fixtures; archived in `archive/2026-10-04-billing-partial-refunds/`
 - **FU-6** `billing-reminder-mail`: `sendAccessReminders` (`@softure-ai/billing/mailing`, mailing an optional peer) mails accounts whose trial or paid access ends soon or ended in the last `catchUpDays` days, once per account and window through `mailing.deliveries`; candidates from two range queries (auth `0004` indexes `users.created_at`); the example app runs it from `npm run access-reminders`; archived in `archive/2026-10-04-billing-reminder-mail/`

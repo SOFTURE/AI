@@ -1,13 +1,17 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  BROWSER_BAR_HEIGHT,
   LAYOUTS,
+  LAYOUT_NAMES,
   VIDEO_FORMATS,
   cameraPose,
   captionChunks,
   fitScale,
   fitsFrame,
   getGeometry,
+  getLayoutName,
+  isDesktopViewport,
   resolveLayout,
   rewindFrames,
   unionRect,
@@ -49,11 +53,11 @@ describe("fitScale", () => {
 });
 
 describe("resolveLayout", () => {
-  it.each(VIDEO_FORMATS)("returns a fresh copy of the %s table without an override", (format) => {
-    const layout = resolveLayout(format, {});
-    expect(layout).toEqual(LAYOUTS[format]);
-    expect(layout).not.toBe(LAYOUTS[format]);
-    expect(layout.endCard.phone.center).not.toBe(LAYOUTS[format].endCard.phone.center);
+  it.each(LAYOUT_NAMES)("returns a fresh copy of the %s table without an override", (name) => {
+    const layout = resolveLayout(name, {});
+    expect(layout).toEqual(LAYOUTS[name]);
+    expect(layout).not.toBe(LAYOUTS[name]);
+    expect(layout.endCard.phone.center).not.toBe(LAYOUTS[name].endCard.phone.center);
   });
 
   it("changes only the caption font size it is given", () => {
@@ -148,6 +152,71 @@ describe("getGeometry", () => {
     const geometry = getGeometry({ width: 390, height: 844 }, "16:9");
     geometry.endCard.phone.center.x = 0;
     expect(getGeometry({ width: 390, height: 844 }, "16:9").endCard.phone.center.x).toBe(600);
+  });
+});
+
+describe("the desktop layout", () => {
+  const DESKTOP = getGeometry({ width: 1280, height: 800 }, "desktop");
+
+  it("puts a 1280×800 page in a browser window across the 16:9 frame", () => {
+    // Oracle by hand: min(1600, floor(840 × 1280 / 800)) = 1344; scale 1344 / 1280 = 1.05;
+    // left = round(960 - 672) = 288; height = round(800 × 1.05) = 840.
+    expect(DESKTOP.layout).toBe("desktop");
+    expect(DESKTOP.format).toBe("16:9");
+    expect(DESKTOP.window).toBe("browser");
+    expect(DESKTOP.frame).toEqual({ width: 1920, height: 1080 });
+    expect(DESKTOP.screen).toEqual({ left: 288, top: 180, width: 1344 });
+    expect(DESKTOP.screenScale).toBe(1.05);
+    expect(DESKTOP.screenHeight).toBe(840);
+  });
+
+  it("keeps the window and its bar inside the frame, below the persona card, for any desktop viewport", () => {
+    for (const viewport of [{ width: 1280, height: 800 }, { width: 1024, height: 1024 }, { width: 2000, height: 600 }, { width: 1440, height: 900 }]) {
+      const { frame, screen, screenHeight, persona } = getGeometry(viewport, "desktop");
+      const label = `${String(viewport.width)}x${String(viewport.height)}`;
+      expect(screen.left, label).toBeGreaterThanOrEqual(0);
+      expect(screen.left + screen.width, label).toBeLessThanOrEqual(frame.width);
+      // The persona card is up to about 110 px tall: two lines of text (34 px and 25 px at line-height 1.2-1.3, a 2 px
+      // gap), 14 px of padding above and below and a 1 px border.
+      expect(screen.top - BROWSER_BAR_HEIGHT, label).toBeGreaterThanOrEqual(persona.top + 110);
+      expect(screen.top + screenHeight, label).toBeLessThanOrEqual(frame.height);
+    }
+  });
+
+  it("zooms a wide desktop element less than the same element on a phone", () => {
+    // Oracle by hand: 80% of 1920 = 1536; 1536 / (1.05 × 1000) = 1.463 -> 1.463.
+    expect(fitScale(DESKTOP, { x: 0, y: 0, w: 1000, h: 40 })).toBe(1.463);
+    expect(fitScale(DESKTOP, { x: 0, y: 0, w: 60, h: 40 })).toBe(1.7);
+  });
+
+  it("leaves the window where it stands at scale 1 on the whole screen", () => {
+    expect(widePose(DESKTOP, 1)).toEqual({ scale: 1, x: 0, y: 0 });
+  });
+
+  it("frames phone layouts with a phone", () => {
+    for (const format of VIDEO_FORMATS) expect(getGeometry({ width: 390, height: 844 }, format).window).toBe("phone");
+  });
+});
+
+describe("getLayoutName", () => {
+  it("picks the desktop layout for a desktop device", () => {
+    expect(getLayoutName("16:9", "desktop")).toBe("desktop");
+  });
+
+  it.each(VIDEO_FORMATS)("picks the %s layout for a phone", (format) => {
+    expect(getLayoutName(format, "phone")).toBe(format);
+  });
+});
+
+describe("isDesktopViewport", () => {
+  it.each([
+    [1280, 800, true],
+    [1024, 1024, true],
+    [1023, 700, false],
+    [1280, 1281, false],
+    [800, 1280, false],
+  ])("judges %s×%s as desktop: %s", (width, height, expected) => {
+    expect(isDesktopViewport({ width, height })).toBe(expected);
   });
 });
 

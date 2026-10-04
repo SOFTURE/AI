@@ -87,6 +87,29 @@
       },
       "screenGuard": ["49 years", "March 2040"],
       "endCard": { "headline": "Count your date", "url": "example.com/calculator", "note": "Free, no account" }
+    },
+    {
+      "id": "fixture-desktop",
+      "title": "The fixture counts its date on the desktop",
+      "path": "/",
+      "format": "16:9",
+      "device": { "kind": "desktop", "viewport": [1280, 800], "scale": 1.5 },
+      "persona": { "name": "Robin", "age": 36, "tagline": "works out when to stop working" },
+      "beats": [
+        { "id": "hook", "text": "Forty-nine years. That is the exit age." },
+        { "id": "age", "text": "Robin types thirty-six and taps next." },
+        { "id": "cta", "text": "Count your own date today." }
+      ],
+      "hook": {
+        "still": "result",
+        "shots": [
+          { "mark": "exit-age", "scale": 1.2 },
+          { "mark": "exit-date", "scale": 1.05, "word": "That" }
+        ]
+      },
+      "screenGuard": ["49 years", "March 2040"],
+      "endCard": { "headline": "Count your date", "url": "example.com/calculator", "note": "Free, no account" },
+      "sceneModule": "films/fixture-tour.ts"
     }
   ],
   "social": {

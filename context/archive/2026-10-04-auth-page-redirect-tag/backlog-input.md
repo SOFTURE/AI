@@ -16,7 +16,7 @@ A signed-in visitor who opens a tagged `/login` or `/register` (`?z=ads`) with a
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-28** (roadmap `followups`):
+From [`roadmap.md`](../../foundation/roadmap.md), item **FU-28** (roadmap `followups`):
 
 > - **Outcome:** Auth's login and register pages redirect a signed-in visitor to a URL that keeps the page's own channel tag (for example `rewriteRedirect` given the page's search parameters, or a page-level counterpart of `tagRedirect` that reads them instead of `Referer`).
 > - **Unknowns:** Whether `rewriteRedirect` can read the page's own URL in a render (it reads `Referer` today); whether the case matters enough beyond the account page's beacon.
