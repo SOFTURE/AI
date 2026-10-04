@@ -49,11 +49,11 @@ backlog: context/backlog/roadmap-followups/
 | **FU-4** | `waitlist-welcome-html` | HTML welcome mail for the waitlist | FU-2 | autonomous | done |
 | **FU-5** | `analytics-client-navigation` | Channel tag on client navigations without Next-Url | — | autonomous | done_code (2026-10-03; waiting: MO-6 release of `@softure-ai/analytics`) |
 | **FU-6** | `billing-reminder-mail` | Reminder mail before access ends | FU-9 | autonomous | proposed |
-| **FU-7** | `analytics-action-redirect-tag` | Channel tag kept through server action redirects | FU-1, FU-5 | autonomous | proposed |
+| **FU-7** | `analytics-action-redirect-tag` | Channel tag kept through server action redirects | FU-1, FU-5 | autonomous | done_code (2026-10-04; waiting: MO-6 release of `@softure-ai/analytics` and the next `@softure-ai/auth` release) |
 | **FU-8** | `waitlist-funnel-hook` | Waitlist sign-ups as a funnel step | FU-4 | autonomous | proposed |
 | **FU-9** | `billing-admin-requests` | Payment requests, revoke and grant history in the billing admin page | FU-11 | autonomous | done |
 | **FU-11** | `billing-refund-one-payment` | Refunds that take back one payment's period | — | autonomous | done |
-| **FU-12** | `billing-retro-reviews` | Retro research and plan review for MO-1 and MO-2 | — | autonomous | proposed |
+| **FU-12** | `billing-retro-reviews` | Retro research and plan review for MO-1 and MO-2 | — | autonomous | done |
 | **FU-13** | `marketing-kit-render-ci` | the marketing-kit fixture film renders to a draft MP4 on every push | — | autonomous | done |
 | **FU-14** | `marketing-kit-schema-docs` | every key of the marketing.json JSON Schema carries a description | — | autonomous | done_code (2026-10-03; waiting: owner editor check, MK-8 release) |
 | **FU-15** | `marketing-kit-desktop-16x9` | desktop 16:9 films recorded in a browser frame instead of a phone | FU-16 | autonomous | proposed |
@@ -65,6 +65,11 @@ backlog: context/backlog/roadmap-followups/
 | **FU-21** | `billing-refund-manual-lifetime` | a manual lifetime grant survives a refunded paid lifetime | FU-9 | autonomous | proposed |
 | **FU-22** | `billing-grant-plan-script` | a `grant-plan` ops script grants and revokes plans without the admin page | FU-9 | autonomous | proposed |
 | **FU-23** | `marketing-kit-og-subset-fonts` | OG images use every subset file of a weight | FU-17 | autonomous | proposed |
+| **FU-24** | `billing-existing-accounts` | existing accounts keep their access when billing is enabled (import, trial floor, pinned trials) | FU-22 | autonomous | proposed |
+| **FU-25** | `billing-stripe-currency-units` | Stripe charges the plan's price in every currency (special-case units) | FU-24 | autonomous | proposed |
+| **FU-26** | `billing-guard-race-tests` | billing guards and lock races tested where they can fail | FU-25 | autonomous | proposed |
+| **FU-27** | `billing-invoice-request-hygiene` | invoice requests stored before the owner's mail, validated, expired and priced | FU-26 | autonomous | proposed |
+| **FU-28** | `auth-page-redirect-tag` | a signed-in visitor's redirect from a tagged login page keeps the tag | FU-7 | autonomous | proposed |
 
 ## Order
 
@@ -75,8 +80,8 @@ after another; different lanes run in parallel, up to 4 at once.
 | --- | --- | --- |
 | A: switches | FU-1 | `foundation/core/`, `modules/auth/`, `modules/feature-switches/` |
 | B: waitlist and consent | FU-3 → FU-2 → FU-4 → FU-8 | `modules/waitlist/` (FU-3 also `modules/mailing/`, `modules/privacy/`) |
-| C: billing | FU-11 → FU-9 → FU-6 → FU-20 → FU-21 → FU-22; FU-12 any time | `modules/billing/` and its migrations; FU-12 writes archive documents only |
-| D: analytics | FU-5 → FU-7 (FU-7 also after FU-1) | `modules/analytics/` channel propagation; FU-7 may touch auth's redirects |
+| C: billing | FU-11 → FU-9 → FU-6 → FU-20 → FU-21 → FU-22 → FU-24 → FU-25 → FU-26 → FU-27; FU-12 any time | `modules/billing/` and its migrations; FU-12 writes documents only (archives and followup entries) |
+| D: analytics | FU-5 → FU-7 → FU-28 (FU-7 also after FU-1) | `modules/analytics/` channel propagation; FU-7 may touch auth's redirects |
 | E: marketing-kit config | FU-14 → FU-16 → FU-15; FU-14 → FU-18 → FU-19 | `tools/marketing-kit/src/config/schema.ts`, `schema/`, `src/compose/` (FU-15, FU-16) |
 | F: independent | FU-13, FU-17 → FU-23 | `.github/workflows/ci.yml`; `tools/marketing-kit/src/og/` |
 
@@ -84,7 +89,7 @@ after another; different lanes run in parallel, up to 4 at once.
    adopts the switches; FU-3 fixes a consent ledger that can contradict an unsubscribe), then the MEDIUM refund
    fix and the schema descriptions that every later marketing-kit config item extends.
 2. **Each free slot** takes the first item of this list whose lane is idle and whose dependencies are on `master`:
-   FU-2, FU-5, FU-13, FU-17, FU-9, FU-16, FU-18, FU-4, FU-7, FU-12, FU-6, FU-15, FU-8, FU-19, FU-20, FU-21, FU-22, FU-23.
+   FU-2, FU-5, FU-13, FU-17, FU-9, FU-16, FU-18, FU-4, FU-7, FU-12, FU-6, FU-15, FU-8, FU-19, FU-20, FU-21, FU-22, FU-23, FU-24, FU-25, FU-26, FU-27, FU-28.
 3. **MK-8, EN-9 and MO-6** (owner, carried over): the owner's batch release on 2026-10-05; they wait for no FU item,
    and no FU item waits for them.
 
@@ -121,6 +126,11 @@ owner's own machine, a product decision only the owner can make, or a change in 
 | FU-21 | no | reads FU-9's grant history in the refund; unit tests on PGlite |
 | FU-22 | no | an ops script on `grantPlanManually` and `revokeManualGrant`, dry run by default; unit tests on PGlite |
 | FU-23 | no | font registration in `src/og/fonts.ts`; tested with Inter's `latin` and `latin-ext` files |
+| FU-24 | no | an ops script or server function on the local Postgres; FIRE_TRACKER only reads the result (its own roadmap migrates) |
+| FU-25 | no | unit tests on the Checkout request body; no Stripe secrets or sandbox call |
+| FU-26 | no | unit tests, Postgres tests on the CI service and one e2e |
+| FU-27 | no | a migration and server changes tested on PGlite; the fake mail provider covers the e2e |
+| FU-28 | no | auth's page redirect through the same rewrite; covered by the example app's e2e |
 
 ## Items
 
@@ -195,7 +205,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-7: Channel tag kept through server action redirects
 - **Change ID:** `analytics-action-redirect-tag`
-- **Status:** proposed
+- **Status:** done_code (2026-10-04; waiting: MO-6 release of `@softure-ai/analytics` and the next `@softure-ai/auth` release)
+- **Input:** [`archive/2026-10-03-analytics-action-redirect-tag/change.md`](../archive/2026-10-03-analytics-action-redirect-tag/change.md)
 - **Outcome:** A server action's redirect from a tagged page (auth's sign-up and login redirect to `afterLogin`) lands on a URL that keeps the channel tag, so the views after sign-up are counted under the visit's channel (for example the auth actions adding the tag through `withChannel`, or a `/next` helper that tags an action's redirect target).
 - **Prerequisites:** FU-1, FU-5 on `master` (shared files, see Order).
 - **Unknowns:** Whether a redirect helper in analytics can wrap auth's actions without auth depending on analytics; how Next renders the redirect target in the action's own response (the proxy never sees a GET for it).
@@ -275,7 +286,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-12: Retro research and plan review for MO-1 and MO-2
 - **Change ID:** `billing-retro-reviews`
-- **Status:** proposed
+- **Status:** done
+- **Input:** [`archive/2026-10-04-billing-retro-reviews/change.md`](../archive/2026-10-04-billing-retro-reviews/change.md)
 - **Outcome:** `research.md` and `reviews/plan-review.md` written after the fact for `billing-entitlements` (MO-1, plan review skipped) and `billing-plans-pricing` (MO-2, research and plan review skipped); every finding that still applies to the code is fixed or filed as its own FU item.
 - **Prerequisites:** none beyond the main branch.
 - **Unknowns:** Whether findings need code changes in `modules/billing/` (then they become their own items).
@@ -405,6 +417,61 @@ owner's own machine, a product decision only the owner can make, or a change in 
 - **PRD refs:** FR-25.
 - **Source:** FU-17 plan review C1 (`context/archive/2026-10-03-marketing-kit-og-glyphs/reviews/plan-review.md`); `tools/marketing-kit/src/og/fonts.ts`
 
+### FU-24: Existing accounts keep their access when billing is enabled
+- **Change ID:** `billing-existing-accounts`
+- **Status:** proposed
+- **Outcome:** An app that turns billing on (FIRE_TRACKER first) keeps its existing users' access: known trial ends and paid periods are imported into `billing.entitlements`, accounts created before a chosen date can get a trial from that date instead of from their sign-up, derived trials can be pinned before a `trial.days` or time zone change, and the README says what each config change does to accounts without a row.
+- **Prerequisites:** FU-22 on `master` (lane C).
+- **Unknowns:** An import format (ops script reading rows vs. a server function the app calls); whether the trial floor is an option (`trial.startsAt`) or only part of the import; how imported paid periods and lifetime access are recorded (manual grants vs. raw entitlement rows).
+- **Risk:** MEDIUM.
+- **Baseline:** monetization MO-1 `billing-entitlements`: a row-less account's trial starts at `auth.users.created_at`, so every account older than `trial.days` is read-only on the first read after billing is enabled; FIRE's `trial_ends_at` / `paid_until` have no import path; a change of `trial.days` or `config.timezone` moves every derived trial (README §5 names only `trial.days`). After: the gap is closed and covered by unit tests on PGlite and an e2e.
+- **PRD refs:** FR-22.
+- **Source:** FU-12 retro plan review of MO-1, W1 and W2 (`context/archive/2026-10-03-billing-entitlements/reviews/plan-review.md`); `modules/billing/src/server/entitlements.ts`, `modules/billing/README.md` intro and §5
+
+### FU-25: Stripe charges the plan's price in every currency
+- **Change ID:** `billing-stripe-currency-units`
+- **Status:** proposed
+- **Outcome:** The Stripe adapter sends each plan's price in the unit Stripe expects for its currency: special-case currencies (ISK and UGX sent ×100; HUF and TWD amounts divisible by 100, per Stripe's currency guide) are scaled or refused when the config loads, and formatting is tested for a 3-decimal currency (KWD).
+- **Prerequisites:** FU-24 on `master` (lane C).
+- **Unknowns:** The exact list and rules in Stripe's current currency guide (confirm first; the FU-12 session could not fetch it); scale in the adapter vs. refuse the currency.
+- **Risk:** MEDIUM.
+- **Baseline:** monetization MO-2 `billing-plans-pricing` and MO-3 `billing-provider-adapter`: prices are minor units by `Intl` (`src/price.ts`), and `stripe()` sends `unit_amount = plan.price.amount` unchanged (`src/stripe.ts`), so an ISK 1,500 plan would be charged ISK 15. After: the gap is closed and covered by unit tests on the Checkout request.
+- **PRD refs:** FR-22.
+- **Source:** FU-12 retro plan review of MO-2, W1 (`context/archive/2026-10-03-billing-plans-pricing/reviews/plan-review.md`); `modules/billing/src/stripe.ts`, `modules/billing/src/price.ts`
+
+### FU-26: Billing guards and lock races are tested where they can fail
+- **Change ID:** `billing-guard-race-tests`
+- **Status:** proposed
+- **Outcome:** CI proves billing's guards and locks: `requireWriteAccess` and every billing server action are unit-tested as anonymous, member and admin; the first-insert race of `changeEntitlement` and two concurrent plan grants run on two Postgres connections; an e2e covers a paid period that ended; a misspelt `adminRole` (not among `auth({ roles })`) fails at setup instead of silently locking every admin out.
+- **Prerequisites:** FU-25 on `master` (lane C).
+- **Unknowns:** How a unit test mocks the Next session for `/next` actions (auth's test helpers vs. a module mock); running the two-connection tests against the CI Postgres service vs. the e2e database.
+- **Risk:** LOW.
+- **Baseline:** monetization MO-1 and MO-2: the guards are correct today but no unit test calls them without a session or role; the race tests run on PGlite, one connection, so they cannot fail (MO-1 impl review #5, MO-2 impl review #1). After: the gap is closed by the tests themselves.
+- **PRD refs:** FR-22.
+- **Source:** FU-12 retro plan reviews: MO-1 W3, S1, S2; MO-2 W2, W3, S5 (`context/archive/2026-10-03-billing-entitlements/reviews/plan-review.md`, `context/archive/2026-10-03-billing-plans-pricing/reviews/plan-review.md`)
+
+### FU-27: Invoice requests are stored before the owner hears of them and keep only what they need
+- **Change ID:** `billing-invoice-request-hygiene`
+- **Status:** proposed
+- **Outcome:** A manual invoice request is stored before it is handed to the provider (the owner's mail), a refresh of an open request does not mail the owner again, invoice fields are parsed by a zod schema that refuses control characters, a too-long field gets its own message, open requests older than a configurable age are closed with their details cleared, and requests and manual grants record the plan's amount and currency.
+- **Prerequisites:** FU-26 on `master` (lane C).
+- **Unknowns:** The default age for closing a stale request; whether the price snapshot needs a migration `0005` on both tables (likely) and how existing rows are left (NULL).
+- **Risk:** LOW.
+- **Baseline:** monetization MO-2 `billing-plans-pricing` and FU-9 `billing-admin-requests`: `startPayment` hands the request over before `recordPaymentRequest` (`src/server/plans.ts`), a refresh mails again, a newline in the name adds lines to the owner's mail, one text says "fill in" for a too-long optional tax ID, an unclosed request keeps personal data forever, and a manual grant records no price. After: the gap is closed and covered by unit and e2e tests.
+- **PRD refs:** FR-22.
+- **Source:** FU-12 retro plan review of MO-2, S1-S4 (`context/archive/2026-10-03-billing-plans-pricing/reviews/plan-review.md`); `modules/billing/src/server/plans.ts`, `src/fields.ts`, `migrations/0004_create_requests_and_grants.sql`
+
+### FU-28: A signed-in visitor's redirect from a tagged login page keeps the tag
+- **Change ID:** `auth-page-redirect-tag`
+- **Status:** proposed
+- **Outcome:** Auth's login and register pages redirect a signed-in visitor to a URL that keeps the page's own channel tag (for example `rewriteRedirect` given the page's search parameters, or a page-level counterpart of `tagRedirect` that reads them instead of `Referer`).
+- **Prerequisites:** FU-7 on `master` (shared files, see Order).
+- **Unknowns:** Whether `rewriteRedirect` can read the page's own URL in a render (it reads `Referer` today); whether the case matters enough beyond the account page's beacon.
+- **Risk:** LOW. Only a signed-in visitor opening a tagged login link with a full page load; the account view lands under no channel.
+- **Baseline:** FU-7 `analytics-action-redirect-tag`: actions keep the tag through `rewriteRedirect`; the pages' `redirect(next)` in `modules/auth/src/next/pages.tsx` does not use it, and the follow-up request's `Referer` is the page before the tagged one (analytics README §12). After: the page redirect keeps the tag, covered by e2e.
+- **PRD refs:** FR-23.
+- **Source:** FU-7 research ("Open questions"); `modules/analytics/README.md` §12
+
 ## Owner decisions and checks
 
 Carried over from marketing-kit (owner, batch at the keyboard on Monday 2026-10-05):
@@ -422,6 +489,7 @@ Open from FU-14:
 
 ## Done
 
+- **FU-7** `analytics-action-redirect-tag`: auth's action redirects keep the channel tag through `rewriteRedirect` and analytics' `tagRedirect`, with and without JavaScript, covered by unit and e2e tests; archived in `archive/2026-10-03-analytics-action-redirect-tag/`
 - **FU-16** `marketing-kit-layout-overrides`: `marketing.json` `layout` overrides a format's caption box and size, persona card, end card and its phone pose, validated against the frame; archived in `archive/2026-10-03-marketing-kit-layout-overrides/`
 - **FU-4** `waitlist-welcome-html`: both waitlist mails carry an HTML body built from their copy (the confirmation link as an anchor); `waitlist({ mailTemplate })` renders it in the app's layout; archived in `archive/2026-10-03-waitlist-welcome-html/`
 - **FU-5** `analytics-client-navigation`: `<ChannelKeeper />` keeps the channel tag on client navigations without `Next-Url`, covered by unit and e2e tests; archived in `archive/2026-10-03-analytics-client-navigation/`

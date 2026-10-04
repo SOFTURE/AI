@@ -19,9 +19,9 @@ share files run in one lane (see the roadmap's Order), so `dependency` below nam
 | MK-8 | [`marketing-kit-release`](marketing-kit-release/change.md) | marketing-kit release (carried over) | the owner at the keyboard (batch on 2026-10-05) | owner |
 | FU-5 | [`analytics-client-navigation`](../../archive/2026-10-03-analytics-client-navigation/change.md) | Channel tag on client navigations without Next-Url | archived 2026-10-03 | start |
 | FU-6 | [`billing-reminder-mail`](billing-reminder-mail/change.md) | Reminder mail before access ends | FU-9 on main | dependency |
-| FU-7 | [`analytics-action-redirect-tag`](analytics-action-redirect-tag/change.md) | Channel tag kept through server action redirects | FU-1 and FU-5 on main | dependency |
+| FU-7 | [`analytics-action-redirect-tag`](../../archive/2026-10-03-analytics-action-redirect-tag/change.md) | Channel tag kept through server action redirects | archived 2026-10-04 | dependency |
 | FU-8 | [`waitlist-funnel-hook`](waitlist-funnel-hook/change.md) | Waitlist sign-ups as a funnel step | FU-4 on main | dependency |
-| FU-12 | [`billing-retro-reviews`](billing-retro-reviews/change.md) | Retro research and plan review for MO-1 and MO-2 | roadmap promoted | start |
+| FU-12 | [`billing-retro-reviews`](../../archive/2026-10-04-billing-retro-reviews/change.md) | Retro research and plan review for MO-1 and MO-2 | archived 2026-10-04 | start |
 | FU-13 | [`marketing-kit-render-ci`](../../archive/2026-10-03-marketing-kit-render-ci/change.md) | The marketing-kit fixture film renders in CI | archived 2026-10-03 | start |
 | FU-14 | [`marketing-kit-schema-docs`](../../archive/2026-10-03-marketing-kit-schema-docs/change.md) | The marketing.json JSON Schema documents every key | archived 2026-10-03 | start |
 | FU-15 | [`marketing-kit-desktop-16x9`](marketing-kit-desktop-16x9/change.md) | A 16:9 film can show the desktop app in a browser frame | FU-16 on main | dependency |
@@ -33,6 +33,11 @@ share files run in one lane (see the roadmap's Order), so `dependency` below nam
 | FU-21 | [`billing-refund-manual-lifetime`](billing-refund-manual-lifetime/change.md) | A manual lifetime grant survives a refunded paid lifetime | FU-9 on main | dependency |
 | FU-22 | [`billing-grant-plan-script`](billing-grant-plan-script/change.md) | A `grant-plan` ops script for hosts without the admin page | FU-21 on main | dependency |
 | FU-23 | [`marketing-kit-og-subset-fonts`](marketing-kit-og-subset-fonts/change.md) | OG images use every subset file of a weight | FU-17 on main | dependency |
+| FU-24 | [`billing-existing-accounts`](billing-existing-accounts/change.md) | Existing accounts keep their access when billing is enabled | FU-22 on main | dependency |
+| FU-25 | [`billing-stripe-currency-units`](billing-stripe-currency-units/change.md) | Stripe charges the plan's price in every currency | FU-24 on main | dependency |
+| FU-26 | [`billing-guard-race-tests`](billing-guard-race-tests/change.md) | Billing guards and lock races are tested where they can fail | FU-25 on main | dependency |
+| FU-27 | [`billing-invoice-request-hygiene`](billing-invoice-request-hygiene/change.md) | Invoice requests are stored before the owner hears of them and keep only what they need | FU-26 on main | dependency |
+| FU-28 | [`auth-page-redirect-tag`](auth-page-redirect-tag/change.md) | A signed-in visitor's redirect from a tagged login page keeps the tag | FU-7 on main | dependency |
 
 Kind: `start` (can be taken as soon as the roadmap is promoted), `dependency` (waits for the listed items on the
 main branch), `owner` (needs an owner decision or the owner at the keyboard).
