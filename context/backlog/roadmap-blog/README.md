@@ -25,7 +25,7 @@ The roadmap was promoted on 2026-10-04, when it was written. Inside it, the orde
 | --- | --- | --- | --- | --- |
 | BL-1 | `seo-crawler-access` (done, in [`context/archive/`](../../archive/2026-10-04-seo-crawler-access/change.md)) | SEO and AI crawler access | roadmap promoted | start |
 | BL-2 | [`blog-content-store`](../../archive/2026-10-04-blog-content-store/change.md) | Blog content store and publish script | roadmap promoted | start |
-| BL-3 | [`blog-markdown-renderer`](../../changes/blog-markdown-renderer/change.md) | Safe Markdown renderer with glossary links | BL-2 on master | dependency |
+| BL-3 | `blog-markdown-renderer` (done, in [`context/archive/`](../../archive/2026-10-04-blog-markdown-renderer/change.md)) | Safe Markdown renderer with glossary links | BL-2 on master | dependency |
 | BL-4 | [`blog-pages`](blog-pages/change.md) | Blog pages | BL-3 on master | dependency |
 | BL-5 | [`blog-discovery`](blog-discovery/change.md) | Blog discovery: RSS, sitemap and IndexNow | BL-1 and BL-4 on master | dependency |
 | BL-6 | [`blog-quality-gate`](blog-quality-gate/change.md) | Text quality gate | BL-2 on master | dependency |

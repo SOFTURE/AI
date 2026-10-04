@@ -1,12 +1,12 @@
 ---
 change_id: blog-markdown-renderer
 title: "Article Markdown renders to safe HTML on the server, with glossary links and app block plugins"
-status: active
+status: archived
 roadmap_item: BL-3
 branch: claude/bl-3-5nxhvu
 created: 2026-10-04
 updated: 2026-10-04
-archived_at: null
+archived_at: 2026-10-04
 ---
 
 ## Intent
@@ -57,3 +57,9 @@ enters it only when present). BL-6 (`src/quality/`) may run in parallel in anoth
   bug-shaped or in doubt about the problem itself.
 - Research done: it answers the parser and plugin-declaration unknowns and lists what in FIRE's
   renderer is FIRE-specific (own host, Polish footnote copy, the `::wykres{}` directive, the glossary path).
+- Archived 2026-10-04: `renderArticle(markdown, options)` in `@softure-ai/blog/server`
+  (`modules/blog/src/render/`) renders bodies with markdown-it (raw HTML escaped, images off, safe link
+  schemes, marked external links, heading ids, optional TOC, footnotes, glossary first-mention links,
+  fenced block plugins with HTML or node output, reading time); `toGlossary`, `createTermMatcher`,
+  `findArticleBlocks` (block needs for BL-6), `getReadingMinutes`, `slugifyHeading`; copy under
+  `render.*` in `en`/`pl`. Gaps BF-3 (article images) and BF-4 (glossary form conflicts).

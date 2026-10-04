@@ -51,7 +51,7 @@ backlog: context/backlog/roadmap-blog/
 | --- | --- | --- | --- | --- | --- |
 | **BL-1** | `seo-crawler-access` | `@softure-ai/seo`: `robots` with explicit AI crawler lists, `htmlLimitedBots` that keeps Next's defaults, sitemap builder, canonical host, IndexNow key and submit | — | autonomous | done_code (2026-10-04; waiting: first npm release of @softure-ai/seo, BL-8) |
 | **BL-2** | `blog-content-store` | `@softure-ai/blog`: article and term tables in the module's schema, Markdown files with a strict frontmatter, `softure-blog publish` (dry run by default), slug history | — | autonomous | done_code (2026-10-04; waiting: the first release of `@softure-ai/blog`, BL-8) |
-| **BL-3** | `blog-markdown-renderer` | server-side Markdown renderer with an allowlist, heading anchors, glossary auto-links from term forms and a block plugin API | BL-2 | autonomous | ready |
+| **BL-3** | `blog-markdown-renderer` | server-side Markdown renderer with an allowlist, heading anchors, glossary auto-links from term forms and a block plugin API | BL-2 | autonomous | done_code (2026-10-04; waiting: the first release of `@softure-ai/blog`, BL-8) |
 | **BL-4** | `blog-pages` | `/blog`, article and glossary pages from the package: ISR, JSON-LD, summary box, sources, disclaimer and CTA slots, 301/410, OG image per article | BL-3 | autonomous | ready |
 | **BL-5** | `blog-discovery` | RSS feed, blog sitemap entries with a real `lastmod`, IndexNow ping on publish, "read next" by cluster with the pillar first | BL-1, BL-4 | autonomous | ready |
 | **BL-6** | `blog-quality-gate` | `softure-blog check`: structure, links, style and YMYL rules with language rulesets and rule plugins; publish refuses errors | BL-2 | autonomous | ready |
@@ -143,7 +143,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### BL-3: Safe Markdown renderer with glossary links
 - **Change ID:** `blog-markdown-renderer`
-- **Status:** ready
+- **Status:** done_code (2026-10-04; waiting: the first release of `@softure-ai/blog`, BL-8)
+- **Input:** [`context/archive/2026-10-04-blog-markdown-renderer/`](../archive/2026-10-04-blog-markdown-renderer/change.md)
 - **Outcome:** `renderArticle(markdown, options)` in `@softure-ai/blog` renders on the server only:
   - an element allowlist, no raw HTML, external links with `rel="noopener noreferrer"` and an external marker;
   - heading ids and an optional table of contents;
@@ -253,3 +254,4 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 - **BL-2** `blog-content-store`: `@softure-ai/blog` keeps articles and glossary terms in `blog.articles` and `blog.slug_history` (migration `0001`; every row invariant a constraint, one pillar per cluster as an exclusion deferred to commit); article files are Markdown with a strict English YAML frontmatter plus the app's own `fields`; `softure-blog publish` is a dry run by default and all or nothing with `--commit`, skips unchanged files by content hash, keeps old slugs as redirects and takes a quality gate hook (BL-6); reads for the pages: `getPublishedArticle`, `findArticleBySlug`, `findSlugRedirect`, `listArticles`; gaps BF-1 and BF-2; archived in `archive/2026-10-04-blog-content-store/`
 - **BL-1** `seo-crawler-access`: `@softure-ai/seo` with robots and AI crawler lists, `htmlLimitedBots`, sitemap contributors, canonical URLs and IndexNow (dry run by default); the example app serves robots, sitemap and the key file under an e2e; archived in `archive/2026-10-04-seo-crawler-access/`
+- **BL-3** `blog-markdown-renderer`: `renderArticle(markdown, options)` in `@softure-ai/blog/server` renders article bodies on the server with markdown-it (raw HTML escaped, images off, only `http(s)`/`mailto`/relative links, external links with rel, new tab and a marker), heading ids and an optional table of contents, footnotes, glossary links on the first mention of a term form (`toGlossary` from stored terms), fenced block plugins that return HTML or a node (`findArticleBlocks` lists their `requires` for BL-6) and reading time; FIRE's cases plus XSS fixtures; gaps BF-3 and BF-4; archived in `archive/2026-10-04-blog-markdown-renderer/`
