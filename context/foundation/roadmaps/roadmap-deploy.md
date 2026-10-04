@@ -48,6 +48,7 @@ trigger: "the owner promotes it, at the earliest when the blog roadmap closes"
 | **DP-6** | `testing-clock-shift` | `@softure-ai/testing`: a Vitest setup that shifts the test clock to `TEST_TODAY` | — | autonomous | ready |
 | **DP-7** | `testing-playwright-helpers` | generic Playwright helpers (login, factories, select, wait-for, links, assertions) used by the example app's e2e | DP-6 | autonomous | ready |
 | **DP-8** | `deploy-release` | `@softure-ai/deploy` and `@softure-ai/testing` 0.1.0 published; the deploy workflows tagged for callers | DP-1…DP-7 | owner | blocked (waits for DP-1…DP-7 and the owner's first npm publish at the keyboard) |
+
 ## Order
 
 | Lane | Items, in order | Shared files |
@@ -186,6 +187,7 @@ trigger: "the owner promotes it, at the earliest when the blog roadmap closes"
 - **Risk:** low.
 - **Baseline:** packages absent from npm. After: installable from npm and from GitHub Releases.
 - **PRD refs:** FR-2, FR-26, G-4.
+
 ## Owner decisions and checks
 
 - [ ] **DP-8**: approve the first (staged) publish of `@softure-ai/deploy` and `@softure-ai/testing` on npmjs.com,

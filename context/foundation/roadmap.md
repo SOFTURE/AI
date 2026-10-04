@@ -57,6 +57,7 @@ backlog: context/backlog/roadmap-blog/
 | **BL-6** | `blog-quality-gate` | `softure-blog check`: structure, links, style and YMYL rules with language rulesets and rule plugins; publish refuses errors | BL-2 | autonomous | ready |
 | **BL-7** | `blog-writing-skill` | a writing skill shipped with the blog module and installed into the app, kept in sync with the gate's rules | BL-6 | autonomous | ready |
 | **BL-8** | `blog-release` | `@softure-ai/seo` and `@softure-ai/blog` 0.1.0 published through the release pipeline; READMEs, adoption guides and docs updated | BL-1…BL-7 | owner | blocked (waits for BL-1…BL-7 and the owner's first npm publish at the keyboard) |
+
 ## Order
 
 Lanes follow file ownership: items in one lane share files, so they run one after another; different lanes run in
@@ -236,6 +237,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 - **Risk:** low.
 - **Baseline:** packages absent from npm. After: installable from npm and from GitHub Releases.
 - **PRD refs:** FR-2, FR-26, G-4.
+
 ## Before the next release
 
 - [ ] `@softure-ai/seo` and `@softure-ai/blog` enter the release pipeline's package list (**BL-8**).

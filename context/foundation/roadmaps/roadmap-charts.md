@@ -41,6 +41,7 @@ trigger: "the owner promotes it, at the earliest when the blog roadmap closes"
 | **CH-3** | `ui-color-guards` | `@softure-ai/ui/testing`: WCAG contrast, colour-vision simulation and a both-themes contrast check for token pairs | — | autonomous | ready |
 | **CH-4** | `charts-palette-guard` | series palette from tokens, distinguishable under colour-vision deficiency and legible on the surface in both themes | CH-2, CH-3 | autonomous | ready |
 | **CH-5** | `charts-release` | `@softure-ai/charts` 0.1.0 and the next `@softure-ai/ui` published through the release pipeline; README complete | CH-1…CH-4 | owner | blocked (waits for CH-1…CH-4 and the owner's first npm publish at the keyboard) |
+
 ## Order
 
 | Lane | Items, in order | Shared files |
@@ -130,6 +131,7 @@ trigger: "the owner promotes it, at the earliest when the blog roadmap closes"
 - **Risk:** low.
 - **Baseline:** package absent from npm. After: installable from npm and from GitHub Releases.
 - **PRD refs:** FR-2, FR-26, G-4.
+
 ## Owner decisions and checks
 
 - [ ] **CH-5**: approve the first (staged) publish of `@softure-ai/charts` on npmjs.com, then add its trusted
