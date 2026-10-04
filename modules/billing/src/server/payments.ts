@@ -1,8 +1,8 @@
 // Payments a provider reports through its webhook: a paid checkout grants its plan and a refund
 // takes back what that payment granted (a partial one by the `partialRefunds` policy), each exactly
-// once. `billing.payments` holds one row per paid
-// checkout with the grant it caused (a period or lifetime), written in the transaction of the grant,
-// so a delivery Stripe repeats (or two events for one checkout) finds the row and changes nothing.
+// once. `billing.payments` holds one row per paid checkout with the grant it caused (a period or
+// lifetime), written in the transaction of the grant, so a delivery Stripe repeats (or two events
+// for one checkout) finds the row and changes nothing.
 // A payment keeps the total refunded so far (`refunded_amount`, the provider's cumulative figure),
 // so a repeated or stale refund delivery finds nothing new and changes nothing.
 // Locks: the account first (key share), like `changeEntitlement` and the privacy erase; a refund
