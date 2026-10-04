@@ -1,7 +1,7 @@
 ---
 change_id: billing-invoice-request-hygiene
 title: "Invoice requests are stored before the owner hears of them and keep only what they need"
-status: implementing
+status: impl_reviewed
 roadmap_item: FU-27
 branch: claude/fu-27-invoice-request-hygiene-y4gxer
 created: 2026-10-04

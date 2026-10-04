@@ -146,25 +146,25 @@ expires through the script and leaves the admin list.
 ### Phase 1: Requests stored first, with prices
 
 #### Automated
-- [ ] 1.1 A manual request is stored before `onRequest` runs, and a refresh of a handed-over request does not call it
-- [ ] 1.2 A failed hand-over (`Err` or throw) is released and the next ask hands it over; concurrent asks hand over once
-- [ ] 1.3 A provider whose answer does not match `handsOverRequests` throws; a checkout provider stores nothing
-- [ ] 1.4 Requests and manual grants record amount and currency; history, admin rows and the export show them
-- [ ] 1.5 e2e: asking twice mails the owner once; the ledger lists `billing 6`
-- [ ] 1.6 Gates green (typecheck, lint, test)
+- [x] 1.1 A manual request is stored before `onRequest` runs, and a refresh of a handed-over request does not call it — 057101a
+- [x] 1.2 A failed hand-over (`Err` or throw) is released and the next ask hands it over; concurrent asks hand over once — 057101a
+- [x] 1.3 A provider whose answer does not match `handsOverRequests` throws; a checkout provider stores nothing — 057101a
+- [x] 1.4 Requests and manual grants record amount and currency; history, admin rows and the export show them — 057101a
+- [x] 1.5 e2e: asking twice mails the owner once; the ledger lists `billing 6` — 057101a (run with phase 3: 20 passed)
+- [x] 1.6 Gates green (typecheck, lint, test) — 057101a
 
 ### Phase 2: Invoice fields parsed by a schema
 
 #### Automated
-- [ ] 2.1 Each invoice field reports `required`, `too_long` or `control_characters`, and the form names the limit
-- [ ] 2.2 The database refuses control characters in new invoice values
-- [ ] 2.3 e2e: a too-long tax id gets its own message and nothing is mailed
-- [ ] 2.4 Gates green (typecheck, lint, test)
+- [x] 2.1 Each invoice field reports `required`, `too_long` or `control_characters`, and the form names the limit — 339406e
+- [x] 2.2 The database refuses control characters in new invoice values — 339406e
+- [x] 2.3 e2e: a too-long tax id gets its own message and nothing is mailed — 339406e (run with phase 3: 20 passed)
+- [x] 2.4 Gates green (typecheck, lint, test) — 339406e
 
 ### Phase 3: Stale requests expire
 
 #### Automated
-- [ ] 3.1 `expireStaleRequests` expires open requests older than `requests.expireAfterDays` and clears their details; younger and closed ones stay
-- [ ] 3.2 e2e: the `expire-invoice-requests` script expires a backdated request
-- [ ] 3.3 README documents the option, the job, the columns and the retention
-- [ ] 3.4 Gates green (typecheck, lint, test, build)
+- [x] 3.1 `expireStaleRequests` expires open requests older than `requests.expireAfterDays` and clears their details; younger and closed ones stay — 68a133f
+- [x] 3.2 e2e: the `expire-invoice-requests` script expires a backdated request — 68a133f
+- [x] 3.3 README documents the option, the job, the columns and the retention — 68a133f
+- [x] 3.4 Gates green (typecheck, lint, test, build) — 68a133f

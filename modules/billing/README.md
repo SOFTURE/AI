@@ -619,7 +619,7 @@ details, return URL) and resolves with `Ok` once handed over, or an `Err` the bu
   admin page, not the mail already sent. Two asks at once for the same plan hand over once; if that
   hand-over fails, the other ask has already answered "sent", and the next ask retries.
 - A hand-over that crashes the process after its claim and before `onRequest` returns stays
-  claimed: the admin page lists the request, but the owner's mail may not have gone out.
+  claimed: the admin page lists the request, but the owner's mail may not have gone out (followups FU-34).
 - The admin page lists up to 50 open requests and 100 entries of each source in a history; there
   is no paging.
 - The write guard is per action: a read-only account can still call a write the app did not guard.
