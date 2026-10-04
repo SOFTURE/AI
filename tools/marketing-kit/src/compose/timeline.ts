@@ -9,6 +9,9 @@ import type { TimedWord } from "../voice/voiceover.js";
  * `screenScale` (screen width / the device's CSS width).
  *
  * Camera scales are relative to the phone, not to the frame, so one recording renders in every format.
+ *
+ * A project can override the copy and the end card of a format (`marketing.json` `layout`, see `LayoutOverride`),
+ * never the frame, the phone box or the camera target: the recorder sizes its camera moves from those.
  */
 
 export const VIDEO_FORMATS = ["9:16", "1:1", "16:9"] as const;
@@ -84,6 +87,42 @@ export const LAYOUTS: Record<VideoFormat, Layout> = {
   },
 };
 
+/**
+ * What a project may change in a format's layout: the caption box and font size, the persona card's box, the end
+ * card's box, headline size and phone pose. A missing (or undefined) key keeps the table's value.
+ */
+export interface LayoutOverride {
+  caption?: Partial<CaptionLayout>;
+  persona?: Partial<TextBox>;
+  endCard?: Partial<TextBox> & { headlineSize?: number; phone?: { scale?: number; center?: Partial<Point> } };
+}
+
+function mergeTextBox(base: TextBox, override: Partial<TextBox> = {}): TextBox {
+  return { top: override.top ?? base.top, left: override.left ?? base.left, right: override.right ?? base.right };
+}
+
+/** A format's layout with a project's override merged in, key by key; always fresh objects, never the table's. */
+export function resolveLayout(format: VideoFormat, override: LayoutOverride = {}): Layout {
+  const base = LAYOUTS[format];
+  const endCard = override.endCard ?? {};
+  const phone = endCard.phone ?? {};
+  return {
+    frame: { ...base.frame },
+    phoneBox: { ...base.phoneBox },
+    cameraTarget: { ...base.cameraTarget },
+    caption: { ...mergeTextBox(base.caption, override.caption), fontSize: override.caption?.fontSize ?? base.caption.fontSize },
+    persona: mergeTextBox(base.persona, override.persona),
+    endCard: {
+      ...mergeTextBox(base.endCard, endCard),
+      headlineSize: endCard.headlineSize ?? base.endCard.headlineSize,
+      phone: {
+        scale: phone.scale ?? base.endCard.phone.scale,
+        center: { x: phone.center?.x ?? base.endCard.phone.center.x, y: phone.center?.y ?? base.endCard.phone.center.y },
+      },
+    },
+  };
+}
+
 export interface Geometry {
   format: VideoFormat;
   frame: { width: number; height: number };
@@ -110,25 +149,26 @@ export function fitsFrame(viewport: Viewport): boolean {
 }
 
 /**
- * The layout of a format for a recorded device. The recorder uses the 9:16 default: its camera
- * scales are relative to the phone and serve every format.
+ * The layout of a format for a recorded device, with the project's override of that format. The recorder
+ * uses the 9:16 default without an override: its camera scales are relative to the phone and serve every
+ * format, and no override changes the frame or the phone box it reads.
  */
-export function getGeometry(viewport: Viewport, format: VideoFormat = "9:16"): Geometry {
-  const layout = LAYOUTS[format];
+export function getGeometry(viewport: Viewport, format: VideoFormat = "9:16", override: LayoutOverride = {}): Geometry {
+  const layout = resolveLayout(format, override);
   const { phoneBox } = layout;
   const width = Math.min(phoneBox.maxWidth, Math.floor((phoneBox.maxHeight * viewport.width) / viewport.height));
   const screenScale = width / viewport.width;
   return {
     format,
-    frame: { ...layout.frame },
+    frame: layout.frame,
     viewport: { ...viewport },
     screen: { left: Math.round(phoneBox.centerX - width / 2), top: phoneBox.top, width },
     screenScale,
     screenHeight: Math.round(viewport.height * screenScale),
-    cameraTarget: { ...layout.cameraTarget },
-    caption: { ...layout.caption },
-    persona: { ...layout.persona },
-    endCard: { ...layout.endCard, phone: { scale: layout.endCard.phone.scale, center: { ...layout.endCard.phone.center } } },
+    cameraTarget: layout.cameraTarget,
+    caption: layout.caption,
+    persona: layout.persona,
+    endCard: layout.endCard,
   };
 }
 

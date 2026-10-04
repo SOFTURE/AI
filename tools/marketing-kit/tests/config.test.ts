@@ -189,6 +189,29 @@ describe("loadMarketingConfig", () => {
     expect(load(config).videos[0]?.format).toBe(format);
   });
 
+  it("gives each video the layout override of its own format", () => {
+    const config = makeConfig();
+    const [video] = config.videos;
+    if (video === undefined) throw new Error("no video");
+    config.videos.push({ ...video, id: "anna-wide", format: "16:9" });
+    const loaded = load({ ...config, layout: { "16:9": { caption: { fontSize: 44 }, endCard: { phone: { center: { x: 560 } } } } } });
+    expect(loaded.videos.map((entry) => entry.layout)).toEqual([{}, { caption: { fontSize: 44 }, endCard: { phone: { center: { x: 560 } } } }]);
+  });
+
+  it("gives every video an empty layout override when there is no layout section", () => {
+    expect(load(makeConfig()).videos[0]?.layout).toEqual({});
+  });
+
+  it.each([
+    ["a caption below the frame", { "16:9": { caption: { top: 1081 } } }, "layout.16:9.caption.top: "],
+    ["a key that is not overridable", { "9:16": { frame: { width: 720 } } }, 'layout.9:16: Unrecognized key: "frame"'],
+    ["a format that does not exist", { "4:5": {} }, 'layout: Unrecognized key: "4:5"'],
+    ["margins that leave the caption too narrow", { "9:16": { caption: { left: 900 } } }, "layout.9:16.caption: left and right margins leave 120 px for the text; at least 200"],
+    ["an end-card phone scale out of range", { "1:1": { endCard: { phone: { scale: 3 } } } }, "layout.1:1.endCard.phone.scale: "],
+  ])("refuses %s in layout, naming its path", (_case, layout, message) => {
+    expect(loadError({ ...makeConfig(), layout })).toContain(`  ${message}`);
+  });
+
   it("refuses two videos with one id", () => {
     const config = makeConfig();
     const [video] = config.videos;

@@ -98,6 +98,7 @@
     },
     "posts": [{ "video": "fixture-tour", "caption": "Robin is 36 and can stop working at 49.", "hashtags": ["fire", "#money"] }]
   },
+  "layout": { "9:16": { "caption": { "fontSize": 56 } } },
   "screenshots": [{ "id": "calculator", "path": "/", "width": 1280, "height": 800, "expect": "When can you stop working?", "minBytes": 5000 }],
   "sfx": {
     "tap": "assets/sfx/tap.mp3",

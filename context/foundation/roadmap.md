@@ -53,11 +53,11 @@ backlog: context/backlog/roadmap-followups/
 | **FU-8** | `waitlist-funnel-hook` | Waitlist sign-ups as a funnel step | FU-4 | autonomous | done |
 | **FU-9** | `billing-admin-requests` | Payment requests, revoke and grant history in the billing admin page | FU-11 | autonomous | done |
 | **FU-11** | `billing-refund-one-payment` | Refunds that take back one payment's period | — | autonomous | done |
-| **FU-12** | `billing-retro-reviews` | Retro research and plan review for MO-1 and MO-2 | — | autonomous | proposed |
+| **FU-12** | `billing-retro-reviews` | Retro research and plan review for MO-1 and MO-2 | — | autonomous | done |
 | **FU-13** | `marketing-kit-render-ci` | the marketing-kit fixture film renders to a draft MP4 on every push | — | autonomous | done |
 | **FU-14** | `marketing-kit-schema-docs` | every key of the marketing.json JSON Schema carries a description | — | autonomous | done_code (2026-10-03; waiting: owner editor check, MK-8 release) |
 | **FU-15** | `marketing-kit-desktop-16x9` | desktop 16:9 films recorded in a browser frame instead of a phone | FU-16 | autonomous | proposed |
-| **FU-16** | `marketing-kit-layout-overrides` | per-format layout overrides (caption box, persona, end card) in marketing.json | FU-14 | autonomous | proposed |
+| **FU-16** | `marketing-kit-layout-overrides` | per-format layout overrides (caption box, persona, end card) in marketing.json | FU-14 | autonomous | done_code (2026-10-03; waiting: MK-8 release) |
 | **FU-17** | `marketing-kit-og-glyphs` | OG images refuse copy the brand fonts cannot draw | — | autonomous | done_code (2026-10-03; waiting: MK-8 release) |
 | **FU-18** | `marketing-kit-screenshot-variants` | screenshots at a device scale and in both colour schemes | FU-14 | autonomous | proposed |
 | **FU-19** | `marketing-kit-hook-shot-words` | opening shots after the first without a `word` are refused when the config loads | FU-14 | autonomous | proposed |
@@ -65,6 +65,10 @@ backlog: context/backlog/roadmap-followups/
 | **FU-21** | `billing-refund-manual-lifetime` | a manual lifetime grant survives a refunded paid lifetime | FU-9 | autonomous | proposed |
 | **FU-22** | `billing-grant-plan-script` | a `grant-plan` ops script grants and revokes plans without the admin page | FU-9 | autonomous | proposed |
 | **FU-23** | `marketing-kit-og-subset-fonts` | OG images use every subset file of a weight | FU-17 | autonomous | proposed |
+| **FU-24** | `billing-existing-accounts` | existing accounts keep their access when billing is enabled (import, trial floor, pinned trials) | FU-22 | autonomous | proposed |
+| **FU-25** | `billing-stripe-currency-units` | Stripe charges the plan's price in every currency (special-case units) | FU-24 | autonomous | proposed |
+| **FU-26** | `billing-guard-race-tests` | billing guards and lock races tested where they can fail | FU-25 | autonomous | proposed |
+| **FU-27** | `billing-invoice-request-hygiene` | invoice requests stored before the owner's mail, validated, expired and priced | FU-26 | autonomous | proposed |
 
 ## Order
 
@@ -75,7 +79,7 @@ after another; different lanes run in parallel, up to 4 at once.
 | --- | --- | --- |
 | A: switches | FU-1 | `foundation/core/`, `modules/auth/`, `modules/feature-switches/` |
 | B: waitlist and consent | FU-3 → FU-2 → FU-4 → FU-8 | `modules/waitlist/` (FU-3 also `modules/mailing/`, `modules/privacy/`) |
-| C: billing | FU-11 → FU-9 → FU-6 → FU-20 → FU-21 → FU-22; FU-12 any time | `modules/billing/` and its migrations; FU-12 writes archive documents only |
+| C: billing | FU-11 → FU-9 → FU-6 → FU-20 → FU-21 → FU-22 → FU-24 → FU-25 → FU-26 → FU-27; FU-12 any time | `modules/billing/` and its migrations; FU-12 writes documents only (archives and followup entries) |
 | D: analytics | FU-5 → FU-7 (FU-7 also after FU-1) | `modules/analytics/` channel propagation; FU-7 may touch auth's redirects |
 | E: marketing-kit config | FU-14 → FU-16 → FU-15; FU-14 → FU-18 → FU-19 | `tools/marketing-kit/src/config/schema.ts`, `schema/`, `src/compose/` (FU-15, FU-16) |
 | F: independent | FU-13, FU-17 → FU-23 | `.github/workflows/ci.yml`; `tools/marketing-kit/src/og/` |
@@ -84,7 +88,7 @@ after another; different lanes run in parallel, up to 4 at once.
    adopts the switches; FU-3 fixes a consent ledger that can contradict an unsubscribe), then the MEDIUM refund
    fix and the schema descriptions that every later marketing-kit config item extends.
 2. **Each free slot** takes the first item of this list whose lane is idle and whose dependencies are on `master`:
-   FU-2, FU-5, FU-13, FU-17, FU-9, FU-16, FU-18, FU-4, FU-7, FU-12, FU-6, FU-15, FU-8, FU-19, FU-20, FU-21, FU-22, FU-23.
+   FU-2, FU-5, FU-13, FU-17, FU-9, FU-16, FU-18, FU-4, FU-7, FU-12, FU-6, FU-15, FU-8, FU-19, FU-20, FU-21, FU-22, FU-23, FU-24, FU-25, FU-26, FU-27.
 3. **MK-8, EN-9 and MO-6** (owner, carried over): the owner's batch release on 2026-10-05; they wait for no FU item,
    and no FU item waits for them.
 
@@ -121,6 +125,10 @@ owner's own machine, a product decision only the owner can make, or a change in 
 | FU-21 | no | reads FU-9's grant history in the refund; unit tests on PGlite |
 | FU-22 | no | an ops script on `grantPlanManually` and `revokeManualGrant`, dry run by default; unit tests on PGlite |
 | FU-23 | no | font registration in `src/og/fonts.ts`; tested with Inter's `latin` and `latin-ext` files |
+| FU-24 | no | an ops script or server function on the local Postgres; FIRE_TRACKER only reads the result (its own roadmap migrates) |
+| FU-25 | no | unit tests on the Checkout request body; no Stripe secrets or sandbox call |
+| FU-26 | no | unit tests, Postgres tests on the CI service and one e2e |
+| FU-27 | no | a migration and server changes tested on PGlite; the fake mail provider covers the e2e |
 
 ## Items
 
@@ -276,7 +284,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-12: Retro research and plan review for MO-1 and MO-2
 - **Change ID:** `billing-retro-reviews`
-- **Status:** proposed
+- **Status:** done
+- **Input:** [`archive/2026-10-04-billing-retro-reviews/change.md`](../archive/2026-10-04-billing-retro-reviews/change.md)
 - **Outcome:** `research.md` and `reviews/plan-review.md` written after the fact for `billing-entitlements` (MO-1, plan review skipped) and `billing-plans-pricing` (MO-2, research and plan review skipped); every finding that still applies to the code is fixed or filed as its own FU item.
 - **Prerequisites:** none beyond the main branch.
 - **Unknowns:** Whether findings need code changes in `modules/billing/` (then they become their own items).
@@ -322,7 +331,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-16: A project can adjust a format's layout in marketing.json
 - **Change ID:** `marketing-kit-layout-overrides`
-- **Status:** proposed
+- **Status:** done_code (2026-10-03; waiting: MK-8 release)
+- **Input:** [`archive/2026-10-03-marketing-kit-layout-overrides/change.md`](../archive/2026-10-03-marketing-kit-layout-overrides/change.md)
 - **Outcome:** `marketing.json` can override entries of the per-format geometry table (caption box and font size, persona and end-card position, end-card phone pose), validated by the schema, so a brand with long headlines or another caption style does not need a package change.
 - **Prerequisites:** FU-14 on `master` (shared files, see Order).
 - **Unknowns:** Which entries are worth exposing; whether overrides are per video or per format.
@@ -405,6 +415,50 @@ owner's own machine, a product decision only the owner can make, or a change in 
 - **PRD refs:** FR-25.
 - **Source:** FU-17 plan review C1 (`context/archive/2026-10-03-marketing-kit-og-glyphs/reviews/plan-review.md`); `tools/marketing-kit/src/og/fonts.ts`
 
+### FU-24: Existing accounts keep their access when billing is enabled
+- **Change ID:** `billing-existing-accounts`
+- **Status:** proposed
+- **Outcome:** An app that turns billing on (FIRE_TRACKER first) keeps its existing users' access: known trial ends and paid periods are imported into `billing.entitlements`, accounts created before a chosen date can get a trial from that date instead of from their sign-up, derived trials can be pinned before a `trial.days` or time zone change, and the README says what each config change does to accounts without a row.
+- **Prerequisites:** FU-22 on `master` (lane C).
+- **Unknowns:** An import format (ops script reading rows vs. a server function the app calls); whether the trial floor is an option (`trial.startsAt`) or only part of the import; how imported paid periods and lifetime access are recorded (manual grants vs. raw entitlement rows).
+- **Risk:** MEDIUM.
+- **Baseline:** monetization MO-1 `billing-entitlements`: a row-less account's trial starts at `auth.users.created_at`, so every account older than `trial.days` is read-only on the first read after billing is enabled; FIRE's `trial_ends_at` / `paid_until` have no import path; a change of `trial.days` or `config.timezone` moves every derived trial (README §5 names only `trial.days`). After: the gap is closed and covered by unit tests on PGlite and an e2e.
+- **PRD refs:** FR-22.
+- **Source:** FU-12 retro plan review of MO-1, W1 and W2 (`context/archive/2026-10-03-billing-entitlements/reviews/plan-review.md`); `modules/billing/src/server/entitlements.ts`, `modules/billing/README.md` intro and §5
+
+### FU-25: Stripe charges the plan's price in every currency
+- **Change ID:** `billing-stripe-currency-units`
+- **Status:** proposed
+- **Outcome:** The Stripe adapter sends each plan's price in the unit Stripe expects for its currency: special-case currencies (ISK and UGX sent ×100; HUF and TWD amounts divisible by 100, per Stripe's currency guide) are scaled or refused when the config loads, and formatting is tested for a 3-decimal currency (KWD).
+- **Prerequisites:** FU-24 on `master` (lane C).
+- **Unknowns:** The exact list and rules in Stripe's current currency guide (confirm first; the FU-12 session could not fetch it); scale in the adapter vs. refuse the currency.
+- **Risk:** MEDIUM.
+- **Baseline:** monetization MO-2 `billing-plans-pricing` and MO-3 `billing-provider-adapter`: prices are minor units by `Intl` (`src/price.ts`), and `stripe()` sends `unit_amount = plan.price.amount` unchanged (`src/stripe.ts`), so an ISK 1,500 plan would be charged ISK 15. After: the gap is closed and covered by unit tests on the Checkout request.
+- **PRD refs:** FR-22.
+- **Source:** FU-12 retro plan review of MO-2, W1 (`context/archive/2026-10-03-billing-plans-pricing/reviews/plan-review.md`); `modules/billing/src/stripe.ts`, `modules/billing/src/price.ts`
+
+### FU-26: Billing guards and lock races are tested where they can fail
+- **Change ID:** `billing-guard-race-tests`
+- **Status:** proposed
+- **Outcome:** CI proves billing's guards and locks: `requireWriteAccess` and every billing server action are unit-tested as anonymous, member and admin; the first-insert race of `changeEntitlement` and two concurrent plan grants run on two Postgres connections; an e2e covers a paid period that ended; a misspelt `adminRole` (not among `auth({ roles })`) fails at setup instead of silently locking every admin out.
+- **Prerequisites:** FU-25 on `master` (lane C).
+- **Unknowns:** How a unit test mocks the Next session for `/next` actions (auth's test helpers vs. a module mock); running the two-connection tests against the CI Postgres service vs. the e2e database.
+- **Risk:** LOW.
+- **Baseline:** monetization MO-1 and MO-2: the guards are correct today but no unit test calls them without a session or role; the race tests run on PGlite, one connection, so they cannot fail (MO-1 impl review #5, MO-2 impl review #1). After: the gap is closed by the tests themselves.
+- **PRD refs:** FR-22.
+- **Source:** FU-12 retro plan reviews: MO-1 W3, S1, S2; MO-2 W2, W3, S5 (`context/archive/2026-10-03-billing-entitlements/reviews/plan-review.md`, `context/archive/2026-10-03-billing-plans-pricing/reviews/plan-review.md`)
+
+### FU-27: Invoice requests are stored before the owner hears of them and keep only what they need
+- **Change ID:** `billing-invoice-request-hygiene`
+- **Status:** proposed
+- **Outcome:** A manual invoice request is stored before it is handed to the provider (the owner's mail), a refresh of an open request does not mail the owner again, invoice fields are parsed by a zod schema that refuses control characters, a too-long field gets its own message, open requests older than a configurable age are closed with their details cleared, and requests and manual grants record the plan's amount and currency.
+- **Prerequisites:** FU-26 on `master` (lane C).
+- **Unknowns:** The default age for closing a stale request; whether the price snapshot needs a migration `0005` on both tables (likely) and how existing rows are left (NULL).
+- **Risk:** LOW.
+- **Baseline:** monetization MO-2 `billing-plans-pricing` and FU-9 `billing-admin-requests`: `startPayment` hands the request over before `recordPaymentRequest` (`src/server/plans.ts`), a refresh mails again, a newline in the name adds lines to the owner's mail, one text says "fill in" for a too-long optional tax ID, an unclosed request keeps personal data forever, and a manual grant records no price. After: the gap is closed and covered by unit and e2e tests.
+- **PRD refs:** FR-22.
+- **Source:** FU-12 retro plan review of MO-2, S1-S4 (`context/archive/2026-10-03-billing-plans-pricing/reviews/plan-review.md`); `modules/billing/src/server/plans.ts`, `src/fields.ts`, `migrations/0004_create_requests_and_grants.sql`
+
 ## Owner decisions and checks
 
 Carried over from marketing-kit (owner, batch at the keyboard on Monday 2026-10-05):
@@ -423,6 +477,7 @@ Open from FU-14:
 ## Done
 
 - **FU-8** `waitlist-funnel-hook`: `waitlist({ onJoined })` runs in the sign-up's transaction when a sign-up first counts; analytics' `countFunnelStep` counts it under its channel, kept through double opt-in by `rewriteConfirmationLink`; covered by unit and e2e tests; archived in `archive/2026-10-04-waitlist-funnel-hook/`
+- **FU-16** `marketing-kit-layout-overrides`: `marketing.json` `layout` overrides a format's caption box and size, persona card, end card and its phone pose, validated against the frame; archived in `archive/2026-10-03-marketing-kit-layout-overrides/`
 - **FU-4** `waitlist-welcome-html`: both waitlist mails carry an HTML body built from their copy (the confirmation link as an anchor); `waitlist({ mailTemplate })` renders it in the app's layout; archived in `archive/2026-10-03-waitlist-welcome-html/`
 - **FU-5** `analytics-client-navigation`: `<ChannelKeeper />` keeps the channel tag on client navigations without `Next-Url`, covered by unit and e2e tests; archived in `archive/2026-10-03-analytics-client-navigation/`
 - **FU-1** `switch-reader-contract`: auth reads `auth.registration_closed` through the switch-reader contract in core, provided by feature-switches; the panel flips it and reports undefined manifest switches; archived in `archive/2026-10-03-switch-reader-contract/`

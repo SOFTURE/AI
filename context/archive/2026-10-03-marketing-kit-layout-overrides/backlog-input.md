@@ -15,7 +15,7 @@ A project tunes how its films are laid out without forking the package.
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-16** (roadmap `followups`, main since 2026-10-03):
+From [`roadmap.md`](../../foundation/roadmap.md), item **FU-16** (roadmap `followups`, main since 2026-10-03):
 
 > ### FU-16: A project can adjust a format's layout in marketing.json
 > - **Change ID:** `marketing-kit-layout-overrides`

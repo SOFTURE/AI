@@ -9,6 +9,7 @@ function makeFilm(overrides: Partial<Film> = {}): Film {
     persona: { name: "Anna", age: 36, tagline: "counts" },
     path: "/",
     format: "9:16",
+    layout: {},
     device: { viewport: { width: 390, height: 844 }, scale: 3, isMobile: true },
     voice: { voiceId: "v", modelId: "m", language: "en", tempo: 1.1 },
     beats: [
