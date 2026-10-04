@@ -1,12 +1,12 @@
 ---
 change_id: waitlist-funnel-hook
 title: "Waitlist sign-ups are counted in the analytics funnel under their channel"
-status: implemented
+status: archived
 roadmap_item: FU-8
 branch: claude/fu-8-waitlist-funnel-rx6rhh
 created: 2026-10-04
 updated: 2026-10-04
-archived_at: null
+archived_at: 2026-10-04
 ---
 
 ## Intent
@@ -50,3 +50,4 @@ confirmation page, opened from a mail link that carries no channel tag (analytic
 - Lane B, after FU-4 (merged as #52).
 - Framing skipped: a recorded gap with a stated outcome and no premise to test; research answers the
   three unknowns and the double opt-in channel question.
+- Archived 2026-10-04: `waitlist({ onJoined })` runs in the sign-up's transaction when it first counts, `countFunnelStep` counts it in the funnel, and `rewriteConfirmationLink` keeps the channel through double opt-in.
