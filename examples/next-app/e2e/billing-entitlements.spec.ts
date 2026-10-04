@@ -1,8 +1,15 @@
 // @softure-ai/billing on the built app: a new account is on its 14-day trial and its write goes
 // through; once its trial is over (moved into the past in Postgres) the badge and the notice say it
 // is read-only, the notice links to the payment page, and the same write is refused and stores
-// nothing. Every test gets its own client address and account.
+// nothing. An account older than its trial gets its paid period back from the import-entitlements
+// script, and pin-trials reports the trials it would pin. Every test gets its own client address
+// and account.
+import { spawnSync } from "node:child_process";
 import { randomInt, randomUUID } from "node:crypto";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
 import { authMessages, users } from "@softure-ai/auth";
 import { billingMessages, entitlements } from "@softure-ai/billing";
@@ -11,6 +18,8 @@ import { en } from "../messages/en.ts";
 import { entries } from "../modules/guestbook/schema.ts";
 import { openTestDatabase } from "./database.ts";
 
+const APP_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const DAY_MS = 24 * 60 * 60 * 1000;
 const authCopy = authMessages.en;
 const copy = billingMessages.en;
 const PASSWORD = "correct horse battery";
@@ -117,4 +126,70 @@ test("a read-only account sees why, is sent to the payment page, and cannot writ
   await signAsMember(page, message);
   await expect(page.getByText(en.errors["billing.read_only"])).toBeVisible();
   expect(await countEntries(message)).toBe(0);
+});
+
+/** Moves the account's creation back by `days`, as if it had signed up before billing was enabled. */
+async function ageAccount(email: string, days: number): Promise<void> {
+  const database = await openTestDatabase();
+  try {
+    const createdAt = new Date(Date.now() - days * DAY_MS);
+    await database.db.update(users).set({ createdAt }).where(eq(users.email, email));
+  } finally {
+    await database.close();
+  }
+}
+
+/** Runs a billing script of the example app. */
+function runBillingScript(script: "import-entitlements" | "pin-trials", args: readonly string[]): { status: number | null; output: string } {
+  const result = spawnSync("npm", ["run", "--silent", script, "--", ...args], { cwd: APP_DIR, encoding: "utf8" });
+  return { status: result.status, output: `${result.stdout}${result.stderr}` };
+}
+
+test("an account older than its trial is read-only until import-entitlements gives back its paid period", async ({ page }) => {
+  const email = await registerAndOpenBillingPage(page);
+  await ageAccount(email, 60);
+  await page.reload();
+  await expect(page.locator("[data-status]").first()).toHaveText(copy.badge.readOnly);
+
+  const folder = await mkdtemp(join(tmpdir(), "e2e-import-"));
+  try {
+    const file = join(folder, "entitlements.json");
+    const paidUntil = new Date(Date.now() + 40 * DAY_MS).toISOString();
+    await writeFile(file, JSON.stringify([{ email, paidUntil }]));
+    const dryRun = runBillingScript("import-entitlements", [`--file=${file}`]);
+    expect(dryRun.status, dryRun.output).toBe(0);
+    expect(dryRun.output).toContain('after:  {"accounts":1,"trial":0,"paid":1,"lifetime":0,"readOnly":0}');
+    await page.reload();
+    await expect(page.locator("[data-status]").first()).toHaveText(copy.badge.readOnly);
+
+    const imported = runBillingScript("import-entitlements", [`--file=${file}`, "--commit"]);
+    expect(imported.status, imported.output).toBe(0);
+    expect(imported.output).toContain("COMMITTED");
+    expect(imported.output).not.toContain(email);
+  } finally {
+    await rm(folder, { recursive: true, force: true });
+  }
+
+  await page.reload();
+  await expect(page.locator("[data-status]").first()).toHaveAttribute("data-status", "paid");
+  const message = newMessage();
+  await signAsMember(page, message);
+  await expect(page.getByText(en.billing.saved)).toBeVisible();
+  expect(await countEntries(message)).toBe(1);
+});
+
+test("pin-trials reports the derived trials it would pin, and a dry run writes none", async ({ page }) => {
+  const email = await registerAndOpenBillingPage(page);
+  const pinned = runBillingScript("pin-trials", []);
+  expect(pinned.status, pinned.output).toBe(0);
+  expect(pinned.output).toMatch(/^after:\s+\{"accountsWithoutRow":0,"pinned":\d+\}$/m);
+  expect(pinned.output).toContain("DRY RUN");
+  const database = await openTestDatabase();
+  try {
+    const [account] = await database.db.select({ id: users.id }).from(users).where(eq(users.email, email));
+    if (account === undefined) throw new Error(`pin-trials: no account for ${email}`);
+    expect(await database.db.select().from(entitlements).where(eq(entitlements.userId, account.id))).toEqual([]);
+  } finally {
+    await database.close();
+  }
 });

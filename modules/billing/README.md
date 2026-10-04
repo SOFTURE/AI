@@ -11,14 +11,17 @@ or lifetime) and a read-only state once both end. It replaces FIRE_TRACKER's acc
 (`src/lib/access.ts`, `src/db/access.ts`, `src/components/{access-badge,access-notice*}.tsx`), with
 the `paid_until` and `trial_ends_at` columns moved off the users table into `billing.entitlements`
 and the hand-written guard replaced by a pure state machine. FIRE's hard-coded prices and its access
-script become plans in the config, a payment page and an admin page that grants a plan.
+script become plans in the config, a payment page and an admin page that grants a plan. Accounts
+that exist when billing is turned on keep their access through a trial floor (`trial.startsAt`), an
+import of what the old system knew (`import-entitlements`) and a pin step for derived trials
+(`pin-trials`); see "Existing accounts" in §4.
 
 ## 1. What it provides
 
 - **A pure state machine** (`resolveEntitlement`, `applyEntitlementEvent` from the root entry): a
   record (trial end, paid until, lifetime) and an instant give `trial | paid | read_only`, with the
   days left and whether the reminder window is open; an event (`grant`, `grant_lifetime`, `revoke`,
-  `shorten`, `end_lifetime`, `extend_trial`) gives the next record. No database and no clock.
+  `shorten`, `end_lifetime`, `extend_trial`, `import`) gives the next record. No database and no clock.
 - **`billing.entitlements`**, at most one row per account, apart from `auth.users`. An account
   without a row is on the trial that starts at its `auth.users.created_at` (see §5).
 - **The write guard**: `requireWriteAccess()` (`/next`) for server actions, `checkWriteAccess()`
@@ -53,6 +56,11 @@ script become plans in the config, a payment page and an admin page that grants 
 - **Plan scripts** (`@softure-ai/billing/scripts`): `grant-plan` and `revoke-grant`, ops scripts
   (dry run by default, `--commit` writes) for a host without the admin page; their grants are in
   the account's history like the admin page's (see "Scripts" in §4).
+- **Existing accounts**: `trial.startsAt` gives accounts created before a chosen day a trial from
+  that day; `import-entitlements` (`importEntitlement()` on the server) records the trial ends, paid
+  periods and lifetime access another system knew, never shortening access; `pin-trials`
+  (`pinDerivedTrials()`) writes every derived trial into a row before a config change would move it
+  (see "Existing accounts" in §4).
 - Export and deletion of the entitlement row, the payments, the invoice requests and the manual grants (`@softure-ai/privacy`), and a health check for
   `GET /api/health`.
 
@@ -89,6 +97,7 @@ billing({
 | Option | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `trial.days` | integer 0 to 365 | `14` | Length of the trial every account starts with, the registration day included. `0`: no trial, an account is read-only until it pays. |
+| `trial.startsAt` | `YYYY-MM-DD` | — | The first day a trial can start, a local day in `config.timezone`: an account without a row created before it gets its `trial.days` from this day (see "Existing accounts" in §4). A day in the future keeps those accounts writing until it, plus `trial.days`. |
 | `trial.reminderDays` | integer 0 to 365 | `3` | From how many days left the trial counts as ending (badge tone, notice). `0`: never. |
 | `paid.reminderDays` | integer 0 to 365 | `7` | The same for dated paid access. Lifetime access never ends. |
 | `plans` | array, at most 12 | `[]` | The plans, in the order the tiles show them (see below). |
@@ -306,9 +315,11 @@ stores a request the provider handed over; `findAccountByEmail(ctx, email)`,
 may also be a function of the current record, run under the row's lock (how `grantPlan` extends a
 period without losing a concurrent grant).
 
-**Scripts.** `@softure-ai/billing/scripts` builds two ops scripts on `@softure-ai/ops/scripts` (dry run by
+**Scripts.** `@softure-ai/billing/scripts` builds ops scripts on `@softure-ai/ops/scripts` (dry run by
 default, `--commit` writes, one transaction), for an operator without the admin page or at a
-terminal. The app bundles them like its other scripts and runs them with its database URL:
+terminal: `grant-plan` and `revoke-grant` here, `import-entitlements` and `pin-trials` under
+"Existing accounts" below. The app bundles them like its other scripts and runs them with its
+database URL:
 
 ```ts
 // scripts/grant-plan.ts: npm run grant-plan -- --email=member@example.com --plan=monthly [--commit]
@@ -333,6 +344,58 @@ entitlement and the active manual grants with their ids, newest first; a dry run
 shows the id `revoke-grant` takes. `createGrantPlanScript(config, { clock? })` and
 `createRevokeGrantScript(config, { clock? })` take a clock for tests (`executeOpsScript`).
 
+**Existing accounts.** An account without a `billing.entitlements` row is on the trial derived from
+its creation day (§5), so turning billing on for accounts that already exist would make every one
+older than `trial.days` read-only at once. Three tools, in this order, keep their access:
+
+1. **A trial floor**, `billing({ trial: { startsAt: "2026-11-01" } })`: every account created before
+   that local day gets its `trial.days` from it, on every read, without a write; accounts created on
+   or after it keep their own trial. The reminder mail sees the floored trials too, so all those
+   accounts get their trial-ending mail in the same window.
+2. **An import** of what the old system knew (FIRE_TRACKER's `trial_ends_at`, `paid_until`):
+
+   ```ts
+   // scripts/import-entitlements.ts: npm run import-entitlements -- --file=entitlements.json [--commit]
+   import { createImportEntitlementsScript } from "@softure-ai/billing/scripts";
+   import { runOpsScript } from "@softure-ai/ops/scripts";
+   import config from "../softure.config";
+
+   process.exitCode = await runOpsScript({ script: createImportEntitlementsScript(config), argv: process.argv.slice(2), config });
+   ```
+
+   The file (its path relative to the working directory) is a JSON array, at most 50,000 rows:
+
+   ```json
+   [
+     { "email": "ada@example.com", "trialEndsAt": "2026-08-15T00:00:00+02:00", "paidUntil": "2027-01-01T00:00:00+01:00" },
+     { "email": "grace@example.com", "isLifetime": true }
+   ]
+   ```
+
+   Each row needs `email` and at least one of `trialEndsAt`, `paidUntil` (ISO 8601 with an offset,
+   the first instant without access, as `billing.entitlements` stores it; `null` for none) and
+   `isLifetime`. Each is merged onto the account's current record (its row, or its derived and
+   floored trial) by the `import` event: an end only moves later, lifetime only turns on, so an
+   import never takes access away and running the same file again changes nothing. An imported end
+   earlier than the account's own is therefore not recorded; past ends later than it are (an ended
+   paid period shows as `paid_ended`). The import is not a grant: it is not in the account's history
+   and is not revocable from the admin page (correct a mistake with `changeEntitlement`'s `revoke` or
+   `shorten`). The whole file is one transaction and refused as a whole for a file that cannot be
+   read, a row that fails the format, an email repeated in the file (compared as auth stores emails)
+   or an email no account has; refusals name row numbers, never emails. The report counts the named
+   accounts by state (`trial`, `paid`, `lifetime`, `readOnly`) `before` and `after`. Split a very
+   large file: every row takes its locks until the end of the run. `importEntitlement(ctx, { userId,
+   trialEndsAt?, paidUntil?, isLifetime? })` (`/server`) is the same merge for an app that migrates in
+   its own code; it returns the `Entitlement` or `Err<billing.account_unknown>`.
+3. **A pin** before any change of `trial.days`, `trial.startsAt` or `config.timezone`:
+   `npm run pin-trials [-- --commit]` (`createPinTrialsScript(config)`, no arguments) writes the trial
+   every account without a row is on, exactly as reads derive it, into a row, so the change moves no
+   existing trial and applies to new accounts only. Rows written meanwhile by a change are kept; a
+   second run pins nothing. The report gives `accountsWithoutRow` `before` and `after`, and `pinned`.
+   `pinDerivedTrials(ctx)` (`/server`) is the same step, returning how many rows it wrote.
+
+Both scripts take `{ clock? }` for tests, like the plan scripts.
+
 **A payment provider** (`PaymentProvider` from the root entry) has a `name`, says whether the page
 collects invoice details (`collectsInvoiceDetails`), and implements
 `startPayment(ctx, { plan, account, invoice, returnUrl })`, which resolves with
@@ -354,11 +417,22 @@ admin) or `recordPayment` (a webhook).
 | `created_at`, `updated_at` | The first change and the last one. |
 
 **No row until something changes.** Reads never write: an account without a row gets its trial
-derived from `auth.users.created_at` and `trial.days`, so accounts created before billing was
-enabled get a trial too and auth's single `onRegistered` hook stays free for the app. The first
-change (`changeEntitlement`) stores that derived trial end with the event applied, so the trial end
-never moves when a row appears. Until then, a change of `trial.days` changes the trial of accounts
-without a row.
+derived from `auth.users.created_at`, `trial.days`, `trial.startsAt` and `config.timezone`, and
+auth's single `onRegistered` hook stays free for the app. Accounts created before billing was
+enabled are on that derived trial too, so without `trial.startsAt` or an import those older than
+`trial.days` are read-only from the first read (see "Existing accounts" in §4). The first change
+(`changeEntitlement`, an import, `pin-trials`) stores the derived trial end with the event applied,
+so the trial end never moves when a row appears. Until then every read derives it again, so for
+accounts without a row:
+
+| Config change | Effect |
+| --- | --- |
+| shorter `trial.days` | every derived trial ends earlier: accounts past the new end are read-only at once |
+| longer `trial.days` | every derived trial ends later: accounts whose trial had ended can write again |
+| `trial.startsAt` set, moved or removed | the trial of every account created before the (old or new) floor day moves with it |
+| `config.timezone` | every derived trial ends at the start of the same local day in the new zone, hours earlier or later |
+
+Run `pin-trials` before such a change to keep existing trials where they are.
 
 `migrations/0002_create_payments.sql` creates `billing.payments`, one row per paid provider checkout:
 
@@ -484,8 +558,8 @@ details, return URL) and resolves with `Ok` once handed over, or an `Err` the bu
 - The Stripe adapter is tested against the sandbox's Checkout API (when `STRIPE_SECRET_KEY` holds a
   test key) and with signed webhook fixtures; a browser payment end to end in the sandbox is
   item LT-1 of the later roadmap (`context/foundation/roadmaps/roadmap-later.md`).
-- A grant through `grantPlan` (or a raw `changeEntitlement`) is not recorded: it is not in the
-  history and cannot be revoked; the `grant-plan` script records its grants.
+- A grant through `grantPlan` (or a raw `changeEntitlement`, an import) is not recorded: it is not
+  in the history and cannot be revoked; the `grant-plan` script records its grants.
 - The admin page lists up to 50 open requests and 100 entries of each source in a history; there
   is no paging.
 - The write guard is per action: a read-only account can still call a write the app did not guard.

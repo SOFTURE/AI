@@ -72,3 +72,19 @@ export function getTrialEnd(start: Date, days: number, timezone: string): Date {
 export function getDaysLeft(end: Date, now: Date, timezone: string): number {
   return getDayNumber(new Date(end.getTime() - 1), timezone) - getDayNumber(now, timezone) + 1;
 }
+
+const DAY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/**
+ * The day number (as `getDayNumber` counts) of a `YYYY-MM-DD` calendar day, or null when the text
+ * is not one (`2026-1-1`, `2026-02-30`).
+ */
+export function parseDay(day: string): number | null {
+  const match = DAY_PATTERN.exec(day);
+  if (match === null) return null;
+  const [year, month, date] = [Number(match[1]), Number(match[2]), Number(match[3])];
+  const wallTime = Date.UTC(year, month - 1, date);
+  const parsed = new Date(wallTime);
+  if (parsed.getUTCFullYear() !== year || parsed.getUTCMonth() !== month - 1 || parsed.getUTCDate() !== date) return null;
+  return wallTime / DAY_MS;
+}

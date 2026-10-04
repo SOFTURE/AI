@@ -132,6 +132,26 @@ describe("applyEntitlementEvent", () => {
     expect(applyEntitlementEvent(TRIAL, { type: "extend_trial", until: at("2026-10-10T22:00:00Z") }, NOW)).toEqual({ ok: true, value: TRIAL });
   });
 
+  it("imports a carried-over record: later ends win, past ends are kept, lifetime only turns on", () => {
+    const pastTrial = at("2026-09-01T22:00:00Z");
+    const pastPaid = at("2026-09-15T22:00:00Z");
+    const later = at("2026-12-31T23:00:00Z");
+    const event = (trialEndsAt: Date | null, paidUntil: Date | null, isLifetime = false) => ({ type: "import" as const, trialEndsAt, paidUntil, isLifetime });
+    expect(applyEntitlementEvent(TRIAL, event(later, later), NOW)).toEqual({ ok: true, value: { trialEndsAt: later, paidUntil: later, isLifetime: false } });
+    // Earlier ends never shorten what the account has.
+    expect(applyEntitlementEvent(PAID, event(pastTrial, pastPaid), NOW)).toEqual({ ok: true, value: PAID });
+    // A past paid end is recorded where there was none: the account stays on its trial.
+    expect(applyEntitlementEvent(TRIAL, event(null, pastPaid), NOW)).toEqual({ ok: true, value: { ...TRIAL, paidUntil: pastPaid } });
+    expect(applyEntitlementEvent(TRIAL, event(null, null, true), NOW)).toEqual({ ok: true, value: LIFETIME });
+    expect(applyEntitlementEvent(LIFETIME, event(null, PAID_END, false), NOW)).toEqual({ ok: true, value: { ...LIFETIME, paidUntil: PAID_END } });
+  });
+
+  it("changes nothing when the same import is applied again", () => {
+    const event = { type: "import" as const, trialEndsAt: at("2026-10-20T22:00:00Z"), paidUntil: PAID_END, isLifetime: true };
+    const once = applyEntitlementEvent(TRIAL, event, NOW);
+    expect(once.ok && applyEntitlementEvent(once.value, event, NOW)).toEqual(once);
+  });
+
   it("does not touch the input record", () => {
     const record = { ...TRIAL };
     applyEntitlementEvent(record, { type: "grant", until: PAID_END }, NOW);

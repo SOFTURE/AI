@@ -1,6 +1,6 @@
 // Calendar days in the app's time zone: trial ends at the start of a local day, across DST changes
 // and in zones far from the process's own (the tests run in New York time).
-import { getDaysLeft, getStartOfDay, getTrialEnd } from "@softure-ai/billing";
+import { getDayNumber, getDaysLeft, getStartOfDay, getTrialEnd, parseDay } from "@softure-ai/billing";
 import { describe, expect, it } from "vitest";
 
 describe("getTrialEnd", () => {
@@ -42,5 +42,17 @@ describe("getDaysLeft", () => {
 
   it("counts a 23-hour and a 25-hour day as one day each", () => {
     expect(getDaysLeft(new Date("2026-10-26T23:00:00Z"), new Date("2026-10-24T08:00:00Z"), "Europe/Warsaw")).toBe(3);
+  });
+});
+
+describe("parseDay", () => {
+  it("gives the day number getDayNumber counts for that local day", () => {
+    expect(parseDay("2026-10-03")).toBe(getDayNumber(new Date("2026-10-03T08:00:00Z"), "Europe/Warsaw"));
+    expect(parseDay("2026-10-04")).toBe(getDayNumber(new Date("2026-10-03T22:30:00Z"), "Europe/Warsaw"));
+    expect(parseDay("2028-02-29")).toBe(Date.UTC(2028, 1, 29) / 86_400_000);
+  });
+
+  it.each(["2026-02-30", "2027-02-29", "2026-13-01", "2026-1-1", "2026-10-03T00:00:00Z", " 2026-10-03", ""])("refuses %j", (day) => {
+    expect(parseDay(day)).toBeNull();
   });
 });

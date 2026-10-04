@@ -56,7 +56,7 @@ export const billing = defineModule({
   health: checkBillingTables,
 });
 
-export { getDayNumber, getDaysLeft, getStartOfDay, getTrialEnd } from "./calendar.js";
+export { getDayNumber, getDaysLeft, getStartOfDay, getTrialEnd, parseDay } from "./calendar.js";
 export {
   ENTITLEMENT_STATUSES,
   INITIAL_ADMIN_ACTION_STATE,

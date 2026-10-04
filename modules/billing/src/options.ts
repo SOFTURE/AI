@@ -1,6 +1,7 @@
 // The options an app passes to `billing({ ... })` in softure.config.ts, parsed at startup.
 import { LOCALES } from "@softure-ai/core";
 import { z } from "zod";
+import { parseDay } from "./calendar.js";
 import { PERIOD_UNITS, type PlanPeriod } from "./contract.js";
 import { isPaymentProvider, type PaymentProvider } from "./payment.js";
 import { isSupportedCurrency } from "./price.js";
@@ -62,6 +63,15 @@ export const billingOptionsSchema = z.strictObject({
       days: daysSchema.default(14),
       /** From how many days left the trial notice shows; 0 never. */
       reminderDays: daysSchema.default(3),
+      /**
+       * The first day a trial can start, `YYYY-MM-DD` in the app's time zone: an account created
+       * before it (without an entitlement row) gets its trial from this day. For turning billing on
+       * for accounts that already exist.
+       */
+      startsAt: z
+        .string()
+        .refine((day) => parseDay(day) !== null, "must be a calendar day as YYYY-MM-DD, e.g. 2026-11-01")
+        .optional(),
     })
     .prefault({}),
   paid: z

@@ -1,8 +1,8 @@
 // Reading and changing entitlements on PGlite: the derived trial of an account without a row, the
 // write guard, changes pinned into a row under a lock, and the table's own constraints.
-import { changeEntitlement, checkWriteAccess, getEntitlement } from "@softure-ai/billing/server";
+import { changeEntitlement, checkWriteAccess, getEntitlement, importEntitlement, pinDerivedTrials } from "@softure-ai/billing/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createAccount, createTestBilling, NOW, readRow, type TestBilling } from "./support.js";
+import { createAccount, createConfig, createTestBilling, NOW, readRow, type TestBilling } from "./support.js";
 
 /** The end of a 14-day trial begun at NOW: midnight starting 17 October in Warsaw. */
 const TRIAL_END = new Date("2026-10-16T22:00:00Z");
@@ -46,6 +46,61 @@ describe("getEntitlement", () => {
       expect(await getEntitlement(none.ctx, id)).toEqual({ status: "read_only", since: new Date("2026-10-02T22:00:00Z"), reason: "trial_ended" });
     } finally {
       await none.database.close();
+    }
+  });
+
+  it("starts the trial of an account created before trial.startsAt on that day, writing nothing", async () => {
+    const floored = await createTestBilling({ trial: { startsAt: "2026-11-01" } });
+    try {
+      const id = await createAccount(floored, "bob@example.com");
+      // 1 to 14 November in Warsaw (winter time by then): it ends when 15 November begins.
+      expect(await getEntitlement(floored.ctx, id)).toEqual({ status: "trial", endsAt: new Date("2026-11-14T23:00:00Z"), daysLeft: 43, isEnding: false });
+      expect(await readRow(floored, id)).toBeUndefined();
+    } finally {
+      await floored.database.close();
+    }
+  });
+
+  it("leaves accounts created on or after trial.startsAt on their own trial", async () => {
+    const floored = await createTestBilling({ trial: { startsAt: "2026-10-01" } });
+    try {
+      // Created on the floor day itself, late in the evening (already 1 October in Warsaw).
+      floored.clock.set(new Date("2026-09-30T22:30:00Z"));
+      const onTheDay = await createAccount(floored, "day@example.com");
+      floored.clock.set(NOW);
+      const after = await createAccount(floored, "after@example.com");
+      expect(await getEntitlement(floored.ctx, onTheDay)).toMatchObject({ status: "trial", endsAt: new Date("2026-10-14T22:00:00Z") });
+      expect(await getEntitlement(floored.ctx, after)).toMatchObject({ status: "trial", endsAt: TRIAL_END });
+    } finally {
+      await floored.database.close();
+    }
+  });
+
+  it("ends a floored trial that is over, and keeps zero trial days writing until the floor day", async () => {
+    const past = await createTestBilling({ trial: { startsAt: "2026-09-01" } });
+    const none = await createTestBilling({ trial: { days: 0, startsAt: "2026-11-01" } });
+    try {
+      past.clock.set(new Date("2026-06-01T08:00:00Z"));
+      const old = await createAccount(past, "old@example.com");
+      past.clock.set(NOW);
+      expect(await getEntitlement(past.ctx, old)).toEqual({ status: "read_only", since: new Date("2026-09-14T22:00:00Z"), reason: "trial_ended" });
+      const id = await createAccount(none, "bob@example.com");
+      // No trial days: access ends when 1 November begins, the day billing starts for older accounts.
+      expect(await getEntitlement(none.ctx, id)).toEqual({ status: "trial", endsAt: new Date("2026-10-31T23:00:00Z"), daysLeft: 29, isEnding: false });
+    } finally {
+      await past.database.close();
+      await none.database.close();
+    }
+  });
+
+  it("stores the floored trial when the first change pins it", async () => {
+    const floored = await createTestBilling({ trial: { startsAt: "2026-11-01" } });
+    try {
+      const id = await createAccount(floored, "bob@example.com");
+      expect((await changeEntitlement(floored.ctx, id, { type: "grant", until: PAID_END })).ok).toBe(true);
+      expect(await readRow(floored, id)).toMatchObject({ trial_ends_at: new Date("2026-11-14T23:00:00Z"), paid_until: PAID_END });
+    } finally {
+      await floored.database.close();
     }
   });
 
@@ -182,5 +237,95 @@ describe("the entitlements table", () => {
     await expect(insert("00000000-0000-4000-8000-000000000000", null, false)).rejects.toThrow(/foreign key/);
     await insert(adaId, null, false);
     await expect(insert(adaId, null, true)).rejects.toThrow(/entitlements_pkey/);
+  });
+});
+
+describe("importEntitlement", () => {
+  let test: TestBilling;
+  let adaId: string;
+
+  beforeEach(async () => {
+    test = await createTestBilling();
+    test.clock.set(new Date("2026-08-01T08:00:00Z"));
+    adaId = await createAccount(test, "ada@example.com");
+    test.clock.set(NOW);
+  });
+  afterEach(() => test.database.close());
+
+  it("gives an account older than its trial the paid period it had, onto its derived trial", async () => {
+    // Created on 1 August: its derived trial ended when 15 August began.
+    const derivedEnd = new Date("2026-08-14T22:00:00Z");
+    expect(await getEntitlement(test.ctx, adaId)).toEqual({ status: "read_only", since: derivedEnd, reason: "trial_ended" });
+    const imported = await importEntitlement(test.ctx, { userId: adaId, paidUntil: PAID_END });
+    expect(imported).toEqual({ ok: true, value: { status: "paid", endsAt: PAID_END, daysLeft: 59, isEnding: false } });
+    expect(await readRow(test, adaId)).toMatchObject({ trial_ends_at: derivedEnd, paid_until: PAID_END, is_lifetime: false, created_at: NOW });
+  });
+
+  it("keeps a later trial and records an earlier one as it was only when later than the account's", async () => {
+    const trialEnd = new Date("2026-10-20T22:00:00Z");
+    expect(await importEntitlement(test.ctx, { userId: adaId, trialEndsAt: trialEnd })).toMatchObject({ ok: true, value: { status: "trial", endsAt: trialEnd } });
+    expect(await importEntitlement(test.ctx, { userId: adaId, trialEndsAt: new Date("2026-08-05T22:00:00Z") })).toMatchObject({ ok: true, value: { status: "trial", endsAt: trialEnd } });
+    expect(await readRow(test, adaId)).toMatchObject({ trial_ends_at: trialEnd, paid_until: null });
+  });
+
+  it("merges onto a stored row without shortening it, and records lifetime access", async () => {
+    expect((await changeEntitlement(test.ctx, adaId, { type: "grant", until: PAID_END })).ok).toBe(true);
+    expect(await importEntitlement(test.ctx, { userId: adaId, paidUntil: new Date("2026-10-31T23:00:00Z"), isLifetime: true })).toEqual({
+      ok: true,
+      value: { status: "paid", endsAt: null, daysLeft: null, isEnding: false },
+    });
+    expect(await readRow(test, adaId)).toMatchObject({ paid_until: PAID_END, is_lifetime: true });
+  });
+
+  it("knows no account for an unknown or malformed id, writing nothing", async () => {
+    expect(await importEntitlement(test.ctx, { userId: UNKNOWN_ID, paidUntil: PAID_END })).toEqual({ ok: false, error: "billing.account_unknown" });
+    expect(await importEntitlement(test.ctx, { userId: "nope", paidUntil: PAID_END })).toEqual({ ok: false, error: "billing.account_unknown" });
+    const count = await test.database.client.query<{ total: number }>("SELECT count(*)::int AS total FROM billing.entitlements");
+    expect(count.rows[0]?.total).toBe(0);
+  });
+});
+
+describe("pinDerivedTrials", () => {
+  it("writes the derived trial of every account without a row, keeps stored rows, and a later trial.days change moves no pinned trial", async () => {
+    const test = await createTestBilling({ trial: { startsAt: "2026-10-01" } });
+    try {
+      test.clock.set(new Date("2026-06-01T08:00:00Z"));
+      const old = await createAccount(test, "old@example.com");
+      test.clock.set(NOW);
+      const fresh = await createAccount(test, "fresh@example.com");
+      const paid = await createAccount(test, "paid@example.com");
+      expect((await changeEntitlement(test.ctx, paid, { type: "grant", until: PAID_END })).ok).toBe(true);
+      const paidRow = await readRow(test, paid);
+      test.clock.set(new Date("2026-10-04T08:00:00Z"));
+      const before = { old: await getEntitlement(test.ctx, old), fresh: await getEntitlement(test.ctx, fresh) };
+      expect(await pinDerivedTrials(test.ctx)).toBe(2);
+      // The floor's trial (1 to 14 October) and the account's own, exactly as reads derived them.
+      expect(await readRow(test, old)).toMatchObject({ trial_ends_at: new Date("2026-10-14T22:00:00Z"), paid_until: null, is_lifetime: false });
+      expect(await readRow(test, fresh)).toMatchObject({ trial_ends_at: TRIAL_END, paid_until: null, is_lifetime: false });
+      expect(await readRow(test, paid)).toEqual(paidRow);
+      expect(await pinDerivedTrials(test.ctx)).toBe(0);
+
+      const shorter = { ...test.ctx, config: createConfig({ trial: { days: 3 } }) };
+      expect(await getEntitlement(shorter, old)).toEqual(before.old);
+      expect(await getEntitlement(shorter, fresh)).toEqual(before.fresh);
+    } finally {
+      await test.database.close();
+    }
+  });
+
+  it("pins accounts in batches, more than one batch included", async () => {
+    const test = await createTestBilling();
+    try {
+      // Rows straight into auth.users: registering 600 accounts through scrypt would be slow.
+      await test.database.client.query(
+        "INSERT INTO auth.users (email, password_hash, created_at, password_changed_at) SELECT 'bulk' || i || '@example.com', 'scrypt$x', $1, $1 FROM generate_series(1, 600) AS i",
+        [NOW],
+      );
+      expect(await pinDerivedTrials(test.ctx)).toBe(600);
+      const count = await test.database.client.query<{ total: number }>("SELECT count(*)::int AS total FROM billing.entitlements WHERE trial_ends_at = $1", [TRIAL_END]);
+      expect(count.rows[0]?.total).toBe(600);
+    } finally {
+      await test.database.close();
+    }
   });
 });

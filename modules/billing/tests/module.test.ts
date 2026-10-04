@@ -34,6 +34,13 @@ describe("the billing module", () => {
     );
   });
 
+  it("takes trial.startsAt as a calendar day and refuses anything else", () => {
+    expect(billing({ trial: { startsAt: "2026-11-01" } }).options.trial).toEqual({ days: 14, reminderDays: 3, startsAt: "2026-11-01" });
+    for (const startsAt of ["2026-02-30", "2026-1-1", "2026-11-01T00:00:00Z", ""]) {
+      expect(() => billing({ trial: { startsAt } })).toThrow("- options.trial.startsAt: must be a calendar day as YYYY-MM-DD, e.g. 2026-11-01");
+    }
+  });
+
   it("normalizes plans: a period shorthand becomes a unit and a count, features and the flag get defaults", () => {
     const options = billing({
       plans: [

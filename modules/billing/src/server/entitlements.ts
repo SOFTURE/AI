@@ -1,11 +1,12 @@
 // Reading and changing an account's entitlement. An account without a row is on the trial that
-// starts at its `auth.users.created_at`, derived on every read, so reads never write. A change pins
-// that derived record into a row first, then applies the event under the row's lock.
+// starts at its `auth.users.created_at` (or at `trial.startsAt` when later), derived on every read,
+// so reads never write. A change pins that derived record into a row first, then applies the event
+// under the row's lock.
 import { users } from "@softure-ai/auth";
 import { err, ok, type Err, type ModuleContext, type Ok } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
-import { eq } from "drizzle-orm";
-import { getTrialEnd } from "../calendar.js";
+import { and, asc, eq, gt, isNull } from "drizzle-orm";
+import { getDayNumber, getStartOfDay, parseDay } from "../calendar.js";
 import type { BillingErrorCode, Entitlement, EntitlementEvent, EntitlementRecord } from "../contract.js";
 import { applyEntitlementEvent, resolveEntitlement } from "../entitlement.js";
 import { entitlements } from "../schema.js";
@@ -14,9 +15,32 @@ import { isUserId } from "./user-id.js";
 
 export type BillingContext = ModuleContext<Queryable>;
 
-/** The trial an account without a row is on: `trial.days` from the day it was created. */
+/**
+ * The local day an account without a row starts its trial on: the day it was created, or
+ * `trial.startsAt` when that is later.
+ */
+function getTrialStartDay(ctx: Pick<BillingContext, "config">, accountCreatedAt: Date): number {
+  const createdDay = getDayNumber(accountCreatedAt, ctx.config.timezone);
+  const floorDay = getTrialFloorDay(ctx);
+  return floorDay === null ? createdDay : Math.max(createdDay, floorDay);
+}
+
+/** The day number of `trial.startsAt`, or null without one. */
+export function getTrialFloorDay(ctx: Pick<BillingContext, "config">): number | null {
+  const { startsAt } = getBillingOptions(ctx.config).trial;
+  if (startsAt === undefined) return null;
+  const day = parseDay(startsAt);
+  // The option's schema refused anything else at startup.
+  if (day === null) throw new Error(`@softure-ai/billing: trial.startsAt "${startsAt}" is not a calendar day`);
+  return day;
+}
+
+/**
+ * The trial an account without a row is on: `trial.days` from the day it was created, or from
+ * `trial.startsAt` for an account created before that day.
+ */
 export function getDefaultRecord(ctx: Pick<BillingContext, "config">, accountCreatedAt: Date): EntitlementRecord {
-  const trialEndsAt = getTrialEnd(accountCreatedAt, getBillingOptions(ctx.config).trial.days, ctx.config.timezone);
+  const trialEndsAt = getStartOfDay(getTrialStartDay(ctx, accountCreatedAt) + getBillingOptions(ctx.config).trial.days, ctx.config.timezone);
   return { trialEndsAt, paidUntil: null, isLifetime: false };
 }
 
@@ -115,4 +139,67 @@ export async function changeEntitlement(
       .where(eq(entitlements.userId, userId));
     return ok(resolveEntitlement(next.value, now, policy));
   });
+}
+
+export interface ImportEntitlementInput {
+  readonly userId: string;
+  /** The trial end the other system knew; omitted or null keeps the account's own. */
+  readonly trialEndsAt?: Date | null;
+  /** The end of the paid period it knew; omitted or null adds none. */
+  readonly paidUntil?: Date | null;
+  /** Whether it had lifetime access. */
+  readonly isLifetime?: boolean;
+}
+
+/**
+ * Records what another system knew about an account (a trial end, a paid period, lifetime access)
+ * through `changeEntitlement`: merged onto the account's current record, each end only moving
+ * later, so an import never takes access away and a repeat changes nothing. Not a recorded grant:
+ * it is not in the account's history. Database errors propagate.
+ */
+export async function importEntitlement(ctx: BillingContext, input: ImportEntitlementInput): Promise<Ok<Entitlement> | Err<"billing.account_unknown">> {
+  const changed = await changeEntitlement(ctx, input.userId, {
+    type: "import",
+    trialEndsAt: input.trialEndsAt ?? null,
+    paidUntil: input.paidUntil ?? null,
+    isLifetime: input.isLifetime ?? false,
+  });
+  if (changed.ok) return changed;
+  if (changed.error === "billing.account_unknown") return err(changed.error);
+  // An import event is never refused.
+  throw new Error(`@softure-ai/billing: importing an entitlement failed with ${changed.error}`);
+}
+
+/** How many accounts `pinDerivedTrials` reads and writes at a time. */
+const PIN_BATCH_SIZE = 500;
+
+/**
+ * Writes the derived trial of every account without a row into a row (exactly what reads derive,
+ * `trial.startsAt` included), so a later change of `trial.days`, `trial.startsAt` or the time zone
+ * moves no existing trial. A row written meanwhile by a change is kept. Returns how many rows it
+ * wrote. Run it in a transaction (the `pin-trials` script does) to pin all or nothing. Database
+ * errors propagate.
+ */
+export async function pinDerivedTrials(ctx: BillingContext): Promise<number> {
+  const now = ctx.clock.now();
+  let pinned = 0;
+  let after: string | null = null;
+  for (;;) {
+    const accounts: { id: string; createdAt: Date }[] = await ctx.db
+      .select({ id: users.id, createdAt: users.createdAt })
+      .from(users)
+      .leftJoin(entitlements, eq(entitlements.userId, users.id))
+      .where(after === null ? isNull(entitlements.userId) : and(isNull(entitlements.userId), gt(users.id, after)))
+      .orderBy(asc(users.id))
+      .limit(PIN_BATCH_SIZE);
+    const last = accounts.at(-1);
+    if (last === undefined) return pinned;
+    const inserted = await ctx.db
+      .insert(entitlements)
+      .values(accounts.map((account) => ({ userId: account.id, ...getDefaultRecord(ctx, account.createdAt), createdAt: now, updatedAt: now })))
+      .onConflictDoNothing({ target: entitlements.userId })
+      .returning();
+    pinned += inserted.length;
+    after = last.id;
+  }
 }
