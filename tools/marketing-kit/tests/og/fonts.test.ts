@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { loadOgFonts, pickWeight } from "../../src/og/fonts.js";
-import { INTER, getInterFile, makeFont } from "./helpers.js";
+import { loadOgFonts, pickWeight, toFontFamilyCss } from "../../src/og/fonts.js";
+import { INTER, getInterExtFile, getInterFile, makeFont } from "./helpers.js";
 
 describe("loadOgFonts", () => {
   it("loads static .woff files with their weights for Satori", () => {
@@ -18,17 +18,46 @@ describe("loadOgFonts", () => {
   it("lets the body borrow the heading font and the other way round", () => {
     const fromHeading = loadOgFonts({ heading: INTER, body: null });
     const fromBody = loadOgFonts({ heading: null, body: INTER });
-    expect(fromHeading.ok && fromHeading.value.body).toEqual({ family: "Inter", weights: [400, 700] });
-    expect(fromBody.ok && fromBody.value.heading).toEqual({ family: "Inter", weights: [400, 700] });
+    expect(fromHeading.ok && fromHeading.value.body).toEqual({ family: "Inter", weights: [400, 700], subsetFamilies: [] });
+    expect(fromBody.ok && fromBody.value.heading).toEqual({ family: "Inter", weights: [400, 700], subsetFamilies: [] });
   });
 
   it("keeps the heading and body families apart", () => {
     const body = makeFont([{ path: getInterFile(400), weight: "400" }], "Body Face");
     const loaded = loadOgFonts({ heading: makeFont([{ path: getInterFile(700), weight: "700" }]), body });
     expect(loaded.ok && [loaded.value.heading, loaded.value.body]).toEqual([
-      { family: "Inter", weights: [700] },
-      { family: "Body Face", weights: [400] },
+      { family: "Inter", weights: [700], subsetFamilies: [] },
+      { family: "Body Face", weights: [400], subsetFamilies: [] },
     ]);
+  });
+
+  it("registers further files of a weight and style as subset families, in the order listed", () => {
+    const font = makeFont([
+      { path: getInterFile(400), weight: "400" },
+      { path: getInterExtFile(400), weight: "400" },
+      { path: getInterFile(700), weight: "700" },
+      { path: getInterExtFile(700), weight: "700" },
+      { path: getInterExtFile(400), weight: "400" },
+    ]);
+    const loaded = loadOgFonts({ heading: font, body: null });
+    expect(loaded.ok && loaded.value.satoriFonts.map(({ name, weight }) => `${name} ${weight}`)).toEqual([
+      "Inter 400",
+      "Inter #2 400",
+      "Inter 700",
+      "Inter #2 700",
+      "Inter #3 400",
+    ]);
+    expect(loaded.ok && loaded.value.heading).toEqual({ family: "Inter", weights: [400, 700], subsetFamilies: ["Inter #2", "Inter #3"] });
+  });
+
+  it("counts subset files per style, so an italic file does not take an upright position", () => {
+    const font = makeFont([
+      { path: getInterFile(400), weight: "400" },
+      { path: getInterFile(400), weight: "400", style: "italic" },
+      { path: getInterExtFile(400), weight: "400" },
+    ]);
+    const loaded = loadOgFonts({ heading: null, body: font });
+    expect(loaded.ok && loaded.value.satoriFonts.map(({ name, style }) => `${name} ${style}`)).toEqual(["Inter normal", "Inter italic", "Inter #2 normal"]);
   });
 
   it("refuses a .woff2 file, naming its JSON path", () => {
@@ -97,5 +126,12 @@ describe("pickWeight", () => {
 
   it("breaks a tie towards the heavier weight", () => {
     expect(pickWeight([400, 600], 500)).toBe(600);
+  });
+});
+
+describe("toFontFamilyCss", () => {
+  it("names the family alone without subset files, and its subset families after it", () => {
+    expect(toFontFamilyCss({ family: "Inter", weights: [400], subsetFamilies: [] })).toBe("Inter");
+    expect(toFontFamilyCss({ family: "Inter", weights: [400], subsetFamilies: ["Inter #2", "Inter #3"] })).toBe("Inter, Inter #2, Inter #3");
   });
 });
