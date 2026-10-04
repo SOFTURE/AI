@@ -73,7 +73,14 @@ export type EntitlementEvent =
   /** Ends lifetime access (a refunded lifetime); dated paid access stays. */
   | { readonly type: "end_lifetime" }
   /** Moves the trial end to `until`; never shortens it. */
-  | { readonly type: "extend_trial"; readonly until: Date };
+  | { readonly type: "extend_trial"; readonly until: Date }
+  /**
+   * Merges a record carried over from another system (`importEntitlement`): each end only moves
+   * later and lifetime only turns on, so an import never takes access away and a repeat changes
+   * nothing. Ends may lie in the past: an ended trial or period is recorded as it was. Null keeps
+   * what the account has.
+   */
+  | { readonly type: "import"; readonly trialEndsAt: Date | null; readonly paidUntil: Date | null; readonly isLifetime: boolean };
 
 /** What one payment of a plan added to an account, stored with the payment so a refund takes back only that. */
 export type PaymentGrant =

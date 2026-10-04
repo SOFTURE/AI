@@ -143,18 +143,18 @@ trials stay; duplicate emails differing only in case are refused; a row with no 
 ### Phase 1: Trial floor
 
 #### Automated
-- [x] 1.1 An account created before `trial.startsAt` has a trial of `trial.days` from the floor day; later accounts are unchanged
-- [x] 1.2 An invalid `trial.startsAt` fails config parsing
-- [x] 1.3 Reminder mail finds accounts under the floor in the floor trial's window
-- [x] 1.4 Gates green (typecheck, lint, test)
+- [x] 1.1 An account created before `trial.startsAt` has a trial of `trial.days` from the floor day; later accounts are unchanged — a96b83e
+- [x] 1.2 An invalid `trial.startsAt` fails config parsing — a96b83e
+- [x] 1.3 Reminder mail finds accounts under the floor in the floor trial's window — a96b83e
+- [x] 1.4 Gates green (typecheck, lint, test) — a96b83e
 
 ### Phase 2: Import and pin
 
 #### Automated
-- [ ] 2.1 The `import` event merges without shortening any end
-- [ ] 2.2 `importEntitlement` and `import-entitlements` record rows; refusals write nothing; no email in output
-- [ ] 2.3 `pinDerivedTrials` and `pin-trials` write derived trials for row-less accounts only, idempotently
-- [ ] 2.4 Gates green (typecheck, lint, test)
+- [x] 2.1 The `import` event merges without shortening any end
+- [x] 2.2 `importEntitlement` and `import-entitlements` record rows; refusals write nothing; no email in output
+- [x] 2.3 `pinDerivedTrials` and `pin-trials` write derived trials for row-less accounts only, idempotently
+- [x] 2.4 Gates green (typecheck, lint, test)
 
 ### Phase 3: Example app and README
 

@@ -6,8 +6,11 @@ export {
   findEntitlementRecord,
   getDefaultRecord,
   getEntitlement,
+  importEntitlement,
+  pinDerivedTrials,
   type BillingContext,
   type EntitlementEventResolver,
+  type ImportEntitlementInput,
 } from "./entitlements.js";
 export {
   ACCOUNT_HISTORY_LIMIT,

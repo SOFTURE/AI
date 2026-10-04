@@ -48,8 +48,9 @@ function getEarlier(first: Date, second: Date): Date {
 
 /**
  * The record after `event` at `now`. Grants and trial extensions must end after `now` and never
- * shorten what the account already has; a revoke ends paid access, lifetime included. The dated
- * end lives on under lifetime access: a grant still extends it, and ending lifetime falls back to it.
+ * shorten what the account already has; an import never shortens either, but may record past ends;
+ * a revoke ends paid access, lifetime included. The dated end lives on under lifetime access: a
+ * grant still extends it, and ending lifetime falls back to it.
  */
 export function applyEntitlementEvent(record: EntitlementRecord, event: EntitlementEvent, now: Date): Ok<EntitlementRecord> | Err<BillingErrorCode> {
   switch (event.type) {
@@ -73,5 +74,11 @@ export function applyEntitlementEvent(record: EntitlementRecord, event: Entitlem
     case "extend_trial":
       if (event.until <= now) return err("billing.end_not_in_future");
       return ok({ ...record, trialEndsAt: getLater(record.trialEndsAt, event.until) });
+    case "import":
+      return ok({
+        trialEndsAt: event.trialEndsAt === null ? record.trialEndsAt : getLater(record.trialEndsAt, event.trialEndsAt),
+        paidUntil: event.paidUntil === null || (record.paidUntil !== null && record.paidUntil >= event.paidUntil) ? record.paidUntil : event.paidUntil,
+        isLifetime: record.isLifetime || event.isLifetime,
+      });
   }
 }
