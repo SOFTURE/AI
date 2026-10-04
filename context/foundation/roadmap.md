@@ -72,7 +72,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-28** | `auth-page-redirect-tag` | a signed-in visitor's redirect from a tagged login page keeps the tag | FU-7 | autonomous | done_code (2026-10-04; waiting: the next releases of `@softure-ai/auth` and `@softure-ai/analytics`) |
 | **FU-29** | `marketing-kit-font-files-description` | the marketing.json font files description admits subset files | FU-23 | autonomous | proposed |
 | **FU-30** | `billing-failed-refund-access` | a refund that fails gives back the access it took | FU-27 | autonomous | proposed |
-| **FU-31** | `auth-require-user-redirect-tag` | `requireUser`'s redirect to login keeps the channel tag | FU-28 | autonomous | proposed |
+| **FU-31** | `auth-require-user-redirect-tag` | `requireUser`'s redirect to login keeps the channel tag | FU-28 | autonomous | in_progress (implement 0/1, since 2026-10-04; branch `claude/fu-31-require-user-redirect-tag-z0d58o`) |
 
 ## Order
 
@@ -506,7 +506,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-31: `requireUser`'s redirect to login keeps the channel tag
 - **Change ID:** `auth-require-user-redirect-tag`
-- **Status:** proposed
+- **Status:** in_progress (implement 0/1, since 2026-10-04; branch `claude/fu-31-require-user-redirect-tag-z0d58o`)
+- **Input:** [`changes/auth-require-user-redirect-tag/change.md`](../changes/auth-require-user-redirect-tag/change.md)
 - **Outcome:** A page that calls `requireUser()` while it renders sends a visitor without a session to the login page at a URL that keeps the page's channel tag (for example a `searchParams` option on `requireUser` handed to the app's `rewriteRedirect`, or a documented rule that such pages sit behind the proxy's auth guard).
 - **Prerequisites:** FU-28 on `master` (shared files, see Order).
 - **Unknowns:** Whether pages outside the proxy's guard are common enough to need it; how a page hands its search params to `requireUser` without changing every call.
