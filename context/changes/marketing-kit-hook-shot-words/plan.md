@@ -55,6 +55,7 @@ other path-named check lives.
 - Complexity → small (one refinement, one test table, one README line).
 - Framing skipped (change.md Notes).
 - Plan review: W1 applied to step 1; S1 accepted without change.
+- Roadmap status needs `implement 1/1` (stage with phase count) for the roadmap contract test.
 
 ## Progress
 
@@ -63,6 +64,6 @@ other path-named check lives.
 ### Phase 1: Later opening shots need a word at load
 
 #### Automated
-- [ ] 1.1 The new config tests pass and failed before the schema change
-- [ ] 1.2 `tests/schema.test.ts` passes on the regenerated file
-- [ ] 1.3 Gates green (typecheck, lint, test) and build
+- [x] 1.1 The new config tests pass and failed before the schema change — 7a7e04b
+- [x] 1.2 `tests/schema.test.ts` passes on the regenerated file — 7a7e04b (the regenerated file is unchanged: the description already states the rule)
+- [x] 1.3 Gates green (typecheck, lint, test) and build — 7a7e04b
