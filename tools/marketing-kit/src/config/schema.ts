@@ -1,6 +1,16 @@
 import { z } from "zod";
 
-import { LAYOUTS, VIDEO_FORMATS, fitsFrame, resolveLayout, type VideoFormat } from "../compose/timeline.js";
+import {
+  DEVICE_KINDS,
+  LAYOUTS,
+  LAYOUT_NAMES,
+  MIN_DESKTOP_WIDTH,
+  VIDEO_FORMATS,
+  fitsFrame,
+  isDesktopViewport,
+  resolveLayout,
+  type LayoutName,
+} from "../compose/timeline.js";
 import { MARKETING_LOCALES, type MarketingLocale } from "../messages/index.js";
 import { headlineChartDataSchema, headlineCtaDataSchema } from "../og/templates/schemas.js";
 import { CHANNEL_CODE_MAX_LENGTH, CHANNEL_CODE_PATTERN, DEFAULT_LINK_IN_BIO, PLATFORMS } from "../platforms.js";
@@ -165,15 +175,32 @@ const brandSchema = z.strictObject({
     .describe("The brand fonts the composition loads."),
 });
 
+/**
+ * The recording device. A phone's viewport must fit the 9:16 phone box; a desktop's must be a landscape browser at
+ * least `MIN_DESKTOP_WIDTH` wide, and a desktop is never a mobile browser.
+ */
 const deviceSchema = z
   .strictObject({
-    viewport: z.tuple([pixels(2000), pixels(4000)]).describe("The recorded screen in CSS pixels, [width, height]; at most about 2.6 times as tall as wide."),
-    scale: z.number().min(1).max(4).describe("Device pixels per CSS pixel (1-4); the frame needs about 1080 / (640 / width) to stay sharp."),
-    mobile: z.boolean().default(true).describe("Whether the browser behaves as a phone (touch, mobile viewport)."),
+    kind: z
+      .enum(DEVICE_KINDS)
+      .default("phone")
+      .describe("What records the film: a phone (touch, framed as a phone) or a desktop browser (mouse, framed as a browser window, 16:9 films only)."),
+    viewport: z
+      .tuple([pixels(2000), pixels(4000)])
+      .describe(`The recorded screen in CSS pixels, [width, height]; a phone's at most about 2.6 times as tall as wide, a desktop's at least ${MIN_DESKTOP_WIDTH} wide and not taller than wide.`),
+    scale: z.number().min(1).max(4).describe("Device pixels per CSS pixel (1-4); a phone needs about 1080 / (640 / width) to stay sharp, a desktop 1.5-2."),
+    mobile: z.boolean().optional().describe("Whether a phone's browser behaves as a mobile one (mobile viewport, default true); a desktop never does."),
   })
-  .refine((device) => fitsFrame({ width: device.viewport[0], height: device.viewport[1] }), {
-    message: "is too tall for the 9:16 frame (height at most about 2.6 × width)",
-    path: ["viewport"],
+  .superRefine((device, context) => {
+    const viewport = { width: device.viewport[0], height: device.viewport[1] };
+    if (device.kind === "phone") {
+      if (!fitsFrame(viewport)) context.addIssue({ code: "custom", path: ["viewport"], message: "is too tall for the 9:16 frame (height at most about 2.6 × width)" });
+      return;
+    }
+    if (device.mobile === true) context.addIssue({ code: "custom", path: ["mobile"], message: "a desktop browser is never a mobile one; remove it or set kind to phone" });
+    if (!isDesktopViewport(viewport)) {
+      context.addIssue({ code: "custom", path: ["viewport"], message: `a desktop viewport is at least ${MIN_DESKTOP_WIDTH} px wide and not taller than wide` });
+    }
   });
 
 const appSchema = z.strictObject({
@@ -193,7 +220,7 @@ const appSchema = z.strictObject({
     .regex(SELECTOR_PATTERN, "must be a CSS selector without { } ; < > \\ or /*")
     .default("body")
     .describe("The element whose text the screen guard reads."),
-  device: deviceSchema.describe("The recorded phone; a video can override it."),
+  device: deviceSchema.describe("The recording device (a phone or a desktop browser); a video can override it."),
 });
 
 const tempo = z.number().min(0.8).max(1.3);
@@ -272,8 +299,11 @@ const videoSchema = z
     id: id.describe("The film's id: its folder under output.dir and the name social.posts refer to."),
     title: nonEmpty.describe("The film's title: the heading of its posts.md and the composition's <title>."),
     path: pagePath.describe("The recorded page of the app, e.g. /calculator."),
-    format: z.enum(VIDEO_FORMATS).default("9:16").describe("The film's aspect ratio: 9:16 (full screen), 1:1 or 16:9 (a framed phone next to the copy)."),
-    device: deviceSchema.optional().describe("The recorded phone for this film; without it, app.device."),
+    format: z
+      .enum(VIDEO_FORMATS)
+      .default("9:16")
+      .describe("The film's aspect ratio: 9:16 (full screen), 1:1 or 16:9 (a framed phone next to the copy, or a browser window with a desktop device)."),
+    device: deviceSchema.optional().describe("The recording device for this film; without it, app.device."),
     voice: z
       .strictObject({
         voiceId: nonEmpty.optional().describe("This film's voice; without it, voice.voiceId."),
@@ -445,12 +475,13 @@ const sfxShape = Object.fromEntries(
 const MIN_TEXT_WIDTH = 200;
 
 /**
- * One format's layout override: every key optional, bounded by the format's frame, and described with the
- * format's default from `LAYOUTS`. The margins are checked on the merged box, so an override of one margin
- * is refused when the table's other margin leaves too little room.
+ * One layout's override: every key optional, bounded by the layout's frame, and described with the layout's
+ * default from `LAYOUTS`. The margins are checked on the merged box, so an override of one margin is refused
+ * when the table's other margin leaves too little room.
  */
-function layoutOverrideSchema(format: VideoFormat) {
-  const { frame, caption, persona, endCard } = LAYOUTS[format];
+function layoutOverrideSchema(name: LayoutName) {
+  const { frame, caption, persona, endCard, window } = LAYOUTS[name];
+  const device = window === "phone" ? "phone" : "browser window";
   const x = (text: string, value: number) => z.number().int().min(0).max(frame.width).optional().describe(`${text} Default ${value}.`);
   const y = (text: string, value: number) => z.number().int().min(0).max(frame.height).optional().describe(`${text} Default ${value}.`);
   return z
@@ -480,23 +511,23 @@ function layoutOverrideSchema(format: VideoFormat) {
           headlineSize: z.number().int().min(16).max(300).optional().describe(`The end card's headline size in px (16-300). Default ${endCard.headlineSize}.`),
           phone: z
             .strictObject({
-              scale: z.number().min(0.2).max(1.5).optional().describe(`The phone's scale while the end card shows (0.2-1.5). Default ${endCard.phone.scale}.`),
+              scale: z.number().min(0.2).max(1.5).optional().describe(`The ${device}'s scale while the end card shows (0.2-1.5). Default ${endCard.phone.scale}.`),
               center: z
                 .strictObject({
                   x: x("Where the screen's centre goes, in px from the frame's left edge.", endCard.phone.center.x),
                   y: y("Where the screen's centre goes, in px from the frame's top.", endCard.phone.center.y),
                 })
                 .optional()
-                .describe("Where the phone's screen centre goes while the end card shows."),
+                .describe(`Where the ${device}'s screen centre goes while the end card shows.`),
             })
             .optional()
-            .describe("The phone's pose while the end card shows."),
+            .describe(`The ${device}'s pose while the end card shows.`),
         })
         .optional()
-        .describe("The end card's box, headline size and the phone's pose behind it."),
+        .describe(`The end card's box, headline size and the ${device}'s pose behind it.`),
     })
     .superRefine((override, context) => {
-      const layout = resolveLayout(format, override);
+      const layout = resolveLayout(name, override);
       for (const box of ["caption", "persona", "endCard"] as const) {
         const width = frame.width - layout[box].left - layout[box].right;
         if (width < MIN_TEXT_WIDTH) {
@@ -508,11 +539,12 @@ function layoutOverrideSchema(format: VideoFormat) {
 
 const layoutSchema = z.strictObject(
   Object.fromEntries(
-    VIDEO_FORMATS.map((format) => {
-      const { width, height } = LAYOUTS[format].frame;
-      return [format, layoutOverrideSchema(format).optional().describe(`Overrides for every ${format} film (${width}×${height} px); a missing key keeps the default.`)];
+    LAYOUT_NAMES.map((name) => {
+      const { width, height } = LAYOUTS[name].frame;
+      const films = name === "desktop" ? "desktop (16:9, browser window)" : `${name} phone`;
+      return [name, layoutOverrideSchema(name).optional().describe(`Overrides for every ${films} film (${width}×${height} px); a missing key keeps the default.`)];
     }),
-  ) as Record<VideoFormat, z.ZodOptional<ReturnType<typeof layoutOverrideSchema>>>,
+  ) as Record<LayoutName, z.ZodOptional<ReturnType<typeof layoutOverrideSchema>>>,
 );
 
 export const marketingSchema = z
@@ -527,7 +559,7 @@ export const marketingSchema = z
     ogImages: z.array(ogImageSchema).default([]).describe("Open Graph images rendered by softure-marketing og."),
     layout: layoutSchema
       .optional()
-      .describe("Per format, overrides of where the caption, the persona card and the end card go, and the end card's phone pose."),
+      .describe("Per format (9:16, 1:1, 16:9 for phone films; desktop for desktop films), overrides of where the caption, the persona card and the end card go, and the end card's phone or window pose."),
     sfx: z.strictObject(sfxShape).prefault({}).describe("Sound effects of the composition; a missing one is silent."),
     output: z
       .strictObject({
@@ -547,6 +579,12 @@ export const marketingSchema = z
       });
     };
     checkUnique("videos");
+    config.videos.forEach((video, index) => {
+      const device = video.device ?? config.app.device;
+      if (device.kind === "desktop" && video.format !== "16:9") {
+        context.addIssue({ code: "custom", path: ["videos", index, "format"], message: `is ${video.format}, but a desktop device records 16:9 films only` });
+      }
+    });
     checkUnique("screenshots");
     checkUnique("ogImages");
     const fileOwners = new Map<string, number>();

@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { findMissingFiles, formatConfigIssues, loadMarketingConfig, type MarketingConfig } from "../config/config.js";
-import { getGeometry } from "../compose/timeline.js";
+import { getGeometry, getLayoutName } from "../compose/timeline.js";
 import { sceneBeats } from "../film.js";
 import { getMarketingMessages } from "../messages/index.js";
 import { postsMarkdown } from "../posts/posts.js";
@@ -126,7 +126,7 @@ function render(config: MarketingConfig, film: LoadedFilm, options: FilmOptions)
     quality: options.quality ?? config.output.quality,
     output,
   });
-  const { frame } = getGeometry(film.device.viewport, film.format);
+  const { frame } = getGeometry(film.device.viewport, getLayoutName(film.format, film.device.kind));
   console.log(`\n✓ ${output} (${seconds.toFixed(1)} s, ${frame.width}×${frame.height}, ${film.format})`);
   console.log(describePosts(config, film, writePosts(config, film)));
 }
