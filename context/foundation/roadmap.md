@@ -53,7 +53,7 @@ backlog: context/backlog/roadmap-blog/
 | **BL-2** | `blog-content-store` | `@softure-ai/blog`: article and term tables in the module's schema, Markdown files with a strict frontmatter, `softure-blog publish` (dry run by default), slug history | — | autonomous | done_code (2026-10-04; waiting: the first release of `@softure-ai/blog`, BL-8) |
 | **BL-3** | `blog-markdown-renderer` | server-side Markdown renderer with an allowlist, heading anchors, glossary auto-links from term forms and a block plugin API | BL-2 | autonomous | done_code (2026-10-04; waiting: the first release of `@softure-ai/blog`, BL-8) |
 | **BL-4** | `blog-pages` | `/blog`, article and glossary pages from the package: ISR, JSON-LD, summary box, sources, disclaimer and CTA slots, 301/410, OG image per article | BL-3 | autonomous | done_code (2026-10-04; waiting: the first release of `@softure-ai/blog`, BL-8) |
-| **BL-5** | `blog-discovery` | RSS feed, blog sitemap entries with a real `lastmod`, IndexNow ping on publish, "read next" by cluster with the pillar first | BL-1, BL-4 | autonomous | in_progress (implement 1/3, since 2026-10-04; claude/bl-5-2yucrl) |
+| **BL-5** | `blog-discovery` | RSS feed, blog sitemap entries with a real `lastmod`, IndexNow ping on publish, "read next" by cluster with the pillar first | BL-1, BL-4 | autonomous | in_progress (impl-review, since 2026-10-04; claude/bl-5-2yucrl) |
 | **BL-6** | `blog-quality-gate` | `softure-blog check`: structure, links, style and YMYL rules with language rulesets and rule plugins; publish refuses errors | BL-2 | autonomous | done_code (2026-10-04; waiting: the first release of `@softure-ai/blog`, BL-8) |
 | **BL-7** | `blog-writing-skill` | a writing skill shipped with the blog module and installed into the app, kept in sync with the gate's rules | BL-6 | autonomous | ready |
 | **BL-8** | `blog-release` | `@softure-ai/seo` and `@softure-ai/blog` 0.1.0 published through the release pipeline; READMEs, adoption guides and docs updated | BL-1…BL-7 | owner | blocked (waits for BL-1…BL-7 and the owner's first npm publish at the keyboard) |
@@ -185,7 +185,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### BL-5: Blog discovery: RSS, sitemap and IndexNow
 - **Change ID:** `blog-discovery`
-- **Status:** in_progress (implement 1/3, since 2026-10-04; claude/bl-5-2yucrl)
+- **Status:** in_progress (impl-review, since 2026-10-04; claude/bl-5-2yucrl)
 - **Outcome:**
   - an RSS 2.0 feed route for published articles;
   - a sitemap contributor for `@softure-ai/seo` (BL-1) with each article's real `lastmod`;

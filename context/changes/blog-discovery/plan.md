@@ -97,22 +97,22 @@ request), a sitemap hook in core (BL-1 chose contributors).
 ### Phase 1: discovery logic, submit and CLI
 
 #### Automated
-- [ ] 1.1 Discovery functions and their tests
-- [ ] 1.2 CLI submit and `--no-indexnow`
-- [ ] 1.3 Manifest route, mount, optional seo dependency
-- [ ] 1.4 Gates green (typecheck, lint, test)
+- [x] 1.1 Discovery functions and their tests — 812cf9a
+- [x] 1.2 CLI submit and `--no-indexnow` — 812cf9a
+- [x] 1.3 Manifest route, mount, optional seo dependency — 812cf9a
+- [x] 1.4 Gates green (typecheck, lint, test) — 812cf9a
 
 ### Phase 2: Next pieces, copy, UI
 
 #### Automated
-- [ ] 2.1 Copy in `en` and `pl`
-- [ ] 2.2 "Read next" section and styles
-- [ ] 2.3 Feed route, sitemap contributor, feed links, related on the page
-- [ ] 2.4 README; gates green (typecheck, lint, test, build)
+- [x] 2.1 Copy in `en` and `pl` — 7ed5177
+- [x] 2.2 "Read next" section and styles — 7ed5177
+- [x] 2.3 Feed route, sitemap contributor, feed links, related on the page — 7ed5177
+- [x] 2.4 README; gates green (typecheck, lint, test, build) — 7ed5177
 
 ### Phase 3: example app and e2e
 
 #### Automated
-- [ ] 3.1 Example app wires the contributor, the feed and `--no-indexnow`
-- [ ] 3.2 e2e for feed, sitemap and read next
-- [ ] 3.3 `npm run e2e` green locally
+- [x] 3.1 Example app wires the contributor, the feed and `--no-indexnow` — a85b673
+- [x] 3.2 e2e for feed, sitemap and read next — a85b673
+- [x] 3.3 `npm run e2e` green locally — a85b673
