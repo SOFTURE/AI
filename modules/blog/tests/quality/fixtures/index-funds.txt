@@ -1,0 +1,39 @@
+---
+id: index-funds
+slug: index-funds
+kind: article
+cluster: investing-basics
+title: What an index fund costs over 20 years
+description: A fund that charges 0.2% a year leaves you about $9,000 more after 20 years than one that charges 1%. Here is the arithmetic.
+summary: On $500 a month for 20 years at 5% a year, a 1% fee costs about $21,000 and a 0.2% fee about $4,600.
+status: published
+current_as_of: 2026-10-01
+sources:
+  - name: SEC investor bulletin on mutual fund fees
+    url: https://www.sec.gov/investor/alerts/ib_mutualfundfees.pdf
+---
+
+A fund that charges 1% a year takes about $21,000 from someone who saves $500 a month for 20 years at 5% a year[^calc]. A fund that charges 0.2% takes about $4,600 from the same saver[^calc].
+
+The difference comes from compounding. A fee is taken every year from the whole balance, so it grows with the money.
+
+## What does an index fund charge?
+
+Most broad index funds charge between 0.03% and 0.2% a year[^sec]. Actively managed funds often charge 0.5% to 1%.
+
+The fee is called the expense ratio. You never pay it as a bill: the fund takes it from its assets, and the price of a share is lower by that much.
+
+## How much does the fee take over 20 years?
+
+On a plan of $500 a month, the balance after 20 years is about $205,000 with no fee at all[^calc]. A 0.2% fee leaves about $200,400, and a 1% fee about $184,000.
+
+You can try your own numbers in the [savings calculator](/calculator). The [glossary entry on the expense ratio](/blog/glossary/expense-ratio) explains where the number is published.
+
+## When is a higher fee worth it?
+
+Rarely. A fund has to beat the market by the whole difference in fees, every year, to come out even. Over long periods most active funds do not.
+
+A higher fee can still make sense for a market no cheap fund covers. Check what the fund holds before you compare the price.
+
+[^sec]: SEC investor bulletin: https://www.sec.gov/investor/alerts/ib_mutualfundfees.pdf
+[^calc]: Our calculation: $500 a month, 5% a year, fees taken yearly, as of 2026-10-01.

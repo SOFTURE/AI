@@ -2,7 +2,7 @@
 change_id: blog-seo-canonical
 title: "The blog's page URLs follow the canonical rule of @softure-ai/seo"
 status: backlog
-roadmap_item: BF-5
+roadmap_item: BF-7
 branch: null
 created: 2026-10-04
 updated: 2026-10-04
@@ -17,9 +17,9 @@ from the one the sitemap and the rest of the app use.
 
 ## Context
 
-From [`roadmap-blog-followups.md`](../../../foundation/roadmaps/roadmap-blog-followups.md), item **BF-5**:
+From [`roadmap-blog-followups.md`](../../../foundation/roadmaps/roadmap-blog-followups.md), item **BF-7**:
 
-> ### BF-5: Blog URLs follow the seo canonical rule
+> ### BF-7: Blog URLs follow the seo canonical rule
 > - **Change ID:** `blog-seo-canonical`
 > - **Status:** ready
 > - **Outcome:** the blog's pages build canonical, OG and JSON-LD URLs through `@softure-ai/seo`'s canonical URL helper when `seo()` is in the config, and on `appOrigin` otherwise; a test covers a canonical host that differs from `appOrigin` and a trailing-slash rule.

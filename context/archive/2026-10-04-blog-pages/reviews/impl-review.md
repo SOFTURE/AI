@@ -22,13 +22,13 @@ Verdict: **approved**; two gaps filed (R1, R2).
 
 ## Findings
 
-- R1 (gap, BF-5): the pages build URLs on `appOrigin`; `@softure-ai/seo`'s canonical host and
+- R1 (gap, BF-7): the pages build URLs on `appOrigin`; `@softure-ai/seo`'s canonical host and
   trailing-slash rule is not applied. Matches the example app today; an app with another canonical
   host would get mismatched canonicals. Filed as `blog-seo-canonical`.
-- R2 (gap, BF-6): the OG card uses `next/og`'s default font; an app needs its own
+- R2 (gap, BF-8): the OG card uses `next/og`'s default font; an app needs its own
   `opengraph-image.tsx` with `renderArticleOgImage({ fonts })` for its brand font. A `brand.fonts`
   option would remove that file. Filed as `blog-og-fonts`.
-- R3 (fixed): `tests/repo/markdown-links.ts` read a footnote definition (`[^fee]: The fee ...`) as a link
+- R3 (fixed, closes BF-5 filed by BL-6): `tests/repo/markdown-links.ts` read a footnote definition (`[^fee]: The fee ...`) as a link
   reference; it now skips `[^...]:`, with a test.
 - R4 (fixed): `import type { Metadata } from "next"` pulled Next's globals into the root program and
   made `NODE_ENV` read-only for `vitest.config.mts`; the pages import it from `next/types.js`.

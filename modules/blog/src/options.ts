@@ -1,5 +1,6 @@
 // The options an app passes to `blog({ ... })` in softure.config.ts, parsed at startup.
 import { z } from "zod";
+import { qualitySettingSchema } from "./quality/options.js";
 import type { BlockPlugin } from "./render/render-article.js";
 
 /** Where the app keeps its article files unless a command names a path. */
@@ -100,6 +101,8 @@ export const blogOptionsSchema = z
     siteHosts: z.array(z.string().regex(HOSTNAME, "must be a host name, e.g. example.com")).default([]),
     /** How long the listing and glossary cache their reads; keep it equal to the pages' `revalidate`. */
     revalidateSeconds: z.number().int().min(1).default(DEFAULT_REVALIDATE_SECONDS),
+    /** The text quality gate (`softure-blog check`, and every publish); `false` turns it off. */
+    quality: qualitySettingSchema,
   })
   .superRefine((options, ctx) => {
     for (const key of Object.keys(options.fields?.shape ?? {})) {

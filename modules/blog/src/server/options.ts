@@ -3,6 +3,7 @@ import { getModule, type AnySoftureModule, type SoftureConfig } from "@softure-a
 import type { BlogMessages } from "../messages/index.js";
 import type { BlogOptions } from "../options.js";
 import { getReservedSlugs, normalizeRoute, type BlogRoutes } from "../pages/paths.js";
+import { resolveQualitySettings, type QualitySettings } from "../quality/settings.js";
 
 const MODULE_ID = "blog";
 
@@ -42,4 +43,10 @@ export function getBlogRoutes(config: SoftureConfig): BlogRoutes {
 export function getBlogReservedSlugs(config: SoftureConfig): string[] {
   const options = getBlogOptions(config);
   return getReservedSlugs(getBlogRoutes(config), options);
+}
+
+/** The quality gate's settings, or `null` when the app turned the gate off (`quality: false`). */
+export function getQualitySettings(config: SoftureConfig): QualitySettings | null {
+  const { quality } = getBlogOptions(config);
+  return quality === false ? null : resolveQualitySettings(quality, config);
 }

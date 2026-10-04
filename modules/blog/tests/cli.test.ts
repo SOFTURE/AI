@@ -23,7 +23,8 @@ describe("softure-blog publish", () => {
   let closed: number;
 
   beforeEach(async () => {
-    test = await createTestBlog({ contentDir: "content" });
+    // The fixture articles are too short for the quality gate; the gate has its own tests.
+    test = await createTestBlog({ contentDir: "content", quality: false });
     opened = 0;
     closed = 0;
   });

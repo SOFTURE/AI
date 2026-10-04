@@ -213,6 +213,9 @@ const config = defineSoftureConfig({
       methodPage: true,
       disclaimer: { en: en.blog.disclaimer, pl: pl.blog.disclaimer },
       clusters: { "investing-basics": { en: en.blog.clusters.investingBasics, pl: pl.blog.clusters.investingBasics } },
+      // content/blog holds short page fixtures for the e2e suite, not real texts; the quality gate
+      // (length, sections, links) is covered by the package's own tests.
+      quality: false,
     }),
   ],
 });

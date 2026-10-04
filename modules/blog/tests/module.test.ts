@@ -19,7 +19,9 @@ describe("the blog module", () => {
   });
 
   it("fills in the defaults: content/blog, no reserved slugs, no app fields, no brand or method page", () => {
-    expect(blog().options).toEqual({ contentDir: "content/blog", reservedSlugs: [], methodPage: false, clusters: {}, blocks: [], siteHosts: [], revalidateSeconds: 300 });
+    const { quality, ...rest } = blog().options;
+    expect(rest).toEqual({ contentDir: "content/blog", reservedSlugs: [], methodPage: false, clusters: {}, blocks: [], siteHosts: [], revalidateSeconds: 300 });
+    expect(quality).toMatchObject({ language: "en", ymyl: null, paths: { articles: "/blog", terms: "/blog/glossary" }, plugins: [] });
   });
 
   it("serves its pages under /blog unless the app moves them, and reserves their slugs", () => {

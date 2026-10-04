@@ -2,7 +2,7 @@
 change_id: blog-og-fonts
 title: "The article OG card takes the brand's fonts from config"
 status: backlog
-roadmap_item: BF-6
+roadmap_item: BF-8
 branch: null
 created: 2026-10-04
 updated: 2026-10-04
@@ -17,9 +17,9 @@ one-line `opengraph-image.tsx` re-export instead of writing its own file around
 
 ## Context
 
-From [`roadmap-blog-followups.md`](../../../foundation/roadmaps/roadmap-blog-followups.md), item **BF-6**:
+From [`roadmap-blog-followups.md`](../../../foundation/roadmaps/roadmap-blog-followups.md), item **BF-8**:
 
-> ### BF-6: The OG card takes the brand's fonts
+> ### BF-8: The OG card takes the brand's fonts
 > - **Change ID:** `blog-og-fonts`
 > - **Status:** ready
 > - **Outcome:** `brand.fonts` (name, weight, a path or URL the server reads once and caches) feeds `BlogArticleOgImage`; a missing file fails with a message naming it; marketing-kit's subset fonts are a candidate source.
