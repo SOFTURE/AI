@@ -116,20 +116,29 @@ naglowek-wielkie-litery→`title-case-heading`. New: `summary-missing` (roadmap 
   a `summary` in the conversion.
 - `current_as_of` required: BL-2's parser already requires it for every file; the YMYL switch does
   not repeat it.
+- "Today" uses the config's `timezone` (core option), not a `quality.timeZone`: one time zone per app.
+- Internal link targets count only texts whose file says `status: published`: a link to a draft
+  reaches no reader (FIRE counted any file).
+- Article fixtures are `.txt`: as `.md`, the repository link check reads site paths and footnote
+  definitions as file links.
+- `blog({ quality })` is parsed by a typed transform, not a zod union, so an invalid option is named
+  (a union reports only "Invalid input").
+- The weekly workflow passes a placeholder `DATABASE_URL`: `check` never connects, but an app config
+  may require the variable.
 
 ## Progress
 
 ### Phase 1: Engine, rulesets and rules
 
 #### Automated
-- [ ] 1.1 Article check, English ruleset and settings tests pass
-- [ ] 1.2 Gates green (typecheck, lint, test)
+- [x] 1.1 Article check, English ruleset and settings tests pass — 66932dc
+- [x] 1.2 Gates green (typecheck, lint, test) — 66932dc
 
 ### Phase 2: Options, CLI, links and workflow
 
 #### Automated
-- [ ] 2.1 Link, gate and CLI tests pass
-- [ ] 2.2 Gates green (typecheck, lint, test, build)
+- [x] 2.1 Link, gate and CLI tests pass — 66932dc
+- [x] 2.2 Gates green (typecheck, lint, test, build) — 66932dc
 
 #### Manual
-- [ ] 2.3 `softure-blog check` over the fixtures from the built bin
+- [x] 2.3 `softure-blog check` over the fixtures from the built bin — 66932dc (verified by agent: built `dist/cli/bin.js` in a throwaway app with `softure.config.mjs`; a red folder exits 1 with file:line findings, a dead glossary link is named, an unknown option exits 2 with the usage)

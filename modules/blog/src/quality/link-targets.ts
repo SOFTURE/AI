@@ -53,8 +53,8 @@ export function readPublishedContent(files: readonly { readonly name: string; re
   const content = new Map<string, BlogArticleKind>();
   for (const file of files) {
     const frontmatter = /^---\r?\n([\s\S]*?)\r?\n---/.exec(file.text)?.[1] ?? "";
-    if (!/^status:\s*published\s*(?:#.*)?$/m.test(frontmatter)) continue;
-    content.set(file.name.replace(/\.md$/, ""), /^kind:\s*term\s*(?:#.*)?$/m.test(frontmatter) ? "term" : "article");
+    if (!/^status:\s*(["']?)published\1\s*(?:#.*)?$/m.test(frontmatter)) continue;
+    content.set(file.name.replace(/\.md$/, ""), /^kind:\s*(["']?)term\1\s*(?:#.*)?$/m.test(frontmatter) ? "term" : "article");
   }
   return content;
 }

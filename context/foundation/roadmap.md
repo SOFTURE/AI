@@ -54,7 +54,7 @@ backlog: context/backlog/roadmap-blog/
 | **BL-3** | `blog-markdown-renderer` | server-side Markdown renderer with an allowlist, heading anchors, glossary auto-links from term forms and a block plugin API | BL-2 | autonomous | ready |
 | **BL-4** | `blog-pages` | `/blog`, article and glossary pages from the package: ISR, JSON-LD, summary box, sources, disclaimer and CTA slots, 301/410, OG image per article | BL-3 | autonomous | ready |
 | **BL-5** | `blog-discovery` | RSS feed, blog sitemap entries with a real `lastmod`, IndexNow ping on publish, "read next" by cluster with the pillar first | BL-1, BL-4 | autonomous | ready |
-| **BL-6** | `blog-quality-gate` | `softure-blog check`: structure, links, style and YMYL rules with language rulesets and rule plugins; publish refuses errors | BL-2 | autonomous | in_progress (implement 1/2, since 2026-10-04; claude/bl-6-dj6zv0) |
+| **BL-6** | `blog-quality-gate` | `softure-blog check`: structure, links, style and YMYL rules with language rulesets and rule plugins; publish refuses errors | BL-2 | autonomous | in_progress (impl-review, since 2026-10-04; claude/bl-6-dj6zv0) |
 | **BL-7** | `blog-writing-skill` | a writing skill shipped with the blog module and installed into the app, kept in sync with the gate's rules | BL-6 | autonomous | ready |
 | **BL-8** | `blog-release` | `@softure-ai/seo` and `@softure-ai/blog` 0.1.0 published through the release pipeline; READMEs, adoption guides and docs updated | BL-1…BL-7 | owner | blocked (waits for BL-1…BL-7 and the owner's first npm publish at the keyboard) |
 
@@ -198,7 +198,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### BL-6: Text quality gate
 - **Change ID:** `blog-quality-gate`
-- **Status:** in_progress (implement 1/2, since 2026-10-04; claude/bl-6-dj6zv0)
+- **Status:** in_progress (impl-review, since 2026-10-04; claude/bl-6-dj6zv0)
 - **Outcome:** A quality gate in `@softure-ai/blog` that runs before every publish and in CI:
   - structure rules (answer first, heading order, length, summary present);
   - link rules (internal targets exist, glossary terms resolve; external links checked only with `--external`);

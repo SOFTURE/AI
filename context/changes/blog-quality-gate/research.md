@@ -32,8 +32,8 @@ SOFTURE `modules/blog/` (BL-2: `content/article-file.ts`, `db/publish-run.ts`, `
   the ruleset; the plan maps FIRE's rule ids.)
 - **Voice (config):** first person singular is FIRE's choice ("texts are signed by the editors"), not
   Polish. The ruleset provides the pattern; `voice.forbidFirstPersonSingular` turns it on. FIRE's
-  finance puffery ("in the world of finance", "in the thicket of") moves to `voice.phrases`, which
-  takes any app phrase with a message.
+  finance puffery ("in the world of finance") moves to `voice.phrases`, which takes any app phrase
+  with a message; the generic Polish idiom "in the thicket of" stays in the ruleset.
 - **YMYL (switch):** profit promises and buy orders, sources required, https sources, every significant
   number footnoted to a listed source or the app's own calculation mark (FIRE's "Plan Majatku
   calculation" footnote, now `ymyl.ownCalculationMark`). `current_as_of` is already required by BL-2's

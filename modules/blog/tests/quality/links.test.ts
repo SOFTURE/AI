@@ -22,7 +22,7 @@ touch("src/app/blog/[slug]/page.tsx");
 touch("src/app/blog/how-we-write/page.tsx");
 touch("src/app/blog/glossary/page.tsx");
 touch("src/app/blog/glossary/[slug]/page.tsx");
-touch("content/blog/index-funds.md", "---\nid: index-funds\nstatus: published\n---\n");
+touch("content/blog/index-funds.md", '---\nid: index-funds\nstatus: "published"\n---\n');
 touch("content/blog/expense-ratio.md", "---\nid: expense-ratio\nkind: term  # a glossary entry\nstatus: published\n---\n");
 touch("content/blog/bonds.md", "---\nid: bonds\nstatus: draft\n---\n");
 touch("content/blog/README.md", "---\nstatus: published\n---\n");

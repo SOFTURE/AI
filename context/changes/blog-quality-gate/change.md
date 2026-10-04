@@ -1,7 +1,7 @@
 ---
 change_id: blog-quality-gate
 title: "Blog texts pass a quality gate before every publish and in CI"
-status: plan_reviewed
+status: impl_reviewed
 roadmap_item: BL-6
 branch: claude/bl-6-dj6zv0
 created: 2026-10-04

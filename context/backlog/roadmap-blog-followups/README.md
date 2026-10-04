@@ -29,5 +29,7 @@ moved file lose one `../`.
 | --- | --- | --- | --- | --- |
 | BF-1 | [`cli-config-loader`](cli-config-loader/change.md) | One config loader for module commands | roadmap promoted | start |
 | BF-2 | [`blog-publish-slug-race`](blog-publish-slug-race/change.md) | A slug race reports a taken slug | roadmap promoted | start |
+| BF-3 | [`markdown-footnote-links`](markdown-footnote-links/change.md) | The repository link check skips footnote definitions | roadmap promoted | start |
+| BF-4 | [`blog-check-without-database`](blog-check-without-database/change.md) | softure-blog check without a database URL | roadmap promoted | start |
 
 Kind: `start`, `dependency` or `owner`, as in the other roadmap backlogs.
