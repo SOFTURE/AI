@@ -1,7 +1,7 @@
 ---
 change_id: auth-page-redirect-tag
 title: "A signed-in visitor's redirect from a tagged login page keeps the tag"
-status: implementing
+status: impl_reviewed
 roadmap_item: FU-28
 branch: claude/fu-28-auth-page-redirect-tag-jxa369
 created: 2026-10-04

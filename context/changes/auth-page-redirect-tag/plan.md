@@ -85,6 +85,10 @@ existing channel and funnel specs.
 - Complexity → small (one phase).
 - Plan review S1: no separate no-JavaScript e2e case (the page's redirect is a document `307` answered before any
   script runs, so JavaScript cannot change it; the `Location` assertion covers both).
+- 1.3 failing run (plan review W1): with the pages' old `redirect(next)` restored on a local build, "the login page
+  sends them on with its own tag" and "the register page sends them to next with its own tag" fail (`/account` and
+  `/account/privacy` received); "a next path with its own tag keeps it" passes either way (it guards the own-tag rule).
+- New gap FU-29 `auth-require-user-redirect-tag` (`requireUser`'s render redirect to login).
 
 ## Progress
 
@@ -93,8 +97,8 @@ existing channel and funnel specs.
 ### Phase 1: Page redirects through the rewrite, and the proof
 
 #### Automated
-- [ ] 1.1 `resolveRedirectTarget` unit cases pass, with and without page parameters
-- [ ] 1.2 `tagRedirect` page-parameter unit cases pass
-- [ ] 1.3 e2e "a signed-in visitor" cases pass (tagged `Location` on the page's own redirect, `next`, an own tag), and fail with the old page redirect
-- [ ] 1.4 the existing channel and funnel e2e specs pass
-- [ ] 1.5 Gates green (typecheck, lint, test, build) and the example app's `next build`
+- [x] 1.1 `resolveRedirectTarget` unit cases pass, with and without page parameters — 05e4ce8
+- [x] 1.2 `tagRedirect` page-parameter unit cases pass — 05e4ce8
+- [x] 1.3 e2e "a signed-in visitor" cases pass (tagged `Location` on the page's own redirect, `next`, an own tag), and fail with the old page redirect — 05e4ce8
+- [x] 1.4 the existing channel and funnel e2e specs pass — 05e4ce8
+- [x] 1.5 Gates green (typecheck, lint, test, build) and the example app's `next build` — 05e4ce8
