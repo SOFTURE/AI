@@ -22,3 +22,10 @@ export const CHECKOUT_PARAM = "checkout";
 export const CHECKOUT_RESULTS = ["success", "cancelled"] as const;
 
 export type CheckoutResult = (typeof CHECKOUT_RESULTS)[number];
+
+/** The admin page's hidden fields: the request a button grants or dismisses, the grant one revokes. */
+export const REQUEST_FIELD = "request";
+export const GRANT_FIELD = "grant";
+
+/** The admin page's parameter that names the account whose history it shows (its id, never its email). */
+export const ACCOUNT_PARAM = "account";

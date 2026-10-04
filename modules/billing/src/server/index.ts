@@ -9,6 +9,19 @@ export {
   type BillingContext,
   type EntitlementEventResolver,
 } from "./entitlements.js";
+export {
+  ACCOUNT_HISTORY_LIMIT,
+  getAccountHistory,
+  grantPaymentRequest,
+  grantPlanManually,
+  revokeManualGrant,
+  type AccountHistoryEntry,
+  type GrantPaymentRequestInput,
+  type GrantPlanManuallyError,
+  type GrantPlanManuallyInput,
+  type ManualGrantResult,
+  type RevokeManualGrantInput,
+} from "./grants.js";
 export { checkBillingTables } from "./health.js";
 export {
   receiveStripeWebhook,
@@ -32,6 +45,7 @@ export {
 } from "./options.js";
 export {
   findAccountByEmail,
+  findAccountById,
   getBillingPlans,
   getPaymentProvider,
   grantPlan,
@@ -42,5 +56,21 @@ export {
   type StartPaymentInput,
   type StartPaymentResult,
 } from "./plans.js";
-export { billingPrivacyContributor, deleteBillingUserData, exportBillingUserData, type BillingPaymentData, type BillingUserData } from "./privacy.js";
+export {
+  billingPrivacyContributor,
+  deleteBillingUserData,
+  exportBillingUserData,
+  type BillingManualGrantData,
+  type BillingPaymentData,
+  type BillingPaymentRequestData,
+  type BillingUserData,
+} from "./privacy.js";
+export {
+  dismissPaymentRequest,
+  listOpenRequests,
+  OPEN_REQUESTS_LIMIT,
+  recordPaymentRequest,
+  type OpenPaymentRequest,
+  type RecordPaymentRequestInput,
+} from "./requests.js";
 export { assertPaymentSetup, PAYMENT_BUCKET } from "./setup.js";

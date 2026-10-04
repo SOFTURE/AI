@@ -51,18 +51,20 @@ backlog: context/backlog/roadmap-followups/
 | **FU-6** | `billing-reminder-mail` | Reminder mail before access ends | FU-9 | autonomous | proposed |
 | **FU-7** | `analytics-action-redirect-tag` | Channel tag kept through server action redirects | FU-1, FU-5 | autonomous | proposed |
 | **FU-8** | `waitlist-funnel-hook` | Waitlist sign-ups as a funnel step | FU-4 | autonomous | proposed |
-| **FU-9** | `billing-admin-requests` | Payment requests, revoke and grant history in the billing admin page | FU-11 | autonomous | proposed |
+| **FU-9** | `billing-admin-requests` | Payment requests, revoke and grant history in the billing admin page | FU-11 | autonomous | done |
 | **FU-11** | `billing-refund-one-payment` | Refunds that take back one payment's period | — | autonomous | done |
 | **FU-12** | `billing-retro-reviews` | Retro research and plan review for MO-1 and MO-2 | — | autonomous | proposed |
 | **FU-13** | `marketing-kit-render-ci` | the marketing-kit fixture film renders to a draft MP4 on every push | — | autonomous | done |
 | **FU-14** | `marketing-kit-schema-docs` | every key of the marketing.json JSON Schema carries a description | — | autonomous | done_code (2026-10-03; waiting: owner editor check, MK-8 release) |
 | **FU-15** | `marketing-kit-desktop-16x9` | desktop 16:9 films recorded in a browser frame instead of a phone | FU-16 | autonomous | proposed |
 | **FU-16** | `marketing-kit-layout-overrides` | per-format layout overrides (caption box, persona, end card) in marketing.json | FU-14 | autonomous | proposed |
-| **FU-17** | `marketing-kit-og-glyphs` | OG images refuse copy the brand fonts cannot draw | — | autonomous | proposed |
+| **FU-17** | `marketing-kit-og-glyphs` | OG images refuse copy the brand fonts cannot draw | — | autonomous | done_code (2026-10-03; waiting: MK-8 release) |
 | **FU-18** | `marketing-kit-screenshot-variants` | screenshots at a device scale and in both colour schemes | FU-14 | autonomous | proposed |
 | **FU-19** | `marketing-kit-hook-shot-words` | opening shots after the first without a `word` are refused when the config loads | FU-14 | autonomous | proposed |
 | **FU-20** | `billing-partial-refunds` | partial refunds take back access by a policy | FU-11 | autonomous | proposed |
 | **FU-21** | `billing-refund-manual-lifetime` | a manual lifetime grant survives a refunded paid lifetime | FU-9 | autonomous | proposed |
+| **FU-22** | `billing-grant-plan-script` | a `grant-plan` ops script grants and revokes plans without the admin page | FU-9 | autonomous | proposed |
+| **FU-23** | `marketing-kit-og-subset-fonts` | OG images use every subset file of a weight | FU-17 | autonomous | proposed |
 
 ## Order
 
@@ -73,16 +75,16 @@ after another; different lanes run in parallel, up to 4 at once.
 | --- | --- | --- |
 | A: switches | FU-1 | `foundation/core/`, `modules/auth/`, `modules/feature-switches/` |
 | B: waitlist and consent | FU-3 → FU-2 → FU-4 → FU-8 | `modules/waitlist/` (FU-3 also `modules/mailing/`, `modules/privacy/`) |
-| C: billing | FU-11 → FU-9 → FU-6 → FU-20 → FU-21; FU-12 any time | `modules/billing/` and its migrations; FU-12 writes archive documents only |
+| C: billing | FU-11 → FU-9 → FU-6 → FU-20 → FU-21 → FU-22; FU-12 any time | `modules/billing/` and its migrations; FU-12 writes archive documents only |
 | D: analytics | FU-5 → FU-7 (FU-7 also after FU-1) | `modules/analytics/` channel propagation; FU-7 may touch auth's redirects |
 | E: marketing-kit config | FU-14 → FU-16 → FU-15; FU-14 → FU-18 → FU-19 | `tools/marketing-kit/src/config/schema.ts`, `schema/`, `src/compose/` (FU-15, FU-16) |
-| F: independent | FU-13, FU-17 | `.github/workflows/ci.yml`; `tools/marketing-kit/src/og/` |
+| F: independent | FU-13, FU-17 → FU-23 | `.github/workflows/ci.yml`; `tools/marketing-kit/src/og/` |
 
 1. **First wave: FU-1, FU-3, FU-11, FU-14.** The two HIGH items first (FU-1 must land before FIRE_TRACKER
    adopts the switches; FU-3 fixes a consent ledger that can contradict an unsubscribe), then the MEDIUM refund
    fix and the schema descriptions that every later marketing-kit config item extends.
 2. **Each free slot** takes the first item of this list whose lane is idle and whose dependencies are on `master`:
-   FU-2, FU-5, FU-13, FU-17, FU-9, FU-16, FU-18, FU-4, FU-7, FU-12, FU-6, FU-15, FU-8, FU-19, FU-20, FU-21.
+   FU-2, FU-5, FU-13, FU-17, FU-9, FU-16, FU-18, FU-4, FU-7, FU-12, FU-6, FU-15, FU-8, FU-19, FU-20, FU-21, FU-22, FU-23.
 3. **MK-8, EN-9 and MO-6** (owner, carried over): the owner's batch release on 2026-10-05; they wait for no FU item,
    and no FU item waits for them.
 
@@ -117,6 +119,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 | FU-19 | no | a refinement in the config schema and a config test |
 | FU-20 | no | a refund policy in billing with a documented default; signed webhook fixtures, no Stripe secrets |
 | FU-21 | no | reads FU-9's grant history in the refund; unit tests on PGlite |
+| FU-22 | no | an ops script on `grantPlanManually` and `revokeManualGrant`, dry run by default; unit tests on PGlite |
+| FU-23 | no | font registration in `src/og/fonts.ts`; tested with Inter's `latin` and `latin-ext` files |
 
 ## Items
 
@@ -247,7 +251,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-9: Payment requests, revoke and grant history in the billing admin page
 - **Change ID:** `billing-admin-requests`
-- **Status:** proposed
+- **Status:** done
+- **Input:** [`archive/2026-10-03-billing-admin-requests/`](../archive/2026-10-03-billing-admin-requests/change.md)
 - **Outcome:** Invoice requests stored in a billing table and listed in `BillingAdminPage` with a one-click grant; a revoke action; a history of grants per account; optionally a `grant-plan` script; the payment page and the grant form tell a lifetime account apart (today it can still request an invoice, and a dated grant to it is a silent no-op).
 - **Prerequisites:** FU-11 on `master` (shared files, see Order; MO-3 may add a payment-events table to share).
 - **Unknowns:** One table for manual requests and provider payment events vs. two; retention of invoice details (personal data, privacy contributor).
@@ -327,7 +332,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-17: OG images refuse copy the brand fonts cannot draw
 - **Change ID:** `marketing-kit-og-glyphs`
-- **Status:** proposed
+- **Status:** done_code (2026-10-03; waiting: MK-8 release)
 - **Outcome:** Before laying out an OG card, the renderer checks every character of the template's text against the loaded fonts' character maps and returns an error naming the image, the JSON path and the missing characters (e.g. Polish letters with a `latin` subset file).
 - **Prerequisites:** none beyond the main branch.
 - **Unknowns:** Whether Satori exposes its parsed fonts or the check needs its own font parser (opentype.js is already a Satori dependency); how emoji should be treated.
@@ -378,6 +383,27 @@ owner's own machine, a product decision only the owner can make, or a change in 
 - **Baseline:** FU-11 `billing-refund-one-payment`: a refunded paid lifetime ends lifetime unless another paid lifetime payment exists; manual grants have no payment row (README §12). After: manual lifetime grants count, covered by unit tests.
 - **Source:** FU-11 research ("Answers to unknowns", manual grants); `modules/billing/README.md` §12
 
+### FU-22: A `grant-plan` ops script for hosts without the admin page
+- **Change ID:** `billing-grant-plan-script`
+- **Status:** proposed
+- **Outcome:** `@softure-ai/billing/scripts` exports `grant-plan` and `revoke-grant` ops scripts (dry run by default, `--commit` writes) that grant a plan to an account by email and revoke a manual grant, recorded in the account's history like the admin page's grants.
+- **Prerequisites:** FU-9 on `master` (`grantPlanManually`, `revokeManualGrant`).
+- **Unknowns:** Whether billing may depend on `@softure-ai/ops` (auth does, for `grant-role`); how the script names a grant to revoke (its id from the history vs. the latest active grant of a plan).
+- **Risk:** LOW.
+- **Baseline:** FU-9 `billing-admin-requests`: manual grants are recorded only through the admin page or the server API; the roadmap's optional script was left out (README §12). After: the scripts exist, covered by unit tests, and the example ships them next to `grant-role`.
+- **Source:** FU-9 research ("Answers to unknowns", 6); `modules/billing/README.md` §12
+
+### FU-23: OG images use every subset file of a weight
+- **Change ID:** `marketing-kit-og-subset-fonts`
+- **Status:** proposed
+- **Outcome:** A brand font listing several files of one weight (e.g. Fontsource `latin` and `latin-ext`, split by `unicodeRange` for the video renderer) draws Polish copy in OG images too: each further file of a weight is registered with Satori so its fallback reaches it, at the requested weight.
+- **Prerequisites:** FU-17 on `master`.
+- **Unknowns:** Registering further files under derived family names (Satori falls back across families, not files) vs. merging; the order Satori tries them in; whether `unicodeRange` should steer the choice.
+- **Risk:** LOW.
+- **Baseline:** FU-17 `marketing-kit-og-glyphs`: Satori keeps one file per family, weight and style (the first), so such a brand gets the missing-glyph error; the README says to ship one covering file per weight. After: the `latin` + `latin-ext` brand renders Polish copy, covered by a render test and the glyph check.
+- **PRD refs:** FR-25.
+- **Source:** FU-17 plan review C1 (`context/archive/2026-10-03-marketing-kit-og-glyphs/reviews/plan-review.md`); `tools/marketing-kit/src/og/fonts.ts`
+
 ## Owner decisions and checks
 
 Carried over from marketing-kit (owner, batch at the keyboard on Monday 2026-10-05):
@@ -399,10 +425,12 @@ Open from FU-14:
 - **FU-5** `analytics-client-navigation`: `<ChannelKeeper />` keeps the channel tag on client navigations without `Next-Url`, covered by unit and e2e tests; archived in `archive/2026-10-03-analytics-client-navigation/`
 - **FU-1** `switch-reader-contract`: auth reads `auth.registration_closed` through the switch-reader contract in core, provided by feature-switches; the panel flips it and reports undefined manifest switches; archived in `archive/2026-10-03-switch-reader-contract/`
 - **FU-14** `marketing-kit-schema-docs`: every key of the marketing.json JSON Schema carries a description, guarded by a test; archived in `archive/2026-10-03-marketing-kit-schema-docs/`
+- **FU-17** `marketing-kit-og-glyphs`: OG images refuse copy no font Satori would try can draw, naming the image, the JSON path and the characters; archived in `archive/2026-10-03-marketing-kit-og-glyphs/`
 - **FU-2** `waitlist-double-opt-in`: `waitlist({ doubleOptIn })`, a single-use confirmation link (transactional mail) before consents, the opt-out lift and list mail; expiry 7 days by default, `pruneUnconfirmedSignups`; archived in `archive/2026-10-03-waitlist-double-opt-in/`
 - **FU-3** `mailing-consent-sync`: an unsubscribe withdraws the waitlist's consents in its transaction (mailing `onUnsubscribed`), and a new sign-up lifts the person's own opt-out; archived in `archive/2026-10-03-mailing-consent-sync/`
 - **FU-13** `marketing-kit-render-ci`: a `render` job in ci.yml records, composes and renders the fixture film on hyperframes' own headless shell on every push; archived in `archive/2026-10-03-marketing-kit-render-ci/`
 - **FU-11** `billing-refund-one-payment`: a full refund takes back only what its payment granted (one period's unused days, or one lifetime); archived in `archive/2026-10-03-billing-refund-one-payment/`
+- **FU-9** `billing-admin-requests`: the billing admin page lists stored invoice requests (grant or dismiss), records and revokes manual grants one by one and shows an account's history; a lifetime account cannot pay or be granted again; archived in `archive/2026-10-03-billing-admin-requests/`
 
 ## Decisions (auto)
 

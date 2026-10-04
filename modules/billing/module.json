@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "dependsOn": { "security": "^0.0.0", "auth": "^0.0.0" },
   "dbSchema": "billing",
-  "tables": ["entitlements", "payments"],
+  "tables": ["entitlements", "payments", "payment_requests", "manual_grants"],
   "env": [
     {
       "name": "STRIPE_SECRET_KEY",
@@ -17,7 +17,7 @@
     }
   ],
   "switches": [],
-  "routes": { "payment": "/payment", "webhook": "/api/billing/webhook" },
+  "routes": { "payment": "/payment", "admin": "/admin/billing", "webhook": "/api/billing/webhook" },
   "mount": [{ "kind": "route-handler", "path": "app/api/billing/webhook/route.ts", "export": "stripeWebhookRoute" }],
   "privacy": { "exports": true, "deletes": true }
 }

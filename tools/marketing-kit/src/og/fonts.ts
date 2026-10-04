@@ -3,13 +3,15 @@ import { extname } from "node:path";
 
 import type { BrandFont } from "../config/config.js";
 import { formatIssuePath } from "../config/issues.js";
+import { loadCharacterMap } from "./character-map.js";
 import { err, ok, type OgResult } from "./result.js";
 
 /**
  * Brand fonts for Satori. Satori parses only static `.ttf`, `.otf` and `.woff` files and, when a
  * weight is missing, silently draws another one, so a card could ask for bold and get regular. Here
  * `.woff2` and variable ranges are refused, and templates pick their weights from the loaded set
- * (`pickWeight`), so a tree only ever names a weight that is loaded.
+ * (`pickWeight`), so a tree only ever names a weight that is loaded. Each file's character map is
+ * read here too, so a file Satori could not draw text from is refused by its JSON path.
  */
 
 export const OG_FONT_WEIGHTS = [100, 200, 300, 400, 500, 600, 700, 800, 900] as const;
@@ -76,6 +78,8 @@ function loadFamily(kind: OgFontKind, font: BrandFont, read: ReadFontFile): OgRe
     } catch (error) {
       return err(`OG images: reading the font ${file.path} (${at}): ${(error as NodeJS.ErrnoException).code ?? String(error)}.`);
     }
+    const characters = loadCharacterMap(data);
+    if (!characters.ok) return err(`OG images: ${at} (${file.path}) has no readable character map: ${characters.error}.`);
     fonts.push({ name: font.family, data, weight, style: file.style });
   }
   const weights = [...new Set(fonts.filter((entry) => entry.style === "normal").map((entry) => entry.weight))].sort((a, b) => a - b);

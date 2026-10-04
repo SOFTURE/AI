@@ -5,9 +5,16 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { loadMarketingConfig } from "../../src/config/config.js";
+import { loadOgFonts } from "../../src/og/fonts.js";
 import { renderConfiguredOgImage, renderOgImage, renderOgSvg } from "../../src/og/render.js";
 import { OG_TEMPLATE_IDS } from "../../src/og/templates/index.js";
-import { COLORS, LOGO_SVG, PNG_SIGNATURE, SAMPLE_DATA, getInterFile, loadInter, readPngSize } from "./helpers.js";
+import { COLORS, INTER, LOGO_SVG, PNG_SIGNATURE, SAMPLE_DATA, getInterExtFile, getInterFile, loadInter, makeFont, readPngSize } from "./helpers.js";
+
+// Polish letters as escapes: the repository's language gate keeps literal Polish out of code.
+const A_OGONEK = "\u0105";
+const N_ACUTE = "\u0144";
+const O_ACUTE = "\u00f3";
+const S_ACUTE = "\u015b";
 
 const SNAPSHOT_DIR = join(import.meta.dirname, "__snapshots__");
 const isUpdating = process.env.UPDATE_OG_SNAPSHOTS === "1";
@@ -32,6 +39,42 @@ describe("renderOgImage", () => {
   it("draws text as paths, so the PNG needs no machine fonts", async () => {
     const svg = await renderOgSvg(brandInput("headline-cta"));
     expect(svg.ok && svg.value.includes("<text")).toBe(false);
+  });
+
+  it("refuses Polish copy a latin subset font cannot draw, naming each field", async () => {
+    const data = { headline: `Policz sw${O_ACUTE}j dzie${N_ACUTE}`, tiles: [{ label: `Wiek wyj${S_ACUTE}cia`, value: "49" }, { label: `Wiek wyj${S_ACUTE}cia`, value: "50" }] };
+    const png = await renderOgImage({ ...brandInput("headline-cta"), data });
+    expect(png.ok ? null : png.error).toBe(
+      [
+        'OG image: template "headline-cta" has characters none of the loaded fonts can draw:',
+        `  data.headline: "${N_ACUTE}" (U+0144)`,
+        `  data.tiles[0].label: "${S_ACUTE}" (U+015B)`,
+        `  data.tiles[1].label: "${S_ACUTE}" (U+015B)`,
+        "Use font files that cover them. OG images use one file per family, weight and style (the first listed), so a second subset file of the same weight is not used.",
+      ].join("\n"),
+    );
+  });
+
+  it("names the brand name and caps the listed characters", async () => {
+    const name = "\u0105\u0107\u0119\u0142\u0144\u015b\u017a\u017c\u0104\u0106\u0118\u0141";
+    const png = await renderOgImage({ ...brandInput("headline-cta"), brand: { name, colors: COLORS, logoSvg: null } });
+    expect(png.ok ? null : png.error.split("\n")[1]).toBe(
+      '  brand.name: "\u0105" (U+0105), "\u0107" (U+0107), "\u0119" (U+0119), "\u0142" (U+0142), "\u0144" (U+0144), "\u015b" (U+015B), "\u017a" (U+017A), "\u017c" (U+017C), "\u0104" (U+0104), "\u0106" (U+0106) and 2 more',
+    );
+  });
+
+  it("renders Polish copy when another loaded family covers it", async () => {
+    const fonts = loadOgFonts({ heading: INTER, body: makeFont([{ path: getInterExtFile(), weight: "400" }], "Inter Ext") });
+    if (!fonts.ok) throw new Error(fonts.error);
+    const png = await renderOgImage({ ...brandInput("headline-cta"), data: { headline: `Zacznij ${A_OGONEK}` }, fonts: fonts.value });
+    expect(png.ok ? readPngSize(png.value) : png.error).toEqual([1200, 630]);
+  });
+
+  it("still refuses it when the covering file is a second file of the same weight", async () => {
+    const fonts = loadOgFonts({ heading: makeFont([{ path: getInterFile(700), weight: "700" }, { path: getInterExtFile(700), weight: "700" }]), body: INTER });
+    if (!fonts.ok) throw new Error(fonts.error);
+    const png = await renderOgImage({ ...brandInput("headline-cta"), data: { headline: `Zacznij ${A_OGONEK}` }, fonts: fonts.value });
+    expect(png.ok ? null : png.error.split("\n")[1]).toBe(`  data.headline: "${A_OGONEK}" (U+0105)`);
   });
 
   it("returns invalid data as an error, not an exception", async () => {
@@ -128,7 +171,19 @@ describe("renderConfiguredOgImage", () => {
 
   it("checks a route's data against the template", async () => {
     const result = await renderConfiguredOgImage({ config: loadConfig(), id: "calculator", data: { headline: "x".repeat(91) } });
-    expect(result.ok ? null : result.error).toBe('OG image: the data of template "headline-cta" is not valid:\n  data.headline: must be at most 90 characters');
+    expect(result.ok ? null : result.error).toBe('OG image "calculator": the data of template "headline-cta" is not valid:\n  data.headline: must be at most 90 characters');
+  });
+
+  it("names the image and the config path of copy the fonts cannot draw", async () => {
+    const config = loadConfig();
+    const entry = config.ogImages[0];
+    if (entry === undefined) throw new Error("the fixture has no OG image");
+    Object.assign(entry.data, { headline: `Zacznij ${A_OGONEK}` });
+    const result = await renderConfiguredOgImage({ config, id: "calculator" });
+    expect(result.ok ? null : result.error.split("\n").slice(0, 2)).toEqual([
+      'OG image "calculator": template "headline-cta" has characters none of the loaded fonts can draw:',
+      `  ogImages[0].data.headline: "${A_OGONEK}" (U+0105)`,
+    ]);
   });
 
   it("names the known ids when the id is unknown", async () => {
