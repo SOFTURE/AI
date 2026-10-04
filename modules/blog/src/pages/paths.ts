@@ -21,9 +21,11 @@ export interface BlogPathMatch {
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const MAX_SLUG_LENGTH = 100;
 
-/** A route without its trailing slash (the root stays `/`). */
+/** A route without its trailing slashes (the root stays `/`). A loop, not `/\/+$/`: linear on any input. */
 export function normalizeRoute(path: string): string {
-  return path.length > 1 ? path.replace(/\/+$/, "") || "/" : path;
+  let end = path.length;
+  while (end > 1 && path[end - 1] === "/") end -= 1;
+  return path.slice(0, end);
 }
 
 function joinPath(base: string, segment: string): string {

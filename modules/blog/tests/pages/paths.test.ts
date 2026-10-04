@@ -14,6 +14,8 @@ describe("blog paths", () => {
   it("drops a trailing slash from a route, keeping the root", () => {
     expect(normalizeRoute("/articles/")).toBe("/articles");
     expect(normalizeRoute("/")).toBe("/");
+    expect(normalizeRoute("///")).toBe("/");
+    expect(normalizeRoute(`/a${"/".repeat(50_000)}b/`)).toBe(`/a${"/".repeat(50_000)}b`);
   });
 
   it("reserves the static pages one segment under the listing, the method page only when mounted", () => {
