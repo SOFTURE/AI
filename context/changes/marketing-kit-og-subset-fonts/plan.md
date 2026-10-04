@@ -78,5 +78,5 @@ renderer (it already uses `unicode-range`).
 ### Phase 1: Subset families and the stack
 
 #### Automated
-- [ ] 1.1 Font, glyph and render tests pass
-- [ ] 1.2 Gates green (typecheck, lint, test, build)
+- [x] 1.1 Font, glyph and render tests pass — 7cc1ead
+- [x] 1.2 Gates green (typecheck, lint, test, build) — 7cc1ead

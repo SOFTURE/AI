@@ -1,7 +1,7 @@
 ---
 change_id: marketing-kit-og-subset-fonts
 title: "OG images use every subset file of a weight"
-status: implementing
+status: impl_reviewed
 roadmap_item: FU-23
 branch: claude/fu-23-og-subset-fonts-m8zb8g
 created: 2026-10-04
