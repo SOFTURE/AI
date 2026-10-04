@@ -4,8 +4,8 @@ Articles and glossary terms kept as Markdown files in the app's repository, and 
 brings the module's tables to the state of those files. The files are the source of truth: there is no
 editor and no CMS, a text changes only through a commit and `softure-blog publish`.
 
-This release holds the content store (roadmap item BL-2). The renderer (BL-3), the pages (BL-4), RSS,
-sitemap and IndexNow (BL-5) and the quality gate (BL-6) build on it.
+This release holds the content store (roadmap item BL-2) and the server-side renderer (BL-3). The
+pages (BL-4), RSS, sitemap and IndexNow (BL-5) and the quality gate (BL-6) build on them.
 
 ## 1. What it provides
 
@@ -16,6 +16,9 @@ sitemap and IndexNow (BL-5) and the quality gate (BL-6) build on it.
   skipped by their content hash; a slug change keeps the old slug as a redirect; one pillar per cluster.
 - Read functions for the pages: `getPublishedArticle`, `findArticleBySlug`, `findSlugRedirect`,
   `listArticles`.
+- `renderArticle(markdown, options)`: the body as safe HTML on the server (no raw HTML, safe link
+  schemes only, marked external links), heading ids and an optional table of contents, glossary links
+  on the first mention of a term, block plugins for the app's own fenced blocks, reading time.
 
 ## 2. Installation
 
@@ -122,6 +125,62 @@ process.exitCode = await runBlogCli({ config, argv: process.argv.slice(2) });
 `runBlogCli({ gate })` takes the quality gate (BL-6) for files going public; `runBlogPublish` in
 `@softure-ai/blog/server` is the same run without a command line.
 
+### Rendering an article
+
+```ts
+import { getPublishedArticle, listArticles, renderArticle, toGlossary } from "@softure-ai/blog/server";
+
+const article = await getPublishedArticle(ctx, slug);
+const glossary = toGlossary(await listArticles(ctx, { kind: "term" }));
+const body = renderArticle(article.bodyMarkdown, {
+  glossary,
+  selfSlug: article.kind === "term" ? article.slug : undefined,
+  termHref: (term) => `/blog/glossary/${term}`, // the default
+  siteHosts: ["example.com"], // subdomains included; other hosts are external
+  toc: true, // or { maxLevel: 4 }; h2 and h3 by default
+  messages: blogMessages.pl.render, // English by default
+  blocks: [chartBlock],
+  article: { currentAsOf: article.currentAsOf, fields: article.fields },
+});
+// body.html (null when a block returned a node), body.segments, body.headings, body.toc,
+// body.linkedTerms, body.readingMinutes
+```
+
+- **Allowlist by construction:** raw HTML in the text is escaped, so the output holds only the
+  elements Markdown produces. Images are off. Links keep `http(s)`, `mailto`, relative and `#`
+  targets; any other scheme (`javascript:`, `data:`, entity-encoded or split by whitespace) stays text.
+- **External links** (`http(s)` or `//` to a host outside `siteHosts`) get `rel="noopener noreferrer"`,
+  `target="_blank"`, a `↗` marker hidden from screen readers and a visually hidden "(opens in a new tab)".
+- **Headings** get ids from their text (letters folded to ASCII, `-2` for a repeat, `section` without
+  letters); `toc` renders `<nav class="blog-toc">` with nested lists.
+- **Glossary:** the first mention of each term form links to its definition; never inside headings,
+  links, code or footnotes, never a term page to itself. The longest form wins, word bounds are
+  Unicode-aware, case is as written (plus a capital first letter). A hand-written link to a term counts.
+- **Footnotes** (`[^id]`) become numbered references and a notes section with links back.
+
+**Block plugins.** A top-level fence whose type an app registers is rendered by the app:
+
+````md
+```chart wealth
+scenario: early-retirement
+```
+````
+
+```ts
+const chartBlock: BlockPlugin = {
+  type: "chart",
+  requires: ["current_as_of", "scenario"], // frontmatter keys the block reads, for the quality gate
+  render: ({ info, content, article }) => ({ kind: "html", html: renderChart(info, content, article) }),
+  // or { kind: "node", node: <Chart … /> } for a React server component
+};
+```
+
+Plugin output is the app's own code and is trusted as is: escape what goes into its HTML. A plugin
+that throws fails the render (a bug, not content). Without the plugin the same fence renders as a code
+block. `findArticleBlocks(markdown, plugins)` lists the blocks a text uses with their line and
+`requires`, without rendering. When any block returns a node, `html` is `null`: render `segments` in
+order (`html` segments as HTML, `node` segments as they are).
+
 ## 5. Migrations and tables
 
 Schema `blog`, migration `0001_create_articles.sql`:
@@ -147,18 +206,22 @@ None.
 
 ## 8. Appearance
 
-No components yet (BL-4).
+No components yet (BL-4). The rendered body uses these classes for the app's styles:
+`blog-external`, `blog-external-marker`, `blog-visually-hidden` (must hide visually, keep for screen
+readers), `blog-term`, `blog-toc`, `blog-footnote-ref`, `blog-footnotes`, `blog-footnote-back`.
 
 ## 9. Copy
 
 `src/messages/`: labels of the kinds (`kinds.article`, `kinds.term`) and statuses (`statuses.*`) in
-`en` and `pl`. Command output and file errors are developer output, in English.
+`en` and `pl`; the renderer's copy under `render.*` (notes heading, footnote label with `{number}`,
+back to text, opens in a new tab, contents label), passed as `renderArticle({ messages })`. Command output and file errors are developer output, in English.
 
 ## 10. Hooks
 
 - `blog({ fields })`: the app's frontmatter schema (FIRE_TRACKER's calculator scenario lives here).
 - `gate` of `runBlogPublish` and `runBlogCli`: `(file, article) => problems`, called only for files
   going public; any problem refuses the whole run.
+- `renderArticle({ blocks })`: block plugins for the app's fenced blocks (FIRE_TRACKER's engine chart).
 
 ## 11. GDPR
 
@@ -170,6 +233,8 @@ Articles hold editorial content, no personal data: nothing to export or delete.
   fails on the unique constraint instead of reporting `blog.slug_taken`.
 - The content hash is part of the contract: a field added later enters it only when present.
 - No `--stdin` (a deploy transport) and no IndexNow submit (BL-5).
+- The renderer has no images and no raw HTML. A plugin fence inside a list or a quote stays a code
+  block (a block node cannot sit inside a list's HTML).
 - **Adopting from FIRE_TRACKER:** rename the frontmatter keys once (`typ` → `kind` with `artykul` →
   `article` and `termin` → `term`, `formy` → `forms`, `klaster` → `cluster`, `filar` → `pillar`,
   `tytul` → `title`, `opis` → `description`, `w_skrocie` → `summary`, `aktualne_na` →

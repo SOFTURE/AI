@@ -1,5 +1,6 @@
-// Server-only API of @softure-ai/blog. Every function receives the module context
-// (`{ db, clock, config }`) and never reads request scope; `next/*` imports are not allowed here.
+// Server-only API of @softure-ai/blog. Store functions receive the module context
+// (`{ db, clock, config }`) and never read request scope; the renderer is pure. `next/*` imports are
+// not allowed here.
 export { computeContentHash, parseArticleFile, type ArticleFileResult, type ParseArticleFileOptions } from "../content/article-file.js";
 export {
   findArticleBySlug,
@@ -21,3 +22,4 @@ export {
 } from "../db/publish-run.js";
 export { checkArticlesTable } from "./health.js";
 export { getBlogOptions } from "./options.js";
+export * from "../render/index.js";
