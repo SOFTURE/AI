@@ -23,7 +23,7 @@ The roadmap was promoted on 2026-10-04, when it was written. Inside it, the orde
 
 | ID | Entry | Title | Condition | Kind |
 | --- | --- | --- | --- | --- |
-| BL-1 | [`seo-crawler-access`](seo-crawler-access/change.md) | SEO and AI crawler access | roadmap promoted | start |
+| BL-1 | `seo-crawler-access` (taken, in [`context/changes/`](../../changes/seo-crawler-access/change.md)) | SEO and AI crawler access | roadmap promoted | start |
 | BL-2 | [`blog-content-store`](blog-content-store/change.md) | Blog content store and publish script | roadmap promoted | start |
 | BL-3 | [`blog-markdown-renderer`](blog-markdown-renderer/change.md) | Safe Markdown renderer with glossary links | BL-2 on master | dependency |
 | BL-4 | [`blog-pages`](blog-pages/change.md) | Blog pages | BL-3 on master | dependency |
