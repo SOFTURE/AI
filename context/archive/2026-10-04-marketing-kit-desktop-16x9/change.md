@@ -1,12 +1,12 @@
 ---
 change_id: marketing-kit-desktop-16x9
 title: "A 16:9 film can show the desktop app in a browser frame"
-status: implementing
+status: archived
 roadmap_item: FU-15
 branch: claude/fu-15-fn0uxc
 created: 2026-10-04
 updated: 2026-10-04
-archived_at: null
+archived_at: 2026-10-04
 ---
 
 ## Intent
@@ -58,3 +58,4 @@ this change was opened from is [`backlog-input.md`](backlog-input.md).
   checked the premise ("It does not hold for a desktop 16:9 video: that is a different recording") and chose to defer
   it; the remaining questions (how a video asks for it, how the browser window is laid out) are design choices inside
   one problem, which research and the plan answer.
+- Archived 2026-10-04: a video with `device.kind: "desktop"` (16:9 only) records in a desktop browser (mouse clicks) and composes as a browser window whose address bar shows the end card's URL; `layout.desktop` overrides it; the fixture's `fixture-desktop` film renders to 1920×1080.
