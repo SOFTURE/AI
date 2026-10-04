@@ -40,6 +40,8 @@ trigger: "the blog roadmap closes; the owner promotes it or takes single items"
 | **BF-2** | `blog-publish-slug-race` | two publishes racing for one slug report `blog.slug_taken`, not a driver error | — | autonomous | ready |
 | **BF-3** | `blog-article-images` | images in article bodies under a hosting policy (allowed sources, alt, dimensions) | — | autonomous | ready |
 | **BF-4** | `blog-glossary-form-conflicts` | a glossary form claimed by two terms is refused, naming both | — | autonomous | ready |
+| **BF-5** | `markdown-footnote-links` | the repository link check skips Markdown footnote definitions instead of reporting them as broken links | — | autonomous | ready |
+| **BF-6** | `blog-check-without-database` | `softure-blog check` runs with an app config that has no database URL | — | autonomous | ready |
 
 ## Order
 
@@ -87,6 +89,26 @@ Lanes are set when the roadmap is promoted, by shared files, like the followups 
 - **Risk:** low. An editorial mistake that links a phrase to the wrong definition; no security impact.
 - **Mode:** autonomous.
 - **Source:** BL-3 `blog-markdown-renderer` impl review R2.
+
+### BF-5: The repository link check skips footnote definitions
+- **Change ID:** `markdown-footnote-links`
+- **Status:** ready
+- **Input:** [`markdown-footnote-links`](../../backlog/roadmap-blog-followups/markdown-footnote-links/change.md)
+- **Outcome:** `tests/repo/markdown-links.ts` reads a Markdown footnote definition (`[^id]: text https://…`) as a reference link definition and reports its first word as a broken relative link; footnotes are skipped and a test covers them.
+- **Prerequisites:** none.
+- **Risk:** low. Only test data trips it today: the blog's article fixtures are `.txt` to stay out of the check.
+- **Mode:** autonomous.
+- **Source:** BL-6 `blog-quality-gate` impl review R1.
+
+### BF-6: softure-blog check without a database URL
+- **Change ID:** `blog-check-without-database`
+- **Status:** ready
+- **Input:** [`blog-check-without-database`](../../backlog/roadmap-blog-followups/blog-check-without-database/change.md)
+- **Outcome:** `softure-blog check` loads an app config that has no database URL (or a placeholder) without failing: either core lets a command opt out of the database requirement, or the blog bin builds a check-only config; the weekly workflow drops its placeholder `DATABASE_URL`.
+- **Prerequisites:** none.
+- **Risk:** low. The reusable workflow passes a placeholder URL today; `check` never connects.
+- **Mode:** autonomous.
+- **Source:** BL-6 `blog-quality-gate` impl review R2.
 
 ## Owner decisions and checks
 

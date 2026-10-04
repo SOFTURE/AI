@@ -65,6 +65,17 @@ describe("isExempt", () => {
     expect(isExempt("tests/repo/language.test.ts")).toBe(true);
   });
 
+  it("exempts Polish language data in a folder named pl", () => {
+    expect(isExempt("modules/blog/src/quality/rulesets/pl/ruleset.ts")).toBe(true);
+    expect(isExempt("modules/blog/tests/quality/fixtures/pl/model.md")).toBe(true);
+  });
+
+  it("does not exempt a file named pl or a folder that only starts with pl", () => {
+    expect(isExempt("modules/blog/src/quality/pl.ts")).toBe(false);
+    expect(isExempt("modules/blog/src/plan/notes.ts")).toBe(false);
+    expect(isExempt("modules/blog/src/pl-helpers/notes.ts")).toBe(false);
+  });
+
   it("does not exempt a file that merely mentions messages in its name", () => {
     expect(isExempt("src/messages-helper.ts")).toBe(false);
     expect(isExempt("modules/auth/src/server/login.ts")).toBe(false);

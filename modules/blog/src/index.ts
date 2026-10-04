@@ -57,3 +57,5 @@ export {
   type BlogOptionsInput,
 } from "./options.js";
 export { articles, blogSchema, slugHistory } from "./db/schema.js";
+/** Builds a voice phrase for `blog({ quality: { voice: { phrases } } })` in the config. */
+export { wordPattern } from "./quality/text.js";

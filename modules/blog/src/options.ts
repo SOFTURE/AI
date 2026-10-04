@@ -1,5 +1,6 @@
 // The options an app passes to `blog({ ... })` in softure.config.ts, parsed at startup.
 import { z } from "zod";
+import { qualitySettingSchema } from "./quality/options.js";
 
 /** Where the app keeps its article files unless a command names a path. */
 export const DEFAULT_CONTENT_DIR = "content/blog";
@@ -55,6 +56,8 @@ export const blogOptionsSchema = z
      */
     reservedSlugs: z.array(z.string().max(100).regex(KEBAB, "must be kebab-case, e.g. how-we-write")).default([]),
     fields: z.custom<BlogFieldsSchema>(isFieldsSchema, "must be an object schema, e.g. z.object({ scenario: z.string() })").optional(),
+    /** The text quality gate (`softure-blog check`, and every publish); `false` turns it off. */
+    quality: qualitySettingSchema,
   })
   .superRefine((options, ctx) => {
     for (const key of Object.keys(options.fields?.shape ?? {})) {

@@ -31,5 +31,7 @@ moved file lose one `../`.
 | BF-2 | [`blog-publish-slug-race`](blog-publish-slug-race/change.md) | A slug race reports a taken slug | roadmap promoted | start |
 | BF-3 | [`blog-article-images`](blog-article-images/change.md) | Images in article bodies | roadmap promoted | start |
 | BF-4 | [`blog-glossary-form-conflicts`](blog-glossary-form-conflicts/change.md) | A glossary form belongs to one term | roadmap promoted | start |
+| BF-5 | [`markdown-footnote-links`](markdown-footnote-links/change.md) | The repository link check skips footnote definitions | roadmap promoted | start |
+| BF-6 | [`blog-check-without-database`](blog-check-without-database/change.md) | softure-blog check without a database URL | roadmap promoted | start |
 
 Kind: `start`, `dependency` or `owner`, as in the other roadmap backlogs.

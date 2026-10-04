@@ -21,5 +21,6 @@ export {
   type RunBlogPublishOptions,
 } from "../db/publish-run.js";
 export { checkArticlesTable } from "./health.js";
-export { getBlogOptions } from "./options.js";
+export { getBlogOptions, getQualitySettings } from "./options.js";
+export * from "../quality/index.js";
 export * from "../render/index.js";
