@@ -48,7 +48,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-3** | `mailing-consent-sync` | Unsubscribe as consent withdrawal | — | autonomous | done |
 | **FU-4** | `waitlist-welcome-html` | HTML welcome mail for the waitlist | FU-2 | autonomous | done |
 | **FU-5** | `analytics-client-navigation` | Channel tag on client navigations without Next-Url | — | autonomous | done_code (2026-10-03; waiting: MO-6 release of `@softure-ai/analytics`) |
-| **FU-6** | `billing-reminder-mail` | Reminder mail before access ends | FU-9 | autonomous | proposed |
+| **FU-6** | `billing-reminder-mail` | Reminder mail before access ends | FU-9 | autonomous | in_progress (new, since 2026-10-04) |
 | **FU-7** | `analytics-action-redirect-tag` | Channel tag kept through server action redirects | FU-1, FU-5 | autonomous | proposed |
 | **FU-8** | `waitlist-funnel-hook` | Waitlist sign-ups as a funnel step | FU-4 | autonomous | proposed |
 | **FU-9** | `billing-admin-requests` | Payment requests, revoke and grant history in the billing admin page | FU-11 | autonomous | done |
@@ -249,7 +249,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-6: Reminder mail before access ends
 - **Change ID:** `billing-reminder-mail`
-- **Status:** proposed
+- **Status:** in_progress (new, since 2026-10-04)
+- **Input:** [`changes/billing-reminder-mail/`](../changes/billing-reminder-mail/change.md)
 - **Outcome:** A reminder mail before an account's trial or paid access ends (and when it has ended), sent once per window through mailing's delivery ledger, next to the in-app notice billing already shows.
 - **Prerequisites:** FU-9 on `master` (shared files, see Order).
 - **Unknowns:** What triggers the run (a scheduled script through ops vs. a request-time check); how accounts in a window are found without scanning every account (accounts without a row derive their trial from `auth.users.created_at`).
