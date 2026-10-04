@@ -15,6 +15,7 @@ import { ops } from "@softure-ai/ops";
 import { privacy, PRIVACY_RATE_LIMIT_BUCKETS } from "@softure-ai/privacy";
 import { recordRegistrationConsent } from "@softure-ai/privacy/server";
 import { cloudflareIp, security } from "@softure-ai/security";
+import { seo } from "@softure-ai/seo";
 import { waitlist, WAITLIST_RATE_LIMIT_BUCKETS } from "@softure-ai/waitlist";
 import { withdrawWaitlistConsents } from "@softure-ai/waitlist/server";
 import { en } from "./messages/en.ts";
@@ -26,6 +27,9 @@ import { guestbook } from "./modules/guestbook/index.ts";
 
 /** The example's switch: a welcome line on the home page (e2e/feature-switches.spec.ts flips it). */
 export const WELCOME_BANNER_SWITCH = "example.welcome_banner";
+
+/** The example's IndexNow key: public by protocol, served at /indexnow-key.txt (e2e/seo.spec.ts). */
+export const EXAMPLE_INDEXNOW_KEY = "5f0c8a2e7b1d4c39a6e8f2b7d0c4a913";
 
 /** The example's initial admin (auth's `adminEmails`); e2e/auth-roles.spec.ts registers it. */
 export const EXAMPLE_ADMIN_EMAIL = "e2e-admin@example.com";
@@ -193,6 +197,13 @@ const config = defineSoftureConfig({
         },
       ],
       payment: process.env.BILLING_PROVIDER === "stripe" ? stripe() : manual({ onRequest: mailInvoiceRequestsTo(EXAMPLE_ADMIN_EMAIL) }),
+    }),
+    // robots.txt, sitemap.xml and the IndexNow key file (e2e/seo.spec.ts): the public pages are open,
+    // the account, admin and API paths closed to every crawler, AI crawlers named.
+    seo({
+      robots: { disallow: ["/account", "/admin", "/api", "/switches"] },
+      sitemap: { entries: [{ path: "/", priority: 1 }, { path: "/pricing", priority: 0.8 }, { path: "/legal/terms" }, { path: "/legal/privacy" }] },
+      indexNow: { key: EXAMPLE_INDEXNOW_KEY },
     }),
   ],
 });

@@ -139,15 +139,15 @@ Each phase is one commit; reverting it removes the module or the example's use o
 ### Phase 1: The package
 
 #### Automated
-- [ ] 1.1 The seo tests pass (crawlers, robots, origin, sitemap, IndexNow, module, next adapter)
-- [ ] 1.2 `tests/repo` passes with `modules/seo` as a workspace
-- [ ] 1.3 Gates green (typecheck, lint, test)
+- [x] 1.1 The seo tests pass (crawlers, robots, origin, sitemap, IndexNow, module, next adapter) — 2f4184a
+- [x] 1.2 `tests/repo` passes with `modules/seo` as a workspace — 2f4184a
+- [x] 1.3 Gates green (typecheck, lint, test) — 2f4184a
 
 ### Phase 2: Example app and e2e
 
 #### Automated
-- [ ] 2.1 `npm run e2e` passes, including `e2e/seo.spec.ts`
-- [ ] 2.2 Gates green (typecheck, lint, test, build)
+- [x] 2.1 `npm run e2e` passes, including `e2e/seo.spec.ts`
+- [x] 2.2 Gates green (typecheck, lint, test, build)
 
 #### Manual
 - [ ] 2.3 Impl review recorded in `reviews/impl-review.md`
