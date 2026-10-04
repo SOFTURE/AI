@@ -111,7 +111,8 @@ billing({
 
 **A plan** is `{ id, name, description?, price: { amount, currency }, period, features?, isFeatured? }`:
 `id` kebab-case and unique; `name`, `description` and each feature line a text per locale with at
-least `en`; `amount` an integer in the currency's minor unit (2900 is 29.00 PLN, 1500 is ¥1,500);
+least `en`; `amount` an integer in the currency's minor unit as `Intl` formats it (2900 is 29.00 PLN,
+1500 is ¥1,500, 1500 is ISK 1,500, 1250 is KWD 1.250);
 `currency` an upper-case ISO 4217 code; `period` `"day"`, `"week"`, `"month"`, `"year"`,
 `"lifetime"` or `{ unit, count }` such as `{ unit: "month", count: 3 }`. A plan has one currency; a
 second currency is a second plan. Plans live in the config, not in a table: a price change is a
@@ -135,6 +136,17 @@ Stripe dashboard (cards, BLIK, Przelewy24, transfers). A refusal, a timeout or a
 `billing.payment_failed` for the buyer and one log line (HTTP status and Stripe's error type and
 code, never its message or the key). Subscriptions are not used: each payment buys one period, and
 renewing is paying again, as with `manual()`.
+
+**Stripe's currency units.** Stripe takes amounts in its own unit per currency
+([currency guide](https://docs.stripe.com/currencies)), which is not always `Intl`'s: ISK and UGX
+(and e.g. ALL, RSD, LAK) have no decimals in `Intl` but two (always `00`) at Stripe. Plans stay in
+`Intl`'s unit; `stripe()` converts what it sends (ISK 1,500 goes as `150000`) and the webhook converts
+what Stripe reports back, so payments and refunds are stored and shown in the plan's unit. HUF and
+TWD need nothing: Stripe's divisible-by-100 rule for them is for payouts, not charges. A price
+`stripe()` cannot charge exactly is refused when the config loads, naming the plan: a three-decimal
+amount (BHD, JOD, KWD, OMR, TND) whose last digit is not 0, or an `Intl` amount finer than Stripe's
+unit (LYD). Stripe's minimum and maximum amounts depend on the account and the payment method, so
+Stripe checks them at Checkout (`billing.payment_failed` and a log line).
 
 **Days and time zones.** Trials end at the start of a local day in `config.timezone`: a 14-day
 trial begun at any hour of 3 October ends when 17 October begins there, so 16 October is its last

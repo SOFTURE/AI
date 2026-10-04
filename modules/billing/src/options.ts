@@ -103,6 +103,13 @@ export const billingOptionsSchema = z.strictObject({
   partialRefunds: z.enum(PARTIAL_REFUND_POLICIES).default("pro_rata"),
   /** The auth role that may grant plans in the admin page; declared in `auth({ roles })` unless `admin`. */
   adminRole: z.string().min(1).default("admin"),
+}).superRefine((options, context) => {
+  const { payment } = options;
+  if (payment?.checkPrice === undefined) return;
+  options.plans.forEach((plan, index) => {
+    const problem = payment.checkPrice?.(plan.price) ?? null;
+    if (problem !== null) context.addIssue({ code: "custom", message: problem, path: ["plans", index, "price"] });
+  });
 });
 
 export type BillingOptionsInput = z.input<typeof billingOptionsSchema>;

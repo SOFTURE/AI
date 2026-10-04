@@ -4,7 +4,7 @@
 // through `grantPlan` (an admin for manual payments, a verified webhook for a provider).
 import type { Err, ModuleContext, Ok } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
-import type { Plan } from "./contract.js";
+import type { Plan, PlanPrice } from "./contract.js";
 
 /** The signed-in account that pays. */
 export interface PaymentAccount {
@@ -50,6 +50,11 @@ export interface PaymentProvider {
    * could not be sent) is `billing.payment_failed`; anything thrown is a bug or an outage.
    */
   startPayment(ctx: PaymentContext, request: PaymentRequest): Promise<Ok<PaymentStart> | Err<"billing.payment_failed">>;
+  /**
+   * Why the provider cannot charge `price` (e.g. a fraction of its currency's unit), or null when it
+   * can. Run for every plan when the config loads, so the deployer meets it, not the buyer.
+   */
+  checkPrice?(price: PlanPrice): string | null;
 }
 
 export function isPaymentProvider(value: unknown): value is PaymentProvider {
@@ -59,6 +64,7 @@ export function isPaymentProvider(value: unknown): value is PaymentProvider {
     typeof candidate.name === "string" &&
     candidate.name !== "" &&
     typeof candidate.collectsInvoiceDetails === "boolean" &&
-    typeof candidate.startPayment === "function"
+    typeof candidate.startPayment === "function" &&
+    (candidate.checkPrice === undefined || typeof candidate.checkPrice === "function")
   );
 }

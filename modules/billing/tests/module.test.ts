@@ -1,6 +1,6 @@
 // The module definition: its manifest, its options, its dependencies and its health check.
 import { readFileSync } from "node:fs";
-import { billing, manual } from "@softure-ai/billing";
+import { billing, manual, stripe, type BillingOptionsInput } from "@softure-ai/billing";
 import { checkBillingTables, getBillingRoutes } from "@softure-ai/billing/server";
 import { defineSoftureConfig, ok, toModuleJson } from "@softure-ai/core";
 import { describe, expect, it } from "vitest";
@@ -84,6 +84,25 @@ describe("the billing module", () => {
   it("refuses two plans with one id", () => {
     const yearly = { name: { en: "Yearly" }, price: { amount: 100, currency: "PLN" }, period: "year" } as const;
     expect(() => billing({ plans: [{ id: "yearly", ...yearly }, { id: "yearly", ...yearly }] })).toThrow('- options.plans.1.id: repeats the plan id "yearly"');
+  });
+
+  it("refuses a price the payment provider cannot charge, naming the plan; another provider takes it", () => {
+    const plans: BillingOptionsInput["plans"] = [
+      { id: "monthly", name: { en: "Monthly" }, price: { amount: 1500, currency: "ISK" }, period: "month" },
+      { id: "yearly", name: { en: "Yearly" }, price: { amount: 12345, currency: "KWD" }, period: "year" },
+    ];
+    expect(() => billing({ plans, payment: stripe() })).toThrow(
+      [
+        'Invalid SOFTURE configuration in module "billing":',
+        "- options.plans.1.price: stripe() charges KWD in multiples of 10 of its minor unit; round the amount to end in 0",
+      ].join("\n"),
+    );
+    expect(billing({ plans, payment: manual({ onRequest: () => Promise.resolve(ok(undefined)) }) }).options.plans).toHaveLength(2);
+  });
+
+  it("refuses a payment provider whose price check is not a function", () => {
+    const provider = { ...stripe(), checkPrice: "yes" };
+    expect(() => billing({ payment: provider as never })).toThrow("- options.payment: must be a payment provider such as manual()");
   });
 
   it("takes keep_access as the partial refund policy and refuses any other", () => {
