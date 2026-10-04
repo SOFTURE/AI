@@ -66,10 +66,11 @@ describe("blog markup and styles", () => {
     }
   });
 
-  it("reaches the optional @softure-ai/seo only through a dynamic import, and the Next adapter only lazily from the root entry", () => {
+  it("reaches the optional @softure-ai/seo only through a dynamic import, and keeps the root entry off the Next adapter", () => {
     const sources = [...readSources(""), ...readSources("discovery"), ...readSources("cli"), ...readSources("server"), ...readSources("next")];
     for (const { file, source } of sources) expect(source, file).not.toMatch(/^import [^;]*from "@softure-ai\/seo/m);
-    for (const { file, source } of readSources("")) expect(source, file).not.toMatch(/^import [^;]*from "\.\/next\//m);
+    // softure.config.ts imports the root entry, and plain Node or a bundle outside Next loads it.
+    for (const { file, source } of readSources("")) expect(source, file).not.toMatch(/(?:from|import\() *"(?:\.\/next\/|next\/)/);
   });
 
   it("styles every blog class the components and the renderer write", () => {

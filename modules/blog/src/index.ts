@@ -72,6 +72,6 @@ export {
 } from "./options.js";
 export { articles, blogSchema, slugHistory } from "./db/schema.js";
 export type { BlogSitemapEntry } from "./discovery/sitemap.js";
-export { blogSitemap } from "./sitemap.js";
+export { blogSitemap, readBlogSitemap } from "./sitemap.js";
 /** Builds a voice phrase for `blog({ quality: { voice: { phrases } } })` in the config. */
 export { wordPattern } from "./quality/text.js";

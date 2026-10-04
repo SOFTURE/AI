@@ -1,13 +1,11 @@
-// The blog's discovery pieces in Next: the RSS feed route and the sitemap entries behind
-// `blogSitemap()` (`../sitemap.ts`), both over the cached reads of `data.ts` (one query per
-// `revalidateSeconds`).
+// The blog's RSS feed route in Next, over the cached reads of `data.ts` (one query per
+// `revalidateSeconds`). The sitemap contributor is `blogSitemap()` of the root entry (`../sitemap.ts`).
 //
 //   app/blog/rss.xml/route.ts   export { serveBlogRss as GET } from "@softure-ai/blog/next";
 //                               export const dynamic = "force-dynamic";
-import { errorLogLabel, formatMessage, type SoftureConfig } from "@softure-ai/core";
+import { errorLogLabel, formatMessage } from "@softure-ai/core";
 import { getSoftureConfig } from "@softure-ai/core/next";
 import { buildBlogRss } from "../discovery/rss.js";
-import { getBlogSitemapEntries, type BlogSitemapEntry } from "../discovery/sitemap.js";
 import { getClusterLabel } from "../pages/listing.js";
 import { getBlogOptions } from "../server/options.js";
 import { getPageContext } from "./context.js";
@@ -48,14 +46,4 @@ export async function serveBlogRss(): Promise<Response> {
       headers: { "content-type": "text/plain; charset=utf-8", "retry-after": String(RETRY_AFTER_SECONDS) },
     });
   }
-}
-
-/**
- * The blog's sitemap entries: the listing, the articles, the glossary, its terms and the method page,
- * each with the date of its last real change. A failed read throws; seo logs it and serves the rest.
- */
-export async function readBlogSitemap(config: SoftureConfig = getSoftureConfig()): Promise<BlogSitemapEntry[]> {
-  const context = getPageContext(config);
-  const [articles, terms] = await Promise.all([getPublishedArticles(config), getPublishedTerms(config)]);
-  return getBlogSitemapEntries({ articles, terms, routes: context.routes, methodPath: context.methodPath });
 }

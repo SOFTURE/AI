@@ -33,7 +33,7 @@ request), a sitemap hook in core (BL-1 chose contributors).
 | Submit | `submitBlogChanges(config, changes, { commit?, fetchImpl? })` → `{ paths, outcome }`, `outcome` one of `not_configured` (seo not listed, or no IndexNow key) or seo's `skipped`/`dry_run`/`submitted`/`failed`; never throws | research, unknown |
 | CLI | after a `done` run: submit with `commit = run.committed`; `--no-indexnow` turns it off; a failure prints a warning and keeps exit 0 | FIRE, research Q6 |
 | Sitemap | `getBlogSitemapEntries({ articles, terms, routes, methodPath })`: hub + articles only with an article, glossary + terms only with a term, the method page without a date when mounted; priorities 0.7/0.6/0.5 | FIRE |
-| Contributor | `blogSitemap(config?)` in the root entry, importing `readBlogSitemap` of `/next` at call time; config read at call time; entries are seo's structural `SitemapEntry` | research Q3 (updated in phase 3) |
+| Contributor | `blogSitemap(config?)` in the root entry, one `listArticles` query per sitemap request (no `next/*`); config read at call time; entries are seo's structural `SitemapEntry` | research Q3 (updated in phase 3) |
 | RSS | `buildBlogRss({ articles, terms, origin, routes, feedPath, channel, getCategory })`; FIRE's XML; channel title from `pages.blogTitle` with the brand (`titleWithBrand`), description `pages.blogDescription`, `language` = locale | FIRE, research Q2 |
 | Feed route | manifest route `rss: "/blog/rss.xml"`, mount `app/blog/rss.xml/route.ts` → `serveBlogRss`; 503 + `retry-after` with copy `feed.unavailable` on a read failure, logged without the stack | FIRE |
 | Feed links | `alternates.types["application/rss+xml"]` on the listing and article metadata | FIRE |
@@ -85,8 +85,7 @@ request), a sitemap hook in core (BL-1 chose contributors).
 - Unknown: both CLI and function (research).
 - `--no-indexnow` opt-out instead of a loopback rule (research Q6).
 - Feed URLs on `appOrigin`, like the pages (BF-7 moves both).
-- `blogSitemap()` in the root entry, not `/next`: the plan's named risk came true (plain Node cannot
-  load `/next`), and the fallback was the lazy import (phase 3).
+- `blogSitemap()` in the root entry without the Next cache: plain Node cannot load `/next` (phase 3), and a lazy import of it still broke the container's esbuild bundle of `softure.config.ts` (CI), so the contributor queries the database directly.
 - IndexNow URLs go to seo as canonical URLs (`buildCanonicalUrl`): seo's submit resolves paths on the
   origin without the trailing-slash rule, so a path alone would submit a non-canonical address.
 

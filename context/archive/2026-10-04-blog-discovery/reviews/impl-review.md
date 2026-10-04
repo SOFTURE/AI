@@ -24,10 +24,12 @@ plan-review.md and FIRE's `blog-discovery.ts`, `indexnow.ts` and feed route. Gat
 ## Findings
 
 - R1 (fixed in the change): the plan put `blogSitemap()` in `@softure-ai/blog/next`. `softure.config.ts`
-  imports it and also loads in plain Node (`softure migrate`, `scripts/blog.ts`), where `/next` fails on
-  `next/cache` (an extensionless import a bundler resolves). The contributor now lives in the root entry
-  and imports `readBlogSitemap` of `/next` when the sitemap is requested; checked with plain `node`
-  and the e2e build. An architecture test keeps the root entry from importing `/next` statically.
+  imports it and also loads in plain Node (`softure migrate`, `scripts/blog.ts`) and in the container's
+  esbuild bundle, where anything reaching `next/cache` fails (an extensionless import locally, a missing
+  `@opentelemetry/api` in the bundle; the second surfaced in CI on PR #84). The contributor now lives in
+  the root entry and reads with one `listArticles` query on the shared database, without the Next
+  cache; checked with plain `node`, the esbuild bundle of both scripts and the e2e. An architecture test
+  keeps the root entry off `next/*` and `./next/`.
 - R2 (fixed in the change): seo's `submitToIndexNow` resolves a path on the site origin without the
   trailing-slash rule, so a path would be submitted as a non-canonical URL with
   `canonical.trailingSlash: true`. The blog passes `buildCanonicalUrl` results; tested.

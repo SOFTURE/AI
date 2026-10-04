@@ -55,10 +55,7 @@ feed link and the page's canonical never disagree. Moving all blog URLs to the s
 **Q3. Where does the contributor read from?** From the cached reads of `src/next/data.ts` (one query per
 `revalidateSeconds`, tag `softure-blog`), like the pages. It takes the config lazily
 (`getSoftureConfig()` at call time), because the contributor is created while the config is still
-being defined. *Updated in implementation:* `softure.config.ts` also loads in plain Node (`softure
-migrate`, the blog command), and there `@softure-ai/blog/next` fails to load (`next/cache` without an
-extension resolves only in a bundler). So `blogSitemap()` lives in the root entry and imports the Next
-reader (`readBlogSitemap`) when the sitemap is requested. A read failure throws, and
+being defined. *Updated in implementation:* `softure.config.ts` also loads in plain Node and in bundles made outside Next (`softure migrate`, the blog command, the container's esbuild migrate script), where nothing may reach `next/*`. So `blogSitemap()` lives in the root entry and reads with one `listArticles` query on the shared database instead of the Next cache; a sitemap is read rarely. A read failure throws, and
 seo's `buildSitemap` logs it and leaves the blog out, as FIRE did.
 
 **Q4. Feed path.** A new module route `rss: "/blog/rss.xml"` (overridable like the others); the proxy

@@ -207,7 +207,7 @@ With `@softure-ai/seo`, the blog joins its sitemap through a contributor; `app/s
 `force-dynamic` (the contributor reads the database):
 
 ```ts
-// softure.config.ts (the root entry: this file also loads in plain Node, where /next cannot)
+// softure.config.ts (the root entry: this file also loads in plain Node and in bundles outside Next)
 import { blog, blogSitemap } from "@softure-ai/blog";
 seo({ sitemap: { contributors: [blogSitemap()] }, indexNow: { key: "..." } });
 ```
@@ -215,6 +215,7 @@ seo({ sitemap: { contributors: [blogSitemap()] }, indexNow: { key: "..." } });
 The entries are the listing, the articles, the glossary and its terms, each dated by its last content
 change (`updated_at`, else `published_at`), and the method page without a date; an empty listing or
 glossary is left out (it is `noindex`). Paths only: seo makes them absolute with its canonical rule.
+The contributor reads with one query per sitemap request, not through the pages' Next cache.
 
 301 and 410 are answered before the page, in `proxy.ts` (Node.js runtime, Next 16):
 
