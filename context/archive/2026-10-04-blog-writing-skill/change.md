@@ -1,12 +1,12 @@
 ---
 change_id: blog-writing-skill
 title: "An agent writes blog texts with a skill generated from the app's quality gate"
-status: in_progress
+status: archived
 roadmap_item: BL-7
 branch: claude/bl-7-0rg37c
 created: 2026-10-04
 updated: 2026-10-04
-archived_at: null
+archived_at: 2026-10-04
 ---
 
 ## Intent
@@ -54,3 +54,4 @@ rule id, group, effective severity, description.
   settles how the skill is filled and checked.
 - Framing skipped: the problem is not in doubt. The roadmap names the outcome, the source and the
   baseline; the open points are design choices that research settles.
+- Archived 2026-10-04: `@softure-ai/blog` ships an article writing skill (`skill/`: `SKILL.md` plus structure, template, rules and reviewer references, adapted from FIRE's `blog-pisz`); `softure-blog skill install` fills it from the app's blog config into `.claude/skills/blog-write/`, listing exactly the gate's rules with their effective severity, and `--check` reports drift for CI; a two-way sync test keeps the templates and `listQualityRules` in step. Gap BF-7.
