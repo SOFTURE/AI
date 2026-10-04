@@ -47,6 +47,7 @@ editor shows it on `files`.
 ## Decisions (auto)
 - Complexity → small (one description, one generated file).
 - Framing skipped (change.md Notes).
+- Plan review: S1 accepted without change.
 
 ## Progress
 
@@ -55,5 +56,5 @@ editor shows it on `files`.
 ### Phase 1: The font files description admits subset files
 
 #### Automated
-- [ ] 1.1 `tests/schema.test.ts` passes on the regenerated file and the old text is gone
-- [ ] 1.2 Gates green (typecheck, lint, test) and build
+- [x] 1.1 `tests/schema.test.ts` passes on the regenerated file and the old text is gone — 23f3044
+- [x] 1.2 Gates green (typecheck, lint, test) and build — 23f3044

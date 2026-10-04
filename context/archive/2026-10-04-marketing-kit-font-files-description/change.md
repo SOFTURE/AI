@@ -1,12 +1,12 @@
 ---
 change_id: marketing-kit-font-files-description
 title: "The marketing.json font files description admits subset files"
-status: in_progress
+status: archived
 roadmap_item: FU-29
 branch: claude/fu-29-font-files-description-i3mims
 created: 2026-10-04
 updated: 2026-10-04
-archived_at: null
+archived_at: 2026-10-04
 ---
 
 ## Intent
@@ -41,3 +41,5 @@ The backlog entry this change was opened from is [`backlog-input.md`](backlog-in
 - Research: done (quick depth): what the film and the OG images do with several files of one weight and style.
 - Framing skipped: the problem and the outcome are fixed by the roadmap (one `.describe()` text and the regenerated
   JSON Schema); there is one place to change and no alternatives to weigh.
+- Archived 2026-10-04: the `brand.fonts.<kind>.files` description admits several subset files per weight and style
+  and says how the film and OG images pick among them; the JSON Schema is regenerated.
