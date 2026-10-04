@@ -134,6 +134,7 @@ export {
   type AccessReminderInput,
   type AccessReminderKind,
 } from "./reminder.js";
+export { CURRENCY_MINOR_UNIT_DIGITS } from "./currency-digits.js";
 export { formatPrice, getMinorUnitDigits, isSupportedCurrency } from "./price.js";
 export { billingSchema, entitlements, manualGrants, paymentRequests, payments } from "./schema.js";
 export { getCheckoutSessionParams, stripe, STRIPE_API_BASE, STRIPE_SECRET_KEY_ENV, STRIPE_TIMEOUT_MS, type StripeOptions } from "./stripe.js";

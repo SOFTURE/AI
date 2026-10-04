@@ -1,8 +1,9 @@
 // Stripe's unit for an amount (https://docs.stripe.com/currencies, read 2026-10-04): the minor unit
 // of a two-decimal currency unless Stripe lists the currency as zero- or three-decimal. Billing keeps
-// every amount in `Intl`'s minor unit (`src/price.ts`); the two differ where CLDR drops a minor unit
-// Stripe keeps (ISK and UGX, Stripe's "special cases", and e.g. ALL), so the adapter converts at its
-// boundary: amounts sent to Checkout, and amounts the webhook reads back.
+// every amount in the minor unit it pins (`src/currency-digits.ts`, ISO 4217); the two differ where
+// ISO has no minor unit and Stripe keeps one (ISK and UGX, Stripe's "special cases") or ISO has three
+// decimals Stripe does not take (IQD, LYD), so the adapter converts at its boundary: amounts sent to
+// Checkout, and amounts the webhook reads back.
 import type { PlanPrice } from "./contract.js";
 import { getMinorUnitDigits } from "./price.js";
 

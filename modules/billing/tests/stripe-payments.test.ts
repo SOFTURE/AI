@@ -295,7 +295,7 @@ describe("receiveStripeWebhook", () => {
   });
 
   it("records an ISK payment and its refunds in billing's unit, not Stripe's", async () => {
-    // ISK 1,500: billing's amount 1500 (no minor unit in Intl), Stripe's 150000 (two decimals, always 00).
+    // ISK 1,500: billing's amount 1500 (no minor unit in ISO 4217), Stripe's 150000 (two decimals, always 00).
     test = await createTestBilling({ plans: [{ id: "monthly", name: { en: "Monthly" }, price: { amount: 1500, currency: "ISK" }, period: "month" }] });
     const ada = await createAccount(test, "ada@example.com");
     const iskCharge = { amount: 150000, currency: "isk" };

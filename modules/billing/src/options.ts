@@ -50,7 +50,7 @@ const planSchema = z.strictObject({
   price: z.strictObject({
     /** In the currency's minor unit: 2900 is 29.00 PLN. */
     amount: z.number().int().min(0).max(MAX_PRICE_AMOUNT),
-    currency: z.string().refine((code) => /^[A-Z]{3}$/.test(code) && isSupportedCurrency(code), "must be an upper-case ISO 4217 currency code, e.g. PLN"),
+    currency: z.string().refine((code) => /^[A-Z]{3}$/.test(code) && isSupportedCurrency(code), "must be an upper-case ISO 4217 currency code billing knows, e.g. PLN"),
   }),
   /** `"month"`, `"year"`, `"lifetime"`, or `{ unit, count }` such as `{ unit: "month", count: 3 }`. */
   period: periodSchema,

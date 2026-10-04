@@ -113,12 +113,23 @@ billing({
 
 **A plan** is `{ id, name, description?, price: { amount, currency }, period, features?, isFeatured? }`:
 `id` kebab-case and unique; `name`, `description` and each feature line a text per locale with at
-least `en`; `amount` an integer in the currency's minor unit as `Intl` formats it (2900 is 29.00 PLN,
-1500 is ¥1,500, 1500 is ISK 1,500, 1250 is KWD 1.250);
-`currency` an upper-case ISO 4217 code; `period` `"day"`, `"week"`, `"month"`, `"year"`,
+least `en`; `amount` an integer in the currency's minor unit as billing pins it (2900 is 29.00 PLN,
+1500 is ¥1,500, 1500 is ISK 1,500, 1250 is KWD 1.250, 2950 is HUF 29.50);
+`currency` an upper-case ISO 4217 code billing knows; `period` `"day"`, `"week"`, `"month"`, `"year"`,
 `"lifetime"` or `{ unit, count }` such as `{ unit: "month", count: 3 }`. A plan has one currency; a
 second currency is a second plan. Plans live in the config, not in a table: a price change is a
 deploy, and a payment record (with the price paid) belongs to the provider.
+
+**Minor units.** The digits of each currency's minor unit come from a table billing pins
+(`CURRENCY_MINOR_UNIT_DIGITS`): ISO 4217 List One of 2024-06-25 without funds and units that are not
+prices, MGA counted without a minor unit (its subunit is a fifth, as Stripe counts it) and XCG added.
+The runtime's `Intl` only supplies the notation (symbol, separators, where the sign goes), so a price
+means the same amount on every Node build; `Intl`'s own digits follow its CLDR data and have changed
+between builds (HUF had 0 on some and 2 on others). A code outside the table (HRK, SLL, a typo) is
+refused when the config loads. Where `Intl` on current runtimes counts other digits, an amount
+written against `Intl`'s unit must be converted: AFN, ALL, IRR, KPW, LAK, LBP, MMK, RSD, SOS, SYP and
+YER have two decimals here (ALL 1,500 is `150000`), IQD three (IQD 25,000 is `25000000`), and HUF and
+TWD two on every runtime.
 
 **A paid period** runs in local calendar days like a trial, the start day included: a month granted
 on 3 October covers every day to 2 November and ends when 3 November begins. It starts when the
@@ -140,14 +151,14 @@ code, never its message or the key). Subscriptions are not used: each payment bu
 renewing is paying again, as with `manual()`.
 
 **Stripe's currency units.** Stripe takes amounts in its own unit per currency
-([currency guide](https://docs.stripe.com/currencies)), which is not always `Intl`'s: ISK and UGX
-(and e.g. ALL, RSD, LAK) have no decimals in `Intl` but two (always `00`) at Stripe. Plans stay in
-`Intl`'s unit; `stripe()` converts what it sends (ISK 1,500 goes as `150000`) and the webhook converts
+([currency guide](https://docs.stripe.com/currencies)), which is not always billing's: ISK and UGX
+have no decimals in ISO 4217 but two (always `00`) at Stripe. Plans stay in billing's unit;
+`stripe()` converts what it sends (ISK 1,500 goes as `150000`) and the webhook converts
 what Stripe reports back, so payments and refunds are stored and shown in the plan's unit. HUF and
 TWD need nothing: Stripe's divisible-by-100 rule for them is for payouts, not charges. A price
 `stripe()` cannot charge exactly is refused when the config loads, naming the plan: a three-decimal
-amount (BHD, JOD, KWD, OMR, TND) whose last digit is not 0, or an `Intl` amount finer than Stripe's
-unit (LYD). Stripe's minimum and maximum amounts depend on the account and the payment method, so
+amount (BHD, JOD, KWD, OMR, TND) whose last digit is not 0, or an amount finer than Stripe's unit
+(IQD and LYD have three decimals in ISO 4217 and two at Stripe, so their amounts must end in 0). Stripe's minimum and maximum amounts depend on the account and the payment method, so
 Stripe checks them at Checkout (`billing.payment_failed` and a log line).
 
 **Days and time zones.** Trials end at the start of a local day in `config.timezone`: a 14-day

@@ -16,7 +16,7 @@ The minor unit of a plan's `price.amount` is pinned by billing instead of read f
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-32** (roadmap `followups`):
+From [`roadmap.md`](../../foundation/roadmap.md), item **FU-32** (roadmap `followups`):
 
 > ### FU-32: A plan's price means the same amount on every runtime
 > - **Change ID:** `billing-price-minor-units`

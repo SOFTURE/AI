@@ -73,7 +73,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-29** | `marketing-kit-font-files-description` | the marketing.json font files description admits subset files | FU-23 | autonomous | done_code (2026-10-04; waiting: MK-8 release) |
 | **FU-30** | `billing-failed-refund-access` | a refund that fails gives back the access it took | FU-27 | autonomous | done_code (2026-10-04; waiting: the next release of `@softure-ai/billing`) |
 | **FU-31** | `auth-require-user-redirect-tag` | `requireUser`'s redirect to login keeps the channel tag | FU-28 | autonomous | done_code (2026-10-04; waiting: the next releases of `@softure-ai/auth` and `@softure-ai/billing`) |
-| **FU-32** | `billing-price-minor-units` | a plan's price means the same amount on every runtime (pinned minor units) | FU-30 | autonomous | proposed |
+| **FU-32** | `billing-price-minor-units` | a plan's price means the same amount on every runtime (pinned minor units) | FU-30 | autonomous | done_code (2026-10-04; waiting: the next release of `@softure-ai/billing`) |
 | **FU-33** | `billing-lifetime-grant-race` | lifetime grants made at once on a new row are refused after the first | FU-32 | autonomous | proposed |
 | **FU-34** | `billing-stale-handover-claim` | a request whose hand-over was cut off is handed over on a later ask | FU-33 | autonomous | proposed |
 | **FU-35** | `billing-refund-after-late-failure` | a new refund is not lost when an earlier refund's failure arrives late | FU-34 | autonomous | proposed |
@@ -533,7 +533,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-32: A plan's price means the same amount on every runtime
 - **Change ID:** `billing-price-minor-units`
-- **Status:** proposed
+- **Status:** done_code (2026-10-04; waiting: the next release of `@softure-ai/billing`)
+- **Input:** [`archive/2026-10-04-billing-price-minor-units/change.md`](../archive/2026-10-04-billing-price-minor-units/change.md)
 - **Outcome:** The minor unit of a plan's `price.amount` comes from a table billing pins (ISO 4217, with the overrides billing chooses), not from the runtime's `Intl`/CLDR, so a HUF 29.50 plan is formatted and charged the same on every Node build; a test fails if the pinned table and the runtime disagree in a way that changes a price.
 - **Prerequisites:** FU-30 on `master` (lane C).
 - **Unknowns:** Which digits to pin for currencies where ISO 4217 and CLDR differ (HUF, TWD, ISK, ALL, IQD ...); whether to keep formatting through `Intl` with `minimumFractionDigits`/`maximumFractionDigits` set from the table; how to tell deployers whose plans were written against the other unit.
@@ -590,6 +591,7 @@ Open from FU-14:
 
 ## Done
 
+- **FU-32** `billing-price-minor-units`: the minor unit of every plan price comes from a table billing pins (`CURRENCY_MINOR_UNIT_DIGITS`: ISO 4217 List One of 2024-06-25 without funds and non-price units, MGA counted without a minor unit, XCG added), not from the runtime's `Intl`/CLDR; config validation, `formatPrice` (through `Intl` with the table's digits) and Stripe's conversion read it, so HUF 29.50 is 29.50 on every Node build; a test formats every pinned currency on the runtime and fails if its digits change a price; README "Minor units" tells deployers which currencies' amounts differ from `Intl`'s; archived in `archive/2026-10-04-billing-price-minor-units/`
 - **FU-30** `billing-failed-refund-access`: a Stripe refund that fails (`refund.failed`, or a refund update with a failed or canceled status) gives back what it took, once per refund (`billing.refund_failures`, migration `0007`): the payment's refunded total and status, a refunded lifetime, and the failed money's share of the days refunds took (`taken_back_days`), after the payment's period while it is ahead, else at the end; charge snapshots are dated by the event's `created`, so a stale one is corrected and a failure billing never counted gives back nothing; failures are exported; a new refund reported before a late failure is FU-35; archived in `archive/2026-10-04-billing-failed-refund-access/`
 - **FU-24** `billing-existing-accounts`: `trial.startsAt` floors the derived trial of accounts created before a chosen day, `import-entitlements` (and `importEntitlement()`) records known trial ends, paid periods and lifetime access without shortening access, and `pin-trials` (and `pinDerivedTrials()`) pins derived trials before a config change; README §5 lists the config effects; covered by unit tests on PGlite and an e2e; archived in `archive/2026-10-04-billing-existing-accounts/`
 - **FU-25** `billing-stripe-currency-units`: `stripe()` charges in Stripe's unit per currency (ISK, UGX, ALL and the other currencies `Intl` shows without decimals go ×100), the webhook records paid totals and partial refunds in the plan's unit, and a price Stripe cannot charge exactly (a three-decimal amount not ending in 0, LYD fractions) is refused when the config loads; HUF and TWD needed nothing (their divisible-by-100 rule is for payouts); covered by unit tests on the Checkout body and signed webhook fixtures on PGlite; archived in `archive/2026-10-04-billing-stripe-currency-units/`
