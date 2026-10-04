@@ -1,0 +1,21 @@
+// The Next.js adapter of @softure-ai/blog: the pages, their metadata, the article's OG image and the
+// cached reads (docs/02-module-standard.md §8).
+export { getBlogContext, getPageContext } from "./context.js";
+export { BLOG_CACHE_TAG, getPublishedArticles, getPublishedTerms, getTextBySlug } from "./data.js";
+export { BlogArticleOgImage, getOgColors, OG_IMAGE_SIZE, renderArticleOgImage, type OgFont, type RenderArticleOgImageInput } from "./og-image.js";
+export {
+  BlogArticlePage,
+  BlogIndexPage,
+  BlogMethodPage,
+  generateArticleMetadata,
+  generateBlogIndexMetadata,
+  generateBlogStaticParams,
+  generateGlossaryIndexMetadata,
+  generateMethodMetadata,
+  generateTermMetadata,
+  GlossaryIndexPage,
+  GlossaryTermPage,
+  type BlogArticlePageProps,
+  type BlogIndexPageProps,
+  type GlossaryTermPageProps,
+} from "./pages.js";

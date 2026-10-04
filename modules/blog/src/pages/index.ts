@@ -1,5 +1,6 @@
 // Page logic without React and without Next: paths, dates, listing order, crumbs, JSON-LD and the
 // 301/410 decisions. The components (`../ui/`) and the Next adapter (`../next/`) render what it returns.
+export { findArticlesLinkingTerm, renderPageBody, type RenderPageBodyOptions } from "./body.js";
 export { formatDay, getArticleDates, getDayInZone, type ArticleDates } from "./dates.js";
 export { getArticleImageUrl, getArticleJsonLd, getGlossaryJsonLd, getTermJsonLd, serializeJsonLd, type JsonLdContext } from "./json-ld.js";
 export {
