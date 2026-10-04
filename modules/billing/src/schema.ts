@@ -1,7 +1,8 @@
 // Drizzle view of the module's tables (migrations/0001_create_entitlements.sql,
 // 0002_create_payments.sql, 0003_record_payment_grants.sql, 0004_create_requests_and_grants.sql,
 // 0005_record_refunded_amounts.sql, 0006_record_request_handover_and_prices.sql,
-// 0007_record_failed_refunds.sql and 0008_record_request_handover_claims.sql).
+// 0007_record_failed_refunds.sql, 0008_record_request_handover_claims.sql and
+// 0009_record_pending_charge_states.sql).
 // The migrations are the source of truth; this file only types the queries.
 import { bigint, boolean, integer, pgSchema, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
@@ -34,6 +35,8 @@ export const payments = billingSchema.table("payments", {
   refundedAmount: bigint("refunded_amount", { mode: "number" }).notNull().default(0),
   takenBackDays: integer("taken_back_days").notNull().default(0),
   refundsSeenAt: timestamp("refunds_seen_at", { withTimezone: true }),
+  pendingRefundedAmount: bigint("pending_refunded_amount", { mode: "number" }),
+  pendingRefundsSeenAt: timestamp("pending_refunds_seen_at", { withTimezone: true }),
 });
 
 export const refundFailures = billingSchema.table(

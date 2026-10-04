@@ -6,7 +6,9 @@
 // A payment keeps the total refunded so far (`refunded_amount`, the provider's cumulative figure),
 // so a repeated or stale refund delivery finds nothing new and changes nothing. A refund that fails
 // later gives back what it took (`failRefund`), once per refund id (`billing.refund_failures`); a
-// charge snapshot taken before a failure is corrected by the failed refunds it still counts.
+// charge snapshot taken before a failure is corrected by the failed refunds it still counts. A newer
+// snapshot that reports no more than billing counts (a new refund after a failure billing has not
+// heard of yet) is kept on the payment, and each failure applies it once it reports more.
 // Locks: the account first (key share), like `changeEntitlement` and the privacy erase; a refund
 // then takes the entitlement before its payment row (`lockEntitlementRow`), as a manual revoke does,
 // so a refund and a revoke of one account queue on the entitlement instead of deadlocking on the
@@ -145,9 +147,10 @@ export function readGrant(row: GrantColumns): PaymentGrant | null {
  * nor revoke a payment without a recorded grant; the refund that completes the amount does what a
  * full refund does. The reported total first loses the failed refunds it still counts (created by
  * `observedAt`, failed after it). `duplicate` when the refund adds nothing to what was recorded (a
- * repeated or stale delivery), `unknown_payment` when billing never recorded the payment. The days
- * a refund takes are added to the payment's `taken_back_days`, for a failure to give back. Database
- * errors propagate.
+ * repeated or stale delivery); a state newer than every one recorded is then kept for the failure
+ * that explains it (`failRefund`). `unknown_payment` when billing never recorded the payment. The
+ * days a refund takes are added to the payment's `taken_back_days`, for a failure to give back.
+ * Database errors propagate.
  */
 export async function refundPayment(ctx: BillingContext, input: RefundPaymentInput): Promise<Ok<PaymentOutcome>> {
   return ctx.db.transaction(async (tx) => {
@@ -160,42 +163,89 @@ export async function refundPayment(ctx: BillingContext, input: RefundPaymentInp
     await tx.select({ id: users.id }).from(users).where(eq(users.id, userId)).for("key share");
     await lockEntitlementRow(tx, userId);
     const [payment] = await tx.select().from(payments).where(match).for("update");
-    // Refunded by a concurrent delivery, or erased with the account in the meantime.
-    if (payment?.status !== "paid") return ok({ status: "duplicate" });
+    // Erased with the account in the meantime.
+    if (payment === undefined) return ok({ status: "duplicate" });
 
-    const observedAt = input.observedAt ?? now;
-    const reported = (input.amountRefunded ?? payment.amount) - (await getFailedAmountCounted(tx, payment.id, observedAt));
-    const total = Math.min(Math.max(reported, 0), payment.amount);
-    const isFull = total >= payment.amount;
-    if (!isFull && total <= payment.refundedAmount) return ok({ status: "duplicate" });
-    const refundsSeenAt = payment.refundsSeenAt !== null && payment.refundsSeenAt > observedAt ? payment.refundsSeenAt : observedAt;
-    await tx
-      .update(payments)
-      .set(isFull ? { status: "refunded", refundedAt: now, refundedAmount: payment.amount, refundsSeenAt } : { refundedAmount: total, refundsSeenAt })
-      .where(eq(payments.id, payment.id));
-
-    const share = isFull ? undefined : getPartialShare(ctx, { refunded: total - payment.refundedAmount, outstanding: payment.amount - payment.refundedAmount });
-    const grant = readGrant(payment);
-    const { entitlement, days } = await takeBackGrant(
-      { ...ctx, db: tx },
-      {
-        userId,
-        grant,
-        now,
-        share,
-        hasOtherLifetime: async () => (await hasActiveManualLifetime(tx, userId)) || (await hasPaidLifetimePayment(tx, userId, payment.id)),
-      },
-    );
-    if (days > 0 && grant?.kind === "period") {
-      // A partially refunded payment stays paid: its stored period ends where the access it still pays for does.
-      const grantedUntil = isFull ? grant.until : moveBackByDays(grant.until, days, ctx.config.timezone);
-      await tx
-        .update(payments)
-        .set({ grantedUntil, takenBackDays: payment.takenBackDays + days })
-        .where(eq(payments.id, payment.id));
-    }
-    return ok({ status: isFull ? "refunded" : "partially_refunded", entitlement });
+    const state = { reported: input.amountRefunded ?? payment.amount, observedAt: input.observedAt ?? now };
+    const applied = await applyChargeState({ ...ctx, db: tx }, { payment, state, now });
+    if (applied !== null) return ok(applied);
+    await keepNewerChargeState(tx, payment, state);
+    return ok({ status: "duplicate" });
   });
+}
+
+type PaymentRow = typeof payments.$inferSelect;
+
+/** What applying a charge state changed. */
+type AppliedRefund = Extract<PaymentOutcome, { readonly status: "refunded" | "partially_refunded" }>;
+
+/** A charge's refunded total as the provider reported it, before any correction, and when it was taken. */
+interface ChargeState {
+  readonly reported: number;
+  readonly observedAt: Date;
+}
+
+interface ApplyChargeStateInput {
+  /** The payment's row, read under the caller's locks. */
+  readonly payment: PaymentRow;
+  readonly state: ChargeState;
+  readonly now: Date;
+}
+
+/**
+ * Applies a charge state to a payment the caller locked (the account, the entitlement, the row):
+ * the refunded total it reports, less the failed refunds it still counts, takes back what it adds
+ * to the recorded total (see `refundPayment`). Null when it adds nothing (the payment is refunded
+ * in full, or the total is not above the recorded one). A kept state at or before it is cleared.
+ */
+async function applyChargeState(ctx: BillingContext, { payment, state, now }: ApplyChargeStateInput): Promise<AppliedRefund | null> {
+  const total = Math.min(Math.max(state.reported - (await getFailedAmountCounted(ctx.db, payment.id, state.observedAt)), 0), payment.amount);
+  const isFull = total >= payment.amount;
+  if (payment.status !== "paid" || (!isFull && total <= payment.refundedAmount)) return null;
+
+  const { userId } = payment;
+  const refundsSeenAt = payment.refundsSeenAt !== null && payment.refundsSeenAt > state.observedAt ? payment.refundsSeenAt : state.observedAt;
+  const isPendingIncluded = payment.pendingRefundsSeenAt !== null && payment.pendingRefundsSeenAt <= state.observedAt;
+  await ctx.db
+    .update(payments)
+    .set({
+      ...(isFull ? { status: "refunded", refundedAt: now, refundedAmount: payment.amount } : { refundedAmount: total }),
+      refundsSeenAt,
+      ...(isPendingIncluded ? { pendingRefundedAmount: null, pendingRefundsSeenAt: null } : {}),
+    })
+    .where(eq(payments.id, payment.id));
+
+  const share = isFull ? undefined : getPartialShare(ctx, { refunded: total - payment.refundedAmount, outstanding: payment.amount - payment.refundedAmount });
+  const grant = readGrant(payment);
+  const { entitlement, days } = await takeBackGrant(ctx, {
+    userId,
+    grant,
+    now,
+    share,
+    hasOtherLifetime: async () => (await hasActiveManualLifetime(ctx.db, userId)) || (await hasPaidLifetimePayment(ctx.db, userId, payment.id)),
+  });
+  if (days > 0 && grant?.kind === "period") {
+    // A partially refunded payment stays paid: its stored period ends where the access it still pays for does.
+    const grantedUntil = isFull ? grant.until : moveBackByDays(grant.until, days, ctx.config.timezone);
+    await ctx.db
+      .update(payments)
+      .set({ grantedUntil, takenBackDays: payment.takenBackDays + days })
+      .where(eq(payments.id, payment.id));
+  }
+  return { status: isFull ? "refunded" : "partially_refunded", entitlement };
+}
+
+/**
+ * Keeps a charge state billing did not apply when it is newer than every state recorded (applied or
+ * kept): it may carry a new refund that a failure billing has not heard of yet hides.
+ */
+async function keepNewerChargeState(tx: Queryable, payment: PaymentRow, state: ChargeState): Promise<void> {
+  const isNewer = (seenAt: Date | null) => seenAt === null || state.observedAt > seenAt;
+  if (!isNewer(payment.refundsSeenAt) || !isNewer(payment.pendingRefundsSeenAt)) return;
+  await tx
+    .update(payments)
+    .set({ pendingRefundedAmount: state.reported, pendingRefundsSeenAt: state.observedAt })
+    .where(eq(payments.id, payment.id));
 }
 
 /** The failed refunds of a payment a charge snapshot taken at `observedAt` still counts: created by then, failed after. */
@@ -220,9 +270,11 @@ export interface FailRefundInput extends FailedRefund {
  * comes back), and its period gets back the failed money's share of the days refunds took
  * (`getRestoredDays`, by `partialRefunds`), with `giveBackDays`. A failure billing never counted is
  * only recorded, so a later snapshot that still counts the refund is corrected by it. A payment
- * stored before grants were recorded gets its total and status back but no access. `duplicate` for
- * a refund already recorded as failed, `unknown_payment` when billing never recorded the payment.
- * Database errors propagate.
+ * stored before grants were recorded gets its total and status back but no access. Then the charge
+ * state `refundPayment` kept is applied when, corrected, it reports more than billing now counts: a
+ * new refund reported before this failure is taken back once. `duplicate` for a refund already
+ * recorded as failed, `unknown_payment` when billing never recorded the payment. Database errors
+ * propagate.
  */
 export async function failRefund(ctx: BillingContext, input: FailRefundInput): Promise<Ok<PaymentOutcome>> {
   return ctx.db.transaction(async (tx) => {
@@ -256,41 +308,63 @@ export async function failRefund(ctx: BillingContext, input: FailRefundInput): P
     const seenAt = payment.refundsSeenAt;
     const isCounted = seenAt !== null && input.refundCreatedAt <= seenAt && seenAt < input.failedAt;
     const restoredAmount = isCounted ? Math.min(input.amount, payment.refundedAmount) : 0;
-    if (restoredAmount === 0) return ok({ status: "refund_failed", entitlement: await readEntitlement(txCtx, userId, now) });
-
-    const days = getRestoredDays({
-      takenBackDays: payment.takenBackDays,
-      refundedAmount: payment.refundedAmount,
-      restoredAmount,
-      policy: getBillingOptions(ctx.config).partialRefunds,
-    });
-    const isPaid = payment.status === "paid";
-    const grant = readGrant(payment);
-    let entitlement: Entitlement | null = null;
-    let period: GrantColumns | null = null;
-    if (grant?.kind === "period" && days > 0) {
-      const given = await giveBackDays(txCtx, { userId, grant, isPaid, days, now });
-      entitlement = given.entitlement;
-      period = getGrantColumns(given.period);
-    } else if (grant?.kind === "lifetime" && !isPaid) {
-      const changed = await changeEntitlement(txCtx, userId, { type: "grant_lifetime" });
-      // The account is locked and a lifetime grant is never refused.
-      if (!changed.ok) throw new Error(`@softure-ai/billing: giving back a refunded lifetime failed with ${changed.error}`);
-      entitlement = changed.value;
-    }
-    // Below the amount again, so a payment refunded in full is paid again.
-    await tx
-      .update(payments)
-      .set({
-        status: "paid",
-        refundedAt: null,
-        refundedAmount: payment.refundedAmount - restoredAmount,
-        takenBackDays: payment.takenBackDays - days,
-        ...(period === null ? {} : { grantedFrom: period.grantedFrom, grantedUntil: period.grantedUntil }),
-      })
-      .where(eq(payments.id, payment.id));
-    return ok({ status: "refund_failed", entitlement: entitlement ?? (await readEntitlement(txCtx, userId, now)) });
+    const restored = restoredAmount === 0 ? null : await restoreRefund(txCtx, { payment, restoredAmount, now });
+    const kept = await applyKeptChargeState(txCtx, payment.id, now);
+    return ok({ status: "refund_failed", entitlement: kept?.entitlement ?? restored ?? (await readEntitlement(txCtx, userId, now)) });
   });
+}
+
+interface RestoreRefundInput {
+  /** The payment's row, read under the caller's locks. */
+  readonly payment: PaymentRow;
+  /** What billing counted of the failed refund, above 0. */
+  readonly restoredAmount: number;
+  readonly now: Date;
+}
+
+/** Gives back what a failed refund billing counted took (see `failRefund`); the entitlement when access changed. */
+async function restoreRefund(ctx: BillingContext, { payment, restoredAmount, now }: RestoreRefundInput): Promise<Entitlement | null> {
+  const { userId } = payment;
+  const days = getRestoredDays({
+    takenBackDays: payment.takenBackDays,
+    refundedAmount: payment.refundedAmount,
+    restoredAmount,
+    policy: getBillingOptions(ctx.config).partialRefunds,
+  });
+  const isPaid = payment.status === "paid";
+  const grant = readGrant(payment);
+  let entitlement: Entitlement | null = null;
+  let period: GrantColumns | null = null;
+  if (grant?.kind === "period" && days > 0) {
+    const given = await giveBackDays(ctx, { userId, grant, isPaid, days, now });
+    entitlement = given.entitlement;
+    period = getGrantColumns(given.period);
+  } else if (grant?.kind === "lifetime" && !isPaid) {
+    const changed = await changeEntitlement(ctx, userId, { type: "grant_lifetime" });
+    // The account is locked and a lifetime grant is never refused.
+    if (!changed.ok) throw new Error(`@softure-ai/billing: giving back a refunded lifetime failed with ${changed.error}`);
+    entitlement = changed.value;
+  }
+  // Below the amount again, so a payment refunded in full is paid again.
+  await ctx.db
+    .update(payments)
+    .set({
+      status: "paid",
+      refundedAt: null,
+      refundedAmount: payment.refundedAmount - restoredAmount,
+      takenBackDays: payment.takenBackDays - days,
+      ...(period === null ? {} : { grantedFrom: period.grantedFrom, grantedUntil: period.grantedUntil }),
+    })
+    .where(eq(payments.id, payment.id));
+  return entitlement;
+}
+
+/** Applies the charge state a payment kept (see `refundPayment`) when it now reports more than billing counts. */
+async function applyKeptChargeState(ctx: BillingContext, paymentId: string, now: Date): Promise<AppliedRefund | null> {
+  // Read again: the restore may have changed the row. The caller holds its lock.
+  const [payment] = await ctx.db.select().from(payments).where(eq(payments.id, paymentId));
+  if (payment === undefined || payment.pendingRefundedAmount === null || payment.pendingRefundsSeenAt === null) return null;
+  return applyChargeState(ctx, { payment, state: { reported: payment.pendingRefundedAmount, observedAt: payment.pendingRefundsSeenAt }, now });
 }
 
 /** Where the account stands at `now`, read inside the caller's transaction. */
