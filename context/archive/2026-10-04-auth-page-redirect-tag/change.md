@@ -1,12 +1,12 @@
 ---
 change_id: auth-page-redirect-tag
 title: "A signed-in visitor's redirect from a tagged login page keeps the tag"
-status: impl_reviewed
+status: archived
 roadmap_item: FU-28
 branch: claude/fu-28-auth-page-redirect-tag-jxa369
 created: 2026-10-04
 updated: 2026-10-04
-archived_at: null
+archived_at: 2026-10-04
 ---
 
 ## Intent
@@ -52,3 +52,4 @@ The backlog entry this change was opened from is [`backlog-input.md`](backlog-in
 - Placement: roadmap `followups`, item FU-28 (taken from `context/backlog/roadmap-followups/`).
 - Research: quick depth, to answer the first Unknown (what a page render can hand `rewriteRedirect`).
 - Framing: short, for the second Unknown ("whether the case matters enough").
+- Archived 2026-10-04: auth's login and register pages send a signed-in visitor on with the page's own channel tag through `rewriteRedirect` and `tagRedirect`, covered by unit and e2e tests (proven to fail without the fix).

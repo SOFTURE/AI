@@ -69,7 +69,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-25** | `billing-stripe-currency-units` | Stripe charges the plan's price in every currency (special-case units) | FU-24 | autonomous | proposed |
 | **FU-26** | `billing-guard-race-tests` | billing guards and lock races tested where they can fail | FU-25 | autonomous | proposed |
 | **FU-27** | `billing-invoice-request-hygiene` | invoice requests stored before the owner's mail, validated, expired and priced | FU-26 | autonomous | proposed |
-| **FU-28** | `auth-page-redirect-tag` | a signed-in visitor's redirect from a tagged login page keeps the tag | FU-7 | autonomous | in_progress (impl-review, since 2026-10-04; claude/fu-28-auth-page-redirect-tag-jxa369) |
+| **FU-28** | `auth-page-redirect-tag` | a signed-in visitor's redirect from a tagged login page keeps the tag | FU-7 | autonomous | done_code (2026-10-04; waiting: the next releases of `@softure-ai/auth` and `@softure-ai/analytics`) |
 | **FU-29** | `auth-require-user-redirect-tag` | `requireUser`'s redirect to login keeps the channel tag | FU-28 | autonomous | proposed |
 
 ## Order
@@ -465,8 +465,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-28: A signed-in visitor's redirect from a tagged login page keeps the tag
 - **Change ID:** `auth-page-redirect-tag`
-- **Status:** in_progress (impl-review, since 2026-10-04; claude/fu-28-auth-page-redirect-tag-jxa369)
-- **Input:** [`changes/auth-page-redirect-tag/change.md`](../changes/auth-page-redirect-tag/change.md)
+- **Status:** done_code (2026-10-04; waiting: the next releases of `@softure-ai/auth` and `@softure-ai/analytics`)
+- **Input:** [`archive/2026-10-04-auth-page-redirect-tag/change.md`](../archive/2026-10-04-auth-page-redirect-tag/change.md)
 - **Outcome:** Auth's login and register pages redirect a signed-in visitor to a URL that keeps the page's own channel tag (for example `rewriteRedirect` given the page's search parameters, or a page-level counterpart of `tagRedirect` that reads them instead of `Referer`).
 - **Prerequisites:** FU-7 on `master` (shared files, see Order).
 - **Unknowns:** Whether `rewriteRedirect` can read the page's own URL in a render (it reads `Referer` today); whether the case matters enough beyond the account page's beacon.
@@ -503,6 +503,7 @@ Open from FU-14:
 
 ## Done
 
+- **FU-28** `auth-page-redirect-tag`: auth's login and register pages redirect a signed-in visitor with the page's own channel tag through `rewriteRedirect` (now handed the page's `searchParams`) and analytics' `tagRedirect`, covered by unit and e2e tests; archived in `archive/2026-10-04-auth-page-redirect-tag/`
 - **FU-7** `analytics-action-redirect-tag`: auth's action redirects keep the channel tag through `rewriteRedirect` and analytics' `tagRedirect`, with and without JavaScript, covered by unit and e2e tests; archived in `archive/2026-10-03-analytics-action-redirect-tag/`
 - **FU-16** `marketing-kit-layout-overrides`: `marketing.json` `layout` overrides a format's caption box and size, persona card, end card and its phone pose, validated against the frame; archived in `archive/2026-10-03-marketing-kit-layout-overrides/`
 - **FU-4** `waitlist-welcome-html`: both waitlist mails carry an HTML body built from their copy (the confirmation link as an anchor); `waitlist({ mailTemplate })` renders it in the app's layout; archived in `archive/2026-10-03-waitlist-welcome-html/`
