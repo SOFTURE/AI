@@ -3,7 +3,7 @@
 export { loadCharacterMap, readCharacterMap, type CharacterMap } from "./character-map.js";
 export { describeCharacter, findMissingGlyphs, selectSatoriFont, type MissingGlyphs } from "./glyphs.js";
 export { h, listNodes, type OgChild, type OgNode, type OgStyle } from "./element.js";
-export { OG_FONT_KINDS, OG_FONT_WEIGHTS, loadOgFonts, pickWeight, type OgFontFamily, type OgFontKind, type OgFontWeight, type OgFonts, type ReadFontFile, type SatoriFont } from "./fonts.js";
+export { OG_FONT_KINDS, OG_FONT_WEIGHTS, loadOgFonts, pickWeight, toFontFamilyCss, type OgFontFamily, type OgFontKind, type OgFontWeight, type OgFonts, type ReadFontFile, type SatoriFont } from "./fonts.js";
 export { getOgPalette, toOpaqueHex, withAlpha, type OgPalette } from "./palette.js";
 export type { OgResult } from "./result.js";
 export {

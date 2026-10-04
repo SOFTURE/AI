@@ -16,7 +16,7 @@ gets Polish copy drawn in OG images, not the missing-glyph error.
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-23** (roadmap `followups`):
+From [`roadmap.md`](../../foundation/roadmap.md), item **FU-23** (roadmap `followups`):
 
 > ### FU-23: OG images use every subset file of a weight
 > - **Change ID:** `marketing-kit-og-subset-fonts`

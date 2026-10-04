@@ -46,11 +46,11 @@ describe("renderOgImage", () => {
     const png = await renderOgImage({ ...brandInput("headline-cta"), data });
     expect(png.ok ? null : png.error).toBe(
       [
-        'OG image: template "headline-cta" has characters none of the loaded fonts can draw:',
+        'OG image: template "headline-cta" has characters none of the loaded fonts can draw at the text\'s weight and style:',
         `  data.headline: "${N_ACUTE}" (U+0144)`,
         `  data.tiles[0].label: "${S_ACUTE}" (U+015B)`,
         `  data.tiles[1].label: "${S_ACUTE}" (U+015B)`,
-        "Use font files that cover them. OG images use one file per family, weight and style (the first listed), so a second subset file of the same weight is not used.",
+        "Use font files that cover them at every weight the copy uses. Several files of one weight and style (subset files such as latin and latin-ext) are tried in the order listed.",
       ].join("\n"),
     );
   });
@@ -70,11 +70,41 @@ describe("renderOgImage", () => {
     expect(png.ok ? readPngSize(png.value) : png.error).toEqual([1200, 630]);
   });
 
-  it("still refuses it when the covering file is a second file of the same weight", async () => {
-    const fonts = loadOgFonts({ heading: makeFont([{ path: getInterFile(700), weight: "700" }, { path: getInterExtFile(700), weight: "700" }]), body: INTER });
+  it("renders Polish copy from latin and latin-ext subset files of each weight", async () => {
+    const font = makeFont([
+      { path: getInterFile(400), weight: "400" },
+      { path: getInterExtFile(400), weight: "400" },
+      { path: getInterFile(700), weight: "700" },
+      { path: getInterExtFile(700), weight: "700" },
+    ]);
+    const fonts = loadOgFonts({ heading: font, body: font });
     if (!fonts.ok) throw new Error(fonts.error);
-    const png = await renderOgImage({ ...brandInput("headline-cta"), data: { headline: `Zacznij ${A_OGONEK}` }, fonts: fonts.value });
-    expect(png.ok ? null : png.error.split("\n")[1]).toBe(`  data.headline: "${A_OGONEK}" (U+0105)`);
+    const data = { eyebrow: `Kalkulator ${A_OGONEK}`, headline: `Policz sw${O_ACUTE}j dzie${N_ACUTE}`, cta: `Licz${S_ACUTE}`, tiles: [{ label: `Wiek wyj${S_ACUTE}cia`, value: "49" }] };
+    const png = await renderOgImage({ ...brandInput("headline-cta"), data, fonts: fonts.value });
+    expect(png.ok ? readPngSize(png.value) : png.error).toEqual([1200, 630]);
+  });
+
+  it("draws the subset letters at the line's weight, not the latin file's alone", async () => {
+    const subset = (ext: 400 | 700) =>
+      makeFont([
+        { path: getInterFile(400), weight: "400" },
+        { path: getInterFile(700), weight: "700" },
+        { path: getInterExtFile(ext), weight: String(ext) },
+      ]);
+    const svg = async (ext: 400 | 700) => {
+      const fonts = loadOgFonts({ heading: subset(ext), body: INTER });
+      if (!fonts.ok) throw new Error(fonts.error);
+      const result = await renderOgSvg({ ...brandInput("headline-cta"), data: { headline: `${A_OGONEK}${A_OGONEK}` }, fonts: fonts.value });
+      return result.ok ? result.value : result.error;
+    };
+    expect(await svg(400)).toBe(
+      [
+        'OG image: template "headline-cta" has characters none of the loaded fonts can draw at the text\'s weight and style:',
+        `  data.headline: "${A_OGONEK}" (U+0105)`,
+        "Use font files that cover them at every weight the copy uses. Several files of one weight and style (subset files such as latin and latin-ext) are tried in the order listed.",
+      ].join("\n"),
+    );
+    expect(await svg(700)).toMatch(/^<svg/);
   });
 
   it("returns invalid data as an error, not an exception", async () => {
@@ -181,7 +211,7 @@ describe("renderConfiguredOgImage", () => {
     Object.assign(entry.data, { headline: `Zacznij ${A_OGONEK}` });
     const result = await renderConfiguredOgImage({ config, id: "calculator" });
     expect(result.ok ? null : result.error.split("\n").slice(0, 2)).toEqual([
-      'OG image "calculator": template "headline-cta" has characters none of the loaded fonts can draw:',
+      'OG image "calculator": template "headline-cta" has characters none of the loaded fonts can draw at the text\'s weight and style:',
       `  ogImages[0].data.headline: "${A_OGONEK}" (U+0105)`,
     ]);
   });
