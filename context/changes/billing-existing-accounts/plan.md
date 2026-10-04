@@ -151,16 +151,16 @@ trials stay; duplicate emails differing only in case are refused; a row with no 
 ### Phase 2: Import and pin
 
 #### Automated
-- [x] 2.1 The `import` event merges without shortening any end
-- [x] 2.2 `importEntitlement` and `import-entitlements` record rows; refusals write nothing; no email in output
-- [x] 2.3 `pinDerivedTrials` and `pin-trials` write derived trials for row-less accounts only, idempotently
-- [x] 2.4 Gates green (typecheck, lint, test)
+- [x] 2.1 The `import` event merges without shortening any end — 1a31924
+- [x] 2.2 `importEntitlement` and `import-entitlements` record rows; refusals write nothing; no email in output — 1a31924
+- [x] 2.3 `pinDerivedTrials` and `pin-trials` write derived trials for row-less accounts only, idempotently — 1a31924
+- [x] 2.4 Gates green (typecheck, lint, test) — 1a31924
 
 ### Phase 3: Example app and README
 
 #### Automated
-- [ ] 3.1 The e2e (old account read-only, import makes it paid, pin dry run) passes
-- [ ] 3.2 Gates green (typecheck, lint, test)
+- [x] 3.1 The e2e (old account read-only, import makes it paid, pin dry run) passes
+- [x] 3.2 Gates green (typecheck, lint, test)
 
 #### Manual
-- [ ] 3.3 The README's adoption steps read as one procedure an operator can follow
+- [x] 3.3 The README's adoption steps read as one procedure an operator can follow
