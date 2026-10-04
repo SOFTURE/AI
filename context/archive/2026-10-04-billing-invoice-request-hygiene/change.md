@@ -1,12 +1,12 @@
 ---
 change_id: billing-invoice-request-hygiene
 title: "Invoice requests are stored before the owner hears of them and keep only what they need"
-status: impl_reviewed
+status: archived
 roadmap_item: FU-27
 branch: claude/fu-27-invoice-request-hygiene-y4gxer
 created: 2026-10-04
 updated: 2026-10-04
-archived_at: null
+archived_at: 2026-10-04
 ---
 
 ## Intent
@@ -51,3 +51,8 @@ by FU-20 (`0005_record_refunded_amounts.sql`), so the next one is `0006`.
   before the hand-over changes what a failed hand-over leaves behind, which decides the design.
 - Framing skipped: the problem is stated by four retro findings (S1-S4) with file references and
   checked against `master` today; nothing about the problem is in doubt, only how to close it.
+- Archived 2026-10-04: a manual invoice request is stored before `onRequest` and handed over once per
+  open request (a failed hand-over is retried on the next ask), invoice fields are parsed by a zod
+  schema with a code per problem and the database refuses control characters, open requests expire
+  after `requests.expireAfterDays` (30) with their details cleared, and requests and manual grants
+  record their price (migration `0006`); a claim left by a crash is FU-34.
