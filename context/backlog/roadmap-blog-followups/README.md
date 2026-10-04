@@ -27,5 +27,7 @@ moved file lose one `../`.
 
 | ID | Entry | Title | Condition | Kind |
 | --- | --- | --- | --- | --- |
+| BF-1 | [`cli-config-loader`](cli-config-loader/change.md) | One config loader for module commands | roadmap promoted | start |
+| BF-2 | [`blog-publish-slug-race`](blog-publish-slug-race/change.md) | A slug race reports a taken slug | roadmap promoted | start |
 
 Kind: `start`, `dependency` or `owner`, as in the other roadmap backlogs.
