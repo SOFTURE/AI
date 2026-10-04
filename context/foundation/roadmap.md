@@ -75,7 +75,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-31** | `auth-require-user-redirect-tag` | `requireUser`'s redirect to login keeps the channel tag | FU-28 | autonomous | done_code (2026-10-04; waiting: the next releases of `@softure-ai/auth` and `@softure-ai/billing`) |
 | **FU-32** | `billing-price-minor-units` | a plan's price means the same amount on every runtime (pinned minor units) | FU-30 | autonomous | done_code (2026-10-04; waiting: the next release of `@softure-ai/billing`) |
 | **FU-33** | `billing-lifetime-grant-race` | lifetime grants made at once on a new row are refused after the first | FU-32 | autonomous | done_code (2026-10-04; waiting: the next release of `@softure-ai/billing`) |
-| **FU-34** | `billing-stale-handover-claim` | a request whose hand-over was cut off is handed over on a later ask | FU-33 | autonomous | proposed |
+| **FU-34** | `billing-stale-handover-claim` | a request whose hand-over was cut off is handed over on a later ask | FU-33 | autonomous | in_progress (implement 1/1, since 2026-10-04; branch `claude/project-thread-fo2e3z`) |
 | **FU-35** | `billing-refund-after-late-failure` | a new refund is not lost when an earlier refund's failure arrives late | FU-34 | autonomous | proposed |
 
 ## Order
@@ -556,7 +556,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-34: A request whose hand-over was cut off is handed over on a later ask
 - **Change ID:** `billing-stale-handover-claim`
-- **Status:** proposed
+- **Status:** in_progress (implement 1/1, since 2026-10-04; branch `claude/project-thread-fo2e3z`)
+- **Input:** [`changes/billing-stale-handover-claim/change.md`](../changes/billing-stale-handover-claim/change.md)
 - **Outcome:** An invoice request whose hand-over claim is older than a bounded time (the process stopped between the claim and `onRequest`'s answer) counts as not handed over: the next ask claims it again and the owner hears of it; a unit test drives a claim left behind.
 - **Prerequisites:** FU-33 on `master` (lane C).
 - **Unknowns:** How long a claim may stand (a provider's mail call takes seconds; a minute is generous) vs. a separate `handed_over` flag set only after `onRequest` answers `Ok` (two writes, no timeout); whether a retried hand-over can mail twice when the first did go out.

@@ -15,7 +15,7 @@ An invoice request whose hand-over claim is older than a bounded time (the proce
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **FU-34** (roadmap `followups`):
+From [`roadmap.md`](../../foundation/roadmap.md), item **FU-34** (roadmap `followups`):
 
 > ### FU-34: A request whose hand-over was cut off is handed over on a later ask
 > - **Change ID:** `billing-stale-handover-claim`
