@@ -21,6 +21,7 @@ import { en } from "./messages/en.ts";
 import { pl } from "./messages/pl.ts";
 import { mailInvoiceRequestsTo } from "./lib/invoice-requests.ts";
 import { rememberSignupChannel } from "./lib/signup-channels.ts";
+import { waitlistMailLayout } from "./lib/waitlist-mail.ts";
 import { guestbook } from "./modules/guestbook/index.ts";
 
 /** The example's switch: a welcome line on the home page (e2e/feature-switches.spec.ts flips it). */
@@ -125,7 +126,7 @@ const config = defineSoftureConfig({
     // The form on the home page (e2e/waitlist.spec.ts): `launch` is required and tied to the privacy
     // policy, `newsletter` is optional. Double opt-in: a sign-up counts once the link in its
     // confirmation mail is used (app/waitlist/confirm/page.tsx); then the welcome mail goes to the
-    // outbox like any list mail.
+    // outbox like any list mail. Both mails' HTML bodies use the app's layout (lib/waitlist-mail.ts).
     waitlist({
       scopes: [
         { id: "launch", required: true, document: "privacy-policy", label: { en: en.waitlist.launch, pl: pl.waitlist.launch } },
@@ -133,6 +134,7 @@ const config = defineSoftureConfig({
       ],
       placements: ["home"],
       doubleOptIn: true,
+      mailTemplate: waitlistMailLayout,
     }),
     // The channel tag `?z=` with its defaults; proxy.ts carries it from page to page. The funnel
     // counts the home page (a pixel), the account page (a beacon) and sign-ups (the hook above);
