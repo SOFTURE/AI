@@ -190,4 +190,4 @@ the copy.
 - [x] 3.2 Gates green (typecheck, lint, test, build) — 8fa0a35
 
 #### Manual
-- [ ] 3.3 Impl review recorded in `reviews/impl-review.md`
+- [x] 3.3 Impl review recorded in `reviews/impl-review.md` — fb41475
