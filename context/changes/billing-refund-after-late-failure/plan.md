@@ -67,8 +67,8 @@ that follow date against it.
 ### Phase 1: A newer charge state waits for the failure that explains it
 
 #### Automated
-- [ ] 1.1 A new refund reported before a late failure is taken back once the failure arrives
-- [ ] 1.2 The same after a full refund and with an equal total
-- [ ] 1.3 A kept state waits through several failures, and a newer applied state clears it
-- [ ] 1.4 Signed webhook deliveries in that order
-- [ ] 1.5 Gates green (typecheck, lint, test, build)
+- [x] 1.1 A new refund reported before a late failure is taken back once the failure arrives — b7428e7
+- [x] 1.2 The same after a full refund and with an equal total — b7428e7
+- [x] 1.3 A kept state waits through several failures, and a newer applied state clears it — b7428e7
+- [x] 1.4 Signed webhook deliveries in that order — b7428e7
+- [x] 1.5 Gates green (typecheck, lint, test, build) — b7428e7
