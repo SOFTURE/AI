@@ -342,6 +342,10 @@ const videoSchema = z
     });
     const hookWords = getWords(video.beats[0]?.text ?? "");
     video.hook.shots.forEach((shot, index) => {
+      // Only the first shot starts with the film; every later one starts on a word of the opening sentence.
+      if (shot.word === undefined && index > 0) {
+        context.addIssue({ code: "custom", path: ["hook", "shots", index, "word"], message: "every shot after the first needs the word of the first sentence it starts on" });
+      }
       if (shot.word !== undefined && !hookWords.includes(shot.word)) {
         context.addIssue({ code: "custom", path: ["hook", "shots", index, "word"], message: `"${shot.word}" is not a word of the first sentence` });
       }

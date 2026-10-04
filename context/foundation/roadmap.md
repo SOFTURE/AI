@@ -48,7 +48,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-3** | `mailing-consent-sync` | Unsubscribe as consent withdrawal | — | autonomous | done |
 | **FU-4** | `waitlist-welcome-html` | HTML welcome mail for the waitlist | FU-2 | autonomous | done |
 | **FU-5** | `analytics-client-navigation` | Channel tag on client navigations without Next-Url | — | autonomous | done_code (2026-10-03; waiting: MO-6 release of `@softure-ai/analytics`) |
-| **FU-6** | `billing-reminder-mail` | Reminder mail before access ends | FU-9 | autonomous | proposed |
+| **FU-6** | `billing-reminder-mail` | Reminder mail before access ends | FU-9 | autonomous | done |
 | **FU-7** | `analytics-action-redirect-tag` | Channel tag kept through server action redirects | FU-1, FU-5 | autonomous | done_code (2026-10-04; waiting: MO-6 release of `@softure-ai/analytics` and the next `@softure-ai/auth` release) |
 | **FU-8** | `waitlist-funnel-hook` | Waitlist sign-ups as a funnel step | FU-4 | autonomous | done |
 | **FU-9** | `billing-admin-requests` | Payment requests, revoke and grant history in the billing admin page | FU-11 | autonomous | done |
@@ -60,7 +60,7 @@ backlog: context/backlog/roadmap-followups/
 | **FU-16** | `marketing-kit-layout-overrides` | per-format layout overrides (caption box, persona, end card) in marketing.json | FU-14 | autonomous | done_code (2026-10-03; waiting: MK-8 release) |
 | **FU-17** | `marketing-kit-og-glyphs` | OG images refuse copy the brand fonts cannot draw | — | autonomous | done_code (2026-10-03; waiting: MK-8 release) |
 | **FU-18** | `marketing-kit-screenshot-variants` | screenshots at a device scale and in both colour schemes | FU-14 | autonomous | done_code (2026-10-04; waiting: MK-8 release) |
-| **FU-19** | `marketing-kit-hook-shot-words` | opening shots after the first without a `word` are refused when the config loads | FU-14 | autonomous | proposed |
+| **FU-19** | `marketing-kit-hook-shot-words` | opening shots after the first without a `word` are refused when the config loads | FU-14 | autonomous | done_code (2026-10-04; waiting: MK-8 release) |
 | **FU-20** | `billing-partial-refunds` | partial refunds take back access by a policy | FU-11 | autonomous | proposed |
 | **FU-21** | `billing-refund-manual-lifetime` | a manual lifetime grant survives a refunded paid lifetime | FU-9 | autonomous | proposed |
 | **FU-22** | `billing-grant-plan-script` | a `grant-plan` ops script grants and revokes plans without the admin page | FU-9 | autonomous | proposed |
@@ -255,7 +255,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-6: Reminder mail before access ends
 - **Change ID:** `billing-reminder-mail`
-- **Status:** proposed
+- **Status:** done
+- **Input:** [`archive/2026-10-04-billing-reminder-mail/`](../archive/2026-10-04-billing-reminder-mail/change.md)
 - **Outcome:** A reminder mail before an account's trial or paid access ends (and when it has ended), sent once per window through mailing's delivery ledger, next to the in-app notice billing already shows.
 - **Prerequisites:** FU-9 on `master` (shared files, see Order).
 - **Unknowns:** What triggers the run (a scheduled script through ops vs. a request-time check); how accounts in a window are found without scanning every account (accounts without a row derive their trial from `auth.users.created_at`).
@@ -370,7 +371,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### FU-19: Opening shots after the first name their word in the config check
 - **Change ID:** `marketing-kit-hook-shot-words`
-- **Status:** proposed
+- **Status:** done_code (2026-10-04; waiting: MK-8 release)
 - **Outcome:** A `videos[].hook.shots[]` entry after the first without `word` is refused when `marketing.json` loads, on the path `videos[i].hook.shots[j].word`, instead of failing at compose time after the recording with an error that names an empty word.
 - **Prerequisites:** FU-14 on `master` (shared files, see Order).
 - **Unknowns:** none.
@@ -505,6 +506,7 @@ Open from FU-14:
 ## Done
 
 - **FU-23** `marketing-kit-og-subset-fonts`: OG images use every subset file of a weight (registered as `<family> #n` subset families and written as a font stack), at the line's weight; a letter only another weight's subset file has is refused; covered by font, glyph and render tests; archived in `archive/2026-10-04-marketing-kit-og-subset-fonts/`
+- **FU-6** `billing-reminder-mail`: `sendAccessReminders` (`@softure-ai/billing/mailing`, mailing an optional peer) mails accounts whose trial or paid access ends soon or ended in the last `catchUpDays` days, once per account and window through `mailing.deliveries`; candidates from two range queries (auth `0004` indexes `users.created_at`); the example app runs it from `npm run access-reminders`; archived in `archive/2026-10-04-billing-reminder-mail/`
 - **FU-8** `waitlist-funnel-hook`: `waitlist({ onJoined })` runs in the sign-up's transaction when a sign-up first counts; analytics' `countFunnelStep` counts it under its channel, kept through double opt-in by `rewriteConfirmationLink`; covered by unit and e2e tests; archived in `archive/2026-10-04-waitlist-funnel-hook/`
 - **FU-7** `analytics-action-redirect-tag`: auth's action redirects keep the channel tag through `rewriteRedirect` and analytics' `tagRedirect`, with and without JavaScript, covered by unit and e2e tests; archived in `archive/2026-10-03-analytics-action-redirect-tag/`
 - **FU-16** `marketing-kit-layout-overrides`: `marketing.json` `layout` overrides a format's caption box and size, persona card, end card and its phone pose, validated against the frame; archived in `archive/2026-10-03-marketing-kit-layout-overrides/`

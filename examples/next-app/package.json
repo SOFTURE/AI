@@ -16,6 +16,7 @@
     "migrate": "softure migrate",
     "grant-role": "node scripts/grant-role.ts",
     "revoke-role": "node scripts/revoke-role.ts",
+    "access-reminders": "node scripts/send-access-reminders.ts",
     "e2e": "playwright test"
   },
   "dependencies": {

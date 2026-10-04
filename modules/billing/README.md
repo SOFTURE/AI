@@ -2,7 +2,9 @@
 
 **Status:** wave 3 · entitlements and the write guard (MO-1); plans, pricing tiles, the payment page
 and the manual adapter (MO-2); Stripe Checkout with verified webhooks and refunds (MO-3); stored
-invoice requests, recorded manual grants with revoke and an account history (FU-9) · depends on: core, db, ui, security, auth
+invoice requests, recorded manual grants with revoke and an account history (FU-9); reminder mail
+before and after access ends (FU-6) · depends on: core, db, ui, security, auth (mailing optional, for
+`@softure-ai/billing/mailing`)
 
 Decides whether an account may still write: a trial every account starts with, paid access (dated
 or lifetime) and a read-only state once both end. It replaces FIRE_TRACKER's access logic
@@ -42,6 +44,11 @@ script become plans in the config, a payment page and an admin page that grants 
   **`stripeWebhookRoute`** (`/next`): a verified Stripe webhook that grants a paid checkout's plan
   and, on a full refund, takes back what that one payment granted, exactly once per payment,
   recorded in `billing.payments` (see "Refunds" below).
+- **Reminder mail** (`@softure-ai/billing/mailing`): `sendAccessReminders(ctx)` mails every
+  account whose trial or dated paid access is in its reminder window, or ended in the last few
+  days, once per account and window through `@softure-ai/mailing`'s delivery ledger; the app runs
+  it on a schedule (see "Reminder mail" in §4). `findAccessReminders` (`/server`) is the same list
+  without mail, for an app that sends its own.
 - Export and deletion of the entitlement row, the payments, the invoice requests and the manual grants (`@softure-ai/privacy`), and a health check for
   `GET /api/health`.
 
@@ -51,8 +58,9 @@ script become plans in the config, a payment page and an admin page that grants 
 npm install @softure-ai/billing @softure-ai/auth @softure-ai/security @softure-ai/core @softure-ai/db @softure-ai/ui drizzle-orm zod
 ```
 
-Peer dependencies: `next` 16, `react` 19, `drizzle-orm`. The module depends on `security` and
-`auth`; a configuration without them fails at startup.
+Peer dependencies: `next` 16, `react` 19, `drizzle-orm`; `@softure-ai/mailing` (optional) for
+`@softure-ai/billing/mailing`. The module depends on `security` and `auth`; a configuration without
+them fails at startup.
 
 ## 3. Configuration
 
@@ -197,6 +205,41 @@ action checks the role from the session again before reading its form. It has th
   what it added, like a refund: a period loses its unused days and the periods stored after it
   (manual or paid) move back; a lifetime ends unless another active manual lifetime or a paid
   lifetime payment still gives it. Provider payments are refunded at the provider, not here.
+
+**Reminder mail.** With `mailing({ ... })` in the config, run `sendAccessReminders` on a schedule,
+e.g. a daily cron job (or a platform scheduler) running a script:
+
+```ts
+// scripts/send-access-reminders.ts (cron: 0 9 * * *)
+import { sendAccessReminders } from "@softure-ai/billing/mailing";
+import { systemClock } from "@softure-ai/core";
+import { createDatabase } from "@softure-ai/db";
+import config from "../softure.config.ts";
+
+if (config.database === null) throw new Error("send-access-reminders: the config has no database");
+const database = await createDatabase(config.database.url, { max: 1 });
+try {
+  console.log(JSON.stringify(await sendAccessReminders({ db: database.db, clock: systemClock, config })));
+} finally {
+  await database.close();
+}
+```
+
+Each run mails the four states the notice shows: the trial or dated paid access ending (from
+`trial.reminderDays` / `paid.reminderDays` days left, "ends on {date}") and ended ("has ended",
+from the day it ended through `catchUpDays` days after it, default 3, so turning reminders on never
+mails accounts that lapsed long ago; an account created without a trial gets no "trial ended" mail).
+Lifetime access gets nothing. The mail is transactional (no unsubscribe footer: it is an account
+notice), in the app's locale, with the notice's link text and the absolute payment page URL. Each
+account gets one mail per kind and end (scope `billing.<kind>:<account id>:<end>` in
+`mailing.deliveries`): a run repeated the same day, or two runs at once, send nothing new, while an
+extended trial or a renewal is a new window. Options: `catchUpDays` (0 to 365), `pauseMs` between two
+mails the provider was called for (default 500, Resend's two requests per second). The summary counts
+`due`, `sent`, `skipped` (sent by an earlier run, or another run is sending it), `rejected` (refused
+for good) and `retryLater` (the provider was unavailable; the next run sends it). A database failure
+throws; the next run resumes. Candidates come from two range queries, the stored ends and
+`auth.users.created_at` (indexed by auth's `0004`) for accounts without a row, never a scan of every
+account.
 
 Guard every write action of the app, before reading any input:
 
@@ -345,7 +388,8 @@ tile gets `--sft-border-strong` and a shadow, and sets `data-plan`, `data-featur
 
 `billingMessages` (`en`, `pl`): `badge` (status names, `daysLeft` plural forms, `until`), `notice`
 (the four notices and their two link texts), `pricing` (period plural forms per unit, `lifetime`,
-`featured`, `choose`, `empty`), `payment` (the payment page, the invoice form and the notices after a
+`featured`, `choose`, `empty`), `reminderMail` (`subject` and `body` of `trialEnding`,
+`paidEnding`, `trialEnded` and `paidEnded`; the link text is the notice's), `payment` (the payment page, the invoice form and the notices after a
 hosted checkout, `checkoutSuccess` and `checkoutCancelled`), `admin` (the
 grant form) and `errors`. Plan names, descriptions and features come from the config, per locale. `{date}` is the last day of access in
 the app's locale and time zone, `{count}` the days left. Override them with
@@ -370,6 +414,9 @@ details, return URL) and resolves with `Ok` once handed over, or an `Err` the bu
 - Deletion: the row, the payments, the requests and the manual grants, and the foreign keys remove
   them with the account too; an erased admin's id is cleared from the grants they made.
   Stripe keeps its own record of each payment (the controller's accounting record there).
+- Reminder mail: what was sent is in `mailing.deliveries` under a recipient key (never the
+  address) and a scope naming the account id and the end; mailing keeps that ledger after an account
+  is deleted (see its README §11), when the id no longer points at anyone.
 - Retention: invoice details are personal data the app needs only until the request is handled,
   so granting or dismissing it erases them. What `onRequest` delivered (the mail to the owner) and
   the issued invoice are the app's and the owner's own records.
@@ -393,6 +440,7 @@ details, return URL) and resolves with `Ok` once handed over, or an `Err` the bu
 - The admin page lists up to 50 open requests and 100 entries of each source in a history; there
   is no paging.
 - The write guard is per action: a read-only account can still call a write the app did not guard.
-- No reminder mail: the notice shows in the app only (followups FU-6).
+- Reminder mail is plain text with a minimal HTML body; there is no app template for it, and it
+  uses the app's locale (accounts have none of their own).
 - No history of entitlement changes beyond grants: a row holds the current state; provider
   payments and manual grants are stored, trial extensions and raw events are not.

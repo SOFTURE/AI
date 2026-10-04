@@ -1,7 +1,7 @@
 {
   "name": "@softure-ai/billing",
   "version": "0.0.0",
-  "description": "SOFTURE AI billing module: trial, paid and read-only entitlements from a pure state machine, billing.entitlements apart from auth.users, a write guard for server actions, access badge and notice components, and a privacy contributor.",
+  "description": "SOFTURE AI billing module: trial, paid and read-only entitlements from a pure state machine, billing.entitlements apart from auth.users, a write guard for server actions, access badge and notice components, and a privacy contributor, and reminder mail before access ends over @softure-ai/mailing.",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -36,6 +36,11 @@
       "types": "./dist/server/index.d.ts",
       "default": "./dist/server/index.js"
     },
+    "./mailing": {
+      "@softure-ai/source": "./src/mailing/index.ts",
+      "types": "./dist/mailing/index.d.ts",
+      "default": "./dist/mailing/index.js"
+    },
     "./next": {
       "@softure-ai/source": "./src/next/index.ts",
       "types": "./dist/next/index.d.ts",
@@ -59,8 +64,14 @@
     "zod": "^4.6.5"
   },
   "peerDependencies": {
+    "@softure-ai/mailing": "^0.0.0",
     "drizzle-orm": "^0.45.2",
     "next": "^16.0.0",
     "react": "^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@softure-ai/mailing": {
+      "optional": true
+    }
   }
 }
