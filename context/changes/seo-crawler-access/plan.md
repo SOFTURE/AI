@@ -150,4 +150,4 @@ Each phase is one commit; reverting it removes the module or the example's use o
 - [x] 2.2 Gates green (typecheck, lint, test, build) — af58b19
 
 #### Manual
-- [ ] 2.3 Impl review recorded in `reviews/impl-review.md`
+- [x] 2.3 Impl review recorded in `reviews/impl-review.md` — edde1ec (verified by agent: reviews/impl-review.md)

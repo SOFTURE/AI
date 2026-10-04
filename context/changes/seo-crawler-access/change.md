@@ -1,7 +1,7 @@
 ---
 change_id: seo-crawler-access
 title: "Any app serves robots, sitemap, canonical URLs and IndexNow from @softure-ai/seo"
-status: implementing
+status: impl_reviewed
 roadmap_item: BL-1
 branch: claude/project-thread-c4o57h
 created: 2026-10-04
