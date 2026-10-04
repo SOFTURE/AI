@@ -1,6 +1,7 @@
 // The options an app passes to `waitlist({ ... })` in softure.config.ts, parsed at startup.
 import { LOCALES } from "@softure-ai/core";
 import { z } from "zod";
+import type { WaitlistMailTemplate } from "./mail-template.js";
 
 /** Kebab-case, at most 64 characters: scope ids are consent purposes in privacy's ledger. */
 export const NAME_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
@@ -59,6 +60,11 @@ export const waitlistOptionsSchema = z
      * list mail, `listSignups`). Off by default.
      */
     doubleOptIn: doubleOptInSchema,
+    /**
+     * Renders the HTML body of the welcome and confirmation mails (the text body stays the module's).
+     * Without it, the module sends a plain HTML body built from the same copy.
+     */
+    mailTemplate: z.custom<WaitlistMailTemplate>((value) => typeof value === "function", "must be a function").optional(),
   })
   .superRefine((options, context) => {
     const findDuplicates = (values: readonly string[], toPath: (index: number) => (string | number)[]) => {

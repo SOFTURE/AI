@@ -27,7 +27,8 @@ constraints into the app's configuration and the form out of the domain componen
   `recordConsent` (source `waitlist`, the document's version), in the sign-up's transaction.
 - **A welcome mail after the response**, through mailing's delivery ledger: at most once per
   sign-up (scope `waitlist.welcome:<id>`), as list mail of kind `waitlist`, so it carries mailing's
-  unsubscribe link and RFC 8058 headers and is never sent to an address that unsubscribed.
+  unsubscribe link and RFC 8058 headers and is never sent to an address that unsubscribed. Text
+  and HTML; the app can render the HTML of both mails with its own template (`mailTemplate`).
 - **The ledger follows unsubscribes.** `withdrawWaitlistConsents`, wired as mailing's
   `onUnsubscribed`, records a withdrawal of every scope the address still grants, in the opt-out's
   transaction. A new sign-up lifts the address's own opt-out (`liftSuppression`) in its
@@ -80,6 +81,7 @@ waitlist({
 | `placements` | kebab-case `string[]` | `["default"]` | Where the app embeds the form. Each sign-up stores the placement of its first form. |
 | `welcomeMail` | `boolean` | `true` | Sends the welcome mail (with double opt-in, after the confirmation). Off, the app sends its own (or none). |
 | `doubleOptIn` | `boolean` or `{ expiresInHours? }` | `false` | A sign-up counts only after the link in a confirmation mail is used. `true` keeps the link working for 168 hours (7 days); `expiresInHours` sets 1 to 720. Section 10. |
+| `mailTemplate` | `(mail) => string` | — | Renders the HTML body of the welcome and confirmation mails (below). Without it, a plain HTML body built from the same copy. |
 | `routes` | `{ confirm? }` | `{ confirm: "/waitlist/confirm" }` | The path of the confirmation page, when the app mounts it elsewhere. |
 | `messages` | partial `en` / `pl` | — | Copy overrides, the welcome mail's subject and text included. |
 
@@ -91,6 +93,27 @@ configured and that every scope's document is declared, and throws naming what i
 The welcome mail is list mail, so mailing needs `MAILING_UNSUBSCRIBE_SECRET` (mailing README §6);
 without it the mail is refused and the sign-up still succeeds. The confirmation mail is
 transactional and needs no secret.
+
+Both mails carry a text body and an HTML body built from the same copy: each paragraph (blocks
+split by a blank line) escaped in `<p>`, and in the confirmation mail the link as an anchor
+labelled `confirmationMail.action`. Mailing adds its unsubscribe footer to both bodies of the
+welcome mail (inside `<body>` when the HTML is a whole document). To use the app's own layout, pass
+a template; it gets `kind` (`welcome` or `confirmation`), `locale`, `subject`, `paragraphs` (plain
+text: escape them with `escapeHtml`), `body` (the default HTML, safe to wrap) and, for the
+confirmation mail, `action: { href, label }`:
+
+```ts
+import { escapeHtml, waitlist, type WaitlistMailTemplate } from "@softure-ai/waitlist";
+
+const mailTemplate: WaitlistMailTemplate = (mail) =>
+  `<!doctype html><html lang="${mail.locale}"><body><h1>${escapeHtml(mail.subject)}</h1>${mail.body}</body></html>`;
+
+waitlist({ scopes: [...], mailTemplate });
+```
+
+The template runs when the mail is sent, after the response to the form or the link. One that
+throws, or returns blank HTML (the module then throws an error naming `mailTemplate`), sends no
+mail: the sign-up stands, and the error reaches the app's logs.
 
 ## 4. Mounting
 
@@ -177,7 +200,8 @@ passes both through.
 
 `waitlistMessages` (`en`, `pl`): `form` (field label, button, pending text, the confirmation and,
 with double opt-in, `confirmationSent`), `welcomeMail` (subject and text; mailing appends the
-unsubscribe footer), `confirmationMail` (subject and text; the link follows the text), `confirm`
+unsubscribe footer), `confirmationMail` (subject, text and `action`, the link's label in the HTML
+body; in the text body the link follows the text), `confirm`
 (the confirmation page: its states and button) and `errors`. Override
 them with `waitlist({ messages: { pl: { welcomeMail: { subject: "…" } } } })`. Scope labels are
 the app's, in `scopes[].label` or `consentLabels`.
@@ -243,4 +267,3 @@ expired unused; until then they count nowhere, and a new sign-up of the address 
   no scheduler of its own.
 - The placement is stored per sign-up; handing placement counts to `@softure-ai/analytics` belongs
   to the analytics roadmap.
-- The welcome mail's copy is text only; an HTML version needs an option for the app's template.

@@ -9,6 +9,7 @@ export const en = {
   confirmationMail: {
     subject: "Confirm your place on the waitlist",
     text: "Hello,\n\nsomeone, hopefully you, asked to join the waitlist with this address. Open the link below and confirm to join. If it was not you, ignore this email: without the confirmation the address is not added.",
+    action: "Confirm my sign-up",
   },
   confirm: {
     title: "Confirm your sign-up",

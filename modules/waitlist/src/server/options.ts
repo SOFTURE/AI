@@ -25,10 +25,15 @@ export function getWaitlistMessages(config: SoftureConfig): WaitlistMessages {
   return getWaitlistModule(config).messages[config.locale] as WaitlistMessages;
 }
 
+/** A stored locale (a sign-up's) when the app supports it, else the app's locale. */
+export function resolveLocale(config: SoftureConfig, locale: string): Locale {
+  return isLocale(locale) ? locale : config.locale;
+}
+
 /** The module's copy in a stored locale (a sign-up's), falling back to the app's locale. */
 export function getWaitlistMessagesIn(config: SoftureConfig, locale: string): WaitlistMessages {
   // The module factory merged the dictionaries; their shape is the module's own.
-  return getWaitlistModule(config).messages[isLocale(locale) ? locale : config.locale] as WaitlistMessages;
+  return getWaitlistModule(config).messages[resolveLocale(config, locale)] as WaitlistMessages;
 }
 
 /** The path of the confirmation page (overridable in `waitlist({ routes })`). */
