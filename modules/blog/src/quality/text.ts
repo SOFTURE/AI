@@ -22,8 +22,10 @@ export interface NumberNotation {
   readonly decimalSeparator: "," | ".";
 }
 
-const LINK = /\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
-const FOOTNOTE_REF = /\[\^([^\]]+)\]/g;
+// No `[` inside link text, link target or footnote id: each match attempt ends at the next `[`, so a
+// long run of unclosed brackets stays linear instead of rescanning the rest of the text per bracket.
+const LINK = /\[([^[\]]*)\]\(([^)\s[]+)(?:\s+"[^"]*")?\)/g;
+const FOOTNOTE_REF = /\[\^([^[\]]+)\]/g;
 const URL_IN_TEXT = /https?:\/\/[^\s)>\]]+/g;
 
 export function findLinks(text: string): MarkdownLink[] {

@@ -13,16 +13,6 @@ function isBlockPlugin(value: unknown): value is BlockPlugin {
   return typeof candidate.type === "string" && typeof candidate.render === "function";
 }
 
-function compiles(source: string): boolean {
-  try {
-    new RegExp(source, "giu");
-    return true;
-  } catch {
-    // The issue message names the option; the engine's wording adds nothing for the author.
-    return false;
-  }
-}
-
 const range = (min: number, max: number) =>
   z
     .strictObject({ min: z.number().int().min(0).default(min), max: z.number().int().positive().default(max) })
@@ -62,12 +52,15 @@ export const qualityOptionsSchema = z.strictObject({
     .strictObject({
       /** Texts signed by an editorial team: no "I", "my", "in my opinion". */
       forbidFirstPersonSingular: z.boolean().default(false),
-      /** The brand's banned phrases: a regex source matched case-insensitively on word edges. */
+      /**
+       * The brand's banned phrases: a global regular expression, matched as given. `wordPattern("...")`
+       * builds one that is case-insensitive and knows word edges in any alphabet.
+       */
       phrases: z
         .array(
           z.strictObject({
             id: z.string().max(60).regex(KEBAB, "kebab-case, e.g. finance-cliche"),
-            pattern: z.string().min(1).refine(compiles, "must be a valid regular expression"),
+            pattern: z.instanceof(RegExp, { error: "must be a regular expression" }).refine((pattern) => pattern.global, "must be global (flag g), so every hit counts"),
             message: z.string().trim().min(1),
             severity: z.enum(QUALITY_SEVERITIES).default("error"),
           }),

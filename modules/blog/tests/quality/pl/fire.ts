@@ -1,7 +1,7 @@
 // FIRE_TRACKER's settings and domain rules, written against the plugin API: the baseline of BL-6.
 // FIRE keeps its real rules (`rules-facts.ts` over its engine's tables, `rules-chart.ts` over its
 // chart engine); these stand-ins hold the 2025 and 2026 values its fixtures use.
-import { qualityOptionsSchema, resolveQualitySettings, toProse, splitSentences, findSignificantNumbers, normalizeNumber, parseNumber, type Block, type QualityFinding, type QualityOptionsInput, type QualityPlugin, type QualitySettings } from "@softure-ai/blog/server";
+import { qualityOptionsSchema, wordPattern, resolveQualitySettings, toProse, splitSentences, findSignificantNumbers, normalizeNumber, parseNumber, type Block, type QualityFinding, type QualityOptionsInput, type QualityPlugin, type QualitySettings } from "@softure-ai/blog/server";
 
 const L = "\\p{L}*";
 const GAP = "(?:[^.!?\\d]|\\b20\\d\\d\\b){0,60}?";
@@ -129,7 +129,7 @@ export const FIRE_QUALITY: QualityOptionsInput = {
   ymyl: { ownCalculationMark: "wyliczenie Plan Majątku" },
   voice: {
     forbidFirstPersonSingular: true,
-    phrases: [{ id: "finance-world", pattern: "w świecie (?:finansów|inwestycji|inwestowania|oszczędzania)", message: "an empty phrase about \"the world of finance\"; replace it with a fact" }],
+    phrases: [{ id: "finance-world", pattern: wordPattern("w świecie (?:finansów|inwestycji|inwestowania|oszczędzania)"), message: "an empty phrase about \"the world of finance\"; replace it with a fact" }],
   },
   ownOrigins: ["https://www.planmajatku.pl", "https://app.planmajatku.pl"],
   privateRouteSegments: ["api", "(app)"],

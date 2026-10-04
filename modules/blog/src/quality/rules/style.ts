@@ -39,7 +39,7 @@ function matchPatterns(blocks: readonly Block[], patterns: readonly StylePattern
   for (const block of blocks) {
     const prose = toProse(block.text);
     for (const style of patterns) {
-      const matches = [...prose.matchAll(new RegExp(style.pattern.source, style.pattern.flags))];
+      const matches = [...prose.matchAll(style.pattern)];
       const first = matches[0]?.[0];
       if (first === undefined) continue;
       if (style.severity === "error") {

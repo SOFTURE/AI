@@ -50,3 +50,8 @@ Two gaps go to the blog-followups roadmap (R1, R2); nothing blocks the merge.
   `findArticleBlocks` lists them. `quality.blocks` takes the app's block plugins; the new
   `block-requires` error reports a fenced block whose article lacks a required key, at its fence
   line, and rule plugins get the same blocks as `pluginBlocks`. Tested in `tests/quality/settings.test.ts`.
+- R8 (fixed on PR #81, CodeQL): link and footnote patterns were polynomial on runs of unclosed
+  brackets (about 19 s on 50,000 repetitions); they no longer cross an opening bracket and a test holds
+  the run under a second. Voice phrases were regex sources from the config (a regular expression
+  built from input); they are `RegExp` values now, `wordPattern` is exported from `@softure-ai/blog`
+  to build them, and the gate matches every pattern as given instead of recompiling it.

@@ -5,7 +5,6 @@ import type { QualitySeverity } from "./finding.js";
 import type { QualityOptions } from "./options.js";
 import { QUALITY_RULESETS } from "./rulesets/index.js";
 import type { LanguageRuleset, StylePattern } from "./rulesets/types.js";
-import { wordPattern } from "./text.js";
 
 export interface QualitySettings {
   readonly options: QualityOptions;
@@ -23,7 +22,7 @@ export function resolveQualitySettings(options: QualityOptions, config: Pick<Sof
   const voicePatterns: StylePattern[] = options.voice.phrases.map((phrase) => ({
     id: phrase.id,
     severity: phrase.severity,
-    pattern: wordPattern(phrase.pattern),
+    pattern: phrase.pattern,
     message: phrase.message,
   }));
   if (options.voice.forbidFirstPersonSingular) {

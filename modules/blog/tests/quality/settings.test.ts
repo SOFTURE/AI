@@ -97,12 +97,12 @@ describe("blog({ quality })", () => {
         quality: {
           // @ts-expect-error: no such ruleset.
           language: "de",
-          voice: { phrases: [{ id: "bad", pattern: "(unclosed", message: "x" }] },
+          voice: { phrases: [{ id: "bad", pattern: /once/i, message: "x" }] },
           limits: { words: { article: { min: 900, max: 800 } } },
           // @ts-expect-error: a plugin needs rules and check.
           plugins: [{ name: "half" }],
         },
       }),
-    ).toThrow(/quality\.language[\s\S]*must be a valid regular expression[\s\S]*min must not exceed max[\s\S]*must be a plugin/);
+    ).toThrow(/quality\.language[\s\S]*must be global[\s\S]*min must not exceed max[\s\S]*must be a plugin/);
   });
 });

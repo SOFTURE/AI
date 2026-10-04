@@ -61,7 +61,8 @@ blog({
     ymyl: { ownCalculationMark: "our calculation" }, // or true / false (default): sources, sourced numbers, no profit promises
     voice: {
       forbidFirstPersonSingular: true,     // texts signed by the editors: no "I", "my"
-      phrases: [{ id: "finance-cliche", pattern: "in the world of finance", message: "say what happens instead" }],
+      // a global RegExp; wordPattern (from @softure-ai/blog) adds the i flag and word edges in any alphabet
+      phrases: [{ id: "finance-cliche", pattern: wordPattern("in the world of finance"), message: "say what happens instead" }],
     },
     limits: { words: { article: { min: 600, max: 4000 } }, answerWords: 70 }, // FIRE's values are the defaults
     severity: { exclamation: "error", "lead-number": "off" }, // per rule: "error", "warning" or "off"
