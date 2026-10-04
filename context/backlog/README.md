@@ -18,8 +18,9 @@ An entry is never in two places, neither as a copy nor as a pointer.
 - **An entry done or rejected elsewhere:** move it into that change's archive folder as `backlog-input.md`.
 - **Loose findings** (deferred review items, ideas without a roadmap) go to `context/backlog/<topic>.md`
   as `- [ ] <date> <source>: <finding> (<severity>) <evidence>`.
-- **Gaps and unfinished parts found while delivering a roadmap** become items of the catch-all
-  [`roadmap-followups/`](roadmap-followups/) (owner, 2026-10-03), which runs last: see its README, "Adding a gap".
+- **Gaps and unfinished parts found while delivering a roadmap** became items of the catch-all followups roadmap
+  (owner, 2026-10-03), closed on 2026-10-04 ([archive](../foundation/archive/2026-10-04-roadmap.md)). New gaps go to
+  the main roadmap of the day, or to a loose `<topic>.md` file while no main roadmap runs.
 - **Work that is ready but waits only on the owner at the keyboard** (repository secrets, a provider account)
   becomes an item of [`roadmap-later/`](roadmap-later/) (owner, 2026-10-03): see its README, "Adding an item".
 
@@ -27,5 +28,4 @@ An entry is never in two places, neither as a copy nor as a pointer.
 
 | Folder | Roadmap | Starts when |
 | --- | --- | --- |
-| [`roadmap-later/`](roadmap-later/) | [later](../foundation/roadmaps/roadmap-later.md) | the owner step each item waits on is done |
-| [`roadmap-followups/`](roadmap-followups/) | [followups](../foundation/roadmap.md) | promoted 2026-10-03, last (main roadmap, with MK-8, EN-9 and MO-6 carried over) |
+| [`roadmap-later/`](roadmap-later/) | [later](../foundation/roadmaps/roadmap-later.md) | the owner step each item waits on is done (LT-1; MK-8, EN-9 and MO-6 carried over from followups) |

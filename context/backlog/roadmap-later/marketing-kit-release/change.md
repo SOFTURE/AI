@@ -5,7 +5,7 @@ status: backlog
 roadmap_item: MK-8
 branch: null
 created: 2026-10-02
-updated: 2026-10-03
+updated: 2026-10-04
 archived_at: null
 ---
 
@@ -17,12 +17,13 @@ archived_at: null
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md), item **MK-8** (carried over on 2026-10-03 from roadmap `marketing-kit`,
-archived in [`2026-10-03-4-roadmap.md`](../../../foundation/archive/2026-10-03-4-roadmap.md), to roadmap `followups`):
+From [`roadmap-later.md`](../../../foundation/roadmaps/roadmap-later.md), item **MK-8** (carried over on 2026-10-03 from roadmap `marketing-kit`,
+archived in [`2026-10-03-4-roadmap.md`](../../../foundation/archive/2026-10-03-4-roadmap.md), to roadmap `followups`,
+archived in [`2026-10-04-roadmap.md`](../../../foundation/archive/2026-10-04-roadmap.md), and on to the queued roadmap `later`):
 
 > ### MK-8: marketing-kit release
 > - **Change ID:** `marketing-kit-release`
-> - **Status:** blocked (carried over from marketing-kit: the owner's batch release at the keyboard on 2026-10-05)
+> - **Status:** blocked (carried over from followups: the owner's batch release at the keyboard on 2026-10-05)
 > - **Outcome:**
 >   - `@softure-ai/marketing-kit` 0.1.0 is published through the FD-2 pipeline. The owner approves the first, staged publish and configures the trusted publisher.
 >   - The README lists system requirements (ffmpeg, Chromium, hyperframes), the full config reference, and the license notes: GSAP as a dependency, no bundled SFX or fonts.
