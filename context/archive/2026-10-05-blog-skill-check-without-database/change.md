@@ -1,12 +1,12 @@
 ---
 change_id: blog-skill-check-without-database
 title: "softure-blog skill install without a database URL"
-status: planned
+status: archived
 roadmap_item: BF-13
 branch: claude/project-thread-fjndju
 created: 2026-10-05
 updated: 2026-10-05
-archived_at: null
+archived_at: 2026-10-05
 ---
 
 ## Intent
@@ -48,3 +48,4 @@ roadmap from the next free `BF-` number on `master`.
   already established both.
 - Framing skipped: the problem and the outcome are fixed by the roadmap item; there is one shape (the
   same option for one more command).
+- Archived 2026-10-05: `softure-blog skill install` (and `--check`) loads a config without a database URL; the bin's `COMMANDS_WITHOUT_DATABASE` lists `check` and `skill-install`; no gaps.

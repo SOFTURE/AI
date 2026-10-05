@@ -62,6 +62,6 @@ no errors); the existing `publish` refusal over the same fixture stays.
 ### Phase 1: Optional database for `softure-blog skill install`
 
 #### Automated
-- [ ] 1.1 The bin's `skill install` and `skill install --check` run over a config without a database URL
-- [ ] 1.2 `publish` over the same config still refuses it; existing blog cli tests pass unchanged
-- [ ] 1.3 Gates green (typecheck, lint, test, build)
+- [x] 1.1 The bin's `skill install` and `skill install --check` run over a config without a database URL — 46954f8
+- [x] 1.2 `publish` over the same config still refuses it; existing blog cli tests pass unchanged — 46954f8
+- [x] 1.3 Gates green (typecheck, lint, test, build) — 46954f8
