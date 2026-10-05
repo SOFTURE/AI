@@ -167,3 +167,54 @@ describe("renderBlogSkill", () => {
     expect(() => renderBlogSkill(createConfig({ quality: false }))).toThrow("the quality gate is off");
   });
 });
+
+/** FIRE_TRACKER's own passages of `blog-pisz`, as the app would pass them. */
+const FIRE_SECTIONS = [
+  { title: "Engine numbers", body: "Every number of an example comes from the app's engine (`npm run engine -- <inputs>`), never from memory." },
+  { title: "Calculator scenario", body: "Set `scenario` in the frontmatter to the calculator's preset that matches the example.\n\n### When none matches\n\nLeave it out." },
+  { title: "Chart block", body: "Show the example with one `::chart{scenario=\"{{scenario}}\"}` block after the lead." },
+];
+
+describe("the app's own sections", () => {
+  it("leave the skill byte for byte as before when the app has none", () => {
+    const files = renderBlogSkill(createConfig());
+    expect(files.map((file) => file.path)).toEqual(listTemplateFiles());
+    expect(getFile(files, "SKILL.md")).not.toContain("references/app.md");
+    expect(renderBlogSkill(createConfig({ skill: { sections: [] } }))).toEqual(files);
+  });
+
+  it("go into references/app.md, verbatim, and SKILL.md names them", () => {
+    const files = renderBlogSkill(createConfig({ skill: { sections: FIRE_SECTIONS } }));
+    expect(files.map((file) => file.path)).toEqual([...listTemplateFiles(), "references/app.md"].sort());
+    expect(getFile(files, "references/app.md")).toBe(
+      [
+        "# The app's own sections",
+        "",
+        "Written by the app in its blog config (`blog({ skill: { sections } })`). They add to this skill where they name",
+        "the app's own data, blocks and fields; they never switch off a rule of the gate.",
+        "",
+        "## Engine numbers",
+        "",
+        FIRE_SECTIONS[0]?.body,
+        "",
+        "## Calculator scenario",
+        "",
+        FIRE_SECTIONS[1]?.body,
+        "",
+        "## Chart block",
+        "",
+        FIRE_SECTIONS[2]?.body,
+        "",
+      ].join("\n"),
+    );
+    const skill = getFile(files, "SKILL.md");
+    expect(skill).toContain("## The app's own sections\n\n`references/app.md` adds this app's own procedure: Engine numbers, Calculator scenario, Chart block.");
+    expect(skill).toContain("with a test.\n\n## The app's own sections");
+    expect(skill).toContain("never switches off a rule of the gate.\n\n## Refreshing a text");
+  });
+
+  it("render the same text twice, so a reinstall changes nothing", () => {
+    const config = createConfig({ skill: { sections: FIRE_SECTIONS } });
+    expect(renderBlogSkill(config)).toEqual(renderBlogSkill(config));
+  });
+});

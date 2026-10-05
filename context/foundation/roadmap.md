@@ -53,7 +53,7 @@ backlog: context/backlog/roadmap-blog-followups/
 | **BF-6** | `blog-check-without-database` | `softure-blog check` runs with an app config that has no database URL | BF-1 | autonomous | ready |
 | **BF-7** | `blog-seo-canonical` | the blog's canonical, OG and JSON-LD URLs follow `@softure-ai/seo`'s canonical host and trailing-slash rule | — | autonomous | done_code (2026-10-05; waiting: the next release of `@softure-ai/core` and `@softure-ai/seo`, and the first of `@softure-ai/blog`, BL-8) |
 | **BF-8** | `blog-og-fonts` | `blog({ brand: { fonts } })` gives the article OG card the brand's fonts | BF-7 | autonomous | ready |
-| **BF-9** | `blog-skill-app-notes` | the generated writing skill carries the app's own sections across reinstalls | — | autonomous | **in_progress (plan, since 2026-10-05; cloud session, branch `claude/project-thread-l5kwsp` — do not take in another session)** |
+| **BF-9** | `blog-skill-app-notes` | the generated writing skill carries the app's own sections across reinstalls | — | autonomous | **in_progress (implement 1/1, since 2026-10-05; cloud session, branch `claude/project-thread-l5kwsp` — do not take in another session)** |
 | **BF-10** | `blog-publish-cache-refresh` | `softure-blog publish --commit` refreshes the running app's blog cache before the IndexNow submit | BF-2 | autonomous | ready |
 | **BF-11** | `blog-canonical-host-links` | a body link to seo's canonical host counts as internal in the renderer and the gate | BF-7 | autonomous | proposed |
 
@@ -171,7 +171,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### BF-9: The app's own sections in the generated writing skill
 - **Change ID:** `blog-skill-app-notes`
-- **Status:** in_progress (plan, since 2026-10-05; cloud session, branch `claude/project-thread-l5kwsp` — do not take in another session)
+- **Status:** in_progress (implement 1/1, since 2026-10-05; cloud session, branch `claude/project-thread-l5kwsp` — do not take in another session)
 - **Input:** [`context/changes/blog-skill-app-notes/`](../changes/blog-skill-app-notes/change.md)
 - **Outcome:** the generated skill carries the app's own sections, from an option such as `blog({ skill: { notes } })` or from a local file the install preserves; FIRE_TRACKER's engine numbers, calculator scenario and chart block fit there; `--check` covers them.
 - **Prerequisites:** none.
