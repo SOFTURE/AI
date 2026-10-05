@@ -1,12 +1,12 @@
 ---
 change_id: testing-playwright-helpers
 title: "Playwright helpers"
-status: in_progress
+status: archived
 roadmap_item: DP-7
 branch: claude/project-thread-ll63l2
 created: 2026-10-05
 updated: 2026-10-05
-archived_at: null
+archived_at: 2026-10-05
 ---
 
 ## Intent

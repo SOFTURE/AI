@@ -48,4 +48,4 @@ table here: research (FIRE dropped them; the module owns its schema).
 ## Progress
 
 - [x] Phase 1: helpers and their tests
-- [ ] Phase 2: example app e2e on the helpers
+- [x] Phase 2: example app e2e on the helpers
