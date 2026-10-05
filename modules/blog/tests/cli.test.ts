@@ -320,6 +320,16 @@ describe("the softure-blog bin", () => {
       expect(result.lines.at(-1)).toMatch(/^check: 2 file\(s\), \d+ error\(s\), \d+ warning\(s\)/);
     });
 
+    it("runs skill install and skill install --check, which never connect", async () => {
+      const install = await runBin(["skill", "install"], appDir);
+      expect(install.errors).toEqual([]);
+      expect(install).toMatchObject({ code: 0 });
+      expect(install.lines.at(-1)).toMatch(/^skill: installed into \.claude\/skills\/blog-write/);
+
+      const check = await runBin(["skill", "install", "--check"], appDir);
+      expect(check).toMatchObject({ code: 0, errors: [], lines: ["skill: .claude/skills/blog-write is up to date"] });
+    });
+
     it("still refuses publish, which needs the database", async () => {
       const result = await runBin(["publish"], appDir);
       expect(result.code).toBe(1);
