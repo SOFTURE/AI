@@ -1,8 +1,8 @@
 // The module definition: its manifest, its options and its health check.
 import { readFileSync } from "node:fs";
 import { defineSoftureConfig, toModuleJson } from "@softure-ai/core";
-import { blog } from "@softure-ai/blog";
-import { checkArticlesTable, getBlogOptions, getBlogReservedSlugs, getBlogRoutes } from "@softure-ai/blog/server";
+import { BLOG_RATE_LIMIT_BUCKETS, blog } from "@softure-ai/blog";
+import { BLOG_REFRESH_RATE_LIMIT_BUCKET, checkArticlesTable, getBlogOptions, getBlogRefreshPath, getBlogReservedSlugs, getBlogRoutes } from "@softure-ai/blog/server";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { createConfig, createTestBlog } from "./support.js";
@@ -35,6 +35,20 @@ describe("the blog module", () => {
     });
     expect(getBlogRoutes(config)).toEqual({ index: "/articles", glossary: "/articles/terms", method: "/blog/how-we-write", rss: "/blog/rss.xml" });
     expect(getBlogReservedSlugs(config)).toEqual(["about", "terms"]);
+  });
+
+  it("serves the cache refresh route at /api/blog/refresh unless the app moves it, rate-limited in its own bucket", () => {
+    expect(getBlogRefreshPath(createConfig())).toBe("/api/blog/refresh");
+    const config = defineSoftureConfig({
+      database: { url: "pglite://" },
+      locale: "en",
+      timezone: "UTC",
+      appOrigin: "https://app.example.com",
+      modules: [blog({ routes: { refresh: "/internal/blog-refresh/" } })],
+    });
+    expect(getBlogRefreshPath(config)).toBe("/internal/blog-refresh");
+    expect(BLOG_RATE_LIMIT_BUCKETS).toEqual({ [BLOG_REFRESH_RATE_LIMIT_BUCKET]: { limit: 10, windowMinutes: 15 } });
+    expect(blog.manifest.env.map((variable) => variable.name)).toEqual(["BLOG_REFRESH_SECRET"]);
   });
 
   it("takes a brand, a disclaimer, cluster labels and block plugins", () => {

@@ -39,6 +39,14 @@ export function getBlogRoutes(config: SoftureConfig): BlogRoutes {
   return { index: read("index"), glossary: read("glossary"), method: read("method"), rss: read("rss") };
 }
 
+/** The path of the cache refresh route (`refreshBlogCache`), outside the pages' routes. */
+export function getBlogRefreshPath(config: SoftureConfig): string {
+  const path = getBlogModule(config).routes.refresh;
+  // The manifest declares the route, so a missing one means a broken module definition.
+  if (path === undefined) throw new Error('@softure-ai/blog: route "refresh" is missing from the module manifest');
+  return normalizeRoute(path);
+}
+
 /** The slugs no article may take: the app's `reservedSlugs` and the static pages under the listing. */
 export function getBlogReservedSlugs(config: SoftureConfig): string[] {
   const options = getBlogOptions(config);
