@@ -84,11 +84,12 @@ describe("refreshBlogCache", () => {
     expect(revalidateTag).toHaveBeenCalledTimes(2);
   });
 
-  it("answers 400 for a client it cannot identify", async () => {
-    await useBlog();
-    const response = await refreshBlogCache(new Request(ROUTE, { method: "POST", headers: { authorization: `Bearer ${SECRET}` } }));
-    expect(response.status).toBe(400);
-    expect(revalidateTag).not.toHaveBeenCalled();
+  it("counts every caller without a client address under one shared key", async () => {
+    await useBlog({ "blog-refresh": { limit: 1, windowMinutes: 15 } });
+    const unidentified = () => new Request(ROUTE, { method: "POST", headers: { authorization: `Bearer ${SECRET}` } });
+    expect((await refreshBlogCache(unidentified())).status).toBe(204);
+    expect((await refreshBlogCache(unidentified())).status).toBe(429);
+    expect((await refreshBlogCache(post({ authorization: `Bearer ${SECRET}` }))).status).toBe(204);
   });
 
   it("answers 503 and logs no secret when counting fails", async () => {

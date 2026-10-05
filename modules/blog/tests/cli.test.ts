@@ -13,6 +13,12 @@ const FIXTURES_DIR = fileURLToPath(new URL("./fixtures/", import.meta.url));
 const APP_DIR = fileURLToPath(new URL("./fixtures/app/", import.meta.url));
 
 const INDEXNOW_OFF = "indexnow: off, the seo module is not enabled; add seo({ indexNow: { key } }) to modules";
+const CACHE_OFF = "cache: the running app shows the change within revalidateSeconds (300 s); set BLOG_REFRESH_SECRET to refresh it now";
+const REFRESH_SECRET = "a-test-refresh-secret-of-40-characters!!";
+
+function toHref(url: string | URL | Request): string {
+  return typeof url === "string" ? url : url instanceof URL ? url.href : url.url;
+}
 
 function createOutput(): { output: CliOutput; lines: string[]; errors: string[] } {
   const lines: string[] = [];
@@ -48,6 +54,8 @@ describe("softure-blog publish", () => {
         opened += 1;
         return Promise.resolve({ kind: "pglite", db: test.database.db, client: test.database.client, close: () => Promise.resolve(void (closed += 1)) });
       },
+      // Never the developer's own BLOG_REFRESH_SECRET.
+      env: {},
       ...options,
     });
     return { code, lines, errors };
@@ -61,6 +69,7 @@ describe("softure-blog publish", () => {
         "added tax-wrapper none -> draft/tax-wrapper",
         "summary: added 2, changed 0, unchanged 0",
         "dry run: nothing written; pass --commit to write",
+        CACHE_OFF,
         INDEXNOW_OFF,
       ],
       errors: [],
@@ -70,12 +79,13 @@ describe("softure-blog publish", () => {
   });
 
   it("writes with --commit; the same files again are unchanged", async () => {
-    expect((await run(["publish", "content", "--commit"])).lines.slice(-2)).toEqual(["written", INDEXNOW_OFF]);
+    expect((await run(["publish", "content", "--commit"])).lines.slice(-3)).toEqual(["written", CACHE_OFF, INDEXNOW_OFF]);
     expect(await findArticleBySlug(test.ctx, "index-funds")).toMatchObject({ status: "published", isPillar: true });
     expect((await run(["publish", "content/index-funds.md", "--commit"])).lines).toEqual([
       "unchanged index-funds published/index-funds -> published/index-funds",
       "summary: added 0, changed 0, unchanged 1",
       "written",
+      "cache: no text changed, nothing to refresh",
       INDEXNOW_OFF,
     ]);
   });
@@ -91,7 +101,7 @@ describe("softure-blog publish", () => {
       ]);
       expect(await run(["publish", join(dir, "funds.md"), "--withdraw", "--commit"])).toMatchObject({
         code: 0,
-        lines: ["changed index-funds published/funds -> withdrawn/funds", "summary: added 0, changed 1, unchanged 0", "written", INDEXNOW_OFF],
+        lines: ["changed index-funds published/funds -> withdrawn/funds", "summary: added 0, changed 1, unchanged 0", "written", CACHE_OFF, INDEXNOW_OFF],
         errors: ["warning funds.md: the file says status: published; set it to withdrawn, or the next full publish brings the text back"],
       });
     } finally {
@@ -131,11 +141,12 @@ describe("softure-blog publish", () => {
   });
 
   it("refuses usage errors with exit code 2", async () => {
-    for (const argv of [[], ["push"], ["publish", "--force"], ["publish", "a.md", "b.md", "--withdraw"], ["publish", "--withdraw"]]) {
+    for (const argv of [[], ["push"], ["publish", "--force"], ["publish", "a.md", "b.md", "--withdraw"], ["publish", "--withdraw"], ["publish", "--app-url", "web:3000"], ["publish", "--app-url", "ftp://web"]]) {
       const result = await run(argv);
       expect(result.code, argv.join(" ")).toBe(2);
     }
     expect((await run(["publish", "--force"])).errors[0]).toMatch(/^softure-blog: Unknown option '--force'/);
+    expect((await run(["publish", "--app-url", "ftp://web"])).errors[0]).toBe('softure-blog: --app-url needs an http or https origin, e.g. http://web:3000, not "ftp://web"');
     expect(opened).toBe(0);
   });
 
@@ -176,7 +187,7 @@ describe("softure-blog publish with seo({ indexNow })", () => {
     await test.database.close();
   });
 
-  async function run(argv: string[], status = 200) {
+  async function run(argv: string[], status = 200, refresh: { env: Record<string, string>; status?: number } = { env: {} }) {
     const { output, lines, errors } = createOutput();
     const code = await runBlogCli({
       config: test.config,
@@ -186,12 +197,44 @@ describe("softure-blog publish with seo({ indexNow })", () => {
       clock: test.clock,
       openDatabase: () => Promise.resolve({ kind: "pglite", db: test.database.db, client: test.database.client, close: () => Promise.resolve() }),
       indexNowFetch: (url, init) => {
-        requests.push({ url: typeof url === "string" ? url : url instanceof URL ? url.href : url.url, body: JSON.parse(typeof init?.body === "string" ? init.body : "null") });
+        requests.push({ url: toHref(url), body: JSON.parse(typeof init?.body === "string" ? init.body : "null") });
         return Promise.resolve(new Response(null, { status }));
+      },
+      env: refresh.env,
+      refreshFetch: (url, init) => {
+        requests.push({ url: toHref(url), body: new Headers(init?.headers).get("authorization") });
+        return Promise.resolve(new Response(null, { status: refresh.status ?? 204 }));
       },
     });
     return { code, lines, errors };
   }
+
+  it("refreshes the running app's cache before the IndexNow submit", async () => {
+    const result = await run(["publish", "--commit"], 200, { env: { BLOG_REFRESH_SECRET: REFRESH_SECRET } });
+    expect(result.lines.slice(-2)).toEqual(["cache: refreshed https://app.example.com/api/blog/refresh", "indexnow: submitted 2 URL(s) (200): /blog/index-funds /blog"]);
+    expect(requests.map((request) => request.url)).toEqual(["https://app.example.com/api/blog/refresh", "https://api.indexnow.org/indexnow"]);
+    expect(requests[0]?.body).toBe(`Bearer ${REFRESH_SECRET}`);
+  });
+
+  it("refreshes on the origin --app-url gives, also with --no-indexnow, and prints the address on a dry run", async () => {
+    const env = { BLOG_REFRESH_SECRET: REFRESH_SECRET };
+    expect((await run(["publish", "--app-url", "http://web:3000/ignored"], 200, { env })).lines.slice(-2, -1)).toEqual(["cache: dry run, a commit would refresh http://web:3000/api/blog/refresh"]);
+    expect(requests).toEqual([]);
+    expect((await run(["publish", "--commit", "--no-indexnow", "--app-url", "http://web:3000"], 200, { env })).lines.slice(-1)).toEqual(["cache: refreshed http://web:3000/api/blog/refresh"]);
+    expect(requests.map((request) => request.url)).toEqual(["http://web:3000/api/blog/refresh"]);
+  });
+
+  it("keeps exit code 0 and still submits to IndexNow when the app refuses the refresh", async () => {
+    const result = await run(["publish", "--commit"], 200, { env: { BLOG_REFRESH_SECRET: REFRESH_SECRET }, status: 401 });
+    expect(result).toMatchObject({
+      code: 0,
+      errors: [
+        "warning cache: https://app.example.com/api/blog/refresh answered 401 (the app has another BLOG_REFRESH_SECRET) (blog.refresh_rejected); the publish is written, the app shows it within 300 s",
+      ],
+    });
+    expect(result.lines.slice(-1)).toEqual(["indexnow: submitted 2 URL(s) (200): /blog/index-funds /blog"]);
+    expect(await findArticleBySlug(test.ctx, "index-funds")).toMatchObject({ status: "published" });
+  });
 
   it("prints the URLs a commit would submit on a dry run and sends nothing", async () => {
     expect((await run(["publish"])).lines.slice(-1)).toEqual([
@@ -234,7 +277,7 @@ describe("softure-blog publish with seo({ indexNow })", () => {
 
   it("sends nothing with --no-indexnow", async () => {
     const result = await run(["publish", "--commit", "--no-indexnow"]);
-    expect(result.lines.slice(-1)).toEqual(["written"]);
+    expect(result.lines.slice(-2)).toEqual(["written", CACHE_OFF]);
     expect(requests).toEqual([]);
   });
 

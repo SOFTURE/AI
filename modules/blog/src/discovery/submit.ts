@@ -31,8 +31,9 @@ export interface SubmitBlogChangesOptions {
 }
 
 /**
- * Submits the addresses a publish run changed through seo's IndexNow, on seo's site origin. Inside
- * Next, call `revalidateTag("softure-blog")` first, so a crawler that comes at once sees the new text.
+ * Submits the addresses a publish run changed through seo's IndexNow, on seo's site origin. Refresh
+ * the app's cache first (`requestBlogRefresh`, or `revalidateTag("softure-blog", { expire: 0 })` inside
+ * Next), so a crawler that comes at once sees the new text.
  * Never throws for an expected failure: a submit is an extra after a publish and must not undo it.
  */
 export async function submitBlogChanges(config: SoftureConfig, changes: readonly IndexNowChange[], options: SubmitBlogChangesOptions = {}): Promise<BlogIndexNowSubmit> {

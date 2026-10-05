@@ -16,6 +16,11 @@ import { getBlogContext } from "./context.js";
 import { BLOG_CACHE_TAG } from "./data.js";
 
 const SECURITY_MODULE_ID = "security";
+/**
+ * The one rate limit key of every caller `identifyClient` cannot place: the command often calls the
+ * app on a private name (`--app-url http://web:3000`), past the proxy that sets the client header.
+ */
+const UNIDENTIFIED_CLIENT_KEY = "unidentified";
 const BEARER_PREFIX = /^Bearer[ \t]+/i;
 const NO_STORE = { "cache-control": "no-store" };
 
@@ -25,9 +30,10 @@ function answer(status: number, headers: Readonly<Record<string, string>> = {}):
 
 /**
  * `POST <routes.refresh>`: expires every cached read of the blog, so the next request reads the
- * tables again. Answers 204 refreshed, 401 for a missing or wrong secret, 400 for a client it cannot
- * identify, 429 over the `blog-refresh` bucket, 503 when counting fails, 500 when the secret is not
- * set or shorter than 32 characters. A missing security module or bucket is a setup error, thrown.
+ * tables again. Answers 204 refreshed, 401 for a missing or wrong secret, 429 over the `blog-refresh`
+ * bucket (per client address; callers without one share a single count), 503 when counting fails,
+ * 500 when the secret is not set or shorter than 32 characters. A missing security module or bucket
+ * is a setup error, thrown.
  */
 export async function refreshBlogCache(request: Request): Promise<Response> {
   const secret = (process.env[BLOG_REFRESH_SECRET_ENV] ?? "").trim();
@@ -40,11 +46,10 @@ export async function refreshBlogCache(request: Request): Promise<Response> {
   const { consumeRateLimit, identifyClient } = await import("@softure-ai/security/server");
 
   const client = identifyClient({ config }, request.headers);
-  if (!client.ok) return answer(400);
   let limit;
   try {
     // Counted before the secret is checked, so a flood of guesses is stopped first.
-    limit = await consumeRateLimit(await getBlogContext(config), { bucket: BLOG_REFRESH_RATE_LIMIT_BUCKET, key: client.value });
+    limit = await consumeRateLimit(await getBlogContext(config), { bucket: BLOG_REFRESH_RATE_LIMIT_BUCKET, key: client.ok ? client.value : UNIDENTIFIED_CLIENT_KEY });
   } catch (error) {
     // Fails closed and says nothing: the route is public and this runs before authentication.
     console.error(`@softure-ai/blog: counting a cache refresh failed: ${errorLogLabel(error)}`);

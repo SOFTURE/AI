@@ -11,6 +11,7 @@ import { basename, dirname, join, relative, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { systemClock, type Clock, type SoftureConfig } from "@softure-ai/core";
 import { createDatabase, type DatabaseHandle } from "@softure-ai/db";
+import { BLOG_REFRESH_SECRET_ENV, requestBlogRefresh, type BlogRefreshOutcome } from "../discovery/refresh.js";
 import { submitBlogChanges, type BlogIndexNowSubmit } from "../discovery/submit.js";
 import { runBlogPublish, type ArticleFile, type BlogPublishRun, type PublishedChange, type PublishGate, type PublishProblem } from "../db/publish-run.js";
 import { checkArticleFiles, type FileCheckResult } from "../quality/check-files.js";
@@ -43,6 +44,10 @@ export interface RunBlogCliOptions {
   readonly fetch?: FetchLike;
   /** For the IndexNow submit after `publish`. Default: the global `fetch`. */
   readonly indexNowFetch?: typeof fetch;
+  /** For the cache refresh request after `publish`. Default: the global `fetch`. */
+  readonly refreshFetch?: typeof fetch;
+  /** Where `publish` reads BLOG_REFRESH_SECRET. Default: `process.env`. */
+  readonly env?: Readonly<Record<string, string | undefined>>;
 }
 
 export const EXIT_OK = 0;
@@ -50,7 +55,7 @@ export const EXIT_FAILED = 1;
 export const EXIT_USAGE = 2;
 
 export const BLOG_USAGE = `Usage:
-  softure-blog publish [<path>...] [--commit] [--withdraw] [--no-indexnow]
+  softure-blog publish [<path>...] [--commit] [--withdraw] [--no-indexnow] [--app-url <origin>]
   softure-blog check [<path>...] [--external] [--today <YYYY-MM-DD>]
   softure-blog skill install [--dir <path>] [--command <cmd>] [--check]
 
@@ -60,7 +65,10 @@ publish   Brings the blog's tables to the state of the article files. A <path> i
   --commit      write the changes; without it, a dry run that shows them and writes nothing
   --withdraw    publish the one given file as withdrawn, whatever its status
   --no-indexnow do not submit the changed addresses to IndexNow
+  --app-url     the running app's origin for the cache refresh; default: appOrigin
           Files going public pass the quality gate first; an error writes nothing.
+          With ${BLOG_REFRESH_SECRET_ENV} set, a commit that changed a text asks the running
+          app (refreshBlogCache) to refresh its blog cache, before the IndexNow submit.
           With seo({ indexNow }) enabled, a commit submits the addresses whose answer
           changed (the text, its old slug, its listing) to IndexNow; a dry run prints them.
 
@@ -87,7 +95,15 @@ const consoleOutput: CliOutput = {
 
 export type BlogCommand =
   | { readonly kind: "help" }
-  | { readonly kind: "publish"; readonly paths: readonly string[]; readonly commit: boolean; readonly withdraw: boolean; readonly indexNow: boolean }
+  | {
+      readonly kind: "publish";
+      readonly paths: readonly string[];
+      readonly commit: boolean;
+      readonly withdraw: boolean;
+      readonly indexNow: boolean;
+      /** The origin `--app-url` gives; `null`: `appOrigin`. */
+      readonly appUrl: string | null;
+    }
   | { readonly kind: "check"; readonly paths: readonly string[]; readonly external: boolean; readonly today: string | null }
   | { readonly kind: "skill-install"; readonly dir: string; readonly command: string; readonly check: boolean };
 
@@ -127,7 +143,20 @@ export function parseBlogCommand(argv: readonly string[]): BlogCommand | string 
   if (values.help === true) return { kind: "help" };
   const withdraw = values.withdraw === true;
   if (withdraw && positionals.length !== 1) return "--withdraw takes exactly one article file";
-  return { kind: "publish", paths: positionals, commit: values.commit === true, withdraw, indexNow: values["no-indexnow"] !== true };
+  const appUrl = values["app-url"] === undefined ? null : parseOrigin(values["app-url"]);
+  if (appUrl === undefined) return `--app-url needs an http or https origin, e.g. http://web:3000, not "${values["app-url"] ?? ""}"`;
+  return { kind: "publish", paths: positionals, commit: values.commit === true, withdraw, indexNow: values["no-indexnow"] !== true, appUrl };
+}
+
+/** The origin of an http(s) URL, or `undefined` for anything else. */
+function parseOrigin(value: string): string | undefined {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:" ? url.origin : undefined;
+  } catch {
+    // The caller names the value.
+    return undefined;
+  }
 }
 
 function parseCheckCommand(args: readonly string[]): BlogCommand | string {
@@ -198,6 +227,7 @@ function parsePublishArgs(args: readonly string[]) {
       commit: { type: "boolean" },
       withdraw: { type: "boolean" },
       "no-indexnow": { type: "boolean" },
+      "app-url": { type: "string" },
       help: { type: "boolean" },
     },
     strict: true,
@@ -257,6 +287,16 @@ async function runPublish(command: Extract<BlogCommand, { kind: "publish" }>, op
       },
     );
     const code = reportRun(run, output);
+    if (run.status === "done") {
+      // Before the IndexNow submit: a crawler that answers the ping must find the new text.
+      const refresh = await requestBlogRefresh(config, run.changes, {
+        commit: run.committed,
+        ...(command.appUrl === null ? {} : { appUrl: command.appUrl }),
+        ...(options.env === undefined ? {} : { env: options.env }),
+        ...(options.refreshFetch === undefined ? {} : { fetchImpl: options.refreshFetch }),
+      });
+      reportRefresh(refresh, output);
+    }
     if (run.status === "done" && command.indexNow) {
       reportIndexNow(await submitBlogChanges(config, run.changes, { commit: run.committed, ...(options.indexNowFetch === undefined ? {} : { fetchImpl: options.indexNowFetch }) }), output);
     }
@@ -408,6 +448,27 @@ function reportRun(run: BlogPublishRun, output: CliOutput): number {
   output.log(`summary: added ${count("added")}, changed ${count("changed")}, unchanged ${count("unchanged")}`);
   output.log(run.committed ? "written" : "dry run: nothing written; pass --commit to write");
   return EXIT_OK;
+}
+
+/** One line about the cache refresh; a failure is a warning and never changes the exit code. */
+function reportRefresh(outcome: BlogRefreshOutcome, output: CliOutput): void {
+  switch (outcome.kind) {
+    case "not_configured":
+      output.log(`cache: the running app shows the change within revalidateSeconds (${String(outcome.revalidateSeconds)} s); set ${BLOG_REFRESH_SECRET_ENV} to refresh it now`);
+      return;
+    case "skipped":
+      output.log("cache: no text changed, nothing to refresh");
+      return;
+    case "dry_run":
+      output.log(`cache: dry run, a commit would refresh ${outcome.url}`);
+      return;
+    case "refreshed":
+      output.log(`cache: refreshed ${outcome.url}`);
+      return;
+    case "failed":
+      output.error(`warning cache: ${outcome.reason} (${outcome.code}); the publish is written, the app shows it within ${String(outcome.revalidateSeconds)} s`);
+      return;
+  }
 }
 
 /** One line about the IndexNow submit; a failure is a warning and never changes the exit code. */
