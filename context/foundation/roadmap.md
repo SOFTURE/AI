@@ -52,7 +52,7 @@ backlog: context/backlog/roadmap-blog-followups/
 | **BF-4** | `blog-glossary-form-conflicts` | a glossary form claimed by two terms is refused, naming both | BF-3 | autonomous | ready |
 | **BF-6** | `blog-check-without-database` | `softure-blog check` runs with an app config that has no database URL | BF-1 | autonomous | done_code (2026-10-05; waiting: the owner's release of `@softure-ai/core` and `@softure-ai/blog`) |
 | **BF-7** | `blog-seo-canonical` | the blog's canonical, OG and JSON-LD URLs follow `@softure-ai/seo`'s canonical host and trailing-slash rule | — | autonomous | done_code (2026-10-05; waiting: the next release of `@softure-ai/core` and `@softure-ai/seo`, and the first of `@softure-ai/blog`, BL-8) |
-| **BF-8** | `blog-og-fonts` | `blog({ brand: { fonts } })` gives the article OG card the brand's fonts | BF-7 | autonomous | ready |
+| **BF-8** | `blog-og-fonts` | `blog({ brand: { fonts } })` gives the article OG card the brand's fonts | BF-7 | autonomous | **in_progress (implement 1/1, since 2026-10-05; cloud session, branch `claude/project-thread-hv8t9u` — do not take in another session)** |
 | **BF-9** | `blog-skill-app-notes` | the generated writing skill carries the app's own sections across reinstalls | — | autonomous | ready |
 | **BF-10** | `blog-publish-cache-refresh` | `softure-blog publish --commit` refreshes the running app's blog cache before the IndexNow submit | BF-2 | autonomous | ready |
 | **BF-11** | `blog-canonical-host-links` | a body link to seo's canonical host counts as internal in the renderer and the gate | BF-7 | autonomous | proposed |
@@ -165,8 +165,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### BF-8: The OG card takes the brand's fonts
 - **Change ID:** `blog-og-fonts`
-- **Status:** ready
-- **Input:** [`blog-og-fonts`](../backlog/roadmap-blog-followups/blog-og-fonts/change.md)
+- **Status:** in_progress (implement 1/1, since 2026-10-05; cloud session, branch `claude/project-thread-hv8t9u` — do not take in another session)
+- **Input:** [`blog-og-fonts`](../changes/blog-og-fonts/change.md)
 - **Outcome:** `brand.fonts` (name, weight, a path or URL the server reads once and caches) feeds `BlogArticleOgImage`; a missing file fails with a message naming it; marketing-kit's subset fonts are a candidate source.
 - **Prerequisites:** none.
 - **Risk:** low. Cosmetic: the card uses `next/og`'s default font today.
