@@ -55,7 +55,7 @@ backlog: context/backlog/roadmap-blog-followups/
 | **BF-8** | `blog-og-fonts` | `blog({ brand: { fonts } })` gives the article OG card the brand's fonts | BF-7 | autonomous | ready |
 | **BF-9** | `blog-skill-app-notes` | the generated writing skill carries the app's own sections across reinstalls | — | autonomous | done_code (2026-10-05; waiting: the first release of `@softure-ai/blog`, BL-8) |
 | **BF-10** | `blog-publish-cache-refresh` | `softure-blog publish --commit` refreshes the running app's blog cache before the IndexNow submit | BF-2 | autonomous | ready |
-| **BF-11** | `blog-canonical-host-links` | a body link to seo's canonical host counts as internal in the renderer and the gate | BF-7 | autonomous | proposed |
+| **BF-11** | `blog-canonical-host-links` | a body link to seo's canonical host counts as internal in the renderer and the gate | BF-7 | autonomous | **in_progress (implement 1/1, since 2026-10-05; cloud session, branch `claude/project-thread-inu4ef` — do not take in another session)** |
 | **BF-13** | `blog-skill-check-without-database` | `softure-blog skill install` runs with an app config that has no database URL | BF-6 | autonomous | proposed |
 
 ## Order
@@ -195,8 +195,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### BF-11: A body link to seo's canonical host counts as internal
 - **Change ID:** `blog-canonical-host-links`
-- **Status:** proposed
-- **Input:** [`blog-canonical-host-links`](../backlog/roadmap-blog-followups/blog-canonical-host-links/change.md)
+- **Status:** in_progress (implement 1/1, since 2026-10-05; cloud session, branch `claude/project-thread-inu4ef` — do not take in another session)
+- **Input:** [`blog-canonical-host-links`](../changes/blog-canonical-host-links/change.md)
 - **Outcome:** the renderer's own hosts (`pages/body.ts` `siteHosts`) and the gate's own origins (`quality/settings.ts` `ownOrigins`) include core's `getSiteUrls(config).origin` next to `appOrigin`; a test covers a canonical host that differs from `appOrigin`.
 - **Prerequisites:** BF-7 on `master` (core's `getSiteUrls`).
 - **Risk:** low. An app can list the host in `siteHosts` and `quality.ownOrigins` today; the example's canonical host equals `appOrigin`.
