@@ -3,14 +3,19 @@
 // gate rejects. Article fixtures are .txt files: as .md, the repository link check would read their
 // site paths as file links.
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { OgFontSource } from "@softure-ai/blog/next";
 import { runBlogCli, type CliOutput } from "@softure-ai/blog/cli";
 import type { FetchLike, QualityOptionsInput } from "@softure-ai/blog/server";
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildArticleFile, createConfig, createTestBlog, type TestBlog } from "./support.js";
 
 const QUALITY_FIXTURES = new URL("./quality/fixtures/", import.meta.url);
+/** Inter's latin subset from the `@fontsource/inter` dev dependency (OFL-1.1). */
+const INTER_400 = createRequire(import.meta.url).resolve("@fontsource/inter/files/inter-latin-400-normal.woff");
+const FONT_URL = "https://cdn.example.com/inter-latin-700-normal.woff";
 const SHORT_TEXTS: QualityOptionsInput = { limits: { words: { article: { min: 150 } } } };
 const TERM = `---
 id: expense-ratio
@@ -115,6 +120,59 @@ describe("softure-blog check", () => {
       expect((await check(["terms", "--today", "2026-10-03"])).code).toBe(0);
     } finally {
       rmSync(join(app, "terms"), { recursive: true, force: true });
+    }
+  });
+});
+
+describe("softure-blog check with brand.fonts", () => {
+  async function checkFonts(argv: readonly string[], fonts: OgFontSource[]) {
+    const { output, lines, errors } = createOutput();
+    const fetched: string[] = [];
+    const code = await runBlogCli({
+      config: createConfig({ quality: SHORT_TEXTS, brand: { name: "Example", fonts } }),
+      argv: ["check", ...argv],
+      cwd: app,
+      output,
+      openDatabase: () => Promise.reject(new Error("check must not open the database")),
+      fontFetch: (input) => {
+        fetched.push(input instanceof Request ? input.url : String(input));
+        return Promise.resolve(new Response("Not Found", { status: 404 }));
+      },
+    });
+    return { code, lines, errors, fetched };
+  }
+
+  const font = (src: string, weight: OgFontSource["weight"] = 400): OgFontSource => ({ name: "Inter", weight, style: "normal", src });
+
+  it("adds nothing to a green run when every font reads", async () => {
+    expect(await checkFonts(["--today", "2026-10-03"], [font(INTER_400)])).toEqual({
+      code: 0,
+      lines: ["content/blog/expense-ratio.md: OK", "content/blog/index-funds.md: OK", "check: 2 file(s), 0 error(s), 0 warning(s): green"],
+      errors: [],
+      fetched: [],
+    });
+  });
+
+  it("reports a font URL that does not answer, counts it and still checks the files", async () => {
+    expect(await checkFonts(["--today", "2026-10-03"], [font(INTER_400), font(FONT_URL, 700)])).toEqual({
+      code: 1,
+      lines: ["content/blog/expense-ratio.md: OK", "content/blog/index-funds.md: OK", "check: 2 file(s), 1 error(s), 0 warning(s): red, do not publish"],
+      errors: [`softure-blog check: Blog OG card: brand.fonts[1] "${FONT_URL}": the server answered 404 (${FONT_URL}).`],
+      fetched: [FONT_URL],
+    });
+  });
+
+  it("fails on a font problem when there is no article file to check", async () => {
+    mkdirSync(join(app, "empty"));
+    try {
+      expect(await checkFonts(["empty"], [font("assets/missing.woff")])).toEqual({
+        code: 1,
+        lines: ["check: no article files"],
+        errors: [`softure-blog check: Blog OG card: brand.fonts[0] "assets/missing.woff": the file cannot be read (ENOENT) (${join(app, "assets/missing.woff")}).`],
+        fetched: [],
+      });
+    } finally {
+      rmSync(join(app, "empty"), { recursive: true, force: true });
     }
   });
 });

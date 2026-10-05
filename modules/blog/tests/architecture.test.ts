@@ -73,6 +73,10 @@ describe("blog markup and styles", () => {
     for (const { file, source } of readSources("")) expect(source, file).not.toMatch(/(?:from|import\() *"(?:\.\/next\/|next\/)/);
   });
 
+  it("keeps the command line off the Next adapter, so the bin runs without Next", () => {
+    for (const { file, source } of readSources("cli")) expect(source, file).not.toMatch(/(?:from|import\() *"(?:\.\.\/next\/|next(?:\/[a-z]+)?")/);
+  });
+
   it("keeps @softure-ai/seo out of the pages' code entirely, so an app without seo still builds them", () => {
     // A bundler resolves every import() it can reach; the pages ask core's getSiteUrls instead.
     for (const { file, source } of [...readSources("next"), ...readSources("pages"), ...readSources("ui")]) {

@@ -17,7 +17,7 @@ card in the running app.
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md) (blog-followups), item **BF-14**:
+From [`roadmap.md`](../../foundation/roadmap.md) (blog-followups), item **BF-14**:
 
 > ### BF-14: softure-blog check reads the OG card's fonts
 > - **Change ID:** `blog-og-fonts-check`
