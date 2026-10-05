@@ -8,7 +8,8 @@ type Handler = (request: IncomingMessage, response: ServerResponse) => void;
 
 let server: Server;
 let baseUrl: string;
-let handlers: Map<string, Handler>;
+/** Routes of the local server; looked up by comparison, so a request path never selects a property. */
+let handlers: { path: string; handle: Handler }[];
 let seen: IncomingMessage[];
 
 function verifyConfig(input: unknown): VerifyConfig {
@@ -18,16 +19,16 @@ function verifyConfig(input: unknown): VerifyConfig {
 }
 
 beforeEach(async () => {
-  handlers = new Map();
+  handlers = [];
   seen = [];
   server = createServer((request, response) => {
     seen.push(request);
-    const handler = handlers.get(request.url ?? "");
-    if (handler === undefined) {
+    const route = handlers.find(({ path }) => path === request.url);
+    if (route === undefined) {
       response.writeHead(404, { "content-type": "text/plain" }).end("Not found");
       return;
     }
-    handler(request, response);
+    route.handle(request, response);
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
@@ -38,12 +39,16 @@ afterEach(async () => {
   await new Promise<void>((resolve) => server.close(() => resolve()));
 });
 
+function serve(path: string, handle: Handler): void {
+  handlers.push({ path, handle });
+}
+
 describe("runVerify against a local server", () => {
   it("passes routes whose status, markers, redirect and headers match, in config order", async () => {
-    handlers.set("/", (_request, response) =>
+    serve("/", (_request, response) =>
       response.writeHead(200, { "content-type": "text/html; charset=utf-8", "x-frame-options": "DENY" }).end("<h1>Home</h1>"));
-    handlers.set("/old", (_request, response) => response.writeHead(301, { location: "/new", "x-frame-options": "DENY" }).end());
-    handlers.set("/robots.txt", (_request, response) =>
+    serve("/old", (_request, response) => response.writeHead(301, { location: "/new", "x-frame-options": "DENY" }).end());
+    serve("/robots.txt", (_request, response) =>
       response.writeHead(200, { "content-type": "text/plain", "x-frame-options": "DENY" }).end("Sitemap: /sitemap.xml\n"));
     const reports = await runVerify({
       baseUrl,
@@ -65,7 +70,7 @@ describe("runVerify against a local server", () => {
   });
 
   it("does not follow a redirect and asks a CDN for a fresh response", async () => {
-    handlers.set("/old", (_request, response) => response.writeHead(302, { location: "/missing" }).end());
+    serve("/old", (_request, response) => response.writeHead(302, { location: "/missing" }).end());
     const [report] = await runVerify({ baseUrl, config: verifyConfig({ routes: [{ path: "/old", status: 302 }] }) });
     expect(report?.passed).toBe(true);
     expect(seen.map((request) => request.url)).toEqual(["/old"]);
@@ -73,7 +78,7 @@ describe("runVerify against a local server", () => {
   });
 
   it("reports every failed check of a route", async () => {
-    handlers.set("/", (_request, response) =>
+    serve("/", (_request, response) =>
       response.writeHead(500, { "x-powered-by": "Next.js" }).end("Application error: a server-side exception"));
     const [report] = await runVerify({
       baseUrl,
@@ -97,8 +102,8 @@ describe("runVerify against a local server", () => {
   });
 
   it("turns a timeout into a failed request check of that route only", async () => {
-    handlers.set("/slow", () => undefined);
-    handlers.set("/fast", (_request, response) => response.writeHead(200).end());
+    serve("/slow", () => undefined);
+    serve("/fast", (_request, response) => response.writeHead(200).end());
     const reports = await runVerify({
       baseUrl,
       timeoutMs: 150,
@@ -124,7 +129,7 @@ describe("runVerify against a local server", () => {
     let active = 0;
     let peak = 0;
     for (const [index, path] of ["/a", "/b", "/c", "/d", "/e"].entries()) {
-      handlers.set(path, (_request, response) => {
+      serve(path, (_request, response) => {
         active += 1;
         peak = Math.max(peak, active);
         setTimeout(() => {
