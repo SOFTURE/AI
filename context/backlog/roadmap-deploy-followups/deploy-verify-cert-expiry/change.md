@@ -2,7 +2,7 @@
 change_id: deploy-verify-cert-expiry
 title: "softure-deploy verify fails when the TLS certificate expires within a set number of days"
 status: backlog
-roadmap_item: DF-3
+roadmap_item: DF-4
 branch: null
 created: 2026-10-05
 updated: 2026-10-05
@@ -17,7 +17,7 @@ are left.
 
 ## Context
 
-From [`roadmap-deploy-followups.md`](../../../foundation/roadmaps/roadmap-deploy-followups.md), item **DF-3**:
+From [`roadmap-deploy-followups.md`](../../../foundation/roadmaps/roadmap-deploy-followups.md), item **DF-4**:
 
 > - **Outcome:** an optional `verify.tlsMinDays`; `verify` reads the certificate with `node:tls` once per run and adds
 >   a `tls` row to the table (days left, issuer); fewer days than the minimum is a failure. Tested against a local

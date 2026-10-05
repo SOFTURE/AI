@@ -10,5 +10,4 @@ here, in `context/changes/` or in `context/archive/`. Taking an entry works as i
 | ID | Entry | Title | Condition | Kind |
 | --- | --- | --- | --- | --- |
 | DF-1 | [`deploy-fire-parity`](deploy-fire-parity/change.md) | Parity of the deploy CLI with FIRE_TRACKER | a session that can read FIRE_TRACKER | start |
-| DF-2 | [`deploy-verify-fire-parity`](deploy-verify-fire-parity/change.md) | Parity of verify with FIRE_TRACKER | a session that can read FIRE_TRACKER | start |
-| DF-3 | [`deploy-verify-cert-expiry`](deploy-verify-cert-expiry/change.md) | Certificate expiry in verify | the roadmap promoted | start |
+| DF-4 | [`deploy-verify-cert-expiry`](deploy-verify-cert-expiry/change.md) | Certificate expiry in verify | the roadmap promoted | start |

@@ -17,8 +17,8 @@ Findings:
 - **W1 (warning):** `runCli` is now async, a change to the shared CLI entry that DP-3 may also make. Accepted:
   the change is two lines in `run.ts` and one in `main.ts`; the existing tests await it.
 - **S1 (suggestion), gap:** parity with FIRE_TRACKER's `verify-production.sh` could not be checked (FIRE_TRACKER
-  could not be read from this session). Recorded as DF-2 (`deploy-verify-fire-parity`).
-- **S2 (suggestion), gap:** a certificate close to expiry passes until it expires. Recorded as DF-3
+  could not be read from this session). Folded into DF-1 (`deploy-fire-parity`).
+- **S2 (suggestion), gap:** a certificate close to expiry passes until it expires. Recorded as DF-4
   (`deploy-verify-cert-expiry`).
 - **S3 (suggestion):** bodies are read whole when a marker needs them. Kept: verify reads the app's own pages,
   and the timeout bounds a slow body.
