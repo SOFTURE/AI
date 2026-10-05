@@ -8,7 +8,8 @@
 // commit would do (the rows before and after, read from the database).
 import type { BlogArticleInput, BlogArticleKind, BlogArticleStatus, BlogPublishAction } from "../contract.js";
 import { parseArticleFile, type ParseArticleFileOptions } from "../content/article-file.js";
-import { publishArticle, type BlogContext } from "./articles.js";
+import { findTermFormConflicts, toGlossary } from "../render/glossary.js";
+import { listArticles, publishArticle, type BlogContext } from "./articles.js";
 
 export interface ArticleFile {
   /** The file name (or path); it must read `<slug>.md`. */
@@ -60,8 +61,8 @@ const EXCLUSION_VIOLATION = "23P01";
 class DryRunRollback extends Error {}
 
 class PublishRefused extends Error {
-  constructor(readonly problem: PublishProblem) {
-    super(problem.message);
+  constructor(readonly problems: readonly PublishProblem[]) {
+    super(problems.map((problem) => problem.message).join("; "));
   }
 }
 
@@ -101,7 +102,7 @@ export async function runBlogPublish(ctx: BlogContext, files: readonly ArticleFi
         const result = await publishArticle({ ...ctx, db: tx }, input);
         if (!result.ok) {
           const reason = result.error === "blog.slug_taken" ? "is the slug of" : "redirects to";
-          throw new PublishRefused({ subject: input.id, message: `slug ${input.slug} ${reason} article ${result.otherArticleId} (${result.error})` });
+          throw new PublishRefused([{ subject: input.id, message: `slug ${input.slug} ${reason} article ${result.otherArticleId} (${result.error})` }]);
         }
         changes.push({
           id: input.id,
@@ -114,11 +115,14 @@ export async function runBlogPublish(ctx: BlogContext, files: readonly ArticleFi
           previousSlug: result.previousSlug,
         });
       }
+      const glossary = await checkGlossaryForms({ ...ctx, db: tx }, inputs);
+      if (glossary.problems.length > 0) throw new PublishRefused(glossary.problems);
+      warnings.push(...glossary.warnings);
       if (options.commit !== true) throw new DryRunRollback();
     });
   } catch (error) {
     if (error instanceof DryRunRollback) return { status: "done", committed: false, changes, warnings };
-    if (error instanceof PublishRefused) return { status: "refused", problems: [error.problem], warnings };
+    if (error instanceof PublishRefused) return { status: "refused", problems: error.problems, warnings };
     if (getSqlState(error) === EXCLUSION_VIOLATION) {
       return {
         status: "refused",
@@ -156,6 +160,24 @@ function findPillarProblems(inputs: readonly BlogArticleInput[]): PublishProblem
   return [...pillars]
     .filter(([, ids]) => ids.length > 1)
     .map(([cluster, ids]) => ({ subject: cluster, message: `two pillars in one cluster: ${ids.join(", ")}` }));
+}
+
+/**
+ * One term per glossary form, over the published terms as this run leaves them (read inside its
+ * transaction, after its writes), so a run of one file sees the terms stored before it. A conflict
+ * with a term of this run refuses the run; one only between stored terms is not this run's doing and
+ * is a warning. The renderer links such a form to one of the terms either way.
+ */
+async function checkGlossaryForms(ctx: BlogContext, inputs: readonly BlogArticleInput[]): Promise<{ problems: PublishProblem[]; warnings: PublishProblem[] }> {
+  const runTerms = new Set(inputs.filter((input) => input.kind === "term").map((input) => input.slug));
+  const problems: PublishProblem[] = [];
+  const warnings: PublishProblem[] = [];
+  for (const conflict of findTermFormConflicts(toGlossary(await listArticles(ctx, { kind: "term" })))) {
+    const problem = { subject: "glossary", message: `form "${conflict.form}" is claimed by terms ${conflict.slugs.join(", ")}; a form belongs to one term, so remove it from all but one` };
+    if (conflict.slugs.some((slug) => runTerms.has(slug))) problems.push(problem);
+    else warnings.push(problem);
+  }
+  return { problems, warnings };
 }
 
 /** The SQLSTATE of a driver error; drizzle wraps it as the `cause`. */

@@ -81,6 +81,8 @@ blog({
   images: { hosts: ["cdn.example.com"], dimensions: (src) => imageSizes[src] ?? null },
   // How long the cached reads hold; keep equal to the pages' `revalidate`. Default: 300.
   revalidateSeconds: 300,
+  // The app's own sections of the generated writing skill (see "The writing skill"). Default: none.
+  skill: { sections: [] },
   // Every route can move: blog({ routes: { index: "/articles" } }).
 });
 ```
@@ -124,7 +126,7 @@ severity; the writing skill is kept in step with it):
 | --- | --- |
 | file | **`file`**: the frontmatter parses and the slug equals the file name |
 | structure | `title-length`, `description-length`, **`as-of-future`**, `stale`, **`summary-missing`**, **`lead`** (a paragraph first), `lead-length`, **`lead-number`**, **`heading-h1`**, **`heading-order`**, **`sections`** (two `##`), **`section-question`**, **`section-answer`**, `section-answer-length`, **`length`** (a warning above the maximum), **`footnote-undefined`**, `footnote-unused` |
-| links | **`internal-links`** (a warning for a term), **`internal-link-target`** (`check` only), `external-link-https`, **`external-link-dead`** (`--external` only) |
+| links | **`internal-links`** (a warning for a term), **`internal-link-target`** (`check` only), `external-link-https`, **`external-link-dead`** (`--external` only), **`term-form-conflict`** (`check` only: a checked published term shares a form with another published term; `publish` refuses it whatever its severity) |
 | images | **`image-source`** (a site path or a host of `blog({ images })`; every image while the app has no policy), **`image-alt`**, **`image-dimensions`** (the policy's `dimensions` knows it) |
 | style (ruleset) | **`announcement`**, **`these-days`**, **`not-only-but-also`**, **`not-x-but-y`**, **`meta-commentary`**, **`throat-clearing`**, **`empty-conclusion`**, **`crucial`**, **`plays-a-role`**, **`puffery`**, **`chatbot-phrases`**, **`emoji`**, `filler-words`, `exclamation`, `straight-quotes` (`pl`), `title-case-heading` (`pl`) |
 | style (rhythm) | **`dashes`**, `dashes-paragraph`, `bold-density`, `bold-labels`, `triads`, `long-sentences`, `monotone-rhythm`, `repeated-openings` |
@@ -172,6 +174,10 @@ Rules:
 
 - **Slug change:** change `slug` and rename the file, keep `id`. The old slug goes to the slug history
   and redirects to the new one. A slug another article has now, or had before, is refused.
+- **Glossary forms:** a form belongs to one published term (forms equal up to a capital first letter
+  are one). `publish` refuses a run that leaves a form with two terms, one of them in the run, naming
+  the form and both slugs; a conflict only between stored terms is a warning. `check` reports it as
+  `term-form-conflict`. The renderer links such a form to the first term it was given.
 - **Withdrawal:** `status: withdrawn`. The row stays and its address answers 410. Do not delete the
   file: a deleted file changes nothing in the database.
 - **Update date:** `updated_at` moves by itself when the content of a published text changes (title,
@@ -298,7 +304,8 @@ ping at once gets the new text.
 that runs `check` wraps its own import the same way:
 `const { default: config } = await withDatabaseOptional(() => import("../softure.config"))`. It reads the
 files (default: `contentDir`), resolves internal links against the app's routes and the published texts
-of `contentDir`, and prints one line per finding:
+of `contentDir`, compares the glossary forms of the checked terms with every published term there, and
+prints one line per finding:
 
 ```text
 content/blog/index-funds.md:12: error [crucial] "crucial": a favourite word of language models; name what depends on the thing
@@ -324,14 +331,36 @@ templates in `skill/`; the command fills them from the app's config:
   its effective severity, what the gate looks for and what to write instead; the app's voice
   phrases and plugin rules with their own descriptions; a rule set to `"off"` is left out;
 - the YMYL passages (sources, footnotes, the own calculation mark) only when `ymyl` is on, and the
-  editors' "we" when `voice.forbidFirstPersonSingular` is on.
+  editors' "we" when `voice.forbidFirstPersonSingular` is on;
+- the app's own sections from `blog({ skill: { sections } })` (below).
+
+The app adds its own procedure (where its numbers come from, its block plugins, its fields) as sections
+in the config, so a reinstall keeps them and `--check` covers them:
+
+```ts
+blog({
+  skill: {
+    sections: [
+      { title: "Engine numbers", body: "Every number of an example comes from `npm run engine -- <inputs>`." },
+      { title: "Chart block", body: "One `::chart{scenario=\"…\"}` block after the lead, with the frontmatter's `scenario`." },
+    ],
+  },
+});
+```
+
+Install writes them to `references/app.md` (`## <title>` and the body, verbatim, never filled like the
+templates) and `SKILL.md` names them; with no sections the file is not written. A title is one line, unique,
+up to 80 characters; a body holds no `#` or `##` heading outside fenced code (use `###`). An app with long
+sections keeps them in a module of its own and imports them into the config.
 
 `--command` sets how the skill runs the commands (default `npx softure-blog`; an app with a
 `runBlogCli` script passes e.g. `--command "npm run blog --"`). Commit the folder, so agents in a
 fresh clone have it, and run `softure-blog skill install --check` (with the same options) in CI: it
 writes nothing and exits 1, naming the files, when the folder differs from what the config gives.
 Install overwrites only a folder whose `SKILL.md` it generated, so it never replaces a skill the app
-wrote itself. With `quality: false` it refuses: the skill is built on the gate.
+wrote itself. That folder belongs to the command: install removes a `.md` file in it that the config no
+longer gives (`references/app.md` once the sections are gone), logging `removed <path>`, and `--check`
+names such a file. With `quality: false` it refuses: the skill is built on the gate.
 
 ### Rendering an article
 
@@ -521,9 +550,8 @@ Articles hold editorial content, no personal data: nothing to export or delete.
   `ownOrigins`, `privateRouteSegments: ["api", "(app)"]`, and `rules-facts.ts` and `rules-chart.ts`
   as plugins (the package's tests hold stand-ins of both). Rule ids are English now (`kluczowy` →
   `crucial`, `myslniki` → `dashes`, …; the map is in the change archive), and the writing skill
-  (`skill install`, replacing FIRE's `blog-pisz`) names them.
-- The generated skill has no sections of the app's own yet (FIRE_TRACKER's engine numbers,
-  calculator scenario and chart block); keep them in a second skill of the app (BF-9).
+  (`skill install`, replacing FIRE's `blog-pisz`) names them; FIRE's engine numbers, calculator scenario
+  and chart block go into `blog({ skill: { sections } })`.
 - **Adopting from FIRE_TRACKER:** rename the frontmatter keys once (`typ` → `kind` with `artykul` →
   `article` and `termin` → `term`, `formy` → `forms`, `klaster` → `cluster`, `filar` → `pillar`,
   `tytul` → `title`, `opis` → `description`, `w_skrocie` → `summary`, `aktualne_na` →

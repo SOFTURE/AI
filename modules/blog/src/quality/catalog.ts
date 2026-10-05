@@ -38,6 +38,7 @@ const CORE_RULES: readonly QualityCatalogRule[] = [
   rule("links", "internal-link-target", "error", "every internal link leads to a page, article or glossary term"),
   rule("links", "external-link-https", "warning", "external links use https"),
   rule("links", "external-link-dead", "error", "external links answer 2xx (only with --external)"),
+  rule("links", "term-form-conflict", "error", "a glossary form belongs to one published term (only in check; publish refuses it always)"),
   rule("images", "image-source", "error", "an image comes from the site or a host of blog({ images: { hosts } })"),
   rule("images", "image-alt", "error", "an image has alt text"),
   rule("images", "image-dimensions", "error", "the app knows an image's width and height (blog({ images: { dimensions } }))"),

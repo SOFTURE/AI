@@ -101,6 +101,22 @@ describe("softure-blog check", () => {
   it("refuses unknown options with exit code 2", async () => {
     expect((await check(["--commit"])).code).toBe(2);
   });
+
+  it("reports a checked term whose form a term of the content folder holds, on each checked term", async () => {
+    mkdirSync(join(app, "terms"));
+    writeFileSync(join(app, "terms/fund-fee.md"), TERM.replace("id: expense-ratio\nslug: expense-ratio", "id: fund-fee\nslug: fund-fee").replace("forms: [expense ratio]", "forms: [Expense ratio, fund fee]"));
+    try {
+      const message = (other: string) => `error [term-form-conflict] form "expense ratio" is also a form of term ${other}; a form belongs to one term, so remove it from all but one`;
+      const result = await check(["terms", "content/blog/expense-ratio.md", "--today", "2026-10-03"]);
+      expect(result.code).toBe(1);
+      expect(result.lines).toEqual([`terms/fund-fee.md: ${message("expense-ratio")}`, `content/blog/expense-ratio.md: ${message("fund-fee")}`, "check: 2 file(s), 2 error(s), 0 warning(s): red, do not publish"]);
+      expect((await check(["terms", "--today", "2026-10-03"], { ...SHORT_TEXTS, severity: { "term-form-conflict": "off" } })).code).toBe(0);
+      writeFileSync(join(app, "terms/fund-fee.md"), TERM.replace("id: expense-ratio\nslug: expense-ratio", "id: fund-fee\nslug: fund-fee").replace("status: published", "status: draft"));
+      expect((await check(["terms", "--today", "2026-10-03"])).code).toBe(0);
+    } finally {
+      rmSync(join(app, "terms"), { recursive: true, force: true });
+    }
+  });
 });
 
 describe("softure-blog publish with the default gate", () => {

@@ -20,7 +20,7 @@ describe("the blog module", () => {
 
   it("fills in the defaults: content/blog, no reserved slugs, no app fields, no brand or method page", () => {
     const { quality, ...rest } = blog().options;
-    expect(rest).toEqual({ contentDir: "content/blog", reservedSlugs: [], methodPage: false, clusters: {}, blocks: [], siteHosts: [], revalidateSeconds: 300 });
+    expect(rest).toEqual({ contentDir: "content/blog", reservedSlugs: [], methodPage: false, clusters: {}, blocks: [], siteHosts: [], revalidateSeconds: 300, skill: { sections: [] } });
     expect(quality).toMatchObject({ language: "en", ymyl: null, paths: { articles: "/blog", terms: "/blog/glossary" }, plugins: [] });
   });
 
@@ -47,6 +47,46 @@ describe("the blog module", () => {
       siteHosts: ["docs.example.com"],
     }).options;
     expect(options).toMatchObject({ brand: { name: "Example", colors: { accent: "#cff26b" } }, disclaimer: { en: "Not advice." }, blocks: [chart] });
+  });
+
+  it("takes the app's own sections of the writing skill, a ### heading in a body included", () => {
+    const sections = [{ title: "Engine numbers", body: "Take every number from the engine.\n\n### Rounding\n\nRound to whole units." }];
+    expect(blog({ skill: { sections } }).options.skill).toEqual({ sections });
+  });
+
+  it("refuses skill sections that would break the generated file", () => {
+    expect(() =>
+      blog({
+        skill: {
+          sections: [
+            { title: " ", body: "Text." },
+            { title: "Two\nlines", body: "Text." },
+            { title: "Chart block", body: "  " },
+            { title: "Scenario", body: "Intro.\n## Own heading\nText." },
+          ],
+        },
+      }),
+    ).toThrow(
+      [
+        'Invalid SOFTURE configuration in module "blog":',
+        "- options.skill.sections.0.title: Too small: expected string to have >=1 characters",
+        "- options.skill.sections.1.title: must be one line",
+        "- options.skill.sections.2.body: Too small: expected string to have >=1 characters",
+        "- options.skill.sections.3.body: must not hold a # or ## heading; use ### and deeper (the title is the section's ## heading)",
+      ].join("\n"),
+    );
+  });
+
+  it("refuses two skill sections with one title and any # or ## heading line, and lets fenced code hold a # line", () => {
+    const body = "Run it:\n\n```bash\n# the engine\nnpm run engine\n```";
+    expect(blog({ skill: { sections: [{ title: "Engine", body }] } }).options.skill.sections[0]?.body).toBe(body);
+    for (const heading of ["Intro.\r\n##\r\nText.", "Intro.\n   # Indented\nText."]) {
+      expect(() => blog({ skill: { sections: [{ title: "Engine", body: heading }] } }), JSON.stringify(heading)).toThrow("must not hold a # or ## heading");
+    }
+    expect(blog({ skill: { sections: [{ title: "Engine", body: "#hashtag and ### Deeper" }] } }).options.skill.sections).toHaveLength(1);
+    expect(() => blog({ skill: { sections: [{ title: "Engine", body: "One." }, { title: "Engine", body: "Two." }] } })).toThrow(
+      '- options.skill.sections.1.title: "Engine" is the title of another section',
+    );
   });
 
   it("refuses page options it cannot use", () => {

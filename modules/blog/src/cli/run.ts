@@ -6,7 +6,7 @@
 //   import { runBlogCli } from "@softure-ai/blog/cli";
 //   import config from "../softure.config";
 //   process.exitCode = await runBlogCli({ config, argv: process.argv.slice(2) });
-import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { systemClock, type Clock, type SoftureConfig } from "@softure-ai/core";
@@ -16,7 +16,7 @@ import { runBlogPublish, type ArticleFile, type BlogPublishRun, type PublishedCh
 import { checkArticleFiles, type FileCheckResult } from "../quality/check-files.js";
 import type { FetchLike } from "../quality/external-links.js";
 import { createQualityGate } from "../quality/gate.js";
-import { createInternalLinkResolver, findAppDir, readContentFolder, readPublishedContent } from "../quality/link-targets.js";
+import { createInternalLinkResolver, findAppDir, readContentFolder, readGlossaryTerms, readPublishedContent } from "../quality/link-targets.js";
 import { getLocalDate } from "../quality/settings.js";
 import { getBlogOptions, getBlogReservedSlugs, getQualitySettings } from "../server/options.js";
 import { DEFAULT_SKILL_COMMAND, DEFAULT_SKILL_DIR, renderBlogSkill, SKILL_MARKER, type SkillFile } from "./skill.js";
@@ -70,8 +70,8 @@ check     Runs the quality gate of blog({ quality }) over the files, without a d
   --today       the date to check freshness against; default: today in the app's time zone
 
 skill install
-          Writes the article writing skill, filled from blog({ quality }), into
-          ${DEFAULT_SKILL_DIR}. Overwrites only a skill it generated before.
+          Writes the article writing skill, filled from blog({ quality, skill }),
+          into ${DEFAULT_SKILL_DIR}. Overwrites only a skill it generated before.
   --dir         the skill folder; default ${DEFAULT_SKILL_DIR}
   --command     how the skill runs this command; default "${DEFAULT_SKILL_COMMAND}"
   --check       write nothing; exit 1 when the folder differs from what install would write
@@ -297,8 +297,10 @@ async function runCheck(command: Extract<BlogCommand, { kind: "check" }>, option
     return EXIT_OK;
   }
 
-  // Link targets: the published texts of the content folder and of the checked files, and the app's routes.
-  const content = readPublishedContent([...readContentFolder(contentDir), ...files]);
+  // Link targets and glossary forms: the published texts of the content folder and of the checked files, and the app's routes.
+  const siteFiles = [...readContentFolder(contentDir), ...files];
+  const content = readPublishedContent(siteFiles);
+  const parse = { reservedSlugs: getBlogReservedSlugs(options.config), ...(blogOptions.fields === undefined ? {} : { fields: blogOptions.fields }) };
   const resolveInternalLink = createInternalLinkResolver({
     appDir: findAppDir(cwd, settings.options.appDir),
     privateRouteSegments: settings.options.privateRouteSegments,
@@ -309,7 +311,8 @@ async function runCheck(command: Extract<BlogCommand, { kind: "check" }>, option
     settings,
     today: command.today ?? getLocalDate((options.clock ?? systemClock).now(), settings.timeZone),
     resolveInternalLink,
-    parse: { reservedSlugs: getBlogReservedSlugs(options.config), ...(blogOptions.fields === undefined ? {} : { fields: blogOptions.fields }) },
+    parse,
+    glossary: readGlossaryTerms(siteFiles, parse),
     ...(command.external ? { fetch: options.fetch ?? fetch } : {}),
   });
   return reportCheck(results, files, cwd, output);
@@ -327,16 +330,26 @@ async function runSkillInstall(command: Extract<BlogCommand, { kind: "skill-inst
     return EXIT_FAILED;
   }
 
+  let extra: string[];
+  try {
+    const rendered = new Set(files.map((file) => file.path));
+    extra = (await listMarkdownFiles(dir)).filter((path) => !rendered.has(path));
+  } catch (error) {
+    output.error(`softure-blog skill install: cannot read ${shown}: ${describeError(error)}`);
+    return EXIT_FAILED;
+  }
+
   if (command.check) {
     const stale: string[] = [];
     for (const file of files) {
       if ((await readText(join(dir, file.path))) !== file.text) stale.push(file.path);
     }
-    if (stale.length === 0) {
+    if (stale.length === 0 && extra.length === 0) {
       output.log(`skill: ${shown} is up to date`);
       return EXIT_OK;
     }
     for (const path of stale) output.error(`skill: ${join(shown, path)} differs from the blog config`);
+    for (const path of extra) output.error(`skill: ${join(shown, path)} is not part of the skill`);
     output.error("skill: run softure-blog skill install with the same options and commit the folder");
     return EXIT_FAILED;
   }
@@ -352,11 +365,14 @@ async function runSkillInstall(command: Extract<BlogCommand, { kind: "skill-inst
       await mkdir(dirname(path), { recursive: true });
       await writeFile(path, file.text, "utf8");
     }
+    // The folder is the command's own (its SKILL.md carries the marker): a Markdown file it no longer renders goes.
+    for (const path of extra) await rm(join(dir, path));
   } catch (error) {
     output.error(`softure-blog skill install: cannot write ${shown}: ${describeError(error)}`);
     return EXIT_FAILED;
   }
   for (const file of files) output.log(`wrote ${join(shown, file.path)}`);
+  for (const path of extra) output.log(`removed ${join(shown, path)}`);
   output.log(`skill: installed into ${shown}; commit it, and run skill install --check in CI`);
   return EXIT_OK;
 }
@@ -458,6 +474,21 @@ async function getPathKind(path: string): Promise<"file" | "folder" | null> {
     // The caller names the path; the error code adds nothing an editor can act on.
     return null;
   }
+}
+
+/** The `.md` files under `dir`, relative to it with `/`; none when the folder does not exist. */
+async function listMarkdownFiles(dir: string): Promise<string[]> {
+  let entries: string[];
+  try {
+    entries = await readdir(dir, { recursive: true });
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") return [];
+    throw error;
+  }
+  return entries
+    .map((entry) => entry.split("\\").join("/"))
+    .filter((entry) => entry.endsWith(".md"))
+    .sort();
 }
 
 async function readText(path: string): Promise<string | null> {

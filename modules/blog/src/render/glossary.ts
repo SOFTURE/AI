@@ -39,7 +39,8 @@ export function createTermMatcher(terms: readonly GlossaryTerm[]): TermMatcher {
       const trimmed = form.trim();
       if (trimmed === "") continue;
       // The first term with a given form wins: two terms with the same phrase are an editorial
-      // mistake (the quality gate reports it), and the link has to be deterministic.
+      // mistake (`findTermFormConflicts`: the publish run refuses it and `check` reports it), and the
+      // link has to be deterministic for rows stored before that check.
       for (const variant of [trimmed, capitalize(trimmed)]) {
         if (!slugByForm.has(variant)) slugByForm.set(variant, term.slug);
       }
@@ -59,6 +60,39 @@ export function createTermMatcher(terms: readonly GlossaryTerm[]): TermMatcher {
       // Every alternative of the pattern is a key of the map.
       slug: slugByForm.get(match[0]) ?? "",
     }));
+}
+
+/** A form that two or more terms claim; `slugs` sorted, the form as the first of them writes it. */
+export interface TermFormConflict {
+  readonly form: string;
+  readonly slugs: readonly string[];
+}
+
+/**
+ * Forms claimed by more than one term. Two forms collide for the matcher exactly when they are equal
+ * after a capital first letter ("ike" and "Ike" do; "IKE" and "Ike" do not), so that is the key. A term
+ * that lists one form twice is no conflict. Sorted by form, for stable messages.
+ */
+export function findTermFormConflicts(terms: readonly GlossaryTerm[]): TermFormConflict[] {
+  const claims = new Map<string, Map<string, string>>();
+  for (const term of terms) {
+    for (const form of term.forms) {
+      const trimmed = form.trim();
+      if (trimmed === "") continue;
+      const key = capitalize(trimmed);
+      const bySlug = claims.get(key) ?? new Map<string, string>();
+      if (!bySlug.has(term.slug)) bySlug.set(term.slug, trimmed);
+      claims.set(key, bySlug);
+    }
+  }
+  return [...claims.values()]
+    .filter((bySlug) => bySlug.size > 1)
+    .map((bySlug) => {
+      const slugs = [...bySlug.keys()].sort();
+      // `slugs` holds the keys of the map, so the first one is there.
+      return { form: bySlug.get(slugs[0] ?? "") ?? "", slugs };
+    })
+    .sort((a, b) => a.form.localeCompare(b.form));
 }
 
 /** The glossary of a site from its stored rows: every `kind = "term"` row with its forms. */

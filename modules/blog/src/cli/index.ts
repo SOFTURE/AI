@@ -2,6 +2,7 @@
 export { runBlogCommand, type RunBlogCommandOptions } from "./command.js";
 export { BLOG_USAGE, EXIT_FAILED, EXIT_OK, EXIT_USAGE, parseBlogCommand, runBlogCli, type BlogCommand, type CliOutput, type RunBlogCliOptions } from "./run.js";
 export {
+  APP_SECTIONS_FILE,
   DEFAULT_SKILL_COMMAND,
   DEFAULT_SKILL_DIR,
   fillRulesTables,
@@ -9,6 +10,7 @@ export {
   getSkillValues,
   listTemplateFiles,
   readSkillTemplate,
+  renderAppSections,
   renderBlogSkill,
   renderSkillTemplate,
   SKILL_MARKER,
