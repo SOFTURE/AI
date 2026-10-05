@@ -62,7 +62,7 @@ backlog: context/backlog/roadmap-deploy/
 | **DP-3** | `deploy-db-guard` | backup before a deploy, a schema guard on the `@softure-ai/db` ledger and row counts before and after from an app hook | DP-1 | autonomous | ready |
 | **DP-4** | `deploy-verify-production` | `softure-deploy verify`: routes, expected statuses, markers, redirects and headers from `deploy.json` | DP-1 | autonomous | ready |
 | **DP-5** | `deploy-init-template` | `softure-deploy init` writes compose, Traefik rules, Dockerfile, the server script and the caller workflow once | DP-2, DP-3, DP-4 | autonomous | ready |
-| **DP-6** | `testing-clock-shift` | `@softure-ai/testing`: a Vitest setup that shifts the test clock to `TEST_TODAY` | — | autonomous | ready |
+| **DP-6** | `testing-clock-shift` | `@softure-ai/testing`: a Vitest setup that shifts the test clock to `TEST_TODAY` | — | autonomous | done_code (2026-10-05; waiting: the first publish of `@softure-ai/testing` in DP-8) |
 | **DP-7** | `testing-playwright-helpers` | generic Playwright helpers (login, factories, select, wait-for, links, assertions) used by the example app's e2e | DP-6 | autonomous | ready |
 | **DP-8** | `deploy-release` | `@softure-ai/deploy` and `@softure-ai/testing` 0.1.0 published; the deploy workflows tagged for callers | DP-1…DP-7 | owner | blocked (waits for DP-1…DP-7 and the owner at the keyboard on 2026-10-06) |
 
@@ -191,8 +191,8 @@ None of DP-1…DP-7 needs one, so they run on 2026-10-05; everything that does i
 
 ### DP-6: Test clock shift
 - **Change ID:** `testing-clock-shift`
-- **Status:** ready
-- **Input:** [`testing-clock-shift`](../backlog/roadmap-deploy/testing-clock-shift/change.md)
+- **Status:** done_code (2026-10-05; waiting: the first publish of `@softure-ai/testing` in DP-8)
+- **Input:** [`testing-clock-shift`](../archive/2026-10-05-testing-clock-shift/change.md)
 - **Outcome:** A new package `@softure-ai/testing` (`foundation/testing/`, copied from `templates/package/`):
   - a Vitest setup file that shifts `Date` to `TEST_TODAY` (or a fixed default) while time keeps running, so date logic tests do not rot;
   - documented next to the injectable clock in `@softure-ai/core`.
@@ -242,4 +242,5 @@ All of these are for the owner at the keyboard on 2026-10-06.
 
 ## Done
 
+- **DP-6** `testing-clock-shift` (done_code 2026-10-05): `@softure-ai/testing` (`foundation/testing/`, 0.1.0, `"private": true` until DP-8 publishes it) has the `./vitest-setup` entry that shifts the global `Date` to noon of `TEST_TODAY` while time keeps running, and `readTestToday`, `shiftClock`, `restoreClock`, `isClockShifted` for an app's own setup (a fixed default day); `vi.useFakeTimers` starts from the shifted now and `vi.useRealTimers` returns to it (measured, tested); an app lists a one-line setup file because Vitest `setupFiles` takes paths; documented in its README, core's README ("Time") and the module standard §10; no gaps; archived in [`archive/2026-10-05-testing-clock-shift/`](../archive/2026-10-05-testing-clock-shift/change.md)
 - **DP-1** `deploy-cli-env-notes`: `@softure-ai/deploy` with `softure-deploy env render` (names from the compose file, values never printed, `.env.prod` 0600) and `release-notes` (git log only, en/pl); gap DF-1 (FIRE_TRACKER parity) queued in `deploy-followups`; archived in `archive/2026-10-05-deploy-cli-env-notes/`

@@ -213,6 +213,9 @@ bare SQL statement) or `core.unexpected`, so no SQL or parameter reaches a calle
 
 **Time.** Server code receives a `Clock` (`ModuleContext.clock`) instead of calling `new Date()`.
 `systemClock` is the real one; `createTestClock(start)` has `advance(ms)` and `set(date)`.
+A whole test run can also move to another day without code changes: `TEST_TODAY=YYYY-MM-DD` with the
+`@softure-ai/testing/vitest-setup` setup file shifts the global `Date` (and so `systemClock`) to that
+day while time keeps running ([`@softure-ai/testing`](../testing/README.md)).
 
 ## 10. Hooks
 
