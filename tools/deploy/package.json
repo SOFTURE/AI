@@ -1,6 +1,7 @@
 {
   "name": "@softure-ai/deploy",
   "version": "0.1.0",
+  "private": true,
   "description": "SOFTURE AI deploy CLI for a one-VPS app: renders .env.prod from CI secrets (names from the compose file) and writes the release report between two tags.",
   "license": "MIT",
   "type": "module",

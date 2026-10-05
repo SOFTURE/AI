@@ -1,12 +1,12 @@
 ---
 change_id: deploy-cli-env-notes
 title: "A deploy CLI renders .env.prod from secrets and writes release notes between two tags"
-status: planned
+status: archived
 roadmap_item: DP-1
 branch: claude/project-thread-jy3jla
 created: 2026-10-05
 updated: 2026-10-05
-archived_at: null
+archived_at: 2026-10-05
 ---
 
 ## Intent
@@ -53,3 +53,5 @@ template"). The earlier ops research called these two scripts app-specific
   compose and dotenv rules.
 - Framing skipped: the problem is fixed by the owner's roadmap item and split decision (2026-10-04); nothing about
   whether to build it is in doubt.
+- DF-1 (`deploy-fire-parity`) opened the queued catch-all `deploy-followups` for the unchecked FIRE_TRACKER parity.
+- Archived 2026-10-05: `@softure-ai/deploy` ships `softure-deploy env render` and `release-notes`, waiting for its first publish (DP-8).

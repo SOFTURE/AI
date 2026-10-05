@@ -58,8 +58,8 @@ answer 1); spawning the built bin in tests (needs a build before `npm test`).
 ## Progress
 
 #### Automated
-- [ ] Phase 1: package scaffold and env rendering
-- [ ] Phase 2: release notes
-- [ ] Phase 3: CLI
+- [x] Phase 1: package scaffold and env rendering — dc17ae2
+- [x] Phase 2: release notes — dc17ae2
+- [x] Phase 3: CLI — dc17ae2 (the three phases landed in one commit; each was test-first in the working tree)
 
 #### Manual
