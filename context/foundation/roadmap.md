@@ -63,7 +63,7 @@ backlog: context/backlog/roadmap-deploy/
 | **DP-4** | `deploy-verify-production` | `softure-deploy verify`: routes, expected statuses, markers, redirects and headers from `deploy.json` | DP-1 | autonomous | done_code (2026-10-05; waiting: the first publish of `@softure-ai/deploy`, DP-8) |
 | **DP-5** | `deploy-init-template` | `softure-deploy init` writes compose, Traefik rules, Dockerfile, the server script and the caller workflow once | DP-2, DP-3, DP-4 | autonomous | ready |
 | **DP-6** | `testing-clock-shift` | `@softure-ai/testing`: a Vitest setup that shifts the test clock to `TEST_TODAY` | — | autonomous | done_code (2026-10-05; waiting: the first publish of `@softure-ai/testing` in DP-8) |
-| **DP-7** | `testing-playwright-helpers` | generic Playwright helpers (login, factories, select, wait-for, links, assertions) used by the example app's e2e | DP-6 | autonomous | ready |
+| **DP-7** | `testing-playwright-helpers` | generic Playwright helpers (login, factories, select, wait-for, links, assertions) used by the example app's e2e | DP-6 | autonomous | done_code (2026-10-05; waiting: the first publish of `@softure-ai/testing` in DP-8) |
 | **DP-8** | `deploy-release` | `@softure-ai/deploy` and `@softure-ai/testing` 0.1.0 published; the deploy workflows tagged for callers | DP-1…DP-7 | owner | blocked (waits for DP-1…DP-7 and the owner at the keyboard on 2026-10-06) |
 
 ## Order
@@ -205,8 +205,8 @@ None of DP-1…DP-7 needs one, so they run on 2026-10-05; everything that does i
 
 ### DP-7: Playwright helpers
 - **Change ID:** `testing-playwright-helpers`
-- **Status:** ready
-- **Input:** [`testing-playwright-helpers`](../backlog/roadmap-deploy/testing-playwright-helpers/change.md)
+- **Status:** done_code (2026-10-05; waiting: the first publish of `@softure-ai/testing` in DP-8)
+- **Input:** [`testing-playwright-helpers`](../archive/2026-10-05-testing-playwright-helpers/change.md)
 - **Outcome:** `@softure-ai/testing/playwright`:
   - login through `@softure-ai/auth`, data factories over `@softure-ai/db`;
   - select, wait-for, links and assertion helpers;
@@ -243,7 +243,8 @@ All of these are for the owner at the keyboard on 2026-10-06.
 
 ## Done
 
+- **DP-7** `testing-playwright-helpers` (done_code 2026-10-05): `@softure-ai/testing/playwright` with client addresses (`randomClientAddress`, `clientAddressHeaders`, `openPageAsNewClient`), auth's forms driven by auth's copy (`registerAccount`, `logIn`, `submitLogin`), `uniqueName`/`uniqueEmail`, `withDatabase`, `waitFor`, the ui select (`selectField`, `chooseOption`), `listRow`, `followLink`, `readHref` and assertions (`expectPageStatus`, `expectFieldPresent`/`Absent`), ported from FIRE_TRACKER `integration/infrastructure` and tested in a real Chromium; 21 example specs moved onto them, e2e 119/119 green; factories that know a module's rows go to that module's `testing` export (gap DF-4, auth account factory); archived in [`archive/2026-10-05-testing-playwright-helpers/`](../archive/2026-10-05-testing-playwright-helpers/change.md)
 - **DP-2** `deploy-reusable-workflows` (done_code 2026-10-05): `.github/workflows/deploy-app.yml` (`workflow_call`: input check, GHCR build, `env render` + forced SSH command with a pinned host key, health verify) with the caller `tools/deploy/examples/deploy.yml` and actionlint in CI; the repository is public, so no Access setting is needed; FIRE parity folded into DF-1, gaps DF-2 (verify) and DF-3 (end-to-end run) queued in `deploy-followups`; archived in [`archive/2026-10-05-deploy-reusable-workflows/`](../archive/2026-10-05-deploy-reusable-workflows/change.md)
 - **DP-6** `testing-clock-shift` (done_code 2026-10-05): `@softure-ai/testing` (`foundation/testing/`, 0.1.0, `"private": true` until DP-8 publishes it) has the `./vitest-setup` entry that shifts the global `Date` to noon of `TEST_TODAY` while time keeps running, and `readTestToday`, `shiftClock`, `restoreClock`, `isClockShifted` for an app's own setup (a fixed default day); `vi.useFakeTimers` starts from the shifted now and `vi.useRealTimers` returns to it (measured, tested); an app lists a one-line setup file because Vitest `setupFiles` takes paths; documented in its README, core's README ("Time") and the module standard §10; no gaps; archived in [`archive/2026-10-05-testing-clock-shift/`](../archive/2026-10-05-testing-clock-shift/change.md)
 - **DP-1** `deploy-cli-env-notes`: `@softure-ai/deploy` with `softure-deploy env render` (names from the compose file, values never printed, `.env.prod` 0600) and `release-notes` (git log only, en/pl); gap DF-1 (FIRE_TRACKER parity) queued in `deploy-followups`; archived in `archive/2026-10-05-deploy-cli-env-notes/`
-- **DP-4** `deploy-verify-production`: `softure-deploy verify <url>` checks status, body markers, redirects and headers from `deploy.json` (zod schema published as `schema/deploy.schema.json`), prints a table and exits 1 on a failure; `runCli` is async; FIRE parity of verify folded into DF-1, gap DF-4 (certificate expiry) queued in `deploy-followups`; archived in `archive/2026-10-05-deploy-verify-production/`
+- **DP-4** `deploy-verify-production`: `softure-deploy verify <url>` checks status, body markers, redirects and headers from `deploy.json` (zod schema published as `schema/deploy.schema.json`), prints a table and exits 1 on a failure; `runCli` is async; FIRE parity of verify folded into DF-1, gap DF-5 (certificate expiry) queued in `deploy-followups`; archived in `archive/2026-10-05-deploy-verify-production/`

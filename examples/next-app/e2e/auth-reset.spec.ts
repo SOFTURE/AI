@@ -1,10 +1,10 @@
 // Password reset of @softure-ai/auth on the built app: the request page, the link the example's
 // sender writes to the e2e outbox (e2e/outbox.ts), the reset page and the effects in Postgres.
 // Every test gets its own client address and its own account.
-import { randomInt, randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { formatMessage } from "@softure-ai/core";
 import { authMessages, users } from "@softure-ai/auth";
+import { clientAddressHeaders, logIn, openPageAsNewClient, registerAccount, uniqueEmail, waitFor } from "@softure-ai/testing/playwright";
 import { inArray } from "drizzle-orm";
 import { openTestDatabase } from "./database.ts";
 import { readResetLinks } from "./outbox.ts";
@@ -15,17 +15,13 @@ const NEW_PASSWORD = "a brand new passphrase";
 const SENT_NOTICE = formatMessage(copy.forgotPassword.sent, { ttlMinutes: 60 });
 const createdEmails: string[] = [];
 
-function randomAddress(): string {
-  return `198.${String(18 + randomInt(2))}.${String(randomInt(256))}.${String(randomInt(1, 255))}`;
-}
-
 function newEmail(): string {
-  const email = `e2e-reset-${randomUUID()}@example.com`;
+  const email = uniqueEmail("e2e-reset");
   createdEmails.push(email);
   return email;
 }
 
-test.beforeEach(({ context }) => context.setExtraHTTPHeaders({ "cf-connecting-ip": randomAddress() }));
+test.beforeEach(({ context }) => context.setExtraHTTPHeaders(clientAddressHeaders()));
 
 test.afterAll(async () => {
   if (createdEmails.length === 0) return;
@@ -39,21 +35,7 @@ test.afterAll(async () => {
 });
 
 async function register(page: Page, email: string): Promise<void> {
-  await page.goto("/register");
-  await page.getByLabel(copy.fields.email, { exact: true }).fill(email);
-  await page.getByLabel(copy.fields.password, { exact: true }).fill(PASSWORD);
-  await page.getByLabel(copy.fields.consent).check();
-  await page.getByRole("button", { name: copy.register.submit }).click();
-  await expect(page).toHaveURL("/account");
-}
-
-async function logIn(page: Page, email: string, password: string): Promise<void> {
-  await page.goto("/login");
-  await page.getByLabel(copy.fields.email, { exact: true }).fill(email);
-  await page.getByLabel(copy.fields.password, { exact: true }).fill(password);
-  const answered = page.waitForResponse((response) => response.request().method() === "POST");
-  await page.getByRole("button", { name: copy.login.submit }).click();
-  await answered;
+  await registerAccount(page, { copy, email, password: PASSWORD });
 }
 
 async function requestLink(page: Page, email: string): Promise<void> {
@@ -64,10 +46,13 @@ async function requestLink(page: Page, email: string): Promise<void> {
 
 /** The newest link sent to `email`, once the sender (which runs after the response) wrote it. */
 async function waitForLink(email: string, count = 1): Promise<string> {
-  await expect.poll(async () => (await readResetLinks(email)).length, { timeout: 10_000 }).toBe(count);
-  const link = (await readResetLinks(email)).at(-1);
-  if (link === undefined) throw new Error(`no reset link for ${email}`);
-  return link;
+  return waitFor(
+    async () => {
+      const links = await readResetLinks(email);
+      return links.length === count ? links.at(-1) : null;
+    },
+    { description: `reset link ${String(count)} for ${email}` },
+  );
 }
 
 async function setNewPassword(page: Page, link: string, password: string): Promise<void> {
@@ -86,9 +71,8 @@ test("a reset link from the login page sets a new password and ends every sessio
   const email = newEmail();
   await register(page, email);
   // A second browser stays signed in until the reset.
-  const other = await browser.newContext({ extraHTTPHeaders: { "cf-connecting-ip": randomAddress() } });
-  const otherPage = await other.newPage();
-  await logIn(otherPage, email, PASSWORD);
+  const otherPage = await openPageAsNewClient(browser);
+  await logIn(otherPage, { copy, email, password: PASSWORD, landingPath: null });
   await expect(otherPage).toHaveURL("/account");
   await page.context().clearCookies();
 
@@ -108,11 +92,11 @@ test("a reset link from the login page sets a new password and ends every sessio
 
   await otherPage.goto("/account");
   await expect(otherPage).toHaveURL("/login?next=%2Faccount");
-  await other.close();
+  await otherPage.context().close();
 
-  await logIn(page, email, PASSWORD);
+  await logIn(page, { copy, email, password: PASSWORD, landingPath: null });
   await expect(page.locator("form").getByRole("alert")).toHaveText(copy.errors.auth.invalid_credentials);
-  await logIn(page, email, NEW_PASSWORD);
+  await logIn(page, { copy, email, password: NEW_PASSWORD, landingPath: null });
   await expect(page).toHaveURL("/account");
 });
 
@@ -120,7 +104,7 @@ test("an unknown email gets the same answer and no link", async ({ page }) => {
   const known = newEmail();
   await register(page, known);
   await page.context().clearCookies();
-  const unknown = `e2e-reset-nobody-${randomUUID()}@example.com`;
+  const unknown = uniqueEmail("e2e-reset-nobody");
 
   await requestLink(page, unknown);
   await expect(page.locator("main").getByRole("status")).toHaveText(SENT_NOTICE);
@@ -176,7 +160,7 @@ test("a made-up token shows the invalid link page", async ({ page }) => {
 });
 
 test("the password-reset-account limit stops mail bombing one address", async ({ page }) => {
-  const email = `e2e-reset-flood-${randomUUID()}@example.com`;
+  const email = uniqueEmail("e2e-reset-flood");
   for (let attempt = 0; attempt < 3; attempt += 1) {
     await requestLink(page, email);
     await expect(page.locator("main").getByRole("status")).toHaveText(SENT_NOTICE);
@@ -196,7 +180,7 @@ test.describe("without JavaScript", () => {
     await expect(page.locator("main").getByRole("status")).toHaveText(SENT_NOTICE);
     await setNewPassword(page, await waitForLink(email), NEW_PASSWORD);
     await expectResetDone(page);
-    await logIn(page, email, NEW_PASSWORD);
+    await logIn(page, { copy, email, password: NEW_PASSWORD, landingPath: null });
     await expect(page).toHaveURL("/account");
   });
 });

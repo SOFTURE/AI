@@ -15,7 +15,7 @@ Generic Playwright helpers (login, factories, select, wait-for, links, assertion
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md) (deploy), item **DP-7** (main roadmap since 2026-10-05):
+From [`roadmap.md`](../../foundation/roadmap.md) (deploy), item **DP-7** (main roadmap since 2026-10-05):
 
 > ### DP-7: Playwright helpers
 > - **Change ID:** `testing-playwright-helpers`
@@ -31,8 +31,8 @@ From [`roadmap.md`](../../../foundation/roadmap.md) (deploy), item **DP-7** (mai
 > - **PRD refs:** FR-35, FR-9.
 > - **Source (FIRE_TRACKER, read only):** `integration/infrastructure/*` (without `snapshot-form.ts`)
 
-Reference material: [`docs/06-fire-extraction-2.md`](../../../../docs/06-fire-extraction-2.md) (the FIRE_TRACKER source map and the split rules),
-[`docs/02-module-standard.md`](../../../../docs/02-module-standard.md) (the standard). FIRE_TRACKER is read only:
+Reference material: [`docs/06-fire-extraction-2.md`](../../../docs/06-fire-extraction-2.md) (the FIRE_TRACKER source map and the split rules),
+[`docs/02-module-standard.md`](../../../docs/02-module-standard.md) (the standard). FIRE_TRACKER is read only:
 copy its code, never change it.
 
 ## Constraints

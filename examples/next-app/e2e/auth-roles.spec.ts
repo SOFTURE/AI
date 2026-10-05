@@ -3,11 +3,12 @@
 // of `adminEmails` and to an account granted admin with the grant-role script. Serial: the
 // configured admin is one account, registered once for the file.
 import { spawnSync } from "node:child_process";
-import { randomInt, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { expect, test, type Browser, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { authMessages, users } from "@softure-ai/auth";
+import { expectPageStatus, logIn, openPageAsNewClient, registerAccount, uniqueEmail } from "@softure-ai/testing/playwright";
 import { eq, inArray } from "drizzle-orm";
 import { en } from "../messages/en.ts";
 import { entries } from "../modules/guestbook/schema.ts";
@@ -22,13 +23,8 @@ const postedMessages: string[] = [];
 
 test.describe.configure({ mode: "serial" });
 
-/** A fresh address per context (198.18.0.0/15), so the register bucket never fills up. */
-function randomAddress(): string {
-  return `198.${String(18 + randomInt(2))}.${String(randomInt(256))}.${String(randomInt(1, 255))}`;
-}
-
 function newEmail(): string {
-  const email = `e2e-roles-${randomUUID()}@example.com`;
+  const email = uniqueEmail("e2e-roles");
   createdEmails.push(email);
   return email;
 }
@@ -51,30 +47,12 @@ async function countEntries(message: string): Promise<number> {
   }
 }
 
-async function openPage(browser: Browser): Promise<Page> {
-  const context = await browser.newContext({ extraHTTPHeaders: { "cf-connecting-ip": randomAddress() } });
-  return context.newPage();
-}
-
 async function register(page: Page, email: string): Promise<void> {
-  await page.goto("/register");
-  await page.getByLabel(authCopy.fields.email, { exact: true }).fill(email);
-  await page.getByLabel(authCopy.fields.password, { exact: true }).fill(PASSWORD);
-  await page.getByLabel(authCopy.fields.consent).check();
-  await page.getByRole("button", { name: authCopy.register.submit }).click();
-  await expect(page).toHaveURL("/account");
-}
-
-async function logIn(page: Page, email: string): Promise<void> {
-  await page.goto("/login");
-  await page.getByLabel(authCopy.fields.email, { exact: true }).fill(email);
-  await page.getByLabel(authCopy.fields.password, { exact: true }).fill(PASSWORD);
-  await page.getByRole("button", { name: authCopy.login.submit }).click();
-  await expect(page).toHaveURL("/account");
+  await registerAccount(page, { copy: authCopy, email, password: PASSWORD });
 }
 
 async function expectClosed(page: Page): Promise<void> {
-  expect((await page.goto("/admin"))?.status()).toBe(404);
+  await expectPageStatus(page, "/admin", 404);
   expect((await page.request.get("/api/admin/status")).status()).toBe(404);
 }
 
@@ -96,7 +74,7 @@ function runRoleScript(script: "grant-role" | "revoke-role", email: string): { s
 test.beforeAll(async ({ browser }) => {
   // A run that died before its cleanup must not leave the admin account behind.
   await deleteAccounts([EXAMPLE_ADMIN_EMAIL]);
-  const page = await openPage(browser);
+  const page = await openPageAsNewClient(browser);
   await register(page, EXAMPLE_ADMIN_EMAIL);
   await page.context().close();
 });
@@ -112,20 +90,20 @@ test.afterAll(async () => {
 });
 
 test("an anonymous visitor gets not found on the admin page and the admin route", async ({ browser }) => {
-  const page = await openPage(browser);
+  const page = await openPageAsNewClient(browser);
   await expectClosed(page);
 });
 
 test("a signed-in user without the admin role gets not found and sees no admin link", async ({ browser }) => {
-  const page = await openPage(browser);
+  const page = await openPageAsNewClient(browser);
   await register(page, newEmail());
   await expect(page.getByRole("link", { name: en.account.admin })).toHaveCount(0);
   await expectClosed(page);
 });
 
 test("the admin of adminEmails opens the panel from the account page and posts through the admin action", async ({ browser }) => {
-  const page = await openPage(browser);
-  await logIn(page, EXAMPLE_ADMIN_EMAIL);
+  const page = await openPageAsNewClient(browser);
+  await logIn(page, { copy: authCopy, email: EXAMPLE_ADMIN_EMAIL, password: PASSWORD });
   await page.getByRole("link", { name: en.account.admin }).click();
   await expect(page).toHaveURL("/admin");
   await expect(page.getByText(en.admin.title, { exact: true })).toBeVisible();
@@ -140,8 +118,8 @@ test("the admin of adminEmails opens the panel from the account page and posts t
 });
 
 test("the admin action refuses a user without the role and an anonymous visitor, and writes nothing", async ({ browser }) => {
-  const page = await openPage(browser);
-  await logIn(page, EXAMPLE_ADMIN_EMAIL);
+  const page = await openPageAsNewClient(browser);
+  await logIn(page, { copy: authCopy, email: EXAMPLE_ADMIN_EMAIL, password: PASSWORD });
   await page.goto("/admin");
   const field = page.getByRole("textbox", { name: en.admin.messageLabel });
   const message = `e2e refused ${randomUUID()}`;
@@ -162,7 +140,7 @@ test("the admin action refuses a user without the role and an anonymous visitor,
 });
 
 test("an account granted admin with the grant-role script gets in, and loses it on revoke-role", async ({ browser }) => {
-  const page = await openPage(browser);
+  const page = await openPageAsNewClient(browser);
   const email = newEmail();
   await register(page, email);
   await expectClosed(page);
@@ -170,7 +148,7 @@ test("an account granted admin with the grant-role script gets in, and loses it 
   const granted = runRoleScript("grant-role", email);
   expect(granted.output).toContain("COMMITTED");
   expect(granted.status).toBe(0);
-  expect((await page.goto("/admin"))?.status()).toBe(200);
+  await expectPageStatus(page, "/admin", 200);
 
   const revoked = runRoleScript("revoke-role", email);
   expect(revoked.output).toContain("COMMITTED");
