@@ -1,5 +1,5 @@
 # The gates of lefthook.yml, on GitHub, for every push and pull request, plus the marketing-kit fixture
-# film rendered end to end (too slow and too browser-bound for a hook).
+# film rendered end to end (too slow and too browser-bound for a hook) and actionlint over the workflows.
 # Tags are not built here: releases have their own workflow.
 
 name: ci
@@ -114,6 +114,29 @@ jobs:
         run: npx vitest run tools/marketing-kit/tests/render.test.ts --reporter=verbose
         env:
           MARKETING_KIT_RENDER: "1"
+
+  workflows:
+    name: actionlint
+    runs-on: ubuntu-latest
+    env:
+      ACTIONLINT_VERSION: 1.7.12
+      ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+    steps:
+      - uses: actions/checkout@v7
+      # A pinned release checked against its published SHA-256; shellcheck comes with the runner image, so the
+      # `run:` scripts are checked too. The example caller of the deploy workflow lives outside .github/workflows/.
+      - name: Install actionlint
+        run: |
+          archive="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl -sSfL -o "$RUNNER_TEMP/$archive" \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/$archive"
+          echo "$ACTIONLINT_SHA256  $RUNNER_TEMP/$archive" | sha256sum --check --strict
+          tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP" actionlint
+      - name: Lint the workflows
+        run: |
+          shellcheck --version | head -n 2
+          "$RUNNER_TEMP/actionlint" -color
+          "$RUNNER_TEMP/actionlint" -color tools/deploy/examples/deploy.yml
 
   build:
     name: build packages

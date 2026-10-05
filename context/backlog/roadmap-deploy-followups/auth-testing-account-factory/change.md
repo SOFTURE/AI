@@ -2,7 +2,7 @@
 change_id: auth-testing-account-factory
 title: "An account factory in @softure-ai/auth/testing"
 status: backlog
-roadmap_item: DF-2
+roadmap_item: DF-4
 branch: null
 created: 2026-10-05
 updated: 2026-10-05
@@ -18,9 +18,9 @@ The example app's e2e uses it where a spec only needs "a signed-in account".
 
 ## Context
 
-From [`roadmap-deploy-followups.md`](../../../foundation/roadmaps/roadmap-deploy-followups.md), item **DF-2**:
+From [`roadmap-deploy-followups.md`](../../../foundation/roadmaps/roadmap-deploy-followups.md), item **DF-4**:
 
-> ### DF-2: Account factory in auth's testing export
+> ### DF-4: Account factory in auth's testing export
 > - **Change ID:** `auth-testing-account-factory`
 > - **Status:** ready
 > - **Outcome:** `@softure-ai/auth/testing` with `createTestAccount(db, { email, password, roles? })` that writes

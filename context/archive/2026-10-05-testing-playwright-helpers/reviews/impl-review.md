@@ -27,6 +27,6 @@ green on it.
 - Observed, not a defect: the first full e2e run failed `the login-account limit stops guessing on one
   account` on its 30 s timeout while the pre-push Vitest run held all four cores; alone and in a second
   full run it passed (11 scrypt logins under load). The spec is unchanged in what it waits for.
-- Gap DF-2 (`auth-testing-account-factory`): accounts created in SQL belong in `@softure-ai/auth/testing`,
+- Gap DF-4 (`auth-testing-account-factory`): accounts created in SQL belong in `@softure-ai/auth/testing`,
   a published package; queued in `deploy-followups`.
 - Accepted: `chooseOption` is exercised only by the package's browser tests (the example has no select).
