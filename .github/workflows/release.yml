@@ -143,7 +143,7 @@ jobs:
           # Prints "yes" when the spec resolves, "no" on E404 or an empty answer; fails on any other error.
           # Anonymous reads: an expired NPM_TOKEN must not break a release that OIDC can make.
           lookup() {
-            if output=$(NODE_AUTH_TOKEN= npm view "$1" version --json 2>&1); then
+            if output=$(NODE_AUTH_TOKEN='' npm view "$1" version --json 2>&1); then
               if [ -n "$output" ]; then echo yes; else echo no; fi
             elif [[ "$output" == *E404* ]]; then
               echo no
@@ -195,6 +195,7 @@ jobs:
         run: |
           mkdir unpacked
           tar -xzf "release-out/${TARBALL}" -C unpacked
+          # shellcheck disable=SC2016 # a JavaScript program: its ${…} belong to JavaScript, not to the shell.
           node -e '
             const fs = require("node:fs");
             const path = "unpacked/package/package.json";

@@ -39,6 +39,8 @@ trigger: "the deploy roadmap closes; the owner promotes it or takes single items
 | ID | Change | Outcome | Depends on | Mode | Status |
 | --- | --- | --- | --- | --- | --- |
 | **DF-1** | `deploy-fire-parity` | `env render` and `release-notes` checked against FIRE_TRACKER's scripts and tests; differences ported or recorded | — | autonomous | ready |
+| **DF-2** | `deploy-workflow-verify-config` | the `verify` job of `deploy-app.yml` runs `softure-deploy verify` with the app's `deploy.json` instead of only the health route | DP-4 | autonomous | ready |
+| **DF-3** | `deploy-workflow-e2e` | a CI job runs `deploy-app.yml` against a throwaway SSH server and registry, so a broken step fails here, not on the first live deploy | DP-5, DP-8 | autonomous | ready |
 
 ## Order
 
@@ -53,12 +55,43 @@ Lanes are set when the roadmap is promoted, by shared files.
 - **Outcome:** FIRE_TRACKER's `scripts/render-env-prod.mts`, `scripts/release-notes.mts`, `src/lib/release-notes.ts`,
   their tests and `.github/workflows/release-opis.yml` are read; every behaviour and test case that is generic is
   ported into `tools/deploy` (report format, env edge cases), and the rest is listed as FIRE-specific in the
-  package README.
+  package README. The same for the deploy workflow (DP-2): FIRE's `.github/workflows/release.yml`,
+  `auto-release.yml` and its SSH gateway (`docker/prod/`, the forced command) are read; generic steps
+  `deploy-app.yml` lacks (a release report post, image pruning, tagging on merge) are ported or recorded, and the
+  forced-command protocol (`<remote-command> <tag>` with `.env.prod` on stdin) is aligned with FIRE's gateway.
 - **Prerequisites:** a session that can read FIRE_TRACKER.
 - **Unknowns:** whether FIRE's report groups entries differently (by type or label) than DP-1's two sections.
 - **Risk:** low. DP-1 is tested on its own; this closes the "same tests green" baseline of DP-1.
 - **Source:** DP-1 (`deploy-cli-env-notes`), research: the session could not read FIRE_TRACKER (cloning it was
   refused by the sandbox), so the report format comes from the roadmap, not from FIRE's workflow.
+  Extended by DP-2 (`deploy-reusable-workflows`), implementation review: the workflow steps and the gateway
+  protocol come from the roadmap too.
+- **PRD refs:** FR-33.
+
+### DF-2: The deploy workflow verifies with `softure-deploy verify`
+- **Change ID:** `deploy-workflow-verify-config`
+- **Status:** ready
+- **Input:** [`deploy-workflow-verify-config`](../../backlog/roadmap-deploy-followups/deploy-workflow-verify-config/change.md)
+- **Outcome:** The `verify` job runs `softure-deploy verify <app-url>` (DP-4) from the CLI version the workflow pins, reading the
+  app's `deploy.json` from the release tag; the health-route wait stays as the first step, so verify starts once the
+  new release answers.
+- **Prerequisites:** DP-4 on `master`.
+- **Unknowns:** whether `deploy.json` is required or optional (fall back to the health route).
+- **Risk:** low. Today the workflow checks only `/api/health`.
+- **Source:** DP-2 (`deploy-reusable-workflows`), implementation review.
+- **PRD refs:** FR-33.
+
+### DF-3: The deploy workflow runs end to end in CI
+- **Change ID:** `deploy-workflow-e2e`
+- **Status:** ready
+- **Input:** [`deploy-workflow-e2e`](../../backlog/roadmap-deploy-followups/deploy-workflow-e2e/change.md)
+- **Outcome:** A workflow in this repository calls `./.github/workflows/deploy-app.yml` for the example app against a local
+  `sshd` container with a forced command that records what it received and a local registry (or `push: false`
+  through an input), asserting the image, the command line and the rendered `.env.prod` names.
+- **Prerequisites:** DP-5 (the example app's production compose and Dockerfile) and `@softure-ai/deploy` on npm (DP-8), or an input to run the CLI from the checkout.
+- **Unknowns:** whether GHCR can be swapped for a local registry without an input that production callers could misuse.
+- **Risk:** medium. DP-2 is validated statically only (actionlint, the repository test, the scripts run by hand).
+- **Source:** DP-2 (`deploy-reusable-workflows`), implementation review.
 - **PRD refs:** FR-33.
 
 ## Owner decisions and checks
