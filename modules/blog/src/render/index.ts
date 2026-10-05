@@ -1,5 +1,16 @@
-// Server-side article rendering: Markdown to safe HTML, glossary links, block plugins, reading time.
+// Server-side article rendering: Markdown to safe HTML, images under a policy, glossary links, block
+// plugins, reading time.
 export { createTermMatcher, toGlossary, type GlossaryTerm, type TermMatch, type TermMatcher } from "./glossary.js";
+export {
+  checkArticleImage,
+  findArticleImages,
+  type ArticleImage,
+  type ArticleImagePolicy,
+  type FoundImage,
+  type ImageDimensions,
+  type ImageProblem,
+  type ImageVerdict,
+} from "./images.js";
 export { DEFAULT_WORDS_PER_MINUTE, getReadingMinutes } from "./reading-time.js";
 export {
   findArticleBlocks,
