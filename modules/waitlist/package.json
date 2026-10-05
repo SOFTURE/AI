@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/waitlist",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "SOFTURE AI waitlist module: sign-ups with consent scopes and form placements from configuration, consent recorded in the privacy ledger, a welcome mail sent once through mailing, a rate-limited public action and a standalone WaitlistForm for Next.js.",
   "license": "MIT",
   "type": "module",

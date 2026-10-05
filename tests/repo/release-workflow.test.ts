@@ -21,3 +21,15 @@ describe("the release workflow's test gate", () => {
     expect(readWorkflow("release.yml")).toContain(line);
   });
 });
+
+// npm reads `dir/file.tgz` as a GitHub `owner/repo` shorthand and tries `git ls-remote` on it; only a
+// path starting with `./` or `/` is a local tarball. The 0.1.1 release failed every stage this way.
+describe("the release workflow's npm publish commands", () => {
+  it("give npm the tarball as an explicit relative path", () => {
+    const commands = readWorkflow("release.yml")
+      .split("\n")
+      .filter((line) => /\bnpm (stage )?publish "/.test(line));
+    expect(commands.length).toBeGreaterThan(0);
+    for (const command of commands) expect(command).toMatch(/publish "\.\/release-out\//);
+  });
+});
