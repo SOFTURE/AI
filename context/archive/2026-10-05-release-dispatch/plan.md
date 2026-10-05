@@ -65,10 +65,10 @@ Rejected: a `publish: true` input on `release.yml` itself - it would publish wit
 ### Phase 1: Planner, workflow and runbook
 
 #### Automated
-- [ ] 1.1 Planner tests written first and passing
-- [ ] 1.2 `auto-release.yml` runs on master only, plans, tags and dispatches; inputs only through env
-- [ ] 1.3 Runbook and `release.yml` header describe the dispatch
-- [ ] 1.4 Gates green (typecheck, lint, test) and build
+- [x] 1.1 Planner tests written first and passing — 4ad735f
+- [x] 1.2 `auto-release.yml` runs on master only, plans, tags and dispatches; inputs only through env — 4ad735f
+- [x] 1.3 Runbook and `release.yml` header describe the dispatch — 4ad735f
+- [x] 1.4 Gates green (typecheck, lint, test) and build — 4ad735f
 
 #### Manual
 - [ ] 1.5 First dispatch on `master` creates the 0.1.0 tags and starts their release runs

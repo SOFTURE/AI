@@ -1,12 +1,12 @@
 ---
 change_id: release-dispatch
 title: "Releases start from one Actions dispatch, so the agent can release on the owner's word"
-status: implementing
+status: archived
 roadmap_item: null
 branch: claude/project-thread-wa8tm8
 created: 2026-10-05
 updated: 2026-10-05
-archived_at: null
+archived_at: 2026-10-05
 ---
 
 ## Intent
@@ -42,3 +42,6 @@ releases autonomous and steered by the agent.
 - Placement: no main roadmap in flight; asked for directly by the owner, follows `packages-first-release`.
 - Research: short (how `release.yml` behaves on a dispatch with a tag ref). Framing skipped: the owner
   named the solution and the problem (no tag push from the cloud session) is a measured 403.
+- Archived 2026-10-05: `auto-release.yml` + `scripts/release/plan-tags.mjs` release packages from one dispatch
+  on master; runbook "Release from Actions". Open: Manual 1.5, the first dispatch (`all`, 0.1.0), run by the
+  agent on the owner's word after the merge.
