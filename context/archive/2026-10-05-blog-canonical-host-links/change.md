@@ -1,12 +1,12 @@
 ---
 change_id: blog-canonical-host-links
 title: "A body link to seo's canonical host counts as internal"
-status: implementing
+status: archived
 roadmap_item: BF-11
 branch: claude/project-thread-inu4ef
 created: 2026-10-05
 updated: 2026-10-05
-archived_at: null
+archived_at: 2026-10-05
 ---
 
 ## Intent
@@ -45,3 +45,4 @@ site origin when the app lists `seo()`, `appOrigin` otherwise. The backlog entry
 - Research skipped: the gap was found by BF-7's plan review with the two files and fields named, and BF-7's
   research already covered how the blog reaches seo's rule (core's `getSiteUrls`); nothing is unknown.
 - Framing skipped: the problem is not in doubt; the roadmap fixes the outcome.
+- Archived 2026-10-05: the blog pages' own hosts and the gate's own origins include core's `getSiteUrls(config).origin` next to `appOrigin`; a page test and a gate test with a canonical host other than `appOrigin`; no gaps.

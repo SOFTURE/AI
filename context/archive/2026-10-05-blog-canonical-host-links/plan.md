@@ -68,6 +68,6 @@ builds `RenderPageBodyOptions`, `modules/blog/README.md` (Limitations line on BF
 ### Phase 1: Both host lists take the site origin
 
 #### Automated
-- [ ] 1.1 a body link to seo's canonical host renders as internal on the blog pages, and `appOrigin` still does
-- [ ] 1.2 the gate counts a link to seo's canonical origin as internal through `getQualitySettings`
-- [ ] 1.3 Gates green (typecheck, lint, test, build)
+- [x] 1.1 a body link to seo's canonical host renders as internal on the blog pages, and `appOrigin` still does — 31947ab
+- [x] 1.2 the gate counts a link to seo's canonical origin as internal through `getQualitySettings` — 31947ab
+- [x] 1.3 Gates green (typecheck, lint, test, build) — 31947ab
