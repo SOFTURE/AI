@@ -38,4 +38,4 @@ and can name it.
 - A run that gives article Y the slug `s` that article X is renaming away from in another, uncommitted run
   waits on X's old index entry; when X commits, Y's insert succeeds, and `s` is then both Y's current slug
   and an old slug of X in `slug_history`. Inferred from Postgres's unique-index semantics, not reproduced.
-  Recorded as **BF-11** (`blog-slug-history-race`) in the roadmap.
+  Recorded as **BF-12** (`blog-slug-history-race`) in the roadmap.

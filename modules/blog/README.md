@@ -456,7 +456,7 @@ Articles hold editorial content, no personal data: nothing to export or delete.
 ## 12. Limitations
 
 - Two runs that rename one article away from a slug and give it to another at the same moment can leave the
-  slug both current and in the slug history (BF-11).
+  slug both current and in the slug history (BF-12).
 - The content hash is part of the contract: a field added later enters it only when present.
 - No `--stdin` (a deploy transport).
 - `softure-blog publish` runs outside the app and cannot refresh its cache: the running app shows the

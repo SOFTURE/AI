@@ -38,6 +38,6 @@ moved file lose one `../`.
 | BF-8 | [`blog-og-fonts`](blog-og-fonts/change.md) | The OG card takes the brand's fonts | BF-7 on main | dependency |
 | BF-9 | [`blog-skill-app-notes`](blog-skill-app-notes/change.md) | The app's own sections in the generated writing skill | roadmap promoted | start |
 | BF-10 | [`blog-publish-cache-refresh`](blog-publish-cache-refresh/change.md) | A command-line publish refreshes the app's cache | BF-2 on main | dependency |
-| BF-11 | [`blog-slug-history-race`](blog-slug-history-race/change.md) | A slug taken while another run renames away from it | roadmap promoted | start |
+| BF-12 | [`blog-slug-history-race`](blog-slug-history-race/change.md) | A slug taken while another run renames away from it | roadmap promoted | start |
 
 Kind: `start`, `dependency` or `owner`, as in the other roadmap backlogs.

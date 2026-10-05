@@ -2,7 +2,7 @@
 change_id: blog-slug-history-race
 title: "A slug taken while another run renames away from it stays in one place"
 status: backlog
-roadmap_item: BF-11
+roadmap_item: BF-12
 branch: null
 created: 2026-10-05
 updated: 2026-10-05
@@ -17,9 +17,9 @@ of X in `slug_history`.
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md) (blog-followups), item **BF-11**:
+From [`roadmap.md`](../../../foundation/roadmap.md) (blog-followups), item **BF-12**:
 
-> ### BF-11: A slug taken while another run renames away from it
+> ### BF-12: A slug taken while another run renames away from it
 > - **Change ID:** `blog-slug-history-race`
 > - **Status:** proposed
 > - **Outcome:** a run that gives article Y the slug that article X is leaving in another, uncommitted run cannot leave that slug both Y's current slug and an old slug of X in `slug_history`: the run is refused (or the history entry dropped) and a two-connection Postgres test covers it.

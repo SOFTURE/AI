@@ -22,7 +22,7 @@ backlog: context/backlog/roadmap-blog-followups/
 > The catch-all of the [`blog`](archive/2026-10-04-2-roadmap.md) roadmap (owner, 2026-10-03: gaps found while
 > delivering a roadmap are collected in a catch-all roadmap, not fixed on the spot). A gap or deferred review
 > finding found while delivering this roadmap lands here too:
-> 1. take the next free `BF-<n>` (BF-12 is next) and a kebab-case change-id;
+> 1. take the next free `BF-<n>` (BF-13 is next) and a kebab-case change-id;
 > 2. write `context/backlog/roadmap-blog-followups/<change-id>/change.md` (`status: backlog`, the item block quoted
 >    in Context, **Source** naming the change and the finding);
 > 3. add the row and the item block here (status `proposed`, or `blocked (…)` when it waits on the owner) and the
@@ -55,7 +55,7 @@ backlog: context/backlog/roadmap-blog-followups/
 | **BF-8** | `blog-og-fonts` | `blog({ brand: { fonts } })` gives the article OG card the brand's fonts | BF-7 | autonomous | ready |
 | **BF-9** | `blog-skill-app-notes` | the generated writing skill carries the app's own sections across reinstalls | — | autonomous | ready |
 | **BF-10** | `blog-publish-cache-refresh` | `softure-blog publish --commit` refreshes the running app's blog cache before the IndexNow submit | BF-2 | autonomous | ready |
-| **BF-11** | `blog-slug-history-race` | a slug taken while another run renames away from it does not end up both current and in the slug history | — | autonomous | proposed |
+| **BF-12** | `blog-slug-history-race` | a slug taken while another run renames away from it does not end up both current and in the slug history | — | autonomous | proposed |
 
 ## Order
 
@@ -93,7 +93,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 | BF-8 | no | font files read from a path or URL; tested with a local subset font |
 | BF-9 | no | an option or a preserved local file in the skill install; `--check` tests |
 | BF-10 | no | the route secret comes from the environment; tests use a fake app URL, no real deploy |
-| BF-11 | no | a check or a constraint in the blog's own schema; a two-connection test on the local Postgres |
+| BF-12 | no | a check or a constraint in the blog's own schema; a two-connection test on the local Postgres |
 
 ## Items
 
@@ -187,7 +187,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 - **Mode:** autonomous.
 - **Source:** BL-5 `blog-discovery` research Q5.
 
-### BF-11: A slug taken while another run renames away from it
+### BF-12: A slug taken while another run renames away from it
 - **Change ID:** `blog-slug-history-race`
 - **Status:** proposed
 - **Input:** [`blog-slug-history-race`](../backlog/roadmap-blog-followups/blog-slug-history-race/change.md)
