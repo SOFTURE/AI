@@ -54,7 +54,7 @@ backlog: context/backlog/roadmap-blog-followups/
 | **BF-7** | `blog-seo-canonical` | the blog's canonical, OG and JSON-LD URLs follow `@softure-ai/seo`'s canonical host and trailing-slash rule | — | autonomous | done_code (2026-10-05; waiting: the next release of `@softure-ai/core` and `@softure-ai/seo`, and the first of `@softure-ai/blog`, BL-8) |
 | **BF-8** | `blog-og-fonts` | `blog({ brand: { fonts } })` gives the article OG card the brand's fonts | BF-7 | autonomous | done_code (2026-10-05; waiting: the first release of `@softure-ai/blog`, BL-8) |
 | **BF-9** | `blog-skill-app-notes` | the generated writing skill carries the app's own sections across reinstalls | — | autonomous | done_code (2026-10-05; waiting: the first release of `@softure-ai/blog`, BL-8) |
-| **BF-10** | `blog-publish-cache-refresh` | `softure-blog publish --commit` refreshes the running app's blog cache before the IndexNow submit | BF-2 | autonomous | ready |
+| **BF-10** | `blog-publish-cache-refresh` | `softure-blog publish --commit` refreshes the running app's blog cache before the IndexNow submit | BF-2 | autonomous | done_code (2026-10-05; waiting: the first release of `@softure-ai/blog`, BL-8) |
 | **BF-11** | `blog-canonical-host-links` | a body link to seo's canonical host counts as internal in the renderer and the gate | BF-7 | autonomous | done_code (2026-10-05; waiting: the first release of `@softure-ai/blog`, BL-8) |
 | **BF-12** | `blog-slug-history-race` | a slug taken while another run renames away from it does not end up both current and in the slug history | — | autonomous | proposed |
 | **BF-13** | `blog-skill-check-without-database` | `softure-blog skill install` runs with an app config that has no database URL | BF-6 | autonomous | done_code (2026-10-05; waiting: the first release of `@softure-ai/blog`, BL-8) |
@@ -191,8 +191,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### BF-10: A command-line publish refreshes the app's cache
 - **Change ID:** `blog-publish-cache-refresh`
-- **Status:** ready
-- **Input:** [`blog-publish-cache-refresh`](../backlog/roadmap-blog-followups/blog-publish-cache-refresh/change.md)
+- **Status:** done_code (2026-10-05; waiting: the first release of `@softure-ai/blog`, BL-8)
+- **Input:** [`blog-publish-cache-refresh`](../archive/2026-10-05-blog-publish-cache-refresh/change.md)
 - **Outcome:** an authenticated route handler from `@softure-ai/blog/next` (a secret from the environment, rate-limited) calls `revalidateTag("softure-blog")`; `softure-blog publish --commit` calls it before the IndexNow submit when the app gives its URL; without it the command says the app refreshes after `revalidateSeconds`.
 - **Prerequisites:** none.
 - **Risk:** low. Today the window is `revalidateSeconds` (300 s by default), as in FIRE_TRACKER.
@@ -245,6 +245,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ## Done
 
+- **BF-10** `blog-publish-cache-refresh` (done_code 2026-10-05): `refreshBlogCache` (`@softure-ai/blog/next`) checks a Bearer `BLOG_REFRESH_SECRET`, counts in the `blog-refresh` security bucket (`BLOG_RATE_LIMIT_BUCKETS`) and expires the blog's cache tag at once (`{ expire: 0 }`); `softure-blog publish --commit` calls it through `requestBlogRefresh` before the IndexNow submit (`--app-url` for another origin) and names `revalidateSeconds` when it is not set up; the example mounts it under a serial e2e; no gaps; archived in [`archive/2026-10-05-blog-publish-cache-refresh/`](../archive/2026-10-05-blog-publish-cache-refresh/change.md)
 - **BF-11** `blog-canonical-host-links` (done_code 2026-10-05): the blog pages' own hosts (`renderPageBody({ origins })`) and the quality gate's own origins (`resolveQualitySettings({ siteOrigin })`) include core's `getSiteUrls(config).origin` next to `appOrigin`, so a body link to seo's canonical host is internal without the app listing it; no gaps; archived in [`archive/2026-10-05-blog-canonical-host-links/`](../archive/2026-10-05-blog-canonical-host-links/change.md)
 - **BF-13** `blog-skill-check-without-database` (done_code 2026-10-05): `softure-blog skill install` and `skill install --check` load an app config without a database URL, like `check` (the bin's `COMMANDS_WITHOUT_DATABASE`); `publish` still requires it; no gaps; archived in [`archive/2026-10-05-blog-skill-check-without-database/`](../archive/2026-10-05-blog-skill-check-without-database/change.md)
 - **BF-8** `blog-og-fonts` (done_code 2026-10-05): `blog({ brand: { fonts } })` (name, weight, style, a path or an https URL) feeds the article OG card; the route reads each source once per process, checks it is a `.ttf`, `.otf` or `.woff` font, and fails the card with a message naming `brand.fonts[i]` and the file; gap BF-14; archived in [`archive/2026-10-05-blog-og-fonts/`](../archive/2026-10-05-blog-og-fonts/change.md).

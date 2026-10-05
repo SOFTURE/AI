@@ -33,6 +33,9 @@ This release holds the content store (roadmap item BL-2), the server-side render
   pillar on top), and, with `@softure-ai/seo` (optional): sitemap entries with each text's real
   `lastmod` (`blogSitemap()`) and an IndexNow submit of the changed addresses after
   `softure-blog publish --commit` (`submitBlogChanges` for an app's own publishing path).
+- A cache refresh route (`refreshBlogCache`, rate-limited through `@softure-ai/security`, a secret from
+  `BLOG_REFRESH_SECRET`): `softure-blog publish --commit` calls it before the IndexNow submit, so the
+  running app shows the change at once instead of after `revalidateSeconds`.
 - A text quality gate: `softure-blog check` reports structure, link, style, voice and YMYL findings
   with file and line, and `publish` refuses a text going public with an error. Language rulesets
   (`en`, `pl`), severity overrides and rule plugins for the app's own domain.
@@ -231,6 +234,28 @@ change (`updated_at`, else `published_at`), and the method page without a date; 
 glossary is left out (it is `noindex`). Paths only: seo makes them absolute with its canonical rule.
 The contributor reads with one query per sitemap request, not through the pages' Next cache.
 
+A publish from the command runs outside the app and cannot reach its cache. To show the change at once
+instead of after `revalidateSeconds`, mount the refresh route, list `security()` with the blog's bucket,
+and set one secret (32+ characters, e.g. `openssl rand -base64 32`) as `BLOG_REFRESH_SECRET` for both the
+running app and the command:
+
+```ts
+// app/api/blog/refresh/route.ts (routes.refresh, default /api/blog/refresh)
+export { refreshBlogCache as POST } from "@softure-ai/blog/next";
+
+// softure.config.ts
+import { BLOG_RATE_LIMIT_BUCKETS, blog } from "@softure-ai/blog";
+security({ clientIp: cloudflareIp(), buckets: { ...BLOG_RATE_LIMIT_BUCKETS } });
+```
+
+The route counts every request in the `blog-refresh` bucket (10 per 15 minutes per client address;
+callers without one, such as the command on a private network name, share one count) before it checks
+`Authorization: Bearer <secret>`, then expires the blog's cache tag at once (`revalidateTag(BLOG_CACHE_TAG,
+{ expire: 0 })`: the next request reads the tables, the cached pages included). Answers: 204 refreshed,
+401 a missing or wrong secret, 429 over the bucket (`retry-after`), 503 when counting fails, 500 when
+`BLOG_REFRESH_SECRET` is unset or short (logged by name). Without `security()` or its bucket the route
+throws a setup error naming the fix.
+
 301 and 410 are answered before the page, in `proxy.ts` (Node.js runtime, Next 16):
 
 ```ts
@@ -245,7 +270,7 @@ export async function proxy(request: NextRequest) {
 It handles GET and HEAD on the blog's text paths only, keeps the query on a redirect, remembers a
 decision for 60 s (`ttlMs`) and passes a request on when the database fails. Import the styles after
 ui's: `@import "@softure-ai/blog/styles.css";`. A data change shows after `revalidateSeconds`, or at
-once with `revalidateTag(BLOG_CACHE_TAG)`. Custom OG fonts: an own `opengraph-image.tsx` calling `renderArticleOgImage({ title, label, brand, fonts })`.
+once with `revalidateTag(BLOG_CACHE_TAG, { expire: 0 })` (the refresh route above, for the command). Custom OG fonts: an own `opengraph-image.tsx` calling `renderArticleOgImage({ title, label, brand, fonts })`.
 
 The quality gate resolves internal links through `quality.paths` (default `/blog` and
 `/blog/glossary`, the default routes); an app that moves `routes` sets `quality.paths` to match.
@@ -253,7 +278,7 @@ The quality gate resolves internal links through `quality.paths` (default `/blog
 The commands:
 
 ```bash
-softure-blog publish [<path>...] [--commit] [--withdraw] [--no-indexnow] [--config <file>]
+softure-blog publish [<path>...] [--commit] [--withdraw] [--no-indexnow] [--app-url <origin>] [--config <file>]
 softure-blog check [<path>...] [--external] [--today <YYYY-MM-DD>] [--config <file>]
 softure-blog skill install [--dir <path>] [--command <cmd>] [--check] [--config <file>]
 ```
@@ -262,6 +287,12 @@ softure-blog skill install [--dir <path>] [--command <cmd>] [--check] [--config 
 - `--commit` writes; without it the command prints what it would do and writes nothing.
 - `--withdraw` publishes the one given file as `withdrawn` (taking a text down at once); set the file's
   status too, or the next full publish brings the text back.
+- A done run prints one `cache:` line. With `BLOG_REFRESH_SECRET` set, a commit that changed a text
+  posts to the app's refresh route on `appOrigin` (`--app-url <origin>` for another way in, such as
+  `http://web:3000` in a container network; redirects are not followed) before the IndexNow submit; a
+  dry run prints the address. Without the secret the line says the app shows the change after
+  `revalidateSeconds`. A failed refresh is a warning naming the answer: the publish stays written, the
+  IndexNow submit still goes out and the exit code stays 0. `--no-indexnow` does not skip it.
 - With `seo({ indexNow: { key } })` enabled, a run ends with one `indexnow:` line. A commit submits the
   addresses whose answer changed (a text public before or after, its old slug after a rename, the
   listing or the glossary of its kind) as canonical URLs on seo's origin; a dry run prints them;
@@ -296,8 +327,9 @@ one error refuses the run. The gate in `publish` does not resolve internal link 
 container that publishes may hold no app folder; run `check` in CI for those. `runBlogCli({ gate })`
 replaces the gate; `runBlogPublish` in `@softure-ai/blog/server` is the same run without a command line.
 After an app's own run, `submitBlogChanges(config, run.changes, { commit: run.committed })` submits the
-same addresses; inside Next, call `revalidateTag(BLOG_CACHE_TAG)` first, so a crawler that answers the
-ping at once gets the new text.
+same addresses; inside Next, call `revalidateTag(BLOG_CACHE_TAG, { expire: 0 })` first, and outside it
+`requestBlogRefresh(config, run.changes, { commit: run.committed })` (`@softure-ai/blog/server`), so a
+crawler that answers the ping at once gets the new text.
 
 `check` and `skill install` need no database, nor a database URL: the bin loads the config with the
 database optional for them (`@softure-ai/core`'s `withDatabaseOptional`), so a CI job without
@@ -447,7 +479,11 @@ naming the article that took it, like any other taken slug.
 
 ## 6. Environment variables
 
-None of its own. The command reads the database URL from the app's config.
+| Variable | Required | Read by |
+| --- | --- | --- |
+| `BLOG_REFRESH_SECRET` | no | the refresh route (`refreshBlogCache`) and `softure-blog publish`: the shared secret, 32+ characters; without it a publish shows after `revalidateSeconds` |
+
+The command reads the database URL from the app's config.
 
 ## 7. Switches
 
@@ -539,8 +575,9 @@ Articles hold editorial content, no personal data: nothing to export or delete.
   slug both current and in the slug history (BF-12).
 - The content hash is part of the contract: a field added later enters it only when present.
 - No `--stdin` (a deploy transport).
-- `softure-blog publish` runs outside the app and cannot refresh its cache: the running app shows the
-  change, and IndexNow's crawlers see it, after `revalidateSeconds` (BF-10).
+- The refresh route expires the cache of the instance that answers it. With several instances and Next's
+  default (in-memory) cache handler, the others show a publish after `revalidateSeconds`; a shared cache
+  handler covers them.
 - The renderer has no raw HTML and no figures: an image has no caption, and the app hosts and sizes its
   images itself (no `next/image`). A plugin fence inside a list or a quote stays a code
   block (a block node cannot sit inside a list's HTML).

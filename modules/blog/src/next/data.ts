@@ -8,7 +8,7 @@ import { findArticleBySlug, listArticles } from "../db/articles.js";
 import { getBlogOptions } from "../server/options.js";
 import { getBlogContext } from "./context.js";
 
-/** The tag of every cached read: `revalidateTag("softure-blog")` refreshes the blog at once. */
+/** The tag of every cached read: `revalidateTag("softure-blog", { expire: 0 })` refreshes the blog at once (`refreshBlogCache`). */
 export const BLOG_CACHE_TAG = "softure-blog";
 
 interface CachedReads {

@@ -1,7 +1,7 @@
 // The app's SOFTURE configuration. `softure migrate` loads this file with Node's type stripping,
 // so relative imports name their `.ts` files.
 import { analytics } from "@softure-ai/analytics";
-import { blog, blogSitemap } from "@softure-ai/blog";
+import { BLOG_RATE_LIMIT_BUCKETS, blog, blogSitemap } from "@softure-ai/blog";
 import { attributeRegistration, countFunnelStep, countRegistration, tagRedirect } from "@softure-ai/analytics/next";
 import { auth, AUTH_RATE_LIMIT_BUCKETS, REGISTRATION_CLOSED_SWITCH } from "@softure-ai/auth";
 import { billing, BILLING_RATE_LIMIT_BUCKETS, manual, stripe } from "@softure-ai/billing";
@@ -57,7 +57,7 @@ const config = defineSoftureConfig({
     // The e2e sends CF-Connecting-IP itself, standing in for Cloudflare (e2e/security.spec.ts).
     security({
       clientIp: cloudflareIp(),
-      buckets: { "example.ping": { limit: 3, windowMinutes: 15 }, ...AUTH_RATE_LIMIT_BUCKETS, ...MCP_RATE_LIMIT_BUCKETS, ...PRIVACY_RATE_LIMIT_BUCKETS, ...WAITLIST_RATE_LIMIT_BUCKETS, ...BILLING_RATE_LIMIT_BUCKETS },
+      buckets: { "example.ping": { limit: 3, windowMinutes: 15 }, ...AUTH_RATE_LIMIT_BUCKETS, ...MCP_RATE_LIMIT_BUCKETS, ...PRIVACY_RATE_LIMIT_BUCKETS, ...WAITLIST_RATE_LIMIT_BUCKETS, ...BILLING_RATE_LIMIT_BUCKETS, ...BLOG_RATE_LIMIT_BUCKETS },
     }),
     // Reset links go out as mail through the mailing module below (e2e/auth-reset-mail.spec.ts).
     // The registration checkbox accepts the legal documents of privacy() below; the hook records
@@ -213,7 +213,8 @@ const config = defineSoftureConfig({
     }),
     // The blog at /blog with the fixture texts of content/blog (npm run blog:fixtures; e2e/blog.spec.ts):
     // listing, articles with "read next", glossary, the method page, 301 and 410 from proxy.ts, an OG
-    // card per article, and the feed at /blog/rss.xml.
+    // card per article, the feed at /blog/rss.xml, and the cache refresh at /api/blog/refresh that a
+    // publish calls (e2e/blog-refresh.serial.spec.ts).
     blog({
       brand: { name: en.blog.brand },
       methodPage: true,

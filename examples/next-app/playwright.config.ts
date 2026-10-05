@@ -1,5 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
-import { MAIL_OUTBOX, MAILING_UNSUBSCRIBE_SECRET, STRIPE_WEBHOOK_SECRET } from "./e2e/outbox.ts";
+import { BLOG_REFRESH_SECRET, MAIL_OUTBOX, MAILING_UNSUBSCRIBE_SECRET, STRIPE_WEBHOOK_SECRET } from "./e2e/outbox.ts";
 
 // Black-box tests of the built app (`next build` first). Playwright starts `next start` itself; with
 // E2E_REUSE_SERVER=1 it uses a server already on the port instead (for example `next dev` while
@@ -36,7 +36,7 @@ export default defineConfig({
     // The app builds absolute URLs (the auth guard's redirect, reset links) on APP_ORIGIN: the port
     // under test. Mail from the fake mail provider, reset links included, goes to the outbox file
     // the e2e reads (softure.config.ts). List mail is signed with a fixed test secret, and so are
-    // the Stripe webhook deliveries the e2e plays.
-    env: { APP_ORIGIN: process.env.APP_ORIGIN ?? `http://localhost:${String(PORT)}`, MAIL_OUTBOX, MAILING_UNSUBSCRIBE_SECRET, STRIPE_WEBHOOK_SECRET },
+    // the Stripe webhook deliveries the e2e plays, and the blog's cache refresh the e2e's publish calls.
+    env: { APP_ORIGIN: process.env.APP_ORIGIN ?? `http://localhost:${String(PORT)}`, MAIL_OUTBOX, MAILING_UNSUBSCRIBE_SECRET, STRIPE_WEBHOOK_SECRET, BLOG_REFRESH_SECRET },
   },
 });

@@ -27,3 +27,9 @@ export async function readResetLinks(email: string): Promise<string[]> {
  * value: the e2e plays Stripe and signs its own deliveries.
  */
 export const STRIPE_WEBHOOK_SECRET = "whsec_e2e_webhook_secret_not_for_production";
+
+/**
+ * The secret of the blog's cache refresh route in the app under test (playwright.config.ts); the e2e
+ * passes it to the publish command. A test value of 32+ characters.
+ */
+export const BLOG_REFRESH_SECRET = "e2e-blog-refresh-secret-not-for-production";
