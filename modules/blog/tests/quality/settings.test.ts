@@ -2,8 +2,10 @@
 // writing skill, and the options it refuses.
 import { readFileSync } from "node:fs";
 import { blog } from "@softure-ai/blog";
-import { checkArticleText, listQualityRules, qualityOptionsSchema, resolveQualitySettings, type BlockPlugin, type QualityOptionsInput, type QualityPlugin } from "@softure-ai/blog/server";
+import { checkArticleText, getQualitySettings, listQualityRules, qualityOptionsSchema, resolveQualitySettings, type BlockPlugin, type QualityOptionsInput, type QualityPlugin } from "@softure-ai/blog/server";
+import { seo } from "@softure-ai/seo";
 import { describe, expect, it } from "vitest";
+import { createConfig } from "../support.js";
 
 const MODEL = readFileSync(new URL("./fixtures/index-funds.txt", import.meta.url), "utf8");
 
@@ -104,5 +106,32 @@ describe("blog({ quality })", () => {
         },
       }),
     ).toThrow(/quality\.language[\s\S]*must be global[\s\S]*min must not exceed max[\s\S]*must be a plugin/);
+  });
+});
+
+describe("own origins", () => {
+  it("adds the site origin to appOrigin and ownOrigins, once", () => {
+    const options = qualityOptionsSchema.parse({ ownOrigins: ["https://www.example.com", "https://example.org"] });
+    expect(resolveQualitySettings(options, { appOrigin: "https://app.example.com", siteOrigin: "https://example.org", timezone: "UTC" }).ownOrigins).toEqual([
+      "https://app.example.com",
+      "https://example.org",
+      "https://www.example.com",
+    ]);
+  });
+
+  // seo's canonical host (example.org) differs from appOrigin (https://app.example.com).
+  const config = createConfig({ quality: { limits: { words: { article: { min: 150 } } } } }, [seo({ origin: "https://www.example.org", canonical: { host: "apex" } })]);
+
+  it("counts a link to seo's canonical origin as internal without the app listing it", () => {
+    const settings = getQualitySettings(config);
+    expect(settings?.ownOrigins).toEqual(["https://app.example.com", "https://example.org"]);
+    if (settings === null) return;
+    const text = MODEL.replace("[savings calculator](/calculator)", "[savings calculator](https://example.org/nowhere)");
+    const result = checkArticleText({ text, fileName: "index-funds.md", settings, today: "2026-10-03", resolveInternalLink: (path) => path !== "/nowhere" });
+    expect(result.findings).toEqual([{ rule: "internal-link-target", severity: "error", message: "an internal link leads nowhere: /nowhere", line: 30 }]);
+  });
+
+  it("keeps the site's origin alone without seo", () => {
+    expect(getQualitySettings(createConfig())?.ownOrigins).toEqual(["https://app.example.com"]);
   });
 });

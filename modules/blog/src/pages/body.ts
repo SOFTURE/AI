@@ -12,8 +12,8 @@ export interface RenderPageBodyOptions {
   readonly glossary: readonly GlossaryTerm[];
   readonly routes: BlogRoutes;
   readonly options: Pick<BlogOptions, "blocks" | "images" | "siteHosts">;
-  /** The app's origin; its host is the site's own (links to it are not external). */
-  readonly origin: string;
+  /** The app's own origins (`appOrigin` and the canonical site origin); their hosts are the site's (links to them are not external). */
+  readonly origins: readonly string[];
   readonly messages: BlogMessages;
 }
 
@@ -22,7 +22,7 @@ export function renderPageBody<TNode = unknown>(text: BlogArticle, input: Render
     glossary: input.glossary,
     ...(text.kind === "term" ? { selfSlug: text.slug } : {}),
     termHref: (slug) => getTermPath(input.routes, slug),
-    siteHosts: [new URL(input.origin).hostname, ...input.options.siteHosts],
+    siteHosts: [...input.origins.map((origin) => new URL(origin).hostname), ...input.options.siteHosts],
     ...(input.options.images === undefined ? {} : { images: input.options.images }),
     // The options keep plugins untyped (`unknown` nodes); the pages render React nodes, the type the
     // app's plugins return.

@@ -1,5 +1,5 @@
 // The blog options, routes and copy of the running app, read from the configuration.
-import { getModule, type AnySoftureModule, type SoftureConfig } from "@softure-ai/core";
+import { getModule, getSiteUrls, type AnySoftureModule, type SoftureConfig } from "@softure-ai/core";
 import type { BlogMessages } from "../messages/index.js";
 import type { BlogOptions } from "../options.js";
 import { getReservedSlugs, normalizeRoute, type BlogRoutes } from "../pages/paths.js";
@@ -56,5 +56,7 @@ export function getBlogReservedSlugs(config: SoftureConfig): string[] {
 /** The quality gate's settings, or `null` when the app turned the gate off (`quality: false`). */
 export function getQualitySettings(config: SoftureConfig): QualitySettings | null {
   const { quality, images } = getBlogOptions(config);
-  return quality === false ? null : resolveQualitySettings(quality, config, images ?? null);
+  if (quality === false) return null;
+  const site = { appOrigin: config.appOrigin, siteOrigin: getSiteUrls(config).origin, timezone: config.timezone };
+  return resolveQualitySettings(quality, site, images ?? null);
 }
