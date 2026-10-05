@@ -58,7 +58,7 @@ backlog: context/backlog/roadmap-blog-followups/
 | **BF-11** | `blog-canonical-host-links` | a body link to seo's canonical host counts as internal in the renderer and the gate | BF-7 | autonomous | done_code (2026-10-05; waiting: the first release of `@softure-ai/blog`, BL-8) |
 | **BF-12** | `blog-slug-history-race` | a slug taken while another run renames away from it does not end up both current and in the slug history | — | autonomous | proposed |
 | **BF-13** | `blog-skill-check-without-database` | `softure-blog skill install` runs with an app config that has no database URL | BF-6 | autonomous | done_code (2026-10-05; waiting: the first release of `@softure-ai/blog`, BL-8) |
-| **BF-14** | `blog-og-fonts-check` | `softure-blog check` reads the OG card's `brand.fonts` and reports a source it cannot read | BF-8 | autonomous | proposed |
+| **BF-14** | `blog-og-fonts-check` | `softure-blog check` reads the OG card's `brand.fonts` and reports a source it cannot read | BF-8 | autonomous | **in_progress (implement 1/1, since 2026-10-05; cloud session, branch `claude/project-thread-l5x1qg` — do not take in another session)** |
 
 ## Order
 
@@ -231,8 +231,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### BF-14: softure-blog check reads the OG card's fonts
 - **Change ID:** `blog-og-fonts-check`
-- **Status:** proposed
-- **Input:** [`blog-og-fonts-check`](../backlog/roadmap-blog-followups/blog-og-fonts-check/change.md)
+- **Status:** in_progress (implement 1/1, since 2026-10-05; cloud session, branch `claude/project-thread-l5x1qg` — do not take in another session)
+- **Input:** [`blog-og-fonts-check`](../changes/blog-og-fonts-check/change.md)
 - **Outcome:** `softure-blog check` loads `brand.fonts` through `createOgFontLoader` (from the app's root) and reports a source it cannot read with the loader's message; a check without `brand.fonts` is unchanged; a bin test covers a missing file.
 - **Prerequisites:** BF-8 on `master` (the loader).
 - **Risk:** low. Today the message appears when the first card renders.

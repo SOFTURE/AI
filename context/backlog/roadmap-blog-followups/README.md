@@ -41,6 +41,6 @@ moved file lose one `../`.
 | BF-11 | [`blog-canonical-host-links`](../../archive/2026-10-05-blog-canonical-host-links/change.md) | A body link to seo's canonical host counts as internal | archived 2026-10-05 | dependency |
 | BF-12 | [`blog-slug-history-race`](blog-slug-history-race/change.md) | A slug taken while another run renames away from it | roadmap promoted | start |
 | BF-13 | [`blog-skill-check-without-database`](../../archive/2026-10-05-blog-skill-check-without-database/change.md) | softure-blog skill install without a database URL | archived 2026-10-05 | dependency |
-| BF-14 | [`blog-og-fonts-check`](blog-og-fonts-check/change.md) | softure-blog check reads the OG card's fonts | BF-8 on main | dependency |
+| BF-14 | [`blog-og-fonts-check`](../../changes/blog-og-fonts-check/change.md) | softure-blog check reads the OG card's fonts | taken 2026-10-05 | dependency |
 
 Kind: `start`, `dependency` or `owner`, as in the other roadmap backlogs.
