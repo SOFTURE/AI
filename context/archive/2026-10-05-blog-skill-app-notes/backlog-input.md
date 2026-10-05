@@ -15,7 +15,7 @@ An app adds its own procedure to the generated writing skill (where its numbers 
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md) (blog-followups), item **BF-9**:
+From [`roadmap.md`](../../foundation/roadmap.md) (blog-followups), item **BF-9**:
 
 > ### BF-9: The app's own sections in the generated writing skill
 > - **Change ID:** `blog-skill-app-notes`

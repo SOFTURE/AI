@@ -68,6 +68,7 @@ export {
   type BlogFieldsSchema,
   type BlogOptions,
   type BlogOptionsInput,
+  type BlogSkillSection,
   type LocalizedText,
 } from "./options.js";
 export { articles, blogSchema, slugHistory } from "./db/schema.js";

@@ -53,7 +53,7 @@ backlog: context/backlog/roadmap-blog-followups/
 | **BF-6** | `blog-check-without-database` | `softure-blog check` runs with an app config that has no database URL | BF-1 | autonomous | done_code (2026-10-05; waiting: the owner's release of `@softure-ai/core` and `@softure-ai/blog`) |
 | **BF-7** | `blog-seo-canonical` | the blog's canonical, OG and JSON-LD URLs follow `@softure-ai/seo`'s canonical host and trailing-slash rule | — | autonomous | done_code (2026-10-05; waiting: the next release of `@softure-ai/core` and `@softure-ai/seo`, and the first of `@softure-ai/blog`, BL-8) |
 | **BF-8** | `blog-og-fonts` | `blog({ brand: { fonts } })` gives the article OG card the brand's fonts | BF-7 | autonomous | ready |
-| **BF-9** | `blog-skill-app-notes` | the generated writing skill carries the app's own sections across reinstalls | — | autonomous | ready |
+| **BF-9** | `blog-skill-app-notes` | the generated writing skill carries the app's own sections across reinstalls | — | autonomous | done_code (2026-10-05; waiting: the first release of `@softure-ai/blog`, BL-8) |
 | **BF-10** | `blog-publish-cache-refresh` | `softure-blog publish --commit` refreshes the running app's blog cache before the IndexNow submit | BF-2 | autonomous | ready |
 | **BF-11** | `blog-canonical-host-links` | a body link to seo's canonical host counts as internal in the renderer and the gate | BF-7 | autonomous | proposed |
 | **BF-13** | `blog-skill-check-without-database` | `softure-blog skill install` runs with an app config that has no database URL | BF-6 | autonomous | proposed |
@@ -175,8 +175,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### BF-9: The app's own sections in the generated writing skill
 - **Change ID:** `blog-skill-app-notes`
-- **Status:** ready
-- **Input:** [`blog-skill-app-notes`](../backlog/roadmap-blog-followups/blog-skill-app-notes/change.md)
+- **Status:** done_code (2026-10-05; waiting: the first release of `@softure-ai/blog`, BL-8)
+- **Input:** [`context/archive/2026-10-05-blog-skill-app-notes/`](../archive/2026-10-05-blog-skill-app-notes/change.md)
 - **Outcome:** the generated skill carries the app's own sections, from an option such as `blog({ skill: { notes } })` or from a local file the install preserves; FIRE_TRACKER's engine numbers, calculator scenario and chart block fit there; `--check` covers them.
 - **Prerequisites:** none.
 - **Risk:** low. Today an app keeps such guidance in a second skill of its own.
@@ -219,6 +219,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ## Done
 
+- **BF-9** `blog-skill-app-notes` (done_code 2026-10-05): `blog({ skill: { sections } })` puts the app's own sections into the generated writing skill (`references/app.md`, named in `SKILL.md`), kept across reinstalls and covered by `--check`; install removes a Markdown file of its folder the config no longer gives; archived in [`archive/2026-10-05-blog-skill-app-notes/`](../archive/2026-10-05-blog-skill-app-notes/change.md).
 - **BF-3** `blog-article-images`: `renderArticle({ images })` and `blog({ images: { hosts, dimensions } })` show body images from site paths or allowed https hosts with alt text and a known size (`width`/`height`, lazy), any other as its alt text; the gate reports `image-source`, `image-alt` and `image-dimensions` (`findArticleImages`, `checkArticleImage`), and an image no longer counts as a link; no gaps; archived in `archive/2026-10-05-blog-article-images/`
 - **BF-1** `cli-config-loader` (done 2026-10-05): `@softure-ai/core/cli` (`takeConfigOption`, `findDefaultConfig`, `loadConfig`, `loadAppConfig`, `DEFAULT_CONFIG_FILES`) is the one config loader of `softure migrate`, `softure-mail` and `softure-blog`; their messages and tests are unchanged; no gaps; archived in [`archive/2026-10-05-cli-config-loader/`](../archive/2026-10-05-cli-config-loader/change.md)
 - **BF-6** `blog-check-without-database` (done_code 2026-10-05): `softure-blog check` loads an app config without a database URL: `withDatabaseOptional` in `@softure-ai/core` reads a missing or empty URL as no database while the config is imported, `@softure-ai/core/cli`'s loaders take `database: "optional"`, and `blog-links.yml` drops its placeholder `DATABASE_URL`; gap BF-13; archived in [`archive/2026-10-05-blog-check-without-database/`](../archive/2026-10-05-blog-check-without-database/change.md)

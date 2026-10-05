@@ -78,6 +78,46 @@ const brandSchema = z.strictObject({
     .optional(),
 });
 
+/** Whether a Markdown body holds a `#` or `##` heading outside fenced code. */
+function hasTopHeading(body: string): boolean {
+  let fence: string | null = null;
+  for (const line of body.split(/\r?\n/)) {
+    const trimmed = line.trimStart();
+    const marker = trimmed.startsWith("```") ? "```" : trimmed.startsWith("~~~") ? "~~~" : null;
+    if (marker !== null) fence = fence === null ? marker : fence === marker ? null : fence;
+    else if (fence === null && /^ {0,3}#{1,2}(?:[ \t]|$)/.test(line)) return true;
+  }
+  return false;
+}
+
+/** One section of the app's own in the writing skill: `## <title>` and the Markdown body, verbatim. */
+const skillSectionSchema = z.strictObject({
+  title: z
+    .string()
+    .trim()
+    .min(1)
+    .max(80)
+    .refine((title) => !/[\r\n]/.test(title), "must be one line"),
+  body: z
+    .string()
+    .trim()
+    .min(1)
+    .refine((body) => !hasTopHeading(body), "must not hold a # or ## heading; use ### and deeper (the title is the section's ## heading)"),
+});
+
+const skillSchema = z.strictObject({
+  /** The app's own sections (its numbers, block plugins, fields), written to `references/app.md` of the skill. */
+  sections: z.array(skillSectionSchema).superRefine((sections, ctx) => {
+    const seen = new Set<string>();
+    for (const [index, section] of sections.entries()) {
+      if (seen.has(section.title)) ctx.addIssue({ code: "custom", path: [index, "title"], message: `"${section.title}" is the title of another section` });
+      seen.add(section.title);
+    }
+  }).default([]),
+});
+
+export type BlogSkillSection = z.output<typeof skillSectionSchema>;
+
 const imagePolicySchema = z.strictObject({
   /** Hosts whose https images are allowed besides the site's own paths (subdomains included). */
   hosts: z.array(z.string().regex(HOSTNAME, "must be a host name, e.g. cdn.example.com")).readonly().default([]),
@@ -116,6 +156,8 @@ export const blogOptionsSchema = z
     revalidateSeconds: z.number().int().min(1).default(DEFAULT_REVALIDATE_SECONDS),
     /** The text quality gate (`softure-blog check`, and every publish); `false` turns it off. */
     quality: qualitySettingSchema,
+    /** What `softure-blog skill install` adds to the generated writing skill. */
+    skill: skillSchema.default({ sections: [] }),
   })
   .superRefine((options, ctx) => {
     for (const key of Object.keys(options.fields?.shape ?? {})) {

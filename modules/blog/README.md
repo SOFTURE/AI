@@ -81,6 +81,8 @@ blog({
   images: { hosts: ["cdn.example.com"], dimensions: (src) => imageSizes[src] ?? null },
   // How long the cached reads hold; keep equal to the pages' `revalidate`. Default: 300.
   revalidateSeconds: 300,
+  // The app's own sections of the generated writing skill (see "The writing skill"). Default: none.
+  skill: { sections: [] },
   // Every route can move: blog({ routes: { index: "/articles" } }).
 });
 ```
@@ -324,14 +326,36 @@ templates in `skill/`; the command fills them from the app's config:
   its effective severity, what the gate looks for and what to write instead; the app's voice
   phrases and plugin rules with their own descriptions; a rule set to `"off"` is left out;
 - the YMYL passages (sources, footnotes, the own calculation mark) only when `ymyl` is on, and the
-  editors' "we" when `voice.forbidFirstPersonSingular` is on.
+  editors' "we" when `voice.forbidFirstPersonSingular` is on;
+- the app's own sections from `blog({ skill: { sections } })` (below).
+
+The app adds its own procedure (where its numbers come from, its block plugins, its fields) as sections
+in the config, so a reinstall keeps them and `--check` covers them:
+
+```ts
+blog({
+  skill: {
+    sections: [
+      { title: "Engine numbers", body: "Every number of an example comes from `npm run engine -- <inputs>`." },
+      { title: "Chart block", body: "One `::chart{scenario=\"…\"}` block after the lead, with the frontmatter's `scenario`." },
+    ],
+  },
+});
+```
+
+Install writes them to `references/app.md` (`## <title>` and the body, verbatim, never filled like the
+templates) and `SKILL.md` names them; with no sections the file is not written. A title is one line, unique,
+up to 80 characters; a body holds no `#` or `##` heading outside fenced code (use `###`). An app with long
+sections keeps them in a module of its own and imports them into the config.
 
 `--command` sets how the skill runs the commands (default `npx softure-blog`; an app with a
 `runBlogCli` script passes e.g. `--command "npm run blog --"`). Commit the folder, so agents in a
 fresh clone have it, and run `softure-blog skill install --check` (with the same options) in CI: it
 writes nothing and exits 1, naming the files, when the folder differs from what the config gives.
 Install overwrites only a folder whose `SKILL.md` it generated, so it never replaces a skill the app
-wrote itself. With `quality: false` it refuses: the skill is built on the gate.
+wrote itself. That folder belongs to the command: install removes a `.md` file in it that the config no
+longer gives (`references/app.md` once the sections are gone), logging `removed <path>`, and `--check`
+names such a file. With `quality: false` it refuses: the skill is built on the gate.
 
 ### Rendering an article
 
@@ -493,9 +517,8 @@ Articles hold editorial content, no personal data: nothing to export or delete.
   `ownOrigins`, `privateRouteSegments: ["api", "(app)"]`, and `rules-facts.ts` and `rules-chart.ts`
   as plugins (the package's tests hold stand-ins of both). Rule ids are English now (`kluczowy` →
   `crucial`, `myslniki` → `dashes`, …; the map is in the change archive), and the writing skill
-  (`skill install`, replacing FIRE's `blog-pisz`) names them.
-- The generated skill has no sections of the app's own yet (FIRE_TRACKER's engine numbers,
-  calculator scenario and chart block); keep them in a second skill of the app (BF-9).
+  (`skill install`, replacing FIRE's `blog-pisz`) names them; FIRE's engine numbers, calculator scenario
+  and chart block go into `blog({ skill: { sections } })`.
 - **Adopting from FIRE_TRACKER:** rename the frontmatter keys once (`typ` → `kind` with `artykul` →
   `article` and `termin` → `term`, `formy` → `forms`, `klaster` → `cluster`, `filar` → `pillar`,
   `tytul` → `title`, `opis` → `description`, `w_skrocie` → `summary`, `aktualne_na` →
