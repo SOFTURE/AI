@@ -1,11 +1,11 @@
 // @softure-ai/privacy on the built app: the legal pages rendered from the app's content with the
 // versions of softure.config.ts, the footer linking them, and registration recording consent to
 // them in privacy.consents (read back from Postgres and from the export).
-import { randomInt, randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { authMessages, users } from "@softure-ai/auth";
 import { consents, privacyMessages } from "@softure-ai/privacy";
 import { getLegalDocument } from "@softure-ai/privacy/server";
+import { clientAddressHeaders, registerAccount, uniqueEmail } from "@softure-ai/testing/playwright";
 import { asc, eq, inArray } from "drizzle-orm";
 import { en } from "../messages/en.ts";
 import config from "../softure.config.ts";
@@ -17,7 +17,7 @@ const PASSWORD = "correct horse battery";
 const createdEmails: string[] = [];
 
 test.beforeEach(({ context }) =>
-  context.setExtraHTTPHeaders({ "cf-connecting-ip": `198.${String(18 + randomInt(2))}.${String(randomInt(256))}.${String(randomInt(1, 255))}` }),
+  context.setExtraHTTPHeaders(clientAddressHeaders()),
 );
 
 test.afterAll(async () => {
@@ -63,14 +63,9 @@ test("every page links the legal documents from its footer", async ({ page }) =>
 });
 
 test("registering records consent to every legal document with its version, and the export shows it", async ({ page }) => {
-  const email = `e2e-consents-${randomUUID()}@example.com`;
+  const email = uniqueEmail("e2e-consents");
   createdEmails.push(email);
-  await page.goto("/register");
-  await page.getByLabel(authCopy.fields.email, { exact: true }).fill(email);
-  await page.getByLabel(authCopy.fields.password, { exact: true }).fill(PASSWORD);
-  await page.getByLabel(authCopy.fields.consent).check();
-  await page.getByRole("button", { name: authCopy.register.submit }).click();
-  await expect(page).toHaveURL("/account");
+  await registerAccount(page, { copy: authCopy, email, password: PASSWORD });
 
   const database = await openTestDatabase();
   let rows;

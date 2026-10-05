@@ -3,12 +3,12 @@
 // register link follow the stored value on the next request. A serial spec (playwright.config.ts):
 // it closes registration for the whole app, so it runs after every parallel spec has finished.
 import { spawnSync } from "node:child_process";
-import { randomInt, randomUUID } from "node:crypto";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { expect, test, type Browser, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { authMessages, REGISTRATION_CLOSED_SWITCH, users } from "@softure-ai/auth";
 import { switches } from "@softure-ai/feature-switches";
+import { openPageAsNewClient, uniqueEmail } from "@softure-ai/testing/playwright";
 import { eq, inArray } from "drizzle-orm";
 import { en } from "../messages/en.ts";
 import { openTestDatabase } from "./database.ts";
@@ -21,20 +21,10 @@ const createdEmails: string[] = [];
 
 test.describe.configure({ mode: "serial" });
 
-/** A fresh address per context (198.18.0.0/15), so the register bucket never fills up. */
-function randomAddress(): string {
-  return `198.${String(18 + randomInt(2))}.${String(randomInt(256))}.${String(randomInt(1, 255))}`;
-}
-
 function newEmail(): string {
-  const email = `e2e-registration-switch-${randomUUID()}@example.com`;
+  const email = uniqueEmail("e2e-registration-switch");
   createdEmails.push(email);
   return email;
-}
-
-async function openPage(browser: Browser): Promise<Page> {
-  const context = await browser.newContext({ extraHTTPHeaders: { "cf-connecting-ip": randomAddress() } });
-  return context.newPage();
 }
 
 async function fillRegisterForm(page: Page, email: string): Promise<void> {
@@ -102,14 +92,14 @@ test.afterAll(async () => {
 });
 
 test("an admin closes registration in the panel, auth refuses new accounts, and reopening lets them in", async ({ browser }) => {
-  const admin = await openPage(browser);
+  const admin = await openPageAsNewClient(browser);
   await registerAdmin(admin);
   await admin.goto("/switches");
   const toggle = admin.getByRole("switch", { name: SWITCH_LABEL });
   await expect(toggle).not.toBeChecked();
 
   // A visitor has the register form open while the admin closes registration.
-  const visitor = await openPage(browser);
+  const visitor = await openPageAsNewClient(browser);
   await visitor.goto("/register");
   await fillRegisterForm(visitor, newEmail());
 
@@ -121,7 +111,7 @@ test("an admin closes registration in the panel, auth refuses new accounts, and 
   await expect(visitor.getByText(authCopy.errors.auth.registration_closed)).toBeVisible();
   await expect(visitor).toHaveURL("/register");
 
-  const closed = await openPage(browser);
+  const closed = await openPageAsNewClient(browser);
   await closed.goto("/register");
   await expect(closed.getByText(authCopy.register.closedTitle)).toBeVisible();
   await expect(closed.getByRole("button", { name: authCopy.register.submit })).toHaveCount(0);
@@ -134,7 +124,7 @@ test("an admin closes registration in the panel, auth refuses new accounts, and 
   await expect(admin.getByRole("switch", { name: SWITCH_LABEL })).not.toBeChecked();
   expect(await readStoredValue()).toBe(false);
 
-  const reopened = await openPage(browser);
+  const reopened = await openPageAsNewClient(browser);
   await reopened.goto("/login");
   await expect(reopened.getByRole("link", { name: authCopy.login.registerLink })).toBeVisible();
   await register(reopened, newEmail());

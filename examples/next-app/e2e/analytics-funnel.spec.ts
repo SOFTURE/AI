@@ -3,7 +3,7 @@
 // channel and nothing else; a waitlist sign-up is counted (the waitlist's onJoined hook) when its
 // confirmation link is used, under the channel the link carries; the endpoint refuses steps the
 // browser may not report. Each test uses its own channel and deletes its counters afterwards.
-import { randomBytes, randomInt, randomUUID } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { funnelCounts } from "@softure-ai/analytics";
 import { authMessages, users } from "@softure-ai/auth";
@@ -11,6 +11,7 @@ import { deliveries } from "@softure-ai/mailing";
 import { readMailOutbox } from "@softure-ai/mailing/testing";
 import { consents } from "@softure-ai/privacy";
 import { getEmailKey } from "@softure-ai/privacy/server";
+import { clientAddressHeaders, uniqueEmail } from "@softure-ai/testing/playwright";
 import { signups, waitlistMessages } from "@softure-ai/waitlist";
 import { getWelcomeMailScope } from "@softure-ai/waitlist/server";
 import { eq, inArray } from "drizzle-orm";
@@ -32,7 +33,7 @@ function newChannel(): string {
 }
 
 test.beforeEach(({ context }) =>
-  context.setExtraHTTPHeaders({ "cf-connecting-ip": `198.${String(18 + randomInt(2))}.${String(randomInt(256))}.${String(randomInt(1, 255))}` }),
+  context.setExtraHTTPHeaders(clientAddressHeaders()),
 );
 
 test.afterAll(async () => {
@@ -82,7 +83,7 @@ test("a tagged visit is counted on the home page, at sign-up and on the account 
   await expect.poll(() => readCounts(channel)).toEqual({ landing: 1 });
 
   await page.goto(`/login?z=${channel}`);
-  await register(page, `e2e-funnel-${randomUUID()}@example.com`);
+  await register(page, uniqueEmail("e2e-funnel"));
   // The register action redirects to /account with the tag (auth's rewriteRedirect), so the account
   // page's beacon counts that view under the channel.
   await expect.poll(() => readCounts(channel)).toEqual({ landing: 1, signup: 1, account: 1 });
@@ -93,7 +94,7 @@ test("a tagged visit is counted on the home page, at sign-up and on the account 
 
 test("a waitlist sign-up is counted under its channel when its confirmation link is used", async ({ page }) => {
   const channel = newChannel();
-  const email = `e2e-funnel-waitlist-${randomUUID()}@example.com`;
+  const email = uniqueEmail("e2e-funnel-waitlist");
   waitlistEmails.push(email);
   await page.goto(`/?z=${channel}`);
   await page.getByLabel(waitlistCopy.form.email).fill(email);

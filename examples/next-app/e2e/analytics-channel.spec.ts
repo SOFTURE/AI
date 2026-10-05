@@ -5,9 +5,9 @@
 // with or without JavaScript; the login and register pages' own redirect of a signed-in visitor
 // keeps it too, and so does the redirect to login of a page outside the guard (requireUser). No
 // cookie carries it.
-import { randomInt, randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { authMessages, users } from "@softure-ai/auth";
+import { clientAddressHeaders, uniqueEmail } from "@softure-ai/testing/playwright";
 import { inArray } from "drizzle-orm";
 import { en } from "../messages/en.ts";
 import { openTestDatabase } from "./database.ts";
@@ -17,13 +17,13 @@ const PASSWORD = "correct horse battery";
 const createdEmails: string[] = [];
 
 function newEmail(): string {
-  const email = `e2e-channel-${randomUUID()}@example.com`;
+  const email = uniqueEmail("e2e-channel");
   createdEmails.push(email);
   return email;
 }
 
 test.beforeEach(({ context }) =>
-  context.setExtraHTTPHeaders({ "cf-connecting-ip": `198.${String(18 + randomInt(2))}.${String(randomInt(256))}.${String(randomInt(1, 255))}` }),
+  context.setExtraHTTPHeaders(clientAddressHeaders()),
 );
 
 test.afterAll(async () => {

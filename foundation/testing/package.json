@@ -2,7 +2,7 @@
   "name": "@softure-ai/testing",
   "version": "0.1.0",
   "private": true,
-  "description": "SOFTURE AI test tools: a Vitest setup file that shifts the test clock to TEST_TODAY while time keeps running.",
+  "description": "SOFTURE AI test tools: a Vitest setup file that shifts the test clock to TEST_TODAY, and Playwright helpers for black-box tests of an app.",
   "license": "MIT",
   "type": "module",
   "sideEffects": [
@@ -37,7 +37,23 @@
       "@softure-ai/source": "./src/vitest/setup.ts",
       "types": "./dist/vitest/setup.d.ts",
       "default": "./dist/vitest/setup.js"
+    },
+    "./playwright": {
+      "@softure-ai/source": "./src/playwright/index.ts",
+      "types": "./dist/playwright/index.d.ts",
+      "default": "./dist/playwright/index.js"
     }
+  },
+  "peerDependencies": {
+    "@playwright/test": "^1.63.0"
+  },
+  "peerDependenciesMeta": {
+    "@playwright/test": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json"

@@ -2,7 +2,7 @@
 change_id: deploy-row-count-config
 title: "The tables row-counts compares come from deploy.json"
 status: backlog
-roadmap_item: DF-4
+roadmap_item: DF-5
 branch: null
 created: 2026-10-05
 updated: 2026-10-05
@@ -16,7 +16,7 @@ An app lists the tables `softure-deploy row-counts` compares in its `deploy.json
 
 ## Context
 
-From [`roadmap-deploy-followups.md`](../../../foundation/roadmaps/roadmap-deploy-followups.md), item **DF-4**:
+From [`roadmap-deploy-followups.md`](../../../foundation/roadmaps/roadmap-deploy-followups.md), item **DF-5**:
 
 > - **Outcome:** `deploy.json` gets an optional `database.rowCountTables` list (zod schema and JSON Schema);
 >   `row-counts` reads it when `--tables` is not given.
