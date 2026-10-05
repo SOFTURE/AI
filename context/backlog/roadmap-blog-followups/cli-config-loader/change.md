@@ -16,7 +16,7 @@ archived_at: null
 
 ## Context
 
-From [`roadmap-blog-followups.md`](../../../foundation/roadmaps/roadmap-blog-followups.md), item **BF-1**:
+From [`roadmap.md`](../../../foundation/roadmap.md) (blog-followups), item **BF-1**:
 
 > ### BF-1: One config loader for module commands
 > - **Change ID:** `cli-config-loader`

@@ -7,14 +7,12 @@ Finished main roadmaps move to `../archive/<YYYY-MM-DD>-roadmap.md`.
 
 | Roadmap | Theme | Prefix | Status |
 | --- | --- | --- | --- |
-| [`roadmap-blog-followups.md`](roadmap-blog-followups.md) | the catch-all for gaps found while delivering the blog roadmap | `BF-` | waiting (BF-1…BF-4, BF-6…BF-10; BF-5 done in BL-4) |
 | [`roadmap-charts.md`](roadmap-charts.md) | SVG chart primitives with accessibility guards (`@softure-ai/charts`, `ui/testing`) | `CH-` | waiting |
 | [`roadmap-deploy.md`](roadmap-deploy.md) | one-VPS deploy as a package, reusable workflows, `init` templates and test tools | `DP-` | waiting |
 | [`roadmap-later.md`](roadmap-later.md) | items parked until an owner step (secrets, accounts, the batch release) is done | `LT-` (and MK-8, EN-9, MO-6, BL-8 carried over) | waiting |
 
-Main roadmap now: none ([`../roadmap.md`](../roadmap.md) says so). Blog, the last one, closed on 2026-10-04 with
-BL-8 carried over to `roadmap-later`; promoting the next roadmap (`blog-followups`, `charts` or `deploy`) is the
-owner's call. Archived: [`foundation`](../archive/2026-10-02-roadmap.md),
+Main roadmap now: [`blog-followups`](../roadmap.md) (`BF-`, promoted by the owner on 2026-10-05), the catch-all of
+blog, which closed on 2026-10-04 with BL-8 carried over to `roadmap-later`. Archived: [`foundation`](../archive/2026-10-02-roadmap.md),
 [`identity`](../archive/2026-10-03-roadmap.md), [`engagement`](../archive/2026-10-03-2-roadmap.md),
 [`monetization`](../archive/2026-10-03-3-roadmap.md), [`marketing-kit`](../archive/2026-10-03-4-roadmap.md), [`followups`](../archive/2026-10-04-roadmap.md),
 [`blog`](../archive/2026-10-04-2-roadmap.md).

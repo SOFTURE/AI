@@ -17,7 +17,7 @@ one-line `opengraph-image.tsx` re-export instead of writing its own file around
 
 ## Context
 
-From [`roadmap-blog-followups.md`](../../../foundation/roadmaps/roadmap-blog-followups.md), item **BF-8**:
+From [`roadmap.md`](../../../foundation/roadmap.md) (blog-followups), item **BF-8**:
 
 > ### BF-8: The OG card takes the brand's fonts
 > - **Change ID:** `blog-og-fonts`
