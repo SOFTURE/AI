@@ -35,6 +35,22 @@ Postgres with the roles of `modules/ops/recipes/initdb/`, migrates as the migrat
 role, and checks `GET /api/health`: 200 with every check, the app role refused DDL, then 503 with
 Postgres stopped. CI runs it as the `container` job of `.github/workflows/e2e.yml`.
 
+## Pay in Stripe's sandbox
+
+```bash
+stripe listen --api-key "$STRIPE_SECRET_KEY" --forward-to localhost:3200/api/billing/webhook   # in one terminal
+STRIPE_WEBHOOK_SECRET="$(stripe listen --api-key "$STRIPE_SECRET_KEY" --print-secret)" \
+  npm run e2e:stripe-sandbox   # in examples/next-app, after `npm run e2e` built the app
+```
+
+[`e2e/billing-checkout.stripe-sandbox.spec.ts`](e2e/billing-checkout.stripe-sandbox.spec.ts) pays the
+monthly plan on Stripe's hosted Checkout with the test card, waits for Stripe's own delivery to turn the
+trial into paid access, then refunds through Stripe's API and waits for the access to go. It runs from
+[`playwright.stripe-sandbox.config.ts`](playwright.stripe-sandbox.config.ts) on port 3200 with
+`BILLING_PROVIDER=stripe`, needs a test-mode `STRIPE_SECRET_KEY` (`sk_test_...`) and the Stripe CLI, and
+is skipped without the key. CI runs it as the `stripe-sandbox` job of `.github/workflows/e2e.yml` when the
+repository has the `STRIPE_SECRET_KEY` secret. `npm run e2e` does not run it.
+
 ## Develop
 
 ```bash
@@ -84,7 +100,7 @@ npm run dev
 | `app/blog/`, `content/blog/`, `scripts/blog.ts`, the `blog(...)` entry in `softure.config.ts`, the first line of `proxy.ts` | `@softure-ai/blog`: the listing, articles with "read next", glossary, method page, OG card and the RSS feed (`app/blog/rss.xml/route.ts`) and the cache refresh a committed publish calls (`app/api/blog/refresh/route.ts`, `BLOG_REFRESH_SECRET`), each page one re-export with the app's CTA and `<Waitlist placement="blog" />` passed as slots; the proxy piece answers 301 for old slugs and 410 for withdrawn texts; `npm run blog:publish` previews the sync of `content/blog/`, `npm run blog:fixtures` publishes it with the renamed fixture of `e2e/fixtures/blog-renamed/` (`--no-indexnow`: a local publish pings no search engine); the texts are short fixtures, so `quality: false` |
 | `Dockerfile`, `compose.container.yaml`, `scripts/migrate.ts` | the ops container recipe: one image, a one-off migrate step as the migrator role, the app as the app role |
 | `messages/` | the app's `en` and `pl` copy; no text is written inline |
-| `e2e/` | Playwright: theme switch, modal and form, migrations, security, auth, password reset, roles, switches, mail, reset mail, unsubscribe, MCP access, privacy export and deletion, legal pages and consents, waitlist, channel tags, billing entitlements, plans and the manual payment flow, the Stripe webhook, reminder mail, the funnel, robots.txt, sitemap and the IndexNow key file, the blog's pages, feed, sitemap entries and "read next", 301 and 410, and a publish that shows on a cached page at once |
+| `e2e/` | Playwright: theme switch, modal and form, migrations, security, auth, password reset, roles, switches, mail, reset mail, unsubscribe, MCP access, privacy export and deletion, legal pages and consents, waitlist, channel tags, billing entitlements, plans and the manual payment flow, the Stripe webhook (and, with the sandbox key, a real Stripe payment), reminder mail, the funnel, robots.txt, sitemap and the IndexNow key file, the blog's pages, feed, sitemap entries and "read next", 301 and 410, and a publish that shows on a cached page at once |
 
 ## Adding a scenario
 

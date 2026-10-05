@@ -21,10 +21,12 @@ export default defineConfig({
     screenshot: "only-on-failure",
     launchOptions: CHROMIUM_PATH ? { executablePath: CHROMIUM_PATH } : {},
   },
+  // A real Stripe payment needs the sandbox key and `stripe listen`: playwright.stripe-sandbox.config.ts.
+  testIgnore: /\.stripe-sandbox\.spec\.ts$/,
   // `*.serial.spec.ts` files change state every other spec relies on (closing registration), so they
   // run alone, after the parallel project has finished.
   projects: [
-    { name: "chromium", use: { ...devices["Desktop Chrome"] }, testIgnore: /\.serial\.spec\.ts$/ },
+    { name: "chromium", use: { ...devices["Desktop Chrome"] }, testIgnore: [/\.serial\.spec\.ts$/, /\.stripe-sandbox\.spec\.ts$/] },
     { name: "serial", use: { ...devices["Desktop Chrome"] }, testMatch: /\.serial\.spec\.ts$/, dependencies: ["chromium"] },
   ],
   webServer: {
