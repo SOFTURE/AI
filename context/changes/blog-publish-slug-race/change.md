@@ -1,7 +1,7 @@
 ---
 change_id: blog-publish-slug-race
 title: "Two publishes racing for one slug report it as a taken slug"
-status: implementing
+status: impl_reviewed
 roadmap_item: BF-2
 branch: claude/project-thread-2z92al
 created: 2026-10-05

@@ -48,8 +48,8 @@ No migration. Rollback: revert the commit; a lost race fails with the driver err
 ### Phase 1: Map the lost race
 
 #### Automated
-- [ ] 1.1 Race tests in `modules/blog/tests/publish-race.test.ts` pass on PostgreSQL 16
-- [ ] 1.2 Gates green (typecheck, lint, test, build)
+- [x] 1.1 Race tests in `modules/blog/tests/publish-race.test.ts` pass on PostgreSQL 16 — a0050f5
+- [x] 1.2 Gates green (typecheck, lint, test, build) — a0050f5
 
 #### Manual
-- [ ] 1.3 Impl review recorded in `reviews/impl-review.md`
+- [x] 1.3 Impl review recorded in `reviews/impl-review.md` — a0050f5
