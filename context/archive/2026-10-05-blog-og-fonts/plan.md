@@ -82,5 +82,5 @@ file), `modules/blog/README.md`, `context/foundation/roadmap.md`.
 ### Phase 1: Brand fonts on the article card
 
 #### Automated
-- [ ] 1.1 options, loader and card tests pass (defaults, refusals, read once, missing file named, URL, signature)
-- [ ] 1.2 Gates green (typecheck, lint, test, build) and the example app's `next build`
+- [x] 1.1 options, loader and card tests pass (defaults, refusals, read once, missing file named, URL, signature) — d40ccc4
+- [x] 1.2 Gates green (typecheck, lint, test, build) and the example app's `next build` — d40ccc4

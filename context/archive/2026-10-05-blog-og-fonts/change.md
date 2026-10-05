@@ -1,12 +1,12 @@
 ---
 change_id: blog-og-fonts
 title: "The article OG card takes the brand's fonts from config"
-status: in_progress
+status: archived
 roadmap_item: BF-8
 branch: claude/project-thread-hv8t9u
 created: 2026-10-05
 updated: 2026-10-05
-archived_at: null
+archived_at: 2026-10-05
 ---
 
 ## Intent
@@ -42,3 +42,4 @@ and colours only. The backlog entry is [`backlog-input.md`](backlog-input.md).
 - Research: quick depth, on what `next/og` (Satori) accepts and how marketing-kit loads brand fonts.
 - Framing skipped: the problem is not in doubt (a review finding with a named file, and the roadmap fixes the
   outcome: option shape, caching, the error on a missing file).
+- Archived 2026-10-05: `blog({ brand: { fonts } })` (name, weight, style, a path or an https URL) feeds the article OG card; the route reads each source once per process, checks the font signature and names `brand.fonts[i]` and the file when it fails; gap BF-14.
