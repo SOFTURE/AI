@@ -112,6 +112,35 @@ FAIL    404     /pricing  status 404, expected 200; missing "Pricing"
 verify: 2 routes at https://example.com, 1 passed, 1 failed
 ```
 
+## Deploy workflow
+
+`SOFTURE/AI/.github/workflows/deploy-app.yml` is a reusable workflow that releases one app to its VPS. The app keeps
+one caller, [`examples/deploy.yml`](examples/deploy.yml), with a single `uses:` line. For the release tag it:
+
+1. checks every input (tag, URL, paths, image, command word, port, timeout) before anything runs;
+2. builds the image from the tag and pushes `<image>:<tag>` to GHCR (the only job with `packages: write`);
+3. renders `.env.prod` with `softure-deploy env render` from the `app-secrets` JSON and sends it on stdin to the
+   server's forced SSH command as `<remote-command> <tag>`, checking the host key against `ssh-known-hosts`;
+4. waits until `<app-url><health-path>` answers 200.
+
+| Input | Default | |
+| --- | --- | --- |
+| `tag` | required | release tag: the git ref built and the image tag |
+| `app-url` | required | public base URL, `https://<host>[:port]` |
+| `image` | `ghcr.io/<owner>/<repository>` | image name without a tag |
+| `context`, `dockerfile` | `.`, `Dockerfile` | the build |
+| `compose-file` | `docker/prod/docker-compose.yml` | names the secrets to render |
+| `environment` | none | GitHub environment of the deploy job |
+| `remote-command` | `deploy` | first word for the forced command |
+| `ssh-port` | `22` | |
+| `health-path`, `verify-timeout-seconds` | `/api/health`, `300` | verify |
+| `deploy-cli-version` | this package's version | the CLI run from npm |
+
+Secrets, all required and passed by name (no `secrets: inherit`): `ssh-host`, `ssh-user`, `ssh-private-key`,
+`ssh-known-hosts` and `app-secrets` (a JSON object such as `toJSON(secrets)`; names like `PATH`, `HOME`, `NODE_*` and
+`NPM_CONFIG_*` are refused). The workflow runs once this package is on npm; callers pin the `deploy-workflows-v1` tag
+the owner sets, or its commit SHA.
+
 ## Library
 
 The same steps as functions, for scripts that need them without the CLI:
@@ -129,5 +158,5 @@ The same steps as functions, for scripts that need them without the CLI:
 - Release notes read only git: no labels, authors or pull request bodies (no GitHub API).
 - `verify` does not warn about a certificate close to expiry (an expired or invalid one fails every route) and does
   not wait for the app to come up; the deploy workflow's health step does.
-- Coming in later items of the deploy roadmap: `backup` and `schema-guard` (DP-3), `init` (DP-5), reusable
-  workflows (DP-2).
+- Coming in later items of the deploy roadmap: `backup` and `schema-guard` (DP-3), `init` (DP-5).
+- The deploy workflow checks only the health route until it runs `softure-deploy verify` (DF-2).
