@@ -1,6 +1,6 @@
 # @softure-ai/core
 
-**Status:** wave 0 · implemented in FD-3 (`core-contract`), 0.1.0, prepared for its first release (the owner's tag, `scripts/release/README.md`).
+**Status:** wave 0 · implemented in FD-3 (`core-contract`), 0.1.1, prepared for its first release (the owner's tag, `scripts/release/README.md`).
 
 The contract every SOFTURE module stands on. Standard:
 [docs/02-module-standard.md](../../docs/02-module-standard.md). Sources in FIRE_TRACKER: the
