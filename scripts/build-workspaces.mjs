@@ -35,7 +35,7 @@ function isRecord(value) {
  * @param {Record<string, unknown>} manifest
  * @returns {string[]}
  */
-function getDependencyNames(manifest) {
+export function getDependencyNames(manifest) {
   return ["dependencies", "peerDependencies", "optionalDependencies", "devDependencies"].flatMap((field) => {
     const dependencies = manifest[field];
     return isRecord(dependencies) ? Object.keys(dependencies) : [];
