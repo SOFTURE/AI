@@ -58,7 +58,7 @@ backlog: context/backlog/roadmap-deploy/
 | ID | Change | Outcome | Depends on | Mode | Status |
 | --- | --- | --- | --- | --- | --- |
 | **DP-1** | `deploy-cli-env-notes` | `@softure-ai/deploy` CLI: `env render` from secrets (names from the compose file), release notes as a live report | — | autonomous | done_code (2026-10-05; waiting: the first publish of `@softure-ai/deploy`, DP-8) |
-| **DP-2** | `deploy-reusable-workflows` | `workflow_call` workflows: build the image to GHCR, deploy over SSH, verify; an app keeps one `uses:` line | DP-1 | autonomous | ready |
+| **DP-2** | `deploy-reusable-workflows` | `workflow_call` workflows: build the image to GHCR, deploy over SSH, verify; an app keeps one `uses:` line | DP-1 | autonomous | **in_progress** (implement 1/2, since 2026-10-05; cloud session, branch `claude/project-thread-kajtg5` — do not take in another session) |
 | **DP-3** | `deploy-db-guard` | backup before a deploy, a schema guard on the `@softure-ai/db` ledger and row counts before and after from an app hook | DP-1 | autonomous | ready |
 | **DP-4** | `deploy-verify-production` | `softure-deploy verify`: routes, expected statuses, markers, redirects and headers from `deploy.json` | DP-1 | autonomous | ready |
 | **DP-5** | `deploy-init-template` | `softure-deploy init` writes compose, Traefik rules, Dockerfile, the server script and the caller workflow once | DP-2, DP-3, DP-4 | autonomous | ready |
@@ -124,8 +124,8 @@ None of DP-1…DP-7 needs one, so they run on 2026-10-05; everything that does i
 
 ### DP-2: Reusable deploy workflows
 - **Change ID:** `deploy-reusable-workflows`
-- **Status:** ready
-- **Input:** [`deploy-reusable-workflows`](../backlog/roadmap-deploy/deploy-reusable-workflows/change.md)
+- **Status:** in_progress (implement 1/2, since 2026-10-05; cloud session, branch `claude/project-thread-kajtg5` — do not take in another session)
+- **Input:** [`deploy-reusable-workflows`](../changes/deploy-reusable-workflows/change.md)
 - **Outcome:** Reusable GitHub workflows in this repository (`.github/workflows/deploy-*.yml`, `on: workflow_call`):
   - build and push the image to GHCR with the release tag;
   - deploy over SSH through the server's forced command, with env rendered by DP-1;
