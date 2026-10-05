@@ -31,5 +31,5 @@ and a module file as pending, counts saved and compared.
   `deploy` stays private until DP-8.
 - **W2 (warning, deferred):** parity with FIRE_TRACKER's `deploy.sh` is unchecked (the session could not read it).
   Added to **DF-1** (`deploy-fire-parity`).
-- **S3 (suggestion, deferred):** the table list in `deploy.json` (plan review S2). Recorded as **DF-2**
+- **S3 (suggestion, deferred):** the table list in `deploy.json` (plan review S2). Recorded as **DF-4**
   (`deploy-row-count-config`), after DP-4.

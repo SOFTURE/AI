@@ -58,7 +58,7 @@ backlog: context/backlog/roadmap-deploy/
 | ID | Change | Outcome | Depends on | Mode | Status |
 | --- | --- | --- | --- | --- | --- |
 | **DP-1** | `deploy-cli-env-notes` | `@softure-ai/deploy` CLI: `env render` from secrets (names from the compose file), release notes as a live report | — | autonomous | done_code (2026-10-05; waiting: the first publish of `@softure-ai/deploy`, DP-8) |
-| **DP-2** | `deploy-reusable-workflows` | `workflow_call` workflows: build the image to GHCR, deploy over SSH, verify; an app keeps one `uses:` line | DP-1 | autonomous | ready |
+| **DP-2** | `deploy-reusable-workflows` | `workflow_call` workflows: build the image to GHCR, deploy over SSH, verify; an app keeps one `uses:` line | DP-1 | autonomous | done_code (2026-10-05; waiting: the first publish of `@softure-ai/deploy` and the `deploy-workflows-v1` tag, DP-8) |
 | **DP-3** | `deploy-db-guard` | backup before a deploy, a schema guard on the `@softure-ai/db` ledger and row counts before and after from an app hook | DP-1 | autonomous | done_code (2026-10-05; waiting: the first publish of `@softure-ai/deploy`, DP-8) |
 | **DP-4** | `deploy-verify-production` | `softure-deploy verify`: routes, expected statuses, markers, redirects and headers from `deploy.json` | DP-1 | autonomous | ready |
 | **DP-5** | `deploy-init-template` | `softure-deploy init` writes compose, Traefik rules, Dockerfile, the server script and the caller workflow once | DP-2, DP-3, DP-4 | autonomous | ready |
@@ -124,8 +124,8 @@ None of DP-1…DP-7 needs one, so they run on 2026-10-05; everything that does i
 
 ### DP-2: Reusable deploy workflows
 - **Change ID:** `deploy-reusable-workflows`
-- **Status:** ready
-- **Input:** [`deploy-reusable-workflows`](../backlog/roadmap-deploy/deploy-reusable-workflows/change.md)
+- **Status:** done_code (2026-10-05; waiting: the first publish of `@softure-ai/deploy` and the `deploy-workflows-v1` tag, DP-8)
+- **Input:** [`deploy-reusable-workflows`](../archive/2026-10-05-deploy-reusable-workflows/change.md)
 - **Outcome:** Reusable GitHub workflows in this repository (`.github/workflows/deploy-*.yml`, `on: workflow_call`):
   - build and push the image to GHCR with the release tag;
   - deploy over SSH through the server's forced command, with env rendered by DP-1;
@@ -234,14 +234,16 @@ None of DP-1…DP-7 needs one, so they run on 2026-10-05; everything that does i
 All of these are for the owner at the keyboard on 2026-10-06.
 
 - [ ] **DP-8**: approve the first (staged) publish of `@softure-ai/deploy` and `@softure-ai/testing` on npmjs.com,
-  add a trusted publisher for each, and set the workflow tag callers use (DP-2).
-- [ ] **DP-2**: in this repository's Settings → Actions → General → Access, allow the owner's other repositories to
-  call its reusable workflows (needed only if the repository stays private).
+  add a trusted publisher for each, and set the workflow tag callers use (DP-2: `deploy-workflows-v1`, moved to
+  each new workflow release once `@softure-ai/deploy` is on npm).
+- [x] **DP-2**: Settings → Actions → General → Access is not needed: this repository is public, so any repository
+  (FIRE_TRACKER included) can call its reusable workflows (checked on 2026-10-05, DP-2 research).
 - [ ] The SSH gateway (`gateway.sh`, forced command) and the Cloudflare-only firewall from FIRE_TRACKER `docker/prod/`
   and `docker/server/`: add them to `softure.vps_foundation` (outside this repository) when convenient.
 
 ## Done
 
+- **DP-2** `deploy-reusable-workflows` (done_code 2026-10-05): `.github/workflows/deploy-app.yml` (`workflow_call`: input check, GHCR build, `env render` + forced SSH command with a pinned host key, health verify) with the caller `tools/deploy/examples/deploy.yml` and actionlint in CI; the repository is public, so no Access setting is needed; FIRE parity folded into DF-1, gaps DF-2 (verify) and DF-3 (end-to-end run) queued in `deploy-followups`; archived in [`archive/2026-10-05-deploy-reusable-workflows/`](../archive/2026-10-05-deploy-reusable-workflows/change.md)
 - **DP-6** `testing-clock-shift` (done_code 2026-10-05): `@softure-ai/testing` (`foundation/testing/`, 0.1.0, `"private": true` until DP-8 publishes it) has the `./vitest-setup` entry that shifts the global `Date` to noon of `TEST_TODAY` while time keeps running, and `readTestToday`, `shiftClock`, `restoreClock`, `isClockShifted` for an app's own setup (a fixed default day); `vi.useFakeTimers` starts from the shifted now and `vi.useRealTimers` returns to it (measured, tested); an app lists a one-line setup file because Vitest `setupFiles` takes paths; documented in its README, core's README ("Time") and the module standard §10; no gaps; archived in [`archive/2026-10-05-testing-clock-shift/`](../archive/2026-10-05-testing-clock-shift/change.md)
 - **DP-1** `deploy-cli-env-notes`: `@softure-ai/deploy` with `softure-deploy env render` (names from the compose file, values never printed, `.env.prod` 0600) and `release-notes` (git log only, en/pl); gap DF-1 (FIRE_TRACKER parity) queued in `deploy-followups`; archived in `archive/2026-10-05-deploy-cli-env-notes/`
-- **DP-3** `deploy-db-guard`: `softure-deploy backup` (`pg_dump` custom format, `0600`, retention by prefix after a successful dump), `schema-guard` (the image's exported migrations against the ledger through `checkExportedMigrations` in `@softure-ai/db`) and `row-counts` (`--out`/`--compare`, fails on lost rows); FIRE_TRACKER parity added to DF-1, gap DF-2 (tables in `deploy.json`) queued in `deploy-followups`; archived in `archive/2026-10-05-deploy-db-guard/`
+- **DP-3** `deploy-db-guard`: `softure-deploy backup` (`pg_dump` custom format, `0600`, retention by prefix after a successful dump), `schema-guard` (the image's exported migrations against the ledger through `checkExportedMigrations` in `@softure-ai/db`) and `row-counts` (`--out`/`--compare`, fails on lost rows); FIRE_TRACKER parity added to DF-1, gap DF-4 (tables in `deploy.json`) queued in `deploy-followups`; archived in `archive/2026-10-05-deploy-db-guard/`

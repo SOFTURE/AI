@@ -25,7 +25,7 @@ DP-8 waits for the owner at the keyboard on 2026-10-06:
 | ID | Entry | Title | Condition | Kind |
 | --- | --- | --- | --- | --- |
 | DP-1 | [`deploy-cli-env-notes`](../../archive/2026-10-05-deploy-cli-env-notes/change.md) (done 2026-10-05) | Deploy CLI: env rendering and release notes | roadmap promoted | start |
-| DP-2 | [`deploy-reusable-workflows`](deploy-reusable-workflows/change.md) | Reusable deploy workflows | DP-1 on master | dependency |
+| DP-2 | [`deploy-reusable-workflows`](../../archive/2026-10-05-deploy-reusable-workflows/change.md) (done 2026-10-05) | Reusable deploy workflows | DP-1 on master | dependency |
 | DP-3 | [`deploy-db-guard`](../../archive/2026-10-05-deploy-db-guard/change.md) (done 2026-10-05) | Backup and schema guard before a deploy | DP-1 on master | dependency |
 | DP-4 | [`deploy-verify-production`](deploy-verify-production/change.md) | Production verify from config | DP-1 on master | dependency |
 | DP-5 | [`deploy-init-template`](deploy-init-template/change.md) | Deploy files generated once | DP-2, DP-3 and DP-4 on master | dependency |
