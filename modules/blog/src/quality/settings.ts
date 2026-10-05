@@ -1,4 +1,4 @@
-// The gate's resolved settings: the parsed options plus what the app config adds (its origin and time
+// The gate's resolved settings: the parsed options plus what the app config adds (its origins and time
 // zone) and the blog's image policy, with the ruleset and voice patterns compiled once.
 import type { SoftureConfig } from "@softure-ai/core";
 import type { ArticleImagePolicy } from "../render/images.js";
@@ -12,7 +12,7 @@ export interface QualitySettings {
   readonly ruleset: LanguageRuleset;
   /** The app's voice phrases plus, when switched on, the ruleset's first person singular. */
   readonly voicePatterns: readonly StylePattern[];
-  /** Origins whose absolute links are internal: the app's `appOrigin` and `ownOrigins`. */
+  /** Origins whose absolute links are internal: the app's `appOrigin`, the site origin and `ownOrigins`. */
   readonly ownOrigins: readonly string[];
   /** IANA time zone of "today". */
   readonly timeZone: string;
@@ -22,7 +22,10 @@ export interface QualitySettings {
 
 export function resolveQualitySettings(
   options: QualityOptions,
-  config: Pick<SoftureConfig, "appOrigin" | "timezone">,
+  config: Pick<SoftureConfig, "appOrigin" | "timezone"> & {
+    /** The canonical site origin (core's `getSiteUrls(config).origin`) when it is not `appOrigin`. */
+    readonly siteOrigin?: string;
+  },
   images: ArticleImagePolicy | null = null,
 ): QualitySettings {
   const ruleset = QUALITY_RULESETS[options.language];
@@ -40,7 +43,7 @@ export function resolveQualitySettings(
       message: "first person singular; the texts are signed by the editors (\"we\", \"you\"), never \"I\"",
     });
   }
-  const origins = [config.appOrigin, ...options.ownOrigins].map((origin) => new URL(origin).origin);
+  const origins = [config.appOrigin, ...(config.siteOrigin === undefined ? [] : [config.siteOrigin]), ...options.ownOrigins].map((origin) => new URL(origin).origin);
   return { options, ruleset, voicePatterns, ownOrigins: [...new Set(origins)], timeZone: config.timezone, images };
 }
 

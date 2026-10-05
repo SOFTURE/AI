@@ -145,7 +145,7 @@ export const blogOptionsSchema = z
     clusters: z.record(z.string().regex(KEBAB, "must be kebab-case, e.g. investing-basics"), localizedTextSchema).default({}),
     /** Block plugins for the app's fenced blocks (`renderArticle({ blocks })`), used by the pages. */
     blocks: z.array(z.custom<BlockPlugin>(isBlockPlugin, "must be a block plugin: { type: \"chart\", render(block) }")).default([]),
-    /** Hosts besides the `appOrigin` host whose links are not marked external (subdomains included). */
+    /** Hosts besides those of `appOrigin` and the canonical site origin (`getSiteUrls`) whose links are not marked external (subdomains included). */
     siteHosts: z.array(z.string().regex(HOSTNAME, "must be a host name, e.g. example.com")).default([]),
     /**
      * Which images article bodies may show (`renderArticle({ images })`), used by the pages and the
