@@ -2,7 +2,7 @@
 // `softure migrate` (@softure-ai/db): the file must be loadable by Node itself (`.js`/`.mjs`, or `.ts`
 // where Node strips types). Anything else uses an app script with `runBlogCli` instead (see run.ts).
 import { loadAppConfig, takeConfigOption } from "@softure-ai/core/cli";
-import { BLOG_USAGE, EXIT_FAILED, EXIT_OK, EXIT_USAGE, parseBlogCommand, runBlogCli, type CliOutput } from "./run.js";
+import { BLOG_USAGE, EXIT_FAILED, EXIT_OK, EXIT_USAGE, parseBlogCommand, runBlogCli, type BlogCommand, type CliOutput } from "./run.js";
 
 export interface RunBlogCommandOptions {
   readonly argv: readonly string[];
@@ -11,6 +11,10 @@ export interface RunBlogCommandOptions {
 }
 
 const APP_SCRIPT = { runner: "runBlogCli", packageName: "@softure-ai/blog" };
+
+// The commands that never connect, so a CI job runs them with a config that has no database URL.
+// Any other command (and a new one, until it is listed here) needs the database.
+const COMMANDS_WITHOUT_DATABASE: ReadonlySet<BlogCommand["kind"]> = new Set(["check", "skill-install"]);
 
 const consoleOutput: CliOutput = {
   log: (line) => console.log(line),
@@ -29,8 +33,7 @@ export async function runBlogCommand(options: RunBlogCommandOptions): Promise<nu
     return EXIT_OK;
   }
 
-  // `check` never connects, so a CI job runs it with a config that has no database URL.
-  const database = command.kind === "check" ? "optional" : "required";
+  const database = COMMANDS_WITHOUT_DATABASE.has(command.kind) ? "optional" : "required";
   const loaded = await loadAppConfig({ cwd: options.cwd, configPath: taken.configPath, appScript: APP_SCRIPT, database });
   if (!loaded.ok) {
     output.error(`softure-blog: ${loaded.problem}`);
