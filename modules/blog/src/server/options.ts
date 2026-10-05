@@ -47,6 +47,6 @@ export function getBlogReservedSlugs(config: SoftureConfig): string[] {
 
 /** The quality gate's settings, or `null` when the app turned the gate off (`quality: false`). */
 export function getQualitySettings(config: SoftureConfig): QualitySettings | null {
-  const { quality } = getBlogOptions(config);
-  return quality === false ? null : resolveQualitySettings(quality, config);
+  const { quality, images } = getBlogOptions(config);
+  return quality === false ? null : resolveQualitySettings(quality, config, images ?? null);
 }

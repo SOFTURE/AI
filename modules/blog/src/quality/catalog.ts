@@ -5,7 +5,7 @@ import type { QualitySeverity } from "./finding.js";
 import type { QualityRuleInfo } from "./plugin.js";
 import { getEffectiveSeverity, type QualitySettings } from "./settings.js";
 
-export const QUALITY_RULE_GROUPS = ["file", "structure", "links", "ymyl", "style", "voice", "plugin"] as const;
+export const QUALITY_RULE_GROUPS = ["file", "structure", "links", "images", "ymyl", "style", "voice", "plugin"] as const;
 export type QualityRuleGroup = (typeof QUALITY_RULE_GROUPS)[number];
 
 export interface QualityCatalogRule extends QualityRuleInfo {
@@ -38,6 +38,9 @@ const CORE_RULES: readonly QualityCatalogRule[] = [
   rule("links", "internal-link-target", "error", "every internal link leads to a page, article or glossary term"),
   rule("links", "external-link-https", "warning", "external links use https"),
   rule("links", "external-link-dead", "error", "external links answer 2xx (only with --external)"),
+  rule("images", "image-source", "error", "an image comes from the site or a host of blog({ images: { hosts } })"),
+  rule("images", "image-alt", "error", "an image has alt text"),
+  rule("images", "image-dimensions", "error", "the app knows an image's width and height (blog({ images: { dimensions } }))"),
   rule("style", "dashes", "error", "at most one dash per limits.wordsPerDash words"),
   rule("style", "dashes-paragraph", "warning", "at most one dash per paragraph"),
   rule("style", "bold-density", "warning", "at most one bold phrase per limits.wordsPerBold words"),
