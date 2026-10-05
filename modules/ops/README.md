@@ -1,6 +1,6 @@
 # @softure-ai/ops
 
-**Status:** implemented (identity ID-7) · 0.1.0, prepared for its first release (the owner's tag, `scripts/release/README.md`) · depends on: core, db
+**Status:** implemented (identity ID-7) · 0.1.1, prepared for its first release (the owner's tag, `scripts/release/README.md`) · depends on: core, db
 
 ## 1. What it provides
 

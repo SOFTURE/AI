@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/feature-switches",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "SOFTURE AI feature switches module: switches declared by the app with defaults, a fail mode and environment overrides, isEnabled and setSwitch, and an admin-only panel for Next.js.",
   "license": "MIT",
   "type": "module",
