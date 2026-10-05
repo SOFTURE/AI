@@ -1,5 +1,5 @@
 // `softure-blog publish` over a database connection, and the bin that loads the app's config.
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -257,6 +257,31 @@ describe("the softure-blog bin", () => {
     expect(result).toMatchObject({ code: 1 });
     // The in-memory database of the fixture has no tables: the config loaded and the command ran.
     expect(result.errors[0]).toMatch(/^softure-blog publish: relation "blog\.articles" does not exist/);
+  });
+
+  describe("with a config without a database URL", () => {
+    let appDir: string;
+
+    beforeEach(() => {
+      expect(process.env.SOFTURE_FIXTURE_UNSET_DATABASE_URL).toBeUndefined();
+      // Inside the fixtures, so the copy resolves the packages and `../content`.
+      appDir = mkdtempSync(join(FIXTURES_DIR, "tmp-"));
+      copyFileSync(join(FIXTURES_DIR, "without-database.config.mjs"), join(appDir, "softure.config.mjs"));
+    });
+
+    afterEach(() => rmSync(appDir, { recursive: true, force: true }));
+
+    it("runs check, which never connects", async () => {
+      const result = await runBin(["check"], appDir);
+      expect(result.errors).toEqual([]);
+      expect(result.lines.at(-1)).toMatch(/^check: 2 file\(s\), \d+ error\(s\), \d+ warning\(s\)/);
+    });
+
+    it("still refuses publish, which needs the database", async () => {
+      const result = await runBin(["publish"], appDir);
+      expect(result.code).toBe(1);
+      expect(result.errors).toEqual([expect.stringMatching(/^softure-blog: cannot load .*softure\.config\.mjs: .*database\.url: must not be empty/s)]);
+    });
   });
 
   it("refuses usage errors before it looks for a config", async () => {

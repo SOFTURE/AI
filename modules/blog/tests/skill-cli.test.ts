@@ -106,6 +106,48 @@ describe("softure-blog skill install", () => {
     expect(run.errors[0]).toBe(`softure-blog: ${problem}`);
   });
 
+  it("installs the app's own sections and --check covers them", async () => {
+    const sections = [{ title: "Engine numbers", body: "Every number comes from the engine." }];
+    const install = await runSkill(["install"], { skill: { sections } });
+    expect(install.code).toBe(0);
+    expect(install.lines).toContain("wrote .claude/skills/blog-write/references/app.md");
+    expect(readFileSync(join(app, DEFAULT_SKILL_DIR, "references/app.md"), "utf8")).toContain("## Engine numbers\n\nEvery number comes from the engine.\n");
+    expect((await runSkill(["install", "--check"], { skill: { sections } })).code).toBe(0);
+
+    const changed = await runSkill(["install", "--check"], { skill: { sections: [{ title: "Engine numbers", body: "Round every number." }] } });
+    expect(changed.code).toBe(1);
+    expect(changed.errors).toEqual([
+      "skill: .claude/skills/blog-write/references/app.md differs from the blog config",
+      "skill: run softure-blog skill install with the same options and commit the folder",
+    ]);
+  });
+
+  it("--check reports a file the skill no longer has, and install removes it", async () => {
+    await runSkill(["install"], { skill: { sections: [{ title: "Chart block", body: "One chart after the lead." }] } });
+    const check = await runSkill(["install", "--check"]);
+    expect(check.code).toBe(1);
+    expect(check.errors).toEqual([
+      "skill: .claude/skills/blog-write/SKILL.md differs from the blog config",
+      "skill: .claude/skills/blog-write/references/app.md is not part of the skill",
+      "skill: run softure-blog skill install with the same options and commit the folder",
+    ]);
+    expect(existsSync(join(app, DEFAULT_SKILL_DIR, "references/app.md"))).toBe(true);
+
+    const install = await runSkill(["install"]);
+    expect(install.code).toBe(0);
+    expect(install.lines).toContain("removed .claude/skills/blog-write/references/app.md");
+    expect(existsSync(join(app, DEFAULT_SKILL_DIR, "references/app.md"))).toBe(false);
+    expect((await runSkill(["install", "--check"])).code).toBe(0);
+  });
+
+  it("removes only Markdown files it does not render", async () => {
+    await runSkill(["install"]);
+    writeFileSync(join(app, DEFAULT_SKILL_DIR, "notes.txt"), "kept\n");
+    const run = await runSkill(["install"]);
+    expect(run.code).toBe(0);
+    expect(readFileSync(join(app, DEFAULT_SKILL_DIR, "notes.txt"), "utf8")).toBe("kept\n");
+  });
+
   it("marks the generated SKILL.md", async () => {
     await runSkill(["install"]);
     expect(readFileSync(join(app, DEFAULT_SKILL_DIR, "SKILL.md"), "utf8")).toContain(SKILL_MARKER);

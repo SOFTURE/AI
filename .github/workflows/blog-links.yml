@@ -16,8 +16,8 @@
 #       uses: SOFTURE/AI/.github/workflows/blog-links.yml@master
 #
 # The app's config must load in Node (softure.config.mjs or .js), or `command` names an app script
-# that calls runBlogCli. `check` never connects to the database; a config that requires a database
-# URL gets the placeholder in DATABASE_URL.
+# that calls runBlogCli. `check` never connects to the database, so the job sets no DATABASE_URL: the
+# bin loads the config with the database optional, and a missing or empty URL loads as no database.
 
 name: blog-links
 
@@ -36,10 +36,6 @@ on:
         description: The gate with external links
         type: string
         default: "npx softure-blog check --external"
-      database-url:
-        description: DATABASE_URL for a config that requires one; check never connects
-        type: string
-        default: "postgres://unused:unused@localhost:5432/unused"
 
 permissions:
   contents: read
@@ -53,7 +49,6 @@ jobs:
         working-directory: ${{ inputs.working-directory }}
     env:
       LEFTHOOK: "0"
-      DATABASE_URL: ${{ inputs.database-url }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
