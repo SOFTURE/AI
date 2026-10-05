@@ -440,7 +440,9 @@ Constraints: id, slug, cluster and old slug kebab-case (at most 100 characters);
 closed lists; text lengths; a published text has a publication date; an update date needs one; a
 pillar has a cluster; a term has forms and an article has none; a unique slug; one pillar per cluster
 among texts not withdrawn (an exclusion constraint deferred to commit, so one run can move the pillar).
-"A slug is not in another article's history" stays in the code, under a row lock.
+"A slug is not in another article's history" stays in the code, under a row lock. A run that loses a race for
+a slug (another run committed it between the read and the write) is refused with `blog.slug_taken`,
+naming the article that took it, like any other taken slug.
 
 ## 6. Environment variables
 
@@ -503,8 +505,8 @@ Articles hold editorial content, no personal data: nothing to export or delete.
 
 ## 12. Limitations
 
-- One publish at a time per article: concurrent runs take row locks, and a run that loses a slug race
-  fails on the unique constraint instead of reporting `blog.slug_taken`.
+- Two runs that rename one article away from a slug and give it to another at the same moment can leave the
+  slug both current and in the slug history (BF-12).
 - The content hash is part of the contract: a field added later enters it only when present.
 - No `--stdin` (a deploy transport).
 - `softure-blog publish` runs outside the app and cannot refresh its cache: the running app shows the
