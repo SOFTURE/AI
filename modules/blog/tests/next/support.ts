@@ -1,14 +1,16 @@
 // A published blog on PGlite for the Next adapter and the proxy piece: two articles in a cluster (one
 // the pillar, with a summary, FAQ and a link to a term), one without a cluster, a term, a withdrawn
 // article and term, a draft, and an article renamed once (its old slug in the history).
+import type { AnySoftureModule } from "@softure-ai/core";
 import type { BlogOptionsInput } from "@softure-ai/blog";
 import { runBlogPublish } from "@softure-ai/blog/server";
 import { buildArticleFile, createTestBlog, type TestBlog } from "../support.js";
 
 export const BODY = "An index fund buys the whole market, so its expense ratio stays low.\n\n## Costs\n\nLow fees.\n\n## Risks\n\nThe market moves.";
 
-export async function createPublishedBlog(options: BlogOptionsInput = {}): Promise<TestBlog> {
-  const test = await createTestBlog({ brand: { name: "Example" }, methodPage: true, disclaimer: { en: "Not investment advice." }, ...options });
+/** `others`: modules listed before the blog, e.g. `seo()`. */
+export async function createPublishedBlog(options: BlogOptionsInput = {}, others: readonly AnySoftureModule[] = []): Promise<TestBlog> {
+  const test = await createTestBlog({ brand: { name: "Example" }, methodPage: true, disclaimer: { en: "Not investment advice." }, ...options }, others);
   const files = [
     buildArticleFile(
       { cluster: "investing-basics", pillar: true, summary: "Index funds are cheap and broad.", faq: [{ question: "Is it safe?", answer: "It follows the market." }] },

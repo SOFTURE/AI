@@ -104,6 +104,13 @@ describe("defineModule", () => {
     );
     expect(error.issues).toEqual(["switchReader: must be a function"]);
   });
+
+  it("refuses a site URL provider that is not a function", () => {
+    const error = catchConfigError(() =>
+      defineModule({ manifest, messages: { en, pl }, migrations, privacy, siteUrls: "https://example.com" as never }),
+    );
+    expect(error.issues).toEqual(["siteUrls: must be a function"]);
+  });
 });
 
 describe("a module factory", () => {
