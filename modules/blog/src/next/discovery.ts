@@ -3,7 +3,7 @@
 //
 //   app/blog/rss.xml/route.ts   export { serveBlogRss as GET } from "@softure-ai/blog/next";
 //                               export const dynamic = "force-dynamic";
-import { errorLogLabel, formatMessage } from "@softure-ai/core";
+import { errorLogLabel, formatMessage, getSiteUrls } from "@softure-ai/core";
 import { getSoftureConfig } from "@softure-ai/core/next";
 import { buildBlogRss } from "../discovery/rss.js";
 import { getClusterLabel } from "../pages/listing.js";
@@ -28,7 +28,7 @@ export async function serveBlogRss(): Promise<Response> {
     const xml = buildBlogRss({
       articles,
       terms,
-      origin: config.appOrigin,
+      urls: getSiteUrls(config),
       routes: context.routes,
       feedPath: context.routes.rss,
       channel: {

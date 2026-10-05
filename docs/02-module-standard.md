@@ -184,6 +184,11 @@ export default defineSoftureConfig({
   passes `switchReader` to `defineModule`) answers `{ kind: "value", isEnabled }` for a defined
   switch, else `{ kind: "undeclared" }`, and the module falls back to its own default. At most one
   enabled module provides the reader (followups FU-1).
+- **Absolute URLs a page declares** (canonical, Open Graph, JSON-LD, feeds) come from
+  `getSiteUrls(config)` of `@softure-ai/core`: the app's site URL provider (seo, which passes
+  `siteUrls` to `defineModule`) applies its origin, host and trailing-slash rule, else the path goes on
+  `appOrigin`. A module never imports an optional module to build them: a bundler resolves every
+  `import()`. At most one enabled module provides the site URLs (blog-followups BF-7).
 - Configuration is validated (zod) at startup, and `softure doctor` checks environment variables,
   dependencies, migrations and route mounting.
 

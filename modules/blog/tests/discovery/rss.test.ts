@@ -1,13 +1,19 @@
 // The RSS feed (FIRE's cases).
+import { defineSoftureConfig, getSiteUrls, type AnySoftureModule } from "@softure-ai/core";
 import { buildBlogRss, type BuildBlogRssInput } from "@softure-ai/blog/server";
+import { seo } from "@softure-ai/seo";
 import { describe, expect, it } from "vitest";
 import { buildText, ROUTES } from "./support.js";
+
+function getUrls(modules: readonly AnySoftureModule[] = []): BuildBlogRssInput["urls"] {
+  return getSiteUrls(defineSoftureConfig({ locale: "en", timezone: "UTC", appOrigin: "https://example.com", modules: [...modules] }));
+}
 
 function buildFeed(overrides: Partial<BuildBlogRssInput> = {}): string {
   return buildBlogRss({
     articles: [],
     terms: [],
-    origin: "https://example.com",
+    urls: getUrls(),
     routes: ROUTES,
     feedPath: ROUTES.rss,
     channel: { title: "Blog | Example", description: "Texts & notes", language: "en" },
@@ -62,5 +68,15 @@ describe("buildBlogRss", () => {
     expect(empty).toContain("<channel>");
     expect(empty).not.toContain("<item>");
     expect(empty).not.toContain("<lastBuildDate>");
+  });
+
+  it("links the pages by seo's canonical rule and itself on seo's host without the trailing slash", () => {
+    const feed = buildFeed({
+      urls: getUrls([seo({ origin: "https://www.example.org", canonical: { host: "apex", trailingSlash: true } })]),
+      articles: [buildText("bridge")],
+    });
+    expect(feed).toContain("<link>https://example.org/blog/</link>");
+    expect(feed).toContain("<link>https://example.org/blog/bridge/</link>");
+    expect(feed).toContain('<atom:link href="https://example.org/blog/rss.xml" rel="self" type="application/rss+xml"/>');
   });
 });
