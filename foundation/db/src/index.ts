@@ -28,3 +28,10 @@ export {
 } from "./migrations/migrator.js";
 export { adoptModule, type AdoptionReport, type AdoptOptions } from "./migrations/adopt.js";
 export { exportMigrations } from "./migrations/export.js";
+export {
+  checkExportedMigrations,
+  type ExportedMigration,
+  type ExportedMigrationsCheck,
+} from "./migrations/exported.js";
+export { readJournal, type JournalRow, type MigrationMethod } from "./migrations/ledger.js";
+export type { MigrationSession } from "./migrations/session.js";

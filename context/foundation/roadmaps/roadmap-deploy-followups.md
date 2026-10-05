@@ -38,10 +38,11 @@ trigger: "the deploy roadmap closes; the owner promotes it or takes single items
 
 | ID | Change | Outcome | Depends on | Mode | Status |
 | --- | --- | --- | --- | --- | --- |
-| **DF-1** | `deploy-fire-parity` | `env render` and `release-notes` checked against FIRE_TRACKER's scripts and tests; differences ported or recorded | — | autonomous | ready |
+| **DF-1** | `deploy-fire-parity` | `env render`, `release-notes`, the deploy workflow and the database steps (`backup`, `schema-guard`, `row-counts`) checked against FIRE_TRACKER's scripts and tests; differences ported or recorded | — | autonomous | ready |
 | **DF-2** | `deploy-workflow-verify-config` | the `verify` job of `deploy-app.yml` runs `softure-deploy verify` with the app's `deploy.json` instead of only the health route | DP-4 | autonomous | ready |
 | **DF-3** | `deploy-workflow-e2e` | a CI job runs `deploy-app.yml` against a throwaway SSH server and registry, so a broken step fails here, not on the first live deploy | DP-5, DP-8 | autonomous | ready |
 | **DF-4** | `auth-testing-account-factory` | `@softure-ai/auth/testing` creates an account in SQL with auth's hashing; the example's e2e uses it outside registration specs | — | autonomous | ready |
+| **DF-5** | `deploy-row-count-config` | the tables `row-counts` compares come from `deploy.json` | DP-4 | autonomous | ready |
 
 ## Order
 
@@ -60,13 +61,16 @@ Lanes are set when the roadmap is promoted, by shared files.
   `auto-release.yml` and its SSH gateway (`docker/prod/`, the forced command) are read; generic steps
   `deploy-app.yml` lacks (a release report post, image pruning, tagging on merge) are ported or recorded, and the
   forced-command protocol (`<remote-command> <tag>` with `.env.prod` on stdin) is aligned with FIRE's gateway.
+  The same for `docker/server/deploy.sh` against DP-3's `backup`, `schema-guard` and `row-counts` (backup format
+  and retention default, the guard's cases, which counts it compares and what a drop does).
 - **Prerequisites:** a session that can read FIRE_TRACKER.
 - **Unknowns:** whether FIRE's report groups entries differently (by type or label) than DP-1's two sections.
 - **Risk:** low. DP-1 is tested on its own; this closes the "same tests green" baseline of DP-1.
 - **Source:** DP-1 (`deploy-cli-env-notes`), research: the session could not read FIRE_TRACKER (cloning it was
   refused by the sandbox), so the report format comes from the roadmap, not from FIRE's workflow.
   Extended by DP-2 (`deploy-reusable-workflows`), implementation review: the workflow steps and the gateway
-  protocol come from the roadmap too.
+  protocol come from the roadmap too. Extended by DP-3 (`deploy-db-guard`): `deploy.sh` could not be read
+  either, so the database steps follow the roadmap item.
 - **PRD refs:** FR-33.
 
 ### DF-2: The deploy workflow verifies with `softure-deploy verify`
@@ -109,6 +113,18 @@ Lanes are set when the roadmap is promoted, by shared files.
   creates accounts in SQL; DP-7 decided module-specific factories belong in each module's own `testing`
   export (precedent: `@softure-ai/mailing/testing`), and adding one to auth was outside DP-7.
 - **PRD refs:** FR-35, FR-9.
+
+### DF-5: Row-count tables from deploy.json
+- **Change ID:** `deploy-row-count-config`
+- **Status:** ready
+- **Input:** [`deploy-row-count-config`](../../backlog/roadmap-deploy-followups/deploy-row-count-config/change.md)
+- **Outcome:** `deploy.json` gets an optional `database.rowCountTables` list (zod schema and JSON Schema);
+  `row-counts` reads it when `--tables` is not given.
+- **Prerequisites:** DP-4 (`deploy.json`) on `master`.
+- **Unknowns:** none.
+- **Risk:** low. A convenience; `--tables` works without it. Mode: autonomous, no owner step.
+- **Source:** DP-3 (`deploy-db-guard`), plan review S2: DP-4 owned `deploy.json` while DP-3 ran in parallel.
+- **PRD refs:** FR-33.
 
 ## Owner decisions and checks
 

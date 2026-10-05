@@ -40,9 +40,9 @@ afterEach(() => {
 });
 
 describe("softure-deploy env render", () => {
-  it("writes .env.prod with mode 0600 and prints the names, never a value", () => {
+  it("writes .env.prod with mode 0600 and prints the names, never a value", async () => {
     writeCompose();
-    const code = runCli(["env", "render"], makeIo({ DATABASE_URL: "postgres://db/app", AUTH_SECRET: SECRET }));
+    const code = await runCli(["env", "render"], makeIo({ DATABASE_URL: "postgres://db/app", AUTH_SECRET: SECRET }));
     expect(code).toBe(0);
     const envPath = join(dir, ".env.prod");
     expect(readFileSync(envPath, "utf8")).toBe(`AUTH_SECRET=${SECRET}\nDATABASE_URL=postgres://db/app\n`);
@@ -51,45 +51,45 @@ describe("softure-deploy env render", () => {
     expect(err).toEqual([]);
   });
 
-  it("refuses a missing name, writes nothing and keeps the value of the others out of the output", () => {
+  it("refuses a missing name, writes nothing and keeps the value of the others out of the output", async () => {
     writeCompose();
-    const code = runCli(["env", "render"], makeIo({ AUTH_SECRET: SECRET }));
+    const code = await runCli(["env", "render"], makeIo({ AUTH_SECRET: SECRET }));
     expect(code).toBe(1);
     expect(existsSync(join(dir, ".env.prod"))).toBe(false);
     expect(err.join("")).toBe("env render: .env.prod not written; missing in the environment: DATABASE_URL.\n");
     expect(out.join("") + err.join("")).not.toContain(SECRET);
   });
 
-  it("refuses a value it cannot write literally, naming only the variable", () => {
+  it("refuses a value it cannot write literally, naming only the variable", async () => {
     writeCompose();
-    const code = runCli(["env", "render"], makeIo({ DATABASE_URL: "x", AUTH_SECRET: `${SECRET}\nsecond line` }));
+    const code = await runCli(["env", "render"], makeIo({ DATABASE_URL: "x", AUTH_SECRET: `${SECRET}\nsecond line` }));
     expect(code).toBe(1);
     expect(err.join("")).toContain("no literal one-line form (a newline or a single quote): AUTH_SECRET");
     expect(out.join("") + err.join("")).not.toContain(SECRET);
   });
 
-  it("replaces an existing .env.prod and narrows its mode to 0600", () => {
+  it("replaces an existing .env.prod and narrows its mode to 0600", async () => {
     writeCompose();
     writeFileSync(join(dir, ".env.prod"), "OLD=1\n", { mode: 0o644 });
-    expect(runCli(["env", "render"], makeIo({ DATABASE_URL: "d", AUTH_SECRET: "a" }))).toBe(0);
+    expect(await runCli(["env", "render"], makeIo({ DATABASE_URL: "d", AUTH_SECRET: "a" }))).toBe(0);
     expect(readFileSync(join(dir, ".env.prod"), "utf8")).toBe("AUTH_SECRET=a\nDATABASE_URL=d\n");
     expect(statSync(join(dir, ".env.prod")).mode & 0o777).toBe(0o600);
   });
 
-  it("takes another compose file and output path", () => {
+  it("takes another compose file and output path", async () => {
     writeFileSync(join(dir, "compose.yml"), "x: ${ONLY:?}\n");
-    const code = runCli(["env", "render", "--compose=compose.yml", "--out", "secrets.env"], makeIo({ ONLY: "1" }));
+    const code = await runCli(["env", "render", "--compose=compose.yml", "--out", "secrets.env"], makeIo({ ONLY: "1" }));
     expect(code).toBe(0);
     expect(readFileSync(join(dir, "secrets.env"), "utf8")).toBe("ONLY=1\n");
   });
 
-  it("fails on a missing compose file, a compose file without required names and an unknown flag", () => {
-    expect(runCli(["env", "render"], makeIo())).toBe(1);
+  it("fails on a missing compose file, a compose file without required names and an unknown flag", async () => {
+    expect(await runCli(["env", "render"], makeIo())).toBe(1);
     expect(err.at(-1)).toMatch(/cannot read the compose file .*docker-compose\.yml \(ENOENT\)/);
     writeCompose("services: {}\n");
-    expect(runCli(["env", "render"], makeIo())).toBe(1);
+    expect(await runCli(["env", "render"], makeIo())).toBe(1);
     expect(err.at(-1)).toContain("has no required variable");
-    expect(runCli(["env", "render", "--composee=x"], makeIo())).toBe(2);
+    expect(await runCli(["env", "render", "--composee=x"], makeIo())).toBe(2);
     expect(err.at(-1)).toContain("--composee");
   });
 });
@@ -110,8 +110,8 @@ describe("softure-deploy release-notes", () => {
     git("tag", "v1.1.0");
   });
 
-  it("prints the report since the previous tag, linking to the Actions repository", () => {
-    const code = runCli(
+  it("prints the report since the previous tag, linking to the Actions repository", async () => {
+    const code = await runCli(
       ["release-notes", "--to=v1.1.0", "--match=v*"],
       makeIo({ GITHUB_SERVER_URL: "https://github.com", GITHUB_REPOSITORY: "acme/app" }),
     );
@@ -123,28 +123,29 @@ describe("softure-deploy release-notes", () => {
     expect(notes).toContain("[Full diff](https://github.com/acme/app/compare/v1.0.0...v1.1.0)");
   });
 
-  it("writes the report to a file in Polish", () => {
-    const code = runCli(["release-notes", "--from=v1.0.0", "--to=v1.1.0", "--locale=pl", "--out=notes.md"], makeIo());
+  it("writes the report to a file in Polish", async () => {
+    const code = await runCli(["release-notes", "--from=v1.0.0", "--to=v1.1.0", "--locale=pl", "--out=notes.md"], makeIo());
     expect(code).toBe(0);
     expect(readFileSync(join(dir, "notes.md"), "utf8")).toContain("### Pull requesty");
     expect(out.join("")).toBe("release-notes: v1.0.0...v1.1.0 written to notes.md\n");
   });
 
-  it("rejects an option-like ref, an unknown ref, an unknown locale and a bad repository URL", () => {
-    expect(runCli(["release-notes", "--from=--output=x"], makeIo())).toBe(2);
-    expect(runCli(["release-notes", "--to=v9.9.9"], makeIo())).toBe(1);
+  it("rejects an option-like ref, an unknown ref, an unknown locale and a bad repository URL", async () => {
+    expect(await runCli(["release-notes", "--from=--output=x"], makeIo())).toBe(2);
+    expect(await runCli(["release-notes", "--to=v9.9.9"], makeIo())).toBe(1);
     expect(err.at(-1)).toContain("names no commit");
-    expect(runCli(["release-notes", "--locale=de"], makeIo())).toBe(2);
-    expect(runCli(["release-notes", "--repo-url=http://example.com/a/b"], makeIo())).toBe(2);
+    expect(await runCli(["release-notes", "--locale=de"], makeIo())).toBe(2);
+    expect(await runCli(["release-notes", "--repo-url=http://example.com/a/b"], makeIo())).toBe(2);
   });
 });
 
 describe("softure-deploy", () => {
-  it("prints the usage for help and exits 2 on no or an unknown command", () => {
-    expect(runCli(["help"], makeIo())).toBe(0);
+  it("prints the usage for help and exits 2 on no or an unknown command", async () => {
+    expect(await runCli(["help"], makeIo())).toBe(0);
     expect(out.join("")).toContain("Usage: softure-deploy");
-    expect(runCli([], makeIo())).toBe(2);
-    expect(runCli(["deploy"], makeIo())).toBe(2);
+    for (const command of ["backup", "schema-guard", "row-counts"]) expect(out.join("")).toContain(`\n  ${command} `);
+    expect(await runCli([], makeIo())).toBe(2);
+    expect(await runCli(["deploy"], makeIo())).toBe(2);
     expect(err.join("")).toContain('unknown command "deploy"');
   });
 
