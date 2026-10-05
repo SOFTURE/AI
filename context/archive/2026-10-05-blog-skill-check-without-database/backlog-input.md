@@ -16,7 +16,7 @@ URL is missing or empty, since rendering the skill never connects to the databas
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md) (blog-followups), item **BF-13**:
+From [`roadmap.md`](../../foundation/roadmap.md) (blog-followups), item **BF-13**:
 
 > ### BF-13: softure-blog skill install without a database URL
 > - **Change ID:** `blog-skill-check-without-database`

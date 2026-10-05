@@ -57,7 +57,7 @@ backlog: context/backlog/roadmap-blog-followups/
 | **BF-10** | `blog-publish-cache-refresh` | `softure-blog publish --commit` refreshes the running app's blog cache before the IndexNow submit | BF-2 | autonomous | ready |
 | **BF-11** | `blog-canonical-host-links` | a body link to seo's canonical host counts as internal in the renderer and the gate | BF-7 | autonomous | proposed |
 | **BF-12** | `blog-slug-history-race` | a slug taken while another run renames away from it does not end up both current and in the slug history | — | autonomous | proposed |
-| **BF-13** | `blog-skill-check-without-database` | `softure-blog skill install` runs with an app config that has no database URL | BF-6 | autonomous | proposed |
+| **BF-13** | `blog-skill-check-without-database` | `softure-blog skill install` runs with an app config that has no database URL | BF-6 | autonomous | done_code (2026-10-05; waiting: the first release of `@softure-ai/blog`, BL-8) |
 | **BF-14** | `blog-og-fonts-check` | `softure-blog check` reads the OG card's `brand.fonts` and reports a source it cannot read | BF-8 | autonomous | proposed |
 
 ## Order
@@ -221,8 +221,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### BF-13: softure-blog skill install without a database URL
 - **Change ID:** `blog-skill-check-without-database`
-- **Status:** proposed
-- **Input:** [`blog-skill-check-without-database`](../backlog/roadmap-blog-followups/blog-skill-check-without-database/change.md)
+- **Status:** done_code (2026-10-05; waiting: the first release of `@softure-ai/blog`, BL-8)
+- **Input:** [`context/archive/2026-10-05-blog-skill-check-without-database/`](../archive/2026-10-05-blog-skill-check-without-database/change.md)
 - **Outcome:** the blog bin loads the config with `database: "optional"` for `skill install` as it does for `check`; a bin test runs `skill install --check` over a config without a database URL.
 - **Prerequisites:** BF-6 on `master` (the loader's `database` option).
 - **Risk:** low. A CI job that runs `skill install --check` passes a placeholder `DATABASE_URL` today; nothing connects.
@@ -245,6 +245,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ## Done
 
+- **BF-13** `blog-skill-check-without-database` (done_code 2026-10-05): `softure-blog skill install` and `skill install --check` load an app config without a database URL, like `check` (the bin's `COMMANDS_WITHOUT_DATABASE`); `publish` still requires it; no gaps; archived in [`archive/2026-10-05-blog-skill-check-without-database/`](../archive/2026-10-05-blog-skill-check-without-database/change.md)
 - **BF-8** `blog-og-fonts` (done_code 2026-10-05): `blog({ brand: { fonts } })` (name, weight, style, a path or an https URL) feeds the article OG card; the route reads each source once per process, checks it is a `.ttf`, `.otf` or `.woff` font, and fails the card with a message naming `brand.fonts[i]` and the file; gap BF-14; archived in [`archive/2026-10-05-blog-og-fonts/`](../archive/2026-10-05-blog-og-fonts/change.md).
 - **BF-2** `blog-publish-slug-race` (done_code 2026-10-05): a run that loses a slug race is refused with `blog.slug_taken` naming the winner, covered by two-connection Postgres tests; archived in `archive/2026-10-05-blog-publish-slug-race/`
 - **BF-9** `blog-skill-app-notes` (done_code 2026-10-05): `blog({ skill: { sections } })` puts the app's own sections into the generated writing skill (`references/app.md`, named in `SKILL.md`), kept across reinstalls and covered by `--check`; install removes a Markdown file of its folder the config no longer gives; archived in [`archive/2026-10-05-blog-skill-app-notes/`](../archive/2026-10-05-blog-skill-app-notes/change.md).
