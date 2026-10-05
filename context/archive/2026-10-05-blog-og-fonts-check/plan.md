@@ -82,6 +82,6 @@ rule; the existing check, cli and og-fonts tests unchanged.
 ### Phase 1: `softure-blog check` reads the brand fonts
 
 #### Automated
-- [ ] 1.1 The bin's `check` reports a missing font file with the loader's message and exits 1
-- [ ] 1.2 A readable font changes nothing; a 404 URL and an empty folder still fail; the CLI never imports `src/next/`
-- [ ] 1.3 Gates green (typecheck, lint, test, build)
+- [x] 1.1 The bin's `check` reports a missing font file with the loader's message and exits 1 — c993bc8
+- [x] 1.2 A readable font changes nothing; a 404 URL and an empty folder still fail; the CLI never imports `src/next/` — c993bc8
+- [x] 1.3 Gates green (typecheck, lint, test, build) — c993bc8

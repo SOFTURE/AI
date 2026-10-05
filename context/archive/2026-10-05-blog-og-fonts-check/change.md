@@ -1,12 +1,12 @@
 ---
 change_id: blog-og-fonts-check
 title: "softure-blog check reads the OG card's brand fonts"
-status: active
+status: archived
 roadmap_item: BF-14
 branch: claude/project-thread-l5x1qg
 created: 2026-10-05
 updated: 2026-10-05
-archived_at: null
+archived_at: 2026-10-05
 ---
 
 ## Intent
@@ -53,3 +53,4 @@ runs in parallel; gaps go to the roadmap from the next free `BF-` number on `mas
   involved. The plan cites the files it builds on.
 - Framing skipped: the problem and the outcome are fixed by the roadmap item (BF-8 impl review R1); the
   one shape question (where the loader lives so the CLI can import it) is a plan decision.
+- Archived 2026-10-05: `softure-blog check` reads every `brand.fonts` source with the card's loader (now in `src/server/og-fonts.ts`) from the working directory and reports one it cannot read as an error with the loader's message; `runBlogCli({ fontFetch })`; no gaps.
