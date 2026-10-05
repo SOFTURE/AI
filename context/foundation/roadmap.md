@@ -51,7 +51,7 @@ backlog: context/backlog/roadmap-blog-followups/
 | **BF-3** | `blog-article-images` | images in article bodies under a hosting policy (allowed sources, alt, dimensions) | — | autonomous | ready |
 | **BF-4** | `blog-glossary-form-conflicts` | a glossary form claimed by two terms is refused, naming both | BF-3 | autonomous | ready |
 | **BF-6** | `blog-check-without-database` | `softure-blog check` runs with an app config that has no database URL | BF-1 | autonomous | ready |
-| **BF-7** | `blog-seo-canonical` | the blog's canonical, OG and JSON-LD URLs follow `@softure-ai/seo`'s canonical host and trailing-slash rule | — | autonomous | ready |
+| **BF-7** | `blog-seo-canonical` | the blog's canonical, OG and JSON-LD URLs follow `@softure-ai/seo`'s canonical host and trailing-slash rule | — | autonomous | **in_progress (implement 1/1, since 2026-10-05; cloud session, branch `claude/project-thread-wqikv3` — do not take in another session)** |
 | **BF-8** | `blog-og-fonts` | `blog({ brand: { fonts } })` gives the article OG card the brand's fonts | BF-7 | autonomous | ready |
 | **BF-9** | `blog-skill-app-notes` | the generated writing skill carries the app's own sections across reinstalls | — | autonomous | ready |
 | **BF-10** | `blog-publish-cache-refresh` | `softure-blog publish --commit` refreshes the running app's blog cache before the IndexNow submit | BF-2 | autonomous | ready |
@@ -147,8 +147,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### BF-7: Blog URLs follow the seo canonical rule
 - **Change ID:** `blog-seo-canonical`
-- **Status:** ready
-- **Input:** [`blog-seo-canonical`](../backlog/roadmap-blog-followups/blog-seo-canonical/change.md)
+- **Status:** in_progress (implement 1/1, since 2026-10-05; cloud session, branch `claude/project-thread-wqikv3` — do not take in another session)
+- **Input:** [`blog-seo-canonical`](../changes/blog-seo-canonical/change.md)
 - **Outcome:** the blog's pages build canonical, OG and JSON-LD URLs through `@softure-ai/seo`'s canonical URL helper when `seo()` is in the config, and on `appOrigin` otherwise; a test covers a canonical host that differs from `appOrigin` and a trailing-slash rule.
 - **Prerequisites:** none.
 - **Risk:** low. The example app's canonical host equals `appOrigin`; only an app with another canonical host is affected.

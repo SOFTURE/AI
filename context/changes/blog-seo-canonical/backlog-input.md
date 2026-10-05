@@ -17,7 +17,7 @@ from the one the sitemap and the rest of the app use.
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md) (blog-followups), item **BF-7**:
+From [`roadmap.md`](../../foundation/roadmap.md) (blog-followups), item **BF-7**:
 
 > ### BF-7: Blog URLs follow the seo canonical rule
 > - **Change ID:** `blog-seo-canonical`
