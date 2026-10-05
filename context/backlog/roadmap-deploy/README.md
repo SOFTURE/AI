@@ -26,7 +26,7 @@ DP-8 waits for the owner at the keyboard on 2026-10-06:
 | --- | --- | --- | --- | --- |
 | DP-1 | [`deploy-cli-env-notes`](../../archive/2026-10-05-deploy-cli-env-notes/change.md) (done 2026-10-05) | Deploy CLI: env rendering and release notes | roadmap promoted | start |
 | DP-2 | [`deploy-reusable-workflows`](../../archive/2026-10-05-deploy-reusable-workflows/change.md) (done 2026-10-05) | Reusable deploy workflows | DP-1 on master | dependency |
-| DP-3 | [`deploy-db-guard`](deploy-db-guard/change.md) | Backup and schema guard before a deploy | DP-1 on master | dependency |
+| DP-3 | [`deploy-db-guard`](../../archive/2026-10-05-deploy-db-guard/change.md) (done 2026-10-05) | Backup and schema guard before a deploy | DP-1 on master | dependency |
 | DP-4 | [`deploy-verify-production`](../../archive/2026-10-05-deploy-verify-production/change.md) (done 2026-10-05) | Production verify from config | DP-1 on master | dependency |
 | DP-5 | [`deploy-init-template`](deploy-init-template/change.md) | Deploy files generated once | DP-2, DP-3 and DP-4 on master | dependency |
 | DP-6 | [`testing-clock-shift`](../../archive/2026-10-05-testing-clock-shift/change.md) | Test clock shift | taken (done 2026-10-05) | start |

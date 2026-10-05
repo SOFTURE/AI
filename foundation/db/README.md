@@ -97,6 +97,11 @@ The same operations as functions: `migrate(handle, { modules, migrationsDir?, on
 `exportMigrations(modules, dir)`. Each returns `{ ok: true, value } | { ok: false, error, problems }`;
 `describeProblem(problem)` gives the English line.
 
+For a deploy, `checkExportedMigrations(dir, journal)` runs the same comparison on an exported folder without the app
+config: `journal` is `readJournal(session)` of the target database, and the result lists the pending files and the
+ledger modules the folder does not hold, or every problem. `softure-deploy schema-guard` (`@softure-ai/deploy`) is
+built on it.
+
 ## 5. Migrations and tables
 
 **Owned:** schema `softure`, table `softure.migrations` (`id, module, version, name, checksum,

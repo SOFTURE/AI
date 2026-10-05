@@ -33,5 +33,5 @@ An entry is never in two places, neither as a copy nor as a pointer.
 | --- | --- | --- |
 | [`roadmap-charts/`](roadmap-charts/) | [charts](../foundation/roadmaps/roadmap-charts.md) | the owner promotes it |
 | [`roadmap-deploy/`](roadmap-deploy/) | [deploy](../foundation/roadmap.md) | promoted 2026-10-05 (main roadmap; DP-1…DP-8) |
-| [`roadmap-deploy-followups/`](roadmap-deploy-followups/) | [deploy-followups](../foundation/roadmaps/roadmap-deploy-followups.md) | the owner promotes it, or takes single items (DF-1 from DP-1) |
+| [`roadmap-deploy-followups/`](roadmap-deploy-followups/) | [deploy-followups](../foundation/roadmaps/roadmap-deploy-followups.md) | the owner promotes it, or takes single items (DF-1 from DP-1, extended by DP-3; DF-5 from DP-3) |
 | [`roadmap-later/`](roadmap-later/) | [later](../foundation/roadmaps/roadmap-later.md) | the owner step each item waits on is done (MK-8, EN-9 and MO-6 carried over from followups; BL-8 from blog) |

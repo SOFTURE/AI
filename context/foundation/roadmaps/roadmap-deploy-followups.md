@@ -38,11 +38,12 @@ trigger: "the deploy roadmap closes; the owner promotes it or takes single items
 
 | ID | Change | Outcome | Depends on | Mode | Status |
 | --- | --- | --- | --- | --- | --- |
-| **DF-1** | `deploy-fire-parity` | `env render`, `release-notes` and `verify` checked against FIRE_TRACKER's scripts and tests; differences ported or recorded | — | autonomous | ready |
+| **DF-1** | `deploy-fire-parity` | `env render`, `release-notes`, the deploy workflow, the database steps (`backup`, `schema-guard`, `row-counts`) and `verify` checked against FIRE_TRACKER's scripts and tests; differences ported or recorded | — | autonomous | ready |
 | **DF-2** | `deploy-workflow-verify-config` | the `verify` job of `deploy-app.yml` runs `softure-deploy verify` with the app's `deploy.json` instead of only the health route | DP-4 | autonomous | ready |
 | **DF-3** | `deploy-workflow-e2e` | a CI job runs `deploy-app.yml` against a throwaway SSH server and registry, so a broken step fails here, not on the first live deploy | DP-5, DP-8 | autonomous | ready |
 | **DF-4** | `auth-testing-account-factory` | `@softure-ai/auth/testing` creates an account in SQL with auth's hashing; the example's e2e uses it outside registration specs | — | autonomous | ready |
-| **DF-5** | `deploy-verify-cert-expiry` | `verify` fails when the TLS certificate expires within `verify.tlsMinDays` | — | autonomous | ready |
+| **DF-5** | `deploy-row-count-config` | the tables `row-counts` compares come from `deploy.json` | DP-4 | autonomous | ready |
+| **DF-6** | `deploy-verify-cert-expiry` | `verify` fails when the TLS certificate expires within `verify.tlsMinDays` | — | autonomous | ready |
 
 ## Order
 
@@ -61,6 +62,8 @@ Lanes are set when the roadmap is promoted, by shared files.
   `auto-release.yml` and its SSH gateway (`docker/prod/`, the forced command) are read; generic steps
   `deploy-app.yml` lacks (a release report post, image pruning, tagging on merge) are ported or recorded, and the
   forced-command protocol (`<remote-command> <tag>` with `.env.prod` on stdin) is aligned with FIRE's gateway.
+  The same for `docker/server/deploy.sh` against DP-3's `backup`, `schema-guard` and `row-counts` (backup format
+  and retention default, the guard's cases, which counts it compares and what a drop does).
   The same for `verify` (DP-4) against `scripts/verify-production.sh` (548 lines): every generic check beyond
   status, markers, redirects and headers goes into `deploy.json` and the engine.
 - **Prerequisites:** a session that can read FIRE_TRACKER.
@@ -69,9 +72,10 @@ Lanes are set when the roadmap is promoted, by shared files.
 - **Source:** DP-1 (`deploy-cli-env-notes`), research: the session could not read FIRE_TRACKER (cloning it was
   refused by the sandbox), so the report format comes from the roadmap, not from FIRE's workflow.
   Extended by DP-2 (`deploy-reusable-workflows`), implementation review: the workflow steps and the gateway
-  protocol come from the roadmap too.
-  Extended by DP-4 (`deploy-verify-production`), research: the same limit, so verify's generic checks came from the roadmap
-  and HTTP semantics.
+  protocol come from the roadmap too. Extended by DP-3 (`deploy-db-guard`): `deploy.sh` could not be read
+  either, so the database steps follow the roadmap item.
+  Extended by DP-4 (`deploy-verify-production`), research: the same limit, so verify's generic checks came from
+  the roadmap and HTTP semantics.
 - **PRD refs:** FR-33.
 
 ### DF-2: The deploy workflow verifies with `softure-deploy verify`
@@ -115,7 +119,19 @@ Lanes are set when the roadmap is promoted, by shared files.
   export (precedent: `@softure-ai/mailing/testing`), and adding one to auth was outside DP-7.
 - **PRD refs:** FR-35, FR-9.
 
-### DF-5: Certificate expiry in verify
+### DF-5: Row-count tables from deploy.json
+- **Change ID:** `deploy-row-count-config`
+- **Status:** ready
+- **Input:** [`deploy-row-count-config`](../../backlog/roadmap-deploy-followups/deploy-row-count-config/change.md)
+- **Outcome:** `deploy.json` gets an optional `database.rowCountTables` list (zod schema and JSON Schema);
+  `row-counts` reads it when `--tables` is not given.
+- **Prerequisites:** DP-4 (`deploy.json`) on `master`.
+- **Unknowns:** none.
+- **Risk:** low. A convenience; `--tables` works without it. Mode: autonomous, no owner step.
+- **Source:** DP-3 (`deploy-db-guard`), plan review S2: DP-4 owned `deploy.json` while DP-3 ran in parallel.
+- **PRD refs:** FR-33.
+
+### DF-6: Certificate expiry in verify
 - **Change ID:** `deploy-verify-cert-expiry`
 - **Status:** ready
 - **Input:** [`deploy-verify-cert-expiry`](../../backlog/roadmap-deploy-followups/deploy-verify-cert-expiry/change.md)

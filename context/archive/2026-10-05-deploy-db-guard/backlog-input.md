@@ -15,7 +15,7 @@ Backup before a deploy, a schema guard on the `@softure-ai/db` ledger and row co
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md) (deploy), item **DP-3** (main roadmap since 2026-10-05):
+From [`roadmap.md`](../../foundation/roadmap.md) (deploy), item **DP-3** (main roadmap since 2026-10-05):
 
 > ### DP-3: Backup and schema guard before a deploy
 > - **Change ID:** `deploy-db-guard`
@@ -31,8 +31,8 @@ From [`roadmap.md`](../../../foundation/roadmap.md) (deploy), item **DP-3** (mai
 > - **PRD refs:** FR-33, NFR-4.
 > - **Source (FIRE_TRACKER, read only):** `docker/server/deploy.sh`
 
-Reference material: [`docs/06-fire-extraction-2.md`](../../../../docs/06-fire-extraction-2.md) (the FIRE_TRACKER source map and the split rules),
-[`docs/02-module-standard.md`](../../../../docs/02-module-standard.md) (the standard). FIRE_TRACKER is read only:
+Reference material: [`docs/06-fire-extraction-2.md`](../../../docs/06-fire-extraction-2.md) (the FIRE_TRACKER source map and the split rules),
+[`docs/02-module-standard.md`](../../../docs/02-module-standard.md) (the standard). FIRE_TRACKER is read only:
 copy its code, never change it.
 
 ## Constraints

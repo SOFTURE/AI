@@ -11,8 +11,8 @@ archived_at: null
 
 ## Intent
 
-`softure-deploy env render`, `release-notes` and `verify` behave like FIRE_TRACKER's scripts wherever that
-behaviour is generic, with FIRE's test cases ported into `tools/deploy`; what stays FIRE-specific is listed in the
+`softure-deploy env render`, `release-notes`, `backup`, `schema-guard`, `row-counts` and `verify` behave like FIRE_TRACKER's
+scripts (`docker/server/deploy.sh` for the database steps) wherever that behaviour is generic, with FIRE's test cases ported into `tools/deploy`; what stays FIRE-specific is listed in the
 package README.
 
 ## Context
@@ -31,11 +31,12 @@ From [`roadmap-deploy-followups.md`](../../../foundation/roadmaps/roadmap-deploy
 
 ## Constraints
 
-- Owns `tools/deploy/src/env/`, `tools/deploy/src/notes/`, `tools/deploy/src/verify/` and their tests.
+- Owns `tools/deploy/src/env/`, `tools/deploy/src/notes/`, `tools/deploy/src/db/`, `tools/deploy/src/verify/` and their tests.
 - FIRE_TRACKER is read only.
 
 ## Notes
 
 - Source: DP-1 research (`deploy-cli-env-notes`), the DP-1 baseline "the same tests green in the package".
+- DP-3 (`deploy-db-guard`) added the database steps: its research could not read `docker/server/deploy.sh` either.
 - Extended by DP-4 (`deploy-verify-production`): FIRE's `scripts/verify-production.sh` could not be read either; its
   generic checks beyond status, markers, redirects and headers are part of this parity check.

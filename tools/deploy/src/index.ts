@@ -10,3 +10,4 @@ export {
   type DeployLocale,
   type DeployMessages,
 } from "./messages/index.js";
+export * from "./db/index.js";
