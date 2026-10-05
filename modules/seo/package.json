@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/seo",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "SOFTURE AI seo module: robots.txt with explicit AI crawler lists, an htmlLimitedBots list that keeps Next's defaults, a sitemap from app and module contributors, one canonical origin, and the IndexNow key file and submit (dry run by default).",
   "license": "MIT",
   "type": "module",

@@ -86,17 +86,18 @@ tarball the workflow attached to the GitHub Release, once, from your machine:
 Without `NPM_TOKEN`, the npm job of a new package fails with a message pointing here; GitHub Packages
 and the GitHub Release are not created, so re-running the job after adding the secret is safe.
 
-## First batch release (0.1.1)
+## First batch release (0.1.2)
 
-Every package except the template is already at 0.1.1 on `master`, with `^0.1.0` ranges between them, so
+Every package except the template is already at 0.1.2 on `master`, with `^0.1.0` ranges between them, so
 the first release needs no `release:version`: run **auto-release** with `all` (or push the tags by hand,
 at most three per push). Each package is new on npm, so each run needs the `NPM_TOKEN` secret (see
 above). Then, package by package in dependency order (`node scripts/release/plan-tags.mjs all`), approve
 the staged version on npmjs.com and add its trusted publisher (steps 3 and 4 above). A package installs
 from npm once the packages it depends on are approved too.
 
-The tags `<package>@0.1.0` exist without a release: that run stopped at the test gate before anything
-was published (`release-gates-postgres`), and a tag is never moved, so the first release is 0.1.1. The
+The tags `<package>@0.1.0` and `<package>@0.1.1` exist without a release: 0.1.0 stopped at the test gate
+(`release-gates-postgres`) and 0.1.1 at the npm stage (`release-stage-tarball-path`), both before anything
+was published, and a tag is never moved, so the first release is 0.1.2. The
 same holds for any release that fails before publishing: fix it on `master`, bump the patch version and
 release again.
 

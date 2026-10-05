@@ -8,6 +8,7 @@ Finished main roadmaps move to `../archive/<YYYY-MM-DD>-roadmap.md`.
 | Roadmap | Theme | Prefix | Status |
 | --- | --- | --- | --- |
 | [`roadmap-charts.md`](roadmap-charts.md) | SVG chart primitives with accessibility guards (`@softure-ai/charts`, `ui/testing`) | `CH-` | waiting |
+| [`roadmap-deploy-followups.md`](roadmap-deploy-followups.md) | the catch-all for gaps found while delivering the deploy roadmap | `DF-` | waiting |
 | [`roadmap-later.md`](roadmap-later.md) | items parked until an owner step (secrets, accounts, the batch release) is done | `LT-` (and MK-8, EN-9, MO-6, BL-8 carried over) | waiting |
 
 Main roadmap now: [`deploy`](../roadmap.md) (`DP-`, promoted by the owner on 2026-10-05), after blog-followups

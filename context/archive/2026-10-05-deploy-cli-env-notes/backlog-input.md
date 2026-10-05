@@ -15,7 +15,7 @@ archived_at: null
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md) (deploy), item **DP-1** (main roadmap since 2026-10-05):
+From [`roadmap.md`](../../foundation/roadmap.md) (deploy), item **DP-1** (main roadmap since 2026-10-05):
 
 > ### DP-1: Deploy CLI: env rendering and release notes
 > - **Change ID:** `deploy-cli-env-notes`
@@ -30,8 +30,8 @@ From [`roadmap.md`](../../../foundation/roadmap.md) (deploy), item **DP-1** (mai
 > - **PRD refs:** FR-33, NFR-5.
 > - **Source (FIRE_TRACKER, read only):** `scripts/render-env-prod.mts`, `scripts/release-notes.mts`, `src/lib/release-notes.ts`, `.github/workflows/release-opis.yml`
 
-Reference material: [`docs/06-fire-extraction-2.md`](../../../../docs/06-fire-extraction-2.md) (the FIRE_TRACKER source map and the split rules),
-[`docs/02-module-standard.md`](../../../../docs/02-module-standard.md) (the standard). FIRE_TRACKER is read only:
+Reference material: [`docs/06-fire-extraction-2.md`](../../../docs/06-fire-extraction-2.md) (the FIRE_TRACKER source map and the split rules),
+[`docs/02-module-standard.md`](../../../docs/02-module-standard.md) (the standard). FIRE_TRACKER is read only:
 copy its code, never change it.
 
 ## Constraints
