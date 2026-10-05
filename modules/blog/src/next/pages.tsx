@@ -81,7 +81,8 @@ function getJsonLdContext(config: SoftureConfig, context: BlogPageContext): Json
 }
 
 function getBodyOptions(config: SoftureConfig, context: BlogPageContext, terms: readonly BlogArticle[]): RenderPageBodyOptions {
-  return { glossary: toGlossary(terms), routes: context.routes, options: getBlogOptions(config), origin: config.appOrigin, messages: context.messages };
+  const origins = [config.appOrigin, getSiteUrls(config).origin];
+  return { glossary: toGlossary(terms), routes: context.routes, options: getBlogOptions(config), origins, messages: context.messages };
 }
 
 function withBrand(title: string, context: BlogPageContext): string {
