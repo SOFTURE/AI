@@ -19,6 +19,8 @@ import type { FetchLike } from "../quality/external-links.js";
 import { createQualityGate } from "../quality/gate.js";
 import { createInternalLinkResolver, findAppDir, readContentFolder, readGlossaryTerms, readPublishedContent } from "../quality/link-targets.js";
 import { getLocalDate } from "../quality/settings.js";
+import type { OgFontSource } from "../options.js";
+import { createOgFontLoader } from "../server/og-fonts.js";
 import { getBlogOptions, getBlogReservedSlugs, getQualitySettings } from "../server/options.js";
 import { DEFAULT_SKILL_COMMAND, DEFAULT_SKILL_DIR, renderBlogSkill, SKILL_MARKER, type SkillFile } from "./skill.js";
 
@@ -42,6 +44,8 @@ export interface RunBlogCliOptions {
   readonly clock?: Clock;
   /** For `check --external`. Default: the global `fetch`. */
   readonly fetch?: FetchLike;
+  /** For `check` reading the https sources of `brand.fonts`. Default: the global `fetch`. */
+  readonly fontFetch?: typeof fetch;
   /** For the IndexNow submit after `publish`. Default: the global `fetch`. */
   readonly indexNowFetch?: typeof fetch;
   /** For the cache refresh request after `publish`. Default: the global `fetch`. */
@@ -325,6 +329,11 @@ async function runCheck(command: Extract<BlogCommand, { kind: "check" }>, option
     output.error("softure-blog check: the quality gate is off (blog({ quality: false })); nothing to check");
     return EXIT_FAILED;
   }
+  // The OG card's fonts, read as the card's route reads them (paths from the app's root), so CI
+  // reports a source the first card would fail on.
+  const fontProblem = await checkBrandFonts(blogOptions.brand?.fonts, cwd, options.fontFetch);
+  if (fontProblem !== null) output.error(`softure-blog check: ${fontProblem}`);
+  const fontErrors = fontProblem === null ? 0 : 1;
   const contentDir = resolve(cwd, blogOptions.contentDir);
   const paths = command.paths.length > 0 ? command.paths.map((path) => resolve(cwd, path)) : [contentDir];
   const files = await readArticleFiles(paths);
@@ -334,7 +343,7 @@ async function runCheck(command: Extract<BlogCommand, { kind: "check" }>, option
   }
   if (files.length === 0) {
     output.log("check: no article files");
-    return EXIT_OK;
+    return fontErrors > 0 ? EXIT_FAILED : EXIT_OK;
   }
 
   // Link targets and glossary forms: the published texts of the content folder and of the checked files, and the app's routes.
@@ -355,7 +364,14 @@ async function runCheck(command: Extract<BlogCommand, { kind: "check" }>, option
     glossary: readGlossaryTerms(siteFiles, parse),
     ...(command.external ? { fetch: options.fetch ?? fetch } : {}),
   });
-  return reportCheck(results, files, cwd, output);
+  return reportCheck(results, files, cwd, output, fontErrors);
+}
+
+/** The loader's message for a `brand.fonts` source the card cannot read; `null` when every one reads or none is set. */
+async function checkBrandFonts(fonts: readonly OgFontSource[] | undefined, root: string, fetchImpl: typeof fetch | undefined): Promise<string | null> {
+  if (fonts === undefined) return null;
+  const loaded = await createOgFontLoader({ root, ...(fetchImpl === undefined ? {} : { fetchImpl }) })(fonts);
+  return loaded.ok ? null : loaded.error;
 }
 
 async function runSkillInstall(command: Extract<BlogCommand, { kind: "skill-install" }>, options: RunBlogCliOptions, output: CliOutput): Promise<number> {
@@ -417,8 +433,9 @@ async function runSkillInstall(command: Extract<BlogCommand, { kind: "skill-inst
   return EXIT_OK;
 }
 
-function reportCheck(results: readonly FileCheckResult[], files: readonly ReadArticleFile[], cwd: string, output: CliOutput): number {
-  let errors = 0;
+/** `configErrors`: problems of the config itself (the brand's fonts), already printed. */
+function reportCheck(results: readonly FileCheckResult[], files: readonly ReadArticleFile[], cwd: string, output: CliOutput, configErrors: number): number {
+  let errors = configErrors;
   let warnings = 0;
   for (const [index, result] of results.entries()) {
     const shown = relative(cwd, files[index]?.path ?? result.file) || result.file;

@@ -336,8 +336,9 @@ database optional for them (`@softure-ai/core`'s `withDatabaseOptional`), so a C
 `DATABASE_URL` runs them. An app script that runs them wraps its own import the same way:
 `const { default: config } = await withDatabaseOptional(() => import("../softure.config"))`. `check` reads the
 files (default: `contentDir`), resolves internal links against the app's routes and the published texts
-of `contentDir`, compares the glossary forms of the checked terms with every published term there, and
-prints one line per finding:
+of `contentDir`, compares the glossary forms of the checked terms with every published term there, reads
+every `brand.fonts` source as the OG card's route does (a path from the working directory, an `https`
+URL fetched, so a job with such a font needs network), and prints one line per finding:
 
 ```text
 content/blog/index-funds.md:12: error [crucial] "crucial": a favourite word of language models; name what depends on the thing
@@ -519,7 +520,8 @@ blog({
   fit as they are.
 - The card's route reads each file on its first card and keeps it for the life of the process. A file
   that cannot be read, or is not such a font, fails the card with a message naming `brand.fonts[i]` and
-  the file; the next card tries again.
+  the file; the next card tries again. `softure-blog check` reads the same sources, so CI reports such a
+  file first (`softure-blog check: Blog OG card: brand.fonts[0] …`, one error, exit 1).
 - Paths are read on the Node.js runtime (the route's default). With `output: "standalone"`, list the
   folder in `outputFileTracingIncludes` (`{ "/blog/[slug]/opengraph-image": ["./assets/fonts/**"] }`);
   a route moved to the edge runtime takes `https` URLs only.

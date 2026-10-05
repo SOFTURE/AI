@@ -1,5 +1,5 @@
 // `softure-blog publish` over a database connection, and the bin that loads the app's config.
-import { copyFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -328,6 +328,18 @@ describe("the softure-blog bin", () => {
 
       const check = await runBin(["skill", "install", "--check"], appDir);
       expect(check).toMatchObject({ code: 0, errors: [], lines: ["skill: .claude/skills/blog-write is up to date"] });
+    });
+
+    it("reports a brand font check cannot read, with the loader's message", async () => {
+      const config = readFileSync(join(appDir, "softure.config.mjs"), "utf8");
+      const withFonts = config.replace('blog({ contentDir: "../content" })', 'blog({ contentDir: "../content", brand: { name: "Example", fonts: [{ name: "Inter", src: "assets/missing.woff" }] } })');
+      expect(withFonts).not.toBe(config);
+      writeFileSync(join(appDir, "softure.config.mjs"), withFonts);
+
+      const result = await runBin(["check"], appDir);
+      expect(result.code).toBe(1);
+      expect(result.errors).toEqual([`softure-blog check: Blog OG card: brand.fonts[0] "assets/missing.woff": the file cannot be read (ENOENT) (${join(appDir, "assets/missing.woff")}).`]);
+      expect(result.lines.at(-1)).toMatch(/^check: 2 file\(s\), [1-9]\d* error\(s\), \d+ warning\(s\): red, do not publish$/);
     });
 
     it("still refuses publish, which needs the database", async () => {

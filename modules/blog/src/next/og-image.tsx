@@ -17,22 +17,18 @@ import { formatMessage, type SoftureConfig } from "@softure-ai/core";
 import { getSoftureConfig } from "@softure-ai/core/next";
 import { DEFAULT_THEME } from "@softure-ai/ui";
 import { ImageResponse } from "next/og";
-import type { BlogOptions, OgFontWeight } from "../options.js";
+import type { BlogOptions } from "../options.js";
+import type { OgFont } from "../server/og-fonts.js";
 import { getBlogOptions } from "../server/options.js";
 import { getPageContext } from "./context.js";
 import { getTextBySlug } from "./data.js";
 import { loadBrandOgFonts } from "./og-fonts.js";
 
+export type { OgFont } from "../server/og-fonts.js";
+
 /** The card's size: the 1.91:1 every network crops to. */
 export const OG_IMAGE_SIZE = { width: 1200, height: 630 } as const;
 
-/** A font for the card, as `ImageResponse` takes it. */
-export interface OgFont {
-  readonly name: string;
-  readonly data: ArrayBuffer;
-  readonly weight?: OgFontWeight;
-  readonly style?: "normal" | "italic";
-}
 
 export interface RenderArticleOgImageInput {
   readonly title: string;
