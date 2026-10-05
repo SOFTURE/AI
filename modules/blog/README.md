@@ -299,10 +299,10 @@ After an app's own run, `submitBlogChanges(config, run.changes, { commit: run.co
 same addresses; inside Next, call `revalidateTag(BLOG_CACHE_TAG)` first, so a crawler that answers the
 ping at once gets the new text.
 
-`check` needs no database, nor a database URL: the bin loads the config with the database optional
-(`@softure-ai/core`'s `withDatabaseOptional`), so a CI job without `DATABASE_URL` runs it. An app script
-that runs `check` wraps its own import the same way:
-`const { default: config } = await withDatabaseOptional(() => import("../softure.config"))`. It reads the
+`check` and `skill install` need no database, nor a database URL: the bin loads the config with the
+database optional for them (`@softure-ai/core`'s `withDatabaseOptional`), so a CI job without
+`DATABASE_URL` runs them. An app script that runs them wraps its own import the same way:
+`const { default: config } = await withDatabaseOptional(() => import("../softure.config"))`. `check` reads the
 files (default: `contentDir`), resolves internal links against the app's routes and the published texts
 of `contentDir`, compares the glossary forms of the checked terms with every published term there, and
 prints one line per finding:
@@ -355,8 +355,9 @@ sections keeps them in a module of its own and imports them into the config.
 
 `--command` sets how the skill runs the commands (default `npx softure-blog`; an app with a
 `runBlogCli` script passes e.g. `--command "npm run blog --"`). Commit the folder, so agents in a
-fresh clone have it, and run `softure-blog skill install --check` (with the same options) in CI: it
-writes nothing and exits 1, naming the files, when the folder differs from what the config gives.
+fresh clone have it, and run `softure-blog skill install --check` (with the same options) in CI, with no
+`DATABASE_URL` needed: it writes nothing and exits 1, naming the files, when the folder differs from what
+the config gives.
 Install overwrites only a folder whose `SKILL.md` it generated, so it never replaces a skill the app
 wrote itself. That folder belongs to the command: install removes a `.md` file in it that the config no
 longer gives (`references/app.md` once the sections are gone), logging `removed <path>`, and `--check`
