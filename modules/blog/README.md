@@ -62,8 +62,8 @@ blog({
   reservedSlugs: [],
   // The app's own frontmatter keys, checked by the app's schema. Default: none.
   fields: z.object({ scenario: z.string().regex(/^[a-z]=\d+(&[a-z]=\d+)*$/).optional() }),
-  // The pages' brand: title suffix, signature, JSON-LD author and publisher, OG card colours (hex).
-  // Default: none (no suffix, no author, the ui theme's dark colours).
+  // The pages' brand: title suffix, signature, JSON-LD author and publisher, OG card colours (hex)
+  // and fonts (§8). Default: none (no suffix, no author, the ui theme's dark colours, next/og's font).
   brand: { name: "FIRE Tracker", colors: { background: "#0b0b0c", foreground: "#f5f5f5", accent: "#7aa2f7" } },
   // Mount the method page at routes.method. Default: false (the route answers 404).
   methodPage: true,
@@ -428,6 +428,35 @@ None.
 `blog-footnotes`, `blog-footnote-back`) with the `--sft-*` tokens of `@softure-ai/ui`, in the
 `softure` layer, so the app's own rules win. The OG card takes `brand.colors`, else ui's dark theme.
 
+The OG card writes in `brand.fonts`, else in `next/og`'s default font:
+
+```ts
+blog({
+  brand: {
+    name: "FIRE Tracker",
+    fonts: [
+      // weight: 100…900 (default 400), style: "normal" | "italic" (default "normal")
+      { name: "Inter", weight: 400, src: "assets/fonts/inter-latin-400-normal.woff" },
+      { name: "Inter", weight: 700, src: "assets/fonts/inter-latin-700-normal.woff" },
+      // a second file of one weight (a latin-ext subset) under its own name: the card lists every name
+      // in order, so it draws the characters the first file lacks
+      { name: "Inter Ext", weight: 700, src: "https://cdn.example.com/inter-latin-ext-700-normal.woff" },
+    ],
+  },
+});
+```
+
+- `src` is a `.ttf`, `.otf` or `.woff` file (Satori does not read `.woff2`): a path from the app's root,
+  an absolute path, or an `https` URL. Marketing-kit's subset files (`brand.fonts` of `marketing.json`)
+  fit as they are.
+- The card's route reads each file on its first card and keeps it for the life of the process. A file
+  that cannot be read, or is not such a font, fails the card with a message naming `brand.fonts[i]` and
+  the file; the next card tries again.
+- Paths are read on the Node.js runtime (the route's default). With `output: "standalone"`, list the
+  folder in `outputFileTracingIncludes` (`{ "/blog/[slug]/opengraph-image": ["./assets/fonts/**"] }`);
+  a route moved to the edge runtime takes `https` URLs only.
+- With brand fonts the card has no other font: a character none of them has is not drawn.
+
 ## 9. Copy
 
 `src/messages/`: labels of the kinds (`kinds.article`, `kinds.term`) and statuses (`statuses.*`) in
@@ -482,7 +511,6 @@ Articles hold editorial content, no personal data: nothing to export or delete.
   change, and IndexNow's crawlers see it, after `revalidateSeconds` (BF-10).
 - A body link to seo's canonical host, when it differs from `appOrigin`, is marked external by the renderer and
   counted as external by the gate unless the app lists that host in `siteHosts` and `quality.ownOrigins` (BF-11).
-- The OG card uses the default font of `next/og`; an app passes `fonts` to `renderArticleOgImage` for another.
 - The renderer has no raw HTML and no figures: an image has no caption, and the app hosts and sizes its
   images itself (no `next/image`). A plugin fence inside a list or a quote stays a code
   block (a block node cannot sit inside a list's HTML).

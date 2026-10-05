@@ -69,12 +69,65 @@ const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 const colorSchema = z.string().regex(HEX_COLOR, "must be a six-digit hex colour, e.g. #0c0c0d");
 const HOSTNAME = /^(?=.{1,253}$)[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$/;
 
+/** The weights Satori (`next/og`) draws: static fonts only, in steps of 100. */
+export const OG_FONT_WEIGHTS = [100, 200, 300, 400, 500, 600, 700, 800, 900] as const;
+
+export type OgFontWeight = (typeof OG_FONT_WEIGHTS)[number];
+
+const WOFF2 = /\.woff2$/i;
+
+/** The part of a font source that names the file: a URL's path, or the path as written. */
+function getSourceFileName(src: string): string {
+  return src.startsWith("https://") ? new URL(src).pathname : src;
+}
+
+function isFontSource(src: string): boolean {
+  if (src.startsWith("https://")) return URL.canParse(src);
+  return !/^[a-z][a-z0-9+.-]*:\/\//i.test(src);
+}
+
+const ogFontSchema = z.strictObject({
+  /** The family name the card writes in; a second file of one weight and style needs its own name. */
+  name: z.string().trim().min(1).max(80),
+  weight: z
+    .custom<OgFontWeight>((value) => OG_FONT_WEIGHTS.some((weight) => weight === value), "must be a weight from 100 to 900 in steps of 100")
+    .default(400),
+  style: z.enum(["normal", "italic"]).default("normal"),
+  /** A .ttf, .otf or .woff file: an https URL, an absolute path, or a path from the app's root. */
+  src: z
+    .string()
+    .trim()
+    .min(1)
+    .refine(isFontSource, "must be an https URL or a file path, e.g. fonts/inter-700.woff")
+    .refine((src) => !isFontSource(src) || !WOFF2.test(getSourceFileName(src)), "must be a .ttf, .otf or .woff file; the card cannot read .woff2"),
+});
+
+export type OgFontSource = z.output<typeof ogFontSchema>;
+
 const brandSchema = z.strictObject({
   /** The site's name: in page titles, as the author and publisher in JSON-LD, on the OG card. */
   name: z.string().trim().min(1).max(80),
   /** The OG card's colours; each defaults to the dark scheme of @softure-ai/ui's default theme. */
   colors: z
     .strictObject({ background: colorSchema.optional(), foreground: colorSchema.optional(), accent: colorSchema.optional() })
+    .optional(),
+  /**
+   * The OG card's fonts, read by the card's route on its first render and kept for the life of the
+   * process; without them the card uses `next/og`'s default font.
+   */
+  fonts: z
+    .array(ogFontSchema)
+    .min(1, "must list at least one font")
+    .superRefine((fonts, ctx) => {
+      const seen = new Set<string>();
+      for (const [index, font] of fonts.entries()) {
+        const key = `"${font.name}" ${font.weight} ${font.style}`;
+        if (seen.has(key)) {
+          ctx.addIssue({ code: "custom", path: [index], message: `${key} is listed twice; give a second file its own name, e.g. "${font.name} Ext"` });
+        }
+        seen.add(key);
+      }
+    })
     .optional(),
 });
 

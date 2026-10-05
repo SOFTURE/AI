@@ -7,16 +7,21 @@
 //   export const revalidate = 300;
 //
 // A slug that is not a published article gets the blog's own card, never a 404: a crawler that
-// fetched the page earlier would show an empty preview. An app with its own font calls
-// `renderArticleOgImage` from its file instead.
+// fetched the page earlier would show an empty preview.
+//
+// The card writes in `blog({ brand: { fonts } })` when the app lists them (`next/og`'s default font
+// otherwise): each file is read on the first card and kept, and a file that cannot be read fails the
+// card with a message naming it. A path is read from the app's root on the Node.js runtime (the
+// route's default); a route moved to the edge runtime takes https URLs only.
 import { formatMessage, type SoftureConfig } from "@softure-ai/core";
 import { getSoftureConfig } from "@softure-ai/core/next";
 import { DEFAULT_THEME } from "@softure-ai/ui";
 import { ImageResponse } from "next/og";
-import type { BlogOptions } from "../options.js";
+import type { BlogOptions, OgFontWeight } from "../options.js";
 import { getBlogOptions } from "../server/options.js";
 import { getPageContext } from "./context.js";
 import { getTextBySlug } from "./data.js";
+import { loadBrandOgFonts } from "./og-fonts.js";
 
 /** The card's size: the 1.91:1 every network crops to. */
 export const OG_IMAGE_SIZE = { width: 1200, height: 630 } as const;
@@ -25,8 +30,8 @@ export const OG_IMAGE_SIZE = { width: 1200, height: 630 } as const;
 export interface OgFont {
   readonly name: string;
   readonly data: ArrayBuffer;
-  readonly weight?: 400 | 700;
-  readonly style?: "normal";
+  readonly weight?: OgFontWeight;
+  readonly style?: "normal" | "italic";
 }
 
 export interface RenderArticleOgImageInput {
@@ -48,8 +53,18 @@ export function getOgColors(brand: BlogOptions["brand"]): { background: string; 
   };
 }
 
+/**
+ * The card's `font-family`: every family it is given, once each and in order, so a second family (a
+ * `latin-ext` subset file under its own name) draws the characters the first lacks.
+ */
+export function getOgFontFamily(fonts: readonly OgFont[]): string | undefined {
+  const names = [...new Set(fonts.map((font) => font.name))];
+  return names.length === 0 ? undefined : names.map((name) => JSON.stringify(name)).join(", ");
+}
+
 export function renderArticleOgImage({ title, label, brand, fonts }: RenderArticleOgImageInput): ImageResponse {
   const colors = getOgColors(brand);
+  const fontFamily = getOgFontFamily(fonts ?? []);
   return new ImageResponse(
     (
       <div
@@ -62,6 +77,7 @@ export function renderArticleOgImage({ title, label, brand, fonts }: RenderArtic
           background: colors.background,
           color: colors.foreground,
           padding: "56px 72px 64px",
+          ...(fontFamily === undefined ? {} : { fontFamily }),
         }}
       >
         <div style={{ display: "flex", fontSize: 34, fontWeight: 700 }}>{brand?.name ?? ""}</div>
@@ -89,5 +105,8 @@ export async function BlogArticleOgImage({ params }: { readonly params: Promise<
   const article = await getTextBySlug(config, slug);
   const isVisible = article !== null && article.status === "published" && article.kind === "article";
   const label = getLabel(config);
-  return renderArticleOgImage({ title: isVisible ? article.title : label, label, brand: getBlogOptions(config).brand });
+  const { brand } = getBlogOptions(config);
+  const fonts = await loadBrandOgFonts(brand?.fonts ?? []);
+  if (!fonts.ok) throw new Error(fonts.error);
+  return renderArticleOgImage({ title: isVisible ? article.title : label, label, brand, fonts: fonts.fonts.length === 0 ? undefined : fonts.fonts });
 }

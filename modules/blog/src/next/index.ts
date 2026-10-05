@@ -3,7 +3,9 @@
 export { getBlogContext, getPageContext } from "./context.js";
 export { serveBlogRss } from "./discovery.js";
 export { BLOG_CACHE_TAG, getPublishedArticles, getPublishedTerms, getTextBySlug } from "./data.js";
-export { BlogArticleOgImage, getOgColors, OG_IMAGE_SIZE, renderArticleOgImage, type OgFont, type RenderArticleOgImageInput } from "./og-image.js";
+export { createOgFontLoader, loadBrandOgFonts, type OgFontLoaderOptions, type OgFontsResult } from "./og-fonts.js";
+export { BlogArticleOgImage, getOgColors, getOgFontFamily, OG_IMAGE_SIZE, renderArticleOgImage, type OgFont, type RenderArticleOgImageInput } from "./og-image.js";
+export type { OgFontSource, OgFontWeight } from "../options.js";
 export {
   BlogArticlePage,
   BlogIndexPage,
