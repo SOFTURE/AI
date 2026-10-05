@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/security",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "SOFTURE AI security module: fixed-window rate limits in Postgres with buckets from configuration, client-IP resolvers and a size-capped request body reader.",
   "license": "MIT",
   "type": "module",
@@ -41,8 +41,8 @@
     "build": "tsc -p tsconfig.build.json"
   },
   "dependencies": {
-    "@softure-ai/core": "^0.0.0",
-    "@softure-ai/db": "^0.0.0",
+    "@softure-ai/core": "^0.1.0",
+    "@softure-ai/db": "^0.1.0",
     "zod": "^4.6.5"
   },
   "peerDependencies": {

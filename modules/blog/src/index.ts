@@ -29,10 +29,10 @@ export const BLOG_RATE_LIMIT_BUCKETS = {
 export const blog = defineModule({
   manifest: {
     id: MODULE_ID,
-    version: "0.0.0",
+    version: "0.1.0",
     // seo is optional: with it the sitemap lists the texts and a publish pings IndexNow. security is
     // optional too: only the cache refresh route needs it, for its rate limit.
-    dependsOn: { seo: "^0.0.0?", security: "^0.0.0?" },
+    dependsOn: { seo: "^0.1.0?", security: "^0.1.0?" },
     dbSchema: "blog",
     tables: ["articles", "slug_history"],
     env: [

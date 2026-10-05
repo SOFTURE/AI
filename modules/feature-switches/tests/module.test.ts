@@ -84,7 +84,7 @@ describe("the feature-switches module", () => {
   it("needs the auth module, so the panel is never mounted without a role check", () => {
     expect(() =>
       defineSoftureConfig({ database: { url: "pglite://" }, locale: "en", timezone: "UTC", appOrigin: "http://localhost:3000", modules: [featureSwitches()] }),
-    ).toThrow('module "feature-switches" needs module "auth" (^0.0.0), which is not listed');
+    ).toThrow('module "feature-switches" needs module "auth" (^0.1.0), which is not listed');
     expect(auth.id).toBe("auth");
   });
 

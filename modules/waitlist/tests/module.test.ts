@@ -92,7 +92,7 @@ describe("the waitlist module", () => {
         appOrigin: "https://app.example.com",
         modules: [security({ clientIp: headerIp("x-real-ip"), buckets: WAITLIST_RATE_LIMIT_BUCKETS }), mailing({ from: "hello@example.com", provider: fakeMailProvider() }), waitlist(OPTIONS)],
       }),
-    ).toThrow('module "waitlist" needs module "privacy" (^0.0.0), which is not listed');
+    ).toThrow('module "waitlist" needs module "privacy" (^0.1.0), which is not listed');
   });
 
   it("reports healthy once its table exists", async () => {

@@ -20,6 +20,7 @@ closed (2026-10-04), and BL-8 when the blog roadmap closed (2026-10-04).
 | MO-6 | [`monetization-release`](monetization-release/change.md) | Monetization modules release (carried over from followups) | the owner at the keyboard (batch on 2026-10-05) | owner |
 | MK-8 | [`marketing-kit-release`](marketing-kit-release/change.md) | marketing-kit release (carried over from followups) | the owner at the keyboard (batch on 2026-10-05) | owner |
 | BL-8 | [`blog-release`](blog-release/change.md) | SEO and blog release (carried over from blog) | the owner at the keyboard (first npm publish) | owner |
+| LT-2 | [`release-version-inline-manifest`](release-version-inline-manifest/change.md) | release:version keeps inline manifests in step | none | start |
 
 Kind: `start` (can be taken as soon as the roadmap is promoted), `dependency` (waits for the listed items on the
 main branch), `owner` (needs an owner decision or the owner at the keyboard).

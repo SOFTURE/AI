@@ -10,7 +10,7 @@ export const notes = defineModule({
   manifest: {
     id: "notes",
     version: "0.1.0",
-    dependsOn: { auth: "^0.0.0" },
+    dependsOn: { auth: "^0.1.0" },
     dbSchema: "notes",
     tables: ["notes"],
     env: [],

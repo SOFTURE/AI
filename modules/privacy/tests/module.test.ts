@@ -82,7 +82,7 @@ describe("the privacy module", () => {
   it("needs auth and security, so a deletion always reaches the account and attempts are counted", () => {
     expect(() =>
       defineSoftureConfig({ database: { url: "pglite://" }, locale: "en", timezone: "UTC", appOrigin: "http://localhost:3000", modules: [privacy()] }),
-    ).toThrow(/module "privacy" needs module "auth" \(\^0\.0\.0\), which is not listed/);
+    ).toThrow(/module "privacy" needs module "auth" \(\^0\.1\.0\), which is not listed/);
   });
 
   it("is listed after the modules it collects from when sorting", () => {
