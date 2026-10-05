@@ -22,7 +22,7 @@ backlog: context/backlog/roadmap-blog-followups/
 > The catch-all of the [`blog`](archive/2026-10-04-2-roadmap.md) roadmap (owner, 2026-10-03: gaps found while
 > delivering a roadmap are collected in a catch-all roadmap, not fixed on the spot). A gap or deferred review
 > finding found while delivering this roadmap lands here too:
-> 1. take the next free `BF-<n>` (BF-12 is next) and a kebab-case change-id;
+> 1. take the next free `BF-<n>` (BF-14 is next) and a kebab-case change-id;
 > 2. write `context/backlog/roadmap-blog-followups/<change-id>/change.md` (`status: backlog`, the item block quoted
 >    in Context, **Source** naming the change and the finding);
 > 3. add the row and the item block here (status `proposed`, or `blocked (…)` when it waits on the owner) and the
@@ -47,7 +47,7 @@ backlog: context/backlog/roadmap-blog-followups/
 | ID | Change | Outcome | Depends on | Mode | Status |
 | --- | --- | --- | --- | --- | --- |
 | **BF-1** | `cli-config-loader` | `softure migrate`, `softure-mail` and `softure-blog` load the app config through one shared loader | — | autonomous | done_code (2026-10-05; waiting: the owner's release of `@softure-ai/core`, `@softure-ai/db`, `@softure-ai/mailing` and `@softure-ai/blog`) |
-| **BF-2** | `blog-publish-slug-race` | two publishes racing for one slug report `blog.slug_taken`, not a driver error | — | autonomous | ready |
+| **BF-2** | `blog-publish-slug-race` | two publishes racing for one slug report `blog.slug_taken`, not a driver error | — | autonomous | done_code (2026-10-05; waiting: the first release of `@softure-ai/blog`, BL-8) |
 | **BF-3** | `blog-article-images` | images in article bodies under a hosting policy (allowed sources, alt, dimensions) | — | autonomous | done_code (2026-10-05; waiting: the first release of `@softure-ai/blog`, BL-8) |
 | **BF-4** | `blog-glossary-form-conflicts` | a glossary form claimed by two terms is refused, naming both | BF-3 | autonomous | done_code (2026-10-05; waiting: the first release of `@softure-ai/blog`, BL-8) |
 | **BF-6** | `blog-check-without-database` | `softure-blog check` runs with an app config that has no database URL | BF-1 | autonomous | done_code (2026-10-05; waiting: the owner's release of `@softure-ai/core` and `@softure-ai/blog`) |
@@ -56,6 +56,7 @@ backlog: context/backlog/roadmap-blog-followups/
 | **BF-9** | `blog-skill-app-notes` | the generated writing skill carries the app's own sections across reinstalls | — | autonomous | done_code (2026-10-05; waiting: the first release of `@softure-ai/blog`, BL-8) |
 | **BF-10** | `blog-publish-cache-refresh` | `softure-blog publish --commit` refreshes the running app's blog cache before the IndexNow submit | BF-2 | autonomous | ready |
 | **BF-11** | `blog-canonical-host-links` | a body link to seo's canonical host counts as internal in the renderer and the gate | BF-7 | autonomous | proposed |
+| **BF-12** | `blog-slug-history-race` | a slug taken while another run renames away from it does not end up both current and in the slug history | — | autonomous | proposed |
 | **BF-13** | `blog-skill-check-without-database` | `softure-blog skill install` runs with an app config that has no database URL | BF-6 | autonomous | proposed |
 
 ## Order
@@ -99,6 +100,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 | BF-9 | no | an option or a preserved local file in the skill install; `--check` tests |
 | BF-10 | no | the route secret comes from the environment; tests use a fake app URL, no real deploy |
 | BF-11 | no | two host lists in the blog; unit tests |
+| BF-12 | no | a check or a constraint in the blog's own schema; a two-connection test on the local Postgres |
 | BF-13 | no | a loader option in the blog bin; a bin test |
 
 ## Items
@@ -115,8 +117,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### BF-2: A slug race reports a taken slug
 - **Change ID:** `blog-publish-slug-race`
-- **Status:** ready
-- **Input:** [`blog-publish-slug-race`](../backlog/roadmap-blog-followups/blog-publish-slug-race/change.md)
+- **Status:** done_code (2026-10-05; waiting: the first release of `@softure-ai/blog`, BL-8)
+- **Input:** [`blog-publish-slug-race`](../archive/2026-10-05-blog-publish-slug-race/change.md)
 - **Outcome:** `runBlogPublish` maps a unique violation on `articles_slug_key` (SQLSTATE 23505) to a refused run naming the slug; a two-connection test on Postgres covers it.
 - **Prerequisites:** none.
 - **Risk:** low. Publishing runs from one place; the database already refuses the second write, only the message is raw.
@@ -203,6 +205,16 @@ owner's own machine, a product decision only the owner can make, or a change in 
 - **Mode:** autonomous.
 - **Source:** BF-7 `blog-seo-canonical` plan review S1.
 
+### BF-12: A slug taken while another run renames away from it
+- **Change ID:** `blog-slug-history-race`
+- **Status:** proposed
+- **Input:** [`blog-slug-history-race`](../backlog/roadmap-blog-followups/blog-slug-history-race/change.md)
+- **Outcome:** a run that gives article Y the slug that article X is leaving in another, uncommitted run cannot leave that slug both Y's current slug and an old slug of X in `slug_history`: the run is refused (or the history entry dropped) and a two-connection Postgres test covers it.
+- **Prerequisites:** none.
+- **Risk:** low. Needs two publishes at the same moment; the address then serves Y while the history still names X (inferred from Postgres's unique-index semantics, not reproduced).
+- **Mode:** autonomous.
+- **Source:** BF-2 `blog-publish-slug-race` research, "Gap found".
+
 ### BF-13: softure-blog skill install without a database URL
 - **Change ID:** `blog-skill-check-without-database`
 - **Status:** proposed
@@ -219,6 +231,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ## Done
 
+- **BF-2** `blog-publish-slug-race` (done_code 2026-10-05): a run that loses a slug race is refused with `blog.slug_taken` naming the winner, covered by two-connection Postgres tests; archived in `archive/2026-10-05-blog-publish-slug-race/`
 - **BF-9** `blog-skill-app-notes` (done_code 2026-10-05): `blog({ skill: { sections } })` puts the app's own sections into the generated writing skill (`references/app.md`, named in `SKILL.md`), kept across reinstalls and covered by `--check`; install removes a Markdown file of its folder the config no longer gives; archived in [`archive/2026-10-05-blog-skill-app-notes/`](../archive/2026-10-05-blog-skill-app-notes/change.md).
 - **BF-3** `blog-article-images`: `renderArticle({ images })` and `blog({ images: { hosts, dimensions } })` show body images from site paths or allowed https hosts with alt text and a known size (`width`/`height`, lazy), any other as its alt text; the gate reports `image-source`, `image-alt` and `image-dimensions` (`findArticleImages`, `checkArticleImage`), and an image no longer counts as a link; no gaps; archived in `archive/2026-10-05-blog-article-images/`
 - **BF-1** `cli-config-loader` (done 2026-10-05): `@softure-ai/core/cli` (`takeConfigOption`, `findDefaultConfig`, `loadConfig`, `loadAppConfig`, `DEFAULT_CONFIG_FILES`) is the one config loader of `softure migrate`, `softure-mail` and `softure-blog`; their messages and tests are unchanged; no gaps; archived in [`archive/2026-10-05-cli-config-loader/`](../archive/2026-10-05-cli-config-loader/change.md)
