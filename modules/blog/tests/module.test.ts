@@ -69,6 +69,24 @@ describe("the blog module", () => {
     );
   });
 
+  it("takes an image policy, with no extra hosts by default", () => {
+    const dimensions = () => ({ width: 800, height: 450 });
+    expect(blog({ images: { dimensions } }).options.images).toEqual({ hosts: [], dimensions });
+  });
+
+  it("refuses an image policy it cannot use", () => {
+    expect(() =>
+      // @ts-expect-error: the size resolver must be a function.
+      blog({ images: { hosts: ["https://cdn.example.com"], dimensions: { "/a.png": [1, 1] } } }),
+    ).toThrow(
+      [
+        'Invalid SOFTURE configuration in module "blog":',
+        "- options.images.hosts.0: must be a host name, e.g. cdn.example.com",
+        "- options.images.dimensions: must be a function: (src) => ({ width, height }) or null",
+      ].join("\n"),
+    );
+  });
+
   it("takes the app's folder, reserved slugs and fields schema", () => {
     const fields = z.object({ scenario: z.string().optional() });
     const options = blog({ contentDir: "posts", reservedSlugs: ["glossary"], fields }).options;

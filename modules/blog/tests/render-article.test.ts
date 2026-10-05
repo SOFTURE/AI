@@ -45,8 +45,8 @@ describe("renderArticle: links", () => {
 });
 
 describe("renderArticle: elements", () => {
-  it("does not render an image as <img>", () => {
-    expect(renderArticle("![chart](https://example.com/a.png)").html).not.toContain("<img");
+  it("renders an image as its alt text without an image policy", () => {
+    expect(renderArticle("![chart](https://example.com/a.png)").html).toBe("<p>chart</p>\n");
   });
 
   it("lets a table with numbers through", () => {

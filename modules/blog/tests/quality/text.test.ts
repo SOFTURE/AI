@@ -1,6 +1,6 @@
 // Link and footnote matching stays linear on hostile input (CodeQL: polynomial regular expressions),
 // and nested brackets end a link text instead of rescanning the rest of the body.
-import { findFootnoteRefs, findLinks } from "@softure-ai/blog/server";
+import { findFootnoteRefs, findLinks, toProse } from "@softure-ai/blog/server";
 import { describe, expect, it } from "vitest";
 
 const HOSTILE = 50_000;
@@ -19,11 +19,17 @@ describe("findLinks and findFootnoteRefs", () => {
     expect(findFootnoteRefs("[^a [^b]")).toEqual(["b"]);
   });
 
+  it("read an image as no link, and leave it out of the prose", () => {
+    expect(findLinks("![Fees](/images/fees.png) and [the fees](/blog/fees)")).toEqual([{ text: "the fees", url: "/blog/fees" }]);
+    expect(toProse("Fees ![A chart of fees](/images/fees.png \"Fees\") grow.")).toBe("Fees grow.");
+  });
+
   it("finish quickly on long runs of unclosed brackets", () => {
     const started = performance.now();
     expect(findLinks("[" + "[\\".repeat(HOSTILE))).toEqual([]);
     expect(findLinks("[](" + "[](!".repeat(HOSTILE))).toEqual([]);
     expect(findFootnoteRefs("[^" + "[^\\".repeat(HOSTILE))).toEqual([]);
+    expect(toProse("![" + "![\\".repeat(HOSTILE))).toHaveLength(HOSTILE * 3 + 2);
     expect(performance.now() - started).toBeLessThan(1000);
   });
 });

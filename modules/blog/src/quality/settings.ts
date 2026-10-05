@@ -1,6 +1,7 @@
 // The gate's resolved settings: the parsed options plus what the app config adds (its origin and time
-// zone), with the ruleset and voice patterns compiled once.
+// zone) and the blog's image policy, with the ruleset and voice patterns compiled once.
 import type { SoftureConfig } from "@softure-ai/core";
+import type { ArticleImagePolicy } from "../render/images.js";
 import type { QualitySeverity } from "./finding.js";
 import type { QualityOptions } from "./options.js";
 import { QUALITY_RULESETS } from "./rulesets/index.js";
@@ -15,9 +16,15 @@ export interface QualitySettings {
   readonly ownOrigins: readonly string[];
   /** IANA time zone of "today". */
   readonly timeZone: string;
+  /** The app's image policy (`blog({ images })`); `null` when bodies may show no image. */
+  readonly images: ArticleImagePolicy | null;
 }
 
-export function resolveQualitySettings(options: QualityOptions, config: Pick<SoftureConfig, "appOrigin" | "timezone">): QualitySettings {
+export function resolveQualitySettings(
+  options: QualityOptions,
+  config: Pick<SoftureConfig, "appOrigin" | "timezone">,
+  images: ArticleImagePolicy | null = null,
+): QualitySettings {
   const ruleset = QUALITY_RULESETS[options.language];
   const voicePatterns: StylePattern[] = options.voice.phrases.map((phrase) => ({
     id: phrase.id,
@@ -34,7 +41,7 @@ export function resolveQualitySettings(options: QualityOptions, config: Pick<Sof
     });
   }
   const origins = [config.appOrigin, ...options.ownOrigins].map((origin) => new URL(origin).origin);
-  return { options, ruleset, voicePatterns, ownOrigins: [...new Set(origins)], timeZone: config.timezone };
+  return { options, ruleset, voicePatterns, ownOrigins: [...new Set(origins)], timeZone: config.timezone, images };
 }
 
 /** `YYYY-MM-DD` of a moment in a time zone. */
