@@ -15,7 +15,7 @@ archived_at: null
 
 ## Context
 
-From [`roadmap-deploy.md`](../../../foundation/roadmaps/roadmap-deploy.md), item **DP-2** (queued roadmap `deploy`):
+From [`roadmap.md`](../../../foundation/roadmap.md) (deploy), item **DP-2** (main roadmap since 2026-10-05):
 
 > ### DP-2: Reusable deploy workflows
 > - **Change ID:** `deploy-reusable-workflows`

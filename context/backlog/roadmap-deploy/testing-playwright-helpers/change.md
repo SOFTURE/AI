@@ -15,7 +15,7 @@ Generic Playwright helpers (login, factories, select, wait-for, links, assertion
 
 ## Context
 
-From [`roadmap-deploy.md`](../../../foundation/roadmaps/roadmap-deploy.md), item **DP-7** (queued roadmap `deploy`):
+From [`roadmap.md`](../../../foundation/roadmap.md) (deploy), item **DP-7** (main roadmap since 2026-10-05):
 
 > ### DP-7: Playwright helpers
 > - **Change ID:** `testing-playwright-helpers`
