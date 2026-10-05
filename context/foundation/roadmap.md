@@ -53,7 +53,7 @@ backlog: context/backlog/roadmap-blog-followups/
 | **BF-6** | `blog-check-without-database` | `softure-blog check` runs with an app config that has no database URL | BF-1 | autonomous | ready |
 | **BF-7** | `blog-seo-canonical` | the blog's canonical, OG and JSON-LD URLs follow `@softure-ai/seo`'s canonical host and trailing-slash rule | — | autonomous | done_code (2026-10-05; waiting: the next release of `@softure-ai/core` and `@softure-ai/seo`, and the first of `@softure-ai/blog`, BL-8) |
 | **BF-8** | `blog-og-fonts` | `blog({ brand: { fonts } })` gives the article OG card the brand's fonts | BF-7 | autonomous | ready |
-| **BF-9** | `blog-skill-app-notes` | the generated writing skill carries the app's own sections across reinstalls | — | autonomous | **in_progress (implement 1/1, since 2026-10-05; cloud session, branch `claude/project-thread-l5kwsp` — do not take in another session)** |
+| **BF-9** | `blog-skill-app-notes` | the generated writing skill carries the app's own sections across reinstalls | — | autonomous | done_code (2026-10-05; waiting: the first release of `@softure-ai/blog`, BL-8) |
 | **BF-10** | `blog-publish-cache-refresh` | `softure-blog publish --commit` refreshes the running app's blog cache before the IndexNow submit | BF-2 | autonomous | ready |
 | **BF-11** | `blog-canonical-host-links` | a body link to seo's canonical host counts as internal in the renderer and the gate | BF-7 | autonomous | proposed |
 
@@ -171,8 +171,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### BF-9: The app's own sections in the generated writing skill
 - **Change ID:** `blog-skill-app-notes`
-- **Status:** in_progress (implement 1/1, since 2026-10-05; cloud session, branch `claude/project-thread-l5kwsp` — do not take in another session)
-- **Input:** [`context/changes/blog-skill-app-notes/`](../changes/blog-skill-app-notes/change.md)
+- **Status:** done_code (2026-10-05; waiting: the first release of `@softure-ai/blog`, BL-8)
+- **Input:** [`context/archive/2026-10-05-blog-skill-app-notes/`](../archive/2026-10-05-blog-skill-app-notes/change.md)
 - **Outcome:** the generated skill carries the app's own sections, from an option such as `blog({ skill: { notes } })` or from a local file the install preserves; FIRE_TRACKER's engine numbers, calculator scenario and chart block fit there; `--check` covers them.
 - **Prerequisites:** none.
 - **Risk:** low. Today an app keeps such guidance in a second skill of its own.
@@ -205,5 +205,6 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ## Done
 
+- **BF-9** `blog-skill-app-notes` (done_code 2026-10-05): `blog({ skill: { sections } })` puts the app's own sections into the generated writing skill (`references/app.md`, named in `SKILL.md`), kept across reinstalls and covered by `--check`; install removes a Markdown file of its folder the config no longer gives; archived in [`archive/2026-10-05-blog-skill-app-notes/`](../archive/2026-10-05-blog-skill-app-notes/change.md).
 - **BF-7** `blog-seo-canonical` (done_code 2026-10-05): core's `getSiteUrls(config)` is a site-URL contract (one provider, `appOrigin` fallback) and `@softure-ai/seo` provides it with `buildCanonicalUrl`; the blog's canonical, OG, JSON-LD and feed URLs use it, so they follow seo's host and trailing-slash rule, and the blog's Next code never imports seo; gap BF-11; archived in [`archive/2026-10-05-blog-seo-canonical/`](../archive/2026-10-05-blog-seo-canonical/change.md)
 - **BF-5** `markdown-footnote-links` (done 2026-10-04): `tests/repo/markdown-links.ts` skips footnote definitions (`[^id]: …`), with a test; fixed inside BL-4 `blog-pages` (impl review R3), archived with it in [`archive/2026-10-04-blog-pages/`](../archive/2026-10-04-blog-pages/change.md)

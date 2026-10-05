@@ -73,7 +73,7 @@ plan review W1), `modules/blog/README.md`, `context/foundation/roadmap.md`.
 ### Phase 1: Sections in the config, the skill and the install
 
 #### Automated
-- [x] 1.1 the schema refuses the bad sections and keeps the good ones
-- [x] 1.2 the rendered skill carries the sections in `references/app.md` and names them in `SKILL.md`; without sections it is byte for byte as before
-- [x] 1.3 install, reinstall and `--check` cover the sections, including a removed file
-- [x] 1.4 Gates green (typecheck, lint, test, build)
+- [x] 1.1 the schema refuses the bad sections and keeps the good ones — 7246434
+- [x] 1.2 the rendered skill carries the sections in `references/app.md` and names them in `SKILL.md`; without sections it is byte for byte as before — 7246434
+- [x] 1.3 install, reinstall and `--check` cover the sections, including a removed file — 7246434
+- [x] 1.4 Gates green (typecheck, lint, test, build) — 7246434

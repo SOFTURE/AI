@@ -1,12 +1,12 @@
 ---
 change_id: blog-skill-app-notes
 title: "The app's own sections in the generated writing skill"
-status: active
+status: archived
 roadmap_item: BF-9
 branch: claude/project-thread-l5kwsp
 created: 2026-10-05
 updated: 2026-10-05
-archived_at: null
+archived_at: 2026-10-05
 ---
 
 ## Intent
@@ -46,3 +46,4 @@ every file is regenerated. The backlog entry is [`backlog-input.md`](backlog-inp
 - Research: quick depth, choosing between a config option and a preserved local file.
 - Framing skipped: the problem is not in doubt (the roadmap names the outcome and two candidate shapes);
   the only open question is which shape, and research answers it.
+- Archived 2026-10-05: `blog({ skill: { sections } })` adds the app's own sections to the generated writing skill (`references/app.md`, named in `SKILL.md`); install keeps them across reinstalls and removes a Markdown file the config no longer gives, `--check` covers both; no new gaps.
