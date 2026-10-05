@@ -56,7 +56,7 @@ backlog: context/backlog/roadmap-blog-followups/
 | **BF-9** | `blog-skill-app-notes` | the generated writing skill carries the app's own sections across reinstalls | — | autonomous | done_code (2026-10-05; waiting: the first release of `@softure-ai/blog`, BL-8) |
 | **BF-10** | `blog-publish-cache-refresh` | `softure-blog publish --commit` refreshes the running app's blog cache before the IndexNow submit | BF-2 | autonomous | done_code (2026-10-05; waiting: the first release of `@softure-ai/blog`, BL-8) |
 | **BF-11** | `blog-canonical-host-links` | a body link to seo's canonical host counts as internal in the renderer and the gate | BF-7 | autonomous | done_code (2026-10-05; waiting: the first release of `@softure-ai/blog`, BL-8) |
-| **BF-12** | `blog-slug-history-race` | a slug taken while another run renames away from it does not end up both current and in the slug history | — | autonomous | proposed |
+| **BF-12** | `blog-slug-history-race` | a slug taken while another run renames away from it does not end up both current and in the slug history | — | autonomous | done_code (2026-10-05; waiting: the first release of `@softure-ai/blog`, BL-8) |
 | **BF-13** | `blog-skill-check-without-database` | `softure-blog skill install` runs with an app config that has no database URL | BF-6 | autonomous | done_code (2026-10-05; waiting: the first release of `@softure-ai/blog`, BL-8) |
 | **BF-14** | `blog-og-fonts-check` | `softure-blog check` reads the OG card's `brand.fonts` and reports a source it cannot read | BF-8 | autonomous | proposed |
 
@@ -211,8 +211,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### BF-12: A slug taken while another run renames away from it
 - **Change ID:** `blog-slug-history-race`
-- **Status:** proposed
-- **Input:** [`blog-slug-history-race`](../backlog/roadmap-blog-followups/blog-slug-history-race/change.md)
+- **Status:** done_code (2026-10-05; waiting: the first release of `@softure-ai/blog`, BL-8)
+- **Input:** [`context/archive/2026-10-05-blog-slug-history-race/`](../archive/2026-10-05-blog-slug-history-race/change.md)
 - **Outcome:** a run that gives article Y the slug that article X is leaving in another, uncommitted run cannot leave that slug both Y's current slug and an old slug of X in `slug_history`: the run is refused (or the history entry dropped) and a two-connection Postgres test covers it.
 - **Prerequisites:** none.
 - **Risk:** low. Needs two publishes at the same moment; the address then serves Y while the history still names X (inferred from Postgres's unique-index semantics, not reproduced).
@@ -245,6 +245,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ## Done
 
+- **BF-12** `blog-slug-history-race` (done_code 2026-10-05): not reproducible; a run giving a slug that another run is renaming away from is refused naming that article, with `blog.slug_taken` while the rename is open and `blog.slug_in_history` once it commits, because `publishArticle` reads current slugs before old ones (now commented as load-bearing); three two-connection Postgres tests pin it; no gaps; archived in [`archive/2026-10-05-blog-slug-history-race/`](../archive/2026-10-05-blog-slug-history-race/change.md)
 - **BF-10** `blog-publish-cache-refresh` (done_code 2026-10-05): `refreshBlogCache` (`@softure-ai/blog/next`) checks a Bearer `BLOG_REFRESH_SECRET`, counts in the `blog-refresh` security bucket (`BLOG_RATE_LIMIT_BUCKETS`) and expires the blog's cache tag at once (`{ expire: 0 }`); `softure-blog publish --commit` calls it through `requestBlogRefresh` before the IndexNow submit (`--app-url` for another origin) and names `revalidateSeconds` when it is not set up; the example mounts it under a serial e2e; no gaps; archived in [`archive/2026-10-05-blog-publish-cache-refresh/`](../archive/2026-10-05-blog-publish-cache-refresh/change.md)
 - **BF-11** `blog-canonical-host-links` (done_code 2026-10-05): the blog pages' own hosts (`renderPageBody({ origins })`) and the quality gate's own origins (`resolveQualitySettings({ siteOrigin })`) include core's `getSiteUrls(config).origin` next to `appOrigin`, so a body link to seo's canonical host is internal without the app listing it; no gaps; archived in [`archive/2026-10-05-blog-canonical-host-links/`](../archive/2026-10-05-blog-canonical-host-links/change.md)
 - **BF-13** `blog-skill-check-without-database` (done_code 2026-10-05): `softure-blog skill install` and `skill install --check` load an app config without a database URL, like `check` (the bin's `COMMANDS_WITHOUT_DATABASE`); `publish` still requires it; no gaps; archived in [`archive/2026-10-05-blog-skill-check-without-database/`](../archive/2026-10-05-blog-skill-check-without-database/change.md)
