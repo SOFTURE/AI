@@ -56,7 +56,7 @@ backlog: context/backlog/roadmap-blog-followups/
 | **BF-9** | `blog-skill-app-notes` | the generated writing skill carries the app's own sections across reinstalls | — | autonomous | done_code (2026-10-05; waiting: the first release of `@softure-ai/blog`, BL-8) |
 | **BF-10** | `blog-publish-cache-refresh` | `softure-blog publish --commit` refreshes the running app's blog cache before the IndexNow submit | BF-2 | autonomous | ready |
 | **BF-11** | `blog-canonical-host-links` | a body link to seo's canonical host counts as internal in the renderer and the gate | BF-7 | autonomous | proposed |
-| **BF-13** | `blog-skill-check-without-database` | `softure-blog skill install` runs with an app config that has no database URL | BF-6 | autonomous | proposed |
+| **BF-13** | `blog-skill-check-without-database` | `softure-blog skill install` runs with an app config that has no database URL | BF-6 | autonomous | **in_progress (implement 1/1, since 2026-10-05; cloud session, branch `claude/project-thread-fjndju` — do not take in another session)** |
 
 ## Order
 
@@ -205,8 +205,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### BF-13: softure-blog skill install without a database URL
 - **Change ID:** `blog-skill-check-without-database`
-- **Status:** proposed
-- **Input:** [`blog-skill-check-without-database`](../backlog/roadmap-blog-followups/blog-skill-check-without-database/change.md)
+- **Status:** in_progress (implement 1/1, since 2026-10-05; cloud session, branch `claude/project-thread-fjndju` — do not take in another session)
+- **Input:** [`blog-skill-check-without-database`](../changes/blog-skill-check-without-database/change.md)
 - **Outcome:** the blog bin loads the config with `database: "optional"` for `skill install` as it does for `check`; a bin test runs `skill install --check` over a config without a database URL.
 - **Prerequisites:** BF-6 on `master` (the loader's `database` option).
 - **Risk:** low. A CI job that runs `skill install --check` passes a placeholder `DATABASE_URL` today; nothing connects.
