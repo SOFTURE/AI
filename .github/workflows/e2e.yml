@@ -102,7 +102,7 @@ jobs:
       NEXT_TELEMETRY_DISABLED: "1"
       E2E_PORT: "3200"
       # Pinned; the tarball is checked against the release's checksums.
-      STRIPE_CLI_VERSION: "1.31.0"
+      STRIPE_CLI_VERSION: "1.53.0"
     steps:
       - name: Check for a Stripe test-mode key
         id: key

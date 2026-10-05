@@ -1,12 +1,12 @@
 ---
 change_id: billing-stripe-sandbox-e2e
 title: "Stripe sandbox payment end to end"
-status: new
+status: archived
 roadmap_item: LT-1
 branch: claude/project-thread-5vljv7
 created: 2026-10-05
 updated: 2026-10-05
-archived_at: null
+archived_at: 2026-10-05
 ---
 
 ## Intent
@@ -51,3 +51,6 @@ forwarded deliveries with (coordinator brief, 2026-10-05).
   page) and on what the existing harness gives.
 - Framing skipped: the problem and the outcome are fixed by the roadmap item and billing's README §12;
   the only open questions are technical and the research answers them.
+- Archived 2026-10-05: the `stripe-sandbox` job of `.github/workflows/e2e.yml` pays in Stripe's sandbox
+  (`examples/next-app/e2e/billing-checkout.stripe-sandbox.spec.ts`) and receives Stripe's own deliveries through
+  `stripe listen`; green on the branch, also with two runs on the same account at once.

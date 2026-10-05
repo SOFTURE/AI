@@ -22,8 +22,9 @@ updated: 2026-10-05
 > Waiting on the owner, in the queued roadmap [`later`](roadmaps/roadmap-later.md):
 > - BL-8: the first npm publish of `@softure-ai/seo` and `@softure-ai/blog`, carried over from blog (it also ships
 >   BF-2…BF-4 and BF-6…BF-14);
-> - MK-8, EN-9 and MO-6: the batch release at the keyboard, carried over from followups;
-> - LT-1: the Stripe sandbox payment end to end, once the Stripe test-mode secrets are set.
+> - MK-8, EN-9 and MO-6: the batch release at the keyboard, carried over from followups.
+>
+> Done from `later`: LT-1, the Stripe sandbox payment end to end (2026-10-05).
 >
 > Archived roadmaps: [`foundation`](archive/2026-10-02-roadmap.md), [`identity`](archive/2026-10-03-roadmap.md),
 > [`engagement`](archive/2026-10-03-2-roadmap.md), [`monetization`](archive/2026-10-03-3-roadmap.md),

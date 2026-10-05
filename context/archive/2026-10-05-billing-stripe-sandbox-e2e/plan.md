@@ -93,7 +93,7 @@ the same specs as before (`playwright test --list`), green in `e2e`.
 ### Phase 1: Sandbox spec, its config and the CI job
 
 #### Automated
-- [ ] 1.1 The sandbox spec pays, receives Stripe's delivery and the refund, green in the `stripe-sandbox` job
-- [ ] 1.2 The main e2e suite does not pick up the sandbox spec and stays green
-- [ ] 1.3 Without a test-mode key the job ends green with a notice; a live key fails it
-- [ ] 1.4 Gates green (typecheck, lint, test, build)
+- [x] 1.1 The sandbox spec pays, receives Stripe's delivery and the refund, green in the `stripe-sandbox` job — 7a314de
+- [x] 1.2 The main e2e suite does not pick up the sandbox spec and stays green — 7a314de
+- [x] 1.3 Without a test-mode key the job ends green with a notice; a live key fails it — 7a314de
+- [x] 1.4 Gates green (typecheck, lint, test, build) — 7a314de
