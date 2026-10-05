@@ -73,6 +73,14 @@ describe("blog markup and styles", () => {
     for (const { file, source } of readSources("")) expect(source, file).not.toMatch(/(?:from|import\() *"(?:\.\/next\/|next\/)/);
   });
 
+  it("keeps @softure-ai/seo out of the pages' code entirely, so an app without seo still builds them", () => {
+    // A bundler resolves every import() it can reach; the pages ask core's getSiteUrls instead.
+    for (const { file, source } of [...readSources("next"), ...readSources("pages"), ...readSources("ui")]) {
+      expect(source, file).not.toContain('"@softure-ai/seo');
+      expect(source, file).not.toMatch(/discovery\/submit/);
+    }
+  });
+
   it("styles every blog class the components and the renderer write", () => {
     const used = new Set([...markup, ...readSources("render")].flatMap(({ source }) => findClassNames(source)));
     expect(used.size).toBeGreaterThan(30);

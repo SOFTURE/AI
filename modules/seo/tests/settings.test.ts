@@ -1,7 +1,8 @@
 // The site origin and canonical URLs.
-import { buildCanonicalUrl, getSiteOrigin } from "@softure-ai/seo";
+import { defineSoftureConfig, getSiteUrls } from "@softure-ai/core";
+import { buildCanonicalUrl, getSiteOrigin, seo } from "@softure-ai/seo";
 import { describe, expect, it } from "vitest";
-import { createSettings } from "./support.js";
+import { APP_ORIGIN, createSettings } from "./support.js";
 
 describe("getSiteOrigin", () => {
   it("keeps the host as it is by default", () => {
@@ -47,5 +48,21 @@ describe("buildCanonicalUrl", () => {
     const settings = createSettings();
     expect(() => buildCanonicalUrl("https://evil.example/", settings)).toThrow('buildCanonicalUrl: "https://evil.example/" is not a path on the site');
     expect(() => buildCanonicalUrl("//evil.example/", settings)).toThrow("is not a path on the site");
+  });
+});
+
+describe("the site URLs seo provides to other modules", () => {
+  it("applies the canonical host and trailing-slash rule for every module that asks core", () => {
+    const config = defineSoftureConfig({
+      locale: "en",
+      timezone: "UTC",
+      appOrigin: APP_ORIGIN,
+      modules: [seo({ origin: "https://www.example.com", canonical: { host: "apex", trailingSlash: true } })],
+    });
+    const urls = getSiteUrls(config);
+    expect(urls.origin).toBe("https://example.com");
+    expect(urls.getCanonicalUrl("/blog/index-funds")).toBe("https://example.com/blog/index-funds/");
+    expect(urls.getCanonicalUrl("/")).toBe("https://example.com/");
+    expect(() => urls.getCanonicalUrl("blog")).toThrow("is not a path on the site");
   });
 });

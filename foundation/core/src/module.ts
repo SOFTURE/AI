@@ -8,6 +8,7 @@ import { formatIssues, SoftureConfigError } from "./config-error.js";
 import { mergeMessages, type Dictionaries, type MessageOverrides, type MessageTree } from "./i18n.js";
 import { moduleManifestSchema, type ModuleManifest } from "./manifest.js";
 import type { Result } from "./result.js";
+import type { SiteUrlProvider } from "./site-urls.js";
 import type { SwitchReader } from "./switches.js";
 
 /** What every server function of a module receives; it never reads request scope. */
@@ -65,6 +66,8 @@ export interface ModuleSpec<TRoutes extends RouteMap, TMessages extends MessageT
   readonly health?: HealthCheck;
   /** Makes this module the app's switch provider (`readSwitch`); at most one enabled module may. */
   readonly switchReader?: SwitchReader;
+  /** Makes this module the app's site URL provider (`getSiteUrls`); at most one enabled module may. */
+  readonly siteUrls?: SiteUrlProvider;
 }
 
 type OptionsInput<TSchema> = TSchema extends z.ZodType ? z.input<TSchema> : object;
@@ -89,6 +92,7 @@ export interface SoftureModule<TRoutes extends RouteMap = RouteMap, TMessages ex
   readonly privacy: PrivacyContributor | null;
   readonly health: HealthCheck | null;
   readonly switchReader: SwitchReader | null;
+  readonly siteUrls: SiteUrlProvider | null;
 }
 
 export type AnySoftureModule = SoftureModule<RouteMap, MessageTree, unknown>;
@@ -112,6 +116,7 @@ export function defineModule<TRoutes extends RouteMap, TMessages extends Message
     ...checkPrivacy(manifest, spec.privacy),
     ...checkFunction("health", spec.health),
     ...checkFunction("switchReader", spec.switchReader),
+    ...checkFunction("siteUrls", spec.siteUrls),
   ];
   if (issues.length > 0) {
     throw new SoftureConfigError(`module "${manifest.id}"`, issues);
@@ -121,6 +126,7 @@ export function defineModule<TRoutes extends RouteMap, TMessages extends Message
   const privacy = spec.privacy === undefined ? null : Object.freeze({ ...spec.privacy });
   const health = spec.health ?? null;
   const switchReader = spec.switchReader ?? null;
+  const siteUrls = spec.siteUrls ?? null;
 
   const factory = (input: ModuleInput<TRoutes, TMessages, TSchema> = {} as ModuleInput<TRoutes, TMessages, TSchema>) => {
     const { routes: routeOverrides, messages: messageOverrides, ...optionsInput } = input;
@@ -142,6 +148,7 @@ export function defineModule<TRoutes extends RouteMap, TMessages extends Message
       privacy,
       health,
       switchReader,
+      siteUrls,
     };
     return Object.freeze(module);
   };

@@ -1,10 +1,16 @@
 // Structured data of the pages: the visible days, absolute URLs, FAQ only with questions, safe serialization.
+import { defineSoftureConfig, getSiteUrls, type AnySoftureModule } from "@softure-ai/core";
 import { getArticleCrumbs, getArticleJsonLd, getGlossaryJsonLd, getTermCrumbs, getTermJsonLd, serializeJsonLd, type JsonLdContext } from "@softure-ai/blog/server";
+import { seo } from "@softure-ai/seo";
 import { describe, expect, it } from "vitest";
 import { buildStoredArticle, buildStoredTerm } from "../support.js";
 
+function getUrls(modules: readonly AnySoftureModule[] = []): JsonLdContext["urls"] {
+  return getSiteUrls(defineSoftureConfig({ locale: "en", timezone: "UTC", appOrigin: "https://example.com", modules: [...modules] }));
+}
+
 const CTX: JsonLdContext = {
-  origin: "https://example.com",
+  urls: getUrls(),
   routes: { index: "/blog", glossary: "/blog/glossary", method: "/blog/how-we-write", rss: "/blog/rss.xml" },
   locale: "en",
   timezone: "Europe/Warsaw",
@@ -105,5 +111,38 @@ describe("glossary JSON-LD", () => {
         },
       ],
     });
+  });
+});
+
+describe("JSON-LD under seo's canonical rule", () => {
+  // A canonical host that differs from appOrigin, and the trailing-slash rule.
+  const SEO_CTX: JsonLdContext = { ...CTX, urls: getUrls([seo({ origin: "https://www.example.org", canonical: { host: "apex", trailingSlash: true } })]) };
+
+  it("builds an article's URLs, crumbs and brand on seo's host with its trailing slash, and its image without one", () => {
+    const article = buildStoredArticle();
+    const [posting, crumbs] = getArticleJsonLd(article, getArticleCrumbs(article, SEO_CTX.routes, LABELS), SEO_CTX)["@graph"] as Record<string, unknown>[];
+    expect(posting).toMatchObject({
+      "@id": "https://example.org/blog/index-funds/#article",
+      mainEntityOfPage: "https://example.org/blog/index-funds/",
+      url: "https://example.org/blog/index-funds/",
+      author: { url: "https://example.org/" },
+      image: "https://example.org/blog/index-funds/opengraph-image",
+    });
+    expect(crumbs?.itemListElement).toEqual([
+      { "@type": "ListItem", position: 1, name: "Blog", item: "https://example.org/blog/" },
+      { "@type": "ListItem", position: 2, name: "Investing basics", item: "https://example.org/blog/#cluster-investing-basics" },
+      { "@type": "ListItem", position: 3, name: "Index funds in plain words", item: "https://example.org/blog/index-funds/" },
+    ]);
+  });
+
+  it("builds a term's and the glossary's URLs on seo's host with its trailing slash", () => {
+    const term = buildStoredTerm();
+    const [definition] = getTermJsonLd(term, getTermCrumbs(term, SEO_CTX.routes, LABELS), SEO_CTX, "Glossary")["@graph"] as Record<string, unknown>[];
+    expect(definition).toMatchObject({
+      "@id": "https://example.org/blog/glossary/expense-ratio/#term",
+      url: "https://example.org/blog/glossary/expense-ratio/",
+      inDefinedTermSet: { "@id": "https://example.org/blog/glossary/#glossary" },
+    });
+    expect(getGlossaryJsonLd([term], SEO_CTX, "Glossary")).toMatchObject({ url: "https://example.org/blog/glossary/", "@id": "https://example.org/blog/glossary/#glossary" });
   });
 });

@@ -51,10 +51,11 @@ backlog: context/backlog/roadmap-blog-followups/
 | **BF-3** | `blog-article-images` | images in article bodies under a hosting policy (allowed sources, alt, dimensions) | — | autonomous | ready |
 | **BF-4** | `blog-glossary-form-conflicts` | a glossary form claimed by two terms is refused, naming both | BF-3 | autonomous | ready |
 | **BF-6** | `blog-check-without-database` | `softure-blog check` runs with an app config that has no database URL | BF-1 | autonomous | ready |
-| **BF-7** | `blog-seo-canonical` | the blog's canonical, OG and JSON-LD URLs follow `@softure-ai/seo`'s canonical host and trailing-slash rule | — | autonomous | ready |
+| **BF-7** | `blog-seo-canonical` | the blog's canonical, OG and JSON-LD URLs follow `@softure-ai/seo`'s canonical host and trailing-slash rule | — | autonomous | done_code (2026-10-05; waiting: the next release of `@softure-ai/core` and `@softure-ai/seo`, and the first of `@softure-ai/blog`, BL-8) |
 | **BF-8** | `blog-og-fonts` | `blog({ brand: { fonts } })` gives the article OG card the brand's fonts | BF-7 | autonomous | ready |
 | **BF-9** | `blog-skill-app-notes` | the generated writing skill carries the app's own sections across reinstalls | — | autonomous | ready |
 | **BF-10** | `blog-publish-cache-refresh` | `softure-blog publish --commit` refreshes the running app's blog cache before the IndexNow submit | BF-2 | autonomous | ready |
+| **BF-11** | `blog-canonical-host-links` | a body link to seo's canonical host counts as internal in the renderer and the gate | BF-7 | autonomous | proposed |
 | **BF-12** | `blog-slug-history-race` | a slug taken while another run renames away from it does not end up both current and in the slug history | — | autonomous | proposed |
 
 ## Order
@@ -73,6 +74,8 @@ parallel, up to 4 at once. "Depends on" in the table is the item before it in it
 1. **First wave: BF-1, BF-2, BF-3, BF-7**, the head of lanes A to D.
 2. **Each free slot** takes the first item of this list whose lane is idle and whose dependency is on `master`:
    BF-9, BF-6, BF-4, BF-8, BF-10.
+3. **BF-11** (a gap filed by BF-7) touches lanes C and D (`src/quality/settings.ts`, `src/pages/body.ts`): it runs
+   when both are idle, after BF-4 and BF-8.
 
 `modules/blog/src/options.ts`, `src/messages/` and the example app (`examples/next-app/`) are touched by several
 lanes; `master` is the source of truth and each thread merges it and resolves the conflicts itself.
@@ -93,6 +96,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 | BF-8 | no | font files read from a path or URL; tested with a local subset font |
 | BF-9 | no | an option or a preserved local file in the skill install; `--check` tests |
 | BF-10 | no | the route secret comes from the environment; tests use a fake app URL, no real deploy |
+| BF-11 | no | two host lists in the blog; unit tests |
 | BF-12 | no | a check or a constraint in the blog's own schema; a two-connection test on the local Postgres |
 
 ## Items
@@ -149,8 +153,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### BF-7: Blog URLs follow the seo canonical rule
 - **Change ID:** `blog-seo-canonical`
-- **Status:** ready
-- **Input:** [`blog-seo-canonical`](../backlog/roadmap-blog-followups/blog-seo-canonical/change.md)
+- **Status:** done_code (2026-10-05; waiting: the next release of `@softure-ai/core` and `@softure-ai/seo`, and the first of `@softure-ai/blog`, BL-8)
+- **Input:** [`context/archive/2026-10-05-blog-seo-canonical/`](../archive/2026-10-05-blog-seo-canonical/change.md)
 - **Outcome:** the blog's pages build canonical, OG and JSON-LD URLs through `@softure-ai/seo`'s canonical URL helper when `seo()` is in the config, and on `appOrigin` otherwise; a test covers a canonical host that differs from `appOrigin` and a trailing-slash rule.
 - **Prerequisites:** none.
 - **Risk:** low. The example app's canonical host equals `appOrigin`; only an app with another canonical host is affected.
@@ -187,6 +191,16 @@ owner's own machine, a product decision only the owner can make, or a change in 
 - **Mode:** autonomous.
 - **Source:** BL-5 `blog-discovery` research Q5.
 
+### BF-11: A body link to seo's canonical host counts as internal
+- **Change ID:** `blog-canonical-host-links`
+- **Status:** proposed
+- **Input:** [`blog-canonical-host-links`](../backlog/roadmap-blog-followups/blog-canonical-host-links/change.md)
+- **Outcome:** the renderer's own hosts (`pages/body.ts` `siteHosts`) and the gate's own origins (`quality/settings.ts` `ownOrigins`) include core's `getSiteUrls(config).origin` next to `appOrigin`; a test covers a canonical host that differs from `appOrigin`.
+- **Prerequisites:** BF-7 on `master` (core's `getSiteUrls`).
+- **Risk:** low. An app can list the host in `siteHosts` and `quality.ownOrigins` today; the example's canonical host equals `appOrigin`.
+- **Mode:** autonomous.
+- **Source:** BF-7 `blog-seo-canonical` plan review S1.
+
 ### BF-12: A slug taken while another run renames away from it
 - **Change ID:** `blog-slug-history-race`
 - **Status:** proposed
@@ -204,4 +218,5 @@ owner's own machine, a product decision only the owner can make, or a change in 
 ## Done
 
 - **BF-2** `blog-publish-slug-race`: a run that loses a slug race is refused with `blog.slug_taken` naming the winner, covered by two-connection Postgres tests; archived in `archive/2026-10-05-blog-publish-slug-race/`
+- **BF-7** `blog-seo-canonical` (done_code 2026-10-05): core's `getSiteUrls(config)` is a site-URL contract (one provider, `appOrigin` fallback) and `@softure-ai/seo` provides it with `buildCanonicalUrl`; the blog's canonical, OG, JSON-LD and feed URLs use it, so they follow seo's host and trailing-slash rule, and the blog's Next code never imports seo; gap BF-11; archived in [`archive/2026-10-05-blog-seo-canonical/`](../archive/2026-10-05-blog-seo-canonical/change.md)
 - **BF-5** `markdown-footnote-links` (done 2026-10-04): `tests/repo/markdown-links.ts` skips footnote definitions (`[^id]: …`), with a test; fixed inside BL-4 `blog-pages` (impl review R3), archived with it in [`archive/2026-10-04-blog-pages/`](../archive/2026-10-04-blog-pages/change.md)

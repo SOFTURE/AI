@@ -23,6 +23,8 @@ This release holds the content store (roadmap item BL-2), the server-side render
   with the pillar first, an article (dates, summary, contents, FAQ, sources, signature, disclaimer,
   `BlogPosting`/`BreadcrumbList`/`FAQPage` JSON-LD), the glossary index and a term page (`DefinedTerm`,
   the articles that explain it), the optional "how our texts are made" page, an article's OG card.
+  Their canonical, Open Graph, JSON-LD and feed URLs follow `@softure-ai/seo`'s origin, host and
+  trailing-slash rule when the app lists `seo()` (core's `getSiteUrls`), and `appOrigin` otherwise.
 - `createBlogRedirects` (`@softure-ai/blog/proxy`): 301 from an old slug, 410 for a withdrawn text,
   in the app's `proxy.ts`.
 - `@softure-ai/blog/styles.css`: the pages and the rendered body on the `--sft-*` tokens.
@@ -461,8 +463,8 @@ Articles hold editorial content, no personal data: nothing to export or delete.
 - No `--stdin` (a deploy transport).
 - `softure-blog publish` runs outside the app and cannot refresh its cache: the running app shows the
   change, and IndexNow's crawlers see it, after `revalidateSeconds` (BF-10).
-- The pages' URLs (canonical, JSON-LD, OG) and the feed's links are built on `appOrigin`, not on the canonical host and
-  trailing-slash rule of `@softure-ai/seo` (BF-7).
+- A body link to seo's canonical host, when it differs from `appOrigin`, is marked external by the renderer and
+  counted as external by the gate unless the app lists that host in `siteHosts` and `quality.ownOrigins` (BF-11).
 - The OG card uses the default font of `next/og`; an app passes `fonts` to `renderArticleOgImage` for another.
 - The renderer has no images and no raw HTML. A plugin fence inside a list or a quote stays a code
   block (a block node cannot sit inside a list's HTML).

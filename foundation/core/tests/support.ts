@@ -1,5 +1,5 @@
 // Small module definitions shared by the config tests. Each call builds a fresh factory.
-import { defineModule, SoftureConfigError, type ModuleManifest, type SwitchReader } from "@softure-ai/core";
+import { defineModule, SoftureConfigError, type ModuleManifest, type SiteUrlProvider, type SwitchReader } from "@softure-ai/core";
 
 const en = { title: "Title" };
 const pl: typeof en = { title: "PL" };
@@ -11,6 +11,7 @@ interface TestModuleSpec {
   readonly dbSchema?: string | null;
   readonly routes?: Record<string, string>;
   readonly switchReader?: SwitchReader;
+  readonly siteUrls?: SiteUrlProvider;
 }
 
 export function createTestModule(spec: TestModuleSpec) {
@@ -33,6 +34,7 @@ export function createTestModule(spec: TestModuleSpec) {
     messages: { en, pl },
     ...(migrations === undefined ? {} : { migrations }),
     ...(spec.switchReader === undefined ? {} : { switchReader: spec.switchReader }),
+    ...(spec.siteUrls === undefined ? {} : { siteUrls: spec.siteUrls }),
   })();
 }
 
