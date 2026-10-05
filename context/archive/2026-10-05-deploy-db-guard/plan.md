@@ -68,4 +68,4 @@ script has only the image and the URL).
 - [x] Phase 1: ledger check in `@softure-ai/db`
 - [x] Phase 2: deploy commands
 - [x] Phase 3: docs
-- [x] Implementation review (`reviews/impl-review.md`): ready; B1, S1, S2 fixed; DF-2 and DF-3 recorded
+- [x] Implementation review (`reviews/impl-review.md`): ready; B1, S1, S2 fixed; FIRE parity added to DF-1, DF-2 recorded

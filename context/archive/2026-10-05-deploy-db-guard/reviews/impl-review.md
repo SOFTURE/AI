@@ -30,6 +30,6 @@ and a module file as pending, counts saved and compared.
   `drizzle-orm` peer into a deploy CLI install. Accepted: one rule set for the guard outweighs the install size;
   `deploy` stays private until DP-8.
 - **W2 (warning, deferred):** parity with FIRE_TRACKER's `deploy.sh` is unchecked (the session could not read it).
-  Recorded as **DF-2** (`deploy-db-guard-fire-parity`).
-- **S3 (suggestion, deferred):** the table list in `deploy.json` (plan review S2). Recorded as **DF-3**
+  Added to **DF-1** (`deploy-fire-parity`).
+- **S3 (suggestion, deferred):** the table list in `deploy.json` (plan review S2). Recorded as **DF-2**
   (`deploy-row-count-config`), after DP-4.
