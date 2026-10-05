@@ -4,7 +4,9 @@
 #                       live once the owner approves it with 2FA on npmjs.com
 #   2. GitHub Packages  @softure/<package>     (GitHub Packages requires the scope to equal the org)
 #   3. GitHub Release   <package>@x.y.z        (generated notes + the package tarball)
-# Pull requests and workflow_dispatch run the same build, pack and checks as a dry run, with no publish.
+# Pull requests and workflow_dispatch on a branch run the same build, pack and checks as a dry run,
+# with no publish. `auto-release.yml` creates tags from master and starts this workflow on each tag
+# (workflow_dispatch with the tag as ref), which publishes exactly like a pushed tag.
 #
 # Keep this file name: every package's npm trusted publisher is bound to `release.yml`.
 # Runbook: scripts/release/README.md

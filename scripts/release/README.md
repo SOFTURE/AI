@@ -10,8 +10,20 @@ which publishes the package in three places:
 | GitHub Packages | `@softure/<package>` | published with the workflow's `GITHUB_TOKEN` (GitHub requires the org as the scope) |
 | GitHub Release | `<package>@x.y.z` | generated notes and the package tarball attached |
 
-Releases are the owner's: agents never tag or publish (`release.owner` in
-[`context/workflow.json`](../../context/workflow.json)).
+Releases are the owner's call (`release.owner` in [`context/workflow.json`](../../context/workflow.json)):
+an agent starts one only on the owner's explicit word, through [Release from Actions](#release-from-actions),
+and npm still waits for the owner to approve each staged version.
+
+## Release from Actions
+
+[`auto-release.yml`](../../.github/workflows/auto-release.yml) releases from one dispatch on `master`
+(Actions → **auto-release** → **Run workflow**, or the GitHub tools of an agent session, which cannot push
+tags). Input `packages`: `all` (every public package) or short names (`core auth`). For each one it takes the
+version from `package.json` on `master`, creates the tag `<package>@<version>` unless it exists, and starts
+`release.yml` on that tag, which publishes exactly as a pushed tag does. The run summary lists what was
+tagged and what was skipped; `node scripts/release/plan-tags.mjs <all|package…>` prints the same plan
+locally. A version must be bumped on `master` first (below, or in a pull request); an existing tag is
+skipped, so re-run a failed release with **Run workflow** on the tag itself.
 
 ## Release a version
 
@@ -77,25 +89,11 @@ and the GitHub Release are not created, so re-running the job after adding the s
 ## First batch release (0.1.0)
 
 Every package except the template is already at 0.1.0 on `master`, with `^0.1.0` ranges between them, so
-the first release needs no `release:version`: tag the merged `master` and push the tags. The batches
-follow the dependencies, so a package's dependencies are staged before it; at most three tags per push.
-
-```bash
-git switch master && git pull
-for p in core db ui seo security ops mailing auth analytics blog privacy mcp-access \
-  feature-switches billing waitlist marketing-kit; do git tag -a "$p@0.1.0" -m "$p@0.1.0"; done
-git push origin core@0.1.0 db@0.1.0 ui@0.1.0
-git push origin seo@0.1.0 security@0.1.0 ops@0.1.0
-git push origin mailing@0.1.0 auth@0.1.0 analytics@0.1.0
-git push origin blog@0.1.0 privacy@0.1.0 mcp-access@0.1.0
-git push origin feature-switches@0.1.0 billing@0.1.0 waitlist@0.1.0
-git push origin marketing-kit@0.1.0
-```
-
-Wait for a batch's release runs to stage their packages before pushing the next. Each package is new on
-npm, so each run needs the `NPM_TOKEN` secret (see above). Then, package by package in the same order,
-approve the staged version on npmjs.com and add its trusted publisher (steps 3 and 4 above). A package
-installs from npm once the packages it depends on are approved too.
+the first release needs no `release:version`: run **auto-release** with `all` (or push the tags by hand,
+at most three per push). Each package is new on npm, so each run needs the `NPM_TOKEN` secret (see
+above). Then, package by package in dependency order (`node scripts/release/plan-tags.mjs all`), approve
+the staged version on npmjs.com and add its trusted publisher (steps 3 and 4 above). A package installs
+from npm once the packages it depends on are approved too.
 
 ## Dry run
 

@@ -120,9 +120,9 @@ Carried over from blog with BL-8:
 
 ## Owner decisions and checks
 
-- [ ] **First batch release**: all 16 packages are at 0.1.0 on `master` (`packages-first-release`); push the tags
-  in the batches of `scripts/release/README.md` ("First batch release"), then approve each staged version and
-  add its trusted publisher. This covers BL-8, MK-8, EN-9 and MO-6, plus core, db, ui, auth, ops, security and
+- [ ] **First batch release**: all 16 packages are at 0.1.0 on `master` (`packages-first-release`); the agent runs
+  `auto-release.yml` with `all` on the owner's word (`release-dispatch`), then the owner approves each staged version and
+  adds its trusted publisher. This covers BL-8, MK-8, EN-9 and MO-6, plus core, db, ui, auth, ops, security and
   feature-switches, which they depend on.
 
 - [x] **LT-1**: add the Stripe test-mode secret `STRIPE_SECRET_KEY` to the repository (the owner, 2026-10-05).
