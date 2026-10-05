@@ -37,7 +37,7 @@ moved file lose one `../`.
 | BF-7 | [`blog-seo-canonical`](../../archive/2026-10-05-blog-seo-canonical/change.md) | Blog URLs follow the seo canonical rule | archived 2026-10-05 | start |
 | BF-8 | [`blog-og-fonts`](blog-og-fonts/change.md) | The OG card takes the brand's fonts | BF-7 on main | dependency |
 | BF-9 | [`blog-skill-app-notes`](../../archive/2026-10-05-blog-skill-app-notes/change.md) | The app's own sections in the generated writing skill | archived 2026-10-05 | start |
-| BF-10 | [`blog-publish-cache-refresh`](blog-publish-cache-refresh/change.md) | A command-line publish refreshes the app's cache | BF-2 on main | dependency |
+| BF-10 | [`blog-publish-cache-refresh`](../../changes/blog-publish-cache-refresh/change.md) | A command-line publish refreshes the app's cache | taken 2026-10-05 | dependency |
 | BF-11 | [`blog-canonical-host-links`](blog-canonical-host-links/change.md) | A body link to seo's canonical host counts as internal | BF-7 on main | dependency |
 | BF-12 | [`blog-slug-history-race`](blog-slug-history-race/change.md) | A slug taken while another run renames away from it | roadmap promoted | start |
 | BF-13 | [`blog-skill-check-without-database`](blog-skill-check-without-database/change.md) | softure-blog skill install without a database URL | BF-6 on main | dependency |
