@@ -94,7 +94,7 @@ test (`foundation/db/tests/bundle.test.ts`), which bundles `@softure-ai/db/cli` 
 ### Phase 1: Shared loader in core, used by the three bins
 
 #### Automated
-- [ ] 1.1 The core cli tests pass (option parse, default file, load, find and load)
-- [ ] 1.2 The db, mailing and blog cli tests and db's bundle test pass with their test files unchanged
-- [ ] 1.3 No copy of `takeConfigOption`, `findDefaultConfig` or `loadConfig` remains in the three `command.ts` files
-- [ ] 1.4 Gates green (typecheck, lint, test)
+- [x] 1.1 The core cli tests pass (option parse, default file, load, find and load) — 9702869
+- [x] 1.2 The db, mailing and blog cli tests and db's bundle test pass with their test files unchanged — 9702869
+- [x] 1.3 No copy of `takeConfigOption`, `findDefaultConfig` or `loadConfig` remains in the three `command.ts` files — 9702869
+- [x] 1.4 Gates green (typecheck, lint, test) — 9702869

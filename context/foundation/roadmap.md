@@ -46,7 +46,7 @@ backlog: context/backlog/roadmap-blog-followups/
 
 | ID | Change | Outcome | Depends on | Mode | Status |
 | --- | --- | --- | --- | --- | --- |
-| **BF-1** | `cli-config-loader` | `softure migrate`, `softure-mail` and `softure-blog` load the app config through one shared loader | — | autonomous | in_progress (implement 0/1, since 2026-10-05; claude/project-thread-8l3eyw) |
+| **BF-1** | `cli-config-loader` | `softure migrate`, `softure-mail` and `softure-blog` load the app config through one shared loader | — | autonomous | done_code (2026-10-05; waiting: the owner's release of `@softure-ai/core`, `@softure-ai/db`, `@softure-ai/mailing` and `@softure-ai/blog`) |
 | **BF-2** | `blog-publish-slug-race` | two publishes racing for one slug report `blog.slug_taken`, not a driver error | — | autonomous | ready |
 | **BF-3** | `blog-article-images` | images in article bodies under a hosting policy (allowed sources, alt, dimensions) | — | autonomous | ready |
 | **BF-4** | `blog-glossary-form-conflicts` | a glossary form claimed by two terms is refused, naming both | BF-3 | autonomous | ready |
@@ -97,8 +97,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### BF-1: One config loader for module commands
 - **Change ID:** `cli-config-loader`
-- **Status:** in_progress (implement 0/1, since 2026-10-05; claude/project-thread-8l3eyw)
-- **Input:** [`cli-config-loader`](../changes/cli-config-loader/change.md)
+- **Status:** done_code (2026-10-05; waiting: the owner's release of `@softure-ai/core`, `@softure-ai/db`, `@softure-ai/mailing` and `@softure-ai/blog`)
+- **Input:** [`context/archive/2026-10-05-cli-config-loader/`](../archive/2026-10-05-cli-config-loader/change.md)
 - **Outcome:** `findDefaultConfig`, `takeConfigOption` and `loadConfig` live once (in `@softure-ai/core` or `@softure-ai/db`) and the three bins use them; their tests keep the same messages.
 - **Prerequisites:** none.
 - **Risk:** low. Three copies of about 60 lines that have not drifted yet.
@@ -191,4 +191,5 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ## Done
 
+- **BF-1** `cli-config-loader` (done 2026-10-05): `@softure-ai/core/cli` (`takeConfigOption`, `findDefaultConfig`, `loadConfig`, `loadAppConfig`, `DEFAULT_CONFIG_FILES`) is the one config loader of `softure migrate`, `softure-mail` and `softure-blog`; their messages and tests are unchanged; no gaps; archived in `archive/2026-10-05-cli-config-loader/`
 - **BF-5** `markdown-footnote-links` (done 2026-10-04): `tests/repo/markdown-links.ts` skips footnote definitions (`[^id]: …`), with a test; fixed inside BL-4 `blog-pages` (impl review R3), archived with it in [`archive/2026-10-04-blog-pages/`](../archive/2026-10-04-blog-pages/change.md)

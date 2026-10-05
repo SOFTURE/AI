@@ -1,12 +1,12 @@
 ---
 change_id: cli-config-loader
 title: "Module commands load the app config through one shared loader"
-status: plan_reviewed
+status: archived
 roadmap_item: BF-1
 branch: claude/project-thread-8l3eyw
 created: 2026-10-05
 updated: 2026-10-05
-archived_at: null
+archived_at: 2026-10-05
 ---
 
 ## Intent
@@ -50,3 +50,4 @@ same lane.
 - Framing skipped: the problem (three identical copies) and the outcome are fixed by the roadmap item
   and the impl review that found it; there is no doubt about the problem itself. A short research maps
   the copies and their differences.
+- Archived 2026-10-05: `@softure-ai/core/cli` (`takeConfigOption`, `findDefaultConfig`, `loadConfig`, `loadAppConfig`, `DEFAULT_CONFIG_FILES`) is the one config loader of `softure migrate`, `softure-mail` and `softure-blog`; their messages and tests are unchanged.
