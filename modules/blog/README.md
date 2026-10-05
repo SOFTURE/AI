@@ -474,7 +474,9 @@ Constraints: id, slug, cluster and old slug kebab-case (at most 100 characters);
 closed lists; text lengths; a published text has a publication date; an update date needs one; a
 pillar has a cluster; a term has forms and an article has none; a unique slug; one pillar per cluster
 among texts not withdrawn (an exclusion constraint deferred to commit, so one run can move the pillar).
-"A slug is not in another article's history" stays in the code, under a row lock. A run that loses a race for
+"A slug is not in another article's history" stays in the code, under a row lock; the check reads the current
+slugs before the old ones, so a slug that another run is renaming away from is refused, naming that article,
+whether the rename has committed or not. A run that loses a race for
 a slug (another run committed it between the read and the write) is refused with `blog.slug_taken`,
 naming the article that took it, like any other taken slug.
 
