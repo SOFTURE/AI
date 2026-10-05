@@ -2,12 +2,14 @@
 // `softure-blog check`, the publish gate and the tests. Pure: the parsed article, today and the link
 // resolver come in; the network check of external links is separate.
 import type { BlogArticleInput } from "../contract.js";
+import { findArticleImages } from "../render/images.js";
 import { findArticleBlocks, type FoundBlock } from "../render/render-article.js";
 import { parseArticleFile, type ParseArticleFileOptions } from "../content/article-file.js";
 import { splitArticleBody, splitBlocks } from "./blocks.js";
 import { sortFindings, type QualityFinding } from "./finding.js";
 import type { QualityPlugin } from "./plugin.js";
 import { checkBlockRequires } from "./rules/blocks.js";
+import { checkImages } from "./rules/images.js";
 import type { RuleInput } from "./rules/input.js";
 import { checkLinks, collectLinks, type InternalLinkResolver } from "./rules/links.js";
 import { checkFootnotes, checkLead, checkLength, checkMetadata, checkSections } from "./rules/structure.js";
@@ -37,7 +39,10 @@ export function checkArticle(input: CheckArticleInput): QualityCheckResult {
   const { article, settings, today } = input;
   const split = splitArticleBody(input.text);
   const blocks = split === null ? splitBlocks(article.bodyMarkdown) : splitBlocks(split.body, split.bodyStartLine);
-  const pluginBlocks = findPluginBlocks(split?.body ?? article.bodyMarkdown, split?.bodyStartLine ?? 1, settings);
+  const body = split?.body ?? article.bodyMarkdown;
+  const bodyStartLine = split?.bodyStartLine ?? 1;
+  const pluginBlocks = findPluginBlocks(body, bodyStartLine, settings);
+  const images = findArticleImages(body).map((image) => ({ ...image, line: image.line + bodyStartLine - 1 }));
   const ruleInput: RuleInput = { article, blocks, settings, today };
   const links = collectLinks(ruleInput);
 
@@ -53,6 +58,7 @@ export function checkArticle(input: CheckArticleInput): QualityCheckResult {
     ...checkStyle(ruleInput),
     ...checkRhythm(ruleInput),
     ...checkBlockRequires(article, pluginBlocks),
+    ...checkImages(images, settings.images),
   ];
   const fromPlugins = settings.options.plugins.flatMap((plugin) => runPlugin(plugin, { article, blocks, pluginBlocks, today, ruleset: settings.ruleset }));
   return { findings: applySeverity(settings, [...builtIn, ...fromPlugins]), externalLinks: links.external };

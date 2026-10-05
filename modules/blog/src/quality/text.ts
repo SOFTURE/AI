@@ -24,7 +24,9 @@ export interface NumberNotation {
 
 // No `[` inside link text, link target or footnote id: each match attempt ends at the next `[`, so a
 // long run of unclosed brackets stays linear instead of rescanning the rest of the text per bracket.
-const LINK = /\[([^[\]]*)\]\(([^)\s[]+)(?:\s+"[^"]*")?\)/g;
+// An image (`![alt](src)`) is not a link: the lookbehind skips it, and `IMAGE` removes it from prose.
+const LINK = /(?<!!)\[([^[\]]*)\]\(([^)\s[]+)(?:\s+"[^"]*")?\)/g;
+const IMAGE = /!\[[^[\]]*\]\([^)\s[]+(?:\s+"[^"]*")?\)/g;
 const FOOTNOTE_REF = /\[\^([^[\]]+)\]/g;
 const URL_IN_TEXT = /https?:\/\/[^\s)>\]]+/g;
 
@@ -41,10 +43,11 @@ export function findBareUrls(text: string): string[] {
   return [...text.matchAll(URL_IN_TEXT)].map((match) => match[0].replace(/[.,;]$/, ""));
 }
 
-/** The prose a reader sees: no code, link targets, footnote refs, URLs or emphasis markers. */
+/** The prose a reader sees: no code, images, link targets, footnote refs, URLs or emphasis markers. */
 export function toProse(text: string): string {
   return text
     .replace(/`[^`]*`/g, " ")
+    .replace(IMAGE, " ")
     .replace(LINK, "$1")
     .replace(FOOTNOTE_REF, "")
     .replace(/<https?:\/\/[^>]+>/g, " ")

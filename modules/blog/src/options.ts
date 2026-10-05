@@ -1,6 +1,7 @@
 // The options an app passes to `blog({ ... })` in softure.config.ts, parsed at startup.
 import { z } from "zod";
 import { qualitySettingSchema } from "./quality/options.js";
+import type { ArticleImagePolicy } from "./render/images.js";
 import type { BlockPlugin } from "./render/render-article.js";
 
 /** Where the app keeps its article files unless a command names a path. */
@@ -117,6 +118,13 @@ const skillSchema = z.strictObject({
 
 export type BlogSkillSection = z.output<typeof skillSectionSchema>;
 
+const imagePolicySchema = z.strictObject({
+  /** Hosts whose https images are allowed besides the site's own paths (subdomains included). */
+  hosts: z.array(z.string().regex(HOSTNAME, "must be a host name, e.g. cdn.example.com")).readonly().default([]),
+  /** `(src) => ({ width, height })` in pixels, or `null` for an unknown image. */
+  dimensions: z.custom<ArticleImagePolicy["dimensions"]>((value) => typeof value === "function", "must be a function: (src) => ({ width, height }) or null"),
+});
+
 export const blogOptionsSchema = z
   .strictObject({
     /** The folder with the article files, relative to the app's root. */
@@ -139,6 +147,11 @@ export const blogOptionsSchema = z
     blocks: z.array(z.custom<BlockPlugin>(isBlockPlugin, "must be a block plugin: { type: \"chart\", render(block) }")).default([]),
     /** Hosts besides the `appOrigin` host whose links are not marked external (subdomains included). */
     siteHosts: z.array(z.string().regex(HOSTNAME, "must be a host name, e.g. example.com")).default([]),
+    /**
+     * Which images article bodies may show (`renderArticle({ images })`), used by the pages and the
+     * quality gate; without it every image renders as its alt text and the gate refuses it.
+     */
+    images: imagePolicySchema.optional(),
     /** How long the listing and glossary cache their reads; keep it equal to the pages' `revalidate`. */
     revalidateSeconds: z.number().int().min(1).default(DEFAULT_REVALIDATE_SECONDS),
     /** The text quality gate (`softure-blog check`, and every publish); `false` turns it off. */

@@ -5,8 +5,14 @@
 //
 // `html: false` escapes raw HTML in the text instead of passing it through, so the output holds only
 // the elements markdown-it itself emits (headings, paragraphs, lists, quotes, tables, code, links,
-// emphasis, footnotes). Images are disabled: there is no hosting policy for them yet. Links keep only
-// `http(s)`, `mailto`, relative and `#` targets; `javascript:`, `data:` and every other scheme stay text.
+// emphasis, footnotes, images). Links keep only `http(s)`, `mailto`, relative and `#` targets;
+// `javascript:`, `data:` and every other scheme stay text.
+//
+// ## Images
+//
+// An image is emitted only when it follows the app's image policy (`images`, see `images.ts`): a site
+// path or an https source on an allowed host, a non-empty alt and dimensions the app knows. It gets its
+// width and height and loads lazily. Any other image renders as its alt text; without a policy, every one.
 //
 // ## Links
 //
@@ -35,6 +41,7 @@ import footnote from "markdown-it-footnote";
 import type { BlogFields } from "../contract.js";
 import { en } from "../messages/en.js";
 import { createTermMatcher, type GlossaryTerm } from "./glossary.js";
+import { checkArticleImage, type ArticleImagePolicy } from "./images.js";
 import { getReadingMinutes } from "./reading-time.js";
 import { slugifyHeading } from "./slugify-heading.js";
 
@@ -93,6 +100,8 @@ export interface RenderArticleOptions<TNode = unknown> {
   readonly termHref?: (slug: string) => string;
   /** Host names of the site (`example.com` covers its subdomains); other hosts are external. */
   readonly siteHosts?: readonly string[];
+  /** Which images the body may show; without it every image renders as its alt text. */
+  readonly images?: ArticleImagePolicy;
   readonly blocks?: readonly BlockPlugin<TNode>[];
   /** What block plugins may read from the article. */
   readonly article?: BlockArticle;
@@ -230,6 +239,24 @@ function addExternalLinks(md: Markdown, siteHosts: readonly string[], messages: 
   };
 }
 
+/** Emits an image that follows the policy with its size and lazy loading; any other as its alt text. */
+function addImages(md: Markdown, policy: ArticleImagePolicy | undefined): void {
+  md.renderer.rules.image = (tokens, index, options, env, self) => {
+    const token = tokens[index];
+    if (token === undefined) return "";
+    const alt = self.renderInlineAsText(token.children ?? [], options, env);
+    const verdict = checkArticleImage({ src: String(token.attrGet("src") ?? ""), alt }, policy);
+    if (!verdict.ok) return md.utils.escapeHtml(alt);
+    token.attrSet("alt", alt);
+    token.attrSet("width", String(verdict.width));
+    token.attrSet("height", String(verdict.height));
+    token.attrSet("loading", "lazy");
+    token.attrSet("decoding", "async");
+    token.attrJoin("class", "blog-image");
+    return self.renderToken(tokens, index, options);
+  };
+}
+
 function addHeadingIds(md: Markdown, state: RenderState): void {
   md.core.ruler.push("blog_heading_ids", (core) => {
     const used = new Map<string, number>();
@@ -351,9 +378,9 @@ function createMarkdown<TNode>(
 ): Markdown {
   const messages = options.messages ?? en.render;
   const md = new MarkdownIt({ html: false, linkify: true, typographer: false });
-  md.disable("image");
   md.use(footnote);
   md.validateLink = isSafeLink;
+  addImages(md, options.images);
   addFootnoteMarkup(md, messages);
   addExternalLinks(md, options.siteHosts ?? [], messages);
   addBlockTokens(md, new Set(plugins.keys()));

@@ -42,6 +42,14 @@ rewrite the paragraph around its one thought; do not swap a word for a synonym.
 | `external-link-https` | | | Use the `https://` address of the source. |
 | `external-link-dead` | | | Replace a link that does not answer with the source's current address (checked only with `--external`). |
 
+## Images
+
+| Rule | Severity | What the gate looks for | What to write instead |
+| --- | --- | --- | --- |
+| `image-source` | | | Use an image from the site's own paths or an allowed host; without an image policy the app shows no images, so leave them out. |
+| `image-alt` | | | Give every image an alt text that says what it shows (`![Monthly costs by category](/images/costs.png)`). |
+| `image-dimensions` | | | Use only images the app knows the size of; ask for a new one to be added rather than linking a file. |
+
 ## Style
 
 | Rule | Severity | What the gate looks for | What to write instead |
