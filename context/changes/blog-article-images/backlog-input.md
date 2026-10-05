@@ -17,7 +17,7 @@ known dimensions (no layout shift) and lazy loading.
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md) (blog-followups), item **BF-3**:
+From [`roadmap.md`](../../foundation/roadmap.md) (blog-followups), item **BF-3**:
 
 > ### BF-3: Images in article bodies
 > - **Change ID:** `blog-article-images`
