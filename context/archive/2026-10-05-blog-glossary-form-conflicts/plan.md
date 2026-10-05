@@ -57,9 +57,9 @@ a per-file gate rule (it sees one file) and a check over the run's inputs only (
 
 - [x] change.md, research.md, plan.md
 - [x] plan review (approved, F1–F4 folded in)
-- [ ] phase 1
-- [ ] phase 2
-- [ ] phase 3
-- [ ] gates
-- [ ] impl review
-- [ ] archive
+- [x] phase 1
+- [x] phase 2
+- [x] phase 3
+- [x] gates (typecheck, lint, test, build green)
+- [x] impl review (approved, no gaps)
+- [x] archive

@@ -1,12 +1,12 @@
 ---
 change_id: blog-glossary-form-conflicts
 title: "A glossary form claimed by two terms is refused at publish and reported by check"
-status: implement
+status: archived
 roadmap_item: BF-4
 branch: claude/project-thread-cqtfbb
 created: 2026-10-05
 updated: 2026-10-05
-archived_at: null
+archived_at: 2026-10-05
 ---
 
 ## Intent
@@ -52,3 +52,4 @@ BF-3 is on master. Gaps go to the blog-followups roadmap, not fixed here.
   doubt and nothing is bug-shaped.
 - Research done (short): where the renderer's glossary comes from, when two forms collide for the
   matcher, what the publish run and `check` can see.
+- Archived 2026-10-05: `findTermFormConflicts` (forms equal after a capital first letter collide, as in the matcher); `runBlogPublish` reads the published terms after its writes and refuses a conflict involving a run's term (subject `glossary`, naming the form and both slugs), warns about one only between stored terms; `softure-blog check` reports `term-form-conflict` on each checked published term; the renderer keeps "first term wins"; no gaps.
