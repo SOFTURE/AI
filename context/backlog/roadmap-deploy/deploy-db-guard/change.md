@@ -15,7 +15,7 @@ Backup before a deploy, a schema guard on the `@softure-ai/db` ledger and row co
 
 ## Context
 
-From [`roadmap-deploy.md`](../../../foundation/roadmaps/roadmap-deploy.md), item **DP-3** (queued roadmap `deploy`):
+From [`roadmap.md`](../../../foundation/roadmap.md) (deploy), item **DP-3** (main roadmap since 2026-10-05):
 
 > ### DP-3: Backup and schema guard before a deploy
 > - **Change ID:** `deploy-db-guard`

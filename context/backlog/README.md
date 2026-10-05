@@ -21,8 +21,9 @@ An entry is never in two places, neither as a copy nor as a pointer.
 - **Gaps and unfinished parts found while delivering a roadmap** became items of the catch-all followups roadmap
   (owner, 2026-10-03), closed on 2026-10-04 ([archive](../foundation/archive/2026-10-04-roadmap.md)). New gaps go to
   the main roadmap's catch-all; the blog roadmap's was blog-followups (owner, 2026-10-03), the main roadmap from
-  2026-10-05 until it closed the same day ([archive](../foundation/archive/2026-10-05-roadmap.md)).
-  While no main roadmap runs, a new gap goes to a loose `<topic>.md` file.
+  2026-10-05 until it closed the same day ([archive](../foundation/archive/2026-10-05-roadmap.md)). The deploy
+  roadmap's catch-all is `roadmap-deploy-followups/` (`DF-`), created with its first gap (see the deploy roadmap's
+  header). While no main roadmap runs, a new gap goes to a loose `<topic>.md` file.
 - **Work that is ready but waits only on the owner at the keyboard** (repository secrets, a provider account)
   becomes an item of [`roadmap-later/`](roadmap-later/) (owner, 2026-10-03): see its README, "Adding an item".
 
@@ -31,5 +32,5 @@ An entry is never in two places, neither as a copy nor as a pointer.
 | Folder | Roadmap | Starts when |
 | --- | --- | --- |
 | [`roadmap-charts/`](roadmap-charts/) | [charts](../foundation/roadmaps/roadmap-charts.md) | the owner promotes it |
-| [`roadmap-deploy/`](roadmap-deploy/) | [deploy](../foundation/roadmaps/roadmap-deploy.md) | the owner promotes it |
+| [`roadmap-deploy/`](roadmap-deploy/) | [deploy](../foundation/roadmap.md) | promoted 2026-10-05 (main roadmap; DP-1…DP-8) |
 | [`roadmap-later/`](roadmap-later/) | [later](../foundation/roadmaps/roadmap-later.md) | the owner step each item waits on is done (MK-8, EN-9 and MO-6 carried over from followups; BL-8 from blog) |

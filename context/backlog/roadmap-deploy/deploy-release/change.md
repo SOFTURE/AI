@@ -15,7 +15,7 @@ archived_at: null
 
 ## Context
 
-From [`roadmap-deploy.md`](../../../foundation/roadmaps/roadmap-deploy.md), item **DP-8** (queued roadmap `deploy`):
+From [`roadmap.md`](../../../foundation/roadmap.md) (deploy), item **DP-8** (main roadmap since 2026-10-05):
 
 > ### DP-8: Deploy and testing release
 > - **Change ID:** `deploy-release`

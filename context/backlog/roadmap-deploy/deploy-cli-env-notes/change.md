@@ -15,7 +15,7 @@ archived_at: null
 
 ## Context
 
-From [`roadmap-deploy.md`](../../../foundation/roadmaps/roadmap-deploy.md), item **DP-1** (queued roadmap `deploy`):
+From [`roadmap.md`](../../../foundation/roadmap.md) (deploy), item **DP-1** (main roadmap since 2026-10-05):
 
 > ### DP-1: Deploy CLI: env rendering and release notes
 > - **Change ID:** `deploy-cli-env-notes`

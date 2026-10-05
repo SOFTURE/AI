@@ -7,7 +7,7 @@ the deploy pipeline.
 
 The owner chose three roadmaps on 2026-10-04: [`blog`](../context/foundation/archive/2026-10-04-2-roadmap.md) (main, closed on 2026-10-04),
 [`charts`](../context/foundation/roadmaps/roadmap-charts.md) and
-[`deploy`](../context/foundation/roadmaps/roadmap-deploy.md) (queued).
+[`deploy`](../context/foundation/roadmap.md) (main roadmap since 2026-10-05).
 
 ## What is taken
 
