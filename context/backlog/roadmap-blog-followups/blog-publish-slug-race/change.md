@@ -17,7 +17,7 @@ unique violation.
 
 ## Context
 
-From [`roadmap-blog-followups.md`](../../../foundation/roadmaps/roadmap-blog-followups.md), item **BF-2**:
+From [`roadmap.md`](../../../foundation/roadmap.md) (blog-followups), item **BF-2**:
 
 > ### BF-2: A slug race reports a taken slug
 > - **Change ID:** `blog-publish-slug-race`

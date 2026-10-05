@@ -15,7 +15,7 @@ archived_at: null
 
 ## Context
 
-From [`roadmap-blog-followups.md`](../../../foundation/roadmaps/roadmap-blog-followups.md), item **BF-6**:
+From [`roadmap.md`](../../../foundation/roadmap.md) (blog-followups), item **BF-6**:
 
 > ### BF-6: softure-blog check without a database URL
 > - **Change ID:** `blog-check-without-database`

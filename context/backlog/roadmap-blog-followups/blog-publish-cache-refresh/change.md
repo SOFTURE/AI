@@ -16,7 +16,7 @@ After `softure-blog publish --commit`, the running app shows the change at once 
 
 ## Context
 
-From [`roadmap-blog-followups.md`](../../../foundation/roadmaps/roadmap-blog-followups.md), item **BF-10**:
+From [`roadmap.md`](../../../foundation/roadmap.md) (blog-followups), item **BF-10**:
 
 > ### BF-10: A command-line publish refreshes the app's cache
 > - **Change ID:** `blog-publish-cache-refresh`
