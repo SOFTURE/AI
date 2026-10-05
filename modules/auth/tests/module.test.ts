@@ -58,7 +58,7 @@ describe("the auth module", () => {
     expect(() => createConfig({ buckets: AUTH_RATE_LIMIT_BUCKETS })).not.toThrow();
     expect(() =>
       defineSoftureConfig({ database: { url: "pglite://" }, locale: "en", timezone: "UTC", appOrigin: "http://localhost:3000", modules: [auth()] }),
-    ).toThrow('module "auth" needs module "security" (^0.0.0), which is not listed');
+    ).toThrow('module "auth" needs module "security" (^0.1.0), which is not listed');
   });
 
   it("lists security before auth when sorting, so its migrations run first", () => {

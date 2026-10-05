@@ -1,7 +1,7 @@
 {
   "id": "feature-switches",
-  "version": "0.0.0",
-  "dependsOn": { "auth": "^0.0.0" },
+  "version": "0.1.0",
+  "dependsOn": { "auth": "^0.1.0" },
   "dbSchema": "features",
   "tables": ["switches"],
   "env": [],

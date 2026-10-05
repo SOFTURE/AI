@@ -79,7 +79,7 @@ describe("the mcp-access module", () => {
         appOrigin: "http://localhost:3000",
         modules: [security({ clientIp: headerIp("x-real-ip"), buckets: MCP_RATE_LIMIT_BUCKETS }), mcpAccess({ serverName: "acme" })],
       }),
-    ).toThrow('module "mcp-access" needs module "auth" (^0.0.0), which is not listed');
+    ).toThrow('module "mcp-access" needs module "auth" (^0.1.0), which is not listed');
   });
 
   it("lists security and auth before mcp-access when sorting, so its migration runs last", () => {

@@ -1,7 +1,6 @@
 {
   "name": "@softure-ai/ui",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0",
   "description": "SOFTURE AI design tokens, theme provider and switch, and compiled CSS on the --sft-* tokens.",
   "license": "MIT",
   "type": "module",
@@ -37,7 +36,7 @@
     "build": "tsc -p tsconfig.build.json && node scripts/build-css.mjs"
   },
   "dependencies": {
-    "@softure-ai/core": "^0.0.0",
+    "@softure-ai/core": "^0.1.0",
     "zod": "^4.6.5"
   },
   "peerDependencies": {

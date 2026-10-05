@@ -47,6 +47,7 @@ trigger: "the owner step each item waits on (secrets, accounts) is done; the own
 | **MO-6** | `monetization-release` | billing and analytics 0.1.0 published through the release pipeline; READMEs and docs updated | MO-1…MO-5 (done) | owner | blocked (carried over from followups: the owner's batch release at the keyboard on 2026-10-05) |
 | **MK-8** | `marketing-kit-release` | `@softure-ai/marketing-kit` 0.1.0 published through the release pipeline, README complete | MK-1…MK-7 (done) | owner | blocked (carried over from followups: the owner's batch release at the keyboard on 2026-10-05) |
 | **BL-8** | `blog-release` | `@softure-ai/seo` and `@softure-ai/blog` 0.1.0 published through the release pipeline; READMEs, adoption guides and docs updated | BL-1…BL-7 (done) | owner | blocked (carried over from blog: the owner's first npm publish at the keyboard) |
+| **LT-2** | `release-version-inline-manifest` | `release:version` keeps a module's inline manifest in step with `module.json` | — | autonomous | ready |
 
 ## Order
 
@@ -54,6 +55,7 @@ trigger: "the owner step each item waits on (secrets, accounts) is done; the own
    item.
 2. **BL-8**: the first publish of `@softure-ai/seo` and `@softure-ai/blog`, at the keyboard. It waits for no other
    item; the owner can take it in the same batch as MK-8, EN-9 and MO-6.
+4. **LT-2** any time; it must land before the next bump of a module after 0.1.0.
 
 ## Items
 
@@ -100,6 +102,16 @@ trigger: "the owner step each item waits on (secrets, accounts) is done; the own
 - **Baseline:** packages absent from npm. After: installable from npm and from GitHub Releases.
 - **PRD refs:** FR-2, FR-26, G-4.
 
+### LT-2: release:version keeps inline manifests in step
+- **Change ID:** `release-version-inline-manifest`
+- **Status:** ready
+- **Outcome:** `release:version` updates (or makes redundant) the inline manifest version of a module, so the bumped module's "ships a module.json equal to its manifest" test and the release gates stay green.
+- **Prerequisites:** none.
+- **Unknowns:** whether the inline manifest should import `module.json` instead of repeating it.
+- **Risk:** low.
+- **Baseline:** `scripts/release/version.mjs` writes `package.json`, the lockfile and `module.json` only; each module repeats `version` in `src/index.ts`, and its `tests/module.test.ts` compares the two. After: a bump leaves them equal.
+- **Source:** `packages-first-release` research (2026-10-05).
+
 ## Before the next release
 
 Carried over from blog with BL-8:
@@ -107,6 +119,11 @@ Carried over from blog with BL-8:
 - [ ] `@softure-ai/seo` and `@softure-ai/blog` enter the release pipeline's package list (**BL-8**).
 
 ## Owner decisions and checks
+
+- [ ] **First batch release**: all 16 packages are at 0.1.0 on `master` (`packages-first-release`); push the tags
+  in the batches of `scripts/release/README.md` ("First batch release"), then approve each staged version and
+  add its trusted publisher. This covers BL-8, MK-8, EN-9 and MO-6, plus core, db, ui, auth, ops, security and
+  feature-switches, which they depend on.
 
 - [x] **LT-1**: add the Stripe test-mode secret `STRIPE_SECRET_KEY` to the repository (the owner, 2026-10-05).
   `STRIPE_WEBHOOK_SECRET` is not needed: the CI job signs with its own `stripe listen` secret.
@@ -134,6 +151,9 @@ Carried over from blog with its item:
   ([`archive/2026-10-05-billing-stripe-sandbox-e2e/`](../../archive/2026-10-05-billing-stripe-sandbox-e2e/change.md)).
 
 ## Decisions (auto)
+
+- LT-2 added from `packages-first-release` (2026-10-05). → The next bump of any module after 0.1.0 needs it;
+  it waits on nothing, so it is `ready`.
 
 - FU-10 moved here from followups as LT-1 (owner, 2026-10-03). → It waits only on the owner's Stripe secrets, so it
   can run as soon as they are set instead of after every module roadmap.

@@ -1,7 +1,6 @@
 {
   "name": "@softure-ai/db",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0",
   "description": "SOFTURE AI database layer: pg/PGlite client, per-module migrator with plan and adopt, PGlite test databases.",
   "license": "MIT",
   "type": "module",
@@ -49,7 +48,7 @@
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.8",
-    "@softure-ai/core": "^0.0.0",
+    "@softure-ai/core": "^0.1.0",
     "@types/pg": "^8.23.1",
     "pg": "^8.23.1"
   },

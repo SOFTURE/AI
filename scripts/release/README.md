@@ -74,6 +74,29 @@ tarball the workflow attached to the GitHub Release, once, from your machine:
 Without `NPM_TOKEN`, the npm job of a new package fails with a message pointing here; GitHub Packages
 and the GitHub Release are not created, so re-running the job after adding the secret is safe.
 
+## First batch release (0.1.0)
+
+Every package except the template is already at 0.1.0 on `master`, with `^0.1.0` ranges between them, so
+the first release needs no `release:version`: tag the merged `master` and push the tags. The batches
+follow the dependencies, so a package's dependencies are staged before it; at most three tags per push.
+
+```bash
+git switch master && git pull
+for p in core db ui seo security ops mailing auth analytics blog privacy mcp-access \
+  feature-switches billing waitlist marketing-kit; do git tag -a "$p@0.1.0" -m "$p@0.1.0"; done
+git push origin core@0.1.0 db@0.1.0 ui@0.1.0
+git push origin seo@0.1.0 security@0.1.0 ops@0.1.0
+git push origin mailing@0.1.0 auth@0.1.0 analytics@0.1.0
+git push origin blog@0.1.0 privacy@0.1.0 mcp-access@0.1.0
+git push origin feature-switches@0.1.0 billing@0.1.0 waitlist@0.1.0
+git push origin marketing-kit@0.1.0
+```
+
+Wait for a batch's release runs to stage their packages before pushing the next. Each package is new on
+npm, so each run needs the `NPM_TOKEN` secret (see above). Then, package by package in the same order,
+approve the staged version on npmjs.com and add its trusted publisher (steps 3 and 4 above). A package
+installs from npm once the packages it depends on are approved too.
+
 ## Dry run
 
 The same validation runs without publishing:

@@ -129,7 +129,7 @@ describe("the billing module", () => {
         appOrigin: "https://app.example.com",
         modules: [billing({})],
       }),
-    ).toThrow('module "billing" needs module "auth" (^0.0.0), which is not listed');
+    ).toThrow('module "billing" needs module "auth" (^0.1.0), which is not listed');
   });
 
   it("reports healthy once its table exists", async () => {

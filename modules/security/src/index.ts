@@ -13,7 +13,7 @@ export const MODULE_ID = "security";
 export const security = defineModule({
   manifest: {
     id: MODULE_ID,
-    version: "0.0.0",
+    version: "0.1.0",
     dependsOn: {},
     dbSchema: "security",
     tables: ["rate_limits"],
