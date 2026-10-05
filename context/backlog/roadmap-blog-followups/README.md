@@ -28,7 +28,7 @@ moved file lose one `../`.
 
 | ID | Entry | Title | Condition | Kind |
 | --- | --- | --- | --- | --- |
-| BF-1 | [`cli-config-loader`](cli-config-loader/change.md) | One config loader for module commands | roadmap promoted | start |
+| BF-1 | `cli-config-loader` (in progress, in [`context/changes/`](../../changes/cli-config-loader/change.md)) | One config loader for module commands | roadmap promoted | start |
 | BF-2 | [`blog-publish-slug-race`](blog-publish-slug-race/change.md) | A slug race reports a taken slug | roadmap promoted | start |
 | BF-3 | [`blog-article-images`](blog-article-images/change.md) | Images in article bodies | roadmap promoted | start |
 | BF-4 | [`blog-glossary-form-conflicts`](blog-glossary-form-conflicts/change.md) | A glossary form belongs to one term | BF-3 on main | dependency |
