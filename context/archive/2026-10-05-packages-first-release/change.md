@@ -1,12 +1,12 @@
 ---
 change_id: packages-first-release
 title: "Every package is publishable at 0.1.0, so the owner's first release is tags only"
-status: implementing
+status: archived
 roadmap_item: null
 branch: claude/project-thread-wa8tm8
 created: 2026-10-05
 updated: 2026-10-05
-archived_at: null
+archived_at: 2026-10-05
 ---
 
 ## Intent
@@ -57,3 +57,6 @@ The items it unblocks stay in the queued roadmap [`later`](../../foundation/road
   of the `later` release items. No roadmap item of its own.
 - Research: short (where versions and ranges live). Framing skipped: the problem is a set of concrete
   manifest fields found above, not in doubt.
+- Archived 2026-10-05: every releasable package is at 0.1.0 and publishable; the first release is the
+  tag batches in `scripts/release/README.md` ("First batch release"). Open for the owner: push the tags,
+  approve each staged version and add its trusted publisher (in `later` under "Owner decisions and checks").
