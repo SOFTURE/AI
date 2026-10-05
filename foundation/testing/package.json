@@ -1,0 +1,45 @@
+{
+  "name": "@softure-ai/testing",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SOFTURE AI test tools: a Vitest setup file that shifts the test clock to TEST_TODAY while time keeps running.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": [
+    "./src/vitest/setup.ts",
+    "./dist/vitest/setup.js"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SOFTURE/AI.git",
+    "directory": "foundation/testing"
+  },
+  "files": [
+    "dist",
+    "src",
+    "!src/**/*.test.ts",
+    "!src/**/*.test.tsx"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "exports": {
+    ".": {
+      "@softure-ai/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./vitest-setup": {
+      "@softure-ai/source": "./src/vitest/setup.ts",
+      "types": "./dist/vitest/setup.d.ts",
+      "default": "./dist/vitest/setup.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  }
+}
