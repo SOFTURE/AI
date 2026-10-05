@@ -54,6 +54,12 @@ export default config;
 unknown locale or zone, an origin with a path, a module listed twice, two modules on one database
 schema, a required dependency missing, a dependency outside its version range (also an optional
 one, when listed), a dependency cycle, or a module with a `dbSchema` and no `database`.
+
+A command that never connects loads the config inside `withDatabaseOptional(() => import(...))`:
+there a missing, `null` or empty `database.url` gives `database: null` instead of a refusal, also when
+a module has a `dbSchema`; a real URL is kept and every other check still runs. The flag is scoped to
+that one load, and Node keeps a module's first evaluation, so a process loads the config one way.
+
 `getModule(config, id)` finds an enabled module; `sortModulesByDependencies(modules)` returns the
 migration order (dependencies first, listed order otherwise).
 
@@ -120,7 +126,9 @@ with the first module that mounts routes.
 - `loadAppConfig({ cwd, configPath, appScript })`: imports the `--config` file, or the first of
   `DEFAULT_CONFIG_FILES` (`softure.config.{ts,mts,js,mjs}`) in `cwd`; when Node cannot import it, the
   problem names `appScript.runner` and the `appScript.packageName` README;
-- `findDefaultConfig(cwd)` and `loadConfig(path, appScript)`: the two halves on their own.
+- `findDefaultConfig(cwd)` and `loadConfig(path, appScript, { database })`: the two halves on their own;
+- `database: "optional"` (default `"required"`) on both loaders: for a command that never connects
+  (`softure-blog check`), the import runs inside `withDatabaseOptional`.
 
 Each returns `{ ok: true, … }` or `{ ok: false, problem }`; the tool prefixes the problem with its name.
 Node only: the root entry has no `node:` imports.

@@ -9,5 +9,7 @@ export {
   type AppScriptHint,
   type ConfigLoadResult,
   type ConfigOptionResult,
+  type DatabaseRequirement,
   type LoadAppConfigOptions,
+  type LoadConfigOptions,
 } from "./load-config.js";

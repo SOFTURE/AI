@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { defineSoftureConfig, getModule, sortModulesByDependencies } from "@softure-ai/core";
+import { defineSoftureConfig, getModule, sortModulesByDependencies, withDatabaseOptional } from "@softure-ai/core";
 import { catchConfigError, createTestModule } from "./support.js";
 
 const base = { locale: "pl", timezone: "Europe/Warsaw", appOrigin: "https://app.example.com", modules: [] } as const;
@@ -68,6 +68,37 @@ describe("defineSoftureConfig", () => {
   it("reports a module with a database schema when the app has no database", () => {
     const error = catchConfigError(() => defineSoftureConfig({ ...base, modules: [createTestModule({ id: "auth", dbSchema: "auth" })] }));
     expect(error.issues).toEqual(['database: required because module "auth" has a database schema']);
+  });
+
+  describe("with the database optional (a command that never connects)", () => {
+    const withSchema = () => [createTestModule({ id: "auth", dbSchema: "auth" })];
+
+    it.each([
+      ["missing", {}],
+      ["null", { database: null }],
+      ["an empty url", { database: { url: "" } }],
+      ["an unset url", { database: { url: undefined } }],
+    ])("reads a database that is %s as null, even with a database schema", async (_label, patch) => {
+      const config = await withDatabaseOptional(() => defineSoftureConfig({ ...base, modules: withSchema(), ...patch } as never));
+      expect(config.database).toBeNull();
+    });
+
+    it("keeps a real url", async () => {
+      const config = await withDatabaseOptional(() => defineSoftureConfig({ ...base, modules: withSchema(), database: { url: "postgres://db/app" } }));
+      expect(config.database).toEqual({ url: "postgres://db/app" });
+    });
+
+    it("still reports the other problems", async () => {
+      const error = await withDatabaseOptional(() => catchConfigError(() => defineSoftureConfig({ ...base, locale: "de" } as never)));
+      expect(error.issues).toEqual([expect.stringMatching(/^locale: /)]);
+    });
+
+    it("requires the database again once the load resolves or rejects", async () => {
+      await withDatabaseOptional(() => undefined);
+      await expect(withDatabaseOptional(() => Promise.reject(new Error("import failed")))).rejects.toThrow("import failed");
+      const error = catchConfigError(() => defineSoftureConfig({ ...base, modules: withSchema(), database: { url: "" } }));
+      expect(error.issues).toEqual(["database.url: must not be empty"]);
+    });
   });
 
   it("reports two modules sharing a database schema", () => {

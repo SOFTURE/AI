@@ -293,8 +293,12 @@ After an app's own run, `submitBlogChanges(config, run.changes, { commit: run.co
 same addresses; inside Next, call `revalidateTag(BLOG_CACHE_TAG)` first, so a crawler that answers the
 ping at once gets the new text.
 
-`check` needs no database. It reads the files (default: `contentDir`), resolves internal links against
-the app's routes and the published texts of `contentDir`, and prints one line per finding:
+`check` needs no database, nor a database URL: the bin loads the config with the database optional
+(`@softure-ai/core`'s `withDatabaseOptional`), so a CI job without `DATABASE_URL` runs it. An app script
+that runs `check` wraps its own import the same way:
+`const { default: config } = await withDatabaseOptional(() => import("../softure.config"))`. It reads the
+files (default: `contentDir`), resolves internal links against the app's routes and the published texts
+of `contentDir`, and prints one line per finding:
 
 ```text
 content/blog/index-funds.md:12: error [crucial] "crucial": a favourite word of language models; name what depends on the thing
