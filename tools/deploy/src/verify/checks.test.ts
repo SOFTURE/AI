@@ -126,5 +126,6 @@ describe("joinUrl", () => {
   it("keeps the base path and drops a trailing slash of the base", () => {
     expect(joinUrl("https://example.com/", "/a?b=1")).toBe("https://example.com/a?b=1");
     expect(joinUrl("https://example.com/app", "/")).toBe("https://example.com/app/");
+    expect(joinUrl(`https://example.com${"/".repeat(50_000)}`, "/a")).toBe("https://example.com/a");
   });
 });

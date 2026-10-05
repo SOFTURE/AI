@@ -86,12 +86,19 @@ function checkHeader(name: string, expected: string | null, response: ObservedRe
   };
 }
 
+/** `text` without trailing slashes; a loop, not a regular expression, so a long run of `/` stays linear. */
+export function trimTrailingSlashes(text: string): string {
+  let end = text.length;
+  while (end > 0 && text[end - 1] === "/") end -= 1;
+  return text.slice(0, end);
+}
+
 /**
  * Joins a route path to the base URL, keeping a path prefix of the base (`https://host/app` + `/login` →
  * `https://host/app/login`).
  */
 export function joinUrl(baseUrl: string, path: string): string {
-  return `${baseUrl.replace(/\/+$/, "")}${path}`;
+  return `${trimTrailingSlashes(baseUrl)}${path}`;
 }
 
 /** Every check of one route against the response it got; pure, so each rule is tested without a server. */

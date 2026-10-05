@@ -8,7 +8,7 @@ type Handler = (request: IncomingMessage, response: ServerResponse) => void;
 
 let server: Server;
 let baseUrl: string;
-let handlers: Record<string, Handler>;
+let handlers: Map<string, Handler>;
 let seen: IncomingMessage[];
 
 function verifyConfig(input: unknown): VerifyConfig {
@@ -18,11 +18,11 @@ function verifyConfig(input: unknown): VerifyConfig {
 }
 
 beforeEach(async () => {
-  handlers = {};
+  handlers = new Map();
   seen = [];
   server = createServer((request, response) => {
     seen.push(request);
-    const handler = handlers[request.url ?? ""];
+    const handler = handlers.get(request.url ?? "");
     if (handler === undefined) {
       response.writeHead(404, { "content-type": "text/plain" }).end("Not found");
       return;
@@ -40,11 +40,11 @@ afterEach(async () => {
 
 describe("runVerify against a local server", () => {
   it("passes routes whose status, markers, redirect and headers match, in config order", async () => {
-    handlers["/"] = (_request, response) =>
-      response.writeHead(200, { "content-type": "text/html; charset=utf-8", "x-frame-options": "DENY" }).end("<h1>Home</h1>");
-    handlers["/old"] = (_request, response) => response.writeHead(301, { location: "/new", "x-frame-options": "DENY" }).end();
-    handlers["/robots.txt"] = (_request, response) =>
-      response.writeHead(200, { "content-type": "text/plain", "x-frame-options": "DENY" }).end("Sitemap: /sitemap.xml\n");
+    handlers.set("/", (_request, response) =>
+      response.writeHead(200, { "content-type": "text/html; charset=utf-8", "x-frame-options": "DENY" }).end("<h1>Home</h1>"));
+    handlers.set("/old", (_request, response) => response.writeHead(301, { location: "/new", "x-frame-options": "DENY" }).end());
+    handlers.set("/robots.txt", (_request, response) =>
+      response.writeHead(200, { "content-type": "text/plain", "x-frame-options": "DENY" }).end("Sitemap: /sitemap.xml\n"));
     const reports = await runVerify({
       baseUrl,
       config: verifyConfig({
@@ -65,7 +65,7 @@ describe("runVerify against a local server", () => {
   });
 
   it("does not follow a redirect and asks a CDN for a fresh response", async () => {
-    handlers["/old"] = (_request, response) => response.writeHead(302, { location: "/missing" }).end();
+    handlers.set("/old", (_request, response) => response.writeHead(302, { location: "/missing" }).end());
     const [report] = await runVerify({ baseUrl, config: verifyConfig({ routes: [{ path: "/old", status: 302 }] }) });
     expect(report?.passed).toBe(true);
     expect(seen.map((request) => request.url)).toEqual(["/old"]);
@@ -73,8 +73,8 @@ describe("runVerify against a local server", () => {
   });
 
   it("reports every failed check of a route", async () => {
-    handlers["/"] = (_request, response) =>
-      response.writeHead(500, { "x-powered-by": "Next.js" }).end("Application error: a server-side exception");
+    handlers.set("/", (_request, response) =>
+      response.writeHead(500, { "x-powered-by": "Next.js" }).end("Application error: a server-side exception"));
     const [report] = await runVerify({
       baseUrl,
       config: verifyConfig({
@@ -97,8 +97,8 @@ describe("runVerify against a local server", () => {
   });
 
   it("turns a timeout into a failed request check of that route only", async () => {
-    handlers["/slow"] = () => undefined;
-    handlers["/fast"] = (_request, response) => response.writeHead(200).end();
+    handlers.set("/slow", () => undefined);
+    handlers.set("/fast", (_request, response) => response.writeHead(200).end());
     const reports = await runVerify({
       baseUrl,
       timeoutMs: 150,
@@ -124,14 +124,14 @@ describe("runVerify against a local server", () => {
     let active = 0;
     let peak = 0;
     for (const [index, path] of ["/a", "/b", "/c", "/d", "/e"].entries()) {
-      handlers[path] = (_request, response) => {
+      handlers.set(path, (_request, response) => {
         active += 1;
         peak = Math.max(peak, active);
         setTimeout(() => {
           active -= 1;
           response.writeHead(200).end();
         }, 40 - index * 8);
-      };
+      });
     }
     const reports = await runVerify({
       baseUrl,

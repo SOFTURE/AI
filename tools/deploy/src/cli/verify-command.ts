@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
+import { trimTrailingSlashes } from "../verify/checks.js";
 import { formatVerifyReport } from "../verify/report.js";
 import { DEFAULT_CONCURRENCY, runVerify } from "../verify/run-checks.js";
 import { parseDeployConfig, type VerifyConfig } from "../verify/schema.js";
@@ -26,7 +27,7 @@ function readBaseUrl(text: string): string {
   if (url.username !== "" || url.password !== "" || url.search !== "" || url.hash !== "") {
     fail("verify: the URL must not carry credentials, a query or a fragment.", USAGE_EXIT_CODE);
   }
-  return `${url.origin}${url.pathname}`.replace(/\/+$/, "");
+  return trimTrailingSlashes(`${url.origin}${url.pathname}`);
 }
 
 function readInteger(flag: string, text: string | undefined, range: { min: number; max: number }): number | undefined {
