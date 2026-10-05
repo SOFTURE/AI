@@ -59,7 +59,7 @@ backlog: context/backlog/roadmap-deploy/
 | --- | --- | --- | --- | --- | --- |
 | **DP-1** | `deploy-cli-env-notes` | `@softure-ai/deploy` CLI: `env render` from secrets (names from the compose file), release notes as a live report | — | autonomous | done_code (2026-10-05; waiting: the first publish of `@softure-ai/deploy`, DP-8) |
 | **DP-2** | `deploy-reusable-workflows` | `workflow_call` workflows: build the image to GHCR, deploy over SSH, verify; an app keeps one `uses:` line | DP-1 | autonomous | ready |
-| **DP-3** | `deploy-db-guard` | backup before a deploy, a schema guard on the `@softure-ai/db` ledger and row counts before and after from an app hook | DP-1 | autonomous | ready |
+| **DP-3** | `deploy-db-guard` | backup before a deploy, a schema guard on the `@softure-ai/db` ledger and row counts before and after from an app hook | DP-1 | autonomous | **in_progress** (implement 1/3, since 2026-10-05; cloud session, branch `claude/project-thread-ot1p2c` — do not take in another session) |
 | **DP-4** | `deploy-verify-production` | `softure-deploy verify`: routes, expected statuses, markers, redirects and headers from `deploy.json` | DP-1 | autonomous | ready |
 | **DP-5** | `deploy-init-template` | `softure-deploy init` writes compose, Traefik rules, Dockerfile, the server script and the caller workflow once | DP-2, DP-3, DP-4 | autonomous | ready |
 | **DP-6** | `testing-clock-shift` | `@softure-ai/testing`: a Vitest setup that shifts the test clock to `TEST_TODAY` | — | autonomous | ready |
@@ -143,8 +143,8 @@ None of DP-1…DP-7 needs one, so they run on 2026-10-05; everything that does i
 
 ### DP-3: Backup and schema guard before a deploy
 - **Change ID:** `deploy-db-guard`
-- **Status:** ready
-- **Input:** [`deploy-db-guard`](../backlog/roadmap-deploy/deploy-db-guard/change.md)
+- **Status:** **in_progress** (implement 1/3, since 2026-10-05; cloud session, branch `claude/project-thread-ot1p2c` — do not take in another session)
+- **Input:** [`deploy-db-guard`](../changes/deploy-db-guard/change.md)
 - **Outcome:**
   - `softure-deploy backup`: a `pg_dump` before the deploy with retention;
   - `softure-deploy schema-guard`: reads the `@softure-ai/db` migration ledger and refuses a deploy whose image expects migrations the database cannot take (checksum or order);
