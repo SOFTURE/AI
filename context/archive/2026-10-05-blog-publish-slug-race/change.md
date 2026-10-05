@@ -1,12 +1,12 @@
 ---
 change_id: blog-publish-slug-race
 title: "Two publishes racing for one slug report it as a taken slug"
-status: impl_reviewed
+status: archived
 roadmap_item: BF-2
 branch: claude/project-thread-2z92al
 created: 2026-10-05
 updated: 2026-10-05
-archived_at: null
+archived_at: 2026-10-05
 ---
 
 ## Intent
@@ -42,3 +42,4 @@ README §12 lists this as a limitation.
 - Research kept short: one question (where and how the violation surfaces), answered by a red test on two
   Postgres connections before the plan.
 - Framing skipped: a recorded review finding with a stated outcome; no premise to test.
+- Archived 2026-10-05: a publish run that loses a race for a slug is refused with `blog.slug_taken`, naming the article that took it; two-connection Postgres tests cover the insert, the rename and the dry run.

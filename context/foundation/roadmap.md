@@ -47,7 +47,7 @@ backlog: context/backlog/roadmap-blog-followups/
 | ID | Change | Outcome | Depends on | Mode | Status |
 | --- | --- | --- | --- | --- | --- |
 | **BF-1** | `cli-config-loader` | `softure migrate`, `softure-mail` and `softure-blog` load the app config through one shared loader | — | autonomous | ready |
-| **BF-2** | `blog-publish-slug-race` | two publishes racing for one slug report `blog.slug_taken`, not a driver error | — | autonomous | **in_progress** (implement 1/1, since 2026-10-05; cloud session, branch `claude/project-thread-2z92al`) |
+| **BF-2** | `blog-publish-slug-race` | two publishes racing for one slug report `blog.slug_taken`, not a driver error | — | autonomous | done |
 | **BF-3** | `blog-article-images` | images in article bodies under a hosting policy (allowed sources, alt, dimensions) | — | autonomous | ready |
 | **BF-4** | `blog-glossary-form-conflicts` | a glossary form claimed by two terms is refused, naming both | BF-3 | autonomous | ready |
 | **BF-6** | `blog-check-without-database` | `softure-blog check` runs with an app config that has no database URL | BF-1 | autonomous | ready |
@@ -109,8 +109,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### BF-2: A slug race reports a taken slug
 - **Change ID:** `blog-publish-slug-race`
-- **Status:** in_progress (implement 1/1, since 2026-10-05; cloud session, branch `claude/project-thread-2z92al`)
-- **Input:** [`blog-publish-slug-race`](../changes/blog-publish-slug-race/change.md)
+- **Status:** done
+- **Input:** [`blog-publish-slug-race`](../archive/2026-10-05-blog-publish-slug-race/change.md)
 - **Outcome:** `runBlogPublish` maps a unique violation on `articles_slug_key` (SQLSTATE 23505) to a refused run naming the slug; a two-connection test on Postgres covers it.
 - **Prerequisites:** none.
 - **Risk:** low. Publishing runs from one place; the database already refuses the second write, only the message is raw.
@@ -203,4 +203,5 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ## Done
 
+- **BF-2** `blog-publish-slug-race`: a run that loses a slug race is refused with `blog.slug_taken` naming the winner, covered by two-connection Postgres tests; archived in `archive/2026-10-05-blog-publish-slug-race/`
 - **BF-5** `markdown-footnote-links` (done 2026-10-04): `tests/repo/markdown-links.ts` skips footnote definitions (`[^id]: …`), with a test; fixed inside BL-4 `blog-pages` (impl review R3), archived with it in [`archive/2026-10-04-blog-pages/`](../archive/2026-10-04-blog-pages/change.md)
