@@ -24,7 +24,8 @@
     "expire-invoice-requests": "node scripts/expire-invoice-requests.ts",
     "blog:publish": "node scripts/blog.ts publish",
     "blog:fixtures": "node scripts/blog.ts publish e2e/fixtures/blog-renamed --commit --no-indexnow && node scripts/blog.ts publish --commit --no-indexnow",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "e2e:stripe-sandbox": "playwright test --config playwright.stripe-sandbox.config.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "^2.3.0",
