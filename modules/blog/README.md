@@ -73,7 +73,7 @@ blog({
   clusters: { "investing-basics": { en: "Investing basics", pl: pl.blog.investingBasics } },
   // Block plugins of renderArticle, used by the pages. Default: [].
   blocks: [],
-  // Hosts of the app besides APP_ORIGIN's, whose links are not external. Default: [].
+  // Hosts of the app besides APP_ORIGIN's and seo's canonical host, whose links are not external. Default: [].
   siteHosts: ["www.example.com"],
   // Which images bodies may show: site paths and https images on these hosts (subdomains included),
   // with a width and height the app knows. Used by the pages and the quality gate. Default: none
@@ -110,7 +110,7 @@ blog({
     limits: { words: { article: { min: 600, max: 4000 } }, answerWords: 70 }, // FIRE's values are the defaults
     severity: { exclamation: "error", "lead-number": "off" }, // per rule: "error", "warning" or "off"
     paths: { articles: "/blog", terms: "/blog/glossary" },    // where internal links to texts point
-    ownOrigins: ["https://www.example.com"], // absolute links that count as internal, besides appOrigin
+    ownOrigins: ["https://www.example.com"], // absolute links that count as internal, besides appOrigin and seo's origin
     appDir: "src/app",                     // routes for internal links; default src/app, else app
     privateRouteSegments: ["api", "(app)"], // route folders that are no link target; default ["api"]
     plugins: [factsPlugin],                // the app's own rules, see Hooks
@@ -541,8 +541,6 @@ Articles hold editorial content, no personal data: nothing to export or delete.
 - No `--stdin` (a deploy transport).
 - `softure-blog publish` runs outside the app and cannot refresh its cache: the running app shows the
   change, and IndexNow's crawlers see it, after `revalidateSeconds` (BF-10).
-- A body link to seo's canonical host, when it differs from `appOrigin`, is marked external by the renderer and
-  counted as external by the gate unless the app lists that host in `siteHosts` and `quality.ownOrigins` (BF-11).
 - The renderer has no raw HTML and no figures: an image has no caption, and the app hosts and sizes its
   images itself (no `next/image`). A plugin fence inside a list or a quote stays a code
   block (a block node cannot sit inside a list's HTML).

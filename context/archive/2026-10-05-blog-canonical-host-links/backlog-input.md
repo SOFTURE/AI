@@ -18,7 +18,7 @@ external and the quality gate counts it as internal, without the app repeating t
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md) (blog-followups), item **BF-11**:
+From [`roadmap.md`](../../foundation/roadmap.md) (blog-followups), item **BF-11**:
 
 > ### BF-11: A body link to seo's canonical host counts as internal
 > - **Change ID:** `blog-canonical-host-links`

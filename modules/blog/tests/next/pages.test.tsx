@@ -16,10 +16,11 @@ import {
   GlossaryIndexPage,
   GlossaryTermPage,
 } from "@softure-ai/blog/next";
+import { runBlogPublish } from "@softure-ai/blog/server";
 import { seo } from "@softure-ai/seo";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { TestBlog } from "../support.js";
+import { buildArticleFile, type TestBlog } from "../support.js";
 import { createPublishedBlog } from "./support.js";
 
 const scope = vi.hoisted((): { config: SoftureConfig | undefined; db: Queryable | undefined } => ({ config: undefined, db: undefined }));
@@ -215,5 +216,15 @@ describe("blog pages under seo's canonical rule", () => {
     expect(html).toContain('"mainEntityOfPage":"https://example.org/blog/index-funds/"');
     expect(html).toContain('"image":"https://example.org/blog/index-funds/opengraph-image"');
     expect(html).not.toContain("app.example.com");
+  });
+
+  it("treats a body link to seo's canonical host as the site's own, like one to appOrigin", async () => {
+    const body = "Read [taxes](https://example.org/blog/taxes), the [calculator](https://app.example.com/calculator) and [a fund](https://funds.example.net/).";
+    const published = await runBlogPublish(test.ctx, [buildArticleFile({ id: "links", slug: "links", title: "Links", faq: [] }, body)], { commit: true });
+    expect(published.status).toBe("done");
+    const html = await render(BlogArticlePage(params("links")));
+    expect(html).toContain('<a href="https://example.org/blog/taxes">taxes</a>');
+    expect(html).toContain('<a href="https://app.example.com/calculator">calculator</a>');
+    expect(html).toContain('<a href="https://funds.example.net/" rel="noopener noreferrer" target="_blank" class="blog-external">a fund');
   });
 });
