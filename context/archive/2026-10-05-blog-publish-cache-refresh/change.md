@@ -1,12 +1,12 @@
 ---
 change_id: blog-publish-cache-refresh
 title: "A publish from the command line refreshes the running app's blog cache"
-status: active
+status: archived
 roadmap_item: BF-10
 branch: claude/project-thread-5jsi62
 created: 2026-10-05
 updated: 2026-10-05
-archived_at: null
+archived_at: 2026-10-05
 ---
 
 ## Intent
@@ -46,3 +46,7 @@ The pages read through `unstable_cache` tagged `softure-blog` (`modules/blog/src
   repository rate-limits a secret-guarded route), answered from `node_modules/next` and the mcp-access endpoint.
 - Framing skipped: a recorded research gap (BL-5 Q5) with a stated outcome; the premise (the CLI cannot reach
   Next's cache, only a request to the app can) is a fact of the runtime, not a choice to test.
+- Archived 2026-10-05: `refreshBlogCache` (`@softure-ai/blog/next`, Bearer `BLOG_REFRESH_SECRET`, the
+  `blog-refresh` security bucket) expires the blog's cache tag at once; `softure-blog publish --commit` calls it
+  before the IndexNow submit (`--app-url` for another origin) and says when it is not set up; the example app
+  mounts it under a serial e2e. No gaps.

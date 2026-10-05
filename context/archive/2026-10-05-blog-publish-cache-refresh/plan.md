@@ -9,11 +9,11 @@ request after a committed publish; no schema change).
   (`/api/blog/refresh` by default): checks `Authorization: Bearer <BLOG_REFRESH_SECRET>` and calls
   `revalidateTag("softure-blog", { expire: 0 })`. Rate-limited per client address through `security()` in the
   `blog-refresh` bucket (`BLOG_RATE_LIMIT_BUCKETS`), counted before the secret is checked.
-  Answers: 204 refreshed; 401 (with `www-authenticate: Bearer`) for a missing or wrong secret; 400 for an
-  unidentified client; 429 with `retry-after`; 503 when counting fails; 500 with a log line naming the
+  Answers: 204 refreshed; 401 (with `www-authenticate: Bearer`) for a missing or wrong secret; callers
+  without a client address share one count (impl review W1); 429 with `retry-after`; 503 when counting fails; 500 with a log line naming the
   variable when `BLOG_REFRESH_SECRET` is missing or shorter than 32 characters. A missing security module or
   bucket is a setup error, thrown by name (as mcp-access does).
-- `requestBlogRefresh(config, changes, options)` (root entry, beside `submitBlogChanges`): the client side,
+- `requestBlogRefresh(config, changes, options)` (`@softure-ai/blog/server`, beside `submitBlogChanges`): the client side,
   returning `not_configured` (no secret), `skipped` (no text changed), `dry_run` (the URL a commit would
   call), `refreshed` or `failed` (reason and code). Never throws for an expected failure.
 - `softure-blog publish --commit` calls it after a done run and before the IndexNow submit; `--app-url
@@ -74,15 +74,15 @@ An app that mounted the route keeps a dangling import until it removes the route
 ### Phase 1: Route and client
 
 #### Automated
-- [ ] 1.1 Route tests in `tests/next/refresh.test.ts` and client tests in `tests/discovery/refresh.test.ts` pass
-- [ ] 1.2 Gates green (typecheck, lint, test, build)
+- [x] 1.1 Route tests in `tests/next/refresh.test.ts` and client tests in `tests/discovery/refresh.test.ts` pass — 18038db
+- [x] 1.2 Gates green (typecheck, lint, test, build) — 18038db
 
 ### Phase 2: Command, example and docs
 
 #### Automated
-- [ ] 2.1 Command tests in `tests/cli.test.ts` pass
-- [ ] 2.2 `e2e/blog-refresh.serial.spec.ts` passes on the built example
-- [ ] 2.3 Gates green (typecheck, lint, test, build)
+- [x] 2.1 Command tests in `tests/cli.test.ts` pass — cdad765
+- [x] 2.2 `e2e/blog-refresh.serial.spec.ts` passes on the built example — cdad765
+- [x] 2.3 Gates green (typecheck, lint, test, build) — cdad765
 
 #### Manual
-- [ ] 2.4 Impl review recorded in `reviews/impl-review.md`
+- [x] 2.4 Impl review recorded in `reviews/impl-review.md` — cdad765

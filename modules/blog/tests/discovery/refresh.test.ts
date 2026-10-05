@@ -51,14 +51,16 @@ describe("requestBlogRefresh", () => {
     expect(sent).toEqual([]);
   });
 
-  it("refuses to send a secret shorter than 32 characters", async () => {
+  it("refuses a secret shorter than 32 characters, on a commit and on a dry run, and sends nothing", async () => {
     const { fetchImpl, sent } = answerWith(new Response(null, { status: 204 }));
-    expect(await requestBlogRefresh(config, [CHANGED], { commit: true, env: { BLOG_REFRESH_SECRET: "x".repeat(31) }, fetchImpl })).toEqual({
-      kind: "failed",
-      code: "blog.refresh_invalid_secret",
-      reason: "BLOG_REFRESH_SECRET must be at least 32 characters",
-      revalidateSeconds: 120,
-    });
+    for (const commit of [true, false]) {
+      expect(await requestBlogRefresh(config, [CHANGED], { commit, env: { BLOG_REFRESH_SECRET: "x".repeat(31) }, fetchImpl })).toEqual({
+        kind: "failed",
+        code: "blog.refresh_invalid_secret",
+        reason: "BLOG_REFRESH_SECRET must be at least 32 characters",
+        revalidateSeconds: 120,
+      });
+    }
     expect(sent).toEqual([]);
   });
 

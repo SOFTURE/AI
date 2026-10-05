@@ -48,11 +48,12 @@ export async function requestBlogRefresh(config: SoftureConfig, changes: readonl
   const secret = ((options.env ?? process.env)[BLOG_REFRESH_SECRET_ENV] ?? "").trim();
   if (secret === "") return { kind: "not_configured", revalidateSeconds };
 
-  const url = new URL(getBlogRefreshPath(config), options.appUrl ?? config.appOrigin).toString();
-  if (options.commit !== true) return { kind: "dry_run", url };
+  // Also on a dry run: the editor learns of a short secret before the commit that needs it.
   if (secret.length < MIN_REFRESH_SECRET_LENGTH) {
     return { kind: "failed", code: "blog.refresh_invalid_secret", reason: `${BLOG_REFRESH_SECRET_ENV} must be at least ${String(MIN_REFRESH_SECRET_LENGTH)} characters`, revalidateSeconds };
   }
+  const url = new URL(getBlogRefreshPath(config), options.appUrl ?? config.appOrigin).toString();
+  if (options.commit !== true) return { kind: "dry_run", url };
 
   try {
     const response = await (options.fetchImpl ?? fetch)(url, {
