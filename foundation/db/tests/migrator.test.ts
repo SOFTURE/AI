@@ -221,6 +221,24 @@ describe.each(createTestDrivers())("migrator on $name", (driver) => {
     expect(await readLedger(handle)).toEqual([{ module: "softure", version: 1, name: "ledger", method: "applied" }]);
   });
 
+  it("notices an ended transaction every time, even when the next one starts within the same clock tick", async () => {
+    const handle = await driver.open();
+    await migrate(handle, { modules: [] });
+    // PGlite's clock ticks in milliseconds, so two transactions often share now(); 50 runs made the
+    // old now()-based guard miss at least once (the 0.1.2 release of billing failed on it).
+    const sql = "COMMIT;\nSELECT 1;\n";
+    const file = { version: 1, name: "fast", fileName: "0001_fast.sql", sql, checksum: computeChecksum(sql) };
+    const unit = { module: "fast", schema: "fast", moduleVersion: "0.1.0", files: [file] };
+
+    const problems = [];
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+      problems.push(await withSession(handle, (session) => applyFile(session, { unit, file, method: "applied" })));
+    }
+
+    expect(problems.filter((problem) => problem === null)).toEqual([]);
+    expect(await readLedger(handle)).toEqual([{ module: "softure", version: 1, name: "ledger", method: "applied" }]);
+  });
+
   it.each([
     ["the ledger id", { id: "softure", dbSchema: "softure_data" }],
     ["the ledger schema", { id: "ledgerish", dbSchema: "softure" }],

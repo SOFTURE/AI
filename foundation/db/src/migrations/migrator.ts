@@ -186,13 +186,13 @@ export async function applyFile(
   const schema = quoteIdentifier(unit.schema);
   try {
     await session.exec(`BEGIN; CREATE SCHEMA IF NOT EXISTS ${schema}; SET LOCAL search_path TO ${schema}, public;`);
-    const startedAt = await readTransactionStart(session);
+    const transactionId = await readTransactionId(session);
     if (method === "applied") {
       await session.exec(file.sql);
     }
     // Second line behind findTransactionControl: a file that still ended the transaction left
     // part of itself committed, so it must not be reported as cleanly rolled back.
-    if ((await readTransactionStart(session)) !== startedAt) {
+    if ((await readTransactionId(session)) !== transactionId) {
       throw new TransactionEndedError();
     }
     await recordMigration(session, {
@@ -217,9 +217,11 @@ class TransactionEndedError extends Error {
   }
 }
 
-async function readTransactionStart(session: MigrationSession): Promise<string> {
-  const [row] = await session.query<{ started: string }>("SELECT now()::text AS started");
-  return row?.started ?? "";
+// The transaction id, not now(): two transactions can share a start time (PGlite's clock ticks in
+// milliseconds), but never an id.
+async function readTransactionId(session: MigrationSession): Promise<string> {
+  const [row] = await session.query<{ id: string }>("SELECT pg_current_xact_id()::text AS id");
+  return row?.id ?? "";
 }
 
 /**
