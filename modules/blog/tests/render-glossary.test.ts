@@ -1,7 +1,7 @@
 // Glossary links in the renderer and the term matcher (FIRE_TRACKER `src/lib/blog-markdown.test.ts`,
 // glossary part, and `src/lib/blog-glossary.test.ts`, in English).
 import type { BlogArticle } from "@softure-ai/blog";
-import { createTermMatcher, renderArticle, toGlossary } from "@softure-ai/blog/server";
+import { createTermMatcher, findTermFormConflicts, renderArticle, toGlossary } from "@softure-ai/blog/server";
 import { describe, expect, it } from "vitest";
 
 const glossary = [
@@ -140,5 +140,32 @@ describe("toGlossary", () => {
     ];
 
     expect(toGlossary(rows)).toEqual([{ slug: "isa", forms: ["ISA", "ISAs"] }]);
+  });
+});
+
+describe("findTermFormConflicts", () => {
+  it("finds a form two terms claim, with both slugs sorted", () => {
+    expect(findTermFormConflicts([{ slug: "sipp", forms: ["pension"] }, { slug: "isa", forms: ["ISA", "pension"] }])).toEqual([{ form: "pension", slugs: ["isa", "sipp"] }]);
+  });
+
+  it("treats forms that differ only in a capital first letter as one, like the matcher", () => {
+    expect(findTermFormConflicts([{ slug: "a", forms: ["index fund"] }, { slug: "b", forms: [" Index fund "] }])).toEqual([{ form: "index fund", slugs: ["a", "b"] }]);
+    expect(findTermFormConflicts([{ slug: "a", forms: ["IKE"] }, { slug: "b", forms: ["Ike"] }])).toEqual([]);
+  });
+
+  it("agrees with the matcher: the conflicting form links to the first term only", () => {
+    const terms = [{ slug: "a", forms: ["ike"] }, { slug: "b", forms: ["Ike"] }];
+    expect(findTermFormConflicts(terms)).toEqual([{ form: "ike", slugs: ["a", "b"] }]);
+    expect(createTermMatcher(terms)("Ike said so.")).toEqual([{ index: 0, text: "Ike", slug: "a" }]);
+  });
+
+  it("names every term of a form, and ignores a form one term lists twice or an empty one", () => {
+    expect(findTermFormConflicts([{ slug: "c", forms: ["ETF"] }, { slug: "a", forms: ["ETF"] }, { slug: "b", forms: ["ETF"] }])).toEqual([{ form: "ETF", slugs: ["a", "b", "c"] }]);
+    expect(findTermFormConflicts([{ slug: "a", forms: ["ETF", "ETF", " "] }, { slug: "b", forms: [""] }])).toEqual([]);
+  });
+
+  it("returns conflicts sorted by form", () => {
+    const terms = [{ slug: "a", forms: ["zeta", "alpha"] }, { slug: "b", forms: ["zeta", "alpha"] }];
+    expect(findTermFormConflicts(terms).map((conflict) => conflict.form)).toEqual(["alpha", "zeta"]);
   });
 });

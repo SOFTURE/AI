@@ -1,6 +1,6 @@
 // A publish run on PGlite (FIRE_TRACKER `src/db/blog-publish.test.ts`): all or nothing, dry run by
 // default, the pillar rule over the run and in the database, the gate hook.
-import { findArticleBySlug, listArticles, runBlogPublish, type PublishGate } from "@softure-ai/blog/server";
+import { findArticleBySlug, listArticles, parseArticleFile, publishArticle, runBlogPublish, type PublishGate } from "@softure-ai/blog/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildArticleFile, createTestBlog, type TestBlog } from "./support.js";
 
@@ -155,5 +155,49 @@ describe("runBlogPublish", () => {
 
   it("commits an empty run as zero changes", async () => {
     expect(await runBlogPublish(test.ctx, [], { commit: true })).toEqual({ status: "done", committed: true, changes: [], warnings: [] });
+  });
+});
+
+describe("runBlogPublish: one term per glossary form", () => {
+  const buildTerm = (slug: string, forms: readonly string[], status = "published") =>
+    buildArticleFile({ id: slug, slug, kind: "term", forms, status, title: slug, sources: undefined, faq: undefined });
+  const conflict = (form: string, slugs: string) => ({ subject: "glossary", message: `form "${form}" is claimed by terms ${slugs}; a form belongs to one term, so remove it from all but one` });
+
+  /** Stores a term without the run's checks, as rows written before them would be. */
+  async function storeTerm(slug: string, forms: readonly string[]): Promise<void> {
+    const parsed = parseArticleFile(buildTerm(slug, forms).text, `${slug}.md`);
+    if (!parsed.ok) throw new Error(`storeTerm: ${parsed.errors.join("; ")}`);
+    await publishArticle(test.ctx, parsed.article);
+  }
+
+  it("refuses two terms of the run that share a form, naming both, and writes nothing", async () => {
+    const run = await runBlogPublish(test.ctx, [buildTerm("isa", ["ISA", "tax wrapper"]), buildTerm("sipp", ["SIPP", "Tax wrapper"])], { commit: true });
+    expect(run).toEqual({ status: "refused", problems: [conflict("tax wrapper", "isa, sipp")], warnings: [] });
+    expect(await countRows()).toBe(0);
+  });
+
+  it("refuses a term of the run whose form a stored term holds, in a dry run too", async () => {
+    expect((await runBlogPublish(test.ctx, [buildTerm("isa", ["ISA"])], { commit: true })).status).toBe("done");
+    const expected = { status: "refused", problems: [conflict("ISA", "isa, stocks-isa")], warnings: [] };
+    expect(await runBlogPublish(test.ctx, [buildTerm("stocks-isa", ["ISA"])])).toEqual(expected);
+    expect(await runBlogPublish(test.ctx, [buildTerm("stocks-isa", ["ISA"])], { commit: true })).toEqual(expected);
+    expect(await countRows()).toBe(1);
+  });
+
+  it("lets a draft or a withdrawn term keep a form a published term has", async () => {
+    expect((await runBlogPublish(test.ctx, [buildTerm("isa", ["ISA"]), buildTerm("old-isa", ["ISA"], "draft")], { commit: true })).status).toBe("done");
+    expect((await runBlogPublish(test.ctx, [buildTerm("new-isa", ["ISA"])], { commit: true, withdraw: true })).status).toBe("done");
+  });
+
+  it("reads the terms after the run's writes: a run that drops the form fixes the conflict", async () => {
+    await storeTerm("isa", ["ISA"]);
+    await storeTerm("stocks-isa", ["ISA", "stocks and shares ISA"]);
+    expect(await runBlogPublish(test.ctx, [buildTerm("stocks-isa", ["stocks and shares ISA"])], { commit: true })).toMatchObject({ status: "done", warnings: [] });
+  });
+
+  it("warns about a stored conflict the run does not touch and publishes", async () => {
+    await storeTerm("isa", ["ISA"]);
+    await storeTerm("stocks-isa", ["ISA"]);
+    expect(await runBlogPublish(test.ctx, [FIRST], { commit: true })).toMatchObject({ status: "done", committed: true, warnings: [conflict("ISA", "isa, stocks-isa")] });
   });
 });

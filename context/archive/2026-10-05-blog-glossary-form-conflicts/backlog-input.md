@@ -17,7 +17,7 @@ form to whichever term comes first.
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md) (blog-followups), item **BF-4**:
+From [`roadmap.md`](../../foundation/roadmap.md) (blog-followups), item **BF-4**:
 
 > ### BF-4: A glossary form belongs to one term
 > - **Change ID:** `blog-glossary-form-conflicts`
