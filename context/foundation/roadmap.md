@@ -57,7 +57,7 @@ backlog: context/backlog/roadmap-deploy/
 
 | ID | Change | Outcome | Depends on | Mode | Status |
 | --- | --- | --- | --- | --- | --- |
-| **DP-1** | `deploy-cli-env-notes` | `@softure-ai/deploy` CLI: `env render` from secrets (names from the compose file), release notes as a live report | — | autonomous | ready |
+| **DP-1** | `deploy-cli-env-notes` | `@softure-ai/deploy` CLI: `env render` from secrets (names from the compose file), release notes as a live report | — | autonomous | done_code (2026-10-05; waiting: the first publish of `@softure-ai/deploy`, DP-8) |
 | **DP-2** | `deploy-reusable-workflows` | `workflow_call` workflows: build the image to GHCR, deploy over SSH, verify; an app keeps one `uses:` line | DP-1 | autonomous | ready |
 | **DP-3** | `deploy-db-guard` | backup before a deploy, a schema guard on the `@softure-ai/db` ledger and row counts before and after from an app hook | DP-1 | autonomous | ready |
 | **DP-4** | `deploy-verify-production` | `softure-deploy verify`: routes, expected statuses, markers, redirects and headers from `deploy.json` | DP-1 | autonomous | ready |
@@ -110,8 +110,8 @@ None of DP-1…DP-7 needs one, so they run on 2026-10-05; everything that does i
 
 ### DP-1: Deploy CLI: env rendering and release notes
 - **Change ID:** `deploy-cli-env-notes`
-- **Status:** ready
-- **Input:** [`deploy-cli-env-notes`](../backlog/roadmap-deploy/deploy-cli-env-notes/change.md)
+- **Status:** done_code (2026-10-05; waiting: the first publish of `@softure-ai/deploy`, DP-8)
+- **Input:** [`deploy-cli-env-notes`](../archive/2026-10-05-deploy-cli-env-notes/change.md)
 - **Outcome:** A new package `@softure-ai/deploy` (`tools/deploy/`, a CLI like marketing-kit) with:
   - `softure-deploy env render`: reads required names from `${X:?}` in the production compose file and writes `.env.prod` from the environment, refusing a missing name and never printing values;
   - `softure-deploy release-notes`: the release report between two tags from commits and merged pull requests, in the format FIRE's release workflow posts.
@@ -222,7 +222,7 @@ None of DP-1…DP-7 needs one, so they run on 2026-10-05; everything that does i
 - **Change ID:** `deploy-release`
 - **Status:** blocked (waits for DP-1…DP-7 and the owner at the keyboard on 2026-10-06)
 - **Input:** [`deploy-release`](../backlog/roadmap-deploy/deploy-release/change.md)
-- **Outcome:** `@softure-ai/deploy` and `@softure-ai/testing` 0.1.0 published through the FD-2 pipeline (the owner approves each first, staged publish and adds its trusted publisher); the workflow tag for callers (DP-2) set by the owner; READMEs with an adoption guide for FIRE_TRACKER.
+- **Outcome:** `@softure-ai/deploy` and `@softure-ai/testing` 0.1.0 published through the FD-2 pipeline (the owner approves each first, staged publish and adds its trusted publisher); the workflow tag for callers (DP-2) set by the owner; READMEs with an adoption guide for FIRE_TRACKER. `tools/deploy/package.json` carries `"private": true` until then (DP-1), so an `auto-release` of `all` cannot publish it early; DP-8 removes it.
 - **Prerequisites:** DP-1…DP-7.
 - **Unknowns:** none beyond the owner's npm steps.
 - **Risk:** low.
@@ -242,4 +242,4 @@ All of these are for the owner at the keyboard on 2026-10-06.
 
 ## Done
 
-(nothing yet)
+- **DP-1** `deploy-cli-env-notes`: `@softure-ai/deploy` with `softure-deploy env render` (names from the compose file, values never printed, `.env.prod` 0600) and `release-notes` (git log only, en/pl); gap DF-1 (FIRE_TRACKER parity) queued in `deploy-followups`; archived in `archive/2026-10-05-deploy-cli-env-notes/`
