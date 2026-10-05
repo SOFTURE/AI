@@ -54,6 +54,7 @@ Nothing to mount. Migrations run as a deploy step:
 - **Dev:** `npx softure migrate` finds `softure.config.{ts,mts,js,mjs}` in the working directory
   (or `--config <file>`). The file must be one Node can import: `.js`/`.mjs`, or `.ts` where Node
   strips types (Node ≥ 22.18, relative imports written with `.ts`). Otherwise use the script below.
+  The lookup is `@softure-ai/core/cli`'s, shared with `softure-mail` and `softure-blog`.
 - **App script and container image:** the app owns a three-line script, which esbuild bundles:
 
 ```ts
