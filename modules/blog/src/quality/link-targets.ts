@@ -5,7 +5,9 @@
 // `quality.paths`; a static page under the same path wins over the dynamic article route.
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { parseArticleFile, type ParseArticleFileOptions } from "../content/article-file.js";
 import type { BlogArticleKind } from "../contract.js";
+import type { GlossaryTerm } from "../render/glossary.js";
 import type { InternalLinkResolver } from "./rules/links.js";
 
 const ROUTE_FILES = /^(?:page|route)\.(?:tsx?|jsx?|mdx?)$/;
@@ -57,6 +59,23 @@ export function readPublishedContent(files: readonly { readonly name: string; re
     content.set(file.name.replace(/\.md$/, ""), /^kind:\s*(["']?)term\1\s*(?:#.*)?$/m.test(frontmatter) ? "term" : "article");
   }
   return content;
+}
+
+/**
+ * The published glossary terms of the content folders, for the form conflict check: a later file
+ * with the same slug replaces an earlier one (a checked file over its copy in the folder). A file that
+ * does not parse is skipped; its own check reports it.
+ */
+export function readGlossaryTerms(files: readonly { readonly name: string; readonly text: string }[], parse: ParseArticleFileOptions = {}): GlossaryTerm[] {
+  const terms = new Map<string, GlossaryTerm>();
+  for (const file of files) {
+    const parsed = parseArticleFile(file.text, file.name, parse);
+    if (!parsed.ok) continue;
+    const { slug, kind, status, termForms } = parsed.article;
+    if (kind === "term" && status === "published") terms.set(slug, { slug, forms: termForms });
+    else terms.delete(slug);
+  }
+  return [...terms.values()];
 }
 
 export function createInternalLinkResolver(options: InternalLinkResolverOptions): InternalLinkResolver {

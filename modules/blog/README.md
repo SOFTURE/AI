@@ -124,7 +124,7 @@ severity; the writing skill is kept in step with it):
 | --- | --- |
 | file | **`file`**: the frontmatter parses and the slug equals the file name |
 | structure | `title-length`, `description-length`, **`as-of-future`**, `stale`, **`summary-missing`**, **`lead`** (a paragraph first), `lead-length`, **`lead-number`**, **`heading-h1`**, **`heading-order`**, **`sections`** (two `##`), **`section-question`**, **`section-answer`**, `section-answer-length`, **`length`** (a warning above the maximum), **`footnote-undefined`**, `footnote-unused` |
-| links | **`internal-links`** (a warning for a term), **`internal-link-target`** (`check` only), `external-link-https`, **`external-link-dead`** (`--external` only) |
+| links | **`internal-links`** (a warning for a term), **`internal-link-target`** (`check` only), `external-link-https`, **`external-link-dead`** (`--external` only), **`term-form-conflict`** (`check` only: a checked published term shares a form with another published term; `publish` refuses it whatever its severity) |
 | images | **`image-source`** (a site path or a host of `blog({ images })`; every image while the app has no policy), **`image-alt`**, **`image-dimensions`** (the policy's `dimensions` knows it) |
 | style (ruleset) | **`announcement`**, **`these-days`**, **`not-only-but-also`**, **`not-x-but-y`**, **`meta-commentary`**, **`throat-clearing`**, **`empty-conclusion`**, **`crucial`**, **`plays-a-role`**, **`puffery`**, **`chatbot-phrases`**, **`emoji`**, `filler-words`, `exclamation`, `straight-quotes` (`pl`), `title-case-heading` (`pl`) |
 | style (rhythm) | **`dashes`**, `dashes-paragraph`, `bold-density`, `bold-labels`, `triads`, `long-sentences`, `monotone-rhythm`, `repeated-openings` |
@@ -172,6 +172,10 @@ Rules:
 
 - **Slug change:** change `slug` and rename the file, keep `id`. The old slug goes to the slug history
   and redirects to the new one. A slug another article has now, or had before, is refused.
+- **Glossary forms:** a form belongs to one published term (forms equal up to a capital first letter
+  are one). `publish` refuses a run that leaves a form with two terms, one of them in the run, naming
+  the form and both slugs; a conflict only between stored terms is a warning. `check` reports it as
+  `term-form-conflict`. The renderer links such a form to the first term it was given.
 - **Withdrawal:** `status: withdrawn`. The row stays and its address answers 410. Do not delete the
   file: a deleted file changes nothing in the database.
 - **Update date:** `updated_at` moves by itself when the content of a published text changes (title,
@@ -294,7 +298,8 @@ same addresses; inside Next, call `revalidateTag(BLOG_CACHE_TAG)` first, so a cr
 ping at once gets the new text.
 
 `check` needs no database. It reads the files (default: `contentDir`), resolves internal links against
-the app's routes and the published texts of `contentDir`, and prints one line per finding:
+the app's routes and the published texts of `contentDir`, compares the glossary forms of the checked
+terms with every published term there, and prints one line per finding:
 
 ```text
 content/blog/index-funds.md:12: error [crucial] "crucial": a favourite word of language models; name what depends on the thing

@@ -1,6 +1,6 @@
 // Server-side article rendering: Markdown to safe HTML, images under a policy, glossary links, block
 // plugins, reading time.
-export { createTermMatcher, toGlossary, type GlossaryTerm, type TermMatch, type TermMatcher } from "./glossary.js";
+export { createTermMatcher, findTermFormConflicts, toGlossary, type GlossaryTerm, type TermFormConflict, type TermMatch, type TermMatcher } from "./glossary.js";
 export {
   checkArticleImage,
   findArticleImages,
