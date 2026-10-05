@@ -1,14 +1,15 @@
 // Structured data of the blog's pages (schema.org as JSON-LD), built from stored rows. Every URL is
-// absolute on the app's origin; every date is a day the page shows.
-import type { Locale } from "@softure-ai/core";
+// absolute on the site's origin (a page's is its canonical URL, core's `getSiteUrls`); every date is a
+// day the page shows.
+import type { Locale, SiteUrls } from "@softure-ai/core";
 import type { BlogArticle } from "../contract.js";
 import { getArticleDates } from "./dates.js";
 import type { Crumb } from "./listing.js";
 import { getArticlePath, getTermPath, type BlogRoutes } from "./paths.js";
 
 export interface JsonLdContext {
-  /** The app's origin, e.g. `https://example.com`. */
-  readonly origin: string;
+  /** The site's origin and canonical rule (`getSiteUrls(config)`: seo's when the app lists it, else `appOrigin`). */
+  readonly urls: SiteUrls;
   readonly routes: BlogRoutes;
   readonly locale: Locale;
   readonly timezone: string;
@@ -23,16 +24,25 @@ export function serializeJsonLd(data: unknown): string {
   return JSON.stringify(data).replace(/</g, "\\u003c");
 }
 
-function getBreadcrumbs(crumbs: readonly Crumb[], origin: string): JsonLd {
+/** A crumb's URL: its page's canonical URL, then its fragment (a cluster's anchor on the listing), which the canonical rule drops. */
+function getCrumbUrl(path: string, urls: SiteUrls): string {
+  const hashAt = path.indexOf("#");
+  return hashAt === -1 ? urls.getCanonicalUrl(path) : `${urls.getCanonicalUrl(path.slice(0, hashAt))}${path.slice(hashAt)}`;
+}
+
+function getBreadcrumbs(crumbs: readonly Crumb[], urls: SiteUrls): JsonLd {
   return {
     "@type": "BreadcrumbList",
-    itemListElement: crumbs.map((crumb, index) => ({ "@type": "ListItem", position: index + 1, name: crumb.name, item: `${origin}${crumb.path}` })),
+    itemListElement: crumbs.map((crumb, index) => ({ "@type": "ListItem", position: index + 1, name: crumb.name, item: getCrumbUrl(crumb.path, urls) })),
   };
 }
 
-/** The URL of an article's OG image (Next serves `opengraph-image` under the page's path). */
-export function getArticleImageUrl(article: Pick<BlogArticle, "slug">, ctx: Pick<JsonLdContext, "origin" | "routes">): string {
-  return `${ctx.origin}${getArticlePath(ctx.routes, article.slug)}/opengraph-image`;
+/**
+ * The URL of an article's OG image (Next serves `opengraph-image` under the page's path). A file, not a
+ * page: on the site's origin without the canonical trailing-slash rule.
+ */
+export function getArticleImageUrl(article: Pick<BlogArticle, "slug">, ctx: Pick<JsonLdContext, "urls" | "routes">): string {
+  return `${ctx.urls.origin}${getArticlePath(ctx.routes, article.slug)}/opengraph-image`;
 }
 
 /**
@@ -42,8 +52,8 @@ export function getArticleImageUrl(article: Pick<BlogArticle, "slug">, ctx: Pick
  */
 export function getArticleJsonLd(article: BlogArticle, crumbs: readonly Crumb[], ctx: JsonLdContext): JsonLd {
   const dates = getArticleDates(article, ctx.timezone);
-  const url = `${ctx.origin}${getArticlePath(ctx.routes, article.slug)}`;
-  const brand = ctx.brand === null ? null : { "@type": "Organization", name: ctx.brand, url: `${ctx.origin}/` };
+  const url = ctx.urls.getCanonicalUrl(getArticlePath(ctx.routes, article.slug));
+  const brand = ctx.brand === null ? null : { "@type": "Organization", name: ctx.brand, url: ctx.urls.getCanonicalUrl("/") };
   const graph: JsonLd[] = [
     {
       "@type": "BlogPosting",
@@ -59,7 +69,7 @@ export function getArticleJsonLd(article: BlogArticle, crumbs: readonly Crumb[],
       image: getArticleImageUrl(article, ctx),
       ...(article.sources.length > 0 ? { citation: article.sources.map((source) => ({ "@type": "CreativeWork", name: source.name, url: source.url })) } : {}),
     },
-    getBreadcrumbs(crumbs, ctx.origin),
+    getBreadcrumbs(crumbs, ctx.urls),
   ];
   if (article.faq.length > 0) {
     graph.push({
@@ -70,13 +80,13 @@ export function getArticleJsonLd(article: BlogArticle, crumbs: readonly Crumb[],
   return { "@context": "https://schema.org", "@graph": graph };
 }
 
-function getTermSetReference(ctx: Pick<JsonLdContext, "origin" | "routes">, glossaryTitle: string): JsonLd {
-  return { "@type": "DefinedTermSet", "@id": `${ctx.origin}${ctx.routes.glossary}#glossary`, name: glossaryTitle };
+function getTermSetReference(ctx: Pick<JsonLdContext, "urls" | "routes">, glossaryTitle: string): JsonLd {
+  return { "@type": "DefinedTermSet", "@id": `${ctx.urls.getCanonicalUrl(ctx.routes.glossary)}#glossary`, name: glossaryTitle };
 }
 
 /** A term: `DefinedTerm` in the glossary's `DefinedTermSet`, and its `BreadcrumbList`. */
 export function getTermJsonLd(term: BlogArticle, crumbs: readonly Crumb[], ctx: JsonLdContext, glossaryTitle: string): JsonLd {
-  const url = `${ctx.origin}${getTermPath(ctx.routes, term.slug)}`;
+  const url = ctx.urls.getCanonicalUrl(getTermPath(ctx.routes, term.slug));
   return {
     "@context": "https://schema.org",
     "@graph": [
@@ -90,7 +100,7 @@ export function getTermJsonLd(term: BlogArticle, crumbs: readonly Crumb[], ctx: 
         ...(term.termForms.length > 0 ? { alternateName: term.termForms } : {}),
         inDefinedTermSet: getTermSetReference(ctx, glossaryTitle),
       },
-      getBreadcrumbs(crumbs, ctx.origin),
+      getBreadcrumbs(crumbs, ctx.urls),
     ],
   };
 }
@@ -100,10 +110,10 @@ export function getGlossaryJsonLd(terms: readonly BlogArticle[], ctx: JsonLdCont
   return {
     "@context": "https://schema.org",
     ...getTermSetReference(ctx, glossaryTitle),
-    url: `${ctx.origin}${ctx.routes.glossary}`,
+    url: ctx.urls.getCanonicalUrl(ctx.routes.glossary),
     inLanguage: ctx.locale,
     hasDefinedTerm: terms.map((term) => {
-      const url = `${ctx.origin}${getTermPath(ctx.routes, term.slug)}`;
+      const url = ctx.urls.getCanonicalUrl(getTermPath(ctx.routes, term.slug));
       return { "@type": "DefinedTerm", "@id": `${url}#term`, name: term.title, description: term.description, url };
     }),
   };

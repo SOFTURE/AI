@@ -41,5 +41,6 @@ export {
   type PrivacyContributor,
   type SoftureModule,
 } from "./module.js";
+export { findSiteUrlProvider, getSiteUrls, type SiteUrlProvider, type SiteUrls } from "./site-urls.js";
 export { findSwitchReader, readSwitch, type SwitchReader, type SwitchReading } from "./switches.js";
 export { isVersion, parseVersionRange, satisfiesRange, type Version, type VersionRange } from "./version-range.js";

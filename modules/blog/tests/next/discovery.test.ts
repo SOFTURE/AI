@@ -4,6 +4,7 @@ import type { SoftureConfig } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
 import { blogSitemap } from "@softure-ai/blog";
 import { serveBlogRss } from "@softure-ai/blog/next";
+import { seo } from "@softure-ai/seo";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NOW, type TestBlog } from "../support.js";
 import { createPublishedBlog } from "./support.js";
@@ -68,6 +69,19 @@ describe("serveBlogRss", () => {
     } finally {
       logged.mockRestore();
     }
+  });
+});
+
+describe("serveBlogRss under seo's canonical rule", () => {
+  it("links each text by seo's host and trailing-slash rule, as the pages declare it", async () => {
+    await test.database.close();
+    test = await createPublishedBlog({}, [seo({ origin: "https://www.example.org", canonical: { host: "apex", trailingSlash: true } })]);
+    scope.config = test.config;
+    scope.db = test.ctx.db;
+    const xml = await (await serveBlogRss()).text();
+    expect(xml).toContain("<link>https://example.org/blog/index-funds/</link>");
+    expect(xml).toContain('<atom:link href="https://example.org/blog/rss.xml" rel="self" type="application/rss+xml"/>');
+    expect(xml).not.toContain("app.example.com");
   });
 });
 

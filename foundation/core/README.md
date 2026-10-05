@@ -77,6 +77,7 @@ export const notes = defineModule({
   privacy: { exportUserData, deleteUserData },
   health: checkNotesReady, // optional: (context) => Promise<Result<undefined>>
   // switchReader: optional, only for the app's switch provider (section 7)
+  // siteUrls: optional, only for the app's site URL provider (section 7)
 });
 ```
 
@@ -158,6 +159,25 @@ const isReadOnly = reading.kind === "value" ? reading.isEnabled : getNotesOption
 - `defineSoftureConfig` refuses two enabled modules that provide a reader; `findSwitchReader(config)`
   returns the one there is, or `null`.
 - `readSwitch` caches nothing: each call is one read by the provider. Ask once per request.
+
+Core also holds the **site-URL contract**, so a module can declare the absolute URLs of its pages
+(canonical, Open Graph, JSON-LD, feeds) by the app's canonical rule without importing the module that
+owns it (`@softure-ai/seo` is optional for the blog, and a bundler resolves every `import()`):
+
+```ts
+import { getSiteUrls } from "@softure-ai/core";
+
+const urls = getSiteUrls(config);
+urls.getCanonicalUrl("/notes/first"); // a page: the provider's host and trailing-slash rule
+`${urls.origin}/notes/feed.xml`;      // a file: on the site's origin as it is
+```
+
+- `getSiteUrls(config)` asks the enabled module that passed `siteUrls` to `defineModule` (a
+  `SiteUrlProvider`, `(config) => SiteUrls`); `@softure-ai/seo` is the provider. Without one, `origin`
+  is `appOrigin` and `getCanonicalUrl(path)` appends the path to it unchanged.
+- `getCanonicalUrl` takes a path starting with a single `/` and throws for anything else.
+- `defineSoftureConfig` refuses two enabled modules that provide site URLs; `findSiteUrlProvider(config)`
+  returns the one there is, or `null`.
 
 ## 8. Appearance
 

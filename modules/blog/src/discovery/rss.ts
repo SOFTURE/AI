@@ -1,6 +1,7 @@
 // The blog's RSS 2.0 feed (FIRE_TRACKER `src/lib/blog-discovery.ts`). An item is the title, the
 // address, the description and the publication date, **without the body**: the reader goes to the
 // page, where the sources and the disclaimer are; a text torn from them would be advice without context.
+import type { SiteUrls } from "@softure-ai/core";
 import type { BlogArticle } from "../contract.js";
 import { getArticlePath, getTermPath, type BlogRoutes } from "../pages/paths.js";
 import { getLatestModified, requirePublishedAt } from "./dates.js";
@@ -17,8 +18,8 @@ export interface FeedChannel {
 export interface BuildBlogRssInput {
   readonly articles: readonly FeedText[];
   readonly terms: readonly FeedText[];
-  /** The origin of every link, e.g. `https://example.com`. */
-  readonly origin: string;
+  /** The site's origin and canonical rule (`getSiteUrls(config)`): items and the channel link a page's canonical URL. */
+  readonly urls: SiteUrls;
   readonly routes: BlogRoutes;
   /** The feed's own path (`routes.rss`), for `atom:link rel="self"`. */
   readonly feedPath: string;
@@ -39,7 +40,6 @@ export function escapeXml(text: string): string {
  * again as new. `lastBuildDate` is the newest change, absent for an empty blog.
  */
 export function buildBlogRss(input: BuildBlogRssInput): string {
-  const absolute = (path: string) => new URL(path, input.origin).toString();
   const lastModified = getLatestModified([...input.articles, ...input.terms]);
   const items = [
     ...input.articles.map((text) => ({ text, path: getArticlePath(input.routes, text.slug) })),
@@ -51,7 +51,7 @@ export function buildBlogRss(input: BuildBlogRssInput): string {
       return [
         "    <item>",
         `      <title>${escapeXml(text.title)}</title>`,
-        `      <link>${escapeXml(absolute(path))}</link>`,
+        `      <link>${escapeXml(input.urls.getCanonicalUrl(path))}</link>`,
         `      <guid isPermaLink="false">${escapeXml(text.id)}</guid>`,
         `      <description>${escapeXml(text.description)}</description>`,
         `      <pubDate>${requirePublishedAt(text).toUTCString()}</pubDate>`,
@@ -64,10 +64,10 @@ export function buildBlogRss(input: BuildBlogRssInput): string {
     '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">',
     "  <channel>",
     `    <title>${escapeXml(input.channel.title)}</title>`,
-    `    <link>${escapeXml(absolute(input.routes.index))}</link>`,
+    `    <link>${escapeXml(input.urls.getCanonicalUrl(input.routes.index))}</link>`,
     `    <description>${escapeXml(input.channel.description)}</description>`,
     `    <language>${escapeXml(input.channel.language)}</language>`,
-    `    <atom:link href="${escapeXml(absolute(input.feedPath))}" rel="self" type="application/rss+xml"/>`,
+    `    <atom:link href="${escapeXml(`${input.urls.origin}${input.feedPath}`)}" rel="self" type="application/rss+xml"/>`,
     ...(lastModified === null ? [] : [`    <lastBuildDate>${lastModified.toUTCString()}</lastBuildDate>`]),
     ...items,
     "  </channel>",

@@ -133,6 +133,10 @@ function checkModules(modules: readonly AnySoftureModule[]): string[] {
   if (providers.length > 1) {
     issues.push(`modules: only one module may provide the switch reader; ${providers.join(", ")} all do`);
   }
+  const siteUrlProviders = modules.filter((module) => typeof module.siteUrls === "function").map((module) => module.id);
+  if (siteUrlProviders.length > 1) {
+    issues.push(`modules: only one module may provide the site URLs; ${siteUrlProviders.join(", ")} all do`);
+  }
 
   const { remaining } = orderModules([...byId.values()]);
   if (remaining.length > 0) {
