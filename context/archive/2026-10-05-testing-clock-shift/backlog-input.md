@@ -15,7 +15,7 @@ archived_at: null
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md) (deploy), item **DP-6** (main roadmap since 2026-10-05):
+From [`roadmap.md`](../../foundation/roadmap.md) (deploy), item **DP-6** (main roadmap since 2026-10-05):
 
 > ### DP-6: Test clock shift
 > - **Change ID:** `testing-clock-shift`
@@ -30,8 +30,8 @@ From [`roadmap.md`](../../../foundation/roadmap.md) (deploy), item **DP-6** (mai
 > - **PRD refs:** FR-35.
 > - **Source (FIRE_TRACKER, read only):** `vitest.shift-clock.ts`
 
-Reference material: [`docs/06-fire-extraction-2.md`](../../../../docs/06-fire-extraction-2.md) (the FIRE_TRACKER source map and the split rules),
-[`docs/02-module-standard.md`](../../../../docs/02-module-standard.md) (the standard). FIRE_TRACKER is read only:
+Reference material: [`docs/06-fire-extraction-2.md`](../../../docs/06-fire-extraction-2.md) (the FIRE_TRACKER source map and the split rules),
+[`docs/02-module-standard.md`](../../../docs/02-module-standard.md) (the standard). FIRE_TRACKER is read only:
 copy its code, never change it.
 
 ## Constraints

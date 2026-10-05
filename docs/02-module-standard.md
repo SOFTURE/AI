@@ -274,6 +274,10 @@ thin actions) are not needed.
 
 - **Unit/contract:** vitest + `createTestDatabase()` (PGlite with the migrations of the module and its
   dependencies), random order, injected clock, test time zone ≠ UTC (FIRE uses America/New_York).
+- **Clock shift:** an app's date guards are checked ahead of time with `TEST_TODAY=YYYY-MM-DD` and the
+  `@softure-ai/testing/vitest-setup` setup file, which moves the global `Date` to that day while time
+  keeps running ([foundation/testing](../foundation/testing/README.md)). Module code still takes the
+  injected clock; the shift is for code an app has not moved onto one.
 - **Architecture test** in every module checks: no `next/*` in `server/` or `ui/`, no raw colors,
   no copy outside `messages`, and every table has a migration.
 - **E2E:** `examples/next-app` in the repo mounts all modules, and Playwright runs the scenarios
