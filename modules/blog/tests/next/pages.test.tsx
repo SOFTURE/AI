@@ -11,10 +11,12 @@ import {
   generateBlogIndexMetadata,
   generateBlogStaticParams,
   generateGlossaryIndexMetadata,
+  generateMethodMetadata,
   generateTermMetadata,
   GlossaryIndexPage,
   GlossaryTermPage,
 } from "@softure-ai/blog/next";
+import { seo } from "@softure-ai/seo";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { TestBlog } from "../support.js";
@@ -180,5 +182,38 @@ describe("blog pages", () => {
     scope.db = test.ctx.db;
     expect(() => BlogMethodPage()).toThrow(NotFoundSignal);
     expect(await render(BlogIndexPage())).not.toContain("how-we-write");
+  });
+});
+
+describe("blog pages under seo's canonical rule", () => {
+  // A canonical host that differs from appOrigin (https://app.example.com), and the trailing-slash rule.
+  beforeEach(async () => {
+    await test.database.close();
+    test = await createPublishedBlog({}, [seo({ origin: "https://www.example.org", canonical: { host: "apex", trailingSlash: true } })]);
+    scope.config = test.config;
+    scope.db = test.ctx.db;
+  });
+
+  it("declares an article's canonical and OG URL on seo's host with its trailing slash, and the feed without one", async () => {
+    const metadata = await generateArticleMetadata(params("index-funds"));
+    expect(metadata.alternates).toEqual({
+      canonical: "https://example.org/blog/index-funds/",
+      types: { "application/rss+xml": [{ url: "https://example.org/blog/rss.xml", title: "Blog | Example" }] },
+    });
+    expect(metadata.openGraph?.url).toBe("https://example.org/blog/index-funds/");
+  });
+
+  it("declares the listing's, the glossary's, a term's and the method page's canonical URLs by the same rule", async () => {
+    expect((await generateBlogIndexMetadata()).alternates?.canonical).toBe("https://example.org/blog/");
+    expect((await generateGlossaryIndexMetadata()).openGraph?.url).toBe("https://example.org/blog/glossary/");
+    expect((await generateTermMetadata(params("expense-ratio"))).alternates).toEqual({ canonical: "https://example.org/blog/glossary/expense-ratio/" });
+    expect(generateMethodMetadata().alternates).toEqual({ canonical: "https://example.org/blog/how-we-write/" });
+  });
+
+  it("puts the same canonical URL in the article's JSON-LD", async () => {
+    const html = await render(BlogArticlePage(params("index-funds")));
+    expect(html).toContain('"mainEntityOfPage":"https://example.org/blog/index-funds/"');
+    expect(html).toContain('"image":"https://example.org/blog/index-funds/opengraph-image"');
+    expect(html).not.toContain("app.example.com");
   });
 });

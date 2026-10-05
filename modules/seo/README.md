@@ -92,6 +92,10 @@ export const metadata = { alternates: { canonical: getCanonicalUrl("/pricing") }
 contributor reads a database: otherwise Next renders the file once at build time and keeps those
 values. A page using `getCanonicalUrl` in a static `metadata` export has the same rule.
 
+seo is also the app's **site URL provider** (core's `getSiteUrls`, `getSeoSiteUrls` here): other modules'
+pages, such as the blog's canonical, Open Graph, JSON-LD and feed URLs, follow the same origin, host and
+trailing-slash rule as the sitemap without importing seo.
+
 Submitting changed URLs (a publish script, outside a request):
 
 ```ts

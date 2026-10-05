@@ -22,7 +22,7 @@ backlog: context/backlog/roadmap-blog-followups/
 > The catch-all of the [`blog`](archive/2026-10-04-2-roadmap.md) roadmap (owner, 2026-10-03: gaps found while
 > delivering a roadmap are collected in a catch-all roadmap, not fixed on the spot). A gap or deferred review
 > finding found while delivering this roadmap lands here too:
-> 1. take the next free `BF-<n>` (BF-11 is next) and a kebab-case change-id;
+> 1. take the next free `BF-<n>` (BF-12 is next) and a kebab-case change-id;
 > 2. write `context/backlog/roadmap-blog-followups/<change-id>/change.md` (`status: backlog`, the item block quoted
 >    in Context, **Source** naming the change and the finding);
 > 3. add the row and the item block here (status `proposed`, or `blocked (…)` when it waits on the owner) and the
@@ -55,6 +55,7 @@ backlog: context/backlog/roadmap-blog-followups/
 | **BF-8** | `blog-og-fonts` | `blog({ brand: { fonts } })` gives the article OG card the brand's fonts | BF-7 | autonomous | ready |
 | **BF-9** | `blog-skill-app-notes` | the generated writing skill carries the app's own sections across reinstalls | — | autonomous | ready |
 | **BF-10** | `blog-publish-cache-refresh` | `softure-blog publish --commit` refreshes the running app's blog cache before the IndexNow submit | BF-2 | autonomous | ready |
+| **BF-11** | `blog-canonical-host-links` | a body link to seo's canonical host counts as internal in the renderer and the gate | BF-7 | autonomous | proposed |
 
 ## Order
 
@@ -72,6 +73,8 @@ parallel, up to 4 at once. "Depends on" in the table is the item before it in it
 1. **First wave: BF-1, BF-2, BF-3, BF-7**, the head of lanes A to D.
 2. **Each free slot** takes the first item of this list whose lane is idle and whose dependency is on `master`:
    BF-9, BF-6, BF-4, BF-8, BF-10.
+3. **BF-11** (a gap filed by BF-7) touches lanes C and D (`src/quality/settings.ts`, `src/pages/body.ts`): it runs
+   when both are idle, after BF-4 and BF-8.
 
 `modules/blog/src/options.ts`, `src/messages/` and the example app (`examples/next-app/`) are touched by several
 lanes; `master` is the source of truth and each thread merges it and resolves the conflicts itself.
@@ -92,6 +95,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 | BF-8 | no | font files read from a path or URL; tested with a local subset font |
 | BF-9 | no | an option or a preserved local file in the skill install; `--check` tests |
 | BF-10 | no | the route secret comes from the environment; tests use a fake app URL, no real deploy |
+| BF-11 | no | two host lists in the blog; unit tests |
 
 ## Items
 
@@ -184,6 +188,16 @@ owner's own machine, a product decision only the owner can make, or a change in 
 - **Risk:** low. Today the window is `revalidateSeconds` (300 s by default), as in FIRE_TRACKER.
 - **Mode:** autonomous.
 - **Source:** BL-5 `blog-discovery` research Q5.
+
+### BF-11: A body link to seo's canonical host counts as internal
+- **Change ID:** `blog-canonical-host-links`
+- **Status:** proposed
+- **Input:** [`blog-canonical-host-links`](../backlog/roadmap-blog-followups/blog-canonical-host-links/change.md)
+- **Outcome:** the renderer's own hosts (`pages/body.ts` `siteHosts`) and the gate's own origins (`quality/settings.ts` `ownOrigins`) include core's `getSiteUrls(config).origin` next to `appOrigin`; a test covers a canonical host that differs from `appOrigin`.
+- **Prerequisites:** BF-7 on `master` (core's `getSiteUrls`).
+- **Risk:** low. An app can list the host in `siteHosts` and `quality.ownOrigins` today; the example's canonical host equals `appOrigin`.
+- **Mode:** autonomous.
+- **Source:** BF-7 `blog-seo-canonical` plan review S1.
 
 ## Owner decisions and checks
 

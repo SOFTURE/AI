@@ -14,7 +14,7 @@
 // articles and terms render on their first request and are kept for `revalidate` seconds (ISR).
 // 301 and 410 are answered before the page by `@softure-ai/blog/proxy`; anything else that is not a
 // published text of the page's kind is a 404 here.
-import { formatMessage, type SoftureConfig } from "@softure-ai/core";
+import { formatMessage, getSiteUrls, type SoftureConfig } from "@softure-ai/core";
 import { getSoftureConfig } from "@softure-ai/core/next";
 // `next/types.js`, not `next`: the root entry adds Next's globals (a read-only NODE_ENV) to every
 // program that includes this file.
@@ -77,7 +77,7 @@ function getCrumbLabels(config: SoftureConfig, context: BlogPageContext): CrumbL
 }
 
 function getJsonLdContext(config: SoftureConfig, context: BlogPageContext): JsonLdContext {
-  return { origin: config.appOrigin, routes: context.routes, locale: config.locale, timezone: config.timezone, brand: context.brand };
+  return { urls: getSiteUrls(config), routes: context.routes, locale: config.locale, timezone: config.timezone, brand: context.brand };
 }
 
 function getBodyOptions(config: SoftureConfig, context: BlogPageContext, terms: readonly BlogArticle[]): RenderPageBodyOptions {
@@ -88,13 +88,14 @@ function withBrand(title: string, context: BlogPageContext): string {
   return context.brand === null ? title : formatMessage(context.messages.pages.titleWithBrand, { title, brand: context.brand });
 }
 
-function getAbsoluteUrl(config: SoftureConfig, path: string): string {
-  return `${config.appOrigin}${path}`;
+/** A page's canonical URL: seo's host and trailing-slash rule when the app lists seo, else on `appOrigin`. */
+function getCanonicalUrl(config: SoftureConfig, path: string): string {
+  return getSiteUrls(config).getCanonicalUrl(path);
 }
 
-/** The feed link a reader finds in `<head>` (`<link rel="alternate" type="application/rss+xml">`). */
+/** The feed link a reader finds in `<head>` (`<link rel="alternate" type="application/rss+xml">`); a file, so no trailing-slash rule. */
 function getFeedAlternates(config: SoftureConfig, context: BlogPageContext): NonNullable<Metadata["alternates"]>["types"] {
-  return { "application/rss+xml": [{ url: getAbsoluteUrl(config, context.routes.rss), title: withBrand(context.messages.pages.blogTitle, context) }] };
+  return { "application/rss+xml": [{ url: `${getSiteUrls(config).origin}${context.routes.rss}`, title: withBrand(context.messages.pages.blogTitle, context) }] };
 }
 
 /** Metadata of a page with a fixed path; an empty listing stays out of the index (thin content). */
@@ -103,14 +104,14 @@ function getStaticMetadata(config: SoftureConfig, context: BlogPageContext, page
     title: withBrand(page.title, context),
     description: page.description,
     robots: { index: page.isEmpty !== true, follow: true },
-    alternates: { canonical: getAbsoluteUrl(config, page.path), ...(page.hasFeed === true ? { types: getFeedAlternates(config, context) } : {}) },
-    openGraph: { type: "website", title: page.title, description: page.description, url: getAbsoluteUrl(config, page.path), ...(context.brand === null ? {} : { siteName: context.brand }) },
+    alternates: { canonical: getCanonicalUrl(config, page.path), ...(page.hasFeed === true ? { types: getFeedAlternates(config, context) } : {}) },
+    openGraph: { type: "website", title: page.title, description: page.description, url: getCanonicalUrl(config, page.path), ...(context.brand === null ? {} : { siteName: context.brand }) },
   };
 }
 
 function getTextMetadata(config: SoftureConfig, context: BlogPageContext, text: BlogArticle, path: string, options: { hasFeed?: boolean } = {}): Metadata {
   const dates = getArticleDates(text, config.timezone);
-  const url = getAbsoluteUrl(config, path);
+  const url = getCanonicalUrl(config, path);
   return {
     title: withBrand(text.title, context),
     description: text.description,

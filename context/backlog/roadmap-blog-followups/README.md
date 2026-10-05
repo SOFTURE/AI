@@ -38,5 +38,6 @@ moved file lose one `../`.
 | BF-8 | [`blog-og-fonts`](blog-og-fonts/change.md) | The OG card takes the brand's fonts | BF-7 on main | dependency |
 | BF-9 | [`blog-skill-app-notes`](blog-skill-app-notes/change.md) | The app's own sections in the generated writing skill | roadmap promoted | start |
 | BF-10 | [`blog-publish-cache-refresh`](blog-publish-cache-refresh/change.md) | A command-line publish refreshes the app's cache | BF-2 on main | dependency |
+| BF-11 | [`blog-canonical-host-links`](blog-canonical-host-links/change.md) | A body link to seo's canonical host counts as internal | BF-7 on main | dependency |
 
 Kind: `start`, `dependency` or `owner`, as in the other roadmap backlogs.

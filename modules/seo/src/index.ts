@@ -1,11 +1,27 @@
 // Public API of @softure-ai/seo: the module factory for softure.config.ts, the pure builders and
 // the crawler lists. The Next files an app mounts are in `@softure-ai/seo/next`, the IndexNow
 // submit in `@softure-ai/seo/server`.
-import { defineModule } from "@softure-ai/core";
+import { defineModule, getModule, type SiteUrls, type SoftureConfig } from "@softure-ai/core";
 import { seoMessages } from "./messages/index.js";
-import { seoOptionsSchema } from "./options.js";
+import { seoOptionsSchema, type SeoOptions } from "./options.js";
+import { buildCanonicalUrl, resolveSeoSettings, type SeoRoutes } from "./settings.js";
 
 export const MODULE_ID = "seo";
+
+/**
+ * The site URLs other modules build on through core's `getSiteUrls` (the blog's canonical, OG and JSON-LD
+ * URLs): seo's site origin and its canonical host and trailing-slash rule, as in the sitemap.
+ */
+export function getSeoSiteUrls(config: SoftureConfig): SiteUrls {
+  const module = getModule(config, MODULE_ID);
+  if (module === undefined) {
+    // Unreachable through core: it asks only a listed module.
+    throw new Error("@softure-ai/seo: the seo module is not enabled; add seo() to modules in softure.config.ts");
+  }
+  // The module factory parsed the options and declares both routes.
+  const settings = resolveSeoSettings(module.options as SeoOptions, { appOrigin: config.appOrigin, routes: module.routes as unknown as SeoRoutes });
+  return { origin: settings.siteOrigin, getCanonicalUrl: (path) => buildCanonicalUrl(path, settings) };
+}
 
 /**
  * Enables robots.txt, sitemap.xml and the IndexNow key file in `softure.config.ts`, e.g.
@@ -31,6 +47,7 @@ export const seo = defineModule({
   },
   messages: seoMessages,
   options: seoOptionsSchema,
+  siteUrls: getSeoSiteUrls,
 });
 
 export {
