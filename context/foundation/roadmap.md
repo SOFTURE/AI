@@ -50,7 +50,7 @@ backlog: context/backlog/roadmap-blog-followups/
 | **BF-2** | `blog-publish-slug-race` | two publishes racing for one slug report `blog.slug_taken`, not a driver error | — | autonomous | ready |
 | **BF-3** | `blog-article-images` | images in article bodies under a hosting policy (allowed sources, alt, dimensions) | — | autonomous | ready |
 | **BF-4** | `blog-glossary-form-conflicts` | a glossary form claimed by two terms is refused, naming both | BF-3 | autonomous | ready |
-| **BF-6** | `blog-check-without-database` | `softure-blog check` runs with an app config that has no database URL | BF-1 | autonomous | ready |
+| **BF-6** | `blog-check-without-database` | `softure-blog check` runs with an app config that has no database URL | BF-1 | autonomous | **in_progress (implement 1/1, since 2026-10-05; cloud session, branch `claude/project-thread-aimblk` — do not take in another session)** |
 | **BF-7** | `blog-seo-canonical` | the blog's canonical, OG and JSON-LD URLs follow `@softure-ai/seo`'s canonical host and trailing-slash rule | — | autonomous | done_code (2026-10-05; waiting: the next release of `@softure-ai/core` and `@softure-ai/seo`, and the first of `@softure-ai/blog`, BL-8) |
 | **BF-8** | `blog-og-fonts` | `blog({ brand: { fonts } })` gives the article OG card the brand's fonts | BF-7 | autonomous | ready |
 | **BF-9** | `blog-skill-app-notes` | the generated writing skill carries the app's own sections across reinstalls | — | autonomous | ready |
@@ -141,8 +141,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### BF-6: softure-blog check without a database URL
 - **Change ID:** `blog-check-without-database`
-- **Status:** ready
-- **Input:** [`blog-check-without-database`](../backlog/roadmap-blog-followups/blog-check-without-database/change.md)
+- **Status:** in_progress (implement 1/1, since 2026-10-05; cloud session, branch `claude/project-thread-aimblk` — do not take in another session)
+- **Input:** [`blog-check-without-database`](../changes/blog-check-without-database/change.md)
 - **Outcome:** `softure-blog check` loads an app config that has no database URL (or a placeholder) without failing: either core lets a command opt out of the database requirement, or the blog bin builds a check-only config; the weekly workflow drops its placeholder `DATABASE_URL`.
 - **Prerequisites:** none.
 - **Risk:** low. The reusable workflow passes a placeholder URL today; `check` never connects.
