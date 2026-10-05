@@ -1,0 +1,138 @@
+import { readFileSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { createBackup, BACKUP_PREFIX } from "../db/backup.js";
+import { DEFAULT_URL_ENV, isPostgresUrl, toLibpqEnv, withPgClient } from "../db/connection.js";
+import { compareRowCounts, countRows, parseTableList, rowCountsFileSchema, type RowCounts } from "../db/row-counts.js";
+import { guardSchema } from "../db/schema-guard.js";
+import { fail, USAGE_EXIT_CODE } from "./failure.js";
+import type { CliIo } from "./io.js";
+import { readFlags } from "./options.js";
+
+export const DEFAULT_BACKUP_DIR = "backups";
+export const DEFAULT_BACKUP_PREFIX = "db";
+export const DEFAULT_BACKUP_KEEP = 7;
+
+/** The database URL from the variable `--url-env` names; the URL itself is never printed. */
+function readDatabaseUrl(command: string, env: CliIo["env"], name: string): string {
+  const url = env[name];
+  if (url === undefined || url === "") fail(`${command}: ${name} is not set; it must hold the database URL.`);
+  if (!isPostgresUrl(url)) fail(`${command}: ${name} must be a postgres:// or postgresql:// URL.`);
+  return url;
+}
+
+/** Runs a database step; a driver error prints its message only (pg messages carry no password). */
+async function runOnDatabase<T>(command: string, url: string, run: Parameters<typeof withPgClient<T>>[1]): Promise<T> {
+  try {
+    return await withPgClient(url, run);
+  } catch (error) {
+    return fail(`${command}: the database refused the step: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+/** `softure-deploy backup`: a pg_dump into `--dir`, then the newest `--keep` dumps of `--prefix` stay. */
+export async function runBackup(args: string[], io: CliIo): Promise<void> {
+  const flags = readFlags("backup", args, {
+    dir: { type: "string", default: DEFAULT_BACKUP_DIR },
+    prefix: { type: "string", default: DEFAULT_BACKUP_PREFIX },
+    keep: { type: "string", default: String(DEFAULT_BACKUP_KEEP) },
+    "url-env": { type: "string", default: DEFAULT_URL_ENV },
+    "pg-dump": { type: "string", default: "pg_dump" },
+  });
+  const keep = Number(flags.keep);
+  if (!Number.isInteger(keep) || keep < 1) fail(`backup: --keep must be a whole number of at least 1, got "${flags.keep}".`, USAGE_EXIT_CODE);
+  if (!BACKUP_PREFIX.test(flags.prefix)) {
+    fail(`backup: --prefix must be lower case letters, digits, - and _, got "${flags.prefix}".`, USAGE_EXIT_CODE);
+  }
+  const libpq = toLibpqEnv(readDatabaseUrl("backup", io.env, flags["url-env"]));
+  if (!libpq.ok) fail(`backup: ${flags["url-env"]}: ${libpq.problem}.`);
+  const result = await createBackup({
+    dir: resolve(io.cwd, flags.dir),
+    prefix: flags.prefix,
+    keep,
+    libpqEnv: libpq.env,
+    pgDump: flags["pg-dump"],
+    now: new Date(),
+    env: io.env,
+  });
+  if (!result.ok) fail(`backup: no backup written; ${result.problem}.`);
+  const removed = result.removed.length === 0 ? "" : `; removed ${result.removed.length} older: ${result.removed.join(", ")}`;
+  io.stdout(`backup: wrote ${result.file} (${result.bytes} bytes)${removed}\n`);
+}
+
+/** `softure-deploy schema-guard --migrations-dir=<dir>`: refuses an image the ledger cannot take; writes nothing. */
+export async function runSchemaGuard(args: string[], io: CliIo): Promise<void> {
+  const flags = readFlags("schema-guard", args, {
+    "migrations-dir": { type: "string" },
+    "url-env": { type: "string", default: DEFAULT_URL_ENV },
+  });
+  const dir = flags["migrations-dir"];
+  if (dir === undefined) fail("schema-guard: --migrations-dir is required (the folder of `softure migrate --export-migrations`).", USAGE_EXIT_CODE);
+  const url = readDatabaseUrl("schema-guard", io.env, flags["url-env"]);
+  const result = await runOnDatabase("schema-guard", url, (client) => guardSchema(client, resolve(io.cwd, dir)));
+  if (!result.ok) {
+    fail(`schema-guard: the database cannot take this image's migrations:\n${result.problems.map((line) => `  ${line}`).join("\n")}`);
+  }
+  const lines = result.check.pending.map((step) => `  pending ${step.module} ${String(step.version).padStart(4, "0")}_${step.name}.sql`);
+  if (result.check.absent.length > 0) {
+    lines.push(`  not in the image (left as they are): ${result.check.absent.join(", ")}`);
+  }
+  const summary = result.check.pending.length === 0 ? "nothing to apply" : `${result.check.pending.length} migration(s) to apply`;
+  io.stdout(`schema-guard: ok, ${summary}\n${lines.map((line) => `${line}\n`).join("")}`);
+}
+
+function readRowCountsFile(path: string, shown: string): RowCounts {
+  let text: string;
+  try {
+    text = readFileSync(path, "utf8");
+  } catch (error) {
+    return fail(`row-counts: cannot read ${shown} (${(error as NodeJS.ErrnoException).code ?? "unknown error"}).`);
+  }
+  let json: unknown;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    return fail(`row-counts: ${shown} is not JSON.`);
+  }
+  const parsed = rowCountsFileSchema.safeParse(json);
+  if (!parsed.success) fail(`row-counts: ${shown} is not a row-counts file: ${parsed.error.issues[0]?.message ?? "invalid"}.`);
+  return parsed.data.counts;
+}
+
+/**
+ * `softure-deploy row-counts --tables=… [--out=…] [--compare=…]`: counts the app's key tables; with `--compare`,
+ * fails when a table has fewer rows than in the earlier file.
+ */
+export async function runRowCounts(args: string[], io: CliIo): Promise<void> {
+  const flags = readFlags("row-counts", args, {
+    tables: { type: "string" },
+    out: { type: "string" },
+    compare: { type: "string" },
+    "url-env": { type: "string", default: DEFAULT_URL_ENV },
+  });
+  if (flags.tables === undefined) fail("row-counts: --tables is required, e.g. --tables=users,billing.subscriptions.", USAGE_EXIT_CODE);
+  const list = parseTableList(flags.tables);
+  if (!list.ok) fail(`row-counts: ${list.problem}.`, USAGE_EXIT_CODE);
+  const before = flags.compare === undefined ? null : readRowCountsFile(resolve(io.cwd, flags.compare), flags.compare);
+  const url = readDatabaseUrl("row-counts", io.env, flags["url-env"]);
+  const counts = await runOnDatabase("row-counts", url, (client) => countRows(client, list.tables));
+  if (flags.out !== undefined) {
+    const file = { takenAt: new Date().toISOString(), counts };
+    writeFileSync(resolve(io.cwd, flags.out), `${JSON.stringify(file, null, 2)}\n`);
+  }
+  if (before === null) {
+    io.stdout(Object.entries(counts).map(([table, count]) => `row-counts: ${table} ${count}\n`).join(""));
+    return;
+  }
+  const { changes, lost } = compareRowCounts(before, counts);
+  const lines = changes.map(({ table, before: earlier, after }) =>
+    earlier === null ? `row-counts: ${table} ${after} (not counted before)\n` : `row-counts: ${table} ${earlier} -> ${after} (${formatDelta(after - earlier)})\n`,
+  );
+  io.stdout(lines.join(""));
+  if (lost.length > 0) {
+    fail(`row-counts: fewer rows than before the deploy, or not counted before: ${lost.map((change) => change.table).join(", ")}.`);
+  }
+}
+
+function formatDelta(delta: number): string {
+  return delta > 0 ? `+${delta}` : String(delta);
+}

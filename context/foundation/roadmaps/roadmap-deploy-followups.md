@@ -39,6 +39,8 @@ trigger: "the deploy roadmap closes; the owner promotes it or takes single items
 | ID | Change | Outcome | Depends on | Mode | Status |
 | --- | --- | --- | --- | --- | --- |
 | **DF-1** | `deploy-fire-parity` | `env render` and `release-notes` checked against FIRE_TRACKER's scripts and tests; differences ported or recorded | — | autonomous | ready |
+| **DF-2** | `deploy-db-guard-fire-parity` | `backup`, `schema-guard` and `row-counts` checked against FIRE_TRACKER's `deploy.sh`; differences ported or recorded | — | autonomous | ready |
+| **DF-3** | `deploy-row-count-config` | the tables `row-counts` compares come from `deploy.json` | DP-4 | autonomous | ready |
 
 ## Order
 
@@ -59,6 +61,32 @@ Lanes are set when the roadmap is promoted, by shared files.
 - **Risk:** low. DP-1 is tested on its own; this closes the "same tests green" baseline of DP-1.
 - **Source:** DP-1 (`deploy-cli-env-notes`), research: the session could not read FIRE_TRACKER (cloning it was
   refused by the sandbox), so the report format comes from the roadmap, not from FIRE's workflow.
+- **PRD refs:** FR-33.
+
+### DF-2: Parity of the database steps with FIRE_TRACKER
+- **Change ID:** `deploy-db-guard-fire-parity`
+- **Status:** ready
+- **Input:** [`deploy-db-guard-fire-parity`](../../backlog/roadmap-deploy-followups/deploy-db-guard-fire-parity/change.md)
+- **Outcome:** FIRE_TRACKER's `docker/server/deploy.sh` is read; each generic database step it runs (backup,
+  schema guard on the drizzle table, row counts) is compared with DP-3's commands, gaps are ported into
+  `tools/deploy/src/db/` with tests, and the rest is listed as FIRE-specific in the package README.
+- **Prerequisites:** a session that can read FIRE_TRACKER.
+- **Unknowns:** FIRE's retention default and whether a drop in counts rolls its deploy back or only warns.
+- **Risk:** medium. Production data safety; DP-3 is tested on its own, this closes its FIRE baseline.
+- **Source:** DP-3 (`deploy-db-guard`), research: the session could not read FIRE_TRACKER, so the commands follow
+  the roadmap item, not FIRE's script.
+- **PRD refs:** FR-33, NFR-4.
+
+### DF-3: Row-count tables from deploy.json
+- **Change ID:** `deploy-row-count-config`
+- **Status:** ready
+- **Input:** [`deploy-row-count-config`](../../backlog/roadmap-deploy-followups/deploy-row-count-config/change.md)
+- **Outcome:** `deploy.json` gets an optional `database.rowCountTables` list (zod schema and JSON Schema);
+  `row-counts` reads it when `--tables` is not given.
+- **Prerequisites:** DP-4 (`deploy.json`) on `master`.
+- **Unknowns:** none.
+- **Risk:** low. A convenience; `--tables` works without it. Mode: autonomous, no owner step.
+- **Source:** DP-3 (`deploy-db-guard`), plan review S2: DP-4 owned `deploy.json` while DP-3 ran in parallel.
 - **PRD refs:** FR-33.
 
 ## Owner decisions and checks

@@ -10,3 +10,5 @@ here, in `context/changes/` or in `context/archive/`. Taking an entry works as i
 | ID | Entry | Title | Condition | Kind |
 | --- | --- | --- | --- | --- |
 | DF-1 | [`deploy-fire-parity`](deploy-fire-parity/change.md) | Parity of the deploy CLI with FIRE_TRACKER | a session that can read FIRE_TRACKER | start |
+| DF-2 | [`deploy-db-guard-fire-parity`](deploy-db-guard-fire-parity/change.md) | Parity of the database steps with FIRE_TRACKER | a session that can read FIRE_TRACKER | start |
+| DF-3 | [`deploy-row-count-config`](deploy-row-count-config/change.md) | Row-count tables from deploy.json | DP-4 on master | dependency |
