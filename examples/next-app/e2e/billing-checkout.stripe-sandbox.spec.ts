@@ -5,10 +5,10 @@
 // STRIPE_SECRET_KEY and the listener's STRIPE_WEBHOOK_SECRET (the `stripe-sandbox` job of
 // .github/workflows/e2e.yml); skipped without the key. The signed fixtures of billing-stripe.spec.ts
 // cover the webhook's cases without Stripe.
-import { randomInt, randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { authMessages, users } from "@softure-ai/auth";
 import { billingMessages, payments } from "@softure-ai/billing";
+import { openPageAsNewClient, registerAccount, uniqueEmail } from "@softure-ai/testing/playwright";
 import { eq } from "drizzle-orm";
 import { openTestDatabase } from "./database.ts";
 
@@ -39,14 +39,9 @@ test.afterAll(async () => {
 
 /** Registers a fresh account in `page` and returns its id. */
 async function register(page: Page): Promise<string> {
-  const email = `e2e-stripe-sandbox-${randomUUID()}@example.com`;
+  const email = uniqueEmail("e2e-stripe-sandbox");
   createdEmails.push(email);
-  await page.goto("/register");
-  await page.getByLabel(authCopy.fields.email, { exact: true }).fill(email);
-  await page.getByLabel(authCopy.fields.password, { exact: true }).fill(PASSWORD);
-  await page.getByLabel(authCopy.fields.consent).check();
-  await page.getByRole("button", { name: authCopy.register.submit }).click();
-  await expect(page).toHaveURL("/account");
+  await registerAccount(page, { copy: authCopy, email, password: PASSWORD });
   const database = await openTestDatabase();
   try {
     const [account] = await database.db.select({ id: users.id }).from(users).where(eq(users.email, email));
@@ -108,8 +103,7 @@ async function payWithTestCard(page: Page): Promise<void> {
 test("a payment on Stripe's sandbox Checkout turns the trial into paid access, and Stripe's refund takes it back", async ({ browser }) => {
   test.setTimeout(180_000);
   if ((process.env.STRIPE_WEBHOOK_SECRET ?? "").trim() === "") throw new Error("STRIPE_WEBHOOK_SECRET is not set: start `stripe listen` and pass its --print-secret");
-  const context = await browser.newContext({ extraHTTPHeaders: { "cf-connecting-ip": `198.18.${String(randomInt(256))}.${String(randomInt(1, 255))}` } });
-  const page = await context.newPage();
+  const page = await openPageAsNewClient(browser);
   const userId = await register(page);
   expect(await readStatus(page)).toBe("trial");
 
@@ -124,5 +118,5 @@ test("a payment on Stripe's sandbox Checkout turns the trial into paid access, a
 
   await refundPayment(await findPaymentIntent(userId));
   await expect.poll(() => readStatus(page), { timeout: DELIVERY_TIMEOUT_MS, intervals: [1_000, 2_000] }).toBe("trial");
-  await context.close();
+  await page.context().close();
 });

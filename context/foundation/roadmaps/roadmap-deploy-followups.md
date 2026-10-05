@@ -41,6 +41,7 @@ trigger: "the deploy roadmap closes; the owner promotes it or takes single items
 | **DF-1** | `deploy-fire-parity` | `env render` and `release-notes` checked against FIRE_TRACKER's scripts and tests; differences ported or recorded | — | autonomous | ready |
 | **DF-2** | `deploy-workflow-verify-config` | the `verify` job of `deploy-app.yml` runs `softure-deploy verify` with the app's `deploy.json` instead of only the health route | DP-4 | autonomous | ready |
 | **DF-3** | `deploy-workflow-e2e` | a CI job runs `deploy-app.yml` against a throwaway SSH server and registry, so a broken step fails here, not on the first live deploy | DP-5, DP-8 | autonomous | ready |
+| **DF-4** | `auth-testing-account-factory` | `@softure-ai/auth/testing` creates an account in SQL with auth's hashing; the example's e2e uses it outside registration specs | — | autonomous | ready |
 
 ## Order
 
@@ -93,6 +94,21 @@ Lanes are set when the roadmap is promoted, by shared files.
 - **Risk:** medium. DP-2 is validated statically only (actionlint, the repository test, the scripts run by hand).
 - **Source:** DP-2 (`deploy-reusable-workflows`), implementation review.
 - **PRD refs:** FR-33.
+
+### DF-4: Account factory in auth's testing export
+- **Change ID:** `auth-testing-account-factory`
+- **Status:** ready
+- **Input:** [`auth-testing-account-factory`](../../backlog/roadmap-deploy-followups/auth-testing-account-factory/change.md)
+- **Outcome:** `@softure-ai/auth/testing` with `createTestAccount(db, { email, password, roles? })` that writes
+  the `users` row (and roles) with auth's hashing; the example's e2e registers through the form only in the
+  specs about registration; auth bumps its version.
+- **Prerequisites:** none.
+- **Unknowns:** whether the factory takes a `@softure-ai/db` handle or a drizzle instance.
+- **Risk:** low. Test-only export; it changes a published package, so it rides auth's next release.
+- **Source:** DP-7 (`testing-playwright-helpers`), research: FIRE_TRACKER's `integration/infrastructure/auth.ts`
+  creates accounts in SQL; DP-7 decided module-specific factories belong in each module's own `testing`
+  export (precedent: `@softure-ai/mailing/testing`), and adding one to auth was outside DP-7.
+- **PRD refs:** FR-35, FR-9.
 
 ## Owner decisions and checks
 

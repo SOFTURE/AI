@@ -5,10 +5,11 @@
 // granted: the access of a single payment, or one month of two stacked ones. The payment
 // page shows where a hosted checkout returned. Stripe's own API is covered by the sandbox test in
 // modules/billing/tests/stripe-sandbox.test.ts.
-import { randomInt, randomUUID } from "node:crypto";
-import { expect, test, type APIRequestContext, type Browser, type Page } from "@playwright/test";
+import { randomUUID } from "node:crypto";
+import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { authMessages, users } from "@softure-ai/auth";
 import { billingMessages, entitlements, payments, signStripePayload, STRIPE_METADATA, STRIPE_SIGNATURE_HEADER } from "@softure-ai/billing";
+import { openPageAsNewClient, registerAccount, uniqueEmail } from "@softure-ai/testing/playwright";
 import { eq, inArray } from "drizzle-orm";
 import { openTestDatabase } from "./database.ts";
 import { STRIPE_WEBHOOK_SECRET } from "./outbox.ts";
@@ -18,11 +19,6 @@ const copy = billingMessages.en;
 const PASSWORD = "correct horse battery";
 const WEBHOOK = "/api/billing/webhook";
 const createdEmails: string[] = [];
-
-/** A fresh address per context (198.18.0.0/15), so the register bucket never fills up. */
-function randomAddress(): string {
-  return `198.${String(18 + randomInt(2))}.${String(randomInt(256))}.${String(randomInt(1, 255))}`;
-}
 
 test.afterAll(async () => {
   if (createdEmails.length === 0) return;
@@ -35,21 +31,11 @@ test.afterAll(async () => {
   }
 });
 
-async function openPage(browser: Browser): Promise<Page> {
-  const context = await browser.newContext({ extraHTTPHeaders: { "cf-connecting-ip": randomAddress() } });
-  return context.newPage();
-}
-
 /** Registers a fresh account in `page` and returns its id. */
 async function register(page: Page): Promise<string> {
-  const email = `e2e-stripe-${randomUUID()}@example.com`;
+  const email = uniqueEmail("e2e-stripe");
   createdEmails.push(email);
-  await page.goto("/register");
-  await page.getByLabel(authCopy.fields.email, { exact: true }).fill(email);
-  await page.getByLabel(authCopy.fields.password, { exact: true }).fill(PASSWORD);
-  await page.getByLabel(authCopy.fields.consent).check();
-  await page.getByRole("button", { name: authCopy.register.submit }).click();
-  await expect(page).toHaveURL("/account");
+  await registerAccount(page, { copy: authCopy, email, password: PASSWORD });
   const database = await openTestDatabase();
   try {
     const [account] = await database.db.select({ id: users.id }).from(users).where(eq(users.email, email));
@@ -100,7 +86,7 @@ async function countPayments(userId: string): Promise<number> {
 }
 
 test("a paid Stripe checkout turns the trial into paid access once, and a full refund takes it back", async ({ browser, request }) => {
-  const page = await openPage(browser);
+  const page = await openPageAsNewClient(browser);
   const userId = await register(page);
   expect(await readStatus(page)).toBe("trial");
 
@@ -132,7 +118,7 @@ async function readPaidEnds(userId: string): Promise<{ paidUntil: Date | null; g
 }
 
 test("a full refund of one of two stacked months takes back only that month", async ({ browser, request }) => {
-  const page = await openPage(browser);
+  const page = await openPageAsNewClient(browser);
   const userId = await register(page);
   const firstPayment = `pi_e2e_${randomUUID().replaceAll("-", "")}`;
   const secondPayment = `pi_e2e_${randomUUID().replaceAll("-", "")}`;
@@ -148,7 +134,7 @@ test("a full refund of one of two stacked months takes back only that month", as
 });
 
 test("the webhook refuses a delivery Stripe did not sign and grants nothing", async ({ browser, request }) => {
-  const page = await openPage(browser);
+  const page = await openPageAsNewClient(browser);
   const userId = await register(page);
   const completed = paidCheckout(userId, `cs_e2e_${randomUUID().replaceAll("-", "")}`, `pi_e2e_${randomUUID().replaceAll("-", "")}`);
 
@@ -159,7 +145,7 @@ test("the webhook refuses a delivery Stripe did not sign and grants nothing", as
 });
 
 test("the payment page says where a hosted checkout returned", async ({ browser }) => {
-  const page = await openPage(browser);
+  const page = await openPageAsNewClient(browser);
   await register(page);
   await page.goto("/payment?checkout=success");
   await expect(page.getByRole("status").filter({ hasText: copy.payment.checkoutSuccess })).toBeVisible();
