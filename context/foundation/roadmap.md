@@ -56,7 +56,7 @@ backlog: context/backlog/roadmap-blog-followups/
 | **BF-9** | `blog-skill-app-notes` | the generated writing skill carries the app's own sections across reinstalls | — | autonomous | done_code (2026-10-05; waiting: the first release of `@softure-ai/blog`, BL-8) |
 | **BF-10** | `blog-publish-cache-refresh` | `softure-blog publish --commit` refreshes the running app's blog cache before the IndexNow submit | BF-2 | autonomous | done_code (2026-10-05; waiting: the first release of `@softure-ai/blog`, BL-8) |
 | **BF-11** | `blog-canonical-host-links` | a body link to seo's canonical host counts as internal in the renderer and the gate | BF-7 | autonomous | done_code (2026-10-05; waiting: the first release of `@softure-ai/blog`, BL-8) |
-| **BF-12** | `blog-slug-history-race` | a slug taken while another run renames away from it does not end up both current and in the slug history | — | autonomous | proposed |
+| **BF-12** | `blog-slug-history-race` | a slug taken while another run renames away from it does not end up both current and in the slug history | — | autonomous | **in_progress** (implement 1/1, since 2026-10-05; cloud session, branch `claude/project-thread-awhjcn`) |
 | **BF-13** | `blog-skill-check-without-database` | `softure-blog skill install` runs with an app config that has no database URL | BF-6 | autonomous | done_code (2026-10-05; waiting: the first release of `@softure-ai/blog`, BL-8) |
 
 ## Order
@@ -207,8 +207,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### BF-12: A slug taken while another run renames away from it
 - **Change ID:** `blog-slug-history-race`
-- **Status:** proposed
-- **Input:** [`blog-slug-history-race`](../backlog/roadmap-blog-followups/blog-slug-history-race/change.md)
+- **Status:** in_progress (implement 1/1, since 2026-10-05; cloud session, branch `claude/project-thread-awhjcn`)
+- **Input:** [`blog-slug-history-race`](../changes/blog-slug-history-race/change.md)
 - **Outcome:** a run that gives article Y the slug that article X is leaving in another, uncommitted run cannot leave that slug both Y's current slug and an old slug of X in `slug_history`: the run is refused (or the history entry dropped) and a two-connection Postgres test covers it.
 - **Prerequisites:** none.
 - **Risk:** low. Needs two publishes at the same moment; the address then serves Y while the history still names X (inferred from Postgres's unique-index semantics, not reproduced).

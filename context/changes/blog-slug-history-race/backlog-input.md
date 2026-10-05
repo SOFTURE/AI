@@ -17,7 +17,7 @@ of X in `slug_history`.
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md) (blog-followups), item **BF-12**:
+From [`roadmap.md`](../../foundation/roadmap.md) (blog-followups), item **BF-12**:
 
 > ### BF-12: A slug taken while another run renames away from it
 > - **Change ID:** `blog-slug-history-race`
