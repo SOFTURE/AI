@@ -90,7 +90,7 @@ type; the blog is unpublished, BL-8). The body renderer keeps `origin: appOrigin
 ### Phase 1: The contract, seo's provider, the blog on it
 
 #### Automated
-- [ ] 1.1 core `getSiteUrls` unit cases pass (fallback, provider, two providers refused)
-- [ ] 1.2 seo's provider applies the canonical host and trailing-slash rule
-- [ ] 1.3 blog pages, JSON-LD and feed follow seo's rule when listed and `appOrigin` otherwise; the blog's Next code holds no seo specifier
-- [ ] 1.4 Gates green (typecheck, lint, test, build) and the example app's `next build`
+- [x] 1.1 core `getSiteUrls` unit cases pass (fallback, provider, two providers refused) — 80562ce
+- [x] 1.2 seo's provider applies the canonical host and trailing-slash rule — 80562ce
+- [x] 1.3 blog pages, JSON-LD and feed follow seo's rule when listed and `appOrigin` otherwise; the blog's Next code holds no seo specifier — 80562ce
+- [x] 1.4 Gates green (typecheck, lint, test, build) and the example app's `next build` — 80562ce

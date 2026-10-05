@@ -51,7 +51,7 @@ backlog: context/backlog/roadmap-blog-followups/
 | **BF-3** | `blog-article-images` | images in article bodies under a hosting policy (allowed sources, alt, dimensions) | — | autonomous | ready |
 | **BF-4** | `blog-glossary-form-conflicts` | a glossary form claimed by two terms is refused, naming both | BF-3 | autonomous | ready |
 | **BF-6** | `blog-check-without-database` | `softure-blog check` runs with an app config that has no database URL | BF-1 | autonomous | ready |
-| **BF-7** | `blog-seo-canonical` | the blog's canonical, OG and JSON-LD URLs follow `@softure-ai/seo`'s canonical host and trailing-slash rule | — | autonomous | **in_progress (implement 1/1, since 2026-10-05; cloud session, branch `claude/project-thread-wqikv3` — do not take in another session)** |
+| **BF-7** | `blog-seo-canonical` | the blog's canonical, OG and JSON-LD URLs follow `@softure-ai/seo`'s canonical host and trailing-slash rule | — | autonomous | done_code (2026-10-05; waiting: the next release of `@softure-ai/core` and `@softure-ai/seo`, and the first of `@softure-ai/blog`, BL-8) |
 | **BF-8** | `blog-og-fonts` | `blog({ brand: { fonts } })` gives the article OG card the brand's fonts | BF-7 | autonomous | ready |
 | **BF-9** | `blog-skill-app-notes` | the generated writing skill carries the app's own sections across reinstalls | — | autonomous | ready |
 | **BF-10** | `blog-publish-cache-refresh` | `softure-blog publish --commit` refreshes the running app's blog cache before the IndexNow submit | BF-2 | autonomous | ready |
@@ -151,8 +151,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### BF-7: Blog URLs follow the seo canonical rule
 - **Change ID:** `blog-seo-canonical`
-- **Status:** in_progress (implement 1/1, since 2026-10-05; cloud session, branch `claude/project-thread-wqikv3` — do not take in another session)
-- **Input:** [`blog-seo-canonical`](../changes/blog-seo-canonical/change.md)
+- **Status:** done_code (2026-10-05; waiting: the next release of `@softure-ai/core` and `@softure-ai/seo`, and the first of `@softure-ai/blog`, BL-8)
+- **Input:** [`context/archive/2026-10-05-blog-seo-canonical/`](../archive/2026-10-05-blog-seo-canonical/change.md)
 - **Outcome:** the blog's pages build canonical, OG and JSON-LD URLs through `@softure-ai/seo`'s canonical URL helper when `seo()` is in the config, and on `appOrigin` otherwise; a test covers a canonical host that differs from `appOrigin` and a trailing-slash rule.
 - **Prerequisites:** none.
 - **Risk:** low. The example app's canonical host equals `appOrigin`; only an app with another canonical host is affected.
@@ -205,4 +205,5 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ## Done
 
+- **BF-7** `blog-seo-canonical` (done_code 2026-10-05): core's `getSiteUrls(config)` is a site-URL contract (one provider, `appOrigin` fallback) and `@softure-ai/seo` provides it with `buildCanonicalUrl`; the blog's canonical, OG, JSON-LD and feed URLs use it, so they follow seo's host and trailing-slash rule, and the blog's Next code never imports seo; gap BF-11; archived in [`archive/2026-10-05-blog-seo-canonical/`](../archive/2026-10-05-blog-seo-canonical/change.md)
 - **BF-5** `markdown-footnote-links` (done 2026-10-04): `tests/repo/markdown-links.ts` skips footnote definitions (`[^id]: …`), with a test; fixed inside BL-4 `blog-pages` (impl review R3), archived with it in [`archive/2026-10-04-blog-pages/`](../archive/2026-10-04-blog-pages/change.md)

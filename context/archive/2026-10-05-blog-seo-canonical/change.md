@@ -1,12 +1,12 @@
 ---
 change_id: blog-seo-canonical
 title: "The blog's page URLs follow the canonical rule of @softure-ai/seo"
-status: in_progress
+status: archived
 roadmap_item: BF-7
 branch: claude/project-thread-wqikv3
 created: 2026-10-05
 updated: 2026-10-05
-archived_at: null
+archived_at: 2026-10-05
 ---
 
 ## Intent
@@ -46,3 +46,4 @@ CLI path) already follow seo's rule. The backlog entry is [`backlog-input.md`](b
 - Research: quick depth, on how the pages can reach seo's rule without making seo a hard dependency.
 - Framing skipped: the problem is not in doubt (a review finding with a named file and function, and the
   roadmap fixes the outcome); the only open question is technical and research answers it.
+- Archived 2026-10-05: core's `getSiteUrls` (a site-URL contract, seo the provider) gives the blog's canonical, OG, JSON-LD and feed URLs seo's host and trailing-slash rule, `appOrigin` without seo; unit tests with a different canonical host and a trailing slash; gap BF-11.
