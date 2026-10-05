@@ -2,6 +2,7 @@
 // at startup. A module is enabled by being listed in `modules`.
 import { z } from "zod";
 import { formatIssues, SoftureConfigError } from "./config-error.js";
+import { isDatabaseOptional } from "./database-requirement.js";
 import { LOCALES, type Locale } from "./i18n.js";
 import type { AnySoftureModule } from "./module.js";
 import { err, ok, type Result } from "./result.js";
@@ -46,13 +47,14 @@ const configSchema = z.object({
  * every problem: an app with an invalid configuration must not start.
  */
 export function defineSoftureConfig(input: SoftureConfigInput): SoftureConfig {
-  const result = configSchema.safeParse(input);
+  const isOptional = isDatabaseOptional();
+  const result = configSchema.safeParse(isOptional && !hasDatabaseUrl(input.database) ? { ...input, database: null } : input);
   if (!result.success) {
     throw new SoftureConfigError(CONFIG_SUBJECT, formatIssues(result.error.issues));
   }
 
   const config = result.data;
-  const issues = [...checkModules(config.modules), ...checkDatabase(config)];
+  const issues = [...checkModules(config.modules), ...(isOptional ? [] : checkDatabase(config))];
   if (issues.length > 0) {
     throw new SoftureConfigError(CONFIG_SUBJECT, issues);
   }
@@ -164,6 +166,12 @@ function checkDependency(
     return `module "${moduleId}" needs module "${dependencyId}" ${required}, but ${dependency.manifest.version} is listed`;
   }
   return null;
+}
+
+/** Whether the input names a database with a usable URL (a non-empty string). */
+function hasDatabaseUrl(database: unknown): boolean {
+  if (typeof database !== "object" || database === null || !("url" in database)) return false;
+  return typeof database.url === "string" && database.url !== "";
 }
 
 function checkDatabase(config: { database: unknown; modules: readonly AnySoftureModule[] }): string[] {

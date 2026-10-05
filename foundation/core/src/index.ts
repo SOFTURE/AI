@@ -26,6 +26,7 @@ export {
   type SoftureConfigInput,
 } from "./config.js";
 export { SoftureConfigError } from "./config-error.js";
+export { withDatabaseOptional } from "./database-requirement.js";
 export { moduleManifestSchema, type ModuleManifest } from "./manifest.js";
 export {
   defineModule,

@@ -29,7 +29,9 @@ export async function runBlogCommand(options: RunBlogCommandOptions): Promise<nu
     return EXIT_OK;
   }
 
-  const loaded = await loadAppConfig({ cwd: options.cwd, configPath: taken.configPath, appScript: APP_SCRIPT });
+  // `check` never connects, so a CI job runs it with a config that has no database URL.
+  const database = command.kind === "check" ? "optional" : "required";
+  const loaded = await loadAppConfig({ cwd: options.cwd, configPath: taken.configPath, appScript: APP_SCRIPT, database });
   if (!loaded.ok) {
     output.error(`softure-blog: ${loaded.problem}`);
     return EXIT_FAILED;
