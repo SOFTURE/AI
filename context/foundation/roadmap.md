@@ -48,7 +48,7 @@ backlog: context/backlog/roadmap-blog-followups/
 | --- | --- | --- | --- | --- | --- |
 | **BF-1** | `cli-config-loader` | `softure migrate`, `softure-mail` and `softure-blog` load the app config through one shared loader | — | autonomous | ready |
 | **BF-2** | `blog-publish-slug-race` | two publishes racing for one slug report `blog.slug_taken`, not a driver error | — | autonomous | ready |
-| **BF-3** | `blog-article-images` | images in article bodies under a hosting policy (allowed sources, alt, dimensions) | — | autonomous | **in_progress** (plan, since 2026-10-05; cloud session, branch `claude/project-thread-v7upyb`) |
+| **BF-3** | `blog-article-images` | images in article bodies under a hosting policy (allowed sources, alt, dimensions) | — | autonomous | **in_progress** (impl-review, since 2026-10-05; cloud session, branch `claude/project-thread-v7upyb`) |
 | **BF-4** | `blog-glossary-form-conflicts` | a glossary form claimed by two terms is refused, naming both | BF-3 | autonomous | ready |
 | **BF-6** | `blog-check-without-database` | `softure-blog check` runs with an app config that has no database URL | BF-1 | autonomous | ready |
 | **BF-7** | `blog-seo-canonical` | the blog's canonical, OG and JSON-LD URLs follow `@softure-ai/seo`'s canonical host and trailing-slash rule | — | autonomous | ready |
@@ -117,7 +117,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### BF-3: Images in article bodies
 - **Change ID:** `blog-article-images`
-- **Status:** in_progress (plan, since 2026-10-05; cloud session, branch `claude/project-thread-v7upyb`)
+- **Status:** in_progress (impl-review, since 2026-10-05; cloud session, branch `claude/project-thread-v7upyb`)
 - **Input:** [`context/changes/blog-article-images/`](../changes/blog-article-images/change.md)
 - **Outcome:** `renderArticle({ images })` takes an image policy (allowed sources, a resolver that gives width and height); an image outside it stays text; the quality gate (BL-6) reports a missing alt or a refused source.
 - **Prerequisites:** none.

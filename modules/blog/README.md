@@ -17,8 +17,9 @@ This release holds the content store (roadmap item BL-2), the server-side render
 - Read functions for the pages: `getPublishedArticle`, `findArticleBySlug`, `findSlugRedirect`,
   `listArticles`.
 - `renderArticle(markdown, options)`: the body as safe HTML on the server (no raw HTML, safe link
-  schemes only, marked external links), heading ids and an optional table of contents, glossary links
-  on the first mention of a term, block plugins for the app's own fenced blocks, reading time.
+  schemes only, marked external links, images under the app's image policy), heading ids and an
+  optional table of contents, glossary links on the first mention of a term, block plugins for the
+  app's own fenced blocks, reading time.
 - Pages, each mounted with one re-export line (`@softure-ai/blog/next`): the listing grouped by cluster
   with the pillar first, an article (dates, summary, contents, FAQ, sources, signature, disclaimer,
   `BlogPosting`/`BreadcrumbList`/`FAQPage` JSON-LD), the glossary index and a term page (`DefinedTerm`,
@@ -72,6 +73,10 @@ blog({
   blocks: [],
   // Hosts of the app besides APP_ORIGIN's, whose links are not external. Default: [].
   siteHosts: ["www.example.com"],
+  // Which images bodies may show: site paths and https images on these hosts (subdomains included),
+  // with a width and height the app knows. Used by the pages and the quality gate. Default: none
+  // (every image renders as its alt text and the gate refuses it).
+  images: { hosts: ["cdn.example.com"], dimensions: (src) => imageSizes[src] ?? null },
   // How long the cached reads hold; keep equal to the pages' `revalidate`. Default: 300.
   revalidateSeconds: 300,
   // Every route can move: blog({ routes: { index: "/articles" } }).
@@ -118,6 +123,7 @@ severity; the writing skill is kept in step with it):
 | file | **`file`**: the frontmatter parses and the slug equals the file name |
 | structure | `title-length`, `description-length`, **`as-of-future`**, `stale`, **`summary-missing`**, **`lead`** (a paragraph first), `lead-length`, **`lead-number`**, **`heading-h1`**, **`heading-order`**, **`sections`** (two `##`), **`section-question`**, **`section-answer`**, `section-answer-length`, **`length`** (a warning above the maximum), **`footnote-undefined`**, `footnote-unused` |
 | links | **`internal-links`** (a warning for a term), **`internal-link-target`** (`check` only), `external-link-https`, **`external-link-dead`** (`--external` only) |
+| images | **`image-source`** (a site path or a host of `blog({ images })`; every image while the app has no policy), **`image-alt`**, **`image-dimensions`** (the policy's `dimensions` knows it) |
 | style (ruleset) | **`announcement`**, **`these-days`**, **`not-only-but-also`**, **`not-x-but-y`**, **`meta-commentary`**, **`throat-clearing`**, **`empty-conclusion`**, **`crucial`**, **`plays-a-role`**, **`puffery`**, **`chatbot-phrases`**, **`emoji`**, `filler-words`, `exclamation`, `straight-quotes` (`pl`), `title-case-heading` (`pl`) |
 | style (rhythm) | **`dashes`**, `dashes-paragraph`, `bold-density`, `bold-labels`, `triads`, `long-sentences`, `monotone-rhythm`, `repeated-openings` |
 | voice | **`first-person-singular`** and the app's phrases, when configured |
@@ -333,6 +339,7 @@ const body = renderArticle(article.bodyMarkdown, {
   selfSlug: article.kind === "term" ? article.slug : undefined,
   termHref: (term) => `/blog/glossary/${term}`, // the default
   siteHosts: ["example.com"], // subdomains included; other hosts are external
+  images: { hosts: ["cdn.example.com"], dimensions: (src) => imageSizes[src] ?? null }, // see Images below
   toc: true, // or { maxLevel: 4 }; h2 and h3 by default
   messages: blogMessages.pl.render, // English by default
   blocks: [chartBlock],
@@ -343,8 +350,16 @@ const body = renderArticle(article.bodyMarkdown, {
 ```
 
 - **Allowlist by construction:** raw HTML in the text is escaped, so the output holds only the
-  elements Markdown produces. Images are off. Links keep `http(s)`, `mailto`, relative and `#`
-  targets; any other scheme (`javascript:`, `data:`, entity-encoded or split by whitespace) stays text.
+  elements Markdown produces. Links keep `http(s)`, `mailto`, relative and `#` targets; any other
+  scheme (`javascript:`, `data:`, entity-encoded or split by whitespace) stays text.
+- **Images** (`![alt](src "title")`) follow the image policy (`images`): the source is a site path
+  (`/images/x.png`; never `//host` or a path relative to the page) or an `https:` URL on a host in
+  `images.hosts` (subdomains included), the alt text is not empty, and `images.dimensions(src)` returns
+  positive whole `{ width, height }`. Such an image renders as `<img class="blog-image">` with its
+  `width`, `height`, `loading="lazy"` and `decoding="async"`; any other renders as its alt text, and
+  without `images` every image does. `src` is the URL the page requests (percent-encoded: a space is
+  `%20`). A throwing `dimensions` fails the render (a bug); the gate reports it as `image-dimensions`.
+  `checkArticleImage` and `findArticleImages` give the same verdict and the images of a text.
 - **External links** (`http(s)` or `//` to a host outside `siteHosts`) get `rel="noopener noreferrer"`,
   `target="_blank"`, a `↗` marker hidden from screen readers and a visually hidden "(opens in a new tab)".
 - **Headings** get ids from their text (letters folded to ASCII, `-2` for a repeat, `section` without
@@ -462,7 +477,8 @@ Articles hold editorial content, no personal data: nothing to export or delete.
 - The pages' URLs (canonical, JSON-LD, OG) and the feed's links are built on `appOrigin`, not on the canonical host and
   trailing-slash rule of `@softure-ai/seo` (BF-7).
 - The OG card uses the default font of `next/og`; an app passes `fonts` to `renderArticleOgImage` for another.
-- The renderer has no images and no raw HTML. A plugin fence inside a list or a quote stays a code
+- The renderer has no raw HTML and no figures: an image has no caption, and the app hosts and sizes its
+  images itself (no `next/image`). A plugin fence inside a list or a quote stays a code
   block (a block node cannot sit inside a list's HTML).
 - The gate reads Markdown line by line (blocks, not a syntax tree): enough for the rules, not a
   renderer. Fenced code and HTML comments are skipped.

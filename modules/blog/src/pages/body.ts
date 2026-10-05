@@ -1,5 +1,6 @@
-// A stored text's body rendered for its page: the renderer with the app's glossary, block plugins and
-// hosts, and the module's copy. A term page passes the term itself, so it never links to itself.
+// A stored text's body rendered for its page: the renderer with the app's glossary, block plugins,
+// hosts and image policy, and the module's copy. A term page passes the term itself, so it never links
+// to itself.
 import type { BlogArticle } from "../contract.js";
 import type { BlogMessages } from "../messages/index.js";
 import type { BlogOptions } from "../options.js";
@@ -10,7 +11,7 @@ import { getTermPath, type BlogRoutes } from "./paths.js";
 export interface RenderPageBodyOptions {
   readonly glossary: readonly GlossaryTerm[];
   readonly routes: BlogRoutes;
-  readonly options: Pick<BlogOptions, "blocks" | "siteHosts">;
+  readonly options: Pick<BlogOptions, "blocks" | "images" | "siteHosts">;
   /** The app's origin; its host is the site's own (links to it are not external). */
   readonly origin: string;
   readonly messages: BlogMessages;
@@ -22,6 +23,7 @@ export function renderPageBody<TNode = unknown>(text: BlogArticle, input: Render
     ...(text.kind === "term" ? { selfSlug: text.slug } : {}),
     termHref: (slug) => getTermPath(input.routes, slug),
     siteHosts: [new URL(input.origin).hostname, ...input.options.siteHosts],
+    ...(input.options.images === undefined ? {} : { images: input.options.images }),
     // The options keep plugins untyped (`unknown` nodes); the pages render React nodes, the type the
     // app's plugins return.
     blocks: input.options.blocks as readonly BlockPlugin<TNode>[],

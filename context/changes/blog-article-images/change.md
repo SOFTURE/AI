@@ -1,7 +1,7 @@
 ---
 change_id: blog-article-images
 title: "Article bodies show images that follow the app's image policy, and the gate reports the ones that do not"
-status: new
+status: impl_reviewed
 roadmap_item: BF-3
 branch: claude/project-thread-v7upyb
 created: 2026-10-05

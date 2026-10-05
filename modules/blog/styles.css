@@ -451,6 +451,12 @@
     text-align: left;
   }
 
+  /* Images carry width and height, so the box keeps its ratio while it scales down. */
+  .blog-body img {
+    max-width: 100%;
+    height: auto;
+  }
+
   .blog-external-marker {
     margin-left: 0.15em;
     font-size: 0.85em;
