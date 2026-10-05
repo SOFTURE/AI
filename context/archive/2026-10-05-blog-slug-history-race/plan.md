@@ -71,6 +71,6 @@ without it and are required in CI like BF-2's.
 ### Phase 1: Pin the read order of the slug check
 
 #### Automated
-- [ ] 1.1 Race tests: rename open (new and renamed Y) and rename committed, refused naming X
-- [ ] 1.2 Comment in `publishArticle` and the README sentence on the read order
-- [ ] 1.3 Gates green (typecheck, lint, test, build)
+- [x] 1.1 Race tests: rename open (new and renamed Y) and rename committed, refused naming X — accbc6f
+- [x] 1.2 Comment in `publishArticle` and the README sentence on the read order — accbc6f
+- [x] 1.3 Gates green (typecheck, lint, test, build) — accbc6f

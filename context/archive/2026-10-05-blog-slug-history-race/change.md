@@ -1,12 +1,12 @@
 ---
 change_id: blog-slug-history-race
 title: "A slug taken while another run renames away from it stays in one place"
-status: active
+status: archived
 roadmap_item: BF-12
 branch: claude/project-thread-awhjcn
 created: 2026-10-05
 updated: 2026-10-05
-archived_at: null
+archived_at: 2026-10-05
 ---
 
 ## Intent
@@ -46,3 +46,4 @@ BF-8 runs in parallel; gaps go to the roadmap from the next free `BF-` number on
 - Framing skipped: research shows the race does not happen with the current code (the slug check reads
   the current slugs before the old ones); what is left is pinning that order with tests and a comment,
   which has one shape.
+- Archived 2026-10-05: BF-2's gap does not occur (the slug check reads current slugs before old ones, and a rename commits both at once); three two-connection Postgres tests pin it and `publishArticle` says why the order matters; no gaps.
