@@ -2,11 +2,12 @@
 // signed-in users; a user issues a token there, sees its setup once, and an MCP client calls the
 // example's tools through POST /api/mcp with it. A read-only token gets no write tool, a revoked
 // token gets 401, and the page's catalog names exactly the tools the server registers.
-import { randomInt, randomUUID } from "node:crypto";
-import { expect, test, type APIRequestContext, type Browser, type Page } from "@playwright/test";
+import { randomUUID } from "node:crypto";
+import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { authMessages, users } from "@softure-ai/auth";
 import { formatMessage, getModule } from "@softure-ai/core";
 import { mcpAccessMessages, type McpAccessOptions } from "@softure-ai/mcp-access";
+import { openPageAsNewClient, randomClientAddress, registerAccount, uniqueEmail } from "@softure-ai/testing/playwright";
 import { eq, inArray } from "drizzle-orm";
 import { en } from "../messages/en.ts";
 import config from "../softure.config.ts";
@@ -20,25 +21,10 @@ const CATALOG = (getModule(config, "mcp-access")?.options as McpAccessOptions).t
 const createdEmails: string[] = [];
 const createdEntries: string[] = [];
 
-/** A fresh address per context (198.18.0.0/15), so no rate limit bucket fills up. */
-function randomAddress(): string {
-  return `198.${String(18 + randomInt(2))}.${String(randomInt(256))}.${String(randomInt(1, 255))}`;
-}
-
-async function openPage(browser: Browser): Promise<Page> {
-  const context = await browser.newContext({ extraHTTPHeaders: { "cf-connecting-ip": randomAddress() } });
-  return context.newPage();
-}
-
 async function registerUser(page: Page): Promise<{ email: string; id: string }> {
-  const email = `e2e-mcp-${randomUUID()}@example.com`;
+  const email = uniqueEmail("e2e-mcp");
   createdEmails.push(email);
-  await page.goto("/register");
-  await page.getByLabel(authCopy.fields.email, { exact: true }).fill(email);
-  await page.getByLabel(authCopy.fields.password, { exact: true }).fill(PASSWORD);
-  await page.getByLabel(authCopy.fields.consent).check();
-  await page.getByRole("button", { name: authCopy.register.submit }).click();
-  await expect(page).toHaveURL("/account");
+  await registerAccount(page, { copy: authCopy, email, password: PASSWORD });
   const database = await openTestDatabase();
   try {
     const [user] = await database.db.select({ id: users.id }).from(users).where(eq(users.email, email));
@@ -75,7 +61,7 @@ async function callMcp(request: APIRequestContext, token: string | null, method:
     headers: {
       "content-type": "application/json",
       accept: "application/json, text/event-stream",
-      "cf-connecting-ip": randomAddress(),
+      "cf-connecting-ip": randomClientAddress(),
       ...(token === null ? {} : { authorization: `Bearer ${token}` }),
     },
     data: { jsonrpc: "2.0", id: 1, method, params },
@@ -101,13 +87,13 @@ test.afterAll(async () => {
 });
 
 test("the token page sends visitors without a session to the login page", async ({ browser }) => {
-  const page = await openPage(browser);
+  const page = await openPageAsNewClient(browser);
   await page.goto("/account/mcp");
   await expect(page).toHaveURL(/\/login\?next=%2Faccount%2Fmcp$/);
 });
 
 test("a user issues a write token and an MCP client calls the tools with it, until it is revoked", async ({ browser, request }) => {
-  const page = await openPage(browser);
+  const page = await openPageAsNewClient(browser);
   const user = await registerUser(page);
   await page.getByRole("link", { name: en.account.assistant }).click();
   await expect(page).toHaveURL("/account/mcp");
@@ -137,7 +123,7 @@ test("a user issues a write token and an MCP client calls the tools with it, unt
 });
 
 test("a read-only token gets no write tool", async ({ browser, request }) => {
-  const page = await openPage(browser);
+  const page = await openPageAsNewClient(browser);
   await registerUser(page);
   await page.goto("/account/mcp");
   const token = await issueToken(page, "E2E reader", false);
@@ -148,7 +134,7 @@ test("a read-only token gets no write tool", async ({ browser, request }) => {
 
 test("the endpoint refuses a request without a valid token and keeps no sessions", async ({ request }) => {
   const missing = await request.post("/api/mcp", {
-    headers: { "content-type": "application/json", "cf-connecting-ip": randomAddress() },
+    headers: { "content-type": "application/json", "cf-connecting-ip": randomClientAddress() },
     data: { jsonrpc: "2.0", id: 1, method: "tools/list", params: {} },
   });
   expect(missing.status()).toBe(401);

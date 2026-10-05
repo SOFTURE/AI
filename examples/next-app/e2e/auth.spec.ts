@@ -1,9 +1,9 @@
 // @softure-ai/auth on the built app: the pages, actions, route handler and proxy guard shipped by
 // the package, with sessions and rate limits read back from Postgres. Every test gets its own
 // client address (the example resolves clients from CF-Connecting-IP) and its own account.
-import { randomInt, randomUUID } from "node:crypto";
 import { expect, test, type Browser, type Page } from "@playwright/test";
 import { authMessages, users } from "@softure-ai/auth";
+import { clientAddressHeaders, openPageAsNewClient, registerAccount, submitLogin, uniqueEmail } from "@softure-ai/testing/playwright";
 import { inArray } from "drizzle-orm";
 import { openTestDatabase } from "./database.ts";
 
@@ -12,19 +12,14 @@ const PASSWORD = "correct horse battery";
 const NEW_PASSWORD = "a brand new passphrase";
 const createdEmails: string[] = [];
 
-/** A fresh address per test (198.18.0.0/15, reserved for benchmarks), so buckets never leak between tests. */
-function randomAddress(): string {
-  return `198.${String(18 + randomInt(2))}.${String(randomInt(256))}.${String(randomInt(1, 255))}`;
-}
-
 function newEmail(): string {
-  const email = `e2e-${randomUUID()}@example.com`;
+  const email = uniqueEmail("e2e");
   createdEmails.push(email);
   return email;
 }
 
-test.use({ extraHTTPHeaders: { "cf-connecting-ip": randomAddress() } });
-test.beforeEach(({ context }) => context.setExtraHTTPHeaders({ "cf-connecting-ip": randomAddress() }));
+test.use({ extraHTTPHeaders: clientAddressHeaders() });
+test.beforeEach(({ context }) => context.setExtraHTTPHeaders(clientAddressHeaders()));
 
 test.afterAll(async () => {
   if (createdEmails.length === 0) return;
@@ -37,28 +32,13 @@ test.afterAll(async () => {
 });
 
 async function register(page: Page, email: string, password = PASSWORD): Promise<void> {
-  await page.goto("/register");
-  await page.getByLabel(copy.fields.email, { exact: true }).fill(email);
-  await page.getByLabel(copy.fields.password, { exact: true }).fill(password);
-  await page.getByLabel(copy.fields.consent).check();
-  await page.getByRole("button", { name: copy.register.submit }).click();
-  await expect(page).toHaveURL("/account");
-}
-
-/** Submits the login form and waits for the action's answer, so the next fill is not reset by it. */
-async function logIn(page: Page, email: string, password: string): Promise<void> {
-  await page.getByLabel(copy.fields.email, { exact: true }).fill(email);
-  await page.getByLabel(copy.fields.password, { exact: true }).fill(password);
-  const answered = page.waitForResponse((response) => response.request().method() === "POST");
-  await page.getByRole("button", { name: copy.login.submit }).click();
-  await answered;
+  await registerAccount(page, { copy, email, password });
 }
 
 async function openSignedInPage(browser: Browser, email: string): Promise<Page> {
-  const context = await browser.newContext({ extraHTTPHeaders: { "cf-connecting-ip": randomAddress() } });
-  const page = await context.newPage();
+  const page = await openPageAsNewClient(browser);
   await page.goto("/login");
-  await logIn(page, email, PASSWORD);
+  await submitLogin(page, { copy, email, password: PASSWORD });
   await expect(page).toHaveURL("/account");
   return page;
 }
@@ -70,7 +50,7 @@ test("the guard sends a visitor without a session from /account to the login pag
 
   await page.goto("/account");
   await expect(page).toHaveURL("/login?next=%2Faccount");
-  await logIn(page, email, PASSWORD);
+  await submitLogin(page, { copy, email, password: PASSWORD });
   await expect(page).toHaveURL("/account");
   await expect(page.getByTestId("account-email")).toHaveText(email);
 });
@@ -121,9 +101,9 @@ test("a wrong password is refused with one message for every cause", async ({ pa
   await page.context().clearCookies();
 
   await page.goto("/login");
-  await logIn(page, email, "wrong horse battery");
+  await submitLogin(page, { copy, email, password: "wrong horse battery" });
   await expect(page.locator("form").getByRole("alert")).toHaveText(copy.errors.auth.invalid_credentials);
-  await logIn(page, newEmail(), PASSWORD);
+  await submitLogin(page, { copy, email: newEmail(), password: PASSWORD });
   await expect(page.locator("form").getByRole("alert")).toHaveText(copy.errors.auth.invalid_credentials);
 });
 
@@ -133,7 +113,7 @@ test("a next parameter pointing to another origin falls back to afterLogin", asy
   await page.context().clearCookies();
 
   await page.goto("/login?next=https%3A%2F%2Fevil.example%2F");
-  await logIn(page, email, PASSWORD);
+  await submitLogin(page, { copy, email, password: PASSWORD });
   await expect(page).toHaveURL("/account");
 });
 
@@ -144,10 +124,10 @@ test("the login-account limit stops guessing on one account", async ({ page }) =
 
   await page.goto("/login");
   for (let attempt = 0; attempt < 10; attempt += 1) {
-    await logIn(page, email, `wrong password ${String(attempt)}`);
+    await submitLogin(page, { copy, email, password: `wrong password ${String(attempt)}` });
     await expect(page.locator("form").getByRole("alert")).toHaveText(copy.errors.auth.invalid_credentials);
   }
-  await logIn(page, email, PASSWORD);
+  await submitLogin(page, { copy, email, password: PASSWORD });
   await expect(page.locator("form").getByRole("alert")).toHaveText(copy.errors.security.rate_limited);
 });
 
@@ -172,9 +152,9 @@ test("changing the password keeps this session and ends the others", async ({ pa
   // The other browser still holds its cookie, but its session row is gone.
   await other.goto("/account");
   await expect(other).toHaveURL("/login?next=%2Faccount");
-  await logIn(other, email, PASSWORD);
+  await submitLogin(other, { copy, email, password: PASSWORD });
   await expect(other.locator("form").getByRole("alert")).toHaveText(copy.errors.auth.invalid_credentials);
-  await logIn(other, email, NEW_PASSWORD);
+  await submitLogin(other, { copy, email, password: NEW_PASSWORD });
   await expect(other).toHaveURL("/account");
   await other.context().close();
 });
@@ -187,7 +167,7 @@ test.describe("without JavaScript", () => {
     await register(page, email);
     await page.getByRole("button", { name: copy.logout.submit }).click();
     await expect(page).toHaveURL("/login");
-    await logIn(page, email, PASSWORD);
+    await submitLogin(page, { copy, email, password: PASSWORD });
     await expect(page).toHaveURL("/account");
     await expect(page.getByTestId("account-email")).toHaveText(email);
   });

@@ -5,12 +5,12 @@
 // unsubscribes the address, withdrawing the consents; signing up again lifts the opt-out only once
 // the new link is used. Both mails carry an HTML body in the app's layout. Every test gets its own
 // client address and email.
-import { randomInt, randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { deliveries, mailingMessages, suppressions } from "@softure-ai/mailing";
 import { readMailOutbox } from "@softure-ai/mailing/testing";
 import { consents } from "@softure-ai/privacy";
 import { getEmailKey, getLegalDocument } from "@softure-ai/privacy/server";
+import { clientAddressHeaders, uniqueEmail, waitFor } from "@softure-ai/testing/playwright";
 import { signups, waitlistMessages } from "@softure-ai/waitlist";
 import { asc, eq, inArray, like } from "drizzle-orm";
 import { en } from "../messages/en.ts";
@@ -22,13 +22,13 @@ const copy = waitlistMessages.en;
 const createdEmails: string[] = [];
 
 function newEmail(): string {
-  const email = `e2e-waitlist-${randomUUID()}@example.com`;
+  const email = uniqueEmail("e2e-waitlist");
   createdEmails.push(email);
   return email;
 }
 
 test.beforeEach(({ context }) =>
-  context.setExtraHTTPHeaders({ "cf-connecting-ip": `198.${String(18 + randomInt(2))}.${String(randomInt(256))}.${String(randomInt(1, 255))}` }),
+  context.setExtraHTTPHeaders(clientAddressHeaders()),
 );
 
 test.afterAll(async () => {
@@ -86,8 +86,13 @@ async function readMails(email: string, subject: string) {
 
 /** The link of confirmation mail number `count`; the action sends after its answer, so this waits for it. */
 async function readConfirmationLink(email: string, count = 1): Promise<string> {
-  await expect.poll(async () => (await readMails(email, copy.confirmationMail.subject)).length).toBe(count);
-  const link = (await readMails(email, copy.confirmationMail.subject)).at(-1)?.text.split("\n").at(-1) ?? "";
+  const link = await waitFor(
+    async () => {
+      const mails = await readMails(email, copy.confirmationMail.subject);
+      return mails.length === count ? (mails.at(-1)?.text.split("\n").at(-1) ?? "") : null;
+    },
+    { description: `confirmation mail ${String(count)} to ${email}` },
+  );
   expect(link).toMatch(/\/waitlist\/confirm\?token=[A-Za-z0-9_-]{43}$/);
   return link;
 }
@@ -100,8 +105,13 @@ async function confirm(page: Page, link: string): Promise<void> {
 
 /** The welcome mail(s) sent to `email`; the confirm action sends after its answer, so this waits for one. */
 async function readWelcomeMails(email: string) {
-  await expect.poll(async () => (await readMails(email, copy.welcomeMail.subject)).length).toBeGreaterThan(0);
-  return readMails(email, copy.welcomeMail.subject);
+  return waitFor(
+    async () => {
+      const mails = await readMails(email, copy.welcomeMail.subject);
+      return mails.length > 0 ? mails : null;
+    },
+    { description: `the welcome mail to ${email}` },
+  );
 }
 
 async function unsubscribeThroughWelcomeMail(page: Page, email: string): Promise<void> {

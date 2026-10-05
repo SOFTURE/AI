@@ -4,12 +4,12 @@
 // The panel's action refuses a session that lost the role and stores nothing. Serial: the tests
 // share the one switch row.
 import { spawnSync } from "node:child_process";
-import { randomInt, randomUUID } from "node:crypto";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { expect, test, type Browser, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { authMessages, users } from "@softure-ai/auth";
 import { featureSwitchesMessages, switches } from "@softure-ai/feature-switches";
+import { expectPageStatus, openPageAsNewClient, registerAccount, uniqueEmail } from "@softure-ai/testing/playwright";
 import { eq, inArray } from "drizzle-orm";
 import { en } from "../messages/en.ts";
 import { WELCOME_BANNER_SWITCH } from "../softure.config.ts";
@@ -24,29 +24,14 @@ const createdEmails: string[] = [];
 
 test.describe.configure({ mode: "serial" });
 
-/** A fresh address per context (198.18.0.0/15), so the register bucket never fills up. */
-function randomAddress(): string {
-  return `198.${String(18 + randomInt(2))}.${String(randomInt(256))}.${String(randomInt(1, 255))}`;
-}
-
 function newEmail(): string {
-  const email = `e2e-switches-${randomUUID()}@example.com`;
+  const email = uniqueEmail("e2e-switches");
   createdEmails.push(email);
   return email;
 }
 
-async function openPage(browser: Browser): Promise<Page> {
-  const context = await browser.newContext({ extraHTTPHeaders: { "cf-connecting-ip": randomAddress() } });
-  return context.newPage();
-}
-
 async function register(page: Page, email: string): Promise<void> {
-  await page.goto("/register");
-  await page.getByLabel(authCopy.fields.email, { exact: true }).fill(email);
-  await page.getByLabel(authCopy.fields.password, { exact: true }).fill(PASSWORD);
-  await page.getByLabel(authCopy.fields.consent).check();
-  await page.getByRole("button", { name: authCopy.register.submit }).click();
-  await expect(page).toHaveURL("/account");
+  await registerAccount(page, { copy: authCopy, email, password: PASSWORD });
 }
 
 /** Registers an account and grants it admin with the example's grant-role script. */
@@ -118,14 +103,14 @@ test.afterAll(async () => {
 });
 
 test("an anonymous visitor and a user without the admin role get not found on the panel", async ({ browser }) => {
-  const page = await openPage(browser);
-  expect((await page.goto("/switches"))?.status()).toBe(404);
+  const page = await openPageAsNewClient(browser);
+  await expectPageStatus(page, "/switches", 404);
   await register(page, newEmail());
-  expect((await page.goto("/switches"))?.status()).toBe(404);
+  await expectPageStatus(page, "/switches", 404);
 });
 
 test("an admin turns the welcome banner on and off, the home page follows and the row records who", async ({ browser }) => {
-  const page = await openPage(browser);
+  const page = await openPageAsNewClient(browser);
   const email = await registerAdmin(page);
   await page.goto("/");
   await expect(page.getByTestId("welcome-banner")).toHaveCount(0);
@@ -153,7 +138,7 @@ test("an admin turns the welcome banner on and off, the home page follows and th
 
 test("the panel's action refuses a session without the admin role and an anonymous one, and stores nothing", async ({ browser }) => {
   await resetBanner();
-  const page = await openPage(browser);
+  const page = await openPageAsNewClient(browser);
   await registerAdmin(page);
   await page.goto("/switches");
 

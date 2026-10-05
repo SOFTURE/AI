@@ -10,3 +10,4 @@ here, in `context/changes/` or in `context/archive/`. Taking an entry works as i
 | ID | Entry | Title | Condition | Kind |
 | --- | --- | --- | --- | --- |
 | DF-1 | [`deploy-fire-parity`](deploy-fire-parity/change.md) | Parity of the deploy CLI with FIRE_TRACKER | a session that can read FIRE_TRACKER | start |
+| DF-2 | [`auth-testing-account-factory`](auth-testing-account-factory/change.md) | An account factory in @softure-ai/auth/testing | — | start |

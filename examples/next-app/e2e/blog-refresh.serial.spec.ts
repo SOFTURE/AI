@@ -3,12 +3,12 @@
 // on the very next request. A serial spec (playwright.config.ts): it publishes a changed fixture text,
 // which other specs read, and publishes the original back at the end.
 import { spawnSync } from "node:child_process";
-import { randomInt } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/test";
+import { randomClientAddress } from "@softure-ai/testing/playwright";
 import { BLOG_REFRESH_SECRET } from "./outbox.ts";
 
 const APP_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -16,11 +16,6 @@ const FIXTURE = join(APP_DIR, "content/blog/bond-basics.md");
 const ADDED = "A bond fund holds many bonds at once, so one late payment matters less.";
 
 test.describe.configure({ mode: "serial" });
-
-/** A fresh address per request (198.18.0.0/15), so the refresh bucket never fills up across runs. */
-function randomAddress(): string {
-  return `198.${String(18 + randomInt(2))}.${String(randomInt(256))}.${String(randomInt(1, 255))}`;
-}
 
 /** Runs the app's publish command on one file, as an editor would, with the app's origin and secret. */
 function publish(file: string, baseURL: string): string {
@@ -36,7 +31,7 @@ function publish(file: string, baseURL: string): string {
 test("the refresh route refuses a request without the secret", async ({ request }) => {
   for (const authorization of [undefined, "Bearer not-the-secret"]) {
     const response = await request.post("/api/blog/refresh", {
-      headers: { "cf-connecting-ip": randomAddress(), ...(authorization === undefined ? {} : { authorization }) },
+      headers: { "cf-connecting-ip": randomClientAddress(), ...(authorization === undefined ? {} : { authorization }) },
     });
     expect(response.status()).toBe(401);
     expect(response.headers()["www-authenticate"]).toBe("Bearer");

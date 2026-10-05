@@ -3,11 +3,12 @@
 // The mail carries the RFC 8058 headers and a footer link; unsubscribing through either one makes
 // the next list mail fail with mailing.suppressed, while transactional mail still goes out. Every
 // test gets its own client address and account.
-import { randomInt, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { authMessages, users } from "@softure-ai/auth";
 import { mailingMessages, suppressions } from "@softure-ai/mailing";
 import { readMailOutbox } from "@softure-ai/mailing/testing";
+import { clientAddressHeaders, registerAccount, uniqueEmail } from "@softure-ai/testing/playwright";
 import { inArray } from "drizzle-orm";
 import { en } from "../messages/en.ts";
 import { openTestDatabase } from "./database.ts";
@@ -19,17 +20,13 @@ const PASSWORD = "correct horse battery";
 const createdEmails: string[] = [];
 const recipientKeys: string[] = [];
 
-function randomAddress(): string {
-  return `198.${String(18 + randomInt(2))}.${String(randomInt(256))}.${String(randomInt(1, 255))}`;
-}
-
 function newEmail(): string {
-  const email = `e2e-unsubscribe-${randomUUID()}@example.com`;
+  const email = uniqueEmail("e2e-unsubscribe");
   createdEmails.push(email);
   return email;
 }
 
-test.beforeEach(({ context }) => context.setExtraHTTPHeaders({ "cf-connecting-ip": randomAddress() }));
+test.beforeEach(({ context }) => context.setExtraHTTPHeaders(clientAddressHeaders()));
 
 test.afterAll(async () => {
   if (createdEmails.length === 0) return;
@@ -43,12 +40,7 @@ test.afterAll(async () => {
 });
 
 async function register(page: Page, email: string): Promise<void> {
-  await page.goto("/register");
-  await page.getByLabel(authCopy.fields.email, { exact: true }).fill(email);
-  await page.getByLabel(authCopy.fields.password, { exact: true }).fill(PASSWORD);
-  await page.getByLabel(authCopy.fields.consent).check();
-  await page.getByRole("button", { name: authCopy.register.submit }).click();
-  await expect(page).toHaveURL("/account");
+  await registerAccount(page, { copy: authCopy, email, password: PASSWORD });
 }
 
 /** Sends a test mail from /account/mail, as a newsletter or not, and returns the subject. */
@@ -127,7 +119,7 @@ test("the footer link opens a page that unsubscribes only when its button is pre
   const { page: pageLink } = await readListMail(email);
 
   // A fresh browser: no session, as when the link is opened from a mail client.
-  const visitor = await browser.newContext({ extraHTTPHeaders: { "cf-connecting-ip": randomAddress() } });
+  const visitor = await browser.newContext({ extraHTTPHeaders: clientAddressHeaders() });
   try {
     const visit = await visitor.newPage();
     await visit.goto(pageLink);

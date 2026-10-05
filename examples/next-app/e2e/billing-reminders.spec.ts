@@ -3,13 +3,13 @@
 // run sends nothing new, and once the trial is over the next run sends one "trial has ended" mail.
 // Mail lands in the fake provider's outbox; the account is this test's own.
 import { spawnSync } from "node:child_process";
-import { randomInt, randomUUID } from "node:crypto";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/test";
 import { authMessages, users } from "@softure-ai/auth";
 import { billingMessages, entitlements } from "@softure-ai/billing";
 import { readMailOutbox } from "@softure-ai/mailing/testing";
+import { clientAddressHeaders, registerAccount, uniqueEmail } from "@softure-ai/testing/playwright";
 import { eq, inArray } from "drizzle-orm";
 import { openTestDatabase } from "./database.ts";
 import { MAIL_OUTBOX } from "./outbox.ts";
@@ -22,7 +22,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const createdEmails: string[] = [];
 
 test.beforeEach(({ context }) =>
-  context.setExtraHTTPHeaders({ "cf-connecting-ip": `198.${String(18 + randomInt(2))}.${String(randomInt(256))}.${String(randomInt(1, 255))}` }),
+  context.setExtraHTTPHeaders(clientAddressHeaders()),
 );
 
 test.afterAll(async () => {
@@ -75,14 +75,9 @@ function runReminderScript(appOrigin: string): string {
 
 test("an account is mailed once before its trial ends and once after it has ended", async ({ page, baseURL }) => {
   if (baseURL === undefined) throw new Error("the e2e needs a baseURL");
-  const email = `e2e-reminder-${randomUUID()}@example.com`;
+  const email = uniqueEmail("e2e-reminder");
   createdEmails.push(email);
-  await page.goto("/register");
-  await page.getByLabel(authCopy.fields.email, { exact: true }).fill(email);
-  await page.getByLabel(authCopy.fields.password, { exact: true }).fill(PASSWORD);
-  await page.getByLabel(authCopy.fields.consent).check();
-  await page.getByRole("button", { name: authCopy.register.submit }).click();
-  await expect(page).toHaveURL("/account");
+  await registerAccount(page, { copy: authCopy, email, password: PASSWORD });
 
   // Two or three days left (depending on the hour in Warsaw): inside the 3-day reminder window.
   await setTrialEnd(email, new Date(Date.now() + 2 * DAY_MS));

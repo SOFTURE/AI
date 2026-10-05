@@ -39,6 +39,7 @@ trigger: "the deploy roadmap closes; the owner promotes it or takes single items
 | ID | Change | Outcome | Depends on | Mode | Status |
 | --- | --- | --- | --- | --- | --- |
 | **DF-1** | `deploy-fire-parity` | `env render` and `release-notes` checked against FIRE_TRACKER's scripts and tests; differences ported or recorded | — | autonomous | ready |
+| **DF-2** | `auth-testing-account-factory` | `@softure-ai/auth/testing` creates an account in SQL with auth's hashing; the example's e2e uses it outside registration specs | — | autonomous | ready |
 
 ## Order
 
@@ -60,6 +61,21 @@ Lanes are set when the roadmap is promoted, by shared files.
 - **Source:** DP-1 (`deploy-cli-env-notes`), research: the session could not read FIRE_TRACKER (cloning it was
   refused by the sandbox), so the report format comes from the roadmap, not from FIRE's workflow.
 - **PRD refs:** FR-33.
+
+### DF-2: Account factory in auth's testing export
+- **Change ID:** `auth-testing-account-factory`
+- **Status:** ready
+- **Input:** [`auth-testing-account-factory`](../../backlog/roadmap-deploy-followups/auth-testing-account-factory/change.md)
+- **Outcome:** `@softure-ai/auth/testing` with `createTestAccount(db, { email, password, roles? })` that writes
+  the `users` row (and roles) with auth's hashing; the example's e2e registers through the form only in the
+  specs about registration; auth bumps its version.
+- **Prerequisites:** none.
+- **Unknowns:** whether the factory takes a `@softure-ai/db` handle or a drizzle instance.
+- **Risk:** low. Test-only export; it changes a published package, so it rides auth's next release.
+- **Source:** DP-7 (`testing-playwright-helpers`), research: FIRE_TRACKER's `integration/infrastructure/auth.ts`
+  creates accounts in SQL; DP-7 decided module-specific factories belong in each module's own `testing`
+  export (precedent: `@softure-ai/mailing/testing`), and adding one to auth was outside DP-7.
+- **PRD refs:** FR-35, FR-9.
 
 ## Owner decisions and checks
 

@@ -2,10 +2,10 @@
 // with the account read back from Postgres. Every test gets its own client address (the example
 // resolves clients from CF-Connecting-IP) and its own account.
 import { readFile } from "node:fs/promises";
-import { randomInt, randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { authMessages, users } from "@softure-ai/auth";
 import { privacyMessages } from "@softure-ai/privacy";
+import { clientAddressHeaders, registerAccount, uniqueEmail } from "@softure-ai/testing/playwright";
 import { eq, inArray } from "drizzle-orm";
 import { en } from "../messages/en.ts";
 import { openTestDatabase } from "./database.ts";
@@ -15,17 +15,13 @@ const copy = privacyMessages.en;
 const PASSWORD = "correct horse battery";
 const createdEmails: string[] = [];
 
-function randomAddress(): string {
-  return `198.${String(18 + randomInt(2))}.${String(randomInt(256))}.${String(randomInt(1, 255))}`;
-}
-
 function newEmail(): string {
-  const email = `e2e-privacy-${randomUUID()}@example.com`;
+  const email = uniqueEmail("e2e-privacy");
   createdEmails.push(email);
   return email;
 }
 
-test.beforeEach(({ context }) => context.setExtraHTTPHeaders({ "cf-connecting-ip": randomAddress() }));
+test.beforeEach(({ context }) => context.setExtraHTTPHeaders(clientAddressHeaders()));
 
 test.afterAll(async () => {
   if (createdEmails.length === 0) return;
@@ -38,12 +34,7 @@ test.afterAll(async () => {
 });
 
 async function registerAndOpenPrivacyPage(page: Page, email: string): Promise<void> {
-  await page.goto("/register");
-  await page.getByLabel(authCopy.fields.email, { exact: true }).fill(email);
-  await page.getByLabel(authCopy.fields.password, { exact: true }).fill(PASSWORD);
-  await page.getByLabel(authCopy.fields.consent).check();
-  await page.getByRole("button", { name: authCopy.register.submit }).click();
-  await expect(page).toHaveURL("/account");
+  await registerAccount(page, { copy: authCopy, email, password: PASSWORD });
   await page.getByRole("link", { name: en.account.privacy }).click();
   await expect(page).toHaveURL("/account/privacy");
 }

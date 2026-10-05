@@ -5,7 +5,6 @@
 // script, and pin-trials reports the trials it would pin. Every test gets its own client address
 // and account.
 import { spawnSync } from "node:child_process";
-import { randomInt, randomUUID } from "node:crypto";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -13,6 +12,7 @@ import { fileURLToPath } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
 import { authMessages, users } from "@softure-ai/auth";
 import { billingMessages, entitlements } from "@softure-ai/billing";
+import { clientAddressHeaders, registerAccount, uniqueEmail, uniqueName } from "@softure-ai/testing/playwright";
 import { eq, inArray } from "drizzle-orm";
 import { en } from "../messages/en.ts";
 import { entries } from "../modules/guestbook/schema.ts";
@@ -27,13 +27,13 @@ const createdEmails: string[] = [];
 const createdMessages: string[] = [];
 
 function newMessage(): string {
-  const message = `e2e-billing-${randomUUID()}`;
+  const message = uniqueName("e2e-billing");
   createdMessages.push(message);
   return message;
 }
 
 test.beforeEach(({ context }) =>
-  context.setExtraHTTPHeaders({ "cf-connecting-ip": `198.${String(18 + randomInt(2))}.${String(randomInt(256))}.${String(randomInt(1, 255))}` }),
+  context.setExtraHTTPHeaders(clientAddressHeaders()),
 );
 
 test.afterAll(async () => {
@@ -49,14 +49,9 @@ test.afterAll(async () => {
 });
 
 async function registerAndOpenBillingPage(page: Page): Promise<string> {
-  const email = `e2e-billing-${randomUUID()}@example.com`;
+  const email = uniqueEmail("e2e-billing");
   createdEmails.push(email);
-  await page.goto("/register");
-  await page.getByLabel(authCopy.fields.email, { exact: true }).fill(email);
-  await page.getByLabel(authCopy.fields.password, { exact: true }).fill(PASSWORD);
-  await page.getByLabel(authCopy.fields.consent).check();
-  await page.getByRole("button", { name: authCopy.register.submit }).click();
-  await expect(page).toHaveURL("/account");
+  await registerAccount(page, { copy: authCopy, email, password: PASSWORD });
   await page.getByRole("link", { name: en.account.billing }).click();
   await expect(page).toHaveURL("/account/billing");
   return email;
