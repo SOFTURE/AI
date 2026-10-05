@@ -1,6 +1,6 @@
 # @softure-ai/seo
 
-**Status:** implemented (blog BL-1) · 0.1.1, prepared for its first release (the owner's tag, `scripts/release/README.md`) · depends on: core
+**Status:** implemented (blog BL-1) · 0.1.2, prepared for its first release (the owner's tag, `scripts/release/README.md`) · depends on: core
 
 ## 1. What it provides
 

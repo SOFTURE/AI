@@ -165,7 +165,7 @@ jobs:
           # No --tag for a stable version: npm applies `latest` and refuses to move it to an older version.
           tag_args=()
           if [ -n "$NPM_TAG" ]; then tag_args=(--tag "$NPM_TAG"); fi
-          npm stage publish "release-out/${TARBALL}" --provenance --access public "${tag_args[@]}"
+          npm stage publish "./release-out/${TARBALL}" --provenance --access public "${tag_args[@]}"
           echo "::notice::${NAME}@${VERSION} is staged on npm. Approve it on npmjs.com (2FA) to make it live."
 
   # After npm, so a release npm refuses (e.g. a new package without NPM_TOKEN) publishes nothing else.

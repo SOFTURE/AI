@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/blog",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "SOFTURE AI blog module: articles and glossary terms kept as Markdown files with a strict YAML frontmatter (extendable by the app's own fields), stored in the module's Postgres schema by the softure-blog publish command (dry run by default, all or nothing, content hash, slug history, one pillar per cluster), a server-side Markdown renderer (no raw HTML, safe links, glossary links, block plugins), a text quality gate (softure-blog check, run before every publish) with language rulesets and rule plugins, the blog's pages ready to mount in Next.js (listing, article, glossary, method page, OG image, JSON-LD) with a proxy piece for 301 and 410, an article writing skill (softure-blog skill install) generated from the gate's rules, and discovery: an RSS feed, read next, sitemap entries and an IndexNow submit on publish through the optional @softure-ai/seo, with a rate-limited cache refresh route the publish calls first (through the optional @softure-ai/security).",
   "license": "MIT",
   "type": "module",

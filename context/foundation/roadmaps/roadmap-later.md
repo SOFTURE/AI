@@ -120,8 +120,8 @@ Carried over from blog with BL-8:
 
 ## Owner decisions and checks
 
-- [ ] **First batch release**: all 16 packages are at 0.1.1 on `master` (`packages-first-release`, then
-  `release-0-1-1`: the 0.1.0 run stopped at its test gate before publishing anything); the agent runs
+- [ ] **First batch release**: all 16 packages are at 0.1.2 on `master` (`packages-first-release`, then
+  `release-0-1-1` and `release-stage-tarball-path`: the 0.1.0 and 0.1.1 runs failed before publishing anything); the agent runs
   `auto-release.yml` with `all` on the owner's word (`release-dispatch`), then the owner approves each staged version and
   adds its trusted publisher. This covers BL-8, MK-8, EN-9 and MO-6, plus core, db, ui, auth, ops, security and
   feature-switches, which they depend on.
