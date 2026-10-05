@@ -2,7 +2,7 @@
 change_id: deploy-workflow-verify-config
 title: "The deploy workflow verifies with softure-deploy verify"
 status: backlog
-roadmap_item: DF-3
+roadmap_item: DF-2
 branch: null
 created: 2026-10-05
 updated: 2026-10-05
@@ -15,7 +15,7 @@ The `verify` job of `deploy-app.yml` runs `softure-deploy verify` with the app's
 
 ## Context
 
-From [`roadmap-deploy-followups.md`](../../../foundation/roadmaps/roadmap-deploy-followups.md), item **DF-3**:
+From [`roadmap-deploy-followups.md`](../../../foundation/roadmaps/roadmap-deploy-followups.md), item **DF-2**:
 
 > - **Change ID:** `deploy-workflow-verify-config`
 > - **Status:** ready

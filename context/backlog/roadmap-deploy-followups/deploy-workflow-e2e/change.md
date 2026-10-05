@@ -2,7 +2,7 @@
 change_id: deploy-workflow-e2e
 title: "The deploy workflow runs end to end in CI"
 status: backlog
-roadmap_item: DF-4
+roadmap_item: DF-3
 branch: null
 created: 2026-10-05
 updated: 2026-10-05
@@ -15,7 +15,7 @@ A CI job runs `deploy-app.yml` against a throwaway SSH server and registry, so a
 
 ## Context
 
-From [`roadmap-deploy-followups.md`](../../../foundation/roadmaps/roadmap-deploy-followups.md), item **DF-4**:
+From [`roadmap-deploy-followups.md`](../../../foundation/roadmaps/roadmap-deploy-followups.md), item **DF-3**:
 
 > - **Change ID:** `deploy-workflow-e2e`
 > - **Status:** ready

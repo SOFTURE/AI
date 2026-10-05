@@ -22,7 +22,10 @@ From [`roadmap-deploy-followups.md`](../../../foundation/roadmaps/roadmap-deploy
 > - **Outcome:** FIRE_TRACKER's `scripts/render-env-prod.mts`, `scripts/release-notes.mts`, `src/lib/release-notes.ts`,
 >   their tests and `.github/workflows/release-opis.yml` are read; every behaviour and test case that is generic is
 >   ported into `tools/deploy` (report format, env edge cases), and the rest is listed as FIRE-specific in the
->   package README.
+>   package README. The same for the deploy workflow (DP-2): FIRE's `.github/workflows/release.yml`,
+>   `auto-release.yml` and its SSH gateway (`docker/prod/`, the forced command) are read; generic steps
+>   `deploy-app.yml` lacks are ported or recorded, and the forced-command protocol (`<remote-command> <tag>` with
+>   `.env.prod` on stdin) is aligned with FIRE's gateway.
 > - **Source:** DP-1 (`deploy-cli-env-notes`), research: the session could not read FIRE_TRACKER (cloning it was
 >   refused by the sandbox), so the report format comes from the roadmap, not from FIRE's workflow.
 

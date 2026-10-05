@@ -22,11 +22,11 @@ with its own error); the render step was run with a stub `npx` (secrets reach th
 ## Findings
 
 - **W1 (warning, deferred):** parity with FIRE_TRACKER's `release.yml`, `auto-release.yml` and its SSH gateway is
-  unchecked (the session cannot read FIRE_TRACKER), including the forced-command protocol. Recorded as **DF-2**.
+  unchecked (the session cannot read FIRE_TRACKER), including the forced-command protocol. Folded into **DF-1** (FIRE parity of the deploy CLI, now also the workflow).
 - **W2 (warning, deferred):** verify checks only the health route; `softure-deploy verify` (DP-4) runs in parallel.
-  Recorded as **DF-3**.
+  Recorded as **DF-2**.
 - **W3 (warning, deferred):** the workflow was never run end to end (no server, and the CLI is not on npm before
-  DP-8). Recorded as **DF-4**.
+  DP-8). Recorded as **DF-3**.
 - **S1 (suggestion, kept):** the environment URL is not set (`environment` is a plain name so that an empty input
   means none); the app URL still shows in the verify log.
 - **S2 (suggestion, fixed):** workflow commands (`::error::`) from the Node step went to stderr, where the runner does

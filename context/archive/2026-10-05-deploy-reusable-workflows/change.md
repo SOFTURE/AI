@@ -57,6 +57,6 @@ to scripts through `env`, a commented caller in the header).
   whether to build it is in doubt.
 - Contract for DP-5 (the server script it generates): the forced command receives `<remote-command> <tag>` as
   `SSH_ORIGINAL_COMMAND` and the rendered `.env.prod` on stdin.
-- DF-2 (FIRE parity of the workflow and gateway), DF-3 (`softure-deploy verify` in the verify job) and DF-4 (an
-  end-to-end CI run) queued in `deploy-followups`.
+- FIRE parity of the workflow and gateway folded into DF-1; DF-2 (`softure-deploy verify` in the verify job) and
+  DF-3 (an end-to-end CI run) queued in `deploy-followups`.
 - Archived 2026-10-05: `deploy-app.yml` and its example caller, waiting for the first publish of `@softure-ai/deploy` and the `deploy-workflows-v1` tag (DP-8).
