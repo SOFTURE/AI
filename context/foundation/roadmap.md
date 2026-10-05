@@ -50,12 +50,13 @@ backlog: context/backlog/roadmap-blog-followups/
 | **BF-2** | `blog-publish-slug-race` | two publishes racing for one slug report `blog.slug_taken`, not a driver error | — | autonomous | ready |
 | **BF-3** | `blog-article-images` | images in article bodies under a hosting policy (allowed sources, alt, dimensions) | — | autonomous | ready |
 | **BF-4** | `blog-glossary-form-conflicts` | a glossary form claimed by two terms is refused, naming both | BF-3 | autonomous | ready |
-| **BF-6** | `blog-check-without-database` | `softure-blog check` runs with an app config that has no database URL | BF-1 | autonomous | **in_progress (implement 1/1, since 2026-10-05; cloud session, branch `claude/project-thread-aimblk` — do not take in another session)** |
+| **BF-6** | `blog-check-without-database` | `softure-blog check` runs with an app config that has no database URL | BF-1 | autonomous | done_code (2026-10-05; waiting: the owner's release of `@softure-ai/core` and `@softure-ai/blog`) |
 | **BF-7** | `blog-seo-canonical` | the blog's canonical, OG and JSON-LD URLs follow `@softure-ai/seo`'s canonical host and trailing-slash rule | — | autonomous | done_code (2026-10-05; waiting: the next release of `@softure-ai/core` and `@softure-ai/seo`, and the first of `@softure-ai/blog`, BL-8) |
 | **BF-8** | `blog-og-fonts` | `blog({ brand: { fonts } })` gives the article OG card the brand's fonts | BF-7 | autonomous | ready |
 | **BF-9** | `blog-skill-app-notes` | the generated writing skill carries the app's own sections across reinstalls | — | autonomous | ready |
 | **BF-10** | `blog-publish-cache-refresh` | `softure-blog publish --commit` refreshes the running app's blog cache before the IndexNow submit | BF-2 | autonomous | ready |
 | **BF-11** | `blog-canonical-host-links` | a body link to seo's canonical host counts as internal in the renderer and the gate | BF-7 | autonomous | proposed |
+| **BF-13** | `blog-skill-check-without-database` | `softure-blog skill install` runs with an app config that has no database URL | BF-6 | autonomous | proposed |
 
 ## Order
 
@@ -64,7 +65,7 @@ parallel, up to 4 at once. "Depends on" in the table is the item before it in it
 
 | Lane | Items, in order | Shared files |
 | --- | --- | --- |
-| A: config loading | BF-1 → BF-6 | `foundation/db/src/cli/command.ts` (or `foundation/core/`), `modules/mailing/src/cli/command.ts`, `modules/blog/src/cli/command.ts`; BF-6 also the blog workflow's `DATABASE_URL` |
+| A: config loading | BF-1 → BF-6 → BF-13 | `foundation/db/src/cli/command.ts` (or `foundation/core/`), `modules/mailing/src/cli/command.ts`, `modules/blog/src/cli/command.ts`; BF-6 also the blog workflow's `DATABASE_URL` |
 | B: publish run | BF-2 → BF-10 | `modules/blog/src/db/publish-run.ts`, `modules/blog/src/cli/run.ts`; BF-10 also `src/next/` (route handler) and `src/discovery/submit.ts` |
 | C: render and quality | BF-3 → BF-4 | `modules/blog/src/render/` (`render-article.ts`, `glossary.ts`), `modules/blog/src/quality/` |
 | D: pages and OG | BF-7 → BF-8 | `modules/blog/src/pages/`, `modules/blog/src/next/` (`pages.tsx`, `og-image.tsx`) |
@@ -75,6 +76,8 @@ parallel, up to 4 at once. "Depends on" in the table is the item before it in it
    BF-9, BF-6, BF-4, BF-8, BF-10.
 3. **BF-11** (a gap filed by BF-7) touches lanes C and D (`src/quality/settings.ts`, `src/pages/body.ts`): it runs
    when both are idle, after BF-4 and BF-8.
+4. **BF-13** (a gap filed by BF-6) is lane A's next item: one line in `modules/blog/src/cli/command.ts` and a bin
+   test.
 
 `modules/blog/src/options.ts`, `src/messages/` and the example app (`examples/next-app/`) are touched by several
 lanes; `master` is the source of truth and each thread merges it and resolves the conflicts itself.
@@ -96,6 +99,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 | BF-9 | no | an option or a preserved local file in the skill install; `--check` tests |
 | BF-10 | no | the route secret comes from the environment; tests use a fake app URL, no real deploy |
 | BF-11 | no | two host lists in the blog; unit tests |
+| BF-13 | no | a loader option in the blog bin; a bin test |
 
 ## Items
 
@@ -141,8 +145,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### BF-6: softure-blog check without a database URL
 - **Change ID:** `blog-check-without-database`
-- **Status:** in_progress (implement 1/1, since 2026-10-05; cloud session, branch `claude/project-thread-aimblk` — do not take in another session)
-- **Input:** [`blog-check-without-database`](../changes/blog-check-without-database/change.md)
+- **Status:** done_code (2026-10-05; waiting: the owner's release of `@softure-ai/core` and `@softure-ai/blog`)
+- **Input:** [`context/archive/2026-10-05-blog-check-without-database/`](../archive/2026-10-05-blog-check-without-database/change.md)
 - **Outcome:** `softure-blog check` loads an app config that has no database URL (or a placeholder) without failing: either core lets a command opt out of the database requirement, or the blog bin builds a check-only config; the weekly workflow drops its placeholder `DATABASE_URL`.
 - **Prerequisites:** none.
 - **Risk:** low. The reusable workflow passes a placeholder URL today; `check` never connects.
@@ -199,6 +203,16 @@ owner's own machine, a product decision only the owner can make, or a change in 
 - **Mode:** autonomous.
 - **Source:** BF-7 `blog-seo-canonical` plan review S1.
 
+### BF-13: softure-blog skill install without a database URL
+- **Change ID:** `blog-skill-check-without-database`
+- **Status:** proposed
+- **Input:** [`blog-skill-check-without-database`](../backlog/roadmap-blog-followups/blog-skill-check-without-database/change.md)
+- **Outcome:** the blog bin loads the config with `database: "optional"` for `skill install` as it does for `check`; a bin test runs `skill install --check` over a config without a database URL.
+- **Prerequisites:** BF-6 on `master` (the loader's `database` option).
+- **Risk:** low. A CI job that runs `skill install --check` passes a placeholder `DATABASE_URL` today; nothing connects.
+- **Mode:** autonomous.
+- **Source:** BF-6 `blog-check-without-database` plan review S1.
+
 ## Owner decisions and checks
 
 (none yet)
@@ -206,5 +220,6 @@ owner's own machine, a product decision only the owner can make, or a change in 
 ## Done
 
 - **BF-1** `cli-config-loader` (done 2026-10-05): `@softure-ai/core/cli` (`takeConfigOption`, `findDefaultConfig`, `loadConfig`, `loadAppConfig`, `DEFAULT_CONFIG_FILES`) is the one config loader of `softure migrate`, `softure-mail` and `softure-blog`; their messages and tests are unchanged; no gaps; archived in [`archive/2026-10-05-cli-config-loader/`](../archive/2026-10-05-cli-config-loader/change.md)
+- **BF-6** `blog-check-without-database` (done_code 2026-10-05): `softure-blog check` loads an app config without a database URL: `withDatabaseOptional` in `@softure-ai/core` reads a missing or empty URL as no database while the config is imported, `@softure-ai/core/cli`'s loaders take `database: "optional"`, and `blog-links.yml` drops its placeholder `DATABASE_URL`; gap BF-13; archived in [`archive/2026-10-05-blog-check-without-database/`](../archive/2026-10-05-blog-check-without-database/change.md)
 - **BF-7** `blog-seo-canonical` (done_code 2026-10-05): core's `getSiteUrls(config)` is a site-URL contract (one provider, `appOrigin` fallback) and `@softure-ai/seo` provides it with `buildCanonicalUrl`; the blog's canonical, OG, JSON-LD and feed URLs use it, so they follow seo's host and trailing-slash rule, and the blog's Next code never imports seo; gap BF-11; archived in [`archive/2026-10-05-blog-seo-canonical/`](../archive/2026-10-05-blog-seo-canonical/change.md)
 - **BF-5** `markdown-footnote-links` (done 2026-10-04): `tests/repo/markdown-links.ts` skips footnote definitions (`[^id]: …`), with a test; fixed inside BL-4 `blog-pages` (impl review R3), archived with it in [`archive/2026-10-04-blog-pages/`](../archive/2026-10-04-blog-pages/change.md)

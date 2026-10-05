@@ -1,12 +1,12 @@
 ---
 change_id: blog-check-without-database
 title: "softure-blog check without a database URL"
-status: planned
+status: archived
 roadmap_item: BF-6
 branch: claude/project-thread-aimblk
 created: 2026-10-05
 updated: 2026-10-05
-archived_at: null
+archived_at: 2026-10-05
 ---
 
 ## Intent
@@ -47,3 +47,4 @@ free number (BF-11 taken, BF-12 reserved for BF-2's gap).
 - Framing skipped: the problem (a CI-only command forced to carry a fake database URL) and the outcome
   are fixed by the roadmap item and the BL-6 impl review R2 that found it; the two candidate shapes are
   weighed in the research.
+- Archived 2026-10-05: `softure-blog check` loads a config without a database URL through `withDatabaseOptional` (`@softure-ai/core`) and the loaders' `database: "optional"` (`@softure-ai/core/cli`); `blog-links.yml` sets no `DATABASE_URL`; gap BF-13 (`skill install`).

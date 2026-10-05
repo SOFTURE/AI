@@ -81,8 +81,8 @@ the gate (exit 0, `OK` lines); `publish` with the same fixture reports the load 
 ### Phase 1: Optional database for `softure-blog check`
 
 #### Automated
-- [ ] 1.1 Core tests pass (optional mode in `defineSoftureConfig`, flag restored, loader option)
-- [ ] 1.2 The bin's `check` runs over a config without a database URL; `publish` still refuses it
-- [ ] 1.3 The existing core, db, mailing and blog cli tests pass unchanged
-- [ ] 1.4 The reusable workflow has no `database-url` input or `DATABASE_URL` variable
-- [ ] 1.5 Gates green (typecheck, lint, test, build)
+- [x] 1.1 Core tests pass (optional mode in `defineSoftureConfig`, flag restored, loader option) — 59a4452
+- [x] 1.2 The bin's `check` runs over a config without a database URL; `publish` still refuses it — 59a4452
+- [x] 1.3 The existing core, db, mailing and blog cli tests pass unchanged — 59a4452
+- [x] 1.4 The reusable workflow has no `database-url` input or `DATABASE_URL` variable — 59a4452
+- [x] 1.5 Gates green (typecheck, lint, test, build) — 59a4452
