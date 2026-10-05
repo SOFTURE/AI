@@ -46,6 +46,13 @@ Tone: calm and concrete, no exclamations, no selling.
    error. Never work around the gate: if a rule is wrong, the fix is a separate change to the rule,
    with a test.
 
+{{#appSections}}
+## The app's own sections
+
+`references/app.md` adds this app's own procedure: {{appSectionTitles}}. Read it
+before step 2; it adds to the procedure above and never switches off a rule of the gate.
+
+{{/appSections}}
 ## Refreshing a text
 
 When a number in a text changes at its source, fix the text, check every other number against its

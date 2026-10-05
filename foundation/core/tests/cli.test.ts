@@ -1,13 +1,16 @@
 // The config loading every module command shares (`@softure-ai/core/cli`): the `--config` option, the
 // default file names and the import of the app's config, with the exact texts the bins print.
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { DEFAULT_CONFIG_FILES, findDefaultConfig, loadAppConfig, loadConfig, takeConfigOption } from "@softure-ai/core/cli";
 import { afterEach, describe, expect, it } from "vitest";
 
 const APP_SCRIPT = { runner: "runExampleCli", packageName: "@softure-ai/example" };
 const CONFIG_SOURCE = 'export default { database: null, locale: "en", timezone: "Europe/Warsaw", appOrigin: "http://localhost:3000", modules: [] };\n';
+
+const FIXTURES = new URL("./fixtures/cli/", import.meta.url);
 
 const cleanups: (() => void)[] = [];
 
@@ -110,5 +113,25 @@ describe("loadAppConfig", () => {
       ok: false,
       problem: `no config found; looked for softure.config.ts, softure.config.mts, softure.config.js, softure.config.mjs in ${dir}; pass --config <file>`,
     });
+  });
+
+  /** A fresh copy of the fixture config without a database URL, inside the package so it resolves core. */
+  function copyConfigWithoutDatabase(): string {
+    const dir = mkdtempSync(fileURLToPath(new URL("tmp-", FIXTURES)));
+    cleanups.push(() => rmSync(dir, { recursive: true, force: true }));
+    copyFileSync(new URL("without-database.config.mjs", FIXTURES), join(dir, "softure.config.mjs"));
+    return dir;
+  }
+
+  it("loads a config without a database URL when the command makes the database optional", async () => {
+    expect(process.env.SOFTURE_FIXTURE_UNSET_DATABASE_URL).toBeUndefined();
+    const loaded = await loadAppConfig({ cwd: copyConfigWithoutDatabase(), configPath: undefined, appScript: APP_SCRIPT, database: "optional" });
+    expect(loaded).toMatchObject({ ok: true, config: { database: null, modules: [{ id: "notes" }] } });
+  });
+
+  it("requires the database by default", async () => {
+    const loaded = await loadAppConfig({ cwd: copyConfigWithoutDatabase(), configPath: undefined, appScript: APP_SCRIPT });
+    expect(loaded).toMatchObject({ ok: false });
+    expect(loaded.ok ? "" : loaded.problem).toContain("database.url: must not be empty");
   });
 });

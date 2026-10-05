@@ -7,6 +7,7 @@ import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { SoftureConfig } from "../config.js";
+import { withDatabaseOptional } from "../database-requirement.js";
 
 /** The file names looked up in the working directory when no `--config` is given, in this order. */
 export const DEFAULT_CONFIG_FILES: readonly string[] = ["softure.config.ts", "softure.config.mts", "softure.config.js", "softure.config.mjs"];
@@ -25,7 +26,18 @@ export type ConfigOptionResult =
 
 export type ConfigLoadResult = { readonly ok: true; readonly config: SoftureConfig } | { readonly ok: false; readonly problem: string };
 
-export interface LoadAppConfigOptions {
+/**
+ * Whether the command needs the config's database. `"optional"` is for a command that never connects
+ * (`softure-blog check`): a missing or empty URL then loads as `database: null` (see `withDatabaseOptional`).
+ */
+export type DatabaseRequirement = "required" | "optional";
+
+export interface LoadConfigOptions {
+  /** Default `"required"`. */
+  readonly database?: DatabaseRequirement;
+}
+
+export interface LoadAppConfigOptions extends LoadConfigOptions {
   readonly cwd: string;
   /** The `--config` value, relative to `cwd`; `undefined` looks up `DEFAULT_CONFIG_FILES`. */
   readonly configPath: string | undefined;
@@ -58,11 +70,12 @@ export function findDefaultConfig(cwd: string): string | undefined {
 }
 
 /** The config the file exports (default or `config`), or why it could not be used. */
-export async function loadConfig(path: string, appScript: AppScriptHint): Promise<ConfigLoadResult> {
+export async function loadConfig(path: string, appScript: AppScriptHint, options: LoadConfigOptions = {}): Promise<ConfigLoadResult> {
   if (!existsSync(path)) return { ok: false, problem: `config file ${path} does not exist` };
+  const importConfig = () => import(pathToFileURL(path).href) as Promise<{ default?: unknown; config?: unknown }>;
   let exported: { default?: unknown; config?: unknown };
   try {
-    exported = (await import(pathToFileURL(path).href)) as { default?: unknown; config?: unknown };
+    exported = await (options.database === "optional" ? withDatabaseOptional(importConfig) : importConfig());
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     return {
@@ -85,7 +98,7 @@ export async function loadAppConfig(options: LoadAppConfigOptions): Promise<Conf
       problem: `no config found; looked for ${DEFAULT_CONFIG_FILES.join(", ")} in ${options.cwd}; pass --config <file>`,
     };
   }
-  return loadConfig(path, options.appScript);
+  return loadConfig(path, options.appScript, { database: options.database ?? "required" });
 }
 
 function isConfigLike(value: unknown): value is SoftureConfig {
