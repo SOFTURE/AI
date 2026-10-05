@@ -29,7 +29,7 @@ moved file lose one `../`.
 | ID | Entry | Title | Condition | Kind |
 | --- | --- | --- | --- | --- |
 | BF-1 | [`cli-config-loader`](cli-config-loader/change.md) | One config loader for module commands | roadmap promoted | start |
-| BF-2 | [`blog-publish-slug-race`](blog-publish-slug-race/change.md) | A slug race reports a taken slug | roadmap promoted | start |
+| BF-2 | `blog-publish-slug-race` (in progress, in [`context/changes/`](../../changes/blog-publish-slug-race/change.md)) | A slug race reports a taken slug | roadmap promoted | start |
 | BF-3 | [`blog-article-images`](blog-article-images/change.md) | Images in article bodies | roadmap promoted | start |
 | BF-4 | [`blog-glossary-form-conflicts`](blog-glossary-form-conflicts/change.md) | A glossary form belongs to one term | BF-3 on main | dependency |
 | BF-5 | `markdown-footnote-links` (done in BL-4, [`context/archive/`](../../archive/2026-10-04-blog-pages/change.md)) | The repository link check skips footnote definitions | — | — |
@@ -38,5 +38,6 @@ moved file lose one `../`.
 | BF-8 | [`blog-og-fonts`](blog-og-fonts/change.md) | The OG card takes the brand's fonts | BF-7 on main | dependency |
 | BF-9 | [`blog-skill-app-notes`](blog-skill-app-notes/change.md) | The app's own sections in the generated writing skill | roadmap promoted | start |
 | BF-10 | [`blog-publish-cache-refresh`](blog-publish-cache-refresh/change.md) | A command-line publish refreshes the app's cache | BF-2 on main | dependency |
+| BF-11 | [`blog-slug-history-race`](blog-slug-history-race/change.md) | A slug taken while another run renames away from it | roadmap promoted | start |
 
 Kind: `start`, `dependency` or `owner`, as in the other roadmap backlogs.

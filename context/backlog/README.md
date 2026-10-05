@@ -31,7 +31,7 @@ An entry is never in two places, neither as a copy nor as a pointer.
 
 | Folder | Roadmap | Starts when |
 | --- | --- | --- |
-| [`roadmap-blog-followups/`](roadmap-blog-followups/) | [blog-followups](../foundation/roadmap.md) | promoted 2026-10-05 (main roadmap; BF-1…BF-4, BF-6…BF-10) |
+| [`roadmap-blog-followups/`](roadmap-blog-followups/) | [blog-followups](../foundation/roadmap.md) | promoted 2026-10-05 (main roadmap; BF-1…BF-4, BF-6…BF-11) |
 | [`roadmap-charts/`](roadmap-charts/) | [charts](../foundation/roadmaps/roadmap-charts.md) | the owner promotes it |
 | [`roadmap-deploy/`](roadmap-deploy/) | [deploy](../foundation/roadmaps/roadmap-deploy.md) | the owner promotes it |
 | [`roadmap-later/`](roadmap-later/) | [later](../foundation/roadmaps/roadmap-later.md) | the owner step each item waits on is done (LT-1; MK-8, EN-9 and MO-6 carried over from followups; BL-8 from blog) |

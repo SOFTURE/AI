@@ -22,7 +22,7 @@ backlog: context/backlog/roadmap-blog-followups/
 > The catch-all of the [`blog`](archive/2026-10-04-2-roadmap.md) roadmap (owner, 2026-10-03: gaps found while
 > delivering a roadmap are collected in a catch-all roadmap, not fixed on the spot). A gap or deferred review
 > finding found while delivering this roadmap lands here too:
-> 1. take the next free `BF-<n>` (BF-11 is next) and a kebab-case change-id;
+> 1. take the next free `BF-<n>` (BF-12 is next) and a kebab-case change-id;
 > 2. write `context/backlog/roadmap-blog-followups/<change-id>/change.md` (`status: backlog`, the item block quoted
 >    in Context, **Source** naming the change and the finding);
 > 3. add the row and the item block here (status `proposed`, or `blocked (…)` when it waits on the owner) and the
@@ -47,7 +47,7 @@ backlog: context/backlog/roadmap-blog-followups/
 | ID | Change | Outcome | Depends on | Mode | Status |
 | --- | --- | --- | --- | --- | --- |
 | **BF-1** | `cli-config-loader` | `softure migrate`, `softure-mail` and `softure-blog` load the app config through one shared loader | — | autonomous | ready |
-| **BF-2** | `blog-publish-slug-race` | two publishes racing for one slug report `blog.slug_taken`, not a driver error | — | autonomous | ready |
+| **BF-2** | `blog-publish-slug-race` | two publishes racing for one slug report `blog.slug_taken`, not a driver error | — | autonomous | **in_progress** (implement 1/1, since 2026-10-05; cloud session, branch `claude/project-thread-2z92al`) |
 | **BF-3** | `blog-article-images` | images in article bodies under a hosting policy (allowed sources, alt, dimensions) | — | autonomous | ready |
 | **BF-4** | `blog-glossary-form-conflicts` | a glossary form claimed by two terms is refused, naming both | BF-3 | autonomous | ready |
 | **BF-6** | `blog-check-without-database` | `softure-blog check` runs with an app config that has no database URL | BF-1 | autonomous | ready |
@@ -55,6 +55,7 @@ backlog: context/backlog/roadmap-blog-followups/
 | **BF-8** | `blog-og-fonts` | `blog({ brand: { fonts } })` gives the article OG card the brand's fonts | BF-7 | autonomous | ready |
 | **BF-9** | `blog-skill-app-notes` | the generated writing skill carries the app's own sections across reinstalls | — | autonomous | ready |
 | **BF-10** | `blog-publish-cache-refresh` | `softure-blog publish --commit` refreshes the running app's blog cache before the IndexNow submit | BF-2 | autonomous | ready |
+| **BF-11** | `blog-slug-history-race` | a slug taken while another run renames away from it does not end up both current and in the slug history | — | autonomous | proposed |
 
 ## Order
 
@@ -92,6 +93,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 | BF-8 | no | font files read from a path or URL; tested with a local subset font |
 | BF-9 | no | an option or a preserved local file in the skill install; `--check` tests |
 | BF-10 | no | the route secret comes from the environment; tests use a fake app URL, no real deploy |
+| BF-11 | no | a check or a constraint in the blog's own schema; a two-connection test on the local Postgres |
 
 ## Items
 
@@ -107,8 +109,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### BF-2: A slug race reports a taken slug
 - **Change ID:** `blog-publish-slug-race`
-- **Status:** ready
-- **Input:** [`blog-publish-slug-race`](../backlog/roadmap-blog-followups/blog-publish-slug-race/change.md)
+- **Status:** in_progress (implement 1/1, since 2026-10-05; cloud session, branch `claude/project-thread-2z92al`)
+- **Input:** [`blog-publish-slug-race`](../changes/blog-publish-slug-race/change.md)
 - **Outcome:** `runBlogPublish` maps a unique violation on `articles_slug_key` (SQLSTATE 23505) to a refused run naming the slug; a two-connection test on Postgres covers it.
 - **Prerequisites:** none.
 - **Risk:** low. Publishing runs from one place; the database already refuses the second write, only the message is raw.
@@ -184,6 +186,16 @@ owner's own machine, a product decision only the owner can make, or a change in 
 - **Risk:** low. Today the window is `revalidateSeconds` (300 s by default), as in FIRE_TRACKER.
 - **Mode:** autonomous.
 - **Source:** BL-5 `blog-discovery` research Q5.
+
+### BF-11: A slug taken while another run renames away from it
+- **Change ID:** `blog-slug-history-race`
+- **Status:** proposed
+- **Input:** [`blog-slug-history-race`](../backlog/roadmap-blog-followups/blog-slug-history-race/change.md)
+- **Outcome:** a run that gives article Y the slug that article X is leaving in another, uncommitted run cannot leave that slug both Y's current slug and an old slug of X in `slug_history`: the run is refused (or the history entry dropped) and a two-connection Postgres test covers it.
+- **Prerequisites:** none.
+- **Risk:** low. Needs two publishes at the same moment; the address then serves Y while the history still names X (inferred from Postgres's unique-index semantics, not reproduced).
+- **Mode:** autonomous.
+- **Source:** BF-2 `blog-publish-slug-race` research, "Gap found".
 
 ## Owner decisions and checks
 

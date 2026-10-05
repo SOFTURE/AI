@@ -8,7 +8,10 @@
 // commit would do (the rows before and after, read from the database).
 import type { BlogArticleInput, BlogArticleKind, BlogArticleStatus, BlogPublishAction } from "../contract.js";
 import { parseArticleFile, type ParseArticleFileOptions } from "../content/article-file.js";
+import type { Queryable } from "@softure-ai/db";
+import { eq } from "drizzle-orm";
 import { publishArticle, type BlogContext } from "./articles.js";
+import { articles } from "./schema.js";
 
 export interface ArticleFile {
   /** The file name (or path); it must read `<slug>.md`. */
@@ -56,6 +59,9 @@ export type BlogPublishRun =
 
 /** SQLSTATE of an exclusion constraint violation: the deferred one-pillar rule at commit. */
 const EXCLUSION_VIOLATION = "23P01";
+/** SQLSTATE of a unique violation; on `articles_slug_key` it is a lost slug race. */
+const UNIQUE_VIOLATION = "23505";
+const SLUG_CONSTRAINT = "articles_slug_key";
 
 class DryRunRollback extends Error {}
 
@@ -98,7 +104,7 @@ export async function runBlogPublish(ctx: BlogContext, files: readonly ArticleFi
   try {
     await ctx.db.transaction(async (tx) => {
       for (const input of inputs) {
-        const result = await publishArticle({ ...ctx, db: tx }, input);
+        const result = await publishArticleOrRefuse({ ...ctx, db: tx }, input);
         if (!result.ok) {
           const reason = result.error === "blog.slug_taken" ? "is the slug of" : "redirects to";
           throw new PublishRefused({ subject: input.id, message: `slug ${input.slug} ${reason} article ${result.otherArticleId} (${result.error})` });
@@ -119,7 +125,7 @@ export async function runBlogPublish(ctx: BlogContext, files: readonly ArticleFi
   } catch (error) {
     if (error instanceof DryRunRollback) return { status: "done", committed: false, changes, warnings };
     if (error instanceof PublishRefused) return { status: "refused", problems: [error.problem], warnings };
-    if (getSqlState(error) === EXCLUSION_VIOLATION) {
+    if (findDriverError(error)?.code === EXCLUSION_VIOLATION) {
       return {
         status: "refused",
         problems: [{ subject: "pillar", message: "a cluster would have two pillars: one is in the database and not in this run; mark only one text of a cluster pillar: true" }],
@@ -158,11 +164,39 @@ function findPillarProblems(inputs: readonly BlogArticleInput[]): PublishProblem
     .map(([cluster, ids]) => ({ subject: cluster, message: `two pillars in one cluster: ${ids.join(", ")}` }));
 }
 
-/** The SQLSTATE of a driver error; drizzle wraps it as the `cause`. */
-function getSqlState(error: unknown): string | undefined {
+/**
+ * `publishArticle`, with a lost slug race turned into a refusal. Another run can commit the same
+ * slug between this run's free-slug read and its write; the unique index then makes the write wait
+ * for that run and fail with 23505. The savepoint is rolled back, so the transaction still reads
+ * (at read committed, the winner's row is visible now) and names the article that took the slug.
+ */
+async function publishArticleOrRefuse(ctx: BlogContext, input: BlogArticleInput): ReturnType<typeof publishArticle> {
+  try {
+    return await publishArticle(ctx, input);
+  } catch (error) {
+    const driverError = findDriverError(error);
+    if (driverError?.code !== UNIQUE_VIOLATION || driverError.constraint !== SLUG_CONSTRAINT) throw error;
+    const winner = await findSlugOwner(ctx.db, input.slug);
+    const owner = winner === undefined ? "another article published at the same time" : `article ${winner}`;
+    throw new PublishRefused({ subject: input.id, message: `slug ${input.slug} is the slug of ${owner} (blog.slug_taken)` });
+  }
+}
+
+async function findSlugOwner(db: Queryable, slug: string): Promise<string | undefined> {
+  const [row] = await db.select({ id: articles.id }).from(articles).where(eq(articles.slug, slug));
+  return row?.id;
+}
+
+interface DriverError {
+  readonly code: string;
+  readonly constraint: string | undefined;
+}
+
+/** The driver error (SQLSTATE and constraint) behind an error; drizzle wraps it as the `cause`. */
+function findDriverError(error: unknown): DriverError | undefined {
   for (let current: unknown = error, depth = 0; current instanceof Error && depth < 3; current = current.cause, depth += 1) {
-    const code = (current as { code?: unknown }).code;
-    if (typeof code === "string") return code;
+    const { code, constraint } = current as { code?: unknown; constraint?: unknown };
+    if (typeof code === "string") return { code, constraint: typeof constraint === "string" ? constraint : undefined };
   }
   return undefined;
 }
