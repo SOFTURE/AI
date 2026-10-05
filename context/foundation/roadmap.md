@@ -48,7 +48,7 @@ backlog: context/backlog/roadmap-blog-followups/
 | --- | --- | --- | --- | --- | --- |
 | **BF-1** | `cli-config-loader` | `softure migrate`, `softure-mail` and `softure-blog` load the app config through one shared loader | — | autonomous | ready |
 | **BF-2** | `blog-publish-slug-race` | two publishes racing for one slug report `blog.slug_taken`, not a driver error | — | autonomous | ready |
-| **BF-3** | `blog-article-images` | images in article bodies under a hosting policy (allowed sources, alt, dimensions) | — | autonomous | **in_progress** (impl-review, since 2026-10-05; cloud session, branch `claude/project-thread-v7upyb`) |
+| **BF-3** | `blog-article-images` | images in article bodies under a hosting policy (allowed sources, alt, dimensions) | — | autonomous | done_code (2026-10-05; waiting: the first release of `@softure-ai/blog`, BL-8) |
 | **BF-4** | `blog-glossary-form-conflicts` | a glossary form claimed by two terms is refused, naming both | BF-3 | autonomous | ready |
 | **BF-6** | `blog-check-without-database` | `softure-blog check` runs with an app config that has no database URL | BF-1 | autonomous | ready |
 | **BF-7** | `blog-seo-canonical` | the blog's canonical, OG and JSON-LD URLs follow `@softure-ai/seo`'s canonical host and trailing-slash rule | — | autonomous | ready |
@@ -117,8 +117,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### BF-3: Images in article bodies
 - **Change ID:** `blog-article-images`
-- **Status:** in_progress (impl-review, since 2026-10-05; cloud session, branch `claude/project-thread-v7upyb`)
-- **Input:** [`context/changes/blog-article-images/`](../changes/blog-article-images/change.md)
+- **Status:** done_code (2026-10-05; waiting: the first release of `@softure-ai/blog`, BL-8)
+- **Input:** [`context/archive/2026-10-05-blog-article-images/`](../archive/2026-10-05-blog-article-images/change.md)
 - **Outcome:** `renderArticle({ images })` takes an image policy (allowed sources, a resolver that gives width and height); an image outside it stays text; the quality gate (BL-6) reports a missing alt or a refused source.
 - **Prerequisites:** none.
 - **Risk:** low. The renderer disables images today, so nothing unsafe ships; texts just cannot show one.
@@ -191,4 +191,5 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ## Done
 
+- **BF-3** `blog-article-images`: `renderArticle({ images })` and `blog({ images: { hosts, dimensions } })` show body images from site paths or allowed https hosts with alt text and a known size (`width`/`height`, lazy), any other as its alt text; the gate reports `image-source`, `image-alt` and `image-dimensions` (`findArticleImages`, `checkArticleImage`), and an image no longer counts as a link; no gaps; archived in `archive/2026-10-05-blog-article-images/`
 - **BF-5** `markdown-footnote-links` (done 2026-10-04): `tests/repo/markdown-links.ts` skips footnote definitions (`[^id]: …`), with a test; fixed inside BL-4 `blog-pages` (impl review R3), archived with it in [`archive/2026-10-04-blog-pages/`](../archive/2026-10-04-blog-pages/change.md)

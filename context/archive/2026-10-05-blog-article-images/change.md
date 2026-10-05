@@ -1,12 +1,12 @@
 ---
 change_id: blog-article-images
 title: "Article bodies show images that follow the app's image policy, and the gate reports the ones that do not"
-status: impl_reviewed
+status: archived
 roadmap_item: BF-3
 branch: claude/project-thread-v7upyb
 created: 2026-10-05
 updated: 2026-10-05
-archived_at: null
+archived_at: 2026-10-05
 ---
 
 ## Intent
@@ -50,3 +50,4 @@ BF-4 follows in the same lane. Gaps go to the blog-followups roadmap, not fixed 
   problem is not in doubt and nothing is bug-shaped.
 - Research done (short): how markdown-it parses images, what a safe source check needs, how the gate
   reaches the app's policy and how images interact with the existing link rules.
+- Archived 2026-10-05: `renderArticle({ images })` and `blog({ images: { hosts, dimensions } })` show body images from site paths or allowed https hosts with alt and a known size (lazy, `width`/`height`), any other as its alt text; the gate reports `image-source`, `image-alt` and `image-dimensions`, and an image no longer counts as a link; no gaps.
