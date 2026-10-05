@@ -41,6 +41,7 @@ rewrite the paragraph around its one thought; do not swap a word for a synonym.
 | `internal-link-target` | | | Link only to pages, texts and terms that exist (a draft does not count as a target). |
 | `external-link-https` | | | Use the `https://` address of the source. |
 | `external-link-dead` | | | Replace a link that does not answer with the source's current address (checked only with `--external`). |
+| `term-form-conflict` | | | Give each phrase to one term: remove a form from every other term's `forms`, or link the other term by hand where it is meant. |
 
 ## Images
 

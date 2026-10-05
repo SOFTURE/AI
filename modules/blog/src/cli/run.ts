@@ -16,7 +16,7 @@ import { runBlogPublish, type ArticleFile, type BlogPublishRun, type PublishedCh
 import { checkArticleFiles, type FileCheckResult } from "../quality/check-files.js";
 import type { FetchLike } from "../quality/external-links.js";
 import { createQualityGate } from "../quality/gate.js";
-import { createInternalLinkResolver, findAppDir, readContentFolder, readPublishedContent } from "../quality/link-targets.js";
+import { createInternalLinkResolver, findAppDir, readContentFolder, readGlossaryTerms, readPublishedContent } from "../quality/link-targets.js";
 import { getLocalDate } from "../quality/settings.js";
 import { getBlogOptions, getBlogReservedSlugs, getQualitySettings } from "../server/options.js";
 import { DEFAULT_SKILL_COMMAND, DEFAULT_SKILL_DIR, renderBlogSkill, SKILL_MARKER, type SkillFile } from "./skill.js";
@@ -297,8 +297,10 @@ async function runCheck(command: Extract<BlogCommand, { kind: "check" }>, option
     return EXIT_OK;
   }
 
-  // Link targets: the published texts of the content folder and of the checked files, and the app's routes.
-  const content = readPublishedContent([...readContentFolder(contentDir), ...files]);
+  // Link targets and glossary forms: the published texts of the content folder and of the checked files, and the app's routes.
+  const siteFiles = [...readContentFolder(contentDir), ...files];
+  const content = readPublishedContent(siteFiles);
+  const parse = { reservedSlugs: getBlogReservedSlugs(options.config), ...(blogOptions.fields === undefined ? {} : { fields: blogOptions.fields }) };
   const resolveInternalLink = createInternalLinkResolver({
     appDir: findAppDir(cwd, settings.options.appDir),
     privateRouteSegments: settings.options.privateRouteSegments,
@@ -309,7 +311,8 @@ async function runCheck(command: Extract<BlogCommand, { kind: "check" }>, option
     settings,
     today: command.today ?? getLocalDate((options.clock ?? systemClock).now(), settings.timeZone),
     resolveInternalLink,
-    parse: { reservedSlugs: getBlogReservedSlugs(options.config), ...(blogOptions.fields === undefined ? {} : { fields: blogOptions.fields }) },
+    parse,
+    glossary: readGlossaryTerms(siteFiles, parse),
     ...(command.external ? { fetch: options.fetch ?? fetch } : {}),
   });
   return reportCheck(results, files, cwd, output);
