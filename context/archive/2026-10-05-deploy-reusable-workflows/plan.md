@@ -56,8 +56,8 @@ DP-3 and DP-4 right now); `StrictHostKeyChecking=no` or `ssh-keyscan` (trust on 
 ## Progress
 
 #### Automated
-- [ ] Phase 1: reusable workflow and example caller
-- [ ] Phase 2: actionlint in CI
+- [x] Phase 1: reusable workflow and example caller — b666158
+- [x] Phase 2: actionlint in CI — b666158 (both phases in one commit; the test was red before the workflow)
 
 #### Manual
 - [ ] DP-8 (owner): set the `deploy-workflows-v1` tag after `@softure-ai/deploy` is on npm.
