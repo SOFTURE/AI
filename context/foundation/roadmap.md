@@ -22,7 +22,7 @@ backlog: context/backlog/roadmap-blog-followups/
 > The catch-all of the [`blog`](archive/2026-10-04-2-roadmap.md) roadmap (owner, 2026-10-03: gaps found while
 > delivering a roadmap are collected in a catch-all roadmap, not fixed on the spot). A gap or deferred review
 > finding found while delivering this roadmap lands here too:
-> 1. take the next free `BF-<n>` (BF-14 is next) and a kebab-case change-id;
+> 1. take the next free `BF-<n>` (BF-15 is next) and a kebab-case change-id;
 > 2. write `context/backlog/roadmap-blog-followups/<change-id>/change.md` (`status: backlog`, the item block quoted
 >    in Context, **Source** naming the change and the finding);
 > 3. add the row and the item block here (status `proposed`, or `blocked (…)` when it waits on the owner) and the
@@ -52,12 +52,13 @@ backlog: context/backlog/roadmap-blog-followups/
 | **BF-4** | `blog-glossary-form-conflicts` | a glossary form claimed by two terms is refused, naming both | BF-3 | autonomous | done_code (2026-10-05; waiting: the first release of `@softure-ai/blog`, BL-8) |
 | **BF-6** | `blog-check-without-database` | `softure-blog check` runs with an app config that has no database URL | BF-1 | autonomous | done_code (2026-10-05; waiting: the owner's release of `@softure-ai/core` and `@softure-ai/blog`) |
 | **BF-7** | `blog-seo-canonical` | the blog's canonical, OG and JSON-LD URLs follow `@softure-ai/seo`'s canonical host and trailing-slash rule | — | autonomous | done_code (2026-10-05; waiting: the next release of `@softure-ai/core` and `@softure-ai/seo`, and the first of `@softure-ai/blog`, BL-8) |
-| **BF-8** | `blog-og-fonts` | `blog({ brand: { fonts } })` gives the article OG card the brand's fonts | BF-7 | autonomous | ready |
+| **BF-8** | `blog-og-fonts` | `blog({ brand: { fonts } })` gives the article OG card the brand's fonts | BF-7 | autonomous | done_code (2026-10-05; waiting: the first release of `@softure-ai/blog`, BL-8) |
 | **BF-9** | `blog-skill-app-notes` | the generated writing skill carries the app's own sections across reinstalls | — | autonomous | done_code (2026-10-05; waiting: the first release of `@softure-ai/blog`, BL-8) |
 | **BF-10** | `blog-publish-cache-refresh` | `softure-blog publish --commit` refreshes the running app's blog cache before the IndexNow submit | BF-2 | autonomous | done_code (2026-10-05; waiting: the first release of `@softure-ai/blog`, BL-8) |
 | **BF-11** | `blog-canonical-host-links` | a body link to seo's canonical host counts as internal in the renderer and the gate | BF-7 | autonomous | done_code (2026-10-05; waiting: the first release of `@softure-ai/blog`, BL-8) |
 | **BF-12** | `blog-slug-history-race` | a slug taken while another run renames away from it does not end up both current and in the slug history | — | autonomous | proposed |
 | **BF-13** | `blog-skill-check-without-database` | `softure-blog skill install` runs with an app config that has no database URL | BF-6 | autonomous | done_code (2026-10-05; waiting: the first release of `@softure-ai/blog`, BL-8) |
+| **BF-14** | `blog-og-fonts-check` | `softure-blog check` reads the OG card's `brand.fonts` and reports a source it cannot read | BF-8 | autonomous | proposed |
 
 ## Order
 
@@ -69,7 +70,7 @@ parallel, up to 4 at once. "Depends on" in the table is the item before it in it
 | A: config loading | BF-1 → BF-6 → BF-13 | `foundation/db/src/cli/command.ts` (or `foundation/core/`), `modules/mailing/src/cli/command.ts`, `modules/blog/src/cli/command.ts`; BF-6 also the blog workflow's `DATABASE_URL` |
 | B: publish run | BF-2 → BF-10 | `modules/blog/src/db/publish-run.ts`, `modules/blog/src/cli/run.ts`; BF-10 also `src/next/` (route handler) and `src/discovery/submit.ts` |
 | C: render and quality | BF-3 → BF-4 | `modules/blog/src/render/` (`render-article.ts`, `glossary.ts`), `modules/blog/src/quality/` |
-| D: pages and OG | BF-7 → BF-8 | `modules/blog/src/pages/`, `modules/blog/src/next/` (`pages.tsx`, `og-image.tsx`) |
+| D: pages and OG | BF-7 → BF-8 → BF-14 | `modules/blog/src/pages/`, `modules/blog/src/next/` (`pages.tsx`, `og-image.tsx`) |
 | E: writing skill | BF-9 | `modules/blog/src/cli/skill.ts`, the skill template |
 
 1. **First wave: BF-1, BF-2, BF-3, BF-7**, the head of lanes A to D.
@@ -79,6 +80,8 @@ parallel, up to 4 at once. "Depends on" in the table is the item before it in it
    when both are idle, after BF-4 and BF-8.
 4. **BF-13** (a gap filed by BF-6) is lane A's next item: one line in `modules/blog/src/cli/command.ts` and a bin
    test.
+5. **BF-14** (a gap filed by BF-8) is lane D's next item; it also touches the check command in `src/cli/`, so it
+   runs when lane A is idle too.
 
 `modules/blog/src/options.ts`, `src/messages/` and the example app (`examples/next-app/`) are touched by several
 lanes; `master` is the source of truth and each thread merges it and resolves the conflicts itself.
@@ -102,6 +105,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 | BF-11 | no | two host lists in the blog; unit tests |
 | BF-12 | no | a check or a constraint in the blog's own schema; a two-connection test on the local Postgres |
 | BF-13 | no | a loader option in the blog bin; a bin test |
+| BF-14 | no | the card's loader in the check command; a bin test with a missing font file |
 
 ## Items
 
@@ -167,8 +171,8 @@ owner's own machine, a product decision only the owner can make, or a change in 
 
 ### BF-8: The OG card takes the brand's fonts
 - **Change ID:** `blog-og-fonts`
-- **Status:** ready
-- **Input:** [`blog-og-fonts`](../backlog/roadmap-blog-followups/blog-og-fonts/change.md)
+- **Status:** done_code (2026-10-05; waiting: the first release of `@softure-ai/blog`, BL-8)
+- **Input:** [`context/archive/2026-10-05-blog-og-fonts/`](../archive/2026-10-05-blog-og-fonts/change.md)
 - **Outcome:** `brand.fonts` (name, weight, a path or URL the server reads once and caches) feeds `BlogArticleOgImage`; a missing file fails with a message naming it; marketing-kit's subset fonts are a candidate source.
 - **Prerequisites:** none.
 - **Risk:** low. Cosmetic: the card uses `next/og`'s default font today.
@@ -225,6 +229,16 @@ owner's own machine, a product decision only the owner can make, or a change in 
 - **Mode:** autonomous.
 - **Source:** BF-6 `blog-check-without-database` plan review S1.
 
+### BF-14: softure-blog check reads the OG card's fonts
+- **Change ID:** `blog-og-fonts-check`
+- **Status:** proposed
+- **Input:** [`blog-og-fonts-check`](../backlog/roadmap-blog-followups/blog-og-fonts-check/change.md)
+- **Outcome:** `softure-blog check` loads `brand.fonts` through `createOgFontLoader` (from the app's root) and reports a source it cannot read with the loader's message; a check without `brand.fonts` is unchanged; a bin test covers a missing file.
+- **Prerequisites:** BF-8 on `master` (the loader).
+- **Risk:** low. Today the message appears when the first card renders.
+- **Mode:** autonomous.
+- **Source:** BF-8 `blog-og-fonts` impl review R1.
+
 ## Owner decisions and checks
 
 (none yet)
@@ -234,6 +248,7 @@ owner's own machine, a product decision only the owner can make, or a change in 
 - **BF-10** `blog-publish-cache-refresh` (done_code 2026-10-05): `refreshBlogCache` (`@softure-ai/blog/next`) checks a Bearer `BLOG_REFRESH_SECRET`, counts in the `blog-refresh` security bucket (`BLOG_RATE_LIMIT_BUCKETS`) and expires the blog's cache tag at once (`{ expire: 0 }`); `softure-blog publish --commit` calls it through `requestBlogRefresh` before the IndexNow submit (`--app-url` for another origin) and names `revalidateSeconds` when it is not set up; the example mounts it under a serial e2e; no gaps; archived in [`archive/2026-10-05-blog-publish-cache-refresh/`](../archive/2026-10-05-blog-publish-cache-refresh/change.md)
 - **BF-11** `blog-canonical-host-links` (done_code 2026-10-05): the blog pages' own hosts (`renderPageBody({ origins })`) and the quality gate's own origins (`resolveQualitySettings({ siteOrigin })`) include core's `getSiteUrls(config).origin` next to `appOrigin`, so a body link to seo's canonical host is internal without the app listing it; no gaps; archived in [`archive/2026-10-05-blog-canonical-host-links/`](../archive/2026-10-05-blog-canonical-host-links/change.md)
 - **BF-13** `blog-skill-check-without-database` (done_code 2026-10-05): `softure-blog skill install` and `skill install --check` load an app config without a database URL, like `check` (the bin's `COMMANDS_WITHOUT_DATABASE`); `publish` still requires it; no gaps; archived in [`archive/2026-10-05-blog-skill-check-without-database/`](../archive/2026-10-05-blog-skill-check-without-database/change.md)
+- **BF-8** `blog-og-fonts` (done_code 2026-10-05): `blog({ brand: { fonts } })` (name, weight, style, a path or an https URL) feeds the article OG card; the route reads each source once per process, checks it is a `.ttf`, `.otf` or `.woff` font, and fails the card with a message naming `brand.fonts[i]` and the file; gap BF-14; archived in [`archive/2026-10-05-blog-og-fonts/`](../archive/2026-10-05-blog-og-fonts/change.md).
 - **BF-2** `blog-publish-slug-race` (done_code 2026-10-05): a run that loses a slug race is refused with `blog.slug_taken` naming the winner, covered by two-connection Postgres tests; archived in `archive/2026-10-05-blog-publish-slug-race/`
 - **BF-9** `blog-skill-app-notes` (done_code 2026-10-05): `blog({ skill: { sections } })` puts the app's own sections into the generated writing skill (`references/app.md`, named in `SKILL.md`), kept across reinstalls and covered by `--check`; install removes a Markdown file of its folder the config no longer gives; archived in [`archive/2026-10-05-blog-skill-app-notes/`](../archive/2026-10-05-blog-skill-app-notes/change.md).
 - **BF-3** `blog-article-images`: `renderArticle({ images })` and `blog({ images: { hosts, dimensions } })` show body images from site paths or allowed https hosts with alt text and a known size (`width`/`height`, lazy), any other as its alt text; the gate reports `image-source`, `image-alt` and `image-dimensions` (`findArticleImages`, `checkArticleImage`), and an image no longer counts as a link; no gaps; archived in `archive/2026-10-05-blog-article-images/`

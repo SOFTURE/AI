@@ -123,6 +123,50 @@ describe("the blog module", () => {
     );
   });
 
+  it("takes the OG card's fonts, upright 400 by default", () => {
+    const fonts = blog({
+      brand: { name: "Example", fonts: [{ name: "Inter", src: "fonts/inter-400.woff" }, { name: "Inter", weight: 700, src: "https://cdn.example.com/inter-700.ttf?v=2" }] },
+    }).options.brand?.fonts;
+    expect(fonts).toEqual([
+      { name: "Inter", weight: 400, style: "normal", src: "fonts/inter-400.woff" },
+      { name: "Inter", weight: 700, style: "normal", src: "https://cdn.example.com/inter-700.ttf?v=2" },
+    ]);
+  });
+
+  it("refuses OG card fonts the card cannot read", () => {
+    expect(() =>
+      blog({
+        brand: {
+          name: "Example",
+          fonts: [
+            { name: "Inter", src: "http://cdn.example.com/inter.ttf" },
+            { name: "Inter", src: "https://cdn.example.com/inter.woff2?v=3" },
+            { name: "Inter", src: "fonts/inter.WOFF2" },
+            // @ts-expect-error: Satori takes weights in steps of 100.
+            { name: "Inter", weight: 450, src: "fonts/inter.woff" },
+          ],
+        },
+      }),
+    ).toThrow(
+      [
+        'Invalid SOFTURE configuration in module "blog":',
+        "- options.brand.fonts.0.src: must be an https URL or a file path, e.g. fonts/inter-700.woff",
+        "- options.brand.fonts.1.src: must be a .ttf, .otf or .woff file; the card cannot read .woff2",
+        "- options.brand.fonts.2.src: must be a .ttf, .otf or .woff file; the card cannot read .woff2",
+        "- options.brand.fonts.3.weight: must be a weight from 100 to 900 in steps of 100",
+      ].join("\n"),
+    );
+    expect(() => blog({ brand: { name: "Example", fonts: [] } })).toThrow("- options.brand.fonts: must list at least one font");
+    const twice = [
+      { name: "Mono", weight: 700, src: "fonts/mono-a.woff" },
+      { name: "Mono", weight: 700, style: "italic", src: "fonts/mono-a-italic.woff" },
+      { name: "Mono", weight: 700, src: "fonts/mono-b.woff" },
+    ] as const;
+    expect(() => blog({ brand: { name: "Example", fonts: [...twice] } })).toThrow(
+      '- options.brand.fonts.2: "Mono" 700 normal is listed twice; give a second file its own name, e.g. "Mono Ext"',
+    );
+  });
+
   it("takes an image policy, with no extra hosts by default", () => {
     const dimensions = () => ({ width: 800, height: 450 });
     expect(blog({ images: { dimensions } }).options.images).toEqual({ hosts: [], dimensions });

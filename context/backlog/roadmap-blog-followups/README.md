@@ -35,11 +35,12 @@ moved file lose one `../`.
 | BF-5 | `markdown-footnote-links` (done in BL-4, [`context/archive/`](../../archive/2026-10-04-blog-pages/change.md)) | The repository link check skips footnote definitions | — | — |
 | BF-6 | [`blog-check-without-database`](../../archive/2026-10-05-blog-check-without-database/change.md) | softure-blog check without a database URL | archived 2026-10-05 | start |
 | BF-7 | [`blog-seo-canonical`](../../archive/2026-10-05-blog-seo-canonical/change.md) | Blog URLs follow the seo canonical rule | archived 2026-10-05 | start |
-| BF-8 | [`blog-og-fonts`](blog-og-fonts/change.md) | The OG card takes the brand's fonts | BF-7 on main | dependency |
+| BF-8 | [`blog-og-fonts`](../../archive/2026-10-05-blog-og-fonts/change.md) | The OG card takes the brand's fonts | archived 2026-10-05 | dependency |
 | BF-9 | [`blog-skill-app-notes`](../../archive/2026-10-05-blog-skill-app-notes/change.md) | The app's own sections in the generated writing skill | archived 2026-10-05 | start |
 | BF-10 | [`blog-publish-cache-refresh`](../../archive/2026-10-05-blog-publish-cache-refresh/change.md) | A command-line publish refreshes the app's cache | archived 2026-10-05 | dependency |
 | BF-11 | [`blog-canonical-host-links`](../../archive/2026-10-05-blog-canonical-host-links/change.md) | A body link to seo's canonical host counts as internal | archived 2026-10-05 | dependency |
 | BF-12 | [`blog-slug-history-race`](blog-slug-history-race/change.md) | A slug taken while another run renames away from it | roadmap promoted | start |
 | BF-13 | [`blog-skill-check-without-database`](../../archive/2026-10-05-blog-skill-check-without-database/change.md) | softure-blog skill install without a database URL | archived 2026-10-05 | dependency |
+| BF-14 | [`blog-og-fonts-check`](blog-og-fonts-check/change.md) | softure-blog check reads the OG card's fonts | BF-8 on main | dependency |
 
 Kind: `start`, `dependency` or `owner`, as in the other roadmap backlogs.
