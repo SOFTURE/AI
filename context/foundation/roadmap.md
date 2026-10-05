@@ -63,7 +63,7 @@ backlog: context/backlog/roadmap-deploy/
 | **DP-4** | `deploy-verify-production` | `softure-deploy verify`: routes, expected statuses, markers, redirects and headers from `deploy.json` | DP-1 | autonomous | ready |
 | **DP-5** | `deploy-init-template` | `softure-deploy init` writes compose, Traefik rules, Dockerfile, the server script and the caller workflow once | DP-2, DP-3, DP-4 | autonomous | ready |
 | **DP-6** | `testing-clock-shift` | `@softure-ai/testing`: a Vitest setup that shifts the test clock to `TEST_TODAY` | — | autonomous | done_code (2026-10-05; waiting: the first publish of `@softure-ai/testing` in DP-8) |
-| **DP-7** | `testing-playwright-helpers` | generic Playwright helpers (login, factories, select, wait-for, links, assertions) used by the example app's e2e | DP-6 | autonomous | ready |
+| **DP-7** | `testing-playwright-helpers` | generic Playwright helpers (login, factories, select, wait-for, links, assertions) used by the example app's e2e | DP-6 | autonomous | **in_progress** (implement 1/2, since 2026-10-05; cloud session, branch `claude/project-thread-ll63l2` — do not take in another session) |
 | **DP-8** | `deploy-release` | `@softure-ai/deploy` and `@softure-ai/testing` 0.1.0 published; the deploy workflows tagged for callers | DP-1…DP-7 | owner | blocked (waits for DP-1…DP-7 and the owner at the keyboard on 2026-10-06) |
 
 ## Order
@@ -205,8 +205,8 @@ None of DP-1…DP-7 needs one, so they run on 2026-10-05; everything that does i
 
 ### DP-7: Playwright helpers
 - **Change ID:** `testing-playwright-helpers`
-- **Status:** ready
-- **Input:** [`testing-playwright-helpers`](../backlog/roadmap-deploy/testing-playwright-helpers/change.md)
+- **Status:** **in_progress** (implement 1/2, since 2026-10-05; cloud session, branch `claude/project-thread-ll63l2` — do not take in another session)
+- **Input:** [`testing-playwright-helpers`](../changes/testing-playwright-helpers/change.md)
 - **Outcome:** `@softure-ai/testing/playwright`:
   - login through `@softure-ai/auth`, data factories over `@softure-ai/db`;
   - select, wait-for, links and assertion helpers;

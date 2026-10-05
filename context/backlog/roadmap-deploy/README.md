@@ -30,7 +30,7 @@ DP-8 waits for the owner at the keyboard on 2026-10-06:
 | DP-4 | [`deploy-verify-production`](deploy-verify-production/change.md) | Production verify from config | DP-1 on master | dependency |
 | DP-5 | [`deploy-init-template`](deploy-init-template/change.md) | Deploy files generated once | DP-2, DP-3 and DP-4 on master | dependency |
 | DP-6 | [`testing-clock-shift`](../../archive/2026-10-05-testing-clock-shift/change.md) | Test clock shift | taken (done 2026-10-05) | start |
-| DP-7 | [`testing-playwright-helpers`](testing-playwright-helpers/change.md) | Playwright helpers | DP-6 on master | dependency |
+| DP-7 | [`testing-playwright-helpers`](../../changes/testing-playwright-helpers/change.md) | Playwright helpers | taken (2026-10-05) | dependency |
 | DP-8 | [`deploy-release`](deploy-release/change.md) | Deploy and testing release | DP-1…DP-7 on master **and** the owner at the keyboard (2026-10-06) | dependency + owner |
 
 Kind: `start` (can be taken as soon as the roadmap is promoted), `dependency` (waits for the listed items on the

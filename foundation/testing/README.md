@@ -1,7 +1,11 @@
 # @softure-ai/testing
 
-Test tools shared by SOFTURE apps and modules. Today: a Vitest setup file that shifts the test clock
-to `TEST_TODAY` while time keeps running, so date logic can be tested for a day that has not come yet.
+Test tools shared by SOFTURE apps and modules:
+
+- a Vitest setup file that shifts the test clock to `TEST_TODAY` while time keeps running, so date
+  logic can be tested for a day that has not come yet ([Clock shift](#clock-shift));
+- Playwright helpers for black-box tests of an app: client addresses, the auth forms, unique test
+  data, the product select, polling, links and assertions ([Playwright helpers](#playwright-helpers)).
 
 ## Installation
 
@@ -81,6 +85,45 @@ shiftClock(readTestToday(process.env.TEST_TODAY) ?? "2027-01-02");
 | `shiftClock(day)` | Moves the global `Date` to noon of `day` and lets it run; shifting again replaces the earlier shift. |
 | `restoreClock()` | Puts the real `Date` back; does nothing when the clock is not shifted. |
 | `isClockShifted()` | Whether the global `Date` is shifted. |
+
+## Playwright helpers
+
+`@softure-ai/testing/playwright`, for the e2e of an app. `@playwright/test` is an optional peer
+dependency: an app that only uses the clock shift does not install it.
+
+```ts
+import { expect, test } from "@playwright/test";
+import { authMessages } from "@softure-ai/auth";
+import { clientAddressHeaders, registerAccount, uniqueEmail } from "@softure-ai/testing/playwright";
+
+test.beforeEach(({ context }) => context.setExtraHTTPHeaders(clientAddressHeaders()));
+
+test("a new account lands on its page", async ({ page }) => {
+  await registerAccount(page, { copy: authMessages.en, email: uniqueEmail("e2e"), password: "correct horse battery" });
+  await expect(page.getByRole("heading")).toBeVisible();
+});
+```
+
+| Export | What it does |
+| --- | --- |
+| `randomClientAddress()`, `clientAddressHeaders(address?)`, `CLIENT_ADDRESS_HEADER` | A random address in 198.18.0.0/15 (reserved for tests) in `cf-connecting-ip`, the header `@softure-ai/security` keys rate limits on, so every test gets its own buckets. |
+| `openPageAsNewClient(browser, options?)` | A page in a new context with its own address: a second visitor with no cookies. |
+| `registerAccount(page, { copy, email, password, path?, landingPath? })` | Registers through auth's form (consent ticked) and waits for `/account`. `copy` is `authMessages.<locale>` of `@softure-ai/auth`; `landingPath: null` skips the check. |
+| `logIn(page, { copy, email, password, path?, landingPath? })` | Opens `/login`, logs in and waits for `/account`. |
+| `submitLogin(page, { copy, email, password })` | Fills and submits the login form already on the page and waits for the action's answer; asserts nothing. |
+| `uniqueName(prefix)`, `uniqueEmail(prefix, domain?)` | Names no other test, worker or run produces (`example.com` addresses), so cleanup finds exactly its own rows. |
+| `withDatabase(open, work)` | Opens a connection (a `@softure-ai/db` `createDatabase` call), runs `work`, closes it whatever happens. |
+| `waitFor(probe, { description, timeoutMs?, intervalMs? })` | Polls until `probe` returns a value and returns it; retries through errors; the timeout error names `description` and carries the last error as `cause`. |
+| `selectField(scope, name)`, `chooseOption(field, value)`, `readSelectedValue(field)` | The `@softure-ai/ui` `Select` (a combobox button, not a native `<select>`), found by its form field name. |
+| `listRow(scope, text)` | A list row that is not an option of an open select with the same text. |
+| `followLink(page, link, { expectedOrigin })` | Clicks a link that must stay on the host, or, for an image built with production origins, checks the `href` and opens the same path on the host under test with the page as `Referer`. |
+| `readHref(link)` | The `href` of a link; fails naming the link when it has none. |
+| `expectPageStatus(page, path, status)` | Opens `path` and checks the document status (a closed page answers 404). |
+| `expectFieldPresent(page, name, because)`, `expectFieldAbsent(page, name, because)` | A form field present once, or absent from the DOM (not just hidden: a hidden field is still submitted). |
+
+**Factories.** Rows that belong to a module (an account, an entitlement) are written by that module's
+own `testing` export, which knows its schema and invariants (`@softure-ai/mailing/testing` reads the
+fake outbox, for example). This package keeps what every app shares: unique names and `withDatabase`.
 
 ## Limitations
 
