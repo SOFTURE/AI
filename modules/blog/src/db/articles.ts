@@ -25,6 +25,10 @@ export async function publishArticle(ctx: BlogContext, input: BlogArticleInput):
   return ctx.db.transaction(async (tx) => {
     const [existing] = await tx.select().from(articles).where(eq(articles.id, input.id)).for("update");
 
+    // Current slugs first, then old ones (BF-12). A rename writes both tables in one commit, so a run
+    // that reads before it commits finds the article still at the slug, and one that reads after finds
+    // the slug in the history. Read the other way round, the rename could commit between the two reads
+    // and the slug would end up both current here and an old slug of the renamed article.
     const [slugOwner] = await tx
       .select({ id: articles.id })
       .from(articles)
