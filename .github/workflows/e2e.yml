@@ -76,6 +76,136 @@ jobs:
           path: examples/next-app/test-results/
           retention-days: 7
 
+  stripe-sandbox:
+    name: Stripe sandbox payment
+    runs-on: ubuntu-latest
+    # A payment on Stripe's hosted Checkout whose webhook Stripe itself delivers, through `stripe listen`
+    # (examples/next-app/e2e/billing-checkout.stripe-sandbox.spec.ts). Runs with the repository's
+    # test-mode STRIPE_SECRET_KEY; without it (forks, a repository that has not set it) the job ends after
+    # its first step with a notice. The webhook's signing secret is the listener's, not a repository secret.
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: softure_example
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d softure_example"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/softure_example
+      NEXT_TELEMETRY_DISABLED: "1"
+      E2E_PORT: "3200"
+      # Pinned; the tarball is checked against the release's checksums.
+      STRIPE_CLI_VERSION: "1.53.0"
+    steps:
+      - name: Check for a Stripe test-mode key
+        id: key
+        env:
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+        run: |
+          case "$STRIPE_SECRET_KEY" in
+            sk_test_*|rk_test_*) echo "present=true" >> "$GITHUB_OUTPUT" ;;
+            "")
+              echo "::notice::STRIPE_SECRET_KEY is not set: the Stripe sandbox payment is skipped"
+              echo "present=false" >> "$GITHUB_OUTPUT" ;;
+            *)
+              echo "::error::STRIPE_SECRET_KEY is not a test-mode key (sk_test_... or rk_test_...); refusing to pay with it"
+              exit 1 ;;
+          esac
+      - if: steps.key.outputs.present == 'true'
+        uses: actions/checkout@v7
+      - if: steps.key.outputs.present == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            examples/next-app/package-lock.json
+      - if: steps.key.outputs.present == 'true'
+        run: npm ci
+      - if: steps.key.outputs.present == 'true'
+        run: npm run build
+      - name: Install the example app (packed foundation packages)
+        if: steps.key.outputs.present == 'true'
+        working-directory: examples/next-app
+        run: npm ci
+      - name: Install Chromium
+        if: steps.key.outputs.present == 'true'
+        working-directory: examples/next-app
+        run: npx playwright install --with-deps chromium
+      - name: Migrate (softure migrate)
+        if: steps.key.outputs.present == 'true'
+        working-directory: examples/next-app
+        run: npm run migrate
+      - name: Publish the blog's fixture texts (softure-blog publish)
+        if: steps.key.outputs.present == 'true'
+        working-directory: examples/next-app
+        run: npm run blog:fixtures
+      - name: Build the app
+        if: steps.key.outputs.present == 'true'
+        working-directory: examples/next-app
+        run: npm run build
+      - name: Install the Stripe CLI
+        if: steps.key.outputs.present == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          dir="$RUNNER_TEMP/stripe-cli"
+          mkdir -p "$dir"
+          tarball="stripe_${STRIPE_CLI_VERSION}_linux_x86_64.tar.gz"
+          gh release download "v$STRIPE_CLI_VERSION" --repo stripe/stripe-cli --dir "$dir" --pattern "$tarball" --pattern "stripe-linux-checksums.txt" \
+            || { echo "::error::no Stripe CLI v$STRIPE_CLI_VERSION; the latest releases:"; gh release list --repo stripe/stripe-cli --limit 5; exit 1; }
+          (cd "$dir" && grep " $tarball\$" stripe-linux-checksums.txt | sha256sum --check --strict)
+          tar -xzf "$dir/$tarball" -C "$dir" stripe
+          echo "$dir" >> "$GITHUB_PATH"
+          "$dir/stripe" version
+      # The listener forwards the account's events to the app and signs them with its own secret, which
+      # the app checks (STRIPE_WEBHOOK_SECRET). It runs in the background until the job ends.
+      - name: Forward Stripe's deliveries (stripe listen)
+        if: steps.key.outputs.present == 'true'
+        env:
+          STRIPE_API_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+        run: |
+          secret="$(stripe listen --api-key "$STRIPE_API_KEY" --print-secret)"
+          echo "::add-mask::$secret"
+          echo "STRIPE_WEBHOOK_SECRET=$secret" >> "$GITHUB_ENV"
+          log="$RUNNER_TEMP/stripe-listen.log"
+          events="checkout.session.completed,checkout.session.async_payment_succeeded,charge.refunded,refund.failed,refund.updated,charge.refund.updated"
+          nohup stripe listen --api-key "$STRIPE_API_KEY" --events "$events" \
+            --forward-to "http://localhost:$E2E_PORT/api/billing/webhook" > "$log" 2>&1 &
+          for _ in $(seq 60); do
+            grep -q "Ready!" "$log" && exit 0
+            sleep 1
+          done
+          cat "$log"
+          echo "::error::stripe listen did not report Ready within 60 seconds"
+          exit 1
+      - name: Pay in Stripe's sandbox (Playwright)
+        if: steps.key.outputs.present == 'true'
+        working-directory: examples/next-app
+        env:
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+        run: npm run e2e:stripe-sandbox
+      - name: Keep the traces and the listener's log of a failed run
+        if: failure() && steps.key.outputs.present == 'true'
+        # The listener prints its signing secret; the copy kept as an artifact leaves it out.
+        run: |
+          mkdir -p examples/next-app/test-results
+          sed 's/whsec_[A-Za-z0-9]*/whsec_[hidden]/g' "$RUNNER_TEMP/stripe-listen.log" > examples/next-app/test-results/stripe-listen.log 2>/dev/null || true
+      - if: failure() && steps.key.outputs.present == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: stripe-sandbox-results
+          path: examples/next-app/test-results/
+          retention-days: 7
+
   container:
     name: example app container (ops recipe)
     runs-on: ubuntu-latest

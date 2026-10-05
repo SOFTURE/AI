@@ -15,7 +15,7 @@ closed (2026-10-04), and BL-8 when the blog roadmap closed (2026-10-04).
 
 | ID | Entry | Title | Condition | Kind |
 | --- | --- | --- | --- | --- |
-| LT-1 | [`billing-stripe-sandbox-e2e`](billing-stripe-sandbox-e2e/change.md) | Stripe sandbox payment end to end (was FU-10) | the owner's Stripe test-mode secrets in the repository (planned for 2026-10-05) | owner |
+| LT-1 | [`billing-stripe-sandbox-e2e`](../../archive/2026-10-05-billing-stripe-sandbox-e2e/change.md) | Stripe sandbox payment end to end (was FU-10) | archived 2026-10-05 | owner |
 | EN-9 | [`engagement-release`](engagement-release/change.md) | Engagement modules release (carried over from followups) | the owner at the keyboard (batch on 2026-10-05) | owner |
 | MO-6 | [`monetization-release`](monetization-release/change.md) | Monetization modules release (carried over from followups) | the owner at the keyboard (batch on 2026-10-05) | owner |
 | MK-8 | [`marketing-kit-release`](marketing-kit-release/change.md) | marketing-kit release (carried over from followups) | the owner at the keyboard (batch on 2026-10-05) | owner |
