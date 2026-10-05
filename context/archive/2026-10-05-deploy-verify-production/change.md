@@ -1,12 +1,12 @@
 ---
 change_id: deploy-verify-production
 title: "softure-deploy verify checks a deployed app against the routes in deploy.json"
-status: in_progress
+status: archived
 roadmap_item: DP-4
 branch: claude/project-thread-s6wq8t
 created: 2026-10-05
 updated: 2026-10-05
-archived_at: null
+archived_at: 2026-10-05
 ---
 
 ## Intent
@@ -54,3 +54,5 @@ goes into `@softure-ai/deploy`, the route lists stay in the app's `deploy.json`.
   come from the roadmap, the extraction doc and HTTP semantics; the parity check is a `deploy-followups` gap.
 - Framing skipped: the owner fixed the problem and the split (roadmap item and the 2026-10-04 decision); nothing
   about whether to build it is in doubt.
+- DF-2 (`deploy-verify-fire-parity`) and DF-3 (`deploy-verify-cert-expiry`) queued in `deploy-followups`.
+- Archived 2026-10-05: `@softure-ai/deploy` ships `softure-deploy verify` and `schema/deploy.schema.json`, waiting for its first publish (DP-8).

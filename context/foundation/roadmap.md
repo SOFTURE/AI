@@ -60,7 +60,7 @@ backlog: context/backlog/roadmap-deploy/
 | **DP-1** | `deploy-cli-env-notes` | `@softure-ai/deploy` CLI: `env render` from secrets (names from the compose file), release notes as a live report | — | autonomous | done_code (2026-10-05; waiting: the first publish of `@softure-ai/deploy`, DP-8) |
 | **DP-2** | `deploy-reusable-workflows` | `workflow_call` workflows: build the image to GHCR, deploy over SSH, verify; an app keeps one `uses:` line | DP-1 | autonomous | ready |
 | **DP-3** | `deploy-db-guard` | backup before a deploy, a schema guard on the `@softure-ai/db` ledger and row counts before and after from an app hook | DP-1 | autonomous | ready |
-| **DP-4** | `deploy-verify-production` | `softure-deploy verify`: routes, expected statuses, markers, redirects and headers from `deploy.json` | DP-1 | autonomous | in_progress (implement, since 2026-10-05; cloud session, branch `claude/project-thread-s6wq8t`) |
+| **DP-4** | `deploy-verify-production` | `softure-deploy verify`: routes, expected statuses, markers, redirects and headers from `deploy.json` | DP-1 | autonomous | done_code (2026-10-05; waiting: the first publish of `@softure-ai/deploy`, DP-8) |
 | **DP-5** | `deploy-init-template` | `softure-deploy init` writes compose, Traefik rules, Dockerfile, the server script and the caller workflow once | DP-2, DP-3, DP-4 | autonomous | ready |
 | **DP-6** | `testing-clock-shift` | `@softure-ai/testing`: a Vitest setup that shifts the test clock to `TEST_TODAY` | — | autonomous | ready |
 | **DP-7** | `testing-playwright-helpers` | generic Playwright helpers (login, factories, select, wait-for, links, assertions) used by the example app's e2e | DP-6 | autonomous | ready |
@@ -158,8 +158,8 @@ None of DP-1…DP-7 needs one, so they run on 2026-10-05; everything that does i
 
 ### DP-4: Production verify from config
 - **Change ID:** `deploy-verify-production`
-- **Status:** in_progress (implement, since 2026-10-05; cloud session, branch `claude/project-thread-s6wq8t`)
-- **Input:** [`deploy-verify-production`](../changes/deploy-verify-production/change.md)
+- **Status:** done_code (2026-10-05; waiting: the first publish of `@softure-ai/deploy`, DP-8)
+- **Input:** [`deploy-verify-production`](../archive/2026-10-05-deploy-verify-production/change.md)
 - **Outcome:**
   - `deploy.json` (zod schema, published as JSON Schema): routes with expected status, body markers, redirects and headers;
   - `softure-deploy verify <url>`: runs every check, prints a table, exits non-zero on a failure;
@@ -243,3 +243,4 @@ All of these are for the owner at the keyboard on 2026-10-06.
 ## Done
 
 - **DP-1** `deploy-cli-env-notes`: `@softure-ai/deploy` with `softure-deploy env render` (names from the compose file, values never printed, `.env.prod` 0600) and `release-notes` (git log only, en/pl); gap DF-1 (FIRE_TRACKER parity) queued in `deploy-followups`; archived in `archive/2026-10-05-deploy-cli-env-notes/`
+- **DP-4** `deploy-verify-production`: `softure-deploy verify <url>` checks status, body markers, redirects and headers from `deploy.json` (zod schema published as `schema/deploy.schema.json`), prints a table and exits 1 on a failure; `runCli` is async; gaps DF-2 (FIRE parity of verify) and DF-3 (certificate expiry) queued in `deploy-followups`; archived in `archive/2026-10-05-deploy-verify-production/`
