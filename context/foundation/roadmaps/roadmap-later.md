@@ -5,7 +5,7 @@ version: 1
 status: waiting
 prd_version: 1
 created: 2026-10-03
-updated: 2026-10-04
+updated: 2026-10-05
 backlog: context/backlog/roadmap-later/
 trigger: "the owner step each item waits on (secrets, accounts) is done; the owner promotes it or takes single items"
 ---
@@ -43,7 +43,7 @@ trigger: "the owner step each item waits on (secrets, accounts) is done; the own
 
 | ID | Change | Outcome | Depends on | Mode | Status |
 | --- | --- | --- | --- | --- | --- |
-| **LT-1** | `billing-stripe-sandbox-e2e` | Stripe sandbox payment end to end (was FU-10) | the owner's Stripe secrets | owner | blocked (the owner's Stripe test-mode secrets, set on 2026-10-05) |
+| **LT-1** | `billing-stripe-sandbox-e2e` | Stripe sandbox payment end to end (was FU-10) | the owner's Stripe secrets | owner | ready |
 | **EN-9** | `engagement-release` | mailing, waitlist, mcp-access and privacy 0.1.0 published through the release pipeline; READMEs and docs updated | EN-1…EN-8 (done) | owner | blocked (carried over from followups: the owner's batch release at the keyboard on 2026-10-05) |
 | **MO-6** | `monetization-release` | billing and analytics 0.1.0 published through the release pipeline; READMEs and docs updated | MO-1…MO-5 (done) | owner | blocked (carried over from followups: the owner's batch release at the keyboard on 2026-10-05) |
 | **MK-8** | `marketing-kit-release` | `@softure-ai/marketing-kit` 0.1.0 published through the release pipeline, README complete | MK-1…MK-7 (done) | owner | blocked (carried over from followups: the owner's batch release at the keyboard on 2026-10-05) |
@@ -51,7 +51,9 @@ trigger: "the owner step each item waits on (secrets, accounts) is done; the own
 
 ## Order
 
-1. **LT-1** once the owner has set the Stripe test-mode secrets (planned for Monday 2026-10-05).
+1. **LT-1**: the owner set `STRIPE_SECRET_KEY` on 2026-10-05; taken the same day in a cloud session (branch
+   `claude/project-thread-5vljv7`, `context/changes/billing-stripe-sandbox-e2e/`). A queued roadmap holds no
+   `in_progress`, so the item stays `ready` here until it is archived.
 2. **MK-8, EN-9 and MO-6**: the owner's batch release at the keyboard (Monday 2026-10-05). They wait for no other
    item, and LT-1 does not wait for them.
 3. **BL-8**: the first publish of `@softure-ai/seo` and `@softure-ai/blog`, at the keyboard. It waits for no other
@@ -61,7 +63,7 @@ trigger: "the owner step each item waits on (secrets, accounts) is done; the own
 
 ### LT-1: Stripe sandbox payment end to end
 - **Change ID:** `billing-stripe-sandbox-e2e`
-- **Status:** blocked (the owner's Stripe test-mode secrets, set on 2026-10-05)
+- **Status:** ready
 - **Outcome:** A browser payment on Stripe's sandbox Checkout (test card) whose webhook reaches the app (Stripe CLI forwarding or a reachable preview) and turns the trial into paid, run in CI when the Stripe test secrets are set.
 - **Prerequisites:** the owner's Stripe test-mode secrets (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`) in the repository; the Stripe CLI or a public URL for the e2e server.
 - **Unknowns:** How the webhook reaches a CI run (`stripe listen` in the job vs. a deployed preview); how stable Stripe's hosted page is for Playwright.
@@ -121,8 +123,8 @@ Carried over from blog with BL-8:
 
 ## Owner decisions and checks
 
-- [ ] **LT-1**: add the Stripe test-mode secrets `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` to the repository
-  (the owner, Monday 2026-10-05).
+- [x] **LT-1**: add the Stripe test-mode secret `STRIPE_SECRET_KEY` to the repository (the owner, 2026-10-05).
+  `STRIPE_WEBHOOK_SECRET` is not needed: the CI job signs with its own `stripe listen` secret.
 
 Carried over from followups with their items (owner, batch at the keyboard on Monday 2026-10-05):
 

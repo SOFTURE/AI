@@ -15,7 +15,7 @@ A browser payment on Stripe's sandbox Checkout (test card) whose webhook reaches
 
 ## Context
 
-From [`roadmap-later.md`](../../../foundation/roadmaps/roadmap-later.md), item **LT-1** (queued roadmap `later`; it was FU-10 of
+From [`roadmap-later.md`](../../foundation/roadmaps/roadmap-later.md), item **LT-1** (queued roadmap `later`; it was FU-10 of
 `followups` until 2026-10-03):
 
 > ### LT-1: Stripe sandbox payment end to end
@@ -29,7 +29,7 @@ From [`roadmap-later.md`](../../../foundation/roadmaps/roadmap-later.md), item *
 > - **PRD refs:** FR-22.
 > - **Source:** `modules/billing/README.md` §12; moved from followups FU-10 on 2026-10-03
 
-Reference material: [`docs/02-module-standard.md`](../../../../docs/02-module-standard.md) (the standard).
+Reference material: [`docs/02-module-standard.md`](../../../docs/02-module-standard.md) (the standard).
 
 ## Constraints
 
