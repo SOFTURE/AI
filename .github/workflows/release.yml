@@ -36,6 +36,24 @@ jobs:
   validate:
     name: validate and pack
     runs-on: ubuntu-latest
+    # The Gates step runs `npm test`, which needs the setup of ci.yml's test job: a Postgres server
+    # (foundation/db/tests/postgres-env.test.ts fails without it in CI) and the runner's Chrome for
+    # the marketing-kit screenshot tests. tests/repo/release-workflow.test.ts keeps the two in step.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      SOFTURE_TEST_POSTGRES_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      PLAYWRIGHT_CHROMIUM_PATH: /usr/bin/google-chrome
     outputs:
       name: ${{ steps.pack.outputs.name }}
       short-name: ${{ steps.pack.outputs.short-name }}
