@@ -10,7 +10,7 @@ The contract every SOFTURE module stands on. Standard:
 
 The app configuration (`defineSoftureConfig`), the module contract (`defineModule`), `Result`
 with namespaced error codes, an injectable `Clock`, `pl`/`en` messages with partial overrides,
-and `safeError`.
+and `safeError`. `@softure-ai/core/cli` loads the app's config for the modules' command-line tools.
 
 ## 2. Installation
 
@@ -112,6 +112,18 @@ component page shipped in a package all read the registered config, in `next dev
 `next build && next start`, installed as a packed copy or linked from the workspace. The rules for
 package-shipped Next code are in docs/02 §8. `createSoftureHandlers` and `softureMiddleware` come
 with the first module that mounts routes.
+
+`@softure-ai/core/cli` is how a module's command-line tool (`softure migrate`, `softure-mail`,
+`softure-blog`) finds the app's config, so the lookup and its messages live once:
+
+- `takeConfigOption(argv)`: takes `--config <file>` or `--config=<file>` out of the arguments;
+- `loadAppConfig({ cwd, configPath, appScript })`: imports the `--config` file, or the first of
+  `DEFAULT_CONFIG_FILES` (`softure.config.{ts,mts,js,mjs}`) in `cwd`; when Node cannot import it, the
+  problem names `appScript.runner` and the `appScript.packageName` README;
+- `findDefaultConfig(cwd)` and `loadConfig(path, appScript)`: the two halves on their own.
+
+Each returns `{ ok: true, … }` or `{ ok: false, problem }`; the tool prefixes the problem with its name.
+Node only: the root entry has no `node:` imports.
 
 ## 5. Migrations and tables
 
