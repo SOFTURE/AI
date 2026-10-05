@@ -57,7 +57,7 @@ backlog: context/backlog/roadmap-deploy/
 
 | ID | Change | Outcome | Depends on | Mode | Status |
 | --- | --- | --- | --- | --- | --- |
-| **DP-1** | `deploy-cli-env-notes` | `@softure-ai/deploy` CLI: `env render` from secrets (names from the compose file), release notes as a live report | — | autonomous | ready |
+| **DP-1** | `deploy-cli-env-notes` | `@softure-ai/deploy` CLI: `env render` from secrets (names from the compose file), release notes as a live report | — | autonomous | **in_progress** (implement 1/3, since 2026-10-05; cloud session, branch `claude/project-thread-jy3jla` — do not take in another session) |
 | **DP-2** | `deploy-reusable-workflows` | `workflow_call` workflows: build the image to GHCR, deploy over SSH, verify; an app keeps one `uses:` line | DP-1 | autonomous | ready |
 | **DP-3** | `deploy-db-guard` | backup before a deploy, a schema guard on the `@softure-ai/db` ledger and row counts before and after from an app hook | DP-1 | autonomous | ready |
 | **DP-4** | `deploy-verify-production` | `softure-deploy verify`: routes, expected statuses, markers, redirects and headers from `deploy.json` | DP-1 | autonomous | ready |
@@ -110,8 +110,8 @@ None of DP-1…DP-7 needs one, so they run on 2026-10-05; everything that does i
 
 ### DP-1: Deploy CLI: env rendering and release notes
 - **Change ID:** `deploy-cli-env-notes`
-- **Status:** ready
-- **Input:** [`deploy-cli-env-notes`](../backlog/roadmap-deploy/deploy-cli-env-notes/change.md)
+- **Status:** **in_progress** (implement 1/3, since 2026-10-05; cloud session, branch `claude/project-thread-jy3jla` — do not take in another session)
+- **Input:** [`deploy-cli-env-notes`](../changes/deploy-cli-env-notes/change.md)
 - **Outcome:** A new package `@softure-ai/deploy` (`tools/deploy/`, a CLI like marketing-kit) with:
   - `softure-deploy env render`: reads required names from `${X:?}` in the production compose file and writes `.env.prod` from the environment, refusing a missing name and never printing values;
   - `softure-deploy release-notes`: the release report between two tags from commits and merged pull requests, in the format FIRE's release workflow posts.
