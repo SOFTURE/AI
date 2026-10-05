@@ -39,6 +39,8 @@ trigger: "the deploy roadmap closes; the owner promotes it or takes single items
 | ID | Change | Outcome | Depends on | Mode | Status |
 | --- | --- | --- | --- | --- | --- |
 | **DF-1** | `deploy-fire-parity` | `env render` and `release-notes` checked against FIRE_TRACKER's scripts and tests; differences ported or recorded | — | autonomous | ready |
+| **DF-2** | `deploy-verify-fire-parity` | `verify` checked against FIRE_TRACKER's `verify-production.sh`; generic checks ported, the rest recorded | — | autonomous | ready |
+| **DF-3** | `deploy-verify-cert-expiry` | `verify` fails when the TLS certificate expires within `verify.tlsMinDays` | — | autonomous | ready |
 
 ## Order
 
@@ -59,6 +61,34 @@ Lanes are set when the roadmap is promoted, by shared files.
 - **Risk:** low. DP-1 is tested on its own; this closes the "same tests green" baseline of DP-1.
 - **Source:** DP-1 (`deploy-cli-env-notes`), research: the session could not read FIRE_TRACKER (cloning it was
   refused by the sandbox), so the report format comes from the roadmap, not from FIRE's workflow.
+- **PRD refs:** FR-33.
+
+### DF-2: Parity of verify with FIRE_TRACKER
+- **Change ID:** `deploy-verify-fire-parity`
+- **Status:** ready
+- **Input:** [`deploy-verify-fire-parity`](../../backlog/roadmap-deploy-followups/deploy-verify-fire-parity/change.md)
+- **Outcome:** FIRE_TRACKER's `scripts/verify-production.sh` (548 lines) is read; every generic check it makes
+  beyond status, markers, redirects and headers is added to `deploy.json` and the engine, and the rest is listed
+  as FIRE-specific in the package README.
+- **Prerequisites:** a session that can read FIRE_TRACKER.
+- **Unknowns:** whether FIRE's script waits for the app or retries before failing.
+- **Risk:** low. DP-4 is tested on its own; this closes its baseline against FIRE's script.
+- **Source:** DP-4 (`deploy-verify-production`), research: the session could not read FIRE_TRACKER (cloning it was
+  refused in the cloud session), so the generic checks came from the roadmap and HTTP semantics.
+- **PRD refs:** FR-33.
+
+### DF-3: Certificate expiry in verify
+- **Change ID:** `deploy-verify-cert-expiry`
+- **Status:** ready
+- **Input:** [`deploy-verify-cert-expiry`](../../backlog/roadmap-deploy-followups/deploy-verify-cert-expiry/change.md)
+- **Outcome:** an optional `verify.tlsMinDays`; `verify` reads the certificate with `node:tls` once per run and adds
+  a `tls` row to the table (days left, issuer); fewer days than the minimum is a failure. Tested against a local
+  TLS server with a generated certificate.
+- **Prerequisites:** none.
+- **Unknowns:** none.
+- **Risk:** low. An expired certificate already fails every route; this only warns earlier.
+- **Source:** DP-4 (`deploy-verify-production`), research question 1: `fetch` refuses an invalid or expired
+  certificate, but nothing warns before expiry.
 - **PRD refs:** FR-33.
 
 ## Owner decisions and checks

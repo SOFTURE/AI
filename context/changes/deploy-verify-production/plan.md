@@ -63,9 +63,9 @@ tests, `src/index.ts`.
 ## Progress
 
 #### Automated
-- [ ] Phase 1: schema and the published JSON Schema
-- [ ] Phase 2: checks and runner
-- [ ] Phase 3: CLI
+- [x] Phase 1: schema and the published JSON Schema
+- [x] Phase 2: checks and runner
+- [x] Phase 3: CLI (the three phases land in one commit; each was test-first in the working tree)
 
 #### Manual
 - [ ] (owner, after DP-8) run `softure-deploy verify` against FIRE_TRACKER's production with its own `deploy.json`

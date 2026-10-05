@@ -2,6 +2,7 @@ import { runEnvRender } from "./env-command.js";
 import { CliFailure, USAGE_EXIT_CODE } from "./failure.js";
 import type { CliIo } from "./io.js";
 import { runReleaseNotes } from "./release-notes-command.js";
+import { runVerifyCommand } from "./verify-command.js";
 
 export const USAGE = [
   "Usage: softure-deploy <command> [flags]",
@@ -14,12 +15,13 @@ export const USAGE = [
   "",
 ].join("\n");
 
-type Command = (args: string[], io: CliIo) => void;
+type Command = (args: string[], io: CliIo) => void | Promise<void>;
 
 /** Commands by their words; later items (backup, schema-guard, verify, init) add their own entries. */
 const COMMANDS: Record<string, Command> = {
   "env render": runEnvRender,
   "release-notes": runReleaseNotes,
+  verify: runVerifyCommand,
 };
 
 function findCommand(argv: string[]): { command: Command; args: string[] } | null {
@@ -31,7 +33,7 @@ function findCommand(argv: string[]): { command: Command; args: string[] } | nul
 }
 
 /** Runs one command and returns the process exit code; expected failures are one line on stderr. */
-export function runCli(argv: string[], io: CliIo): number {
+export async function runCli(argv: string[], io: CliIo): Promise<number> {
   if (argv.length === 0 || ["help", "--help", "-h"].includes(argv[0] ?? "")) {
     io.stdout(USAGE);
     return argv.length === 0 ? USAGE_EXIT_CODE : 0;
@@ -42,7 +44,7 @@ export function runCli(argv: string[], io: CliIo): number {
     return USAGE_EXIT_CODE;
   }
   try {
-    found.command(found.args, io);
+    await found.command(found.args, io);
     return 0;
   } catch (error) {
     if (!(error instanceof CliFailure)) throw error;

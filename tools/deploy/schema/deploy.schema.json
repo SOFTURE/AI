@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "description": "JSON Schema of this file, for editor completion.",
+      "type": "string"
+    },
+    "verify": {
+      "type": "object",
+      "properties": {
+        "timeoutMs": {
+          "default": 10000,
+          "description": "Time one request may take, in milliseconds; --timeout overrides it.",
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 120000
+        },
+        "headers": {
+          "default": {},
+          "description": "Header checks for every route (security headers); a route's own entry for the same name wins.",
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^[a-z0-9!#$%&'*+.^_`|~-]+$"
+          },
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Text the header value must contain (case-insensitive), or null when the header must be absent."
+          }
+        },
+        "routes": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string",
+                "pattern": "^\\/(?!\\/)\\S*$",
+                "description": "Path on the verified URL, starting with /; a query string is allowed."
+              },
+              "status": {
+                "default": 200,
+                "description": "Expected HTTP status (redirects are not followed).",
+                "type": "integer",
+                "minimum": 100,
+                "maximum": 599
+              },
+              "contains": {
+                "default": [],
+                "description": "Markers the response body must contain, for example a heading only the real page has.",
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "excludes": {
+                "default": [],
+                "description": "Markers the response body must not contain, for example the text of an error page.",
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "redirect": {
+                "description": "Expected Location of a redirect: a path on the verified URL or an absolute URL. Needs a 3xx status.",
+                "type": "string",
+                "minLength": 1
+              },
+              "headers": {
+                "default": {},
+                "type": "object",
+                "propertyNames": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9!#$%&'*+.^_`|~-]+$"
+                },
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Text the header value must contain (case-insensitive), or null when the header must be absent."
+                },
+                "description": "Headers by lower-case name: text the value must contain, or null when the header must be absent."
+              }
+            },
+            "required": [
+              "path"
+            ],
+            "additionalProperties": false,
+            "description": "One route to request and what its response must look like."
+          },
+          "description": "Routes checked by softure-deploy verify, in report order."
+        }
+      },
+      "required": [
+        "routes"
+      ],
+      "additionalProperties": false,
+      "description": "What softure-deploy verify checks after a deploy."
+    }
+  },
+  "additionalProperties": false,
+  "description": "deploy.json: the app's deploy settings read by softure-deploy.",
+  "$id": "https://unpkg.com/@softure-ai/deploy/schema/deploy.schema.json",
+  "title": "deploy.json for @softure-ai/deploy"
+}

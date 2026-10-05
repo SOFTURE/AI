@@ -70,18 +70,64 @@ Changes since v1.1.0: 2 pull requests, 1 other commits.
 [Full diff](https://github.com/acme/app/compare/v1.1.0...v1.2.0)
 ```
 
+## `softure-deploy verify`
+
+Checks a deployed app against the routes in its `deploy.json`, prints a table and exits `1` when a check fails.
+
+```bash
+softure-deploy verify <url> [--config=deploy.json] [--timeout=<ms>] [--concurrency=4]
+```
+
+```json
+{
+  "$schema": "https://unpkg.com/@softure-ai/deploy/schema/deploy.schema.json",
+  "verify": {
+    "headers": { "strict-transport-security": "max-age=", "x-powered-by": null },
+    "routes": [
+      { "path": "/", "contains": ["<h1"], "excludes": ["Application error"] },
+      { "path": "/pricing", "headers": { "content-type": "text/html" } },
+      { "path": "/old-pricing", "status": 308, "redirect": "/pricing" },
+      { "path": "/robots.txt", "contains": ["Sitemap:"] }
+    ]
+  }
+}
+```
+
+- **A route** is a `path` (on `<url>`, which may carry a path prefix) with an expected `status` (default 200),
+  `contains` and `excludes` body markers, a `redirect` target (a path or an absolute URL; needs a 3xx status) and
+  `headers`.
+- **Headers:** a value is text the header must contain, case-insensitive; `null` means the header must be absent.
+  `verify.headers` applies to every route; a route's entry for the same name wins.
+- **Requests:** `GET` with `cache-control: no-cache`, redirects not followed, at most `--concurrency` at once
+  (default 4), each within `verify.timeoutMs` (default 10000) or `--timeout`. A TLS, connection or timeout error
+  fails that route with the reason; other routes still run.
+- The schema is in [`schema/deploy.schema.json`](schema/deploy.schema.json) (`npm run schema -w @softure-ai/deploy`
+  after changing `src/verify/schema.ts`). The route list is the app's; the package holds only the engine.
+
+```text
+Result  Status  Route     Detail
+PASS    200     /         5 checks passed
+FAIL    404     /pricing  status 404, expected 200; missing "Pricing"
+
+verify: 2 routes at https://example.com, 1 passed, 1 failed
+```
+
 ## Library
 
 The same steps as functions, for scripts that need them without the CLI:
 `findRequiredNames`, `renderEnvFile` (a result value: the text, or the missing and unsafe names),
-`readReleaseCommits`, `findPreviousTag`, `toReleaseEntries`, `formatReleaseNotes`.
+`readReleaseCommits`, `findPreviousTag`, `toReleaseEntries`, `formatReleaseNotes`, `parseDeployConfig`, `runVerify`
+(an injectable `fetch`), `checkResponse`, `formatVerifyReport`.
 
 ## Exit codes
 
-`0` done · `1` the command refused (missing names, unknown ref, unreadable file) · `2` a wrong command line.
+`0` done · `1` the command refused (missing names, unknown ref, unreadable or invalid file, a failed verify check) ·
+`2` a wrong command line.
 
 ## Limitations
 
 - Release notes read only git: no labels, authors or pull request bodies (no GitHub API).
-- Coming in later items of the deploy roadmap: `backup` and `schema-guard` (DP-3), `verify` (DP-4), `init` (DP-5),
-  reusable workflows (DP-2).
+- `verify` does not warn about a certificate close to expiry (an expired or invalid one fails every route) and does
+  not wait for the app to come up; the deploy workflow's health step does.
+- Coming in later items of the deploy roadmap: `backup` and `schema-guard` (DP-3), `init` (DP-5), reusable
+  workflows (DP-2).
