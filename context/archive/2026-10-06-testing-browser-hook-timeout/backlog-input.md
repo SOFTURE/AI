@@ -16,7 +16,7 @@ runner, so the release gates do not fail on a slow browser start.
 
 ## Context
 
-From [`roadmap-later.md`](../../../foundation/roadmaps/roadmap-later.md), item **LT-3**: the `testing@0.1.1` release
+From [`roadmap-later.md`](../../foundation/roadmaps/roadmap-later.md), item **LT-3**: the `testing@0.1.1` release
 (run 37444519206, 2026-10-06) failed its gates once with "Hook timed out in 10000ms" at
 `foundation/testing/tests/playwright-browser.test.ts:91` and passed on one re-run. `vitest.config.mts` raises
 `testTimeout` to 60 s but leaves `hookTimeout` at Vitest's default of 10 s.
