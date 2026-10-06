@@ -231,7 +231,7 @@ describe.runIf(ADMIN_URL !== undefined)("softure-deploy database commands on Pos
       out = [];
       expect(await runCli(["row-counts", "--tables=users", "--compare=before.json"], io)).toBe(1);
       expect(out.join("")).toBe("row-counts: users 2 -> 1 (-1)\n");
-      expect(err.join("")).toBe("row-counts: fewer rows than before the deploy, or not counted before: users.\n");
+      expect(err.join("")).toBe("row-counts: the deploy lost rows or tables: users (fewer rows than before).\n");
     });
 
     it("counts the tables listed in deploy.json when --tables is not given", async () => {
@@ -256,10 +256,31 @@ describe.runIf(ADMIN_URL !== undefined)("softure-deploy database commands on Pos
       expect(out.join("")).toBe("row-counts: notes 2\n");
     });
 
-    it("reports a table that does not exist", async () => {
+    it("counts a table the old schema lacks as absent and passes when the release creates it", async () => {
       const url = await createTestDatabase();
-      expect(await runCli(["row-counts", "--tables=users"], makeIo({ DATABASE_URL: url }))).toBe(1);
-      expect(err.join("")).toBe('row-counts: the database refused the step: relation "users" does not exist\n');
+      await runSql(url, "CREATE TABLE users (id int); INSERT INTO users VALUES (1);");
+      const io = makeIo({ DATABASE_URL: url });
+      expect(await runCli(["row-counts", "--tables=users,notes", "--out=before.json"], io)).toBe(0);
+      expect(out.join("")).toBe("row-counts: users 1\nrow-counts: notes absent\n");
+      const saved = JSON.parse(readFileSync(join(dir, "before.json"), "utf8")) as { counts: unknown };
+      expect(saved.counts).toEqual({ users: 1, notes: null });
+      await runSql(url, "CREATE TABLE notes (id int);");
+      out = [];
+      expect(await runCli(["row-counts", "--tables=users,notes", "--compare=before.json"], io)).toBe(0);
+      expect(out.join("")).toBe("row-counts: users 1 -> 1 (0)\nrow-counts: notes absent -> 0 (created by this release)\n");
+      expect(err.join("")).toBe("");
+    });
+
+    it("fails when a table counted before is absent after the deploy", async () => {
+      const url = await createTestDatabase();
+      await runSql(url, "CREATE TABLE users (id int); INSERT INTO users VALUES (1), (2);");
+      const io = makeIo({ DATABASE_URL: url });
+      expect(await runCli(["row-counts", "--tables=users", "--out=before.json"], io)).toBe(0);
+      await runSql(url, "DROP TABLE users;");
+      out = [];
+      expect(await runCli(["row-counts", "--tables=users", "--compare=before.json"], io)).toBe(1);
+      expect(out.join("")).toBe("row-counts: users 2 -> absent\n");
+      expect(err.join("")).toBe("row-counts: the deploy lost rows or tables: users (absent after the deploy).\n");
     });
   });
 });
