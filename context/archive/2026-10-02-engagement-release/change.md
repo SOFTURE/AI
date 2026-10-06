@@ -1,12 +1,12 @@
 ---
 change_id: engagement-release
 title: "Engagement modules release"
-status: backlog
+status: archived
 roadmap_item: EN-9
 branch: null
 created: 2026-10-02
-updated: 2026-10-04
-archived_at: null
+updated: 2026-10-06
+archived_at: 2026-10-06
 ---
 
 ## Intent
@@ -15,11 +15,11 @@ archived_at: null
 
 ## Context
 
-From [`roadmap-later.md`](../../../foundation/roadmaps/roadmap-later.md), item **EN-9** (carried over on 2026-10-03 from roadmap `engagement`,
-archived in [`2026-10-03-2-roadmap.md`](../../../foundation/archive/2026-10-03-2-roadmap.md), to roadmap `monetization`,
-archived in [`2026-10-03-3-roadmap.md`](../../../foundation/archive/2026-10-03-3-roadmap.md), to roadmap `marketing-kit`,
-archived in [`2026-10-03-4-roadmap.md`](../../../foundation/archive/2026-10-03-4-roadmap.md), to roadmap `followups`,
-archived in [`2026-10-04-roadmap.md`](../../../foundation/archive/2026-10-04-roadmap.md), and on to the queued roadmap `later`):
+From [`roadmap-later.md`](../../foundation/roadmaps/roadmap-later.md), item **EN-9** (carried over on 2026-10-03 from roadmap `engagement`,
+archived in [`2026-10-03-2-roadmap.md`](../../foundation/archive/2026-10-03-2-roadmap.md), to roadmap `monetization`,
+archived in [`2026-10-03-3-roadmap.md`](../../foundation/archive/2026-10-03-3-roadmap.md), to roadmap `marketing-kit`,
+archived in [`2026-10-03-4-roadmap.md`](../../foundation/archive/2026-10-03-4-roadmap.md), to roadmap `followups`,
+archived in [`2026-10-04-roadmap.md`](../../foundation/archive/2026-10-04-roadmap.md), and on to the queued roadmap `later`):
 
 > ### EN-9: Engagement modules release
 > - **Change ID:** `engagement-release`
@@ -31,8 +31,8 @@ archived in [`2026-10-04-roadmap.md`](../../../foundation/archive/2026-10-04-roa
 > - **Baseline:** packages absent from npm. After: installable from npm and from GitHub Releases.
 > - **PRD refs:** FR-2, G-4.
 
-Reference material: [`docs/02-module-standard.md`](../../../../docs/02-module-standard.md) (the standard),
-[`docs/01-module-assessment.md`](../../../../docs/01-module-assessment.md) (source map in FIRE_TRACKER).
+Reference material: [`docs/02-module-standard.md`](../../../docs/02-module-standard.md) (the standard),
+[`docs/01-module-assessment.md`](../../../docs/01-module-assessment.md) (source map in FIRE_TRACKER).
 
 ## Constraints
 
@@ -41,3 +41,10 @@ Reference material: [`docs/02-module-standard.md`](../../../../docs/02-module-st
 - No release, tag or publish by the agent; the owner tags releases.
 
 ## Notes
+
+## Outcome (2026-10-06)
+
+Released through the pipeline without a code change of its own: the batch release went out at 0.1.2 (staged),
+0.1.4 (staged, through the trusted publishers) and 0.1.5, the first version published directly and live on npm at
+once (`release-0-1-5`, checked in the registry). The owner's npm steps (trusted publishers) are done; staged
+versions left over from 0.1.2 and 0.1.4 need no approval. Archived without a plan: the work was the owner's release.

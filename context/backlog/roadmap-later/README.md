@@ -17,12 +17,13 @@ closed (2026-10-04), BL-8 when the blog roadmap closed (2026-10-04), and DP-8 wh
 | ID | Entry | Title | Condition | Kind |
 | --- | --- | --- | --- | --- |
 | LT-1 | [`billing-stripe-sandbox-e2e`](../../archive/2026-10-05-billing-stripe-sandbox-e2e/change.md) | Stripe sandbox payment end to end (was FU-10) | archived 2026-10-05 | owner |
-| EN-9 | [`engagement-release`](engagement-release/change.md) | Engagement modules release (carried over from followups) | the owner at the keyboard (batch on 2026-10-05) | owner |
-| MO-6 | [`monetization-release`](monetization-release/change.md) | Monetization modules release (carried over from followups) | the owner at the keyboard (batch on 2026-10-05) | owner |
-| MK-8 | [`marketing-kit-release`](marketing-kit-release/change.md) | marketing-kit release (carried over from followups) | the owner at the keyboard (batch on 2026-10-05) | owner |
-| BL-8 | [`blog-release`](blog-release/change.md) | SEO and blog release (carried over from blog) | the owner at the keyboard (first npm publish) | owner |
-| DP-8 | [`deploy-release`](deploy-release/change.md) | Deploy and testing release (carried over from deploy) | the owner at the keyboard (first npm publish, workflow tag) | owner |
+| EN-9 | [`engagement-release`](../../archive/2026-10-02-engagement-release/change.md) | Engagement modules release (carried over from followups) | archived 2026-10-06 (live on npm at 0.1.5) | owner |
+| MO-6 | [`monetization-release`](../../archive/2026-10-02-monetization-release/change.md) | Monetization modules release (carried over from followups) | archived 2026-10-06 (live on npm at 0.1.5) | owner |
+| MK-8 | [`marketing-kit-release`](../../archive/2026-10-02-marketing-kit-release/change.md) | marketing-kit release (carried over from followups) | archived 2026-10-06 (live on npm at 0.1.5) | owner |
+| BL-8 | [`blog-release`](../../archive/2026-10-04-blog-release/change.md) | SEO and blog release (carried over from blog) | archived 2026-10-06 (live on npm at 0.1.5) | owner |
+| DP-8 | [`deploy-release`](deploy-release/change.md) | Deploy and testing release (carried over from deploy) | the owner at the keyboard (workflow tag) | owner |
 | LT-2 | [`release-version-inline-manifest`](release-version-inline-manifest/change.md) | release:version keeps inline manifests in step | none | start |
+| LT-3 | [`testing-browser-hook-timeout`](testing-browser-hook-timeout/change.md) | Testing package browser tests start within a measured hook timeout | none | start |
 
 Kind: `start` (can be taken as soon as the roadmap is promoted), `dependency` (waits for the listed items on the
 main branch), `owner` (needs an owner decision or the owner at the keyboard).
