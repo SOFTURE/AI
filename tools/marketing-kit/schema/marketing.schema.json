@@ -2526,6 +2526,11 @@
                   "type": "string"
                 }
               },
+              "disclosure": {
+                "default": true,
+                "description": "Whether social.disclosure follows this post's caption (default true).",
+                "type": "boolean"
+              },
               "codes": {
                 "description": "Channel codes for this film only, per platform; each falls back to platforms.<platform>.code.",
                 "type": "object",
@@ -2554,6 +2559,10 @@
             ],
             "additionalProperties": false
           }
+        },
+        "disclosure": {
+          "description": "A paragraph after every post's caption, e.g. that the persona is an example and the voice is AI-generated; {persona} becomes the film's persona name. A post opts out with disclosure: false.",
+          "type": "string"
         }
       },
       "required": [

@@ -41,6 +41,8 @@ export interface PlatformChannel {
 
 export interface VideoPost {
   caption: string;
+  /** `social.disclosure` with the persona's name; null or absent when none is configured or the post opts out. */
+  disclosure?: string | null;
   hashtags: string[];
   /** The configured platforms in `PLATFORMS` order, with this video's codes. */
   channels: PlatformChannel[];
@@ -162,6 +164,8 @@ function resolveVideos(data: MarketingJson, at: (relative: string) => string): V
           ? null
           : {
               caption: post.caption,
+              disclosure:
+                post.disclosure && data.social?.disclosure !== undefined ? data.social.disclosure.replaceAll("{persona}", video.persona.name).trim() : null,
               hashtags: post.hashtags,
               channels: PLATFORMS.flatMap((platform) => {
                 const channel = platforms[platform];

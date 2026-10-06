@@ -1,12 +1,12 @@
 ---
 change_id: marketing-kit-voice-pacing
 title: "Paid voiceovers for a batch of films: paced calls, a stop on the first error, the real charge and a disclosure"
-status: plan_reviewed
+status: archived
 roadmap_item: MK-11
 branch: claude/project-thread-ug90uc
 created: 2026-10-06
 updated: 2026-10-06
-archived_at: null
+archived_at: 2026-10-06
 ---
 
 ## Intent
@@ -62,3 +62,4 @@ Four gaps, all in the package:
 - Framing skipped: the problem and the wanted behaviour come from FIRE's measured run and the owner's pause; the
   remaining choices (interval default, how pacing survives a shell loop) are design choices settled in research
   and the plan.
+- Archived 2026-10-06: `voice` records a batch paced and stopped at the first error, the real charge is logged, `social.disclosure` follows every caption; marketing-kit 0.1.7 waits for its release.

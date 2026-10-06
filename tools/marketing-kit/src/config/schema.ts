@@ -431,6 +431,7 @@ const socialSchema = z.strictObject({
         video: id.describe("The id of the film in videos this post is for."),
         caption: z.string().describe("The post's text."),
         hashtags: z.array(z.string()).default([]).describe("Hashtags appended to the caption."),
+        disclosure: z.boolean().default(true).describe("Whether social.disclosure follows this post's caption (default true)."),
         codes: z
           .partialRecord(z.enum(PLATFORMS), channelCode.describe("The platform's channel code for this film."))
           .optional()
@@ -439,6 +440,9 @@ const socialSchema = z.strictObject({
     )
     .default([])
     .describe("Post copy per film; a film without a post gets no posts.md."),
+  disclosure: nonBlank
+    .optional()
+    .describe("A paragraph after every post's caption, e.g. that the persona is an example and the voice is AI-generated; {persona} becomes the film's persona name. A post opts out with disclosure: false."),
 });
 
 const screenshotSchema = z.strictObject({

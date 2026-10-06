@@ -124,6 +124,29 @@ describe("loadMarketingConfig", () => {
     expect(loaded?.voice).toEqual({ voiceId: "voice-2", modelId: "eleven_multilingual_v2", language: "en", tempo: 1.1 });
   });
 
+  it("fills the disclosure with the persona's name, unless the post opts out", () => {
+    const base = makeConfig();
+    const [anna] = base.videos as { id: string; persona: { name: string } }[];
+    const other = { ...structuredClone(anna), id: "other" } as (typeof base.videos)[number];
+    const config = {
+      ...base,
+      videos: [...base.videos, other],
+      social: {
+        linkTemplate: "https://example.com/calculator?z={code}",
+        platforms: { instagram: { code: "ig-01" } },
+        disclosure: "{persona} is an example persona; {persona}'s voice is AI-generated. ",
+        posts: [
+          { video: "anna-calculator", caption: "Caption" },
+          { video: "other", caption: "Caption", disclosure: false },
+        ],
+      },
+    };
+    const loaded = load(config);
+    const name = anna?.persona.name ?? "";
+    expect(loaded.videos[0]?.post?.disclosure).toBe(`${name} is an example persona; ${name}'s voice is AI-generated.`);
+    expect(loaded.videos[1]?.post?.disclosure).toBeNull();
+  });
+
   it("resolves each post's channels from the platforms, a video's own codes and the link-in-bio defaults", () => {
     const config = {
       ...makeConfig(),
@@ -137,6 +160,7 @@ describe("loadMarketingConfig", () => {
     expect(loaded.social).toEqual({ linkTemplate: "https://example.com/calculator?z={code}" });
     expect(loaded.videos[0]?.post).toEqual({
       caption: "Caption",
+      disclosure: null,
       hashtags: [],
       channels: [
         { platform: "instagram", code: "ig-01", linkInBio: true },
@@ -303,6 +327,7 @@ describe("loadMarketingConfig", () => {
     ["a code the channel reader would ignore", { platforms: { instagram: { code: "IG 01" } } }, "social.platforms.instagram.code: must be lowercase words"],
     ["an unknown platform", { platforms: { myspace: { code: "ms" } } }, 'social.platforms: Unrecognized key: "myspace"'],
     ["no platform", { platforms: {} }, "social.platforms: needs at least one platform"],
+    ["a blank disclosure", { disclosure: "  " }, "social.disclosure: "],
     ["a post for an unknown video", { posts: [{ video: "nope", caption: "" }] }, 'social.posts[0].video: no video "nope" in videos'],
     ["a post code for a platform not configured", { posts: [{ video: "anna-calculator", caption: "", codes: { tiktok: "tt" } }] }, 'social.posts[0].codes.tiktok: "tiktok" is not in social.platforms'],
   ])("refuses %s in social", (_case, change, message) => {
