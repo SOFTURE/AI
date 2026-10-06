@@ -18,7 +18,10 @@ const FILM_ID = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 export interface FilmOptions {
   command: Exclude<Command, "og" | "shots">;
+  /** The first film named; the only one for every command but `voice`. */
   filmId: string;
+  /** Every film named, in order; `voice` takes several, the other commands one. */
+  filmIds: string[];
   /** `voice` really pays for the voiceover only with `--commit`. */
   isCommit: boolean;
   /** The day the app counts from; overrides the video's `today` for one run. */
@@ -56,7 +59,7 @@ export const USAGE = [
   `Usage: softure-marketing <command> <film> [--config=${DEFAULT_CONFIG_FILE}]`,
   "",
   "  all <film>                      voiceover from the cache -> recording -> render -> post copy",
-  "  voice <film> [--commit]         voiceover; without --commit it only counts the characters",
+  "  voice <film>... [--commit]      voiceovers in order; without --commit it only counts the characters",
   "  record <film> [--today=YYYY-MM-DD] [--url=...]   --today overrides the video's \"today\"",
   "  render <film> [--quality=draft|standard|high]",
   "  preview <film>                  open the composition in the hyperframes preview",
@@ -98,8 +101,11 @@ export function readOptions(argv: string[]): ReadOptionsResult {
   if (command === "shots") return readShotsOptions(positional, flags, configPath);
   const filmId = positional[0];
   if (filmId === undefined) return { ok: false, error: `name the film, e.g. softure-marketing ${command} <film>.` };
-  if (positional.length > 1) return { ok: false, error: `one film at a time, got ${positional.join(", ")}.` };
-  if (!FILM_ID.test(filmId)) return { ok: false, error: `film name "${filmId}": lowercase letters, digits and hyphens only.` };
+  if (positional.length > 1 && command !== "voice") return { ok: false, error: `one film at a time, got ${positional.join(", ")}; only voice takes several.` };
+  const badId = positional.find((id) => !FILM_ID.test(id));
+  if (badId !== undefined) return { ok: false, error: `film name "${badId}": lowercase letters, digits and hyphens only.` };
+  const repeated = positional.find((id, index) => positional.indexOf(id) !== index);
+  if (repeated !== undefined) return { ok: false, error: `film "${repeated}" is named twice.` };
   const today = flags.get("today");
   if (today !== undefined && !isCalendarDay(today)) return { ok: false, error: `--today=${today}: expected a real day as YYYY-MM-DD.` };
   const quality = flags.get("quality");
@@ -113,7 +119,7 @@ export function readOptions(argv: string[]): ReadOptionsResult {
   if (url === "true") return { ok: false, error: "--url needs an address, e.g. --url=http://localhost:3000/calculator." };
   return {
     ok: true,
-    options: { command, filmId, isCommit: commit === "true", today, url, quality, configPath },
+    options: { command, filmId, filmIds: positional, isCommit: commit === "true", today, url, quality, configPath },
   };
 }
 

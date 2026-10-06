@@ -470,6 +470,13 @@
           "minimum": 0.8,
           "maximum": 1.3
         },
+        "minIntervalSeconds": {
+          "default": 60,
+          "description": "Least seconds between two paid recordings (0-3600, default 60; 0 turns it off), counted from the newest file in cacheDir, so separate runs are spaced too.",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 3600
+        },
         "cacheDir": {
           "default": "marketing/voiceover",
           "description": "The paid voiceover cache (<key>.mp3 and <key>.json), relative to the folder of marketing.json; commit it.",
@@ -2519,6 +2526,11 @@
                   "type": "string"
                 }
               },
+              "disclosure": {
+                "default": true,
+                "description": "Whether social.disclosure follows this post's caption (default true).",
+                "type": "boolean"
+              },
               "codes": {
                 "description": "Channel codes for this film only, per platform; each falls back to platforms.<platform>.code.",
                 "type": "object",
@@ -2547,6 +2559,10 @@
             ],
             "additionalProperties": false
           }
+        },
+        "disclosure": {
+          "description": "A paragraph after every post's caption, e.g. that the persona is an example and the voice is AI-generated; {persona} becomes the film's persona name. A post opts out with disclosure: false.",
+          "type": "string"
         }
       },
       "required": [

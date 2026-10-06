@@ -61,6 +61,66 @@ describe("produceVoiceover", () => {
     );
   });
 
+  it("logs the charge the provider reported next to the estimate and returns it", async () => {
+    const fake = createFakeTtsProvider();
+    const provider: TtsProvider = {
+      id: "metered",
+      estimate: () => ({ characters: 15, maxCost: 15, unit: "credits" }),
+      synthesize: async (value) => {
+        const recording = await fake.synthesize(value);
+        return recording.ok ? { ok: true, value: { ...recording.value, charged: 6.3 } } : recording;
+      },
+    };
+    const result = await produceVoiceover({ cacheDir, input, provider, isCommit: true, log });
+    expect(result.ok && result.value.kind === "recorded" ? result.value.charged : "not recorded").toBe(6.3);
+    expect(lines[1]).toBe("voiceover: metered charged 6.3 credits for 15 characters (the estimate was at most 15).");
+  });
+
+  it("says so when the provider does not report the charge", async () => {
+    const fake = createFakeTtsProvider();
+    const provider: TtsProvider = {
+      id: "silent",
+      estimate: () => ({ characters: 15, maxCost: 15, unit: "credits" }),
+      synthesize: async (value) => {
+        const recording = await fake.synthesize(value);
+        return recording.ok ? { ok: true, value: { audio: recording.value.audio, words: recording.value.words } } : recording;
+      },
+    };
+    const result = await produceVoiceover({ cacheDir, input, provider, isCommit: true, log });
+    expect(result.ok && result.value.kind === "recorded" ? result.value.charged : "not recorded").toBeNull();
+    expect(lines[1]).toBe("voiceover: silent did not report the charge; the estimate was at most 15 credits.");
+  });
+
+  it("waits for the pace right before a paid call, and not for a cache hit", async () => {
+    const fake = createFakeTtsProvider();
+    const provider: TtsProvider = {
+      id: fake.id,
+      estimate: (value) => fake.estimate(value),
+      synthesize: (value) => {
+        lines.push("synthesize called");
+        return fake.synthesize(value);
+      },
+    };
+    const other: TtsInput = { ...input, text: "Ola has a dog." };
+    await produceVoiceover({ cacheDir, input: other, videoId: "ola", provider, isCommit: true, log });
+    const now = Date.now() + 10_000;
+    const sleep = (milliseconds: number) => {
+      lines.push(`slept ${milliseconds}`);
+      return Promise.resolve();
+    };
+    lines = [];
+    await produceVoiceover({ cacheDir, input, videoId: "ania", provider, isCommit: true, pace: { minIntervalSeconds: 60, now: () => now, sleep }, log });
+    expect(lines.slice(0, 4)).toEqual([
+      "voiceover estimate (fake): 15 characters, at most 0 fake credits.",
+      expect.stringMatching(/^voiceover: the last paid recording .* waiting 5\d s before the next call\.$/),
+      expect.stringMatching(/^slept 5\d000$/),
+      "synthesize called",
+    ]);
+    lines = [];
+    await produceVoiceover({ cacheDir, input, videoId: "ania", provider, isCommit: true, pace: { minIntervalSeconds: 60, now: () => now, sleep }, log });
+    expect(lines.some((line) => line.startsWith("slept"))).toBe(false);
+  });
+
   it("serves a second run from the cache without calling the provider", async () => {
     const provider = createFakeTtsProvider();
     await produceVoiceover({ cacheDir, input, provider, isCommit: true, log });

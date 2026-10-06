@@ -4,6 +4,8 @@ import { buildTtsRequest, readTimestampsResponse, wordsFromAlignment } from "./v
 export const ELEVENLABS_PROVIDER_ID = "elevenlabs";
 export const ELEVENLABS_API_KEY_ENV = "ELEVENLABS_API_KEY";
 const ERROR_DETAIL_LENGTH = 300;
+/** The response header with the credits the generation cost (API reference, "Response headers"). */
+const CHARGE_HEADER = "character-cost";
 
 export interface ElevenLabsOptions {
   /** The API key; a missing one fails `synthesize`, not the estimate. */
@@ -18,6 +20,14 @@ export interface ElevenLabsOptions {
  */
 function estimate(input: TtsInput): TtsEstimate {
   return { characters: input.text.length, maxCost: input.text.length, unit: "ElevenLabs credits" };
+}
+
+/** The credits ElevenLabs reports for the call; null when the header is missing or not a non-negative number. */
+function readCharge(response: Response): number | null {
+  const header = response.headers.get(CHARGE_HEADER)?.trim() ?? "";
+  if (header.length === 0) return null;
+  const charged = Number(header);
+  return Number.isFinite(charged) && charged >= 0 ? charged : null;
 }
 
 async function readBody(response: Response): Promise<TtsResult<unknown>> {
@@ -55,7 +65,7 @@ export function createElevenLabsProvider(options: ElevenLabsOptions): TtsProvide
     if (!body.ok) return body;
     try {
       const parsed = readTimestampsResponse(body.value);
-      return ok({ audio: parsed.audio, words: wordsFromAlignment(parsed.alignment) });
+      return ok({ audio: parsed.audio, words: wordsFromAlignment(parsed.alignment), charged: readCharge(response) });
     } catch (error) {
       // The parsers throw on a malformed body; for a caller it is an expected failure of the call.
       return err(error instanceof Error ? error.message : String(error));

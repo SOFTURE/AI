@@ -16,7 +16,7 @@ TTS providers (MK-7), screenshots (MK-4) and OG images (MK-5) build on it. Backg
 
 ```bash
 softure-marketing all <video>                     # voiceover from the cache -> recording -> render -> post copy
-softure-marketing voice <video> [--commit]        # voiceover; without --commit it only prints the cost estimate
+softure-marketing voice <video>... [--commit]     # voiceovers in order; without --commit only the cost estimate
 softure-marketing record <video> [--today=YYYY-MM-DD] [--url=...]
 softure-marketing render <video> [--quality=draft|standard|high]
 softure-marketing preview <video>                 # the composition in the hyperframes preview
@@ -33,6 +33,11 @@ the screen guard refused the recording (the screen did not show what the voiceov
   `<video>/<key>.mp3` + `<video>/<key>.json` into `voice.cacheDir`. Commit them: the next render of the same text costs
   nothing. `all` never pays; on a cache miss it prints the estimate and stops. See
   [Voiceover providers and cost](#voiceover-providers-and-cost).
+- **`voice` takes several videos** and records them in order: each paid call waits until `voice.minIntervalSeconds`
+  have passed since the newest recording in the cache, and the first failure stops the batch (the summary names
+  what was recorded, where it stopped and which videos were never sent). Without `--commit` the summary prints
+  the batch's characters and estimate, so the cost is known before paying. Use it instead of a shell loop: a
+  loop runs on after a failed call, and the provider sees every call it makes.
 - **`--today`** records the app as of another day for one run; it overrides the video's `today`. Once a
   voiceover is paid for, pin its day in the video's `today` instead, so a plain `all` reproduces the film in any
   later month (the voiceover says numbers that depend on the day).
@@ -145,7 +150,7 @@ folder of `marketing.json`. A complete example: [examples/fixture/marketing.json
 | `app` | `baseUrl`, `port`, `startCommand` | the running app, or the one the CLI starts (`startCommand` as arguments, no shell, `{port}` replaced) |
 | | `colorScheme` (`light`), `hideSelectors` (`[]`), `screenGuardSelector` (`body`) | what the recording browser prefers; elements hidden while recording; the element whose text the screen guard reads |
 | | `device` | the recording device: `kind` (`phone`, or `desktop` for a browser window in a 16:9 film), `viewport` `[width, height]` in CSS px (a desktop's at least 1024 wide, not taller than wide), `scale` (device pixels per CSS pixel), `mobile` (a phone's, default `true`; not allowed on a desktop); a video can override it |
-| `voice` | `provider` (`elevenlabs`), `voiceId`, `model` (`eleven_multilingual_v2`), `language`, `tempo` (`1`, 0.8-1.3), `cacheDir` (`marketing/voiceover`) | the voiceover; text, voice, model and language make the cache key, the tempo is applied at build time |
+| `voice` | `provider` (`elevenlabs`), `voiceId`, `model` (`eleven_multilingual_v2`), `language`, `tempo` (`1`, 0.8-1.3), `cacheDir` (`marketing/voiceover`), `minIntervalSeconds` (`60`, 0-3600, `0` off) | the voiceover; text, voice, model and language make the cache key, the tempo is applied at build time; paid calls are spaced by `minIntervalSeconds`, counted from the newest recording in the cache, so separate runs are spaced too |
 | `videos[]` | `id`, `title`, `path`, `format` (`9:16`, or `1:1`, `16:9`), `device`, `voice` (`voiceId`, `model`, `tempo`) | a film and its overrides |
 | | `persona`, `beats`, `hook`, `screenGuard`, `endCard` | the script, see [A film](#a-film) |
 | | `hook.transition` (`fade`, or `rewind`, `cut`) | how the opening frame hands over to the scene |
@@ -154,7 +159,8 @@ folder of `marketing.json`. A complete example: [examples/fixture/marketing.json
 | | `sceneModule` | instead of actions: the TS module exporting `scene` |
 | `social` | `linkTemplate` | the link every post carries, `{code}` replaced by the platform's channel code |
 | | `platforms` | `instagram`, `facebook`, `tiktok`, `youtube`, `linkedin`, `x`: `code`, `linkInBio` (true for Instagram, TikTok, YouTube) |
-| | `posts[]` | `video`, `caption`, `hashtags`, `codes` (this video's own codes); a video without one gets no `posts.md` |
+| | `posts[]` | `video`, `caption`, `hashtags`, `codes` (this video's own codes), `disclosure` (`true`; `false` leaves the disclosure out); a video without one gets no `posts.md` |
+| | `disclosure` | a paragraph after every post's caption, before the link: that the persona is an example, that it is not advice, that the voice is AI-generated; `{persona}` becomes the video's persona name |
 | `screenshots[]` | `id`, `path`, `width`, `height`, `full` (`false`), `expect`, `motion` (`reduce`), `minBytes` (`40000`), `scale` (`1`), `colorSchemes` | for `softure-marketing shots`, see [Screenshots](#screenshots) |
 | `ogImages[]` | `id`, `template` (`headline-cta`, `headline-chart`), `size` (`[1200, 630]`), `data` | for `softure-marketing og`, see [OG images](#og-images) |
 | `layout` | per layout (`9:16`, `1:1`, `16:9` for phone films; `desktop` for desktop films): `caption` (`top`, `left`, `right`, `fontSize`), `persona` (`top`, `left`, `right`), `endCard` (`top`, `left`, `right`, `headlineSize`, `phone.scale`, `phone.center`) | overrides of the layout's geometry table for every film of that layout, in frame px (`endCard.phone` is the browser window's pose in `desktop`); a missing key keeps the table's value. Values must fit the frame and each box's margins must leave at least 200 px for its text. The frame, the screen box and the camera target are fixed |
@@ -287,12 +293,14 @@ changing it costs nothing.
 | --- | --- |
 | the cache has `<video>/<key>.mp3` and `.json` (or, from 0.1.5 and earlier, `<key>.mp3` and `.json` in the cache root) | `voiceover: from the cache <key>, nothing spent.` |
 | no cache, no `--commit` | `voiceover estimate (elevenlabs): 412 characters, at most 412 ElevenLabs credits.` and a dry-run line; no request is sent |
-| no cache, `--commit` | the same estimate line **first**, then one paid request, then the files are written |
+| no cache, `--commit` | the same estimate line **first**, a wait when the last paid recording is under `voice.minIntervalSeconds` old, then one paid request, the charge the provider reported (`voiceover: elevenlabs charged 175 ElevenLabs credits for 412 characters (the estimate was at most 412).`), then the files are written |
 
 ElevenLabs bills per input character, at most one credit each; API plans may discount it, so the
-estimate is an upper bound. Providers available to `voice.provider`: `elevenlabs`. For tests, the
+estimate is an upper bound (FIRE_TRACKER paid about 0.42 credits per character). The real charge comes from the
+`character-cost` response header; a provider that does not report one gets a line saying so. Providers available to `voice.provider`: `elevenlabs`. For tests, the
 package exports `createFakeTtsProvider()` (deterministic audio, evenly spaced words, records its calls)
-and `produceVoiceover({ cacheDir, input, provider, isCommit, log })`, so a project can test its films
+and `produceVoiceover({ cacheDir, input, provider, isCommit, pace, log })` (`produceVoiceovers` for a batch,
+`waitForPace` for a project's own loop), so a project can test its films
 without the network. A second real provider must add its id to the cache key, so that its recordings
 never collide with ElevenLabs's under the same voice and model names.
 
@@ -319,6 +327,13 @@ format, so its paid recordings are reused as they are, with no re-keying and no 
 3. Run `softure-marketing voice <video>` **without** `--commit` for every video. Each must print
    `from the cache`; an estimate line means the text, voice or model differs from FIRE's, and nothing
    was spent.
+
+### Upgrading to 0.1.7
+
+- A batch of voiceovers is one command: `voice a b c --commit` instead of a shell loop. Paid calls are spaced by
+  `voice.minIntervalSeconds` (default 60 s); set it to `0` to keep 0.1.6's back-to-back calls.
+- A disclosure pasted into every caption moves to `social.disclosure` with `{persona}` for the name; delete it from
+  the captions, or the posts carry it twice.
 
 ## OG images
 

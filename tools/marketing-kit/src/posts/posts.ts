@@ -4,7 +4,8 @@ import { channelLink, type Platform } from "../platforms.js";
 
 /**
  * Post copy for a film: one `posts.md` with ready text for every configured platform and a link
- * carrying the platform's channel code, so a visit from the film can be counted.
+ * carrying the platform's channel code, so a visit from the film can be counted. The text is the
+ * caption, the disclosure (`social.disclosure`), the link or the link-in-bio line, and the hashtags.
  *
  * Where a link in the caption is not clickable (Instagram, TikTok by default) the link goes to the
  * bio and the caption says so; elsewhere it is in the post.
@@ -38,7 +39,7 @@ export function buildPosts(input: PostsInput): PlatformPost[] {
     return {
       platform,
       label: copy.platforms[platform],
-      text: [input.post.caption.trim(), call, hashtags].filter((part) => part.length > 0).join("\n\n"),
+      text: [input.post.caption.trim(), input.post.disclosure ?? "", call, hashtags].filter((part) => part.length > 0).join("\n\n"),
       link,
       linkInBio,
     };
