@@ -103,9 +103,12 @@ was published, and a tag is never moved, so the first release is 0.1.2. The
 same holds for any release that fails before publishing: fix it on `master`, bump the patch version and
 release again.
 
-0.1.3 is the first release without the token: every package already exists on npm, so its stage proves
-each trusted publisher. A package whose trusted publisher is missing fails at "Stage on npm" with an
-authentication error; add the publisher and re-run that job.
+0.1.3 was meant as the first release without the token and failed every stage with E401 (nothing
+published): the trusted publisher fields did not match this repository exactly (they are case-sensitive:
+`SOFTURE`, `AI`, `release.yml`). 0.1.4 repeats it after the fix, and adds the first release of
+`@softure-ai/deploy` and `@softure-ai/testing` (0.1.0, new on npm, so `NPM_TOKEN` again for those two only).
+A package whose trusted publisher is missing or wrong fails at "Stage on npm" with E401; correct the
+publisher and release the next patch version.
 
 ## Dry run
 

@@ -13,8 +13,8 @@ Test tools shared by SOFTURE apps and modules:
 npm install --save-dev @softure-ai/testing
 ```
 
-Not on npm yet: the package stays `"private": true`, so a release of "all" packages skips it, until its
-first publish (roadmap deploy, DP-8) drops the flag. Inside this repository it is a workspace package.
+0.1.0 is its first npm release (DP-8, `release-0-1-4`), live once the owner approves the staged version.
+Inside this repository it is a workspace package.
 
 ## Clock shift
 

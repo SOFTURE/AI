@@ -1,6 +1,6 @@
 {
   "id": "billing",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "dependsOn": { "security": "^0.1.0", "auth": "^0.1.0" },
   "dbSchema": "billing",
   "tables": ["entitlements", "payments", "payment_requests", "manual_grants"],
