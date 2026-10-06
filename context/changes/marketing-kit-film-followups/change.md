@@ -72,3 +72,5 @@ Three gaps found there:
   film) and the same files (`config` schema, `cli`, `render`).
 - Open for research: whether the rewind is repaired or replaced (default stays `rewind` vs becomes `fade`); the
   cache layout (per-video folder vs readable prefix plus key) and whether stale keys get a `prune`/listing command.
+- Related: GitHub issue #118 lists the gaps from the same adoption's earlier phases (ad-hoc screenshots, scroll
+  frame, authenticated screens, README fixes, a renderable dry-run voiceover); they are not part of this change.
