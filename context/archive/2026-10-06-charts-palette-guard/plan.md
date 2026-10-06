@@ -71,13 +71,13 @@ Done when: the default-theme guard was seen red on CH-2's palette and is green o
 ### Phase 1: The palette check
 
 #### Automated
-- [x] 1.1 Palette check tests seen red, then green — PENDING_SHA
-- [x] 1.2 `./testing` export builds to `dist/testing/` — PENDING_SHA
-- [x] 1.3 Typecheck and lint green — PENDING_SHA
+- [x] 1.1 Palette check tests seen red, then green — a66892c
+- [x] 1.2 `./testing` export builds to `dist/testing/` — a66892c
+- [x] 1.3 Typecheck and lint green — a66892c
 
 ### Phase 2: The six-colour palette
 
 #### Automated
-- [x] 2.1 Default-theme guard seen red on CH-2's palette, green on the new one — PENDING_SHA
-- [x] 2.2 Slots, styles and READMEs agree on six colours — PENDING_SHA
-- [x] 2.3 Gates green (typecheck, lint, test, build) — PENDING_SHA
+- [x] 2.1 Default-theme guard seen red on CH-2's palette, green on the new one — a66892c
+- [x] 2.2 Slots, styles and READMEs agree on six colours — a66892c
+- [x] 2.3 Gates green (typecheck, lint, test, build) — a66892c
