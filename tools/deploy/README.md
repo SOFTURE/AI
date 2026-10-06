@@ -159,9 +159,12 @@ softure-deploy row-counts [--tables=<a,b.c> | --config=deploy.json] [--out=<file
 - **Which tables:** `--tables`, or else `database.rowCountTables` of `deploy.json` (`--config` names another file),
   so the list lives with the app's other deploy settings. With `--tables` the file is not read; passing both flags is
   a usage error, and so is having neither the flag nor the list (exit `2`). An invalid file is exit `1` with its issues.
-- `--out` saves the counts as JSON (`{ "takenAt", "counts" }`); `--compare` reads such a file and prints
-  `before -> after (delta)`. A table with fewer rows than before, or not counted before, fails the step (exit 1); the
-  deploy script decides whether that rolls the deploy back. `count(*)` reads every row: keep the list to the tables
+- A listed table the database lacks prints `absent` and is not an error, so a table can join the list in the
+  release whose migration creates it.
+- `--out` saves the counts as JSON (`{ "takenAt", "counts" }`, an absent table as `null`); `--compare` reads such a
+  file and prints `before -> after (delta)`, or `absent -> <n> (created by this release)` for a table absent before.
+  A table with fewer rows than before, not counted before, or absent now (`<n> -> absent`, also `absent -> absent`
+  for a misspelled name) fails the step (exit 1); the deploy script decides whether that rolls the deploy back. `count(*)` reads every row: keep the list to the tables
   whose loss would matter.
 
 ## `softure-deploy verify`
@@ -380,9 +383,9 @@ line, exits 2):
   3. with a database: starts Postgres, runs `backup` (`--keep=7 --max-age-days=30`), copies the migrations out of the
      new image for `schema-guard`, and saves `row-counts` (all through `npx @softure-ai/deploy@<this version>` on the
      host, against `127.0.0.1`) for `database.rowCountTables` of the `deploy.json` this release shipped
-     (`releases/<tag>/deploy.json`); without that file or key, and on the first release, the counts are skipped. A
-     table joins the list in the release after the one that creates it: the count before the switch runs against
-     the old schema;
+     (`releases/<tag>/deploy.json`); without that file or key, and on the first release, the counts are skipped. The
+     count before the switch runs against the old schema, so a table the release's own migration creates is
+     counted as absent and may join the list in that release;
   4. keeps the replaced `.env.prod` as `.env.prod.prev` (0600) and switches: `docker compose up -d --wait` (the
      migrate service runs before the app); recreates Traefik when its rules changed (a running Traefik holds the
      rules it started with);
