@@ -129,6 +129,8 @@ describe("record.sh, the e2e server's forced command", () => {
   it("records the command line, the files, their hashes, the modes of .env.prod and the token, never a value", () => {
     const result = record(pack());
     expect(result.status, result.stderr).toBe(0);
+    // deploy-app.yml's send step requires this line, as from init's deploy.sh.
+    expect(result.stdout.trimEnd().split("\n").at(-1)).toBe("result|ok");
     expect(readRecorded("command")).toBe(`deploy ${TAG}\n`);
     expect(readRecorded("files")).toBe(
       [

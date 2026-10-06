@@ -6,34 +6,56 @@
 #
 #   command="/srv/{{name}}/deploy.sh",restrict ssh-ed25519 AAAA… deploy@{{name}}
 #
-# so SSH_ORIGINAL_COMMAND is "deploy <tag>" and the release archive arrives on stdin: a gzip tar of the tag's
-# docker/prod/ (docker-compose.yml, traefik.yml and, with a database, initdb/), this script, deploy.json and the
-# rendered .env.prod. The archive is unpacked into releases/<tag>/ and its files are installed next to this script in
-# /srv/{{name}}/, so only the first setup copies this script there by hand. A new copy of this script is installed by
-# a rename: the running copy finishes, the new one runs from the next release.
+# so SSH_ORIGINAL_COMMAND is one of:
+#
+#   deploy <tag>   the release archive arrives on stdin (below)
+#   status         read only: the live tag, the tag in .env.prod, the containers and the app's health
+#   maintain       the daily cron's command (below); takes no argument
+#
+# The release archive is a gzip tar of the tag's docker/prod/ (docker-compose.yml, traefik.yml and, with a database,
+# initdb/), this script, deploy.json and the rendered .env.prod. It is unpacked into releases/<tag>/ and its files are
+# installed next to this script in /srv/{{name}}/, so only the first setup copies this script there by hand. A new
+# copy of this script is installed by a rename: the running copy finishes, the new one runs from the next release.
 #
 # The archive may also hold .registry-token, the deploy job's short-lived GITHUB_TOKEN: the image is then pulled
 # with it through a Docker config in this run's temporary folder, so the host keeps no registry login and the token
 # is never installed. Without it (the workflow's registry-token: false), the host's own registry login pulls
 # {{image}}.
 #
-# The host needs Docker with the compose plugin.
+# The host needs Docker with the compose plugin, cron and flock (both in Ubuntu's base system).
 {{#database}}
 # The database steps also need Node.js 22 (`npx @softure-ai/deploy`) and pg_dump of the Postgres major version of
 # the compose file (postgresql-client-{{postgresVersion}}).
 #
-# Steps: check the command, unpack and check the archive, install its files and .env.prod, pull the image, back up
-# the database, guard the schema against the new image's migrations, count rows, switch (the migrate service runs
-# before the app), compare the row counts, record the tag. The tables counted are database.rowCountTables of the
-# deploy.json this release shipped; without that file or key the counts are skipped.
+# Steps of a deploy: check the command, unpack and check the archive (archive), save the installed files and install
+# the release's with .env.prod and TAG=<tag> in it (files), pull the image (pull), start Postgres (postgres), back up
+# the database (backup), guard the schema against the new image's migrations (schema), count rows
+# (row-counts-before), switch (switch: the migrate service runs before the app), recreate Traefik when its rules
+# changed (traefik), compare the row counts (row-counts-after), record the tag (tag), install the cron (cron). The
+# tables counted are database.rowCountTables of the deploy.json this release shipped; without that file or key the
+# counts are skipped. A changed postgres service takes effect at the postgres step, before the switch.
 {{/database}}
 {{^database}}
 #
-# Steps: check the command, unpack and check the archive, install its files and .env.prod, pull the image, switch,
-# record the tag.
+# Steps of a deploy: check the command, unpack and check the archive (archive), save the installed files and install
+# the release's with .env.prod and TAG=<tag> in it (files), pull the image (pull), switch (switch), recreate Traefik
+# when its rules changed (traefik), record the tag (tag), install the cron (cron).
 {{/database}}
-# A failed step stops the release and prints the previous tag; a rollback is a redeploy of that tag ("Run workflow"
-# in the app's deploy workflow), which installs that tag's files again. Files a release no longer ships stay here.
+#
+# Output: one line `step|<name>|ok[|<detail>]` per finished step on stdout, and every deploy or maintain run ends with
+# `result|ok` or `result|failed|<step>|<message>`; the workflow fails a release without `result|ok`. Messages for
+# people start with "deploy:".
+#
+# A step that fails before the switch puts the saved files and .env.prod back (Traefik's rules in place, so its bind
+# mount keeps them) and removes what the release added; containers already started stay. From the switch on nothing
+# is put back: the migrations may have run, and old files over a new schema are worse than a stopped release. A
+# rollback is a redeploy of the previous tag ("Run workflow" in the app's deploy workflow); .env.prod.prev holds the
+# .env.prod of the release before the last switch. Files a release no longer ships stay here.
+#
+# The cron: each release writes one crontab line marked "# softure-deploy:{{name}}" that runs `maintain` daily: a
+# backup with the release's retention (the newest BACKUP_KEEP, none older than BACKUP_MAX_AGE_DAYS) when there is a
+# database, then the removal of this app's images whose release folder is gone and of dangling images. deploy and
+# maintain never run at the same time (flock on .deploy.lock).
 set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -42,49 +64,222 @@ IMAGE="{{image}}"
 DEPLOY_CLI="@softure-ai/deploy@{{cliVersion}}"
 DATABASE_NAME="{{databaseName}}"
 BACKUP_DIR="$APP_DIR/backups"
+BACKUP_PREFIX=db
 BACKUP_KEEP=7
+# Deleted data must not outlive this many days in a backup.
+BACKUP_MAX_AGE_DAYS=30
 {{/database}}
 TAG_FILE="$APP_DIR/.deployed-tag"
 RELEASES_DIR="$APP_DIR/releases"
 RELEASE_KEEP=5
 MAX_ARCHIVE_BYTES=$((16 * 1024 * 1024))
+LOCK_FILE="$APP_DIR/.deploy.lock"
+# Below the deploy job's timeout, so a release waiting on a long maintain run still reports its result.
+LOCK_WAIT_SECONDS=600
+CRON_MARKER="# softure-deploy:{{name}}"
+CRON_SCHEDULE="17 3 * * *"
+# Names this script keeps next to itself; a release archive must not carry them.
+RESERVED_NAMES=(.env.prod.prev .deployed-tag .deploy.lock backups releases deploy.sh.new)
 
 previous_tag="$(cat "$TAG_FILE" 2>/dev/null || true)"
+command_name=""
+current_step="command"
+failure=""
+reports_result="yes"
+restore_armed=""
+work=""
+release_dir=""
+{{#database}}
+container=""
+{{/database}}
+
+begin_step() {
+  current_step="$1"
+}
+
+step_ok() {
+  printf 'step|%s|ok%s\n' "$current_step" "${1:+|$1}"
+}
 
 fail() {
+  failure="$1"
   echo "deploy: $1" >&2
-  if [ -n "$previous_tag" ]; then echo "deploy: the previous release is $previous_tag; redeploy it to roll back." >&2; fi
   exit 1
 }
 
-# The forced command: exactly "deploy <tag>", the tag in the pattern the workflow checks.
-read -r -a words <<< "${SSH_ORIGINAL_COMMAND:-}"
-if [ "${#words[@]}" -ne 2 ] || [ "${words[0]}" != "deploy" ]; then
-  echo "deploy: expected the command \"deploy <tag>\"." >&2
+refuse_command() {
+  failure="$1"
+  echo "deploy: $1" >&2
   exit 2
+}
+
+# Puts back what save_previous kept: files by cp onto the installed file (its inode, which a bind mount holds, stays),
+# this script by a rename; then removes the files and folders the release added, deepest first.
+restore_previous() {
+  local path index restored="yes"
+  local created=()
+  while IFS= read -r -d '' path; do
+    path="${path#./}"
+    if [ "$path" = "deploy.sh" ]; then
+      cp -p "$work/previous/deploy.sh" deploy.sh.new && mv -f deploy.sh.new deploy.sh || restored=""
+    else
+      mkdir -p "$(dirname "$path")" && cp -p "$work/previous/$path" "$path" || restored=""
+    fi
+  done < <(cd "$work/previous" && find . -type f -print0)
+  while IFS= read -r -d '' path; do created+=("$path"); done < "$work/created"
+  for ((index = ${#created[@]} - 1; index >= 0; index--)); do
+    path="${created[index]}"
+    if [ -d "$path" ]; then rmdir "$path" 2> /dev/null || true; else rm -f "$path" || restored=""; fi
+  done
+  if [ -n "$restored" ]; then
+    echo "step|restore|ok"
+    echo "deploy: the previous files and .env.prod are back in place." >&2
+  else
+    echo "step|restore|failed"
+    echo "deploy: some previous files could not be put back; they are in releases/ of the previous tag." >&2
+  fi
+}
+
+finish() {
+  local status=$?
+  set +e
+{{#database}}
+  if [ -n "$container" ]; then docker rm --force "$container" > /dev/null 2>&1; fi
+{{/database}}
+  if [ "$status" -ne 0 ] && [ -n "$restore_armed" ]; then restore_previous; fi
+  if [ -n "$work" ]; then rm -rf "$work"; fi
+  if [ -n "$reports_result" ]; then
+    if [ "$status" -eq 0 ]; then
+      echo "result|ok"
+    else
+      failure="${failure:-stopped with exit status $status}"
+      printf 'result|failed|%s|%s\n' "$current_step" "${failure//$'\n'/ }"
+      if [ "$command_name" = "deploy" ] && [ -n "$previous_tag" ]; then
+        echo "deploy: the previous release is $previous_tag; redeploy it to roll back." >&2
+      fi
+    fi
+  fi
+  exit "$status"
+}
+trap finish EXIT
+
+# Reads one value of .env.prod without sourcing it: `env render` writes NAME=value or NAME='value'.
+read_env() {
+  local line
+  line="$(grep -m 1 "^$1=" .env.prod 2> /dev/null || true)"
+  line="${line#*=}"
+  line="${line#\'}"
+  printf '%s' "${line%\'}"
+}
+
+compose() {
+  docker compose --env-file .env.prod --file docker-compose.yml "$@"
+}
+
+take_lock() {
+  begin_step lock
+  exec 9> "$LOCK_FILE"
+  if ! command -v flock > /dev/null; then fail "flock is missing on this host (util-linux)."; fi
+  flock -w "$LOCK_WAIT_SECONDS" 9 || fail "another deploy or maintain run still holds $LOCK_FILE."
+}
+{{#database}}
+
+deploy_cli() {
+  npx --yes "$DEPLOY_CLI" "$@"
+}
+
+connect_database() {
+  local postgres_password
+  postgres_password="$(read_env POSTGRES_PASSWORD)"
+  if [ -z "$postgres_password" ]; then fail "POSTGRES_PASSWORD is missing in .env.prod."; fi
+  export DATABASE_URL="postgresql://postgres:$postgres_password@127.0.0.1:5432/$DATABASE_NAME"
+}
+
+back_up_database() {
+  deploy_cli backup --dir="$BACKUP_DIR" --prefix="$BACKUP_PREFIX" --keep="$BACKUP_KEEP" --max-age-days="$BACKUP_MAX_AGE_DAYS"
+}
+{{/database}}
+
+# The forced command: one line, split on blanks without expansion.
+command_line="${SSH_ORIGINAL_COMMAND:-}"
+if [[ "$command_line" == *$'\n'* ]] || [[ "$command_line" == *$'\r'* ]]; then
+  refuse_command "expected one command line: \"deploy <tag>\", \"status\" or \"maintain\"."
 fi
-TAG="${words[1]}"
-if [[ ! "$TAG" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$ ]]; then
-  echo "deploy: the tag is not a Docker tag (letters, digits, _ . -; at most 128)." >&2
-  exit 2
-fi
-export TAG
+read -r -a words <<< "$command_line"
+command_name="${words[0]:-}"
+case "$command_name:${#words[@]}" in
+  deploy:2 | status:1 | maintain:1) ;;
+  *) refuse_command "expected the command \"deploy <tag>\", \"status\" or \"maintain\"." ;;
+esac
 
 cd "$APP_DIR"
 umask 077
 
+# ── status ──────────────────────────────────────────────────────────────────────────────────────────────────────────
+# Read only: no lock, no file written, no result line.
+if [ "$command_name" = "status" ]; then
+  reports_result=""
+  env_tag=""
+  containers=""
+  health=""
+  if [ -f .env.prod ]; then
+    env_tag="$(read_env TAG)"
+    containers="$(compose ps --all --format '{{.Service}}:{{.Status}}' 2> /dev/null | tr '\n' ' ' || true)"
+    app_container="$(compose ps --quiet app 2> /dev/null || true)"
+    if [ -n "$app_container" ]; then
+      health="$(docker inspect --format '{{.State.Health.Status}}' "$app_container" 2> /dev/null || true)"
+    fi
+  fi
+  containers="${containers% }"
+  printf 'status|tag|%s\n' "${previous_tag:-none}"
+  printf 'status|env-tag|%s\n' "${env_tag:-none}"
+  printf 'status|containers|%s\n' "${containers:-none}"
+  printf 'status|health|%s\n' "${health:-none}"
+  exit 0
+fi
+
+# ── maintain ────────────────────────────────────────────────────────────────────────────────────────────────────────
+if [ "$command_name" = "maintain" ]; then
+  take_lock
+  begin_step env
+  if [ ! -f .env.prod ]; then fail "nothing is deployed here yet."; fi
+  # TAG of the live release, for the compose file's interpolation.
+  TAG="$(read_env TAG)"
+  export TAG
+{{#database}}
+
+  begin_step backup
+  connect_database
+  back_up_database || fail "the backup failed."
+  step_ok
+{{/database}}
+
+  # This app's image tags without a release folder go (the newest RELEASE_KEEP stay, so a rollback to them needs no
+  # pull); a tag a container still uses is refused by Docker and stays. Then the dangling images of the host.
+  begin_step images
+  image_tags="$(docker image ls "$IMAGE" --format '{{.Tag}}')" || fail "cannot list the images of $IMAGE."
+  removed=0
+  while IFS= read -r image_tag; do
+    if [ -z "$image_tag" ] || [ "$image_tag" = "<none>" ] || [ "$image_tag" = "$TAG" ]; then continue; fi
+    if [[ ! "$image_tag" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$ ]] || [ -d "$RELEASES_DIR/$image_tag" ]; then continue; fi
+    if docker image rm "$IMAGE:$image_tag" > /dev/null 2>&1; then removed=$((removed + 1)); fi
+  done <<< "$image_tags"
+  docker image prune --force > /dev/null || fail "cannot remove the dangling images."
+  step_ok "removed $removed"
+  exit 0
+fi
+
+# ── deploy <tag> ────────────────────────────────────────────────────────────────────────────────────────────────────
+TAG="${words[1]}"
+if [[ ! "$TAG" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$ ]]; then
+  refuse_command "the tag is not a Docker tag (letters, digits, _ . -; at most 128)."
+fi
+export TAG
+
+take_lock
+
+begin_step archive
 work="$(mktemp -d)"
-{{#database}}
-container=""
-{{/database}}
-release_dir=""
-cleanup() {
-{{#database}}
-  if [ -n "$container" ]; then docker rm --force "$container" > /dev/null 2>&1 || true; fi
-{{/database}}
-  rm -rf "$work"
-}
-trap cleanup EXIT
 
 # A refused archive leaves no release folder and installs nothing.
 refuse() {
@@ -103,6 +298,25 @@ check_archive() {
       refuse "the release archive holds a path that is not allowed: $name"
     fi
   done < <(tar -tzf "$1")
+}
+
+# Keeps a copy of every installed file the release is about to replace, and lists what it is about to add.
+save_previous() {
+  local path
+  mkdir -p "$work/previous"
+  : > "$work/created"
+  while IFS= read -r -d '' path; do
+    path="${path#./}"
+    if [ -e "$path" ]; then
+      if [ -f "$path" ]; then
+        if ! mkdir -p "$work/previous/$(dirname "$path")" || ! cp -p "$path" "$work/previous/$path"; then
+          fail "cannot save $path before the install."
+        fi
+      fi
+    else
+      printf '%s\0' "$path" >> "$work/created"
+    fi
+  done < <(cd "$release_dir" && find . -mindepth 1 -print0)
 }
 
 # Copies the release's files next to this script. cp onto an existing file keeps its inode, which a running
@@ -144,6 +358,9 @@ tar -xzf "$archive" -C "$release_dir" --no-same-owner --no-same-permissions || r
 for required in .env.prod deploy.sh docker-compose.yml; do
   if [ ! -s "$release_dir/$required" ]; then refuse "the release archive has no $required."; fi
 done
+for reserved in "${RESERVED_NAMES[@]}"; do
+  if [ -e "$release_dir/$reserved" ]; then refuse "the release archive holds $reserved, a name this server keeps for itself."; fi
+done
 registry_token=""
 if [ -e "$release_dir/.registry-token" ]; then
   if [ ! -f "$release_dir/.registry-token" ] || [ ! -s "$release_dir/.registry-token" ]; then
@@ -154,19 +371,24 @@ if [ -e "$release_dir/.registry-token" ]; then
 fi
 docker compose --env-file "$release_dir/.env.prod" --file "$release_dir/docker-compose.yml" config --quiet \
   || refuse "the compose file of $TAG is not valid; nothing was installed."
+step_ok
 
-mv -f "$release_dir/.env.prod" .env.prod
+begin_step files
+save_previous
+restore_armed="yes"
+# The tag goes into .env.prod, so a docker compose by hand or from the cron runs the live release.
+{ grep -v '^TAG=' "$release_dir/.env.prod" || true; printf 'TAG=%s\n' "$TAG"; } > "$release_dir/.env.prod.tagged"
+rm -f "$release_dir/.env.prod"
+mv -f "$release_dir/.env.prod.tagged" .env.prod
 chmod 0600 .env.prod
 install_release
 # The newest RELEASE_KEEP release folders stay. Their names are tags (the pattern above), so ls is safe here.
 # shellcheck disable=SC2012
 while IFS= read -r old; do rm -rf "${RELEASES_DIR:?}/$old"; done < <(ls -1t "$RELEASES_DIR" | tail -n "+$((RELEASE_KEEP + 1))")
-
-compose() {
-  docker compose --env-file .env.prod --file docker-compose.yml "$@"
-}
+step_ok
 
 echo "deploy: $IMAGE:$TAG (previous: ${previous_tag:-none})"
+begin_step pull
 if [ -n "$registry_token" ]; then
   registry="${IMAGE%%/*}"
   mkdir -p "$work/docker-config"
@@ -176,36 +398,28 @@ if [ -n "$registry_token" ]; then
 else
   docker pull --quiet "$IMAGE:$TAG" > /dev/null || fail "cannot pull $IMAGE:$TAG."
 fi
+step_ok
 {{#database}}
 
-# Reads one value of .env.prod without sourcing it: `env render` writes NAME=value or NAME='value'.
-read_env() {
-  local line
-  line="$(grep -m 1 "^$1=" .env.prod || true)"
-  line="${line#*=}"
-  line="${line#\'}"
-  printf '%s' "${line%\'}"
-}
-
-postgres_password="$(read_env POSTGRES_PASSWORD)"
-if [ -z "$postgres_password" ]; then fail "POSTGRES_PASSWORD is missing in .env.prod."; fi
-export DATABASE_URL="postgresql://postgres:$postgres_password@127.0.0.1:5432/$DATABASE_NAME"
-
-deploy_cli() {
-  npx --yes "$DEPLOY_CLI" "$@"
-}
-
 # Postgres must run before its first backup; on the first release it starts here and creates the roles.
+begin_step postgres
+connect_database
 compose up --detach --wait postgres || fail "Postgres did not become healthy."
+step_ok
 
-deploy_cli backup --dir="$BACKUP_DIR" --prefix=db --keep="$BACKUP_KEEP" || fail "the backup failed; nothing was restarted."
+begin_step backup
+back_up_database || fail "the backup failed; nothing was restarted."
+step_ok
 
+begin_step schema
 container="$(docker create "$IMAGE:$TAG")"
 docker cp "$container:/app/softure-migrations" "$work/migrations" > /dev/null
 deploy_cli schema-guard --migrations-dir="$work/migrations" || fail "the schema guard refused $TAG; nothing was restarted."
+step_ok
 
 # The tables whose row count must not drop: database.rowCountTables of the deploy.json this release shipped, not the
 # copy next to this script, which an older release may have left. Exit 0: a list; 3: no file or no list.
+begin_step row-counts-before
 release_config="$release_dir/deploy.json"
 lists_tables=0
 node -e '
@@ -224,19 +438,55 @@ counted=""
 if [ "$lists_tables" -eq 0 ] && [ -n "$previous_tag" ]; then
   deploy_cli row-counts --config="$release_config" --out="$work/counts-before.json" || fail "counting rows failed; nothing was restarted."
   counted="yes"
+  step_ok
+else
+  step_ok "skipped"
 fi
 {{/database}}
 
+# From here nothing is put back (see the header); the .env.prod this release replaced becomes .env.prod.prev.
+begin_step switch
+if [ -f "$work/previous/.env.prod" ]; then
+  cp -p "$work/previous/.env.prod" .env.prod.prev
+  chmod 0600 .env.prod.prev
+fi
+restore_armed=""
 compose up --detach --wait --remove-orphans traefik app || fail "the stack did not become healthy on $TAG."
-# New rules reach a running Traefik that the switch did not recreate.
-if [ -n "$rules_changed" ]; then compose restart traefik || fail "Traefik did not restart with the new rules."; fi
+step_ok
+
+# A running Traefik that the switch did not recreate keeps its old rules: a bind-mounted file is read at the start.
+if [ -n "$rules_changed" ]; then
+  begin_step traefik
+  compose up --detach --wait --force-recreate traefik || fail "Traefik did not start again with the new rules."
+  step_ok
+fi
 {{#database}}
 
 if [ -n "$counted" ]; then
+  begin_step row-counts-after
   deploy_cli row-counts --config="$release_config" --compare="$work/counts-before.json" \
     || fail "rows were lost on $TAG; the backup before it is the newest in $BACKUP_DIR."
+  step_ok
 fi
 {{/database}}
 
+begin_step tag
 printf '%s\n' "$TAG" > "$TAG_FILE"
+step_ok
+
+# One line of this app in the crontab, rewritten by every release; other lines stay as they are.
+begin_step cron
+if [[ ! "$APP_DIR" =~ ^/[A-Za-z0-9_./-]+$ ]]; then fail "the app folder cannot go into a crontab line: $APP_DIR; $TAG is live."; fi
+# "no crontab for <user>" is an empty table; any other error must not lead to a table without the other lines.
+if ! current_crontab="$(crontab -l 2> "$work/crontab-error")"; then
+  if ! grep -q "no crontab" "$work/crontab-error"; then fail "cannot read the crontab; $TAG is live."; fi
+  current_crontab=""
+fi
+{
+  if [ -n "$current_crontab" ]; then grep -v " $CRON_MARKER\$" <<< "$current_crontab" || true; fi
+  printf '%s PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin SSH_ORIGINAL_COMMAND=maintain %s/deploy.sh 2>&1 | logger -t %s-maintain %s\n' \
+    "$CRON_SCHEDULE" "$APP_DIR" "{{name}}" "$CRON_MARKER"
+} | crontab - || fail "cannot install the maintenance cron; $TAG is live."
+step_ok
+
 echo "deploy: $TAG is live."
