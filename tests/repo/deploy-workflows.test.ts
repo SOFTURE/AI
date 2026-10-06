@@ -179,7 +179,8 @@ describe("the deploy job of deploy-app.yml", () => {
     expect(sendIndex).toBeGreaterThan(packIndex);
     const send = steps[sendIndex]?.run ?? "";
     expect(send.match(/\bssh\b -i/g)).toHaveLength(1);
-    expect(send).toMatch(/"\$REMOTE_COMMAND \$TAG" < release\.tar\.gz$/m);
+    expect(send).toMatch(/"\$REMOTE_COMMAND \$TAG" < release\.tar\.gz \| tee "\$output"$/m);
+    expect(send).toContain("grep -qx 'result|ok' \"$output\"");
   });
 
   it("removes the archive with the key, whatever happened", () => {

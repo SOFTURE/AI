@@ -38,12 +38,39 @@ const ENV_PROD = "AUTH_SECRET='s3cret'\n";
 // The database steps run the CLI through npx; the stub only records the call.
 const STUB_NPX = `#!/usr/bin/env bash
 printf '%s\\n' "$*" >> "$NPX_LOG"
+if [ -n "\${FAIL_NPX_ON:-}" ] && [[ " $* " == *"$FAIL_NPX_ON"* ]]; then exit 1; fi
 exit 0
 `;
 
+// FAIL_DOCKER_ON fails the calls whose arguments hold that text; `image ls`, `ps` and `inspect` answer from the
+// environment like a server with those images and containers would.
 const STUB_DOCKER = `#!/usr/bin/env bash
 printf '%s\\n' "$*" >> "$DOCKER_LOG"
 if [ -n "\${FAIL_COMPOSE_CONFIG:-}" ] && [[ " $* " == *" config "* ]]; then exit 1; fi
+if [ -n "\${FAIL_DOCKER_ON:-}" ] && [[ " $* " == *"$FAIL_DOCKER_ON"* ]]; then exit 1; fi
+case " $* " in
+  *" image ls "*) printf '%s' "\${DOCKER_IMAGE_TAGS:-}" ;;
+  *" ps --all "*) printf 'traefik:Up 2 hours\\napp:Up 2 hours (healthy)\\n' ;;
+  *" ps --quiet app "*) echo c0ffee ;;
+  *" inspect "*) echo healthy ;;
+  *" create "*) echo c0ffee ;;
+esac
+exit 0
+`;
+
+// A crontab kept in a file, as \`crontab -l\` and \`crontab -\` would on the host.
+const STUB_CRONTAB = `#!/usr/bin/env bash
+if [ "$1" = "-l" ]; then
+  if [ -f "$CRONTAB_FILE" ]; then cat "$CRONTAB_FILE"; exit 0; fi
+  echo "no crontab for $USER" >&2
+  exit 1
+fi
+if [ "$1" = "-" ]; then cat > "$CRONTAB_FILE"; exit 0; fi
+exit 2
+`;
+
+// flock is not on every developer machine (macOS); the lock itself is the kernel's, not this script's.
+const STUB_FLOCK = `#!/usr/bin/env bash
 exit 0
 `;
 
@@ -58,14 +85,15 @@ interface BashResult {
   stderr: string;
 }
 
-function getPackScript(): string {
+function getDeployStepScript(name: string): string {
   const workflow = parse(readFileSync(WORKFLOW, "utf8")) as { jobs: Record<string, { steps?: Step[] }> };
-  const step = (workflow.jobs.deploy?.steps ?? []).find((candidate) => candidate.name === "Pack the release");
-  if (step?.run === undefined) throw new Error("deploy-app.yml has no 'Pack the release' step");
+  const step = (workflow.jobs.deploy?.steps ?? []).find((candidate) => candidate.name === name);
+  if (step?.run === undefined) throw new Error(`deploy-app.yml has no '${name}' step`);
   return step.run;
 }
 
-const PACK_SCRIPT = getPackScript();
+const PACK_SCRIPT = getDeployStepScript("Pack the release");
+const SEND_SCRIPT = getDeployStepScript("Send the release to the server");
 
 let root: string;
 let checkout: string;
@@ -73,6 +101,7 @@ let server: string;
 let dockerLog: string;
 let stubBin: string;
 let npxLog: string;
+let crontabFile: string;
 
 function write(path: string, text: string, mode = 0o644): void {
   mkdirSync(dirname(path), { recursive: true });
@@ -103,19 +132,28 @@ function pack(env: Record<string, string> = {}): BashResult {
   return { status: result.status, stdout: result.stdout, stderr: result.stderr };
 }
 
-function deploy(tag: string, input: Buffer | string, env: Record<string, string> = {}): BashResult {
+function runServer(command: string, input: Buffer | string, env: Record<string, string> = {}): BashResult {
   const result = spawnSync("bash", [join(server, "deploy.sh")], {
     input,
     encoding: "utf8",
     env: {
       PATH: `${stubBin}:${process.env.PATH ?? ""}`,
-      SSH_ORIGINAL_COMMAND: `deploy ${tag}`,
+      SSH_ORIGINAL_COMMAND: command,
       DOCKER_LOG: dockerLog,
       NPX_LOG: npxLog,
+      CRONTAB_FILE: crontabFile,
       ...env,
     },
   });
   return { status: result.status, stdout: result.stdout, stderr: result.stderr };
+}
+
+function deploy(tag: string, input: Buffer | string, env: Record<string, string> = {}): BashResult {
+  return runServer(`deploy ${tag}`, input, env);
+}
+
+function readLines(output: string, kind: string): string[] {
+  return output.split("\n").filter((line) => line.startsWith(`${kind}|`));
 }
 
 function packArchive(): Buffer {
@@ -137,7 +175,7 @@ function readDockerLog(): string[] {
 }
 
 function expectNothingInstalled(): void {
-  expect(readdirSync(server).filter((name) => name !== "releases")).toEqual(["deploy.sh"]);
+  expect(readdirSync(server).filter((name) => name !== "releases" && name !== ".deploy.lock")).toEqual(["deploy.sh"]);
   if (existsSync(join(server, "releases"))) expect(readdirSync(join(server, "releases"))).toEqual([]);
   expect(readDockerLog().filter((line) => line.startsWith("pull") || line.includes(" up "))).toEqual([]);
 }
@@ -149,11 +187,14 @@ beforeEach(() => {
   stubBin = join(root, "bin");
   dockerLog = join(root, "docker.log");
   npxLog = join(root, "npx.log");
+  crontabFile = join(root, "crontab");
   writeCheckout();
   // The first setup: the owner copies deploy.sh once and binds the deploy key to it.
   write(join(server, "deploy.sh"), readFileSync(join(checkout, "docker/server/deploy.sh"), "utf8"), 0o755);
   write(join(stubBin, "docker"), STUB_DOCKER, 0o755);
   write(join(stubBin, "npx"), STUB_NPX, 0o755);
+  write(join(stubBin, "crontab"), STUB_CRONTAB, 0o755);
+  write(join(stubBin, "flock"), STUB_FLOCK, 0o755);
 });
 
 afterEach(() => {
@@ -173,7 +214,7 @@ describe("a release archive packed by deploy-app.yml and installed by deploy.sh"
     }
     expect(readFileSync(join(server, "deploy.sh"), "utf8")).toBe(readFileSync(join(checkout, "docker/server/deploy.sh"), "utf8"));
     expect(statSync(join(server, "deploy.sh")).mode & 0o777).toBe(0o755);
-    expect(readFileSync(join(server, ".env.prod"), "utf8")).toBe(ENV_PROD);
+    expect(readFileSync(join(server, ".env.prod"), "utf8")).toBe(`${ENV_PROD}TAG=v1.2.3\n`);
     expect(statSync(join(server, ".env.prod")).mode & 0o777).toBe(0o600);
     expect(readFileSync(join(server, ".deployed-tag"), "utf8")).toBe("v1.2.3\n");
     expect(readdirSync(join(server, "releases"))).toEqual(["v1.2.3"]);
@@ -183,9 +224,22 @@ describe("a release archive packed by deploy-app.yml and installed by deploy.sh"
       "pull --quiet ghcr.io/acme/app:v1.2.3",
       "compose --env-file .env.prod --file docker-compose.yml up --detach --wait --remove-orphans traefik app",
     ]);
+    expect(readLines(result.stdout, "step")).toEqual([
+      "step|archive|ok",
+      "step|files|ok",
+      "step|pull|ok",
+      "step|switch|ok",
+      "step|tag|ok",
+      "step|cron|ok",
+    ]);
+    expect(result.stdout.trimEnd().split("\n").at(-1)).toBe("result|ok");
+    expect(readFileSync(crontabFile, "utf8")).toBe(
+      `17 3 * * * PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin SSH_ORIGINAL_COMMAND=maintain ${server}/deploy.sh 2>&1 | logger -t acme-app-maintain # softure-deploy:acme-app\n`,
+    );
+    expect(existsSync(join(server, ".env.prod.prev"))).toBe(false);
   });
 
-  it("keeps the rules' inode, restarts Traefik when they change and replaces deploy.sh by a rename", () => {
+  it("keeps the rules' inode, recreates Traefik when they change and replaces deploy.sh by a rename", () => {
     expect(deploy("v1", packArchive()).status).toBe(0);
     const rulesInode = statSync(join(server, "traefik.yml")).ino;
     const scriptInode = statSync(join(server, "deploy.sh")).ino;
@@ -198,14 +252,15 @@ describe("a release archive packed by deploy-app.yml and installed by deploy.sh"
     expect(readFileSync(join(server, "traefik.yml"), "utf8")).toMatch(/# v2\n$/);
     expect(statSync(join(server, "traefik.yml")).ino).toBe(rulesInode);
     expect(statSync(join(server, "deploy.sh")).ino).not.toBe(scriptInode);
-    expect(readDockerLog().at(-1)).toBe("compose --env-file .env.prod --file docker-compose.yml restart traefik");
+    expect(readDockerLog().at(-1)).toBe("compose --env-file .env.prod --file docker-compose.yml up --detach --wait --force-recreate traefik");
+    expect(readLines(result.stdout, "step")).toContain("step|traefik|ok");
     expect(readdirSync(join(server, "releases")).sort()).toEqual(["v1", "v2"]);
   });
 
-  it("does not restart Traefik when its rules did not change", () => {
+  it("does not recreate Traefik when its rules did not change", () => {
     expect(deploy("v1", packArchive()).status).toBe(0);
     expect(deploy("v2", packArchive()).status).toBe(0);
-    expect(readDockerLog().filter((line) => line.includes("restart"))).toEqual([]);
+    expect(readDockerLog().filter((line) => line.includes("force-recreate"))).toEqual([]);
   });
 
   it("keeps the newest five release folders", () => {
@@ -341,6 +396,15 @@ describe("deploy.sh refuses a release archive", () => {
     expectRefused(deploy("v1", tarDirectory(dir, ["."])), "deploy: the release archive has no .env.prod.");
   });
 
+  it("that carries a name the server keeps for itself", () => {
+    const dir = join(root, "reserved");
+    write(join(dir, ".env.prod"), ENV_PROD);
+    write(join(dir, "deploy.sh"), "#!/usr/bin/env bash\n");
+    write(join(dir, "docker-compose.yml"), "services: {}\n");
+    write(join(dir, ".env.prod.prev"), "AUTH_SECRET='old'\n");
+    expectRefused(deploy("v1", tarDirectory(dir, ["."])), "deploy: the release archive holds .env.prod.prev, a name this server keeps for itself.");
+  });
+
   it("when its compose file does not parse", () => {
     expectRefused(deploy("v1", packArchive(), { FAIL_COMPOSE_CONFIG: "1" }), "deploy: the compose file of v1 is not valid; nothing was installed.");
   });
@@ -361,10 +425,259 @@ describe("the pack step of deploy-app.yml refuses the tag's files", () => {
     expect(result.stdout).toContain("::error::docker/prod/deploy.sh is reserved on the server; rename it.");
   });
 
+  it("when the compose folder holds .env.prod.prev, which the server keeps", () => {
+    write(join(checkout, "docker/prod/.env.prod.prev"), ENV_PROD);
+    const result = pack();
+    expect(result.status).not.toBe(0);
+    expect(result.stdout).toContain("::error::docker/prod/.env.prod.prev is reserved on the server; rename it.");
+  });
+
   it("when the server script or deploy.json is missing from the tag", () => {
     rmSync(join(checkout, "deploy.json"));
     const result = pack();
     expect(result.status).not.toBe(0);
     expect(result.stdout).toContain("::error::deploy.json is not a file in the tag.");
+  });
+});
+
+describe("deploy.sh puts the previous files back when a release fails before the switch", () => {
+  function snapshotServer(): Map<string, string> {
+    const files = new Map<string, string>();
+    for (const name of ["docker-compose.yml", "traefik.yml", "deploy.json", "deploy.sh", ".env.prod", ".deployed-tag"]) {
+      files.set(name, readFileSync(join(server, name), "utf8"));
+    }
+    return files;
+  }
+
+  function changeEveryShippedFile(): void {
+    for (const path of ["docker/prod/docker-compose.yml", "docker/prod/traefik.yml", "deploy.json", "docker/server/deploy.sh"]) {
+      const file = join(checkout, path);
+      const text = readFileSync(file, "utf8");
+      writeFileSync(file, path.endsWith(".json") ? JSON.stringify({ ...(JSON.parse(text) as object), v: 2 }) : `${text}# v2\n`);
+    }
+    write(join(checkout, "docker/prod/extra/added.yml"), "added: true\n");
+  }
+
+  it("restores every installed file, keeps the rules' inode and removes what the release added", () => {
+    expect(deploy("v1", packArchive()).status).toBe(0);
+    const before = snapshotServer();
+    const rulesInode = statSync(join(server, "traefik.yml")).ino;
+    changeEveryShippedFile();
+    writeFileSync(join(checkout, ".env.prod"), "AUTH_SECRET='new'\n");
+
+    const result = deploy("v2", packArchive(), { FAIL_DOCKER_ON: "pull " });
+    expect(result.status).toBe(1);
+    expect(result.stdout.trimEnd().split("\n").at(-1)).toBe("result|failed|pull|cannot pull ghcr.io/acme/app:v2.");
+    expect(readLines(result.stdout, "step")).toEqual(["step|archive|ok", "step|files|ok", "step|restore|ok"]);
+    expect(result.stderr).toContain("deploy: the previous files and .env.prod are back in place.");
+    expect(result.stderr).toContain("deploy: the previous release is v1; redeploy it to roll back.");
+    expect(snapshotServer()).toEqual(before);
+    expect(readFileSync(join(server, ".env.prod"), "utf8")).toBe(`${ENV_PROD}TAG=v1\n`);
+    expect(statSync(join(server, "traefik.yml")).ino).toBe(rulesInode);
+    expect(existsSync(join(server, "extra"))).toBe(false);
+    expect(existsSync(join(server, ".env.prod.prev"))).toBe(false);
+    expect(readDockerLog().filter((line) => line.includes(" up "))).toHaveLength(1);
+  });
+
+  it("restores the files when the schema guard refuses the image, with a database", () => {
+    writeCheckout({ facts: { ...NO_DATABASE, hasDatabase: true }, envProd: "POSTGRES_PASSWORD='pw'\n" });
+    write(join(server, "deploy.sh"), readFileSync(join(checkout, "docker/server/deploy.sh"), "utf8"), 0o755);
+    expect(deploy("v1", packArchive()).status).toBe(0);
+    const before = snapshotServer();
+    changeEveryShippedFile();
+
+    const result = deploy("v2", packArchive(), { FAIL_NPX_ON: " schema-guard " });
+    expect(result.status).toBe(1);
+    expect(result.stdout.trimEnd().split("\n").at(-1)).toBe("result|failed|schema|the schema guard refused v2; nothing was restarted.");
+    expect(snapshotServer()).toEqual(before);
+    expect(readDockerLog().filter((line) => line.includes("traefik app"))).toHaveLength(1);
+  });
+
+  it("restores nothing once the switch started, and keeps the replaced .env.prod as .env.prod.prev", () => {
+    expect(deploy("v1", packArchive()).status).toBe(0);
+    writeFileSync(join(checkout, ".env.prod"), "AUTH_SECRET='new'\n");
+    const result = deploy("v2", packArchive(), { FAIL_DOCKER_ON: "traefik app" });
+    expect(result.status).toBe(1);
+    expect(result.stdout.trimEnd().split("\n").at(-1)).toBe("result|failed|switch|the stack did not become healthy on v2.");
+    expect(readLines(result.stdout, "step")).not.toContain("step|restore|ok");
+    expect(readFileSync(join(server, ".env.prod"), "utf8")).toBe("AUTH_SECRET='new'\nTAG=v2\n");
+    expect(readFileSync(join(server, ".env.prod.prev"), "utf8")).toBe(`${ENV_PROD}TAG=v1\n`);
+    expect(statSync(join(server, ".env.prod.prev")).mode & 0o777).toBe(0o600);
+    expect(readFileSync(join(server, ".deployed-tag"), "utf8")).toBe("v1\n");
+  });
+
+  it("keeps the .env.prod of the release before the last switch as .env.prod.prev", () => {
+    expect(deploy("v1", packArchive()).status).toBe(0);
+    writeFileSync(join(checkout, ".env.prod"), "AUTH_SECRET='v2'\n");
+    expect(deploy("v2", packArchive()).status).toBe(0);
+    writeFileSync(join(checkout, ".env.prod"), "AUTH_SECRET='v3'\n");
+    expect(deploy("v3", packArchive()).status).toBe(0);
+    expect(readFileSync(join(server, ".env.prod.prev"), "utf8")).toBe("AUTH_SECRET='v2'\nTAG=v2\n");
+    expect(readFileSync(join(server, ".env.prod"), "utf8")).toBe("AUTH_SECRET='v3'\nTAG=v3\n");
+  });
+
+  it("replaces a TAG line the rendered .env.prod already carries", () => {
+    writeFileSync(join(checkout, ".env.prod"), "TAG=stale\nAUTH_SECRET='s3cret'\n");
+    expect(deploy("v1", packArchive()).status).toBe(0);
+    expect(readFileSync(join(server, ".env.prod"), "utf8")).toBe("AUTH_SECRET='s3cret'\nTAG=v1\n");
+  });
+});
+
+describe("deploy.sh keeps one maintenance line of its app in the crontab", () => {
+  it("rewrites its own line on every release and keeps the other lines, another app's too", () => {
+    const foreign = "0 1 * * * /usr/local/bin/other-job # softure-deploy:acme-app-2\n5 * * * * echo keep\n";
+    writeFileSync(crontabFile, foreign);
+    expect(deploy("v1", packArchive()).status).toBe(0);
+    expect(deploy("v2", packArchive()).status).toBe(0);
+    const lines = readFileSync(crontabFile, "utf8").trimEnd().split("\n");
+    expect(lines.slice(0, 2)).toEqual(foreign.trimEnd().split("\n"));
+    expect(lines.filter((line) => line.endsWith(" # softure-deploy:acme-app"))).toHaveLength(1);
+    expect(lines).toHaveLength(3);
+  });
+
+  it("leaves the crontab alone when it cannot be read", () => {
+    writeFileSync(crontabFile, "5 * * * * echo keep\n");
+    write(join(stubBin, "crontab"), '#!/usr/bin/env bash\nif [ "$1" = "-l" ]; then echo "crontab: permission denied" >&2; exit 1; fi\ncat > "$CRONTAB_FILE"\n', 0o755);
+    const result = deploy("v1", packArchive());
+    expect(result.status).toBe(1);
+    expect(result.stdout.trimEnd().split("\n").at(-1)).toBe("result|failed|cron|cannot read the crontab; v1 is live.");
+    expect(readFileSync(crontabFile, "utf8")).toBe("5 * * * * echo keep\n");
+  });
+
+  it("reports a failed cron step after the switch, with the tag already recorded", () => {
+    write(join(stubBin, "crontab"), '#!/usr/bin/env bash\nif [ "$1" = "-l" ]; then echo "no crontab for deploy" >&2; fi\nexit 1\n', 0o755);
+    const result = deploy("v1", packArchive());
+    expect(result.status).toBe(1);
+    expect(result.stdout.trimEnd().split("\n").at(-1)).toBe("result|failed|cron|cannot install the maintenance cron; v1 is live.");
+    expect(readFileSync(join(server, ".deployed-tag"), "utf8")).toBe("v1\n");
+  });
+});
+
+describe("deploy.sh status", () => {
+  function listServer(): string[] {
+    return readdirSync(server, { recursive: true, encoding: "utf8" })
+      .map((path) => `${path}:${String(statSync(join(server, path)).mtimeMs)}`)
+      .sort();
+  }
+
+  it("reports none before the first release and writes nothing", () => {
+    const before = listServer();
+    const result = runServer("status", "");
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe("status|tag|none\nstatus|env-tag|none\nstatus|containers|none\nstatus|health|none\n");
+    expect(listServer()).toEqual(before);
+  });
+
+  it("reports the live tag, the tag in .env.prod, the containers and the app's health, read only", () => {
+    expect(deploy("v1", packArchive()).status).toBe(0);
+    const before = listServer();
+    rmSync(dockerLog);
+    const result = runServer("status", "");
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toBe(
+      "status|tag|v1\nstatus|env-tag|v1\nstatus|containers|traefik:Up 2 hours app:Up 2 hours (healthy)\nstatus|health|healthy\n",
+    );
+    expect(listServer()).toEqual(before);
+    expect(readDockerLog().every((line) => / ps | inspect /.test(` ${line} `))).toBe(true);
+  });
+});
+
+describe("deploy.sh maintain", () => {
+  it("removes this app's images without a release folder and the dangling ones", () => {
+    const archive = packArchive();
+    for (const tag of ["v1", "v2", "v3", "v4", "v5", "v6"]) expect(deploy(tag, archive).status).toBe(0);
+    rmSync(dockerLog);
+    const result = runServer("maintain", "", { DOCKER_IMAGE_TAGS: "v1\nv2\nv6\n<none>\nlatest\n" });
+    expect(result.stderr).toBe("");
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe("step|images|ok|removed 2\nresult|ok\n");
+    expect(readDockerLog()).toEqual([
+      "image ls ghcr.io/acme/app --format {{.Tag}}",
+      "image rm ghcr.io/acme/app:v1",
+      "image rm ghcr.io/acme/app:latest",
+      "image prune --force",
+    ]);
+  });
+
+  it("backs up with the release's retention first when there is a database", () => {
+    writeCheckout({ facts: { ...NO_DATABASE, hasDatabase: true }, envProd: "POSTGRES_PASSWORD='pw'\n" });
+    write(join(server, "deploy.sh"), readFileSync(join(checkout, "docker/server/deploy.sh"), "utf8"), 0o755);
+    expect(deploy("v1", packArchive()).status).toBe(0);
+    rmSync(npxLog);
+    const result = runServer("maintain", "");
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe("step|backup|ok\nstep|images|ok|removed 0\nresult|ok\n");
+    expect(readFileSync(npxLog, "utf8")).toBe(
+      `--yes @softure-ai/deploy@9.9.9 backup --dir=${server}/backups --prefix=db --keep=7 --max-age-days=30\n`,
+    );
+  });
+
+  it("fails before anything is deployed", () => {
+    const result = runServer("maintain", "");
+    expect(result.status).toBe(1);
+    expect(result.stdout).toBe("result|failed|env|nothing is deployed here yet.\n");
+  });
+});
+
+describe("deploy.sh refuses a command", () => {
+  it.each([["", "command"], ["deploy", "command"], ["status now", "command"], ["rm -rf /", "command"], ["deploy v1\nstatus", "command"]])(
+    "%j with exit 2 and a failed result",
+    (command, step) => {
+      const result = runServer(command, "");
+      expect(result.status).toBe(2);
+      expect(result.stdout).toMatch(new RegExp(`^result\\|failed\\|${step}\\|expected `));
+      expect(readDockerLog()).toEqual([]);
+    },
+  );
+
+  it("with a tag that is not a Docker tag", () => {
+    const result = runServer("deploy ../v1", "");
+    expect(result.status).toBe(2);
+    expect(result.stdout).toBe("result|failed|command|the tag is not a Docker tag (letters, digits, _ . -; at most 128).\n");
+  });
+});
+
+describe("the send step of deploy-app.yml", () => {
+  // The step as GitHub runs it by default (bash -e), with an ssh stub that prints what a server would.
+  function send(serverOutput: string, exitCode = 0): BashResult {
+    write(join(stubBin, "ssh"), `#!/usr/bin/env bash\ncat > /dev/null\nprintf '%s' "$SERVER_OUTPUT"\nexit ${String(exitCode)}\n`, 0o755);
+    writeFileSync(join(checkout, "release.tar.gz"), "archive");
+    const result = spawnSync("bash", ["-e", "-c", SEND_SCRIPT], {
+      cwd: checkout,
+      encoding: "utf8",
+      env: {
+        PATH: `${stubBin}:${process.env.PATH ?? ""}`,
+        RUNNER_TEMP: root,
+        SSH_HOST: "203.0.113.7",
+        SSH_USER: "deploy",
+        SSH_PRIVATE_KEY: "key",
+        SSH_KNOWN_HOSTS: "host",
+        SSH_PORT: "22",
+        REMOTE_COMMAND: "deploy",
+        TAG: "v1",
+        SERVER_OUTPUT: serverOutput,
+      },
+    });
+    return { status: result.status, stdout: result.stdout, stderr: result.stderr };
+  }
+
+  it("passes when the server reports result|ok and keeps its lines", () => {
+    const result = send("step|archive|ok\nresult|ok\n");
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe("step|archive|ok\nresult|ok\n");
+    expect(readFileSync(join(root, "deploy-output.txt"), "utf8")).toBe("step|archive|ok\nresult|ok\n");
+  });
+
+  it("fails when the session ends without result|ok, even with exit status 0", () => {
+    const result = send("step|archive|ok\nstep|files|ok\n");
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain("::error::The server did not report result|ok");
+  });
+
+  it("fails with the server's status when ssh fails", () => {
+    const result = send("result|failed|pull|cannot pull ghcr.io/acme/app:v1.\n", 1);
+    expect(result.status).toBe(1);
+    expect(result.stdout).not.toContain("::error::");
   });
 });

@@ -234,7 +234,9 @@ one caller, [`examples/deploy.yml`](examples/deploy.yml), with a single `uses:` 
    files (the compose file's folder, `server-script` as `deploy.sh`, `deploy-config` as `deploy.json`) into one gzip
    tar and sends that on stdin to the server's forced SSH command as `<remote-command> <tag>`, checking the host key
    against `ssh-known-hosts`. A symlink in the compose folder, or a file there named like one the server keeps
-   (`.env.prod`, `deploy.sh`, `deploy.json`, `.deployed-tag`, `backups`, `releases`), stops the run;
+   (`.env.prod`, `.env.prod.prev`, `deploy.sh`, `deploy.json`, `.deployed-tag`, `.deploy.lock`, `backups`,
+   `releases`), stops the run. The step fails unless the server's output holds the line `result|ok` (below), so a
+   session cut halfway never reads as a release; the output stays in `$RUNNER_TEMP/deploy-output.txt` for the job;
 4. waits until `<app-url><health-path>` answers 200, then runs `softure-deploy verify <app-url>` with the app's
    `deploy-config` read from the tag (only that file is checked out). A missing or invalid file fails the run;
    `deploy-config: ""` keeps the health route only.
@@ -319,29 +321,57 @@ softure-deploy init --domain=example.com --image=ghcr.io/acme/app [--dir=.] [--n
 
 **`deploy.sh` on the server.** Once, by hand: copy `docker/server/deploy.sh` to `/srv/<name>/` (a folder the SSH
 user owns) and bind the deploy key to it in `authorized_keys` (`command="/srv/<name>/deploy.sh",restrict …`). Every
-release then brings the rest. For `SSH_ORIGINAL_COMMAND="deploy <tag>"` and the release archive on stdin it:
+release then brings the rest. It answers three commands in `SSH_ORIGINAL_COMMAND` (anything else, or more than one
+line, exits 2):
 
-1. refuses anything but `deploy <tag>` with a Docker tag; reads at most 16 MiB, refuses an archive with anything but
-   files and folders or a path outside it, unpacks it into `releases/<tag>/` (the newest 5 are kept) and checks the
-   compose file with `docker compose config`; then moves `.env.prod` into place (0600), copies the other files next
-   to itself (in place, so Traefik's bind-mounted rules keep their inode; files 0644, folders 0755), replaces itself
-   by a rename (the new copy runs from the next release) and pulls the image;
-2. with a database: starts Postgres, runs `backup`, copies the migrations out of the new image for `schema-guard`,
-   and saves `row-counts` (all through `npx @softure-ai/deploy@<this version>` on the host, against `127.0.0.1`) for
-   `database.rowCountTables` of the `deploy.json` this release shipped (`releases/<tag>/deploy.json`); without that
-   file or key, and on the first release, the counts are skipped. A table joins the list in the release after the
-   one that creates it: the count before the switch runs against the old schema;
-3. `docker compose up -d --wait` (the migrate service runs before the app);
-4. with a database: `row-counts --compare`;
-5. restarts Traefik when its rules changed, and records the tag in `.deployed-tag`. A failed step stops the release
-   and prints the previous tag to redeploy; the files of a refused release stay installed with the old containers
-   running, and the redeploy installs that tag's own files.
+- **`status`**, read only (no lock, nothing written): `status|tag|<tag in .deployed-tag>`, `status|env-tag|<TAG in
+  .env.prod>`, `status|containers|<service:status …>` and `status|health|<the app container's health>`, each `none`
+  when there is nothing yet. For the owner: `ssh -i <deploy key> <user>@<host> status`.
+- **`deploy <tag>`** with the release archive on stdin:
+  1. refuses anything but a Docker tag; reads at most 16 MiB, refuses an archive with anything but files and folders,
+     a path outside it or a name the server keeps (`.env.prod.prev`, `.deployed-tag`, `.deploy.lock`, `backups`,
+     `releases`), unpacks it into `releases/<tag>/` (the newest 5 are kept) and checks the compose file with
+     `docker compose config`;
+  2. saves every installed file the release is about to replace, then moves `.env.prod` into place (0600) with
+     `TAG=<tag>` in it (so a `docker compose` by hand or from the cron runs the live release), copies the other files
+     next to itself (in place, so Traefik's bind-mounted rules keep their inode; files 0644, folders 0755), replaces
+     itself by a rename (the new copy runs from the next release) and pulls the image;
+  3. with a database: starts Postgres, runs `backup` (`--keep=7 --max-age-days=30`), copies the migrations out of the
+     new image for `schema-guard`, and saves `row-counts` (all through `npx @softure-ai/deploy@<this version>` on the
+     host, against `127.0.0.1`) for `database.rowCountTables` of the `deploy.json` this release shipped
+     (`releases/<tag>/deploy.json`); without that file or key, and on the first release, the counts are skipped. A
+     table joins the list in the release after the one that creates it: the count before the switch runs against
+     the old schema;
+  4. keeps the replaced `.env.prod` as `.env.prod.prev` (0600) and switches: `docker compose up -d --wait` (the
+     migrate service runs before the app); recreates Traefik when its rules changed (a running Traefik holds the
+     rules it started with);
+  5. with a database: `row-counts --compare`;
+  6. records the tag in `.deployed-tag` and writes its crontab line (below).
+- **`maintain`**, the daily cron's command: with a database a `backup` with the same retention, so no dump outlives
+  30 days between releases either; then removes this app's image tags whose release folder is gone (the newest 5
+  stay for a quick rollback; Docker refuses one a container uses) and the host's dangling images.
+
+**Restore.** A step that fails before the switch puts the saved files and `.env.prod` back (the rules by copying onto
+the installed file, the script by a rename) and removes files and folders the release added; containers it already
+started stay (a changed `postgres` service starts at step 3). From the switch on nothing is put back: the migrations
+may have run, and old files over a new schema are worse than a stopped release. A rollback is a redeploy of the
+previous tag, which the failure message names.
+
+**Output.** One line per finished step on stdout, `step|<name>|ok[|<detail>]` (`archive`, `files`, `pull`,
+`postgres`, `backup`, `schema`, `row-counts-before`, `switch`, `traefik`, `row-counts-after`, `tag`, `cron`; `restore`
+after a restore; `backup`, `images` for `maintain`), and every `deploy` or `maintain` run, refused commands included,
+ends with `result|ok` or `result|failed|<step>|<message>`. Messages for people start with `deploy:`.
+
+**Cron.** Each release rewrites one line of the deploy user's crontab, marked `# softure-deploy:<name>`: `maintain`
+daily at 03:17 server time, its output to syslog under `<name>-maintain` (`journalctl -t <name>-maintain`). Other
+lines, other apps' marked lines included, stay. `deploy` and `maintain` never run at the same time: both take
+`.deploy.lock` with `flock` and wait up to 10 minutes for it.
 
 Shipping `deploy.sh` widens nothing: whoever holds the deploy key already picks the image and its environment, and
 the deploy user runs Docker, which is root on the host.
 
-The host needs Docker with the compose plugin logged in to the registry, and with a database Node.js 22 and
-`pg_dump` of the compose file's Postgres major version. CI generates the files for the example app, staged as a
+The host needs Docker with the compose plugin logged in to the registry, `cron` and `flock` (both in Ubuntu's base
+system), and with a database Node.js 22 and `pg_dump` of the compose file's Postgres major version. CI generates the files for the example app, staged as a
 standalone app, and builds its image from the generated `Dockerfile` (`npm run e2e:deploy-init`).
 
 ## Library
@@ -365,11 +395,13 @@ request headers (`verify`). Already here before: names from the compose file, va
 schema guard (stricter than FIRE's migration count), row counts, status, markers, redirects, header and type checks,
 certificate expiry.
 
-**Tracked as roadmap items** (they change `deploy-app.yml` or `init`'s `deploy.sh`, which DF-7 changes now):
+**In `init`'s `deploy.sh` (DF-9):** the read-only `status` command, the file and `.env.prod` restore when a release
+fails before the switch, `.env.prod.prev`, the Traefik recreate when `traefik.yml` changed, the tag in `.env.prod`, a
+daily cron for the backup age and old images, and the step and result lines the workflow checks. FIRE's gateway and
+its second-stage script inside the image stay one script here: the release ships it (DF-7).
 
-- **DF-9:** the server script's read-only `status` command, file and `.env.prod` restore on a failed switch,
-  `.env.prod.prev`, a Traefik recreate when `traefik.yml` changed, the tag in `.env.prod`, a daily cron for backup age
-  and image pruning, machine-readable step lines.
+**Tracked as roadmap items** (they change `deploy-app.yml` or `init`'s `deploy.sh`):
+
 - **DF-10:** a report job writes pipeline status and deployment history (image, digest, backup, row counts before and
   after) into the release body.
 - **DF-11:** the tag must be on the default branch; build arguments, with a check that the origin baked into the
@@ -399,8 +431,9 @@ problem, lost rows, a failed verify check, invalid init answers) · `2` a wrong 
 - `backup` writes to a local folder only; copying dumps off the server is the server's job.
 - `verify` does not wait for the app to come up; the deploy workflow's health step does.
 - Files a release no longer ships stay on the server; remove them by hand.
-- A `deploy.sh` generated by 0.1.2 or earlier reads `.env.prod`, not the release archive: copy the new one to the
-  server once by hand (or run `init --force` and copy it), then every release ships it.
+- A `deploy.sh` generated by 0.1.2 or earlier reads `.env.prod`, not the release archive, and prints no `result|ok`,
+  which `deploy-app.yml` requires: copy the new one to the server once by hand (or run `init --force` and copy it),
+  then every release ships it.
 - `init` writes one app per VPS, with Traefik in the app's compose file.
 - The end-to-end test stops at the server's forced command: neither the shipped `deploy.sh` nor the `verify` job runs
   there (DF-15).
