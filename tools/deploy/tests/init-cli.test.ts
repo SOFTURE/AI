@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -47,8 +47,9 @@ describe("softure-deploy init", () => {
         "wrote   docker/server/deploy.sh",
         "wrote   scripts/migrate.ts",
         "wrote   .github/workflows/deploy.yml",
+        "wrote   .github/workflows/release.yml",
         "wrote   deploy.json",
-        "init: 9 written, 0 kept, database part on (@softure-ai/db found in package.json).",
+        "init: 10 written, 0 kept, database part on (@softure-ai/db found in package.json).",
         "",
       ].join("\n"),
     );
@@ -61,14 +62,19 @@ describe("softure-deploy init", () => {
   it("keeps the app's own files, then overwrites them with --force", async () => {
     writeApp({ name: "shop" });
     writeFileSync(join(dir, "Dockerfile"), "FROM scratch\n");
+    mkdirSync(join(dir, ".github/workflows"), { recursive: true });
+    writeFileSync(join(dir, ".github/workflows/release.yml"), "name: own-release\n");
     expect(await runCli(["init", ...REQUIRED], makeIo())).toBe(0);
     expect(readFileSync(join(dir, "Dockerfile"), "utf8")).toBe("FROM scratch\n");
+    expect(readFileSync(join(dir, ".github/workflows/release.yml"), "utf8")).toBe("name: own-release\n");
     expect(out.join("")).toContain("kept    Dockerfile (exists; --force overwrites it)\n");
-    expect(out.join("")).toContain("init: 6 written, 1 kept, database part off (@softure-ai/db not found in package.json).\n");
+    expect(out.join("")).toContain("kept    .github/workflows/release.yml (exists; --force overwrites it)\n");
+    expect(out.join("")).toContain("init: 6 written, 2 kept, database part off (@softure-ai/db not found in package.json).\n");
     out = [];
     expect(await runCli(["init", ...REQUIRED, "--force"], makeIo())).toBe(0);
     expect(readFileSync(join(dir, "Dockerfile"), "utf8")).toContain("FROM ${NODE_IMAGE} AS builder");
-    expect(out.join("")).toContain("init: 7 written, 0 kept");
+    expect(readFileSync(join(dir, ".github/workflows/release.yml"), "utf8")).toContain("deploy-cut-release.yml");
+    expect(out.join("")).toContain("init: 8 written, 0 kept");
   });
 
   it("generates into --dir relative to the working directory", async () => {

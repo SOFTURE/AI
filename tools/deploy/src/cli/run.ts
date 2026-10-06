@@ -29,8 +29,8 @@ export const USAGE = [
   "      checks every route of deploy.json against <url>; exits 1 when a check fails",
   "  init --domain=<host> --image=<registry/name> [--dir=.] [--name=<slug>] [--paths=/] [--www] [--acme-email=<email>]",
   "       [--env=NAME,...] [--tables=a,b.c] [--force]",
-  "      writes the app's Dockerfile, production compose, Traefik rules, deploy.sh, deploy workflow and deploy.json;",
-  "      keeps existing files unless --force",
+  "      writes the app's Dockerfile, production compose, Traefik rules, deploy.sh, deploy and release",
+  "      workflows and deploy.json; keeps existing files unless --force",
   "  help",
   "",
 ].join("\n");
