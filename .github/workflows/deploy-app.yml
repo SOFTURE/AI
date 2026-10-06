@@ -21,6 +21,10 @@
 # through `env:`, never interpolated into it. The CLI comes from npm (`deploy-cli-version`), so the workflow runs once
 # @softure-ai/deploy is published (DP-8).
 #
+# Whatever happened, the `summary` job uploads the run's facts (each job's result, the image, its digest and the
+# server's step lines) as the artifact `deploy-report`; the caller's second job, deploy-report.yml (DF-10), writes them
+# into the tag's GitHub Release.
+#
 # `e2e: true` is this repository's own end-to-end test (.github/workflows/e2e-deploy.yml, DF-3) and is refused in any
 # other repository. On that path nothing leaves the runners: the image is built without a push, the CLI runs from the
 # tag's checkout, the deploy job starts a throwaway SSH server next to itself (tools/deploy/e2e/start-server.sh) whose
@@ -256,6 +260,8 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: read
+    outputs:
+      server-lines: ${{ steps.server-lines.outputs.lines }}
     environment: ${{ inputs.environment }}
     # One deploy at a time per app and environment; a running deploy is never cancelled halfway. End-to-end runs deploy
     # to their own server, so each has its own group and none waits for or replaces another.
@@ -405,6 +411,17 @@ jobs:
             echo "::error::The server did not report result|ok; the release is not confirmed (see the lines above)."
             exit 1
           fi
+      # The server's step and result lines for the release report (DF-10): step names, the backup's file name and row
+      # counts, never a value of .env.prod. Every kept line starts with step| or result|, so none can end the heredoc.
+      - id: server-lines
+        name: Keep the server's step lines
+        if: always()
+        run: |
+          {
+            echo "lines<<SERVER_LINES"
+            grep -E '^(step|result)\|' "$RUNNER_TEMP/deploy-output.txt" 2> /dev/null || true
+            echo "SERVER_LINES"
+          } >> "$GITHUB_OUTPUT"
       # What the end-to-end server recorded: names, hashes and the command line, never a value of .env.prod.
       - if: inputs.e2e
         uses: actions/upload-artifact@v7
@@ -418,7 +435,7 @@ jobs:
         run: docker logs softure-deploy-e2e-server || true
       - name: Remove the key, .env.prod and the release archive
         if: always()
-        run: rm -rf "$RUNNER_TEMP/deploy_key" "$RUNNER_TEMP/deploy_known_hosts" "$RUNNER_TEMP/release" "$RUNNER_TEMP/e2e-server" .env.prod release.tar.gz
+        run: rm -rf "$RUNNER_TEMP/deploy_key" "$RUNNER_TEMP/deploy_known_hosts" "$RUNNER_TEMP/release" "$RUNNER_TEMP/e2e-server" "$RUNNER_TEMP/deploy-output.txt" .env.prod release.tar.gz
 
   verify:
     name: verify the release
@@ -472,3 +489,48 @@ jobs:
           DEPLOY_CONFIG: ${{ inputs.deploy-config }}
           DEPLOY_CLI_VERSION: ${{ inputs.deploy-cli-version }}
         run: npx --yes "--package=@softure-ai/deploy@$DEPLOY_CLI_VERSION" softure-deploy verify "$APP_URL" --config="$DEPLOY_CONFIG"
+
+  # The facts of this run for the release report (deploy-report.yml, DF-10), whatever happened: each job's result, the
+  # image and its digest, and the server's step lines. It writes nothing anywhere but the run's artifact
+  # `deploy-report`; a re-run of failed jobs replaces it.
+  summary:
+    name: summarize the run
+    needs: [check, build, deploy, verify]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Write deploy-report.json
+        env:
+          TAG: ${{ inputs.tag }}
+          DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
+          IMAGE: ${{ needs.build.outputs.image }}
+          DIGEST: ${{ needs.build.outputs.digest }}
+          RUN_URL: ${{ format('{0}/{1}/actions/runs/{2}/attempts/{3}', github.server_url, github.repository, github.run_id, github.run_attempt) }}
+          CHECK_RESULT: ${{ needs.check.result }}
+          BUILD_RESULT: ${{ needs.build.result }}
+          DEPLOY_RESULT: ${{ needs.deploy.result }}
+          VERIFY_RESULT: ${{ needs.verify.result }}
+          SERVER_LINES: ${{ needs.deploy.outputs.server-lines }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/deploy-report"
+          jq -n \
+            --arg tag "$TAG" --arg environment "$DEPLOY_ENVIRONMENT" --arg image "$IMAGE" --arg digest "$DIGEST" \
+            --arg runUrl "$RUN_URL" --arg finishedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg check "$CHECK_RESULT" --arg build "$BUILD_RESULT" --arg deploy "$DEPLOY_RESULT" --arg verify "$VERIFY_RESULT" \
+            --arg lines "$SERVER_LINES" \
+            '{version: 1, tag: $tag, environment: $environment, image: $image, digest: $digest, runUrl: $runUrl,
+              finishedAt: $finishedAt,
+              jobs: [{name: "check", result: $check}, {name: "build", result: $build},
+                     {name: "deploy", result: $deploy}, {name: "verify", result: $verify}],
+              serverLines: ($lines | split("\n") | map(select(length > 0)))}' \
+            > "$RUNNER_TEMP/deploy-report/deploy-report.json"
+          cat "$RUNNER_TEMP/deploy-report/deploy-report.json"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: deploy-report
+          path: ${{ runner.temp }}/deploy-report/deploy-report.json
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 30

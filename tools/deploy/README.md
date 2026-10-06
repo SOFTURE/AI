@@ -264,7 +264,10 @@ one caller, [`examples/deploy.yml`](examples/deploy.yml), with a single `uses:` 
    session cut halfway never reads as a release; the output stays in `$RUNNER_TEMP/deploy-output.txt` for the job;
 4. waits until `<app-url><health-path>` answers 200, then runs `softure-deploy verify <app-url>` with the app's
    `deploy-config` read from the tag (only that file is checked out). A missing or invalid file fails the run;
-   `deploy-config: ""` keeps the health route only.
+   `deploy-config: ""` keeps the health route only;
+5. whatever happened, uploads the run's facts as the artifact `deploy-report` (`summary` job, no permissions): each
+   job's result, the image and its digest, and the server's `step|…`/`result|…` lines (`init`'s `deploy.sh` puts the
+   backup's file name and the row counts on them).
 
 | Input | Default | |
 | --- | --- | --- |
@@ -287,6 +290,17 @@ Secrets, all required and passed by name (no `secrets: inherit`): `ssh-host`, `s
 `NPM_CONFIG_*` are refused). The workflow runs once this package is on npm; callers pin the `deploy-workflows-v1` tag
 the owner sets, or its commit SHA.
 
+### Release report
+
+[`deploy-report.yml`](../../.github/workflows/deploy-report.yml) is the caller's second job (`needs: deploy`,
+`if: always()`, see [`examples/deploy.yml`](examples/deploy.yml)). It reads the `deploy-report` artifact of the same
+run and the tag's GitHub Release body (`gh release view`), runs `softure-deploy release-report` and writes the body
+back (`gh release edit`): the pipeline status replaced, a deployment row added on top. It is a workflow of its own
+because editing a release needs `contents: write`, which the caller grants to this job only; inside `deploy-app.yml`
+every job would have needed it. One report per tag runs at a time, so two runs never drop each other's row. A tag
+without a release gets no report (a notice), and a failed report never turns the run red (`continue-on-error`).
+Inputs: `tag` (required), `locale` (`en` or `pl`), `deploy-cli-version`, `node-version`, `e2e` (below).
+
 ### End-to-end test
 
 [`.github/workflows/e2e-deploy.yml`](../../.github/workflows/e2e-deploy.yml) calls `deploy-app.yml` from the same
@@ -301,6 +315,11 @@ commit with `e2e: true` for the example app, on every pull request that touches 
   archive's files, their SHA-256, the mode of `.env.prod` and its names (never a value), uploaded as the artifact
   `deploy-e2e-received`;
 - `verify` is skipped: the recorder does not run the app.
+
+The caller's `report` job calls `deploy-report.yml` with `e2e: true` (refused outside SOFTURE/AI as well): the CLI
+from the tag writes the report into a fixture body, uploaded as `deploy-report-body` instead of edited into a
+release; [`e2e/check-report.sh`](e2e/check-report.sh) checks the owner's line, a status row per job and one
+`deployed` row with the built image.
 
 The caller's `assert` job runs [`e2e/check-received.sh`](e2e/check-received.sh): the image is
 `ghcr.io/softure/ai-deploy-e2e:<sha>`, the command line `deploy <sha>`, the files are byte for byte the tag's, and
@@ -426,10 +445,13 @@ fails before the switch, `.env.prod.prev`, the Traefik recreate when `traefik.ym
 daily cron for the backup age and old images, and the step and result lines the workflow checks. FIRE's gateway and
 its second-stage script inside the image stay one script here: the release ships it (DF-7).
 
+**In the release report (DF-10):** FIRE's living report as `release-report` and `deploy-report.yml`: a status table
+replaced by every run and a deployment history with the newest row on top (time, result, image and digest, backup
+file, row counts before and after, verify, run). Different on purpose: times in UTC, not Europe/Warsaw; no migration
+count (no step line carries it); the "what's in it" part is `release-notes`' section, not a third writer.
+
 **Tracked as roadmap items** (they change `deploy-app.yml` or `init`'s `deploy.sh`):
 
-- **DF-10:** a report job writes pipeline status and deployment history (image, digest, backup, row counts before and
-  after) into the release body.
 - **DF-11:** the tag must be on the default branch; build arguments, with a check that the origin baked into the
   image equals the runtime one; non-secret values for optional names; a registry token per deploy instead of a
   permanent login on the server.

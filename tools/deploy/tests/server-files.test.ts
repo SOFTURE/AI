@@ -35,10 +35,20 @@ const NO_DATABASE: AppFacts = {
 
 const ENV_PROD = "AUTH_SECRET='s3cret'\n";
 
-// The database steps run the CLI through npx; the stub only records the call.
+// The database steps run the CLI through npx; the stub records the call, prints what backup prints and writes the
+// row-counts file of --out (COUNTS_JSON, else two tables), like the CLI.
 const STUB_NPX = `#!/usr/bin/env bash
 printf '%s\\n' "$*" >> "$NPX_LOG"
 if [ -n "\${FAIL_NPX_ON:-}" ] && [[ " $* " == *"$FAIL_NPX_ON"* ]]; then exit 1; fi
+for arg in "$@"; do
+  case "$arg" in
+    --dir=*) echo "backup: wrote \${arg#--dir=}/db-20261006-120000.dump (2048 bytes)" ;;
+    --out=*)
+      counts='{"users":3,"billing.subscriptions":2}'
+      printf '{"takenAt":"2026-10-06T12:00:00.000Z","counts":%s}\\n' "\${COUNTS_JSON:-$counts}" > "\${arg#--out=}"
+      ;;
+  esac
+done
 exit 0
 `;
 
@@ -310,9 +320,23 @@ describe("deploy.sh with a database counts the tables of the deploy.json the rel
     const config = join(server, "releases/v2/deploy.json");
     expect(readRowCountCalls()).toEqual([
       expect.stringMatching(new RegExp(`^--yes @softure-ai/deploy@9\\.9\\.9 row-counts --config=${config} --out=\\S+/counts-before\\.json$`)) as unknown,
-      expect.stringMatching(new RegExp(`^--yes @softure-ai/deploy@9\\.9\\.9 row-counts --config=${config} --compare=\\S+/counts-before\\.json$`)) as unknown,
+      expect.stringMatching(new RegExp(`^--yes @softure-ai/deploy@9\\.9\\.9 row-counts --config=${config} --compare=\\S+/counts-before\\.json --out=\\S+/counts-after\\.json$`)) as unknown,
     ]);
     expect(readDockerLog()).toContain("compose --env-file .env.prod --file docker-compose.yml up --detach --wait --remove-orphans traefik app");
+  });
+
+  it("puts the backup file and the counts before and after on its step lines for the release report", () => {
+    setUp(["users", "billing.subscriptions"]);
+    expect(deploy("v1", packArchive()).status).toBe(0);
+    const second = deploy("v2", packArchive());
+    expect(second.status).toBe(0);
+    const steps = second.stdout.split("\n").filter((line) => /^step\|(backup|row-counts)/.test(line));
+    expect(steps).toEqual([
+      "step|backup|ok|db-20261006-120000.dump",
+      "step|row-counts-before|ok|users=3,billing.subscriptions=2",
+      "step|row-counts-after|ok|users=3,billing.subscriptions=2",
+    ]);
+    expect(deploy("v3", packArchive(), { COUNTS_JSON: "{}" }).stdout).toContain("step|row-counts-before|ok\n");
   });
 
   it("skips the comparison when the shipped deploy.json lists no tables", () => {
@@ -607,7 +631,9 @@ describe("deploy.sh maintain", () => {
     rmSync(npxLog);
     const result = runServer("maintain", "");
     expect(result.status).toBe(0);
-    expect(result.stdout).toBe("step|backup|ok\nstep|images|ok|removed 0\nresult|ok\n");
+    expect(result.stdout).toBe(
+      `backup: wrote ${server}/backups/db-20261006-120000.dump (2048 bytes)\nstep|backup|ok|db-20261006-120000.dump\nstep|images|ok|removed 0\nresult|ok\n`,
+    );
     expect(readFileSync(npxLog, "utf8")).toBe(
       `--yes @softure-ai/deploy@9.9.9 backup --dir=${server}/backups --prefix=db --keep=7 --max-age-days=30\n`,
     );

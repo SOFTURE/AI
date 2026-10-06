@@ -143,6 +143,10 @@ describe("writeReleaseReport", () => {
     expect(readSection(body, "deployments")).toBeNull();
   });
 
+  it("shortens a long digest only", () => {
+    expect(readSection(writeReleaseReport("", buildReport({ digest: "sha256:abc" }), en), "deployments")).toContain("<br>`sha256:abc` |");
+  });
+
   it("shows an unknown job result as pending and an empty environment as a dash", () => {
     const report = buildReport({ environment: "", jobs: [{ name: "deploy", result: "success" }, { name: "verify", result: "neutral" }] });
     const body = writeReleaseReport("", report, en);

@@ -148,7 +148,10 @@ function renderDatabase(facts: ServerFacts, messages: DeployMessages): string {
 function renderImage(report: DeployReport): string {
   const parts: string[] = [];
   if (report.image !== "") parts.push(`\`${toCell(report.image)}\``);
-  if (report.digest !== "") parts.push(`\`${toCell(report.digest.slice(0, 19))}…\``);
+  if (report.digest !== "") {
+    const short = report.digest.length > 19 ? `${toCell(report.digest.slice(0, 19))}…` : toCell(report.digest);
+    parts.push(`\`${short}\``);
+  }
   return parts.length === 0 ? "—" : parts.join("<br>");
 }
 

@@ -199,6 +199,72 @@ describe("the deploy job of deploy-app.yml", () => {
   });
 });
 
+describe("the summary job of deploy-app.yml (DF-10)", () => {
+  const workflow = readYaml(join(WORKFLOWS_DIR, "deploy-app.yml"));
+  const summary = workflow.jobs.summary as Job & { needs?: unknown; if?: string };
+  const deploySteps = workflow.jobs.deploy?.steps ?? [];
+  const keep = deploySteps.find((step) => step.name === "Keep the server's step lines");
+
+  it("keeps the server's step and result lines after the send, whatever happened", () => {
+    const sendIndex = deploySteps.findIndex((step) => step.name === "Send the release to the server");
+    expect(deploySteps.indexOf(keep as Step)).toBeGreaterThan(sendIndex);
+    expect(keep?.if).toBe("always()");
+    expect(keep?.run).toContain("grep -E '^(step|result)\\|' \"$RUNNER_TEMP/deploy-output.txt\"");
+    expect((workflow.jobs.deploy as Job & { outputs?: Record<string, string> }).outputs).toEqual({
+      "server-lines": "${{ steps.server-lines.outputs.lines }}",
+    });
+    expect(deploySteps.at(-1)?.run).toContain('"$RUNNER_TEMP/deploy-output.txt"');
+  });
+
+  it("runs after every job whatever their results, with no permissions", () => {
+    expect(summary.needs).toEqual(["check", "build", "deploy", "verify"]);
+    expect(summary.if).toBe("${{ always() }}");
+    expect(summary.permissions).toEqual({});
+  });
+
+  it("writes a summary release-report reads, and uploads it as deploy-report, replacing an earlier attempt's", () => {
+    const outputDir = mkdtempSync(join(tmpdir(), "deploy-summary-"));
+    try {
+      const result = spawnSync("bash", ["-e", "-c", summary.steps?.[0]?.run ?? ""], {
+        encoding: "utf8",
+        env: {
+          PATH: process.env.PATH ?? "",
+          RUNNER_TEMP: outputDir,
+          TAG: "v1",
+          DEPLOY_ENVIRONMENT: "production",
+          IMAGE: "ghcr.io/acme/app:v1",
+          DIGEST: "sha256:abc",
+          RUN_URL: "https://github.com/acme/app/actions/runs/1/attempts/2",
+          CHECK_RESULT: "success",
+          BUILD_RESULT: "success",
+          DEPLOY_RESULT: "failure",
+          VERIFY_RESULT: "skipped",
+          SERVER_LINES: "step|backup|ok|db-1.dump\nresult|failed|switch|the stack did not become healthy\n",
+        },
+      });
+      expect(result.status, result.stderr).toBe(0);
+      const json = JSON.parse(readFileSync(join(outputDir, "deploy-report/deploy-report.json"), "utf8")) as Record<string, unknown>;
+      expect(json).toMatchObject({
+        version: 1,
+        tag: "v1",
+        jobs: [
+          { name: "check", result: "success" },
+          { name: "build", result: "success" },
+          { name: "deploy", result: "failure" },
+          { name: "verify", result: "skipped" },
+        ],
+        serverLines: ["step|backup|ok|db-1.dump", "result|failed|switch|the stack did not become healthy"],
+      });
+      expect(json.finishedAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
+    } finally {
+      rmSync(outputDir, { recursive: true, force: true });
+    }
+    const upload = summary.steps?.[1];
+    expect(upload?.uses).toMatch(/^actions\/upload-artifact@/);
+    expect(upload?.with).toMatchObject({ name: "deploy-report", overwrite: true });
+  });
+});
+
 describe("the example caller workflow", () => {
   const caller = readYaml(EXAMPLE_CALLER);
   const deployJob = caller.jobs.deploy as Job;
