@@ -14,6 +14,10 @@
 #   jobs:
 #     links:
 #       uses: SOFTURE/AI/.github/workflows/blog-links.yml@master
+#       # with:
+#       #   sparse-checkout: |      # optional: skip heavy folders the gate never reads
+#       #     /*
+#       #     !/context/archive/
 #
 # The app's config must load in Node (softure.config.mjs or .js), or `command` names an app script
 # that calls runBlogCli. `check` never connects to the database, so the job sets no DATABASE_URL: the
@@ -36,6 +40,10 @@ on:
         description: The gate with external links
         type: string
         default: "npx softure-blog check --external"
+      sparse-checkout:
+        description: "Checkout patterns, non-cone (e.g. /* and !/context/archive/); empty = the whole repository"
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -44,6 +52,8 @@ jobs:
   links:
     name: blog gate + external links
     runs-on: ubuntu-latest
+    # A link check that hangs on a dead server must not hold a runner for the default six hours.
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: ${{ inputs.working-directory }}
@@ -51,9 +61,16 @@ jobs:
       LEFTHOOK: "0"
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          sparse-checkout: ${{ inputs.sparse-checkout }}
+          sparse-checkout-cone-mode: false
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ inputs.node-version }}
+          cache: npm
+          # Any lock file in the checkout: the app's own, or the root one of a workspace.
+          cache-dependency-path: "**/package-lock.json"
       - run: npm ci
       # Through the environment, not interpolated into the script.
       - name: Gate with external links

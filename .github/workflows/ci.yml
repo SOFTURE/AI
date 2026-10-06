@@ -1,19 +1,26 @@
-# The gates of lefthook.yml, on GitHub, for every push and pull request, plus the marketing-kit fixture
-# film rendered end to end (too slow and too browser-bound for a hook) and actionlint over the workflows.
-# Tags are not built here: releases have their own workflow.
+# The gates of lefthook.yml, on GitHub, for every pull request and every push to master, plus the
+# marketing-kit fixture film rendered end to end (too slow and too browser-bound for a hook) and actionlint
+# over the workflows. Tags are not built here: releases have their own workflow.
+#
+# Not on every pushed branch: a branch with a pull request would run everything twice (the push and the
+# pull request have different refs, so `concurrency` cannot fold them), and the hooks already run these
+# gates before each commit and push. A branch without a pull request runs them on demand (workflow_dispatch).
+# No paths filter: the repository tests guard the Markdown too (links, roadmap contract, language gate).
 
 name: ci
 
 on:
   push:
-    branches: ["**"]
+    branches: [master]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+# One run per pull request (or per branch), the newest wins.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:

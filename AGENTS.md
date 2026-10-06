@@ -30,7 +30,9 @@ npm run build          # tsc builds of every workspace package, in dependency or
   parallel (a Markdown-only commit skips typecheck and lint); `commit-msg` runs the language gate
   on the message; `pre-push` runs `npm test`.
 - Never `--no-verify`. A red hook is a red gate: fix the cause.
-- `.github/workflows/ci.yml` runs the same gates (static, test, build) on every push and pull request.
+- `.github/workflows/ci.yml` runs the same gates (static, test, build) on every pull request, every push to
+  master and on demand; `e2e.yml` the same, skipping documents-only changes. Not on every pushed branch:
+  with a pull request open, that would run each suite twice.
 - The repository tests guard the docs too: the roadmap contract (WORKFLOW §5), relative links in
   every `*.md`, and the shape of every workspace package. Start a package by copying
   `templates/package/`.

@@ -71,6 +71,10 @@ on:
         description: Node.js version that runs the deploy CLI
         type: string
         default: "22"
+      sparse-checkout:
+        description: "Checkout patterns for the image build, non-cone (e.g. /* and !/context/archive/); empty = the whole tag"
+        type: string
+        default: ""
     secrets:
       ssh-host:
         description: Server host name or IP address
@@ -102,6 +106,7 @@ jobs:
   check:
     name: check inputs
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions: {}
     outputs:
       image: ${{ steps.inputs.outputs.image }}
@@ -155,6 +160,7 @@ jobs:
     name: build and push the image
     needs: check
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: write
@@ -166,6 +172,10 @@ jobs:
         with:
           ref: ${{ inputs.tag }}
           persist-credentials: false
+          # A folder the image never needs (screenshots, archives) is not downloaded; .dockerignore only keeps it
+          # out of the build context after the download.
+          sparse-checkout: ${{ inputs.sparse-checkout }}
+          sparse-checkout-cone-mode: false
       - uses: docker/setup-buildx-action@v4
       - uses: docker/login-action@v4
         with:
@@ -195,6 +205,7 @@ jobs:
     name: deploy over SSH
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
     environment: ${{ inputs.environment }}
@@ -277,6 +288,7 @@ jobs:
           )
           ssh -i "$key" -p "$SSH_PORT" \
             -o BatchMode=yes -o IdentitiesOnly=yes -o ConnectTimeout=20 \
+            -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
             -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$known_hosts" \
             "$SSH_USER@$SSH_HOST" "$REMOTE_COMMAND $TAG" < .env.prod
       - name: Remove the key and .env.prod
@@ -287,6 +299,8 @@ jobs:
     name: verify the health route
     needs: deploy
     runs-on: ubuntu-latest
+    # Above the longest verify-timeout-seconds the check job accepts (9999 s).
+    timeout-minutes: 180
     permissions: {}
     steps:
       - name: Wait for the health route

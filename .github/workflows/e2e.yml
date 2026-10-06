@@ -4,16 +4,32 @@
 
 name: e2e
 
+# Triggers as in ci.yml (pull requests, master, on demand), and a documents-only change skips the run: the
+# example app never reads docs/, context/ or README files. Markdown the app does read (its blog content under
+# examples/) is not ignored.
 on:
   push:
-    branches: ["**"]
+    branches: [master]
+    paths-ignore:
+      - "docs/**"
+      - "context/**"
+      - "*.md"
+      - "**/README.md"
+      - "LICENSE"
   pull_request:
+    paths-ignore:
+      - "docs/**"
+      - "context/**"
+      - "*.md"
+      - "**/README.md"
+      - "LICENSE"
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: e2e-${{ github.ref }}
+  group: e2e-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
