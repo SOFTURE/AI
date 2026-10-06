@@ -52,6 +52,7 @@ backlog: context/backlog/roadmap-deploy-followups/
 | **DF-6** | `deploy-verify-cert-expiry` | `verify` fails when the TLS certificate expires within `verify.tlsMinDays` | — | autonomous | ready |
 | **DF-7** | `deploy-server-files` | `deploy-app.yml` ships the tag's `docker/prod/` files and `deploy.sh` with each release; no hand copy to the server | DP-5, DF-2 | autonomous | ready |
 | **DF-8** | `deploy-row-count-server-list` | the server's `deploy.sh` counts the tables of the shipped `deploy.json`; `init --tables` writes them there | DF-5, DF-7 | autonomous | ready |
+| **MK-10** | `marketing-kit-film-followups` | a committed `marketing.json` reproduces a paid film with no hand fixes: the opening transition is chosen in the config and none flickers, the voiceover cache shows which file belongs to which video (old flat caches still found), and the recording day is pinned per video | — | autonomous | ready |
 
 ## Order
 
@@ -64,6 +65,7 @@ parallel, up to 4 at once.
 | B: deploy.json | DF-5, DF-6 | `tools/deploy/src/verify/schema.ts` and `schema/deploy.schema.json` (DF-5 also `src/db/`, DF-6 the rest of `src/verify/`) |
 | C: auth | DF-4 | `foundation/auth/` (`testing` export), example app e2e |
 | D: FIRE parity | DF-1 | all of `tools/deploy/` and `deploy-app.yml` (reads FIRE_TRACKER) |
+| E: marketing-kit | MK-10 | `tools/marketing-kit/` (`compose/`, `render/`, `voice/cache.ts`, `config/` schema, `cli/`) |
 
 1. **First wave: DF-2, DF-4, DF-5 and DF-6.** Their prerequisites (DP-4, DP-5) are on `master`. DF-5 and DF-6 both
    add an optional key to the `deploy.json` schema; they run in parallel and the second to merge takes `master`
@@ -94,6 +96,7 @@ calls, the owner's own machine, a product decision only the owner can make, or a
 | DF-6 | no | tested against a local TLS server with a generated certificate |
 | DF-7 | no | protocol tested with the scripts run locally; no live server |
 | DF-8 | no | `init` output and the script tested locally; no live server |
+| MK-10 | no | fixture recordings and the fake voice provider; no paid call; the version bump rides the owner's next release |
 
 ## Items
 
@@ -219,6 +222,24 @@ calls, the owner's own machine, a product decision only the owner can make, or a
 - **Source:** DF-5 (`deploy-row-count-config`), research question 3: the server holds `docker/prod/` and
   `deploy.sh` only, so `deploy.sh` cannot read `deploy.json` until DF-7 ships the app's files with each release.
 - **PRD refs:** FR-33.
+
+### MK-10: A committed marketing.json reproduces a paid film without hand fixes
+- **Change ID:** `marketing-kit-film-followups`
+- **Status:** ready
+- **Input:** [`marketing-kit-film-followups`](../changes/marketing-kit-film-followups/change.md)
+- **Outcome:** `hook` takes a transition choice (at least the current rewind, repaired so it does not flicker, and a
+  plain fade or cut); the voiceover cache is laid out so a reader can tell which video a recording belongs to, and
+  a 0.1.2 flat cache (`<key>.mp3`/`.json`) is still found without a new paid call; `videos[]` can pin the day the
+  app is recorded as of, used by `record`/`all` unless `--today` overrides it. README and the example config show
+  all three.
+- **Prerequisites:** none (MK-8, the first npm publish, is not needed; the version bumps for the owner's release).
+- **Unknowns:** whether the default transition stays `rewind`; per-video folder vs readable prefix for the cache;
+  whether stale recordings get a listing or `prune` command.
+- **Risk:** medium. A cache lookup that misses an existing recording costs a paid ElevenLabs call in every adopting
+  app; the backward-compatible lookup needs a test with a real 0.1.2 file name.
+- **Source:** FIRE_TRACKER BS-18 (`marketing-kit-adoption`, 2026-10-06): the owner saw the rewind flicker at
+  5.4–6.2 s and FIRE patched the MP4 by hand; the owner asked for better voiceover names and folders; FIRE's agent
+  wrote that the paid voiceover renders only in October 2026 before finding `--today`.
 
 ## Owner decisions and checks
 
