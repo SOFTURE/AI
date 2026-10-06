@@ -11,7 +11,9 @@ export type { EdgeAlign, PlotPoint } from "./svg/geometry.js";
 export { edgeAlign, linePath, percent, PLOT_HEIGHT, PLOT_WIDTH, toPercent } from "./svg/geometry.js";
 export type { TimeAxisTicksOptions, TimeTick, ValueAxisTicksOptions, ValueTick } from "./svg/axis-ticks.js";
 export { timeAxisTicks, valueAxisTicks } from "./svg/axis-ticks.js";
-export { SERIES_SLOTS, seriesSlot } from "./svg/class-names.js";
+export { seriesSlot } from "./svg/class-names.js";
+// The series palette: token order and slot count (the guard is in @softure-ai/charts/testing).
+export { SERIES_SLOTS, SERIES_TOKENS, type SeriesToken } from "./palette/series-tokens.js";
 export type { ChartPlotProps } from "./svg/chart-plot.js";
 export { ChartPlot } from "./svg/chart-plot.js";
 export type { GuideLineProps, GuidePattern, SeriesLineProps } from "./svg/lines.js";

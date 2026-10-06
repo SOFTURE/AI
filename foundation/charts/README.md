@@ -11,7 +11,8 @@ functions, with no DOM and no React, so the drawing, the cursor and the tests sh
 
 On top of it, React components ([Components](#components)): `LineChart` for time series, and the
 primitives it is made of (plot, grid, lines, axes, legend, flags, a keyboard and pointer cursor, a data
-table) for charts of your own. Extracted from FIRE_TRACKER's `chart-scale`, `chart-ticks`,
+table) for charts of your own, coloured by a six-colour series palette that a test guard keeps legible and
+apart for colour-blind readers ([Series palette](#series-palette)). Extracted from FIRE_TRACKER's `chart-scale`, `chart-ticks`,
 `nearest-point` and `src/components/chart/`.
 
 ## Installation
@@ -161,10 +162,48 @@ drawing cannot drift apart. Classes are `sft-chart-*` in the `softure` layer; an
 
 ### Tokens
 
-Colours: `--sft-chart-{grid,axis,cursor,flag,on-flag,series-1,series-2,series-3}`; sizes:
-`--sft-chart-{line-width,grid-width,dot-size,plot-height}` (all in `@softure-ai/ui`). Three series colours
-for now; a fourth series repeats the first, so tell it apart with `dashed`. The value axis column is
-`--sft-chart-axis-width` (5 rem); set it on `.sft-chart` for wider labels.
+Colours: `--sft-chart-{grid,axis,cursor,flag,on-flag}` and the series palette `--sft-chart-series-{1…6}`;
+sizes: `--sft-chart-{line-width,grid-width,dot-size,plot-height}` (all in `@softure-ai/ui`). The value axis
+column is `--sft-chart-axis-width` (5 rem); set it on `.sft-chart` for wider labels.
+
+### Series palette
+
+Series take the colours in this order (`SERIES_TOKENS`, `SERIES_SLOTS = 6`); a seventh series repeats the
+first, so tell it apart with `dashed`.
+
+| Slot | Colour | Light | Dark |
+| --- | --- | --- | --- |
+| 1 | brand | `#356912` | `#cff26b` |
+| 2 | ink | `#16171a` | `#f2f3f5` |
+| 3 | purple | `#a855f7` | `#c084fc` |
+| 4 | pink | `#db2777` | `#db2777` |
+| 5 | blue | `#1e40af` | `#2563eb` |
+| 6 | teal | `#0d9488` | `#14b8a6` |
+
+Every colour keeps 3:1 (WCAG 1.4.11) on `color-background`, `color-surface` and `color-surface-raised`, and
+every pair stays at least 10 ΔE00 apart in normal vision and under protan, deutan and tritan simulation, in
+both schemes. Measured floors: 14.4 ΔE00 in light, 11.5 in dark (the brand and ink pair). Later slots sit
+further from the colours already used, so a chart with three series has 27.6 in light. Six is a choice, not
+a limit: a seventh colour family still fits at 12.4 ΔE00
+([research](../../context/archive/2026-10-06-charts-palette-guard/research.md)).
+
+An app that overrides the series colours checks them the same way, in its own tests:
+
+```ts
+import { DEFAULT_THEME, mergeThemes } from "@softure-ai/ui";
+import { checkSeriesPalette } from "@softure-ai/charts/testing";
+
+it("our series colours stay legible and apart for colour-blind readers", () => {
+  expect(checkSeriesPalette(mergeThemes(DEFAULT_THEME, appTheme))).toEqual([]);
+});
+```
+
+`checkSeriesPalette(schemes?, options?)` returns every failure at once: `low-contrast`, `missing-token` or
+`unreadable-color` (from `@softure-ai/ui/testing`'s `checkThemeContrast`) and `collision` (`scheme`, `pair` as
+`chart-series-1 and chart-series-3`, `vision`, `distance`, `minimum`). Options: `tokens` (the series, in slot
+order), `grounds` (`SERIES_GROUNDS` by default), `minDistance` (10), `visions` and `metric`; with `tokens` and
+`grounds` it checks an app's own token names. `@softure-ai/charts/testing` is never imported by the
+components, so it stays out of app bundles.
 
 ## Limitations
 
