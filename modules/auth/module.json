@@ -1,6 +1,6 @@
 {
   "id": "auth",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "dependsOn": { "security": "^0.1.0" },
   "dbSchema": "auth",
   "tables": ["users", "sessions", "user_roles", "password_resets"],

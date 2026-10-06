@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/db",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "SOFTURE AI database layer: pg/PGlite client, per-module migrator with plan and adopt, PGlite test databases.",
   "license": "MIT",
   "type": "module",

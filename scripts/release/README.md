@@ -72,7 +72,9 @@ package authenticates with a token:
 1. On npmjs.com, create a granular access token with read and write access to the `@softure-ai`
    scope and a short expiry. Store it as the repository secret `NPM_TOKEN`
    (GitHub → Settings → Secrets and variables → Actions).
-2. Release the version as above. The workflow tries OIDC first, then falls back to the token.
+2. Release the version as above. The workflow hands the token to npm only because the package is not
+   on npm yet; once it is (even as npm's `0.0.0-stage` placeholder), every stage goes through the trusted
+   publisher alone and the run says so in a notice.
 3. Approve the staged version on npmjs.com.
 4. On the package's settings page, add a trusted publisher: GitHub Actions, organization `SOFTURE`,
    repository `AI`, workflow `release.yml`, allowed action **stage only**.
@@ -88,9 +90,9 @@ and the GitHub Release are not created, so re-running the job after adding the s
 
 ## First batch release (0.1.2)
 
-Every package except the template is already at 0.1.2 on `master`, with `^0.1.0` ranges between them, so
-the first release needs no `release:version`: run **auto-release** with `all` (or push the tags by hand,
-at most three per push). Each package is new on npm, so each run needs the `NPM_TOKEN` secret (see
+Every package except the template went out at 0.1.2, with `^0.1.0` ranges between them, so the first
+release needed no `release:version`: run **auto-release** with `all` (or push the tags by hand,
+at most three per push). Each package was new on npm, so each run needed the `NPM_TOKEN` secret (see
 above). Then, package by package in dependency order (`node scripts/release/plan-tags.mjs all`), approve
 the staged version on npmjs.com and add its trusted publisher (steps 3 and 4 above). A package installs
 from npm once the packages it depends on are approved too.
@@ -100,6 +102,10 @@ The tags `<package>@0.1.0` and `<package>@0.1.1` exist without a release: 0.1.0 
 was published, and a tag is never moved, so the first release is 0.1.2. The
 same holds for any release that fails before publishing: fix it on `master`, bump the patch version and
 release again.
+
+0.1.3 is the first release without the token: every package already exists on npm, so its stage proves
+each trusted publisher. A package whose trusted publisher is missing fails at "Stage on npm" with an
+authentication error; add the publisher and re-run that job.
 
 ## Dry run
 

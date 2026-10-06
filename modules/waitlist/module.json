@@ -1,6 +1,6 @@
 {
   "id": "waitlist",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "dependsOn": { "security": "^0.1.0", "mailing": "^0.1.0", "privacy": "^0.1.0" },
   "dbSchema": "waitlist",
   "tables": ["signups"],
