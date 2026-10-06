@@ -9,7 +9,7 @@ here, in `context/changes/` or in `context/archive/`. Taking an entry works as i
 
 | ID | Entry | Title | Condition | Kind |
 | --- | --- | --- | --- | --- |
-| DF-1 | [`deploy-fire-parity`](deploy-fire-parity/change.md) | Parity of the deploy CLI with FIRE_TRACKER | a session that can read FIRE_TRACKER (the owner grants access) | owner |
+| DF-1 | [`deploy-fire-parity`](../../changes/deploy-fire-parity/change.md) (taken 2026-10-06) | Parity of the deploy CLI with FIRE_TRACKER | taken | owner |
 | DF-2 | [`deploy-workflow-verify-config`](../../archive/2026-10-06-deploy-workflow-verify-config/change.md) (done 2026-10-06) | The deploy workflow verifies with `softure-deploy verify` | roadmap promoted (DP-4 is on master) | start |
 | DF-3 | [`deploy-workflow-e2e`](deploy-workflow-e2e/change.md) | The deploy workflow runs end to end in CI | DF-7 on master (the CLI runs from the checkout while DP-8 waits) | dependency |
 | DF-4 | [`auth-testing-account-factory`](../../archive/2026-10-06-auth-testing-account-factory/change.md) (done 2026-10-06) | An account factory in @softure-ai/auth/testing | taken | start |
