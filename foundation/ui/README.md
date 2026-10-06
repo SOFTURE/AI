@@ -47,6 +47,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 | Typography | `font-{sans,mono,heading}`, `text-{xs,sm,base,lg,xl,2xl,3xl,display}` | no |
 | Shape and space | `radius-{control,card,pill}`, `space-{1…8}` (0.25 rem steps) | no |
 | Motion | `duration-{fast,base,slow}` (160/200/240 ms), `ease-{out,in-out}` | no |
+| Chart colour | `chart-{grid,axis,cursor,flag,on-flag,series-1,series-2,series-3}` | yes |
+| Chart size | `chart-{line-width,grid-width,dot-size,plot-height}` | no |
+
+Chart tokens are read by `@softure-ai/charts/styles.css`, not by utilities, so the Tailwind bridge does not
+map them. Their defaults copy today's roles (grid = border, axis = muted, cursor = border-strong, flag =
+accent-fill); the series colours are provisional until the palette guard (CH-4).
 
 The list lives in `src/theme/tokens.ts` (`SCHEME_TOKENS`, `SHARED_TOKENS`, `DEFAULT_THEME`); every
 CSS file the package ships is generated from it.

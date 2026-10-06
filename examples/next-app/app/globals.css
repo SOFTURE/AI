@@ -1,5 +1,6 @@
 /* The package CSS only: the example uses no Tailwind of its own, like an app that only consumes ui. */
 @import "@softure-ai/ui/styles.css";
+@import "@softure-ai/charts/styles.css";
 @import "@softure-ai/blog/styles.css";
 
 :root {

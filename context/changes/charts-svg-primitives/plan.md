@@ -113,14 +113,14 @@ Done when: the e2e passes locally against the built app (or in the e2e workflow 
 ### Phase 2: Cursor, data table and LineChart
 
 #### Automated
-- [x] 2.1 Cursor tests seen red, then green (keyboard, pointer, status, messages)
-- [x] 2.2 LineChart and table tests green with hand-written oracles
-- [x] 2.3 Architecture test green and catching planted colours and copy
-- [x] 2.4 Gates green (typecheck, lint, test, build)
+- [x] 2.1 Cursor tests seen red, then green (keyboard, pointer, status, messages) — 54a5ae8
+- [x] 2.2 LineChart and table tests green with hand-written oracles — 54a5ae8
+- [x] 2.3 Architecture test green and catching planted colours and copy — 54a5ae8
+- [x] 2.4 Gates green (typecheck, lint, test, build) — 54a5ae8
 
 ### Phase 3: Example page, e2e and docs
 
 #### Automated
-- [ ] 3.1 Chart e2e green
-- [ ] 3.2 READMEs describe the components and tokens
-- [ ] 3.3 Gates green (typecheck, lint, test, build)
+- [x] 3.1 Chart e2e green
+- [x] 3.2 READMEs describe the components and tokens
+- [x] 3.3 Gates green (typecheck, lint, test, build)

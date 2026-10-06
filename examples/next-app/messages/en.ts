@@ -43,6 +43,14 @@ export const en = {
     saved: "Entry saved",
     seePlans: "See plans",
   },
+  chart: {
+    title: "Charts",
+    lead: "A line chart of @softure-ai/charts, drawn on the server. Move over it, or focus it and use the arrow keys.",
+    chartTitle: "Savings and spending",
+    savings: "Savings",
+    spending: "Spending",
+    raise: "Raise",
+  },
   pricing: {
     title: "Plans",
     lead: "Every account starts with a 14-day trial. Pick a plan to keep writing after it.",

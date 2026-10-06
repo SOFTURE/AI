@@ -10,7 +10,8 @@
  */
 @layer softure {
   .sft-chart {
-    --sft-chart-axis-width: calc(var(--sft-space-8) * 2);
+    /* The value axis column: labels are absolutely placed and cannot size it. Wider labels: set it on .sft-chart. */
+    --sft-chart-axis-width: calc(var(--sft-space-8) * 2.5);
     margin: 0;
     display: grid;
     gap: var(--sft-space-3);
