@@ -61,7 +61,7 @@ backlog: context/backlog/roadmap-deploy/
 | **DP-2** | `deploy-reusable-workflows` | `workflow_call` workflows: build the image to GHCR, deploy over SSH, verify; an app keeps one `uses:` line | DP-1 | autonomous | done_code (2026-10-05; waiting: the first publish of `@softure-ai/deploy` and the `deploy-workflows-v1` tag, DP-8) |
 | **DP-3** | `deploy-db-guard` | backup before a deploy, a schema guard on the `@softure-ai/db` ledger and row counts before and after from an app hook | DP-1 | autonomous | done_code (2026-10-05; waiting: the first publish of `@softure-ai/deploy`, DP-8) |
 | **DP-4** | `deploy-verify-production` | `softure-deploy verify`: routes, expected statuses, markers, redirects and headers from `deploy.json` | DP-1 | autonomous | done_code (2026-10-05; waiting: the first publish of `@softure-ai/deploy`, DP-8) |
-| **DP-5** | `deploy-init-template` | `softure-deploy init` writes compose, Traefik rules, Dockerfile, the server script and the caller workflow once | DP-2, DP-3, DP-4 | autonomous | in_progress (implement, since 2026-10-06; cloud session, branch `claude/project-thread-jwect5`) |
+| **DP-5** | `deploy-init-template` | `softure-deploy init` writes compose, Traefik rules, Dockerfile, the server script and the caller workflow once | DP-2, DP-3, DP-4 | autonomous | in_progress (implement 1/3, since 2026-10-06; cloud session, branch `claude/project-thread-jwect5`) |
 | **DP-6** | `testing-clock-shift` | `@softure-ai/testing`: a Vitest setup that shifts the test clock to `TEST_TODAY` | — | autonomous | done_code (2026-10-05; waiting: the first publish of `@softure-ai/testing` in DP-8) |
 | **DP-7** | `testing-playwright-helpers` | generic Playwright helpers (login, factories, select, wait-for, links, assertions) used by the example app's e2e | DP-6 | autonomous | done_code (2026-10-05; waiting: the first publish of `@softure-ai/testing` in DP-8) |
 | **DP-8** | `deploy-release` | `@softure-ai/deploy` and `@softure-ai/testing` 0.1.0 published; the deploy workflows tagged for callers | DP-1…DP-7 | owner | blocked (waits for DP-1…DP-7 and the owner at the keyboard on 2026-10-06) |
@@ -173,7 +173,7 @@ None of DP-1…DP-7 needs one, so they run on 2026-10-05; everything that does i
 
 ### DP-5: Deploy files generated once
 - **Change ID:** `deploy-init-template`
-- **Status:** in_progress (implement, since 2026-10-06; cloud session, branch `claude/project-thread-jwect5`)
+- **Status:** in_progress (implement 1/3, since 2026-10-06; cloud session, branch `claude/project-thread-jwect5`)
 - **Input:** [`deploy-init-template`](../changes/deploy-init-template/change.md)
 - **Outcome:** `softure-deploy init` generates files the app then owns (never overwrites without `--force`):
   - production `docker-compose.yml` and Traefik rules (apex router with the app's allowed paths);
