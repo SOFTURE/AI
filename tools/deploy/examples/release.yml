@@ -1,0 +1,31 @@
+# The caller of SOFTURE/AI's reusable release workflow (.github/workflows/deploy-cut-release.yml). Copy it to the
+# app's `.github/workflows/release.yml`, next to `deploy.yml` (the caller of deploy-app.yml).
+#
+# "Run workflow" on the default branch cuts the next date tag (vYYYY.MM.DD, then -2, -3) and its GitHub Release on
+# that commit, then starts `deploy.yml` on the tag: the owner can run it from the Actions tab, and an agent that cannot
+# push tags can start it as a workflow_dispatch. `deploy-workflows-v1` is the tag the owner moves on SOFTURE/AI; pin a
+# commit SHA instead when the app wants an immutable reference.
+
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      description:
+        description: Markdown above the generated release notes (optional)
+        type: string
+        required: false
+        default: ""
+
+# The tag and the release, and starting deploy.yml on the tag.
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  release:
+    uses: SOFTURE/AI/.github/workflows/deploy-cut-release.yml@deploy-workflows-v1
+    with:
+      description: ${{ inputs.description }}
+      timezone: UTC
+      deploy-workflow: deploy.yml

@@ -1,0 +1,131 @@
+# Cuts one app release from a "Run workflow" on the default branch (@softure-ai/deploy, DF-12): picks the next free
+# date tag, creates the GitHub Release on the dispatched commit and starts the app's deploy workflow on that tag.
+#
+# The caller is `tools/deploy/examples/release.yml` in this repository: copy it to the app's `.github/workflows/`.
+# It grants `contents: write` (the tag and the release) and `actions: write` (starting the deploy workflow).
+#
+# Why: an agent's cloud session cannot push a tag and the GitHub tools cannot create one, but both can start a
+# `workflow_dispatch`; so can the owner from the Actions tab. A release created with GITHUB_TOKEN starts no other
+# workflow (GitHub's rule against recursive runs), so `release: published` in the app's deploy workflow does not fire
+# and the last step starts it explicitly with `gh workflow run <deploy-workflow> --ref <tag> -f tag=<tag>`. The deploy
+# workflow therefore needs a `workflow_dispatch` input named `tag`, as `examples/deploy.yml` and `softure-deploy init`'s
+# caller have.
+#
+# The tag is `<tag-prefix><YYYY.MM.DD>` in `timezone`, then `-2`, `-3`, … when that day already has releases. It
+# targets `github.sha`, the commit the dispatch ran on, so a merge landing during the run does not slip in. The
+# description goes above GitHub's generated notes. Every value reaches a script through `env:`, never interpolated.
+
+name: deploy-cut-release
+
+on:
+  workflow_call:
+    inputs:
+      description:
+        description: Markdown above GitHub's generated release notes; empty for the generated notes only
+        type: string
+        default: ""
+      tag-prefix:
+        description: Text before the date in the tag (letters, digits, ".", "_", "-")
+        type: string
+        default: v
+      timezone:
+        description: IANA time zone whose date names the tag, e.g. Europe/Warsaw
+        type: string
+        default: UTC
+      deploy-workflow:
+        description: The app's deploy workflow file, started on the new tag with -f tag=<tag>; empty cuts the release only
+        type: string
+        default: deploy.yml
+    outputs:
+      tag:
+        description: The tag (and release) that was created
+        value: ${{ jobs.cut.outputs.tag }}
+      sha:
+        description: The commit the tag points at
+        value: ${{ jobs.cut.outputs.sha }}
+
+permissions: {}
+
+jobs:
+  cut:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write # the tag and the release
+      actions: write # gh workflow run <deploy-workflow>
+    concurrency:
+      group: deploy-cut-release-${{ github.repository }}
+      cancel-in-progress: false
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      sha: ${{ steps.tag.outputs.sha }}
+    steps:
+      - name: Check the inputs and the branch
+        env:
+          TAG_PREFIX: ${{ inputs.tag-prefix }}
+          TIME_ZONE: ${{ inputs.timezone }}
+          DEPLOY_WORKFLOW: ${{ inputs.deploy-workflow }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          failed=0
+          fail() {
+            echo "::error::$1"
+            failed=1
+          }
+          [[ "$TAG_PREFIX" =~ ^[A-Za-z0-9._-]*$ ]] \
+            || fail "Input tag-prefix is not valid: \"$TAG_PREFIX\" (letters, digits, \".\", \"_\", \"-\")"
+          if [[ ! "$TIME_ZONE" =~ ^[A-Za-z0-9_+-]+(/[A-Za-z0-9_+-]+)*$ ]] || [[ ! -f "/usr/share/zoneinfo/$TIME_ZONE" ]]; then
+            fail "Input timezone is not valid: \"$TIME_ZONE\" (an IANA name such as Europe/Warsaw)"
+          fi
+          [[ -z "$DEPLOY_WORKFLOW" || "$DEPLOY_WORKFLOW" =~ ^[A-Za-z0-9._-]+\.ya?ml$ ]] \
+            || fail "Input deploy-workflow is not valid: \"$DEPLOY_WORKFLOW\" (a file name in .github/workflows/, or empty)"
+          if [[ -z "$DEFAULT_BRANCH" || "$GITHUB_REF" != "refs/heads/$DEFAULT_BRANCH" ]]; then
+            fail "A release is cut from the default branch ($DEFAULT_BRANCH) only, not from $GITHUB_REF"
+          fi
+          exit "$failed"
+
+      - name: Pick the next free date tag
+        id: tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_PREFIX: ${{ inputs.tag-prefix }}
+          TIME_ZONE: ${{ inputs.timezone }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          base="$TAG_PREFIX$(TZ="$TIME_ZONE" date +%Y.%m.%d)"
+          existing="$(gh api --paginate "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/$base" --jq '.[].ref')"
+          tag="$base"
+          n=2
+          while grep -qxF "refs/tags/$tag" <<< "$existing"; do
+            tag="$base-$n"
+            n=$((n + 1))
+          done
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.tag }}
+          SHA: ${{ steps.tag.outputs.sha }}
+          DESCRIPTION: ${{ inputs.description }}
+        run: |
+          set -euo pipefail
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$SHA" --title "$TAG" \
+            --notes "$DESCRIPTION" --generate-notes
+          echo "Release **$TAG** created on \`${SHA:0:8}\`." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Start the deploy workflow on the tag
+        if: inputs.deploy-workflow != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.tag }}
+          DEPLOY_WORKFLOW: ${{ inputs.deploy-workflow }}
+        run: |
+          set -euo pipefail
+          gh workflow run "$DEPLOY_WORKFLOW" --repo "$GITHUB_REPOSITORY" --ref "$TAG" -f tag="$TAG"
+          {
+            echo ""
+            echo "Deploy: [runs of $DEPLOY_WORKFLOW](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/workflows/${DEPLOY_WORKFLOW}?query=branch%3A${TAG})"
+          } >> "$GITHUB_STEP_SUMMARY"

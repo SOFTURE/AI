@@ -131,7 +131,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       # A pinned release checked against its published SHA-256; shellcheck comes with the runner image, so the
-      # `run:` scripts are checked too. The example caller of the deploy workflow lives outside .github/workflows/.
+      # `run:` scripts are checked too. The example callers of the deploy workflows live outside .github/workflows/.
       - name: Install actionlint
         run: |
           archive="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
@@ -143,7 +143,7 @@ jobs:
         run: |
           shellcheck --version | head -n 2
           "$RUNNER_TEMP/actionlint" -color
-          "$RUNNER_TEMP/actionlint" -color tools/deploy/examples/deploy.yml
+          "$RUNNER_TEMP/actionlint" -color tools/deploy/examples/deploy.yml tools/deploy/examples/release.yml
 
   build:
     name: build packages
