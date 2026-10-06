@@ -20,7 +20,7 @@
 # The archive may also hold .registry-token, the deploy job's short-lived GITHUB_TOKEN: the image is then pulled
 # with it through a Docker config in this run's temporary folder, so the host keeps no registry login and the token
 # is never installed. Without it (the workflow's registry-token: false), the host's own registry login pulls
-# ghcr.io/softure/ai-deploy-e2e.
+# localhost:5000/softure/ai-deploy-e2e.
 #
 # The host needs Docker with the compose plugin, cron and flock (both in Ubuntu's base system).
 # The database steps also need Node.js 22 (`npx @softure-ai/deploy`) and pg_dump of the Postgres major version of
@@ -51,7 +51,7 @@
 set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-IMAGE="ghcr.io/softure/ai-deploy-e2e"
+IMAGE="localhost:5000/softure/ai-deploy-e2e"
 DEPLOY_CLI="@softure-ai/deploy@0.0.0"
 DATABASE_NAME="softure_example"
 BACKUP_DIR="$APP_DIR/backups"

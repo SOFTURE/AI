@@ -30,11 +30,14 @@
 # through `env:`, never interpolated into it. The CLI comes from npm (`deploy-cli-version`), so the workflow runs once
 # @softure-ai/deploy is published (DP-8).
 #
-# `e2e: true` is this repository's own end-to-end test (.github/workflows/e2e-deploy.yml, DF-3) and is refused in any
-# other repository. On that path nothing leaves the runners: the image is built without a push, the CLI runs from the
-# tag's checkout, the deploy job starts a throwaway SSH server next to itself (tools/deploy/e2e/start-server.sh) whose
-# forced command records what it received, and the send step's ssh command is the production one pointed at it. The
-# recording is uploaded as the artifact `deploy-e2e-received` for the caller to check; verify is skipped.
+# `e2e: true` is this repository's own end-to-end test (.github/workflows/e2e-deploy.yml, DF-3, DF-15) and is refused
+# in any other repository. On that path nothing leaves the runners: the image is built without a push and handed to
+# the deploy job as the artifact `deploy-e2e-image`, the CLI runs from the tag's checkout, and the deploy job's runner
+# becomes the server (tools/deploy/e2e/start-server.sh): a registry holding the image, a certificate for the app's host
+# from a CA of the run, and sshd whose forced command records what it received and runs the tag's deploy.sh, which
+# brings the stack up on the runner. The send step's ssh command is the production one pointed at it. The verify job's
+# two steps then run in the deploy job (the stack lives on its runner) with the tag's CLI; the recording is uploaded
+# as the artifact `deploy-e2e-received` for the caller to check.
 
 name: deploy-app
 
@@ -323,6 +326,8 @@ jobs:
           context: ${{ inputs.context }}
           file: ${{ inputs.dockerfile }}
           push: ${{ !inputs.e2e }}
+          # The end-to-end test hands the image to the deploy job as a `docker load` archive instead.
+          outputs: ${{ inputs.e2e && format('type=docker,dest={0}/deploy-e2e-image.tar', runner.temp) || '' }}
           tags: ${{ steps.ref.outputs.image }}
           build-args: ${{ inputs.build-args }}
           labels: |
@@ -330,6 +335,15 @@ jobs:
             org.opencontainers.image.version=${{ inputs.tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      - if: inputs.e2e
+        uses: actions/upload-artifact@v7
+        with:
+          name: deploy-e2e-image
+          path: ${{ runner.temp }}/deploy-e2e-image.tar
+          if-no-files-found: error
+          retention-days: 1
+          # The image's layers are compressed already.
+          compression-level: 0
 
   deploy:
     name: deploy over SSH
@@ -357,7 +371,8 @@ jobs:
         with:
           node-version: ${{ inputs.node-version }}
       # End-to-end test only (refused outside SOFTURE/AI by the check job): the CLI of the tag itself, built from a full
-      # checkout, so the test needs no published version, and the throwaway SSH server the release is sent to.
+      # checkout, so the test needs no published version, the image the build job handed over, and this runner set up
+      # as the server the release is sent to.
       - if: inputs.e2e
         uses: actions/checkout@v7
         with:
@@ -370,12 +385,24 @@ jobs:
         run: |
           npm ci --no-audit --no-fund
           npm run build
+      - if: inputs.e2e
+        uses: actions/download-artifact@v8
+        with:
+          name: deploy-e2e-image
+          path: ${{ runner.temp }}/e2e-image
       - id: e2e-server
-        name: Start the throwaway SSH server (end-to-end test)
+        name: Set up this runner as the server (end-to-end test)
         if: inputs.e2e
         env:
           SSH_PORT: ${{ inputs.ssh-port }}
-        run: E2E_DIR="$RUNNER_TEMP/e2e-server" bash .softure-ai-cli/tools/deploy/e2e/start-server.sh
+          IMAGE_REF: ${{ needs.build.outputs.image }}
+          COMPOSE_FILE: ${{ inputs.compose-file }}
+          SERVER_SCRIPT: ${{ inputs.server-script }}
+          APP_URL: ${{ inputs.app-url }}
+        run: |
+          E2E_DIR="$RUNNER_TEMP/e2e-server" IMAGE_ARCHIVE="$RUNNER_TEMP/e2e-image/deploy-e2e-image.tar" \
+            DEPLOY_CLI="$GITHUB_WORKSPACE/.softure-ai-cli/tools/deploy/dist/cli/main.js" \
+            bash .softure-ai-cli/tools/deploy/e2e/start-server.sh
       # The app's secrets and values go to the CLI's environment only; it writes the compose file's required names to
       # .env.prod (mode 0600) and prints names, never values. Names that steer Node or npm itself are refused. A value
       # in app-vars wins over a secret of the same name. Then each build argument whose name .env.prod holds must
@@ -544,17 +571,55 @@ jobs:
           path: ${{ runner.temp }}/e2e-server/received/
           if-no-files-found: error
           retention-days: 7
-      - name: Show the throwaway SSH server's log (end-to-end test)
+      # The verify job's two steps, here because the end-to-end stack runs on this runner; keep them in step with it.
+      # The runner trusts the run's CA (curl); Node takes it from NODE_EXTRA_CA_CERTS.
+      - name: Wait for the health route (end-to-end test)
+        if: inputs.e2e
+        env:
+          APP_URL: ${{ inputs.app-url }}
+          HEALTH_PATH: ${{ inputs.health-path }}
+          VERIFY_TIMEOUT: ${{ inputs.verify-timeout-seconds }}
+        run: |
+          url="${APP_URL%/}$HEALTH_PATH"
+          deadline=$((SECONDS + VERIFY_TIMEOUT))
+          while true; do
+            status=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "$url" || true)
+            if [ "$status" = "200" ]; then
+              echo "verify: $url answered 200."
+              exit 0
+            fi
+            if (( SECONDS >= deadline )); then
+              echo "::error::verify: $url did not answer 200 within ${VERIFY_TIMEOUT}s (last: ${status:-no answer})."
+              exit 1
+            fi
+            echo "verify: $url answered ${status:-nothing}; retrying in 10s."
+            sleep 10
+          done
+      - name: Verify the routes in deploy.json (end-to-end test)
+        if: inputs.e2e && inputs.deploy-config != ''
+        env:
+          APP_URL: ${{ inputs.app-url }}
+          DEPLOY_CONFIG: ${{ inputs.deploy-config }}
+          NODE_EXTRA_CA_CERTS: ${{ steps.e2e-server.outputs.ca-file }}
+        run: node .softure-ai-cli/tools/deploy/dist/cli/main.js verify "$APP_URL" --config="$DEPLOY_CONFIG"
+      - name: Show the server's log and the stack (end-to-end test)
         if: always() && inputs.e2e
-        run: docker logs softure-deploy-e2e-server || true
+        run: |
+          sudo cat "$RUNNER_TEMP/e2e-server/server/sshd.log" || true
+          docker ps --all || true
+          for container in $(docker ps --all --quiet --filter label=com.docker.compose.project); do
+            echo "::group::docker logs $container"
+            docker logs --tail 200 "$container" || true
+            echo "::endgroup::"
+          done
       - name: Remove the key, .env.prod and the release archive
         if: always()
-        run: rm -rf "$RUNNER_TEMP/deploy_key" "$RUNNER_TEMP/deploy_known_hosts" "$RUNNER_TEMP/release" "$RUNNER_TEMP/e2e-server" .env.prod release.tar.gz
+        run: rm -rf "$RUNNER_TEMP/deploy_key" "$RUNNER_TEMP/deploy_known_hosts" "$RUNNER_TEMP/release" "$RUNNER_TEMP/e2e-server" "$RUNNER_TEMP/e2e-image" .env.prod release.tar.gz
 
   verify:
     name: verify the release
     needs: deploy
-    # The end-to-end test's server records the release instead of running it, so there is nothing to verify.
+    # The end-to-end test's stack runs on the deploy job's runner, so that job runs these steps itself.
     if: ${{ !inputs.e2e }}
     runs-on: ubuntu-latest
     # Above the longest verify-timeout-seconds the check job accepts (9999 s).
