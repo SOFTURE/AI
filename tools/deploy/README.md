@@ -84,6 +84,31 @@ Changes since v1.1.0: 2 pull requests, 1 other commits.
 [Full diff](https://github.com/acme/app/compare/v1.1.0...v1.2.0)
 ```
 
+## `softure-deploy release-report`
+
+The deploy run's report in the same release body (DF-10): the pipeline status of the latest run and the history of
+every deployment of the tag.
+
+```bash
+softure-deploy release-report --body=<release body file> --summary=deploy-report.json [--locale=en|pl] [--out=<file>]
+```
+
+- **Input:** `--summary` is the `deploy-report.json` the `summary` job of `deploy-app.yml` uploads (version 1: tag,
+  environment, image, digest, run URL, end time in UTC, each job's result and the server's `step|…`/`result|…`
+  lines). Another shape fails with the field's name. `--body` is the release's current body; a missing file is empty.
+- **Status:** between `<!-- softure-deploy:status -->` markers, `## Pipeline status`: one row per job with its result
+  (✅ success, ❌ failure, ⛔ cancelled, ⏭️ skipped, ⏳ anything else) and the link to the run. Every run replaces it.
+- **Deployments:** between `<!-- softure-deploy:deployments -->` markers, `## Deployments`: one row per run, the newest
+  on top, the earlier rows kept byte for byte, so a rerun or a rollback adds a row. Columns: time (UTC), result
+  (`deployed`, or `failed at <step>` from the server's `result|failed|<step>|…`), environment, image and digest, the
+  backup file and the row counts before → after (`?` when the server stopped before counting again, `not counted` on
+  a first release), the verify result and the run. A run whose deploy job was skipped writes the status only.
+- **Order:** the sections stand in a fixed order whatever wrote them first: `release-notes`, status, deployments; the
+  owner's text above them stays. Values from the summary are reduced to letters, digits and plain punctuation, so a
+  `|`, a backtick or `<` cannot break the table.
+- A GitHub Release body holds at most 125 000 characters; one row is about 300, so a tag reaches the limit after some
+  300 runs, and the report's `gh release edit` then fails without touching the deploy.
+
 ## Database steps around a deploy
 
 `backup`, `schema-guard` and `row-counts` read the database URL from `DATABASE_URL` (`--url-env=<NAME>` names
@@ -172,7 +197,7 @@ softure-deploy row-counts [--tables=<a,b.c> | --config=deploy.json] [--out=<file
 Checks a deployed app against the routes in its `deploy.json`, prints a table and exits `1` when a check fails.
 
 ```bash
-softure-deploy verify <url> [--config=deploy.json] [--timeout=<ms>] [--concurrency=4]
+softure-deploy verify <url> [--config=deploy.json] [--timeout=<ms>] [--concurrency=4] [--origin=<host>[:<port>]]
 ```
 
 ```json
@@ -213,6 +238,13 @@ softure-deploy verify <url> [--config=deploy.json] [--timeout=<ms>] [--concurren
   Fewer days than the minimum, a certificate not trusted for the host, a handshake error or an `http://` URL fail
   the row and the run. Behind Cloudflare the certificate seen is Cloudflare's edge one, which it renews itself; the
   check matters for an origin served directly (Traefik with ACME).
+- **Origin behind a CDN:** with `--origin=<address>` (the server's own IP, port 443 unless given; `[v6]:port` for
+  IPv6), `verify` opens one TCP connection to it, sends nothing, and adds an `origin` row. The row passes only when
+  nothing answers: the connection times out (a firewall dropping it), is refused or cannot be routed. An accepted
+  connection fails the row and the run, because direct HTTPS reaches the server around the CDN. An address that does
+  not resolve fails too (nothing was checked). It is a TCP handshake, not an HTTPS request: an open origin whose
+  certificate does not cover the IP still fails. The address is a command-line value, never in `deploy.json`, so it
+  stays out of the repository. Pass the server's IP, not a name that resolves through the CDN.
 - The schema is in [`schema/deploy.schema.json`](schema/deploy.schema.json) (`npm run schema -w @softure-ai/deploy`
   after changing `src/verify/schema.ts`). The route list is the app's; the package holds only the engine.
 - The same file holds `database.rowCountTables`, the tables `row-counts` compares (see above).
@@ -222,8 +254,9 @@ Result  Status  Route     Detail
 PASS    200     /         5 checks passed
 FAIL    404     /pricing  status 404, expected 200; missing "Pricing"
 PASS    -       tls       41 days left (until 2026-11-16), issuer Let's Encrypt
+PASS    -       origin    203.0.113.7:443 no answer within 10000 ms (dropped)
 
-verify: 2 routes at https://example.com, 1 passed, 1 failed; certificate passed
+verify: 2 routes at https://example.com, 1 passed, 1 failed; certificate passed; origin passed
 ```
 
 ## Deploy workflow
@@ -248,7 +281,10 @@ one caller, [`examples/deploy.yml`](examples/deploy.yml), with a single `uses:` 
    stays in `$RUNNER_TEMP/deploy-output.txt` for the job;
 4. waits until `<app-url><health-path>` answers 200, then runs `softure-deploy verify <app-url>` with the app's
    `deploy-config` read from the tag (only that file is checked out). A missing or invalid file fails the run;
-   `deploy-config: ""` keeps the health route only.
+   `deploy-config: ""` keeps the health route only. With the `origin-address` secret, verify gets `--origin` too.
+5. whatever happened, uploads the run's facts as the artifact `deploy-report` (`summary` job, no permissions): each
+   job's result, the image and its digest, and the server's `step|…`/`result|…` lines (`init`'s `deploy.sh` puts the
+   backup's file name and the row counts on them).
 
 | Input | Default | |
 | --- | --- | --- |
@@ -270,12 +306,25 @@ one caller, [`examples/deploy.yml`](examples/deploy.yml), with a single `uses:` 
 | `registry-token` | `true` | send the deploy job's `GITHUB_TOKEN` (`packages: read`, valid until the job ends) for the server's pull |
 | `e2e` | `false` | this repository's own end-to-end test (below); refused in any other repository |
 
-Secrets, all required and passed by name (no `secrets: inherit`): `ssh-host`, `ssh-user`, `ssh-private-key`,
-`ssh-known-hosts` and `app-secrets` (a JSON object such as `toJSON(secrets)`; names like `PATH`, `HOME`, `NODE_*` and
-`NPM_CONFIG_*` are refused, in `app-vars` too). The registry token pulls a package the build job of the same
-repository pushed (its `org.opencontainers.image.source` label links it); for an image elsewhere, set
-`registry-token: false` and log the server in. The workflow runs once this package is on npm; callers pin the `deploy-workflows-v1` tag
+Secrets, passed by name (no `secrets: inherit`): `ssh-host`, `ssh-user`, `ssh-private-key`, `ssh-known-hosts` and
+`app-secrets` (a JSON object such as `toJSON(secrets)`; names like `PATH`, `HOME`, `NODE_*` and `NPM_CONFIG_*` are
+refused, in `app-vars` too) are required; `origin-address` is optional: the server's own address behind the CDN (the
+example passes `secrets.DEPLOY_ORIGIN_IP`), refused when `deploy-config` is empty, and verify fails when it accepts a
+direct connection. A secret, not an input, so the address is masked in the logs. The registry token pulls a package
+the build job of the same repository pushed (its `org.opencontainers.image.source` label links it); for an image
+elsewhere, set `registry-token: false` and log the server in. The workflow runs once this package is on npm; callers pin the `deploy-workflows-v1` tag
 the owner sets, or its commit SHA.
+
+### Release report
+
+[`deploy-report.yml`](../../.github/workflows/deploy-report.yml) is the caller's second job (`needs: deploy`,
+`if: always()`, see [`examples/deploy.yml`](examples/deploy.yml)). It reads the `deploy-report` artifact of the same
+run and the tag's GitHub Release body (`gh release view`), runs `softure-deploy release-report` and writes the body
+back (`gh release edit`): the pipeline status replaced, a deployment row added on top. It is a workflow of its own
+because editing a release needs `contents: write`, which the caller grants to this job only; inside `deploy-app.yml`
+every job would have needed it. One report per tag runs at a time, so two runs never drop each other's row. A tag
+without a release gets no report (a notice), and a failed report never turns the run red (`continue-on-error`).
+Inputs: `tag` (required), `locale` (`en` or `pl`), `deploy-cli-version`, `node-version`, `e2e` (below).
 
 ### Cut a release
 
@@ -310,18 +359,33 @@ scope: packages keep their own release workflow.
 commit with `e2e: true` for the example app, on every pull request that touches the workflow or `tools/deploy/`, on
 `master` and on demand. On that path:
 
-- `build` builds the example app's image (`examples/next-app/Dockerfile`) without the GHCR login and without a push;
+- `build` builds the example app's image (`examples/next-app/Dockerfile`) without the GHCR login and without a push,
+  and hands it to `deploy` as the artifact `deploy-e2e-image`;
 - `deploy` builds this CLI from a full checkout of the tag instead of running the npm version, and
-  [`e2e/start-server.sh`](e2e/start-server.sh) starts a throwaway `sshd` container on the runner with fresh host and
-  client keys; the deploy key reaches only the forced command [`e2e/server/record.sh`](e2e/server/record.sh). The send
-  step runs the production `ssh` command (host key checked) against it. The recorder writes the command line, the
-  archive's files, their SHA-256, the mode of `.env.prod` and its names (never a value), uploaded as the artifact
-  `deploy-e2e-received`;
-- `verify` is skipped: the recorder does not run the app.
+  [`e2e/start-server.sh`](e2e/start-server.sh) sets up its own runner (Ubuntu with Docker, cron and flock) as the
+  server: the image goes into a registry on `localhost:5000` (the e2e app's image name), the compose file's Docker Hub
+  images come from `mirror.gcr.io`, a certificate for `deploy-e2e.example.com` signed by a CA of the run waits in
+  Traefik's ACME store (so Traefik never asks Let's Encrypt) and the name points at `127.0.0.1`, and `sshd` binds
+  fresh keys to the forced command [`e2e/server/forced-command.sh`](e2e/server/forced-command.sh). The send step runs
+  the production `ssh` command (host key checked) against it. The forced command first records the command line, the
+  archive's files, their SHA-256, the mode of `.env.prod` and its names (never a value) with
+  [`e2e/server/record.sh`](e2e/server/record.sh), uploaded as the artifact `deploy-e2e-received`, then runs the tag's
+  `deploy.sh` from `/srv/softure-example/` unchanged: pull (logged in with the release's `.registry-token`, which the
+  local registry accepts unchecked), backup, schema guard, switch, cron, `result|ok`. Its
+  `npx @softure-ai/deploy@0.0.0` (the e2e app's pinned version, never published) is answered by
+  [`e2e/server/bin/npx`](e2e/server/bin/npx) with the CLI built from the tag;
+- `verify` would run on another runner, away from the stack, so `deploy` runs its two steps itself: the wait for
+  `/api/health` and `softure-deploy verify https://deploy-e2e.example.com` with the e2e app's `deploy.json`, trusting
+  the run's CA through `NODE_EXTRA_CA_CERTS`.
+
+The caller's `report` job calls `deploy-report.yml` with `e2e: true` (refused outside SOFTURE/AI as well): the CLI
+from the tag writes the report into a fixture body, uploaded as `deploy-report-body` instead of edited into a
+release; [`e2e/check-report.sh`](e2e/check-report.sh) checks the owner's line, a status row per job and one
+`deployed` row with the built image.
 
 The caller's `assert` job runs [`e2e/check-received.sh`](e2e/check-received.sh): the image is
-`ghcr.io/softure/ai-deploy-e2e:<sha>`, the command line `deploy <sha>`, the files are byte for byte the tag's, and
-`.env.prod` (0600) holds exactly the compose file's required names, not the extra secret the caller also passes.
+`localhost:5000/softure/ai-deploy-e2e:<sha>`, the command line `deploy <sha>`, the files are byte for byte the tag's,
+and `.env.prod` (0600) holds exactly the compose file's required names, not the extra secret the caller also passes.
 The server files are `init`'s output for the example app, committed under [`e2e/app/`](e2e/app/); after a template
 change, `npm run e2e-app -w @softure-ai/deploy` rewrites them (`tests/e2e-scripts.test.ts` fails until then). `check`
 refuses `e2e` unless the caller is `SOFTURE/AI`, so an app can never take this path.
@@ -426,7 +490,8 @@ standalone app, and builds its image from the generated `Dockerfile` (`npm run e
 The same steps as functions, for scripts that need them without the CLI:
 `findComposeNames`, `findRequiredNames`, `renderEnvFile` (a result value: the text, or the missing and unsafe names),
 `readReleaseCommits`, `findPreviousTag`, `toReleaseEntries`, `formatReleaseNotes`, `parseRoadmapItems`,
-`selectShippingItems`, `writeReleaseSection`, `readReleaseSection`, `toLibpqEnv`, `createBackup`,
+`selectShippingItems`, `writeReleaseSection`, `readReleaseSection`, `readSection`, `writeSection`, `parseDeployReport`,
+`parseServerLines`, `writeReleaseReport`, `toLibpqEnv`, `createBackup`,
 `selectExpiredBackups`, `selectAgedBackups`, `hasCustomFormatHeader`, `guardSchema`, `parseTableList`, `countRows`, `compareRowCounts`, `parseDeployConfig`,
 `runVerify` (an injectable `fetch`), `checkResponse`, `formatVerifyReport`, `parseInitAnswers`, `readAppFacts`,
 `planInitFiles` (pure: the files and their text), `writeInitFiles`.
@@ -444,7 +509,9 @@ here a throwaway Docker config leaves the host's login alone).
 
 **In the package:** optional compose names and the header line (`env render`); the release body section and the
 roadmap table (`release-notes`); excluded table data, the age limit and the header check (`backup`); method, body and
-request headers (`verify`). Already here before: names from the compose file, values never printed, mode 0600, the
+request headers (`verify`); the origin firewall check (`verify --origin`, DF-13; a failure where FIRE only warns,
+and a TCP handshake where FIRE's `curl` passes an open origin whose certificate does not cover the IP). Already here
+before: names from the compose file, values never printed, mode 0600, the
 schema guard (stricter than FIRE's migration count), row counts, status, markers, redirects, header and type checks,
 certificate expiry.
 
@@ -453,12 +520,14 @@ fails before the switch, `.env.prod.prev`, the Traefik recreate when `traefik.ym
 daily cron for the backup age and old images, and the step and result lines the workflow checks. FIRE's gateway and
 its second-stage script inside the image stay one script here: the release ships it (DF-7).
 
+**In the release report (DF-10):** FIRE's living report as `release-report` and `deploy-report.yml`: a status table
+replaced by every run and a deployment history with the newest row on top (time, result, image and digest, backup
+file, row counts before and after, verify, run). Different on purpose: times in UTC, not Europe/Warsaw; no migration
+count (no step line carries it); the "what's in it" part is `release-notes`' section, not a third writer.
+
 **Tracked as roadmap items** (they change `deploy-app.yml` or `init`'s `deploy.sh`):
 
-- **DF-10:** a report job writes pipeline status and deployment history (image, digest, backup, row counts before and
-  after) into the release body.
 - **DF-12:** a reusable workflow that cuts a date tag and release and starts the deploy (an agent cannot push tags).
-- **DF-13:** `verify` checks that the server's IP refuses direct HTTPS (only the CDN may reach it).
 
 **Kept different on purpose:** the custom dump format instead of plain SQL with gzip (compressed, restorable table by
 table); `row-counts` fails on a drop, not on any change (a sign-up during a release is not a failure); seven dumps

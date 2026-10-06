@@ -16,7 +16,8 @@
 #
 # Verify waits for the health route, then runs `softure-deploy verify <app-url>` (DP-4) with the app's `deploy.json`
 # from the tag: every route, status, marker, redirect and header the app lists. `deploy-config: ""` keeps the health
-# route only.
+# route only. With the `origin-address` secret, verify also fails when the server accepts a direct connection
+# (DF-13): only the CDN may reach it.
 #
 # Release guards (DF-11): the `check` job refuses a tag whose commit is not on the release branch (the caller's default
 # branch unless `release-branch` names another). `build-args` are baked into the image (public values only: they are
@@ -30,11 +31,18 @@
 # through `env:`, never interpolated into it. The CLI comes from npm (`deploy-cli-version`), so the workflow runs once
 # @softure-ai/deploy is published (DP-8).
 #
-# `e2e: true` is this repository's own end-to-end test (.github/workflows/e2e-deploy.yml, DF-3) and is refused in any
-# other repository. On that path nothing leaves the runners: the image is built without a push, the CLI runs from the
-# tag's checkout, the deploy job starts a throwaway SSH server next to itself (tools/deploy/e2e/start-server.sh) whose
-# forced command records what it received, and the send step's ssh command is the production one pointed at it. The
-# recording is uploaded as the artifact `deploy-e2e-received` for the caller to check; verify is skipped.
+# Whatever happened, the `summary` job uploads the run's facts (each job's result, the image, its digest and the
+# server's step lines) as the artifact `deploy-report`; the caller's second job, deploy-report.yml (DF-10), writes them
+# into the tag's GitHub Release.
+#
+# `e2e: true` is this repository's own end-to-end test (.github/workflows/e2e-deploy.yml, DF-3, DF-15) and is refused
+# in any other repository. On that path nothing leaves the runners: the image is built without a push and handed to
+# the deploy job as the artifact `deploy-e2e-image`, the CLI runs from the tag's checkout, and the deploy job's runner
+# becomes the server (tools/deploy/e2e/start-server.sh): a registry holding the image, a certificate for the app's host
+# from a CA of the run, and sshd whose forced command records what it received and runs the tag's deploy.sh, which
+# brings the stack up on the runner. The send step's ssh command is the production one pointed at it. The verify job's
+# two steps then run in the deploy job (the stack lives on its runner) with the tag's CLI; the recording is uploaded
+# as the artifact `deploy-e2e-received` for the caller to check.
 
 name: deploy-app
 
@@ -141,6 +149,11 @@ on:
       app-secrets:
         description: JSON object of the app's runtime secrets by name, e.g. toJSON(secrets)
         required: true
+      origin-address:
+        description: >-
+          The server's own address behind the CDN (IP or host, optional :port, default 443), e.g. vars.DEPLOY_IP;
+          verify fails when it accepts a direct connection. Empty skips the check. Needs deploy-config.
+        required: false
     outputs:
       image:
         description: The pushed image reference with its tag
@@ -185,6 +198,7 @@ jobs:
           BUILD_ARGS: ${{ inputs.build-args }}
           E2E: ${{ inputs.e2e }}
           REPOSITORY: ${{ github.repository }}
+          ORIGIN_ADDRESS: ${{ secrets.origin-address }}
         run: |
           failures=0
           reject() {
@@ -212,6 +226,11 @@ jobs:
           expect health-path "$HEALTH_PATH" '^/[A-Za-z0-9/._~-]*$' "a path starting with /"
           expect verify-timeout-seconds "$VERIFY_TIMEOUT" '^[1-9][0-9]{1,3}$' "10 to 9999 seconds"
           if [ -n "$DEPLOY_CONFIG" ]; then expect_path deploy-config "$DEPLOY_CONFIG"; fi
+          if [ -n "$ORIGIN_ADDRESS" ]; then
+            expect origin-address "$ORIGIN_ADDRESS" '^([A-Za-z0-9.-]+|\[[0-9A-Fa-f:.]+\])(:[0-9]{1,5})?$|^[0-9A-Fa-f:.]+$' "an IP address or host with an optional :port"
+            # The origin is checked by the verify step, which runs only with a config: refuse a check that would not run.
+            if [ -z "$DEPLOY_CONFIG" ]; then reject origin-address "empty when deploy-config is empty (verify runs with deploy.json)"; fi
+          fi
           expect deploy-cli-version "$DEPLOY_CLI_VERSION" '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$' "an exact version"
           if [ -n "${RELEASE_BRANCH:-}" ]; then
             expect release-branch "$RELEASE_BRANCH" '^[A-Za-z0-9_.][A-Za-z0-9_./-]{0,254}$' "a branch name"
@@ -323,6 +342,8 @@ jobs:
           context: ${{ inputs.context }}
           file: ${{ inputs.dockerfile }}
           push: ${{ !inputs.e2e }}
+          # The end-to-end test hands the image to the deploy job as a `docker load` archive instead.
+          outputs: ${{ inputs.e2e && format('type=docker,dest={0}/deploy-e2e-image.tar', runner.temp) || '' }}
           tags: ${{ steps.ref.outputs.image }}
           build-args: ${{ inputs.build-args }}
           labels: |
@@ -330,6 +351,15 @@ jobs:
             org.opencontainers.image.version=${{ inputs.tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      - if: inputs.e2e
+        uses: actions/upload-artifact@v7
+        with:
+          name: deploy-e2e-image
+          path: ${{ runner.temp }}/deploy-e2e-image.tar
+          if-no-files-found: error
+          retention-days: 1
+          # The image's layers are compressed already.
+          compression-level: 0
 
   deploy:
     name: deploy over SSH
@@ -340,6 +370,8 @@ jobs:
     permissions:
       contents: read
       packages: read
+    outputs:
+      server-lines: ${{ steps.server-lines.outputs.lines }}
     environment: ${{ inputs.environment }}
     # One deploy at a time per app and environment; a running deploy is never cancelled halfway. End-to-end runs deploy
     # to their own server, so each has its own group and none waits for or replaces another.
@@ -357,7 +389,8 @@ jobs:
         with:
           node-version: ${{ inputs.node-version }}
       # End-to-end test only (refused outside SOFTURE/AI by the check job): the CLI of the tag itself, built from a full
-      # checkout, so the test needs no published version, and the throwaway SSH server the release is sent to.
+      # checkout, so the test needs no published version, the image the build job handed over, and this runner set up
+      # as the server the release is sent to.
       - if: inputs.e2e
         uses: actions/checkout@v7
         with:
@@ -370,12 +403,24 @@ jobs:
         run: |
           npm ci --no-audit --no-fund
           npm run build
+      - if: inputs.e2e
+        uses: actions/download-artifact@v8
+        with:
+          name: deploy-e2e-image
+          path: ${{ runner.temp }}/e2e-image
       - id: e2e-server
-        name: Start the throwaway SSH server (end-to-end test)
+        name: Set up this runner as the server (end-to-end test)
         if: inputs.e2e
         env:
           SSH_PORT: ${{ inputs.ssh-port }}
-        run: E2E_DIR="$RUNNER_TEMP/e2e-server" bash .softure-ai-cli/tools/deploy/e2e/start-server.sh
+          IMAGE_REF: ${{ needs.build.outputs.image }}
+          COMPOSE_FILE: ${{ inputs.compose-file }}
+          SERVER_SCRIPT: ${{ inputs.server-script }}
+          APP_URL: ${{ inputs.app-url }}
+        run: |
+          E2E_DIR="$RUNNER_TEMP/e2e-server" IMAGE_ARCHIVE="$RUNNER_TEMP/e2e-image/deploy-e2e-image.tar" \
+            DEPLOY_CLI="$GITHUB_WORKSPACE/.softure-ai-cli/tools/deploy/dist/cli/main.js" \
+            bash .softure-ai-cli/tools/deploy/e2e/start-server.sh
       # The app's secrets and values go to the CLI's environment only; it writes the compose file's required names to
       # .env.prod (mode 0600) and prints names, never values. Names that steer Node or npm itself are refused. A value
       # in app-vars wins over a secret of the same name. Then each build argument whose name .env.prod holds must
@@ -536,6 +581,17 @@ jobs:
             echo "::error::The server did not report result|ok; the release is not confirmed (see the lines above)."
             exit 1
           fi
+      # The server's step and result lines for the release report (DF-10): step names, the backup's file name and row
+      # counts, never a value of .env.prod. Every kept line starts with step| or result|, so none can end the heredoc.
+      - id: server-lines
+        name: Keep the server's step lines
+        if: always()
+        run: |
+          {
+            echo "lines<<SERVER_LINES"
+            grep -E '^(step|result)\|' "$RUNNER_TEMP/deploy-output.txt" 2> /dev/null || true
+            echo "SERVER_LINES"
+          } >> "$GITHUB_OUTPUT"
       # What the end-to-end server recorded: names, hashes and the command line, never a value of .env.prod.
       - if: inputs.e2e
         uses: actions/upload-artifact@v7
@@ -544,17 +600,55 @@ jobs:
           path: ${{ runner.temp }}/e2e-server/received/
           if-no-files-found: error
           retention-days: 7
-      - name: Show the throwaway SSH server's log (end-to-end test)
+      # The verify job's two steps, here because the end-to-end stack runs on this runner; keep them in step with it.
+      # The runner trusts the run's CA (curl); Node takes it from NODE_EXTRA_CA_CERTS.
+      - name: Wait for the health route (end-to-end test)
+        if: inputs.e2e
+        env:
+          APP_URL: ${{ inputs.app-url }}
+          HEALTH_PATH: ${{ inputs.health-path }}
+          VERIFY_TIMEOUT: ${{ inputs.verify-timeout-seconds }}
+        run: |
+          url="${APP_URL%/}$HEALTH_PATH"
+          deadline=$((SECONDS + VERIFY_TIMEOUT))
+          while true; do
+            status=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "$url" || true)
+            if [ "$status" = "200" ]; then
+              echo "verify: $url answered 200."
+              exit 0
+            fi
+            if (( SECONDS >= deadline )); then
+              echo "::error::verify: $url did not answer 200 within ${VERIFY_TIMEOUT}s (last: ${status:-no answer})."
+              exit 1
+            fi
+            echo "verify: $url answered ${status:-nothing}; retrying in 10s."
+            sleep 10
+          done
+      - name: Verify the routes in deploy.json (end-to-end test)
+        if: inputs.e2e && inputs.deploy-config != ''
+        env:
+          APP_URL: ${{ inputs.app-url }}
+          DEPLOY_CONFIG: ${{ inputs.deploy-config }}
+          NODE_EXTRA_CA_CERTS: ${{ steps.e2e-server.outputs.ca-file }}
+        run: node .softure-ai-cli/tools/deploy/dist/cli/main.js verify "$APP_URL" --config="$DEPLOY_CONFIG"
+      - name: Show the server's log and the stack (end-to-end test)
         if: always() && inputs.e2e
-        run: docker logs softure-deploy-e2e-server || true
+        run: |
+          sudo cat "$RUNNER_TEMP/e2e-server/server/sshd.log" || true
+          docker ps --all || true
+          for container in $(docker ps --all --quiet --filter label=com.docker.compose.project); do
+            echo "::group::docker logs $container"
+            docker logs --tail 200 "$container" || true
+            echo "::endgroup::"
+          done
       - name: Remove the key, .env.prod and the release archive
         if: always()
-        run: rm -rf "$RUNNER_TEMP/deploy_key" "$RUNNER_TEMP/deploy_known_hosts" "$RUNNER_TEMP/release" "$RUNNER_TEMP/e2e-server" .env.prod release.tar.gz
+        run: rm -rf "$RUNNER_TEMP/deploy_key" "$RUNNER_TEMP/deploy_known_hosts" "$RUNNER_TEMP/release" "$RUNNER_TEMP/e2e-server" "$RUNNER_TEMP/e2e-image" "$RUNNER_TEMP/deploy-output.txt" .env.prod release.tar.gz
 
   verify:
     name: verify the release
     needs: deploy
-    # The end-to-end test's server records the release instead of running it, so there is nothing to verify.
+    # The end-to-end test's stack runs on the deploy job's runner, so that job runs these steps itself.
     if: ${{ !inputs.e2e }}
     runs-on: ubuntu-latest
     # Above the longest verify-timeout-seconds the check job accepts (9999 s).
@@ -602,4 +696,53 @@ jobs:
           APP_URL: ${{ inputs.app-url }}
           DEPLOY_CONFIG: ${{ inputs.deploy-config }}
           DEPLOY_CLI_VERSION: ${{ inputs.deploy-cli-version }}
-        run: npx --yes "--package=@softure-ai/deploy@$DEPLOY_CLI_VERSION" softure-deploy verify "$APP_URL" --config="$DEPLOY_CONFIG"
+          ORIGIN_ADDRESS: ${{ secrets.origin-address }}
+        run: |
+          origin=()
+          if [ -n "$ORIGIN_ADDRESS" ]; then origin=("--origin=$ORIGIN_ADDRESS"); fi
+          npx --yes "--package=@softure-ai/deploy@$DEPLOY_CLI_VERSION" softure-deploy verify "$APP_URL" --config="$DEPLOY_CONFIG" "${origin[@]}"
+
+  # The facts of this run for the release report (deploy-report.yml, DF-10), whatever happened: each job's result, the
+  # image and its digest, and the server's step lines. It writes nothing anywhere but the run's artifact
+  # `deploy-report`; a re-run of failed jobs replaces it.
+  summary:
+    name: summarize the run
+    needs: [check, build, deploy, verify]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Write deploy-report.json
+        env:
+          TAG: ${{ inputs.tag }}
+          DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
+          IMAGE: ${{ needs.build.outputs.image }}
+          DIGEST: ${{ needs.build.outputs.digest }}
+          RUN_URL: ${{ format('{0}/{1}/actions/runs/{2}/attempts/{3}', github.server_url, github.repository, github.run_id, github.run_attempt) }}
+          CHECK_RESULT: ${{ needs.check.result }}
+          BUILD_RESULT: ${{ needs.build.result }}
+          DEPLOY_RESULT: ${{ needs.deploy.result }}
+          VERIFY_RESULT: ${{ needs.verify.result }}
+          SERVER_LINES: ${{ needs.deploy.outputs.server-lines }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/deploy-report"
+          jq -n \
+            --arg tag "$TAG" --arg environment "$DEPLOY_ENVIRONMENT" --arg image "$IMAGE" --arg digest "$DIGEST" \
+            --arg runUrl "$RUN_URL" --arg finishedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg check "$CHECK_RESULT" --arg build "$BUILD_RESULT" --arg deploy "$DEPLOY_RESULT" --arg verify "$VERIFY_RESULT" \
+            --arg lines "$SERVER_LINES" \
+            '{version: 1, tag: $tag, environment: $environment, image: $image, digest: $digest, runUrl: $runUrl,
+              finishedAt: $finishedAt,
+              jobs: [{name: "check", result: $check}, {name: "build", result: $build},
+                     {name: "deploy", result: $deploy}, {name: "verify", result: $verify}],
+              serverLines: ($lines | split("\n") | map(select(length > 0)))}' \
+            > "$RUNNER_TEMP/deploy-report/deploy-report.json"
+          cat "$RUNNER_TEMP/deploy-report/deploy-report.json"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: deploy-report
+          path: ${{ runner.temp }}/deploy-report/deploy-report.json
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 30

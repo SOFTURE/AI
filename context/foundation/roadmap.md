@@ -53,12 +53,12 @@ backlog: context/backlog/roadmap-deploy-followups/
 | **DF-7** | `deploy-server-files` | `deploy-app.yml` ships the tag's `docker/prod/` files and `deploy.sh` with each release; no hand copy to the server | DP-5, DF-2 | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.3 and the owner's `deploy-workflows-v1` tag) |
 | **DF-8** | `deploy-row-count-server-list` | the server's `deploy.sh` counts the tables of the shipped `deploy.json`; `init --tables` writes them there | DF-5, DF-7 | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.3) |
 | **DF-9** | `deploy-server-safety` | the server script restores files on a failed switch, keeps `.env.prod.prev`, recreates Traefik on a changed config, writes the tag into `.env.prod`, has a `status` command, a retention cron and machine-readable step lines | DF-7 | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.3) |
-| **DF-10** | `deploy-release-report` | a report job writes pipeline status and deployment history into the release body | DF-9 | autonomous | ready |
+| **DF-10** | `deploy-release-report` | a report job writes pipeline status and deployment history into the release body | DF-9 | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.3) |
 | **DF-11** | `deploy-workflow-release-guards` | the workflow refuses a tag off the default branch, takes build args (origin checked against runtime), non-secret values and a per-deploy registry token | DF-7 | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.3) |
 | **DF-12** | `deploy-cut-release` | a reusable workflow cuts a date tag and release and starts the deploy | DF-11 | autonomous | done_code (2026-10-06; waiting: the owner's first run in an app) |
-| **DF-13** | `deploy-verify-origin-firewall` | `verify` fails when the server IP answers direct HTTPS | — | autonomous | ready |
+| **DF-13** | `deploy-verify-origin-firewall` | `verify` fails when the server IP answers direct HTTPS | — | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.3) |
 | **DF-14** | `deploy-row-count-new-table` | a table listed in `deploy.json` that the release itself creates does not stop that release; one counted before and missing after still does | DF-8 | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.3) |
-| **DF-15** | `deploy-workflow-e2e-server` | the deploy workflow's end-to-end test runs the shipped `deploy.sh` and `verify`, not only the recorder | DF-3 | autonomous | ready |
+| **DF-15** | `deploy-workflow-e2e-server` | the deploy workflow's end-to-end test runs the shipped `deploy.sh` and `verify`, not only the recorder | DF-3 | autonomous | done |
 | **DF-16** | `deploy-init-release-caller` | `softure-deploy init` also writes the release caller (`.github/workflows/release.yml`) next to `deploy.yml` | DF-12 | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.3) |
 | **MK-10** | `marketing-kit-film-followups` | a committed `marketing.json` reproduces a paid film with no hand fixes: the opening transition is chosen in the config and none flickers, the voiceover cache shows which file belongs to which video (old flat caches still found), and the recording day is pinned per video | — | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/marketing-kit` 0.1.6) |
 
@@ -256,8 +256,8 @@ calls, the owner's own machine, a product decision only the owner can make, or a
 
 ### DF-10: The release body carries pipeline status and deployment history
 - **Change ID:** `deploy-release-report`
-- **Status:** ready
-- **Input:** [`deploy-release-report`](../backlog/roadmap-deploy-followups/deploy-release-report/change.md)
+- **Status:** done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.3)
+- **Input:** [`deploy-release-report`](../archive/2026-10-06-deploy-release-report/change.md)
 - **Outcome:** a final report job of `deploy-app.yml` writes, with `release-notes --body` (DF-1), a pipeline status table (each job's result and the run link) and a deployment history row per run (time, result, image and digest, backup file, row counts before and after, verify result) into the GitHub Release body, newest first; reruns and rollbacks add rows, never replace them.
 - **Prerequisites:** DF-9 on `master`.
 - **Unknowns:** whether the history lives in the release body or in a deployment record (GitHub Deployments API).
@@ -289,8 +289,8 @@ calls, the owner's own machine, a product decision only the owner can make, or a
 
 ### DF-13: verify checks that the origin refuses direct traffic
 - **Change ID:** `deploy-verify-origin-firewall`
-- **Status:** ready
-- **Input:** [`deploy-verify-origin-firewall`](../backlog/roadmap-deploy-followups/deploy-verify-origin-firewall/change.md)
+- **Status:** done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.3)
+- **Input:** [`deploy-verify-origin-firewall`](../archive/2026-10-06-deploy-verify-origin-firewall/change.md)
 - **Outcome:** `deploy.json` gets an optional origin address (or `verify` a flag) and `softure-deploy verify` adds a row that passes only when direct HTTPS to that address gets no answer, so a firewall that let more than the CDN through fails the release.
 - **Prerequisites:** none.
 - **Unknowns:** whether a reachable origin fails or warns; where the address comes from (a secret, not the committed file).
@@ -314,8 +314,8 @@ calls, the owner's own machine, a product decision only the owner can make, or a
 
 ### DF-15: The end-to-end test runs the server side and verify
 - **Change ID:** `deploy-workflow-e2e-server`
-- **Status:** ready
-- **Input:** [`deploy-workflow-e2e-server`](../backlog/roadmap-deploy-followups/deploy-workflow-e2e-server/change.md)
+- **Status:** done
+- **Input:** [`deploy-workflow-e2e-server`](../archive/2026-10-06-deploy-workflow-e2e-server/change.md)
 - **Outcome:** on the `e2e` path the server's forced command runs the shipped `deploy.sh` (image loaded from the
   build job's artifact, the stack up on the runner), and `verify` runs `softure-deploy verify` against it.
 - **Prerequisites:** DF-3 on `master`.
@@ -370,6 +370,8 @@ calls, the owner's own machine, a product decision only the owner can make, or a
 - **DF-14** `deploy-row-count-new-table` (done_code 2026-10-06): `row-counts` records a listed table the database lacks as absent (`null` in the counts file, `to_regclass` before `count(*)`); with `--compare` a table absent before and counted after passes as created by this release, while one absent after the deploy, not counted before or with fewer rows still fails, each with its reason; `deploy.sh` unchanged apart from a comment; rides `@softure-ai/deploy` 0.1.3; archived in [`archive/2026-10-06-deploy-row-count-new-table/`](../archive/2026-10-06-deploy-row-count-new-table/change.md)
 - **DF-11** `deploy-workflow-release-guards` (done_code 2026-10-06): `deploy-app.yml` refuses a tag whose commit is not on the release branch (`release-branch`, else the default branch), takes `build-args` (stopped when one differs from the value `.env.prod` holds under its name, FIRE's L-117), `app-vars` rendered over `app-secrets` (not masked in logs) and sends the deploy job's `GITHUB_TOKEN` as `.registry-token` (`init`'s `deploy.sh` pulls with it through a throwaway `DOCKER_CONFIG`; `registry-token: false` for an older server script); rides `@softure-ai/deploy` 0.1.3; archived in [`archive/2026-10-06-deploy-workflow-release-guards/`](../archive/2026-10-06-deploy-workflow-release-guards/change.md)
 - **DF-3** `deploy-workflow-e2e` (done 2026-10-06): `.github/workflows/e2e-deploy.yml` calls `deploy-app.yml` with `e2e: true` (refused outside SOFTURE/AI) for the example app on every pull request that touches the workflow or `tools/deploy/`: image built without a push, CLI built from the tag, the production `ssh` command against a throwaway `sshd` whose forced command records the release, then the image, command line, files (byte for byte) and env names are asserted; the server files are init's output committed under `tools/deploy/e2e/app/` (`npm run e2e-app -w @softure-ai/deploy`); gap DF-15 queued; archived in [`archive/2026-10-06-deploy-workflow-e2e/`](../archive/2026-10-06-deploy-workflow-e2e/change.md)
+- **DF-15** `deploy-workflow-e2e-server` (done 2026-10-06): on the `e2e` path the deploy job's runner becomes the server: the build job's image arrives as an artifact in a registry on `localhost:5000`, a certificate from a CA of the run waits in Traefik's ACME store, and sshd's forced command records the release, then runs the tag's `deploy.sh` unchanged (stack up on the runner); the deploy job then waits for the health route and runs `softure-deploy verify` with the tag's CLI; the recorder no longer prints `result|ok`; green on PR #138 with the real example image; archived in [`archive/2026-10-06-deploy-workflow-e2e-server/`](../archive/2026-10-06-deploy-workflow-e2e-server/change.md)
 - **DF-12** `deploy-cut-release` (done_code 2026-10-06): `.github/workflows/deploy-cut-release.yml`, called from an app's `release.yml` ([`tools/deploy/examples/release.yml`](../../tools/deploy/examples/release.yml)) with *Run workflow* on the default branch, picks the next free `<prefix>YYYY.MM.DD[-N]` tag (inputs `tag-prefix`, `timezone`), creates the GitHub Release on the dispatched commit with an optional description above the generated notes and starts the app's deploy workflow on the tag (`deploy-workflow`, default `deploy.yml`); gap DF-16 (`init` writes the caller) queued; archived in [`archive/2026-10-06-deploy-cut-release/`](../archive/2026-10-06-deploy-cut-release/change.md)
+- **DF-10** `deploy-release-report` (done_code 2026-10-06): `deploy-app.yml` keeps the server's step lines and its `summary` job uploads `deploy-report.json`; the new reusable `deploy-report.yml` (the caller's `report` job, the only one with `contents: write`) runs `softure-deploy release-report`, which writes the pipeline status (replaced) and a deployment row (time, result, image and digest, backup file, row counts before and after, verify, run; newest first, earlier rows kept) into the release body; `init`'s `deploy.sh` reports the backup file and the counts in its step lines; rides `@softure-ai/deploy` 0.1.3; archived in [`archive/2026-10-06-deploy-release-report/`](../archive/2026-10-06-deploy-release-report/change.md)
 - **DF-16** `deploy-init-release-caller` (done_code 2026-10-06): `softure-deploy init` writes `.github/workflows/release.yml`, the caller of `deploy-cut-release.yml` (`timezone: UTC`, `deploy-workflow: deploy.yml`), next to `deploy.yml`, kept unless `--force`; the template is the example caller with init's header and a test keeps both the same YAML; rides `@softure-ai/deploy` 0.1.3; archived in [`archive/2026-10-06-deploy-init-release-caller/`](../archive/2026-10-06-deploy-init-release-caller/change.md)
 - **MK-10** `marketing-kit-film-followups`: `hook.transition` (fade by default, a rewind without flicker, cut), the voiceover cache in a folder per video with 0.1.x flat files still found, `videos[].today` pins the recording day (marketing-kit 0.1.6); archived in `archive/2026-10-06-marketing-kit-film-followups/`

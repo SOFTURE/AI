@@ -87,6 +87,12 @@ describe("the reusable deploy workflows", () => {
       expect(writers.map(([id]) => id)).toEqual(hasBuild ? ["build"] : []);
     });
 
+    it("gives contents: write only to the jobs that write a release (deploy-report's report, deploy-cut-release's cut)", () => {
+      const writers = jobs.filter(([, job]) => JSON.stringify(job.permissions ?? {}).includes('"contents":"write"'));
+      const releaseWriters: Record<string, string[]> = { "deploy-report.yml": ["report"], "deploy-cut-release.yml": ["cut"] };
+      expect(writers.map(([id]) => id)).toEqual(releaseWriters[name] ?? []);
+    });
+
     it("never interpolates inputs, secrets or event data into a script", () => {
       for (const [, job] of jobs) {
         for (const step of job.steps ?? []) {
@@ -105,8 +111,10 @@ describe("the reusable deploy workflows", () => {
 
   it("default to the CLI version of @softure-ai/deploy", () => {
     const pkg = JSON.parse(readFileSync(join(REPO_ROOT, "tools/deploy/package.json"), "utf8")) as { version: string };
-    const inputs = getWorkflowCall(readYaml(join(WORKFLOWS_DIR, "deploy-app.yml"))).inputs ?? {};
-    expect(inputs["deploy-cli-version"]?.default).toBe(pkg.version);
+    for (const name of ["deploy-app.yml", "deploy-report.yml"]) {
+      const inputs = getWorkflowCall(readYaml(join(WORKFLOWS_DIR, name))).inputs ?? {};
+      expect(inputs["deploy-cli-version"]?.default, name).toBe(pkg.version);
+    }
   });
 });
 
@@ -141,6 +149,33 @@ describe("the verify job of deploy-app.yml", () => {
     const configSteps = steps.slice(1);
     expect(configSteps.length).toBeGreaterThan(0);
     for (const step of configSteps) expect(step.if).toBe("inputs.deploy-config != ''");
+  });
+
+  it("adds --origin only when the optional origin-address secret is set (DF-13)", () => {
+    const secrets = getWorkflowCall(workflow).secrets ?? {};
+    expect(secrets["origin-address"]?.required).toBe(false);
+    expect(verifyStep?.env).toMatchObject({ ORIGIN_ADDRESS: "${{ secrets.origin-address }}" });
+    const binDir = mkdtempSync(join(tmpdir(), "deploy-verify-"));
+    try {
+      // A stand-in npx prints the arguments it would have run the CLI with, one per line.
+      writeFileSync(join(binDir, "npx"), '#!/bin/sh\nprintf "%s\\n" "$@"\n', { mode: 0o755 });
+      const run = (origin: string) =>
+        spawnSync("bash", ["-e", "-c", verifyStep?.run ?? ""], {
+          encoding: "utf8",
+          env: {
+            PATH: `${binDir}:${process.env.PATH ?? ""}`,
+            APP_URL: "https://example.com",
+            DEPLOY_CONFIG: "deploy.json",
+            DEPLOY_CLI_VERSION: "0.1.3",
+            ORIGIN_ADDRESS: origin,
+          },
+        }).stdout;
+      const base = ["--yes", "--package=@softure-ai/deploy@0.1.3", "softure-deploy", "verify", "https://example.com", "--config=deploy.json"];
+      expect(run("").split("\n")).toEqual([...base, ""]);
+      expect(run("203.0.113.7").split("\n")).toEqual([...base, "--origin=203.0.113.7", ""]);
+    } finally {
+      rmSync(binDir, { recursive: true, force: true });
+    }
   });
 
   it("checks out only the config file at the tag, without credentials", () => {
@@ -205,6 +240,72 @@ describe("the deploy job of deploy-app.yml", () => {
   });
 });
 
+describe("the summary job of deploy-app.yml (DF-10)", () => {
+  const workflow = readYaml(join(WORKFLOWS_DIR, "deploy-app.yml"));
+  const summary = workflow.jobs.summary as Job & { needs?: unknown; if?: string };
+  const deploySteps = workflow.jobs.deploy?.steps ?? [];
+  const keep = deploySteps.find((step) => step.name === "Keep the server's step lines");
+
+  it("keeps the server's step and result lines after the send, whatever happened", () => {
+    const sendIndex = deploySteps.findIndex((step) => step.name === "Send the release to the server");
+    expect(deploySteps.indexOf(keep as Step)).toBeGreaterThan(sendIndex);
+    expect(keep?.if).toBe("always()");
+    expect(keep?.run).toContain("grep -E '^(step|result)\\|' \"$RUNNER_TEMP/deploy-output.txt\"");
+    expect((workflow.jobs.deploy as Job & { outputs?: Record<string, string> }).outputs).toEqual({
+      "server-lines": "${{ steps.server-lines.outputs.lines }}",
+    });
+    expect(deploySteps.at(-1)?.run).toContain('"$RUNNER_TEMP/deploy-output.txt"');
+  });
+
+  it("runs after every job whatever their results, with no permissions", () => {
+    expect(summary.needs).toEqual(["check", "build", "deploy", "verify"]);
+    expect(summary.if).toBe("${{ always() }}");
+    expect(summary.permissions).toEqual({});
+  });
+
+  it("writes a summary release-report reads, and uploads it as deploy-report, replacing an earlier attempt's", () => {
+    const outputDir = mkdtempSync(join(tmpdir(), "deploy-summary-"));
+    try {
+      const result = spawnSync("bash", ["-e", "-c", summary.steps?.[0]?.run ?? ""], {
+        encoding: "utf8",
+        env: {
+          PATH: process.env.PATH ?? "",
+          RUNNER_TEMP: outputDir,
+          TAG: "v1",
+          DEPLOY_ENVIRONMENT: "production",
+          IMAGE: "ghcr.io/acme/app:v1",
+          DIGEST: "sha256:abc",
+          RUN_URL: "https://github.com/acme/app/actions/runs/1/attempts/2",
+          CHECK_RESULT: "success",
+          BUILD_RESULT: "success",
+          DEPLOY_RESULT: "failure",
+          VERIFY_RESULT: "skipped",
+          SERVER_LINES: "step|backup|ok|db-1.dump\nresult|failed|switch|the stack did not become healthy\n",
+        },
+      });
+      expect(result.status, result.stderr).toBe(0);
+      const json = JSON.parse(readFileSync(join(outputDir, "deploy-report/deploy-report.json"), "utf8")) as Record<string, unknown>;
+      expect(json).toMatchObject({
+        version: 1,
+        tag: "v1",
+        jobs: [
+          { name: "check", result: "success" },
+          { name: "build", result: "success" },
+          { name: "deploy", result: "failure" },
+          { name: "verify", result: "skipped" },
+        ],
+        serverLines: ["step|backup|ok|db-1.dump", "result|failed|switch|the stack did not become healthy"],
+      });
+      expect(json.finishedAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
+    } finally {
+      rmSync(outputDir, { recursive: true, force: true });
+    }
+    const upload = summary.steps?.[1];
+    expect(upload?.uses).toMatch(/^actions\/upload-artifact@/);
+    expect(upload?.with).toMatchObject({ name: "deploy-report", overwrite: true });
+  });
+});
+
 describe("the release guards of deploy-app.yml (DF-11)", () => {
   const workflow = readYaml(join(WORKFLOWS_DIR, "deploy-app.yml"));
   const inputs = getWorkflowCall(workflow).inputs ?? {};
@@ -243,34 +344,107 @@ describe("the release guards of deploy-app.yml (DF-11)", () => {
 
 describe("the example caller workflow", () => {
   const caller = readYaml(EXAMPLE_CALLER);
-  const callingJobs = Object.values(caller.jobs).filter((job) => job.uses !== undefined);
+  const deployJob = caller.jobs.deploy as Job;
+  const reportJob = caller.jobs.report as Job & { needs?: unknown; if?: string };
 
-  it("calls the deploy workflow with one uses: line", () => {
-    expect(callingJobs).toHaveLength(1);
-    expect(callingJobs[0]?.uses).toMatch(/^SOFTURE\/AI\/\.github\/workflows\/deploy-app\.yml@deploy-workflows-v1$/);
+  it("calls the deploy workflow, then the report workflow, each with one uses: line", () => {
+    expect(Object.keys(caller.jobs)).toEqual(["deploy", "report"]);
+    expect(deployJob.uses).toMatch(/^SOFTURE\/AI\/\.github\/workflows\/deploy-app\.yml@deploy-workflows-v1$/);
+    expect(reportJob.uses).toMatch(/^SOFTURE\/AI\/\.github\/workflows\/deploy-report\.yml@deploy-workflows-v1$/);
   });
 
-  it("grants the called jobs what they need and nothing to write code", () => {
+  it("grants the deploy jobs what they need and nothing to write code; contents: write to the report job only", () => {
     expect(caller.permissions).toEqual({ contents: "read", packages: "write" });
+    expect(deployJob.permissions).toBeUndefined();
+    expect(reportJob.permissions).toEqual({ contents: "write" });
   });
 
-  const job = callingJobs[0] as Job;
-  const target = (job.uses ?? "").slice(CALLER_PREFIX.length).replace(/@.*$/, "");
-  const called = getWorkflowCall(readYaml(join(WORKFLOWS_DIR, target)));
-
-  it("passes only declared inputs and every required one", () => {
-    const declared = called.inputs ?? {};
-    const passed = Object.keys(job.with ?? {});
-    for (const key of passed) expect(Object.keys(declared)).toContain(key);
-    const required = Object.entries(declared).filter(([, input]) => input.required === true);
-    for (const [key] of required) expect(passed).toContain(key);
+  it("reports after the deploy whatever its result, on the same tag", () => {
+    expect(reportJob.needs).toBe("deploy");
+    expect(reportJob.if).toBe("${{ always() }}");
+    expect(reportJob.with?.tag).toBe(deployJob.with?.tag);
   });
 
-  it("passes secrets explicitly: only declared ones and every required one", () => {
-    expect(job.secrets).not.toBe("inherit");
-    const declared = called.secrets ?? {};
-    const passed = Object.keys(job.secrets as Record<string, unknown>);
-    expect(passed.sort()).toEqual(Object.keys(declared).sort());
+  describe.each(["deploy", "report"])("the %s job", (id) => {
+    const job = caller.jobs[id] as Job;
+    const target = (job.uses ?? "").slice(CALLER_PREFIX.length).replace(/@.*$/, "");
+    const called = getWorkflowCall(readYaml(join(WORKFLOWS_DIR, target)));
+
+    it("passes only declared inputs and every required one", () => {
+      const declared = called.inputs ?? {};
+      const passed = Object.keys(job.with ?? {});
+      for (const key of passed) expect(Object.keys(declared)).toContain(key);
+      const required = Object.entries(declared).filter(([, input]) => input.required === true);
+      for (const [key] of required) expect(passed).toContain(key);
+    });
+
+    it("passes secrets explicitly: only declared ones and every required one", () => {
+      expect(job.secrets).not.toBe("inherit");
+      const declared = called.secrets ?? {};
+      const passed = Object.keys((job.secrets ?? {}) as Record<string, unknown>);
+      expect(passed.sort()).toEqual(Object.keys(declared).sort());
+    });
+  });
+});
+
+describe("deploy-report.yml (DF-10)", () => {
+  const workflow = readYaml(join(WORKFLOWS_DIR, "deploy-report.yml"));
+  const inputs = getWorkflowCall(workflow).inputs ?? {};
+  const job = workflow.jobs.report as Job & { "continue-on-error"?: string; concurrency?: { group?: string; "cancel-in-progress"?: boolean } };
+  const steps = job.steps ?? [];
+  const validate = steps[0]?.run ?? "";
+
+  function runValidate(env: Record<string, string>): { status: number | null; stdout: string } {
+    const result = spawnSync("bash", ["-e", "-c", validate], {
+      encoding: "utf8",
+      env: { PATH: process.env.PATH ?? "", TAG: "v1.2.3", LOCALE: "en", DEPLOY_CLI_VERSION: "0.1.3", E2E: "false", REPOSITORY: "acme/app", ...env },
+    });
+    return { status: result.status, stdout: result.stdout };
+  }
+
+  it("has one job, which never turns a production run red and edits one release at a time", () => {
+    expect(Object.keys(workflow.jobs)).toEqual(["report"]);
+    expect(job["continue-on-error"]).toBe("${{ !inputs.e2e }}");
+    expect(job.concurrency).toEqual({
+      group: "deploy-report-${{ github.repository }}-${{ inputs.tag }}${{ inputs.e2e && format('-e2e-{0}', github.run_id) || '' }}",
+      "cancel-in-progress": false,
+    });
+  });
+
+  it("validates its inputs first and refuses e2e outside SOFTURE/AI", () => {
+    expect(runValidate({}).status).toBe(0);
+    expect(runValidate({ TAG: "v1;rm" }).stdout).toContain("Input tag is not valid");
+    expect(runValidate({ LOCALE: "de" }).stdout).toContain("Input locale is not valid");
+    expect(runValidate({ DEPLOY_CLI_VERSION: "latest" }).stdout).toContain("Input deploy-cli-version is not valid");
+    const refused = runValidate({ E2E: "true" });
+    expect(refused.status).toBe(1);
+    expect(refused.stdout).toContain("Input e2e is not valid: false outside SOFTURE/AI");
+    expect(runValidate({ E2E: "true", REPOSITORY: "SOFTURE/AI" }).status).toBe(0);
+    expect(inputs.e2e).toMatchObject({ type: "boolean", default: false });
+  });
+
+  it("reads the summary deploy-app.yml uploaded in the same run", () => {
+    const download = steps.find((step) => step.uses?.startsWith("actions/download-artifact@") === true);
+    expect(download?.with?.name).toBe("deploy-report");
+    const write = steps.find((step) => step.name === "Write the report");
+    expect(write?.run).toContain('"--summary=$RUNNER_TEMP/deploy-report/deploy-report.json"');
+    expect(write?.run).toContain("--package=@softure-ai/deploy@$DEPLOY_CLI_VERSION");
+  });
+
+  it("edits the release only off the test path, and the token reaches the two gh steps only", () => {
+    const update = steps.find((step) => step.name === "Update the release");
+    expect(update?.if).toBe("steps.body.outputs.found == 'true' && !inputs.e2e");
+    expect(update?.run).toContain('gh release edit "$TAG" --repo "$GITHUB_REPOSITORY"');
+    const withToken = steps.filter((step) => step.env?.GH_TOKEN !== undefined).map((step) => step.name);
+    expect(withToken).toEqual(["Read the release body", "Update the release"]);
+  });
+
+  it("runs every test-only step under inputs.e2e", () => {
+    const testOnly = steps.filter((step) =>
+      /\.softure-ai-cli|upload-artifact/.test(`${step.uses ?? ""} ${step["working-directory"] ?? ""} ${JSON.stringify(step.with ?? {})}`),
+    );
+    expect(testOnly).toHaveLength(3);
+    for (const step of testOnly) expect(step.if ?? "", step.name ?? step.uses).toMatch(/\binputs\.e2e\b/);
   });
 });
 
@@ -312,6 +486,19 @@ describe("the end-to-end test path of deploy-app.yml (DF-3)", () => {
     }
   }
 
+  it("checks the origin address and refuses it when deploy-config is empty (DF-13)", () => {
+    expect(workflow.jobs.check?.steps?.[0]?.env).toMatchObject({ ORIGIN_ADDRESS: "${{ secrets.origin-address }}" });
+    for (const address of ["203.0.113.7", "203.0.113.7:8443", "origin.example.com", "[2001:db8::7]:443", "2001:db8::7"]) {
+      expect(runCheck({ REPOSITORY: "acme/app", ORIGIN_ADDRESS: address }).status, address).toBe(0);
+    }
+    const malformed = runCheck({ REPOSITORY: "acme/app", ORIGIN_ADDRESS: "https://203.0.113.7/" });
+    expect(malformed.status).toBe(1);
+    expect(malformed.stdout).toContain("::error::Input origin-address is not valid: an IP address or host with an optional :port");
+    const unchecked = runCheck({ REPOSITORY: "acme/app", ORIGIN_ADDRESS: "203.0.113.7", DEPLOY_CONFIG: "" });
+    expect(unchecked.status).toBe(1);
+    expect(unchecked.stdout).toContain("::error::Input origin-address is not valid: empty when deploy-config is empty");
+  });
+
   it("is off unless the caller turns it on", () => {
     expect(inputs.e2e).toMatchObject({ type: "boolean", default: false });
   });
@@ -332,18 +519,32 @@ describe("the end-to-end test path of deploy-app.yml (DF-3)", () => {
     expect(push?.with?.push).toBe("${{ !inputs.e2e }}");
   });
 
+  it("hands the image to the deploy job as an artifact only under inputs.e2e", () => {
+    const push = buildSteps.find((step) => step.uses?.startsWith("docker/build-push-action@") === true);
+    expect(push?.with?.outputs).toBe("${{ inputs.e2e && format('type=docker,dest={0}/deploy-e2e-image.tar', runner.temp) || '' }}");
+    const upload = buildSteps.find((step) => step.uses?.startsWith("actions/upload-artifact@") === true);
+    expect(upload?.if).toBe("inputs.e2e");
+    expect(upload?.with).toMatchObject({ name: "deploy-e2e-image", path: "${{ runner.temp }}/deploy-e2e-image.tar" });
+    const download = deploySteps.find((step) => step.uses?.startsWith("actions/download-artifact@") === true);
+    expect(download?.if).toBe("inputs.e2e");
+    expect(download?.with?.name).toBe("deploy-e2e-image");
+  });
+
   it("runs every test-only step of the deploy job under inputs.e2e", () => {
     const testOnly = deploySteps.filter((step) =>
-      /\.softure-ai-cli|e2e-server|upload-artifact/.test(
-        `${step.uses ?? ""} ${step.run ?? ""} ${step["working-directory"] ?? ""} ${JSON.stringify(step.with ?? {})}`,
+      /\.softure-ai-cli|e2e-server|e2e-image|-artifact@|end-to-end test/.test(
+        `${step.name ?? ""} ${step.uses ?? ""} ${step.run ?? ""} ${step["working-directory"] ?? ""} ${JSON.stringify(step.with ?? {})}`,
       ),
     );
     expect(testOnly.map((step) => step.name ?? step.uses)).toEqual([
       "actions/checkout@v7",
       "Build the deploy CLI from the tag (end-to-end test)",
-      "Start the throwaway SSH server (end-to-end test)",
+      "actions/download-artifact@v8",
+      "Set up this runner as the server (end-to-end test)",
       "actions/upload-artifact@v7",
-      "Show the throwaway SSH server's log (end-to-end test)",
+      "Wait for the health route (end-to-end test)",
+      "Verify the routes in deploy.json (end-to-end test)",
+      "Show the server's log and the stack (end-to-end test)",
       "Remove the key, .env.prod and the release archive",
     ]);
     for (const step of testOnly.slice(0, -1)) expect(step.if ?? "", step.name ?? step.uses).toMatch(/\binputs\.e2e\b/);
@@ -366,6 +567,20 @@ describe("the end-to-end test path of deploy-app.yml (DF-3)", () => {
       "${{ inputs.e2e && format('{0}/.softure-ai-cli/tools/deploy/dist/cli/main.js', github.workspace) || '' }}",
     );
     expect(render?.run).toContain("--package=@softure-ai/deploy@${process.env.DEPLOY_CLI_VERSION}");
+  });
+
+  it("runs the verify job's wait in the deploy job, and verify with the tag's CLI trusting the run's CA", () => {
+    const verifySteps = workflow.jobs.verify?.steps ?? [];
+    const wait = verifySteps.find((step) => step.name === "Wait for the health route");
+    const e2eWait = deploySteps.find((step) => step.name === "Wait for the health route (end-to-end test)");
+    expect(e2eWait?.run).toBe(wait?.run);
+    expect(e2eWait?.env).toEqual(wait?.env);
+    const e2eVerify = deploySteps.find((step) => step.name === "Verify the routes in deploy.json (end-to-end test)");
+    expect(e2eVerify?.if).toBe("inputs.e2e && inputs.deploy-config != ''");
+    expect(e2eVerify?.env).toMatchObject({ NODE_EXTRA_CA_CERTS: "${{ steps.e2e-server.outputs.ca-file }}" });
+    expect(e2eVerify?.run).toBe('node .softure-ai-cli/tools/deploy/dist/cli/main.js verify "$APP_URL" --config="$DEPLOY_CONFIG"');
+    const verify = verifySteps.find((step) => step.name === "Verify the routes in deploy.json");
+    expect(verify?.run).toContain('softure-deploy verify "$APP_URL" --config="$DEPLOY_CONFIG"');
   });
 
   it("gives each test run its own deploy concurrency group and skips verify", () => {
@@ -398,12 +613,27 @@ describe("the end-to-end caller e2e-deploy.yml", () => {
     for (const [key, input] of Object.entries(called.inputs ?? {})) {
       if (input.required === true) expect(Object.keys(job.with ?? {})).toContain(key);
     }
-    expect(Object.keys(job.secrets as Record<string, unknown>).sort()).toEqual(Object.keys(called.secrets ?? {}).sort());
+    // An optional secret (origin-address) has nothing to check on the test path, where verify is skipped.
+    const passed = Object.keys(job.secrets as Record<string, unknown>);
+    for (const key of passed) expect(Object.keys(called.secrets ?? {})).toContain(key);
+    const required = Object.entries(called.secrets ?? {}).filter(([, secret]) => secret.required !== false);
+    expect(passed.sort()).toEqual(required.map(([key]) => key).sort());
   });
 
   it("grants packages: write to the calling job only", () => {
     expect(caller.permissions).toEqual({ contents: "read" });
     expect(job.permissions).toEqual({ contents: "read", packages: "write" });
+  });
+
+  it("calls this commit's deploy-report.yml on the test path after the deploy, and checks its body", () => {
+    const report = caller.jobs.report as Job & { needs?: unknown; if?: string };
+    expect(report.uses).toBe("./.github/workflows/deploy-report.yml");
+    expect(report.with).toEqual({ tag: (caller.jobs.deploy as Job & { with?: Record<string, unknown> }).with?.tag, e2e: true });
+    expect(report.needs).toBe("deploy");
+    expect(report.if).toBe("${{ always() }}");
+    expect(report.permissions).toEqual({ contents: "write" });
+    const checkReport = (caller.jobs.assert?.steps ?? []).find((step) => (step.run ?? "").includes("check-report.sh"));
+    expect(checkReport?.env).toMatchObject({ IMAGE: "${{ needs.deploy.outputs.image }}" });
   });
 
   it("expects exactly the compose file's required names, and passes one more secret that must not be rendered", () => {
@@ -431,6 +661,13 @@ describe("the end-to-end caller e2e-deploy.yml", () => {
       IMAGE: "${{ needs.deploy.outputs.image }}",
       EXPECTED_IMAGE: job.with?.image,
     });
+  });
+
+  it("deploys an image the e2e server's own registry serves, the one the committed compose file runs", () => {
+    const image = String(job.with?.image);
+    expect(image).toMatch(/^localhost:[0-9]+\//);
+    const compose = readFileSync(join(REPO_ROOT, String(job.with?.["compose-file"])), "utf8");
+    expect(compose).toContain(`image: ${image}:\${TAG}`);
   });
 });
 

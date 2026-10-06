@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { readReleaseSection, RELEASE_SECTION_CLOSE, RELEASE_SECTION_OPEN, writeReleaseSection } from "./release-body.js";
+import {
+  getSectionMarkers,
+  readReleaseSection,
+  readSection,
+  RELEASE_SECTION_CLOSE,
+  RELEASE_SECTION_OPEN,
+  writeReleaseSection,
+  writeSection,
+} from "./release-body.js";
 
 const OWNER = "First release with the new pipeline.\n\n| ID | Item |\n| --- | --- |\n| DF-1 | parity |";
 
@@ -34,5 +42,21 @@ describe("release body section", () => {
   it("appends a new section when only an opening marker is there, leaving the stray marker as text", () => {
     const body = `${RELEASE_SECTION_OPEN}\nhalf`;
     expect(writeReleaseSection(body, "r")).toBe(`${body}\n\n${RELEASE_SECTION_OPEN}\nr\n${RELEASE_SECTION_CLOSE}\n`);
+  });
+
+  it("keeps the sections in their fixed order whatever order they are written in", () => {
+    const [notes, status, deployments] = (["release-notes", "status", "deployments"] as const).map((key) => getSectionMarkers(key).open);
+    const reversed = writeSection(writeSection(writeSection(OWNER, "deployments", "d"), "status", "s"), "release-notes", "n");
+    const positions = [notes, status, deployments].map((marker) => reversed.indexOf(marker ?? ""));
+    expect(positions.every((position) => position > OWNER.length)).toBe(true);
+    expect([...positions].sort((a, b) => a - b)).toEqual(positions);
+    expect(reversed.startsWith(OWNER)).toBe(true);
+    expect(readSection(reversed, "status")).toBe("s");
+    expect(readSection(reversed, "release-notes")).toBe("n");
+  });
+
+  it("names the release-notes markers as before (DF-1)", () => {
+    expect(getSectionMarkers("release-notes")).toEqual({ open: RELEASE_SECTION_OPEN, close: RELEASE_SECTION_CLOSE });
+    expect(RELEASE_SECTION_OPEN).toBe("<!-- softure-deploy:release-notes -->");
   });
 });

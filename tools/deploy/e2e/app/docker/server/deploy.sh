@@ -20,7 +20,7 @@
 # The archive may also hold .registry-token, the deploy job's short-lived GITHUB_TOKEN: the image is then pulled
 # with it through a Docker config in this run's temporary folder, so the host keeps no registry login and the token
 # is never installed. Without it (the workflow's registry-token: false), the host's own registry login pulls
-# ghcr.io/softure/ai-deploy-e2e.
+# localhost:5000/softure/ai-deploy-e2e.
 #
 # The host needs Docker with the compose plugin, cron and flock (both in Ubuntu's base system).
 # The database steps also need Node.js 22 (`npx @softure-ai/deploy`) and pg_dump of the Postgres major version of
@@ -34,9 +34,10 @@
 # tables counted are database.rowCountTables of the deploy.json this release shipped; without that file or key the
 # counts are skipped. A changed postgres service takes effect at the postgres step, before the switch.
 #
-# Output: one line `step|<name>|ok[|<detail>]` per finished step on stdout, and every deploy or maintain run ends with
-# `result|ok` or `result|failed|<step>|<message>`; the workflow fails a release without `result|ok`. Messages for
-# people start with "deploy:".
+# Output: one line `step|<name>|ok[|<detail>]` per finished step on stdout (backup: the dump's file name; row counts:
+# `<table>=<rows>,…`), and every deploy or maintain run ends with `result|ok` or `result|failed|<step>|<message>`; the
+# workflow fails a release without `result|ok` and its report (DF-10) reads the details. Messages for people start
+# with "deploy:".
 #
 # A step that fails before the switch puts the saved files and .env.prod back (Traefik's rules in place, so its bind
 # mount keeps them) and removes what the release added; containers already started stay. From the switch on nothing
@@ -51,7 +52,7 @@
 set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-IMAGE="ghcr.io/softure/ai-deploy-e2e"
+IMAGE="localhost:5000/softure/ai-deploy-e2e"
 DEPLOY_CLI="@softure-ai/deploy@0.0.0"
 DATABASE_NAME="softure_example"
 BACKUP_DIR="$APP_DIR/backups"
@@ -80,6 +81,7 @@ restore_armed=""
 work=""
 release_dir=""
 container=""
+backup_file=""
 
 begin_step() {
   current_step="$1"
@@ -180,8 +182,22 @@ connect_database() {
   export DATABASE_URL="postgresql://postgres:$postgres_password@127.0.0.1:5432/$DATABASE_NAME"
 }
 
+# Leaves the dump's file name in backup_file for the step line (the release report shows it, DF-10).
 back_up_database() {
-  deploy_cli backup --dir="$BACKUP_DIR" --prefix="$BACKUP_PREFIX" --keep="$BACKUP_KEEP" --max-age-days="$BACKUP_MAX_AGE_DAYS"
+  local output status=0
+  output="$(deploy_cli backup --dir="$BACKUP_DIR" --prefix="$BACKUP_PREFIX" --keep="$BACKUP_KEEP" --max-age-days="$BACKUP_MAX_AGE_DAYS")" || status=$?
+  if [ -n "$output" ]; then printf '%s\n' "$output"; fi
+  if [ "$status" -ne 0 ]; then return "$status"; fi
+  backup_file="$(sed -n 's|^backup: wrote \(.*\) ([0-9]* bytes).*$|\1|p' <<< "$output")"
+  backup_file="${backup_file##*/}"
+}
+
+# A row-counts file as `users=3,billing.plans=2` for the step line; table names never hold `,` or `=`.
+summarize_counts() {
+  node -e '
+const counts = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8")).counts;
+process.stdout.write(Object.entries(counts).map(([table, count]) => table + "=" + count).join(","));
+' "$1" || true
 }
 
 # The forced command: one line, split on blanks without expansion.
@@ -234,7 +250,7 @@ if [ "$command_name" = "maintain" ]; then
   begin_step backup
   connect_database
   back_up_database || fail "the backup failed."
-  step_ok
+  step_ok "$backup_file"
 
   # This app's image tags without a release folder go (the newest RELEASE_KEEP stay, so a rollback to them needs no
   # pull); a tag a container still uses is refused by Docker and stays. Then the dangling images of the host.
@@ -390,7 +406,7 @@ step_ok
 
 begin_step backup
 back_up_database || fail "the backup failed; nothing was restarted."
-step_ok
+step_ok "$backup_file"
 
 begin_step schema
 container="$(docker create "$IMAGE:$TAG")"
@@ -420,7 +436,7 @@ counted=""
 if [ "$lists_tables" -eq 0 ] && [ -n "$previous_tag" ]; then
   deploy_cli row-counts --config="$release_config" --out="$work/counts-before.json" || fail "counting rows failed; nothing was restarted."
   counted="yes"
-  step_ok
+  step_ok "$(summarize_counts "$work/counts-before.json")"
 else
   step_ok "skipped"
 fi
@@ -444,9 +460,9 @@ fi
 
 if [ -n "$counted" ]; then
   begin_step row-counts-after
-  deploy_cli row-counts --config="$release_config" --compare="$work/counts-before.json" \
+  deploy_cli row-counts --config="$release_config" --compare="$work/counts-before.json" --out="$work/counts-after.json" \
     || fail "rows were lost on $TAG; the backup before it is the newest in $BACKUP_DIR."
-  step_ok
+  step_ok "$(summarize_counts "$work/counts-after.json")"
 fi
 
 begin_step tag
