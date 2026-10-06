@@ -59,6 +59,9 @@ each test has its own client address and account.
 
 ## Version
 
-`0.1.4` → `0.1.5`. Dependents (`billing`, `feature-switches`, `mcp-access`, `privacy`, `waitlist`)
+The next patch. Dependents (`billing`, `feature-switches`, `mcp-access`, `privacy`, `waitlist`)
 require `^0.1.0`; a `0.2.0` would fall outside their ranges (`release-rules` refuses it). The change is an
 additive, test-only entry.
+
+Planned as `0.1.4` → `0.1.5`; while this change ran, `release-0-1-5` moved every package to 0.1.5 on `master`
+and `auth@0.1.5` was tagged without this entry, so auth goes to `0.1.6`.

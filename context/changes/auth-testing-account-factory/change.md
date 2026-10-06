@@ -30,7 +30,7 @@ export (precedent: `@softure-ai/mailing/testing`). PRD FR-35, FR-9.
 - Owns: `modules/auth/src/testing/`, `modules/auth/tests/testing.test.ts`, auth's `package.json`,
   `module.json` and README; the example app's e2e specs and a new `e2e/accounts.ts`.
 - English only. Test-only code under `src/testing/`, exported as `./testing`, never imported by runtime code.
-- Bumps `@softure-ai/auth` to 0.1.5 (no tag, no publish: the owner releases it).
+- Bumps `@softure-ai/auth` to 0.1.6 (no tag, no publish: the owner releases it).
 
 ## Notes
 

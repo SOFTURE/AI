@@ -5,7 +5,7 @@ Input: change.md, research.md. Complexity: small (two phases).
 ## Goal
 
 `@softure-ai/auth/testing` exports `createTestAccount`, tested on PGlite; the example app's e2e creates
-the accounts of tests that are not about registration with it and stays green; auth is at 0.1.5.
+the accounts of tests that are not about registration with it and stays green; auth is at 0.1.6.
 
 **Out of scope:** factories of other modules, a session factory, publishing (the owner releases auth).
 
@@ -32,7 +32,7 @@ registration, which the form already tests).
    `findUserRoles` returns them; no roles means no rows; an invalid email and a taken email throw naming
    the email and write nothing (a bad role rolls the user back too); the default parameters are auth's
    default cost.
-2. Implement; add the export; bump to 0.1.5 (`npm version` for the workspace, same in `module.json`).
+2. Implement; add the export; bump to the next patch, 0.1.6 (`npm version` for the workspace, same in `module.json`).
 3. README: the entry in section 1 and a short "Testing" note.
 
 ## Phase 2: The example app's e2e
