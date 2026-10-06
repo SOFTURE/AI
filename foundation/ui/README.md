@@ -1,6 +1,6 @@
 # @softure-ai/ui
 
-**Status:** wave 0 · tokens, theme and CSS pipeline (FD-5); UI primitives (FD-6).
+**Status:** wave 0 · tokens, theme and CSS pipeline (FD-5); UI primitives (FD-6); colour test helpers (CH-3).
 
 The design foundation every SOFTURE UI stands on: the `--sft-*` token contract with light and dark
 defaults, a theme provider, a no-flash theme switch, the UI primitives every module builds its
@@ -162,6 +162,40 @@ Render `<Modal title onClose>` while it is open. It moves focus in, keeps Tab in
 of `<body>` inert (live regions stay reachable), locks the page scroll and returns focus to the
 opener. Escape closes it unless something inside handled the key first (an open `Select` list).
 Pass `isDismissible={false}` while a save runs (`ActionForm onPendingChange`).
+
+## Testing helpers (`@softure-ai/ui/testing`)
+
+Colour guards for tests, plain functions with no test-runner import. Each check returns its failures as values,
+so a test reads `expect(failures).toEqual([])` and a red run lists every failing pair at once.
+
+```ts
+import { DEFAULT_THEME, mergeThemes } from "@softure-ai/ui";
+import { checkThemeContrast, DEFAULT_CONTRAST_PAIRS, findColorCollisions } from "@softure-ai/ui/testing";
+
+it("our theme keeps WCAG AA contrast in both schemes", () => {
+  const theme = mergeThemes(DEFAULT_THEME, appTheme);
+  expect(checkThemeContrast(DEFAULT_CONTRAST_PAIRS, theme)).toEqual([]);
+});
+
+it("our series colours stay apart for colour-blind readers", () => {
+  expect(findColorCollisions(["#2563eb", "#d97706", "#0f766e"])).toEqual([]);
+});
+```
+
+- **Contrast:** `contrastRatio(a, b)` (WCAG 2, 1–21), `getContrastLevel(ratio, use)` with `use` `text` (AA 4.5,
+  AAA 7), `large-text` (3, 4.5) or `non-text` (3, WCAG 1.4.11), `WCAG_CONTRAST`, `relativeLuminance`, and
+  `blendColors(tint, ground, alpha)` for a composited `bg-x/10`.
+- **Themes:** `checkThemeContrast(pairs, schemes?)` measures each `{ foreground, background, use, level? }` in the
+  light and the dark set; `background` may be `{ tint, alpha, over }`. Without `schemes` it checks `DEFAULT_THEME`;
+  it also takes an app's own token names and values. A missing token or a value that is not `#rrggbb`/`#rgb` (a
+  `var()`) is reported, never guessed. `DEFAULT_CONTRAST_PAIRS` are the pairs this package's components paint; the
+  package runs them on its own tokens, so a token change that breaks contrast fails its tests.
+- **Colour vision:** `simulateColorVision(color, "protan" | "deutan" | "tritan")` (Viénot 1999 for protan and
+  deutan, Machado 2009 for tritan), `colorDistance(a, b, { metric })` in CIEDE2000 (default) or CIE76,
+  `minVisionDistance`, `labHue`, `hueDistance`, and `findColorCollisions(colors, { minDistance, visions, metric })`,
+  which reports every pair closer than `minDistance` (default `DEFAULT_MIN_COLOR_DISTANCE`, 10 in CIEDE2000) in
+  normal vision or a simulation. CIEDE2000 is the default because CIE76 inflates distances unevenly (1.4× for darks,
+  up to 3.8× for blues), so one CIE76 threshold means something different per hue.
 
 ## How the CSS is built
 

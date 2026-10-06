@@ -32,3 +32,12 @@ export {
   toLab,
   type VisionDistanceOptions,
 } from "./color-vision.js";
+export {
+  checkThemeContrast,
+  type ContrastFailure,
+  type ContrastFailureDetail,
+  type ContrastPair,
+  DEFAULT_CONTRAST_PAIRS,
+  type ThemeSchemes,
+  type TintedBackground,
+} from "./theme-contrast.js";
