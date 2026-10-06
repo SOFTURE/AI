@@ -51,7 +51,7 @@ backlog: context/backlog/roadmap-deploy-followups/
 | **DF-5** | `deploy-row-count-config` | the tables `row-counts` compares come from `deploy.json` | DP-4 | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.2) |
 | **DF-6** | `deploy-verify-cert-expiry` | `verify` fails when the TLS certificate expires within `verify.tlsMinDays` | — | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.2) |
 | **DF-7** | `deploy-server-files` | `deploy-app.yml` ships the tag's `docker/prod/` files and `deploy.sh` with each release; no hand copy to the server | DP-5, DF-2 | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.3 and the owner's `deploy-workflows-v1` tag) |
-| **DF-8** | `deploy-row-count-server-list` | the server's `deploy.sh` counts the tables of the shipped `deploy.json`; `init --tables` writes them there | DF-5, DF-7 | autonomous | ready |
+| **DF-8** | `deploy-row-count-server-list` | the server's `deploy.sh` counts the tables of the shipped `deploy.json`; `init --tables` writes them there | DF-5, DF-7 | autonomous | **in_progress** (plan, since 2026-10-06; cloud session, branch `claude/project-thread-9hgldd`) |
 | **MK-10** | `marketing-kit-film-followups` | a committed `marketing.json` reproduces a paid film with no hand fixes: the opening transition is chosen in the config and none flickers, the voiceover cache shows which file belongs to which video (old flat caches still found), and the recording day is pinned per video | — | autonomous | ready |
 
 ## Order
@@ -210,8 +210,8 @@ calls, the owner's own machine, a product decision only the owner can make, or a
 
 ### DF-8: The server counts the tables of deploy.json
 - **Change ID:** `deploy-row-count-server-list`
-- **Status:** ready
-- **Input:** [`deploy-row-count-server-list`](../backlog/roadmap-deploy-followups/deploy-row-count-server-list/change.md)
+- **Status:** in_progress (implement 1/2, since 2026-10-06; cloud session, branch `claude/project-thread-9hgldd`)
+- **Input:** [`deploy-row-count-server-list`](../changes/deploy-row-count-server-list/change.md)
 - **Outcome:** the release ships `deploy.json` with the server files (DF-7); `init`'s `deploy.sh` runs
   `row-counts --config=<shipped deploy.json>` instead of `--tables="$ROW_COUNT_TABLES"`, and `init --tables`
   writes `database.rowCountTables` into the generated `deploy.json` instead of the script.
