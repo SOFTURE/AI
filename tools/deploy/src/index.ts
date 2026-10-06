@@ -1,5 +1,6 @@
 export * from "./env/index.js";
 export * from "./notes/index.js";
+export * from "./verify/index.js";
 export {
   DEPLOY_LOCALES,
   deployMessages,

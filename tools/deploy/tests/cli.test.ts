@@ -143,7 +143,7 @@ describe("softure-deploy", () => {
   it("prints the usage for help and exits 2 on no or an unknown command", async () => {
     expect(await runCli(["help"], makeIo())).toBe(0);
     expect(out.join("")).toContain("Usage: softure-deploy");
-    for (const command of ["backup", "schema-guard", "row-counts"]) expect(out.join("")).toContain(`\n  ${command} `);
+    for (const command of ["backup", "schema-guard", "row-counts", "verify"]) expect(out.join("")).toContain(`\n  ${command} `);
     expect(await runCli([], makeIo())).toBe(2);
     expect(await runCli(["deploy"], makeIo())).toBe(2);
     expect(err.join("")).toContain('unknown command "deploy"');

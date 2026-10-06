@@ -60,7 +60,7 @@ backlog: context/backlog/roadmap-deploy/
 | **DP-1** | `deploy-cli-env-notes` | `@softure-ai/deploy` CLI: `env render` from secrets (names from the compose file), release notes as a live report | — | autonomous | done_code (2026-10-05; waiting: the first publish of `@softure-ai/deploy`, DP-8) |
 | **DP-2** | `deploy-reusable-workflows` | `workflow_call` workflows: build the image to GHCR, deploy over SSH, verify; an app keeps one `uses:` line | DP-1 | autonomous | done_code (2026-10-05; waiting: the first publish of `@softure-ai/deploy` and the `deploy-workflows-v1` tag, DP-8) |
 | **DP-3** | `deploy-db-guard` | backup before a deploy, a schema guard on the `@softure-ai/db` ledger and row counts before and after from an app hook | DP-1 | autonomous | done_code (2026-10-05; waiting: the first publish of `@softure-ai/deploy`, DP-8) |
-| **DP-4** | `deploy-verify-production` | `softure-deploy verify`: routes, expected statuses, markers, redirects and headers from `deploy.json` | DP-1 | autonomous | ready |
+| **DP-4** | `deploy-verify-production` | `softure-deploy verify`: routes, expected statuses, markers, redirects and headers from `deploy.json` | DP-1 | autonomous | done_code (2026-10-05; waiting: the first publish of `@softure-ai/deploy`, DP-8) |
 | **DP-5** | `deploy-init-template` | `softure-deploy init` writes compose, Traefik rules, Dockerfile, the server script and the caller workflow once | DP-2, DP-3, DP-4 | autonomous | ready |
 | **DP-6** | `testing-clock-shift` | `@softure-ai/testing`: a Vitest setup that shifts the test clock to `TEST_TODAY` | — | autonomous | done_code (2026-10-05; waiting: the first publish of `@softure-ai/testing` in DP-8) |
 | **DP-7** | `testing-playwright-helpers` | generic Playwright helpers (login, factories, select, wait-for, links, assertions) used by the example app's e2e | DP-6 | autonomous | done_code (2026-10-05; waiting: the first publish of `@softure-ai/testing` in DP-8) |
@@ -158,8 +158,8 @@ None of DP-1…DP-7 needs one, so they run on 2026-10-05; everything that does i
 
 ### DP-4: Production verify from config
 - **Change ID:** `deploy-verify-production`
-- **Status:** ready
-- **Input:** [`deploy-verify-production`](../backlog/roadmap-deploy/deploy-verify-production/change.md)
+- **Status:** done_code (2026-10-05; waiting: the first publish of `@softure-ai/deploy`, DP-8)
+- **Input:** [`deploy-verify-production`](../archive/2026-10-05-deploy-verify-production/change.md)
 - **Outcome:**
   - `deploy.json` (zod schema, published as JSON Schema): routes with expected status, body markers, redirects and headers;
   - `softure-deploy verify <url>`: runs every check, prints a table, exits non-zero on a failure;
@@ -248,3 +248,4 @@ All of these are for the owner at the keyboard on 2026-10-06.
 - **DP-6** `testing-clock-shift` (done_code 2026-10-05): `@softure-ai/testing` (`foundation/testing/`, 0.1.0, `"private": true` until DP-8 publishes it) has the `./vitest-setup` entry that shifts the global `Date` to noon of `TEST_TODAY` while time keeps running, and `readTestToday`, `shiftClock`, `restoreClock`, `isClockShifted` for an app's own setup (a fixed default day); `vi.useFakeTimers` starts from the shifted now and `vi.useRealTimers` returns to it (measured, tested); an app lists a one-line setup file because Vitest `setupFiles` takes paths; documented in its README, core's README ("Time") and the module standard §10; no gaps; archived in [`archive/2026-10-05-testing-clock-shift/`](../archive/2026-10-05-testing-clock-shift/change.md)
 - **DP-1** `deploy-cli-env-notes`: `@softure-ai/deploy` with `softure-deploy env render` (names from the compose file, values never printed, `.env.prod` 0600) and `release-notes` (git log only, en/pl); gap DF-1 (FIRE_TRACKER parity) queued in `deploy-followups`; archived in `archive/2026-10-05-deploy-cli-env-notes/`
 - **DP-3** `deploy-db-guard`: `softure-deploy backup` (`pg_dump` custom format, `0600`, retention by prefix after a successful dump), `schema-guard` (the image's exported migrations against the ledger through `checkExportedMigrations` in `@softure-ai/db`) and `row-counts` (`--out`/`--compare`, fails on lost rows); FIRE_TRACKER parity added to DF-1, gap DF-5 (tables in `deploy.json`) queued in `deploy-followups`; archived in `archive/2026-10-05-deploy-db-guard/`
+- **DP-4** `deploy-verify-production`: `softure-deploy verify <url>` checks status, body markers, redirects and headers from `deploy.json` (zod schema published as `schema/deploy.schema.json`), prints a table and exits 1 on a failure; `runCli` is async; FIRE parity of verify folded into DF-1, gap DF-6 (certificate expiry) queued in `deploy-followups`; archived in `archive/2026-10-05-deploy-verify-production/`

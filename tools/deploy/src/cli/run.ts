@@ -3,6 +3,7 @@ import { runEnvRender } from "./env-command.js";
 import { CliFailure, USAGE_EXIT_CODE } from "./failure.js";
 import type { CliIo } from "./io.js";
 import { runReleaseNotes } from "./release-notes-command.js";
+import { runVerifyCommand } from "./verify-command.js";
 
 export const USAGE = [
   "Usage: softure-deploy <command> [flags]",
@@ -17,19 +18,22 @@ export const USAGE = [
   "      refuses the deploy when the ledger cannot take the image's exported migrations (checksum, order, missing)",
   "  row-counts --tables=<a,b.c> [--out=<file>] [--compare=<file>] [--url-env=DATABASE_URL]",
   "      counts the given tables; with --compare, fails when a table has fewer rows than in the earlier file",
+  "  verify <url> [--config=deploy.json] [--timeout=<ms>] [--concurrency=4]",
+  "      checks every route of deploy.json against <url>; exits 1 when a check fails",
   "  help",
   "",
 ].join("\n");
 
 type Command = (args: string[], io: CliIo) => void | Promise<void>;
 
-/** Commands by their words; later items (verify, init) add their own entries. */
+/** Commands by their words; later items (init) add their own entries. */
 const COMMANDS: Record<string, Command> = {
   "env render": runEnvRender,
   "release-notes": runReleaseNotes,
   backup: runBackup,
   "schema-guard": runSchemaGuard,
   "row-counts": runRowCounts,
+  verify: runVerifyCommand,
 };
 
 function findCommand(argv: string[]): { command: Command; args: string[] } | null {

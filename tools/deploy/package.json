@@ -2,7 +2,7 @@
   "name": "@softure-ai/deploy",
   "version": "0.1.0",
   "private": true,
-  "description": "SOFTURE AI deploy CLI for a one-VPS app: renders .env.prod from CI secrets (names from the compose file), writes the release report between two tags, backs up the database, guards the migration ledger and compares row counts.",
+  "description": "SOFTURE AI deploy CLI for a one-VPS app: renders .env.prod from CI secrets (names from the compose file), writes the release report between two tags, backs up the database, guards the migration ledger, compares row counts and verifies production against deploy.json.",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -16,6 +16,7 @@
   },
   "files": [
     "dist",
+    "schema",
     "src",
     "!src/**/*.test.ts"
   ],
@@ -34,7 +35,8 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json"
+    "build": "tsc -p tsconfig.build.json",
+    "schema": "tsx scripts/write-schema.ts"
   },
   "dependencies": {
     "@softure-ai/db": "^0.1.2",
@@ -43,6 +45,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@softure-ai/core": "^0.1.2"
+    "@softure-ai/core": "^0.1.2",
+    "tsx": "^4.23.0"
   }
 }

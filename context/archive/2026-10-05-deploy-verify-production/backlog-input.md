@@ -15,7 +15,7 @@ archived_at: null
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md) (deploy), item **DP-4** (main roadmap since 2026-10-05):
+From [`roadmap.md`](../../foundation/roadmap.md) (deploy), item **DP-4** (main roadmap since 2026-10-05):
 
 > ### DP-4: Production verify from config
 > - **Change ID:** `deploy-verify-production`
@@ -31,8 +31,8 @@ From [`roadmap.md`](../../../foundation/roadmap.md) (deploy), item **DP-4** (mai
 > - **PRD refs:** FR-33.
 > - **Source (FIRE_TRACKER, read only):** `scripts/verify-production.sh`
 
-Reference material: [`docs/06-fire-extraction-2.md`](../../../../docs/06-fire-extraction-2.md) (the FIRE_TRACKER source map and the split rules),
-[`docs/02-module-standard.md`](../../../../docs/02-module-standard.md) (the standard). FIRE_TRACKER is read only:
+Reference material: [`docs/06-fire-extraction-2.md`](../../../docs/06-fire-extraction-2.md) (the FIRE_TRACKER source map and the split rules),
+[`docs/02-module-standard.md`](../../../docs/02-module-standard.md) (the standard). FIRE_TRACKER is read only:
 copy its code, never change it.
 
 ## Constraints
