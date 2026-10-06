@@ -50,7 +50,7 @@ backlog: context/backlog/roadmap-charts/
 
 | ID | Change | Outcome | Depends on | Mode | Status |
 | --- | --- | --- | --- | --- | --- |
-| **CH-1** | `charts-scale-ticks` | `@softure-ai/charts`: linear and time scales, nice ticks (dates in the app's time zone), nearest-point search | — | autonomous | ready |
+| **CH-1** | `charts-scale-ticks` | `@softure-ai/charts`: linear and time scales, nice ticks (dates in the app's time zone), nearest-point search | — | autonomous | done |
 | **CH-2** | `charts-svg-primitives` | server-rendered SVG surface, time and value axes, lines, legend and flags; a keyboard-accessible cursor; a data table fallback | CH-1 | autonomous | ready |
 | **CH-3** | `ui-color-guards` | `@softure-ai/ui/testing`: WCAG contrast, colour-vision simulation and a both-themes contrast check for token pairs | — | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/ui` 0.1.6) |
 | **CH-4** | `charts-palette-guard` | series palette from tokens, distinguishable under colour-vision deficiency and legible on the surface in both themes | CH-2, CH-3 | autonomous | ready |
@@ -78,7 +78,8 @@ backlog: context/backlog/roadmap-charts/
 
 ### CH-1: Chart scales, ticks and nearest point
 - **Change ID:** `charts-scale-ticks`
-- **Status:** ready
+- **Status:** done
+- **Input:** [`charts-scale-ticks`](../archive/2026-10-06-charts-scale-ticks/change.md)
 - **Outcome:** A new package `@softure-ai/charts` (`foundation/charts/`, copied from `templates/package/`) with pure functions:
   - linear and time scales;
   - nice value ticks and date ticks (days, months, years) in the app's time zone;
@@ -153,4 +154,5 @@ backlog: context/backlog/roadmap-charts/
 
 ## Done
 
+- **CH-1** `charts-scale-ticks`: new private package `@softure-ai/charts` (`foundation/charts/`, 0.1.0, first publish in CH-5): `linearScale` and `timeScale` with `invert`, `peakOf` over every series, `valueTicks` and `yearTicks` (FIRE's rules and tests), `dateTicks` at local midnight in the app's IANA zone (DST and a midnight gap covered) with `formatDateTick` through `Intl` (core has no date formatter), and `nearestPointIndex` in data space through the scale's inverse; no gap queued; archived in [`archive/2026-10-06-charts-scale-ticks/`](../archive/2026-10-06-charts-scale-ticks/change.md)
 - **CH-3** `ui-color-guards` (done_code 2026-10-06): `@softure-ai/ui/testing` exports WCAG contrast (`contrastRatio`, `getContrastLevel`, `blendColors`), colour-vision simulation (Viénot for protan and deutan, Machado for tritan), CIEDE2000 (default) and CIE76 distances, `findColorCollisions` (default minimum 10 ΔE00) and `checkThemeContrast(pairs, schemes?)` with `DEFAULT_CONTRAST_PAIRS`, which ui runs on its own tokens; `@softure-ai/ui` 0.1.6; no gaps queued; archived in [`archive/2026-10-06-ui-color-guards/`](../archive/2026-10-06-ui-color-guards/change.md)
