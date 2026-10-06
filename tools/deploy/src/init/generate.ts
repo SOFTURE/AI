@@ -45,6 +45,7 @@ export const TEMPLATE_FILES: readonly TemplateFile[] = [
   { template: "docker/server/deploy.sh.tmpl", target: "docker/server/deploy.sh", mode: EXECUTABLE_MODE, isIncluded: always },
   { template: "scripts/migrate.ts.tmpl", target: "scripts/migrate.ts", mode: FILE_MODE, isIncluded: withDatabase },
   { template: ".github/workflows/deploy.yml.tmpl", target: ".github/workflows/deploy.yml", mode: FILE_MODE, isIncluded: always },
+  { template: ".github/workflows/release.yml.tmpl", target: ".github/workflows/release.yml", mode: FILE_MODE, isIncluded: always },
   { template: "deploy.json.tmpl", target: "deploy.json", mode: FILE_MODE, isIncluded: always },
 ];
 
