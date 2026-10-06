@@ -88,7 +88,8 @@ export function getThemeColors(theme: SoftureTheme = {}): Record<ColorScheme, st
 }
 
 // Token families and the Tailwind 4 namespace each maps to. Durations have no Tailwind namespace;
-// components use `duration-(--sft-duration-fast)`.
+// components use `duration-(--sft-duration-fast)`. Chart tokens (`chart-`) are read by
+// @softure-ai/charts/styles.css, not by utilities, so they are not mapped either.
 const TAILWIND_NAMESPACES: readonly (readonly [tokenPrefix: string, tailwindPrefix: string])[] = [
   ["color-", "--color-"],
   ["font-", "--font-"],

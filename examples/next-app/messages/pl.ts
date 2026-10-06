@@ -45,6 +45,14 @@ export const pl: AppMessages = {
     saved: "Wpis zapisany",
     seePlans: "Zobacz plany",
   },
+  chart: {
+    title: "Wykresy",
+    lead: "Wykres liniowy z @softure-ai/charts, rysowany na serwerze. Najedź na niego albo ustaw na nim fokus i użyj strzałek.",
+    chartTitle: "Oszczędności i wydatki",
+    savings: "Oszczędności",
+    spending: "Wydatki",
+    raise: "Podwyżka",
+  },
   pricing: {
     title: "Plany",
     lead: "Każde konto zaczyna od 14-dniowego okresu próbnego. Wybierz plan, żeby potem dalej pisać.",

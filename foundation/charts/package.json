@@ -2,7 +2,7 @@
   "name": "@softure-ai/charts",
   "version": "0.1.0",
   "private": true,
-  "description": "SOFTURE AI chart arithmetic: linear and time scales, nice value ticks, calendar date ticks in the app's time zone and nearest-point search for a cursor.",
+  "description": "SOFTURE AI charts: scales, ticks and nearest-point search, plus server-rendered SVG line charts with axes, legend, flags, a keyboard cursor and a data table on the --sft-chart-* tokens.",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -17,6 +17,7 @@
   "files": [
     "dist",
     "src",
+    "styles.css",
     "!src/**/*.test.ts",
     "!src/**/*.test.tsx"
   ],
@@ -29,9 +30,20 @@
       "@softure-ai/source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
-    }
+    },
+    "./styles.css": "./styles.css"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "@softure-ai/core": "^0.1.0"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@softure-ai/ui": "^0.1.6"
   }
 }

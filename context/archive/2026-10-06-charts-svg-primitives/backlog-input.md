@@ -15,7 +15,7 @@ Server-rendered SVG surface, time and value axes, lines, legend and flags; a key
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md) (charts), item **CH-2** (main roadmap since 2026-10-06):
+From [`roadmap.md`](../../foundation/roadmap.md) (charts), item **CH-2** (main roadmap since 2026-10-06):
 
 > ### CH-2: SVG chart primitives
 > - **Change ID:** `charts-svg-primitives`
@@ -33,8 +33,8 @@ From [`roadmap.md`](../../../foundation/roadmap.md) (charts), item **CH-2** (mai
 > - **PRD refs:** FR-31, NFR-3, NFR-7.
 > - **Source (FIRE_TRACKER, read only):** `src/components/chart/*`
 
-Reference material: [`docs/06-fire-extraction-2.md`](../../../../docs/06-fire-extraction-2.md) (the FIRE_TRACKER source map and the split rules),
-[`docs/02-module-standard.md`](../../../../docs/02-module-standard.md) (the standard). FIRE_TRACKER is read only:
+Reference material: [`docs/06-fire-extraction-2.md`](../../../docs/06-fire-extraction-2.md) (the FIRE_TRACKER source map and the split rules),
+[`docs/02-module-standard.md`](../../../docs/02-module-standard.md) (the standard). FIRE_TRACKER is read only:
 copy its code, never change it.
 
 ## Constraints
