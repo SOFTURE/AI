@@ -55,7 +55,9 @@ trigger: "the owner step each item waits on (secrets, accounts) is done; the own
 ## Order
 
 1. **LT-2** any time; it must land before the next bump of a module done with `release:version`.
-2. **LT-3** any time.
+2. **LT-3** any time. Taken on 2026-10-06 in a cloud session (branch `claude/lt-3-qp44k0`,
+   `context/changes/testing-browser-hook-timeout/`); a queued roadmap holds no `in_progress`, so it stays `ready`
+   here until it is archived.
 
 ## Items
 

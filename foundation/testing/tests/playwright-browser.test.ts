@@ -113,7 +113,10 @@ beforeAll(async () => {
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   baseURL = `http://127.0.0.1:${String((server.address() as AddressInfo).port)}`;
+  const startedAt = performance.now();
   if (hasChromium) browser = await chromium.launch({ executablePath: CHROMIUM_PATH });
+  // Temporary (testing-browser-hook-timeout phase 1): measures the launch on the CI runner.
+  process.stderr.write(`browser launch took ${(performance.now() - startedAt).toFixed(0)} ms\n`);
 });
 
 afterAll(async () => {
@@ -158,7 +161,7 @@ describe.skipIf(!hasChromium)("Playwright helpers in a browser", () => {
     await logIn(page, { ...options, landingPath: null });
     expect(new URL(page.url()).pathname).toBe("/login");
     await page.context().close();
-  }, 15_000);
+  });
 
   it("opens a page as a new client with its own address and keeps the caller's headers", async () => {
     const first = await openPageAsNewClient(browser, { baseURL, extraHTTPHeaders: { "x-test": "1" } });
@@ -182,7 +185,7 @@ describe.skipIf(!hasChromium)("Playwright helpers in a browser", () => {
     expect(await readSelectedValue(field)).toBe("EUR");
     await expect(chooseOption(field, "USD").then(() => "chosen", (error: Error) => error.message)).resolves.toContain('the select has no option "USD"');
     await page.context().close();
-  }, 15_000);
+  });
 
   it("finds a list row without matching a select option of the same text", async () => {
     const page = await openPage();
@@ -237,5 +240,5 @@ describe.skipIf(!hasChromium)("Playwright helpers in a browser", () => {
     await expectFieldAbsent(page, "role", "a visitor cannot pick a role");
     await expect(expectFieldAbsent(page, "email", "email must be gone")).rejects.toThrow(/email must be gone/);
     await page.context().close();
-  }, 15_000);
+  });
 });

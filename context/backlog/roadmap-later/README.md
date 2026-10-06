@@ -23,7 +23,7 @@ closed (2026-10-04), BL-8 when the blog roadmap closed (2026-10-04), and DP-8 wh
 | BL-8 | [`blog-release`](../../archive/2026-10-04-blog-release/change.md) | SEO and blog release (carried over from blog) | archived 2026-10-06 (live on npm at 0.1.5) | owner |
 | DP-8 | [`deploy-release`](../../archive/2026-10-04-deploy-release/change.md) | Deploy and testing release (carried over from deploy) | archived 2026-10-06 (live on npm at 0.1.1) | owner |
 | LT-2 | [`release-version-inline-manifest`](release-version-inline-manifest/change.md) | release:version keeps inline manifests in step | none | start |
-| LT-3 | [`testing-browser-hook-timeout`](testing-browser-hook-timeout/change.md) | Testing package browser tests start within a measured hook timeout | none | start |
+| LT-3 | [`testing-browser-hook-timeout`](../../changes/testing-browser-hook-timeout/change.md) | Testing package browser tests start within a measured hook timeout | taken 2026-10-06 | start |
 
 Kind: `start` (can be taken as soon as the roadmap is promoted), `dependency` (waits for the listed items on the
 main branch), `owner` (needs an owner decision or the owner at the keyboard).

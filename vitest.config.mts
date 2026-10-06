@@ -38,5 +38,10 @@ export default defineConfig({
     // about 2.5 s today (the ESLint boundary test); a wide margin keeps a loaded CI runner from
     // failing a test that measures nothing about speed.
     testTimeout: 60_000,
+    // Hooks get the same limit: Vitest's default is 10 s. The `beforeAll` of the testing package's browser tests
+    // (a local server and a Chromium launch) took 0.10-0.24 s in a 4-CPU cloud container, idle or beside the full
+    // suite, yet passed 10 s on the 4-core CI runner three times on 2026-10-06 while the marketing-kit browser tests
+    // launched Chrome beside it (testing-browser-hook-timeout).
+    hookTimeout: 60_000,
   },
 });
