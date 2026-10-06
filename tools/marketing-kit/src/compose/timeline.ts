@@ -327,3 +327,58 @@ export function rewindFrames(first: number, still: number, count = 24): number[]
   if (count < 2) throw new Error("A rewind needs at least two frames.");
   return Array.from({ length: count }, (_, k) => Math.round(still - ((still - first) * k) / (count - 1)));
 }
+
+/** How the opening frame hands over to the scene: a cross-fade, a rewind through the scene, or a hard cut. */
+export const TRANSITIONS = ["fade", "rewind", "cut"] as const;
+
+export type Transition = (typeof TRANSITIONS)[number];
+
+const TRANSITION_SECONDS = 0.8;
+/** Key frames of a rewind: few enough that each screen reads, joined by dissolves (24 blended frames flickered in FIRE). */
+const REWIND_KEY_FRAMES = 5;
+/** One dissolve between two key frames of a rewind. */
+const REWIND_DISSOLVE = 0.2;
+
+export function getTransitionSeconds(transition: Transition): number {
+  return transition === "cut" ? 0 : TRANSITION_SECONDS;
+}
+
+/** The recording frames the transition clip is made of, from the opening frame (`still`) to the scene's first (`first`). */
+export function transitionFrames(transition: Transition, first: number, still: number): number[] {
+  if (still < first) throw new Error(`The opening frame (${still}) is before the start of the scene (${first}).`);
+  if (transition === "cut") return [];
+  if (transition === "fade") return [still, first];
+  return rewindFrames(first, still, REWIND_KEY_FRAMES);
+}
+
+export interface CrossfadeInput {
+  /** Still images in order, at least two. */
+  inputs: string[];
+  fps: number;
+  /** The clip's length. */
+  seconds: number;
+  output: string;
+}
+
+const r3 = (value: number) => Math.round(value * 1000) / 1000;
+
+/**
+ * ffmpeg arguments of a clip that dissolves from still to still and lasts exactly `seconds`. Two stills fade over
+ * the whole clip; more are joined by `REWIND_DISSOLVE` dissolves, each still shown for the same time.
+ */
+export function crossfadeArgs(input: CrossfadeInput): string[] {
+  const { inputs, fps, seconds, output } = input;
+  const count = inputs.length;
+  if (count < 2) throw new Error(`A cross-fade needs at least two stills, got ${count}.`);
+  const dissolve = count === 2 ? seconds : REWIND_DISSOLVE;
+  // count × each - (count - 1) × dissolve = seconds
+  const each = r3((seconds + (count - 1) * dissolve) / count);
+  const step = r3(each - dissolve);
+  const sources = inputs.flatMap((path) => ["-loop", "1", "-framerate", String(fps), "-t", String(each), "-i", path]);
+  const filters = inputs.slice(1).map((_, k) => {
+    const from = k === 0 ? "[0:v]" : `[v${k}]`;
+    const last = k === count - 2 ? ",format=yuv420p" : "";
+    return `${from}[${k + 1}:v]xfade=transition=fade:duration=${dissolve}:offset=${r3((k + 1) * step)}${last}[v${k + 1}]`;
+  });
+  return [...sources, "-filter_complex", filters.join(";"), "-map", `[v${count - 1}]`, "-t", String(seconds), "-r", String(fps), "-c:v", "libx264", "-crf", "16", "-pix_fmt", "yuv420p", output];
+}

@@ -22,7 +22,7 @@ const film = {
     { id: "a", text: "Middle." },
     { id: "cta", text: "End." },
   ],
-  hook: { still: "s", shots: [{ mark: "m", scale: 1.5 }] },
+  hook: { still: "s", shots: [{ mark: "m", scale: 1.5 }], transition: "fade" },
   screenGuard: ["x"],
   endCard: { headline: "Count", url: "example.com/calculator", note: "" },
   scene: async () => {},
@@ -68,7 +68,7 @@ const colors = {
 
 const assets = {
   screen: "s.mp4",
-  rewind: "r.mp4",
+  transition: "t.mp4",
   hookStill: "h.jpg",
   lastFrame: "l.jpg",
   voiceover: "v.mp3",
@@ -91,13 +91,19 @@ const input: ComposeInput = {
 
 describe("filmTimes", () => {
   // Oracle on paper, not from the code:
-  // opening = max(3.8; 0.3 + 2 + 0.1) = 3.8 s; rewind 0.8 s;
+  // opening = max(3.8; 0.3 + 2 + 0.1) = 3.8 s; transition (fade) 0.8 s;
   // offset = 3.8 + 0.8 - 6/30 = 4.4 -> at(f) = f/30 + 4.4.
   const times = filmTimes(film, log, voices);
 
-  it("starts the scene after the opening and the rewind", () => {
+  it("starts the scene after the opening and the transition", () => {
     expect(times.hook).toBe(3.8);
     expect(times.at(6)).toBe(4.6);
+  });
+
+  it("starts the scene right after the opening on a cut", () => {
+    // offset = 3.8 + 0 - 6/30 = 3.6 -> at(6) = 3.8; every later time 0.8 s earlier.
+    const cut = filmTimes({ ...film, hook: { ...film.hook, transition: "cut" } }, log, voices);
+    expect([cut.transition, cut.at(6), cut.endCard, cut.end]).toEqual([0, 3.8, 9.5, 11.2]);
   });
 
   it("brings in the end card 0.9 s after the last sentence starts and ends the film 1.6 s after its words", () => {
@@ -209,6 +215,16 @@ describe("composeFilm", () => {
   it("shows the logo next to the brand name only when the brand has one", () => {
     expect(composeFilm(input)).not.toContain('class="logo"');
     expect(composeFilm({ ...input, assets: { ...assets, logo: "assets/logo.svg" } })).toContain('<img class="logo" src="assets/logo.svg" alt="" /><span>Acme &lt;Plan&gt;</span>');
+  });
+
+  it("plays the transition clip between the opening and the recording", () => {
+    expect(composeFilm(input)).toContain('<video id="transition" class="clip" src="t.mp4" data-start="3.8" data-duration="0.8" muted playsinline></video>');
+  });
+
+  it("writes no transition clip for a cut and starts the recording at the end of the opening", () => {
+    const html = composeFilm({ ...input, film: { ...film, hook: { ...film.hook, transition: "cut" } }, assets: { ...assets, transition: null } });
+    expect(html).not.toContain('id="transition"');
+    expect(html).toContain('<video id="recording" class="clip" src="s.mp4" data-start="3.8"');
   });
 
   it("plays only the configured sound effects", () => {

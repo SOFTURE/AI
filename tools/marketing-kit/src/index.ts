@@ -83,7 +83,7 @@ export type { TtsEstimate, TtsInput, TtsProvider, TtsRecording, TtsResult } from
 export { ELEVENLABS_API_KEY_ENV, ELEVENLABS_PROVIDER_ID, createElevenLabsProvider, type ElevenLabsOptions } from "./voice/elevenlabs.js";
 export { createFakeTtsProvider, type FakeTtsOptions, type FakeTtsProvider } from "./voice/fake.js";
 export { createTtsProvider, type CreateTtsProviderOptions, type TtsProviderId } from "./voice/providers.js";
-export { getVoiceoverPaths, readCachedVoiceover, writeVoiceover, type Voiceover, type VoiceoverPaths } from "./voice/cache.js";
+export { findStaleVoiceovers, getVoiceoverPaths, readCachedVoiceover, writeVoiceover, type Voiceover, type VoiceoverPaths } from "./voice/cache.js";
 export { describeEstimate, produceVoiceover, type ProduceVoiceoverOptions, type VoiceoverOutcome } from "./voice/produce.js";
 export {
   BROWSER_BAR_HEIGHT,
@@ -91,21 +91,26 @@ export {
   LAYOUTS,
   LAYOUT_NAMES,
   MIN_DESKTOP_WIDTH,
+  TRANSITIONS,
   VIDEO_FORMATS,
   cameraPose,
   captionChunks,
+  crossfadeArgs,
   fitScale,
   fitsFrame,
   getGeometry,
   getLayoutName,
+  getTransitionSeconds,
   isDesktopViewport,
   resolveLayout,
   rewindFrames,
+  transitionFrames,
   unionRect,
   widePose,
   type CameraPose,
   type CaptionChunk,
   type CaptionLayout,
+  type CrossfadeInput,
   type DeviceKind,
   type EndCardLayout,
   type Geometry,
@@ -114,6 +119,7 @@ export {
   type LayoutOverride,
   type Point,
   type Rect,
+  type Transition,
   type TextBox,
   type VideoFormat,
   type Viewport,

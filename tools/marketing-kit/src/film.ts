@@ -1,6 +1,6 @@
 import type { Locator, Page } from "playwright";
 
-import type { LayoutOverride, VideoFormat, Viewport } from "./compose/timeline.js";
+import type { LayoutOverride, Transition, VideoFormat, Viewport } from "./compose/timeline.js";
 
 /**
  * Film = script (data from `marketing.json`) + scene: the beats' `actions` in the same file
@@ -86,7 +86,8 @@ export interface FilmScript {
    * scene records the rest, and the **last** ends with the end card.
    */
   beats: Beat[];
-  hook: { still: string; shots: HookShot[] };
+  /** The opening: its still, the camera shots over it, and how it hands over to the scene. */
+  hook: { still: string; shots: HookShot[]; transition: Transition };
   /**
    * Phrases the voiceover says that the app's screen must show. If any is missing the recording
    * stops and the render never starts.

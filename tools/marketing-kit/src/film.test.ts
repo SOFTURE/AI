@@ -17,7 +17,7 @@ function makeFilm(overrides: Partial<Film> = {}): Film {
       { id: "scene", text: "Middle." },
       { id: "cta", text: "End." },
     ],
-    hook: { still: "result", shots: [{ mark: "date", scale: 1.4 }] },
+    hook: { still: "result", shots: [{ mark: "date", scale: 1.4 }], transition: "fade" },
     screenGuard: ["March 2040"],
     endCard: { headline: "Count", url: "example.com/calculator", note: "" },
     scene: async () => {},

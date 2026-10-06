@@ -1,3 +1,4 @@
+import { isCalendarDay } from "../config/day.js";
 import { DEFAULT_CONFIG_FILE, QUALITIES, type Quality } from "../config/schema.js";
 
 /**
@@ -20,7 +21,7 @@ export interface FilmOptions {
   filmId: string;
   /** `voice` really pays for the voiceover only with `--commit`. */
   isCommit: boolean;
-  /** The day the app counts from, only to reproduce an old film. */
+  /** The day the app counts from; overrides the video's `today` for one run. */
   today?: string;
   /** Another address of the recorded page. */
   url?: string;
@@ -56,7 +57,7 @@ export const USAGE = [
   "",
   "  all <film>                      voiceover from the cache -> recording -> render -> post copy",
   "  voice <film> [--commit]         voiceover; without --commit it only counts the characters",
-  "  record <film> [--today=YYYY-MM-DD] [--url=...]",
+  "  record <film> [--today=YYYY-MM-DD] [--url=...]   --today overrides the video's \"today\"",
   "  render <film> [--quality=draft|standard|high]",
   "  preview <film>                  open the composition in the hyperframes preview",
   "  posts <film>                    post copy for the configured platforms",
@@ -100,7 +101,7 @@ export function readOptions(argv: string[]): ReadOptionsResult {
   if (positional.length > 1) return { ok: false, error: `one film at a time, got ${positional.join(", ")}.` };
   if (!FILM_ID.test(filmId)) return { ok: false, error: `film name "${filmId}": lowercase letters, digits and hyphens only.` };
   const today = flags.get("today");
-  if (today !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(today)) return { ok: false, error: `--today=${today}: expected YYYY-MM-DD.` };
+  if (today !== undefined && !isCalendarDay(today)) return { ok: false, error: `--today=${today}: expected a real day as YYYY-MM-DD.` };
   const quality = flags.get("quality");
   if (quality !== undefined && !isQuality(quality)) return { ok: false, error: `--quality=${quality}: expected ${QUALITIES.join(" | ")}.` };
   const commit = flags.get("commit");
@@ -140,4 +141,14 @@ function readShotsOptions(positional: string[], flags: Map<string, string>, conf
   if (url === "true") return { ok: false, error: "--url needs an address, e.g. --url=http://localhost:3000." };
   if (url !== undefined && !isHttpAddress(url)) return { ok: false, error: `--url=${url}: expected an address such as http://localhost:3000.` };
   return { ok: true, options: { command: "shots", shotId, url, configPath } };
+}
+
+/** The day a recording starts its page clock at, and where it came from. */
+export type RecordingDay = { day: string; source: "--today" | "videos[].today" } | { day: null; source: "the day of the run" };
+
+/** `--today` wins over the video's `today`; without either, the page clock starts now. */
+export function getRecordingDay(flag: string | undefined, configured: string | null): RecordingDay {
+  if (flag !== undefined) return { day: flag, source: "--today" };
+  if (configured !== null) return { day: configured, source: "videos[].today" };
+  return { day: null, source: "the day of the run" };
 }

@@ -16,7 +16,7 @@ function getTtsInput(film: Film): TtsInput {
 }
 
 export function getVoiceoverPaths(config: MarketingConfig, film: Film): VoiceoverPaths {
-  return getCachePaths(config.voice.cacheDir, getTtsInput(film));
+  return getCachePaths(config.voice.cacheDir, getTtsInput(film), film.id);
 }
 
 /** JSON from disk with the file name in the error, not a bare "Unexpected token". */
@@ -43,6 +43,7 @@ export async function produceVoiceover(config: MarketingConfig, film: Film, isCo
   const result = await produce({
     cacheDir: config.voice.cacheDir,
     input: getTtsInput(film),
+    videoId: film.id,
     provider: createTtsProvider(config.voice.provider, { env: process.env }),
     isCommit,
     log: (line) => console.log(line),

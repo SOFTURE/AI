@@ -7,13 +7,16 @@ import {
   VIDEO_FORMATS,
   cameraPose,
   captionChunks,
+  crossfadeArgs,
   fitScale,
   fitsFrame,
   getGeometry,
   getLayoutName,
+  getTransitionSeconds,
   isDesktopViewport,
   resolveLayout,
   rewindFrames,
+  transitionFrames,
   unionRect,
   widePose,
 } from "./timeline.js";
@@ -284,5 +287,58 @@ describe("rewindFrames", () => {
 
   it("refuses an opening frame before the start of the scene", () => {
     expect(() => rewindFrames(100, 50)).toThrow(/before the start/);
+  });
+});
+
+describe("transitionFrames", () => {
+  it("fades from the opening frame straight to the scene's first frame", () => {
+    expect(transitionFrames("fade", 6, 582)).toEqual([582, 6]);
+  });
+
+  it("rewinds through five key frames, not one screen per video frame", () => {
+    // Step by hand: (582 - 6) / 4 = 144.
+    expect(transitionFrames("rewind", 6, 582)).toEqual([582, 438, 294, 150, 6]);
+  });
+
+  it("has no frames for a cut", () => {
+    expect(transitionFrames("cut", 6, 582)).toEqual([]);
+  });
+
+  it("refuses an opening frame before the start of the scene", () => {
+    expect(() => transitionFrames("fade", 100, 50)).toThrow(/before the start/);
+  });
+});
+
+describe("getTransitionSeconds", () => {
+  it("lasts 0.8 s for a fade or a rewind and nothing for a cut", () => {
+    expect([getTransitionSeconds("fade"), getTransitionSeconds("rewind"), getTransitionSeconds("cut")]).toEqual([0.8, 0.8, 0]);
+  });
+});
+
+describe("crossfadeArgs", () => {
+  it("cross-fades two stills over the whole clip", () => {
+    const args = crossfadeArgs({ inputs: ["a.jpg", "b.jpg"], fps: 30, seconds: 0.8, output: "t.mp4" });
+    expect(args).toEqual([
+      "-loop", "1", "-framerate", "30", "-t", "0.8", "-i", "a.jpg",
+      "-loop", "1", "-framerate", "30", "-t", "0.8", "-i", "b.jpg",
+      "-filter_complex", "[0:v][1:v]xfade=transition=fade:duration=0.8:offset=0,format=yuv420p[v1]",
+      "-map", "[v1]", "-t", "0.8", "-r", "30", "-c:v", "libx264", "-crf", "16", "-pix_fmt", "yuv420p", "t.mp4",
+    ]);
+  });
+
+  it("chains five stills with 0.2 s dissolves into 0.8 s", () => {
+    // Each still 0.32 s: 5 × 0.32 - 4 × 0.2 = 0.8; the k-th dissolve starts at (k + 1) × 0.12.
+    const args = crossfadeArgs({ inputs: ["0", "1", "2", "3", "4"], fps: 30, seconds: 0.8, output: "t.mp4" });
+    expect(args.filter((arg) => arg === "0.32")).toHaveLength(5);
+    expect(args[args.indexOf("-filter_complex") + 1]).toBe(
+      "[0:v][1:v]xfade=transition=fade:duration=0.2:offset=0.12[v1];" +
+        "[v1][2:v]xfade=transition=fade:duration=0.2:offset=0.24[v2];" +
+        "[v2][3:v]xfade=transition=fade:duration=0.2:offset=0.36[v3];" +
+        "[v3][4:v]xfade=transition=fade:duration=0.2:offset=0.48,format=yuv420p[v4]",
+    );
+  });
+
+  it("refuses fewer than two stills", () => {
+    expect(() => crossfadeArgs({ inputs: ["a.jpg"], fps: 30, seconds: 0.8, output: "t.mp4" })).toThrow(/two stills/);
   });
 });

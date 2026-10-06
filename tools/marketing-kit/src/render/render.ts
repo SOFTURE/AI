@@ -4,7 +4,7 @@ import { createRequire } from "node:module";
 import { dirname, extname, join } from "node:path";
 
 import { composeFilm, filmTimes, type ComposeFont } from "../compose/compose.js";
-import { getGeometry, getLayoutName, rewindFrames } from "../compose/timeline.js";
+import { crossfadeArgs, getGeometry, getLayoutName, getTransitionSeconds, transitionFrames } from "../compose/timeline.js";
 import type { BrandColors } from "../config/colors.js";
 import type { BrandFont } from "../config/config.js";
 import type { SfxEvent } from "../config/schema.js";
@@ -79,17 +79,17 @@ export function buildComposition(input: RenderInput): string {
 
   const ff = (args: string[]) => run("ffmpeg", ["-v", "error", "-y", ...args]);
   ff(["-framerate", String(log.fps), "-i", join(dir, "frames", "f%05d.jpg"), "-c:v", "libx264", "-preset", "slow", "-crf", "14", "-pix_fmt", "yuv420p", join(assetsDir, "screen.mp4")]);
-  // Rewind: 24 frames from the opening frame back to the start of the scene (0.8 s), with motion blur.
+  // The transition from the opening frame into the scene: stills joined by dissolves (none for a cut).
   const still = log.stills[film.hook.still];
   const firstBeat = log.beats[0];
   if (still === undefined || firstBeat === undefined) throw new Error(`The recording of ${film.id} has no opening frame or no sentences: record it again.`);
-  const rewindDir = join(dir, "rewind");
-  rmSync(rewindDir, { recursive: true, force: true });
-  mkdirSync(rewindDir, { recursive: true });
-  rewindFrames(firstBeat.f0, still).forEach((index, k) => {
-    cpSync(getFramePath(dir, index), join(rewindDir, `r${String(k).padStart(5, "0")}.jpg`));
-  });
-  ff(["-framerate", String(log.fps), "-i", join(rewindDir, "r%05d.jpg"), "-vf", "tmix=frames=3", "-c:v", "libx264", "-crf", "16", "-pix_fmt", "yuv420p", join(assetsDir, "rewind.mp4")]);
+  const transitionPath = join(assetsDir, "transition.mp4");
+  rmSync(transitionPath, { force: true });
+  const frames = transitionFrames(film.hook.transition, firstBeat.f0, still);
+  if (frames.length > 0) {
+    const inputs = frames.map((index) => getFramePath(dir, index));
+    ff(crossfadeArgs({ inputs, fps: log.fps, seconds: getTransitionSeconds(film.hook.transition), output: transitionPath }));
+  }
   cpSync(getFramePath(dir, still), join(assetsDir, "hook.jpg"));
   cpSync(getFramePath(dir, log.frames - 1), join(assetsDir, "last.jpg"));
   ff(["-i", input.voiceoverAudio, "-filter:a", `atempo=${film.voice.tempo}`, "-c:a", "libmp3lame", "-q:a", "2", join(assetsDir, "voiceover.mp3")]);
@@ -120,7 +120,7 @@ export function buildComposition(input: RenderInput): string {
       fonts,
       assets: {
         screen: "assets/screen.mp4",
-        rewind: "assets/rewind.mp4",
+        transition: frames.length > 0 ? "assets/transition.mp4" : null,
         hookStill: "assets/hook.jpg",
         lastFrame: "assets/last.jpg",
         voiceover: "assets/voiceover.mp3",
