@@ -5,8 +5,8 @@
 //   <bump>     patch | minor | major | prepatch | preminor | premajor | prerelease | x.y.z
 //
 // Owner only (`release.owner` in context/workflow.json): it runs `npm version` for the
-// workspace, keeps `module.json` in step, commits `chore(release): <package>@<version>` and
-// creates the annotated tag. It never pushes; pushing the tag starts the release workflow.
+// workspace, keeps `module.json` and the inline manifest of `src/index.ts` in step, commits
+// `chore(release): <package>@<version>` and creates the annotated tag. It never pushes; pushing the tag starts the release workflow.
 // See scripts/release/README.md.
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
@@ -64,6 +64,86 @@ export function setModuleVersion(text, version) {
 }
 
 /**
+ * Indexes of the code characters of a TypeScript source: everything outside strings, template
+ * literals and comments. Enough for the plain object literals of a module manifest.
+ * @param {string} text
+ * @returns {boolean[]}
+ */
+function markCode(text) {
+  /** @type {boolean[]} */
+  const isCode = Array.from({ length: text.length }, () => false);
+  let position = 0;
+  while (position < text.length) {
+    const char = text[position];
+    const next = text[position + 1];
+    if (char === "/" && next === "/") {
+      const end = text.indexOf("\n", position);
+      position = end === -1 ? text.length : end;
+    } else if (char === "/" && next === "*") {
+      const end = text.indexOf("*/", position + 2);
+      position = end === -1 ? text.length : end + 2;
+    } else if (char === '"' || char === "'" || char === "`") {
+      position += 1;
+      while (position < text.length && text[position] !== char) position += text[position] === "\\" ? 2 : 1;
+      position += 1;
+    } else {
+      isCode[position] = true;
+      position += 1;
+    }
+  }
+  return isCode;
+}
+
+const MANIFEST_KEY = /(?<![\w$])manifest\s*:\s*\{/g;
+const INLINE_VERSION_KEY = /(?<![\w$])version\s*:\s*"[^"\\\n]*"/g;
+
+/**
+ * Sets the `version` of the inline `manifest: { ... }` object in a module's `src/index.ts`, leaving
+ * the rest of the file as it is. Refuses a file with no manifest, several, or a manifest without
+ * exactly one top-level `version`.
+ * @param {string} text
+ * @param {string} version
+ * @returns {{ ok: true, text: string } | { ok: false, reason: string }}
+ */
+export function setInlineManifestVersion(text, version) {
+  const isCode = markCode(text);
+  const manifests = [...text.matchAll(MANIFEST_KEY)].filter((match) => isCode[match.index]);
+  const [manifest] = manifests;
+  if (!manifest) return { ok: false, reason: `Updating src/index.ts: no inline manifest to set to ${version}` };
+  if (manifests.length > 1) {
+    return { ok: false, reason: `Updating src/index.ts: ${manifests.length} inline manifests, expected one` };
+  }
+
+  const open = manifest.index + manifest[0].length - 1;
+  let depth = 0;
+  let close = text.length;
+  /** @type {number[]} */
+  const topLevelStarts = [];
+  for (let position = open; position < text.length; position += 1) {
+    if (!isCode[position]) continue;
+    const char = text[position];
+    if (char === "{" || char === "[" || char === "(") depth += 1;
+    else if (char === "}" || char === "]" || char === ")") {
+      depth -= 1;
+      if (depth === 0) {
+        close = position;
+        break;
+      }
+    } else if (depth === 1 && char === "v") topLevelStarts.push(position);
+  }
+
+  const candidates = [...text.slice(0, close).matchAll(INLINE_VERSION_KEY)].filter((match) =>
+    topLevelStarts.includes(match.index),
+  );
+  const [match] = candidates;
+  if (candidates.length !== 1 || !match) {
+    return { ok: false, reason: `Updating src/index.ts: the manifest has ${candidates.length} top-level "version" keys, expected one` };
+  }
+  const updated = `${text.slice(0, match.index)}version: "${version}"${text.slice(match.index + match[0].length)}`;
+  return { ok: true, text: updated };
+}
+
+/**
  * @param {string} message
  * @returns {never}
  */
@@ -115,6 +195,19 @@ function runCli() {
     );
   }
 
+  // Every module repeats its version in the inline manifest of src/index.ts; read it before
+  // anything changes, so a module the script cannot update is refused with a clean tree.
+  const modulePath = join(root, pkg.dir, "module.json");
+  const indexPath = join(root, pkg.dir, "src/index.ts");
+  /** @type {string | null} */
+  let indexText = null;
+  if (existsSync(modulePath)) {
+    if (!existsSync(indexPath)) fail(`Bumping ${pkg.name} (nothing was changed): it has module.json but no src/index.ts`);
+    const inline = setInlineManifestVersion(readFileSync(indexPath, "utf8"), version);
+    if (!inline.ok) fail(`Bumping ${pkg.name} (nothing was changed): ${inline.reason}`);
+    indexText = inline.text;
+  }
+
   try {
     // Updates the workspace's package.json and the root lockfile; no git commit or tag of its own.
     execFileSync("npm", ["version", version, "-w", pkg.dir, "--no-git-tag-version"], { cwd: root, stdio: "inherit" });
@@ -125,12 +218,12 @@ function runCli() {
   }
 
   const files = [join(pkg.dir, "package.json"), "package-lock.json"];
-  const modulePath = join(root, pkg.dir, "module.json");
-  if (existsSync(modulePath)) {
+  if (indexText !== null) {
     const updated = setModuleVersion(readFileSync(modulePath, "utf8"), version);
     if (!updated.ok) fail(updated.reason);
     writeFileSync(modulePath, updated.text);
-    files.push(join(pkg.dir, "module.json"));
+    writeFileSync(indexPath, indexText);
+    files.push(join(pkg.dir, "module.json"), join(pkg.dir, "src/index.ts"));
   }
 
   git(root, ["add", "--", ...files]);
