@@ -16,13 +16,14 @@ here, in `context/changes/` or in `context/archive/`. Taking an entry works as i
 | DF-5 | [`deploy-row-count-config`](../../archive/2026-10-06-deploy-row-count-config/change.md) (done 2026-10-06) | Row-count tables from deploy.json | roadmap promoted (DP-4 is on master) | start |
 | DF-6 | [`deploy-verify-cert-expiry`](../../archive/2026-10-06-deploy-verify-cert-expiry/change.md) (done 2026-10-06) | Certificate expiry in verify | roadmap promoted | start |
 | DF-7 | [`deploy-server-files`](../../archive/2026-10-06-deploy-server-files/change.md) (done 2026-10-06) | Server files shipped with each release | DF-2 on master (DP-5 is) | dependency |
-| DF-8 | [`deploy-row-count-server-list`](deploy-row-count-server-list/change.md) | The server counts the tables of deploy.json | DF-7 on master (DF-5 is) | dependency |
+| DF-8 | [`deploy-row-count-server-list`](../../archive/2026-10-06-deploy-row-count-server-list/change.md) (done 2026-10-06) | The server counts the tables of deploy.json | DF-7 on master (DF-5 is) | dependency |
 | DF-9 | [`deploy-server-safety`](deploy-server-safety/change.md) | The server deploy script matches FIRE's safety steps | DF-7 on master | dependency |
 | DF-10 | [`deploy-release-report`](deploy-release-report/change.md) | The release body carries pipeline status and deployment history | DF-9 on master | dependency |
 | DF-11 | [`deploy-workflow-release-guards`](deploy-workflow-release-guards/change.md) | The deploy workflow refuses a stray tag and carries build values | DF-7 on master | dependency |
 | DF-12 | [`deploy-cut-release`](deploy-cut-release/change.md) | A reusable workflow cuts a release from a dispatch | DF-11 on master | dependency |
 | DF-13 | [`deploy-verify-origin-firewall`](deploy-verify-origin-firewall/change.md) | verify checks that the origin refuses direct traffic | roadmap promoted | start |
-| DF-14 | [`deploy-workflow-e2e-server`](deploy-workflow-e2e-server/change.md) | The end-to-end test runs the server side and verify | DF-3 on master | dependency |
+| DF-14 | [`deploy-row-count-new-table`](deploy-row-count-new-table/change.md) | A new table can join the row-count list with its release | DF-8 on master | dependency |
+| DF-15 | [`deploy-workflow-e2e-server`](deploy-workflow-e2e-server/change.md) | The end-to-end test runs the server side and verify | DF-3 on master | dependency |
 
 Kind: `start` (can be taken as soon as the roadmap is promoted), `dependency` (waits for the listed items on the
 main branch), `owner` (needs an owner decision or the owner at the keyboard).

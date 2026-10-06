@@ -18,7 +18,8 @@
 #
 # Steps: check the command, unpack and check the archive, install its files and .env.prod, pull the image, back up
 # the database, guard the schema against the new image's migrations, count rows, switch (the migrate service runs
-# before the app), compare the row counts, record the tag.
+# before the app), compare the row counts, record the tag. The tables counted are database.rowCountTables of the
+# deploy.json this release shipped; without that file or key the counts are skipped.
 # A failed step stops the release and prints the previous tag; a rollback is a redeploy of that tag ("Run workflow"
 # in the app's deploy workflow), which installs that tag's files again. Files a release no longer ships stay here.
 set -euo pipefail
@@ -29,8 +30,6 @@ DEPLOY_CLI="@softure-ai/deploy@0.0.0"
 DATABASE_NAME="softure_example"
 BACKUP_DIR="$APP_DIR/backups"
 BACKUP_KEEP=7
-# The tables whose row count must not drop across a release; empty skips the comparison.
-ROW_COUNT_TABLES=""
 TAG_FILE="$APP_DIR/.deployed-tag"
 RELEASES_DIR="$APP_DIR/releases"
 RELEASE_KEEP=5
@@ -170,10 +169,25 @@ container="$(docker create "$IMAGE:$TAG")"
 docker cp "$container:/app/softure-migrations" "$work/migrations" > /dev/null
 deploy_cli schema-guard --migrations-dir="$work/migrations" || fail "the schema guard refused $TAG; nothing was restarted."
 
+# The tables whose row count must not drop: database.rowCountTables of the deploy.json this release shipped, not the
+# copy next to this script, which an older release may have left. Exit 0: a list; 3: no file or no list.
+release_config="$release_dir/deploy.json"
+lists_tables=0
+node -e '
+const fs = require("node:fs");
+const path = process.argv[1];
+if (!fs.existsSync(path)) process.exit(3);
+const tables = JSON.parse(fs.readFileSync(path, "utf8"))?.database?.rowCountTables;
+process.exit(Array.isArray(tables) && tables.length > 0 ? 0 : 3);
+' "$release_config" || lists_tables=$?
+if [ "$lists_tables" -ne 0 ] && [ "$lists_tables" -ne 3 ]; then
+  fail "cannot read the row-count tables of the release's deploy.json."
+fi
+
 # The first release has no rows to lose (and no tables yet). A table joins the list after the release that creates it.
 counted=""
-if [ -n "$ROW_COUNT_TABLES" ] && [ -n "$previous_tag" ]; then
-  deploy_cli row-counts --tables="$ROW_COUNT_TABLES" --out="$work/counts-before.json" || fail "counting rows failed; nothing was restarted."
+if [ "$lists_tables" -eq 0 ] && [ -n "$previous_tag" ]; then
+  deploy_cli row-counts --config="$release_config" --out="$work/counts-before.json" || fail "counting rows failed; nothing was restarted."
   counted="yes"
 fi
 
@@ -182,7 +196,7 @@ compose up --detach --wait --remove-orphans traefik app || fail "the stack did n
 if [ -n "$rules_changed" ]; then compose restart traefik || fail "Traefik did not restart with the new rules."; fi
 
 if [ -n "$counted" ]; then
-  deploy_cli row-counts --tables="$ROW_COUNT_TABLES" --compare="$work/counts-before.json" \
+  deploy_cli row-counts --config="$release_config" --compare="$work/counts-before.json" \
     || fail "rows were lost on $TAG; the backup before it is the newest in $BACKUP_DIR."
 fi
 

@@ -35,6 +35,12 @@ const NO_DATABASE: AppFacts = {
 
 const ENV_PROD = "AUTH_SECRET='s3cret'\n";
 
+// The database steps run the CLI through npx; the stub only records the call.
+const STUB_NPX = `#!/usr/bin/env bash
+printf '%s\\n' "$*" >> "$NPX_LOG"
+exit 0
+`;
+
 const STUB_DOCKER = `#!/usr/bin/env bash
 printf '%s\\n' "$*" >> "$DOCKER_LOG"
 if [ -n "\${FAIL_COMPOSE_CONFIG:-}" ] && [[ " $* " == *" config "* ]]; then exit 1; fi
@@ -66,6 +72,7 @@ let checkout: string;
 let server: string;
 let dockerLog: string;
 let stubBin: string;
+let npxLog: string;
 
 function write(path: string, text: string, mode = 0o644): void {
   mkdirSync(dirname(path), { recursive: true });
@@ -73,10 +80,11 @@ function write(path: string, text: string, mode = 0o644): void {
   chmodSync(path, mode);
 }
 
-function writeCheckout(): void {
-  const files = planInitFiles({ answers: ANSWERS, facts: NO_DATABASE, cliVersion: "9.9.9" });
+function writeCheckout(options: { facts?: AppFacts; tables?: string[]; envProd?: string } = {}): void {
+  const answers = { ...ANSWERS, tables: options.tables ?? [] };
+  const files = planInitFiles({ answers, facts: options.facts ?? NO_DATABASE, cliVersion: "9.9.9" });
   for (const file of files) write(join(checkout, file.path), file.text, file.mode);
-  writeFileSync(join(checkout, ".env.prod"), ENV_PROD);
+  writeFileSync(join(checkout, ".env.prod"), options.envProd ?? ENV_PROD);
 }
 
 function pack(env: Record<string, string> = {}): BashResult {
@@ -103,6 +111,7 @@ function deploy(tag: string, input: Buffer | string, env: Record<string, string>
       PATH: `${stubBin}:${process.env.PATH ?? ""}`,
       SSH_ORIGINAL_COMMAND: `deploy ${tag}`,
       DOCKER_LOG: dockerLog,
+      NPX_LOG: npxLog,
       ...env,
     },
   });
@@ -139,10 +148,12 @@ beforeEach(() => {
   server = join(root, "srv", "acme-app");
   stubBin = join(root, "bin");
   dockerLog = join(root, "docker.log");
+  npxLog = join(root, "npx.log");
   writeCheckout();
   // The first setup: the owner copies deploy.sh once and binds the deploy key to it.
   write(join(server, "deploy.sh"), readFileSync(join(checkout, "docker/server/deploy.sh"), "utf8"), 0o755);
   write(join(stubBin, "docker"), STUB_DOCKER, 0o755);
+  write(join(stubBin, "npx"), STUB_NPX, 0o755);
 });
 
 afterEach(() => {
@@ -207,6 +218,90 @@ describe("a release archive packed by deploy-app.yml and installed by deploy.sh"
     expect(pack({ DEPLOY_CONFIG: "" }).status).toBe(0);
     expect(deploy("v1", readFileSync(join(checkout, "release.tar.gz"))).status).toBe(0);
     expect(existsSync(join(server, "deploy.json"))).toBe(false);
+  });
+});
+
+describe("deploy.sh with a database counts the tables of the deploy.json the release shipped", () => {
+  const WITH_DATABASE: AppFacts = { ...NO_DATABASE, hasDatabase: true };
+  const DATABASE_ENV = "POSTGRES_PASSWORD='pw'\nSOFTURE_MIGRATOR_PASSWORD='m'\nSOFTURE_APP_PASSWORD='a'\n";
+
+  function setUp(tables: string[]): void {
+    writeCheckout({ facts: WITH_DATABASE, tables, envProd: DATABASE_ENV });
+    write(join(server, "deploy.sh"), readFileSync(join(checkout, "docker/server/deploy.sh"), "utf8"), 0o755);
+  }
+
+  function readRowCountCalls(): string[] {
+    const calls = existsSync(npxLog) ? readFileSync(npxLog, "utf8").trim().split("\n") : [];
+    return calls.filter((line) => line.includes(" row-counts "));
+  }
+
+  function setDeployJson(edit: (config: Record<string, unknown>) => Record<string, unknown>): void {
+    const path = join(checkout, "deploy.json");
+    writeFileSync(path, JSON.stringify(edit(JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>)));
+  }
+
+  it("counts before and compares after the switch on a later release, with the release's own deploy.json", () => {
+    setUp(["users", "billing.subscriptions"]);
+    const first = deploy("v1", packArchive());
+    expect(first.stderr).toBe("");
+    expect(first.status).toBe(0);
+    // The first release has no rows to lose (and no tables yet).
+    expect(readRowCountCalls()).toEqual([]);
+
+    rmSync(dockerLog);
+    const second = deploy("v2", packArchive());
+    expect(second.stderr).toBe("");
+    expect(second.status).toBe(0);
+    const config = join(server, "releases/v2/deploy.json");
+    expect(readRowCountCalls()).toEqual([
+      expect.stringMatching(new RegExp(`^--yes @softure-ai/deploy@9\\.9\\.9 row-counts --config=${config} --out=\\S+/counts-before\\.json$`)) as unknown,
+      expect.stringMatching(new RegExp(`^--yes @softure-ai/deploy@9\\.9\\.9 row-counts --config=${config} --compare=\\S+/counts-before\\.json$`)) as unknown,
+    ]);
+    expect(readDockerLog()).toContain("compose --env-file .env.prod --file docker-compose.yml up --detach --wait --remove-orphans traefik app");
+  });
+
+  it("skips the comparison when the shipped deploy.json lists no tables", () => {
+    setUp([]);
+    expect(deploy("v1", packArchive()).status).toBe(0);
+    const result = deploy("v2", packArchive());
+    expect(result.stderr).toBe("");
+    expect(result.status).toBe(0);
+    expect(readRowCountCalls()).toEqual([]);
+  });
+
+  it("skips the comparison when the release ships no deploy.json, even if an older one is installed", () => {
+    setUp(["users"]);
+    expect(deploy("v1", packArchive()).status).toBe(0);
+    expect(pack({ DEPLOY_CONFIG: "" }).status).toBe(0);
+    const result = deploy("v2", readFileSync(join(checkout, "release.tar.gz")));
+    expect(result.stderr).toBe("");
+    expect(result.status).toBe(0);
+    expect(existsSync(join(server, "deploy.json"))).toBe(true);
+    expect(readRowCountCalls()).toEqual([]);
+  });
+
+  it("takes a table added to deploy.json with the release that ships it", () => {
+    setUp(["users"]);
+    expect(deploy("v1", packArchive()).status).toBe(0);
+    setDeployJson((config) => ({ ...config, database: { rowCountTables: ["users", "orders"] } }));
+    expect(deploy("v2", packArchive()).status).toBe(0);
+    expect(JSON.parse(readFileSync(join(server, "releases/v2/deploy.json"), "utf8"))).toMatchObject({
+      database: { rowCountTables: ["users", "orders"] },
+    });
+    expect(readRowCountCalls()).toHaveLength(2);
+  });
+
+  it("stops before the switch when the shipped deploy.json cannot be read", () => {
+    setUp(["users"]);
+    expect(deploy("v1", packArchive()).status).toBe(0);
+    rmSync(dockerLog);
+    writeFileSync(join(checkout, "deploy.json"), "{ not json");
+    const result = deploy("v2", packArchive());
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("deploy: cannot read the row-count tables of the release's deploy.json.");
+    expect(result.stderr).toContain("deploy: the previous release is v1; redeploy it to roll back.");
+    expect(readDockerLog().filter((line) => line.includes("traefik app"))).toEqual([]);
+    expect(readRowCountCalls()).toEqual([]);
   });
 });
 
