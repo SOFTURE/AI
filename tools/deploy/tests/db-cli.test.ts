@@ -121,6 +121,17 @@ describe.runIf(ADMIN_URL !== undefined)("softure-deploy database commands on Pos
       expect(out.join("") + err.join("")).not.toContain(url);
     });
 
+    it("keeps the definition but not the rows of an excluded table", async () => {
+      const url = await createTestDatabase();
+      await runSql(url, "CREATE TABLE users (id int); CREATE TABLE auth_attempts (ip text); INSERT INTO auth_attempts VALUES ('203.0.113.7');");
+      expect(await runCli(["backup", "--dir=backups", "--exclude-table-data=auth_attempts"], makeIo({ DATABASE_URL: url }))).toBe(0);
+      const [file] = readdirSync(join(dir, "backups"));
+      const listing = execFileSync("pg_restore", ["--list", join(dir, "backups", file ?? "")], { encoding: "utf8" });
+      expect(listing).toMatch(/TABLE public auth_attempts/);
+      expect(listing).not.toMatch(/TABLE DATA public auth_attempts/);
+      expect(listing).toMatch(/TABLE DATA public users/);
+    });
+
     it("keeps the newest --keep dumps of the prefix and never touches other files", async () => {
       const url = await createTestDatabase();
       const backups = join(dir, "backups");
@@ -295,6 +306,56 @@ describe("softure-deploy database commands without a database", () => {
     expect(readdirSync(join(dir, "backups"))).toEqual([]);
     expect(existsSync(join(dir, "backups"))).toBe(true);
     expect(err.join("")).not.toContain("sentinel-password");
+  });
+
+  /** A stand-in for pg_dump: records its arguments and writes `output` to stdout. */
+  function writeFakePgDump(output: string): string {
+    const path = join(dir, "fake-pg-dump.sh");
+    writeFileSync(path, `#!/bin/sh\nprintf '%s\\n' "$@" > "${join(dir, "args.txt")}"\nprintf '%s' '${output}'\n`, { mode: 0o755 });
+    return path;
+  }
+
+  it("passes each excluded table to pg_dump and removes dumps past --max-age-days", async () => {
+    const backups = join(dir, "backups");
+    mkdirSync(backups);
+    for (const name of ["db-20000101T000000Z.dump", "db-20000102T000000Z.dump"]) writeFileSync(join(backups, name), "PGDMP old");
+    const pgDump = writeFakePgDump("PGDMP fake");
+    const args = ["backup", `--pg-dump=${pgDump}`, "--max-age-days=30", "--exclude-table-data=auth_attempts,audit.ip_log"];
+    expect(await runCli(args, makeIo({ DATABASE_URL: "postgres://db/app" }))).toBe(0);
+    expect(readFileSync(join(dir, "args.txt"), "utf8").split("\n")).toEqual([
+      "--format=custom",
+      "--no-password",
+      "--exclude-table-data=auth_attempts",
+      "--exclude-table-data=audit.ip_log",
+      "",
+    ]);
+    const left = readdirSync(backups);
+    expect(left).toHaveLength(1);
+    expect(left[0]).toMatch(/^db-\d{8}T\d{6}Z\.dump$/);
+    expect(out.join("")).toContain("removed 2 older: db-20000102T000000Z.dump, db-20000101T000000Z.dump");
+  });
+
+  it("keeps no file that is not a custom-format dump and runs no retention", async () => {
+    const backups = join(dir, "backups");
+    mkdirSync(backups);
+    writeFileSync(join(backups, "db-20000101T000000Z.dump"), "PGDMP old");
+    const pgDump = writeFakePgDump("-- plain SQL");
+    expect(await runCli(["backup", `--pg-dump=${pgDump}`, "--keep=1"], makeIo({ DATABASE_URL: "postgres://db/app" }))).toBe(1);
+    expect(readdirSync(backups)).toEqual(["db-20000101T000000Z.dump"]);
+    expect(err.join("")).toBe(`backup: no backup written; ${pgDump} wrote no pg_dump custom-format file (no PGDMP header).\n`);
+  });
+
+  it("refuses a bad --max-age-days or --exclude-table-data as a usage error", async () => {
+    const io = makeIo({ DATABASE_URL: "postgres://db/app" });
+    expect(await runCli(["backup", "--max-age-days=0"], io)).toBe(2);
+    expect(await runCli(["backup", "--exclude-table-data=Auth"], io)).toBe(2);
+    expect(err.join("")).toBe(
+      [
+        'backup: --max-age-days must be a whole number of at least 1, got "0".',
+        "backup: --exclude-table-data: not a table name (table or schema.table, lower snake case): Auth.",
+        "",
+      ].join("\n"),
+    );
   });
 
   it("refuses a row-counts file that is not one", async () => {

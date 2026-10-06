@@ -10,5 +10,10 @@ export const en = {
     pullRequests: "Pull requests",
     commits: "Other commits",
     fullDiff: "Full diff",
+    /** The table of roadmap items the release ships (`--roadmap`) and its column titles. */
+    roadmapItems: "Roadmap items",
+    roadmapId: "ID",
+    roadmapChange: "Change",
+    roadmapOutcome: "Outcome",
   },
 };

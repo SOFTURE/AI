@@ -44,6 +44,49 @@ function serve(path: string, handle: Handler): void {
 }
 
 describe("runVerify against a local server", () => {
+  it("sends a route's method, body and request headers on top of verify's own", async () => {
+    const received: { method?: string; body: string; headers: IncomingMessage["headers"] }[] = [];
+    serve("/api/mcp", (request, response) => {
+      let body = "";
+      request.setEncoding("utf8");
+      request.on("data", (chunk: string) => (body += chunk));
+      request.on("end", () => {
+        received.push({ method: request.method, body, headers: request.headers });
+        response.writeHead(401, { "www-authenticate": 'Bearer resource_metadata="https://app.example/.well-known/x"' }).end();
+      });
+    });
+    serve("/", (request, response) =>
+      response.writeHead(200, { "content-type": request.headers.accept === "text/markdown" ? "text/markdown" : "text/html" }).end("# Home"));
+    const { routes } = await runVerify({
+      baseUrl,
+      config: verifyConfig({
+        routes: [
+          {
+            path: "/api/mcp",
+            method: "POST",
+            status: 401,
+            body: '{"jsonrpc":"2.0","id":1,"method":"tools/list"}',
+            requestHeaders: { "content-type": "application/json" },
+            headers: { "www-authenticate": "resource_metadata=" },
+          },
+          { path: "/", requestHeaders: { accept: "text/markdown", "user-agent": "GPTBot/1.3" }, headers: { "content-type": "text/markdown" } },
+        ],
+      }),
+    });
+    expect(routes.map((route) => [route.method, route.path, route.passed])).toEqual([
+      ["POST", "/api/mcp", true],
+      ["GET", "/", true],
+    ]);
+    expect(received).toHaveLength(1);
+    expect(received[0]?.method).toBe("POST");
+    expect(received[0]?.body).toBe('{"jsonrpc":"2.0","id":1,"method":"tools/list"}');
+    expect(received[0]?.headers["content-type"]).toBe("application/json");
+    expect(received[0]?.headers["user-agent"]).toBe("softure-deploy-verify");
+    const home = seen.find((request) => request.url === "/");
+    expect(home?.headers["user-agent"]).toBe("GPTBot/1.3");
+    expect(home?.headers["cache-control"]).toBe("no-cache");
+  });
+
   it("passes routes whose status, markers, redirect and headers match, in config order", async () => {
     serve("/", (_request, response) =>
       response.writeHead(200, { "content-type": "text/html; charset=utf-8", "x-frame-options": "DENY" }).end("<h1>Home</h1>"));
@@ -92,6 +135,7 @@ describe("runVerify against a local server", () => {
       }),
     });
     expect(report).toEqual({
+      method: "GET",
       path: "/",
       url: `${baseUrl}/`,
       status: 500,

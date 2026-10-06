@@ -6,25 +6,29 @@
 #
 #   command="/srv/{{name}}/deploy.sh",restrict ssh-ed25519 AAAA… deploy@{{name}}
 #
-# so SSH_ORIGINAL_COMMAND is "deploy <tag>" and the rendered .env.prod arrives on stdin. Next to this script in
-# /srv/{{name}}/ live the files of docker/prod/ (docker-compose.yml, traefik.yml and, with a database, initdb/),
-# copied there once and again whenever they change.
+# so SSH_ORIGINAL_COMMAND is "deploy <tag>" and the release archive arrives on stdin: a gzip tar of the tag's
+# docker/prod/ (docker-compose.yml, traefik.yml and, with a database, initdb/), this script, deploy.json and the
+# rendered .env.prod. The archive is unpacked into releases/<tag>/ and its files are installed next to this script in
+# /srv/{{name}}/, so only the first setup copies this script there by hand. A new copy of this script is installed by
+# a rename: the running copy finishes, the new one runs from the next release.
 #
 # The host needs Docker with the compose plugin, logged in to the registry of {{image}} with a read-only token.
 {{#database}}
 # The database steps also need Node.js 22 (`npx @softure-ai/deploy`) and pg_dump of the Postgres major version of
 # the compose file (postgresql-client-{{postgresVersion}}).
 #
-# Steps: check the command, write .env.prod, pull the image, back up the database, guard the schema against the new
-# image's migrations, count rows, switch (the migrate service runs before the app), compare the row counts, record
-# the tag.
+# Steps: check the command, unpack and check the archive, install its files and .env.prod, pull the image, back up
+# the database, guard the schema against the new image's migrations, count rows, switch (the migrate service runs
+# before the app), compare the row counts, record the tag. The tables counted are database.rowCountTables of the
+# deploy.json this release shipped; without that file or key the counts are skipped.
 {{/database}}
 {{^database}}
 #
-# Steps: check the command, write .env.prod, pull the image, switch, record the tag.
+# Steps: check the command, unpack and check the archive, install its files and .env.prod, pull the image, switch,
+# record the tag.
 {{/database}}
 # A failed step stops the release and prints the previous tag; a rollback is a redeploy of that tag ("Run workflow"
-# in the app's deploy workflow).
+# in the app's deploy workflow), which installs that tag's files again. Files a release no longer ships stay here.
 set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -34,10 +38,11 @@ DEPLOY_CLI="@softure-ai/deploy@{{cliVersion}}"
 DATABASE_NAME="{{databaseName}}"
 BACKUP_DIR="$APP_DIR/backups"
 BACKUP_KEEP=7
-# The tables whose row count must not drop across a release; empty skips the comparison.
-ROW_COUNT_TABLES="{{rowCountTables}}"
 {{/database}}
 TAG_FILE="$APP_DIR/.deployed-tag"
+RELEASES_DIR="$APP_DIR/releases"
+RELEASE_KEEP=5
+MAX_ARCHIVE_BYTES=$((16 * 1024 * 1024))
 
 previous_tag="$(cat "$TAG_FILE" 2>/dev/null || true)"
 
@@ -62,9 +67,87 @@ export TAG
 
 cd "$APP_DIR"
 umask 077
-cat > .env.prod.new
-if [ ! -s .env.prod.new ]; then rm -f .env.prod.new; fail "no .env.prod arrived on stdin."; fi
-mv .env.prod.new .env.prod
+
+work="$(mktemp -d)"
+{{#database}}
+container=""
+{{/database}}
+release_dir=""
+cleanup() {
+{{#database}}
+  if [ -n "$container" ]; then docker rm --force "$container" > /dev/null 2>&1 || true; fi
+{{/database}}
+  rm -rf "$work"
+}
+trap cleanup EXIT
+
+# A refused archive leaves no release folder and installs nothing.
+refuse() {
+  if [ -n "$release_dir" ]; then rm -rf "$release_dir"; fi
+  fail "$1"
+}
+
+# Regular files and folders only, each name in a narrow pattern without a .. segment: tar itself would follow a
+# symlink member out of the release folder.
+check_archive() {
+  local listing name
+  listing="$(tar -tvzf "$1" 2> /dev/null)" || refuse "the release archive cannot be read."
+  if grep -qv '^[-d]' <<< "$listing"; then refuse "the release archive holds something other than files and folders."; fi
+  while IFS= read -r name; do
+    if [[ ! "$name" =~ ^(\./)?([A-Za-z0-9_.][A-Za-z0-9_.-]*/?)*$ ]] || [[ "/$name/" == */../* ]]; then
+      refuse "the release archive holds a path that is not allowed: $name"
+    fi
+  done < <(tar -tzf "$1")
+}
+
+# Copies the release's files next to this script. cp onto an existing file keeps its inode, which a running
+# container's bind mount (Traefik's rules) holds; this script is replaced by a rename instead, so the running copy
+# keeps reading its own file. Containers read the files as another user: 0644 and 0755.
+rules_changed=""
+install_release() {
+  local path
+  while IFS= read -r -d '' path; do
+    path="${path#./}"
+    if [ "$path" = "deploy.sh" ]; then continue; fi
+    if [ -d "$release_dir/$path" ]; then
+      if ! mkdir -p "$path" || ! chmod 0755 "$path"; then fail "cannot install the folder $path."; fi
+      continue
+    fi
+    if ! cmp -s "$release_dir/$path" "$path"; then
+      # On the first release Traefik starts with the rules; later it may run on the old ones.
+      if [ "$path" = "traefik.yml" ] && [ -e "$path" ]; then rules_changed="yes"; fi
+      cp "$release_dir/$path" "$path" || fail "cannot install $path."
+    fi
+    chmod 0644 "$path"
+  done < <(cd "$release_dir" && find . -mindepth 1 -print0)
+  if ! cp "$release_dir/deploy.sh" deploy.sh.new || ! chmod 0755 deploy.sh.new || ! mv -f deploy.sh.new deploy.sh; then
+    fail "cannot install deploy.sh."
+  fi
+}
+
+archive="$work/release.tar.gz"
+head -c "$((MAX_ARCHIVE_BYTES + 1))" > "$archive"
+archive_bytes="$(wc -c < "$archive")"
+if [ "$archive_bytes" -eq 0 ]; then fail "no release archive arrived on stdin."; fi
+if [ "$archive_bytes" -gt "$MAX_ARCHIVE_BYTES" ]; then fail "the release archive is larger than $MAX_ARCHIVE_BYTES bytes."; fi
+check_archive "$archive"
+
+release_dir="$RELEASES_DIR/$TAG"
+rm -rf "$release_dir"
+mkdir -p "$release_dir"
+tar -xzf "$archive" -C "$release_dir" --no-same-owner --no-same-permissions || refuse "the release archive cannot be unpacked."
+for required in .env.prod deploy.sh docker-compose.yml; do
+  if [ ! -s "$release_dir/$required" ]; then refuse "the release archive has no $required."; fi
+done
+docker compose --env-file "$release_dir/.env.prod" --file "$release_dir/docker-compose.yml" config --quiet \
+  || refuse "the compose file of $TAG is not valid; nothing was installed."
+
+mv -f "$release_dir/.env.prod" .env.prod
+chmod 0600 .env.prod
+install_release
+# The newest RELEASE_KEEP release folders stay. Their names are tags (the pattern above), so ls is safe here.
+# shellcheck disable=SC2012
+while IFS= read -r old; do rm -rf "${RELEASES_DIR:?}/$old"; done < <(ls -1t "$RELEASES_DIR" | tail -n "+$((RELEASE_KEEP + 1))")
 
 compose() {
   docker compose --env-file .env.prod --file docker-compose.yml "$@"
@@ -91,36 +174,45 @@ deploy_cli() {
   npx --yes "$DEPLOY_CLI" "$@"
 }
 
-work="$(mktemp -d)"
-container=""
-cleanup() {
-  if [ -n "$container" ]; then docker rm --force "$container" > /dev/null 2>&1 || true; fi
-  rm -rf "$work"
-}
-trap cleanup EXIT
-
 # Postgres must run before its first backup; on the first release it starts here and creates the roles.
 compose up --detach --wait postgres || fail "Postgres did not become healthy."
 
-deploy_cli backup --dir="$BACKUP_DIR" --prefix=db --keep="$BACKUP_KEEP" || fail "the backup failed; nothing changed."
+deploy_cli backup --dir="$BACKUP_DIR" --prefix=db --keep="$BACKUP_KEEP" || fail "the backup failed; nothing was restarted."
 
 container="$(docker create "$IMAGE:$TAG")"
 docker cp "$container:/app/softure-migrations" "$work/migrations" > /dev/null
-deploy_cli schema-guard --migrations-dir="$work/migrations" || fail "the schema guard refused $TAG; nothing changed."
+deploy_cli schema-guard --migrations-dir="$work/migrations" || fail "the schema guard refused $TAG; nothing was restarted."
+
+# The tables whose row count must not drop: database.rowCountTables of the deploy.json this release shipped, not the
+# copy next to this script, which an older release may have left. Exit 0: a list; 3: no file or no list.
+release_config="$release_dir/deploy.json"
+lists_tables=0
+node -e '
+const fs = require("node:fs");
+const path = process.argv[1];
+if (!fs.existsSync(path)) process.exit(3);
+const tables = JSON.parse(fs.readFileSync(path, "utf8"))?.database?.rowCountTables;
+process.exit(Array.isArray(tables) && tables.length > 0 ? 0 : 3);
+' "$release_config" || lists_tables=$?
+if [ "$lists_tables" -ne 0 ] && [ "$lists_tables" -ne 3 ]; then
+  fail "cannot read the row-count tables of the release's deploy.json."
+fi
 
 # The first release has no rows to lose (and no tables yet). A table joins the list after the release that creates it.
 counted=""
-if [ -n "$ROW_COUNT_TABLES" ] && [ -n "$previous_tag" ]; then
-  deploy_cli row-counts --tables="$ROW_COUNT_TABLES" --out="$work/counts-before.json" || fail "counting rows failed; nothing changed."
+if [ "$lists_tables" -eq 0 ] && [ -n "$previous_tag" ]; then
+  deploy_cli row-counts --config="$release_config" --out="$work/counts-before.json" || fail "counting rows failed; nothing was restarted."
   counted="yes"
 fi
 {{/database}}
 
 compose up --detach --wait --remove-orphans traefik app || fail "the stack did not become healthy on $TAG."
+# New rules reach a running Traefik that the switch did not recreate.
+if [ -n "$rules_changed" ]; then compose restart traefik || fail "Traefik did not restart with the new rules."; fi
 {{#database}}
 
 if [ -n "$counted" ]; then
-  deploy_cli row-counts --tables="$ROW_COUNT_TABLES" --compare="$work/counts-before.json" \
+  deploy_cli row-counts --config="$release_config" --compare="$work/counts-before.json" \
     || fail "rows were lost on $TAG; the backup before it is the newest in $BACKUP_DIR."
 fi
 {{/database}}

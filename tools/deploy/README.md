@@ -18,11 +18,17 @@ softure-deploy env render [--compose=docker/prod/docker-compose.yml] [--out=.env
 ```
 
 - **Names come from the compose file:** every `${NAME:?…}` (refuses an unset or empty value) and `${NAME?…}`
-  (refuses only an unset one). Optional forms (`${NAME}`, `${NAME:-default}`) and escaped `$${…}` are skipped, so
-  the compose file stays the one list of what production needs.
+  (refuses only an unset one) is required. `${NAME:-default}` and `${NAME-default}` are optional: written when the
+  environment sets them to a non-empty value, left out otherwise (the compose default applies), so a runtime switch
+  such as `ADMIN_EMAILS` reaches the server without blocking a release that does not set it. A name required anywhere
+  in the file is required. Bare `${NAME}` (it also names what the server script sets, like `${TAG}`) and escaped
+  `$${…}` are skipped, so the compose file stays the one list of what production reads.
 - **Values come from the environment** (in CI: `env:` from the repository secrets). A missing name stops the
   command with every missing name listed; nothing is written.
-- **Values are never printed**, on success or on failure: the output names variables and counts only.
+- **Values are never printed**, on success or on failure: the output names variables and counts only
+  (`wrote 3 names (1 of 2 optional set) …`).
+- The file starts with a comment (`# Written by softure-deploy env render …; do not edit on the server.`): it is
+  rewritten on every release.
 - The file is written with mode `0600`, through a temporary file and a rename. A value is written bare when compose
   reads it literally, else single-quoted (compose does not interpolate inside single quotes). A value with a newline
   or a single quote has no literal one-line form and is refused by name.
@@ -41,6 +47,7 @@ The release report between two tags, in Markdown, ready for a GitHub Release bod
 
 ```bash
 softure-deploy release-notes [--to=HEAD] [--from=<tag>] [--match=<glob>] [--repo-url=<url>] [--locale=en|pl] [--out=<file>]
+                             [--roadmap=context/foundation/roadmap.md] [--body=<release body file>]
 ```
 
 - **Range:** `--from` defaults to the nearest tag before `--to` that matches `--match` (a git glob, default `*`;
@@ -52,6 +59,13 @@ softure-deploy release-notes [--to=HEAD] [--from=<tag>] [--match=<glob>] [--repo
 - **Links:** `--repo-url`, else `GITHUB_SERVER_URL/GITHUB_REPOSITORY` inside GitHub Actions, else none (plain `#N`
   and short SHAs).
 - **Copy:** `en` and `pl` dictionaries (`deployMessages`), exported for apps that format the report themselves.
+- **Roadmap items:** `--roadmap=<file>` adds a `### Roadmap items` table after the summary: the rows of the SOFTURE
+  roadmap's `## At a glance` table whose status is `done_code` (on the main branch, waiting for this release), with
+  their ID, change and outcome. A missing file fails; a release with no such row has no table.
+- **Inside a release body:** `--body=<file>` reads the release's current body (a missing file is an empty one) and
+  writes the report between `<!-- softure-deploy:release-notes -->` and `<!-- /softure-deploy:release-notes -->`:
+  replaced in place on a rerun, appended after the owner's text on the first run, the text around it kept. The
+  result goes to `--out` or stdout, ready for `gh release edit --notes-file`.
 
 ```markdown
 ## v1.2.0 (2026-10-05)
@@ -88,7 +102,8 @@ softure-deploy row-counts --tables=users,billing.subscriptions --compare=counts-
 ### `softure-deploy backup`
 
 ```bash
-softure-deploy backup [--dir=backups] [--prefix=db] [--keep=7] [--url-env=DATABASE_URL] [--pg-dump=pg_dump]
+softure-deploy backup [--dir=backups] [--prefix=db] [--keep=7] [--max-age-days=<n>] [--exclude-table-data=<a,b.c>]
+                      [--url-env=DATABASE_URL] [--pg-dump=pg_dump]
 ```
 
 - Runs `pg_dump --format=custom` (restore with `pg_restore`) into `<dir>/<prefix>-<UTC yyyymmddThhmmssZ>.dump`.
@@ -96,8 +111,14 @@ softure-deploy backup [--dir=backups] [--prefix=db] [--keep=7] [--url-env=DATABA
   for `pg_dump`, and other `PG*` variables of the shell are not passed on. A URL query parameter without a libpq
   variable is refused by name.
 - The dump is written with mode `0600` through a temporary file and a rename; a failed `pg_dump` leaves no file.
+- **Integrity:** the new file must start with the custom format's `PGDMP` header; otherwise it is removed and the
+  step fails, before any retention.
 - **Retention** runs only after a dump succeeded: the newest `--keep` dumps of `--prefix` stay, older ones of that
-  prefix are removed and named in the output. Other files in the folder are never touched.
+  prefix are removed and named in the output. With `--max-age-days=<n>` a dump whose name stamp is older than `n`
+  days is removed too (one exactly `n` days old stays): a limit a privacy policy can promise ("deleted data leaves
+  the backups within 30 days"). The newest dump is never removed. Other files in the folder are never touched.
+- **Excluded rows:** `--exclude-table-data=auth_attempts,audit.ip_log` keeps those tables' definitions and drops
+  their rows from the dump, for data that must not outlive its own retention (IP addresses of login attempts).
 - `pg_dump` must be at least the server's major version; `--pg-dump=<path>` picks another binary
   (`/usr/lib/postgresql/16/bin/pg_dump`).
 
@@ -170,6 +191,15 @@ softure-deploy verify <url> [--config=deploy.json] [--timeout=<ms>] [--concurren
 - **A route** is a `path` (on `<url>`, which may carry a path prefix) with an expected `status` (default 200),
   `contains` and `excludes` body markers, a `redirect` target (a path or an absolute URL; needs a 3xx status) and
   `headers`.
+- **The request:** `method` (default `GET`; also `HEAD`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS`), `body` (not
+  with `GET` or `HEAD`) and `requestHeaders`, sent on top of verify's own: an unauthenticated `POST` that must answer
+  401, a bot's `user-agent` that must get the page and not a CDN challenge, `accept: text/markdown`. `host`,
+  `content-length`, `connection` and `transfer-encoding` are refused. A non-GET route runs on every verify, so make
+  it one the app treats as a no-op or a check. The report names its method (`POST /api/mcp`).
+- **Type, not only status:** a `content-type` header check (`"headers": { "content-type": "application/rss+xml" }`)
+  catches a login page served with 200 where a feed or an image belongs.
+- **One host per run:** an app on two hosts (apex and `app.` subdomain) runs `verify` once per host, each with its
+  own config.
 - **Headers:** a value is text the header must contain, case-insensitive; `null` means the header must be absent.
   `verify.headers` applies to every route; a route's entry for the same name wins.
 - **Requests:** `GET` with `cache-control: no-cache`, redirects not followed, at most `--concurrency` at once
@@ -200,8 +230,11 @@ one caller, [`examples/deploy.yml`](examples/deploy.yml), with a single `uses:` 
 
 1. checks every input (tag, URL, paths, image, command word, port, timeout) before anything runs;
 2. builds the image from the tag and pushes `<image>:<tag>` to GHCR (the only job with `packages: write`);
-3. renders `.env.prod` with `softure-deploy env render` from the `app-secrets` JSON and sends it on stdin to the
-   server's forced SSH command as `<remote-command> <tag>`, checking the host key against `ssh-known-hosts`;
+3. renders `.env.prod` with `softure-deploy env render` from the `app-secrets` JSON, packs it with the tag's server
+   files (the compose file's folder, `server-script` as `deploy.sh`, `deploy-config` as `deploy.json`) into one gzip
+   tar and sends that on stdin to the server's forced SSH command as `<remote-command> <tag>`, checking the host key
+   against `ssh-known-hosts`. A symlink in the compose folder, or a file there named like one the server keeps
+   (`.env.prod`, `deploy.sh`, `deploy.json`, `.deployed-tag`, `backups`, `releases`), stops the run;
 4. waits until `<app-url><health-path>` answers 200, then runs `softure-deploy verify <app-url>` with the app's
    `deploy-config` read from the tag (only that file is checked out). A missing or invalid file fails the run;
    `deploy-config: ""` keeps the health route only.
@@ -212,18 +245,42 @@ one caller, [`examples/deploy.yml`](examples/deploy.yml), with a single `uses:` 
 | `app-url` | required | public base URL, `https://<host>[:port]` |
 | `image` | `ghcr.io/<owner>/<repository>` | image name without a tag |
 | `context`, `dockerfile` | `.`, `Dockerfile` | the build |
-| `compose-file` | `docker/prod/docker-compose.yml` | names the secrets to render |
+| `compose-file` | `docker/prod/docker-compose.yml` | names the secrets to render; its folder ships to the server |
+| `server-script` | `docker/server/deploy.sh` | the forced command, installed on the server as `deploy.sh` with each release |
 | `environment` | none | GitHub environment of the deploy job |
 | `remote-command` | `deploy` | first word for the forced command |
 | `ssh-port` | `22` | |
 | `health-path`, `verify-timeout-seconds` | `/api/health`, `300` | the health wait before verify |
-| `deploy-config` | `deploy.json` | the routes `verify` checks; empty for the health route only |
+| `deploy-config` | `deploy.json` | the routes `verify` checks, also shipped to the server; empty for the health route only |
 | `deploy-cli-version` | this package's version | the CLI run from npm (`env render`, `verify`) |
+| `e2e` | `false` | this repository's own end-to-end test (below); refused in any other repository |
 
 Secrets, all required and passed by name (no `secrets: inherit`): `ssh-host`, `ssh-user`, `ssh-private-key`,
 `ssh-known-hosts` and `app-secrets` (a JSON object such as `toJSON(secrets)`; names like `PATH`, `HOME`, `NODE_*` and
 `NPM_CONFIG_*` are refused). The workflow runs once this package is on npm; callers pin the `deploy-workflows-v1` tag
 the owner sets, or its commit SHA.
+
+### End-to-end test
+
+[`.github/workflows/e2e-deploy.yml`](../../.github/workflows/e2e-deploy.yml) calls `deploy-app.yml` from the same
+commit with `e2e: true` for the example app, on every pull request that touches the workflow or `tools/deploy/`, on
+`master` and on demand. On that path:
+
+- `build` builds the example app's image (`examples/next-app/Dockerfile`) without the GHCR login and without a push;
+- `deploy` builds this CLI from a full checkout of the tag instead of running the npm version, and
+  [`e2e/start-server.sh`](e2e/start-server.sh) starts a throwaway `sshd` container on the runner with fresh host and
+  client keys; the deploy key reaches only the forced command [`e2e/server/record.sh`](e2e/server/record.sh). The send
+  step runs the production `ssh` command (host key checked) against it. The recorder writes the command line, the
+  archive's files, their SHA-256, the mode of `.env.prod` and its names (never a value), uploaded as the artifact
+  `deploy-e2e-received`;
+- `verify` is skipped: the recorder does not run the app.
+
+The caller's `assert` job runs [`e2e/check-received.sh`](e2e/check-received.sh): the image is
+`ghcr.io/softure/ai-deploy-e2e:<sha>`, the command line `deploy <sha>`, the files are byte for byte the tag's, and
+`.env.prod` (0600) holds exactly the compose file's required names, not the extra secret the caller also passes.
+The server files are `init`'s output for the example app, committed under [`e2e/app/`](e2e/app/); after a template
+change, `npm run e2e-app -w @softure-ai/deploy` rewrites them (`tests/e2e-scripts.test.ts` fails until then). `check`
+refuses `e2e` unless the caller is `SOFTURE/AI`, so an app can never take this path.
 
 ## `softure-deploy init`
 
@@ -245,11 +302,12 @@ softure-deploy init --domain=example.com --image=ghcr.io/acme/app [--dir=.] [--n
 | `docker/server/deploy.sh` | the server's forced command for `deploy-app.yml` (below) |
 | `scripts/migrate.ts` | with a database: the migrate step the `Dockerfile` bundles |
 | `.github/workflows/deploy.yml` | the caller of `deploy-app.yml` with the domain, the image and the health path |
-| `deploy.json` | a `verify` starter: `/` without an error page, `/api/health` when the app has one, HSTS present, `x-powered-by` absent |
+| `deploy.json` | a `verify` starter: `/` without an error page, `/api/health` when the app has one, HSTS present, `x-powered-by` absent; with a database and `--tables`, `database.rowCountTables` |
 
 - **Asked:** `--domain` and `--image`; `--paths`, `--www`, `--acme-email`, `--env` (the app's own secrets, added to
-  the app service in the required form so `env render` renders them), `--tables` (what `row-counts` compares) and
-  `--name` (compose project, server folder `/srv/<name>`, database name; default from `package.json`).
+  the app service in the required form so `env render` renders them), `--tables` (what `row-counts` compares on
+  the server, written into `deploy.json`; with a `deploy.json` that `init` keeps, add `database.rowCountTables` to it
+  by hand) and `--name` (compose project, server folder `/srv/<name>`, database name; default from `package.json`).
 - **Read from the app:** `@softure-ai/db` in `package.json` turns on the database part, `@softure-ai/ops` the
   `/api/health` route (else `/`), a `public/` folder its `COPY`; a `next.config.*` without `standalone` is a warning.
   Nothing is read from `softure.config`.
@@ -259,16 +317,28 @@ softure-deploy init --domain=example.com --image=ghcr.io/acme/app [--dir=.] [--n
   `SOFTURE_MIGRATOR_PASSWORD`, `SOFTURE_APP_PASSWORD` with a database, plus `--env`. Use URL-safe passwords
   (`openssl rand -hex 32`): they go into connection URLs as they are.
 
-**`deploy.sh` on the server.** Copy `docker/prod/*` and `docker/server/deploy.sh` to `/srv/<name>/` and bind the
-deploy key to the script in `authorized_keys` (`command="/srv/<name>/deploy.sh",restrict …`). For
-`SSH_ORIGINAL_COMMAND="deploy <tag>"` and `.env.prod` on stdin it:
+**`deploy.sh` on the server.** Once, by hand: copy `docker/server/deploy.sh` to `/srv/<name>/` (a folder the SSH
+user owns) and bind the deploy key to it in `authorized_keys` (`command="/srv/<name>/deploy.sh",restrict …`). Every
+release then brings the rest. For `SSH_ORIGINAL_COMMAND="deploy <tag>"` and the release archive on stdin it:
 
-1. refuses anything but `deploy <tag>` with a Docker tag, writes `.env.prod` with mode 0600 and pulls the image;
+1. refuses anything but `deploy <tag>` with a Docker tag; reads at most 16 MiB, refuses an archive with anything but
+   files and folders or a path outside it, unpacks it into `releases/<tag>/` (the newest 5 are kept) and checks the
+   compose file with `docker compose config`; then moves `.env.prod` into place (0600), copies the other files next
+   to itself (in place, so Traefik's bind-mounted rules keep their inode; files 0644, folders 0755), replaces itself
+   by a rename (the new copy runs from the next release) and pulls the image;
 2. with a database: starts Postgres, runs `backup`, copies the migrations out of the new image for `schema-guard`,
-   and saves `row-counts` (all through `npx @softure-ai/deploy@<this version>` on the host, against `127.0.0.1`);
+   and saves `row-counts` (all through `npx @softure-ai/deploy@<this version>` on the host, against `127.0.0.1`) for
+   `database.rowCountTables` of the `deploy.json` this release shipped (`releases/<tag>/deploy.json`); without that
+   file or key, and on the first release, the counts are skipped. A table joins the list in the release after the
+   one that creates it: the count before the switch runs against the old schema;
 3. `docker compose up -d --wait` (the migrate service runs before the app);
 4. with a database: `row-counts --compare`;
-5. records the tag in `.deployed-tag`. A failed step stops the release and prints the previous tag to redeploy.
+5. restarts Traefik when its rules changed, and records the tag in `.deployed-tag`. A failed step stops the release
+   and prints the previous tag to redeploy; the files of a refused release stay installed with the old containers
+   running, and the redeploy installs that tag's own files.
+
+Shipping `deploy.sh` widens nothing: whoever holds the deploy key already picks the image and its environment, and
+the deploy user runs Docker, which is root on the host.
 
 The host needs Docker with the compose plugin logged in to the registry, and with a database Node.js 22 and
 `pg_dump` of the compose file's Postgres major version. CI generates the files for the example app, staged as a
@@ -277,11 +347,45 @@ standalone app, and builds its image from the generated `Dockerfile` (`npm run e
 ## Library
 
 The same steps as functions, for scripts that need them without the CLI:
-`findRequiredNames`, `renderEnvFile` (a result value: the text, or the missing and unsafe names),
-`readReleaseCommits`, `findPreviousTag`, `toReleaseEntries`, `formatReleaseNotes`, `toLibpqEnv`, `createBackup`,
-`selectExpiredBackups`, `guardSchema`, `parseTableList`, `countRows`, `compareRowCounts`, `parseDeployConfig`,
+`findComposeNames`, `findRequiredNames`, `renderEnvFile` (a result value: the text, or the missing and unsafe names),
+`readReleaseCommits`, `findPreviousTag`, `toReleaseEntries`, `formatReleaseNotes`, `parseRoadmapItems`,
+`selectShippingItems`, `writeReleaseSection`, `readReleaseSection`, `toLibpqEnv`, `createBackup`,
+`selectExpiredBackups`, `selectAgedBackups`, `hasCustomFormatHeader`, `guardSchema`, `parseTableList`, `countRows`, `compareRowCounts`, `parseDeployConfig`,
 `runVerify` (an injectable `fetch`), `checkResponse`, `formatVerifyReport`, `parseInitAnswers`, `readAppFacts`,
 `planInitFiles` (pure: the files and their text), `writeInitFiles`.
+
+## Parity with FIRE_TRACKER
+
+FIRE_TRACKER's release scripts were read side by side with this package on 2026-10-06 (DF-1; the full comparison is
+in [`context/archive/2026-10-06-deploy-fire-parity/research.md`](../../context/archive/2026-10-06-deploy-fire-parity/research.md)).
+
+**In the package:** optional compose names and the header line (`env render`); the release body section and the
+roadmap table (`release-notes`); excluded table data, the age limit and the header check (`backup`); method, body and
+request headers (`verify`). Already here before: names from the compose file, values never printed, mode 0600, the
+schema guard (stricter than FIRE's migration count), row counts, status, markers, redirects, header and type checks,
+certificate expiry.
+
+**Tracked as roadmap items** (they change `deploy-app.yml` or `init`'s `deploy.sh`, which DF-7 changes now):
+
+- **DF-9:** the server script's read-only `status` command, file and `.env.prod` restore on a failed switch,
+  `.env.prod.prev`, a Traefik recreate when `traefik.yml` changed, the tag in `.env.prod`, a daily cron for backup age
+  and image pruning, machine-readable step lines.
+- **DF-10:** a report job writes pipeline status and deployment history (image, digest, backup, row counts before and
+  after) into the release body.
+- **DF-11:** the tag must be on the default branch; build arguments, with a check that the origin baked into the
+  image equals the runtime one; non-secret values for optional names; a registry token per deploy instead of a
+  permanent login on the server.
+- **DF-12:** a reusable workflow that cuts a date tag and release and starts the deploy (an agent cannot push tags).
+- **DF-13:** `verify` checks that the server's IP refuses direct HTTPS (only the CDN may reach it).
+
+**Kept different on purpose:** the custom dump format instead of plain SQL with gzip (compressed, restorable table by
+table); `row-counts` fails on a drop, not on any change (a sign-up during a release is not a failure); seven dumps
+by default instead of ten (`--keep`).
+
+**Stays in the app:** FIRE's tag pattern `vYYYY.MM.DD[-N]`, its gates and integration suite inside the release run,
+the 32-character check of `WAITLIST_UNSUBSCRIBE_SECRET`, `release-opis.yml` (it replaces the text above the report,
+which `--body` keeps), the dry run of `konta-wyslij`, the blog sync and the app's own cron lines, the skill digest
+check, markers inside `<head>`, the IndexNow key and a 404 that only warns.
 
 ## Exit codes
 
@@ -290,9 +394,13 @@ problem, lost rows, a failed verify check, invalid init answers) · `2` a wrong 
 
 ## Limitations
 
-- Release notes read only git: no labels, authors or pull request bodies (no GitHub API).
+- Release notes read only git: no labels, authors or pull request bodies (no GitHub API). FIRE's report does not
+  group by label either.
 - `backup` writes to a local folder only; copying dumps off the server is the server's job.
 - `verify` does not wait for the app to come up; the deploy workflow's health step does.
-- `init` files reach the server by hand: the workflow sends only `.env.prod`, so a changed compose file, Traefik rule
-  or `deploy.sh` is copied again before the next release (DF-7).
+- Files a release no longer ships stay on the server; remove them by hand.
+- A `deploy.sh` generated by 0.1.2 or earlier reads `.env.prod`, not the release archive: copy the new one to the
+  server once by hand (or run `init --force` and copy it), then every release ships it.
 - `init` writes one app per VPS, with Traefik in the app's compose file.
+- The end-to-end test stops at the server's forced command: neither the shipped `deploy.sh` nor the `verify` job runs
+  there (DF-15).

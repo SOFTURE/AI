@@ -1,0 +1,10 @@
+{
+  "$schema": "https://unpkg.com/@softure-ai/deploy/schema/deploy.schema.json",
+  "verify": {
+    "headers": { "strict-transport-security": "max-age=", "x-powered-by": null },
+    "routes": [
+      { "path": "/api/health", "contains": ["\"status\":\"ok\""] },
+      { "path": "/", "excludes": ["Application error"] }
+    ]
+  }
+}
