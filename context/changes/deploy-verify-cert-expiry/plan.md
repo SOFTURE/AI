@@ -42,7 +42,7 @@ test, `src/cli/verify-command.ts`, its CLI test, `README.md`, `package.json` (pa
 1. `runVerify` returns `{ routes, tls }`; the TLS check runs alongside the routes with the same timeout.
 2. `formatVerifyReport` prints the `tls` row (status `-`) and the summary `…, 1 failed; certificate failed`.
 3. The command exits 1 when the routes or the certificate fail and says which.
-4. README: the key, the row, Cloudflare's edge certificate; the limitation line goes. `@softure-ai/deploy` 0.1.1.
+4. README: the key, the row, Cloudflare's edge certificate; the limitation line goes. `@softure-ai/deploy` 0.1.2.
 5. Gates: typecheck, lint, test, build.
 
 ## Progress

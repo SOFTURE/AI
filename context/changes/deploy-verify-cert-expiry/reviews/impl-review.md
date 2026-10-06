@@ -25,4 +25,4 @@ Findings:
 - **S2 (suggestion):** absolute redirect targets on another host are not probed. Kept: the item asks for the
   verified URL's certificate, and the plan puts other hosts out of scope.
 
-Release: `@softure-ai/deploy` 0.1.0 → 0.1.1 (the 0.1.0 tag exists; the owner releases).
+Release: `@softure-ai/deploy` 0.1.1 → 0.1.2 (0.1.1 is tagged by release-0-1-5); `deploy-app.yml` defaults to the package version, as its repository test requires, so callers get the `tls` row once the owner releases 0.1.2.
