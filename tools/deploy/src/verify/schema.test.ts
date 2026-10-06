@@ -9,7 +9,7 @@ describe("parseDeployConfig", () => {
         verify: {
           timeoutMs: 10_000,
           headers: {},
-          routes: [{ path: "/", status: 200, contains: [], excludes: [], headers: {} }],
+          routes: [{ path: "/", status: 200, contains: [], excludes: [], headers: {}, method: "GET", requestHeaders: {} }],
         },
       },
     });
@@ -32,7 +32,19 @@ describe("parseDeployConfig", () => {
       headers: { "x-powered-by": null, "content-type": "text/html" },
     };
     const parsed = parseDeployConfig({ verify: { timeoutMs: 500, routes: [route] } });
-    expect(parsed.ok && parsed.config.verify?.routes[0]).toEqual(route);
+    expect(parsed.ok && parsed.config.verify?.routes[0]).toEqual({ ...route, method: "GET", requestHeaders: {} });
+  });
+
+  it("keeps a method, a body and request headers", () => {
+    const route = {
+      path: "/api/mcp",
+      status: 401,
+      method: "POST",
+      body: '{"jsonrpc":"2.0","id":1,"method":"tools/list"}',
+      requestHeaders: { "content-type": "application/json", "user-agent": "GPTBot/1.3" },
+    };
+    const parsed = parseDeployConfig({ verify: { routes: [route] } });
+    expect(parsed.ok && parsed.config.verify?.routes[0]).toEqual({ ...route, contains: [], excludes: [], headers: {} });
   });
 
   it.each([
@@ -43,6 +55,11 @@ describe("parseDeployConfig", () => {
     ["an empty marker", { path: "/", contains: [""] }, "verify.routes.0.contains.0: Too small: expected string to have >=1 characters"],
     ["a status out of range", { path: "/", status: 99 }, "verify.routes.0.status: Too small: expected number to be >=100"],
     ["an upper-case header name", { path: "/", headers: { "X-Frame-Options": "DENY" } }, "verify.routes.0.headers.X-Frame-Options: a header name in lower case"],
+    ["a body on GET", { path: "/", body: "x" }, "verify.routes.0.body: a body needs a method other than GET or HEAD"],
+    ["a body on HEAD", { path: "/", method: "HEAD", body: "x" }, "verify.routes.0.body: a body needs a method other than GET or HEAD"],
+    ["an unknown method", { path: "/", method: "get" }, 'verify.routes.0.method: Invalid option: expected one of "GET"|"HEAD"|"POST"|"PUT"|"PATCH"|"DELETE"|"OPTIONS"'],
+    ["a host request header", { path: "/", requestHeaders: { host: "other.example" } }, "verify.routes.0.requestHeaders.host: a header the request sets itself (host, content-length, connection, transfer-encoding)"],
+    ["an upper-case request header", { path: "/", requestHeaders: { Accept: "text/markdown" } }, "verify.routes.0.requestHeaders.Accept: a header name in lower case"],
   ])("refuses %s", (_name, route, issue) => {
     const parsed = parseDeployConfig({ verify: { routes: [route] } });
     expect(parsed.ok ? [] : parsed.issues).toContain(issue);

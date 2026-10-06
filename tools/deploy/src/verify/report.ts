@@ -9,7 +9,8 @@ function toRow(report: RouteReport): string[] {
     failed.length === 0
       ? `${report.checks.length} ${report.checks.length === 1 ? "check" : "checks"} passed`
       : failed.map((check) => check.detail).join("; ");
-  return [report.passed ? "PASS" : "FAIL", report.status === null ? "-" : String(report.status), report.path, detail];
+  const route = report.method === "GET" ? report.path : `${report.method} ${report.path}`;
+  return [report.passed ? "PASS" : "FAIL", report.status === null ? "-" : String(report.status), route, detail];
 }
 
 function toTlsRow(tls: TlsReport): string[] {

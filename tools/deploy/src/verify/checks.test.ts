@@ -5,7 +5,7 @@ import type { VerifyRoute } from "./schema.js";
 const BASE = "https://example.com";
 
 function route(overrides: Partial<VerifyRoute> = {}): VerifyRoute {
-  return { path: "/", status: 200, contains: [], excludes: [], headers: {}, ...overrides };
+  return { path: "/", status: 200, contains: [], excludes: [], headers: {}, method: "GET", requestHeaders: {}, ...overrides };
 }
 
 function response(overrides: Partial<Omit<ObservedResponse, "getHeader">> & { headers?: Record<string, string> } = {}): ObservedResponse {

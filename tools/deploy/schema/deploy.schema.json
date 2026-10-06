@@ -98,6 +98,37 @@
                   "description": "Text the header value must contain (case-insensitive), or null when the header must be absent."
                 },
                 "description": "Headers by lower-case name: text the value must contain, or null when the header must be absent."
+              },
+              "method": {
+                "default": "GET",
+                "description": "Request method. A POST route runs on every verify: make it one the app treats as a no-op or a check.",
+                "type": "string",
+                "enum": [
+                  "GET",
+                  "HEAD",
+                  "POST",
+                  "PUT",
+                  "PATCH",
+                  "DELETE",
+                  "OPTIONS"
+                ]
+              },
+              "body": {
+                "description": "Request body, sent as is; set its content-type in requestHeaders. Not with GET or HEAD.",
+                "type": "string"
+              },
+              "requestHeaders": {
+                "default": {},
+                "description": "Headers sent with the request, by lower-case name, on top of verify's own (user-agent, accept, cache-control).",
+                "type": "object",
+                "propertyNames": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9!#$%&'*+.^_`|~-]+$"
+                },
+                "additionalProperties": {
+                  "type": "string",
+                  "description": "The header value sent."
+                }
               }
             },
             "required": [
