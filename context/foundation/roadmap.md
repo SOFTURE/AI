@@ -51,7 +51,7 @@ backlog: context/backlog/roadmap-deploy-followups/
 | **DF-5** | `deploy-row-count-config` | the tables `row-counts` compares come from `deploy.json` | DP-4 | autonomous | ready |
 | **DF-6** | `deploy-verify-cert-expiry` | `verify` fails when the TLS certificate expires within `verify.tlsMinDays` | — | autonomous | ready |
 | **DF-7** | `deploy-server-files` | `deploy-app.yml` ships the tag's `docker/prod/` files and `deploy.sh` with each release; no hand copy to the server | DP-5, DF-2 | autonomous | ready |
-| **MK-10** | `marketing-kit-film-followups` | a committed `marketing.json` reproduces a paid film with no hand fixes: the opening transition is chosen in the config and none flickers, the voiceover cache shows which file belongs to which video (old flat caches still found), and the recording day is pinned per video | — | autonomous | ready |
+| **MK-10** | `marketing-kit-film-followups` | a committed `marketing.json` reproduces a paid film with no hand fixes: the opening transition is chosen in the config and none flickers, the voiceover cache shows which file belongs to which video (old flat caches still found), and the recording day is pinned per video | — | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/marketing-kit` 0.1.6) |
 
 ## Order
 
@@ -207,8 +207,8 @@ calls, the owner's own machine, a product decision only the owner can make, or a
 
 ### MK-10: A committed marketing.json reproduces a paid film without hand fixes
 - **Change ID:** `marketing-kit-film-followups`
-- **Status:** ready
-- **Input:** [`marketing-kit-film-followups`](../changes/marketing-kit-film-followups/change.md)
+- **Status:** done_code (2026-10-06; waiting: the release of `@softure-ai/marketing-kit` 0.1.6)
+- **Input:** [`marketing-kit-film-followups`](../archive/2026-10-06-marketing-kit-film-followups/change.md)
 - **Outcome:** `hook` takes a transition choice (at least the current rewind, repaired so it does not flicker, and a
   plain fade or cut); the voiceover cache is laid out so a reader can tell which video a recording belongs to, and
   a 0.1.2 flat cache (`<key>.mp3`/`.json`) is still found without a new paid call; `videos[]` can pin the day the
@@ -230,3 +230,4 @@ calls, the owner's own machine, a product decision only the owner can make, or a
 ## Done
 
 - **DF-4** `auth-testing-account-factory`: `createTestAccount` in `@softure-ai/auth/testing` (auth 0.1.6); the example's e2e creates accounts with it outside registration tests; archived in `archive/2026-10-06-auth-testing-account-factory/`
+- **MK-10** `marketing-kit-film-followups`: `hook.transition` (fade by default, a rewind without flicker, cut), the voiceover cache in a folder per video with 0.1.x flat files still found, `videos[].today` pins the recording day (marketing-kit 0.1.6); archived in `archive/2026-10-06-marketing-kit-film-followups/`

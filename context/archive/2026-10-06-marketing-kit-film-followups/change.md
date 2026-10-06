@@ -1,12 +1,12 @@
 ---
 change_id: marketing-kit-film-followups
 title: "A committed marketing.json reproduces a paid film without hand fixes"
-status: planned
+status: archived
 roadmap_item: MK-10
 branch: claude/project-thread-82bjfh
 created: 2026-10-06
 updated: 2026-10-06
-archived_at: null
+archived_at: 2026-10-06
 ---
 
 ## Intent
@@ -76,3 +76,4 @@ Three gaps found there:
   callers, where the recording day enters `record`.
 - Framing skipped: the problem is fixed by FIRE's finding and the owner's own words (flicker, unreadable cache,
   the day only in a flag); what remains are design choices, settled in research and the plan.
+- Archived 2026-10-06: the transition is chosen per video and none flickers, recordings live per video with flat files still found, the recording day is pinned in the config; marketing-kit 0.1.6 waits for its release.

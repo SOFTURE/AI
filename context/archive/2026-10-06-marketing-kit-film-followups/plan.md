@@ -73,6 +73,6 @@ Done when (every phase): Gates green (typecheck, lint, test); `npm run build`.
 
 ## Progress
 
-- [ ] Phase 1: the opening transition
-- [ ] Phase 2: the voiceover cache by video
-- [ ] Phase 3: the recording day in the config
+- [x] Phase 1: the opening transition — 055bea1
+- [x] Phase 2: the voiceover cache by video — 2e9a56a
+- [x] Phase 3: the recording day in the config — 1956d3e
