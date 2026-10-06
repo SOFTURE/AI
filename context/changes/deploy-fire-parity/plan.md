@@ -120,7 +120,7 @@ header; the JSON Schema is regenerated (`npm run schema -w @softure-ai/deploy` o
 - [x] Phase 2: release body sections and the roadmap table
 - [x] Phase 3: backup exclusions, age limit and integrity
 - [x] Phase 4: request method, body and headers in verify
-- [ ] Phase 5: README parity section and the gaps
+- [x] Phase 5: README parity section and the gaps
 
 #### Manual
 - [ ] Owner: the next release of `@softure-ai/deploy` (0.1.2) carries these options.
