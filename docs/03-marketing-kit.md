@@ -124,3 +124,7 @@ The package checks these in a preflight step, as FIRE does.
 3. Add declarative actions (JSON → Director) and the JSON Schema.
 4. OG generator outside Next (Satori), plus the 1:1 and 16:9 formats.
 5. FIRE deletes `video/`, keeps `marketing.json` + brand + voiceover cache, and verifies an identical MP4.
+   **Done in FIRE_TRACKER on 2026-10-06** (BS-18, `marketing-kit-adoption`, on 0.1.2): `video/` deleted, the film
+   driven by `marketing.json`. Instead of an identical MP4 the owner had the film re-recorded on FIRE's redesigned UI
+   at a slower pace, with a new paid voiceover. Gaps found: issue #118 and roadmap item MK-10
+   (`marketing-kit-film-followups`).
