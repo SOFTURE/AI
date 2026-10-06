@@ -83,8 +83,8 @@ broken certificate path); building the image again in the deploy job (twice the 
 ## Progress
 
 #### Automated
-- [ ] Phase 1: server scripts and the committed e2e app
-- [ ] Phase 2: the test path and the caller
+- [x] Phase 1: server scripts and the committed e2e app (`a694f98`; the recorder, forced-command and npx tests red before the scripts)
+- [x] Phase 2: the test path and the caller (`a694f98`; one commit for both phases, the repository tests red before the workflow)
 
 #### Manual
 - [ ] The `e2e-deploy` run on the pull request is green, with `deploy.sh`'s `result|ok` and verify's table in the log

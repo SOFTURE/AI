@@ -1,7 +1,7 @@
 ---
 change_id: deploy-workflow-e2e-server
 title: "The deploy workflow's end-to-end test runs the server side and verify"
-status: planned
+status: implementing
 roadmap_item: DF-15
 branch: claude/project-thread-bhk1zk
 created: 2026-10-06
