@@ -1,7 +1,7 @@
 ---
 change_id: deploy-fire-parity
 title: "The deploy CLI matches FIRE_TRACKER where FIRE's behaviour is generic"
-status: implementing
+status: impl_reviewed
 roadmap_item: DF-1
 branch: claude/project-thread-sxdn77
 created: 2026-10-06

@@ -72,6 +72,10 @@ const routeSchema = z
     message: "a body needs a method other than GET or HEAD",
     path: ["body"],
   })
+  .refine((route) => route.method !== "HEAD" || (route.contains.length === 0 && route.excludes.length === 0), {
+    message: "a HEAD response has no body to hold markers",
+    path: ["method"],
+  })
   .describe("One route to request and what its response must look like.");
 
 const verifySchema = z

@@ -57,6 +57,7 @@ describe("parseDeployConfig", () => {
     ["an upper-case header name", { path: "/", headers: { "X-Frame-Options": "DENY" } }, "verify.routes.0.headers.X-Frame-Options: a header name in lower case"],
     ["a body on GET", { path: "/", body: "x" }, "verify.routes.0.body: a body needs a method other than GET or HEAD"],
     ["a body on HEAD", { path: "/", method: "HEAD", body: "x" }, "verify.routes.0.body: a body needs a method other than GET or HEAD"],
+    ["markers on HEAD", { path: "/", method: "HEAD", contains: ["x"] }, "verify.routes.0.method: a HEAD response has no body to hold markers"],
     ["an unknown method", { path: "/", method: "get" }, 'verify.routes.0.method: Invalid option: expected one of "GET"|"HEAD"|"POST"|"PUT"|"PATCH"|"DELETE"|"OPTIONS"'],
     ["a host request header", { path: "/", requestHeaders: { host: "other.example" } }, "verify.routes.0.requestHeaders.host: a header the request sets itself (host, content-length, connection, transfer-encoding)"],
     ["an upper-case request header", { path: "/", requestHeaders: { Accept: "text/markdown" } }, "verify.routes.0.requestHeaders.Accept: a header name in lower case"],
