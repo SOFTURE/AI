@@ -52,7 +52,7 @@ backlog: context/backlog/roadmap-charts/
 | --- | --- | --- | --- | --- | --- |
 | **CH-1** | `charts-scale-ticks` | `@softure-ai/charts`: linear and time scales, nice ticks (dates in the app's time zone), nearest-point search | — | autonomous | ready |
 | **CH-2** | `charts-svg-primitives` | server-rendered SVG surface, time and value axes, lines, legend and flags; a keyboard-accessible cursor; a data table fallback | CH-1 | autonomous | ready |
-| **CH-3** | `ui-color-guards` | `@softure-ai/ui/testing`: WCAG contrast, colour-vision simulation and a both-themes contrast check for token pairs | — | autonomous | ready |
+| **CH-3** | `ui-color-guards` | `@softure-ai/ui/testing`: WCAG contrast, colour-vision simulation and a both-themes contrast check for token pairs | — | autonomous | **in_progress** (implement 1/2, since 2026-10-06; cloud thread, branch claude/ch-3-contrast-5ffi4r) |
 | **CH-4** | `charts-palette-guard` | series palette from tokens, distinguishable under colour-vision deficiency and legible on the surface in both themes | CH-2, CH-3 | autonomous | ready |
 | **CH-5** | `charts-release` | `@softure-ai/charts` 0.1.0 and the next `@softure-ai/ui` published through the release pipeline; README complete | CH-1…CH-4 | owner | blocked (waits for CH-1…CH-4 and the owner's first npm publish at the keyboard) |
 
@@ -109,7 +109,7 @@ backlog: context/backlog/roadmap-charts/
 
 ### CH-3: Colour contrast and colour-vision guards
 - **Change ID:** `ui-color-guards`
-- **Status:** ready
+- **Status:** in_progress (implement 1/2, since 2026-10-06; cloud thread, branch claude/ch-3-contrast-5ffi4r)
 - **Outcome:** Test helpers exported from `@softure-ai/ui/testing`:
   - WCAG 2 contrast ratio and pass levels;
   - colour-vision simulation (protan, deutan, tritan) and a minimum distance check between colours;
