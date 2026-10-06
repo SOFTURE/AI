@@ -10,11 +10,11 @@ Date: 2026-10-06 · Verdict: approved
 | Errors | PASS | neither flag nor list and both flags are usage errors (exit 2) that say how to name the tables; an invalid or unreadable file is exit 1 with the zod issues; a broken `deploy.json` does not affect `--tables` |
 | Security | PASS | names from the file pass the same pattern as `--tables` before they are quoted into SQL; the file is parsed with zod at the boundary |
 | Conventions | PASS | every schema key described (JSON Schema adds `uniqueItems`), `verify`'s messages unchanged byte for byte, English only |
-| Docs | PASS | usage text, the `row-counts` and `deploy.json` sections of the package README; `@softure-ai/deploy` 0.1.1 |
+| Docs | PASS | usage text, the `row-counts` and `deploy.json` sections of the package README; `@softure-ai/deploy` 0.1.2 |
 
 Findings:
 
-- **W1 (warning):** the package bump moves the `deploy-cli-version` default of `deploy-app.yml` to 0.1.1, which a
+- **W1 (warning):** the package bump moves the `deploy-cli-version` default of `deploy-app.yml` to 0.1.2 (0.1.1 went out with release 0.1.5 while this ran), which a
   repository test keeps equal to the package version. Accepted: the release that carries this change is the one
   the workflow should pin; DF-2 and DF-7 change the same file and merge `master`.
 - **S1 (suggestion), gap:** the server's `deploy.sh` still passes `--tables` baked in by `init`, because the server

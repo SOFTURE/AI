@@ -45,4 +45,4 @@ The taken backlog entry is kept as [`backlog-input.md`](backlog-input.md).
   key); nothing about whether to build it is in doubt.
 - Gap DF-8 (`deploy-row-count-server-list`) queued in `deploy-followups`: `deploy.sh` and `init` move onto the list
   once DF-7 ships `deploy.json` to the server.
-- Archived 2026-10-06: `@softure-ai/deploy` 0.1.1 reads `database.rowCountTables`; waiting for its next publish.
+- Archived 2026-10-06: `@softure-ai/deploy` 0.1.2 reads `database.rowCountTables`; waiting for its next publish.

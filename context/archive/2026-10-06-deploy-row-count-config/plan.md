@@ -43,7 +43,7 @@ deduplicating the configured list (a duplicate in a file someone edits is a mist
 2. Tests on Postgres: the tables of `deploy.json` are counted (`--out`, then `--compare`), and `--config=<other>`
    names another file.
 3. `readDeployConfig(command, path, shownPath)` shared with `verify` (its messages unchanged).
-4. Usage line, README section of `row-counts` and the `deploy.json` section; bump `@softure-ai/deploy` to 0.1.1.
+4. Usage line, README section of `row-counts` and the `deploy.json` section; bump `@softure-ai/deploy` (0.1.2: release 0.1.5 took 0.1.1 while this ran).
 5. Gates: typecheck, lint, test (with `SOFTURE_TEST_POSTGRES_URL`), build.
 
 ## Progress
