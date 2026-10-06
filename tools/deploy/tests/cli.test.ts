@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { CliIo } from "../src/cli/io.js";
 import { runCli } from "../src/cli/run.js";
+import { ENV_FILE_HEADER } from "../src/env/env-file.js";
 
 const SECRET = "sentinel-secret-value-9f3a";
 const COMPOSE = [
@@ -45,10 +46,22 @@ describe("softure-deploy env render", () => {
     const code = await runCli(["env", "render"], makeIo({ DATABASE_URL: "postgres://db/app", AUTH_SECRET: SECRET }));
     expect(code).toBe(0);
     const envPath = join(dir, ".env.prod");
-    expect(readFileSync(envPath, "utf8")).toBe(`AUTH_SECRET=${SECRET}\nDATABASE_URL=postgres://db/app\n`);
+    expect(readFileSync(envPath, "utf8")).toBe(`${ENV_FILE_HEADER}\nAUTH_SECRET=${SECRET}\nDATABASE_URL=postgres://db/app\n`);
     expect(statSync(envPath).mode & 0o777).toBe(0o600);
     expect(out.join("")).toBe("env render: wrote 2 names from docker/prod/docker-compose.yml to .env.prod: AUTH_SECRET, DATABASE_URL\n");
     expect(err).toEqual([]);
+  });
+
+  it("writes the optional names the environment sets and counts them", async () => {
+    writeCompose(`${COMPOSE}      MCP_ALLOW_WRITES: \${MCP_ALLOW_WRITES:-}\n      ADMIN_EMAILS: \${ADMIN_EMAILS:-}\n`);
+    const code = await runCli(["env", "render"], makeIo({ DATABASE_URL: "x", AUTH_SECRET: SECRET, MCP_ALLOW_WRITES: "1" }));
+    expect(code).toBe(0);
+    expect(readFileSync(join(dir, ".env.prod"), "utf8")).toBe(
+      `${ENV_FILE_HEADER}\nAUTH_SECRET=${SECRET}\nDATABASE_URL=x\nMCP_ALLOW_WRITES=1\n`,
+    );
+    expect(out.join("")).toBe(
+      "env render: wrote 3 names (1 of 2 optional set) from docker/prod/docker-compose.yml to .env.prod: AUTH_SECRET, DATABASE_URL, MCP_ALLOW_WRITES\n",
+    );
   });
 
   it("refuses a missing name, writes nothing and keeps the value of the others out of the output", async () => {
@@ -72,7 +85,7 @@ describe("softure-deploy env render", () => {
     writeCompose();
     writeFileSync(join(dir, ".env.prod"), "OLD=1\n", { mode: 0o644 });
     expect(await runCli(["env", "render"], makeIo({ DATABASE_URL: "d", AUTH_SECRET: "a" }))).toBe(0);
-    expect(readFileSync(join(dir, ".env.prod"), "utf8")).toBe("AUTH_SECRET=a\nDATABASE_URL=d\n");
+    expect(readFileSync(join(dir, ".env.prod"), "utf8")).toBe(`${ENV_FILE_HEADER}\nAUTH_SECRET=a\nDATABASE_URL=d\n`);
     expect(statSync(join(dir, ".env.prod")).mode & 0o777).toBe(0o600);
   });
 
@@ -80,7 +93,7 @@ describe("softure-deploy env render", () => {
     writeFileSync(join(dir, "compose.yml"), "x: ${ONLY:?}\n");
     const code = await runCli(["env", "render", "--compose=compose.yml", "--out", "secrets.env"], makeIo({ ONLY: "1" }));
     expect(code).toBe(0);
-    expect(readFileSync(join(dir, "secrets.env"), "utf8")).toBe("ONLY=1\n");
+    expect(readFileSync(join(dir, "secrets.env"), "utf8")).toBe(`${ENV_FILE_HEADER}\nONLY=1\n`);
   });
 
   it("fails on a missing compose file, a compose file without required names and an unknown flag", async () => {
@@ -88,7 +101,7 @@ describe("softure-deploy env render", () => {
     expect(err.at(-1)).toMatch(/cannot read the compose file .*docker-compose\.yml \(ENOENT\)/);
     writeCompose("services: {}\n");
     expect(await runCli(["env", "render"], makeIo())).toBe(1);
-    expect(err.at(-1)).toContain("has no required variable");
+    expect(err.at(-1)).toContain("has no required");
     expect(await runCli(["env", "render", "--composee=x"], makeIo())).toBe(2);
     expect(err.at(-1)).toContain("--composee");
   });

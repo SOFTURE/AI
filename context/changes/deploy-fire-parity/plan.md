@@ -116,7 +116,7 @@ header; the JSON Schema is regenerated (`npm run schema -w @softure-ai/deploy` o
 ## Progress
 
 #### Automated
-- [ ] Phase 1: optional compose names in env render
+- [x] Phase 1: optional compose names in env render
 - [ ] Phase 2: release body sections and the roadmap table
 - [ ] Phase 3: backup exclusions, age limit and integrity
 - [ ] Phase 4: request method, body and headers in verify
