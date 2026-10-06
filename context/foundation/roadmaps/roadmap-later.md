@@ -53,7 +53,7 @@ trigger: "the owner step each item waits on (secrets, accounts) is done; the own
 | **MO-6** | `monetization-release` | billing and analytics 0.1.0 published through the release pipeline; READMEs and docs updated | MO-1…MO-5 (done) | owner | blocked (carried over from followups: the owner's batch release at the keyboard on 2026-10-05) |
 | **MK-8** | `marketing-kit-release` | `@softure-ai/marketing-kit` 0.1.0 published through the release pipeline, README complete | MK-1…MK-7 (done) | owner | blocked (carried over from followups: the owner's batch release at the keyboard on 2026-10-05) |
 | **BL-8** | `blog-release` | `@softure-ai/seo` and `@softure-ai/blog` 0.1.0 published through the release pipeline; READMEs, adoption guides and docs updated | BL-1…BL-7 (done) | owner | blocked (carried over from blog: the owner's first npm publish at the keyboard) |
-| **DP-8** | `deploy-release` | `@softure-ai/deploy` and `@softure-ai/testing` 0.1.0 published through the release pipeline; the deploy workflows tagged for callers | DP-1…DP-7 (done) | owner | blocked (`private` dropped and both packages released with 0.1.4, `release-0-1-4`; waits on the owner's approval, trusted publishers and the workflow tag) |
+| **DP-8** | `deploy-release` | `@softure-ai/deploy` and `@softure-ai/testing` 0.1.0 published through the release pipeline; the deploy workflows tagged for callers | DP-1…DP-7 (done) | owner | blocked (both packages staged at 0.1.0 with `release-0-1-4`, trusted publishers added; 0.1.1 publishes them directly with `release-0-1-5`; waits on the owner's workflow tag) |
 | **LT-2** | `release-version-inline-manifest` | `release:version` keeps a module's inline manifest in step with `module.json` | — | autonomous | ready |
 
 ## Order
@@ -113,7 +113,7 @@ trigger: "the owner step each item waits on (secrets, accounts) is done; the own
 
 ### DP-8: Deploy and testing release (carried over)
 - **Change ID:** `deploy-release`
-- **Status:** blocked (`private` dropped and both packages released with 0.1.4, `release-0-1-4`; waits on the owner's approval, trusted publishers and the workflow tag)
+- **Status:** blocked (both packages staged at 0.1.0 with `release-0-1-4`, trusted publishers added; 0.1.1 publishes them directly with `release-0-1-5`; waits on the owner's workflow tag)
 - **Outcome:** `@softure-ai/deploy` and `@softure-ai/testing` 0.1.0 published through the FD-2 pipeline (the owner approves each first, staged publish and adds its trusted publisher); the workflow tag for callers (DP-2, `deploy-workflows-v1`) set by the owner; READMEs with an adoption guide for FIRE_TRACKER. `tools/deploy/package.json` and `foundation/testing/package.json` carried `"private": true` until then, so an `auto-release` of `all` could not publish them early; `release-0-1-4` removed it (2026-10-06).
 - **Prerequisites:** DP-1…DP-7 (done, see [`archive/2026-10-06-roadmap.md`](../archive/2026-10-06-roadmap.md)).
 - **Unknowns:** none beyond the owner's npm steps.
@@ -145,7 +145,8 @@ Carried over from blog with BL-8:
   adds its trusted publisher. This covers BL-8, MK-8, EN-9 and MO-6, plus core, db, ui, auth, ops, security and
   feature-switches, which they depend on. The trusted publishers are in place (the owner, 2026-10-06). 0.1.3
   (`release-0-1-3`) failed at the stage with E401 (nothing published); after the owner corrected the publisher fields,
-  0.1.4 (`release-0-1-4`) stages through them without `NPM_TOKEN`, and the owner approves it on npmjs.com.
+  0.1.4 (`release-0-1-4`) staged through them without `NPM_TOKEN`. From 0.1.5 (`release-0-1-5`) the pipeline
+  publishes directly, live at once without approval (the owner, 2026-10-06).
 
 - [x] **LT-1**: add the Stripe test-mode secret `STRIPE_SECRET_KEY` to the repository (the owner, 2026-10-05).
   `STRIPE_WEBHOOK_SECRET` is not needed: the CI job signs with its own `stripe listen` secret.

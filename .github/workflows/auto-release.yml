@@ -6,8 +6,8 @@
 # created with GITHUB_TOKEN starts no other workflow (GitHub's rule against recursive runs), so the
 # last step starts `release.yml` explicitly; on a tag ref it takes the same path as a pushed tag.
 #
-# When it may run (owner, 2026-10-05): on the owner's explicit word. npm still waits for the owner to
-# approve each staged version. Runbook: scripts/release/README.md ("Release from Actions").
+# When it may run (owner, 2026-10-05): on the owner's explicit word. Each version is live on npm as
+# soon as its release passes (owner, 2026-10-06). Runbook: scripts/release/README.md ("Release from Actions").
 
 name: auto-release
 
