@@ -11,3 +11,4 @@ export {
   type DeployMessages,
 } from "./messages/index.js";
 export * from "./db/index.js";
+export * from "./init/index.js";

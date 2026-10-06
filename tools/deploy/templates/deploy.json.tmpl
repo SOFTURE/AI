@@ -1,0 +1,12 @@
+{
+  "$schema": "{{schemaUrl}}",
+  "verify": {
+    "headers": { "strict-transport-security": "max-age=", "x-powered-by": null },
+    "routes": [
+{{#healthRoute}}
+      { "path": "/api/health", "contains": ["\"status\":\"ok\""] },
+{{/healthRoute}}
+      { "path": "/", "excludes": ["Application error"] }
+    ]
+  }
+}

@@ -67,9 +67,9 @@ root `package.json` (`e2e:deploy-init`), `.github/workflows/e2e.yml` (job), `pac
 ## Progress
 
 #### Automated
-- [ ] Phase 1: renderer and answers
-- [ ] Phase 2: templates and the generator
-- [ ] Phase 3: CLI, CI image build, docs
+- [x] Phase 1: renderer and answers
+- [x] Phase 2: templates and the generator
+- [x] Phase 3: CLI, CI image build, docs (the three phases land in one commit; each was test-first in the working tree)
 
 #### Manual
 - [ ] (owner, after DP-8) run `softure-deploy init` in FIRE_TRACKER's shape of app and compare with its `docker/**`

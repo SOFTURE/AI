@@ -1,12 +1,12 @@
 ---
 change_id: deploy-init-template
 title: "softure-deploy init writes an app's deploy files once"
-status: active
+status: archived
 roadmap_item: DP-5
 branch: claude/project-thread-jwect5
 created: 2026-10-06
 updated: 2026-10-06
-archived_at: null
+archived_at: 2026-10-06
 ---
 
 ## Intent
@@ -62,3 +62,7 @@ repository.
   verified on the example app) and DP-2…DP-4's interfaces; parity is folded into DF-1.
 - Framing skipped: the owner fixed the problem and the package/template split (roadmap item and the 2026-10-04
   decision); nothing about whether to build it is in doubt.
+- Gap: DF-7 (`deploy-server-files`) queued in `deploy-followups`: the workflow sends only `.env.prod`, so the
+  server files are copied by hand. FIRE parity of the templates is folded into DF-1.
+- Archived 2026-10-06: `@softure-ai/deploy` ships `softure-deploy init` and its templates, waiting for its first
+  publish (DP-8).
