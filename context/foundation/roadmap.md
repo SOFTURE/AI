@@ -55,7 +55,7 @@ backlog: context/backlog/roadmap-deploy-followups/
 | **DF-9** | `deploy-server-safety` | the server script restores files on a failed switch, keeps `.env.prod.prev`, recreates Traefik on a changed config, writes the tag into `.env.prod`, has a `status` command, a retention cron and machine-readable step lines | DF-7 | autonomous | ready |
 | **DF-10** | `deploy-release-report` | a report job writes pipeline status and deployment history into the release body | DF-9 | autonomous | ready |
 | **DF-11** | `deploy-workflow-release-guards` | the workflow refuses a tag off the default branch, takes build args (origin checked against runtime), non-secret values and a per-deploy registry token | DF-7 | autonomous | ready |
-| **DF-12** | `deploy-cut-release` | a reusable workflow cuts a date tag and release and starts the deploy | DF-11 | autonomous | ready |
+| **DF-12** | `deploy-cut-release` | a reusable workflow cuts a date tag and release and starts the deploy | DF-11 | autonomous | in_progress (implement 1/1, since 2026-10-06; cloud session, branch `claude/project-thread-t04i0p`) |
 | **DF-13** | `deploy-verify-origin-firewall` | `verify` fails when the server IP answers direct HTTPS | — | autonomous | ready |
 | **DF-14** | `deploy-row-count-new-table` | a table listed in `deploy.json` that the release itself creates does not stop that release; one counted before and missing after still does | DF-8 | autonomous | ready |
 | **DF-15** | `deploy-workflow-e2e-server` | the deploy workflow's end-to-end test runs the shipped `deploy.sh` and `verify`, not only the recorder | DF-3 | autonomous | ready |
@@ -276,8 +276,8 @@ calls, the owner's own machine, a product decision only the owner can make, or a
 
 ### DF-12: A reusable workflow cuts a release from a dispatch
 - **Change ID:** `deploy-cut-release`
-- **Status:** ready
-- **Input:** [`deploy-cut-release`](../backlog/roadmap-deploy-followups/deploy-cut-release/change.md)
+- **Status:** in_progress (implement 1/1, since 2026-10-06; cloud session, branch `claude/project-thread-t04i0p`)
+- **Input:** [`deploy-cut-release`](../changes/deploy-cut-release/change.md)
 - **Outcome:** a reusable workflow (with a caller example) that an owner or an agent starts with *Run workflow* on the default branch: it picks the next free date tag (`vYYYY.MM.DD`, then `-2`, `-3`), creates the GitHub Release with an optional description and starts the app's deploy workflow on that tag (a release made with `GITHUB_TOKEN` triggers no workflow by itself).
 - **Prerequisites:** DF-11 on `master`.
 - **Unknowns:** whether the tag pattern is an input (FIRE's dates, semver).

@@ -20,7 +20,7 @@ here, in `context/changes/` or in `context/archive/`. Taking an entry works as i
 | DF-9 | [`deploy-server-safety`](deploy-server-safety/change.md) | The server deploy script matches FIRE's safety steps | DF-7 on master | dependency |
 | DF-10 | [`deploy-release-report`](deploy-release-report/change.md) | The release body carries pipeline status and deployment history | DF-9 on master | dependency |
 | DF-11 | [`deploy-workflow-release-guards`](deploy-workflow-release-guards/change.md) | The deploy workflow refuses a stray tag and carries build values | DF-7 on master | dependency |
-| DF-12 | [`deploy-cut-release`](deploy-cut-release/change.md) | A reusable workflow cuts a release from a dispatch | DF-11 on master | dependency |
+| DF-12 | [`deploy-cut-release`](../../changes/deploy-cut-release/change.md) (taken 2026-10-06) | A reusable workflow cuts a release from a dispatch | DF-11 on master | dependency |
 | DF-13 | [`deploy-verify-origin-firewall`](deploy-verify-origin-firewall/change.md) | verify checks that the origin refuses direct traffic | roadmap promoted | start |
 | DF-14 | [`deploy-row-count-new-table`](deploy-row-count-new-table/change.md) | A new table can join the row-count list with its release | DF-8 on master | dependency |
 | DF-15 | [`deploy-workflow-e2e-server`](deploy-workflow-e2e-server/change.md) | The end-to-end test runs the server side and verify | DF-3 on master | dependency |
