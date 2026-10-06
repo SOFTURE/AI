@@ -13,7 +13,7 @@ Test tools shared by SOFTURE apps and modules:
 npm install --save-dev @softure-ai/testing
 ```
 
-0.1.0 is its first npm release (DP-8, `release-0-1-4`), live once the owner approves the staged version.
+0.1.0 was its first npm release (DP-8, `release-0-1-4`); from 0.1.1 each version is live on npm at once.
 Inside this repository it is a workspace package.
 
 ## Clock shift
