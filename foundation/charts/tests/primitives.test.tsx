@@ -162,7 +162,7 @@ describe("lines and swatches", () => {
   });
 
   it("series slots wrap around the palette", () => {
-    expect([0, 1, 2, 3, 4].map(seriesSlot)).toEqual([1, 2, 3, 1, 2]);
+    expect([0, 1, 2, 3, 4, 5, 6, 7].map(seriesSlot)).toEqual([1, 2, 3, 4, 5, 6, 1, 2]);
   });
 
   it("a swatch has the shape and the slot of its series and is decorative", () => {

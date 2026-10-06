@@ -109,6 +109,18 @@
     --sft-chart-series: var(--sft-chart-series-3);
   }
 
+  .sft-chart-series-4 {
+    --sft-chart-series: var(--sft-chart-series-4);
+  }
+
+  .sft-chart-series-5 {
+    --sft-chart-series: var(--sft-chart-series-5);
+  }
+
+  .sft-chart-series-6 {
+    --sft-chart-series: var(--sft-chart-series-6);
+  }
+
   /* Axes: HTML labels at percentages, never SVG text, which would stretch with the plot. */
   .sft-chart-value-axis,
   .sft-chart-time-axis {

@@ -15,7 +15,7 @@ Series palette from tokens, distinguishable under colour-vision deficiency and l
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md) (charts), item **CH-4** (main roadmap since 2026-10-06):
+From [`roadmap.md`](../../foundation/roadmap.md) (charts), item **CH-4** (main roadmap since 2026-10-06):
 
 > ### CH-4: Series palette guard
 > - **Change ID:** `charts-palette-guard`
@@ -31,8 +31,8 @@ From [`roadmap.md`](../../../foundation/roadmap.md) (charts), item **CH-4** (mai
 > - **PRD refs:** FR-32.
 > - **Source (FIRE_TRACKER, read only):** `src/lib/band-colors.ts`, `src/lib/position-colors.ts` (checks only; the colours are FIRE's)
 
-Reference material: [`docs/06-fire-extraction-2.md`](../../../../docs/06-fire-extraction-2.md) (the FIRE_TRACKER source map and the split rules),
-[`docs/02-module-standard.md`](../../../../docs/02-module-standard.md) (the standard). FIRE_TRACKER is read only:
+Reference material: [`docs/06-fire-extraction-2.md`](../../../docs/06-fire-extraction-2.md) (the FIRE_TRACKER source map and the split rules),
+[`docs/02-module-standard.md`](../../../docs/02-module-standard.md) (the standard). FIRE_TRACKER is read only:
 copy its code, never change it.
 
 ## Constraints

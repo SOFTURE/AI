@@ -28,6 +28,9 @@ export const SCHEME_TOKENS = [
   "chart-series-1",
   "chart-series-2",
   "chart-series-3",
+  "chart-series-4",
+  "chart-series-5",
+  "chart-series-6",
 ] as const;
 
 /** Tokens shared by both schemes: typography, shape, spacing and motion. */
@@ -121,9 +124,15 @@ export const DEFAULT_THEME: CompleteTheme = {
     "chart-cursor": "#8a8f98",
     "chart-flag": "#cff26b",
     "chart-on-flag": "#0c0c0d",
+    // Series, in the order series take them: brand, ink, purple, pink, blue, teal. Each keeps 3:1 on every ground
+    // and every pair stays >= 10 ΔE00 apart in normal vision and protan, deutan and tritan simulation (measured:
+    // >= 14.4 here, >= 11.5 in dark); @softure-ai/charts guards it (tests/palette.test.ts, checkSeriesPalette).
     "chart-series-1": "#356912",
     "chart-series-2": "#16171a",
-    "chart-series-3": "#b45309",
+    "chart-series-3": "#a855f7",
+    "chart-series-4": "#db2777",
+    "chart-series-5": "#1e40af",
+    "chart-series-6": "#0d9488",
   },
   dark: {
     "color-background": "#0c0c0d",
@@ -150,7 +159,10 @@ export const DEFAULT_THEME: CompleteTheme = {
     "chart-on-flag": "#0c0c0d",
     "chart-series-1": "#cff26b",
     "chart-series-2": "#f2f3f5",
-    "chart-series-3": "#fbbf24",
+    "chart-series-3": "#c084fc",
+    "chart-series-4": "#db2777",
+    "chart-series-5": "#2563eb",
+    "chart-series-6": "#14b8a6",
   },
   shared: {
     "font-sans": 'ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji"',
