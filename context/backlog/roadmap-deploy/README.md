@@ -28,7 +28,7 @@ DP-8 waits for the owner at the keyboard on 2026-10-06:
 | DP-2 | [`deploy-reusable-workflows`](../../archive/2026-10-05-deploy-reusable-workflows/change.md) (done 2026-10-05) | Reusable deploy workflows | DP-1 on master | dependency |
 | DP-3 | [`deploy-db-guard`](../../archive/2026-10-05-deploy-db-guard/change.md) (done 2026-10-05) | Backup and schema guard before a deploy | DP-1 on master | dependency |
 | DP-4 | [`deploy-verify-production`](../../archive/2026-10-05-deploy-verify-production/change.md) (done 2026-10-05) | Production verify from config | DP-1 on master | dependency |
-| DP-5 | [`deploy-init-template`](deploy-init-template/change.md) | Deploy files generated once | DP-2, DP-3 and DP-4 on master | dependency |
+| DP-5 | [`deploy-init-template`](../../changes/deploy-init-template/change.md) (taken 2026-10-06) | Deploy files generated once | taken | dependency |
 | DP-6 | [`testing-clock-shift`](../../archive/2026-10-05-testing-clock-shift/change.md) | Test clock shift | taken (done 2026-10-05) | start |
 | DP-7 | [`testing-playwright-helpers`](../../archive/2026-10-05-testing-playwright-helpers/change.md) | Playwright helpers | taken (done 2026-10-05) | dependency |
 | DP-8 | [`deploy-release`](deploy-release/change.md) | Deploy and testing release | DP-1…DP-7 on master **and** the owner at the keyboard (2026-10-06) | dependency + owner |
