@@ -268,18 +268,27 @@ the owner sets, or its commit SHA.
 commit with `e2e: true` for the example app, on every pull request that touches the workflow or `tools/deploy/`, on
 `master` and on demand. On that path:
 
-- `build` builds the example app's image (`examples/next-app/Dockerfile`) without the GHCR login and without a push;
+- `build` builds the example app's image (`examples/next-app/Dockerfile`) without the GHCR login and without a push,
+  and hands it to `deploy` as the artifact `deploy-e2e-image`;
 - `deploy` builds this CLI from a full checkout of the tag instead of running the npm version, and
-  [`e2e/start-server.sh`](e2e/start-server.sh) starts a throwaway `sshd` container on the runner with fresh host and
-  client keys; the deploy key reaches only the forced command [`e2e/server/record.sh`](e2e/server/record.sh). The send
-  step runs the production `ssh` command (host key checked) against it. The recorder writes the command line, the
-  archive's files, their SHA-256, the mode of `.env.prod` and its names (never a value), uploaded as the artifact
-  `deploy-e2e-received`;
-- `verify` is skipped: the recorder does not run the app.
+  [`e2e/start-server.sh`](e2e/start-server.sh) sets up its own runner (Ubuntu with Docker, cron and flock) as the
+  server: the image goes into a registry on `localhost:5000` (the e2e app's image name), the compose file's Docker Hub
+  images come from `mirror.gcr.io`, a certificate for `deploy-e2e.example.com` signed by a CA of the run waits in
+  Traefik's ACME store (so Traefik never asks Let's Encrypt) and the name points at `127.0.0.1`, and `sshd` binds
+  fresh keys to the forced command [`e2e/server/forced-command.sh`](e2e/server/forced-command.sh). The send step runs
+  the production `ssh` command (host key checked) against it. The forced command first records the command line, the
+  archive's files, their SHA-256, the mode of `.env.prod` and its names (never a value) with
+  [`e2e/server/record.sh`](e2e/server/record.sh), uploaded as the artifact `deploy-e2e-received`, then runs the tag's
+  `deploy.sh` from `/srv/softure-example/` unchanged: pull, backup, schema guard, switch, cron, `result|ok`. Its
+  `npx @softure-ai/deploy@0.0.0` (the e2e app's pinned version, never published) is answered by
+  [`e2e/server/bin/npx`](e2e/server/bin/npx) with the CLI built from the tag;
+- `verify` would run on another runner, away from the stack, so `deploy` runs its two steps itself: the wait for
+  `/api/health` and `softure-deploy verify https://deploy-e2e.example.com` with the e2e app's `deploy.json`, trusting
+  the run's CA through `NODE_EXTRA_CA_CERTS`.
 
 The caller's `assert` job runs [`e2e/check-received.sh`](e2e/check-received.sh): the image is
-`ghcr.io/softure/ai-deploy-e2e:<sha>`, the command line `deploy <sha>`, the files are byte for byte the tag's, and
-`.env.prod` (0600) holds exactly the compose file's required names, not the extra secret the caller also passes.
+`localhost:5000/softure/ai-deploy-e2e:<sha>`, the command line `deploy <sha>`, the files are byte for byte the tag's,
+and `.env.prod` (0600) holds exactly the compose file's required names, not the extra secret the caller also passes.
 The server files are `init`'s output for the example app, committed under [`e2e/app/`](e2e/app/); after a template
 change, `npm run e2e-app -w @softure-ai/deploy` rewrites them (`tests/e2e-scripts.test.ts` fails until then). `check`
 refuses `e2e` unless the caller is `SOFTURE/AI`, so an app can never take this path.

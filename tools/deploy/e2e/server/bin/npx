@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# npx on deploy-app.yml's end-to-end server (DF-15, forced-command.sh puts it first on PATH): deploy.sh's
+# `npx --yes @softure-ai/deploy@<version> <command>` runs the CLI built from the tag (SOFTURE_DEPLOY_E2E_CLI), because
+# the committed e2e app pins a version that is never published. Any other call fails: deploy.sh makes no other.
+set -euo pipefail
+
+args=("$@")
+if [ "${args[0]:-}" = "--yes" ]; then args=("${args[@]:1}"); fi
+if [[ "${args[0]:-}" != @softure-ai/deploy@* ]]; then
+  echo "e2e npx: only @softure-ai/deploy is answered here, not: $*" >&2
+  exit 127
+fi
+exec node "${SOFTURE_DEPLOY_E2E_CLI:?}" "${args[@]:1}"

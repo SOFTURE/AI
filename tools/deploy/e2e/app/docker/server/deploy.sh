@@ -17,7 +17,7 @@
 # installed next to this script in /srv/softure-example/, so only the first setup copies this script there by hand. A new
 # copy of this script is installed by a rename: the running copy finishes, the new one runs from the next release.
 #
-# The host needs Docker with the compose plugin, logged in to the registry of ghcr.io/softure/ai-deploy-e2e with a read-only token, cron
+# The host needs Docker with the compose plugin, logged in to the registry of localhost:5000/softure/ai-deploy-e2e with a read-only token, cron
 # and flock (both in Ubuntu's base system).
 # The database steps also need Node.js 22 (`npx @softure-ai/deploy`) and pg_dump of the Postgres major version of
 # the compose file (postgresql-client-16).
@@ -47,7 +47,7 @@
 set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-IMAGE="ghcr.io/softure/ai-deploy-e2e"
+IMAGE="localhost:5000/softure/ai-deploy-e2e"
 DEPLOY_CLI="@softure-ai/deploy@0.0.0"
 DATABASE_NAME="softure_example"
 BACKUP_DIR="$APP_DIR/backups"

@@ -6,22 +6,26 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import { E2E_APP_DIR, planE2eAppFiles } from "../scripts/write-e2e-app.js";
 
-// DF-3: the end-to-end test of deploy-app.yml (.github/workflows/e2e-deploy.yml) sends a release to a throwaway SSH
-// server whose forced command (record.sh) records what it received; check-received.sh then compares that with the
-// tag. Here the three pieces run together without SSH: the workflow's pack step in a fake checkout of the committed
-// e2e app, record.sh with the archive on stdin, and check-received.sh on what it recorded.
+// DF-3, DF-15: the end-to-end test of deploy-app.yml (.github/workflows/e2e-deploy.yml) sends a release to its own
+// runner set up as the server, whose forced command (forced-command.sh) records what it received (record.sh) and runs
+// the shipped deploy.sh; check-received.sh then compares the recording with the tag. Here the pieces run together
+// without SSH or Docker: the workflow's pack step in a fake checkout of the committed e2e app, record.sh and
+// forced-command.sh with the archive on stdin and a stub deploy.sh, the npx stand-in, and check-received.sh.
 
 const REPO_ROOT = join(import.meta.dirname, "../../..");
 const WORKFLOW = join(REPO_ROOT, ".github/workflows/deploy-app.yml");
 const RECORD = join(import.meta.dirname, "../e2e/server/record.sh");
 const CHECK = join(import.meta.dirname, "../e2e/check-received.sh");
+const FORCED_COMMAND = join(import.meta.dirname, "../e2e/server/forced-command.sh");
+const NPX = join(import.meta.dirname, "../e2e/server/bin/npx");
+const START_SERVER = join(import.meta.dirname, "../e2e/start-server.sh");
 
 const APP = "tools/deploy/e2e/app";
 const COMPOSE_FILE = `${APP}/docker/prod/docker-compose.yml`;
 const SERVER_SCRIPT = `${APP}/docker/server/deploy.sh`;
 const DEPLOY_CONFIG = `${APP}/deploy.json`;
 const TAG = "0123456789abcdef0123456789abcdef01234567";
-const IMAGE = "ghcr.io/softure/ai-deploy-e2e";
+const IMAGE = "localhost:5000/softure/ai-deploy-e2e";
 const ENV_NAMES = ["AUTH_SECRET", "POSTGRES_PASSWORD", "SOFTURE_APP_PASSWORD", "SOFTURE_MIGRATOR_PASSWORD"];
 const ENV_PROD = ENV_NAMES.map((name) => `${name}=placeholder-${name.toLowerCase()}\n`).join("");
 
@@ -129,8 +133,8 @@ describe("record.sh, the e2e server's forced command", () => {
   it("records the command line, the files, their hashes, the mode and names of .env.prod, never its values", () => {
     const result = record(pack());
     expect(result.status, result.stderr).toBe(0);
-    // deploy-app.yml's send step requires this line, as from init's deploy.sh.
-    expect(result.stdout.trimEnd().split("\n").at(-1)).toBe("result|ok");
+    // The release counts only on deploy.sh's own result line; the recorder never prints one (DF-15).
+    expect(result.stdout).not.toContain("result|");
     expect(readRecorded("command")).toBe(`deploy ${TAG}\n`);
     expect(readRecorded("files")).toBe(
       [
@@ -211,5 +215,107 @@ describe("check-received.sh", () => {
     const result = check({ IMAGE: `${IMAGE}:latest` });
     expect(result.status).toBe(1);
     expect(result.stdout).toContain("image");
+  });
+});
+
+describe("forced-command.sh, the e2e server's forced command", () => {
+  let appDir: string;
+  let envFile: string;
+
+  beforeEach(() => {
+    appDir = join(root, "srv");
+    mkdirSync(appDir);
+    // A stand-in for the app's deploy.sh: what it was called with, what reached its stdin, and which npx it would run.
+    writeFileSync(
+      join(appDir, "deploy.sh"),
+      [
+        "#!/usr/bin/env bash",
+        'printf "%s\\n" "$SSH_ORIGINAL_COMMAND" > "$(dirname "$0")/called"',
+        'cat > "$(dirname "$0")/stdin"',
+        'command -v npx > "$(dirname "$0")/npx-path"',
+        'echo "result|ok"',
+      ].join("\n") + "\n",
+      { mode: 0o755 },
+    );
+    envFile = join(root, "forced-command.env");
+    writeFileSync(
+      envFile,
+      [`APP_DIR=${appDir}`, `NODE_BIN=${join(root, "no-node")}`, "DEPLOY_CLI=/nowhere/main.js", `RECEIVED_DIR=${received}`].join(
+        "\n",
+      ) + "\n",
+    );
+  });
+
+  function runForcedCommand(command: string, input: Buffer): Result {
+    return run("bash", [FORCED_COMMAND, envFile], { cwd: root, env: { SSH_ORIGINAL_COMMAND: command }, input });
+  }
+
+  it("records a deploy, then hands deploy.sh the same archive and command line, its own lines the only answer", () => {
+    const archive = pack();
+    const result = runForcedCommand(`deploy ${TAG}`, archive);
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toBe("result|ok\n");
+    expect(result.stderr).toContain("e2e server: recorded 6 files");
+    expect(readRecorded("command")).toBe(`deploy ${TAG}\n`);
+    expect(readFileSync(join(appDir, "called"), "utf8")).toBe(`deploy ${TAG}\n`);
+    expect(readFileSync(join(appDir, "stdin")).equals(archive)).toBe(true);
+    expect(readFileSync(join(appDir, "npx-path"), "utf8")).toBe(`${NPX}\n`);
+  });
+
+  it("passes another command to deploy.sh without recording it", () => {
+    const result = runForcedCommand("status", Buffer.alloc(0));
+    expect(result.status, result.stderr).toBe(0);
+    expect(readFileSync(join(appDir, "called"), "utf8")).toBe("status\n");
+    expect(readdirSync(received)).toEqual([]);
+  });
+
+  it("fails without deploy.sh when the recorder refuses the archive", () => {
+    const result = runForcedCommand(`deploy ${TAG}`, Buffer.from(ENV_PROD));
+    expect(result.status).not.toBe(0);
+    expect(readdirSync(appDir)).toEqual(["deploy.sh"]);
+  });
+});
+
+describe("bin/npx, the e2e server's stand-in for the unpublished CLI version", () => {
+  it("runs deploy.sh's `npx --yes @softure-ai/deploy@<version> <command>` with the CLI built from the tag", () => {
+    const cli = join(root, "main.js");
+    writeFileSync(cli, "console.log(JSON.stringify(process.argv.slice(2)));\n");
+    const result = run("bash", [NPX, "--yes", "@softure-ai/deploy@0.0.0", "backup", "--keep=7"], {
+      cwd: root,
+      env: { SOFTURE_DEPLOY_E2E_CLI: cli },
+    });
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toBe('["backup","--keep=7"]\n');
+  });
+
+  it("refuses any other package", () => {
+    const result = run("bash", [NPX, "--yes", "cowsay", "hi"], { cwd: root, env: { SOFTURE_DEPLOY_E2E_CLI: "/nowhere" } });
+    expect(result.status).toBe(127);
+    expect(result.stderr).toContain("only @softure-ai/deploy");
+  });
+});
+
+describe("start-server.sh's inputs", () => {
+  const inputs = {
+    SSH_PORT: "2222",
+    GITHUB_OUTPUT: "/dev/null",
+    IMAGE_ARCHIVE: "/nowhere/image.tar",
+    IMAGE_REF: `${IMAGE}:${TAG}`,
+    SERVER_SCRIPT,
+    COMPOSE_FILE,
+    APP_URL: "https://deploy-e2e.example.com",
+    DEPLOY_CLI: "/nowhere/main.js",
+  };
+
+  it.each([
+    ["an image outside a localhost registry", { IMAGE_REF: `ghcr.io/softure/ai-deploy-e2e:${TAG}` }, "localhost:<port> registry"],
+    ["an app URL without a host name", { APP_URL: "https://" }, "no host name"],
+    ["a path sshd's config cannot hold", { DEPLOY_CLI: "/no where/main.js" }, "not a plain path"],
+  ])("refuses %s before it changes anything", (_case, override, message) => {
+    const e2eDir = join(root, "e2e-server");
+    const result = run("bash", [START_SERVER], { cwd: checkout, env: { ...inputs, E2E_DIR: e2eDir, ...override } });
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain(message);
+    expect(() => statSync(e2eDir)).toThrow();
   });
 });

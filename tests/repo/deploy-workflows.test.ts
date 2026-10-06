@@ -281,18 +281,32 @@ describe("the end-to-end test path of deploy-app.yml (DF-3)", () => {
     expect(push?.with?.push).toBe("${{ !inputs.e2e }}");
   });
 
+  it("hands the image to the deploy job as an artifact only under inputs.e2e", () => {
+    const push = buildSteps.find((step) => step.uses?.startsWith("docker/build-push-action@") === true);
+    expect(push?.with?.outputs).toBe("${{ inputs.e2e && format('type=docker,dest={0}/deploy-e2e-image.tar', runner.temp) || '' }}");
+    const upload = buildSteps.find((step) => step.uses?.startsWith("actions/upload-artifact@") === true);
+    expect(upload?.if).toBe("inputs.e2e");
+    expect(upload?.with).toMatchObject({ name: "deploy-e2e-image", path: "${{ runner.temp }}/deploy-e2e-image.tar" });
+    const download = deploySteps.find((step) => step.uses?.startsWith("actions/download-artifact@") === true);
+    expect(download?.if).toBe("inputs.e2e");
+    expect(download?.with?.name).toBe("deploy-e2e-image");
+  });
+
   it("runs every test-only step of the deploy job under inputs.e2e", () => {
     const testOnly = deploySteps.filter((step) =>
-      /\.softure-ai-cli|e2e-server|upload-artifact/.test(
-        `${step.uses ?? ""} ${step.run ?? ""} ${step["working-directory"] ?? ""} ${JSON.stringify(step.with ?? {})}`,
+      /\.softure-ai-cli|e2e-server|e2e-image|-artifact@|end-to-end test/.test(
+        `${step.name ?? ""} ${step.uses ?? ""} ${step.run ?? ""} ${step["working-directory"] ?? ""} ${JSON.stringify(step.with ?? {})}`,
       ),
     );
     expect(testOnly.map((step) => step.name ?? step.uses)).toEqual([
       "actions/checkout@v7",
       "Build the deploy CLI from the tag (end-to-end test)",
-      "Start the throwaway SSH server (end-to-end test)",
+      "actions/download-artifact@v8",
+      "Set up this runner as the server (end-to-end test)",
       "actions/upload-artifact@v7",
-      "Show the throwaway SSH server's log (end-to-end test)",
+      "Wait for the health route (end-to-end test)",
+      "Verify the routes in deploy.json (end-to-end test)",
+      "Show the server's log and the stack (end-to-end test)",
       "Remove the key, .env.prod and the release archive",
     ]);
     for (const step of testOnly.slice(0, -1)) expect(step.if ?? "", step.name ?? step.uses).toMatch(/\binputs\.e2e\b/);
@@ -315,6 +329,20 @@ describe("the end-to-end test path of deploy-app.yml (DF-3)", () => {
       "${{ inputs.e2e && format('{0}/.softure-ai-cli/tools/deploy/dist/cli/main.js', github.workspace) || '' }}",
     );
     expect(render?.run).toContain("--package=@softure-ai/deploy@${process.env.DEPLOY_CLI_VERSION}");
+  });
+
+  it("runs the verify job's wait in the deploy job, and verify with the tag's CLI trusting the run's CA", () => {
+    const verifySteps = workflow.jobs.verify?.steps ?? [];
+    const wait = verifySteps.find((step) => step.name === "Wait for the health route");
+    const e2eWait = deploySteps.find((step) => step.name === "Wait for the health route (end-to-end test)");
+    expect(e2eWait?.run).toBe(wait?.run);
+    expect(e2eWait?.env).toEqual(wait?.env);
+    const e2eVerify = deploySteps.find((step) => step.name === "Verify the routes in deploy.json (end-to-end test)");
+    expect(e2eVerify?.if).toBe("inputs.e2e && inputs.deploy-config != ''");
+    expect(e2eVerify?.env).toMatchObject({ NODE_EXTRA_CA_CERTS: "${{ steps.e2e-server.outputs.ca-file }}" });
+    expect(e2eVerify?.run).toBe('node .softure-ai-cli/tools/deploy/dist/cli/main.js verify "$APP_URL" --config="$DEPLOY_CONFIG"');
+    const verify = verifySteps.find((step) => step.name === "Verify the routes in deploy.json");
+    expect(verify?.run).toContain('softure-deploy verify "$APP_URL" --config="$DEPLOY_CONFIG"');
   });
 
   it("gives each test run its own deploy concurrency group and skips verify", () => {
@@ -371,5 +399,12 @@ describe("the end-to-end caller e2e-deploy.yml", () => {
       IMAGE: "${{ needs.deploy.outputs.image }}",
       EXPECTED_IMAGE: job.with?.image,
     });
+  });
+
+  it("deploys an image the e2e server's own registry serves, the one the committed compose file runs", () => {
+    const image = String(job.with?.image);
+    expect(image).toMatch(/^localhost:[0-9]+\//);
+    const compose = readFileSync(join(REPO_ROOT, String(job.with?.["compose-file"])), "utf8");
+    expect(compose).toContain(`image: ${image}:\${TAG}`);
   });
 });

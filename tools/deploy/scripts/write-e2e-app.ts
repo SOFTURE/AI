@@ -13,10 +13,11 @@ export const E2E_APP_DIR = join(import.meta.dirname, "..", "e2e", "app");
 
 const EXAMPLE_APP_DIR = join(import.meta.dirname, "..", "..", "..", "examples", "next-app");
 
-/** The answers of the e2e app; the image matches the `image` input of e2e-deploy.yml. */
+/** The answers of the e2e app; the image matches the `image` input of e2e-deploy.yml, in the registry the e2e server
+ * runs on its runner (tools/deploy/e2e/start-server.sh). */
 export const E2E_ANSWERS: InitAnswers = {
   domain: "deploy-e2e.example.com",
-  image: "ghcr.io/softure/ai-deploy-e2e",
+  image: "localhost:5000/softure/ai-deploy-e2e",
   name: "softure-example",
   paths: ["/"],
   www: false,

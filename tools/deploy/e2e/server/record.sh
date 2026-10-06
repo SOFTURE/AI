@@ -1,11 +1,11 @@
 #!/bin/sh
-# The forced command of the throwaway SSH server in deploy-app.yml's end-to-end test (DF-3, e2e-deploy.yml). It takes
+# The recorder of deploy-app.yml's end-to-end server (DF-3; forced-command.sh runs it before deploy.sh, DF-15). It takes
 # what the deploy job sends, the command line in SSH_ORIGINAL_COMMAND and the release archive on stdin, and records it
 # into RECEIVED_DIR for check-received.sh: the command line, the archive's files, each file's SHA-256 (not .env.prod's),
 # the mode .env.prod has in the archive and the names in .env.prod. The values of .env.prod are never written.
 set -eu
 
-received="${RECEIVED_DIR:-/e2e/received}"
+received="${RECEIVED_DIR:?}"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 archive="$work/release.tar.gz"
@@ -34,5 +34,3 @@ else
   : > "$received/env-names"
 fi
 echo "e2e server: recorded $(wc -l < "$received/files" | tr -d ' ') files for '${SSH_ORIGINAL_COMMAND:-}'."
-# deploy-app.yml counts a release only when the server's last word is this line (init's deploy.sh prints it, DF-9).
-echo "result|ok"

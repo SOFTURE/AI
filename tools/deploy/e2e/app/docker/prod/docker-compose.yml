@@ -30,7 +30,7 @@ services:
       - letsencrypt:/letsencrypt
 
   app:
-    image: ghcr.io/softure/ai-deploy-e2e:${TAG}
+    image: localhost:5000/softure/ai-deploy-e2e:${TAG}
     restart: unless-stopped
     environment:
       APP_ORIGIN: https://deploy-e2e.example.com
@@ -43,7 +43,7 @@ services:
   # One-off: applies the migrations of the new image as the migrator role before the app starts. A failed
   # migration stops the deploy here; the old app container keeps serving.
   migrate:
-    image: ghcr.io/softure/ai-deploy-e2e:${TAG}
+    image: localhost:5000/softure/ai-deploy-e2e:${TAG}
     command: ["node", "migrate.mjs", "--migrations-dir", "./softure-migrations"]
     environment:
       DATABASE_URL: postgresql://softure_migrator:${SOFTURE_MIGRATOR_PASSWORD:?}@postgres:5432/softure_example
