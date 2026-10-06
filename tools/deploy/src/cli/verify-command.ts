@@ -1,14 +1,12 @@
-import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { trimTrailingSlashes } from "../verify/checks.js";
 import { formatVerifyReport } from "../verify/report.js";
 import { DEFAULT_CONCURRENCY, runVerify } from "../verify/run-checks.js";
-import { parseDeployConfig, type VerifyConfig } from "../verify/schema.js";
+import type { VerifyConfig } from "../verify/schema.js";
+import { DEFAULT_DEPLOY_CONFIG, readDeployConfig } from "./deploy-config.js";
 import { fail, USAGE_EXIT_CODE } from "./failure.js";
 import type { CliIo } from "./io.js";
-
-export const DEFAULT_DEPLOY_CONFIG = "deploy.json";
 
 const MAX_CONCURRENCY = 32;
 const TIMEOUT_RANGE = { min: 100, max: 120_000 };
@@ -40,17 +38,9 @@ function readInteger(flag: string, text: string | undefined, range: { min: numbe
 }
 
 function readVerifyConfig(path: string, shownPath: string): VerifyConfig {
-  let json: unknown;
-  try {
-    json = JSON.parse(readFileSync(path, "utf8"));
-  } catch (error) {
-    const reason = error instanceof SyntaxError ? "not valid JSON" : ((error as NodeJS.ErrnoException).code ?? "unknown error");
-    return fail(`verify: cannot read ${shownPath} (${reason}).`);
-  }
-  const parsed = parseDeployConfig(json);
-  if (!parsed.ok) return fail(`verify: ${shownPath} is not valid:\n${parsed.issues.map((issue) => `  ${issue}`).join("\n")}`);
-  if (parsed.config.verify === undefined) return fail(`verify: ${shownPath} has no "verify" section; nothing to check.`);
-  return parsed.config.verify;
+  const config = readDeployConfig("verify", path, shownPath);
+  if (config.verify === undefined) return fail(`verify: ${shownPath} has no "verify" section; nothing to check.`);
+  return config.verify;
 }
 
 function readVerifyArgs(args: string[]) {

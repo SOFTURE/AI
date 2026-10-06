@@ -1,12 +1,12 @@
 ---
 change_id: blog-release
 title: "SEO and blog release"
-status: backlog
+status: archived
 roadmap_item: BL-8
 branch: null
 created: 2026-10-04
-updated: 2026-10-04
-archived_at: null
+updated: 2026-10-06
+archived_at: 2026-10-06
 ---
 
 ## Intent
@@ -15,8 +15,8 @@ archived_at: null
 
 ## Context
 
-From [`roadmap-later.md`](../../../foundation/roadmaps/roadmap-later.md), item **BL-8** (carried over on 2026-10-04
-from roadmap `blog`, archived in [`2026-10-04-2-roadmap.md`](../../../foundation/archive/2026-10-04-2-roadmap.md),
+From [`roadmap-later.md`](../../foundation/roadmaps/roadmap-later.md), item **BL-8** (carried over on 2026-10-04
+from roadmap `blog`, archived in [`2026-10-04-2-roadmap.md`](../../foundation/archive/2026-10-04-2-roadmap.md),
 to the queued roadmap `later`):
 
 > ### BL-8: SEO and blog release
@@ -29,8 +29,8 @@ to the queued roadmap `later`):
 > - **Baseline:** packages absent from npm. After: installable from npm and from GitHub Releases.
 > - **PRD refs:** FR-2, FR-26, G-4.
 
-Reference material: [`docs/06-fire-extraction-2.md`](../../../../docs/06-fire-extraction-2.md) (the FIRE_TRACKER source map and the split rules),
-[`docs/02-module-standard.md`](../../../../docs/02-module-standard.md) (the standard). FIRE_TRACKER is read only:
+Reference material: [`docs/06-fire-extraction-2.md`](../../../docs/06-fire-extraction-2.md) (the FIRE_TRACKER source map and the split rules),
+[`docs/02-module-standard.md`](../../../docs/02-module-standard.md) (the standard). FIRE_TRACKER is read only:
 copy its code, never change it.
 
 ## Constraints
@@ -40,3 +40,10 @@ copy its code, never change it.
 - No release, tag or publish by the agent; the owner tags releases.
 
 ## Notes
+
+## Outcome (2026-10-06)
+
+Released through the pipeline without a code change of its own: the batch release went out at 0.1.2 (staged),
+0.1.4 (staged, through the trusted publishers) and 0.1.5, the first version published directly and live on npm at
+once (`release-0-1-5`, checked in the registry). The owner's npm steps (trusted publishers) are done; staged
+versions left over from 0.1.2 and 0.1.4 need no approval. Archived without a plan: the work was the owner's release.
