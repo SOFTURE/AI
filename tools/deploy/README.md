@@ -84,6 +84,31 @@ Changes since v1.1.0: 2 pull requests, 1 other commits.
 [Full diff](https://github.com/acme/app/compare/v1.1.0...v1.2.0)
 ```
 
+## `softure-deploy release-report`
+
+The deploy run's report in the same release body (DF-10): the pipeline status of the latest run and the history of
+every deployment of the tag.
+
+```bash
+softure-deploy release-report --body=<release body file> --summary=deploy-report.json [--locale=en|pl] [--out=<file>]
+```
+
+- **Input:** `--summary` is the `deploy-report.json` the `summary` job of `deploy-app.yml` uploads (version 1: tag,
+  environment, image, digest, run URL, end time in UTC, each job's result and the server's `step|…`/`result|…`
+  lines). Another shape fails with the field's name. `--body` is the release's current body; a missing file is empty.
+- **Status:** between `<!-- softure-deploy:status -->` markers, `## Pipeline status`: one row per job with its result
+  (✅ success, ❌ failure, ⛔ cancelled, ⏭️ skipped, ⏳ anything else) and the link to the run. Every run replaces it.
+- **Deployments:** between `<!-- softure-deploy:deployments -->` markers, `## Deployments`: one row per run, the newest
+  on top, the earlier rows kept byte for byte, so a rerun or a rollback adds a row. Columns: time (UTC), result
+  (`deployed`, or `failed at <step>` from the server's `result|failed|<step>|…`), environment, image and digest, the
+  backup file and the row counts before → after (`?` when the server stopped before counting again, `not counted` on
+  a first release), the verify result and the run. A run whose deploy job was skipped writes the status only.
+- **Order:** the sections stand in a fixed order whatever wrote them first: `release-notes`, status, deployments; the
+  owner's text above them stays. Values from the summary are reduced to letters, digits and plain punctuation, so a
+  `|`, a backtick or `<` cannot break the table.
+- A GitHub Release body holds at most 125 000 characters; one row is about 300, so a tag reaches the limit after some
+  300 runs, and the report's `gh release edit` then fails without touching the deploy.
+
 ## Database steps around a deploy
 
 `backup`, `schema-guard` and `row-counts` read the database URL from `DATABASE_URL` (`--url-env=<NAME>` names
@@ -349,7 +374,8 @@ standalone app, and builds its image from the generated `Dockerfile` (`npm run e
 The same steps as functions, for scripts that need them without the CLI:
 `findComposeNames`, `findRequiredNames`, `renderEnvFile` (a result value: the text, or the missing and unsafe names),
 `readReleaseCommits`, `findPreviousTag`, `toReleaseEntries`, `formatReleaseNotes`, `parseRoadmapItems`,
-`selectShippingItems`, `writeReleaseSection`, `readReleaseSection`, `toLibpqEnv`, `createBackup`,
+`selectShippingItems`, `writeReleaseSection`, `readReleaseSection`, `readSection`, `writeSection`, `parseDeployReport`,
+`parseServerLines`, `writeReleaseReport`, `toLibpqEnv`, `createBackup`,
 `selectExpiredBackups`, `selectAgedBackups`, `hasCustomFormatHeader`, `guardSchema`, `parseTableList`, `countRows`, `compareRowCounts`, `parseDeployConfig`,
 `runVerify` (an injectable `fetch`), `checkResponse`, `formatVerifyReport`, `parseInitAnswers`, `readAppFacts`,
 `planInitFiles` (pure: the files and their text), `writeInitFiles`.
