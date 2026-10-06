@@ -25,3 +25,11 @@ export type { ChartDataTableProps } from "./svg/data-table.js";
 export { ChartDataTable } from "./svg/data-table.js";
 
 export { type ChartsCopyProps, type ChartsMessages, chartsMessages } from "./messages/index.js";
+
+// The client cursor ("use client").
+export type { ChartCursorProps, CursorPoint, CursorValue } from "./cursor/chart-cursor.js";
+export { ChartCursor } from "./cursor/chart-cursor.js";
+
+// The composition: a time series line chart with everything above.
+export type { LineChartFlag, LineChartProps, LineChartSeries, TimePoint } from "./svg/line-chart.js";
+export { LineChart } from "./svg/line-chart.js";

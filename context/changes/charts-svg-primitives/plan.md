@@ -106,17 +106,17 @@ Done when: the e2e passes locally against the built app (or in the e2e workflow 
 ### Phase 1: Tokens, package wiring and server primitives
 
 #### Automated
-- [ ] 1.1 Ported primitive tests green, seen red on a deliberate break
-- [ ] 1.2 ui tests green with the chart tokens
-- [ ] 1.3 Gates green (typecheck, lint, test, build)
+- [x] 1.1 Ported primitive tests green, seen red on a deliberate break — 6f14ca0
+- [x] 1.2 ui tests green with the chart tokens — 6f14ca0
+- [x] 1.3 Gates green (typecheck, lint, test, build) — 6f14ca0
 
 ### Phase 2: Cursor, data table and LineChart
 
 #### Automated
-- [ ] 2.1 Cursor tests seen red, then green (keyboard, pointer, status, messages)
-- [ ] 2.2 LineChart and table tests green with hand-written oracles
-- [ ] 2.3 Architecture test green and catching planted colours and copy
-- [ ] 2.4 Gates green (typecheck, lint, test, build)
+- [x] 2.1 Cursor tests seen red, then green (keyboard, pointer, status, messages)
+- [x] 2.2 LineChart and table tests green with hand-written oracles
+- [x] 2.3 Architecture test green and catching planted colours and copy
+- [x] 2.4 Gates green (typecheck, lint, test, build)
 
 ### Phase 3: Example page, e2e and docs
 
