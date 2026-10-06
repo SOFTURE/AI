@@ -15,7 +15,7 @@ archived_at: null
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md) (charts), item **CH-1** (main roadmap since 2026-10-06):
+From [`roadmap.md`](../../foundation/roadmap.md) (charts), item **CH-1** (main roadmap since 2026-10-06):
 
 > ### CH-1: Chart scales, ticks and nearest point
 > - **Change ID:** `charts-scale-ticks`
@@ -32,8 +32,8 @@ From [`roadmap.md`](../../../foundation/roadmap.md) (charts), item **CH-1** (mai
 > - **PRD refs:** FR-31.
 > - **Source (FIRE_TRACKER, read only):** `src/lib/chart-scale.ts`, `src/lib/chart-ticks.ts`, `src/lib/nearest-point.ts`
 
-Reference material: [`docs/06-fire-extraction-2.md`](../../../../docs/06-fire-extraction-2.md) (the FIRE_TRACKER source map and the split rules),
-[`docs/02-module-standard.md`](../../../../docs/02-module-standard.md) (the standard). FIRE_TRACKER is read only:
+Reference material: [`docs/06-fire-extraction-2.md`](../../../docs/06-fire-extraction-2.md) (the FIRE_TRACKER source map and the split rules),
+[`docs/02-module-standard.md`](../../../docs/02-module-standard.md) (the standard). FIRE_TRACKER is read only:
 copy its code, never change it.
 
 ## Constraints
