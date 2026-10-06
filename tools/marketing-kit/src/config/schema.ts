@@ -236,6 +236,12 @@ const voiceSchema = z.strictObject({
     .regex(LANGUAGE_PATTERN, "must be an ISO 639 language code such as en")
     .describe("ISO 639 code the voice speaks (en, pl); part of the voiceover cache key."),
   tempo: tempo.default(1).describe("Speed-up (0.8-1.3) applied at build time, not in the API, so the paid cache stays valid."),
+  minIntervalSeconds: z
+    .number()
+    .min(0)
+    .max(3600)
+    .default(60)
+    .describe("Least seconds between two paid recordings (0-3600, default 60; 0 turns it off), counted from the newest file in cacheDir, so separate runs are spaced too."),
   cacheDir: relativePath.default("marketing/voiceover").describe("The paid voiceover cache (<key>.mp3 and <key>.json), relative to the folder of marketing.json; commit it."),
 });
 

@@ -1,6 +1,7 @@
 import { dirname, join } from "node:path";
 
 import { findStaleVoiceovers, getVoiceoverPaths, readCachedVoiceover, writeVoiceover, type Voiceover } from "./cache.js";
+import { waitForPace, type PaceOptions } from "./pace.js";
 import { err, ok, type TtsEstimate, type TtsInput, type TtsProvider, type TtsResult } from "./provider.js";
 
 export interface ProduceVoiceoverOptions {
@@ -11,6 +12,8 @@ export interface ProduceVoiceoverOptions {
   provider: TtsProvider;
   /** Only `true` lets the provider spend money. */
   isCommit: boolean;
+  /** Spacing of paid calls (`voice.minIntervalSeconds`); without it, no wait. Never applies to a cache hit or a dry run. */
+  pace?: Omit<PaceOptions, "cacheDir" | "log">;
   log: (line: string) => void;
 }
 
@@ -34,7 +37,7 @@ export function describeEstimate(provider: TtsProvider, estimate: TtsEstimate): 
  * run and before every paid call; without `isCommit` the provider is never called.
  */
 export async function produceVoiceover(options: ProduceVoiceoverOptions): Promise<TtsResult<VoiceoverOutcome>> {
-  const { cacheDir, input, videoId, provider, isCommit, log } = options;
+  const { cacheDir, input, videoId, provider, isCommit, pace, log } = options;
   const paths = getVoiceoverPaths(cacheDir, input, videoId);
   const cached = readCachedVoiceover(paths);
   if (!cached.ok) return cached;
@@ -57,6 +60,7 @@ export async function produceVoiceover(options: ProduceVoiceoverOptions): Promis
     log(`voiceover DRY RUN (voice ${input.voiceId}): nothing was sent. Run with --commit to pay and record.`);
     return ok({ kind: "dry-run", key: paths.key, estimate });
   }
+  if (pace !== undefined) await waitForPace({ ...pace, cacheDir, log });
   const recording = await provider.synthesize(input);
   if (!recording.ok) return err(recording.error);
   const voiceover = writeVoiceover(cacheDir, paths, recording.value);

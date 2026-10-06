@@ -9,6 +9,7 @@ describe("readOptions", () => {
       options: {
         command: "render",
         filmId: "anna-calculator",
+        filmIds: ["anna-calculator"],
         isCommit: false,
         today: undefined,
         url: undefined,
@@ -38,6 +39,13 @@ describe("readOptions", () => {
     });
   });
 
+  it("takes several films for voice, in order", () => {
+    expect(readOptions(["voice", "ola", "ania", "ewa", "--commit"])).toMatchObject({
+      ok: true,
+      options: { command: "voice", filmId: "ola", filmIds: ["ola", "ania", "ewa"], isCommit: true },
+    });
+  });
+
   it("accepts --commit on voice", () => {
     expect(readOptions(["voice", "a", "--commit"])).toMatchObject({ ok: true, options: { isCommit: true } });
   });
@@ -47,7 +55,9 @@ describe("readOptions", () => {
     ["no command", [], /unknown command ""/],
     ["an unknown flag (a typo must not pass silently)", ["record", "a", "--todya=2026-09-29"], /unknown flag --todya/],
     ["no film", ["render"], /name the film/],
-    ["two films", ["render", "a", "b"], /one film at a time/],
+    ["two films", ["render", "a", "b"], /one film at a time, got a, b; only voice takes several/],
+    ["the same film twice for voice", ["voice", "a", "b", "a"], /film "a" is named twice/],
+    ["a bad id among several", ["voice", "a", "B"], /film name "B": lowercase/],
     ["a film id with uppercase", ["render", "Anna"], /lowercase letters, digits and hyphens/],
     ["a malformed --today", ["record", "a", "--today=29.09.2026"], /expected a real day as YYYY-MM-DD/],
     ["a --today that is not a calendar day", ["record", "a", "--today=2026-02-30"], /--today=2026-02-30: expected a real day/],

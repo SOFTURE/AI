@@ -94,7 +94,7 @@ export interface MarketingConfig {
     hideSelectors: string[];
     screenGuardSelector: string;
   };
-  voice: { provider: "elevenlabs"; cacheDir: string };
+  voice: { provider: "elevenlabs"; cacheDir: string; minIntervalSeconds: number };
   videos: VideoConfig[];
   social: { linkTemplate: string } | null;
   screenshots: MarketingJson["screenshots"];
@@ -218,7 +218,7 @@ export function loadMarketingConfig(path: string): LoadConfigResult {
         hideSelectors: data.app.hideSelectors,
         screenGuardSelector: data.app.screenGuardSelector,
       },
-      voice: { provider: data.voice.provider, cacheDir: at(data.voice.cacheDir) },
+      voice: { provider: data.voice.provider, cacheDir: at(data.voice.cacheDir), minIntervalSeconds: data.voice.minIntervalSeconds },
       videos: resolveVideos(data, at),
       social: data.social === undefined ? null : { linkTemplate: data.social.linkTemplate },
       screenshots: data.screenshots,

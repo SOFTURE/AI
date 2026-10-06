@@ -470,6 +470,13 @@
           "minimum": 0.8,
           "maximum": 1.3
         },
+        "minIntervalSeconds": {
+          "default": 60,
+          "description": "Least seconds between two paid recordings (0-3600, default 60; 0 turns it off), counted from the newest file in cacheDir, so separate runs are spaced too.",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 3600
+        },
         "cacheDir": {
           "default": "marketing/voiceover",
           "description": "The paid voiceover cache (<key>.mp3 and <key>.json), relative to the folder of marketing.json; commit it.",
