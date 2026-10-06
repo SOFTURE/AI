@@ -53,7 +53,7 @@ backlog: context/backlog/roadmap-deploy-followups/
 | **DF-7** | `deploy-server-files` | `deploy-app.yml` ships the tag's `docker/prod/` files and `deploy.sh` with each release; no hand copy to the server | DP-5, DF-2 | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.3 and the owner's `deploy-workflows-v1` tag) |
 | **DF-8** | `deploy-row-count-server-list` | the server's `deploy.sh` counts the tables of the shipped `deploy.json`; `init --tables` writes them there | DF-5, DF-7 | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.3) |
 | **DF-9** | `deploy-server-safety` | the server script restores files on a failed switch, keeps `.env.prod.prev`, recreates Traefik on a changed config, writes the tag into `.env.prod`, has a `status` command, a retention cron and machine-readable step lines | DF-7 | autonomous | ready |
-| **DF-10** | `deploy-release-report` | a report job writes pipeline status and deployment history into the release body | DF-9 | autonomous | ready |
+| **DF-10** | `deploy-release-report` | a report job writes pipeline status and deployment history into the release body | DF-9 | autonomous | in_progress (plan, since 2026-10-06; cloud session, branch `claude/project-thread-drvkzo`) |
 | **DF-11** | `deploy-workflow-release-guards` | the workflow refuses a tag off the default branch, takes build args (origin checked against runtime), non-secret values and a per-deploy registry token | DF-7 | autonomous | ready |
 | **DF-12** | `deploy-cut-release` | a reusable workflow cuts a date tag and release and starts the deploy | DF-11 | autonomous | ready |
 | **DF-13** | `deploy-verify-origin-firewall` | `verify` fails when the server IP answers direct HTTPS | — | autonomous | ready |
@@ -254,8 +254,8 @@ calls, the owner's own machine, a product decision only the owner can make, or a
 
 ### DF-10: The release body carries pipeline status and deployment history
 - **Change ID:** `deploy-release-report`
-- **Status:** ready
-- **Input:** [`deploy-release-report`](../backlog/roadmap-deploy-followups/deploy-release-report/change.md)
+- **Status:** in_progress (plan, since 2026-10-06; cloud session, branch `claude/project-thread-drvkzo`)
+- **Input:** [`deploy-release-report`](../changes/deploy-release-report/change.md)
 - **Outcome:** a final report job of `deploy-app.yml` writes, with `release-notes --body` (DF-1), a pipeline status table (each job's result and the run link) and a deployment history row per run (time, result, image and digest, backup file, row counts before and after, verify result) into the GitHub Release body, newest first; reruns and rollbacks add rows, never replace them.
 - **Prerequisites:** DF-9 on `master`.
 - **Unknowns:** whether the history lives in the release body or in a deployment record (GitHub Deployments API).
