@@ -207,18 +207,68 @@ Secrets, all required and passed by name (no `secrets: inherit`): `ssh-host`, `s
 `NPM_CONFIG_*` are refused). The workflow runs once this package is on npm; callers pin the `deploy-workflows-v1` tag
 the owner sets, or its commit SHA.
 
+## `softure-deploy init`
+
+Writes the files that describe one app's deploy, once. The app owns them afterwards: an existing file is kept and
+named in the output, and only `--force` overwrites it.
+
+```bash
+softure-deploy init --domain=example.com --image=ghcr.io/acme/app [--dir=.] [--name=<slug>] [--paths=/] [--www] \
+  [--acme-email=<email>] [--env=AUTH_SECRET,...] [--tables=users,billing.subscriptions] [--force]
+```
+
+| File | What it holds |
+| --- | --- |
+| `Dockerfile` | the `@softure-ai/ops` container recipe: a Next standalone build, a non-root user, `HEALTHCHECK` in the image and, with a database, `migrate.mjs` and the exported migrations |
+| `.dockerignore` | local state and secrets out of the build context |
+| `docker/prod/docker-compose.yml` | Traefik and the app; with a database also Postgres (port on `127.0.0.1` only) and the one-off `migrate` service the app waits for |
+| `docker/prod/traefik.yml` | the apex router (`Host` and, unless `--paths=/`, `/`, `/_next/`, the health route and the given prefixes), security headers, the optional `www` redirect |
+| `docker/prod/initdb/01-roles.sql` | with a database: the migrator and app roles of the ops recipe |
+| `docker/server/deploy.sh` | the server's forced command for `deploy-app.yml` (below) |
+| `scripts/migrate.ts` | with a database: the migrate step the `Dockerfile` bundles |
+| `.github/workflows/deploy.yml` | the caller of `deploy-app.yml` with the domain, the image and the health path |
+| `deploy.json` | a `verify` starter: `/` without an error page, `/api/health` when the app has one, HSTS present, `x-powered-by` absent |
+
+- **Asked:** `--domain` and `--image`; `--paths`, `--www`, `--acme-email`, `--env` (the app's own secrets, added to
+  the app service in the required form so `env render` renders them), `--tables` (what `row-counts` compares) and
+  `--name` (compose project, server folder `/srv/<name>`, database name; default from `package.json`).
+- **Read from the app:** `@softure-ai/db` in `package.json` turns on the database part, `@softure-ai/ops` the
+  `/api/health` route (else `/`), a `public/` folder its `COPY`; a `next.config.*` without `standalone` is a warning.
+  Nothing is read from `softure.config`.
+- **Values are narrow:** the domain, image, name, paths, e-mail, env names and tables are checked against patterns
+  before anything is written, so no value can break out of YAML, bash or a Traefik rule.
+- **Secrets:** the compose file's required variables are the list the workflow renders: `POSTGRES_PASSWORD`,
+  `SOFTURE_MIGRATOR_PASSWORD`, `SOFTURE_APP_PASSWORD` with a database, plus `--env`. Use URL-safe passwords
+  (`openssl rand -hex 32`): they go into connection URLs as they are.
+
+**`deploy.sh` on the server.** Copy `docker/prod/*` and `docker/server/deploy.sh` to `/srv/<name>/` and bind the
+deploy key to the script in `authorized_keys` (`command="/srv/<name>/deploy.sh",restrict …`). For
+`SSH_ORIGINAL_COMMAND="deploy <tag>"` and `.env.prod` on stdin it:
+
+1. refuses anything but `deploy <tag>` with a Docker tag, writes `.env.prod` with mode 0600 and pulls the image;
+2. with a database: starts Postgres, runs `backup`, copies the migrations out of the new image for `schema-guard`,
+   and saves `row-counts` (all through `npx @softure-ai/deploy@<this version>` on the host, against `127.0.0.1`);
+3. `docker compose up -d --wait` (the migrate service runs before the app);
+4. with a database: `row-counts --compare`;
+5. records the tag in `.deployed-tag`. A failed step stops the release and prints the previous tag to redeploy.
+
+The host needs Docker with the compose plugin logged in to the registry, and with a database Node.js 22 and
+`pg_dump` of the compose file's Postgres major version. CI generates the files for the example app, staged as a
+standalone app, and builds its image from the generated `Dockerfile` (`npm run e2e:deploy-init`).
+
 ## Library
 
 The same steps as functions, for scripts that need them without the CLI:
 `findRequiredNames`, `renderEnvFile` (a result value: the text, or the missing and unsafe names),
 `readReleaseCommits`, `findPreviousTag`, `toReleaseEntries`, `formatReleaseNotes`, `toLibpqEnv`, `createBackup`,
 `selectExpiredBackups`, `guardSchema`, `parseTableList`, `countRows`, `compareRowCounts`, `parseDeployConfig`,
-`runVerify` (an injectable `fetch`), `checkResponse`, `formatVerifyReport`.
+`runVerify` (an injectable `fetch`), `checkResponse`, `formatVerifyReport`, `parseInitAnswers`, `readAppFacts`,
+`planInitFiles` (pure: the files and their text), `writeInitFiles`.
 
 ## Exit codes
 
 `0` done · `1` the command refused (missing names, unknown ref, unreadable or invalid file, a failed dump, a guard
-problem, lost rows, a failed verify check) · `2` a wrong command line.
+problem, lost rows, a failed verify check, invalid init answers) · `2` a wrong command line.
 
 ## Limitations
 
@@ -226,5 +276,7 @@ problem, lost rows, a failed verify check) · `2` a wrong command line.
 - `backup` writes to a local folder only; copying dumps off the server is the server's job.
 - `verify` does not warn about a certificate close to expiry (an expired or invalid one fails every route) and does
   not wait for the app to come up; the deploy workflow's health step does.
-- Coming in later items of the deploy roadmap: `init` (DP-5).
+- `init` files reach the server by hand: the workflow sends only `.env.prod`, so a changed compose file, Traefik rule
+  or `deploy.sh` is copied again before the next release (DF-7).
+- `init` writes one app per VPS, with Traefik in the app's compose file.
 - The deploy workflow checks only the health route until it runs `softure-deploy verify` (DF-2).

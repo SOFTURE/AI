@@ -15,3 +15,4 @@ here, in `context/changes/` or in `context/archive/`. Taking an entry works as i
 | DF-4 | [`auth-testing-account-factory`](auth-testing-account-factory/change.md) | An account factory in @softure-ai/auth/testing | — | start |
 | DF-5 | [`deploy-row-count-config`](deploy-row-count-config/change.md) | Row-count tables from deploy.json | DP-4 on master | dependency |
 | DF-6 | [`deploy-verify-cert-expiry`](deploy-verify-cert-expiry/change.md) | Certificate expiry in verify | the roadmap promoted | start |
+| DF-7 | [`deploy-server-files`](deploy-server-files/change.md) | Server files shipped with each release | DP-5 on master | dependency |

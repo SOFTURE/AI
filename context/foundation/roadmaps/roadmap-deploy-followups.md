@@ -44,6 +44,7 @@ trigger: "the deploy roadmap closes; the owner promotes it or takes single items
 | **DF-4** | `auth-testing-account-factory` | `@softure-ai/auth/testing` creates an account in SQL with auth's hashing; the example's e2e uses it outside registration specs | — | autonomous | ready |
 | **DF-5** | `deploy-row-count-config` | the tables `row-counts` compares come from `deploy.json` | DP-4 | autonomous | ready |
 | **DF-6** | `deploy-verify-cert-expiry` | `verify` fails when the TLS certificate expires within `verify.tlsMinDays` | — | autonomous | ready |
+| **DF-7** | `deploy-server-files` | `deploy-app.yml` ships the tag's `docker/prod/` files and `deploy.sh` with each release; no hand copy to the server | DP-5 | autonomous | ready |
 
 ## Order
 
@@ -144,6 +145,20 @@ Lanes are set when the roadmap is promoted, by shared files.
 - **Source:** DP-4 (`deploy-verify-production`), research question 1: `fetch` refuses an invalid or expired
   certificate, but nothing warns before expiry.
 - **PRD refs:** FR-33.
+
+### DF-7: Server files shipped with each release
+- **Change ID:** `deploy-server-files`
+- **Status:** ready
+- **Input:** [`deploy-server-files`](../../backlog/roadmap-deploy-followups/deploy-server-files/change.md)
+- **Outcome:** `deploy-app.yml` sends the tag's `docker/prod/` files (and `docker/server/deploy.sh`) to the server
+  with `.env.prod`, for example as one archive on stdin that the forced command unpacks into a release folder before
+  it switches; `init`'s `deploy.sh` reads it; the forced-command protocol stays one SSH call.
+- **Prerequisites:** DP-5.
+- **Unknowns:** whether FIRE's gateway already ships files (DF-1 reads it).
+- **Risk:** medium. A missed copy runs a release against an older compose file; nothing fails loudly.
+- **Source:** DP-5 (`deploy-init-template`), plan review S3: the workflow sends only `.env.prod`, so the files `init`
+  generates are copied to `/srv/<name>/` once and again whenever they change.
+- **PRD refs:** FR-33, FR-34.
 
 ## Owner decisions and checks
 

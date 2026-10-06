@@ -15,7 +15,7 @@ archived_at: null
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md) (deploy), item **DP-5** (main roadmap since 2026-10-05):
+From [`roadmap.md`](../../foundation/roadmap.md) (deploy), item **DP-5** (main roadmap since 2026-10-05):
 
 > ### DP-5: Deploy files generated once
 > - **Change ID:** `deploy-init-template`
@@ -34,8 +34,8 @@ From [`roadmap.md`](../../../foundation/roadmap.md) (deploy), item **DP-5** (mai
 > - **PRD refs:** FR-34.
 > - **Source (FIRE_TRACKER, read only):** `docker/Dockerfile`, `docker/prod/docker-compose.yml`, `docker/prod/traefik.yml`, `docker/server/deploy.sh`
 
-Reference material: [`docs/06-fire-extraction-2.md`](../../../../docs/06-fire-extraction-2.md) (the FIRE_TRACKER source map and the split rules),
-[`docs/02-module-standard.md`](../../../../docs/02-module-standard.md) (the standard). FIRE_TRACKER is read only:
+Reference material: [`docs/06-fire-extraction-2.md`](../../../docs/06-fire-extraction-2.md) (the FIRE_TRACKER source map and the split rules),
+[`docs/02-module-standard.md`](../../../docs/02-module-standard.md) (the standard). FIRE_TRACKER is read only:
 copy its code, never change it.
 
 ## Constraints
