@@ -1,12 +1,12 @@
 ---
 change_id: testing-browser-hook-timeout
 title: "Testing package browser tests start within a measured hook timeout"
-status: implementing
+status: archived
 roadmap_item: LT-3
 branch: claude/lt-3-qp44k0
 created: 2026-10-06
 updated: 2026-10-06
-archived_at: null
+archived_at: 2026-10-06
 ---
 
 ## Intent

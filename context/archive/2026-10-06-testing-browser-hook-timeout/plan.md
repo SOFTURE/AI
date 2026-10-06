@@ -39,5 +39,5 @@ the measurement in the comment, and the three tests in `playwright-browser.test.
 
 ## Progress
 
-- [x] Phase 1: global hook limit, measured on the runner
-- [ ] Phase 2: measurement into the comment
+- [x] Phase 1: global hook limit, measured on the runner (3752136)
+- [x] Phase 2: measurement into the comment (commit in this change's merge)

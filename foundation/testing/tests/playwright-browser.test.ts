@@ -113,10 +113,7 @@ beforeAll(async () => {
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   baseURL = `http://127.0.0.1:${String((server.address() as AddressInfo).port)}`;
-  const startedAt = performance.now();
   if (hasChromium) browser = await chromium.launch({ executablePath: CHROMIUM_PATH });
-  // Temporary (testing-browser-hook-timeout phase 1): measures the launch on the CI runner.
-  process.stderr.write(`browser launch took ${(performance.now() - startedAt).toFixed(0)} ms\n`);
 });
 
 afterAll(async () => {
