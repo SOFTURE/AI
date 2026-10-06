@@ -78,7 +78,7 @@ check).
 ## Progress
 
 #### Automated
-- [ ] Phase 1: guards, values and the token (tests red before the change, then green)
+- [x] Phase 1: guards, values and the token (tests red before the change, then green) — d470d34
 
 #### Manual
 - [ ] Owner: the release of `@softure-ai/deploy` 0.1.3 (the template change rides with it). An app whose server runs

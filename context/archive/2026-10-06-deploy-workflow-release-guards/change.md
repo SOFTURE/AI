@@ -1,12 +1,12 @@
 ---
 change_id: deploy-workflow-release-guards
 title: "The deploy workflow refuses a stray tag and carries build values"
-status: plan_reviewed
+status: archived
 roadmap_item: DF-11
 branch: claude/project-thread-8ztufp
 created: 2026-10-06
 updated: 2026-10-06
-archived_at: null
+archived_at: 2026-10-06
 ---
 
 ## Intent
@@ -50,3 +50,7 @@ from DF-7 ([archive](../../archive/2026-10-06-deploy-server-files/change.md)), i
   `render-env-prod.mts` with the workflow; this one reads the details the plan needs.
 - Framing skipped: the roadmap item fixes the problem and the four pieces, each a port of a FIRE behaviour DF-1
   found missing; nothing about whether to build it is in doubt.
+- Archived 2026-10-06: `deploy-app.yml` refuses a tag off the release branch (`release-branch`, else the default
+  branch), bakes `build-args` and stops when one differs from `.env.prod` under the same name, renders `app-vars`
+  over `app-secrets`, and sends the deploy job's `GITHUB_TOKEN` as `.registry-token`, which `init`'s `deploy.sh`
+  uses through a throwaway `DOCKER_CONFIG`. Rides `@softure-ai/deploy` 0.1.3; waiting for its release. No new gap.
