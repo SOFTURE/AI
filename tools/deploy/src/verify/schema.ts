@@ -60,6 +60,14 @@ const verifySchema = z
       .default({})
       .describe("Header checks for every route (security headers); a route's own entry for the same name wins."),
     routes: z.array(routeSchema).min(1).describe("Routes checked by softure-deploy verify, in report order."),
+    tlsMinDays: z
+      .int()
+      .min(1)
+      .max(365)
+      .optional()
+      .describe(
+        "Fewest days the TLS certificate of the verified https URL may have left; fewer, or an untrusted certificate, fails verify.",
+      ),
   })
   .describe("What softure-deploy verify checks after a deploy.");
 

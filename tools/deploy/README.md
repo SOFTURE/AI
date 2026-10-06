@@ -156,6 +156,7 @@ softure-deploy verify <url> [--config=deploy.json] [--timeout=<ms>] [--concurren
   "$schema": "https://unpkg.com/@softure-ai/deploy/schema/deploy.schema.json",
   "verify": {
     "headers": { "strict-transport-security": "max-age=", "x-powered-by": null },
+    "tlsMinDays": 14,
     "routes": [
       { "path": "/", "contains": ["<h1"], "excludes": ["Application error"] },
       { "path": "/pricing", "headers": { "content-type": "text/html" } },
@@ -174,6 +175,11 @@ softure-deploy verify <url> [--config=deploy.json] [--timeout=<ms>] [--concurren
 - **Requests:** `GET` with `cache-control: no-cache`, redirects not followed, at most `--concurrency` at once
   (default 4), each within `verify.timeoutMs` (default 10000) or `--timeout`. A TLS, connection or timeout error
   fails that route with the reason; other routes still run.
+- **Certificate:** with `verify.tlsMinDays` (1 to 365), `verify` opens one TLS connection to the URL's host, reads
+  the certificate without sending a request and adds a `tls` row: days left, the expiry date (UTC) and the issuer.
+  Fewer days than the minimum, a certificate not trusted for the host, a handshake error or an `http://` URL fail
+  the row and the run. Behind Cloudflare the certificate seen is Cloudflare's edge one, which it renews itself; the
+  check matters for an origin served directly (Traefik with ACME).
 - The schema is in [`schema/deploy.schema.json`](schema/deploy.schema.json) (`npm run schema -w @softure-ai/deploy`
   after changing `src/verify/schema.ts`). The route list is the app's; the package holds only the engine.
 - The same file holds `database.rowCountTables`, the tables `row-counts` compares (see above).
@@ -182,8 +188,9 @@ softure-deploy verify <url> [--config=deploy.json] [--timeout=<ms>] [--concurren
 Result  Status  Route     Detail
 PASS    200     /         5 checks passed
 FAIL    404     /pricing  status 404, expected 200; missing "Pricing"
+PASS    -       tls       41 days left (until 2026-11-16), issuer Let's Encrypt
 
-verify: 2 routes at https://example.com, 1 passed, 1 failed
+verify: 2 routes at https://example.com, 1 passed, 1 failed; certificate passed
 ```
 
 ## Deploy workflow
@@ -285,8 +292,7 @@ problem, lost rows, a failed verify check, invalid init answers) · `2` a wrong 
 
 - Release notes read only git: no labels, authors or pull request bodies (no GitHub API).
 - `backup` writes to a local folder only; copying dumps off the server is the server's job.
-- `verify` does not warn about a certificate close to expiry (an expired or invalid one fails every route) and does
-  not wait for the app to come up; the deploy workflow's health step does.
+- `verify` does not wait for the app to come up; the deploy workflow's health step does.
 - `init` files reach the server by hand: the workflow sends only `.env.prod`, so a changed compose file, Traefik rule
   or `deploy.sh` is copied again before the next release (DF-7).
 - `init` writes one app per VPS, with Traefik in the app's compose file.

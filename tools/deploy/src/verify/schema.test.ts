@@ -48,6 +48,23 @@ describe("parseDeployConfig", () => {
     expect(parsed.ok ? [] : parsed.issues).toContain(issue);
   });
 
+  it("keeps tlsMinDays and refuses one out of range or not whole", () => {
+    const parsed = parseDeployConfig({ verify: { tlsMinDays: 14, routes: [{ path: "/" }] } });
+    expect(parsed.ok && parsed.config.verify?.tlsMinDays).toBe(14);
+    expect(parseDeployConfig({ verify: { tlsMinDays: 0, routes: [{ path: "/" }] } })).toEqual({
+      ok: false,
+      issues: ["verify.tlsMinDays: Too small: expected number to be >=1"],
+    });
+    expect(parseDeployConfig({ verify: { tlsMinDays: 366, routes: [{ path: "/" }] } })).toEqual({
+      ok: false,
+      issues: ["verify.tlsMinDays: Too big: expected number to be <=365"],
+    });
+    expect(parseDeployConfig({ verify: { tlsMinDays: 1.5, routes: [{ path: "/" }] } })).toEqual({
+      ok: false,
+      issues: ["verify.tlsMinDays: Invalid input: expected int, received number"],
+    });
+  });
+
   it("refuses unknown keys, an empty route list and a non-object", () => {
     expect(parseDeployConfig({ verify: { routes: [] }, extra: 1 })).toEqual({
       ok: false,

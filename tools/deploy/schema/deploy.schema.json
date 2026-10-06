@@ -124,6 +124,12 @@
             "description": "One route to request and what its response must look like."
           },
           "description": "Routes checked by softure-deploy verify, in report order."
+        },
+        "tlsMinDays": {
+          "description": "Fewest days the TLS certificate of the verified https URL may have left; fewer, or an untrusted certificate, fails verify.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 365
         }
       },
       "required": [

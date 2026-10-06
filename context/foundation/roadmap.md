@@ -48,8 +48,8 @@ backlog: context/backlog/roadmap-deploy-followups/
 | **DF-2** | `deploy-workflow-verify-config` | the `verify` job of `deploy-app.yml` runs `softure-deploy verify` with the app's `deploy.json` instead of only the health route | DP-4 | autonomous | done_code (2026-10-06; waiting: the first publish of `@softure-ai/deploy`, DP-8) |
 | **DF-3** | `deploy-workflow-e2e` | a CI job runs `deploy-app.yml` against a throwaway SSH server and registry, so a broken step fails here, not on the first live deploy | DP-5, DF-7 | autonomous | ready |
 | **DF-4** | `auth-testing-account-factory` | `@softure-ai/auth/testing` creates an account in SQL with auth's hashing; the example's e2e uses it outside registration specs | — | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/auth` 0.1.6) |
-| **DF-5** | `deploy-row-count-config` | the tables `row-counts` compares come from `deploy.json` | DP-4 | autonomous | done_code (2026-10-06; waiting: the next publish of `@softure-ai/deploy`) |
-| **DF-6** | `deploy-verify-cert-expiry` | `verify` fails when the TLS certificate expires within `verify.tlsMinDays` | — | autonomous | ready |
+| **DF-5** | `deploy-row-count-config` | the tables `row-counts` compares come from `deploy.json` | DP-4 | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.2) |
+| **DF-6** | `deploy-verify-cert-expiry` | `verify` fails when the TLS certificate expires within `verify.tlsMinDays` | — | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.2) |
 | **DF-7** | `deploy-server-files` | `deploy-app.yml` ships the tag's `docker/prod/` files and `deploy.sh` with each release; no hand copy to the server | DP-5, DF-2 | autonomous | ready |
 | **DF-8** | `deploy-row-count-server-list` | the server's `deploy.sh` counts the tables of the shipped `deploy.json`; `init --tables` writes them there | DF-5, DF-7 | autonomous | ready |
 | **MK-10** | `marketing-kit-film-followups` | a committed `marketing.json` reproduces a paid film with no hand fixes: the opening transition is chosen in the config and none flickers, the voiceover cache shows which file belongs to which video (old flat caches still found), and the recording day is pinned per video | — | autonomous | ready |
@@ -170,7 +170,7 @@ calls, the owner's own machine, a product decision only the owner can make, or a
 
 ### DF-5: Row-count tables from deploy.json
 - **Change ID:** `deploy-row-count-config`
-- **Status:** done_code (2026-10-06; waiting: the next publish of `@softure-ai/deploy`)
+- **Status:** done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.2)
 - **Input:** [`deploy-row-count-config`](../archive/2026-10-06-deploy-row-count-config/change.md)
 - **Outcome:** `deploy.json` gets an optional `database.rowCountTables` list (zod schema and JSON Schema);
   `row-counts` reads it when `--tables` is not given.
@@ -182,8 +182,8 @@ calls, the owner's own machine, a product decision only the owner can make, or a
 
 ### DF-6: Certificate expiry in verify
 - **Change ID:** `deploy-verify-cert-expiry`
-- **Status:** ready
-- **Input:** [`deploy-verify-cert-expiry`](../backlog/roadmap-deploy-followups/deploy-verify-cert-expiry/change.md)
+- **Status:** done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.2)
+- **Input:** [`deploy-verify-cert-expiry`](../archive/2026-10-06-deploy-verify-cert-expiry/change.md)
 - **Outcome:** an optional `verify.tlsMinDays`; `verify` reads the certificate with `node:tls` once per run and adds
   a `tls` row to the table (days left, issuer); fewer days than the minimum is a failure. Tested against a local
   TLS server with a generated certificate.
