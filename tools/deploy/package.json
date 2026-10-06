@@ -36,7 +36,8 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "schema": "tsx scripts/write-schema.ts"
+    "schema": "tsx scripts/write-schema.ts",
+    "e2e-app": "tsx scripts/write-e2e-app.ts"
   },
   "dependencies": {
     "@softure-ai/db": "^0.1.2",

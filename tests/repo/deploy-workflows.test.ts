@@ -1,4 +1,6 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
@@ -19,6 +21,7 @@ interface WorkflowInput {
 interface Step {
   name?: string;
   if?: string;
+  "working-directory"?: string;
   run?: string;
   uses?: string;
   with?: Record<string, unknown>;
@@ -216,5 +219,156 @@ describe("the example caller workflow", () => {
     const declared = called.secrets ?? {};
     const passed = Object.keys(job.secrets as Record<string, unknown>);
     expect(passed.sort()).toEqual(Object.keys(declared).sort());
+  });
+});
+
+describe("the end-to-end test path of deploy-app.yml (DF-3)", () => {
+  const workflow = readYaml(join(WORKFLOWS_DIR, "deploy-app.yml"));
+  const inputs = getWorkflowCall(workflow).inputs ?? {};
+  const checkScript = workflow.jobs.check?.steps?.[0]?.run ?? "";
+  const buildSteps = workflow.jobs.build?.steps ?? [];
+  const deploySteps = workflow.jobs.deploy?.steps ?? [];
+
+  function runCheck(env: Record<string, string>): { status: number | null; stdout: string } {
+    const outputDir = mkdtempSync(join(tmpdir(), "deploy-check-"));
+    try {
+      const result = spawnSync("bash", ["-e", "-c", checkScript], {
+        encoding: "utf8",
+        env: {
+          PATH: process.env.PATH ?? "",
+          GITHUB_OUTPUT: join(outputDir, "output"),
+          TAG: "v1.2.3",
+          APP_URL: "https://example.com",
+          IMAGE: "",
+          BUILD_CONTEXT: ".",
+          DOCKERFILE: "Dockerfile",
+          COMPOSE_FILE: "docker/prod/docker-compose.yml",
+          SERVER_SCRIPT: "docker/server/deploy.sh",
+          DEPLOY_ENVIRONMENT: "",
+          REMOTE_COMMAND: "deploy",
+          SSH_PORT: "22",
+          HEALTH_PATH: "/api/health",
+          VERIFY_TIMEOUT: "300",
+          DEPLOY_CONFIG: "deploy.json",
+          DEPLOY_CLI_VERSION: "0.1.3",
+          ...env,
+        },
+      });
+      return { status: result.status, stdout: result.stdout };
+    } finally {
+      rmSync(outputDir, { recursive: true, force: true });
+    }
+  }
+
+  it("is off unless the caller turns it on", () => {
+    expect(inputs.e2e).toMatchObject({ type: "boolean", default: false });
+  });
+
+  it("is refused outside SOFTURE/AI by the check job, before anything is built", () => {
+    const refused = runCheck({ E2E: "true", REPOSITORY: "acme/app" });
+    expect(refused.status).toBe(1);
+    expect(refused.stdout).toContain("::error::Input e2e is not valid: false outside SOFTURE/AI");
+    expect(runCheck({ E2E: "true", REPOSITORY: "SOFTURE/AI" }).status).toBe(0);
+    expect(runCheck({ E2E: "false", REPOSITORY: "acme/app" }).status).toBe(0);
+    expect(workflow.jobs.check?.steps?.[0]?.env).toMatchObject({ E2E: "${{ inputs.e2e }}", REPOSITORY: "${{ github.repository }}" });
+  });
+
+  it("builds the image without logging in to GHCR or pushing it", () => {
+    const login = buildSteps.find((step) => step.uses?.startsWith("docker/login-action@") === true);
+    const push = buildSteps.find((step) => step.uses?.startsWith("docker/build-push-action@") === true);
+    expect(login?.if).toBe("${{ !inputs.e2e }}");
+    expect(push?.with?.push).toBe("${{ !inputs.e2e }}");
+  });
+
+  it("runs every test-only step of the deploy job under inputs.e2e", () => {
+    const testOnly = deploySteps.filter((step) =>
+      /\.softure-ai-cli|e2e-server|upload-artifact/.test(
+        `${step.uses ?? ""} ${step.run ?? ""} ${step["working-directory"] ?? ""} ${JSON.stringify(step.with ?? {})}`,
+      ),
+    );
+    expect(testOnly.map((step) => step.name ?? step.uses)).toEqual([
+      "actions/checkout@v7",
+      "Build the deploy CLI from the tag (end-to-end test)",
+      "Start the throwaway SSH server (end-to-end test)",
+      "actions/upload-artifact@v7",
+      "Show the throwaway SSH server's log (end-to-end test)",
+      "Remove the key, .env.prod and the release archive",
+    ]);
+    for (const step of testOnly.slice(0, -1)) expect(step.if ?? "", step.name ?? step.uses).toMatch(/\binputs\.e2e\b/);
+  });
+
+  it("sends with the production ssh command, taking the throwaway server's address and keys only under inputs.e2e", () => {
+    const send = deploySteps.find((step) => step.name === "Send the release to the server");
+    expect(send?.if).toBeUndefined();
+    expect(send?.env).toMatchObject({
+      SSH_HOST: "${{ inputs.e2e && steps.e2e-server.outputs.host || secrets.ssh-host }}",
+      SSH_USER: "${{ inputs.e2e && steps.e2e-server.outputs.user || secrets.ssh-user }}",
+      SSH_PRIVATE_KEY: "${{ inputs.e2e && steps.e2e-server.outputs.private-key || secrets.ssh-private-key }}",
+      SSH_KNOWN_HOSTS: "${{ inputs.e2e && steps.e2e-server.outputs.known-hosts || secrets.ssh-known-hosts }}",
+    });
+  });
+
+  it("renders .env.prod with the tag's CLI only under inputs.e2e", () => {
+    const render = deploySteps.find((step) => step.name === "Render .env.prod");
+    expect(render?.env?.DEPLOY_CLI).toBe(
+      "${{ inputs.e2e && format('{0}/.softure-ai-cli/tools/deploy/dist/cli/main.js', github.workspace) || '' }}",
+    );
+    expect(render?.run).toContain("--package=@softure-ai/deploy@${process.env.DEPLOY_CLI_VERSION}");
+  });
+
+  it("gives each test run its own deploy concurrency group and skips verify", () => {
+    const deployJob = workflow.jobs.deploy as Job & { concurrency?: { group?: string } };
+    expect(deployJob.concurrency?.group).toBe(
+      "deploy-app-${{ github.repository }}-${{ inputs.environment }}${{ inputs.e2e && format('-e2e-{0}', github.run_id) || '' }}",
+    );
+    expect((workflow.jobs.verify as Job & { if?: string }).if).toBe("${{ !inputs.e2e }}");
+  });
+});
+
+describe("the end-to-end caller e2e-deploy.yml", () => {
+  const caller = readYaml(join(WORKFLOWS_DIR, "e2e-deploy.yml"));
+  const job = caller.jobs.deploy as Job & { permissions?: unknown };
+  const called = getWorkflowCall(readYaml(join(WORKFLOWS_DIR, "deploy-app.yml")));
+  const assertStep = (caller.jobs.assert?.steps ?? []).find((step) => (step.run ?? "").includes("check-received.sh"));
+
+  it("calls this commit's deploy-app.yml with the test path on", () => {
+    expect(job.uses).toBe("./.github/workflows/deploy-app.yml");
+    expect(job.with).toMatchObject({ tag: "${{ github.sha }}", e2e: true });
+  });
+
+  it("passes only declared inputs and secrets, and every required one", () => {
+    const declared = Object.keys(called.inputs ?? {});
+    for (const key of Object.keys(job.with ?? {})) expect(declared).toContain(key);
+    for (const [key, input] of Object.entries(called.inputs ?? {})) {
+      if (input.required === true) expect(Object.keys(job.with ?? {})).toContain(key);
+    }
+    expect(Object.keys(job.secrets as Record<string, unknown>).sort()).toEqual(Object.keys(called.secrets ?? {}).sort());
+  });
+
+  it("grants packages: write to the calling job only", () => {
+    expect(caller.permissions).toEqual({ contents: "read" });
+    expect(job.permissions).toEqual({ contents: "read", packages: "write" });
+  });
+
+  it("expects exactly the compose file's required names, and passes one more secret that must not be rendered", () => {
+    const composeFile = String(job.with?.["compose-file"]);
+    const compose = readFileSync(join(REPO_ROOT, composeFile), "utf8");
+    const required = [...new Set([...compose.matchAll(/\$\{([A-Z_][A-Z0-9_]*):?\?\}/g)].map((match) => match[1]))].sort();
+    const expected = String(assertStep?.env?.EXPECTED_ENV_NAMES).split(" ");
+    expect(expected).toEqual(required);
+    const secrets = JSON.parse(String((job.secrets as Record<string, unknown>)["app-secrets"])) as Record<string, string>;
+    expect(Object.keys(secrets).filter((name) => !required.includes(name))).toEqual(["UNUSED_SECRET"]);
+    for (const name of required) expect(Object.keys(secrets)).toContain(name);
+  });
+
+  it("checks the recording against the same files and image it deployed", () => {
+    expect(assertStep?.env).toMatchObject({
+      COMPOSE_FILE: job.with?.["compose-file"],
+      SERVER_SCRIPT: job.with?.["server-script"],
+      DEPLOY_CONFIG: job.with?.["deploy-config"],
+      TAG: "${{ github.sha }}",
+      IMAGE: "${{ needs.deploy.outputs.image }}",
+      EXPECTED_IMAGE: job.with?.image,
+    });
   });
 });
