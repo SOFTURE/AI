@@ -115,7 +115,8 @@ describe("planInitFiles", () => {
     expect(textOf(files, ".github/workflows/deploy.yml")).toContain("reach .env.prod: none.");
     const script = textOf(files, "docker/server/deploy.sh");
     expect(script).not.toContain("deploy_cli");
-    expect(script).toContain("# Steps: check the command, unpack and check the archive, install its files and .env.prod, pull the image, switch,\n# record the tag.");
+    expect(script).toContain("# when its rules changed (traefik), record the tag (tag), install the cron (cron).");
+    expect(script).not.toContain("BACKUP_DIR=");
   });
 
   it("writes the Dockerfile of the ops recipe, with public/ and the migrate step only when the app has them", () => {

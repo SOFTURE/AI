@@ -34,3 +34,5 @@ else
   : > "$received/env-names"
 fi
 echo "e2e server: recorded $(wc -l < "$received/files" | tr -d ' ') files for '${SSH_ORIGINAL_COMMAND:-}'."
+# deploy-app.yml counts a release only when the server's last word is this line (init's deploy.sh prints it, DF-9).
+echo "result|ok"
