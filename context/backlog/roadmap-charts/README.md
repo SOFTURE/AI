@@ -27,7 +27,7 @@ The owner promoted the roadmap on 2026-10-06, when deploy-followups closed. The 
 | CH-2 | [`charts-svg-primitives`](../../archive/2026-10-06-charts-svg-primitives/change.md) | SVG chart primitives | archived 2026-10-06 (done_code: waits for the release of `@softure-ai/ui` 0.1.6) | dependency |
 | CH-3 | [`ui-color-guards`](../../archive/2026-10-06-ui-color-guards/change.md) | Colour contrast and colour-vision guards | archived 2026-10-06 (done_code: waits for the release of `@softure-ai/ui` 0.1.6) | start |
 | CH-4 | [`charts-palette-guard`](../../archive/2026-10-06-charts-palette-guard/change.md) | Series palette guard | archived 2026-10-06 (done_code: waits for the release of `@softure-ai/ui` 0.1.6) | dependency |
-| CH-5 | [`charts-release`](charts-release/change.md) | Charts release | CH-1…CH-4 on master **and** the owner's `NPM_TOKEN` for the first npm publish | dependency + owner |
+| CH-5 | [`charts-release`](../../archive/2026-10-06-charts-release/change.md) | Charts release | archived 2026-10-06 (waits for the owner's release) | dependency + owner |
 
 Kind: `start` (can be taken as soon as the roadmap is promoted), `dependency` (waits for the listed items on the
 main branch), `owner` (needs an owner decision or the owner at the keyboard).

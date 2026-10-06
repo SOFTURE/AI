@@ -15,7 +15,7 @@ archived_at: null
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md) (charts), item **CH-5** (main roadmap since 2026-10-06):
+From [`roadmap.md`](../../foundation/roadmap.md) (charts), item **CH-5** (main roadmap since 2026-10-06):
 
 > ### CH-5: Charts release
 > - **Change ID:** `charts-release`
@@ -27,8 +27,8 @@ From [`roadmap.md`](../../../foundation/roadmap.md) (charts), item **CH-5** (mai
 > - **Baseline:** package absent from npm. After: installable from npm and from GitHub Releases.
 > - **PRD refs:** FR-2, FR-26, G-4.
 
-Reference material: [`docs/06-fire-extraction-2.md`](../../../../docs/06-fire-extraction-2.md) (the FIRE_TRACKER source map and the split rules),
-[`docs/02-module-standard.md`](../../../../docs/02-module-standard.md) (the standard). FIRE_TRACKER is read only:
+Reference material: [`docs/06-fire-extraction-2.md`](../../../docs/06-fire-extraction-2.md) (the FIRE_TRACKER source map and the split rules),
+[`docs/02-module-standard.md`](../../../docs/02-module-standard.md) (the standard). FIRE_TRACKER is read only:
 copy its code, never change it.
 
 ## Constraints

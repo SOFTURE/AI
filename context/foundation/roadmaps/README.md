@@ -7,6 +7,7 @@ Finished main roadmaps move to `../archive/<YYYY-MM-DD>-roadmap.md`.
 
 | Roadmap | Theme | Prefix | Status |
 | --- | --- | --- | --- |
+| [`roadmap-charts-followups.md`](roadmap-charts-followups.md) | gaps found while delivering the charts roadmap | `CF-` (CF-1 from CH-5) | waiting |
 | [`roadmap-later.md`](roadmap-later.md) | items parked until an owner step (secrets, accounts, the batch release) is done | `LT-` (MK-8, EN-9, MO-6, BL-8 and DP-8 done 2026-10-06) | waiting |
 
 Main roadmap now: [`charts`](../roadmap.md) (`CH-`, promoted on 2026-10-06), after deploy-followups (`DF-`) closed on

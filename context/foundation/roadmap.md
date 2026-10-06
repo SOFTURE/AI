@@ -54,7 +54,7 @@ backlog: context/backlog/roadmap-charts/
 | **CH-2** | `charts-svg-primitives` | server-rendered SVG surface, time and value axes, lines, legend and flags; a keyboard-accessible cursor; a data table fallback | CH-1 | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/ui` 0.1.6) |
 | **CH-3** | `ui-color-guards` | `@softure-ai/ui/testing`: WCAG contrast, colour-vision simulation and a both-themes contrast check for token pairs | — | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/ui` 0.1.6) |
 | **CH-4** | `charts-palette-guard` | series palette from tokens, distinguishable under colour-vision deficiency and legible on the surface in both themes | CH-2, CH-3 | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/ui` 0.1.6) |
-| **CH-5** | `charts-release` | `@softure-ai/charts` 0.1.0 and the next `@softure-ai/ui` published through the release pipeline; README complete | CH-1…CH-4 | owner | blocked (waits for CH-1…CH-4 and the owner's first npm publish at the keyboard) |
+| **CH-5** | `charts-release` | `@softure-ai/charts` 0.1.0 and the next `@softure-ai/ui` published through the release pipeline; README complete | CH-1…CH-4 | owner | done_code (2026-10-06; waiting: the owner's release of `@softure-ai/ui` 0.1.6 and `@softure-ai/charts` 0.1.0) |
 
 ## Order
 
@@ -72,7 +72,7 @@ backlog: context/backlog/roadmap-charts/
 | ID | Needs the owner | Why |
 | --- | --- | --- |
 | CH-1…CH-4 | no | pure functions, components and tests; an example app page with an e2e |
-| CH-5 | yes | first (staged) npm publish and trusted publisher on npmjs.com |
+| CH-5 | yes | first npm publish of a new package (`NPM_TOKEN`), then its trusted publisher on npmjs.com |
 
 ## Items
 
@@ -141,7 +141,8 @@ backlog: context/backlog/roadmap-charts/
 
 ### CH-5: Charts release
 - **Change ID:** `charts-release`
-- **Status:** blocked (waits for CH-1…CH-4 and the owner's first npm publish at the keyboard)
+- **Status:** done_code (2026-10-06; waiting: the owner's release of `@softure-ai/ui` 0.1.6 and `@softure-ai/charts` 0.1.0)
+- **Input:** [`charts-release`](../archive/2026-10-06-charts-release/change.md)
 - **Outcome:** `@softure-ai/charts` 0.1.0 (the owner provides `NPM_TOKEN` for its first publish and adds its trusted publisher) and the next `@softure-ai/ui` with the testing helpers; README with an adoption guide for FIRE_TRACKER's charts.
 - **Prerequisites:** CH-1…CH-4.
 - **Unknowns:** none beyond the owner's npm steps.
@@ -151,8 +152,14 @@ backlog: context/backlog/roadmap-charts/
 
 ## Owner decisions and checks
 
-- [ ] **CH-5**: the first publish of the new `@softure-ai/charts` needs `NPM_TOKEN` for that one release; then add its
-  trusted publisher on npmjs.com (SOFTURE / AI / `release.yml`), as for the other packages since 0.1.5.
+- [ ] **CH-5**: release `@softure-ai/ui` 0.1.6 and `@softure-ai/charts` 0.1.0 (both packed and checked on
+  master; charts is not on npm, so its first publish needs a token, `scripts/release/README.md`):
+  1. npmjs.com: a granular access token, read and write on the `@softure-ai` scope, publish without 2FA, short
+     expiry; save it as the repository secret `NPM_TOKEN`.
+  2. Say "wydaj" in the CH-5 thread, or run **auto-release** from master with `ui charts`.
+  3. After charts 0.1.0 is live: on npmjs.com, `@softure-ai/charts` → Settings → Trusted publisher: GitHub
+     Actions, `SOFTURE` / `AI` / `release.yml` (case-sensitive), environment empty, **Allow npm publish**.
+  4. Delete the `NPM_TOKEN` secret. Later charts releases need no token.
 
 ## Done
 

@@ -21,8 +21,9 @@ apart for colour-blind readers ([Series palette](#series-palette)). Extracted fr
 npm install @softure-ai/charts
 ```
 
-Not on npm yet: the package is private until its first release (CH-5). Inside this repository it is a
-workspace package.
+It needs `@softure-ai/ui` 0.1.6 or later (the `--sft-chart-*` tokens and `@softure-ai/ui/testing`) and React 19.
+Each version ships to npm, to GitHub Packages as `@softure/charts`, and as a tarball on the GitHub Release
+`charts@x.y.z`; the first one is 0.1.0, released with `@softure-ai/ui` 0.1.6.
 
 ## Points
 
@@ -204,6 +205,35 @@ it("our series colours stay legible and apart for colour-blind readers", () => {
 order), `grounds` (`SERIES_GROUNDS` by default), `minDistance` (10), `visions` and `metric`; with `tokens` and
 `grounds` it checks an app's own token names. `@softure-ai/charts/testing` is never imported by the
 components, so it stays out of app bundles.
+
+## Adopting in FIRE_TRACKER
+
+The package came out of FIRE_TRACKER's charts. What each FIRE file maps to, and what stays in FIRE:
+
+| FIRE_TRACKER | `@softure-ai/charts` | Stays in FIRE |
+| --- | --- | --- |
+| `src/lib/chart-scale.ts` `scaleY`, `scaleX` | `linearScale`, `timeScale` (with `invert`) | — |
+| `src/lib/chart-scale.ts` `peakOf`, `capitalOf` | `peakOf(series, { getValue: capitalOf })` | `capitalOf` (FIRE's point) |
+| `src/lib/chart-ticks.ts` `valueTicks(peakCents, target)` | `valueTicks(peak, target, { minStep: 100 })` on cents (unit-free; `minStep` keeps whole zloty) | `formatAxisAmount` (the PLN suffix), passed as `formatValue` |
+| `src/lib/chart-ticks.ts` `yearTicks` | `yearTicks` (same rule and tests) | `monthIndexOfYear` |
+| `src/lib/nearest-point.ts` | `nearestPointIndex(points, x.invert(pointerX))`, in data space | — |
+| `src/components/chart/chart-lines.tsx` | `GridLines`, `Baseline`, `GuideLine` (`dashed`, `dotted`) | — |
+| `src/components/chart/value-axis.tsx` `amountTicks`, `ValueAxis` | `valueAxisTicks({ ticks, scale, format })`, `ValueAxis` | the zero tick's copy |
+| `src/components/chart/time-axis.tsx` `yearAxisTicks`, `TimeAxis` | `timeAxisTicks` (with `ends`), `TimeAxis` | the age row |
+| `src/components/chart/chart-legend.tsx` shapes `pole`, `kropka`, `linia`, `kreska`, `kropki` | `LegendSwatch` shapes `box`, `dot`, `line`, `dashed`, `dotted` and a `slot` | the outline from a colour in the database |
+| `src/components/chart/chart-flag.tsx` `ChartFlag` | `ChartFlag` (edge rule `edgeAlign`) | `ChartPin` until the package has one (CF-1) |
+| `src/components/chart/chart-surface.ts` `percent`, `flagAnchorClass` | `percent`, `toPercent`, `edgeAlign` | the surfaces (`rola`, `czern`, `papier`) and tones, as overrides of the `--sft-chart-*` tokens |
+| `src/components/capital-chart-readout.tsx` (the cursor) | `ChartCursor`: arrows, Home/End, Escape, pointer events, a polite live readout | the readout's content |
+| `src/components/chart/unlock-step.ts` | — | all of it (FIRE's domain) |
+| `src/lib/color-vision.ts`, `src/app/theme-contrast.test.ts` | `@softure-ai/ui/testing`: `findColorCollisions`, `contrastRatio`, `checkThemeContrast` | — |
+| `src/lib/{band-colors,position-colors}.test.ts` (the generic checks) | `checkSeriesPalette(schemes, { tokens, grounds })` from `@softure-ai/charts/testing` | the colours themselves |
+
+Two differences to carry over deliberately:
+
+- FIRE measured colour distance in CIE76 with a threshold of 12; the guards default to CIEDE2000 and 10. To keep
+  FIRE's numbers while migrating, pass `{ metric: "cie76", minDistance: 12 }`.
+- Labels and copy come from `chartsMessages` (`en`, `pl`), so a FIRE string moves to the `messages` prop, not
+  into the component.
 
 ## Limitations
 
