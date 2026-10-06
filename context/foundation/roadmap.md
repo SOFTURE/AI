@@ -46,7 +46,7 @@ backlog: context/backlog/roadmap-deploy-followups/
 | --- | --- | --- | --- | --- | --- |
 | **DF-1** | `deploy-fire-parity` | `env render`, `release-notes`, the deploy workflow, the database steps (`backup`, `schema-guard`, `row-counts`) and `verify` checked against FIRE_TRACKER's scripts and tests; differences ported or recorded | — | owner (read access to FIRE_TRACKER) | done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.2) |
 | **DF-2** | `deploy-workflow-verify-config` | the `verify` job of `deploy-app.yml` runs `softure-deploy verify` with the app's `deploy.json` instead of only the health route | DP-4 | autonomous | done_code (2026-10-06; waiting: the first publish of `@softure-ai/deploy`, DP-8) |
-| **DF-3** | `deploy-workflow-e2e` | a CI job runs `deploy-app.yml` against a throwaway SSH server and registry, so a broken step fails here, not on the first live deploy | DP-5, DF-7 | autonomous | in_progress (implement 1/2, since 2026-10-06; cloud session, branch `claude/project-thread-bmiyxf`) |
+| **DF-3** | `deploy-workflow-e2e` | a CI job runs `deploy-app.yml` against a throwaway SSH server and registry, so a broken step fails here, not on the first live deploy | DP-5, DF-7 | autonomous | in_progress (impl-review, since 2026-10-06; cloud session, branch `claude/project-thread-bmiyxf`) |
 | **DF-4** | `auth-testing-account-factory` | `@softure-ai/auth/testing` creates an account in SQL with auth's hashing; the example's e2e uses it outside registration specs | — | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/auth` 0.1.6) |
 | **DF-5** | `deploy-row-count-config` | the tables `row-counts` compares come from `deploy.json` | DP-4 | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.2) |
 | **DF-6** | `deploy-verify-cert-expiry` | `verify` fails when the TLS certificate expires within `verify.tlsMinDays` | — | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.2) |
@@ -159,7 +159,7 @@ calls, the owner's own machine, a product decision only the owner can make, or a
 
 ### DF-3: The deploy workflow runs end to end in CI
 - **Change ID:** `deploy-workflow-e2e`
-- **Status:** in_progress (implement 1/2, since 2026-10-06; cloud session, branch `claude/project-thread-bmiyxf`)
+- **Status:** in_progress (impl-review, since 2026-10-06; cloud session, branch `claude/project-thread-bmiyxf`)
 - **Input:** [`deploy-workflow-e2e`](../changes/deploy-workflow-e2e/change.md)
 - **Outcome:** A workflow in this repository calls `./.github/workflows/deploy-app.yml` for the example app against a local
   `sshd` container with a forced command that records what it received and a local registry (or `push: false`

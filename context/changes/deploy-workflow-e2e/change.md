@@ -1,7 +1,7 @@
 ---
 change_id: deploy-workflow-e2e
 title: "The deploy workflow runs end to end in CI"
-status: plan_reviewed
+status: implemented
 roadmap_item: DF-3
 branch: claude/project-thread-bmiyxf
 created: 2026-10-06

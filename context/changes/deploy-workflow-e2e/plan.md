@@ -96,8 +96,8 @@ switch with the same gate; the checkout CLI is only safe in this repository anyw
 ## Progress
 
 #### Automated
-- [ ] Phase 1: recorder, checker and the committed init output
-- [ ] Phase 2: the test path and the caller
+- [x] Phase 1: recorder, checker and the committed init output (`84a6b58`; tests red before the scripts)
+- [x] Phase 2: the test path and the caller (`84a6b58`; one commit for both phases, the repository tests red before the workflow)
 
 #### Manual
 - [ ] The `e2e-deploy` run on the pull request is green (CI, before merge)
