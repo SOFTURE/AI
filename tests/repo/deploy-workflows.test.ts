@@ -186,10 +186,58 @@ describe("the deploy job of deploy-app.yml", () => {
     expect(send).toContain("grep -qx 'result|ok' \"$output\"");
   });
 
+  it("may read packages, for the registry token it sends, and passes that token only when registry-token is on", () => {
+    expect(workflow.jobs.deploy?.permissions).toEqual({ contents: "read", packages: "read" });
+    expect(inputs["registry-token"]).toMatchObject({ type: "boolean", default: true });
+    expect(steps[packIndex]?.env?.REGISTRY_TOKEN).toBe("${{ inputs.registry-token && github.token || '' }}");
+  });
+
+  it("renders app-vars and compares build-args, both read from env", () => {
+    const render = steps.find((step) => step.name === "Render .env.prod");
+    expect(render?.env).toMatchObject({ APP_VARS: "${{ inputs.app-vars }}", BUILD_ARGS: "${{ inputs.build-args }}" });
+    expect(inputs["app-vars"]).toMatchObject({ type: "string", default: "{}" });
+  });
+
   it("removes the archive with the key, whatever happened", () => {
     expect(cleanup?.if).toBe("always()");
     expect(cleanup?.run).toContain("release.tar.gz");
     expect(cleanup?.run).toContain(".env.prod");
+  });
+});
+
+describe("the release guards of deploy-app.yml (DF-11)", () => {
+  const workflow = readYaml(join(WORKFLOWS_DIR, "deploy-app.yml"));
+  const inputs = getWorkflowCall(workflow).inputs ?? {};
+  const checkSteps = workflow.jobs.check?.steps ?? [];
+  const guardIndex = checkSteps.findIndex((step) => step.name === "Refuse a tag off the release branch");
+  const build = (workflow.jobs.build?.steps ?? []).find((step) => step.uses?.startsWith("docker/build-push-action@") === true);
+
+  it("refuses a stray tag in the check job, after the inputs and before anything is built", () => {
+    expect(checkSteps[0]?.name).toBe("Validate inputs");
+    expect(guardIndex).toBe(2);
+    expect(workflow.jobs.check?.permissions).toEqual({ contents: "read" });
+    expect(inputs["release-branch"]).toMatchObject({ type: "string", default: "" });
+    expect(checkSteps[guardIndex]?.env).toMatchObject({
+      TAG: "${{ inputs.tag }}",
+      RELEASE_BRANCH: "${{ inputs.release-branch }}",
+      DEFAULT_BRANCH: "${{ github.event.repository.default_branch }}",
+    });
+  });
+
+  it("fetches every branch and tag as commits only, without credentials", () => {
+    expect(checkSteps[1]?.with).toEqual({
+      ref: "${{ inputs.tag }}",
+      "persist-credentials": false,
+      "fetch-depth": 0,
+      filter: "tree:0",
+      "sparse-checkout": "/${{ inputs.compose-file }}",
+      "sparse-checkout-cone-mode": false,
+    });
+  });
+
+  it("passes build-args to the image build", () => {
+    expect(inputs["build-args"]).toMatchObject({ type: "string", default: "" });
+    expect(build?.with?.["build-args"]).toBe("${{ inputs.build-args }}");
   });
 });
 
@@ -365,7 +413,11 @@ describe("the end-to-end caller e2e-deploy.yml", () => {
 
   it("calls this commit's deploy-app.yml with the test path on", () => {
     expect(job.uses).toBe("./.github/workflows/deploy-app.yml");
-    expect(job.with).toMatchObject({ tag: "${{ github.sha }}", e2e: true });
+    expect(job.with).toMatchObject({
+      tag: "${{ github.event.pull_request.head.sha || github.sha }}",
+      "release-branch": "${{ github.head_ref || github.ref_name }}",
+      e2e: true,
+    });
   });
 
   it("passes only declared inputs and secrets, and every required one", () => {
@@ -393,12 +445,17 @@ describe("the end-to-end caller e2e-deploy.yml", () => {
     for (const name of required) expect(Object.keys(secrets)).toContain(name);
   });
 
+  it("checks out the commit it deployed", () => {
+    const checkout = (caller.jobs.assert?.steps ?? []).find((step) => step.uses?.startsWith("actions/checkout@") === true);
+    expect(checkout?.with?.ref).toBe(job.with?.tag);
+  });
+
   it("checks the recording against the same files and image it deployed", () => {
     expect(assertStep?.env).toMatchObject({
       COMPOSE_FILE: job.with?.["compose-file"],
       SERVER_SCRIPT: job.with?.["server-script"],
       DEPLOY_CONFIG: job.with?.["deploy-config"],
-      TAG: "${{ github.sha }}",
+      TAG: job.with?.tag,
       IMAGE: "${{ needs.deploy.outputs.image }}",
       EXPECTED_IMAGE: job.with?.image,
     });

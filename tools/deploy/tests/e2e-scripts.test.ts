@@ -71,7 +71,7 @@ function run(command: string, args: string[], options: { cwd: string; env: Recor
 function pack(): Buffer {
   const result = run("bash", ["-euo", "pipefail", "-c", getPackScript()], {
     cwd: checkout,
-    env: { RUNNER_TEMP: root, COMPOSE_FILE, SERVER_SCRIPT, DEPLOY_CONFIG },
+    env: { RUNNER_TEMP: root, COMPOSE_FILE, SERVER_SCRIPT, DEPLOY_CONFIG, REGISTRY_TOKEN: "placeholder-token" },
   });
   expect(result.status, result.stdout + result.stderr).toBe(0);
   return readFileSync(join(checkout, "release.tar.gz"));
@@ -130,7 +130,7 @@ describe("the committed e2e app", () => {
 });
 
 describe("record.sh, the e2e server's forced command", () => {
-  it("records the command line, the files, their hashes, the mode and names of .env.prod, never its values", () => {
+  it("records the command line, the files, their hashes, the modes of .env.prod and the token, never a value", () => {
     const result = record(pack());
     expect(result.status, result.stderr).toBe(0);
     // The release counts only on deploy.sh's own result line; the recorder never prints one (DF-15).
@@ -139,6 +139,7 @@ describe("record.sh, the e2e server's forced command", () => {
     expect(readRecorded("files")).toBe(
       [
         "./.env.prod",
+        "./.registry-token",
         "./deploy.json",
         "./deploy.sh",
         "./docker-compose.yml",
@@ -155,6 +156,7 @@ describe("record.sh, the e2e server's forced command", () => {
       "./traefik.yml",
     ]);
     expect(readRecorded("env-mode")).toBe("-rw-------\n");
+    expect(readRecorded("token-mode")).toBe("-rw-------\n");
     expect(readRecorded("env-names")).toBe(`${ENV_NAMES.join("\n")}\n`);
     for (const name of readdirSync(received)) expect(readRecorded(name)).not.toContain("placeholder-");
   });
@@ -180,12 +182,18 @@ describe("check-received.sh", () => {
   it("passes when the server received the tag's files, command line and env names", () => {
     const result = check();
     expect(result.status, result.stdout).toBe(0);
-    expect(result.stdout.match(/^ok: /gm)).toHaveLength(6);
+    expect(result.stdout.match(/^ok: /gm)).toHaveLength(7);
   });
 
   it.each([
     ["a wrong command line", () => writeFileSync(join(received, "command"), "deploy other\n"), "command line"],
     ["a 0644 .env.prod", () => writeFileSync(join(received, "env-mode"), "-rw-r--r--\n"), ".env.prod mode"],
+    ["a 0644 registry token", () => writeFileSync(join(received, "token-mode"), "-rw-r--r--\n"), ".registry-token mode"],
+    [
+      "no registry token",
+      () => writeFileSync(join(received, "files"), readRecorded("files").replace("./.registry-token\n", "")),
+      "files",
+    ],
     ["a missing env name", () => writeFileSync(join(received, "env-names"), "AUTH_SECRET\n"), "env names"],
     [
       "an extra env name",
@@ -255,7 +263,7 @@ describe("forced-command.sh, the e2e server's forced command", () => {
     const result = runForcedCommand(`deploy ${TAG}`, archive);
     expect(result.status, result.stderr).toBe(0);
     expect(result.stdout).toBe("result|ok\n");
-    expect(result.stderr).toContain("e2e server: recorded 6 files");
+    expect(result.stderr).toContain("e2e server: recorded 7 files");
     expect(readRecorded("command")).toBe(`deploy ${TAG}\n`);
     expect(readFileSync(join(appDir, "called"), "utf8")).toBe(`deploy ${TAG}\n`);
     expect(readFileSync(join(appDir, "stdin")).equals(archive)).toBe(true);

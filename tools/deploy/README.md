@@ -228,15 +228,21 @@ verify: 2 routes at https://example.com, 1 passed, 1 failed; certificate passed
 `SOFTURE/AI/.github/workflows/deploy-app.yml` is a reusable workflow that releases one app to its VPS. The app keeps
 one caller, [`examples/deploy.yml`](examples/deploy.yml), with a single `uses:` line. For the release tag it:
 
-1. checks every input (tag, URL, paths, image, command word, port, timeout) before anything runs;
-2. builds the image from the tag and pushes `<image>:<tag>` to GHCR (the only job with `packages: write`);
-3. renders `.env.prod` with `softure-deploy env render` from the `app-secrets` JSON, packs it with the tag's server
-   files (the compose file's folder, `server-script` as `deploy.sh`, `deploy-config` as `deploy.json`) into one gzip
-   tar and sends that on stdin to the server's forced SSH command as `<remote-command> <tag>`, checking the host key
-   against `ssh-known-hosts`. A symlink in the compose folder, or a file there named like one the server keeps
-   (`.env.prod`, `.env.prod.prev`, `deploy.sh`, `deploy.json`, `.deployed-tag`, `.deploy.lock`, `backups`,
-   `releases`), stops the run. The step fails unless the server's output holds the line `result|ok` (below), so a
-   session cut halfway never reads as a release; the output stays in `$RUNNER_TEMP/deploy-output.txt` for the job;
+1. checks every input (tag, URL, paths, image, command word, port, timeout, release branch, build arguments) before
+   anything runs, then refuses a tag whose commit is not on the release branch (`release-branch`, else the caller's
+   default branch; commits only are fetched for it);
+2. builds the image from the tag with `build-args` and pushes `<image>:<tag>` to GHCR (the only job with
+   `packages: write`);
+3. renders `.env.prod` with `softure-deploy env render` from the `app-secrets` JSON and the `app-vars` JSON over it,
+   and stops when a build argument's name is in `.env.prod` with another value (the image and the runtime would
+   disagree, FIRE_TRACKER's L-117; only the name is printed). It packs `.env.prod` with the tag's server files (the
+   compose file's folder, `server-script` as `deploy.sh`, `deploy-config` as `deploy.json`) and the job's own
+   `GITHUB_TOKEN` as `.registry-token` into one gzip tar and sends that on stdin to the server's forced SSH command
+   as `<remote-command> <tag>`, checking the host key against `ssh-known-hosts`. A symlink in the compose folder, or
+   a file there named like one the server keeps (`.env.prod`, `.env.prod.prev`, `.registry-token`, `deploy.sh`,
+   `deploy.json`, `.deployed-tag`, `.deploy.lock`, `backups`, `releases`), stops the run. The step fails unless the
+   server's output holds the line `result|ok` (below), so a session cut halfway never reads as a release; the output
+   stays in `$RUNNER_TEMP/deploy-output.txt` for the job;
 4. waits until `<app-url><health-path>` answers 200, then runs `softure-deploy verify <app-url>` with the app's
    `deploy-config` read from the tag (only that file is checked out). A missing or invalid file fails the run;
    `deploy-config: ""` keeps the health route only.
@@ -255,11 +261,17 @@ one caller, [`examples/deploy.yml`](examples/deploy.yml), with a single `uses:` 
 | `health-path`, `verify-timeout-seconds` | `/api/health`, `300` | the health wait before verify |
 | `deploy-config` | `deploy.json` | the routes `verify` checks, also shipped to the server; empty for the health route only |
 | `deploy-cli-version` | this package's version | the CLI run from npm (`env render`, `verify`) |
+| `release-branch` | the caller's default branch | the branch the tag's commit must be on |
+| `build-args` | none | `NAME=value` lines baked into the image; public values only (they stay in the image's history) |
+| `app-vars` | `{}` | JSON object of non-secret values, e.g. `toJSON(vars)`; rendered like secrets and over a secret of the same name, and not masked in logs (a secret `1` masks every `1`) |
+| `registry-token` | `true` | send the deploy job's `GITHUB_TOKEN` (`packages: read`, valid until the job ends) for the server's pull |
 | `e2e` | `false` | this repository's own end-to-end test (below); refused in any other repository |
 
 Secrets, all required and passed by name (no `secrets: inherit`): `ssh-host`, `ssh-user`, `ssh-private-key`,
 `ssh-known-hosts` and `app-secrets` (a JSON object such as `toJSON(secrets)`; names like `PATH`, `HOME`, `NODE_*` and
-`NPM_CONFIG_*` are refused). The workflow runs once this package is on npm; callers pin the `deploy-workflows-v1` tag
+`NPM_CONFIG_*` are refused, in `app-vars` too). The registry token pulls a package the build job of the same
+repository pushed (its `org.opencontainers.image.source` label links it); for an image elsewhere, set
+`registry-token: false` and log the server in. The workflow runs once this package is on npm; callers pin the `deploy-workflows-v1` tag
 the owner sets, or its commit SHA.
 
 ### Cut a release
@@ -370,7 +382,10 @@ line, exits 2):
   2. saves every installed file the release is about to replace, then moves `.env.prod` into place (0600) with
      `TAG=<tag>` in it (so a `docker compose` by hand or from the cron runs the live release), copies the other files
      next to itself (in place, so Traefik's bind-mounted rules keep their inode; files 0644, folders 0755), replaces
-     itself by a rename (the new copy runs from the next release) and pulls the image;
+     itself by a rename (the new copy runs from the next release) and pulls the image. A `.registry-token` in the
+     archive (non-empty, or the release is refused) is never installed: the pull logs in with it under a
+     `DOCKER_CONFIG` in the run's temporary folder, removed with it, so the host's own Docker login is neither used
+     nor changed;
   3. with a database: starts Postgres, runs `backup` (`--keep=7 --max-age-days=30`), copies the migrations out of the
      new image for `schema-guard`, and saves `row-counts` (all through `npx @softure-ai/deploy@<this version>` on the
      host, against `127.0.0.1`) for `database.rowCountTables` of the `deploy.json` this release shipped
@@ -405,8 +420,9 @@ lines, other apps' marked lines included, stay. `deploy` and `maintain` never ru
 Shipping `deploy.sh` widens nothing: whoever holds the deploy key already picks the image and its environment, and
 the deploy user runs Docker, which is root on the host.
 
-The host needs Docker with the compose plugin logged in to the registry, `cron` and `flock` (both in Ubuntu's base
-system), and with a database Node.js 22 and `pg_dump` of the compose file's Postgres major version. CI generates the files for the example app, staged as a
+The host needs Docker with the compose plugin (a registry login only with `registry-token: false`), `cron` and
+`flock` (both in Ubuntu's base system), and with a database Node.js 22 and `pg_dump` of the compose file's Postgres
+major version. CI generates the files for the example app, staged as a
 standalone app, and builds its image from the generated `Dockerfile` (`npm run e2e:deploy-init`).
 
 ## Library
@@ -424,6 +440,12 @@ The same steps as functions, for scripts that need them without the CLI:
 FIRE_TRACKER's release scripts were read side by side with this package on 2026-10-06 (DF-1; the full comparison is
 in [`context/archive/2026-10-06-deploy-fire-parity/research.md`](../../context/archive/2026-10-06-deploy-fire-parity/research.md)).
 
+**In the workflow (DF-11):** the tag must be on the default branch; build arguments, refused when one differs from the
+value `.env.prod` holds under its name (FIRE compares `APP_ORIGIN` and `APP_DOMAIN`; any shared name is compared
+here); non-secret values over secrets (FIRE reads variables first for optional names only; here for every name, and
+the names taken over a secret are listed); the deploy job's token per release (FIRE logs in and out on the host;
+here a throwaway Docker config leaves the host's login alone).
+
 **In the package:** optional compose names and the header line (`env render`); the release body section and the
 roadmap table (`release-notes`); excluded table data, the age limit and the header check (`backup`); method, body and
 request headers (`verify`). Already here before: names from the compose file, values never printed, mode 0600, the
@@ -439,9 +461,6 @@ its second-stage script inside the image stay one script here: the release ships
 
 - **DF-10:** a report job writes pipeline status and deployment history (image, digest, backup, row counts before and
   after) into the release body.
-- **DF-11:** the tag must be on the default branch; build arguments, with a check that the origin baked into the
-  image equals the runtime one; non-secret values for optional names; a registry token per deploy instead of a
-  permanent login on the server.
 - **DF-12:** a reusable workflow that cuts a date tag and release and starts the deploy (an agent cannot push tags).
 - **DF-13:** `verify` checks that the server's IP refuses direct HTTPS (only the CDN may reach it).
 
@@ -469,6 +488,8 @@ problem, lost rows, a failed verify check, invalid init answers) · `2` a wrong 
 - A `deploy.sh` generated by 0.1.2 or earlier reads `.env.prod`, not the release archive, and prints no `result|ok`,
   which `deploy-app.yml` requires: copy the new one to the server once by hand (or run `init --force` and copy it),
   then every release ships it.
+- A `deploy.sh` older than the registry token copies `.registry-token` next to itself like any other file (the token
+  has expired by then): call the workflow with `registry-token: false` until a release has shipped the new script.
 - `init` writes one app per VPS, with Traefik in the app's compose file.
 - The end-to-end test stops at the server's forced command: neither the shipped `deploy.sh` nor the `verify` job runs
   there (DF-15).
