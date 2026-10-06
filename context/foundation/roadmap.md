@@ -44,7 +44,7 @@ backlog: context/backlog/roadmap-deploy-followups/
 
 | ID | Change | Outcome | Depends on | Mode | Status |
 | --- | --- | --- | --- | --- | --- |
-| **DF-1** | `deploy-fire-parity` | `env render`, `release-notes`, the deploy workflow, the database steps (`backup`, `schema-guard`, `row-counts`) and `verify` checked against FIRE_TRACKER's scripts and tests; differences ported or recorded | — | owner (read access to FIRE_TRACKER) | in_progress (impl-review, since 2026-10-06; cloud session, branch `claude/project-thread-sxdn77`) |
+| **DF-1** | `deploy-fire-parity` | `env render`, `release-notes`, the deploy workflow, the database steps (`backup`, `schema-guard`, `row-counts`) and `verify` checked against FIRE_TRACKER's scripts and tests; differences ported or recorded | — | owner (read access to FIRE_TRACKER) | done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.2) |
 | **DF-2** | `deploy-workflow-verify-config` | the `verify` job of `deploy-app.yml` runs `softure-deploy verify` with the app's `deploy.json` instead of only the health route | DP-4 | autonomous | done_code (2026-10-06; waiting: the first publish of `@softure-ai/deploy`, DP-8) |
 | **DF-3** | `deploy-workflow-e2e` | a CI job runs `deploy-app.yml` against a throwaway SSH server and registry, so a broken step fails here, not on the first live deploy | DP-5, DF-7 | autonomous | ready |
 | **DF-4** | `auth-testing-account-factory` | `@softure-ai/auth/testing` creates an account in SQL with auth's hashing; the example's e2e uses it outside registration specs | — | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/auth` 0.1.6) |
@@ -95,7 +95,7 @@ calls, the owner's own machine, a product decision only the owner can make, or a
 
 | ID | Needs the owner | Why |
 | --- | --- | --- |
-| DF-1 | yes, before it starts | cloud sessions cannot clone FIRE_TRACKER (checked again on 2026-10-06); the owner adds it to the sessions' repositories (read only) |
+| DF-1 | yes, before it starts (done) | the owner added FIRE_TRACKER to the sessions' repositories (read only) on 2026-10-06 |
 | DF-2 | no | workflow change validated by actionlint and the repository test |
 | DF-3 | no | a throwaway `sshd` container and a local registry inside CI; no server or secret; the CLI runs from the checkout because DP-8 waits on the owner |
 | DF-4 | no | test-only export tested on PGlite and the example's e2e; it rides auth's next release |
@@ -113,8 +113,8 @@ calls, the owner's own machine, a product decision only the owner can make, or a
 
 ### DF-1: Parity of the deploy CLI with FIRE_TRACKER
 - **Change ID:** `deploy-fire-parity`
-- **Status:** in_progress (impl-review, since 2026-10-06; cloud session, branch `claude/project-thread-sxdn77`)
-- **Input:** [`deploy-fire-parity`](../changes/deploy-fire-parity/change.md)
+- **Status:** done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.2)
+- **Input:** [`deploy-fire-parity`](../archive/2026-10-06-deploy-fire-parity/change.md)
 - **Outcome:** FIRE_TRACKER's `scripts/render-env-prod.mts`, `scripts/release-notes.mts`, `src/lib/release-notes.ts`,
   their tests and `.github/workflows/release-opis.yml` are read; every behaviour and test case that is generic is
   ported into `tools/deploy` (report format, env edge cases), and the rest is listed as FIRE-specific in the
@@ -298,4 +298,5 @@ calls, the owner's own machine, a product decision only the owner can make, or a
 
 ## Done
 
+- **DF-1** `deploy-fire-parity`: FIRE_TRACKER's release scripts read side by side; `env render` optional names, `release-notes --body/--roadmap`, `backup --exclude-table-data/--max-age-days` with a header check, `verify` method/body/request headers (deploy 0.1.2); the rest recorded as DF-9…DF-13 or as FIRE-specific in the package README; archived in `archive/2026-10-06-deploy-fire-parity/`
 - **DF-4** `auth-testing-account-factory`: `createTestAccount` in `@softure-ai/auth/testing` (auth 0.1.6); the example's e2e creates accounts with it outside registration tests; archived in `archive/2026-10-06-auth-testing-account-factory/`

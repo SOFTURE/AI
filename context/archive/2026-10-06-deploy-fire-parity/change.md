@@ -1,12 +1,12 @@
 ---
 change_id: deploy-fire-parity
 title: "The deploy CLI matches FIRE_TRACKER where FIRE's behaviour is generic"
-status: impl_reviewed
+status: archived
 roadmap_item: DF-1
 branch: claude/project-thread-sxdn77
 created: 2026-10-06
 updated: 2026-10-06
-archived_at: null
+archived_at: 2026-10-06
 ---
 
 ## Intent
@@ -49,3 +49,7 @@ FIRE_TRACKER was added to the project's repositories on 2026-10-06 (read only); 
 - Research: done (`research.md`): the side-by-side reading is the item itself.
 - Framing skipped: the roadmap item fixes what to build (port or record each difference); the only open question,
   where each difference goes, is answered per row in `research.md` §6 and does not change whether to build.
+- Archived 2026-10-06: `env render` writes optional compose names and a header line; `release-notes` takes `--body`
+  (its own section of a release body) and `--roadmap` (the `done_code` items); `backup` takes `--exclude-table-data`
+  and `--max-age-days` and refuses a file without the `PGDMP` header; `verify` routes take `method`, `body` and
+  `requestHeaders`. New gaps DF-9…DF-13 (after DF-7). Waiting: the release of `@softure-ai/deploy` 0.1.2.
