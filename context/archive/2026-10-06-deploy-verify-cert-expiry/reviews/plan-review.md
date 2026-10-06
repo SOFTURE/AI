@@ -7,7 +7,7 @@ Date: 2026-10-06 · Verdict: approved
 | Intent coverage | PASS | optional `verify.tlsMinDays`; one `node:tls` read per run; a `tls` row with days left and issuer; fewer days fail |
 | Scope | PASS | `src/verify/`, the JSON Schema, the verify command and README; DF-5's parallel schema key handled by "second to merge regenerates" |
 | Unknowns answered | PASS | SNI for IP hosts, untrusted certificates, `http` URLs and Cloudflare's edge certificate are decided in research |
-| Security | PASS | `rejectUnauthorized: false` only on the read-only certificate probe, which never sends a request; trust is still judged (`authorized`) and fails the row |
+| Security | PASS | the probe sends no request; trust is judged in the handshake and fails the row (the plan's `rejectUnauthorized: false` was dropped in the implementation review after CodeQL flagged it) |
 | Testability | PASS | pure `checkCertificateExpiry` with `now` as input for exact boundaries; a local TLS server with an `openssl` certificate; no real URL |
 | Conventions | PASS | zod at the boundary, result values (the probe never throws), options objects, English only |
 

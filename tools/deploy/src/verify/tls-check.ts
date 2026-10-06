@@ -15,8 +15,6 @@ export interface TlsReport {
 export interface CertificateFacts {
   validTo: Date;
   issuer: string;
-  /** `null` when the certificate is trusted for the host, otherwise the reason (e.g. `CERT_HAS_EXPIRED`). */
-  untrustedReason: string | null;
 }
 
 export type CertificateProbe = { ok: true; certificate: CertificateFacts } | { ok: false; reason: string };
@@ -41,21 +39,19 @@ export function getDaysLeft(validTo: Date, now: Date): number {
   return Math.floor((validTo.getTime() - now.getTime()) / DAY_MS);
 }
 
-/** The `tls` row for a read certificate: it fails when untrusted or when fewer than `minDays` days are left. */
+/** The `tls` row for a trusted certificate: it fails when fewer than `minDays` days are left. */
 export function checkCertificateExpiry(options: { certificate: CertificateFacts; minDays: number; now: Date }): TlsReport {
   const { certificate, minDays, now } = options;
   const daysLeft = getDaysLeft(certificate.validTo, now);
   const facts = `${daysLeft} days left (until ${formatDay(certificate.validTo)}), issuer ${certificate.issuer}`;
-  if (certificate.untrustedReason !== null) {
-    return { passed: false, daysLeft, detail: `certificate not trusted (${certificate.untrustedReason}); ${facts}` };
-  }
   if (daysLeft < minDays) return { passed: false, daysLeft, detail: `${facts}; expected at least ${minDays}` };
   return { passed: true, daysLeft, detail: facts };
 }
 
 /**
- * Opens one TLS connection to `url`'s host and reads the peer certificate without sending a request. The socket is
- * closed on every path; a handshake error or a timeout is a failed probe, never a thrown error.
+ * Opens one TLS connection to `url`'s host and reads the peer certificate without sending a request. The handshake
+ * verifies the certificate as `fetch` does, so an untrusted one (expired, self-signed, another host) is a failed
+ * probe with its code. The socket is closed on every path; an error or a timeout is never thrown.
  */
 export function probeCertificate(options: { url: URL; timeoutMs: number; ca?: string | Buffer }): Promise<CertificateProbe> {
   const { url, timeoutMs, ca } = options;
@@ -63,13 +59,11 @@ export function probeCertificate(options: { url: URL; timeoutMs: number; ca?: st
   const host = url.hostname.replace(/^\[(.*)\]$/, "$1");
   const port = url.port === "" ? DEFAULT_HTTPS_PORT : Number(url.port);
   return new Promise((resolve) => {
-    // The certificate is read even when it is not trusted, so the row can say why; `authorized` still decides.
     const socket = connect({
       host,
       port,
       ...(isIP(host) === 0 ? { servername: host } : {}),
       ...(ca === undefined ? {} : { ca }),
-      rejectUnauthorized: false,
     });
     // The first outcome wins; a promise settles once, so a later timeout or error only closes the socket again.
     const finish = (probe: CertificateProbe): void => {
@@ -87,8 +81,7 @@ export function probeCertificate(options: { url: URL; timeoutMs: number; ca?: st
         finish({ ok: false, reason: "the server sent no certificate with an expiry date" });
         return;
       }
-      const untrustedReason = socket.authorized ? null : String(socket.authorizationError);
-      finish({ ok: true, certificate: { validTo, issuer: readIssuer(certificate), untrustedReason } });
+      finish({ ok: true, certificate: { validTo, issuer: readIssuer(certificate) } });
     });
   });
 }

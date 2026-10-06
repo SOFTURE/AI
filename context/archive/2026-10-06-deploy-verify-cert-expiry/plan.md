@@ -27,8 +27,7 @@ would blur the type); reading the certificate through `fetch` (undici does not e
 
 1. `tlsMinDays: z.int().min(1).max(365).optional()` with `.describe()`; schema tests for a valid value, 0 and a
    fraction; regenerate the JSON Schema.
-2. `checkCertificateExpiry`: passes at exactly the minimum, fails one day under, fails when untrusted (names the
-   reason), floors partial days; the detail names days, date and issuer (`O`, else `CN`).
+2. `checkCertificateExpiry`: passes at exactly the minimum, fails one day under, floors partial days; the detail names days, date and issuer (`O`, else `CN`).
 3. `runTlsCheck` against a local `tls.createServer` with an `openssl` certificate: trusted via `ca` and long enough
    passes; too short fails; untrusted (no `ca`) fails with the reason; a closed port fails with the code; an `http`
    URL fails without connecting; a server that never answers the handshake fails within the timeout.

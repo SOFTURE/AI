@@ -10,7 +10,7 @@ import { checkCertificateExpiry, getDaysLeft, runTlsCheck } from "./tls-check.js
 const NOW = new Date("2026-10-06T12:00:00Z");
 
 describe("checkCertificateExpiry", () => {
-  const certificate = { validTo: new Date("2026-10-20T12:00:00Z"), issuer: "Let's Encrypt", untrustedReason: null };
+  const certificate = { validTo: new Date("2026-10-20T12:00:00Z"), issuer: "Let's Encrypt" };
 
   it("passes with exactly the minimum left and names days, date and issuer", () => {
     expect(checkCertificateExpiry({ certificate, minDays: 14, now: NOW })).toEqual({
@@ -26,15 +26,6 @@ describe("checkCertificateExpiry", () => {
       passed: false,
       daysLeft: 13,
       detail: "13 days left (until 2026-10-20), issuer Let's Encrypt; expected at least 14",
-    });
-  });
-
-  it("fails an untrusted certificate whatever its days left", () => {
-    const untrusted = { ...certificate, untrustedReason: "CERT_HAS_EXPIRED" };
-    expect(checkCertificateExpiry({ certificate: untrusted, minDays: 1, now: NOW })).toEqual({
-      passed: false,
-      daysLeft: 14,
-      detail: "certificate not trusted (CERT_HAS_EXPIRED); 14 days left (until 2026-10-20), issuer Let's Encrypt",
     });
   });
 
@@ -84,14 +75,13 @@ describe("runTlsCheck against a local TLS server", () => {
   it("fails an untrusted certificate with the reason", async () => {
     const report = await runTlsCheck({ baseUrl, minDays: 14, timeoutMs: 2000 });
     expect(report.passed).toBe(false);
-    expect(report.detail).toMatch(/^certificate not trusted \(DEPTH_ZERO_SELF_SIGNED_CERT\); 29 days left/);
+    expect(report).toEqual({ passed: false, daysLeft: null, detail: "TLS connection failed: DEPTH_ZERO_SELF_SIGNED_CERT" });
   });
 
   it("fails a certificate issued for another host name", async () => {
     const port = (server.address() as AddressInfo).port;
     const report = await runTlsCheck({ baseUrl: `https://127.0.0.1:${port}`, minDays: 14, timeoutMs: 2000, ca: cert });
-    expect(report.passed).toBe(false);
-    expect(report.detail).toMatch(/^certificate not trusted \(ERR_TLS_CERT_ALTNAME_INVALID\); 29 days left/);
+    expect(report).toEqual({ passed: false, daysLeft: null, detail: "TLS connection failed: ERR_TLS_CERT_ALTNAME_INVALID" });
   });
 });
 

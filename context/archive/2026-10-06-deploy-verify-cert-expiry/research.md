@@ -6,11 +6,12 @@ local experiment (a `tls.createServer` with an `openssl req -x509` certificate).
 
 ## Questions
 
-1. **How is the certificate read?** `tls.connect({ host, port, servername, rejectUnauthorized: false })`; on
+1. **How is the certificate read?** `tls.connect({ host, port, servername })`; on
    `secureConnect`, `socket.getPeerCertificate()` gives `valid_to` (a date string `Date` parses), `issuer` (`O`,
    `CN`) and `subject`; `socket.authorized` and `socket.authorizationError` (checked in the experiment: `DEPTH_ZERO_SELF_SIGNED_CERT`
-   without the CA, `ERR_TLS_CERT_ALTNAME_INVALID` for another server name, so the host name is checked too). With `rejectUnauthorized: false` the expiry is reported
-   even for a bad certificate, so the row says why it fails instead of a bare handshake error.
+   without the CA, `ERR_TLS_CERT_ALTNAME_INVALID` for another server name, so the host name is checked too). Verification stays on (CodeQL flags
+   `rejectUnauthorized: false`, and the implementation review took that): an untrusted certificate fails the handshake
+   with one of those codes, which the row reports.
 2. **SNI.** `servername` must not be an IP address (Node warns and the server gets no name); it is set only when
    `net.isIP(host) === 0`. The port is the URL's, or 443.
 3. **Days left.** `Math.floor((validTo - now) / 86_400_000)`; a check passes when `daysLeft >= tlsMinDays`. An
