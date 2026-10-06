@@ -274,6 +274,32 @@ repository pushed (its `org.opencontainers.image.source` label links it); for an
 `registry-token: false` and log the server in. The workflow runs once this package is on npm; callers pin the `deploy-workflows-v1` tag
 the owner sets, or its commit SHA.
 
+### Cut a release
+
+`SOFTURE/AI/.github/workflows/deploy-cut-release.yml` turns one *Run workflow* into a release and its deploy, so an
+agent that cannot push tags (a cloud session) can start one as a `workflow_dispatch`, and the owner can from the
+Actions tab. The app's second caller is [`examples/release.yml`](examples/release.yml) (`workflow_dispatch` with an
+optional `description`, `permissions: contents: write, actions: write`). Started on the default branch, it:
+
+1. refuses any other ref, and invalid inputs, with one `::error::` line each;
+2. picks the next free tag `<tag-prefix><YYYY.MM.DD>` in `timezone`, then `-2`, `-3`, … (existing tags from the API,
+   no checkout);
+3. creates the GitHub Release on the dispatched commit (`github.sha`), the `description` above GitHub's generated
+   notes;
+4. runs `gh workflow run <deploy-workflow> --ref <tag> -f tag=<tag>`. A release created with `GITHUB_TOKEN` starts no
+   other workflow, so `release: published` in `deploy.yml` does not fire and this step is what deploys. The deploy
+   workflow needs a `workflow_dispatch` input `tag`, as [`examples/deploy.yml`](examples/deploy.yml) has.
+
+| Input | Default | |
+| --- | --- | --- |
+| `description` | empty | markdown above the generated release notes |
+| `tag-prefix` | `v` | text before the date |
+| `timezone` | `UTC` | IANA zone whose date names the tag (`Europe/Warsaw` for a Polish day) |
+| `deploy-workflow` | `deploy.yml` | the deploy caller started on the tag; empty cuts the release only |
+
+Outputs: `tag`, `sha`. One run per repository at a time (`concurrency`, not cancelled). Semver tags are out of its
+scope: packages keep their own release workflow.
+
 ### End-to-end test
 
 [`.github/workflows/e2e-deploy.yml`](../../.github/workflows/e2e-deploy.yml) calls `deploy-app.yml` from the same
