@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TABLE_NAME_PATTERN } from "../db/row-counts.js";
 
 export const DEPLOY_SCHEMA_URL = "https://unpkg.com/@softure-ai/deploy/schema/deploy.schema.json";
 
@@ -70,9 +71,25 @@ const verifySchema = z
   })
   .describe("What softure-deploy verify checks after a deploy.");
 
+const databaseSchema = z
+  .strictObject({
+    rowCountTables: z
+      .array(z.string().regex(TABLE_NAME_PATTERN, "a table or schema.table in lower snake case"))
+      .min(1)
+      .superRefine((tables, context) => {
+        const duplicates = new Set(tables.filter((table, index) => tables.indexOf(table) !== index));
+        for (const table of duplicates) context.addIssue({ code: "custom", message: `${table} is listed twice` });
+      })
+      .meta({ uniqueItems: true })
+      .optional()
+      .describe("Tables softure-deploy row-counts compares when --tables is not given: table or schema.table."),
+  })
+  .describe("Settings of the database steps of softure-deploy.");
+
 export const deploySchema = z
   .strictObject({
     $schema: z.string().optional().describe("JSON Schema of this file, for editor completion."),
+    database: databaseSchema.optional(),
     verify: verifySchema.optional(),
   })
   .describe("deploy.json: the app's deploy settings read by softure-deploy.");

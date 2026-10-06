@@ -6,6 +6,23 @@
       "description": "JSON Schema of this file, for editor completion.",
       "type": "string"
     },
+    "database": {
+      "type": "object",
+      "properties": {
+        "rowCountTables": {
+          "description": "Tables softure-deploy row-counts compares when --tables is not given: table or schema.table.",
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z_][a-z0-9_]*(\\.[a-z_][a-z0-9_]*)?$"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false,
+      "description": "Settings of the database steps of softure-deploy."
+    },
     "verify": {
       "type": "object",
       "properties": {
