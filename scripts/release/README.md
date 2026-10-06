@@ -6,13 +6,14 @@ which publishes the package in three places:
 
 | Where | Name | How |
 | --- | --- | --- |
-| npmjs.com | `@softure-ai/<package>` | staged through trusted publishing (OIDC) with provenance; live after the owner approves it |
+| npmjs.com | `@softure-ai/<package>` | published through trusted publishing (OIDC) with provenance, live at once |
 | GitHub Packages | `@softure/<package>` | published with the workflow's `GITHUB_TOKEN` (GitHub requires the org as the scope) |
 | GitHub Release | `<package>@x.y.z` | generated notes and the package tarball attached |
 
 Releases are the owner's call (`release.owner` in [`context/workflow.json`](../../context/workflow.json)):
-an agent starts one only on the owner's explicit word, through [Release from Actions](#release-from-actions),
-and npm still waits for the owner to approve each staged version.
+an agent starts one only on the owner's explicit word, through [Release from Actions](#release-from-actions).
+npm takes each version as soon as its release passes, with no approval step, as in SOFTURE/SKILLS (owner,
+2026-10-06); the gates in the workflow and that word are the review.
 
 ## Release from Actions
 
@@ -45,18 +46,12 @@ The tag then runs the workflow:
    `module.json` disagree on the version, the package is private, `repository` or `publishConfig` is
    wrong, an internal `@softure-ai/*` range does not accept the workspace version, or the tarball
    misses an `exports` target, `LICENSE` or a source-map source, or ships a test.
-2. **stage on npm**: `npm stage publish` of that exact tarball. Nothing is public yet.
+2. **publish to npm**: `npm publish` of that exact tarball, through the package's trusted publisher.
 3. **publish to GitHub Packages**: the same tarball, renamed to `@softure/<package>`.
 4. **create the GitHub Release** with the tarball, once both registries succeeded.
 
-Then **approve the staged version** on npmjs.com (package page → Staged Packages, 2FA), or
-`npm stage list @softure-ai/core` and `npm stage approve <stage-id>`. Until then npm still serves the
-previous version. A wrong version is rejected instead (`npm stage reject <stage-id>`); fix it, bump
-again and tag the new version. A version number, once approved, can never be reused.
-
-GitHub Packages and the GitHub Release do not wait for that approval: if you reject the npm stage,
-delete the GitHub Release and the `@softure/<package>` version by hand (Packages → package →
-Manage versions).
+A published version number can never be reused. A wrong version is fixed forward: fix it, bump again and
+release the new version (`npm deprecate @softure-ai/core@0.2.0 "<reason>"` marks the bad one).
 
 A version with a prerelease suffix (`1.0.0-beta.0`) goes to the `next` dist-tag on both registries
 and makes a GitHub prerelease. A stable version gets npm's default `latest`; npm refuses to move
@@ -66,24 +61,24 @@ than three tags.
 
 ## First release of a new package
 
-npm can bind a trusted publisher only to a package that already exists, so the very first stage of a
+npm can bind a trusted publisher only to a package that already exists, so the very first publish of a
 package authenticates with a token:
 
 1. On npmjs.com, create a granular access token with read and write access to the `@softure-ai`
-   scope and a short expiry. Store it as the repository secret `NPM_TOKEN`
-   (GitHub → Settings → Secrets and variables → Actions).
+   scope, allowed to publish without 2FA, and a short expiry. Store it as the repository secret
+   `NPM_TOKEN` (GitHub → Settings → Secrets and variables → Actions).
 2. Release the version as above. The workflow hands the token to npm only because the package is not
-   on npm yet; once it is (even as npm's `0.0.0-stage` placeholder), every stage goes through the trusted
-   publisher alone and the run says so in a notice.
-3. Approve the staged version on npmjs.com.
-4. On the package's settings page, add a trusted publisher: GitHub Actions, organization `SOFTURE`,
-   repository `AI`, workflow `release.yml`, allowed action **stage only**.
-5. Delete the `NPM_TOKEN` secret (or keep it only while more new packages are on the way). Later
+   on npm yet; once it is, every publish goes through the trusted publisher alone and the run says so
+   in a notice.
+3. On the package's settings page, add a trusted publisher: GitHub Actions, organization `SOFTURE`,
+   repository `AI`, workflow `release.yml` (all case-sensitive), environment empty, **Allow npm publish**
+   checked.
+4. Delete the `NPM_TOKEN` secret (or keep it only while more new packages are on the way). Later
    releases need no token.
 
-If npm refuses to stage a name that has never been published, publish that first version from the
-tarball the workflow attached to the GitHub Release, once, from your machine:
-`npm publish ./softure-ai-core-0.1.0.tgz --access public`, then continue at step 4.
+If npm refuses a name that has never been published, publish that first version from the tarball the
+workflow attached to the GitHub Release, once, from your machine:
+`npm publish ./softure-ai-core-0.1.0.tgz --access public`, then continue at step 3.
 
 Without `NPM_TOKEN`, the npm job of a new package fails with a message pointing here; GitHub Packages
 and the GitHub Release are not created, so re-running the job after adding the secret is safe.
@@ -107,8 +102,12 @@ release again.
 published): the trusted publisher fields did not match this repository exactly (they are case-sensitive:
 `SOFTURE`, `AI`, `release.yml`). 0.1.4 repeats it after the fix, and adds the first release of
 `@softure-ai/deploy` and `@softure-ai/testing` (0.1.0, new on npm, so `NPM_TOKEN` again for those two only).
-A package whose trusted publisher is missing or wrong fails at "Stage on npm" with E401; correct the
-publisher and release the next patch version.
+A package whose trusted publisher is missing or wrong fails at "Publish to npm" with E401 (or E403 when
+the publisher does not allow `npm publish`); correct the publisher and re-run the failed job.
+
+Up to 0.1.4 the workflow staged every version (`npm stage publish`) and the owner approved each one on
+npmjs.com. From 0.1.5 it publishes directly, as SOFTURE/SKILLS does (owner, 2026-10-06), so each trusted
+publisher must allow `npm publish`.
 
 ## Dry run
 
@@ -121,8 +120,7 @@ The same validation runs without publishing:
 ## Re-running a release
 
 Each job skips a registry that already has the version, so re-running a failed workflow finishes
-what is missing. One exception: a version staged on npm and not yet approved is invisible to
-`npm view`, so a re-run stages it again and npm refuses. Approve or reject the pending stage first.
+what is missing.
 
 ## What a package ships
 
