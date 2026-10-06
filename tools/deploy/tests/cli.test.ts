@@ -175,6 +175,60 @@ describe("softure-deploy release-notes", () => {
   });
 });
 
+describe("softure-deploy release-report", () => {
+  const SUMMARY = {
+    version: 1,
+    tag: "v1.0.0",
+    environment: "production",
+    image: "ghcr.io/acme/app:v1.0.0",
+    digest: "sha256:0123456789abcdef0123456789abcdef",
+    runUrl: "https://github.com/acme/app/actions/runs/7/attempts/1",
+    finishedAt: "2026-10-06T12:00:00Z",
+    jobs: [
+      { name: "check", result: "success" },
+      { name: "build", result: "success" },
+      { name: "deploy", result: "success" },
+      { name: "verify", result: "success" },
+    ],
+    serverLines: ["step|backup|ok|db-1.dump", "result|ok"],
+  };
+
+  it("writes the status and a deployment row into --out, keeping the body's text", async () => {
+    writeFileSync(join(dir, "summary.json"), JSON.stringify(SUMMARY));
+    writeFileSync(join(dir, "body.md"), "Owner's words.\n");
+    const code = await runCli(["release-report", "--body=body.md", "--summary=summary.json", "--out=body.md"], makeIo());
+    expect(code).toBe(0);
+    const body = readFileSync(join(dir, "body.md"), "utf8");
+    expect(body.startsWith("Owner's words.\n\n<!-- softure-deploy:status -->\n## Pipeline status")).toBe(true);
+    expect(body).toContain("| ✅ deployed | production | `ghcr.io/acme/app:v1.0.0`");
+    expect(out.join("")).toBe("release-report: report of v1.0.0 written to body.md\n");
+    expect(err).toEqual([]);
+  });
+
+  it("prints the body without --out and treats a missing body file as empty", async () => {
+    writeFileSync(join(dir, "summary.json"), JSON.stringify({ ...SUMMARY, jobs: [{ name: "deploy", result: "skipped" }] }));
+    const code = await runCli(["release-report", "--body=none.md", "--summary=summary.json", "--locale=pl"], makeIo());
+    expect(code).toBe(0);
+    expect(out.join("")).toContain("## Status pipeline'u");
+    expect(out.join("")).not.toContain("softure-deploy:deployments");
+  });
+
+  it("fails with the field's name on a summary of another shape, and on a missing summary", async () => {
+    writeFileSync(join(dir, "summary.json"), JSON.stringify({ ...SUMMARY, version: 2 }));
+    expect(await runCli(["release-report", "--body=b.md", "--summary=summary.json"], makeIo())).toBe(1);
+    expect(err.join("")).toContain("release-report: summary.json is not a deploy report: version");
+    err = [];
+    expect(await runCli(["release-report", "--body=b.md", "--summary=gone.json"], makeIo())).toBe(1);
+    expect(err.join("")).toContain("release-report: cannot read gone.json (ENOENT)");
+  });
+
+  it("requires --body and --summary and a known locale", async () => {
+    expect(await runCli(["release-report", "--summary=s.json"], makeIo())).toBe(2);
+    expect(await runCli(["release-report", "--body=b.md"], makeIo())).toBe(2);
+    expect(await runCli(["release-report", "--body=b.md", "--summary=s.json", "--locale=de"], makeIo())).toBe(2);
+  });
+});
+
 describe("softure-deploy", () => {
   it("prints the usage for help and exits 2 on no or an unknown command", async () => {
     expect(await runCli(["help"], makeIo())).toBe(0);

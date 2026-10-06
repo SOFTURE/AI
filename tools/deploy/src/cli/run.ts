@@ -4,6 +4,7 @@ import { CliFailure, USAGE_EXIT_CODE } from "./failure.js";
 import { runInit } from "./init-command.js";
 import type { CliIo } from "./io.js";
 import { runReleaseNotes } from "./release-notes-command.js";
+import { runReleaseReport } from "./release-report-command.js";
 import { runVerifyCommand } from "./verify-command.js";
 
 export const USAGE = [
@@ -16,6 +17,8 @@ export const USAGE = [
   "       [--roadmap=<roadmap.md>] [--body=<release body>]",
   "      the release report since the previous tag matching --match (default *); --roadmap adds its done_code items,",
   "      --body writes the report into its section of that release body",
+  "  release-report --body=<release body> --summary=<deploy-report.json> [--locale=en|pl] [--out=<file>]",
+  "      writes the deploy run's pipeline status and a deployment row (newest first) into their sections of the body",
   "  backup [--dir=backups] [--prefix=db] [--keep=7] [--max-age-days=<n>] [--exclude-table-data=<a,b.c>]",
   "       [--url-env=DATABASE_URL] [--pg-dump=pg_dump]",
   "      a pg_dump of the database before a deploy; keeps the newest --keep dumps of --prefix, none older than",
@@ -41,6 +44,7 @@ type Command = (args: string[], io: CliIo) => void | Promise<void>;
 const COMMANDS: Record<string, Command> = {
   "env render": runEnvRender,
   "release-notes": runReleaseNotes,
+  "release-report": runReleaseReport,
   backup: runBackup,
   "schema-guard": runSchemaGuard,
   "row-counts": runRowCounts,

@@ -16,4 +16,35 @@ export const en = {
     roadmapChange: "Change",
     roadmapOutcome: "Outcome",
   },
+  /** Copy of the deploy run's report in the same release body (`release-report`, DF-10). */
+  releaseReport: {
+    statusHeading: "Pipeline status",
+    job: "Job",
+    result: "Result",
+    /** Under the status table; `{time}` is the run's end (UTC), `{url}` the run. */
+    lastRun: "Run: [{time} UTC]({url})",
+    deploymentsHeading: "Deployments",
+    when: "When (UTC)",
+    outcome: "Result",
+    environment: "Environment",
+    image: "Image",
+    database: "Database",
+    verify: "Verify",
+    run: "Run",
+    runLink: "run",
+    deployed: "deployed",
+    /** A deploy the server stopped at `{step}` (its `result|failed|<step>|…` line). */
+    failedAt: "failed at {step}",
+    backup: "backup",
+    rows: "rows",
+    notCounted: "not counted",
+    /** GitHub job results; `pending` stands for any other or missing result. */
+    results: {
+      success: "success",
+      failure: "failure",
+      cancelled: "cancelled",
+      skipped: "skipped",
+      pending: "pending",
+    },
+  },
 };

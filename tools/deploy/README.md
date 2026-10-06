@@ -84,6 +84,31 @@ Changes since v1.1.0: 2 pull requests, 1 other commits.
 [Full diff](https://github.com/acme/app/compare/v1.1.0...v1.2.0)
 ```
 
+## `softure-deploy release-report`
+
+The deploy run's report in the same release body (DF-10): the pipeline status of the latest run and the history of
+every deployment of the tag.
+
+```bash
+softure-deploy release-report --body=<release body file> --summary=deploy-report.json [--locale=en|pl] [--out=<file>]
+```
+
+- **Input:** `--summary` is the `deploy-report.json` the `summary` job of `deploy-app.yml` uploads (version 1: tag,
+  environment, image, digest, run URL, end time in UTC, each job's result and the server's `step|…`/`result|…`
+  lines). Another shape fails with the field's name. `--body` is the release's current body; a missing file is empty.
+- **Status:** between `<!-- softure-deploy:status -->` markers, `## Pipeline status`: one row per job with its result
+  (✅ success, ❌ failure, ⛔ cancelled, ⏭️ skipped, ⏳ anything else) and the link to the run. Every run replaces it.
+- **Deployments:** between `<!-- softure-deploy:deployments -->` markers, `## Deployments`: one row per run, the newest
+  on top, the earlier rows kept byte for byte, so a rerun or a rollback adds a row. Columns: time (UTC), result
+  (`deployed`, or `failed at <step>` from the server's `result|failed|<step>|…`), environment, image and digest, the
+  backup file and the row counts before → after (`?` when the server stopped before counting again, `not counted` on
+  a first release), the verify result and the run. A run whose deploy job was skipped writes the status only.
+- **Order:** the sections stand in a fixed order whatever wrote them first: `release-notes`, status, deployments; the
+  owner's text above them stays. Values from the summary are reduced to letters, digits and plain punctuation, so a
+  `|`, a backtick or `<` cannot break the table.
+- A GitHub Release body holds at most 125 000 characters; one row is about 300, so a tag reaches the limit after some
+  300 runs, and the report's `gh release edit` then fails without touching the deploy.
+
 ## Database steps around a deploy
 
 `backup`, `schema-guard` and `row-counts` read the database URL from `DATABASE_URL` (`--url-env=<NAME>` names
@@ -257,6 +282,9 @@ one caller, [`examples/deploy.yml`](examples/deploy.yml), with a single `uses:` 
 4. waits until `<app-url><health-path>` answers 200, then runs `softure-deploy verify <app-url>` with the app's
    `deploy-config` read from the tag (only that file is checked out). A missing or invalid file fails the run;
    `deploy-config: ""` keeps the health route only. With the `origin-address` secret, verify gets `--origin` too.
+5. whatever happened, uploads the run's facts as the artifact `deploy-report` (`summary` job, no permissions): each
+   job's result, the image and its digest, and the server's `step|…`/`result|…` lines (`init`'s `deploy.sh` puts the
+   backup's file name and the row counts on them).
 
 | Input | Default | |
 | --- | --- | --- |
@@ -286,6 +314,17 @@ direct connection. A secret, not an input, so the address is masked in the logs.
 the build job of the same repository pushed (its `org.opencontainers.image.source` label links it); for an image
 elsewhere, set `registry-token: false` and log the server in. The workflow runs once this package is on npm; callers pin the `deploy-workflows-v1` tag
 the owner sets, or its commit SHA.
+
+### Release report
+
+[`deploy-report.yml`](../../.github/workflows/deploy-report.yml) is the caller's second job (`needs: deploy`,
+`if: always()`, see [`examples/deploy.yml`](examples/deploy.yml)). It reads the `deploy-report` artifact of the same
+run and the tag's GitHub Release body (`gh release view`), runs `softure-deploy release-report` and writes the body
+back (`gh release edit`): the pipeline status replaced, a deployment row added on top. It is a workflow of its own
+because editing a release needs `contents: write`, which the caller grants to this job only; inside `deploy-app.yml`
+every job would have needed it. One report per tag runs at a time, so two runs never drop each other's row. A tag
+without a release gets no report (a notice), and a failed report never turns the run red (`continue-on-error`).
+Inputs: `tag` (required), `locale` (`en` or `pl`), `deploy-cli-version`, `node-version`, `e2e` (below).
 
 ### Cut a release
 
@@ -337,6 +376,11 @@ commit with `e2e: true` for the example app, on every pull request that touches 
 - `verify` would run on another runner, away from the stack, so `deploy` runs its two steps itself: the wait for
   `/api/health` and `softure-deploy verify https://deploy-e2e.example.com` with the e2e app's `deploy.json`, trusting
   the run's CA through `NODE_EXTRA_CA_CERTS`.
+
+The caller's `report` job calls `deploy-report.yml` with `e2e: true` (refused outside SOFTURE/AI as well): the CLI
+from the tag writes the report into a fixture body, uploaded as `deploy-report-body` instead of edited into a
+release; [`e2e/check-report.sh`](e2e/check-report.sh) checks the owner's line, a status row per job and one
+`deployed` row with the built image.
 
 The caller's `assert` job runs [`e2e/check-received.sh`](e2e/check-received.sh): the image is
 `localhost:5000/softure/ai-deploy-e2e:<sha>`, the command line `deploy <sha>`, the files are byte for byte the tag's,
@@ -444,7 +488,8 @@ standalone app, and builds its image from the generated `Dockerfile` (`npm run e
 The same steps as functions, for scripts that need them without the CLI:
 `findComposeNames`, `findRequiredNames`, `renderEnvFile` (a result value: the text, or the missing and unsafe names),
 `readReleaseCommits`, `findPreviousTag`, `toReleaseEntries`, `formatReleaseNotes`, `parseRoadmapItems`,
-`selectShippingItems`, `writeReleaseSection`, `readReleaseSection`, `toLibpqEnv`, `createBackup`,
+`selectShippingItems`, `writeReleaseSection`, `readReleaseSection`, `readSection`, `writeSection`, `parseDeployReport`,
+`parseServerLines`, `writeReleaseReport`, `toLibpqEnv`, `createBackup`,
 `selectExpiredBackups`, `selectAgedBackups`, `hasCustomFormatHeader`, `guardSchema`, `parseTableList`, `countRows`, `compareRowCounts`, `parseDeployConfig`,
 `runVerify` (an injectable `fetch`), `checkResponse`, `formatVerifyReport`, `parseInitAnswers`, `readAppFacts`,
 `planInitFiles` (pure: the files and their text), `writeInitFiles`.
@@ -473,10 +518,13 @@ fails before the switch, `.env.prod.prev`, the Traefik recreate when `traefik.ym
 daily cron for the backup age and old images, and the step and result lines the workflow checks. FIRE's gateway and
 its second-stage script inside the image stay one script here: the release ships it (DF-7).
 
+**In the release report (DF-10):** FIRE's living report as `release-report` and `deploy-report.yml`: a status table
+replaced by every run and a deployment history with the newest row on top (time, result, image and digest, backup
+file, row counts before and after, verify, run). Different on purpose: times in UTC, not Europe/Warsaw; no migration
+count (no step line carries it); the "what's in it" part is `release-notes`' section, not a third writer.
+
 **Tracked as roadmap items** (they change `deploy-app.yml` or `init`'s `deploy.sh`):
 
-- **DF-10:** a report job writes pipeline status and deployment history (image, digest, backup, row counts before and
-  after) into the release body.
 - **DF-12:** a reusable workflow that cuts a date tag and release and starts the deploy (an agent cannot push tags).
 
 **Kept different on purpose:** the custom dump format instead of plain SQL with gzip (compressed, restorable table by

@@ -5,6 +5,8 @@ import { join, relative } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import { E2E_APP_DIR, planE2eAppFiles } from "../scripts/write-e2e-app.js";
+import { getDeployMessages } from "../src/messages/index.js";
+import { writeReleaseReport, type DeployReport } from "../src/notes/release-report.js";
 
 // DF-3, DF-15: the end-to-end test of deploy-app.yml (.github/workflows/e2e-deploy.yml) sends a release to its own
 // runner set up as the server, whose forced command (forced-command.sh) records what it received (record.sh) and runs
@@ -223,6 +225,67 @@ describe("check-received.sh", () => {
     const result = check({ IMAGE: `${IMAGE}:latest` });
     expect(result.status).toBe(1);
     expect(result.stdout).toContain("image");
+  });
+});
+
+describe("check-report.sh", () => {
+  const CHECK_REPORT = join(import.meta.dirname, "../e2e/check-report.sh");
+  const OWNER_TEXT = "Release text written by the owner.\n";
+  const report: DeployReport = {
+    version: 1,
+    tag: TAG,
+    environment: "",
+    image: `${IMAGE}:${TAG}`,
+    digest: "sha256:0123456789abcdef0123456789abcdef",
+    runUrl: "https://github.com/SOFTURE/AI/actions/runs/1/attempts/1",
+    finishedAt: "2026-10-06T12:00:00Z",
+    jobs: [
+      { name: "check", result: "success" },
+      { name: "build", result: "success" },
+      { name: "deploy", result: "success" },
+      { name: "verify", result: "skipped" },
+    ],
+    serverLines: ["result|ok"],
+  };
+
+  function checkReport(body: string): Result {
+    const bodyFile = join(root, "release-body.md");
+    writeFileSync(bodyFile, body);
+    return run("bash", [CHECK_REPORT], { cwd: root, env: { BODY_FILE: bodyFile, IMAGE: `${IMAGE}:${TAG}` } });
+  }
+
+  it("passes on the body release-report writes for the e2e run", () => {
+    const result = checkReport(writeReleaseReport(OWNER_TEXT, report, getDeployMessages("en")));
+    expect(result.status, result.stdout).toBe(0);
+    expect(result.stdout.match(/^ok: /gm)).toHaveLength(7);
+  });
+
+  it.each([
+    ["the owner's text is gone", () => writeReleaseReport("", report, getDeployMessages("en")), "owner's text"],
+    [
+      "a job failed",
+      () => writeReleaseReport(OWNER_TEXT, { ...report, jobs: report.jobs.map((job) => (job.name === "build" ? { ...job, result: "failure" } : job)) }, getDeployMessages("en")),
+      "no row '| build | ✅ success |'",
+    ],
+    [
+      "two rows",
+      () => {
+        const once = writeReleaseReport(OWNER_TEXT, report, getDeployMessages("en"));
+        return writeReleaseReport(once, report, getDeployMessages("en"));
+      },
+      "has 2 rows",
+    ],
+    ["another image", () => writeReleaseReport(OWNER_TEXT, { ...report, image: `${IMAGE}:other` }, getDeployMessages("en")), "deployed with"],
+  ])("fails when %s", (_case, makeBody, message) => {
+    const result = checkReport(makeBody());
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain(message);
+  });
+
+  it("fails when there is no body", () => {
+    const result = run("bash", [CHECK_REPORT], { cwd: root, env: { BODY_FILE: join(root, "none.md"), IMAGE } });
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain("no release body");
   });
 });
 

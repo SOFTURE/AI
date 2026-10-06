@@ -6,7 +6,9 @@
 # deploy.sh, which brings the stack up on the runner; the job then waits for the health route and runs
 # `softure-deploy verify` against it. The `assert` job checks the recording against this commit: the image reference,
 # the command line, the archive's files byte for byte and the names in .env.prod. A broken step, deploy.sh or verify
-# fails here instead of on an app's first live deploy.
+# fails here instead of on an app's first live deploy. The `report` job calls ./.github/workflows/deploy-report.yml the
+# same way (DF-10): it writes the run's report into a fixture body instead of a release, and `assert` checks that body
+# too.
 #
 # The release guard runs for real: the deployed commit is the pull request's head (its merge commit is on no branch)
 # and the release branch is the one it was pushed to; a dispatch runs from a branch.
@@ -73,9 +75,21 @@ jobs:
         {"AUTH_SECRET":"e2e-auth-secret","POSTGRES_PASSWORD":"e2e-postgres","SOFTURE_APP_PASSWORD":"e2e-app",
         "SOFTURE_MIGRATOR_PASSWORD":"e2e-migrator","UNUSED_SECRET":"e2e-unused"}
 
-  assert:
-    name: check what the server received
+  report:
+    name: deploy-report.yml
     needs: deploy
+    if: ${{ always() }}
+    # The called job asks for contents: write (it edits a release); with e2e it writes none.
+    permissions:
+      contents: write
+    uses: ./.github/workflows/deploy-report.yml
+    with:
+      tag: ${{ github.event.pull_request.head.sha || github.sha }}
+      e2e: true
+
+  assert:
+    name: check what the server received and the report
+    needs: [deploy, report]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -103,3 +117,12 @@ jobs:
           # The compose file's required names (${NAME:?}), written out here rather than computed by the CLI under test.
           EXPECTED_ENV_NAMES: AUTH_SECRET POSTGRES_PASSWORD SOFTURE_APP_PASSWORD SOFTURE_MIGRATOR_PASSWORD
         run: bash tools/deploy/e2e/check-received.sh
+      - uses: actions/download-artifact@v8
+        with:
+          name: deploy-report-body
+          path: ${{ runner.temp }}/report
+      - name: Check the release body the report wrote
+        env:
+          BODY_FILE: ${{ runner.temp }}/report/release-body.md
+          IMAGE: ${{ needs.deploy.outputs.image }}
+        run: bash tools/deploy/e2e/check-report.sh
