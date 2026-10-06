@@ -1,5 +1,8 @@
 {
   "$schema": "{{schemaUrl}}",
+{{#hasRowCountTables}}
+  "database": { "rowCountTables": [{{rowCountTablesJson}}] },
+{{/hasRowCountTables}}
   "verify": {
     "headers": { "strict-transport-security": "max-age=", "x-powered-by": null },
     "routes": [
