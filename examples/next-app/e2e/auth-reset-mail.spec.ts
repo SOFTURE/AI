@@ -1,12 +1,13 @@
 // Password reset mail of @softure-ai/auth through @softure-ai/mailing on the built app: the request
 // page, the mail `mailingResetSender()` hands to the fake provider (outbox file, MAIL_OUTBOX), the
 // link in it and the new password. Every test gets its own client address and its own account.
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { authMessages, users } from "@softure-ai/auth";
 import { renderPasswordResetMail } from "@softure-ai/auth/mailing";
 import { readMailOutbox } from "@softure-ai/mailing/testing";
-import { clientAddressHeaders, registerAccount, uniqueEmail, waitFor } from "@softure-ai/testing/playwright";
+import { clientAddressHeaders, uniqueEmail, waitFor } from "@softure-ai/testing/playwright";
 import { inArray } from "drizzle-orm";
+import { createAccount } from "./accounts.ts";
 import { openTestDatabase } from "./database.ts";
 import { MAIL_OUTBOX, readResetLinks } from "./outbox.ts";
 
@@ -33,14 +34,9 @@ test.afterAll(async () => {
   }
 });
 
-async function register(page: Page, email: string): Promise<void> {
-  await registerAccount(page, { copy, email, password: PASSWORD });
-}
-
 test("a reset request mails the rendered reset mail, and its link sets a new password", async ({ page }) => {
   const email = newEmail();
-  await register(page, email);
-  await page.context().clearCookies();
+  await createAccount({ email, password: PASSWORD });
 
   await page.goto("/forgot-password");
   await page.getByLabel(copy.fields.email, { exact: true }).fill(email);

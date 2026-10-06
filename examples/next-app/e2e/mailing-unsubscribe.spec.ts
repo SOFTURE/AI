@@ -5,16 +5,16 @@
 // test gets its own client address and account.
 import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
-import { authMessages, users } from "@softure-ai/auth";
+import { users } from "@softure-ai/auth";
 import { mailingMessages, suppressions } from "@softure-ai/mailing";
 import { readMailOutbox } from "@softure-ai/mailing/testing";
-import { clientAddressHeaders, registerAccount, uniqueEmail } from "@softure-ai/testing/playwright";
+import { clientAddressHeaders, uniqueEmail } from "@softure-ai/testing/playwright";
 import { inArray } from "drizzle-orm";
 import { en } from "../messages/en.ts";
+import { createSignedInAccount } from "./accounts.ts";
 import { openTestDatabase } from "./database.ts";
 import { MAIL_OUTBOX } from "./outbox.ts";
 
-const authCopy = authMessages.en;
 const unsubscribeCopy = mailingMessages.en.unsubscribe;
 const PASSWORD = "correct horse battery";
 const createdEmails: string[] = [];
@@ -39,8 +39,8 @@ test.afterAll(async () => {
   }
 });
 
-async function register(page: Page, email: string): Promise<void> {
-  await registerAccount(page, { copy: authCopy, email, password: PASSWORD });
+async function signIn(page: Page, email: string): Promise<void> {
+  await createSignedInAccount(page, { email, password: PASSWORD });
 }
 
 /** Sends a test mail from /account/mail, as a newsletter or not, and returns the subject. */
@@ -73,7 +73,7 @@ async function expectNewsletterRefused(page: Page, email: string): Promise<void>
 
 test("a list mail carries the one-click headers and a footer link on the app's origin, without the address", async ({ page, baseURL }) => {
   const email = newEmail();
-  await register(page, email);
+  await signIn(page, email);
   await sendTestMail(page, { isNewsletter: true });
   await expect(page.getByRole("status")).toHaveText(en.mail.sent);
 
@@ -92,7 +92,7 @@ test("a list mail carries the one-click headers and a footer link on the app's o
 
 test("a mail client's one-click POST unsubscribes; the next list mail is refused, transactional mail still goes out", async ({ page, request }) => {
   const email = newEmail();
-  await register(page, email);
+  await signIn(page, email);
   await sendTestMail(page, { isNewsletter: true });
   await expect(page.getByRole("status")).toHaveText(en.mail.sent);
   const { oneClick } = await readListMail(email);
@@ -113,7 +113,7 @@ test("a mail client's one-click POST unsubscribes; the next list mail is refused
 
 test("the footer link opens a page that unsubscribes only when its button is pressed", async ({ page, browser }) => {
   const email = newEmail();
-  await register(page, email);
+  await signIn(page, email);
   await sendTestMail(page, { isNewsletter: true });
   await expect(page.getByRole("status")).toHaveText(en.mail.sent);
   const { page: pageLink } = await readListMail(email);

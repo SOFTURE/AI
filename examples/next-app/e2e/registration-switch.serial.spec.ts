@@ -2,18 +2,15 @@
 // it through core's switch reader, so the register page, the register action and the login page's
 // register link follow the stored value on the next request. A serial spec (playwright.config.ts):
 // it closes registration for the whole app, so it runs after every parallel spec has finished.
-import { spawnSync } from "node:child_process";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
 import { authMessages, REGISTRATION_CLOSED_SWITCH, users } from "@softure-ai/auth";
 import { switches } from "@softure-ai/feature-switches";
 import { openPageAsNewClient, uniqueEmail } from "@softure-ai/testing/playwright";
 import { eq, inArray } from "drizzle-orm";
 import { en } from "../messages/en.ts";
+import { createSignedInAccount } from "./accounts.ts";
 import { openTestDatabase } from "./database.ts";
 
-const APP_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const authCopy = authMessages.en;
 const PASSWORD = "correct horse battery";
 const SWITCH_LABEL = en.switches.registrationClosed.label;
@@ -38,18 +35,6 @@ async function register(page: Page, email: string): Promise<void> {
   await fillRegisterForm(page, email);
   await page.getByRole("button", { name: authCopy.register.submit }).click();
   await expect(page).toHaveURL("/account");
-}
-
-/** Registers an account and grants it admin with the example's grant-role script. */
-async function registerAdmin(page: Page): Promise<void> {
-  const email = newEmail();
-  await register(page, email);
-  const result = spawnSync("npm", ["run", "--silent", "grant-role", "--", `--email=${email}`, "--role=admin", "--commit"], {
-    cwd: APP_DIR,
-    encoding: "utf8",
-  });
-  expect(`${result.stdout}${result.stderr}`).toContain("COMMITTED");
-  expect(result.status).toBe(0);
 }
 
 async function readStoredValue(): Promise<boolean | null> {
@@ -93,7 +78,7 @@ test.afterAll(async () => {
 
 test("an admin closes registration in the panel, auth refuses new accounts, and reopening lets them in", async ({ browser }) => {
   const admin = await openPageAsNewClient(browser);
-  await registerAdmin(admin);
+  await createSignedInAccount(admin, { email: newEmail(), password: PASSWORD, roles: ["admin"] });
   await admin.goto("/switches");
   const toggle = admin.getByRole("switch", { name: SWITCH_LABEL });
   await expect(toggle).not.toBeChecked();

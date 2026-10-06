@@ -5,9 +5,10 @@ import { readFile } from "node:fs/promises";
 import { expect, test, type Page } from "@playwright/test";
 import { authMessages, users } from "@softure-ai/auth";
 import { privacyMessages } from "@softure-ai/privacy";
-import { clientAddressHeaders, registerAccount, uniqueEmail } from "@softure-ai/testing/playwright";
+import { clientAddressHeaders, uniqueEmail } from "@softure-ai/testing/playwright";
 import { eq, inArray } from "drizzle-orm";
 import { en } from "../messages/en.ts";
+import { createSignedInAccount } from "./accounts.ts";
 import { openTestDatabase } from "./database.ts";
 
 const authCopy = authMessages.en;
@@ -33,8 +34,8 @@ test.afterAll(async () => {
   }
 });
 
-async function registerAndOpenPrivacyPage(page: Page, email: string): Promise<void> {
-  await registerAccount(page, { copy: authCopy, email, password: PASSWORD });
+async function signInAndOpenPrivacyPage(page: Page, email: string): Promise<void> {
+  await createSignedInAccount(page, { email, password: PASSWORD });
   await page.getByRole("link", { name: en.account.privacy }).click();
   await expect(page).toHaveURL("/account/privacy");
 }
@@ -62,7 +63,7 @@ test("the export route refuses a request without a session", async ({ request })
 
 test("a signed-in user downloads every module's part of their data as a JSON file", async ({ page }) => {
   const email = newEmail();
-  await registerAndOpenPrivacyPage(page, email);
+  await signInAndOpenPrivacyPage(page, email);
 
   const downloading = page.waitForEvent("download");
   await page.getByRole("link", { name: copy.export.button }).click();
@@ -84,7 +85,7 @@ test("a signed-in user downloads every module's part of their data as a JSON fil
 
 test("deleting the account needs the current password, then removes it and signs the user out", async ({ page }) => {
   const email = newEmail();
-  await registerAndOpenPrivacyPage(page, email);
+  await signInAndOpenPrivacyPage(page, email);
   const form = page.locator("form");
 
   await page.getByLabel(copy.delete.password).fill("not my password");
