@@ -68,7 +68,7 @@ that a migration and its table can ship in one release.
 ## Progress
 
 #### Automated
-- [ ] Phase 1: row-counts knows an absent table (tests red first, then green)
+- [x] Phase 1: row-counts knows an absent table (tests red first, then green) — `350955a`
 
 #### Manual
 - [ ] Owner: the release of `@softure-ai/deploy` 0.1.3 carries it; nothing to do in an app.

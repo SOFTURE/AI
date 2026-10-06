@@ -22,7 +22,7 @@ here, in `context/changes/` or in `context/archive/`. Taking an entry works as i
 | DF-11 | [`deploy-workflow-release-guards`](deploy-workflow-release-guards/change.md) | The deploy workflow refuses a stray tag and carries build values | DF-7 on master | dependency |
 | DF-12 | [`deploy-cut-release`](deploy-cut-release/change.md) | A reusable workflow cuts a release from a dispatch | DF-11 on master | dependency |
 | DF-13 | [`deploy-verify-origin-firewall`](deploy-verify-origin-firewall/change.md) | verify checks that the origin refuses direct traffic | roadmap promoted | start |
-| DF-14 | [`deploy-row-count-new-table`](../../changes/deploy-row-count-new-table/change.md) (taken 2026-10-06) | A new table can join the row-count list with its release | DF-8 on master | dependency |
+| DF-14 | [`deploy-row-count-new-table`](../../archive/2026-10-06-deploy-row-count-new-table/change.md) (done 2026-10-06) | A new table can join the row-count list with its release | DF-8 on master | dependency |
 | DF-15 | [`deploy-workflow-e2e-server`](deploy-workflow-e2e-server/change.md) | The end-to-end test runs the server side and verify | DF-3 on master | dependency |
 
 Kind: `start` (can be taken as soon as the roadmap is promoted), `dependency` (waits for the listed items on the

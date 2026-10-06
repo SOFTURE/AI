@@ -1,12 +1,12 @@
 ---
 change_id: deploy-row-count-new-table
 title: "A table can join deploy.json's row-count list in the release that creates it"
-status: plan_reviewed
+status: archived
 roadmap_item: DF-14
 branch: claude/project-thread-tucr4s
 created: 2026-10-06
 updated: 2026-10-06
-archived_at: null
+archived_at: 2026-10-06
 ---
 
 ## Intent
