@@ -99,8 +99,9 @@ apart); the Deployments API (research §2).
 ## Progress
 
 #### Automated
-- [ ] Phase 1: the CLI command
-- [ ] Phase 2: the workflows and the server lines
+- [x] Phase 1: the CLI command (`da4a990`; the release-report and CLI tests red before the code)
+- [x] Phase 2: the workflows and the server lines (`8c28e2f` before DF-9 merged, `333eb11` after; the repository and
+  server-files tests red before the workflow and template changes)
 
 #### Manual
 - [ ] The `e2e-deploy` run on the pull request is green (CI, before merge)

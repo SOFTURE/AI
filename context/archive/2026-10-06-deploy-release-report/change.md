@@ -1,12 +1,12 @@
 ---
 change_id: deploy-release-report
 title: "The release body carries pipeline status and deployment history"
-status: plan_reviewed
+status: archived
 roadmap_item: DF-10
 branch: claude/project-thread-drvkzo
 created: 2026-10-06
 updated: 2026-10-06
-archived_at: null
+archived_at: 2026-10-06
 ---
 
 ## Intent
@@ -53,3 +53,9 @@ came from DF-1 ([archive](../../archive/2026-10-06-deploy-fire-parity/change.md)
   shape (FIRE's living report); research answered the one open question (release body, not Deployments API) and
   found one constraint on the shape (the write permission, research §3), which the plan meets without changing what
   is built.
+- Archived 2026-10-06: `softure-deploy release-report` writes the run's pipeline status (replaced) and a deployment
+  row (newest first, earlier rows kept) into the release body; `deploy-app.yml`'s `summary` job uploads the run's
+  facts as `deploy-report`, the new reusable `deploy-report.yml` (the caller's second job, `contents: write` there only)
+  edits the release; `init`'s `deploy.sh` puts the backup file and the row counts on its step lines. The e2e runs the
+  report on a fixture body. Rides `@softure-ai/deploy` 0.1.3 (unpublished, with DF-7, DF-8 and DF-9). No new gaps.
+
