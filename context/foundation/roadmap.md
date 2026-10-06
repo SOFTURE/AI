@@ -47,7 +47,7 @@ backlog: context/backlog/roadmap-deploy-followups/
 | **DF-1** | `deploy-fire-parity` | `env render`, `release-notes`, the deploy workflow, the database steps (`backup`, `schema-guard`, `row-counts`) and `verify` checked against FIRE_TRACKER's scripts and tests; differences ported or recorded | — | owner (read access to FIRE_TRACKER) | ready |
 | **DF-2** | `deploy-workflow-verify-config` | the `verify` job of `deploy-app.yml` runs `softure-deploy verify` with the app's `deploy.json` instead of only the health route | DP-4 | autonomous | done_code (2026-10-06; waiting: the first publish of `@softure-ai/deploy`, DP-8) |
 | **DF-3** | `deploy-workflow-e2e` | a CI job runs `deploy-app.yml` against a throwaway SSH server and registry, so a broken step fails here, not on the first live deploy | DP-5, DF-7 | autonomous | ready |
-| **DF-4** | `auth-testing-account-factory` | `@softure-ai/auth/testing` creates an account in SQL with auth's hashing; the example's e2e uses it outside registration specs | — | autonomous | in_progress (implement 2/2, since 2026-10-06; cloud session, branch `claude/project-thread-8s7r62`) |
+| **DF-4** | `auth-testing-account-factory` | `@softure-ai/auth/testing` creates an account in SQL with auth's hashing; the example's e2e uses it outside registration specs | — | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/auth` 0.1.6) |
 | **DF-5** | `deploy-row-count-config` | the tables `row-counts` compares come from `deploy.json` | DP-4 | autonomous | ready |
 | **DF-6** | `deploy-verify-cert-expiry` | `verify` fails when the TLS certificate expires within `verify.tlsMinDays` | — | autonomous | ready |
 | **DF-7** | `deploy-server-files` | `deploy-app.yml` ships the tag's `docker/prod/` files and `deploy.sh` with each release; no hand copy to the server | DP-5, DF-2 | autonomous | ready |
@@ -149,8 +149,8 @@ calls, the owner's own machine, a product decision only the owner can make, or a
 
 ### DF-4: Account factory in auth's testing export
 - **Change ID:** `auth-testing-account-factory`
-- **Status:** in_progress (implement 2/2, since 2026-10-06; cloud session, branch `claude/project-thread-8s7r62`)
-- **Input:** [`auth-testing-account-factory`](../changes/auth-testing-account-factory/change.md)
+- **Status:** done_code (2026-10-06; waiting: the release of `@softure-ai/auth` 0.1.6)
+- **Input:** [`auth-testing-account-factory`](../archive/2026-10-06-auth-testing-account-factory/change.md)
 - **Outcome:** `@softure-ai/auth/testing` with `createTestAccount(db, { email, password, roles? })` that writes
   the `users` row (and roles) with auth's hashing; the example's e2e registers through the form only in the
   specs about registration; auth bumps its version.
@@ -208,4 +208,4 @@ calls, the owner's own machine, a product decision only the owner can make, or a
 
 ## Done
 
-(nothing yet)
+- **DF-4** `auth-testing-account-factory`: `createTestAccount` in `@softure-ai/auth/testing` (auth 0.1.6); the example's e2e creates accounts with it outside registration tests; archived in `archive/2026-10-06-auth-testing-account-factory/`

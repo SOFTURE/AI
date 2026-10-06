@@ -1,12 +1,12 @@
 ---
 change_id: auth-testing-account-factory
 title: "An account factory in @softure-ai/auth/testing"
-status: impl_reviewed
+status: archived
 roadmap_item: DF-4
 branch: claude/project-thread-8s7r62
 created: 2026-10-06
 updated: 2026-10-06
-archived_at: null
+archived_at: 2026-10-06
 ---
 
 ## Intent
@@ -38,3 +38,4 @@ export (precedent: `@softure-ai/mailing/testing`). PRD FR-35, FR-9.
   hash parameters, and which e2e tests need the form.
 - Framing skipped: the problem and its shape are fixed by the roadmap item and DP-7's research; the
   only open questions are design details, answered in research.
+- Archived 2026-10-06: `@softure-ai/auth/testing` creates accounts in SQL and the example's e2e uses it outside registration tests; auth 0.1.6 waits for its release.
