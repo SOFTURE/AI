@@ -192,7 +192,7 @@ back_up_database() {
 summarize_counts() {
   node -e '
 const counts = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8")).counts;
-process.stdout.write(Object.entries(counts).map(([table, count]) => `${table}=${count}`).join(","));
+process.stdout.write(Object.entries(counts).map(([table, count]) => table + "=" + count).join(","));
 ' "$1" || true
 }
 
