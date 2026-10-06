@@ -6,6 +6,7 @@ export type FetchFunction = (url: string, init: RequestInit) => Promise<Response
 
 /** Everything checked for one route. `status` is `null` when no response came back. */
 export interface RouteReport {
+  method: VerifyRoute["method"];
   path: string;
   url: string;
   status: number | null;
@@ -45,7 +46,9 @@ async function observe(options: {
 }): Promise<ObservedResponse> {
   const { url, route, fetch, timeoutMs } = options;
   const signal = AbortSignal.timeout(timeoutMs);
-  const response = await fetch(url, { method: "GET", redirect: "manual", headers: REQUEST_HEADERS, signal });
+  // A route's own request headers go on top of verify's defaults (a bot's user-agent, `accept: text/markdown`).
+  const headers = { ...REQUEST_HEADERS, ...route.requestHeaders };
+  const response = await fetch(url, { method: route.method, redirect: "manual", headers, body: route.body, signal });
   // The body is read only when a marker needs it; otherwise it is released so the connection is not held.
   const body = needsBody(route) ? await response.text() : null;
   if (body === null) await response.body?.cancel();
@@ -66,11 +69,12 @@ async function checkRoute(options: {
     response = await observe({ url, route, fetch, timeoutMs });
   } catch (error) {
     const checks = [{ kind: "request" as const, passed: false, detail: describeRequestError(error, timeoutMs) }];
-    return { path: route.path, url, status: null, checks, passed: false };
+    return { method: route.method, path: route.path, url, status: null, checks, passed: false };
   }
   const headers = mergeHeaderChecks(config.headers, route.headers);
   const checks = checkResponse({ route, headers, response, baseUrl });
-  return { path: route.path, url, status: response.status, checks, passed: checks.every((check) => check.passed) };
+  const passed = checks.every((check) => check.passed);
+  return { method: route.method, path: route.path, url, status: response.status, checks, passed };
 }
 
 /** Runs `task` over `items` with at most `limit` at once; results keep the order of `items`. */
