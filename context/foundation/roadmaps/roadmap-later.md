@@ -49,26 +49,13 @@ trigger: "the owner step each item waits on (secrets, accounts) is done; the own
 
 | ID | Change | Outcome | Depends on | Mode | Status |
 | --- | --- | --- | --- | --- | --- |
-| **LT-2** | `release-version-inline-manifest` | `release:version` keeps a module's inline manifest in step with `module.json` | — | autonomous | ready |
 | **LT-3** | `testing-browser-hook-timeout` | the browser tests of `@softure-ai/testing` launch Chromium within a hook timeout that holds on a loaded runner | — | autonomous | ready |
 
 ## Order
 
-1. **LT-2** any time; it must land before the next bump of a module done with `release:version`.
-2. **LT-3** any time.
+1. **LT-3** any time.
 
 ## Items
-
-### LT-2: release:version keeps inline manifests in step
-- **Change ID:** `release-version-inline-manifest`
-- **Status:** ready
-- **Outcome:** `release:version` updates (or makes redundant) the inline manifest version of a module, so the bumped module's "ships a module.json equal to its manifest" test and the release gates stay green.
-- **Prerequisites:** none.
-- **Unknowns:** whether the inline manifest should import `module.json` instead of repeating it.
-- **Risk:** low.
-- **Baseline:** `scripts/release/version.mjs` writes `package.json`, the lockfile and `module.json` only; each module repeats `version` in `src/index.ts`, and its `tests/module.test.ts` compares the two. After: a bump leaves them equal.
-- **Source:** `packages-first-release` research (2026-10-05).
-
 
 ### LT-3: Testing package browser hook timeout
 - **Change ID:** `testing-browser-hook-timeout`
@@ -119,6 +106,9 @@ Carried over from deploy with its item:
 
 ## Done
 
+- **LT-2** `release-version-inline-manifest` (2026-10-06): `release:version` also sets the inline manifest version
+  in a module's `src/index.ts`, refusing before any change when it cannot
+  ([`archive/2026-10-06-release-version-inline-manifest/`](../../archive/2026-10-06-release-version-inline-manifest/change.md)).
 - **LT-1** `billing-stripe-sandbox-e2e` (2026-10-05): a payment in Stripe's sandbox whose webhook Stripe delivers
   through `stripe listen`, in the `stripe-sandbox` job of the e2e workflow
   ([`archive/2026-10-05-billing-stripe-sandbox-e2e/`](../../archive/2026-10-05-billing-stripe-sandbox-e2e/change.md)).
