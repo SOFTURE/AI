@@ -35,8 +35,8 @@ of the package and has a copy-me header); rendering the caller from code (every 
    reports it as `wrote` and counts it (`10 written`, `7 written, 1 kept`, `8 written`); a kept `release.yml` stays
    byte for byte and is named `kept`.
 2. Template and list entry as in the approach.
-3. The `init` line of the CLI help names the release workflow. README: the row in `init`'s file table; "Cut a release" says `init` writes the caller (the example stays for apps
-   that ran `init` before).
+3. The `init` line of the CLI help names the release workflow. README: the row in `init`'s file table; "Cut a
+   release" says `init` writes the caller (the example stays for apps that ran `init` before).
 4. `npm run e2e-app -w @softure-ai/deploy` leaves `e2e/app/` unchanged; `package.json` `files` already ships
    `templates/` (check the `.github` folder is packed: `npm pack --dry-run`).
 5. Gates: typecheck, lint, test, build; actionlint over a generated `release.yml` when available.
@@ -44,4 +44,8 @@ of the package and has a copy-me header); rendering the caller from code (every 
 ## Progress
 
 #### Automated
-- [ ] Phase 1: init writes release.yml (tests red before the template, then green)
+- [x] Phase 1: init writes release.yml (tests red before the template, then green) — `0a0da49`
+
+#### Manual
+- [ ] Owner: the first real run of a generated `release.yml` in an app (after the release of `@softure-ai/deploy`
+  0.1.3 and the `deploy-workflows-v1` tag moved, as in DF-12).

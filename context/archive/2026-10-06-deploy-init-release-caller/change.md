@@ -1,12 +1,12 @@
 ---
 change_id: deploy-init-release-caller
 title: "init writes the release caller"
-status: plan_reviewed
+status: archived
 roadmap_item: DF-16
 branch: claude/df-16-init-release-yml-sof1jo
 created: 2026-10-06
 updated: 2026-10-06
-archived_at: null
+archived_at: 2026-10-06
 ---
 
 ## Intent
