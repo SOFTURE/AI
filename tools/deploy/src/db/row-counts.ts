@@ -4,7 +4,7 @@ import type pg from "pg";
 import { z } from "zod";
 
 /** `table` or `schema.table`, lower snake case: validated before it is quoted into SQL. */
-const TABLE_NAME = /^[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*)?$/;
+export const TABLE_NAME_PATTERN = /^[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*)?$/;
 
 export type TableListResult = { ok: true; tables: string[] } | { ok: false; problem: string };
 
@@ -14,7 +14,7 @@ export function parseTableList(text: string): TableListResult {
   if (tables.length === 0) {
     return { ok: false, problem: "no table given; pass --tables=users,billing.subscriptions" };
   }
-  const invalid = tables.filter((name) => !TABLE_NAME.test(name));
+  const invalid = tables.filter((name) => !TABLE_NAME_PATTERN.test(name));
   if (invalid.length > 0) {
     return { ok: false, problem: `not a table name (table or schema.table, lower snake case): ${invalid.join(", ")}` };
   }

@@ -55,4 +55,27 @@ describe("parseDeployConfig", () => {
     });
     expect(parseDeployConfig([])).toEqual({ ok: false, issues: ["(root): Invalid input: expected object, received array"] });
   });
+
+  it("keeps the row-count tables of the database section", () => {
+    const parsed = parseDeployConfig({ database: { rowCountTables: ["users", "billing.subscriptions"] } });
+    expect(parsed).toEqual({ ok: true, config: { database: { rowCountTables: ["users", "billing.subscriptions"] } } });
+    expect(parseDeployConfig({ database: {} })).toEqual({ ok: true, config: { database: {} } });
+  });
+
+  it.each([
+    ["an empty table list", [], "database.rowCountTables: Too small: expected array to have >=1 items"],
+    ["an upper-case table name", ["Users"], "database.rowCountTables.0: a table or schema.table in lower snake case"],
+    ["a three-part name", ["a.b.c"], "database.rowCountTables.0: a table or schema.table in lower snake case"],
+    ["a duplicate table", ["users", "notes", "users"], "database.rowCountTables: users is listed twice"],
+  ])("refuses %s", (_name, rowCountTables, issue) => {
+    const parsed = parseDeployConfig({ database: { rowCountTables } });
+    expect(parsed.ok ? [] : parsed.issues).toEqual([issue]);
+  });
+
+  it("refuses an unknown key in the database section", () => {
+    expect(parseDeployConfig({ database: { tables: ["users"] } })).toEqual({
+      ok: false,
+      issues: ['database: Unrecognized key: "tables"'],
+    });
+  });
 });
