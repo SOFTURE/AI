@@ -58,7 +58,7 @@ backlog: context/backlog/roadmap-deploy-followups/
 | **DF-12** | `deploy-cut-release` | a reusable workflow cuts a date tag and release and starts the deploy | DF-11 | autonomous | ready |
 | **DF-13** | `deploy-verify-origin-firewall` | `verify` fails when the server IP answers direct HTTPS | — | autonomous | ready |
 | **DF-14** | `deploy-row-count-new-table` | a table listed in `deploy.json` that the release itself creates does not stop that release; one counted before and missing after still does | DF-8 | autonomous | ready |
-| **DF-15** | `deploy-workflow-e2e-server` | the deploy workflow's end-to-end test runs the shipped `deploy.sh` and `verify`, not only the recorder | DF-3 | autonomous | ready |
+| **DF-15** | `deploy-workflow-e2e-server` | the deploy workflow's end-to-end test runs the shipped `deploy.sh` and `verify`, not only the recorder | DF-3 | autonomous | **in_progress** (implement 2/2, since 2026-10-06; cloud session, branch `claude/project-thread-bhk1zk`) |
 | **MK-10** | `marketing-kit-film-followups` | a committed `marketing.json` reproduces a paid film with no hand fixes: the opening transition is chosen in the config and none flickers, the voiceover cache shows which file belongs to which video (old flat caches still found), and the recording day is pinned per video | — | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/marketing-kit` 0.1.6) |
 
 ## Order
@@ -312,8 +312,8 @@ calls, the owner's own machine, a product decision only the owner can make, or a
 
 ### DF-15: The end-to-end test runs the server side and verify
 - **Change ID:** `deploy-workflow-e2e-server`
-- **Status:** ready
-- **Input:** [`deploy-workflow-e2e-server`](../backlog/roadmap-deploy-followups/deploy-workflow-e2e-server/change.md)
+- **Status:** in_progress (implement 2/2, since 2026-10-06; cloud session, branch `claude/project-thread-bhk1zk`)
+- **Input:** [`deploy-workflow-e2e-server`](../changes/deploy-workflow-e2e-server/change.md)
 - **Outcome:** on the `e2e` path the server's forced command runs the shipped `deploy.sh` (image loaded from the
   build job's artifact, the stack up on the runner), and `verify` runs `softure-deploy verify` against it.
 - **Prerequisites:** DF-3 on `master`.
