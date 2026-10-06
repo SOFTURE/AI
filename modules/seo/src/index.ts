@@ -31,7 +31,7 @@ export function getSeoSiteUrls(config: SoftureConfig): SiteUrls {
 export const seo = defineModule({
   manifest: {
     id: MODULE_ID,
-    version: "0.1.2",
+    version: "0.1.3",
     dependsOn: {},
     dbSchema: null,
     tables: [],

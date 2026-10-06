@@ -137,18 +137,19 @@ jobs:
           npm install -g npm@11
           node -e 'const [major, minor] = process.argv[1].split(".").map(Number); process.exit(major === 11 && minor >= 15 ? 0 : 1)' "$(npm -v)" \
             || { echo "::error::npm $(npm -v) cannot stage packages (needs >= 11.15.0)"; exit 1; }
-      # Trusted publishing (OIDC) is tried first. NPM_TOKEN is only for the first stage of a package
-      # that does not exist on npm yet, when no trusted publisher can be configured; see the runbook.
+      # A package already on npm stages through its trusted publisher (OIDC) alone. NPM_TOKEN reaches
+      # npm only for the first stage of a package that does not exist yet, when no trusted publisher
+      # can be bound; see the runbook.
       - name: Stage on npm
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NAME: ${{ needs.validate.outputs.name }}
           VERSION: ${{ needs.validate.outputs.version }}
           NPM_TAG: ${{ needs.validate.outputs.npm-tag }}
           TARBALL: ${{ needs.validate.outputs.tarball }}
         run: |
           # Prints "yes" when the spec resolves, "no" on E404 or an empty answer; fails on any other error.
-          # Anonymous reads: an expired NPM_TOKEN must not break a release that OIDC can make.
+          # Anonymous reads, whatever auth the stage below uses.
           lookup() {
             if output=$(NODE_AUTH_TOKEN='' npm view "$1" version --json 2>&1); then
               if [ -n "$output" ]; then echo yes; else echo no; fi
@@ -165,7 +166,12 @@ jobs:
             exit 0
           fi
           known=$(lookup "${NAME}")
-          if [ "$known" = no ] && [ -z "$NODE_AUTH_TOKEN" ]; then
+          if [ "$known" = yes ]; then
+            echo "::notice::${NAME} is on npm: staging through its trusted publisher (OIDC), without NPM_TOKEN."
+          elif [ -n "$NPM_TOKEN" ]; then
+            echo "::notice::${NAME} is not on npm yet: its first stage uses NPM_TOKEN."
+            export NODE_AUTH_TOKEN="$NPM_TOKEN"
+          else
             echo "::error::${NAME} is not on npm yet: its first stage needs the NPM_TOKEN secret (scripts/release/README.md, first release of a package)."
             exit 1
           fi

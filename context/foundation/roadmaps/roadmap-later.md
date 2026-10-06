@@ -124,7 +124,8 @@ Carried over from blog with BL-8:
   `release-0-1-1` and `release-stage-tarball-path`: the 0.1.0 and 0.1.1 runs failed before publishing anything); the agent runs
   `auto-release.yml` with `all` on the owner's word (`release-dispatch`), then the owner approves each staged version and
   adds its trusted publisher. This covers BL-8, MK-8, EN-9 and MO-6, plus core, db, ui, auth, ops, security and
-  feature-switches, which they depend on.
+  feature-switches, which they depend on. The trusted publishers are in place (the owner, 2026-10-06); 0.1.3
+  (`release-0-1-3`) stages through them without `NPM_TOKEN`, and the owner approves 0.1.2 and 0.1.3 on npmjs.com.
 
 - [x] **LT-1**: add the Stripe test-mode secret `STRIPE_SECRET_KEY` to the repository (the owner, 2026-10-05).
   `STRIPE_WEBHOOK_SECRET` is not needed: the CI job signs with its own `stripe listen` secret.
