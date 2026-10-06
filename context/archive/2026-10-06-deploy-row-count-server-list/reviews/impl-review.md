@@ -12,7 +12,7 @@ open findings.
 - `deploy.json.tmpl` and `generate.ts`: `database.rowCountTables` before `verify`, only with a database and a list.
 - Plan review fix 1 (README: by hand when `init` keeps `deploy.json`) and fix 2 (first release with tables calls no
   `row-counts`, asserted in the first database test) are in.
-- Phase 2 (gap DF-9) recorded in the roadmap, its lanes and order, the backlog README and its entry.
+- Phase 2 (gap DF-14) recorded in the roadmap, its lanes and order, the backlog README and its entry.
 
 ## Checks
 

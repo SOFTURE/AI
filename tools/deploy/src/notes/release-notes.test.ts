@@ -83,3 +83,50 @@ describe("formatReleaseNotes", () => {
     expect(notes).toBe("## v1.1.1 (2026-10-05)\n\nNo changes since v1.1.0.\n");
   });
 });
+
+describe("formatReleaseNotes with roadmap items", () => {
+  const ITEMS = [
+    { id: "DF-1", changeId: "deploy-fire-parity", outcome: "parity with FIRE \\| tested", status: "done_code" },
+  ];
+
+  it("puts the shipped items in a table between the summary and the pull requests", () => {
+    const notes = formatReleaseNotes({
+      entries: [ENTRIES[0] as ReleaseEntry],
+      from: "v1.1.0",
+      to: "v1.2.0",
+      date: "2026-10-05",
+      repoUrl: null,
+      messages: deployMessages.en,
+      roadmapItems: ITEMS,
+    });
+    expect(notes).toBe(
+      [
+        "## v1.2.0 (2026-10-05)",
+        "",
+        "Changes since v1.1.0: 1 pull requests, 0 other commits.",
+        "",
+        "### Roadmap items",
+        "",
+        "| ID | Change | Outcome |",
+        "| --- | --- | --- |",
+        "| **DF-1** | `deploy-fire-parity` | parity with FIRE \\| tested |",
+        "",
+        "### Pull requests",
+        "",
+        "- Trial ends at midnight (#12)",
+        "",
+      ].join("\n"),
+    );
+  });
+
+  it("lists the items of a release without commits, in Polish, and leaves the table out when none ship", () => {
+    const options = { entries: [], from: "v1.1.0", to: "v1.1.1", date: "2026-10-05", repoUrl: REPO };
+    const polish = formatReleaseNotes({ ...options, messages: deployMessages.pl, roadmapItems: ITEMS });
+    const copy = deployMessages.pl.releaseNotes;
+    expect(polish).toContain(`### ${copy.roadmapItems}\n\n| ${copy.roadmapId} | ${copy.roadmapChange} | ${copy.roadmapOutcome} |\n`);
+    expect(polish.indexOf(copy.roadmapItems)).toBeGreaterThan(polish.indexOf("v1.1.0."));
+    expect(formatReleaseNotes({ ...options, messages: deployMessages.en, roadmapItems: [] })).toBe(
+      "## v1.1.1 (2026-10-05)\n\nNo changes since v1.1.0.\n",
+    );
+  });
+});

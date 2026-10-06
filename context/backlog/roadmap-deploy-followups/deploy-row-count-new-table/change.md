@@ -2,7 +2,7 @@
 change_id: deploy-row-count-new-table
 title: "A table can join deploy.json's row-count list in the release that creates it"
 status: backlog
-roadmap_item: DF-9
+roadmap_item: DF-14
 branch: null
 created: 2026-10-06
 updated: 2026-10-06
@@ -19,7 +19,7 @@ table that existed before and is gone after still fails.
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md) (deploy-followups), item **DF-9**:
+From [`roadmap.md`](../../../foundation/roadmap.md) (deploy-followups), item **DF-14**:
 
 > - **Outcome:** a table listed in `database.rowCountTables` that the old schema lacks does not stop the release:
 >   the count before the switch notes it as absent, the comparison after the switch prints it as new; a table counted

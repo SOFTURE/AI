@@ -32,7 +32,7 @@ schema itself is still checked by `row-counts`, which reads the same file.
 `countRows` runs `SELECT count(*)` per table; a table the old schema lacks fails the count before the switch, so the
 release stops with "counting rows failed; nothing was restarted" (safe, nothing restarted). Today's template says "A
 table joins the list after the release that creates it", and that stays true. With the list in the app's repository
-the mistake is easier to make (a migration and its table in the list in one commit). Recorded as a new gap (DF-9)
+the mistake is easier to make (a migration and its table in the list in one commit). Recorded as a new gap (DF-14)
 rather than fixed here: `row-counts` could count a missing table as "not there yet" before the switch.
 
 ## 5. init

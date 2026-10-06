@@ -9,7 +9,7 @@ Input: change.md, research.md. Complexity: low (two templates, one value in `gen
 or the key it skips the comparison, as an empty list does today. `init --tables` writes the list into the generated
 `deploy.json` (apps with a database) and no longer into the script.
 
-**Out of scope:** counting a table the old schema lacks (new gap DF-9); the workflow (DF-3 owns it now); a version
+**Out of scope:** counting a table the old schema lacks (new gap DF-14); the workflow (DF-3 owns it now); a version
 bump (0.1.3 is unpublished and carries DF-7 already).
 
 ## Approach
@@ -47,13 +47,13 @@ means usage); `jq` (not a host requirement).
 
 ## Phase 2: record the gap
 
-1. DF-9 (`deploy-row-count-new-table`) in the roadmap, its backlog entry and the backlog README.
+1. DF-14 (`deploy-row-count-new-table`) in the roadmap, its backlog entry and the backlog README.
 
 ## Progress
 
 #### Automated
 - [x] Phase 1: deploy.sh reads the shipped list (tests red before the templates, then green) — `86d79e7`
-- [x] Phase 2: gap DF-9 recorded — in the archive commit
+- [x] Phase 2: gap DF-14 recorded — in the archive commit
 
 #### Manual
 - [ ] Owner: the release of `@softure-ai/deploy` 0.1.3 (with DF-7); an app moves its tables from `deploy.sh` into

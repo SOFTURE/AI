@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findRequiredNames } from "./required-names.js";
+import { findComposeNames, findRequiredNames } from "./required-names.js";
 
 describe("findRequiredNames", () => {
   it("finds both required forms, sorted, and says which accepts an empty value", () => {
@@ -30,5 +30,30 @@ describe("findRequiredNames", () => {
   it("returns an empty list for a compose file without required names", () => {
     expect(findRequiredNames("")).toEqual([]);
     expect(findRequiredNames("services:\n  db:\n    image: postgres:16\n")).toEqual([]);
+  });
+});
+
+describe("findComposeNames", () => {
+  it("lists optional names with a default, apart from the required ones", () => {
+    const compose = [
+      "a: ${DATABASE_URL:?}",
+      "b: ${MCP_ALLOW_WRITES:-}",
+      "c: ${ADMIN_EMAILS-}",
+      "d: ${REGISTRATION_CLOSED:-0}",
+      "e: ghcr.io/acme/app:${TAG}",
+    ].join("\n");
+    expect(findComposeNames(compose)).toEqual({
+      required: [{ name: "DATABASE_URL", allowsEmpty: false }],
+      optional: ["ADMIN_EMAILS", "MCP_ALLOW_WRITES", "REGISTRATION_CLOSED"],
+    });
+  });
+
+  it("treats a name required anywhere as required, whatever the order", () => {
+    expect(findComposeNames("${A:-}\n${A:?x}")).toEqual({ required: [{ name: "A", allowsEmpty: false }], optional: [] });
+    expect(findComposeNames("${A:?x}\n${A:-}")).toEqual({ required: [{ name: "A", allowsEmpty: false }], optional: [] });
+  });
+
+  it("lists a repeated optional name once and skips an escaped one", () => {
+    expect(findComposeNames("${B:-1}\n${B-2}\n$${ESCAPED:-x}")).toEqual({ required: [], optional: ["B"] });
   });
 });

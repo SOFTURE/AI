@@ -48,5 +48,5 @@ The taken backlog entry is kept as [`backlog-input.md`](backlog-input.md). DF-5
 - Archived 2026-10-06: `init`'s `deploy.sh` reads `database.rowCountTables` from `releases/<tag>/deploy.json` and runs
   `row-counts --config` on it before and after the switch (no file or key: skipped; unreadable: stops before the
   switch); `init --tables` writes the list into `deploy.json` for apps with a database. Rides `@softure-ai/deploy`
-  0.1.3 (unpublished, with DF-7). New gap DF-9 (`deploy-row-count-new-table`): a table created by the same release
+  0.1.3 (unpublished, with DF-7). New gap DF-14 (`deploy-row-count-new-table`): a table created by the same release
   stops it at the count before the switch.
