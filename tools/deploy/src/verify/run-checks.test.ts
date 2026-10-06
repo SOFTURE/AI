@@ -213,6 +213,31 @@ describe("runVerify with tlsMinDays", () => {
   });
 });
 
+describe("runVerify with an origin", () => {
+  it("tries no direct connection without one", async () => {
+    serve("/", (_request, response) => response.writeHead(200).end());
+    const report = await runVerify({ baseUrl, config: verifyConfig({ routes: [{ path: "/" }] }) });
+    expect(report.origin).toBeNull();
+  });
+
+  it("fails the origin row when the origin accepts a direct connection and still checks the routes", async () => {
+    serve("/", (_request, response) => response.writeHead(200).end());
+    // The local server stands in for an origin whose firewall lets anyone in.
+    const port = Number(new URL(baseUrl).port);
+    const report = await runVerify({
+      baseUrl,
+      config: verifyConfig({ routes: [{ path: "/" }] }),
+      origin: { host: "127.0.0.1", port },
+    });
+    expect(report.routes.map((route) => route.passed)).toEqual([true]);
+    expect(report.origin).toEqual({
+      address: `127.0.0.1:${port}`,
+      passed: false,
+      detail: `127.0.0.1:${port} accepted a direct connection; the firewall lets more than the CDN through`,
+    });
+  });
+});
+
 describe("describeRequestError", () => {
   it("falls back to the cause message and then to the error message", () => {
     expect(describeRequestError(new Error("fetch failed", { cause: new Error("certificate has expired") }), 1)).toBe(

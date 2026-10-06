@@ -56,7 +56,7 @@ backlog: context/backlog/roadmap-deploy-followups/
 | **DF-10** | `deploy-release-report` | a report job writes pipeline status and deployment history into the release body | DF-9 | autonomous | ready |
 | **DF-11** | `deploy-workflow-release-guards` | the workflow refuses a tag off the default branch, takes build args (origin checked against runtime), non-secret values and a per-deploy registry token | DF-7 | autonomous | ready |
 | **DF-12** | `deploy-cut-release` | a reusable workflow cuts a date tag and release and starts the deploy | DF-11 | autonomous | ready |
-| **DF-13** | `deploy-verify-origin-firewall` | `verify` fails when the server IP answers direct HTTPS | — | autonomous | ready |
+| **DF-13** | `deploy-verify-origin-firewall` | `verify` fails when the server IP answers direct HTTPS | — | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.3) |
 | **DF-14** | `deploy-row-count-new-table` | a table listed in `deploy.json` that the release itself creates does not stop that release; one counted before and missing after still does | DF-8 | autonomous | ready |
 | **DF-15** | `deploy-workflow-e2e-server` | the deploy workflow's end-to-end test runs the shipped `deploy.sh` and `verify`, not only the recorder | DF-3 | autonomous | ready |
 | **MK-10** | `marketing-kit-film-followups` | a committed `marketing.json` reproduces a paid film with no hand fixes: the opening transition is chosen in the config and none flickers, the voiceover cache shows which file belongs to which video (old flat caches still found), and the recording day is pinned per video | — | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/marketing-kit` 0.1.6) |
@@ -287,8 +287,8 @@ calls, the owner's own machine, a product decision only the owner can make, or a
 
 ### DF-13: verify checks that the origin refuses direct traffic
 - **Change ID:** `deploy-verify-origin-firewall`
-- **Status:** ready
-- **Input:** [`deploy-verify-origin-firewall`](../backlog/roadmap-deploy-followups/deploy-verify-origin-firewall/change.md)
+- **Status:** done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.3)
+- **Input:** [`deploy-verify-origin-firewall`](../archive/2026-10-06-deploy-verify-origin-firewall/change.md)
 - **Outcome:** `deploy.json` gets an optional origin address (or `verify` a flag) and `softure-deploy verify` adds a row that passes only when direct HTTPS to that address gets no answer, so a firewall that let more than the CDN through fails the release.
 - **Prerequisites:** none.
 - **Unknowns:** whether a reachable origin fails or warns; where the address comes from (a secret, not the committed file).
