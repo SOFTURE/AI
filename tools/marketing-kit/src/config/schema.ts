@@ -18,6 +18,7 @@ import { CHANNEL_CODE_MAX_LENGTH, CHANNEL_CODE_PATTERN, DEFAULT_LINK_IN_BIO, PLA
 import { ELEVENLABS_DEFAULT_MODEL } from "../voice/voiceover.js";
 import { actionSchema, type SceneAction } from "./actions-schema.js";
 import { COLOR_ROLES, COLOR_THEMES, isHexColor, type ColorRole } from "./colors.js";
+import { DAY_PATTERN, isCalendarDay } from "./day.js";
 import { getScreenshotNames } from "./screenshot-names.js";
 
 /**
@@ -353,6 +354,14 @@ const videoSchema = z
           .describe("How the opening frame hands over to the scene: fade (a 0.8 s cross-fade), rewind (0.8 s back through the scene in five dissolving frames) or cut."),
       })
       .describe("The opening: the result frame the first sentence plays over."),
+    today: z
+      .string()
+      .regex(DAY_PATTERN, "must be a day as YYYY-MM-DD")
+      .refine(isCalendarDay, "is not a day of the calendar")
+      .optional()
+      .describe(
+        "The day the app is recorded as of (YYYY-MM-DD): pin it once the voiceover is paid for, so the numbers it says still match the screen in a later month. --today overrides it; without either, the day of the run.",
+      ),
     screenGuard: z
       .array(nonBlank)
       .min(1, "the screen guard needs at least one phrase")

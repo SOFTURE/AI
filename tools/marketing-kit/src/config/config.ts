@@ -67,6 +67,8 @@ export interface VideoConfig extends FilmScript {
   sceneSource: SceneSource;
   /** The post copy, or null when `social.posts` has no entry for this video. */
   post: VideoPost | null;
+  /** `videos[].today`: the day the app is recorded as of, or null for the day of the run. */
+  today: string | null;
 }
 
 export interface MarketingConfig {
@@ -143,6 +145,7 @@ function resolveVideos(data: MarketingJson, at: (relative: string) => string): V
       beats: video.beats.map((beat) => ({ id: beat.id, text: beat.text })),
       hook: video.hook,
       screenGuard: video.screenGuard,
+      today: video.today ?? null,
       endCard: video.endCard,
       url: new URL(video.path, data.app.baseUrl).href,
       ownUrl: `http://localhost:${data.app.port}${video.path}`,

@@ -178,6 +178,8 @@ describe("loadMarketingConfig", () => {
     ["an empty screen guard", (c: MarketingJsonInput) => c.videos[0]?.screenGuard.splice(0), "videos[0].screenGuard: the screen guard needs at least one phrase"],
     ["a blank screen guard phrase", (c: MarketingJsonInput) => c.videos[0]?.screenGuard.push("  "), "videos[0].screenGuard[1]: must not be blank"],
     ["an unknown format", (c: MarketingJsonInput) => Object.assign(c.videos[0] ?? {}, { format: "4:5" }), "videos[0].format: "],
+    ["a recording day in another form", (c: MarketingJsonInput) => Object.assign(c.videos[0] ?? {}, { today: "06.10.2026" }), "videos[0].today: must be a day as YYYY-MM-DD"],
+    ["a recording day that is not in the calendar", (c: MarketingJsonInput) => Object.assign(c.videos[0] ?? {}, { today: "2026-02-29" }), "videos[0].today: is not a day of the calendar"],
     ["an unknown opening transition", (c: MarketingJsonInput) => Object.assign(c.videos[0]?.hook ?? {}, { transition: "wipe" }), "videos[0].hook.transition: "],
   ])("refuses %s, naming its path", (_case, change, message) => {
     const config = makeConfig();
@@ -189,6 +191,13 @@ describe("loadMarketingConfig", () => {
     const config = makeConfig();
     config.videos[0]?.hook.shots.splice(1);
     expect(load(config).videos[0]?.hook.shots).toEqual([{ mark: "age", scale: 1.6 }]);
+  });
+
+  it("pins the recording day only when the video names one", () => {
+    const config = makeConfig();
+    expect(load(config).videos[0]?.today).toBeNull();
+    Object.assign(config.videos[0] ?? {}, { today: "2028-02-29" });
+    expect(load(config).videos[0]?.today).toBe("2028-02-29");
   });
 
   it("opens with a fade unless the video chooses its transition", () => {
