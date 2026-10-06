@@ -69,6 +69,28 @@ describe("softure-deploy verify", () => {
     expect(err.join("")).toBe("verify: 1 of 2 routes failed.\n");
   });
 
+  it("adds a failed tls row and exits 1 when tlsMinDays is set for an http URL", async () => {
+    writeConfig({ verify: { tlsMinDays: 14, routes: [{ path: "/" }] } });
+    expect(await runCli(["verify", baseUrl], makeIo())).toBe(1);
+    expect(out.join("")).toBe(
+      [
+        "Result  Status  Route  Detail",
+        "PASS    200     /      1 check passed",
+        "FAIL    -       tls    no certificate to check: http: is not https",
+        "",
+        `verify: 1 routes at ${baseUrl}, 1 passed, 0 failed; certificate failed`,
+        "",
+      ].join("\n"),
+    );
+    expect(err.join("")).toBe("verify: the TLS certificate check failed.\n");
+  });
+
+  it("names both the routes and the certificate when both fail", async () => {
+    writeConfig({ verify: { tlsMinDays: 14, routes: [{ path: "/missing" }] } });
+    expect(await runCli(["verify", baseUrl], makeIo())).toBe(1);
+    expect(err.join("")).toBe("verify: 1 of 1 routes failed; the TLS certificate check failed.\n");
+  });
+
   it("refuses a missing, malformed or invalid deploy.json and one without a verify section", async () => {
     expect(await runCli(["verify", baseUrl], makeIo())).toBe(1);
     writeConfig("{ not json");

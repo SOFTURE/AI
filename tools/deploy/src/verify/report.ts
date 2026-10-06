@@ -1,4 +1,5 @@
-import type { RouteReport } from "./run-checks.js";
+import type { RouteReport, VerifyReport } from "./run-checks.js";
+import type { TlsReport } from "./tls-check.js";
 
 const COLUMNS = ["Result", "Status", "Route", "Detail"] as const;
 
@@ -11,16 +12,22 @@ function toRow(report: RouteReport): string[] {
   return [report.passed ? "PASS" : "FAIL", report.status === null ? "-" : String(report.status), report.path, detail];
 }
 
+function toTlsRow(tls: TlsReport): string[] {
+  return [tls.passed ? "PASS" : "FAIL", "-", "tls", tls.detail];
+}
+
 /** The last column is not padded, so long details do not leave trailing spaces. */
 function formatRow(cells: readonly string[], widths: readonly number[]): string {
   return cells.map((cell, index) => (index === cells.length - 1 ? cell : cell.padEnd(widths[index] ?? 0))).join("  ");
 }
 
-/** The verify table, one row per route in config order, and a summary line. */
-export function formatVerifyReport(reports: readonly RouteReport[], baseUrl: string): string {
-  const rows = reports.map(toRow);
+/** The verify table, one row per route in config order and the `tls` row last, and a summary line. */
+export function formatVerifyReport(report: VerifyReport, baseUrl: string): string {
+  const { routes, tls } = report;
+  const rows = [...routes.map(toRow), ...(tls === null ? [] : [toTlsRow(tls)])];
   const widths = COLUMNS.map((title, index) => Math.max(title.length, ...rows.map((row) => row[index]?.length ?? 0)));
-  const failed = reports.filter((report) => !report.passed).length;
-  const summary = `verify: ${reports.length} routes at ${baseUrl}, ${reports.length - failed} passed, ${failed} failed`;
+  const failed = routes.filter((route) => !route.passed).length;
+  const certificate = tls === null ? "" : `; certificate ${tls.passed ? "passed" : "failed"}`;
+  const summary = `verify: ${routes.length} routes at ${baseUrl}, ${routes.length - failed} passed, ${failed} failed${certificate}`;
   return [formatRow(COLUMNS, widths), ...rows.map((row) => formatRow(row, widths)), "", summary, ""].join("\n");
 }

@@ -48,5 +48,5 @@ test, `src/cli/verify-command.ts`, its CLI test, `README.md`, `package.json` (pa
 ## Progress
 
 #### Automated
-- [ ] Phase 1: schema and the check
-- [ ] Phase 2: engine, report, command, docs
+- [x] Phase 1: schema and the check
+- [x] Phase 2: engine, report, command, docs (both phases land in one commit; each was test-first in the working tree)

@@ -73,7 +73,8 @@ function readVerifyArgs(args: string[]) {
 
 /**
  * `softure-deploy verify <url> [--config=deploy.json] [--timeout=<ms>] [--concurrency=4]`: requests every route of
- * the `verify` section and prints a table; any failed check is exit code 1.
+ * the `verify` section (and reads the certificate with `tlsMinDays`) and prints a table; any failed check is exit
+ * code 1.
  */
 export async function runVerifyCommand(args: string[], io: CliIo): Promise<void> {
   const { values, positionals } = readVerifyArgs(args);
@@ -84,8 +85,12 @@ export async function runVerifyCommand(args: string[], io: CliIo): Promise<void>
   const timeoutMs = readInteger("timeout", values.timeout, TIMEOUT_RANGE);
   const concurrency = readInteger("concurrency", values.concurrency, { min: 1, max: MAX_CONCURRENCY }) ?? DEFAULT_CONCURRENCY;
   const config = readVerifyConfig(resolve(io.cwd, values.config), values.config);
-  const reports = await runVerify({ baseUrl, config, concurrency, ...(timeoutMs === undefined ? {} : { timeoutMs }) });
-  io.stdout(formatVerifyReport(reports, baseUrl));
-  const failed = reports.filter((report) => !report.passed).length;
-  if (failed > 0) fail(`verify: ${failed} of ${reports.length} routes failed.`);
+  const report = await runVerify({ baseUrl, config, concurrency, ...(timeoutMs === undefined ? {} : { timeoutMs }) });
+  io.stdout(formatVerifyReport(report, baseUrl));
+  const failed = report.routes.filter((route) => !route.passed).length;
+  const problems = [
+    ...(failed > 0 ? [`${failed} of ${report.routes.length} routes failed`] : []),
+    ...(report.tls?.passed === false ? ["the TLS certificate check failed"] : []),
+  ];
+  if (problems.length > 0) fail(`verify: ${problems.join("; ")}.`);
 }
