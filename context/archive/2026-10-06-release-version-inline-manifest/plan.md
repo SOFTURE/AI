@@ -47,7 +47,7 @@ patch`, never pushed, tag deleted) leaves `ops`'s module tests green and its com
 ### Phase 1: The script sets the inline manifest version
 
 #### Automated
-- [ ] 1.1 `setInlineManifestVersion` tests seen red, then green
-- [ ] 1.2 Every released module's `src/index.ts` changes in exactly its manifest version line
-- [ ] 1.3 A scratch bump of `ops` keeps its module tests green and commits package.json, lockfile, module.json and src/index.ts
-- [ ] 1.4 Gates green (typecheck, lint, test, build)
+- [x] 1.1 `setInlineManifestVersion` tests seen red, then green — 0c8b384
+- [x] 1.2 Every released module's `src/index.ts` changes in exactly its manifest version line — 0c8b384
+- [x] 1.3 A scratch bump of `ops` keeps its module tests green and commits package.json, lockfile, module.json and src/index.ts — 0c8b384
+- [x] 1.4 Gates green (typecheck, lint, test, build) — 0c8b384

@@ -1,12 +1,12 @@
 ---
 change_id: release-version-inline-manifest
 title: "release:version keeps a module's inline manifest in step with module.json"
-status: plan_reviewed
+status: archived
 roadmap_item: LT-2
 branch: claude/lt-2-fpsu3y
 created: 2026-10-06
 updated: 2026-10-06
-archived_at: null
+archived_at: 2026-10-06
 ---
 
 ## Intent
