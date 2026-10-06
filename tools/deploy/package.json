@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/deploy",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "SOFTURE AI deploy CLI for a one-VPS app: renders .env.prod from CI secrets (names from the compose file), writes the release report between two tags, backs up the database, guards the migration ledger, compares row counts verifies production against deploy.json and generates an app's deploy files once (init).",
   "license": "MIT",
   "type": "module",

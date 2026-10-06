@@ -50,7 +50,7 @@ describe("runVerify against a local server", () => {
     serve("/old", (_request, response) => response.writeHead(301, { location: "/new", "x-frame-options": "DENY" }).end());
     serve("/robots.txt", (_request, response) =>
       response.writeHead(200, { "content-type": "text/plain", "x-frame-options": "DENY" }).end("Sitemap: /sitemap.xml\n"));
-    const reports = await runVerify({
+    const { routes: reports } = await runVerify({
       baseUrl,
       config: verifyConfig({
         headers: { "x-frame-options": "DENY", "x-powered-by": null },
@@ -71,7 +71,9 @@ describe("runVerify against a local server", () => {
 
   it("does not follow a redirect and asks a CDN for a fresh response", async () => {
     serve("/old", (_request, response) => response.writeHead(302, { location: "/missing" }).end());
-    const [report] = await runVerify({ baseUrl, config: verifyConfig({ routes: [{ path: "/old", status: 302 }] }) });
+    const {
+      routes: [report],
+    } = await runVerify({ baseUrl, config: verifyConfig({ routes: [{ path: "/old", status: 302 }] }) });
     expect(report?.passed).toBe(true);
     expect(seen.map((request) => request.url)).toEqual(["/old"]);
     expect(seen[0]?.headers).toMatchObject({ "cache-control": "no-cache", "user-agent": "softure-deploy-verify" });
@@ -80,7 +82,9 @@ describe("runVerify against a local server", () => {
   it("reports every failed check of a route", async () => {
     serve("/", (_request, response) =>
       response.writeHead(500, { "x-powered-by": "Next.js" }).end("Application error: a server-side exception"));
-    const [report] = await runVerify({
+    const {
+      routes: [report],
+    } = await runVerify({
       baseUrl,
       config: verifyConfig({
         headers: { "x-powered-by": null },
@@ -104,7 +108,7 @@ describe("runVerify against a local server", () => {
   it("turns a timeout into a failed request check of that route only", async () => {
     serve("/slow", () => undefined);
     serve("/fast", (_request, response) => response.writeHead(200).end());
-    const reports = await runVerify({
+    const { routes: reports } = await runVerify({
       baseUrl,
       timeoutMs: 150,
       config: verifyConfig({ routes: [{ path: "/slow" }, { path: "/fast" }] }),
@@ -121,7 +125,9 @@ describe("runVerify against a local server", () => {
     await new Promise<void>((resolve) => server.close(() => resolve()));
     server = createServer();
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-    const [report] = await runVerify({ baseUrl: closedUrl, config: verifyConfig({ routes: [{ path: "/" }] }) });
+    const {
+      routes: [report],
+    } = await runVerify({ baseUrl: closedUrl, config: verifyConfig({ routes: [{ path: "/" }] }) });
     expect(report?.checks).toEqual([{ kind: "request", passed: false, detail: "request failed: ECONNREFUSED" }]);
   });
 
@@ -138,13 +144,28 @@ describe("runVerify against a local server", () => {
         }, 40 - index * 8);
       });
     }
-    const reports = await runVerify({
+    const { routes: reports } = await runVerify({
       baseUrl,
       concurrency: 2,
       config: verifyConfig({ routes: ["/a", "/b", "/c", "/d", "/e"].map((path) => ({ path })) }),
     });
     expect(reports.map((report) => report.path)).toEqual(["/a", "/b", "/c", "/d", "/e"]);
     expect(peak).toBe(2);
+  });
+});
+
+describe("runVerify with tlsMinDays", () => {
+  it("reads no certificate without the key", async () => {
+    serve("/", (_request, response) => response.writeHead(200).end());
+    const report = await runVerify({ baseUrl, config: verifyConfig({ routes: [{ path: "/" }] }) });
+    expect(report.tls).toBeNull();
+  });
+
+  it("fails the tls row of an http URL and still checks the routes", async () => {
+    serve("/", (_request, response) => response.writeHead(200).end());
+    const report = await runVerify({ baseUrl, config: verifyConfig({ tlsMinDays: 14, routes: [{ path: "/" }] }) });
+    expect(report.routes.map((route) => route.passed)).toEqual([true]);
+    expect(report.tls).toEqual({ passed: false, daysLeft: null, detail: "no certificate to check: http: is not https" });
   });
 });
 

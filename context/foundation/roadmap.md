@@ -49,7 +49,7 @@ backlog: context/backlog/roadmap-deploy-followups/
 | **DF-3** | `deploy-workflow-e2e` | a CI job runs `deploy-app.yml` against a throwaway SSH server and registry, so a broken step fails here, not on the first live deploy | DP-5, DF-7 | autonomous | ready |
 | **DF-4** | `auth-testing-account-factory` | `@softure-ai/auth/testing` creates an account in SQL with auth's hashing; the example's e2e uses it outside registration specs | — | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/auth` 0.1.6) |
 | **DF-5** | `deploy-row-count-config` | the tables `row-counts` compares come from `deploy.json` | DP-4 | autonomous | ready |
-| **DF-6** | `deploy-verify-cert-expiry` | `verify` fails when the TLS certificate expires within `verify.tlsMinDays` | — | autonomous | ready |
+| **DF-6** | `deploy-verify-cert-expiry` | `verify` fails when the TLS certificate expires within `verify.tlsMinDays` | — | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.2) |
 | **DF-7** | `deploy-server-files` | `deploy-app.yml` ships the tag's `docker/prod/` files and `deploy.sh` with each release; no hand copy to the server | DP-5, DF-2 | autonomous | ready |
 | **MK-10** | `marketing-kit-film-followups` | a committed `marketing.json` reproduces a paid film with no hand fixes: the opening transition is chosen in the config and none flickers, the voiceover cache shows which file belongs to which video (old flat caches still found), and the recording day is pinned per video | — | autonomous | ready |
 
@@ -179,8 +179,8 @@ calls, the owner's own machine, a product decision only the owner can make, or a
 
 ### DF-6: Certificate expiry in verify
 - **Change ID:** `deploy-verify-cert-expiry`
-- **Status:** ready
-- **Input:** [`deploy-verify-cert-expiry`](../backlog/roadmap-deploy-followups/deploy-verify-cert-expiry/change.md)
+- **Status:** done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.2)
+- **Input:** [`deploy-verify-cert-expiry`](../archive/2026-10-06-deploy-verify-cert-expiry/change.md)
 - **Outcome:** an optional `verify.tlsMinDays`; `verify` reads the certificate with `node:tls` once per run and adds
   a `tls` row to the table (days left, issuer); fewer days than the minimum is a failure. Tested against a local
   TLS server with a generated certificate.

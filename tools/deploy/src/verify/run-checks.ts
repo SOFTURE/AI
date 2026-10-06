@@ -1,5 +1,6 @@
 import { checkResponse, joinUrl, mergeHeaderChecks, needsBody, type CheckOutcome, type ObservedResponse } from "./checks.js";
 import type { VerifyConfig, VerifyRoute } from "./schema.js";
+import { runTlsCheck, type TlsReport } from "./tls-check.js";
 
 export type FetchFunction = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -10,6 +11,12 @@ export interface RouteReport {
   status: number | null;
   checks: CheckOutcome[];
   passed: boolean;
+}
+
+/** A verify run: one report per route in config order, and the certificate row when `tlsMinDays` is set. */
+export interface VerifyReport {
+  routes: RouteReport[];
+  tls: TlsReport | null;
 }
 
 export const DEFAULT_CONCURRENCY = 4;
@@ -82,8 +89,9 @@ async function mapWithLimit<T, R>(items: readonly T[], limit: number, task: (ite
 }
 
 /**
- * Requests every route of `config` from `baseUrl` (redirects not followed) and checks each response. A network
- * error, a TLS error or a timeout is a failed `request` check of that route, never a thrown error.
+ * Requests every route of `config` from `baseUrl` (redirects not followed) and checks each response; with
+ * `tlsMinDays`, reads the certificate once alongside. A network error, a TLS error or a timeout is a failed check,
+ * never a thrown error.
  */
 export async function runVerify(options: {
   baseUrl: string;
@@ -91,11 +99,16 @@ export async function runVerify(options: {
   fetch?: FetchFunction;
   concurrency?: number;
   timeoutMs?: number;
-}): Promise<RouteReport[]> {
+}): Promise<VerifyReport> {
   const { baseUrl, config } = options;
   const fetch = options.fetch ?? globalThis.fetch;
   const timeoutMs = options.timeoutMs ?? config.timeoutMs;
-  return mapWithLimit(config.routes, options.concurrency ?? DEFAULT_CONCURRENCY, (route) =>
-    checkRoute({ baseUrl, config, route, fetch, timeoutMs }),
-  );
+  const minDays = config.tlsMinDays;
+  const [routes, tls] = await Promise.all([
+    mapWithLimit(config.routes, options.concurrency ?? DEFAULT_CONCURRENCY, (route) =>
+      checkRoute({ baseUrl, config, route, fetch, timeoutMs }),
+    ),
+    minDays === undefined ? null : runTlsCheck({ baseUrl, minDays, timeoutMs }),
+  ]);
+  return { routes, tls };
 }
