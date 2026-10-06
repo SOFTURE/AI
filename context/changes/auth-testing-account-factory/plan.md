@@ -47,5 +47,5 @@ registration, which the form already tests).
 
 ## Progress
 
-- [ ] Phase 1: the factory
+- [x] Phase 1: the factory
 - [ ] Phase 2: the example app's e2e
