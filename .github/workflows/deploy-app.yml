@@ -16,7 +16,8 @@
 #
 # Verify waits for the health route, then runs `softure-deploy verify <app-url>` (DP-4) with the app's `deploy.json`
 # from the tag: every route, status, marker, redirect and header the app lists. `deploy-config: ""` keeps the health
-# route only.
+# route only. With the `origin-address` secret, verify also fails when the server accepts a direct connection
+# (DF-13): only the CDN may reach it.
 #
 # Release guards (DF-11): the `check` job refuses a tag whose commit is not on the release branch (the caller's default
 # branch unless `release-branch` names another). `build-args` are baked into the image (public values only: they are
@@ -144,6 +145,11 @@ on:
       app-secrets:
         description: JSON object of the app's runtime secrets by name, e.g. toJSON(secrets)
         required: true
+      origin-address:
+        description: >-
+          The server's own address behind the CDN (IP or host, optional :port, default 443), e.g. vars.DEPLOY_IP;
+          verify fails when it accepts a direct connection. Empty skips the check. Needs deploy-config.
+        required: false
     outputs:
       image:
         description: The pushed image reference with its tag
@@ -188,6 +194,7 @@ jobs:
           BUILD_ARGS: ${{ inputs.build-args }}
           E2E: ${{ inputs.e2e }}
           REPOSITORY: ${{ github.repository }}
+          ORIGIN_ADDRESS: ${{ secrets.origin-address }}
         run: |
           failures=0
           reject() {
@@ -215,6 +222,11 @@ jobs:
           expect health-path "$HEALTH_PATH" '^/[A-Za-z0-9/._~-]*$' "a path starting with /"
           expect verify-timeout-seconds "$VERIFY_TIMEOUT" '^[1-9][0-9]{1,3}$' "10 to 9999 seconds"
           if [ -n "$DEPLOY_CONFIG" ]; then expect_path deploy-config "$DEPLOY_CONFIG"; fi
+          if [ -n "$ORIGIN_ADDRESS" ]; then
+            expect origin-address "$ORIGIN_ADDRESS" '^([A-Za-z0-9.-]+|\[[0-9A-Fa-f:.]+\])(:[0-9]{1,5})?$|^[0-9A-Fa-f:.]+$' "an IP address or host with an optional :port"
+            # The origin is checked by the verify step, which runs only with a config: refuse a check that would not run.
+            if [ -z "$DEPLOY_CONFIG" ]; then reject origin-address "empty when deploy-config is empty (verify runs with deploy.json)"; fi
+          fi
           expect deploy-cli-version "$DEPLOY_CLI_VERSION" '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$' "an exact version"
           if [ -n "${RELEASE_BRANCH:-}" ]; then
             expect release-branch "$RELEASE_BRANCH" '^[A-Za-z0-9_.][A-Za-z0-9_./-]{0,254}$' "a branch name"
@@ -667,4 +679,8 @@ jobs:
           APP_URL: ${{ inputs.app-url }}
           DEPLOY_CONFIG: ${{ inputs.deploy-config }}
           DEPLOY_CLI_VERSION: ${{ inputs.deploy-cli-version }}
-        run: npx --yes "--package=@softure-ai/deploy@$DEPLOY_CLI_VERSION" softure-deploy verify "$APP_URL" --config="$DEPLOY_CONFIG"
+          ORIGIN_ADDRESS: ${{ secrets.origin-address }}
+        run: |
+          origin=()
+          if [ -n "$ORIGIN_ADDRESS" ]; then origin=("--origin=$ORIGIN_ADDRESS"); fi
+          npx --yes "--package=@softure-ai/deploy@$DEPLOY_CLI_VERSION" softure-deploy verify "$APP_URL" --config="$DEPLOY_CONFIG" "${origin[@]}"

@@ -172,7 +172,7 @@ softure-deploy row-counts [--tables=<a,b.c> | --config=deploy.json] [--out=<file
 Checks a deployed app against the routes in its `deploy.json`, prints a table and exits `1` when a check fails.
 
 ```bash
-softure-deploy verify <url> [--config=deploy.json] [--timeout=<ms>] [--concurrency=4]
+softure-deploy verify <url> [--config=deploy.json] [--timeout=<ms>] [--concurrency=4] [--origin=<host>[:<port>]]
 ```
 
 ```json
@@ -213,6 +213,13 @@ softure-deploy verify <url> [--config=deploy.json] [--timeout=<ms>] [--concurren
   Fewer days than the minimum, a certificate not trusted for the host, a handshake error or an `http://` URL fail
   the row and the run. Behind Cloudflare the certificate seen is Cloudflare's edge one, which it renews itself; the
   check matters for an origin served directly (Traefik with ACME).
+- **Origin behind a CDN:** with `--origin=<address>` (the server's own IP, port 443 unless given; `[v6]:port` for
+  IPv6), `verify` opens one TCP connection to it, sends nothing, and adds an `origin` row. The row passes only when
+  nothing answers: the connection times out (a firewall dropping it), is refused or cannot be routed. An accepted
+  connection fails the row and the run, because direct HTTPS reaches the server around the CDN. An address that does
+  not resolve fails too (nothing was checked). It is a TCP handshake, not an HTTPS request: an open origin whose
+  certificate does not cover the IP still fails. The address is a command-line value, never in `deploy.json`, so it
+  stays out of the repository. Pass the server's IP, not a name that resolves through the CDN.
 - The schema is in [`schema/deploy.schema.json`](schema/deploy.schema.json) (`npm run schema -w @softure-ai/deploy`
   after changing `src/verify/schema.ts`). The route list is the app's; the package holds only the engine.
 - The same file holds `database.rowCountTables`, the tables `row-counts` compares (see above).
@@ -222,8 +229,9 @@ Result  Status  Route     Detail
 PASS    200     /         5 checks passed
 FAIL    404     /pricing  status 404, expected 200; missing "Pricing"
 PASS    -       tls       41 days left (until 2026-11-16), issuer Let's Encrypt
+PASS    -       origin    203.0.113.7:443 no answer within 10000 ms (dropped)
 
-verify: 2 routes at https://example.com, 1 passed, 1 failed; certificate passed
+verify: 2 routes at https://example.com, 1 passed, 1 failed; certificate passed; origin passed
 ```
 
 ## Deploy workflow
@@ -248,7 +256,7 @@ one caller, [`examples/deploy.yml`](examples/deploy.yml), with a single `uses:` 
    stays in `$RUNNER_TEMP/deploy-output.txt` for the job;
 4. waits until `<app-url><health-path>` answers 200, then runs `softure-deploy verify <app-url>` with the app's
    `deploy-config` read from the tag (only that file is checked out). A missing or invalid file fails the run;
-   `deploy-config: ""` keeps the health route only.
+   `deploy-config: ""` keeps the health route only. With the `origin-address` secret, verify gets `--origin` too.
 
 | Input | Default | |
 | --- | --- | --- |
@@ -270,11 +278,13 @@ one caller, [`examples/deploy.yml`](examples/deploy.yml), with a single `uses:` 
 | `registry-token` | `true` | send the deploy job's `GITHUB_TOKEN` (`packages: read`, valid until the job ends) for the server's pull |
 | `e2e` | `false` | this repository's own end-to-end test (below); refused in any other repository |
 
-Secrets, all required and passed by name (no `secrets: inherit`): `ssh-host`, `ssh-user`, `ssh-private-key`,
-`ssh-known-hosts` and `app-secrets` (a JSON object such as `toJSON(secrets)`; names like `PATH`, `HOME`, `NODE_*` and
-`NPM_CONFIG_*` are refused, in `app-vars` too). The registry token pulls a package the build job of the same
-repository pushed (its `org.opencontainers.image.source` label links it); for an image elsewhere, set
-`registry-token: false` and log the server in. The workflow runs once this package is on npm; callers pin the `deploy-workflows-v1` tag
+Secrets, passed by name (no `secrets: inherit`): `ssh-host`, `ssh-user`, `ssh-private-key`, `ssh-known-hosts` and
+`app-secrets` (a JSON object such as `toJSON(secrets)`; names like `PATH`, `HOME`, `NODE_*` and `NPM_CONFIG_*` are
+refused, in `app-vars` too) are required; `origin-address` is optional: the server's own address behind the CDN (the
+example passes `secrets.DEPLOY_ORIGIN_IP`), refused when `deploy-config` is empty, and verify fails when it accepts a
+direct connection. A secret, not an input, so the address is masked in the logs. The registry token pulls a package
+the build job of the same repository pushed (its `org.opencontainers.image.source` label links it); for an image
+elsewhere, set `registry-token: false` and log the server in. The workflow runs once this package is on npm; callers pin the `deploy-workflows-v1` tag
 the owner sets, or its commit SHA.
 
 ### Cut a release
@@ -452,7 +462,9 @@ here a throwaway Docker config leaves the host's login alone).
 
 **In the package:** optional compose names and the header line (`env render`); the release body section and the
 roadmap table (`release-notes`); excluded table data, the age limit and the header check (`backup`); method, body and
-request headers (`verify`). Already here before: names from the compose file, values never printed, mode 0600, the
+request headers (`verify`); the origin firewall check (`verify --origin`, DF-13; a failure where FIRE only warns,
+and a TCP handshake where FIRE's `curl` passes an open origin whose certificate does not cover the IP). Already here
+before: names from the compose file, values never printed, mode 0600, the
 schema guard (stricter than FIRE's migration count), row counts, status, markers, redirects, header and type checks,
 certificate expiry.
 
@@ -466,7 +478,6 @@ its second-stage script inside the image stay one script here: the release ships
 - **DF-10:** a report job writes pipeline status and deployment history (image, digest, backup, row counts before and
   after) into the release body.
 - **DF-12:** a reusable workflow that cuts a date tag and release and starts the deploy (an agent cannot push tags).
-- **DF-13:** `verify` checks that the server's IP refuses direct HTTPS (only the CDN may reach it).
 
 **Kept different on purpose:** the custom dump format instead of plain SQL with gzip (compressed, restorable table by
 table); `row-counts` fails on a drop, not on any change (a sign-up during a release is not a failure); seven dumps

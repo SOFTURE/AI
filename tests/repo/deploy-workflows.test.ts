@@ -143,6 +143,33 @@ describe("the verify job of deploy-app.yml", () => {
     for (const step of configSteps) expect(step.if).toBe("inputs.deploy-config != ''");
   });
 
+  it("adds --origin only when the optional origin-address secret is set (DF-13)", () => {
+    const secrets = getWorkflowCall(workflow).secrets ?? {};
+    expect(secrets["origin-address"]?.required).toBe(false);
+    expect(verifyStep?.env).toMatchObject({ ORIGIN_ADDRESS: "${{ secrets.origin-address }}" });
+    const binDir = mkdtempSync(join(tmpdir(), "deploy-verify-"));
+    try {
+      // A stand-in npx prints the arguments it would have run the CLI with, one per line.
+      writeFileSync(join(binDir, "npx"), '#!/bin/sh\nprintf "%s\\n" "$@"\n', { mode: 0o755 });
+      const run = (origin: string) =>
+        spawnSync("bash", ["-e", "-c", verifyStep?.run ?? ""], {
+          encoding: "utf8",
+          env: {
+            PATH: `${binDir}:${process.env.PATH ?? ""}`,
+            APP_URL: "https://example.com",
+            DEPLOY_CONFIG: "deploy.json",
+            DEPLOY_CLI_VERSION: "0.1.3",
+            ORIGIN_ADDRESS: origin,
+          },
+        }).stdout;
+      const base = ["--yes", "--package=@softure-ai/deploy@0.1.3", "softure-deploy", "verify", "https://example.com", "--config=deploy.json"];
+      expect(run("").split("\n")).toEqual([...base, ""]);
+      expect(run("203.0.113.7").split("\n")).toEqual([...base, "--origin=203.0.113.7", ""]);
+    } finally {
+      rmSync(binDir, { recursive: true, force: true });
+    }
+  });
+
   it("checks out only the config file at the tag, without credentials", () => {
     expect(checkout?.with).toEqual({
       ref: "${{ inputs.tag }}",
@@ -312,6 +339,19 @@ describe("the end-to-end test path of deploy-app.yml (DF-3)", () => {
     }
   }
 
+  it("checks the origin address and refuses it when deploy-config is empty (DF-13)", () => {
+    expect(workflow.jobs.check?.steps?.[0]?.env).toMatchObject({ ORIGIN_ADDRESS: "${{ secrets.origin-address }}" });
+    for (const address of ["203.0.113.7", "203.0.113.7:8443", "origin.example.com", "[2001:db8::7]:443", "2001:db8::7"]) {
+      expect(runCheck({ REPOSITORY: "acme/app", ORIGIN_ADDRESS: address }).status, address).toBe(0);
+    }
+    const malformed = runCheck({ REPOSITORY: "acme/app", ORIGIN_ADDRESS: "https://203.0.113.7/" });
+    expect(malformed.status).toBe(1);
+    expect(malformed.stdout).toContain("::error::Input origin-address is not valid: an IP address or host with an optional :port");
+    const unchecked = runCheck({ REPOSITORY: "acme/app", ORIGIN_ADDRESS: "203.0.113.7", DEPLOY_CONFIG: "" });
+    expect(unchecked.status).toBe(1);
+    expect(unchecked.stdout).toContain("::error::Input origin-address is not valid: empty when deploy-config is empty");
+  });
+
   it("is off unless the caller turns it on", () => {
     expect(inputs.e2e).toMatchObject({ type: "boolean", default: false });
   });
@@ -426,7 +466,11 @@ describe("the end-to-end caller e2e-deploy.yml", () => {
     for (const [key, input] of Object.entries(called.inputs ?? {})) {
       if (input.required === true) expect(Object.keys(job.with ?? {})).toContain(key);
     }
-    expect(Object.keys(job.secrets as Record<string, unknown>).sort()).toEqual(Object.keys(called.secrets ?? {}).sort());
+    // An optional secret (origin-address) has nothing to check on the test path, where verify is skipped.
+    const passed = Object.keys(job.secrets as Record<string, unknown>);
+    for (const key of passed) expect(Object.keys(called.secrets ?? {})).toContain(key);
+    const required = Object.entries(called.secrets ?? {}).filter(([, secret]) => secret.required !== false);
+    expect(passed.sort()).toEqual(required.map(([key]) => key).sort());
   });
 
   it("grants packages: write to the calling job only", () => {
