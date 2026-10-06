@@ -1,12 +1,12 @@
 ---
 change_id: deploy-workflow-e2e-server
 title: "The deploy workflow's end-to-end test runs the server side and verify"
-status: implementing
+status: archived
 roadmap_item: DF-15
 branch: claude/project-thread-bhk1zk
 created: 2026-10-06
 updated: 2026-10-06
-archived_at: null
+archived_at: 2026-10-06
 ---
 
 ## Intent
@@ -45,3 +45,9 @@ The taken backlog entry is kept as [`backlog-input.md`](backlog-input.md). The t
 - Framing skipped: the roadmap item fixes the problem (the e2e stops at the forced command) and the shape (run the
   shipped `deploy.sh` and `verify` on the test path); research answered its one unknown (TLS) without changing what
   to build.
+- Archived 2026-10-06: on the `e2e` path the build job hands the image over as an artifact; the deploy job's runner
+  becomes the server (registry on `localhost:5000`, a certificate from a CA of the run in Traefik's ACME store, sshd);
+  the forced command records the release, then runs the tag's `deploy.sh` unchanged; the deploy job waits for the
+  health route and runs `softure-deploy verify`. The recorder no longer prints `result|ok`. Green on PR #138 with the
+  real example image. No package version bump: nothing published changed (`e2e/` and `scripts/` are not in the
+  package's files). No new gap.

@@ -87,4 +87,4 @@ broken certificate path); building the image again in the deploy job (twice the 
 - [x] Phase 2: the test path and the caller (`a694f98`; one commit for both phases, the repository tests red before the workflow)
 
 #### Manual
-- [ ] The `e2e-deploy` run on the pull request is green, with `deploy.sh`'s `result|ok` and verify's table in the log
+- [x] The `e2e-deploy` run on the pull request is green, with `deploy.sh`'s `result|ok` and verify's table in the log (PR #138 at `d90b694`: the real example image, 25 migrations applied, verify 2 of 2)
