@@ -47,9 +47,9 @@ an empty project with React 19 and `LineChart` renders on the server and `checkS
 ### Phase 1: Publishable charts
 
 #### Automated
-- [ ] 1.1 Both tags pack clean and the tarballs install and render outside the repo
-- [ ] 1.2 auto-release plans both tags
-- [ ] 1.3 Gates green (typecheck, lint, test, build)
+- [x] 1.1 Both tags pack clean and the tarballs install and render outside the repo — a745899
+- [x] 1.2 auto-release plans both tags — a745899
+- [x] 1.3 Gates green (typecheck, lint, test, build) — a745899
 
 #### Owner
 - [ ] 1.4 Owner releases ui 0.1.6 and charts 0.1.0 (NPM_TOKEN, trusted publisher)
