@@ -61,7 +61,43 @@ step. Ticks are multiples of the step in `(0, max]`: the scale's peak never move
 placed, and zero is left to the baseline. `minStep` keeps a step from going below what the labels can show
 (1 for whole units).
 
+## Date ticks
+
+```ts
+import { dateTicks, formatDateTick } from "@softure-ai/charts";
+
+const axis = dateTicks({ start, end, target: 5, timeZone: config.timezone });
+// { unit: "year", step: 10, ticks: [Date, …] } or null
+const labels = axis?.ticks.map((tick) => formatDateTick(tick, axis.unit, { locale, timeZone: config.timezone }));
+```
+
+- A tick is local midnight on a calendar boundary in the given IANA zone (core's `config.timezone`), not
+  in the machine's zone: days (steps 1, 2, 7, 14; weeks start on Monday), months (1, 2, 3, 6, aligned to
+  January) and years (1, 2, 5, 10, 20, 25, 50, aligned to multiples). Across a DST change each tick stays
+  on midnight; a midnight that does not exist (a gap at 00:00) becomes the first instant after it.
+- Ticks lie in `[start, end]`; the step rule is the value ticks'. `null` means nothing to show: an empty
+  span, a target below one, or no boundary inside the span.
+- Labels come from `Intl.DateTimeFormat` in the app's locale: `2026`, `Apr 2026`, `Apr 1` (`en-US`).
+  Core has no date formatter, so nothing else is needed.
+- Candidates with far more ticks than the target are skipped before they are built, so a century never
+  builds day ticks.
+- An invalid zone throws `Intl`'s `RangeError`: it is a configuration bug, caught by core at startup.
+
+## Nearest point
+
+```ts
+import { nearestPointIndex } from "@softure-ai/charts";
+
+const index = nearestPointIndex(points, x.invert(pointerX)); // number | null
+```
+
+The pointer's pixel goes through the same scale that drew the line, so the cursor and the drawing cannot
+drift apart. Points may come in any order; a position off either end gives the edge point; of two equally
+close points the first wins; no points gives `null`.
+
 ## Limitations
 
 - Value ticks start at zero: a domain that does not include zero is not supported yet.
 - Nothing here formats a value label; the value axis takes the app's formatter (CH-2).
+- Weeks start on Monday (ISO 8601) whatever the locale.
+- Ticks below a day (hours, minutes) are not supported.
