@@ -34,9 +34,9 @@ describe("the release workflow's npm publish commands", () => {
   });
 });
 
-// A package that is already on npm must stage through its trusted publisher alone, so a release proves
+// A package that is already on npm must publish through its trusted publisher alone, so a release proves
 // OIDC works and NPM_TOKEN can be deleted. Passing the secret as NODE_AUTH_TOKEN to the whole step let
-// npm authenticate with the token whenever it was set, and nothing showed which path staged a version.
+// npm authenticate with the token whenever it was set, and nothing showed which path published a version.
 describe("the release workflow's npm authentication", () => {
   it("hands NPM_TOKEN to npm only for a package that is not on npm yet", () => {
     const workflow = readWorkflow("release.yml");
@@ -44,11 +44,21 @@ describe("the release workflow's npm authentication", () => {
     expect(workflow).toContain(
       [
         '          if [ "$known" = yes ]; then',
-        '            echo "::notice::${NAME} is on npm: staging through its trusted publisher (OIDC), without NPM_TOKEN."',
+        '            echo "::notice::${NAME} is on npm: publishing through its trusted publisher (OIDC), without NPM_TOKEN."',
         '          elif [ -n "$NPM_TOKEN" ]; then',
-        '            echo "::notice::${NAME} is not on npm yet: its first stage uses NPM_TOKEN."',
+        '            echo "::notice::${NAME} is not on npm yet: its first publish uses NPM_TOKEN."',
         '            export NODE_AUTH_TOKEN="$NPM_TOKEN"',
       ].join("\n"),
     );
+  });
+});
+
+// npm takes a version as soon as its release passes, as in SOFTURE/SKILLS (owner, 2026-10-06): a staged
+// publish waited for the owner's approval on npmjs.com for every package of every release.
+describe("the release workflow's npm publish", () => {
+  it("publishes directly instead of staging for approval", () => {
+    const workflow = readWorkflow("release.yml");
+    expect(workflow).not.toContain("npm stage publish");
+    expect(workflow).toContain('npm publish "./release-out/${TARBALL}" --provenance --access public');
   });
 });

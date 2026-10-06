@@ -301,14 +301,14 @@ thin actions) are not needed.
   [scripts/release/README.md](../scripts/release/README.md).
 - **Releases are tag-driven, one tag per package** (`<package>@x.y.z`, e.g. `core@0.1.0`), in three places,
   exactly like SOFTURE/SKILLS (`.github/workflows/release.yml` there is the reference):
-  1. npmjs.com: `@softure-ai/<package>` through trusted publishing (OIDC) with provenance, as a
-     **staged** version that goes live when the owner approves it with 2FA;
+  1. npmjs.com: `@softure-ai/<package>` through trusted publishing (OIDC) with provenance, live at once
+     (until 0.1.4 every version was staged and approved by the owner);
   2. GitHub Packages: `@softure/<package>` (GitHub requires the scope to equal the org);
   3. GitHub Release for the tag, with generated notes and the package tarball attached.
-- A brand-new package's first stage authenticates with an `NPM_TOKEN` secret (npm binds a trusted
-  publisher only to an existing package): the owner approves it once, then configures the trusted
-  publisher (`SOFTURE` / `AI` / `release.yml`, stage only). Agents never tag or publish
-  (`release.owner: true`).
+- A brand-new package's first publish authenticates with an `NPM_TOKEN` secret (npm binds a trusted
+  publisher only to an existing package); the owner then configures the trusted publisher (`SOFTURE` /
+  `AI` / `release.yml`, **Allow npm publish**). An agent releases only on the owner's explicit word,
+  through `auto-release.yml` (`release.owner: true`).
 - A tarball ships `dist/` and `src/` (without tests), `migrations/`, `module.json` and the repository
   `LICENSE`; shipping `src/` keeps source maps and the `@softure-ai/source` export condition valid.
 - Build: `tsc -p tsconfig.build.json` per package (ESM + `.d.ts` per source file, so `"use client"`
