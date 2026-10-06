@@ -84,7 +84,7 @@ export { ELEVENLABS_API_KEY_ENV, ELEVENLABS_PROVIDER_ID, createElevenLabsProvide
 export { createFakeTtsProvider, type FakeTtsOptions, type FakeTtsProvider } from "./voice/fake.js";
 export { createTtsProvider, type CreateTtsProviderOptions, type TtsProviderId } from "./voice/providers.js";
 export { findStaleVoiceovers, getVoiceoverPaths, readCachedVoiceover, writeVoiceover, type Voiceover, type VoiceoverPaths } from "./voice/cache.js";
-export { describeEstimate, produceVoiceover, type ProduceVoiceoverOptions, type VoiceoverOutcome } from "./voice/produce.js";
+export { describeCharge, describeEstimate, produceVoiceover, type ProduceVoiceoverOptions, type VoiceoverOutcome } from "./voice/produce.js";
 export {
   BROWSER_BAR_HEIGHT,
   DEVICE_KINDS,

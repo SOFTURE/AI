@@ -54,8 +54,24 @@ describe("createElevenLabsProvider", () => {
           { text: "One", start: 0, end: 0.25 },
           { text: "two.", start: 0.4, end: 0.75 },
         ],
+        charged: null,
       },
     });
+  });
+
+  it.each([
+    ["a whole number", "3", 3],
+    ["a fraction", "3.5", 3.5],
+    ["zero", "0", 0],
+    ["no header", null, null],
+    ["an empty header", "", null],
+    ["a word", "free", null],
+    ["a negative number", "-4", null],
+  ])("reads the charge from the character-cost header: %s", async (_label, header, charged) => {
+    const headers: Record<string, string> = header === null ? {} : { "character-cost": header };
+    const { fetch } = fakeFetch(() => Response.json(alignmentBody(input.text), { headers }));
+    const result = await createElevenLabsProvider({ apiKey: KEY, fetch }).synthesize(input);
+    expect(result.ok ? result.value.charged : "failed").toBe(charged);
   });
 
   it("fails without a key and sends nothing", async () => {

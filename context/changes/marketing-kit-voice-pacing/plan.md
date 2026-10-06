@@ -66,6 +66,6 @@ Done when (every phase): Gates green (typecheck, lint, test); `npm run build`.
 
 ## Progress
 
-- [ ] Phase 1: the real charge
+- [x] Phase 1: the real charge
 - [ ] Phase 2: pacing and the batch
 - [ ] Phase 3: the disclosure

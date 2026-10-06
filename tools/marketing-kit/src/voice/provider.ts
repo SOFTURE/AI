@@ -13,6 +13,8 @@ export interface TtsInput {
 export interface TtsRecording {
   audio: Buffer;
   words: TimedWord[];
+  /** What the provider says it charged, in the estimate's unit; null or absent when it does not say. */
+  charged?: number | null;
 }
 
 /** What a recording would cost, shown before anything is spent. */

@@ -17,7 +17,13 @@ export interface ProduceVoiceoverOptions {
 export type VoiceoverOutcome =
   | { kind: "cached"; key: string; voiceover: Voiceover }
   | { kind: "dry-run"; key: string; estimate: TtsEstimate }
-  | { kind: "recorded"; key: string; voiceover: Voiceover; estimate: TtsEstimate };
+  | { kind: "recorded"; key: string; voiceover: Voiceover; estimate: TtsEstimate; charged: number | null };
+
+/** The charge the provider reported, next to the estimate; the estimate stays an upper bound. */
+export function describeCharge(provider: TtsProvider, estimate: TtsEstimate, charged: number | null): string {
+  if (charged === null) return `voiceover: ${provider.id} did not report the charge; the estimate was at most ${estimate.maxCost} ${estimate.unit}.`;
+  return `voiceover: ${provider.id} charged ${charged} ${estimate.unit} for ${estimate.characters} characters (the estimate was at most ${estimate.maxCost}).`;
+}
 
 export function describeEstimate(provider: TtsProvider, estimate: TtsEstimate): string {
   return `voiceover estimate (${provider.id}): ${estimate.characters} characters, at most ${estimate.maxCost} ${estimate.unit}.`;
@@ -54,6 +60,8 @@ export async function produceVoiceover(options: ProduceVoiceoverOptions): Promis
   const recording = await provider.synthesize(input);
   if (!recording.ok) return err(recording.error);
   const voiceover = writeVoiceover(cacheDir, paths, recording.value);
+  const charged = recording.value.charged ?? null;
+  log(describeCharge(provider, estimate, charged));
   log(`voiceover: recorded ${estimate.characters} characters, saved ${paths.key}.{mp3,json} in ${dirname(paths.audio)} (commit them).`);
-  return ok({ kind: "recorded", key: paths.key, voiceover, estimate });
+  return ok({ kind: "recorded", key: paths.key, voiceover, estimate, charged });
 }
