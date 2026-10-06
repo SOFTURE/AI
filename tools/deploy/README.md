@@ -147,11 +147,18 @@ joins the compose network). On the host it works after `docker cp` of the folder
 ### `softure-deploy row-counts`
 
 ```bash
-softure-deploy row-counts --tables=<a,b.c> [--out=<file>] [--compare=<file>] [--url-env=DATABASE_URL]
+softure-deploy row-counts [--tables=<a,b.c> | --config=deploy.json] [--out=<file>] [--compare=<file>] [--url-env=DATABASE_URL]
+```
+
+```json
+{ "database": { "rowCountTables": ["users", "snapshots", "position_values"] } }
 ```
 
 - Counts the rows of each table (`table` or `schema.table`, lower snake case; the app's key tables, like FIRE's
   `users`, `snapshots`, `position_values`) and prints one line per table.
+- **Which tables:** `--tables`, or else `database.rowCountTables` of `deploy.json` (`--config` names another file),
+  so the list lives with the app's other deploy settings. With `--tables` the file is not read; passing both flags is
+  a usage error, and so is having neither the flag nor the list (exit `2`). An invalid file is exit `1` with its issues.
 - `--out` saves the counts as JSON (`{ "takenAt", "counts" }`); `--compare` reads such a file and prints
   `before -> after (delta)`. A table with fewer rows than before, or not counted before, fails the step (exit 1); the
   deploy script decides whether that rolls the deploy back. `count(*)` reads every row: keep the list to the tables
@@ -205,6 +212,7 @@ softure-deploy verify <url> [--config=deploy.json] [--timeout=<ms>] [--concurren
   check matters for an origin served directly (Traefik with ACME).
 - The schema is in [`schema/deploy.schema.json`](schema/deploy.schema.json) (`npm run schema -w @softure-ai/deploy`
   after changing `src/verify/schema.ts`). The route list is the app's; the package holds only the engine.
+- The same file holds `database.rowCountTables`, the tables `row-counts` compares (see above).
 
 ```text
 Result  Status  Route     Detail

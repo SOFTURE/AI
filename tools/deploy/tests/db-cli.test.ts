@@ -234,6 +234,28 @@ describe.runIf(ADMIN_URL !== undefined)("softure-deploy database commands on Pos
       expect(err.join("")).toBe("row-counts: fewer rows than before the deploy, or not counted before: users.\n");
     });
 
+    it("counts the tables listed in deploy.json when --tables is not given", async () => {
+      const url = await createTestDatabase();
+      await runSql(url, "CREATE SCHEMA billing; CREATE TABLE users (id int); CREATE TABLE billing.subscriptions (id int); INSERT INTO users VALUES (1);");
+      writeFileSync(join(dir, "deploy.json"), JSON.stringify({ database: { rowCountTables: ["users", "billing.subscriptions"] } }));
+      const io = makeIo({ DATABASE_URL: url });
+      expect(await runCli(["row-counts", "--out=before.json"], io)).toBe(0);
+      expect(out.join("")).toBe("row-counts: users 1\nrow-counts: billing.subscriptions 0\n");
+      await runSql(url, "INSERT INTO billing.subscriptions VALUES (1);");
+      out = [];
+      expect(await runCli(["row-counts", "--compare=before.json"], io)).toBe(0);
+      expect(out.join("")).toBe("row-counts: users 1 -> 1 (0)\nrow-counts: billing.subscriptions 0 -> 1 (+1)\n");
+    });
+
+    it("reads the tables from the file --config names", async () => {
+      const url = await createTestDatabase();
+      await runSql(url, "CREATE TABLE notes (id int); INSERT INTO notes VALUES (1), (2);");
+      mkdirSync(join(dir, "config"));
+      writeFileSync(join(dir, "config", "prod.json"), JSON.stringify({ database: { rowCountTables: ["notes"] } }));
+      expect(await runCli(["row-counts", "--config=config/prod.json"], makeIo({ DATABASE_URL: url }))).toBe(0);
+      expect(out.join("")).toBe("row-counts: notes 2\n");
+    });
+
     it("reports a table that does not exist", async () => {
       const url = await createTestDatabase();
       expect(await runCli(["row-counts", "--tables=users"], makeIo({ DATABASE_URL: url }))).toBe(1);
@@ -268,7 +290,7 @@ describe("softure-deploy database commands without a database", () => {
         'backup: --keep must be a whole number of at least 1, got "0".',
         'backup: --prefix must be lower case letters, digits, - and _, got "../x".',
         "schema-guard: --migrations-dir is required (the folder of `softure migrate --export-migrations`).",
-        "row-counts: --tables is required, e.g. --tables=users,billing.subscriptions.",
+        "row-counts: no tables to count; pass --tables=users,billing.subscriptions or list them in database.rowCountTables of deploy.json (deploy.json not found).",
         "row-counts: not a table name (table or schema.table, lower snake case): Users.",
         "",
       ].join("\n"),
@@ -340,5 +362,39 @@ describe("softure-deploy database commands without a database", () => {
     writeFileSync(join(dir, "before.json"), JSON.stringify({ counts: { users: -1 } }));
     expect(await runCli(["row-counts", "--tables=users", "--compare=before.json"], makeIo({ DATABASE_URL: "postgres://db/app" }))).toBe(1);
     expect(err.join("")).toMatch(/^row-counts: before\.json is not a row-counts file: .+\.\n$/);
+  });
+
+  it("asks for the tables when deploy.json has no list", async () => {
+    writeFileSync(join(dir, "deploy.json"), JSON.stringify({ verify: { routes: [{ path: "/" }] } }));
+    expect(await runCli(["row-counts"], makeIo({ DATABASE_URL: "postgres://db/app" }))).toBe(2);
+    expect(err.join("")).toBe(
+      "row-counts: no tables to count; pass --tables=users,billing.subscriptions or list them in database.rowCountTables of deploy.json.\n",
+    );
+  });
+
+  it("refuses an invalid deploy.json with its issues and a --config file it cannot read", async () => {
+    writeFileSync(join(dir, "deploy.json"), JSON.stringify({ database: { rowCountTables: ["Users"] } }));
+    const io = makeIo({ DATABASE_URL: "postgres://db/app" });
+    expect(await runCli(["row-counts"], io)).toBe(1);
+    expect(await runCli(["row-counts", "--config=missing.json"], io)).toBe(1);
+    expect(err.join("")).toBe(
+      [
+        "row-counts: deploy.json is not valid:",
+        "  database.rowCountTables.0: a table or schema.table in lower snake case",
+        "row-counts: cannot read missing.json (ENOENT).",
+        "",
+      ].join("\n"),
+    );
+  });
+
+  it("refuses --tables together with --config", async () => {
+    expect(await runCli(["row-counts", "--tables=users", "--config=deploy.json"], makeIo({ DATABASE_URL: "postgres://db/app" }))).toBe(2);
+    expect(err.join("")).toBe("row-counts: pass either --tables or --config, not both.\n");
+  });
+
+  it("does not read deploy.json when --tables is given", async () => {
+    writeFileSync(join(dir, "deploy.json"), "{ not json");
+    expect(await runCli(["row-counts", "--tables=users"], makeIo({ DATABASE_URL: "pglite://./data" }))).toBe(1);
+    expect(err.join("")).toBe("row-counts: DATABASE_URL must be a postgres:// or postgresql:// URL.\n");
   });
 });
