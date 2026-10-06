@@ -45,7 +45,7 @@ backlog: context/backlog/roadmap-deploy-followups/
 | ID | Change | Outcome | Depends on | Mode | Status |
 | --- | --- | --- | --- | --- | --- |
 | **DF-1** | `deploy-fire-parity` | `env render`, `release-notes`, the deploy workflow, the database steps (`backup`, `schema-guard`, `row-counts`) and `verify` checked against FIRE_TRACKER's scripts and tests; differences ported or recorded | — | owner (read access to FIRE_TRACKER) | ready |
-| **DF-2** | `deploy-workflow-verify-config` | the `verify` job of `deploy-app.yml` runs `softure-deploy verify` with the app's `deploy.json` instead of only the health route | DP-4 | autonomous | ready |
+| **DF-2** | `deploy-workflow-verify-config` | the `verify` job of `deploy-app.yml` runs `softure-deploy verify` with the app's `deploy.json` instead of only the health route | DP-4 | autonomous | done_code (2026-10-06; waiting: the first publish of `@softure-ai/deploy`, DP-8) |
 | **DF-3** | `deploy-workflow-e2e` | a CI job runs `deploy-app.yml` against a throwaway SSH server and registry, so a broken step fails here, not on the first live deploy | DP-5, DF-7 | autonomous | ready |
 | **DF-4** | `auth-testing-account-factory` | `@softure-ai/auth/testing` creates an account in SQL with auth's hashing; the example's e2e uses it outside registration specs | — | autonomous | ready |
 | **DF-5** | `deploy-row-count-config` | the tables `row-counts` compares come from `deploy.json` | DP-4 | autonomous | done_code (2026-10-06; waiting: the next publish of `@softure-ai/deploy`) |
@@ -126,8 +126,8 @@ calls, the owner's own machine, a product decision only the owner can make, or a
 
 ### DF-2: The deploy workflow verifies with `softure-deploy verify`
 - **Change ID:** `deploy-workflow-verify-config`
-- **Status:** ready
-- **Input:** [`deploy-workflow-verify-config`](../backlog/roadmap-deploy-followups/deploy-workflow-verify-config/change.md)
+- **Status:** done_code (2026-10-06; waiting: the first publish of `@softure-ai/deploy`, DP-8)
+- **Input:** [`deploy-workflow-verify-config`](../archive/2026-10-06-deploy-workflow-verify-config/change.md)
 - **Outcome:** The `verify` job runs `softure-deploy verify <app-url>` (DP-4) from the CLI version the workflow pins, reading the
   app's `deploy.json` from the release tag; the health-route wait stays as the first step, so verify starts once the
   new release answers.

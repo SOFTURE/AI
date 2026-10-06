@@ -195,7 +195,9 @@ one caller, [`examples/deploy.yml`](examples/deploy.yml), with a single `uses:` 
 2. builds the image from the tag and pushes `<image>:<tag>` to GHCR (the only job with `packages: write`);
 3. renders `.env.prod` with `softure-deploy env render` from the `app-secrets` JSON and sends it on stdin to the
    server's forced SSH command as `<remote-command> <tag>`, checking the host key against `ssh-known-hosts`;
-4. waits until `<app-url><health-path>` answers 200.
+4. waits until `<app-url><health-path>` answers 200, then runs `softure-deploy verify <app-url>` with the app's
+   `deploy-config` read from the tag (only that file is checked out). A missing or invalid file fails the run;
+   `deploy-config: ""` keeps the health route only.
 
 | Input | Default | |
 | --- | --- | --- |
@@ -207,8 +209,9 @@ one caller, [`examples/deploy.yml`](examples/deploy.yml), with a single `uses:` 
 | `environment` | none | GitHub environment of the deploy job |
 | `remote-command` | `deploy` | first word for the forced command |
 | `ssh-port` | `22` | |
-| `health-path`, `verify-timeout-seconds` | `/api/health`, `300` | verify |
-| `deploy-cli-version` | this package's version | the CLI run from npm |
+| `health-path`, `verify-timeout-seconds` | `/api/health`, `300` | the health wait before verify |
+| `deploy-config` | `deploy.json` | the routes `verify` checks; empty for the health route only |
+| `deploy-cli-version` | this package's version | the CLI run from npm (`env render`, `verify`) |
 
 Secrets, all required and passed by name (no `secrets: inherit`): `ssh-host`, `ssh-user`, `ssh-private-key`,
 `ssh-known-hosts` and `app-secrets` (a JSON object such as `toJSON(secrets)`; names like `PATH`, `HOME`, `NODE_*` and
@@ -287,4 +290,3 @@ problem, lost rows, a failed verify check, invalid init answers) · `2` a wrong 
 - `init` files reach the server by hand: the workflow sends only `.env.prod`, so a changed compose file, Traefik rule
   or `deploy.sh` is copied again before the next release (DF-7).
 - `init` writes one app per VPS, with Traefik in the app's compose file.
-- The deploy workflow checks only the health route until it runs `softure-deploy verify` (DF-2).

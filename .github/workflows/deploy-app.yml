@@ -1,6 +1,6 @@
 # Release of one app to its VPS (@softure-ai/deploy, DP-2): a reusable workflow an app calls with one `uses:` line.
 # It builds the image from the release tag and pushes it to GHCR, renders `.env.prod` from the app's secrets with
-# `softure-deploy env render`, hands it to the server's forced SSH command, and waits for the health route.
+# `softure-deploy env render`, hands it to the server's forced SSH command, and verifies the release.
 #
 # The caller is `tools/deploy/examples/deploy.yml` in this repository: copy it to the app's `.github/workflows/`.
 # It grants `contents: read` and `packages: write`; the jobs below take only what each one needs.
@@ -9,6 +9,10 @@
 # `authorized_keys`, which receives `SSH_ORIGINAL_COMMAND="<remote-command> <tag>"` and the rendered `.env.prod` on
 # stdin, pulls `<image>:<tag>` and restarts the stack. The host key is checked against `ssh-known-hosts`, never
 # learned on first use.
+#
+# Verify waits for the health route, then runs `softure-deploy verify <app-url>` (DP-4) with the app's `deploy.json`
+# from the tag: every route, status, marker, redirect and header the app lists. `deploy-config: ""` keeps the health
+# route only.
 #
 # Every input is validated by the `check` job before anything is built or sent, and every value reaches a script
 # through `env:`, never interpolated into it. The CLI comes from npm (`deploy-cli-version`), so the workflow runs once
@@ -63,8 +67,12 @@ on:
         description: How long verify waits for the health route to answer 200
         type: number
         default: 300
+      deploy-config:
+        description: The app's deploy.json (its verify routes) in the tag; empty means the health route only
+        type: string
+        default: deploy.json
       deploy-cli-version:
-        description: Version of @softure-ai/deploy that renders .env.prod
+        description: Version of @softure-ai/deploy that renders .env.prod and verifies the release
         type: string
         default: 0.1.1
       node-version:
@@ -125,6 +133,7 @@ jobs:
           SSH_PORT: ${{ inputs.ssh-port }}
           HEALTH_PATH: ${{ inputs.health-path }}
           VERIFY_TIMEOUT: ${{ inputs.verify-timeout-seconds }}
+          DEPLOY_CONFIG: ${{ inputs.deploy-config }}
           DEPLOY_CLI_VERSION: ${{ inputs.deploy-cli-version }}
           REPOSITORY: ${{ github.repository }}
         run: |
@@ -150,6 +159,7 @@ jobs:
           if [[ ! "$SSH_PORT" =~ ^[1-9][0-9]{0,4}$ ]] || (( SSH_PORT > 65535 )); then reject ssh-port "1 to 65535"; fi
           expect health-path "$HEALTH_PATH" '^/[A-Za-z0-9/._~-]*$' "a path starting with /"
           expect verify-timeout-seconds "$VERIFY_TIMEOUT" '^[1-9][0-9]{1,3}$' "10 to 9999 seconds"
+          if [ -n "$DEPLOY_CONFIG" ]; then expect_path deploy-config "$DEPLOY_CONFIG"; fi
           expect deploy-cli-version "$DEPLOY_CLI_VERSION" '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$' "an exact version"
           if [ -z "$IMAGE" ]; then IMAGE="ghcr.io/${REPOSITORY,,}"; fi
           expect image "$IMAGE" '^[a-z0-9.-]+(:[0-9]{1,5})?(/[a-z0-9]+([._-][a-z0-9]+)*)+$' "registry/name, lower case, no tag"
@@ -296,12 +306,13 @@ jobs:
         run: rm -f "$RUNNER_TEMP/deploy_key" "$RUNNER_TEMP/deploy_known_hosts" .env.prod
 
   verify:
-    name: verify the health route
+    name: verify the release
     needs: deploy
     runs-on: ubuntu-latest
     # Above the longest verify-timeout-seconds the check job accepts (9999 s).
     timeout-minutes: 180
-    permissions: {}
+    permissions:
+      contents: read
     steps:
       - name: Wait for the health route
         env:
@@ -324,3 +335,23 @@ jobs:
             echo "verify: $url answered ${status:-nothing}; retrying in 10s."
             sleep 10
           done
+      # Only the config file is fetched (the leading / anchors it to the root), so no .npmrc or package.json of the
+      # app steers npx. A missing or invalid file fails here with the CLI's message; it is never skipped silently.
+      - if: inputs.deploy-config != ''
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag }}
+          persist-credentials: false
+          sparse-checkout: /${{ inputs.deploy-config }}
+          sparse-checkout-cone-mode: false
+      - if: inputs.deploy-config != ''
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ inputs.node-version }}
+      - name: Verify the routes in deploy.json
+        if: inputs.deploy-config != ''
+        env:
+          APP_URL: ${{ inputs.app-url }}
+          DEPLOY_CONFIG: ${{ inputs.deploy-config }}
+          DEPLOY_CLI_VERSION: ${{ inputs.deploy-cli-version }}
+        run: npx --yes "--package=@softure-ai/deploy@$DEPLOY_CLI_VERSION" softure-deploy verify "$APP_URL" --config="$DEPLOY_CONFIG"
