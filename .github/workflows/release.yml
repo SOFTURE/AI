@@ -1,7 +1,7 @@
 # Releases one package per tag. A tag `<package>@x.y.z` (e.g. `core@0.1.0`, created by
 # `npm run release:version -- core minor`) releases @softure-ai/<package>:
-#   1. npmjs.com        @softure-ai/<package>  staged through trusted publishing (OIDC) with provenance;
-#                       live once the owner approves it with 2FA on npmjs.com
+#   1. npmjs.com        @softure-ai/<package>  published through trusted publishing (OIDC) with provenance,
+#                       live at once (as SOFTURE/SKILLS does)
 #   2. GitHub Packages  @softure/<package>     (GitHub Packages requires the scope to equal the org)
 #   3. GitHub Release   <package>@x.y.z        (generated notes + the package tarball)
 # Pull requests that touch the release machinery (scripts, manifests, this file) and workflow_dispatch on
@@ -115,7 +115,7 @@ jobs:
           if-no-files-found: error
 
   publish-npm:
-    name: stage on npm
+    name: publish to npm
     needs: validate
     if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
@@ -131,16 +131,16 @@ jobs:
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
-      # Staged publishing needs npm >= 11.15.0; npm 12 drops some Node 22 patch releases.
-      - name: npm with staged publishing
+      # Trusted publishing needs npm >= 11.5.1; npm 12 drops some Node 22 patch releases.
+      - name: npm with trusted publishing
         run: |
           npm install -g npm@11
-          node -e 'const [major, minor] = process.argv[1].split(".").map(Number); process.exit(major === 11 && minor >= 15 ? 0 : 1)' "$(npm -v)" \
-            || { echo "::error::npm $(npm -v) cannot stage packages (needs >= 11.15.0)"; exit 1; }
-      # A package already on npm stages through its trusted publisher (OIDC) alone. NPM_TOKEN reaches
-      # npm only for the first stage of a package that does not exist yet, when no trusted publisher
-      # can be bound; see the runbook.
-      - name: Stage on npm
+          node -e 'const [major, minor, patch] = process.argv[1].split(".").map(Number); process.exit(major === 11 && (minor > 5 || (minor === 5 && patch >= 1)) ? 0 : 1)' "$(npm -v)" \
+            || { echo "::error::npm $(npm -v) cannot publish through a trusted publisher (needs >= 11.5.1)"; exit 1; }
+      # A package already on npm publishes through its trusted publisher (OIDC) alone; the publisher must
+      # allow `npm publish`. NPM_TOKEN reaches npm only for the first publish of a package that does not
+      # exist yet, when no trusted publisher can be bound; see the runbook.
+      - name: Publish to npm
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NAME: ${{ needs.validate.outputs.name }}
@@ -149,7 +149,7 @@ jobs:
           TARBALL: ${{ needs.validate.outputs.tarball }}
         run: |
           # Prints "yes" when the spec resolves, "no" on E404 or an empty answer; fails on any other error.
-          # Anonymous reads, whatever auth the stage below uses.
+          # Anonymous reads, whatever auth the publish below uses.
           lookup() {
             if output=$(NODE_AUTH_TOKEN='' npm view "$1" version --json 2>&1); then
               if [ -n "$output" ]; then echo yes; else echo no; fi
@@ -167,19 +167,19 @@ jobs:
           fi
           known=$(lookup "${NAME}")
           if [ "$known" = yes ]; then
-            echo "::notice::${NAME} is on npm: staging through its trusted publisher (OIDC), without NPM_TOKEN."
+            echo "::notice::${NAME} is on npm: publishing through its trusted publisher (OIDC), without NPM_TOKEN."
           elif [ -n "$NPM_TOKEN" ]; then
-            echo "::notice::${NAME} is not on npm yet: its first stage uses NPM_TOKEN."
+            echo "::notice::${NAME} is not on npm yet: its first publish uses NPM_TOKEN."
             export NODE_AUTH_TOKEN="$NPM_TOKEN"
           else
-            echo "::error::${NAME} is not on npm yet: its first stage needs the NPM_TOKEN secret (scripts/release/README.md, first release of a package)."
+            echo "::error::${NAME} is not on npm yet: its first publish needs the NPM_TOKEN secret (scripts/release/README.md, first release of a package)."
             exit 1
           fi
           # No --tag for a stable version: npm applies `latest` and refuses to move it to an older version.
           tag_args=()
           if [ -n "$NPM_TAG" ]; then tag_args=(--tag "$NPM_TAG"); fi
-          npm stage publish "./release-out/${TARBALL}" --provenance --access public "${tag_args[@]}"
-          echo "::notice::${NAME}@${VERSION} is staged on npm. Approve it on npmjs.com (2FA) to make it live."
+          npm publish "./release-out/${TARBALL}" --provenance --access public "${tag_args[@]}"
+          echo "::notice::${NAME}@${VERSION} is live on npm."
 
   # After npm, so a release npm refuses (e.g. a new package without NPM_TOKEN) publishes nothing else.
   publish-github:
@@ -269,7 +269,7 @@ jobs:
           fi
           download="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG//@/%40}/${TARBALL}"
           notes=$(printf '%s\n' \
-            "npm (live once the staged version is approved): \`npm i ${NAME}@${VERSION}\`" \
+            "npm: \`npm i ${NAME}@${VERSION}\`" \
             "" \
             "This release, no registry and no auth: \`npm i ${download}\`" \
             "" \
