@@ -5,7 +5,7 @@ Roadmap of this group: [`roadmap-deploy-followups.md`](../../foundation/roadmaps
 
 This folder holds the **entries** (`<change-id>/change.md`, `status: backlog`). An entry is in exactly one place:
 here, in `context/changes/` or in `context/archive/`. Taking an entry works as in
-[`roadmap-deploy/`](../roadmap-deploy/README.md).
+[`roadmap-later/`](../roadmap-later/README.md) ("Taking an entry").
 
 | ID | Entry | Title | Condition | Kind |
 | --- | --- | --- | --- | --- |
