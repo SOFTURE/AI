@@ -64,7 +64,7 @@ command forbids both); a new CLI command that packs the archive (the workflow wo
 ## Progress
 
 #### Automated
-- [ ] Phase 1: ship the server files (tests red before the workflow and template, then green)
+- [x] Phase 1: ship the server files (tests red before the workflow and template, then green)
 
 #### Manual
 - [ ] DP-8 (owner): the first publish of `@softure-ai/deploy` and the `deploy-workflows-v1` tag; until then the

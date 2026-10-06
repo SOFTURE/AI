@@ -1,12 +1,12 @@
 ---
 change_id: deploy-server-files
 title: "The deploy workflow ships the server files with each release"
-status: in_progress
+status: archived
 roadmap_item: DF-7
 branch: claude/project-thread-d8xrl9
 created: 2026-10-06
 updated: 2026-10-06
-archived_at: null
+archived_at: 2026-10-06
 ---
 
 ## Intent
@@ -53,3 +53,8 @@ makes `deploy.sh` use it.
   item and DP-5's plan review; nothing about whether to build it is in doubt.
 - FIRE's gateway: DF-1 has not landed (no session can read FIRE_TRACKER), so whether it ships files stays open and is
   recorded for DF-1 in the research.
+- Archived 2026-10-06: `deploy-app.yml` packs the compose file's folder, `server-script` and `deploy-config` with
+  `.env.prod` into one archive on stdin; `init`'s `deploy.sh` checks it, unpacks it into `releases/<tag>/`, installs
+  the files next to itself (itself by a rename) and restarts Traefik when its rules changed. `@softure-ai/deploy`
+  0.1.1; waiting for its first publish (DP-8). No new gap; DF-8 (from DF-5) makes `deploy.sh` read the shipped
+  `deploy.json`.

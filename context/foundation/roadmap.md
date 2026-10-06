@@ -50,7 +50,7 @@ backlog: context/backlog/roadmap-deploy-followups/
 | **DF-4** | `auth-testing-account-factory` | `@softure-ai/auth/testing` creates an account in SQL with auth's hashing; the example's e2e uses it outside registration specs | — | autonomous | ready |
 | **DF-5** | `deploy-row-count-config` | the tables `row-counts` compares come from `deploy.json` | DP-4 | autonomous | ready |
 | **DF-6** | `deploy-verify-cert-expiry` | `verify` fails when the TLS certificate expires within `verify.tlsMinDays` | — | autonomous | ready |
-| **DF-7** | `deploy-server-files` | `deploy-app.yml` ships the tag's `docker/prod/` files and `deploy.sh` with each release; no hand copy to the server | DP-5, DF-2 | autonomous | in_progress (implement, since 2026-10-06; cloud session, branch `claude/project-thread-d8xrl9`) |
+| **DF-7** | `deploy-server-files` | `deploy-app.yml` ships the tag's `docker/prod/` files and `deploy.sh` with each release; no hand copy to the server | DP-5, DF-2 | autonomous | done_code (2026-10-06; waiting: the first publish of `@softure-ai/deploy`, DP-8) |
 
 ## Order
 
@@ -190,8 +190,8 @@ calls, the owner's own machine, a product decision only the owner can make, or a
 
 ### DF-7: Server files shipped with each release
 - **Change ID:** `deploy-server-files`
-- **Status:** in_progress (implement, since 2026-10-06; cloud session, branch `claude/project-thread-d8xrl9`)
-- **Input:** [`deploy-server-files`](../changes/deploy-server-files/change.md)
+- **Status:** done_code (2026-10-06; waiting: the first publish of `@softure-ai/deploy`, DP-8)
+- **Input:** [`deploy-server-files`](../archive/2026-10-06-deploy-server-files/change.md)
 - **Outcome:** `deploy-app.yml` sends the tag's `docker/prod/` files (and `docker/server/deploy.sh`) to the server
   with `.env.prod`, for example as one archive on stdin that the forced command unpacks into a release folder before
   it switches; `init`'s `deploy.sh` reads it; the forced-command protocol stays one SSH call.
