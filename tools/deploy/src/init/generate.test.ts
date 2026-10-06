@@ -133,18 +133,33 @@ describe("planInitFiles", () => {
   it("runs the database steps of DP-3 in deploy.sh with this package's version", () => {
     const script = textOf(plan(), "docker/server/deploy.sh");
     expect(script).toContain('DEPLOY_CLI="@softure-ai/deploy@9.9.9"');
-    expect(script).toContain('ROW_COUNT_TABLES="users,billing.subscriptions"');
     expect(script).toContain('IMAGE="ghcr.io/acme/app"');
-    const order = ["deploy_cli backup", "deploy_cli schema-guard", "--out=", "compose up --detach --wait --remove-orphans traefik app", "--compare="];
+    const order = [
+      "deploy_cli backup",
+      "deploy_cli schema-guard",
+      'row-counts --config="$release_config" --out=',
+      "compose up --detach --wait --remove-orphans traefik app",
+      'row-counts --config="$release_config" --compare=',
+    ];
     const positions = order.map((marker) => script.indexOf(marker));
     expect(positions.every((position) => position > 0)).toBe(true);
     expect([...positions].sort((a, b) => a - b)).toEqual(positions);
   });
 
-  it("skips the row counts on the first release, which has no rows (and no tables) yet", () => {
+  it("takes the row-count tables from the shipped deploy.json, not from the script", () => {
     const script = textOf(plan(), "docker/server/deploy.sh");
-    expect(script).toContain('if [ -n "$ROW_COUNT_TABLES" ] && [ -n "$previous_tag" ]; then');
-    expect(script).toContain('if [ -n "$counted" ]; then');
+    expect(script).toContain('release_config="$release_dir/deploy.json"');
+    expect(script).not.toContain("ROW_COUNT_TABLES");
+    expect(script).not.toContain("billing.subscriptions");
+  });
+
+  it("writes the tables into deploy.json only for an app with a database and a list", () => {
+    const listed = parseDeployConfig(JSON.parse(textOf(plan(), "deploy.json")));
+    expect(listed.ok && listed.config.database).toEqual({ rowCountTables: ["users", "billing.subscriptions"] });
+    const none = parseDeployConfig(JSON.parse(textOf(plan({ tables: [] }), "deploy.json")));
+    expect(none.ok && none.config.database).toBeUndefined();
+    const noDatabase = parseDeployConfig(JSON.parse(textOf(plan({}, NO_DATABASE), "deploy.json")));
+    expect(noDatabase.ok && noDatabase.config.database).toBeUndefined();
   });
 
   it("routes the whole apex for /, else / plus the allowed prefixes, Next assets and the health route", () => {

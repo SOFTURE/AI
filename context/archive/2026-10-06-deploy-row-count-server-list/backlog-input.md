@@ -17,7 +17,7 @@ not an edit of the generated script on the server.
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md) (deploy-followups), item **DF-8**:
+From [`roadmap.md`](../../foundation/roadmap.md) (deploy-followups), item **DF-8**:
 
 > - **Outcome:** the release ships `deploy.json` with the server files (DF-7); `init`'s `deploy.sh` runs
 >   `row-counts --config=<shipped deploy.json>` instead of `--tables="$ROW_COUNT_TABLES"`, and `init --tables`

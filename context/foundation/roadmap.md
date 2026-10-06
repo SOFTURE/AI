@@ -51,12 +51,13 @@ backlog: context/backlog/roadmap-deploy-followups/
 | **DF-5** | `deploy-row-count-config` | the tables `row-counts` compares come from `deploy.json` | DP-4 | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.2) |
 | **DF-6** | `deploy-verify-cert-expiry` | `verify` fails when the TLS certificate expires within `verify.tlsMinDays` | — | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.2) |
 | **DF-7** | `deploy-server-files` | `deploy-app.yml` ships the tag's `docker/prod/` files and `deploy.sh` with each release; no hand copy to the server | DP-5, DF-2 | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.3 and the owner's `deploy-workflows-v1` tag) |
-| **DF-8** | `deploy-row-count-server-list` | the server's `deploy.sh` counts the tables of the shipped `deploy.json`; `init --tables` writes them there | DF-5, DF-7 | autonomous | ready |
+| **DF-8** | `deploy-row-count-server-list` | the server's `deploy.sh` counts the tables of the shipped `deploy.json`; `init --tables` writes them there | DF-5, DF-7 | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.3) |
 | **DF-9** | `deploy-server-safety` | the server script restores files on a failed switch, keeps `.env.prod.prev`, recreates Traefik on a changed config, writes the tag into `.env.prod`, has a `status` command, a retention cron and machine-readable step lines | DF-7 | autonomous | ready |
 | **DF-10** | `deploy-release-report` | a report job writes pipeline status and deployment history into the release body | DF-9 | autonomous | ready |
 | **DF-11** | `deploy-workflow-release-guards` | the workflow refuses a tag off the default branch, takes build args (origin checked against runtime), non-secret values and a per-deploy registry token | DF-7 | autonomous | ready |
 | **DF-12** | `deploy-cut-release` | a reusable workflow cuts a date tag and release and starts the deploy | DF-11 | autonomous | ready |
 | **DF-13** | `deploy-verify-origin-firewall` | `verify` fails when the server IP answers direct HTTPS | — | autonomous | ready |
+| **DF-14** | `deploy-row-count-new-table` | a table listed in `deploy.json` that the release itself creates does not stop that release; one counted before and missing after still does | DF-8 | autonomous | ready |
 | **MK-10** | `marketing-kit-film-followups` | a committed `marketing.json` reproduces a paid film with no hand fixes: the opening transition is chosen in the config and none flickers, the voiceover cache shows which file belongs to which video (old flat caches still found), and the recording day is pinned per video | — | autonomous | ready |
 
 ## Order
@@ -67,7 +68,7 @@ parallel, up to 4 at once.
 | Lane | Items, in order | Shared files |
 | --- | --- | --- |
 | A: workflow | DF-2 → DF-7 → DF-3, DF-8, DF-9 → DF-10, DF-11 → DF-12 | `.github/workflows/deploy-app.yml`, `tools/deploy/examples/`, `init`'s `deploy.sh` (DF-7, DF-8, DF-9) |
-| B: deploy.json | DF-5, DF-6 | `tools/deploy/src/verify/schema.ts` and `schema/deploy.schema.json` (DF-5 also `src/db/`, DF-6 the rest of `src/verify/`) |
+| B: deploy.json | DF-5, DF-6 → DF-14 | `tools/deploy/src/verify/schema.ts` and `schema/deploy.schema.json` (DF-5 also `src/db/`, DF-6 the rest of `src/verify/`) |
 | C: auth | DF-4 | `foundation/auth/` (`testing` export), example app e2e |
 | D: FIRE parity | DF-1, DF-13 | `tools/deploy/src/` (env, notes, backup, verify); DF-13 `src/verify/` |
 | E: marketing-kit | MK-10 | `tools/marketing-kit/` (`compose/`, `render/`, `voice/cache.ts`, `config/` schema, `cli/`) |
@@ -86,6 +87,7 @@ parallel, up to 4 at once.
    same workflow and server script as DF-7). DF-9 changes mostly `deploy.sh.tmpl` and DF-11 mostly `deploy-app.yml`,
    so they may run in parallel; the second to merge takes `master`. DF-8 and DF-9 share `deploy.sh.tmpl`: one after
    the other. **DF-13** any time (`src/verify/`).
+7. **DF-14** once DF-8 is on `master` (`row-counts` and its counts file; `deploy.sh` stays as DF-8 left it).
 
 `package-lock.json`, the root `tsconfig` references and the example app are touched by several items; `master` is
 the source of truth and each thread merges it and resolves the conflicts itself.
@@ -110,6 +112,7 @@ calls, the owner's own machine, a product decision only the owner can make, or a
 | DF-11 | no | workflow change validated by actionlint and the repository test |
 | DF-12 | no | workflow change validated by actionlint and the repository test; the first real run is the owner's |
 | DF-13 | no | tested against a local closed and open port |
+| DF-14 | no | `row-counts` tested on PGlite or a local Postgres; no live server |
 | MK-10 | no | fixture recordings and the fake voice provider; no paid call; the version bump rides the owner's next release |
 
 ## Items
@@ -224,8 +227,8 @@ calls, the owner's own machine, a product decision only the owner can make, or a
 
 ### DF-8: The server counts the tables of deploy.json
 - **Change ID:** `deploy-row-count-server-list`
-- **Status:** ready
-- **Input:** [`deploy-row-count-server-list`](../backlog/roadmap-deploy-followups/deploy-row-count-server-list/change.md)
+- **Status:** done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.3)
+- **Input:** [`deploy-row-count-server-list`](../archive/2026-10-06-deploy-row-count-server-list/change.md)
 - **Outcome:** the release ships `deploy.json` with the server files (DF-7); `init`'s `deploy.sh` runs
   `row-counts --config=<shipped deploy.json>` instead of `--tables="$ROW_COUNT_TABLES"`, and `init --tables`
   writes `database.rowCountTables` into the generated `deploy.json` instead of the script.
@@ -290,6 +293,21 @@ calls, the owner's own machine, a product decision only the owner can make, or a
 - **Source:** DF-1 (`deploy-fire-parity`), research: FIRE's `verify-production.sh`, the `DEPLOY_IP` check (research §5).
 - **PRD refs:** FR-33.
 
+### DF-14: A new table can join the row-count list with its release
+- **Change ID:** `deploy-row-count-new-table`
+- **Status:** ready
+- **Input:** [`deploy-row-count-new-table`](../backlog/roadmap-deploy-followups/deploy-row-count-new-table/change.md)
+- **Outcome:** a table listed in `database.rowCountTables` that the old schema lacks does not stop the release: the
+  count before the switch notes it as absent, the comparison after the switch prints it as new; a table counted
+  before and missing after still fails.
+- **Prerequisites:** DF-8 on `master`.
+- **Unknowns:** whether the counts file marks an absent table (`null`) or leaves it out.
+- **Risk:** low. Today the release stops before anything restarts, with a clear message; the app adds the table to
+  the list one release later. Mode: autonomous, no owner step.
+- **Source:** DF-8 (`deploy-row-count-server-list`), research question 4: with the list in the app's `deploy.json`,
+  a migration and its table in the list in one commit is an easy mistake.
+- **PRD refs:** FR-33.
+
 ### MK-10: A committed marketing.json reproduces a paid film without hand fixes
 - **Change ID:** `marketing-kit-film-followups`
 - **Status:** ready
@@ -317,3 +335,4 @@ calls, the owner's own machine, a product decision only the owner can make, or a
 - **DF-1** `deploy-fire-parity`: FIRE_TRACKER's release scripts read side by side; `env render` optional names, `release-notes --body/--roadmap`, `backup --exclude-table-data/--max-age-days` with a header check, `verify` method/body/request headers (deploy 0.1.2); the rest recorded as DF-9…DF-13 or as FIRE-specific in the package README; archived in `archive/2026-10-06-deploy-fire-parity/`
 - **DF-4** `auth-testing-account-factory`: `createTestAccount` in `@softure-ai/auth/testing` (auth 0.1.6); the example's e2e creates accounts with it outside registration tests; archived in `archive/2026-10-06-auth-testing-account-factory/`
 - **DF-5** `deploy-row-count-config` (done_code 2026-10-06): `deploy.json` takes an optional `database.rowCountTables` (zod and JSON Schema, unique names in the `row-counts` pattern); `softure-deploy row-counts` counts that list when `--tables` is not given (`--config` names another file; both flags together, or neither flag nor list, is a usage error); `verify` and `row-counts` share the file reader; `@softure-ai/deploy` 0.1.2; gap DF-8 (the server's `deploy.sh` on the list, after DF-7) queued; archived in [`archive/2026-10-06-deploy-row-count-config/`](../archive/2026-10-06-deploy-row-count-config/change.md)
+- **DF-8** `deploy-row-count-server-list` (done_code 2026-10-06): `init`'s `deploy.sh` counts `database.rowCountTables` of the `deploy.json` the release shipped (`row-counts --config=releases/<tag>/deploy.json`, before and after the switch; no file or key skips the counts, an unreadable file stops the release before the switch); `init --tables` writes the list into the generated `deploy.json` for apps with a database; rides `@softure-ai/deploy` 0.1.3; gap DF-14 (a table created by the same release) queued; archived in [`archive/2026-10-06-deploy-row-count-server-list/`](../archive/2026-10-06-deploy-row-count-server-list/change.md)
