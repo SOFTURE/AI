@@ -8,7 +8,8 @@ import { voiceoverKey, voiceoverText, type TimedWord } from "../../src/voice/voi
 /**
  * Copies the fixture project into `target` and generates what a real project would commit or
  * supply, so nothing binary lives in the repository and nothing is paid for:
- * - the voiceover cache entry under the film's key: a quiet tone and evenly spaced word timings;
+ * - the voiceover cache entry under the film's key, in the flat layout of 0.1.5 and earlier (both films share it, and
+ *   every run checks that such a cache is still found): a quiet tone and evenly spaced word timings;
  * - the five sound effects `marketing.json` names, as short tones.
  * The fixture has no brand fonts, so the composition falls back to the system's sans-serif.
  * Needs ffmpeg in PATH.

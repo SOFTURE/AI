@@ -2374,6 +2374,16 @@
                   "additionalProperties": false
                 },
                 "description": "Camera moves over the opening frame, at least one."
+              },
+              "transition": {
+                "default": "fade",
+                "description": "How the opening frame hands over to the scene: fade (a 0.8 s cross-fade), rewind (0.8 s back through the scene in five dissolving frames) or cut.",
+                "type": "string",
+                "enum": [
+                  "fade",
+                  "rewind",
+                  "cut"
+                ]
               }
             },
             "required": [
@@ -2382,6 +2392,11 @@
             ],
             "additionalProperties": false,
             "description": "The opening: the result frame the first sentence plays over."
+          },
+          "today": {
+            "description": "The day the app is recorded as of (YYYY-MM-DD): pin it once the voiceover is paid for, so the numbers it says still match the screen in a later month. --today overrides it; without either, the day of the run.",
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
           },
           "screenGuard": {
             "minItems": 1,

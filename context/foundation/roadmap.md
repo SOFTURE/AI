@@ -59,7 +59,7 @@ backlog: context/backlog/roadmap-deploy-followups/
 | **DF-13** | `deploy-verify-origin-firewall` | `verify` fails when the server IP answers direct HTTPS | — | autonomous | ready |
 | **DF-14** | `deploy-row-count-new-table` | a table listed in `deploy.json` that the release itself creates does not stop that release; one counted before and missing after still does | DF-8 | autonomous | ready |
 | **DF-15** | `deploy-workflow-e2e-server` | the deploy workflow's end-to-end test runs the shipped `deploy.sh` and `verify`, not only the recorder | DF-3 | autonomous | ready |
-| **MK-10** | `marketing-kit-film-followups` | a committed `marketing.json` reproduces a paid film with no hand fixes: the opening transition is chosen in the config and none flickers, the voiceover cache shows which file belongs to which video (old flat caches still found), and the recording day is pinned per video | — | autonomous | ready |
+| **MK-10** | `marketing-kit-film-followups` | a committed `marketing.json` reproduces a paid film with no hand fixes: the opening transition is chosen in the config and none flickers, the voiceover cache shows which file belongs to which video (old flat caches still found), and the recording day is pinned per video | — | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/marketing-kit` 0.1.6) |
 
 ## Order
 
@@ -327,8 +327,8 @@ calls, the owner's own machine, a product decision only the owner can make, or a
 
 ### MK-10: A committed marketing.json reproduces a paid film without hand fixes
 - **Change ID:** `marketing-kit-film-followups`
-- **Status:** ready
-- **Input:** [`marketing-kit-film-followups`](../changes/marketing-kit-film-followups/change.md)
+- **Status:** done_code (2026-10-06; waiting: the release of `@softure-ai/marketing-kit` 0.1.6)
+- **Input:** [`marketing-kit-film-followups`](../archive/2026-10-06-marketing-kit-film-followups/change.md)
 - **Outcome:** `hook` takes a transition choice (at least the current rewind, repaired so it does not flicker, and a
   plain fade or cut); the voiceover cache is laid out so a reader can tell which video a recording belongs to, and
   a 0.1.2 flat cache (`<key>.mp3`/`.json`) is still found without a new paid call; `videos[]` can pin the day the
@@ -354,3 +354,4 @@ calls, the owner's own machine, a product decision only the owner can make, or a
 - **DF-5** `deploy-row-count-config` (done_code 2026-10-06): `deploy.json` takes an optional `database.rowCountTables` (zod and JSON Schema, unique names in the `row-counts` pattern); `softure-deploy row-counts` counts that list when `--tables` is not given (`--config` names another file; both flags together, or neither flag nor list, is a usage error); `verify` and `row-counts` share the file reader; `@softure-ai/deploy` 0.1.2; gap DF-8 (the server's `deploy.sh` on the list, after DF-7) queued; archived in [`archive/2026-10-06-deploy-row-count-config/`](../archive/2026-10-06-deploy-row-count-config/change.md)
 - **DF-8** `deploy-row-count-server-list` (done_code 2026-10-06): `init`'s `deploy.sh` counts `database.rowCountTables` of the `deploy.json` the release shipped (`row-counts --config=releases/<tag>/deploy.json`, before and after the switch; no file or key skips the counts, an unreadable file stops the release before the switch); `init --tables` writes the list into the generated `deploy.json` for apps with a database; rides `@softure-ai/deploy` 0.1.3; gap DF-14 (a table created by the same release) queued; archived in [`archive/2026-10-06-deploy-row-count-server-list/`](../archive/2026-10-06-deploy-row-count-server-list/change.md)
 - **DF-3** `deploy-workflow-e2e` (done 2026-10-06): `.github/workflows/e2e-deploy.yml` calls `deploy-app.yml` with `e2e: true` (refused outside SOFTURE/AI) for the example app on every pull request that touches the workflow or `tools/deploy/`: image built without a push, CLI built from the tag, the production `ssh` command against a throwaway `sshd` whose forced command records the release, then the image, command line, files (byte for byte) and env names are asserted; the server files are init's output committed under `tools/deploy/e2e/app/` (`npm run e2e-app -w @softure-ai/deploy`); gap DF-15 queued; archived in [`archive/2026-10-06-deploy-workflow-e2e/`](../archive/2026-10-06-deploy-workflow-e2e/change.md)
+- **MK-10** `marketing-kit-film-followups`: `hook.transition` (fade by default, a rewind without flicker, cut), the voiceover cache in a folder per video with 0.1.x flat files still found, `videos[].today` pins the recording day (marketing-kit 0.1.6); archived in `archive/2026-10-06-marketing-kit-film-followups/`

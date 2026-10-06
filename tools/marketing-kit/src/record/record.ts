@@ -60,7 +60,7 @@ export interface RecordOptions {
   outDir: string;
   voices: BeatVoice[];
   voiceoverKey: string;
-  /** The day the app counts from: today by default; another day only to reproduce an old film. */
+  /** The day the app counts from (`--today` or the video's `today`); the day of the run without one. */
   today?: string;
   /** The file that holds the scene (its module, or marketing.json for actions), named in errors that ask for a scene fix. */
   filmPath: string;
@@ -346,8 +346,8 @@ export async function recordFilm(options: RecordOptions): Promise<RecordingLog> 
         if (missing.length > 0) {
           throw new ScreenGuardError(
             `The screen does not say what the voiceover says: missing ${missing.map((p) => `"${p}"`).join(", ")}. ` +
-              `The app counts from the recording day, so fix the sentences and phrases in ${filmPath}. ` +
-              `--today=YYYY-MM-DD only reproduces an old film; it is not a way around this refusal.`,
+              `The app counts from the recording day: if the voiceover was paid for on another day, pin that day in the video's ` +
+              `"today" (or pass --today=YYYY-MM-DD); otherwise fix the sentences and phrases in ${filmPath}.`,
           );
         }
         guardChecked = true;

@@ -1,12 +1,12 @@
 ---
 change_id: marketing-kit-film-followups
 title: "A committed marketing.json reproduces a paid film without hand fixes"
-status: new
+status: archived
 roadmap_item: MK-10
-branch: null
+branch: claude/project-thread-82bjfh
 created: 2026-10-06
 updated: 2026-10-06
-archived_at: null
+archived_at: 2026-10-06
 ---
 
 ## Intent
@@ -74,3 +74,8 @@ Three gaps found there:
   cache layout (per-video folder vs readable prefix plus key) and whether stale keys get a `prune`/listing command.
 - Related: GitHub issue #118 lists the gaps from the same adoption's earlier phases (ad-hoc screenshots, scroll
   frame, authenticated screens, README fixes, a renderable dry-run voiceover); they are not part of this change.
+- Research done ([`research.md`](research.md)): the rewind's cause measured in the code, the cache lookup and its
+  callers, where the recording day enters `record`.
+- Framing skipped: the problem is fixed by FIRE's finding and the owner's own words (flicker, unreadable cache,
+  the day only in a flag); what remains are design choices, settled in research and the plan.
+- Archived 2026-10-06: the transition is chosen per video and none flickers, recordings live per video with flat files still found, the recording day is pinned in the config; marketing-kit 0.1.6 waits for its release.

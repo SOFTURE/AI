@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { readOptions } from "../src/cli/options.js";
+import { getRecordingDay, readOptions } from "../src/cli/options.js";
 
 describe("readOptions", () => {
   it("reads a command, a film and the defaults", () => {
@@ -49,7 +49,8 @@ describe("readOptions", () => {
     ["no film", ["render"], /name the film/],
     ["two films", ["render", "a", "b"], /one film at a time/],
     ["a film id with uppercase", ["render", "Anna"], /lowercase letters, digits and hyphens/],
-    ["a malformed --today", ["record", "a", "--today=29.09.2026"], /expected YYYY-MM-DD/],
+    ["a malformed --today", ["record", "a", "--today=29.09.2026"], /expected a real day as YYYY-MM-DD/],
+    ["a --today that is not a calendar day", ["record", "a", "--today=2026-02-30"], /--today=2026-02-30: expected a real day/],
     ["an unknown quality", ["render", "a", "--quality=ultra"], /expected draft \| standard \| high/],
     ["--commit with a value", ["voice", "a", "--commit=yes"], /takes no value/],
     ["--commit on all, which never pays", ["all", "a", "--commit"], /from the cache only/],
@@ -92,5 +93,19 @@ describe("readOptions for shots", () => {
     const result = readOptions(argv);
     expect(result.ok).toBe(false);
     expect(!result.ok && result.error).toMatch(message);
+  });
+});
+
+describe("getRecordingDay", () => {
+  it("takes --today over the video's day", () => {
+    expect(getRecordingDay("2026-11-02", "2026-10-06")).toEqual({ day: "2026-11-02", source: "--today" });
+  });
+
+  it("takes the video's day without --today", () => {
+    expect(getRecordingDay(undefined, "2026-10-06")).toEqual({ day: "2026-10-06", source: "videos[].today" });
+  });
+
+  it("records as of the day of the run without either", () => {
+    expect(getRecordingDay(undefined, null)).toEqual({ day: null, source: "the day of the run" });
   });
 });

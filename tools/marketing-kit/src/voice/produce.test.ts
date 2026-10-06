@@ -106,3 +106,66 @@ describe("produceVoiceover", () => {
     expect(provider.calls).toHaveLength(0);
   });
 });
+
+describe("produceVoiceover with a video id", () => {
+  const videoId = "anna-calculator";
+  /** A recording as 0.1.5 and earlier saved it: `<key>.mp3` and `<key>.json` in the cache root. */
+  function writeFlatRecording(key: string): void {
+    mkdirSync(cacheDir, { recursive: true });
+    writeFileSync(join(cacheDir, `${key}.mp3`), "paid audio");
+    writeFileSync(join(cacheDir, `${key}.json`), '[{"text":"Anna","start":0,"end":0.4}]\n');
+  }
+
+  it("finds a flat recording of an earlier version by its real file name and calls no provider", async () => {
+    // Oracle outside the code: sha256 of {"text":"Anna has a cat.","voice":"v","model":"m","lang":"en"}, first 16 hex.
+    const key = "d6944f24f8cf2a5f";
+    expect(getVoiceoverPaths(cacheDir, input).key).toBe(key);
+    writeFlatRecording(key);
+    const provider = createFakeTtsProvider();
+    const result = await produceVoiceover({ cacheDir, input, videoId, provider, isCommit: true, log });
+    expect(result.ok && result.value.kind === "cached" && result.value.voiceover.audio).toBe(join(cacheDir, `${key}.mp3`));
+    expect(provider.calls).toHaveLength(0);
+    expect(lines[1]).toBe(
+      `voiceover: ${key}.mp3 and .json sit in the cache root (the layout before 0.1.6); move them into ${join(cacheDir, videoId)}/ to keep them with their film.`,
+    );
+  });
+
+  it("records a new voiceover into the video's own folder", async () => {
+    const provider = createFakeTtsProvider();
+    await produceVoiceover({ cacheDir, input, videoId, provider, isCommit: true, log });
+    const { key } = getVoiceoverPaths(cacheDir, input);
+    expect(readdirSync(join(cacheDir, videoId)).sort()).toEqual([`${key}.json`, `${key}.mp3`]);
+    expect(readdirSync(cacheDir)).toEqual([videoId]);
+  });
+
+  it("prefers the video's folder over a flat file with the same key", () => {
+    const { key } = getVoiceoverPaths(cacheDir, input);
+    writeFlatRecording(key);
+    expect(getVoiceoverPaths(cacheDir, input, videoId).layout).toBe("flat");
+    mkdirSync(join(cacheDir, videoId));
+    writeFileSync(join(cacheDir, videoId, `${key}.mp3`), "moved");
+    writeFileSync(join(cacheDir, videoId, `${key}.json`), "[]\n");
+    expect(getVoiceoverPaths(cacheDir, input, videoId)).toEqual({
+      key,
+      audio: join(cacheDir, videoId, `${key}.mp3`),
+      words: join(cacheDir, videoId, `${key}.json`),
+      layout: "video",
+    });
+  });
+
+  it("lists the film's recordings the current script no longer uses, not the live one", async () => {
+    const provider = createFakeTtsProvider();
+    await produceVoiceover({ cacheDir, input: { ...input, text: "An older script." }, videoId, provider, isCommit: true, log });
+    await produceVoiceover({ cacheDir, input, videoId, provider, isCommit: true, log });
+    const old = getVoiceoverPaths(cacheDir, { ...input, text: "An older script." }).key;
+    lines = [];
+    await produceVoiceover({ cacheDir, input, videoId, provider, isCommit: false, log });
+    expect(lines[0]).toBe(`voiceover: ${join(cacheDir, videoId)} also holds ${old}.mp3, which the current script does not use; delete them once no film needs them.`);
+    expect(lines[1]).toMatch(/from the cache/);
+  });
+
+  it("keeps the flat layout without a video id and uses the video's folder when nothing is cached", () => {
+    expect(getVoiceoverPaths(cacheDir, input).layout).toBe("flat");
+    expect(getVoiceoverPaths(cacheDir, input, videoId).layout).toBe("video");
+  });
+});

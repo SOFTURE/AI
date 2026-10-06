@@ -30,10 +30,12 @@ the screen guard refused the recording (the screen did not show what the voiceov
 
 - **`--commit`** is the only way to spend money: `voice` prints the cost estimate, then calls the
   configured TTS provider (ElevenLabs, `ELEVENLABS_API_KEY` from the environment) and writes
-  `<key>.mp3` + `<key>.json` into `voice.cacheDir`. Commit them: the next render of the same text costs
+  `<video>/<key>.mp3` + `<video>/<key>.json` into `voice.cacheDir`. Commit them: the next render of the same text costs
   nothing. `all` never pays; on a cache miss it prints the estimate and stops. See
   [Voiceover providers and cost](#voiceover-providers-and-cost).
-- **`--today`** records the app as of another day, only to reproduce an old film.
+- **`--today`** records the app as of another day for one run; it overrides the video's `today`. Once a
+  voiceover is paid for, pin its day in the video's `today` instead, so a plain `all` reproduces the film in any
+  later month (the voiceover says numbers that depend on the day).
 - **Server:** when the configured app does not answer, `record` starts `app.startCommand` in the config
   folder on `app.port` and stops it afterwards (log in `<output.buildDir>/server.log`).
 - Every command checks that the video's scene module exists (when it has one); `render`, `preview` and `all` also check
@@ -146,6 +148,8 @@ folder of `marketing.json`. A complete example: [examples/fixture/marketing.json
 | `voice` | `provider` (`elevenlabs`), `voiceId`, `model` (`eleven_multilingual_v2`), `language`, `tempo` (`1`, 0.8-1.3), `cacheDir` (`marketing/voiceover`) | the voiceover; text, voice, model and language make the cache key, the tempo is applied at build time |
 | `videos[]` | `id`, `title`, `path`, `format` (`9:16`, or `1:1`, `16:9`), `device`, `voice` (`voiceId`, `model`, `tempo`) | a film and its overrides |
 | | `persona`, `beats`, `hook`, `screenGuard`, `endCard` | the script, see [A film](#a-film) |
+| | `hook.transition` (`fade`, or `rewind`, `cut`) | how the opening frame hands over to the scene |
+| | `today` (`YYYY-MM-DD`) | the day the app is recorded as of; none: the day of the run; `--today` wins |
 | | `beats[].actions`, `beats[].pad` | the scene as data, see [Scene actions](#scene-actions) |
 | | `sceneModule` | instead of actions: the TS module exporting `scene` |
 | `social` | `linkTemplate` | the link every post carries, `{code}` replaced by the platform's channel code |
@@ -202,8 +206,14 @@ The fixture has the same film both ways in [examples/fixture/marketing.json](exa
 `fixture-tour-actions` with actions, `fixture-tour` with the module
 [examples/fixture/films/fixture-tour.ts](examples/fixture/films/fixture-tour.ts). Both record the same log.
 
-- **`beats`**: the voiceover sentences. The first plays over the opening (a frame of the result with a
-  rewind), the last ends on the end card. Changing the text means a new, paid recording.
+- **`beats`**: the voiceover sentences. The first plays over the opening (a frame of the result), the last
+  ends on the end card. Changing the text means a new, paid recording.
+- **`hook.transition`**: how the opening frame hands over to the scene's first frame. `fade` (the default) is a
+  0.8 s cross-fade; `rewind` runs 0.8 s back through the scene in five key frames joined by dissolves; `cut`
+  starts the scene at once. Before 0.1.6 every film had a rewind of 24 blended frames that flickered; a film
+  rendered again now opens with a fade unless it asks for `rewind`.
+- **`today`**: the day the app is recorded as of. Pin it to the day the voiceover's numbers were true, so the
+  screen guard keeps passing after the calendar moves.
 - **`actions`** on every beat after the first: what happens on screen during that sentence (below).
 - **`sceneModule`**, the escape hatch for a scene that needs logic: a TS module exporting `scene`
   (typed `Scene`) that drives the Director itself: `d.beat(id, …, { pad })`, then the same methods as
@@ -275,7 +285,7 @@ changing it costs nothing.
 
 | Run | What happens |
 | --- | --- |
-| the cache has `<key>.mp3` and `<key>.json` | `voiceover: from the cache <key>, nothing spent.` |
+| the cache has `<video>/<key>.mp3` and `.json` (or, from 0.1.5 and earlier, `<key>.mp3` and `.json` in the cache root) | `voiceover: from the cache <key>, nothing spent.` |
 | no cache, no `--commit` | `voiceover estimate (elevenlabs): 412 characters, at most 412 ElevenLabs credits.` and a dry-run line; no request is sent |
 | no cache, `--commit` | the same estimate line **first**, then one paid request, then the files are written |
 
@@ -286,12 +296,24 @@ and `produceVoiceover({ cacheDir, input, provider, isCommit, log })`, so a proje
 without the network. A second real provider must add its id to the cache key, so that its recordings
 never collide with ElevenLabs's under the same voice and model names.
 
+### The cache layout
+
+Each video keeps its recordings in its own folder, `<voice.cacheDir>/<video id>/<key>.mp3` and `<key>.json`, so a
+reader sees which film a paid file belongs to. The key is unchanged from earlier versions, so nothing is recorded
+again:
+
+- A recording saved by 0.1.5 or earlier sits flat in `voice.cacheDir`. It is still found (the video's folder first,
+  then the flat file), and `voice`/`all` print where to move it; `git mv` both files into the video's folder.
+- When the script changes, the new recording lands next to the old one, and `voice`/`all` list the files in the
+  folder the current script no longer uses. Delete them in git once no film needs them.
+
 ### Migrating FIRE_TRACKER's voiceover cache
 
 FIRE's key hashed the same object with the language fixed to `pl`, and its words files have the same
 format, so its paid recordings are reused as they are, with no re-keying and no new paid call:
 
-1. Copy FIRE's voiceover folder (`<key>.mp3` + `<key>.json` pairs) into `voice.cacheDir`.
+1. Copy FIRE's voiceover folder (`<key>.mp3` + `<key>.json` pairs) into `voice.cacheDir`, ideally into the folder of
+   the video each pair belongs to (`<voice.cacheDir>/<video id>/`); flat files are found too.
 2. Set `voice.language` to `"pl"`, and `voice.voiceId` and `voice.model` (or a video's `voice`
    override) to the values FIRE used.
 3. Run `softure-marketing voice <video>` **without** `--commit` for every video. Each must print

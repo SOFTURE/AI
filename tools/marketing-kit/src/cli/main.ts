@@ -16,7 +16,7 @@ import { splitIntoBeats } from "../voice/voiceover.js";
 import { CliFailure, fail } from "./failure.js";
 import { loadFilm, type LoadedFilm } from "./films.js";
 import { writeOgImages } from "./og.js";
-import { readOptions, type FilmOptions, type ShotsOptions } from "./options.js";
+import { getRecordingDay, readOptions, type FilmOptions, type ShotsOptions } from "./options.js";
 import { ensureServer } from "./server.js";
 import { getVoiceoverPaths, produceVoiceover, readJson, requireVoiceover } from "./voice.js";
 
@@ -25,7 +25,7 @@ import { getVoiceoverPaths, produceVoiceover, readJson, requireVoiceover } from 
  *
  *   all <film>                 voiceover from the cache -> recording -> render -> post copy
  *   voice <film> [--commit]    voiceover (paid only with --commit)
- *   record <film> [--today=YYYY-MM-DD] [--url=...]
+ *   record <film> [--today=YYYY-MM-DD] [--url=...]   (--today overrides the video's today)
  *   render <film> [--quality=draft|standard|high]
  *   preview <film>
  *   posts <film>
@@ -48,16 +48,17 @@ async function record(config: MarketingConfig, film: LoadedFilm, options: FilmOp
   const voices = splitIntoBeats(voiceover.words, film.beats, film.voice.tempo);
   const server = await ensureServer(config, film, options.url);
   mkdirSync(getBuildDir(config, film), { recursive: true });
+  const recordingDay = getRecordingDay(options.today, film.today);
   let log: RecordingLog;
   try {
-    console.log(`recording: ${server.url} frame by frame; this takes a few minutes.`);
+    console.log(`recording: ${server.url} frame by frame, the app as of ${recordingDay.day ?? "today"} (${recordingDay.source}); this takes a few minutes.`);
     log = await recordFilm({
       film,
       url: server.url,
       outDir: getBuildDir(config, film),
       voices,
       voiceoverKey: getVoiceoverPaths(config, film).key,
-      today: options.today,
+      today: recordingDay.day ?? undefined,
       filmPath: film.scenePath,
       executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH || undefined,
       browser: {
