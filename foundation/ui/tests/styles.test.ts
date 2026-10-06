@@ -136,7 +136,10 @@ describe("styles.css", () => {
 describe("tailwind.css", () => {
   it("maps every colour, font, text, radius, space, shadow and ease token for the app's Tailwind", () => {
     expect(bridge.startsWith("@theme inline {")).toBe(true);
-    const mapped = [...theme.SCHEME_TOKENS, ...theme.SHARED_TOKENS].filter((name) => !name.startsWith("duration-"));
+    // Durations have no Tailwind namespace; chart tokens are read by @softure-ai/charts/styles.css, not by utilities.
+    const mapped = [...theme.SCHEME_TOKENS, ...theme.SHARED_TOKENS].filter(
+      (name) => !name.startsWith("duration-") && !name.startsWith("chart-"),
+    );
     for (const name of mapped) expect(bridge, name).toContain(`: var(--sft-${name});`);
   });
 });

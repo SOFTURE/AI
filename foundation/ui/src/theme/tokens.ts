@@ -20,6 +20,14 @@ export const SCHEME_TOKENS = [
   "color-focus",
   "shadow-1",
   "shadow-2",
+  "chart-grid",
+  "chart-axis",
+  "chart-cursor",
+  "chart-flag",
+  "chart-on-flag",
+  "chart-series-1",
+  "chart-series-2",
+  "chart-series-3",
 ] as const;
 
 /** Tokens shared by both schemes: typography, shape, spacing and motion. */
@@ -51,6 +59,10 @@ export const SHARED_TOKENS = [
   "duration-slow",
   "ease-out",
   "ease-in-out",
+  "chart-line-width",
+  "chart-grid-width",
+  "chart-dot-size",
+  "chart-plot-height",
 ] as const;
 
 export type SchemeTokenName = (typeof SCHEME_TOKENS)[number];
@@ -102,6 +114,16 @@ export const DEFAULT_THEME: CompleteTheme = {
     "color-focus": "#356912",
     "shadow-1": "0 1px 2px rgb(12 12 13 / 0.06)",
     "shadow-2": "0 8px 24px rgb(12 12 13 / 0.12)",
+    // Charts (@softure-ai/charts): today's role colours, as literals so contrast checks read them.
+    // Grid lines are decoration; the axis and the cursor carry meaning (axis >= 4.5:1, cursor >= 3:1).
+    "chart-grid": "#e6e7ea",
+    "chart-axis": "#5b606b",
+    "chart-cursor": "#8a8f98",
+    "chart-flag": "#cff26b",
+    "chart-on-flag": "#0c0c0d",
+    "chart-series-1": "#356912",
+    "chart-series-2": "#16171a",
+    "chart-series-3": "#b45309",
   },
   dark: {
     "color-background": "#0c0c0d",
@@ -121,6 +143,14 @@ export const DEFAULT_THEME: CompleteTheme = {
     "color-focus": "#cff26b",
     "shadow-1": "0 1px 2px rgb(0 0 0 / 0.4)",
     "shadow-2": "0 8px 24px rgb(0 0 0 / 0.5)",
+    "chart-grid": "#2a2c30",
+    "chart-axis": "#a3a6ad",
+    "chart-cursor": "#6b6f77",
+    "chart-flag": "#cff26b",
+    "chart-on-flag": "#0c0c0d",
+    "chart-series-1": "#cff26b",
+    "chart-series-2": "#f2f3f5",
+    "chart-series-3": "#fbbf24",
   },
   shared: {
     "font-sans": 'ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji"',
@@ -151,5 +181,11 @@ export const DEFAULT_THEME: CompleteTheme = {
     "duration-slow": "240ms",
     "ease-out": "cubic-bezier(0.22, 0.61, 0.36, 1)",
     "ease-in-out": "cubic-bezier(0.65, 0, 0.35, 1)",
+    // Charts: series and grid strokes (they do not scale with the stretched plot), the cursor's dots
+    // and the plot's height (its width follows the container).
+    "chart-line-width": "2px",
+    "chart-grid-width": "1px",
+    "chart-dot-size": "0.625rem",
+    "chart-plot-height": "16rem",
   },
 };
