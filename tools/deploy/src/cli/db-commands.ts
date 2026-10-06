@@ -30,7 +30,17 @@ async function runOnDatabase<T>(command: string, url: string, run: Parameters<ty
   }
 }
 
-/** `softure-deploy backup`: a pg_dump into `--dir`, then the newest `--keep` dumps of `--prefix` stay. */
+/** A whole number of at least 1, or a usage error naming the flag. */
+function readCount(command: string, flag: string, value: string): number {
+  const count = Number(value);
+  if (!Number.isInteger(count) || count < 1) fail(`${command}: --${flag} must be a whole number of at least 1, got "${value}".`, USAGE_EXIT_CODE);
+  return count;
+}
+
+/**
+ * `softure-deploy backup`: a pg_dump into `--dir`, then the newest `--keep` dumps of `--prefix` stay and, with
+ * `--max-age-days`, none older; `--exclude-table-data` leaves the rows of those tables out.
+ */
 export async function runBackup(args: string[], io: CliIo): Promise<void> {
   const flags = readFlags("backup", args, {
     dir: { type: "string", default: DEFAULT_BACKUP_DIR },
@@ -38,9 +48,17 @@ export async function runBackup(args: string[], io: CliIo): Promise<void> {
     keep: { type: "string", default: String(DEFAULT_BACKUP_KEEP) },
     "url-env": { type: "string", default: DEFAULT_URL_ENV },
     "pg-dump": { type: "string", default: "pg_dump" },
+    "max-age-days": { type: "string" },
+    "exclude-table-data": { type: "string" },
   });
-  const keep = Number(flags.keep);
-  if (!Number.isInteger(keep) || keep < 1) fail(`backup: --keep must be a whole number of at least 1, got "${flags.keep}".`, USAGE_EXIT_CODE);
+  const keep = readCount("backup", "keep", flags.keep);
+  const maxAgeDays = flags["max-age-days"] === undefined ? null : readCount("backup", "max-age-days", flags["max-age-days"]);
+  let excludeTableData: string[] = [];
+  if (flags["exclude-table-data"] !== undefined) {
+    const list = parseTableList(flags["exclude-table-data"]);
+    if (!list.ok) fail(`backup: --exclude-table-data: ${list.problem}.`, USAGE_EXIT_CODE);
+    excludeTableData = list.tables;
+  }
   if (!BACKUP_PREFIX.test(flags.prefix)) {
     fail(`backup: --prefix must be lower case letters, digits, - and _, got "${flags.prefix}".`, USAGE_EXIT_CODE);
   }
@@ -50,6 +68,8 @@ export async function runBackup(args: string[], io: CliIo): Promise<void> {
     dir: resolve(io.cwd, flags.dir),
     prefix: flags.prefix,
     keep,
+    maxAgeDays,
+    excludeTableData,
     libpqEnv: libpq.env,
     pgDump: flags["pg-dump"],
     now: new Date(),

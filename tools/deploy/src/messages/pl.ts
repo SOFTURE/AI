@@ -9,5 +9,9 @@ export const pl: DeployMessages = {
     pullRequests: "Pull requesty",
     commits: "Inne commity",
     fullDiff: "Pełny diff",
+    roadmapItems: "Pozycje roadmapy",
+    roadmapId: "ID",
+    roadmapChange: "Zmiana",
+    roadmapOutcome: "Efekt",
   },
 };
