@@ -8,11 +8,10 @@ Finished main roadmaps move to `../archive/<YYYY-MM-DD>-roadmap.md`.
 | Roadmap | Theme | Prefix | Status |
 | --- | --- | --- | --- |
 | [`roadmap-charts.md`](roadmap-charts.md) | SVG chart primitives with accessibility guards (`@softure-ai/charts`, `ui/testing`) | `CH-` | waiting |
-| [`roadmap-deploy-followups.md`](roadmap-deploy-followups.md) | the catch-all for gaps found while delivering the deploy roadmap | `DF-` | waiting |
 | [`roadmap-later.md`](roadmap-later.md) | items parked until an owner step (secrets, accounts, the batch release) is done | `LT-` (and MK-8, EN-9, MO-6, BL-8, DP-8 carried over) | waiting |
 
-Main roadmap now: [none](../roadmap.md). Deploy (`DP-`) closed on 2026-10-06 with DP-1…DP-7 merged and DP-8 carried
-over to `later`; the next one is the owner's call. Archived: [`foundation`](../archive/2026-10-02-roadmap.md),
+Main roadmap now: [`deploy-followups`](../roadmap.md) (`DF-`, promoted by the owner on 2026-10-06), after deploy
+(`DP-`) closed on 2026-10-06 with DP-1…DP-7 merged and DP-8 carried over to `later`. Archived: [`foundation`](../archive/2026-10-02-roadmap.md),
 [`identity`](../archive/2026-10-03-roadmap.md), [`engagement`](../archive/2026-10-03-2-roadmap.md),
 [`monetization`](../archive/2026-10-03-3-roadmap.md), [`marketing-kit`](../archive/2026-10-03-4-roadmap.md), [`followups`](../archive/2026-10-04-roadmap.md),
 [`blog`](../archive/2026-10-04-2-roadmap.md), [`blog-followups`](../archive/2026-10-05-roadmap.md),

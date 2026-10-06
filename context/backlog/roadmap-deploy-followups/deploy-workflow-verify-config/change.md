@@ -15,7 +15,7 @@ The `verify` job of `deploy-app.yml` runs `softure-deploy verify` with the app's
 
 ## Context
 
-From [`roadmap-deploy-followups.md`](../../../foundation/roadmaps/roadmap-deploy-followups.md), item **DF-2**:
+From [`roadmap.md`](../../../foundation/roadmap.md) (deploy-followups), item **DF-2** (main roadmap since 2026-10-06):
 
 > - **Change ID:** `deploy-workflow-verify-config`
 > - **Status:** ready
