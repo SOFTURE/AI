@@ -44,7 +44,7 @@ backlog: context/backlog/roadmap-deploy-followups/
 
 | ID | Change | Outcome | Depends on | Mode | Status |
 | --- | --- | --- | --- | --- | --- |
-| **DF-1** | `deploy-fire-parity` | `env render`, `release-notes`, the deploy workflow, the database steps (`backup`, `schema-guard`, `row-counts`) and `verify` checked against FIRE_TRACKER's scripts and tests; differences ported or recorded | — | owner (read access to FIRE_TRACKER) | in_progress (implement 1/5, since 2026-10-06; cloud session, branch `claude/project-thread-sxdn77`) |
+| **DF-1** | `deploy-fire-parity` | `env render`, `release-notes`, the deploy workflow, the database steps (`backup`, `schema-guard`, `row-counts`) and `verify` checked against FIRE_TRACKER's scripts and tests; differences ported or recorded | — | owner (read access to FIRE_TRACKER) | in_progress (implement 2/5, since 2026-10-06; cloud session, branch `claude/project-thread-sxdn77`) |
 | **DF-2** | `deploy-workflow-verify-config` | the `verify` job of `deploy-app.yml` runs `softure-deploy verify` with the app's `deploy.json` instead of only the health route | DP-4 | autonomous | done_code (2026-10-06; waiting: the first publish of `@softure-ai/deploy`, DP-8) |
 | **DF-3** | `deploy-workflow-e2e` | a CI job runs `deploy-app.yml` against a throwaway SSH server and registry, so a broken step fails here, not on the first live deploy | DP-5, DF-7 | autonomous | ready |
 | **DF-4** | `auth-testing-account-factory` | `@softure-ai/auth/testing` creates an account in SQL with auth's hashing; the example's e2e uses it outside registration specs | — | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/auth` 0.1.6) |
@@ -99,7 +99,7 @@ calls, the owner's own machine, a product decision only the owner can make, or a
 
 ### DF-1: Parity of the deploy CLI with FIRE_TRACKER
 - **Change ID:** `deploy-fire-parity`
-- **Status:** in_progress (implement 1/5, since 2026-10-06; cloud session, branch `claude/project-thread-sxdn77`)
+- **Status:** in_progress (implement 2/5, since 2026-10-06; cloud session, branch `claude/project-thread-sxdn77`)
 - **Input:** [`deploy-fire-parity`](../changes/deploy-fire-parity/change.md)
 - **Outcome:** FIRE_TRACKER's `scripts/render-env-prod.mts`, `scripts/release-notes.mts`, `src/lib/release-notes.ts`,
   their tests and `.github/workflows/release-opis.yml` are read; every behaviour and test case that is generic is

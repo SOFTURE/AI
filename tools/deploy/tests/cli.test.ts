@@ -136,6 +136,29 @@ describe("softure-deploy release-notes", () => {
     expect(notes).toContain("[Full diff](https://github.com/acme/app/compare/v1.0.0...v1.1.0)");
   });
 
+  it("adds the roadmap's done_code items and keeps the owner's text of the release body", async () => {
+    writeFileSync(
+      join(dir, "roadmap.md"),
+      "## At a glance\n\n| ID | Change | Outcome | Status |\n| --- | --- | --- | --- |\n| **AB-1** | `export` | CSV export | done_code |\n| **AB-2** | `old` | shipped | done |\n",
+    );
+    writeFileSync(join(dir, "body.md"), "What this version is about.\n");
+    const args = ["release-notes", "--to=v1.1.0", "--roadmap=roadmap.md", "--body=body.md", "--out=body.md"];
+    expect(await runCli(args, makeIo())).toBe(0);
+    expect(await runCli(args, makeIo())).toBe(0);
+    const body = readFileSync(join(dir, "body.md"), "utf8");
+    expect(body.startsWith("What this version is about.\n\n<!-- softure-deploy:release-notes -->\n## v1.1.0")).toBe(true);
+    expect(body.split("<!-- softure-deploy:release-notes -->")).toHaveLength(2);
+    expect(body).toContain("| **AB-1** | `export` | CSV export |");
+    expect(body).not.toContain("AB-2");
+  });
+
+  it("starts a release body that does not exist yet and fails on a missing roadmap", async () => {
+    expect(await runCli(["release-notes", "--to=v1.1.0", "--body=new.md"], makeIo())).toBe(0);
+    expect(out.join("")).toMatch(/^<!-- softure-deploy:release-notes -->\n## v1\.1\.0/);
+    expect(await runCli(["release-notes", "--to=v1.1.0", "--roadmap=missing.md"], makeIo())).toBe(1);
+    expect(err.at(-1)).toBe("release-notes: cannot read missing.md (ENOENT).\n");
+  });
+
   it("writes the report to a file in Polish", async () => {
     const code = await runCli(["release-notes", "--from=v1.0.0", "--to=v1.1.0", "--locale=pl", "--out=notes.md"], makeIo());
     expect(code).toBe(0);
