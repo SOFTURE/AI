@@ -6,16 +6,16 @@ import { spawnSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/test";
-import { authMessages, users } from "@softure-ai/auth";
+import { users } from "@softure-ai/auth";
 import { billingMessages, entitlements } from "@softure-ai/billing";
 import { readMailOutbox } from "@softure-ai/mailing/testing";
-import { clientAddressHeaders, registerAccount, uniqueEmail } from "@softure-ai/testing/playwright";
+import { clientAddressHeaders, uniqueEmail } from "@softure-ai/testing/playwright";
 import { eq, inArray } from "drizzle-orm";
+import { createSignedInAccount } from "./accounts.ts";
 import { openTestDatabase } from "./database.ts";
 import { MAIL_OUTBOX } from "./outbox.ts";
 
 const APP_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const authCopy = authMessages.en;
 const copy = billingMessages.en;
 const PASSWORD = "correct horse battery";
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -77,7 +77,7 @@ test("an account is mailed once before its trial ends and once after it has ende
   if (baseURL === undefined) throw new Error("the e2e needs a baseURL");
   const email = uniqueEmail("e2e-reminder");
   createdEmails.push(email);
-  await registerAccount(page, { copy: authCopy, email, password: PASSWORD });
+  await createSignedInAccount(page, { email, password: PASSWORD });
 
   // Two or three days left (depending on the hour in Warsaw): inside the 3-day reminder window.
   await setTrialEnd(email, new Date(Date.now() + 2 * DAY_MS));

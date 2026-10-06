@@ -18,7 +18,7 @@ The example app's e2e uses it where a spec only needs "a signed-in account".
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md) (deploy-followups), item **DF-4** (main roadmap since 2026-10-06):
+From [`roadmap.md`](../../foundation/roadmap.md) (deploy-followups), item **DF-4** (main roadmap since 2026-10-06):
 
 > ### DF-4: Account factory in auth's testing export
 > - **Change ID:** `auth-testing-account-factory`

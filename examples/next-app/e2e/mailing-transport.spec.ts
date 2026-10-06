@@ -3,15 +3,15 @@
 // reads (MAIL_OUTBOX, softure.config.ts). Every test gets its own client address and account.
 import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
-import { authMessages, users } from "@softure-ai/auth";
+import { users } from "@softure-ai/auth";
 import { readMailOutbox } from "@softure-ai/mailing/testing";
-import { clientAddressHeaders, registerAccount, uniqueEmail } from "@softure-ai/testing/playwright";
+import { clientAddressHeaders, uniqueEmail } from "@softure-ai/testing/playwright";
 import { inArray } from "drizzle-orm";
 import { en } from "../messages/en.ts";
+import { createSignedInAccount } from "./accounts.ts";
 import { openTestDatabase } from "./database.ts";
 import { MAIL_OUTBOX } from "./outbox.ts";
 
-const authCopy = authMessages.en;
 const PASSWORD = "correct horse battery";
 const createdEmails: string[] = [];
 
@@ -33,13 +33,13 @@ test.afterAll(async () => {
   }
 });
 
-async function register(page: Page, email: string): Promise<void> {
-  await registerAccount(page, { copy: authCopy, email, password: PASSWORD });
+async function signIn(page: Page, email: string): Promise<void> {
+  await createSignedInAccount(page, { email, password: PASSWORD });
 }
 
 test("a signed-in user sends a test mail to their own address, captured with the configured sender", async ({ page }) => {
   const email = newEmail();
-  await register(page, email);
+  await signIn(page, email);
   await page.getByRole("link", { name: en.account.testMail }).click();
   await expect(page).toHaveURL("/account/mail");
 
@@ -66,7 +66,7 @@ test("a signed-in user sends a test mail to their own address, captured with the
 
 test("a blank subject is refused at the boundary and nothing is sent", async ({ page }) => {
   const email = newEmail();
-  await register(page, email);
+  await signIn(page, email);
   await page.goto("/account/mail");
 
   await page.getByLabel(en.mail.subjectLabel).fill("   ");

@@ -10,17 +10,17 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
-import { authMessages, users } from "@softure-ai/auth";
+import { users } from "@softure-ai/auth";
 import { billingMessages, entitlements } from "@softure-ai/billing";
-import { clientAddressHeaders, registerAccount, uniqueEmail, uniqueName } from "@softure-ai/testing/playwright";
+import { clientAddressHeaders, uniqueEmail, uniqueName } from "@softure-ai/testing/playwright";
 import { eq, inArray } from "drizzle-orm";
 import { en } from "../messages/en.ts";
 import { entries } from "../modules/guestbook/schema.ts";
+import { createSignedInAccount } from "./accounts.ts";
 import { openTestDatabase } from "./database.ts";
 
 const APP_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const DAY_MS = 24 * 60 * 60 * 1000;
-const authCopy = authMessages.en;
 const copy = billingMessages.en;
 const PASSWORD = "correct horse battery";
 const createdEmails: string[] = [];
@@ -48,10 +48,10 @@ test.afterAll(async () => {
   }
 });
 
-async function registerAndOpenBillingPage(page: Page): Promise<string> {
+async function signInAndOpenBillingPage(page: Page): Promise<string> {
   const email = uniqueEmail("e2e-billing");
   createdEmails.push(email);
-  await registerAccount(page, { copy: authCopy, email, password: PASSWORD });
+  await createSignedInAccount(page, { email, password: PASSWORD });
   await page.getByRole("link", { name: en.account.billing }).click();
   await expect(page).toHaveURL("/account/billing");
   return email;
@@ -104,7 +104,7 @@ test("the billing page is private: a visitor without a session goes to the login
 });
 
 test("a new account is on its 14-day trial and may write", async ({ page }) => {
-  await registerAndOpenBillingPage(page);
+  await signInAndOpenBillingPage(page);
   const badge = page.locator("[data-status]").first();
   // 14 on the registration day; 13 if the page renders after midnight in Warsaw.
   await expect(badge).toHaveText(new RegExp(`^${copy.badge.trial}1[34] days left$`));
@@ -119,7 +119,7 @@ test("a new account is on its 14-day trial and may write", async ({ page }) => {
 });
 
 test("a read-only account sees why, is sent to the payment page, and cannot write", async ({ page }) => {
-  const email = await registerAndOpenBillingPage(page);
+  const email = await signInAndOpenBillingPage(page);
   await endTrial(email);
   await page.reload();
 
@@ -134,7 +134,7 @@ test("a read-only account sees why, is sent to the payment page, and cannot writ
 });
 
 test("an account whose paid period ended is asked to renew and cannot write", async ({ page }) => {
-  const email = await registerAndOpenBillingPage(page);
+  const email = await signInAndOpenBillingPage(page);
   await endPaidPeriod(email);
   await page.reload();
 
@@ -166,7 +166,7 @@ function runBillingScript(script: "import-entitlements" | "pin-trials", args: re
 }
 
 test("an account older than its trial is read-only until import-entitlements gives back its paid period", async ({ page }) => {
-  const email = await registerAndOpenBillingPage(page);
+  const email = await signInAndOpenBillingPage(page);
   await ageAccount(email, 60);
   await page.reload();
   await expect(page.locator("[data-status]").first()).toHaveText(copy.badge.readOnly);
@@ -199,7 +199,7 @@ test("an account older than its trial is read-only until import-entitlements giv
 });
 
 test("pin-trials reports the derived trials it would pin, and a dry run writes none", async ({ page }) => {
-  const email = await registerAndOpenBillingPage(page);
+  const email = await signInAndOpenBillingPage(page);
   const pinned = runBillingScript("pin-trials", []);
   expect(pinned.status, pinned.output).toBe(0);
   expect(pinned.output).toMatch(/^after:\s+\{"accountsWithoutRow":0,"pinned":\d+\}$/m);

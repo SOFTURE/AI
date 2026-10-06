@@ -1,18 +1,19 @@
 // Roles of @softure-ai/auth on the built app: the admin page, the admin route handler and the admin
 // action are closed to anonymous visitors and to users without the admin role, open to the admin
 // of `adminEmails` and to an account granted admin with the grant-role script. Serial: the
-// configured admin is one account, registered once for the file.
+// configured admin is one account, created once for the file.
 import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
 import { authMessages, users } from "@softure-ai/auth";
-import { expectPageStatus, logIn, openPageAsNewClient, registerAccount, uniqueEmail } from "@softure-ai/testing/playwright";
+import { expectPageStatus, logIn, openPageAsNewClient, uniqueEmail } from "@softure-ai/testing/playwright";
 import { eq, inArray } from "drizzle-orm";
 import { en } from "../messages/en.ts";
 import { entries } from "../modules/guestbook/schema.ts";
 import { EXAMPLE_ADMIN_EMAIL } from "../softure.config.ts";
+import { createAccount, createSignedInAccount } from "./accounts.ts";
 import { deleteEntries, openTestDatabase } from "./database.ts";
 
 const APP_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -47,10 +48,6 @@ async function countEntries(message: string): Promise<number> {
   }
 }
 
-async function register(page: Page, email: string): Promise<void> {
-  await registerAccount(page, { copy: authCopy, email, password: PASSWORD });
-}
-
 async function expectClosed(page: Page): Promise<void> {
   await expectPageStatus(page, "/admin", 404);
   expect((await page.request.get("/api/admin/status")).status()).toBe(404);
@@ -71,12 +68,11 @@ function runRoleScript(script: "grant-role" | "revoke-role", email: string): { s
   return { status: result.status, output: `${result.stdout}${result.stderr}` };
 }
 
-test.beforeAll(async ({ browser }) => {
-  // A run that died before its cleanup must not leave the admin account behind.
+test.beforeAll(async () => {
+  // A run that died before its cleanup must not leave the admin account behind. No role row: the
+  // account is an admin because adminEmails lists it.
   await deleteAccounts([EXAMPLE_ADMIN_EMAIL]);
-  const page = await openPageAsNewClient(browser);
-  await register(page, EXAMPLE_ADMIN_EMAIL);
-  await page.context().close();
+  await createAccount({ email: EXAMPLE_ADMIN_EMAIL, password: PASSWORD });
 });
 
 test.afterAll(async () => {
@@ -96,7 +92,7 @@ test("an anonymous visitor gets not found on the admin page and the admin route"
 
 test("a signed-in user without the admin role gets not found and sees no admin link", async ({ browser }) => {
   const page = await openPageAsNewClient(browser);
-  await register(page, newEmail());
+  await createSignedInAccount(page, { email: newEmail(), password: PASSWORD });
   await expect(page.getByRole("link", { name: en.account.admin })).toHaveCount(0);
   await expectClosed(page);
 });
@@ -128,7 +124,7 @@ test("the admin action refuses a user without the role and an anonymous visitor,
   // The panel stays open in this tab while the browser's session becomes a non-admin's.
   const other = await page.context().newPage();
   await page.context().clearCookies();
-  await register(other, newEmail());
+  await createSignedInAccount(other, { email: newEmail(), password: PASSWORD });
   await field.fill(message);
   await submitAndWait(page);
   await expect(page.getByText(en.errors["auth.forbidden"])).toBeVisible();
@@ -142,7 +138,7 @@ test("the admin action refuses a user without the role and an anonymous visitor,
 test("an account granted admin with the grant-role script gets in, and loses it on revoke-role", async ({ browser }) => {
   const page = await openPageAsNewClient(browser);
   const email = newEmail();
-  await register(page, email);
+  await createSignedInAccount(page, { email, password: PASSWORD });
   await expectClosed(page);
 
   const granted = runRoleScript("grant-role", email);
