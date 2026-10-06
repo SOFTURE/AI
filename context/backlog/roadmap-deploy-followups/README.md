@@ -11,7 +11,7 @@ here, in `context/changes/` or in `context/archive/`. Taking an entry works as i
 | --- | --- | --- | --- | --- |
 | DF-1 | [`deploy-fire-parity`](../../archive/2026-10-06-deploy-fire-parity/change.md) (done 2026-10-06) | Parity of the deploy CLI with FIRE_TRACKER | read access to FIRE_TRACKER (granted 2026-10-06) | owner |
 | DF-2 | [`deploy-workflow-verify-config`](../../archive/2026-10-06-deploy-workflow-verify-config/change.md) (done 2026-10-06) | The deploy workflow verifies with `softure-deploy verify` | roadmap promoted (DP-4 is on master) | start |
-| DF-3 | [`deploy-workflow-e2e`](../../changes/deploy-workflow-e2e/change.md) (taken 2026-10-06) | The deploy workflow runs end to end in CI | taken | dependency |
+| DF-3 | [`deploy-workflow-e2e`](../../archive/2026-10-06-deploy-workflow-e2e/change.md) (done 2026-10-06) | The deploy workflow runs end to end in CI | DF-7 on master (the CLI runs from the checkout while DP-8 waits) | dependency |
 | DF-4 | [`auth-testing-account-factory`](../../archive/2026-10-06-auth-testing-account-factory/change.md) (done 2026-10-06) | An account factory in @softure-ai/auth/testing | taken | start |
 | DF-5 | [`deploy-row-count-config`](../../archive/2026-10-06-deploy-row-count-config/change.md) (done 2026-10-06) | Row-count tables from deploy.json | roadmap promoted (DP-4 is on master) | start |
 | DF-6 | [`deploy-verify-cert-expiry`](../../archive/2026-10-06-deploy-verify-cert-expiry/change.md) (done 2026-10-06) | Certificate expiry in verify | roadmap promoted | start |

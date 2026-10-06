@@ -38,4 +38,8 @@ No open blocking findings.
 
 ## CI
 
-Pending at the time of writing; filled in before archiving.
+Green on the first run, PR #131 at `4cf6d3e` (after merging DF-8, which regenerated the e2e app's `deploy.sh`):
+`check inputs`, `build and push the image` (no push), `deploy over SSH` and `check what the server received` passed,
+`verify the release` skipped as designed. The assert job printed six `ok:` lines, among them "each of the 5 shipped
+files equals the tag's" and the four expected env names. The other workflows (ci, e2e, release dry run, CodeQL) are
+green on the same head.

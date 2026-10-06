@@ -100,4 +100,4 @@ switch with the same gate; the checkout CLI is only safe in this repository anyw
 - [x] Phase 2: the test path and the caller (`84a6b58`; one commit for both phases, the repository tests red before the workflow)
 
 #### Manual
-- [ ] The `e2e-deploy` run on the pull request is green (CI, before merge)
+- [x] The `e2e-deploy` run on the pull request is green (CI, before merge; PR #131 at `4cf6d3e`)

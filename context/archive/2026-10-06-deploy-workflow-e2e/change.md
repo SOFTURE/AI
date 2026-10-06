@@ -1,12 +1,12 @@
 ---
 change_id: deploy-workflow-e2e
 title: "The deploy workflow runs end to end in CI"
-status: implemented
+status: archived
 roadmap_item: DF-3
 branch: claude/project-thread-bmiyxf
 created: 2026-10-06
 updated: 2026-10-06
-archived_at: null
+archived_at: 2026-10-06
 ---
 
 ## Intent
@@ -51,3 +51,8 @@ The taken backlog entry is kept as [`backlog-input.md`](backlog-input.md). The w
 - Framing skipped: the roadmap item fixes both the problem (DP-2 validated statically only) and the shape (call the
   workflow against a recording SSH server); research answered the one open question (the misuse of a test input)
   without changing what to build.
+- Archived 2026-10-06: `e2e-deploy.yml` calls `deploy-app.yml` with `e2e: true` (refused outside SOFTURE/AI) for the
+  example app; the image builds without a push, the CLI is built from the tag, the production `ssh` command sends the
+  release to a throwaway `sshd` whose forced command records it, and the `assert` job checks the image, the command
+  line, the files byte for byte and the env names. Green on PR #131. Gap DF-15 (the shipped `deploy.sh` and `verify`
+  in the e2e) queued. No package version bump: nothing published changed.
