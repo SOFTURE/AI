@@ -200,8 +200,11 @@ one caller, [`examples/deploy.yml`](examples/deploy.yml), with a single `uses:` 
 
 1. checks every input (tag, URL, paths, image, command word, port, timeout) before anything runs;
 2. builds the image from the tag and pushes `<image>:<tag>` to GHCR (the only job with `packages: write`);
-3. renders `.env.prod` with `softure-deploy env render` from the `app-secrets` JSON and sends it on stdin to the
-   server's forced SSH command as `<remote-command> <tag>`, checking the host key against `ssh-known-hosts`;
+3. renders `.env.prod` with `softure-deploy env render` from the `app-secrets` JSON, packs it with the tag's server
+   files (the compose file's folder, `server-script` as `deploy.sh`, `deploy-config` as `deploy.json`) into one gzip
+   tar and sends that on stdin to the server's forced SSH command as `<remote-command> <tag>`, checking the host key
+   against `ssh-known-hosts`. A symlink in the compose folder, or a file there named like one the server keeps
+   (`.env.prod`, `deploy.sh`, `deploy.json`, `.deployed-tag`, `backups`, `releases`), stops the run;
 4. waits until `<app-url><health-path>` answers 200, then runs `softure-deploy verify <app-url>` with the app's
    `deploy-config` read from the tag (only that file is checked out). A missing or invalid file fails the run;
    `deploy-config: ""` keeps the health route only.
@@ -212,12 +215,13 @@ one caller, [`examples/deploy.yml`](examples/deploy.yml), with a single `uses:` 
 | `app-url` | required | public base URL, `https://<host>[:port]` |
 | `image` | `ghcr.io/<owner>/<repository>` | image name without a tag |
 | `context`, `dockerfile` | `.`, `Dockerfile` | the build |
-| `compose-file` | `docker/prod/docker-compose.yml` | names the secrets to render |
+| `compose-file` | `docker/prod/docker-compose.yml` | names the secrets to render; its folder ships to the server |
+| `server-script` | `docker/server/deploy.sh` | the forced command, installed on the server as `deploy.sh` with each release |
 | `environment` | none | GitHub environment of the deploy job |
 | `remote-command` | `deploy` | first word for the forced command |
 | `ssh-port` | `22` | |
 | `health-path`, `verify-timeout-seconds` | `/api/health`, `300` | the health wait before verify |
-| `deploy-config` | `deploy.json` | the routes `verify` checks; empty for the health route only |
+| `deploy-config` | `deploy.json` | the routes `verify` checks, also shipped to the server; empty for the health route only |
 | `deploy-cli-version` | this package's version | the CLI run from npm (`env render`, `verify`) |
 
 Secrets, all required and passed by name (no `secrets: inherit`): `ssh-host`, `ssh-user`, `ssh-private-key`,
@@ -259,16 +263,25 @@ softure-deploy init --domain=example.com --image=ghcr.io/acme/app [--dir=.] [--n
   `SOFTURE_MIGRATOR_PASSWORD`, `SOFTURE_APP_PASSWORD` with a database, plus `--env`. Use URL-safe passwords
   (`openssl rand -hex 32`): they go into connection URLs as they are.
 
-**`deploy.sh` on the server.** Copy `docker/prod/*` and `docker/server/deploy.sh` to `/srv/<name>/` and bind the
-deploy key to the script in `authorized_keys` (`command="/srv/<name>/deploy.sh",restrict …`). For
-`SSH_ORIGINAL_COMMAND="deploy <tag>"` and `.env.prod` on stdin it:
+**`deploy.sh` on the server.** Once, by hand: copy `docker/server/deploy.sh` to `/srv/<name>/` (a folder the SSH
+user owns) and bind the deploy key to it in `authorized_keys` (`command="/srv/<name>/deploy.sh",restrict …`). Every
+release then brings the rest. For `SSH_ORIGINAL_COMMAND="deploy <tag>"` and the release archive on stdin it:
 
-1. refuses anything but `deploy <tag>` with a Docker tag, writes `.env.prod` with mode 0600 and pulls the image;
+1. refuses anything but `deploy <tag>` with a Docker tag; reads at most 16 MiB, refuses an archive with anything but
+   files and folders or a path outside it, unpacks it into `releases/<tag>/` (the newest 5 are kept) and checks the
+   compose file with `docker compose config`; then moves `.env.prod` into place (0600), copies the other files next
+   to itself (in place, so Traefik's bind-mounted rules keep their inode; files 0644, folders 0755), replaces itself
+   by a rename (the new copy runs from the next release) and pulls the image;
 2. with a database: starts Postgres, runs `backup`, copies the migrations out of the new image for `schema-guard`,
    and saves `row-counts` (all through `npx @softure-ai/deploy@<this version>` on the host, against `127.0.0.1`);
 3. `docker compose up -d --wait` (the migrate service runs before the app);
 4. with a database: `row-counts --compare`;
-5. records the tag in `.deployed-tag`. A failed step stops the release and prints the previous tag to redeploy.
+5. restarts Traefik when its rules changed, and records the tag in `.deployed-tag`. A failed step stops the release
+   and prints the previous tag to redeploy; the files of a refused release stay installed with the old containers
+   running, and the redeploy installs that tag's own files.
+
+Shipping `deploy.sh` widens nothing: whoever holds the deploy key already picks the image and its environment, and
+the deploy user runs Docker, which is root on the host.
 
 The host needs Docker with the compose plugin logged in to the registry, and with a database Node.js 22 and
 `pg_dump` of the compose file's Postgres major version. CI generates the files for the example app, staged as a
@@ -293,6 +306,8 @@ problem, lost rows, a failed verify check, invalid init answers) · `2` a wrong 
 - Release notes read only git: no labels, authors or pull request bodies (no GitHub API).
 - `backup` writes to a local folder only; copying dumps off the server is the server's job.
 - `verify` does not wait for the app to come up; the deploy workflow's health step does.
-- `init` files reach the server by hand: the workflow sends only `.env.prod`, so a changed compose file, Traefik rule
-  or `deploy.sh` is copied again before the next release (DF-7).
+- Files a release no longer ships stay on the server; remove them by hand.
+- A `deploy.sh` generated by 0.1.2 or earlier reads `.env.prod`, not the release archive: copy the new one to the
+  server once by hand (or run `init --force` and copy it), then every release ships it.
+- The server's `deploy.sh` still takes the row-count tables `init` wrote into it, not the shipped `deploy.json` (DF-8).
 - `init` writes one app per VPS, with Traefik in the app's compose file.

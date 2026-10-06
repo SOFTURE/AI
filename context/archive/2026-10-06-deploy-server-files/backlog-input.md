@@ -16,7 +16,7 @@ instead of being copied there by hand before the release.
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md) (deploy-followups), item **DF-7** (main roadmap since 2026-10-06):
+From [`roadmap.md`](../../foundation/roadmap.md) (deploy-followups), item **DF-7** (main roadmap since 2026-10-06):
 
 > - **Outcome:** `deploy-app.yml` sends the tag's `docker/prod/` files (and `docker/server/deploy.sh`) to the server
 >   with `.env.prod`, for example as one archive on stdin that the forced command unpacks into a release folder before
