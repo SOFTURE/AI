@@ -1,12 +1,12 @@
 ---
 change_id: deploy-server-safety
 title: "The server deploy script matches FIRE's safety steps"
-status: planned
+status: archived
 roadmap_item: DF-9
 branch: claude/project-thread-etlm0d
 created: 2026-10-06
 updated: 2026-10-06
-archived_at: null
+archived_at: 2026-10-06
 ---
 
 ## Intent
@@ -48,3 +48,8 @@ count the tables of the shipped `deploy.json`.
 - Framing skipped: the item is a list of concrete steps already chosen against a working reference (FIRE's scripts,
   compared line by line in DF-1 §4); there is no competing explanation of the problem to weigh, only how each step
   fits the generated script.
+- Archived 2026-10-06: `init`'s `deploy.sh` answers `status`, `deploy <tag>` and `maintain`; saves and restores the
+  installed files and `.env.prod` when a release fails before the switch, keeps `.env.prod.prev`, writes `TAG` into
+  `.env.prod`, recreates Traefik on changed rules, installs a daily `maintain` cron (backup with a 30-day limit, old
+  app images, dangling images) under `flock`, and prints `step|…` lines and a final `result|…` line, which
+  `deploy-app.yml` now requires. Rides `@softure-ai/deploy` 0.1.3 (unpublished, with DF-7 and DF-8). No new gaps.

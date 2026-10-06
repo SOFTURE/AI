@@ -535,8 +535,17 @@ describe("deploy.sh keeps one maintenance line of its app in the crontab", () =>
     expect(lines).toHaveLength(3);
   });
 
+  it("leaves the crontab alone when it cannot be read", () => {
+    writeFileSync(crontabFile, "5 * * * * echo keep\n");
+    write(join(stubBin, "crontab"), '#!/usr/bin/env bash\nif [ "$1" = "-l" ]; then echo "crontab: permission denied" >&2; exit 1; fi\ncat > "$CRONTAB_FILE"\n', 0o755);
+    const result = deploy("v1", packArchive());
+    expect(result.status).toBe(1);
+    expect(result.stdout.trimEnd().split("\n").at(-1)).toBe("result|failed|cron|cannot read the crontab; v1 is live.");
+    expect(readFileSync(crontabFile, "utf8")).toBe("5 * * * * echo keep\n");
+  });
+
   it("reports a failed cron step after the switch, with the tag already recorded", () => {
-    write(join(stubBin, "crontab"), "#!/usr/bin/env bash\nexit 1\n", 0o755);
+    write(join(stubBin, "crontab"), '#!/usr/bin/env bash\nif [ "$1" = "-l" ]; then echo "no crontab for deploy" >&2; fi\nexit 1\n', 0o755);
     const result = deploy("v1", packArchive());
     expect(result.status).toBe(1);
     expect(result.stdout.trimEnd().split("\n").at(-1)).toBe("result|failed|cron|cannot install the maintenance cron; v1 is live.");

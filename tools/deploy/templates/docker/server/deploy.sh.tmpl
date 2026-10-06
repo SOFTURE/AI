@@ -175,6 +175,7 @@ compose() {
 take_lock() {
   begin_step lock
   exec 9> "$LOCK_FILE"
+  if ! command -v flock > /dev/null; then fail "flock is missing on this host (util-linux)."; fi
   flock -w "$LOCK_WAIT_SECONDS" 9 || fail "another deploy or maintain run still holds $LOCK_FILE."
 }
 {{#database}}
@@ -380,10 +381,9 @@ docker pull --quiet "$IMAGE:$TAG" > /dev/null || fail "cannot pull $IMAGE:$TAG."
 step_ok
 {{#database}}
 
-connect_database
-
 # Postgres must run before its first backup; on the first release it starts here and creates the roles.
 begin_step postgres
+connect_database
 compose up --detach --wait postgres || fail "Postgres did not become healthy."
 step_ok
 
@@ -457,7 +457,11 @@ step_ok
 # One line of this app in the crontab, rewritten by every release; other lines stay as they are.
 begin_step cron
 if [[ ! "$APP_DIR" =~ ^/[A-Za-z0-9_./-]+$ ]]; then fail "the app folder cannot go into a crontab line: $APP_DIR; $TAG is live."; fi
-current_crontab="$(crontab -l 2> /dev/null || true)"
+# "no crontab for <user>" is an empty table; any other error must not lead to a table without the other lines.
+if ! current_crontab="$(crontab -l 2> "$work/crontab-error")"; then
+  if ! grep -q "no crontab" "$work/crontab-error"; then fail "cannot read the crontab; $TAG is live."; fi
+  current_crontab=""
+fi
 {
   if [ -n "$current_crontab" ]; then grep -v " $CRON_MARKER\$" <<< "$current_crontab" || true; fi
   printf '%s PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin SSH_ORIGINAL_COMMAND=maintain %s/deploy.sh 2>&1 | logger -t %s-maintain %s\n' \

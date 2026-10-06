@@ -81,8 +81,8 @@ the script, which reads `.env.prod`); machine lines on stderr (the workflow read
 ## Progress
 
 #### Automated
-- [ ] Phase 1: deploy.sh safety steps
-- [ ] Phase 2: the workflow checks the result line
+- [x] Phase 1: deploy.sh safety steps (tests red before the template, then green) — `3e64e56`
+- [x] Phase 2: the workflow checks the result line (same commit: the tests share one file) — `3e64e56`
 
 #### Manual
 - [ ] Owner: the release of `@softure-ai/deploy` 0.1.3 (with DF-7, DF-8); an app takes the new script with
