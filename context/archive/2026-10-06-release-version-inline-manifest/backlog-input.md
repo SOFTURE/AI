@@ -17,7 +17,7 @@ read from `module.json`), so the gates the release workflow runs on the tag pass
 
 ## Context
 
-From [`roadmap-later.md`](../../../foundation/roadmaps/roadmap-later.md), item **LT-2**:
+From [`roadmap-later.md`](../../foundation/roadmaps/roadmap-later.md), item **LT-2**:
 
 > ### LT-2: release:version keeps inline manifests in step
 > - **Change ID:** `release-version-inline-manifest`

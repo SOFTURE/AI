@@ -36,7 +36,9 @@ git push origin master core@0.2.0         # the command prints the exact line
 
 `release:version` refuses a dirty tree, private packages and a bump that a dependent's
 `@softure-ai/*` range would no longer accept (widen that range in its own commit first). It runs `npm version` for the workspace
-(its `package.json` and the root lockfile), sets the same version in `module.json`, commits
+(its `package.json` and the root lockfile), sets the same version in `module.json` and in the inline
+manifest of the module's `src/index.ts` (refusing, before any change, a module where it cannot find that one
+`version`), commits
 `chore(release): core@0.2.0` and creates the annotated tag. It does not push.
 
 The tag then runs the workflow:
