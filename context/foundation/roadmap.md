@@ -54,7 +54,7 @@ backlog: context/backlog/roadmap-deploy-followups/
 | **DF-8** | `deploy-row-count-server-list` | the server's `deploy.sh` counts the tables of the shipped `deploy.json`; `init --tables` writes them there | DF-5, DF-7 | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.3) |
 | **DF-9** | `deploy-server-safety` | the server script restores files on a failed switch, keeps `.env.prod.prev`, recreates Traefik on a changed config, writes the tag into `.env.prod`, has a `status` command, a retention cron and machine-readable step lines | DF-7 | autonomous | ready |
 | **DF-10** | `deploy-release-report` | a report job writes pipeline status and deployment history into the release body | DF-9 | autonomous | ready |
-| **DF-11** | `deploy-workflow-release-guards` | the workflow refuses a tag off the default branch, takes build args (origin checked against runtime), non-secret values and a per-deploy registry token | DF-7 | autonomous | ready |
+| **DF-11** | `deploy-workflow-release-guards` | the workflow refuses a tag off the default branch, takes build args (origin checked against runtime), non-secret values and a per-deploy registry token | DF-7 | autonomous | in_progress (implement 1/1, since 2026-10-06; cloud session, branch `claude/project-thread-8ztufp`) |
 | **DF-12** | `deploy-cut-release` | a reusable workflow cuts a date tag and release and starts the deploy | DF-11 | autonomous | ready |
 | **DF-13** | `deploy-verify-origin-firewall` | `verify` fails when the server IP answers direct HTTPS | — | autonomous | ready |
 | **DF-14** | `deploy-row-count-new-table` | a table listed in `deploy.json` that the release itself creates does not stop that release; one counted before and missing after still does | DF-8 | autonomous | ready |
@@ -265,8 +265,8 @@ calls, the owner's own machine, a product decision only the owner can make, or a
 
 ### DF-11: The deploy workflow refuses a stray tag and carries build values
 - **Change ID:** `deploy-workflow-release-guards`
-- **Status:** ready
-- **Input:** [`deploy-workflow-release-guards`](../backlog/roadmap-deploy-followups/deploy-workflow-release-guards/change.md)
+- **Status:** in_progress (implement 1/1, since 2026-10-06; cloud session, branch `claude/project-thread-8ztufp`)
+- **Input:** [`deploy-workflow-release-guards`](../changes/deploy-workflow-release-guards/change.md)
 - **Outcome:** `deploy-app.yml` refuses a tag whose commit is not on the default branch; takes build arguments (public origins baked into the image) and refuses a release whose built origin differs from the runtime secret (FIRE's L-117); takes non-secret values (an `app-vars` JSON) for optional compose names, so a switch like `1` is not masked in logs; sends a short-lived registry token with `.env.prod` instead of relying on a permanent registry login on the server.
 - **Prerequisites:** DF-7 on `master` (same files).
 - **Unknowns:** the input names; whether the token rides in DF-7's stdin archive or a second file.
