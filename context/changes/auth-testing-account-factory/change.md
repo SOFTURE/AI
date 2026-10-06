@@ -1,7 +1,7 @@
 ---
 change_id: auth-testing-account-factory
 title: "An account factory in @softure-ai/auth/testing"
-status: active
+status: impl_reviewed
 roadmap_item: DF-4
 branch: claude/project-thread-8s7r62
 created: 2026-10-06
