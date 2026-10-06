@@ -39,7 +39,7 @@ the whole tag checked out (the app's `.npmrc` would steer `npx`).
 ## Progress
 
 #### Automated
-- [ ] Phase 1: verify with the app's config
+- [x] Phase 1: verify with the app's config (test red before the workflow, then green)
 
 #### Manual
 - [ ] DP-8 (owner): the first publish of `@softure-ai/deploy` and the `deploy-workflows-v1` tag; until then the

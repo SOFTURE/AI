@@ -1,12 +1,12 @@
 ---
 change_id: deploy-workflow-verify-config
 title: "The deploy workflow verifies with softure-deploy verify"
-status: active
+status: archived
 roadmap_item: DF-2
 branch: claude/project-thread-gaxu76
 created: 2026-10-06
 updated: 2026-10-06
-archived_at: null
+archived_at: 2026-10-06
 ---
 
 ## Intent
@@ -49,3 +49,6 @@ The taken backlog entry is kept as [`backlog-input.md`](backlog-input.md). The w
 - Research: done (`research.md`), short: what the CLI does with a missing file and how the checkout fetches one file.
 - Framing skipped: the problem and the fix are fixed by the roadmap item and DP-2's implementation review; nothing
   about whether to build it is in doubt.
+- Archived 2026-10-06: the `verify` job of `deploy-app.yml` waits for the health route, then runs
+  `softure-deploy verify` with the app's `deploy-config` (default `deploy.json`) from the tag; waiting for the first
+  publish of `@softure-ai/deploy` (DP-8). No new gap.
