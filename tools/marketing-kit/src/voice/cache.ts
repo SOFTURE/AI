@@ -1,5 +1,5 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 
 import { err, ok, type TtsInput, type TtsRecording, type TtsResult } from "./provider.js";
 import { voiceoverKey, type TimedWord } from "./voiceover.js";
@@ -8,6 +8,8 @@ export interface VoiceoverPaths {
   key: string;
   audio: string;
   words: string;
+  /** `video`: in the video's own folder; `flat`: `<key>.*` in the cache root, the layout before 0.1.6, still read. */
+  layout: "video" | "flat";
 }
 
 /** A voiceover on disk: the audio file's path and the timed words. */
@@ -16,10 +18,35 @@ export interface Voiceover {
   words: TimedWord[];
 }
 
-/** Where a recording of this input lives in the cache: `<key>.mp3` and `<key>.json`. */
-export function getVoiceoverPaths(cacheDir: string, input: TtsInput): VoiceoverPaths {
+function getPathsIn(dir: string, key: string, layout: VoiceoverPaths["layout"]): VoiceoverPaths {
+  return { key, audio: join(dir, `${key}.mp3`), words: join(dir, `${key}.json`), layout };
+}
+
+function hasRecording(paths: VoiceoverPaths): boolean {
+  return existsSync(paths.audio) && existsSync(paths.words);
+}
+
+/**
+ * Where a recording of this input lives in the cache. With a video id: `<cacheDir>/<video-id>/<key>.mp3|json`, so
+ * a reader sees which film a paid file belongs to; a recording saved flat by an earlier version
+ * (`<cacheDir>/<key>.*`) is still found when the video's folder has none, so no paid file is recorded twice.
+ * Without a video id: the flat layout. The key (text, voice, model, language) is the same in both.
+ */
+export function getVoiceoverPaths(cacheDir: string, input: TtsInput, videoId?: string): VoiceoverPaths {
   const key = voiceoverKey(input.text, input.voiceId, input.model, input.language);
-  return { key, audio: join(cacheDir, `${key}.mp3`), words: join(cacheDir, `${key}.json`) };
+  const flat = getPathsIn(cacheDir, key, "flat");
+  if (videoId === undefined) return flat;
+  const own = getPathsIn(join(cacheDir, videoId), key, "video");
+  return hasRecording(own) || !hasRecording(flat) ? own : flat;
+}
+
+/** Recordings in the video's folder other than `key`: what an earlier script of the film paid for. Sorted file names. */
+export function findStaleVoiceovers(cacheDir: string, videoId: string, key: string): string[] {
+  const dir = join(cacheDir, videoId);
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir)
+    .filter((name) => name.endsWith(".mp3") && name !== `${key}.mp3`)
+    .sort();
 }
 
 function isTimedWords(value: unknown): value is TimedWord[] {
@@ -49,6 +76,7 @@ export function readCachedVoiceover(paths: VoiceoverPaths): TtsResult<Voiceover 
 /** Writes a recording in FIRE_TRACKER's format, so files recorded there stay byte-identical. */
 export function writeVoiceover(cacheDir: string, paths: VoiceoverPaths, recording: TtsRecording): Voiceover {
   mkdirSync(cacheDir, { recursive: true });
+  mkdirSync(dirname(paths.audio), { recursive: true });
   writeFileSync(paths.audio, recording.audio);
   writeFileSync(paths.words, `${JSON.stringify(recording.words, null, 1)}\n`);
   return { audio: paths.audio, words: recording.words };
