@@ -330,7 +330,8 @@ Inputs: `tag` (required), `locale` (`en` or `pl`), `deploy-cli-version`, `node-v
 
 `SOFTURE/AI/.github/workflows/deploy-cut-release.yml` turns one *Run workflow* into a release and its deploy, so an
 agent that cannot push tags (a cloud session) can start one as a `workflow_dispatch`, and the owner can from the
-Actions tab. The app's second caller is [`examples/release.yml`](examples/release.yml) (`workflow_dispatch` with an
+Actions tab. The app's second caller is `.github/workflows/release.yml`, which `init` writes (the same file as
+[`examples/release.yml`](examples/release.yml), for an app that ran `init` before it did: `workflow_dispatch` with an
 optional `description`, `permissions: contents: write, actions: write`). Started on the default branch, it:
 
 1. refuses any other ref, and invalid inputs, with one `::error::` line each;
@@ -409,6 +410,7 @@ softure-deploy init --domain=example.com --image=ghcr.io/acme/app [--dir=.] [--n
 | `docker/server/deploy.sh` | the server's forced command for `deploy-app.yml` (below) |
 | `scripts/migrate.ts` | with a database: the migrate step the `Dockerfile` bundles |
 | `.github/workflows/deploy.yml` | the caller of `deploy-app.yml` with the domain, the image and the health path |
+| `.github/workflows/release.yml` | the caller of `deploy-cut-release.yml` (below): *Run workflow* cuts the next date tag in `UTC` and starts `deploy.yml` on it |
 | `deploy.json` | a `verify` starter: `/` without an error page, `/api/health` when the app has one, HSTS present, `x-powered-by` absent; with a database and `--tables`, `database.rowCountTables` |
 
 - **Asked:** `--domain` and `--image`; `--paths`, `--www`, `--acme-email`, `--env` (the app's own secrets, added to

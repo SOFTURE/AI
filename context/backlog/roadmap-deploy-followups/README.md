@@ -24,7 +24,7 @@ here, in `context/changes/` or in `context/archive/`. Taking an entry works as i
 | DF-13 | [`deploy-verify-origin-firewall`](../../archive/2026-10-06-deploy-verify-origin-firewall/change.md) (done 2026-10-06) | verify checks that the origin refuses direct traffic | roadmap promoted | start |
 | DF-14 | [`deploy-row-count-new-table`](../../archive/2026-10-06-deploy-row-count-new-table/change.md) (done 2026-10-06) | A new table can join the row-count list with its release | DF-8 on master | dependency |
 | DF-15 | [`deploy-workflow-e2e-server`](../../archive/2026-10-06-deploy-workflow-e2e-server/change.md) (done 2026-10-06) | The end-to-end test runs the server side and verify | DF-3 on master | dependency |
-| DF-16 | [`deploy-init-release-caller`](deploy-init-release-caller/change.md) | init writes the release caller | DF-12 on master | dependency |
+| DF-16 | [`deploy-init-release-caller`](../../archive/2026-10-06-deploy-init-release-caller/change.md) (done 2026-10-06) | init writes the release caller | DF-12 on master | dependency |
 
 Kind: `start` (can be taken as soon as the roadmap is promoted), `dependency` (waits for the listed items on the
 main branch), `owner` (needs an owner decision or the owner at the keyboard).
