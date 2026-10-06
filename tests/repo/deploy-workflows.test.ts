@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -11,6 +11,7 @@ import { REPO_ROOT } from "./repo-files.js";
 
 const WORKFLOWS_DIR = join(REPO_ROOT, ".github/workflows");
 const EXAMPLE_CALLER = join(REPO_ROOT, "tools/deploy/examples/deploy.yml");
+const EXAMPLE_RELEASE_CALLER = join(REPO_ROOT, "tools/deploy/examples/release.yml");
 const CALLER_PREFIX = "SOFTURE/AI/.github/workflows/";
 
 interface WorkflowInput {
@@ -64,6 +65,7 @@ const DEPLOY_WORKFLOWS = listDeployWorkflows();
 describe("the reusable deploy workflows", () => {
   it("exist", () => {
     expect(DEPLOY_WORKFLOWS).toContain("deploy-app.yml");
+    expect(DEPLOY_WORKFLOWS).toContain("deploy-cut-release.yml");
   });
 
   describe.each(DEPLOY_WORKFLOWS)("%s", (name) => {
@@ -79,9 +81,10 @@ describe("the reusable deploy workflows", () => {
       for (const [, job] of jobs) expect(job.permissions).toBeDefined();
     });
 
-    it("gives packages: write to the build job only", () => {
+    it("gives packages: write to the build job only, when there is one", () => {
       const writers = jobs.filter(([, job]) => JSON.stringify(job.permissions ?? {}).includes('"packages":"write"'));
-      expect(writers.map(([id]) => id)).toEqual(["build"]);
+      const hasBuild = jobs.some(([id]) => id === "build");
+      expect(writers.map(([id]) => id)).toEqual(hasBuild ? ["build"] : []);
     });
 
     it("never interpolates inputs, secrets or event data into a script", () => {
@@ -92,9 +95,9 @@ describe("the reusable deploy workflows", () => {
       }
     });
 
-    it("checks the server's host key and never learns it on first use", () => {
+    it("checks the server's host key whenever it uses SSH, and never learns it on first use", () => {
       const scripts = jobs.flatMap(([, job]) => (job.steps ?? []).map((step) => step.run ?? "")).join("\n");
-      expect(scripts).toContain("-o StrictHostKeyChecking=yes");
+      if (/\bssh -/.test(scripts)) expect(scripts).toContain("-o StrictHostKeyChecking=yes");
       expect(scripts).not.toMatch(/StrictHostKeyChecking=(no|accept-new)/);
       expect(scripts).not.toContain("ssh-keyscan");
     });
@@ -415,5 +418,195 @@ describe("the end-to-end caller e2e-deploy.yml", () => {
       IMAGE: "${{ needs.deploy.outputs.image }}",
       EXPECTED_IMAGE: job.with?.image,
     });
+  });
+});
+
+describe("deploy-cut-release.yml (DF-12)", () => {
+  const workflow = readYaml(join(WORKFLOWS_DIR, "deploy-cut-release.yml"));
+  const inputs = getWorkflowCall(workflow).inputs ?? {};
+  const job = workflow.jobs.cut as Job & { concurrency?: { group?: string; "cancel-in-progress"?: boolean } };
+  const steps = job.steps ?? [];
+  const findStep = (name: string): Step => {
+    const step = steps.find((candidate) => candidate.name === name);
+    if (step === undefined) throw new Error(`deploy-cut-release.yml has no step named "${name}"`);
+    return step;
+  };
+  const checkStep = findStep("Check the inputs and the branch");
+  const tagStep = findStep("Pick the next free date tag");
+  const releaseStep = findStep("Create the release");
+  const deployStep = findStep("Start the deploy workflow on the tag");
+
+  /** Runs one step's script with fake `gh` and `date` first on PATH; returns the exit, stdout, outputs and gh calls. */
+  function runStep(
+    step: Step,
+    env: Record<string, string>,
+  ): { status: number | null; stdout: string; output: string; ghCalls: string[] } {
+    const dir = mkdtempSync(join(tmpdir(), "deploy-cut-release-"));
+    try {
+      const bin = join(dir, "bin");
+      const ghLog = join(dir, "gh.log");
+      writeFileSync(join(dir, "output"), "");
+      writeFileSync(join(dir, "summary"), "");
+      writeFileSync(ghLog, "");
+      mkdirSync(bin);
+      // The fake gh records its arguments one call per line and answers `api` with FAKE_TAG_REFS.
+      writeFileSync(
+        join(bin, "gh"),
+        `#!/usr/bin/env bash\nprintf '%s\\n' "$*" >> "${ghLog}"\nif [[ "$1" == api ]]; then printf '%s' "$FAKE_TAG_REFS"; fi\n`,
+      );
+      // The fake date answers only for the expected zone, so a lost TZ shows up as a wrong tag.
+      writeFileSync(
+        join(bin, "date"),
+        `#!/usr/bin/env bash\nif [[ "$TZ" == "$FAKE_TZ" ]]; then echo 2026.10.06; else echo "wrong-zone-$TZ"; fi\n`,
+      );
+      chmodSync(join(bin, "gh"), 0o755);
+      chmodSync(join(bin, "date"), 0o755);
+      const result = spawnSync("bash", ["-e", "-c", step.run ?? ""], {
+        encoding: "utf8",
+        env: {
+          PATH: `${bin}:${process.env.PATH ?? ""}`,
+          GITHUB_OUTPUT: join(dir, "output"),
+          GITHUB_STEP_SUMMARY: join(dir, "summary"),
+          GITHUB_REPOSITORY: "acme/app",
+          GITHUB_SERVER_URL: "https://github.com",
+          GITHUB_REF: "refs/heads/main",
+          DEFAULT_BRANCH: "main",
+          GH_TOKEN: "token",
+          FAKE_TAG_REFS: "",
+          FAKE_TZ: "UTC",
+          ...env,
+        },
+      });
+      return {
+        status: result.status,
+        stdout: result.stdout,
+        output: readFileSync(join(dir, "output"), "utf8"),
+        ghCalls: readFileSync(ghLog, "utf8").split("\n").filter((line) => line !== ""),
+      };
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  const DEFAULT_CHECK_ENV = { TAG_PREFIX: "v", TIME_ZONE: "UTC", DEPLOY_WORKFLOW: "deploy.yml" };
+
+  it("is started by the app, cuts from its dispatched commit and defaults to v, UTC and deploy.yml", () => {
+    expect(inputs).toMatchObject({
+      description: { default: "" },
+      "tag-prefix": { default: "v" },
+      timezone: { default: "UTC" },
+      "deploy-workflow": { default: "deploy.yml" },
+    });
+    expect(tagStep.env?.SHA).toBe("${{ github.sha }}");
+    expect(checkStep.env?.DEFAULT_BRANCH).toBe("${{ github.event.repository.default_branch }}");
+  });
+
+  it("grants the job exactly what a tag, a release and a dispatch need, one run per repository at a time", () => {
+    expect(workflow.permissions).toEqual({});
+    expect(job.permissions).toEqual({ contents: "write", actions: "write" });
+    expect(job.concurrency).toEqual({ group: "deploy-cut-release-${{ github.repository }}", "cancel-in-progress": false });
+  });
+
+  it("accepts the defaults on the default branch", () => {
+    expect(runStep(checkStep, DEFAULT_CHECK_ENV).status).toBe(0);
+    expect(runStep(checkStep, { ...DEFAULT_CHECK_ENV, TIME_ZONE: "Europe/Warsaw", DEPLOY_WORKFLOW: "" }).status).toBe(0);
+  });
+
+  it("refuses a branch that is not the default one", () => {
+    const refused = runStep(checkStep, { ...DEFAULT_CHECK_ENV, GITHUB_REF: "refs/heads/feature" });
+    expect(refused.status).toBe(1);
+    expect(refused.stdout).toContain("::error::A release is cut from the default branch (main) only, not from refs/heads/feature");
+    expect(runStep(checkStep, { ...DEFAULT_CHECK_ENV, GITHUB_REF: "refs/tags/main" }).status).toBe(1);
+  });
+
+  it.each([
+    ["TAG_PREFIX", "v 1", 'Input tag-prefix is not valid: "v 1"'],
+    ["TIME_ZONE", "Mars/Olympus", 'Input timezone is not valid: "Mars/Olympus"'],
+    ["TIME_ZONE", "../../etc/passwd", 'Input timezone is not valid: "../../etc/passwd"'],
+    ["DEPLOY_WORKFLOW", "deploy", 'Input deploy-workflow is not valid: "deploy"'],
+    ["DEPLOY_WORKFLOW", "../ci.yml", 'Input deploy-workflow is not valid: "../ci.yml"'],
+  ])("refuses %s=%s", (name, value, message) => {
+    const refused = runStep(checkStep, { ...DEFAULT_CHECK_ENV, [name]: value });
+    expect(refused.status).toBe(1);
+    expect(refused.stdout).toContain(`::error::${message}`);
+  });
+
+  it.each([
+    ["no release that day", "", "v2026.10.06"],
+    ["one release that day", "refs/tags/v2026.10.06\n", "v2026.10.06-2"],
+    ["three releases that day", "refs/tags/v2026.10.06\nrefs/tags/v2026.10.06-2\nrefs/tags/v2026.10.06-3\n", "v2026.10.06-4"],
+    ["only a longer tag that shares the prefix", "refs/tags/v2026.10.06-2\n", "v2026.10.06"],
+  ])("picks the next free tag with %s", (_case, refs, expected) => {
+    const result = runStep(tagStep, { TAG_PREFIX: "v", TIME_ZONE: "UTC", SHA: "abc123", FAKE_TAG_REFS: refs });
+    expect(result.status).toBe(0);
+    expect(result.output).toBe(`tag=${expected}\nsha=abc123\n`);
+    expect(result.ghCalls).toEqual(["api --paginate repos/acme/app/git/matching-refs/tags/v2026.10.06 --jq .[].ref"]);
+  });
+
+  it("names the tag by the date in the given zone and with the given prefix", () => {
+    const result = runStep(tagStep, { TAG_PREFIX: "release-", TIME_ZONE: "Europe/Warsaw", FAKE_TZ: "Europe/Warsaw", SHA: "abc" });
+    expect(result.output).toBe("tag=release-2026.10.06\nsha=abc\n");
+  });
+
+  it("creates the release on the picked commit with the description above the generated notes", () => {
+    expect(releaseStep.env).toMatchObject({
+      TAG: "${{ steps.tag.outputs.tag }}",
+      SHA: "${{ steps.tag.outputs.sha }}",
+      DESCRIPTION: "${{ inputs.description }}",
+    });
+    const result = runStep(releaseStep, { TAG: "v2026.10.06", SHA: "abc123", DESCRIPTION: "Ships `x`; $(not run)" });
+    expect(result.status).toBe(0);
+    expect(result.ghCalls).toEqual([
+      "release create v2026.10.06 --repo acme/app --target abc123 --title v2026.10.06 --notes Ships `x`; $(not run) --generate-notes",
+    ]);
+  });
+
+  it("starts the deploy workflow on the tag with the tag as its input, unless deploy-workflow is empty", () => {
+    expect(deployStep.if).toBe("inputs.deploy-workflow != ''");
+    const result = runStep(deployStep, { TAG: "v2026.10.06-2", DEPLOY_WORKFLOW: "deploy.yml" });
+    expect(result.status).toBe(0);
+    expect(result.ghCalls).toEqual(["workflow run deploy.yml --repo acme/app --ref v2026.10.06-2 -f tag=v2026.10.06-2"]);
+  });
+
+  it("runs the steps in order: check, tag, release, deploy", () => {
+    expect(steps.map((step) => step.name)).toEqual([
+      "Check the inputs and the branch",
+      "Pick the next free date tag",
+      "Create the release",
+      "Start the deploy workflow on the tag",
+    ]);
+  });
+});
+
+describe("the example release caller", () => {
+  const caller = readYaml(EXAMPLE_RELEASE_CALLER);
+  const callingJobs = Object.values(caller.jobs).filter((job) => job.uses !== undefined);
+  const job = callingJobs[0] as Job;
+  const called = getWorkflowCall(readYaml(join(WORKFLOWS_DIR, "deploy-cut-release.yml")));
+
+  it("is started by hand or by an agent only", () => {
+    expect(Object.keys(caller.on)).toEqual(["workflow_dispatch"]);
+  });
+
+  it("calls the cut-release workflow with one uses: line", () => {
+    expect(callingJobs).toHaveLength(1);
+    expect(job.uses).toBe("SOFTURE/AI/.github/workflows/deploy-cut-release.yml@deploy-workflows-v1");
+  });
+
+  it("grants what the called job needs and nothing more", () => {
+    expect(caller.permissions).toEqual({ contents: "write", actions: "write" });
+  });
+
+  it("passes only declared inputs", () => {
+    const declared = Object.keys(called.inputs ?? {});
+    for (const key of Object.keys(job.with ?? {})) expect(declared).toContain(key);
+    expect(job.secrets).toBeUndefined();
+  });
+
+  it("starts the deploy caller shipped next to it, which takes the tag as a dispatch input", () => {
+    expect(job.with?.["deploy-workflow"]).toBe("deploy.yml");
+    const deployCaller = readYaml(EXAMPLE_CALLER);
+    const dispatch = deployCaller.on.workflow_dispatch as { inputs?: Record<string, WorkflowInput> };
+    expect(dispatch.inputs?.tag?.required).toBe(true);
   });
 });
