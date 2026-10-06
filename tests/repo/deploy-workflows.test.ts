@@ -17,8 +17,12 @@ interface WorkflowInput {
 }
 
 interface Step {
+  name?: string;
+  if?: string;
   run?: string;
   uses?: string;
+  with?: Record<string, unknown>;
+  env?: Record<string, unknown>;
 }
 
 interface Job {
@@ -97,6 +101,50 @@ describe("the reusable deploy workflows", () => {
     const pkg = JSON.parse(readFileSync(join(REPO_ROOT, "tools/deploy/package.json"), "utf8")) as { version: string };
     const inputs = getWorkflowCall(readYaml(join(WORKFLOWS_DIR, "deploy-app.yml"))).inputs ?? {};
     expect(inputs["deploy-cli-version"]?.default).toBe(pkg.version);
+  });
+});
+
+describe("the verify job of deploy-app.yml", () => {
+  const workflow = readYaml(join(WORKFLOWS_DIR, "deploy-app.yml"));
+  const inputs = getWorkflowCall(workflow).inputs ?? {};
+  const steps = workflow.jobs.verify?.steps ?? [];
+  const verifyIndex = steps.findIndex((step) => (step.run ?? "").includes("softure-deploy verify"));
+  const verifyStep = steps[verifyIndex];
+  const checkout = steps.find((step) => step.uses?.startsWith("actions/checkout@") === true);
+
+  it("reads deploy.json by default, the file softure-deploy init writes", () => {
+    expect(inputs["deploy-config"]?.default).toBe("deploy.json");
+  });
+
+  it("waits for the health route before anything else", () => {
+    expect(steps[0]?.run).toContain("HEALTH_PATH");
+    expect(verifyIndex).toBeGreaterThan(0);
+  });
+
+  it("runs softure-deploy verify on the app URL with the app's config from the pinned CLI", () => {
+    expect(verifyStep?.run).toContain('softure-deploy verify "$APP_URL" --config="$DEPLOY_CONFIG"');
+    expect(verifyStep?.run).toContain("--package=@softure-ai/deploy@$DEPLOY_CLI_VERSION");
+    expect(verifyStep?.env).toMatchObject({
+      APP_URL: "${{ inputs.app-url }}",
+      DEPLOY_CONFIG: "${{ inputs.deploy-config }}",
+      DEPLOY_CLI_VERSION: "${{ inputs.deploy-cli-version }}",
+    });
+  });
+
+  it("skips the config steps when deploy-config is empty", () => {
+    const configSteps = steps.slice(1);
+    expect(configSteps.length).toBeGreaterThan(0);
+    for (const step of configSteps) expect(step.if).toBe("inputs.deploy-config != ''");
+  });
+
+  it("checks out only the config file at the tag, without credentials", () => {
+    expect(checkout?.with).toEqual({
+      ref: "${{ inputs.tag }}",
+      "persist-credentials": false,
+      "sparse-checkout": "/${{ inputs.deploy-config }}",
+      "sparse-checkout-cone-mode": false,
+    });
+    expect(workflow.jobs.verify?.permissions).toEqual({ contents: "read" });
   });
 });
 
