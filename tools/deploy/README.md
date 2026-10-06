@@ -317,7 +317,8 @@ commit with `e2e: true` for the example app, on every pull request that touches 
   the production `ssh` command (host key checked) against it. The forced command first records the command line, the
   archive's files, their SHA-256, the mode of `.env.prod` and its names (never a value) with
   [`e2e/server/record.sh`](e2e/server/record.sh), uploaded as the artifact `deploy-e2e-received`, then runs the tag's
-  `deploy.sh` from `/srv/softure-example/` unchanged: pull, backup, schema guard, switch, cron, `result|ok`. Its
+  `deploy.sh` from `/srv/softure-example/` unchanged: pull (logged in with the release's `.registry-token`, which the
+  local registry accepts unchecked), backup, schema guard, switch, cron, `result|ok`. Its
   `npx @softure-ai/deploy@0.0.0` (the e2e app's pinned version, never published) is answered by
   [`e2e/server/bin/npx`](e2e/server/bin/npx) with the CLI built from the tag;
 - `verify` would run on another runner, away from the stack, so `deploy` runs its two steps itself: the wait for
