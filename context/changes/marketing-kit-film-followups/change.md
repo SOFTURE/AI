@@ -1,9 +1,9 @@
 ---
 change_id: marketing-kit-film-followups
 title: "A committed marketing.json reproduces a paid film without hand fixes"
-status: new
+status: planned
 roadmap_item: MK-10
-branch: null
+branch: claude/project-thread-82bjfh
 created: 2026-10-06
 updated: 2026-10-06
 archived_at: null
@@ -72,3 +72,7 @@ Three gaps found there:
   film) and the same files (`config` schema, `cli`, `render`).
 - Open for research: whether the rewind is repaired or replaced (default stays `rewind` vs becomes `fade`); the
   cache layout (per-video folder vs readable prefix plus key) and whether stale keys get a `prune`/listing command.
+- Research done ([`research.md`](research.md)): the rewind's cause measured in the code, the cache lookup and its
+  callers, where the recording day enters `record`.
+- Framing skipped: the problem is fixed by FIRE's finding and the owner's own words (flicker, unreadable cache,
+  the day only in a flag); what remains are design choices, settled in research and the plan.
