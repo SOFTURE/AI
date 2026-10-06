@@ -1,9 +1,13 @@
-import { getVoiceoverPaths, readCachedVoiceover, writeVoiceover, type Voiceover } from "./cache.js";
+import { dirname, join } from "node:path";
+
+import { findStaleVoiceovers, getVoiceoverPaths, readCachedVoiceover, writeVoiceover, type Voiceover } from "./cache.js";
 import { err, ok, type TtsEstimate, type TtsInput, type TtsProvider, type TtsResult } from "./provider.js";
 
 export interface ProduceVoiceoverOptions {
   cacheDir: string;
   input: TtsInput;
+  /** The film the voiceover belongs to: its recordings live in `<cacheDir>/<videoId>/`. Without it, the flat layout. */
+  videoId?: string;
   provider: TtsProvider;
   /** Only `true` lets the provider spend money. */
   isCommit: boolean;
@@ -24,12 +28,21 @@ export function describeEstimate(provider: TtsProvider, estimate: TtsEstimate): 
  * run and before every paid call; without `isCommit` the provider is never called.
  */
 export async function produceVoiceover(options: ProduceVoiceoverOptions): Promise<TtsResult<VoiceoverOutcome>> {
-  const { cacheDir, input, provider, isCommit, log } = options;
-  const paths = getVoiceoverPaths(cacheDir, input);
+  const { cacheDir, input, videoId, provider, isCommit, log } = options;
+  const paths = getVoiceoverPaths(cacheDir, input, videoId);
   const cached = readCachedVoiceover(paths);
   if (!cached.ok) return cached;
+  if (videoId !== undefined) {
+    const stale = findStaleVoiceovers(cacheDir, videoId, paths.key);
+    if (stale.length > 0) {
+      log(`voiceover: ${join(cacheDir, videoId)} also holds ${stale.join(", ")}, which the current script does not use; delete them once no film needs them.`);
+    }
+  }
   if (cached.value !== null) {
     log(`voiceover: from the cache ${paths.key}, nothing spent.`);
+    if (videoId !== undefined && paths.layout === "flat") {
+      log(`voiceover: ${paths.key}.mp3 and .json sit in the cache root (the layout before 0.1.6); move them into ${join(cacheDir, videoId)}/ to keep them with their film.`);
+    }
     return ok({ kind: "cached", key: paths.key, voiceover: cached.value });
   }
   const estimate = provider.estimate(input);
@@ -41,6 +54,6 @@ export async function produceVoiceover(options: ProduceVoiceoverOptions): Promis
   const recording = await provider.synthesize(input);
   if (!recording.ok) return err(recording.error);
   const voiceover = writeVoiceover(cacheDir, paths, recording.value);
-  log(`voiceover: recorded ${estimate.characters} characters, saved ${paths.key}.{mp3,json} in ${cacheDir} (commit them).`);
+  log(`voiceover: recorded ${estimate.characters} characters, saved ${paths.key}.{mp3,json} in ${dirname(paths.audio)} (commit them).`);
   return ok({ kind: "recorded", key: paths.key, voiceover, estimate });
 }
