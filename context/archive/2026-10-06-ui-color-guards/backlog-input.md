@@ -15,7 +15,7 @@ archived_at: null
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md) (charts), item **CH-3** (main roadmap since 2026-10-06):
+From [`roadmap.md`](../../foundation/roadmap.md) (charts), item **CH-3** (main roadmap since 2026-10-06):
 
 > ### CH-3: Colour contrast and colour-vision guards
 > - **Change ID:** `ui-color-guards`
@@ -32,8 +32,8 @@ From [`roadmap.md`](../../../foundation/roadmap.md) (charts), item **CH-3** (mai
 > - **PRD refs:** FR-32.
 > - **Source (FIRE_TRACKER, read only):** `src/lib/color-vision.ts`, `src/app/theme-contrast.test.ts`
 
-Reference material: [`docs/06-fire-extraction-2.md`](../../../../docs/06-fire-extraction-2.md) (the FIRE_TRACKER source map and the split rules),
-[`docs/02-module-standard.md`](../../../../docs/02-module-standard.md) (the standard). FIRE_TRACKER is read only:
+Reference material: [`docs/06-fire-extraction-2.md`](../../../docs/06-fire-extraction-2.md) (the FIRE_TRACKER source map and the split rules),
+[`docs/02-module-standard.md`](../../../docs/02-module-standard.md) (the standard). FIRE_TRACKER is read only:
 copy its code, never change it.
 
 ## Constraints
