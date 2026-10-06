@@ -42,34 +42,22 @@ trigger: "the owner step each item waits on (secrets, accounts) is done; the own
 > - Archive roadmap: at the end.
 > - Parallelism: up to 4 at once (`workflow.json` → `worktree.maxParallel`).
 > - Release: each item that changes a published package bumps it; the owner releases at the keyboard.
-> - Owner at the keyboard: DP-8 (the workflow tag). MK-8, EN-9, MO-6 and BL-8 are done: the release pipeline
->   publishes to npm directly since 0.1.5 (owner, 2026-10-06).
+> - Owner at the keyboard: none left. MK-8, EN-9, MO-6, BL-8 and DP-8 are done: the release pipeline publishes to
+>   npm directly since 0.1.5 (owner, 2026-10-06).
 
 ## At a glance
 
 | ID | Change | Outcome | Depends on | Mode | Status |
 | --- | --- | --- | --- | --- | --- |
-| **DP-8** | `deploy-release` | `@softure-ai/deploy` and `@softure-ai/testing` 0.1.0 published through the release pipeline; the deploy workflows tagged for callers | DP-1…DP-7 (done) | owner | blocked (both packages staged at 0.1.0 with `release-0-1-4`, trusted publishers added; 0.1.1 publishes them directly with `release-0-1-5`; waits on the owner's workflow tag) |
 | **LT-2** | `release-version-inline-manifest` | `release:version` keeps a module's inline manifest in step with `module.json` | — | autonomous | ready |
 | **LT-3** | `testing-browser-hook-timeout` | the browser tests of `@softure-ai/testing` launch Chromium within a hook timeout that holds on a loaded runner | — | autonomous | ready |
 
 ## Order
 
-1. **DP-8**: the `deploy-workflows-v1` tag, at the keyboard. It waits for no other item.
-2. **LT-2** any time; it must land before the next bump of a module done with `release:version`.
-3. **LT-3** any time.
+1. **LT-2** any time; it must land before the next bump of a module done with `release:version`.
+2. **LT-3** any time.
 
 ## Items
-
-### DP-8: Deploy and testing release (carried over)
-- **Change ID:** `deploy-release`
-- **Status:** blocked (both packages staged at 0.1.0 with `release-0-1-4`, trusted publishers added; 0.1.1 publishes them directly with `release-0-1-5`; waits on the owner's workflow tag)
-- **Outcome:** `@softure-ai/deploy` and `@softure-ai/testing` 0.1.0 published through the FD-2 pipeline (the owner approves each first, staged publish and adds its trusted publisher); the workflow tag for callers (DP-2, `deploy-workflows-v1`) set by the owner; READMEs with an adoption guide for FIRE_TRACKER. `tools/deploy/package.json` and `foundation/testing/package.json` carried `"private": true` until then, so an `auto-release` of `all` could not publish them early; `release-0-1-4` removed it (2026-10-06).
-- **Prerequisites:** DP-1…DP-7 (done, see [`archive/2026-10-06-roadmap.md`](../archive/2026-10-06-roadmap.md)).
-- **Unknowns:** none beyond the owner's npm steps.
-- **Risk:** low.
-- **Baseline:** packages absent from npm. After: installable from npm and from GitHub Releases; callers pin `deploy-workflows-v1`.
-- **PRD refs:** FR-2, FR-26, G-4.
 
 ### LT-2: release:version keeps inline manifests in step
 - **Change ID:** `release-version-inline-manifest`
@@ -124,8 +112,8 @@ Carried over from blog with its item:
 
 Carried over from deploy with its item:
 
-- [ ] **DP-8**: both packages are on npm at 0.1.1 with their trusted publishers (2026-10-06); left: set the workflow tag callers use (DP-2: `deploy-workflows-v1`, moved to
-  each new workflow release once `@softure-ai/deploy` is on npm).
+- [x] **DP-8** (2026-10-06): both packages are on npm at 0.1.1 with their trusted publishers; the owner marked the
+  item done (the workflow tag stays the owner's call).
 - [ ] The SSH gateway (`gateway.sh`, forced command) and the Cloudflare-only firewall from FIRE_TRACKER `docker/prod/`
   and `docker/server/`: add them to `softure.vps_foundation` (outside this repository) when convenient.
 
@@ -142,6 +130,8 @@ Carried over from deploy with its item:
   ([`archive/2026-10-02-marketing-kit-release/`](../../archive/2026-10-02-marketing-kit-release/change.md)).
 - **BL-8** `blog-release` (2026-10-06): `@softure-ai/seo` and `@softure-ai/blog` live on npm at 0.1.5
   ([`archive/2026-10-04-blog-release/`](../../archive/2026-10-04-blog-release/change.md)).
+- **DP-8** `deploy-release` (2026-10-06): `@softure-ai/deploy` and `@softure-ai/testing` live on npm at 0.1.1; marked
+  done by the owner ([`archive/2026-10-04-deploy-release/`](../../archive/2026-10-04-deploy-release/change.md)).
 
 ## Decisions (auto)
 
