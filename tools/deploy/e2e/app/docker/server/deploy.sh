@@ -17,8 +17,12 @@
 # installed next to this script in /srv/softure-example/, so only the first setup copies this script there by hand. A new
 # copy of this script is installed by a rename: the running copy finishes, the new one runs from the next release.
 #
-# The host needs Docker with the compose plugin, logged in to the registry of ghcr.io/softure/ai-deploy-e2e with a read-only token, cron
-# and flock (both in Ubuntu's base system).
+# The archive may also hold .registry-token, the deploy job's short-lived GITHUB_TOKEN: the image is then pulled
+# with it through a Docker config in this run's temporary folder, so the host keeps no registry login and the token
+# is never installed. Without it (the workflow's registry-token: false), the host's own registry login pulls
+# ghcr.io/softure/ai-deploy-e2e.
+#
+# The host needs Docker with the compose plugin, cron and flock (both in Ubuntu's base system).
 # The database steps also need Node.js 22 (`npx @softure-ai/deploy`) and pg_dump of the Postgres major version of
 # the compose file (postgresql-client-16).
 #
@@ -339,6 +343,14 @@ done
 for reserved in "${RESERVED_NAMES[@]}"; do
   if [ -e "$release_dir/$reserved" ]; then refuse "the release archive holds $reserved, a name this server keeps for itself."; fi
 done
+registry_token=""
+if [ -e "$release_dir/.registry-token" ]; then
+  if [ ! -f "$release_dir/.registry-token" ] || [ ! -s "$release_dir/.registry-token" ]; then
+    refuse "the release archive's .registry-token is empty or not a file."
+  fi
+  registry_token="$work/registry-token"
+  mv -f "$release_dir/.registry-token" "$registry_token"
+fi
 docker compose --env-file "$release_dir/.env.prod" --file "$release_dir/docker-compose.yml" config --quiet \
   || refuse "the compose file of $TAG is not valid; nothing was installed."
 step_ok
@@ -359,7 +371,15 @@ step_ok
 
 echo "deploy: $IMAGE:$TAG (previous: ${previous_tag:-none})"
 begin_step pull
-docker pull --quiet "$IMAGE:$TAG" > /dev/null || fail "cannot pull $IMAGE:$TAG."
+if [ -n "$registry_token" ]; then
+  registry="${IMAGE%%/*}"
+  mkdir -p "$work/docker-config"
+  DOCKER_CONFIG="$work/docker-config" docker login "$registry" --username softure-deploy --password-stdin \
+    < "$registry_token" > /dev/null || fail "cannot log in to $registry with the release's registry token."
+  DOCKER_CONFIG="$work/docker-config" docker pull --quiet "$IMAGE:$TAG" > /dev/null || fail "cannot pull $IMAGE:$TAG."
+else
+  docker pull --quiet "$IMAGE:$TAG" > /dev/null || fail "cannot pull $IMAGE:$TAG."
+fi
 step_ok
 
 # Postgres must run before its first backup; on the first release it starts here and creates the roles.

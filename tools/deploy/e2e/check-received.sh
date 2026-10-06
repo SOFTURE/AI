@@ -3,8 +3,8 @@
 # (DF-3, the `assert` job of e2e-deploy.yml). Run from the tag's checkout: COMPOSE_FILE, SERVER_SCRIPT and
 # DEPLOY_CONFIG are the paths the workflow was called with. The expectations come from the tag and the caller, not
 # from the deploy CLI: the command line is `deploy <tag>`, the image `<expected image>:<tag>`, the archive holds the
-# compose file's folder, deploy.sh, deploy.json and .env.prod (0600) and nothing else, each shipped file is byte for
-# byte the tag's, and .env.prod holds exactly EXPECTED_ENV_NAMES. Prints one `ok:` line per check and every failure.
+# compose file's folder, deploy.sh, deploy.json, .env.prod and .registry-token (both 0600) and nothing else, each shipped
+# file is byte for byte the tag's, and .env.prod holds exactly EXPECTED_ENV_NAMES. Prints one `ok:` line per check and every failure.
 set -euo pipefail
 
 : "${RECEIVED_DIR:?}" "${COMPOSE_FILE:?}" "${SERVER_SCRIPT:?}" "${DEPLOY_CONFIG:?}"
@@ -17,7 +17,7 @@ fail() {
   failures=$((failures + 1))
 }
 
-for name in command files sha256 env-mode env-names; do
+for name in command files sha256 env-mode token-mode env-names; do
   if [ ! -f "$RECEIVED_DIR/$name" ]; then
     echo "::error::deploy e2e: the server recorded no $name; did the forced command run?"
     exit 1
@@ -50,11 +50,11 @@ fi
 
 expected_files="$({
   (cd "$prod_dir" && find . -type f)
-  printf '%s\n' ./deploy.sh ./deploy.json ./.env.prod
+  printf '%s\n' ./deploy.sh ./deploy.json ./.env.prod ./.registry-token
 } | LC_ALL=C sort)"
 received_files="$(cat "$RECEIVED_DIR/files")"
 if [ "$received_files" = "$expected_files" ]; then
-  pass "files are the compose folder, deploy.sh, deploy.json and .env.prod"
+  pass "files are the compose folder, deploy.sh, deploy.json, .env.prod and .registry-token"
 else
   missing="$(LC_ALL=C comm --nocheck-order -23 <(echo "$expected_files") <(echo "$received_files") | paste -sd ' ' -)"
   extra="$(LC_ALL=C comm --nocheck-order -13 <(echo "$expected_files") <(echo "$received_files") | paste -sd ' ' -)"
@@ -74,7 +74,8 @@ while read -r hash name; do
     hash_failures=$((hash_failures + 1))
   fi
 done < "$RECEIVED_DIR/sha256"
-expected_hashed=$(($(grep -c . <<< "$expected_files") - 1))
+# .env.prod and .registry-token are not hashed: their values differ from anything in the tag.
+expected_hashed=$(($(grep -c . <<< "$expected_files") - 2))
 if (( hash_failures == 0 && hashed == expected_hashed )); then
   pass "each of the $hashed shipped files equals the tag's"
 elif (( hash_failures == 0 )); then
@@ -86,6 +87,13 @@ if [ "$env_mode" = "-rw-------" ]; then
   pass ".env.prod mode is 0600 in the archive"
 else
   fail ".env.prod mode was '${env_mode:-missing}' in the archive, expected -rw-------"
+fi
+
+token_mode="$(cat "$RECEIVED_DIR/token-mode")"
+if [ "$token_mode" = "-rw-------" ]; then
+  pass ".registry-token mode is 0600 in the archive"
+else
+  fail ".registry-token mode was '${token_mode:-missing}' in the archive, expected -rw-------"
 fi
 
 expected_names="$(tr ' ' '\n' <<< "$EXPECTED_ENV_NAMES" | grep . | LC_ALL=C sort)"

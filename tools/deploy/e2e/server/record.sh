@@ -1,8 +1,9 @@
 #!/bin/sh
 # The forced command of the throwaway SSH server in deploy-app.yml's end-to-end test (DF-3, e2e-deploy.yml). It takes
 # what the deploy job sends, the command line in SSH_ORIGINAL_COMMAND and the release archive on stdin, and records it
-# into RECEIVED_DIR for check-received.sh: the command line, the archive's files, each file's SHA-256 (not .env.prod's),
-# the mode .env.prod has in the archive and the names in .env.prod. The values of .env.prod are never written.
+# into RECEIVED_DIR for check-received.sh: the command line, the archive's files, each file's SHA-256 (not .env.prod's
+# or .registry-token's), the modes .env.prod and .registry-token have in the archive and the names in .env.prod. The
+# values of .env.prod and the token are never written.
 set -eu
 
 received="${RECEIVED_DIR:-/e2e/received}"
@@ -24,10 +25,11 @@ tar -xzf "$archive" -C "$work/release"
 
 printf '%s\n' "${SSH_ORIGINAL_COMMAND:-}" > "$received/command"
 (cd "$work/release" && find . -type f | LC_ALL=C sort) > "$received/files"
-(cd "$work/release" && find . -type f ! -path ./.env.prod | LC_ALL=C sort | while IFS= read -r file; do
+(cd "$work/release" && find . -type f ! -path ./.env.prod ! -path ./.registry-token | LC_ALL=C sort | while IFS= read -r file; do
   sha256sum "$file"
 done) > "$received/sha256"
 tar -tvzf "$archive" | awk '$NF == "./.env.prod" { print $1 }' > "$received/env-mode"
+tar -tvzf "$archive" | awk '$NF == "./.registry-token" { print $1 }' > "$received/token-mode"
 if [ -f "$work/release/.env.prod" ]; then
   sed -n 's/^\([A-Za-z_][A-Za-z0-9_]*\)=.*/\1/p' "$work/release/.env.prod" | LC_ALL=C sort > "$received/env-names"
 else
