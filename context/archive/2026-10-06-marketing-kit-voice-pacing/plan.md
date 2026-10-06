@@ -68,4 +68,4 @@ Done when (every phase): Gates green (typecheck, lint, test); `npm run build`.
 
 - [x] Phase 1: the real charge — 15b9207
 - [x] Phase 2: pacing and the batch — 8430495
-- [x] Phase 3: the disclosure
+- [x] Phase 3: the disclosure — 58f8c00
