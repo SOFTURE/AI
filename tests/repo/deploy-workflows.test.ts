@@ -148,6 +148,44 @@ describe("the verify job of deploy-app.yml", () => {
   });
 });
 
+describe("the deploy job of deploy-app.yml", () => {
+  const workflow = readYaml(join(WORKFLOWS_DIR, "deploy-app.yml"));
+  const inputs = getWorkflowCall(workflow).inputs ?? {};
+  const steps = workflow.jobs.deploy?.steps ?? [];
+  const checkout = steps.find((step) => step.uses?.startsWith("actions/checkout@") === true);
+  const packIndex = steps.findIndex((step) => step.name === "Pack the release");
+  const sendIndex = steps.findIndex((step) => step.name === "Send the release to the server");
+  const cleanup = steps.at(-1);
+
+  it("ships init's server script by default", () => {
+    expect(inputs["server-script"]?.default).toBe("docker/server/deploy.sh");
+  });
+
+  it("checks out only the server files the check job anchored, at the tag, without credentials", () => {
+    expect(checkout?.with).toEqual({
+      ref: "${{ inputs.tag }}",
+      "persist-credentials": false,
+      "sparse-checkout": "${{ needs.check.outputs.server-files }}",
+      "sparse-checkout-cone-mode": false,
+    });
+    expect(workflow.jobs.check?.steps?.[0]?.run).toContain('echo "/$prod_dir/"');
+  });
+
+  it("packs the release before it sends it, and sends the archive in the one SSH call", () => {
+    expect(packIndex).toBeGreaterThan(0);
+    expect(sendIndex).toBeGreaterThan(packIndex);
+    const send = steps[sendIndex]?.run ?? "";
+    expect(send.match(/\bssh\b -i/g)).toHaveLength(1);
+    expect(send).toMatch(/"\$REMOTE_COMMAND \$TAG" < release\.tar\.gz$/m);
+  });
+
+  it("removes the archive with the key, whatever happened", () => {
+    expect(cleanup?.if).toBe("always()");
+    expect(cleanup?.run).toContain("release.tar.gz");
+    expect(cleanup?.run).toContain(".env.prod");
+  });
+});
+
 describe("the example caller workflow", () => {
   const caller = readYaml(EXAMPLE_CALLER);
   const callingJobs = Object.values(caller.jobs).filter((job) => job.uses !== undefined);
