@@ -17,7 +17,7 @@ are left.
 
 ## Context
 
-From [`roadmap-deploy-followups.md`](../../../foundation/roadmaps/roadmap-deploy-followups.md), item **DF-6**:
+From [`roadmap.md`](../../../foundation/roadmap.md) (deploy-followups), item **DF-6** (main roadmap since 2026-10-06):
 
 > - **Outcome:** an optional `verify.tlsMinDays`; `verify` reads the certificate with `node:tls` once per run and adds
 >   a `tls` row to the table (days left, issuer); fewer days than the minimum is a failure. Tested against a local

@@ -17,7 +17,7 @@ package README.
 
 ## Context
 
-From [`roadmap-deploy-followups.md`](../../../foundation/roadmaps/roadmap-deploy-followups.md), item **DF-1**:
+From [`roadmap.md`](../../../foundation/roadmap.md) (deploy-followups), item **DF-1** (main roadmap since 2026-10-06):
 
 > - **Outcome:** FIRE_TRACKER's `scripts/render-env-prod.mts`, `scripts/release-notes.mts`, `src/lib/release-notes.ts`,
 >   their tests and `.github/workflows/release-opis.yml` are read; every behaviour and test case that is generic is

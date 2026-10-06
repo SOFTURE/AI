@@ -15,7 +15,7 @@ A CI job runs `deploy-app.yml` against a throwaway SSH server and registry, so a
 
 ## Context
 
-From [`roadmap-deploy-followups.md`](../../../foundation/roadmaps/roadmap-deploy-followups.md), item **DF-3**:
+From [`roadmap.md`](../../../foundation/roadmap.md) (deploy-followups), item **DF-3** (main roadmap since 2026-10-06):
 
 > - **Change ID:** `deploy-workflow-e2e`
 > - **Status:** ready
