@@ -46,6 +46,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "@softure-ai/core": "^0.1.2",
     "tsx": "^4.23.0"
   }
