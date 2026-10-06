@@ -49,23 +49,13 @@ trigger: "the owner step each item waits on (secrets, accounts) is done; the own
 
 | ID | Change | Outcome | Depends on | Mode | Status |
 | --- | --- | --- | --- | --- | --- |
-| **LT-3** | `testing-browser-hook-timeout` | the browser tests of `@softure-ai/testing` launch Chromium within a hook timeout that holds on a loaded runner | — | autonomous | ready |
 
 ## Order
 
-1. **LT-3** any time.
+No item is waiting: LT-2 and LT-3 are done (2026-10-06).
 
 ## Items
 
-### LT-3: Testing package browser hook timeout
-- **Change ID:** `testing-browser-hook-timeout`
-- **Status:** ready
-- **Outcome:** `foundation/testing/tests/playwright-browser.test.ts` starts its server and Chromium within a hook timeout sized for a loaded runner (measured, with the measurement in a comment), so the release gates do not fail on a slow browser start.
-- **Prerequisites:** none.
-- **Unknowns:** whether the hook or the browser launch is the slow part.
-- **Risk:** low.
-- **Baseline:** the `testing@0.1.1` release (run 37444519206, 2026-10-06) failed its gates once with "Hook timed out in 10000ms" at `playwright-browser.test.ts:91` (Vitest's default `hookTimeout`; `vitest.config.mts` raises only `testTimeout`) and passed on one re-run. After: the hook has a measured timeout.
-- **Source:** `release-0-1-5` (2026-10-06).
 ## Owner decisions and checks
 
 - [x] **First batch release**: all 16 packages are at 0.1.2 on `master` (`packages-first-release`, then
@@ -122,6 +112,9 @@ Carried over from deploy with its item:
   ([`archive/2026-10-04-blog-release/`](../../archive/2026-10-04-blog-release/change.md)).
 - **DP-8** `deploy-release` (2026-10-06): `@softure-ai/deploy` and `@softure-ai/testing` live on npm at 0.1.1; marked
   done by the owner ([`archive/2026-10-04-deploy-release/`](../../archive/2026-10-04-deploy-release/change.md)).
+- **LT-3** `testing-browser-hook-timeout` (2026-10-06): Vitest hooks get the 60 s test limit, so a slow Chromium
+  launch in the testing package's `beforeAll` no longer fails `npm test`
+  ([`archive/2026-10-06-testing-browser-hook-timeout/`](../../archive/2026-10-06-testing-browser-hook-timeout/change.md)).
 
 ## Decisions (auto)
 
