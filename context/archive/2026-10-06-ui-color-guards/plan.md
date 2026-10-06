@@ -70,13 +70,13 @@ test, build).
 ### Phase 1: Colour and colour-vision helpers
 
 #### Automated
-- [ ] 1.1 Colour and colour-vision tests seen red, then green
-- [ ] 1.2 `./testing` export builds to `dist/testing/`
-- [ ] 1.3 Typecheck and lint green
+- [x] 1.1 Colour and colour-vision tests seen red, then green — 10ef086
+- [x] 1.2 `./testing` export builds to `dist/testing/` — 10ef086
+- [x] 1.3 Typecheck and lint green — 10ef086
 
 ### Phase 2: Theme contrast check on ui's tokens
 
 #### Automated
-- [ ] 2.1 `checkThemeContrast` tests green; the ui token guard seen red on a darkened token, green on the defaults
-- [ ] 2.2 README section and version 0.1.6
-- [ ] 2.3 Gates green (typecheck, lint, test, build)
+- [x] 2.1 `checkThemeContrast` tests green; the ui token guard seen red on a darkened token, green on the defaults — b577af1
+- [x] 2.2 README section and version 0.1.6 — b577af1
+- [x] 2.3 Gates green (typecheck, lint, test, build) — b577af1

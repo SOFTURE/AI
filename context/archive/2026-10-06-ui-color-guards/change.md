@@ -1,12 +1,12 @@
 ---
 change_id: ui-color-guards
 title: "Colour contrast and colour-vision guards"
-status: plan_reviewed
+status: archived
 roadmap_item: CH-3
 branch: claude/ch-3-contrast-5ffi4r
 created: 2026-10-06
 updated: 2026-10-06
-archived_at: null
+archived_at: 2026-10-06
 ---
 
 ## Intent

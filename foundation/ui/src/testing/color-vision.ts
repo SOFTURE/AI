@@ -1,6 +1,6 @@
 // Colour-vision simulation and colour distance, so a palette is checked against more eyes than its author's.
 // Ported from FIRE_TRACKER `src/lib/color-vision.ts` (charts roadmap, CH-3), with tritan vision and CIEDE2000
-// added (context/archive/*-ui-color-guards/research.md §3-4).
+// added (context/archive/2026-10-06-ui-color-guards/research.md §3-4).
 //
 // Protan and deutan use the Viénot, Brettel and Mollon (1999) projection FIRE measured its palettes with, so
 // its numbers stay the same. Tritan uses Machado, Oliveira and Fernandes (2009) at severity 1.0, applied in
