@@ -52,8 +52,8 @@ means usage); `jq` (not a host requirement).
 ## Progress
 
 #### Automated
-- [ ] Phase 1: deploy.sh reads the shipped list (tests red before the templates, then green)
-- [ ] Phase 2: gap DF-9 recorded
+- [x] Phase 1: deploy.sh reads the shipped list (tests red before the templates, then green) — `86d79e7`
+- [x] Phase 2: gap DF-9 recorded — in the archive commit
 
 #### Manual
 - [ ] Owner: the release of `@softure-ai/deploy` 0.1.3 (with DF-7); an app moves its tables from `deploy.sh` into

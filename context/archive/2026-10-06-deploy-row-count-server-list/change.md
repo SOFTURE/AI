@@ -1,12 +1,12 @@
 ---
 change_id: deploy-row-count-server-list
 title: "deploy.sh takes the row-count tables from the app's deploy.json"
-status: plan_reviewed
+status: archived
 roadmap_item: DF-8
 branch: claude/project-thread-9hgldd
 created: 2026-10-06
 updated: 2026-10-06
-archived_at: null
+archived_at: 2026-10-06
 ---
 
 ## Intent
@@ -45,3 +45,8 @@ The taken backlog entry is kept as [`backlog-input.md`](backlog-input.md). DF-5
   behaves without the key, and what Node the host has.
 - Framing skipped: the roadmap item fixes both the problem (the list is baked into the server's script) and the
   shape of the fix (`--config` on the shipped file); DF-5 and DF-7 built the two halves for exactly this.
+- Archived 2026-10-06: `init`'s `deploy.sh` reads `database.rowCountTables` from `releases/<tag>/deploy.json` and runs
+  `row-counts --config` on it before and after the switch (no file or key: skipped; unreadable: stops before the
+  switch); `init --tables` writes the list into `deploy.json` for apps with a database. Rides `@softure-ai/deploy`
+  0.1.3 (unpublished, with DF-7). New gap DF-9 (`deploy-row-count-new-table`): a table created by the same release
+  stops it at the count before the switch.
