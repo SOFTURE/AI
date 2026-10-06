@@ -5,7 +5,7 @@ version: 1
 status: waiting
 prd_version: 2
 created: 2026-10-05
-updated: 2026-10-05
+updated: 2026-10-06
 backlog: context/backlog/roadmap-deploy-followups/
 trigger: "the deploy roadmap closes; the owner promotes it or takes single items"
 ---
@@ -16,8 +16,9 @@ trigger: "the deploy roadmap closes; the owner promotes it or takes single items
 > (WORKFLOW §5.1): nothing here runs until the owner promotes it to `roadmap.md`
 > (`softure-roadmap --promote deploy-followups`) or moves a single item into the main roadmap.
 >
-> The catch-all of the [`deploy`](../roadmap.md) roadmap (owner, 2026-10-03: gaps found while delivering a roadmap
-> are collected in a catch-all roadmap, not fixed on the spot). Created with its first gap (DF-1, from DP-1). A
+> The catch-all of the [`deploy`](../archive/2026-10-06-roadmap.md) roadmap (owner, 2026-10-03: gaps found while
+> delivering a roadmap are collected in a catch-all roadmap, not fixed on the spot). Deploy closed on 2026-10-06;
+> its DP-8 waits in [`later`](roadmap-later.md). Created with its first gap (DF-1, from DP-1). A
 > thread that finds a gap or a deferred review finding:
 > 1. takes the next free `DF-<n>` on the current `master` and a kebab-case change-id;
 > 2. writes `context/backlog/roadmap-deploy-followups/<change-id>/change.md` (`status: backlog`, the item block

@@ -5,7 +5,7 @@ status: backlog
 roadmap_item: DP-8
 branch: null
 created: 2026-10-04
-updated: 2026-10-04
+updated: 2026-10-06
 archived_at: null
 ---
 
@@ -15,13 +15,15 @@ archived_at: null
 
 ## Context
 
-From [`roadmap.md`](../../../foundation/roadmap.md) (deploy), item **DP-8** (main roadmap since 2026-10-05):
+From [`roadmap-later.md`](../../../foundation/roadmaps/roadmap-later.md), item **DP-8** (carried over on 2026-10-06
+from roadmap `deploy`, archived in [`2026-10-06-roadmap.md`](../../../foundation/archive/2026-10-06-roadmap.md),
+to the queued roadmap `later`):
 
 > ### DP-8: Deploy and testing release
 > - **Change ID:** `deploy-release`
-> - **Status:** blocked (waits for DP-1…DP-7 and the owner's first npm publish at the keyboard)
+> - **Status:** blocked (carried over from deploy: the owner's first npm publish and the workflow tag at the keyboard)
 > - **Outcome:** `@softure-ai/deploy` and `@softure-ai/testing` 0.1.0 published through the FD-2 pipeline (the owner approves each first, staged publish and adds its trusted publisher); the workflow tag for callers (DP-2) set by the owner; READMEs with an adoption guide for FIRE_TRACKER.
-> - **Prerequisites:** DP-1…DP-7.
+> - **Prerequisites:** DP-1…DP-7 (done).
 > - **Unknowns:** none beyond the owner's npm steps.
 > - **Risk:** low.
 > - **Baseline:** packages absent from npm. After: installable from npm and from GitHub Releases.

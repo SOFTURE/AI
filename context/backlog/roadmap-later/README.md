@@ -11,7 +11,8 @@ exactly one place: `backlog/`, `changes/` or `archive/`, never copied and never 
 Each item starts once the owner step it waits on is done (secrets, a provider account). The owner promotes the
 roadmap or moves a single item into the main roadmap. An item ready to build that waits only on the owner at the
 keyboard lands here (owner, 2026-10-03). MK-8, EN-9 and MO-6 moved here with their IDs when the followups roadmap
-closed (2026-10-04), and BL-8 when the blog roadmap closed (2026-10-04).
+closed (2026-10-04), BL-8 when the blog roadmap closed (2026-10-04), and DP-8 when the deploy roadmap closed
+(2026-10-06).
 
 | ID | Entry | Title | Condition | Kind |
 | --- | --- | --- | --- | --- |
@@ -20,6 +21,7 @@ closed (2026-10-04), and BL-8 when the blog roadmap closed (2026-10-04).
 | MO-6 | [`monetization-release`](monetization-release/change.md) | Monetization modules release (carried over from followups) | the owner at the keyboard (batch on 2026-10-05) | owner |
 | MK-8 | [`marketing-kit-release`](marketing-kit-release/change.md) | marketing-kit release (carried over from followups) | the owner at the keyboard (batch on 2026-10-05) | owner |
 | BL-8 | [`blog-release`](blog-release/change.md) | SEO and blog release (carried over from blog) | the owner at the keyboard (first npm publish) | owner |
+| DP-8 | [`deploy-release`](deploy-release/change.md) | Deploy and testing release (carried over from deploy) | the owner at the keyboard (first npm publish, workflow tag) | owner |
 | LT-2 | [`release-version-inline-manifest`](release-version-inline-manifest/change.md) | release:version keeps inline manifests in step | none | start |
 
 Kind: `start` (can be taken as soon as the roadmap is promoted), `dependency` (waits for the listed items on the

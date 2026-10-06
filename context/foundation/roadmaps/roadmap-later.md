@@ -5,7 +5,7 @@ version: 1
 status: waiting
 prd_version: 1
 created: 2026-10-03
-updated: 2026-10-05
+updated: 2026-10-06
 backlog: context/backlog/roadmap-later/
 trigger: "the owner step each item waits on (secrets, accounts) is done; the owner promotes it or takes single items"
 ---
@@ -31,13 +31,19 @@ trigger: "the owner step each item waits on (secrets, accounts) is done; the own
 > `@softure-ai/seo` and `@softure-ai/blog`, waiting on the owner at the keyboard. It moved here with its ID, and no
 > main roadmap was promoted in blog's place.
 >
+> Carried over (2026-10-06): the deploy roadmap closed (archived in
+> [`../archive/2026-10-06-roadmap.md`](../archive/2026-10-06-roadmap.md)) with DP-8, the first npm publish of
+> `@softure-ai/deploy` and `@softure-ai/testing` and the `deploy-workflows-v1` tag, waiting on the owner at the
+> keyboard. It moved here with its ID, and no main roadmap was promoted in deploy's place.
+>
 > Run-wide orders (read by orchestrators once promoted):
 > - Push main branch: at the end. Also push `master` after every merge. Claude reviews and merges its own
 >   changes into `master` (owner, 2026-10-02). Tags and npm publishes stay with the owner.
 > - Archive roadmap: at the end.
 > - Parallelism: up to 4 at once (`workflow.json` → `worktree.maxParallel`).
 > - Release: each item that changes a published package bumps it; the owner releases at the keyboard.
-> - Owner at the keyboard: every item (MK-8, EN-9, MO-6 and BL-8 the first npm publishes).
+> - Owner at the keyboard: every item but LT-2 (MK-8, EN-9, MO-6, BL-8 and DP-8 the first npm publishes; DP-8 also
+>   the workflow tag).
 
 ## At a glance
 
@@ -47,6 +53,7 @@ trigger: "the owner step each item waits on (secrets, accounts) is done; the own
 | **MO-6** | `monetization-release` | billing and analytics 0.1.0 published through the release pipeline; READMEs and docs updated | MO-1…MO-5 (done) | owner | blocked (carried over from followups: the owner's batch release at the keyboard on 2026-10-05) |
 | **MK-8** | `marketing-kit-release` | `@softure-ai/marketing-kit` 0.1.0 published through the release pipeline, README complete | MK-1…MK-7 (done) | owner | blocked (carried over from followups: the owner's batch release at the keyboard on 2026-10-05) |
 | **BL-8** | `blog-release` | `@softure-ai/seo` and `@softure-ai/blog` 0.1.0 published through the release pipeline; READMEs, adoption guides and docs updated | BL-1…BL-7 (done) | owner | blocked (carried over from blog: the owner's first npm publish at the keyboard) |
+| **DP-8** | `deploy-release` | `@softure-ai/deploy` and `@softure-ai/testing` 0.1.0 published through the release pipeline; the deploy workflows tagged for callers | DP-1…DP-7 (done) | owner | blocked (carried over from deploy: the owner's first npm publish and the workflow tag at the keyboard) |
 | **LT-2** | `release-version-inline-manifest` | `release:version` keeps a module's inline manifest in step with `module.json` | — | autonomous | ready |
 
 ## Order
@@ -55,6 +62,8 @@ trigger: "the owner step each item waits on (secrets, accounts) is done; the own
    item.
 2. **BL-8**: the first publish of `@softure-ai/seo` and `@softure-ai/blog`, at the keyboard. It waits for no other
    item; the owner can take it in the same batch as MK-8, EN-9 and MO-6.
+3. **DP-8**: the first publish of `@softure-ai/deploy` and `@softure-ai/testing` and the `deploy-workflows-v1` tag,
+   at the keyboard. It waits for no other item.
 4. **LT-2** any time; it must land before the next bump of a module after 0.1.0.
 
 ## Items
@@ -102,6 +111,16 @@ trigger: "the owner step each item waits on (secrets, accounts) is done; the own
 - **Baseline:** packages absent from npm. After: installable from npm and from GitHub Releases.
 - **PRD refs:** FR-2, FR-26, G-4.
 
+### DP-8: Deploy and testing release (carried over)
+- **Change ID:** `deploy-release`
+- **Status:** blocked (carried over from deploy: the owner's first npm publish and the workflow tag at the keyboard)
+- **Outcome:** `@softure-ai/deploy` and `@softure-ai/testing` 0.1.0 published through the FD-2 pipeline (the owner approves each first, staged publish and adds its trusted publisher); the workflow tag for callers (DP-2, `deploy-workflows-v1`) set by the owner; READMEs with an adoption guide for FIRE_TRACKER. `tools/deploy/package.json` and `foundation/testing/package.json` carry `"private": true` until then, so an `auto-release` of `all` cannot publish them early; DP-8 removes it.
+- **Prerequisites:** DP-1…DP-7 (done, see [`archive/2026-10-06-roadmap.md`](../archive/2026-10-06-roadmap.md)).
+- **Unknowns:** none beyond the owner's npm steps.
+- **Risk:** low.
+- **Baseline:** packages absent from npm. After: installable from npm and from GitHub Releases; callers pin `deploy-workflows-v1`.
+- **PRD refs:** FR-2, FR-26, G-4.
+
 ### LT-2: release:version keeps inline manifests in step
 - **Change ID:** `release-version-inline-manifest`
 - **Status:** ready
@@ -145,6 +164,14 @@ Carried over from blog with its item:
 - [ ] **BL-8**: approve the first (staged) publish of `@softure-ai/seo` and `@softure-ai/blog` on npmjs.com, then add
   a trusted publisher for each.
 
+Carried over from deploy with its item:
+
+- [ ] **DP-8**: approve the first (staged) publish of `@softure-ai/deploy` and `@softure-ai/testing` on npmjs.com,
+  add a trusted publisher for each, and set the workflow tag callers use (DP-2: `deploy-workflows-v1`, moved to
+  each new workflow release once `@softure-ai/deploy` is on npm).
+- [ ] The SSH gateway (`gateway.sh`, forced command) and the Cloudflare-only firewall from FIRE_TRACKER `docker/prod/`
+  and `docker/server/`: add them to `softure.vps_foundation` (outside this repository) when convenient.
+
 ## Done
 
 - **LT-1** `billing-stripe-sandbox-e2e` (2026-10-05): a payment in Stripe's sandbox whose webhook Stripe delivers
@@ -163,3 +190,5 @@ Carried over from blog with its item:
   these IDs; renumbering them as `LT-` would break that link.
 - BL-8 moved here when blog closed, keeping its ID (2026-10-04). → Same reason as MK-8, EN-9 and MO-6: it waits only
   on the owner's first npm publish at the keyboard.
+- DP-8 moved here when deploy closed, keeping its ID (2026-10-06). → Same reason as BL-8: it waits only on the
+  owner's first npm publish and the workflow tag at the keyboard.
