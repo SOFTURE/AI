@@ -49,7 +49,7 @@ backlog: context/backlog/roadmap-deploy-followups/
 | **DF-3** | `deploy-workflow-e2e` | a CI job runs `deploy-app.yml` against a throwaway SSH server and registry, so a broken step fails here, not on the first live deploy | DP-5, DF-7 | autonomous | ready |
 | **DF-4** | `auth-testing-account-factory` | `@softure-ai/auth/testing` creates an account in SQL with auth's hashing; the example's e2e uses it outside registration specs | — | autonomous | ready |
 | **DF-5** | `deploy-row-count-config` | the tables `row-counts` compares come from `deploy.json` | DP-4 | autonomous | ready |
-| **DF-6** | `deploy-verify-cert-expiry` | `verify` fails when the TLS certificate expires within `verify.tlsMinDays` | — | autonomous | in_progress (implement 1/2, since 2026-10-06; cloud session, branch `claude/project-thread-6o3udj`) |
+| **DF-6** | `deploy-verify-cert-expiry` | `verify` fails when the TLS certificate expires within `verify.tlsMinDays` | — | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.2) |
 | **DF-7** | `deploy-server-files` | `deploy-app.yml` ships the tag's `docker/prod/` files and `deploy.sh` with each release; no hand copy to the server | DP-5, DF-2 | autonomous | ready |
 
 ## Order
@@ -176,8 +176,8 @@ calls, the owner's own machine, a product decision only the owner can make, or a
 
 ### DF-6: Certificate expiry in verify
 - **Change ID:** `deploy-verify-cert-expiry`
-- **Status:** in_progress (implement 1/2, since 2026-10-06; cloud session, branch `claude/project-thread-6o3udj`)
-- **Input:** [`deploy-verify-cert-expiry`](../changes/deploy-verify-cert-expiry/change.md)
+- **Status:** done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.2)
+- **Input:** [`deploy-verify-cert-expiry`](../archive/2026-10-06-deploy-verify-cert-expiry/change.md)
 - **Outcome:** an optional `verify.tlsMinDays`; `verify` reads the certificate with `node:tls` once per run and adds
   a `tls` row to the table (days left, issuer); fewer days than the minimum is a failure. Tested against a local
   TLS server with a generated certificate.

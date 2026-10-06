@@ -1,12 +1,12 @@
 ---
 change_id: deploy-verify-cert-expiry
 title: "softure-deploy verify fails when the TLS certificate expires within a set number of days"
-status: in_progress
+status: archived
 roadmap_item: DF-6
 branch: claude/project-thread-6o3udj
 created: 2026-10-06
 updated: 2026-10-06
-archived_at: null
+archived_at: 2026-10-06
 ---
 
 ## Intent
