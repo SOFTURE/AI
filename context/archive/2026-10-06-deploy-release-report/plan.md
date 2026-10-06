@@ -104,4 +104,4 @@ apart); the Deployments API (research §2).
   server-files tests red before the workflow and template changes)
 
 #### Manual
-- [ ] The `e2e-deploy` run on the pull request is green (CI, before merge)
+- [x] The `e2e-deploy` run on the pull request is green (CI, before merge): run 37494039467 on 356266f, report job and `check-report.sh` green

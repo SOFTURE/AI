@@ -91,6 +91,36 @@ describe("softure-deploy verify", () => {
     expect(err.join("")).toBe("verify: 1 of 1 routes failed; the TLS certificate check failed.\n");
   });
 
+  it("adds a failed origin row and exits 1 when the origin accepts a direct connection", async () => {
+    writeConfig({ verify: { routes: [{ path: "/" }] } });
+    // The local server stands in for an origin whose firewall lets anyone in.
+    const origin = `127.0.0.1:${new URL(baseUrl).port}`;
+    expect(await runCli(["verify", baseUrl, `--origin=${origin}`], makeIo())).toBe(1);
+    expect(out.join("")).toBe(
+      [
+        "Result  Status  Route   Detail",
+        "PASS    200     /       1 check passed",
+        `FAIL    -       origin  ${origin} accepted a direct connection; the firewall lets more than the CDN through`,
+        "",
+        `verify: 1 routes at ${baseUrl}, 1 passed, 0 failed; origin failed`,
+        "",
+      ].join("\n"),
+    );
+    expect(err.join("")).toBe(`verify: the origin ${origin} is not closed to direct traffic.\n`);
+  });
+
+  it("passes the origin row and exits 0 when the origin refuses the connection", async () => {
+    writeConfig({ verify: { routes: [{ path: "/" }] } });
+    const closed = createServer();
+    await new Promise<void>((resolve) => closed.listen(0, "127.0.0.1", resolve));
+    const port = (closed.address() as AddressInfo).port;
+    await new Promise<void>((resolve) => closed.close(() => resolve()));
+    expect(await runCli(["verify", baseUrl, `--origin=127.0.0.1:${port}`], makeIo())).toBe(0);
+    expect(out.join("")).toContain(`PASS    -       origin  127.0.0.1:${port} connection refused (nothing listens there)\n`);
+    expect(out.join("")).toContain("1 passed, 0 failed; origin passed\n");
+    expect(err).toEqual([]);
+  });
+
   it("refuses a missing, malformed or invalid deploy.json and one without a verify section", async () => {
     expect(await runCli(["verify", baseUrl], makeIo())).toBe(1);
     writeConfig("{ not json");
@@ -123,6 +153,9 @@ describe("softure-deploy verify", () => {
     [["https://example.com", "--concurrency=0"]],
     [["https://example.com", "--concurrency=1.5"]],
     [["https://example.com", "--retries=3"]],
+    [["https://example.com", "--origin=https://203.0.113.7"]],
+    [["https://example.com", "--origin=203.0.113.7:0"]],
+    [["https://example.com", "--origin="]],
   ])("exits 2 on a wrong command line: %j", async (args) => {
     writeConfig({ verify: { routes: [{ path: "/" }] } });
     expect(await runCli(["verify", ...args], makeIo())).toBe(2);

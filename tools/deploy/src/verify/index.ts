@@ -1,4 +1,15 @@
 export { checkResponse, joinUrl, mergeHeaderChecks, type CheckKind, type CheckOutcome, type ObservedResponse } from "./checks.js";
+export {
+  classifyOriginProbe,
+  formatOriginAddress,
+  parseOriginAddress,
+  probeOrigin,
+  runOriginCheck,
+  type OriginAddress,
+  type OriginProbe,
+  type OriginReport,
+  type ParsedOriginAddress,
+} from "./origin-check.js";
 export { formatVerifyReport } from "./report.js";
 export {
   DEFAULT_CONCURRENCY,

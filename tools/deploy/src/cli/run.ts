@@ -28,7 +28,7 @@ export const USAGE = [
   "  row-counts [--tables=<a,b.c> | --config=deploy.json] [--out=<file>] [--compare=<file>] [--url-env=DATABASE_URL]",
   "      counts the --tables, else database.rowCountTables of deploy.json (a missing table is absent); with --compare,",
   "      fails when a table has fewer rows than in the earlier file, was not in it, or is absent now",
-  "  verify <url> [--config=deploy.json] [--timeout=<ms>] [--concurrency=4]",
+  "  verify <url> [--config=deploy.json] [--timeout=<ms>] [--concurrency=4] [--origin=<host>[:<port>]]",
   "      checks every route of deploy.json against <url>; exits 1 when a check fails",
   "  init --domain=<host> --image=<registry/name> [--dir=.] [--name=<slug>] [--paths=/] [--www] [--acme-email=<email>]",
   "       [--env=NAME,...] [--tables=a,b.c] [--force]",
