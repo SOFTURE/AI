@@ -1,12 +1,12 @@
 ---
 change_id: marketing-kit-release
 title: "marketing-kit release"
-status: backlog
+status: archived
 roadmap_item: MK-8
 branch: null
 created: 2026-10-02
-updated: 2026-10-04
-archived_at: null
+updated: 2026-10-06
+archived_at: 2026-10-06
 ---
 
 ## Intent
@@ -17,9 +17,9 @@ archived_at: null
 
 ## Context
 
-From [`roadmap-later.md`](../../../foundation/roadmaps/roadmap-later.md), item **MK-8** (carried over on 2026-10-03 from roadmap `marketing-kit`,
-archived in [`2026-10-03-4-roadmap.md`](../../../foundation/archive/2026-10-03-4-roadmap.md), to roadmap `followups`,
-archived in [`2026-10-04-roadmap.md`](../../../foundation/archive/2026-10-04-roadmap.md), and on to the queued roadmap `later`):
+From [`roadmap-later.md`](../../foundation/roadmaps/roadmap-later.md), item **MK-8** (carried over on 2026-10-03 from roadmap `marketing-kit`,
+archived in [`2026-10-03-4-roadmap.md`](../../foundation/archive/2026-10-03-4-roadmap.md), to roadmap `followups`,
+archived in [`2026-10-04-roadmap.md`](../../foundation/archive/2026-10-04-roadmap.md), and on to the queued roadmap `later`):
 
 > ### MK-8: marketing-kit release
 > - **Change ID:** `marketing-kit-release`
@@ -34,7 +34,7 @@ archived in [`2026-10-04-roadmap.md`](../../../foundation/archive/2026-10-04-roa
 > - **Baseline:** package absent from npm. After: `npx @softure-ai/marketing-kit --help` works from npm and from the GitHub Release tarball.
 > - **PRD refs:** FR-24, FR-25, FR-2.
 
-Reference material: [`docs/03-marketing-kit.md`](../../../../docs/03-marketing-kit.md) (architecture, JSON contract, licenses), PRD FR-24 and FR-25, and the source in FIRE_TRACKER `video/**`, `scripts/screenshot.mts`, `src/app/**/opengraph-image.tsx`.
+Reference material: [`docs/03-marketing-kit.md`](../../../docs/03-marketing-kit.md) (architecture, JSON contract, licenses), PRD FR-24 and FR-25, and the source in FIRE_TRACKER `video/**`, `scripts/screenshot.mts`, `src/app/**/opengraph-image.tsx`.
 
 ## Constraints
 
@@ -44,3 +44,10 @@ Reference material: [`docs/03-marketing-kit.md`](../../../../docs/03-marketing-k
 - The owner approves the first (staged) publish and configures the trusted publisher.
 
 ## Notes
+
+## Outcome (2026-10-06)
+
+Released through the pipeline without a code change of its own: the batch release went out at 0.1.2 (staged),
+0.1.4 (staged, through the trusted publishers) and 0.1.5, the first version published directly and live on npm at
+once (`release-0-1-5`, checked in the registry). The owner's npm steps (trusted publishers) are done; staged
+versions left over from 0.1.2 and 0.1.4 need no approval. Archived without a plan: the work was the owner's release.

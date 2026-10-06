@@ -1,14 +1,12 @@
-import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { trimTrailingSlashes } from "../verify/checks.js";
 import { formatVerifyReport } from "../verify/report.js";
 import { DEFAULT_CONCURRENCY, runVerify } from "../verify/run-checks.js";
-import { parseDeployConfig, type VerifyConfig } from "../verify/schema.js";
+import type { VerifyConfig } from "../verify/schema.js";
+import { DEFAULT_DEPLOY_CONFIG, readDeployConfig } from "./deploy-config.js";
 import { fail, USAGE_EXIT_CODE } from "./failure.js";
 import type { CliIo } from "./io.js";
-
-export const DEFAULT_DEPLOY_CONFIG = "deploy.json";
 
 const MAX_CONCURRENCY = 32;
 const TIMEOUT_RANGE = { min: 100, max: 120_000 };
@@ -40,17 +38,9 @@ function readInteger(flag: string, text: string | undefined, range: { min: numbe
 }
 
 function readVerifyConfig(path: string, shownPath: string): VerifyConfig {
-  let json: unknown;
-  try {
-    json = JSON.parse(readFileSync(path, "utf8"));
-  } catch (error) {
-    const reason = error instanceof SyntaxError ? "not valid JSON" : ((error as NodeJS.ErrnoException).code ?? "unknown error");
-    return fail(`verify: cannot read ${shownPath} (${reason}).`);
-  }
-  const parsed = parseDeployConfig(json);
-  if (!parsed.ok) return fail(`verify: ${shownPath} is not valid:\n${parsed.issues.map((issue) => `  ${issue}`).join("\n")}`);
-  if (parsed.config.verify === undefined) return fail(`verify: ${shownPath} has no "verify" section; nothing to check.`);
-  return parsed.config.verify;
+  const config = readDeployConfig("verify", path, shownPath);
+  if (config.verify === undefined) return fail(`verify: ${shownPath} has no "verify" section; nothing to check.`);
+  return config.verify;
 }
 
 function readVerifyArgs(args: string[]) {
@@ -73,7 +63,8 @@ function readVerifyArgs(args: string[]) {
 
 /**
  * `softure-deploy verify <url> [--config=deploy.json] [--timeout=<ms>] [--concurrency=4]`: requests every route of
- * the `verify` section and prints a table; any failed check is exit code 1.
+ * the `verify` section (and reads the certificate with `tlsMinDays`) and prints a table; any failed check is exit
+ * code 1.
  */
 export async function runVerifyCommand(args: string[], io: CliIo): Promise<void> {
   const { values, positionals } = readVerifyArgs(args);
@@ -84,8 +75,12 @@ export async function runVerifyCommand(args: string[], io: CliIo): Promise<void>
   const timeoutMs = readInteger("timeout", values.timeout, TIMEOUT_RANGE);
   const concurrency = readInteger("concurrency", values.concurrency, { min: 1, max: MAX_CONCURRENCY }) ?? DEFAULT_CONCURRENCY;
   const config = readVerifyConfig(resolve(io.cwd, values.config), values.config);
-  const reports = await runVerify({ baseUrl, config, concurrency, ...(timeoutMs === undefined ? {} : { timeoutMs }) });
-  io.stdout(formatVerifyReport(reports, baseUrl));
-  const failed = reports.filter((report) => !report.passed).length;
-  if (failed > 0) fail(`verify: ${failed} of ${reports.length} routes failed.`);
+  const report = await runVerify({ baseUrl, config, concurrency, ...(timeoutMs === undefined ? {} : { timeoutMs }) });
+  io.stdout(formatVerifyReport(report, baseUrl));
+  const failed = report.routes.filter((route) => !route.passed).length;
+  const problems = [
+    ...(failed > 0 ? [`${failed} of ${report.routes.length} routes failed`] : []),
+    ...(report.tls?.passed === false ? ["the TLS certificate check failed"] : []),
+  ];
+  if (problems.length > 0) fail(`verify: ${problems.join("; ")}.`);
 }

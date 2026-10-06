@@ -1,9 +1,10 @@
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { createBackup, BACKUP_PREFIX } from "../db/backup.js";
 import { DEFAULT_URL_ENV, isPostgresUrl, toLibpqEnv, withPgClient } from "../db/connection.js";
 import { compareRowCounts, countRows, parseTableList, rowCountsFileSchema, type RowCounts } from "../db/row-counts.js";
 import { guardSchema } from "../db/schema-guard.js";
+import { DEFAULT_DEPLOY_CONFIG, readDeployConfig } from "./deploy-config.js";
 import { fail, USAGE_EXIT_CODE } from "./failure.js";
 import type { CliIo } from "./io.js";
 import { readFlags } from "./options.js";
@@ -98,23 +99,42 @@ function readRowCountsFile(path: string, shown: string): RowCounts {
   return parsed.data.counts;
 }
 
+const TABLES_HINT = "pass --tables=users,billing.subscriptions or list them in database.rowCountTables of";
+
+/** The tables to count: `--tables`, else `database.rowCountTables` of the `--config` file (default `deploy.json`). */
+function readRowCountTables(flags: { tables?: string | undefined; config?: string | undefined }, cwd: string): string[] {
+  if (flags.tables !== undefined) {
+    if (flags.config !== undefined) fail("row-counts: pass either --tables or --config, not both.", USAGE_EXIT_CODE);
+    const list = parseTableList(flags.tables);
+    if (!list.ok) fail(`row-counts: ${list.problem}.`, USAGE_EXIT_CODE);
+    return list.tables;
+  }
+  const shown = flags.config ?? DEFAULT_DEPLOY_CONFIG;
+  const path = resolve(cwd, shown);
+  if (flags.config === undefined && !existsSync(path)) {
+    fail(`row-counts: no tables to count; ${TABLES_HINT} ${shown} (${shown} not found).`, USAGE_EXIT_CODE);
+  }
+  const tables = readDeployConfig("row-counts", path, shown).database?.rowCountTables;
+  if (tables === undefined) fail(`row-counts: no tables to count; ${TABLES_HINT} ${shown}.`, USAGE_EXIT_CODE);
+  return tables;
+}
+
 /**
- * `softure-deploy row-counts --tables=… [--out=…] [--compare=…]`: counts the app's key tables; with `--compare`,
- * fails when a table has fewer rows than in the earlier file.
+ * `softure-deploy row-counts [--tables=… | --config=deploy.json] [--out=…] [--compare=…]`: counts the app's key
+ * tables; with `--compare`, fails when a table has fewer rows than in the earlier file.
  */
 export async function runRowCounts(args: string[], io: CliIo): Promise<void> {
   const flags = readFlags("row-counts", args, {
     tables: { type: "string" },
+    config: { type: "string" },
     out: { type: "string" },
     compare: { type: "string" },
     "url-env": { type: "string", default: DEFAULT_URL_ENV },
   });
-  if (flags.tables === undefined) fail("row-counts: --tables is required, e.g. --tables=users,billing.subscriptions.", USAGE_EXIT_CODE);
-  const list = parseTableList(flags.tables);
-  if (!list.ok) fail(`row-counts: ${list.problem}.`, USAGE_EXIT_CODE);
+  const tables = readRowCountTables(flags, io.cwd);
   const before = flags.compare === undefined ? null : readRowCountsFile(resolve(io.cwd, flags.compare), flags.compare);
   const url = readDatabaseUrl("row-counts", io.env, flags["url-env"]);
-  const counts = await runOnDatabase("row-counts", url, (client) => countRows(client, list.tables));
+  const counts = await runOnDatabase("row-counts", url, (client) => countRows(client, tables));
   if (flags.out !== undefined) {
     const file = { takenAt: new Date().toISOString(), counts };
     writeFileSync(resolve(io.cwd, flags.out), `${JSON.stringify(file, null, 2)}\n`);
