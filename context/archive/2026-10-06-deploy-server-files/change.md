@@ -56,5 +56,5 @@ makes `deploy.sh` use it.
 - Archived 2026-10-06: `deploy-app.yml` packs the compose file's folder, `server-script` and `deploy-config` with
   `.env.prod` into one archive on stdin; `init`'s `deploy.sh` checks it, unpacks it into `releases/<tag>/`, installs
   the files next to itself (itself by a rename) and restarts Traefik when its rules changed. `@softure-ai/deploy`
-  0.1.2; waiting for its release and the owner's `deploy-workflows-v1` tag. No new gap; DF-8 (from DF-5) makes
+  0.1.3; waiting for its release and the owner's `deploy-workflows-v1` tag. No new gap; DF-8 (from DF-5) makes
   `deploy.sh` read the shipped `deploy.json`.

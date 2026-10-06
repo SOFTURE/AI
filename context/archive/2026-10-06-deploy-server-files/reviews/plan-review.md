@@ -22,6 +22,6 @@ Findings:
   files.
 - **W3 (warning, accepted):** a server that runs an older `deploy.sh` would take the archive for `.env.prod`. No app
   deploys through the workflow yet, so the protocol changes without a fallback; the README tells an app whose
-  `deploy.sh` came from 0.1.0 or 0.1.1 (published while this ran) to copy the new one once.
+  `deploy.sh` came from 0.1.2 or earlier (published while this ran) to copy the new one once.
 - **S1 (suggestion, taken):** check the new compose file with `docker compose config --quiet` from the release folder
   before installing anything, so a broken compose file stops the release with nothing installed.

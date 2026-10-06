@@ -18,7 +18,7 @@ container.
   `./traefik.yml` (Traefik's file provider, `watch=true`) and `./initdb` (read on Postgres' first start only).
 - **`deploy.json`** sits at the app's root (`init` writes it); DF-2 reads it in the `verify` job. DF-8 (from DF-5,
   not on `master` yet) wants the server's `deploy.sh` to read the row-count tables from a shipped copy.
-- **Callers:** none known. `@softure-ai/deploy` 0.1.0 went to npm in DP-8 and 0.1.1 with release 0.1.5 (both while
+- **Callers:** none known. `@softure-ai/deploy` 0.1.0 went to npm in DP-8, 0.1.1 with release 0.1.5 and 0.1.2 with DF-6 (all while
   this ran); no app deploys through the workflow yet, so changing the protocol breaks nobody running. An app that ran
   `init` with those versions copies the new `deploy.sh` once.
 

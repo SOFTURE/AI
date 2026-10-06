@@ -44,7 +44,7 @@ command forbids both); a new CLI command that packs the archive (the workflow wo
 **Files:** `tools/deploy/tests/server-files.test.ts` (new), `tests/repo/deploy-workflows.test.ts`,
 `.github/workflows/deploy-app.yml`, `tools/deploy/templates/docker/server/deploy.sh.tmpl`,
 `tools/deploy/src/init/generate.test.ts` (if a text assertion moves), `tools/deploy/README.md`,
-`tools/deploy/package.json` (0.1.2) and `package-lock.json`.
+`tools/deploy/package.json` (0.1.3) and `package-lock.json`.
 
 1. Test (`server-files.test.ts`): the workflow's pack step, run with bash in a fake checkout made from
    `planInitFiles` (no database), and the generated `deploy.sh`, run with the archive on stdin, a stub `docker` on
@@ -56,7 +56,7 @@ command forbids both); a new CLI command that packs the archive (the workflow wo
    is the check job's anchored patterns; "Send" reads `release.tar.gz`; the cleanup removes it.
 3. Workflow and template as above; header comments of both; README (deploy workflow steps, `deploy.sh on the server`,
    inputs, the DF-7 limitation replaced by "files a release no longer ships stay on the server").
-4. `@softure-ai/deploy` 0.1.2 (the template is published; 0.1.1 went out with release 0.1.5 while this ran) and
+4. `@softure-ai/deploy` 0.1.3 (the template is published; 0.1.1 and 0.1.2 went out with release 0.1.5 and DF-6 while this ran) and
    `deploy-cli-version` with it.
 5. Gates: typecheck, lint, test, build; actionlint with shellcheck over the workflows; shellcheck over the rendered
    `deploy.sh` (both variants).
