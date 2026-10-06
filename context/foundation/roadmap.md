@@ -52,6 +52,7 @@ backlog: context/backlog/roadmap-deploy-followups/
 | **DF-6** | `deploy-verify-cert-expiry` | `verify` fails when the TLS certificate expires within `verify.tlsMinDays` | — | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.2) |
 | **DF-7** | `deploy-server-files` | `deploy-app.yml` ships the tag's `docker/prod/` files and `deploy.sh` with each release; no hand copy to the server | DP-5, DF-2 | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.3 and the owner's `deploy-workflows-v1` tag) |
 | **DF-8** | `deploy-row-count-server-list` | the server's `deploy.sh` counts the tables of the shipped `deploy.json`; `init --tables` writes them there | DF-5, DF-7 | autonomous | ready |
+| **DF-9** | `deploy-workflow-e2e-server` | the deploy workflow's end-to-end test runs the shipped `deploy.sh` and `verify`, not only the recorder | DF-3 | autonomous | ready |
 | **MK-10** | `marketing-kit-film-followups` | a committed `marketing.json` reproduces a paid film with no hand fixes: the opening transition is chosen in the config and none flickers, the voiceover cache shows which file belongs to which video (old flat caches still found), and the recording day is pinned per video | — | autonomous | ready |
 
 ## Order
@@ -61,7 +62,7 @@ parallel, up to 4 at once.
 
 | Lane | Items, in order | Shared files |
 | --- | --- | --- |
-| A: workflow | DF-2 → DF-7 → DF-3, DF-8 | `.github/workflows/deploy-app.yml`, `tools/deploy/examples/`, `init`'s `deploy.sh` (DF-7, DF-8) |
+| A: workflow | DF-2 → DF-7 → DF-3, DF-8 → DF-9 | `.github/workflows/deploy-app.yml`, `tools/deploy/examples/`, `init`'s `deploy.sh` (DF-7, DF-8) |
 | B: deploy.json | DF-5, DF-6 | `tools/deploy/src/verify/schema.ts` and `schema/deploy.schema.json` (DF-5 also `src/db/`, DF-6 the rest of `src/verify/`) |
 | C: auth | DF-4 | `foundation/auth/` (`testing` export), example app e2e |
 | D: FIRE parity | DF-1 | all of `tools/deploy/` and `deploy-app.yml` (reads FIRE_TRACKER) |
@@ -75,6 +76,7 @@ parallel, up to 4 at once.
 3. **DF-3** once DF-7 is on `master`, so the end-to-end job checks the final protocol. DP-8 (the npm publish)
    waits on the owner, so DF-3 runs the CLI from the checkout through a workflow input.
 4. **DF-8** once DF-7 is on `master` (same `deploy.sh`); it may run next to DF-3.
+   **DF-9** once DF-3 is on `master` (same e2e path); after DF-8 if both change `deploy.sh`.
 5. **DF-1** whenever a session can read FIRE_TRACKER (see "Owner at the keyboard?"); it touches every part of
    `tools/deploy/`, so it merges `master` and resolves conflicts itself.
 
@@ -96,6 +98,7 @@ calls, the owner's own machine, a product decision only the owner can make, or a
 | DF-6 | no | tested against a local TLS server with a generated certificate |
 | DF-7 | no | protocol tested with the scripts run locally; no live server |
 | DF-8 | no | `init` output and the script tested locally; no live server |
+| DF-9 | no | everything runs on CI runners; no server, secret or registry |
 | MK-10 | no | fixture recordings and the fake voice provider; no paid call; the version bump rides the owner's next release |
 
 ## Items
@@ -221,6 +224,21 @@ calls, the owner's own machine, a product decision only the owner can make, or a
   Mode: autonomous, no owner step.
 - **Source:** DF-5 (`deploy-row-count-config`), research question 3: the server holds `docker/prod/` and
   `deploy.sh` only, so `deploy.sh` cannot read `deploy.json` until DF-7 ships the app's files with each release.
+- **PRD refs:** FR-33.
+
+### DF-9: The end-to-end test runs the server side and verify
+- **Change ID:** `deploy-workflow-e2e-server`
+- **Status:** ready
+- **Input:** [`deploy-workflow-e2e-server`](../backlog/roadmap-deploy-followups/deploy-workflow-e2e-server/change.md)
+- **Outcome:** on the `e2e` path the server's forced command runs the shipped `deploy.sh` (image loaded from the
+  build job's artifact, the stack up on the runner), and `verify` runs `softure-deploy verify` against it.
+- **Prerequisites:** DF-3 on `master`.
+- **Unknowns:** how `verify` (https only) reaches the runner's app: a local certificate or an `http://` allowance on
+  the test path only.
+- **Risk:** low. The recorder already proves everything up to the forced command; this adds the server half.
+  Mode: autonomous, no owner step.
+- **Source:** DF-3 (`deploy-workflow-e2e`), implementation: the recorder stops at the forced command, and `verify`
+  needs the app over HTTPS on a public name, so it is skipped on the test path.
 - **PRD refs:** FR-33.
 
 ### MK-10: A committed marketing.json reproduces a paid film without hand fixes

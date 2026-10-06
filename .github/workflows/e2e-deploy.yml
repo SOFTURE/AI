@@ -1,0 +1,93 @@
+# End-to-end test of the reusable deploy workflow (DF-3): calls ./.github/workflows/deploy-app.yml the way an app does,
+# for the example app, with `e2e: true`. Its deploy job builds the image without pushing it, renders .env.prod with
+# the CLI of this commit and sends the release with the production ssh command to a throwaway SSH server on its own
+# runner, whose forced command records what it received (tools/deploy/e2e/). The `assert` job checks the recording
+# against this commit: the image reference, the command line, the archive's files byte for byte and the names in
+# .env.prod. A broken step fails here instead of on an app's first live deploy.
+#
+# Only when the deploy workflow or tools/deploy/ changes (one image build of the example app per run), on master, and
+# on demand. The server files are init's output for the example app, committed under tools/deploy/e2e/app/ (regenerate
+# with `npm run e2e-app -w @softure-ai/deploy`).
+
+name: e2e-deploy
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/deploy-app.yml"
+      - ".github/workflows/e2e-deploy.yml"
+      - "tools/deploy/**"
+  push:
+    branches: [master]
+    paths:
+      - ".github/workflows/deploy-app.yml"
+      - ".github/workflows/e2e-deploy.yml"
+      - "tools/deploy/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-deploy-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: deploy-app.yml
+    # The called build job asks for packages: write; with e2e it pushes nothing.
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/deploy-app.yml
+    with:
+      tag: ${{ github.sha }}
+      app-url: https://deploy-e2e.example.com
+      image: ghcr.io/softure/ai-deploy-e2e
+      context: .
+      dockerfile: examples/next-app/Dockerfile
+      compose-file: tools/deploy/e2e/app/docker/prod/docker-compose.yml
+      server-script: tools/deploy/e2e/app/docker/server/deploy.sh
+      deploy-config: tools/deploy/e2e/app/deploy.json
+      ssh-port: 2222
+      e2e: true
+    secrets:
+      # The e2e path takes the server's address and keys from the server it starts; these are never used.
+      ssh-host: unused
+      ssh-user: unused
+      ssh-private-key: unused
+      ssh-known-hosts: unused
+      # Placeholder values. UNUSED_SECRET is not in the compose file, so it must not reach .env.prod.
+      app-secrets: >-
+        {"AUTH_SECRET":"e2e-auth-secret","POSTGRES_PASSWORD":"e2e-postgres","SOFTURE_APP_PASSWORD":"e2e-app",
+        "SOFTURE_MIGRATOR_PASSWORD":"e2e-migrator","UNUSED_SECRET":"e2e-unused"}
+
+  assert:
+    name: check what the server received
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          sparse-checkout: /tools/deploy/e2e/
+          sparse-checkout-cone-mode: false
+      - uses: actions/download-artifact@v8
+        with:
+          name: deploy-e2e-received
+          path: ${{ runner.temp }}/received
+      - name: Check the image, the command line, the files and the env names
+        env:
+          RECEIVED_DIR: ${{ runner.temp }}/received
+          COMPOSE_FILE: tools/deploy/e2e/app/docker/prod/docker-compose.yml
+          SERVER_SCRIPT: tools/deploy/e2e/app/docker/server/deploy.sh
+          DEPLOY_CONFIG: tools/deploy/e2e/app/deploy.json
+          TAG: ${{ github.sha }}
+          IMAGE: ${{ needs.deploy.outputs.image }}
+          EXPECTED_IMAGE: ghcr.io/softure/ai-deploy-e2e
+          # The compose file's required names (${NAME:?}), written out here rather than computed by the CLI under test.
+          EXPECTED_ENV_NAMES: AUTH_SECRET POSTGRES_PASSWORD SOFTURE_APP_PASSWORD SOFTURE_MIGRATOR_PASSWORD
+        run: bash tools/deploy/e2e/check-received.sh
