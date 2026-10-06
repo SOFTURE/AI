@@ -1,12 +1,12 @@
 ---
 change_id: charts-svg-primitives
 title: "SVG chart primitives"
-status: planned
+status: archived
 roadmap_item: CH-2
 branch: claude/ch-2-svg-sguj5t
 created: 2026-10-06
 updated: 2026-10-06
-archived_at: null
+archived_at: 2026-10-06
 ---
 
 ## Intent

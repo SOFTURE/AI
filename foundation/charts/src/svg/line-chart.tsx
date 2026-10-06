@@ -1,7 +1,7 @@
 import type { DeepPartial, Locale } from "@softure-ai/core";
 import { ChartCursor, type CursorPoint } from "../cursor/chart-cursor.js";
 import { getChartsCopy, type ChartsMessages } from "../messages/index.js";
-import { dateTicks } from "../scale/date-ticks.js";
+import { dateTicks, formatDateTick } from "../scale/date-ticks.js";
 import { linearScale, peakOf, timeScale } from "../scale/scale.js";
 import { valueTicks } from "../scale/value-ticks.js";
 import { timeAxisTicks, valueAxisTicks } from "./axis-ticks.js";
@@ -31,7 +31,7 @@ export interface LineChartSeries {
   readonly dashed?: boolean;
 }
 
-/** An annotation: a dashed guide over a date and a chip with its label at the top. */
+/** An annotation: a dashed guide over a date and a chip with its label at the top. Outside the series' dates it is not drawn. */
 export interface LineChartFlag {
   readonly key: string;
   readonly x: Date;
@@ -95,9 +95,14 @@ export function LineChart({
 
   const values = valueTicks(peak, valueTickTarget);
   const axisDates = dateTicks({ start, end, target: dateTickTarget, timeZone });
+  // Without a calendar boundary in the span (one point, or hours apart), the first date still gets a label.
   const timeTicks = axisDates
     ? timeAxisTicks({ ticks: axisDates.ticks, unit: axisDates.unit, scale: xScale, locale, timeZone, ends: [start, end] })
-    : [];
+    : dates.length > 0
+      ? [{ key: "start", label: formatDateTick(start, "day", { locale, timeZone }), xPercent: 0, align: "start" as const }]
+      : [];
+  // A flag outside the drawn dates would sit off the plot.
+  const visibleFlags = flags.filter((flag) => flag.x.getTime() >= start.getTime() && flag.x.getTime() <= end.getTime());
 
   const cursorPoints: CursorPoint[] = dates.map((date, index) => ({
     key: date.getTime(),
@@ -121,7 +126,7 @@ export function LineChart({
       <ChartCursor title={title} points={cursorPoints} locale={locale} messages={messages}>
         <ValueAxis ticks={valueAxisTicks({ ticks: values, scale: yScale, format: formatValue })} />
         <ChartPlot
-          overlay={flags.map((flag) => (
+          overlay={visibleFlags.map((flag) => (
             <ChartFlag key={flag.key} xPercent={toPercent(xScale(flag.x), PLOT_WIDTH)}>
               {flag.label}
             </ChartFlag>
@@ -129,7 +134,7 @@ export function LineChart({
         >
           <GridLines ys={values.map((value) => yScale(value))} />
           <Baseline />
-          {flags.map((flag) => (
+          {visibleFlags.map((flag) => (
             <GuideLine key={flag.key} x={xScale(flag.x)} />
           ))}
           {series.map((entry, seriesIndex) => (

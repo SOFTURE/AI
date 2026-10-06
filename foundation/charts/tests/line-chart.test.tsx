@@ -105,6 +105,22 @@ describe("LineChart", () => {
     expect(readTexts(html, "sft-chart-value-label")).toEqual(["0"]);
   });
 
+  it("labels the only date of a single point and leaves out flags off its dates", () => {
+    const html = renderToStaticMarkup(
+      <LineChart
+        title="One month"
+        series={[{ key: "savings", label: "Savings", points: [{ x: JAN_1, y: 1000 }] }]}
+        flags={[{ key: "later", x: MAR_1, label: "Later" }]}
+        locale="en"
+        timeZone="Europe/Warsaw"
+        formatValue={formatValue}
+      />,
+    );
+    expect(readTexts(html, "sft-chart-time-label")).toEqual(["Jan 1"]);
+    expect(html).not.toContain("Later");
+    expect(html).not.toContain("sft-chart-guide");
+  });
+
   it("refuses series with different dates", () => {
     const [savings, spending] = SERIES;
     if (!savings || !spending) throw new Error("fixture");
