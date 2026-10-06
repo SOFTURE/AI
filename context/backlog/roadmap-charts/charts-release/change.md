@@ -15,12 +15,12 @@ archived_at: null
 
 ## Context
 
-From [`roadmap-charts.md`](../../../foundation/roadmaps/roadmap-charts.md), item **CH-5** (queued roadmap `charts`):
+From [`roadmap.md`](../../../foundation/roadmap.md) (charts), item **CH-5** (main roadmap since 2026-10-06):
 
 > ### CH-5: Charts release
 > - **Change ID:** `charts-release`
 > - **Status:** blocked (waits for CH-1…CH-4 and the owner's first npm publish at the keyboard)
-> - **Outcome:** `@softure-ai/charts` 0.1.0 (the owner approves the first, staged publish and adds its trusted publisher) and the next `@softure-ai/ui` with the testing helpers; README with an adoption guide for FIRE_TRACKER's charts.
+> - **Outcome:** `@softure-ai/charts` 0.1.0 (the owner provides `NPM_TOKEN` for its first publish and adds its trusted publisher) and the next `@softure-ai/ui` with the testing helpers; README with an adoption guide for FIRE_TRACKER's charts.
 > - **Prerequisites:** CH-1…CH-4.
 > - **Unknowns:** none beyond the owner's npm steps.
 > - **Risk:** low.

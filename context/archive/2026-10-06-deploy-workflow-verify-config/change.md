@@ -19,7 +19,7 @@ repository test over the workflow.
 
 ## Context
 
-From [`roadmap.md`](../../foundation/roadmap.md) (deploy-followups), item **DF-2**:
+From [`roadmap.md`](../../foundation/archive/2026-10-06-2-roadmap.md) (deploy-followups), item **DF-2**:
 
 > - **Outcome:** The `verify` job runs `softure-deploy verify <app-url>` (DP-4) from the CLI version the workflow pins,
 >   reading the app's `deploy.json` from the release tag; the health-route wait stays as the first step, so verify

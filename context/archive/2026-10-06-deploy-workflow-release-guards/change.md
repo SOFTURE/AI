@@ -21,7 +21,7 @@ through a throwaway Docker config, so the server needs no permanent registry log
 
 ## Context
 
-From [`roadmap.md`](../../foundation/roadmap.md) (deploy-followups), item **DF-11**:
+From [`roadmap.md`](../../foundation/archive/2026-10-06-2-roadmap.md) (deploy-followups), item **DF-11**:
 
 > - **Outcome:** `deploy-app.yml` refuses a tag whose commit is not on the default branch; takes build arguments
 >   (public origins baked into the image) and refuses a release whose built origin differs from the runtime secret

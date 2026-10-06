@@ -18,7 +18,7 @@ overwrites it.
 
 ## Context
 
-From [`roadmap.md`](../../foundation/roadmap.md) (deploy-followups), item **DF-16** (entry:
+From [`roadmap.md`](../../foundation/archive/2026-10-06-2-roadmap.md) (deploy-followups), item **DF-16** (entry:
 [`backlog-input.md`](backlog-input.md)):
 
 > - **Outcome:** `softure-deploy init` writes `.github/workflows/release.yml` (the caller of

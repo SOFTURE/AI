@@ -28,7 +28,7 @@ builds its image from the generated `Dockerfile`.
 
 ## Context
 
-From [`roadmap.md`](../../foundation/roadmap.md) (deploy), item **DP-5**:
+From [`roadmap.md`](../../foundation/archive/2026-10-06-roadmap.md) (deploy), item **DP-5**:
 
 > - **Outcome:** `softure-deploy init` generates files the app then owns (never overwrites without `--force`):
 >   production `docker-compose.yml` and Traefik rules (apex router with the app's allowed paths); a `Dockerfile`

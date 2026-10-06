@@ -20,7 +20,7 @@ CLI runs from the checkout.
 
 ## Context
 
-From [`roadmap.md`](../../foundation/roadmap.md) (deploy-followups), item **DF-3**:
+From [`roadmap.md`](../../foundation/archive/2026-10-06-2-roadmap.md) (deploy-followups), item **DF-3**:
 
 > - **Outcome:** A workflow in this repository calls `./.github/workflows/deploy-app.yml` for the example app against a
 >   local `sshd` container with a forced command that records what it received and a local registry (or

@@ -23,8 +23,10 @@ An entry is never in two places, neither as a copy nor as a pointer.
   the main roadmap's catch-all; the blog roadmap's was blog-followups (owner, 2026-10-03), the main roadmap from
   2026-10-05 until it closed the same day ([archive](../foundation/archive/2026-10-05-roadmap.md)). The deploy
   roadmap's catch-all is `roadmap-deploy-followups/` (`DF-`), created with its first gap; deploy closed on 2026-10-06
-  ([archive](../foundation/archive/2026-10-06-roadmap.md)) and deploy-followups became the main roadmap on 2026-10-06; its new
-  gaps get the next `DF-<n>` there. While no main roadmap runs, a new gap goes to a loose `<topic>.md` file.
+  ([archive](../foundation/archive/2026-10-06-roadmap.md)) and deploy-followups, the main roadmap after it, closed the same
+  day ([archive](../foundation/archive/2026-10-06-2-roadmap.md)). The charts roadmap's catch-all is
+  `roadmap-charts-followups/` (`CF-`), created with its first gap (see the charts roadmap's header). While no main
+  roadmap runs, a new gap goes to a loose `<topic>.md` file.
 - **Work that is ready but waits only on the owner at the keyboard** (repository secrets, a provider account)
   becomes an item of [`roadmap-later/`](roadmap-later/) (owner, 2026-10-03): see its README, "Adding an item".
 
@@ -32,6 +34,5 @@ An entry is never in two places, neither as a copy nor as a pointer.
 
 | Folder | Roadmap | Starts when |
 | --- | --- | --- |
-| [`roadmap-charts/`](roadmap-charts/) | [charts](../foundation/roadmaps/roadmap-charts.md) | the owner promotes it |
-| [`roadmap-deploy-followups/`](roadmap-deploy-followups/) | [deploy-followups](../foundation/roadmap.md) | promoted 2026-10-06 (main roadmap; DF-1…DF-7) |
+| [`roadmap-charts/`](roadmap-charts/) | [charts](../foundation/roadmap.md) | promoted 2026-10-06 (main roadmap; CH-1…CH-5) |
 | [`roadmap-later/`](roadmap-later/) | [later](../foundation/roadmaps/roadmap-later.md) | the owner step each item waits on is done (MK-8, EN-9 and MO-6 carried over from followups; BL-8 from blog; DP-8 from deploy) |

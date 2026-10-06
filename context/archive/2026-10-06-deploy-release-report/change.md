@@ -19,7 +19,7 @@ release body and the `release-notes` section (DF-1) stay as they are.
 
 ## Context
 
-From [`roadmap.md`](../../foundation/roadmap.md) (deploy-followups), item **DF-10**:
+From [`roadmap.md`](../../foundation/archive/2026-10-06-2-roadmap.md) (deploy-followups), item **DF-10**:
 
 > - **Outcome:** a final report job of `deploy-app.yml` writes, with `release-notes --body` (DF-1), a pipeline status
 >   table (each job's result and the run link) and a deployment history row per run (time, result, image and digest,

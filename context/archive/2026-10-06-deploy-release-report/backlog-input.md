@@ -15,7 +15,7 @@ A final report job of `deploy-app.yml` writes, with `release-notes --body` (DF-1
 
 ## Context
 
-From [`roadmap.md`](../../foundation/roadmap.md) (deploy-followups), item **DF-10**:
+From [`roadmap.md`](../../foundation/archive/2026-10-06-2-roadmap.md) (deploy-followups), item **DF-10**:
 
 > - **Outcome:** a final report job of `deploy-app.yml` writes, with `release-notes --body` (DF-1), a pipeline status table (each job's result and the run link) and a deployment history row per run (time, result, image and digest, backup file, row counts before and after, verify result) into the GitHub Release body, newest first; reruns and rollbacks add rows, never replace them.
 > - **Source:** DF-1 (`deploy-fire-parity`), research: FIRE's `src/lib/release-notes.ts` (status, deployments) and the `report` job of `release.yml` (research §2).

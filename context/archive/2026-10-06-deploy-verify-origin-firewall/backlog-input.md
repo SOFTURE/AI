@@ -15,7 +15,7 @@ archived_at: null
 
 ## Context
 
-From [`roadmap.md`](../../foundation/roadmap.md) (deploy-followups), item **DF-13**:
+From [`roadmap.md`](../../foundation/archive/2026-10-06-2-roadmap.md) (deploy-followups), item **DF-13**:
 
 > - **Outcome:** `deploy.json` gets an optional origin address (or `verify` a flag) and `softure-deploy verify` adds a row that passes only when direct HTTPS to that address gets no answer, so a firewall that let more than the CDN through fails the release.
 > - **Source:** DF-1 (`deploy-fire-parity`), research: FIRE's `verify-production.sh`, the `DEPLOY_IP` check (research §5).
