@@ -3,20 +3,16 @@
 // banner switch there, the home page follows on the next request, and the row records who did it.
 // The panel's action refuses a session that lost the role and stores nothing. Serial: the tests
 // share the one switch row.
-import { spawnSync } from "node:child_process";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
-import { authMessages, users } from "@softure-ai/auth";
+import { users } from "@softure-ai/auth";
 import { featureSwitchesMessages, switches } from "@softure-ai/feature-switches";
-import { expectPageStatus, openPageAsNewClient, registerAccount, uniqueEmail } from "@softure-ai/testing/playwright";
+import { expectPageStatus, openPageAsNewClient, uniqueEmail } from "@softure-ai/testing/playwright";
 import { eq, inArray } from "drizzle-orm";
 import { en } from "../messages/en.ts";
 import { WELCOME_BANNER_SWITCH } from "../softure.config.ts";
+import { createSignedInAccount } from "./accounts.ts";
 import { openTestDatabase } from "./database.ts";
 
-const APP_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const authCopy = authMessages.en;
 const switchesCopy = featureSwitchesMessages.en;
 const PASSWORD = "correct horse battery";
 const BANNER_LABEL = en.switches.welcomeBanner.label;
@@ -30,20 +26,14 @@ function newEmail(): string {
   return email;
 }
 
-async function register(page: Page, email: string): Promise<void> {
-  await registerAccount(page, { copy: authCopy, email, password: PASSWORD });
+async function signIn(page: Page, email: string): Promise<void> {
+  await createSignedInAccount(page, { email, password: PASSWORD });
 }
 
-/** Registers an account and grants it admin with the example's grant-role script. */
-async function registerAdmin(page: Page): Promise<string> {
+/** Signs in a new account created with the admin role; returns its email. */
+async function signInAsAdmin(page: Page): Promise<string> {
   const email = newEmail();
-  await register(page, email);
-  const result = spawnSync("npm", ["run", "--silent", "grant-role", "--", `--email=${email}`, "--role=admin", "--commit"], {
-    cwd: APP_DIR,
-    encoding: "utf8",
-  });
-  expect(`${result.stdout}${result.stderr}`).toContain("COMMITTED");
-  expect(result.status).toBe(0);
+  await createSignedInAccount(page, { email, password: PASSWORD, roles: ["admin"] });
   return email;
 }
 
@@ -105,13 +95,13 @@ test.afterAll(async () => {
 test("an anonymous visitor and a user without the admin role get not found on the panel", async ({ browser }) => {
   const page = await openPageAsNewClient(browser);
   await expectPageStatus(page, "/switches", 404);
-  await register(page, newEmail());
+  await signIn(page, newEmail());
   await expectPageStatus(page, "/switches", 404);
 });
 
 test("an admin turns the welcome banner on and off, the home page follows and the row records who", async ({ browser }) => {
   const page = await openPageAsNewClient(browser);
-  const email = await registerAdmin(page);
+  const email = await signInAsAdmin(page);
   await page.goto("/");
   await expect(page.getByTestId("welcome-banner")).toHaveCount(0);
 
@@ -139,13 +129,13 @@ test("an admin turns the welcome banner on and off, the home page follows and th
 test("the panel's action refuses a session without the admin role and an anonymous one, and stores nothing", async ({ browser }) => {
   await resetBanner();
   const page = await openPageAsNewClient(browser);
-  await registerAdmin(page);
+  await signInAsAdmin(page);
   await page.goto("/switches");
 
   // The panel stays open in this tab while the browser's session becomes a non-admin's.
   const other = await page.context().newPage();
   await page.context().clearCookies();
-  await register(other, newEmail());
+  await signIn(other, newEmail());
   await flipAndWait(page);
   await expect(page.getByText(switchesCopy.errors.auth.forbidden)).toBeVisible();
   await expect(page.getByRole("switch", { name: BANNER_LABEL })).not.toBeChecked();

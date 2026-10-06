@@ -6,25 +6,25 @@
 // account has nothing to pay. The grant-plan and revoke-grant scripts write the same history the
 // admin page shows. Asking again does not mail the admin twice, a field the server refuses says
 // why, and the expire-invoice-requests script closes a request nobody asked again for. Every test
-// gets its own client address and accounts; the admin is an account given the role in Postgres
+// gets its own client address and accounts; the admin is an account created with the role in Postgres
 // (auth-roles.spec.ts owns the configured admin). Other tests' requests share the list, so rows
 // are always picked by the member's address.
 import { spawnSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
-import { authMessages, userRoles, users } from "@softure-ai/auth";
+import { users } from "@softure-ai/auth";
 import { billingMessages } from "@softure-ai/billing";
 import { readMailOutbox } from "@softure-ai/mailing/testing";
-import { expectPageStatus, openPageAsNewClient, registerAccount, uniqueEmail } from "@softure-ai/testing/playwright";
-import { eq, inArray, sql } from "drizzle-orm";
+import { expectPageStatus, openPageAsNewClient, uniqueEmail } from "@softure-ai/testing/playwright";
+import { inArray, sql } from "drizzle-orm";
 import { en } from "../messages/en.ts";
 import { EXAMPLE_ADMIN_EMAIL } from "../softure.config.ts";
+import { createSignedInAccount } from "./accounts.ts";
 import { openTestDatabase } from "./database.ts";
 import { MAIL_OUTBOX } from "./outbox.ts";
 
 const APP_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const authCopy = authMessages.en;
 const copy = billingMessages.en;
 const PASSWORD = "correct horse battery";
 const createdEmails: string[] = [];
@@ -51,22 +51,13 @@ test.afterAll(async () => {
   }
 });
 
-async function register(page: Page, email: string): Promise<void> {
-  await registerAccount(page, { copy: authCopy, email, password: PASSWORD });
+async function signIn(page: Page, email: string): Promise<void> {
+  await createSignedInAccount(page, { email, password: PASSWORD });
 }
 
-/** An account with the admin role, granted in Postgres. */
-async function registerAdmin(page: Page): Promise<void> {
-  const email = newEmail();
-  await register(page, email);
-  const database = await openTestDatabase();
-  try {
-    const [account] = await database.db.select({ id: users.id }).from(users).where(eq(users.email, email));
-    if (account === undefined) throw new Error(`registerAdmin: no account for ${email}`);
-    await database.db.insert(userRoles).values({ userId: account.id, role: "admin", grantedAt: new Date() });
-  } finally {
-    await database.close();
-  }
+/** An account with the admin role, created in Postgres. */
+async function signInAsAdmin(page: Page): Promise<void> {
+  await createSignedInAccount(page, { email: newEmail(), password: PASSWORD, roles: ["admin"] });
 }
 
 test("the pricing page lists the plans of the config, each linking to the payment page", async ({ browser }) => {
@@ -91,7 +82,7 @@ test("choosing a plan without a session goes through the login page and back to 
 test("an invoice request mails the admin the details and grants nothing yet", async ({ browser }) => {
   const page = await openPageAsNewClient(browser);
   const email = newEmail();
-  await register(page, email);
+  await signIn(page, email);
   await page.goto("/account/billing");
   await page.getByRole("link", { name: en.billing.seePlans }).click();
   await expect(page).toHaveURL("/payment");
@@ -117,7 +108,7 @@ test("an invoice request mails the admin the details and grants nothing yet", as
 test("a too-long tax id gets its own message, and nothing is stored or mailed", async ({ browser }) => {
   const page = await openPageAsNewClient(browser);
   const email = newEmail();
-  await register(page, email);
+  await signIn(page, email);
   await page.goto("/payment?plan=monthly");
   const taxId = page.getByLabel(copy.payment.fields.taxId);
   // The field's maxLength stops a browser; a crafted request does not, and the server says why.
@@ -136,14 +127,14 @@ test("a too-long tax id gets its own message, and nothing is stored or mailed", 
 test("asking again for the same plan refreshes the request without mailing the admin again", async ({ browser }) => {
   const member = await openPageAsNewClient(browser);
   const email = newEmail();
-  await register(member, email);
+  await signIn(member, email);
   await requestInvoice(member, en.plans.monthly.name);
   await requestInvoice(member, en.plans.monthly.name, "2 Difference Lane, London");
 
   const mails = (await readMailOutbox(MAIL_OUTBOX, { to: EXAMPLE_ADMIN_EMAIL })).filter((mail) => mail.subject === `Invoice request: ${en.plans.monthly.name} for ${email}`);
   expect(mails).toHaveLength(1);
   const admin = await openPageAsNewClient(browser);
-  await registerAdmin(admin);
+  await signInAsAdmin(admin);
   await admin.goto("/admin/billing");
   const request = admin.locator("[data-request-id]").filter({ hasText: email });
   await expect(request).toHaveCount(1);
@@ -154,10 +145,10 @@ test("asking again for the same plan refreshes the request without mailing the a
 test("the admin's grant flips the account's trial to paid", async ({ browser }) => {
   const member = await openPageAsNewClient(browser);
   const email = newEmail();
-  await register(member, email);
+  await signIn(member, email);
 
   const admin = await openPageAsNewClient(browser);
-  await registerAdmin(admin);
+  await signInAsAdmin(admin);
   await admin.goto("/admin");
   await admin.getByRole("link", { name: en.admin.grantPlans }).click();
   await expect(admin).toHaveURL("/admin/billing");
@@ -175,7 +166,7 @@ test("the admin's grant flips the account's trial to paid", async ({ browser }) 
 
 test("the grant refuses an address without an account", async ({ browser }) => {
   const admin = await openPageAsNewClient(browser);
-  await registerAdmin(admin);
+  await signInAsAdmin(admin);
   await admin.goto("/admin/billing");
   await admin.getByLabel(copy.admin.email).fill(uniqueEmail("nobody"));
   await admin.getByRole("button", { name: copy.admin.submit }).click();
@@ -186,7 +177,7 @@ test("the grant page is not found for an account without the admin role, and for
   const visitor = await openPageAsNewClient(browser);
   await expectPageStatus(visitor, "/admin/billing", 404);
   const member = await openPageAsNewClient(browser);
-  await register(member, newEmail());
+  await signIn(member, newEmail());
   await expectPageStatus(member, "/admin/billing", 404);
 });
 
@@ -208,11 +199,11 @@ async function readBadgeStatus(page: Page): Promise<string | null> {
 test("an invoice request waits in the admin's list; Grant gives the plan and Revoke takes it back", async ({ browser }) => {
   const member = await openPageAsNewClient(browser);
   const email = newEmail();
-  await register(member, email);
+  await signIn(member, email);
   await requestInvoice(member, en.plans.yearly.name);
 
   const admin = await openPageAsNewClient(browser);
-  await registerAdmin(admin);
+  await signInAsAdmin(admin);
   await admin.goto("/admin/billing");
   const request = admin.locator("[data-request-id]").filter({ hasText: email });
   await expect(request).toContainText(`${email} · ${en.plans.yearly.name}`);
@@ -241,11 +232,11 @@ test("an invoice request waits in the admin's list; Grant gives the plan and Rev
 test("Dismiss closes a request without a grant, and its History link shows the account", async ({ browser }) => {
   const member = await openPageAsNewClient(browser);
   const email = newEmail();
-  await register(member, email);
+  await signIn(member, email);
   await requestInvoice(member, en.plans.monthly.name);
 
   const admin = await openPageAsNewClient(browser);
-  await registerAdmin(admin);
+  await signInAsAdmin(admin);
   await admin.goto("/admin/billing");
   const request = admin.locator("[data-request-id]").filter({ hasText: email });
   await request.getByRole("link", { name: copy.admin.requests.history }).click();
@@ -260,10 +251,10 @@ test("Dismiss closes a request without a grant, and its History link shows the a
 test("a lifetime account has nothing to pay, and the admin cannot grant it again", async ({ browser }) => {
   const member = await openPageAsNewClient(browser);
   const email = newEmail();
-  await register(member, email);
+  await signIn(member, email);
 
   const admin = await openPageAsNewClient(browser);
-  await registerAdmin(admin);
+  await signInAsAdmin(admin);
   await admin.goto("/admin/billing");
   const grant = async () => {
     await admin.getByLabel(copy.admin.email).fill(email);
@@ -290,7 +281,7 @@ function runPlanScript(script: "grant-plan" | "revoke-grant", args: readonly str
 test("a plan granted with the grant-plan script is in the admin's history, and revoke-grant takes it back", async ({ browser }) => {
   const member = await openPageAsNewClient(browser);
   const email = newEmail();
-  await register(member, email);
+  await signIn(member, email);
 
   const granted = runPlanScript("grant-plan", [`--email=${email}`, "--plan=monthly"]);
   expect(granted.status, granted.output).toBe(0);
@@ -299,7 +290,7 @@ test("a plan granted with the grant-plan script is in the admin's history, and r
   expect(await readBadgeStatus(member)).toBe("paid");
 
   const admin = await openPageAsNewClient(browser);
-  await registerAdmin(admin);
+  await signInAsAdmin(admin);
   await admin.goto("/admin/billing");
   await admin.getByLabel(copy.admin.history.email).fill(email);
   await admin.getByRole("button", { name: copy.admin.history.submit }).click();
@@ -320,7 +311,7 @@ test("a plan granted with the grant-plan script is in the admin's history, and r
 test("a request nobody asked again for expires through the expire-invoice-requests script", async ({ browser }) => {
   const member = await openPageAsNewClient(browser);
   const email = newEmail();
-  await register(member, email);
+  await signIn(member, email);
   await requestInvoice(member, en.plans.monthly.name);
 
   const database = await openTestDatabase();
@@ -341,7 +332,7 @@ test("a request nobody asked again for expires through the expire-invoice-reques
   }
 
   const admin = await openPageAsNewClient(browser);
-  await registerAdmin(admin);
+  await signInAsAdmin(admin);
   await admin.goto("/admin/billing");
   await expect(admin.locator("[data-request-id]").filter({ hasText: email })).toHaveCount(0);
 });

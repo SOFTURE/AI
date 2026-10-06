@@ -15,7 +15,8 @@ for server code, roles (`requireRole`, `authorizeRole`, `hasRole`, and `grant-ro
 `revoke-role` scripts), `createAuthGuard` for the app's `proxy.ts`, and a health check that
 `GET /api/health` of `@softure-ai/ops` runs (every auth table answers, no rows read).
 `@softure-ai/auth/mailing` sends password reset mails through `@softure-ai/mailing`
-(`mailingResetSender()`).
+(`mailingResetSender()`). `@softure-ai/auth/testing` creates accounts directly in the database for
+tests (`createTestAccount`, section 4, "Tests").
 
 ## 2. Installation
 
@@ -275,6 +276,26 @@ auth({
 **Your own forms.** `@softure-ai/auth/ui` exports `LoginForm`, `RegisterForm`,
 `ChangePasswordForm`, `ForgotPasswordForm` and `ResetPasswordForm`; pass them the actions from
 `@softure-ai/auth/next`.
+
+**Tests.** `createTestAccount(db, { email, password, roles?, scrypt? })` from `@softure-ai/auth/testing`
+writes an account and its role rows in one transaction, hashed as registration hashes it, and returns
+the `AuthUser`. It is for tests that need an account but are not about registration: no `onRegistered`
+hook runs (no consent row) and no session is opened, so the test signs in through the login form.
+Pass the app's parameters, so the first login does not rehash:
+
+```ts
+import { getAuthOptions } from "@softure-ai/auth/server";
+import { createTestAccount } from "@softure-ai/auth/testing";
+
+const user = await createTestAccount(handle.db, {
+  email: "ada@example.com",
+  password: "correct horse battery",
+  roles: ["admin"],
+  scrypt: getAuthOptions(config).password.scrypt,
+});
+```
+
+An invalid or taken email throws. The entry is server-only and never imported by the module itself.
 
 ## 5. Migrations and tables
 
