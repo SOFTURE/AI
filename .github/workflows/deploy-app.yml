@@ -10,6 +10,7 @@
 # (DF-7): a gzip tar of the compose file's folder (`docker/prod/`), the `server-script`, the app's `deploy-config` (as
 # `deploy.json`) and the rendered `.env.prod`. It installs those files next to itself, pulls `<image>:<tag>` and
 # restarts the stack, so a changed compose file, Traefik rule or server script ships with the release that needs it.
+# The release counts only when the server's output holds the line `result|ok` (init's deploy.sh prints it, DF-9).
 # The host key is checked against `ssh-known-hosts`, never learned on first use.
 #
 # Verify waits for the health route, then runs `softure-deploy verify <app-url>` (DP-4) with the app's `deploy.json`
@@ -318,7 +319,7 @@ jobs:
             echo "::error::$prod_dir holds something other than files and folders: ${odd//$'\n'/, }"
             failures=$((failures + 1))
           fi
-          for name in .env.prod deploy.sh deploy.json .deployed-tag backups releases; do
+          for name in .env.prod .env.prod.prev deploy.sh deploy.json .deployed-tag .deploy.lock backups releases; do
             if [ -e "$prod_dir/$name" ]; then
               echo "::error::$prod_dir/$name is reserved on the server; rename it."
               failures=$((failures + 1))
@@ -354,11 +355,19 @@ jobs:
             printf '%s\n' "$SSH_PRIVATE_KEY" > "$key"
             printf '%s\n' "$SSH_KNOWN_HOSTS" > "$known_hosts"
           )
+          # The server prints `step|…` lines and ends with `result|ok` (init's deploy.sh, DF-9): an exit status alone
+          # could come from a session cut halfway, so only that line counts as a release.
+          output="$RUNNER_TEMP/deploy-output.txt"
+          set -o pipefail
           ssh -i "$key" -p "$SSH_PORT" \
             -o BatchMode=yes -o IdentitiesOnly=yes -o ConnectTimeout=20 \
             -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
             -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$known_hosts" \
-            "$SSH_USER@$SSH_HOST" "$REMOTE_COMMAND $TAG" < release.tar.gz
+            "$SSH_USER@$SSH_HOST" "$REMOTE_COMMAND $TAG" < release.tar.gz | tee "$output"
+          if ! grep -qx 'result|ok' "$output"; then
+            echo "::error::The server did not report result|ok; the release is not confirmed (see the lines above)."
+            exit 1
+          fi
       - name: Remove the key, .env.prod and the release archive
         if: always()
         run: rm -rf "$RUNNER_TEMP/deploy_key" "$RUNNER_TEMP/deploy_known_hosts" "$RUNNER_TEMP/release" .env.prod release.tar.gz
