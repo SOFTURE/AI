@@ -41,8 +41,11 @@ printf '%s\\n' "$*" >> "$NPX_LOG"
 exit 0
 `;
 
+// DF-11: a command run under a DOCKER_CONFIG is also logged with that folder, and the login's stdin is kept.
 const STUB_DOCKER = `#!/usr/bin/env bash
 printf '%s\\n' "$*" >> "$DOCKER_LOG"
+if [ -n "\${DOCKER_CONFIG:-}" ]; then printf '%s %s\\n' "$1" "$DOCKER_CONFIG" >> "$DOCKER_CONFIG_LOG"; fi
+if [ "$1" = "login" ]; then cat > "$LOGIN_STDIN"; fi
 if [ -n "\${FAIL_COMPOSE_CONFIG:-}" ] && [[ " $* " == *" config "* ]]; then exit 1; fi
 exit 0
 `;
@@ -111,6 +114,8 @@ function deploy(tag: string, input: Buffer | string, env: Record<string, string>
       PATH: `${stubBin}:${process.env.PATH ?? ""}`,
       SSH_ORIGINAL_COMMAND: `deploy ${tag}`,
       DOCKER_LOG: dockerLog,
+      DOCKER_CONFIG_LOG: join(root, "docker-config.log"),
+      LOGIN_STDIN: join(root, "login-stdin"),
       NPX_LOG: npxLog,
       ...env,
     },
@@ -343,6 +348,87 @@ describe("deploy.sh refuses a release archive", () => {
 
   it("when its compose file does not parse", () => {
     expectRefused(deploy("v1", packArchive(), { FAIL_COMPOSE_CONFIG: "1" }), "deploy: the compose file of v1 is not valid; nothing was installed.");
+  });
+});
+
+describe("the registry token of a release (DF-11)", () => {
+  const TOKEN = "ghs_short-lived-token";
+
+  function packWithToken(): Buffer {
+    const result = pack({ REGISTRY_TOKEN: TOKEN });
+    expect(result.stdout).not.toContain("::error::");
+    expect(result.status).toBe(0);
+    return readFileSync(join(checkout, "release.tar.gz"));
+  }
+
+  function readDockerConfigLog(): string[] {
+    const path = join(root, "docker-config.log");
+    return existsSync(path) ? readFileSync(path, "utf8").trim().split("\n") : [];
+  }
+
+  it("rides in the archive as .registry-token, readable by its owner only", () => {
+    const listing = spawnSync("tar", ["-tvzf", "-"], { input: packWithToken(), encoding: "utf8" }).stdout;
+    expect(listing).toMatch(/^-rw------- 0\/0 .* \.\/\.registry-token$/m);
+    expect(pack().status).toBe(0);
+    const without = spawnSync("tar", ["-tzf", join(checkout, "release.tar.gz")], { encoding: "utf8" }).stdout;
+    expect(without).not.toContain(".registry-token");
+  });
+
+  it("logs in and pulls through a throwaway Docker config, and is installed nowhere", () => {
+    const result = deploy("v1.2.3", packWithToken());
+    expect(result.stderr).toBe("");
+    expect(result.status).toBe(0);
+    expect(readDockerLog()).toEqual([
+      expect.stringMatching(/ config --quiet$/) as unknown,
+      "login ghcr.io --username softure-deploy --password-stdin",
+      "pull --quiet ghcr.io/acme/app:v1.2.3",
+      "compose --env-file .env.prod --file docker-compose.yml up --detach --wait --remove-orphans traefik app",
+    ]);
+    expect(readFileSync(join(root, "login-stdin"), "utf8")).toBe(`${TOKEN}\n`);
+    const configs = readDockerConfigLog();
+    expect(configs.map((line) => line.split(" ")[0])).toEqual(["login", "pull"]);
+    const config = configs[0]?.split(" ")[1] ?? "";
+    expect(config).toMatch(/\/docker-config$/);
+    expect(configs[1]?.split(" ")[1]).toBe(config);
+    expect(existsSync(config)).toBe(false);
+    expect(existsSync(join(server, ".registry-token"))).toBe(false);
+    expect(existsSync(join(server, "releases/v1.2.3/.registry-token"))).toBe(false);
+  });
+
+  it("pulls with the host's own login when the release carries none", () => {
+    expect(deploy("v1", packArchive()).status).toBe(0);
+    expect(readDockerLog().filter((line) => line.startsWith("login"))).toEqual([]);
+    expect(readDockerConfigLog()).toEqual([]);
+  });
+
+  it("stops the release when the login fails, before anything is pulled", () => {
+    write(join(stubBin, "docker"), `${STUB_DOCKER.replace("exit 0\n", "")}if [ "$1" = "login" ]; then exit 1; fi\nexit 0\n`, 0o755);
+    const result = deploy("v1", packWithToken());
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("deploy: cannot log in to ghcr.io with the release's registry token.");
+    expect(readDockerLog().filter((line) => line.startsWith("pull"))).toEqual([]);
+  });
+
+  it("refuses an empty token with nothing installed", () => {
+    const dir = join(root, "empty-token");
+    mkdirSync(dir);
+    for (const name of ["docker-compose.yml", "traefik.yml"]) {
+      write(join(dir, name), readFileSync(join(checkout, "docker/prod", name), "utf8"));
+    }
+    write(join(dir, "deploy.sh"), "#!/usr/bin/env bash\n");
+    write(join(dir, ".env.prod"), ENV_PROD, 0o600);
+    write(join(dir, ".registry-token"), "", 0o600);
+    const result = deploy("v1", tarDirectory(dir, ["."]));
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("deploy: the release archive's .registry-token is empty or not a file.");
+    expectNothingInstalled();
+  });
+
+  it("is a name the compose folder may not use", () => {
+    write(join(checkout, "docker/prod/.registry-token"), "x\n");
+    const result = pack();
+    expect(result.status).not.toBe(0);
+    expect(result.stdout).toContain("::error::docker/prod/.registry-token is reserved on the server; rename it.");
   });
 });
 

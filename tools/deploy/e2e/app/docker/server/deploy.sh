@@ -12,7 +12,12 @@
 # /srv/softure-example/, so only the first setup copies this script there by hand. A new copy of this script is installed by
 # a rename: the running copy finishes, the new one runs from the next release.
 #
-# The host needs Docker with the compose plugin, logged in to the registry of ghcr.io/softure/ai-deploy-e2e with a read-only token.
+# The archive may also hold .registry-token, the deploy job's short-lived GITHUB_TOKEN: the image is then pulled
+# with it through a Docker config in this run's temporary folder, so the host keeps no registry login and the token
+# is never installed. Without it (the workflow's registry-token: false), the host's own registry login pulls
+# ghcr.io/softure/ai-deploy-e2e.
+#
+# The host needs Docker with the compose plugin.
 # The database steps also need Node.js 22 (`npx @softure-ai/deploy`) and pg_dump of the Postgres major version of
 # the compose file (postgresql-client-16).
 #
@@ -126,6 +131,14 @@ tar -xzf "$archive" -C "$release_dir" --no-same-owner --no-same-permissions || r
 for required in .env.prod deploy.sh docker-compose.yml; do
   if [ ! -s "$release_dir/$required" ]; then refuse "the release archive has no $required."; fi
 done
+registry_token=""
+if [ -e "$release_dir/.registry-token" ]; then
+  if [ ! -f "$release_dir/.registry-token" ] || [ ! -s "$release_dir/.registry-token" ]; then
+    refuse "the release archive's .registry-token is empty or not a file."
+  fi
+  registry_token="$work/registry-token"
+  mv -f "$release_dir/.registry-token" "$registry_token"
+fi
 docker compose --env-file "$release_dir/.env.prod" --file "$release_dir/docker-compose.yml" config --quiet \
   || refuse "the compose file of $TAG is not valid; nothing was installed."
 
@@ -141,7 +154,15 @@ compose() {
 }
 
 echo "deploy: $IMAGE:$TAG (previous: ${previous_tag:-none})"
-docker pull --quiet "$IMAGE:$TAG" > /dev/null || fail "cannot pull $IMAGE:$TAG."
+if [ -n "$registry_token" ]; then
+  registry="${IMAGE%%/*}"
+  mkdir -p "$work/docker-config"
+  DOCKER_CONFIG="$work/docker-config" docker login "$registry" --username softure-deploy --password-stdin \
+    < "$registry_token" > /dev/null || fail "cannot log in to $registry with the release's registry token."
+  DOCKER_CONFIG="$work/docker-config" docker pull --quiet "$IMAGE:$TAG" > /dev/null || fail "cannot pull $IMAGE:$TAG."
+else
+  docker pull --quiet "$IMAGE:$TAG" > /dev/null || fail "cannot pull $IMAGE:$TAG."
+fi
 
 # Reads one value of .env.prod without sourcing it: `env render` writes NAME=value or NAME='value'.
 read_env() {
