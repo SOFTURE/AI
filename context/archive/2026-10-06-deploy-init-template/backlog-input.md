@@ -15,7 +15,7 @@ archived_at: null
 
 ## Context
 
-From [`roadmap.md`](../../foundation/roadmap.md) (deploy), item **DP-5** (main roadmap since 2026-10-05):
+From [`roadmap.md`](../../foundation/archive/2026-10-06-roadmap.md) (deploy), item **DP-5** (main roadmap since 2026-10-05):
 
 > ### DP-5: Deploy files generated once
 > - **Change ID:** `deploy-init-template`

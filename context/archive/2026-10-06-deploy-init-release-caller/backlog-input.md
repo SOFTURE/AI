@@ -17,7 +17,7 @@ the `deploy.yml` it already writes, so a new app can cut a release with *Run wor
 
 ## Context
 
-From [`roadmap.md`](../../foundation/roadmap.md) (deploy-followups), item **DF-16**:
+From [`roadmap.md`](../../foundation/archive/2026-10-06-2-roadmap.md) (deploy-followups), item **DF-16**:
 
 > - **Outcome:** `softure-deploy init` writes `.github/workflows/release.yml` (the caller of
 >   `deploy-cut-release.yml`, as `tools/deploy/examples/release.yml`) next to the `deploy.yml` it already writes.

@@ -16,7 +16,7 @@ An app lists the tables `softure-deploy row-counts` compares in its `deploy.json
 
 ## Context
 
-From [`roadmap.md`](../../foundation/roadmap.md) (deploy-followups), item **DF-5** (main roadmap since 2026-10-06):
+From [`roadmap.md`](../../foundation/archive/2026-10-06-2-roadmap.md) (deploy-followups), item **DF-5** (main roadmap since 2026-10-06):
 
 > - **Outcome:** `deploy.json` gets an optional `database.rowCountTables` list (zod schema and JSON Schema);
 >   `row-counts` reads it when `--tables` is not given.

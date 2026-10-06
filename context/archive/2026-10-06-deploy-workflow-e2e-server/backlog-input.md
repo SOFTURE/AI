@@ -17,7 +17,7 @@ The end-to-end test of `deploy-app.yml` (DF-3) goes past the forced command: the
 
 ## Context
 
-From [`roadmap.md`](../../foundation/roadmap.md) (deploy-followups), item **DF-15**:
+From [`roadmap.md`](../../foundation/archive/2026-10-06-2-roadmap.md) (deploy-followups), item **DF-15**:
 
 > - **Outcome:** on the `e2e` path the server's forced command runs the shipped `deploy.sh` (image loaded from the
 >   build job's artifact, the stack up on the runner), and `verify` runs `softure-deploy verify` against it.

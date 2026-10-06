@@ -17,7 +17,7 @@ bounds without anyone at the keyboard.
 
 ## Context
 
-From [`roadmap.md`](../../foundation/roadmap.md) (deploy-followups), item **DF-9**:
+From [`roadmap.md`](../../foundation/archive/2026-10-06-2-roadmap.md) (deploy-followups), item **DF-9**:
 
 > - **Outcome:** `init`'s `deploy.sh` gains FIRE's server-side safety steps: a read-only `status` command (tag,
 >   containers, health); the current compose files and `.env.prod` saved before the switch and restored when it

@@ -15,7 +15,7 @@ Server-rendered SVG surface, time and value axes, lines, legend and flags; a key
 
 ## Context
 
-From [`roadmap-charts.md`](../../../foundation/roadmaps/roadmap-charts.md), item **CH-2** (queued roadmap `charts`):
+From [`roadmap.md`](../../../foundation/roadmap.md) (charts), item **CH-2** (main roadmap since 2026-10-06):
 
 > ### CH-2: SVG chart primitives
 > - **Change ID:** `charts-svg-primitives`

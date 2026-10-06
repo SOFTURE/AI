@@ -1,32 +1,35 @@
 ---
 project: "SOFTURE AI"
-roadmap: deploy-followups
+roadmap: charts
 version: 1
 status: ready
 prd_version: 2
-created: 2026-10-05
+created: 2026-10-04
 updated: 2026-10-06
-backlog: context/backlog/roadmap-deploy-followups/
+backlog: context/backlog/roadmap-charts/
 ---
 
-# Roadmap deploy-followups: gaps found while delivering the deploy roadmap
+# Roadmap charts: SVG chart primitives with accessibility guards
 
-> Entries: [`context/backlog/roadmap-deploy-followups/`](../backlog/roadmap-deploy-followups/). An entry is taken
-> (moved to `context/changes/<id>/`) when its item starts.
+> Reference: [`docs/06-fire-extraction-2.md`](../../docs/06-fire-extraction-2.md), PRD v2 FR-31 and FR-32.
 >
-> Promoted by the owner on 2026-10-06, with no main roadmap in flight: deploy closed earlier the same day (archived in
-> [`archive/2026-10-06-roadmap.md`](archive/2026-10-06-roadmap.md)); its DP-8 waits in
-> [`later`](roadmaps/roadmap-later.md). The owner wants DF-1…DF-7 run now, one thread per item; whatever lands is
-> released with the next batch. Still queued in [`roadmaps/`](roadmaps/README.md): `charts` (not now, owner
-> 2026-10-06) and `later`.
+> Entries: [`context/backlog/roadmap-charts/`](../backlog/roadmap-charts/). An entry is taken (moved to
+> `context/changes/<id>/`) when its item starts.
 >
-> The catch-all of the deploy roadmap (owner, 2026-10-03: gaps found while delivering a roadmap are collected in a
-> catch-all roadmap, not fixed on the spot). A thread that finds a new gap while delivering this roadmap:
-> 1. takes the next free `DF-<n>` on the current `master` and a kebab-case change-id;
-> 2. writes `context/backlog/roadmap-deploy-followups/<change-id>/change.md` (`status: backlog`, the item block
->    quoted in Context, **Source** naming the change and the finding);
-> 3. adds the row and the item block here (status `ready`, or `blocked (…)` when it waits on the owner) and the row
->    in the backlog README. Mark the severity in **Risk** and say in **Mode** whether it needs the owner.
+> Promoted on 2026-10-06, when deploy-followups closed (archived in
+> [`archive/2026-10-06-2-roadmap.md`](archive/2026-10-06-2-roadmap.md)). The owner decided earlier that day to run
+> charts now, after deploy-followups only where an item depends on it; none does. One thread per item. Still queued
+> in [`roadmaps/`](roadmaps/README.md): `later`.
+>
+> Written on 2026-10-04 from the second FIRE_TRACKER analysis, next to the main roadmap
+> [`blog`](archive/2026-10-04-2-roadmap.md) (closed on 2026-10-04). Chart primitives were in the scope of
+> `@softure-ai/ui` in the module assessment (`docs/01`) but never landed; they get their own package so `@softure-ai/ui` stays within NFR-7.
+>
+> Gaps found while delivering this roadmap are collected, not fixed on the spot (owner, 2026-10-03): the first gap
+> creates the queued catch-all `charts-followups` (`context/foundation/roadmaps/roadmap-charts-followups.md` and
+> `context/backlog/roadmap-charts-followups/`, prefix `CF-`); each gap gets the next `CF-<n>`, a backlog entry
+> (`status: backlog`, **Source** naming the change and the finding) and a row, with the severity in **Risk** and
+> the owner's part in **Mode**.
 >
 > Run-wide orders (read by orchestrators):
 > - Push main branch: at the end. Also push `master` after every merge, so an ephemeral cloud
@@ -36,342 +39,118 @@ backlog: context/backlog/roadmap-deploy-followups/
 > - Parallelism: up to 4 at once (`workflow.json` → `worktree.maxParallel`).
 > - Process: every item runs the full softure chain (new → research → frame → plan → plan review → implement →
 >   impl review → archive); skipping research or framing is justified in `change.md` (owner, 2026-10-03).
-> - Release: each item that changes a published package bumps it; the owner releases at the keyboard.
+> - Release: each item that changes a published package bumps it (`@softure-ai/ui` for CH-3); the new
+>   `@softure-ai/charts` rides its first publish (CH-5).
+> - Owner at the keyboard: CH-5 only (the first npm publish of a new package).
 >
-> FIRE_TRACKER (owner, 2026-10-03): read only. Items may copy its code; none changes it.
+> FIRE_TRACKER is read only; its domain charts (the FIRE timeline, band and position colours) stay in FIRE and are
+> built on this package in FIRE's own roadmap.
 
 ## At a glance
 
 | ID | Change | Outcome | Depends on | Mode | Status |
 | --- | --- | --- | --- | --- | --- |
-| **DF-1** | `deploy-fire-parity` | `env render`, `release-notes`, the deploy workflow, the database steps (`backup`, `schema-guard`, `row-counts`) and `verify` checked against FIRE_TRACKER's scripts and tests; differences ported or recorded | — | owner (read access to FIRE_TRACKER) | done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.2) |
-| **DF-2** | `deploy-workflow-verify-config` | the `verify` job of `deploy-app.yml` runs `softure-deploy verify` with the app's `deploy.json` instead of only the health route | DP-4 | autonomous | done_code (2026-10-06; waiting: the first publish of `@softure-ai/deploy`, DP-8) |
-| **DF-3** | `deploy-workflow-e2e` | a CI job runs `deploy-app.yml` against a throwaway SSH server and registry, so a broken step fails here, not on the first live deploy | DP-5, DF-7 | autonomous | done |
-| **DF-4** | `auth-testing-account-factory` | `@softure-ai/auth/testing` creates an account in SQL with auth's hashing; the example's e2e uses it outside registration specs | — | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/auth` 0.1.6) |
-| **DF-5** | `deploy-row-count-config` | the tables `row-counts` compares come from `deploy.json` | DP-4 | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.2) |
-| **DF-6** | `deploy-verify-cert-expiry` | `verify` fails when the TLS certificate expires within `verify.tlsMinDays` | — | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.2) |
-| **DF-7** | `deploy-server-files` | `deploy-app.yml` ships the tag's `docker/prod/` files and `deploy.sh` with each release; no hand copy to the server | DP-5, DF-2 | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.3 and the owner's `deploy-workflows-v1` tag) |
-| **DF-8** | `deploy-row-count-server-list` | the server's `deploy.sh` counts the tables of the shipped `deploy.json`; `init --tables` writes them there | DF-5, DF-7 | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.3) |
-| **DF-9** | `deploy-server-safety` | the server script restores files on a failed switch, keeps `.env.prod.prev`, recreates Traefik on a changed config, writes the tag into `.env.prod`, has a `status` command, a retention cron and machine-readable step lines | DF-7 | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.3) |
-| **DF-10** | `deploy-release-report` | a report job writes pipeline status and deployment history into the release body | DF-9 | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.3) |
-| **DF-11** | `deploy-workflow-release-guards` | the workflow refuses a tag off the default branch, takes build args (origin checked against runtime), non-secret values and a per-deploy registry token | DF-7 | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.3) |
-| **DF-12** | `deploy-cut-release` | a reusable workflow cuts a date tag and release and starts the deploy | DF-11 | autonomous | done_code (2026-10-06; waiting: the owner's first run in an app) |
-| **DF-13** | `deploy-verify-origin-firewall` | `verify` fails when the server IP answers direct HTTPS | — | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.3) |
-| **DF-14** | `deploy-row-count-new-table` | a table listed in `deploy.json` that the release itself creates does not stop that release; one counted before and missing after still does | DF-8 | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.3) |
-| **DF-15** | `deploy-workflow-e2e-server` | the deploy workflow's end-to-end test runs the shipped `deploy.sh` and `verify`, not only the recorder | DF-3 | autonomous | done |
-| **DF-16** | `deploy-init-release-caller` | `softure-deploy init` also writes the release caller (`.github/workflows/release.yml`) next to `deploy.yml` | DF-12 | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.3) |
-| **MK-10** | `marketing-kit-film-followups` | a committed `marketing.json` reproduces a paid film with no hand fixes: the opening transition is chosen in the config and none flickers, the voiceover cache shows which file belongs to which video (old flat caches still found), and the recording day is pinned per video | — | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/marketing-kit` 0.1.6) |
+| **CH-1** | `charts-scale-ticks` | `@softure-ai/charts`: linear and time scales, nice ticks (dates in the app's time zone), nearest-point search | — | autonomous | ready |
+| **CH-2** | `charts-svg-primitives` | server-rendered SVG surface, time and value axes, lines, legend and flags; a keyboard-accessible cursor; a data table fallback | CH-1 | autonomous | ready |
+| **CH-3** | `ui-color-guards` | `@softure-ai/ui/testing`: WCAG contrast, colour-vision simulation and a both-themes contrast check for token pairs | — | autonomous | ready |
+| **CH-4** | `charts-palette-guard` | series palette from tokens, distinguishable under colour-vision deficiency and legible on the surface in both themes | CH-2, CH-3 | autonomous | ready |
+| **CH-5** | `charts-release` | `@softure-ai/charts` 0.1.0 and the next `@softure-ai/ui` published through the release pipeline; README complete | CH-1…CH-4 | owner | blocked (waits for CH-1…CH-4 and the owner's first npm publish at the keyboard) |
 
 ## Order
 
-Lanes follow file ownership: items in one lane share files, so they run one after another; different lanes run in
-parallel, up to 4 at once.
-
 | Lane | Items, in order | Shared files |
 | --- | --- | --- |
-| A: workflow | DF-2 → DF-7 → DF-3 → DF-15, DF-8, DF-9 → DF-10, DF-11 → DF-12 → DF-16 | `.github/workflows/deploy-app.yml`, `tools/deploy/examples/`, `init`'s `deploy.sh` (DF-7, DF-8, DF-9) |
-| B: deploy.json | DF-5, DF-6 → DF-14 | `tools/deploy/src/verify/schema.ts` and `schema/deploy.schema.json` (DF-5 also `src/db/`, DF-6 the rest of `src/verify/`) |
-| C: auth | DF-4 | `foundation/auth/` (`testing` export), example app e2e |
-| D: FIRE parity | DF-1, DF-13 | `tools/deploy/src/` (env, notes, backup, verify); DF-13 `src/verify/` |
-| E: marketing-kit | MK-10 | `tools/marketing-kit/` (`compose/`, `render/`, `voice/cache.ts`, `config/` schema, `cli/`) |
+| A: charts | CH-1 → CH-2 → CH-4 | `foundation/charts/`, chart tokens in `foundation/ui/` |
+| B: ui guards | CH-3 | `foundation/ui/src/testing/` |
 
-1. **First wave: DF-2, DF-4, DF-5 and DF-6.** Their prerequisites (DP-4, DP-5) are on `master`. DF-5 and DF-6 both
-   add an optional key to the `deploy.json` schema; they run in parallel and the second to merge takes `master`
-   and regenerates the JSON Schema.
-2. **DF-7** once DF-2 is on `master` (same workflow file); it also reads DF-1's notes on FIRE's gateway if DF-1 has
-   landed, otherwise it records that question in its research.
-3. **DF-3** once DF-7 is on `master`, so the end-to-end job checks the final protocol. DP-8 (the npm publish)
-   waits on the owner, so DF-3 runs the CLI from the checkout through a workflow input.
-4. **DF-8** once DF-7 is on `master` (same `deploy.sh`); it may run next to DF-3.
-   **DF-15** once DF-3 is on `master` (same e2e path); after DF-8 and DF-9 if it changes `deploy.sh`.
-5. **DF-1** whenever a session can read FIRE_TRACKER (see "Owner at the keyboard?"); it touches every part of
-   `tools/deploy/`, so it merges `master` and resolves conflicts itself.
-6. **DF-9 → DF-10** and **DF-11 → DF-12** once DF-7 is on `master` (DF-1 found them in FIRE_TRACKER; they change the
-   same workflow and server script as DF-7). DF-9 changes mostly `deploy.sh.tmpl` and DF-11 mostly `deploy-app.yml`,
-   so they may run in parallel; the second to merge takes `master`. DF-8 and DF-9 share `deploy.sh.tmpl`: one after
-   the other. **DF-13** any time (`src/verify/`).
-7. **DF-14** once DF-8 is on `master` (`row-counts` and its counts file; `deploy.sh` stays as DF-8 left it).
-
-`package-lock.json`, the root `tsconfig` references and the example app are touched by several items; `master` is
-the source of truth and each thread merges it and resolves the conflicts itself.
+1. **First wave: CH-1 and CH-3** (independent).
+2. **CH-2** after CH-1; **CH-4** after CH-2 and CH-3.
+3. **CH-5** (owner) once CH-1…CH-4 are merged.
 
 ## Owner at the keyboard?
 
-Assessed on 2026-10-06 against what a cloud session cannot do: secrets, provider accounts, servers, DNS, paid API
-calls, the owner's own machine, a product decision only the owner can make, or a change in FIRE_TRACKER.
-
 | ID | Needs the owner | Why |
 | --- | --- | --- |
-| DF-1 | yes, before it starts (done) | the owner added FIRE_TRACKER to the sessions' repositories (read only) on 2026-10-06 |
-| DF-2 | no | workflow change validated by actionlint and the repository test |
-| DF-3 | no | a throwaway `sshd` container and a local registry inside CI; no server or secret; the CLI runs from the checkout because DP-8 waits on the owner |
-| DF-4 | no | test-only export tested on PGlite and the example's e2e; it rides auth's next release |
-| DF-5 | no | schema key tested locally |
-| DF-6 | no | tested against a local TLS server with a generated certificate |
-| DF-7 | no | protocol tested with the scripts run locally; no live server |
-| DF-8 | no | `init` output and the script tested locally; no live server |
-| DF-9 | no | a script change tested with the scripts run locally against a fake `docker`; no live server |
-| DF-10 | no | workflow and CLI tested with actionlint, the repository test and fixtures; no live release |
-| DF-11 | no | workflow change validated by actionlint and the repository test |
-| DF-12 | no | workflow change validated by actionlint and the repository test; the first real run is the owner's |
-| DF-13 | no | tested against a local closed and open port |
-| DF-14 | no | `row-counts` tested on PGlite or a local Postgres; no live server |
-| DF-15 | no | everything runs on CI runners; no server, secret or registry |
-| DF-16 | no | `init` output tested locally and the e2e app regenerated; no live release |
-| MK-10 | no | fixture recordings and the fake voice provider; no paid call; the version bump rides the owner's next release |
+| CH-1…CH-4 | no | pure functions, components and tests; an example app page with an e2e |
+| CH-5 | yes | first (staged) npm publish and trusted publisher on npmjs.com |
 
 ## Items
 
-### DF-1: Parity of the deploy CLI with FIRE_TRACKER
-- **Change ID:** `deploy-fire-parity`
-- **Status:** done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.2)
-- **Input:** [`deploy-fire-parity`](../archive/2026-10-06-deploy-fire-parity/change.md)
-- **Outcome:** FIRE_TRACKER's `scripts/render-env-prod.mts`, `scripts/release-notes.mts`, `src/lib/release-notes.ts`,
-  their tests and `.github/workflows/release-opis.yml` are read; every behaviour and test case that is generic is
-  ported into `tools/deploy` (report format, env edge cases), and the rest is listed as FIRE-specific in the
-  package README. The same for the deploy workflow (DP-2): FIRE's `.github/workflows/release.yml`,
-  `auto-release.yml` and its SSH gateway (`docker/prod/`, the forced command) are read; generic steps
-  `deploy-app.yml` lacks (a release report post, image pruning, tagging on merge) are ported or recorded, and the
-  forced-command protocol (`<remote-command> <tag>` with `.env.prod` on stdin) is aligned with FIRE's gateway.
-  The same for `docker/server/deploy.sh` against DP-3's `backup`, `schema-guard` and `row-counts` (backup format
-  and retention default, the guard's cases, which counts it compares and what a drop does).
-  The same for `verify` (DP-4) against `scripts/verify-production.sh` (548 lines): every generic check beyond
-  status, markers, redirects and headers goes into `deploy.json` and the engine.
-- **Prerequisites:** a session that can read FIRE_TRACKER.
-- **Unknowns:** whether FIRE's report groups entries differently (by type or label) than DP-1's two sections.
-- **Risk:** low. DP-1 is tested on its own; this closes the "same tests green" baseline of DP-1.
-- **Source:** DP-1 (`deploy-cli-env-notes`), research: the session could not read FIRE_TRACKER (cloning it was
-  refused by the sandbox), so the report format comes from the roadmap, not from FIRE's workflow.
-  Extended by DP-2 (`deploy-reusable-workflows`), implementation review: the workflow steps and the gateway
-  protocol come from the roadmap too. Extended by DP-3 (`deploy-db-guard`): `deploy.sh` could not be read
-  either, so the database steps follow the roadmap item.
-  Extended by DP-4 (`deploy-verify-production`), research: the same limit, so verify's generic checks came from
-  the roadmap and HTTP semantics.
-- **PRD refs:** FR-33.
+### CH-1: Chart scales, ticks and nearest point
+- **Change ID:** `charts-scale-ticks`
+- **Status:** ready
+- **Outcome:** A new package `@softure-ai/charts` (`foundation/charts/`, copied from `templates/package/`) with pure functions:
+  - linear and time scales;
+  - nice value ticks and date ticks (days, months, years) in the app's time zone;
+  - nearest-point search for a cursor;
+  - a generic point type `{ x: Date | number; y: number }` instead of FIRE's `TimelinePoint`.
+- **Prerequisites:** none (roadmap trigger).
+- **Unknowns:** Whether date ticks need locale-aware labels from `Intl` or from the app's formatter in `@softure-ai/core`.
+- **Risk:** low.
+- **Baseline:** FIRE `src/lib/{chart-scale,chart-ticks,nearest-point}.ts` and their tests. After: the same tests green in the package with the generic point type.
+- **PRD refs:** FR-31.
+- **Source (FIRE_TRACKER, read only):** `src/lib/chart-scale.ts`, `src/lib/chart-ticks.ts`, `src/lib/nearest-point.ts`
 
-### DF-2: The deploy workflow verifies with `softure-deploy verify`
-- **Change ID:** `deploy-workflow-verify-config`
-- **Status:** done_code (2026-10-06; waiting: the first publish of `@softure-ai/deploy`, DP-8)
-- **Input:** [`deploy-workflow-verify-config`](../archive/2026-10-06-deploy-workflow-verify-config/change.md)
-- **Outcome:** The `verify` job runs `softure-deploy verify <app-url>` (DP-4) from the CLI version the workflow pins, reading the
-  app's `deploy.json` from the release tag; the health-route wait stays as the first step, so verify starts once the
-  new release answers.
-- **Prerequisites:** DP-4 on `master`.
-- **Unknowns:** whether `deploy.json` is required or optional (fall back to the health route).
-- **Risk:** low. Today the workflow checks only `/api/health`.
-- **Source:** DP-2 (`deploy-reusable-workflows`), implementation review.
-- **PRD refs:** FR-33.
+### CH-2: SVG chart primitives
+- **Change ID:** `charts-svg-primitives`
+- **Status:** ready
+- **Outcome:** React components in `@softure-ai/charts`:
+  - server-renderable SVG: chart surface, time axis, value axis, lines, legend, flags (annotations);
+  - a client cursor that snaps to the nearest point, with keyboard support and a live region;
+  - a visually hidden data table for screen readers;
+  - colours and sizes from `--sft-chart-*` tokens added to `@softure-ai/ui`; `aria-label` text through messages;
+  - a chart page in the example app with an e2e.
+- **Prerequisites:** CH-1.
+- **Unknowns:** Whether the cursor needs pointer events only or also touch drag on mobile.
+- **Risk:** medium. Accessibility of an interactive SVG.
+- **Baseline:** FIRE `src/components/chart/*` and `chart-primitives.test.tsx`. After: the same tests green in the package; no raw colours (architecture test).
+- **PRD refs:** FR-31, NFR-3, NFR-7.
+- **Source (FIRE_TRACKER, read only):** `src/components/chart/*`
 
-### DF-3: The deploy workflow runs end to end in CI
-- **Change ID:** `deploy-workflow-e2e`
-- **Status:** done
-- **Input:** [`deploy-workflow-e2e`](../archive/2026-10-06-deploy-workflow-e2e/change.md)
-- **Outcome:** A workflow in this repository calls `./.github/workflows/deploy-app.yml` for the example app against a local
-  `sshd` container with a forced command that records what it received and a local registry (or `push: false`
-  through an input), asserting the image, the command line and the rendered `.env.prod` names.
-- **Prerequisites:** DP-5 (the example app's production compose and Dockerfile) and `@softure-ai/deploy` on npm (DP-8), or an input to run the CLI from the checkout.
-- **Unknowns:** whether GHCR can be swapped for a local registry without an input that production callers could misuse.
-- **Risk:** medium. DP-2 is validated statically only (actionlint, the repository test, the scripts run by hand).
-- **Source:** DP-2 (`deploy-reusable-workflows`), implementation review.
-- **PRD refs:** FR-33.
+### CH-3: Colour contrast and colour-vision guards
+- **Change ID:** `ui-color-guards`
+- **Status:** ready
+- **Outcome:** Test helpers exported from `@softure-ai/ui/testing`:
+  - WCAG 2 contrast ratio and pass levels;
+  - colour-vision simulation (protan, deutan, tritan) and a minimum distance check between colours;
+  - `checkThemeContrast(pairs)` over the light and dark token sets;
+  - `@softure-ai/ui` runs it on its own tokens, so a token change that breaks contrast fails CI.
+- **Prerequisites:** none (roadmap trigger).
+- **Unknowns:** Which colour difference metric (Delta E 2000 vs. a simpler one) gives stable thresholds.
+- **Risk:** low.
+- **Baseline:** FIRE `src/lib/color-vision.ts` and `src/app/theme-contrast.test.ts`. After: the helpers in ui with their tests; ui's token test green.
+- **PRD refs:** FR-32.
+- **Source (FIRE_TRACKER, read only):** `src/lib/color-vision.ts`, `src/app/theme-contrast.test.ts`
 
-### DF-4: Account factory in auth's testing export
-- **Change ID:** `auth-testing-account-factory`
-- **Status:** done_code (2026-10-06; waiting: the release of `@softure-ai/auth` 0.1.6)
-- **Input:** [`auth-testing-account-factory`](../archive/2026-10-06-auth-testing-account-factory/change.md)
-- **Outcome:** `@softure-ai/auth/testing` with `createTestAccount(db, { email, password, roles? })` that writes
-  the `users` row (and roles) with auth's hashing; the example's e2e registers through the form only in the
-  specs about registration; auth bumps its version.
-- **Prerequisites:** none.
-- **Unknowns:** whether the factory takes a `@softure-ai/db` handle or a drizzle instance.
-- **Risk:** low. Test-only export; it changes a published package, so it rides auth's next release.
-- **Source:** DP-7 (`testing-playwright-helpers`), research: FIRE_TRACKER's `integration/infrastructure/auth.ts`
-  creates accounts in SQL; DP-7 decided module-specific factories belong in each module's own `testing`
-  export (precedent: `@softure-ai/mailing/testing`), and adding one to auth was outside DP-7.
-- **PRD refs:** FR-35, FR-9.
+### CH-4: Series palette guard
+- **Change ID:** `charts-palette-guard`
+- **Status:** ready
+- **Outcome:**
+  - a series palette in chart tokens with a documented order;
+  - a test that every pair stays distinguishable under the three simulations and every colour passes contrast on the chart surface in both themes;
+  - an exported helper so an app checks its own palette the same way.
+- **Prerequisites:** CH-2, CH-3.
+- **Unknowns:** How many series colours the palette can hold before the distance check fails.
+- **Risk:** low.
+- **Baseline:** FIRE `src/lib/{band-colors,position-colors}.ts` tests (only the generic checks). After: the palette test green in charts.
+- **PRD refs:** FR-32.
+- **Source (FIRE_TRACKER, read only):** `src/lib/band-colors.ts`, `src/lib/position-colors.ts` (checks only; the colours are FIRE's)
 
-### DF-5: Row-count tables from deploy.json
-- **Change ID:** `deploy-row-count-config`
-- **Status:** done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.2)
-- **Input:** [`deploy-row-count-config`](../archive/2026-10-06-deploy-row-count-config/change.md)
-- **Outcome:** `deploy.json` gets an optional `database.rowCountTables` list (zod schema and JSON Schema);
-  `row-counts` reads it when `--tables` is not given.
-- **Prerequisites:** DP-4 (`deploy.json`) on `master`.
-- **Unknowns:** none.
-- **Risk:** low. A convenience; `--tables` works without it. Mode: autonomous, no owner step.
-- **Source:** DP-3 (`deploy-db-guard`), plan review S2: DP-4 owned `deploy.json` while DP-3 ran in parallel.
-- **PRD refs:** FR-33.
-
-### DF-6: Certificate expiry in verify
-- **Change ID:** `deploy-verify-cert-expiry`
-- **Status:** done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.2)
-- **Input:** [`deploy-verify-cert-expiry`](../archive/2026-10-06-deploy-verify-cert-expiry/change.md)
-- **Outcome:** an optional `verify.tlsMinDays`; `verify` reads the certificate with `node:tls` once per run and adds
-  a `tls` row to the table (days left, issuer); fewer days than the minimum is a failure. Tested against a local
-  TLS server with a generated certificate.
-- **Prerequisites:** none.
-- **Unknowns:** none.
-- **Risk:** low. An expired certificate already fails every route; this only warns earlier.
-- **Source:** DP-4 (`deploy-verify-production`), research question 1: `fetch` refuses an invalid or expired
-  certificate, but nothing warns before expiry.
-- **PRD refs:** FR-33.
-
-### DF-7: Server files shipped with each release
-- **Change ID:** `deploy-server-files`
-- **Status:** done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.3 and the owner's `deploy-workflows-v1` tag)
-- **Input:** [`deploy-server-files`](../archive/2026-10-06-deploy-server-files/change.md)
-- **Outcome:** `deploy-app.yml` sends the tag's `docker/prod/` files (and `docker/server/deploy.sh`) to the server
-  with `.env.prod`, for example as one archive on stdin that the forced command unpacks into a release folder before
-  it switches; `init`'s `deploy.sh` reads it; the forced-command protocol stays one SSH call.
-- **Prerequisites:** DP-5.
-- **Unknowns:** whether FIRE's gateway already ships files (DF-1 reads it).
-- **Risk:** medium. A missed copy runs a release against an older compose file; nothing fails loudly.
-- **Source:** DP-5 (`deploy-init-template`), plan review S3: the workflow sends only `.env.prod`, so the files `init`
-  generates are copied to `/srv/<name>/` once and again whenever they change.
-- **PRD refs:** FR-33, FR-34.
-
-### DF-8: The server counts the tables of deploy.json
-- **Change ID:** `deploy-row-count-server-list`
-- **Status:** done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.3)
-- **Input:** [`deploy-row-count-server-list`](../archive/2026-10-06-deploy-row-count-server-list/change.md)
-- **Outcome:** the release ships `deploy.json` with the server files (DF-7); `init`'s `deploy.sh` runs
-  `row-counts --config=<shipped deploy.json>` instead of `--tables="$ROW_COUNT_TABLES"`, and `init --tables`
-  writes `database.rowCountTables` into the generated `deploy.json` instead of the script.
-- **Prerequisites:** DF-5 and DF-7 on `master`.
-- **Unknowns:** none.
-- **Risk:** low. Today the list is baked into `deploy.sh` at `init` time and works; this moves it to the app's repo.
-  Mode: autonomous, no owner step.
-- **Source:** DF-5 (`deploy-row-count-config`), research question 3: the server holds `docker/prod/` and
-  `deploy.sh` only, so `deploy.sh` cannot read `deploy.json` until DF-7 ships the app's files with each release.
-### DF-9: The server deploy script matches FIRE's safety steps
-- **Change ID:** `deploy-server-safety`
-- **Status:** done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.3)
-- **Input:** [`deploy-server-safety`](../archive/2026-10-06-deploy-server-safety/change.md)
-- **Outcome:** `init`'s `deploy.sh` gains FIRE's server-side safety steps: a read-only `status` command (tag, containers, health); the current compose files and `.env.prod` saved before the switch and restored when it fails, `.env.prod.prev` kept; Traefik recreated when `traefik.yml` changed; the tag written into `.env.prod`, so a manual or cron `docker compose` works; a daily cron for `backup --max-age-days` and `docker image prune`; one machine-readable line per step and a final result line the workflow checks.
-- **Prerequisites:** DF-7 on `master` (same files).
-- **Unknowns:** the cron lines (backup age, image prune) and the `status` command name; whether the result line is checked by the workflow here or in DF-10.
-- **Risk:** medium. Without the restore a failed switch leaves new files with the old stack; without the result line a cut SSH session can read as a success. Mode: autonomous, no owner step.
-- **Source:** DF-1 (`deploy-fire-parity`), research: FIRE's `docker/server/gateway.sh` and `deploy.sh` (research §4).
-- **PRD refs:** FR-33.
-
-### DF-10: The release body carries pipeline status and deployment history
-- **Change ID:** `deploy-release-report`
-- **Status:** done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.3)
-- **Input:** [`deploy-release-report`](../archive/2026-10-06-deploy-release-report/change.md)
-- **Outcome:** a final report job of `deploy-app.yml` writes, with `release-notes --body` (DF-1), a pipeline status table (each job's result and the run link) and a deployment history row per run (time, result, image and digest, backup file, row counts before and after, verify result) into the GitHub Release body, newest first; reruns and rollbacks add rows, never replace them.
-- **Prerequisites:** DF-9 on `master`.
-- **Unknowns:** whether the history lives in the release body or in a deployment record (GitHub Deployments API).
-- **Risk:** low. A report; the release itself does not depend on it. Mode: autonomous, no owner step.
-- **Source:** DF-1 (`deploy-fire-parity`), research: FIRE's `src/lib/release-notes.ts` (status, deployments) and the `report` job of `release.yml` (research §2).
-- **PRD refs:** FR-33.
-
-### DF-11: The deploy workflow refuses a stray tag and carries build values
-- **Change ID:** `deploy-workflow-release-guards`
-- **Status:** done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.3)
-- **Input:** [`deploy-workflow-release-guards`](../archive/2026-10-06-deploy-workflow-release-guards/change.md)
-- **Outcome:** `deploy-app.yml` refuses a tag whose commit is not on the default branch; takes build arguments (public origins baked into the image) and refuses a release whose built origin differs from the runtime secret (FIRE's L-117); takes non-secret values (an `app-vars` JSON) for optional compose names, so a switch like `1` is not masked in logs; sends a short-lived registry token with `.env.prod` instead of relying on a permanent registry login on the server.
-- **Prerequisites:** DF-7 on `master` (same files).
-- **Unknowns:** the input names; whether the token rides in DF-7's stdin archive or a second file.
-- **Risk:** medium. Today any tag deploys, and a public origin can differ between image and runtime unnoticed. Mode: autonomous, no owner step.
-- **Source:** DF-1 (`deploy-fire-parity`), research: FIRE's `release.yml` (`prepare`, `image`, `deploy`) and `render-env-prod.mts` (research §1, §3).
-- **PRD refs:** FR-33.
-
-### DF-12: A reusable workflow cuts a release from a dispatch
-- **Change ID:** `deploy-cut-release`
-- **Status:** done_code (2026-10-06; waiting: the owner's first run in an app)
-- **Input:** [`deploy-cut-release`](../archive/2026-10-06-deploy-cut-release/change.md)
-- **Outcome:** a reusable workflow (with a caller example) that an owner or an agent starts with *Run workflow* on the default branch: it picks the next free date tag (`vYYYY.MM.DD`, then `-2`, `-3`), creates the GitHub Release with an optional description and starts the app's deploy workflow on that tag (a release made with `GITHUB_TOKEN` triggers no workflow by itself).
-- **Prerequisites:** DF-11 on `master`.
-- **Unknowns:** whether the tag pattern is an input (FIRE's dates, semver).
-- **Risk:** low. Today a release needs someone who can push a tag; cloud sessions cannot. Mode: autonomous, no owner step.
-- **Source:** DF-1 (`deploy-fire-parity`), research: FIRE's `auto-release.yml` (research §3).
-- **PRD refs:** FR-33.
-
-### DF-13: verify checks that the origin refuses direct traffic
-- **Change ID:** `deploy-verify-origin-firewall`
-- **Status:** done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.3)
-- **Input:** [`deploy-verify-origin-firewall`](../archive/2026-10-06-deploy-verify-origin-firewall/change.md)
-- **Outcome:** `deploy.json` gets an optional origin address (or `verify` a flag) and `softure-deploy verify` adds a row that passes only when direct HTTPS to that address gets no answer, so a firewall that let more than the CDN through fails the release.
-- **Prerequisites:** none.
-- **Unknowns:** whether a reachable origin fails or warns; where the address comes from (a secret, not the committed file).
-- **Risk:** low. Today a loosened firewall goes unnoticed; FIRE only warns. Mode: autonomous, no owner step.
-- **Source:** DF-1 (`deploy-fire-parity`), research: FIRE's `verify-production.sh`, the `DEPLOY_IP` check (research §5).
-- **PRD refs:** FR-33.
-
-### DF-14: A new table can join the row-count list with its release
-- **Change ID:** `deploy-row-count-new-table`
-- **Status:** done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.3)
-- **Input:** [`deploy-row-count-new-table`](../archive/2026-10-06-deploy-row-count-new-table/change.md)
-- **Outcome:** a table listed in `database.rowCountTables` that the old schema lacks does not stop the release: the
-  count before the switch notes it as absent, the comparison after the switch prints it as new; a table counted
-  before and missing after still fails.
-- **Prerequisites:** DF-8 on `master`.
-- **Unknowns:** whether the counts file marks an absent table (`null`) or leaves it out.
-- **Risk:** low. Today the release stops before anything restarts, with a clear message; the app adds the table to
-  the list one release later. Mode: autonomous, no owner step.
-- **Source:** DF-8 (`deploy-row-count-server-list`), research question 4: with the list in the app's `deploy.json`,
-  a migration and its table in the list in one commit is an easy mistake.
-
-### DF-15: The end-to-end test runs the server side and verify
-- **Change ID:** `deploy-workflow-e2e-server`
-- **Status:** done
-- **Input:** [`deploy-workflow-e2e-server`](../archive/2026-10-06-deploy-workflow-e2e-server/change.md)
-- **Outcome:** on the `e2e` path the server's forced command runs the shipped `deploy.sh` (image loaded from the
-  build job's artifact, the stack up on the runner), and `verify` runs `softure-deploy verify` against it.
-- **Prerequisites:** DF-3 on `master`.
-- **Unknowns:** how `verify` (https only) reaches the runner's app: a local certificate or an `http://` allowance on
-  the test path only.
-- **Risk:** low. The recorder already proves everything up to the forced command; this adds the server half.
-  Mode: autonomous, no owner step.
-- **Source:** DF-3 (`deploy-workflow-e2e`), implementation: the recorder stops at the forced command, and `verify`
-  needs the app over HTTPS on a public name, so it is skipped on the test path.
-- **PRD refs:** FR-33.
-
-### DF-16: init writes the release caller
-- **Change ID:** `deploy-init-release-caller`
-- **Status:** done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.3)
-- **Input:** [`deploy-init-release-caller`](../archive/2026-10-06-deploy-init-release-caller/change.md)
-- **Outcome:** `softure-deploy init` writes `.github/workflows/release.yml` (the caller of `deploy-cut-release.yml`,
-  as `tools/deploy/examples/release.yml`) next to the `deploy.yml` it already writes, kept when the file exists.
-- **Prerequisites:** DF-12 on `master`.
-- **Unknowns:** whether `init` takes the tag time zone as a flag or writes `UTC`.
-- **Risk:** low. Today an app copies the example by hand. Mode: autonomous, no owner step.
-- **Source:** DF-12 (`deploy-cut-release`), implementation review: `init` writes the deploy caller only.
-- **PRD refs:** FR-33.
-
-### MK-10: A committed marketing.json reproduces a paid film without hand fixes
-- **Change ID:** `marketing-kit-film-followups`
-- **Status:** done_code (2026-10-06; waiting: the release of `@softure-ai/marketing-kit` 0.1.6)
-- **Input:** [`marketing-kit-film-followups`](../archive/2026-10-06-marketing-kit-film-followups/change.md)
-- **Outcome:** `hook` takes a transition choice (at least the current rewind, repaired so it does not flicker, and a
-  plain fade or cut); the voiceover cache is laid out so a reader can tell which video a recording belongs to, and
-  a 0.1.2 flat cache (`<key>.mp3`/`.json`) is still found without a new paid call; `videos[]` can pin the day the
-  app is recorded as of, used by `record`/`all` unless `--today` overrides it. README and the example config show
-  all three.
-- **Prerequisites:** none (MK-8, the first npm publish, is not needed; the version bumps for the owner's release).
-- **Unknowns:** whether the default transition stays `rewind`; per-video folder vs readable prefix for the cache;
-  whether stale recordings get a listing or `prune` command.
-- **Risk:** medium. A cache lookup that misses an existing recording costs a paid ElevenLabs call in every adopting
-  app; the backward-compatible lookup needs a test with a real 0.1.2 file name.
-- **Source:** FIRE_TRACKER BS-18 (`marketing-kit-adoption`, 2026-10-06): the owner saw the rewind flicker at
-  5.4–6.2 s and FIRE patched the MP4 by hand; the owner asked for better voiceover names and folders; FIRE's agent
-  wrote that the paid voiceover renders only in October 2026 before finding `--today`.
+### CH-5: Charts release
+- **Change ID:** `charts-release`
+- **Status:** blocked (waits for CH-1…CH-4 and the owner's first npm publish at the keyboard)
+- **Outcome:** `@softure-ai/charts` 0.1.0 (the owner provides `NPM_TOKEN` for its first publish and adds its trusted publisher) and the next `@softure-ai/ui` with the testing helpers; README with an adoption guide for FIRE_TRACKER's charts.
+- **Prerequisites:** CH-1…CH-4.
+- **Unknowns:** none beyond the owner's npm steps.
+- **Risk:** low.
+- **Baseline:** package absent from npm. After: installable from npm and from GitHub Releases.
+- **PRD refs:** FR-2, FR-26, G-4.
 
 ## Owner decisions and checks
 
-(none yet)
+- [ ] **CH-5**: the first publish of the new `@softure-ai/charts` needs `NPM_TOKEN` for that one release; then add its
+  trusted publisher on npmjs.com (SOFTURE / AI / `release.yml`), as for the other packages since 0.1.5.
 
 ## Done
 
-- **DF-1** `deploy-fire-parity`: FIRE_TRACKER's release scripts read side by side; `env render` optional names, `release-notes --body/--roadmap`, `backup --exclude-table-data/--max-age-days` with a header check, `verify` method/body/request headers (deploy 0.1.2); the rest recorded as DF-9…DF-13 or as FIRE-specific in the package README; archived in `archive/2026-10-06-deploy-fire-parity/`
-- **DF-4** `auth-testing-account-factory`: `createTestAccount` in `@softure-ai/auth/testing` (auth 0.1.6); the example's e2e creates accounts with it outside registration tests; archived in `archive/2026-10-06-auth-testing-account-factory/`
-- **DF-5** `deploy-row-count-config` (done_code 2026-10-06): `deploy.json` takes an optional `database.rowCountTables` (zod and JSON Schema, unique names in the `row-counts` pattern); `softure-deploy row-counts` counts that list when `--tables` is not given (`--config` names another file; both flags together, or neither flag nor list, is a usage error); `verify` and `row-counts` share the file reader; `@softure-ai/deploy` 0.1.2; gap DF-8 (the server's `deploy.sh` on the list, after DF-7) queued; archived in [`archive/2026-10-06-deploy-row-count-config/`](../archive/2026-10-06-deploy-row-count-config/change.md)
-- **DF-8** `deploy-row-count-server-list` (done_code 2026-10-06): `init`'s `deploy.sh` counts `database.rowCountTables` of the `deploy.json` the release shipped (`row-counts --config=releases/<tag>/deploy.json`, before and after the switch; no file or key skips the counts, an unreadable file stops the release before the switch); `init --tables` writes the list into the generated `deploy.json` for apps with a database; rides `@softure-ai/deploy` 0.1.3; gap DF-14 (a table created by the same release) queued; archived in [`archive/2026-10-06-deploy-row-count-server-list/`](../archive/2026-10-06-deploy-row-count-server-list/change.md)
-- **DF-14** `deploy-row-count-new-table` (done_code 2026-10-06): `row-counts` records a listed table the database lacks as absent (`null` in the counts file, `to_regclass` before `count(*)`); with `--compare` a table absent before and counted after passes as created by this release, while one absent after the deploy, not counted before or with fewer rows still fails, each with its reason; `deploy.sh` unchanged apart from a comment; rides `@softure-ai/deploy` 0.1.3; archived in [`archive/2026-10-06-deploy-row-count-new-table/`](../archive/2026-10-06-deploy-row-count-new-table/change.md)
-- **DF-11** `deploy-workflow-release-guards` (done_code 2026-10-06): `deploy-app.yml` refuses a tag whose commit is not on the release branch (`release-branch`, else the default branch), takes `build-args` (stopped when one differs from the value `.env.prod` holds under its name, FIRE's L-117), `app-vars` rendered over `app-secrets` (not masked in logs) and sends the deploy job's `GITHUB_TOKEN` as `.registry-token` (`init`'s `deploy.sh` pulls with it through a throwaway `DOCKER_CONFIG`; `registry-token: false` for an older server script); rides `@softure-ai/deploy` 0.1.3; archived in [`archive/2026-10-06-deploy-workflow-release-guards/`](../archive/2026-10-06-deploy-workflow-release-guards/change.md)
-- **DF-3** `deploy-workflow-e2e` (done 2026-10-06): `.github/workflows/e2e-deploy.yml` calls `deploy-app.yml` with `e2e: true` (refused outside SOFTURE/AI) for the example app on every pull request that touches the workflow or `tools/deploy/`: image built without a push, CLI built from the tag, the production `ssh` command against a throwaway `sshd` whose forced command records the release, then the image, command line, files (byte for byte) and env names are asserted; the server files are init's output committed under `tools/deploy/e2e/app/` (`npm run e2e-app -w @softure-ai/deploy`); gap DF-15 queued; archived in [`archive/2026-10-06-deploy-workflow-e2e/`](../archive/2026-10-06-deploy-workflow-e2e/change.md)
-- **DF-15** `deploy-workflow-e2e-server` (done 2026-10-06): on the `e2e` path the deploy job's runner becomes the server: the build job's image arrives as an artifact in a registry on `localhost:5000`, a certificate from a CA of the run waits in Traefik's ACME store, and sshd's forced command records the release, then runs the tag's `deploy.sh` unchanged (stack up on the runner); the deploy job then waits for the health route and runs `softure-deploy verify` with the tag's CLI; the recorder no longer prints `result|ok`; green on PR #138 with the real example image; archived in [`archive/2026-10-06-deploy-workflow-e2e-server/`](../archive/2026-10-06-deploy-workflow-e2e-server/change.md)
-- **DF-12** `deploy-cut-release` (done_code 2026-10-06): `.github/workflows/deploy-cut-release.yml`, called from an app's `release.yml` ([`tools/deploy/examples/release.yml`](../../tools/deploy/examples/release.yml)) with *Run workflow* on the default branch, picks the next free `<prefix>YYYY.MM.DD[-N]` tag (inputs `tag-prefix`, `timezone`), creates the GitHub Release on the dispatched commit with an optional description above the generated notes and starts the app's deploy workflow on the tag (`deploy-workflow`, default `deploy.yml`); gap DF-16 (`init` writes the caller) queued; archived in [`archive/2026-10-06-deploy-cut-release/`](../archive/2026-10-06-deploy-cut-release/change.md)
-- **DF-10** `deploy-release-report` (done_code 2026-10-06): `deploy-app.yml` keeps the server's step lines and its `summary` job uploads `deploy-report.json`; the new reusable `deploy-report.yml` (the caller's `report` job, the only one with `contents: write`) runs `softure-deploy release-report`, which writes the pipeline status (replaced) and a deployment row (time, result, image and digest, backup file, row counts before and after, verify, run; newest first, earlier rows kept) into the release body; `init`'s `deploy.sh` reports the backup file and the counts in its step lines; rides `@softure-ai/deploy` 0.1.3; archived in [`archive/2026-10-06-deploy-release-report/`](../archive/2026-10-06-deploy-release-report/change.md)
-- **DF-16** `deploy-init-release-caller` (done_code 2026-10-06): `softure-deploy init` writes `.github/workflows/release.yml`, the caller of `deploy-cut-release.yml` (`timezone: UTC`, `deploy-workflow: deploy.yml`), next to `deploy.yml`, kept unless `--force`; the template is the example caller with init's header and a test keeps both the same YAML; rides `@softure-ai/deploy` 0.1.3; archived in [`archive/2026-10-06-deploy-init-release-caller/`](../archive/2026-10-06-deploy-init-release-caller/change.md)
-- **MK-10** `marketing-kit-film-followups`: `hook.transition` (fade by default, a rewind without flicker, cut), the voiceover cache in a folder per video with 0.1.x flat files still found, `videos[].today` pins the recording day (marketing-kit 0.1.6); archived in `archive/2026-10-06-marketing-kit-film-followups/`
+(nothing yet)

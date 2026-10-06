@@ -20,7 +20,7 @@ FIRE's steps, whether the package does it, a gap tracks it, or it stays in the a
 
 ## Context
 
-From [`roadmap.md`](../../foundation/roadmap.md) (deploy-followups), item **DF-1**; the taken backlog entry is kept as
+From [`roadmap.md`](../../foundation/archive/2026-10-06-2-roadmap.md) (deploy-followups), item **DF-1**; the taken backlog entry is kept as
 [`backlog-input.md`](backlog-input.md).
 
 > - **Outcome:** FIRE_TRACKER's `scripts/render-env-prod.mts`, `scripts/release-notes.mts`, `src/lib/release-notes.ts`,

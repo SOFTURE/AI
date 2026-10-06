@@ -21,7 +21,7 @@ workflow's pack step and the generated `deploy.sh` together against a stubbed Do
 
 ## Context
 
-From [`roadmap.md`](../../foundation/roadmap.md) (deploy-followups), item **DF-7**:
+From [`roadmap.md`](../../foundation/archive/2026-10-06-2-roadmap.md) (deploy-followups), item **DF-7**:
 
 > - **Outcome:** `deploy-app.yml` sends the tag's `docker/prod/` files (and `docker/server/deploy.sh`) to the server
 >   with `.env.prod`, for example as one archive on stdin that the forced command unpacks into a release folder before

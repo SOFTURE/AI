@@ -18,7 +18,7 @@ the JSON Schema is regenerated, and the CLI counts the configured tables on a re
 
 ## Context
 
-From [`roadmap.md`](../../foundation/roadmap.md) (deploy-followups), item **DF-5**:
+From [`roadmap.md`](../../foundation/archive/2026-10-06-2-roadmap.md) (deploy-followups), item **DF-5**:
 
 > - **Outcome:** `deploy.json` gets an optional `database.rowCountTables` list (zod schema and JSON Schema);
 >   `row-counts` reads it when `--tables` is not given.

@@ -21,7 +21,7 @@ release created with `GITHUB_TOKEN` triggers no other workflow: `release: publis
 
 ## Context
 
-From [`roadmap.md`](../../foundation/roadmap.md) (deploy-followups), item **DF-12**:
+From [`roadmap.md`](../../foundation/archive/2026-10-06-2-roadmap.md) (deploy-followups), item **DF-12**:
 
 > - **Outcome:** a reusable workflow (with a caller example) that an owner or an agent starts with *Run workflow* on
 >   the default branch: it picks the next free date tag (`vYYYY.MM.DD`, then `-2`, `-3`), creates the GitHub Release

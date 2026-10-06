@@ -19,7 +19,7 @@ table that existed before and is gone after still fails.
 
 ## Context
 
-From [`roadmap.md`](../../foundation/roadmap.md) (deploy-followups), item **DF-14**:
+From [`roadmap.md`](../../foundation/archive/2026-10-06-2-roadmap.md) (deploy-followups), item **DF-14**:
 
 > - **Outcome:** a table listed in `database.rowCountTables` that the old schema lacks does not stop the release:
 >   the count before the switch notes it as absent, the comparison after the switch prints it as new; a table counted
