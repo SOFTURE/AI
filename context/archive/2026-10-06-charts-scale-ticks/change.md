@@ -1,12 +1,12 @@
 ---
 change_id: charts-scale-ticks
 title: "Chart scales, ticks and nearest point"
-status: plan_reviewed
+status: archived
 roadmap_item: CH-1
 branch: claude/ch-1-scales-kjlyo6
 created: 2026-10-06
 updated: 2026-10-06
-archived_at: null
+archived_at: 2026-10-06
 ---
 
 ## Intent

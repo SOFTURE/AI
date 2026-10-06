@@ -74,12 +74,12 @@ Done when: the date tests were seen red before the code, then green; a tick comp
 ### Phase 1: Package, scales, peak and value ticks
 
 #### Automated
-- [ ] 1.1 Ported scale and value tick tests green, seen red on a deliberate break
-- [ ] 1.2 Gates green (typecheck, lint, test, build)
+- [x] 1.1 Ported scale and value tick tests green, seen red on a deliberate break — df8d58b
+- [x] 1.2 Gates green (typecheck, lint, test, build) — df8d58b
 
 ### Phase 2: Date ticks, labels and nearest point
 
 #### Automated
-- [ ] 2.1 Date tick tests seen red, then green, including DST in Europe/Warsaw
-- [ ] 2.2 Ported nearest-point tests green through the scale's inverse
-- [ ] 2.3 Gates green (typecheck, lint, test, build)
+- [x] 2.1 Date tick tests seen red, then green, including DST in Europe/Warsaw — ad6a214
+- [x] 2.2 Ported nearest-point tests green through the scale's inverse — ad6a214
+- [x] 2.3 Gates green (typecheck, lint, test, build) — ad6a214
