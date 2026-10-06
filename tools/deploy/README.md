@@ -184,9 +184,12 @@ softure-deploy row-counts [--tables=<a,b.c> | --config=deploy.json] [--out=<file
 - **Which tables:** `--tables`, or else `database.rowCountTables` of `deploy.json` (`--config` names another file),
   so the list lives with the app's other deploy settings. With `--tables` the file is not read; passing both flags is
   a usage error, and so is having neither the flag nor the list (exit `2`). An invalid file is exit `1` with its issues.
-- `--out` saves the counts as JSON (`{ "takenAt", "counts" }`); `--compare` reads such a file and prints
-  `before -> after (delta)`. A table with fewer rows than before, or not counted before, fails the step (exit 1); the
-  deploy script decides whether that rolls the deploy back. `count(*)` reads every row: keep the list to the tables
+- A listed table the database lacks prints `absent` and is not an error, so a table can join the list in the
+  release whose migration creates it.
+- `--out` saves the counts as JSON (`{ "takenAt", "counts" }`, an absent table as `null`); `--compare` reads such a
+  file and prints `before -> after (delta)`, or `absent -> <n> (created by this release)` for a table absent before.
+  A table with fewer rows than before, not counted before, or absent now (`<n> -> absent`, also `absent -> absent`
+  for a misspelled name) fails the step (exit 1); the deploy script decides whether that rolls the deploy back. `count(*)` reads every row: keep the list to the tables
   whose loss would matter.
 
 ## `softure-deploy verify`
@@ -253,15 +256,21 @@ verify: 2 routes at https://example.com, 1 passed, 1 failed; certificate passed
 `SOFTURE/AI/.github/workflows/deploy-app.yml` is a reusable workflow that releases one app to its VPS. The app keeps
 one caller, [`examples/deploy.yml`](examples/deploy.yml), with a single `uses:` line. For the release tag it:
 
-1. checks every input (tag, URL, paths, image, command word, port, timeout) before anything runs;
-2. builds the image from the tag and pushes `<image>:<tag>` to GHCR (the only job with `packages: write`);
-3. renders `.env.prod` with `softure-deploy env render` from the `app-secrets` JSON, packs it with the tag's server
-   files (the compose file's folder, `server-script` as `deploy.sh`, `deploy-config` as `deploy.json`) into one gzip
-   tar and sends that on stdin to the server's forced SSH command as `<remote-command> <tag>`, checking the host key
-   against `ssh-known-hosts`. A symlink in the compose folder, or a file there named like one the server keeps
-   (`.env.prod`, `.env.prod.prev`, `deploy.sh`, `deploy.json`, `.deployed-tag`, `.deploy.lock`, `backups`,
-   `releases`), stops the run. The step fails unless the server's output holds the line `result|ok` (below), so a
-   session cut halfway never reads as a release; the output stays in `$RUNNER_TEMP/deploy-output.txt` for the job;
+1. checks every input (tag, URL, paths, image, command word, port, timeout, release branch, build arguments) before
+   anything runs, then refuses a tag whose commit is not on the release branch (`release-branch`, else the caller's
+   default branch; commits only are fetched for it);
+2. builds the image from the tag with `build-args` and pushes `<image>:<tag>` to GHCR (the only job with
+   `packages: write`);
+3. renders `.env.prod` with `softure-deploy env render` from the `app-secrets` JSON and the `app-vars` JSON over it,
+   and stops when a build argument's name is in `.env.prod` with another value (the image and the runtime would
+   disagree, FIRE_TRACKER's L-117; only the name is printed). It packs `.env.prod` with the tag's server files (the
+   compose file's folder, `server-script` as `deploy.sh`, `deploy-config` as `deploy.json`) and the job's own
+   `GITHUB_TOKEN` as `.registry-token` into one gzip tar and sends that on stdin to the server's forced SSH command
+   as `<remote-command> <tag>`, checking the host key against `ssh-known-hosts`. A symlink in the compose folder, or
+   a file there named like one the server keeps (`.env.prod`, `.env.prod.prev`, `.registry-token`, `deploy.sh`,
+   `deploy.json`, `.deployed-tag`, `.deploy.lock`, `backups`, `releases`), stops the run. The step fails unless the
+   server's output holds the line `result|ok` (below), so a session cut halfway never reads as a release; the output
+   stays in `$RUNNER_TEMP/deploy-output.txt` for the job;
 4. waits until `<app-url><health-path>` answers 200, then runs `softure-deploy verify <app-url>` with the app's
    `deploy-config` read from the tag (only that file is checked out). A missing or invalid file fails the run;
    `deploy-config: ""` keeps the health route only;
@@ -283,11 +292,17 @@ one caller, [`examples/deploy.yml`](examples/deploy.yml), with a single `uses:` 
 | `health-path`, `verify-timeout-seconds` | `/api/health`, `300` | the health wait before verify |
 | `deploy-config` | `deploy.json` | the routes `verify` checks, also shipped to the server; empty for the health route only |
 | `deploy-cli-version` | this package's version | the CLI run from npm (`env render`, `verify`) |
+| `release-branch` | the caller's default branch | the branch the tag's commit must be on |
+| `build-args` | none | `NAME=value` lines baked into the image; public values only (they stay in the image's history) |
+| `app-vars` | `{}` | JSON object of non-secret values, e.g. `toJSON(vars)`; rendered like secrets and over a secret of the same name, and not masked in logs (a secret `1` masks every `1`) |
+| `registry-token` | `true` | send the deploy job's `GITHUB_TOKEN` (`packages: read`, valid until the job ends) for the server's pull |
 | `e2e` | `false` | this repository's own end-to-end test (below); refused in any other repository |
 
 Secrets, all required and passed by name (no `secrets: inherit`): `ssh-host`, `ssh-user`, `ssh-private-key`,
 `ssh-known-hosts` and `app-secrets` (a JSON object such as `toJSON(secrets)`; names like `PATH`, `HOME`, `NODE_*` and
-`NPM_CONFIG_*` are refused). The workflow runs once this package is on npm; callers pin the `deploy-workflows-v1` tag
+`NPM_CONFIG_*` are refused, in `app-vars` too). The registry token pulls a package the build job of the same
+repository pushed (its `org.opencontainers.image.source` label links it); for an image elsewhere, set
+`registry-token: false` and log the server in. The workflow runs once this package is on npm; callers pin the `deploy-workflows-v1` tag
 the owner sets, or its commit SHA.
 
 ### Release report
@@ -301,20 +316,56 @@ every job would have needed it. One report per tag runs at a time, so two runs n
 without a release gets no report (a notice), and a failed report never turns the run red (`continue-on-error`).
 Inputs: `tag` (required), `locale` (`en` or `pl`), `deploy-cli-version`, `node-version`, `e2e` (below).
 
+### Cut a release
+
+`SOFTURE/AI/.github/workflows/deploy-cut-release.yml` turns one *Run workflow* into a release and its deploy, so an
+agent that cannot push tags (a cloud session) can start one as a `workflow_dispatch`, and the owner can from the
+Actions tab. The app's second caller is [`examples/release.yml`](examples/release.yml) (`workflow_dispatch` with an
+optional `description`, `permissions: contents: write, actions: write`). Started on the default branch, it:
+
+1. refuses any other ref, and invalid inputs, with one `::error::` line each;
+2. picks the next free tag `<tag-prefix><YYYY.MM.DD>` in `timezone`, then `-2`, `-3`, … (existing tags from the API,
+   no checkout);
+3. creates the GitHub Release on the dispatched commit (`github.sha`), the `description` above GitHub's generated
+   notes;
+4. runs `gh workflow run <deploy-workflow> --ref <tag> -f tag=<tag>`. A release created with `GITHUB_TOKEN` starts no
+   other workflow, so `release: published` in `deploy.yml` does not fire and this step is what deploys. The deploy
+   workflow needs a `workflow_dispatch` input `tag`, as [`examples/deploy.yml`](examples/deploy.yml) has.
+
+| Input | Default | |
+| --- | --- | --- |
+| `description` | empty | markdown above the generated release notes |
+| `tag-prefix` | `v` | text before the date |
+| `timezone` | `UTC` | IANA zone whose date names the tag (`Europe/Warsaw` for a Polish day) |
+| `deploy-workflow` | `deploy.yml` | the deploy caller started on the tag; empty cuts the release only |
+
+Outputs: `tag`, `sha`. One run per repository at a time (`concurrency`, not cancelled). Semver tags are out of its
+scope: packages keep their own release workflow.
+
 ### End-to-end test
 
 [`.github/workflows/e2e-deploy.yml`](../../.github/workflows/e2e-deploy.yml) calls `deploy-app.yml` from the same
 commit with `e2e: true` for the example app, on every pull request that touches the workflow or `tools/deploy/`, on
 `master` and on demand. On that path:
 
-- `build` builds the example app's image (`examples/next-app/Dockerfile`) without the GHCR login and without a push;
+- `build` builds the example app's image (`examples/next-app/Dockerfile`) without the GHCR login and without a push,
+  and hands it to `deploy` as the artifact `deploy-e2e-image`;
 - `deploy` builds this CLI from a full checkout of the tag instead of running the npm version, and
-  [`e2e/start-server.sh`](e2e/start-server.sh) starts a throwaway `sshd` container on the runner with fresh host and
-  client keys; the deploy key reaches only the forced command [`e2e/server/record.sh`](e2e/server/record.sh). The send
-  step runs the production `ssh` command (host key checked) against it. The recorder writes the command line, the
-  archive's files, their SHA-256, the mode of `.env.prod` and its names (never a value), uploaded as the artifact
-  `deploy-e2e-received`;
-- `verify` is skipped: the recorder does not run the app.
+  [`e2e/start-server.sh`](e2e/start-server.sh) sets up its own runner (Ubuntu with Docker, cron and flock) as the
+  server: the image goes into a registry on `localhost:5000` (the e2e app's image name), the compose file's Docker Hub
+  images come from `mirror.gcr.io`, a certificate for `deploy-e2e.example.com` signed by a CA of the run waits in
+  Traefik's ACME store (so Traefik never asks Let's Encrypt) and the name points at `127.0.0.1`, and `sshd` binds
+  fresh keys to the forced command [`e2e/server/forced-command.sh`](e2e/server/forced-command.sh). The send step runs
+  the production `ssh` command (host key checked) against it. The forced command first records the command line, the
+  archive's files, their SHA-256, the mode of `.env.prod` and its names (never a value) with
+  [`e2e/server/record.sh`](e2e/server/record.sh), uploaded as the artifact `deploy-e2e-received`, then runs the tag's
+  `deploy.sh` from `/srv/softure-example/` unchanged: pull (logged in with the release's `.registry-token`, which the
+  local registry accepts unchecked), backup, schema guard, switch, cron, `result|ok`. Its
+  `npx @softure-ai/deploy@0.0.0` (the e2e app's pinned version, never published) is answered by
+  [`e2e/server/bin/npx`](e2e/server/bin/npx) with the CLI built from the tag;
+- `verify` would run on another runner, away from the stack, so `deploy` runs its two steps itself: the wait for
+  `/api/health` and `softure-deploy verify https://deploy-e2e.example.com` with the e2e app's `deploy.json`, trusting
+  the run's CA through `NODE_EXTRA_CA_CERTS`.
 
 The caller's `report` job calls `deploy-report.yml` with `e2e: true` (refused outside SOFTURE/AI as well): the CLI
 from the tag writes the report into a fixture body, uploaded as `deploy-report-body` instead of edited into a
@@ -322,8 +373,8 @@ release; [`e2e/check-report.sh`](e2e/check-report.sh) checks the owner's line, a
 `deployed` row with the built image.
 
 The caller's `assert` job runs [`e2e/check-received.sh`](e2e/check-received.sh): the image is
-`ghcr.io/softure/ai-deploy-e2e:<sha>`, the command line `deploy <sha>`, the files are byte for byte the tag's, and
-`.env.prod` (0600) holds exactly the compose file's required names, not the extra secret the caller also passes.
+`localhost:5000/softure/ai-deploy-e2e:<sha>`, the command line `deploy <sha>`, the files are byte for byte the tag's,
+and `.env.prod` (0600) holds exactly the compose file's required names, not the extra secret the caller also passes.
 The server files are `init`'s output for the example app, committed under [`e2e/app/`](e2e/app/); after a template
 change, `npm run e2e-app -w @softure-ai/deploy` rewrites them (`tests/e2e-scripts.test.ts` fails until then). `check`
 refuses `e2e` unless the caller is `SOFTURE/AI`, so an app can never take this path.
@@ -379,13 +430,16 @@ line, exits 2):
   2. saves every installed file the release is about to replace, then moves `.env.prod` into place (0600) with
      `TAG=<tag>` in it (so a `docker compose` by hand or from the cron runs the live release), copies the other files
      next to itself (in place, so Traefik's bind-mounted rules keep their inode; files 0644, folders 0755), replaces
-     itself by a rename (the new copy runs from the next release) and pulls the image;
+     itself by a rename (the new copy runs from the next release) and pulls the image. A `.registry-token` in the
+     archive (non-empty, or the release is refused) is never installed: the pull logs in with it under a
+     `DOCKER_CONFIG` in the run's temporary folder, removed with it, so the host's own Docker login is neither used
+     nor changed;
   3. with a database: starts Postgres, runs `backup` (`--keep=7 --max-age-days=30`), copies the migrations out of the
      new image for `schema-guard`, and saves `row-counts` (all through `npx @softure-ai/deploy@<this version>` on the
      host, against `127.0.0.1`) for `database.rowCountTables` of the `deploy.json` this release shipped
-     (`releases/<tag>/deploy.json`); without that file or key, and on the first release, the counts are skipped. A
-     table joins the list in the release after the one that creates it: the count before the switch runs against
-     the old schema;
+     (`releases/<tag>/deploy.json`); without that file or key, and on the first release, the counts are skipped. The
+     count before the switch runs against the old schema, so a table the release's own migration creates is
+     counted as absent and may join the list in that release;
   4. keeps the replaced `.env.prod` as `.env.prod.prev` (0600) and switches: `docker compose up -d --wait` (the
      migrate service runs before the app); recreates Traefik when its rules changed (a running Traefik holds the
      rules it started with);
@@ -414,8 +468,9 @@ lines, other apps' marked lines included, stay. `deploy` and `maintain` never ru
 Shipping `deploy.sh` widens nothing: whoever holds the deploy key already picks the image and its environment, and
 the deploy user runs Docker, which is root on the host.
 
-The host needs Docker with the compose plugin logged in to the registry, `cron` and `flock` (both in Ubuntu's base
-system), and with a database Node.js 22 and `pg_dump` of the compose file's Postgres major version. CI generates the files for the example app, staged as a
+The host needs Docker with the compose plugin (a registry login only with `registry-token: false`), `cron` and
+`flock` (both in Ubuntu's base system), and with a database Node.js 22 and `pg_dump` of the compose file's Postgres
+major version. CI generates the files for the example app, staged as a
 standalone app, and builds its image from the generated `Dockerfile` (`npm run e2e:deploy-init`).
 
 ## Library
@@ -433,6 +488,12 @@ The same steps as functions, for scripts that need them without the CLI:
 
 FIRE_TRACKER's release scripts were read side by side with this package on 2026-10-06 (DF-1; the full comparison is
 in [`context/archive/2026-10-06-deploy-fire-parity/research.md`](../../context/archive/2026-10-06-deploy-fire-parity/research.md)).
+
+**In the workflow (DF-11):** the tag must be on the default branch; build arguments, refused when one differs from the
+value `.env.prod` holds under its name (FIRE compares `APP_ORIGIN` and `APP_DOMAIN`; any shared name is compared
+here); non-secret values over secrets (FIRE reads variables first for optional names only; here for every name, and
+the names taken over a secret are listed); the deploy job's token per release (FIRE logs in and out on the host;
+here a throwaway Docker config leaves the host's login alone).
 
 **In the package:** optional compose names and the header line (`env render`); the release body section and the
 roadmap table (`release-notes`); excluded table data, the age limit and the header check (`backup`); method, body and
@@ -452,9 +513,6 @@ count (no step line carries it); the "what's in it" part is `release-notes`' sec
 
 **Tracked as roadmap items** (they change `deploy-app.yml` or `init`'s `deploy.sh`):
 
-- **DF-11:** the tag must be on the default branch; build arguments, with a check that the origin baked into the
-  image equals the runtime one; non-secret values for optional names; a registry token per deploy instead of a
-  permanent login on the server.
 - **DF-12:** a reusable workflow that cuts a date tag and release and starts the deploy (an agent cannot push tags).
 - **DF-13:** `verify` checks that the server's IP refuses direct HTTPS (only the CDN may reach it).
 
@@ -482,6 +540,8 @@ problem, lost rows, a failed verify check, invalid init answers) · `2` a wrong 
 - A `deploy.sh` generated by 0.1.2 or earlier reads `.env.prod`, not the release archive, and prints no `result|ok`,
   which `deploy-app.yml` requires: copy the new one to the server once by hand (or run `init --force` and copy it),
   then every release ships it.
+- A `deploy.sh` older than the registry token copies `.registry-token` next to itself like any other file (the token
+  has expired by then): call the workflow with `registry-token: false` until a release has shipped the new script.
 - `init` writes one app per VPS, with Traefik in the app's compose file.
 - The end-to-end test stops at the server's forced command: neither the shipped `deploy.sh` nor the `verify` job runs
   there (DF-15).

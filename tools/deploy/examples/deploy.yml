@@ -3,9 +3,11 @@
 # ghcr.io/<owner>/<repository> does not fit) and the repository secrets named below.
 #
 # A published GitHub Release deploys its tag; "Run workflow" deploys an existing tag again (a rollback is a
-# redeploy of an older tag). After every run, `report` writes the pipeline status and a deployment row into the tag's
-# release (deploy-report.yml); it is the only job that may write to the repository, and only to edit the release. `deploy-workflows-v1` is the tag the owner moves on SOFTURE/AI; pin a commit SHA
-# instead when the app wants an immutable reference.
+# redeploy of an older tag). Only a tag whose commit is on the default branch deploys (`release-branch` names
+# another). After every run, `report` writes the pipeline status and a deployment row into the tag's release
+# (deploy-report.yml); it is the only job that may write to the repository, and only to edit the release.
+# `deploy-workflows-v1` is the tag the owner moves on SOFTURE/AI; pin a commit SHA instead when the app wants an
+# immutable reference.
 
 name: deploy
 
@@ -31,6 +33,13 @@ jobs:
       tag: ${{ github.event.release.tag_name || inputs.tag }}
       app-url: https://example.com
       environment: production
+      # Non-secret values by name (switches, public settings): rendered into .env.prod like the secrets, over a
+      # secret of the same name, and not masked in the logs the way a secret `1` masks every `1`.
+      app-vars: ${{ toJSON(vars) }}
+      # Public values baked into the image, one NAME=value per line. A name .env.prod also holds must carry the same
+      # value there, or the release stops before it reaches the server:
+      # build-args: |
+      #   APP_ORIGIN=${{ vars.APP_ORIGIN }}
     secrets:
       ssh-host: ${{ secrets.DEPLOY_SSH_HOST }}
       ssh-user: ${{ secrets.DEPLOY_SSH_USER }}

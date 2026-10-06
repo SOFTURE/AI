@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -11,6 +11,7 @@ import { REPO_ROOT } from "./repo-files.js";
 
 const WORKFLOWS_DIR = join(REPO_ROOT, ".github/workflows");
 const EXAMPLE_CALLER = join(REPO_ROOT, "tools/deploy/examples/deploy.yml");
+const EXAMPLE_RELEASE_CALLER = join(REPO_ROOT, "tools/deploy/examples/release.yml");
 const CALLER_PREFIX = "SOFTURE/AI/.github/workflows/";
 
 interface WorkflowInput {
@@ -64,6 +65,7 @@ const DEPLOY_WORKFLOWS = listDeployWorkflows();
 describe("the reusable deploy workflows", () => {
   it("exist", () => {
     expect(DEPLOY_WORKFLOWS).toContain("deploy-app.yml");
+    expect(DEPLOY_WORKFLOWS).toContain("deploy-cut-release.yml");
   });
 
   describe.each(DEPLOY_WORKFLOWS)("%s", (name) => {
@@ -79,14 +81,16 @@ describe("the reusable deploy workflows", () => {
       for (const [, job] of jobs) expect(job.permissions).toBeDefined();
     });
 
-    it("gives packages: write to no job but build", () => {
+    it("gives packages: write to the build job only, when there is one", () => {
       const writers = jobs.filter(([, job]) => JSON.stringify(job.permissions ?? {}).includes('"packages":"write"'));
-      expect(writers.map(([id]) => id)).toEqual(name === "deploy-app.yml" ? ["build"] : []);
+      const hasBuild = jobs.some(([id]) => id === "build");
+      expect(writers.map(([id]) => id)).toEqual(hasBuild ? ["build"] : []);
     });
 
-    it("gives contents: write to deploy-report.yml's report job only", () => {
+    it("gives contents: write only to the jobs that write a release (deploy-report's report, deploy-cut-release's cut)", () => {
       const writers = jobs.filter(([, job]) => JSON.stringify(job.permissions ?? {}).includes('"contents":"write"'));
-      expect(writers.map(([id]) => id)).toEqual(name === "deploy-report.yml" ? ["report"] : []);
+      const releaseWriters: Record<string, string[]> = { "deploy-report.yml": ["report"], "deploy-cut-release.yml": ["cut"] };
+      expect(writers.map(([id]) => id)).toEqual(releaseWriters[name] ?? []);
     });
 
     it("never interpolates inputs, secrets or event data into a script", () => {
@@ -97,11 +101,9 @@ describe("the reusable deploy workflows", () => {
       }
     });
 
-    it("checks the server's host key and never learns it on first use", () => {
+    it("checks the server's host key whenever it uses SSH, and never learns it on first use", () => {
       const scripts = jobs.flatMap(([, job]) => (job.steps ?? []).map((step) => step.run ?? "")).join("\n");
-      // deploy-report.yml makes no SSH connection; any workflow that does checks the host key.
-      if (/\bssh -i\b/.test(scripts)) expect(scripts).toContain("-o StrictHostKeyChecking=yes");
-      expect(name === "deploy-report.yml" || /\bssh -i\b/.test(scripts)).toBe(true);
+      if (/\bssh -/.test(scripts)) expect(scripts).toContain("-o StrictHostKeyChecking=yes");
       expect(scripts).not.toMatch(/StrictHostKeyChecking=(no|accept-new)/);
       expect(scripts).not.toContain("ssh-keyscan");
     });
@@ -192,6 +194,18 @@ describe("the deploy job of deploy-app.yml", () => {
     expect(send).toContain("grep -qx 'result|ok' \"$output\"");
   });
 
+  it("may read packages, for the registry token it sends, and passes that token only when registry-token is on", () => {
+    expect(workflow.jobs.deploy?.permissions).toEqual({ contents: "read", packages: "read" });
+    expect(inputs["registry-token"]).toMatchObject({ type: "boolean", default: true });
+    expect(steps[packIndex]?.env?.REGISTRY_TOKEN).toBe("${{ inputs.registry-token && github.token || '' }}");
+  });
+
+  it("renders app-vars and compares build-args, both read from env", () => {
+    const render = steps.find((step) => step.name === "Render .env.prod");
+    expect(render?.env).toMatchObject({ APP_VARS: "${{ inputs.app-vars }}", BUILD_ARGS: "${{ inputs.build-args }}" });
+    expect(inputs["app-vars"]).toMatchObject({ type: "string", default: "{}" });
+  });
+
   it("removes the archive with the key, whatever happened", () => {
     expect(cleanup?.if).toBe("always()");
     expect(cleanup?.run).toContain("release.tar.gz");
@@ -262,6 +276,42 @@ describe("the summary job of deploy-app.yml (DF-10)", () => {
     const upload = summary.steps?.[1];
     expect(upload?.uses).toMatch(/^actions\/upload-artifact@/);
     expect(upload?.with).toMatchObject({ name: "deploy-report", overwrite: true });
+  });
+});
+
+describe("the release guards of deploy-app.yml (DF-11)", () => {
+  const workflow = readYaml(join(WORKFLOWS_DIR, "deploy-app.yml"));
+  const inputs = getWorkflowCall(workflow).inputs ?? {};
+  const checkSteps = workflow.jobs.check?.steps ?? [];
+  const guardIndex = checkSteps.findIndex((step) => step.name === "Refuse a tag off the release branch");
+  const build = (workflow.jobs.build?.steps ?? []).find((step) => step.uses?.startsWith("docker/build-push-action@") === true);
+
+  it("refuses a stray tag in the check job, after the inputs and before anything is built", () => {
+    expect(checkSteps[0]?.name).toBe("Validate inputs");
+    expect(guardIndex).toBe(2);
+    expect(workflow.jobs.check?.permissions).toEqual({ contents: "read" });
+    expect(inputs["release-branch"]).toMatchObject({ type: "string", default: "" });
+    expect(checkSteps[guardIndex]?.env).toMatchObject({
+      TAG: "${{ inputs.tag }}",
+      RELEASE_BRANCH: "${{ inputs.release-branch }}",
+      DEFAULT_BRANCH: "${{ github.event.repository.default_branch }}",
+    });
+  });
+
+  it("fetches every branch and tag as commits only, without credentials", () => {
+    expect(checkSteps[1]?.with).toEqual({
+      ref: "${{ inputs.tag }}",
+      "persist-credentials": false,
+      "fetch-depth": 0,
+      filter: "tree:0",
+      "sparse-checkout": "/${{ inputs.compose-file }}",
+      "sparse-checkout-cone-mode": false,
+    });
+  });
+
+  it("passes build-args to the image build", () => {
+    expect(inputs["build-args"]).toMatchObject({ type: "string", default: "" });
+    expect(build?.with?.["build-args"]).toBe("${{ inputs.build-args }}");
   });
 });
 
@@ -429,18 +479,32 @@ describe("the end-to-end test path of deploy-app.yml (DF-3)", () => {
     expect(push?.with?.push).toBe("${{ !inputs.e2e }}");
   });
 
+  it("hands the image to the deploy job as an artifact only under inputs.e2e", () => {
+    const push = buildSteps.find((step) => step.uses?.startsWith("docker/build-push-action@") === true);
+    expect(push?.with?.outputs).toBe("${{ inputs.e2e && format('type=docker,dest={0}/deploy-e2e-image.tar', runner.temp) || '' }}");
+    const upload = buildSteps.find((step) => step.uses?.startsWith("actions/upload-artifact@") === true);
+    expect(upload?.if).toBe("inputs.e2e");
+    expect(upload?.with).toMatchObject({ name: "deploy-e2e-image", path: "${{ runner.temp }}/deploy-e2e-image.tar" });
+    const download = deploySteps.find((step) => step.uses?.startsWith("actions/download-artifact@") === true);
+    expect(download?.if).toBe("inputs.e2e");
+    expect(download?.with?.name).toBe("deploy-e2e-image");
+  });
+
   it("runs every test-only step of the deploy job under inputs.e2e", () => {
     const testOnly = deploySteps.filter((step) =>
-      /\.softure-ai-cli|e2e-server|upload-artifact/.test(
-        `${step.uses ?? ""} ${step.run ?? ""} ${step["working-directory"] ?? ""} ${JSON.stringify(step.with ?? {})}`,
+      /\.softure-ai-cli|e2e-server|e2e-image|-artifact@|end-to-end test/.test(
+        `${step.name ?? ""} ${step.uses ?? ""} ${step.run ?? ""} ${step["working-directory"] ?? ""} ${JSON.stringify(step.with ?? {})}`,
       ),
     );
     expect(testOnly.map((step) => step.name ?? step.uses)).toEqual([
       "actions/checkout@v7",
       "Build the deploy CLI from the tag (end-to-end test)",
-      "Start the throwaway SSH server (end-to-end test)",
+      "actions/download-artifact@v8",
+      "Set up this runner as the server (end-to-end test)",
       "actions/upload-artifact@v7",
-      "Show the throwaway SSH server's log (end-to-end test)",
+      "Wait for the health route (end-to-end test)",
+      "Verify the routes in deploy.json (end-to-end test)",
+      "Show the server's log and the stack (end-to-end test)",
       "Remove the key, .env.prod and the release archive",
     ]);
     for (const step of testOnly.slice(0, -1)) expect(step.if ?? "", step.name ?? step.uses).toMatch(/\binputs\.e2e\b/);
@@ -465,6 +529,20 @@ describe("the end-to-end test path of deploy-app.yml (DF-3)", () => {
     expect(render?.run).toContain("--package=@softure-ai/deploy@${process.env.DEPLOY_CLI_VERSION}");
   });
 
+  it("runs the verify job's wait in the deploy job, and verify with the tag's CLI trusting the run's CA", () => {
+    const verifySteps = workflow.jobs.verify?.steps ?? [];
+    const wait = verifySteps.find((step) => step.name === "Wait for the health route");
+    const e2eWait = deploySteps.find((step) => step.name === "Wait for the health route (end-to-end test)");
+    expect(e2eWait?.run).toBe(wait?.run);
+    expect(e2eWait?.env).toEqual(wait?.env);
+    const e2eVerify = deploySteps.find((step) => step.name === "Verify the routes in deploy.json (end-to-end test)");
+    expect(e2eVerify?.if).toBe("inputs.e2e && inputs.deploy-config != ''");
+    expect(e2eVerify?.env).toMatchObject({ NODE_EXTRA_CA_CERTS: "${{ steps.e2e-server.outputs.ca-file }}" });
+    expect(e2eVerify?.run).toBe('node .softure-ai-cli/tools/deploy/dist/cli/main.js verify "$APP_URL" --config="$DEPLOY_CONFIG"');
+    const verify = verifySteps.find((step) => step.name === "Verify the routes in deploy.json");
+    expect(verify?.run).toContain('softure-deploy verify "$APP_URL" --config="$DEPLOY_CONFIG"');
+  });
+
   it("gives each test run its own deploy concurrency group and skips verify", () => {
     const deployJob = workflow.jobs.deploy as Job & { concurrency?: { group?: string } };
     expect(deployJob.concurrency?.group).toBe(
@@ -482,7 +560,11 @@ describe("the end-to-end caller e2e-deploy.yml", () => {
 
   it("calls this commit's deploy-app.yml with the test path on", () => {
     expect(job.uses).toBe("./.github/workflows/deploy-app.yml");
-    expect(job.with).toMatchObject({ tag: "${{ github.sha }}", e2e: true });
+    expect(job.with).toMatchObject({
+      tag: "${{ github.event.pull_request.head.sha || github.sha }}",
+      "release-branch": "${{ github.head_ref || github.ref_name }}",
+      e2e: true,
+    });
   });
 
   it("passes only declared inputs and secrets, and every required one", () => {
@@ -502,7 +584,7 @@ describe("the end-to-end caller e2e-deploy.yml", () => {
   it("calls this commit's deploy-report.yml on the test path after the deploy, and checks its body", () => {
     const report = caller.jobs.report as Job & { needs?: unknown; if?: string };
     expect(report.uses).toBe("./.github/workflows/deploy-report.yml");
-    expect(report.with).toEqual({ tag: "${{ github.sha }}", e2e: true });
+    expect(report.with).toEqual({ tag: (caller.jobs.deploy as Job & { with?: Record<string, unknown> }).with?.tag, e2e: true });
     expect(report.needs).toBe("deploy");
     expect(report.if).toBe("${{ always() }}");
     expect(report.permissions).toEqual({ contents: "write" });
@@ -521,14 +603,216 @@ describe("the end-to-end caller e2e-deploy.yml", () => {
     for (const name of required) expect(Object.keys(secrets)).toContain(name);
   });
 
+  it("checks out the commit it deployed", () => {
+    const checkout = (caller.jobs.assert?.steps ?? []).find((step) => step.uses?.startsWith("actions/checkout@") === true);
+    expect(checkout?.with?.ref).toBe(job.with?.tag);
+  });
+
   it("checks the recording against the same files and image it deployed", () => {
     expect(assertStep?.env).toMatchObject({
       COMPOSE_FILE: job.with?.["compose-file"],
       SERVER_SCRIPT: job.with?.["server-script"],
       DEPLOY_CONFIG: job.with?.["deploy-config"],
-      TAG: "${{ github.sha }}",
+      TAG: job.with?.tag,
       IMAGE: "${{ needs.deploy.outputs.image }}",
       EXPECTED_IMAGE: job.with?.image,
     });
+  });
+
+  it("deploys an image the e2e server's own registry serves, the one the committed compose file runs", () => {
+    const image = String(job.with?.image);
+    expect(image).toMatch(/^localhost:[0-9]+\//);
+    const compose = readFileSync(join(REPO_ROOT, String(job.with?.["compose-file"])), "utf8");
+    expect(compose).toContain(`image: ${image}:\${TAG}`);
+  });
+});
+
+describe("deploy-cut-release.yml (DF-12)", () => {
+  const workflow = readYaml(join(WORKFLOWS_DIR, "deploy-cut-release.yml"));
+  const inputs = getWorkflowCall(workflow).inputs ?? {};
+  const job = workflow.jobs.cut as Job & { concurrency?: { group?: string; "cancel-in-progress"?: boolean } };
+  const steps = job.steps ?? [];
+  const findStep = (name: string): Step => {
+    const step = steps.find((candidate) => candidate.name === name);
+    if (step === undefined) throw new Error(`deploy-cut-release.yml has no step named "${name}"`);
+    return step;
+  };
+  const checkStep = findStep("Check the inputs and the branch");
+  const tagStep = findStep("Pick the next free date tag");
+  const releaseStep = findStep("Create the release");
+  const deployStep = findStep("Start the deploy workflow on the tag");
+
+  /** Runs one step's script with fake `gh` and `date` first on PATH; returns the exit, stdout, outputs and gh calls. */
+  function runStep(
+    step: Step,
+    env: Record<string, string>,
+  ): { status: number | null; stdout: string; output: string; ghCalls: string[] } {
+    const dir = mkdtempSync(join(tmpdir(), "deploy-cut-release-"));
+    try {
+      const bin = join(dir, "bin");
+      const ghLog = join(dir, "gh.log");
+      writeFileSync(join(dir, "output"), "");
+      writeFileSync(join(dir, "summary"), "");
+      writeFileSync(ghLog, "");
+      mkdirSync(bin);
+      // The fake gh records its arguments one call per line and answers `api` with FAKE_TAG_REFS.
+      writeFileSync(
+        join(bin, "gh"),
+        `#!/usr/bin/env bash\nprintf '%s\\n' "$*" >> "${ghLog}"\nif [[ "$1" == api ]]; then printf '%s' "$FAKE_TAG_REFS"; fi\n`,
+      );
+      // The fake date answers only for the expected zone, so a lost TZ shows up as a wrong tag.
+      writeFileSync(
+        join(bin, "date"),
+        `#!/usr/bin/env bash\nif [[ "$TZ" == "$FAKE_TZ" ]]; then echo 2026.10.06; else echo "wrong-zone-$TZ"; fi\n`,
+      );
+      chmodSync(join(bin, "gh"), 0o755);
+      chmodSync(join(bin, "date"), 0o755);
+      const result = spawnSync("bash", ["-e", "-c", step.run ?? ""], {
+        encoding: "utf8",
+        env: {
+          PATH: `${bin}:${process.env.PATH ?? ""}`,
+          GITHUB_OUTPUT: join(dir, "output"),
+          GITHUB_STEP_SUMMARY: join(dir, "summary"),
+          GITHUB_REPOSITORY: "acme/app",
+          GITHUB_SERVER_URL: "https://github.com",
+          GITHUB_REF: "refs/heads/main",
+          DEFAULT_BRANCH: "main",
+          GH_TOKEN: "token",
+          FAKE_TAG_REFS: "",
+          FAKE_TZ: "UTC",
+          ...env,
+        },
+      });
+      return {
+        status: result.status,
+        stdout: result.stdout,
+        output: readFileSync(join(dir, "output"), "utf8"),
+        ghCalls: readFileSync(ghLog, "utf8").split("\n").filter((line) => line !== ""),
+      };
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  const DEFAULT_CHECK_ENV = { TAG_PREFIX: "v", TIME_ZONE: "UTC", DEPLOY_WORKFLOW: "deploy.yml" };
+
+  it("is started by the app, cuts from its dispatched commit and defaults to v, UTC and deploy.yml", () => {
+    expect(inputs).toMatchObject({
+      description: { default: "" },
+      "tag-prefix": { default: "v" },
+      timezone: { default: "UTC" },
+      "deploy-workflow": { default: "deploy.yml" },
+    });
+    expect(tagStep.env?.SHA).toBe("${{ github.sha }}");
+    expect(checkStep.env?.DEFAULT_BRANCH).toBe("${{ github.event.repository.default_branch }}");
+  });
+
+  it("grants the job exactly what a tag, a release and a dispatch need, one run per repository at a time", () => {
+    expect(workflow.permissions).toEqual({});
+    expect(job.permissions).toEqual({ contents: "write", actions: "write" });
+    expect(job.concurrency).toEqual({ group: "deploy-cut-release-${{ github.repository }}", "cancel-in-progress": false });
+  });
+
+  it("accepts the defaults on the default branch", () => {
+    expect(runStep(checkStep, DEFAULT_CHECK_ENV).status).toBe(0);
+    expect(runStep(checkStep, { ...DEFAULT_CHECK_ENV, TIME_ZONE: "Europe/Warsaw", DEPLOY_WORKFLOW: "" }).status).toBe(0);
+  });
+
+  it("refuses a branch that is not the default one", () => {
+    const refused = runStep(checkStep, { ...DEFAULT_CHECK_ENV, GITHUB_REF: "refs/heads/feature" });
+    expect(refused.status).toBe(1);
+    expect(refused.stdout).toContain("::error::A release is cut from the default branch (main) only, not from refs/heads/feature");
+    expect(runStep(checkStep, { ...DEFAULT_CHECK_ENV, GITHUB_REF: "refs/tags/main" }).status).toBe(1);
+  });
+
+  it.each([
+    ["TAG_PREFIX", "v 1", 'Input tag-prefix is not valid: "v 1"'],
+    ["TIME_ZONE", "Mars/Olympus", 'Input timezone is not valid: "Mars/Olympus"'],
+    ["TIME_ZONE", "../../etc/passwd", 'Input timezone is not valid: "../../etc/passwd"'],
+    ["DEPLOY_WORKFLOW", "deploy", 'Input deploy-workflow is not valid: "deploy"'],
+    ["DEPLOY_WORKFLOW", "../ci.yml", 'Input deploy-workflow is not valid: "../ci.yml"'],
+  ])("refuses %s=%s", (name, value, message) => {
+    const refused = runStep(checkStep, { ...DEFAULT_CHECK_ENV, [name]: value });
+    expect(refused.status).toBe(1);
+    expect(refused.stdout).toContain(`::error::${message}`);
+  });
+
+  it.each([
+    ["no release that day", "", "v2026.10.06"],
+    ["one release that day", "refs/tags/v2026.10.06\n", "v2026.10.06-2"],
+    ["three releases that day", "refs/tags/v2026.10.06\nrefs/tags/v2026.10.06-2\nrefs/tags/v2026.10.06-3\n", "v2026.10.06-4"],
+    ["only a longer tag that shares the prefix", "refs/tags/v2026.10.06-2\n", "v2026.10.06"],
+  ])("picks the next free tag with %s", (_case, refs, expected) => {
+    const result = runStep(tagStep, { TAG_PREFIX: "v", TIME_ZONE: "UTC", SHA: "abc123", FAKE_TAG_REFS: refs });
+    expect(result.status).toBe(0);
+    expect(result.output).toBe(`tag=${expected}\nsha=abc123\n`);
+    expect(result.ghCalls).toEqual(["api --paginate repos/acme/app/git/matching-refs/tags/v2026.10.06 --jq .[].ref"]);
+  });
+
+  it("names the tag by the date in the given zone and with the given prefix", () => {
+    const result = runStep(tagStep, { TAG_PREFIX: "release-", TIME_ZONE: "Europe/Warsaw", FAKE_TZ: "Europe/Warsaw", SHA: "abc" });
+    expect(result.output).toBe("tag=release-2026.10.06\nsha=abc\n");
+  });
+
+  it("creates the release on the picked commit with the description above the generated notes", () => {
+    expect(releaseStep.env).toMatchObject({
+      TAG: "${{ steps.tag.outputs.tag }}",
+      SHA: "${{ steps.tag.outputs.sha }}",
+      DESCRIPTION: "${{ inputs.description }}",
+    });
+    const result = runStep(releaseStep, { TAG: "v2026.10.06", SHA: "abc123", DESCRIPTION: "Ships `x`; $(not run)" });
+    expect(result.status).toBe(0);
+    expect(result.ghCalls).toEqual([
+      "release create v2026.10.06 --repo acme/app --target abc123 --title v2026.10.06 --notes Ships `x`; $(not run) --generate-notes",
+    ]);
+  });
+
+  it("starts the deploy workflow on the tag with the tag as its input, unless deploy-workflow is empty", () => {
+    expect(deployStep.if).toBe("inputs.deploy-workflow != ''");
+    const result = runStep(deployStep, { TAG: "v2026.10.06-2", DEPLOY_WORKFLOW: "deploy.yml" });
+    expect(result.status).toBe(0);
+    expect(result.ghCalls).toEqual(["workflow run deploy.yml --repo acme/app --ref v2026.10.06-2 -f tag=v2026.10.06-2"]);
+  });
+
+  it("runs the steps in order: check, tag, release, deploy", () => {
+    expect(steps.map((step) => step.name)).toEqual([
+      "Check the inputs and the branch",
+      "Pick the next free date tag",
+      "Create the release",
+      "Start the deploy workflow on the tag",
+    ]);
+  });
+});
+
+describe("the example release caller", () => {
+  const caller = readYaml(EXAMPLE_RELEASE_CALLER);
+  const callingJobs = Object.values(caller.jobs).filter((job) => job.uses !== undefined);
+  const job = callingJobs[0] as Job;
+  const called = getWorkflowCall(readYaml(join(WORKFLOWS_DIR, "deploy-cut-release.yml")));
+
+  it("is started by hand or by an agent only", () => {
+    expect(Object.keys(caller.on)).toEqual(["workflow_dispatch"]);
+  });
+
+  it("calls the cut-release workflow with one uses: line", () => {
+    expect(callingJobs).toHaveLength(1);
+    expect(job.uses).toBe("SOFTURE/AI/.github/workflows/deploy-cut-release.yml@deploy-workflows-v1");
+  });
+
+  it("grants what the called job needs and nothing more", () => {
+    expect(caller.permissions).toEqual({ contents: "write", actions: "write" });
+  });
+
+  it("passes only declared inputs", () => {
+    const declared = Object.keys(called.inputs ?? {});
+    for (const key of Object.keys(job.with ?? {})) expect(declared).toContain(key);
+    expect(job.secrets).toBeUndefined();
+  });
+
+  it("starts the deploy caller shipped next to it, which takes the tag as a dispatch input", () => {
+    expect(job.with?.["deploy-workflow"]).toBe("deploy.yml");
+    const deployCaller = readYaml(EXAMPLE_CALLER);
+    const dispatch = deployCaller.on.workflow_dispatch as { inputs?: Record<string, WorkflowInput> };
+    expect(dispatch.inputs?.tag?.required).toBe(true);
   });
 });
