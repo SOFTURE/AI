@@ -3,13 +3,13 @@ import type { SfxEvent } from "../config/schema.js";
 import type { Film } from "../film.js";
 import { formatMessage, type MarketingMessages } from "../messages/index.js";
 import type { RecordingLog } from "../record/record.js";
-import { BROWSER_BAR_HEIGHT, cameraPose, captionChunks, widePose, type CameraPose, type Geometry } from "./timeline.js";
+import { BROWSER_BAR_HEIGHT, cameraPose, captionChunks, getTransitionSeconds, widePose, type CameraPose, type Geometry } from "./timeline.js";
 import type { BeatVoice } from "../voice/voiceover.js";
 
 /**
  * HyperFrames composition from the recording: the phone (or, for a desktop recording, a browser window) with the real screen, a camera that follows
  * the thumb, a touch marker, captions in one place, the persona card, an opening from the result
- * frame with a rewind, the end card and sounds.
+ * frame with its transition into the scene (fade, rewind or cut), the end card and sounds.
  *
  * HyperFrames 0.8.85 contract: a root with `data-composition-id`, clips with
  * `data-start`/`data-duration`, `<audio>` with an `id`, a GSAP timeline `{ paused: true }` under
@@ -21,15 +21,14 @@ const COMPOSITION_ID = "film";
 /** Pause before the first word of the opening. */
 const HOOK_LEAD = 0.3;
 const HOOK_MIN = 3.8;
-const REWIND = 0.8;
 const END_TAIL = 1.6;
 /** The end card enters this long after the start of the last sentence. */
 const END_CARD_DELAY = 0.9;
 
 export interface ComposeAssets {
-  /** Screen recording (mp4 from frames), the rewind clip, the opening frame, the last frame, the tempo-shifted voiceover. */
+  /** Screen recording (mp4 from frames), the transition clip (null for a cut), the opening frame, the last frame, the tempo-shifted voiceover. */
   screen: string;
-  rewind: string;
+  transition: string | null;
   hookStill: string;
   lastFrame: string;
   voiceover: string;
@@ -186,7 +185,8 @@ export function filmTimes(film: Film, log: RecordingLog, voices: BeatVoice[]) {
   const last = log.beats.at(-1);
   if (firstBeat === undefined || last === undefined) throw new Error("The recording has no sentences: record the film again (softure-marketing record).");
   const firstFrame = firstBeat.f0;
-  const offset = hook + REWIND - firstFrame / log.fps;
+  const transition = getTransitionSeconds(film.hook.transition);
+  const offset = hook + transition - firstFrame / log.fps;
   const at = (frame: number): number => r3(frame / log.fps + offset);
   const lastVoice = voice.get(last.id);
   if (lastVoice === undefined) throw new Error(`No voiceover for sentence "${last.id}".`);
@@ -198,7 +198,7 @@ export function filmTimes(film: Film, log: RecordingLog, voices: BeatVoice[]) {
   if (unplaced.length > 0) {
     throw new Error(`The recording has no sentences ${unplaced.join(", ")}: record the film again (softure-marketing record).`);
   }
-  return { hook, rewind: REWIND, firstFrame, at, endCard, end, screenEnd: at(log.frames), voiceStart };
+  return { hook, transition, firstFrame, at, endCard, end, screenEnd: at(log.frames), voiceStart };
 }
 
 export function composeFilm(input: ComposeInput): string {
@@ -314,7 +314,7 @@ export function composeFilm(input: ComposeInput): string {
     .join("\n  ");
 
   const personaOut = log.cues.find((cue) => cue.name === "persona-out");
-  const screenStart = r3(times.hook + times.rewind);
+  const screenStart = r3(times.hook + times.transition);
   const screenDuration = r3(times.screenEnd - screenStart);
   const tail = r3(Math.max(0.04, times.end - times.screenEnd));
   const c = colors;
@@ -375,7 +375,7 @@ ${windowParts.css}
     ${windowParts.open}
       <div class="screen">
         <img id="hook" class="clip" src="${assets.hookStill}" data-start="0" data-duration="${times.hook}" />
-        <video id="rewind" class="clip" src="${assets.rewind}" data-start="${times.hook}" data-duration="${times.rewind}" muted playsinline></video>
+        ${assets.transition === null || times.transition === 0 ? "" : `<video id="transition" class="clip" src="${assets.transition}" data-start="${times.hook}" data-duration="${times.transition}" muted playsinline></video>`}
         <video id="recording" class="clip" src="${assets.screen}" data-start="${screenStart}" data-media-start="${r3(times.firstFrame / log.fps)}" data-duration="${screenDuration}" muted playsinline></video>
         <img id="last" class="clip" src="${assets.lastFrame}" data-start="${times.screenEnd}" data-duration="${tail}" />
         ${taps.map((tap) => `<div class="touch" style="left:${tap.x}px;top:${tap.y}px"><div class="dot" id="td${tap.i}"></div><div class="ring" id="tr${tap.i}"></div></div>`).join("\n        ")}

@@ -5,6 +5,7 @@ import {
   LAYOUTS,
   LAYOUT_NAMES,
   MIN_DESKTOP_WIDTH,
+  TRANSITIONS,
   VIDEO_FORMATS,
   fitsFrame,
   isDesktopViewport,
@@ -241,7 +242,7 @@ type VideoBeat = { id: string; text: string; pad?: number | undefined; actions?:
 
 interface SceneShape {
   beats: VideoBeat[];
-  hook: { still: string; shots: { mark: string }[] };
+  hook: { still: string; shots: { mark: string }[]; transition: string };
   sceneModule?: string | undefined;
 }
 
@@ -346,6 +347,10 @@ const videoSchema = z
           )
           .min(1, "the opening needs at least one shot")
           .describe("Camera moves over the opening frame, at least one."),
+        transition: z
+          .enum(TRANSITIONS)
+          .default("fade")
+          .describe("How the opening frame hands over to the scene: fade (a 0.8 s cross-fade), rewind (0.8 s back through the scene in five dissolving frames) or cut."),
       })
       .describe("The opening: the result frame the first sentence plays over."),
     screenGuard: z

@@ -178,6 +178,7 @@ describe("loadMarketingConfig", () => {
     ["an empty screen guard", (c: MarketingJsonInput) => c.videos[0]?.screenGuard.splice(0), "videos[0].screenGuard: the screen guard needs at least one phrase"],
     ["a blank screen guard phrase", (c: MarketingJsonInput) => c.videos[0]?.screenGuard.push("  "), "videos[0].screenGuard[1]: must not be blank"],
     ["an unknown format", (c: MarketingJsonInput) => Object.assign(c.videos[0] ?? {}, { format: "4:5" }), "videos[0].format: "],
+    ["an unknown opening transition", (c: MarketingJsonInput) => Object.assign(c.videos[0]?.hook ?? {}, { transition: "wipe" }), "videos[0].hook.transition: "],
   ])("refuses %s, naming its path", (_case, change, message) => {
     const config = makeConfig();
     change(config);
@@ -188,6 +189,13 @@ describe("loadMarketingConfig", () => {
     const config = makeConfig();
     config.videos[0]?.hook.shots.splice(1);
     expect(load(config).videos[0]?.hook.shots).toEqual([{ mark: "age", scale: 1.6 }]);
+  });
+
+  it("opens with a fade unless the video chooses its transition", () => {
+    const config = makeConfig();
+    expect(load(config).videos[0]?.hook.transition).toBe("fade");
+    Object.assign(config.videos[0]?.hook ?? {}, { transition: "rewind" });
+    expect(load(config).videos[0]?.hook.transition).toBe("rewind");
   });
 
   it.each(["1:1", "16:9"] as const)("loads a %s video", (format) => {

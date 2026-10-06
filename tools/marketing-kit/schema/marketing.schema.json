@@ -2374,6 +2374,16 @@
                   "additionalProperties": false
                 },
                 "description": "Camera moves over the opening frame, at least one."
+              },
+              "transition": {
+                "default": "fade",
+                "description": "How the opening frame hands over to the scene: fade (a 0.8 s cross-fade), rewind (0.8 s back through the scene in five dissolving frames) or cut.",
+                "type": "string",
+                "enum": [
+                  "fade",
+                  "rewind",
+                  "cut"
+                ]
               }
             },
             "required": [
