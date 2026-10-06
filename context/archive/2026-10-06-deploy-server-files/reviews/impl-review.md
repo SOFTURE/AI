@@ -17,7 +17,7 @@ checkout of those patterns fetches the compose folder, the script and the root `
 
 | Dimension | Verdict | Notes |
 | --- | --- | --- |
-| Plan coverage | PASS | new input, check outputs, checkout, pack, send, cleanup; template; README; 0.1.1; W2 and S1 of the plan review taken |
+| Plan coverage | PASS | new input, check outputs, checkout, pack, send, cleanup; template; README; 0.1.2; W2 and S1 of the plan review taken |
 | Tests | PASS | installed files equal to the tag's with their modes, `.env.prod` 0600 and not left in the release folder, docker calls in order; rules' inode kept and Traefik restarted only when they changed (not on the first release); `deploy.sh` replaced by a rename; 5 release folders kept; no `deploy.json` with an empty `deploy-config`; refusals (empty stdin, not an archive, symlink, `..` member, no `.env.prod`, invalid compose file) with nothing installed; pack refusals (symlink, reserved name, missing file) |
 | Security | PASS | the archive is listed before extraction (files and folders only, narrow names, no `..`), capped at 16 MiB, unpacked without owners; the pack step refuses symlinks; values reach scripts through `env:` only; the checkout stays anchored and credential-free; shipping `deploy.sh` widens nothing (README) |
 | Correctness | PASS | in-place `cp` for bind-mounted files, rename for the running script; a refused archive removes its release folder; the first release installs before any compose call |

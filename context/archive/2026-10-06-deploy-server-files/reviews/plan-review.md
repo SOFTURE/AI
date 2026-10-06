@@ -20,7 +20,8 @@ Findings:
   server holds the new files while the old containers keep running. The messages "nothing changed" would be wrong;
   they become "nothing was restarted", and the README says a rollback redeploys the older tag, which installs its own
   files.
-- **W3 (warning, accepted):** a server that runs an older `deploy.sh` would take the archive for `.env.prod`. No
-  server runs one yet (DP-8 has not published the CLI or set the tag), so the protocol changes without a fallback.
+- **W3 (warning, accepted):** a server that runs an older `deploy.sh` would take the archive for `.env.prod`. No app
+  deploys through the workflow yet, so the protocol changes without a fallback; the README tells an app whose
+  `deploy.sh` came from 0.1.0 or 0.1.1 (published while this ran) to copy the new one once.
 - **S1 (suggestion, taken):** check the new compose file with `docker compose config --quiet` from the release folder
   before installing anything, so a broken compose file stops the release with nothing installed.
