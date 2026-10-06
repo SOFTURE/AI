@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { crossfadeArgs } from "../src/compose/timeline.js";
 
@@ -11,13 +11,18 @@ const hasFfmpeg = spawnSync("ffmpeg", ["-version"]).status === 0 && spawnSync("f
 
 /** The transition clip as ffmpeg really builds it: its length is part of every time after the opening. */
 describe.runIf(hasFfmpeg)("the transition clip", () => {
-  const dir = mkdtempSync(join(tmpdir(), "marketing-kit-transition-"));
-  afterAll(() => rmSync(dir, { recursive: true, force: true }));
-  const stills = ["red", "green", "blue", "white", "black"].map((color) => {
-    const path = join(dir, `${color}.jpg`);
-    execFileSync("ffmpeg", ["-v", "error", "-y", "-f", "lavfi", "-i", `color=${color}:s=64x128`, "-frames:v", "1", path]);
-    return path;
+  // Built in beforeAll: a skipped describe still runs its body, and a runner without ffmpeg must not fail there.
+  let dir = "";
+  let stills: string[] = [];
+  beforeAll(() => {
+    dir = mkdtempSync(join(tmpdir(), "marketing-kit-transition-"));
+    stills = ["red", "green", "blue", "white", "black"].map((color) => {
+      const path = join(dir, `${color}.jpg`);
+      execFileSync("ffmpeg", ["-v", "error", "-y", "-f", "lavfi", "-i", `color=${color}:s=64x128`, "-frames:v", "1", path]);
+      return path;
+    });
   });
+  afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
   it.each([2, 5])("lasts 0.8 s, 24 frames at 30 fps, from %i stills", (count) => {
     const output = join(dir, `t${count}.mp4`);
