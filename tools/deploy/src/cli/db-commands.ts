@@ -2,7 +2,15 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { createBackup, BACKUP_PREFIX } from "../db/backup.js";
 import { DEFAULT_URL_ENV, isPostgresUrl, toLibpqEnv, withPgClient } from "../db/connection.js";
-import { compareRowCounts, countRows, parseTableList, rowCountsFileSchema, type RowCounts } from "../db/row-counts.js";
+import {
+  compareRowCounts,
+  countRows,
+  formatRowCountChange,
+  formatRowCountLoss,
+  parseTableList,
+  rowCountsFileSchema,
+  type RowCounts,
+} from "../db/row-counts.js";
 import { guardSchema } from "../db/schema-guard.js";
 import { DEFAULT_DEPLOY_CONFIG, readDeployConfig } from "./deploy-config.js";
 import { fail, USAGE_EXIT_CODE } from "./failure.js";
@@ -141,7 +149,8 @@ function readRowCountTables(flags: { tables?: string | undefined; config?: strin
 
 /**
  * `softure-deploy row-counts [--tables=… | --config=deploy.json] [--out=…] [--compare=…]`: counts the app's key
- * tables; with `--compare`, fails when a table has fewer rows than in the earlier file.
+ * tables (one the database lacks is `absent`); with `--compare`, fails when a table has fewer rows than in the
+ * earlier file, was not in it, or is absent now. A table absent before and counted now is new and passes.
  */
 export async function runRowCounts(args: string[], io: CliIo): Promise<void> {
   const flags = readFlags("row-counts", args, {
@@ -160,19 +169,12 @@ export async function runRowCounts(args: string[], io: CliIo): Promise<void> {
     writeFileSync(resolve(io.cwd, flags.out), `${JSON.stringify(file, null, 2)}\n`);
   }
   if (before === null) {
-    io.stdout(Object.entries(counts).map(([table, count]) => `row-counts: ${table} ${count}\n`).join(""));
+    io.stdout(Object.entries(counts).map(([table, count]) => `row-counts: ${table} ${count ?? "absent"}\n`).join(""));
     return;
   }
   const { changes, lost } = compareRowCounts(before, counts);
-  const lines = changes.map(({ table, before: earlier, after }) =>
-    earlier === null ? `row-counts: ${table} ${after} (not counted before)\n` : `row-counts: ${table} ${earlier} -> ${after} (${formatDelta(after - earlier)})\n`,
-  );
-  io.stdout(lines.join(""));
+  io.stdout(changes.map((change) => `row-counts: ${formatRowCountChange(change)}\n`).join(""));
   if (lost.length > 0) {
-    fail(`row-counts: fewer rows than before the deploy, or not counted before: ${lost.map((change) => change.table).join(", ")}.`);
+    fail(`row-counts: the deploy lost rows or tables: ${lost.map(formatRowCountLoss).join(", ")}.`);
   }
-}
-
-function formatDelta(delta: number): string {
-  return delta > 0 ? `+${delta}` : String(delta);
 }

@@ -57,7 +57,7 @@ backlog: context/backlog/roadmap-deploy-followups/
 | **DF-11** | `deploy-workflow-release-guards` | the workflow refuses a tag off the default branch, takes build args (origin checked against runtime), non-secret values and a per-deploy registry token | DF-7 | autonomous | ready |
 | **DF-12** | `deploy-cut-release` | a reusable workflow cuts a date tag and release and starts the deploy | DF-11 | autonomous | ready |
 | **DF-13** | `deploy-verify-origin-firewall` | `verify` fails when the server IP answers direct HTTPS | — | autonomous | ready |
-| **DF-14** | `deploy-row-count-new-table` | a table listed in `deploy.json` that the release itself creates does not stop that release; one counted before and missing after still does | DF-8 | autonomous | ready |
+| **DF-14** | `deploy-row-count-new-table` | a table listed in `deploy.json` that the release itself creates does not stop that release; one counted before and missing after still does | DF-8 | autonomous | **in_progress** (implement 1/1, since 2026-10-06; cloud session, branch `claude/project-thread-tucr4s`) |
 | **DF-15** | `deploy-workflow-e2e-server` | the deploy workflow's end-to-end test runs the shipped `deploy.sh` and `verify`, not only the recorder | DF-3 | autonomous | ready |
 | **MK-10** | `marketing-kit-film-followups` | a committed `marketing.json` reproduces a paid film with no hand fixes: the opening transition is chosen in the config and none flickers, the voiceover cache shows which file belongs to which video (old flat caches still found), and the recording day is pinned per video | — | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/marketing-kit` 0.1.6) |
 
@@ -298,8 +298,8 @@ calls, the owner's own machine, a product decision only the owner can make, or a
 
 ### DF-14: A new table can join the row-count list with its release
 - **Change ID:** `deploy-row-count-new-table`
-- **Status:** ready
-- **Input:** [`deploy-row-count-new-table`](../backlog/roadmap-deploy-followups/deploy-row-count-new-table/change.md)
+- **Status:** in_progress (implement 1/1, since 2026-10-06; cloud session, branch `claude/project-thread-tucr4s`)
+- **Input:** [`deploy-row-count-new-table`](../changes/deploy-row-count-new-table/change.md)
 - **Outcome:** a table listed in `database.rowCountTables` that the old schema lacks does not stop the release: the
   count before the switch notes it as absent, the comparison after the switch prints it as new; a table counted
   before and missing after still fails.
