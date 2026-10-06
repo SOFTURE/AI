@@ -1,12 +1,12 @@
 ---
 change_id: deploy-cut-release
 title: "A reusable workflow cuts a release from a dispatch"
-status: plan_reviewed
+status: archived
 roadmap_item: DF-12
 branch: claude/project-thread-t04i0p
 created: 2026-10-06
 updated: 2026-10-06
-archived_at: null
+archived_at: 2026-10-06
 ---
 
 ## Intent
@@ -53,3 +53,6 @@ from DP-2 ([archive](../../archive/2026-10-05-deploy-reusable-workflows/change.m
   a called workflow sees of its caller (ref, SHA, token, event).
 - Framing skipped: the roadmap item fixes the problem and the shape (FIRE runs the same workflow in production);
   nothing about whether to build it is in doubt.
+- Archived 2026-10-06: `deploy-cut-release.yml` and `tools/deploy/examples/release.yml` on the branch with the
+  repository test, the actionlint path and the README section; waiting for the owner's first run in an app. Gap
+  DF-16 (`init` writes the release caller) queued.

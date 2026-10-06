@@ -57,7 +57,7 @@ enough); a `pattern` input with semver (no app here uses it); starting the deplo
 ## Progress
 
 #### Automated
-- [ ] Phase 1: the cut-release workflow and its caller (test red before the workflow, then green)
+- [x] Phase 1: the cut-release workflow and its caller (test red before the workflow, then green) — `edc4b94`
 
 #### Manual
 - [ ] Owner: the first real run in an app (needs `@softure-ai/deploy` on npm, DP-8, and the `deploy-workflows-v1` tag
