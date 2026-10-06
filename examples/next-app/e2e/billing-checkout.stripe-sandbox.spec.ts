@@ -6,16 +6,16 @@
 // .github/workflows/e2e.yml); skipped without the key. The signed fixtures of billing-stripe.spec.ts
 // cover the webhook's cases without Stripe.
 import { expect, test, type Page } from "@playwright/test";
-import { authMessages, users } from "@softure-ai/auth";
+import { users } from "@softure-ai/auth";
 import { billingMessages, payments } from "@softure-ai/billing";
-import { openPageAsNewClient, registerAccount, uniqueEmail } from "@softure-ai/testing/playwright";
+import { openPageAsNewClient, uniqueEmail } from "@softure-ai/testing/playwright";
 import { eq } from "drizzle-orm";
+import { createSignedInAccount } from "./accounts.ts";
 import { openTestDatabase } from "./database.ts";
 
 const SECRET_KEY = (process.env.STRIPE_SECRET_KEY ?? "").trim();
 /** Never a live key: this test pays and refunds in the account it is given. */
 const HAS_SANDBOX_KEY = SECRET_KEY.startsWith("sk_test_") || SECRET_KEY.startsWith("rk_test_");
-const authCopy = authMessages.en;
 const copy = billingMessages.en;
 const PASSWORD = "correct horse battery";
 /** Stripe's test card that pays without 3-D Secure. */
@@ -37,19 +37,11 @@ test.afterAll(async () => {
   }
 });
 
-/** Registers a fresh account in `page` and returns its id. */
-async function register(page: Page): Promise<string> {
+/** Signs a fresh account in on `page` and returns its id. */
+async function signIn(page: Page): Promise<string> {
   const email = uniqueEmail("e2e-stripe-sandbox");
   createdEmails.push(email);
-  await registerAccount(page, { copy: authCopy, email, password: PASSWORD });
-  const database = await openTestDatabase();
-  try {
-    const [account] = await database.db.select({ id: users.id }).from(users).where(eq(users.email, email));
-    if (account === undefined) throw new Error(`register: no account for ${email}`);
-    return account.id;
-  } finally {
-    await database.close();
-  }
+  return (await createSignedInAccount(page, { email, password: PASSWORD })).id;
 }
 
 async function readStatus(page: Page): Promise<string | null> {
@@ -104,7 +96,7 @@ test("a payment on Stripe's sandbox Checkout turns the trial into paid access, a
   test.setTimeout(180_000);
   if ((process.env.STRIPE_WEBHOOK_SECRET ?? "").trim() === "") throw new Error("STRIPE_WEBHOOK_SECRET is not set: start `stripe listen` and pass its --print-secret");
   const page = await openPageAsNewClient(browser);
-  const userId = await register(page);
+  const userId = await signIn(page);
   expect(await readStatus(page)).toBe("trial");
 
   await page.goto("/payment?plan=monthly");

@@ -1,10 +1,12 @@
 // @softure-ai/auth on the built app: the pages, actions, route handler and proxy guard shipped by
 // the package, with sessions and rate limits read back from Postgres. Every test gets its own
-// client address (the example resolves clients from CF-Connecting-IP) and its own account.
+// client address (the example resolves clients from CF-Connecting-IP) and its own account; only the
+// tests about registration create it through the form.
 import { expect, test, type Browser, type Page } from "@playwright/test";
 import { authMessages, users } from "@softure-ai/auth";
 import { clientAddressHeaders, openPageAsNewClient, registerAccount, submitLogin, uniqueEmail } from "@softure-ai/testing/playwright";
 import { inArray } from "drizzle-orm";
+import { createAccount, createSignedInAccount } from "./accounts.ts";
 import { openTestDatabase } from "./database.ts";
 
 const copy = authMessages.en;
@@ -45,8 +47,7 @@ async function openSignedInPage(browser: Browser, email: string): Promise<Page> 
 
 test("the guard sends a visitor without a session from /account to the login page and back after login", async ({ page }) => {
   const email = newEmail();
-  await register(page, email);
-  await page.context().clearCookies();
+  await createAccount({ email, password: PASSWORD });
 
   await page.goto("/account");
   await expect(page).toHaveURL("/login?next=%2Faccount");
@@ -74,8 +75,7 @@ test("register signs the new user in with an HttpOnly, SameSite=Lax session cook
 
 test("a taken email is refused at the email field and keeps what was typed", async ({ page }) => {
   const email = newEmail();
-  await register(page, email);
-  await page.context().clearCookies();
+  await createAccount({ email, password: PASSWORD });
 
   await page.goto("/register");
   await page.getByLabel(copy.fields.email, { exact: true }).fill(email);
@@ -87,7 +87,7 @@ test("a taken email is refused at the email field and keeps what was typed", asy
 });
 
 test("logout ends the session and the account page is guarded again", async ({ page }) => {
-  await register(page, newEmail());
+  await createSignedInAccount(page, { email: newEmail(), password: PASSWORD });
   await page.getByRole("button", { name: copy.logout.submit }).click();
   await expect(page).toHaveURL("/login");
   expect(await (await page.request.get("/api/auth/session")).json()).toEqual({ user: null });
@@ -97,8 +97,7 @@ test("logout ends the session and the account page is guarded again", async ({ p
 
 test("a wrong password is refused with one message for every cause", async ({ page }) => {
   const email = newEmail();
-  await register(page, email);
-  await page.context().clearCookies();
+  await createAccount({ email, password: PASSWORD });
 
   await page.goto("/login");
   await submitLogin(page, { copy, email, password: "wrong horse battery" });
@@ -109,8 +108,7 @@ test("a wrong password is refused with one message for every cause", async ({ pa
 
 test("a next parameter pointing to another origin falls back to afterLogin", async ({ page }) => {
   const email = newEmail();
-  await register(page, email);
-  await page.context().clearCookies();
+  await createAccount({ email, password: PASSWORD });
 
   await page.goto("/login?next=https%3A%2F%2Fevil.example%2F");
   await submitLogin(page, { copy, email, password: PASSWORD });
@@ -119,8 +117,7 @@ test("a next parameter pointing to another origin falls back to afterLogin", asy
 
 test("the login-account limit stops guessing on one account", async ({ page }) => {
   const email = newEmail();
-  await register(page, email);
-  await page.context().clearCookies();
+  await createAccount({ email, password: PASSWORD });
 
   await page.goto("/login");
   for (let attempt = 0; attempt < 10; attempt += 1) {
@@ -133,7 +130,7 @@ test("the login-account limit stops guessing on one account", async ({ page }) =
 
 test("changing the password keeps this session and ends the others", async ({ page, browser }) => {
   const email = newEmail();
-  await register(page, email);
+  await createSignedInAccount(page, { email, password: PASSWORD });
   const other = await openSignedInPage(browser, email);
 
   await page.goto("/account/password");

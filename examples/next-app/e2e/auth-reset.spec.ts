@@ -4,8 +4,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import { formatMessage } from "@softure-ai/core";
 import { authMessages, users } from "@softure-ai/auth";
-import { clientAddressHeaders, logIn, openPageAsNewClient, registerAccount, uniqueEmail, waitFor } from "@softure-ai/testing/playwright";
+import { clientAddressHeaders, logIn, openPageAsNewClient, uniqueEmail, waitFor } from "@softure-ai/testing/playwright";
 import { inArray } from "drizzle-orm";
+import { createAccount } from "./accounts.ts";
 import { openTestDatabase } from "./database.ts";
 import { readResetLinks } from "./outbox.ts";
 
@@ -33,10 +34,6 @@ test.afterAll(async () => {
     await database.close();
   }
 });
-
-async function register(page: Page, email: string): Promise<void> {
-  await registerAccount(page, { copy, email, password: PASSWORD });
-}
 
 async function requestLink(page: Page, email: string): Promise<void> {
   await page.goto("/forgot-password");
@@ -69,12 +66,11 @@ async function expectResetDone(page: Page): Promise<void> {
 
 test("a reset link from the login page sets a new password and ends every session", async ({ page, browser }) => {
   const email = newEmail();
-  await register(page, email);
+  await createAccount({ email, password: PASSWORD });
   // A second browser stays signed in until the reset.
   const otherPage = await openPageAsNewClient(browser);
   await logIn(otherPage, { copy, email, password: PASSWORD, landingPath: null });
   await expect(otherPage).toHaveURL("/account");
-  await page.context().clearCookies();
 
   await page.goto("/login");
   await page.getByRole("link", { name: copy.login.forgotPassword }).click();
@@ -102,8 +98,7 @@ test("a reset link from the login page sets a new password and ends every sessio
 
 test("an unknown email gets the same answer and no link", async ({ page }) => {
   const known = newEmail();
-  await register(page, known);
-  await page.context().clearCookies();
+  await createAccount({ email: known, password: PASSWORD });
   const unknown = uniqueEmail("e2e-reset-nobody");
 
   await requestLink(page, unknown);
@@ -116,8 +111,7 @@ test("an unknown email gets the same answer and no link", async ({ page }) => {
 
 test("a link works once, and only the newest one works", async ({ page }) => {
   const email = newEmail();
-  await register(page, email);
-  await page.context().clearCookies();
+  await createAccount({ email, password: PASSWORD });
 
   await requestLink(page, email);
   const first = await waitForLink(email);
@@ -136,8 +130,7 @@ test("a link works once, and only the newest one works", async ({ page }) => {
 
 test("a too short password is refused at its field and the link keeps working", async ({ page }) => {
   const email = newEmail();
-  await register(page, email);
-  await page.context().clearCookies();
+  await createAccount({ email, password: PASSWORD });
   await requestLink(page, email);
   const link = await waitForLink(email);
 
@@ -174,8 +167,7 @@ test.describe("without JavaScript", () => {
 
   test("request and reset work as plain HTML forms", async ({ page }) => {
     const email = newEmail();
-    await register(page, email);
-    await page.context().clearCookies();
+    await createAccount({ email, password: PASSWORD });
     await requestLink(page, email);
     await expect(page.locator("main").getByRole("status")).toHaveText(SENT_NOTICE);
     await setNewPassword(page, await waitForLink(email), NEW_PASSWORD);

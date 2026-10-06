@@ -7,14 +7,14 @@
 // modules/billing/tests/stripe-sandbox.test.ts.
 import { randomUUID } from "node:crypto";
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
-import { authMessages, users } from "@softure-ai/auth";
+import { users } from "@softure-ai/auth";
 import { billingMessages, entitlements, payments, signStripePayload, STRIPE_METADATA, STRIPE_SIGNATURE_HEADER } from "@softure-ai/billing";
-import { openPageAsNewClient, registerAccount, uniqueEmail } from "@softure-ai/testing/playwright";
+import { openPageAsNewClient, uniqueEmail } from "@softure-ai/testing/playwright";
 import { eq, inArray } from "drizzle-orm";
+import { createSignedInAccount } from "./accounts.ts";
 import { openTestDatabase } from "./database.ts";
 import { STRIPE_WEBHOOK_SECRET } from "./outbox.ts";
 
-const authCopy = authMessages.en;
 const copy = billingMessages.en;
 const PASSWORD = "correct horse battery";
 const WEBHOOK = "/api/billing/webhook";
@@ -31,19 +31,11 @@ test.afterAll(async () => {
   }
 });
 
-/** Registers a fresh account in `page` and returns its id. */
-async function register(page: Page): Promise<string> {
+/** Signs a fresh account in on `page` and returns its id. */
+async function signIn(page: Page): Promise<string> {
   const email = uniqueEmail("e2e-stripe");
   createdEmails.push(email);
-  await registerAccount(page, { copy: authCopy, email, password: PASSWORD });
-  const database = await openTestDatabase();
-  try {
-    const [account] = await database.db.select({ id: users.id }).from(users).where(eq(users.email, email));
-    if (account === undefined) throw new Error(`register: no account for ${email}`);
-    return account.id;
-  } finally {
-    await database.close();
-  }
+  return (await createSignedInAccount(page, { email, password: PASSWORD })).id;
 }
 
 /** A Stripe event around `object`, as Stripe delivers it. */
@@ -87,7 +79,7 @@ async function countPayments(userId: string): Promise<number> {
 
 test("a paid Stripe checkout turns the trial into paid access once, and a full refund takes it back", async ({ browser, request }) => {
   const page = await openPageAsNewClient(browser);
-  const userId = await register(page);
+  const userId = await signIn(page);
   expect(await readStatus(page)).toBe("trial");
 
   const paymentId = `pi_e2e_${randomUUID().replaceAll("-", "")}`;
@@ -119,7 +111,7 @@ async function readPaidEnds(userId: string): Promise<{ paidUntil: Date | null; g
 
 test("a full refund of one of two stacked months takes back only that month", async ({ browser, request }) => {
   const page = await openPageAsNewClient(browser);
-  const userId = await register(page);
+  const userId = await signIn(page);
   const firstPayment = `pi_e2e_${randomUUID().replaceAll("-", "")}`;
   const secondPayment = `pi_e2e_${randomUUID().replaceAll("-", "")}`;
   expect(await deliver(request, paidCheckout(userId, `cs_e2e_${randomUUID().replaceAll("-", "")}`, firstPayment))).toBe(200);
@@ -135,7 +127,7 @@ test("a full refund of one of two stacked months takes back only that month", as
 
 test("the webhook refuses a delivery Stripe did not sign and grants nothing", async ({ browser, request }) => {
   const page = await openPageAsNewClient(browser);
-  const userId = await register(page);
+  const userId = await signIn(page);
   const completed = paidCheckout(userId, `cs_e2e_${randomUUID().replaceAll("-", "")}`, `pi_e2e_${randomUUID().replaceAll("-", "")}`);
 
   expect(await deliver(request, completed, "whsec_forged")).toBe(400);
@@ -146,7 +138,7 @@ test("the webhook refuses a delivery Stripe did not sign and grants nothing", as
 
 test("the payment page says where a hosted checkout returned", async ({ browser }) => {
   const page = await openPageAsNewClient(browser);
-  await register(page);
+  await signIn(page);
   await page.goto("/payment?checkout=success");
   await expect(page.getByRole("status").filter({ hasText: copy.payment.checkoutSuccess })).toBeVisible();
 

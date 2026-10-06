@@ -4,16 +4,16 @@
 // token gets 401, and the page's catalog names exactly the tools the server registers.
 import { randomUUID } from "node:crypto";
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
-import { authMessages, users } from "@softure-ai/auth";
+import { users } from "@softure-ai/auth";
 import { formatMessage, getModule } from "@softure-ai/core";
 import { mcpAccessMessages, type McpAccessOptions } from "@softure-ai/mcp-access";
-import { openPageAsNewClient, randomClientAddress, registerAccount, uniqueEmail } from "@softure-ai/testing/playwright";
-import { eq, inArray } from "drizzle-orm";
+import { openPageAsNewClient, randomClientAddress, uniqueEmail } from "@softure-ai/testing/playwright";
+import { inArray } from "drizzle-orm";
 import { en } from "../messages/en.ts";
 import config from "../softure.config.ts";
+import { createSignedInAccount } from "./accounts.ts";
 import { deleteEntries, openTestDatabase } from "./database.ts";
 
-const authCopy = authMessages.en;
 const mcpCopy = mcpAccessMessages.en;
 const PASSWORD = "correct horse battery";
 const TOKEN_PATTERN = /sftmcp_[A-Za-z0-9_-]{43}/;
@@ -21,18 +21,11 @@ const CATALOG = (getModule(config, "mcp-access")?.options as McpAccessOptions).t
 const createdEmails: string[] = [];
 const createdEntries: string[] = [];
 
-async function registerUser(page: Page): Promise<{ email: string; id: string }> {
+async function signInUser(page: Page): Promise<{ email: string; id: string }> {
   const email = uniqueEmail("e2e-mcp");
   createdEmails.push(email);
-  await registerAccount(page, { copy: authCopy, email, password: PASSWORD });
-  const database = await openTestDatabase();
-  try {
-    const [user] = await database.db.select({ id: users.id }).from(users).where(eq(users.email, email));
-    if (user === undefined) throw new Error(`registerUser: no row for ${email}`);
-    return { email, id: user.id };
-  } finally {
-    await database.close();
-  }
+  const user = await createSignedInAccount(page, { email, password: PASSWORD });
+  return { email, id: user.id };
 }
 
 /** Issues a token on the page and returns its plaintext, read from the Claude Code command. */
@@ -94,7 +87,7 @@ test("the token page sends visitors without a session to the login page", async 
 
 test("a user issues a write token and an MCP client calls the tools with it, until it is revoked", async ({ browser, request }) => {
   const page = await openPageAsNewClient(browser);
-  const user = await registerUser(page);
+  const user = await signInUser(page);
   await page.getByRole("link", { name: en.account.assistant }).click();
   await expect(page).toHaveURL("/account/mcp");
   await expect(page.getByRole("heading", { name: mcpCopy.page.title })).toBeVisible();
@@ -124,7 +117,7 @@ test("a user issues a write token and an MCP client calls the tools with it, unt
 
 test("a read-only token gets no write tool", async ({ browser, request }) => {
   const page = await openPageAsNewClient(browser);
-  await registerUser(page);
+  await signInUser(page);
   await page.goto("/account/mcp");
   const token = await issueToken(page, "E2E reader", false);
   expect(toolNames(await callMcp(request, token, "tools/list"))).toEqual(CATALOG.filter((tool) => tool.access === "read").map((tool) => tool.name));
