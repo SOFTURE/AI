@@ -1,0 +1,37 @@
+{
+  "name": "@softure-ai/charts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SOFTURE AI chart arithmetic: linear and time scales, nice value ticks, calendar date ticks in the app's time zone and nearest-point search for a cursor.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SOFTURE/AI.git",
+    "directory": "foundation/charts"
+  },
+  "files": [
+    "dist",
+    "src",
+    "!src/**/*.test.ts",
+    "!src/**/*.test.tsx"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "exports": {
+    ".": {
+      "@softure-ai/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  }
+}

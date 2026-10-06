@@ -23,7 +23,7 @@ The owner promoted the roadmap on 2026-10-06, when deploy-followups closed. The 
 
 | ID | Entry | Title | Condition | Kind |
 | --- | --- | --- | --- | --- |
-| CH-1 | [`charts-scale-ticks`](charts-scale-ticks/change.md) | Chart scales, ticks and nearest point | roadmap promoted | start |
+| CH-1 | [`charts-scale-ticks`](../../changes/charts-scale-ticks/change.md) | Chart scales, ticks and nearest point | roadmap promoted | start |
 | CH-2 | [`charts-svg-primitives`](charts-svg-primitives/change.md) | SVG chart primitives | CH-1 on master | dependency |
 | CH-3 | [`ui-color-guards`](ui-color-guards/change.md) | Colour contrast and colour-vision guards | roadmap promoted | start |
 | CH-4 | [`charts-palette-guard`](charts-palette-guard/change.md) | Series palette guard | CH-2 and CH-3 on master | dependency |
