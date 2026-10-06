@@ -18,13 +18,13 @@ import { loadFilm, type LoadedFilm } from "./films.js";
 import { writeOgImages } from "./og.js";
 import { getRecordingDay, readOptions, type FilmOptions, type ShotsOptions } from "./options.js";
 import { ensureServer } from "./server.js";
-import { getVoiceoverPaths, produceVoiceover, readJson, requireVoiceover } from "./voice.js";
+import { getVoiceoverPaths, produceVoiceover, produceVoiceovers, readJson, requireVoiceover } from "./voice.js";
 
 /**
  * `softure-marketing`: the only way into the films.
  *
  *   all <film>                 voiceover from the cache -> recording -> render -> post copy
- *   voice <film> [--commit]    voiceover (paid only with --commit)
+ *   voice <film>... [--commit] voiceovers in order (paid only with --commit), spaced and stopped at the first error
  *   record <film> [--today=YYYY-MM-DD] [--url=...]   (--today overrides the video's today)
  *   render <film> [--quality=draft|standard|high]
  *   preview <film>
@@ -193,12 +193,16 @@ async function main(argv: string[]): Promise<void> {
     await shots(config, options);
     return;
   }
+  if (options.command === "voice") {
+    // Every film is loaded before the first paid call, so a typo in the fifth id costs nothing.
+    const films: LoadedFilm[] = [];
+    for (const id of options.filmIds) films.push(await loadFilm(config, id));
+    await produceVoiceovers(config, films, options.isCommit);
+    return;
+  }
   const film = await loadFilm(config, options.filmId);
 
   switch (options.command) {
-    case "voice":
-      await produceVoiceover(config, film, options.isCommit);
-      return;
     case "record":
       preflight(config, film, false);
       await record(config, film, options);

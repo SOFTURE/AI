@@ -7,6 +7,7 @@ const input: PostsInput = {
   title: "Anna counts her date",
   post: {
     caption: "When can you stop working?",
+    disclosure: null,
     hashtags: ["fire", "#finance"],
     channels: [
       { platform: "instagram", code: "ig-01", linkInBio: true },
@@ -54,6 +55,13 @@ describe("buildPosts", () => {
 
   it("gives hashtags a single # whatever the script wrote", () => {
     expect(buildPosts(input)[0]?.text).toBe("When can you stop working?\n\nLink in bio.\n\n#fire #finance");
+  });
+
+  it("puts the disclosure after the caption and before the link and hashtags", () => {
+    const disclosed = { ...input, post: { ...input.post, disclosure: "Anna is an example persona. The voice is AI-generated." } };
+    expect(buildPosts(disclosed)[1]?.text).toBe(
+      "When can you stop working?\n\nAnna is an example persona. The voice is AI-generated.\n\nhttps://example.com/calculator?z=fb-01\n\n#fire #finance",
+    );
   });
 
   it("leaves out empty parts instead of blank paragraphs", () => {

@@ -61,6 +61,7 @@ backlog: context/backlog/roadmap-deploy-followups/
 | **DF-15** | `deploy-workflow-e2e-server` | the deploy workflow's end-to-end test runs the shipped `deploy.sh` and `verify`, not only the recorder | DF-3 | autonomous | done |
 | **DF-16** | `deploy-init-release-caller` | `softure-deploy init` also writes the release caller (`.github/workflows/release.yml`) next to `deploy.yml` | DF-12 | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/deploy` 0.1.3) |
 | **MK-10** | `marketing-kit-film-followups` | a committed `marketing.json` reproduces a paid film with no hand fixes: the opening transition is chosen in the config and none flickers, the voiceover cache shows which file belongs to which video (old flat caches still found), and the recording day is pinned per video | — | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/marketing-kit` 0.1.6) |
+| **MK-11** | `marketing-kit-voice-pacing` | a batch of paid voiceovers is one command: calls spaced by `voice.minIntervalSeconds` (also across runs), a stop at the first provider error, the real charge next to the estimate; `social.disclosure` adds one disclosure paragraph to every post | MK-10 | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/marketing-kit` 0.1.7) |
 
 ## Order
 
@@ -73,7 +74,7 @@ parallel, up to 4 at once.
 | B: deploy.json | DF-5, DF-6 → DF-14 | `tools/deploy/src/verify/schema.ts` and `schema/deploy.schema.json` (DF-5 also `src/db/`, DF-6 the rest of `src/verify/`) |
 | C: auth | DF-4 | `foundation/auth/` (`testing` export), example app e2e |
 | D: FIRE parity | DF-1, DF-13 | `tools/deploy/src/` (env, notes, backup, verify); DF-13 `src/verify/` |
-| E: marketing-kit | MK-10 | `tools/marketing-kit/` (`compose/`, `render/`, `voice/cache.ts`, `config/` schema, `cli/`) |
+| E: marketing-kit | MK-10 → MK-11 | `tools/marketing-kit/` (`compose/`, `render/`, `voice/`, `config/` schema, `cli/`, `posts/`) |
 
 1. **First wave: DF-2, DF-4, DF-5 and DF-6.** Their prerequisites (DP-4, DP-5) are on `master`. DF-5 and DF-6 both
    add an optional key to the `deploy.json` schema; they run in parallel and the second to merge takes `master`
@@ -119,6 +120,7 @@ calls, the owner's own machine, a product decision only the owner can make, or a
 | DF-15 | no | everything runs on CI runners; no server, secret or registry |
 | DF-16 | no | `init` output tested locally and the e2e app regenerated; no live release |
 | MK-10 | no | fixture recordings and the fake voice provider; no paid call; the version bump rides the owner's next release |
+| MK-11 | no | the fake voice provider, an injected `fetch` and clock; no paid call; the version bump rides the owner's next release |
 
 ## Items
 
@@ -357,6 +359,22 @@ calls, the owner's own machine, a product decision only the owner can make, or a
   5.4–6.2 s and FIRE patched the MP4 by hand; the owner asked for better voiceover names and folders; FIRE's agent
   wrote that the paid voiceover renders only in October 2026 before finding `--today`.
 
+### MK-11: Paid voiceovers for a batch of films without a provider warning
+- **Change ID:** `marketing-kit-voice-pacing`
+- **Status:** done_code (2026-10-06; waiting: the release of `@softure-ai/marketing-kit` 0.1.7)
+- **Input:** [`marketing-kit-voice-pacing`](../archive/2026-10-06-marketing-kit-voice-pacing/change.md)
+- **Outcome:** `voice <film> [<film>…] --commit` records films in order, waits `voice.minIntervalSeconds` (default 60)
+  since the last paid recording in the cache before each paid call, stops at the first provider error and names
+  what was not attempted, and logs the credits the provider charged (ElevenLabs `character-cost`) next to the
+  estimate; `social.disclosure` (with `{persona}`) is appended to every post unless the post opts out.
+- **Prerequisites:** MK-10 (the per-video cache the pacing reads).
+- **Unknowns:** the interval default; how pacing sees a shell loop (settled in research: the cache's newest file).
+- **Risk:** medium. Too little pacing risks the adopting app's provider account; a pacing bug that skips the
+  cache would cost a paid call. Tests use the fake provider and an injected clock.
+- **Source:** FIRE_TRACKER SF-1 (`social-films-batch`, 2026-10-06): 26 voiceovers in about 10 minutes from a shell
+  loop drew an ElevenLabs Prohibited Use Policy warning; the owner paused the batch at 26/53; FIRE measured 0.42
+  credits per character against the 1:1 estimate and pasted a disclosure into 52 captions by hand.
+
 ## Owner decisions and checks
 
 (none yet)
@@ -375,3 +393,4 @@ calls, the owner's own machine, a product decision only the owner can make, or a
 - **DF-10** `deploy-release-report` (done_code 2026-10-06): `deploy-app.yml` keeps the server's step lines and its `summary` job uploads `deploy-report.json`; the new reusable `deploy-report.yml` (the caller's `report` job, the only one with `contents: write`) runs `softure-deploy release-report`, which writes the pipeline status (replaced) and a deployment row (time, result, image and digest, backup file, row counts before and after, verify, run; newest first, earlier rows kept) into the release body; `init`'s `deploy.sh` reports the backup file and the counts in its step lines; rides `@softure-ai/deploy` 0.1.3; archived in [`archive/2026-10-06-deploy-release-report/`](../archive/2026-10-06-deploy-release-report/change.md)
 - **DF-16** `deploy-init-release-caller` (done_code 2026-10-06): `softure-deploy init` writes `.github/workflows/release.yml`, the caller of `deploy-cut-release.yml` (`timezone: UTC`, `deploy-workflow: deploy.yml`), next to `deploy.yml`, kept unless `--force`; the template is the example caller with init's header and a test keeps both the same YAML; rides `@softure-ai/deploy` 0.1.3; archived in [`archive/2026-10-06-deploy-init-release-caller/`](../archive/2026-10-06-deploy-init-release-caller/change.md)
 - **MK-10** `marketing-kit-film-followups`: `hook.transition` (fade by default, a rewind without flicker, cut), the voiceover cache in a folder per video with 0.1.x flat files still found, `videos[].today` pins the recording day (marketing-kit 0.1.6); archived in `archive/2026-10-06-marketing-kit-film-followups/`
+- **MK-11** `marketing-kit-voice-pacing` (done_code 2026-10-06): `voice` takes several videos and records them in order, each paid call waits `voice.minIntervalSeconds` (default 60) since the newest recording in the cache (separate runs too), the first failure stops the batch and names what was never sent, a dry run prints the batch total; the ElevenLabs `character-cost` header is logged as the real charge next to the estimate; `social.disclosure` (with `{persona}`) follows every caption unless `posts[].disclosure: false` (marketing-kit 0.1.7); archived in [`archive/2026-10-06-marketing-kit-voice-pacing/`](../archive/2026-10-06-marketing-kit-voice-pacing/change.md)

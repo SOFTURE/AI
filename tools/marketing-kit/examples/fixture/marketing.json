@@ -20,7 +20,7 @@
     "screenGuardSelector": "main",
     "device": { "viewport": [390, 844], "scale": 3 }
   },
-  "voice": { "voiceId": "fixture-voice", "model": "fixture-model", "language": "en", "tempo": 1.1, "cacheDir": "voiceover" },
+  "voice": { "voiceId": "fixture-voice", "model": "fixture-model", "language": "en", "tempo": 1.1, "cacheDir": "voiceover", "minIntervalSeconds": 60 },
   "videos": [
     {
       "id": "fixture-tour",
@@ -122,7 +122,8 @@
       "facebook": { "code": "fb-01" },
       "tiktok": { "code": "tiktok-01" }
     },
-    "posts": [{ "video": "fixture-tour", "caption": "Robin is 36 and can stop working at 49.", "hashtags": ["fire", "#money"] }]
+    "posts": [{ "video": "fixture-tour", "caption": "Robin is 36 and can stop working at 49.", "hashtags": ["fire", "#money"] }],
+    "disclosure": "{persona} is an example persona and this is not financial advice. The voice is AI-generated."
   },
   "layout": { "9:16": { "caption": { "fontSize": 56 } } },
   "screenshots": [{ "id": "calculator", "path": "/", "width": 1280, "height": 800, "expect": "When can you stop working?", "minBytes": 5000 }],

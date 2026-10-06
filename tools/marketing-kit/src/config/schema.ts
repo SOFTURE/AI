@@ -236,6 +236,12 @@ const voiceSchema = z.strictObject({
     .regex(LANGUAGE_PATTERN, "must be an ISO 639 language code such as en")
     .describe("ISO 639 code the voice speaks (en, pl); part of the voiceover cache key."),
   tempo: tempo.default(1).describe("Speed-up (0.8-1.3) applied at build time, not in the API, so the paid cache stays valid."),
+  minIntervalSeconds: z
+    .number()
+    .min(0)
+    .max(3600)
+    .default(60)
+    .describe("Least seconds between two paid recordings (0-3600, default 60; 0 turns it off), counted from the newest file in cacheDir, so separate runs are spaced too."),
   cacheDir: relativePath.default("marketing/voiceover").describe("The paid voiceover cache (<key>.mp3 and <key>.json), relative to the folder of marketing.json; commit it."),
 });
 
@@ -425,6 +431,7 @@ const socialSchema = z.strictObject({
         video: id.describe("The id of the film in videos this post is for."),
         caption: z.string().describe("The post's text."),
         hashtags: z.array(z.string()).default([]).describe("Hashtags appended to the caption."),
+        disclosure: z.boolean().default(true).describe("Whether social.disclosure follows this post's caption (default true)."),
         codes: z
           .partialRecord(z.enum(PLATFORMS), channelCode.describe("The platform's channel code for this film."))
           .optional()
@@ -433,6 +440,9 @@ const socialSchema = z.strictObject({
     )
     .default([])
     .describe("Post copy per film; a film without a post gets no posts.md."),
+  disclosure: nonBlank
+    .optional()
+    .describe("A paragraph after every post's caption, e.g. that the persona is an example and the voice is AI-generated; {persona} becomes the film's persona name. A post opts out with disclosure: false."),
 });
 
 const screenshotSchema = z.strictObject({
