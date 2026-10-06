@@ -433,7 +433,8 @@ if [ "$lists_tables" -ne 0 ] && [ "$lists_tables" -ne 3 ]; then
   fail "cannot read the row-count tables of the release's deploy.json."
 fi
 
-# The first release has no rows to lose (and no tables yet). A table joins the list after the release that creates it.
+# The first release has no rows to lose (and no tables yet). A listed table the old schema lacks counts as absent, so
+# it may join the list in the release whose migration creates it.
 counted=""
 if [ "$lists_tables" -eq 0 ] && [ -n "$previous_tag" ]; then
   deploy_cli row-counts --config="$release_config" --out="$work/counts-before.json" || fail "counting rows failed; nothing was restarted."
