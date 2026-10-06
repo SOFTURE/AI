@@ -79,9 +79,14 @@ describe("the reusable deploy workflows", () => {
       for (const [, job] of jobs) expect(job.permissions).toBeDefined();
     });
 
-    it("gives packages: write to the build job only", () => {
+    it("gives packages: write to no job but build", () => {
       const writers = jobs.filter(([, job]) => JSON.stringify(job.permissions ?? {}).includes('"packages":"write"'));
-      expect(writers.map(([id]) => id)).toEqual(["build"]);
+      expect(writers.map(([id]) => id)).toEqual(name === "deploy-app.yml" ? ["build"] : []);
+    });
+
+    it("gives contents: write to deploy-report.yml's report job only", () => {
+      const writers = jobs.filter(([, job]) => JSON.stringify(job.permissions ?? {}).includes('"contents":"write"'));
+      expect(writers.map(([id]) => id)).toEqual(name === "deploy-report.yml" ? ["report"] : []);
     });
 
     it("never interpolates inputs, secrets or event data into a script", () => {
@@ -94,7 +99,9 @@ describe("the reusable deploy workflows", () => {
 
     it("checks the server's host key and never learns it on first use", () => {
       const scripts = jobs.flatMap(([, job]) => (job.steps ?? []).map((step) => step.run ?? "")).join("\n");
-      expect(scripts).toContain("-o StrictHostKeyChecking=yes");
+      // deploy-report.yml makes no SSH connection; any workflow that does checks the host key.
+      if (/\bssh -i\b/.test(scripts)) expect(scripts).toContain("-o StrictHostKeyChecking=yes");
+      expect(name === "deploy-report.yml" || /\bssh -i\b/.test(scripts)).toBe(true);
       expect(scripts).not.toMatch(/StrictHostKeyChecking=(no|accept-new)/);
       expect(scripts).not.toContain("ssh-keyscan");
     });
@@ -102,8 +109,10 @@ describe("the reusable deploy workflows", () => {
 
   it("default to the CLI version of @softure-ai/deploy", () => {
     const pkg = JSON.parse(readFileSync(join(REPO_ROOT, "tools/deploy/package.json"), "utf8")) as { version: string };
-    const inputs = getWorkflowCall(readYaml(join(WORKFLOWS_DIR, "deploy-app.yml"))).inputs ?? {};
-    expect(inputs["deploy-cli-version"]?.default).toBe(pkg.version);
+    for (const name of ["deploy-app.yml", "deploy-report.yml"]) {
+      const inputs = getWorkflowCall(readYaml(join(WORKFLOWS_DIR, name))).inputs ?? {};
+      expect(inputs["deploy-cli-version"]?.default, name).toBe(pkg.version);
+    }
   });
 });
 
@@ -191,34 +200,107 @@ describe("the deploy job of deploy-app.yml", () => {
 
 describe("the example caller workflow", () => {
   const caller = readYaml(EXAMPLE_CALLER);
-  const callingJobs = Object.values(caller.jobs).filter((job) => job.uses !== undefined);
+  const deployJob = caller.jobs.deploy as Job;
+  const reportJob = caller.jobs.report as Job & { needs?: unknown; if?: string };
 
-  it("calls the deploy workflow with one uses: line", () => {
-    expect(callingJobs).toHaveLength(1);
-    expect(callingJobs[0]?.uses).toMatch(/^SOFTURE\/AI\/\.github\/workflows\/deploy-app\.yml@deploy-workflows-v1$/);
+  it("calls the deploy workflow, then the report workflow, each with one uses: line", () => {
+    expect(Object.keys(caller.jobs)).toEqual(["deploy", "report"]);
+    expect(deployJob.uses).toMatch(/^SOFTURE\/AI\/\.github\/workflows\/deploy-app\.yml@deploy-workflows-v1$/);
+    expect(reportJob.uses).toMatch(/^SOFTURE\/AI\/\.github\/workflows\/deploy-report\.yml@deploy-workflows-v1$/);
   });
 
-  it("grants the called jobs what they need and nothing to write code", () => {
+  it("grants the deploy jobs what they need and nothing to write code; contents: write to the report job only", () => {
     expect(caller.permissions).toEqual({ contents: "read", packages: "write" });
+    expect(deployJob.permissions).toBeUndefined();
+    expect(reportJob.permissions).toEqual({ contents: "write" });
   });
 
-  const job = callingJobs[0] as Job;
-  const target = (job.uses ?? "").slice(CALLER_PREFIX.length).replace(/@.*$/, "");
-  const called = getWorkflowCall(readYaml(join(WORKFLOWS_DIR, target)));
-
-  it("passes only declared inputs and every required one", () => {
-    const declared = called.inputs ?? {};
-    const passed = Object.keys(job.with ?? {});
-    for (const key of passed) expect(Object.keys(declared)).toContain(key);
-    const required = Object.entries(declared).filter(([, input]) => input.required === true);
-    for (const [key] of required) expect(passed).toContain(key);
+  it("reports after the deploy whatever its result, on the same tag", () => {
+    expect(reportJob.needs).toBe("deploy");
+    expect(reportJob.if).toBe("${{ always() }}");
+    expect(reportJob.with?.tag).toBe(deployJob.with?.tag);
   });
 
-  it("passes secrets explicitly: only declared ones and every required one", () => {
-    expect(job.secrets).not.toBe("inherit");
-    const declared = called.secrets ?? {};
-    const passed = Object.keys(job.secrets as Record<string, unknown>);
-    expect(passed.sort()).toEqual(Object.keys(declared).sort());
+  describe.each(["deploy", "report"])("the %s job", (id) => {
+    const job = caller.jobs[id] as Job;
+    const target = (job.uses ?? "").slice(CALLER_PREFIX.length).replace(/@.*$/, "");
+    const called = getWorkflowCall(readYaml(join(WORKFLOWS_DIR, target)));
+
+    it("passes only declared inputs and every required one", () => {
+      const declared = called.inputs ?? {};
+      const passed = Object.keys(job.with ?? {});
+      for (const key of passed) expect(Object.keys(declared)).toContain(key);
+      const required = Object.entries(declared).filter(([, input]) => input.required === true);
+      for (const [key] of required) expect(passed).toContain(key);
+    });
+
+    it("passes secrets explicitly: only declared ones and every required one", () => {
+      expect(job.secrets).not.toBe("inherit");
+      const declared = called.secrets ?? {};
+      const passed = Object.keys((job.secrets ?? {}) as Record<string, unknown>);
+      expect(passed.sort()).toEqual(Object.keys(declared).sort());
+    });
+  });
+});
+
+describe("deploy-report.yml (DF-10)", () => {
+  const workflow = readYaml(join(WORKFLOWS_DIR, "deploy-report.yml"));
+  const inputs = getWorkflowCall(workflow).inputs ?? {};
+  const job = workflow.jobs.report as Job & { "continue-on-error"?: string; concurrency?: { group?: string; "cancel-in-progress"?: boolean } };
+  const steps = job.steps ?? [];
+  const validate = steps[0]?.run ?? "";
+
+  function runValidate(env: Record<string, string>): { status: number | null; stdout: string } {
+    const result = spawnSync("bash", ["-e", "-c", validate], {
+      encoding: "utf8",
+      env: { PATH: process.env.PATH ?? "", TAG: "v1.2.3", LOCALE: "en", DEPLOY_CLI_VERSION: "0.1.3", E2E: "false", REPOSITORY: "acme/app", ...env },
+    });
+    return { status: result.status, stdout: result.stdout };
+  }
+
+  it("has one job, which never turns a production run red and edits one release at a time", () => {
+    expect(Object.keys(workflow.jobs)).toEqual(["report"]);
+    expect(job["continue-on-error"]).toBe("${{ !inputs.e2e }}");
+    expect(job.concurrency).toEqual({
+      group: "deploy-report-${{ github.repository }}-${{ inputs.tag }}${{ inputs.e2e && format('-e2e-{0}', github.run_id) || '' }}",
+      "cancel-in-progress": false,
+    });
+  });
+
+  it("validates its inputs first and refuses e2e outside SOFTURE/AI", () => {
+    expect(runValidate({}).status).toBe(0);
+    expect(runValidate({ TAG: "v1;rm" }).stdout).toContain("Input tag is not valid");
+    expect(runValidate({ LOCALE: "de" }).stdout).toContain("Input locale is not valid");
+    expect(runValidate({ DEPLOY_CLI_VERSION: "latest" }).stdout).toContain("Input deploy-cli-version is not valid");
+    const refused = runValidate({ E2E: "true" });
+    expect(refused.status).toBe(1);
+    expect(refused.stdout).toContain("Input e2e is not valid: false outside SOFTURE/AI");
+    expect(runValidate({ E2E: "true", REPOSITORY: "SOFTURE/AI" }).status).toBe(0);
+    expect(inputs.e2e).toMatchObject({ type: "boolean", default: false });
+  });
+
+  it("reads the summary deploy-app.yml uploaded in the same run", () => {
+    const download = steps.find((step) => step.uses?.startsWith("actions/download-artifact@") === true);
+    expect(download?.with?.name).toBe("deploy-report");
+    const write = steps.find((step) => step.name === "Write the report");
+    expect(write?.run).toContain('"--summary=$RUNNER_TEMP/deploy-report/deploy-report.json"');
+    expect(write?.run).toContain("--package=@softure-ai/deploy@$DEPLOY_CLI_VERSION");
+  });
+
+  it("edits the release only off the test path, and the token reaches the two gh steps only", () => {
+    const update = steps.find((step) => step.name === "Update the release");
+    expect(update?.if).toBe("steps.body.outputs.found == 'true' && !inputs.e2e");
+    expect(update?.run).toContain('gh release edit "$TAG" --repo "$GITHUB_REPOSITORY"');
+    const withToken = steps.filter((step) => step.env?.GH_TOKEN !== undefined).map((step) => step.name);
+    expect(withToken).toEqual(["Read the release body", "Update the release"]);
+  });
+
+  it("runs every test-only step under inputs.e2e", () => {
+    const testOnly = steps.filter((step) =>
+      /\.softure-ai-cli|upload-artifact/.test(`${step.uses ?? ""} ${step["working-directory"] ?? ""} ${JSON.stringify(step.with ?? {})}`),
+    );
+    expect(testOnly).toHaveLength(3);
+    for (const step of testOnly) expect(step.if ?? "", step.name ?? step.uses).toMatch(/\binputs\.e2e\b/);
   });
 });
 
@@ -348,6 +430,17 @@ describe("the end-to-end caller e2e-deploy.yml", () => {
   it("grants packages: write to the calling job only", () => {
     expect(caller.permissions).toEqual({ contents: "read" });
     expect(job.permissions).toEqual({ contents: "read", packages: "write" });
+  });
+
+  it("calls this commit's deploy-report.yml on the test path after the deploy, and checks its body", () => {
+    const report = caller.jobs.report as Job & { needs?: unknown; if?: string };
+    expect(report.uses).toBe("./.github/workflows/deploy-report.yml");
+    expect(report.with).toEqual({ tag: "${{ github.sha }}", e2e: true });
+    expect(report.needs).toBe("deploy");
+    expect(report.if).toBe("${{ always() }}");
+    expect(report.permissions).toEqual({ contents: "write" });
+    const checkReport = (caller.jobs.assert?.steps ?? []).find((step) => (step.run ?? "").includes("check-report.sh"));
+    expect(checkReport?.env).toMatchObject({ IMAGE: "${{ needs.deploy.outputs.image }}" });
   });
 
   it("expects exactly the compose file's required names, and passes one more secret that must not be rendered", () => {

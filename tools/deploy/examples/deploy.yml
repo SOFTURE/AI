@@ -3,7 +3,8 @@
 # ghcr.io/<owner>/<repository> does not fit) and the repository secrets named below.
 #
 # A published GitHub Release deploys its tag; "Run workflow" deploys an existing tag again (a rollback is a
-# redeploy of an older tag). `deploy-workflows-v1` is the tag the owner moves on SOFTURE/AI; pin a commit SHA
+# redeploy of an older tag). After every run, `report` writes the pipeline status and a deployment row into the tag's
+# release (deploy-report.yml); it is the only job that may write to the repository, and only to edit the release. `deploy-workflows-v1` is the tag the owner moves on SOFTURE/AI; pin a commit SHA
 # instead when the app wants an immutable reference.
 
 name: deploy
@@ -18,7 +19,7 @@ on:
         type: string
         required: true
 
-# The ceiling of the called jobs: `build` pushes to GHCR, the rest only reads.
+# The ceiling of the deploy jobs: `build` pushes to GHCR, the rest only reads. `report` sets its own.
 permissions:
   contents: read
   packages: write
@@ -38,3 +39,12 @@ jobs:
       # Only the names the production compose file requires (${NAME:?}) reach .env.prod. Name the secrets
       # one by one instead (a JSON object) when the repository holds many unrelated ones.
       app-secrets: ${{ toJSON(secrets) }}
+
+  report:
+    needs: deploy
+    if: ${{ always() }}
+    permissions:
+      contents: write
+    uses: SOFTURE/AI/.github/workflows/deploy-report.yml@deploy-workflows-v1
+    with:
+      tag: ${{ github.event.release.tag_name || inputs.tag }}
