@@ -1,4 +1,4 @@
-// The browser side of the funnel (FIRE_TRACKER `src/lib/funnel-beacon.ts`): a step goes out with
+// The browser side of the funnel: a step goes out with
 // `navigator.sendBeacon`, and nothing but the step's id leaves the browser. The channel is not in
 // the body: the endpoint reads it from the page the beacon was sent from (`Referer`), exactly as
 // the rest of the module does.
@@ -6,7 +6,7 @@
 // `sendBeacon`, not `fetch`: the browser queues the beacon and sends it even when the tab closes
 // mid-step, which is the drop-off the funnel is there to see. Without `sendBeacon` (an old browser)
 // nothing is counted and the page works on.
-export { createChannelKeeper, type ChannelRule } from "./channel-keeper.js";
+export { createChannelKeeper, type ChannelKeeper, type ChannelRule } from "./channel-keeper.js";
 
 /** The part of `navigator` the reporter needs. */
 export interface FunnelBeaconTarget {
