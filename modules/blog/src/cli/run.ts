@@ -75,6 +75,7 @@ publish   Brings the blog's tables to the state of the article files. A <path> i
   --app-url     the running app's origin for the cache refresh; default: appOrigin
   --stdin       read the files from standard input instead of paths: one file named by
                 --name, or without --name a JSON bundle {"files":[{"name","text"}]}
+                (optionally with "history", the content of a --history file)
   --history     a JSON file of the articles' earlier dates and old slugs, applied on the
                 first publish of each article (moving an existing blog in)
   --format      text (default) or lines: a stable blog|<key>|... contract for scripts
@@ -288,12 +289,15 @@ async function runPublish(command: Extract<BlogCommand, { kind: "publish" }>, op
   } catch (error) {
     return fail(describeError(error));
   }
-  const files = command.stdin === null
-    ? await readArticleFiles((command.paths.length > 0 ? command.paths : [blogOptions.contentDir]).map((path) => resolve(cwd, path)))
-    : await readStdinFiles(command.stdin.name, options.readStdin ?? readProcessStdin);
+  const input = command.stdin === null
+    ? { files: await readArticleFiles((command.paths.length > 0 ? command.paths : [blogOptions.contentDir]).map((path) => resolve(cwd, path))), history: undefined }
+    : await readStdinBundle(command.stdin.name, options.readStdin ?? readProcessStdin);
+  if (typeof input === "string") return fail(input);
+  const { files } = input;
   if (typeof files === "string") return fail(files);
   if (command.withdraw && files.length !== 1) return fail("--withdraw takes exactly one article file, not a folder");
-  const history = command.history === null ? undefined : await readHistoryFile(resolve(cwd, command.history));
+  if (command.history !== null && input.history !== undefined) return fail("the bundle on standard input carries a history; drop --history");
+  const history = command.history === null ? input.history : await readHistoryFile(resolve(cwd, command.history));
   if (typeof history === "string") return fail(history);
   if (config.database === null) return fail("the config has no database; set database.url in softure.config");
 
@@ -491,17 +495,24 @@ const stdinBundleSchema = z.strictObject({
   files: z
     .array(z.strictObject({ name: z.string().regex(/^[^/\\]+\.md$/, "must be a file name <slug>.md"), text: z.string() }))
     .min(1, "must list at least one file"),
+  /** The `--history` file's content, for a publish whose only input is standard input. */
+  history: z.unknown().optional(),
 });
 
-/** The files `--stdin` gives: one named by `--name`, or the JSON bundle; or why they cannot be read. */
-async function readStdinFiles(name: string | null, readStdin: () => Promise<string>): Promise<ArticleFile[] | string> {
+interface StdinBundle {
+  readonly files: ArticleFile[];
+  readonly history: ArticleHistoryMap | undefined;
+}
+
+/** What `--stdin` gives: one file named by `--name`, or the JSON bundle (files, optional history); or why it cannot be read. */
+async function readStdinBundle(name: string | null, readStdin: () => Promise<string>): Promise<StdinBundle | string> {
   let text: string;
   try {
     text = await readStdin();
   } catch (error) {
     return `cannot read standard input: ${describeError(error)}`;
   }
-  if (name !== null) return text.trim() === "" ? `standard input is empty; pipe the text of ${name}` : [{ name, text }];
+  if (name !== null) return text.trim() === "" ? `standard input is empty; pipe the text of ${name}` : { files: [{ name, text }], history: undefined };
   let json: unknown;
   try {
     json = JSON.parse(text);
@@ -511,7 +522,10 @@ async function readStdinFiles(name: string | null, readStdin: () => Promise<stri
   }
   const parsed = stdinBundleSchema.safeParse(json);
   if (!parsed.success) return `the bundle on standard input: ${parsed.error.issues.map((issue) => `${issue.path.join(".") || "bundle"}: ${issue.message}`).join("; ")}`;
-  return parsed.data.files;
+  if (parsed.data.history === undefined) return { files: parsed.data.files, history: undefined };
+  const history = parseArticleHistory(parsed.data.history);
+  if (!history.ok) return `the bundle on standard input: history.${history.errors.join("; history.")}`;
+  return { files: parsed.data.files, history: history.history };
 }
 
 async function readProcessStdin(): Promise<string> {

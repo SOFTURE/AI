@@ -159,37 +159,37 @@ type-check (verified by agent in a scratch test).
 ### Phase 1: directive blocks in the renderer and the gate
 
 #### Automated
-- [ ] 1.1 New tests fail before the implementation and pass after
-- [ ] 1.2 Gates green (typecheck, lint, test)
+- [x] 1.1 New tests fail before the implementation and pass after — 32b9167
+- [x] 1.2 Gates green (typecheck, lint, test) — 32b9167
 
 ### Phase 2: Markdown for agents
 
 #### Automated
-- [ ] 2.1 New tests fail before the implementation and pass after
-- [ ] 2.2 Gates green (typecheck, lint, test)
+- [x] 2.1 New tests fail before the implementation and pass after — 77cea36
+- [x] 2.2 Gates green (typecheck, lint, test) — 77cea36
 
 ### Phase 3: publish from standard input with a line contract
 
 #### Automated
-- [ ] 3.1 New tests fail before the implementation and pass after
-- [ ] 3.2 Gates green (typecheck, lint, test)
+- [x] 3.1 New tests fail before the implementation and pass after — 2fd591d
+- [x] 3.2 Gates green (typecheck, lint, test) — 2fd591d
 
 ### Phase 4: history import on the first publish
 
 #### Automated
-- [ ] 4.1 New tests fail before the implementation and pass after
-- [ ] 4.2 Gates green (typecheck, lint, test)
+- [x] 4.1 New tests fail before the implementation and pass after — 2fd591d
+- [x] 4.2 Gates green (typecheck, lint, test) — 2fd591d
 
 ### Phase 5: analytics wire format, Referer channel and normalisation
 
 #### Automated
-- [ ] 5.1 New tests fail before the implementation and pass after
-- [ ] 5.2 Gates green (typecheck, lint, test)
+- [x] 5.1 New tests fail before the implementation and pass after — 09836d9
+- [x] 5.2 Gates green (typecheck, lint, test) — 09836d9
 
 ### Phase 6: docs, versions
 
 #### Automated
-- [ ] 6.1 Gates green (typecheck, lint, test, build)
+- [x] 6.1 Gates green (typecheck, lint, test, build) — PHASE6
 
 #### Manual
-- [ ] 6.2 README examples type-check
+- [x] 6.2 README examples type-check — PHASE6

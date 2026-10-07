@@ -1,6 +1,6 @@
 {
   "id": "blog",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "dependsOn": { "seo": "^0.1.0?", "security": "^0.1.0?" },
   "dbSchema": "blog",
   "tables": ["articles", "slug_history"],

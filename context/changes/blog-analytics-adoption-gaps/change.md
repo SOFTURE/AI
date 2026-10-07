@@ -1,7 +1,7 @@
 ---
 change_id: blog-analytics-adoption-gaps
 title: "Blog and analytics cover an app that already runs its own blog and funnel"
-status: plan_reviewed
+status: impl_reviewed
 roadmap_item: null
 issue: "#196"
 branch: claude/project-thread-fn58jg

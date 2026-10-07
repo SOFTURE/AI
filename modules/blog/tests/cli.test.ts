@@ -254,6 +254,26 @@ describe("softure-blog publish", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it("takes the history from a bundle on standard input", async () => {
+    const file = { name: "index-funds.md", text: buildArticleText({ published_at: undefined }) };
+    const bundle = (history: unknown) => stdin(JSON.stringify({ files: [file], history }));
+    expect((await run(["publish", "--stdin", "--format", "lines"], bundle({ articles: [{ id: "index-funds", published_at: "2026-02-01T09:00:00Z" }] }))).lines[1]).toBe(
+      "blog|imported|index-funds|2026-02-01T09:00:00.000Z|0",
+    );
+    expect((await run(["publish", "--stdin"], bundle({ articles: [{ id: "index-funds" }] }))).errors).toEqual([
+      "softure-blog publish: the bundle on standard input: history.articles.0.published_at: is required: an ISO 8601 timestamp, or null for a text that was never published",
+    ]);
+    const dir = mkdtempSync(join(tmpdir(), "softure-blog-"));
+    try {
+      writeFileSync(join(dir, "h.json"), '{"articles":[]}');
+      expect((await run(["publish", "--stdin", "--history", join(dir, "h.json")], bundle({ articles: [] }))).errors).toEqual([
+        "softure-blog publish: the bundle on standard input carries a history; drop --history",
+      ]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("softure-blog publish with seo({ indexNow })", () => {
