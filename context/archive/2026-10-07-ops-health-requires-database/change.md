@@ -1,12 +1,13 @@
 ---
 change_id: ops-health-requires-database
 title: "/api/health fails its database check when the config has no database"
-status: in-progress
+status: archived
 roadmap_item: none
 issue: "#181"
 branch: claude/project-thread-vakmod
 created: 2026-10-07
 updated: 2026-10-07
+archived_at: 2026-10-07
 ---
 
 ## Intent

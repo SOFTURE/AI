@@ -1,6 +1,6 @@
 ---
 change_id: ops-health-requires-database
-status: in-progress
+status: done
 updated: 2026-10-07
 ---
 
