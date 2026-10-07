@@ -1,10 +1,6 @@
 # @softure-ai/billing
 
-**Status:** wave 3 · entitlements and the write guard (MO-1); plans, pricing tiles, the payment page
-and the manual adapter (MO-2); Stripe Checkout with verified webhooks and refunds (MO-3); stored
-invoice requests, recorded manual grants with revoke and an account history (FU-9); reminder mail
-before and after access ends (FU-6) · depends on: core, db, ui, security, auth (mailing optional, for
-`@softure-ai/billing/mailing`)
+**Depends on:** core, db, ui, security, auth (mailing optional, for `@softure-ai/billing/mailing`).
 
 Decides whether an account may still write: a trial every account starts with, paid access (dated
 or lifetime) and a read-only state once both end. It replaces FIRE_TRACKER's access logic

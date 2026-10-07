@@ -299,5 +299,4 @@ expired unused; until then they count nowhere, and a new sign-up of the address 
 - With double opt-in, a sign-up's channel reaches `onJoined` only through the confirmation link
   (`rewriteConfirmationLink`, section 10); a link opened on another device still carries it, a
   sign-up confirmed from an untagged link counts without one.
-- The placement is stored per sign-up; handing placement counts to `@softure-ai/analytics` belongs
-  to the analytics roadmap.
+- The placement is stored per sign-up; placement counts are not handed to `@softure-ai/analytics`.

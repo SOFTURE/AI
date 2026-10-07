@@ -1,7 +1,5 @@
 # @softure-ai/db
 
-**Status:** wave 0 · implemented in FD-4 (`db-migrator`), 0.1.5, prepared for its first release (the owner's tag, `scripts/release/README.md`).
-
 The database layer every SOFTURE module stands on. Standard:
 [docs/02-module-standard.md](../../docs/02-module-standard.md) §4. Sources in FIRE_TRACKER:
 `src/db/client.ts`, `src/db/test-db.ts`, `scripts/migrate.ts`, `docker/Dockerfile` (`migrate.cjs`).
