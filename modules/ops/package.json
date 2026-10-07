@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/ops",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "SOFTURE AI ops module: a health endpoint with database and module checks, the container migrate step recipe with least-privilege roles, and a helper for safe ops scripts (dry run by default, --commit applies).",
   "license": "MIT",
   "type": "module",
