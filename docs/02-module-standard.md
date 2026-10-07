@@ -241,6 +241,10 @@ thin actions) are not needed.
   host lists the public origin in `experimental.serverActions.allowedOrigins`.
 - **Packaging:** React is a `peerDependency` of a module, and so is Next when the module imports it. The app router uses Next's own
   React, so a package resolved from another folder (a workspace link) does not get a second copy.
+  `@softure-ai/ui` is a `peerDependency` too (with a dev dependency for the workspace), never a
+  dependency: two copies would mean two token sets and two theme and locale contexts. A package that
+  ships a stylesheet declares `"sideEffects": ["*.css"]`, so a bundler keeps `import "…/styles.css"`.
+  `tests/repo/packages.test.ts` holds both rules.
   Client components keep `"use client"` in `dist/` (L-001). A module that must be bundled as-is goes
   to the app's `serverExternalPackages`; none of ours needs it.
 - **Workspace links** (`npm install --install-links=false`) work once Turbopack may read the linked

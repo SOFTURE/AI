@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/feature-switches",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "SOFTURE AI feature switches module: switches declared by the app with defaults, a fail mode and environment overrides, isEnabled and setSwitch, and an admin-only panel for Next.js.",
   "license": "MIT",
   "type": "module",
@@ -54,12 +54,15 @@
     "@softure-ai/auth": "^0.1.0",
     "@softure-ai/core": "^0.1.0",
     "@softure-ai/db": "^0.1.0",
-    "@softure-ai/ui": "^0.1.0",
     "zod": "^4.6.5"
   },
   "peerDependencies": {
+    "@softure-ai/ui": "^0.1.0",
     "drizzle-orm": "^0.45.2",
     "next": "^16.0.0",
     "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@softure-ai/ui": "^0.1.7"
   }
 }
