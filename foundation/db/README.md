@@ -209,7 +209,8 @@ export const appMigrations: AppMigrations = {
   app's tables already carry a later file's change, align them in the app's own migration or raise n.
 - A module that is not enabled, has no schema, or an n outside 1..files refuses the run before anything
   runs. `--plan` marks the files a baseline may adopt (`adopted if its schema already holds objects`).
-- The comparison builds the reference on a scratch PGlite, only when a module is actually adopted.
+- The comparison builds the reference on a scratch PGlite, only when a module is actually adopted,
+  with stubs of the app tables `before` created (section 5, adoption).
 - Under node-postgres a hook queries through the pool while the migrator holds one connection, so the
   pool needs at least two (`createDatabase`'s default is 10).
 - The `softure` bin reads only the config; an app with its own migrations uses the script above.
@@ -278,7 +279,14 @@ exact match records the files as `adopted`; every difference is printed (`missin
 migrate applies the rest. The version must equal the enabled module's and the module must be new to
 the ledger. The pending migrations of the modules it depends on are applied first (listed as
 `apply` lines; a dry run applies nothing); when one fails because its tables exist too, adopt that
-module first. For fresh databases of an app that adopted a module, declare a baseline (section 4). Undo:
+module first. Module SQL may reference the app's own tables (`REFERENCES public.app_users (id)`):
+the scratch database first gets stubs of every table outside the ledger, the enabled modules'
+schemas and `drizzle`, copied from the live database (columns with their types, primary keys,
+unique constraints, plain unique indexes and the enum types they use; no defaults, NOT NULL, checks
+or foreign keys). The tables must therefore exist when the comparison runs: `--adopt` and a baseline
+run `before` first, a `--plan` dry run reads only what is already there. A stub that cannot be
+created (a domain or extension type) is skipped, and named in the failure when the module needs it.
+For fresh databases of an app that adopted a module, declare a baseline (section 4). Undo:
 `DELETE FROM softure.migrations WHERE module = '<id>' AND method = 'adopted'`.
 
 **Tests:** `createTestDatabase(modules)` from `@softure-ai/db/testing` returns `{ db, client, close }`:
@@ -330,6 +338,7 @@ No personal data. The ledger holds module ids, file names and checksums.
   transaction-mode PgBouncer.
 - Adoption does not compare grants, comments, column order, row-level security policies or view
   bodies, and needs PGlite installed where it runs (also in an image that otherwise uses `pg`).
-- The reference schema is built without the app's hooks, so a module whose files reference an app
-  table in `public` cannot be adopted (`db.adopt_reference_failed`).
+- The app table stubs of the reference carry no domains, extension types, views or functions: a
+  module whose SQL needs one of those from the app cannot be adopted (`db.adopt_reference_failed`
+  names the skipped stub objects).
 - No cached connection for Next.js dev reloads yet; the Next adapter (identity ID-1, FD-7) adds it.

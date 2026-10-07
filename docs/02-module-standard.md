@@ -98,7 +98,8 @@ Rules:
   migrations that reference a module table), all under the lock. One hook object serves the migrate
   script, the unit tests and the image ([db README](../foundation/db/README.md) §4). Its `baseline`
   (`{ auth: 1 }`) names the module files the app's own history creates, so every fresh database
-  adopts them instead of failing on `already exists`.
+  adopts them instead of failing on `already exists`. Module SQL that references an app table adopts
+  too: the reference schema gets stubs of the app's tables, copied from the database being adopted.
 - Migrate scripts and module packages are **ESM only**: a CJS bundle empties `import.meta.url`, and
   `resolveMigrationsDir` refuses it naming the bundle format.
 - **Adoption** (moving an existing app onto a module): the app writes *its own* migration that

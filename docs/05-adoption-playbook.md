@@ -35,7 +35,10 @@ Instructions for the application's agent (FIRE_TRACKER first). One module is one
       database (names of constraints and indexes included) and only on an exact match marks the
       module's migrations as `adopted`. Every difference is printed as `missing in database: …` or
       `unexpected in database: …`; align it in the application's migration and run again. A
-      dependency whose tables the application created too is adopted first. PGlite must be installed where this runs, also in an
+      dependency whose tables the application created too is adopted first. A module whose SQL
+      references the application's own tables (a foreign key to `public.app_users`) adopts the
+      same way: the scratch database gets stubs of those tables, copied from the live database
+      after `before` ran. PGlite must be installed where this runs, also in an
       image that otherwise uses `pg`.
    3. Declare the baseline next to the hooks, `app: { before, baseline: { <module>: n } }` with the
       same n. The application's history still creates the moved tables on every fresh database (unit
