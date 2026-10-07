@@ -56,8 +56,10 @@ received_files="$(cat "$RECEIVED_DIR/files")"
 if [ "$received_files" = "$expected_files" ]; then
   pass "files are the compose folder, deploy.sh, deploy.json, .env.prod and .registry-token"
 else
-  missing="$(LC_ALL=C comm --nocheck-order -23 <(echo "$expected_files") <(echo "$received_files") | paste -sd ' ' -)"
-  extra="$(LC_ALL=C comm --nocheck-order -13 <(echo "$expected_files") <(echo "$received_files") | paste -sd ' ' -)"
+  # Both sides sorted the same way, so comm needs no GNU-only --nocheck-order (macOS runs this script in the tests).
+  received_sorted="$(LC_ALL=C sort <<< "$received_files")"
+  missing="$(LC_ALL=C comm -23 <(echo "$expected_files") <(echo "$received_sorted") | paste -sd ' ' -)"
+  extra="$(LC_ALL=C comm -13 <(echo "$expected_files") <(echo "$received_sorted") | paste -sd ' ' -)"
   fail "files differ from the tag's: missing [${missing}], unexpected [${extra}]"
 fi
 

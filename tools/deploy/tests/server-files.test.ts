@@ -519,7 +519,8 @@ describe("the registry token of a release (DF-11)", () => {
 
   it("rides in the archive as .registry-token, readable by its owner only", () => {
     const listing = spawnSync("tar", ["-tvzf", "-"], { input: packWithToken(), encoding: "utf8" }).stdout;
-    expect(listing).toMatch(/^-rw------- 0\/0 .* \.\/\.registry-token$/m);
+    // GNU tar lists the owner as `0/0`, bsdtar (macOS) as `0 0` in two columns after the link count.
+    expect(listing).toMatch(/^-rw------- +(0\/0|\d+ +0 +0) .* \.\/\.registry-token$/m);
     expect(pack().status).toBe(0);
     const without = spawnSync("tar", ["-tzf", join(checkout, "release.tar.gz")], { encoding: "utf8" }).stdout;
     expect(without).not.toContain(".registry-token");

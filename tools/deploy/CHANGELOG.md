@@ -8,6 +8,8 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 - `init` warns when the app depends on `@softure-ai/db` and its `next.config.*` does not list `"@softure-ai/db"` in
   `serverExternalPackages` (the `@softure-ai/db` README, §2 Installation), next to the `standalone` warning.
+- `deploy-app.yml`'s check and pack steps also run with bash 3.2 and bsdtar (macOS, where the tests run them); on the
+  runner they behave as before.
 
 ## 0.1.3
 
