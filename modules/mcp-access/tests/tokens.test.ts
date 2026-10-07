@@ -201,6 +201,7 @@ describe("access tokens", () => {
         userId: alice,
         canWrite: true,
         expiresAt: issued.expiresAt,
+        grantId: null,
       });
     });
 
@@ -247,6 +248,45 @@ describe("access tokens", () => {
       expect((await verifyAccessToken({ ...test.ctx, db }, issued.token))?.userId).toBe(alice);
       const logged = log.mock.calls.map((call) => String(call[0])).join("\n");
       expect(logged).toBe(`@softure-ai/mcp-access: recording the use of token ${issued.id} failed: Error`);
+    });
+  });
+
+  describe("tokens an app issued before adopting the module", () => {
+    const LEGACY = "0123456789abcdef".repeat(4);
+    const legacyCtx = () => ({ ...test.ctx, config: createConfig({ ...OPTIONS, legacyTokenPattern: /^[0-9a-f]{64}$/ }) });
+
+    beforeEach(async () => {
+      await test.database.client.query(
+        "INSERT INTO mcp.access_tokens (user_id, name, token_hash, can_write, created_at, expires_at) VALUES ($1, 'Old laptop', $2, true, $3, $4)",
+        [alice, hashAccessToken(LEGACY), NOW, new Date(NOW.getTime() + DAY_MS)],
+      );
+    });
+
+    it("verify with legacyTokenPattern, by the same sha256", async () => {
+      expect(await verifyAccessToken(legacyCtx(), LEGACY)).toMatchObject({ userId: alice, canWrite: true, grantId: null });
+    });
+
+    it("do not verify without the pattern", async () => {
+      expect(await verifyAccessToken(test.ctx, LEGACY)).toBeNull();
+    });
+
+    it("still need an unexpired row: the pattern only lets the value be looked up", async () => {
+      expect(await verifyAccessToken(legacyCtx(), "f".repeat(64))).toBeNull();
+      test.clock.set(new Date(NOW.getTime() + DAY_MS));
+      expect(await verifyAccessToken(legacyCtx(), LEGACY)).toBeNull();
+    });
+
+    it("refuse a value over 512 characters before the pattern or a query runs", async () => {
+      const pattern = /^[0-9a-f]+$/;
+      const test_ = vi.spyOn(pattern, "test");
+      const ctx = { ...test.ctx, config: createConfig({ ...OPTIONS, legacyTokenPattern: pattern }), db: failOn(test.ctx.db, "select", "must not query") };
+      expect(await verifyAccessToken(ctx, "a".repeat(513))).toBeNull();
+      expect(test_).not.toHaveBeenCalled();
+    });
+
+    it("leave new tokens with the module's prefix", async () => {
+      const issued = await issueAccessToken(legacyCtx(), { userId: alice, name: "Laptop", canWrite: false });
+      expect(issued.ok && issued.value.token).toMatch(/^sftmcp_[A-Za-z0-9_-]{43}$/);
     });
   });
 

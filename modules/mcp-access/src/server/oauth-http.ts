@@ -1,0 +1,431 @@
+// The OAuth 2.1 authorization server's HTTP layer: discovery metadata (RFC 8414, RFC 9728),
+// dynamic client registration (RFC 7591), the authorization request and the consent decision
+// (RFC 6749 §4.1, PKCE, RFC 9207 `iss`), and the token endpoint with rotated refresh tokens. Each
+// handler takes a Web `Request` and returns a `Response`, so any fetch-shaped host can mount it;
+// the Next adapter only supplies the context and the session.
+import { errorLogLabel, getModule, type SoftureConfig } from "@softure-ai/core";
+import { consumeRateLimit, identifyClient } from "@softure-ai/security/server";
+import type { OAuthClientRow } from "../schema.js";
+import { MCP_READ_SCOPE, MCP_WRITE_SCOPE } from "./scopes.js";
+import {
+  createAuthorizationCode,
+  exchangeAuthorizationCode,
+  findOAuthClient,
+  isClientSecretValid,
+  refreshOAuthGrant,
+  registerOAuthClient,
+  type IssuedOAuthTokens,
+} from "./oauth.js";
+import { parseClientRegistration } from "./oauth-validation.js";
+import { getMcpAccessOptions, getMcpAccessRoutes, getMcpEndpointUrl } from "./options.js";
+import { isValidCodeChallenge, PKCE_METHOD } from "./pkce.js";
+import type { McpAccessContext } from "./tokens.js";
+
+/** The security bucket OAuth registration and token requests count in. */
+export const MCP_OAUTH_RATE_LIMIT_BUCKET = "mcp-oauth";
+
+/** RFC 8414 §3: the authorization server metadata, at the root of the issuer. */
+export const AUTHORIZATION_SERVER_METADATA_PATH = "/.well-known/oauth-authorization-server";
+/** RFC 9728 §3: protected resource metadata; the endpoint's own variant appends its path. */
+export const PROTECTED_RESOURCE_METADATA_PATH = "/.well-known/oauth-protected-resource";
+
+export const OAUTH_SCOPES = [MCP_READ_SCOPE, MCP_WRITE_SCOPE] as const;
+
+/** The parameters the consent form carries to the decision in hidden fields. */
+export const AUTHORIZATION_PARAMS = ["response_type", "client_id", "redirect_uri", "state", "code_challenge", "code_challenge_method", "scope", "resource"] as const;
+
+/** Values longer than this are not echoed into a form or a redirect. */
+const MAX_PARAM_LENGTH = 2048;
+
+/**
+ * CORS `*` is safe on these routes because none reads a cookie: registration and token
+ * authenticate the client by what it sent. A browser-based MCP client cannot sign in without it.
+ */
+const CORS_HEADERS = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "GET, POST, OPTIONS",
+  "access-control-allow-headers": "authorization, content-type, mcp-protocol-version",
+};
+/** Responses that carry credentials must not be stored (RFC 6749 §5.1). */
+const NO_STORE = { "cache-control": "no-store", pragma: "no-cache" };
+/** Discovery documents change only with a deploy. */
+const DISCOVERY_CACHE = { "cache-control": "public, max-age=300" };
+
+function oauthJson(body: unknown, status = 200, extra: Readonly<Record<string, string>> = {}): Response {
+  return Response.json(body, { status, headers: { ...CORS_HEADERS, ...NO_STORE, ...extra } });
+}
+
+/** An error in the shape of RFC 6749 §5.2 / RFC 7591 §3.2.2. */
+function oauthError(error: string, description: string, status = 400, extra: Readonly<Record<string, string>> = {}): Response {
+  return oauthJson({ error, error_description: description }, status, extra);
+}
+
+/** `OPTIONS` on the registration, token and discovery routes. */
+export function answerOAuthPreflight(): Response {
+  return new Response(null, { status: 204, headers: CORS_HEADERS });
+}
+
+// ---------------------------------------------------------------------------------------------
+// Discovery
+
+/** The issuer: the app's origin, without a path or a trailing slash. */
+export function getOAuthIssuer(config: SoftureConfig): string {
+  return new URL(config.appOrigin).origin;
+}
+
+/** The URL the endpoint's `401` names in `resource_metadata` (RFC 9728 §5.1). */
+export function getProtectedResourceMetadataUrl(config: SoftureConfig): string {
+  return `${getOAuthIssuer(config)}${PROTECTED_RESOURCE_METADATA_PATH}${new URL(getMcpEndpointUrl(config)).pathname}`;
+}
+
+/** Whether the app turned OAuth on; the OAuth routes answer 404 otherwise. */
+export function isOAuthEnabled(config: SoftureConfig): boolean {
+  return getMcpAccessOptions(config).oauth.enabled;
+}
+
+/** Authorization server metadata (RFC 8414 §2). Tokens are opaque: no `jwks_uri`, no OpenID. */
+export function getAuthorizationServerMetadata(config: SoftureConfig) {
+  const issuer = getOAuthIssuer(config);
+  const routes = getMcpAccessRoutes(config);
+  return {
+    issuer,
+    authorization_endpoint: `${issuer}${routes.oauthConsent}`,
+    token_endpoint: `${issuer}${routes.oauthToken}`,
+    registration_endpoint: `${issuer}${routes.oauthRegister}`,
+    scopes_supported: [...OAUTH_SCOPES],
+    response_types_supported: ["code"],
+    response_modes_supported: ["query"],
+    grant_types_supported: ["authorization_code", "refresh_token"],
+    token_endpoint_auth_methods_supported: ["none", "client_secret_post", "client_secret_basic"],
+    // MCP clients refuse an authorization server that does not list S256.
+    code_challenge_methods_supported: [PKCE_METHOD],
+    authorization_response_iss_parameter_supported: true,
+  };
+}
+
+/**
+ * Protected resource metadata (RFC 9728 §2). At the endpoint's own path the resource is the
+ * endpoint URL; at the root it is the origin, because RFC 9728 §3.3 ties `resource` to the URL the
+ * metadata URL was built from.
+ */
+export function getProtectedResourceMetadata(config: SoftureConfig, variant: "endpoint" | "root") {
+  return {
+    resource: variant === "endpoint" ? getMcpEndpointUrl(config) : getOAuthIssuer(config),
+    authorization_servers: [getOAuthIssuer(config)],
+    scopes_supported: [...OAUTH_SCOPES],
+    bearer_methods_supported: ["header"],
+    resource_name: getMcpAccessOptions(config).serverName,
+  };
+}
+
+/** `GET` of a discovery document; 404 while OAuth is off. */
+export function serveDiscoveryDocument(config: SoftureConfig, document: (config: SoftureConfig) => unknown): Response {
+  if (!isOAuthEnabled(config)) return Response.json({ error: "not_found" }, { status: 404, headers: CORS_HEADERS });
+  return Response.json(document(config), { headers: { ...CORS_HEADERS, ...DISCOVERY_CACHE } });
+}
+
+/**
+ * Whether `resource` (RFC 8707) names this server: absent (clients from before RFC 8707), the
+ * endpoint URL or the origin, each with or without a trailing slash.
+ */
+export function isAcceptableResource(config: SoftureConfig, resource: string | null): boolean {
+  if (resource === null || resource === "") return true;
+  const endpoint = getMcpEndpointUrl(config).replace(/\/+$/, "");
+  const origin = getOAuthIssuer(config);
+  return [endpoint, `${endpoint}/`, origin, `${origin}/`].includes(resource);
+}
+
+/** Whether the client asks to write. Unknown scopes are ignored (RFC 6749 §3.3); every grant reads. */
+export function isWriteScopeRequested(scope: string | null): boolean {
+  return (scope ?? "").split(/\s+/).includes(MCP_WRITE_SCOPE);
+}
+
+// ---------------------------------------------------------------------------------------------
+// Rate limit
+
+/** A missing bucket is a setup bug: thrown, so it reaches the log by name instead of a quiet 503. */
+function assertOAuthRateLimitBucket(config: SoftureConfig): void {
+  const options = getModule(config, "security")?.options as { buckets?: Record<string, unknown> } | undefined;
+  if (options?.buckets?.[MCP_OAUTH_RATE_LIMIT_BUCKET] === undefined) {
+    throw new Error(
+      `@softure-ai/mcp-access: the security module has no "${MCP_OAUTH_RATE_LIMIT_BUCKET}" bucket; spread MCP_RATE_LIMIT_BUCKETS into security({ buckets })`,
+    );
+  }
+}
+
+/**
+ * Counts the request in the OAuth bucket before any work: per client address, and for the token
+ * endpoint per address and client id (an assistant platform refreshes the tokens of all its users
+ * from a few shared addresses, and each connection registers its own client). A failing counter
+ * closes (503) and says nothing.
+ */
+async function limitOAuthRequest(ctx: McpAccessContext, request: Request, clientId: string | null = null): Promise<Response | null> {
+  assertOAuthRateLimitBucket(ctx.config);
+  const client = identifyClient(ctx, request.headers);
+  if (!client.ok) return oauthError("invalid_request", "The client address could not be identified.", 400);
+  const key = clientId === null ? client.value : `${client.value}|${clientId.slice(0, 64)}`;
+  try {
+    const limit = await consumeRateLimit(ctx, { bucket: MCP_OAUTH_RATE_LIMIT_BUCKET, key });
+    if (limit.ok) return null;
+    return oauthError("too_many_requests", "Too many requests; try again later.", 429, { "retry-after": String(limit.retryAfterSeconds) });
+  } catch (error) {
+    console.error(`@softure-ai/mcp-access: counting an OAuth request failed: ${errorLogLabel(error)}`);
+    return oauthError("temporarily_unavailable", "The server is temporarily unavailable.", 503);
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Registration
+
+/**
+ * `POST` dynamic client registration (RFC 7591). Public by definition: claude.ai and ChatGPT
+ * register before anyone signs in. A registration grants nothing; access needs a person's consent.
+ */
+export async function handleClientRegistration(ctx: McpAccessContext, request: Request): Promise<Response> {
+  if (!isOAuthEnabled(ctx.config)) return oauthError("not_found", "OAuth is not enabled.", 404);
+  const limited = await limitOAuthRequest(ctx, request);
+  if (limited !== null) return limited;
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return oauthError("invalid_client_metadata", "The request body must be a JSON object.");
+  }
+  const parsed = parseClientRegistration(body);
+  if (!parsed.ok) return oauthError(parsed.error.error, parsed.error.description);
+
+  try {
+    const { client, clientSecret } = await registerOAuthClient(ctx, parsed.value);
+    return oauthJson(
+      {
+        client_id: client.clientId,
+        client_id_issued_at: Math.floor(client.createdAt.getTime() / 1000),
+        client_name: client.clientName,
+        redirect_uris: client.redirectUris,
+        token_endpoint_auth_method: client.tokenEndpointAuthMethod,
+        grant_types: ["authorization_code", "refresh_token"],
+        response_types: ["code"],
+        ...(clientSecret === null ? {} : { client_secret: clientSecret, client_secret_expires_at: 0 }),
+      },
+      201,
+    );
+  } catch (error) {
+    console.error(`@softure-ai/mcp-access: registering an OAuth client failed: ${errorLogLabel(error)}`);
+    return oauthError("server_error", "The client could not be registered.", 500);
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Token endpoint
+
+interface ClientCredentials {
+  readonly clientId: string | null;
+  readonly clientSecret: string | null;
+  readonly isBasic: boolean;
+}
+
+/** `Basic` (RFC 6749 §2.3.1: both parts form-urlencoded) or the body fields; a public client sends its id only. */
+function readClientCredentials(request: Request, form: URLSearchParams): ClientCredentials {
+  const authorization = request.headers.get("authorization");
+  if (authorization?.toLowerCase().startsWith("basic ") === true) {
+    try {
+      const decoded = Buffer.from(authorization.slice(6).trim(), "base64").toString("utf8");
+      const separator = decoded.indexOf(":");
+      if (separator > 0) {
+        const decode = (part: string) => decodeURIComponent(part.replace(/\+/g, " "));
+        return { clientId: decode(decoded.slice(0, separator)), clientSecret: decode(decoded.slice(separator + 1)), isBasic: true };
+      }
+    } catch {
+      // A broken header is no credentials; the caller refuses.
+    }
+    return { clientId: null, clientSecret: null, isBasic: true };
+  }
+  return { clientId: form.get("client_id"), clientSecret: form.get("client_secret"), isBasic: false };
+}
+
+function tokenResponse(tokens: IssuedOAuthTokens): Response {
+  return oauthJson({
+    access_token: tokens.accessToken,
+    token_type: "Bearer",
+    expires_in: tokens.expiresIn,
+    refresh_token: tokens.refreshToken,
+    scope: tokens.canWrite ? `${MCP_READ_SCOPE} ${MCP_WRITE_SCOPE}` : MCP_READ_SCOPE,
+  });
+}
+
+/** One answer for every refused code or refresh token: the client restarts either way. */
+const INVALID_GRANT = "The code or refresh token is invalid, expired, used or issued to another client.";
+
+/**
+ * `POST` token endpoint (RFC 6749 §3.2): a code with its PKCE verifier, or a refresh token with
+ * rotation. Secrets come in the body, never in the URL.
+ */
+export async function handleTokenRequest(ctx: McpAccessContext, request: Request): Promise<Response> {
+  if (!isOAuthEnabled(ctx.config)) return oauthError("not_found", "OAuth is not enabled.", 404);
+  const form = new URLSearchParams(await request.text().catch(() => ""));
+  const credentials = readClientCredentials(request, form);
+  const limited = await limitOAuthRequest(ctx, request, credentials.clientId);
+  if (limited !== null) return limited;
+
+  try {
+    const client = credentials.clientId === null ? null : await findOAuthClient(ctx, credentials.clientId);
+    if (client === null || !isClientSecretValid(client, credentials.clientSecret === "" ? null : credentials.clientSecret)) {
+      return oauthError("invalid_client", "Unknown client or wrong client credentials.", 401, credentials.isBasic ? { "www-authenticate": 'Basic realm="mcp"' } : {});
+    }
+    return await answerGrant(ctx, form, client);
+  } catch (error) {
+    console.error(`@softure-ai/mcp-access: the OAuth token endpoint failed: ${errorLogLabel(error)}`);
+    return oauthError("server_error", "The token could not be issued.", 500);
+  }
+}
+
+async function answerGrant(ctx: McpAccessContext, form: URLSearchParams, client: OAuthClientRow): Promise<Response> {
+  if (!isAcceptableResource(ctx.config, form.get("resource"))) {
+    return oauthError("invalid_target", "The resource parameter does not name this MCP server.");
+  }
+  const grantType = form.get("grant_type");
+  if (grantType === "authorization_code") {
+    const code = form.get("code");
+    const codeVerifier = form.get("code_verifier");
+    if (code === null || code === "" || codeVerifier === null || codeVerifier === "") {
+      return oauthError("invalid_request", "code and code_verifier (PKCE) are required.");
+    }
+    // A missing redirect_uri is allowed when the client registered exactly one (RFC 6749 §4.1.3).
+    const tokens = await exchangeAuthorizationCode(ctx, { code, client, redirectUri: form.get("redirect_uri"), codeVerifier });
+    return tokens === null ? oauthError("invalid_grant", INVALID_GRANT) : tokenResponse(tokens);
+  }
+  if (grantType === "refresh_token") {
+    const refreshToken = form.get("refresh_token");
+    if (refreshToken === null || refreshToken === "") return oauthError("invalid_request", "refresh_token is required.");
+    const tokens = await refreshOAuthGrant(ctx, { refreshToken, client });
+    return tokens === null ? oauthError("invalid_grant", INVALID_GRANT) : tokenResponse(tokens);
+  }
+  return oauthError("unsupported_grant_type", "Supported grant types: authorization_code and refresh_token.");
+}
+
+// ---------------------------------------------------------------------------------------------
+// Authorization request and decision
+
+export interface AuthorizationRequest {
+  readonly client: OAuthClientRow;
+  readonly redirectUri: string;
+  readonly state: string | null;
+  readonly codeChallenge: string;
+  /** The client asked for `mcp:write`. */
+  readonly isWriteRequested: boolean;
+}
+
+/** Why the consent page shows an error instead of sending one back: the client is not confirmed. */
+export type AuthorizationPageError = "unknown_client" | "redirect_mismatch";
+
+export type AuthorizationOutcome =
+  | { readonly kind: "show-error"; readonly reason: AuthorizationPageError }
+  | { readonly kind: "redirect-error"; readonly location: string; readonly redirectUri: string }
+  | { readonly kind: "valid"; readonly request: AuthorizationRequest };
+
+/**
+ * The client's redirect URI with parameters added, keeping the query it registered (RFC 6749
+ * §3.1.2), and always `iss` (RFC 9207), so the client knows the answer came from this server.
+ */
+export function buildClientRedirect(config: SoftureConfig, redirectUri: string, params: Readonly<Record<string, string | null>>): string {
+  const url = new URL(redirectUri);
+  for (const [key, value] of Object.entries({ ...params, iss: getOAuthIssuer(config) })) {
+    if (value !== null) url.searchParams.set(key, value);
+  }
+  return url.toString();
+}
+
+/** The authorization parameters of a query string or form, each at most 2048 characters. */
+export function readAuthorizationParams(source: { get(name: string): unknown }): URLSearchParams {
+  const params = new URLSearchParams();
+  for (const name of AUTHORIZATION_PARAMS) {
+    const value = source.get(name);
+    if (typeof value === "string" && value.length <= MAX_PARAM_LENGTH) params.set(name, value);
+  }
+  return params;
+}
+
+/**
+ * Validates an authorization request (RFC 6749 §4.1.1), for the consent page and the decision.
+ * Order is a security rule (RFC 6749 §4.1.2.1): until the client and its redirect URI are
+ * confirmed, an error is shown to the person, never redirected, or the server would redirect
+ * anyone anywhere. Only then do errors go back to the client.
+ */
+export async function validateAuthorizationRequest(ctx: McpAccessContext, params: URLSearchParams): Promise<AuthorizationOutcome> {
+  const clientId = params.get("client_id");
+  const client = clientId === null ? null : await findOAuthClient(ctx, clientId);
+  if (client === null) return { kind: "show-error", reason: "unknown_client" };
+
+  const redirectUri = params.get("redirect_uri") ?? (client.redirectUris.length === 1 ? (client.redirectUris[0] ?? null) : null);
+  if (redirectUri === null || !client.redirectUris.includes(redirectUri)) return { kind: "show-error", reason: "redirect_mismatch" };
+
+  const state = params.get("state");
+  const back = (error: string, description: string): AuthorizationOutcome => ({
+    kind: "redirect-error",
+    redirectUri,
+    location: buildClientRedirect(ctx.config, redirectUri, { error, error_description: description, state }),
+  });
+  if (params.get("response_type") !== "code") return back("unsupported_response_type", "Only response_type=code is supported.");
+  const codeChallenge = params.get("code_challenge");
+  if (codeChallenge === null || !isValidCodeChallenge(codeChallenge) || params.get("code_challenge_method") !== PKCE_METHOD) {
+    return back("invalid_request", "PKCE is required: code_challenge with code_challenge_method S256.");
+  }
+  if (!isAcceptableResource(ctx.config, params.get("resource"))) return back("invalid_target", "The resource parameter does not name this MCP server.");
+  return { kind: "valid", request: { client, redirectUri, state, codeChallenge, isWriteRequested: isWriteScopeRequested(params.get("scope")) } };
+}
+
+/** The consent page with the request's parameters: where the decision sends the person back. */
+export function getConsentPath(config: SoftureConfig, params: URLSearchParams): string {
+  return `${getMcpAccessRoutes(config).oauthConsent}?${params.toString()}`;
+}
+
+function seeOther(location: string): Response {
+  return new Response(null, { status: 303, headers: { location, "cache-control": "no-store" } });
+}
+
+/** Whether the form was posted from this app: `Origin` must be the app's origin. */
+function isSameOrigin(config: SoftureConfig, request: Request): boolean {
+  const origin = request.headers.get("origin");
+  return origin !== null && origin === getOAuthIssuer(config);
+}
+
+/**
+ * `POST` of the consent form, answered with `303`: a plain form post, not a server action, because
+ * the answer is a redirect to the client, possibly a native app scheme, and must work without
+ * JavaScript. The form must come from the app's origin (the session cookie's `SameSite=Lax` is the
+ * first layer), and the request is validated again from the posted fields. `userId` is the
+ * session's user, or null: then the person goes back to the consent page, which asks them to sign in.
+ */
+export async function handleAuthorizationDecision(ctx: McpAccessContext, request: Request, userId: string | null): Promise<Response> {
+  if (!isOAuthEnabled(ctx.config)) return new Response(null, { status: 404 });
+  if (!isSameOrigin(ctx.config, request)) return new Response(null, { status: 403, headers: { "cache-control": "no-store" } });
+  const form = await request.formData().catch(() => null);
+  if (form === null) return new Response(null, { status: 400, headers: { "cache-control": "no-store" } });
+
+  const params = readAuthorizationParams(form);
+  const consent = getConsentPath(ctx.config, params);
+  if (userId === null) return seeOther(consent);
+  try {
+    const outcome = await validateAuthorizationRequest(ctx, params);
+    if (outcome.kind === "show-error") return seeOther(consent);
+    if (outcome.kind === "redirect-error") return seeOther(outcome.location);
+
+    const { client, redirectUri, state, codeChallenge, isWriteRequested } = outcome.request;
+    if (form.get("decision") !== "allow") {
+      return seeOther(buildClientRedirect(ctx.config, redirectUri, { error: "access_denied", error_description: "The person denied access.", state }));
+    }
+    const code = await createAuthorizationCode(ctx, {
+      clientRowId: client.id,
+      userId,
+      redirectUri,
+      codeChallenge,
+      // Writes need the client's request, the app's allowWrites and the person's tick.
+      canWrite: isWriteRequested && getMcpAccessOptions(ctx.config).allowWrites && form.get("canWrite") !== null,
+    });
+    return seeOther(buildClientRedirect(ctx.config, redirectUri, { code, state }));
+  } catch (error) {
+    console.error(`@softure-ai/mcp-access: recording an OAuth decision failed: ${errorLogLabel(error)}`);
+    return new Response(null, { status: 500, headers: { "cache-control": "no-store" } });
+  }
+}

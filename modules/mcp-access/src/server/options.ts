@@ -24,6 +24,14 @@ export interface McpAccessRoutes {
   readonly page: string;
   /** `POST` MCP endpoint. */
   readonly endpoint: string;
+  /** OAuth consent page (`GET`): the authorization endpoint clients send the person to. */
+  readonly oauthConsent: string;
+  /** `POST` target of the consent form; answers `303` to the client's redirect URI. */
+  readonly oauthDecision: string;
+  /** `POST` OAuth token endpoint. */
+  readonly oauthToken: string;
+  /** `POST` dynamic client registration (RFC 7591). */
+  readonly oauthRegister: string;
 }
 
 export function getMcpAccessRoutes(config: SoftureConfig): McpAccessRoutes {
@@ -34,7 +42,14 @@ export function getMcpAccessRoutes(config: SoftureConfig): McpAccessRoutes {
     if (path === undefined) throw new Error(`@softure-ai/mcp-access: route "${name}" is missing from the module manifest`);
     return path;
   };
-  return { page: read("page"), endpoint: read("endpoint") };
+  return {
+    page: read("page"),
+    endpoint: read("endpoint"),
+    oauthConsent: read("oauthConsent"),
+    oauthDecision: read("oauthDecision"),
+    oauthToken: read("oauthToken"),
+    oauthRegister: read("oauthRegister"),
+  };
 }
 
 /** The absolute URL MCP clients call: the app's origin and the endpoint route. */

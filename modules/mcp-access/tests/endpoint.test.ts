@@ -3,7 +3,7 @@
 import { MCP_RATE_LIMIT_BUCKETS } from "@softure-ai/mcp-access";
 import { createMcpEndpoint, issueAccessToken, revokeAccessToken, type McpServerFactory } from "@softure-ai/mcp-access/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { callTool, createConfig, failOn, createDemoServer, createMcpRequest, createTestMcp, createUser, listTools, OPTIONS, type TestMcp } from "./support.js";
+import { callTool, connectApp, createConfig, failOn, createDemoServer, createMcpRequest, createTestMcp, createUser, listTools, OAUTH_OPTIONS, OPTIONS, type TestMcp } from "./support.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -128,6 +128,27 @@ describe("the MCP endpoint", () => {
       const expired = await send(callTool("whoami"), { token });
       const unknown = await send(callTool("whoami"), { token: `sftmcp_${"B".repeat(43)}` });
       expect([expired.status, await expired.text(), [...expired.headers]]).toEqual([unknown.status, await unknown.text(), [...unknown.headers]]);
+    });
+  });
+
+  describe("with OAuth on", () => {
+    const oauthCtx = () => ({ ...test.ctx, config: createConfig(OAUTH_OPTIONS) });
+
+    it("names the protected resource metadata in the 401, so clients find the authorization server", async () => {
+      const response = await endpoint(oauthCtx(), createMcpRequest(callTool("whoami")));
+      expect(response.status).toBe(401);
+      expect(response.headers.get("www-authenticate")).toContain('resource_metadata="http://localhost:3000/.well-known/oauth-protected-resource/api/mcp"');
+    });
+
+    it("leaves resource_metadata out while OAuth is off", async () => {
+      const response = await send(callTool("whoami"));
+      expect(response.headers.get("www-authenticate")).not.toContain("resource_metadata");
+    });
+
+    it("serves an OAuth access token with its grant's write access", async () => {
+      const { tokens } = await connectApp(oauthCtx(), alice, { canWrite: true });
+      const response = await endpoint(oauthCtx(), createMcpRequest(callTool("whoami"), { token: tokens.accessToken }));
+      expect((await readAnswer(response)).result?.content?.[0]?.text).toBe(JSON.stringify({ userId: alice, canWrite: true }));
     });
   });
 

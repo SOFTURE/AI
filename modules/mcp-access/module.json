@@ -1,15 +1,29 @@
 {
   "id": "mcp-access",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "dependsOn": { "security": "^0.1.0", "auth": "^0.1.0" },
   "dbSchema": "mcp",
-  "tables": ["access_tokens"],
+  "tables": ["access_tokens", "oauth_clients", "oauth_authorization_codes", "oauth_grants"],
   "env": [],
   "switches": [],
-  "routes": { "page": "/account/mcp", "endpoint": "/api/mcp" },
+  "routes": {
+    "page": "/account/mcp",
+    "endpoint": "/api/mcp",
+    "oauthConsent": "/oauth/authorize",
+    "oauthDecision": "/api/oauth/authorize",
+    "oauthToken": "/api/oauth/token",
+    "oauthRegister": "/api/oauth/register"
+  },
   "mount": [
     { "kind": "page", "path": "app/account/mcp/page.tsx", "export": "McpAccessPage" },
-    { "kind": "route-handler", "path": "app/api/mcp/route.ts", "export": "createMcpRoute" }
+    { "kind": "route-handler", "path": "app/api/mcp/route.ts", "export": "createMcpRoute" },
+    { "kind": "page", "path": "app/oauth/authorize/page.tsx", "export": "OAuthConsentPage" },
+    { "kind": "route-handler", "path": "app/api/oauth/authorize/route.ts", "export": "decideOAuthAuthorizationRoute" },
+    { "kind": "route-handler", "path": "app/api/oauth/token/route.ts", "export": "exchangeOAuthTokenRoute" },
+    { "kind": "route-handler", "path": "app/api/oauth/register/route.ts", "export": "registerOAuthClientRoute" },
+    { "kind": "route-handler", "path": "app/.well-known/oauth-authorization-server/route.ts", "export": "getAuthorizationServerMetadataRoute" },
+    { "kind": "route-handler", "path": "app/.well-known/oauth-protected-resource/route.ts", "export": "getProtectedResourceMetadataRoute" },
+    { "kind": "route-handler", "path": "app/.well-known/oauth-protected-resource/api/mcp/route.ts", "export": "getProtectedResourceMetadataRoute" }
   ],
   "privacy": { "exports": true, "deletes": true }
 }

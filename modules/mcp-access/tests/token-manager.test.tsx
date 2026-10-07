@@ -1,6 +1,15 @@
 // @vitest-environment happy-dom
 import { mcpAccessMessages, type IssueTokenFormState, type RevokeTokenFormState } from "@softure-ai/mcp-access";
-import { TokenManager, type IssueTokenAction, type RevokeTokenAction, type TokenManagerProps, type TokenManagerRow } from "@softure-ai/mcp-access/ui";
+import {
+  ConsentError,
+  ConsentForm,
+  TokenManager,
+  type IssueTokenAction,
+  type RevokeGrantAction,
+  type RevokeTokenAction,
+  type TokenManagerProps,
+  type TokenManagerRow,
+} from "@softure-ai/mcp-access/ui";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -115,5 +124,83 @@ describe("TokenManager", () => {
     renderManager({ tokens: [], tools: [] });
     expect(screen.getByText(en.list.empty)).toBeDefined();
     expect(screen.getByText(en.tools.empty)).toBeDefined();
+  });
+
+  describe("connected apps", () => {
+    const GRANT = { id: "22222222-3333-4444-8555-666666666666", clientName: "Claude", scopeText: en.list.readWrite, details: ["Connected September 15, 2026", en.list.neverUsed] };
+
+    it("are not shown while OAuth is off", () => {
+      renderManager();
+      expect(screen.queryByText(en.grants.title)).toBeNull();
+    });
+
+    it("are listed and disconnected by the grant's id", async () => {
+      const revokeGrantAction = vi.fn<RevokeGrantAction>(() => Promise.resolve({ status: "ok" }));
+      renderManager({ grants: [GRANT], revokeGrantAction });
+      expect(screen.getByText(en.grants.title)).toBeDefined();
+      expect(screen.getByText(GRANT.details.join(" · "))).toBeDefined();
+      await submit(screen.getByRole("button", { name: `${en.grants.disconnect}: Claude` }));
+      expect(revokeGrantAction.mock.calls[0]?.[1].get("id")).toBe(GRANT.id);
+    });
+
+    it("show the refusal of the disconnect action", async () => {
+      renderManager({ grants: [GRANT], revokeGrantAction: () => Promise.resolve({ status: "error", error: "mcp-access.grant_not_found" }) });
+      await submit(screen.getByRole("button", { name: `${en.grants.disconnect}: Claude` }));
+      expect(screen.getByRole("alert").textContent).toBe(en.errors["mcp-access"].grant_not_found);
+    });
+
+    it("say so when none is connected", () => {
+      renderManager({ grants: [], revokeGrantAction: () => Promise.resolve({ status: "ok" }) });
+      expect(screen.getByText(en.grants.empty)).toBeDefined();
+    });
+  });
+});
+
+describe("the consent form", () => {
+  const PARAMS = [
+    ["client_id", "sftmc_abc"],
+    ["state", "s-1"],
+  ] as const;
+
+  function renderForm(isWriteOffered: boolean) {
+    const { container } = render(
+      <ConsentForm action="/api/oauth/authorize" params={PARAMS} clientName="Claude" redirectTarget="claude.ai" accountEmail="alice@example.com" isWriteOffered={isWriteOffered} messages={en} />,
+    );
+    return container;
+  }
+
+  it("posts the request's parameters to the decision route with the person's choice", () => {
+    const container = renderForm(false);
+    const form = container.querySelector("form");
+    expect([form?.getAttribute("method"), form?.getAttribute("action")]).toEqual(["post", "/api/oauth/authorize"]);
+    const hidden = [...container.querySelectorAll<HTMLInputElement>('input[type="hidden"]')].map((input) => [input.name, input.value]);
+    expect(hidden).toEqual(PARAMS.map(([name, value]) => [name, value]));
+    const allow = screen.getByRole("button", { name: en.consent.allow });
+    expect([allow.getAttribute("name"), allow.getAttribute("value")]).toEqual(["decision", "allow"]);
+    expect(screen.getByRole("button", { name: en.consent.deny }).getAttribute("value")).toBe("deny");
+  });
+
+  it("names the app, where it returns and the account", () => {
+    renderForm(false);
+    expect(screen.getByText("alice@example.com")).toBeDefined();
+    expect(screen.getByText("(returns to claude.ai)")).toBeDefined();
+    expect(screen.getByText(en.consent.readAccess)).toBeDefined();
+  });
+
+  it("offers the change checkbox only when writes are on offer", () => {
+    renderForm(false);
+    expect(screen.queryByRole("checkbox", { name: en.consent.allowWrite })).toBeNull();
+    cleanup();
+    renderForm(true);
+    expect(screen.getByRole("checkbox", { name: en.consent.allowWrite })).toBeDefined();
+  });
+
+  it("shows an error with a link back to the client only when one is given", () => {
+    render(<ConsentError message={en.consent.unknownClient} messages={en} />);
+    expect(screen.getByText(en.consent.nothingGranted)).toBeDefined();
+    expect(screen.queryByRole("link")).toBeNull();
+    cleanup();
+    render(<ConsentError message={en.consent.invalidRequest} backLocation="https://claude.ai/cb?error=invalid_request" backTarget="claude.ai" messages={en} />);
+    expect(screen.getByRole("link", { name: "Back to the app (claude.ai)" }).getAttribute("href")).toBe("https://claude.ai/cb?error=invalid_request");
   });
 });

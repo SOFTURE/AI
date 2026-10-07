@@ -6,6 +6,7 @@ const CODES: TokenFormErrorCode[] = [
   "mcp-access.name_too_long",
   "mcp-access.token_limit_reached",
   "mcp-access.token_not_found",
+  "mcp-access.grant_not_found",
   "auth.unauthenticated",
   "core.database_failed",
   "core.unexpected",
