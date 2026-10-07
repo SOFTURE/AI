@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   coreMessages,
   formatMessage,
@@ -97,6 +97,17 @@ describe("selectPlural", () => {
 
   it("falls back to other when a form is missing", () => {
     expect(selectPlural("pl", 3, { one: "one", other: "other" })).toBe("other");
+  });
+
+  it("builds the plural rules of a locale once, not on every call", () => {
+    const built = vi.spyOn(Intl, "PluralRules");
+    try {
+      expect([1, 2, 5, 22].map((count) => selectPlural("pl", count, forms))).toEqual(["one", "few", "many", "few"]);
+      expect([1, 2].map((count) => selectPlural("en", count, forms))).toEqual(["one", "other"]);
+      expect(built.mock.calls.length).toBeLessThanOrEqual(2);
+    } finally {
+      built.mockRestore();
+    }
   });
 });
 

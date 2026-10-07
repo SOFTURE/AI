@@ -13,7 +13,6 @@ Test tools shared by SOFTURE apps and modules:
 npm install --save-dev @softure-ai/testing
 ```
 
-0.1.0 was its first npm release (DP-8, `release-0-1-4`); from 0.1.1 each version is live on npm at once.
 Inside this repository it is a workspace package.
 
 ## Clock shift
@@ -21,18 +20,16 @@ Inside this repository it is a workspace package.
 Date guards (a limit valid for one year, a price list that ends on a date) fail by design only on the
 day their source stops being valid. Shifting the clock shows today what breaks then.
 
-1. Add a one-line setup file to the app and list it in the Vitest config. Vitest reads `setupFiles` as
-   paths, not package names, so the package is imported from a file of the app:
-
-   ```ts
-   // vitest.setup.ts
-   import "@softure-ai/testing/vitest-setup";
-   ```
+1. List the package's setup file in the Vitest config. `setupFiles` takes a bare package specifier
+   as well as a path:
 
    ```ts
    // vitest.config.mts
-   export default defineConfig({ test: { setupFiles: ["./vitest.setup.ts"] } });
+   export default defineConfig({ test: { setupFiles: ["@softure-ai/testing/vitest-setup"] } });
    ```
+
+   An app with setup code of its own can import the package from its file instead
+   (`import "@softure-ai/testing/vitest-setup";` in `vitest.setup.ts`).
 
 2. Run the tests on another day:
 

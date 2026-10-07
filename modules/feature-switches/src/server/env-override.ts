@@ -13,6 +13,7 @@ export type EnvOverride =
 const ON = new Set(["true", "1", "on"]);
 const OFF = new Set(["false", "0", "off"]);
 const reportedNames = new Set<string>();
+const ignoredNames = new Set<string>();
 
 /** Reads the override of `name`. An unreadable value is logged once, by variable name, never by value. */
 export function readEnvOverride(name: string, env: Env): EnvOverride {
@@ -26,4 +27,14 @@ export function readEnvOverride(name: string, env: Env): EnvOverride {
     console.error(`@softure-ai/feature-switches: ${envName} must be true, false, 1, 0, on or off; the switch uses its fail mode`);
   }
   return { kind: "invalid" };
+}
+
+/** Logs once, by variable name, that an override pointing away from the fail mode was ignored. */
+export function reportIgnoredOverride(name: string, failValue: boolean): void {
+  const envName = getSwitchEnvName(name);
+  if (ignoredNames.has(envName)) return;
+  ignoredNames.add(envName);
+  console.error(
+    `@softure-ai/feature-switches: ${envName} only moves the switch towards its fail mode (${failValue ? "on" : "off"}); the value is ignored`,
+  );
 }

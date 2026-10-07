@@ -2,9 +2,10 @@ import { buildHtmlLimitedBots } from "@softure-ai/seo";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // PGlite ships a WASM Postgres whose filesystem setup breaks when bundled, and pg loads native
-  // bindings optionally; both load from node_modules on the server (FIRE_TRACKER next.config.ts).
-  serverExternalPackages: ["@electric-sql/pglite", "pg"],
+  // @softure-ai/db loads its driver through import() only when a URL needs it, so it stays out of the
+  // bundle: Turbopack never resolves the driver this app does not install (PGlite), and output tracing
+  // copies the one it does (pg). pg itself loads native bindings optionally (db README §2).
+  serverExternalPackages: ["@softure-ai/db", "pg"],
   poweredByHeader: false,
   // Next's default list of bots that get metadata in <head>, plus the AI crawlers (e2e/seo.spec.ts).
   htmlLimitedBots: buildHtmlLimitedBots(),

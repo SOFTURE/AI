@@ -26,10 +26,12 @@ RUN npm run build
 {{#database}}
 
 # The migrate runner: module SQL copied out of the packages (a bundle cannot find package folders), then
-# scripts/migrate.ts bundled with pg left external (the standalone server ships it).
+# scripts/migrate.ts bundled with pg left external (the standalone server ships it). drizzle's driver adapters stay
+# external too: bundled, the adapter of a driver the app does not install would fail migrate.mjs at start.
 RUN npx softure migrate --export-migrations ./softure-migrations \
  && npx --yes esbuild@{{esbuildVersion}} scripts/migrate.ts --bundle --platform=node --format=esm --target=node22 \
-      --external:pg --external:@electric-sql/pglite --outfile=migrate.mjs
+      --external:pg --external:@electric-sql/pglite \
+      --external:drizzle-orm/pglite --external:drizzle-orm/node-postgres --outfile=migrate.mjs
 {{/database}}
 
 FROM ${NODE_IMAGE} AS runner
