@@ -8,12 +8,37 @@ import type { AnySoftureModule } from "./module.js";
 import { err, ok, type Result } from "./result.js";
 import { parseVersionRange, satisfiesRange } from "./version-range.js";
 
+/**
+ * Filled by `@softure-ai/db` through declaration merging with `{ handle: DatabaseHandle }`, so `database.handle`
+ * is typed wherever db's types are loaded. Core cannot import db (db depends on core).
+ */
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- an augmentation point, empty on purpose
+export interface SoftureDatabaseHandleTypes {}
+
+/** The handle `database.handle` returns: db's `DatabaseHandle`, or `unknown` where db's types are not loaded. */
+export type SoftureDatabaseHandle = SoftureDatabaseHandleTypes extends { readonly handle: infer Handle } ? Handle : unknown;
+
+type MaybePromise<T> = T | Promise<T>;
+
+export interface SoftureDatabaseConfig {
+  readonly url: string;
+  /**
+   * The app's own database handle, for an app that already has a client: every module, the health route and
+   * every package command then query through it instead of opening a second handle on `url` (with `pglite://`,
+   * a second PGlite instance on one directory corrupts it). Called on first use, not when the config is defined,
+   * so a build never connects. It must return the app's process-wide handle (memoized, e.g. on `globalThis`):
+   * `next dev` re-evaluates the config and calls a new function after each reload. Wrap a client with
+   * `createPostgresHandle(pool)` or `createPgliteHandle(client)` from `@softure-ai/db`.
+   */
+  readonly handle?: () => MaybePromise<SoftureDatabaseHandle>;
+}
+
 export interface SoftureConfig {
   /**
    * `null` when the app has no database; required as soon as a module has a `dbSchema`. An empty `url`
    * (`DATABASE_URL` unset, as in a build step) is accepted here and refused by the first connection.
    */
-  readonly database: { readonly url: string } | null;
+  readonly database: SoftureDatabaseConfig | null;
   readonly locale: Locale;
   /** IANA time zone used for every date shown or computed per calendar day. */
   readonly timezone: string;
@@ -25,7 +50,7 @@ export interface SoftureConfig {
 
 /** What the app writes in `softure.config.ts`. */
 export interface SoftureConfigInput {
-  readonly database?: { readonly url: string } | null;
+  readonly database?: SoftureDatabaseConfig | null;
   readonly locale: Locale;
   readonly timezone: string;
   readonly appOrigin: string;
@@ -38,7 +63,12 @@ const configSchema = z.object({
   // The URL is not checked for emptiness here: builds import the config without DATABASE_URL, so an empty URL is
   // refused when something connects (`createDatabase` in @softure-ai/db), not when the config is defined.
   database: z
-    .object({ url: z.string() })
+    .object({
+      url: z.string(),
+      handle: z
+        .custom<NonNullable<SoftureDatabaseConfig["handle"]>>((value) => typeof value === "function", "must be a function returning the app's database handle")
+        .optional(),
+    })
     .nullable()
     .default(null),
   locale: z.enum(LOCALES),

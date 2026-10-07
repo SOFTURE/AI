@@ -71,6 +71,25 @@ describe("defineSoftureConfig", () => {
     expect(Object.isFrozen(config.database)).toBe(true);
   });
 
+  it("keeps the app's database handle function without calling it", () => {
+    let calls = 0;
+    const handle = (): never => {
+      calls += 1;
+      throw new Error("the handle is opened by the first query, not by the config");
+    };
+    const config = defineSoftureConfig({ ...base, database: { url: "pglite://./data", handle } });
+    expect(config.database).toEqual({ url: "pglite://./data", handle });
+    expect(config.database?.handle).toBe(handle);
+    expect(calls).toBe(0);
+  });
+
+  it("refuses a database handle that is not a function", () => {
+    const input = { ...base, database: { url: "postgres://db/app", handle: { kind: "postgres" } } };
+    // @ts-expect-error -- a handle object instead of a function returning one
+    const error = catchConfigError(() => defineSoftureConfig(input));
+    expect(error.issues).toEqual(["database.handle: must be a function returning the app's database handle"]);
+  });
+
   it("reports a module with a database schema when the app has no database", () => {
     const error = catchConfigError(() => defineSoftureConfig({ ...base, modules: [createTestModule({ id: "auth", dbSchema: "auth" })] }));
     expect(error.issues).toEqual(['database: required because module "auth" has a database schema']);
