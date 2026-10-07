@@ -4,6 +4,7 @@
 // keeper remembers the last valid tag seen in the address bar and hands back the URL with it when
 // a navigation lands without the parameter. Like the proxy, it never stores the tag anywhere.
 import { parseChannel } from "../channel-rule.js";
+import type { ChannelNormalization } from "../options.js";
 
 /** The channel options as plain values, so a server component can pass them to the browser. */
 export interface ChannelRule {
@@ -15,6 +16,8 @@ export interface ChannelRule {
   readonly flags: string;
   /** The longest value accepted. */
   readonly maxLength: number;
+  /** How a raw value is repaired first; `none` when absent. */
+  readonly normalize?: ChannelNormalization;
 }
 
 /**
@@ -23,7 +26,7 @@ export interface ChannelRule {
  * decides: a valid value is remembered, an invalid one forgets the tag, and neither is touched.
  */
 export function createChannelKeeper(rule: ChannelRule): (href: string) => string | null {
-  const options = { pattern: new RegExp(rule.pattern, rule.flags), maxLength: rule.maxLength };
+  const options = { pattern: new RegExp(rule.pattern, rule.flags), maxLength: rule.maxLength, normalize: rule.normalize ?? "none" };
   let remembered: string | null = null;
   return (href) => {
     if (!URL.canParse(href)) return null;

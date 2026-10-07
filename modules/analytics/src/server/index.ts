@@ -15,4 +15,4 @@ export {
   type RecordFunnelStepInput,
 } from "./funnel.js";
 export { checkFunnelTable } from "./health.js";
-export { getAnalyticsOptions, getChannelOptions, getChannelRule, getFunnelEndpoint } from "./options.js";
+export { getAnalyticsOptions, getChannelOptions, getChannelRule, getFunnelEndpoint, getFunnelStepField } from "./options.js";

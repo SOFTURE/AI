@@ -31,11 +31,34 @@ describe("the analytics module", () => {
 
   it("fills in the defaults: ?z=, lowercase words, at most 32 characters, no steps, a cap of 100", () => {
     expect(analytics().options).toEqual({
-      channel: { param: "z", pattern: DEFAULT_CHANNEL_PATTERN, maxLength: 32 },
-      funnel: { steps: [], channelCap: DEFAULT_CHANNEL_CAP },
+      channel: { param: "z", pattern: DEFAULT_CHANNEL_PATTERN, maxLength: 32, normalize: "none" },
+      funnel: { steps: [], channelCap: DEFAULT_CHANNEL_CAP, wire: { stepFields: ["step"], channelField: null } },
     });
     expect(analytics({ funnel: { steps: [{ id: "landing" }] } }).options.funnel.steps).toEqual([{ id: "landing", via: "beacon" }]);
-    expect(analytics({ channel: { param: "ref" } }).options.channel).toEqual({ param: "ref", pattern: DEFAULT_CHANNEL_PATTERN, maxLength: 32 });
+    expect(analytics({ channel: { param: "ref" } }).options.channel).toEqual({ param: "ref", pattern: DEFAULT_CHANNEL_PATTERN, maxLength: 32, normalize: "none" });
+  });
+
+  it("refuses a wire format, normalisation or Referer hook it cannot use", () => {
+    expect(() =>
+      analytics({
+        channel: { normalize: "upper" as "none" },
+        funnel: { channelFromReferer: "blog" as unknown as () => null },
+      }),
+    ).toThrow(
+      [
+        'Invalid SOFTURE configuration in module "analytics":',
+        '- options.channel.normalize: Invalid option: expected one of "none"|"trim-lowercase"',
+        '- options.funnel.channelFromReferer: must be a function (page: URL) => string | null',
+      ].join("\n"),
+    );
+    expect(() => analytics({ funnel: { wire: { stepFields: ["k", "k"], channelField: "k" } } })).toThrow(
+      [
+        'Invalid SOFTURE configuration in module "analytics":',
+        '- options.funnel.wire.stepFields.1: "k" is listed twice',
+        '- options.funnel.wire.channelField: "k" already names the step',
+      ].join("\n"),
+    );
+    expect(() => analytics({ funnel: { wire: { stepFields: [] } } })).toThrow("options.funnel.wire.stepFields: needs at least one field");
   });
 
   it("refuses a parameter, pattern or length it cannot use, listing every problem", () => {

@@ -5,8 +5,7 @@
 import type { SoftureConfig } from "@softure-ai/core";
 import { getSoftureConfig } from "@softure-ai/core/next";
 import type { FunnelStepSource } from "../options.js";
-import { STEP_FIELD } from "../server/endpoint.js";
-import { getAnalyticsOptions, getFunnelEndpoint } from "../server/options.js";
+import { getAnalyticsOptions, getFunnelEndpoint, getFunnelStepField } from "../server/options.js";
 import { FunnelBeaconReporter } from "../ui/funnel-beacon.js";
 
 export interface FunnelStepProps {
@@ -17,7 +16,7 @@ export interface FunnelStepProps {
 export function FunnelPixel({ step }: FunnelStepProps) {
   const config = getSoftureConfig();
   assertStepKind(config, step, "pixel");
-  const src = `${getFunnelEndpoint(config)}?${new URLSearchParams({ [STEP_FIELD]: step }).toString()}`;
+  const src = `${getFunnelEndpoint(config)}?${new URLSearchParams({ [getFunnelStepField(config)]: step }).toString()}`;
   // A plain image on purpose: it must load on every view (no lazy loading, no optimiser) and send
   // the page as its Referer. Decorative, so its alt text is empty.
   return <img src={src} alt="" width={1} height={1} aria-hidden="true" data-funnel-step={step} />;
@@ -26,7 +25,7 @@ export function FunnelPixel({ step }: FunnelStepProps) {
 export function FunnelBeacon({ step }: FunnelStepProps) {
   const config = getSoftureConfig();
   assertStepKind(config, step, "beacon");
-  return <FunnelBeaconReporter endpoint={getFunnelEndpoint(config)} step={step} />;
+  return <FunnelBeaconReporter endpoint={getFunnelEndpoint(config)} step={step} stepField={getFunnelStepField(config)} />;
 }
 
 function assertStepKind(config: SoftureConfig, id: string, via: Exclude<FunnelStepSource, "server">): void {
