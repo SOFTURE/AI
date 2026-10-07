@@ -347,6 +347,36 @@ describe("loadMarketingConfig", () => {
     expect(loaded.ogImages).toEqual([{ id: "calculator", template: "headline-cta", size: [1200, 630], data: { headline: "Count", tiles: [] } }]);
   });
 
+  it("takes a size preset or a pair, and gives the portrait templates a portrait default", () => {
+    const loaded = load({
+      ...makeConfig(),
+      ogImages: [
+        { id: "card", template: "headline-cta", size: "square", data: { headline: "Count" } },
+        { id: "number", template: "big-number", data: { number: "898", caption: "A month" } },
+        { id: "story", template: "big-number", size: "story", data: { number: "898", caption: "A month" } },
+        { id: "run", template: "carousel", size: [1080, 1080], data: { slides: [{ headline: "One" }, { headline: "Two" }] } },
+      ],
+    });
+    expect(loaded.ogImages.map((image) => [image.id, image.size])).toEqual([
+      ["card", [1080, 1080]],
+      ["number", [1080, 1350]],
+      ["story", [1080, 1920]],
+      ["run", [1080, 1080]],
+    ]);
+    expect(loaded.ogImages[3]?.data).toEqual({ slides: [{ headline: "One", tiles: [] }, { headline: "Two", tiles: [] }], counter: true });
+  });
+
+  it("refuses an unknown size preset", () => {
+    expect(loadError({ ...makeConfig(), ogImages: [{ id: "card", template: "headline-cta", size: "banner", data: { headline: "Count" } }] })).toContain("ogImages[0].size: ");
+  });
+
+  it("refuses an image whose file a carousel slide also writes", () => {
+    const run = { id: "run", template: "carousel" as const, data: { slides: [{ headline: "One" }, { headline: "Two" }] } };
+    expect(loadError({ ...makeConfig(), ogImages: [run, { id: "run-2", template: "headline-cta", data: { headline: "Count" } }] })).toContain(
+      "  ogImages[1].id: writes og/run-2.png, as ogImages[0] does",
+    );
+  });
+
   const shot = { id: "hero", path: "/", width: 1440, height: 900, expect: "Count your date" };
 
   it("takes a screenshot's device scale and colour schemes as written", () => {
