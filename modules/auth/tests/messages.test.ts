@@ -10,6 +10,7 @@ const CODES: AuthFormErrorCode[] = [
   "auth.consent_required",
   "auth.registration_closed",
   "auth.current_password_invalid",
+  "auth.password_unchanged",
   "auth.unauthenticated",
   "auth.forbidden",
   "auth.reset_token_invalid",

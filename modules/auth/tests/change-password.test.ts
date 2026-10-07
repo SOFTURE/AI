@@ -49,6 +49,24 @@ describe("changePassword", () => {
     expect(await changePassword(test.ctx, { ...input, newPassword })).toEqual({ ok: false, error });
   });
 
+  it.each([
+    ["the same string", PASSWORD],
+    ["the same password in another Unicode form", PASSWORD.normalize("NFD")],
+  ])("refuses a new password that is the current one: %s", async (_case, newPassword) => {
+    const other = await createSession(test.ctx, userId);
+    expect(await changePassword(test.ctx, { ...input, newPassword })).toEqual({ ok: false, error: "auth.password_unchanged" });
+    expect(await findSessionUser(test.ctx, other.token)).not.toBeNull();
+    const changed = await test.database.client.query<{ password_changed_at: Date }>("SELECT password_changed_at FROM auth.users");
+    expect(changed.rows[0]?.password_changed_at).toEqual(NOW);
+  });
+
+  it("checks the current password before saying the new one is unchanged", async () => {
+    expect(await changePassword(test.ctx, { ...input, currentPassword: "wrong horse battery", newPassword: "wrong horse battery" })).toEqual({
+      ok: false,
+      error: "auth.current_password_invalid",
+    });
+  });
+
   it("refuses without a live session", async () => {
     expect(await changePassword(test.ctx, { ...input, sessionToken: "C".repeat(43) })).toEqual({ ok: false, error: "auth.unauthenticated" });
   });

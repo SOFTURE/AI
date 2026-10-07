@@ -15,7 +15,11 @@ export function hashSessionToken(token: string): string {
   return createHash("sha256").update(token, "utf8").digest("hex");
 }
 
-/** Whether a cookie value could be a token at all; anything else is not looked up. */
-export function isSessionTokenShape(token: string): boolean {
-  return TOKEN_SHAPE.test(token);
+/**
+ * Whether a cookie value could be a token at all; anything else is not looked up. `legacyPattern`
+ * (from `legacySession.tokenPattern`, anchored and without the g or y flag) admits an adopted
+ * system's tokens, stored as the same sha256 hex.
+ */
+export function isSessionTokenShape(token: string, legacyPattern?: RegExp): boolean {
+  return TOKEN_SHAPE.test(token) || (legacyPattern?.test(token) ?? false);
 }

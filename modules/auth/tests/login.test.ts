@@ -1,9 +1,9 @@
-import { users } from "@softure-ai/auth";
+import { AUTH_RATE_LIMIT_BUCKETS, users } from "@softure-ai/auth";
 import { createSession, findSessionUser, hashPassword, loginUser, registerUser, type LoginInput } from "@softure-ai/auth/server";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as password from "../src/server/password.js";
-import { CLIENT, countRows, createTestAuth, DAY_MS, FAST_SCRYPT, listAttempts, PASSWORD, type ConfigOptions, type TestAuth } from "./support.js";
+import { CLIENT, countRows, createTestAuth, DAY_MS, FAST_SCRYPT, hashWithoutNormalizing, listAttempts, PASSWORD, type ConfigOptions, type TestAuth } from "./support.js";
 
 vi.mock("../src/server/password.js", { spy: true });
 
@@ -47,8 +47,8 @@ describe("loginUser", () => {
 
     await loginUser(ctx, { ...LOGIN, password: "wrong horse battery" });
     expect(password.verifyDummyPassword).toHaveBeenCalledTimes(1);
-    // The wrong password goes through verifyPassword; the dummy calls it inside its own module.
-    expect(password.verifyPassword).toHaveBeenCalledTimes(1);
+    // The wrong password goes through matchPassword; the dummy calls it inside its own module.
+    expect(password.matchPassword).toHaveBeenCalledTimes(1);
   });
 
   it.each([
@@ -58,7 +58,7 @@ describe("loginUser", () => {
   ])("refuses %s without hashing", async (_case, change) => {
     const { ctx } = await setUp();
     expect(await loginUser(ctx, { ...LOGIN, ...change })).toEqual({ ok: false, error: "auth.invalid_credentials" });
-    expect(password.verifyPassword).not.toHaveBeenCalled();
+    expect(password.matchPassword).not.toHaveBeenCalled();
   });
 
   it("accepts a valid password of astral characters longer than 1024 UTF-16 units", async () => {
@@ -71,7 +71,10 @@ describe("loginUser", () => {
 
   it("names the missing buckets when security does not configure them", async () => {
     const { ctx } = await setUp();
-    const bare = await createTestAuth({ onlyBuckets: { register: { limit: 5, windowMinutes: 15 } } });
+    const bare = await createTestAuth({
+      onlyBuckets: { register: { limit: 5, windowMinutes: 15 } },
+      auth: { passwordReset: { send: () => Promise.resolve() } },
+    });
     try {
       await expect(loginUser(bare.ctx, LOGIN)).rejects.toThrow(
         '@softure-ai/auth: security({ buckets }) lacks "login", "login-account", "change-password", "password-reset", "password-reset-account", "password-reset-confirm"; spread AUTH_RATE_LIMIT_BUCKETS into it',
@@ -82,13 +85,36 @@ describe("loginUser", () => {
     expect((await loginUser(ctx, LOGIN)).ok).toBe(true);
   });
 
+  it("needs no password reset bucket while password reset is off", async () => {
+    await setUp();
+    const withoutReset = Object.fromEntries(Object.entries(AUTH_RATE_LIMIT_BUCKETS).filter(([name]) => !name.startsWith("password-reset")));
+    const lean = await createTestAuth({ onlyBuckets: withoutReset });
+    try {
+      const registered = await registerUser(lean.ctx, { email: EMAIL, password: PASSWORD, hasConsented: true, clientKey: CLIENT });
+      expect(registered.ok).toBe(true);
+      expect((await loginUser(lean.ctx, LOGIN)).ok).toBe(true);
+    } finally {
+      await lean.database.close();
+    }
+  });
+
+  it("logs in with a legacy hash of non-NFC input and stores an NFC hash instead", async () => {
+    const decomposed = "caf\u00e9 cr\u00e8me br\u00fbl\u00e9e".normalize("NFD");
+    const { ctx, database } = await setUp();
+    await database.db.update(users).set({ passwordHash: await hashWithoutNormalizing(decomposed, FAST_SCRYPT) }).where(eq(users.email, EMAIL));
+    expect((await loginUser(ctx, { ...LOGIN, password: decomposed })).ok).toBe(true);
+    const [row] = await database.db.select().from(users);
+    expect(await password.matchPassword(decomposed.normalize("NFC"), row?.passwordHash ?? "")).toBe("match");
+    expect((await loginUser(ctx, { ...LOGIN, password: decomposed.normalize("NFC") })).ok).toBe(true);
+  });
+
   it("counts the login bucket per client before hashing and refuses once it is spent", async () => {
     const { ctx, database } = await setUp({ buckets: { register: { limit: 5, windowMinutes: 15 }, login: { limit: 2, windowMinutes: 15 }, "login-account": { limit: 9, windowMinutes: 15 } } });
     await loginUser(ctx, { ...LOGIN, password: "wrong horse battery" });
     await loginUser(ctx, { ...LOGIN, password: "wrong horse battery" });
     vi.clearAllMocks();
     expect(await loginUser(ctx, LOGIN)).toMatchObject({ ok: false, error: "security.rate_limited" });
-    expect(password.verifyPassword).not.toHaveBeenCalled();
+    expect(password.matchPassword).not.toHaveBeenCalled();
     expect(await countRows(database, "sessions")).toBe(1);
   });
 

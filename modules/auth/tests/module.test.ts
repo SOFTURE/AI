@@ -54,6 +54,17 @@ describe("the auth module", () => {
     );
   });
 
+  it("refuses a legacy session that would clash with the current cookie or keep state between lookups", () => {
+    expect(() => auth({ legacySession: { cookieName: "session", tokenPattern: /[0-9a-f]{64}/g } })).toThrow(
+      ['Invalid SOFTURE configuration in module "auth":', "- options.legacySession.tokenPattern: must be a RegExp without the g or y flag"].join("\n"),
+    );
+    expect(() => auth({ legacySession: { cookieName: "session", tokenPattern: /[0-9a-f]{64}/y } })).toThrow("without the g or y flag");
+    expect(() => auth({ legacySession: { cookieName: "__Host-softure_session", tokenPattern: /[0-9a-f]{64}/ } })).toThrow(
+      ['Invalid SOFTURE configuration in module "auth":', "- options.legacySession.cookieName: must differ from the current session cookie's name"].join("\n"),
+    );
+    expect(() => auth({ legacySession: { cookieName: "session", tokenPattern: /[0-9a-f]{64}/i } })).not.toThrow();
+  });
+
   it("needs the security module in the app configuration", () => {
     expect(() => createConfig({ buckets: AUTH_RATE_LIMIT_BUCKETS })).not.toThrow();
     expect(() =>

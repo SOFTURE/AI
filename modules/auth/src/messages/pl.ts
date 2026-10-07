@@ -75,6 +75,7 @@ export const pl: typeof en = {
       consent_required: "Aby założyć konto, zaakceptuj regulamin.",
       registration_closed: "Rejestracja jest zamknięta.",
       current_password_invalid: "Obecne hasło jest nieprawidłowe.",
+      password_unchanged: "Nowe hasło musi różnić się od obecnego.",
       unauthenticated: "Sesja wygasła. Zaloguj się ponownie.",
       forbidden: "Nie masz dostępu do tej funkcji.",
       reset_token_invalid: "Ten link wygasł albo został już użyty. Poproś o nowy.",

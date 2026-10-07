@@ -48,6 +48,7 @@ const FIELD_OF: Partial<Record<AuthFormErrorCode, AuthFormField>> = {
 
 const CHANGE_FIELD_OF: Partial<Record<AuthFormErrorCode, AuthFormField>> = {
   "auth.current_password_invalid": "currentPassword",
+  "auth.password_unchanged": "newPassword",
   "auth.password_too_short": "newPassword",
   "auth.password_too_long": "newPassword",
 };
