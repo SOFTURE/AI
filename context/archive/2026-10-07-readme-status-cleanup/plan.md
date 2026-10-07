@@ -30,5 +30,5 @@ nothing; `npm test -- tests/repo` (relative links in every `*.md`) and `npm run 
 ### Phase 1: Remove the notes
 
 #### Automated
-- [ ] 1.1 Status notes and roadmap meta removed from the READMEs
-- [ ] 1.2 Repository tests and lint green
+- [x] 1.1 Status notes and roadmap meta removed from the READMEs — 777fbdf
+- [x] 1.2 Repository tests and lint green — 777fbdf

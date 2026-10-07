@@ -1,11 +1,12 @@
 ---
 change_id: readme-status-cleanup
 title: "Remove stale status notes from the READMEs"
-status: impl_reviewed
+status: archived
 roadmap_item: null
 branch: claude/project-thread-5303h3
 created: 2026-10-07
 updated: 2026-10-07
+archived_at: 2026-10-07
 ---
 
 ## Intent
