@@ -1,5 +1,6 @@
 // The options an app passes to `analytics({ ... })` in softure.config.ts, parsed at startup.
 import { z } from "zod";
+import type { AnalyticsContext } from "./server/funnel.js";
 
 /** The query parameter's name: short, lowercase, URL-safe. */
 export const PARAM_PATTERN = /^[a-z][a-z0-9_-]{0,31}$/;
@@ -51,6 +52,13 @@ const channelOptionsSchema = z.strictObject({
   /** How a raw value is repaired before the pattern and length checks; the browser keeper does the same. */
   normalize: z.enum(CHANNEL_NORMALIZATIONS).default("none"),
 });
+
+/**
+ * Whether the app already knows `channel` from its own tables (a sign-up or an account attributed to
+ * it), so the daily cap on new channels never folds it into the overflow key. `ctx` is the counter's
+ * context: `ctx.db` runs in the counting transaction.
+ */
+export type IsKnownChannel = (channel: string, ctx: AnalyticsContext) => boolean | Promise<boolean>;
 
 /** A channel derived from the path of the page a funnel request came from, when the page carries no tag. */
 export type ChannelFromReferer = (page: URL) => string | null;
@@ -113,6 +121,12 @@ const funnelOptionsSchema = z
      * rule like any tag; a throw counts as no channel.
      */
     channelFromReferer: z.custom<ChannelFromReferer>((value) => typeof value === "function", "must be a function (page: URL) => string | null").optional(),
+    /**
+     * A channel the app knows from its own tables counts under its name past the daily cap:
+     * `(channel, ctx) => hasSignupsFrom(ctx.db, channel)`. Asked for every count with a channel, so
+     * keep it to one indexed lookup; a throw fails the count like a database error.
+     */
+    isKnownChannel: z.custom<IsKnownChannel>((value) => typeof value === "function", "must be a function (channel, ctx) => boolean | Promise<boolean>").optional(),
   })
   .superRefine((options, context) => {
     const seen = new Set<string>();
@@ -122,10 +136,29 @@ const funnelOptionsSchema = z
     });
   });
 
+/** An extra first-party origin: an http(s) URL with nothing after the host, reduced to its origin. */
+const originSchema = z
+  .string()
+  .refine((value) => isBareOrigin(value), "must be an http(s) origin such as https://example.com, without a path, query or credentials")
+  .transform((value) => new URL(value).origin);
+
 export const analyticsOptionsSchema = z.strictObject({
+  /**
+   * The app's first-party origins besides `appOrigin`, e.g. a public site on the apex when the product
+   * runs on a subdomain. A tag from a page on any of them is read, the funnel counts their pages, and
+   * the proxy piece redirects on the one the request was sent to.
+   */
+  origins: z.array(originSchema).max(16, "takes at most 16 origins").default([]),
   channel: channelOptionsSchema.prefault({}),
   funnel: funnelOptionsSchema.prefault({}),
 });
+
+function isBareOrigin(value: string): boolean {
+  if (!URL.canParse(value)) return false;
+  const url = new URL(value);
+  if (url.protocol !== "http:" && url.protocol !== "https:") return false;
+  return url.username === "" && url.password === "" && (url.pathname === "/" || url.pathname === "") && url.search === "" && url.hash === "" && !value.includes("?") && !value.includes("#");
+}
 
 export type AnalyticsOptions = z.output<typeof analyticsOptionsSchema>;
 export type AnalyticsOptionsInput = z.input<typeof analyticsOptionsSchema>;

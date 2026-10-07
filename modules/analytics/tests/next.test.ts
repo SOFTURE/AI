@@ -13,9 +13,11 @@ const requestHeaders = new Headers();
 vi.mock("next/headers", () => ({ headers: () => Promise.resolve(requestHeaders) }));
 
 const config = createConfig();
-vi.mock("@softure-ai/core/next", () => ({ getSoftureConfig: () => config }));
+/** The configuration `getSoftureConfig()` returns; a test may swap it and `afterEach` puts it back. */
+const active = { config };
+vi.mock("@softure-ai/core/next", () => ({ getSoftureConfig: () => active.config }));
 
-const { attributeRegistration, countFunnelStep, countRegistration, getChannel, getChannelFromSearchParams, tagRedirect } = await import("@softure-ai/analytics/next");
+const { attributeRegistration, countFunnelStep, countRegistration, FunnelPixel, getChannel, getChannelFromSearchParams, tagRedirect } = await import("@softure-ai/analytics/next");
 const { ChannelKeeper } = await import("@softure-ai/analytics/next/channel-keeper");
 const { getChannelRule } = await import("@softure-ai/analytics/server");
 
@@ -172,7 +174,14 @@ describe("countRegistration", () => {
 
 describe("getChannelRule", () => {
   it("hands the default channel options to the browser as plain values", () => {
-    expect(getChannelRule(createConfig())).toEqual({ param: "z", pattern: "^[a-z0-9]+(?:[-_][a-z0-9]+)*$", flags: "", maxLength: 32, normalize: "none" });
+    expect(getChannelRule(createConfig())).toEqual({
+      param: "z",
+      pattern: "^[a-z0-9]+(?:[-_][a-z0-9]+)*$",
+      flags: "",
+      maxLength: 32,
+      normalize: "none",
+      origins: [APP_ORIGIN],
+    });
   });
 
   it("hands a custom parameter, pattern with flags and length over exactly", () => {
@@ -182,11 +191,40 @@ describe("getChannelRule", () => {
       flags: "i",
       maxLength: 12,
       normalize: "none",
+      origins: [APP_ORIGIN],
     });
   });
 
   it("throws when the module is not enabled", () => {
     expect(() => getChannelRule({ ...config, modules: [] })).toThrow("@softure-ai/analytics: the module is not enabled");
+  });
+});
+
+describe("getChannelRule with origins", () => {
+  it("hands every first-party origin to the browser, appOrigin first", () => {
+    expect(getChannelRule(createConfig({ origins: ["https://example.com"] })).origins).toEqual([APP_ORIGIN, "https://example.com"]);
+  });
+});
+
+describe("FunnelPixel", () => {
+  const pixelConfig = createConfig({ funnel: { steps: [{ id: "landing", via: "pixel" }] } });
+
+  afterEach(() => {
+    active.config = config;
+  });
+
+  it("renders an image that decodes asynchronously and stays out of the layout without a class", () => {
+    active.config = pixelConfig;
+    const element = FunnelPixel({ step: "landing" }) as ReactElement<Record<string, unknown>>;
+    expect(element.props).toMatchObject({ src: "/api/analytics/funnel?step=landing", decoding: "async", style: { position: "absolute" } });
+    expect(element.props.className).toBeUndefined();
+  });
+
+  it("takes the app's class instead of the default style", () => {
+    active.config = pixelConfig;
+    const element = FunnelPixel({ step: "landing", className: "sr-only" }) as ReactElement<Record<string, unknown>>;
+    expect(element.props).toMatchObject({ className: "sr-only", decoding: "async" });
+    expect(element.props.style).toBeUndefined();
   });
 });
 

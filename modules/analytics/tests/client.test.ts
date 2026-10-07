@@ -97,3 +97,39 @@ describe("createChannelKeeper", () => {
     expect(keep("https://app.example.com/pricing")).toBe("https://app.example.com/pricing?z=ads");
   });
 });
+
+describe("tagLink", () => {
+  const RULE: ChannelRule = { ...DEFAULT_RULE, origins: ["https://app.example.com", "https://example.com"] };
+  const PAGE = "https://example.com/kalkulator?z=fb";
+
+  it("adds the remembered tag to a link that leads to another configured origin", () => {
+    const keep = createChannelKeeper(RULE);
+    keep(PAGE);
+    expect(keep.tagLink("https://app.example.com/register?plan=pro#form", PAGE)).toBe("https://app.example.com/register?plan=pro&z=fb#form");
+  });
+
+  it("leaves same-origin, unconfigured, non-http and already tagged links alone", () => {
+    const keep = createChannelKeeper(RULE);
+    keep(PAGE);
+    expect(keep.tagLink("/register", PAGE)).toBeNull();
+    expect(keep.tagLink("https://example.com/blog", PAGE)).toBeNull();
+    expect(keep.tagLink("https://other.example.net/register", PAGE)).toBeNull();
+    expect(keep.tagLink("mailto:hello@example.com", PAGE)).toBeNull();
+    expect(keep.tagLink("https://app.example.com/register?z=other", PAGE)).toBeNull();
+    expect(keep.tagLink("http://[bad", PAGE)).toBeNull();
+  });
+
+  it("does nothing while no tag has been seen, or without origins in the rule", () => {
+    const keep = createChannelKeeper(RULE);
+    expect(keep.tagLink("https://app.example.com/register", "https://example.com/")).toBeNull();
+    const plain = createChannelKeeper(DEFAULT_RULE);
+    plain(PAGE);
+    expect(plain.tagLink("https://app.example.com/register", PAGE)).toBeNull();
+  });
+
+  it("applies the rule's normalisation to the remembered tag", () => {
+    const keep = createChannelKeeper({ ...RULE, normalize: "trim-lowercase" });
+    keep("https://example.com/?z=FB");
+    expect(keep.tagLink("https://app.example.com/register", "https://example.com/?z=FB")).toBe("https://app.example.com/register?z=fb");
+  });
+});

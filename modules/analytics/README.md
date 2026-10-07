@@ -6,15 +6,14 @@ Knows which acquisition channel a visitor came from (`?z=newsletter`) **without 
 without storing anything**: the tag lives only in first-party URLs. A piece for the app's
 `proxy.ts` keeps it on the address bar from page to page and through redirects, so a sign-up
 posted from a tagged page knows its channel and auth's `onRegistered` hook can attribute the new
-account. Built from FIRE_TRACKER's `src/lib/channel-tag.ts` and the channel part of `src/proxy.ts`,
-with the parameter, its pattern and its length moved into configuration and the redirects split
-out of the auth guard.
+account. Extracted from an adopting app's channel tag and the channel part of its proxy, with the
+parameter, its pattern and its length moved into configuration and the redirects split out of the
+auth guard.
 
 It also counts a **funnel without personal data**: how many visits reached each configured step
-from each channel on each day, and nothing else (no address, cookie, visit id or account). Built
-from FIRE_TRACKER's `src/lib/funnel-{steps,beacon}.ts`, `src/db/funnel-counts.ts`,
-`src/app/actions/do-funnel.ts` and `scripts/kanaly-report.sql`, with the steps, the cap and the time
-zone moved into configuration and the report turned into a function.
+from each channel on each day, and nothing else (no address, cookie, visit id or account). Extracted
+from an adopting app's funnel steps, beacon, counter table, endpoint and report query, with the
+steps, the cap and the time zone moved into configuration and the report turned into a function.
 
 ## 1. What it provides
 
@@ -22,20 +21,31 @@ zone moved into configuration and the report turned into a function.
   parameter (default `z`), what a valid value looks like (default lowercase words joined by `-` or
   `_`) and its longest length (default 32, at most 64). An invalid value is ignored, never trimmed,
   cut or repaired, unless `channel.normalize: "trim-lowercase"` trims and lowercases it first.
-- **Propagation without a cookie** (`/proxy`, `createChannelTagger(config)`):
+- **More than one first-party origin** (`analytics({ origins })`): an app serving public pages on
+  the apex and the product on `appOrigin` lists the apex; every check below accepts pages on any of
+  them, and behind a reverse proxy the origin a request was sent to is read from `Host`
+  (`readPublicOrigin`, `/server`), never trusted beyond the configured list.
+- **Propagation without a cookie** (`/proxy`, `createChannelTagger(config, options?)`):
   - `tag(request)`: a GET navigation (a browser page load, or a Next.js client navigation) without
-    the parameter, coming from a same-origin page with a valid one (`Referer`), is answered with a
-    307 to the same URL plus the tag. Fetches, images, beacons and server actions pass untouched.
-  - `carry(request, response)`: a same-origin redirect another proxy piece answered with (auth's
-    guard sending `/account?z=ads` to login) gets the request's channel added to its `Location`.
+    the parameter, coming from a first-party page with a valid one (`Referer`), is answered with a
+    307 to the same URL plus the tag, on the origin the request was sent to (else `appOrigin`).
+    Fetches, images, beacons and server actions pass untouched.
+  - `carry(request, response)`: a first-party redirect another proxy piece answered with (auth's
+    guard sending `/account?z=ads` to login) gets the request's channel added to its `Location`; a
+    relative `Location` stays relative.
+  - `options.channelFromReferer`: a navigation from a first-party page without the parameter is
+    tagged with the channel the page's URL implies (an article page → `blog`).
 - **The tag on client navigations** (`/next/channel-keeper`, `<ChannelKeeper />` in the root
   layout): the proxy cannot recognise every Next.js client navigation (Next strips its router
   headers before the proxy runs, and a route served from the router's cache sends no request), so a
   small client component remembers the last valid tag seen in the address bar and puts it back with
   `history.replaceState` when a navigation (`next/link`, `router.push`, a server action's redirect,
   a `replaceState` from the page) lands without the parameter. It runs before the page's own
-  effects, so a beacon already sends the tagged page. It stores nothing; `createChannelKeeper(rule)`
-  (`/client`) is its logic and `getChannelRule(config)` (`/server`) its options as plain values.
+  effects, so a beacon already sends the tagged page. With `origins`, it also adds the tag to a link
+  to another first-party origin when it is clicked (the browser's default referrer policy drops the
+  query from a cross-origin `Referer`, so the server alone cannot carry it across). It stores
+  nothing; `createChannelKeeper(rule)` (`/client`, with `tagLink`) is its logic and
+  `getChannelRule(config)` (`/server`) its options as plain values.
 - **The channel for the app** (`/next`): `getChannel()` in server actions, route handlers and
   hooks (read from the page the request was sent from), `getChannelFromSearchParams()` in pages.
 - **Attribution of sign-ups**: `attributeRegistration(onChannel)` is an `onRegistered` hook for
@@ -46,11 +56,11 @@ zone moved into configuration and the report turned into a function.
   `rewriteRedirect`, so its login, sign-up, reset and logout redirects, its login and register
   pages' redirect of a signed-in visitor and `requireUser`'s redirect to login land on a tagged URL.
 - **Framework-free reading** (`/server`): `parseChannel`, `readChannel(config, { url, referer, host })`,
-  `withChannel`, `tagPath`, `hasChannelParam`, `isFirstParty`.
+  `withChannel`, `tagPath`, `hasChannelParam`, `isFirstParty`, `getFirstPartyOrigins`, `readPublicOrigin`.
 - **The funnel** (`analytics({ funnel: { steps } })`): `analytics.funnel_counts` holds one counter
   per (day, channel, step). Each step is counted one way:
-  - `pixel`: `<FunnelPixel step="landing" />` (`/next`) renders a 1×1 image; a page view counts
-    without JavaScript;
+  - `pixel`: `<FunnelPixel step="landing" />` (`/next`) renders a 1×1 image (positioned absolutely
+    unless it gets a `className`, decoded asynchronously); a page view counts without JavaScript;
   - `beacon`: `<FunnelBeacon step="pricing" />` (`/next`) or `createFunnelReporter(endpoint)`
     (`/client`) sends `navigator.sendBeacon` with `step=<id>` and nothing else, once per step;
   - `server`: only the app's code counts it, with `recordFunnelStep(ctx, { step, channel })`
@@ -71,7 +81,8 @@ zone moved into configuration and the report turned into a function.
 - **The day** is the calendar day in `timezone` of `softure.config.ts`, whatever the server's zone.
 - **A cap on new channels**: at most `channelCap` (default 100) distinct channels a day get their
   own counter; new ones past it count under `OVERFLOW_CHANNEL` (`~overflow`, which no channel
-  pattern may accept). A channel counted before, today or on an earlier day, is never capped.
+  pattern may accept). A channel counted before, today or on an earlier day, is never capped, nor
+  one `funnel.isKnownChannel(channel, ctx)` reports as known from the app's own tables.
 - **The report** (`/server`): `getFunnelReport(ctx, { days })` returns the last `days` days
   (default 30) per channel (`tagged`, `untagged` or `overflow`), each step's count in funnel order,
   the busiest channel first, with totals. `pruneFunnelCounts(ctx, { keepDays })` deletes older days.
@@ -94,6 +105,7 @@ import { analytics } from "@softure-ai/analytics";
 
 // in defineSoftureConfig({ modules: [...] }); every key is optional:
 analytics({
+  origins: [], // e.g. ["https://example.com"] when the product runs on https://app.example.com
   channel: { param: "z", pattern: /^[a-z0-9]+(?:[-_][a-z0-9]+)*$/, maxLength: 32, normalize: "none" },
   funnel: {
     steps: [
@@ -104,6 +116,7 @@ analytics({
     channelCap: 100,
     wire: { stepFields: ["step"], channelField: null },
     // channelFromReferer: (page) => (page.pathname.startsWith("/blog/") ? "blog" : null),
+    // isKnownChannel: (channel, ctx) => hasSignupsFrom(ctx.db, channel),
   },
   routes: { funnel: "/api/analytics/funnel" },
 }),
@@ -111,6 +124,7 @@ analytics({
 
 | Option | Default | Rule |
 | --- | --- | --- |
+| `origins` | `[]` | up to 16 http(s) origins besides `appOrigin` (no path, query or credentials), reduced to their origin |
 | `channel.param` | `"z"` | lowercase letters, digits, `-` or `_`, starting with a letter, at most 32 characters |
 | `channel.pattern` | `DEFAULT_CHANNEL_PATTERN` | a `RegExp` without the `g` or `y` flag (they keep state between tests) |
 | `channel.maxLength` | `32` | an integer from 1 to `MAX_CHANNEL_LENGTH` (64) |
@@ -120,6 +134,7 @@ analytics({
 | `funnel.wire.stepFields` | `["step"]` | 1 to 4 field names (the `param` rule), each once; the endpoint takes the step from any of them (one value in all, or none counts); the package's beacon and pixel send the first (`getFunnelStepField`) |
 | `funnel.wire.channelField` | `null` | a field name that is not a step field: a valid channel in the body or query wins over the page's; an invalid one is ignored |
 | `funnel.channelFromReferer` | none | `(page: URL) => string \| null`, called for a counted step whose page has no tag; the answer passes the channel rule; a throw is logged and counts no channel |
+| `funnel.isKnownChannel` | none | `(channel, ctx) => boolean \| Promise<boolean>`, asked for every count with a channel (keep it to one indexed lookup; `ctx.db` runs in the counting transaction); `true` keeps the channel's own counter past the cap; a throw fails the count like a database error |
 | `routes.funnel` | `/api/analytics/funnel` | the endpoint's path; `<FunnelPixel>` and `<FunnelBeacon>` use it |
 
 Counting sign-ups as the last step, next to the other hooks (`countRegistration` runs in a
@@ -202,7 +217,19 @@ import { ChannelKeeper } from "@softure-ai/analytics/next/channel-keeper";
 </body>
 ```
 
-`createChannelTagger` throws at startup when `analytics()` is not in the configuration. Keep the
+`createChannelTagger` throws at startup when `analytics()` is not in the configuration. To tag
+navigations from untagged article pages, pass the same function the funnel uses:
+`createChannelTagger(softureConfig, { channelFromReferer: fromArticle })`.
+
+**Two origins behind a proxy.** With public pages on `https://example.com` and the product on
+`appOrigin` `https://app.example.com`, both served by one app behind a reverse proxy:
+`analytics({ origins: ["https://example.com"] })`. The proxy in front must keep the `Host` header
+(and should send `X-Forwarded-Proto`): the server's `request.url` names its own host and port, so the
+package reads the public origin from `Host` and accepts it only when it is configured. A beacon or
+pixel from either origin counts, `tag` keeps the visitor on the origin they asked for, and
+`<ChannelKeeper />` tags links that cross to the other origin. An app without the keeper (or without
+JavaScript) carries the tag across only when the linking pages send a full cross-origin `Referer`
+(`Referrer-Policy: no-referrer-when-downgrade` or looser). Keep the
 proxy's `matcher` on pages (static files excluded); API routes the matcher reaches are not
 navigations, so `tag` passes them.
 
@@ -224,7 +251,8 @@ import { FunnelBeacon, FunnelPixel } from "@softure-ai/analytics/next";
 <FunnelBeacon step="pricing" />  // on the pricing page
 ```
 
-Both throw on render for a step that is not configured with their kind. A client component that
+Both throw on render for a step that is not configured with their kind. `<FunnelPixel
+className="…" />` hands the image the app's class instead of the default `position: absolute`. A client component that
 counts wizard steps itself uses `createFunnelReporter(endpoint)` from `/client`.
 
 A report, for an admin page or a script:
@@ -274,7 +302,9 @@ copy. The `en` and `pl` dictionaries in `src/messages/` are empty.
   `rewriteConfirmationLink`; auth (and the waitlist) keep their own path if it throws. With
   `ctx.searchParams` (a page's own redirect) it reads the channel from them alone.
 
-- `funnel.channelFromReferer(page)` (§3) derives a channel from an untagged page's URL for the funnel.
+- `funnel.channelFromReferer(page)` (§3) derives a channel from an untagged page's URL for the funnel;
+  `createChannelTagger(config, { channelFromReferer })` (§4) does the same for navigations.
+- `funnel.isKnownChannel(channel, ctx)` (§3) tells the cap which channels the app already knows.
 
 **Moving an existing funnel in.** An app whose pages already send `k=<step>&z=<channel>` to its own
 endpoint keeps its numbers with:
@@ -303,8 +333,11 @@ belong to the app's own privacy contributor.
 - **The `Referer` carries the chain.** An app that sends `Referrer-Policy: no-referrer`, `origin`
   or `strict-origin` (or a page with such a `<meta name="referrer">`) breaks it at that page;
   `same-origin` and the browser default keep it.
-- **First party only.** A hop through another origin (a payment provider, a mail link) loses the
-  tag unless the app puts it on the return URL itself (`withChannel`).
+- **First party only.** A hop through an origin outside `appOrigin` and `origins` (a payment
+  provider, a mail link) loses the tag unless the app puts it on the return URL itself (`withChannel`).
+- **Crossing between first-party origins needs the keeper or a looser referrer policy.** The
+  browser default sends only the origin in a cross-origin `Referer`; `<ChannelKeeper />` tags such
+  links on click, a link opened another way (copied, dragged) goes untagged.
 - **A client navigation the proxy misses renders untagged on the server.** The proxy re-tags a
   router request that carries `Next-Url`; one without it (or served from the router's cache) is
   tagged by `<ChannelKeeper />` in the browser after it renders, so that page's own server render
