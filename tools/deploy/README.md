@@ -118,7 +118,7 @@ in this order:
 ```bash
 softure-deploy backup --dir=/srv/app/backups --keep=7                   # 1. dump, then retention
 docker compose run --rm --no-deps app \
-  npx softure-deploy schema-guard --migrations-dir=/app/migrations      # 2. in the NEW image, before the switch
+  npx softure-deploy schema-guard --migrations-dir=/app/softure-migrations   # 2. in the NEW image, before the switch
 softure-deploy row-counts --tables=users,billing.subscriptions --out=counts-before.json   # 3.
 docker compose up -d app && docker compose run --rm app node migrate.js  # 4. switch and migrate (the app's own)
 softure-deploy row-counts --tables=users,billing.subscriptions --compare=counts-before.json  # 5.
@@ -448,7 +448,7 @@ line, exits 2):
      nor changed;
   3. with a database: starts Postgres, runs `backup` (`--keep=7 --max-age-days=30`), copies the migrations out of the
      new image for `schema-guard`, and saves `row-counts` (all through `npx @softure-ai/deploy@<this version>` on the
-     host, against `127.0.0.1`) for `database.rowCountTables` of the `deploy.json` this release shipped
+     host, or through the helper image on a host without Node, below; against `127.0.0.1`) for `database.rowCountTables` of the `deploy.json` this release shipped
      (`releases/<tag>/deploy.json`); without that file or key, and on the first release, the counts are skipped. The
      count before the switch runs against the old schema, so a table the release's own migration creates is
      counted as absent and may join the list in that release;
@@ -482,7 +482,11 @@ the deploy user runs Docker, which is root on the host.
 
 The host needs Docker with the compose plugin (a registry login only with `registry-token: false`), `cron` and
 `flock` (both in Ubuntu's base system), and with a database Node.js 22 and `pg_dump` of the compose file's Postgres
-major version. CI generates the files for the example app, staged as a
+major version, or neither: on a host without `node` and `npx`, `deploy.sh` builds a helper image once per CLI version
+(`softure-deploy-tools:<version>-pg<major>`, from `node:22-alpine` with `postgresql<major>-client` and the CLI) and
+runs the database steps in it with `--network host`, the deploy user's uid and the app folder mounted at the same path.
+The build needs the registry and Alpine's package mirror once; a Postgres major Alpine does not package fails that
+build, and with it the backup step, before anything restarts. CI generates the files for the example app, staged as a
 standalone app, and builds its image from the generated `Dockerfile` (`npm run e2e:deploy-init`).
 
 ## Library
@@ -495,6 +499,10 @@ The same steps as functions, for scripts that need them without the CLI:
 `selectExpiredBackups`, `selectAgedBackups`, `hasCustomFormatHeader`, `guardSchema`, `parseTableList`, `countRows`, `compareRowCounts`, `parseDeployConfig`,
 `runVerify` (an injectable `fetch`), `checkResponse`, `formatVerifyReport`, `parseInitAnswers`, `readAppFacts`,
 `planInitFiles` (pure: the files and their text), `writeInitFiles`.
+
+An app whose image should carry the guard itself (a host with neither Node nor a helper image) bundles a three-line
+script around `withPgClient` and `guardSchema` with esbuild, like its `migrate.mjs`, and runs it from the new image:
+`docker run --rm --network host --env DATABASE_URL <image>:<tag> node schema-guard.mjs /app/softure-migrations`.
 
 ## Parity with FIRE_TRACKER
 

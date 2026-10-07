@@ -1,14 +1,13 @@
 # @softure-ai/core
 
 The contract every SOFTURE module stands on. Standard:
-[docs/02-module-standard.md](../../docs/02-module-standard.md). Sources in FIRE_TRACKER: the
-`{ ok, error }` action results, `src/lib/safe-error.ts` and `src/lib/plural.ts`.
+[docs/02-module-standard.md](../../docs/02-module-standard.md).
 
 ## 1. What it provides
 
 The app configuration (`defineSoftureConfig`), the module contract (`defineModule`), `Result`
 with namespaced error codes, an injectable `Clock`, `pl`/`en` messages with partial overrides,
-and `safeError`. `@softure-ai/core/cli` loads the app's config for the modules' command-line tools.
+and `safeError` with `PublicError`. `@softure-ai/core/cli` loads the app's config for the modules' command-line tools.
 
 ## 2. Installation
 
@@ -214,7 +213,8 @@ None. Tokens, slots and styles live in `@softure-ai/ui`.
   string in place of a group are ignored.
 - `formatMessage("{count} of {total}", { count, total })` fills placeholders; a missing value
   stays visible as `{name}`.
-- `selectPlural(locale, count, { one, few, many, other })` uses `Intl.PluralRules`.
+- `selectPlural(locale, count, { one, few, many, other })` uses `Intl.PluralRules`, built once per
+  locale and reused.
 - `getMessage(dictionary, "errors.unexpected")` reads a dotted path.
 - Core's own keys (`coreMessages`): `errors.database_failed`, `errors.unexpected`, the copy for
   the `core.database_failed` and `core.unexpected` codes.
@@ -225,6 +225,25 @@ None. Tokens, slots and styles live in `@softure-ai/ui`.
 `safeError(error)` turns a caught error into `core.database_failed` (a Drizzle `Failed query:` or a
 bare SQL statement) or `core.unexpected`, so no SQL or parameter reaches a caller.
 `errorLogLabel(error)` gives a log line with the error class and SQLSTATE only, never the text.
+
+A message written for the user on purpose ("This plan has ended; pick another one.") travels as a
+`PublicError`: `getPublicMessage(error)` returns its message, and `null` for every other error, so the
+pass-through is one line and nothing else slips out:
+
+```ts
+import { getPublicMessage, PublicError, safeError } from "@softure-ai/core";
+
+// domain code
+if (plan.endedAt !== null) throw new PublicError("This plan has ended; pick another one.");
+
+// where the error is caught (an MCP tool, an action)
+} catch (error) {
+  return { text: getPublicMessage(error) ?? t(safeError(error).error) };
+}
+```
+
+`isPublicError` recognises one from another copy of core too (a registry symbol, not `instanceof`).
+`safeError` itself still answers `core.unexpected` for it, since callers switch on its two codes.
 
 **Time.** Server code receives a `Clock` (`ModuleContext.clock`) instead of calling `new Date()`.
 `systemClock` is the real one; `createTestClock(start)` has `advance(ms)` and `set(date)`.

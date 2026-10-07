@@ -17,10 +17,10 @@ describe("the feature-switches module", () => {
     expect(featureSwitches.manifest.version).toBe(manifest.version);
   });
 
-  it("fills in the defaults: no switches, the admin role, fail closed", () => {
+  it("fills in the defaults: no switches, the admin role, fail closed, overrides both ways", () => {
     expect(featureSwitches().options).toEqual({ switches: [], panelRole: "admin" });
     expect(featureSwitches({ switches: [{ name: "app.beta", default: true }] }).options.switches).toEqual([
-      { name: "app.beta", default: true, failMode: "closed" },
+      { name: "app.beta", default: true, failMode: "closed", override: "both" },
     ]);
   });
 

@@ -11,34 +11,48 @@
 --   psql -v ON_ERROR_STOP=1 -U postgres -d <database> -f initdb/01-roles.sql
 --   psql -v ON_ERROR_STOP=1 -U postgres -d <database> -f existing-database.sql
 --
--- What it does, in one transaction, for every schema except `public` and the system schemas (the
--- module schemas and the `softure` ledger): the migrator becomes the owner of the schema and of its
--- tables, views, standalone sequences, functions and types, so later migrations can alter them;
--- the app role gets USAGE on the schema and row privileges on its tables and sequences. Tables of
--- the app itself in `public` get the row privileges but keep their owner: they belong to the app's
--- own migration tool.
+-- What it does, in one transaction, for every schema except the system schemas and the app's own
+-- (SOFTURE_APP_SCHEMAS, default `public,drizzle`): the migrator becomes the owner of the schema and
+-- of its tables, views, standalone sequences, functions and types, so later migrations can alter
+-- them. The app's schemas keep their owner: they belong to the app's own migration tool (an app
+-- whose `drizzle` ledger went to the migrator could no longer migrate). In every schema the app
+-- role gets USAGE and row privileges on tables and sequences; tables in a ledger schema
+-- (SOFTURE_LEDGER_SCHEMAS, default `softure,drizzle`) then lose INSERT, UPDATE, DELETE and
+-- TRUNCATE again, so the app role can read a ledger but never write one. `01-roles.sql` keeps it
+-- that way for ledger tables created later.
+--
+-- An app that migrates its own tables as an existing role has two ways in (modules/ops README,
+-- "Existing database"): name that role in SOFTURE_MIGRATOR_ROLE, or keep it and leave its schemas
+-- in SOFTURE_APP_SCHEMAS.
 --
 -- Rollback: ALTER SCHEMA ... OWNER TO postgres (and the same per object), then
 -- REVOKE ALL ON ALL TABLES IN SCHEMA ... FROM softure_app, per schema.
 
 \set migrator_role `echo "${SOFTURE_MIGRATOR_ROLE:-softure_migrator}"`
 \set app_role `echo "${SOFTURE_APP_ROLE:-softure_app}"`
+\set app_schemas `echo "${SOFTURE_APP_SCHEMAS:-public,drizzle}"`
+\set ledger_schemas `echo "${SOFTURE_LEDGER_SCHEMAS:-softure,drizzle}"`
 
 BEGIN;
 
 -- psql variables do not reach inside a DO body; transaction-local settings do.
-SELECT set_config('softure.migrator_role', :'migrator_role', true), set_config('softure.app_role', :'app_role', true);
+SELECT set_config('softure.migrator_role', :'migrator_role', true) AS softure_migrator_setting,
+  set_config('softure.app_role', :'app_role', true) AS softure_app_setting,
+  set_config('softure.app_schemas', :'app_schemas', true) AS softure_app_schemas_setting,
+  set_config('softure.ledger_schemas', :'ledger_schemas', true) AS softure_ledger_setting \gset
 
 DO $$
 DECLARE
   migrator text := current_setting('softure.migrator_role');
   app text := current_setting('softure.app_role');
+  app_schemas text[] := string_to_array(current_setting('softure.app_schemas'), ',');
+  ledger_schemas text[] := string_to_array(current_setting('softure.ledger_schemas'), ',');
   module_schema record;
   target record;
 BEGIN
   FOR module_schema IN
     SELECT oid, nspname FROM pg_namespace
-    WHERE nspname NOT IN ('public', 'information_schema') AND nspname NOT LIKE 'pg\_%'
+    WHERE nspname <> 'information_schema' AND nspname NOT LIKE 'pg\_%' AND nspname <> ALL (app_schemas)
   LOOP
     EXECUTE format('ALTER SCHEMA %I OWNER TO %I', module_schema.nspname, migrator);
 
@@ -58,17 +72,18 @@ BEGIN
   FOR target IN
     SELECT format('SEQUENCE %I.%I', n.nspname, c.relname) AS object
     FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-    WHERE c.relkind = 'S' AND n.nspname NOT IN ('public', 'information_schema') AND n.nspname NOT LIKE 'pg\_%'
+    WHERE c.relkind = 'S' AND n.nspname <> 'information_schema' AND n.nspname NOT LIKE 'pg\_%' AND n.nspname <> ALL (app_schemas)
       AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid = c.oid AND d.deptype IN ('a', 'i'))
     UNION ALL
     SELECT format('ROUTINE %s', p.oid::regprocedure)
     FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-    WHERE n.nspname NOT IN ('public', 'information_schema') AND n.nspname NOT LIKE 'pg\_%'
+    WHERE n.nspname <> 'information_schema' AND n.nspname NOT LIKE 'pg\_%' AND n.nspname <> ALL (app_schemas)
       AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid = p.oid AND d.deptype = 'e')
     UNION ALL
     SELECT format('TYPE %I.%I', n.nspname, t.typname)
     FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
-    WHERE t.typtype IN ('e', 'd', 'r', 'm') AND n.nspname NOT IN ('public', 'information_schema') AND n.nspname NOT LIKE 'pg\_%'
+    WHERE t.typtype IN ('e', 'd', 'r', 'm') AND n.nspname <> 'information_schema' AND n.nspname NOT LIKE 'pg\_%'
+      AND n.nspname <> ALL (app_schemas)
   LOOP
     EXECUTE format('ALTER %s OWNER TO %I', target.object, migrator);
   END LOOP;
@@ -80,6 +95,9 @@ BEGIN
     EXECUTE format('GRANT USAGE ON SCHEMA %I TO %I', module_schema.nspname, app);
     EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA %I TO %I', module_schema.nspname, app);
     EXECUTE format('GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA %I TO %I', module_schema.nspname, app);
+    IF module_schema.nspname = ANY (ledger_schemas) THEN
+      EXECUTE format('REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON ALL TABLES IN SCHEMA %I FROM %I', module_schema.nspname, app);
+    END IF;
   END LOOP;
 END $$;
 

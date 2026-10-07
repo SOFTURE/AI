@@ -170,6 +170,12 @@ COPY --from=builder /app/softure-migrations ./softure-migrations
 CMD ["node", "migrate.mjs", "--migrations-dir", "./softure-migrations"]
 ```
 
+A config that imports `server-only` throws under plain Node: run the export as
+`npx tsx --conditions=react-server scripts/migrate.ts --export-migrations …` and bundle with
+`--alias:server-only=./scripts/empty.mjs` (an empty file). Path aliases (`@/…`) need nothing extra: tsx and
+esbuild both read `paths` from `tsconfig.json`. The [ops container recipe](../../modules/ops/README.md#container-recipe)
+uses the same commands.
+
 The drivers and drizzle's two driver adapters stay external: bundled, the adapter of a driver the app
 does not install imports it at the top of `migrate.mjs`, which then fails at start. At run time they
 come from the standalone output, which carries the installed driver and its adapter.

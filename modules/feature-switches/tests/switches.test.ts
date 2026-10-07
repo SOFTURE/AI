@@ -92,6 +92,57 @@ describe("feature switches", () => {
     });
   });
 
+  describe("an override that only works towards the fail mode", () => {
+    const ONE_WAY = [
+      { name: "auth.registration_closed", default: false, failMode: "open" as const, override: "towards-fail-mode" as const },
+      { name: "billing.checkout_enabled", default: true, failMode: "closed" as const, override: "towards-fail-mode" as const },
+      { name: "app.uploads_enabled", default: true, failMode: "closed" as const, override: "towards-fail-mode" as const },
+    ];
+    let oneWay: TestSwitches;
+
+    beforeEach(async () => {
+      oneWay = await createTestSwitches(createConfig(ONE_WAY));
+    });
+    afterEach(async () => {
+      await oneWay.database.close();
+    });
+
+    it("applies the value that matches the fail mode over a stored one", async () => {
+      await setSwitch(oneWay.ctx, { name: "auth.registration_closed", isEnabled: false, actorId: ADMIN_ID });
+      await setSwitch(oneWay.ctx, { name: "billing.checkout_enabled", isEnabled: true, actorId: ADMIN_ID });
+      const env = { SOFTURE_SWITCH_AUTH_REGISTRATION_CLOSED: "true", SOFTURE_SWITCH_BILLING_CHECKOUT_ENABLED: "off" };
+      expect(await isEnabled(oneWay.ctx, "auth.registration_closed", env)).toBe(true);
+      expect(await isEnabled(oneWay.ctx, "billing.checkout_enabled", env)).toBe(false);
+      expect((await listSwitches(oneWay.ctx, env)).map((view) => view.source)).toEqual(["env", "env", "default"]);
+    });
+
+    it("ignores the opposite value: the stored one stays, and the variable is logged once by name", async () => {
+      const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+      await setSwitch(oneWay.ctx, { name: "auth.registration_closed", isEnabled: true, actorId: ADMIN_ID });
+      await setSwitch(oneWay.ctx, { name: "billing.checkout_enabled", isEnabled: false, actorId: ADMIN_ID });
+      const env = { SOFTURE_SWITCH_AUTH_REGISTRATION_CLOSED: "false", SOFTURE_SWITCH_BILLING_CHECKOUT_ENABLED: "1" };
+      expect(await isEnabled(oneWay.ctx, "auth.registration_closed", env)).toBe(true);
+      expect(await isEnabled(oneWay.ctx, "auth.registration_closed", env)).toBe(true);
+      expect(await isEnabled(oneWay.ctx, "billing.checkout_enabled", env)).toBe(false);
+      expect((await listSwitches(oneWay.ctx, env)).map((view) => view.source)).toEqual(["stored", "stored", "default"]);
+      expect(log.mock.calls.map((call) => String(call[0]))).toEqual([
+        "@softure-ai/feature-switches: SOFTURE_SWITCH_AUTH_REGISTRATION_CLOSED only moves the switch towards its fail mode (on); the value is ignored",
+        "@softure-ai/feature-switches: SOFTURE_SWITCH_BILLING_CHECKOUT_ENABLED only moves the switch towards its fail mode (off); the value is ignored",
+      ]);
+    });
+
+    it("ignores the opposite value over the declared default too", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => undefined);
+      expect(await isEnabled(oneWay.ctx, "app.uploads_enabled", { SOFTURE_SWITCH_APP_UPLOADS_ENABLED: "true" })).toBe(true);
+      expect((await listSwitches(oneWay.ctx, { SOFTURE_SWITCH_APP_UPLOADS_ENABLED: "true" }))[2]?.source).toBe("default");
+    });
+
+    it("keeps both directions by default", async () => {
+      await setSwitch(test.ctx, { name: "app.beta_banner", isEnabled: true, actorId: ADMIN_ID });
+      expect(await isEnabled(test.ctx, "app.beta_banner", { SOFTURE_SWITCH_APP_BETA_BANNER: "false" })).toBe(false);
+    });
+  });
+
   describe("setSwitch", () => {
     it("stores the value with when and by whom, and updates it in place", async () => {
       expect(await setSwitch(test.ctx, { name: "billing.checkout_enabled", isEnabled: true, actorId: ADMIN_ID })).toEqual({ ok: true, value: undefined });
