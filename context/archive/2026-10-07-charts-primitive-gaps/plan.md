@@ -56,6 +56,6 @@ Done when: the new tests were red before the code and are green after; `npm run 
 ### Phase 1: fixes, options and docs
 
 #### Automated
-- [x] 1.1 New tests seen red, then green
-- [x] 1.2 Gates green (typecheck, lint, test, build)
-- [x] 1.3 README, CHANGELOG and version 0.1.4
+- [x] 1.1 New tests seen red, then green — ac6367f
+- [x] 1.2 Gates green (typecheck, lint, test, build) — ac6367f
+- [x] 1.3 README, CHANGELOG and version 0.1.4 — ac6367f

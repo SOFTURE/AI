@@ -1,12 +1,13 @@
 ---
 change_id: charts-primitive-gaps
 title: "charts: gaps in the SVG primitives (issue #221)"
-status: impl_reviewed
+status: archived
 roadmap_item: null
 issue: 221
 branch: claude/project-thread-are0sa
 created: 2026-10-07
 updated: 2026-10-07
+archived_at: 2026-10-07
 ---
 
 ## Intent
