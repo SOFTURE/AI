@@ -1,4 +1,4 @@
-// The public funnel endpoint (FIRE_TRACKER `src/app/actions/do-funnel.ts` and its route): a POST
+// The public funnel endpoint: a POST
 // beacon from the browser (`navigator.sendBeacon`, body `step=<id>`) and a GET pixel (an image on
 // a page, `?step=<id>`). Both take Web `Request`s and return `Response`s, so the Next adapter only
 // supplies the context.
@@ -18,7 +18,7 @@
 // store the address of every visitor, and the module promises to store none.
 import type { SoftureConfig } from "@softure-ai/core";
 import { readSmallBody } from "@softure-ai/security";
-import { isFirstParty, parseChannel, readChannel } from "./channel.js";
+import { deriveChannel, isFirstParty, parseChannel, readChannel } from "./channel.js";
 import { findPublicStep, recordFunnelStepQuietly, type AnalyticsContext } from "./funnel.js";
 import { getAnalyticsOptions } from "./options.js";
 
@@ -65,21 +65,8 @@ async function countStep(ctx: AnalyticsContext, fields: URLSearchParams, visit: 
   const step = findPublicStep(funnel.steps, readStep(fields, funnel.wire.stepFields), via);
   if (step === null) return true;
   const sent = funnel.wire.channelField === null ? null : parseChannel(readSingle(fields, funnel.wire.channelField), channelOptions);
-  const channel = sent ?? visit.channel ?? deriveChannel(ctx, visit.page);
+  const channel = sent ?? visit.channel ?? deriveChannel(ctx.config, { hook: funnel.channelFromReferer, label: "funnel.channelFromReferer" }, visit.page);
   return recordFunnelStepQuietly(ctx, { step: step.id, channel });
-}
-
-/** `funnel.channelFromReferer` for a page without a tag; its answer passes the channel rule. */
-function deriveChannel(ctx: AnalyticsContext, page: URL): string | null {
-  const { funnel, channel } = getAnalyticsOptions(ctx.config);
-  if (funnel.channelFromReferer === undefined) return null;
-  try {
-    return parseChannel(funnel.channelFromReferer(new URL(page)), channel);
-  } catch (error) {
-    // The app's hook must not stop a count: the step counts without a channel.
-    console.error(`@softure-ai/analytics: funnel.channelFromReferer failed: ${error instanceof Error ? error.message : String(error)}`);
-    return null;
-  }
 }
 
 interface Visit {
@@ -90,8 +77,9 @@ interface Visit {
 }
 
 /**
- * The visit a request reports for: sent from a page of this app (`Referer`, and `Sec-Fetch-Site`
- * when the browser sends it), with that page's channel. Null for anything else: crawlers, previews
+ * The visit a request reports for: sent from a page on one of this app's origins (`Referer`, and
+ * `Sec-Fetch-Site` when the browser sends it), with that page's channel. Behind a proxy `request.url`
+ * carries the server's own host, so the configured origins decide, not the request URL alone. Null for anything else: crawlers, previews
  * and tools fetching the URL directly send no Referer.
  */
 function readVisit(config: SoftureConfig, request: Request): Visit | null {

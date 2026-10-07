@@ -122,10 +122,29 @@ const funnelOptionsSchema = z
     });
   });
 
+/** An extra first-party origin: an http(s) URL with nothing after the host, reduced to its origin. */
+const originSchema = z
+  .string()
+  .refine((value) => isBareOrigin(value), "must be an http(s) origin such as https://example.com, without a path, query or credentials")
+  .transform((value) => new URL(value).origin);
+
 export const analyticsOptionsSchema = z.strictObject({
+  /**
+   * The app's first-party origins besides `appOrigin`, e.g. a public site on the apex when the product
+   * runs on a subdomain. A tag from a page on any of them is read, the funnel counts their pages, and
+   * the proxy piece redirects on the one the request was sent to.
+   */
+  origins: z.array(originSchema).max(16, "takes at most 16 origins").default([]),
   channel: channelOptionsSchema.prefault({}),
   funnel: funnelOptionsSchema.prefault({}),
 });
+
+function isBareOrigin(value: string): boolean {
+  if (!URL.canParse(value)) return false;
+  const url = new URL(value);
+  if (url.protocol !== "http:" && url.protocol !== "https:") return false;
+  return url.username === "" && url.password === "" && (url.pathname === "/" || url.pathname === "") && url.search === "" && url.hash === "" && !value.includes("?") && !value.includes("#");
+}
 
 export type AnalyticsOptions = z.output<typeof analyticsOptionsSchema>;
 export type AnalyticsOptionsInput = z.input<typeof analyticsOptionsSchema>;

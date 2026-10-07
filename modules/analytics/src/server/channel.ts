@@ -1,9 +1,10 @@
 // The channel tag: a query parameter on first-party URLs, never a cookie. A page reads its own
 // URL; a request that has none of its own (a server action, the next page) reads the page it came
-// from through `Referer`, but only from this app's origin.
+// from through `Referer`, but only from one of this app's origins (`appOrigin` and `analytics({ origins })`).
 import type { SoftureConfig } from "@softure-ai/core";
 import { parseChannel } from "../channel-rule.js";
-import { getChannelOptions } from "./options.js";
+import type { ChannelFromReferer } from "../options.js";
+import { getAnalyticsOptions, getChannelOptions } from "./options.js";
 
 export { parseChannel };
 
@@ -18,7 +19,25 @@ export interface ChannelSources {
 }
 
 
-/** The channel of a request: its URL's parameter, else the one on the same-origin page it came from. */
+/** `appOrigin` followed by `analytics({ origins })`, without repeats: every origin this app serves pages on. */
+export function getFirstPartyOrigins(config: SoftureConfig): readonly string[] {
+  return [...new Set([new URL(config.appOrigin).origin, ...getAnalyticsOptions(config).origins])];
+}
+
+/**
+ * The first-party origin a request was sent to, read from `Host` (the request URL's host without one):
+ * behind a proxy `request.url` names the server's own host and port, not the public one. `Host` only
+ * selects among the configured origins; when two share the host, the one whose scheme the first
+ * `X-Forwarded-Proto` value names wins, else the first. Null for a host that is not configured.
+ */
+export function readPublicOrigin(config: SoftureConfig, request: Request): string | null {
+  const host = (request.headers.get("host") ?? new URL(request.url).host).toLowerCase();
+  const candidates = getFirstPartyOrigins(config).filter((origin) => new URL(origin).host === host);
+  const proto = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim().toLowerCase();
+  return candidates.find((origin) => new URL(origin).protocol === `${proto ?? ""}:`) ?? candidates[0] ?? null;
+}
+
+/** The channel of a request: its URL's parameter, else the one on the first-party page it came from. */
 export function readChannel(config: SoftureConfig, sources: ChannelSources): string | null {
   const options = getChannelOptions(config);
   const url = toUrl(sources.url);
@@ -61,14 +80,35 @@ interface FirstPartyContext {
 }
 
 /**
- * Whether `target` belongs to this app: the configured `appOrigin`, the request's own origin (behind
- * a proxy the two can differ), or, without a request URL, the request's `Host` on http(s).
+ * Whether `target` belongs to this app: `appOrigin` or one of `analytics({ origins })`, the request's
+ * own origin (behind a proxy it can differ from all of them), or, without a request URL, the
+ * request's `Host` on http(s).
  */
 export function isFirstParty(target: URL, context: FirstPartyContext): boolean {
   if (target.protocol !== "http:" && target.protocol !== "https:") return false;
-  if (target.origin === new URL(context.config.appOrigin).origin) return true;
+  if (getFirstPartyOrigins(context.config).includes(target.origin)) return true;
   if (context.url !== null) return target.origin === context.url.origin;
   return context.host !== null && target.host === context.host.toLowerCase();
+}
+
+/** A `channelFromReferer` hook and the option name its failures are logged under. */
+export interface DerivedChannelSource {
+  readonly hook: ChannelFromReferer | undefined;
+  readonly label: string;
+}
+
+/**
+ * The channel a `channelFromReferer` hook derives from an untagged page; its answer passes the
+ * channel rule. A throw is logged and gives no channel: the app's hook must not stop a request.
+ */
+export function deriveChannel(config: SoftureConfig, source: DerivedChannelSource, page: URL): string | null {
+  if (source.hook === undefined) return null;
+  try {
+    return parseChannel(source.hook(new URL(page)), getChannelOptions(config));
+  } catch (error) {
+    console.error(`@softure-ai/analytics: ${source.label} failed: ${error instanceof Error ? error.message : String(error)}`);
+    return null;
+  }
 }
 
 function toUrl(value: string | URL | null | undefined): URL | null {
