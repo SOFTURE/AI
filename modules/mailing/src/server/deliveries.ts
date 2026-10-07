@@ -134,8 +134,13 @@ function resolveClaimWindows(ctx: DeliveryContext, options: DeliverOptions): Cla
   return { staleClaimMs, uncertainClaimMs, retakeUncertain: options.retakeUncertain ?? false };
 }
 
+/** Lowercase letters, digits and `._:-`, at most 128 characters. */
+export function isDeliveryScope(scope: string): boolean {
+  return scope.length <= MAX_SCOPE_LENGTH && SCOPE.test(scope);
+}
+
 function assertDelivery(delivery: Delivery, kind: string): void {
-  if (delivery.scope.length > MAX_SCOPE_LENGTH || !SCOPE.test(delivery.scope)) {
+  if (!isDeliveryScope(delivery.scope)) {
     throw new Error(`@softure-ai/mailing: deliverOnce scope "${delivery.scope}" must be lowercase letters, digits and ._:- (at most 128 characters)`);
   }
   if (!isMailKind(kind)) {
