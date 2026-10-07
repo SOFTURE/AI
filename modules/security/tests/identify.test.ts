@@ -50,6 +50,22 @@ describe("identifyClient", () => {
     const ctx = { config: createConfig({ clientIp: cloudflareIp() }) };
     expect(identifyClient(ctx, new Headers())).toEqual({ ok: false, error: "security.client_unidentified" });
   });
+
+  it("refuses an unidentified client when the fallback is refuse, as by default", () => {
+    const ctx = { config: createConfig({ clientIp: cloudflareIp(), unidentified: "refuse" }) };
+    expect(identifyClient(ctx, new Headers())).toEqual({ ok: false, error: "security.client_unidentified" });
+  });
+
+  it("counts every unidentified client under the configured shared key", () => {
+    const ctx = { config: createConfig({ clientIp: cloudflareIp(), unidentified: { key: "test-stack" } }) };
+    expect(identifyClient(ctx, new Headers())).toEqual({ ok: true, value: "unidentified:test-stack" });
+    expect(identifyClient(ctx, new Headers({ "cf-connecting-ip": "garbage" }))).toEqual({ ok: true, value: "unidentified:test-stack" });
+  });
+
+  it("keys a client a resolver identifies by its address, even with a shared fallback", () => {
+    const ctx = { config: createConfig({ clientIp: cloudflareIp(), unidentified: { key: "test-stack" } }) };
+    expect(identifyClient(ctx, new Headers({ "cf-connecting-ip": "203.0.113.7" }))).toEqual({ ok: true, value: "ip:203.0.113.7" });
+  });
 });
 
 describe("subjectKey", () => {
