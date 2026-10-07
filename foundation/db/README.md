@@ -19,16 +19,13 @@ Node ≥ 22, **ESM only**: module packages locate their migrations through `impo
 CJS bundle (esbuild `--format=cjs`) leaves empty, so `resolveMigrationsDir` throws naming the bundle
 format; the app script below also uses top-level await. Bundle migrate scripts with `--format=esm`.
 `drizzle-orm` (`^0.45.2`) is a peer dependency, so the app, the modules and
-this package share one drizzle. The drivers are optional peers: install the one the app's URL uses,
-and only that one goes into the app image. Each loads only when a URL needs it.
-
-```bash
-npm install pg && npm install -D @types/pg       # postgres:// and postgresql://
-npm install @electric-sql/pglite                 # pglite:// (dev without a server)
-npm install -D @electric-sql/pglite              # only for createTestDatabase (@softure-ai/db/testing)
-```
-
-A URL whose driver is missing fails at the first connection with Node's "Cannot find package" error.
+this package share one drizzle. Both drivers, `pg` (`^8.11.0`) and `@electric-sql/pglite`
+(`^0.5.0`), come with the package and load only when a URL needs them; the ranges are wide, so an
+app that pins its own version of either gets one shared copy. They stay regular dependencies
+because Next.js bundles server code and resolves each driver's drizzle adapter at build time, so a
+missing driver breaks `next build` even when the app never uses it. `@types/pg` is an optional
+peer: install it (`npm install -D @types/pg`) when the app type-checks the library declarations
+(`skipLibCheck: false`).
 
 ## 3. Configuration
 

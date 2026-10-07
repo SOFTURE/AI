@@ -14,7 +14,8 @@ Input: `change.md`, `research.md` (framing skipped, reason in change.md). Comple
 - `Database<TSchema>`, `PostgresDatabase<TSchema>`, `PgliteClientDatabase<TSchema>`, `Queryable<TSchema>` with a
   default that accepts a schema-typed app database.
 - `@softure-ai/db`: `@electric-sql/pglite`, `pg`, `@types/pg` become optional peers (devDependencies in the
-  workspace); the example app adds `pg`.
+  workspace); the example app adds `pg`. *(Changed during review: drivers stay dependencies with wide ranges,
+  `@types/pg` an optional peer; impl-review finding 5.)*
 - `withSession` on PGlite restores only what the run changed.
 - Docs: db README §2 (drivers), §3 (one handle per process: either `handle` or build on the shared handle, with a
   typed drizzle example), core README §3 (`database.handle`), docs/02 database line, docs/05 step 2; the example

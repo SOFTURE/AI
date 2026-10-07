@@ -39,6 +39,14 @@ Tests use `closeConfiguredDatabases`. Recorded in its JSDoc.
    written back on close, verified by reopening it in `cli.test.ts`); `openCommandDatabase`'s JSDoc forbids it in a
    running server, where adapters use `getConfiguredDatabase`, which never closes.
 
+5. **Fixed after the PR opened: optional driver peers break `next build`.** CI's `deploy init image` job built
+   the example app without `@electric-sql/pglite` and failed: Turbopack follows `import("drizzle-orm/pglite")` in
+   `client.js`, and drizzle's PGlite session imports `@electric-sql/pglite` statically, so an app that never uses a
+   driver still needs it at build time. Taking the issue's other option, the drivers stay dependencies with widened
+   ranges (`@electric-sql/pglite ^0.5.0`, `pg ^8.11.0`), so an app on another 0.5.x shares one copy; `@types/pg`
+   stays an optional peer. Making the drivers truly optional needs bundler-proof loading and is tracked in
+   issue #179. The example app's added `pg` dependency was reverted with it.
+
 ## Verification
 
 - Red first: core config (2 cases), `configured.test.ts` (module missing), `session.test.ts` (`TimeZone` became

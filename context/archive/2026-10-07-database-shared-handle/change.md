@@ -25,8 +25,10 @@ After this change:
 - The reverse path is documented too: an app can build its own typed drizzle instance over the shared handle.
 - `Database<TSchema>` / `Queryable<TSchema>`: an app database created with `drizzle(…, { schema })` is
   assignable to what module functions take.
-- `@electric-sql/pglite` and `pg` are optional peers of `@softure-ai/db` (an app installs the driver it uses);
-  `@types/pg` leaves `dependencies`.
+- `@electric-sql/pglite` and `pg` stay dependencies of `@softure-ai/db` with ranges widened to `^0.5.0` and
+  `^8.11.0` (an app's own pinned copy is shared, not nested); `@types/pg` leaves `dependencies` for an optional
+  peer. Optional driver peers were tried and dropped: Next.js resolves both drizzle adapters at build time (see
+  `reviews/impl-review.md`, finding 5).
 - `createPgliteHandle` is exported, with a `createPostgresHandle` counterpart, so an app can wrap its own client.
 - `withSession` on PGlite restores only the settings a migration run changed instead of `RESET ALL`, so a shared
   connection keeps the app's `TimeZone` and `search_path`.
