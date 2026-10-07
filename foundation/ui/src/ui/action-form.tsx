@@ -41,7 +41,8 @@ export interface ActionSuccess {
   readonly value?: unknown;
 }
 
-export type ActionFormSlot = "root" | "actions";
+/** `cancel` reaches the modal footer's Cancel button (only with `onCancel`). */
+export type ActionFormSlot = "root" | "actions" | "cancel";
 
 /** Errors as codes: the action returns `ActionResult` and `getErrorMessage` gives the copy for each code. */
 export interface CodeErrorsProps {
@@ -113,6 +114,7 @@ function getSubmittedValues(formData: FormData): SubmittedValues {
 const DEFAULT_CLASSES: Readonly<Record<ActionFormSlot, string>> = {
   root: "sft:flex sft:flex-col sft:gap-3 sft:font-sans",
   actions: "sft:flex sft:items-center sft:gap-2",
+  cancel: "",
 };
 
 /** The form error and field errors of a failed result, as text. */
@@ -200,7 +202,15 @@ export function ActionForm({
       ) : (
         <ModalForm action={formAction} unstyled={unstyled}>
           <ModalBody unstyled={unstyled}>{children}</ModalBody>
-          <ModalFooter onCancel={onCancel} isPending={isPending} error={error} unstyled={unstyled} locale={locale} messages={modalMessages}>
+          <ModalFooter
+            onCancel={onCancel}
+            isPending={isPending}
+            error={error}
+            classNames={{ cancel: classNames?.cancel }}
+            unstyled={unstyled}
+            locale={locale}
+            messages={modalMessages}
+          >
             <Button type="submit" variant={submitVariant} pending={isPending} pendingLabel={pendingLabel ?? copy.pending} unstyled={unstyled}>
               {submitLabel}
             </Button>

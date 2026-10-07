@@ -107,6 +107,12 @@ export interface HintProps {
   readonly unstyled?: boolean;
 }
 
+/**
+ * How a hint looks and stands, for components that render a "?" of their own (`Card`, `Field`):
+ * an app passes the same object it gives its standalone hints, so every "?" on a screen matches.
+ */
+export type HintAppearance = Pick<HintProps, "classNames" | "triggerGap" | "isWide">;
+
 const DEFAULT_CLASSES: Readonly<Record<HintSlot, string>> = {
   root: "sft:group/hint sft:relative sft:inline-flex sft:align-middle",
   trigger:

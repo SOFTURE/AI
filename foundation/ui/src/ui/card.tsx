@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { type ClassNames, createSlotClassGetter } from "./class-names.js";
 import type { CopyProps } from "./copy.js";
 import { CopyHint } from "./copy-hint.js";
+import type { HintAppearance } from "./hint.js";
 
 import { CardDisclosure } from "./card-disclosure.js";
 import { CheckIcon } from "./icons.js";
@@ -26,6 +27,8 @@ export interface CardProps extends CopyProps<"card"> {
   readonly hint?: ReactNode;
   /** Id of the hint bubble; generated when omitted. */
   readonly hintId?: string;
+  /** The hint's trigger and bubble classes, gap and width, so it matches the app's standalone hints. */
+  readonly hintProps?: HintAppearance;
   /** Pinned to the header's top-right corner, for example the card's own "add" button. Needs a `title`. */
   readonly action?: ReactNode;
   /**
@@ -94,6 +97,7 @@ export function Card({
   subtitle,
   hint,
   hintId,
+  hintProps,
   action,
   variant = "boxed",
   step,
@@ -135,7 +139,7 @@ export function Card({
             <Heading className={slot("title")}>{title}</Heading>
             {/* Next to the heading, not inside it: the heading's name stays the title alone. */}
             {hint === undefined ? null : (
-              <CopyHint group="card" values={{ title }} id={hintId} locale={locale} messages={messages}>
+              <CopyHint group="card" values={{ title }} id={hintId} appearance={hintProps} locale={locale} messages={messages}>
                 {hint}
               </CopyHint>
             )}
