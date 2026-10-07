@@ -137,6 +137,12 @@ COPY --from=builder /app/softure-migrations ./softure-migrations
 CMD ["node", "migrate.mjs", "--migrations-dir", "./softure-migrations"]
 ```
 
+A config that imports `server-only` throws under plain Node: run the export as
+`npx tsx --conditions=react-server scripts/migrate.ts --export-migrations …` and bundle with
+`--alias:server-only=./scripts/empty.mjs` (an empty file). Path aliases (`@/…`) need nothing extra: tsx and
+esbuild both read `paths` from `tsconfig.json`. The [ops container recipe](../../modules/ops/README.md#container-recipe)
+uses the same commands.
+
 A bundle cannot find package folders (`import.meta.url` points at the bundle), hence
 `--export-migrations` at build time and `--migrations-dir` at run time. The build stage needs no
 `DATABASE_URL`: the config accepts an empty `database.url` (`DATABASE_URL ?? ""`) and only a command that
