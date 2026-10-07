@@ -74,13 +74,13 @@ Done when: the guard test seen red, then green; `npm run typecheck|lint|test|bui
 ### Phase 1: hooks in migrate, CLI and test database
 
 #### Automated
-- [ ] 1.1 Hook tests seen red, then green
-- [ ] 1.2 migrate, runMigrateCli and createTestDatabase take `app`
-- [ ] 1.3 `drizzle` reserved
+- [x] 1.1 Hook tests seen red, then green — f4a5bf4
+- [x] 1.2 migrate, runMigrateCli and createTestDatabase take `app` — f4a5bf4
+- [x] 1.3 `drizzle` reserved — f4a5bf4
 
 ### Phase 2: CJS guard, docs, versions
 
 #### Automated
-- [ ] 2.1 resolveMigrationsDir guard seen red, then green
-- [ ] 2.2 README, docs/02, docs/05, versions 0.1.6
-- [ ] 2.3 Gates green (typecheck, lint, test, build)
+- [x] 2.1 resolveMigrationsDir guard seen red, then green — 0486229
+- [x] 2.2 README, docs/02, docs/05, versions 0.1.6 — 0486229
+- [x] 2.3 Gates green (typecheck, lint, test, build) — 0486229

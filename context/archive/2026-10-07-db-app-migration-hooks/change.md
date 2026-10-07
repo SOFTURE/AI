@@ -1,12 +1,13 @@
 ---
 change_id: db-app-migration-hooks
 title: "App migrations next to module migrations"
-status: impl_reviewed
+status: archived
 roadmap_item: null
 issue: 153
 branch: claude/project-thread-tjueq8
 created: 2026-10-07
 updated: 2026-10-07
+archived_at: 2026-10-07
 ---
 
 ## Intent
