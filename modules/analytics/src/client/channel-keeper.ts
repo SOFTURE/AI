@@ -18,17 +18,37 @@ export interface ChannelRule {
   readonly maxLength: number;
   /** How a raw value is repaired first; `none` when absent. */
   readonly normalize?: ChannelNormalization;
+  /**
+   * The app's first-party origins (`appOrigin` and `analytics({ origins })`); a link to one of them
+   * other than the page's own gets the remembered tag (`tagLink`). None when absent.
+   */
+  readonly origins?: readonly string[];
 }
 
 /**
- * A function that takes the address bar's href after each navigation and returns the href to show
- * instead (the same URL with the remembered tag), or null to leave it. A URL with the parameter
- * decides: a valid value is remembered, an invalid one forgets the tag, and neither is touched.
+ * Takes the address bar's href after each navigation and returns the href to show instead (the same
+ * URL with the remembered tag), or null to leave it. `tagLink` hands back a link with the tag.
  */
-export function createChannelKeeper(rule: ChannelRule): (href: string) => string | null {
+export interface ChannelKeeper {
+  (href: string): string | null;
+  /**
+   * `href` (resolved against the page's `current` href) with the remembered tag, when it is an http(s)
+   * link to another of the rule's origins without the parameter; null otherwise. The browser's
+   * default referrer policy drops the query from a cross-origin `Referer`, so such a link is the
+   * only way the tag reaches the other origin.
+   */
+  tagLink(href: string, current: string): string | null;
+}
+
+/**
+ * The keeper for one page's lifetime. A URL with the parameter decides: a valid value is remembered,
+ * an invalid one forgets the tag, and neither is touched.
+ */
+export function createChannelKeeper(rule: ChannelRule): ChannelKeeper {
   const options = { pattern: new RegExp(rule.pattern, rule.flags), maxLength: rule.maxLength, normalize: rule.normalize ?? "none" };
+  const origins = new Set(rule.origins ?? []);
   let remembered: string | null = null;
-  return (href) => {
+  const keep = (href: string): string | null => {
     if (!URL.canParse(href)) return null;
     const url = new URL(href);
     if (url.searchParams.has(rule.param)) {
@@ -39,4 +59,14 @@ export function createChannelKeeper(rule: ChannelRule): (href: string) => string
     url.searchParams.set(rule.param, remembered);
     return url.href;
   };
+  const tagLink = (href: string, current: string): string | null => {
+    if (remembered === null || !URL.canParse(current) || !URL.canParse(href, current)) return null;
+    const page = new URL(current);
+    const link = new URL(href, page);
+    if (link.protocol !== "http:" && link.protocol !== "https:") return null;
+    if (link.origin === page.origin || !origins.has(link.origin) || link.searchParams.has(rule.param)) return null;
+    link.searchParams.set(rule.param, remembered);
+    return link.href;
+  };
+  return Object.assign(keep, { tagLink });
 }
