@@ -81,6 +81,11 @@ export interface ThemeBootScriptOptions extends ThemeCookieFormat {
  * The inline `<head>` script: cookie -> `data-theme` on `<html>`. Self-contained (it runs before
  * any bundle) and wrapped in `try`, because blocked cookies must not stop the render. With a strict
  * CSP it needs a nonce or its hash.
+ *
+ * With `themeColors`, an explicit choice also recolours every `meta[name="theme-color"]`: those in
+ * the parsed document on `DOMContentLoaded`, and any inserted later (Next streams metadata and React
+ * hoists it after the document is parsed) as soon as it lands. The colour follows the current
+ * `data-theme`, so after a switch to "system" (attribute removed) later metas keep their own colour.
  */
 export function getThemeBootScript(options: ThemeBootScriptOptions = {}): string {
   const name = getCookieName(options.cookieName);
@@ -91,7 +96,7 @@ export function getThemeBootScript(options: ThemeBootScriptOptions = {}): string
   }
   const colors = toScriptLiteral(themeColors);
   const pattern = toScriptLiteral(`(?:^|;\\s*)${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}=([^;]*)`);
-  return `(function(){try{var m=document.cookie.match(new RegExp(${pattern}));var v=m&&m[1];var s=${values};var t=v===s.dark?"dark":v===s.light?"light":null;if(!t)return;document.documentElement.setAttribute("data-theme",t);var c=${colors};if(!c)return;document.addEventListener("DOMContentLoaded",function(){var ms=document.querySelectorAll('meta[name="theme-color"]');for(var i=0;i<ms.length;i++){ms[i].setAttribute("content",c[t]);}});}catch(e){}})();`;
+  return `(function(){try{var m=document.cookie.match(new RegExp(${pattern}));var v=m&&m[1];var s=${values};var t=v===s.dark?"dark":v===s.light?"light":null;if(!t)return;document.documentElement.setAttribute("data-theme",t);var c=${colors};if(!c)return;var q='meta[name="theme-color"]';var a=function(){var d=document.documentElement.getAttribute("data-theme");if(d!=="light"&&d!=="dark")return;var ms=document.querySelectorAll(q);for(var i=0;i<ms.length;i++){if(ms[i].getAttribute("content")!==c[d])ms[i].setAttribute("content",c[d]);}};document.addEventListener("DOMContentLoaded",a);if(typeof MutationObserver==="function")new MutationObserver(function(rs){for(var i=0;i<rs.length;i++){var ns=rs[i].addedNodes;for(var j=0;j<ns.length;j++){var n=ns[j];if(n.nodeType===1&&(n.matches(q)||n.querySelector(q))){a();return;}}}}).observe(document.documentElement,{childList:true,subtree:true});}catch(e){}})();`;
 }
 
 export interface ApplyThemeChoiceOptions extends ThemeCookieOptions {

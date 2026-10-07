@@ -28,13 +28,14 @@ function createFakeDocument(cookie: string, metas: FakeMeta[] = []) {
       writes.push(value);
     },
     documentElement: {
+      getAttribute: (name: string) => attributes.get(name) ?? null,
       setAttribute: (name: string, value: string) => attributes.set(name, value),
       removeAttribute: (name: string) => attributes.delete(name),
     },
     addEventListener: (_type: string, listener: () => void) => listeners.push(listener),
     querySelectorAll: () =>
       metas.map((meta) => ({
-        getAttribute: (name: string) => (name === "media" ? meta.media : null),
+        getAttribute: (name: string) => (name === "media" ? meta.media : name === "content" ? meta.content : null),
         setAttribute: (_name: string, value: string) => {
           meta.content = value;
         },
