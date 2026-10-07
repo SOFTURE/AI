@@ -1,4 +1,5 @@
 // `softure-mail`: the campaign command over a database connection and the DNS check.
+import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { getRecipientKey } from "@softure-ai/mailing/server";
 import { DEFAULT_PAUSE_MS, runMailCli, runMailCommand, type CliOutput, type RunMailCliOptions } from "@softure-ai/mailing/cli";
@@ -7,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createConfig, createTestMailing, NOW, SECRET, type TestMailing } from "./support.js";
 
 const CAMPAIGN_DIR = fileURLToPath(new URL("./fixtures/campaign/", import.meta.url));
+const HISTORY_DIR = fileURLToPath(new URL("./fixtures/history/", import.meta.url));
 const APP_DIR = fileURLToPath(new URL("./fixtures/app/", import.meta.url));
 const ENV = { MAILING_UNSUBSCRIBE_SECRET: SECRET };
 const SEND = ["campaign", "launch.md", "--recipients", "recipients.txt"];
@@ -189,10 +191,14 @@ describe("softure-mail campaign", () => {
   });
 
   it.each([
-    [[], "missing command; use campaign or dns"],
-    [["send"], 'unknown command "send"; use campaign or dns'],
+    [[], "missing command; use campaign, import or dns"],
+    [["send"], 'unknown command "send"; use campaign, import or dns'],
     [["campaign", "--recipients", "recipients.txt"], "campaign needs a content file"],
-    [["campaign", "launch.md"], "campaign needs --recipients <file>"],
+    [["campaign", "-", "--recipients", "-"], "campaign can read only one of the content file and --recipients from standard input"],
+    [["import"], "import needs a history file (- for standard input)"],
+    [["import", "a.jsonl", "b.jsonl"], 'import takes one history file, got also "b.jsonl"'],
+    [["import", "a.jsonl", "--recipients", "r.txt"], "import does not take --recipients"],
+    [["import", "a.jsonl", "--domain", "example.com"], "import does not take --domain"],
     [["campaign", "a.md", "b.md", "--recipients", "r.txt"], 'campaign takes one content file, got also "b.md"'],
     [[...SEND, "--pause-ms=-1"], '--pause-ms expects whole milliseconds from 0 to 60000, got "-1"'],
     [[...SEND, "--pause-ms", "fast"], '--pause-ms expects whole milliseconds from 0 to 60000, got "fast"'],
@@ -209,6 +215,103 @@ describe("softure-mail campaign", () => {
     expect(result.code).toBe(2);
     expect(result.errors[0]).toContain(`softure-mail: ${problem}`);
     expect(result.errors[1]).toMatch(/^Usage:/);
+  });
+
+  it("reads the content file from standard input, with its HTML body in the working directory", async () => {
+    const content = await readFile(`${CAMPAIGN_DIR}launch.md`, "utf8");
+    const result = await run(["campaign", "-", "--recipients", "recipients.txt"], { readStdin: () => Promise.resolve(content) });
+
+    expect(result).toMatchObject({ code: 0, errors: [] });
+    expect(provider.sent).toHaveLength(3);
+    expect(provider.sent[0]?.html?.startsWith("<p>Hello, we shipped something.</p>")).toBe(true);
+  });
+
+  it("names standard input when the content read from it is not a campaign", async () => {
+    const result = await run(["campaign", "-", "--recipients", "recipients.txt"], { readStdin: () => Promise.resolve("hello") });
+    expect(result.code).toBe(1);
+    expect(result.errors[0]).toMatch(/^softure-mail campaign: standard input is not a campaign:/);
+  });
+
+  it("reads the recipients from standard input", async () => {
+    const result = await run(["campaign", "launch.md", "--recipients", "-"], { readStdin: () => Promise.resolve("dee@example.org\n# comment\neve@example.org\n") });
+    expect(result).toMatchObject({ code: 0, errors: [] });
+    expect(provider.sent.map((mail) => mail.to)).toEqual(["dee@example.org", "eve@example.org"]);
+  });
+
+  it("takes the recipients from listCampaignRecipients when no file is given", async () => {
+    const listCampaignRecipients = vi.fn(async function* () {
+      yield "dee@example.org";
+      yield await Promise.resolve("eve@example.org");
+    });
+    const config = createConfig(provider, { listCampaignRecipients });
+    const dry = await run(["campaign", "launch.md", "--dry-run"], { config });
+    expect(dry).toMatchObject({ code: 0, lines: [expect.any(String), "recipients 2, already done 0, unsubscribed 0, filtered out 0, uncertain 0, to send 2"] });
+
+    const result = await run(["campaign", "launch.md"], { config });
+    expect(result).toMatchObject({ code: 0, errors: [] });
+    expect(provider.sent.map((mail) => mail.to)).toEqual(["dee@example.org", "eve@example.org"]);
+    expect(listCampaignRecipients).toHaveBeenCalledWith({ id: "2026-10-launch", kind: "newsletter" }, expect.objectContaining({ config }));
+  });
+
+  it("needs a recipients file or listCampaignRecipients, before opening the database", async () => {
+    const result = await run(["campaign", "launch.md"]);
+    expect(result).toEqual({ code: 1, lines: [], errors: ["softure-mail campaign: pass --recipients <file>, or set listCampaignRecipients in the mailing options"] });
+    expect(closed).toBe(0);
+  });
+
+  it("imports a history file into the ledger, so the campaign skips those recipients, and imports nothing twice", async () => {
+    const first = await run(["import", `${HISTORY_DIR}history.jsonl`]);
+    expect(first).toEqual({ code: 0, lines: ["import: rows 2, imported 2, already present 0, duplicates 0"], errors: [] });
+    expect(closed).toBe(1);
+
+    const history = await readFile(`${HISTORY_DIR}history.jsonl`, "utf8");
+    const again = await run(["import", "-"], { readStdin: () => Promise.resolve(history) });
+    expect(again.lines).toEqual(["import: rows 2, imported 0, already present 2, duplicates 0"]);
+
+    const campaign = await run(SEND);
+    expect(campaign.lines).toEqual(["campaign 2026-10-launch (newsletter): recipients 3, sent 1, rejected 0, already done 2, in flight 0, retry later 0, filtered out 0, uncertain 0"]);
+    expect(provider.sent.map((mail) => mail.to)).toEqual(["cy@example.org"]);
+  });
+
+  it("checks a history file on a dry run without opening the database", async () => {
+    const history = await readFile(`${HISTORY_DIR}history.jsonl`, "utf8");
+    const result = await run(["import", "-", "--dry-run"], { readStdin: () => Promise.resolve(`${history}${history}`) });
+
+    expect(result).toEqual({ code: 0, lines: ["import, dry run: nothing written; rows 4, duplicates 2"], errors: [] });
+    expect(closed).toBe(0);
+    expect((await test.database.client.query("SELECT 1 FROM mailing.deliveries")).rows).toEqual([]);
+  });
+
+  it("lists every problem of a history file by line, without the address, and writes nothing", async () => {
+    const lines = [
+      '{"scope":"campaign:x","address":"ada@example.org","status":"sent","finishedAt":"2026-09-20T10:15:00Z"}',
+      "not json",
+      '{"scope":"campaign:x","address":"secret@example.org","status":"bounced","finishedAt":"2026-09-20T10:15:00Z","note":"x"}',
+      '{"scope":"Campaign X","address":"carl@example.org","status":"sent","finishedAt":"2099-01-01T00:00:00Z"}',
+    ];
+    const parse = await run(["import", "-"], { readStdin: () => Promise.resolve(lines.slice(0, 3).join("\n")) });
+    expect(parse.code).toBe(1);
+    expect(parse.errors[0]).toBe("softure-mail import: nothing written, 3 problem(s):");
+    expect(parse.errors.slice(1)).toEqual(["  line 2: not a JSON object", expect.stringMatching(/^ {2}line 3: status: /), "  line 3: unknown field(s) note"]);
+    expect(parse.errors.join("\n")).not.toContain("secret@example.org");
+
+    const rows = await run(["import", "-"], { readStdin: () => Promise.resolve([lines[0], lines[3]].join("\n")) });
+    expect(rows).toEqual({
+      code: 1,
+      lines: [],
+      errors: [
+        "softure-mail import: nothing written, 2 problem(s):",
+        "  line 2: scope must be lowercase letters, digits and ._:- (at most 128 characters)",
+        "  line 2: finishedAt must not be in the future",
+      ],
+    });
+    expect((await test.database.client.query("SELECT 1 FROM mailing.deliveries")).rows).toEqual([]);
+    expect(closed).toBe(0);
+  });
+
+  it("reports a history file it cannot read", async () => {
+    const result = await run(["import", "missing.jsonl"]);
+    expect(result).toEqual({ code: 1, lines: [], errors: [`softure-mail import: cannot read the history file ${CAMPAIGN_DIR}missing.jsonl`] });
   });
 
   it("shows the help", async () => {
