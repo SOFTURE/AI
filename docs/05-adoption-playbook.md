@@ -61,4 +61,5 @@ Instructions for the application's agent (FIRE_TRACKER first). One module is one
 ## Definition of done
 
 The application no longer contains code within the module's scope, production data is intact,
-CI is green, and the module version gets a "verified in: FIRE_TRACKER@<sha>" note in its CHANGELOG.
+CI is green, and the module version gets a `verified in: <app>@<commit>` line under its heading in the
+package's `CHANGELOG.md`.

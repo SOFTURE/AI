@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/analytics",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "SOFTURE AI analytics module: a cookieless acquisition channel tag carried through first-party URLs, and a funnel counter that keeps only daily sums per day, channel and step, fed by a beacon, a pixel and server hooks, with a report function.",
   "license": "MIT",
   "type": "module",
@@ -15,6 +15,7 @@
   },
   "files": [
     "dist",
+    "CHANGELOG.md",
     "src",
     "!src/**/*.test.ts",
     "!src/**/*.test.tsx",

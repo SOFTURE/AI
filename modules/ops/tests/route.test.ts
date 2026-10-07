@@ -6,6 +6,9 @@ import { createTestDatabase, type TestDatabase } from "@softure-ai/db/testing";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createConfig, failingCheck, passingCheck } from "./support.js";
 
+const { connection } = vi.hoisted(() => ({ connection: vi.fn(() => Promise.resolve()) }));
+vi.mock("next/server", () => ({ connection }));
+
 describe("GET /api/health", () => {
   let errors: unknown[][];
   let database: TestDatabase;
@@ -29,6 +32,14 @@ describe("GET /api/health", () => {
     await closeHealthDatabases();
     await closeSharedDatabases();
     await closeConfiguredDatabases();
+  });
+
+  it("opts into dynamic rendering with connection() on every request, before it answers", async () => {
+    connection.mockClear();
+    registerSoftureConfig(createConfig({ databaseUrl: null, modules: [passingCheck] }));
+    await GET();
+    await GET();
+    expect(connection).toHaveBeenCalledTimes(2);
   });
 
   it("answers 200 and only the status when the database and every check pass", async () => {

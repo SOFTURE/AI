@@ -1,13 +1,15 @@
 // Reading and setting switches. A switch's value is, in this order: its environment override, the
 // value an admin stored, its declared default. When the stored state cannot be read (or the
 // override is not a boolean) the switch takes its fail mode: `closed` reads as off, `open` as on.
+// A switch declared with `override: "towards-fail-mode"` takes only the fail-mode value from its
+// override and reads on as if the variable were unset for the other.
 import { err, errorLogLabel, ok, type Err, type ModuleContext, type Ok } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
 import { eq } from "drizzle-orm";
 import type { SwitchSource, SwitchView } from "../contract.js";
 import { getSwitchEnvName, type SwitchDefinition } from "../options.js";
 import { switches } from "../schema.js";
-import { readEnvOverride, type Env } from "./env-override.js";
+import { readEnvOverride, reportIgnoredOverride, type Env } from "./env-override.js";
 import { findSwitchDefinition, getLocalizedText, getSwitchDefinition, getSwitchDefinitions } from "./options.js";
 
 export type SwitchContext = ModuleContext<Queryable>;
@@ -57,11 +59,16 @@ export async function readStoredSwitches(ctx: SwitchContext, names?: readonly st
 export function resolveSwitchValue(definition: SwitchDefinition, stored: StoredSwitches, env: Env): SwitchValue {
   const failValue: SwitchValue = { isEnabled: definition.failMode === "open", source: "fail-mode" };
   const override = readEnvOverride(definition.name, env);
-  if (override.kind === "set") return { isEnabled: override.isEnabled, source: "env" };
+  if (override.kind === "set" && isOverrideAllowed(definition, override.isEnabled)) return { isEnabled: override.isEnabled, source: "env" };
+  if (override.kind === "set") reportIgnoredOverride(definition.name, failValue.isEnabled);
   if (override.kind === "invalid") return failValue;
   if (!stored.ok) return failValue;
   const row = stored.value.get(definition.name);
   return row === undefined ? { isEnabled: definition.default, source: "default" } : { isEnabled: row.isEnabled, source: "stored" };
+}
+
+function isOverrideAllowed(definition: SwitchDefinition, isEnabled: boolean): boolean {
+  return definition.override === "both" || isEnabled === (definition.failMode === "open");
 }
 
 /** Whether a declared switch is on. Throws for an undeclared name; never throws on a database failure. */

@@ -58,6 +58,11 @@ const workspaceVersions = new Map(
   }),
 );
 
+/** Package names of the modules (folders with a module.json), the ones a manifest's dependsOn can name. */
+const MODULE_PACKAGE_NAMES = new Set(
+  packageDirs.filter((dir) => dir.startsWith("modules/") && existsSync(join(REPO_ROOT, dir, "module.json"))).map(getExpectedName),
+);
+
 function readModuleVersion(dir: string): string | null {
   const path = join(REPO_ROOT, dir, "module.json");
   if (!existsSync(path)) return null;
@@ -72,7 +77,14 @@ describe("workspace packages", () => {
   describe.each(packageDirs)("%s", (dir) => {
     const manifest = readManifest(dir);
 
-    it("is an ESM package named after its folder, for Node 22, publishing dist/", () => {
+    it("ships a CHANGELOG.md whose newest section is Unreleased or the version it is at", () => {
+      expect(manifest.files).toContain("CHANGELOG.md");
+      const changelog = readFileSync(join(REPO_ROOT, dir, "CHANGELOG.md"), "utf8");
+      expect(changelog.startsWith("# Changelog\n")).toBe(true);
+      expect(["Unreleased", manifest.version]).toContain(changelog.match(/^## (.+)$/m)?.[1]);
+    });
+
+        it("is an ESM package named after its folder, for Node 22, publishing dist/", () => {
       expect(manifest.name).toBe(getExpectedName(dir));
       expect(manifest.type).toBe("module");
       expect(manifest.engines?.node).toBe(">=22");
@@ -135,6 +147,16 @@ describe("workspace packages", () => {
       const readme = readFileSync(join(REPO_ROOT, dir, "README.md"), "utf8");
       const sections = [...readme.matchAll(/^## (\d+)\. /gm)].map((match) => Number(match[1]));
       expect(sections).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+    });
+
+    it.runIf(isModule(dir))("names every module it depends on as a package in its dependsOn", () => {
+      const manifestJson = JSON.parse(readFileSync(join(REPO_ROOT, dir, "module.json"), "utf8")) as { dependsOn?: Record<string, string> };
+      const packageModules = Object.keys({ ...manifest.dependencies, ...manifest.peerDependencies })
+        .filter((name) => MODULE_PACKAGE_NAMES.has(name))
+        .map((name) => name.replace("@softure-ai/", ""))
+        .sort();
+      const named = Object.keys(manifestJson.dependsOn ?? {});
+      expect(packageModules.filter((id) => !named.includes(id))).toEqual([]);
     });
 
     const messagesDir = join(REPO_ROOT, dir, "src/messages");
