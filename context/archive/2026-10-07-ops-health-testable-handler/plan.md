@@ -58,4 +58,4 @@ Done when: the new test file fails before the export exists and passes after; `n
 
 ## Progress
 
-- [ ] Phase 1: handler core, docs, version
+- [x] Phase 1: handler core, docs, version — 4e85d23

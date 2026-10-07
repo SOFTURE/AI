@@ -1,12 +1,13 @@
 ---
 change_id: ops-health-testable-handler
 title: "ops: a health handler an app can unit test without Next, and the testing recipe for GET (issue #216)"
-status: planned
+status: archived
 roadmap_item: null
 issue: 216
 branch: claude/project-thread-vp0v4a
 created: 2026-10-07
 updated: 2026-10-07
+archived_at: 2026-10-07
 ---
 
 ## Intent
