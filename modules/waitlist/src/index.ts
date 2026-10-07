@@ -48,6 +48,7 @@ export {
   INITIAL_WAITLIST_FORM_STATE,
   type WaitlistConfirmationErrorCode,
   type WaitlistErrorCode,
+  type WaitlistImportErrorCode,
   type WaitlistFormErrorCode,
   type WaitlistFormField,
   type WaitlistFormState,

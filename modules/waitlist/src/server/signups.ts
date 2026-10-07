@@ -86,9 +86,9 @@ export type ConfirmSignupResult =
   | Err<WaitlistConfirmationErrorCode>
   | RateLimitRejection;
 
-type SignupRow = typeof signups.$inferSelect;
+export type SignupRow = typeof signups.$inferSelect;
 
-function toSignup(row: SignupRow): WaitlistSignup {
+export function toSignup(row: SignupRow): WaitlistSignup {
   return {
     id: row.id,
     email: row.email,
@@ -285,7 +285,7 @@ async function applyRequest(ctx: WaitlistContext, current: SignupRow, requested:
 }
 
 /** The union of the stored and the requested scopes, declared ones in the config's order first. */
-function getWidenedScopes(ctx: WaitlistContext, stored: readonly string[], requested: readonly string[]): string[] {
+export function getWidenedScopes(ctx: WaitlistContext, stored: readonly string[], requested: readonly string[]): string[] {
   const granted = new Set([...stored, ...requested]);
   const order = getWaitlistOptions(ctx.config).scopes.map((scope) => scope.id);
   // Scopes the config no longer declares stay, after the declared ones: a sign-up never narrows.

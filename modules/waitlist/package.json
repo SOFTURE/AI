@@ -46,6 +46,11 @@
       "@softure-ai/source": "./src/ui/index.ts",
       "types": "./dist/ui/index.d.ts",
       "default": "./dist/ui/index.js"
+    },
+    "./scripts": {
+      "@softure-ai/source": "./src/scripts/index.ts",
+      "types": "./dist/scripts/index.d.ts",
+      "default": "./dist/scripts/index.js"
     }
   },
   "scripts": {
@@ -56,6 +61,7 @@
     "@softure-ai/core": "^0.1.0",
     "@softure-ai/db": "^0.1.0",
     "@softure-ai/mailing": "^0.1.0",
+    "@softure-ai/ops": "^0.1.0",
     "@softure-ai/privacy": "^0.1.0",
     "@softure-ai/security": "^0.1.0",
     "zod": "^4.6.5"

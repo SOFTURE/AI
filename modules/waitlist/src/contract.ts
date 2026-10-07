@@ -10,6 +10,9 @@ export type WaitlistErrorCode =
   /** A scope or placement the config does not declare: a tampered or outdated form. */
   | "waitlist.form_invalid";
 
+/** Why `importSignups` refused its input (the refusal lists the problems by row number). */
+export type WaitlistImportErrorCode = "waitlist.import_invalid";
+
 /** Why a confirmation link was refused. */
 export type WaitlistConfirmationErrorCode =
   /** Missing, malformed, or replaced by a newer link. */
