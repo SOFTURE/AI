@@ -1,6 +1,6 @@
 # @softure-ai/analytics
 
-**Status:** wave 3 · channel tags (MO-4) and the funnel counter (MO-5) implemented · depends on: core, db, security (its body reader)
+**Depends on:** core, db, security (its body reader).
 
 Knows which acquisition channel a visitor came from (`?z=newsletter`) **without a cookie and
 without storing anything**: the tag lives only in first-party URLs. A piece for the app's
