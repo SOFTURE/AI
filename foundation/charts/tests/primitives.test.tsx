@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
   ChartFlag,
+  ChartPin,
   ChartPlot,
   edgeAlign,
   GuideLine,
@@ -135,6 +136,44 @@ describe("flags", () => {
     expect(renderToStaticMarkup(<ChartFlag xPercent={90}>Retirement</ChartFlag>)).toBe(
       '<span class="sft-chart-flag sft-chart-align-end" style="left:90%">Retirement</span>',
     );
+  });
+});
+
+describe("pins", () => {
+  it("are a column at x with a dashed line from the bottom up to y and a dot on y", () => {
+    expect(renderToStaticMarkup(<ChartPin xPercent={40} yPercent={30} />)).toBe(
+      '<span class="sft-chart-pin" style="left:40%" aria-hidden="true">' +
+        '<span class="sft-chart-pin-line" style="height:30%"></span>' +
+        '<span class="sft-chart-pin-dot" style="bottom:30%"></span>' +
+        "</span>",
+    );
+  });
+
+  it("draw the dot alone without the line", () => {
+    expect(renderToStaticMarkup(<ChartPin xPercent={40} yPercent={30} line={false} />)).toBe(
+      '<span class="sft-chart-pin" style="left:40%" aria-hidden="true"><span class="sft-chart-pin-dot" style="bottom:30%"></span></span>',
+    );
+  });
+
+  it("fill the dot with a series colour when given a slot", () => {
+    const html = renderToStaticMarkup(<ChartPin xPercent={40} yPercent={30} slot={2} />);
+    expect(html).toContain('<span class="sft-chart-pin-dot sft-chart-series-2" style="bottom:30%"></span>');
+    expect(html).toContain('<span class="sft-chart-pin-line" style="height:30%"></span>');
+  });
+
+  it("round positions to two decimals and allow the edges", () => {
+    expect(renderToStaticMarkup(<ChartPin xPercent={100} yPercent={33.333333} />)).toBe(
+      '<span class="sft-chart-pin" style="left:100%" aria-hidden="true">' +
+        '<span class="sft-chart-pin-line" style="height:33.33%"></span>' +
+        '<span class="sft-chart-pin-dot" style="bottom:33.33%"></span>' +
+        "</span>",
+    );
+    expect(renderToStaticMarkup(<ChartPin xPercent={0} yPercent={0} />)).toContain('style="left:0%"');
+  });
+
+  it("sit in the plot's overlay, after the drawing", () => {
+    const html = renderToStaticMarkup(<ChartPlot overlay={<ChartPin xPercent={50} yPercent={50} />} />);
+    expect(html.indexOf("</svg>")).toBeLessThan(html.indexOf("sft-chart-pin"));
   });
 });
 

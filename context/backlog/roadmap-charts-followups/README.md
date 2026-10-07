@@ -11,7 +11,7 @@ The owner promoted the roadmap on 2026-10-07, when charts closed. The order come
 
 | ID | Entry | Title | Condition | Kind |
 | --- | --- | --- | --- | --- |
-| CF-1 | [`chart-pin`](chart-pin/change.md) | Event pin | roadmap promoted | start |
+| CF-1 | [`chart-pin`](../../archive/2026-10-07-chart-pin/backlog-input.md) (taken 2026-10-07) | Event pin | roadmap promoted | start |
 
 ## Taking an entry
 

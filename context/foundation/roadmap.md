@@ -36,7 +36,7 @@ backlog: context/backlog/roadmap-charts-followups/
 
 | ID | Change | Outcome | Depends on | Mode | Status |
 | --- | --- | --- | --- | --- | --- |
-| **CF-1** | `chart-pin` | `ChartPin` in `@softure-ai/charts`: an event pin (dashed vertical from the axis to a point and a dot on it) | — | autonomous | ready |
+| **CF-1** | `chart-pin` | `ChartPin` in `@softure-ai/charts`: an event pin (dashed vertical from the axis to a point and a dot on it) | — | autonomous | done_code (2026-10-07; waiting: the release of `@softure-ai/charts` 0.1.1) |
 
 ## Order
 
@@ -46,7 +46,8 @@ backlog: context/backlog/roadmap-charts-followups/
 
 ### CF-1: Event pin
 - **Change ID:** `chart-pin`
-- **Status:** ready
+- **Status:** done_code (2026-10-07; waiting: the release of `@softure-ai/charts` 0.1.1)
+- **Input:** [`chart-pin`](../archive/2026-10-07-chart-pin/change.md)
 - **Source:** CH-5 (`charts-release`), mapping FIRE_TRACKER for the adoption guide: CH-2's research marked FIRE's
   `ChartPin` (`src/components/chart/chart-flag.tsx`) as generic, but CH-2 shipped only `ChartFlag`, so FIRE keeps its
   own pin when it moves to the package.
@@ -64,3 +65,5 @@ backlog: context/backlog/roadmap-charts-followups/
   npmjs.com (`@softure-ai/charts` → Settings → Trusted publisher: GitHub Actions, `SOFTURE` / `AI` / `release.yml`,
   case-sensitive, environment empty, **Allow npm publish**) and delete the `NPM_TOKEN` secret unless another new
   package is on the way. CF-1 bumps charts, so its release needs the publisher (`scripts/release/README.md`).
+- [ ] **CF-1**: release `@softure-ai/charts` 0.1.1 (`ChartPin`); FIRE_TRACKER can then drop its own pin (README,
+  "Adopting in FIRE_TRACKER").

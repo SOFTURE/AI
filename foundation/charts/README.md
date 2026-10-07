@@ -10,7 +10,7 @@ functions, with no DOM and no React, so the drawing, the cursor and the tests sh
 - the point nearest to a cursor ([Nearest point](#nearest-point)).
 
 On top of it, React components ([Components](#components)): `LineChart` for time series, and the
-primitives it is made of (plot, grid, lines, axes, legend, flags, a keyboard and pointer cursor, a data
+primitives it is made of (plot, grid, lines, axes, legend, flags, event pins, a keyboard and pointer cursor, a data
 table) for charts of your own, coloured by a six-colour series palette that a test guard keeps legible and
 apart for colour-blind readers ([Series palette](#series-palette)). Extracted from FIRE_TRACKER's `chart-scale`, `chart-ticks`,
 `nearest-point` and `src/components/chart/`.
@@ -155,11 +155,40 @@ labels; `messages` the built-in copy.
 | `TimeAxis`, `timeAxisTicks` | date labels at % of the width; with `ends`, the ends sit at the edges and middle labels stay clear of them |
 | `Legend`, `LegendItem`, `LegendSwatch` | swatches `box`, `dot`, `line`, `dashed`, `dotted` in a series slot |
 | `ChartFlag` | a chip at the top of the plot; within 18 % of an edge it aligns to that edge (`edgeAlign`) |
+| `ChartPin` | an event pin on a curve: a dashed line from the bottom up to a point and a round dot on it ([Pins](#pins)) |
 | `ChartDataTable` | the visually hidden table |
 | `ChartCursor` | the client cursor around the frame; takes `points` as percentages computed on the server |
 
 Positions are percentages of the plot (`toPercent`), computed once from the scales, so the overlay and the
 drawing cannot drift apart. Classes are `sft-chart-*` in the `softure` layer; an app's own classes win.
+
+### Pins
+
+```tsx
+import { ChartFlag, ChartPin, ChartPlot, PLOT_HEIGHT, PLOT_WIDTH, toPercent } from "@softure-ai/charts";
+
+const xPercent = toPercent(xScale(event.date), PLOT_WIDTH);
+const yPercent = 100 - toPercent(yScale(event.value), PLOT_HEIGHT); // from the bottom
+
+<ChartPlot
+  overlay={
+    <>
+      <ChartFlag xPercent={xPercent}>{messages.chart.retirement}</ChartFlag>
+      <ChartPin xPercent={xPercent} yPercent={yPercent} />
+    </>
+  }
+>
+  {/* grid, series */}
+</ChartPlot>;
+```
+
+The pin goes in `ChartPlot`'s overlay, in HTML, so the dot stays round however the plot stretches (an SVG circle
+in the stretched viewBox would be an ellipse). The line is the guide's dash (`--sft-chart-dash`,
+`--sft-chart-dash-gap`) in `--sft-chart-cursor`; the dot is `--sft-chart-dot-size`, filled with `--sft-chart-flag`
+(the colour of the chip over it) or, with `slot`, with that series' colour, and ringed in `--sft-chart-axis`, so a
+light fill on a light card keeps 3:1 (WCAG 1.4.11). `line={false}` draws the dot alone, for an event a `GuideLine`
+already marks. Positions are not clamped, as for flags: they come from the drawing's scales. The pin is hidden from
+assistive technology; the value belongs in the data table.
 
 ### Tokens
 
@@ -221,7 +250,7 @@ The package came out of FIRE_TRACKER's charts. What each FIRE file maps to, and 
 | `src/components/chart/value-axis.tsx` `amountTicks`, `ValueAxis` | `valueAxisTicks({ ticks, scale, format })`, `ValueAxis` | the zero tick's copy |
 | `src/components/chart/time-axis.tsx` `yearAxisTicks`, `TimeAxis` | `timeAxisTicks` (with `ends`), `TimeAxis` | the age row |
 | `src/components/chart/chart-legend.tsx` shapes `pole`, `kropka`, `linia`, `kreska`, `kropki` | `LegendSwatch` shapes `box`, `dot`, `line`, `dashed`, `dotted` and a `slot` | the outline from a colour in the database |
-| `src/components/chart/chart-flag.tsx` `ChartFlag` | `ChartFlag` (edge rule `edgeAlign`) | `ChartPin` until the package has one (CF-1) |
+| `src/components/chart/chart-flag.tsx` `ChartFlag`, `ChartPin` | `ChartFlag` (edge rule `edgeAlign`), `ChartPin` (`xPercent` on the pin, not a parent column; `variant="gleboka"` → `slot`; `size` → `--sft-chart-dot-size`) | the surface rings (`PIN_DOT_RING_CLASS`), as overrides of `--sft-chart-axis` |
 | `src/components/chart/chart-surface.ts` `percent`, `flagAnchorClass` | `percent`, `toPercent`, `edgeAlign` | the surfaces (`rola`, `czern`, `papier`) and tones, as overrides of the `--sft-chart-*` tokens |
 | `src/components/capital-chart-readout.tsx` (the cursor) | `ChartCursor`: arrows, Home/End, Escape, pointer events, a polite live readout | the readout's content |
 | `src/components/chart/unlock-step.ts` | — | all of it (FIRE's domain) |
