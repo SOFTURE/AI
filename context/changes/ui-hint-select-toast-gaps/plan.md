@@ -75,11 +75,11 @@ Done when: gates green (typecheck, lint, test, build).
 ### Phase 1: behaviour
 
 #### Automated
-- [ ] 1.1 Hint, Select and ToastHost tests seen red, then green
-- [ ] 1.2 Gates green (typecheck, lint, test)
+- [x] 1.1 Hint, Select and ToastHost tests seen red, then green — d83ed3c
+- [x] 1.2 Gates green (typecheck, lint, test) — d83ed3c
 
 ### Phase 2: CSS and docs
 
 #### Automated
-- [ ] 2.1 Compiled CSS tests seen red, then green
+- [x] 2.1 Compiled CSS tests seen red, then green — d83ed3c
 - [ ] 2.2 README, version 0.1.8, gates green (typecheck, lint, test, build)

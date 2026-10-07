@@ -1,7 +1,7 @@
 ---
 change_id: ui-hint-select-toast-gaps
 title: "ui: Hint, Select and ToastHost adoption gaps (issue #163)"
-status: plan_reviewed
+status: implemented
 roadmap_item: null
 issue: 163
 branch: claude/project-thread-jy92kw

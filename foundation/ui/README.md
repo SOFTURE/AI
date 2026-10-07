@@ -168,6 +168,7 @@ errors; `PasswordField` never replays. The server parses amounts with the same
 <Card title="Setup" step={2} done accent="success" headingLevel={3} collapsible defaultOpen>…</Card>
 <EmptyState title="No goals yet">Add a goal to see your progress.</EmptyState>
 <Hint label="About: Rate">Yearly interest rate before tax.</Hint>   {/* label names the "?" button */}
+<Hint label="About: Rate" triggerGap={8}>…</Hint>                  {/* px between "?" and bubble; 6 by default */}
 
 <Select name="currency" aria-label="Currency" defaultValue="PLN"
   options={[{ value: "PLN", label: "PLN" }, { value: "EUR", label: "EUR" }]} />
@@ -177,13 +178,20 @@ errors; `PasswordField` never replays. The server parses amounts with the same
   options={[{ value: "month", label: "Month" }, { value: "year", label: "Year" }]} />
 
 <ToastHost />                     {/* once per page, a polite live region */}
+<ToastHost regionProps={{ "data-testid": "toast-region" }} />   {/* id and data-* only: an anchor for browser tests */}
 announceToast("Saved");           // from any client code; the same text twice shows twice
 ```
 
 `Select` is a select-only combobox: arrows, Home/End, PageUp/PageDown, typing to jump (matched with
 `locale`), Enter or Tab to commit, Escape to close without a change; a hidden input sends the
-value. `Hint` opens on hover and focus, pins on click, and closes on Escape, an outside press or
-focus leaving it.
+value. Inside a container that animates in (a modal), the open list measures its trigger again when
+the animation or transition ends. `Hint` opens on hover and focus, pins on click, and closes on an
+outside press or focus leaving it; Escape closes it however it opened (hover and focus included).
+Before hydration it already opens on hover and focus, by CSS alone. The bubble resets
+`text-transform` and `letter-spacing`, so a hint inside an uppercase or tracked heading reads normally.
+
+Every `text-*` size carries Tailwind's default line height (a ratio of the size token); an explicit
+`leading-*` still wins.
 
 ### Modal
 
@@ -256,4 +264,4 @@ fails above 20 kB (NFR-7).
 - A utility whose theme value is missing compiles to nothing, silently. `tests/styles.test.ts`
   therefore requires a compiled selector for every `sft:` class written in `src/ui/`; the static
   theme in `scripts/build-css.mjs` adds the base spacing, one breakpoint, two container widths,
-  line heights and the spinner animation.
+  line heights (also the one each text size carries), tracking and the spinner animation.
