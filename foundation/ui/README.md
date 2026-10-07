@@ -89,6 +89,11 @@ or a comment throw.
   reads it before the first paint and sets `data-theme` on `<html>`; the server never reads it, so
   routes stay static. Use the same `cookieName` on `ThemeScript` and `ThemeSwitch` when you change it,
   and `cookieDomain` on the switch to share the choice across subdomains.
+- `cookieDomain` is a fixed domain, a function of the current hostname called on each change
+  (`(hostname) => domain | null`), or `{ apex: "https://example.com" }`, which a server component can pass:
+  it shares the cookie when the page is on the apex or one of its subdomains and keeps it host-only elsewhere
+  (`localhost`, an IP address, another host). The same rule is `getThemeCookieDomain(hostname, apex)`. A domain
+  that is not a hostname throws.
 - An app that already stores the choice keeps it: `cookieName="theme" cookieValues={{ light:
   "bright", dark: "night" }}` on both (and on `parseThemeCookie`, `buildThemeCookie`,
   `applyThemeChoice`). Values must be cookie octets and differ.
@@ -101,17 +106,17 @@ or a comment throw.
 
 | Group | Components and helpers |
 | --- | --- |
-| Actions | `Button` (`primary`, `secondary`, `ghost`, `danger`, `ink`, `ink-outline`; `sm`, `md`, `lg`; `pending`, `pendingLabel`), `ButtonLink`, `IconButton`, `getButtonClass` |
+| Actions | `Button` (`primary`, `secondary`, `ghost`, `danger`, `ink`, `ink-outline`; `sm`, `md`, `lg`; `pending`, `pendingLabel`), `ButtonLink`, `ButtonAnchor`, `IconButton`, `getButtonClass` |
 | Icons | `ArrowLeftIcon` … `ChatIcon`, `ChildIcon`, `LoanIcon` (35, decorative, `size` and `className`) |
 | Surfaces | `Card` (`boxed`, `lead`, `flat`; `step`, `done`, `accent`, `headingLevel`, `headingSize`, `collapsible`), `CardDisclosure`, `Stat`, `EmptyState`, `Hint`, `FormError` |
 | Fields | `Field`, `FieldGroup`, `TextField`, `PasswordField`, `MoneyField`, `SelectField`, `CheckboxField`, `INPUT_CLASS`, `NUMBER_INPUT_CLASS` |
 | Controls | `Select` (ARIA listbox), `Switch`, `SwitchControl`, `Checkbox`, `SegmentedControl`, `SEGMENTED_GROUP_CLASS` + `SEGMENT_ACTIVE_CLASS` / `SEGMENT_IDLE_CLASS` (an app's own segments) |
 | Dialogs and feedback | `Modal` (`form`, `confirmation`, `panel`), `StandingPanel`, `ModalBody`, `ModalFooter`, `ModalForm`, `ToastHost` + `announceToast` |
-| Forms | `ActionForm` (server action, value replay, field errors, success toast), `ActionResult` |
+| Forms | `ActionForm` (server action, value replay, field errors, success toast), `ActionResult`, `MessageActionResult` |
 | Locale | `UiLocaleProvider`, `useUiLocale` |
 | Money | `parseAmount`, `formatAmountInput`, `normalizeAmountInput`, `getAmountErrorMessage` |
 
-Server-safe (no `"use client"`): `Button`, `ButtonLink`, `IconButton`, icons, `Card`, `Stat`,
+Server-safe (no `"use client"`): `Button`, `ButtonLink`, `ButtonAnchor`, `IconButton`, icons, `Card`, `Stat`,
 `EmptyState`, `FormError`, `Field`, `FieldGroup`, the class constants. The rest are client components
 (`Card` and `Field` render their hint and collapsing through small client components).
 
@@ -127,7 +132,9 @@ Server-safe (no `"use client"`): `Button`, `ButtonLink`, `IconButton`, icons, `C
   props.
 - **Links.** `ButtonLink` renders `<a>` unless you inject your router's link:
   `<ButtonLink LinkComponent={Link} href="/pricing" variant="primary">`. The package never imports
-  `next/*`.
+  `next/*`. `ButtonAnchor` is always a plain `<a>`, for what a router link must not handle: a download
+  (`download`), an address outside the app, a full page load.
+- **`className`** on `Button`, `ButtonLink` and `ButtonAnchor` is added to the root after `classNames.root`.
 
 ### Forms
 
@@ -149,6 +156,11 @@ import { ActionForm, MoneyField, TextField } from "@softure-ai/ui";
 
 The action returns `{ ok: true }`, `ok()` or `ok(value)` (the form does not read the value), or
 `{ ok: false, error: "app.code", fieldErrors?: { name: "app.code" } }`.
+
+An app whose actions already return user-facing messages leaves out `getErrorMessage`: the action then returns a
+`MessageActionResult` (`{ ok: false, error: "Could not save.", fieldErrors?: { name: "Too long." } }`) and the
+form shows the strings as they are. The types keep the two apart: without `getErrorMessage` the action must return
+messages, with it codes.
 
 The submit button is `primary` unless `submitVariant` says otherwise. An app whose own forms
 defaulted to `secondary` passes it on every form it migrates, or the forms turn to the accent fill.

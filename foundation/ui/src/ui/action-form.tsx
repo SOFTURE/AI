@@ -16,7 +16,8 @@ import { useUiLocale } from "./locale.js";
 //   and shows the form error and each field's error.
 // - A successful submit announces `successMessage` as a toast and calls `onSuccess`.
 // - With `onCancel` it lays itself out as a modal's body and footer; otherwise it is a page form.
-// Errors come back as codes (docs/02 §6); `getErrorMessage` turns them into the app's copy.
+// Errors come back as codes (docs/02 §6) that `getErrorMessage` turns into the app's copy, or, for an app whose
+// actions already return user-facing text, as messages shown as they are (`MessageActionResult`, no mapper).
 
 /**
  * What the server action returns: success, or an error code with optional per-field codes. Success
@@ -26,6 +27,14 @@ export type ActionResult =
   | ActionSuccess
   | (Err<ErrorCode> & { readonly fieldErrors?: Readonly<Record<string, ErrorCode>> });
 
+/**
+ * What a server action returns when its errors are ready user-facing messages (already in the user's language),
+ * not codes. `ActionForm` shows them as they are when no `getErrorMessage` is given.
+ */
+export type MessageActionResult =
+  | ActionSuccess
+  | { readonly ok: false; readonly error: string; readonly fieldErrors?: Readonly<Record<string, string>> };
+
 /** A successful action: `Ok<T>` of any `T`, or a bare `{ ok: true }`. */
 export interface ActionSuccess {
   readonly ok: true;
@@ -34,10 +43,22 @@ export interface ActionSuccess {
 
 export type ActionFormSlot = "root" | "actions";
 
-export interface ActionFormProps extends CopyProps<"actionForm"> {
+/** Errors as codes: the action returns `ActionResult` and `getErrorMessage` gives the copy for each code. */
+export interface CodeErrorsProps {
   readonly action: (formData: FormData) => Promise<ActionResult>;
   /** The app's copy for an error code (the form error and every field error). */
   readonly getErrorMessage: (code: ErrorCode) => string;
+}
+
+/** Errors as messages: the action returns `MessageActionResult` and its strings are shown as they are. */
+export interface MessageErrorsProps {
+  readonly action: (formData: FormData) => Promise<MessageActionResult>;
+  readonly getErrorMessage?: undefined;
+}
+
+export type ActionFormProps = (CodeErrorsProps | MessageErrorsProps) & ActionFormOptions;
+
+export interface ActionFormOptions extends CopyProps<"actionForm"> {
   readonly submitLabel: string;
   /** The submit label while saving; the package's "Saving…" by default. */
   readonly pendingLabel?: string;
@@ -94,6 +115,19 @@ const DEFAULT_CLASSES: Readonly<Record<ActionFormSlot, string>> = {
   actions: "sft:flex sft:items-center sft:gap-2",
 };
 
+/** The form error and field errors of a failed result, as text. */
+function getErrorTexts(
+  result: Exclude<ActionResult | MessageActionResult, ActionSuccess>,
+  getErrorMessage: ((code: ErrorCode) => string) | undefined,
+): { message: string; fieldErrors: FieldErrors } {
+  // Without a mapper the props type the action as `MessageActionResult`: its errors are text already.
+  const toText = getErrorMessage === undefined ? (error: string) => error : (error: string) => getErrorMessage(error as ErrorCode);
+  return {
+    message: toText(result.error),
+    fieldErrors: Object.fromEntries(Object.entries(result.fieldErrors ?? {}).map(([name, error]) => [name, toText(error)])),
+  };
+}
+
 /** A form that submits to a server action and handles its result. */
 export function ActionForm({
   action,
@@ -117,7 +151,7 @@ export function ActionForm({
   const [state, formAction, isPending] = useActionState<FormState, FormData>(async (previous, formData) => {
     const submitCount = previous.replay.submitCount + 1;
     const values = getSubmittedValues(formData);
-    let result: ActionResult;
+    let result: ActionResult | MessageActionResult;
     try {
       result = await action(formData);
     } catch (error: unknown) {
@@ -131,14 +165,8 @@ export function ActionForm({
       if (successMessage !== "") announceToast(successMessage);
       return { status: "ok", replay: { values: {}, fieldErrors: {}, submitCount, hasReplay: false } };
     }
-    const fieldErrors: FieldErrors = Object.fromEntries(
-      Object.entries(result.fieldErrors ?? {}).map(([name, code]) => [name, getErrorMessage(code)]),
-    );
-    return {
-      status: "error",
-      message: getErrorMessage(result.error),
-      replay: { values, fieldErrors, submitCount, hasReplay: true },
-    };
+    const { message, fieldErrors } = getErrorTexts(result, getErrorMessage);
+    return { status: "error", message, replay: { values, fieldErrors, submitCount, hasReplay: true } };
   }, INITIAL_STATE);
 
   useEffect(() => {

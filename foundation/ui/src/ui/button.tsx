@@ -66,6 +66,8 @@ export interface ButtonLookProps {
   /** Let a long label wrap instead of keeping one line. */
   readonly wrap?: boolean;
   readonly classNames?: ClassNames<ButtonSlot>;
+  /** Added to the root after `classNames.root`; a shorthand for an app migrating from its own `className`. */
+  readonly className?: string;
   /** Render structure and behaviour only; the app styles every slot. */
   readonly unstyled?: boolean;
 }
@@ -83,9 +85,10 @@ export function getButtonClass({
 }
 
 function getLookSlots(props: ButtonLookProps) {
+  const root = [props.classNames?.root, props.className].filter((part) => part !== undefined && part !== "").join(" ");
   return createSlotClassGetter<ButtonSlot>({
     defaults: { root: getButtonClass(props), spinner: SPINNER },
-    classNames: props.classNames,
+    classNames: { ...props.classNames, root: root === "" ? undefined : root },
     unstyled: props.unstyled,
   });
 }
@@ -122,6 +125,7 @@ export function Button({
   fullWidth,
   wrap,
   classNames,
+  className,
   unstyled,
   pending = false,
   pendingLabel,
@@ -130,7 +134,7 @@ export function Button({
   children,
   ...rest
 }: ButtonProps) {
-  const slot = getLookSlots({ variant, size, fullWidth, wrap, classNames, unstyled });
+  const slot = getLookSlots({ variant, size, fullWidth, wrap, classNames, className, unstyled });
   const isSpinnerInLabel = pendingLabel !== undefined && iconLeft === undefined;
   return (
     <button
@@ -217,12 +221,13 @@ export function ButtonLink({
   fullWidth,
   wrap,
   classNames,
+  className,
   unstyled,
   LinkComponent,
   children,
   ...rest
 }: ButtonLinkProps) {
-  const slot = getLookSlots({ variant, size, fullWidth, wrap, classNames, unstyled });
+  const slot = getLookSlots({ variant, size, fullWidth, wrap, classNames, className, unstyled });
   const content = (
     <>
       {iconLeft}
@@ -232,6 +237,16 @@ export function ButtonLink({
   );
   const props = { ...rest, "data-variant": variant, "data-size": size, className: slot("root") };
   return LinkComponent === undefined ? <a {...props}>{content}</a> : <LinkComponent {...props}>{content}</LinkComponent>;
+}
+
+export type ButtonAnchorProps = Omit<ButtonLinkProps, "LinkComponent">;
+
+/**
+ * A plain `<a>` that looks like a button, for what a framework link must not handle: a download (`download`), an
+ * address outside the app, a full page load. `ButtonLink` with a `LinkComponent` is for routes of the app.
+ */
+export function ButtonAnchor(props: ButtonAnchorProps) {
+  return <ButtonLink {...props} />;
 }
 
 export type IconButtonTone = "neutral" | "danger";

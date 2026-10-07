@@ -31,6 +31,7 @@ export {
   DEFAULT_THEME_COOKIE,
   DEFAULT_THEME_COOKIE_VALUES,
   getThemeBootScript,
+  getThemeCookieDomain,
   parseThemeCookie,
   THEME_CHOICES,
   type ThemeBootScriptOptions,

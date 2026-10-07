@@ -14,3 +14,19 @@ export function seriesSlot(index: number): number {
 export function seriesClass(slot: number): string {
   return `sft-chart-series-${String(slot)}`;
 }
+
+/** `data-*` attributes a primitive passes through to its element, for an app's tests and hooks. */
+export interface DataAttributes {
+  readonly [attribute: `data-${string}`]: string | number | boolean | undefined;
+}
+
+/**
+ * A role colour for a line or marker, read from an existing token: `cursor`, `axis`, `grid` and `flag` from the
+ * chart tokens, the rest from the colour roles of @softure-ai/ui. An app colour that is no token goes in `style`.
+ */
+export type ChartTone = "cursor" | "axis" | "grid" | "flag" | "foreground" | "muted" | "accent" | "danger" | "success" | "warning";
+
+/** The class that sets `--sft-chart-tone` for a tone. */
+export function toneClass(tone: ChartTone): string {
+  return `sft-chart-tone-${tone}`;
+}
