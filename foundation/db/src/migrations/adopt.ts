@@ -11,8 +11,9 @@ import { describeSchema, diffSchemas } from "./introspect.js";
 import { LEDGER_MODULE_ID, readJournal, type JournalRow } from "./ledger.js";
 import { checkThrough, compareJournal, prepareUnits, toStep, type MigrationStep } from "./migrator.js";
 import { failWith, type MigrationProblem, type MigrationResult } from "./problems.js";
-import { buildReferenceSchema, collectWithDependencies } from "./reference.js";
+import { buildReferenceSchema, collectWithDependencies, listOwnedSchemas } from "./reference.js";
 import { withSession, type MigrationSession } from "./session.js";
+import { readAppTables } from "./stubs.js";
 
 export interface AdoptOptions {
   /** The enabled modules, as for `migrate`. */
@@ -65,11 +66,6 @@ export async function adoptModule(handle: DatabaseHandle, options: AdoptOptions)
     return failWith(throughProblems);
   }
 
-  const reference = await buildReferenceSchema({ modules: options.modules, units: units.value, target: unit, through });
-  if (!reference.ok) {
-    return reference;
-  }
-
   return withSession(handle, (session) =>
     withMigrationLock(session, async () => {
       const journal = await readJournal(session);
@@ -86,6 +82,13 @@ export async function adoptModule(handle: DatabaseHandle, options: AdoptOptions)
       const adopted = files.map((file) => toStep(unit, file));
       const report = { module: unit.module, version: options.version, dryRun: options.dryRun === true, ledger, dependencies, adopted };
 
+      // Built from the live database's app tables (module SQL may reference them, issue #170), so
+      // inside the lock and only once the checks above passed.
+      const appTables = await readAppTables(session, listOwnedSchemas(units.value));
+      const reference = await buildReferenceSchema({ modules: options.modules, units: units.value, target: unit, through, appTables });
+      if (!reference.ok) {
+        return reference;
+      }
       // The target's own schema only, compared before anything is written: applying a dependency
       // never changes it.
       const differences = diffSchemas(reference.value, await describeSchema(session, unit.schema));
