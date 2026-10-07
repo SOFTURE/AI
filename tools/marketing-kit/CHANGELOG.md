@@ -12,6 +12,11 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   phrase. A 0.1.8 `marketing.json` works as it is.
 - README: `record <video> --placeholder` (0.1.8) is the rehearsal before paying; a script that recorded fake
   voiceovers into a second cache with a copy of `marketing.json` can go.
+- `fill` replaces a value already in the input: the old value is selected and deleted on screen, then the new one is
+  typed (over a prefilled `45`, `fill … "50"` records `50`, not `4550`). An empty input records as before; `"clear":
+  false` keeps the old behaviour; an input the app refills makes the action fail with its name.
+- New `press` action and `Director.press(key, { times, perKey })`: any key (`Backspace`, `Enter`, `ControlOrMeta+A`)
+  one or more times. A hand-written `Director` needs the new method.
 
 ## 0.1.8
 

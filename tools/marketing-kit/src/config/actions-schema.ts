@@ -96,7 +96,7 @@ export const ARIA_ROLES = [
 
 export type AriaRole = (typeof ARIA_ROLES)[number];
 
-export const ACTION_NAMES = ["wide", "tap", "type", "fill", "blur", "focus", "bring", "mark", "still", "cue", "hold", "until", "checkScreen"] as const;
+export const ACTION_NAMES = ["wide", "tap", "type", "press", "fill", "blur", "focus", "bring", "mark", "still", "cue", "hold", "until", "checkScreen"] as const;
 
 export type ActionName = (typeof ACTION_NAMES)[number];
 
@@ -104,6 +104,8 @@ const LOCATOR_KINDS = ["role", "text", "label", "testId", "css"] as const;
 const REGEX_FLAGS_PATTERN = /^(?!.*(.).*\1)[imsu]*$/;
 /** The Director types into `input[name=…]` unquoted, so the name must be a CSS identifier. */
 const INPUT_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_-]*$/;
+/** A Playwright key name, modifiers joined with `+`; Playwright itself refuses a name it does not know. */
+const KEY_PATTERN = /^\S+$/;
 
 function compiles(source: string, flags: string): boolean {
   try {
@@ -205,9 +207,22 @@ export const actionSchema = z.discriminatedUnion("do", [
     perChar: seconds.optional().describe("Seconds per key (0-10, default 0.13)."),
   }),
   z.strictObject({
-    do: z.literal("fill").describe("Taps input[name=<input>], moves the camera onto it and types the value."),
+    do: z.literal("press").describe("Presses a key on the focused element, e.g. Backspace, Enter or ControlOrMeta+A."),
+    key: z
+      .string()
+      .regex(KEY_PATTERN, "must be a key name such as Backspace, Enter or ControlOrMeta+A")
+      .describe("A Playwright key name; modifiers joined with +, ControlOrMeta for the platform's shortcut key."),
+    times: z.number().int().min(1).max(50).optional().describe("How many times the key is pressed (1-50, default 1)."),
+    perKey: seconds.optional().describe("Seconds held after each press (0-10, default 0.13)."),
+  }),
+  z.strictObject({
+    do: z.literal("fill").describe("Taps input[name=<input>], moves the camera onto it, deletes a value already there and types the value."),
     input: z.string().regex(INPUT_NAME_PATTERN, "must be an input name such as age or returnRate").describe("The name attribute of the input, e.g. age."),
     value: z.string().describe("The text typed into the input."),
+    clear: z
+      .boolean()
+      .optional()
+      .describe("Select and delete a value already in the input before typing, on screen (default true); false types after it."),
   }),
   z.strictObject({ do: z.literal("blur").describe("Takes the focus off the active element.") }),
   z.strictObject({

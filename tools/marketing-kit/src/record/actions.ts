@@ -55,8 +55,13 @@ export async function runAction(director: Director, action: SceneAction): Promis
       return director.tap(getLocator(page, action.target), action.after === undefined ? undefined : { after: action.after });
     case "type":
       return director.type(action.text, action.perChar === undefined ? undefined : { perChar: action.perChar });
+    case "press":
+      return director.press(action.key, {
+        ...(action.times === undefined ? {} : { times: action.times }),
+        ...(action.perKey === undefined ? {} : { perKey: action.perKey }),
+      });
     case "fill":
-      return director.fill(action.input, action.value);
+      return director.fill(action.input, action.value, action.clear === undefined ? undefined : { clear: action.clear });
     case "blur":
       return director.blur();
     case "focus":

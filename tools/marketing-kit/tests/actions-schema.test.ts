@@ -136,6 +136,7 @@ describe("beat actions in marketing.json", () => {
       { do: "wide" },
       { do: "tap", target: { label: "Age" } },
       { do: "type", text: "36" },
+      { do: "press", key: "Backspace" },
       { do: "fill", input: "return_rate-2", value: "" },
       { do: "blur" },
       { do: "focus", target: { css: "label", hasText: { regex: "intent", flags: "i" }, nth: 2 } },
@@ -153,7 +154,7 @@ describe("beat actions in marketing.json", () => {
 
   it("names the allowed actions for an unknown one and the key for an unknown argument", () => {
     expect(loadErrors(withSceneActions([{ do: "click", target: { css: "a" } }, { do: "wide", zoom: 2 }]))).toEqual([
-      "videos[0].beats[1].actions[7].do: Invalid discriminator value. Expected 'wide' | 'tap' | 'type' | 'fill' | 'blur' | 'focus' | 'bring' | 'mark' | 'still' | 'cue' | 'hold' | 'until' | 'checkScreen'",
+      "videos[0].beats[1].actions[7].do: Invalid discriminator value. Expected 'wide' | 'tap' | 'type' | 'press' | 'fill' | 'blur' | 'focus' | 'bring' | 'mark' | 'still' | 'cue' | 'hold' | 'until' | 'checkScreen'",
       'videos[0].beats[1].actions[8]: Unrecognized key: "zoom"',
     ]);
   });
@@ -218,6 +219,44 @@ describe("beat actions in marketing.json", () => {
       "videos[0].beats[1].actions[10].input: must be an input name such as age or returnRate",
       "videos[0].beats[1].actions[11].target: needs at least one locator",
       "videos[0].beats[1].actions[12].seconds: Too big: expected number to be <=30",
+    ]);
+  });
+
+  it("takes a key with its repeat count and pace, and fill's clear switch", () => {
+    const beats = load(
+      withSceneActions([
+        { do: "press", key: "ControlOrMeta+A" },
+        { do: "press", key: "Backspace", times: 2, perKey: 0.2 },
+        { do: "fill", input: "intentAge", value: "50", clear: false },
+      ]),
+    ).videos[0]?.sceneSource;
+    if (beats?.kind !== "actions") throw new Error("the video has no actions");
+    expect(beats.beats[0]?.actions.slice(7)).toEqual([
+      { do: "press", key: "ControlOrMeta+A" },
+      { do: "press", key: "Backspace", times: 2, perKey: 0.2 },
+      { do: "fill", input: "intentAge", value: "50", clear: false },
+    ]);
+  });
+
+  it("refuses an empty key, a key with whitespace and a repeat count outside 1-50", () => {
+    expect(
+      loadErrors(
+        withSceneActions([
+          { do: "press", key: "" },
+          { do: "press", key: "Control A" },
+          { do: "press", key: "Backspace", times: 0 },
+          { do: "press", key: "Backspace", times: 51 },
+          { do: "press", key: "Backspace", times: 1.5 },
+          { do: "fill", input: "age", value: "36", clear: "yes" },
+        ]),
+      ),
+    ).toEqual([
+      "videos[0].beats[1].actions[7].key: must be a key name such as Backspace, Enter or ControlOrMeta+A",
+      "videos[0].beats[1].actions[8].key: must be a key name such as Backspace, Enter or ControlOrMeta+A",
+      "videos[0].beats[1].actions[9].times: Too small: expected number to be >=1",
+      "videos[0].beats[1].actions[10].times: Too big: expected number to be <=50",
+      "videos[0].beats[1].actions[11].times: Invalid input: expected int, received number",
+      "videos[0].beats[1].actions[12].clear: Invalid input: expected boolean, received string",
     ]);
   });
 
