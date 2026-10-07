@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/mcp-access",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "SOFTURE AI MCP access module: hashed, scoped, expiring access tokens, a rate-limited Bearer endpoint around the app's MCP server factory, and a token page with client setup instructions for Next.js.",
   "license": "MIT",
   "type": "module",
@@ -20,6 +20,7 @@
     "!src/**/*.test.ts",
     "!src/**/*.test.tsx",
     "migrations",
+    "adoption",
     "module.json"
   ],
   "publishConfig": {
