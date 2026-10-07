@@ -1,12 +1,13 @@
 ---
 change_id: feature-switches-adoption-gaps
 title: "feature-switches fits an app shell, refreshes its panel, and documents adopting an existing table"
-status: impl_reviewed
+status: archived
 roadmap_item: null
 issue: "#202"
 branch: claude/project-thread-obav7c
 created: 2026-10-07
 updated: 2026-10-07
+archived_at: 2026-10-07
 ---
 
 ## Intent
@@ -51,3 +52,4 @@ The issue's closing note (Vitest `server.deps.inline` for `/next` tests) is docu
   tests) are in the repository.
 - Framing skipped: the issue states the observed failures with measured workarounds and concrete suggestions;
   no competing cause is in question.
+- Archived 2026-10-07: the panel's row mapping is exported, `setSwitchAction` revalidates `routes.panel`, the privacy helpers take `{ db }` and count, and README §5 documents adopting an existing table (run by `tests/adoption.test.ts`) and the break-glass SQL; released as 0.1.7.
