@@ -23,6 +23,8 @@ export { TimeAxis } from "./svg/time-axis.js";
 export type { SwatchShape } from "./svg/legend.js";
 export { Legend, LegendItem, LegendSwatch } from "./svg/legend.js";
 export { ChartFlag } from "./svg/flag.js";
+export type { ChartPinProps } from "./svg/pin.js";
+export { ChartPin } from "./svg/pin.js";
 export type { ChartDataTableProps } from "./svg/data-table.js";
 export { ChartDataTable } from "./svg/data-table.js";
 

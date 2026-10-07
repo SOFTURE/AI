@@ -15,7 +15,7 @@ const RAW_COLOR = /#[0-9a-fA-F]{3,8}\b|\b(?:rgba?|hsla?|oklch|oklab|lab|lch|colo
 const COPY_ATTRIBUTE = /^(?:aria-label|aria-description|aria-roledescription|title|placeholder|alt|label|\w+Label)$/;
 const LETTER = /\p{L}/u;
 /** Custom properties styles.css defines itself, on top of the tokens. */
-const LOCAL_PROPERTIES = new Set(["--sft-chart-series", "--sft-chart-axis-width"]);
+const LOCAL_PROPERTIES = new Set(["--sft-chart-series", "--sft-chart-axis-width", "--sft-chart-dash", "--sft-chart-dash-gap"]);
 
 function getComponentSources(): { file: string; source: string }[] {
   return COMPONENT_DIRS.flatMap((dir) =>
