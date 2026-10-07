@@ -1,6 +1,6 @@
 # Implementation review: mailing-adoption-gaps
 
-Reviewed: the branch diff against master `518ef61` (commits `9a7fda2`, `49c0d8f`, `90f5559` and the phase 4 commit)
+Reviewed: the branch diff against master `518ef61` (commits `9a7fda2`, `49c0d8f`, `90f5559` and `1f167dd`)
 against plan.md, plan-review.md and AGENTS.md. Effort: high.
 
 ## Plan conformance

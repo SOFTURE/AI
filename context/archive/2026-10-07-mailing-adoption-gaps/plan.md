@@ -131,6 +131,6 @@ Done when: `npm run typecheck`, `lint`, `test`, `build` green.
 
 ### Phase 4: command, billing, docs
 
-- [x] CLI flags and summary
-- [x] billing reminder loop
-- [x] README, CHANGELOGs, versions
+- [x] CLI flags and summary — 1f167dd
+- [x] billing reminder loop — 1f167dd
+- [x] README, CHANGELOGs, versions — 1f167dd
