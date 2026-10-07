@@ -9,8 +9,12 @@ const KEBAB = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 function isBlockPlugin(value: unknown): value is BlockPlugin {
   if (typeof value !== "object" || value === null) return false;
-  const candidate = value as { type?: unknown; render?: unknown };
-  return typeof candidate.type === "string" && typeof candidate.render === "function";
+  const candidate = value as { type?: unknown; syntax?: unknown; render?: unknown; markdown?: unknown };
+  return (
+    typeof candidate.type === "string" && typeof candidate.render === "function" &&
+    (candidate.syntax === undefined || candidate.syntax === "fence" || candidate.syntax === "directive") &&
+    (candidate.markdown === undefined || typeof candidate.markdown === "function")
+  );
 }
 
 const range = (min: number, max: number) =>

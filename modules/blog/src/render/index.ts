@@ -14,8 +14,12 @@ export {
 export { DEFAULT_WORDS_PER_MINUTE, getReadingMinutes } from "./reading-time.js";
 export {
   findArticleBlocks,
+  parseDirectiveAttributes,
+  parseDirectiveLine,
   renderArticle,
   type ArticleBlock,
+  type BlockAttributes,
+  type BlockSyntax,
   type ArticleHeading,
   type ArticleSegment,
   type BlockArticle,

@@ -8,7 +8,7 @@ import { parseArticleFile, type ParseArticleFileOptions } from "../content/artic
 import { splitArticleBody, splitBlocks } from "./blocks.js";
 import { sortFindings, type QualityFinding } from "./finding.js";
 import type { QualityPlugin } from "./plugin.js";
-import { checkBlockRequires } from "./rules/blocks.js";
+import { checkBlockRequires, checkDirectives } from "./rules/blocks.js";
 import { checkImages } from "./rules/images.js";
 import type { RuleInput } from "./rules/input.js";
 import { checkLinks, collectLinks, type InternalLinkResolver } from "./rules/links.js";
@@ -58,6 +58,7 @@ export function checkArticle(input: CheckArticleInput): QualityCheckResult {
     ...checkStyle(ruleInput),
     ...checkRhythm(ruleInput),
     ...checkBlockRequires(article, pluginBlocks),
+    ...checkDirectives(blocks, pluginBlocks, settings.options.blocks),
     ...checkImages(images, settings.images),
   ];
   const fromPlugins = settings.options.plugins.flatMap((plugin) => runPlugin(plugin, { article, blocks, pluginBlocks, today, ruleset: settings.ruleset }));

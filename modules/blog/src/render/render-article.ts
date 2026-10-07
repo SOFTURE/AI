@@ -36,6 +36,10 @@
 // A fenced block whose type an app registers (```` ```chart ````) is rendered by the app's plugin, as
 // HTML or as a node (e.g. a React server component). Plugin output is the app's own code and is
 // trusted as is. Only top-level fences are plugin blocks; a fence inside a list or a quote stays code.
+//
+// A plugin with `syntax: "directive"` renders a leaf directive instead: a line of its own,
+// `::chart{type="wealth" scenario="…"}` (braces optional), with double-quoted values and each key
+// once. Like fences, only top-level lines count; a directive in a list, a quote or code stays text.
 import MarkdownIt, { type MarkdownIt as Markdown, type StateCore, type Token } from "markdown-it";
 import footnote from "markdown-it-footnote";
 import type { BlogFields } from "../contract.js";
@@ -61,12 +65,24 @@ export interface BlockArticle {
   readonly fields?: BlogFields;
 }
 
+/** How a block is written: a fence (```` ```chart ````) or a leaf directive (`::chart{…}`). */
+export type BlockSyntax = "fence" | "directive";
+
+/** A directive's attributes, or `null` when its braces cannot be read. Always `{}` for a fence. */
+export type BlockAttributes = Readonly<Record<string, string>> | null;
+
 export interface ArticleBlock {
-  /** The block type, the first word of the fence's info string. */
+  /** The block type: the first word of the fence's info string, or the directive's name. */
   readonly type: string;
-  /** The rest of the info string, trimmed: ```` ```chart wealth ```` → `"wealth"`. */
+  readonly syntax: BlockSyntax;
+  /**
+   * Fence: the rest of the info string, trimmed (```` ```chart wealth ```` → `"wealth"`). Directive:
+   * the text inside the braces, trimmed.
+   */
   readonly info: string;
-  /** The body of the fence, as written. */
+  /** `key="value"` pairs of a directive; `{}` for a fence. */
+  readonly attributes: BlockAttributes;
+  /** Fence: its body, as written. Directive: the whole line, trimmed. */
   readonly content: string;
   readonly article: BlockArticle;
 }
@@ -78,6 +94,8 @@ export type BlockOutput<TNode = unknown> =
 export interface BlockPlugin<TNode = unknown> {
   /** Lower-case kebab-case, e.g. `chart`. */
   readonly type: string;
+  /** Which blocks the plugin renders: fences (the default) or leaf directives. */
+  readonly syntax?: BlockSyntax;
   /**
    * The frontmatter keys the block reads (`current_as_of` or keys of the app's `fields`), so the
    * quality gate can report a block whose article lacks them.
@@ -85,6 +103,11 @@ export interface BlockPlugin<TNode = unknown> {
   readonly requires?: readonly string[];
   /** Throws only on a bug; a block that cannot render returns its own error markup. */
   readonly render: (block: ArticleBlock) => BlockOutput<TNode>;
+  /**
+   * The block as Markdown for agents (`toArticleMarkdown`, `Accept: text/markdown`): a table or a
+   * sentence. Without it the block's source stays in the Markdown.
+   */
+  readonly markdown?: (block: ArticleBlock) => string;
 }
 
 export type ArticleSegment<TNode = unknown> =
@@ -127,8 +150,10 @@ export interface RenderedArticle<TNode = unknown> {
 
 export interface FoundBlock {
   readonly type: string;
+  readonly syntax: BlockSyntax;
   readonly info: string;
-  /** 1-based line of the opening fence. */
+  readonly attributes: BlockAttributes;
+  /** 1-based line of the opening fence or of the directive. */
   readonly line: number;
   readonly requires: readonly string[];
 }
@@ -141,6 +166,48 @@ const FOOTNOTES_HEADING_ID = "footnotes";
 // Ids the renderer gives footnotes; a heading whose slug equals one of them gets a suffix.
 const FOOTNOTE_ID = /^(?:footnotes|fn(?:ref)?-\d+(?:-\d+)?)$/;
 const BLOCK_TOKEN = "blog_block";
+const DIRECTIVE_LINE = /^::([a-z][a-z0-9]*(?:-[a-z0-9]+)*)(?:\{(.*)\})?$/;
+const DIRECTIVE_START = /^::[a-z]/;
+const DIRECTIVE_ATTRIBUTE = /\s*([a-z][a-z0-9_-]*)="([^"]*)"\s*/y;
+
+interface BlockMeta {
+  readonly type: string;
+  readonly syntax: BlockSyntax;
+  readonly info: string;
+  readonly attributes: BlockAttributes;
+}
+
+/** The `key="value"` pairs inside a directive's braces; `null` when anything else is there or a key repeats. */
+export function parseDirectiveAttributes(text: string): BlockAttributes {
+  const attributes: Record<string, string> = {};
+  DIRECTIVE_ATTRIBUTE.lastIndex = 0;
+  let consumed = 0;
+  for (let found = DIRECTIVE_ATTRIBUTE.exec(text); found !== null; found = DIRECTIVE_ATTRIBUTE.exec(text)) {
+    const key = found[1] ?? "";
+    if (Object.hasOwn(attributes, key)) return null;
+    attributes[key] = found[2] ?? "";
+    consumed = DIRECTIVE_ATTRIBUTE.lastIndex;
+  }
+  return text.slice(consumed).trim() === "" ? attributes : null;
+}
+
+/**
+ * A line read as a leaf directive: its name, the text inside the braces and the attributes. `null`
+ * for a line that is not one (a name must follow `::`); a directive whose braces do not close keeps
+ * its name and gets `null` attributes.
+ */
+export function parseDirectiveLine(line: string): { readonly name: string; readonly info: string; readonly attributes: BlockAttributes } | null {
+  const trimmed = line.trim();
+  if (!DIRECTIVE_START.test(trimmed)) return null;
+  const match = DIRECTIVE_LINE.exec(trimmed);
+  if (match === null) {
+    const name = /^::([a-z][a-z0-9-]*)/.exec(trimmed)?.[1] ?? "";
+    const rest = trimmed.slice(2 + name.length).trim();
+    return { name, info: rest.replace(/^\{/, "").trim(), attributes: null };
+  }
+  const info = (match[2] ?? "").trim();
+  return { name: match[1] ?? "", info, attributes: parseDirectiveAttributes(info) };
+}
 
 function getDefaultTermHref(slug: string): string {
   return `/blog/glossary/${slug}`;
@@ -354,26 +421,77 @@ function addBlockTokens(md: Markdown, types: ReadonlySet<string>): void {
       const [type = "", ...rest] = token.info.trim().split(/\s+/);
       if (!types.has(type)) continue;
       token.type = BLOCK_TOKEN;
-      token.meta = { type, info: rest.join(" ") };
+      const meta: BlockMeta = { type, syntax: "fence", info: rest.join(" "), attributes: {} };
+      token.meta = { block: meta };
     }
   });
 }
 
-function getPluginsByType<TNode>(plugins: readonly BlockPlugin<TNode>[]): Map<string, BlockPlugin<TNode>> {
-  const byType = new Map<string, BlockPlugin<TNode>>();
+/**
+ * A block rule for top-level lines `::name{…}` of registered directive names. Before `paragraph`
+ * and allowed to end one, so a directive right under a paragraph line is still a block.
+ */
+function addDirectiveRule(md: Markdown, names: ReadonlySet<string>): void {
+  if (names.size === 0) return;
+  md.block.ruler.before(
+    "paragraph",
+    "blog_directive",
+    (state, startLine, _endLine, silent) => {
+      // Four spaces are an indented code block; a nested block (list, quote) is not top level.
+      if (state.level !== 0 || state.blkIndent !== 0 || (state.sCount[startLine] ?? 0) - state.blkIndent >= 4) return false;
+      const line = state.src.slice((state.bMarks[startLine] ?? 0) + (state.tShift[startLine] ?? 0), state.eMarks[startLine]);
+      const directive = parseDirectiveLine(line);
+      if (directive === null || !names.has(directive.name)) return false;
+      if (!silent) {
+        const token = state.push(BLOCK_TOKEN, "", 0);
+        token.block = true;
+        token.content = line.trim();
+        token.map = [startLine, startLine + 1];
+        const meta: BlockMeta = { type: directive.name, syntax: "directive", info: directive.info, attributes: directive.attributes };
+        token.meta = { block: meta };
+      }
+      state.line = startLine + 1;
+      return true;
+    },
+    { alt: ["paragraph"] },
+  );
+}
+
+/** The block a `blog_block` token stands for; set by `addBlockTokens` and `addDirectiveRule`. */
+function readBlockMeta(token: Token): BlockMeta {
+  return (token.meta as { block: BlockMeta }).block;
+}
+
+/** Plugins by `syntax:type`. */
+type PluginRegistry<TNode> = Map<string, BlockPlugin<TNode>>;
+
+function getPluginKey(syntax: BlockSyntax, type: string): string {
+  return `${syntax}:${type}`;
+}
+
+function getPluginsByType<TNode>(plugins: readonly BlockPlugin<TNode>[]): PluginRegistry<TNode> {
+  const byType: PluginRegistry<TNode> = new Map();
   for (const plugin of plugins) {
     if (!BLOCK_TYPE.test(plugin.type)) {
       throw new Error(`Block plugin type "${plugin.type}" must be lower-case kebab-case, e.g. "chart".`);
     }
-    if (byType.has(plugin.type)) throw new Error(`Block plugin type "${plugin.type}" is registered twice.`);
-    byType.set(plugin.type, plugin);
+    const syntax = plugin.syntax ?? "fence";
+    const key = getPluginKey(syntax, plugin.type);
+    if (byType.has(key)) {
+      throw new Error(syntax === "fence" ? `Block plugin type "${plugin.type}" is registered twice.` : `Block plugin type "${plugin.type}" (directive) is registered twice.`);
+    }
+    byType.set(key, plugin);
   }
   return byType;
 }
 
+function getTypes<TNode>(plugins: PluginRegistry<TNode>, syntax: BlockSyntax): Set<string> {
+  return new Set([...plugins.values()].filter((plugin) => (plugin.syntax ?? "fence") === syntax).map((plugin) => plugin.type));
+}
+
 function createMarkdown<TNode>(
   options: RenderArticleOptions<TNode>,
-  plugins: ReadonlyMap<string, BlockPlugin<TNode>>,
+  plugins: PluginRegistry<TNode>,
   state: RenderState,
 ): Markdown {
   const messages = options.messages ?? en.render;
@@ -383,7 +501,8 @@ function createMarkdown<TNode>(
   addImages(md, options.images);
   addFootnoteMarkup(md, messages);
   addExternalLinks(md, options.siteHosts ?? [], messages);
-  addBlockTokens(md, new Set(plugins.keys()));
+  addBlockTokens(md, getTypes(plugins, "fence"));
+  addDirectiveRule(md, getTypes(plugins, "directive"));
   addHeadingIds(md, state);
   addGlossaryLinks(
     md,
@@ -442,10 +561,10 @@ export function renderArticle<TNode = unknown>(markdown: string, options: Render
     if (token.type !== BLOCK_TOKEN) return;
     addHtmlSegment(segments, md.renderer.render(tokens.slice(start, index), md.options, env));
     start = index + 1;
-    const meta = token.meta as { type: string; info: string };
-    const plugin = plugins.get(meta.type);
+    const meta = readBlockMeta(token);
+    const plugin = plugins.get(getPluginKey(meta.syntax, meta.type));
     if (plugin === undefined) return;
-    const output = plugin.render({ type: meta.type, info: meta.info, content: token.content, article: options.article ?? {} });
+    const output = plugin.render({ ...meta, content: token.content, article: options.article ?? {} });
     if (output.kind === "html") {
       addHtmlSegment(segments, output.html);
     } else {
@@ -481,7 +600,8 @@ export function findArticleBlocks(markdown: string, plugins: readonly BlockPlugi
   const md = createMarkdown({ blocks: plugins }, byType, { headings: [], linkedTerms: [] });
   return md.parse(markdown, {}).flatMap((token) => {
     if (token.type !== BLOCK_TOKEN) return [];
-    const meta = token.meta as { type: string; info: string };
-    return [{ type: meta.type, info: meta.info, line: (token.map?.[0] ?? 0) + 1, requires: byType.get(meta.type)?.requires ?? [] }];
+    const meta = readBlockMeta(token);
+    const requires = byType.get(getPluginKey(meta.syntax, meta.type))?.requires ?? [];
+    return [{ type: meta.type, syntax: meta.syntax, info: meta.info, attributes: meta.attributes, line: (token.map?.[0] ?? 0) + 1, requires }];
   });
 }
