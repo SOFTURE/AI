@@ -69,3 +69,6 @@ No roadmap: issues are the tracker (project rule 2026-10-07).
   `standalone` warning); the reading needed (`app-facts.ts`, `init-command.ts`, `init-cli.test.ts`, the deploy
   README "init" section, db README §2) is summarised in `plan.md` § Findings.
 - Framing: skipped. The issue states the failure, the trigger and the done criteria.
+- 2026-10-07, after merging master (#158 added per-package CHANGELOGs, docs/02 §12): the change no longer bumps
+  `@softure-ai/deploy` itself. The package stays at 0.1.3 (workflow defaults too) and the warning is listed under
+  `## Unreleased` in `tools/deploy/CHANGELOG.md`; `npm run release:version` sets the version when the owner releases.
