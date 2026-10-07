@@ -1,7 +1,14 @@
 import { getMailingErrorMessage, mailingMessages, type MailingErrorCode } from "@softure-ai/mailing";
 import { describe, expect, it } from "vitest";
 
-const CODES: MailingErrorCode[] = ["mailing.invalid_input", "mailing.rejected", "mailing.unavailable", "mailing.suppressed"];
+const CODES: MailingErrorCode[] = [
+  "mailing.invalid_input",
+  "mailing.rejected",
+  "mailing.unavailable",
+  "mailing.suppressed",
+  "mailing.provider_refused",
+  "mailing.quota_exceeded",
+];
 
 describe("mailing messages", () => {
   it.each(["en", "pl"] as const)("have distinct copy in %s for every error code", (locale) => {

@@ -21,8 +21,11 @@ export interface ResendOptions {
 /** Resend's name for an idempotency key that another request is still using: retry later. */
 const CONCURRENT_IDEMPOTENT_REQUESTS = "concurrent_idempotent_requests";
 
-/** Statuses below 500 that mean "try again later", not "this mail is refused". */
-const RETRYABLE_CLIENT_STATUSES: ReadonlySet<number> = new Set([408, 429]);
+/** Resend's name for a 429 that is a per-second rate limit; any other 429 is a spent daily or monthly quota. */
+const RATE_LIMIT_EXCEEDED = "rate_limit_exceeded";
+
+/** Statuses that refuse the sender (missing, invalid or restricted key, account not allowed to send). */
+const REFUSED_STATUSES: ReadonlySet<number> = new Set([401, 403]);
 
 /** Sends through Resend's HTTP API. */
 export function resend(options: ResendOptions = {}): MailProvider {
@@ -72,11 +75,12 @@ async function readOutcome(response: Response): Promise<ProviderOutcome> {
     return id === null ? { status: "unavailable", httpStatus: response.status } : { status: "sent", id };
   }
   // Only the error's `name` (an enum) is read: its `message` can echo the address back.
-  const isRetryable =
-    response.status >= 500 ||
-    RETRYABLE_CLIENT_STATUSES.has(response.status) ||
-    (response.status === 409 && readString(payload, "name") === CONCURRENT_IDEMPOTENT_REQUESTS);
-  return { status: isRetryable ? "unavailable" : "rejected", httpStatus: response.status };
+  const name = readString(payload, "name");
+  const httpStatus = response.status;
+  if (REFUSED_STATUSES.has(httpStatus)) return { status: "refused", httpStatus };
+  if (httpStatus === 429) return { status: name === RATE_LIMIT_EXCEEDED ? "unavailable" : "quota_exceeded", httpStatus };
+  const isRetryable = httpStatus >= 500 || httpStatus === 408 || (httpStatus === 409 && name === CONCURRENT_IDEMPOTENT_REQUESTS);
+  return { status: isRetryable ? "unavailable" : "rejected", httpStatus };
 }
 
 function readString(payload: unknown, key: string): string | null {

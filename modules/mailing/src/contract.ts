@@ -1,6 +1,6 @@
 // Result types, error codes and the provider contract of the mailing module. No user-facing copy
 // here: the UI translates codes through `messages` (docs/02-module-standard.md §6).
-import type { ModuleContext, Result } from "@softure-ai/core";
+import type { Err, ModuleContext, Ok } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
 
 export type MailingErrorCode =
@@ -11,7 +11,17 @@ export type MailingErrorCode =
   /** The provider could not be reached or did not answer in time. Retry later, with the same idempotency key. */
   | "mailing.unavailable"
   /** A list mail to a recipient who unsubscribed. Nothing was sent; do not retry. */
-  | "mailing.suppressed";
+  | "mailing.suppressed"
+  /**
+   * The provider refuses the sender, not the mail: a wrong or revoked API key, a suspended or restricted account
+   * (HTTP 401/403). Every other mail would fail the same way: stop sending, fix the account, then retry.
+   */
+  | "mailing.provider_refused"
+  /** The account's sending quota is spent (HTTP 429 that is not a rate limit). Stop sending; retry when it renews. */
+  | "mailing.quota_exceeded";
+
+/** The codes that are about the sending account, not the mail: a run of sends stops at the first one. */
+export const HALTING_ERROR_CODES: ReadonlySet<MailingErrorCode> = new Set(["mailing.provider_refused", "mailing.quota_exceeded"]);
 
 /** Why an unsubscribe link was refused: missing, malformed, or not signed by a current secret. */
 export type UnsubscribeErrorCode = "mailing.invalid_link";
@@ -35,6 +45,32 @@ export interface UnsubscribeEvent {
  * and the suppression list never disagree. Set in `mailing({ onUnsubscribed })`.
  */
 export type OnUnsubscribedHook = (event: UnsubscribeEvent, ctx: ModuleContext<Queryable>) => Promise<void>;
+
+/** What `filterCampaignRecipient` receives for each recipient of a campaign. */
+export interface CampaignRecipient {
+  readonly address: string;
+  /** The recipient key of the address (`getRecipientKey`). */
+  readonly recipientKey: string;
+  readonly campaign: { readonly id: string; readonly kind: string };
+}
+
+/**
+ * Decides whether a campaign goes to a recipient, e.g. by the consent scope the app stored for the address. A
+ * recipient it refuses is skipped before the ledger is touched, so a later re-run sends to them once they qualify.
+ * A throw stops the campaign, like a database failure. Set in `mailing({ filterCampaignRecipient })`.
+ */
+export type CampaignRecipientFilter = (recipient: CampaignRecipient, ctx: ModuleContext<Queryable>) => Promise<boolean>;
+
+/**
+ * Unsubscribe links an app sent before it adopted the module, in its own scheme. `params` are the query names of
+ * such a link; `verify` receives their values (all present once, each at most 512 characters) and returns the
+ * recipient's address when the link is genuine, else `null`. It must check the link's signature itself: whatever
+ * address it returns is unsubscribed. A throw reads as a failure (the person may try again), not as a bad link.
+ */
+export interface LegacyUnsubscribe {
+  readonly params: readonly string[];
+  readonly verify: (values: Readonly<Record<string, string>>, ctx: ModuleContext<Queryable>) => Promise<string | null>;
+}
 
 /** One mail to one recipient. A mail to a list is a loop over recipients, never a list in `to`. */
 export interface OutgoingMail {
@@ -77,7 +113,10 @@ export interface SentMail {
   readonly provider: string;
 }
 
-export type SendMailResult = Result<SentMail, MailingErrorCode>;
+/** A failed send: the code, and the provider's HTTP status when it answered with one. */
+export type SendMailFailure = Err<MailingErrorCode> & { readonly httpStatus?: number };
+
+export type SendMailResult = Ok<SentMail> | SendMailFailure;
 
 /** What a provider receives: a validated mail with the sender and reply-to from the configuration. */
 export interface ProviderMessage {
@@ -91,11 +130,15 @@ export interface ProviderMessage {
   readonly idempotencyKey: string | null;
 }
 
-/** What a provider answers. `httpStatus` is logged; the mail never is. */
+/**
+ * What a provider answers. `httpStatus` is logged and returned with the failure; the mail never is. `refused` is the
+ * provider refusing the sender (key, account), `quota_exceeded` a spent sending quota; `rejected` is about this mail.
+ */
 export type ProviderOutcome =
   | { readonly status: "sent"; readonly id: string }
-  | { readonly status: "rejected"; readonly httpStatus?: number }
-  | { readonly status: "unavailable"; readonly httpStatus?: number };
+  | { readonly status: ProviderFailureStatus; readonly httpStatus?: number };
+
+export type ProviderFailureStatus = "rejected" | "unavailable" | "refused" | "quota_exceeded";
 
 /**
  * A mail service adapter. `send` should resolve with an outcome for every failure it knows; a

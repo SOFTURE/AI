@@ -12,7 +12,15 @@ const CAMPAIGN: CampaignContent = {
   html: "<p>Hello, we shipped something.</p>",
 };
 const RECIPIENTS = ["ada@example.org", "bob@example.org", "cy@example.org"];
-const NO_REJECTIONS = { "mailing.invalid_input": 0, "mailing.rejected": 0, "mailing.unavailable": 0, "mailing.suppressed": 0 };
+const NO_REJECTIONS = {
+  "mailing.invalid_input": 0,
+  "mailing.rejected": 0,
+  "mailing.unavailable": 0,
+  "mailing.suppressed": 0,
+  "mailing.provider_refused": 0,
+  "mailing.quota_exceeded": 0,
+};
+const NOTHING_ELSE = { filtered: 0, uncertain: 0, halted: null };
 
 async function countOutcomes(test: TestMailing): Promise<Record<string, number>> {
   const result = await test.database.client.query<{ status: string; count: number }>(
@@ -43,7 +51,7 @@ describe("sendCampaign", () => {
   it("sends the campaign to every recipient as list mail and records one outcome each", async () => {
     const result = await sendCampaign(test.ctx, { campaign: CAMPAIGN, recipients: RECIPIENTS });
 
-    expect(result).toEqual({ ok: true, value: { recipients: 3, sent: 3, rejected: NO_REJECTIONS, done: 0, inFlight: 0, retryLater: 0 } });
+    expect(result).toEqual({ ok: true, value: { recipients: 3, sent: 3, rejected: NO_REJECTIONS, done: 0, inFlight: 0, retryLater: 0, ...NOTHING_ELSE } });
     expect(provider.sent.map((mail) => mail.to)).toEqual(RECIPIENTS);
     expect(provider.sent.every((mail) => mail.subject === CAMPAIGN.subject && mail.text.startsWith(CAMPAIGN.text) && mail.html?.startsWith(CAMPAIGN.html ?? ""))).toBe(true);
     expect(provider.sent.every((mail) => mail.headers["List-Unsubscribe"] !== undefined)).toBe(true);
@@ -55,7 +63,7 @@ describe("sendCampaign", () => {
     await sendCampaign(test.ctx, { campaign: CAMPAIGN, recipients: RECIPIENTS });
     const again = await sendCampaign(test.ctx, { campaign: CAMPAIGN, recipients: [...RECIPIENTS, "dee@example.org"] });
 
-    expect(again).toEqual({ ok: true, value: { recipients: 4, sent: 1, rejected: NO_REJECTIONS, done: 3, inFlight: 0, retryLater: 0 } });
+    expect(again).toEqual({ ok: true, value: { recipients: 4, sent: 1, rejected: NO_REJECTIONS, done: 3, inFlight: 0, retryLater: 0, ...NOTHING_ELSE } });
     expect(provider.sent).toHaveLength(4);
     expect(await countOutcomes(test)).toEqual({ sent: 4 });
   });
@@ -92,6 +100,64 @@ describe("sendCampaign", () => {
     const second = await sendCampaign(test.ctx, { campaign: CAMPAIGN, recipients: RECIPIENTS });
     expect(second.ok && second.value).toMatchObject({ sent: 1, done: 2, retryLater: 0 });
     expect(await countOutcomes(test)).toEqual({ sent: 3 });
+  });
+
+  it.each([
+    ["a refused key", { status: "refused", httpStatus: 401 } as const, "mailing.provider_refused", 401],
+    ["a spent quota", { status: "quota_exceeded", httpStatus: 429 } as const, "mailing.quota_exceeded", 429],
+  ])("stops at %s, leaves that recipient and the rest untouched, and sends them on the next run", async (_case, refusal, reason, status) => {
+    respond.mockImplementation((message) => (message.to === "bob@example.org" ? refusal : undefined));
+    const first = await sendCampaign(test.ctx, { campaign: CAMPAIGN, recipients: RECIPIENTS });
+    expect(first).toEqual({
+      ok: true,
+      value: { recipients: 2, sent: 1, rejected: NO_REJECTIONS, done: 0, inFlight: 0, retryLater: 1, filtered: 0, uncertain: 0, halted: { reason, httpStatus: status } },
+    });
+    expect(provider.sent.map((mail) => mail.to)).toEqual(["ada@example.org"]);
+    expect(await countOutcomes(test)).toEqual({ pending: 1, sent: 1 });
+
+    respond.mockReturnValue(undefined);
+    const second = await sendCampaign(test.ctx, { campaign: CAMPAIGN, recipients: RECIPIENTS });
+    expect(second.ok && second.value).toMatchObject({ sent: 2, done: 1, halted: null });
+    expect(await countOutcomes(test)).toEqual({ sent: 3 });
+  });
+
+  it("skips recipients the module's filter refuses, stores nothing for them, and sends once they qualify", async () => {
+    const consented = new Set(["ada@example.org", "cy@example.org"]);
+    const filterCampaignRecipient = vi.fn(({ address }: { address: string }) => Promise.resolve(consented.has(address)));
+    const filtering = await createTestMailing(createConfig(provider, { filterCampaignRecipient }));
+    try {
+      const first = await sendCampaign(filtering.ctx, { campaign: CAMPAIGN, recipients: RECIPIENTS });
+      expect(first.ok && first.value).toMatchObject({ recipients: 3, sent: 2, filtered: 1 });
+      expect(filterCampaignRecipient).toHaveBeenCalledWith(
+        { address: "bob@example.org", recipientKey: getRecipientKey("bob@example.org"), campaign: { id: CAMPAIGN.id, kind: CAMPAIGN.kind } },
+        filtering.ctx,
+      );
+      expect(await countOutcomes(filtering)).toEqual({ sent: 2 });
+
+      consented.add("bob@example.org");
+      const second = await sendCampaign(filtering.ctx, { campaign: CAMPAIGN, recipients: RECIPIENTS });
+      expect(second.ok && second.value).toMatchObject({ sent: 1, done: 2, filtered: 0 });
+    } finally {
+      await filtering.database.close();
+    }
+  });
+
+  it("stops when the filter throws, like a database failure", async () => {
+    const filtering = await createTestMailing(createConfig(provider, { filterCampaignRecipient: () => Promise.reject(new Error("consents unreadable")) }));
+    try {
+      await expect(sendCampaign(filtering.ctx, { campaign: CAMPAIGN, recipients: RECIPIENTS })).rejects.toThrow("consents unreadable");
+      expect(provider.sent).toEqual([]);
+    } finally {
+      await filtering.database.close();
+    }
+  });
+
+  it("counts an uncertain claim and does not send it", async () => {
+    await registerCampaign(test.ctx, CAMPAIGN);
+    await insertCampaignClaim(test, "bob@example.org", new Date(NOW.getTime() - 24 * 3_600_000));
+    const result = await sendCampaign(test.ctx, { campaign: CAMPAIGN, recipients: RECIPIENTS });
+    expect(result.ok && result.value).toMatchObject({ sent: 2, uncertain: 1 });
+    expect(provider.sent.map((mail) => mail.to)).toEqual(["ada@example.org", "cy@example.org"]);
   });
 
   it("pauses after every mail that reached the provider, and reports each outcome", async () => {
@@ -167,7 +233,7 @@ describe("planCampaign", () => {
 
     const plan = await planCampaign(test.ctx, { campaign: CAMPAIGN, recipients: [...RECIPIENTS, "ADA@example.org"] });
 
-    expect(plan).toEqual({ recipients: 3, done: 1, suppressed: 1, toSend: 1, contentChanged: false });
+    expect(plan).toEqual({ recipients: 3, done: 1, suppressed: 1, filtered: 0, uncertain: 0, toSend: 1, contentChanged: false });
     expect(provider.sent).toHaveLength(1);
     expect(await countOutcomes(test)).toEqual({ sent: 1 });
   });
@@ -178,7 +244,35 @@ describe("planCampaign", () => {
   });
 
   it("plans a new campaign without registering it", async () => {
-    expect(await planCampaign(test.ctx, { campaign: CAMPAIGN, recipients: RECIPIENTS })).toEqual({ recipients: 3, done: 0, suppressed: 0, toSend: 3, contentChanged: false });
+    expect(await planCampaign(test.ctx, { campaign: CAMPAIGN, recipients: RECIPIENTS })).toEqual({
+      recipients: 3,
+      done: 0,
+      suppressed: 0,
+      filtered: 0,
+      uncertain: 0,
+      toSend: 3,
+      contentChanged: false,
+    });
     expect((await test.database.client.query("SELECT 1 FROM mailing.campaigns")).rows).toEqual([]);
   });
+
+  it("counts filtered and uncertain recipients, and sends uncertain ones only when told to retake them", async () => {
+    const filtering = await createTestMailing(createConfig(provider, { filterCampaignRecipient: ({ address }) => Promise.resolve(address !== "cy@example.org") }));
+    try {
+      await registerCampaign(filtering.ctx, CAMPAIGN);
+      await insertCampaignClaim(filtering, "bob@example.org", new Date(NOW.getTime() - 24 * 3_600_000));
+      const input = { campaign: CAMPAIGN, recipients: RECIPIENTS };
+      expect(await planCampaign(filtering.ctx, input)).toMatchObject({ filtered: 1, uncertain: 1, toSend: 1 });
+      expect(await planCampaign(filtering.ctx, input, { retakeUncertain: true })).toMatchObject({ filtered: 1, uncertain: 1, toSend: 2 });
+    } finally {
+      await filtering.database.close();
+    }
+  });
 });
+
+async function insertCampaignClaim(test: TestMailing, address: string, claimedAt: Date): Promise<void> {
+  await test.database.client.query(
+    "INSERT INTO mailing.deliveries (scope, recipient_key, kind, campaign_id, status, attempts, claimed_at, created_at) VALUES ($1, $2, $3, $4, 'claimed', 1, $5, $5)",
+    [`campaign:${CAMPAIGN.id}`, getRecipientKey(address), CAMPAIGN.kind, CAMPAIGN.id, claimedAt],
+  );
+}

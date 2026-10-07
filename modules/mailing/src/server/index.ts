@@ -7,6 +7,7 @@ export {
   registerCampaign,
   sendCampaign,
   type CampaignErrorCode,
+  type CampaignHalt,
   type CampaignPlan,
   type CampaignSummary,
   type SendCampaignOptions,
@@ -14,11 +15,13 @@ export {
 export {
   DEFAULT_MAX_ATTEMPTS,
   DEFAULT_STALE_CLAIM_MS,
+  DEFAULT_UNCERTAIN_CLAIM_MS,
   deliverOnce,
   type DeliverOptions,
   type Delivery,
   type DeliveryContext,
   type DeliveryOutcome,
+  type HaltingErrorCode,
 } from "./deliveries.js";
 export {
   checkSenderDns,
@@ -39,6 +42,9 @@ export { isSuppressed, liftSuppression, suppressRecipient, unsubscribe, type Sup
 export {
   buildUnsubscribeLinks,
   getRecipientKey,
+  getUnsubscribeLinkParams,
+  MAX_LEGACY_VALUE_LENGTH,
+  readUnsubscribeLink,
   MIN_UNSUBSCRIBE_SECRET_LENGTH,
   readUnsubscribeSecrets,
   readUnsubscribeToken,
@@ -49,6 +55,8 @@ export {
   UNSUBSCRIBE_SECRET_ENV,
   verifyUnsubscribeToken,
   type Env,
+  type LinkParams,
+  type UnsubscribeLink,
   type UnsubscribeLinks,
   type UnsubscribeSecrets,
   type UnsubscribeToken,

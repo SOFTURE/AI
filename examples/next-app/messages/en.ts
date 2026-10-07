@@ -152,6 +152,8 @@ export const en = {
     "mailing.rejected": "The mail service refused this message.",
     "mailing.unavailable": "The mail service is not answering. Try again in a moment.",
     "mailing.suppressed": "You unsubscribed from newsletters, so nothing was sent.",
+    "mailing.provider_refused": "The mail service refused our account, so nothing was sent.",
+    "mailing.quota_exceeded": "We reached our sending limit for now. Try again later.",
     "core.unexpected": "Something went wrong. Try again.",
   },
 };

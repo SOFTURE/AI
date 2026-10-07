@@ -154,6 +154,8 @@ export const pl: AppMessages = {
     "mailing.rejected": "Usługa pocztowa odrzuciła tę wiadomość.",
     "mailing.unavailable": "Usługa pocztowa nie odpowiada. Spróbuj ponownie za chwilę.",
     "mailing.suppressed": "Ten adres wypisał się z newslettera, więc nic nie wysłano.",
+    "mailing.provider_refused": "Usługa pocztowa odrzuciła nasze konto, więc nic nie wysłano.",
+    "mailing.quota_exceeded": "Wyczerpaliśmy na razie limit wysyłki. Spróbuj ponownie później.",
     "core.unexpected": "Coś poszło nie tak. Spróbuj ponownie.",
   },
 };

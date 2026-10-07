@@ -31,6 +31,8 @@ export const deliveries = mailingSchema.table(
     finishedAt: timestamp("finished_at", { withTimezone: true }),
     providerMessageId: text("provider_message_id"),
     reason: text("reason"),
+    /** The provider's HTTP status of the last answer that failed or was released; null when there was none. */
+    providerStatus: integer("provider_status"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   },
   (table) => [primaryKey({ columns: [table.scope, table.recipientKey] })],

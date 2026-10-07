@@ -1,18 +1,26 @@
 // Campaigns: one list mail to many recipients through the delivery ledger. The campaign row pins
 // the content (a hash of kind, subject and bodies), so a re-run with the same id sends the rest of
-// the same mail and nothing twice; other content under that id is refused.
+// the same mail and nothing twice; other content under that id is refused. A run stops at the first
+// failure about the sending account (refused key, spent quota), leaving the rest for the next run.
 import { createHash } from "node:crypto";
 import { err, ok, type Result } from "@softure-ai/core";
 import { and, eq, inArray } from "drizzle-orm";
-import type { MailingErrorCode } from "../contract.js";
+import type { CampaignRecipient, MailingErrorCode } from "../contract.js";
 import { campaigns, deliveries } from "../schema.js";
 import { getCampaignProblems, type CampaignContent } from "./campaign-file.js";
-import { deliverOnce, type DeliverOptions, type DeliveryContext, type DeliveryOutcome } from "./deliveries.js";
+import { deliverOnce, type DeliverOptions, type DeliveryContext, type DeliveryOutcome, type HaltingErrorCode } from "./deliveries.js";
+import { getMailingOptions } from "./options.js";
 import { isSuppressed } from "./suppressions.js";
 import { getRecipientKey } from "./unsubscribe-link.js";
 
 /** Rejections the provider answered (the others never left the process). */
 const PROVIDER_REASONS: ReadonlySet<MailingErrorCode> = new Set(["mailing.rejected", "mailing.unavailable"]);
+
+/** Why a run stopped before the end of the list. */
+export interface CampaignHalt {
+  readonly reason: HaltingErrorCode;
+  readonly httpStatus?: number;
+}
 
 /** The campaign id is taken by other content. Give the new content a new id. */
 export type CampaignErrorCode = "mailing.campaign_changed";
@@ -29,6 +37,15 @@ export interface CampaignSummary {
   readonly inFlight: number;
   /** The provider was unavailable; the next run tries them again. */
   readonly retryLater: number;
+  /** Skipped by `filterCampaignRecipient`; nothing stored, so a later run sends to them once they qualify. */
+  readonly filtered: number;
+  /** Claimed more than `uncertainClaimMs` ago and never closed: their mail may have gone out. */
+  readonly uncertain: number;
+  /**
+   * Set when the run stopped at a failure about the sending account. The recipient it happened to and every one
+   * after it were left as they were; run again once the account can send.
+   */
+  readonly halted: CampaignHalt | null;
 }
 
 export interface SendCampaignOptions extends DeliverOptions {
@@ -61,7 +78,9 @@ export async function registerCampaign(ctx: DeliveryContext, content: CampaignCo
 
 /**
  * Sends `campaign` to every recipient that has no outcome yet, one at a time. Recipients who
- * unsubscribed are rejected (`mailing.suppressed`) and never retried. Throws on a database failure.
+ * unsubscribed are rejected (`mailing.suppressed`) and never retried; recipients the module's
+ * `filterCampaignRecipient` refuses are skipped. Stops at the first `halted` delivery. Throws on a
+ * database failure and when the filter throws.
  */
 export async function sendCampaign(
   ctx: DeliveryContext,
@@ -73,13 +92,18 @@ export async function sendCampaign(
   const registered = await registerCampaign(ctx, campaign);
   if (!registered.ok) return registered;
 
-  const counts = { sent: 0, done: 0, inFlight: 0, retryLater: 0, rejected: emptyRejections() };
+  const counts: Counts = { sent: 0, done: 0, inFlight: 0, retryLater: 0, filtered: 0, uncertain: 0, rejected: emptyRejections() };
   const seen = new Set<string>();
   const scope = `campaign:${campaign.id}`;
+  const isWanted = createRecipientFilter(ctx, campaign);
   for await (const address of input.recipients) {
     const recipientKey = getRecipientKey(address);
     if (seen.has(recipientKey)) continue;
     seen.add(recipientKey);
+    if (!(await isWanted(address, recipientKey))) {
+      counts.filtered += 1;
+      continue;
+    }
 
     const html = campaign.html === null ? {} : { html: campaign.html };
     const outcome = await deliverOnce(
@@ -89,10 +113,26 @@ export async function sendCampaign(
     );
     countOutcome(counts, outcome);
     onDelivery?.(outcome);
+    if (outcome.status === "halted") {
+      // The rest of the list is not even counted as seen: the summary covers what this run reached.
+      const httpStatus = outcome.httpStatus === undefined ? {} : { httpStatus: outcome.httpStatus };
+      return ok({ recipients: seen.size, ...counts, halted: { reason: outcome.reason, ...httpStatus } });
+    }
     const reachedProvider = outcome.status === "sent" || outcome.status === "retry-later" || (outcome.status === "rejected" && PROVIDER_REASONS.has(outcome.reason));
     if (reachedProvider && pauseMs > 0) await sleep(pauseMs);
   }
-  return ok({ recipients: seen.size, ...counts });
+  return ok({ recipients: seen.size, ...counts, halted: null });
+}
+
+/** `filterCampaignRecipient` bound to the campaign, or "everyone" when the app set none. */
+function createRecipientFilter(ctx: DeliveryContext, campaign: CampaignContent): (address: string, recipientKey: string) => Promise<boolean> {
+  const filter = getMailingOptions(ctx.config).filterCampaignRecipient;
+  if (filter === undefined) return () => Promise.resolve(true);
+  const target = { id: campaign.id, kind: campaign.kind };
+  return (address, recipientKey) => {
+    const recipient: CampaignRecipient = { address, recipientKey, campaign: target };
+    return filter(recipient, ctx);
+  };
 }
 
 export interface CampaignPlan {
@@ -101,16 +141,27 @@ export interface CampaignPlan {
   readonly done: number;
   /** Not closed yet, but unsubscribed: they will be rejected without a send. */
   readonly suppressed: number;
+  /** Not closed yet, but `filterCampaignRecipient` refuses them: they will be skipped. */
+  readonly filtered: number;
+  /**
+   * Claimed more than `uncertainClaimMs` ago and never closed: skipped unless the run retakes uncertain claims
+   * (then they are sent again and counted in `toSend` too).
+   */
+  readonly uncertain: number;
   /** Would be sent now. */
   readonly toSend: number;
   /** The campaign id is stored with other content: a real run would be refused. */
   readonly contentChanged: boolean;
 }
 
-/** What `sendCampaign` would do, without writing or sending anything. Throws on a database failure. */
+/**
+ * What `sendCampaign` would do, without writing or sending anything (the filter runs, and must not write). Throws
+ * on a database failure. `toSend` counts uncertain recipients only with `retakeUncertain`.
+ */
 export async function planCampaign(
   ctx: DeliveryContext,
   input: { readonly campaign: CampaignContent; readonly recipients: Iterable<string> | AsyncIterable<string> },
+  options: Pick<DeliverOptions, "uncertainClaimMs" | "retakeUncertain"> = {},
 ): Promise<CampaignPlan> {
   const { campaign } = input;
   assertCampaign(campaign);
@@ -122,20 +173,35 @@ export async function planCampaign(
     const key = getRecipientKey(address);
     if (!addresses.has(key)) addresses.set(key, address);
   }
+  const uncertainBefore = ctx.clock.now().getTime() - (options.uncertainClaimMs ?? getMailingOptions(ctx.config).uncertainClaimMs);
   const closed = new Set<string>();
+  const uncertainKeys = new Set<string>();
   const keys = [...addresses.keys()];
   for (let start = 0; start < keys.length; start += 1_000) {
     const rows = await ctx.db
-      .select({ recipientKey: deliveries.recipientKey })
+      .select({ recipientKey: deliveries.recipientKey, status: deliveries.status, claimedAt: deliveries.claimedAt })
       .from(deliveries)
-      .where(and(eq(deliveries.scope, `campaign:${campaign.id}`), inArray(deliveries.status, ["sent", "rejected"]), inArray(deliveries.recipientKey, keys.slice(start, start + 1_000))));
-    rows.forEach((row) => closed.add(row.recipientKey));
+      .where(and(eq(deliveries.scope, `campaign:${campaign.id}`), inArray(deliveries.status, ["sent", "rejected", "claimed"]), inArray(deliveries.recipientKey, keys.slice(start, start + 1_000))));
+    for (const row of rows) {
+      if (row.status !== "claimed") closed.add(row.recipientKey);
+      else if (row.claimedAt.getTime() < uncertainBefore) uncertainKeys.add(row.recipientKey);
+    }
   }
+  const isWanted = createRecipientFilter(ctx, campaign);
   let suppressed = 0;
+  let filtered = 0;
+  let toSend = 0;
+  let uncertain = 0;
   for (const [key, address] of addresses) {
-    if (!closed.has(key) && (await isSuppressed(ctx, address))) suppressed += 1;
+    if (closed.has(key)) continue;
+    if (!(await isWanted(address, key))) filtered += 1;
+    else if (await isSuppressed(ctx, address)) suppressed += 1;
+    else if (uncertainKeys.has(key)) {
+      uncertain += 1;
+      if (options.retakeUncertain === true) toSend += 1;
+    } else toSend += 1;
   }
-  return { recipients: addresses.size, done: closed.size, suppressed, toSend: addresses.size - closed.size - suppressed, contentChanged };
+  return { recipients: addresses.size, done: closed.size, suppressed, filtered, uncertain, toSend, contentChanged };
 }
 
 function assertCampaign(content: CampaignContent): void {
@@ -144,13 +210,20 @@ function assertCampaign(content: CampaignContent): void {
 }
 
 function emptyRejections(): Record<MailingErrorCode, number> {
-  return { "mailing.invalid_input": 0, "mailing.rejected": 0, "mailing.unavailable": 0, "mailing.suppressed": 0 };
+  return { "mailing.invalid_input": 0, "mailing.rejected": 0, "mailing.unavailable": 0, "mailing.suppressed": 0, "mailing.provider_refused": 0, "mailing.quota_exceeded": 0 };
 }
 
-function countOutcome(
-  counts: { sent: number; done: number; inFlight: number; retryLater: number; rejected: Record<MailingErrorCode, number> },
-  outcome: DeliveryOutcome,
-): void {
+interface Counts {
+  sent: number;
+  done: number;
+  inFlight: number;
+  retryLater: number;
+  filtered: number;
+  uncertain: number;
+  rejected: Record<MailingErrorCode, number>;
+}
+
+function countOutcome(counts: Counts, outcome: DeliveryOutcome): void {
   switch (outcome.status) {
     case "sent":
       counts.sent += 1;
@@ -165,7 +238,12 @@ function countOutcome(
       counts.inFlight += 1;
       return;
     case "retry-later":
+    case "halted":
+      // A halted recipient is left for the next run, like one the provider could not take now.
       counts.retryLater += 1;
+      return;
+    case "uncertain":
+      counts.uncertain += 1;
       return;
   }
 }

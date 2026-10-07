@@ -5,7 +5,17 @@
 // link in a footer and the RFC 8058 headers, and is refused for a recipient who unsubscribed.
 import { err, ok, type SoftureConfig } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
-import { TRANSACTIONAL_KIND, type MailingErrorCode, type MailProvider, type OutgoingMail, type ProviderMessage, type ProviderOutcome, type SendMailOptions, type SendMailResult } from "../contract.js";
+import {
+  TRANSACTIONAL_KIND,
+  type MailingErrorCode,
+  type MailProvider,
+  type OutgoingMail,
+  type ProviderFailureStatus,
+  type ProviderMessage,
+  type ProviderOutcome,
+  type SendMailOptions,
+  type SendMailResult,
+} from "../contract.js";
 import type { MailingMessages } from "../messages/index.js";
 import { addHtmlFooter, addTextFooter, getListUnsubscribeHeaders } from "./list-mail.js";
 import { getMailingModule, getMailingOptions } from "./options.js";
@@ -27,7 +37,9 @@ type MailContent = Omit<ProviderMessage, "from" | "replyTo" | "idempotencyKey">;
 /**
  * Sends `mail` and resolves with the provider's message id or a `mailing.*` code:
  * `invalid_input` (fix the input), `rejected` (do not retry), `unavailable` (retry later with the
- * same `idempotencyKey`), `suppressed` (a list mail to someone who unsubscribed; do not retry).
+ * same `idempotencyKey`), `suppressed` (a list mail to someone who unsubscribed; do not retry),
+ * `provider_refused` / `quota_exceeded` (the account cannot send: stop, fix or wait, then retry). A
+ * failure the provider answered with an HTTP status carries it as `httpStatus`.
  * Throws only when the module is not enabled, or for list mail without `context.db`.
  */
 export async function sendMail(context: MailContext, mail: OutgoingMail, options: SendMailOptions = {}): Promise<SendMailResult> {
@@ -54,10 +66,17 @@ export async function sendMail(context: MailContext, mail: OutgoingMail, options
   if (outcome.status === "sent") {
     return ok({ id: outcome.id, provider: provider.name });
   }
-  const code: MailingErrorCode = `mailing.${outcome.status}`;
+  const code = FAILURE_CODES[outcome.status];
   logFailure(provider, code, { status: outcome.httpStatus });
-  return err(code);
+  return outcome.httpStatus === undefined ? err(code) : { ...err(code), httpStatus: outcome.httpStatus };
 }
+
+const FAILURE_CODES: Readonly<Record<ProviderFailureStatus, MailingErrorCode>> = {
+  rejected: "mailing.rejected",
+  unavailable: "mailing.unavailable",
+  refused: "mailing.provider_refused",
+  quota_exceeded: "mailing.quota_exceeded",
+};
 
 type ListMailResult =
   | { readonly ok: true; readonly value: MailContent }
@@ -130,10 +149,15 @@ function readOutcome(outcome: unknown): ProviderOutcome {
   if (status === "sent") {
     return typeof id === "string" && id !== "" ? { status, id } : { status: "unavailable" };
   }
-  if (status === "rejected" || status === "unavailable") {
-    return typeof httpStatus === "number" ? { status, httpStatus } : { status };
+  if (typeof status === "string" && Object.hasOwn(FAILURE_CODES, status)) {
+    const failure = status as ProviderFailureStatus;
+    return isHttpStatus(httpStatus) ? { status: failure, httpStatus } : { status: failure };
   }
   return { status: "unavailable" };
+}
+
+function isHttpStatus(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 100 && value <= 599;
 }
 
 /**

@@ -5,7 +5,7 @@
 // so it never reaches a log, an error or a result.
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import type { SoftureConfig } from "@softure-ai/core";
-import { getMailingRoutes } from "./options.js";
+import { getMailingOptions, getMailingRoutes } from "./options.js";
 
 /** Signs every new link and verifies. */
 export const UNSUBSCRIBE_SECRET_ENV = "MAILING_UNSUBSCRIBE_SECRET";
@@ -99,6 +99,46 @@ export function buildUnsubscribeLinks(config: SoftureConfig, address: string, se
     page: `${config.appOrigin}${routes.unsubscribe}?${query.toString()}`,
     oneClick: `${config.appOrigin}${routes.oneClick}?${query.toString()}`,
   };
+}
+
+/** A legacy link's value longer than this makes the link invalid before the app's `verify` sees it. */
+export const MAX_LEGACY_VALUE_LENGTH = 512;
+
+/** The link a person followed: the module's signed one, or one the app sent before it adopted the module. */
+export type UnsubscribeLink =
+  | { readonly scheme: "signed"; readonly token: UnsubscribeToken }
+  | { readonly scheme: "legacy"; readonly values: Readonly<Record<string, string>> };
+
+/** Reads one query or form value; `URLSearchParams` and `FormData` both fit. */
+export interface LinkParams {
+  get(name: string): unknown;
+}
+
+/**
+ * The link in a query or a form. A link with the recipient parameter (`r`) is a signed link, whatever else it
+ * carries, so a crafted URL cannot route a signed link to the app's legacy check. Without it, and with
+ * `mailing({ legacyUnsubscribe })`, a link that has every legacy parameter (non-empty, at most 512 characters) is
+ * a legacy link. Anything else is `null`. Checks no signature: `unsubscribe` does.
+ */
+export function readUnsubscribeLink(params: LinkParams, config: SoftureConfig): UnsubscribeLink | null {
+  if (params.get(RECIPIENT_PARAM) !== null && params.get(RECIPIENT_PARAM) !== undefined) {
+    const token = readUnsubscribeToken(params);
+    return token === null ? null : { scheme: "signed", token };
+  }
+  const legacy = getMailingOptions(config).legacyUnsubscribe;
+  if (legacy === undefined) return null;
+  const values: Record<string, string> = {};
+  for (const name of legacy.params) {
+    const value = params.get(name);
+    if (typeof value !== "string" || value === "" || value.length > MAX_LEGACY_VALUE_LENGTH) return null;
+    values[name] = value;
+  }
+  return { scheme: "legacy", values };
+}
+
+/** The query (or form) parameters that carry `link`, to send it back to the page. */
+export function getUnsubscribeLinkParams(link: UnsubscribeLink): Record<string, string> {
+  return link.scheme === "signed" ? { [RECIPIENT_PARAM]: link.token.recipientKey, [SIGNATURE_PARAM]: link.token.signature } : { ...link.values };
 }
 
 /** The token in a link's query (or a form), when both parameters are present once. */

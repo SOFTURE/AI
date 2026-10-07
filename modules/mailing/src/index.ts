@@ -17,7 +17,7 @@ export const MODULE_ID = "mailing";
 export const mailing = defineModule({
   manifest: {
     id: MODULE_ID,
-    version: "0.1.6",
+    version: "0.1.7",
     dependsOn: {},
     dbSchema: "mailing",
     tables: ["suppressions", "campaigns", "deliveries"],
@@ -64,14 +64,19 @@ export {
   MAX_SUBJECT_LENGTH,
   RESERVED_HEADERS,
 } from "./address.js";
-export { TRANSACTIONAL_KIND } from "./contract.js";
+export { HALTING_ERROR_CODES, TRANSACTIONAL_KIND } from "./contract.js";
 export type {
+  CampaignRecipient,
+  CampaignRecipientFilter,
+  LegacyUnsubscribe,
   MailingErrorCode,
   MailProvider,
   OnUnsubscribedHook,
   OutgoingMail,
+  ProviderFailureStatus,
   ProviderMessage,
   ProviderOutcome,
+  SendMailFailure,
   SendMailOptions,
   SendMailResult,
   SentMail,
@@ -80,6 +85,6 @@ export type {
   UnsubscribeEvent,
 } from "./contract.js";
 export { getMailingErrorMessage, mailingMessages, type MailingMessages } from "./messages/index.js";
-export { DEFAULT_TIMEOUT_MS, type MailingOptions, type MailingOptionsInput } from "./options.js";
+export { DEFAULT_STALE_CLAIM_MS, DEFAULT_TIMEOUT_MS, DEFAULT_UNCERTAIN_CLAIM_MS, type MailingOptions, type MailingOptionsInput } from "./options.js";
 export { resend, RESEND_API_KEY_ENV, RESEND_ENDPOINT, type ResendOptions } from "./providers/resend.js";
 export { campaigns, deliveries, mailingSchema, suppressions, type DeliveryStatus } from "./schema.js";

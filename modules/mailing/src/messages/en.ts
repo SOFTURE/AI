@@ -5,6 +5,8 @@ export const en = {
       rejected: "The mail service refused this message.",
       unavailable: "The mail service is not answering. Try again in a moment.",
       suppressed: "This address unsubscribed from these emails, so nothing was sent.",
+      provider_refused: "The mail service refused our account, so nothing was sent. We need to fix it on our side.",
+      quota_exceeded: "We reached our sending limit for now. Try again later.",
     },
   },
   footer: {

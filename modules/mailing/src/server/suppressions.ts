@@ -9,7 +9,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import type { SuppressionSource, UnsubscribeErrorCode } from "../contract.js";
 import { suppressions } from "../schema.js";
 import { getMailingOptions } from "./options.js";
-import { getRecipientKey, readUnsubscribeSecrets, verifyUnsubscribeToken, type Env, type UnsubscribeToken } from "./unsubscribe-link.js";
+import { getRecipientKey, readUnsubscribeSecrets, verifyUnsubscribeToken, type Env, type UnsubscribeLink, type UnsubscribeToken } from "./unsubscribe-link.js";
 
 export type SuppressionContext = ModuleContext<Queryable>;
 
@@ -54,24 +54,39 @@ export async function liftSuppression(ctx: Pick<SuppressionContext, "db">, addre
 }
 
 /**
- * Unsubscribes the recipient of a signed link and runs `onUnsubscribed` in the same transaction,
- * also when the recipient had already unsubscribed (a retried one-click heals a missed hook). The
- * signature is checked before the database is touched; a link that does not verify is
- * `mailing.invalid_link`. Throws on a database failure or when the hook throws (nothing is stored).
+ * Unsubscribes the recipient of a link and runs `onUnsubscribed` in the same transaction, also when
+ * the recipient had already unsubscribed (a retried one-click heals a missed hook). A signed link
+ * (or a bare token) is checked against the secrets before the database is touched; a legacy link
+ * goes to the app's `legacyUnsubscribe.verify`, which names the address. A link that does not
+ * verify is `mailing.invalid_link`. Throws on a database failure, or when `verify` or the hook
+ * throws (nothing is stored).
  */
 export async function unsubscribe(
   ctx: SuppressionContext,
-  token: UnsubscribeToken | null,
+  link: UnsubscribeLink | UnsubscribeToken | null,
   source: Exclude<SuppressionSource, "operator">,
   env: Env = process.env,
 ): Promise<Result<undefined, UnsubscribeErrorCode>> {
-  if (token === null || !verifyUnsubscribeToken(token, readUnsubscribeSecrets(env))) return err("mailing.invalid_link");
+  const recipientKey = await verifyLink(ctx, link, env);
+  if (recipientKey === null) return err("mailing.invalid_link");
   const { onUnsubscribed } = getMailingOptions(ctx.config);
-  const { recipientKey } = token;
   await ctx.db.transaction(async (tx) => {
     const txCtx: SuppressionContext = { ...ctx, db: tx };
     await recordSuppression(txCtx, recipientKey, source);
     await onUnsubscribed?.({ recipientKey, source }, txCtx);
   });
   return ok();
+}
+
+/** The recipient key a link proves, or `null` when it proves none. */
+async function verifyLink(ctx: SuppressionContext, link: UnsubscribeLink | UnsubscribeToken | null, env: Env): Promise<string | null> {
+  if (link === null) return null;
+  if (!("scheme" in link) || link.scheme === "signed") {
+    const token = "scheme" in link ? link.token : link;
+    return verifyUnsubscribeToken(token, readUnsubscribeSecrets(env)) ? token.recipientKey : null;
+  }
+  const legacy = getMailingOptions(ctx.config).legacyUnsubscribe;
+  if (legacy === undefined) return null;
+  const address: unknown = await legacy.verify(link.values, ctx);
+  return typeof address === "string" && address.trim() !== "" ? getRecipientKey(address) : null;
 }

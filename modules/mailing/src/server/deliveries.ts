@@ -1,20 +1,24 @@
 // The delivery ledger (mailing.deliveries): a mail goes out at most once per scope and recipient.
 // The sender claims the row in one conditional upsert before it calls the provider, then closes it
 // with one outcome. A claim left behind by a crash is taken over once it is stale, and the mail is
-// sent again with the same idempotency key, so the provider folds it into the first send.
+// sent again with the same idempotency key, so the provider folds it into the first send. A claim
+// older than the provider keeps that key is "uncertain": it is taken over only when the operator
+// says so. A failure about the sending account (refused key, spent quota) closes nothing: the
+// claim goes back, attempt included, so fixing the account and re-running loses no recipient.
 import { type ModuleContext } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
-import { and, eq, lt, or, sql } from "drizzle-orm";
+import { and, eq, gte, lt, or, sql, type SQL } from "drizzle-orm";
 import { isMailKind } from "../address.js";
-import { TRANSACTIONAL_KIND, type MailingErrorCode, type OutgoingMail } from "../contract.js";
+import { HALTING_ERROR_CODES, TRANSACTIONAL_KIND, type MailingErrorCode, type OutgoingMail } from "../contract.js";
+import { DEFAULT_STALE_CLAIM_MS, DEFAULT_UNCERTAIN_CLAIM_MS } from "../options.js";
 import { deliveries } from "../schema.js";
+import { getMailingOptions } from "./options.js";
 import { sendMail } from "./send-mail.js";
 import { getRecipientKey } from "./unsubscribe-link.js";
 
 export type DeliveryContext = ModuleContext<Queryable>;
 
-/** How long a claim may stay open before another sender may take it over. */
-export const DEFAULT_STALE_CLAIM_MS = 15 * 60_000;
+export { DEFAULT_STALE_CLAIM_MS, DEFAULT_UNCERTAIN_CLAIM_MS };
 /** Claims a delivery gets before `mailing.unavailable` becomes its final outcome. */
 export const DEFAULT_MAX_ATTEMPTS = 5;
 
@@ -35,21 +39,42 @@ export interface Delivery {
 }
 
 export interface DeliverOptions {
+  /** Default: the module's `staleClaimMs` (15 minutes). */
   readonly staleClaimMs?: number;
+  /** Default: the module's `uncertainClaimMs` (23 hours). */
+  readonly uncertainClaimMs?: number;
+  /**
+   * Takes over uncertain claims too (older than `uncertainClaimMs`), accepting that their mail may arrive twice.
+   * An operator's decision, e.g. `softure-mail campaign --resend-uncertain`. Default false.
+   */
+  readonly retakeUncertain?: boolean;
   readonly maxAttempts?: number;
 }
+
+/** The codes that stop a run: the sending account, not the mail, is the problem. */
+export type HaltingErrorCode = "mailing.provider_refused" | "mailing.quota_exceeded";
 
 export type DeliveryOutcome =
   /** Sent now; `id` is the provider's message id. */
   | { readonly status: "sent"; readonly id: string }
   /** Refused now, for good (suppressed, rejected, invalid, or unavailable too many times). */
-  | { readonly status: "rejected"; readonly reason: MailingErrorCode }
+  | { readonly status: "rejected"; readonly reason: MailingErrorCode; readonly httpStatus?: number }
   /** An earlier run already closed this delivery; nothing was sent. */
   | { readonly status: "done"; readonly outcome: "sent" | "rejected" }
   /** Another sender holds a fresh claim; nothing was sent. */
   | { readonly status: "in-flight" }
+  /**
+   * A claim older than `uncertainClaimMs` is open: its mail may have gone out. Nothing was sent; only
+   * `retakeUncertain` sends it again.
+   */
+  | { readonly status: "uncertain" }
   /** The provider was unavailable; the claim is released for a later run. */
-  | { readonly status: "retry-later" };
+  | { readonly status: "retry-later"; readonly httpStatus?: number }
+  /**
+   * The provider refused the account or its quota is spent: the claim is released, its attempt given back. Stop
+   * sending (every other mail fails the same way) and run again once the account can send.
+   */
+  | { readonly status: "halted"; readonly reason: HaltingErrorCode; readonly httpStatus?: number };
 
 /**
  * Sends `delivery.mail` unless the ledger already has an outcome (or a fresh claim) for its scope
@@ -58,27 +83,55 @@ export type DeliveryOutcome =
  * malformed scope or kind, and when `sendMail` throws.
  */
 export async function deliverOnce(ctx: DeliveryContext, delivery: Delivery, options: DeliverOptions = {}): Promise<DeliveryOutcome> {
-  const { staleClaimMs = DEFAULT_STALE_CLAIM_MS, maxAttempts = DEFAULT_MAX_ATTEMPTS } = options;
+  const windows = resolveClaimWindows(ctx, options);
+  const { maxAttempts = DEFAULT_MAX_ATTEMPTS } = options;
   const kind = delivery.mail.kind ?? TRANSACTIONAL_KIND;
   assertDelivery(delivery, kind);
 
   const recipientKey = getRecipientKey(delivery.mail.to);
   const key = { scope: delivery.scope, recipientKey };
-  const attempt = await claimDelivery(ctx, { ...key, kind, campaignId: delivery.campaignId ?? null, staleClaimMs });
-  if (attempt === null) return readClosedDelivery(ctx, key);
+  const attempt = await claimDelivery(ctx, { ...key, kind, campaignId: delivery.campaignId ?? null, ...windows });
+  if (attempt === null) return readClosedDelivery(ctx, key, windows.uncertainClaimMs);
 
   const result = await sendMail(ctx, delivery.mail, { idempotencyKey: `${delivery.scope}:${recipientKey}` });
   const fence = { ...key, attempt };
   if (result.ok) {
-    await closeDelivery(ctx, fence, { status: "sent", providerMessageId: result.value.id, reason: null });
+    await closeDelivery(ctx, fence, { status: "sent", providerMessageId: result.value.id, reason: null, providerStatus: null });
     return { status: "sent", id: result.value.id };
   }
-  if (result.error === "mailing.unavailable" && attempt < maxAttempts) {
-    await releaseDelivery(ctx, fence);
-    return { status: "retry-later" };
+  const providerStatus = result.httpStatus ?? null;
+  const httpStatus = result.httpStatus === undefined ? {} : { httpStatus: result.httpStatus };
+  if (isHaltingCode(result.error)) {
+    await releaseDelivery(ctx, fence, { providerStatus, giveAttemptBack: true });
+    return { status: "halted", reason: result.error, ...httpStatus };
   }
-  await closeDelivery(ctx, fence, { status: "rejected", providerMessageId: null, reason: result.error });
-  return { status: "rejected", reason: result.error };
+  if (result.error === "mailing.unavailable" && attempt < maxAttempts) {
+    await releaseDelivery(ctx, fence, { providerStatus, giveAttemptBack: false });
+    return { status: "retry-later", ...httpStatus };
+  }
+  await closeDelivery(ctx, fence, { status: "rejected", providerMessageId: null, reason: result.error, providerStatus });
+  return { status: "rejected", reason: result.error, ...httpStatus };
+}
+
+function isHaltingCode(code: MailingErrorCode): code is HaltingErrorCode {
+  return HALTING_ERROR_CODES.has(code);
+}
+
+interface ClaimWindows {
+  readonly staleClaimMs: number;
+  readonly uncertainClaimMs: number;
+  readonly retakeUncertain: boolean;
+}
+
+/** The claim windows: the call's options, else the module's, else the defaults. */
+function resolveClaimWindows(ctx: DeliveryContext, options: DeliverOptions): ClaimWindows {
+  const configured = getMailingOptions(ctx.config);
+  const staleClaimMs = options.staleClaimMs ?? configured.staleClaimMs;
+  const uncertainClaimMs = options.uncertainClaimMs ?? configured.uncertainClaimMs;
+  if (uncertainClaimMs <= staleClaimMs) {
+    throw new Error(`@softure-ai/mailing: uncertainClaimMs (${String(uncertainClaimMs)}) must be more than staleClaimMs (${String(staleClaimMs)})`);
+  }
+  return { staleClaimMs, uncertainClaimMs, retakeUncertain: options.retakeUncertain ?? false };
 }
 
 function assertDelivery(delivery: Delivery, kind: string): void {
@@ -100,31 +153,34 @@ interface DeliveryKey {
 
 /**
  * Takes the row in one statement: a new row, a `pending` one, or a claim older than
- * `staleClaimMs`. Resolves with the attempt number that fences the outcome, or `null` when the row
- * is closed or claimed by someone else.
+ * `staleClaimMs` (and, unless `retakeUncertain`, not older than `uncertainClaimMs`). Resolves with
+ * the attempt number that fences the outcome, or `null` when the row is closed, claimed by someone
+ * else, or uncertain.
  */
-async function claimDelivery(
-  ctx: DeliveryContext,
-  claim: DeliveryKey & { readonly kind: string; readonly campaignId: string | null; readonly staleClaimMs: number },
-): Promise<number | null> {
+async function claimDelivery(ctx: DeliveryContext, claim: DeliveryKey & ClaimWindows & { readonly kind: string; readonly campaignId: string | null }): Promise<number | null> {
   const now = ctx.clock.now();
   const staleBefore = new Date(now.getTime() - claim.staleClaimMs);
+  const uncertainBefore = new Date(now.getTime() - claim.uncertainClaimMs);
+  const isStale: SQL | undefined = claim.retakeUncertain
+    ? lt(deliveries.claimedAt, staleBefore)
+    : and(lt(deliveries.claimedAt, staleBefore), gte(deliveries.claimedAt, uncertainBefore));
   const rows = await ctx.db
     .insert(deliveries)
     .values({ scope: claim.scope, recipientKey: claim.recipientKey, kind: claim.kind, campaignId: claim.campaignId, status: "claimed", attempts: 1, claimedAt: now, createdAt: now })
     .onConflictDoUpdate({
       target: [deliveries.scope, deliveries.recipientKey],
       set: { status: "claimed", attempts: sql`${deliveries.attempts} + 1`, claimedAt: now },
-      setWhere: or(eq(deliveries.status, "pending"), and(eq(deliveries.status, "claimed"), lt(deliveries.claimedAt, staleBefore))),
+      setWhere: or(eq(deliveries.status, "pending"), and(eq(deliveries.status, "claimed"), isStale)),
     })
     .returning();
   return rows[0]?.attempts ?? null;
 }
 
-async function readClosedDelivery(ctx: DeliveryContext, key: DeliveryKey): Promise<DeliveryOutcome> {
-  const rows = await ctx.db.select({ status: deliveries.status }).from(deliveries).where(matchKey(key)).limit(1);
-  const status = rows[0]?.status;
-  if (status === "sent" || status === "rejected") return { status: "done", outcome: status };
+async function readClosedDelivery(ctx: DeliveryContext, key: DeliveryKey, uncertainClaimMs: number): Promise<DeliveryOutcome> {
+  const rows = await ctx.db.select({ status: deliveries.status, claimedAt: deliveries.claimedAt }).from(deliveries).where(matchKey(key)).limit(1);
+  const row = rows[0];
+  if (row?.status === "sent" || row?.status === "rejected") return { status: "done", outcome: row.status };
+  if (row?.status === "claimed" && row.claimedAt.getTime() < ctx.clock.now().getTime() - uncertainClaimMs) return { status: "uncertain" };
   // A fresh claim; `pending` only between another sender's release and this read.
   return { status: "in-flight" };
 }
@@ -135,7 +191,7 @@ type Fence = DeliveryKey & { readonly attempt: number };
 async function closeDelivery(
   ctx: DeliveryContext,
   fence: Fence,
-  outcome: { readonly status: "sent" | "rejected"; readonly providerMessageId: string | null; readonly reason: string | null },
+  outcome: { readonly status: "sent" | "rejected"; readonly providerMessageId: string | null; readonly reason: string | null; readonly providerStatus: number | null },
 ): Promise<void> {
   await ctx.db
     .update(deliveries)
@@ -143,10 +199,14 @@ async function closeDelivery(
     .where(and(matchKey(fence), eq(deliveries.status, "claimed"), eq(deliveries.attempts, fence.attempt)));
 }
 
-async function releaseDelivery(ctx: DeliveryContext, fence: Fence): Promise<void> {
+/**
+ * Puts the claim back for a later run. A halt gives its attempt back: the account's failure says
+ * nothing about this mail, so it must not bring the delivery closer to `maxAttempts`.
+ */
+async function releaseDelivery(ctx: DeliveryContext, fence: Fence, release: { readonly providerStatus: number | null; readonly giveAttemptBack: boolean }): Promise<void> {
   await ctx.db
     .update(deliveries)
-    .set({ status: "pending" })
+    .set({ status: "pending", providerStatus: release.providerStatus, ...(release.giveAttemptBack ? { attempts: fence.attempt - 1 } : {}) })
     .where(and(matchKey(fence), eq(deliveries.status, "claimed"), eq(deliveries.attempts, fence.attempt)));
 }
 

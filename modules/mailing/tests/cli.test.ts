@@ -58,7 +58,7 @@ describe("softure-mail campaign", () => {
 
     expect(result).toEqual({
       code: 0,
-      lines: ["campaign 2026-10-launch (newsletter): recipients 3, sent 3, rejected 0, already done 0, in flight 0, retry later 0"],
+      lines: ["campaign 2026-10-launch (newsletter): recipients 3, sent 3, rejected 0, already done 0, in flight 0, retry later 0, filtered out 0, uncertain 0"],
       errors: [],
     });
     expect(provider.sent.map((mail) => mail.to)).toEqual(["ada@example.org", "bob@example.org", "cy@example.org"]);
@@ -73,7 +73,7 @@ describe("softure-mail campaign", () => {
     await run(SEND);
     const again = await run([...SEND, "--pause-ms", "0"]);
 
-    expect(again.lines).toEqual(["campaign 2026-10-launch (newsletter): recipients 3, sent 0, rejected 0, already done 3, in flight 0, retry later 0"]);
+    expect(again.lines).toEqual(["campaign 2026-10-launch (newsletter): recipients 3, sent 0, rejected 0, already done 3, in flight 0, retry later 0, filtered out 0, uncertain 0"]);
     expect(provider.sent).toHaveLength(3);
   });
 
@@ -84,9 +84,51 @@ describe("softure-mail campaign", () => {
 
     expect(result).toEqual({
       code: 1,
-      lines: ["campaign 2026-10-launch (newsletter): recipients 3, sent 1, rejected 1 (suppressed 1), already done 0, in flight 0, retry later 1"],
+      lines: ["campaign 2026-10-launch (newsletter): recipients 3, sent 1, rejected 1 (suppressed 1), already done 0, in flight 0, retry later 1, filtered out 0, uncertain 0"],
       errors: ["1 recipient(s) have no outcome yet; run the same command again later"],
     });
+  });
+
+  it("stops at a refused API key, says why, and sends the rest on the next run", async () => {
+    const refusing = fakeMailProvider({ respond: () => ({ status: "refused", httpStatus: 401 }) });
+    const result = await run(SEND, { config: createConfig(refusing) });
+
+    expect(result).toEqual({
+      code: 1,
+      lines: ["campaign 2026-10-launch (newsletter): recipients 1, sent 0, rejected 0, already done 0, in flight 0, retry later 1, filtered out 0, uncertain 0"],
+      errors: [
+        "stopped: the provider refused the account (check the API key and the account) (HTTP 401); the remaining recipients were not touched, run the same command again once it is fixed",
+      ],
+    });
+    expect(await run(SEND)).toMatchObject({ code: 0, lines: ["campaign 2026-10-launch (newsletter): recipients 3, sent 3, rejected 0, already done 0, in flight 0, retry later 0, filtered out 0, uncertain 0"] });
+  });
+
+  it("names a spent quota", async () => {
+    const spent = fakeMailProvider({ respond: () => ({ status: "quota_exceeded", httpStatus: 429 }) });
+    expect((await run(SEND, { config: createConfig(spent) })).errors[0]).toMatch(/^stopped: the account's sending quota is spent \(HTTP 429\)/);
+  });
+
+  it("leaves uncertain recipients alone and fails until told to resend them", async () => {
+    // A first run registers the campaign; then bob's delivery is an interrupted claim from two days ago.
+    await run(SEND);
+    provider.clear();
+    await test.database.client.query("UPDATE mailing.deliveries SET status = 'claimed', provider_message_id = NULL, finished_at = NULL, claimed_at = $1 WHERE recipient_key = $2", [
+      new Date(NOW.getTime() - 48 * 3_600_000),
+      getRecipientKey("bob@example.org"),
+    ]);
+
+    const dryRun = await run([...SEND, "--dry-run"]);
+    expect(dryRun.lines[1]).toBe("recipients 3, already done 2, unsubscribed 0, filtered out 0, uncertain 1, to send 0");
+    const waiting = await run(SEND);
+    expect(waiting.code).toBe(1);
+    expect(waiting.errors).toEqual([
+      "1 recipient(s) are uncertain: a send was interrupted long ago and may have gone out; check the provider's log, then run again with --resend-uncertain to send them anyway",
+    ]);
+    expect(provider.sent).toEqual([]);
+
+    const resent = await run([...SEND, "--resend-uncertain"]);
+    expect(resent.code).toBe(0);
+    expect(provider.sent.map((mail) => mail.to)).toEqual(["bob@example.org"]);
   });
 
   it("counts without sending or writing on a dry run", async () => {
@@ -95,7 +137,7 @@ describe("softure-mail campaign", () => {
 
     expect(result).toEqual({
       code: 0,
-      lines: ["campaign 2026-10-launch (newsletter), dry run: nothing sent or written", "recipients 3, already done 0, unsubscribed 1, to send 2"],
+      lines: ["campaign 2026-10-launch (newsletter), dry run: nothing sent or written", "recipients 3, already done 0, unsubscribed 1, filtered out 0, uncertain 0, to send 2"],
       errors: [],
     });
     expect(provider.sent).toEqual([]);
