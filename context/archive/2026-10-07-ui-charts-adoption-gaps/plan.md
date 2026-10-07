@@ -113,22 +113,22 @@ Done when: gates green (typecheck, lint, test, build) and the e2e app still buil
 ### Phase 1: theme, locale and copy
 
 #### Automated
-- [ ] 1.1 Theme and locale tests seen red, then green
-- [ ] 1.2 Gates green (typecheck, lint, test)
+- [x] 1.1 Theme and locale tests seen red, then green — 0a4ba82
+- [x] 1.2 Gates green (typecheck, lint, test) — 0a4ba82
 
 ### Phase 2: components
 
 #### Automated
-- [ ] 2.1 Component tests seen red, then green
-- [ ] 2.2 Compiled CSS carries the new utilities
-- [ ] 2.3 Gates green (typecheck, lint, test)
+- [x] 2.1 Component tests seen red, then green — 652769b
+- [x] 2.2 Compiled CSS carries the new utilities — 652769b
+- [x] 2.3 Gates green (typecheck, lint, test) — 652769b
 
 #### Manual
-- [ ] 2.4 Button, panel, card seen in a browser, light and dark
+- [x] 2.4 Button, panel, card seen in a browser, light and dark — 652769b
 
 ### Phase 3: packaging, charts and docs
 
 #### Automated
-- [ ] 3.1 Charts negative-domain tests seen red, then green
-- [ ] 3.2 Manifests, READMEs and versions
-- [ ] 3.3 Gates green (typecheck, lint, test, build)
+- [x] 3.1 Charts negative-domain tests seen red, then green — 6a9681f
+- [x] 3.2 Manifests, READMEs and versions — 6a9681f
+- [x] 3.3 Gates green (typecheck, lint, test, build) — 6a9681f

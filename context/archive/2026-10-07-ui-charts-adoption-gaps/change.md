@@ -1,12 +1,13 @@
 ---
 change_id: ui-charts-adoption-gaps
 title: "ui + charts: adoption gaps (issue #157)"
-status: plan_reviewed
+status: archived
 roadmap_item: null
 issue: 157
 branch: claude/project-thread-n3c0qh
 created: 2026-10-07
 updated: 2026-10-07
+archived_at: 2026-10-07
 ---
 
 ## Intent

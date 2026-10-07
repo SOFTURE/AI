@@ -20,9 +20,10 @@ import { useUiLocale } from "./locale.js";
 
 // A modal dialog: a header with the title and a close button, a scrolling body and a footer with
 // the actions. `width="panel"` is a full-height sheet from the right; `StandingPanel` is that sheet
-// kept mounted while closed (a draft inside survives). While open: focus moves into the panel and Tab cycles inside it, everything else in
-// `<body>` is `inert` (live regions excepted, so a toast is still announced), the page does not
-// scroll, and closing returns focus to the element that opened it.
+// kept mounted while closed (a draft inside survives). While open: focus moves into the panel and
+// Tab cycles inside it, everything else in `<body>` is `inert` (live regions excepted, so a toast is
+// still announced), the page does not scroll, and closing returns focus to the element that opened
+// it.
 
 export type ModalWidth = "form" | "confirmation" | "panel";
 export type ModalSlot = "overlay" | "panel" | "header" | "heading" | "title" | "subtitle" | "close";
@@ -224,7 +225,8 @@ export interface StandingPanelProps extends CopyProps<"modal"> {
  * close; a form whose draft must survive a close (or a visit to another tab) stands here instead.
  * `isOpen` turns on the dialog: role and name, everything outside inert, focus on the panel, Escape
  * from inside it (a confirmation `Modal` opened from the panel answers its own Escape), the backdrop,
- * the scroll lock, and focus back to the opener on close.
+ * the scroll lock, and focus back to the opener on close. It is `position: fixed` where it stands,
+ * so no ancestor may set `transform`, `filter` or `contain` (they would become its containing block).
  */
 export function StandingPanel({
   isOpen,
