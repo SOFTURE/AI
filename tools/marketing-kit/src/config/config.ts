@@ -145,7 +145,7 @@ function resolveVideos(data: MarketingJson, at: (relative: string) => string): V
         language: data.voice.language,
         tempo: video.voice?.tempo ?? data.voice.tempo,
       },
-      beats: video.beats.map((beat) => ({ id: beat.id, text: beat.text })),
+      beats: video.beats.map((beat) => ({ id: beat.id, text: beat.text, ...(beat.screenGuard === undefined ? {} : { screenGuard: beat.screenGuard }) })),
       hook: video.hook,
       screenGuard: video.screenGuard,
       today: video.today ?? null,
