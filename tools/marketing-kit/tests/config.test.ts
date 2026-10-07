@@ -86,6 +86,17 @@ describe("loadMarketingConfig", () => {
     expect(loaded.videos[0]?.sceneSource).toEqual({ kind: "module", path: join(dir, "marketing", "scenes", "anna-calculator.ts") });
   });
 
+  it("paces the placeholder voiceover at 2.5 words a second with half-second pauses unless set", () => {
+    expect(load(makeConfig()).voice.placeholder).toEqual({ wordsPerSecond: 2.5, sentencePauseSeconds: 0.5 });
+    const voice = { voiceId: "voice-1", language: "en", placeholder: { wordsPerSecond: 3 } };
+    expect(load({ ...makeConfig(), voice }).voice.placeholder).toEqual({ wordsPerSecond: 3, sentencePauseSeconds: 0.5 });
+  });
+
+  it("refuses a placeholder pace outside 0.5-6 words a second", () => {
+    const voice = { voiceId: "voice-1", language: "en", placeholder: { wordsPerSecond: 0 } };
+    expect(loadError({ ...makeConfig(), voice })).toContain("  voice.placeholder.wordsPerSecond: Too small: expected number to be >=0.5");
+  });
+
   it("fills the defaults a project does not write", () => {
     const loaded = load(makeConfig());
     expect(loaded.app).toEqual({

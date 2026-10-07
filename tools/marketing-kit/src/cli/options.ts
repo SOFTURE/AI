@@ -12,7 +12,9 @@ export const COMMANDS = ["all", "voice", "record", "render", "preview", "posts",
 
 export type Command = (typeof COMMANDS)[number];
 
-const FILM_FLAGS = ["commit", "today", "url", "quality", "config"];
+const FILM_FLAGS = ["commit", "today", "url", "quality", "config", "placeholder"];
+/** The commands that can run on the placeholder voiceover: the ones that record or render a film. */
+const PLACEHOLDER_COMMANDS: readonly Command[] = ["all", "record", "render"];
 /** `shots` of the configured entries takes no film, so only the address and the config apply. */
 const SHOTS_FLAGS = ["url", "config"];
 /** `shots --page`: one page anywhere, its settings as flags; the same names as the entry's fields where they fit. */
@@ -30,6 +32,8 @@ export interface FilmOptions {
   filmIds: string[];
   /** `voice` really pays for the voiceover only with `--commit`. */
   isCommit: boolean;
+  /** `--placeholder`: record and render on the free placeholder voiceover instead of the paid one. */
+  isPlaceholder: boolean;
   /** The day the app counts from; overrides the video's `today` for one run. */
   today?: string;
   /** Another address of the recorded page. */
@@ -82,10 +86,11 @@ export type ReadOptionsResult = { ok: true; options: CliOptions } | { ok: false;
 export const USAGE = [
   `Usage: softure-marketing <command> <film> [--config=${DEFAULT_CONFIG_FILE}]`,
   "",
-  "  all <film>                      voiceover from the cache -> recording -> render -> post copy",
+  "  all <film> [--placeholder]      voiceover from the cache -> recording -> render -> post copy",
   "  voice <film>... [--commit]      voiceovers in order; without --commit it only counts the characters",
-  "  record <film> [--today=YYYY-MM-DD] [--url=...]   --today overrides the video's \"today\"",
-  "  render <film> [--quality=draft|standard|high]",
+  "  record <film> [--today=YYYY-MM-DD] [--url=...] [--placeholder]   --today overrides the video's \"today\"",
+  "  render <film> [--quality=draft|standard|high] [--placeholder]",
+  "        --placeholder: a free tone voiceover at a fixed pace instead of the paid one, to rehearse a film",
   "  preview <film>                  open the composition in the hyperframes preview",
   "  posts <film>                    post copy for the configured platforms",
   "  og [image]                      OG images (PNG) of every ogImages entry, or of the one named",
@@ -146,9 +151,14 @@ export function readOptions(argv: string[]): ReadOptionsResult {
   }
   const url = flags.get("url");
   if (url === "true") return { ok: false, error: "--url needs an address, e.g. --url=http://localhost:3000/calculator." };
+  const placeholder = flags.get("placeholder");
+  if (placeholder !== undefined && placeholder !== "true") return { ok: false, error: `--placeholder takes no value (got "${placeholder}").` };
+  if (placeholder !== undefined && !PLACEHOLDER_COMMANDS.includes(command)) {
+    return { ok: false, error: `--placeholder applies to ${PLACEHOLDER_COMMANDS.join(", ")}: the commands that record or render a film, not ${command}.` };
+  }
   return {
     ok: true,
-    options: { command, filmId, filmIds: positional, isCommit: commit === "true", today, url, quality, configPath },
+    options: { command, filmId, filmIds: positional, isCommit: commit === "true", isPlaceholder: placeholder === "true", today, url, quality, configPath },
   };
 }
 
@@ -213,8 +223,9 @@ function readPageShotOptions(positional: string[], flags: Map<string, string>, c
   if (!flags.has("expect")) return { ok: false, error: 'shots --page needs --expect=<phrase>: a phrase the page must show, so an error page is never kept as the screenshot.' };
   const full = flags.get("full");
   if (full !== undefined && full !== "true") return { ok: false, error: `--full takes no value (got "${full}").` };
-  const scheme = flags.get("scheme");
-  if (scheme !== undefined && !COLOR_THEMES.some((theme) => theme === scheme)) return { ok: false, error: `--scheme=${scheme}: expected ${COLOR_THEMES.join(" | ")}.` };
+  const schemeFlag = flags.get("scheme");
+  const scheme = COLOR_THEMES.find((theme) => theme === schemeFlag);
+  if (schemeFlag !== undefined && scheme === undefined) return { ok: false, error: `--scheme=${schemeFlag}: expected ${COLOR_THEMES.join(" | ")}.` };
   const parsed = screenshotSchema.safeParse({
     id: "page",
     path: "/",
@@ -234,7 +245,7 @@ function readPageShotOptions(positional: string[], flags: Map<string, string>, c
     const field = String(issue?.path[0] ?? "");
     return { ok: false, error: `--${PAGE_FIELD_FLAGS[field] ?? field}: ${issue?.message ?? "invalid"}.` };
   }
-  return { ok: true, options: { command: "shots", mode: "page", page, out, entry: parsed.data, scheme: scheme as ColorTheme | undefined, configPath } };
+  return { ok: true, options: { command: "shots", mode: "page", page, out, entry: parsed.data, scheme, configPath } };
 }
 
 /** The day a recording starts its page clock at, and where it came from. */

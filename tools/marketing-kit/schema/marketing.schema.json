@@ -482,6 +482,28 @@
           "description": "The paid voiceover cache (<key>.mp3 and <key>.json), relative to the folder of marketing.json; commit it.",
           "type": "string",
           "minLength": 1
+        },
+        "placeholder": {
+          "description": "The free placeholder voiceover of --placeholder (a quiet tone, words at a fixed pace), to record and render a film before paying for its voiceover.",
+          "default": {},
+          "type": "object",
+          "properties": {
+            "wordsPerSecond": {
+              "default": 2.5,
+              "description": "Words per second of the placeholder voiceover (0.5-6, default 2.5); match the real voice to rehearse the film's length.",
+              "type": "number",
+              "minimum": 0.5,
+              "maximum": 6
+            },
+            "sentencePauseSeconds": {
+              "default": 0.5,
+              "description": "Silence after every sentence of the placeholder voiceover but the last (0-3 s, default 0.5).",
+              "type": "number",
+              "minimum": 0,
+              "maximum": 3
+            }
+          },
+          "additionalProperties": false
         }
       },
       "required": [

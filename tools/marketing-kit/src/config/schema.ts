@@ -243,6 +243,13 @@ const voiceSchema = z.strictObject({
     .default(60)
     .describe("Least seconds between two paid recordings (0-3600, default 60; 0 turns it off), counted from the newest file in cacheDir, so separate runs are spaced too."),
   cacheDir: relativePath.default("marketing/voiceover").describe("The paid voiceover cache (<key>.mp3 and <key>.json), relative to the folder of marketing.json; commit it."),
+  placeholder: z
+    .strictObject({
+      wordsPerSecond: z.number().min(0.5).max(6).default(2.5).describe("Words per second of the placeholder voiceover (0.5-6, default 2.5); match the real voice to rehearse the film's length."),
+      sentencePauseSeconds: z.number().min(0).max(3).default(0.5).describe("Silence after every sentence of the placeholder voiceover but the last (0-3 s, default 0.5)."),
+    })
+    .prefault({})
+    .describe("The free placeholder voiceover of --placeholder (a quiet tone, words at a fixed pace), to record and render a film before paying for its voiceover."),
 });
 
 type VideoBeat = { id: string; text: string; pad?: number | undefined; actions?: SceneAction[] | undefined };

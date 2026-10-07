@@ -87,6 +87,7 @@ export { findStaleVoiceovers, getVoiceoverPaths, readCachedVoiceover, writeVoice
 export { describeCharge, describeEstimate, produceVoiceover, type ProduceVoiceoverOptions, type VoiceoverOutcome } from "./voice/produce.js";
 export { findLastRecordingTime, waitForPace, type PaceOptions } from "./voice/pace.js";
 export { describeVoiceoverBatch, produceVoiceovers, type VoiceoverBatchItem, type VoiceoverBatchResult } from "./voice/batch.js";
+export { getPlaceholderKey, isPlaceholderKey, makePlaceholderWords, writePlaceholderVoiceover, type PlaceholderPace, type WritePlaceholderOptions } from "./voice/placeholder.js";
 export {
   BROWSER_BAR_HEIGHT,
   DEVICE_KINDS,

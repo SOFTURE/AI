@@ -11,6 +11,7 @@ describe("readOptions", () => {
         filmId: "anna-calculator",
         filmIds: ["anna-calculator"],
         isCommit: false,
+        isPlaceholder: false,
         today: undefined,
         url: undefined,
         quality: undefined,
@@ -175,5 +176,21 @@ describe("readOptions for shots --page", () => {
   it("refuses a shots-only flag on a film command", () => {
     const result = readOptions(["record", "a", "--wait=100"]);
     expect(!result.ok && result.error).toBe("--wait applies to shots only, not to record.");
+  });
+});
+
+describe("readOptions with --placeholder", () => {
+  it.each(["all", "record", "render"])("reads it on %s", (command) => {
+    const result = readOptions([command, "a", "--placeholder"]);
+    expect(result.ok && result.options).toMatchObject({ command, isPlaceholder: true });
+  });
+
+  it.each([
+    ["voice, which pays for the real one", ["voice", "a", "--placeholder"], "--placeholder applies to all, record, render: the commands that record or render a film, not voice."],
+    ["posts", ["posts", "a", "--placeholder"], "--placeholder applies to all, record, render: the commands that record or render a film, not posts."],
+    ["a value", ["all", "a", "--placeholder=yes"], '--placeholder takes no value (got "yes").'],
+  ])("refuses it on %s", (_case, argv, message) => {
+    const result = readOptions(argv);
+    expect(!result.ok && result.error).toBe(message);
   });
 });

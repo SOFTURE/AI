@@ -13,18 +13,19 @@ import { runHyperframes } from "../render/hyperframes.js";
 import { renderFilm } from "../render/render.js";
 import { takePageScreenshot, takeScreenshots, type ScreenshotBrowser, type ScreenshotEntry, type ScreenshotResult } from "../screenshot/screenshot.js";
 import { findStorageStateProblem } from "../screenshot/storage-state.js";
+import { isPlaceholderKey } from "../voice/placeholder.js";
 import { splitIntoBeats } from "../voice/voiceover.js";
 import { CliFailure, fail } from "./failure.js";
 import { loadFilm, type LoadedFilm } from "./films.js";
 import { writeOgImages } from "./og.js";
 import { getRecordingDay, readOptions, type EntryShotsOptions, type FilmOptions, type PageShotsOptions } from "./options.js";
 import { ensureServer } from "./server.js";
-import { getVoiceoverPaths, produceVoiceover, produceVoiceovers, readJson, requireVoiceover } from "./voice.js";
+import { getFilmVoiceover, produceVoiceover, produceVoiceovers, readJson } from "./voice.js";
 
 /**
  * `softure-marketing`: the only way into the films.
  *
- *   all <film>                 voiceover from the cache -> recording -> render -> post copy
+ *   all <film> [--placeholder] voiceover from the cache (or the free placeholder) -> recording -> render -> post copy
  *   voice <film>... [--commit] voiceovers in order (paid only with --commit), spaced and stopped at the first error
  *   record <film> [--today=YYYY-MM-DD] [--url=...]   (--today overrides the video's today)
  *   render <film> [--quality=draft|standard|high]
@@ -46,7 +47,8 @@ function preflight(config: MarketingConfig, film: LoadedFilm, needsRender: boole
 }
 
 async function record(config: MarketingConfig, film: LoadedFilm, options: FilmOptions): Promise<RecordingLog> {
-  const voiceover = requireVoiceover(config, film);
+  const { voiceover, key, isPlaceholder } = getFilmVoiceover(config, film, { isPlaceholder: options.isPlaceholder, buildDir: getBuildDir(config, film) });
+  if (isPlaceholder) console.log(`voiceover: the placeholder (a tone, ${config.voice.placeholder.wordsPerSecond} words a second); nothing paid, render it with --placeholder.`);
   const voices = splitIntoBeats(voiceover.words, film.beats, film.voice.tempo);
   const server = await ensureServer(config, film, options.url);
   mkdirSync(getBuildDir(config, film), { recursive: true });
@@ -59,7 +61,7 @@ async function record(config: MarketingConfig, film: LoadedFilm, options: FilmOp
       url: server.url,
       outDir: getBuildDir(config, film),
       voices,
-      voiceoverKey: getVoiceoverPaths(config, film).key,
+      voiceoverKey: key,
       today: recordingDay.day ?? undefined,
       filmPath: film.scenePath,
       executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH || undefined,
@@ -105,14 +107,21 @@ function render(config: MarketingConfig, film: LoadedFilm, options: FilmOptions)
   if (!existsSync(logPath)) fail(`no recording: run softure-marketing record ${film.id} first.`);
   // Our own file, written by `recordFilm`; the two fields that tie it to the script are checked below.
   const log = readJson(logPath) as RecordingLog;
-  const voiceover = requireVoiceover(config, film);
+  // A recording follows the timings of the voiceover it was made on, so a placeholder recording never renders
+  // with the paid voiceover, nor the reverse.
+  if (isPlaceholderKey(log.voiceoverKey) !== options.isPlaceholder) {
+    if (options.isPlaceholder) fail(`the recording was made on the paid voiceover: run softure-marketing record ${film.id} --placeholder, or render without --placeholder.`);
+    fail(`the recording was made on the placeholder voiceover: run softure-marketing record ${film.id} for the paid one, or render with --placeholder.`);
+  }
+  const { voiceover, key } = getFilmVoiceover(config, film, { isPlaceholder: options.isPlaceholder, buildDir: dir });
   // The recording must match the script; otherwise the action times belong to another voiceover or
   // other sentences, and the film would come out silently out of sync.
   const beatIds = sceneBeats(film).map((beat) => beat.id);
-  if (log.voiceoverKey !== getVoiceoverPaths(config, film).key || log.beatIds?.join(",") !== beatIds.join(",")) {
-    fail(`the recording does not match the current script (the sentences or the voiceover changed): run softure-marketing record ${film.id}.`);
+  if (log.voiceoverKey !== key || log.beatIds?.join(",") !== beatIds.join(",")) {
+    fail(`the recording does not match the current script (the sentences or the voiceover changed): run softure-marketing record ${film.id}${options.isPlaceholder ? " --placeholder" : ""}.`);
   }
-  const output = join(getOutDir(config, film), `${film.id}.mp4`);
+  // A rehearsal never takes the place of the real film.
+  const output = join(getOutDir(config, film), options.isPlaceholder ? `${film.id}.placeholder.mp4` : `${film.id}.mp4`);
   const seconds = renderFilm({
     film,
     log,
@@ -265,7 +274,9 @@ async function main(argv: string[]): Promise<void> {
     }
     case "all": {
       preflight(config, film, true);
-      if ((await produceVoiceover(config, film, false)) === null) fail("no voiceover; see the message above.");
+      if (!options.isPlaceholder && (await produceVoiceover(config, film, false)) === null) {
+        fail(`no voiceover; see the message above. To rehearse the film for free: softure-marketing all ${film.id} --placeholder.`);
+      }
       await record(config, film, options);
       render(config, film, options);
       return;
