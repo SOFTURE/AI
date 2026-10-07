@@ -142,4 +142,47 @@ describe("auth actions", () => {
     expect(await readRedirect(registerAction({ status: "idle" }, data))).toBe("/");
     expect(onRegistered).toHaveBeenCalledWith(expect.objectContaining({ fields: {} }), expect.anything());
   });
+  describe("logout's return target", () => {
+    async function signIn(): Promise<string> {
+      await setUp();
+      const registered = await registerUser(test.ctx, { email: EMAIL, password: PASSWORD, hasConsented: true, clientKey: "ip:198.51.100.1" });
+      if (!registered.ok) throw new Error("setup failed");
+      scope.cookies.set(getSessionCookie(test.config).name, registered.value.session.token);
+      return registered.value.session.token;
+    }
+
+    it("goes to the next path given as an object, after ending the session and clearing the cookie", async () => {
+      const token = await signIn();
+      const next = "/login?next=%2Foauth%2Fauthorize%3Fclient_id%3Dx%26state%3Dy";
+      expect(await readRedirect(logoutAction({ next }))).toBe(next);
+      expect(await findSessionUser(test.ctx, token)).toBeNull();
+      expect(scope.cookies.size).toBe(0);
+    });
+
+    it("goes to the next path posted in the form", async () => {
+      await signIn();
+      expect(await readRedirect(logoutAction(form({ next: "/login?next=/oauth/authorize?x=1" })))).toBe("/login?next=/oauth/authorize?x=1");
+    });
+
+    it("still goes to afterLogout without an argument", async () => {
+      await signIn();
+      expect(await readRedirect(logoutAction())).toBe("/login");
+    });
+
+    it.each(["https://evil.example/login", "//evil.example", "/\\evil.example", "", "login"])("refuses the next path %j and goes to afterLogout", async (next) => {
+      const token = await signIn();
+      expect(await readRedirect(logoutAction({ next }))).toBe("/login");
+      expect(await readRedirect(logoutAction(form({ next })))).toBe("/login");
+      expect(await findSessionUser(test.ctx, token)).toBeNull();
+    });
+
+    it.each([["a string", "/account"], ["a number", 42], ["null", null], ["an array", ["/account"]]])(
+      "treats %s as no target, since any client can call the action with any value",
+      async (_label, input) => {
+        await signIn();
+        // The declared type is narrower; the cast stands for a client calling the action directly.
+        expect(await readRedirect(logoutAction(input as never))).toBe("/login");
+      },
+    );
+  });
 });

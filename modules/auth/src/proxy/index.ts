@@ -19,6 +19,12 @@ export interface AuthGuardOptions {
    * public pages here). `"/"` here is the home page only. The change-password route stays guarded.
    */
   readonly exclude?: readonly string[];
+  /**
+   * Origins besides `appOrigin` that the login redirect may stay on (`https://example.com`), for an app
+   * served on several hosts. The request's public origin (`X-Forwarded-Proto` / `X-Forwarded-Host`,
+   * else `Host` and the URL's scheme) is used only when it is listed; any other goes to `appOrigin`.
+   */
+  readonly trustedOrigins?: readonly string[];
 }
 
 /** Mounted at a fixed path by the module (manifest `mount`); it answers `{ user: null }` without a session. */
@@ -37,6 +43,7 @@ export function createAuthGuard(config: SoftureConfig, options: AuthGuardOptions
     normalizePrefix(path, "excluded"),
   );
   const excluded = (options.exclude ?? []).map((prefix) => normalizePrefix(prefix, "excluded"));
+  const trustedOrigins = new Set((options.trustedOrigins ?? []).map(normalizeOrigin));
 
   const isGuarded = (path: string): boolean => {
     if (isUnder(path, changePassword)) return true;
@@ -52,8 +59,10 @@ export function createAuthGuard(config: SoftureConfig, options: AuthGuardOptions
     if (path !== null && !isGuarded(path)) return null;
     const cookieHeader = request.headers.get("cookie");
     if (cookieNames.some((name) => readSessionToken(cookieHeader, name) !== null)) return null;
-    // Built on appOrigin: behind a proxy the request URL may carry an internal host.
-    const login = new URL(routes.login, config.appOrigin);
+    // Built on appOrigin, or on the request's public origin when the app trusts it: behind a proxy
+    // the request URL carries an internal host, and request headers alone are never trusted.
+    const origin = findPublicOrigin(request, url);
+    const login = new URL(routes.login, origin !== null && trustedOrigins.has(origin) ? origin : config.appOrigin);
     login.searchParams.set("next", `${url.pathname}${url.search}`);
     return Response.redirect(login, 307);
   };
@@ -65,6 +74,38 @@ function normalizePrefix(prefix: string, kind: "protected" | "excluded"): string
   }
   const trimmed = prefix.length > 1 && prefix.endsWith("/") ? prefix.slice(0, -1) : prefix;
   return trimmed.toLowerCase();
+}
+
+/** `entry` as an origin (`https://example.com`, a trailing `/` dropped); anything else is a config error. */
+function normalizeOrigin(entry: string): string {
+  const parsed = parseOrigin(entry.endsWith("/") ? entry.slice(0, -1) : entry);
+  if (parsed === null) {
+    throw new Error(`createAuthGuard: trusted origin "${entry}" must be an http(s) origin such as https://example.com`);
+  }
+  return parsed;
+}
+
+/** The origin the browser used: the front proxy's forwarded scheme and host, else `Host` and the URL's scheme. */
+function findPublicOrigin(request: Request, url: URL): string | null {
+  const host = firstValue(request.headers.get("x-forwarded-host")) ?? firstValue(request.headers.get("host")) ?? url.host;
+  const scheme = firstValue(request.headers.get("x-forwarded-proto")) ?? url.protocol.slice(0, -1);
+  return parseOrigin(`${scheme}://${host}`);
+}
+
+function firstValue(header: string | null): string | null {
+  const value = header?.split(",")[0]?.trim();
+  return value === undefined || value === "" ? null : value;
+}
+
+/** The normalized origin of `candidate` when it is exactly `http(s)://host[:port]`, else null. */
+function parseOrigin(candidate: string): string | null {
+  // Checked on the raw text, so a path, query, fragment or credentials make it no origin.
+  if (!/^https?:\/\/[^/\\?#@\s]+$/i.test(candidate)) return null;
+  try {
+    return new URL(candidate).origin;
+  } catch {
+    return null;
+  }
 }
 
 function decodePath(pathname: string): string | null {
