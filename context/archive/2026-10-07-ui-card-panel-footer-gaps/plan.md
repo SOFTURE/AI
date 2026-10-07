@@ -68,5 +68,5 @@ Done when: gates green (typecheck, lint, test, build).
 ### Phase 2: docs and version
 
 #### Automated
-- [x] 2.1 README, CHANGELOG, version 0.1.11 and lockfile — phase 2 commit
-- [x] 2.2 Gates green (typecheck, lint, test, build) — phase 2 commit
+- [x] 2.1 README, CHANGELOG, version 0.1.11 and lockfile — 067a5ae
+- [x] 2.2 Gates green (typecheck, lint, test, build) — 067a5ae

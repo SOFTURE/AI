@@ -1,12 +1,13 @@
 ---
 change_id: ui-card-panel-footer-gaps
 title: "ui: Card hint look, panel heading level and footer Cancel classes (issue #218)"
-status: impl_reviewed
+status: archived
 roadmap_item: null
 issue: 218
 branch: claude/project-thread-4d80ai
 created: 2026-10-07
 updated: 2026-10-07
+archived_at: 2026-10-07
 ---
 
 ## Intent
