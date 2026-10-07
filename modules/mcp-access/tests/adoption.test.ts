@@ -2,11 +2,10 @@
 // tables in `public`, with its own constraint and index names and defaults, moves them with
 // adoption/move-app-tables.sql; adoptModule then finds no difference and records files 1 and 2 as
 // adopted. Every row keeps working: a legacy token, a connected app and its legacy refresh token.
-import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { createTestDatabase, type TestDatabase } from "@softure-ai/db/testing";
 import { adoptModule, createPgliteHandle, describeProblem } from "@softure-ai/db";
-import { findOAuthClient, refreshOAuthGrant, verifyAccessToken } from "@softure-ai/mcp-access/server";
+import { findOAuthClient, hashAccessToken, refreshOAuthGrant, verifyAccessToken } from "@softure-ai/mcp-access/server";
 import { createTestClock } from "@softure-ai/core";
 import { afterEach, describe, expect, it } from "vitest";
 import { createConfig, createUser, NOW, OAUTH_OPTIONS } from "./support.js";
@@ -14,14 +13,10 @@ import { createConfig, createUser, NOW, OAUTH_OPTIONS } from "./support.js";
 const ADOPTION_SQL = readFileSync(new URL("../adoption/move-app-tables.sql", import.meta.url), "utf8");
 const DAY_MS = 86_400_000;
 
-const LEGACY_TOKEN = "0123456789abcdef".repeat(4);
-const LEGACY_REFRESH_TOKEN = "fedcba9876543210".repeat(4);
-const OAUTH_ACCESS_TOKEN = "00112233445566778899aabbccddeeff".repeat(2);
+const LEGACY_ISSUED_VALUE = "0123456789abcdef".repeat(4);
+const LEGACY_RENEWAL_VALUE = "fedcba9876543210".repeat(4);
+const GRANT_ISSUED_VALUE = "00112233445566778899aabbccddeeff".repeat(2);
 const LEGACY_CLIENT_ID = "a1b2c3d4-legacy-client";
-
-function sha256(value: string): string {
-  return createHash("sha256").update(value).digest("hex");
-}
 
 // The adopting app's own DDL: drizzle-style names, defaults, no checks.
 const APP_TABLES = `
@@ -103,14 +98,14 @@ describe("adopting an app's own MCP token and OAuth tables", () => {
     const grant = await database.client.query<{ id: string }>(
       `INSERT INTO public.oauth_grants (user_id, client_id, can_write, refresh_token_hash, refresh_expires_at, created_at)
        VALUES ($1, $2, true, $3, $4, $5) RETURNING id`,
-      [userId, clientId, sha256(LEGACY_REFRESH_TOKEN), later, NOW],
+      [userId, clientId, hashAccessToken(LEGACY_RENEWAL_VALUE), later, NOW],
     );
     const grantId = grant.rows[0]?.id;
     if (grantId === undefined) throw new Error("seedApp: no grant id");
     await database.client.query(
       `INSERT INTO public.access_tokens (user_id, token_hash, name, can_write, expires_at, created_at, grant_id)
        VALUES ($1, $2, 'Laptop', true, $3, $4, NULL), ($1, $5, 'Assistant', true, $3, $4, $6)`,
-      [userId, sha256(LEGACY_TOKEN), later, NOW, sha256(OAUTH_ACCESS_TOKEN), grantId],
+      [userId, hashAccessToken(LEGACY_ISSUED_VALUE), later, NOW, hashAccessToken(GRANT_ISSUED_VALUE), grantId],
     );
     return { database, userId, grantId };
   }
@@ -129,12 +124,12 @@ describe("adopting an app's own MCP token and OAuth tables", () => {
     ]);
     const clock = createTestClock(new Date(NOW.getTime() + DAY_MS));
     const ctx = { db: seeded.db, clock, config };
-    expect(await verifyAccessToken(ctx, LEGACY_TOKEN)).toMatchObject({ userId, canWrite: true, grantId: null });
-    expect(await verifyAccessToken(ctx, OAUTH_ACCESS_TOKEN)).toMatchObject({ userId, grantId });
+    expect(await verifyAccessToken(ctx, LEGACY_ISSUED_VALUE)).toMatchObject({ userId, canWrite: true, grantId: null });
+    expect(await verifyAccessToken(ctx, GRANT_ISSUED_VALUE)).toMatchObject({ userId, grantId });
     const client = await findOAuthClient(ctx, LEGACY_CLIENT_ID);
     expect(client?.clientName).toBe("A".repeat(60));
     if (client === null) throw new Error("legacy client not found");
-    const refreshed = await refreshOAuthGrant(ctx, { refreshToken: LEGACY_REFRESH_TOKEN, client });
+    const refreshed = await refreshOAuthGrant(ctx, { refreshToken: LEGACY_RENEWAL_VALUE, client });
     expect(refreshed?.canWrite).toBe(true);
     expect(refreshed?.refreshToken).toMatch(/^sftmcr_/);
   });
