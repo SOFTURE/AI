@@ -97,6 +97,9 @@ or a comment throw.
 - An app that already stores the choice keeps it: `cookieName="theme" cookieValues={{ light:
   "bright", dark: "night" }}` on both (and on `parseThemeCookie`, `buildThemeCookie`,
   `applyThemeChoice`). Values must be cookie octets and differ.
+- With an explicit choice the browser bar follows it: `ThemeScript` recolours every `meta[name="theme-color"]`, also
+  those Next inserts after the document is parsed (streamed metadata), as long as the page lives; after a switch
+  to System, metas inserted later keep their own colour.
 - With a strict CSP pass `nonce` to `ThemeScript`.
 - `data-theme="light"` or `"dark"` on any element themes that subtree.
 - Slots: `classNames={{ root, legend, options, option, input, label }}`; `unstyled` drops the

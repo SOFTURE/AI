@@ -4,6 +4,12 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`ui@x.y.z`).
 
+## Unreleased
+
+- `ThemeScript` (`getThemeBootScript`) recolours `theme-color` metas inserted after `DOMContentLoaded` too (Next's
+  streamed metadata, React hoisting): a mutation observer applies the current `data-theme` to each one as it
+  lands. Before, only the metas present at `DOMContentLoaded` followed an explicit choice on the first load.
+
 ## 0.1.9
 
 - `ThemeSwitch` `cookieDomain` also takes a function of the current hostname or `{ apex }` (serializable, for a
