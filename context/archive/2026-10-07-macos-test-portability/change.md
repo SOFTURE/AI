@@ -1,13 +1,13 @@
 ---
 change_id: macos-test-portability
 title: "npm test runs green on macOS with the system shell and tools, and CI keeps it so"
-status: implementing
+status: archived
 roadmap_item: null
 issue: "#177"
 branch: claude/project-thread-pj5mlg
 created: 2026-10-07
 updated: 2026-10-07
-archived_at: null
+archived_at: 2026-10-07
 ---
 
 ## Intent
@@ -61,3 +61,6 @@ would leave the Mac with an untested path the owner runs every push.
   `check-received.sh`, `server-files.test.ts`, `ci.yml` and `AGENTS.md`, and merges master on conflict.
 
 ## Notes
+
+- Owner check (Manual 1.5): run `npm test` on the Mac with the system shell. The `macos` CI job proves the shell
+  script tests there; the issue's mailing `suppressions` and ops `health` failures did not reproduce elsewhere.

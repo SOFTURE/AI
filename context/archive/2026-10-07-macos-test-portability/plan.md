@@ -1,6 +1,6 @@
 ---
 change_id: macos-test-portability
-status: implementing
+status: done
 updated: 2026-10-07
 ---
 
@@ -65,7 +65,7 @@ the macOS job is green.
 - [x] 1.1 Deploy tests and deploy workflow repository tests pass with bash 3.2, bsdtar and BSD-style comm first in PATH — bdc7357
 - [x] 1.2 The same tests pass with the runner's bash 5 and GNU tools — bdc7357
 - [x] 1.3 Gates green (typecheck, lint, test) — bdc7357
-- [ ] 1.4 CI green, the macOS job included
+- [x] 1.4 CI green, the macOS job included — bdc7357 (verified by agent: PR #191 checks on the first head, macOS job 252 passed with bash 3.2.57 and bsdtar 3.5.3)
 
 #### Manual
 - [ ] 1.5 `npm test` passes on the owner's Mac with the system shell (the mailing and ops failures of the issue were not reproduced elsewhere)
