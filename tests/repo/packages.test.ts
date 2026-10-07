@@ -77,7 +77,14 @@ describe("workspace packages", () => {
   describe.each(packageDirs)("%s", (dir) => {
     const manifest = readManifest(dir);
 
-    it("is an ESM package named after its folder, for Node 22, publishing dist/", () => {
+    it("ships a CHANGELOG.md whose newest section is Unreleased or the version it is at", () => {
+      expect(manifest.files).toContain("CHANGELOG.md");
+      const changelog = readFileSync(join(REPO_ROOT, dir, "CHANGELOG.md"), "utf8");
+      expect(changelog.startsWith("# Changelog\n")).toBe(true);
+      expect(["Unreleased", manifest.version]).toContain(changelog.match(/^## (.+)$/m)?.[1]);
+    });
+
+        it("is an ESM package named after its folder, for Node 22, publishing dist/", () => {
       expect(manifest.name).toBe(getExpectedName(dir));
       expect(manifest.type).toBe("module");
       expect(manifest.engines?.node).toBe(">=22");

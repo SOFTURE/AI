@@ -18,6 +18,7 @@ configuration, mount the routes, run the migrations) and does not have to write 
 modules/<name>/
   package.json          @softure-ai/<name>; exports: ".", "./server", "./next", "./ui", "./styles.css"
   README.md             usage for humans and agents (fixed sections, see §11)
+  CHANGELOG.md          what each version changed, newest first, under `## Unreleased` until released (§12)
   module.json           machine-readable manifest (see §3)
   migrations/           0001_<description>.sql … (forward only, see §4)
   src/
@@ -317,7 +318,9 @@ thin actions) are not needed.
 - npm workspaces monorepo; every package is versioned independently (SemVer). A database schema
   change requires at least a `minor` version; a breaking change a `major` with migration
   instructions. Version bumps: `npm run release:version -- <package> <bump>` (`npm version -w`, keeps
-  `module.json` in step, commits and tags `<package>@x.y.z`); no Changesets. Release notes are
+  `module.json` in step, renames the `## Unreleased` section of `CHANGELOG.md` to the version, commits
+  and tags `<package>@x.y.z`); no Changesets. A change that alters a package adds its line under
+  `## Unreleased` in that package's `CHANGELOG.md`, which ships in the tarball. Release notes are
   generated per tag on the GitHub Release. Decided in FD-2 (`release-pipeline`); runbook:
   [scripts/release/README.md](../scripts/release/README.md).
 - **Releases are tag-driven, one tag per package** (`<package>@x.y.z`, e.g. `core@0.1.0`), in three places,

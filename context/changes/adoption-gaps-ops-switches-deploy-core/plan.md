@@ -151,11 +151,11 @@ Done when: gates green (typecheck, lint, test, build).
 ### Phase 3: deploy
 
 #### Automated
-- [ ] 3.1 deploy.sh without host Node tested red, then green
-- [ ] 3.2 Gates green (typecheck, lint, test)
+- [x] 3.1 deploy.sh without host Node tested red, then green — e535d7a
+- [x] 3.2 Gates green (typecheck, lint, test) — e535d7a
 
 ### Phase 4: CHANGELOGs, docs, versions
 
 #### Automated
-- [ ] 4.1 CHANGELOG test seen red, then green
-- [ ] 4.2 Gates green (typecheck, lint, test, build)
+- [x] 4.1 CHANGELOG test seen red, then green — PHASE4
+- [x] 4.2 Gates green (typecheck, lint, test, build) — PHASE4
