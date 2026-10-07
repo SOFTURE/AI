@@ -13,5 +13,5 @@ export {
   type TagRedirectContext,
 } from "./channel.js";
 export { getAnalyticsContext } from "./context.js";
-export { FunnelBeacon, FunnelPixel, type FunnelStepProps } from "./funnel.js";
+export { FunnelBeacon, FunnelPixel, type FunnelPixelProps, type FunnelStepProps } from "./funnel.js";
 export { createFunnelRoute, type FunnelRoute } from "./route.js";

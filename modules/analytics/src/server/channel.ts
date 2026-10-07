@@ -4,9 +4,9 @@
 import type { SoftureConfig } from "@softure-ai/core";
 import { parseChannel } from "../channel-rule.js";
 import type { ChannelFromReferer } from "../options.js";
-import { getAnalyticsOptions, getChannelOptions } from "./options.js";
+import { getChannelOptions, getFirstPartyOrigins } from "./options.js";
 
-export { parseChannel };
+export { getFirstPartyOrigins, parseChannel };
 
 /** Where a request's channel can come from. */
 export interface ChannelSources {
@@ -18,11 +18,6 @@ export interface ChannelSources {
   readonly host?: string | null;
 }
 
-
-/** `appOrigin` followed by `analytics({ origins })`, without repeats: every origin this app serves pages on. */
-export function getFirstPartyOrigins(config: SoftureConfig): readonly string[] {
-  return [...new Set([new URL(config.appOrigin).origin, ...getAnalyticsOptions(config).origins])];
-}
 
 /**
  * The first-party origin a request was sent to, read from `Host` (the request URL's host without one):

@@ -1,5 +1,6 @@
 // The options an app passes to `analytics({ ... })` in softure.config.ts, parsed at startup.
 import { z } from "zod";
+import type { AnalyticsContext } from "./server/funnel.js";
 
 /** The query parameter's name: short, lowercase, URL-safe. */
 export const PARAM_PATTERN = /^[a-z][a-z0-9_-]{0,31}$/;
@@ -51,6 +52,13 @@ const channelOptionsSchema = z.strictObject({
   /** How a raw value is repaired before the pattern and length checks; the browser keeper does the same. */
   normalize: z.enum(CHANNEL_NORMALIZATIONS).default("none"),
 });
+
+/**
+ * Whether the app already knows `channel` from its own tables (a sign-up or an account attributed to
+ * it), so the daily cap on new channels never folds it into the overflow key. `ctx` is the counter's
+ * context: `ctx.db` runs in the counting transaction.
+ */
+export type IsKnownChannel = (channel: string, ctx: AnalyticsContext) => boolean | Promise<boolean>;
 
 /** A channel derived from the path of the page a funnel request came from, when the page carries no tag. */
 export type ChannelFromReferer = (page: URL) => string | null;
@@ -113,6 +121,12 @@ const funnelOptionsSchema = z
      * rule like any tag; a throw counts as no channel.
      */
     channelFromReferer: z.custom<ChannelFromReferer>((value) => typeof value === "function", "must be a function (page: URL) => string | null").optional(),
+    /**
+     * A channel the app knows from its own tables counts under its name past the daily cap:
+     * `(channel, ctx) => hasSignupsFrom(ctx.db, channel)`. Asked for every count with a channel, so
+     * keep it to one indexed lookup; a throw fails the count like a database error.
+     */
+    isKnownChannel: z.custom<IsKnownChannel>((value) => typeof value === "function", "must be a function (channel, ctx) => boolean | Promise<boolean>").optional(),
   })
   .superRefine((options, context) => {
     const seen = new Set<string>();

@@ -57,5 +57,6 @@ export {
   type FunnelStep,
   type FunnelStepSource,
   type FunnelWire,
+  type IsKnownChannel,
 } from "./options.js";
 export { analyticsSchema, funnelCounts } from "./schema.js";
