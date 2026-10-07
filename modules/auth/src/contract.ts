@@ -44,6 +44,8 @@ export interface SignedIn {
 export interface RegisteredEvent {
   readonly user: AuthUser;
   readonly consent: { readonly acceptedAt: Date } | null;
+  /** The declared `registrationFields` the form sent, by name; client input, so validate it. */
+  readonly fields: Readonly<Record<string, string>>;
 }
 
 /** The fields of the auth forms that can carry their own error. */

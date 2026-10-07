@@ -51,6 +51,28 @@ describe("RegisterForm", () => {
     expect(screen.getByText("At least 12 characters.")).toBeDefined();
   });
 
+  it("renders the app's extra fields and its consent label with a link to the terms", () => {
+    render(
+      <RegisterForm
+        action={answering({ status: "idle" })}
+        messages={en}
+        requireConsent
+        minPasswordLength={10}
+        consentLabel={
+          <>
+            {en.fields.consent} <a href="/terms">{en.login.registerLink}</a>
+          </>
+        }
+        extraFields={<input type="hidden" name="z" value="newsletter" />}
+      />,
+    );
+    expect(document.querySelector('input[name="z"]')).toHaveProperty("value", "newsletter");
+    expect(screen.getByRole("link", { name: en.login.registerLink })).toHaveProperty("href", expect.stringContaining("/terms") as string);
+    // The extra fields sit inside the form, before the consent checkbox.
+    const form = document.querySelector("form");
+    expect(form?.contains(document.querySelector('input[name="z"]'))).toBe(true);
+  });
+
   it("leaves the checkbox out when consent is not required", () => {
     render(<RegisterForm action={answering({ status: "idle" })} messages={en} requireConsent={false} minPasswordLength={10} />);
     expect(screen.queryByRole("checkbox")).toBeNull();
@@ -83,5 +105,25 @@ describe("ChangePasswordForm", () => {
     );
     await submit(screen.getByRole("button", { name: en.changePassword.submit }));
     expect(screen.getByLabelText(en.fields.currentPassword).getAttribute("aria-invalid")).toBe("true");
+  });
+});
+
+describe("the submit button", () => {
+  it("is primary by default and takes the app's variant and class", () => {
+    const { unmount } = render(<LoginForm action={answering({ status: "idle" })} messages={en} />);
+    expect(screen.getByRole("button", { name: en.login.submit }).getAttribute("data-variant")).toBe("primary");
+    unmount();
+    render(
+      <ChangePasswordForm
+        action={answering({ status: "idle" })}
+        messages={en}
+        minPasswordLength={10}
+        submitVariant="secondary"
+        classNames={{ submit: "app-submit" }}
+      />,
+    );
+    const button = screen.getByRole("button", { name: en.changePassword.submit });
+    expect(button.getAttribute("data-variant")).toBe("secondary");
+    expect(button.className).toContain("app-submit");
   });
 });

@@ -1,7 +1,7 @@
 // The server actions with Next's request scope replaced: cookies live in a map (a set with
 // maxAge 0 deletes), headers carry the client address, and `redirect` throws with its URL.
-import { getSessionCookie, sessions } from "@softure-ai/auth";
-import { loginAction, logoutAction } from "@softure-ai/auth/next";
+import { getSessionCookie, sessions, type OnRegisteredHook } from "@softure-ai/auth";
+import { loginAction, logoutAction, registerAction } from "@softure-ai/auth/next";
 import { findSessionUser, registerUser } from "@softure-ai/auth/server";
 import type { SoftureConfig } from "@softure-ai/core";
 import { createHash, randomBytes } from "node:crypto";
@@ -115,5 +115,31 @@ describe("auth actions", () => {
       expect(await findSessionUser(test.ctx, registered.value.session.token)).toBeNull();
       expect(scope.cookies.size).toBe(0);
     });
+  });
+
+  it("sends a login to a next path of several thousand characters whole", async () => {
+    await setUp();
+    const registered = await registerUser(test.ctx, { email: EMAIL, password: PASSWORD, hasConsented: true, clientKey: "ip:198.51.100.1" });
+    if (!registered.ok) throw new Error("setup failed");
+    const next = `/oauth/authorize?state=${"s".repeat(6000)}`;
+    expect(await readRedirect(loginAction({ status: "idle" }, form({ email: EMAIL, password: PASSWORD, next })))).toBe(next);
+  });
+
+  it("hands only the declared registration fields of the form to onRegistered", async () => {
+    const onRegistered = vi.fn<OnRegisteredHook>(() => Promise.resolve());
+    await setUp({ auth: { registrationFields: ["z"], onRegistered } });
+    const data = form({ email: EMAIL, password: PASSWORD, consent: "on", next: "/", z: "newsletter", role: "admin" });
+    data.append("upload", new Blob(["x"]), "x.txt");
+    expect(await readRedirect(registerAction({ status: "idle" }, data))).toBe("/");
+    expect(onRegistered).toHaveBeenCalledWith(expect.objectContaining({ fields: { z: "newsletter" } }), expect.anything());
+  });
+
+  it("ignores a declared field sent as a file", async () => {
+    const onRegistered = vi.fn<OnRegisteredHook>(() => Promise.resolve());
+    await setUp({ auth: { registrationFields: ["z"], onRegistered } });
+    const data = form({ email: EMAIL, password: PASSWORD, consent: "on" });
+    data.append("z", new Blob(["x"]), "z.txt");
+    expect(await readRedirect(registerAction({ status: "idle" }, data))).toBe("/");
+    expect(onRegistered).toHaveBeenCalledWith(expect.objectContaining({ fields: {} }), expect.anything());
   });
 });

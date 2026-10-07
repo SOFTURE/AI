@@ -14,6 +14,9 @@ const COOKIE_NAME = /^[A-Za-z0-9_-]{1,64}$/;
 /** A legacy cookie may carry its own prefix (`__Host-session`) or a dot. */
 const LEGACY_COOKIE_NAME = /^[A-Za-z0-9_.-]{1,128}$/;
 const DEFAULT_COOKIE_NAME = "softure_session";
+const REGISTRATION_FIELD_NAME = /^[a-z][a-zA-Z0-9_]{0,31}$/;
+/** The register form's own fields, which an app field must not shadow. */
+const REGISTER_FORM_FIELDS: ReadonlySet<string> = new Set(["email", "password", "next", "consent"]);
 const DOMAIN = /^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/;
 
 /** Runs inside the registration transaction; a thrown error rolls the registration back. */
@@ -97,6 +100,20 @@ export const authOptionsSchema = z.strictObject({
       ),
     })
     .optional(),
+  /**
+   * Extra register form fields handed to `onRegistered` as `event.fields` (strings, at most 512
+   * characters; empty ones are left out). `RegisterPage` carries a declared field from its URL as a
+   * hidden input (e.g. `?z=` for a channel tag). Values come from the client: validate them in the hook.
+   */
+  registrationFields: z
+    .array(
+      z
+        .string()
+        .regex(REGISTRATION_FIELD_NAME, "must be a field name such as channel (a-z first, then letters, digits or _, at most 32)")
+        .refine((name) => !REGISTER_FORM_FIELDS.has(name), "is a field of the register form itself"),
+    )
+    .refine((names) => new Set(names).size === names.length, "must not repeat a name")
+    .default([]),
   /** Registration needs a ticked consent checkbox. */
   requireConsent: z.boolean().default(true),
   /** Declared default of the `auth.registration_closed` switch. */

@@ -24,6 +24,7 @@ describe("the auth module", () => {
       cookie: { name: "softure_session" },
       requireConsent: true,
       registrationClosed: false,
+      registrationFields: [],
       roles: [],
       adminEmails: [],
       passwordReset: { ttlMinutes: 60 },
@@ -63,6 +64,18 @@ describe("the auth module", () => {
       ['Invalid SOFTURE configuration in module "auth":', "- options.legacySession.cookieName: must differ from the current session cookie's name"].join("\n"),
     );
     expect(() => auth({ legacySession: { cookieName: "session", tokenPattern: /[0-9a-f]{64}/i } })).not.toThrow();
+  });
+
+  it("refuses registration field names that are not identifiers, repeat, or take the form's own names", () => {
+    expect(() => auth({ registrationFields: ["channel", "Bad-Name", "consent", "channel"] })).toThrow(
+      [
+        'Invalid SOFTURE configuration in module "auth":',
+        "- options.registrationFields.1: must be a field name such as channel (a-z first, then letters, digits or _, at most 32)",
+        "- options.registrationFields.2: is a field of the register form itself",
+        "- options.registrationFields: must not repeat a name",
+      ].join("\n"),
+    );
+    expect(() => auth({ registrationFields: ["z", "utm_source"] })).not.toThrow();
   });
 
   it("needs the security module in the app configuration", () => {

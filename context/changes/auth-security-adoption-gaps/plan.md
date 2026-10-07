@@ -101,9 +101,9 @@ Done when: `npm run typecheck`, `lint`, `test`, `build` green.
 
 ### Phase 3: sign-up, forms, next path
 
-- [ ] registration fields and createRegisterPage
-- [ ] submit variant and slot
-- [ ] next path cap and warning
+- [x] registration fields and createRegisterPage
+- [x] submit variant and slot
+- [x] next path cap and warning
 
 ### Phase 4: scripts, packaging, docs
 

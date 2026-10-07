@@ -14,8 +14,9 @@ import { after } from "next/server";
 import { z } from "zod";
 import type { AuthFormErrorCode, AuthFormField, AuthFormState } from "../contract.js";
 import { resolveRedirectTarget } from "../redirect-target.js";
-import { toSafeNextPath } from "../safe-next-path.js";
+import { MAX_NEXT_PATH_LENGTH, toSafeNextPath } from "../safe-next-path.js";
 import { changePassword } from "../server/change-password.js";
+import { getAuthOptions } from "../server/options.js";
 import { loginUser } from "../server/login.js";
 import { getAuthRoutes } from "../server/options.js";
 import { deliverPasswordReset, requestPasswordReset, resetPassword } from "../server/password-reset.js";
@@ -32,8 +33,14 @@ const text = z
   .catch("")
   .transform((value) => value.slice(0, MAX_FIELD_LENGTH));
 
-const loginInput = z.object({ email: text, password: text, next: text });
-const registerInput = z.object({ email: text, password: text, next: text, consent: z.string().nullable().catch(null) });
+// One character over the cap, so `toSafeNextPath` still sees an overlong path as overlong, not cut.
+const nextPath = z
+  .string()
+  .catch("")
+  .transform((value) => value.slice(0, MAX_NEXT_PATH_LENGTH + 1));
+
+const loginInput = z.object({ email: text, password: text, next: nextPath });
+const registerInput = z.object({ email: text, password: text, next: nextPath, consent: z.string().nullable().catch(null) });
 const changePasswordInput = z.object({ currentPassword: text, newPassword: text });
 const forgotPasswordInput = z.object({ email: text });
 const resetPasswordInput = z.object({ token: text, newPassword: text });
@@ -66,6 +73,16 @@ function readForm<T extends z.ZodType>(schema: T, formData: FormData): z.output<
   const raw = Object.fromEntries([...formData.keys()].map((key) => [key, formData.get(key)]));
   // Every field has a `catch`, so parsing cannot fail.
   return schema.parse(raw);
+}
+
+/** The app's declared registration fields the form sent as text; files and other names are ignored (the server cuts them to 512). */
+function readRegistrationFields(config: SoftureConfig, formData: FormData): Record<string, string> {
+  const fields: Record<string, string> = {};
+  for (const name of getAuthOptions(config).registrationFields) {
+    const value = formData.get(name);
+    if (typeof value === "string") fields[name] = value.slice(0, MAX_FIELD_LENGTH);
+  }
+  return fields;
 }
 
 function reportFailure(operation: string, error: unknown): AuthFormErrorCode {
@@ -106,6 +123,7 @@ export async function registerAction(_previous: AuthFormState, formData: FormDat
       // A checked HTML checkbox sends "on" (or its value); an unchecked one sends nothing.
       hasConsented: input.consent !== null,
       clientKey: client.value,
+      fields: readRegistrationFields(config, formData),
     });
   } catch (error) {
     return failure(reportFailure("registration", error), { email: input.email });
