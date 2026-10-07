@@ -1,12 +1,12 @@
 ---
 change_id: chart-pin
 title: "Event pin"
-status: plan_reviewed
+status: archived
 roadmap_item: CF-1
 branch: claude/project-thread-qcl0sh
 created: 2026-10-07
 updated: 2026-10-07
-archived_at: null
+archived_at: 2026-10-07
 ---
 
 ## Intent

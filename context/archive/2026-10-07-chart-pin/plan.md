@@ -58,9 +58,9 @@ Positions are not clamped (as `ChartFlag`): they come from `toPercent` on the dr
 ### Phase 1: ChartPin
 
 #### Automated
-- [ ] 1.1 Pin tests seen red, then green
-- [ ] 1.2 Styles, export, README and version 0.1.1
-- [ ] 1.3 Gates green (typecheck, lint, test, build)
+- [x] 1.1 Pin tests seen red, then green — c433732
+- [x] 1.2 Styles, export, README and version 0.1.1 — c433732
+- [x] 1.3 Gates green (typecheck, lint, test, build) — c433732
 
 #### Manual
-- [ ] 1.4 Pin seen in a browser on a stretched plot, light and dark
+- [x] 1.4 Pin seen in a browser on a stretched plot, light and dark — c433732
