@@ -154,17 +154,67 @@ labels; `messages` the built-in copy.
 | Component | What |
 | --- | --- |
 | `ChartPlot` | the SVG in one viewBox (`PLOT_WIDTH` × `PLOT_HEIGHT`, 1000 × 400) stretched to its box, plus an HTML `overlay` |
-| `GridLines`, `Baseline`, `GuideLine`, `SeriesLine` | SVG lines in viewBox units; a guide is `dashed` or `dotted`, a series takes a colour `slot` (`seriesSlot(index)`) |
+| `GridLines`, `Baseline`, `GuideLine`, `SeriesLine` | SVG lines in viewBox units; a guide is `dashed`, `dotted` or `solid`, a series takes a colour `slot` (`seriesSlot(index)`); every line takes [look options](#line-and-marker-options) |
 | `ValueAxis`, `valueAxisTicks` | value labels at heights in %; from four labels, every other one is hidden on narrow screens, counted from the top |
-| `TimeAxis`, `timeAxisTicks` | date labels at % of the width; with `ends`, the ends sit at the edges and middle labels stay clear of them |
+| `TimeAxis`, `timeAxisTicks`, `numberAxisTicks` | date or number labels at % of the width; with `ends`, the ends sit at the edges and middle labels stay clear of them; an optional second row ([Horizontal axes](#horizontal-axes)) |
 | `Legend`, `LegendItem`, `LegendSwatch` | swatches `box`, `dot`, `line`, `dashed`, `dotted` in a series slot |
-| `ChartFlag` | a chip at the top of the plot; within 18 % of an edge it aligns to that edge (`edgeAlign`) |
+| `ChartFlag` | a chip at the top of the plot; within 18 % of an edge it aligns to that edge (`edgeAlign`); variants and sizes ([options](#line-and-marker-options)) |
 | `ChartPin` | an event pin on a curve: a dashed line from the bottom up to a point and a round dot on it ([Pins](#pins)) |
 | `ChartDataTable` | the visually hidden table |
 | `ChartCursor` | the client cursor around the frame; takes `points` as percentages computed on the server |
 
 Positions are percentages of the plot (`toPercent`), computed once from the scales, so the overlay and the
 drawing cannot drift apart. Classes are `sft-chart-*` in the `softure` layer; an app's own classes win.
+
+### Line and marker options
+
+Every line (`GridLines`, `Baseline`, `GuideLine`, `SeriesLine`) and marker (`ChartFlag`, `ChartPin`) takes
+`className` (added next to the package class, so a stroke keeps `non-scaling-stroke`), `style` (applied last) and
+`data-*` attributes. On top of that:
+
+| Option | On | What |
+| --- | --- | --- |
+| `tone` | lines | a role colour from the tokens: `cursor`, `axis`, `grid`, `flag`, `foreground`, `muted`, `accent`, `danger`, `success`, `warning` |
+| `slot` | lines, `ChartPin` | a series colour (`seriesSlot(index)`) instead of the tone |
+| `strokeWidth`, `opacity` | lines | stroke width in screen pixels and stroke opacity, inline so they beat the class |
+| `variant` | `ChartFlag` | `flag` (the default chip), `ink` (text colour with the page colour as text, on any surface), `outline` |
+| `variant` | `ChartPin` | the dot's fill: `flag` (default) or `ink` |
+| `size` | `ChartFlag` `sm` `md`; `ChartPin` `sm` `md` `lg` | sizes derived from `--sft-text-xs` and `--sft-chart-dot-size` |
+| `ring` | `ChartPin` | `axis` (default, 3:1 on a light card) or `surface`, the card colour, so the dot cuts the line on a dark band |
+| `xPercent` optional | `ChartFlag`, `ChartPin` | omitted, the marker is not positioned across and its parent places it (a column with the event's `left`) |
+
+```tsx
+<GuideLine x={xScale(exit)} tone="accent" strokeWidth={1.5} data-testid="exit-guide" />
+<GuideLine x={xScale(unlock)} style={{ stroke: position.colour }} /> {/* an app colour that is no token */}
+<GridLines ys={ys} opacity={1} />
+<ChartFlag variant="ink" size="sm" className="app-flag-lift">{label}</ChartFlag>
+<ChartPin yPercent={y} ring="surface" size="sm" />
+```
+
+A chart on another surface (a dark band in a light page) needs no surface prop: redefine the `--sft-chart-*`
+tokens on a wrapper, or put the chart in a `data-theme` scope, and every primitive follows.
+
+### Horizontal axes
+
+`timeAxisTicks` labels dates on a `timeScale`; `numberAxisTicks` labels numbers (a month index, an age) on a
+`linearScale`, with the same edge rules:
+
+```tsx
+const ticks = numberAxisTicks({
+  ticks: yearStartMonths, // month indexes from today
+  scale: xScale, // linearScale({ domain: [0, lastMonth], range: [0, PLOT_WIDTH] })
+  format: (month) => String(startYear + Math.floor(month / 12)),
+  ends: [0, lastMonth],
+  sublabel: (month) => String(startAge + Math.floor(month / 12)), // a second row: the age under the year
+  narrow: "alternate",
+});
+<TimeAxis ticks={ticks} />;
+```
+
+- `sublabel` puts a second row under each label (edges included); `TimeAxis` then reserves two rows of height.
+- `narrow` sets which labels stay on narrow screens: `edges` keeps only the end labels (the default with `ends`),
+  `alternate` keeps every other middle label (with `ends`, starting by hiding the one next to the start label),
+  `all` hides none (the default without `ends`).
 
 ### Pins
 
@@ -250,10 +300,10 @@ The package came out of an adopting app's hand-rolled charts. What each part of 
 | value ticks counted in cents | `valueTicks(peak, target, { minStep: 100, min })` (unit-free) | the axis format, passed as `formatValue` |
 | year ticks | `yearTicks` | month helpers |
 | the nearest point to the pointer | `nearestPointIndex(points, x.invert(pointerX))`, in data space | — |
-| grid, baseline and guide lines | `GridLines`, `Baseline`, `GuideLine` (`dashed`, `dotted`) | — |
-| value and time axes | `valueAxisTicks({ ticks, scale, format })`, `ValueAxis`, `timeAxisTicks` (with `ends`), `TimeAxis` | extra rows (an age row) |
+| grid, baseline and guide lines | `GridLines`, `Baseline`, `GuideLine` (`dashed`, `dotted`, `solid`; `tone`, `slot`, `strokeWidth`, `opacity`, `style`, `data-*`) | — |
+| value and time axes | `valueAxisTicks({ ticks, scale, format })`, `ValueAxis`, `timeAxisTicks` / `numberAxisTicks` (with `ends`, `sublabel`, `narrow`), `TimeAxis` | — |
 | legend swatches | `LegendSwatch` shapes `box`, `dot`, `line`, `dashed`, `dotted` and a `slot` | outlines from stored colours |
-| event chips and pins | `ChartFlag` (edge rule `edgeAlign`), `ChartPin` (`xPercent` on the pin; a series fill through `slot`; size through `--sft-chart-dot-size`) | surface-specific rings, as overrides of `--sft-chart-axis` |
+| event chips and pins | `ChartFlag` (edge rule `edgeAlign`; `variant`, `size`, `className`, `style`), `ChartPin` (`slot`, `variant`, `size`, `ring`); both placed by their parent when `xPercent` is omitted | — |
 | percentages and surfaces | `percent`, `toPercent`, `edgeAlign` | surface tones, as overrides of the `--sft-chart-*` tokens |
 | the cursor | `ChartCursor`: arrows, Home/End, Escape, pointer events, a polite live readout | the readout's content |
 | colour-vision and contrast checks | `@softure-ai/ui/testing` (`findColorCollisions`, `contrastRatio`, `checkThemeContrast`) and `checkSeriesPalette` from `@softure-ai/charts/testing` | the colours themselves |
