@@ -45,7 +45,8 @@ FIRE ran deployment-specific scripts.
   in `/next`) sends a mail at most once per scope and recipient through the delivery ledger.
 - **Campaigns.** `sendCampaign`, `planCampaign` and the content file parser in `/server`; the
   `softure-mail campaign` command sends a campaign from a content file.
-- **Sender DNS.** `checkSenderDns(domain)` and `softure-mail dns` report SPF, DKIM and DMARC.
+- **Sender DNS.** `checkSenderDns(domain)` and `softure-mail dns` report SPF, DKIM and DMARC, hold DMARC to a
+  required minimum, and check the reply-to domain's MX and the provider's return-path hosts.
 - The `MailProvider` contract and `resend()`, the first adapter.
 - `@softure-ai/mailing/testing`: `fakeMailProvider()` and `readMailOutbox(file)`.
 
@@ -192,15 +193,32 @@ softure-mail campaign launch.md --recipients recipients.txt              # sends
 ### Sender DNS check: `softure-mail dns`
 
 ```bash
-softure-mail dns                                       # the domain of `from` in the config
+softure-mail dns                                       # the domain of `from` (and replyTo) in the config
 softure-mail dns --domain mail.example.com --spf-host send.mail.example.com
+softure-mail dns --spf-host send.mail.example.com --resend-return-path \
+  --dmarc-policy reject --dmarc-sp reject --dmarc-adkim s --dmarc-aspf s
 ```
 
-It reads TXT records and reports each check as `pass`, `warn` or `fail`, exiting 1 on any `fail`:
-SPF (one `v=spf1` record on the domain or each `--spf-host`; `+all` warns), DKIM (a non-empty `p=`
-at `<selector>._domainkey.<domain>`; selector `resend` unless `--dkim-selector` is given) and DMARC
-(`_dmarc.<domain>` or a parent domain's record; `p=none` warns: it only reports). Resend publishes
-SPF on `send.<domain>`. It cannot see whether the provider signs with the published key.
+It reports each check as `pass`, `warn` or `fail`, exiting 1 on any `fail`:
+
+- **SPF**: one `v=spf1` record on the domain or each `--spf-host`; `+all` warns. Resend publishes SPF on
+  `send.<domain>`.
+- **DKIM**: a non-empty `p=` at `<selector>._domainkey.<domain>`; selector `resend` unless `--dkim-selector` is given.
+- **DMARC**: `_dmarc.<domain>` or a parent domain's record; `p=none` warns: it only reports. With a required minimum
+  (`expectDmarc: { policy, subdomainPolicy, adkim, aspf }`, or the `--dmarc-*` flags) a weaker record fails as
+  `weak`: `p=quarantine` where `reject` is required, `adkim=r` (or no `adkim`) where `s` is required, `pct` under 100
+  when a policy is required. A stricter record passes, so adding `rua=` or tightening a tag never turns it red. For
+  an inherited record the domain's policy is `sp`, else `p`.
+- **REPLY** (when `replyTo` is configured and `--domain` is not given, or with `--reply-to`; `replyTo` option of the
+  function): the reply domain must have MX records that are not a null MX (`0 .`, "accepts no mail") and at most one
+  SPF record. Without it replies bounce while every sender check is green.
+- **PATH** (`returnPath: [{ host, targetDomain? }]`, `--return-path <host>`, `--resend-return-path`): each host must
+  be a CNAME (to `targetDomain` or under it, when set) or have MX records. `resendReturnPath(domain)` (the flag) gives
+  Resend's `send.<domain>` and `rsend.<domain>` with target `rmta.net`; a domain Resend set up with MX records on
+  `send` and no `rsend` checks `--return-path send.<domain>` alone.
+
+It cannot see whether the provider signs with the published key. The function takes `resolveTxt`, `resolveMx` and
+`resolveCname` for tests; by default it asks the system resolver.
 
 ## 2. Installation
 

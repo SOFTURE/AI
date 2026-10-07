@@ -199,6 +199,10 @@ describe("softure-mail campaign", () => {
     [[...SEND, "--domain", "example.com"], "campaign does not take --domain"],
     [["dns", "--recipients", "r.txt"], "dns does not take --recipients"],
     [["dns", "extra"], 'dns takes no file, got "extra"'],
+    [["dns", "--dmarc-policy", "none"], '--dmarc-policy expects quarantine or reject, got "none"'],
+    [["dns", "--dmarc-aspf", "strict"], '--dmarc-aspf expects r or s, got "strict"'],
+    [[...SEND, "--reply-to", "a@example.com"], "campaign does not take --reply-to"],
+    [[...SEND, "--resend-return-path"], "campaign does not take --resend-return-path"],
     [[...SEND, "--force"], "Unknown option '--force'"],
   ])("refuses %j as a usage error", async (argv, problem) => {
     const result = await run(argv);
@@ -225,13 +229,22 @@ describe("softure-mail dns", () => {
     return answer === undefined ? Promise.reject(Object.assign(new Error("not found"), { code: "ENOTFOUND" })) : Promise.resolve(answer.map((record) => [record]));
   };
 
+  const mx: Record<string, { exchange: string; priority: number }[]> = {
+    "example.com": [{ exchange: "route1.mx.example.net", priority: 10 }],
+    "send.mail.example.com": [{ exchange: "feedback-smtp.eu-west-1.amazonses.com", priority: 10 }],
+  };
+  const cnames: Record<string, string[]> = { "rsend.mail.example.com": ["rsend-euw1.forge.rmta.net"] };
+  const notFound = (code: string) => Promise.reject(Object.assign(new Error("not found"), { code }));
+  const resolveMx = (host: string) => (mx[host] === undefined ? notFound("ENOTFOUND") : Promise.resolve(mx[host]));
+  const resolveCname = (host: string) => (cnames[host] === undefined ? notFound("ENODATA") : Promise.resolve(cnames[host]));
+
   async function run(argv: string[], options: Partial<RunMailCliOptions> = {}) {
     const { output, lines, errors } = createOutput();
-    const code = await runMailCli({ config: createConfig(fakeMailProvider()), argv, output, resolveTxt, ...options });
+    const code = await runMailCli({ config: createConfig(fakeMailProvider()), argv, output, resolveTxt, resolveMx, resolveCname, ...options });
     return { code, lines, errors };
   }
 
-  it("checks the domain of the configured sender and passes when nothing fails", async () => {
+  it("checks the domain of the configured sender and its reply-to domain, and passes when nothing fails", async () => {
     expect(await run(["dns", "--spf-host", "send.mail.example.com"])).toEqual({
       code: 0,
       lines: [
@@ -239,6 +252,7 @@ describe("softure-mail dns", () => {
         "SPF   pass  found          send.mail.example.com  v=spf1 include:amazonses.com ~all",
         "DKIM  pass  found          resend._domainkey.mail.example.com  p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC",
         "DMARC warn  monitor-only   _dmarc.example.com  v=DMARC1; p=none",
+        "REPLY pass  found          example.com  10 route1.mx.example.net",
         "receivers can authenticate mail from this domain",
       ],
       errors: [],
@@ -254,6 +268,44 @@ describe("softure-mail dns", () => {
       "DMARC fail  missing        _dmarc.other.example.net",
     ]);
     expect(result.lines.at(-1)).toBe("3 check(s) failed: list mail from this domain will land in spam or be refused");
+  });
+
+  it("fails a DMARC record weaker than required", async () => {
+    const result = await run(["dns", "--spf-host", "send.mail.example.com", "--dmarc-policy", "Reject", "--dmarc-adkim", "s"]);
+    expect(result.code).toBe(1);
+    expect(result.errors).toEqual(["DMARC fail  weak           _dmarc.example.com  v=DMARC1; p=none"]);
+    expect(result.lines.at(-1)).toBe("1 check(s) failed: list mail from this domain will land in spam or be refused");
+  });
+
+  it("checks an explicit reply-to and names a bouncing reply path", async () => {
+    const result = await run(["dns", "--spf-host", "send.mail.example.com", "--reply-to", "Support <help@replies.example.org>"]);
+    expect(result.code).toBe(1);
+    expect(result.errors).toEqual(["REPLY fail  missing        replies.example.org"]);
+    expect(result.lines.at(-1)).toBe("the reply-to domain does not accept mail: replies will bounce");
+  });
+
+  it("checks no reply path with --domain unless --reply-to is given", async () => {
+    const result = await run(["dns", "--domain", "mail.example.com", "--spf-host", "send.mail.example.com"]);
+    expect(result.lines.some((line) => line.startsWith("REPLY"))).toBe(false);
+  });
+
+  it("checks Resend's return-path hosts and other given hosts", async () => {
+    const result = await run(["dns", "--spf-host", "send.mail.example.com", "--resend-return-path", "--return-path", "bounces.mail.example.com"]);
+    expect(result.code).toBe(1);
+    expect(result.lines).toContain("PATH  pass  found          rsend.mail.example.com  rsend-euw1.forge.rmta.net");
+    expect(result.lines).toContain("PATH  pass  found          send.mail.example.com  10 feedback-smtp.eu-west-1.amazonses.com");
+    expect(result.errors).toEqual(["PATH  fail  missing        bounces.mail.example.com"]);
+    expect(result.lines.at(-1)).toBe("1 return-path host(s) failed: the provider cannot use them for bounces");
+  });
+
+  it("keeps a space after a long finding", async () => {
+    cnames["send.mail.example.com"] = ["send.elsewhere.example"];
+    try {
+      const result = await run(["dns", "--spf-host", "send.mail.example.com", "--resend-return-path"]);
+      expect(result.errors).toEqual(["PATH  fail  unexpected-target send.mail.example.com  send.elsewhere.example"]);
+    } finally {
+      delete cnames["send.mail.example.com"];
+    }
   });
 
   it("needs a domain or the config", async () => {

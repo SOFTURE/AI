@@ -4,6 +4,21 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mailing@x.y.z`).
 
+## 0.1.8
+
+- `checkSenderDns` takes `expectDmarc: { policy, subdomainPolicy, adkim, aspf }`: a DMARC record weaker than it (a
+  lower policy, relaxed or absent alignment where strict is required, `pct` under 100) fails with the new finding
+  `weak`. Without the option nothing changes.
+- `replyTo` checks that the reply domain accepts mail: MX records that are not a null MX (finding `null-mx`) and at
+  most one SPF record.
+- `returnPath: [{ host, targetDomain? }]` checks return-path hosts: a CNAME (to the target domain, else finding
+  `unexpected-target`) or MX records. New `resendReturnPath(domain)` gives Resend's `send.` and `rsend.` hosts.
+- `SenderDnsReport` has two new keys, `replyTo` (`null` when not asked) and `returnPath` (`[]` when not asked); new
+  resolver options `resolveMx` and `resolveCname`.
+- `softure-mail dns`: `--dmarc-policy`, `--dmarc-sp`, `--dmarc-adkim`, `--dmarc-aspf`, `--reply-to`,
+  `--return-path`, `--resend-return-path`; without `--domain` it also checks the configured `replyTo`. New output
+  lines `REPLY` and `PATH`.
+
 ## 0.1.7
 
 - A failed send keeps the provider's HTTP status: `SendMailResult` failures and `deliverOnce` outcomes carry
