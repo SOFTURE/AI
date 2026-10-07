@@ -55,4 +55,45 @@ describe("createAuthGuard", () => {
   it("refuses a protected path that does not start with /", () => {
     expect(() => createAuthGuard(config, { protect: ["account"] })).toThrow('createAuthGuard: protected path "account" must start with /');
   });
+
+  describe("deny by default", () => {
+    const denyAll = createAuthGuard(config, { protect: ["/"], exclude: ["/", "/pricing", "/blog", "/api/public/"] });
+
+    it.each(["/login", "/login?next=%2Faccount", "/register", "/forgot-password", "/reset-password?token=x", "/api/auth/session"])(
+      "never guards auth's own public route %s, so protect: ['/'] cannot loop",
+      (path) => {
+        expect(denyAll(request(path))).toBeNull();
+        expect(createAuthGuard(config, { protect: ["/"] })(request(path))).toBeNull();
+      },
+    );
+
+    it.each(["/", "/pricing", "/pricing/annual", "/blog/first-post", "/api/public/stats", "/BLOG/x"])("lets the excluded path %s through", (path) => {
+      expect(denyAll(request(path))).toBeNull();
+    });
+
+    it.each(["/dashboard", "/pricingx", "/settings/blog", "/account/password", "/%E0%A4%A"])("guards %s, which no exclusion covers", (path) => {
+      expect(denyAll(request(path))?.status).toBe(307);
+    });
+
+    it("reads / in exclude as the home page only, not every path", () => {
+      expect(createAuthGuard(config, { protect: ["/"], exclude: ["/"] })(request("/dashboard"))?.status).toBe(307);
+    });
+
+    it("keeps the change-password route guarded even under an excluded prefix", () => {
+      expect(createAuthGuard(config, { protect: ["/"], exclude: ["/account"] })(request("/account/password"))?.status).toBe(307);
+      expect(createAuthGuard(config, { protect: ["/"], exclude: ["/account"] })(request("/account/profile"))).toBeNull();
+    });
+
+    it("refuses an excluded path that does not start with /", () => {
+      expect(() => createAuthGuard(config, { protect: ["/"], exclude: ["pricing"] })).toThrow('createAuthGuard: excluded path "pricing" must start with /');
+    });
+  });
+
+  it("counts the legacy session cookie as a session when the app declares one", () => {
+    const legacyConfig = createConfig({ appOrigin: "https://app.example.com", auth: { legacySession: { cookieName: "session", tokenPattern: /[0-9a-f]{64}/ } } });
+    const legacyGuard = createAuthGuard(legacyConfig, { protect: ["/account"] });
+    expect(legacyGuard(request("/account", `session=${"a".repeat(64)}`))).toBeNull();
+    expect(legacyGuard(request("/account", "session="))?.status).toBe(307);
+    expect(guard(request("/account", `session=${"a".repeat(64)}`))?.status).toBe(307);
+  });
 });

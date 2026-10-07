@@ -19,7 +19,7 @@ All 14 points of issue #156 closed in `@softure-ai/auth` 0.1.6 (unpublished, so 
   register action reads only those (strings, cut to 512 chars, empty dropped) and passes them to `registerUser`
   (`fields`), which hands them to `onRegistered` as `event.fields`. Names: `^[a-z][a-zA-Z0-9_]{0,31}$`, never one of
   the form's own (`email`, `password`, `next`, `consent`). `RegisterPage` carries a declared field from its search
-  params as a hidden input (FIRE's `?z=`). A field value comes from the client (a crafted link can set it): the README
+  params as a hidden input (e.g. a `?z=` channel tag). A field value comes from the client (a crafted link can set it): the README
   says the hook validates it. A `File` entry is ignored. `createRegisterPage({ consentLabel, extraFields })` builds the page with a
   consent label (links to the terms) and visible extra inputs; `RegisterPage` is `createRegisterPage()`.
   `RegisterForm` gets `extraFields`.
@@ -96,8 +96,8 @@ Done when: `npm run typecheck`, `lint`, `test`, `build` green.
 
 ### Phase 2: guard and cookies
 
-- [ ] guard exclude and auth pages
-- [ ] legacy cookie read, cleared on login, register and logout
+- [x] guard exclude and auth pages
+- [x] legacy cookie read, cleared on login, register and logout
 
 ### Phase 3: sign-up, forms, next path
 

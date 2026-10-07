@@ -23,7 +23,7 @@ import { registerUser } from "../server/register.js";
 import { logoutSession } from "../server/sessions.js";
 import { getAuthContext } from "./context.js";
 import { PASSWORD_RESET_DONE_PARAM } from "./params.js";
-import { clearSessionCookie, readSessionToken, writeSessionCookie } from "./session-cookie.js";
+import { clearSessionCookie, readLegacySessionToken, readSessionToken, writeSessionCookie } from "./session-cookie.js";
 
 /** Longer values are cut: the server functions refuse them anyway, and nothing huge is echoed back. */
 const MAX_FIELD_LENGTH = 4096;
@@ -190,22 +190,27 @@ export async function resetPasswordAction(_previous: AuthFormState, formData: Fo
   redirect(await resolveRedirectTarget(config, `${getAuthRoutes(config).login}?${PASSWORD_RESET_DONE_PARAM}=1`));
 }
 
-/** Ends the session the browser held before a login or register, so it cannot be reused. */
+/** Every session token the browser holds: the current cookie's and a legacy session's. */
+async function readHeldTokens(config: SoftureConfig): Promise<string[]> {
+  const tokens = [await readSessionToken(config), await readLegacySessionToken(config)];
+  return [...new Set(tokens.filter((token) => token !== null))];
+}
+
+/** Ends the sessions the browser held before a login or register, so they cannot be reused. */
 async function endPreviousSession(config: SoftureConfig): Promise<void> {
-  const previous = await readSessionToken(config);
-  if (previous === null) return;
-  try {
-    await logoutSession(await getAuthContext(config), previous);
-  } catch (error) {
-    reportFailure("ending the previous session", error);
+  for (const previous of await readHeldTokens(config)) {
+    try {
+      await logoutSession(await getAuthContext(config), previous);
+    } catch (error) {
+      reportFailure("ending the previous session", error);
+    }
   }
 }
 
-/** Ends the request's session and goes to `afterLogout`. The cookie is cleared even if the delete fails. */
+/** Ends the request's sessions and goes to `afterLogout`. The cookies are cleared even if the delete fails. */
 export async function logoutAction(): Promise<void> {
   const config = getSoftureConfig();
-  const token = await readSessionToken(config);
-  if (token !== null) {
+  for (const token of await readHeldTokens(config)) {
     try {
       await logoutSession(await getAuthContext(config), token);
     } catch (error) {

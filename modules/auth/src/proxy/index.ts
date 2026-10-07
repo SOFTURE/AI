@@ -5,31 +5,55 @@
 //
 // It checks that the session cookie is present, nothing more: an optimistic check that keeps
 // anonymous visitors off private pages without a database round trip in the proxy. Pages and
-// actions still call `requireUser`, which reads the session row.
+// actions still call `requireUser`, which reads the session row. An app that is private by default
+// protects "/" and lists its public paths in `exclude`; auth's own public pages are never guarded.
 import type { SoftureConfig } from "@softure-ai/core";
-import { getAuthRoutes } from "../server/options.js";
+import { getAuthOptions, getAuthRoutes } from "../server/options.js";
 import { getSessionCookie, readSessionToken } from "../session-cookie.js";
 
 export interface AuthGuardOptions {
   /** Path prefixes that need a session; each matches whole segments (`/account` → `/account/…`). */
   readonly protect: readonly string[];
+  /**
+   * Path prefixes that never need one, checked before `protect` (e.g. `protect: ["/"]` with the
+   * public pages here). `"/"` here is the home page only. The change-password route stays guarded.
+   */
+  readonly exclude?: readonly string[];
 }
+
+/** Mounted at a fixed path by the module (manifest `mount`); it answers `{ user: null }` without a session. */
+const SESSION_ROUTE = "/api/auth/session";
 
 export type AuthGuard = (request: Request) => Response | null;
 
 /** A guard that redirects to the login page (with `?next=`) for protected paths without a session cookie. */
 export function createAuthGuard(config: SoftureConfig, options: AuthGuardOptions): AuthGuard {
   const routes = getAuthRoutes(config);
-  const cookieName = getSessionCookie(config).name;
-  const prefixes = [...options.protect, routes.changePassword].map(normalizePrefix);
+  const cookieNames = [getSessionCookie(config).name, getAuthOptions(config).legacySession?.cookieName].filter((name) => name !== undefined);
+  const prefixes = options.protect.map((prefix) => normalizePrefix(prefix, "protected"));
+  const changePassword = normalizePrefix(routes.changePassword, "protected");
+  // Auth's own public pages: guarding them would send a visitor from the login page to itself.
+  const publicPaths = [routes.login, routes.register, routes.forgotPassword, routes.resetPassword, SESSION_ROUTE].map((path) =>
+    normalizePrefix(path, "excluded"),
+  );
+  const excluded = (options.exclude ?? []).map((prefix) => normalizePrefix(prefix, "excluded"));
+
+  const isGuarded = (path: string): boolean => {
+    if (isUnder(path, changePassword)) return true;
+    if (publicPaths.some((prefix) => isUnder(path, prefix))) return false;
+    // In `exclude`, "/" is the home page: excluding every path would switch the guard off.
+    if (excluded.some((prefix) => (prefix === "/" ? path === "/" : isUnder(path, prefix)))) return false;
+    return prefixes.some((prefix) => isUnder(path, prefix));
+  };
 
   return (request) => {
     const url = new URL(request.url);
     // Compared decoded and lowercased, so `/%61ccount` or `/ACCOUNT` (which a case-insensitive
     // front proxy may route to /account) is guarded too. Undecodable paths are guarded.
     const path = decodePath(url.pathname);
-    if (path !== null && !prefixes.some((prefix) => isUnder(path, prefix))) return null;
-    if (readSessionToken(request.headers.get("cookie"), cookieName) !== null) return null;
+    if (path !== null && !isGuarded(path)) return null;
+    const cookieHeader = request.headers.get("cookie");
+    if (cookieNames.some((name) => readSessionToken(cookieHeader, name) !== null)) return null;
     // Built on appOrigin: behind a proxy the request URL may carry an internal host.
     const login = new URL(routes.login, config.appOrigin);
     login.searchParams.set("next", `${url.pathname}${url.search}`);
@@ -37,9 +61,9 @@ export function createAuthGuard(config: SoftureConfig, options: AuthGuardOptions
   };
 }
 
-function normalizePrefix(prefix: string): string {
+function normalizePrefix(prefix: string, kind: "protected" | "excluded"): string {
   if (!prefix.startsWith("/")) {
-    throw new Error(`createAuthGuard: protected path "${prefix}" must start with /`);
+    throw new Error(`createAuthGuard: ${kind} path "${prefix}" must start with /`);
   }
   const trimmed = prefix.length > 1 && prefix.endsWith("/") ? prefix.slice(0, -1) : prefix;
   return trimmed.toLowerCase();

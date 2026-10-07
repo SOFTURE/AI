@@ -76,7 +76,7 @@ describe("sessions", () => {
 });
 
 describe("legacy sessions", () => {
-  // FIRE_TRACKER's tokens: 32 random bytes as 64 hex characters, stored as the sha256 hex of the token.
+  // An adopted system's tokens: 32 random bytes as 64 hex characters, stored as the sha256 hex of the token.
   const legacyToken = randomBytes(32).toString("hex");
   const legacySession = { cookieName: "session", tokenPattern: /[0-9a-f]{64}/ };
 

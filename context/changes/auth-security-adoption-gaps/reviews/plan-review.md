@@ -12,6 +12,6 @@ and the rules in AGENTS.md. Effort: high (14 points, security-relevant).
 | 5 | Warning | Clearing the legacy cookie needs its exact path and domain, which the module does not know. | Accepted: cleared with `Path=/` and the configured domain; README states the limit (the session row is ended anyway). |
 | 6 | Suggestion | `exclude: ["/"]` as a prefix would switch the guard off; treating it as the home page only is the one useful reading. | Accepted as planned, with a test. |
 | 7 | Suggestion | `module.json` is also changed by #158; keep its edit to nothing (auth stays 0.1.6), so the two do not conflict. | Accepted: auth's version is unchanged; `module.json` untouched. |
-| 8 | Suggestion | Point 14 cannot be closed by the agent (publishing is the owner's word). | Accepted: the issue comment says 0.1.6 is ready on master and names the `auto-release` run as the owner's step. |
+| 8 | Suggestion | Point 14 cannot be closed by the agent (publishing is a separate release step). | Accepted: the issue comment says 0.1.6 is ready on master and names the `auto-release` run as the remaining step. |
 
 No open findings. Verdict: ready to implement.
