@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Reveal</title>
+    <style>
+      .spacer { height: 2000px; }
+      #reveal { height: 100px; }
+    </style>
+  </head>
+  <body>
+    <h1>A page that moves on scroll</h1>
+    <div class="spacer"></div>
+    <section id="reveal"></section>
+    <div class="spacer"></div>
+    <script>
+      // The section shows its text only while it is in view, like a scroll-driven entrance.
+      const reveal = document.getElementById("reveal");
+      new IntersectionObserver((entries) => {
+        reveal.textContent = entries.some((entry) => entry.isIntersecting) ? "Revealed on scroll" : "";
+      }).observe(reveal);
+    </script>
+  </body>
+</html>

@@ -342,7 +342,7 @@ describe("loadMarketingConfig", () => {
       ogImages: [{ id: "calculator", template: "headline-cta", data: { headline: "Count" } }],
     });
     expect(loaded.screenshots).toEqual([
-      { id: "landing", path: "/", width: 1440, height: 900, full: false, expect: "Count your date", motion: "reduce", minBytes: 40_000, scale: 1 },
+      { id: "landing", path: "/", width: 1440, height: 900, full: false, expect: "Count your date", motion: "reduce", minBytes: 40_000, scale: 1, waitMs: 0 },
     ]);
     expect(loaded.ogImages).toEqual([{ id: "calculator", template: "headline-cta", size: [1200, 630], data: { headline: "Count", tiles: [] } }]);
   });
@@ -354,7 +354,16 @@ describe("loadMarketingConfig", () => {
     expect(loaded.screenshots[0]).toMatchObject({ scale: 2, colorSchemes: ["dark", "light"] });
   });
 
+  it("takes a screenshot's scroll offset, wait and storage state as written", () => {
+    const loaded = load({ ...makeConfig(), screenshots: [{ ...shot, scrollTo: 1200, waitMs: 800, storageState: "marketing/auth.json" }] });
+    expect(loaded.screenshots[0]).toMatchObject({ scrollTo: 1200, waitMs: 800, storageState: "marketing/auth.json" });
+  });
+
   it.each([
+    ["scrollTo with full", [{ ...shot, full: true, scrollTo: 100 }], "screenshots[0].scrollTo: is one viewport frame at a scroll position; a full-page shot has none, so drop full or scrollTo"],
+    ["a negative scrollTo", [{ ...shot, scrollTo: -1 }], "screenshots[0].scrollTo: Too small: expected number to be >=0"],
+    ["a waitMs above a minute", [{ ...shot, waitMs: 60_001 }], "screenshots[0].waitMs: Too big: expected number to be <=60000"],
+    ["a blank storageState", [{ ...shot, storageState: "" }], "screenshots[0].storageState: Too small: expected string to have >=1 characters"],
     ["a scale below 1", [{ ...shot, scale: 0.5 }], "screenshots[0].scale: Too small: expected number to be >=1"],
     ["a scale above 4", [{ ...shot, scale: 5 }], "screenshots[0].scale: Too big: expected number to be <=4"],
     ["an empty scheme list", [{ ...shot, colorSchemes: [] }], "screenshots[0].colorSchemes: Too small: expected array to have >=1 items"],

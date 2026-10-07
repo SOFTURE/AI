@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 import { findMissingFiles, formatConfigIssues, loadMarketingConfig, type MarketingConfig } from "../config/config.js";
 import { getGeometry, getLayoutName } from "../compose/timeline.js";
@@ -12,6 +12,7 @@ import { findMachineProblem } from "../render/preflight.js";
 import { runHyperframes } from "../render/hyperframes.js";
 import { renderFilm } from "../render/render.js";
 import { takeScreenshots, type ScreenshotEntry } from "../screenshot/screenshot.js";
+import { findStorageStateProblem } from "../screenshot/storage-state.js";
 import { splitIntoBeats } from "../voice/voiceover.js";
 import { CliFailure, fail } from "./failure.js";
 import { loadFilm, type LoadedFilm } from "./films.js";
@@ -146,8 +147,21 @@ function selectScreenshots(config: MarketingConfig, shotId: string | undefined):
   fail(`no screenshot "${shotId}" in ${config.file}; known: ${config.screenshots.map((entry) => entry.id).join(", ") || "none"}.`);
 }
 
+/** The entries with their storage state as an absolute path, each checked before the browser starts. */
+function resolveStorageStates(config: MarketingConfig, entries: [ScreenshotEntry, ...ScreenshotEntry[]]): [ScreenshotEntry, ...ScreenshotEntry[]] {
+  const [first, ...rest] = entries.map((entry) => {
+    if (entry.storageState === undefined) return entry;
+    const path = resolve(config.root, entry.storageState);
+    const problem = findStorageStateProblem(path);
+    if (problem !== null) fail(`screenshot "${entry.id}": ${problem}.`);
+    return { ...entry, storageState: path };
+  });
+  // The map keeps the length of a non-empty tuple.
+  return [first as ScreenshotEntry, ...rest];
+}
+
 async function shots(config: MarketingConfig, options: ShotsOptions): Promise<void> {
-  const entries = selectScreenshots(config, options.shotId);
+  const entries = resolveStorageStates(config, selectScreenshots(config, options.shotId));
   const [first] = entries;
   const target = { url: new URL(first.path, config.app.baseUrl).href, ownUrl: `http://localhost:${config.app.port}${first.path}` };
   const server = await ensureServer(config, target, options.url === undefined ? undefined : new URL(first.path, options.url).href);

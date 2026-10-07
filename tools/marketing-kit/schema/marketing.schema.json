@@ -2644,6 +2644,24 @@
                 "dark"
               ]
             }
+          },
+          "scrollTo": {
+            "description": "Capture one viewport frame scrolled to this many CSS pixels from the top (e.g. to check scroll-driven motion, with motion: \"no-preference\"); refused when the page cannot scroll that far. Not with full.",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "waitMs": {
+            "default": 0,
+            "description": "Milliseconds to wait after the page loaded (and scrolled) before the phrase gate reads it, for animations to settle (0-60000, default 0).",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 60000
+          },
+          "storageState": {
+            "description": "A Playwright storage state (cookies and localStorage as JSON), relative to the folder of marketing.json, to capture a signed-in screen. It holds a session: keep it out of git.",
+            "type": "string",
+            "minLength": 1
           }
         },
         "required": [

@@ -7,7 +7,7 @@ import type { ColorTheme } from "../config/colors.js";
 import type { MarketingJson } from "../config/schema.js";
 import { getScreenshotNames, getScreenshotShots, type ScreenshotShot } from "../config/screenshot-names.js";
 import { containsPhrase } from "../film.js";
-import { findSizeFailure, findStatusFailure, type ScreenshotGate } from "./gates.js";
+import { findScrollFailure, findSizeFailure, findStatusFailure, type ScreenshotGate } from "./gates.js";
 
 /**
  * `softure-marketing shots`: the `screenshots` entries of `marketing.json`. Each shot of an entry
@@ -121,6 +121,15 @@ async function captureLoadedPage(page: Page, target: ShotTarget): Promise<Screen
   const { entry, name, url, file } = target;
   await page.evaluate(() => document.fonts.ready);
   if (entry.full) await scrollThroughPage(page);
+  if (entry.scrollTo !== undefined) {
+    const reached = await page.evaluate((top) => {
+      window.scrollTo(0, top);
+      return window.scrollY;
+    }, entry.scrollTo);
+    const scrollFailure = findScrollFailure(reached, entry.scrollTo);
+    if (scrollFailure !== null) return { ok: false, id: entry.id, name, gate: "scroll", message: scrollFailure };
+  }
+  if (entry.waitMs > 0) await page.waitForTimeout(entry.waitMs);
   if (!(await waitForPhrase(page, entry.expect))) {
     return { ok: false, id: entry.id, name, gate: "phrase", message: `${url} does not show "${entry.expect}"` };
   }
@@ -157,6 +166,8 @@ async function takeShot(options: TakeShotOptions): Promise<ScreenshotResult> {
     locale: settings.locale,
     timezoneId: settings.timezone,
     reducedMotion: entry.motion,
+    // Resolved to an absolute path by the caller (the CLI resolves it against the folder of marketing.json).
+    ...(entry.storageState === undefined ? {} : { storageState: entry.storageState }),
   });
   try {
     const page = await context.newPage();

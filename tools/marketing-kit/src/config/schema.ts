@@ -461,6 +461,20 @@ const screenshotSchema = z.strictObject({
     .refine((schemes) => new Set(schemes).size === schemes.length, "lists a scheme twice")
     .optional()
     .describe('Capture each listed scheme into its own <id>-<scheme>.png, e.g. ["light", "dark"]; without it, one <id>.png in app.colorScheme.'),
+  scrollTo: z
+    .number()
+    .int()
+    .min(0)
+    .optional()
+    .describe('Capture one viewport frame scrolled to this many CSS pixels from the top (e.g. to check scroll-driven motion, with motion: "no-preference"); refused when the page cannot scroll that far. Not with full.'),
+  waitMs: z.number().int().min(0).max(60_000).default(0).describe("Milliseconds to wait after the page loaded (and scrolled) before the phrase gate reads it, for animations to settle (0-60000, default 0)."),
+  storageState: relativePath
+    .optional()
+    .describe("A Playwright storage state (cookies and localStorage as JSON), relative to the folder of marketing.json, to capture a signed-in screen. It holds a session: keep it out of git."),
+}).superRefine((entry, context) => {
+  if (entry.full && entry.scrollTo !== undefined) {
+    context.addIssue({ code: "custom", path: ["scrollTo"], message: "is one viewport frame at a scroll position; a full-page shot has none, so drop full or scrollTo" });
+  }
 });
 
 const ogImageBase = {

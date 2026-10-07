@@ -33,6 +33,17 @@ describe("softure-marketing shots", () => {
     expect(result.stderr).toContain(`✗ no screenshot "pricing" in ${config}; known: calculator.`);
   });
 
+  it("refuses a missing storage state before the browser starts, naming the entry and the file", () => {
+    const signedIn = join(target, "signed-in.json");
+    const data = JSON.parse(readFileSync(config, "utf8")) as { screenshots: Record<string, unknown>[] };
+    data.screenshots = data.screenshots.map((entry) => ({ ...entry, storageState: "auth/state.json" }));
+    writeFileSync(signedIn, JSON.stringify(data));
+    const result = runShots(signedIn);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(`✗ screenshot "calculator": the storage state ${join(target, "auth", "state.json")} does not exist;`);
+    expect(result.stdout).not.toContain("server:");
+  });
+
   it.runIf(hasChromium)("writes the fixture's screenshot", () => {
     const result = runShots(config);
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);

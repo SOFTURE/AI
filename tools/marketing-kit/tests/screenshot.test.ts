@@ -6,7 +6,7 @@ import { join } from "node:path";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { findSizeFailure, findStatusFailure } from "../src/screenshot/gates.js";
+import { findScrollFailure, findSizeFailure, findStatusFailure } from "../src/screenshot/gates.js";
 import { getScreenshotShots } from "../src/config/screenshot-names.js";
 import { getScreenshotFile, takeScreenshots, type ScreenshotEntry, type TakeScreenshotsOptions } from "../src/screenshot/screenshot.js";
 import { CHROMIUM_PATH, hasChromium } from "./chromium.js";
@@ -14,7 +14,7 @@ import { CHROMIUM_PATH, hasChromium } from "./chromium.js";
 const PAGES = join(import.meta.dirname, "fixtures", "screenshots");
 
 function makeEntry(overrides: Partial<ScreenshotEntry> & Pick<ScreenshotEntry, "id" | "path" | "expect">): ScreenshotEntry {
-  return { width: 800, height: 600, full: false, motion: "reduce", minBytes: 0, scale: 1, ...overrides };
+  return { width: 800, height: 600, full: false, motion: "reduce", minBytes: 0, scale: 1, waitMs: 0, ...overrides };
 }
 
 /** Height of a PNG from its IHDR chunk. */
@@ -37,6 +37,12 @@ describe("screenshot gates", () => {
     expect(findStatusFailure(400, "http://x/a")).toBe("HTTP 400 from http://x/a");
     expect(findStatusFailure(503, "http://x/a")).toBe("HTTP 503 from http://x/a");
     expect(findStatusFailure(null, "http://x/a")).toBe("no HTTP response from http://x/a");
+  });
+
+  it("passes a scroll that reached the offset and refuses one that stopped short", () => {
+    expect(findScrollFailure(2600, 2600)).toBeNull();
+    expect(findScrollFailure(2599.5, 2600)).toBeNull();
+    expect(findScrollFailure(2400, 2600)).toBe("the page scrolls only to 2400 px, short of scrollTo 2600");
   });
 
   it("passes a file of exactly minBytes and refuses one byte less", () => {
@@ -66,6 +72,11 @@ describe.runIf(hasChromium)("takeScreenshots against static pages", () => {
   beforeAll(async () => {
     server = createServer((request, response) => {
       const name = new URL(request.url ?? "/", "http://localhost").pathname.slice(1);
+      if (name === "private") {
+        const isSignedIn = (request.headers.cookie ?? "").split(/;\s*/).includes("session=signed-in");
+        response.writeHead(200, { "Content-Type": "text/html" }).end(isSignedIn ? "<p>Your dashboard</p>" : "<p>Sign in first</p>");
+        return;
+      }
       if (!/^[a-z]+\.html$/.test(name) || !existsSync(join(PAGES, name))) {
         response.writeHead(404, { "Content-Type": "text/html" }).end("<p>Count your date</p>");
         return;
@@ -192,6 +203,39 @@ describe.runIf(hasChromium)("takeScreenshots against static pages", () => {
     expect(existsSync(getScreenshotFile(outDir, "switched-light"))).toBe(false);
     expect(existsSync(getScreenshotFile(outDir, "switched-dark"))).toBe(false);
     expect(existsSync(getScreenshotFile(outDir, "switched"))).toBe(true);
+  });
+
+  it("captures one viewport frame at scrollTo, where the scroll-driven section shows", async () => {
+    const [top] = await take([makeEntry({ id: "scroll-top", path: "/reveal.html", expect: "Revealed on scroll" })]);
+    expect(top).toMatchObject({ ok: false, gate: "phrase" });
+    const [frame] = await take([makeEntry({ id: "scroll-frame", path: "/reveal.html", expect: "Revealed on scroll", scrollTo: 1800 })]);
+    expect(frame).toMatchObject({ ok: true, name: "scroll-frame" });
+    expect(readPngHeight(getScreenshotFile(outDir, "scroll-frame"))).toBe(600);
+  });
+
+  it("refuses a scrollTo the page cannot reach, as the scroll gate, and writes no file", async () => {
+    const [result] = await take([makeEntry({ id: "scroll-past", path: "/plain.html", expect: "Almost empty", scrollTo: 5000 })]);
+    expect(result).toEqual({ ok: false, id: "scroll-past", name: "scroll-past", gate: "scroll", message: "the page scrolls only to 0 px, short of scrollTo 5000" });
+    expect(existsSync(getScreenshotFile(outDir, "scroll-past"))).toBe(false);
+  });
+
+  it("waits waitMs after loading, before the phrase gate reads the page", async () => {
+    const [early] = await take([makeEntry({ id: "settling-early", path: "/settling.html", expect: "Still settling" })]);
+    expect(early?.ok).toBe(true);
+    const [waited] = await take([makeEntry({ id: "settling-waited", path: "/settling.html", expect: "Still settling", waitMs: 1500 })]);
+    expect(waited).toMatchObject({ ok: false, gate: "phrase" });
+    const [settled] = await take([makeEntry({ id: "settling-settled", path: "/settling.html", expect: "Settled", waitMs: 1500 })]);
+    expect(settled?.ok).toBe(true);
+  });
+
+  it("opens the page signed in with the entry's storage state", async () => {
+    const state = join(outDir, "state.json");
+    const host = new URL(baseUrl).hostname;
+    writeFileSync(state, JSON.stringify({ cookies: [{ name: "session", value: "signed-in", domain: host, path: "/", expires: -1, httpOnly: true, secure: false, sameSite: "Lax" }], origins: [] }));
+    const [anonymous] = await take([makeEntry({ id: "private-anonymous", path: "/private", expect: "Your dashboard" })]);
+    expect(anonymous).toMatchObject({ ok: false, gate: "phrase" });
+    const [signedIn] = await take([makeEntry({ id: "private-signed-in", path: "/private", expect: "Your dashboard", storageState: state })]);
+    expect(signedIn?.ok).toBe(true);
   });
 
   it("goes on after a failed entry", async () => {
