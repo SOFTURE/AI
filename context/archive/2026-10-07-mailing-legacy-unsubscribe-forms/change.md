@@ -1,12 +1,13 @@
 ---
 change_id: mailing-legacy-unsubscribe-forms
 title: "Legacy unsubscribe links with optional params, a no-oracle one-click answer, and the verified link in onUnsubscribed"
-status: planned
+status: archived
 roadmap_item: null
 issue: "#211"
 branch: claude/project-thread-wr7nc1
 created: 2026-10-07
 updated: 2026-10-07
+archived_at: 2026-10-07
 ---
 
 ## Intent
@@ -46,3 +47,4 @@ Point by point from the issue:
 - Placement: unlinked (`roadmap_item: null`): the project works from GitHub issues, not a roadmap.
 - Research and framing are skipped: the issue names the three code paths and proposes the shapes; each is one
   function and one schema field, read in full while writing this file.
+- Archived 2026-10-07: optional legacy params, `oneClickInvalidLinkStatus` and `event.link` in `onUnsubscribed`.

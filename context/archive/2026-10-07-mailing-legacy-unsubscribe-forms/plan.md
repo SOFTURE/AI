@@ -60,8 +60,8 @@ status for the page, a release in this change's commits.
 ### Phase 1: options, link reading, route and hook
 
 #### Automated
-- [ ] 1.1 New tests fail before the implementation and pass after
-- [ ] 1.2 Gates green (typecheck, lint, test, build)
+- [x] 1.1 New tests fail before the implementation and pass after — f8616e3
+- [x] 1.2 Gates green (typecheck, lint, test, build) — f8616e3
 
 #### Manual
-- [ ] 1.3 README example type-checks against the package
+- [x] 1.3 README example type-checks against the package — f8616e3 (verified by agent: the §10 snippet type-checked in a scratch test)

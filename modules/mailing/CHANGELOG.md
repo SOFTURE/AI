@@ -4,6 +4,17 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mailing@x.y.z`).
 
+## 0.1.9
+
+- `legacyUnsubscribe.params` also takes `{ required, optional }`: a link is legacy when it carries every required
+  name, and the optional names it carries go to `verify` too, so two old link forms on one path both keep working.
+  The array form still means "all required".
+- `mailing({ oneClickInvalidLinkStatus: 200 })`: the one-click route answers 200 for a link that does not verify, so
+  the answer never tells whether a token is live. The default stays 400; a failure still answers 500.
+- `onUnsubscribed` receives `event.link`: `{ scheme: "signed" }` or `{ scheme: "legacy", values }` with the values
+  `verify` accepted, so the hook can find the row a legacy link named. New types `LegacyUnsubscribeParams` and
+  `VerifiedUnsubscribeLink`.
+
 ## 0.1.8
 
 - `checkSenderDns` takes `expectDmarc: { policy, subdomainPolicy, adkim, aspf }`: a DMARC record weaker than it (a
