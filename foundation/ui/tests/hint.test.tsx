@@ -16,7 +16,7 @@ describe("Hint markup", () => {
       </Hint>,
     );
     expect(html).not.toContain("title=");
-    expect(html).toMatch(/<span id="h" role="tooltip" hidden="" class="[^"]*">Yearly rate<\/span>/);
+    expect(html).toMatch(/<span id="h" role="tooltip" class="[^"]*">Yearly rate<\/span>/);
   });
 
   it("puts the explanation behind a named, focusable button tied to the bubble", () => {
@@ -179,5 +179,70 @@ describe("resolveBubblePlacement", () => {
       right: "auto",
       bottom: "auto",
     });
+  });
+});
+
+function withViewport(width: number, height: number): () => void {
+  const root = document.documentElement;
+  Object.defineProperty(root, "clientWidth", { configurable: true, value: width });
+  Object.defineProperty(root, "clientHeight", { configurable: true, value: height });
+  return () => {
+    delete (root as { clientWidth?: number }).clientWidth;
+    delete (root as { clientHeight?: number }).clientHeight;
+  };
+}
+
+describe("Hint adoption gaps (#163)", () => {
+  it("resets text transform and letter spacing inherited from the trigger's surroundings", () => {
+    const html = renderToStaticMarkup(<Hint label="x" id="h">y</Hint>);
+    const bubbleClass = html.match(/id="h" role="tooltip"[^>]*class="([^"]*)"/)?.[1] ?? "";
+    expect(bubbleClass.split(" ")).toEqual(expect.arrayContaining(["sft:normal-case", "sft:tracking-normal"]));
+  });
+
+  it("opens by CSS before hydration: server markup is hidden by class, not by the hidden attribute", () => {
+    const html = renderToStaticMarkup(<Hint label="x" id="h">y</Hint>);
+    expect(html).toMatch(/^<span class="[^"]*sft:group\/hint[^"]*"/);
+    expect(html).not.toContain('hidden=""');
+    const bubbleClass = html.match(/id="h" role="tooltip"[^>]*class="([^"]*)"/)?.[1] ?? "";
+    expect(bubbleClass.split(" ")).toEqual(
+      expect.arrayContaining(["sft:hidden", "sft:group-hover/hint:block", "sft:group-focus-within/hint:block"]),
+    );
+  });
+
+  it("keeps the hidden attribute on the server when unstyled, having no classes to hide with", () => {
+    expect(renderToStaticMarkup(<Hint label="x" id="h" unstyled>y</Hint>)).toMatch(/role="tooltip" hidden=""/);
+  });
+
+  it("hands the bubble to React state once hydrated", () => {
+    render(<Hint label="x" id="h">y</Hint>);
+    const bubble = screen.getByRole("tooltip", { hidden: true });
+    expect(bubble.hidden).toBe(true);
+    expect(bubble.className).not.toContain("group-hover/hint");
+  });
+
+  it("places the bubble at the requested distance from the trigger", () => {
+    const trigger = { left: 400, right: 416, top: 300, bottom: 316 };
+    const bubble = { width: 200, height: 50 };
+    expect(resolveBubblePlacement({ trigger, bubble, viewport: VIEWPORT, isAnchoredLeft: true }).top).toBe(244);
+    expect(resolveBubblePlacement({ trigger, bubble, viewport: VIEWPORT, isAnchoredLeft: true, gap: 8 }).top).toBe(242);
+  });
+
+  it("passes triggerGap to the placement of an open bubble", () => {
+    const rect = (r: { left: number; top: number; width: number; height: number }) =>
+      ({ ...r, right: r.left + r.width, bottom: r.top + r.height, x: r.left, y: r.top, toJSON: () => r }) as DOMRect;
+    const spy = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      return this.getAttribute("role") === "tooltip"
+        ? rect({ left: 0, top: 0, width: 200, height: 50 })
+        : rect({ left: 400, top: 300, width: 16, height: 16 });
+    });
+    const restoreViewport = withViewport(1000, 800);
+    try {
+      render(<Hint label="About" id="h" anchorLeft triggerGap={8}>y</Hint>);
+      fireEvent.focus(screen.getByRole("button", { name: "About" }));
+      expect(screen.getByRole("tooltip").style.top).toBe("242px");
+    } finally {
+      spy.mockRestore();
+      restoreViewport();
+    }
   });
 });

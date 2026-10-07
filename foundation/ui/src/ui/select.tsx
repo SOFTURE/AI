@@ -200,15 +200,25 @@ export function Select({
       event.preventDefault();
       close();
     }
+    // A container that animates in (a modal) moves the trigger after the first measure; its end is
+    // the moment to measure again. The select's own transitions (the chevron) cannot move it.
+    function handleMotionEnd(event: Event) {
+      if (event.target instanceof Node && wrapperRef.current?.contains(event.target)) return;
+      measure();
+    }
     window.addEventListener("scroll", measure, true);
     window.addEventListener("resize", measure);
     document.addEventListener("pointerdown", handlePointerDown, true);
     document.addEventListener("keydown", handleEscape, true);
+    document.addEventListener("animationend", handleMotionEnd, true);
+    document.addEventListener("transitionend", handleMotionEnd, true);
     return () => {
       window.removeEventListener("scroll", measure, true);
       window.removeEventListener("resize", measure);
       document.removeEventListener("pointerdown", handlePointerDown, true);
       document.removeEventListener("keydown", handleEscape, true);
+      document.removeEventListener("animationend", handleMotionEnd, true);
+      document.removeEventListener("transitionend", handleMotionEnd, true);
     };
   }, [isOpen, measure, close]);
 
