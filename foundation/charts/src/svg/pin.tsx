@@ -11,6 +11,12 @@ export type ChartPinSize = "sm" | "md" | "lg";
  */
 export type ChartPinRing = "axis" | "surface";
 
+/** Classes for the pin's parts, added after the package classes (the column takes `className`). */
+export interface ChartPinClassNames {
+  readonly line?: string;
+  readonly dot?: string;
+}
+
 export interface ChartPinProps extends DataAttributes {
   /**
    * Position across the plot, in percent of its width (`toPercent` on the drawing's x). Omitted, the pin is not
@@ -33,6 +39,8 @@ export interface ChartPinProps extends DataAttributes {
   readonly className?: string;
   /** Inline style of the pin's column, applied after the position. */
   readonly style?: CSSProperties;
+  /** Classes for the line and the dot, e.g. a dash or a ring per surface. */
+  readonly classNames?: ChartPinClassNames;
 }
 
 /**
@@ -40,7 +48,7 @@ export interface ChartPinProps extends DataAttributes {
  * point. HTML in `ChartPlot`'s overlay, so the dot stays round however the plot stretches. Decorative:
  * the value belongs in the `ChartDataTable`.
  */
-export function ChartPin({ xPercent, yPercent, line = true, slot, variant = "flag", size = "md", ring = "axis", className, style, ...data }: ChartPinProps) {
+export function ChartPin({ xPercent, yPercent, line = true, slot, variant = "flag", size = "md", ring = "axis", className, style, classNames, ...data }: ChartPinProps) {
   const inline = xPercent === undefined ? style : { left: percent(xPercent), ...style };
   const dot = cx(
     "sft-chart-pin-dot",
@@ -48,10 +56,11 @@ export function ChartPin({ xPercent, yPercent, line = true, slot, variant = "fla
     variant !== "flag" && `sft-chart-pin-dot-${variant}`,
     size !== "md" && `sft-chart-pin-dot-${size}`,
     ring !== "axis" && `sft-chart-pin-dot-ring-${ring}`,
+    classNames?.dot,
   );
   return (
     <span {...data} className={cx("sft-chart-pin", className)} style={inline} aria-hidden="true">
-      {line && <span className="sft-chart-pin-line" style={{ height: percent(yPercent) }} />}
+      {line && <span className={cx("sft-chart-pin-line", classNames?.line)} style={{ height: percent(yPercent) }} />}
       <span className={dot} style={{ bottom: percent(yPercent) }} />
     </span>
   );

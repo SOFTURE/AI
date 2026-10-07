@@ -414,3 +414,43 @@ describe("styles.css (issue #197)", () => {
     for (const name of classes) expect(styles, name).toMatch(new RegExp(`\\.${name} \\{`));
   });
 });
+
+describe("primitive gaps (issue #221)", () => {
+  const styles = readFileSync(join(import.meta.dirname, "../styles.css"), "utf8");
+  const ruleOf = (selector: string) => {
+    const start = styles.indexOf(`${selector} {`);
+    return start === -1 ? "" : styles.slice(start, styles.indexOf("}", start));
+  };
+  const fiveTicks = [0, 1, 2, 3, 4].map((n) => ({ key: n, label: `${String(n)}M`, fromBottomPercent: n * 25 }));
+
+  it("a free flag drops the placed flag's top, so a parent can place it by its bottom", () => {
+    expect(ruleOf(".sft-chart-flag-free")).toContain("top: auto;");
+  });
+
+  it("a value axis with narrow all keeps every label on narrow screens", () => {
+    expect(renderToStaticMarkup(<ValueAxis ticks={fiveTicks} narrow="all" />)).not.toContain("sft-chart-minor");
+  });
+
+  it("a value axis with narrow alternate is the default", () => {
+    expect(renderToStaticMarkup(<ValueAxis ticks={fiveTicks} narrow="alternate" />)).toBe(renderToStaticMarkup(<ValueAxis ticks={fiveTicks} />));
+  });
+
+  it("a pin's line and dot take their own classes after the package classes", () => {
+    expect(renderToStaticMarkup(<ChartPin xPercent={40} yPercent={30} ring="surface" classNames={{ line: "app-line", dot: "app-dot" }} />)).toBe(
+      '<span class="sft-chart-pin" style="left:40%" aria-hidden="true">' +
+        '<span class="sft-chart-pin-line app-line" style="height:30%"></span>' +
+        '<span class="sft-chart-pin-dot sft-chart-pin-dot-ring-surface app-dot" style="bottom:30%"></span>' +
+        "</span>",
+    );
+  });
+
+  it("the pin's dash is declared on the column, so it inherits to the line", () => {
+    expect(ruleOf(".sft-chart-pin")).toContain("--sft-chart-dash: 4px;");
+    expect(ruleOf(".sft-chart-pin")).toContain("--sft-chart-dash-gap: 3px;");
+    expect(ruleOf(".sft-chart-guide-dashed,\n  .sft-chart-pin-line")).toBe("");
+  });
+
+  it("the pin line reads --sft-chart-pin-line and falls back to the cursor colour", () => {
+    expect(ruleOf(".sft-chart-pin-line")).toContain("var(--sft-chart-pin-line, var(--sft-chart-cursor))");
+  });
+});

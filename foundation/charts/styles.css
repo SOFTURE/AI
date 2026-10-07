@@ -77,9 +77,12 @@
     stroke-width: var(--sft-chart-grid-width);
   }
 
-  /* The event dash, read by the SVG guide and the HTML pin line (screen pixels: strokes do not scale). */
+  /*
+   * The event dash, read by the SVG guide and the HTML pin line (screen pixels: strokes do not scale). On the pin it
+   * sits on the column, so an app sets it there (or on the line) and the line inherits it.
+   */
   .sft-chart-guide-dashed,
-  .sft-chart-pin-line {
+  .sft-chart-pin {
     --sft-chart-dash: 4px;
     --sft-chart-dash-gap: 3px;
   }
@@ -252,8 +255,10 @@
     white-space: nowrap;
   }
 
+  /* Placed by the parent: no top of its own, or a parent placing it by its bottom would stretch it. */
   .sft-chart-flag-free {
     position: static;
+    top: auto;
   }
 
   .sft-chart-flag-ink {
@@ -272,7 +277,10 @@
     font-size: calc(var(--sft-text-xs) * 0.9);
   }
 
-  /* Pins: a dashed line from the bottom up to a point and a dot on it, in the overlay. */
+  /*
+   * Pins: a dashed line from the bottom up to a point and a dot on it, in the overlay. The line is in
+   * --sft-chart-pin-line when an app sets it (on the column or above), else in the cursor colour.
+   */
   .sft-chart-pin {
     position: absolute;
     top: 0;
@@ -290,7 +298,7 @@
     transform: translateX(-50%);
     background: repeating-linear-gradient(
       to top,
-      var(--sft-chart-cursor) 0 var(--sft-chart-dash),
+      var(--sft-chart-pin-line, var(--sft-chart-cursor)) 0 var(--sft-chart-dash),
       transparent var(--sft-chart-dash) calc(var(--sft-chart-dash) + var(--sft-chart-dash-gap))
     );
   }

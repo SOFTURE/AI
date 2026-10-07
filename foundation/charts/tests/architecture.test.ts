@@ -15,7 +15,7 @@ const RAW_COLOR = /#[0-9a-fA-F]{3,8}\b|\b(?:rgba?|hsla?|oklch|oklab|lab|lch|colo
 const COPY_ATTRIBUTE = /^(?:aria-label|aria-description|aria-roledescription|title|placeholder|alt|label|\w+Label)$/;
 const LETTER = /\p{L}/u;
 /** Custom properties styles.css defines itself, on top of the tokens. */
-const LOCAL_PROPERTIES = new Set(["--sft-chart-series", "--sft-chart-axis-width", "--sft-chart-dash", "--sft-chart-dash-gap", "--sft-chart-tone"]);
+const LOCAL_PROPERTIES = new Set(["--sft-chart-series", "--sft-chart-axis-width", "--sft-chart-dash", "--sft-chart-dash-gap", "--sft-chart-tone", "--sft-chart-pin-line"]);
 
 function getComponentSources(): { file: string; source: string }[] {
   return COMPONENT_DIRS.flatMap((dir) =>
@@ -48,10 +48,10 @@ function findInlineCopy(source: string): string[] {
   return found;
 }
 
-/** The `--sft-*` custom properties a stylesheet reads, without the ones it defines itself. */
+/** The `--sft-*` custom properties a stylesheet reads (also the first name of a `var()` with a fallback), without the ones it defines itself. */
 function findUnknownTokens(css: string): string[] {
   const known = new Set([...SCHEME_TOKENS, ...SHARED_TOKENS].map((name) => `--sft-${name}`));
-  const read = [...css.matchAll(/var\((--sft-[a-z0-9-]+)\)/g)].map((match) => match[1] ?? "");
+  const read = [...css.matchAll(/var\((--sft-[a-z0-9-]+)\s*[,)]/g)].map((match) => match[1] ?? "");
   return [...new Set(read)].filter((name) => !known.has(name) && !LOCAL_PROPERTIES.has(name));
 }
 
@@ -97,6 +97,7 @@ describe("the guards", () => {
 
   it("catch a token that does not exist", () => {
     expect(findUnknownTokens(".x { color: var(--sft-chart-gird); stroke: var(--sft-chart-grid); }")).toEqual(["--sft-chart-gird"]);
+    expect(findUnknownTokens(".x { color: var(--sft-chart-pin-lien, var(--sft-chart-cursor)); }")).toEqual(["--sft-chart-pin-lien"]);
   });
 });
 

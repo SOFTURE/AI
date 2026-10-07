@@ -155,7 +155,7 @@ labels; `messages` the built-in copy.
 | --- | --- |
 | `ChartPlot` | the SVG in one viewBox (`PLOT_WIDTH` × `PLOT_HEIGHT`, 1000 × 400) stretched to its box, plus an HTML `overlay` |
 | `GridLines`, `Baseline`, `GuideLine`, `SeriesLine` | SVG lines in viewBox units; a guide is `dashed`, `dotted` or `solid`, a series takes a colour `slot` (`seriesSlot(index)`); every line takes [look options](#line-and-marker-options) |
-| `ValueAxis`, `valueAxisTicks` | value labels at heights in %; from four labels, every other one is hidden on narrow screens, counted from the top |
+| `ValueAxis`, `valueAxisTicks` | value labels at heights in %; from four labels, every other one is hidden on narrow screens, counted from the top (`narrow="all"` keeps them all) |
 | `TimeAxis`, `timeAxisTicks`, `numberAxisTicks` | date or number labels at % of the width; with `ends`, the ends sit at the edges and middle labels stay clear of them; an optional second row ([Horizontal axes](#horizontal-axes)) |
 | `Legend`, `LegendItem`, `LegendSwatch` | swatches `box`, `dot`, `line`, `dashed`, `dotted` in a series slot |
 | `ChartFlag` | a chip at the top of the plot; within 18 % of an edge it aligns to that edge (`edgeAlign`); variants and sizes ([options](#line-and-marker-options)) |
@@ -176,19 +176,21 @@ Every line (`GridLines`, `Baseline`, `GuideLine`, `SeriesLine`) and marker (`Cha
 | --- | --- | --- |
 | `tone` | lines | a role colour from the tokens: `cursor`, `axis`, `grid`, `flag`, `foreground`, `muted`, `accent`, `danger`, `success`, `warning` |
 | `slot` | lines, `ChartPin` | a series colour (`seriesSlot(index)`) instead of the tone |
-| `strokeWidth`, `opacity` | lines | stroke width in screen pixels and stroke opacity, inline so they beat the class |
+| `strokeWidth`, `opacity` | lines | stroke width in screen pixels and `stroke-opacity`, inline so they beat the class; for SVG `opacity` (it blends a shade differently) pass `style={{ opacity }}` |
 | `variant` | `ChartFlag` | `flag` (the default chip), `ink` (text colour with the page colour as text, on any surface), `outline` |
 | `variant` | `ChartPin` | the dot's fill: `flag` (default) or `ink` |
 | `size` | `ChartFlag` `sm` `md`; `ChartPin` `sm` `md` `lg` | sizes derived from `--sft-text-xs` and `--sft-chart-dot-size` |
 | `ring` | `ChartPin` | `axis` (default, 3:1 on a light card) or `surface`, the card colour, so the dot cuts the line on a dark band |
-| `xPercent` optional | `ChartFlag`, `ChartPin` | omitted, the marker is not positioned across and its parent places it (a column with the event's `left`) |
+| `classNames` | `ChartPin` | `{ line, dot }`: classes for the line and the dot, after the package classes (`className` goes to the column) |
+| `xPercent` optional | `ChartFlag`, `ChartPin` | omitted, the marker is not positioned across and its parent places it (a column with the event's `left`); a free flag has no `top`, so the parent may place it by `bottom` |
 
 ```tsx
 <GuideLine x={xScale(exit)} tone="accent" strokeWidth={1.5} data-testid="exit-guide" />
 <GuideLine x={xScale(unlock)} style={{ stroke: position.colour }} /> {/* an app colour that is no token */}
 <GridLines ys={ys} opacity={1} />
 <ChartFlag variant="ink" size="sm" className="app-flag-lift">{label}</ChartFlag>
-<ChartPin yPercent={y} ring="surface" size="sm" />
+<ChartPin yPercent={y} ring="surface" size="sm" classNames={{ dot: "app-dot-on-band" }} />
+<ValueAxis ticks={ticks} narrow="all" /> {/* a small chart with few short labels */}
 ```
 
 A chart on another surface (a dark band in a light page) needs no surface prop: redefine the `--sft-chart-*`
@@ -238,7 +240,8 @@ const yPercent = 100 - toPercent(yScale(event.value), PLOT_HEIGHT); // from the 
 
 The pin goes in `ChartPlot`'s overlay, in HTML, so the dot stays round however the plot stretches (an SVG circle
 in the stretched viewBox would be an ellipse). The line is the guide's dash (`--sft-chart-dash`,
-`--sft-chart-dash-gap`) in `--sft-chart-cursor`; the dot is `--sft-chart-dot-size`, filled with `--sft-chart-flag`
+`--sft-chart-dash-gap`, declared on the pin's column so a class there changes them) in `--sft-chart-pin-line` when an
+app sets it (on the column or a wrapper, e.g. per surface), else in `--sft-chart-cursor`; the dot is `--sft-chart-dot-size`, filled with `--sft-chart-flag`
 (the colour of the chip over it) or, with `slot`, with that series' colour, and ringed in `--sft-chart-axis`, so a
 light fill on a light card keeps 3:1 (WCAG 1.4.11). `line={false}` draws the dot alone, for an event a `GuideLine`
 already marks. Positions are not clamped, as for flags: they come from the drawing's scales. The pin is hidden from
