@@ -42,8 +42,13 @@ editor and no CMS, a text changes only through a commit and `softure-blog publis
 ## 2. Installation
 
 ```bash
-npm install @softure-ai/blog
+npm install @softure-ai/blog @softure-ai/ui
 ```
+
+`@softure-ai/ui` is a peer dependency (any 0.1.x), like the optional `@softure-ai/security` and
+`@softure-ai/seo`: the app installs it once, so the theme tokens come from one copy. Importing
+`@softure-ai/blog/styles.css` from JavaScript is safe with tree-shaking, because the package marks its CSS as a side
+effect.
 
 Then add `blog()` to the modules of `softure.config.ts` and run `softure migrate`.
 

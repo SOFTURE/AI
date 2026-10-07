@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/auth",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "SOFTURE AI auth module: users, scrypt passwords, database sessions, register with consent, login, logout, password change, roles, a proxy route guard, pages and forms for Next.js, and a password reset sender over @softure-ai/mailing.",
   "license": "MIT",
   "type": "module",
@@ -74,15 +74,18 @@
     "@softure-ai/core": "^0.1.0",
     "@softure-ai/db": "^0.1.0",
     "@softure-ai/security": "^0.1.0",
-    "@softure-ai/ui": "^0.1.0",
     "zod": "^4.6.5"
   },
   "peerDependencies": {
     "@softure-ai/mailing": "^0.1.0",
     "@softure-ai/ops": "^0.1.0",
+    "@softure-ai/ui": "^0.1.0",
     "drizzle-orm": "^0.45.2",
     "next": "^16.0.0",
     "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@softure-ai/ui": "^0.1.7"
   },
   "peerDependenciesMeta": {
     "@softure-ai/mailing": {
