@@ -72,8 +72,8 @@ invalid key (`"Test Stack"`, empty) and an unknown field in the object are refus
 ### Phase 1: the `unidentified` option and the README
 
 #### Automated
-- [x] 1.1 New tests fail before the implementation and pass after
-- [x] 1.2 Gates green (typecheck, lint, test)
+- [x] 1.1 New tests fail before the implementation and pass after — eb96992
+- [x] 1.2 Gates green (typecheck, lint, test) — eb96992
 
 #### Manual
-- [x] 1.3 README example reads correctly for both stacks (verified by agent: the §3 snippet, run as a scratch Vitest test against the package, typechecks and identifies `ip:` with CF-Connecting-IP, `unidentified:test-stack` with the switch or under development, and refuses otherwise)
+- [x] 1.3 README example reads correctly for both stacks — eb96992 (verified by agent: the §3 snippet, run as a scratch Vitest test against the package, typechecks and identifies `ip:` with CF-Connecting-IP, `unidentified:test-stack` with the switch or under development, and refuses otherwise)

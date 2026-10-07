@@ -1,13 +1,13 @@
 ---
 change_id: security-unidentified-fallback
 title: "One app image runs behind Cloudflare and in a test stack without it, with an explicit fallback"
-status: implementing
+status: archived
 roadmap_item: null
 issue: "#183"
 branch: claude/project-thread-6o2un5
 created: 2026-10-07
 updated: 2026-10-07
-archived_at: null
+archived_at: 2026-10-07
 ---
 
 ## Intent
@@ -62,3 +62,4 @@ README §3 holds the `NODE_ENV` chain.
 
 - Placement: unlinked (`roadmap_item: null`), an adoption issue like #179, not a roadmap item.
 - Research and framing are skipped: the issue names the options and the code path is one function and one schema.
+- Archived 2026-10-07: `security({ unidentified })` makes the shared fallback explicit config, and README §3 documents one image for production behind Cloudflare and a test stack without it.
