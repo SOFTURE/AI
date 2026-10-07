@@ -31,5 +31,6 @@ test("the page lists the ledger and the module migrations applied by softure mig
     "softure 1 ledger (applied)",
     "waitlist 1 create_signups (applied)",
     "waitlist 2 add_confirmation (applied)",
+    "waitlist 3 add_channel (applied)",
   ]);
 });
