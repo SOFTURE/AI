@@ -84,15 +84,17 @@ Done when: `npm run typecheck`, `lint`, `test`, `build` green.
 
 ### Phase 1: ledger import
 
-- [ ] migration 0004 and schema
-- [ ] importDeliveries
+- [x] migration 0004 and schema — 3a45c77
+- [x] importDeliveries — 3a45c77
 
 ### Phase 2: maxAttempts and campaign recipients
 
-- [ ] maxAttempts module option, null
-- [ ] listCampaignRecipients option
+- [x] maxAttempts module option, null — 65f6e76
+- [x] listCampaignRecipients option — 65f6e76
 
 ### Phase 3: command and docs
 
-- [ ] softure-mail import, stdin, recipients from the option
-- [ ] README, docs/05, CHANGELOG, version 0.1.9
+- [x] softure-mail import, stdin, recipients from the option — 7f03663
+- [x] README, docs/05, CHANGELOG, version 0.1.9 — 7f03663
+
+Gates (7f03663): typecheck, lint, test (4720 passed, 107 skipped), build green.

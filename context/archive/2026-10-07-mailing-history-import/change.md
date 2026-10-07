@@ -1,12 +1,13 @@
 ---
 change_id: mailing-history-import
 title: "mailing: import of an existing delivery history, campaigns run where the database is, optional maxAttempts (issue #212)"
-status: plan_reviewed
+status: archived
 roadmap_item: null
 issue: 212
 branch: claude/project-thread-dc24mh
 created: 2026-10-07
 updated: 2026-10-07
+archived_at: 2026-10-07
 ---
 
 ## Intent
