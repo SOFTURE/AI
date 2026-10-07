@@ -1,11 +1,12 @@
 ---
 change_id: release-pending-changes
 title: "Release every package whose master differs from its npm version"
-status: planned
+status: archived
 roadmap_item: null
 branch: claude/project-thread-titzf4
 created: 2026-10-07
 updated: 2026-10-07
+archived_at: 2026-10-07
 ---
 
 ## Intent

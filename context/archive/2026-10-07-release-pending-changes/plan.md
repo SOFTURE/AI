@@ -13,4 +13,4 @@ Input: change.md. Complexity: small (one phase).
 
 ## Progress
 
-- [ ] Phase 1: patch bumps
+- [x] Phase 1: patch bumps (commits fc045ba..75a8b44 and this change's merge)
