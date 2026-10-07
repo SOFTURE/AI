@@ -5,6 +5,7 @@ export {
   forgotPasswordAction,
   loginAction,
   logoutAction,
+  type LogoutInput,
   registerAction,
   resetPasswordAction,
 } from "./actions.js";

@@ -103,4 +103,65 @@ describe("createAuthGuard", () => {
     expect(legacyGuard(request("/account", "session="))?.status).toBe(307);
     expect(guard(request("/account", `session=${"a".repeat(64)}`))?.status).toBe(307);
   });
+  describe("trusted origins", () => {
+    const multiHost = createAuthGuard(config, { protect: ["/account"], trustedOrigins: ["https://example.com/", "https://admin.example.com:8443"] });
+
+    function forwarded(headers: Record<string, string>, url = "http://10.0.0.5:3000/account?tab=1"): Request {
+      return new Request(url, { headers });
+    }
+
+    it("keeps the login redirect on a listed origin the front proxy forwarded", () => {
+      const response = multiHost(forwarded({ "x-forwarded-host": "example.com", "x-forwarded-proto": "https" }));
+      expect(response?.headers.get("location")).toBe("https://example.com/login?next=%2Faccount%3Ftab%3D1");
+    });
+
+    it("reads the first value of a forwarded list and compares hosts case-insensitively", () => {
+      const response = multiHost(forwarded({ "x-forwarded-host": "EXAMPLE.com, proxy.internal", "x-forwarded-proto": "https,http" }));
+      expect(response?.headers.get("location")).toBe("https://example.com/login?next=%2Faccount%3Ftab%3D1");
+    });
+
+    it("falls back to the Host header and the URL's scheme without forwarded headers", () => {
+      expect(multiHost(forwarded({ host: "example.com" }, "https://example.com/account"))?.headers.get("location")).toBe(
+        "https://example.com/login?next=%2Faccount",
+      );
+    });
+
+    it("matches a port only against an entry with that port", () => {
+      expect(multiHost(forwarded({ "x-forwarded-host": "admin.example.com:8443", "x-forwarded-proto": "https" }))?.headers.get("location")).toBe(
+        "https://admin.example.com:8443/login?next=%2Faccount%3Ftab%3D1",
+      );
+      expect(multiHost(forwarded({ "x-forwarded-host": "admin.example.com", "x-forwarded-proto": "https" }))?.headers.get("location")).toBe(
+        "https://app.example.com/login?next=%2Faccount%3Ftab%3D1",
+      );
+    });
+
+    it.each([
+      ["an unlisted host", { "x-forwarded-host": "evil.example", "x-forwarded-proto": "https" }],
+      ["a listed host over another scheme", { "x-forwarded-host": "example.com", "x-forwarded-proto": "http" }],
+      ["a host that does not parse", { "x-forwarded-host": "exa mple.com/", "x-forwarded-proto": "https" }],
+      ["a host smuggling a path", { "x-forwarded-host": "example.com/evil", "x-forwarded-proto": "https" }],
+      ["a host carrying credentials", { "x-forwarded-host": "user@example.com", "x-forwarded-proto": "https" }],
+    ])("redirects %s to appOrigin", (_label, headers) => {
+      expect(multiHost(forwarded(headers))?.headers.get("location")).toBe("https://app.example.com/login?next=%2Faccount%3Ftab%3D1");
+    });
+
+    it("keeps appOrigin for every host without the option, as before", () => {
+      expect(guard(forwarded({ "x-forwarded-host": "example.com", "x-forwarded-proto": "https" }))?.headers.get("location")).toBe(
+        "https://app.example.com/login?next=%2Faccount%3Ftab%3D1",
+      );
+    });
+
+    it("lets a request with a session through whatever its host", () => {
+      expect(multiHost(forwarded({ "x-forwarded-host": "evil.example", cookie: "__Host-softure_session=abc" }))).toBeNull();
+    });
+
+    it.each(["example.com", "https://example.com/path", "https://example.com?x=1", "ftp://example.com", "https://user@example.com", ""])(
+      "refuses the trusted origin %j at creation",
+      (origin) => {
+        expect(() => createAuthGuard(config, { protect: ["/account"], trustedOrigins: [origin] })).toThrow(
+          `createAuthGuard: trusted origin "${origin}" must be an http(s) origin such as https://example.com`,
+        );
+      },
+    );
+  });
 });

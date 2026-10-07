@@ -225,9 +225,27 @@ async function endPreviousSession(config: SoftureConfig): Promise<void> {
   }
 }
 
-/** Ends the request's sessions and goes to `afterLogout`. The cookies are cleared even if the delete fails. */
-export async function logoutAction(): Promise<void> {
+/** Where to go after logout: a path on this app, checked like login's `next`. */
+export interface LogoutInput {
+  readonly next?: string;
+}
+
+// Any client can call the action with any serializable value: only a `next` string counts.
+const logoutInput = z.object({ next: nextPath }).catch({ next: "" });
+
+/** The `next` of a posted form or of an object; anything else is no target. */
+function readLogoutNext(input: unknown): string {
+  if (input instanceof FormData) return logoutInput.parse({ next: input.get("next") }).next;
+  return logoutInput.parse(input).next;
+}
+
+/**
+ * Ends the request's sessions and goes to `next` (a form field or `{ next }`, e.g. `/login?next=…` to
+ * sign in as someone else), else to `afterLogout`. The cookies are cleared even if the delete fails.
+ */
+export async function logoutAction(input?: FormData | LogoutInput): Promise<void> {
   const config = getSoftureConfig();
+  const target = toSafeNextPath(readLogoutNext(input), getAuthRoutes(config).afterLogout);
   for (const token of await readHeldTokens(config)) {
     try {
       await logoutSession(await getAuthContext(config), token);
@@ -236,5 +254,5 @@ export async function logoutAction(): Promise<void> {
     }
   }
   await clearSessionCookie(config);
-  redirect(await resolveRedirectTarget(config, getAuthRoutes(config).afterLogout));
+  redirect(await resolveRedirectTarget(config, target));
 }

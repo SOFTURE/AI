@@ -28,5 +28,5 @@ export * from "./select-keys.js";
 export { SoftureThemeProvider, type SoftureThemeProviderProps } from "./softure-theme-provider.js";
 export * from "./switch.js";
 export { ThemeScript, type ThemeScriptProps } from "./theme-script.js";
-export { ThemeSwitch, type ThemeSwitchProps, type ThemeSwitchSlot } from "./theme-switch.js";
+export { type ThemeCookieDomain, ThemeSwitch, type ThemeSwitchProps, type ThemeSwitchSlot } from "./theme-switch.js";
 export * from "./toast.js";

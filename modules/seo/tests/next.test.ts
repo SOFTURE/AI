@@ -31,6 +31,13 @@ describe("the Next adapter", () => {
     expect(result.rules).toContainEqual({ userAgent: "*", allow: ["/$"], disallow: ["/"] });
   });
 
+  it("serves the app's extra directives in robots", () => {
+    register({ robots: { other: { "Content-Signal": "search=yes" } } });
+    for (const rule of robots().rules) {
+      expect(rule.other).toEqual({ "Content-Signal": "search=yes" });
+    }
+  });
+
   it("serves the sitemap from the module's entries and contributors", async () => {
     register({ sitemap: { entries: [{ path: "/" }], contributors: [() => [{ path: "/blog" }]] } });
     expect(await sitemap()).toEqual([{ url: "https://app.example.com/" }, { url: "https://app.example.com/blog" }]);
