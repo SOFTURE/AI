@@ -62,9 +62,9 @@ the macOS job is green.
 ### Phase 1: portable scripts and a macOS CI job
 
 #### Automated
-- [x] 1.1 Deploy tests and deploy workflow repository tests pass with bash 3.2, bsdtar and BSD-style comm first in PATH
-- [x] 1.2 The same tests pass with the runner's bash 5 and GNU tools
-- [ ] 1.3 Gates green (typecheck, lint, test)
+- [x] 1.1 Deploy tests and deploy workflow repository tests pass with bash 3.2, bsdtar and BSD-style comm first in PATH — bdc7357
+- [x] 1.2 The same tests pass with the runner's bash 5 and GNU tools — bdc7357
+- [x] 1.3 Gates green (typecheck, lint, test) — bdc7357
 - [ ] 1.4 CI green, the macOS job included
 
 #### Manual
