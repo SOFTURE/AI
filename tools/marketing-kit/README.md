@@ -234,9 +234,8 @@ default. Values must be hex literals (`#rgb`, `#rrggbb`, `#rrggbbaa`).
 
 ### From FIRE_TRACKER's constants
 
-What MK-1 hard-coded from FIRE and the key that holds it now. The values themselves are FIRE's to change: its
-RD-4 redesign (2026-09-30) replaced the look MK-1 copied, and FIRE's `marketing.json` now takes the CTA from its
-`accent` token and its new logo, without a change to the kit.
+What MK-1 hard-coded and the key that holds it now. The table names the kind of value, not the value: a project's
+look changes in its own `marketing.json`, without a change to the kit.
 
 | What MK-1 still had in code | Where it is now |
 | --- | --- |
