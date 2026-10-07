@@ -11,9 +11,9 @@ archived_at: 2026-10-07
 
 ## Intent
 
-Seven packages (six released here) carry changes on `master` that npm does not have yet: deploy (#183, #184), security (#177),
+Seven packages (four released here) carry changes on `master` that npm does not have yet: deploy (#183, #184), security (#177),
 ops (#181), marketing-kit (#175, #176), and the packaging and README fixes in charts, ui and seo
-(`CHANGELOG.md` in the tarball). seo is left to the change that is open on it (#194), which releases it. Each gets a patch version so the next `auto-release` publishes it.
+(`CHANGELOG.md` in the tarball). charts, ui and seo are left to the open changes that bump them too (#194, #197), so each is released once. Each gets a patch version so the next `auto-release` publishes it.
 
 ## Context
 
@@ -22,7 +22,7 @@ eleven have no change since their tag. Versions on `master` equal the npm versio
 
 ## Constraints
 
-- Owns: the version fields, `CHANGELOG.md` and `module.json`/inline manifest versions of the six released packages, the
+- Owns: the version fields, `CHANGELOG.md` and `module.json`/inline manifest versions of the four released packages, the
   root lockfile.
 - Bumps go through `npm run release:version` (it promotes `## Unreleased`), local tags are dropped:
   `auto-release` creates them on `master`.
