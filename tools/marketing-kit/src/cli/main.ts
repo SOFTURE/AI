@@ -11,13 +11,13 @@ import { recordFilm, ScreenGuardError, type RecordingLog } from "../record/recor
 import { findMachineProblem } from "../render/preflight.js";
 import { runHyperframes } from "../render/hyperframes.js";
 import { renderFilm } from "../render/render.js";
-import { takeScreenshots, type ScreenshotEntry } from "../screenshot/screenshot.js";
+import { takePageScreenshot, takeScreenshots, type ScreenshotBrowser, type ScreenshotEntry, type ScreenshotResult } from "../screenshot/screenshot.js";
 import { findStorageStateProblem } from "../screenshot/storage-state.js";
 import { splitIntoBeats } from "../voice/voiceover.js";
 import { CliFailure, fail } from "./failure.js";
 import { loadFilm, type LoadedFilm } from "./films.js";
 import { writeOgImages } from "./og.js";
-import { getRecordingDay, readOptions, type FilmOptions, type ShotsOptions } from "./options.js";
+import { getRecordingDay, readOptions, type EntryShotsOptions, type FilmOptions, type PageShotsOptions } from "./options.js";
 import { ensureServer } from "./server.js";
 import { getVoiceoverPaths, produceVoiceover, produceVoiceovers, readJson, requireVoiceover } from "./voice.js";
 
@@ -32,6 +32,7 @@ import { getVoiceoverPaths, produceVoiceover, produceVoiceovers, readJson, requi
  *   posts <film>
  *   og [image]
  *   shots [<id>] [--url=...]
+ *   shots --page=<url> --out=<file.png> --expect=<phrase> [...]
  */
 
 const getBuildDir = (config: MarketingConfig, film: LoadedFilm) => join(config.output.buildDir, film.id);
@@ -160,7 +161,43 @@ function resolveStorageStates(config: MarketingConfig, entries: [ScreenshotEntry
   return [first as ScreenshotEntry, ...rest];
 }
 
-async function shots(config: MarketingConfig, options: ShotsOptions): Promise<void> {
+function getScreenshotBrowser(config: MarketingConfig): ScreenshotBrowser {
+  return { colorScheme: config.app.colorScheme, locale: config.brand.locale, timezone: config.brand.timezone, hideSelectors: config.app.hideSelectors };
+}
+
+/** Prints each result and fails when any shot was refused. */
+function reportScreenshots(results: ScreenshotResult[]): void {
+  for (const result of results) {
+    if (result.ok) console.log(`✓ ${result.file} (${(result.bytes / 1000).toFixed(0)} kB)`);
+    else console.error(`✗ ${result.name}: ${result.message}`);
+  }
+  const failed = results.filter((result) => !result.ok).length;
+  if (failed > 0) fail(`${failed} of ${results.length} screenshots failed their gates; see above.`);
+}
+
+/** `shots --page`: one page anywhere; the app is not started, and the storage state resolves from the current directory. */
+async function pageShot(config: MarketingConfig, options: PageShotsOptions): Promise<void> {
+  let { entry } = options;
+  if (entry.storageState !== undefined) {
+    const path = resolve(entry.storageState);
+    const problem = findStorageStateProblem(path);
+    if (problem !== null) fail(`--auth: ${problem}.`);
+    entry = { ...entry, storageState: path };
+  }
+  const file = resolve(options.out);
+  console.log(`screenshot: ${options.page}.`);
+  const result = await takePageScreenshot({
+    entry,
+    url: options.page,
+    file,
+    scheme: options.scheme,
+    browser: getScreenshotBrowser(config),
+    executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH || undefined,
+  });
+  reportScreenshots([result]);
+}
+
+async function shots(config: MarketingConfig, options: EntryShotsOptions): Promise<void> {
   const entries = resolveStorageStates(config, selectScreenshots(config, options.shotId));
   const [first] = entries;
   const target = { url: new URL(first.path, config.app.baseUrl).href, ownUrl: `http://localhost:${config.app.port}${first.path}` };
@@ -174,22 +211,12 @@ async function shots(config: MarketingConfig, options: ShotsOptions): Promise<vo
       baseUrl: server.url,
       outDir,
       executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH || undefined,
-      browser: {
-        colorScheme: config.app.colorScheme,
-        locale: config.brand.locale,
-        timezone: config.brand.timezone,
-        hideSelectors: config.app.hideSelectors,
-      },
+      browser: getScreenshotBrowser(config),
     });
   } finally {
     server.stop();
   }
-  for (const result of results) {
-    if (result.ok) console.log(`✓ ${result.file} (${(result.bytes / 1000).toFixed(0)} kB)`);
-    else console.error(`✗ ${result.name}: ${result.message}`);
-  }
-  const failed = results.filter((result) => !result.ok).length;
-  if (failed > 0) fail(`${failed} of ${results.length} screenshots failed their gates; see above.`);
+  reportScreenshots(results);
 }
 
 async function main(argv: string[]): Promise<void> {
@@ -204,7 +231,8 @@ async function main(argv: string[]): Promise<void> {
     return;
   }
   if (options.command === "shots") {
-    await shots(config, options);
+    if (options.mode === "page") await pageShot(config, options);
+    else await shots(config, options);
     return;
   }
   if (options.command === "voice") {

@@ -155,13 +155,16 @@ export { createActionScene, getLocator, runAction, type LocatorSource } from "./
 export { FPS, ScreenGuardError, type BrowserSettings, type CameraCue, type RecordingLog } from "./record/record.js";
 export {
   getScreenshotFile,
+  takePageScreenshot,
   takeScreenshots,
   type ScreenshotBrowser,
   type ScreenshotEntry,
   type ScreenshotResult,
+  type TakePageScreenshotOptions,
   type TakeScreenshotsOptions,
 } from "./screenshot/screenshot.js";
-export { MIN_FAILING_STATUS, SCREENSHOT_GATES, findSizeFailure, findStatusFailure, type ScreenshotGate } from "./screenshot/gates.js";
+export { MIN_FAILING_STATUS, SCREENSHOT_GATES, findScrollFailure, findSizeFailure, findStatusFailure, type ScreenshotGate } from "./screenshot/gates.js";
+export { findStorageStateProblem } from "./screenshot/storage-state.js";
 export { getScreenshotNames, getScreenshotShots, type ScreenshotNaming, type ScreenshotShot } from "./config/screenshot-names.js";
 export {
   MARKETING_LOCALES,

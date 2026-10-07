@@ -1,11 +1,11 @@
 import { mkdirSync, rmSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { basename, dirname, extname, join } from "node:path";
 
 import { chromium, errors, type Browser, type Page } from "playwright";
 
 import type { ColorTheme } from "../config/colors.js";
 import type { MarketingJson } from "../config/schema.js";
-import { getScreenshotNames, getScreenshotShots, type ScreenshotShot } from "../config/screenshot-names.js";
+import { getScreenshotNames, getScreenshotShots } from "../config/screenshot-names.js";
 import { containsPhrase } from "../film.js";
 import { findScrollFailure, findSizeFailure, findStatusFailure, type ScreenshotGate } from "./gates.js";
 
@@ -151,18 +151,17 @@ function removeEntryFiles(outDir: string, entry: ScreenshotEntry): void {
 interface TakeShotOptions {
   browser: Browser;
   settings: ScreenshotBrowser;
-  entry: ScreenshotEntry;
-  shot: ScreenshotShot;
-  baseUrl: string;
-  outDir: string;
+  target: ShotTarget;
+  scheme: ColorTheme;
 }
 
 async function takeShot(options: TakeShotOptions): Promise<ScreenshotResult> {
-  const { browser, settings, entry, shot } = options;
+  const { browser, settings, target, scheme } = options;
+  const { entry } = target;
   const context = await browser.newContext({
     viewport: { width: entry.width, height: entry.height },
     deviceScaleFactor: entry.scale,
-    colorScheme: shot.scheme,
+    colorScheme: scheme,
     locale: settings.locale,
     timezoneId: settings.timezone,
     reducedMotion: entry.motion,
@@ -184,7 +183,6 @@ async function takeShot(options: TakeShotOptions): Promise<ScreenshotResult> {
         }
       });
     }, css);
-    const target = { entry, name: shot.name, url: new URL(entry.path, options.baseUrl).href, file: getScreenshotFile(options.outDir, shot.name) };
     return await takeOne(page, target);
   } finally {
     await context.close();
@@ -201,11 +199,42 @@ export async function takeScreenshots(options: TakeScreenshotsOptions): Promise<
     for (const entry of entries) {
       removeEntryFiles(outDir, entry);
       for (const shot of getScreenshotShots(entry, settings.colorScheme)) {
-        results.push(await takeShot({ browser, settings, entry, shot, baseUrl, outDir }));
+        const target = { entry, name: shot.name, url: new URL(entry.path, baseUrl).href, file: getScreenshotFile(outDir, shot.name) };
+        results.push(await takeShot({ browser, settings, target, scheme: shot.scheme }));
       }
     }
   } finally {
     await browser.close();
   }
   return results;
+}
+
+export interface TakePageScreenshotOptions {
+  /** The shot's settings; its `path` is ignored, `url` is the page. */
+  entry: ScreenshotEntry;
+  /** The page to capture, any http(s) address. */
+  url: string;
+  /** The PNG to write; removed first, so a refused shot leaves no older file behind. */
+  file: string;
+  /** The scheme the browser prefers; `browser.colorScheme` when absent. */
+  scheme?: ColorTheme;
+  browser: ScreenshotBrowser;
+  executablePath?: string;
+}
+
+/**
+ * One page anywhere (`shots --page`): a competitor's page, production, a page of another app. The same browser
+ * settings and gates as an entry, one file at the given path, and no app is started.
+ */
+export async function takePageScreenshot(options: TakePageScreenshotOptions): Promise<ScreenshotResult> {
+  const { entry, url, file, browser: settings } = options;
+  rmSync(file, { force: true });
+  mkdirSync(dirname(file), { recursive: true });
+  const browser = await chromium.launch(options.executablePath === undefined ? {} : { executablePath: options.executablePath });
+  try {
+    const target = { entry, name: basename(file, extname(file)), url, file };
+    return await takeShot({ browser, settings, target, scheme: options.scheme ?? settings.colorScheme });
+  } finally {
+    await browser.close();
+  }
 }

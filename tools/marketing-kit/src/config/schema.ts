@@ -445,7 +445,7 @@ const socialSchema = z.strictObject({
     .describe("A paragraph after every post's caption, e.g. that the persona is an example and the voice is AI-generated; {persona} becomes the film's persona name. A post opts out with disclosure: false."),
 });
 
-const screenshotSchema = z.strictObject({
+export const screenshotSchema = z.strictObject({
   id: id.describe("The screenshot's id: the file <output.dir>/screenshots/<id>.png."),
   path: pagePath.describe("The page of the app to capture, e.g. /pricing."),
   width: pixels(8000).describe("The browser viewport's width in CSS pixels."),
