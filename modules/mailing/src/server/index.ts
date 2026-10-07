@@ -42,6 +42,9 @@ export { isSuppressed, liftSuppression, suppressRecipient, unsubscribe, type Sup
 export {
   buildUnsubscribeLinks,
   getRecipientKey,
+  getUnsubscribeLinkParams,
+  MAX_LEGACY_VALUE_LENGTH,
+  readUnsubscribeLink,
   MIN_UNSUBSCRIBE_SECRET_LENGTH,
   readUnsubscribeSecrets,
   readUnsubscribeToken,
@@ -52,6 +55,8 @@ export {
   UNSUBSCRIBE_SECRET_ENV,
   verifyUnsubscribeToken,
   type Env,
+  type LinkParams,
+  type UnsubscribeLink,
   type UnsubscribeLinks,
   type UnsubscribeSecrets,
   type UnsubscribeToken,

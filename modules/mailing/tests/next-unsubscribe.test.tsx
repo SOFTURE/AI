@@ -169,3 +169,69 @@ describe("the unsubscribe adapter", () => {
     });
   });
 });
+
+describe("the unsubscribe adapter with legacy links", () => {
+  const LEGACY_QUERY = "u=signup-17&t=old-hmac";
+  let test: TestMailing;
+  let verify: ReturnType<typeof vi.fn<(values: Readonly<Record<string, string>>) => Promise<string | null>>>;
+  let log: MockInstance<typeof console.error>;
+
+  beforeEach(async () => {
+    verify = vi.fn((values: Readonly<Record<string, string>>) => Promise.resolve(values.t === "old-hmac" ? "ada@example.org" : null));
+    test = await createTestMailing(createConfig(fakeMailProvider(), { legacyUnsubscribe: { params: ["u", "t"], verify } }));
+    scope.config = test.config;
+    scope.context = test.ctx;
+    vi.stubEnv("MAILING_UNSUBSCRIBE_SECRET", SECRET);
+    log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  });
+  afterEach(async () => {
+    await test.database.close();
+    vi.unstubAllEnvs();
+    log.mockRestore();
+  });
+
+  const post = (query: string) => postUnsubscribeRoute(new Request(`https://app.example.com/old/unsubscribe?${query}`, { method: "POST", body: "List-Unsubscribe=One-Click" }));
+
+  async function submit(values: Record<string, string>): Promise<string> {
+    const data = new FormData();
+    for (const [name, value] of Object.entries(values)) data.set(name, value);
+    const error: unknown = await unsubscribeAction(data).then(
+      () => new Error("test: the action did not redirect"),
+      (thrown: unknown) => thrown,
+    );
+    if (!(error instanceof RedirectSignal)) throw error;
+    return error.location;
+  }
+
+  it("offers the button for a legacy link, carrying its values, and calls nothing on open", async () => {
+    const html = renderToStaticMarkup(await UnsubscribePage({ searchParams: Promise.resolve({ u: "signup-17", t: "old-hmac" }) }));
+    expect(html).toContain("Unsubscribe me");
+    expect(html).toContain('name="u" value="signup-17"');
+    expect(html).toContain('name="t" value="old-hmac"');
+    expect(verify).not.toHaveBeenCalled();
+  });
+
+  it("still offers the button for a signed link", async () => {
+    const html = renderToStaticMarkup(await UnsubscribePage({ searchParams: Promise.resolve({ r: KEY, t: SIGNATURE }) }));
+    expect(html).toContain(`name="r" value="${KEY}"`);
+  });
+
+  it("records a legacy link from the page's action", async () => {
+    expect(await submit({ u: "signup-17", t: "old-hmac" })).toBe("/unsubscribe?status=done");
+    expect(await listSuppressions(test.database)).toEqual([`${KEY} page ${NOW.toISOString()}`]);
+  });
+
+  it("brings the legacy link back when verify fails, and logs none of it", async () => {
+    verify.mockRejectedValueOnce(new Error("signups unreadable signup-17"));
+    expect(await submit({ u: "signup-17", t: "old-hmac" })).toBe(`/unsubscribe?status=failed&${LEGACY_QUERY}`);
+    expect(log.mock.calls.flat().join(" ")).not.toContain("signup-17");
+  });
+
+  it("records a legacy one-click POST, refuses a forged one and answers 500 when verify fails", async () => {
+    expect((await post(LEGACY_QUERY)).status).toBe(200);
+    expect((await post("u=signup-17&t=forged")).status).toBe(400);
+    verify.mockRejectedValueOnce(new Error("down"));
+    expect((await post(LEGACY_QUERY)).status).toBe(500);
+    expect(await listSuppressions(test.database)).toEqual([`${KEY} one-click ${NOW.toISOString()}`]);
+  });
+});

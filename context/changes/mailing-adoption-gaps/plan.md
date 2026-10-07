@@ -119,15 +119,15 @@ Done when: `npm run typecheck`, `lint`, `test`, `build` green.
 
 ### Phase 2: ledger and campaigns
 
-- [x] provider status stored, halt releases the claim
-- [x] campaign stops on halt
-- [x] recipient filter
-- [x] claim windows and uncertain claims
+- [x] provider status stored, halt releases the claim — 49c0d8f
+- [x] campaign stops on halt — 49c0d8f
+- [x] recipient filter — 49c0d8f
+- [x] claim windows and uncertain claims — 49c0d8f
 
 ### Phase 3: legacy unsubscribe links
 
-- [ ] legacyUnsubscribe option and unsubscribe
-- [ ] page, action and one-click route
+- [x] legacyUnsubscribe option and unsubscribe
+- [x] page, action and one-click route
 
 ### Phase 4: command, billing, docs
 

@@ -1,8 +1,8 @@
 // The suppression list: recording opt-outs from signed links and from operators, and reading them.
 import type { UnsubscribeEvent } from "@softure-ai/mailing";
-import { getRecipientKey, isSuppressed, liftSuppression, signRecipientKey, suppressRecipient, unsubscribe } from "@softure-ai/mailing/server";
+import { getRecipientKey, isSuppressed, liftSuppression, readUnsubscribeLink, signRecipientKey, suppressRecipient, unsubscribe } from "@softure-ai/mailing/server";
 import { fakeMailProvider } from "@softure-ai/mailing/testing";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createConfig, createTestMailing, listSuppressions, NOW, PREVIOUS_SECRET, SECRET, type TestMailing } from "./support.js";
 
 const ENV = { MAILING_UNSUBSCRIBE_SECRET: SECRET };
@@ -150,5 +150,74 @@ describe("the onUnsubscribed hook", () => {
     } finally {
       await test.database.close();
     }
+  });
+});
+
+describe("legacy unsubscribe links", () => {
+  const LEGACY = { u: "signup-17", t: "old-hmac" };
+  let verify: ReturnType<typeof vi.fn<(values: Readonly<Record<string, string>>) => Promise<string | null>>>;
+  let hook: ReturnType<typeof vi.fn<(event: UnsubscribeEvent) => Promise<void>>>;
+  let test: TestMailing;
+
+  beforeEach(async () => {
+    verify = vi.fn((values: Readonly<Record<string, string>>) => Promise.resolve(values.u === LEGACY.u && values.t === LEGACY.t ? " Ada@example.org" : null));
+    hook = vi.fn(() => Promise.resolve());
+    test = await createTestMailing(createConfig(fakeMailProvider(), { legacyUnsubscribe: { params: ["u", "t"], verify }, onUnsubscribed: hook }));
+  });
+  afterEach(async () => {
+    await test.database.close();
+  });
+
+  const read = (query: string) => readUnsubscribeLink(new URLSearchParams(query), test.config);
+
+  it("reads a link with every legacy parameter as a legacy link", () => {
+    expect(read("u=signup-17&t=old-hmac&utm=x")).toEqual({ scheme: "legacy", values: LEGACY });
+  });
+
+  it("reads a link with the recipient parameter as a signed link, even when it also carries the legacy ones", () => {
+    expect(read(`r=${ADA_KEY}&t=${ADA_TOKEN.signature}&u=signup-17`)).toEqual({ scheme: "signed", token: ADA_TOKEN });
+    expect(read(`r=${ADA_KEY}&u=signup-17`)).toBeNull();
+  });
+
+  it.each([
+    ["a missing parameter", "u=signup-17"],
+    ["an empty parameter", "u=&t=old-hmac"],
+    ["a value over 512 characters", `u=${"a".repeat(513)}&t=old-hmac`],
+  ])("reads %s as no link", (_case, query) => {
+    expect(read(query)).toBeNull();
+  });
+
+  it("reads no legacy link when the app set no legacyUnsubscribe", async () => {
+    const plain = await createTestMailing();
+    try {
+      expect(readUnsubscribeLink(new URLSearchParams("u=signup-17&t=old-hmac"), plain.config)).toBeNull();
+      expect(await unsubscribe(plain.ctx, { scheme: "legacy", values: LEGACY }, "page", ENV)).toEqual({ ok: false, error: "mailing.invalid_link" });
+    } finally {
+      await plain.database.close();
+    }
+  });
+
+  it("records the opt-out of the address the app's verify names, and runs onUnsubscribed with its key", async () => {
+    expect(await unsubscribe(test.ctx, { scheme: "legacy", values: LEGACY }, "one-click", ENV)).toEqual({ ok: true, value: undefined });
+    expect(verify).toHaveBeenCalledWith(LEGACY, test.ctx);
+    expect(await listSuppressions(test.database)).toEqual([`${ADA_KEY} one-click ${NOW.toISOString()}`]);
+    expect(hook.mock.calls.map(([event]) => event)).toEqual([{ recipientKey: ADA_KEY, source: "one-click" }]);
+  });
+
+  it("refuses a link the app's verify does not accept, and stores nothing", async () => {
+    expect(await unsubscribe(test.ctx, { scheme: "legacy", values: { u: "signup-17", t: "forged" } }, "page", ENV)).toEqual({ ok: false, error: "mailing.invalid_link" });
+    expect(await listSuppressions(test.database)).toEqual([]);
+    expect(hook).not.toHaveBeenCalled();
+  });
+
+  it("lets a failing verify propagate, so the person may try again", async () => {
+    verify.mockRejectedValueOnce(new Error("signups unreadable"));
+    await expect(unsubscribe(test.ctx, { scheme: "legacy", values: LEGACY }, "page", ENV)).rejects.toThrow("signups unreadable");
+    expect(await listSuppressions(test.database)).toEqual([]);
+  });
+
+  it("never asks the app's verify about a signed link", async () => {
+    expect(await unsubscribe(test.ctx, { scheme: "signed", token: ADA_TOKEN }, "page", ENV)).toEqual({ ok: true, value: undefined });
+    expect(verify).not.toHaveBeenCalled();
   });
 });

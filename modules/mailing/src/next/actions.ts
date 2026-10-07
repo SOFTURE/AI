@@ -9,16 +9,16 @@ import { getSoftureConfig } from "@softure-ai/core/next";
 import { redirect } from "next/navigation";
 import { getMailingRoutes } from "../server/options.js";
 import { unsubscribe } from "../server/suppressions.js";
-import { RECIPIENT_PARAM, readUnsubscribeToken, SIGNATURE_PARAM } from "../server/unsubscribe-link.js";
+import { getUnsubscribeLinkParams, readUnsubscribeLink } from "../server/unsubscribe-link.js";
 import { getMailingContext } from "./context.js";
 import { UNSUBSCRIBE_STATUS_PARAM, type UnsubscribeStatus } from "./params.js";
 
 export async function unsubscribeAction(formData: FormData): Promise<void> {
   const config = getSoftureConfig();
-  const token = readUnsubscribeToken(formData);
+  const link = readUnsubscribeLink(formData, config);
   let status: UnsubscribeStatus;
   try {
-    const result = await unsubscribe(await getMailingContext(config), token, "page");
+    const result = await unsubscribe(await getMailingContext(config), link, "page");
     status = result.ok ? "done" : "invalid";
   } catch (error) {
     // The label names the kind of failure, never its text: that can carry the link's values.
@@ -26,10 +26,9 @@ export async function unsubscribeAction(formData: FormData): Promise<void> {
     status = "failed";
   }
   const query = new URLSearchParams({ [UNSUBSCRIBE_STATUS_PARAM]: status });
-  if (status === "failed" && token !== null) {
+  if (status === "failed" && link !== null) {
     // The form comes back with the same link, so the person can try again.
-    query.set(RECIPIENT_PARAM, token.recipientKey);
-    query.set(SIGNATURE_PARAM, token.signature);
+    for (const [name, value] of Object.entries(getUnsubscribeLinkParams(link))) query.set(name, value);
   }
   redirect(`${getMailingRoutes(config).unsubscribe}?${query.toString()}`);
 }
