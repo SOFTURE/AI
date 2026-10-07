@@ -11,12 +11,15 @@ editor and no CMS, a text changes only through a commit and `softure-blog publis
 - `blog.articles` and `blog.slug_history` with database constraints for every invariant that fits one.
 - `softure-blog publish`: a dry run by default; with `--commit`, all files or none; unchanged files are
   skipped by their content hash; a slug change keeps the old slug as a redirect; one pillar per cluster.
+  Files from paths or from standard input (`--stdin`, for a release through an ssh pipe), a line
+  contract for scripts (`--format lines`), and the dates and old slugs of an existing blog imported on
+  the first publish (`--history`).
 - Read functions for the pages: `getPublishedArticle`, `findArticleBySlug`, `findSlugRedirect`,
   `listArticles`.
 - `renderArticle(markdown, options)`: the body as safe HTML on the server (no raw HTML, safe link
   schemes only, marked external links, images under the app's image policy), heading ids and an
   optional table of contents, glossary links on the first mention of a term, block plugins for the
-  app's own fenced blocks, reading time.
+  app's own fenced blocks and `::directive{…}` lines, reading time.
 - Pages, each mounted with one re-export line (`@softure-ai/blog/next`): the listing grouped by cluster
   with the pillar first, an article (dates, summary, contents, FAQ, sources, signature, disclaimer,
   `BlogPosting`/`BreadcrumbList`/`FAQPage` JSON-LD), the glossary index and a term page (`DefinedTerm`,
@@ -24,7 +27,8 @@ editor and no CMS, a text changes only through a commit and `softure-blog publis
   Their canonical, Open Graph, JSON-LD and feed URLs follow `@softure-ai/seo`'s origin, host and
   trailing-slash rule when the app lists `seo()` (core's `getSiteUrls`), and `appOrigin` otherwise.
 - `createBlogRedirects` (`@softure-ai/blog/proxy`): 301 from an old slug, 410 for a withdrawn text,
-  in the app's `proxy.ts`.
+  in the app's `proxy.ts`; `createBlogMarkdown` answers an article or term asked for with
+  `Accept: text/markdown` with its Markdown (`toArticleMarkdown`), for agents.
 - `@softure-ai/blog/styles.css`: the pages and the rendered body on the `--sft-*` tokens.
 - Discovery: an RSS 2.0 feed (`serveBlogRss`), "read next" under every article (its cluster first, the
   pillar on top), and, with `@softure-ai/seo` (optional): sitemap entries with each text's real
@@ -280,7 +284,8 @@ The quality gate resolves internal links through `quality.paths` (default `/blog
 The commands:
 
 ```bash
-softure-blog publish [<path>...] [--commit] [--withdraw] [--no-indexnow] [--app-url <origin>] [--config <file>]
+softure-blog publish [<path>...] [--commit] [--withdraw] [--no-indexnow] [--app-url <origin>]
+                     [--stdin [--name <slug>.md]] [--history <file.json>] [--format text|lines] [--config <file>]
 softure-blog check [<path>...] [--external] [--today <YYYY-MM-DD>] [--config <file>]
 softure-blog skill install [--dir <path>] [--command <cmd>] [--check] [--config <file>]
 ```
@@ -300,6 +305,13 @@ softure-blog skill install [--dir <path>] [--command <cmd>] [--check] [--config 
   listing or the glossary of its kind) as canonical URLs on seo's origin; a dry run prints them;
   `--no-indexnow` skips the submit (e.g. a local or CI database). A failed submit is a warning: the
   publish stays written and the exit code stays 0.
+- `--stdin` reads the files from standard input instead of paths: with `--name <slug>.md`, the one file's
+  text; without it, a JSON bundle `{"files":[{"name":"<slug>.md","text":"…"}]}` (a whole folder, and
+  optionally `"history"`, the content of a `--history` file, so a container needs no file for it). A
+  release that publishes inside a container through an ssh gateway pipes the content in, so the image
+  needs no copy of `content/`. `--stdin` takes no paths; `--withdraw` with it needs `--name`.
+- `--history <file.json>` imports the earlier life of an existing blog (see "Moving an existing blog in").
+- `--format lines` prints the line contract below instead of the text for people.
 - Exit codes: 0 done, 1 refused or failed (nothing written), 2 usage error.
 
 Output, one line per text, then a summary:
@@ -311,6 +323,71 @@ moved bonds bond-basics -> bonds
 summary: added 1, changed 1, unchanged 12
 dry run: nothing written; pass --commit to write
 ```
+
+**The line contract** (`--format lines`), for a release script that greps the output. Every line goes to
+standard output and starts `blog|`; fields are separated by `|`, and a `|` or a line break inside a value
+becomes a space. Keys are stable: a new one may be added, an existing one never changes meaning. A run
+prints exactly one outcome line: `blog|written`, `blog|dry-run`, `blog|refused` or `blog|failed|<message>`.
+
+```text
+blog|warning|<subject>|<message>
+blog|error|<subject>|<message>
+blog|change|<added|changed|unchanged>|<id>|<status/slug before, or none>|<status/slug after>
+blog|moved|<id>|<old slug>|<new slug>
+blog|imported|<id>|<published_at ISO, or none>|<old slugs>
+blog|summary|<added>|<changed>|<unchanged>
+blog|written
+blog|cache|off|<revalidateSeconds>         | skipped | dry-run|<url> | refreshed|<url> | failed|<code>|<reason>
+blog|indexnow|off|<reason>                 | skipped | dry-run|<count>|<urls> | submitted|<count>|<status>|<paths> | failed|<code>|<reason>|<paths>
+```
+
+```bash
+# A release step: the content goes in on stdin, the contract comes back.
+node -e 'const fs = require("fs"); const dir = "content/blog";
+  const files = fs.readdirSync(dir).filter((n) => n.endsWith(".md") && n !== "README.md").sort()
+    .map((name) => ({ name, text: fs.readFileSync(`${dir}/${name}`, "utf8") }));
+  process.stdout.write(JSON.stringify({ files }))' > bundle.json
+OUT="$(ssh deploy@host 'docker compose exec -T app node blog.cjs publish --stdin --commit --format lines' < bundle.json)"
+grep -q '^blog|written$' <<< "$OUT" || { grep '^blog|\(error\|failed\)' <<< "$OUT"; exit 1; }
+```
+
+**Moving an existing blog in.** An app that already published its texts from its own tables keeps their
+`published_at` (often only in its database, not in the files), their `updated_at` and their old slugs
+with `--history <file.json>`. On the first publish of each article (no row in `blog.articles` yet), the
+article takes `published_at` from the history unless its file sets one, `updated_at` from the history,
+and its old slugs enter `blog.slug_history` (301s keep working); the run prints `imported` for it. An
+article that already has a row ignores its entry, so the same file can stay in a release script; an
+entry for an article outside the run is a warning. An old slug another article holds refuses the run.
+
+```json
+{
+  "articles": [
+    {
+      "id": "index-funds",
+      "published_at": "2026-03-01T08:00:00+01:00",
+      "updated_at": "2026-06-15T10:30:00Z",
+      "old_slugs": [{ "slug": "what-is-an-index-fund", "changed_at": "2026-04-01T00:00:00Z" }]
+    },
+    { "id": "draft-text", "published_at": null }
+  ]
+}
+```
+
+`published_at` is required (`null` for a text never published), `updated_at` needs it, ids and slugs are
+kebab-case, each article and old slug appears once. Timestamps keep millisecond precision. One query over
+an app's own tables (here `blog_articles(id, published_at, updated_at)` and
+`blog_slug_history(old_slug, article_id, changed_at)`) writes the file:
+
+```sql
+\copy (SELECT json_build_object('articles', coalesce(json_agg(json_build_object(
+  'id', a.id, 'published_at', a.published_at, 'updated_at', a.updated_at,
+  'old_slugs', coalesce((SELECT json_agg(json_build_object('slug', h.old_slug, 'changed_at', h.changed_at))
+                         FROM blog_slug_history h WHERE h.article_id = a.id), '[]'::json))), '[]'::json))
+  FROM blog_articles a) TO 'history.json'
+```
+
+`publishArticle(ctx, input, { history })` and `runBlogPublish(ctx, files, { history })` (with
+`parseArticleHistory(json)`) are the same import without the command line.
 
 Like `softure migrate`, the bin loads `softure.config.(ts|mts|js|mjs)` with Node and opens
 `database.handle` when the config sets one, otherwise `database.url`. When Node cannot load the config (path aliases, a bundled container), call
@@ -459,9 +536,56 @@ const chartBlock: BlockPlugin = {
 
 Plugin output is the app's own code and is trusted as is: escape what goes into its HTML. A plugin
 that throws fails the render (a bug, not content). Without the plugin the same fence renders as a code
-block. `findArticleBlocks(markdown, plugins)` lists the blocks a text uses with their line and
-`requires`, without rendering. When any block returns a node, `html` is `null`: render `segments` in
-order (`html` segments as HTML, `node` segments as they are).
+block. `findArticleBlocks(markdown, plugins)` lists the blocks a text uses with their line, syntax,
+attributes and `requires`, without rendering. When any block returns a node, `html` is `null`: render
+`segments` in order (`html` segments as HTML, `node` segments as they are).
+
+**Directive plugins.** A plugin with `syntax: "directive"` renders a top-level line `::name{…}` instead
+of a fence, the way many Markdown blogs embed a chart or a tool:
+
+```md
+Paragraph before.
+::chart{type="wealth" scenario="w=35&d=300000" title="Your wealth"}
+```
+
+```ts
+const chartDirective: BlockPlugin = {
+  type: "chart",
+  syntax: "directive",
+  requires: ["current_as_of"],
+  render: ({ attributes, article }) =>
+    attributes === null
+      ? { kind: "html", html: '<figure class="chart-error">…</figure>' }
+      : { kind: "html", html: renderChart(attributes, article) },
+  markdown: ({ attributes }) => chartAsTable(attributes), // optional, for Accept: text/markdown
+};
+```
+
+- The line stands alone (it may follow a paragraph line directly); the braces are optional; values are
+  double-quoted and hold no `"`; each key appears once. `attributes` holds them, `info` the raw text
+  inside the braces, `content` the whole line. Attributes that cannot be read reach the plugin as `null`
+  (show an error frame) and the gate refuses them.
+- Only top-level lines count: a directive in a list, a quote, a fence or indented code stays text, and
+  so does a name no directive plugin registers. One type may have a fence plugin and a directive plugin.
+- Register the same plugins in `quality.blocks`: the gate reports a directive's missing `requires`, and
+  with any directive plugin registered `block-directive` reports a `::name` line no plugin renders (a
+  typo would show as a paragraph) or one whose attributes cannot be read.
+- `parseDirectiveLine` and `parseDirectiveAttributes` (`@softure-ai/blog/server`) are the parser.
+
+**Markdown for agents.** `createBlogMarkdown(config)` (`@softure-ai/blog/proxy`) answers a GET or HEAD
+of a published article or term whose `Accept` names `text/markdown` with at least the weight of
+`text/html` (never `*/*`: browsers and crawlers keep the page) with `toArticleMarkdown(article)`: the
+title, description, the day the facts were checked, the summary, the stored body, sources and FAQ.
+Plugin blocks keep their source unless the plugin has `markdown`. The answer carries `Vary: Accept` and
+`cache-control: private`, so a shared cache never hands Markdown to a browser. Put it before the redirects:
+
+```ts
+const blogMarkdown = createBlogMarkdown(softureConfig);
+const blogRedirects = createBlogRedirects(softureConfig);
+export async function proxy(request: NextRequest) {
+  return (await blogMarkdown(request)) ?? (await blogRedirects(request)) ?? NextResponse.next();
+}
+```
 
 ## 5. Migrations and tables
 
@@ -567,8 +691,8 @@ export const tickerPlugin: QualityPlugin = {
   plugins in `quality.blocks` (type, info, fence line, `requires`), `today` and the language `ruleset` (for
   its number notation); the text helpers (`toProse`, `splitSentences`, `findSignificantNumbers`, …) are
   exported from `@softure-ai/blog/server`.
-- `renderArticle({ blocks })` and `blog({ blocks })`: block plugins for the app's fenced blocks
-  (FIRE_TRACKER's engine chart).
+- `renderArticle({ blocks })` and `blog({ blocks })`: block plugins for the app's fenced blocks and
+  `::directive` lines (an engine chart), with an optional Markdown form for agents.
 - The pages' `cta` and `afterArticle` slots: the app's call to action and blocks (a waitlist form).
 
 ## 11. GDPR
@@ -580,13 +704,14 @@ Articles hold editorial content, no personal data: nothing to export or delete.
 - Two runs that rename one article away from a slug and give it to another at the same moment can leave the
   slug both current and in the slug history (BF-12).
 - The content hash is part of the contract: a field added later enters it only when present.
-- No `--stdin` (a deploy transport).
 - The refresh route expires the cache of the instance that answers it. With several instances and Next's
   default (in-memory) cache handler, the others show a publish after `revalidateSeconds`; a shared cache
   handler covers them.
 - The renderer has no raw HTML and no figures: an image has no caption, and the app hosts and sizes its
   images itself (no `next/image`). A plugin fence inside a list or a quote stays a code
-  block (a block node cannot sit inside a list's HTML).
+  block (a block node cannot sit inside a list's HTML), and a `::directive` there stays text; the gate
+  does not report a registered directive in such a place.
+- Only leaf directives (`::name{…}`, one line): no container (`:::name … :::`) or inline (`:name[…]`) ones.
 - The gate reads Markdown line by line (blocks, not a syntax tree): enough for the rules, not a
   renderer. Fenced code and HTML comments are skipped.
 - **Adopting FIRE_TRACKER's gate:** `language: "pl"`, `ymyl: { ownCalculationMark }` with its calculation

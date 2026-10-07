@@ -26,8 +26,8 @@ export function getChannelOptions(config: SoftureConfig): ChannelOptions {
 
 /** The channel options as plain values for the browser (`<ChannelKeeper />`). Throws when the module is not enabled. */
 export function getChannelRule(config: SoftureConfig): ChannelRule {
-  const { param, pattern, maxLength } = getChannelOptions(config);
-  return { param, pattern: pattern.source, flags: pattern.flags, maxLength };
+  const { param, pattern, maxLength, normalize } = getChannelOptions(config);
+  return { param, pattern: pattern.source, flags: pattern.flags, maxLength, normalize };
 }
 
 /** The path of the funnel endpoint (`routes.funnel`, `/api/analytics/funnel` by default). */
@@ -36,4 +36,10 @@ export function getFunnelEndpoint(config: SoftureConfig): string {
   // The manifest declares the route, so a missing one means a broken module definition.
   if (path === undefined) throw new Error('@softure-ai/analytics: route "funnel" is missing from the module manifest');
   return path;
+}
+
+/** The field the package's own beacon and pixel name the step with: the first of `funnel.wire.stepFields`. */
+export function getFunnelStepField(config: SoftureConfig): string {
+  // The options schema requires at least one field.
+  return getAnalyticsOptions(config).funnel.wire.stepFields[0] ?? "step";
 }

@@ -135,3 +135,31 @@ describe("own origins", () => {
     expect(getQualitySettings(createConfig())?.ownOrigins).toEqual(["https://app.example.com"]);
   });
 });
+
+const chartDirective: BlockPlugin = { type: "chart", syntax: "directive", requires: ["scenario"], render: () => ({ kind: "html", html: "" }) };
+const withDirective = (line: string) => MODEL.replace("## What does an index fund charge?", `${line}\n\n## What does an index fund charge?`);
+
+describe("directive plugins", () => {
+  it("reports a directive whose frontmatter key is missing, at its line", () => {
+    expect(check({ blocks: [chartDirective] }, withDirective('::chart{type="wealth"}'))).toEqual([
+      { rule: "block-requires", severity: "error", message: "the chart block needs scenario in the frontmatter", line: 20 },
+    ]);
+  });
+
+  it("reports an unknown directive and one whose attributes cannot be read", () => {
+    const options = { blocks: [chartDirective], severity: { "block-requires": "off" as const } };
+    expect(check(options, withDirective('::chrat{type="wealth"}'))).toEqual([
+      { rule: "block-directive", severity: "error", message: "::chrat is not a directive this blog renders; use one of: chart", line: 20 },
+    ]);
+    expect(check(options, withDirective("::chart{type=wealth}"))).toEqual([
+      { rule: "block-directive", severity: "error", message: 'the attributes of ::chart cannot be read; write them as key="value" pairs, each key once', line: 20 },
+    ]);
+  });
+
+  it("checks no directive without directive plugins", () => {
+    expect(check({ blocks: [chart] }, withDirective('::chrat{type="wealth"}'))).toEqual([]);
+    const ids = (options: QualityOptionsInput) => listQualityRules(settingsOf(options)).map((rule) => rule.id);
+    expect(ids({ blocks: [chart] })).not.toContain("block-directive");
+    expect(ids({ blocks: [chartDirective] })).toContain("block-directive");
+  });
+});

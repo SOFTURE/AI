@@ -75,7 +75,10 @@ export function listQualityRules(settings: QualitySettings): QualityCatalogRule[
     ...ruleset.patterns.map((pattern) => rule("style", pattern.id, pattern.severity, pattern.message)),
     ...settings.voicePatterns.map((pattern) => rule("voice", pattern.id, pattern.severity, pattern.message)),
     ...(options.ymyl === null ? [] : YMYL_RULES),
-    ...(options.blocks.length === 0 ? [] : [rule("structure", "block-requires", "error", "a block plugin's fenced block has the frontmatter keys it requires")]),
+    ...(options.blocks.length === 0 ? [] : [rule("structure", "block-requires", "error", "a block plugin's block has the frontmatter keys it requires")]),
+    ...(options.blocks.some((plugin) => plugin.syntax === "directive")
+      ? [rule("structure", "block-directive", "error", "a ::directive line names a directive the blog renders, with readable key=\"value\" attributes")]
+      : []),
     ...(options.plugins.length === 0 ? [] : PLUGIN_RULES),
     ...options.plugins.flatMap((plugin) => plugin.rules.map((info) => rule("plugin", info.id, info.severity, info.description))),
   ];

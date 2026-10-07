@@ -31,7 +31,8 @@ rewrite the paragraph around its one thought; do not swap a word for a synonym.
 | `length` | | | An article of {{articleWordsMin}} to {{articleWordsMax}} words, a term of {{termWordsMin}} to {{termWordsMax}}. |
 | `footnote-undefined` | | | Define every `[^id]` at the end of the file. |
 | `footnote-unused` | | | Remove a footnote definition nothing refers to, or refer to it. |
-| `block-requires` | | | A fenced block of the app's block plugins needs its frontmatter keys; add them. |
+| `block-requires` | | | A block of the app's block plugins (a fence or a `::directive`) needs its frontmatter keys; add them. |
+| `block-directive` | | | A `::directive` line names a directive the blog renders and writes its attributes as `key="value"` pairs, each key once. |
 
 ## Links
 

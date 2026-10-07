@@ -22,7 +22,7 @@ function createFullQuality(language: "en" | "pl"): QualityOptionsInput {
     ymyl: { ownCalculationMark: "our calculation" },
     voice: { forbidFirstPersonSingular: true, phrases: [{ id: "finance-cliche", pattern: wordPattern("in the world of finance"), message: "say what happens instead" }] },
     plugins: [TICKER_PLUGIN],
-    blocks: [CHART_BLOCK],
+    blocks: [CHART_BLOCK, { ...CHART_BLOCK, syntax: "directive" }],
   };
 }
 

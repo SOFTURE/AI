@@ -84,5 +84,13 @@ export type BlogPublishResult =
       readonly after: BlogArticleState;
       /** The slug that has just entered the slug history. */
       readonly previousSlug: string | null;
+      /** Set when the article's history (`publishArticle({ history })`) was applied. */
+      readonly imported?: true;
     }
-  | { readonly ok: false; readonly error: BlogSlugErrorCode; readonly otherArticleId: string };
+  | {
+      readonly ok: false;
+      readonly error: BlogSlugErrorCode;
+      readonly otherArticleId: string;
+      /** Set when the slug is an old slug from the article's history, not its current one. */
+      readonly slug?: string;
+    };

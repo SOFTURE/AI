@@ -172,7 +172,7 @@ describe("countRegistration", () => {
 
 describe("getChannelRule", () => {
   it("hands the default channel options to the browser as plain values", () => {
-    expect(getChannelRule(createConfig())).toEqual({ param: "z", pattern: "^[a-z0-9]+(?:[-_][a-z0-9]+)*$", flags: "", maxLength: 32 });
+    expect(getChannelRule(createConfig())).toEqual({ param: "z", pattern: "^[a-z0-9]+(?:[-_][a-z0-9]+)*$", flags: "", maxLength: 32, normalize: "none" });
   });
 
   it("hands a custom parameter, pattern with flags and length over exactly", () => {
@@ -181,6 +181,7 @@ describe("getChannelRule", () => {
       pattern: "^[a-z]+$",
       flags: "i",
       maxLength: 12,
+      normalize: "none",
     });
   });
 

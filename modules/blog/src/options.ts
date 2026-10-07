@@ -50,8 +50,12 @@ function isFieldsSchema(value: unknown): value is BlogFieldsSchema {
 
 function isBlockPlugin(value: unknown): value is BlockPlugin {
   if (typeof value !== "object" || value === null) return false;
-  const candidate = value as { type?: unknown; render?: unknown };
-  return typeof candidate.type === "string" && KEBAB.test(candidate.type) && typeof candidate.render === "function";
+  const candidate = value as { type?: unknown; syntax?: unknown; render?: unknown; markdown?: unknown };
+  return (
+    typeof candidate.type === "string" && KEBAB.test(candidate.type) && typeof candidate.render === "function" &&
+    (candidate.syntax === undefined || candidate.syntax === "fence" || candidate.syntax === "directive") &&
+    (candidate.markdown === undefined || typeof candidate.markdown === "function")
+  );
 }
 
 /** How long the pages cache their reads by default, in seconds; the app's `revalidate` should match. */
