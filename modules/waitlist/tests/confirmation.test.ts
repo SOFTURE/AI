@@ -70,6 +70,7 @@ describe("joinWaitlist with double opt-in", () => {
         createdAt: NOW,
         updatedAt: NOW,
         confirmedAt: null,
+        channel: null,
       },
       isNew: true,
       token: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/) as unknown,

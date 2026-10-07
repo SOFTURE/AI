@@ -70,6 +70,7 @@ export {
   MAX_SCOPES,
   NAME_PATTERN,
   type OnJoinedHook,
+  type ResolveChannel,
   type RewriteConfirmationLink,
   type WaitlistOptions,
   type WaitlistOptionsInput,

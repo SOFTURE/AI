@@ -13,7 +13,7 @@ import { liftSuppression } from "@softure-ai/mailing/server";
 import { hasConsent, recordConsent } from "@softure-ai/privacy/server";
 import type { RateLimitRejection } from "@softure-ai/security";
 import { consumeRateLimit, subjectKey } from "@softure-ai/security/server";
-import { and, arrayContains, asc, eq, isNotNull, isNull, lte, type SQL } from "drizzle-orm";
+import { and, arrayContains, asc, count, eq, isNotNull, isNull, lte, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import type { WaitlistConfirmationErrorCode, WaitlistErrorCode, WaitlistJoinedEvent, WaitlistSignup } from "../contract.js";
 import { signups } from "../schema.js";
@@ -29,6 +29,9 @@ export const CONSENT_SOURCE = "waitlist";
 const MAX_EMAIL_LENGTH = 254;
 const HOUR_MS = 60 * 60 * 1000;
 const emailSchema = z.email();
+/** A stored channel: 1-64 visible ASCII characters (the table checks the same). */
+const CHANNEL_PATTERN = /^[!-~]{1,64}$/;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export interface JoinWaitlistInput {
   readonly email: string;
@@ -38,6 +41,8 @@ export interface JoinWaitlistInput {
   readonly placement: string;
   /** The client's rate limit key (`identifyClient`). */
   readonly clientKey: string;
+  /** The acquisition channel, stored with a first sign-up; 1-64 visible ASCII characters. */
+  readonly channel?: string | null;
 }
 
 /** A request applied at once (no double opt-in). */
@@ -93,7 +98,13 @@ function toSignup(row: SignupRow): WaitlistSignup {
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     confirmedAt: row.confirmedAt,
+    channel: row.channel,
   };
+}
+
+/** Whether `value` can be stored as a channel. */
+export function isChannel(value: string): boolean {
+  return CHANNEL_PATTERN.test(value);
 }
 
 /** The address trimmed and lowercased, or null when it is not one. */
@@ -128,10 +139,12 @@ export async function joinWaitlist(ctx: WaitlistContext, input: JoinWaitlistInpu
   if (email === null) return err("waitlist.email_invalid");
   const scopes = checkScopes(ctx, input.scopes, input.placement);
   if (!scopes.ok) return scopes;
+  const channel = input.channel ?? null;
+  if (channel !== null && !isChannel(channel)) return err("waitlist.form_invalid");
   const byEmail = await consumeRateLimit(ctx, { bucket: BUCKETS.email, key: subjectKey(`email:${email}`) });
   if (!byEmail.ok) return byEmail;
 
-  const request: SignupRequest = { email, scopes: scopes.value, placement: input.placement };
+  const request: SignupRequest = { email, scopes: scopes.value, placement: input.placement, channel };
   const doubleOptIn = getWaitlistOptions(ctx.config).doubleOptIn;
   return ctx.db.transaction(async (tx) => {
     const txCtx: WaitlistContext = { ...ctx, db: tx };
@@ -144,6 +157,8 @@ interface SignupRequest {
   /** Checked against the config, in its order. */
   readonly scopes: readonly string[];
   readonly placement: string;
+  /** Stored with a first sign-up only. */
+  readonly channel: string | null;
 }
 
 /** Applies a request at once: a new row confirmed now, or the known row updated. */
@@ -293,6 +308,17 @@ async function recordConsents(ctx: WaitlistContext, email: string, requested: re
   return recorded;
 }
 
+/**
+ * The sign-up with this id, or null (also for a malformed id); confirmed or not. For an app whose old
+ * unsubscribe links carry the id of its own list (imported with `importSignups`): its mailing
+ * `legacyUnsubscribe.verify` turns the id into the address.
+ */
+export async function getSignupById(ctx: Pick<WaitlistContext, "db">, id: string): Promise<WaitlistSignup | null> {
+  if (!UUID_PATTERN.test(id)) return null;
+  const [row] = await ctx.db.select().from(signups).where(eq(signups.id, id.toLowerCase())).limit(1);
+  return row === undefined ? null : toSignup(row);
+}
+
 /** The sign-up of `email`, or null; confirmed or not (`confirmedAt`). */
 export async function getSignup(ctx: Pick<WaitlistContext, "db">, email: string): Promise<WaitlistSignup | null> {
   const normalized = normalizeEmail(email);
@@ -306,6 +332,8 @@ export interface ListSignupsFilter {
   readonly scope?: string;
   /** Only sign-ups from this placement. */
   readonly placement?: string;
+  /** Only sign-ups from this channel; `null` for the ones that came without a channel. */
+  readonly channel?: string | null;
 }
 
 /** Confirmed sign-ups (the ones that count) oldest first, optionally by scope and placement. */
@@ -313,12 +341,36 @@ export async function listSignups(ctx: Pick<WaitlistContext, "db">, filter: List
   const conditions: SQL[] = [isNotNull(signups.confirmedAt)];
   if (filter.scope !== undefined) conditions.push(arrayContains(signups.scopes, [filter.scope]));
   if (filter.placement !== undefined) conditions.push(eq(signups.placement, filter.placement));
+  if (filter.channel !== undefined) conditions.push(filter.channel === null ? isNull(signups.channel) : eq(signups.channel, filter.channel));
   const rows = await ctx.db
     .select()
     .from(signups)
     .where(and(...conditions))
     .orderBy(asc(signups.createdAt), asc(signups.id));
   return rows.map(toSignup);
+}
+
+/** How many confirmed sign-ups came from one channel; `channel` is null for the ones without one. */
+export interface ChannelCount {
+  readonly channel: string | null;
+  readonly signups: number;
+}
+
+/** Confirmed sign-ups per channel, most first (then by channel, none last); e.g. a per-channel report. */
+export async function countSignupsByChannel(ctx: Pick<WaitlistContext, "db">): Promise<ChannelCount[]> {
+  const rows = await ctx.db
+    .select({ channel: signups.channel, signups: count() })
+    .from(signups)
+    .where(isNotNull(signups.confirmedAt))
+    .groupBy(signups.channel);
+  return rows.sort((a, b) => b.signups - a.signups || compareChannels(a.channel, b.channel));
+}
+
+function compareChannels(a: string | null, b: string | null): number {
+  if (a === b) return 0;
+  if (a === null) return 1;
+  if (b === null) return -1;
+  return a < b ? -1 : 1;
 }
 
 /**

@@ -52,6 +52,8 @@ export interface WaitlistSignup {
   readonly updatedAt: Date;
   /** When it first counted; null while its first request waits for the confirmation link. */
   readonly confirmedAt: Date | null;
+  /** The acquisition channel of the first sign-up (`waitlist({ resolveChannel })`, or imported); null for none. */
+  readonly channel: string | null;
 }
 
 /** What `onJoined` receives: a sign-up that counts for the first time, and how it came to count. */

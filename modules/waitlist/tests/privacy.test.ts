@@ -15,7 +15,7 @@ describe("the waitlist privacy contributor", () => {
   beforeEach(async () => {
     test = await createTestWaitlist();
     for (const email of ["ada@example.com", "eve@example.com"]) {
-      const joined = await joinWaitlist(test.ctx, { email, scopes: ["launch", "newsletter"], placement: "footer", clientKey: CLIENT });
+      const joined = await joinWaitlist(test.ctx, { email, scopes: ["launch", "newsletter"], placement: "footer", clientKey: CLIENT, channel: "newsletter" });
       if (!joined.ok) throw new Error(`joining failed with ${joined.error}`);
     }
     // Ada creates an account later, with her address in another case.
@@ -30,7 +30,7 @@ describe("the waitlist privacy contributor", () => {
     expect(collected.ok).toBe(true);
     if (!collected.ok) return;
     const data = JSON.parse(collected.value.json) as { data: Record<string, unknown> };
-    expect(data.data.waitlist).toEqual({ signup: { scopes: ["launch", "newsletter"], placement: "footer", createdAt: NOW.toISOString(), updatedAt: NOW.toISOString(), confirmedAt: NOW.toISOString(), pendingScopes: null } });
+    expect(data.data.waitlist).toEqual({ signup: { scopes: ["launch", "newsletter"], placement: "footer", createdAt: NOW.toISOString(), updatedAt: NOW.toISOString(), confirmedAt: NOW.toISOString(), pendingScopes: null, channel: "newsletter" } });
     expect((data.data.privacy as { consents: { purpose: string; source: string }[] }).consents.map((consent) => [consent.purpose, consent.source])).toEqual([
       ["launch", "waitlist"],
       ["newsletter", "waitlist"],

@@ -15,6 +15,13 @@ export type OnJoinedHook = (event: WaitlistJoinedEvent, ctx: ModuleContext<Query
  */
 export type RewriteConfirmationLink = (path: string, ctx: { readonly config: SoftureConfig }) => Promise<string> | string;
 
+/**
+ * The acquisition channel of the request being signed up, e.g. `() => getChannel()` from
+ * `@softure-ai/analytics/next`. Called by the join action in the request's scope; null for none. A
+ * value the module cannot store (not 1-64 visible ASCII characters) or a throw means no channel.
+ */
+export type ResolveChannel = (ctx: { readonly config: SoftureConfig }) => Promise<string | null> | string | null;
+
 /** Kebab-case, at most 64 characters: scope ids are consent purposes in privacy's ledger. */
 export const NAME_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 export const MAX_NAME_LENGTH = 64;
@@ -82,6 +89,8 @@ export const waitlistOptionsSchema = z
      * same transaction (e.g. to count it in the analytics funnel). Not called for repeat sign-ups.
      */
     onJoined: z.custom<OnJoinedHook>((value) => typeof value === "function", "must be a function").optional(),
+    /** Resolves the request's acquisition channel, stored with a first sign-up (`WaitlistSignup.channel`). */
+    resolveChannel: z.custom<ResolveChannel>((value) => typeof value === "function", "must be a function").optional(),
     /** Rewrites the confirmation link's path (e.g. to keep the analytics channel tag through the mail). */
     rewriteConfirmationLink: z.custom<RewriteConfirmationLink>((value) => typeof value === "function", "must be a function").optional(),
   })

@@ -1,4 +1,4 @@
-// Drizzle view of the module's table (migrations/0001_create_signups.sql and 0002_add_confirmation.sql). The migration is the
+// Drizzle view of the module's table (migrations/0001_create_signups.sql, 0002_add_confirmation.sql and 0003_add_channel.sql). The migration is the
 // source of truth; this file only types the queries.
 import { pgSchema, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
@@ -16,4 +16,5 @@ export const signups = waitlistSchema.table("signups", {
   pendingScopes: text("pending_scopes").array(),
   confirmationTokenHash: text("confirmation_token_hash").unique("signups_confirmation_token_hash_key"),
   confirmationExpiresAt: timestamp("confirmation_expires_at", { withTimezone: true }),
+  channel: text("channel"),
 });
