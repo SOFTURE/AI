@@ -89,14 +89,16 @@ Rules:
   - the run holds a session `pg_advisory_lock`; every applied file is checked first (edited,
     renamed, deleted or out of order refuses the whole run before anything is applied);
   - CLI: `softure migrate` (bin, or an app script calling `runMigrateCli`, which esbuild bundles
-    for an image), `--plan` (dry run), `--adopt <module>@<version>`, and for bundles
+    for an image), `--plan` (dry run), `--adopt <module>@<version>` (with `--through <n>`), and for bundles
     `--export-migrations <dir>` (build stage) with `--migrations-dir <dir>` (run stage);
   - unit tests: `createTestDatabase(modules)` from `@softure-ai/db/testing`.
 - **The app's own migrations** (drizzle's, in `public`) run in the same step, by the same runner:
   `migrate`, `runMigrateCli` and `createTestDatabase` take `app: { before, after }`. A run applies the
   ledger, then `before` (app tables a module references), the module files, then `after` (app
   migrations that reference a module table), all under the lock. One hook object serves the migrate
-  script, the unit tests and the image ([db README](../foundation/db/README.md) §4).
+  script, the unit tests and the image ([db README](../foundation/db/README.md) §4). Its `baseline`
+  (`{ auth: 1 }`) names the module files the app's own history creates, so every fresh database
+  adopts them instead of failing on `already exists`.
 - Migrate scripts and module packages are **ESM only**: a CJS bundle empties `import.meta.url`, and
   `resolveMigrationsDir` refuses it naming the bundle format.
 - **Adoption** (moving an existing app onto a module): the app writes *its own* migration that
@@ -104,8 +106,9 @@ Rules:
   then `--adopt` marks the module migrations as applied after checking that the schema in the
   database matches the expected one: the module's migrations are applied to a scratch PGlite and
   both schemas are compared through `pg_catalog` (relations, columns, constraint and index names
-  and definitions, sequences, triggers, functions and types); any difference refuses. Details in
-  [05](05-adoption-playbook.md).
+  and definitions, sequences, triggers, functions and types); any difference refuses. The pending
+  migrations of the modules it depends on run first; `--through <n>` adopts files 1..n only. Details
+  in [05](05-adoption-playbook.md).
 - Domain columns never land in module tables. The app keeps them in its own 1:1 table
   (`public.user_profiles(user_id → auth.users.id)`).
 

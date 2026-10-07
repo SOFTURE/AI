@@ -71,7 +71,7 @@ process.exitCode = await runMigrateCli({ config, argv: process.argv.slice(2) });
 RUN npx tsx scripts/migrate.ts --export-migrations ./softure-migrations
 RUN npx esbuild scripts/migrate.ts --bundle --platform=node --format=esm --target=node22 \
       --external:pg --external:@electric-sql/pglite --outfile=migrate.mjs
-# run stage (needs pg, and @electric-sql/pglite for --adopt)
+# run stage (needs pg, and @electric-sql/pglite for --adopt or an app baseline)
 COPY --from=builder /app/migrate.mjs ./migrate.mjs
 COPY --from=builder /app/softure-migrations ./softure-migrations
 CMD ["node", "migrate.mjs", "--migrations-dir", "./softure-migrations"]
@@ -120,6 +120,33 @@ process.exitCode = await runMigrateCli({ config, argv: process.argv.slice(2), ap
   failing `after` leaves the module files applied.
 - `--plan` runs no hook (it says so); `--adopt` without `--plan` runs `before` first, so the app
   migration that moves a table into the module's schema and the adoption are one command.
+
+**A baseline: fresh databases after an adoption.** The app keeps its old migrations, so every fresh
+database (the unit-test template, an integration stack, a reset dev database) recreates the tables it
+moved into a module's schema before the module files run. `baseline` names, per module, the last module
+file the app's own history creates; `migrate` then adopts or migrates by itself, on every database:
+
+```ts
+export const appMigrations: AppMigrations = {
+  before: (handle) => runDrizzle(handle, "./drizzle"),
+  // the app's history creates auth's 0001 (users, sessions); 0002.. are new to it
+  baseline: { auth: 1 },
+};
+```
+
+- For a listed module the ledger has never seen, after `before` and after the modules it depends on:
+  an empty schema is migrated normally; otherwise the schema is compared with what files 1..n create
+  (as `--adopt` does), files 1..n are recorded as `adopted` and the later files are applied. A
+  difference stops the run (`db.schema_mismatch`, every difference printed); nothing of that module is
+  recorded and `after` does not run.
+- Once the module is in the ledger the entry has no effect, so the same command serves every deploy.
+  Keep the number when the module ships new files: it describes the app's history, which no longer
+  changes.
+- Only a prefix 1..n can be adopted (the ledger refuses a file numbered below an applied one): when the
+  app's tables already carry a later file's change, align them in the app's own migration or raise n.
+- A module that is not enabled, has no schema, or an n outside 1..files refuses the run before anything
+  runs. `--plan` marks the files a baseline may adopt (`adopted if its schema already holds objects`).
+- The comparison builds the reference on a scratch PGlite, only when a module is actually adopted.
 - Under node-postgres a hook queries through the pool while the migrator holds one connection, so the
   pool needs at least two (`createDatabase`'s default is 10).
 - The `softure` bin reads only the config; an app with its own migrations uses the script above.
@@ -131,15 +158,17 @@ process.exitCode = await runMigrateCli({ config, argv: process.argv.slice(2), ap
 | --- | --- |
 | (none) | apply every pending migration |
 | `--plan` | print what would be applied (or adopted); change nothing |
-| `--adopt <module>@<version>` | record an existing schema as migrated after comparing it (section 5) |
+| `--adopt <module>@<version>` | record an existing schema as migrated after comparing it, after applying the pending migrations of its dependencies (section 5) |
+| `--through <n>` | with `--adopt`: adopt files 1..n only; the next migrate applies the rest |
 | `--migrations-dir <dir>` | read module files from `<dir>/<module id>/` |
 | `--export-migrations <dir>` | copy module files to `<dir>/<module id>/` and exit; needs no database; replaces older `.sql` copies and refuses a module folder holding anything else |
 
 Exit codes: 0 done, 1 a problem or failure (each printed on stderr), 2 a usage error.
 
-The same operations as functions: `migrate(handle, { modules, migrationsDir?, app?, onApplied?, onAppMigrated? })`
+The same operations as functions: `migrate(handle, { modules, migrationsDir?, app?, onApplied?, onAdopted?, onAppMigrated? })`
 (`runAppMigrations(handle, app, phase)` runs one hook alone under the lock),
-`planMigrations(handle, { modules })`, `adoptModule(handle, { modules, module, version, dryRun? })`,
+`planMigrations(handle, { modules, app? })` (`pending`, and `baseline`: the pending files a baseline may adopt),
+`adoptModule(handle, { modules, module, version, through?, dryRun? })`,
 `exportMigrations(modules, dir)`. Each returns `{ ok: true, value } | { ok: false, error, problems }`;
 `describeProblem(problem)` gives the English line.
 
@@ -182,8 +211,11 @@ one through `pg_catalog`: relations (and whether they are unlogged), columns (ty
 not null, default, identity, generated), sequences with their parameters, constraints and indexes
 (names and definitions), triggers, functions, and enum, domain, range and composite types. Only an
 exact match records the files as `adopted`; every difference is printed (`missing in database: …`,
-`unexpected in database: …`). The version must equal the enabled module's, the module must be new
-to the ledger, and the modules it depends on must be fully migrated or adopted first. Undo:
+`unexpected in database: …`). `--through <n>` compares with and adopts files 1..n only; the next
+migrate applies the rest. The version must equal the enabled module's and the module must be new to
+the ledger. The pending migrations of the modules it depends on are applied first (listed as
+`apply` lines; a dry run applies nothing); when one fails because its tables exist too, adopt that
+module first. For fresh databases of an app that adopted a module, declare a baseline (section 4). Undo:
 `DELETE FROM softure.migrations WHERE module = '<id>' AND method = 'adopted'`.
 
 **Tests:** `createTestDatabase(modules)` from `@softure-ai/db/testing` returns `{ db, client, close }`:
@@ -235,4 +267,6 @@ No personal data. The ledger holds module ids, file names and checksums.
   transaction-mode PgBouncer.
 - Adoption does not compare grants, comments, column order, row-level security policies or view
   bodies, and needs PGlite installed where it runs (also in an image that otherwise uses `pg`).
+- The reference schema is built without the app's hooks, so a module whose files reference an app
+  table in `public` cannot be adopted (`db.adopt_reference_failed`).
 - No cached connection for Next.js dev reloads yet; the Next adapter (identity ID-1, FD-7) adds it.
