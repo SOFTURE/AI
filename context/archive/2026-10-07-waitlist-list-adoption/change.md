@@ -1,12 +1,13 @@
 ---
 change_id: waitlist-list-adoption
 title: "waitlist: adopting an existing sign-up list (import with history, consent proof, channel, unsubscribe link after sign-up) (issue #214)"
-status: plan_reviewed
+status: archived
 roadmap_item: null
 issue: 214
 branch: claude/project-thread-3tjgl9
 created: 2026-10-07
 updated: 2026-10-07
+archived_at: 2026-10-07
 ---
 
 ## Intent

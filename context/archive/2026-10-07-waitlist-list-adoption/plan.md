@@ -114,19 +114,19 @@ opt-in) requests, a counter in analytics for imported history.
 
 ### Phase 1: privacy importConsent
 
-- [ ] importConsent with tests
+- [x] importConsent with tests — 0304e57
 
 ### Phase 2: channel
 
-- [ ] migration, schema and server functions
-- [ ] resolveChannel in the action, export
+- [x] migration, schema and server functions — c5297ae
+- [x] resolveChannel in the action, export — c5297ae
 
 ### Phase 3: import
 
-- [ ] importSignups
-- [ ] import-signups script
+- [x] importSignups — 4072a02
+- [x] import-signups script — 4072a02
 
 ### Phase 4: unsubscribe link, docs, versions
 
-- [ ] unsubscribeLinkOnSuccess in the action and form
-- [ ] README, CHANGELOGs, versions
+- [x] unsubscribeLinkOnSuccess in the action and form — a793502
+- [x] README, CHANGELOGs, versions — a793502
