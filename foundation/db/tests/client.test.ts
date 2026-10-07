@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { sql } from "drizzle-orm";
 import { afterEach, describe, expect, it } from "vitest";
 import { createDatabase, type DatabaseHandle, type Queryable } from "@softure-ai/db";
+import { explainMissingDriver } from "../src/client.js";
 import { POSTGRES_ADMIN_URL, createPostgresDatabaseUrl } from "./support/postgres.js";
 
 const openHandles: DatabaseHandle[] = [];
@@ -87,5 +88,47 @@ describe("createDatabase", () => {
 
     expect(handle.kind).toBe("postgres");
     expect(result.rows).toEqual([{ answer: 42 }]);
+  });
+});
+
+describe("explainMissingDriver", () => {
+  function moduleNotFound(packageName: string, code = "ERR_MODULE_NOT_FOUND"): Error {
+    return Object.assign(new Error(`Cannot find package '${packageName}' imported from /app/node_modules/@softure-ai/db/dist/client.js`), { code });
+  }
+
+  it("names the driver to install when the driver package itself is missing", () => {
+    const missing = moduleNotFound("pg");
+
+    const explained = explainMissingDriver(missing, { packageName: "pg", scheme: "postgres://" });
+
+    expect(explained).toBeInstanceOf(Error);
+    expect((explained as Error).message).toBe(
+      'createDatabase: postgres:// URLs need the "pg" package, which is not installed; run `npm install pg` ' +
+        'and, in a Next.js app, list "@softure-ai/db" and "pg" in serverExternalPackages (db README §2)',
+    );
+    expect((explained as Error).cause).toBe(missing);
+  });
+
+  it("names the driver when drizzle's adapter fails on it, also for a CommonJS loader's code", () => {
+    const missing = moduleNotFound("@electric-sql/pglite", "MODULE_NOT_FOUND");
+
+    const explained = explainMissingDriver(missing, { packageName: "@electric-sql/pglite", scheme: "pglite://" });
+
+    expect((explained as Error).message).toBe(
+      'createDatabase: pglite:// URLs need the "@electric-sql/pglite" package, which is not installed; run ' +
+        '`npm install @electric-sql/pglite` and, in a Next.js app, list "@softure-ai/db" and "@electric-sql/pglite" ' +
+        "in serverExternalPackages (db README §2)",
+    );
+  });
+
+  it("returns any other error unchanged", () => {
+    const otherPackage = moduleNotFound("pg-types");
+    const otherCode = Object.assign(new Error("Cannot find package 'pg'"), { code: "ERR_INVALID_URL" });
+    const plain = new Error("boom");
+
+    expect(explainMissingDriver(otherPackage, { packageName: "pg", scheme: "postgres://" })).toBe(otherPackage);
+    expect(explainMissingDriver(otherCode, { packageName: "pg", scheme: "postgres://" })).toBe(otherCode);
+    expect(explainMissingDriver(plain, { packageName: "pg", scheme: "postgres://" })).toBe(plain);
+    expect(explainMissingDriver("not an error", { packageName: "pg", scheme: "postgres://" })).toBe("not an error");
   });
 });
