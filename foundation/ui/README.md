@@ -184,6 +184,8 @@ errors; `PasswordField` never replays. The server parses amounts with the same
 <EmptyState title="No goals yet">Add a goal to see your progress.</EmptyState>
 <Hint label="About: Rate">Yearly interest rate before tax.</Hint>   {/* label names the "?" button */}
 <Hint label="About: Rate" triggerGap={8}>…</Hint>                  {/* px between "?" and bubble; 6 by default */}
+<Card title="Rate" hint="…" hintProps={appHint}>…</Card>            {/* appHint: HintAppearance, as the app's own hints */}
+<TextField name="rate" label="Rate" hint="…" hintAs="tooltip" hintProps={appHint} />
 
 <Select name="currency" aria-label="Currency" defaultValue="PLN"
   options={[{ value: "PLN", label: "PLN" }, { value: "EUR", label: "EUR" }]} />
@@ -204,6 +206,8 @@ the animation or transition ends. `Hint` opens on hover and focus, pins on click
 outside press or focus leaving it; Escape closes it however it opened (hover and focus included).
 Before hydration it already opens on hover and focus, by CSS alone. The bubble resets
 `text-transform` and `letter-spacing`, so a hint inside an uppercase or tracked heading reads normally.
+`Card`, `Field` and the form fields render their own "?"; `hintProps` (a `HintAppearance`: `classNames`,
+`triggerGap`, `isWide`) gives it the look and gap of the app's standalone hints.
 
 Every `text-*` size carries Tailwind's default line height (a ratio of the size token); an explicit
 `leading-*` still wins.
@@ -220,6 +224,11 @@ Pass `isDismissible={false}` while a save runs (`ActionForm onPendingChange`). T
 footer at the bottom. `<StandingPanel isOpen title onClose>` is that sheet mounted for good: closed,
 it is `hidden` and a draft typed inside survives; open, it is the dialog, and Escape from inside it
 closes it (a confirmation `Modal` opened from the panel closes on its own Escape first).
+
+Both render the title as `h2`; `headingLevel` (1–3) changes the element, not the look. A panel that is
+the screen (an address of its own) passes `headingLevel={1}`, or `isOpen ? 1 : 2` when it stays
+mounted closed on a page that has its own `h1`. The `cancel` slot of `ModalFooter` (and of `ActionForm`
+with `onCancel`) is added to the Cancel button's look, like `Button`'s `className`.
 
 A `Card` with `collapsible` turns its header into the toggle (its "?" and `action` stay clickable)
 and keeps the content mounted while collapsed. `step` shows a numbered badge (a tick with `done`),

@@ -62,11 +62,11 @@ Done when: gates green (typecheck, lint, test, build).
 ### Phase 1: behaviour
 
 #### Automated
-- [ ] 1.1 Card, Field, dialog heading and Cancel tests seen red, then green
-- [ ] 1.2 Gates green (typecheck, lint, test)
+- [x] 1.1 Card, Field, dialog heading and Cancel tests seen red, then green — 33508d4
+- [x] 1.2 Gates green (typecheck, lint, test) — 33508d4
 
 ### Phase 2: docs and version
 
 #### Automated
-- [ ] 2.1 README, CHANGELOG, version 0.1.11 and lockfile
-- [ ] 2.2 Gates green (typecheck, lint, test, build)
+- [x] 2.1 README, CHANGELOG, version 0.1.11 and lockfile — phase 2 commit
+- [x] 2.2 Gates green (typecheck, lint, test, build) — phase 2 commit
