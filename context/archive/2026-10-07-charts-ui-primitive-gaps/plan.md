@@ -109,7 +109,7 @@ a code action still maps; `className` lands on the root and `ButtonAnchor` rende
 
 ## Progress
 
-- [ ] Phase 1: charts
-- [ ] Phase 2: ui
-- [ ] Impl review
-- [ ] Archive
+- [x] Phase 1: charts (8bb2ef3)
+- [x] Phase 2: ui (commit "feat(ui): …", same branch)
+- [x] Impl review (`reviews/impl-review.md`, approve)
+- [x] Archive

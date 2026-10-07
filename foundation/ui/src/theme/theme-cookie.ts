@@ -21,6 +21,9 @@ const COOKIE_NAME = /^[A-Za-z0-9!#$%&'*+.^_`|~-]+$/;
 // Cookie values are RFC 6265 cookie octets: no space, quote, comma, semicolon or backslash.
 const COOKIE_VALUE = /^[\x21\x23-\x2b\x2d-\x3a\x3c-\x5b\x5d-\x7e]+$/;
 
+// A cookie Domain is a hostname: letters, digits, hyphens and dots (a leading dot is allowed and ignored by browsers).
+const COOKIE_DOMAIN = /^\.?[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*$/;
+
 /** The value stored for each explicit choice. */
 export type ThemeCookieValues = Readonly<Record<ColorScheme, string>>;
 
@@ -64,7 +67,7 @@ export function parseThemeCookie(
 export function buildThemeCookie(choice: ThemeChoice, options: ThemeCookieOptions = {}): string {
   const name = getCookieName(options.cookieName);
   const values = getCookieValues(options.cookieValues);
-  const scope = options.domain ? `; Domain=${options.domain}` : "";
+  const scope = options.domain ? `; Domain=${getCookieDomain(options.domain)}` : "";
   if (choice === "system") return `${name}=; Path=/${scope}; Max-Age=0; SameSite=Lax`;
   return `${name}=${values[choice]}; Path=/${scope}; Max-Age=${THEME_COOKIE_MAX_AGE_SECONDS}; SameSite=Lax`;
 }
@@ -128,6 +131,40 @@ function toScriptLiteral(value: unknown): string {
     /[<>/\u2028\u2029]/g,
     (character) => `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`,
   );
+}
+
+/**
+ * The cookie `Domain` that shares the choice between an apex and its subdomains: `apex` when `hostname` is the apex
+ * or one of its subdomains, `null` otherwise (another host, `localhost`, an IP address, an empty or unparseable
+ * apex), where a host-only cookie is right. `apex` is a hostname (`example.com`) or an origin
+ * (`https://example.com`).
+ */
+export function getThemeCookieDomain(hostname: string, apex: string): string | null {
+  const apexHost = getHostname(apex);
+  if (apexHost === null || apexHost === "localhost" || isIpAddress(apexHost) || !COOKIE_DOMAIN.test(apexHost)) return null;
+  const host = hostname.toLowerCase();
+  return host === apexHost || host.endsWith(`.${apexHost}`) ? apexHost : null;
+}
+
+function getHostname(value: string): string | null {
+  const trimmed = value.trim();
+  if (trimmed === "") return null;
+  if (!trimmed.includes("://")) return trimmed.toLowerCase();
+  try {
+    return new URL(trimmed).hostname.toLowerCase() || null;
+  } catch {
+    // An unparseable origin shares nothing: the cookie stays host-only, the switch keeps working.
+    return null;
+  }
+}
+
+function isIpAddress(host: string): boolean {
+  return /^[\d.]+$/.test(host) || host.includes(":") || host.startsWith("[");
+}
+
+function getCookieDomain(domain: string): string {
+  if (!COOKIE_DOMAIN.test(domain)) throw new TypeError(`Invalid theme cookie domain: ${JSON.stringify(domain)}`);
+  return domain;
 }
 
 function getCookieName(cookieName = DEFAULT_THEME_COOKIE): string {

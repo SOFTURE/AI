@@ -1,12 +1,13 @@
 ---
 change_id: charts-ui-primitive-gaps
 title: "charts + ui: primitive tones, numeric axes, theme cookie domain, message errors (issue #197)"
-status: planned
+status: archived
 roadmap_item: null
 issue: 197
 branch: claude/project-thread-2blwnt
 created: 2026-10-07
 updated: 2026-10-07
+archived_at: 2026-10-07
 ---
 
 ## Intent
