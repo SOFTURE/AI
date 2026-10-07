@@ -24,6 +24,9 @@ export {
   sortModulesByDependencies,
   type SoftureConfig,
   type SoftureConfigInput,
+  type SoftureDatabaseConfig,
+  type SoftureDatabaseHandle,
+  type SoftureDatabaseHandleTypes,
 } from "./config.js";
 export { SoftureConfigError } from "./config-error.js";
 export { withDatabaseOptional } from "./database-requirement.js";

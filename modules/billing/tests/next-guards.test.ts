@@ -1,5 +1,5 @@
 // The guards of the Next adapter with Next's request scope replaced: the session cookie comes from a
-// stubbed `cookies()`, the config from the test, and `getSharedDatabase` hands auth's and billing's
+// stubbed `cookies()`, the config from the test, and `getConfiguredDatabase` hands auth's and billing's
 // real contexts the PGlite test database, so the real session and role checks run. The wall clock
 // (`systemClock`, which both contexts use) is pinned to the test's instant. Every server action is
 // called as an anonymous visitor, a member and an admin; `requireWriteAccess` without a session, on
@@ -45,7 +45,7 @@ vi.mock("@softure-ai/core/next", () => ({
 }));
 vi.mock("@softure-ai/db", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@softure-ai/db")>()),
-  getSharedDatabase: () => {
+  getConfiguredDatabase: () => {
     if (scope.db === undefined) throw new Error("test: no database registered");
     return Promise.resolve({ db: scope.db });
   },

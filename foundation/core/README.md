@@ -22,7 +22,10 @@ Node ≥ 22, ESM only. The only runtime dependency is `zod`.
 
 ```ts
 interface SoftureConfigInput {
-  database?: { url: string } | null; // required once any module has a dbSchema
+  database?: {                       // required once any module has a dbSchema
+    url: string;
+    handle?: () => DatabaseHandle | Promise<DatabaseHandle>; // the app's own handle, see below
+  } | null;
   locale: "en" | "pl";
   timezone: string;                  // IANA zone, e.g. "Europe/Warsaw"
   appOrigin: string;                 // http(s) origin without a path
@@ -58,6 +61,14 @@ An empty `database.url` is not one of those problems. `next build`, a Docker bui
 `DATABASE_URL ?? ""` defines a valid config there; the first connection (`createDatabase` and
 `getSharedDatabase` in `@softure-ai/db`, `softure migrate`, the module CLIs and the health route)
 refuses the empty URL and names the setting. No placeholder URL is needed for a build.
+
+`database.handle` is for an app that already has its own database client: every module, the
+health route and the package commands then use that one handle instead of opening a second one on
+`url` (with `pglite://`, a second instance on the same directory corrupts it). It is a function,
+called on first use and never by `defineSoftureConfig`, and it must return the app's process-wide
+handle; wrap a client with `createPostgresHandle(pool)` or `createPgliteHandle(client)`. Details and
+the alternative (the app builds on the shared handle): `@softure-ai/db` README §3, "One handle per
+process".
 
 A command that never connects loads the config inside `withDatabaseOptional(() => import(...))`:
 there a missing, `null` or empty `database.url` gives `database: null` instead of a refusal, also when

@@ -37,7 +37,7 @@ modules: [
 | `checks` | `Record<string, HealthCheck>` | `{}` | The app's own checks, run after the database and module checks. Names: lowercase letters, digits, `_ . -`; not `database` and not the id of a module with a check. |
 | `timeoutMs` | integer 100…30000 | `3000` | How long one check may run before it counts as `timed_out`. |
 | `detail` | `"status"` \| `"checks"` | `"status"` | `status`: the answer is `{ status }` only, so a stranger learns nothing. `checks`: it also lists every check by name and state. |
-| `getDatabase` | `() => Promise<Queryable>` | none | The app's own database instead of the route's own pool. **Required for `pglite://`**: a PGlite folder must not be opened twice in one process (the route refuses with a 500 that names this option). |
+| `getDatabase` | `() => Promise<Queryable>` | none | A database for the check other than the config's. Rarely needed: with `database.handle` in the config, or a `pglite://` URL, the route already checks the process's one handle. |
 
 **Module checks.** Any module contributes a check through the module contract, and it runs whenever
 the module is listed in the config:
@@ -78,9 +78,11 @@ export { GET } from "@softure-ai/ops/next";
 - The route is public and has no input. Concurrent requests share one run of the checks (single
   flight), so a flood of probes costs one query per check at a time. It is not rate-limited through
   `@softure-ai/security` on purpose: that would make health depend on the database it reports on.
-- Without `getDatabase`, the route keeps its own pool of two connections per database URL (package
-  code cannot reach the app's pool). `closeHealthDatabases()` from `@softure-ai/ops/next` closes it
-  on shutdown.
+- Which database the route checks: `getDatabase` when set; else the config's `database.handle`
+  (the app's own); else, for `pglite://`, the shared handle the modules use (a second PGlite
+  instance on one directory would corrupt it); else its own pool of two connections per Postgres
+  URL, so a busy app pool cannot starve the probe. `closeHealthDatabases()` from
+  `@softure-ai/ops/next` closes that pool on shutdown. Ops scripts open the configured handle too.
 - Programmatic use (no Next): `collectHealthChecks(config, db)` and
   `runHealthChecks(context, { checks, timeoutMs })` from `@softure-ai/ops/server`.
 

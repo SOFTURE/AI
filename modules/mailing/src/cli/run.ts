@@ -9,8 +9,8 @@
 import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { parseArgs } from "node:util";
-import { systemClock, type SoftureConfig } from "@softure-ai/core";
-import { createDatabase, type DatabaseHandle } from "@softure-ai/db";
+import { systemClock, type SoftureConfig, type SoftureDatabaseConfig } from "@softure-ai/core";
+import { openCommandDatabase, type CommandDatabase, type DatabaseHandle } from "@softure-ai/db";
 import { parseCampaignFile, parseRecipientList, type CampaignContent } from "../server/campaign-file.js";
 import { planCampaign, sendCampaign, type CampaignSummary } from "../server/campaigns.js";
 import type { DeliveryContext } from "../server/deliveries.js";
@@ -31,7 +31,7 @@ export interface RunMailCliOptions {
   /** Relative paths resolve against it. Default: `process.cwd()`. */
   readonly cwd?: string;
   readonly output?: CliOutput;
-  /** Opens the campaign's database connection. Default: `createDatabase(url, { max: 1 })`. */
+  /** Opens the campaign's database connection. Default: the config's `database.handle`, else `createDatabase(url, { max: 1 })`. */
   readonly openDatabase?: (url: string) => Promise<DatabaseHandle>;
   readonly resolveTxt?: ResolveTxt;
   readonly sleep?: (ms: number) => Promise<void>;
@@ -196,14 +196,14 @@ async function runCampaign(command: Extract<Command, { kind: "campaign" }>, opti
     return EXIT_FAILED;
   }
 
-  let handle: DatabaseHandle;
+  let opened: CommandDatabase;
   try {
-    handle = await (options.openDatabase ?? openDatabase)(config.database.url);
+    opened = await openDatabase(config.database, options.openDatabase);
   } catch (error) {
     output.error(`softure-mail campaign: ${describeError(error)}`);
     return EXIT_FAILED;
   }
-  const ctx: DeliveryContext = { db: handle.db, clock: systemClock, config };
+  const ctx: DeliveryContext = { db: opened.handle.db, clock: systemClock, config };
   try {
     return command.dryRun ? await reportPlan(ctx, loaded, output) : await reportSend(ctx, loaded, { pauseMs: command.pauseMs, sleep: options.sleep }, output);
   } catch (error) {
@@ -211,7 +211,7 @@ async function runCampaign(command: Extract<Command, { kind: "campaign" }>, opti
     output.error(`softure-mail campaign: ${describeError(error)} (did softure migrate run?)`);
     return EXIT_FAILED;
   } finally {
-    await handle.close();
+    await opened.close();
   }
 }
 
@@ -292,8 +292,10 @@ function formatSummary(summary: CampaignSummary): string {
   ].join(", ");
 }
 
-function openDatabase(url: string): Promise<DatabaseHandle> {
-  return createDatabase(url, { max: 1 });
+async function openDatabase(database: SoftureDatabaseConfig, open: ((url: string) => Promise<DatabaseHandle>) | undefined): Promise<CommandDatabase> {
+  if (open === undefined) return openCommandDatabase(database, { max: 1 });
+  const handle = await open(database.url);
+  return { handle, close: handle.close };
 }
 
 async function readText(path: string): Promise<string | null> {

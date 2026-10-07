@@ -9,8 +9,8 @@
 import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { parseArgs } from "node:util";
-import { systemClock, type Clock, type SoftureConfig } from "@softure-ai/core";
-import { createDatabase, type DatabaseHandle } from "@softure-ai/db";
+import { systemClock, type Clock, type SoftureConfig, type SoftureDatabaseConfig } from "@softure-ai/core";
+import { openCommandDatabase, type CommandDatabase, type DatabaseHandle } from "@softure-ai/db";
 import { BLOG_REFRESH_SECRET_ENV, requestBlogRefresh, type BlogRefreshOutcome } from "../discovery/refresh.js";
 import { submitBlogChanges, type BlogIndexNowSubmit } from "../discovery/submit.js";
 import { runBlogPublish, type ArticleFile, type BlogPublishRun, type PublishedChange, type PublishGate, type PublishProblem } from "../db/publish-run.js";
@@ -37,7 +37,7 @@ export interface RunBlogCliOptions {
   /** Relative paths resolve against it. Default: `process.cwd()`. */
   readonly cwd?: string;
   readonly output?: CliOutput;
-  /** Opens the database connection. Default: `createDatabase(url, { max: 1 })`. */
+  /** Opens the database connection. Default: the config's `database.handle`, else `createDatabase(url, { max: 1 })`. */
   readonly openDatabase?: (url: string) => Promise<DatabaseHandle>;
   /** The gate for files going public. Default: the quality gate of `blog({ quality })`, none with `quality: false`. */
   readonly gate?: PublishGate;
@@ -271,16 +271,16 @@ async function runPublish(command: Extract<BlogCommand, { kind: "publish" }>, op
     if (settings !== null) gate = createQualityGate(settings, clock);
   }
 
-  let handle: DatabaseHandle;
+  let opened: CommandDatabase;
   try {
-    handle = await (options.openDatabase ?? openDatabase)(config.database.url);
+    opened = await openDatabase(config.database, options.openDatabase);
   } catch (error) {
     output.error(`softure-blog publish: ${describeError(error)}`);
     return EXIT_FAILED;
   }
   try {
     const run = await runBlogPublish(
-      { db: handle.db, clock, config },
+      { db: opened.handle.db, clock, config },
       files,
       {
         commit: command.commit,
@@ -310,7 +310,7 @@ async function runPublish(command: Extract<BlogCommand, { kind: "publish" }>, op
     output.error(`softure-blog publish: ${describeError(error)} (did softure migrate run?)`);
     return EXIT_FAILED;
   } finally {
-    await handle.close();
+    await opened.close();
   }
 }
 
@@ -578,8 +578,10 @@ async function readText(path: string): Promise<string | null> {
   }
 }
 
-function openDatabase(url: string): Promise<DatabaseHandle> {
-  return createDatabase(url, { max: 1 });
+async function openDatabase(database: SoftureDatabaseConfig, open: ((url: string) => Promise<DatabaseHandle>) | undefined): Promise<CommandDatabase> {
+  if (open === undefined) return openCommandDatabase(database, { max: 1 });
+  const handle = await open(database.url);
+  return { handle, close: handle.close };
 }
 
 /** The driver's own message; drizzle's "Failed query: … params: …" wrapper is dropped. */

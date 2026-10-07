@@ -254,9 +254,13 @@ thin actions) are not needed.
 - **Workspace links** (`npm install --install-links=false`) work once Turbopack may read the linked
   folders: `turbopack.root` must be the repository root. The example app keeps the root at its own
   folder on purpose, so it only ever tests packed copies.
-- **Database:** package code gets its handle from `getSharedDatabase(config.database.url)`
-  (`@softure-ai/db`): one handle per URL for the whole process, kept on `globalThis`, so every
-  module shares a pool and `next dev` reloads do not open new ones (decided in ID-3).
+- **Database:** package code gets its handle from `getConfiguredDatabase(config.database)`
+  (`@softure-ai/db`): the app's own handle when it set `database.handle`, otherwise one handle per URL
+  for the whole process (`getSharedDatabase`), kept on `globalThis`, so every module shares a pool
+  and `next dev` reloads do not open new ones (decided in ID-3; `database.handle` from issue #154).
+  A package command opens it with `openCommandDatabase` and closes it when done. Never
+  `createDatabase(config.database.url)` in a module: with `pglite://` a second instance corrupts the
+  directory.
 - **Route guard and other proxy pieces** (decided in ID-3): a module that guards routes exports a
   factory from its own `/proxy` entry point that returns `(request: Request) => Response | null`
   (`createAuthGuard(config, { protect })` in `@softure-ai/auth/proxy`). It uses only Web `Request`

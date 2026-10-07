@@ -35,7 +35,7 @@ vi.mock("@softure-ai/core/next", () => ({
 }));
 vi.mock("@softure-ai/db", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@softure-ai/db")>()),
-  getSharedDatabase: () => Promise.resolve({ db: scope.db }),
+  getConfiguredDatabase: () => Promise.resolve({ db: scope.db }),
 }));
 vi.mock("next/cache", () => ({ unstable_cache: <T,>(read: T) => read }));
 vi.mock("next/navigation", () => ({

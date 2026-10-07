@@ -12,7 +12,7 @@
 // - **a guard test**: `executeOpsScript` runs the same script on a test database (PGlite) with and
 //   without `commit`, so the change and its refusals are tested before anyone runs it in production.
 import { errorLogLabel, err, ok, safeError, type Err, type Ok, type SoftureConfig } from "@softure-ai/core";
-import { createDatabase, type Database, type Queryable } from "@softure-ai/db";
+import { openCommandDatabase, type Database, type Queryable } from "@softure-ai/db";
 import { EXIT_FAILED, EXIT_OK, EXIT_USAGE, type CliOutput } from "@softure-ai/db/cli";
 import type { z } from "zod";
 
@@ -55,7 +55,7 @@ export interface RunOpsScriptOptions<TArgs> {
   readonly script: OpsScript<TArgs>;
   /** The arguments after the script name: `process.argv.slice(2)`. */
   readonly argv: readonly string[];
-  /** The app config; its `database.url` is opened unless `database` is given. */
+  /** The app config; its `database.handle`, else its `database.url`, is opened unless `database` is given. */
   readonly config: Pick<SoftureConfig, "database">;
   /** An open database to use instead (tests); it is not closed. */
   readonly database?: Database;
@@ -230,13 +230,13 @@ async function openDatabase<TArgs>(
   if (options.database !== undefined) {
     return ok({ db: options.database, close: () => Promise.resolve() });
   }
-  const url = options.config.database?.url;
-  if (url === undefined) {
+  const database = options.config.database;
+  if (database === null) {
     return problem("the config has no database; set database.url in softure.config");
   }
   try {
-    const handle = await createDatabase(url, { max: 1 });
-    return ok({ db: handle.db, close: handle.close });
+    const opened = await openCommandDatabase(database, { max: 1 });
+    return ok({ db: opened.handle.db, close: opened.close });
   } catch (error) {
     return problem(`could not open the database: ${describeFailure(error)}`);
   }

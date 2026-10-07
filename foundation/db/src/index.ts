@@ -2,14 +2,19 @@
 // (docs/02-module-standard.md §4). Test databases: `@softure-ai/db/testing`; CLI: `@softure-ai/db/cli`.
 export {
   createDatabase,
+  createPgliteHandle,
+  createPostgresHandle,
+  isDatabaseHandle,
   type CreateDatabaseOptions,
   type Database,
   type DatabaseHandle,
+  type DatabaseSchema,
   type PgliteClientDatabase,
   type PostgresDatabase,
   type Queryable,
 } from "./client.js";
 export { closeSharedDatabases, getSharedDatabase } from "./shared.js";
+export { closeConfiguredDatabases, getConfiguredDatabase, openCommandDatabase, type CommandDatabase } from "./configured.js";
 export { computeChecksum, readMigrationFiles, type MigrationFile } from "./migrations/files.js";
 export {
   describeProblem,

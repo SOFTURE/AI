@@ -11,7 +11,8 @@ import { resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { pathToFileURL } from "node:url";
 import type { SoftureConfig } from "@softure-ai/core";
-import { createDatabase, type DatabaseHandle } from "../client.js";
+import type { DatabaseHandle } from "../client.js";
+import { openCommandDatabase, type CommandDatabase } from "../configured.js";
 import { adoptModule } from "../migrations/adopt.js";
 import { exportMigrations } from "../migrations/export.js";
 import { migrate, planMigrations, runAppMigrations, type AppMigrations, type MigrationStep } from "../migrations/migrator.js";
@@ -88,18 +89,20 @@ export async function runMigrateCli(options: RunMigrateCliOptions): Promise<numb
     return EXIT_OK;
   }
 
-  const url = options.config.database?.url;
-  if (url === undefined) {
+  const database = options.config.database;
+  if (database === null) {
     output.error("softure migrate: the config has no database; set database.url in softure.config");
     return EXIT_FAILED;
   }
-  let handle: DatabaseHandle;
+  let opened: CommandDatabase;
   try {
-    handle = await createDatabase(url);
+    // The app's configured handle when it set one, so the app's hooks and the run share one instance.
+    opened = await openCommandDatabase(database);
   } catch (error) {
     output.error(`softure migrate: ${describeError(error)}`);
     return EXIT_FAILED;
   }
+  const { handle } = opened;
   try {
     const migrationsDir = command.migrationsDir === undefined ? undefined : pathToFileURL(`${resolve(cwd, command.migrationsDir)}/`);
     return await runDatabaseCommand(handle, { command, modules: options.config.modules, migrationsDir, output, app: options.app ?? {} });
@@ -108,7 +111,7 @@ export async function runMigrateCli(options: RunMigrateCliOptions): Promise<numb
     output.error(`softure migrate: ${describeError(error)}`);
     return EXIT_FAILED;
   } finally {
-    await handle.close();
+    await opened.close();
   }
 }
 

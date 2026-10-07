@@ -9,7 +9,7 @@
 //
 // Next 16 runs `proxy.ts` on Node.js, so the database handle is the process-wide one.
 import { systemClock, type SoftureConfig } from "@softure-ai/core";
-import { getSharedDatabase } from "@softure-ai/db";
+import { getConfiguredDatabase } from "@softure-ai/db";
 import { findArticleBySlug, findSlugRedirect, type BlogContext } from "../db/articles.js";
 import { matchBlogPath } from "../pages/paths.js";
 import { buildGonePage, createCachedBlogPathDecider, type BlogPathLookup, type CachedDeciderOptions } from "../pages/redirects.js";
@@ -25,7 +25,7 @@ export interface BlogRedirectsOptions extends CachedDeciderOptions {
 function createDefaultContext(config: SoftureConfig): () => Promise<BlogContext> {
   return async () => {
     if (config.database === null) throw new Error("@softure-ai/blog: softure.config.ts has no database; the blog needs one");
-    const { db } = await getSharedDatabase(config.database.url);
+    const { db } = await getConfiguredDatabase(config.database);
     return { db, clock: systemClock, config };
   };
 }

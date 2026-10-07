@@ -313,7 +313,7 @@ dry run: nothing written; pass --commit to write
 ```
 
 Like `softure migrate`, the bin loads `softure.config.(ts|mts|js|mjs)` with Node and opens
-`database.url`. When Node cannot load the config (path aliases, a bundled container), call
+`database.handle` when the config sets one, otherwise `database.url`. When Node cannot load the config (path aliases, a bundled container), call
 `runBlogCli` from an app script:
 
 ```ts
