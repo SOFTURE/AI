@@ -12,10 +12,18 @@ export {
   LegalDocument,
   LegalSection,
   type LegalChange,
+  type LegalContentsTitleElement,
+  type LegalDocumentMeta,
   type LegalDocumentProps,
   type LegalDocumentSlot,
   type LegalSectionContent,
   type LegalSectionProps,
   type LegalSectionSlot,
 } from "./legal-document.js";
-export { LegalFooter, type LegalFooterLink, type LegalFooterProps, type LegalFooterSlot } from "./legal-footer.js";
+export {
+  LegalFooter,
+  type LegalFooterElement,
+  type LegalFooterLink,
+  type LegalFooterProps,
+  type LegalFooterSlot,
+} from "./legal-footer.js";
