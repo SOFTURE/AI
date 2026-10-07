@@ -76,6 +76,9 @@ Done when: gates green (typecheck, lint, test, build).
 - New `AppFacts` field required or optional → optional (the type is public; backward compatible).
 - Check the driver entries too → no (the issue asks for `@softure-ai/db`; which driver an app installs is not
   known from `package.json` alone when it relies on the package's own).
+- Phase 2 drift: `tests/repo/deploy-workflows.test.ts` pins the `deploy-cli-version` default of `deploy-app.yml`
+  and `deploy-report.yml` to the package version → both defaults move to 0.1.4 with the bump (as earlier deploy
+  bumps did); the `DEPLOY_CLI_VERSION: "0.1.3"` values in test fixtures are arbitrary inputs and stay.
 
 ## Progress
 
@@ -84,8 +87,8 @@ Done when: gates green (typecheck, lint, test, build).
 ### Phase 1: the warning
 
 #### Automated
-- [ ] 1.1 CLI tests for the three cases of the issue (plus variable list and both warnings) seen red, then green
-- [ ] 1.2 Gates green (typecheck, lint, test)
+- [x] 1.1 CLI tests for the three cases of the issue (plus variable list and both warnings) seen red, then green — 69ee1f1
+- [x] 1.2 Gates green (typecheck, lint, test) — 69ee1f1
 
 ### Phase 2: docs and version
 

@@ -418,7 +418,9 @@ softure-deploy init --domain=example.com --image=ghcr.io/acme/app [--dir=.] [--n
   the server, written into `deploy.json`; with a `deploy.json` that `init` keeps, add `database.rowCountTables` to it
   by hand) and `--name` (compose project, server folder `/srv/<name>`, database name; default from `package.json`).
 - **Read from the app:** `@softure-ai/db` in `package.json` turns on the database part, `@softure-ai/ops` the
-  `/api/health` route (else `/`), a `public/` folder its `COPY`; a `next.config.*` without `standalone` is a warning.
+  `/api/health` route (else `/`), a `public/` folder its `COPY`; a `next.config.*` without `standalone` is a warning,
+  and so is, with a database, one whose `serverExternalPackages` does not name `@softure-ai/db` (without it
+  `next build` cannot resolve the driver the app does not install; see the `@softure-ai/db` README, §2).
   Nothing is read from `softure.config`.
 - **Values are narrow:** the domain, image, name, paths, e-mail, env names and tables are checked against patterns
   before anything is written, so no value can break out of YAML, bash or a Traefik rule.
