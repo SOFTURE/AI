@@ -6,7 +6,7 @@ Source: FIRE_TRACKER `master` as of 2026-10-04 (read only, like the first analys
 the deploy pipeline.
 
 The owner chose three roadmaps on 2026-10-04: [`blog`](../context/foundation/archive/2026-10-04-2-roadmap.md) (main, closed on 2026-10-04),
-[`charts`](../context/foundation/roadmap.md) (main from 2026-10-06) and
+[`charts`](../context/foundation/archive/2026-10-07-roadmap.md) (main from 2026-10-06, closed on 2026-10-07) and
 [`deploy`](../context/foundation/archive/2026-10-06-roadmap.md) (main from 2026-10-05, closed on 2026-10-06).
 
 ## What is taken

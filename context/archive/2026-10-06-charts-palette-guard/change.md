@@ -25,7 +25,7 @@ Input: [`backlog-input.md`](backlog-input.md) (roadmap item CH-4, taken 2026-10-
 
 ## Context
 
-From [`roadmap.md`](../../foundation/roadmap.md) (charts), item **CH-4**:
+From [`roadmap.md`](../../foundation/archive/2026-10-07-roadmap.md) (charts), item **CH-4**:
 
 > - **Outcome:** a series palette in chart tokens with a documented order; a test that every pair stays
 >   distinguishable under the three simulations and every colour passes contrast on the chart surface in both

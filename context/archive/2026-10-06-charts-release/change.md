@@ -24,7 +24,7 @@ Input: [`backlog-input.md`](backlog-input.md) (roadmap item CH-5, taken 2026-10-
 
 ## Context
 
-From [`roadmap.md`](../../foundation/roadmap.md) (charts), item **CH-5**:
+From [`roadmap.md`](../../foundation/archive/2026-10-07-roadmap.md) (charts), item **CH-5**:
 
 > - **Outcome:** `@softure-ai/charts` 0.1.0 (the owner provides `NPM_TOKEN` for its first publish and adds its
 >   trusted publisher) and the next `@softure-ai/ui` with the testing helpers; README with an adoption guide for

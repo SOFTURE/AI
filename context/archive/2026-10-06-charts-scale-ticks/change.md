@@ -25,7 +25,7 @@ Input: [`backlog-input.md`](backlog-input.md) (roadmap item CH-1, taken 2026-10-
 
 ## Context
 
-From [`roadmap.md`](../../foundation/roadmap.md) (charts), item **CH-1**:
+From [`roadmap.md`](../../foundation/archive/2026-10-07-roadmap.md) (charts), item **CH-1**:
 
 > - **Outcome:** A new package `@softure-ai/charts` (`foundation/charts/`, copied from `templates/package/`) with
 >   pure functions: linear and time scales; nice value ticks and date ticks (days, months, years) in the app's time

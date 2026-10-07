@@ -7,15 +7,15 @@ Finished main roadmaps move to `../archive/<YYYY-MM-DD>-roadmap.md`.
 
 | Roadmap | Theme | Prefix | Status |
 | --- | --- | --- | --- |
-| [`roadmap-charts-followups.md`](roadmap-charts-followups.md) | gaps found while delivering the charts roadmap | `CF-` (CF-1 from CH-5) | waiting |
 | [`roadmap-later.md`](roadmap-later.md) | items parked until an owner step (secrets, accounts, the batch release) is done | `LT-` (MK-8, EN-9, MO-6, BL-8 and DP-8 done 2026-10-06) | waiting |
 
-Main roadmap now: [`charts`](../roadmap.md) (`CH-`, promoted on 2026-10-06), after deploy-followups (`DF-`) closed on
-2026-10-06 with DF-1…DF-16, MK-10 and MK-11 merged. Archived: [`foundation`](../archive/2026-10-02-roadmap.md),
+Main roadmap now: [`charts-followups`](../roadmap.md) (`CF-`, promoted on 2026-10-07), after charts (`CH-`) closed on
+2026-10-07 with CH-1…CH-5 merged. Archived: [`foundation`](../archive/2026-10-02-roadmap.md),
 [`identity`](../archive/2026-10-03-roadmap.md), [`engagement`](../archive/2026-10-03-2-roadmap.md),
 [`monetization`](../archive/2026-10-03-3-roadmap.md), [`marketing-kit`](../archive/2026-10-03-4-roadmap.md), [`followups`](../archive/2026-10-04-roadmap.md),
 [`blog`](../archive/2026-10-04-2-roadmap.md), [`blog-followups`](../archive/2026-10-05-roadmap.md),
-[`deploy`](../archive/2026-10-06-roadmap.md), [`deploy-followups`](../archive/2026-10-06-2-roadmap.md).
+[`deploy`](../archive/2026-10-06-roadmap.md), [`deploy-followups`](../archive/2026-10-06-2-roadmap.md),
+[`charts`](../archive/2026-10-07-roadmap.md).
 
 No roadmap carries a FIRE_TRACKER adoption item (owner, 2026-10-03): FIRE_TRACKER adopts the modules in its own
 roadmap and sessions. Each roadmap still ends with its own release item.
