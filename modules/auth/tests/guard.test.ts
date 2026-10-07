@@ -75,6 +75,13 @@ describe("createAuthGuard", () => {
       expect(denyAll(request(path))?.status).toBe(307);
     });
 
+    it("keeps guarding everything else when the app mounts its login page at /", () => {
+      const homeLogin = createConfig({ appOrigin: "https://app.example.com", auth: { routes: { login: "/" } } });
+      const homeGuard = createAuthGuard(homeLogin, { protect: ["/"] });
+      expect(homeGuard(request("/"))).toBeNull();
+      expect(homeGuard(request("/dashboard"))?.status).toBe(307);
+    });
+
     it("reads / in exclude as the home page only, not every path", () => {
       expect(createAuthGuard(config, { protect: ["/"], exclude: ["/"] })(request("/dashboard"))?.status).toBe(307);
     });

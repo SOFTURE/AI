@@ -35,7 +35,16 @@ async function clearLegacySessionCookie(config: SoftureConfig): Promise<void> {
   const store = await cookies();
   if (store.get(name) === undefined) return;
   const cookie = getSessionCookie(config);
-  store.set(name, "", { httpOnly: true, secure: cookie.secure, sameSite: cookie.sameSite, path: "/", domain: cookie.domain, maxAge: 0 });
+  // Browsers refuse a `__Host-` cookie with a Domain or without Secure, the removal included.
+  const isHostOnly = name.startsWith("__Host-");
+  store.set(name, "", {
+    httpOnly: true,
+    secure: isHostOnly || cookie.secure,
+    sameSite: cookie.sameSite,
+    path: "/",
+    domain: isHostOnly ? undefined : cookie.domain,
+    maxAge: 0,
+  });
 }
 
 /** Only in a server action or a route handler: pages cannot set cookies. */

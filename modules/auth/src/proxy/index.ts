@@ -40,9 +40,7 @@ export function createAuthGuard(config: SoftureConfig, options: AuthGuardOptions
 
   const isGuarded = (path: string): boolean => {
     if (isUnder(path, changePassword)) return true;
-    if (publicPaths.some((prefix) => isUnder(path, prefix))) return false;
-    // In `exclude`, "/" is the home page: excluding every path would switch the guard off.
-    if (excluded.some((prefix) => (prefix === "/" ? path === "/" : isUnder(path, prefix)))) return false;
+    if ([...publicPaths, ...excluded].some((prefix) => isExcludedBy(path, prefix))) return false;
     return prefixes.some((prefix) => isUnder(path, prefix));
   };
 
@@ -75,6 +73,11 @@ function decodePath(pathname: string): string | null {
   } catch {
     return null;
   }
+}
+
+/** An exclusion of "/" is the home page: excluding every path would switch the guard off. */
+function isExcludedBy(pathname: string, prefix: string): boolean {
+  return prefix === "/" ? pathname === "/" : isUnder(pathname, prefix);
 }
 
 function isUnder(pathname: string, prefix: string): boolean {

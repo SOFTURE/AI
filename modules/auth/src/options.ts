@@ -6,7 +6,11 @@ import type { RegisteredEvent } from "./contract.js";
 import type { PasswordResetSender } from "./password-reset-sender.js";
 import { ROLE_NAME_PATTERN } from "./roles.js";
 
-/** OWASP's scrypt cost for passwords: N = 2^17, r = 8, p = 1 (about 128 MiB per hash). */
+/**
+ * OWASP's scrypt cost for passwords: N = 2^17, r = 8, p = 1. One hash takes 128 * N * r bytes
+ * (128 MiB) and about 0.4 s of a core; Node runs up to four at once on its libuv pool, so a burst of
+ * logins can take 512 MiB. A small server lowers `password.scrypt.cost` (README §3).
+ */
 export const DEFAULT_SCRYPT_COST = 2 ** 17;
 
 const MAX_EMAIL_LENGTH = 254;
@@ -64,7 +68,7 @@ export const authOptionsSchema = z.strictObject({
     .strictObject({
       /** Shortest password a user may set (characters). */
       minLength: z.number().int().min(8).max(128).default(10),
-      /** Hash cost. Raising it rehashes each password at its owner's next login. */
+      /** Hash cost; memory per hash is 128 * cost * blockSize bytes. Raising it rehashes each password at its owner's next login. */
       scrypt: scryptSchema.prefault({}),
     })
     .prefault({}),

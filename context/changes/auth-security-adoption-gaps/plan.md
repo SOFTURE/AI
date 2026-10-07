@@ -107,6 +107,6 @@ Done when: `npm run typecheck`, `lint`, `test`, `build` green.
 
 ### Phase 4: scripts, packaging, docs
 
-- [ ] set-temporary-password script
-- [ ] ops optional peer, security 0.1.6
-- [ ] READMEs
+- [x] set-temporary-password script
+- [x] ops optional peer, security 0.1.6
+- [x] READMEs

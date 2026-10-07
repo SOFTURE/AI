@@ -1,7 +1,7 @@
 ---
 change_id: auth-security-adoption-gaps
 title: "auth + security: the 14 gaps an adopting app found (issue #156)"
-status: plan_reviewed
+status: impl_reviewed
 roadmap_item: null
 issue: 156
 branch: claude/project-thread-x1jpxm
