@@ -37,6 +37,7 @@ modules: [
 | `checks` | `Record<string, HealthCheck>` | `{}` | The app's own checks, run after the database and module checks. Names: lowercase letters, digits, `_ . -`; not `database` and not the id of a module with a check. |
 | `timeoutMs` | integer 100…30000 | `3000` | How long one check may run before it counts as `timed_out`. |
 | `detail` | `"status"` \| `"checks"` | `"status"` | `status`: the answer is `{ status }` only, so a stranger learns nothing. `checks`: it also lists every check by name and state. |
+| `requireDatabase` | boolean | `true` | A config with `database: null` fails the `database` check (`ops.database_missing`), so an app started without `DATABASE_URL` answers 503 instead of 200. Set `false` only in an app that has no database. |
 | `getDatabase` | `() => Promise<Queryable>` | none | A database for the check other than the config's. Rarely needed: with `database.handle` in the config, or a `pglite://` URL, the route already checks the process's one handle. |
 
 **Module checks.** Any module contributes a check through the module contract, and it runs whenever
@@ -67,10 +68,14 @@ export { GET } from "@softure-ai/ops/next";
 | --- | --- | --- | --- |
 | every check passes | 200 | `{ "status": "ok" }` | `{ "status": "ok", "checks": { "database": "ok", "notes": "ok" } }` |
 | any check fails or times out | 503 | `{ "status": "unavailable" }` | `{ "status": "unavailable", "checks": { "database": "failed", "notes": "timed_out" } }` |
+| the config has no database (`DATABASE_URL` unset), `requireDatabase` on | 503 | `{ "status": "unavailable" }` | `{ "status": "unavailable", "checks": { "database": "failed", "notes": "ok" } }` |
 | `ops()` not in the config | 500 | (Next's error page; the log names the fix) | |
 
-- Checks run in this order and all at once: `database` (`select 1`, when the config has a database),
-  each enabled module's check under the module id, then the app's `checks`.
+- Checks run in this order and all at once: `database` (`select 1`; when the config has no database it
+  fails with `ops.database_missing`, or is left out with `requireDatabase: false`), each enabled
+  module's check under the module id, then the app's `checks`. A config built as
+  `database: process.env.DATABASE_URL ? { url } : null` (so that `next build` runs without one) therefore
+  reports the missing secret: the log says `health check "database" failed: ops.database_missing`.
 - The answer carries `cache-control: no-store`, and `next build` lists the route as dynamic (ƒ):
   a cached "ok" is exactly the false green this endpoint exists to prevent. The handler calls
   `connection()` from `next/server` itself, so it stays dynamic whatever Next's default for `GET`

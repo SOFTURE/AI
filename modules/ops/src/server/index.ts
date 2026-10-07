@@ -3,6 +3,7 @@
 export {
   collectHealthChecks,
   createDatabaseCheck,
+  createMissingDatabaseCheck,
   DATABASE_CHECK_NAME,
   runHealthChecks,
   type NamedHealthCheck,

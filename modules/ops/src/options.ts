@@ -29,6 +29,12 @@ export const opsOptionsSchema = z.strictObject({
    */
   detail: z.enum(["status", "checks"]).default("status"),
   /**
+   * Whether a config without a database fails the health route. On by default: apps build `database` from
+   * `DATABASE_URL` and get `null` when it is unset, and a route that checked nothing would answer 200. An app that
+   * really has no database sets `false`.
+   */
+  requireDatabase: z.boolean().default(true),
+  /**
    * The database the health route checks, when it should be neither the config's `database.handle` nor the
    * small pool the route opens from `database.url` for Postgres. A `pglite://` URL or a `database.handle`
    * already resolves to the process's one handle, so this is rarely needed.
