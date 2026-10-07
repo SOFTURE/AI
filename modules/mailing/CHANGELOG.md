@@ -4,8 +4,23 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mailing@x.y.z`).
 
-## Unreleased
+## 0.1.9
 
+- New `importDeliveries(ctx, rows)` (`/server`, and `importDeliveries(rows)` in `/next`) and `softure-mail import
+  <file|->` (JSON Lines): seed `mailing.deliveries` with the deliveries an app made before it adopted the module, so
+  the first `deliverOnce` or campaign run skips them. Rows `{ scope, address, status: "sent" | "rejected",
+  finishedAt, providerMessageId?, reason?, kind? }`; every row is checked before anything is written, rows already
+  in the ledger are left as they are, a re-run imports nothing twice. `checkImportedDeliveries` checks without
+  writing (`--dry-run`).
+- Migration `0004`: `mailing.deliveries.imported_at`; an imported `sent` row may have no `provider_message_id`.
+  Run `softure migrate`.
+- `maxAttempts` is a module option (default 5) and may be `null`, in the module or per `deliverOnce` call: then
+  `mailing.unavailable` always releases the claim and never closes the delivery.
+- `listCampaignRecipients(campaign, ctx)` module option: `softure-mail campaign` without `--recipients` takes the
+  recipients from it. New `listConfiguredCampaignRecipients` in `/server`.
+- `softure-mail` reads a file given as `-` from standard input (the campaign's content file or `--recipients`, the
+  import's history file), so it runs inside the app's container with `docker compose exec -T`. The README documents
+  that topology.
 - `legacyUnsubscribe.params` also takes `{ required, optional }`: a link is legacy when it carries every required
   name, and the optional names it carries go to `verify` too, so two old link forms on one path both keep working.
   The array form still means "all required".

@@ -33,6 +33,8 @@ export const deliveries = mailingSchema.table(
     reason: text("reason"),
     /** The provider's HTTP status of the last answer that failed or was released; null when there was none. */
     providerStatus: integer("provider_status"),
+    /** When `importDeliveries` wrote the row; null for a delivery the module made. */
+    importedAt: timestamp("imported_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   },
   (table) => [primaryKey({ columns: [table.scope, table.recipientKey] })],

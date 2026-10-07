@@ -69,6 +69,16 @@ export interface CampaignRecipient {
 export type CampaignRecipientFilter = (recipient: CampaignRecipient, ctx: ModuleContext<Queryable>) => Promise<boolean>;
 
 /**
+ * Lists the addresses a campaign goes to, from the app's own data (e.g. the people who opted in to its kind), so a
+ * campaign can run where the database is without a recipients file. Duplicates are fine; `filterCampaignRecipient`
+ * and the suppression list still apply. A throw stops the campaign. Set in `mailing({ listCampaignRecipients })`.
+ */
+export type CampaignRecipientSource = (
+  campaign: { readonly id: string; readonly kind: string },
+  ctx: ModuleContext<Queryable>,
+) => Iterable<string> | AsyncIterable<string> | Promise<Iterable<string>>;
+
+/**
  * The query names of a legacy link. An array lists names the link must all carry. The object form adds names it
  * may carry: a link is legacy when it has every `required` name, and the `optional` ones it has go to `verify` too.
  * At most 8 names in all, none repeated, never `r` or `status`.

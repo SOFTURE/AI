@@ -1,12 +1,10 @@
 # @softure-ai/mailing
 
 Sends one mail to one recipient through a provider adapter and answers with a typed result, never a
-throw. Ported from FIRE_TRACKER `src/lib/mail.ts` (a hand-written Resend `fetch`, plain text only),
-with the sender, reply-to, provider and timeout taken from configuration, an HTML body, and a fake
-provider for tests. List mail gets signed one-click unsubscribe (RFC 8058) and a suppression list,
-ported from FIRE_TRACKER `src/lib/unsubscribe-*.ts` and `/wypisz`. A delivery ledger sends a mail
-at most once per scope and recipient, and `softure-mail` sends campaigns from a content file where
-FIRE ran deployment-specific scripts.
+throw, with the sender, reply-to, provider and timeout taken from configuration, an HTML body, and a
+fake provider for tests. List mail gets signed one-click unsubscribe (RFC 8058) and a suppression
+list. A delivery ledger sends a mail at most once per scope and recipient, an app's earlier history
+can be imported into it, and `softure-mail` sends campaigns from a content file.
 
 ## 1. What it provides
 
@@ -42,7 +40,8 @@ FIRE ran deployment-specific scripts.
   the withdrawal, and **`legacyUnsubscribe`**, which keeps unsubscribe links the app sent before it
   adopted the module working (section 10).
 - **Sending once.** `deliverOnce(ctx, { scope, mail })` (`/server`, and `deliverOnce({ scope, mail })`
-  in `/next`) sends a mail at most once per scope and recipient through the delivery ledger.
+  in `/next`) sends a mail at most once per scope and recipient through the delivery ledger;
+  `importDeliveries` (and `softure-mail import`) seeds it with the app's earlier history.
 - **Campaigns.** `sendCampaign`, `planCampaign` and the content file parser in `/server`; the
   `softure-mail campaign` command sends a campaign from a content file.
 - **Sender DNS.** `checkSenderDns(domain)` and `softure-mail dns` report SPF, DKIM and DMARC, hold DMARC to a
@@ -125,7 +124,10 @@ const outcome = await deliverOnce({
   Lowercase letters, digits and `._:-`, at most 128 characters. Campaigns use `campaign:<id>`.
 - **Idempotency key.** The ledger sends with `<scope>:<recipient key>`; callers do not pass one.
 - **Retries.** `unavailable` releases the claim (`pending`); the fifth attempt (`maxAttempts`) that
-  is still unavailable closes the row as `rejected`. A halt (`provider_refused`, `quota_exceeded`)
+  is still unavailable closes the row as `rejected`. Five rides out a short provider outage across
+  a few runs, while a provider that keeps failing on one mail does not keep it open forever. An app
+  that retries on its own schedule sets `mailing({ maxAttempts: null })` (or passes it per call):
+  `unavailable` then always releases the claim and never closes the row. A halt (`provider_refused`, `quota_exceeded`)
   never closes a row and never uses up an attempt, so a run with a bad key loses no recipient. The
   provider's HTTP status of the last failed answer is kept in `provider_status`.
 - **Interrupted sends.** A process that dies between the send and the outcome leaves a claim; after
@@ -138,6 +140,47 @@ const outcome = await deliverOnce({
   overrides them per call. Outcomes are fenced by the attempt number, so a sender that lost its
   claim cannot overwrite the one that took over.
 - A malformed scope or kind throws (a bug); a database failure propagates.
+
+### Importing an existing history
+
+An app that already kept its own once-only records (which campaign went to which signup, which
+notice went to which user for which period) seeds the ledger before its first `deliverOnce` or
+campaign run; otherwise that run mails everyone again. Map each record to the scope the module
+will use for it and import:
+
+```ts
+import { importDeliveries } from "@softure-ai/mailing/server";
+
+const result = await importDeliveries(ctx, [
+  { scope: "campaign:2026-09-launch", address: "ada@example.org", status: "sent", finishedAt: "2026-09-20T10:15:00Z", kind: "newsletter" },
+  { scope: "account.trial-ending:user_7", address: "bob@example.org", status: "rejected", finishedAt: row.sentAt, reason: "mailing.rejected" },
+]);
+if (!result.ok) console.error(result.problems); // [{ index, problem }]: nothing was written
+else console.log(result.value); // { rows, imported, alreadyPresent, duplicates }
+```
+
+Or from a file, one JSON object per line with the same fields:
+
+```bash
+softure-mail import history.jsonl --dry-run   # checks the file, writes nothing
+softure-mail import history.jsonl
+docker compose exec -T app npx softure-mail import - < history.jsonl   # inside the app's container
+```
+
+- Rows: `scope`, `address` (only its key is stored), `status` (`sent` or `rejected`), `finishedAt`
+  (a date or ISO string, not in the future), optional `providerMessageId` (sent rows; history
+  rarely kept it, and an imported sent row may go without), `reason` (rejected rows: one of
+  `mailing.invalid_input`, `rejected`, `unavailable`, `suppressed`; default `mailing.rejected`) and
+  `kind` (default `transactional`).
+- **Every row is checked before anything is written**; problems name the row (the file's line) and
+  the field, never the address.
+- **Idempotent.** A row whose scope and recipient the ledger already has (imported earlier, or sent
+  by the module) is left as it is and counted as `alreadyPresent`; re-run the same import after a
+  failure. Two input rows for the same scope and recipient count once (`duplicates`).
+- Imported rows are closed (`sent` or `rejected`), with `imported_at` set and no `campaign_id`:
+  `deliverOnce`, `planCampaign` and `sendCampaign` match a delivery by scope, so they skip it.
+- Unsubscribes the app recorded go to `suppressRecipient`, not here: the suppression list is what
+  stops future campaigns.
 
 ### Campaigns: `softure-mail campaign`
 
@@ -162,6 +205,25 @@ softure-mail campaign launch.md --recipients recipients.txt              # sends
 ```
 
 - The recipients file holds one address per line (`#` comments and blank lines skipped).
+- **Recipients from the database.** Without `--recipients` the command asks
+  `mailing({ listCampaignRecipients })`, which lists the addresses from the app's own data
+  (duplicates are fine; the filter and the suppression list still apply):
+
+  ```ts
+  listCampaignRecipients: async ({ kind }, ctx) => listOptedInAddresses(ctx.db, kind),
+  ```
+
+- **Where it runs.** The command needs the database (the ledger) and the provider key, so it runs
+  where both are: inside the app's container. When the database is not reachable from the
+  operator's machine, send the content file on standard input (`-`) and let the recipients come
+  from `listCampaignRecipients` (or pass `--recipients -` with the content as a file in the image):
+
+  ```bash
+  ssh app-host 'cd /srv/app && docker compose exec -T app npx softure-mail campaign - --dry-run' < launch.md
+  ssh app-host 'cd /srv/app && docker compose exec -T app npx softure-mail campaign -' < launch.md
+  ```
+
+  With the content on standard input, its `html:` file is looked up in the working directory.
 - The command loads `softure.config.*` like `softure migrate` (or `--config <file>`), opens the
   config's `database.handle` when set, otherwise its own connection on `database.url`, and needs `MAILING_UNSUBSCRIBE_SECRET` (campaigns are list
   mail). Run `softure migrate` first.
@@ -253,6 +315,8 @@ mailing({
 | `legacyUnsubscribe` | `{ params, verify }` | — | Verifies unsubscribe links the app sent before it adopted the module (section 10). |
 | `oneClickInvalidLinkStatus` | `200 \| 400` | `400` | What the one-click route answers for a link that does not verify. `200` gives no oracle on whether a token is live; a failure still answers 500, and the page still shows its message. |
 | `filterCampaignRecipient` | `(recipient, ctx) => Promise<boolean>` | — | Decides per recipient whether a campaign goes to them (section 1, Campaigns). |
+| `listCampaignRecipients` | `(campaign, ctx) => Iterable<string> \| AsyncIterable<string> \| Promise<Iterable<string>>` | — | Lists a campaign's recipients from the app's data; `softure-mail campaign` uses it without `--recipients` (section 1, Campaigns). |
+| `maxAttempts` | `number \| null` | `5` | Claims before `mailing.unavailable` closes a delivery as rejected, 1 to 100; `null` never closes it (section 1, Retries). |
 | `staleClaimMs` | `number` | `900000` (15 min) | How long a delivery claim may stay open before another sender takes it over. 1 minute to 23 hours. |
 | `uncertainClaimMs` | `number` | `82800000` (23 h) | How old a claim may get before it waits for an operator (`uncertain`). More than `staleClaimMs`, at most 30 days; keep it under the provider's idempotency window. |
 | `routes` | `{ unsubscribe?, oneClick? }` | `/unsubscribe`, `/api/mailing/unsubscribe` | Where you mount the page and the route; links are built on `appOrigin` plus these paths. |
@@ -312,8 +376,9 @@ Schema `mailing`, applied by `softure migrate`:
 | --- | --- | --- |
 | `0001_create_suppressions.sql` | `mailing.suppressions` | `recipient_key` (primary key, 43-character base64url), `source` (`one-click`, `page`, `operator`), `created_at`. One row per address, the first opt-out kept. |
 | `0002_create_campaigns_and_deliveries.sql` | `mailing.campaigns` | `id` (kebab-case), `kind` (never `transactional`), `subject`, `content_hash` (sha256 of kind, subject and bodies), `created_at`. |
-| | `mailing.deliveries` | primary key (`scope`, `recipient_key`), `kind`, `campaign_id` (then `scope` is `campaign:<id>`), `status` (`pending`, `claimed`, `sent`, `rejected`), `attempts`, `claimed_at`, `finished_at`, `provider_message_id` (exactly when sent), `reason` (exactly when rejected). |
+| | `mailing.deliveries` | primary key (`scope`, `recipient_key`), `kind`, `campaign_id` (then `scope` is `campaign:<id>`), `status` (`pending`, `claimed`, `sent`, `rejected`), `attempts`, `claimed_at`, `finished_at`, `provider_message_id` (exactly when sent; see `0004`), `reason` (exactly when rejected). |
 | `0003_add_delivery_provider_status.sql` | `mailing.deliveries` | `provider_status` (the HTTP status of the last failed or released answer, 100 to 599, else null); `attempts` may be 0 on a `pending` row (a halt gave its attempt back). |
+| `0004_allow_imported_deliveries.sql` | `mailing.deliveries` | `imported_at` (set by `importDeliveries`, only on `sent`/`rejected` rows); `provider_message_id` only on `sent` rows, and required there unless the row was imported. |
 
 The health check (`checkMailingTables`) runs `select 1 from mailing.<table> limit 0` for the three
 tables.
