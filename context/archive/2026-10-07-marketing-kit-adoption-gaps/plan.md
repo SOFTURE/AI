@@ -86,7 +86,7 @@ Done when (every phase): gates green (typecheck, lint, test); `npm run build`.
 
 ## Progress
 
-- [ ] Phase 1: scroll frame, extra wait and storage state for entries
-- [ ] Phase 2: ad-hoc shots
-- [ ] Phase 3: placeholder voiceover
-- [ ] Phase 4: README, docs, schema and version
+- [x] Phase 1: scroll frame, extra wait and storage state for entries — 57e82a2
+- [x] Phase 2: ad-hoc shots — 3827b09
+- [x] Phase 3: placeholder voiceover — 78d3113
+- [x] Phase 4: README, docs, schema and version — ab0d251

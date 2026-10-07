@@ -1,11 +1,12 @@
 ---
 change_id: marketing-kit-adoption-gaps
 title: "marketing-kit closes the gaps FIRE_TRACKER found adopting it (issue #118)"
-status: plan_reviewed
+status: archived
 roadmap_item: CF-2
 branch: claude/project-thread-tahk2l
 created: 2026-10-07
 updated: 2026-10-07
+archived_at: 2026-10-07
 ---
 
 ## Intent
@@ -67,3 +68,4 @@ at the end the issue gets a point-by-point comment, is closed, and the change is
 - Framing skipped: the problem is measured in a real adoption (FIRE keeps its own script because of gaps 1-3) and
   the owner ordered every item done; what is left are design choices (flag names, where a storage state and a
   placeholder live), settled in research and the plan.
+- Archived 2026-10-07: every item of issue #118 is done (see [`reviews/impl-review.md`](reviews/impl-review.md)); marketing-kit 0.1.8 waits for its release.

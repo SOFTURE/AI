@@ -37,7 +37,7 @@ backlog: context/backlog/roadmap-charts-followups/
 | ID | Change | Outcome | Depends on | Mode | Status |
 | --- | --- | --- | --- | --- | --- |
 | **CF-1** | `chart-pin` | `ChartPin` in `@softure-ai/charts`: an event pin (dashed vertical from the axis to a point and a dot on it) | — | autonomous | ready |
-| **CF-2** | `marketing-kit-adoption-gaps` | marketing-kit closes FIRE_TRACKER's adoption gaps (issue #118): ad-hoc, scroll-frame and signed-in `shots`, a renderable placeholder voiceover, README fixes | — | autonomous | **in_progress** (implement 1/4, since 2026-10-07; thread claude/project-thread-tahk2l) |
+| **CF-2** | `marketing-kit-adoption-gaps` | marketing-kit closes FIRE_TRACKER's adoption gaps (issue #118): ad-hoc, scroll-frame and signed-in `shots`, a renderable placeholder voiceover, README fixes | — | autonomous | **done_code** (2026-10-07; waiting: the owner's release of marketing-kit 0.1.8) |
 
 ## Order
 
@@ -62,7 +62,7 @@ backlog: context/backlog/roadmap-charts-followups/
 
 ### CF-2: marketing-kit adoption gaps
 - **Change ID:** `marketing-kit-adoption-gaps`
-- **Status:** in_progress (implement 1/4, since 2026-10-07; thread claude/project-thread-tahk2l)
+- **Status:** done_code (2026-10-07; waiting: the owner's release of marketing-kit 0.1.8)
 - **Source:** GitHub issue [#118](https://github.com/SOFTURE/AI/issues/118), FIRE_TRACKER adopting marketing-kit 0.1.2
   (BS-18); the owner ordered it done in full on 2026-10-07.
 - **Outcome:** `shots` takes an ad-hoc page (`--page --out --expect`), a scroll-offset frame, an extra wait and a
@@ -71,6 +71,7 @@ backlog: context/backlog/roadmap-charts-followups/
 - **Prerequisites:** none.
 - **Risk:** low (FIRE keeps its own screenshot script until this lands).
 - **Baseline:** FIRE `scripts/screenshot.mts`, `examples/fixture/prepare.ts`.
+- **Archive:** [`archive/2026-10-07-marketing-kit-adoption-gaps/`](../archive/2026-10-07-marketing-kit-adoption-gaps/change.md).
 
 ## Owner decisions and checks
 
@@ -78,3 +79,5 @@ backlog: context/backlog/roadmap-charts-followups/
   npmjs.com (`@softure-ai/charts` → Settings → Trusted publisher: GitHub Actions, `SOFTURE` / `AI` / `release.yml`,
   case-sensitive, environment empty, **Allow npm publish**) and delete the `NPM_TOKEN` secret unless another new
   package is on the way. CF-1 bumps charts, so its release needs the publisher (`scripts/release/README.md`).
+- [ ] **CF-2**: release `@softure-ai/marketing-kit` 0.1.8 (`scripts/release/README.md`); FIRE_TRACKER can then drop
+  `scripts/screenshot.mts` for `shots --page` and rehearse films with `--placeholder`.
