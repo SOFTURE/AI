@@ -1,11 +1,12 @@
 ---
 change_id: charts-followups-close
 title: "Close the charts-followups roadmap without promoting another"
-status: impl_reviewed
+status: archived
 roadmap_item: null
 branch: claude/project-thread-749waj
 created: 2026-10-07
 updated: 2026-10-07
+archived_at: 2026-10-07
 ---
 
 ## Intent

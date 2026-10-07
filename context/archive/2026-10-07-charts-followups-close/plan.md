@@ -39,6 +39,6 @@ tests/repo`, `npm run lint` and `npm run typecheck` are green.
 ### Phase 1: Close the roadmap
 
 #### Automated
-- [ ] 1.1 Roadmap archived with Summary, backlog folder removed, indexes and links updated
-- [ ] 1.2 "No active roadmap" note in `roadmap.md`
-- [ ] 1.3 Repository tests, lint and typecheck green
+- [x] 1.1 Roadmap archived with Summary, backlog folder removed, indexes and links updated — 7ea07f2
+- [x] 1.2 "No active roadmap" note in `roadmap.md` — 7ea07f2
+- [x] 1.3 Repository tests, lint and typecheck green — 7ea07f2
