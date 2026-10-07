@@ -1,12 +1,13 @@
 ---
 change_id: db-adoption-app-references
 title: "Adoption of a module whose SQL references app tables"
-status: impl_reviewed
+status: archived
 roadmap_item: null
 issue: 170
 branch: claude/project-thread-dexe9x
 created: 2026-10-07
 updated: 2026-10-07
+archived_at: 2026-10-07
 ---
 
 ## Intent

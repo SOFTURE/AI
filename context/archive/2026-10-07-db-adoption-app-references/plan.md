@@ -62,4 +62,4 @@ any release.
 
 ## Progress
 
-- [x] Phase 1: stubs in the reference build (gates green: typecheck, lint, test 4449 passed with Postgres, build)
+- [x] Phase 1: stubs in the reference build (7a3a65a; gates green: typecheck, lint, test 4449 passed with Postgres, build)
