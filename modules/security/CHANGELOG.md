@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`security@x.y.z`).
 
-## Unreleased
+## 0.1.7
 
 - New `unidentified` option: `"refuse"` (the default, as before) or `{ key }`, which counts every request no
   resolver identifies under one shared key `unidentified:<key>`, for a stack with no edge in front (`next dev`, a test
