@@ -1,169 +1,66 @@
 ---
 project: "SOFTURE AI"
-roadmap: charts
+roadmap: charts-followups
 version: 1
 status: ready
 prd_version: 2
-created: 2026-10-04
-updated: 2026-10-06
-backlog: context/backlog/roadmap-charts/
+created: 2026-10-06
+updated: 2026-10-07
+backlog: context/backlog/roadmap-charts-followups/
 ---
 
-# Roadmap charts: SVG chart primitives with accessibility guards
+# Roadmap charts-followups: gaps found while delivering the charts roadmap
 
-> Reference: [`docs/06-fire-extraction-2.md`](../../docs/06-fire-extraction-2.md), PRD v2 FR-31 and FR-32.
+> Entries: [`context/backlog/roadmap-charts-followups/`](../backlog/roadmap-charts-followups/). An entry is taken
+> (moved to `context/changes/<id>/`) when its item starts.
 >
-> Entries: [`context/backlog/roadmap-charts/`](../backlog/roadmap-charts/). An entry is taken (moved to
-> `context/changes/<id>/`) when its item starts.
+> Promoted on 2026-10-07 on the owner's word in the project thread, when charts closed (archived in
+> [`archive/2026-10-07-roadmap.md`](archive/2026-10-07-roadmap.md)). One thread per item. Still queued in
+> [`roadmaps/`](roadmaps/README.md): `later`.
 >
-> Promoted on 2026-10-06, when deploy-followups closed (archived in
-> [`archive/2026-10-06-2-roadmap.md`](archive/2026-10-06-2-roadmap.md)). The owner decided earlier that day to run
-> charts now, after deploy-followups only where an item depends on it; none does. One thread per item. Still queued
-> in [`roadmaps/`](roadmaps/README.md): `later`.
->
-> Written on 2026-10-04 from the second FIRE_TRACKER analysis, next to the main roadmap
-> [`blog`](archive/2026-10-04-2-roadmap.md) (closed on 2026-10-04). Chart primitives were in the scope of
-> `@softure-ai/ui` in the module assessment (`docs/01`) but never landed; they get their own package so `@softure-ai/ui` stays within NFR-7.
->
-> Gaps found while delivering this roadmap are collected, not fixed on the spot (owner, 2026-10-03): the first gap
-> creates the queued catch-all `charts-followups` (`context/foundation/roadmaps/roadmap-charts-followups.md` and
-> `context/backlog/roadmap-charts-followups/`, prefix `CF-`); each gap gets the next `CF-<n>`, a backlog entry
-> (`status: backlog`, **Source** naming the change and the finding) and a row, with the severity in **Risk** and
-> the owner's part in **Mode**.
+> The catch-all of the charts roadmap (owner, 2026-10-03: gaps found while delivering a roadmap are collected, not
+> fixed on the spot). It stays the catch-all while it is the main roadmap: a thread that finds a new gap takes the
+> next free `CF-<n>` on the current `master`, writes `context/backlog/roadmap-charts-followups/<change-id>/change.md`
+> (`status: backlog`, **Source** naming the change and the finding), and adds the row and the item block here and the row in the backlog README, with the severity
+> in **Risk** and the owner's part in **Mode**.
 >
 > Run-wide orders (read by orchestrators):
-> - Push main branch: at the end. Also push `master` after every merge, so an ephemeral cloud
->   container never holds the only copy. Claude reviews and merges its own changes into `master`
->   (owner, 2026-10-02). Tags and npm publishes stay with the owner.
+> - Push main branch: at the end. Also push `master` after every merge. Claude reviews and merges its own
+>   changes into `master` (owner, 2026-10-02). Tags and npm publishes stay with the owner.
 > - Archive roadmap: at the end.
 > - Parallelism: up to 4 at once (`workflow.json` → `worktree.maxParallel`).
-> - Process: every item runs the full softure chain (new → research → frame → plan → plan review → implement →
->   impl review → archive); skipping research or framing is justified in `change.md` (owner, 2026-10-03).
-> - Release: each item that changes a published package bumps it (`@softure-ai/ui` for CH-3); the new
->   `@softure-ai/charts` rides its first publish (CH-5).
-> - Owner at the keyboard: CH-5 only (the first npm publish of a new package).
->
-> FIRE_TRACKER is read only; its domain charts (the FIRE timeline, band and position colours) stay in FIRE and are
-> built on this package in FIRE's own roadmap.
+> - Process: every item runs the full softure chain; skipping research or framing is justified in `change.md`.
+> - Release: each item that changes a published package bumps it; the owner releases.
 
 ## At a glance
 
 | ID | Change | Outcome | Depends on | Mode | Status |
 | --- | --- | --- | --- | --- | --- |
-| **CH-1** | `charts-scale-ticks` | `@softure-ai/charts`: linear and time scales, nice ticks (dates in the app's time zone), nearest-point search | — | autonomous | done |
-| **CH-2** | `charts-svg-primitives` | server-rendered SVG surface, time and value axes, lines, legend and flags; a keyboard-accessible cursor; a data table fallback | CH-1 | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/ui` 0.1.6) |
-| **CH-3** | `ui-color-guards` | `@softure-ai/ui/testing`: WCAG contrast, colour-vision simulation and a both-themes contrast check for token pairs | — | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/ui` 0.1.6) |
-| **CH-4** | `charts-palette-guard` | series palette from tokens, distinguishable under colour-vision deficiency and legible on the surface in both themes | CH-2, CH-3 | autonomous | done_code (2026-10-06; waiting: the release of `@softure-ai/ui` 0.1.6) |
-| **CH-5** | `charts-release` | `@softure-ai/charts` 0.1.0 and the next `@softure-ai/ui` published through the release pipeline; README complete | CH-1…CH-4 | owner | done_code (2026-10-06; waiting: the owner's release of `@softure-ai/ui` 0.1.6 and `@softure-ai/charts` 0.1.0) |
+| **CF-1** | `chart-pin` | `ChartPin` in `@softure-ai/charts`: an event pin (dashed vertical from the axis to a point and a dot on it) | — | autonomous | ready |
 
 ## Order
 
-| Lane | Items, in order | Shared files |
-| --- | --- | --- |
-| A: charts | CH-1 → CH-2 → CH-4 | `foundation/charts/`, chart tokens in `foundation/ui/` |
-| B: ui guards | CH-3 | `foundation/ui/src/testing/` |
-
-1. **First wave: CH-1 and CH-3** (independent).
-2. **CH-2** after CH-1; **CH-4** after CH-2 and CH-3.
-3. **CH-5** (owner) once CH-1…CH-4 are merged.
-
-## Owner at the keyboard?
-
-| ID | Needs the owner | Why |
-| --- | --- | --- |
-| CH-1…CH-4 | no | pure functions, components and tests; an example app page with an e2e |
-| CH-5 | yes | first npm publish of a new package (`NPM_TOKEN`), then its trusted publisher on npmjs.com |
+1. **CF-1** (independent).
 
 ## Items
 
-### CH-1: Chart scales, ticks and nearest point
-- **Change ID:** `charts-scale-ticks`
-- **Status:** done
-- **Input:** [`charts-scale-ticks`](../archive/2026-10-06-charts-scale-ticks/change.md)
-- **Outcome:** A new package `@softure-ai/charts` (`foundation/charts/`, copied from `templates/package/`) with pure functions:
-  - linear and time scales;
-  - nice value ticks and date ticks (days, months, years) in the app's time zone;
-  - nearest-point search for a cursor;
-  - a generic point type `{ x: Date | number; y: number }` instead of FIRE's `TimelinePoint`.
-- **Prerequisites:** none (roadmap trigger).
-- **Unknowns:** Whether date ticks need locale-aware labels from `Intl` or from the app's formatter in `@softure-ai/core`.
-- **Risk:** low.
-- **Baseline:** FIRE `src/lib/{chart-scale,chart-ticks,nearest-point}.ts` and their tests. After: the same tests green in the package with the generic point type.
-- **PRD refs:** FR-31.
-- **Source (FIRE_TRACKER, read only):** `src/lib/chart-scale.ts`, `src/lib/chart-ticks.ts`, `src/lib/nearest-point.ts`
-
-### CH-2: SVG chart primitives
-- **Change ID:** `charts-svg-primitives`
-- **Status:** done_code (2026-10-06; waiting: the release of `@softure-ai/ui` 0.1.6)
-- **Input:** [`charts-svg-primitives`](../archive/2026-10-06-charts-svg-primitives/change.md)
-- **Outcome:** React components in `@softure-ai/charts`:
-  - server-renderable SVG: chart surface, time axis, value axis, lines, legend, flags (annotations);
-  - a client cursor that snaps to the nearest point, with keyboard support and a live region;
-  - a visually hidden data table for screen readers;
-  - colours and sizes from `--sft-chart-*` tokens added to `@softure-ai/ui`; `aria-label` text through messages;
-  - a chart page in the example app with an e2e.
-- **Prerequisites:** CH-1.
-- **Unknowns:** Whether the cursor needs pointer events only or also touch drag on mobile.
-- **Risk:** medium. Accessibility of an interactive SVG.
-- **Baseline:** FIRE `src/components/chart/*` and `chart-primitives.test.tsx`. After: the same tests green in the package; no raw colours (architecture test).
-- **PRD refs:** FR-31, NFR-3, NFR-7.
-- **Source (FIRE_TRACKER, read only):** `src/components/chart/*`
-
-### CH-3: Colour contrast and colour-vision guards
-- **Change ID:** `ui-color-guards`
-- **Status:** done_code (2026-10-06; waiting: the release of `@softure-ai/ui` 0.1.6)
-- **Outcome:** Test helpers exported from `@softure-ai/ui/testing`:
-  - WCAG 2 contrast ratio and pass levels;
-  - colour-vision simulation (protan, deutan, tritan) and a minimum distance check between colours;
-  - `checkThemeContrast(pairs)` over the light and dark token sets;
-  - `@softure-ai/ui` runs it on its own tokens, so a token change that breaks contrast fails CI.
-- **Prerequisites:** none (roadmap trigger).
-- **Unknowns:** Which colour difference metric (Delta E 2000 vs. a simpler one) gives stable thresholds.
-- **Risk:** low.
-- **Baseline:** FIRE `src/lib/color-vision.ts` and `src/app/theme-contrast.test.ts`. After: the helpers in ui with their tests; ui's token test green.
-- **PRD refs:** FR-32.
-- **Source (FIRE_TRACKER, read only):** `src/lib/color-vision.ts`, `src/app/theme-contrast.test.ts`
-
-### CH-4: Series palette guard
-- **Change ID:** `charts-palette-guard`
-- **Status:** done_code (2026-10-06; waiting: the release of `@softure-ai/ui` 0.1.6)
-- **Input:** [`charts-palette-guard`](../archive/2026-10-06-charts-palette-guard/change.md)
-- **Outcome:**
-  - a series palette in chart tokens with a documented order;
-  - a test that every pair stays distinguishable under the three simulations and every colour passes contrast on the chart surface in both themes;
-  - an exported helper so an app checks its own palette the same way.
-- **Prerequisites:** CH-2, CH-3.
-- **Unknowns:** How many series colours the palette can hold before the distance check fails.
-- **Risk:** low.
-- **Baseline:** FIRE `src/lib/{band-colors,position-colors}.ts` tests (only the generic checks). After: the palette test green in charts.
-- **PRD refs:** FR-32.
-- **Source (FIRE_TRACKER, read only):** `src/lib/band-colors.ts`, `src/lib/position-colors.ts` (checks only; the colours are FIRE's)
-
-### CH-5: Charts release
-- **Change ID:** `charts-release`
-- **Status:** done_code (2026-10-06; waiting: the owner's release of `@softure-ai/ui` 0.1.6 and `@softure-ai/charts` 0.1.0)
-- **Input:** [`charts-release`](../archive/2026-10-06-charts-release/change.md)
-- **Outcome:** `@softure-ai/charts` 0.1.0 (the owner provides `NPM_TOKEN` for its first publish and adds its trusted publisher) and the next `@softure-ai/ui` with the testing helpers; README with an adoption guide for FIRE_TRACKER's charts.
-- **Prerequisites:** CH-1…CH-4.
-- **Unknowns:** none beyond the owner's npm steps.
-- **Risk:** low.
-- **Baseline:** package absent from npm. After: installable from npm and from GitHub Releases.
-- **PRD refs:** FR-2, FR-26, G-4.
+### CF-1: Event pin
+- **Change ID:** `chart-pin`
+- **Status:** ready
+- **Source:** CH-5 (`charts-release`), mapping FIRE_TRACKER for the adoption guide: CH-2's research marked FIRE's
+  `ChartPin` (`src/components/chart/chart-flag.tsx`) as generic, but CH-2 shipped only `ChartFlag`, so FIRE keeps its
+  own pin when it moves to the package.
+- **Outcome:** `ChartPin` (or a `GuideLine` option) in `@softure-ai/charts`: a dashed vertical from the baseline to a
+  point and a dot on the point, positioned in plot percentages, on the `--sft-chart-*` tokens; tests and README.
+- **Prerequisites:** none.
+- **Unknowns:** whether the dot belongs in the SVG (stretched viewBox) or the HTML overlay (round at any aspect).
+- **Risk:** low (a missing primitive; FIRE keeps its own until then).
+- **Baseline:** FIRE `ChartPin` and its cases in `chart-primitives.test.tsx`.
+- **Source (FIRE_TRACKER, read only):** `src/components/chart/chart-flag.tsx`
 
 ## Owner decisions and checks
 
-- [ ] **CH-5**: release `@softure-ai/ui` 0.1.6 and `@softure-ai/charts` 0.1.0 (both packed and checked on
-  master; charts is not on npm, so its first publish needs a token, `scripts/release/README.md`):
-  1. npmjs.com: a granular access token, read and write on the `@softure-ai` scope, publish without 2FA, short
-     expiry; save it as the repository secret `NPM_TOKEN`.
-  2. Say "wydaj" in the CH-5 thread, or run **auto-release** from master with `ui charts`.
-  3. After charts 0.1.0 is live: on npmjs.com, `@softure-ai/charts` → Settings → Trusted publisher: GitHub
-     Actions, `SOFTURE` / `AI` / `release.yml` (case-sensitive), environment empty, **Allow npm publish**.
-  4. Delete the `NPM_TOKEN` secret. Later charts releases need no token.
-
-## Done
-
-- **CH-1** `charts-scale-ticks`: new private package `@softure-ai/charts` (`foundation/charts/`, 0.1.0, first publish in CH-5): `linearScale` and `timeScale` with `invert`, `peakOf` over every series, `valueTicks` and `yearTicks` (FIRE's rules and tests), `dateTicks` at local midnight in the app's IANA zone (DST and a midnight gap covered) with `formatDateTick` through `Intl` (core has no date formatter), and `nearestPointIndex` in data space through the scale's inverse; no gap queued; archived in [`archive/2026-10-06-charts-scale-ticks/`](../archive/2026-10-06-charts-scale-ticks/change.md)
-- **CH-2** `charts-svg-primitives` (done_code 2026-10-06): `@softure-ai/charts` gets server-rendered SVG primitives (plot in one stretched viewBox, grid, baseline, guide and series lines, value and time axes with HTML labels, legend, flags, a visually hidden data table), a client `ChartCursor` (pointer events with `touch-action: pan-y`, arrows, Home/End, Escape, a polite live readout) and `LineChart` composing them, on a plain `styles.css`; `@softure-ai/ui` 0.1.6 adds `--sft-chart-*` colour and size tokens; `/chart` in the example app with an e2e; no gap queued; archived in [`archive/2026-10-06-charts-svg-primitives/`](../archive/2026-10-06-charts-svg-primitives/change.md)
-- **CH-3** `ui-color-guards` (done_code 2026-10-06): `@softure-ai/ui/testing` exports WCAG contrast (`contrastRatio`, `getContrastLevel`, `blendColors`), colour-vision simulation (Viénot for protan and deutan, Machado for tritan), CIEDE2000 (default) and CIE76 distances, `findColorCollisions` (default minimum 10 ΔE00) and `checkThemeContrast(pairs, schemes?)` with `DEFAULT_CONTRAST_PAIRS`, which ui runs on its own tokens; `@softure-ai/ui` 0.1.6; no gaps queued; archived in [`archive/2026-10-06-ui-color-guards/`](../archive/2026-10-06-ui-color-guards/change.md)
-- **CH-4** `charts-palette-guard` (done_code 2026-10-06): a six-colour series palette in `@softure-ai/ui` 0.1.6 (`chart-series-1…6`: brand, ink, purple, pink, blue, teal; CH-2's amber third colour collided with the green under protan and deutan), each 3:1 on every ground and every pair >= 10 ΔE00 in normal, protan, deutan and tritan vision in both schemes (floors 14.4 light, 11.5 dark; a seventh family would still fit at 12.4); `SERIES_TOKENS` and `SERIES_SLOTS = 6` in charts; `checkSeriesPalette` in the new `@softure-ai/charts/testing`, run on the defaults in `tests/palette.test.ts`; ui is now a charts dependency; no gap queued; archived in [`archive/2026-10-06-charts-palette-guard/`](../archive/2026-10-06-charts-palette-guard/change.md)
+- [ ] **CH-5** (carried over from charts): `@softure-ai/charts` 0.1.0 is on npm (2026-10-07, first publish with `NPM_TOKEN`): add its trusted publisher on
+  npmjs.com (`@softure-ai/charts` → Settings → Trusted publisher: GitHub Actions, `SOFTURE` / `AI` / `release.yml`,
+  case-sensitive, environment empty, **Allow npm publish**) and delete the `NPM_TOKEN` secret unless another new
+  package is on the way. CF-1 bumps charts, so its release needs the publisher (`scripts/release/README.md`).

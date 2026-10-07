@@ -15,7 +15,7 @@ archived_at: null
 
 ## Context
 
-From [`roadmap.md`](../../foundation/roadmap.md) (charts), item **CH-3** (main roadmap since 2026-10-06):
+From [`roadmap.md`](../../foundation/archive/2026-10-07-roadmap.md) (charts), item **CH-3** (main roadmap since 2026-10-06):
 
 > ### CH-3: Colour contrast and colour-vision guards
 > - **Change ID:** `ui-color-guards`

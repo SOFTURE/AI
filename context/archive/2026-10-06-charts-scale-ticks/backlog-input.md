@@ -15,7 +15,7 @@ archived_at: null
 
 ## Context
 
-From [`roadmap.md`](../../foundation/roadmap.md) (charts), item **CH-1** (main roadmap since 2026-10-06):
+From [`roadmap.md`](../../foundation/archive/2026-10-07-roadmap.md) (charts), item **CH-1** (main roadmap since 2026-10-06):
 
 > ### CH-1: Chart scales, ticks and nearest point
 > - **Change ID:** `charts-scale-ticks`

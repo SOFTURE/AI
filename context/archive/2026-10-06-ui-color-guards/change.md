@@ -23,7 +23,7 @@ Input: [`backlog-input.md`](backlog-input.md) (roadmap item CH-3, taken 2026-10-
 
 ## Context
 
-From [`roadmap.md`](../../foundation/roadmap.md) (charts), item **CH-3**:
+From [`roadmap.md`](../../foundation/archive/2026-10-07-roadmap.md) (charts), item **CH-3**:
 
 > - **Outcome:** Test helpers exported from `@softure-ai/ui/testing`: WCAG 2 contrast ratio and pass levels;
 >   colour-vision simulation (protan, deutan, tritan) and a minimum distance check between colours;

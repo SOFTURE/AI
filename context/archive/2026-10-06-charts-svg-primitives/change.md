@@ -33,7 +33,7 @@ Input: [`backlog-input.md`](backlog-input.md) (roadmap item CH-2, taken 2026-10-
 
 ## Context
 
-From [`roadmap.md`](../../foundation/roadmap.md) (charts), item **CH-2**:
+From [`roadmap.md`](../../foundation/archive/2026-10-07-roadmap.md) (charts), item **CH-2**:
 
 > - **Outcome:** React components in `@softure-ai/charts`: server-renderable SVG (chart surface, time axis, value
 >   axis, lines, legend, flags); a client cursor that snaps to the nearest point, with keyboard support and a live

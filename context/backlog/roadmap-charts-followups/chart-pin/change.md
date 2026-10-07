@@ -16,7 +16,7 @@ point), so FIRE_TRACKER does not keep its own when it adopts the package.
 
 ## Context
 
-From [`roadmap-charts-followups.md`](../../../foundation/roadmaps/roadmap-charts-followups.md), item **CF-1**:
+From [`roadmap.md`](../../../foundation/roadmap.md) (charts-followups), item **CF-1** (main roadmap since 2026-10-07):
 
 > - **Source:** CH-5 (`charts-release`), mapping FIRE_TRACKER for the adoption guide: CH-2's research marked FIRE's
 >   `ChartPin` (`src/components/chart/chart-flag.tsx`) as generic, but CH-2 shipped only `ChartFlag`, so FIRE keeps

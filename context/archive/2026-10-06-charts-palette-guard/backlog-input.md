@@ -15,7 +15,7 @@ Series palette from tokens, distinguishable under colour-vision deficiency and l
 
 ## Context
 
-From [`roadmap.md`](../../foundation/roadmap.md) (charts), item **CH-4** (main roadmap since 2026-10-06):
+From [`roadmap.md`](../../foundation/archive/2026-10-07-roadmap.md) (charts), item **CH-4** (main roadmap since 2026-10-06):
 
 > ### CH-4: Series palette guard
 > - **Change ID:** `charts-palette-guard`
