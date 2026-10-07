@@ -65,6 +65,7 @@ featureSwitches({
 | `switches[].description` | `{ en?, pl? }` | none | What turning it on does, shown under the label. |
 | `switches[].default` | `boolean` | required | The value while nothing is stored and no override is set. There is no implicit default: pick the value that keeps the app safe on a fresh database. |
 | `switches[].failMode` | `"closed"` \| `"open"` | `"closed"` | The value when the stored state cannot be read: `closed` is off, `open` is on. Name switches so that "on" turns something on, and the fail mode reads naturally. |
+| `switches[].override` | `"both"` \| `"towards-fail-mode"` | `"both"` | Which way the environment override may move the switch: either way, or only to the fail-mode value (section 6). |
 | `panelRole` | `string` | `"admin"` | The auth role that opens the panel and flips switches. It must be declared in `auth({ roles })` (`admin` always is); an undeclared role throws. |
 | `routes` | `{ panel }` | `/admin/switches` | Where the panel page is mounted. |
 | `messages` | partial `pl` / `en` dictionaries | built in | Copy overrides (section 9). |
@@ -124,6 +125,13 @@ and logs the variable name once (never its value). While an override is set, the
 switch as held by the environment and disables its toggle. The override is the way back from a bad
 flip that broke the panel itself.
 
+A switch declared with `override: "towards-fail-mode"` takes only one direction from its variable:
+the fail-mode value (on for `failMode: "open"`, off for `"closed"`). The other value is ignored, the
+switch reads on from the stored row or the default as if the variable were unset, and the variable
+name is logged once. Use it for a kill switch an operator may pull but must not push back, such as
+closing registration: `SOFTURE_SWITCH_AUTH_REGISTRATION_CLOSED=false` then cannot reopen what an
+admin closed.
+
 ## 7. Switches
 
 The module declares none of its own; it is the registry. Module manifests name the switches a
@@ -137,13 +145,22 @@ one row read by name, no throw on a database failure); for any other name it ans
 and the module falls back to its own default.
 
 Auth reads `auth.registration_closed` this way. Define it to close and open registration from the
-panel, with `failMode: "open"` so a failed read keeps registration closed:
+panel, with `failMode: "open"` so a failed read keeps registration closed, and
+`override: "towards-fail-mode"` so the variable can close registration but never reopen it:
 
 ```ts
 import { REGISTRATION_CLOSED_SWITCH } from "@softure-ai/auth";
 
 featureSwitches({
-  switches: [{ name: REGISTRATION_CLOSED_SWITCH, label: { en: "Registration closed" }, default: false, failMode: "open" }],
+  switches: [
+    {
+      name: REGISTRATION_CLOSED_SWITCH,
+      label: { en: "Registration closed" },
+      default: false,
+      failMode: "open",
+      override: "towards-fail-mode",
+    },
+  ],
 }),
 ```
 

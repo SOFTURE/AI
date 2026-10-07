@@ -38,7 +38,8 @@ git push origin master core@0.2.0         # the command prints the exact line
 `@softure-ai/*` range would no longer accept (widen that range in its own commit first). It runs `npm version` for the workspace
 (its `package.json` and the root lockfile), sets the same version in `module.json` and in the inline
 manifest of the module's `src/index.ts` (refusing, before any change, a module where it cannot find that one
-`version`), commits
+`version`), renames the newest `## Unreleased` section of the package's `CHANGELOG.md` to the version (refusing
+a changelog without one, or with an empty one), commits
 `chore(release): core@0.2.0` and creates the annotated tag. It does not push.
 
 The tag then runs the workflow:

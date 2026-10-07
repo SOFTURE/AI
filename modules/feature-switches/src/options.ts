@@ -25,6 +25,13 @@ const switchDefinitionSchema = z.strictObject({
   default: z.boolean(),
   /** The value when the stored state cannot be read: `closed` reads as off, `open` as on. */
   failMode: z.enum(["open", "closed"]).default("closed"),
+  /**
+   * Which way the environment override may move the switch. `both`: either value wins over the
+   * stored one. `towards-fail-mode`: only the fail-mode value does (on for `open`, off for
+   * `closed`), so an override can close but never reopen what an admin closed; the other value is
+   * ignored and logged once by variable name.
+   */
+  override: z.enum(["both", "towards-fail-mode"]).default("both"),
 });
 
 export const featureSwitchesOptionsSchema = z
@@ -61,6 +68,7 @@ export type FeatureSwitchesOptions = z.output<typeof featureSwitchesOptionsSchem
 export type SwitchDefinitionInput = z.input<typeof switchDefinitionSchema>;
 export type SwitchDefinition = z.output<typeof switchDefinitionSchema>;
 export type SwitchFailMode = SwitchDefinition["failMode"];
+export type SwitchOverrideDirection = SwitchDefinition["override"];
 
 /** The environment variable that overrides a switch: `billing.checkout_enabled` → `SOFTURE_SWITCH_BILLING_CHECKOUT_ENABLED`. */
 export function getSwitchEnvName(name: string): string {

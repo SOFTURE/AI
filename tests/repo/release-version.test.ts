@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { readReleasePackages } from "../../scripts/release/pack.mjs";
-import { getReleaseTag, setInlineManifestVersion, setModuleVersion } from "../../scripts/release/version.mjs";
+import { getReleaseTag, setChangelogVersion, setInlineManifestVersion, setModuleVersion } from "../../scripts/release/version.mjs";
 import { REPO_ROOT } from "./repo-files.js";
 
 describe("getReleaseTag", () => {
@@ -94,5 +94,27 @@ describe("setInlineManifestVersion", () => {
     const changed = after.flatMap((line, index) => (line === before[index] ? [] : [line]));
     expect(after).toHaveLength(before.length);
     expect(changed).toEqual(['    version: "99.0.0",']);
+  });
+});
+
+describe("setChangelogVersion", () => {
+  const intro = "# Changelog\n\nNewest first.\n";
+
+  it("turns the Unreleased section into the new version", () => {
+    const text = `${intro}\n## Unreleased\n\n- A change.\n\n## 0.1.5\n\n- Older.\n`;
+    expect(setChangelogVersion(text, "0.1.6")).toEqual({ ok: true, text: text.replace("## Unreleased", "## 0.1.6") });
+  });
+
+  it("refuses a changelog without an Unreleased section on top, so no version ships without notes", () => {
+    const text = `${intro}\n## 0.1.5\n\n- Older.\n`;
+    expect(setChangelogVersion(text, "0.1.6")).toEqual({
+      ok: false,
+      reason: 'Updating CHANGELOG.md: the newest section is "0.1.5", not "Unreleased"; write what changed under "## Unreleased" first',
+    });
+  });
+
+  it("refuses an empty Unreleased section", () => {
+    const text = `${intro}\n## Unreleased\n\n## 0.1.5\n\n- Older.\n`;
+    expect(setChangelogVersion(text, "0.1.6")).toEqual({ ok: false, reason: 'Updating CHANGELOG.md: "## Unreleased" lists no change' });
   });
 });

@@ -15,8 +15,8 @@ writes, one transaction, a guard test).
 npm install @softure-ai/ops
 ```
 
-Peer dependency: `drizzle-orm`. It needs no Next.js import of its own, so the app's Next and React
-are the only ones in play.
+Peer dependencies: `drizzle-orm`, and `next` (optional) for `@softure-ai/ops/next`. It ships no
+copy of Next or React, so the app's are the only ones in play.
 
 ## 3. Configuration
 
@@ -77,7 +77,11 @@ export { GET } from "@softure-ai/ops/next";
   `database: process.env.DATABASE_URL ? { url } : null` (so that `next build` runs without one) therefore
   reports the missing secret: the log says `health check "database" failed: ops.database_missing`.
 - The answer carries `cache-control: no-store`, and `next build` lists the route as dynamic (ƒ):
-  a cached "ok" is exactly the false green this endpoint exists to prevent.
+  a cached "ok" is exactly the false green this endpoint exists to prevent. The handler calls
+  `connection()` from `next/server` itself, so it stays dynamic whatever Next's default for `GET`
+  handlers is and with Cache Components on. The one-line mount is all it takes: a route segment config
+  cannot ride along (`export { GET, dynamic } from "@softure-ai/ops/next"` fails `next build` with
+  "It mustn't be reexported", measured on Next 16).
 - Causes go to the server log only: `health check "notes" failed: core.database_failed`, or the
   error class and SQLSTATE (`errorLogLabel`), never an error message, a query or a URL.
 - The route is public and has no input. Concurrent requests share one run of the checks (single
@@ -103,8 +107,10 @@ The module reads none. The container recipe uses these on the containers:
 | Variable | Where | Meaning |
 | --- | --- | --- |
 | `DATABASE_URL` | app, migrate | the app connects as the app role; the migrate step as the migrator role |
-| `SOFTURE_MIGRATOR_PASSWORD`, `SOFTURE_APP_PASSWORD` | postgres (first start) | required by `recipes/initdb/01-roles.sql` |
-| `SOFTURE_MIGRATOR_ROLE`, `SOFTURE_APP_ROLE` | postgres (first start) | role names; default `softure_migrator`, `softure_app` |
+| `SOFTURE_MIGRATOR_PASSWORD`, `SOFTURE_APP_PASSWORD` | postgres (first start) | required by `recipes/initdb/01-roles.sql` for a role it creates; an existing role keeps its password |
+| `SOFTURE_MIGRATOR_ROLE`, `SOFTURE_APP_ROLE` | postgres (first start) | role names; default `softure_migrator`, `softure_app`; may name existing roles |
+| `SOFTURE_LEDGER_SCHEMAS` | postgres (first start) | schemas whose tables the app role reads but never writes; default `softure,drizzle` |
+| `SOFTURE_APP_SCHEMAS` | `existing-database.sql` | schemas left to the app's own migration role; default `public,drizzle` |
 | `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` | build | same value for every build when instances come from different builds (docs/02 §8) |
 
 ## 7. Switches
@@ -128,8 +134,7 @@ No components. The dictionaries name the check states for an admin view.
 ## 11. GDPR
 
 Stores and exports nothing. The health answer carries no personal data; ops scripts print what
-their `before` and `after` return, so a script that touches personal data returns ids, not emails
-(FIRE_TRACKER FR-034).
+their `before` and `after` return, so a script that touches personal data returns ids, not emails.
 
 ## 12. Limitations
 
@@ -137,10 +142,14 @@ their `before` and `after` return, so a script that touches personal data return
   database answers; the pool of two connections and single flight keep that from piling up.
 - One endpoint for liveness and readiness. Orchestrators that restart on a failed liveness probe
   restart the app while the database is down; point liveness at a page instead if that matters.
-- `.env.prod` rendering and release notes stay in the app: in FIRE_TRACKER they encode that app's
-  secret names, host and changelog, and no other app shares them (research of ID-7).
-- `recipes/existing-database.sql` takes over every non-system schema except `public`; a database
-  shared with something other than the SOFTURE app needs a narrower list.
+- `.env.prod` rendering and release notes are not part of this module: `@softure-ai/deploy` covers
+  them for a one-VPS app.
+- `recipes/existing-database.sql` takes over every non-system schema except the app's own
+  (`SOFTURE_APP_SCHEMAS`); a database shared with something other than the SOFTURE app lists the
+  other tenant's schemas there too.
+- The read-only ledgers rest on an event trigger, which needs a superuser to install (the postgres
+  image's `POSTGRES_USER` is one). A managed Postgres without event triggers keeps the app role's
+  write privileges on ledgers created later; revoke them by hand after each new ledger table.
 
 ## Container recipe
 
@@ -172,7 +181,7 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 # A bundle cannot find package folders: copy each module's SQL out first, then bundle the runner.
-RUN npx softure migrate --export-migrations ./softure-migrations \
+RUN npx tsx scripts/migrate.ts --export-migrations ./softure-migrations \
  && npx esbuild scripts/migrate.ts --bundle --platform=node --format=esm --target=node22 \
       --external:pg --external:@electric-sql/pglite \
       --external:drizzle-orm/pglite --external:drizzle-orm/node-postgres --outfile=migrate.mjs
@@ -193,6 +202,12 @@ HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=3 \
 CMD ["node", "server.js"]
 ```
 
+The export runs the app's own script, so it loads the same config the bundle does. A config that
+imports `server-only` needs `npx tsx --conditions=react-server scripts/migrate.ts …` and esbuild
+`--alias:server-only=./scripts/empty.mjs` (an empty file); path aliases (`@/…`) need nothing extra,
+tsx and esbuild both read `paths` from `tsconfig.json`. The [db README](../../foundation/db/README.md)
+has the same commands.
+
 `pg` reaches the runner through the standalone output (the app lists `@softure-ai/db` and `pg` in
 `serverExternalPackages`, db README §2), which is why the bundle keeps it external. `HEALTHCHECK` lives in the image, not only in compose, so
 it travels to every place the image runs; `node -e` because alpine has no curl.
@@ -203,21 +218,34 @@ it travels to every place the image runs; `node -e` because alpine has no curl.
 | Role | Privileges | Used by |
 | --- | --- | --- |
 | `softure_migrator` | `CONNECT, CREATE` on the database, `USAGE, CREATE` on `public`; owns every schema it migrates | the migrate step |
-| `softure_app` | `CONNECT`; `USAGE` on the migrator's schemas; `SELECT, INSERT, UPDATE, DELETE` on their tables; `USAGE, SELECT` on their sequences (default privileges) | the app |
+| `softure_app` | `CONNECT`; `USAGE` on the migrator's schemas; `SELECT, INSERT, UPDATE, DELETE` on their tables; `USAGE, SELECT` on their sequences (default privileges); `SELECT` only on ledger tables (`softure.migrations`, `drizzle.__drizzle_migrations`) | the app |
 
 The image's `POSTGRES_USER` is a superuser, so an app connecting as it turns a leaked URL into
 control of the server. With these roles, a leaked app URL can read and change rows, but cannot
-create, alter, drop or truncate anything (checked by the container run). Postgres lets every role
+create, alter, drop or truncate anything, nor write a migration ledger: an event trigger the file
+installs takes `INSERT, UPDATE, DELETE, TRUNCATE` back from every table created in a ledger schema
+(both checked by the container run). Postgres lets every role
 connect to a new database by default; revoke `CONNECT` from `PUBLIC` on other databases of the
 cluster when it hosts more than this app.
 
-An **existing database** (migrated earlier as the superuser) runs both files by hand, as the
-superuser, then switches the URLs:
+An **existing database** runs both files by hand, as the superuser (with the same environment
+variables), then switches the URLs. Both files can run again; the second run changes nothing:
 
 ```bash
 psql -v ON_ERROR_STOP=1 -U postgres -d app -f recipes/initdb/01-roles.sql
 psql -v ON_ERROR_STOP=1 -U postgres -d app -f recipes/existing-database.sql
 ```
+
+`existing-database.sql` hands every schema to the migrator except the app's own
+(`SOFTURE_APP_SCHEMAS`, default `public,drizzle`), which keep their owner; the app role gets row
+privileges everywhere and read-only access to ledgers. An app that already migrates its own tables
+(`public` and a `drizzle` ledger owned by an app role) picks one of three ways:
+
+| Way | Set | Result |
+| --- | --- | --- |
+| Two migrators (default) | nothing, or `SOFTURE_APP_SCHEMAS` with every schema of the app | the app's role keeps migrating its schemas; `softure_migrator` migrates the modules |
+| Reuse the app's role | `SOFTURE_MIGRATOR_ROLE=<that role>` (no `SOFTURE_MIGRATOR_PASSWORD` needed: an existing role is kept as it is) | one role migrates both; the module schemas move to it |
+| One new migrator for everything | after both files: `REASSIGN OWNED BY <app role> TO softure_migrator;` (as the superuser, in this database; never `BY postgres`) | `softure_migrator` owns `public`'s tables and the app's ledger too; the app's migrate step connects as it |
 
 **4. Compose.** The migrate step is a one-off service from the same image; the app waits for it:
 
@@ -227,14 +255,14 @@ services:
     image: ghcr.io/acme/app:${TAG}
     command: ["node", "migrate.mjs", "--migrations-dir", "./softure-migrations"]
     environment:
-      DATABASE_URL: postgresql://softure_migrator:${MIGRATOR_DB_PASSWORD}@postgres:5432/app
+      DATABASE_URL: postgresql://softure_migrator:${SOFTURE_MIGRATOR_PASSWORD}@postgres:5432/app
     depends_on:
       postgres: { condition: service_healthy }
     restart: "no"
   app:
     image: ghcr.io/acme/app:${TAG}
     environment:
-      DATABASE_URL: postgresql://softure_app:${APP_DB_PASSWORD}@postgres:5432/app
+      DATABASE_URL: postgresql://softure_app:${SOFTURE_APP_PASSWORD}@postgres:5432/app
     depends_on:
       migrate: { condition: service_completed_successfully }
 ```
@@ -244,8 +272,7 @@ running. `node migrate.mjs --plan` shows what a deploy would apply.
 
 ## Safe ops scripts
 
-One-off changes to a live database (grant access, fix a record) follow one pattern (FIRE_TRACKER
-`scripts/*.sh` + `*.sql`, `migrate-account.mts`):
+One-off changes to a live database (grant access, fix a record) follow one pattern:
 
 - **dry run by default**: the script runs in a transaction that is rolled back and prints what it
   would change; only `--commit` writes;
@@ -254,6 +281,8 @@ One-off changes to a live database (grant access, fix a record) follow one patte
   transaction; a report without both is refused;
 - **strict input**: `--key=value` arguments through a zod schema; unknown or repeated arguments are
   usage errors (exit 2), never ignored;
+- **secrets off argv**: keys the script lists in `secrets` also come as `--<key>-file=<path>`, or
+  `--<key>-file=-` from stdin, so a password never lands in shell history or `docker exec`'s argv;
 - **a guard test** runs the real script on a test database, with and without commit.
 
 ```ts
@@ -289,6 +318,26 @@ process.exitCode = await runOpsScript({ script: renameNote, argv: process.argv.s
 docker compose exec app node rename-note.mjs --id=7 --title=Fixed            # dry run
 docker compose exec app node rename-note.mjs --id=7 --title=Fixed --commit   # writes
 ```
+
+A script that takes a secret names it, and the operator pipes it in:
+
+```ts
+export const setPassword = defineOpsScript({
+  name: "set-password",
+  description: "Sets the password of one account.",
+  usage: ["--email=<address>", "--password=<text>  better: --password-file=- (stdin)"],
+  secrets: ["password"],
+  args: z.strictObject({ email: z.string().min(1), password: z.string().min(12) }),
+  run: async (tx, args) => { /* ... */ },
+});
+```
+
+```bash
+printf '%s' "$NEW_PASSWORD" | docker compose exec -T app node set-password.mjs --email=a@example.com --password-file=- --commit
+```
+
+`--<key>-file` reads the file (or stdin) and drops one trailing newline; giving `--password` and
+`--password-file` together, or stdin twice, is a usage error that names the arguments, never the value.
 
 Output: the mode, `before: {...}`, `after: {...}`, then `COMMITTED` or
 `DRY RUN: rolled back, nothing was written. Add --commit to write.` Exit codes: 0 done, 1 refused or

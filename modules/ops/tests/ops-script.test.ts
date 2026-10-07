@@ -11,6 +11,10 @@ import {
 } from "@softure-ai/ops/scripts";
 import { ok } from "@softure-ai/core";
 import { sql } from "drizzle-orm";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { readFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -216,6 +220,102 @@ describe("runOpsScript", () => {
     });
     expect(code).toBe(1);
     expect(errors).toEqual(["rename-note: the config has no database; set database.url in softure.config"]);
+  });
+});
+
+describe("runOpsScript with secrets", () => {
+  const SECRET = "s3cret value";
+  const secretRename = defineOpsScript({ ...renameNote, name: "secret-rename", secrets: ["title"] });
+  let folder: string;
+
+  beforeAll(() => {
+    folder = mkdtempSync(join(tmpdir(), "ops-script-secrets-"));
+  });
+  afterAll(() => {
+    rmSync(folder, { recursive: true, force: true });
+  });
+
+  async function run(argv: string[], options: { script?: typeof renameNote; stdin?: string } = {}) {
+    const lines: string[] = [];
+    const errors: string[] = [];
+    let stdinReads = 0;
+    const code = await runOpsScript({
+      script: options.script ?? secretRename,
+      argv,
+      config: { database: null },
+      database: database.db,
+      output: { log: (line) => lines.push(line), error: (line) => errors.push(line) },
+      readInput: {
+        readFile: (path) => readFile(path, "utf8"),
+        readStdin: () => {
+          stdinReads += 1;
+          return Promise.resolve(options.stdin ?? "");
+        },
+      },
+    });
+    return { code, lines, errors, stdinReads };
+  }
+
+  function writeSecret(content: string): string {
+    const path = join(folder, `secret-${String(Math.random()).slice(2)}`);
+    writeFileSync(path, content);
+    return path;
+  }
+
+  it("reads a declared key from --<key>-file, without its trailing newline", async () => {
+    const result = await run(["--id=1", `--title-file=${writeSecret(`${SECRET}\n`)}`, "--commit"]);
+    expect(result.code).toBe(0);
+    expect(await titles()).toEqual([SECRET, "second"]);
+  });
+
+  it("reads a declared key from stdin with --<key>-file=-", async () => {
+    const result = await run(["--id=2", "--title-file=-", "--commit"], { stdin: `${SECRET}\r\n` });
+    expect(result.code).toBe(0);
+    expect(result.stdinReads).toBe(1);
+    expect(await titles()).toEqual(["first", SECRET]);
+  });
+
+  it("keeps every other line break of the file", async () => {
+    const result = await run(["--id=1", `--title-file=${writeSecret("two\nlines\n\n")}`, "--commit"]);
+    expect(result.code).toBe(0);
+    expect(await titles()).toEqual(["two\nlines\n", "second"]);
+  });
+
+  it("refuses a key given both inline and from a file, and never prints the value", async () => {
+    const result = await run(["--id=1", `--title=${SECRET}`, `--title-file=${writeSecret(SECRET)}`]);
+    expect(result.code).toBe(2);
+    expect(result.errors[0]).toBe("secret-rename: --title and --title-file are both given; use one");
+    expect(result.errors.join("\n")).not.toContain(SECRET);
+    expect(await titles()).toEqual(["first", "second"]);
+  });
+
+  it("exits 2 when the file cannot be read", async () => {
+    const result = await run(["--id=1", `--title-file=${join(folder, "missing")}`]);
+    expect(result.code).toBe(2);
+    expect(result.errors[0]).toBe(`secret-rename: --title-file: cannot read ${join(folder, "missing")}`);
+  });
+
+  it("exits 2 on --<key>-file without a path", async () => {
+    const result = await run(["--id=1", "--title-file"]);
+    expect(result.code).toBe(2);
+    expect(result.errors[0]).toBe("secret-rename: --title-file needs a path, or - for stdin");
+  });
+
+  it("treats --<key>-file of an undeclared key as an ordinary argument", async () => {
+    const result = await run(["--id=1", `--title-file=${writeSecret(SECRET)}`], { script: renameNote });
+    expect(result.code).toBe(2);
+    expect(result.errors).toContain('rename-note: Unrecognized key: "title-file"');
+  });
+
+  it("lists the file form of each secret in the usage", async () => {
+    const result = await run(["--help"]);
+    expect(result.lines.join("\n")).toContain("  --title-file=<path>  read --title from a file instead (- reads stdin)");
+  });
+
+  it("refuses a secret that is not a kebab-case key", () => {
+    expect(() => defineOpsScript({ ...renameNote, secrets: ["Title"] })).toThrow(
+      'defineOpsScript: script "rename-note" names "Title" as a secret; secrets are kebab-case argument keys',
+    );
   });
 });
 

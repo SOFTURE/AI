@@ -1,6 +1,5 @@
 // Safe ops scripts: one-off changes an operator runs against a live database (grant access, fix a
-// record, move an account). Ported from FIRE_TRACKER's `scripts/*.sh` + `*.sql` and
-// `migrate-account.mts` pattern:
+// record, move an account), one pattern for all of them:
 //
 // - **dry run by default**: the script runs inside one transaction that is rolled back, and prints
 //   what it would change; only `--commit` writes;
@@ -9,16 +8,22 @@
 //   inside the open transaction, and the helper refuses a report without both;
 // - **strict input**: `--key=value` arguments validated with the script's zod schema; anything
 //   unknown is a usage error, never ignored;
+// - **secrets off argv**: a key the script names in `secrets` also comes as `--<key>-file=<path>`
+//   (`-` reads stdin), so a password never lands in shell history or in `docker exec`'s argv;
 // - **a guard test**: `executeOpsScript` runs the same script on a test database (PGlite) with and
 //   without `commit`, so the change and its refusals are tested before anyone runs it in production.
 import { errorLogLabel, err, ok, safeError, type Err, type Ok, type SoftureConfig } from "@softure-ai/core";
 import { openCommandDatabase, type Database, type Queryable } from "@softure-ai/db";
+import { readFile } from "node:fs/promises";
 import { EXIT_FAILED, EXIT_OK, EXIT_USAGE, type CliOutput } from "@softure-ai/db/cli";
 import type { z } from "zod";
 
 const SCRIPT_NAME = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 const ARGUMENT = /^--([a-z][a-z0-9-]*)(?:=(.*))?$/s;
 const RESERVED_ARGUMENTS = new Set(["commit", "help"]);
+const ARGUMENT_KEY = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
+const FILE_SUFFIX = "-file";
+const STDIN_PATH = "-";
 
 /** The state the script measured inside its transaction, before and after its change. */
 export interface OpsReport {
@@ -42,6 +47,12 @@ export interface OpsScript<TArgs> {
    */
   readonly args: z.ZodType<TArgs>;
   /**
+   * Argument keys that carry a secret (a password, a token). Each also comes as `--<key>-file=<path>`,
+   * read from that file, or `--<key>-file=-`, read from stdin; one trailing newline is dropped. The
+   * script receives it under `<key>` as if given inline.
+   */
+  readonly secrets?: readonly string[];
+  /**
    * The change, inside the transaction. Reads the state, changes it, reads it again. Returns
    * `refuseOpsScript(reason)` when it must not go on (no matching row, two matching rows);
    * the transaction is then rolled back.
@@ -60,6 +71,14 @@ export interface RunOpsScriptOptions<TArgs> {
   /** An open database to use instead (tests); it is not closed. */
   readonly database?: Database;
   readonly output?: CliOutput;
+  /** Where `--<key>-file` values come from; the file system and `process.stdin` by default. */
+  readonly readInput?: OpsInputReader;
+}
+
+/** Reads the values of `--<key>-file` arguments. */
+export interface OpsInputReader {
+  readonly readFile: (path: string) => Promise<string>;
+  readonly readStdin: () => Promise<string>;
 }
 
 /** A usage or setup problem, as a line for the operator. */
@@ -100,6 +119,11 @@ export function defineOpsScript<TArgs>(script: OpsScript<TArgs>): OpsScript<TArg
   }
   if (script.description.trim() === "") {
     throw new Error(`defineOpsScript: script "${script.name}" needs a description`);
+  }
+  for (const key of script.secrets ?? []) {
+    if (!ARGUMENT_KEY.test(key) || RESERVED_ARGUMENTS.has(key)) {
+      throw new Error(`defineOpsScript: script "${script.name}" names "${key}" as a secret; secrets are kebab-case argument keys`);
+    }
   }
   return script;
 }
@@ -190,7 +214,13 @@ export async function runOpsScript<TArgs>(options: RunOpsScriptOptions<TArgs>): 
     output.log(formatUsage(script));
     return EXIT_OK;
   }
-  const args = script.args.safeParse(parsed.value.values);
+  const values = await readSecretArguments(script.secrets ?? [], parsed.value.values, options.readInput ?? processInput);
+  if (!values.ok) {
+    output.error(`${script.name}: ${values.message}`);
+    output.error(formatUsage(script));
+    return EXIT_USAGE;
+  }
+  const args = script.args.safeParse(values.value);
   if (!args.success) {
     args.error.issues.forEach((issue) => output.error(`${script.name}: ${formatIssue(issue)}`));
     output.error(formatUsage(script));
@@ -242,18 +272,60 @@ async function openDatabase<TArgs>(
   }
 }
 
+const processInput: OpsInputReader = {
+  readFile: (path) => readFile(path, "utf8"),
+  readStdin: async () => {
+    const chunks: Buffer[] = [];
+    for await (const chunk of process.stdin) {
+      chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : (chunk as Buffer));
+    }
+    return Buffer.concat(chunks).toString("utf8");
+  },
+};
+
+/**
+ * Replaces `--<key>-file` of each secret key with `<key>` read from the file or stdin. Messages name
+ * the arguments and paths, never a value.
+ */
+async function readSecretArguments(
+  secrets: readonly string[],
+  values: Readonly<Record<string, string | true>>,
+  reader: OpsInputReader,
+): Promise<Ok<Record<string, string | true>> | Problem> {
+  const resolved: Record<string, string | true> = { ...values };
+  let hasReadStdin = false;
+  for (const key of secrets) {
+    const fileKey = `${key}${FILE_SUFFIX}`;
+    const path = resolved[fileKey];
+    if (path === undefined) continue;
+    if (Object.hasOwn(resolved, key)) return problem(`--${key} and --${fileKey} are both given; use one`);
+    if (path === true || path === "") return problem(`--${fileKey} needs a path, or ${STDIN_PATH} for stdin`);
+    if (path === STDIN_PATH && hasReadStdin) return problem(`only one --<key>-file may read stdin`);
+    let content: string;
+    try {
+      content = path === STDIN_PATH ? await reader.readStdin() : await reader.readFile(path);
+    } catch {
+      return problem(`--${fileKey}: cannot read ${path}`);
+    }
+    hasReadStdin ||= path === STDIN_PATH;
+    delete resolved[fileKey];
+    resolved[key] = content.replace(/\r?\n$/, "");
+  }
+  return ok(resolved);
+}
+
 function problem(message: string): Problem {
   return { ok: false, message };
 }
 
 function checkReport(name: string, report: OpsReport): void {
-  // FIRE_TRACKER `dostep.sh`: a result nobody measured is not printed as if it were one.
+  // A result nobody measured is not printed as if it were one.
   if (report.before === undefined || report.after === undefined) {
     throw new Error(`ops script "${name}": run must return both before and after; nothing was written`);
   }
 }
 
-function formatUsage(script: Pick<OpsScript<never>, "name" | "description" | "usage">): string {
+function formatUsage(script: Pick<OpsScript<never>, "name" | "description" | "usage" | "secrets">): string {
   return [
     `Usage: ${script.name} [arguments] [--commit]`,
     "",
@@ -261,6 +333,7 @@ function formatUsage(script: Pick<OpsScript<never>, "name" | "description" | "us
     "",
     "Arguments:",
     ...script.usage.map((line) => `  ${line}`),
+    ...(script.secrets ?? []).map((key) => `  --${key}-file=<path>  read --${key} from a file instead (- reads stdin)`),
     "  --commit    write the change; without it the script runs and rolls back (dry run)",
     "  --help      show this help",
   ].join("\n");

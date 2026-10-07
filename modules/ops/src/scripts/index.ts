@@ -6,6 +6,7 @@ export {
   parseOpsArguments,
   refuseOpsScript,
   runOpsScript,
+  type OpsInputReader,
   type OpsRefusal,
   type OpsReport,
   type OpsScript,
