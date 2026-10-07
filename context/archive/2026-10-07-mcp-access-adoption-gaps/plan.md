@@ -167,29 +167,29 @@ Done when: `npm run typecheck`, `lint`, `test`, `build` green; the example e2e g
 
 ### Phase 1: legacy shape and lifetimes options
 
-- [ ] legacyTokenPattern option and verification
-- [ ] oauth options with lifetimes
+- [x] legacyTokenPattern option and verification — 4a8839e
+- [x] oauth options with lifetimes — 4a8839e
 
 ### Phase 2: OAuth data layer and migration
 
-- [ ] migration 0002 and schema
-- [ ] clients, codes, grants, exchange, refresh, revoke, prune
-- [ ] grant tokens out of the token list and limit
-- [ ] privacy export and deletion
+- [x] migration 0002 and schema — 4a8839e
+- [x] clients, codes, grants, exchange, refresh, revoke, prune — 4a8839e
+- [x] grant tokens out of the token list and limit — 4a8839e
+- [x] privacy export and deletion — 4a8839e
 
 ### Phase 3: HTTP layer
 
-- [ ] metadata, registration and token endpoints
-- [ ] authorize validation and decision
-- [ ] resource_metadata on the 401
+- [x] metadata, registration and token endpoints — 4a8839e
+- [x] authorize validation and decision — 4a8839e
+- [x] resource_metadata on the 401 — 4a8839e
 
 ### Phase 4: Next adapter and UI
 
-- [ ] routes, consent page and revoke action
-- [ ] connected apps on the token page
-- [ ] example app and e2e
+- [x] routes, consent page and revoke action — 4a8839e
+- [x] connected apps on the token page — 4a8839e
+- [x] example app and e2e — 7ebbe92
 
 ### Phase 5: adoption, docs, version
 
-- [ ] adoption test
-- [ ] README, CHANGELOG, versions
+- [x] adoption test — 067dbbf
+- [x] README, CHANGELOG, versions — 067dbbf

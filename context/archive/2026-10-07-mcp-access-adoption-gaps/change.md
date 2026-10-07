@@ -1,12 +1,13 @@
 ---
 change_id: mcp-access-adoption-gaps
 title: "mcp-access: legacy token shape, OAuth 2.1 grants, per-path lifetimes, adopting an existing table (issue #213)"
-status: plan_reviewed
+status: archived
 roadmap_item: null
 issue: 213
 branch: claude/project-thread-5l5utj
 created: 2026-10-07
 updated: 2026-10-07
+archived_at: 2026-10-07
 ---
 
 ## Intent
