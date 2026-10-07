@@ -4,6 +4,11 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
+## Unreleased
+
+- `init` warns when the app depends on `@softure-ai/db` and its `next.config.*` does not list `"@softure-ai/db"` in
+  `serverExternalPackages` (the `@softure-ai/db` README, §2 Installation), next to the `standalone` warning.
+
 ## 0.1.3
 
 - `init`'s Dockerfile keeps drizzle's driver adapters external in the migrate bundle, so an app that installs one
