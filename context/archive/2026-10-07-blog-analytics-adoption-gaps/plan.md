@@ -189,7 +189,7 @@ type-check (verified by agent in a scratch test).
 ### Phase 6: docs, versions
 
 #### Automated
-- [x] 6.1 Gates green (typecheck, lint, test, build) — PHASE6
+- [x] 6.1 Gates green (typecheck, lint, test, build) — b1b850a
 
 #### Manual
-- [x] 6.2 README examples type-check — PHASE6
+- [x] 6.2 README examples type-check — b1b850a

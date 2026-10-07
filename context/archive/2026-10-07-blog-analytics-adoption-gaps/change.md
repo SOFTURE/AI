@@ -1,12 +1,13 @@
 ---
 change_id: blog-analytics-adoption-gaps
 title: "Blog and analytics cover an app that already runs its own blog and funnel"
-status: impl_reviewed
+status: archived
 roadmap_item: null
 issue: "#196"
 branch: claude/project-thread-fn58jg
 created: 2026-10-07
 updated: 2026-10-07
+archived_at: 2026-10-07
 ---
 
 ## Intent
@@ -61,3 +62,4 @@ The issue (rewritten neutrally) lists the seven points. Current state:
 - Research is folded into this file's Context (the code paths are a renderer, a CLI, one write function and one
   endpoint, all read for this change). Framing skipped: the issue names concrete gaps with proposed shapes, and the
   shapes were checked against the adopting app's code (its directive parser, publish script, tables, beacon).
+- Archived 2026-10-07 after the implementation review; all seven points of #196 are delivered (blog 0.1.7, analytics 0.1.7).
