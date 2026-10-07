@@ -4,9 +4,10 @@
 import type { SoftureConfig } from "@softure-ai/core";
 import { getScopeFieldName, INITIAL_WAITLIST_FORM_STATE, type WaitlistOptionsInput } from "@softure-ai/waitlist";
 import { joinWaitlistAction } from "@softure-ai/waitlist/next";
-import { getSignup, type WaitlistContext } from "@softure-ai/waitlist/server";
+import { readUnsubscribeToken, verifyUnsubscribeToken } from "@softure-ai/mailing/server";
+import { getSignup, joinWaitlist, type WaitlistContext } from "@softure-ai/waitlist/server";
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
-import { createTestWaitlist, OPTIONS, type TestWaitlist } from "./support.js";
+import { CLIENT, createTestWaitlist, OPTIONS, SECRET, type TestWaitlist } from "./support.js";
 
 interface RequestScope {
   config: SoftureConfig | undefined;
@@ -85,5 +86,32 @@ describe("the join action", () => {
     await start(OPTIONS);
     expect(await joinWaitlistAction(INITIAL_WAITLIST_FORM_STATE, joinForm())).toEqual({ status: "ok" });
     expect(await getSignup(test.ctx, ADA)).toMatchObject({ channel: null });
+  });
+
+  it("answers a sign-up with the person's own unsubscribe link when the app asks for it, for a new and a known address", async () => {
+    vi.stubEnv("MAILING_UNSUBSCRIBE_SECRET", SECRET);
+    await start({ ...OPTIONS, unsubscribeLinkOnSuccess: true });
+    const first = await joinWaitlistAction(INITIAL_WAITLIST_FORM_STATE, joinForm());
+    expect(first).toEqual({ status: "ok", unsubscribeUrl: expect.stringMatching(/^https:\/\/app\.example\.com\/[^?]+\?r=[\w-]{43}&t=[\w-]{43}$/) as unknown });
+    const token = readUnsubscribeToken(new URL(first.unsubscribeUrl ?? "").searchParams);
+    expect(token !== null && verifyUnsubscribeToken(token, { current: SECRET, previous: null })).toBe(true);
+    expect(await joinWaitlistAction(INITIAL_WAITLIST_FORM_STATE, joinForm())).toEqual(first);
+  });
+
+  it("returns no link when the option is off, and none for a request waiting for its confirmation", async () => {
+    vi.stubEnv("MAILING_UNSUBSCRIBE_SECRET", SECRET);
+    await start(OPTIONS);
+    expect(await joinWaitlistAction(INITIAL_WAITLIST_FORM_STATE, joinForm())).toEqual({ status: "ok" });
+    await test.database.close();
+    await start({ ...OPTIONS, unsubscribeLinkOnSuccess: true, doubleOptIn: true });
+    expect(await joinWaitlistAction(INITIAL_WAITLIST_FORM_STATE, joinForm())).toEqual({ status: "confirmation_sent" });
+  });
+
+  it("refuses to run with the option and no unsubscribe secret", async () => {
+    vi.stubEnv("MAILING_UNSUBSCRIBE_SECRET", "");
+    await start({ ...OPTIONS, unsubscribeLinkOnSuccess: true });
+    await expect(joinWaitlist(test.ctx, { email: ADA, scopes: ["launch"], placement: "hero", clientKey: CLIENT })).rejects.toThrow(
+      "@softure-ai/waitlist: unsubscribeLinkOnSuccess needs MAILING_UNSUBSCRIBE_SECRET (at least 32 characters) to sign the link",
+    );
   });
 });

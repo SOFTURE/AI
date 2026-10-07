@@ -29,7 +29,7 @@ export const PRIVACY_RATE_LIMIT_BUCKETS = {
 export const privacy = defineModule({
   manifest: {
     id: MODULE_ID,
-    version: "0.1.6",
+    version: "0.1.7",
     dependsOn: { auth: "^0.1.0", security: "^0.1.0" },
     dbSchema: "privacy",
     tables: ["consents"],

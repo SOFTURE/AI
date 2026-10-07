@@ -1,7 +1,8 @@
 // What the waitlist needs from the app's other modules, checked once per config before the first
-// sign-up: its rate limit buckets in `security({ buckets })` and every scope's legal document in
-// `privacy({ documents })`. A setup mistake then fails with one clear error, not on each sign-up.
+// sign-up: its rate limit buckets in `security({ buckets })`, every scope's legal document in
+// `privacy({ documents })`, and mailing's unsubscribe secret when the success answer carries the link. A setup mistake then fails with one clear error, not on each sign-up.
 import { getModule, type SoftureConfig } from "@softure-ai/core";
+import { readUnsubscribeSecrets } from "@softure-ai/mailing/server";
 import { findLegalDocument } from "@softure-ai/privacy/server";
 import { getWaitlistOptions } from "./options.js";
 
@@ -21,7 +22,11 @@ export function assertWaitlistSetup(config: SoftureConfig): void {
   if (missing.length > 0) {
     problems.push(`security({ buckets }) lacks ${missing.map((name) => `"${name}"`).join(", ")}; spread WAITLIST_RATE_LIMIT_BUCKETS into it`);
   }
-  for (const scope of getWaitlistOptions(config).scopes) {
+  const options = getWaitlistOptions(config);
+  if (options.unsubscribeLinkOnSuccess && readUnsubscribeSecrets().current === null) {
+    problems.push("unsubscribeLinkOnSuccess needs MAILING_UNSUBSCRIBE_SECRET (at least 32 characters) to sign the link");
+  }
+  for (const scope of options.scopes) {
     if (scope.document !== undefined && findLegalDocument(config, scope.document) === undefined) {
       problems.push(`scope "${scope.id}" names the document "${scope.document}", which privacy({ documents }) does not declare`);
     }

@@ -10,12 +10,12 @@ import { getWaitlistErrorMessage, type WaitlistMessages } from "../messages/inde
 // The waitlist form: an email field, one checkbox per consent scope and the submit button. It
 // submits straight to its server action through `useActionState`, so it works before (and without)
 // JavaScript; after a sign-up it shows the confirmation (or, with double opt-in, where to confirm)
-// instead of the form. Copy comes from the
+// instead of the form, with the person's unsubscribe link when the action returned one. Copy comes from the
 // module's messages and the scope labels the server prepared; styling only from @softure-ai/ui.
 
 export type WaitlistFormAction = (previous: WaitlistFormState, formData: FormData) => Promise<WaitlistFormState>;
 
-export type WaitlistFormSlot = "root" | "form" | "scopes" | "notice";
+export type WaitlistFormSlot = "root" | "form" | "scopes" | "notice" | "unsubscribe";
 
 /** One consent checkbox, prepared on the server. */
 export interface WaitlistFormScope {
@@ -43,6 +43,7 @@ const DEFAULT_CLASSES: Readonly<Record<WaitlistFormSlot, string>> = {
   form: "sft:flex sft:flex-col sft:gap-3",
   scopes: "sft:flex sft:flex-col sft:gap-3",
   notice: "sft:m-0 sft:text-sm sft:text-success",
+  unsubscribe: "sft:m-0 sft:text-sm sft:text-muted sft:break-words",
 };
 
 export function WaitlistForm({ action, scopes, placement, messages, locale, classNames, unstyled }: WaitlistFormProps) {
@@ -54,6 +55,11 @@ export function WaitlistForm({ action, scopes, placement, messages, locale, clas
         <p role="status" className={slot("notice")}>
           {state.status === "ok" ? messages.form.success : messages.form.confirmationSent}
         </p>
+        {state.status === "ok" && state.unsubscribeUrl !== undefined ? (
+          <p className={slot("unsubscribe")}>
+            {messages.form.unsubscribeHint} <a href={state.unsubscribeUrl}>{messages.form.unsubscribeLink}</a>
+          </p>
+        ) : null}
       </div>
     );
   }

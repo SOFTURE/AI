@@ -5,6 +5,8 @@ export const en = {
     pending: "Joining…",
     success: "You are on the list. Thank you!",
     confirmationSent: "Almost there: we sent you an email. Open the link in it to confirm your address and join the list.",
+    unsubscribeHint: "Keep this link: it takes you off the list whenever you want.",
+    unsubscribeLink: "Unsubscribe",
   },
   confirmationMail: {
     subject: "Confirm your place on the waitlist",

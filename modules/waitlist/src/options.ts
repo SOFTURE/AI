@@ -89,6 +89,13 @@ export const waitlistOptionsSchema = z
      * same transaction (e.g. to count it in the analytics funnel). Not called for repeat sign-ups.
      */
     onJoined: z.custom<OnJoinedHook>((value) => typeof value === "function", "must be a function").optional(),
+    /**
+     * Answers a sign-up with the person's own unsubscribe link (`WaitlistFormState.unsubscribeUrl`), which
+     * `WaitlistForm` shows under the success notice. Only without double opt-in (a request waiting for its
+     * link gets none). Whoever submits an address gets its link, so turn it on only when the product asks
+     * people to keep that link. Needs `MAILING_UNSUBSCRIBE_SECRET`.
+     */
+    unsubscribeLinkOnSuccess: z.boolean().default(false),
     /** Resolves the request's acquisition channel, stored with a first sign-up (`WaitlistSignup.channel`). */
     resolveChannel: z.custom<ResolveChannel>((value) => typeof value === "function", "must be a function").optional(),
     /** Rewrites the confirmation link's path (e.g. to keep the analytics channel tag through the mail). */

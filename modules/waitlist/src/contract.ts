@@ -36,6 +36,11 @@ export interface WaitlistFormState {
   readonly email?: string;
   /** The scopes checked, to check them again after an error. */
   readonly scopes?: readonly string[];
+  /**
+   * With `status: "ok"` and `waitlist({ unsubscribeLinkOnSuccess: true })`: the person's own unsubscribe
+   * page link. A credential for that address: show it to the person, never log it.
+   */
+  readonly unsubscribeUrl?: string;
 }
 
 export const INITIAL_WAITLIST_FORM_STATE: WaitlistFormState = { status: "idle" };

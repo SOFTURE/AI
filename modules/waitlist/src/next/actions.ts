@@ -8,6 +8,7 @@
 // whose Origin does not match the host.
 import { errorLogLabel, safeError, type SoftureConfig } from "@softure-ai/core";
 import { getSoftureConfig } from "@softure-ai/core/next";
+import { buildUnsubscribeLinks, readUnsubscribeSecrets } from "@softure-ai/mailing/server";
 import { identifyClient } from "@softure-ai/security/server";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -71,7 +72,14 @@ export async function joinWaitlistAction(_previous: WaitlistFormState, formData:
     return { status: "confirmation_sent" };
   }
   sendWelcomeMailAfter(config, joined.signup);
-  return { status: "ok" };
+  return { status: "ok", ...getUnsubscribeUrl(config, joined.signup.email) };
+}
+
+/** The person's own unsubscribe link, when the app asks for it (the setup check required the secret). */
+function getUnsubscribeUrl(config: SoftureConfig, email: string): { unsubscribeUrl?: string } {
+  if (!getWaitlistOptions(config).unsubscribeLinkOnSuccess) return {};
+  const secret = readUnsubscribeSecrets().current;
+  return secret === null ? {} : { unsubscribeUrl: buildUnsubscribeLinks(config, email, secret).page };
 }
 
 /** The app's channel for this request, or null: attribution never blocks a sign-up. */

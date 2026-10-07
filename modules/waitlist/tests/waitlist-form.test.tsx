@@ -56,6 +56,21 @@ describe("WaitlistForm", () => {
     expect(screen.queryByRole("button", { name: en.form.submit })).toBeNull();
   });
 
+  it("shows the person's unsubscribe link under the confirmation when the action returns one", async () => {
+    const url = "https://app.example.com/unsubscribe?r=key&t=signature";
+    renderForm(answering({ status: "ok", unsubscribeUrl: url }));
+    await submit();
+    expect(screen.getByRole("status").textContent).toBe(en.form.success);
+    expect(screen.getByRole("link", { name: en.form.unsubscribeLink }).getAttribute("href")).toBe(url);
+    expect(screen.getByText(en.form.unsubscribeHint, { exact: false })).toBeDefined();
+  });
+
+  it("shows no unsubscribe link without one", async () => {
+    renderForm(answering({ status: "ok" }));
+    await submit();
+    expect(screen.queryByRole("link", { name: en.form.unsubscribeLink })).toBeNull();
+  });
+
   it("tells the person to confirm through the mail with double opt-in", async () => {
     renderForm(answering({ status: "confirmation_sent" }));
     await submit();
