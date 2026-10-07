@@ -32,11 +32,18 @@ export const TRANSACTIONAL_KIND = "transactional";
 /** How an opt-out arrived: a mail client's one-click POST, the page's button, or an operator. */
 export type SuppressionSource = "one-click" | "page" | "operator";
 
-/** What `onUnsubscribed` receives: who opted out (never the address) and how. */
+/**
+ * The link an unsubscribe came through, once verified: the module's signed link, or a legacy link with the values
+ * the app's `verify` accepted (only the names the link carried), so a hook can find the row that link named.
+ */
+export type VerifiedUnsubscribeLink = { readonly scheme: "signed" } | { readonly scheme: "legacy"; readonly values: Readonly<Record<string, string>> };
+
+/** What `onUnsubscribed` receives: who opted out (never the address), how, and through which link. */
 export interface UnsubscribeEvent {
   /** The recipient key of the link: privacy's email key of the same address (`getEmailKey`). */
   readonly recipientKey: string;
   readonly source: Exclude<SuppressionSource, "operator">;
+  readonly link: VerifiedUnsubscribeLink;
 }
 
 /**
@@ -62,13 +69,21 @@ export interface CampaignRecipient {
 export type CampaignRecipientFilter = (recipient: CampaignRecipient, ctx: ModuleContext<Queryable>) => Promise<boolean>;
 
 /**
+ * The query names of a legacy link. An array lists names the link must all carry. The object form adds names it
+ * may carry: a link is legacy when it has every `required` name, and the `optional` ones it has go to `verify` too.
+ * At most 8 names in all, none repeated, never `r` or `status`.
+ */
+export type LegacyUnsubscribeParams = readonly string[] | { readonly required: readonly string[]; readonly optional?: readonly string[] };
+
+/**
  * Unsubscribe links an app sent before it adopted the module, in its own scheme. `params` are the query names of
- * such a link; `verify` receives their values (all present once, each at most 512 characters) and returns the
- * recipient's address when the link is genuine, else `null`. It must check the link's signature itself: whatever
- * address it returns is unsubscribed. A throw reads as a failure (the person may try again), not as a bad link.
+ * such a link; `verify` receives the values the link carried (every required name, the optional names that are
+ * present and non-empty, each at most 512 characters) and returns the recipient's address when the link is genuine,
+ * else `null`. It must check the link's signature itself: whatever address it returns is unsubscribed. A throw
+ * reads as a failure (the person may try again), not as a bad link.
  */
 export interface LegacyUnsubscribe {
-  readonly params: readonly string[];
+  readonly params: LegacyUnsubscribeParams;
   readonly verify: (values: Readonly<Record<string, string>>, ctx: ModuleContext<Queryable>) => Promise<string | null>;
 }
 

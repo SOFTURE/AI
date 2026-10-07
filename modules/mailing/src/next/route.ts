@@ -10,7 +10,7 @@
 // the only write is an idempotent insert.
 import { errorLogLabel } from "@softure-ai/core";
 import { getSoftureConfig } from "@softure-ai/core/next";
-import { getMailingRoutes } from "../server/options.js";
+import { getMailingOptions, getMailingRoutes } from "../server/options.js";
 import { unsubscribe } from "../server/suppressions.js";
 import { readUnsubscribeLink } from "../server/unsubscribe-link.js";
 import { getMailingContext } from "./context.js";
@@ -20,8 +20,9 @@ const NO_STORE = { "cache-control": "no-store" };
 /**
  * Records the opt-out of the link in the URL. The body (`List-Unsubscribe=One-Click`) is not read:
  * anyone can send it, the signature is the proof. 200 once recorded (also again), 400 for a link
- * that does not verify, 500 when the database fails: the client may retry, and 200 would claim an
- * opt-out that did not happen. A legacy link (`mailing({ legacyUnsubscribe })`) is handled the same
+ * that does not verify (200 with `mailing({ oneClickInvalidLinkStatus: 200 })`, so the answer never
+ * tells whether a token is live), 500 when the database fails: the client may retry, and 200 would
+ * claim an opt-out that did not happen. A legacy link (`mailing({ legacyUnsubscribe })`) is handled the same
  * way; mount this route at the old link's path too.
  */
 export async function postUnsubscribeRoute(request: Request): Promise<Response> {
@@ -29,7 +30,7 @@ export async function postUnsubscribeRoute(request: Request): Promise<Response> 
     const ctx = await getMailingContext();
     const link = readUnsubscribeLink(new URL(request.url).searchParams, ctx.config);
     const result = await unsubscribe(ctx, link, "one-click");
-    return new Response(null, { status: result.ok ? 200 : 400, headers: NO_STORE });
+    return new Response(null, { status: result.ok ? 200 : getMailingOptions(ctx.config).oneClickInvalidLinkStatus, headers: NO_STORE });
   } catch (error) {
     console.error(`@softure-ai/mailing: one-click unsubscribe failed: ${errorLogLabel(error)}`);
     return new Response(null, { status: 500, headers: NO_STORE });

@@ -117,8 +117,9 @@ export interface LinkParams {
 /**
  * The link in a query or a form. A link with the recipient parameter (`r`) is a signed link, whatever else it
  * carries, so a crafted URL cannot route a signed link to the app's legacy check. Without it, and with
- * `mailing({ legacyUnsubscribe })`, a link that has every legacy parameter (non-empty, at most 512 characters) is
- * a legacy link. Anything else is `null`. Checks no signature: `unsubscribe` does.
+ * `mailing({ legacyUnsubscribe })`, a link that has every required legacy parameter (non-empty, at most 512
+ * characters) is a legacy link; its values also hold the optional parameters it has (an empty one is absent, one
+ * over 512 characters makes the link invalid). Anything else is `null`. Checks no signature: `unsubscribe` does.
  */
 export function readUnsubscribeLink(params: LinkParams, config: SoftureConfig): UnsubscribeLink | null {
   if (params.get(RECIPIENT_PARAM) !== null && params.get(RECIPIENT_PARAM) !== undefined) {
@@ -128,9 +129,15 @@ export function readUnsubscribeLink(params: LinkParams, config: SoftureConfig): 
   const legacy = getMailingOptions(config).legacyUnsubscribe;
   if (legacy === undefined) return null;
   const values: Record<string, string> = {};
-  for (const name of legacy.params) {
+  for (const name of legacy.params.required) {
     const value = params.get(name);
     if (typeof value !== "string" || value === "" || value.length > MAX_LEGACY_VALUE_LENGTH) return null;
+    values[name] = value;
+  }
+  for (const name of legacy.params.optional) {
+    const value = params.get(name);
+    if (typeof value !== "string" || value === "") continue;
+    if (value.length > MAX_LEGACY_VALUE_LENGTH) return null;
     values[name] = value;
   }
   return { scheme: "legacy", values };

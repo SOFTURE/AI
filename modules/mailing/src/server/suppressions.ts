@@ -6,7 +6,7 @@
 import { err, ok, type ModuleContext, type Result } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
 import { and, eq, inArray } from "drizzle-orm";
-import type { SuppressionSource, UnsubscribeErrorCode } from "../contract.js";
+import type { SuppressionSource, UnsubscribeErrorCode, VerifiedUnsubscribeLink } from "../contract.js";
 import { suppressions } from "../schema.js";
 import { getMailingOptions } from "./options.js";
 import { getRecipientKey, readUnsubscribeSecrets, verifyUnsubscribeToken, type Env, type UnsubscribeLink, type UnsubscribeToken } from "./unsubscribe-link.js";
@@ -67,26 +67,33 @@ export async function unsubscribe(
   source: Exclude<SuppressionSource, "operator">,
   env: Env = process.env,
 ): Promise<Result<undefined, UnsubscribeErrorCode>> {
-  const recipientKey = await verifyLink(ctx, link, env);
-  if (recipientKey === null) return err("mailing.invalid_link");
+  const verified = await verifyLink(ctx, link, env);
+  if (verified === null) return err("mailing.invalid_link");
+  const { recipientKey } = verified;
   const { onUnsubscribed } = getMailingOptions(ctx.config);
   await ctx.db.transaction(async (tx) => {
     const txCtx: SuppressionContext = { ...ctx, db: tx };
     await recordSuppression(txCtx, recipientKey, source);
-    await onUnsubscribed?.({ recipientKey, source }, txCtx);
+    await onUnsubscribed?.({ recipientKey, source, link: verified.link }, txCtx);
   });
   return ok();
 }
 
-/** The recipient key a link proves, or `null` when it proves none. */
-async function verifyLink(ctx: SuppressionContext, link: UnsubscribeLink | UnsubscribeToken | null, env: Env): Promise<string | null> {
+interface VerifiedLink {
+  readonly recipientKey: string;
+  readonly link: VerifiedUnsubscribeLink;
+}
+
+/** The recipient key a link proves and the link it came through, or `null` when it proves none. */
+async function verifyLink(ctx: SuppressionContext, link: UnsubscribeLink | UnsubscribeToken | null, env: Env): Promise<VerifiedLink | null> {
   if (link === null) return null;
   if (!("scheme" in link) || link.scheme === "signed") {
     const token = "scheme" in link ? link.token : link;
-    return verifyUnsubscribeToken(token, readUnsubscribeSecrets(env)) ? token.recipientKey : null;
+    return verifyUnsubscribeToken(token, readUnsubscribeSecrets(env)) ? { recipientKey: token.recipientKey, link: { scheme: "signed" } } : null;
   }
   const legacy = getMailingOptions(ctx.config).legacyUnsubscribe;
   if (legacy === undefined) return null;
   const address: unknown = await legacy.verify(link.values, ctx);
-  return typeof address === "string" && address.trim() !== "" ? getRecipientKey(address) : null;
+  if (typeof address !== "string" || address.trim() === "") return null;
+  return { recipientKey: getRecipientKey(address), link: { scheme: "legacy", values: link.values } };
 }

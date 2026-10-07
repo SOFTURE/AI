@@ -69,6 +69,7 @@ export type {
   CampaignRecipient,
   CampaignRecipientFilter,
   LegacyUnsubscribe,
+  LegacyUnsubscribeParams,
   MailingErrorCode,
   MailProvider,
   OnUnsubscribedHook,
@@ -83,6 +84,7 @@ export type {
   SuppressionSource,
   UnsubscribeErrorCode,
   UnsubscribeEvent,
+  VerifiedUnsubscribeLink,
 } from "./contract.js";
 export { getMailingErrorMessage, mailingMessages, type MailingMessages } from "./messages/index.js";
 export { DEFAULT_STALE_CLAIM_MS, DEFAULT_TIMEOUT_MS, DEFAULT_UNCERTAIN_CLAIM_MS, type MailingOptions, type MailingOptionsInput } from "./options.js";

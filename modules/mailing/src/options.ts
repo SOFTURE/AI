@@ -16,13 +16,22 @@ export const DEFAULT_UNCERTAIN_CLAIM_MS = 23 * 60 * 60_000;
 const RESERVED_LINK_PARAMS: ReadonlySet<string> = new Set(["r", "status"]);
 const LINK_PARAM = /^[A-Za-z][A-Za-z0-9_-]{0,31}$/;
 
+const MAX_LINK_PARAMS = 8;
+const linkParamNames = z.array(z.string().regex(LINK_PARAM, "must be a query name: a letter, then letters, digits, _ or -, at most 32 characters"));
+
+/** Both forms of `params`, normalised to required and optional names, with the limits on all names together. */
+const legacyParamsSchema = z
+  .union([linkParamNames.min(1), z.strictObject({ required: linkParamNames.min(1), optional: linkParamNames.default([]) })])
+  .transform((params) => (Array.isArray(params) ? { required: params, optional: [] } : params))
+  .refine(({ required, optional }) => required.length + optional.length <= MAX_LINK_PARAMS, `must name at most ${String(MAX_LINK_PARAMS)} parameters`)
+  .refine(({ required, optional }) => new Set([...required, ...optional]).size === required.length + optional.length, "must not repeat a name")
+  .refine(
+    ({ required, optional }) => [...required, ...optional].every((param) => !RESERVED_LINK_PARAMS.has(param)),
+    "must not use r or status: the signed link and the page own them",
+  );
+
 const legacyUnsubscribeSchema = z.strictObject({
-  params: z
-    .array(z.string().regex(LINK_PARAM, "must be a query name: a letter, then letters, digits, _ or -, at most 32 characters"))
-    .min(1)
-    .max(8)
-    .refine((params) => new Set(params).size === params.length, "must not repeat a name")
-    .refine((params) => params.every((param) => !RESERVED_LINK_PARAMS.has(param)), "must not use r or status: the signed link and the page own them"),
+  params: legacyParamsSchema,
   verify: z.custom<LegacyUnsubscribe["verify"]>((value) => typeof value === "function", "must be a function"),
 });
 
@@ -53,6 +62,11 @@ export const mailingOptionsSchema = z.strictObject({
   onUnsubscribed: z.custom<OnUnsubscribedHook>((value) => typeof value === "function", "must be a function").optional(),
   /** Verifies unsubscribe links the app sent before it adopted the module (see `LegacyUnsubscribe`). */
   legacyUnsubscribe: legacyUnsubscribeSchema.optional(),
+  /**
+   * What the one-click route answers for a link that does not verify: 400 (the default), or 200 so the answer never
+   * tells whether a token is live. A failure still answers 500, so the mail client retries; the page is unaffected.
+   */
+  oneClickInvalidLinkStatus: z.union([z.literal(200), z.literal(400)]).default(400),
   /** Decides per recipient whether a campaign goes to them, e.g. by consent scope (see `CampaignRecipientFilter`). */
   filterCampaignRecipient: z.custom<CampaignRecipientFilter>((value) => typeof value === "function", "must be a function").optional(),
   /** How long a delivery claim may stay open before another sender takes it over. 1 minute to 23 hours. */

@@ -90,8 +90,9 @@ address, and `t`, the base64url HMAC-SHA256 of a fixed prefix plus `r` under
 `MAILING_UNSUBSCRIBE_SECRET`. The address never appears in a URL, and the suppression table stores
 only `r`. The page (footer link) shows a button and changes nothing on open: mail scanners open
 links. The one-click route takes a mail client's POST without a session, verifies before touching
-the database and answers 200 (recorded, also again), 400 (link does not verify) or 500 (database
-failure, so the client retries); a GET redirects to the page. The whole link is a credential: it is
+the database and answers 200 (recorded, also again), 400 (link does not verify; 200 with
+`oneClickInvalidLinkStatus: 200`) or 500 (database failure, so the client retries); a GET redirects
+to the page. The whole link is a credential: it is
 never logged.
 
 ### Sending once: the delivery ledger
@@ -250,6 +251,7 @@ mailing({
 | `timeoutMs` | `number` | `10000` | 1000 to 60000. |
 | `onUnsubscribed` | `(event, ctx) => Promise<void>` | — | Runs on every verified unsubscribe, in its transaction (section 10). |
 | `legacyUnsubscribe` | `{ params, verify }` | — | Verifies unsubscribe links the app sent before it adopted the module (section 10). |
+| `oneClickInvalidLinkStatus` | `200 \| 400` | `400` | What the one-click route answers for a link that does not verify. `200` gives no oracle on whether a token is live; a failure still answers 500, and the page still shows its message. |
 | `filterCampaignRecipient` | `(recipient, ctx) => Promise<boolean>` | — | Decides per recipient whether a campaign goes to them (section 1, Campaigns). |
 | `staleClaimMs` | `number` | `900000` (15 min) | How long a delivery claim may stay open before another sender takes it over. 1 minute to 23 hours. |
 | `uncertainClaimMs` | `number` | `82800000` (23 h) | How old a claim may get before it waits for an operator (`uncertain`). More than `staleClaimMs`, at most 30 days; keep it under the provider's idempotency window. |
@@ -351,8 +353,9 @@ The provider is the extension point (section 3).
 
 **`onUnsubscribed(event, ctx)`** runs on every verified unsubscribe (the page's button or a mail
 client's one-click POST), also a repeated one, in the transaction that stores the opt-out:
-`event` is `{ recipientKey, source }` (the key is privacy's email key of the same address, never the
-address), `ctx.db` is the transaction. A throw rolls the opt-out back: the route answers 500 and the
+`event` is `{ recipientKey, source, link }` (the key is privacy's email key of the same address, never the
+address; `link` is `{ scheme: "signed" }` or `{ scheme: "legacy", values }` with the values `verify`
+accepted, so a hook can find the row a legacy link named), `ctx.db` is the transaction. A throw rolls the opt-out back: the route answers 500 and the
 page offers a retry, so the opt-out and what the hook records never disagree. It does not run for
 `suppressRecipient` (a bounce or a script is not the person's choice). Wire the waitlist's handler,
 which withdraws its consents in privacy's ledger:
@@ -365,9 +368,12 @@ mailing({ from: "…", provider: resend(), onUnsubscribed: withdrawWaitlistConse
 
 **`legacyUnsubscribe: { params, verify }`** keeps unsubscribe links working that the app sent
 before it adopted the module, in its own scheme (an HMAC over a sign-up id, say, on its own path).
-`params` are the old link's query names (1 to 8; never `r` or `status`, which the module's links and
-page own; `t` may be shared). A link without `r` that carries every one of them (non-empty, at most
-512 characters) is a legacy link: the page shows the same button with the values in hidden fields,
+`params` are the old link's query names (never `r` or `status`, which the module's links and page
+own; `t` may be shared). An array names parameters the link must all carry; `{ required, optional }`
+also names ones it may carry, for an app that sent more than one form on the same path (at most 8
+names in all, at least one required). A link without `r` that carries every required one
+(non-empty, at most 512 characters) is a legacy link, and its values also hold the optional ones it
+has (an empty one counts as absent, one over 512 characters makes the link invalid): the page shows the same button with the values in hidden fields,
 and the action and the one-click POST call `verify(values, ctx)`. It returns the recipient's
 **address** when the link is genuine, else `null`; the module records the opt-out under that
 address's key and runs `onUnsubscribed`, exactly as for its own links. `verify` must check the
@@ -384,6 +390,25 @@ mailing({
 
 // app/old-unsubscribe/page.tsx
 export { UnsubscribePage as default } from "@softure-ai/mailing/next";
+```
+
+Two forms on one path (a signed `?u=<id>&t=<hmac>` in mail and a bare `?t=<token>` shown after
+sign-up), an opt-out recorded on the app's own row, and a one-click route that never tells a live
+token from a dead one:
+
+```ts
+mailing({
+  from: "…",
+  provider: resend(),
+  oneClickInvalidLinkStatus: 200,
+  legacyUnsubscribe: {
+    params: { required: ["t"], optional: ["u"] },
+    verify: ({ u, t }, ctx) => (u === undefined ? findAddressByToken(ctx.db, t) : verifyOldLink(ctx.db, u, t)),
+  },
+  onUnsubscribed: async (event, ctx) => {
+    if (event.link.scheme === "legacy") await markSignupUnsubscribed(ctx.db, event.link.values);
+  },
+}),
 ```
 
 **`liftSuppression(ctx, address)`** is the other direction: a module that has just recorded a new
