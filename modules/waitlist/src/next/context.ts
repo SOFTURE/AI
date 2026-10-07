@@ -2,7 +2,7 @@
 // handle and the wall clock.
 import { systemClock, type SoftureConfig } from "@softure-ai/core";
 import { getSoftureConfig } from "@softure-ai/core/next";
-import { getSharedDatabase } from "@softure-ai/db";
+import { getConfiguredDatabase } from "@softure-ai/db";
 import type { WaitlistContext } from "../server/signups.js";
 
 export async function getWaitlistContext(config: SoftureConfig = getSoftureConfig()): Promise<WaitlistContext> {
@@ -10,6 +10,6 @@ export async function getWaitlistContext(config: SoftureConfig = getSoftureConfi
     // Unreachable for a validated config: the module has a database schema.
     throw new Error("@softure-ai/waitlist: softure.config.ts has no database; the waitlist needs one");
   }
-  const { db } = await getSharedDatabase(config.database.url);
+  const { db } = await getConfiguredDatabase(config.database);
   return { db, clock: systemClock, config };
 }

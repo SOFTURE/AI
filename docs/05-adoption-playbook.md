@@ -15,7 +15,11 @@ Instructions for the application's agent (FIRE_TRACKER first). One module is one
    application that the module covers. List the behavioral differences: what the module does
    differently and what the application must supply through a hook or configuration.
 2. **Configuration.** Add the module to `softure.config.ts`. Pass the application's copy and
-   routes (e.g. localized slugs) through `messages`/`routes`, so users notice no change.
+   routes (e.g. localized slugs) through `messages`/`routes`, so users notice no change. If the
+   application has its own database client, the process must hold one handle: pass it as
+   `database: { url, handle }` or build the client on the shared handle
+   ([db README](../foundation/db/README.md) §3, "One handle per process"). With `pglite://`, two
+   handles corrupt the data directory.
 3. **Database adoption (no data loss).** First pass the application's own migrations to the migrate
    step as `app: { before, after }` ([db README](../foundation/db/README.md) §4) and to
    `createTestDatabase`, so dev, unit tests, integration and the image run them in one order:

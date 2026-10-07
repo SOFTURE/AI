@@ -6,9 +6,9 @@
 // server log only (FIRE_TRACKER L-021). It takes no input and costs one cheap query per check, so
 // instead of a database-backed rate limit (which would make health depend on the database it
 // reports on) concurrent requests share one run.
-import { errorLogLabel, getModule, systemClock, type SoftureConfig } from "@softure-ai/core";
+import { errorLogLabel, getModule, systemClock, type SoftureConfig, type SoftureDatabaseConfig } from "@softure-ai/core";
 import { getSoftureConfig } from "@softure-ai/core/next";
-import type { Queryable } from "@softure-ai/db";
+import { getConfiguredDatabase, type Queryable } from "@softure-ai/db";
 import type { HealthReport } from "../contract.js";
 import { MODULE_ID } from "../index.js";
 import type { OpsOptions } from "../options.js";
@@ -43,12 +43,8 @@ export async function GET(): Promise<Response> {
 async function checkHealth(config: SoftureConfig, options: OpsOptions): Promise<HealthReport> {
   let db: Queryable | null = null;
   if (config.database !== null) {
-    if (options.getDatabase === undefined && config.database.url.startsWith(PGLITE_PREFIX)) {
-      // A setup bug, not an outage: thrown, so the route answers 500 and the log names the fix.
-      throw new Error("GET /api/health: a pglite:// database cannot be opened a second time; pass ops({ getDatabase })");
-    }
     try {
-      db = await openDatabase(config.database.url, options);
+      db = await openDatabase(config.database, options);
     } catch (error) {
       // An unopenable database (e.g. an unsupported URL scheme) is a failed database check.
       console.error(`health check "${DATABASE_CHECK_NAME}" failed: could not open the database: ${errorLogLabel(error)}`);
@@ -59,9 +55,17 @@ async function checkHealth(config: SoftureConfig, options: OpsOptions): Promise<
   return runHealthChecks({ db, clock: systemClock, config }, { checks, timeoutMs: options.timeoutMs });
 }
 
-function openDatabase(url: string, options: OpsOptions): Promise<Queryable> {
+/**
+ * The app's `getDatabase` first; then the configured handle when the app set `database.handle`, or for a
+ * `pglite://` URL (one instance per process: a second on the same directory corrupts it, an in-memory one
+ * would be a second, empty database); otherwise the route's own small Postgres pool.
+ */
+function openDatabase(database: SoftureDatabaseConfig, options: OpsOptions): Promise<Queryable> {
   if (options.getDatabase !== undefined) {
     return options.getDatabase();
   }
-  return getHealthDatabase(url).then((handle) => handle.db);
+  if (database.handle !== undefined || database.url.startsWith(PGLITE_PREFIX)) {
+    return getConfiguredDatabase(database).then((handle) => handle.db);
+  }
+  return getHealthDatabase(database.url).then((handle) => handle.db);
 }

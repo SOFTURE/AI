@@ -123,6 +123,25 @@ describe("softure migrate", () => {
     ]);
   });
 
+  it("migrates through the app's configured handle and closes it, so the directory holds the run", async () => {
+    const dir = createTempDir();
+    const appHandle = await createDatabase(`pglite://${dir}`);
+    const output = createOutput();
+    // The url is never opened: a second PGlite instance on `dir` would corrupt it.
+    const database = { url: "postgresql://nobody@127.0.0.1:1/none", handle: () => appHandle };
+
+    const code = await runMigrateCli({ config: { database, modules: [createNotesModule()] }, argv: [], output });
+
+    expect({ code, errors: output.errors }).toEqual({ code: 0, errors: [] });
+    expect(appHandle.kind === "pglite" && appHandle.client.closed).toBe(true);
+    const reopened = await createDatabase(`pglite://${dir}`);
+    try {
+      expect((await readLedger(reopened)).map((row) => `${row.module}/${row.version}`)).toEqual(["softure/1", "notes/1", "notes/2"]);
+    } finally {
+      await reopened.close();
+    }
+  });
+
   it("plans without running the app's migrations", async () => {
     const calls: string[] = [];
     const app: AppMigrations = {

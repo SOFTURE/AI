@@ -1,6 +1,7 @@
 // `GET /api/health` as the app mounts it: config from the registry, a real (PGlite) database.
 import { clearSoftureConfig, registerSoftureConfig } from "@softure-ai/core/next";
 import { closeHealthDatabases, GET } from "@softure-ai/ops/next";
+import { closeConfiguredDatabases, closeSharedDatabases, createPgliteHandle, getSharedDatabase } from "@softure-ai/db";
 import { createTestDatabase, type TestDatabase } from "@softure-ai/db/testing";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createConfig, failingCheck, passingCheck } from "./support.js";
@@ -26,6 +27,8 @@ describe("GET /api/health", () => {
     vi.restoreAllMocks();
     clearSoftureConfig();
     await closeHealthDatabases();
+    await closeSharedDatabases();
+    await closeConfiguredDatabases();
   });
 
   it("answers 200 and only the status when the database and every check pass", async () => {
@@ -85,9 +88,28 @@ describe("GET /api/health", () => {
     expect(errors).toEqual([['health check "database" failed: could not open the database: RangeError']]);
   });
 
-  it("refuses to open a pglite database a second time", async () => {
-    registerSoftureConfig(createConfig({ databaseUrl: "pglite://", modules: [passingCheck] }));
-    await expect(GET()).rejects.toThrow("a pglite:// database cannot be opened a second time; pass ops({ getDatabase })");
+  it("checks a pglite database through the process's shared handle, not a second instance", async () => {
+    registerSoftureConfig(createConfig({ databaseUrl: "pglite://", modules: [passingCheck], ops: { detail: "checks" } }));
+    const shared = await getSharedDatabase("pglite://");
+    if (shared.kind !== "pglite") throw new Error("expected a PGlite handle");
+    const query = vi.spyOn(shared.client, "query");
+    const response = await GET();
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ status: "ok", checks: { database: "ok", "module-1": "ok" } });
+    expect(query).toHaveBeenCalled();
+  });
+
+  it("checks the app's configured handle", async () => {
+    let calls = 0;
+    const handle = async () => {
+      calls += 1;
+      // The test database outlives this test: the handle's close leaves it open.
+      return { ...(await createPgliteHandle(database.client)), close: () => Promise.resolve() };
+    };
+    registerSoftureConfig(createConfig({ databaseUrl: "postgresql://nobody:secret@127.0.0.1:1/none", databaseHandle: handle, ops: { detail: "checks" } }));
+    const response = await GET();
+    expect(await response.json()).toEqual({ status: "ok", checks: { database: "ok" } });
+    expect(calls).toBe(1);
   });
 
   it("checks nothing but the modules when the app has no database", async () => {

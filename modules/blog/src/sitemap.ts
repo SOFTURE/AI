@@ -4,7 +4,7 @@
 // one query on the shared database, not from the pages' Next cache. Crawlers read a sitemap rarely.
 import { systemClock, type SoftureConfig } from "@softure-ai/core";
 import { getSoftureConfig } from "@softure-ai/core/next";
-import { getSharedDatabase } from "@softure-ai/db";
+import { getConfiguredDatabase } from "@softure-ai/db";
 import { listArticles } from "./db/articles.js";
 import { getBlogSitemapEntries, type BlogSitemapEntry } from "./discovery/sitemap.js";
 import { getBlogOptions, getBlogRoutes } from "./server/options.js";
@@ -15,7 +15,7 @@ export async function readBlogSitemap(config: SoftureConfig): Promise<BlogSitema
     // Unreachable for a validated config: the module has a database schema.
     throw new Error("@softure-ai/blog: softure.config.ts has no database; the blog sitemap needs one");
   }
-  const { db } = await getSharedDatabase(config.database.url);
+  const { db } = await getConfiguredDatabase(config.database);
   const texts = await listArticles({ db, clock: systemClock, config });
   const routes = getBlogRoutes(config);
   return getBlogSitemapEntries({

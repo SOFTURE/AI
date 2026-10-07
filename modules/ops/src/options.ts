@@ -29,9 +29,9 @@ export const opsOptionsSchema = z.strictObject({
    */
   detail: z.enum(["status", "checks"]).default("status"),
   /**
-   * The app's own database, instead of the small pool the health route opens from `database.url`.
-   * Required for `pglite://` URLs: a PGlite folder must not be opened twice in one process, and an
-   * in-memory one would be a second, empty database.
+   * The database the health route checks, when it should be neither the config's `database.handle` nor the
+   * small pool the route opens from `database.url` for Postgres. A `pglite://` URL or a `database.handle`
+   * already resolves to the process's one handle, so this is rarely needed.
    */
   getDatabase: z
     .custom<() => Promise<Queryable>>((value) => typeof value === "function", GET_DATABASE_HINT)

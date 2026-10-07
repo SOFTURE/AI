@@ -1,8 +1,7 @@
 # @softure-ai/db
 
 The database layer every SOFTURE module stands on. Standard:
-[docs/02-module-standard.md](../../docs/02-module-standard.md) §4. Sources in FIRE_TRACKER:
-`src/db/client.ts`, `src/db/test-db.ts`, `scripts/migrate.ts`, `docker/Dockerfile` (`migrate.cjs`).
+[docs/02-module-standard.md](../../docs/02-module-standard.md) §4.
 
 ## 1. What it provides
 
@@ -20,8 +19,16 @@ Node ≥ 22, **ESM only**: module packages locate their migrations through `impo
 CJS bundle (esbuild `--format=cjs`) leaves empty, so `resolveMigrationsDir` throws naming the bundle
 format; the app script below also uses top-level await. Bundle migrate scripts with `--format=esm`.
 `drizzle-orm` (`^0.45.2`) is a peer dependency, so the app, the modules and
-this package share one drizzle. `pg` and `@electric-sql/pglite` come with the package and load
-only when used.
+this package share one drizzle. The drivers are optional peers: install the one the app's URL uses,
+and only that one goes into the app image. Each loads only when a URL needs it.
+
+```bash
+npm install pg && npm install -D @types/pg       # postgres:// and postgresql://
+npm install @electric-sql/pglite                 # pglite:// (dev without a server)
+npm install -D @electric-sql/pglite              # only for createTestDatabase (@softure-ai/db/testing)
+```
+
+A URL whose driver is missing fails at the first connection with Node's "Cannot find package" error.
 
 ## 3. Configuration
 
@@ -43,10 +50,66 @@ await handle.close();
 ```
 
 - `DatabaseHandle` is `{ kind: "postgres", db, pool, close } | { kind: "pglite", db, client, close }`.
-- `Database` is the drizzle database of either driver; `Queryable` is a `Database` or an open
-  transaction, so one helper serves both (`db.transaction(async (tx) => helper(tx))`).
+- `Database<TSchema>` is the drizzle database of either driver; `Queryable<TSchema>` is a `Database`
+  or an open transaction, so one helper serves both (`db.transaction(async (tx) => helper(tx))`).
+  Without a type argument both accept any schema, so an app database made with
+  `drizzle({ client, schema })`, and its transactions, pass to module functions as they are.
 - An unsupported scheme throws, naming the scheme only; the URL (and its password) is never
   printed.
+
+### One handle per process
+
+Modules open their database through the config, never on their own: the app's handle when
+`database.handle` is set, otherwise one process-wide handle per URL (`getSharedDatabase(url)`). An
+app that also has its own client must make sure both are the same handle. A second handle is a second
+pool on Postgres; on `pglite://` it is a second PGlite instance on the same directory, which corrupts
+it without an error (the next open fails with `could not locate a valid checkpoint record`).
+
+**Either** hand the app's client to the config. The function is called on first use, never while the
+config is defined (a build does not connect), and must return the app's one handle:
+
+```ts
+// db/client.ts: the app's own client, memoized: `next dev` re-evaluates modules on every change
+import { PGlite } from "@electric-sql/pglite";
+import { createPgliteHandle, createPostgresHandle, type DatabaseHandle } from "@softure-ai/db";
+import pg from "pg";
+
+const cache = globalThis as typeof globalThis & { appDatabase?: Promise<DatabaseHandle> };
+
+export function getAppDatabase(url: string): Promise<DatabaseHandle> {
+  cache.appDatabase ??= url.startsWith("pglite://")
+    ? createPgliteHandle(new PGlite(url.slice("pglite://".length)))
+    : createPostgresHandle(new pg.Pool({ connectionString: url }).on("error", () => undefined));
+  return cache.appDatabase;
+}
+
+// softure.config.ts
+const url = process.env.DATABASE_URL ?? "";
+defineSoftureConfig({ database: { url, handle: () => getAppDatabase(url) }, /* … */ });
+```
+
+Every module adapter, the ops health route, `softure migrate` (and the app's migration hooks it
+runs), `softure-blog`, `softure-mail` and ops scripts then use that handle; a command closes it
+when it is done, which writes a `pglite://` directory back.
+
+**Or** build the app's typed drizzle instance over the shared handle, so there is nothing to hand
+over:
+
+```ts
+import { getSharedDatabase } from "@softure-ai/db";
+import { drizzle as drizzlePg } from "drizzle-orm/node-postgres";
+import { drizzle as drizzlePglite } from "drizzle-orm/pglite";
+import * as schema from "./schema";
+
+export async function getDb() {
+  const handle = await getSharedDatabase(config.database.url);
+  return handle.kind === "postgres" ? drizzlePg({ client: handle.pool, schema }) : drizzlePglite({ client: handle.client, schema });
+}
+```
+
+`getConfiguredDatabase(config.database)` is what modules call; app code that needs the database
+the modules use can call it too. A migration run on a PGlite handle the app shares keeps the app's
+session settings (`TimeZone`, `search_path`); only what the run changed is put back.
 
 ## 4. Mounting
 

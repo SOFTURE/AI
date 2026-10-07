@@ -146,8 +146,8 @@ softure-mail campaign launch.md --recipients recipients.txt              # sends
 ```
 
 - The recipients file holds one address per line (`#` comments and blank lines skipped).
-- The command loads `softure.config.*` like `softure migrate` (or `--config <file>`), opens its own
-  database connection (`database.url`) and needs `MAILING_UNSUBSCRIBE_SECRET` (campaigns are list
+- The command loads `softure.config.*` like `softure migrate` (or `--config <file>`), opens the
+  config's `database.handle` when set, otherwise its own connection on `database.url`, and needs `MAILING_UNSUBSCRIBE_SECRET` (campaigns are list
   mail). Run `softure migrate` first.
 - Sends go one at a time with a 500 ms pause (`--pause-ms`; Resend allows 2 requests per second by
   default). Unsubscribed recipients are rejected without a send and never retried.
