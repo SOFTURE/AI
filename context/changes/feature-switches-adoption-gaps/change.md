@@ -1,7 +1,7 @@
 ---
 change_id: feature-switches-adoption-gaps
 title: "feature-switches fits an app shell, refreshes its panel, and documents adopting an existing table"
-status: implementing
+status: impl_reviewed
 roadmap_item: null
 issue: "#202"
 branch: claude/project-thread-obav7c

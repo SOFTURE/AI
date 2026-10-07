@@ -76,8 +76,8 @@ SQL the test runs (copied verbatim).
 ### Phase 2: privacy helpers, README, version
 
 #### Automated
-- [ ] 2.1 New tests fail before the implementation and pass after
-- [ ] 2.2 Gates green (typecheck, lint, test, build)
+- [x] 2.1 New tests fail before the implementation and pass after — 3916256
+- [x] 2.2 Gates green (typecheck, lint, test, build) — 3916256
 
 #### Manual
-- [ ] 2.3 README SQL matches the SQL the adoption test runs
+- [x] 2.3 README SQL matches the SQL the adoption test runs — 3916256 (verified by agent: the test reads the block from the README)

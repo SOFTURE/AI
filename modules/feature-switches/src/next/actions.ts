@@ -33,13 +33,15 @@ export async function setSwitchAction(previous: SwitchFormState, formData: FormD
   // Every field has a `catch`, so parsing cannot fail.
   const input = setSwitchInput.parse({ name: formData.get("name"), enabled: formData.get("enabled") });
   const isEnabled = input.enabled !== null;
+  let result: Awaited<ReturnType<typeof setSwitch>>;
   try {
-    const result = await setSwitch(await getSwitchContext(config), { name: input.name, isEnabled, actorId: admin.value.id });
-    if (!result.ok) return { status: "error", error: result.error, isEnabled: previous.isEnabled };
-    revalidatePath(getFeatureSwitchesRoutes(config).panel);
-    return { status: "ok", isEnabled };
+    result = await setSwitch(await getSwitchContext(config), { name: input.name, isEnabled, actorId: admin.value.id });
   } catch (error) {
     console.error(`@softure-ai/feature-switches: setting a switch failed: ${errorLogLabel(error)}`);
     return { status: "error", error: safeError(error).error, isEnabled: previous.isEnabled };
   }
+  if (!result.ok) return { status: "error", error: result.error, isEnabled: previous.isEnabled };
+  // Outside the try: the value is stored, so a revalidation failure must not report the change as failed.
+  revalidatePath(getFeatureSwitchesRoutes(config).panel);
+  return { status: "ok", isEnabled };
 }
