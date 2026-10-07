@@ -11,9 +11,11 @@ import { basename, dirname, join, relative, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { systemClock, type Clock, type SoftureConfig, type SoftureDatabaseConfig } from "@softure-ai/core";
 import { openCommandDatabase, type CommandDatabase, type DatabaseHandle } from "@softure-ai/db";
-import { BLOG_REFRESH_SECRET_ENV, requestBlogRefresh, type BlogRefreshOutcome } from "../discovery/refresh.js";
-import { submitBlogChanges, type BlogIndexNowSubmit } from "../discovery/submit.js";
-import { runBlogPublish, type ArticleFile, type BlogPublishRun, type PublishedChange, type PublishGate, type PublishProblem } from "../db/publish-run.js";
+import { z } from "zod";
+import { BLOG_REFRESH_SECRET_ENV, requestBlogRefresh } from "../discovery/refresh.js";
+import { submitBlogChanges } from "../discovery/submit.js";
+import { parseArticleHistory, type ArticleHistoryMap } from "../db/history.js";
+import { runBlogPublish, type ArticleFile, type PublishGate } from "../db/publish-run.js";
 import { checkArticleFiles, type FileCheckResult } from "../quality/check-files.js";
 import type { FetchLike } from "../quality/external-links.js";
 import { createQualityGate } from "../quality/gate.js";
@@ -22,12 +24,10 @@ import { getLocalDate } from "../quality/settings.js";
 import type { OgFontSource } from "../options.js";
 import { createOgFontLoader } from "../server/og-fonts.js";
 import { getBlogOptions, getBlogReservedSlugs, getQualitySettings } from "../server/options.js";
+import { createPublishReporter, type CliOutput, type PublishFormat } from "./report.js";
 import { DEFAULT_SKILL_COMMAND, DEFAULT_SKILL_DIR, renderBlogSkill, SKILL_MARKER, type SkillFile } from "./skill.js";
 
-export interface CliOutput {
-  readonly log: (line: string) => void;
-  readonly error: (line: string) => void;
-}
+export type { CliOutput };
 
 export interface RunBlogCliOptions {
   /** The app's config with `blog()` among its modules. */
@@ -52,6 +52,8 @@ export interface RunBlogCliOptions {
   readonly refreshFetch?: typeof fetch;
   /** Where `publish` reads BLOG_REFRESH_SECRET. Default: `process.env`. */
   readonly env?: Readonly<Record<string, string | undefined>>;
+  /** What `publish --stdin` reads. Default: the whole of `process.stdin`, as UTF-8. */
+  readonly readStdin?: () => Promise<string>;
 }
 
 export const EXIT_OK = 0;
@@ -60,6 +62,7 @@ export const EXIT_USAGE = 2;
 
 export const BLOG_USAGE = `Usage:
   softure-blog publish [<path>...] [--commit] [--withdraw] [--no-indexnow] [--app-url <origin>]
+                       [--stdin [--name <slug>.md]] [--history <file.json>] [--format text|lines]
   softure-blog check [<path>...] [--external] [--today <YYYY-MM-DD>]
   softure-blog skill install [--dir <path>] [--command <cmd>] [--check]
 
@@ -70,6 +73,11 @@ publish   Brings the blog's tables to the state of the article files. A <path> i
   --withdraw    publish the one given file as withdrawn, whatever its status
   --no-indexnow do not submit the changed addresses to IndexNow
   --app-url     the running app's origin for the cache refresh; default: appOrigin
+  --stdin       read the files from standard input instead of paths: one file named by
+                --name, or without --name a JSON bundle {"files":[{"name","text"}]}
+  --history     a JSON file of the articles' earlier dates and old slugs, applied on the
+                first publish of each article (moving an existing blog in)
+  --format      text (default) or lines: a stable blog|<key>|... contract for scripts
           Files going public pass the quality gate first; an error writes nothing.
           With ${BLOG_REFRESH_SECRET_ENV} set, a commit that changed a text asks the running
           app (refreshBlogCache) to refresh its blog cache, before the IndexNow submit.
@@ -107,6 +115,11 @@ export type BlogCommand =
       readonly indexNow: boolean;
       /** The origin `--app-url` gives; `null`: `appOrigin`. */
       readonly appUrl: string | null;
+      /** Read the files from standard input; `name`: one file, `null`: a JSON bundle. */
+      readonly stdin: { readonly name: string | null } | null;
+      /** The `--history` file, as given. */
+      readonly history: string | null;
+      readonly format: PublishFormat;
     }
   | { readonly kind: "check"; readonly paths: readonly string[]; readonly external: boolean; readonly today: string | null }
   | { readonly kind: "skill-install"; readonly dir: string; readonly command: string; readonly check: boolean };
@@ -146,10 +159,28 @@ export function parseBlogCommand(argv: readonly string[]): BlogCommand | string 
   const { values, positionals } = parsed;
   if (values.help === true) return { kind: "help" };
   const withdraw = values.withdraw === true;
-  if (withdraw && positionals.length !== 1) return "--withdraw takes exactly one article file";
+  const isStdin = values.stdin === true;
+  const stdinName = values.name ?? null;
+  if (isStdin && positionals.length > 0) return "--stdin reads the files from standard input; give no paths with it";
+  if (!isStdin && stdinName !== null) return "--name names the file --stdin reads; use it with --stdin";
+  if (stdinName !== null && !/^[^/\\]+\.md$/.test(stdinName)) return `--name needs a file name <slug>.md, not "${stdinName}"`;
+  if (withdraw && !(isStdin ? stdinName !== null : positionals.length === 1)) return "--withdraw takes exactly one article file";
   const appUrl = values["app-url"] === undefined ? null : parseOrigin(values["app-url"]);
   if (appUrl === undefined) return `--app-url needs an http or https origin, e.g. http://web:3000, not "${values["app-url"] ?? ""}"`;
-  return { kind: "publish", paths: positionals, commit: values.commit === true, withdraw, indexNow: values["no-indexnow"] !== true, appUrl };
+  const format = values.format ?? "text";
+  if (format !== "text" && format !== "lines") return `--format is text or lines, not "${format}"`;
+  if (values.history !== undefined && values.history.trim() === "") return "--history needs a JSON file";
+  return {
+    kind: "publish",
+    paths: positionals,
+    commit: values.commit === true,
+    withdraw,
+    indexNow: values["no-indexnow"] !== true,
+    appUrl,
+    stdin: isStdin ? { name: stdinName } : null,
+    history: values.history ?? null,
+    format,
+  };
 }
 
 /** The origin of an http(s) URL, or `undefined` for anything else. */
@@ -232,6 +263,10 @@ function parsePublishArgs(args: readonly string[]) {
       withdraw: { type: "boolean" },
       "no-indexnow": { type: "boolean" },
       "app-url": { type: "string" },
+      stdin: { type: "boolean" },
+      name: { type: "string" },
+      history: { type: "string" },
+      format: { type: "string" },
       help: { type: "boolean" },
     },
     strict: true,
@@ -242,27 +277,25 @@ function parsePublishArgs(args: readonly string[]) {
 async function runPublish(command: Extract<BlogCommand, { kind: "publish" }>, options: RunBlogCliOptions, output: CliOutput): Promise<number> {
   const cwd = options.cwd ?? process.cwd();
   const { config } = options;
+  const report = createPublishReporter(command.format, output);
+  const fail = (message: string): number => {
+    report.failed(message);
+    return EXIT_FAILED;
+  };
   let blogOptions: ReturnType<typeof getBlogOptions>;
   try {
     blogOptions = getBlogOptions(config);
   } catch (error) {
-    output.error(`softure-blog publish: ${describeError(error)}`);
-    return EXIT_FAILED;
+    return fail(describeError(error));
   }
-  const paths = command.paths.length > 0 ? command.paths : [blogOptions.contentDir];
-  const files = await readArticleFiles(paths.map((path) => resolve(cwd, path)));
-  if (typeof files === "string") {
-    output.error(`softure-blog publish: ${files}`);
-    return EXIT_FAILED;
-  }
-  if (command.withdraw && files.length !== 1) {
-    output.error("softure-blog publish: --withdraw takes exactly one article file, not a folder");
-    return EXIT_FAILED;
-  }
-  if (config.database === null) {
-    output.error("softure-blog publish: the config has no database; set database.url in softure.config");
-    return EXIT_FAILED;
-  }
+  const files = command.stdin === null
+    ? await readArticleFiles((command.paths.length > 0 ? command.paths : [blogOptions.contentDir]).map((path) => resolve(cwd, path)))
+    : await readStdinFiles(command.stdin.name, options.readStdin ?? readProcessStdin);
+  if (typeof files === "string") return fail(files);
+  if (command.withdraw && files.length !== 1) return fail("--withdraw takes exactly one article file, not a folder");
+  const history = command.history === null ? undefined : await readHistoryFile(resolve(cwd, command.history));
+  if (typeof history === "string") return fail(history);
+  if (config.database === null) return fail("the config has no database; set database.url in softure.config");
 
   const clock = options.clock ?? systemClock;
   let gate = options.gate;
@@ -275,8 +308,7 @@ async function runPublish(command: Extract<BlogCommand, { kind: "publish" }>, op
   try {
     opened = await openDatabase(config.database, options.openDatabase);
   } catch (error) {
-    output.error(`softure-blog publish: ${describeError(error)}`);
-    return EXIT_FAILED;
+    return fail(describeError(error));
   }
   try {
     const run = await runBlogPublish(
@@ -288,9 +320,10 @@ async function runPublish(command: Extract<BlogCommand, { kind: "publish" }>, op
         reservedSlugs: getBlogReservedSlugs(config),
         ...(blogOptions.fields === undefined ? {} : { fields: blogOptions.fields }),
         ...(gate === undefined ? {} : { gate }),
+        ...(history === undefined ? {} : { history }),
       },
     );
-    const code = reportRun(run, output);
+    report.run(run);
     if (run.status === "done") {
       // Before the IndexNow submit: a crawler that answers the ping must find the new text.
       const refresh = await requestBlogRefresh(config, run.changes, {
@@ -299,16 +332,15 @@ async function runPublish(command: Extract<BlogCommand, { kind: "publish" }>, op
         ...(options.env === undefined ? {} : { env: options.env }),
         ...(options.refreshFetch === undefined ? {} : { fetchImpl: options.refreshFetch }),
       });
-      reportRefresh(refresh, output);
+      report.refresh(refresh);
     }
     if (run.status === "done" && command.indexNow) {
-      reportIndexNow(await submitBlogChanges(config, run.changes, { commit: run.committed, ...(options.indexNowFetch === undefined ? {} : { fetchImpl: options.indexNowFetch }) }), output);
+      report.indexNow(await submitBlogChanges(config, run.changes, { commit: run.committed, ...(options.indexNowFetch === undefined ? {} : { fetchImpl: options.indexNowFetch }) }));
     }
-    return code;
+    return run.status === "done" ? EXIT_OK : EXIT_FAILED;
   } catch (error) {
     // Driver errors: the message only, never a stack or the database URL.
-    output.error(`softure-blog publish: ${describeError(error)} (did softure migrate run?)`);
-    return EXIT_FAILED;
+    return fail(`${describeError(error)} (did softure migrate run?)`);
   } finally {
     await opened.close();
   }
@@ -450,72 +482,56 @@ function reportCheck(results: readonly FileCheckResult[], files: readonly ReadAr
   return errors > 0 ? EXIT_FAILED : EXIT_OK;
 }
 
-function reportRun(run: BlogPublishRun, output: CliOutput): number {
-  for (const warning of run.warnings) output.error(`warning ${formatProblem(warning)}`);
-  if (run.status === "refused") {
-    for (const problem of run.problems) output.error(`error ${formatProblem(problem)}`);
-    output.error("refused: nothing written; fix the problems above");
-    return EXIT_FAILED;
+
+
+
+
+
+const stdinBundleSchema = z.strictObject({
+  files: z
+    .array(z.strictObject({ name: z.string().regex(/^[^/\\]+\.md$/, "must be a file name <slug>.md"), text: z.string() }))
+    .min(1, "must list at least one file"),
+});
+
+/** The files `--stdin` gives: one named by `--name`, or the JSON bundle; or why they cannot be read. */
+async function readStdinFiles(name: string | null, readStdin: () => Promise<string>): Promise<ArticleFile[] | string> {
+  let text: string;
+  try {
+    text = await readStdin();
+  } catch (error) {
+    return `cannot read standard input: ${describeError(error)}`;
   }
-  for (const change of run.changes) {
-    output.log(formatChange(change));
-    if (change.previousSlug !== null) output.log(`moved ${change.id} ${change.previousSlug} -> ${change.slug}`);
+  if (name !== null) return text.trim() === "" ? `standard input is empty; pipe the text of ${name}` : [{ name, text }];
+  let json: unknown;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    // The parser's message names a position in a text nobody sees; say what was expected instead.
+    return 'standard input is not a JSON bundle {"files":[{"name":"<slug>.md","text":"..."}]}; pass --name <slug>.md for one file';
   }
-  const count = (action: PublishedChange["action"]) => String(run.changes.filter((change) => change.action === action).length);
-  output.log(`summary: added ${count("added")}, changed ${count("changed")}, unchanged ${count("unchanged")}`);
-  output.log(run.committed ? "written" : "dry run: nothing written; pass --commit to write");
-  return EXIT_OK;
+  const parsed = stdinBundleSchema.safeParse(json);
+  if (!parsed.success) return `the bundle on standard input: ${parsed.error.issues.map((issue) => `${issue.path.join(".") || "bundle"}: ${issue.message}`).join("; ")}`;
+  return parsed.data.files;
 }
 
-/** One line about the cache refresh; a failure is a warning and never changes the exit code. */
-function reportRefresh(outcome: BlogRefreshOutcome, output: CliOutput): void {
-  switch (outcome.kind) {
-    case "not_configured":
-      output.log(`cache: the running app shows the change within revalidateSeconds (${String(outcome.revalidateSeconds)} s); set ${BLOG_REFRESH_SECRET_ENV} to refresh it now`);
-      return;
-    case "skipped":
-      output.log("cache: no text changed, nothing to refresh");
-      return;
-    case "dry_run":
-      output.log(`cache: dry run, a commit would refresh ${outcome.url}`);
-      return;
-    case "refreshed":
-      output.log(`cache: refreshed ${outcome.url}`);
-      return;
-    case "failed":
-      output.error(`warning cache: ${outcome.reason} (${outcome.code}); the publish is written, the app shows it within ${String(outcome.revalidateSeconds)} s`);
-      return;
+async function readProcessStdin(): Promise<string> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of process.stdin) chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : (chunk as Buffer));
+  return Buffer.concat(chunks).toString("utf8");
+}
+
+/** The `--history` file, parsed; or why it cannot be used. */
+async function readHistoryFile(path: string): Promise<ArticleHistoryMap | string> {
+  const text = await readText(path);
+  if (text === null) return `cannot read ${path}`;
+  let json: unknown;
+  try {
+    json = JSON.parse(text);
+  } catch (error) {
+    return `${path} is not JSON: ${describeError(error)}`;
   }
-}
-
-/** One line about the IndexNow submit; a failure is a warning and never changes the exit code. */
-function reportIndexNow({ paths, outcome }: BlogIndexNowSubmit, output: CliOutput): void {
-  switch (outcome.kind) {
-    case "not_configured":
-      output.log(`indexnow: off, ${outcome.reason}`);
-      return;
-    case "skipped":
-      output.log("indexnow: no public address changed, nothing to submit");
-      return;
-    case "dry_run":
-      output.log(`indexnow: dry run, a commit would submit ${String(outcome.urls.length)} URL(s): ${outcome.urls.join(" ")}`);
-      return;
-    case "submitted":
-      output.log(`indexnow: submitted ${String(outcome.count)} URL(s) (${String(outcome.status)}): ${paths.join(" ")}`);
-      return;
-    case "failed":
-      output.error(`warning indexnow: ${outcome.reason} (${outcome.code}); the publish is written, submit the addresses later: ${paths.join(" ")}`);
-      return;
-  }
-}
-
-function formatChange(change: PublishedChange): string {
-  const before = change.statusBefore === null || change.slugBefore === null ? "none" : `${change.statusBefore}/${change.slugBefore}`;
-  return `${change.action} ${change.id} ${before} -> ${change.statusAfter}/${change.slug}`;
-}
-
-function formatProblem(problem: PublishProblem): string {
-  return `${problem.subject}: ${problem.message}`;
+  const parsed = parseArticleHistory(json);
+  return parsed.ok ? parsed.history : `${path}: ${parsed.errors.join("; ")}`;
 }
 
 interface ReadArticleFile extends ArticleFile {

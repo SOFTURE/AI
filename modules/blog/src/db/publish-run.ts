@@ -12,6 +12,7 @@ import type { Queryable } from "@softure-ai/db";
 import { eq } from "drizzle-orm";
 import { findTermFormConflicts, toGlossary } from "../render/glossary.js";
 import { listArticles, publishArticle, type BlogContext } from "./articles.js";
+import type { ArticleHistory, ArticleHistoryMap } from "./history.js";
 import { articles } from "./schema.js";
 
 export interface ArticleFile {
@@ -33,6 +34,11 @@ export interface RunBlogPublishOptions extends ParseArticleFileOptions {
   /** Publish the files as `withdrawn`, whatever their status (taking a text down at once). */
   readonly withdraw?: boolean;
   readonly gate?: PublishGate;
+  /**
+   * The earlier life of articles an app moves in (history.ts), by id: applied to an article of the run
+   * that has no row yet. An entry for an id outside the run is a warning.
+   */
+  readonly history?: ArticleHistoryMap;
 }
 
 /** A problem that stops the run; `subject` is a file name, an article id or a cluster. */
@@ -52,6 +58,11 @@ export interface PublishedChange {
   readonly slug: string;
   /** The slug that entered the slug history in this run. */
   readonly previousSlug: string | null;
+  /** Set when the run applied the article's history (`history`): its dates and old slugs. */
+  readonly imported?: {
+    readonly publishedAt: Date | null;
+    readonly oldSlugs: number;
+  };
 }
 
 export type BlogPublishRun =
@@ -100,15 +111,21 @@ export async function runBlogPublish(ctx: BlogContext, files: readonly ArticleFi
 
   problems.push(...findDuplicateIds(inputs), ...findPillarProblems(inputs));
   if (problems.length > 0) return { status: "refused", problems, warnings };
+  const runIds = new Set(inputs.map((input) => input.id));
+  for (const id of options.history?.keys() ?? []) {
+    if (!runIds.has(id)) warnings.push({ subject: id, message: "the history names an article that is not in this run; it is applied when its file is published" });
+  }
 
   const changes: PublishedChange[] = [];
   try {
     await ctx.db.transaction(async (tx) => {
       for (const input of inputs) {
-        const result = await publishArticleOrRefuse({ ...ctx, db: tx }, input);
+        const history = options.history?.get(input.id);
+        const result = await publishArticleOrRefuse({ ...ctx, db: tx }, input, history);
         if (!result.ok) {
           const reason = result.error === "blog.slug_taken" ? "is the slug of" : "redirects to";
-          throw new PublishRefused([{ subject: input.id, message: `slug ${input.slug} ${reason} article ${result.otherArticleId} (${result.error})` }]);
+          const slug = result.slug === undefined ? `slug ${input.slug}` : `old slug ${result.slug} (history)`;
+          throw new PublishRefused([{ subject: input.id, message: `${slug} ${reason} article ${result.otherArticleId} (${result.error})` }]);
         }
         changes.push({
           id: input.id,
@@ -119,6 +136,9 @@ export async function runBlogPublish(ctx: BlogContext, files: readonly ArticleFi
           slugBefore: result.before?.slug ?? null,
           slug: result.after.slug,
           previousSlug: result.previousSlug,
+          ...(result.imported === true && history !== undefined
+            ? { imported: { publishedAt: result.after.publishedAt, oldSlugs: history.oldSlugs.filter((old) => old.slug !== input.slug).length } }
+            : {}),
         });
       }
       const glossary = await checkGlossaryForms({ ...ctx, db: tx }, inputs);
@@ -192,9 +212,9 @@ async function checkGlossaryForms(ctx: BlogContext, inputs: readonly BlogArticle
  * for that run and fail with 23505. The savepoint is rolled back, so the transaction still reads
  * (at read committed, the winner's row is visible now) and names the article that took the slug.
  */
-async function publishArticleOrRefuse(ctx: BlogContext, input: BlogArticleInput): ReturnType<typeof publishArticle> {
+async function publishArticleOrRefuse(ctx: BlogContext, input: BlogArticleInput, history: ArticleHistory | undefined): ReturnType<typeof publishArticle> {
   try {
-    return await publishArticle(ctx, input);
+    return await publishArticle(ctx, input, history === undefined ? {} : { history });
   } catch (error) {
     const driverError = findDriverError(error);
     if (driverError?.code !== UNIQUE_VIOLATION || driverError.constraint !== SLUG_CONSTRAINT) throw error;

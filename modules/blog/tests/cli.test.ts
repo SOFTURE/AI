@@ -172,6 +172,88 @@ describe("softure-blog publish", () => {
     const result = await run(["publish"], { openDatabase: () => Promise.reject(new Error("connect ECONNREFUSED 127.0.0.1:5432")) });
     expect(result).toMatchObject({ code: 1, errors: ["softure-blog publish: connect ECONNREFUSED 127.0.0.1:5432"] });
   });
+
+  const stdin = (text: string) => ({ readStdin: () => Promise.resolve(text) });
+
+  it("publishes one file read from standard input", async () => {
+    const text = readFileSync(join(FIXTURES_DIR, "content", "index-funds.md"), "utf8");
+    expect((await run(["publish", "--stdin", "--name", "index-funds.md", "--commit"], stdin(text))).lines.slice(0, 3)).toEqual([
+      "added index-funds none -> published/index-funds",
+      "summary: added 1, changed 0, unchanged 0",
+      "written",
+    ]);
+    expect(await findArticleBySlug(test.ctx, "index-funds")).toMatchObject({ status: "published" });
+  });
+
+  it("publishes a JSON bundle of files read from standard input", async () => {
+    const files = ["index-funds.md", "tax-wrapper.md"].map((name) => ({ name, text: readFileSync(join(FIXTURES_DIR, "content", name), "utf8") }));
+    const result = await run(["publish", "--stdin"], stdin(JSON.stringify({ files })));
+    expect(result.lines.slice(0, 2)).toEqual(["added index-funds none -> published/index-funds", "added tax-wrapper none -> draft/tax-wrapper"]);
+  });
+
+  it("refuses what standard input cannot give, before opening the database", async () => {
+    expect((await run(["publish", "--stdin"], stdin("not json"))).errors).toEqual([
+      'softure-blog publish: standard input is not a JSON bundle {"files":[{"name":"<slug>.md","text":"..."}]}; pass --name <slug>.md for one file',
+    ]);
+    expect((await run(["publish", "--stdin"], stdin('{"files":[{"name":"a.txt","text":""}]}'))).errors).toEqual([
+      "softure-blog publish: the bundle on standard input: files.0.name: must be a file name <slug>.md",
+    ]);
+    expect((await run(["publish", "--stdin", "--name", "a.md"], stdin(" \n"))).errors).toEqual(["softure-blog publish: standard input is empty; pipe the text of a.md"]);
+    expect((await run(["publish", "--stdin"], { readStdin: () => Promise.reject(new Error("EAGAIN")) })).errors).toEqual(["softure-blog publish: cannot read standard input: EAGAIN"]);
+    expect(opened).toBe(0);
+  });
+
+  it("refuses --stdin with paths, --name without --stdin and a bad --name or --format", async () => {
+    const cases: [string[], string][] = [
+      [["publish", "--stdin", "content"], "softure-blog: --stdin reads the files from standard input; give no paths with it"],
+      [["publish", "--name", "a.md"], "softure-blog: --name names the file --stdin reads; use it with --stdin"],
+      [["publish", "--stdin", "--name", "dir/a.md"], 'softure-blog: --name needs a file name <slug>.md, not "dir/a.md"'],
+      [["publish", "--stdin", "--withdraw"], "softure-blog: --withdraw takes exactly one article file"],
+      [["publish", "--format", "json"], 'softure-blog: --format is text or lines, not "json"'],
+    ];
+    for (const [argv, error] of cases) {
+      const result = await run(argv);
+      expect([result.code, result.errors[0]], argv.join(" ")).toEqual([2, error]);
+    }
+  });
+
+  it("prints the line contract with --format lines", async () => {
+    expect(await run(["publish", "--format", "lines"])).toEqual({
+      code: 0,
+      lines: [
+        "blog|change|added|index-funds|none|published/index-funds",
+        "blog|change|added|tax-wrapper|none|draft/tax-wrapper",
+        "blog|summary|2|0|0",
+        "blog|dry-run",
+        "blog|cache|off|300",
+        "blog|indexnow|off|the seo module is not enabled; add seo({ indexNow: { key } }) to modules",
+      ],
+      errors: [],
+    });
+    expect((await run(["publish", "--format", "lines", "--commit", "--no-indexnow"])).lines.slice(-2)).toEqual(["blog|written", "blog|cache|off|300"]);
+    const refused = await run(["publish", "--format", "lines"], { gate: () => ["too | short\nreally"] });
+    expect(refused).toEqual({ code: 1, lines: ["blog|error|index-funds.md|quality gate: too   short really", "blog|refused"], errors: [] });
+    expect(await run(["publish", "missing", "--format", "lines"])).toEqual({ code: 1, lines: [`blog|failed|cannot read ${FIXTURES_DIR}missing`], errors: [] });
+  });
+
+  it("imports the articles' history with --history", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "softure-blog-"));
+    try {
+      const historyPath = join(dir, "history.json");
+      writeFileSync(historyPath, JSON.stringify({ articles: [{ id: "index-funds", published_at: "2026-02-01T09:00:00Z", old_slugs: [{ slug: "index-fund" }] }] }));
+      writeFileSync(join(dir, "index-funds.md"), buildArticleText({ published_at: undefined }));
+      expect((await run(["publish", join(dir, "index-funds.md"), "--history", historyPath, "--commit", "--format", "lines"])).lines.slice(0, 3)).toEqual([
+        "blog|change|added|index-funds|none|published/index-funds",
+        "blog|imported|index-funds|2026-02-01T09:00:00.000Z|1",
+        "blog|summary|1|0|0",
+      ]);
+      writeFileSync(historyPath, '{"articles":[{"id":"x"}]}');
+      expect((await run(["publish", "--history", historyPath])).errors).toEqual([`softure-blog publish: ${historyPath}: articles.0.published_at: is required: an ISO 8601 timestamp, or null for a text that was never published`]);
+      expect((await run(["publish", "--history", join(dir, "none.json")])).errors).toEqual([`softure-blog publish: cannot read ${join(dir, "none.json")}`]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("softure-blog publish with seo({ indexNow })", () => {
