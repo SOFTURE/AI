@@ -1,12 +1,13 @@
 ---
 change_id: db-optional-drivers
 title: "pg and PGlite become optional peers of @softure-ai/db without breaking next build"
-status: plan_reviewed
+status: archived
 roadmap_item: none
 issue: "#179"
 branch: claude/project-thread-jm3ow0
 created: 2026-10-07
 updated: 2026-10-07
+archived_at: 2026-10-07
 ---
 
 ## Intent
