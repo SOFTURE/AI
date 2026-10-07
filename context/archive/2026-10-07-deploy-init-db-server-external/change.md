@@ -1,13 +1,13 @@
 ---
 change_id: deploy-init-db-server-external
 title: "deploy: init warns when a database app's next.config lacks @softure-ai/db in serverExternalPackages (issue #184)"
-status: impl_reviewed
+status: archived
 roadmap_item: null
 issue: 184
 branch: worktree-agent-a14cdabdead11e3b2
 created: 2026-10-07
 updated: 2026-10-07
-archived_at: null
+archived_at: 2026-10-07
 ---
 
 ## Intent
@@ -59,6 +59,9 @@ No roadmap: issues are the tracker (project rule 2026-10-07).
 ## Notes
 
 - Placement: unlinked (`roadmap_item: null`, `issue: 184`), per the project rule that each GitHub issue is one change.
+- Owner: release `@softure-ai/deploy` 0.1.4 after the merge (the warning ships with it).
+- Archived 2026-10-07: `softure-deploy init` warns when a database app's `next.config.*` does not name
+  `@softure-ai/db` in `serverExternalPackages`; deploy 0.1.4.
 
 ## Process notes
 
