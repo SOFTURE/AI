@@ -180,7 +180,7 @@ describe("renderConfiguredOgImage", () => {
       }),
     );
     expect(loaded.ok ? null : loaded.error.split("\n").slice(1)).toEqual([
-      "  ogImages[0].template: Invalid discriminator value. Expected 'headline-cta' | 'headline-chart'",
+      "  ogImages[0].template: Invalid discriminator value. Expected 'headline-cta' | 'headline-chart' | 'big-number' | 'carousel'",
       "  ogImages[1].data.chart.paths: a chart needs at least one path",
     ]);
   });

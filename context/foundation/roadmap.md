@@ -37,10 +37,12 @@ backlog: context/backlog/roadmap-charts-followups/
 | ID | Change | Outcome | Depends on | Mode | Status |
 | --- | --- | --- | --- | --- | --- |
 | **CF-1** | `chart-pin` | `ChartPin` in `@softure-ai/charts`: an event pin (dashed vertical from the axis to a point and a dot on it) | — | autonomous | done |
+| **MK-12** | `marketing-kit-portrait-templates` | `big-number` and `carousel` portrait templates in `@softure-ai/marketing-kit` (0.1.8): the number fills a 1080×1350 post, a carousel entry renders numbered slides | — | autonomous | done_code (2026-10-07; waiting: the release of `@softure-ai/marketing-kit` 0.1.8) |
 
 ## Order
 
 1. **CF-1** (independent).
+2. **MK-12** (independent; issue #150).
 
 ## Items
 
@@ -59,6 +61,18 @@ backlog: context/backlog/roadmap-charts-followups/
 - **Baseline:** FIRE `ChartPin` and its cases in `chart-primitives.test.tsx`.
 - **Source (FIRE_TRACKER, read only):** `src/components/chart/chart-flag.tsx`
 
+### MK-12: Portrait social templates
+- **Change ID:** `marketing-kit-portrait-templates`
+- **Status:** done_code (2026-10-07; waiting: the release of `@softure-ai/marketing-kit` 0.1.8)
+- **Input:** [`marketing-kit-portrait-templates`](../archive/2026-10-07-marketing-kit-portrait-templates/change.md)
+- **Source:** GitHub issue #150 (owner, 2026-10-07), from FIRE_TRACKER TR-27: `headline-cta` at 1080×1350 leaves
+  the copy in a narrow band with empty space above and below.
+- **Outcome:** `big-number` and `carousel` templates written for 1080×1350, scaled by the limiting side; `size`
+  presets; a carousel entry renders `<id>-1.png`…`<id>-N.png` with a counter; an optional source line; the old
+  templates unchanged. marketing-kit 0.1.8.
+- **Prerequisites:** none.
+- **Risk:** low (new templates; the old ones are guarded by byte snapshots).
+
 ## Owner decisions and checks
 
 - [ ] **CH-5** (carried over from charts): `@softure-ai/charts` 0.1.0 is on npm (2026-10-07, first publish with `NPM_TOKEN`): add its trusted publisher on
@@ -68,3 +82,6 @@ backlog: context/backlog/roadmap-charts-followups/
 - [x] **CF-1**: `@softure-ai/charts` 0.1.1 (`ChartPin`) released 2026-10-07 on the owner's word, through the trusted
   publisher (OIDC, no `NPM_TOKEN`), which validates it. FIRE_TRACKER can drop its own pin (README, "Adopting in
   FIRE_TRACKER").
+- [ ] **MK-12**: `@softure-ai/marketing-kit` 0.1.8 (`big-number`, `carousel`, size presets) is on `master` and waits for
+  your release; after it, FIRE_TRACKER moves its two `jedna-liczba-*` entries to `big-number` and its carousels to
+  `carousel` (FIRE's own change).

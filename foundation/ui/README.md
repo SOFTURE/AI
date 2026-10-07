@@ -1,7 +1,5 @@
 # @softure-ai/ui
 
-**Status:** wave 0 · tokens, theme and CSS pipeline (FD-5); UI primitives (FD-6); colour test helpers (CH-3).
-
 The design foundation every SOFTURE UI stands on: the `--sft-*` token contract with light and dark
 defaults, a theme provider, a no-flash theme switch, the UI primitives every module builds its
 screens from, and compiled CSS that needs no Tailwind in the app

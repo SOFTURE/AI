@@ -10,10 +10,6 @@ Sister repositories:
   that knows how to use these modules.
 - .NET libraries: [COMMON](https://github.com/SOFTURE/COMMON) and [API](https://github.com/SOFTURE/API).
 
-> Status: **planned, implementation starting**. Structure, module standard, PRD and roadmaps are ready;
-> package code arrives through the main roadmap (`context/foundation/roadmap.md`).
-> The first source of modules is the FIRE_TRACKER project (see `docs/01-module-assessment.md`).
-
 ## Repository layout
 
 ```
@@ -67,8 +63,8 @@ Development runs on the `softure-*` agent workflow from [`@softure-ai/skills`](h
 |---|---|
 | `context/workflow.json` | gates, main branch, worktree setup, research sources |
 | `context/foundation/shape-notes.md`, `prd.md` | why and what (PRD v2, FR/NFR IDs) |
-| `context/foundation/roadmap.md` | **the main roadmap being executed** (charts-followups, CF-1, since 2026-10-07); finished ones in `context/foundation/archive/` |
-| `context/foundation/roadmaps/` | queued roadmaps: later (waits on owner steps) |
+| `context/foundation/roadmap.md` | **the main roadmap being executed**; finished ones in `context/foundation/archive/` |
+| `context/foundation/roadmaps/` | queued roadmaps |
 | `context/changes/` | changes in flight (one folder per change) |
 | `context/backlog/roadmap-<slug>/` | prepared entries of the main and the queued roadmaps |
 
