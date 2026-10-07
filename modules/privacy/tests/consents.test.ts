@@ -1,7 +1,7 @@
 // The consent ledger: recording consents and withdrawals with the configured document versions,
 // reading the current state, and the database refusing to rewrite evidence.
 import { defineSoftureConfig } from "@softure-ai/core";
-import { getConsent, getEmailKey, hasConsent, listConsents, recordConsent, type PrivacyContext } from "@softure-ai/privacy/server";
+import { getConsent, getEmailKey, hasConsent, importConsent, listConsents, recordConsent, type PrivacyContext } from "@softure-ai/privacy/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createConfig, createTestPrivacy, NOW, seedUser, type SeededUser, type TestPrivacy } from "./support.js";
 
@@ -141,5 +141,47 @@ describe("recordConsent without the module", () => {
     await expect(recordConsent(ctx, { subject: { email: "ada@example.com" }, purpose: "terms", granted: true, document: "terms", source: "account" })).rejects.toThrow(
       "@softure-ai/privacy: the module is not enabled",
     );
+  });
+});
+
+describe("importConsent", () => {
+  let test: TestPrivacy;
+  const EARLIER = new Date(NOW.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const subject = { email: "ada@example.com" };
+
+  beforeEach(async () => {
+    test = await createTestPrivacy();
+  });
+  afterEach(() => test.database.close());
+
+  it("stores the past time and the older document version as given", async () => {
+    const result = await importConsent(test.ctx, { subject, purpose: "launch", granted: true, document: "privacy-policy", documentVersion: "2026-01-15", source: "waitlist-import", recordedAt: EARLIER });
+    expect(result).toEqual({
+      ok: true,
+      value: { purpose: "launch", granted: true, document: { id: "privacy-policy", version: "2026-01-15" }, source: "waitlist-import", recordedAt: EARLIER },
+    });
+    expect(await listConsents(test.ctx, subject)).toEqual([result.ok ? result.value : null]);
+  });
+
+  it("reads a consent to an older version as not current, and one to the configured version as current", async () => {
+    await importConsent(test.ctx, { subject, purpose: "launch", granted: true, document: "privacy-policy", documentVersion: "2026-01-15", source: "waitlist-import", recordedAt: EARLIER });
+    expect(await hasConsent(test.ctx, { subject, purpose: "launch" })).toBe(false);
+    await importConsent(test.ctx, { subject, purpose: "news", granted: true, document: "privacy-policy", source: "waitlist-import", recordedAt: EARLIER });
+    expect(await getConsent(test.ctx, { subject, purpose: "news" })).toMatchObject({ document: { id: "privacy-policy", version: "2026-09-01" }, isCurrentVersion: true });
+  });
+
+  it("refuses a time after now, an invalid date, and a version without a document or of the wrong shape", async () => {
+    const base = { subject, purpose: "launch", granted: true, source: "waitlist-import" };
+    const refused = { ok: false, error: "privacy.consent_invalid" };
+    expect(await importConsent(test.ctx, { ...base, recordedAt: new Date(NOW.getTime() + 1) })).toEqual(refused);
+    expect(await importConsent(test.ctx, { ...base, recordedAt: new Date(Number.NaN) })).toEqual(refused);
+    expect(await importConsent(test.ctx, { ...base, recordedAt: EARLIER, documentVersion: "v1" })).toEqual(refused);
+    expect(await importConsent(test.ctx, { ...base, recordedAt: EARLIER, document: "terms", documentVersion: "with space" })).toEqual(refused);
+    expect(await importConsent(test.ctx, { ...base, recordedAt: EARLIER, document: "terms", documentVersion: "" })).toEqual(refused);
+    expect(await listConsents(test.ctx, subject)).toEqual([]);
+  });
+
+  it("accepts the clock's now itself", async () => {
+    expect(await importConsent(test.ctx, { subject, purpose: "launch", granted: false, source: "unsubscribe", recordedAt: NOW })).toMatchObject({ ok: true, value: { recordedAt: NOW } });
   });
 });

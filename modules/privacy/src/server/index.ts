@@ -4,9 +4,11 @@ export {
   getConsent,
   getEmailKey,
   hasConsent,
+  importConsent,
   listConsents,
   recordConsent,
   type ConsentQuery,
+  type ImportConsentInput,
   type RecordConsentInput,
   type RecordConsentResult,
 } from "./consents.js";
