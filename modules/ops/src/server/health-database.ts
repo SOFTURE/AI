@@ -1,4 +1,4 @@
-// The database handle of the health route. Package code cannot reach the app's pool, so ops keeps
+// The database handle of the health handler. Package code cannot reach the app's pool, so ops keeps
 // one small pool per URL. It lives on globalThis under a `Symbol.for` key: `next dev` re-evaluates
 // modules on every change, and separate server bundles share it instead of opening a pool each.
 import { createDatabase, type DatabaseHandle } from "@softure-ai/db";

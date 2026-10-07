@@ -1,5 +1,7 @@
-// Server-only API of @softure-ai/ops: the health check runner. It reads no request scope; the
-// route in `@softure-ai/ops/next` passes the config and the database in.
+// Server-only API of @softure-ai/ops: the health check runner and the health answer. It reads no
+// request scope and does not import Next; the route in `@softure-ai/ops/next` passes the config in.
+export { closeHealthDatabases } from "./health-database.js";
+export { createHealthResponse } from "./health-response.js";
 export {
   collectHealthChecks,
   createDatabaseCheck,
