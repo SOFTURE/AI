@@ -1,12 +1,12 @@
 "use client";
 
-import { type ReactNode, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { type ClassNames, createSlotClassGetter } from "./class-names.js";
 
 const VIEWPORT_MARGIN_PX = 8;
 // Equal to the trigger's hit area (`before:-inset-1.5`), so the pointer can move onto the bubble
 // without leaving the hint.
-const TRIGGER_GAP_PX = 6;
+const DEFAULT_TRIGGER_GAP_PX = 6;
 /** A bubble without a size yet (still laid out) is measured again on the next frames, this often. */
 const MAX_MEASURE_RETRIES = 10;
 
@@ -40,11 +40,14 @@ export function resolveBubblePlacement({
   bubble,
   viewport,
   isAnchoredLeft,
+  gap = DEFAULT_TRIGGER_GAP_PX,
 }: {
   trigger: BubbleRect;
   bubble: { width: number; height: number };
   viewport: { width: number; height: number };
   isAnchoredLeft: boolean;
+  /** Distance between the trigger and the bubble, in px; 6 by default. */
+  gap?: number;
 }): BubblePlacement {
   const leftWhenAnchoredLeft = trigger.left;
   const leftWhenAnchoredRight = trigger.right - bubble.width;
@@ -58,10 +61,10 @@ export function resolveBubblePlacement({
     VIEWPORT_MARGIN_PX,
     viewport.width - VIEWPORT_MARGIN_PX - bubble.width,
   );
-  const roomAbove = trigger.top - TRIGGER_GAP_PX - VIEWPORT_MARGIN_PX;
-  const roomBelow = viewport.height - trigger.bottom - TRIGGER_GAP_PX - VIEWPORT_MARGIN_PX;
+  const roomAbove = trigger.top - gap - VIEWPORT_MARGIN_PX;
+  const roomBelow = viewport.height - trigger.bottom - gap - VIEWPORT_MARGIN_PX;
   const opensAbove = bubble.height <= roomAbove || roomAbove >= roomBelow;
-  const preferredTop = opensAbove ? trigger.top - TRIGGER_GAP_PX - bubble.height : trigger.bottom + TRIGGER_GAP_PX;
+  const preferredTop = opensAbove ? trigger.top - gap - bubble.height : trigger.bottom + gap;
   const top = clamp(preferredTop, VIEWPORT_MARGIN_PX, viewport.height - VIEWPORT_MARGIN_PX - bubble.height);
   return { isAnchoredLeft: shouldFlip ? !isAnchoredLeft : isAnchoredLeft, left, top, opensAbove };
 }
@@ -98,17 +101,36 @@ export interface HintProps {
   readonly anchorLeft?: boolean;
   /** The trigger's glyph; `?` by default. */
   readonly glyph?: ReactNode;
+  /** Distance between the trigger and an open bubble, in px; 6 by default (the trigger's hit area). */
+  readonly triggerGap?: number;
   readonly classNames?: ClassNames<HintSlot>;
   readonly unstyled?: boolean;
 }
 
 const DEFAULT_CLASSES: Readonly<Record<HintSlot, string>> = {
-  root: "sft:relative sft:inline-flex sft:align-middle",
+  root: "sft:group/hint sft:relative sft:inline-flex sft:align-middle",
   trigger:
     "sft:relative sft:flex sft:size-4 sft:cursor-help sft:items-center sft:justify-center sft:rounded-full sft:border sft:border-border sft:bg-transparent sft:p-0 sft:font-sans sft:text-xs sft:leading-none sft:text-muted sft:transition-colors sft:duration-(--sft-duration-fast) sft:before:absolute sft:before:-inset-1.5 sft:hover:border-muted sft:hover:text-foreground sft:focus-visible:outline-2 sft:focus-visible:outline-offset-2 sft:focus-visible:outline-focus",
   bubble:
-    "sft:absolute sft:bottom-full sft:z-40 sft:mb-2 sft:rounded-control sft:border sft:border-muted/40 sft:bg-background sft:px-3 sft:py-2 sft:text-left sft:font-sans sft:text-xs sft:font-normal sft:leading-relaxed sft:text-foreground sft:shadow-2",
+    "sft:absolute sft:bottom-full sft:z-40 sft:mb-2 sft:rounded-control sft:border sft:border-muted/40 sft:bg-background sft:px-3 sft:py-2 sft:text-left sft:font-sans sft:text-xs sft:font-normal sft:normal-case sft:leading-relaxed sft:tracking-normal sft:text-foreground sft:shadow-2",
 };
+
+// Before hydration the bubble opens by CSS alone, so the "?" works on a slow device or after a script
+// error; once React runs, its state (pin, Escape, placement) takes over through the `hidden` attribute.
+const BUBBLE_BEFORE_HYDRATION = "sft:hidden sft:group-hover/hint:block sft:group-focus-within/hint:block";
+
+function subscribeToNothing(): () => void {
+  return () => undefined;
+}
+
+/** `false` on the server and while hydrating, `true` after; the same on both sides of hydration. */
+function useIsHydrated(): boolean {
+  return useSyncExternalStore(
+    subscribeToNothing,
+    () => true,
+    () => false,
+  );
+}
 
 const BUBBLE_SIDE = { left: "sft:left-0", right: "sft:right-0" } as const;
 const BUBBLE_WIDTH = {
@@ -118,7 +140,8 @@ const BUBBLE_WIDTH = {
 
 /**
  * A "?" that explains something next to it. The bubble opens on hover and on focus, and a click
- * pins it open until a click outside, Escape, or focus leaving the hint. The explanation is real
+ * pins it open until a click outside, Escape, or focus leaving the hint. Escape closes it however it
+ * opened. Before hydration it opens on hover and focus by CSS alone. The explanation is real
  * markup (`role="tooltip"`), never a `title` attribute, and the trigger names what it explains.
  */
 export function Hint({
@@ -128,9 +151,11 @@ export function Hint({
   isWide = false,
   anchorLeft = false,
   glyph,
+  triggerGap = DEFAULT_TRIGGER_GAP_PX,
   classNames,
   unstyled,
 }: HintProps) {
+  const isHydrated = useIsHydrated();
   const generatedId = useId();
   const bubbleId = id ?? generatedId;
   const wrapperRef = useRef<HTMLSpanElement>(null);
@@ -162,10 +187,11 @@ export function Hint({
       bubble: { width: bubbleRect.width, height: bubbleRect.height },
       viewport: { width: document.documentElement.clientWidth, height: document.documentElement.clientHeight },
       isAnchoredLeft,
+      gap: triggerGap,
     });
     setIsAnchoredLeft(next.isAnchoredLeft);
     setPlacement((current) => (isSamePlacement(current, next) ? current : next));
-  }, [isAnchoredLeft]);
+  }, [isAnchoredLeft, triggerGap]);
 
   useLayoutEffect(() => {
     measureRef.current = measure;
@@ -218,6 +244,7 @@ export function Hint({
         DEFAULT_CLASSES.bubble,
         BUBBLE_SIDE[isAnchoredLeft ? "left" : "right"],
         BUBBLE_WIDTH[isWide ? "wide" : "fit"],
+        ...(isHydrated ? [] : [BUBBLE_BEFORE_HYDRATION]),
       ].join(" "),
     },
     classNames,
@@ -260,7 +287,7 @@ export function Hint({
         ref={bubbleRef}
         id={bubbleId}
         role="tooltip"
-        hidden={!isShown}
+        hidden={(isHydrated || unstyled === true) && !isShown}
         className={slot("bubble")}
         style={placement === null ? undefined : getBubbleStyle(placement)}
       >

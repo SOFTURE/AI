@@ -103,6 +103,21 @@ describe("styles.css", () => {
     expect(layer).toContain("prefers-color-scheme:dark");
   });
 
+  it("gives every text size a line height, which an explicit leading still overrides", () => {
+    // Without one, package text took the line height of wherever it stood (#163).
+    const layer = getSoftureLayer(styles);
+    // Only the sizes the components use have a rule; at least the common ones must be among them.
+    const sizes = ["xs", "sm", "base", "lg", "xl", "2xl", "3xl", "display"].filter((size) =>
+      hasSelector(layer, `sft:text-${size}`),
+    );
+    expect(sizes).toEqual(expect.arrayContaining(["xs", "sm", "base"]));
+    for (const size of sizes) {
+      const rule = layer.match(new RegExp(`\\.sft\\\\:text-${size}\\{([^}]*)\\}`))?.[1] ?? "";
+      expect(rule, size).toContain(`font-size:var(--sft-text-${size})`);
+      expect(rule, size).toMatch(/line-height:var\(--tw-leading,/);
+    }
+  });
+
   it("has a rule inside the softure layer for every class the components use", () => {
     // A utility without a theme value compiles to nothing and no markup test notices, so every
     // `sft:` class written in src/ui must have a selector in the compiled CSS.

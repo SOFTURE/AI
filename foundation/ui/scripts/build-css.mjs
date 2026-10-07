@@ -29,7 +29,8 @@ export const LAYER_ORDER = "@layer theme, base, softure, components, utilities;"
 // silently, so every namespace the components use is listed here:
 // - `--spacing` is the base of the numeric scale (`sft:h-10` = 2.5rem); `space-1…8` tokens still win
 //   for steps 1 to 8, so padding and gaps follow the theme;
-// - weights, line heights and tracking belong to a font, not to a theme;
+// - weights, line heights and tracking belong to a font, not to a theme; each text size carries
+//   Tailwind's default line height (a ratio, so it follows the size token), and `sft:leading-*` wins;
 // - one breakpoint (`sft:sm:`), two container widths (modal panels) and the spinner animation.
 const STATIC_THEME = `@theme inline reference prefix(sft) {
   --spacing: 0.25rem;
@@ -43,6 +44,15 @@ const STATIC_THEME = `@theme inline reference prefix(sft) {
   --leading-normal: 1.5;
   --leading-relaxed: 1.625;
   --tracking-tight: -0.025em;
+  --tracking-normal: 0em;
+  --text-xs--line-height: calc(1 / 0.75);
+  --text-sm--line-height: calc(1.25 / 0.875);
+  --text-base--line-height: calc(1.5 / 1);
+  --text-lg--line-height: calc(1.75 / 1.125);
+  --text-xl--line-height: calc(1.75 / 1.25);
+  --text-2xl--line-height: calc(2 / 1.5);
+  --text-3xl--line-height: calc(2.25 / 1.875);
+  --text-display--line-height: 1;
   --breakpoint-sm: 40rem;
   --container-md: 28rem;
   --container-3xl: 48rem;

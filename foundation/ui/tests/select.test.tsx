@@ -185,3 +185,51 @@ describe("resolveListPlacement", () => {
     ).toBe(62);
   });
 });
+
+function withViewport(width: number, height: number): () => void {
+  const root = document.documentElement;
+  Object.defineProperty(root, "clientWidth", { configurable: true, value: width });
+  Object.defineProperty(root, "clientHeight", { configurable: true, value: height });
+  return () => {
+    delete (root as { clientWidth?: number }).clientWidth;
+    delete (root as { clientHeight?: number }).clientHeight;
+  };
+}
+
+describe("Select inside an animated container (#163)", () => {
+  it("measures the trigger again when an ancestor's animation or transition ends, not on its own chevron", () => {
+    let triggerTop = 100;
+    const spy = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      const top = this.getAttribute("role") === "combobox" ? triggerTop : 0;
+      return { left: 10, top, right: 210, bottom: top + 40, width: 200, height: 40, x: 10, y: top, toJSON: () => ({}) };
+    });
+    const restoreViewport = withViewport(1000, 800);
+    try {
+      render(
+        <div data-testid="panel">
+          <Select aria-label="Pick" options={OPTIONS} />
+        </div>,
+      );
+      fireEvent.click(screen.getByRole("combobox"));
+      const list = screen.getByRole("listbox");
+      expect(list.style.top).toBe("144px");
+      triggerTop = 200;
+      act(() => {
+        fireEvent.transitionEnd(document.querySelector("svg") as Element);
+      });
+      expect(list.style.top).toBe("144px");
+      act(() => {
+        fireEvent.animationEnd(screen.getByTestId("panel"));
+      });
+      expect(list.style.top).toBe("244px");
+      triggerTop = 300;
+      act(() => {
+        fireEvent.transitionEnd(screen.getByTestId("panel"));
+      });
+      expect(list.style.top).toBe("344px");
+    } finally {
+      spy.mockRestore();
+      restoreViewport();
+    }
+  });
+});

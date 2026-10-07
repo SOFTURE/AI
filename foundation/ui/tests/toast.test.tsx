@@ -78,3 +78,18 @@ describe("ToastHost", () => {
     expect(region.textContent).toBe("");
   });
 });
+
+describe("ToastHost regionProps (#163)", () => {
+  it("forwards an id and data attributes to the live region", () => {
+    const html = renderToStaticMarkup(<ToastHost regionProps={{ id: "toasts", "data-testid": "toast-region" }} />);
+    expect(html).toMatch(/^<div role="status" aria-live="polite" aria-atomic="true" id="toasts" data-testid="toast-region" class="/);
+  });
+
+  it("keeps the region's role and live-region attributes its own", () => {
+    // @ts-expect-error role is not a region prop
+    const html = renderToStaticMarkup(<ToastHost regionProps={{ role: "alert", "data-x": "1" }} />);
+    expect(html).toContain('role="status"');
+    expect(html).not.toContain('role="alert"');
+    expect(html).toContain('data-x="1"');
+  });
+});
