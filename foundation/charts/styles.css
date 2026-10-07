@@ -103,6 +103,60 @@
     stroke-dasharray: 8 4;
   }
 
+  .sft-chart-guide-solid {
+    stroke-dasharray: none;
+  }
+
+  /* Line tones (ChartTone): each sets --sft-chart-tone; .sft-chart-stroke-tone draws in it. */
+  .sft-chart-tone-cursor {
+    --sft-chart-tone: var(--sft-chart-cursor);
+  }
+
+  .sft-chart-tone-axis {
+    --sft-chart-tone: var(--sft-chart-axis);
+  }
+
+  .sft-chart-tone-grid {
+    --sft-chart-tone: var(--sft-chart-grid);
+  }
+
+  .sft-chart-tone-flag {
+    --sft-chart-tone: var(--sft-chart-flag);
+  }
+
+  .sft-chart-tone-foreground {
+    --sft-chart-tone: var(--sft-color-foreground);
+  }
+
+  .sft-chart-tone-muted {
+    --sft-chart-tone: var(--sft-color-muted);
+  }
+
+  .sft-chart-tone-accent {
+    --sft-chart-tone: var(--sft-color-accent);
+  }
+
+  .sft-chart-tone-danger {
+    --sft-chart-tone: var(--sft-color-danger);
+  }
+
+  .sft-chart-tone-success {
+    --sft-chart-tone: var(--sft-color-success);
+  }
+
+  .sft-chart-tone-warning {
+    --sft-chart-tone: var(--sft-color-warning);
+  }
+
+  /* After the line classes, so a tone or a series slot on a grid, baseline or guide wins over its default. */
+  .sft-chart-stroke-tone {
+    stroke: var(--sft-chart-tone);
+  }
+
+  .sft-chart-stroke-series {
+    stroke: var(--sft-chart-series);
+  }
+
   /* Series colour slots: every part of a series reads --sft-chart-series. */
   .sft-chart-series-1 {
     --sft-chart-series: var(--sft-chart-series-1);
@@ -161,6 +215,15 @@
     white-space: nowrap;
   }
 
+  .sft-chart-time-axis-two-rows {
+    min-height: calc(var(--sft-text-xs) * 3);
+  }
+
+  /* The second row under a label: an age under a year, a unit under a value. */
+  .sft-chart-time-sublabel {
+    display: block;
+  }
+
   .sft-chart-align-center {
     transform: translateX(-50%);
   }
@@ -189,10 +252,31 @@
     white-space: nowrap;
   }
 
+  .sft-chart-flag-free {
+    position: static;
+  }
+
+  .sft-chart-flag-ink {
+    background: var(--sft-color-foreground);
+    color: var(--sft-color-background);
+  }
+
+  .sft-chart-flag-outline {
+    border: var(--sft-chart-grid-width) solid var(--sft-chart-axis);
+    background: var(--sft-color-surface);
+    color: var(--sft-color-foreground);
+  }
+
+  .sft-chart-flag-sm {
+    padding: 0 var(--sft-space-1);
+    font-size: calc(var(--sft-text-xs) * 0.9);
+  }
+
   /* Pins: a dashed line from the bottom up to a point and a dot on it, in the overlay. */
   .sft-chart-pin {
     position: absolute;
     top: 0;
+    left: 0;
     bottom: 0;
     width: 0;
     pointer-events: none;
@@ -226,6 +310,24 @@
 
   .sft-chart-pin-dot[class*="sft-chart-series-"] {
     background: var(--sft-chart-series);
+  }
+
+  .sft-chart-pin-dot-ink {
+    background: var(--sft-color-foreground);
+  }
+
+  .sft-chart-pin-dot-ring-surface {
+    border-color: var(--sft-color-surface);
+  }
+
+  .sft-chart-pin-dot-sm {
+    width: calc(var(--sft-chart-dot-size) * 0.8);
+    height: calc(var(--sft-chart-dot-size) * 0.8);
+  }
+
+  .sft-chart-pin-dot-lg {
+    width: calc(var(--sft-chart-dot-size) * 1.25);
+    height: calc(var(--sft-chart-dot-size) * 1.25);
   }
 
   /* Legend. */

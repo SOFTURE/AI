@@ -3,7 +3,7 @@
 import type { DeepPartial, Locale } from "@softure-ai/core";
 import { useState, useSyncExternalStore } from "react";
 import type { UiMessages } from "../messages/index.js";
-import { applyThemeChoice, parseThemeCookie, THEME_CHOICES, type ThemeChoice, type ThemeCookieValues } from "../theme/theme-cookie.js";
+import { applyThemeChoice, getThemeCookieDomain, parseThemeCookie, THEME_CHOICES, type ThemeChoice, type ThemeCookieValues } from "../theme/theme-cookie.js";
 import { resolveTheme } from "../theme/resolve-theme.js";
 import { getThemeColors } from "../theme/theme-css.js";
 import type { SoftureTheme } from "../theme/tokens.js";
@@ -24,13 +24,27 @@ export interface ThemeSwitchProps {
   readonly cookieName?: string;
   /** The values stored for each choice; `{ light: "light", dark: "dark" }` by default. */
   readonly cookieValues?: ThemeCookieValues;
-  /** Cookie `Domain`, to share the choice across subdomains. */
-  readonly cookieDomain?: string;
+  /**
+   * Cookie `Domain`, to share the choice across subdomains: a fixed domain; a function of the current hostname,
+   * called on each change (`null` or `undefined` keeps the cookie host-only); or `{ apex }`, resolved with
+   * `getThemeCookieDomain`, the form a server component can pass (a function cannot cross to the client).
+   */
+  readonly cookieDomain?: ThemeCookieDomain;
   /** The theme in use, for the browser bar colour. */
   readonly theme?: SoftureTheme;
   /** The `design.json` value given to `SoftureThemeProvider`, applied before `theme`. */
   readonly design?: unknown;
   readonly onChange?: (choice: ThemeChoice) => void;
+}
+
+/** Where the theme cookie is shared: a domain, a function of the hostname, or an apex to share with its subdomains. */
+export type ThemeCookieDomain = string | ((hostname: string) => string | null | undefined) | { readonly apex: string };
+
+/** The cookie domain for the page's current host. */
+function resolveCookieDomain(cookieDomain: ThemeCookieDomain | undefined, hostname: string): string | null | undefined {
+  if (cookieDomain === undefined || typeof cookieDomain === "string") return cookieDomain;
+  if (typeof cookieDomain === "function") return cookieDomain(hostname);
+  return getThemeCookieDomain(hostname, cookieDomain.apex);
 }
 
 function subscribeNever(): () => void {
@@ -71,7 +85,7 @@ export function ThemeSwitch({
     applyThemeChoice(next, {
       cookieName,
       cookieValues,
-      domain: cookieDomain,
+      domain: resolveCookieDomain(cookieDomain, window.location.hostname),
       themeColors: getThemeColors(resolveTheme({ theme, design }, "ThemeSwitch")),
     });
     setPicked(next);

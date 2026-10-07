@@ -1,15 +1,20 @@
 // The generic chart primitives; app-specific labels and rows stay in the app. Oracles are written by hand.
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
+  Baseline,
   ChartFlag,
   ChartPin,
   ChartPlot,
   edgeAlign,
+  GridLines,
   GuideLine,
   LegendSwatch,
   linearScale,
   linePath,
+  numberAxisTicks,
   percent,
   PLOT_HEIGHT,
   PLOT_WIDTH,
@@ -221,5 +226,191 @@ describe("plot", () => {
   it("percent in style keeps at most two decimals", () => {
     expect(percent(33.333333)).toBe("33.33%");
     expect(percent(50)).toBe("50%");
+  });
+});
+
+describe("line options (issue #197)", () => {
+  it("keep today's markup without options", () => {
+    const html = renderToStaticMarkup(
+      <svg>
+        <GridLines ys={[100]} />
+        <Baseline />
+      </svg>,
+    );
+    expect(html).toBe(
+      '<svg><line class="sft-chart-grid" x1="0" y1="100" x2="1000" y2="100"></line><line class="sft-chart-baseline" x1="0" y1="400" x2="1000" y2="400"></line></svg>',
+    );
+  });
+
+  it("a guide takes a tone, a width, an opacity, a class and data attributes, keeping its package classes", () => {
+    const html = renderToStaticMarkup(
+      <svg>
+        <GuideLine x={10} y2={100} tone="accent" strokeWidth={1.5} opacity={0.6} className="app-guide" data-testid="exit-guide" />
+      </svg>,
+    );
+    expect(html).toContain(
+      '<line data-testid="exit-guide" class="sft-chart-guide sft-chart-guide-dashed sft-chart-tone-accent sft-chart-stroke-tone app-guide" style="stroke-width:1.5;stroke-opacity:0.6" x1="10" y1="0" x2="10" y2="100"></line>',
+    );
+  });
+
+  it("a guide in a series colour, solid, with an app colour in style", () => {
+    const series = renderToStaticMarkup(
+      <svg>
+        <GuideLine x={10} slot={3} pattern="solid" />
+      </svg>,
+    );
+    expect(series).toContain('class="sft-chart-guide sft-chart-guide-solid sft-chart-series-3 sft-chart-stroke-series"');
+    const custom = renderToStaticMarkup(
+      <svg>
+        <GuideLine x={10} style={{ stroke: "var(--app-position-colour)" }} />
+      </svg>,
+    );
+    expect(custom).toContain('class="sft-chart-guide sft-chart-guide-dashed" style="stroke:var(--app-position-colour)"');
+  });
+
+  it("grid lines take an opacity and a tone on every line", () => {
+    const html = renderToStaticMarkup(
+      <svg>
+        <GridLines ys={[100, 200]} opacity={1} tone="muted" data-surface="dark" />
+      </svg>,
+    );
+    expect(html.match(/<line data-surface="dark" class="sft-chart-grid sft-chart-tone-muted sft-chart-stroke-tone" style="stroke-opacity:1"/g)).toHaveLength(2);
+  });
+
+  it("a series line takes a width and a class", () => {
+    const html = renderToStaticMarkup(
+      <svg>
+        <SeriesLine slot={1} strokeWidth={3} className="app-draw" points={[{ x: 0, y: 0 }]} />
+      </svg>,
+    );
+    expect(html).toContain('<path class="sft-chart-line sft-chart-series-1 app-draw" style="stroke-width:3" d="M0 0"></path>');
+  });
+});
+
+describe("flag and pin options (issue #197)", () => {
+  it("a flag takes a variant, a size, a class, a style and data attributes", () => {
+    expect(
+      renderToStaticMarkup(
+        <ChartFlag xPercent={50} variant="ink" size="sm" className="app-flag" style={{ bottom: "2rem" }} data-event="exit">
+          Exit
+        </ChartFlag>,
+      ),
+    ).toBe('<span data-event="exit" class="sft-chart-flag sft-chart-align-center sft-chart-flag-ink sft-chart-flag-sm app-flag" style="left:50%;bottom:2rem">Exit</span>');
+  });
+
+  it("a flag without a position is left to its parent", () => {
+    expect(renderToStaticMarkup(<ChartFlag variant="outline">Exit</ChartFlag>)).toBe('<span class="sft-chart-flag sft-chart-flag-free sft-chart-flag-outline">Exit</span>');
+  });
+
+  it("a pin takes a variant, a size, a ring, a class and data attributes; without x the parent places it", () => {
+    expect(renderToStaticMarkup(<ChartPin yPercent={30} variant="ink" size="sm" ring="surface" className="app-pin" data-event="exit" />)).toBe(
+      '<span data-event="exit" class="sft-chart-pin app-pin" aria-hidden="true">' +
+        '<span class="sft-chart-pin-line" style="height:30%"></span>' +
+        '<span class="sft-chart-pin-dot sft-chart-pin-dot-ink sft-chart-pin-dot-sm sft-chart-pin-dot-ring-surface" style="bottom:30%"></span>' +
+        "</span>",
+    );
+  });
+});
+
+describe("numeric axis ticks (issue #197)", () => {
+  // A month-index domain: 0 (now) to 480 (40 years on).
+  const xScale = linearScale({ domain: [0, 480], range: [0, PLOT_WIDTH] });
+  const months = [48, 168, 288, 408];
+  const year = (month: number) => String(2026 + month / 12);
+
+  it("label the ends at the edges, drop ticks near them and keep the rest minor", () => {
+    const ticks = numberAxisTicks({ ticks: months, scale: xScale, format: year, ends: [0, 480] });
+    // 48 is at 10 %, inside the 12 % margin: dropped. 168, 288 and 408 are at 35, 60 and 85 %.
+    expect(ticks).toEqual([
+      { key: "start", label: "2026", xPercent: 0, align: "start" },
+      { key: 168, label: "2040", xPercent: 35, align: "center", minor: true },
+      { key: 288, label: "2050", xPercent: 60, align: "center", minor: true },
+      { key: 408, label: "2060", xPercent: 85, align: "center", minor: true },
+      { key: "end", label: "2066", xPercent: 100, align: "end" },
+    ]);
+  });
+
+  it("carry a second row from sublabel, on the edges too", () => {
+    const ticks = numberAxisTicks({ ticks: months, scale: xScale, format: year, ends: [0, 480], sublabel: (month) => String(36 + month / 12) });
+    expect(ticks.map((tick) => [tick.label, tick.sublabel])).toEqual([
+      ["2026", "36"],
+      ["2040", "50"],
+      ["2050", "60"],
+      ["2060", "70"],
+      ["2066", "76"],
+    ]);
+  });
+
+  it("narrow: alternate keeps every other middle label, hiding the one next to the start label", () => {
+    const ticks = numberAxisTicks({ ticks: months, scale: xScale, format: year, ends: [0, 480], narrow: "alternate" });
+    expect(ticks.map((tick) => [tick.label, tick.minor ?? false])).toEqual([
+      ["2026", false],
+      ["2040", true],
+      ["2050", false],
+      ["2060", true],
+      ["2066", false],
+    ]);
+  });
+
+  it("narrow: all hides nothing, and without ends alternate keeps the first", () => {
+    const all = numberAxisTicks({ ticks: months, scale: xScale, format: year, ends: [0, 480], narrow: "all" });
+    expect(all.some((tick) => tick.minor === true)).toBe(false);
+    const alternate = numberAxisTicks({ ticks: months, scale: xScale, format: year, narrow: "alternate" });
+    expect(alternate.map((tick) => tick.minor ?? false)).toEqual([false, true, false, true]);
+    const edges = numberAxisTicks({ ticks: months, scale: xScale, format: year, narrow: "edges" });
+    expect(edges.map((tick) => tick.minor ?? false)).toEqual([true, true, true, true]);
+  });
+
+  it("the time axis takes the same sublabel and narrow options", () => {
+    const start = new Date("2026-01-01T00:00:00Z");
+    const end = new Date("2066-01-01T00:00:00Z");
+    const timeX = timeScale({ domain: [start, end], range: [0, PLOT_WIDTH] });
+    const ticks = timeAxisTicks({
+      ticks: [new Date("2046-01-01T00:00:00Z")],
+      unit: "year",
+      scale: timeX,
+      locale: "en-US",
+      timeZone: "UTC",
+      ends: [start, end],
+      narrow: "all",
+      sublabel: (date) => String(date.getUTCFullYear() - 1990),
+    });
+    expect(ticks.map((tick) => [tick.label, tick.sublabel, tick.minor ?? false])).toEqual([
+      ["2026", "36", false],
+      ["2046", "56", false],
+      ["2066", "76", false],
+    ]);
+  });
+
+  it("the axis renders a sublabel as a second row and reserves two rows", () => {
+    const html = renderToStaticMarkup(<TimeAxis ticks={[{ key: "a", label: "2026", sublabel: "36", xPercent: 0, align: "start" }]} />);
+    expect(html).toBe(
+      '<div aria-hidden="true" class="sft-chart-time-axis sft-chart-time-axis-two-rows"><span class="sft-chart-time-label sft-chart-align-start" style="left:0%">2026<span class="sft-chart-time-sublabel">36</span></span></div>',
+    );
+  });
+});
+
+describe("styles.css (issue #197)", () => {
+  const styles = readFileSync(join(import.meta.dirname, "../styles.css"), "utf8");
+
+  it("styles every class the new options emit", () => {
+    const tones = ["cursor", "axis", "grid", "flag", "foreground", "muted", "accent", "danger", "success", "warning"].map((tone) => `sft-chart-tone-${tone}`);
+    const classes = [
+      ...tones,
+      "sft-chart-stroke-tone",
+      "sft-chart-stroke-series",
+      "sft-chart-guide-solid",
+      "sft-chart-flag-free",
+      "sft-chart-flag-ink",
+      "sft-chart-flag-outline",
+      "sft-chart-flag-sm",
+      "sft-chart-pin-dot-ink",
+      "sft-chart-pin-dot-sm",
+      "sft-chart-pin-dot-lg",
+      "sft-chart-pin-dot-ring-surface",
+      "sft-chart-time-axis-two-rows",
+      "sft-chart-time-sublabel",
+    ];
+    for (const name of classes) expect(styles, name).toMatch(new RegExp(`\\.${name} \\{`));
   });
 });
