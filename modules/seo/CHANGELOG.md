@@ -12,6 +12,7 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   Names the module writes itself (`User-agent`, `Allow`, `Disallow`, `Sitemap`) and values with a line break are
   refused at start-up. `RobotsRule` has the matching `other` field (Next's shape).
 - README: signing IndexNow requests (e.g. web-bot-auth) through `submitToIndexNow`'s `fetchImpl`.
+- The package tarball ships `CHANGELOG.md`; the README drops a stale status line.
 
 ## 0.1.5
 
