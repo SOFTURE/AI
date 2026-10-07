@@ -605,3 +605,24 @@ export function findArticleBlocks(markdown: string, plugins: readonly BlockPlugi
     return [{ type: meta.type, syntax: meta.syntax, info: meta.info, attributes: meta.attributes, line: (token.map?.[0] ?? 0) + 1, requires }];
   });
 }
+
+/**
+ * The text with each plugin block that has a Markdown form (`BlockPlugin.markdown`) replaced by it;
+ * other blocks keep their source. For agents that read the article as Markdown.
+ */
+export function replaceArticleBlocks(markdown: string, plugins: readonly BlockPlugin[], article: BlockArticle = {}): string {
+  if (!plugins.some((plugin) => plugin.markdown !== undefined)) return markdown;
+  const byType = getPluginsByType(plugins);
+  const md = createMarkdown({ blocks: plugins }, byType, { headings: [], linkedTerms: [] });
+  const lines = markdown.split("\n");
+  const blocks = md.parse(markdown, {}).filter((token) => token.type === BLOCK_TOKEN && token.map !== null);
+  for (const token of blocks.reverse()) {
+    const meta = readBlockMeta(token);
+    const plugin = byType.get(getPluginKey(meta.syntax, meta.type));
+    const [start = 0, end = start] = token.map ?? [];
+    if (plugin?.markdown === undefined) continue;
+    const replacement = plugin.markdown({ ...meta, content: token.content, article });
+    lines.splice(start, end - start, ...replacement.split("\n"));
+  }
+  return lines.join("\n");
+}

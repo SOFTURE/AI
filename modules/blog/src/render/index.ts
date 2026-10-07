@@ -11,12 +11,14 @@ export {
   type ImageProblem,
   type ImageVerdict,
 } from "./images.js";
+export { toArticleMarkdown, type ArticleMarkdownInput, type ArticleMarkdownOptions } from "./article-markdown.js";
 export { DEFAULT_WORDS_PER_MINUTE, getReadingMinutes } from "./reading-time.js";
 export {
   findArticleBlocks,
   parseDirectiveAttributes,
   parseDirectiveLine,
   renderArticle,
+  replaceArticleBlocks,
   type ArticleBlock,
   type BlockAttributes,
   type BlockSyntax,
