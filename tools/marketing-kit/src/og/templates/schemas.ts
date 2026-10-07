@@ -63,3 +63,38 @@ export const headlineChartDataSchema = z.strictObject({
 
 export type HeadlineCtaData = z.output<typeof headlineCtaDataSchema>;
 export type HeadlineChartData = z.output<typeof headlineChartDataSchema>;
+
+/*
+ * The portrait templates are written for a 1080×1350 post and scale by the limiting side, so their limits hold at
+ * every size: copy at the limits stays inside the frame (tests/og/portrait-fit.test.ts renders it and checks).
+ */
+
+const source = line(80).optional().describe('Where the figures come from, drawn small at the bottom, e.g. "Source: ZUS, 2026"; at most 80 characters.');
+const portraitCta = line(32).optional().describe("A call to action, drawn as a pill in the cta colours at the bottom; at most 32 characters.");
+
+export const bigNumberDataSchema = z.strictObject({
+  eyebrow,
+  number: line(12).describe('The figure that fills the post, unit included, e.g. "898 PLN"; at most 12 characters. Shorter numbers get bigger type.'),
+  caption: line(90).describe("The sentence that says what the number is, under it; at most 90 characters."),
+  tiles: z.array(tileSchema).max(2, "at most two tiles fit").default([]).describe("Up to two label and value tiles under the caption, e.g. a second figure."),
+  cta: portraitCta,
+  source,
+});
+
+const slideSchema = z.strictObject({
+  eyebrow,
+  headline: line(90).describe("The slide's headline, at most 90 characters."),
+  body: line(200).optional().describe("A paragraph under the headline, at most 200 characters."),
+  tiles: z.array(tileSchema).max(2, "at most two tiles fit").default([]).describe("Up to two label and value tiles side by side."),
+  cta: portraitCta,
+  source,
+});
+
+export const carouselDataSchema = z.strictObject({
+  slides: z.array(slideSchema).min(2, "a carousel needs at least two slides").max(10, "at most ten slides").describe("The slides in order, two to ten; each renders to its own file <id>-<n>.png."),
+  counter: z.boolean().default(true).describe('Draws "n/N" in the top corner of every slide.'),
+});
+
+export type BigNumberData = z.output<typeof bigNumberDataSchema>;
+export type CarouselData = z.output<typeof carouselDataSchema>;
+export type CarouselSlide = CarouselData["slides"][number];
