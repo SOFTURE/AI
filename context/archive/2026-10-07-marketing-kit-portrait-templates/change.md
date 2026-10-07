@@ -1,11 +1,12 @@
 ---
 change_id: marketing-kit-portrait-templates
 title: "Portrait social templates in marketing-kit: a big number and a carousel slide"
-status: plan_reviewed
+status: archived
 roadmap_item: MK-12
 branch: claude/project-thread-b533bx
 created: 2026-10-07
 updated: 2026-10-07
+archived_at: 2026-10-07
 ---
 
 ## Intent
@@ -49,3 +50,6 @@ taller frame adds only empty bands and a 1080-wide portrait draws the copy 10% s
 - Research done ([`research.md`](research.md)).
 - Framing skipped: the problem, its cause in the code and the wanted outcome are measured and stated in the issue;
   what remains are design choices (carousel shape, size presets, a source line), settled in research and the plan.
+- Archived 2026-10-07: `big-number` and `carousel` portrait templates, `size` presets, one file per carousel slide,
+  an optional source line; `headline-cta` and `headline-chart` unchanged byte for byte. marketing-kit 0.1.8 waits for
+  the owner's release. Closes issue #150.

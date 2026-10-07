@@ -63,5 +63,5 @@ Done when: gates green (typecheck, lint, test, build).
 
 ## Progress
 
-- [ ] Phase 1: portrait templates and slides in the renderer
-- [ ] Phase 2: config, CLI, docs
+- [x] Phase 1: portrait templates and slides in the renderer — b039894
+- [x] Phase 2: config, CLI, docs — 268498e
