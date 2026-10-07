@@ -1,6 +1,6 @@
 ---
 change_id: marketing-kit-sentence-screen-guard
-status: plan_reviewed
+status: done
 updated: 2026-10-07
 ---
 
@@ -78,15 +78,15 @@ Done when: gates green; CI green on the pull request (including the render job).
 ### Phase 1: the per-sentence guard
 
 #### Automated
-- [ ] 1.1 Helper and schema tests fail first, then pass
-- [ ] 1.2 Fixture film records with a sentence-level phrase (render test, local)
-- [ ] 1.3 Gates green (typecheck, lint, test)
+- [x] 1.1 Helper and schema tests fail first, then pass — 38775e8
+- [x] 1.2 Fixture film records with a sentence-level phrase (render test, local) — cfc10ae (verified by agent: `record` of the three fixture films in Chromium, see the impl review)
+- [x] 1.3 Gates green (typecheck, lint, test) — 38775e8
 
 #### Manual
-- [ ] 1.4 A missing sentence phrase stops `record` with exit code 2 naming the sentence
+- [x] 1.4 A missing sentence phrase stops `record` with exit code 2 naming the sentence — cfc10ae (verified by agent: fixture with an absent phrase, exit 2)
 
 ### Phase 2: docs and version
 
 #### Automated
-- [ ] 2.1 README and version 0.1.9
-- [ ] 2.2 Gates green (typecheck, lint, test)
+- [x] 2.1 README and version 0.1.9 — cfc10ae
+- [x] 2.2 Gates green (typecheck, lint, test) — cfc10ae

@@ -1,13 +1,13 @@
 ---
 change_id: marketing-kit-sentence-screen-guard
 title: "A film's screen guard can prove each number was on screen when the voiceover said it"
-status: plan_reviewed
+status: archived
 roadmap_item: none
 issue: "#176"
 branch: claude/project-thread-y0iqd3
 created: 2026-10-07
 updated: 2026-10-07
-archived_at: null
+archived_at: 2026-10-07
 ---
 
 ## Intent
