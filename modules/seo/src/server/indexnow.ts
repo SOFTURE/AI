@@ -45,6 +45,7 @@ export interface SubmitToIndexNowOptions {
   readonly keyPath: string;
   /** Sends the request only when `true`; otherwise returns the request as a dry run. */
   readonly commit?: boolean;
+  /** The fetch that sends the request; pass a signing fetch here when the app signs requests (e.g. web-bot-auth). */
   readonly fetchImpl?: typeof fetch;
   readonly timeoutMs?: number;
   readonly endpoint?: string;
