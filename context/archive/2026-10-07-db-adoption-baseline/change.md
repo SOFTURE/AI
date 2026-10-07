@@ -1,12 +1,13 @@
 ---
 change_id: db-adoption-baseline
 title: "Adoption baselines and dependency-first adoption"
-status: plan_reviewed
+status: archived
 roadmap_item: null
 issue: 152
 branch: claude/project-thread-f8j2qr
 created: 2026-10-07
 updated: 2026-10-07
+archived_at: 2026-10-07
 ---
 
 ## Intent

@@ -75,11 +75,11 @@ Done when: `npm run typecheck|lint|test|build` green; repo tests (links) green.
 ### Phase 1: baseline in migrate and plan, `through` and dependency-first adopt
 
 #### Automated
-- [ ] 1.1 Baseline, through and dependency tests seen red, then green
-- [ ] 1.2 migrate, planMigrations, adoptModule, CLI and createTestDatabase carry the baseline
+- [x] 1.1 Baseline, through and dependency tests seen red, then green — 416869f
+- [x] 1.2 migrate, planMigrations, adoptModule, CLI and createTestDatabase carry the baseline — 416869f
 
 ### Phase 2: docs
 
 #### Automated
-- [ ] 2.1 README, docs/02, docs/05
-- [ ] 2.2 Gates green (typecheck, lint, test, build)
+- [x] 2.1 README, docs/02, docs/05 — fec03e9
+- [x] 2.2 Gates green (typecheck, lint, test, build) — fec03e9
