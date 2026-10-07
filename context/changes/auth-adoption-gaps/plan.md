@@ -99,8 +99,8 @@ yet), `modules/auth/README.md`, `modules/auth/CHANGELOG.md`; the version commit 
 ### Phase 1: logout target, trusted origins, docs
 
 #### Automated
-- [ ] 1.1 New tests fail before the implementation and pass after
-- [ ] 1.2 Gates green (typecheck, lint, test, build)
+- [x] 1.1 New tests fail before the implementation and pass after — 33cb513 (13 red before, all green after)
+- [x] 1.2 Gates green (typecheck, lint, test, build) — 33cb513 (npm test: 4516 passed, 107 skipped)
 
 #### Manual
-- [ ] 1.3 The Vitest note in the README is true
+- [x] 1.3 The Vitest note in the README is true — 33cb513 (verified by agent: scratch Vitest project, fails without the setting, passes with it)

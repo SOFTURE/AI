@@ -1,7 +1,7 @@
 ---
 change_id: auth-adoption-gaps
 title: "Logout returns to a chosen path, the route guard stays on a trusted request origin, and Vitest setup is documented"
-status: plan_reviewed
+status: impl_reviewed
 roadmap_item: null
 issue: "#193"
 branch: claude/project-thread-1b21pb
