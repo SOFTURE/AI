@@ -30,6 +30,10 @@ npm run build          # tsc builds of every workspace package, in dependency or
   parallel (a Markdown-only commit skips typecheck and lint); `commit-msg` runs the language gate
   on the message; `pre-push` runs `npm test`.
 - Never `--no-verify`. A red hook is a red gate: fix the cause.
+- `npm test` must pass on macOS with its own tools, since it is the pre-push hook there too. The shell scripts the
+  tests run (the deploy workflow's steps, `deploy.sh`, the deploy e2e scripts) stay within bash 3.2 and flags that
+  both BSD and GNU tools accept: no associative arrays, no `${var,,}`, no GNU-only long options. The `macos` job of
+  `ci.yml` runs those tests with the system tools first in `PATH`.
 - `.github/workflows/ci.yml` runs the same gates (static, test, build) on every pull request, every push to
   master and on demand; `e2e.yml` the same, skipping documents-only changes. Not on every pushed branch:
   with a pull request open, that would run each suite twice.
