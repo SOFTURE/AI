@@ -79,7 +79,8 @@ already exported, see D7).
 - **D10 (point 10)** a per-locale `Map` of `Intl.PluralRules`; test counts constructor calls.
 - **D11 (point 11)** a repository test: every `@softure-ai/<module>` in a module's `dependencies` or
   `peerDependencies` appears in its `dependsOn` (required or `?`). Manifests: auth `ops ?`, `mailing ?`; billing
-  `ops ?`, `mailing ?`; waitlist `auth`.
+  `ops ?`, `mailing ?`; waitlist `auth`; analytics `security ?` (found by the new test: it uses security's body
+  reader as a library only).
 - **D12 (point 12)** `CHANGELOG.md` in every workspace package and the template, listed in `files`; the package test
   requires both. Format: newest version first, `## <version>` with bullets; the current unreleased version names
   this change's items; earlier history points at GitHub Releases. docs/05 "Definition of done" names the note
@@ -144,8 +145,8 @@ Done when: gates green (typecheck, lint, test, build).
 ### Phase 2: feature-switches, core, manifests
 
 #### Automated
-- [ ] 2.1 Switch, core and manifest tests seen red, then green
-- [ ] 2.2 Gates green (typecheck, lint, test)
+- [x] 2.1 Switch, core and manifest tests seen red, then green — fb308bf
+- [x] 2.2 Gates green (typecheck, lint, test) — fb308bf
 
 ### Phase 3: deploy
 
