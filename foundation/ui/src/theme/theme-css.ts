@@ -30,7 +30,20 @@ export interface BuildThemeCssOptions {
    * unlayered, it would beat the layered dark defaults in dark mode.
    */
   readonly fallback?: boolean;
+  /**
+   * Extra selectors that always take one scheme, whatever the page theme: a section of a light page
+   * drawn dark (`{ dark: [".section-dark"] }`). Each gets that scheme's complete tokens, the defaults
+   * merged with `theme`, since the section must not inherit a single colour from the page around it.
+   */
+  readonly schemeScopes?: SchemeScopes;
 }
+
+/** Selectors per scheme for `schemeScopes`. */
+export type SchemeScopes = Readonly<Partial<Record<ColorScheme, readonly string[]>>>;
+
+// A scope selector lands in a `<style>` element as a rule's prelude: no block, statement, element
+// or comment may start inside it.
+const UNSAFE_SELECTOR = /[;{}<>\\\r\n]|\/\*/;
 
 const SCHEME_SELECTORS: Record<ColorScheme, { attribute: string; media: string }> = {
   light: {
@@ -67,7 +80,22 @@ export function buildThemeCss(theme: SoftureTheme, options: BuildThemeCssOptions
     blocks.push(writeRule(selectors.attribute, withScheme));
     blocks.push(`${writeRule(selectors.media, withScheme)}\n}`);
   }
+  for (const scheme of ["light", "dark"] as const) {
+    const scopes = readScopes(options.schemeScopes?.[scheme], scheme);
+    if (scopes.length === 0) continue;
+    const complete = readDeclarations({ ...DEFAULT_THEME[scheme], ...theme[scheme] }, SCHEME_TOKENS, scheme);
+    blocks.push(writeRule(scopes.join(",\n"), [`color-scheme: ${scheme};`, ...complete]));
+  }
   return blocks.join("\n");
+}
+
+function readScopes(selectors: readonly string[] | undefined, scheme: ColorScheme): readonly string[] {
+  for (const selector of selectors ?? []) {
+    if (selector.trim() === "" || UNSAFE_SELECTOR.test(selector)) {
+      throw new TypeError(`Scheme scope selector (${scheme}) is empty or unsafe: ${JSON.stringify(selector)}`);
+    }
+  }
+  return selectors ?? [];
 }
 
 /** Several themes into one; later themes win per token. */

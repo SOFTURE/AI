@@ -8,7 +8,7 @@ describe("token contract", () => {
     for (const name of names) expect(name).toMatch(/^[a-z][a-z0-9]*(-[a-z0-9]+)*$/);
   });
 
-  it("covers the docs/02 colour roles plus border-strong and accent-fill-hover", () => {
+  it("covers the docs/02 colour roles plus border-strong, accent-fill-hover and overlay", () => {
     const colors = SCHEME_TOKENS.filter((name) => name.startsWith("color-")).map((name) => name.slice(6));
     expect(colors.sort()).toEqual(
       [
@@ -23,6 +23,7 @@ describe("token contract", () => {
         "foreground",
         "muted",
         "on-accent",
+        "overlay",
         "success",
         "surface",
         "surface-raised",

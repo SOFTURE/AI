@@ -1,5 +1,4 @@
-// FIRE_TRACKER's chart-primitives.test.tsx, ported to the generic components: the PLN labels, the age
-// row and the FIRE-path guards stay in FIRE. Oracles are written by hand.
+// The generic chart primitives; app-specific labels and rows stay in the app. Oracles are written by hand.
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
@@ -65,7 +64,7 @@ describe("value axis", () => {
     ]);
   });
 
-  it("with zero and five labels keeps zero, the middle and the top (FIRE RD-12, F3)", () => {
+  it("with zero and five labels keeps zero, the middle and the top", () => {
     const html = renderToStaticMarkup(
       <ValueAxis ticks={[0, 1, 2, 3, 4].map((n) => ({ key: n, label: `${String(n)}M`, fromBottomPercent: n * 25 }))} />,
     );
@@ -77,7 +76,7 @@ describe("value axis", () => {
     expect(html).not.toContain("sft-chart-minor");
   });
 
-  it("places labels by height and leaves positioning to the parent (FIRE RD-5, F1)", () => {
+  it("places labels by height and leaves positioning to the parent", () => {
     const html = renderToStaticMarkup(<ValueAxis className="app-axis" ticks={[{ key: 1, label: "1", fromBottomPercent: 50 }]} />);
     expect(html).toBe('<div aria-hidden="true" class="sft-chart-value-axis app-axis"><span class="sft-chart-value-label" style="bottom:50%">1</span></div>');
   });

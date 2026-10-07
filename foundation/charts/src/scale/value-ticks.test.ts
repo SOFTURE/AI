@@ -1,7 +1,6 @@
-// Ported from FIRE_TRACKER `chart-ticks.test.ts`. The oracle is a table written by hand, not a
-// second implementation of the step choice (L-053): each row is the answer a person gives looking
-// at the peak ("which round lines go under 2.8 million"). FIRE counted in cents with a 1 PLN
-// minimum step; here the unit is the caller's, so the values are in whole PLN with `minStep: 1`.
+// The oracle is a table written by hand, not a second implementation of the step choice: each row
+// is the answer a person gives looking at the peak ("which round lines go under 2.8 million"). The
+// unit is the caller's; the values here are whole currency units with `minStep: 1`.
 import { describe, expect, it } from "vitest";
 import { valueTicks, yearTicks } from "./value-ticks.js";
 
@@ -33,7 +32,7 @@ describe("valueTicks: round steps under the peak", () => {
   });
 
   it("draws no tick when the peak is below the minimum step", () => {
-    // FIRE: a peak of 0.50 PLN drew no "0 PLN" lines.
+    // A peak of 0.50 currency units must draw no "0" lines.
     expect(valueTicks(0.5, 4, WHOLE_UNITS)).toEqual([]);
   });
 
@@ -54,5 +53,21 @@ describe("yearTicks: round years on a time axis", () => {
 
   it("returns no ticks for a zero span", () => {
     expect(yearTicks(2026, 2026, 4)).toEqual([]);
+  });
+});
+
+describe("valueTicks below zero", () => {
+  it("adds round ticks under zero on the step chosen for the whole span", () => {
+    expect(valueTicks(3_000, 4, { min: -1_000 })).toEqual([-1_000, 1_000, 2_000, 3_000]);
+    expect(valueTicks(100, 5, { min: -250 })).toEqual([-200, -100, 100]);
+  });
+
+  it("works with no value above zero", () => {
+    expect(valueTicks(0, 4, { min: -4_000 })).toEqual([-4_000, -3_000, -2_000, -1_000]);
+  });
+
+  it("is unchanged by a min of zero or above", () => {
+    expect(valueTicks(3_000, 4, { min: 0 })).toEqual(valueTicks(3_000, 4));
+    expect(valueTicks(3_000, 4, { min: 500 })).toEqual(valueTicks(3_000, 4));
   });
 });

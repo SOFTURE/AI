@@ -101,7 +101,7 @@ describe("simulateColorVision", () => {
   });
 
   it("collapses the red-green axis for protan and deutan but not for tritan", () => {
-    // FIRE_TRACKER measured amber #b45309 and red #b91c1c at ΔE76 6.1 under deuteranopia (RD-5).
+    // Amber #b45309 and red #b91c1c measure ΔE76 6.1 under deuteranopia.
     const deutan = colorDistance(simulateColorVision("#b45309", "deutan"), simulateColorVision("#b91c1c", "deutan"), {
       metric: "cie76",
     });

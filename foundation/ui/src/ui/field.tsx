@@ -1,10 +1,9 @@
-import { formatMessage } from "@softure-ai/core";
 import type { ReactNode } from "react";
 import { type ClassNames, createSlotClassGetter } from "./class-names.js";
-import { type CopyProps, getCopy } from "./copy.js";
-import { Hint } from "./hint.js";
+import type { CopyProps } from "./copy.js";
+import { CopyHint } from "./copy-hint.js";
 
-// Field frame and input looks; server-safe. Ported from FIRE_TRACKER src/components/ui.tsx.
+// Field frame and input looks; server-safe.
 
 /** Where a field's hint stands: under the field, or behind a "?" next to the label. */
 export type HintPlacement = "block" | "tooltip";
@@ -20,8 +19,11 @@ export type HintPlacement = "block" | "tooltip";
 export const INPUT_CLASS =
   "sft:m-0 sft:box-border sft:h-10 sft:w-full sft:rounded-control sft:border sft:border-border-strong sft:bg-surface sft:px-3 sft:font-sans sft:text-base sft:text-foreground sft:outline-none sft:transition-colors sft:duration-(--sft-duration-fast) sft:hover:border-foreground sft:focus:border-focus sft:focus:ring-1 sft:focus:ring-focus sft:sm:text-sm sft:aria-invalid:border-danger sft:aria-invalid:ring-1 sft:aria-invalid:ring-danger/40 sft:aria-invalid:hover:border-danger sft:aria-invalid:focus:border-danger sft:aria-invalid:focus:ring-2 sft:aria-invalid:focus:ring-danger/60 sft:user-invalid:border-danger sft:user-invalid:ring-1 sft:user-invalid:ring-danger/40 sft:user-invalid:hover:border-danger sft:user-invalid:focus:border-danger sft:user-invalid:focus:ring-2 sft:user-invalid:focus:ring-danger/60";
 
-/** The input look for numbers: equal-width digits, so typed amounts line up with shown ones. */
-export const NUMBER_INPUT_CLASS = `${INPUT_CLASS} sft:font-mono sft:tabular-nums sft:placeholder:font-sans`;
+/**
+ * The input look for numbers: equal-width digits, so typed amounts line up with shown ones, and a
+ * slashed zero, so 0 and O never read alike.
+ */
+export const NUMBER_INPUT_CLASS = `${INPUT_CLASS} sft:font-mono sft:tabular-nums sft:slashed-zero sft:placeholder:font-sans`;
 
 /** Extra right padding for an input that shows a unit suffix. */
 export const SUFFIX_PADDING_CLASS = "sft:pr-14";
@@ -76,7 +78,6 @@ export function Field({
 }: FieldProps) {
   const slot = createSlotClassGetter({ defaults: FIELD_CLASSES, classNames, unstyled });
   const isTooltip = hintAs === "tooltip" && hint !== undefined;
-  const copy = getCopy("field", { locale, messages });
   return (
     <div className={slot("root")}>
       <div className={slot("labelRow")}>
@@ -84,9 +85,9 @@ export function Field({
           {label}
         </label>
         {isTooltip ? (
-          <Hint label={formatMessage(copy.hintLabel, { label })} id={hintId} anchorLeft>
+          <CopyHint group="field" values={{ label }} id={hintId} locale={locale} messages={messages}>
             {hint}
-          </Hint>
+          </CopyHint>
         ) : null}
       </div>
       {children}

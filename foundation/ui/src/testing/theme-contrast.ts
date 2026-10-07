@@ -1,5 +1,5 @@
 // The both-themes contrast check: every foreground/background pair measured in the light and the dark token set.
-// Generalised from FIRE_TRACKER `src/app/theme-contrast.test.ts` (charts roadmap, CH-3): tokens come from theme
+// Generalised from an adopting app's theme contrast test (charts roadmap, CH-3): tokens come from theme
 // objects instead of a parsed stylesheet, so it checks ui's defaults, an app's override or an app's own tokens.
 import { DEFAULT_THEME, type ColorScheme, type SchemeTokenName } from "../theme/tokens.js";
 import { blendColors, type ContrastLevel, contrastRatio, type ContrastUse, parseHexColor, WCAG_CONTRAST } from "./color.js";

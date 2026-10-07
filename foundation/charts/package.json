@@ -1,10 +1,12 @@
 {
   "name": "@softure-ai/charts",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "SOFTURE AI charts: scales, ticks and nearest-point search, plus server-rendered SVG line charts with axes, legend, flags, a keyboard cursor and a data table on the --sft-chart-* tokens, plus a series palette guard for tests (./testing).",
   "license": "MIT",
   "type": "module",
-  "sideEffects": false,
+  "sideEffects": [
+    "*.css"
+  ],
   "engines": {
     "node": ">=22"
   },
@@ -41,11 +43,14 @@
     "build": "tsc -p tsconfig.build.json"
   },
   "dependencies": {
-    "@softure-ai/core": "^0.1.0",
-    "@softure-ai/ui": "^0.1.6"
+    "@softure-ai/core": "^0.1.0"
   },
   "peerDependencies": {
+    "@softure-ai/ui": "^0.1.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@softure-ai/ui": "^0.1.7"
   }
 }

@@ -1,5 +1,5 @@
 // Colour basics for the guards: hex parsing, compositing and the WCAG 2 contrast ratio.
-// Ported from FIRE_TRACKER `src/lib/color-vision.ts` (charts roadmap, CH-3).
+// Extracted from an adopting app's palette checks (charts roadmap, CH-3).
 
 /** Red, green and blue channels, 0-255. */
 export type Rgb = readonly [red: number, green: number, blue: number];

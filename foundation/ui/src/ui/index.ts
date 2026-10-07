@@ -2,6 +2,7 @@ export * from "./action-form.js";
 export * from "./amount.js";
 export * from "./button.js";
 export * from "./card.js";
+export { CardDisclosure, type CardDisclosureProps, type CardDisclosureSlot } from "./card-disclosure.js";
 export { type ClassNames, createSlotClassGetter, getSlotClass } from "./class-names.js";
 export { type CopyProps } from "./copy.js";
 export * from "./feedback.js";
@@ -18,7 +19,9 @@ export {
 export * from "./form-fields.js";
 export * from "./hint.js";
 export * from "./icons.js";
+export { UiLocaleProvider, type UiLocaleProviderProps, useUiLocale } from "./locale.js";
 export * from "./modal.js";
+export * from "./segment-classes.js";
 export * from "./segmented-control.js";
 export * from "./select.js";
 export * from "./select-keys.js";

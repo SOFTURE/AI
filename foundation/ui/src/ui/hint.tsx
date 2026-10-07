@@ -3,8 +3,6 @@
 import { type ReactNode, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { type ClassNames, createSlotClassGetter } from "./class-names.js";
 
-// Ported from FIRE_TRACKER src/components/hint.tsx.
-
 const VIEWPORT_MARGIN_PX = 8;
 // Equal to the trigger's hit area (`before:-inset-1.5`), so the pointer can move onto the bubble
 // without leaving the hint.

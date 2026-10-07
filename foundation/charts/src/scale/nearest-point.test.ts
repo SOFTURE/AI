@@ -1,15 +1,14 @@
-// Ported from FIRE_TRACKER `nearest-point.test.ts`. FIRE repeated the x scale's formula inside the
-// search; here the pixel goes through the scale's inverse, so the cursor and the drawing share one
-// mapping by construction.
+// A search that repeats the x scale's formula drifts from the drawing; here the pixel goes through
+// the scale's inverse, so the cursor and the drawing share one mapping by construction.
 import { describe, expect, it } from "vitest";
 import { nearestPointIndex } from "./nearest-point.js";
 import { linearScale, timeScale } from "./scale.js";
 
-// FIRE's geometry: width 720, padding 8, so the plot runs from 8 to 712.
+// A chart 720 wide with 8 of padding, so the plot runs from 8 to 712.
 const scaleTo = (end: number) => linearScale({ domain: [0, end], range: [8, 712] });
 const x = scaleTo(60);
 
-/** Every twelve months, as FIRE's card draws it. */
+/** Every twelve months, as a yearly chart draws it. */
 const POINTS = [0, 12, 24, 36, 48, 60].map((month) => ({ x: month, y: month * 10 }));
 
 const nearestAt = (pixel: number, points = POINTS, scale = x) => nearestPointIndex(points, scale.invert(pixel));

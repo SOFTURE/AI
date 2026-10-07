@@ -1,8 +1,7 @@
-// Ported from FIRE_TRACKER `chart-scale.test.ts`: the peak is taken over every series, and the
-// scales keep a degenerate chart finite. FIRE's stacked point (accessible + locked) is passed
-// through `getValue`, as FIRE will call it.
+// The peak is taken over every series, and the scales keep a degenerate chart finite. A stacked
+// point (two parts summed) is passed through `getValue`, as an app with stacked series calls it.
 import { describe, expect, it } from "vitest";
-import { linearScale, peakOf, timeScale, toNumber } from "./scale.js";
+import { linearScale, peakOf, timeScale, toNumber, troughOf } from "./scale.js";
 
 interface StackedPoint {
   readonly monthIndex: number;
@@ -45,7 +44,7 @@ describe("peakOf", () => {
 });
 
 describe("linearScale as a y axis", () => {
-  // FIRE's scaleY({ peak, height: 200, paddingBottom: 24 }) with its 8 px top margin.
+  // A y axis of height 200 with 24 px under the baseline and an 8 px top margin.
   const y = (peak: number) => linearScale({ domain: [0, peak], range: [200 - 24, 8] });
 
   it("puts zero on the baseline and the peak under the top edge", () => {
@@ -65,7 +64,7 @@ describe("linearScale as a y axis", () => {
 });
 
 describe("linearScale as an x axis", () => {
-  // FIRE's scaleX({ paddingLeft: 8, width: 720, horizonMonthIndex }).
+  // An x axis 720 wide with 8 of padding, over a horizon in months.
   const x = (horizon: number) => linearScale({ domain: [0, horizon], range: [8, 712] });
 
   it("divides by the stated horizon, not by the number of points", () => {
@@ -112,5 +111,17 @@ describe("toNumber", () => {
   it("reads a date as epoch milliseconds and a number as itself", () => {
     expect(toNumber(new Date(42))).toBe(42);
     expect(toNumber(7)).toBe(7);
+  });
+});
+
+describe("troughOf", () => {
+  it("takes the lowest value of every series, capped at zero", () => {
+    expect(troughOf([[{ x: 0, y: 3 }], [{ x: 0, y: -7 }, { x: 1, y: -2 }]])).toBe(-7);
+    expect(troughOf([[{ x: 0, y: 3 }]])).toBe(0);
+    expect(troughOf([])).toBe(0);
+  });
+
+  it("takes a ceiling and a value getter", () => {
+    expect(troughOf([[{ v: 5 }]], { ceiling: 10, getValue: (point) => point.v })).toBe(5);
   });
 });

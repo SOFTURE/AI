@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { themeFromDesignJson } from "../src/index.js";
 
-// The shape of FIRE_TRACKER's `.impeccable/design.json` (schemaVersion 2), trimmed to what matters.
-const FIRE_DESIGN = {
+// The shape of an app's `.impeccable/design.json` (schemaVersion 2), trimmed to what matters.
+const APP_DESIGN = {
   schemaVersion: 2,
   title: "Design System",
   themes: {
@@ -36,7 +36,7 @@ const FIRE_DESIGN = {
 
 describe("themeFromDesignJson", () => {
   it("maps the known roles per scheme and reports the rest as ignored", () => {
-    const result = themeFromDesignJson(FIRE_DESIGN);
+    const result = themeFromDesignJson(APP_DESIGN);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(Object.keys(result.value.theme.light ?? {})).toHaveLength(11);

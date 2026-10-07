@@ -25,7 +25,7 @@ export type EdgeAlign = "start" | "center" | "end";
 
 /**
  * A label near either edge aligns to that edge instead of centring on its position, or it would
- * leave the card. One threshold for every chart: 18 % and 82 % (FIRE_TRACKER RD-5).
+ * leave the card. One threshold for every chart: 18 % and 82 %.
  */
 export function edgeAlign(xPercent: number): EdgeAlign {
   if (xPercent < 18) return "start";

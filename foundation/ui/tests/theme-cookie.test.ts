@@ -170,3 +170,44 @@ describe("applyThemeChoice", () => {
     ]);
   });
 });
+
+describe("theme cookie values", () => {
+  const format = { cookieName: "motif", cookieValues: { light: "bright", dark: "night" } } as const;
+
+  it("reads the app's own values and ignores the package defaults", () => {
+    expect(parseThemeCookie("motif=night", format)).toBe("dark");
+    expect(parseThemeCookie("motif=bright", format)).toBe("light");
+    expect(parseThemeCookie("motif=dark", format)).toBe("system");
+  });
+
+  it("still takes the cookie name as a plain string", () => {
+    expect(parseThemeCookie("motif=dark", "motif")).toBe("dark");
+  });
+
+  it("writes the app's value for a choice", () => {
+    expect(buildThemeCookie("dark", format)).toBe("motif=night; Path=/; Max-Age=31536000; SameSite=Lax");
+    expect(buildThemeCookie("system", format)).toBe("motif=; Path=/; Max-Age=0; SameSite=Lax");
+  });
+
+  it("boots the scheme from the app's values only", () => {
+    const night = createFakeDocument("motif=night");
+    runBootScript(night, getThemeBootScript(format));
+    expect(night.attributes.get("data-theme")).toBe("dark");
+    const packageValue = createFakeDocument("motif=dark");
+    runBootScript(packageValue, getThemeBootScript(format));
+    expect(packageValue.attributes.has("data-theme")).toBe(false);
+  });
+
+  it("applies a choice with the app's value", () => {
+    const doc = createFakeDocument("");
+    applyThemeChoice("light", { ...format, doc: doc as unknown as Document });
+    expect(doc.writes).toEqual(["motif=bright; Path=/; Max-Age=31536000; SameSite=Lax"]);
+    expect(doc.attributes.get("data-theme")).toBe("light");
+  });
+
+  it("refuses values that are not cookie octets or that are equal", () => {
+    expect(() => buildThemeCookie("dark", { cookieValues: { light: "a b", dark: "c" } })).toThrow(TypeError);
+    expect(() => getThemeBootScript({ cookieValues: { light: "a", dark: 'b";alert(1)' } })).toThrow(TypeError);
+    expect(() => parseThemeCookie("", { cookieValues: { light: "x", dark: "x" } })).toThrow(/must differ/);
+  });
+});

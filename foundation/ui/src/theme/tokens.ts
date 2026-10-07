@@ -18,6 +18,7 @@ export const SCHEME_TOKENS = [
   "color-success",
   "color-warning",
   "color-focus",
+  "color-overlay",
   "shadow-1",
   "shadow-2",
   "chart-grid",
@@ -95,8 +96,7 @@ export function tokenVar(name: TokenName): `--sft-${TokenName}` {
   return `--sft-${name}`;
 }
 
-// Defaults port the FIRE_TRACKER palette (src/app/globals.css): near-black and grey-white
-// surfaces, one flat lime fill. On white the lime is only a fill (1.27:1), so the light accent for
+// Defaults: near-black and grey-white surfaces, one flat lime fill. On white the lime is only a fill (1.27:1), so the light accent for
 // text and focus is the deep green (4.8:1).
 export const DEFAULT_THEME: CompleteTheme = {
   light: {
@@ -115,6 +115,8 @@ export const DEFAULT_THEME: CompleteTheme = {
     "color-success": "#0f766e",
     "color-warning": "#b45309",
     "color-focus": "#356912",
+    // The backdrop behind a modal: the page background at 80 %.
+    "color-overlay": "rgb(246 247 248 / 0.8)",
     "shadow-1": "0 1px 2px rgb(12 12 13 / 0.06)",
     "shadow-2": "0 8px 24px rgb(12 12 13 / 0.12)",
     // Charts (@softure-ai/charts): today's role colours, as literals so contrast checks read them.
@@ -150,6 +152,7 @@ export const DEFAULT_THEME: CompleteTheme = {
     "color-success": "#2dd4bf",
     "color-warning": "#fbbf24",
     "color-focus": "#cff26b",
+    "color-overlay": "rgb(12 12 13 / 0.8)",
     "shadow-1": "0 1px 2px rgb(0 0 0 / 0.4)",
     "shadow-2": "0 8px 24px rgb(0 0 0 / 0.5)",
     "chart-grid": "#2a2c30",

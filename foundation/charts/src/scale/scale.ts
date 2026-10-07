@@ -1,5 +1,5 @@
 // Linear and time scales: one mapping from data to pixels, shared by the drawing and the cursor
-// (FIRE_TRACKER L-031: two copies of the formula drifted apart as soon as a second series appeared).
+// (two copies of the formula drift apart as soon as a second series appears).
 
 /** A point of a series. `x` is a date or a number, `y` a value in the caller's unit. */
 export interface ChartPoint {
@@ -82,4 +82,30 @@ export function peakOf<P>(series: readonly (readonly P[])[], options: Partial<Pe
     }
   }
   return peak;
+}
+
+interface TroughOptions<P> {
+  /** The highest trough returned, also for empty series; defaults to 0, so a chart keeps its zero. */
+  readonly ceiling?: number;
+  /** The value a point contributes, `y` by default. */
+  readonly getValue?: (point: P) => number;
+}
+
+/**
+ * The lowest value of every series drawn on one chart, at most `ceiling` (0): the bottom of a value
+ * domain that has negative values (a net worth with debt), and 0 when it has none.
+ */
+export function troughOf(series: readonly (readonly ChartPoint[])[], options?: TroughOptions<ChartPoint>): number;
+export function troughOf<P>(series: readonly (readonly P[])[], options: TroughOptions<P> & { readonly getValue: (point: P) => number }): number;
+export function troughOf<P>(series: readonly (readonly P[])[], options: TroughOptions<P> = {}): number {
+  // Without `getValue` the first overload applies, so every point is a ChartPoint.
+  const getValue = options.getValue ?? ((point: P) => (point as ChartPoint).y);
+  let trough = options.ceiling ?? 0;
+  for (const points of series) {
+    for (const point of points) {
+      const value = getValue(point);
+      if (value < trough) trough = value;
+    }
+  }
+  return trough;
 }
