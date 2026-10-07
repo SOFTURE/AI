@@ -51,7 +51,7 @@ half-way form.
 
 ## 5. drizzle-kit generate
 
-Not reproducible here without FIRE's setup, but the issue measured it on drizzle-kit 0.31.10: `schemaFilter` does not
+Not reproduced here (it needs an app's drizzle-kit setup), but the issue measured it on drizzle-kit 0.31.10: `schemaFilter` does not
 stop `generate` from emitting `CREATE TABLE` for a re-exported module table. docs/02 §4's claim is wrong for
 `generate`; the rule to write is "reference module tables (import them), never export them from the schema file
 drizzle-kit reads".

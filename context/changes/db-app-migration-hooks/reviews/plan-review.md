@@ -1,8 +1,7 @@
 # Plan review: db-app-migration-hooks
 
 Reviewed: `plan.md` against `change.md`, `research.md`, issue #153, `foundation/db/src/**` (migrator, session, adopt,
-CLI, testing), drizzle-orm 0.45's migrators and `context/foundation/lessons.md`. Mode: autonomous (owner sets the
-goal, the thread decides).
+CLI, testing), drizzle-orm 0.45's migrators and `context/foundation/lessons.md`. Mode: autonomous.
 
 Verdict: **ready after the fixes below** (all applied to `plan.md` or recorded here as decisions).
 

@@ -1,7 +1,7 @@
 ---
 change_id: db-app-migration-hooks
 title: "App migrations next to module migrations"
-status: plan_reviewed
+status: impl_reviewed
 roadmap_item: null
 issue: 153
 branch: claude/project-thread-tjueq8
@@ -11,7 +11,7 @@ updated: 2026-10-07
 
 ## Intent
 
-An app with its own migrations (FIRE_TRACKER: 55 drizzle files in `public`, ledger `drizzle.__drizzle_migrations`)
+An app with its own migrations (e.g. dozens of drizzle files in `public`, ledger `drizzle.__drizzle_migrations`)
 runs them in the same, ordered step as the module migrations, the same way in dev, unit tests, integration and the
 production image:
 
@@ -31,9 +31,8 @@ A reviewer checks `foundation/db/tests/app-migrations.test.ts`, the `createTestD
 
 ## Context
 
-Source: GitHub issue [SOFTURE/AI#153](https://github.com/SOFTURE/AI/issues/153) (filed by the owner 2026-10-07 from
-FIRE_TRACKER's `softure-migration-roadmap`). Issues are tracked in GitHub Issues, not in a roadmap (owner,
-2026-10-07), so this change has no roadmap item. The PR closes #153.
+Source: GitHub issue [SOFTURE/AI#153](https://github.com/SOFTURE/AI/issues/153) (filed 2026-10-07 while planning an
+app's switch to the packages). Issues are tracked in GitHub Issues, not in a roadmap, so this change has no roadmap item. The PR closes #153.
 
 ## Constraints
 
@@ -43,7 +42,7 @@ FIRE_TRACKER's `softure-migration-roadmap`). Issues are tracked in GitHub Issues
 - Out of scope, owned by other issues: adoption baselines and `--adopt` ordering of dependencies (#152, `adopt.ts`),
   other `foundation/db` changes (#154), `foundation/core/src/config.ts` (#155). The `softure` bin keeps reading only
   the config; hooks need an app script (`runMigrateCli`), because putting them in the config is #155's file.
-- English-only code, comments and commits (AGENTS.md). FIRE_TRACKER is read only.
+- English-only code, comments and commits (AGENTS.md).
 - Bumps `@softure-ai/db` 0.1.5 → 0.1.6 and `@softure-ai/core` 0.1.5 → 0.1.6; no release, tag or publish by the agent.
 
 ## Process notes
@@ -51,6 +50,6 @@ FIRE_TRACKER's `softure-migration-roadmap`). Issues are tracked in GitHub Issues
 - Research: done, short ([`research.md`](research.md)); the issue carries the measurements, research checks them
   against the code and answers how drizzle's migrator and a CJS bundle behave.
 - Framing: skipped. The problem (no place for app migrations in the migrate step) is measured in the issue, the
-  owner proposed the shape (`before`/`after` hooks), and research found no cheaper path: the only alternative, a
+  issue proposes the shape (`before`/`after` hooks), and research found no cheaper path: the only alternative, a
   second ledger in `softure.migrations` for app files, would duplicate drizzle's journal and break every app's
   existing history.

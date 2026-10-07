@@ -211,6 +211,14 @@ describe("resolveMigrationsDir", () => {
     expect(factory().migrations?.dir.href).toMatch(/\/foundation\/core\/migrations\/$/);
   });
 
+  it("names the CJS bundle when import.meta.url is empty, as esbuild --format=cjs leaves it", () => {
+    // A CJS bundle turns import.meta into {}, so the module package passes undefined at load time.
+    const emptyImportMeta: { url?: string } = {};
+    expect(() => resolveMigrationsDir(emptyImportMeta.url as unknown as string, "../migrations/")).toThrow(
+      "resolveMigrationsDir: no module URL (import.meta.url is undefined), so this code runs from a CJS bundle; SOFTURE packages are ESM only, bundle with --format=esm",
+    );
+  });
+
   it("throws on a relative module URL, which is a bug in the module package", () => {
     expect(() => resolveMigrationsDir("dist/index.js", "../migrations/")).toThrow(TypeError);
   });

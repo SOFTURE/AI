@@ -21,7 +21,7 @@ Input: change.md, research.md (framing skipped, reason in change.md). Complexity
 - Versions: `@softure-ai/db` 0.1.6, `@softure-ai/core` 0.1.6 (and the lockfile).
 
 **Out of scope:** adoption baselines and dependency ordering inside `adoptModule` (#152), hooks in the config / the
-`softure` bin (needs `core/src/config.ts`, #155's), any FIRE change.
+`softure` bin (needs `core/src/config.ts`, #155's), any change in an adopting app.
 
 ## Key decisions
 

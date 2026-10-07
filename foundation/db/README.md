@@ -18,7 +18,10 @@ Postgres schema (with a ledger, checksums, a lock, a dry run and adoption of exi
 npm install @softure-ai/db drizzle-orm
 ```
 
-Node ≥ 22, ESM only. `drizzle-orm` (`^0.45.2`) is a peer dependency, so the app, the modules and
+Node ≥ 22, **ESM only**: module packages locate their migrations through `import.meta.url`, which a
+CJS bundle (esbuild `--format=cjs`) leaves empty, so `resolveMigrationsDir` throws naming the bundle
+format; the app script below also uses top-level await. Bundle migrate scripts with `--format=esm`.
+`drizzle-orm` (`^0.45.2`) is a peer dependency, so the app, the modules and
 this package share one drizzle. `pg` and `@electric-sql/pglite` come with the package and load
 only when used.
 
@@ -80,6 +83,48 @@ A bundle cannot find package folders (`import.meta.url` points at the bundle), h
 `--export-migrations` at build time and `--migrations-dir` at run time. The ledger's own migration
 ships as code.
 
+**The app's own migrations** run in the same step, through hooks. `before` runs ahead of the module
+files (app tables a module references, normally the app's whole history), `after` behind them (app
+migrations that reference a table a module creates). With drizzle, define them once and pass the same
+object to the migrate script and to `createTestDatabase`:
+
+```ts
+// db/app-migrations.ts
+import type { AppMigrations, DatabaseHandle } from "@softure-ai/db";
+
+async function runDrizzle(handle: DatabaseHandle, migrationsFolder: string): Promise<void> {
+  if (handle.kind === "postgres") {
+    const { migrate } = await import("drizzle-orm/node-postgres/migrator");
+    await migrate(handle.db, { migrationsFolder });
+  } else {
+    const { migrate } = await import("drizzle-orm/pglite/migrator");
+    await migrate(handle.db, { migrationsFolder });
+  }
+}
+
+export const appMigrations: AppMigrations = {
+  before: (handle) => runDrizzle(handle, "./drizzle"),
+  // only when an app migration needs a module table: a second drizzle folder
+  // after: (handle) => runDrizzle(handle, "./drizzle-after"),
+};
+
+// scripts/migrate.ts
+process.exitCode = await runMigrateCli({ config, argv: process.argv.slice(2), app: appMigrations });
+```
+
+- Order of a run: the ledger, `before`, the module files in dependency order, `after`. Everything
+  runs under the migration lock, after every module file passed its checks; nothing runs when a check
+  fails. The hooks run on every run, so they must skip what they already applied (drizzle does).
+- A hook that throws is reported as `db.app_migration_failed` with the error and its causes (drizzle
+  puts the Postgres message in `cause`). A failing `before` stops the run before any module file; a
+  failing `after` leaves the module files applied.
+- `--plan` runs no hook (it says so); `--adopt` without `--plan` runs `before` first, so the app
+  migration that moves a table into the module's schema and the adoption are one command.
+- Under node-postgres a hook queries through the pool while the migrator holds one connection, so the
+  pool needs at least two (`createDatabase`'s default is 10).
+- The `softure` bin reads only the config; an app with its own migrations uses the script above.
+- In a bundle, the drizzle folder must be copied next to the bundle, as the module files are.
+
 **Options of `softure migrate`:**
 
 | Option | Effect |
@@ -92,7 +137,8 @@ ships as code.
 
 Exit codes: 0 done, 1 a problem or failure (each printed on stderr), 2 a usage error.
 
-The same operations as functions: `migrate(handle, { modules, migrationsDir?, onApplied? })`,
+The same operations as functions: `migrate(handle, { modules, migrationsDir?, app?, onApplied?, onAppMigrated? })`
+(`runAppMigrations(handle, app, phase)` runs one hook alone under the lock),
 `planMigrations(handle, { modules })`, `adoptModule(handle, { modules, module, version, dryRun? })`,
 `exportMigrations(modules, dir)`. Each returns `{ ok: true, value } | { ok: false, error, problems }`;
 `describeProblem(problem)` gives the English line.
@@ -118,16 +164,16 @@ module_version, method ('applied' | 'adopted'), applied_at`, primary key `(modul
   `SET LOCAL search_path TO <schema>, public` first. Name other modules' tables with their schema
   (`REFERENCES notes.notes (id)`), and create extensions `WITH SCHEMA public`.
 
-**Each run:** modules in dependency order (`sortModulesByDependencies`), files in number order.
+**Each run:** the ledger, the app's `before` hook, modules in dependency order (`sortModulesByDependencies`), files in number order.
 Before anything runs, every file of every module is checked: an applied file that was edited or
 renamed (`db.migration_changed`), deleted (`db.migration_missing`), or a new file numbered below an
 applied one (`db.migration_out_of_order`) refuses the whole run. The run holds a session-level
 `pg_advisory_lock`, so a second runner waits, then finds nothing to do. A failing file is rolled
 back completely and stops the run; the files before it stay applied. The migration connection is
-closed after the run, never returned to the pool.
+closed after the run, never returned to the pool. The app's `after` hook runs last (section 4).
 
 **Refused modules:** the id `softure`; the schemas `softure`, `public`, `information_schema`,
-`pg_*` and names over 63 bytes; migrations without a `dbSchema`.
+`drizzle` (drizzle's ledger in every app), `pg_*` and names over 63 bytes; migrations without a `dbSchema`.
 
 **Adoption** ([docs/05](../../docs/05-adoption-playbook.md) step 3): after the app's own migration
 moved its tables into the module's schema, `--adopt <module>@<version>` (with `--plan` first)
@@ -143,7 +189,9 @@ to the ledger, and the modules it depends on must be fully migrated or adopted f
 **Tests:** `createTestDatabase(modules)` from `@softure-ai/db/testing` returns `{ db, client, close }`:
 an in-memory PGlite with the ledger and the listed modules migrated (list the module and the
 modules it depends on). Each module set is migrated once per test worker and copied per call; a
-broken migration throws naming the file.
+broken migration throws naming the file. An app with its own migrations passes the same hooks,
+`createTestDatabase(modules, { app: appMigrations })`, so module tables can reference app tables; the
+template is cached per hook object, so import the shared object rather than writing hooks inline.
 
 ```ts
 import { createTestDatabase } from "@softure-ai/db/testing";

@@ -96,8 +96,8 @@ export async function planMigrations(handle: DatabaseHandle, options: MigrateOpt
 }
 
 /**
- * Applies every pending migration under the advisory lock: `app.before`, the module files, then
- * `app.after`. Nothing runs when a check fails.
+ * Applies every pending migration under the advisory lock: the ledger, `app.before`, the module
+ * files, then `app.after`. Nothing runs when a check fails.
  */
 export async function migrate(handle: DatabaseHandle, options: MigrateOptions): Promise<MigrationResult<MigrationReport>> {
   const units = await prepareUnits(options.modules, options.migrationsDir);
