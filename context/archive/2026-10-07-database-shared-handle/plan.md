@@ -96,17 +96,17 @@ Done when: gates green, the language gate passes, markdown links valid.
 ### Phase 1: db and core API
 
 #### Automated
-- [ ] 1.1 Tests seen red, then green
-- [ ] 1.2 Config key, configured resolver, client exports, generic types, session restore, optional peers
+- [x] 1.1 Tests seen red, then green — 7412858
+- [x] 1.2 Config key, configured resolver, client exports, generic types, session restore, optional peers — 7412858
 
 ### Phase 2: adapters and commands
 
 #### Automated
-- [ ] 2.1 Adapters, health route and commands use the configured handle
-- [ ] 2.2 Gates green (typecheck, lint, test, build)
+- [x] 2.1 Adapters, health route and commands use the configured handle — 7a0e4ae
+- [x] 2.2 Gates green (typecheck, lint, test, build) — 7a0e4ae
 
 ### Phase 3: docs and example app
 
 #### Automated
-- [ ] 3.1 READMEs, docs and example app updated
-- [ ] 3.2 Gates green after docs
+- [x] 3.1 READMEs, docs and example app updated — 7a0e4ae
+- [x] 3.2 Gates green after docs — 7a0e4ae

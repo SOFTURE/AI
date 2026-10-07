@@ -1,12 +1,13 @@
 ---
 change_id: database-shared-handle
 title: "One database handle per process: the app's handle in the config, typed and driver-optional"
-status: plan_reviewed
+status: archived
 roadmap_item: none
 issue: "#154"
 branch: claude/project-thread-rvyfnt
 created: 2026-10-07
 updated: 2026-10-07
+archived_at: 2026-10-07
 ---
 
 ## Intent
