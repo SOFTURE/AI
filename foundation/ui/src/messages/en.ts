@@ -8,6 +8,9 @@ export const en = {
   card: {
     /** Name of the "?" next to a card title. */
     hintLabel: "About: {title}",
+    /** Name of the toggle of a collapsible card. */
+    expand: "Expand: {title}",
+    collapse: "Collapse: {title}",
   },
   field: {
     /** Name of the "?" next to a field label. */

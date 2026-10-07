@@ -34,13 +34,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 }
 ```
 
-`<ThemeSwitch locale="pl" />` anywhere renders Light · Dark · System (System is the default).
+`<ThemeSwitch />` anywhere renders Light · Dark · System (System is the default). Pass `design` to
+`ThemeScript` and `ThemeSwitch` too when the provider gets one, so the browser bar colour matches.
+
+**Locale.** `<SoftureThemeProvider locale="pl">` (or `<UiLocaleProvider locale="pl">`) sets the
+built-in copy and the number notation of every component below it; a component's own `locale` prop
+still wins, and without either it is `en`.
 
 ## Tokens
 
 | Group | Tokens (`--sft-…`) | Per scheme |
 | --- | --- | --- |
-| Colour | `color-{background,surface,surface-raised,foreground,muted,border,border-strong,accent,accent-fill,accent-fill-hover,on-accent,danger,success,warning,focus}` | yes |
+| Colour | `color-{background,surface,surface-raised,foreground,muted,border,border-strong,accent,accent-fill,accent-fill-hover,on-accent,danger,success,warning,focus,overlay}` | yes |
 | Shadow | `shadow-{1,2}` | yes |
 | Typography | `font-{sans,mono,heading}`, `text-{xs,sm,base,lg,xl,2xl,3xl,display}` | no |
 | Shape and space | `radius-{control,card,pill}`, `space-{1…8}` (0.25 rem steps) | no |
@@ -72,12 +77,21 @@ Three ways, from the most global:
 
 `getThemeColors(theme)` gives the background of each scheme for Next's `viewport.themeColor`.
 
+**Sections in a fixed scheme.** `<SoftureThemeProvider schemeScopes={{ dark: [".band-dark"], light:
+[".band-paper"] }}>` (or `buildThemeCss(theme, { schemeScopes })`) gives every listed selector that
+scheme's complete tokens, the defaults merged with `theme`, whatever the page theme is: a dark band in
+a light page needs every colour, not only the overridden ones. Selectors with `;`, `{`, `}`, `<`, `>`
+or a comment throw.
+
 ## Theme switch
 
 - The choice lives in the cookie `sft-theme` (`light` | `dark`; absent = System). `ThemeScript`
   reads it before the first paint and sets `data-theme` on `<html>`; the server never reads it, so
   routes stay static. Use the same `cookieName` on `ThemeScript` and `ThemeSwitch` when you change it,
   and `cookieDomain` on the switch to share the choice across subdomains.
+- An app that already stores the choice keeps it: `cookieName="theme" cookieValues={{ light:
+  "bright", dark: "night" }}` on both (and on `parseThemeCookie`, `buildThemeCookie`,
+  `applyThemeChoice`). Values must be cookie octets and differ.
 - With a strict CSP pass `nonce` to `ThemeScript`.
 - `data-theme="light"` or `"dark"` on any element themes that subtree.
 - Slots: `classNames={{ root, legend, options, option, input, label }}`; `unstyled` drops the
@@ -87,17 +101,19 @@ Three ways, from the most global:
 
 | Group | Components and helpers |
 | --- | --- |
-| Actions | `Button` (`primary`, `secondary`, `ghost`, `danger`; `sm`, `md`, `lg`; `pending`), `ButtonLink`, `IconButton`, `getButtonClass` |
-| Icons | `ArrowLeftIcon` … `ChatIcon` (33, decorative, `size` and `className`) |
-| Surfaces | `Card` (`boxed`, `lead`, `flat`), `Stat`, `EmptyState`, `Hint`, `FormError` |
-| Fields | `Field`, `FieldGroup`, `TextField`, `PasswordField`, `MoneyField`, `SelectField`, `CheckboxField`, `INPUT_CLASS` |
-| Controls | `Select` (ARIA listbox), `Switch`, `SwitchControl`, `Checkbox`, `SegmentedControl` |
-| Dialogs and feedback | `Modal`, `ModalBody`, `ModalFooter`, `ModalForm`, `ToastHost` + `announceToast` |
+| Actions | `Button` (`primary`, `secondary`, `ghost`, `danger`, `ink`, `ink-outline`; `sm`, `md`, `lg`; `pending`, `pendingLabel`), `ButtonLink`, `IconButton`, `getButtonClass` |
+| Icons | `ArrowLeftIcon` … `ChatIcon`, `ChildIcon`, `LoanIcon` (35, decorative, `size` and `className`) |
+| Surfaces | `Card` (`boxed`, `lead`, `flat`; `step`, `done`, `accent`, `headingLevel`, `headingSize`, `collapsible`), `CardDisclosure`, `Stat`, `EmptyState`, `Hint`, `FormError` |
+| Fields | `Field`, `FieldGroup`, `TextField`, `PasswordField`, `MoneyField`, `SelectField`, `CheckboxField`, `INPUT_CLASS`, `NUMBER_INPUT_CLASS` |
+| Controls | `Select` (ARIA listbox), `Switch`, `SwitchControl`, `Checkbox`, `SegmentedControl`, `SEGMENTED_GROUP_CLASS` + `SEGMENT_ACTIVE_CLASS` / `SEGMENT_IDLE_CLASS` (an app's own segments) |
+| Dialogs and feedback | `Modal` (`form`, `confirmation`, `panel`), `StandingPanel`, `ModalBody`, `ModalFooter`, `ModalForm`, `ToastHost` + `announceToast` |
 | Forms | `ActionForm` (server action, value replay, field errors, success toast), `ActionResult` |
+| Locale | `UiLocaleProvider`, `useUiLocale` |
 | Money | `parseAmount`, `formatAmountInput`, `normalizeAmountInput`, `getAmountErrorMessage` |
 
 Server-safe (no `"use client"`): `Button`, `ButtonLink`, `IconButton`, icons, `Card`, `Stat`,
-`EmptyState`, `FormError`, `Field`, `FieldGroup`. The rest are client components.
+`EmptyState`, `FormError`, `Field`, `FieldGroup`, the class constants. The rest are client components
+(`Card` and `Field` render their hint and collapsing through small client components).
 
 ### Shared props
 
@@ -105,9 +121,9 @@ Server-safe (no `"use client"`): `Button`, `ButtonLink`, `IconButton`, icons, `C
   titleRow, title, subtitle`; `Modal`: `overlay, panel, header, heading, title, subtitle, close`; …).
   An app class is added to the default and wins, because the defaults sit in `@layer softure`.
 - **`unstyled`.** Drops every default class and keeps structure, ARIA and behaviour.
-- **Copy.** Components with built-in text (`Modal`, `ModalFooter`, `ActionForm`, `Card` and field
-  hint names) take `locale` (`en` default, `pl`) and partial `messages` for their group in
-  `uiMessages`. Everything else the user reads (labels, titles, button text) comes from the app as
+- **Copy.** Components with built-in text (`Modal`, `ModalFooter`, `StandingPanel`, `ActionForm`,
+  `Card` hint and collapse names, field hint names) take `locale` (the provider's, else `en`; `pl`
+  too) and partial `messages` for their group in `uiMessages`. Everything else the user reads (labels, titles, button text) comes from the app as
   props.
 - **Links.** `ButtonLink` renders `<a>` unless you inject your router's link:
   `<ButtonLink LinkComponent={Link} href="/pricing" variant="primary">`. The package never imports
@@ -131,7 +147,13 @@ import { ActionForm, MoneyField, TextField } from "@softure-ai/ui";
 </ActionForm>
 ```
 
-The action returns `ok()` or `{ ok: false, error: "app.code", fieldErrors?: { name: "app.code" } }`.
+The action returns `{ ok: true }`, `ok()` or `ok(value)` (the form does not read the value), or
+`{ ok: false, error: "app.code", fieldErrors?: { name: "app.code" } }`.
+
+The submit button is `primary` unless `submitVariant` says otherwise. An app whose own forms
+defaulted to `secondary` passes it on every form it migrates, or the forms turn to the accent fill.
+While a save runs the button shows `pendingLabel` (the package's "Saving…" by default) and keeps
+its width.
 After a rejected submit the fields show what was typed (React resets the form) and their own
 errors; `PasswordField` never replays. The server parses amounts with the same
 `parseAmount(text, locale)` the field formats with.
@@ -143,6 +165,7 @@ errors; `PasswordField` never replays. The server parses amounts with the same
   <Stat label="Total" value="1,234,567.00" secondary="1,100,000.00 today" size="lg" />
   <Stat label="Debt" value="-12,000.00" tone="danger" />
 </Card>
+<Card title="Setup" step={2} done accent="success" headingLevel={3} collapsible defaultOpen>…</Card>
 <EmptyState title="No goals yet">Add a goal to see your progress.</EmptyState>
 <Hint label="About: Rate">Yearly interest rate before tax.</Hint>   {/* label names the "?" button */}
 
@@ -167,7 +190,18 @@ focus leaving it.
 Render `<Modal title onClose>` while it is open. It moves focus in, keeps Tab inside, makes the rest
 of `<body>` inert (live regions stay reachable), locks the page scroll and returns focus to the
 opener. Escape closes it unless something inside handled the key first (an open `Select` list).
-Pass `isDismissible={false}` while a save runs (`ActionForm onPendingChange`).
+Pass `isDismissible={false}` while a save runs (`ActionForm onPendingChange`). The backdrop is the
+`color-overlay` token.
+
+`width="panel"` is a full-height sheet from the right (37.5rem, full screen on a phone) with the
+footer at the bottom. `<StandingPanel isOpen title onClose>` is that sheet mounted for good: closed,
+it is `hidden` and a draft typed inside survives; open, it is the dialog, and Escape from inside it
+closes it (a confirmation `Modal` opened from the panel closes on its own Escape first).
+
+A `Card` with `collapsible` turns its header into the toggle (its "?" and `action` stay clickable)
+and keeps the content mounted while collapsed. `step` shows a numbered badge (a tick with `done`),
+`accent` a short bar before the title in a semantic colour, `headingLevel` sets `h2`–`h4` and
+`headingSize="section"` the larger title.
 
 ## Testing helpers (`@softure-ai/ui/testing`)
 

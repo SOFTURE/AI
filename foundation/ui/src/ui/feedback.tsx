@@ -1,6 +1,6 @@
 import { type ClassNames, createSlotClassGetter } from "./class-names.js";
 
-// Server-safe. Ported from FIRE_TRACKER src/components/feedback.tsx.
+// Server-safe.
 
 export type FormErrorSlot = "root";
 

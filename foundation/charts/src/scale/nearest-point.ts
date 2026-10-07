@@ -1,5 +1,5 @@
 // The point under a cursor. The cursor's pixel goes through the x scale's `invert` first, so the
-// search and the drawing share one mapping (FIRE_TRACKER repeated the scale's formula here).
+// search and the drawing share one mapping (a copy of the scale's formula here would drift).
 import { toNumber, type ChartPoint } from "./scale.js";
 
 /**

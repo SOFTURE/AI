@@ -1,4 +1,4 @@
-// Axis ticks: round steps under an unchanged peak (ported from FIRE_TRACKER `chart-ticks.ts`).
+// Axis ticks: round steps under an unchanged peak (and above an unchanged trough).
 //
 // The peak of the scale does not move. Ticks are multiples of a round step no higher than the
 // peak, so lines, the cursor and the tooltip keep their geometry; only the grid lines are placed.
@@ -36,24 +36,35 @@ interface ValueTickOptions {
    * "0" under a line that is not at zero.
    */
   readonly minStep?: number;
+  /**
+   * The bottom of the scale when it goes below zero (`troughOf`); 0 by default. Ticks then also fall
+   * on multiples of the step down to it, chosen for the whole span.
+   */
+  readonly min?: number;
 }
 
 /**
- * Grid line values in `(0, max]`, ascending, without zero (the baseline is drawn on its own).
+ * Grid line values in `[min, max]`, ascending, without zero (the baseline is drawn on its own):
+ * `(0, max]` for a scale from zero, and multiples of the same step below zero down to `min`.
  *
  * @param max the peak of the chart's scale (`peakOf`)
  * @param target roughly how many ticks to show
  */
-export function valueTicks(max: number, target: number, { minStep = 0 }: ValueTickOptions = {}): number[] {
-  if (!(max > 0) || target < 1) return [];
-  const exponent = Math.floor(Math.log10(max / target));
+export function valueTicks(max: number, target: number, { minStep = 0, min = 0 }: ValueTickOptions = {}): number[] {
+  const low = Math.min(0, min);
+  const high = Math.max(0, max);
+  if (!(high - low > 0) || target < 1) return [];
+  const exponent = Math.floor(Math.log10((high - low) / target));
   const candidates = [exponent - 1, exponent, exponent + 1]
     .flatMap((power) => MANTISSAS.map((mantissa) => mantissa * 10 ** power))
     .filter((step) => step >= minStep);
-  const countOf = (step: number) => Math.floor(max / step + EPSILON);
-  const step = pickStep(candidates, countOf, target);
+  const countAbove = (step: number) => Math.floor(high / step + EPSILON);
+  const countBelow = (step: number) => Math.floor(-low / step + EPSILON);
+  const step = pickStep(candidates, (candidate) => countAbove(candidate) + countBelow(candidate), target);
   if (step === null) return [];
-  return Array.from({ length: countOf(step) }, (_, index) => roundToStep((index + 1) * step, step));
+  const below = Array.from({ length: countBelow(step) }, (_, index) => roundToStep(-(countBelow(step) - index) * step, step));
+  const above = Array.from({ length: countAbove(step) }, (_, index) => roundToStep((index + 1) * step, step));
+  return [...below, ...above];
 }
 
 /** Removes the floating point noise of a multiple (0.1 × 3 = 0.30000000000000004). */

@@ -9,6 +9,8 @@ export const pl: typeof en = {
   },
   card: {
     hintLabel: "Co to jest: {title}",
+    expand: "Rozwiń: {title}",
+    collapse: "Zwiń: {title}",
   },
   field: {
     hintLabel: "Podpowiedź: {label}",

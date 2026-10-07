@@ -6,7 +6,7 @@ import { CheckIcon } from "./icons.js";
 
 // A short confirmation after a save ("Saved"). One `ToastHost` per page renders a polite live
 // region; `announceToast` from anywhere on the client shows a message in it for a few seconds.
-// Ported from FIRE_TRACKER src/components/toast.tsx. The store is module state in the browser;
+// The store is module state in the browser;
 // do not call `announceToast` on the server.
 
 const DEFAULT_VISIBLE_MS = 3000;

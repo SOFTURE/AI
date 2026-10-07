@@ -1,9 +1,13 @@
 import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ComponentType, ReactNode } from "react";
 import { type ClassNames, createSlotClassGetter } from "./class-names.js";
 
-// Server-safe: no hooks, no "use client". Ported from FIRE_TRACKER src/components/button.tsx.
+// Server-safe: no hooks, no "use client".
+// Variants: `primary` is the one main action of a screen; `secondary` an equal but not main one
+// (Back, Cancel); `ghost` a side action in a row; `danger` delete and revoke; `ink` and
+// `ink-outline` a neutral solid and outline in the text colour, for a main and a side action on a
+// ground where the accent fill does not read (a light section, a print-like band).
 
-export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
+export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "ink" | "ink-outline";
 export type ButtonSize = "sm" | "md" | "lg";
 export type ButtonSlot = "root" | "spinner";
 
@@ -28,12 +32,28 @@ const VARIANT: Readonly<Record<ButtonVariant, string>> = {
     "sft:border sft:border-transparent sft:bg-transparent sft:font-medium sft:text-muted sft:not-disabled:hover:bg-foreground/5 sft:not-disabled:hover:text-foreground",
   danger:
     "sft:border sft:border-danger/40 sft:bg-danger/10 sft:font-medium sft:text-danger sft:not-disabled:hover:border-danger sft:not-disabled:hover:bg-danger sft:not-disabled:hover:text-background",
+  ink: "sft:border sft:border-transparent sft:bg-foreground sft:font-semibold sft:text-background sft:not-disabled:hover:bg-foreground/85",
+  "ink-outline":
+    "sft:border sft:border-foreground/45 sft:bg-transparent sft:font-medium sft:text-foreground sft:not-disabled:hover:border-foreground sft:not-disabled:hover:bg-foreground/5",
 };
 
 const WIDTH = { full: "sft:w-full", auto: "" } as const;
 const WRAP = { wrap: "sft:max-w-full sft:whitespace-normal sft:text-center", nowrap: "sft:whitespace-nowrap" } as const;
 
 const SPINNER = "sft:animate-spin sft:motion-reduce:animate-none";
+
+// `pendingLabel`: both labels share one grid cell; the one not shown is a hidden `::after` reading
+// `data-reserve`, so the button keeps the width of the longer label and the pseudo-element stays out
+// of the text and the accessible name. Without `iconLeft` the spinner joins the label only while
+// pending, so the idle reserve leaves room for it (spinner size + gap).
+const LABEL_GRID =
+  "sft:inline-grid sft:justify-items-center sft:*:[grid-area:1/1] sft:after:invisible sft:after:[grid-area:1/1] sft:after:content-[attr(data-reserve)]";
+
+const PENDING_SLOT: Readonly<Record<ButtonSize, { readonly gap: string; readonly spinner: string; readonly reserveIcon: string }>> = {
+  sm: { gap: "sft:gap-1.5", spinner: "sft:size-3.5", reserveIcon: "sft:after:pl-5" },
+  md: { gap: "sft:gap-2", spinner: "sft:size-4", reserveIcon: "sft:after:pl-6" },
+  lg: { gap: "sft:gap-2.5", spinner: "sft:size-4.5", reserveIcon: "sft:after:pl-7" },
+};
 
 /** What every button-looking element shares. */
 export interface ButtonLookProps {
@@ -86,6 +106,11 @@ export type ButtonProps = ButtonLookProps &
      * label stays, so the button keeps its width and its accessible name.
      */
     readonly pending?: boolean;
+    /**
+     * The label while `pending` ("Saving…"). Given, it replaces the label while pending and the
+     * button keeps the width of the longer of both, so nothing next to it moves.
+     */
+    readonly pendingLabel?: string;
   };
 
 /** A button. `type` defaults to `button`, so a button inside a form never submits by accident. */
@@ -99,12 +124,14 @@ export function Button({
   classNames,
   unstyled,
   pending = false,
+  pendingLabel,
   disabled,
   type = "button",
   children,
   ...rest
 }: ButtonProps) {
   const slot = getLookSlots({ variant, size, fullWidth, wrap, classNames, unstyled });
+  const isSpinnerInLabel = pendingLabel !== undefined && iconLeft === undefined;
   return (
     <button
       {...rest}
@@ -115,10 +142,56 @@ export function Button({
       data-size={size}
       className={slot("root")}
     >
-      {pending ? <Spinner className={slot("spinner")} /> : iconLeft}
-      {children}
+      {pending && !isSpinnerInLabel ? <Spinner className={slot("spinner")} /> : iconLeft}
+      {pendingLabel === undefined ? (
+        children
+      ) : (
+        <PendingAwareLabel
+          size={size}
+          isPending={pending}
+          pendingLabel={pendingLabel}
+          isSpinnerInLabel={isSpinnerInLabel}
+          spinnerClass={slot("spinner")}
+          unstyled={unstyled}
+        >
+          {children}
+        </PendingAwareLabel>
+      )}
       {iconRight}
     </button>
+  );
+}
+
+interface PendingAwareLabelProps {
+  readonly size: ButtonSize;
+  readonly isPending: boolean;
+  readonly pendingLabel: string;
+  readonly isSpinnerInLabel: boolean;
+  readonly spinnerClass: string | undefined;
+  readonly unstyled: boolean | undefined;
+  readonly children: ReactNode;
+}
+
+/** The shown label plus a hidden reserve of the other one, in one grid cell. */
+function PendingAwareLabel({ size, isPending, pendingLabel, isSpinnerInLabel, spinnerClass, unstyled, children }: PendingAwareLabelProps) {
+  const pendingSlot = PENDING_SLOT[size];
+  const grid = unstyled === true ? undefined : LABEL_GRID;
+  if (isPending) {
+    // `attr()` takes text only, so a non-text idle label reserves nothing.
+    const idleText = typeof children === "string" ? children : "";
+    return (
+      <span data-reserve={idleText} className={grid}>
+        <span className={unstyled === true ? undefined : `sft:inline-flex sft:items-center ${pendingSlot.gap}`}>
+          {isSpinnerInLabel ? <Spinner className={unstyled === true ? spinnerClass : `${spinnerClass ?? ""} ${pendingSlot.spinner}`.trim()} /> : null}
+          {pendingLabel}
+        </span>
+      </span>
+    );
+  }
+  return (
+    <span data-reserve={pendingLabel} className={grid === undefined || !isSpinnerInLabel ? grid : `${grid} ${pendingSlot.reserveIcon}`}>
+      <span>{children}</span>
+    </span>
   );
 }
 

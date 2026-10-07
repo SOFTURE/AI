@@ -19,11 +19,12 @@ export interface ValueAxisTicksOptions {
 }
 
 /**
- * Labels for the value axis: zero at the bottom, then every tick. `valueTicks` never emits zero; a
- * zero from another source is not doubled.
+ * Labels for the value axis, bottom to top: every tick and zero (at the bottom unless the scale goes
+ * below it). `valueTicks` never emits zero; a zero from another source is not doubled.
  */
 export function valueAxisTicks({ ticks, scale, format }: ValueAxisTicksOptions): ValueTick[] {
-  return [0, ...ticks.filter((value) => value !== 0)].map((value) => ({
+  const values = [0, ...ticks.filter((value) => value !== 0)].sort((first, second) => first - second);
+  return values.map((value) => ({
     key: value,
     label: format(value),
     fromBottomPercent: toPercent(PLOT_HEIGHT - scale(value), PLOT_HEIGHT),

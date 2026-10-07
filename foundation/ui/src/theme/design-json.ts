@@ -1,4 +1,4 @@
-// Import of an Impeccable `design.json` (schemaVersion 2, as in FIRE_TRACKER's
+// Import of an Impeccable `design.json` (schemaVersion 2, an app's
 // `.impeccable/design.json`): `themes.{light,dark}.roles` map role names to colours. Only the
 // roles of the token contract are taken; the rest is reported, not fatal.
 import { err, ok, type Result } from "@softure-ai/core";
@@ -14,7 +14,7 @@ export interface DesignJsonTheme {
   readonly ignoredRoles: readonly string[];
 }
 
-/** design.json role -> token. `line-strong` is FIRE's name for the strong border. */
+/** design.json role -> token. `line-strong` is an alias of the strong border. */
 const ROLE_TOKENS: Readonly<Record<string, SchemeTokenName>> = {
   background: "color-background",
   surface: "color-surface",
@@ -32,6 +32,7 @@ const ROLE_TOKENS: Readonly<Record<string, SchemeTokenName>> = {
   success: "color-success",
   warning: "color-warning",
   focus: "color-focus",
+  overlay: "color-overlay",
 };
 
 const SUPPORTED_SCHEMA_VERSION = 2;
