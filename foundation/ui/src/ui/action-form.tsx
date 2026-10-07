@@ -11,7 +11,7 @@ import { ModalBody, ModalFooter, ModalForm } from "./modal.js";
 import { announceToast } from "./toast.js";
 import { useUiLocale } from "./locale.js";
 
-// A form wired to a server action. Ported from FIRE_TRACKER src/components/action-form.tsx.
+// A form wired to a server action.
 // - A rejected submit replays what was typed (React resets an uncontrolled form after its action)
 //   and shows the form error and each field's error.
 // - A successful submit announces `successMessage` as a toast and calls `onSuccess`.
@@ -44,6 +44,10 @@ export interface ActionFormProps extends CopyProps<"actionForm"> {
   /** Toast after a successful submit; an empty string shows none. */
   readonly successMessage?: string;
   readonly children: ReactNode;
+  /**
+   * The submit button's variant; `primary` by default, the one main action of the form. An app whose
+   * own forms defaulted to another variant passes it here (or sets it on every form it migrates).
+   */
   readonly submitVariant?: ButtonVariant;
   readonly fullWidthSubmit?: boolean;
   readonly onSuccess?: () => void;
@@ -144,7 +148,6 @@ export function ActionForm({
   }, [isPending, onPendingChange]);
 
   const slot = createSlotClassGetter({ defaults: DEFAULT_CLASSES, classNames, unstyled });
-  const label = getSubmitLabel({ isPending, submitLabel, pendingLabel: pendingLabel ?? copy.pending });
   const error = state.status === "error" ? state.message : undefined;
 
   return (
@@ -154,8 +157,15 @@ export function ActionForm({
           {children}
           <FormError message={error} unstyled={unstyled} />
           <div className={slot("actions")}>
-            <Button type="submit" variant={submitVariant} pending={isPending} fullWidth={fullWidthSubmit} unstyled={unstyled}>
-              {label}
+            <Button
+              type="submit"
+              variant={submitVariant}
+              pending={isPending}
+              pendingLabel={pendingLabel ?? copy.pending}
+              fullWidth={fullWidthSubmit}
+              unstyled={unstyled}
+            >
+              {submitLabel}
             </Button>
           </div>
         </form>
@@ -163,8 +173,8 @@ export function ActionForm({
         <ModalForm action={formAction} unstyled={unstyled}>
           <ModalBody unstyled={unstyled}>{children}</ModalBody>
           <ModalFooter onCancel={onCancel} isPending={isPending} error={error} unstyled={unstyled} locale={locale} messages={modalMessages}>
-            <Button type="submit" variant={submitVariant} pending={isPending} unstyled={unstyled}>
-              {label}
+            <Button type="submit" variant={submitVariant} pending={isPending} pendingLabel={pendingLabel ?? copy.pending} unstyled={unstyled}>
+              {submitLabel}
             </Button>
           </ModalFooter>
         </ModalForm>

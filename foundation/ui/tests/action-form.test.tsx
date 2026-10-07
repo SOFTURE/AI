@@ -35,7 +35,7 @@ describe("ActionForm layout", () => {
     );
     expect(html).toMatch(/^<form class="sft:[^"]*"/);
     // React appends its form-replay script after the form when it renders an action.
-    expect(html).toMatch(/<button type="submit"[^>]*>Save<\/button><\/div><\/form>/);
+    expect(html).toMatch(/<button type="submit"[^>]*><span data-reserve="Saving…"[^>]*><span>Save<\/span><\/span><\/button><\/div><\/form>/);
     expect(html).not.toContain("data-modal-part");
     expect(html).not.toContain(uiMessages.en.modal.cancel);
   });
@@ -48,7 +48,7 @@ describe("ActionForm layout", () => {
     );
     expect(html.match(/<form /g)).toHaveLength(1);
     expect(html).toMatch(/^<form class="sft:contents"[^>]*><div data-modal-part="body"[^>]*>.*<input[^>]*name="name"/);
-    expect(html).toMatch(/data-modal-part="footer".*>Cancel<\/button><button type="submit"[^>]*>Save<\/button>/);
+    expect(html).toMatch(/data-modal-part="footer".*>Cancel<\/button><button type="submit"[^>]*><span data-reserve="Saving…"[^>]*><span>Save<\/span><\/span><\/button>/);
   });
 });
 

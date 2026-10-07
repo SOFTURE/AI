@@ -1,6 +1,6 @@
 // Decorative icons on one frame: a 24 grid, a 2-unit stroke in `currentColor`, hidden from assistive
 // technology. A control that shows only an icon carries its own name (`IconButton label`).
-// Server-safe. Ported from FIRE_TRACKER src/components/icons.tsx (domain-only glyphs dropped).
+// Server-safe.
 import type { ReactNode } from "react";
 
 export interface IconProps {
@@ -174,6 +174,30 @@ export function HomeIcon(props: IconProps) {
       <path d="m4 11 8-7 8 7" />
       <path d="M6 9.5V20h12V9.5" />
       <path d="M10 20v-5h4v5" />
+    </IconFrame>
+  );
+}
+
+/** A child's face with a curl: dependants, family members. */
+export function ChildIcon(props: IconProps) {
+  return (
+    <IconFrame {...props}>
+      <circle cx="12" cy="13" r="8" />
+      <path d="M9.5 15c.8.7 1.6 1 2.5 1s1.7-.3 2.5-1" />
+      <path d="M9 11.5h.01" />
+      <path d="M15 11.5h.01" />
+      <path d="M12 5c0-1.4.9-2 2-2" />
+    </IconFrame>
+  );
+}
+
+/** A percent sign: a loan, an interest-bearing debt. */
+export function LoanIcon(props: IconProps) {
+  return (
+    <IconFrame {...props}>
+      <path d="M19 5 5 19" />
+      <circle cx="7" cy="7" r="2.5" />
+      <circle cx="17" cy="17" r="2.5" />
     </IconFrame>
   );
 }
