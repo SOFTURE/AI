@@ -19,7 +19,7 @@ describe("the seo module", () => {
     const allowed = { enabled: true, extra: [] };
     expect(seo().options).toEqual({
       canonical: { host: "as-is", trailingSlash: false },
-      robots: { allow: ["/"], disallow: [] },
+      robots: { allow: ["/"], disallow: [], other: {} },
       crawlers: { search: allowed, onDemand: allowed, training: allowed },
       sitemap: { entries: [], contributors: [] },
     });
@@ -47,6 +47,45 @@ describe("the seo module", () => {
         "- options.sitemap.entries.0.priority: Too big: expected number to be <=1",
         "- options.indexNow.key: must be 8 to 128 letters, digits or dashes (IndexNow key format)",
         '- options: Unrecognized key: "extra"',
+      ].join("\n"),
+    );
+  });
+
+  it("accepts extra robots.txt directives as a string or a list of strings", () => {
+    const module = seo({ robots: { other: { "Content-Signal": "ai-train=yes, search=yes", "Crawl-delay": ["10"] } } });
+    expect(module.options.robots.other).toEqual({ "Content-Signal": "ai-train=yes, search=yes", "Crawl-delay": ["10"] });
+    expect(seo().options.robots.other).toEqual({});
+  });
+
+  it("refuses extra directives that would break or bypass the robots.txt rules", () => {
+    expect(() =>
+      seo({
+        robots: {
+          other: {
+            Allow: "/",
+            sitemap: "https://evil.example/map.xml",
+            "USER-AGENT": "*",
+            disallow: "/",
+            "Content Signal": "search=yes",
+            "X:Y": "1",
+            Empty: "",
+            Injected: "search=yes\nAllow: /",
+            None: [],
+          },
+        },
+      }),
+    ).toThrow(
+      [
+        'Invalid SOFTURE configuration in module "seo":',
+        "- options.robots.other.Empty: must be a non-empty value on one line (no CR or LF)",
+        "- options.robots.other.Injected: must be a non-empty value on one line (no CR or LF)",
+        "- options.robots.other.None: must list at least one value",
+        "- options.robots.other.Allow: is written by the module itself; set it through robots.allow, robots.disallow or the crawler categories",
+        "- options.robots.other.sitemap: is written by the module itself; set it through robots.allow, robots.disallow or the crawler categories",
+        "- options.robots.other.USER-AGENT: is written by the module itself; set it through robots.allow, robots.disallow or the crawler categories",
+        "- options.robots.other.disallow: is written by the module itself; set it through robots.allow, robots.disallow or the crawler categories",
+        "- options.robots.other.Content Signal: is not a robots.txt field name: a letter, then letters, digits and -",
+        "- options.robots.other.X:Y: is not a robots.txt field name: a letter, then letters, digits and -",
       ].join("\n"),
     );
   });

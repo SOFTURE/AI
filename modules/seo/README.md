@@ -10,7 +10,7 @@ off as one list, with the app's private paths closed to every crawler; an `htmlL
 `next.config.ts` that keeps Next's defaults and adds the AI bots; a `sitemap.xml` from the app's
 entries and other modules' contributors with a real `lastmod`; one canonical origin (apex or `www`,
 trailing slash rule) for `metadata.alternates.canonical`; the IndexNow key file and
-`submitToIndexNow(urls)`, a dry run unless told to commit. Ported from FIRE_TRACKER.
+`submitToIndexNow(urls)`, a dry run unless told to commit.
 
 ## 2. Installation
 
@@ -53,6 +53,7 @@ modules: [
 | `canonical.trailingSlash` | `false` | every canonical path but `/` ends with `/` when `true` |
 | `robots.allow` | `["/"]` | paths open to crawlers |
 | `robots.disallow` | `[]` | private paths, closed in every group, named ones included |
+| `robots.other` | `{}` | more lines for every group, e.g. `{ "Content-Signal": "ai-train=yes, search=yes" }`; a list writes one line per value |
 | `crawlers.{search,onDemand,training}` | `{ enabled: true, extra: [] }` | each category on or off, plus the app's own tokens |
 | `sitemap.entries` | `[]` | the app's pages; `lastModified` only when known |
 | `sitemap.contributors` | `[]` | `(context) => SitemapEntry[]`, sync or async, run per request |
@@ -109,6 +110,14 @@ if (indexNowKey !== null) {
   });
 }
 // { kind: "dry_run", body } | { kind: "submitted", status, count } | { kind: "skipped" } | { kind: "failed", code, reason }
+```
+
+The request carries only `content-type`. An app that signs its outgoing requests (e.g. web-bot-auth)
+passes its signing fetch as `fetchImpl`; the module calls it like `fetch` and reads only the status:
+
+```ts
+await submitToIndexNow(urls, { key: indexNowKey, siteOrigin, keyPath: routes.indexNowKey, commit: true,
+  fetchImpl: (input, init) => signedFetch(input, init) });
 ```
 
 ## 5. Migrations and tables

@@ -1,4 +1,4 @@
-// robots.txt rules, asserted on literals (FIRE L-106: a guard measuring its own constant measures itself).
+// robots.txt rules, asserted on literals (a guard measuring its own constant measures itself).
 import { buildRobots } from "@softure-ai/seo";
 import { describe, expect, it } from "vitest";
 import { createSettings } from "./support.js";
@@ -88,6 +88,27 @@ describe("buildRobots", () => {
       { userAgent: "*", allow: ["/"], disallow: [] },
       { userAgent: ALL_CRAWLERS, disallow: ["/"] },
     ]);
+  });
+
+  it("writes the app's extra directives in every group, the closed one too", () => {
+    // A crawler with a group of its own reads only that group (RFC 9309 §2.2.1): a line written
+    // under `*` alone would not reach GPTBot.
+    const other = { "Content-Signal": "ai-train=yes, search=yes, ai-input=yes" };
+    const { rules } = buildRobots(createSettings({ robots: { other }, crawlers: { training: { enabled: false } } }));
+    expect(rules).toHaveLength(3);
+    expect(rules.map((rule) => rule.other)).toEqual([other, other, other]);
+  });
+
+  it("keeps a list of values for one directive in order", () => {
+    const { rules } = buildRobots(createSettings({ robots: { other: { "Content-Signal": ["search=yes", "ai-train=no"] } } }));
+    expect(rules[0]?.other).toEqual({ "Content-Signal": ["search=yes", "ai-train=no"] });
+  });
+
+  it("leaves the other key out of every group when no extra directive is set", () => {
+    const { rules } = buildRobots(createSettings({ robots: { other: {} }, crawlers: { training: { enabled: false } } }));
+    for (const rule of rules) {
+      expect(Object.keys(rule), String(rule.userAgent)).not.toContain("other");
+    }
   });
 
   it("points at the sitemap on the canonical site origin", () => {
