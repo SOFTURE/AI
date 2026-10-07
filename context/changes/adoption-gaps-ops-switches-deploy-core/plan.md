@@ -55,8 +55,11 @@ already exported, see D7).
   from a file and `--<key>-file=-` from stdin (one trailing newline stripped); giving the key and its file form, or
   stdin twice, is a usage error. `runOpsScript` gains `readInput` (file and stdin readers) for tests. Undeclared
   `--x-file` keys stay ordinary arguments.
-- **D4 (point 4)** `export const dynamic = "force-dynamic"` in `route.ts`, re-exported from `@softure-ai/ops/next`;
-  README mounts `export { GET, dynamic }`. Test: the export exists and equals "force-dynamic".
+- **D4 (point 4)** ~~`export const dynamic = "force-dynamic"` re-exported from `@softure-ai/ops/next`~~. Revised
+  during Phase 1: `next build` of the example app with `export { dynamic, GET } from "@softure-ai/ops/next"` fails
+  ("Next.js can't recognize the exported `dynamic` field in route. It mustn't be reexported", Next 16), and Next 16
+  drops `dynamic` under Cache Components. Instead `GET` calls `connection()` from `next/server` first, so the route is
+  dynamic by its own code; `next` becomes an optional peer of ops. Test: `connection` is called on every request.
 - **D5 (point 5)** both READMEs use `npx tsx scripts/migrate.ts --export-migrations` (the app's script, which loads
   any config tsx can), with notes for a config importing `server-only` (`tsx --conditions=react-server`, esbuild
   `--alias:server-only=./scripts/empty.mjs`) and path aliases (tsx and esbuild read tsconfig `paths`); the compose
@@ -134,9 +137,9 @@ Done when: gates green (typecheck, lint, test, build).
 ### Phase 1: ops and the recipes
 
 #### Automated
-- [ ] 1.1 Ops script and route tests seen red, then green
-- [ ] 1.2 Recipes run on Postgres 16 (fresh and existing database)
-- [ ] 1.3 Gates green (typecheck, lint, test)
+- [x] 1.1 Ops script and route tests seen red, then green — 08942bd
+- [x] 1.2 Recipes run on Postgres 16 (fresh and existing database) — 08942bd
+- [x] 1.3 Gates green (typecheck, lint, test) — 08942bd
 
 ### Phase 2: feature-switches, core, manifests
 
