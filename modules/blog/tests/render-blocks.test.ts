@@ -138,12 +138,12 @@ describe("findArticleBlocks", () => {
     const text = `# Title\n\n${CHART}\n\n\`\`\`js\nx\n\`\`\`\n\n\`\`\`chart\n\`\`\``;
 
     expect(findArticleBlocks(text, [chartPlugin])).toEqual([
-      { type: "chart", info: "wealth", line: 3, requires: ["current_as_of", "scenario"] },
-      { type: "chart", info: "", line: 11, requires: ["current_as_of", "scenario"] },
+      { type: "chart", syntax: "fence", attributes: {}, info: "wealth", line: 3, requires: ["current_as_of", "scenario"] },
+      { type: "chart", syntax: "fence", attributes: {}, info: "", line: 11, requires: ["current_as_of", "scenario"] },
     ]);
   });
 
   it("reports no needs for a plugin that declares none", () => {
-    expect(findArticleBlocks(CHART, [nodePlugin])).toEqual([{ type: "chart", info: "wealth", line: 1, requires: [] }]);
+    expect(findArticleBlocks(CHART, [nodePlugin])).toEqual([{ type: "chart", syntax: "fence", attributes: {}, info: "wealth", line: 1, requires: [] }]);
   });
 });

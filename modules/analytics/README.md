@@ -21,7 +21,7 @@ zone moved into configuration and the report turned into a function.
 - **A configurable tag.** `analytics({ channel: { param, pattern, maxLength } })`: the query
   parameter (default `z`), what a valid value looks like (default lowercase words joined by `-` or
   `_`) and its longest length (default 32, at most 64). An invalid value is ignored, never trimmed,
-  cut or repaired.
+  cut or repaired, unless `channel.normalize: "trim-lowercase"` trims and lowercases it first.
 - **Propagation without a cookie** (`/proxy`, `createChannelTagger(config)`):
   - `tag(request)`: a GET navigation (a browser page load, or a Next.js client navigation) without
     the parameter, coming from a same-origin page with a valid one (`Referer`), is answered with a
@@ -59,8 +59,15 @@ zone moved into configuration and the report turned into a function.
     endpoint refuses these steps, so nobody outside can inflate them.
 - **The endpoint** (`/next`, `createFunnelRoute()`): `POST` takes beacons (body at most 256 bytes),
   `GET` serves the pixel. Both count only requests sent from one of the app's pages (`Referer`,
-  `Sec-Fetch-Site`), take the channel from that page, never from the request, and answer the same
-  (204, or the GIF) whatever the input; 503 only when the database fails. Every answer is `no-store`.
+  `Sec-Fetch-Site`), take the channel from that page (unless `funnel.wire.channelField` lets the
+  request carry it) and answer the same (204, or the GIF) whatever the input; 503 only when the
+  database fails. Every answer is `no-store`.
+- **A wire format an existing app keeps** (`funnel.wire`): the step may come under several field names
+  (`stepFields: ["step", "k"]`; the package's own beacon and pixel send the first), so pages cached
+  with an older format keep counting while new ones send the new one; `channelField` reads the channel
+  from the body or query too.
+- **A channel from the page's path** (`funnel.channelFromReferer`): a step sent from a page without a
+  tag can count under a channel derived from that page, e.g. every article view under `blog`.
 - **The day** is the calendar day in `timezone` of `softure.config.ts`, whatever the server's zone.
 - **A cap on new channels**: at most `channelCap` (default 100) distinct channels a day get their
   own counter; new ones past it count under `OVERFLOW_CHANNEL` (`~overflow`, which no channel
@@ -87,7 +94,7 @@ import { analytics } from "@softure-ai/analytics";
 
 // in defineSoftureConfig({ modules: [...] }); every key is optional:
 analytics({
-  channel: { param: "z", pattern: /^[a-z0-9]+(?:[-_][a-z0-9]+)*$/, maxLength: 32 },
+  channel: { param: "z", pattern: /^[a-z0-9]+(?:[-_][a-z0-9]+)*$/, maxLength: 32, normalize: "none" },
   funnel: {
     steps: [
       { id: "landing", via: "pixel" },
@@ -95,6 +102,8 @@ analytics({
       { id: "signup", via: "server" },
     ],
     channelCap: 100,
+    wire: { stepFields: ["step"], channelField: null },
+    // channelFromReferer: (page) => (page.pathname.startsWith("/blog/") ? "blog" : null),
   },
   routes: { funnel: "/api/analytics/funnel" },
 }),
@@ -105,8 +114,12 @@ analytics({
 | `channel.param` | `"z"` | lowercase letters, digits, `-` or `_`, starting with a letter, at most 32 characters |
 | `channel.pattern` | `DEFAULT_CHANNEL_PATTERN` | a `RegExp` without the `g` or `y` flag (they keep state between tests) |
 | `channel.maxLength` | `32` | an integer from 1 to `MAX_CHANNEL_LENGTH` (64) |
+| `channel.normalize` | `"none"` | `"none"` takes a value as it is; `"trim-lowercase"` trims and lowercases it before the pattern and length checks, on the server, in the browser keeper and in `recordFunnelStep` |
 | `funnel.steps` | `[]` | up to 32 steps, ids kebab-case and at most 32 characters, each listed once; `via` is `beacon` (default), `pixel` or `server` |
 | `funnel.channelCap` | `100` | an integer from 1 to 10 000 |
+| `funnel.wire.stepFields` | `["step"]` | 1 to 4 field names (the `param` rule), each once; the endpoint takes the step from any of them (one value in all, or none counts); the package's beacon and pixel send the first (`getFunnelStepField`) |
+| `funnel.wire.channelField` | `null` | a field name that is not a step field: a valid channel in the body or query wins over the page's; an invalid one is ignored |
+| `funnel.channelFromReferer` | none | `(page: URL) => string \| null`, called for a counted step whose page has no tag; the answer passes the channel rule; a throw is logged and counts no channel |
 | `routes.funnel` | `/api/analytics/funnel` | the endpoint's path; `<FunnelPixel>` and `<FunnelBeacon>` use it |
 
 Counting sign-ups as the last step, next to the other hooks (`countRegistration` runs in a
@@ -260,6 +273,23 @@ copy. The `en` and `pl` dictionaries in `src/messages/` are empty.
 - `tagRedirect(path, ctx?)` fits auth's `rewriteRedirect` option (§3) and the waitlist's
   `rewriteConfirmationLink`; auth (and the waitlist) keep their own path if it throws. With
   `ctx.searchParams` (a page's own redirect) it reads the channel from them alone.
+
+- `funnel.channelFromReferer(page)` (§3) derives a channel from an untagged page's URL for the funnel.
+
+**Moving an existing funnel in.** An app whose pages already send `k=<step>&z=<channel>` to its own
+endpoint keeps its numbers with:
+
+```ts
+analytics({
+  channel: { param: "z", pattern: /^[a-z0-9-]+$/, maxLength: 20, normalize: "trim-lowercase" },
+  funnel: {
+    steps: [{ id: "landing", via: "pixel" }, { id: "article", via: "pixel" }, { id: "wizard-1" }],
+    wire: { stepFields: ["step", "k"], channelField: "z" },
+    channelFromReferer: (page) => (page.pathname.startsWith("/blog/") ? "blog" : null),
+  },
+  routes: { funnel: "/calculator/count" }, // the path cached pages post to
+}),
+```
 
 ## 11. GDPR
 

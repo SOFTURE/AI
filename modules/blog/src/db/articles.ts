@@ -5,6 +5,7 @@ import type { ModuleContext } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
 import { and, asc, desc, eq, ne, type SQL } from "drizzle-orm";
 import type { BlogArticle, BlogArticleInput, BlogArticleKind, BlogArticleState, BlogPublishResult } from "../contract.js";
+import type { ArticleHistory } from "./history.js";
 import { articles, slugHistory } from "./schema.js";
 
 export type BlogContext = ModuleContext<Queryable>;
@@ -18,10 +19,14 @@ export type BlogContext = ModuleContext<Queryable>;
  *   text first becomes `published`. A draft gets none.
  * - `updated_at` moves only when the content hash of a text that already has `published_at` changes.
  *
+ * With `history` (an app moving its blog in, see history.ts), an article that has no row yet takes its
+ * `published_at` (unless the file sets one) and `updated_at` from it, and its old slugs enter the slug
+ * history; the result says `imported: true`. For an existing row the history is ignored.
+ *
  * Runs in a transaction that locks the row (`FOR UPDATE`), so two publishes of one article never
  * overwrite each other silently; inside an open transaction it becomes a savepoint.
  */
-export async function publishArticle(ctx: BlogContext, input: BlogArticleInput): Promise<BlogPublishResult> {
+export async function publishArticle(ctx: BlogContext, input: BlogArticleInput, options: PublishArticleOptions = {}): Promise<BlogPublishResult> {
   return ctx.db.transaction(async (tx) => {
     const [existing] = await tx.select().from(articles).where(eq(articles.id, input.id)).for("update");
 
@@ -61,12 +66,25 @@ export async function publishArticle(ctx: BlogContext, input: BlogArticleInput):
     };
 
     if (existing === undefined) {
-      const publishedAt = input.publishedAt ?? (input.status === "published" ? now : null);
+      const history = options.history;
+      const publishedAt = input.publishedAt ?? history?.publishedAt ?? (input.status === "published" ? now : null);
+      const updatedAt = publishedAt === null ? null : (history?.updatedAt ?? null);
+      if (history !== undefined) {
+        const taken = await findTakenOldSlug(tx, input, history);
+        if (taken !== null) return taken;
+      }
       const [inserted] = await tx
         .insert(articles)
-        .values({ id: input.id, ...content, publishedAt, updatedAt: null, createdAt: now })
+        .values({ id: input.id, ...content, publishedAt, updatedAt, createdAt: now })
         .returning();
-      return { ok: true, action: "added", before: null, after: readState(requireRow(inserted, input.id)), previousSlug: null };
+      const oldSlugs = history?.oldSlugs.filter((old) => old.slug !== input.slug) ?? [];
+      if (oldSlugs.length > 0) {
+        await tx.insert(slugHistory).values(oldSlugs.map((old) => ({ oldSlug: old.slug, articleId: input.id, changedAt: old.changedAt ?? now })));
+      }
+      const after = readState(requireRow(inserted, input.id));
+      return history === undefined
+        ? { ok: true, action: "added", before: null, after, previousSlug: null }
+        : { ok: true, action: "added", before: null, after, previousSlug: null, imported: true };
     }
 
     const before = readState(existing);
@@ -101,6 +119,23 @@ export async function publishArticle(ctx: BlogContext, input: BlogArticleInput):
       previousSlug: isSlugChanged ? existing.slug : null,
     };
   });
+}
+
+export interface PublishArticleOptions {
+  /** The article's earlier life, applied only when it has no row yet. */
+  readonly history?: ArticleHistory;
+}
+
+/** The refusal for the first old slug of `history` another article holds, current or old; `null` when all are free. */
+async function findTakenOldSlug(db: Queryable, input: BlogArticleInput, history: ArticleHistory): Promise<Extract<BlogPublishResult, { ok: false }> | null> {
+  for (const { slug } of history.oldSlugs) {
+    if (slug === input.slug) continue;
+    const [owner] = await db.select({ id: articles.id }).from(articles).where(and(eq(articles.slug, slug), ne(articles.id, input.id)));
+    if (owner !== undefined) return { ok: false, error: "blog.slug_taken", otherArticleId: owner.id, slug };
+    const [historyOwner] = await db.select({ articleId: slugHistory.articleId }).from(slugHistory).where(eq(slugHistory.oldSlug, slug));
+    if (historyOwner !== undefined) return { ok: false, error: "blog.slug_in_history", otherArticleId: historyOwner.articleId, slug };
+  }
+  return null;
 }
 
 /** The article under its current slug, in any status: a page tells 200 from 410 by it. */

@@ -13,9 +13,14 @@ export interface FunnelBeaconTarget {
   sendBeacon?: (url: string, data?: BodyInit | null) => boolean;
 }
 
-/** The beacon's body: `step=<id>`. */
-export function buildFunnelBody(step: string): string {
-  return new URLSearchParams({ step }).toString();
+/** The beacon's body: `<field>=<id>`, `step=<id>` by default (`funnel.wire.stepFields[0]`). */
+export function buildFunnelBody(step: string, field = "step"): string {
+  return new URLSearchParams({ [field]: step }).toString();
+}
+
+export interface FunnelReporterOptions {
+  /** The field that names the step; `funnel.wire.stepFields[0]` (`getFunnelStepField`), `step` by default. */
+  readonly stepField?: string;
 }
 
 /**
@@ -26,6 +31,7 @@ export function buildFunnelBody(step: string): string {
 export function createFunnelReporter(
   endpoint: string,
   target: FunnelBeaconTarget | undefined = typeof navigator === "undefined" ? undefined : navigator,
+  options: FunnelReporterOptions = {},
 ): (step: string) => void {
   const sent = new Set<string>();
   return (step) => {
@@ -33,7 +39,7 @@ export function createFunnelReporter(
     sent.add(step);
     if (typeof target?.sendBeacon !== "function") return;
     try {
-      target.sendBeacon(endpoint, buildFunnelBody(step));
+      target.sendBeacon(endpoint, buildFunnelBody(step, options.stepField));
     } catch (error) {
       // The counter must never break the page. The name only: a message could carry the page's URL.
       console.debug(`@softure-ai/analytics: the funnel beacon failed: ${error instanceof Error ? error.name : typeof error}`);

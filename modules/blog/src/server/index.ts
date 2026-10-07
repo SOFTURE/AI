@@ -10,7 +10,9 @@ export {
   publishArticle,
   type BlogContext,
   type ListArticlesFilter,
+  type PublishArticleOptions,
 } from "../db/articles.js";
+export { articleHistorySchema, parseArticleHistory, type ArticleHistory, type ArticleHistoryMap } from "../db/history.js";
 export {
   runBlogPublish,
   type ArticleFile,

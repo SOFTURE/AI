@@ -21,6 +21,16 @@ export const MAX_STEPS = 32;
 /** The default number of distinct new channels a day counts under their own name. */
 export const DEFAULT_CHANNEL_CAP = 100;
 
+/**
+ * How a raw value is repaired before the pattern check: `none` takes it as it is; `trim-lowercase`
+ * trims whitespace and lowercases it, so `?z=Newsletter` from an old link counts as `newsletter`.
+ */
+export const CHANNEL_NORMALIZATIONS = ["none", "trim-lowercase"] as const;
+export type ChannelNormalization = (typeof CHANNEL_NORMALIZATIONS)[number];
+
+/** A field name of the funnel's wire format (`step`, `k`, `z`): short, lowercase, URL-safe. */
+const fieldNameSchema = z.string().regex(PARAM_PATTERN, "must be lowercase letters, digits, - or _, starting with a letter, at most 32 characters");
+
 const channelOptionsSchema = z.strictObject({
   /** The query parameter that carries the channel, e.g. `?z=newsletter`. */
   param: z.string().regex(PARAM_PATTERN, "must be lowercase letters, digits, - or _, starting with a letter, at most 32 characters").default("z"),
@@ -38,7 +48,37 @@ const channelOptionsSchema = z.strictObject({
     .min(1)
     .max(MAX_CHANNEL_LENGTH, `must be at most ${String(MAX_CHANNEL_LENGTH)}`)
     .default(32),
+  /** How a raw value is repaired before the pattern and length checks; the browser keeper does the same. */
+  normalize: z.enum(CHANNEL_NORMALIZATIONS).default("none"),
 });
+
+/** A channel derived from the path of the page a funnel request came from, when the page carries no tag. */
+export type ChannelFromReferer = (page: URL) => string | null;
+
+/**
+ * The funnel's wire format: the field names a beacon body or a pixel query uses. Pages cached with an
+ * older format keep sending it, so the endpoint accepts every name in `stepFields`; the package's
+ * own beacon and pixel send the first.
+ */
+const wireSchema = z
+  .strictObject({
+    /** The fields that name the step, e.g. `["step", "k"]`; the first is sent. A request naming the step twice counts nothing. */
+    stepFields: z.array(fieldNameSchema).min(1, "needs at least one field").max(4, "takes at most 4 fields").default(["step"]),
+    /**
+     * A field of the beacon body or pixel query that carries the channel (`"z"`), for pages that send it
+     * themselves; `null` (the default): only the page the request came from decides. A valid value
+     * wins over the page's; an invalid one is ignored.
+     */
+    channelField: fieldNameSchema.nullable().default(null),
+  })
+  .superRefine((wire, context) => {
+    wire.stepFields.forEach((field, index) => {
+      if (wire.stepFields.indexOf(field) !== index) context.addIssue({ code: "custom", path: ["stepFields", index], message: `"${field}" is listed twice` });
+    });
+    if (wire.channelField !== null && wire.stepFields.includes(wire.channelField)) {
+      context.addIssue({ code: "custom", path: ["channelField"], message: `"${wire.channelField}" already names the step` });
+    }
+  });
 
 /**
  * How a step is counted:
@@ -66,6 +106,13 @@ const funnelOptionsSchema = z
      * counted on an earlier day is never capped.
      */
     channelCap: z.number().int().min(1).max(10_000).default(DEFAULT_CHANNEL_CAP),
+    wire: wireSchema.prefault({}),
+    /**
+     * The channel of a beacon or pixel sent from a page without a tag, derived from the page's URL:
+     * `(page) => (page.pathname.startsWith("/blog/") ? "blog" : null)`. Its result passes the channel
+     * rule like any tag; a throw counts as no channel.
+     */
+    channelFromReferer: z.custom<ChannelFromReferer>((value) => typeof value === "function", "must be a function (page: URL) => string | null").optional(),
   })
   .superRefine((options, context) => {
     const seen = new Set<string>();
@@ -85,3 +132,4 @@ export type AnalyticsOptionsInput = z.input<typeof analyticsOptionsSchema>;
 export type ChannelOptions = AnalyticsOptions["channel"];
 export type FunnelOptions = AnalyticsOptions["funnel"];
 export type FunnelStep = FunnelOptions["steps"][number];
+export type FunnelWire = FunnelOptions["wire"];
