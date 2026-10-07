@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 // The register page with Next's request scope replaced: no session cookie, so it renders the form.
 import { authMessages } from "@softure-ai/auth";
-import { createRegisterPage, RegisterPage } from "@softure-ai/auth/next";
+import { createRegisterPage, LogoutButton, RegisterPage } from "@softure-ai/auth/next";
 import type { SoftureConfig } from "@softure-ai/core";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -64,5 +64,25 @@ describe("the register page", () => {
     expect(screen.getByRole("link", { name: en.login.registerLink })).toHaveProperty("href", expect.stringContaining("/terms") as string);
     expect(document.querySelector('form input[name="company"]')).not.toBeNull();
     expect(screen.getByRole("checkbox")).toHaveProperty("required", true);
+  });
+});
+
+describe("the logout button", () => {
+  let test: TestAuth;
+
+  afterEach(async () => {
+    cleanup();
+    await test.database.close();
+  });
+
+  it("posts its next path as a hidden field, and none without one", async () => {
+    test = await createTestAuth();
+    scope.config = test.config;
+    const { unmount } = render(<LogoutButton next="/login?next=/oauth/authorize" />);
+    expect(document.querySelector('form input[type="hidden"][name="next"]')).toHaveProperty("value", "/login?next=/oauth/authorize");
+    unmount();
+    render(<LogoutButton />);
+    expect(document.querySelector('input[name="next"]')).toBeNull();
+    expect(screen.getByRole("button", { name: en.logout.submit })).not.toBeNull();
   });
 });

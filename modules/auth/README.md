@@ -30,6 +30,20 @@ Peer dependencies: `next` 16, `react` 19, `drizzle-orm`; optional: `@softure-ai/
 `@softure-ai/auth/mailing`, `@softure-ai/ops` for `@softure-ai/auth/scripts`. No other entry
 imports them.
 
+**Unit tests with Vitest.** `@softure-ai/auth/next` imports `next/headers`, `next/navigation` and
+`next/server` without a file extension. Next's bundler resolves only those bare specifiers (the `.js`
+form bypasses its per-runtime aliases and breaks `next build`), but Next has no `exports` map, so plain
+Node ESM cannot resolve them: a Vitest test that imports the entry fails with
+`Cannot find module '…/node_modules/next/headers'`. Let Vitest process the package instead of Node:
+
+```ts
+// vitest.config.mts
+export default defineConfig({ test: { server: { deps: { inline: [/@softure-ai\//] } } } });
+```
+
+The pattern covers every `@softure-ai/*` package; the other modules' `/next` entries import Next the
+same way.
+
 ## 3. Configuration
 
 ```ts
@@ -67,7 +81,7 @@ export default config;
 | `session.ttlDays` | `number` (1-365) | `30` | Session lifetime from login. It is not extended by use. |
 | `cookie.name` | `string` | `"softure_session"` | Base name of the session cookie (see below). |
 | `cookie.domain` | `string` | none (host-only) | Share the session with subdomains, e.g. `example.com` for the apex and `app.example.com`. |
-| `cookie.secure` | `boolean` | `appOrigin` is https | Send the cookie over HTTPS only. |
+| `cookie.secure` | `boolean` | `appOrigin` is https | Send the cookie over HTTPS only. Set it explicitly when one build serves both HTTPS and plain HTTP (see below). |
 | `requireConsent` | `boolean` | `true` | Registration needs the consent checkbox. |
 | `registrationFields` | `string[]` | `[]` | Extra register form fields handed to `onRegistered` as `event.fields` (section 10). Names: `a-z` first, then letters, digits or `_`, at most 32; not `email`, `password`, `next` or `consent`. |
 | `legacySession` | `{ cookieName, tokenPattern }` | none | Sessions of the system the app took over (section 5, "Adopting existing sessions"). |
@@ -83,7 +97,12 @@ export default config;
 
 **Cookie.** Always `HttpOnly`, `SameSite=Lax`, `Path=/`, `Max-Age` = the TTL. A secure cookie gets
 the prefix browsers enforce: `__Host-softure_session` when it is host-only, `__Secure-softure_session`
-with `cookie.domain`. Over plain HTTP (local development) it keeps the bare name.
+with `cookie.domain`. Over plain HTTP (local development) it keeps the bare name. Without
+`cookie.secure` the choice follows `appOrigin`'s scheme, read once from the config: an image built
+with an `https:` origin and run over plain HTTP (a test stack on the production image) sets a
+`__Host-` cookie the browser refuses, so no login sticks. Set `cookie.secure` from the deploy instead,
+e.g. `cookie: { secure: process.env.ALLOW_INSECURE_COOKIES !== "true" }` with the variable set on
+that stack only.
 
 **Rate limits** (`AUTH_RATE_LIMIT_BUCKETS`, configured in `security`): `register` 5 and `login` 50
 per client address, `login-account` 10 per email, `change-password` 10 per user,
@@ -156,6 +175,11 @@ export default async function AccountPage() {
 }
 ```
 
+`<LogoutButton next="/login?next=…" />` (or `logoutAction({ next })` from the app's own action)
+ends the session and goes to that path instead of `afterLogout`, e.g. a consent screen's "sign in as
+someone else" returning to the same authorization request after the new login. The path is checked
+like login's `next`: anything but a path on this app falls back to `afterLogout`.
+
 `requireUser({ next: "/account" })` brings the user back after login; `getCurrentUser()` returns
 the user or `null`. Both read the session once per request. The redirect to login goes through the
 app's `rewriteRedirect` (options table); a page outside the proxy's guard passes its own search
@@ -198,7 +222,22 @@ export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico).*)
 Next's `config`.)
 
 A protected prefix matches whole path segments (`/account` covers `/account/password`, not
-`/accounting`). The change-password route is always protected. Redirects are built on `appOrigin`.
+`/accounting`). The change-password route is always protected. Redirects are built on `appOrigin`,
+because behind a reverse proxy the request URL carries the server's internal host.
+
+An app served on several hosts from one build (the product on `app.example.com`, pages on
+`example.com`) lists the others in `trustedOrigins`, so a visitor is sent to the login page on the
+host they used:
+
+```ts
+const guard = createAuthGuard(softureConfig, { protect: ["/account"], trustedOrigins: ["https://example.com"] });
+```
+
+The guard reads the request's public origin from `X-Forwarded-Proto` and `X-Forwarded-Host` (first
+values), else from `Host` and the URL's scheme, and uses it only when it equals a listed origin
+(scheme, host and port); any other request goes to `appOrigin`. Headers alone can therefore never
+send a visitor to a host the app did not list. An entry that is not an `http(s)` origin throws when
+the guard is created. A session cookie shared by the hosts needs `cookie.domain`.
 
 An app that is private by default protects `"/"` and lists its public paths in `exclude`, which is
 checked first:
