@@ -16,7 +16,9 @@ function makeIo(): CliIo {
   return { cwd: dir, env: {}, stdout: (text) => out.push(text), stderr: (text) => err.push(text) };
 }
 
-function writeApp(pkg: object, nextConfig = 'export default { output: "standalone" };\n'): void {
+const NEXT_CONFIG = 'export default { output: "standalone", serverExternalPackages: ["@softure-ai/db", "pg"] };\n';
+
+function writeApp(pkg: object, nextConfig = NEXT_CONFIG): void {
   writeFileSync(join(dir, "package.json"), JSON.stringify(pkg));
   writeFileSync(join(dir, "next.config.ts"), nextConfig);
 }
@@ -89,6 +91,52 @@ describe("softure-deploy init", () => {
     writeApp({ name: "shop" }, "export default {};\n");
     expect(await runCli(["init", ...REQUIRED], makeIo())).toBe(0);
     expect(out.join("")).toContain('warning next.config.ts does not mention "standalone"; the Dockerfile needs output: "standalone"\n');
+  });
+
+  describe("serverExternalPackages of a database app", () => {
+    const DATABASE_APP = { name: "shop", dependencies: { "@softure-ai/db": "^0.1.2" } };
+    const SERVER_EXTERNAL_WARNING =
+      'warning next.config.ts does not list "@softure-ai/db" in serverExternalPackages; next build cannot resolve the database driver the app does not install (see serverExternalPackages in the @softure-ai/db README, §2 Installation)\n';
+
+    async function warningsFor(pkg: object, nextConfig: string): Promise<string[]> {
+      writeApp(pkg, nextConfig);
+      expect(await runCli(["init", ...REQUIRED], makeIo())).toBe(0);
+      return out
+        .join("")
+        .split("\n")
+        .filter((line) => line.startsWith("warning "))
+        .map((line) => `${line}\n`);
+    }
+
+    it("gives no warning when the list names @softure-ai/db", async () => {
+      const config = 'export default { output: "standalone", serverExternalPackages: ["@softure-ai/db", "pg"] };\n';
+      expect(await warningsFor(DATABASE_APP, config)).toEqual([]);
+    });
+
+    it("warns when the list lacks @softure-ai/db", async () => {
+      const config = 'export default { output: "standalone", serverExternalPackages: ["pg"] /* @softure-ai/db */ };\n';
+      expect(await warningsFor(DATABASE_APP, config)).toEqual([SERVER_EXTERNAL_WARNING]);
+    });
+
+    it("warns when the config has no serverExternalPackages", async () => {
+      expect(await warningsFor(DATABASE_APP, 'export default { output: "standalone" };\n')).toEqual([SERVER_EXTERNAL_WARNING]);
+    });
+
+    it("gives no warning when the list is a variable that names @softure-ai/db", async () => {
+      const config = "const external = ['@softure-ai/db', 'pg'];\nexport default { output: \"standalone\", serverExternalPackages: external };\n";
+      expect(await warningsFor(DATABASE_APP, config)).toEqual([]);
+    });
+
+    it("gives no warning in an app without @softure-ai/db", async () => {
+      expect(await warningsFor({ name: "shop" }, 'export default { output: "standalone" };\n')).toEqual([]);
+    });
+
+    it("prints it after the standalone warning", async () => {
+      expect(await warningsFor(DATABASE_APP, "export default {};\n")).toEqual([
+        'warning next.config.ts does not mention "standalone"; the Dockerfile needs output: "standalone"\n',
+        SERVER_EXTERNAL_WARNING,
+      ]);
+    });
   });
 
   it("is a usage error without --domain and --image, or with an unknown flag", async () => {
