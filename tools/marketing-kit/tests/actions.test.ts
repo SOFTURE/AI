@@ -49,7 +49,10 @@ describe("runAction", () => {
     expect(await runOne({ do: "tap", target: css("#next") })).toEqual([["tap", 'locator("#next")']]);
     expect(await runOne({ do: "tap", target: css("#next"), after: 0.25 })).toEqual([["tap", 'locator("#next")', { after: 0.25 }]]);
     expect(await runOne({ do: "type", text: "36", perChar: 0.1 })).toEqual([["type", "36", { perChar: 0.1 }]]);
+    expect(await runOne({ do: "press", key: "Enter" })).toEqual([["press", "Enter"]]);
+    expect(await runOne({ do: "press", key: "Backspace", times: 2, perKey: 0.2 })).toEqual([["press", "Backspace", { times: 2, perKey: 0.2 }]]);
     expect(await runOne({ do: "fill", input: "age", value: "36" })).toEqual([["fill", "age", "36"]]);
+    expect(await runOne({ do: "fill", input: "age", value: "36", clear: false })).toEqual([["fill", "age", "36", { clear: false }]]);
     expect(await runOne({ do: "blur" })).toEqual([["blur"]]);
     expect(await runOne({ do: "focus", target: [css("#a"), css("#b")], scale: 1.4, height: 230 })).toEqual([
       ["focus", ['locator("#a")', 'locator("#b")'], { scale: 1.4, height: 230 }],

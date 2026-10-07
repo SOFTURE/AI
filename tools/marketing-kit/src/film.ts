@@ -116,8 +116,13 @@ export interface Director {
   /** Touch the element on a phone, click it on a desktop. */
   tap(target: Locator, options?: { after?: number }): Promise<void>;
   type(text: string, options?: { perChar?: number }): Promise<void>;
-  /** Tap the `input[name=…]` field, move the camera onto it and type the value. */
-  fill(name: string, value: string): Promise<void>;
+  /** Press a key (a Playwright key name such as `Backspace` or `ControlOrMeta+A`) `times` times, holding `perKey` after each. */
+  press(key: string, options?: { times?: number; perKey?: number }): Promise<void>;
+  /**
+   * Tap the `input[name=…]` field, move the camera onto it and type the value. A value already in the field is
+   * selected and deleted first, on screen; `clear: false` types after it instead.
+   */
+  fill(name: string, value: string, options?: { clear?: boolean }): Promise<void>;
   blur(): Promise<void>;
   /** Camera on an element (or on the rectangle that encloses several). */
   focus(target: Locator | Locator[], options?: { scale?: number; height?: number }): Promise<void>;

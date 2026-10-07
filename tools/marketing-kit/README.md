@@ -17,7 +17,7 @@ TTS providers (MK-7), screenshots (MK-4) and OG images (MK-5) build on it. Backg
 An app runs the kit through `npx` with a pinned version, not as a dependency:
 
 ```json
-{ "scripts": { "marketing": "npx -y @softure-ai/marketing-kit@0.1.8" } }
+{ "scripts": { "marketing": "npx -y @softure-ai/marketing-kit@0.1.9" } }
 ```
 
 `npm run marketing -- all <video>` then runs the CLI. As a `devDependency` the kit would add more than 100 MB
@@ -284,7 +284,8 @@ Optional arguments left out keep the Director's defaults.
 | `wide` | `scale` (`1`), `whoosh` (`false`) | camera on the whole screen |
 | `tap` | `target`, `after` (`0.35` s) | scrolls the element into view if needed and taps its centre (clicks it on a desktop) |
 | `type` | `text`, `perChar` (`0.13` s) | types into the focused element, one key at a time |
-| `fill` | `input`, `value` | taps `input[name=<input>]`, moves the camera onto it (1.55×; on a desktop at most what still fits the frame) and types the value |
+| `press` | `key`, `times` (`1`, up to 50), `perKey` (`0.13` s) | presses a key on the focused element: a Playwright key name such as `Backspace`, `Enter`, `Tab` or `ControlOrMeta+A` (Meta on macOS, Control elsewhere) |
+| `fill` | `input`, `value`, `clear` (`true`) | taps `input[name=<input>]`, moves the camera onto it (1.55×; on a desktop at most what still fits the frame) and types the value. A value already in the field (a prefilled default, or one the app sets on focus) is selected and deleted on screen first, so `fill intentAge 50` over `45` ends as `50`; if the app puts a value back, the action fails. `clear: false` types after the old value (`4550`) |
 | `blur` | | takes the focus off the active element |
 | `focus` | `target` (one or many), `scale` (fits the element), `height` | camera on the element, or on the rectangle around several |
 | `bring` | `target`, `top` (`140` px), `seconds` (`0.5`) | scrolls so the element's top edge stands `top` px from the top |
@@ -374,6 +375,15 @@ format, so its paid recordings are reused as they are, with no re-keying and no 
 3. Run `softure-marketing voice <video>` **without** `--commit` for every video. Each must print
    `from the cache`; an estimate line means the text, voice or model differs from FIRE's, and nothing
    was spent.
+
+### Upgrading to 0.1.9
+
+- `fill` replaces a value already in the field instead of typing after it: over a prefilled `45`, `fill … "50"` now
+  records `50` (0.1.8 recorded `4550`). The old value is selected and deleted on screen, with a key sound for each
+  key. A field that is empty records frame for frame as before. `"clear": false` keeps 0.1.8's behaviour.
+- A new `press` action presses any key (`Backspace`, `Enter`, `Tab`, `Escape`, `ControlOrMeta+A`), `times` times, so
+  a scene that shows a deletion key by key or submits with Enter needs no `sceneModule`. A scene module calls
+  `d.press(key, { times, perKey })`; a hand-written `Director` needs the new method.
 
 ### Upgrading to 0.1.8
 

@@ -26,6 +26,8 @@ export const FPS = 30;
 const DT = 1000 / FPS;
 /** Limit of one scene action: longer means the app looks different from what the scene expects. */
 const ACTION_TIMEOUT_MS = 5000;
+/** How long one typed character or pressed key stays on screen before the next. */
+const KEY_SECONDS = 0.13;
 
 export interface CameraCue {
   f: number;
@@ -290,11 +292,19 @@ export async function recordFilm(options: RecordOptions): Promise<RecordingLog> 
         for (const character of text) {
           log.keys.push(frame);
           await page.keyboard.type(character);
-          await hold(typeOptions?.perChar ?? 0.13);
+          await hold(typeOptions?.perChar ?? KEY_SECONDS);
         }
       },
 
-      async fill(name, value) {
+      async press(key, pressOptions) {
+        for (let i = 0, times = pressOptions?.times ?? 1; i < times; i += 1) {
+          log.keys.push(frame);
+          await page.keyboard.press(key);
+          await hold(pressOptions?.perKey ?? KEY_SECONDS);
+        }
+      },
+
+      async fill(name, value, fillOptions) {
         const input = page.locator(`input[name=${name}]`);
         await ensureVisible(input);
         const rect = await rectOf(input);
@@ -302,6 +312,19 @@ export async function recordFilm(options: RecordOptions): Promise<RecordingLog> 
         const scale = isDesktop ? Math.min(1.55, fitScale(geometry, rect)) : 1.55;
         log.camera.push({ f: frame, kind: "focus", rect, scale, whoosh: false });
         await director.tap(input, { after: 0.2 });
+        // A tap leaves the caret where the finger landed and selects nothing: typed keys would join the old value.
+        // An empty field presses nothing, so it records frame for frame as before.
+        if (fillOptions?.clear !== false && (await input.inputValue()) !== "") {
+          await director.press("ControlOrMeta+A");
+          await director.press("Backspace");
+          const left = await input.inputValue();
+          if (left !== "") {
+            throw new Error(
+              `${where()}: ${String(input)} still holds "${left}" after select all and Backspace; ` +
+                `the app puts a value back. Set "clear": false or fix the scene: ${filmPath}`,
+            );
+          }
+        }
         await director.type(value);
       },
 

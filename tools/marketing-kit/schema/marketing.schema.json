@@ -977,8 +977,40 @@
                         "properties": {
                           "do": {
                             "type": "string",
+                            "const": "press",
+                            "description": "Presses a key on the focused element, e.g. Backspace, Enter or ControlOrMeta+A."
+                          },
+                          "key": {
+                            "type": "string",
+                            "pattern": "^\\S+$",
+                            "description": "A Playwright key name; modifiers joined with +, ControlOrMeta for the platform's shortcut key."
+                          },
+                          "times": {
+                            "description": "How many times the key is pressed (1-50, default 1).",
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 50
+                          },
+                          "perKey": {
+                            "description": "Seconds held after each press (0-10, default 0.13).",
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 10
+                          }
+                        },
+                        "required": [
+                          "do",
+                          "key"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "do": {
+                            "type": "string",
                             "const": "fill",
-                            "description": "Taps input[name=<input>], moves the camera onto it and types the value."
+                            "description": "Taps input[name=<input>], moves the camera onto it, deletes a value already there and types the value."
                           },
                           "input": {
                             "type": "string",
@@ -988,6 +1020,10 @@
                           "value": {
                             "type": "string",
                             "description": "The text typed into the input."
+                          },
+                          "clear": {
+                            "description": "Select and delete a value already in the input before typing, on screen (default true); false types after it.",
+                            "type": "boolean"
                           }
                         },
                         "required": [
