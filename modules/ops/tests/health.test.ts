@@ -26,8 +26,20 @@ describe("collectHealthChecks", () => {
     expect(namesOf(collectHealthChecks(config, database.db))).toEqual(["database", "module-1", "module-2", "app.queue"]);
   });
 
-  it("has no database check without a database", () => {
+  it("fails the database check when the config has no database", async () => {
     const config = createConfig({ databaseUrl: null, modules: [passingCheck] });
+    const checks = collectHealthChecks(config, null);
+    expect(namesOf(checks)).toEqual(["database", "module-1"]);
+    expect(await checks[0]?.check({ db: database.db, clock, config })).toEqual(err("ops.database_missing"));
+  });
+
+  it("requires a database even when the ops module is not in the config", () => {
+    const config = createConfig({ databaseUrl: null, modules: [passingCheck], ops: null });
+    expect(namesOf(collectHealthChecks(config, null))).toEqual(["database", "module-1"]);
+  });
+
+  it("has no database check without a database when the app opts out", () => {
+    const config = createConfig({ databaseUrl: null, modules: [passingCheck], ops: { requireDatabase: false } });
     expect(namesOf(collectHealthChecks(config, null))).toEqual(["module-1"]);
   });
 
