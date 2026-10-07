@@ -36,7 +36,7 @@ backlog: context/backlog/roadmap-charts-followups/
 
 | ID | Change | Outcome | Depends on | Mode | Status |
 | --- | --- | --- | --- | --- | --- |
-| **CF-1** | `chart-pin` | `ChartPin` in `@softure-ai/charts`: an event pin (dashed vertical from the axis to a point and a dot on it) | — | autonomous | ready |
+| **CF-1** | `chart-pin` | `ChartPin` in `@softure-ai/charts`: an event pin (dashed vertical from the axis to a point and a dot on it) | — | autonomous | **in_progress** (implement 1/1, since 2026-10-07; cloud thread, branch claude/project-thread-qcl0sh) |
 
 ## Order
 
@@ -46,7 +46,7 @@ backlog: context/backlog/roadmap-charts-followups/
 
 ### CF-1: Event pin
 - **Change ID:** `chart-pin`
-- **Status:** ready
+- **Status:** in_progress (implement 1/1, since 2026-10-07; cloud thread, branch claude/project-thread-qcl0sh)
 - **Source:** CH-5 (`charts-release`), mapping FIRE_TRACKER for the adoption guide: CH-2's research marked FIRE's
   `ChartPin` (`src/components/chart/chart-flag.tsx`) as generic, but CH-2 shipped only `ChartFlag`, so FIRE keeps its
   own pin when it moves to the package.
