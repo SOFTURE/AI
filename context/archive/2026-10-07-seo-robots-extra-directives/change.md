@@ -1,12 +1,13 @@
 ---
 change_id: seo-robots-extra-directives
 title: "seo: extra robots.txt directives in every group, and signed IndexNow requests (issue #194)"
-status: planned
+status: archived
 roadmap_item: null
 issue: 194
 branch: claude/project-thread-7hxh6u
 created: 2026-10-07
 updated: 2026-10-07
+archived_at: 2026-10-07
 ---
 
 ## Intent

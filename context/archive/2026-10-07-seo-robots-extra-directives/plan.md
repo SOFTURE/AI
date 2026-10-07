@@ -51,4 +51,4 @@ green.
 
 ## Progress
 
-- [ ] Phase 1: option, groups, docs
+- [x] Phase 1: option, groups, docs — 646fd71
