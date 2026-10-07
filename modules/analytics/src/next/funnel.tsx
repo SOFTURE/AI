@@ -13,13 +13,35 @@ export interface FunnelStepProps {
   readonly step: string;
 }
 
-export function FunnelPixel({ step }: FunnelStepProps) {
+export interface FunnelPixelProps extends FunnelStepProps {
+  /**
+   * The image's class. Without one the image is positioned absolutely, so it adds no line box to
+   * the page's flow; with one, the class alone decides.
+   */
+  readonly className?: string;
+}
+
+/** Out of the flow by default: an inline image in block layout adds a line box. */
+const PIXEL_STYLE = { position: "absolute" } as const;
+
+export function FunnelPixel({ step, className }: FunnelPixelProps) {
   const config = getSoftureConfig();
   assertStepKind(config, step, "pixel");
   const src = `${getFunnelEndpoint(config)}?${new URLSearchParams({ [getFunnelStepField(config)]: step }).toString()}`;
   // A plain image on purpose: it must load on every view (no lazy loading, no optimiser) and send
   // the page as its Referer. Decorative, so its alt text is empty.
-  return <img src={src} alt="" width={1} height={1} aria-hidden="true" data-funnel-step={step} />;
+  return (
+    <img
+      src={src}
+      alt=""
+      width={1}
+      height={1}
+      decoding="async"
+      aria-hidden="true"
+      data-funnel-step={step}
+      {...(className === undefined ? { style: PIXEL_STYLE } : { className })}
+    />
+  );
 }
 
 export function FunnelBeacon({ step }: FunnelStepProps) {

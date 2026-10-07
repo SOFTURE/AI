@@ -2,10 +2,8 @@
 
 Runtime switches for a Next.js app: features turned on and off without a deploy, each declared once
 with a default and a fail mode, overridable from the environment, and flipped by an admin in a
-generic panel that is closed to everyone else. Built from FIRE_TRACKER's switches
-(`src/db/feature-switches.ts`, `src/app/actions/{switches,manage-switches}.ts`,
-`src/components/switch-manager.tsx`), with a declared registry instead of hard-coded names and the
-panel behind a role from `@softure-ai/auth`.
+generic panel that is closed to everyone else. Switches come from a declared registry, not from
+hard-coded names, and the panel sits behind a role from `@softure-ai/auth`.
 
 ## 1. What it provides
 
@@ -96,8 +94,58 @@ components ask; nothing is cached across requests, so a flip is visible on the n
 every instance. Outside a request (scripts, jobs) use `isEnabled(ctx, name)` from `/server` with the
 module context; it reads the one row each call. Both throw for a name the app did not declare.
 
-To build your own panel, compose `SwitchPanel` from `@softure-ai/feature-switches/ui` with
-`setSwitchAction` from `/next`, behind your own `requireRole` check.
+### The panel inside the app's own page shell
+
+`SwitchesPage` renders its own `<main>` and `Card` title. An app whose panel screens share a container
+and a heading builds the page from the same parts, behind its own `requireRole` check:
+
+```tsx
+// app/settings/switches/page.tsx
+import { requireRole } from "@softure-ai/auth/next";
+import { getSoftureConfig } from "@softure-ai/core/next";
+import { getFeatureSwitchesMessages, getSwitchContext, setSwitchAction, toSwitchPanelRows } from "@softure-ai/feature-switches/next";
+import { getFeatureSwitchesOptions, listSwitches, listUndefinedManifestSwitches } from "@softure-ai/feature-switches/server";
+import { SwitchPanel } from "@softure-ai/feature-switches/ui";
+
+export const dynamic = "force-dynamic";
+
+export default async function SwitchesSettingsPage() {
+  const config = getSoftureConfig();
+  await requireRole(getFeatureSwitchesOptions(config).panelRole);
+  const messages = getFeatureSwitchesMessages(config);
+  const views = await listSwitches(await getSwitchContext(config));
+  return (
+    <AppPanelShell title={messages.panel.title}>
+      <SwitchPanel
+        switches={toSwitchPanelRows(views, messages, config)}
+        undefinedSwitches={listUndefinedManifestSwitches(config)}
+        action={setSwitchAction}
+        messages={messages}
+        locale={config.locale}
+      />
+    </AppPanelShell>
+  );
+}
+```
+
+`toSwitchPanelRows(views, messages, config)` is the mapping `SwitchesPage` uses: the label, the
+description, `isLocked` for a switch held by its environment override, and the sentence that says
+where the value comes from (`describeSwitchSource`, with a stored date in `config.locale` and
+`config.timezone`). Mount the page at the panel route, or name the app's path in
+`featureSwitches({ routes: { panel: "/settings/switches" } })`: `setSwitchAction` revalidates
+`routes.panel` after every stored change, so each row's source note shows the new date without a
+reload.
+
+### Tests that import `/next`
+
+`@softure-ai/feature-switches/next` imports `@softure-ai/auth/next`, which imports `next/headers`
+without an extension (Next's bundler needs the bare specifier). Under Vitest, inline the packages so
+Vite resolves it:
+
+```ts
+// vitest.config.ts
+test: { server: { deps: { inline: [/@softure-ai\/(auth|feature-switches)/] } } },
+```
 
 The panel's action checks the role with `authorizeRole(panelRole)` before it reads the form, and
 answers `auth.forbidden` to anyone without it, stored session or not. Do not add the panel path to
@@ -114,6 +162,59 @@ Schema `features`, migration `0001_create_switches.sql`:
 A switch with no row reads as its default. Rows of switches the app no longer declares are ignored,
 never deleted: declaring the switch again brings back its last stored value. Run `softure migrate`
 (or the container step of `@softure-ai/ops`); the app's least-privilege role needs no extra grant.
+
+### Adopting an existing switches table
+
+An app that already stores its switches in a table of its own keeps the data by moving that table
+into the module's shape in its own migration, then declaring `baseline: { "feature-switches": 1 }`
+in its `AppMigrations` (`@softure-ai/db` README, "A baseline"). The baseline comparison checks the
+schema, column types, nullability, defaults and constraint names against `0001_create_switches.sql`,
+so each step below is needed. For a table `public.feature_switches (name text PRIMARY KEY, enabled
+boolean NOT NULL DEFAULT false, updated_at timestamptz NOT NULL DEFAULT now())`:
+
+```sql
+CREATE SCHEMA IF NOT EXISTS features;
+ALTER TABLE public.feature_switches SET SCHEMA features;
+ALTER TABLE features.feature_switches RENAME TO switches;
+-- The comparison sees constraint names: the primary key keeps the old table's name otherwise.
+ALTER TABLE features.switches RENAME CONSTRAINT feature_switches_pkey TO switches_pkey;
+-- The module writes every column itself: no defaults, no nulls.
+ALTER TABLE features.switches
+  ALTER COLUMN enabled DROP DEFAULT,
+  ALTER COLUMN enabled SET NOT NULL,
+  ALTER COLUMN updated_at DROP DEFAULT,
+  ALTER COLUMN updated_at SET NOT NULL,
+  ADD COLUMN updated_by text;
+-- Stored switches are named <scope>.<key>; rename each one to the name the app now declares.
+UPDATE features.switches SET name = 'auth.registration_closed' WHERE name = 'registration_closed';
+-- Rows that still fail the name shape cannot be read by any declared switch: drop them.
+DELETE FROM features.switches
+WHERE char_length(name) > 100 OR name !~ '^[a-z][a-z0-9]*(-[a-z0-9]+)*\.[a-z][a-z0-9_]*$';
+ALTER TABLE features.switches
+  ADD CONSTRAINT switches_name_check
+    CHECK (char_length(name) <= 100 AND name ~ '^[a-z][a-z0-9]*(-[a-z0-9]+)*\.[a-z][a-z0-9_]*$'),
+  ADD CONSTRAINT switches_updated_by_check CHECK (char_length(updated_by) BETWEEN 1 AND 200);
+```
+
+- Rename before you delete: a name without a scope (`registration_closed`) fails the shape check.
+- Convert other column types in the same migration (`ALTER COLUMN updated_at TYPE timestamptz USING …`).
+- Existing rows keep `updated_by` null ("set outside a session"); the module fills it on the next change.
+- The module's test suite runs this script over a legacy table and migrates with the baseline, so the
+  recipe stays in step with `0001_create_switches.sql`.
+
+### Changing a switch from SQL
+
+The break-glass path when the panel is unavailable and no environment override is in place. `updated_at`
+has no default, and `updated_by` is null for a change made outside a session:
+
+```sql
+INSERT INTO features.switches (name, enabled, updated_at)
+VALUES ('auth.registration_closed', true, now())
+ON CONFLICT (name) DO UPDATE SET enabled = excluded.enabled, updated_at = excluded.updated_at, updated_by = NULL;
+```
+
+Use a declared name: a row for any other name is stored and ignored. The change is visible on the next
+request, on every instance.
 
 ## 6. Environment variables
 
@@ -198,6 +299,12 @@ contributes to `@softure-ai/privacy` (`privacy` flags on):
   their value and date.
 - **Deletion** (`deleteSwitchesUserData`): sets `updated_by` to null on those switches. The switch's
   value and `updated_at` stay: the switch belongs to the app, and deleting an account must not flip it.
+
+Both helpers read only the database, so they take `{ db }` (`SwitchesPrivacyContext`, a drizzle handle
+or a transaction): an app that runs account deletion in its own transaction, without
+`@softure-ai/privacy`, calls them directly. `deleteSwitchesUserData` returns
+`ok({ clearedSwitches })`, the number of switches whose `updated_by` it cleared, for the app's
+deletion report.
 
 ## 12. Limitations
 

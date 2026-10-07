@@ -91,11 +91,11 @@ describe("carry", () => {
     expect(response?.headers.get("location")).toBe(`${APP_ORIGIN}/login?next=%2Faccount&z=newsletter`);
   });
 
-  it("resolves a relative Location against the request and keeps the other headers", () => {
+  it("keeps a relative Location relative and keeps the other headers", () => {
     const redirect = new Response(null, { status: 302, headers: { location: "/login", "cache-control": "no-store" } });
     const response = channels.carry(createRequest("/account?z=ads"), redirect);
     expect(response?.status).toBe(302);
-    expect(response?.headers.get("location")).toBe(`${APP_ORIGIN}/login?z=ads`);
+    expect(response?.headers.get("location")).toBe("/login?z=ads");
     expect(response?.headers.get("cache-control")).toBe("no-store");
   });
 

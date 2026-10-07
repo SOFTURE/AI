@@ -6,9 +6,11 @@ export {
   deleteSwitchesUserData,
   exportSwitchesUserData,
   switchesPrivacyContributor,
+  type SwitchesDeletionReport,
+  type SwitchesPrivacyContext,
   type SwitchesUserData,
 } from "./privacy.js";
-export { findSwitchDefinition, getFeatureSwitchesOptions, getSwitchDefinition, getSwitchDefinitions } from "./options.js";
+export { findSwitchDefinition, getFeatureSwitchesOptions, getFeatureSwitchesRoutes, getSwitchDefinition, getSwitchDefinitions } from "./options.js";
 export { listUndefinedManifestSwitches, readDeclaredSwitch, type UndefinedManifestSwitch } from "./reader.js";
 export {
   isEnabled,

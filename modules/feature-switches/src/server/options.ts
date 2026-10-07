@@ -18,6 +18,14 @@ export function getFeatureSwitchesOptions(config: SoftureConfig): FeatureSwitche
   return getFeatureSwitchesModule(config).options as FeatureSwitchesOptions;
 }
 
+/** The module's routes after the app's overrides (`featureSwitches({ routes: { panel } })`). */
+export function getFeatureSwitchesRoutes(config: SoftureConfig): { readonly panel: string } {
+  const { panel } = getFeatureSwitchesModule(config).routes;
+  // The manifest declares the route, so a missing one means a broken module definition.
+  if (panel === undefined) throw new Error('@softure-ai/feature-switches: route "panel" is missing from the module manifest');
+  return { panel };
+}
+
 /** Every switch the app declared, in its order. */
 export function getSwitchDefinitions(config: SoftureConfig): readonly SwitchDefinition[] {
   return getFeatureSwitchesOptions(config).switches;

@@ -1,5 +1,4 @@
-// The funnel counter (FIRE_TRACKER `src/db/funnel-counts.ts` and `scripts/kanaly-report.sql`,
-// generalised): daily aggregates per (day, channel, step), with the steps, the cap on new channels
+// The funnel counter: daily aggregates per (day, channel, step), with the steps, the cap on new channels
 // and the time zone from configuration. Nothing about a visitor is stored, only the sums.
 import { errorLogLabel, type ModuleContext } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
@@ -52,7 +51,8 @@ const DAY_MS = 86_400_000;
  * One statement: choosing the channel's key (its own name or `OVERFLOW_CHANNEL`) and the increment
  * happen in one `INSERT … ON CONFLICT DO UPDATE`, so parallel visits never lose each other. A race
  * at the cap may let a few channels past it; the cap bounds growth, it is not an exact quota.
- * A channel counted before (today or on an earlier day) is never capped, nor is "no channel".
+ * A channel counted before (today or on an earlier day) is never capped, nor is "no channel", nor
+ * one `funnel.isKnownChannel` reports as known.
  *
  * Throws for a step the funnel does not declare (a bug in the caller); an invalid channel counts as
  * none, as everywhere else in the module. Database failures propagate.
@@ -62,9 +62,10 @@ export async function recordFunnelStep(ctx: AnalyticsContext, input: RecordFunne
   assertStep(options.funnel.steps, input.step);
   const channel = parseChannel(input.channel, options.channel) ?? "";
   const day = formatDay(ctx.clock.now(), ctx.config.timezone);
+  const isKnown = channel !== "" && options.funnel.isKnownChannel !== undefined && (await options.funnel.isKnownChannel(channel, ctx));
 
   const key = sql`case
-    when ${channel}::text = ''
+    when ${channel}::text = '' or ${isKnown}::boolean
       or exists (select 1 from ${funnelCounts} as known where known.channel = ${channel}::text and known.day <= ${day}::date)
       or (
         select count(distinct today.channel) from ${funnelCounts} as today

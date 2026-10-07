@@ -27,7 +27,12 @@ export function getChannelOptions(config: SoftureConfig): ChannelOptions {
 /** The channel options as plain values for the browser (`<ChannelKeeper />`). Throws when the module is not enabled. */
 export function getChannelRule(config: SoftureConfig): ChannelRule {
   const { param, pattern, maxLength, normalize } = getChannelOptions(config);
-  return { param, pattern: pattern.source, flags: pattern.flags, maxLength, normalize };
+  return { param, pattern: pattern.source, flags: pattern.flags, maxLength, normalize, origins: getFirstPartyOrigins(config) };
+}
+
+/** `appOrigin` followed by `analytics({ origins })`, without repeats: every origin this app serves pages on. */
+export function getFirstPartyOrigins(config: SoftureConfig): readonly string[] {
+  return [...new Set([new URL(config.appOrigin).origin, ...getAnalyticsOptions(config).origins])];
 }
 
 /** The path of the funnel endpoint (`routes.funnel`, `/api/analytics/funnel` by default). */

@@ -17,7 +17,7 @@ export const MODULE_ID = "analytics";
 export const analytics = defineModule({
   manifest: {
     id: MODULE_ID,
-    version: "0.1.7",
+    version: "0.1.8",
     dependsOn: { security: "^0.1.0?" },
     dbSchema: "analytics",
     tables: ["funnel_counts"],
@@ -57,5 +57,6 @@ export {
   type FunnelStep,
   type FunnelStepSource,
   type FunnelWire,
+  type IsKnownChannel,
 } from "./options.js";
 export { analyticsSchema, funnelCounts } from "./schema.js";
