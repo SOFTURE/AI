@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import type { MarketingConfig } from "../config/config.js";
 import type { Film } from "../film.js";
@@ -6,6 +7,7 @@ import { getVoiceoverPaths as getCachePaths, readCachedVoiceover, type Voiceover
 import { describeVoiceoverBatch, produceVoiceovers as produceBatch } from "../voice/batch.js";
 import { produceVoiceover as produce, type ProduceVoiceoverOptions } from "../voice/produce.js";
 import type { TtsInput } from "../voice/provider.js";
+import { getPlaceholderKey, writePlaceholderVoiceover } from "../voice/placeholder.js";
 import { createTtsProvider } from "../voice/providers.js";
 import { voiceoverText } from "../voice/voiceover.js";
 import { fail } from "./failure.js";
@@ -34,6 +36,24 @@ export function requireVoiceover(config: MarketingConfig, film: Film): Voiceover
   if (!cached.ok) fail(cached.error);
   if (cached.value === null) fail(`no voiceover for "${film.id}": run softure-marketing voice ${film.id} --commit first.`);
   return cached.value;
+}
+
+/** The voiceover a recording or a render uses, and the key its log carries. */
+export interface FilmVoiceover {
+  voiceover: Voiceover;
+  key: string;
+  isPlaceholder: boolean;
+}
+
+/**
+ * The paid voiceover from the cache, or with `--placeholder` a free one written into `<buildDir>/placeholder/` (never
+ * into the cache, where it would be a hit for the real key). Its key is marked, so the two never mix in one film.
+ */
+export function getFilmVoiceover(config: MarketingConfig, film: Film, options: { isPlaceholder: boolean; buildDir: string }): FilmVoiceover {
+  const { key } = getVoiceoverPaths(config, film);
+  if (!options.isPlaceholder) return { voiceover: requireVoiceover(config, film), key, isPlaceholder: false };
+  const voiceover = writePlaceholderVoiceover({ dir: join(options.buildDir, "placeholder"), sentences: film.beats, pace: config.voice.placeholder });
+  return { voiceover, key: getPlaceholderKey(key), isPlaceholder: true };
 }
 
 function getProduceOptions(config: MarketingConfig, film: Film, isCommit: boolean): ProduceVoiceoverOptions {

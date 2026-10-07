@@ -1,7 +1,10 @@
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 
 import { afterAll, describe, expect, it } from "vitest";
 
@@ -21,6 +24,28 @@ function runShots(config: string, ...args: string[]) {
   return spawnSync(TSX, [MAIN, "shots", ...args, `--config=${config}`], { encoding: "utf8" });
 }
 
+/** `runShots` without blocking the event loop, so a server in this process can answer the CLI's browser. */
+function runShotsAsync(config: string, ...args: string[]): Promise<{ status: number | null; stdout: string; stderr: string }> {
+  return new Promise((done) => {
+    const child = spawn(TSX, [MAIN, "shots", ...args, `--config=${config}`]);
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk: Buffer) => (stdout += chunk.toString()));
+    child.stderr.on("data", (chunk: Buffer) => (stderr += chunk.toString()));
+    child.on("close", (status) => done({ status, stdout, stderr }));
+  });
+}
+
+/** A one-page server on a free port, standing in for a page outside the app. */
+async function serveOnePage(html: string): Promise<{ url: string; close: () => Promise<void> }> {
+  const server = createServer((_request, response) => response.writeHead(200, { "Content-Type": "text/html" }).end(html));
+  await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
+  return {
+    url: `http://127.0.0.1:${(server.address() as AddressInfo).port}/`,
+    close: () => new Promise((done) => server.close(() => done())),
+  };
+}
+
 describe("softure-marketing shots", () => {
   const target = mkdtempSync(join(tmpdir(), "marketing-kit-shots-cli-"));
   cpSync(FIXTURE, target, { recursive: true, filter: (source) => !/[/\\](build|out|voiceover|assets)$/.test(source) });
@@ -31,6 +56,17 @@ describe("softure-marketing shots", () => {
     const result = runShots(config, "pricing");
     expect(result.status).toBe(1);
     expect(result.stderr).toContain(`✗ no screenshot "pricing" in ${config}; known: calculator.`);
+  });
+
+  it("refuses a missing storage state before the browser starts, naming the entry and the file", () => {
+    const signedIn = join(target, "signed-in.json");
+    const data = JSON.parse(readFileSync(config, "utf8")) as { screenshots: Record<string, unknown>[] };
+    data.screenshots = data.screenshots.map((entry) => ({ ...entry, storageState: "auth/state.json" }));
+    writeFileSync(signedIn, JSON.stringify(data));
+    const result = runShots(signedIn);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(`✗ screenshot "calculator": the storage state ${join(target, "auth", "state.json")} does not exist;`);
+    expect(result.stdout).not.toContain("server:");
   });
 
   it.runIf(hasChromium)("writes the fixture's screenshot", () => {
@@ -65,5 +101,23 @@ describe("softure-marketing shots", () => {
     expect(result.stderr).toContain('✗ calculator: http://localhost:3198/ does not show "A phrase the page never shows"');
     expect(result.stderr).toContain("✗ 1 of 1 screenshots failed their gates; see above.");
     expect(existsSync(join(target, "out", "screenshots", "calculator.png"))).toBe(false);
+  });
+
+  it.runIf(hasChromium)("takes an ad-hoc page into --out behind the gates, without a config entry", async () => {
+    const server = await serveOnePage("<main><h1>A competitor page</h1></main>");
+    try {
+      const out = join(target, "adhoc", "competitor.png");
+      const result = await runShotsAsync(config, `--page=${server.url}`, `--out=${out}`, "--expect=A competitor page", "--width=800", "--height=600", "--minbytes=0");
+      expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
+      expect(result.stdout).toContain(`✓ ${out} (`);
+      expect(result.stdout).not.toContain("server:");
+      expect(readFileSync(out).readUInt32BE(16)).toBe(800);
+      const refused = await runShotsAsync(config, `--page=${server.url}`, `--out=${out}`, "--expect=Not on the page", "--minbytes=0");
+      expect(refused.status).toBe(1);
+      expect(refused.stderr).toContain(`✗ competitor: ${server.url} does not show "Not on the page"`);
+      expect(existsSync(out)).toBe(false);
+    } finally {
+      await server.close();
+    }
   });
 });

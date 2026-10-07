@@ -11,6 +11,7 @@ describe("readOptions", () => {
         filmId: "anna-calculator",
         filmIds: ["anna-calculator"],
         isCommit: false,
+        isPlaceholder: false,
         today: undefined,
         url: undefined,
         quality: undefined,
@@ -79,13 +80,13 @@ describe("readOptions", () => {
 
 describe("readOptions for shots", () => {
   it("takes every screenshot without an id", () => {
-    expect(readOptions(["shots"])).toEqual({ ok: true, options: { command: "shots", shotId: undefined, url: undefined, configPath: "marketing.json" } });
+    expect(readOptions(["shots"])).toEqual({ ok: true, options: { command: "shots", mode: "entries", shotId: undefined, url: undefined, configPath: "marketing.json" } });
   });
 
   it("takes one screenshot, another address and another config", () => {
     expect(readOptions(["shots", "landing", "--url=http://localhost:4000", "--config=web/marketing.json"])).toEqual({
       ok: true,
-      options: { command: "shots", shotId: "landing", url: "http://localhost:4000", configPath: "web/marketing.json" },
+      options: { command: "shots", mode: "entries", shotId: "landing", url: "http://localhost:4000", configPath: "web/marketing.json" },
     });
   });
 
@@ -117,5 +118,79 @@ describe("getRecordingDay", () => {
 
   it("records as of the day of the run without either", () => {
     expect(getRecordingDay(undefined, null)).toEqual({ day: null, source: "the day of the run" });
+  });
+});
+
+describe("readOptions for shots --page", () => {
+  const page = ["shots", "--page=https://example.com/pricing", "--out=shots/pricing.png", "--expect=Pricing"];
+
+  it("reads an ad-hoc shot with the schema's defaults and a laptop viewport", () => {
+    expect(readOptions(page)).toEqual({
+      ok: true,
+      options: {
+        command: "shots",
+        mode: "page",
+        page: "https://example.com/pricing",
+        out: "shots/pricing.png",
+        entry: { id: "page", path: "/", expect: "Pricing", width: 1440, height: 900, scale: 1, full: false, waitMs: 0, motion: "reduce", minBytes: 40_000 },
+        scheme: undefined,
+        configPath: "marketing.json",
+      },
+    });
+  });
+
+  it("reads every setting", () => {
+    const result = readOptions([...page, "--width=390", "--height=844", "--scale=3", "--scroll=1200", "--wait=800", "--motion=no-preference", "--scheme=dark", "--auth=auth/state.json", "--minbytes=5000"]);
+    expect(result.ok && result.options).toMatchObject({
+      scheme: "dark",
+      entry: { width: 390, height: 844, scale: 3, scrollTo: 1200, waitMs: 800, motion: "no-preference", storageState: "auth/state.json", minBytes: 5000 },
+    });
+  });
+
+  it("reads --full without a value", () => {
+    const result = readOptions([...page, "--full"]);
+    expect(result.ok && result.options).toMatchObject({ entry: { full: true } });
+  });
+
+  it.each([
+    ["no --out", ["shots", "--page=https://example.com/", "--expect=x"], /shots --page needs --out=<file\.png>/],
+    ["an --out that is not a PNG", ["shots", "--page=https://example.com/", "--out=a.jpg", "--expect=x"], /needs --out=<file\.png>/],
+    ["no --expect", ["shots", "--page=https://example.com/", "--out=a.png"], /shots --page needs --expect=<phrase>/],
+    ["a page that is not http(s)", ["shots", "--page=file:///etc/hosts", "--out=a.png", "--expect=x"], /--page=file:\/\/\/etc\/hosts: expected the page's http\(s\) address/],
+    ["a screenshot id", [...page, "landing"], /shots --page takes no screenshot id, got landing/],
+    ["--url", [...page, "--url=http://localhost:3000"], /--url does not apply to shots --page/],
+    ["a valueless --wait", [...page, "--wait"], /--wait needs a value/],
+    ["a word as a number", [...page, "--width=wide"], /--width: Invalid input: expected number, received string/],
+    ["a negative scroll", [...page, "--scroll=-5"], /--scroll: Too small: expected number to be >=0/],
+    ["--scroll with --full", [...page, "--full", "--scroll=100"], /--scroll: is one viewport frame at a scroll position/],
+    ["an unknown scheme", [...page, "--scheme=sepia"], /--scheme=sepia: expected light \| dark/],
+    ["an unknown motion", [...page, "--motion=slow"], /--motion: /],
+    ["a value for --full", [...page, "--full=yes"], /--full takes no value/],
+    ["an unknown flag", [...page, "--przewin=100"], /unknown flag --przewin/],
+  ])("refuses %s", (_case, argv, message) => {
+    const result = readOptions(argv);
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error).toMatch(message);
+  });
+
+  it("refuses a shots-only flag on a film command", () => {
+    const result = readOptions(["record", "a", "--wait=100"]);
+    expect(!result.ok && result.error).toBe("--wait applies to shots only, not to record.");
+  });
+});
+
+describe("readOptions with --placeholder", () => {
+  it.each(["all", "record", "render"])("reads it on %s", (command) => {
+    const result = readOptions([command, "a", "--placeholder"]);
+    expect(result.ok && result.options).toMatchObject({ command, isPlaceholder: true });
+  });
+
+  it.each([
+    ["voice, which pays for the real one", ["voice", "a", "--placeholder"], "--placeholder applies to all, record, render: the commands that record or render a film, not voice."],
+    ["posts", ["posts", "a", "--placeholder"], "--placeholder applies to all, record, render: the commands that record or render a film, not posts."],
+    ["a value", ["all", "a", "--placeholder=yes"], '--placeholder takes no value (got "yes").'],
+  ])("refuses it on %s", (_case, argv, message) => {
+    const result = readOptions(argv);
+    expect(!result.ok && result.error).toBe(message);
   });
 });

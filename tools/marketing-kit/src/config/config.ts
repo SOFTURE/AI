@@ -5,6 +5,7 @@ import { getLayoutName } from "../compose/timeline.js";
 import type { Device, FilmScript } from "../film.js";
 import type { MarketingLocale } from "../messages/index.js";
 import { DEFAULT_LINK_IN_BIO, PLATFORMS, type Platform } from "../platforms.js";
+import type { PlaceholderPace } from "../voice/placeholder.js";
 import type { SceneAction } from "./actions-schema.js";
 import { resolveBrandColors } from "./brand.js";
 import type { BrandColors, ColorTheme } from "./colors.js";
@@ -96,7 +97,7 @@ export interface MarketingConfig {
     hideSelectors: string[];
     screenGuardSelector: string;
   };
-  voice: { provider: "elevenlabs"; cacheDir: string; minIntervalSeconds: number };
+  voice: { provider: "elevenlabs"; cacheDir: string; minIntervalSeconds: number; placeholder: PlaceholderPace };
   videos: VideoConfig[];
   social: { linkTemplate: string } | null;
   screenshots: MarketingJson["screenshots"];
@@ -222,7 +223,7 @@ export function loadMarketingConfig(path: string): LoadConfigResult {
         hideSelectors: data.app.hideSelectors,
         screenGuardSelector: data.app.screenGuardSelector,
       },
-      voice: { provider: data.voice.provider, cacheDir: at(data.voice.cacheDir), minIntervalSeconds: data.voice.minIntervalSeconds },
+      voice: { provider: data.voice.provider, cacheDir: at(data.voice.cacheDir), minIntervalSeconds: data.voice.minIntervalSeconds, placeholder: data.voice.placeholder },
       videos: resolveVideos(data, at),
       social: data.social === undefined ? null : { linkTemplate: data.social.linkTemplate },
       screenshots: data.screenshots,

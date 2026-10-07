@@ -87,6 +87,7 @@ export { findStaleVoiceovers, getVoiceoverPaths, readCachedVoiceover, writeVoice
 export { describeCharge, describeEstimate, produceVoiceover, type ProduceVoiceoverOptions, type VoiceoverOutcome } from "./voice/produce.js";
 export { findLastRecordingTime, waitForPace, type PaceOptions } from "./voice/pace.js";
 export { describeVoiceoverBatch, produceVoiceovers, type VoiceoverBatchItem, type VoiceoverBatchResult } from "./voice/batch.js";
+export { getPlaceholderKey, isPlaceholderKey, makePlaceholderWords, writePlaceholderVoiceover, type PlaceholderPace, type WritePlaceholderOptions } from "./voice/placeholder.js";
 export {
   BROWSER_BAR_HEIGHT,
   DEVICE_KINDS,
@@ -157,13 +158,16 @@ export { createActionScene, getLocator, runAction, type LocatorSource } from "./
 export { FPS, ScreenGuardError, type BrowserSettings, type CameraCue, type RecordingLog } from "./record/record.js";
 export {
   getScreenshotFile,
+  takePageScreenshot,
   takeScreenshots,
   type ScreenshotBrowser,
   type ScreenshotEntry,
   type ScreenshotResult,
+  type TakePageScreenshotOptions,
   type TakeScreenshotsOptions,
 } from "./screenshot/screenshot.js";
-export { MIN_FAILING_STATUS, SCREENSHOT_GATES, findSizeFailure, findStatusFailure, type ScreenshotGate } from "./screenshot/gates.js";
+export { MIN_FAILING_STATUS, SCREENSHOT_GATES, findScrollFailure, findSizeFailure, findStatusFailure, type ScreenshotGate } from "./screenshot/gates.js";
+export { findStorageStateProblem } from "./screenshot/storage-state.js";
 export { getScreenshotNames, getScreenshotShots, type ScreenshotNaming, type ScreenshotShot } from "./config/screenshot-names.js";
 export {
   MARKETING_LOCALES,
