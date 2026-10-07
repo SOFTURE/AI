@@ -61,6 +61,19 @@ if [ -n "\${DOCKER_CONFIG:-}" ]; then printf '%s %s\\n' "$1" "$DOCKER_CONFIG" >>
 if [ "$1" = "login" ]; then cat > "$LOGIN_STDIN"; fi
 if [ -n "\${FAIL_COMPOSE_CONFIG:-}" ] && [[ " $* " == *" config "* ]]; then exit 1; fi
 if [ -n "\${FAIL_DOCKER_ON:-}" ] && [[ " $* " == *"$FAIL_DOCKER_ON"* ]]; then exit 1; fi
+# The helper image of a host without Node: absent until \`build\` ran; \`run\` executes the command after the image name
+# on the host, with TOOLS_BIN (softure-deploy, node) first on PATH.
+if [ "$1" = "image" ] && [ "$2" = "inspect" ] && [[ "$3" == softure-deploy-tools:* ]]; then
+  [ -f "$DOCKER_LOG.tools-image" ] && exit 0
+  exit 1
+fi
+if [ "$1" = "build" ]; then cat > "$DOCKER_LOG.tools-image"; exit 0; fi
+if [ "$1" = "run" ]; then
+  shift
+  while [ "$#" -gt 0 ] && [[ "$1" != softure-deploy-tools:* ]]; do shift; done
+  shift
+  PATH="$TOOLS_BIN:$PATH" exec "$@"
+fi
 case " $* " in
   *" image ls "*) printf '%s' "\${DOCKER_IMAGE_TAGS:-}" ;;
   *" ps --all "*) printf 'traefik:Up 2 hours\\napp:Up 2 hours (healthy)\\n' ;;
@@ -386,6 +399,56 @@ describe("deploy.sh with a database counts the tables of the deploy.json the rel
     expect(result.stderr).toContain("deploy: the previous release is v1; redeploy it to roll back.");
     expect(readDockerLog().filter((line) => line.includes("traefik app"))).toEqual([]);
     expect(readRowCountCalls()).toEqual([]);
+  });
+});
+
+describe("deploy.sh with a database on a host without Node", () => {
+  const WITH_DATABASE: AppFacts = { ...NO_DATABASE, hasDatabase: true };
+  const DATABASE_ENV = "POSTGRES_PASSWORD='pw'\nSOFTURE_MIGRATOR_PASSWORD='m'\nSOFTURE_APP_PASSWORD='a'\n";
+  // No /usr/local/bin or the Node folder: bash, tar and the coreutils only, the docker stub and no npx.
+  const HOST_PATH = "/usr/bin:/bin";
+  let toolsBin: string;
+
+  beforeEach(() => {
+    writeCheckout({ facts: WITH_DATABASE, tables: ["users"], envProd: DATABASE_ENV });
+    write(join(server, "deploy.sh"), readFileSync(join(checkout, "docker/server/deploy.sh"), "utf8"), 0o755);
+    rmSync(join(stubBin, "npx"));
+    toolsBin = join(root, "tools-bin");
+    write(join(toolsBin, "softure-deploy"), STUB_NPX, 0o755);
+    symlinkSync(process.execPath, join(toolsBin, "node"));
+  });
+
+  function deployWithoutNode(tag: string): BashResult {
+    return deploy(tag, packArchive(), { PATH: `${stubBin}:${HOST_PATH}`, TOOLS_BIN: toolsBin });
+  }
+
+  it("builds the helper image once and runs every database step in it", () => {
+    expect(spawnSync("bash", ["-c", "command -v node npx"], { env: { PATH: `${stubBin}:${HOST_PATH}` } }).status).not.toBe(0);
+    const first = deployWithoutNode("v1");
+    expect(first.stderr).toBe("");
+    expect(first.status).toBe(0);
+    const second = deployWithoutNode("v2");
+    expect(second.stderr).toBe("");
+    expect(second.status).toBe(0);
+    expect(second.stdout).toMatch(/^step\|row-counts-after\|ok\|users=3,billing\.subscriptions=2$/m);
+
+    const docker = readDockerLog();
+    expect(docker.filter((line) => line.startsWith("build "))).toEqual(["build --quiet --tag softure-deploy-tools:9.9.9-pg16 -"]);
+    expect(readFileSync(`${dockerLog}.tools-image`, "utf8")).toBe(
+      "FROM node:22-alpine\nRUN apk add --no-cache postgresql16-client && npm install --global --no-audit --no-fund @softure-ai/deploy@9.9.9\n",
+    );
+    const runs = docker.filter((line) => line.startsWith("run "));
+    expect(runs.every((line) => line.includes(` --network host --user ${String(process.getuid?.())}:`) && line.includes(`--volume ${server}:${server}`))).toBe(true);
+    const commands = readFileSync(npxLog, "utf8").trim().split("\n").map((line) => line.split(" ")[0]);
+    expect(commands).toEqual(["backup", "schema-guard", "backup", "schema-guard", "row-counts", "row-counts"]);
+    expect(runs.filter((line) => line.includes(" node -e "))).toHaveLength(4);
+  });
+
+  it("stops before anything restarts when the helper image cannot be built", () => {
+    const result = deploy("v1", packArchive(), { PATH: `${stubBin}:${HOST_PATH}`, TOOLS_BIN: toolsBin, FAIL_DOCKER_ON: "build" });
+    expect(result.status).toBe(1);
+    expect(result.stdout.trimEnd().split("\n").at(-1)).toBe("result|failed|backup|the backup failed; nothing was restarted.");
+    expect(readDockerLog().filter((line) => line.includes("traefik app"))).toEqual([]);
   });
 });
 

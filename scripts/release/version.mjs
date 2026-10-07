@@ -143,6 +143,28 @@ export function setInlineManifestVersion(text, version) {
   return { ok: true, text: updated };
 }
 
+const CHANGELOG_SECTION = /^## (.+)$/gm;
+const UNRELEASED = "Unreleased";
+
+/**
+ * Names the `## Unreleased` section of a package's CHANGELOG.md after the new version. Refuses a
+ * changelog whose newest section is not `Unreleased`, or one that lists nothing there: a version
+ * does not ship without its notes.
+ * @param {string} text
+ * @param {string} version
+ * @returns {{ ok: true, text: string } | { ok: false, reason: string }}
+ */
+export function setChangelogVersion(text, version) {
+  const [newest, next] = [...text.matchAll(CHANGELOG_SECTION)];
+  if (!newest || newest[1] !== UNRELEASED) {
+    const found = newest ? `"${newest[1]}"` : "missing";
+    return { ok: false, reason: `Updating CHANGELOG.md: the newest section is ${found}, not "${UNRELEASED}"; write what changed under "## ${UNRELEASED}" first` };
+  }
+  const body = text.slice(newest.index + newest[0].length, next?.index ?? text.length);
+  if (body.trim() === "") return { ok: false, reason: `Updating CHANGELOG.md: "## ${UNRELEASED}" lists no change` };
+  return { ok: true, text: `${text.slice(0, newest.index)}## ${version}${text.slice(newest.index + newest[0].length)}` };
+}
+
 /**
  * @param {string} message
  * @returns {never}
@@ -208,6 +230,12 @@ function runCli() {
     indexText = inline.text;
   }
 
+  // Every package names its versions in CHANGELOG.md; the Unreleased notes become this version's.
+  const changelogPath = join(root, pkg.dir, "CHANGELOG.md");
+  if (!existsSync(changelogPath)) fail(`Bumping ${pkg.name} (nothing was changed): it has no CHANGELOG.md`);
+  const changelog = setChangelogVersion(readFileSync(changelogPath, "utf8"), version);
+  if (!changelog.ok) fail(`Bumping ${pkg.name} (nothing was changed): ${changelog.reason}`);
+
   try {
     // Updates the workspace's package.json and the root lockfile; no git commit or tag of its own.
     execFileSync("npm", ["version", version, "-w", pkg.dir, "--no-git-tag-version"], { cwd: root, stdio: "inherit" });
@@ -217,7 +245,8 @@ function runCli() {
     fail(`Bumping ${pkg.name} to ${version}: npm version failed (output above); the tree is restored`);
   }
 
-  const files = [join(pkg.dir, "package.json"), "package-lock.json"];
+  writeFileSync(changelogPath, changelog.text);
+  const files = [join(pkg.dir, "package.json"), "package-lock.json", join(pkg.dir, "CHANGELOG.md")];
   if (indexText !== null) {
     const updated = setModuleVersion(readFileSync(modulePath, "utf8"), version);
     if (!updated.ok) fail(updated.reason);

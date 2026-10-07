@@ -12,7 +12,8 @@ const SUBJECT_HASH_LENGTH = 32;
  * The rate limit key of the client that sent these headers, from the first resolver that finds a
  * valid address. Without one the result is `security.client_unidentified`, and the caller refuses
  * the request: counting every unidentified client in one shared bucket would let one of them lock
- * out all the others.
+ * out all the others. Only an app that chose a shared fallback (`unidentified: { key }`, for a stack
+ * with no edge in front) gets `unidentified:<key>` instead.
  */
 export function identifyClient(
   ctx: Pick<ModuleContext, "config">,
@@ -25,6 +26,9 @@ export function identifyClient(
     if (address !== null) {
       return ok(toClientKey(address, options.ipv6Subnet));
     }
+  }
+  if (options.unidentified !== "refuse") {
+    return ok(`unidentified:${options.unidentified.key}`);
   }
   return err("security.client_unidentified");
 }

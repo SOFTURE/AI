@@ -17,6 +17,7 @@
   },
   "files": [
     "dist",
+    "CHANGELOG.md",
     "src",
     "styles.css",
     "!src/**/*.test.ts",

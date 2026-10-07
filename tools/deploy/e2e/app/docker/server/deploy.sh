@@ -23,8 +23,10 @@
 # localhost:5000/softure/ai-deploy-e2e.
 #
 # The host needs Docker with the compose plugin, cron and flock (both in Ubuntu's base system).
-# The database steps also need Node.js 22 (`npx @softure-ai/deploy`) and pg_dump of the Postgres major version of
-# the compose file (postgresql-client-16).
+# The database steps run `@softure-ai/deploy` with Node.js 22 and pg_dump of the Postgres major version of the compose
+# file: the host's (`npx`, postgresql-client-16) when it has Node, otherwise a helper image this script
+# builds once per CLI version from node:22-alpine with postgresql16-client and the CLI
+# ($TOOLS_IMAGE), run with the host's network, the caller's uid and this folder mounted. Nothing else needs Node.
 #
 # Steps of a deploy: check the command, unpack and check the archive (archive), save the installed files and install
 # the release's with .env.prod and TAG=<tag> in it (files), pull the image (pull), start Postgres (postgres), back up
@@ -54,6 +56,7 @@ set -euo pipefail
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 IMAGE="localhost:5000/softure/ai-deploy-e2e"
 DEPLOY_CLI="@softure-ai/deploy@0.0.0"
+TOOLS_IMAGE="softure-deploy-tools:0.0.0-pg16"
 DATABASE_NAME="softure_example"
 BACKUP_DIR="$APP_DIR/backups"
 BACKUP_PREFIX=db
@@ -171,8 +174,43 @@ take_lock() {
   flock -w "$LOCK_WAIT_SECONDS" 9 || fail "another deploy or maintain run still holds $LOCK_FILE."
 }
 
+has_host_node() {
+  command -v node > /dev/null && command -v npx > /dev/null
+}
+
+# The helper image for a host without Node: built on first use, then reused until the CLI version changes.
+ensure_tools_image() {
+  if docker image inspect "$TOOLS_IMAGE" > /dev/null 2>&1; then return 0; fi
+  printf '%s\n' "FROM node:22-alpine" \
+    "RUN apk add --no-cache postgresql16-client && npm install --global --no-audit --no-fund $DEPLOY_CLI" \
+    | docker build --quiet --tag "$TOOLS_IMAGE" - > /dev/null
+}
+
+# Runs a command in the helper image as the caller, on the host's network (Postgres listens on 127.0.0.1), with this
+# folder and the run's temporary folder at the same paths.
+run_in_tools() {
+  ensure_tools_image || return 1
+  local mounts=(--volume "$APP_DIR:$APP_DIR")
+  if [ -n "$work" ]; then mounts+=(--volume "$work:$work"); fi
+  docker run --rm --network host --user "$(id -u):$(id -g)" --env HOME=/tmp --env DATABASE_URL \
+    "${mounts[@]}" --workdir "$PWD" "$TOOLS_IMAGE" "$@"
+}
+
 deploy_cli() {
-  npx --yes "$DEPLOY_CLI" "$@"
+  if has_host_node; then
+    npx --yes "$DEPLOY_CLI" "$@"
+  else
+    run_in_tools softure-deploy "$@"
+  fi
+}
+
+# node -e <script> [args]: the host's Node, else the helper image's.
+node_eval() {
+  if has_host_node; then
+    node -e "$@"
+  else
+    run_in_tools node -e "$@"
+  fi
 }
 
 connect_database() {
@@ -194,7 +232,7 @@ back_up_database() {
 
 # A row-counts file as `users=3,billing.plans=2` for the step line; table names never hold `,` or `=`.
 summarize_counts() {
-  node -e '
+  node_eval '
 const counts = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8")).counts;
 process.stdout.write(Object.entries(counts).map(([table, count]) => table + "=" + count).join(","));
 ' "$1" || true
@@ -419,7 +457,7 @@ step_ok
 begin_step row-counts-before
 release_config="$release_dir/deploy.json"
 lists_tables=0
-node -e '
+node_eval '
 const fs = require("node:fs");
 const path = process.argv[1];
 if (!fs.existsSync(path)) process.exit(3);

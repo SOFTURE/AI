@@ -57,10 +57,16 @@ export function formatMessage(template: string, params: Readonly<Record<string, 
   });
 }
 
+const pluralRulesByLocale = new Map<Locale, Intl.PluralRules>();
+
 /** The form for `count` under the plural rules of `locale` ("1 file", "2 files"). */
 export function selectPlural(locale: Locale, count: number, forms: PluralForms): string {
-  const category = new Intl.PluralRules(locale).select(count);
-  return forms[category] ?? forms.other;
+  let rules = pluralRulesByLocale.get(locale);
+  if (rules === undefined) {
+    rules = new Intl.PluralRules(locale);
+    pluralRulesByLocale.set(locale, rules);
+  }
+  return forms[rules.select(count)] ?? forms.other;
 }
 
 /** The message at a dotted path (`login.title`), or `undefined` when there is no string there. */

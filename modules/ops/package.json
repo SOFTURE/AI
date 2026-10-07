@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/ops",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "SOFTURE AI ops module: a health endpoint with database and module checks, the container migrate step recipe with least-privilege roles, and a helper for safe ops scripts (dry run by default, --commit applies).",
   "license": "MIT",
   "type": "module",
@@ -15,6 +15,7 @@
   },
   "files": [
     "dist",
+    "CHANGELOG.md",
     "src",
     "!src/**/*.test.ts",
     "!src/**/*.test.tsx",
@@ -56,6 +57,12 @@
     "zod": "^4.6.5"
   },
   "peerDependencies": {
-    "drizzle-orm": "^0.45.2"
+    "drizzle-orm": "^0.45.2",
+    "next": "^16.0.0"
+  },
+  "peerDependenciesMeta": {
+    "next": {
+      "optional": true
+    }
   }
 }

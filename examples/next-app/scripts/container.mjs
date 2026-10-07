@@ -7,9 +7,9 @@
 // 2. runs the one-off migrate service as the migrator, then the app as the app role, and waits until
 //    the image HEALTHCHECK (GET /api/health) reports healthy;
 // 3. checks that /api/health answers 200 with the database and module checks;
-// 4. checks that the app role cannot change the schema (least privilege);
-// 5. stops Postgres and checks that /api/health turns 503 (FIRE_TRACKER's baseline: a dead database
-//    must not look healthy);
+// 4. checks that the app role cannot change the schema and can read but not write the migration
+//    ledger (least privilege);
+// 5. stops Postgres and checks that /api/health turns 503 (a dead database must not look healthy);
 // 6. removes the containers and the volume, also when a step failed.
 //
 // `--no-build` uses an image built before (`docker build -f examples/next-app/Dockerfile -t
@@ -58,6 +58,18 @@ function check(condition, message) {
   console.log(`ok: ${message}`);
 }
 
+/**
+ * Runs one statement as the app role inside the postgres container; returns its status and output.
+ * @param {string} statement
+ */
+function appPsql(statement) {
+  return compose(
+    ["exec", "-T", "-e", "PGPASSWORD=app-local", "postgres", "psql", "-h", "127.0.0.1", "-U", "softure_app", "-d", "softure_example",
+      "-v", "ON_ERROR_STOP=1", "-c", statement],
+    { allowFailure: true, quiet: true },
+  );
+}
+
 async function readHealth() {
   const response = await fetch(HEALTH_URL);
   return { status: response.status, body: /** @type {unknown} */ (await response.json()) };
@@ -81,12 +93,18 @@ async function main() {
     `the answer lists the database, guestbook, auth, feature-switches, mcp-access, mailing, privacy, waitlist, analytics and billing checks (got ${JSON.stringify(healthy.body)})`,
   );
 
-  const ddl = compose(
-    ["exec", "-T", "-e", "PGPASSWORD=app-local", "postgres", "psql", "-h", "127.0.0.1", "-U", "softure_app", "-d", "softure_example",
-      "-v", "ON_ERROR_STOP=1", "-c", "CREATE TABLE guestbook.intruder (id int)"],
-    { allowFailure: true, quiet: true },
-  );
+  const ddl = appPsql("CREATE TABLE guestbook.intruder (id int)");
   check(ddl.status !== 0 && /permission denied/.test(ddl.output), "the app role cannot create a table in a module schema");
+
+  const ledgerWrite = appPsql(
+    "INSERT INTO softure.migrations (module, version, name, checksum, module_version, method) " +
+      "VALUES ('intruder', 1, 'intruder', repeat('0', 64), '0.0.0', 'applied')",
+  );
+  check(ledgerWrite.status !== 0 && /permission denied/.test(ledgerWrite.output), "the app role cannot write the migration ledger");
+  const ledgerDelete = appPsql("DELETE FROM softure.migrations");
+  check(ledgerDelete.status !== 0 && /permission denied/.test(ledgerDelete.output), "the app role cannot delete ledger rows");
+  const ledgerRead = appPsql("SELECT count(*) FROM softure.migrations");
+  check(ledgerRead.status === 0, "the app role can still read the migration ledger");
 
   compose(["stop", "postgres"]);
   const deadline = Date.now() + UNHEALTHY_DEADLINE_MS;

@@ -48,5 +48,6 @@ export {
   type SwitchDefinition,
   type SwitchDefinitionInput,
   type SwitchFailMode,
+  type SwitchOverrideDirection,
 } from "./options.js";
 export { switches } from "./schema.js";
