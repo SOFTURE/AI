@@ -129,9 +129,8 @@ describe("loadAppConfig", () => {
     expect(loaded).toMatchObject({ ok: true, config: { database: null, modules: [{ id: "notes" }] } });
   });
 
-  it("requires the database by default", async () => {
+  it("keeps the empty database URL by default, for the first connection to refuse", async () => {
     const loaded = await loadAppConfig({ cwd: copyConfigWithoutDatabase(), configPath: undefined, appScript: APP_SCRIPT });
-    expect(loaded).toMatchObject({ ok: false });
-    expect(loaded.ok ? "" : loaded.problem).toContain("database.url: must not be empty");
+    expect(loaded).toMatchObject({ ok: true, config: { database: { url: "" }, modules: [{ id: "notes" }] } });
   });
 });

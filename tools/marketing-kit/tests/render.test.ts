@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -82,5 +82,27 @@ describe.runIf(isEnabled)("softure-marketing all on the fixture film", () => {
     const desktopLog = readLog("fixture-desktop") as { beatIds: string[]; taps: unknown[] };
     expect(desktopLog.beatIds).toEqual(phoneLog.beatIds);
     expect(desktopLog.taps).toHaveLength(phoneLog.taps.length);
+  }, 600_000);
+
+  it("rehearses a film on the placeholder voiceover, without a paid recording, beside the real film's name", () => {
+    const rehearsal = mkdtempSync(join(tmpdir(), "marketing-kit-placeholder-"));
+    try {
+      const { config } = prepareFixture(rehearsal);
+      // No paid voiceover at all: the rehearsal must not need one.
+      rmSync(join(rehearsal, "voiceover"), { recursive: true, force: true });
+      const main = join(PACKAGE_DIR, "src", "cli", "main.ts");
+      const result = spawnSync(TSX, [main, "all", "fixture-tour", "--placeholder", `--config=${config}`, "--quality=draft"], { encoding: "utf8" });
+      expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
+      const rehearsed = probe(join(rehearsal, "out", "fixture-tour", "fixture-tour.placeholder.mp4"));
+      expect(rehearsed.streams.some((stream) => stream.codec_type === "audio")).toBe(true);
+      expect(existsSync(join(rehearsal, "out", "fixture-tour", "fixture-tour.mp4"))).toBe(false);
+      expect(existsSync(join(rehearsal, "voiceover"))).toBe(false);
+      // The placeholder recording never renders with a paid voiceover.
+      const real = spawnSync(TSX, [main, "render", "fixture-tour", `--config=${config}`, "--quality=draft"], { encoding: "utf8" });
+      expect(real.status).toBe(1);
+      expect(real.stderr).toContain("the recording was made on the placeholder voiceover");
+    } finally {
+      rmSync(rehearsal, { recursive: true, force: true });
+    }
   }, 600_000);
 });

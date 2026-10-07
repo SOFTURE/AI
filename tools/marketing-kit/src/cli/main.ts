@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 import { findMissingFiles, formatConfigIssues, loadMarketingConfig, type MarketingConfig } from "../config/config.js";
 import { getGeometry, getLayoutName } from "../compose/timeline.js";
@@ -11,19 +11,21 @@ import { recordFilm, ScreenGuardError, type RecordingLog } from "../record/recor
 import { findMachineProblem } from "../render/preflight.js";
 import { runHyperframes } from "../render/hyperframes.js";
 import { renderFilm } from "../render/render.js";
-import { takeScreenshots, type ScreenshotEntry } from "../screenshot/screenshot.js";
+import { takePageScreenshot, takeScreenshots, type ScreenshotBrowser, type ScreenshotEntry, type ScreenshotResult } from "../screenshot/screenshot.js";
+import { findStorageStateProblem } from "../screenshot/storage-state.js";
+import { isPlaceholderKey } from "../voice/placeholder.js";
 import { splitIntoBeats } from "../voice/voiceover.js";
 import { CliFailure, fail } from "./failure.js";
 import { loadFilm, type LoadedFilm } from "./films.js";
 import { writeOgImages } from "./og.js";
-import { getRecordingDay, readOptions, type FilmOptions, type ShotsOptions } from "./options.js";
+import { getRecordingDay, readOptions, type EntryShotsOptions, type FilmOptions, type PageShotsOptions } from "./options.js";
 import { ensureServer } from "./server.js";
-import { getVoiceoverPaths, produceVoiceover, produceVoiceovers, readJson, requireVoiceover } from "./voice.js";
+import { getFilmVoiceover, produceVoiceover, produceVoiceovers, readJson } from "./voice.js";
 
 /**
  * `softure-marketing`: the only way into the films.
  *
- *   all <film>                 voiceover from the cache -> recording -> render -> post copy
+ *   all <film> [--placeholder] voiceover from the cache (or the free placeholder) -> recording -> render -> post copy
  *   voice <film>... [--commit] voiceovers in order (paid only with --commit), spaced and stopped at the first error
  *   record <film> [--today=YYYY-MM-DD] [--url=...]   (--today overrides the video's today)
  *   render <film> [--quality=draft|standard|high]
@@ -31,6 +33,7 @@ import { getVoiceoverPaths, produceVoiceover, produceVoiceovers, readJson, requi
  *   posts <film>
  *   og [image]
  *   shots [<id>] [--url=...]
+ *   shots --page=<url> --out=<file.png> --expect=<phrase> [...]
  */
 
 const getBuildDir = (config: MarketingConfig, film: LoadedFilm) => join(config.output.buildDir, film.id);
@@ -44,7 +47,8 @@ function preflight(config: MarketingConfig, film: LoadedFilm, needsRender: boole
 }
 
 async function record(config: MarketingConfig, film: LoadedFilm, options: FilmOptions): Promise<RecordingLog> {
-  const voiceover = requireVoiceover(config, film);
+  const { voiceover, key, isPlaceholder } = getFilmVoiceover(config, film, { isPlaceholder: options.isPlaceholder, buildDir: getBuildDir(config, film) });
+  if (isPlaceholder) console.log(`voiceover: the placeholder (a tone, ${config.voice.placeholder.wordsPerSecond} words a second); nothing paid, render it with --placeholder.`);
   const voices = splitIntoBeats(voiceover.words, film.beats, film.voice.tempo);
   const server = await ensureServer(config, film, options.url);
   mkdirSync(getBuildDir(config, film), { recursive: true });
@@ -57,7 +61,7 @@ async function record(config: MarketingConfig, film: LoadedFilm, options: FilmOp
       url: server.url,
       outDir: getBuildDir(config, film),
       voices,
-      voiceoverKey: getVoiceoverPaths(config, film).key,
+      voiceoverKey: key,
       today: recordingDay.day ?? undefined,
       filmPath: film.scenePath,
       executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH || undefined,
@@ -103,14 +107,21 @@ function render(config: MarketingConfig, film: LoadedFilm, options: FilmOptions)
   if (!existsSync(logPath)) fail(`no recording: run softure-marketing record ${film.id} first.`);
   // Our own file, written by `recordFilm`; the two fields that tie it to the script are checked below.
   const log = readJson(logPath) as RecordingLog;
-  const voiceover = requireVoiceover(config, film);
+  // A recording follows the timings of the voiceover it was made on, so a placeholder recording never renders
+  // with the paid voiceover, nor the reverse.
+  if (isPlaceholderKey(log.voiceoverKey) !== options.isPlaceholder) {
+    if (options.isPlaceholder) fail(`the recording was made on the paid voiceover: run softure-marketing record ${film.id} --placeholder, or render without --placeholder.`);
+    fail(`the recording was made on the placeholder voiceover: run softure-marketing record ${film.id} for the paid one, or render with --placeholder.`);
+  }
+  const { voiceover, key } = getFilmVoiceover(config, film, { isPlaceholder: options.isPlaceholder, buildDir: dir });
   // The recording must match the script; otherwise the action times belong to another voiceover or
   // other sentences, and the film would come out silently out of sync.
   const beatIds = sceneBeats(film).map((beat) => beat.id);
-  if (log.voiceoverKey !== getVoiceoverPaths(config, film).key || log.beatIds?.join(",") !== beatIds.join(",")) {
-    fail(`the recording does not match the current script (the sentences or the voiceover changed): run softure-marketing record ${film.id}.`);
+  if (log.voiceoverKey !== key || log.beatIds?.join(",") !== beatIds.join(",")) {
+    fail(`the recording does not match the current script (the sentences or the voiceover changed): run softure-marketing record ${film.id}${options.isPlaceholder ? " --placeholder" : ""}.`);
   }
-  const output = join(getOutDir(config, film), `${film.id}.mp4`);
+  // A rehearsal never takes the place of the real film.
+  const output = join(getOutDir(config, film), options.isPlaceholder ? `${film.id}.placeholder.mp4` : `${film.id}.mp4`);
   const seconds = renderFilm({
     film,
     log,
@@ -146,8 +157,57 @@ function selectScreenshots(config: MarketingConfig, shotId: string | undefined):
   fail(`no screenshot "${shotId}" in ${config.file}; known: ${config.screenshots.map((entry) => entry.id).join(", ") || "none"}.`);
 }
 
-async function shots(config: MarketingConfig, options: ShotsOptions): Promise<void> {
-  const entries = selectScreenshots(config, options.shotId);
+/** The entries with their storage state as an absolute path, each checked before the browser starts. */
+function resolveStorageStates(config: MarketingConfig, entries: [ScreenshotEntry, ...ScreenshotEntry[]]): [ScreenshotEntry, ...ScreenshotEntry[]] {
+  const [first, ...rest] = entries.map((entry) => {
+    if (entry.storageState === undefined) return entry;
+    const path = resolve(config.root, entry.storageState);
+    const problem = findStorageStateProblem(path);
+    if (problem !== null) fail(`screenshot "${entry.id}": ${problem}.`);
+    return { ...entry, storageState: path };
+  });
+  // The map keeps the length of a non-empty tuple.
+  return [first as ScreenshotEntry, ...rest];
+}
+
+function getScreenshotBrowser(config: MarketingConfig): ScreenshotBrowser {
+  return { colorScheme: config.app.colorScheme, locale: config.brand.locale, timezone: config.brand.timezone, hideSelectors: config.app.hideSelectors };
+}
+
+/** Prints each result and fails when any shot was refused. */
+function reportScreenshots(results: ScreenshotResult[]): void {
+  for (const result of results) {
+    if (result.ok) console.log(`✓ ${result.file} (${(result.bytes / 1000).toFixed(0)} kB)`);
+    else console.error(`✗ ${result.name}: ${result.message}`);
+  }
+  const failed = results.filter((result) => !result.ok).length;
+  if (failed > 0) fail(`${failed} of ${results.length} screenshots failed their gates; see above.`);
+}
+
+/** `shots --page`: one page anywhere; the app is not started, and the storage state resolves from the current directory. */
+async function pageShot(config: MarketingConfig, options: PageShotsOptions): Promise<void> {
+  let { entry } = options;
+  if (entry.storageState !== undefined) {
+    const path = resolve(entry.storageState);
+    const problem = findStorageStateProblem(path);
+    if (problem !== null) fail(`--auth: ${problem}.`);
+    entry = { ...entry, storageState: path };
+  }
+  const file = resolve(options.out);
+  console.log(`screenshot: ${options.page}.`);
+  const result = await takePageScreenshot({
+    entry,
+    url: options.page,
+    file,
+    scheme: options.scheme,
+    browser: getScreenshotBrowser(config),
+    executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH || undefined,
+  });
+  reportScreenshots([result]);
+}
+
+async function shots(config: MarketingConfig, options: EntryShotsOptions): Promise<void> {
+  const entries = resolveStorageStates(config, selectScreenshots(config, options.shotId));
   const [first] = entries;
   const target = { url: new URL(first.path, config.app.baseUrl).href, ownUrl: `http://localhost:${config.app.port}${first.path}` };
   const server = await ensureServer(config, target, options.url === undefined ? undefined : new URL(first.path, options.url).href);
@@ -160,22 +220,12 @@ async function shots(config: MarketingConfig, options: ShotsOptions): Promise<vo
       baseUrl: server.url,
       outDir,
       executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH || undefined,
-      browser: {
-        colorScheme: config.app.colorScheme,
-        locale: config.brand.locale,
-        timezone: config.brand.timezone,
-        hideSelectors: config.app.hideSelectors,
-      },
+      browser: getScreenshotBrowser(config),
     });
   } finally {
     server.stop();
   }
-  for (const result of results) {
-    if (result.ok) console.log(`✓ ${result.file} (${(result.bytes / 1000).toFixed(0)} kB)`);
-    else console.error(`✗ ${result.name}: ${result.message}`);
-  }
-  const failed = results.filter((result) => !result.ok).length;
-  if (failed > 0) fail(`${failed} of ${results.length} screenshots failed their gates; see above.`);
+  reportScreenshots(results);
 }
 
 async function main(argv: string[]): Promise<void> {
@@ -190,7 +240,8 @@ async function main(argv: string[]): Promise<void> {
     return;
   }
   if (options.command === "shots") {
-    await shots(config, options);
+    if (options.mode === "page") await pageShot(config, options);
+    else await shots(config, options);
     return;
   }
   if (options.command === "voice") {
@@ -223,7 +274,9 @@ async function main(argv: string[]): Promise<void> {
     }
     case "all": {
       preflight(config, film, true);
-      if ((await produceVoiceover(config, film, false)) === null) fail("no voiceover; see the message above.");
+      if (!options.isPlaceholder && (await produceVoiceover(config, film, false)) === null) {
+        fail(`no voiceover; see the message above. To rehearse the film for free: softure-marketing all ${film.id} --placeholder.`);
+      }
       await record(config, film, options);
       render(config, film, options);
       return;

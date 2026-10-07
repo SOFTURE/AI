@@ -127,4 +127,6 @@ The package checks these in a preflight step, as FIRE does.
    **Done in FIRE_TRACKER on 2026-10-06** (BS-18, `marketing-kit-adoption`, on 0.1.2): `video/` deleted, the film
    driven by `marketing.json`. Instead of an identical MP4 the owner had the film re-recorded on FIRE's redesigned UI
    at a slower pace, with a new paid voiceover. Gaps found: issue #118 and roadmap item MK-10
-   (`marketing-kit-film-followups`).
+   (`marketing-kit-film-followups`). Issue #118 is closed by CF-2 (`marketing-kit-adoption-gaps`, 0.1.8):
+   `shots --page`, `scrollTo`, `waitMs` and `storageState` cover FIRE's own screenshot script, and
+   `--placeholder` renders a film before its voiceover is paid for.

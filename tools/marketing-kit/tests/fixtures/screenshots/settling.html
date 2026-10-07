@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Settling</title>
+  </head>
+  <body>
+    <h1 id="state">Still settling</h1>
+    <script>
+      // The first state is gone after a second, so only a shot that waits sees the settled one.
+      setTimeout(() => {
+        document.getElementById("state").textContent = "Settled";
+      }, 1000);
+    </script>
+  </body>
+</html>

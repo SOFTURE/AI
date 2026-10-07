@@ -244,6 +244,13 @@ const voiceSchema = z.strictObject({
     .default(60)
     .describe("Least seconds between two paid recordings (0-3600, default 60; 0 turns it off), counted from the newest file in cacheDir, so separate runs are spaced too."),
   cacheDir: relativePath.default("marketing/voiceover").describe("The paid voiceover cache (<key>.mp3 and <key>.json), relative to the folder of marketing.json; commit it."),
+  placeholder: z
+    .strictObject({
+      wordsPerSecond: z.number().min(0.5).max(6).default(2.5).describe("Words per second of the placeholder voiceover (0.5-6, default 2.5); match the real voice to rehearse the film's length."),
+      sentencePauseSeconds: z.number().min(0).max(3).default(0.5).describe("Silence after every sentence of the placeholder voiceover but the last (0-3 s, default 0.5)."),
+    })
+    .prefault({})
+    .describe("The free placeholder voiceover of --placeholder (a quiet tone, words at a fixed pace), to record and render a film before paying for its voiceover."),
 });
 
 type VideoBeat = { id: string; text: string; pad?: number | undefined; actions?: SceneAction[] | undefined };
@@ -446,7 +453,7 @@ const socialSchema = z.strictObject({
     .describe("A paragraph after every post's caption, e.g. that the persona is an example and the voice is AI-generated; {persona} becomes the film's persona name. A post opts out with disclosure: false."),
 });
 
-const screenshotSchema = z.strictObject({
+export const screenshotSchema = z.strictObject({
   id: id.describe("The screenshot's id: the file <output.dir>/screenshots/<id>.png."),
   path: pagePath.describe("The page of the app to capture, e.g. /pricing."),
   width: pixels(8000).describe("The browser viewport's width in CSS pixels."),
@@ -462,6 +469,20 @@ const screenshotSchema = z.strictObject({
     .refine((schemes) => new Set(schemes).size === schemes.length, "lists a scheme twice")
     .optional()
     .describe('Capture each listed scheme into its own <id>-<scheme>.png, e.g. ["light", "dark"]; without it, one <id>.png in app.colorScheme.'),
+  scrollTo: z
+    .number()
+    .int()
+    .min(0)
+    .optional()
+    .describe('Capture one viewport frame scrolled to this many CSS pixels from the top (e.g. to check scroll-driven motion, with motion: "no-preference"); refused when the page cannot scroll that far. Not with full.'),
+  waitMs: z.number().int().min(0).max(60_000).default(0).describe("Milliseconds to wait after the page loaded (and scrolled) before the phrase gate reads it, for animations to settle (0-60000, default 0)."),
+  storageState: relativePath
+    .optional()
+    .describe("A Playwright storage state (cookies and localStorage as JSON), relative to the folder of marketing.json, to capture a signed-in screen. It holds a session: keep it out of git."),
+}).superRefine((entry, context) => {
+  if (entry.full && entry.scrollTo !== undefined) {
+    context.addIssue({ code: "custom", path: ["scrollTo"], message: "is one viewport frame at a scroll position; a full-page shot has none, so drop full or scrollTo" });
+  }
 });
 
 /** Named sizes of `ogImages[].size`: the share card and the three social formats. */

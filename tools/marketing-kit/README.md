@@ -12,17 +12,31 @@ from one `marketing.json` (MK-2), the scene included as declarative actions (MK-
 TTS providers (MK-7), screenshots (MK-4) and OG images (MK-5) build on it. Background:
 [docs/03-marketing-kit.md](../../docs/03-marketing-kit.md).
 
+## Install
+
+An app runs the kit through `npx` with a pinned version, not as a dependency:
+
+```json
+{ "scripts": { "marketing": "npx -y @softure-ai/marketing-kit@0.1.8" } }
+```
+
+`npm run marketing -- all <video>` then runs the CLI. As a `devDependency` the kit would add more than 100 MB
+(hyperframes, Playwright, sharp, resvg) to every `npm ci` and to the deps stage of the app's Docker image, which
+never runs it. Bump the pin and the `$schema` URL of `marketing.json` together. A project that imports the library
+API (`@softure-ai/marketing-kit`, `@softure-ai/marketing-kit/og`) installs it as usual.
+
 ## Commands
 
 ```bash
-softure-marketing all <video>                     # voiceover from the cache -> recording -> render -> post copy
+softure-marketing all <video> [--placeholder]     # voiceover from the cache -> recording -> render -> post copy
 softure-marketing voice <video>... [--commit]     # voiceovers in order; without --commit only the cost estimate
-softure-marketing record <video> [--today=YYYY-MM-DD] [--url=...]
-softure-marketing render <video> [--quality=draft|standard|high]
+softure-marketing record <video> [--today=YYYY-MM-DD] [--url=...] [--placeholder]
+softure-marketing render <video> [--quality=draft|standard|high] [--placeholder]
 softure-marketing preview <video>                 # the composition in the hyperframes preview
 softure-marketing posts <video>                   # post copy only
 softure-marketing og [image]                      # OG images (PNG) of every ogImages entry, or of one
 softure-marketing shots [<id>] [--url=...]        # the screenshots entries (or one), each behind its gates
+softure-marketing shots --page=<url> --out=<file.png> --expect=<phrase> [...]   # one page anywhere, same gates
 ```
 
 Every command takes `--config=<path>` (default `./marketing.json`). Exit codes: `0` done, `1` failed, `2`
@@ -38,6 +52,12 @@ the screen guard refused the recording (the screen did not show what the voiceov
   what was recorded, where it stopped and which videos were never sent). Without `--commit` the summary prints
   the batch's characters and estimate, so the cost is known before paying. Use it instead of a shell loop: a
   loop runs on after a failed call, and the provider sees every call it makes.
+- **`--placeholder`** rehearses a film before paying for its voiceover: `all`, `record` and `render` use a free
+  stand-in, a quiet tone with the script's words at `voice.placeholder.wordsPerSecond` (default 2.5) and
+  `voice.placeholder.sentencePauseSeconds` (default 0.5) between sentences. It is written into
+  `<output.buildDir>/<video>/placeholder/`, never into `voice.cacheDir` (where it would count as the paid recording),
+  and the film goes to `<video>.placeholder.mp4`. A recording made on it renders only with `--placeholder`, and a
+  recording made on the paid voiceover only without it. Match the pace to the voice to see the film's real length.
 - **`--today`** records the app as of another day for one run; it overrides the video's `today`. Once a
   voiceover is paid for, pin its day in the video's `today` instead, so a plain `all` reproduces the film in any
   later month (the voiceover says numbers that depend on the day).
@@ -60,11 +80,19 @@ once per scheme, in its own browser, into `<id>-light.png` and `<id>-dark.png`; 
 in `app.colorScheme`. `shots <id>` takes the entry's id and writes all of its files. Since an entry may
 write any of those three names, an id that is another entry's `<id>-light` or `<id>-dark` is refused.
 `full: true` first scrolls the page one screen at a time to the bottom, so lazy images and sections
-load, then captures the whole page. A screenshot is kept only when it passes every gate:
+load, then captures the whole page. `scrollTo: <px>` instead captures one viewport frame scrolled that far, e.g. to
+check scroll-driven motion (set `motion: "no-preference"` for it, or the page shows its end state). `waitMs` waits
+that long after loading and scrolling, before the gates read the page, for an animation to settle (default 0).
+`storageState` captures a signed-in screen: a Playwright storage state (cookies and localStorage), relative to the
+folder of `marketing.json`, written by the app's own login script (`await context.storageState({ path })`) or by
+`npx playwright codegen --save-storage=<file> <url>`. It holds a live session, so keep it out of git and regenerate
+it when the session expires; a missing or broken file stops `shots` before the browser starts. A screenshot is kept
+only when it passes every gate:
 
 | Gate | Refused when |
 | --- | --- |
 | `status` | the page answers with HTTP 400 or above, or not at all (`load`: it did not load within 30 s) |
+| `scroll` | the page cannot scroll as far as `scrollTo` (the frame would show another place) |
 | `phrase` | the page does not show `expect` within 5 s of loading (hidden elements do not count) |
 | `size` | the file is smaller than `minBytes` (40 kB by default: a blank or broken page); the file is deleted |
 
@@ -77,6 +105,22 @@ A failed file is not left behind, nor is an older file of its entry (any of `<id
 exit code `1`. `--url` points at another address of the app; without it, `shots` uses `app.baseUrl` or
 starts `app.startCommand` as `record` does. A plain page can be smaller than 40 kB: set `minBytes` for it
 (the fixture's calculator, a dark page with one form, is about 16 kB and sets 5000).
+
+#### One page anywhere: `shots --page`
+
+```bash
+softure-marketing shots --page=https://example.com/pricing --out=shots/pricing.png --expect="Pricing" \
+  [--width=1440 --height=900 --scale=1 --full --scroll=<px> --wait=<ms> --motion=reduce|no-preference \
+   --scheme=light|dark --auth=<storage-state.json> --minbytes=40000]
+```
+
+A competitor's page, production, or any page that is not a `screenshots` entry: the same browser settings
+(`brand.locale`, `brand.timezone`, `app.hideSelectors`, `app.colorScheme` unless `--scheme`) and the same gates, one
+file at `--out` (relative to the current directory; an older file there is removed first). The flags are the entry's
+fields: `--scroll` is `scrollTo`, `--wait` is `waitMs`, `--auth` is `storageState` (relative to the current
+directory), `--minbytes` is `minBytes`; the viewport defaults to 1440×900. `--expect` is required, so an error page
+is never kept. The app is not started and `--url` does not apply. Every flag needs `=<value>` except `--full`, and
+an unknown flag stops the run: a typo must never switch a gate off.
 
 ## `marketing.json`
 
@@ -190,6 +234,9 @@ default. Values must be hex literals (`#rgb`, `#rrggbb`, `#rrggbbaa`).
 
 ### From FIRE_TRACKER's constants
 
+What MK-1 hard-coded and the key that holds it now. The table names the kind of value, not the value: a project's
+look changes in its own `marketing.json`, without a change to the kit.
+
 | What MK-1 still had in code | Where it is now |
 | --- | --- |
 | `marketing.config.json` (`locale`, `brand.name`, `app`, `siteCss`, `posts.site`, `paths`) | `marketing.json`: `brand`, `app`, `brand.tokensFrom.css`, `social.linkTemplate`, `voice.cacheDir`, `output`, `sfx`, `brand.fonts` |
@@ -199,8 +246,8 @@ default. Values must be hex literals (`#rgb`, `#rrggbb`, `#rrggbbaa`).
 | hidden `nextjs-portal` and the mailing-list pill | `app.hideSelectors` |
 | the screen guard reading `main` | `app.screenGuardSelector` |
 | Geist and Newsreader files | `brand.fonts` |
-| the arc logo, `#059669` and the light caption pill | `brand.logo`, `brand.colors.captionHighlight`, `captionBackground` |
-| `--accessible` for the link pill and the avatar | `brand.colors.cta` (or `tokensFrom.roles.cta: "accessible"`) |
+| the logo, the caption highlight colour and the light caption pill | `brand.logo`, `brand.colors.captionHighlight`, `captionBackground` |
+| the token used for the link pill and the avatar | `brand.colors.cta` (or `tokensFrom.roles.cta: "<token>"`) |
 | FIRE's narrator voice, Polish | `voice.voiceId`, `voice.language: "pl"` (the cache keys of FIRE's paid recordings stay the same) |
 | `?z=` and three fixed platforms | `social.linkTemplate`, `social.platforms` |
 | five fixed sound file names | `sfx` |
@@ -328,18 +375,21 @@ format, so its paid recordings are reused as they are, with no re-keying and no 
    `from the cache`; an estimate line means the text, voice or model differs from FIRE's, and nothing
    was spent.
 
+### Upgrading to 0.1.8
+
+- Portrait social posts get their own templates: move a `headline-cta` entry with `size: [1080, 1350]` to
+  `big-number` (one figure as the hero) or to a `carousel` slide. `headline-cta` and `headline-chart` render as
+  before.
+- A 0.1.7 `marketing.json`, its screenshots and the voiceover cache work as they are. New: `scrollTo`, `waitMs` and
+  `storageState` on `screenshots[]` entries, `shots --page` for any page, `--placeholder` on `all`/`record`/`render`
+  with `voice.placeholder`. An app that kept its own screenshot script for these can drop it.
+
 ### Upgrading to 0.1.7
 
 - A batch of voiceovers is one command: `voice a b c --commit` instead of a shell loop. Paid calls are spaced by
   `voice.minIntervalSeconds` (default 60 s); set it to `0` to keep 0.1.6's back-to-back calls.
 - A disclosure pasted into every caption moves to `social.disclosure` with `{persona}` for the name; delete it from
   the captions, or the posts carry it twice.
-
-### Upgrading to 0.1.8
-
-- Portrait social posts get their own templates: move a `headline-cta` entry with `size: [1080, 1350]` to
-  `big-number` (one figure as the hero) or to a `carousel` slide. `headline-cta` and `headline-chart` render as
-  before.
 
 ## OG images
 
@@ -418,8 +468,9 @@ renders without a `marketing.json` at all. For a carousel, pass `slide` (1-based
 
 - Node 22, **ffmpeg** in PATH.
 - A Chromium for the recording and the screenshots: Playwright's own, or `PLAYWRIGHT_CHROMIUM_PATH=<path>`.
-- A Chrome for hyperframes: downloaded on the first render (into `~/.cache/puppeteer`), or
-  `HYPERFRAMES_BROWSER_PATH=<path>` (a Chromium headless shell works).
+- A Chrome for hyperframes: downloaded on the first render (into `~/.cache/hyperframes/chrome`; an older
+  `~/.cache/puppeteer/chrome-headless-shell` is still used when it is there), or `HYPERFRAMES_BROWSER_PATH=<path>`
+  (a Chromium headless shell works).
 - The CLI runs hyperframes with `HYPERFRAMES_NO_TELEMETRY=1` unless you set it yourself.
 
 ## Licences

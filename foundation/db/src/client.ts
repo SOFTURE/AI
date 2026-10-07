@@ -43,10 +43,14 @@ export interface CreateDatabaseOptions {
 }
 
 /**
- * Opens the database a URL points at. Throws when the scheme is not supported: that is a
- * deployment bug. The message names the scheme only, never the URL, which holds a password.
+ * Opens the database a URL points at. Throws when the URL is empty or its scheme is not supported:
+ * that is a deployment bug. The message names the scheme only, never the URL, which holds a password.
+ * The config accepts an empty URL (a build has no DATABASE_URL), so this is where it is refused.
  */
 export async function createDatabase(url: string, options: CreateDatabaseOptions = {}): Promise<DatabaseHandle> {
+  if (url === "") {
+    throw new Error("createDatabase: the database URL is empty; set database.url in softure.config (usually from DATABASE_URL)");
+  }
   if (url.startsWith(PGLITE_PREFIX)) {
     const dataDir = url.slice(PGLITE_PREFIX.length);
     const { PGlite } = await import("@electric-sql/pglite");
