@@ -60,7 +60,7 @@ backlog: context/backlog/roadmap-charts-followups/
 
 ## Owner decisions and checks
 
-- [ ] **CH-5** (carried over from charts): once `@softure-ai/charts` 0.1.0 is live on npm, add its trusted publisher on
+- [ ] **CH-5** (carried over from charts): `@softure-ai/charts` 0.1.0 is on npm (2026-10-07, first publish with `NPM_TOKEN`): add its trusted publisher on
   npmjs.com (`@softure-ai/charts` → Settings → Trusted publisher: GitHub Actions, `SOFTURE` / `AI` / `release.yml`,
   case-sensitive, environment empty, **Allow npm publish**) and delete the `NPM_TOKEN` secret unless another new
   package is on the way. CF-1 bumps charts, so its release needs the publisher (`scripts/release/README.md`).
