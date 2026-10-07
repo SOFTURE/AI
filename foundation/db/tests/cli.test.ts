@@ -7,7 +7,7 @@ import { defineSoftureConfig } from "@softure-ai/core";
 import { createDatabase } from "@softure-ai/db";
 import { runMigrateCli, runSoftureCommand, type CliOutput } from "@softure-ai/db/cli";
 import type { AppMigrations } from "@softure-ai/db";
-import { createLinkedModule, createNotesModule, createTagsModule } from "./fixtures/modules.js";
+import { createLinkedModule, createNotesModule, createNotesWithNewDependency, createTagsModule } from "./fixtures/modules.js";
 import { execSql, queryRows, readLedger } from "./support/query.js";
 
 const cleanups: (() => void)[] = [];
@@ -174,6 +174,60 @@ describe("softure migrate", () => {
     expect(output.lines.slice(-2)).toEqual(["applied app migrations (before)", "nothing to apply"]);
   });
 
+  it("adopts a baseline on a fresh database within a plain migrate, and marks it in the plan", async () => {
+    const url = `pglite://${createTempDir()}`;
+    const app: AppMigrations = {
+      before: (handle) =>
+        execSql(
+          handle,
+          `CREATE SCHEMA IF NOT EXISTS notes;
+           CREATE TABLE IF NOT EXISTS notes.notes (id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY, title text NOT NULL, created_at timestamptz NOT NULL DEFAULT now());`,
+        ),
+      baseline: { notes: 1 },
+    };
+    const config = { database: { url }, modules: [createNotesModule()] };
+    const planned = createOutput();
+    const migrated = createOutput();
+
+    const planCode = await runMigrateCli({ config, argv: ["--plan"], output: planned, app });
+    const migrateCode = await runMigrateCli({ config, argv: [], output: migrated, app });
+
+    expect([planCode, migrateCode]).toEqual([0, 0]);
+    expect(planned.lines).toContain("pending notes 0001_create_notes.sql (adopted if its schema already holds objects)");
+    expect(planned.lines).toContain("pending notes 0002_add_notes_title_index.sql");
+    expect(migrated.lines).toEqual([
+      "applied softure 0001_ledger.sql",
+      "applied app migrations (before)",
+      "adopted notes 0001_create_notes.sql",
+      "applied notes 0002_add_notes_title_index.sql",
+      "2 migration(s) applied, 1 adopted",
+    ]);
+  });
+
+  it("adopts the files up to --through and applies a new dependency first with --adopt", async () => {
+    const url = `pglite://${createTempDir()}`;
+    const handle = await createDatabase(url);
+    await execSql(
+      handle,
+      `CREATE SCHEMA notes;
+       CREATE TABLE notes.notes (id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY, title text NOT NULL, created_at timestamptz NOT NULL DEFAULT now());`,
+    );
+    await handle.close();
+    const fixture = createNotesWithNewDependency();
+    cleanups.push(fixture.cleanup);
+    const output = createOutput();
+
+    const code = await runMigrateCli({ config: { database: { url }, modules: fixture.modules }, argv: ["--adopt", "notes@0.1.0", "--through", "1"], output });
+
+    expect({ code, errors: output.errors }).toEqual({ code: 0, errors: [] });
+    expect(output.lines).toEqual([
+      "did apply softure 0001_ledger.sql",
+      "did apply extras 0001_create_limits.sql",
+      "did adopt notes 0001_create_notes.sql",
+      "notes@0.1.0: the schema matches its migrations through 0001; adopted",
+    ]);
+  });
+
   it("prints each problem and exits 1", async () => {
     const result = await run(["--adopt", "notes@0.9.0"]);
 
@@ -186,6 +240,9 @@ describe("softure migrate", () => {
     [["--force"], "Unknown option '--force'"],
     [["extra"], "Unexpected argument 'extra'"],
     [["--export-migrations", "out", "--plan"], "--export-migrations cannot be combined with --plan"],
+    [["--through", "1"], "--through needs --adopt"],
+    [["--adopt", "notes@0.1.0", "--through", "x"], '--through expects a positive whole number, got "x"'],
+    [["--adopt", "notes@0.1.0", "--through", "0"], '--through expects a positive whole number, got "0"'],
   ])("rejects %j with the usage and exit code 2", async (argv, message) => {
     const result = await run(argv);
 

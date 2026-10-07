@@ -95,7 +95,7 @@ describe.each(createTestDrivers())("migrator on $name", (driver) => {
 
     const second = await migrate(handle, { modules });
 
-    expect(second).toEqual({ ok: true, value: { applied: [], app: [] } });
+    expect(second).toEqual({ ok: true, value: { applied: [], adopted: [], app: [] } });
     expect(await readLedger(handle)).toEqual(before);
   });
 

@@ -1,7 +1,7 @@
 // Dummy modules for the migrator tests: `tags` depends on `notes` and references its table; `linked`
 // references an app table (`public.app_users`), which the app's own migrations create.
 // Tests that change files work on a copy of a fixture folder (`copyFixtureMigrations`).
-import { cpSync, mkdtempSync, rmSync } from "node:fs";
+import { cpSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -61,4 +61,25 @@ export function copyFixtureMigrations(id: FixtureId): { dir: URL; path: string; 
   const path = join(root, "migrations");
   cpSync(fileURLToPath(getFixtureMigrationsUrl(id)), path, { recursive: true });
   return { dir: pathToFileURL(`${path}/`), path, cleanup: () => rmSync(root, { recursive: true, force: true }) };
+}
+
+/**
+ * `notes` depending on a new `extras` module (one table, no reference between them): the shape of
+ * an app adopting a module whose dependency it never had. `cleanup` removes the copied folders.
+ */
+export function createNotesWithNewDependency(): { modules: AnySoftureModule[]; cleanup: () => void } {
+  const notes = copyFixtureMigrations("notes");
+  const extras = copyFixtureMigrations("tags");
+  rmSync(join(extras.path, "0001_create_tags.sql"));
+  writeFileSync(join(extras.path, "0001_create_limits.sql"), "-- Rollback: DROP TABLE extras.limits;\nCREATE TABLE limits (key text PRIMARY KEY);\n");
+  return {
+    modules: [
+      createFixtureModule({ id: "notes", dependsOn: { extras: "^0.1.0" }, migrationsDir: notes.dir }),
+      createFixtureModule({ id: "extras", migrationsDir: extras.dir }),
+    ],
+    cleanup: () => {
+      notes.cleanup();
+      extras.cleanup();
+    },
+  };
 }

@@ -2,22 +2,19 @@
 // module's own schema, dependencies first, one transaction per file together with its ledger row.
 // Everything that can be checked (names, numbering, checksums, order) is checked for all modules
 // before the first file runs, so a problem in one module never leaves another half-migrated.
-// The app's own migrations (drizzle's, usually) plug in through `app.before` / `app.after`.
+// The app's own migrations (drizzle's, usually) plug in through `app.before` / `app.after`, and
+// `app.baseline` names the module files the app's own history already creates (issue #152).
 import { ok, sortModulesByDependencies, type AnySoftureModule } from "@softure-ai/core";
 import type { DatabaseHandle } from "../client.js";
-import { readMigrationFiles, type MigrationFile } from "./files.js";
-import {
-  LEDGER_FILES,
-  LEDGER_MODULE_ID,
-  LEDGER_SCHEMA,
-  LEDGER_VERSION,
-  readJournal,
-  recordMigration,
-  type JournalRow,
-  type MigrationMethod,
-} from "./ledger.js";
+import { applyFile, describeError, recordAdoption, withMigrationLock, type MigrationUnit } from "./apply.js";
+import { readMigrationFiles } from "./files.js";
+import { describeSchema, diffSchemas } from "./introspect.js";
+import { LEDGER_FILES, LEDGER_MODULE_ID, LEDGER_SCHEMA, LEDGER_VERSION, readJournal, type JournalRow } from "./ledger.js";
 import { failWith, type MigrationProblem, type MigrationResult } from "./problems.js";
+import { buildReferenceSchema } from "./reference.js";
 import { withSession, type MigrationSession } from "./session.js";
+
+export { applyFile, recordAdoption, rollBack, withMigrationLock, type MigrationUnit } from "./apply.js";
 
 export interface MigrateOptions {
   /** The enabled modules, in any order; dependencies are applied first. */
@@ -29,7 +26,12 @@ export interface MigrateOptions {
   readonly migrationsDir?: URL;
   /** Called after each file is committed, e.g. to print progress. */
   readonly onApplied?: (step: MigrationStep) => void;
-  /** The app's own migrations around the module files. `planMigrations` ignores them. */
+  /** Called after each file a baseline recorded as adopted, e.g. to print progress. */
+  readonly onAdopted?: (step: MigrationStep) => void;
+  /**
+   * The app's own migrations around the module files, and its baseline. `planMigrations` runs no
+   * hook; it reads only the baseline.
+   */
   readonly app?: AppMigrations;
   /** Called after an app hook succeeded, e.g. to print progress. */
   readonly onAppMigrated?: (phase: AppMigrationPhase) => void;
@@ -47,9 +49,16 @@ export interface AppMigrations {
   readonly before?: AppMigrationHook;
   /** Runs after the module files: app migrations that reference tables a module creates. */
   readonly after?: AppMigrationHook;
+  /**
+   * The module files the app's own history already creates: module id → the last such file (1..n).
+   * For a listed module the ledger has never seen, `migrate` compares the module's schema with
+   * files 1..n once `before` ran and records them as `adopted`, then applies the later files; an
+   * empty schema is migrated normally. Once the module is in the ledger the entry has no effect.
+   */
+  readonly baseline?: Readonly<Record<string, number>>;
 }
 
-export type AppMigrationPhase = keyof AppMigrations;
+export type AppMigrationPhase = "before" | "after";
 
 export interface MigrationStep {
   readonly module: string;
@@ -62,24 +71,21 @@ export interface MigrationStep {
 export interface MigrationPlan {
   /** What `migrate` would apply, in order. */
   readonly pending: readonly MigrationStep[];
+  /**
+   * The pending steps a baseline may adopt instead of applying: they are adopted when the module's
+   * schema already holds objects after `before` (which a plan does not run).
+   */
+  readonly baseline: readonly MigrationStep[];
 }
 
 export interface MigrationReport {
   readonly applied: readonly MigrationStep[];
+  /** The files a baseline recorded as adopted, in order. */
+  readonly adopted: readonly MigrationStep[];
   /** The app hooks that ran, in order. */
   readonly app: readonly AppMigrationPhase[];
 }
 
-/** One migration owner: the ledger itself or an enabled module with a schema. */
-export interface MigrationUnit {
-  readonly module: string;
-  readonly schema: string;
-  readonly moduleVersion: string;
-  readonly files: readonly MigrationFile[];
-}
-
-// Any constant works; it only has to be the same for every runner of every app.
-const MIGRATION_LOCK_KEY = "73012026";
 // `drizzle` holds drizzle's own ledger (`drizzle.__drizzle_migrations`) in every app on this stack.
 const RESERVED_SCHEMAS = new Set([LEDGER_SCHEMA, "public", "information_schema", "drizzle"]);
 const MAX_IDENTIFIER_BYTES = 63;
@@ -90,14 +96,23 @@ export async function planMigrations(handle: DatabaseHandle, options: MigrateOpt
   if (!units.ok) {
     return units;
   }
+  const baseline = options.app?.baseline ?? {};
+  const baselineProblems = checkBaseline(options.modules, units.value, baseline);
+  if (baselineProblems.length > 0) {
+    return failWith(baselineProblems);
+  }
   const journal = await withSession(handle, readJournal);
   const comparison = compareJournal(units.value, journal);
-  return comparison.problems.length > 0 ? failWith(comparison.problems) : ok({ pending: comparison.pending });
+  if (comparison.problems.length > 0) {
+    return failWith(comparison.problems);
+  }
+  const adoptable = comparison.pending.filter((step) => isBaselineStep(step, baseline, journal));
+  return ok({ pending: comparison.pending, baseline: adoptable });
 }
 
 /**
  * Applies every pending migration under the advisory lock: the ledger, `app.before`, the module
- * files, then `app.after`. Nothing runs when a check fails.
+ * files (adopting a baseline where it applies), then `app.after`. Nothing runs when a check fails.
  */
 export async function migrate(handle: DatabaseHandle, options: MigrateOptions): Promise<MigrationResult<MigrationReport>> {
   const units = await prepareUnits(options.modules, options.migrationsDir);
@@ -105,25 +120,25 @@ export async function migrate(handle: DatabaseHandle, options: MigrateOptions): 
     return units;
   }
   const app = options.app ?? {};
+  const baseline = app.baseline ?? {};
+  const baselineProblems = checkBaseline(options.modules, units.value, baseline);
+  if (baselineProblems.length > 0) {
+    return failWith(baselineProblems);
+  }
   return withSession(handle, (session) =>
     withMigrationLock(session, async () => {
       // Read after the lock: a runner that waited sees what the first one applied.
-      const comparison = compareJournal(units.value, await readJournal(session));
+      const journal = await readJournal(session);
+      const comparison = compareJournal(units.value, journal);
       if (comparison.problems.length > 0) {
         return failWith(comparison.problems);
       }
-      // The ledger first, so it exists whatever a hook does; then before, the modules, after.
-      const ledgerSteps = comparison.pending.filter((step) => step.module === LEDGER_MODULE_ID);
-      const moduleSteps = comparison.pending.filter((step) => step.module !== LEDGER_MODULE_ID);
       const applied: MigrationStep[] = [];
+      const adopted: MigrationStep[] = [];
       const ranHooks: AppMigrationPhase[] = [];
       const applySteps = async (steps: readonly MigrationStep[]): Promise<MigrationProblem | null> => {
         for (const step of steps) {
-          const unit = units.value.find((candidate) => candidate.module === step.module);
-          const file = unit?.files.find((candidate) => candidate.version === step.version);
-          if (unit === undefined || file === undefined) {
-            throw new Error(`migrate: step ${step.module} ${step.version} has no file; compareJournal is broken`);
-          }
+          const { unit, file } = findFile(units.value, step);
           const failure = await applyFile(session, { unit, file, method: "applied" });
           if (failure !== null) {
             return failure;
@@ -141,15 +156,117 @@ export async function migrate(handle: DatabaseHandle, options: MigrateOptions): 
         }
         return failure;
       };
+      // Unit by unit in dependency order, so a module's dependencies are migrated before its
+      // baseline is compared.
+      const migrateModules = async (): Promise<MigrationProblem | null> => {
+        for (const unit of units.value) {
+          if (unit.module === LEDGER_MODULE_ID) continue;
+          const steps = comparison.pending.filter((step) => step.module === unit.module);
+          const through = baseline[unit.module];
+          if (through === undefined || journal.some((row) => row.module === unit.module)) {
+            const failure = await applySteps(steps);
+            if (failure !== null) return failure;
+            continue;
+          }
+          const adoption = await adoptBaseline(session, { modules: options.modules, units: units.value, unit, through });
+          if (adoption.problem !== null) return adoption.problem;
+          for (const step of adoption.adopted) {
+            adopted.push(step);
+            options.onAdopted?.(step);
+          }
+          const failure = await applySteps(steps.filter((step) => !adoption.adopted.some((done) => done.version === step.version)));
+          if (failure !== null) return failure;
+        }
+        return null;
+      };
 
-      const failure =
-        (await applySteps(ledgerSteps)) ?? (await runHook("before")) ?? (await applySteps(moduleSteps)) ?? (await runHook("after"));
+      // The ledger first, so it exists whatever a hook does; then before, the modules, after.
+      const ledgerSteps = comparison.pending.filter((step) => step.module === LEDGER_MODULE_ID);
+      const failure = (await applySteps(ledgerSteps)) ?? (await runHook("before")) ?? (await migrateModules()) ?? (await runHook("after"));
       if (failure !== null) {
         return failWith([failure]);
       }
-      return ok({ applied, app: ranHooks });
+      return ok({ applied, adopted, app: ranHooks });
     }),
   );
+}
+
+/**
+ * Adopt-or-migrate for a baseline module the ledger has never seen: an empty schema adopts
+ * nothing (its files are then applied normally); otherwise the schema must equal files 1..through,
+ * which are then recorded as adopted in one transaction.
+ */
+async function adoptBaseline(
+  session: MigrationSession,
+  input: { modules: readonly AnySoftureModule[]; units: readonly MigrationUnit[]; unit: MigrationUnit; through: number },
+): Promise<{ adopted: MigrationStep[]; problem: MigrationProblem | null }> {
+  const { unit, through } = input;
+  const live = await describeSchema(session, unit.schema);
+  if (live.length === 0) {
+    return { adopted: [], problem: null };
+  }
+  // Built only here, so a database whose modules are all in the ledger never needs PGlite.
+  const reference = await buildReferenceSchema({ modules: input.modules, units: input.units, target: unit, through });
+  if (!reference.ok) {
+    return { adopted: [], problem: reference.problems[0] ?? null };
+  }
+  const differences = diffSchemas(reference.value, live);
+  if (differences.length > 0) {
+    return { adopted: [], problem: { code: "db.schema_mismatch", module: unit.module, schema: unit.schema, differences } };
+  }
+  const files = unit.files.filter((file) => file.version <= through);
+  const failure = await recordAdoption(session, unit, files);
+  if (failure !== null) {
+    return { adopted: [], problem: failure };
+  }
+  return { adopted: files.map((file) => toStep(unit, file)), problem: null };
+}
+
+/**
+ * A baseline may name only enabled modules with a schema and migrations, and a last file between
+ * 1 and the module's file count. Checked before anything runs.
+ */
+function checkBaseline(
+  modules: readonly AnySoftureModule[],
+  units: readonly MigrationUnit[],
+  baseline: Readonly<Record<string, number>>,
+): MigrationProblem[] {
+  return Object.entries(baseline).flatMap(([module, through]): MigrationProblem[] => {
+    if (!modules.some((candidate) => candidate.id === module)) {
+      return [{ code: "db.adopt_unknown_module", module }];
+    }
+    const unit = units.find((candidate) => candidate.module === module);
+    if (unit === undefined) {
+      return [{ code: "db.adopt_no_schema", module }];
+    }
+    return checkThrough(unit, through);
+  });
+}
+
+/** `through` must be a whole number from 1 to the unit's file count. */
+export function checkThrough(unit: MigrationUnit, through: number): MigrationProblem[] {
+  const files = unit.files.length;
+  return Number.isInteger(through) && through >= 1 && through <= files
+    ? []
+    : [{ code: "db.adopt_through_out_of_range", module: unit.module, through, files }];
+}
+
+function isBaselineStep(step: MigrationStep, baseline: Readonly<Record<string, number>>, journal: readonly JournalRow[]): boolean {
+  const through = baseline[step.module];
+  return through !== undefined && step.version <= through && !journal.some((row) => row.module === step.module);
+}
+
+function findFile(units: readonly MigrationUnit[], step: MigrationStep): { unit: MigrationUnit; file: MigrationUnit["files"][number] } {
+  const unit = units.find((candidate) => candidate.module === step.module);
+  const file = unit?.files.find((candidate) => candidate.version === step.version);
+  if (unit === undefined || file === undefined) {
+    throw new Error(`migrate: step ${step.module} ${step.version} has no file; compareJournal is broken`);
+  }
+  return { unit, file };
+}
+
+export function toStep(unit: MigrationUnit, file: MigrationUnit["files"][number]): MigrationStep {
+  return { module: unit.module, schema: unit.schema, version: file.version, name: file.name, checksum: file.checksum };
 }
 
 /**
@@ -263,90 +380,6 @@ export function compareJournal(
   return { problems, pending };
 }
 
-/**
- * Runs one file and its ledger row in one transaction, inside the unit's schema. Returns the
- * problem when the SQL fails; the transaction is rolled back first.
- */
-export async function applyFile(
-  session: MigrationSession,
-  input: { unit: MigrationUnit; file: MigrationFile; method: MigrationMethod },
-): Promise<MigrationProblem | null> {
-  const { unit, file, method } = input;
-  // The schema passed the manifest's lower_snake_case rule and checkModule; quoting is a second line.
-  const schema = quoteIdentifier(unit.schema);
-  try {
-    await session.exec(`BEGIN; CREATE SCHEMA IF NOT EXISTS ${schema}; SET LOCAL search_path TO ${schema}, public;`);
-    const transactionId = await readTransactionId(session);
-    if (method === "applied") {
-      await session.exec(file.sql);
-    }
-    // Second line behind findTransactionControl: a file that still ended the transaction left
-    // part of itself committed, so it must not be reported as cleanly rolled back.
-    if ((await readTransactionId(session)) !== transactionId) {
-      throw new TransactionEndedError();
-    }
-    await recordMigration(session, {
-      module: unit.module,
-      version: file.version,
-      name: file.name,
-      checksum: file.checksum,
-      moduleVersion: unit.moduleVersion,
-      method,
-    });
-    await session.exec("COMMIT");
-    return null;
-  } catch (error) {
-    const reason = await rollBack(session, error);
-    return { code: "db.migration_failed", module: unit.module, version: file.version, name: file.name, reason };
-  }
-}
-
-class TransactionEndedError extends Error {
-  constructor() {
-    super("the file ended the migrator's transaction, so the statements before that point may be committed; check the schema by hand");
-  }
-}
-
-// The transaction id, not now(): two transactions can share a start time (PGlite's clock ticks in
-// milliseconds), but never an id.
-async function readTransactionId(session: MigrationSession): Promise<string> {
-  const [row] = await session.query<{ id: string }>("SELECT pg_current_xact_id()::text AS id");
-  return row?.id ?? "";
-}
-
-/**
- * Rolls the open transaction back and returns the reason to report. A failing ROLLBACK (a lost
- * connection) is added to the reason instead of hiding the original error.
- */
-export async function rollBack(session: MigrationSession, error: unknown): Promise<string> {
-  const reason = describeError(error);
-  try {
-    await session.exec("ROLLBACK");
-    return reason;
-  } catch (rollbackError) {
-    return `${reason} (and ROLLBACK failed: ${describeError(rollbackError)})`;
-  }
-}
-
-/** Holds the session-level advisory lock while `run` runs; a second runner waits for it. */
-export async function withMigrationLock<T>(session: MigrationSession, run: () => Promise<T>): Promise<T> {
-  await session.query("SELECT pg_advisory_lock($1)", [MIGRATION_LOCK_KEY]);
-  let result: T;
-  try {
-    result = await run();
-  } catch (error) {
-    // The run's own error wins; an unlock failure here is secondary (the session is discarded).
-    await session.query("SELECT pg_advisory_unlock($1)", [MIGRATION_LOCK_KEY]).catch((unlockError: unknown) => {
-      throw new Error(`migration run failed (${describeError(error)}) and releasing the lock failed: ${describeError(unlockError)}`, {
-        cause: error,
-      });
-    });
-    throw error;
-  }
-  await session.query("SELECT pg_advisory_unlock($1)", [MIGRATION_LOCK_KEY]);
-  return result;
-}
-
 function checkModule(module: AnySoftureModule): MigrationProblem[] {
   const schema = module.manifest.dbSchema;
   if (module.id === LEDGER_MODULE_ID || (schema !== null && isReservedSchema(schema))) {
@@ -362,14 +395,6 @@ function isReservedSchema(schema: string): boolean {
   return RESERVED_SCHEMAS.has(schema) || schema.startsWith("pg_") || Buffer.byteLength(schema, "utf8") > MAX_IDENTIFIER_BYTES;
 }
 
-function quoteIdentifier(name: string): string {
-  return `"${name.replace(/"/g, '""')}"`;
-}
-
 function ensureFolderUrl(url: URL): URL {
   return url.href.endsWith("/") ? url : new URL(`${url.href}/`);
-}
-
-function describeError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }

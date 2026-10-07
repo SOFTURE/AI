@@ -2,7 +2,7 @@ import { rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { adoptModule, describeProblem, migrate, type DatabaseHandle, type MigrationResult } from "@softure-ai/db";
-import { copyFixtureMigrations, createFixtureModule, createNotesModule, createTagsModule } from "./fixtures/modules.js";
+import { copyFixtureMigrations, createFixtureModule, createNotesModule, createNotesWithNewDependency, createTagsModule } from "./fixtures/modules.js";
 import { createTestDrivers } from "./support/drivers.js";
 import { execSql, hasSchema, queryRows, readLedger } from "./support/query.js";
 
@@ -157,7 +157,7 @@ describe.each(createTestDrivers())("adoptModule on $name", (driver) => {
     expect(getDifferences(result)).toContain(difference);
   });
 
-  it("adopts a dependent module once its dependency is in the ledger", async () => {
+  it("refuses a dependent module whose dependency's tables exist too, and names the dependency to adopt first", async () => {
     const handle = await openAppDatabase(`${APP_NOTES}${APP_TAGS}`);
     const modules = [createNotesModule(), createTagsModule()];
 
@@ -165,7 +165,10 @@ describe.each(createTestDrivers())("adoptModule on $name", (driver) => {
     await adoptModule(handle, { modules, module: "notes", version: "0.1.0" });
     const later = await adoptModule(handle, { modules, module: "tags", version: "0.1.0" });
 
-    expect(getCodes(early)).toEqual(["db.adopt_dependency_pending"]);
+    expect(getCodes(early)).toEqual(["db.migration_failed", "db.adopt_dependency_pending"]);
+    expect(early.ok || early.problems.map(describeProblem)[1]).toBe(
+      "tags: depends on notes, whose pending migrations could not be applied (see above); adopt notes first",
+    );
     expect(later.ok).toBe(true);
     expect((await readLedger(handle)).map((row) => `${row.module}/${row.version}/${row.method}`)).toEqual([
       "softure/1/applied",
@@ -174,6 +177,51 @@ describe.each(createTestDrivers())("adoptModule on $name", (driver) => {
       "tags/1/adopted",
     ]);
     expect((await migrate(handle, { modules })).ok && "nothing to apply").toBe("nothing to apply");
+  });
+
+  it("applies the pending migrations of a new dependency first, in the same call", async () => {
+    const handle = await openAppDatabase();
+    const fixture = createNotesWithNewDependency();
+    cleanups.push(fixture.cleanup);
+
+    const dryRun = await adoptModule(handle, { modules: fixture.modules, module: "notes", version: "0.1.0", dryRun: true });
+    const extrasAfterDryRun = await hasSchema(handle, "extras");
+    const adopted = await adoptModule(handle, { modules: fixture.modules, module: "notes", version: "0.1.0" });
+
+    expect(dryRun.ok && dryRun.value.dependencies.map((step) => `${step.module}/${step.version}`)).toEqual(["extras/1"]);
+    expect(extrasAfterDryRun).toBe(false);
+    expect(adopted.ok && adopted.value.dependencies.map((step) => step.name)).toEqual(["create_limits"]);
+    expect((await readLedger(handle)).map((row) => `${row.module}/${row.version}/${row.method}`)).toEqual([
+      "softure/1/applied",
+      "extras/1/applied",
+      "notes/1/adopted",
+      "notes/2/adopted",
+    ]);
+  });
+
+  it("adopts the files up to `through` and leaves the later ones to migrate", async () => {
+    const handle = await openAppDatabase(`${APP_NOTES} DROP INDEX notes.notes_title_idx;`);
+    const modules = [createNotesModule()];
+
+    const result = await adoptModule(handle, { modules, module: "notes", version: "0.1.0", through: 1 });
+    const later = await migrate(handle, { modules });
+
+    expect(result.ok && result.value.adopted.map((step) => step.name)).toEqual(["create_notes"]);
+    expect(later.ok && later.value.applied.map((step) => step.name)).toEqual(["add_notes_title_index"]);
+    expect((await readLedger(handle)).map((row) => `${row.module}/${row.version}/${row.method}`)).toEqual([
+      "softure/1/applied",
+      "notes/1/adopted",
+      "notes/2/applied",
+    ]);
+  });
+
+  it.each([0, 3, 1.5])("refuses through %s", async (through) => {
+    const handle = await openAppDatabase();
+
+    const result = await adoptModule(handle, { modules: [createNotesModule()], module: "notes", version: "0.1.0", through });
+
+    expect(getCodes(result)).toEqual(["db.adopt_through_out_of_range"]);
+    expect(await hasSchema(handle, "softure")).toBe(false);
   });
 
   it("refuses a wrong version, an unlisted module and a module already in the ledger", async () => {

@@ -2,7 +2,8 @@
 // with the real migrations of the given modules. Migrating costs about two seconds, so each
 // module set is migrated once per test worker into a template, and every call starts from a copy
 // of the template's data folder (FIRE_TRACKER `src/db/test-db.ts`). An app with its own migrations
-// passes the same `app` hooks as to `migrate`, so module tables can reference app tables.
+// passes the same `app` hooks (and baseline) as to `migrate`, so module tables can reference app
+// tables and a module the app's history already creates is adopted in the template.
 import { PGlite } from "@electric-sql/pglite";
 import type { AnySoftureModule } from "@softure-ai/core";
 import { createPgliteHandle, type PgliteClientDatabase } from "./client.js";
@@ -40,7 +41,8 @@ export async function createTestDatabase(modules: readonly AnySoftureModule[] = 
 
 function getTemplate(modules: readonly AnySoftureModule[], app: AppMigrations): Promise<Blob | File> {
   const moduleKey = modules.map((module) => `${module.id}@${module.migrations?.dir.href ?? "-"}`).join("|");
-  const key = `${moduleKey}#before:${identifyHook(app.before)}#after:${identifyHook(app.after)}`;
+  const baselineKey = Object.entries(app.baseline ?? {}).sort(([left], [right]) => left.localeCompare(right)).map(([id, through]) => `${id}:${through}`).join(",");
+  const key = `${moduleKey}#before:${identifyHook(app.before)}#after:${identifyHook(app.after)}#baseline:${baselineKey}`;
   let template = templates.get(key);
   if (template === undefined) {
     template = buildTemplate(modules, app);

@@ -30,8 +30,9 @@ export interface RunMigrateCliOptions {
   readonly cwd?: string;
   readonly output?: CliOutput;
   /**
-   * The app's own migrations: migrate runs `before`, the module files, then `after`; `--adopt`
-   * (without `--plan`) runs `before` first; `--plan` runs neither.
+   * The app's own migrations: migrate runs `before`, the module files (adopting `baseline` where
+   * it applies), then `after`; `--adopt` (without `--plan`) runs `before` first; `--plan` runs no
+   * hook and marks the files a baseline may adopt.
    */
   readonly app?: AppMigrations;
 }
@@ -46,7 +47,9 @@ Applies the SQL migrations of every enabled module, each in its own schema.
 
 Options:
   --plan                        show what would be applied (or adopted) and change nothing
-  --adopt <module>@<version>    record an existing schema as migrated, after comparing it
+  --adopt <module>@<version>    record an existing schema as migrated, after comparing it;
+                                applies the pending migrations of its dependencies first
+  --through <n>                 with --adopt: adopt files 1..n only, leave the rest to migrate
   --migrations-dir <dir>        read module files from <dir>/<module id>/ (bundled runners)
   --export-migrations <dir>     copy module files to <dir>/<module id>/ and exit (build stage)
   --help                        show this help`;
@@ -62,7 +65,7 @@ type Command =
   | { kind: "help" }
   | { kind: "export"; targetDir: string }
   | { kind: "migrate"; plan: boolean; migrationsDir: string | undefined }
-  | { kind: "adopt"; plan: boolean; module: string; version: string; migrationsDir: string | undefined };
+  | { kind: "adopt"; plan: boolean; module: string; version: string; through: number | undefined; migrationsDir: string | undefined };
 
 /** Runs the command and returns the process exit code: 0 done, 1 failed, 2 usage error. */
 export async function runMigrateCli(options: RunMigrateCliOptions): Promise<number> {
@@ -133,19 +136,30 @@ async function runDatabaseCommand(
       if (!before.ok) return reportFailure(output, before);
       if (before.value.ran) output.log("applied app migrations (before)");
     }
-    const result = await adoptModule(handle, { modules, module: command.module, version: command.version, dryRun: command.plan, ...dirOption });
+    const result = await adoptModule(handle, {
+      modules,
+      module: command.module,
+      version: command.version,
+      dryRun: command.plan,
+      ...(command.through === undefined ? {} : { through: command.through }),
+      ...dirOption,
+    });
     if (!result.ok) return reportFailure(output, result);
     const verb = command.plan ? "would" : "did";
-    result.value.ledger.forEach((step) => output.log(`${verb} apply ${formatStep(step)}`));
+    [...result.value.ledger, ...result.value.dependencies].forEach((step) => output.log(`${verb} apply ${formatStep(step)}`));
     result.value.adopted.forEach((step) => output.log(`${verb} adopt ${formatStep(step)}`));
-    output.log(`${command.module}@${command.version}: the schema matches its migrations${command.plan ? " (plan only, nothing written)" : "; adopted"}`);
+    const scope = command.through === undefined ? "" : ` through ${formatVersion(command.through)}`;
+    output.log(`${command.module}@${command.version}: the schema matches its migrations${scope}${command.plan ? " (plan only, nothing written)" : "; adopted"}`);
     return EXIT_OK;
   }
 
   if (command.plan) {
-    const result = await planMigrations(handle, { modules, ...dirOption });
+    const result = await planMigrations(handle, { modules, ...dirOption, app });
     if (!result.ok) return reportFailure(output, result);
-    result.value.pending.forEach((step) => output.log(`pending ${formatStep(step)}`));
+    const baseline = new Set(result.value.baseline);
+    result.value.pending.forEach((step) =>
+      output.log(`pending ${formatStep(step)}${baseline.has(step) ? " (adopted if its schema already holds objects)" : ""}`),
+    );
     output.log(result.value.pending.length === 0 ? "nothing to apply" : `${result.value.pending.length} migration(s) to apply`);
     return EXIT_OK;
   }
@@ -155,21 +169,23 @@ async function runDatabaseCommand(
     ...dirOption,
     app,
     onApplied: (step) => output.log(`applied ${formatStep(step)}`),
+    onAdopted: (step) => output.log(`adopted ${formatStep(step)}`),
     onAppMigrated: (phase) => output.log(`applied app migrations (${phase})`),
   });
   if (!result.ok) return reportFailure(output, result);
-  output.log(result.value.applied.length === 0 ? "nothing to apply" : `${result.value.applied.length} migration(s) applied`);
+  output.log(formatSummary(result.value.applied.length, result.value.adopted.length));
   return EXIT_OK;
 }
 
 function parseCommand(argv: readonly string[]): Command | string {
-  let values: { plan?: boolean; adopt?: string; "migrations-dir"?: string; "export-migrations"?: string; help?: boolean };
+  let values: { plan?: boolean; adopt?: string; through?: string; "migrations-dir"?: string; "export-migrations"?: string; help?: boolean };
   try {
     ({ values } = parseArgs({
       args: [...argv],
       options: {
         plan: { type: "boolean" },
         adopt: { type: "string" },
+        through: { type: "string" },
         "migrations-dir": { type: "string" },
         "export-migrations": { type: "string" },
         help: { type: "boolean" },
@@ -184,19 +200,28 @@ function parseCommand(argv: readonly string[]): Command | string {
   if (values.help === true) return { kind: "help" };
   const exportDir = values["export-migrations"];
   if (exportDir !== undefined) {
-    const others = (["plan", "adopt", "migrations-dir"] as const).filter((name) => values[name] !== undefined);
+    const others = (["plan", "adopt", "through", "migrations-dir"] as const).filter((name) => values[name] !== undefined);
     return others.length > 0 ? `--export-migrations cannot be combined with --${others.join(", --")}` : { kind: "export", targetDir: exportDir };
   }
   const plan = values.plan === true;
   const migrationsDir = values["migrations-dir"];
   if (values.adopt === undefined) {
-    return { kind: "migrate", plan, migrationsDir };
+    return values.through === undefined ? { kind: "migrate", plan, migrationsDir } : "--through needs --adopt <module>@<version>";
   }
   const match = ADOPT_TARGET.exec(values.adopt);
   if (match?.[1] === undefined || match[2] === undefined) {
     return `--adopt expects <module>@<x.y.z>, e.g. auth@0.1.0, got "${values.adopt}"`;
   }
-  return { kind: "adopt", plan, module: match[1], version: match[2], migrationsDir };
+  const through = values.through === undefined ? undefined : parseThrough(values.through);
+  if (through === null) {
+    return `--through expects a positive whole number, got "${values.through ?? ""}"`;
+  }
+  return { kind: "adopt", plan, module: match[1], version: match[2], through, migrationsDir };
+}
+
+/** A positive whole number written in digits, or null. */
+function parseThrough(text: string): number | null {
+  return /^[1-9]\d*$/.test(text) ? Number(text) : null;
 }
 
 function reportFailure(output: CliOutput, failure: MigrationFailure): number {
@@ -205,7 +230,16 @@ function reportFailure(output: CliOutput, failure: MigrationFailure): number {
 }
 
 function formatStep(step: MigrationStep): string {
-  return `${step.module} ${String(step.version).padStart(4, "0")}_${step.name}.sql`;
+  return `${step.module} ${formatVersion(step.version)}_${step.name}.sql`;
+}
+
+function formatVersion(version: number): string {
+  return String(version).padStart(4, "0");
+}
+
+function formatSummary(applied: number, adopted: number): string {
+  if (applied === 0 && adopted === 0) return "nothing to apply";
+  return adopted === 0 ? `${applied} migration(s) applied` : `${applied} migration(s) applied, ${adopted} adopted`;
 }
 
 function describeError(error: unknown): string {

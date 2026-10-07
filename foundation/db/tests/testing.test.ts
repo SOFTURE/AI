@@ -16,6 +16,15 @@ const APP_USERS: AppMigrations = {
     await execSql(handle, "CREATE TABLE public.app_users (id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY, email text NOT NULL)");
   },
 };
+// An app history that creates the notes table (the module's file 0001), declared as a baseline.
+const NOTES_HISTORY: AppMigrations = {
+  before: (handle) =>
+    execSql(
+      handle,
+      "CREATE SCHEMA notes; CREATE TABLE notes.notes (id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY, title text NOT NULL, created_at timestamptz NOT NULL DEFAULT now())",
+    ),
+  baseline: { notes: 1 },
+};
 const cleanups: (() => void)[] = [];
 
 async function open(...args: Parameters<typeof createTestDatabase>): Promise<TestDatabase> {
@@ -102,5 +111,17 @@ describe("createTestDatabase", () => {
 
     expect(rows.rows).toEqual([{ count: 0 }]);
     expect(seen).toEqual(["other"]);
+  });
+
+  it("builds a fresh database from an app history with a baseline, the module adopted", async () => {
+    const database = await open([createNotesModule()], { app: NOTES_HISTORY });
+    const ledger = await database.db.execute<{ module: string; version: number; method: string }>(
+      sql`select module, version, method from softure.migrations where module = 'notes' order by version`,
+    );
+
+    expect(ledger.rows).toEqual([
+      { module: "notes", version: 1, method: "adopted" },
+      { module: "notes", version: 2, method: "applied" },
+    ]);
   });
 });

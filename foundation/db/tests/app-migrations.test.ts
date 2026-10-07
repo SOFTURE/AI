@@ -81,6 +81,7 @@ describe.each(createTestDrivers())("app migrations on $name", (driver) => {
         expect.objectContaining({ module: "softure", version: 1 }),
         expect.objectContaining({ module: "linked", version: 1, name: "create_links" }),
       ],
+      adopted: [],
       app: ["before", "after"],
     });
     expect(calls).toEqual(["before, linked.links exists: false", "after, linked.links exists: true"]);
@@ -104,7 +105,7 @@ describe.each(createTestDrivers())("app migrations on $name", (driver) => {
 
     const second = await migrate(handle, { modules: [createLinkedModule()], app });
 
-    expect(second).toEqual({ ok: true, value: { applied: [], app: ["before", "after"] } });
+    expect(second).toEqual({ ok: true, value: { applied: [], adopted: [], app: ["before", "after"] } });
     expect(calls).toEqual(["before", "after", "before", "after"]);
   });
 
