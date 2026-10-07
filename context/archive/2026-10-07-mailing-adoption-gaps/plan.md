@@ -126,11 +126,11 @@ Done when: `npm run typecheck`, `lint`, `test`, `build` green.
 
 ### Phase 3: legacy unsubscribe links
 
-- [x] legacyUnsubscribe option and unsubscribe
-- [x] page, action and one-click route
+- [x] legacyUnsubscribe option and unsubscribe — 90f5559
+- [x] page, action and one-click route — 90f5559
 
 ### Phase 4: command, billing, docs
 
-- [ ] CLI flags and summary
-- [ ] billing reminder loop
-- [ ] README, CHANGELOGs, versions
+- [x] CLI flags and summary
+- [x] billing reminder loop
+- [x] README, CHANGELOGs, versions

@@ -10,16 +10,19 @@ FIRE ran deployment-specific scripts.
 
 ## 1. What it provides
 
-- `mailing({ from, replyTo, provider, timeoutMs })` for `softure.config.ts`.
+- `mailing({ from, replyTo, provider, timeoutMs, ... })` for `softure.config.ts` (section 3).
 - `sendMail(context, mail, options)` in `@softure-ai/mailing/server` and `sendMail(mail, options)` in
-  `@softure-ai/mailing/next` (on the registered config). The result is a core `Result`:
+  `@softure-ai/mailing/next` (on the registered config). The result is a core `Result`; a failure the
+  provider answered with an HTTP status also carries it as `httpStatus`:
 
   | Result | Meaning | What the caller does |
   | --- | --- | --- |
   | `ok({ id, provider })` | the provider accepted the mail | keep `id` if it needs one |
   | `err("mailing.invalid_input")` | refused before anything left the process | fix the input; never retry |
-  | `err("mailing.rejected")` | the provider refused it (4xx: bad address, bad key, key reused with another body) | do not retry the same request |
-  | `err("mailing.unavailable")` | provider down (5xx), 408, 429, a busy idempotency key, network, timeout, an answer without an id, no API key; for list mail also no unsubscribe secret or an unreadable suppression list | retry later with the same `idempotencyKey` |
+  | `err("mailing.rejected")` | the provider refused this mail (4xx: bad address, key reused with another body) | do not retry the same request |
+  | `err("mailing.provider_refused")` | the provider refused the account (401/403: missing, wrong or restricted API key, account not allowed to send) | stop sending: every mail fails the same way; fix the key or account, then retry |
+  | `err("mailing.quota_exceeded")` | the account's sending quota is spent (429 that is not a rate limit: Resend's daily or monthly quota) | stop sending; retry when the quota renews |
+  | `err("mailing.unavailable")` | provider down (5xx), 408, a rate limit (429 `rate_limit_exceeded`), a busy idempotency key, network, timeout, an answer without an id, no API key; for list mail also no unsubscribe secret or an unreadable suppression list | retry later with the same `idempotencyKey` |
   | `err("mailing.suppressed")` | a list mail to a recipient who unsubscribed; nothing was sent | skip the recipient; never retry |
 
 - **List mail.** `kind: "transactional"` (the default) is mail the recipient needs whatever they
@@ -31,11 +34,13 @@ FIRE ran deployment-specific scripts.
 - The unsubscribe page (`/unsubscribe`) and the one-click route (`/api/mailing/unsubscribe`) in `/next`,
   each mounted with one line (section 4).
 - `@softure-ai/mailing/server`: `isSuppressed(ctx, address)`, `suppressRecipient(ctx, address)` (for
-  scripts, bounce or complaint handlers), `unsubscribe(ctx, token, source)`,
+  scripts, bounce or complaint handlers), `unsubscribe(ctx, link, source)` (a link from
+  `readUnsubscribeLink(params, config)`, or a bare token),
   `liftSuppression(ctx, address)` (a new explicit consent lifts the person's own opt-out),
   `buildUnsubscribeLinks`, `getRecipientKey`, and the footer and header helpers.
 - **An `onUnsubscribed` hook**, run in the opt-out's transaction, so the consent ledger can record
-  the withdrawal (section 10).
+  the withdrawal, and **`legacyUnsubscribe`**, which keeps unsubscribe links the app sent before it
+  adopted the module working (section 10).
 - **Sending once.** `deliverOnce(ctx, { scope, mail })` (`/server`, and `deliverOnce({ scope, mail })`
   in `/next`) sends a mail at most once per scope and recipient through the delivery ledger.
 - **Campaigns.** `sendCampaign`, `planCampaign` and the content file parser in `/server`; the
@@ -106,20 +111,29 @@ const outcome = await deliverOnce({
 | Outcome | Meaning |
 | --- | --- |
 | `{ status: "sent", id }` | sent now |
-| `{ status: "rejected", reason }` | refused now, for good: `mailing.suppressed`, `rejected`, `invalid_input`, or `unavailable` on the last attempt |
+| `{ status: "rejected", reason, httpStatus? }` | refused now, for good: `mailing.suppressed`, `rejected`, `invalid_input`, or `unavailable` on the last attempt |
 | `{ status: "done", outcome }` | an earlier call closed it (`sent` or `rejected`); nothing sent |
 | `{ status: "in-flight" }` | another sender holds a fresh claim; nothing sent |
-| `{ status: "retry-later" }` | the provider was unavailable; the claim is released, call again later |
+| `{ status: "uncertain" }` | a claim older than `uncertainClaimMs` is open: its send may have gone out; nothing sent (see Retries) |
+| `{ status: "retry-later", httpStatus? }` | the provider was unavailable; the claim is released, call again later |
+| `{ status: "halted", reason, httpStatus? }` | `mailing.provider_refused` or `mailing.quota_exceeded`: the account cannot send. The claim is released with its attempt given back; stop sending and call again once the account can send |
 
 - **Scopes** name what the mail is about and are the only registration a lifecycle mail needs:
   `<module>.<event>:<entity>` (`billing.trial-ending:sub_42`, `waitlist.welcome:<signup id>`).
   Lowercase letters, digits and `._:-`, at most 128 characters. Campaigns use `campaign:<id>`.
 - **Idempotency key.** The ledger sends with `<scope>:<recipient key>`; callers do not pass one.
 - **Retries.** `unavailable` releases the claim (`pending`); the fifth attempt (`maxAttempts`) that
-  is still unavailable closes the row as `rejected`. A process that dies between the send and the
-  outcome leaves a claim; after 15 minutes (`staleClaimMs`) another call takes it over and sends
-  again with the same idempotency key, which the provider folds into the first send while it keeps
-  the key (Resend: 24 hours). Outcomes are fenced by the attempt number, so a sender that lost its
+  is still unavailable closes the row as `rejected`. A halt (`provider_refused`, `quota_exceeded`)
+  never closes a row and never uses up an attempt, so a run with a bad key loses no recipient. The
+  provider's HTTP status of the last failed answer is kept in `provider_status`.
+- **Interrupted sends.** A process that dies between the send and the outcome leaves a claim; after
+  `staleClaimMs` (15 minutes) another call takes it over and sends again with the same idempotency
+  key, which the provider folds into the first send while it keeps the key (Resend: 24 hours). A
+  claim older than `uncertainClaimMs` (23 hours) is `uncertain`: the provider may have forgotten the
+  key, so a retake could mail twice, and it waits for an operator. Check the provider's log, then
+  pass `retakeUncertain: true` (`softure-mail campaign --resend-uncertain`) to send it anyway. Both
+  windows are module options, and `deliverOnce(ctx, delivery, { staleClaimMs, uncertainClaimMs })`
+  overrides them per call. Outcomes are fenced by the attempt number, so a sender that lost its
   claim cannot overwrite the one that took over.
 - A malformed scope or kind throws (a bug); a database failure propagates.
 
@@ -151,8 +165,25 @@ softure-mail campaign launch.md --recipients recipients.txt              # sends
   mail). Run `softure migrate` first.
 - Sends go one at a time with a 500 ms pause (`--pause-ms`; Resend allows 2 requests per second by
   default). Unsubscribed recipients are rejected without a send and never retried.
+- **Recipient filter.** With `mailing({ filterCampaignRecipient })` every recipient is checked before
+  the ledger is touched, e.g. against the consent scope the app stored for the address. A refused
+  recipient is counted as `filtered out` and gets no row, so a later run sends to them once they
+  qualify:
+
+  ```ts
+  mailing({
+    from: "…",
+    provider: resend(),
+    filterCampaignRecipient: async ({ address }, ctx) => hasNewsletterConsent(ctx.db, address),
+  }),
+  ```
+
+- **A refused key or a spent quota stops the run** at the first such answer: the command prints why
+  (with the HTTP status) and exits 1; that recipient and every one after it are left for the next
+  run. `sendCampaign` returns the same as `halted: { reason, httpStatus }`.
 - **Re-runs are safe.** Recipients with an outcome are skipped; the command exits 1 while some have
-  none yet (`retry later`, `in flight`): run the same command again. `mailing.campaigns` pins the
+  none yet (`retry later`, `in flight`): run the same command again. It also exits 1 for `uncertain`
+  recipients (an interrupted send older than `uncertainClaimMs`) and names `--resend-uncertain`. `mailing.campaigns` pins the
   content by hash: other content under the same id is refused, so a changed campaign needs a new id.
 - From a script (a bundled container, a list built from the database), call
   `runMailCli({ config, argv })` from `@softure-ai/mailing/cli`, or `sendCampaign(ctx, { campaign,
@@ -200,6 +231,10 @@ mailing({
 | `provider` | `MailProvider` | required | `resend()`, `fakeMailProvider()` or your own adapter. |
 | `timeoutMs` | `number` | `10000` | 1000 to 60000. |
 | `onUnsubscribed` | `(event, ctx) => Promise<void>` | — | Runs on every verified unsubscribe, in its transaction (section 10). |
+| `legacyUnsubscribe` | `{ params, verify }` | — | Verifies unsubscribe links the app sent before it adopted the module (section 10). |
+| `filterCampaignRecipient` | `(recipient, ctx) => Promise<boolean>` | — | Decides per recipient whether a campaign goes to them (section 1, Campaigns). |
+| `staleClaimMs` | `number` | `900000` (15 min) | How long a delivery claim may stay open before another sender takes it over. 1 minute to 23 hours. |
+| `uncertainClaimMs` | `number` | `82800000` (23 h) | How old a claim may get before it waits for an operator (`uncertain`). More than `staleClaimMs`, at most 30 days; keep it under the provider's idempotency window. |
 | `routes` | `{ unsubscribe?, oneClick? }` | `/unsubscribe`, `/api/mailing/unsubscribe` | Where you mount the page and the route; links are built on `appOrigin` plus these paths. |
 
 `resend({ apiKey?, endpoint?, fetch? })`: without `apiKey` it reads `RESEND_API_KEY` on every send,
@@ -213,13 +248,18 @@ const provider: MailProvider = {
   async send(message, { signal }) {
     const response = await fetch(URL, { method: "POST", body: toBody(message), signal });
     if (response.ok) return { status: "sent", id: (await response.json()).MessageID };
-    return { status: response.status >= 500 || response.status === 429 ? "unavailable" : "rejected", httpStatus: response.status };
+    const httpStatus = response.status;
+    if (httpStatus === 401 || httpStatus === 403) return { status: "refused", httpStatus };
+    if (httpStatus === 429) return { status: "unavailable", httpStatus }; // or "quota_exceeded" for a spent quota
+    return { status: httpStatus >= 500 ? "unavailable" : "rejected", httpStatus };
   },
 };
 ```
 
 A provider receives a validated `ProviderMessage` (`from`, `to`, `replyTo`, `subject`, `text`, `html`,
-`headers`, `idempotencyKey`, nulls for what is absent). A throw reads as `unavailable`.
+`headers`, `idempotencyKey`, nulls for what is absent) and answers `sent` with an id, or `rejected`
+(this mail), `refused` (the account or key), `quota_exceeded` (the account's quota) or `unavailable`
+(try later), each with an optional `httpStatus`. A throw or anything else reads as `unavailable`.
 
 ## 4. Mounting
 
@@ -253,6 +293,7 @@ Schema `mailing`, applied by `softure migrate`:
 | `0001_create_suppressions.sql` | `mailing.suppressions` | `recipient_key` (primary key, 43-character base64url), `source` (`one-click`, `page`, `operator`), `created_at`. One row per address, the first opt-out kept. |
 | `0002_create_campaigns_and_deliveries.sql` | `mailing.campaigns` | `id` (kebab-case), `kind` (never `transactional`), `subject`, `content_hash` (sha256 of kind, subject and bodies), `created_at`. |
 | | `mailing.deliveries` | primary key (`scope`, `recipient_key`), `kind`, `campaign_id` (then `scope` is `campaign:<id>`), `status` (`pending`, `claimed`, `sent`, `rejected`), `attempts`, `claimed_at`, `finished_at`, `provider_message_id` (exactly when sent), `reason` (exactly when rejected). |
+| `0003_add_delivery_provider_status.sql` | `mailing.deliveries` | `provider_status` (the HTTP status of the last failed or released answer, 100 to 599, else null); `attempts` may be 0 on a `pending` row (a halt gave its attempt back). |
 
 The health check (`checkMailingTables`) runs `select 1 from mailing.<table> limit 0` for the three
 tables.
@@ -281,7 +322,7 @@ styled by the app's tokens.
 
 ## 9. Copy
 
-`src/messages/{en,pl}.ts`: `errors.mailing.{invalid_input,rejected,unavailable,suppressed}`,
+`src/messages/{en,pl}.ts`: `errors.mailing.{invalid_input,rejected,unavailable,suppressed,provider_refused,quota_exceeded}`,
 `footer.{text,htmlLead,htmlLink}` (the list-mail footer, in the app's locale) and
 `unsubscribe.*` (the page). `getMailingErrorMessage(messages, code)` returns the copy for a code;
 override any text with `mailing({ messages: { en: { footer: { text: "…" } } } })`.
@@ -302,6 +343,29 @@ which withdraws its consents in privacy's ledger:
 import { withdrawWaitlistConsents } from "@softure-ai/waitlist/server";
 
 mailing({ from: "…", provider: resend(), onUnsubscribed: withdrawWaitlistConsents }),
+```
+
+**`legacyUnsubscribe: { params, verify }`** keeps unsubscribe links working that the app sent
+before it adopted the module, in its own scheme (an HMAC over a sign-up id, say, on its own path).
+`params` are the old link's query names (1 to 8; never `r` or `status`, which the module's links and
+page own; `t` may be shared). A link without `r` that carries every one of them (non-empty, at most
+512 characters) is a legacy link: the page shows the same button with the values in hidden fields,
+and the action and the one-click POST call `verify(values, ctx)`. It returns the recipient's
+**address** when the link is genuine, else `null`; the module records the opt-out under that
+address's key and runs `onUnsubscribed`, exactly as for its own links. `verify` must check the
+link's signature itself (in constant time): whatever address it returns is unsubscribed. A throw is
+a failure (the page offers a retry, the route answers 500), not an invalid link. Mount the module's
+page and route at the old paths too:
+
+```ts
+mailing({
+  from: "…",
+  provider: resend(),
+  legacyUnsubscribe: { params: ["u", "t"], verify: ({ u, t }, ctx) => verifyOldLink(ctx.db, u, t) },
+}),
+
+// app/old-unsubscribe/page.tsx
+export { UnsubscribePage as default } from "@softure-ai/mailing/next";
 ```
 
 **`liftSuppression(ctx, address)`** is the other direction: a module that has just recorded a new
@@ -330,8 +394,9 @@ personal data. So the module neither exports nor deletes per user (`privacy: { e
 - `sendMail` does not retry: the caller retries `unavailable` with the same `idempotencyKey` (Resend
   keeps keys for 24 hours), or uses `deliverOnce`, which keeps the state between runs.
 - Exactly-once ends where the provider's idempotency window ends: a sender that dies after the
-  provider accepted a mail and before the outcome was written, with the row taken over more than
-  24 hours later, sends that mail twice. No delivery, bounce or complaint webhooks yet.
+  provider accepted a mail and before the outcome was written leaves an `uncertain` claim once
+  `uncertainClaimMs` passes; retaking it (`retakeUncertain`) may send that mail twice. No delivery,
+  bounce or complaint webhooks yet.
 - Campaigns have no personalisation, scheduling or markdown: the body is sent as written.
 - Suppression is global per address: no per-list preferences. A person comes back in through a
   module's explicit consent (`liftSuppression`, e.g. a new waitlist sign-up); an operator row is

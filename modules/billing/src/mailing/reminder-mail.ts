@@ -38,11 +38,17 @@ export interface AccessReminderSummary {
   readonly due: number;
   /** Mails sent now. */
   readonly sent: number;
-  /** Mails an earlier run sent (or refused), or another run is sending right now. */
+  /**
+   * Mails an earlier run sent (or refused), another run is sending right now, or whose send was interrupted
+   * so long ago that it may have gone out (mailing's `uncertain`).
+   */
   readonly skipped: number;
   /** Mails refused for good (an invalid address, the provider rejected it). */
   readonly rejected: number;
-  /** Mails the provider could not take now; the next run sends them. */
+  /**
+   * Mails the provider could not take now; the next run sends them. A refused account or a spent quota stops the
+   * run there: the mails after it are not counted and go out on the next run.
+   */
   readonly retryLater: number;
 }
 
@@ -95,9 +101,14 @@ export async function sendAccessReminders(ctx: ModuleContext<Queryable>, options
     const lastDay = formatLastDay(reminder.endsAt, ctx.config.locale, ctx.config.timezone);
     const mail = renderAccessReminderMail(messages, { kind: reminder.kind, lastDay, link });
     const outcome = await deliverOnce(ctx, { scope: getAccessReminderScope(reminder.kind, reminder.userId, reminder.endsAt), mail: { to: reminder.email, ...mail } });
-    if (outcome.status === "done" || outcome.status === "in-flight") {
+    if (outcome.status === "done" || outcome.status === "in-flight" || outcome.status === "uncertain") {
       counts.skipped += 1;
       continue;
+    }
+    if (outcome.status === "halted") {
+      // The account cannot send (refused key, spent quota): every other mail would fail the same way.
+      counts.retryLater += 1;
+      break;
     }
     if (outcome.status === "sent") counts.sent += 1;
     else if (outcome.status === "rejected") counts.rejected += 1;

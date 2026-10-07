@@ -13,7 +13,7 @@ import { systemClock, type SoftureConfig, type SoftureDatabaseConfig } from "@so
 import { openCommandDatabase, type CommandDatabase, type DatabaseHandle } from "@softure-ai/db";
 import { parseCampaignFile, parseRecipientList, type CampaignContent } from "../server/campaign-file.js";
 import { planCampaign, sendCampaign, type CampaignSummary } from "../server/campaigns.js";
-import type { DeliveryContext } from "../server/deliveries.js";
+import type { DeliveryContext, HaltingErrorCode } from "../server/deliveries.js";
 import { checkSenderDns, getSenderDomain, type DnsCheck, type ResolveTxt } from "../server/dns.js";
 import { getMailingOptions } from "../server/options.js";
 import { MIN_UNSUBSCRIBE_SECRET_LENGTH, readUnsubscribeSecrets, UNSUBSCRIBE_SECRET_ENV, type Env } from "../server/unsubscribe-link.js";
@@ -46,14 +46,17 @@ export const EXIT_USAGE = 2;
 export const DEFAULT_PAUSE_MS = 500;
 
 export const MAIL_USAGE = `Usage:
-  softure-mail campaign <content-file> --recipients <file> [--dry-run] [--pause-ms <ms>]
+  softure-mail campaign <content-file> --recipients <file> [--dry-run] [--pause-ms <ms>] [--resend-uncertain]
   softure-mail dns [--domain <domain>] [--dkim-selector <name>]... [--spf-host <host>]...
 
 campaign  Sends the campaign in <content-file> (frontmatter id, kind, subject, optional html,
           then the text body) to every address in the recipients file (one per line), at most
-          once each. Re-running sends only to recipients without an outcome yet.
-  --dry-run          count what would be sent and change nothing
-  --pause-ms <ms>    pause after every send (default ${String(DEFAULT_PAUSE_MS)})
+          once each. Re-running sends only to recipients without an outcome yet. A refused
+          API key or a spent quota stops the run; the rest go out on the next one.
+  --dry-run            count what would be sent and change nothing
+  --pause-ms <ms>      pause after every send (default ${String(DEFAULT_PAUSE_MS)})
+  --resend-uncertain   also send to recipients whose send was interrupted long ago
+                       (it may have gone out: they may get the mail twice)
 
 dns       Checks SPF, DKIM and DMARC for the sender domain (default: the domain of "from").
   --domain <domain>       check this domain instead
@@ -72,7 +75,14 @@ const consoleOutput: CliOutput = {
 
 type Command =
   | { readonly kind: "help" }
-  | { readonly kind: "campaign"; readonly contentFile: string; readonly recipientsFile: string; readonly dryRun: boolean; readonly pauseMs: number }
+  | {
+      readonly kind: "campaign";
+      readonly contentFile: string;
+      readonly recipientsFile: string;
+      readonly dryRun: boolean;
+      readonly pauseMs: number;
+      readonly resendUncertain: boolean;
+    }
   | { readonly kind: "dns"; readonly domain: string | undefined; readonly dkimSelectors: readonly string[] | undefined; readonly spfHosts: readonly string[] | undefined };
 
 /** Runs the command and returns the process exit code: 0 done, 1 failed or incomplete, 2 usage error. */
@@ -111,7 +121,7 @@ function parseCommand(argv: readonly string[]): Command | string {
   if (values.help === true) return { kind: "help" };
 
   if (name === "dns") {
-    const misplaced = (["recipients", "dry-run", "pause-ms"] as const).filter((option) => values[option] !== undefined);
+    const misplaced = (["recipients", "dry-run", "pause-ms", "resend-uncertain"] as const).filter((option) => values[option] !== undefined);
     if (misplaced.length > 0) return `dns does not take --${misplaced.join(", --")}`;
     if (positionals.length > 0) return `dns takes no file, got "${positionals.join(" ")}"`;
     return { kind: "dns", domain: values.domain, dkimSelectors: values["dkim-selector"], spfHosts: values["spf-host"] };
@@ -125,7 +135,7 @@ function parseCommand(argv: readonly string[]): Command | string {
   if (values.recipients === undefined) return "campaign needs --recipients <file>";
   const pauseMs = values["pause-ms"] === undefined ? DEFAULT_PAUSE_MS : Number(values["pause-ms"]);
   if (!Number.isInteger(pauseMs) || pauseMs < 0 || pauseMs > 60_000) return `--pause-ms expects whole milliseconds from 0 to 60000, got "${values["pause-ms"] ?? ""}"`;
-  return { kind: "campaign", contentFile, recipientsFile: values.recipients, dryRun: values["dry-run"] === true, pauseMs };
+  return { kind: "campaign", contentFile, recipientsFile: values.recipients, dryRun: values["dry-run"] === true, pauseMs, resendUncertain: values["resend-uncertain"] === true };
 }
 
 function parseCommandArgs(args: readonly string[]) {
@@ -135,6 +145,7 @@ function parseCommandArgs(args: readonly string[]) {
       recipients: { type: "string" },
       "dry-run": { type: "boolean" },
       "pause-ms": { type: "string" },
+      "resend-uncertain": { type: "boolean" },
       domain: { type: "string" },
       "dkim-selector": { type: "string", multiple: true },
       "spf-host": { type: "string", multiple: true },
@@ -205,7 +216,9 @@ async function runCampaign(command: Extract<Command, { kind: "campaign" }>, opti
   }
   const ctx: DeliveryContext = { db: opened.handle.db, clock: systemClock, config };
   try {
-    return command.dryRun ? await reportPlan(ctx, loaded, output) : await reportSend(ctx, loaded, { pauseMs: command.pauseMs, sleep: options.sleep }, output);
+    return command.dryRun
+      ? await reportPlan(ctx, loaded, command.resendUncertain, output)
+      : await reportSend(ctx, loaded, { pauseMs: command.pauseMs, sleep: options.sleep, retakeUncertain: command.resendUncertain }, output);
   } catch (error) {
     // Driver errors: the message only, never a stack, an address or the database URL.
     output.error(`softure-mail campaign: ${describeError(error)} (did softure migrate run?)`);
@@ -238,10 +251,19 @@ async function loadCampaign(contentPath: string, recipientsPath: string): Promis
   return { campaign: { ...content, html }, recipients: parseRecipientList(list) };
 }
 
-async function reportPlan(ctx: DeliveryContext, loaded: LoadedCampaign, output: CliOutput): Promise<number> {
-  const plan = await planCampaign(ctx, loaded);
+async function reportPlan(ctx: DeliveryContext, loaded: LoadedCampaign, retakeUncertain: boolean, output: CliOutput): Promise<number> {
+  const plan = await planCampaign(ctx, loaded, { retakeUncertain });
   output.log(`campaign ${loaded.campaign.id} (${loaded.campaign.kind}), dry run: nothing sent or written`);
-  output.log(`recipients ${String(plan.recipients)}, already done ${String(plan.done)}, unsubscribed ${String(plan.suppressed)}, to send ${String(plan.toSend)}`);
+  output.log(
+    [
+      `recipients ${String(plan.recipients)}`,
+      `already done ${String(plan.done)}`,
+      `unsubscribed ${String(plan.suppressed)}`,
+      `filtered out ${String(plan.filtered)}`,
+      `uncertain ${String(plan.uncertain)}`,
+      `to send ${String(plan.toSend)}`,
+    ].join(", "),
+  );
   if (plan.contentChanged) {
     output.error(`campaign ${loaded.campaign.id} was sent with other content; give this content a new id`);
     return EXIT_FAILED;
@@ -252,13 +274,14 @@ async function reportPlan(ctx: DeliveryContext, loaded: LoadedCampaign, output: 
 async function reportSend(
   ctx: DeliveryContext,
   loaded: LoadedCampaign,
-  pace: { readonly pauseMs: number; readonly sleep: ((ms: number) => Promise<void>) | undefined },
+  pace: { readonly pauseMs: number; readonly sleep: ((ms: number) => Promise<void>) | undefined; readonly retakeUncertain: boolean },
   output: CliOutput,
 ): Promise<number> {
   let handled = 0;
   const total = loaded.recipients.length;
   const result = await sendCampaign(ctx, loaded, {
     pauseMs: pace.pauseMs,
+    retakeUncertain: pace.retakeUncertain,
     ...(pace.sleep === undefined ? {} : { sleep: pace.sleep }),
     onDelivery: () => {
       handled += 1;
@@ -269,14 +292,32 @@ async function reportSend(
     output.error(`campaign ${loaded.campaign.id} was sent with other content; give this content a new id`);
     return EXIT_FAILED;
   }
-  output.log(`campaign ${loaded.campaign.id} (${loaded.campaign.kind}): ${formatSummary(result.value)}`);
-  const open = result.value.inFlight + result.value.retryLater;
-  if (open > 0) {
-    output.error(`${String(open)} recipient(s) have no outcome yet; run the same command again later`);
-    return EXIT_FAILED;
+  const summary = result.value;
+  output.log(`campaign ${loaded.campaign.id} (${loaded.campaign.kind}): ${formatSummary(summary)}`);
+  let code = EXIT_OK;
+  if (summary.halted !== null) {
+    const status = summary.halted.httpStatus === undefined ? "" : ` (HTTP ${String(summary.halted.httpStatus)})`;
+    output.error(`stopped: ${HALT_EXPLANATIONS[summary.halted.reason]}${status}; the remaining recipients were not touched, run the same command again once it is fixed`);
+    code = EXIT_FAILED;
   }
-  return EXIT_OK;
+  const open = summary.inFlight + summary.retryLater;
+  if (open > 0 && summary.halted === null) {
+    output.error(`${String(open)} recipient(s) have no outcome yet; run the same command again later`);
+    code = EXIT_FAILED;
+  }
+  if (summary.uncertain > 0) {
+    output.error(
+      `${String(summary.uncertain)} recipient(s) are uncertain: a send was interrupted long ago and may have gone out; check the provider's log, then run again with --resend-uncertain to send them anyway`,
+    );
+    code = EXIT_FAILED;
+  }
+  return code;
 }
+
+const HALT_EXPLANATIONS: Readonly<Record<HaltingErrorCode, string>> = {
+  "mailing.provider_refused": "the provider refused the account (check the API key and the account)",
+  "mailing.quota_exceeded": "the account's sending quota is spent",
+};
 
 function formatSummary(summary: CampaignSummary): string {
   const rejected = Object.entries(summary.rejected).filter(([, count]) => count > 0);
@@ -289,6 +330,8 @@ function formatSummary(summary: CampaignSummary): string {
     `already done ${String(summary.done)}`,
     `in flight ${String(summary.inFlight)}`,
     `retry later ${String(summary.retryLater)}`,
+    `filtered out ${String(summary.filtered)}`,
+    `uncertain ${String(summary.uncertain)}`,
   ].join(", ");
 }
 

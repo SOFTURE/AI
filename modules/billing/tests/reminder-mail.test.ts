@@ -150,6 +150,33 @@ describe("sendAccessReminders", () => {
     expect(provider.sent).toHaveLength(1);
   });
 
+  it("stops the run at a refused account, leaving that mail and the rest for the next run", async () => {
+    let isRefused = true;
+    const provider = fakeMailProvider({ respond: () => (isRefused ? { status: "refused", httpStatus: 401 } : undefined) });
+    const test = await setUp({ provider });
+    await createAccount(test, "ada@example.com");
+    await createAccount(test, "bob@example.com");
+    test.clock.set(IN_TRIAL_WINDOW);
+
+    expect(await sendAccessReminders(test.ctx, NO_PAUSE)).toEqual({ due: 2, sent: 0, skipped: 0, rejected: 0, retryLater: 1 });
+    isRefused = false;
+    expect(await sendAccessReminders(test.ctx, NO_PAUSE)).toEqual({ due: 2, sent: 2, skipped: 0, rejected: 0, retryLater: 0 });
+  });
+
+  it("skips a mail whose send was interrupted long ago, which may have gone out", async () => {
+    const provider = fakeMailProvider();
+    const test = await setUp({ provider });
+    await createAccount(test, "ada@example.com");
+    test.clock.set(IN_TRIAL_WINDOW);
+    await sendAccessReminders(test.ctx, NO_PAUSE);
+    await test.database.client.query("UPDATE mailing.deliveries SET status = 'claimed', provider_message_id = NULL, finished_at = NULL, claimed_at = $1", [
+      new Date(IN_TRIAL_WINDOW.getTime() - 48 * 3_600_000),
+    ]);
+
+    expect(await sendAccessReminders(test.ctx, NO_PAUSE)).toEqual({ due: 1, sent: 0, skipped: 1, rejected: 0, retryLater: 0 });
+    expect(provider.sent).toHaveLength(1);
+  });
+
   it("sends one mail when two runs overlap", async () => {
     const test = await setUp();
     await createAccount(test, "ada@example.com");

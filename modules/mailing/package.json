@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/mailing",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "SOFTURE AI mailing module: sendMail over a provider adapter (Resend first) with plain-text and HTML bodies, sender and reply-to from config, idempotency keys, a timeout and a typed result; signed one-click unsubscribe (RFC 8058) with a suppression list for list mail; an exactly-once delivery ledger, campaigns sent from a content file by the softure-mail command, and a sender DNS check; a fake provider for tests.",
   "license": "MIT",
   "type": "module",

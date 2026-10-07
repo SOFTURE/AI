@@ -1,12 +1,13 @@
 ---
 change_id: mailing-adoption-gaps
 title: "mailing: provider refusal and quota, legacy unsubscribe links, recipient filter, uncertain claims (issue #195)"
-status: plan_reviewed
+status: archived
 roadmap_item: null
 issue: 195
 branch: claude/project-thread-lqx6iv
 created: 2026-10-07
 updated: 2026-10-07
+archived_at: 2026-10-07
 ---
 
 ## Intent
