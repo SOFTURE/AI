@@ -11,8 +11,9 @@ import { readMigrationFiles } from "./files.js";
 import { describeSchema, diffSchemas } from "./introspect.js";
 import { LEDGER_FILES, LEDGER_MODULE_ID, LEDGER_SCHEMA, LEDGER_VERSION, readJournal, type JournalRow } from "./ledger.js";
 import { failWith, type MigrationProblem, type MigrationResult } from "./problems.js";
-import { buildReferenceSchema } from "./reference.js";
+import { buildReferenceSchema, listOwnedSchemas } from "./reference.js";
 import { withSession, type MigrationSession } from "./session.js";
+import { readAppTables } from "./stubs.js";
 
 export { applyFile, recordAdoption, rollBack, withMigrationLock, type MigrationUnit } from "./apply.js";
 
@@ -205,8 +206,10 @@ async function adoptBaseline(
   if (live.length === 0) {
     return { adopted: [], problem: null };
   }
-  // Built only here, so a database whose modules are all in the ledger never needs PGlite.
-  const reference = await buildReferenceSchema({ modules: input.modules, units: input.units, target: unit, through });
+  // Built only here, so a database whose modules are all in the ledger never needs PGlite. The app's
+  // tables exist by now (`before` ran), so module SQL that references them finds their stubs.
+  const appTables = await readAppTables(session, listOwnedSchemas(input.units));
+  const reference = await buildReferenceSchema({ modules: input.modules, units: input.units, target: unit, through, appTables });
   if (!reference.ok) {
     return { adopted: [], problem: reference.problems[0] ?? null };
   }
