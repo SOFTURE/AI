@@ -37,14 +37,14 @@ backlog: context/backlog/roadmap-charts-followups/
 | ID | Change | Outcome | Depends on | Mode | Status |
 | --- | --- | --- | --- | --- | --- |
 | **CF-1** | `chart-pin` | `ChartPin` in `@softure-ai/charts`: an event pin (dashed vertical from the axis to a point and a dot on it) | — | autonomous | done_code (2026-10-07; waiting: the release of `@softure-ai/charts` 0.1.1) |
-| **MK-12** | `marketing-kit-portrait-templates` | `big-number` and `carousel` portrait templates in `@softure-ai/marketing-kit` (0.1.8): the number fills a 1080×1350 post, a carousel entry renders numbered slides | — | autonomous | done_code (2026-10-07; waiting: the release of `@softure-ai/marketing-kit` 0.1.8) |
-| **CF-2** | `marketing-kit-adoption-gaps` | marketing-kit closes FIRE_TRACKER's adoption gaps (issue #118): ad-hoc, scroll-frame and signed-in `shots`, a renderable placeholder voiceover, README fixes | — | autonomous | done_code (2026-10-07; waiting: the owner's release of marketing-kit 0.1.8) |
+| **MK-12** | `marketing-kit-portrait-templates` | `big-number` and `carousel` portrait templates in `@softure-ai/marketing-kit` (0.1.8): the number fills a 1080×1350 post, a carousel entry renders numbered slides | — | autonomous | done |
+| **CF-2** | `marketing-kit-adoption-gaps` | marketing-kit closes the adoption gaps of issue #118: ad-hoc, scroll-frame and signed-in `shots`, a renderable placeholder voiceover, README fixes | — | autonomous | done |
 
 ## Order
 
 1. **CF-1** (independent).
 2. **MK-12** (independent; issue #150).
-3. **CF-2** (independent; issue #118, owner 2026-10-07: every item done, none deferred).
+3. **CF-2** (independent; issue #118, every item done, none deferred).
 
 ## Items
 
@@ -65,7 +65,7 @@ backlog: context/backlog/roadmap-charts-followups/
 
 ### MK-12: Portrait social templates
 - **Change ID:** `marketing-kit-portrait-templates`
-- **Status:** done_code (2026-10-07; waiting: the release of `@softure-ai/marketing-kit` 0.1.8)
+- **Status:** done
 - **Input:** [`marketing-kit-portrait-templates`](../archive/2026-10-07-marketing-kit-portrait-templates/change.md)
 - **Source:** GitHub issue #150 (owner, 2026-10-07), from FIRE_TRACKER TR-27: `headline-cta` at 1080×1350 leaves
   the copy in a narrow band with empty space above and below.
@@ -77,16 +77,17 @@ backlog: context/backlog/roadmap-charts-followups/
 
 ### CF-2: marketing-kit adoption gaps
 - **Change ID:** `marketing-kit-adoption-gaps`
-- **Status:** done_code (2026-10-07; waiting: the owner's release of marketing-kit 0.1.8)
-- **Source:** GitHub issue [#118](https://github.com/SOFTURE/AI/issues/118), FIRE_TRACKER adopting marketing-kit 0.1.2
-  (BS-18); the owner ordered it done in full on 2026-10-07.
+- **Status:** done
+- **Source:** GitHub issue [#118](https://github.com/SOFTURE/AI/issues/118), gaps found adopting marketing-kit 0.1.2 in
+  an app; every item done in this change.
 - **Outcome:** `shots` takes an ad-hoc page (`--page --out --expect`), a scroll-offset frame, an extra wait and a
   Playwright storage state; `all`/`record`/`render --placeholder` render on a generated tone voiceover; the README
-  fixes the Chrome cache path and the FIRE constants table and recommends a pinned `npx`. marketing-kit 0.1.8.
+  fixes the Chrome cache path and the constants table and recommends a pinned `npx`. marketing-kit 0.1.8.
 - **Prerequisites:** none.
-- **Risk:** low (FIRE keeps its own screenshot script until this lands).
-- **Baseline:** FIRE `scripts/screenshot.mts`, `examples/fixture/prepare.ts`.
+- **Risk:** low (an adopting app keeps its own screenshot script until this lands).
+- **Baseline:** an adopting app's screenshot script, `examples/fixture/prepare.ts`.
 - **Archive:** [`archive/2026-10-07-marketing-kit-adoption-gaps/`](../archive/2026-10-07-marketing-kit-adoption-gaps/change.md).
+- **Released:** `@softure-ai/marketing-kit` 0.1.8 on 2026-10-07 ([run](https://github.com/SOFTURE/AI/actions/runs/37593352527)).
 
 ## Owner decisions and checks
 
@@ -96,8 +97,3 @@ backlog: context/backlog/roadmap-charts-followups/
   package is on the way. CF-1 bumps charts, so its release needs the publisher (`scripts/release/README.md`).
 - [ ] **CF-1**: release `@softure-ai/charts` 0.1.1 (`ChartPin`); FIRE_TRACKER can then drop its own pin (README,
   "Adopting in FIRE_TRACKER").
-- [ ] **MK-12**: `@softure-ai/marketing-kit` 0.1.8 (`big-number`, `carousel`, size presets) is on `master` and waits for
-  your release; after it, FIRE_TRACKER moves its two `jedna-liczba-*` entries to `big-number` and its carousels to
-  `carousel` (FIRE's own change).
-- [ ] **CF-2**: release `@softure-ai/marketing-kit` 0.1.8 (`scripts/release/README.md`); FIRE_TRACKER can then drop
-  `scripts/screenshot.mts` for `shots --page` and rehearse films with `--placeholder`.
