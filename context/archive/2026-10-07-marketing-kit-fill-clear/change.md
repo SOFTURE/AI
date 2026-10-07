@@ -32,7 +32,8 @@ key, so FIRE had to keep the default 45 in its films.
 - Every key the recorder presses is logged in `keys` (the composition plays a key sound for each) and held on screen,
   like typed characters.
 - The JSON twin and the TS scene stay 1:1: `press` and `fill`'s new option are Director calls of the same name.
-- The package version bumps (0.1.9); the owner publishes.
+- The entries go under `## Unreleased` in the package CHANGELOG; the owner's release (`release:version`) sets the
+  version (0.1.9) and publishes.
 - FIRE_TRACKER is read only from this repo; its adoption is FIRE's own change.
 
 ## Notes
@@ -45,4 +46,4 @@ key, so FIRE had to keep the default 45 in its films.
 - Research done ([`research.md`](research.md)).
 - Archived 2026-10-07: `fill` selects and deletes a prefilled value on screen before typing (`clear`, default
   `true`), fails when the app puts a value back, and a `press` action sends any key. Empty fields record as in 0.1.8.
-  marketing-kit 0.1.9 waits for the owner's release. Closes issue #175.
+  The entries wait under `## Unreleased` for the owner's 0.1.9 release. Closes issue #175.

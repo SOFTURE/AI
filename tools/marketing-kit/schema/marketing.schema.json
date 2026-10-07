@@ -2381,7 +2381,7 @@
                           "do": {
                             "type": "string",
                             "const": "checkScreen",
-                            "description": "Runs the screen guard now: every screenGuard phrase must be on screen."
+                            "description": "Runs the screen guard now: the video's screenGuard phrases and the current sentence's must be on screen."
                           }
                         },
                         "required": [
@@ -2390,6 +2390,14 @@
                         "additionalProperties": false
                       }
                     ]
+                  }
+                },
+                "screenGuard": {
+                  "description": "Phrases this sentence says that the screen must show while it is spoken: checked at a checkScreen inside the sentence, or when the sentence ends. Not on the first sentence.",
+                  "minItems": 1,
+                  "type": "array",
+                  "items": {
+                    "type": "string"
                   }
                 }
               },
@@ -2464,12 +2472,12 @@
             "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
           },
           "screenGuard": {
-            "minItems": 1,
+            "default": [],
+            "description": "Phrases the voiceover says that the screen must show at every checkScreen; a missing one stops the recording. May be left out when the sentences carry their own screenGuard.",
             "type": "array",
             "items": {
               "type": "string"
-            },
-            "description": "Phrases the voiceover says that the screen must show; a missing one stops the recording."
+            }
           },
           "endCard": {
             "type": "object",
@@ -2510,7 +2518,6 @@
           "persona",
           "beats",
           "hook",
-          "screenGuard",
           "endCard"
         ],
         "additionalProperties": false

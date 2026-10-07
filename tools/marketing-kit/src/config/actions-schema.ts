@@ -258,7 +258,7 @@ export const actionSchema = z.discriminatedUnion("do", [
     do: z.literal("until").describe("Waits until the voiceover says a word of the current sentence."),
     word: nonEmpty.describe("A word of this sentence, punctuation ignored."),
   }),
-  z.strictObject({ do: z.literal("checkScreen").describe("Runs the screen guard now: every screenGuard phrase must be on screen.") }),
+  z.strictObject({ do: z.literal("checkScreen").describe("Runs the screen guard now: the video's screenGuard phrases and the current sentence's must be on screen.") }),
 ]);
 
 export type SceneAction = z.output<typeof actionSchema>;

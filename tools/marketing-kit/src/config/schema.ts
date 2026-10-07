@@ -253,10 +253,11 @@ const voiceSchema = z.strictObject({
     .describe("The free placeholder voiceover of --placeholder (a quiet tone, words at a fixed pace), to record and render a film before paying for its voiceover."),
 });
 
-type VideoBeat = { id: string; text: string; pad?: number | undefined; actions?: SceneAction[] | undefined };
+type VideoBeat = { id: string; text: string; pad?: number | undefined; actions?: SceneAction[] | undefined; screenGuard?: string[] | undefined };
 
 interface SceneShape {
   beats: VideoBeat[];
+  screenGuard: string[];
   hook: { still: string; shots: { mark: string }[]; transition: string };
   sceneModule?: string | undefined;
 }
@@ -268,7 +269,7 @@ interface SceneShape {
  */
 function checkScene(video: SceneShape, context: z.RefinementCtx): void {
   const [opening, ...sceneBeats] = video.beats;
-  for (const key of ["actions", "pad"] as const) {
+  for (const key of ["actions", "pad", "screenGuard"] as const) {
     if (opening?.[key] !== undefined) {
       context.addIssue({ code: "custom", path: ["beats", 0, key], message: "the opening sentence plays over the still; the scene starts at the second sentence" });
     }
@@ -307,7 +308,8 @@ function checkScene(video: SceneShape, context: z.RefinementCtx): void {
   video.hook.shots.forEach((shot, index) => {
     if (!marks.has(shot.mark)) context.addIssue({ code: "custom", path: ["hook", "shots", index, "mark"], message: `no "mark" action saves "${shot.mark}"` });
   });
-  if (!hasCheckScreen) context.addIssue({ code: "custom", path: ["beats"], message: 'needs a "checkScreen" action: the screen guard must run before the film can say what the screen shows' });
+  // Only the video's list waits for a checkScreen; a sentence's own phrases are checked when it ends.
+  if (!hasCheckScreen && video.screenGuard.length > 0) context.addIssue({ code: "custom", path: ["beats"], message: 'needs a "checkScreen" action: the screen guard must run before the film can say what the screen shows' });
 }
 
 const videoSchema = z
@@ -345,6 +347,13 @@ const videoSchema = z
             .array(actionSchema)
             .optional()
             .describe("What happens on screen during the sentence, in order; required on every sentence after the first when the film has no sceneModule."),
+          screenGuard: z
+            .array(nonBlank)
+            .min(1, "a sentence's screen guard needs at least one phrase; leave it out instead")
+            .optional()
+            .describe(
+              "Phrases this sentence says that the screen must show while it is spoken: checked at a checkScreen inside the sentence, or when the sentence ends. Not on the first sentence.",
+            ),
         }),
       )
       .min(3, "a film needs at least three sentences: opening, scene, end card")
@@ -378,8 +387,10 @@ const videoSchema = z
       ),
     screenGuard: z
       .array(nonBlank)
-      .min(1, "the screen guard needs at least one phrase")
-      .describe("Phrases the voiceover says that the screen must show; a missing one stops the recording."),
+      .default([])
+      .describe(
+        "Phrases the voiceover says that the screen must show at every checkScreen; a missing one stops the recording. May be left out when the sentences carry their own screenGuard.",
+      ),
     endCard: z
       .strictObject({
         headline: nonEmpty.describe("The end card's headline."),
@@ -392,6 +403,9 @@ const videoSchema = z
       .describe("A TS module exporting scene(director), relative to the folder of marketing.json: what happens on screen, instead of beat actions."),
   })
   .superRefine((video, context) => {
+    if (video.screenGuard.length === 0 && !video.beats.some((beat) => beat.screenGuard !== undefined)) {
+      context.addIssue({ code: "custom", path: ["screenGuard"], message: "the screen guard needs at least one phrase, here or in a sentence's screenGuard" });
+    }
     checkScene(video, context);
     const seen = new Set<string>();
     video.beats.forEach((beat, index) => {

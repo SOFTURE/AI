@@ -17,7 +17,7 @@ TTS providers (MK-7), screenshots (MK-4) and OG images (MK-5) build on it. Backg
 An app runs the kit through `npx` with a pinned version, not as a dependency:
 
 ```json
-{ "scripts": { "marketing": "npx -y @softure-ai/marketing-kit@0.1.9" } }
+{ "scripts": { "marketing": "npx -y @softure-ai/marketing-kit@0.1.8" } }
 ```
 
 `npm run marketing -- all <video>` then runs the CLI. As a `devDependency` the kit would add more than 100 MB
@@ -58,6 +58,8 @@ the screen guard refused the recording (the screen did not show what the voiceov
   `<output.buildDir>/<video>/placeholder/`, never into `voice.cacheDir` (where it would count as the paid recording),
   and the film goes to `<video>.placeholder.mp4`. A recording made on it renders only with `--placeholder`, and a
   recording made on the paid voiceover only without it. Match the pace to the voice to see the film's real length.
+  `record <video> --placeholder` proves a new scene's actions and screen guard before paying, with no script around
+  `createFakeTtsProvider`, no second cache directory and no copy of `marketing.json`.
 - **`--today`** records the app as of another day for one run; it overrides the video's `today`. Once a
   voiceover is paid for, pin its day in the video's `today` instead, so a plain `all` reproduces the film in any
   later month (the voiceover says numbers that depend on the day).
@@ -272,7 +274,13 @@ The fixture has the same film both ways in [examples/fixture/marketing.json](exa
   (typed `Scene`) that drives the Director itself: `d.beat(id, …, { pad })`, then the same methods as
   the actions (`d.fill(name, value)`, `d.tap(locator)`, `d.until(word)`, …). A video uses one or the other.
 - **`screenGuard`**: every number the voiceover says, as the screen writes it. If the screen does not
-  show one, the recording stops with code 2 and no film is made.
+  show one, the recording stops with code 2 and no film is made. The video's list is checked at every
+  `checkScreen`, all phrases at once, so place it after the last action that reveals one of them.
+- **`beats[].screenGuard`**: the phrases one sentence says, checked while that sentence is on screen: at a
+  `checkScreen` inside the sentence (together with the video's list), or, without one, when the sentence ends,
+  after its `pad`. A film whose later sentence reveals a number keeps proving the earlier numbers were on screen
+  when the voiceover said them. Any sentence but the first can carry one, with `actions` or a `sceneModule`; when
+  the sentences carry every phrase, the video's `screenGuard` and the `checkScreen` can be left out.
 
 ### Scene actions
 
@@ -294,7 +302,7 @@ Optional arguments left out keep the Director's defaults.
 | `cue` | `name` (`sparkle`, `persona-out`) | an event on the film's timeline |
 | `hold` | `seconds` (0-30) | lets the screen run |
 | `until` | `word` | waits until the voiceover says this word of the sentence |
-| `checkScreen` | | the screen guard, now |
+| `checkScreen` | | the screen guard, now: the video's `screenGuard` and the current sentence's |
 
 A beat's `pad` (`0.35` s) is how long the screen holds after the voiceover ends the sentence.
 
@@ -320,7 +328,8 @@ up to 10 s, `hold` up to 30 s, whole pixels for `top` and `height`). A scene tha
 
 What can be checked without a browser is checked when the config loads, by JSON path: an `until` word
 the sentence does not say, a `hook.still` or `hook.shots[].mark` no action saves, an opening shot after
-the first without the `word` it starts on, a scene without `checkScreen`, actions on the opening sentence,
+the first without the `word` it starts on, a scene without `checkScreen` while the video has its own `screenGuard`,
+a film with no screen guard phrase at all, actions, a pad or a `screenGuard` on the opening sentence,
 actions next to a `sceneModule`. The checks that span
 sentences run once the rest of the config is valid, so fixing one round of errors can reveal the next.
 An action that fails while recording names its path and the config file:
@@ -378,6 +387,11 @@ format, so its paid recordings are reused as they are, with no re-keying and no 
 
 ### Upgrading to 0.1.9
 
+- A 0.1.8 `marketing.json` works as it is. New: `beats[].screenGuard`, a sentence's own phrases, checked while that
+  sentence is on screen. A film that moved its `checkScreen` to the last sentence because a later sentence reveals
+  a number can move each number to the sentence that says it.
+- A script that records fake voiceovers into a second cache with a copy of `marketing.json`, to rehearse scenes
+  before paying, can go: `record <video> --placeholder` (from 0.1.8) does that without touching `voice.cacheDir`.
 - `fill` replaces a value already in the field instead of typing after it: over a prefilled `45`, `fill … "50"` now
   records `50` (0.1.8 recorded `4550`). The old value is selected and deleted on screen, with a key sound for each
   key. A field that is empty records frame for frame as before. `"clear": false` keeps 0.1.8's behaviour.

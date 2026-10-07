@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/marketing-kit",
-  "version": "0.1.9",
+  "version": "0.1.8",
   "description": "SOFTURE AI marketing kit: a CLI that turns a project's real app into a vertical film (cached voiceover, frame-by-frame recording, HTML composition, hyperframes render) plus per-platform post copy and OG images.",
   "license": "MIT",
   "type": "module",

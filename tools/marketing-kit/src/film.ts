@@ -12,6 +12,11 @@ import type { LayoutOverride, Transition, VideoFormat, Viewport } from "./compos
 export interface Beat {
   id: string;
   text: string;
+  /**
+   * Phrases this sentence says that the screen must show while it is spoken: checked at a `checkScreen` inside the
+   * sentence, or when it ends. Never on the opening sentence.
+   */
+  screenGuard?: string[];
 }
 
 export interface Persona {
@@ -89,8 +94,8 @@ export interface FilmScript {
   /** The opening: its still, the camera shots over it, and how it hands over to the scene. */
   hook: { still: string; shots: HookShot[]; transition: Transition };
   /**
-   * Phrases the voiceover says that the app's screen must show. If any is missing the recording
-   * stops and the render never starts.
+   * Phrases the voiceover says that the app's screen must show at every `checkScreen`. If any is missing the
+   * recording stops and the render never starts. Empty when every phrase lives on its sentence (`Beat.screenGuard`).
    */
   screenGuard: string[];
   endCard: EndCard;
@@ -134,7 +139,7 @@ export interface Director {
   still(name: string): Promise<void>;
   /** An event on the film's timeline: a sound effect or the persona card leaving. */
   cue(name: CueName): Promise<void>;
-  /** The screen guard: check now, before the recording goes on. */
+  /** The screen guard: the video's phrases and the current sentence's, checked now, before the recording goes on. */
   checkScreen(): Promise<void>;
 }
 

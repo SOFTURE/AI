@@ -314,6 +314,57 @@ describe("beat actions in marketing.json", () => {
     expect(actionSchema.safeParse({ do: "tap", target: [{ css: "#a" }] }).success).toBe(false);
   });
 
+  describe("a sentence's own screen guard", () => {
+    /** The config with phrases on the scene sentence and the video's list replaced. */
+    function withSentencePhrases(sentencePhrases: unknown, videoPhrases?: string[]): unknown {
+      const config = makeConfig();
+      const [hook, scene, cta] = config.videos[0]?.beats ?? [];
+      const video = { ...config.videos[0], beats: [hook, { ...scene, screenGuard: sentencePhrases }, cta], screenGuard: videoPhrases };
+      return { ...config, videos: [video] };
+    }
+
+    it("loads the phrases onto their sentence and leaves the others without", () => {
+      const video = load(withSentencePhrases(["age 36"], ["49 years"])).videos[0];
+      expect(video?.beats).toEqual([
+        { id: "hook", text: "Forty-nine years. That is it." },
+        { id: "scene", text: "Anna types her age and taps next.", screenGuard: ["age 36"] },
+        { id: "cta", text: "Count yours." },
+      ]);
+      expect(video?.screenGuard).toEqual(["49 years"]);
+    });
+
+    it("loads a film whose phrases all live on its sentences, with no video list and no checkScreen", () => {
+      const config = withSentencePhrases(["age 36"]) as MarketingJsonInput;
+      const scene = config.videos[0]?.beats[1];
+      if (scene === undefined) throw new Error("no scene beat");
+      scene.actions = SCENE.filter((action) => action.do !== "checkScreen");
+      expect(load(config).videos[0]?.screenGuard).toEqual([]);
+    });
+
+    it("refuses a film with no phrase anywhere", () => {
+      expect(loadErrors(withSentencePhrases(undefined, []))).toEqual([
+        "videos[0].screenGuard: the screen guard needs at least one phrase, here or in a sentence's screenGuard",
+      ]);
+    });
+
+    it("refuses an empty list and a blank phrase on a sentence", () => {
+      expect(loadErrors(withSentencePhrases([]))).toEqual([
+        "videos[0].beats[1].screenGuard: a sentence's screen guard needs at least one phrase; leave it out instead",
+      ]);
+      expect(loadErrors(withSentencePhrases(["age 36", " "]))).toEqual(["videos[0].beats[1].screenGuard[1]: must not be blank"]);
+    });
+
+    it("refuses phrases on the opening sentence, with actions or with a sceneModule", () => {
+      const config = makeConfig();
+      const [hook, scene, cta] = config.videos[0]?.beats ?? [];
+      const beats = [{ ...hook, screenGuard: ["49 years"] }, scene, cta];
+      const message = "videos[0].beats[0].screenGuard: the opening sentence plays over the still; the scene starts at the second sentence";
+      expect(loadErrors({ ...config, videos: [{ ...config.videos[0], beats }] })).toEqual([message]);
+      const moduleBeats = beats.map((beat) => ({ id: beat?.id, text: beat?.text, screenGuard: ["49 years"] }));
+      expect(loadErrors({ ...config, videos: [{ ...config.videos[0], beats: moduleBeats, sceneModule: "scene.ts" }] })).toEqual([message]);
+    });
+  });
+
   it("lists exactly the roles Playwright's getByRole takes and exactly the Director's actions", () => {
     expectTypeOf<AriaRole>().toEqualTypeOf<Parameters<Page["getByRole"]>[0]>();
     expectTypeOf<ActionName>().toEqualTypeOf<SceneActionInput["do"]>();
