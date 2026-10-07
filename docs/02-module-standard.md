@@ -161,7 +161,7 @@ import { featureSwitches } from "@softure-ai/feature-switches";
 import { mailing, resend } from "@softure-ai/mailing";
 
 export default defineSoftureConfig({
-  database: { url: process.env.DATABASE_URL! },
+  database: { url: process.env.DATABASE_URL ?? "" }, // empty at build time; refused on first connection
   locale: "pl", timezone: "Europe/Warsaw",
   appOrigin: process.env.APP_ORIGIN!,
   modules: [

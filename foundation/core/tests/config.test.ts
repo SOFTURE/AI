@@ -25,7 +25,6 @@ describe("defineSoftureConfig", () => {
     ["appOrigin", { appOrigin: "https://app.example.com/dashboard" }],
     ["appOrigin", { appOrigin: "ftp://app.example.com" }],
     ["appOrigin", { appOrigin: "app.example.com" }],
-    ["database.url", { database: { url: "" } }],
     ["modules", { modules: "auth" }],
     ["modules.0", { modules: [{ id: "fake" }] }],
   ])("reports %s when it is invalid", (path, patch) => {
@@ -65,6 +64,13 @@ describe("defineSoftureConfig", () => {
     expect(error.issues).toEqual(["modules: dependency cycle between first, second"]);
   });
 
+  it("accepts an empty database url, also with a database schema, and keeps it for the connection to refuse", () => {
+    const config = defineSoftureConfig({ ...base, modules: [createTestModule({ id: "auth", dbSchema: "auth" })], database: { url: "" } });
+
+    expect(config.database).toEqual({ url: "" });
+    expect(Object.isFrozen(config.database)).toBe(true);
+  });
+
   it("reports a module with a database schema when the app has no database", () => {
     const error = catchConfigError(() => defineSoftureConfig({ ...base, modules: [createTestModule({ id: "auth", dbSchema: "auth" })] }));
     expect(error.issues).toEqual(['database: required because module "auth" has a database schema']);
@@ -93,11 +99,11 @@ describe("defineSoftureConfig", () => {
       expect(error.issues).toEqual([expect.stringMatching(/^locale: /)]);
     });
 
-    it("requires the database again once the load resolves or rejects", async () => {
+    it("keeps an empty url as a url again once the load resolves or rejects", async () => {
       await withDatabaseOptional(() => undefined);
       await expect(withDatabaseOptional(() => Promise.reject(new Error("import failed")))).rejects.toThrow("import failed");
-      const error = catchConfigError(() => defineSoftureConfig({ ...base, modules: withSchema(), database: { url: "" } }));
-      expect(error.issues).toEqual(["database.url: must not be empty"]);
+      const config = defineSoftureConfig({ ...base, modules: withSchema(), database: { url: "" } });
+      expect(config.database).toEqual({ url: "" });
     });
   });
 

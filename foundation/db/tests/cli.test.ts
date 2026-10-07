@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
+import { defineSoftureConfig } from "@softure-ai/core";
 import { createDatabase } from "@softure-ai/db";
 import { runMigrateCli, runSoftureCommand, type CliOutput } from "@softure-ai/db/cli";
 import { createNotesModule, createTagsModule } from "./fixtures/modules.js";
@@ -125,6 +126,32 @@ describe("softure migrate", () => {
     const result = await run([], null);
 
     expect(result).toMatchObject({ code: 1, errors: ["softure migrate: the config has no database; set database.url in softure.config"] });
+  });
+
+  it("refuses an empty database URL when it has to connect", async () => {
+    const result = await run([], "");
+
+    expect(result).toMatchObject({
+      code: 1,
+      errors: ["softure migrate: createDatabase: the database URL is empty; set database.url in softure.config (usually from DATABASE_URL)"],
+    });
+  });
+
+  it("exports module files with an app config whose database URL is empty (a build without DATABASE_URL)", async () => {
+    const dir = createTempDir();
+    const config = defineSoftureConfig({
+      database: { url: "" },
+      locale: "en",
+      timezone: "Europe/Warsaw",
+      appOrigin: "http://localhost:3000",
+      modules: [createTagsModule(), createNotesModule()],
+    });
+    const output = createOutput();
+
+    const code = await runMigrateCli({ config, argv: ["--export-migrations", dir], output });
+
+    expect({ code, errors: output.errors }).toEqual({ code: 0, errors: [] });
+    expect(readdirSync(dir).sort()).toEqual(["notes", "tags"]);
   });
 
   it("reports an unsupported database URL without printing it", async () => {

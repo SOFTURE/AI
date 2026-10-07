@@ -345,7 +345,9 @@ describe("the softure-blog bin", () => {
     it("still refuses publish, which needs the database", async () => {
       const result = await runBin(["publish"], appDir);
       expect(result.code).toBe(1);
-      expect(result.errors).toEqual([expect.stringMatching(/^softure-blog: cannot load .*softure\.config\.mjs: .*database\.url: must not be empty/s)]);
+      expect(result.errors).toEqual([
+        "softure-blog publish: createDatabase: the database URL is empty; set database.url in softure.config (usually from DATABASE_URL)",
+      ]);
     });
   });
 

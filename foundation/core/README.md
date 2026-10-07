@@ -53,6 +53,12 @@ unknown locale or zone, an origin with a path, a module listed twice, two module
 schema, a required dependency missing, a dependency outside its version range (also an optional
 one, when listed), a dependency cycle, or a module with a `dbSchema` and no `database`.
 
+An empty `database.url` is not one of those problems. `next build`, a Docker builder stage running
+`--export-migrations` and other build steps import the config without `DATABASE_URL`, so
+`DATABASE_URL ?? ""` defines a valid config there; the first connection (`createDatabase` and
+`getSharedDatabase` in `@softure-ai/db`, `softure migrate`, the module CLIs and the health route)
+refuses the empty URL and names the setting. No placeholder URL is needed for a build.
+
 A command that never connects loads the config inside `withDatabaseOptional(() => import(...))`:
 there a missing, `null` or empty `database.url` gives `database: null` instead of a refusal, also when
 a module has a `dbSchema`; a real URL is kept and every other check still runs. The flag is scoped to
