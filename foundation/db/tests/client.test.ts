@@ -70,7 +70,12 @@ describe("createDatabase", () => {
 
   it("rejects a value with no scheme", async () => {
     await expect(createDatabase("localhost:5432")).rejects.toThrow('scheme "localhost:"');
-    await expect(createDatabase("")).rejects.toThrow("scheme (none)");
+  });
+
+  it("refuses an empty URL and names the setting to fill", async () => {
+    await expect(createDatabase("")).rejects.toThrow(
+      "createDatabase: the database URL is empty; set database.url in softure.config (usually from DATABASE_URL)",
+    );
   });
 
   it.runIf(POSTGRES_ADMIN_URL !== undefined)("opens a pg pool for postgres:// URLs", async () => {

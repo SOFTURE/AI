@@ -77,7 +77,9 @@ CMD ["node", "migrate.mjs", "--migrations-dir", "./softure-migrations"]
 ```
 
 A bundle cannot find package folders (`import.meta.url` points at the bundle), hence
-`--export-migrations` at build time and `--migrations-dir` at run time. The ledger's own migration
+`--export-migrations` at build time and `--migrations-dir` at run time. The build stage needs no
+`DATABASE_URL`: the config accepts an empty `database.url` (`DATABASE_URL ?? ""`) and only a command that
+connects refuses it. The ledger's own migration
 ships as code.
 
 **Options of `softure migrate`:**

@@ -9,7 +9,10 @@ import { err, ok, type Result } from "./result.js";
 import { parseVersionRange, satisfiesRange } from "./version-range.js";
 
 export interface SoftureConfig {
-  /** `null` when the app has no database; required as soon as a module has a `dbSchema`. */
+  /**
+   * `null` when the app has no database; required as soon as a module has a `dbSchema`. An empty `url`
+   * (`DATABASE_URL` unset, as in a build step) is accepted here and refused by the first connection.
+   */
   readonly database: { readonly url: string } | null;
   readonly locale: Locale;
   /** IANA time zone used for every date shown or computed per calendar day. */
@@ -32,8 +35,10 @@ export interface SoftureConfigInput {
 const CONFIG_SUBJECT = "softure.config (defineSoftureConfig)";
 
 const configSchema = z.object({
+  // The URL is not checked for emptiness here: builds import the config without DATABASE_URL, so an empty URL is
+  // refused when something connects (`createDatabase` in @softure-ai/db), not when the config is defined.
   database: z
-    .object({ url: z.string().min(1, "must not be empty") })
+    .object({ url: z.string() })
     .nullable()
     .default(null),
   locale: z.enum(LOCALES),
