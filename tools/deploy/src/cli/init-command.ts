@@ -22,10 +22,16 @@ function splitList(text: string | undefined): string[] {
 
 function listWarnings(facts: AppFacts): string[] {
   if (facts.nextConfigFile === null) return ["no next.config found; the Dockerfile expects a Next standalone build"];
+  const warnings: string[] = [];
   if (!facts.isStandalone) {
-    return [`${facts.nextConfigFile} does not mention "standalone"; the Dockerfile needs output: "standalone"`];
+    warnings.push(`${facts.nextConfigFile} does not mention "standalone"; the Dockerfile needs output: "standalone"`);
   }
-  return [];
+  if (facts.hasDatabase && facts.isDbServerExternal === false) {
+    warnings.push(
+      `${facts.nextConfigFile} does not list "@softure-ai/db" in serverExternalPackages; next build cannot resolve the database driver the app does not install (see serverExternalPackages in the @softure-ai/db README, §2 Installation)`,
+    );
+  }
+  return warnings;
 }
 
 /**
