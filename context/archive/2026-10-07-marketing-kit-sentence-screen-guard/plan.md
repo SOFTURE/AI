@@ -40,7 +40,7 @@ action for what the end of a sentence already marks).
 - **D7. The pure parts live in `src/record/screen-guard.ts`** (which phrases a check covers, which are missing, the
   messages), so they are unit-tested without a browser; the fixture's JSON film gets a sentence-level phrase so the
   CI render job records it for real.
-- **D8. marketing-kit 0.1.9** with an "Upgrading to 0.1.9" note; `schema/marketing.schema.json` regenerated.
+- **D8. Notes under `## Unreleased` in `CHANGELOG.md`** (since #186 the release script sets the version) and an "Upgrading to 0.1.9" README note; `schema/marketing.schema.json` regenerated.
 
 ## Phase 1: the per-sentence guard (TDD)
 
@@ -64,7 +64,7 @@ code 2 naming the sentence (checked by hand on the fixture); gates green.
 `package-lock.json`.
 
 Steps: README `screenGuard` bullets (video and sentence), the `checkScreen` row, the config-time checks, the
-voiceover section's rehearsal paragraph, "Upgrading to 0.1.9"; version 0.1.9.
+voiceover section's rehearsal paragraph, "Upgrading to 0.1.9"; the CHANGELOG `## Unreleased` entry (version 0.1.9 first, moved to the CHANGELOG after master brought in #186).
 
 Done when: gates green; CI green on the pull request (including the render job).
 

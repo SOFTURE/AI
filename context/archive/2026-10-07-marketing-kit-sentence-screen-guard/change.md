@@ -44,6 +44,6 @@ the README documents both the per-sentence guard and `--placeholder` as the pre-
 ## Constraints
 
 - Neutral wording in the repository and on GitHub.
-- No release in this change: the package version moves to 0.1.9 and the owner publishes.
+- No release in this change: the notes go under `## Unreleased` in the package CHANGELOG and the owner releases (the release script sets the version).
 - Issue #175 (marketing-kit `fill` on a prefilled field) runs in a sibling thread and touches `record.ts`, the
   action schema and the README too; whichever merges second merges master and resolves.
