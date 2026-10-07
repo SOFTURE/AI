@@ -1,12 +1,13 @@
 ---
 change_id: database-url-lazy
 title: "Empty database URL refused at connection, not at config definition"
-status: plan_reviewed
+status: archived
 roadmap_item: none
 issue: "#155"
 branch: claude/project-thread-dwtogg
 created: 2026-10-07
 updated: 2026-10-07
+archived_at: 2026-10-07
 ---
 
 ## Intent

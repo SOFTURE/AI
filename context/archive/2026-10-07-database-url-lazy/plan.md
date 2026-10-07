@@ -62,9 +62,9 @@ gets past config evaluation (done by importing the config with `DATABASE_URL` un
 ### Phase 1: lazy database URL
 
 #### Automated
-- [ ] 1.1 Tests seen red, then green
-- [ ] 1.2 Config, client and docs changed
-- [ ] 1.3 Gates green (typecheck, lint, test, build)
+- [x] 1.1 Tests seen red, then green — 728f7cb
+- [x] 1.2 Config, client and docs changed — 728f7cb
+- [x] 1.3 Gates green (typecheck, lint, test, build) — 728f7cb
 
 #### Manual
-- [ ] 1.4 Issue's build paths measured with DATABASE_URL unset
+- [x] 1.4 Issue's build paths measured with DATABASE_URL unset — 728f7cb
