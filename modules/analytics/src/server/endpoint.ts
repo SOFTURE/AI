@@ -1,7 +1,6 @@
-// The public funnel endpoint: a POST
-// beacon from the browser (`navigator.sendBeacon`, body `step=<id>`) and a GET pixel (an image on
-// a page, `?step=<id>`). Both take Web `Request`s and return `Response`s, so the Next adapter only
-// supplies the context.
+// The public funnel endpoint: a POST beacon from the browser (`navigator.sendBeacon`, body
+// `step=<id>`) and a GET pixel (an image on a page, `?step=<id>`). Both take Web `Request`s and
+// return `Response`s, so the Next adapter only supplies the context.
 //
 // Bad input is not an error: an unknown step, a step of another kind, a body too large or a request
 // that did not come from one of this app's pages gets the same answer as a counted one (204, or the
@@ -79,8 +78,8 @@ interface Visit {
 /**
  * The visit a request reports for: sent from a page on one of this app's origins (`Referer`, and
  * `Sec-Fetch-Site` when the browser sends it), with that page's channel. Behind a proxy `request.url`
- * carries the server's own host, so the configured origins decide, not the request URL alone. Null for anything else: crawlers, previews
- * and tools fetching the URL directly send no Referer.
+ * carries the server's own host, so the configured origins decide, not the request URL alone. Null
+ * for anything else: crawlers, previews and tools fetching the URL directly send no Referer.
  */
 function readVisit(config: SoftureConfig, request: Request): Visit | null {
   const site = request.headers.get("sec-fetch-site");
