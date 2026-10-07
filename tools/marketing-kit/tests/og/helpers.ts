@@ -78,4 +78,19 @@ export const SAMPLE_DATA: Record<string, unknown> = {
     },
     tiles: [{ label: "Exit age", value: "49" }],
   },
+  "big-number": {
+    eyebrow: "One number",
+    number: "898 PLN",
+    caption: "Of pension a month from 200 000 PLN of capital",
+    tiles: [{ label: "Woman, 60", value: "744 PLN" }],
+    cta: "Count your plan",
+    source: "Source: life expectancy tables, 2026",
+  },
+  carousel: {
+    slides: [
+      { eyebrow: "Myth or fact", headline: "Saving is for the rich", body: "A yearly limit says how much you may put in." },
+      { headline: "Myth.", body: "The yearly limit is a cap, not an entry fee.", source: "Source: the act, 2026" },
+      { headline: "How much is it?", tiles: [{ label: "A month", value: "$200" }, { label: "In 20 years", value: "$93k" }], cta: "Count your plan" },
+    ],
+  },
 };

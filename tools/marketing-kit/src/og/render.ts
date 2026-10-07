@@ -11,12 +11,18 @@ import { loadOgFonts, type OgFonts, type ReadFontFile } from "./fonts.js";
 import { describeCharacter, findMissingGlyphs, type MissingGlyphs } from "./glyphs.js";
 import { getOgPalette } from "./palette.js";
 import { err, ok, type OgResult } from "./result.js";
-import { BASE_WIDTH } from "./templates/context.js";
+import { PORTRAIT_BASE, getLayoutScale } from "./templates/context.js";
 import { OG_TEMPLATE_IDS, OG_TEMPLATES, isOgTemplateId } from "./templates/index.js";
 
 /** Satori lays a tree out to SVG; resvg rasterises it. Neither reads the machine's fonts. */
 
+/** The size of a landscape card (`headline-cta`, `headline-chart`) when none is given. */
 export const DEFAULT_OG_SIZE: readonly [number, number] = [1200, 630];
+
+/** The size a template renders at when none is given: 1200×630 for a landscape card, 1080×1350 for a portrait post. */
+export function getDefaultOgSize(template: string): readonly [number, number] {
+  return isOgTemplateId(template) && OG_TEMPLATES[template].layout === "portrait" ? PORTRAIT_BASE : DEFAULT_OG_SIZE;
+}
 
 /** Everything about the brand a card shows. */
 export interface OgBrand {
@@ -30,6 +36,7 @@ export interface OgImageInput {
   template: string;
   /** The template's data, checked against its schema here. */
   data: unknown;
+  /** By default the template's own size (`getDefaultOgSize`). */
   size?: readonly [number, number];
   brand: OgBrand;
   fonts: OgFonts;
@@ -37,6 +44,8 @@ export interface OgImageInput {
   id?: string;
   /** Where `data` sits in the caller's JSON, for error paths; `["data"]` by default. */
   dataPath?: readonly PropertyKey[];
+  /** Which slide of a multi-slide template (`carousel`) to draw, 1-based; 1 by default. */
+  slide?: number;
 }
 
 /** At most this many characters are listed per text; the rest is counted. */
@@ -94,24 +103,42 @@ export function buildOgTree(input: OgImageInput): OgResult<OgNode> {
     const lines = parsed.error.issues.map((issue) => `  ${formatIssuePath([...dataPath, ...issue.path])}: ${issue.message}`);
     return err(`${describeCard(input)}: the data of template "${input.template}" is not valid:\n${lines.join("\n")}`);
   }
-  const [width, height] = input.size ?? DEFAULT_OG_SIZE;
-  const tree = template.build(parsed.data, {
+  const slide = input.slide ?? 1;
+  const slides = template.countSlides(parsed.data);
+  if (!Number.isInteger(slide) || slide < 1 || slide > slides) {
+    return err(`${describeCard(input)}: template "${input.template}" has ${String(slides)} slide${slides === 1 ? "" : "s"}; there is no slide ${String(slide)}.`);
+  }
+  const [width, height] = input.size ?? getDefaultOgSize(input.template);
+  const context = {
     width,
     height,
-    scale: width / BASE_WIDTH,
+    scale: getLayoutScale(template.layout, width, height),
     palette: getOgPalette(input.brand.colors),
     fonts: { heading: input.fonts.heading, body: input.fonts.body },
     brand: { name: input.brand.name, logo: input.brand.logoSvg === null ? null : toDataUri(input.brand.logoSvg) },
-  });
+  };
+  const tree = template.build(parsed.data, context, slide);
   const glyphs = checkGlyphs(input, tree, listStrings(parsed.data, dataPath));
   return glyphs.ok ? ok(tree) : glyphs;
+}
+
+/**
+ * How many images the data of a template makes: the number of slides of a `carousel`, 1 for a single card. Invalid
+ * data or an unknown template is an error, as in `buildOgTree`.
+ */
+export function countOgSlides(template: string, data: unknown): OgResult<number> {
+  if (!isOgTemplateId(template)) return err(`OG image: unknown template "${template}"; known: ${OG_TEMPLATE_IDS.join(", ")}.`);
+  const registered = OG_TEMPLATES[template];
+  const parsed = registered.schema.safeParse(data);
+  if (!parsed.success) return err(`OG image: the data of template "${template}" is not valid.`);
+  return ok(registered.countSlides(parsed.data));
 }
 
 /** The card as SVG (Satori's output, text drawn as paths). */
 export async function renderOgSvg(input: OgImageInput): Promise<OgResult<string>> {
   const tree = buildOgTree(input);
   if (!tree.ok) return tree;
-  const [width, height] = input.size ?? DEFAULT_OG_SIZE;
+  const [width, height] = input.size ?? getDefaultOgSize(input.template);
   try {
     // Satori is typed for React elements; it reads only `type` and `props`, which `OgNode` has.
     const svg = await satori(tree.value as unknown as Parameters<typeof satori>[0], { width, height, fonts: input.fonts.satoriFonts });
@@ -139,6 +166,8 @@ export interface ConfiguredOgImageOptions {
   id: string;
   /** Replaces the entry's data, e.g. values a route computes per request; checked like the config's. */
   data?: unknown;
+  /** Which slide of a `carousel` entry, 1-based; 1 by default. */
+  slide?: number;
   /** Reads font files; by default from disk. */
   readFile?: ReadFontFile;
 }
@@ -174,5 +203,6 @@ export async function renderConfiguredOgImage(options: ConfiguredOgImageOptions)
     fonts: fonts.value,
     id,
     dataPath: options.data === undefined ? ["ogImages", index, "data"] : ["data"],
+    slide: options.slide,
   });
 }

@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import { listNodes } from "../../src/og/element.js";
 import { loadOgFonts, type OgFonts } from "../../src/og/fonts.js";
-import { buildOgTree, type OgImageInput } from "../../src/og/render.js";
+import { buildOgTree, countOgSlides, type OgImageInput } from "../../src/og/render.js";
 import { OG_TEMPLATE_IDS } from "../../src/og/templates/index.js";
-import { headlineChartDataSchema, headlineCtaDataSchema } from "../../src/og/templates/schemas.js";
+import { bigNumberDataSchema, carouselDataSchema, headlineChartDataSchema, headlineCtaDataSchema } from "../../src/og/templates/schemas.js";
 import { COLORS, LOGO_SVG, SAMPLE_DATA, getInterFile, loadInter, makeFont } from "./helpers.js";
 
 function input(template: string, fonts: OgFonts = loadInter(), data: unknown = SAMPLE_DATA[template]): OgImageInput {
@@ -57,7 +57,7 @@ describe("OG templates", () => {
   });
 
   it("refuses an unknown template, naming the known ones", () => {
-    expect(buildOgTree(input("poster", loadInter(), {}))).toEqual({ ok: false, error: 'OG image: unknown template "poster"; known: headline-cta, headline-chart.' });
+    expect(buildOgTree(input("poster", loadInter(), {}))).toEqual({ ok: false, error: 'OG image: unknown template "poster"; known: headline-cta, headline-chart, big-number, carousel.' });
   });
 
   it("refuses invalid data with the path of each problem", () => {
@@ -71,7 +71,74 @@ describe("OG templates", () => {
   });
 });
 
+describe("portrait templates", () => {
+  function getFontSize(template: string, size: [number, number], content: string, data?: unknown): unknown {
+    const tree = buildOgTree({ ...input(template, loadInter(), data), size });
+    if (!tree.ok) throw new Error(tree.error);
+    return listNodes(tree.value).find((node) => node.props.children === content)?.props.style?.fontSize;
+  }
+
+  it("scales by the limiting side of the 1080×1350 post, not by width alone", () => {
+    expect([[1080, 1350], [1080, 1080], [1080, 1920], [540, 675]].map((size) => getFontSize("big-number", size as [number, number], "898 PLN"))).toEqual([180, 144, 180, 90]);
+  });
+
+  it("gives a shorter number bigger type", () => {
+    const sizeOf = (number: string) => getFontSize("big-number", [1080, 1350], number, { number, caption: "x" });
+    expect(["898", "28 260", "898 PLN", "1 356 PLN", "1 356,48 PLN"].map(sizeOf)).toEqual([300, 220, 180, 150, 124]);
+  });
+
+  it("draws the counter of every slide, or none when it is off", () => {
+    const counterOf = (slide: number, counter?: boolean) => {
+      const data = { ...(SAMPLE_DATA.carousel as object), ...(counter === undefined ? {} : { counter }) };
+      const tree = buildOgTree({ ...input("carousel", loadInter(), data), slide });
+      if (!tree.ok) throw new Error(tree.error);
+      return listNodes(tree.value).find((node) => typeof node.props.children === "string" && /^\d+\/\d+$/.test(node.props.children))?.props.children ?? null;
+    };
+    expect([counterOf(1), counterOf(2), counterOf(3), counterOf(2, false)]).toEqual(["1/3", "2/3", "3/3", null]);
+  });
+
+  it("draws the slide asked for", () => {
+    const tree = buildOgTree({ ...input("carousel"), slide: 2 });
+    if (!tree.ok) throw new Error(tree.error);
+    const texts = listNodes(tree.value).map((node) => node.props.children).filter((child) => typeof child === "string");
+    expect(texts).toEqual(["Fixture Plan", "2/3", "Myth.", "The yearly limit is a cap, not an entry fee.", "Source: the act, 2026"]);
+  });
+
+  it("refuses a slide the data does not have", () => {
+    expect([0, 4, 1.5].map((slide) => buildOgTree({ ...input("carousel"), slide })).map((result) => (result.ok ? "ok" : result.error))).toEqual([
+      'OG image: template "carousel" has 3 slides; there is no slide 0.',
+      'OG image: template "carousel" has 3 slides; there is no slide 4.',
+      'OG image: template "carousel" has 3 slides; there is no slide 1.5.',
+    ]);
+    expect(buildOgTree({ ...input("big-number"), slide: 2 })).toEqual({ ok: false, error: 'OG image: template "big-number" has 1 slide; there is no slide 2.' });
+  });
+
+  it("counts the images a template's data makes", () => {
+    expect([countOgSlides("carousel", SAMPLE_DATA.carousel), countOgSlides("big-number", SAMPLE_DATA["big-number"]), countOgSlides("headline-cta", SAMPLE_DATA["headline-cta"])]).toEqual([
+      { ok: true, value: 3 },
+      { ok: true, value: 1 },
+      { ok: true, value: 1 },
+    ]);
+    expect(countOgSlides("carousel", { slides: [] })).toEqual({ ok: false, error: 'OG image: the data of template "carousel" is not valid.' });
+    expect(countOgSlides("poster", {})).toEqual({ ok: false, error: 'OG image: unknown template "poster"; known: headline-cta, headline-chart, big-number, carousel.' });
+  });
+});
+
 describe("template data schemas", () => {
+  it("caps the portrait copy at what the post has room for", () => {
+    const tile = { label: "a", value: "1" };
+    const number = bigNumberDataSchema.safeParse({ number: "1".repeat(13), caption: "c".repeat(91), tiles: [tile, tile, tile], source: "s".repeat(81), cta: "c".repeat(33) });
+    expect(number.success ? [] : number.error.issues.map((issue) => issue.path.join("."))).toEqual(["number", "caption", "tiles", "cta", "source"]);
+    const slide = { headline: "h".repeat(91), body: "b".repeat(201), tiles: [tile, tile, tile] };
+    const carousel = carouselDataSchema.safeParse({ slides: [slide, { headline: "x" }] });
+    expect(carousel.success ? [] : carousel.error.issues.map((issue) => issue.path.join("."))).toEqual(["slides.0.headline", "slides.0.body", "slides.0.tiles"]);
+  });
+
+  it("takes two to ten slides", () => {
+    const slides = (count: number) => carouselDataSchema.safeParse({ slides: Array.from({ length: count }, () => ({ headline: "x" })) }).success;
+    expect([1, 2, 10, 11].map(slides)).toEqual([false, true, true, false]);
+  });
+
   it("caps the copy at what a card has room for", () => {
     const issues = headlineCtaDataSchema.safeParse({ eyebrow: "e".repeat(41), headline: "h".repeat(91), cta: "c".repeat(33), tiles: Array(5).fill({ label: "a", value: "1" }) });
     expect(issues.success ? [] : issues.error.issues.map((issue) => issue.path.join("."))).toEqual(["eyebrow", "headline", "cta", "tiles"]);

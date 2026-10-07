@@ -139,6 +139,8 @@ export {
 } from "./compose/compose.js";
 export {
   DEFAULT_OG_SIZE,
+  countOgSlides,
+  getDefaultOgSize,
   OG_TEMPLATE_IDS,
   getOgPalette,
   loadOgFonts,

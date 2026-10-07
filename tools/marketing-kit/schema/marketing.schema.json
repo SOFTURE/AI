@@ -2657,7 +2657,6 @@
       }
     },
     "ogImages": {
-      "default": [],
       "description": "Open Graph images rendered by softure-marketing og.",
       "type": "array",
       "items": {
@@ -2668,30 +2667,39 @@
               "id": {
                 "type": "string",
                 "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
-                "description": "The image's id: the file <output.dir>/og/<id>.png."
+                "description": "The image's id: the file <output.dir>/og/<id>.png (a carousel writes <id>-1.png, <id>-2.png and so on)."
               },
               "size": {
-                "default": [
-                  1200,
-                  630
-                ],
-                "description": "The image size in pixels, [width, height].",
-                "type": "array",
-                "prefixItems": [
+                "description": "The image size: \"landscape\" (1200×630), \"portrait\" (1080×1350), \"square\" (1080×1080), \"story\" (1080×1920) or [width, height] in pixels; \"landscape\" by default.",
+                "anyOf": [
                   {
-                    "type": "integer",
-                    "minimum": 1,
-                    "maximum": 4000
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 4000
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 4000
+                      }
+                    ],
+                    "items": false,
+                    "minItems": 2,
+                    "maxItems": 2
                   },
                   {
-                    "type": "integer",
-                    "minimum": 1,
-                    "maximum": 4000
+                    "type": "string",
+                    "enum": [
+                      "landscape",
+                      "portrait",
+                      "square",
+                      "story"
+                    ]
                   }
-                ],
-                "items": false,
-                "minItems": 2,
-                "maxItems": 2
+                ]
               },
               "template": {
                 "type": "string",
@@ -2763,30 +2771,39 @@
               "id": {
                 "type": "string",
                 "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
-                "description": "The image's id: the file <output.dir>/og/<id>.png."
+                "description": "The image's id: the file <output.dir>/og/<id>.png (a carousel writes <id>-1.png, <id>-2.png and so on)."
               },
               "size": {
-                "default": [
-                  1200,
-                  630
-                ],
-                "description": "The image size in pixels, [width, height].",
-                "type": "array",
-                "prefixItems": [
+                "description": "The image size: \"landscape\" (1200×630), \"portrait\" (1080×1350), \"square\" (1080×1080), \"story\" (1080×1920) or [width, height] in pixels; \"landscape\" by default.",
+                "anyOf": [
                   {
-                    "type": "integer",
-                    "minimum": 1,
-                    "maximum": 4000
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 4000
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 4000
+                      }
+                    ],
+                    "items": false,
+                    "minItems": 2,
+                    "maxItems": 2
                   },
                   {
-                    "type": "integer",
-                    "minimum": 1,
-                    "maximum": 4000
+                    "type": "string",
+                    "enum": [
+                      "landscape",
+                      "portrait",
+                      "square",
+                      "story"
+                    ]
                   }
-                ],
-                "items": false,
-                "minItems": 2,
-                "maxItems": 2
+                ]
               },
               "template": {
                 "type": "string",
@@ -2910,6 +2927,255 @@
                 ],
                 "additionalProperties": false,
                 "description": "The headline-chart template's input."
+              }
+            },
+            "required": [
+              "id",
+              "template",
+              "data"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+                "description": "The image's id: the file <output.dir>/og/<id>.png (a carousel writes <id>-1.png, <id>-2.png and so on)."
+              },
+              "size": {
+                "description": "The image size: \"landscape\" (1200×630), \"portrait\" (1080×1350), \"square\" (1080×1080), \"story\" (1080×1920) or [width, height] in pixels; \"portrait\" by default.",
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 4000
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 4000
+                      }
+                    ],
+                    "items": false,
+                    "minItems": 2,
+                    "maxItems": 2
+                  },
+                  {
+                    "type": "string",
+                    "enum": [
+                      "landscape",
+                      "portrait",
+                      "square",
+                      "story"
+                    ]
+                  }
+                ]
+              },
+              "template": {
+                "type": "string",
+                "const": "big-number",
+                "description": "A portrait post whose number fills the frame, with the sentence that explains it, tiles, a call to action and a source line."
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "eyebrow": {
+                    "description": "A short line above the headline, at most 40 characters.",
+                    "type": "string",
+                    "maxLength": 40
+                  },
+                  "number": {
+                    "type": "string",
+                    "maxLength": 12,
+                    "description": "The figure that fills the post, unit included, e.g. \"898 PLN\"; at most 12 characters. Shorter numbers get bigger type."
+                  },
+                  "caption": {
+                    "type": "string",
+                    "maxLength": 90,
+                    "description": "The sentence that says what the number is, under it; at most 90 characters."
+                  },
+                  "tiles": {
+                    "default": [],
+                    "description": "Up to two label and value tiles under the caption, e.g. a second figure.",
+                    "maxItems": 2,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "label": {
+                          "type": "string",
+                          "maxLength": 24,
+                          "description": "The tile's caption, at most 24 characters."
+                        },
+                        "value": {
+                          "type": "string",
+                          "maxLength": 16,
+                          "description": "The tile's value, at most 16 characters."
+                        }
+                      },
+                      "required": [
+                        "label",
+                        "value"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "cta": {
+                    "description": "A call to action, drawn as a pill in the cta colours at the bottom; at most 32 characters.",
+                    "type": "string",
+                    "maxLength": 32
+                  },
+                  "source": {
+                    "description": "Where the figures come from, drawn small at the bottom, e.g. \"Source: ZUS, 2026\"; at most 80 characters.",
+                    "type": "string",
+                    "maxLength": 80
+                  }
+                },
+                "required": [
+                  "number",
+                  "caption"
+                ],
+                "additionalProperties": false,
+                "description": "The big-number template's input."
+              }
+            },
+            "required": [
+              "id",
+              "template",
+              "data"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+                "description": "The image's id: the file <output.dir>/og/<id>.png (a carousel writes <id>-1.png, <id>-2.png and so on)."
+              },
+              "size": {
+                "description": "The image size: \"landscape\" (1200×630), \"portrait\" (1080×1350), \"square\" (1080×1080), \"story\" (1080×1920) or [width, height] in pixels; \"portrait\" by default.",
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 4000
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 4000
+                      }
+                    ],
+                    "items": false,
+                    "minItems": 2,
+                    "maxItems": 2
+                  },
+                  {
+                    "type": "string",
+                    "enum": [
+                      "landscape",
+                      "portrait",
+                      "square",
+                      "story"
+                    ]
+                  }
+                ]
+              },
+              "template": {
+                "type": "string",
+                "const": "carousel",
+                "description": "A numbered run of portrait slides sharing one look; each slide is its own file <id>-<n>.png."
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "slides": {
+                    "minItems": 2,
+                    "maxItems": 10,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "eyebrow": {
+                          "description": "A short line above the headline, at most 40 characters.",
+                          "type": "string",
+                          "maxLength": 40
+                        },
+                        "headline": {
+                          "type": "string",
+                          "maxLength": 90,
+                          "description": "The slide's headline, at most 90 characters."
+                        },
+                        "body": {
+                          "description": "A paragraph under the headline, at most 200 characters.",
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "tiles": {
+                          "default": [],
+                          "description": "Up to two label and value tiles side by side.",
+                          "maxItems": 2,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "label": {
+                                "type": "string",
+                                "maxLength": 24,
+                                "description": "The tile's caption, at most 24 characters."
+                              },
+                              "value": {
+                                "type": "string",
+                                "maxLength": 16,
+                                "description": "The tile's value, at most 16 characters."
+                              }
+                            },
+                            "required": [
+                              "label",
+                              "value"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "cta": {
+                          "description": "A call to action, drawn as a pill in the cta colours at the bottom; at most 32 characters.",
+                          "type": "string",
+                          "maxLength": 32
+                        },
+                        "source": {
+                          "description": "Where the figures come from, drawn small at the bottom, e.g. \"Source: ZUS, 2026\"; at most 80 characters.",
+                          "type": "string",
+                          "maxLength": 80
+                        }
+                      },
+                      "required": [
+                        "headline"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "description": "The slides in order, two to ten; each renders to its own file <id>-<n>.png."
+                  },
+                  "counter": {
+                    "default": true,
+                    "description": "Draws \"n/N\" in the top corner of every slide.",
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "slides"
+                ],
+                "additionalProperties": false,
+                "description": "The carousel template's input."
               }
             },
             "required": [

@@ -9,6 +9,8 @@ export type { OgResult } from "./result.js";
 export {
   DEFAULT_OG_SIZE,
   buildOgTree,
+  countOgSlides,
+  getDefaultOgSize,
   renderConfiguredOgImage,
   renderOgImage,
   renderOgSvg,
@@ -17,6 +19,18 @@ export {
   type OgImageInput,
 } from "./render.js";
 export { OG_TEMPLATE_IDS, OG_TEMPLATES, isOgTemplateId, type OgTemplateId } from "./templates/index.js";
-export type { OgTemplateContext } from "./templates/context.js";
-export { CHART_TONES, headlineChartDataSchema, headlineCtaDataSchema, type ChartTone, type HeadlineChartData, type HeadlineCtaData } from "./templates/schemas.js";
+export { PORTRAIT_BASE, getLayoutScale, type OgLayout, type OgTemplateContext } from "./templates/context.js";
+export {
+  CHART_TONES,
+  bigNumberDataSchema,
+  carouselDataSchema,
+  headlineChartDataSchema,
+  headlineCtaDataSchema,
+  type BigNumberData,
+  type CarouselData,
+  type CarouselSlide,
+  type ChartTone,
+  type HeadlineChartData,
+  type HeadlineCtaData,
+} from "./templates/schemas.js";
 export { loadMarketingConfig, type LoadConfigResult, type MarketingConfig } from "../config/config.js";
