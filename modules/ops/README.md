@@ -165,7 +165,7 @@ import config from "../softure.config";
 process.exitCode = await runMigrateCli({ config, argv: process.argv.slice(2) });
 ```
 
-**2. The image** (`next.config.ts` has `output: "standalone"`):
+**2. The image** (`next.config.ts` has `output: "standalone"` and `serverExternalPackages: ["@softure-ai/db", "pg"]`):
 
 ```dockerfile
 FROM node:22-alpine AS builder
@@ -178,7 +178,8 @@ RUN npm run build
 # A bundle cannot find package folders: copy each module's SQL out first, then bundle the runner.
 RUN npx tsx scripts/migrate.ts --export-migrations ./softure-migrations \
  && npx esbuild scripts/migrate.ts --bundle --platform=node --format=esm --target=node22 \
-      --external:pg --external:@electric-sql/pglite --outfile=migrate.mjs
+      --external:pg --external:@electric-sql/pglite \
+      --external:drizzle-orm/pglite --external:drizzle-orm/node-postgres --outfile=migrate.mjs
 
 FROM node:22-alpine AS runner
 WORKDIR /app
@@ -202,8 +203,8 @@ imports `server-only` needs `npx tsx --conditions=react-server scripts/migrate.t
 tsx and esbuild both read `paths` from `tsconfig.json`. The [db README](../../foundation/db/README.md)
 has the same commands.
 
-`pg` reaches the runner through the standalone output (the app lists it in `serverExternalPackages`),
-which is why the bundle keeps it external. `HEALTHCHECK` lives in the image, not only in compose, so
+`pg` reaches the runner through the standalone output (the app lists `@softure-ai/db` and `pg` in
+`serverExternalPackages`, db README §2), which is why the bundle keeps it external. `HEALTHCHECK` lives in the image, not only in compose, so
 it travels to every place the image runs; `node -e` because alpine has no curl.
 
 **3. The roles.** Mount [`recipes/initdb/`](recipes/initdb/01-roles.sql) into the postgres container's

@@ -19,13 +19,45 @@ Node ≥ 22, **ESM only**: module packages locate their migrations through `impo
 CJS bundle (esbuild `--format=cjs`) leaves empty, so `resolveMigrationsDir` throws naming the bundle
 format; the app script below also uses top-level await. Bundle migrate scripts with `--format=esm`.
 `drizzle-orm` (`^0.45.2`) is a peer dependency, so the app, the modules and
-this package share one drizzle. Both drivers, `pg` (`^8.11.0`) and `@electric-sql/pglite`
-(`^0.5.0`), come with the package and load only when a URL needs them; the ranges are wide, so an
-app that pins its own version of either gets one shared copy. They stay regular dependencies
-because Next.js bundles server code and resolves each driver's drizzle adapter at build time, so a
-missing driver breaks `next build` even when the app never uses it. `@types/pg` is an optional
-peer: install it (`npm install -D @types/pg`) when the app type-checks the library declarations
-(`skipLibCheck: false`).
+this package share one drizzle.
+
+The drivers are optional peers: install the one the app's URL uses, and only that one goes into the
+app image. Each loads only when a URL needs it.
+
+```bash
+npm install pg                                   # postgres:// and postgresql://
+npm install @electric-sql/pglite                 # pglite:// (dev without a server)
+npm install -D @electric-sql/pglite              # a Postgres app's createTestDatabase, --adopt and baseline
+npm install -D @types/pg                         # only with skipLibCheck: false
+```
+
+| Needs | `pg` (`^8.11.0`) | `@electric-sql/pglite` (`^0.5.0`) |
+| --- | --- | --- |
+| `postgres://`, `postgresql://` | yes | no |
+| `pglite://` | no | yes |
+| `createTestDatabase` (`@softure-ai/db/testing`) | no | yes (dev) |
+| `softure migrate --adopt`, an app `baseline` (compare against a scratch PGlite) | URL's driver | yes |
+
+A URL whose driver is missing fails at the first connection: `createDatabase: postgres:// URLs need
+the "pg" package, which is not installed; …`, with Node's error as `cause`.
+
+**Next.js.** List this package and the driver in `serverExternalPackages`:
+
+```ts
+// next.config.ts
+const nextConfig: NextConfig = {
+  serverExternalPackages: ["@softure-ai/db", "pg"], // or "@electric-sql/pglite" for pglite://
+};
+```
+
+Bundled, the package's `import()` of each driver and drizzle adapter is resolved at build time, so
+`next build` fails with `Can't resolve '@electric-sql/pglite'` in an app without PGlite (drizzle's
+adapter imports it statically). External, it loads from `node_modules` at run time, and standalone
+output tracing follows the same imports, so `.next/standalone` carries the installed driver and
+drizzle and nothing else (the example app installs `pg` only:
+[`next.config.ts`](../../examples/next-app/next.config.ts)). The config and the shared handles live on `globalThis`, so this copy and the modules bundled next
+to it share them. Hiding the imports from the bundler instead (`turbopackIgnore`) builds, but
+tracing skips the driver and the image fails at the first query.
 
 ## 3. Configuration
 
@@ -130,8 +162,9 @@ process.exitCode = await runMigrateCli({ config, argv: process.argv.slice(2) });
 # build stage: copy each module's SQL next to the bundle, then bundle the runner
 RUN npx tsx scripts/migrate.ts --export-migrations ./softure-migrations
 RUN npx esbuild scripts/migrate.ts --bundle --platform=node --format=esm --target=node22 \
-      --external:pg --external:@electric-sql/pglite --outfile=migrate.mjs
-# run stage (needs pg, and @electric-sql/pglite for --adopt or an app baseline)
+      --external:pg --external:@electric-sql/pglite \
+      --external:drizzle-orm/pglite --external:drizzle-orm/node-postgres --outfile=migrate.mjs
+# run stage (needs the URL's driver, and @electric-sql/pglite for --adopt or an app baseline)
 COPY --from=builder /app/migrate.mjs ./migrate.mjs
 COPY --from=builder /app/softure-migrations ./softure-migrations
 CMD ["node", "migrate.mjs", "--migrations-dir", "./softure-migrations"]
@@ -142,6 +175,10 @@ A config that imports `server-only` throws under plain Node: run the export as
 `--alias:server-only=./scripts/empty.mjs` (an empty file). Path aliases (`@/…`) need nothing extra: tsx and
 esbuild both read `paths` from `tsconfig.json`. The [ops container recipe](../../modules/ops/README.md#container-recipe)
 uses the same commands.
+
+The drivers and drizzle's two driver adapters stay external: bundled, the adapter of a driver the app
+does not install imports it at the top of `migrate.mjs`, which then fails at start. At run time they
+come from the standalone output, which carries the installed driver and its adapter.
 
 A bundle cannot find package folders (`import.meta.url` points at the bundle), hence
 `--export-migrations` at build time and `--migrations-dir` at run time. The build stage needs no

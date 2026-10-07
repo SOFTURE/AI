@@ -6,6 +6,8 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## 0.1.3
 
+- `init`'s Dockerfile keeps drizzle's driver adapters external in the migrate bundle, so an app that installs one
+  database driver only starts `migrate.mjs`.
 - On a host without Node, `init`'s `deploy.sh` runs the database steps in a helper image (`softure-deploy-tools:<version>-pg<major>`).
 - Each release ships the server files with `.env.prod` in one archive; `deploy.sh` restores files when a release fails before the switch, prints step and result lines, and answers `status` and `maintain` (daily backup retention and image cleanup).
 - `backup --exclude-table-data` and `--max-age-days`, and a refused dump without its header.
