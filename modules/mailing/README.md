@@ -1,8 +1,5 @@
 # @softure-ai/mailing
 
-**Status:** wave 2 · transport (EN-1), unsubscribe (EN-2), delivery ledger, campaigns and sender DNS
-check (EN-3).
-
 Sends one mail to one recipient through a provider adapter and answers with a typed result, never a
 throw. Ported from FIRE_TRACKER `src/lib/mail.ts` (a hand-written Resend `fetch`, plain text only),
 with the sender, reply-to, provider and timeout taken from configuration, an HTML body, and a fake

@@ -365,7 +365,7 @@ looks one up.
 `onRegistered({ user, consent }, ctx)`: after the user row is inserted, in the same transaction
 (`ctx.db` is the transaction). `consent` is `{ acceptedAt }`, or `null` with
 `requireConsent: false`. A thrown error rolls the registration back and the user sees a generic
-failure. `privacy` (engagement roadmap) stores the consent through it.
+failure. `@softure-ai/privacy` stores the consent through it.
 
 `passwordReset.send(link, user, details)`: after a reset request is answered, for an existing
 account only (section 4, "Password reset"). `mailingResetSender()` from `@softure-ai/auth/mailing`

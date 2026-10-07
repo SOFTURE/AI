@@ -2,12 +2,12 @@ import { pickWeight, toFontFamilyCss, type OgFontFamily, type OgFontWeight } fro
 import { h, type OgChild, type OgNode, type OgStyle } from "../element.js";
 import type { OgTemplateContext } from "./context.js";
 
-/** Text in a family (and its subset families) at a size written for the 1200-pixel card, in the loaded weight nearest `wish`. */
+/** Text in a family (and its subset families) at a size written for the layout's base card, in the loaded weight nearest `wish`. */
 export function text(context: OgTemplateContext, family: OgFontFamily, size: number, wish: OgFontWeight): OgStyle {
   return { fontFamily: toFontFamilyCss(family), fontSize: Math.round(size * context.scale), fontWeight: pickWeight(family.weights, wish) };
 }
 
-/** A length written for the 1200-pixel card. */
+/** A length written for the layout's base card. */
 export function px(context: OgTemplateContext, value: number): number {
   return Math.round(value * context.scale);
 }

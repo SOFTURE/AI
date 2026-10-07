@@ -8,8 +8,7 @@ sections of §11, so agents find the same things in the same places in every mod
 rename `template-module` everywhere (package name, `module.json` id, error codes), set
 `repository.directory` to the new folder, remove `"private": true`, and run `npm install` at the
 repository root. The root tests check the result
-(`tests/repo/packages.test.ts`). Add `"./styles.css"` to `exports` once the package has styles
-(the CSS build arrives with `@softure-ai/ui`).
+(`tests/repo/packages.test.ts`). Add `"./styles.css"` to `exports` once the package has styles.
 
 ## 1. What it provides
 

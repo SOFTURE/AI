@@ -4,9 +4,6 @@ Articles and glossary terms kept as Markdown files in the app's repository, and 
 brings the module's tables to the state of those files. The files are the source of truth: there is no
 editor and no CMS, a text changes only through a commit and `softure-blog publish`.
 
-This release holds the content store (roadmap item BL-2), the server-side renderer (BL-3), the pages
-(BL-4), the text quality gate (BL-6) and the writing skill (BL-7). RSS, sitemap and IndexNow (BL-5) build on them.
-
 ## 1. What it provides
 
 - A strict article file format: a YAML frontmatter with English keys (an unknown key is an error),

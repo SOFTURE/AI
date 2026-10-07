@@ -13,12 +13,13 @@ import {
   type LayoutName,
 } from "../compose/timeline.js";
 import { MARKETING_LOCALES, type MarketingLocale } from "../messages/index.js";
-import { headlineChartDataSchema, headlineCtaDataSchema } from "../og/templates/schemas.js";
+import { bigNumberDataSchema, carouselDataSchema, headlineChartDataSchema, headlineCtaDataSchema } from "../og/templates/schemas.js";
 import { CHANNEL_CODE_MAX_LENGTH, CHANNEL_CODE_PATTERN, DEFAULT_LINK_IN_BIO, PLATFORMS } from "../platforms.js";
 import { ELEVENLABS_DEFAULT_MODEL } from "../voice/voiceover.js";
 import { actionSchema, type SceneAction } from "./actions-schema.js";
 import { COLOR_ROLES, COLOR_THEMES, isHexColor, type ColorRole } from "./colors.js";
 import { DAY_PATTERN, isCalendarDay } from "./day.js";
+import { getOgImageNames } from "./og-image-names.js";
 import { getScreenshotNames } from "./screenshot-names.js";
 
 /**
@@ -484,22 +485,53 @@ export const screenshotSchema = z.strictObject({
   }
 });
 
-const ogImageBase = {
-  id: id.describe("The image's id: the file <output.dir>/og/<id>.png."),
-  size: z.tuple([pixels(4000), pixels(4000)]).default([1200, 630]).describe("The image size in pixels, [width, height]."),
-};
+/** Named sizes of `ogImages[].size`: the share card and the three social formats. */
+export const OG_SIZE_PRESETS = {
+  landscape: [1200, 630],
+  portrait: [1080, 1350],
+  square: [1080, 1080],
+  story: [1080, 1920],
+} as const satisfies Record<string, readonly [number, number]>;
+
+type OgSizePreset = keyof typeof OG_SIZE_PRESETS;
+
+/** A preset name or `[width, height]`; the loaded config always holds the pair. */
+const ogSize = (preset: OgSizePreset) =>
+  z
+    .union([z.tuple([pixels(4000), pixels(4000)]), z.enum(Object.keys(OG_SIZE_PRESETS) as [OgSizePreset, ...OgSizePreset[]])])
+    .transform((size): [number, number] => (typeof size === "string" ? [...OG_SIZE_PRESETS[size]] : size))
+    .default([...OG_SIZE_PRESETS[preset]])
+    .describe(
+      `The image size: "landscape" (1200×630), "portrait" (1080×1350), "square" (1080×1080), "story" (1080×1920) or [width, height] in pixels; "${preset}" by default.`,
+    );
+
+const ogImageId = id.describe("The image's id: the file <output.dir>/og/<id>.png (a carousel writes <id>-1.png, <id>-2.png and so on).");
 
 /** One entry per template; `data` is the template's input, and values the app computes (charts) arrive precomputed. */
 const ogImageSchema = z.discriminatedUnion("template", [
   z.strictObject({
-    ...ogImageBase,
+    id: ogImageId,
+    size: ogSize("landscape"),
     template: z.literal("headline-cta").describe("A headline with an optional eyebrow, call to action and tiles."),
     data: headlineCtaDataSchema.describe("The headline-cta template's input."),
   }),
   z.strictObject({
-    ...ogImageBase,
+    id: ogImageId,
+    size: ogSize("landscape"),
     template: z.literal("headline-chart").describe("A headline over a chart the app computed, with optional tiles."),
     data: headlineChartDataSchema.describe("The headline-chart template's input."),
+  }),
+  z.strictObject({
+    id: ogImageId,
+    size: ogSize("portrait"),
+    template: z.literal("big-number").describe("A portrait post whose number fills the frame, with the sentence that explains it, tiles, a call to action and a source line."),
+    data: bigNumberDataSchema.describe("The big-number template's input."),
+  }),
+  z.strictObject({
+    id: ogImageId,
+    size: ogSize("portrait"),
+    template: z.literal("carousel").describe("A numbered run of portrait slides sharing one look; each slide is its own file <id>-<n>.png."),
+    data: carouselDataSchema.describe("The carousel template's input."),
   }),
 ]);
 
@@ -632,6 +664,17 @@ export const marketingSchema = z
     });
     checkUnique("screenshots");
     checkUnique("ogImages");
+    const ogFileOwners = new Map<string, number>();
+    config.ogImages.forEach((entry, index) => {
+      for (const name of getOgImageNames(entry)) {
+        const owner = ogFileOwners.get(name);
+        // Two entries with one id are reported by checkUnique already.
+        if (owner !== undefined && owner !== index && config.ogImages[owner]?.id !== entry.id) {
+          context.addIssue({ code: "custom", path: ["ogImages", index, "id"], message: `writes og/${name}.png, as ogImages[${String(owner)}] does` });
+        }
+        ogFileOwners.set(name, owner ?? index);
+      }
+    });
     const fileOwners = new Map<string, number>();
     config.screenshots.forEach((entry, index) => {
       for (const name of getScreenshotNames(entry.id)) {

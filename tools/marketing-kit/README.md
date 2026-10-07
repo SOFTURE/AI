@@ -206,7 +206,7 @@ folder of `marketing.json`. A complete example: [examples/fixture/marketing.json
 | | `posts[]` | `video`, `caption`, `hashtags`, `codes` (this video's own codes), `disclosure` (`true`; `false` leaves the disclosure out); a video without one gets no `posts.md` |
 | | `disclosure` | a paragraph after every post's caption, before the link: that the persona is an example, that it is not advice, that the voice is AI-generated; `{persona}` becomes the video's persona name |
 | `screenshots[]` | `id`, `path`, `width`, `height`, `full` (`false`), `expect`, `motion` (`reduce`), `minBytes` (`40000`), `scale` (`1`), `colorSchemes` | for `softure-marketing shots`, see [Screenshots](#screenshots) |
-| `ogImages[]` | `id`, `template` (`headline-cta`, `headline-chart`), `size` (`[1200, 630]`), `data` | for `softure-marketing og`, see [OG images](#og-images) |
+| `ogImages[]` | `id`, `template` (`headline-cta`, `headline-chart`, `big-number`, `carousel`), `size` (`"landscape"`, `"portrait"`, `"square"`, `"story"` or `[width, height]`; `landscape` for the headline cards, `portrait` for the others), `data` | for `softure-marketing og`, see [OG images](#og-images) |
 | `layout` | per layout (`9:16`, `1:1`, `16:9` for phone films; `desktop` for desktop films): `caption` (`top`, `left`, `right`, `fontSize`), `persona` (`top`, `left`, `right`), `endCard` (`top`, `left`, `right`, `headlineSize`, `phone.scale`, `phone.center`) | overrides of the layout's geometry table for every film of that layout, in frame px (`endCard.phone` is the browser window's pose in `desktop`); a missing key keeps the table's value. Values must fit the frame and each box's margins must leave at least 200 px for its text. The frame, the screen box and the camera target are fixed |
 | `sfx` | `tap`, `key`, `whoosh`, `sparkle`, `pop` | sound effects; a missing one is silent |
 | `output` | `dir` (`marketing/out`), `buildDir` (`marketing/build`), `quality` (`standard`) | where films go; `--quality` wins |
@@ -378,9 +378,12 @@ format, so its paid recordings are reused as they are, with no re-keying and no 
 
 ### Upgrading to 0.1.8
 
-Nothing to change: a 0.1.7 `marketing.json`, its screenshots and the voiceover cache work as they are. New:
-`scrollTo`, `waitMs` and `storageState` on `screenshots[]` entries, `shots --page` for any page, `--placeholder` on
-`all`/`record`/`render` with `voice.placeholder`. An app that kept its own screenshot script for these can drop it.
+- Portrait social posts get their own templates: move a `headline-cta` entry with `size: [1080, 1350]` to
+  `big-number` (one figure as the hero) or to a `carousel` slide. `headline-cta` and `headline-chart` render as
+  before.
+- A 0.1.7 `marketing.json`, its screenshots and the voiceover cache work as they are. New: `scrollTo`, `waitMs` and
+  `storageState` on `screenshots[]` entries, `shots --page` for any page, `--placeholder` on `all`/`record`/`render`
+  with `voice.placeholder`. An app that kept its own screenshot script for these can drop it.
 
 ### Upgrading to 0.1.7
 
@@ -392,7 +395,8 @@ Nothing to change: a 0.1.7 `marketing.json`, its screenshots and the voiceover c
 ## OG images
 
 `softure-marketing og` renders each `ogImages` entry with [Satori](https://github.com/vercel/satori)
-and resvg to `<output.dir>/og/<id>.png`, at `size` (1200×630 by default), outside Next. The brand
+and resvg to `<output.dir>/og/<id>.png`, at `size` (1200×630 for the headline cards and 1080×1350 for the
+portrait posts by default), outside Next. The brand
 supplies everything around the copy: the background and text colours, the logo and name in the top
 corner, and the fonts. `data` is the template's input, checked by its own schema (each template's
 fields are in the JSON Schema):
@@ -401,6 +405,15 @@ fields are in the JSON Schema):
 | --- | --- |
 | `headline-cta` | `headline` (≤ 90 characters), `eyebrow` (≤ 40), `cta` (≤ 32, a pill in `cta`/`onCta` colours), `tiles` (≤ 4 of `label` ≤ 24, `value` ≤ 16) |
 | `headline-chart` | `headline`, `eyebrow`, `tiles` (≤ 3), `chart`: `viewBox` `[width, height]` and `paths` (1-8) of `d` (SVG path data), `tone` (`accent`, `cta`, `foreground`, `muted`), `fill` (a tint instead of a line), `strokeWidth` (view box units) |
+| `big-number` | `number` (≤ 12 characters, unit included, e.g. `898 PLN`; shorter numbers get bigger type), `caption` (≤ 90, the sentence under it), `eyebrow` (≤ 40), `tiles` (≤ 2), `cta` (≤ 32), `source` (≤ 80, small at the bottom) |
+| `carousel` | `slides` (2-10) of `headline` (≤ 90), `eyebrow` (≤ 40), `body` (≤ 200), `tiles` (≤ 2), `cta` (≤ 32), `source` (≤ 80); `counter` (`true`: `n/N` in the top corner) |
+
+**Social posts.** `big-number` and `carousel` are written for a 1080×1350 portrait post (their default `size`) and
+scale by the limiting side, so `"square"` and `"story"` hold the same copy. The logo and name sit on top, the copy
+fills the middle, the call to action and the source line are pinned to the bottom. A carousel entry writes one file
+per slide, `<output.dir>/og/<id>-1.png`…`<id>-<n>.png`, with a shared look; an `ogImages` id that a slide's file
+would also take is refused. The limits are what the post holds: copy at every limit stays inside the frame's margin
+(a test renders it and checks the pixels), and a word too long for the line is broken rather than run past the edge.
 
 Values the app computes, such as a chart or a projected date, are computed by the app and arrive in
 `data` as numbers, text or SVG paths; the package only draws them.
@@ -449,7 +462,8 @@ export default async function Image(): Promise<Response> {
 
 `@resvg/resvg-js` is a native module: if the bundler tries to bundle it, list it in
 `serverExternalPackages` in `next.config.ts`. `renderOgImage({ template, data, size, brand, fonts })`
-renders without a `marketing.json` at all.
+renders without a `marketing.json` at all. For a carousel, pass `slide` (1-based) to either function;
+`countOgSlides(template, data)` says how many there are.
 
 ## Requirements
 
