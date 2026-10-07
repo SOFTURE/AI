@@ -1,12 +1,13 @@
 ---
 change_id: adoption-gaps-ops-switches-deploy-core
 title: "ops, feature-switches, deploy, core: adoption gaps, CHANGELOGs and README drift (issue #158)"
-status: plan_reviewed
+status: archived
 roadmap_item: null
 issue: 158
 branch: claude/project-thread-e71n3t
 created: 2026-10-07
 updated: 2026-10-07
+archived_at: 2026-10-07
 ---
 
 ## Intent

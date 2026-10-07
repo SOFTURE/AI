@@ -157,5 +157,5 @@ Done when: gates green (typecheck, lint, test, build).
 ### Phase 4: CHANGELOGs, docs, versions
 
 #### Automated
-- [x] 4.1 CHANGELOG test seen red, then green — PHASE4
-- [x] 4.2 Gates green (typecheck, lint, test, build) — PHASE4
+- [x] 4.1 CHANGELOG test seen red, then green — 1fb08fe
+- [x] 4.2 Gates green (typecheck, lint, test, build) — 1fb08fe
