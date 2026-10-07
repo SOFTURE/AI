@@ -4,3 +4,4 @@ export { setSwitchAction } from "./actions.js";
 export { isEnabled } from "./is-enabled.js";
 export { getFeatureSwitchesMessages } from "./messages.js";
 export { SwitchesPage } from "./pages.js";
+export { describeSwitchSource, toSwitchPanelRows, type SwitchSourceConfig } from "./panel-rows.js";
