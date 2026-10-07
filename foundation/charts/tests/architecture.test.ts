@@ -99,3 +99,20 @@ describe("the guards", () => {
     expect(findUnknownTokens(".x { color: var(--sft-chart-gird); stroke: var(--sft-chart-grid); }")).toEqual(["--sft-chart-gird"]);
   });
 });
+
+describe("package manifest", () => {
+  const manifest = JSON.parse(readFileSync(join(import.meta.dirname, "../package.json"), "utf8")) as {
+    sideEffects: unknown;
+    dependencies: Record<string, string>;
+    peerDependencies: Record<string, string>;
+  };
+
+  it("marks the stylesheet as a side effect, so a JS import of styles.css survives tree shaking", () => {
+    expect(manifest.sideEffects).toEqual(["*.css"]);
+  });
+
+  it("takes @softure-ai/ui as a peer, so an app has one copy of the tokens and the theme", () => {
+    expect(manifest.dependencies["@softure-ai/ui"]).toBeUndefined();
+    expect(manifest.peerDependencies["@softure-ai/ui"]).toBe("^0.1.6");
+  });
+});

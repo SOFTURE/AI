@@ -143,3 +143,10 @@ describe("tailwind.css", () => {
     for (const name of mapped) expect(bridge, name).toContain(`: var(--sft-${name});`);
   });
 });
+
+describe("package manifest", () => {
+  it("marks the stylesheets as side effects, so a JS import of styles.css survives tree shaking", () => {
+    const manifest = JSON.parse(readFileSync(join(import.meta.dirname, "../package.json"), "utf8")) as { sideEffects: unknown };
+    expect(manifest.sideEffects).toEqual(["*.css"]);
+  });
+});

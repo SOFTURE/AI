@@ -8,7 +8,7 @@ import { Hint } from "./hint.js";
 import { CheckIcon } from "./icons.js";
 import { useUiLocale } from "./locale.js";
 
-// Native checkboxes drawn by the product. Ported from FIRE_TRACKER src/components/switch.tsx.
+// Native checkboxes drawn by the product.
 // The input stays a real, hittable checkbox laid over the drawing (`peer`), so the state comes from
 // `:checked`, form data is native ("on" when checked), and keyboard and labels work as usual.
 

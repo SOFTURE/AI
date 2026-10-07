@@ -11,7 +11,6 @@ import { useUiLocale } from "./locale.js";
 // A select drawn by the product: a `combobox` button and a `listbox` (WAI-ARIA select-only
 // combobox), so the list matches the theme on every platform. Focus stays on the button; the
 // highlighted option is `aria-activedescendant`. A hidden input carries the value into form data.
-// Ported from FIRE_TRACKER src/components/select.tsx.
 
 export interface SelectOption {
   readonly value: string;

@@ -128,4 +128,28 @@ describe("LineChart", () => {
       new TypeError('LineChart series "spending" does not share the x values of the first series'),
     );
   });
+
+  it("goes below zero for negative values, with the baseline at zero and ticks under it", () => {
+    const debt: LineChartSeries[] = [
+      {
+        key: "net",
+        label: "Net worth",
+        points: [
+          { x: JAN_1, y: -2000 },
+          { x: FEB_1, y: -1000 },
+          { x: MAR_1, y: 1000 },
+          { x: APR_1, y: 2000 },
+        ],
+      },
+    ];
+    const html = renderChart(debt);
+    expect(readTexts(html, "sft-chart-value-label")).toEqual(["-2,000", "-1,000", "0", "1,000", "2,000"]);
+    // y: -2000…2000 onto 384…16 (the trough keeps the same 16 unit gap as the peak), so zero is 200.
+    expect(html).toContain('<line class="sft-chart-baseline" x1="0" y1="200" x2="1000" y2="200"></line>');
+    expect(html).toContain('<path class="sft-chart-line sft-chart-series-1" d="M0 384 L344.6 292 L655.86 108 L1000 16"></path>');
+  });
+
+  it("keeps the baseline at the bottom without negative values", () => {
+    expect(renderChart()).toContain('<line class="sft-chart-baseline" x1="0" y1="400" x2="1000" y2="400"></line>');
+  });
 });

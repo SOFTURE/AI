@@ -4,7 +4,7 @@ Accessible line charts rendered on the server, and the arithmetic under them. Th
 functions, with no DOM and no React, so the drawing, the cursor and the tests share one source:
 
 - linear and time scales with an inverse ([Scales](#scales));
-- the peak of several series and round value ticks under it ([Value ticks](#value-ticks));
+- the peak and the trough of several series and round value ticks between them ([Value ticks](#value-ticks));
 - calendar date ticks (days, months, years) at midnight in the app's time zone, labelled through
   `Intl` ([Date ticks](#date-ticks));
 - the point nearest to a cursor ([Nearest point](#nearest-point)).
@@ -12,8 +12,8 @@ functions, with no DOM and no React, so the drawing, the cursor and the tests sh
 On top of it, React components ([Components](#components)): `LineChart` for time series, and the
 primitives it is made of (plot, grid, lines, axes, legend, flags, event pins, a keyboard and pointer cursor, a data
 table) for charts of your own, coloured by a six-colour series palette that a test guard keeps legible and
-apart for colour-blind readers ([Series palette](#series-palette)). Extracted from FIRE_TRACKER's `chart-scale`, `chart-ticks`,
-`nearest-point` and `src/components/chart/`.
+apart for colour-blind readers ([Series palette](#series-palette)). Extracted from the hand-rolled
+charts of an adopting app.
 
 ## Installation
 
@@ -21,7 +21,9 @@ apart for colour-blind readers ([Series palette](#series-palette)). Extracted fr
 npm install @softure-ai/charts
 ```
 
-It needs `@softure-ai/ui` 0.1.6 or later (the `--sft-chart-*` tokens and `@softure-ai/ui/testing`) and React 19.
+It needs `@softure-ai/ui` 0.1.6 or later (the `--sft-chart-*` tokens and `@softure-ai/ui/testing`) and React 19, both
+peer dependencies: the app installs them once, so the tokens, the theme and the components come from one copy of
+`@softure-ai/ui`.
 Each version ships to npm, to GitHub Packages as `@softure/charts`, and as a tarball on the GitHub Release
 `charts@x.y.z`; the first one is 0.1.0, released with `@softure-ai/ui` 0.1.6.
 
@@ -48,7 +50,8 @@ x.invert(pointerX); // Date under the pointer
   cursor stay on the same scale.
 - A zero-width domain maps every value to the range start, so an empty chart draws finite numbers.
 - `peakOf(series, { getValue, floor })` takes another value per point (a stack of parts) and a lowest
-  peak; it floors at 0 by default.
+  peak; it floors at 0 by default. `troughOf(series, { getValue, ceiling })` is its mirror: the lowest
+  value, at most 0, the bottom of a domain with negative values (`[troughOf(…), peakOf(…)]`).
 - `invert` extrapolates outside the range; it does not clamp.
 
 ## Value ticks
@@ -63,7 +66,8 @@ yearTicks(2026, 2081, 5); // [2030, 2040, 2050, 2060, 2070, 2080]
 Steps are 1, 2, 2.5 and 5 × 10ⁿ; the tick count closest to the target wins and a tie goes to the larger
 step. Ticks are multiples of the step in `(0, max]`: the scale's peak never moves, only the grid lines are
 placed, and zero is left to the baseline. `minStep` keeps a step from going below what the labels can show
-(1 for whole units).
+(1 for whole units). With `min` below zero (a trough) the step is chosen for the whole span and ticks also fall
+on its multiples down to `min`: `valueTicks(3_000, 4, { min: -1_000 })` is `[-1000, 1000, 2000, 3000]`.
 
 ## Date ticks
 
@@ -126,8 +130,8 @@ import { LineChart } from "@softure-ai/charts";
 />;
 ```
 
-A server component. It draws a `<figure>`: the title as caption, value labels from zero to the peak
-(`formatValue`), grid, one line per series, a dashed guide and a chip per flag, month or year labels in the
+A server component. It draws a `<figure>`: the title as caption, value labels from zero (or from the lowest
+value when it is negative, with the baseline staying at zero) to the peak (`formatValue`), grid, one line per series, a dashed guide and a chip per flag, month or year labels in the
 app's time zone, a legend, the cursor and the data table. Series share their x values (one table row and one
 cursor stop per date; different dates throw a `TypeError`). `formatDate` changes the readout's and the
 table's dates (a medium date in `timeZone` by default); `valueTickTarget` and `dateTickTarget` the number of
@@ -235,39 +239,36 @@ order), `grounds` (`SERIES_GROUNDS` by default), `minDistance` (10), `visions` a
 `grounds` it checks an app's own token names. `@softure-ai/charts/testing` is never imported by the
 components, so it stays out of app bundles.
 
-## Adopting in FIRE_TRACKER
+## Adopting from an app's own charts
 
-The package came out of FIRE_TRACKER's charts. What each FIRE file maps to, and what stays in FIRE:
+The package came out of an adopting app's hand-rolled charts. What each part of such a chart maps to:
 
-| FIRE_TRACKER | `@softure-ai/charts` | Stays in FIRE |
+| An app's own chart | `@softure-ai/charts` | Stays in the app |
 | --- | --- | --- |
-| `src/lib/chart-scale.ts` `scaleY`, `scaleX` | `linearScale`, `timeScale` (with `invert`) | — |
-| `src/lib/chart-scale.ts` `peakOf`, `capitalOf` | `peakOf(series, { getValue: capitalOf })` | `capitalOf` (FIRE's point) |
-| `src/lib/chart-ticks.ts` `valueTicks(peakCents, target)` | `valueTicks(peak, target, { minStep: 100 })` on cents (unit-free; `minStep` keeps whole zloty) | `formatAxisAmount` (the PLN suffix), passed as `formatValue` |
-| `src/lib/chart-ticks.ts` `yearTicks` | `yearTicks` (same rule and tests) | `monthIndexOfYear` |
-| `src/lib/nearest-point.ts` | `nearestPointIndex(points, x.invert(pointerX))`, in data space | — |
-| `src/components/chart/chart-lines.tsx` | `GridLines`, `Baseline`, `GuideLine` (`dashed`, `dotted`) | — |
-| `src/components/chart/value-axis.tsx` `amountTicks`, `ValueAxis` | `valueAxisTicks({ ticks, scale, format })`, `ValueAxis` | the zero tick's copy |
-| `src/components/chart/time-axis.tsx` `yearAxisTicks`, `TimeAxis` | `timeAxisTicks` (with `ends`), `TimeAxis` | the age row |
-| `src/components/chart/chart-legend.tsx` shapes `pole`, `kropka`, `linia`, `kreska`, `kropki` | `LegendSwatch` shapes `box`, `dot`, `line`, `dashed`, `dotted` and a `slot` | the outline from a colour in the database |
-| `src/components/chart/chart-flag.tsx` `ChartFlag`, `ChartPin` | `ChartFlag` (edge rule `edgeAlign`), `ChartPin` (`xPercent` on the pin, not a parent column; `variant="gleboka"` → `slot`; `size` → `--sft-chart-dot-size`) | the surface rings (`PIN_DOT_RING_CLASS`), as overrides of `--sft-chart-axis` |
-| `src/components/chart/chart-surface.ts` `percent`, `flagAnchorClass` | `percent`, `toPercent`, `edgeAlign` | the surfaces (`rola`, `czern`, `papier`) and tones, as overrides of the `--sft-chart-*` tokens |
-| `src/components/capital-chart-readout.tsx` (the cursor) | `ChartCursor`: arrows, Home/End, Escape, pointer events, a polite live readout | the readout's content |
-| `src/components/chart/unlock-step.ts` | — | all of it (FIRE's domain) |
-| `src/lib/color-vision.ts`, `src/app/theme-contrast.test.ts` | `@softure-ai/ui/testing`: `findColorCollisions`, `contrastRatio`, `checkThemeContrast` | — |
-| `src/lib/{band-colors,position-colors}.test.ts` (the generic checks) | `checkSeriesPalette(schemes, { tokens, grounds })` from `@softure-ai/charts/testing` | the colours themselves |
+| y and x scales | `linearScale`, `timeScale` (with `invert`) | — |
+| the peak of stacked points | `peakOf(series, { getValue })`, `troughOf` for debt below zero | the point type and its sum |
+| value ticks counted in cents | `valueTicks(peak, target, { minStep: 100, min })` (unit-free) | the axis format, passed as `formatValue` |
+| year ticks | `yearTicks` | month helpers |
+| the nearest point to the pointer | `nearestPointIndex(points, x.invert(pointerX))`, in data space | — |
+| grid, baseline and guide lines | `GridLines`, `Baseline`, `GuideLine` (`dashed`, `dotted`) | — |
+| value and time axes | `valueAxisTicks({ ticks, scale, format })`, `ValueAxis`, `timeAxisTicks` (with `ends`), `TimeAxis` | extra rows (an age row) |
+| legend swatches | `LegendSwatch` shapes `box`, `dot`, `line`, `dashed`, `dotted` and a `slot` | outlines from stored colours |
+| event chips and pins | `ChartFlag` (edge rule `edgeAlign`), `ChartPin` (`xPercent` on the pin; a series fill through `slot`; size through `--sft-chart-dot-size`) | surface-specific rings, as overrides of `--sft-chart-axis` |
+| percentages and surfaces | `percent`, `toPercent`, `edgeAlign` | surface tones, as overrides of the `--sft-chart-*` tokens |
+| the cursor | `ChartCursor`: arrows, Home/End, Escape, pointer events, a polite live readout | the readout's content |
+| colour-vision and contrast checks | `@softure-ai/ui/testing` (`findColorCollisions`, `contrastRatio`, `checkThemeContrast`) and `checkSeriesPalette` from `@softure-ai/charts/testing` | the colours themselves |
 
 Two differences to carry over deliberately:
 
-- FIRE measured colour distance in CIE76 with a threshold of 12; the guards default to CIEDE2000 and 10. To keep
-  FIRE's numbers while migrating, pass `{ metric: "cie76", minDistance: 12 }`.
-- Labels and copy come from `chartsMessages` (`en`, `pl`), so a FIRE string moves to the `messages` prop, not
+- A guard measuring colour distance in CIE76 with a threshold of 12 differs from the defaults here (CIEDE2000
+  and 10). To keep such numbers while migrating, pass `{ metric: "cie76", minDistance: 12 }`.
+- Labels and copy come from `chartsMessages` (`en`, `pl`), so an app's string moves to the `messages` prop, not
   into the component.
 
 ## Limitations
 
-- Values start at zero: the y domain is `[0, peak]`; a domain without zero (or negative values) is not
-  supported yet.
+- The y domain always contains zero: `[min(0, trough), peak]`. A domain away from zero (a stock price from 90
+  to 110) is not supported yet.
 - `LineChart` takes dates on x; numeric x needs the primitives.
 - Weeks start on Monday (ISO 8601) whatever the locale.
 - Ticks below a day (hours, minutes) are not supported.

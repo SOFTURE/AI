@@ -1,8 +1,7 @@
 import { err, formatMessage, type Locale, ok, type Result } from "@softure-ai/core";
 import { getCopy, type CopyProps } from "./copy.js";
 
-// Money typed into a field, in integer cents. Ported from FIRE_TRACKER src/lib/money.ts, which
-// only knew Polish notation; here the notation follows the locale:
+// Money typed into a field, in integer cents. The notation follows the locale:
 // - `pl`: groups of three separated by spaces ("1 234,56"), decimal comma or dot;
 // - `en`: groups separated by commas or spaces ("1,234.56"), decimal dot.
 // The server action parses with the same function the field formats with.

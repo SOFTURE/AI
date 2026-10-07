@@ -2,7 +2,7 @@ import type { DeepPartial, Locale } from "@softure-ai/core";
 import { ChartCursor, type CursorPoint } from "../cursor/chart-cursor.js";
 import { getChartsCopy, type ChartsMessages } from "../messages/index.js";
 import { dateTicks, formatDateTick } from "../scale/date-ticks.js";
-import { linearScale, peakOf, timeScale } from "../scale/scale.js";
+import { linearScale, peakOf, timeScale, troughOf } from "../scale/scale.js";
 import { valueTicks } from "../scale/value-ticks.js";
 import { timeAxisTicks, valueAxisTicks } from "./axis-ticks.js";
 import { ChartPlot } from "./chart-plot.js";
@@ -66,7 +66,8 @@ const TOP_GAP = 16;
 /**
  * A line chart of time series, rendered on the server: title, value axis, grid, series, flags, time
  * axis, legend, a keyboard and pointer cursor with a live readout, and the data as a visually hidden
- * table. Values start at zero (the y domain is `[0, peak]`). Throws a `TypeError` when the series do
+ * table. The y domain runs from zero, or from the lowest value when it is negative, to the peak; the
+ * baseline stays at zero. Throws a `TypeError` when the series do
  * not share their x values, which is a programming error.
  */
 export function LineChart({
@@ -91,9 +92,11 @@ export function LineChart({
   const end = dates.at(-1) ?? start;
   const xScale = timeScale({ domain: [start, end], range: [0, PLOT_WIDTH] });
   const peak = peakOf(series.map((entry) => entry.points));
-  const yScale = linearScale({ domain: [0, peak], range: [PLOT_HEIGHT, TOP_GAP] });
+  const trough = troughOf(series.map((entry) => entry.points));
+  // Below zero the lowest value gets the same gap as the peak, so its stroke is not cut either.
+  const yScale = linearScale({ domain: [trough, peak], range: [trough < 0 ? PLOT_HEIGHT - TOP_GAP : PLOT_HEIGHT, TOP_GAP] });
 
-  const values = valueTicks(peak, valueTickTarget);
+  const values = valueTicks(peak, valueTickTarget, { min: trough });
   const axisDates = dateTicks({ start, end, target: dateTickTarget, timeZone });
   // Without a calendar boundary in the span (one point, or hours apart), the first date still gets a label.
   const timeTicks = axisDates
@@ -133,7 +136,7 @@ export function LineChart({
           ))}
         >
           <GridLines ys={values.map((value) => yScale(value))} />
-          <Baseline />
+          <Baseline y={yScale(0)} />
           {visibleFlags.map((flag) => (
             <GuideLine key={flag.key} x={xScale(flag.x)} />
           ))}

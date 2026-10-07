@@ -1,5 +1,5 @@
 // Keyboard model of the listbox `Select` (WAI-ARIA select-only combobox), as a pure function so
-// every key is unit-tested. Ported from FIRE_TRACKER src/components/select-keys.ts.
+// every key is unit-tested.
 
 export interface SelectKeyState {
   readonly isOpen: boolean;

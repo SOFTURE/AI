@@ -1,9 +1,9 @@
 // Colour-vision simulation and colour distance, so a palette is checked against more eyes than its author's.
-// Ported from FIRE_TRACKER `src/lib/color-vision.ts` (charts roadmap, CH-3), with tritan vision and CIEDE2000
+// Extracted from an adopting app's palette checks (charts roadmap, CH-3), with tritan vision and CIEDE2000
 // added (context/archive/2026-10-06-ui-color-guards/research.md §3-4).
 //
-// Protan and deutan use the Viénot, Brettel and Mollon (1999) projection FIRE measured its palettes with, so
-// its numbers stay the same. Tritan uses Machado, Oliveira and Fernandes (2009) at severity 1.0, applied in
+// Protan and deutan use the Viénot, Brettel and Mollon (1999) projection the source app measured its palettes
+// with, so its numbers stay the same. Tritan uses Machado, Oliveira and Fernandes (2009) at severity 1.0, applied in
 // linear sRGB, as Chromium's DevTools emulation does: Viénot's single plane is unreliable for tritanopia.
 import { formatHexColor, readHexColor, toLinearChannel, toSrgbChannel } from "./color.js";
 
@@ -15,8 +15,8 @@ export type ColorDistanceMetric = "ciede2000" | "cie76";
 export type Lab = readonly [lightness: number, a: number, b: number];
 
 /**
- * Below this CIEDE2000 distance two series colours count as indistinguishable. FIRE's minimum between its data
- * roles (CIE76 20) lands at 10-12 in CIEDE2000 on its own pairs (research §3); a palette check may pass its own.
+ * Below this CIEDE2000 distance two series colours count as indistinguishable. The source app's minimum between its
+ * data roles (CIE76 20) lands at 10-12 in CIEDE2000 on its own pairs (research §3); a palette check may pass its own.
  */
 export const DEFAULT_MIN_COLOR_DISTANCE = 10;
 
@@ -135,7 +135,7 @@ export function deltaE2000([l1, a1, b1]: Lab, [l2, a2, b2]: Lab): number {
 }
 
 export interface ColorDistanceOptions {
-  /** `ciede2000` (default) is uniform across hues; `cie76` keeps thresholds calibrated on it (FIRE's). */
+  /** `ciede2000` (default) is uniform across hues; `cie76` keeps thresholds calibrated on it. */
   readonly metric?: ColorDistanceMetric;
 }
 

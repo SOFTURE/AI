@@ -1,6 +1,6 @@
 // Public API of @softure-ai/charts: the arithmetic of a chart (no DOM, no React), then the components.
 export type { ChartPoint, Interval, Scale } from "./scale/scale.js";
-export { linearScale, peakOf, timeScale, toNumber } from "./scale/scale.js";
+export { linearScale, peakOf, timeScale, toNumber, troughOf } from "./scale/scale.js";
 export { valueTicks, YEAR_STEPS, yearTicks } from "./scale/value-ticks.js";
 export type { DateTicks, DateTickUnit } from "./scale/date-ticks.js";
 export { dateTicks, formatDateTick } from "./scale/date-ticks.js";
