@@ -1,12 +1,13 @@
 ---
 change_id: auth-adoption-gaps
 title: "Logout returns to a chosen path, the route guard stays on a trusted request origin, and Vitest setup is documented"
-status: impl_reviewed
+status: archived
 roadmap_item: null
 issue: "#193"
 branch: claude/project-thread-1b21pb
 created: 2026-10-07
 updated: 2026-10-07
+archived_at: 2026-10-07
 ---
 
 ## Intent
@@ -55,3 +56,4 @@ After this change:
   `next-modules.d.ts`.
 - Framing is skipped: the issue states problem, workaround and two candidate fixes per point; the
   choice between them is a plan decision, not a question about whether to build.
+- Archived 2026-10-07: `logoutAction` takes a return target, `createAuthGuard({ trustedOrigins })` keeps the login redirect on a listed public origin, and the README documents `cookie.secure` and the Vitest `server.deps.inline` setting; released as `@softure-ai/auth` 0.1.8.
