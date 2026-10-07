@@ -17,7 +17,7 @@ export const MODULE_ID = "mailing";
 export const mailing = defineModule({
   manifest: {
     id: MODULE_ID,
-    version: "0.1.8",
+    version: "0.1.9",
     dependsOn: {},
     dbSchema: "mailing",
     tables: ["suppressions", "campaigns", "deliveries"],
@@ -68,6 +68,7 @@ export { HALTING_ERROR_CODES, TRANSACTIONAL_KIND } from "./contract.js";
 export type {
   CampaignRecipient,
   CampaignRecipientFilter,
+  CampaignRecipientSource,
   LegacyUnsubscribe,
   MailingErrorCode,
   MailProvider,

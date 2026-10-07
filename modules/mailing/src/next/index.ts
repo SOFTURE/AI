@@ -3,6 +3,7 @@
 // (docs/02-module-standard.md §8).
 export { unsubscribeAction } from "./actions.js";
 export { deliverOnce } from "./deliver-once.js";
+export { importDeliveries } from "./import-deliveries.js";
 export { getMailingMessages } from "./messages.js";
 export { UnsubscribePage, type UnsubscribePageProps } from "./pages.js";
 export { UNSUBSCRIBE_STATUS_PARAM, type UnsubscribeStatus } from "./params.js";

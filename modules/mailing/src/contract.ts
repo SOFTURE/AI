@@ -62,6 +62,16 @@ export interface CampaignRecipient {
 export type CampaignRecipientFilter = (recipient: CampaignRecipient, ctx: ModuleContext<Queryable>) => Promise<boolean>;
 
 /**
+ * Lists the addresses a campaign goes to, from the app's own data (e.g. the people who opted in to its kind), so a
+ * campaign can run where the database is without a recipients file. Duplicates are fine; `filterCampaignRecipient`
+ * and the suppression list still apply. A throw stops the campaign. Set in `mailing({ listCampaignRecipients })`.
+ */
+export type CampaignRecipientSource = (
+  campaign: { readonly id: string; readonly kind: string },
+  ctx: ModuleContext<Queryable>,
+) => Iterable<string> | AsyncIterable<string> | Promise<Iterable<string>>;
+
+/**
  * Unsubscribe links an app sent before it adopted the module, in its own scheme. `params` are the query names of
  * such a link; `verify` receives their values (all present once, each at most 512 characters) and returns the
  * recipient's address when the link is genuine, else `null`. It must check the link's signature itself: whatever

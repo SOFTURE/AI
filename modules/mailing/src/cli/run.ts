@@ -1,6 +1,6 @@
-// `softure-mail`: sends a campaign from a content file and checks the sender domain's DNS. The app
-// passes its validated config, so the same function serves the bin and an app script that a
-// bundler packs for a container:
+// `softure-mail`: sends a campaign from a content file, imports an app's delivery history into the
+// ledger and checks the sender domain's DNS. The app passes its validated config, so the same
+// function serves the bin and an app script that a bundler packs for a container:
 //
 //   // scripts/mail.ts
 //   import { runMailCli } from "@softure-ai/mailing/cli";
@@ -10,11 +10,13 @@ import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { systemClock, type SoftureConfig, type SoftureDatabaseConfig } from "@softure-ai/core";
+import { z } from "zod";
 import { openCommandDatabase, type CommandDatabase, type DatabaseHandle } from "@softure-ai/db";
 import { parseCampaignFile, parseRecipientList, type CampaignContent } from "../server/campaign-file.js";
-import { planCampaign, sendCampaign, type CampaignSummary } from "../server/campaigns.js";
+import { listConfiguredCampaignRecipients, planCampaign, sendCampaign, type CampaignSummary } from "../server/campaigns.js";
 import type { DeliveryContext, HaltingErrorCode } from "../server/deliveries.js";
 import { checkSenderDns, getSenderDomain, resendReturnPath, type DmarcAlignment, type DmarcExpectation, type DmarcPolicy, type DnsCheck, type ResolveCname, type ResolveMx, type ResolveTxt, type ReturnPathHost } from "../server/dns.js";
+import { checkImportedDeliveries, importDeliveries, type ImportedDelivery, type ImportProblem } from "../server/import-deliveries.js";
 import { getMailingOptions } from "../server/options.js";
 import { MIN_UNSUBSCRIBE_SECRET_LENGTH, readUnsubscribeSecrets, UNSUBSCRIBE_SECRET_ENV, type Env } from "../server/unsubscribe-link.js";
 
@@ -24,7 +26,7 @@ export interface CliOutput {
 }
 
 export interface RunMailCliOptions {
-  /** The app's config. Needed by `campaign`, and by `dns` without `--domain`. */
+  /** The app's config. Needed by `campaign` and `import`, and by `dns` without `--domain`. */
   readonly config?: SoftureConfig;
   /** The arguments after the executable, e.g. `["campaign", "launch.md", "--recipients", "list.txt"]`. */
   readonly argv: readonly string[];
@@ -38,6 +40,8 @@ export interface RunMailCliOptions {
   readonly resolveCname?: ResolveCname;
   readonly sleep?: (ms: number) => Promise<void>;
   readonly env?: Env;
+  /** Reads all of standard input, for a file given as `-`. Default: `process.stdin`. */
+  readonly readStdin?: () => Promise<string>;
 }
 
 export const EXIT_OK = 0;
@@ -48,19 +52,29 @@ export const EXIT_USAGE = 2;
 export const DEFAULT_PAUSE_MS = 500;
 
 export const MAIL_USAGE = `Usage:
-  softure-mail campaign <content-file> --recipients <file> [--dry-run] [--pause-ms <ms>] [--resend-uncertain]
+  softure-mail campaign <content-file> [--recipients <file>] [--dry-run] [--pause-ms <ms>] [--resend-uncertain]
+  softure-mail import <history-file> [--dry-run]
   softure-mail dns [--domain <domain>] [--dkim-selector <name>]... [--spf-host <host>]...
                    [--dmarc-policy <p>] [--dmarc-sp <p>] [--dmarc-adkim <a>] [--dmarc-aspf <a>]
                    [--reply-to <address>] [--return-path <host>]... [--resend-return-path]
 
 campaign  Sends the campaign in <content-file> (frontmatter id, kind, subject, optional html,
           then the text body) to every address in the recipients file (one per line), at most
-          once each. Re-running sends only to recipients without an outcome yet. A refused
-          API key or a spent quota stops the run; the rest go out on the next one.
+          once each. Without --recipients, the recipients come from listCampaignRecipients in
+          the mailing options. Re-running sends only to recipients without an outcome yet. A
+          refused API key or a spent quota stops the run; the rest go out on the next one.
+  --recipients <file>  the recipients, one address per line
   --dry-run            count what would be sent and change nothing
   --pause-ms <ms>      pause after every send (default ${String(DEFAULT_PAUSE_MS)})
   --resend-uncertain   also send to recipients whose send was interrupted long ago
                        (it may have gone out: they may get the mail twice)
+
+import    Writes deliveries the app made before it adopted the module into the ledger, so
+          later sends skip them. <history-file> holds one JSON object per line: scope,
+          address, status (sent or rejected), finishedAt, and optional providerMessageId,
+          reason, kind. Rows already in the ledger are left as they are; any invalid row
+          stops the import before anything is written.
+  --dry-run            check the file and change nothing
 
 dns       Checks SPF, DKIM and DMARC for the sender domain (default: the domain of "from").
   --domain <domain>       check this domain instead
@@ -77,9 +91,12 @@ dns       Checks SPF, DKIM and DMARC for the sender domain (default: the domain 
   --return-path <host>    a return-path host that must be a CNAME or have MX (repeatable)
   --resend-return-path    check Resend's send.<domain> and rsend.<domain> CNAMEs
 
-Options for both:
+Options for all:
   --config <file>    the app's softure.config file (bin only)
-  --help             show this help`;
+  --help             show this help
+
+A file given as - is read from standard input (one of them per command), e.g.
+  docker compose exec -T app npx softure-mail campaign - < launch.md`;
 
 const consoleOutput: CliOutput = {
   log: (line) => console.log(line),
@@ -91,11 +108,13 @@ type Command =
   | {
       readonly kind: "campaign";
       readonly contentFile: string;
-      readonly recipientsFile: string;
+      /** `null`: the module's `listCampaignRecipients`. */
+      readonly recipientsFile: string | null;
       readonly dryRun: boolean;
       readonly pauseMs: number;
       readonly resendUncertain: boolean;
     }
+  | { readonly kind: "import"; readonly historyFile: string; readonly dryRun: boolean }
   | {
       readonly kind: "dns";
       readonly domain: string | undefined;
@@ -109,6 +128,9 @@ type Command =
 
 const DMARC_POLICIES: readonly DmarcPolicy[] = ["quarantine", "reject"];
 const DMARC_ALIGNMENTS: readonly DmarcAlignment[] = ["r", "s"];
+/** A file name that means standard input. */
+const STDIN = "-";
+const CAMPAIGN_ONLY_OPTIONS = ["recipients", "pause-ms", "resend-uncertain"] as const;
 const DNS_ONLY_OPTIONS = ["domain", "dkim-selector", "spf-host", "dmarc-policy", "dmarc-sp", "dmarc-adkim", "dmarc-aspf", "reply-to", "return-path", "resend-return-path"] as const;
 
 /** Runs the command and returns the process exit code: 0 done, 1 failed or incomplete, 2 usage error. */
@@ -128,14 +150,16 @@ export async function runMailCli(options: RunMailCliOptions): Promise<number> {
       return runDns(command, options, output);
     case "campaign":
       return runCampaign(command, options, output);
+    case "import":
+      return runImport(command, options, output);
   }
 }
 
 function parseCommand(argv: readonly string[]): Command | string {
   const [name, ...rest] = argv;
-  if (name === undefined) return "missing command; use campaign or dns";
+  if (name === undefined) return "missing command; use campaign, import or dns";
   if (name === "--help") return { kind: "help" };
-  if (name !== "campaign" && name !== "dns") return `unknown command "${name}"; use campaign or dns`;
+  if (name !== "campaign" && name !== "import" && name !== "dns") return `unknown command "${name}"; use campaign, import or dns`;
 
   let parsed: ReturnType<typeof parseCommandArgs>;
   try {
@@ -147,7 +171,7 @@ function parseCommand(argv: readonly string[]): Command | string {
   if (values.help === true) return { kind: "help" };
 
   if (name === "dns") {
-    const misplaced = (["recipients", "dry-run", "pause-ms", "resend-uncertain"] as const).filter((option) => values[option] !== undefined);
+    const misplaced = ([...CAMPAIGN_ONLY_OPTIONS, "dry-run"] as const).filter((option) => values[option] !== undefined);
     if (misplaced.length > 0) return `dns does not take --${misplaced.join(", --")}`;
     if (positionals.length > 0) return `dns takes no file, got "${positionals.join(" ")}"`;
     const expectDmarc = parseDmarcExpectation(values);
@@ -164,15 +188,24 @@ function parseCommand(argv: readonly string[]): Command | string {
     };
   }
 
+  if (name === "import") {
+    const misplaced = [...CAMPAIGN_ONLY_OPTIONS, ...DNS_ONLY_OPTIONS].filter((option) => values[option] !== undefined);
+    if (misplaced.length > 0) return `import does not take --${misplaced.join(", --")}`;
+    const [historyFile, ...extra] = positionals;
+    if (historyFile === undefined) return "import needs a history file (- for standard input)";
+    if (extra.length > 0) return `import takes one history file, got also "${extra.join(" ")}"`;
+    return { kind: "import", historyFile, dryRun: values["dry-run"] === true };
+  }
+
   const misplaced = DNS_ONLY_OPTIONS.filter((option) => values[option] !== undefined);
   if (misplaced.length > 0) return `campaign does not take --${misplaced.join(", --")}`;
   const [contentFile, ...extra] = positionals;
   if (contentFile === undefined) return "campaign needs a content file";
   if (extra.length > 0) return `campaign takes one content file, got also "${extra.join(" ")}"`;
-  if (values.recipients === undefined) return "campaign needs --recipients <file>";
+  if (contentFile === STDIN && values.recipients === STDIN) return "campaign can read only one of the content file and --recipients from standard input";
   const pauseMs = values["pause-ms"] === undefined ? DEFAULT_PAUSE_MS : Number(values["pause-ms"]);
   if (!Number.isInteger(pauseMs) || pauseMs < 0 || pauseMs > 60_000) return `--pause-ms expects whole milliseconds from 0 to 60000, got "${values["pause-ms"] ?? ""}"`;
-  return { kind: "campaign", contentFile, recipientsFile: values.recipients, dryRun: values["dry-run"] === true, pauseMs, resendUncertain: values["resend-uncertain"] === true };
+  return { kind: "campaign", contentFile, recipientsFile: values.recipients ?? null, dryRun: values["dry-run"] === true, pauseMs, resendUncertain: values["resend-uncertain"] === true };
 }
 
 function parseCommandArgs(args: readonly string[]) {
@@ -285,9 +318,19 @@ async function runCampaign(command: Extract<Command, { kind: "campaign" }>, opti
     output.error("softure-mail campaign: needs the app's config");
     return EXIT_FAILED;
   }
-  const loaded = await loadCampaign(resolve(cwd, command.contentFile), resolve(cwd, command.recipientsFile));
-  if (typeof loaded === "string") {
-    output.error(`softure-mail campaign: ${loaded}`);
+  const input = createInputReader(cwd, options.readStdin ?? readProcessStdin);
+  const content = await loadCampaignContent(command.contentFile, input);
+  if (typeof content === "string") {
+    output.error(`softure-mail campaign: ${content}`);
+    return EXIT_FAILED;
+  }
+  const listed = command.recipientsFile === null ? null : await loadRecipientFile(command.recipientsFile, input);
+  if (typeof listed === "string") {
+    output.error(`softure-mail campaign: ${listed}`);
+    return EXIT_FAILED;
+  }
+  if (listed === null && getMailingOptions(config).listCampaignRecipients === undefined) {
+    output.error("softure-mail campaign: pass --recipients <file>, or set listCampaignRecipients in the mailing options");
     return EXIT_FAILED;
   }
   if (!command.dryRun && readUnsubscribeSecrets(options.env ?? process.env).current === null) {
@@ -308,6 +351,7 @@ async function runCampaign(command: Extract<Command, { kind: "campaign" }>, opti
   }
   const ctx: DeliveryContext = { db: opened.handle.db, clock: systemClock, config };
   try {
+    const loaded: LoadedCampaign = { campaign: content, recipients: listed ?? (await collectRecipients(ctx, content)) };
     return command.dryRun
       ? await reportPlan(ctx, loaded, command.resendUncertain, output)
       : await reportSend(ctx, loaded, { pauseMs: command.pauseMs, sleep: options.sleep, retakeUncertain: command.resendUncertain }, output);
@@ -325,22 +369,152 @@ interface LoadedCampaign {
   readonly recipients: readonly string[];
 }
 
-async function loadCampaign(contentPath: string, recipientsPath: string): Promise<LoadedCampaign | string> {
-  const source = await readText(contentPath);
-  if (source === null) return `cannot read the content file ${contentPath}`;
-  const parsed = parseCampaignFile(source);
-  if (!parsed.ok) return `${contentPath} is not a campaign:\n  ${parsed.problems.join("\n  ")}`;
+/** Reads a named file, or standard input for `-`; `name` is what messages call it. */
+interface InputReader {
+  readonly read: (file: string) => Promise<{ readonly text: string | null; readonly name: string; readonly dir: string }>;
+}
+
+function createInputReader(cwd: string, readStdin: () => Promise<string>): InputReader {
+  return {
+    read: async (file) => {
+      if (file === STDIN) return { text: await readStdin(), name: "standard input", dir: cwd };
+      const path = resolve(cwd, file);
+      return { text: await readText(path), name: path, dir: dirname(path) };
+    },
+  };
+}
+
+async function loadCampaignContent(file: string, input: InputReader): Promise<CampaignContent | string> {
+  const source = await input.read(file);
+  if (source.text === null) return `cannot read the content file ${source.name}`;
+  const parsed = parseCampaignFile(source.text);
+  if (!parsed.ok) return `${source.name} is not a campaign:\n  ${parsed.problems.join("\n  ")}`;
   const { htmlPath, ...content } = parsed.value;
   let html: string | null = null;
   if (htmlPath !== null) {
-    const htmlFile = resolve(dirname(contentPath), htmlPath);
+    // Next to the content file; for standard input, the working directory.
+    const htmlFile = resolve(source.dir, htmlPath);
     html = await readText(htmlFile);
     if (html === null) return `cannot read the HTML body ${htmlFile}`;
     if (html.trim() === "") return `the HTML body ${htmlFile} is empty`;
   }
-  const list = await readText(recipientsPath);
-  if (list === null) return `cannot read the recipients file ${recipientsPath}`;
-  return { campaign: { ...content, html }, recipients: parseRecipientList(list) };
+  return { ...content, html };
+}
+
+async function loadRecipientFile(file: string, input: InputReader): Promise<readonly string[] | string> {
+  const list = await input.read(file);
+  if (list.text === null) return `cannot read the recipients file ${list.name}`;
+  return parseRecipientList(list.text);
+}
+
+/** The recipients from `listCampaignRecipients`, which the caller checked is set. */
+async function collectRecipients(ctx: DeliveryContext, campaign: CampaignContent): Promise<readonly string[]> {
+  const recipients: string[] = [];
+  const source = await listConfiguredCampaignRecipients(ctx, campaign);
+  if (source === null) return recipients;
+  for await (const address of source) recipients.push(address);
+  return recipients;
+}
+
+/** One line of a history file. Unknown keys are refused, so a typo does not drop a field. */
+const historyRowSchema = z.strictObject({
+  scope: z.string(),
+  address: z.string(),
+  status: z.enum(["sent", "rejected"]),
+  finishedAt: z.string(),
+  providerMessageId: z.string().optional(),
+  reason: z.enum(["mailing.invalid_input", "mailing.rejected", "mailing.unavailable", "mailing.suppressed"]).optional(),
+  kind: z.string().optional(),
+});
+
+async function runImport(command: Extract<Command, { kind: "import" }>, options: RunMailCliOptions, output: CliOutput): Promise<number> {
+  const config = options.config;
+  if (config === undefined) {
+    output.error("softure-mail import: needs the app's config");
+    return EXIT_FAILED;
+  }
+  const source = await createInputReader(options.cwd ?? process.cwd(), options.readStdin ?? readProcessStdin).read(command.historyFile);
+  if (source.text === null) {
+    output.error(`softure-mail import: cannot read the history file ${source.name}`);
+    return EXIT_FAILED;
+  }
+  const parsed = parseHistory(source.text);
+  if (parsed.problems.length > 0) return reportImportProblems(parsed.problems, output);
+  const rows = parsed.rows.map((row) => row.delivery);
+  const lineOf = (problem: ImportProblem) => parsed.rows[problem.index]?.line ?? 0;
+
+  // Checked before the database is opened, so a bad file costs no connection.
+  const checked = checkImportedDeliveries({ clock: systemClock }, rows);
+  if (!checked.ok) return reportImportProblems(checked.problems.map((problem) => ({ line: lineOf(problem), problem: problem.problem })), output);
+  if (command.dryRun) {
+    output.log(`import, dry run: nothing written; rows ${String(rows.length)}, duplicates ${String(checked.value.duplicates)}`);
+    return EXIT_OK;
+  }
+  if (config.database === null) {
+    output.error("softure-mail import: the config has no database; set database.url in softure.config");
+    return EXIT_FAILED;
+  }
+  let opened: CommandDatabase;
+  try {
+    opened = await openDatabase(config.database, options.openDatabase);
+  } catch (error) {
+    output.error(`softure-mail import: ${describeError(error)}`);
+    return EXIT_FAILED;
+  }
+  try {
+    const result = await importDeliveries({ db: opened.handle.db, clock: systemClock, config }, rows);
+    if (!result.ok) return reportImportProblems(result.problems.map((problem) => ({ line: lineOf(problem), problem: problem.problem })), output);
+    const summary = result.value;
+    output.log(`import: rows ${String(summary.rows)}, imported ${String(summary.imported)}, already present ${String(summary.alreadyPresent)}, duplicates ${String(summary.duplicates)}`);
+    return EXIT_OK;
+  } catch (error) {
+    output.error(`softure-mail import: ${describeError(error)} (did softure migrate run?)`);
+    return EXIT_FAILED;
+  } finally {
+    await opened.close();
+  }
+}
+
+interface LineProblem {
+  readonly line: number;
+  readonly problem: string;
+}
+
+/** The history file's rows with their line numbers; problems name lines and fields, never values. */
+function parseHistory(text: string): { readonly rows: readonly { readonly line: number; readonly delivery: ImportedDelivery }[]; readonly problems: readonly LineProblem[] } {
+  const rows: { line: number; delivery: ImportedDelivery }[] = [];
+  const problems: LineProblem[] = [];
+  text.split(/\r?\n/).forEach((source, index) => {
+    const line = index + 1;
+    if (source.trim() === "") return;
+    let value: unknown;
+    try {
+      value = JSON.parse(source);
+    } catch {
+      problems.push({ line, problem: "not a JSON object" });
+      return;
+    }
+    const parsed = historyRowSchema.safeParse(value);
+    if (!parsed.success) {
+      for (const issue of parsed.error.issues) {
+        const field = issue.path.length === 0 ? "row" : issue.path.join(".");
+        problems.push({ line, problem: issue.code === "unrecognized_keys" ? `unknown field(s) ${issue.keys.join(", ")}` : `${field}: ${issue.message}` });
+      }
+      return;
+    }
+    const { providerMessageId, reason, kind, ...required } = parsed.data;
+    rows.push({
+      line,
+      delivery: { ...required, ...(providerMessageId === undefined ? {} : { providerMessageId }), ...(reason === undefined ? {} : { reason }), ...(kind === undefined ? {} : { kind }) },
+    });
+  });
+  return { rows, problems };
+}
+
+function reportImportProblems(problems: readonly LineProblem[], output: CliOutput): number {
+  output.error(`softure-mail import: nothing written, ${String(problems.length)} problem(s):`);
+  for (const { line, problem } of problems) output.error(`  line ${String(line)}: ${problem}`);
+  return EXIT_FAILED;
 }
 
 async function reportPlan(ctx: DeliveryContext, loaded: LoadedCampaign, retakeUncertain: boolean, output: CliOutput): Promise<number> {
@@ -431,6 +605,12 @@ async function openDatabase(database: SoftureDatabaseConfig, open: ((url: string
   if (open === undefined) return openCommandDatabase(database, { max: 1 });
   const handle = await open(database.url);
   return { handle, close: handle.close };
+}
+
+async function readProcessStdin(): Promise<string> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of process.stdin) chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : (chunk as Buffer));
+  return Buffer.concat(chunks).toString("utf8");
 }
 
 async function readText(path: string): Promise<string | null> {

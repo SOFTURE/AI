@@ -131,6 +131,48 @@ describe("deliverOnce", () => {
     expect(respond).toHaveBeenCalledTimes(2);
   });
 
+  it("closes the delivery on the module's maxAttempts, and a per-call value wins", async () => {
+    const strict = await createTestMailing(createConfig(provider, { maxAttempts: 2 }));
+    try {
+      respond.mockReturnValue({ status: "unavailable" });
+      expect(await deliverOnce(strict.ctx, { scope: SCOPE, mail: MAIL })).toEqual({ status: "retry-later" });
+      expect(await deliverOnce(strict.ctx, { scope: SCOPE, mail: MAIL })).toEqual({ status: "rejected", reason: "mailing.unavailable" });
+      expect(await deliverOnce(strict.ctx, { scope: "billing.trial-ending:sub_43", mail: MAIL }, { maxAttempts: 1 })).toEqual({ status: "rejected", reason: "mailing.unavailable" });
+      expect(respond).toHaveBeenCalledTimes(3);
+    } finally {
+      await strict.database.close();
+    }
+  });
+
+  it("never closes a delivery on unavailable when maxAttempts is null, in the module or per call", async () => {
+    const patient = await createTestMailing(createConfig(provider, { maxAttempts: null }));
+    try {
+      respond.mockReturnValue({ status: "unavailable" });
+      for (let attempt = 1; attempt <= 8; attempt += 1) {
+        expect(await deliverOnce(patient.ctx, { scope: SCOPE, mail: MAIL })).toEqual({ status: "retry-later" });
+      }
+      expect(await deliverOnce(test.ctx, { scope: SCOPE, mail: MAIL }, { maxAttempts: null })).toEqual({ status: "retry-later" });
+      for (let attempt = 2; attempt <= 6; attempt += 1) {
+        expect(await deliverOnce(test.ctx, { scope: SCOPE, mail: MAIL }, { maxAttempts: null })).toEqual({ status: "retry-later" });
+      }
+      expect(await listLedger(patient)).toMatchObject([{ status: "pending", attempts: 8 }]);
+      expect(await listLedger(test)).toMatchObject([{ status: "pending", attempts: 6 }]);
+
+      respond.mockReturnValue(undefined);
+      expect((await deliverOnce(patient.ctx, { scope: SCOPE, mail: MAIL })).status).toBe("sent");
+    } finally {
+      await patient.database.close();
+    }
+  });
+
+  it("closes the delivery on the fifth unavailable attempt by default", async () => {
+    respond.mockReturnValue({ status: "unavailable" });
+    for (let attempt = 1; attempt <= 4; attempt += 1) {
+      expect(await deliverOnce(test.ctx, { scope: SCOPE, mail: MAIL })).toEqual({ status: "retry-later" });
+    }
+    expect(await deliverOnce(test.ctx, { scope: SCOPE, mail: MAIL })).toEqual({ status: "rejected", reason: "mailing.unavailable" });
+  });
+
   it.each([
     ["a refused key", { status: "refused", httpStatus: 401 } as const, "mailing.provider_refused", 401],
     ["a spent quota", { status: "quota_exceeded", httpStatus: 429 } as const, "mailing.quota_exceeded", 429],
