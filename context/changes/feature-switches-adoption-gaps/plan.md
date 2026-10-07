@@ -70,8 +70,8 @@ SQL the test runs (copied verbatim).
 ### Phase 1: the Next adapter (row mapping, revalidation)
 
 #### Automated
-- [ ] 1.1 New tests fail before the implementation and pass after
-- [ ] 1.2 Gates green (typecheck, lint, test)
+- [x] 1.1 New tests fail before the implementation and pass after — a4b8914
+- [x] 1.2 Gates green (typecheck, lint, test) — a4b8914
 
 ### Phase 2: privacy helpers, README, version
 
