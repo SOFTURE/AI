@@ -20,11 +20,12 @@ interface LedgerRow {
   finished_at: Date | null;
   provider_message_id: string | null;
   reason: string | null;
+  provider_status: number | null;
 }
 
 async function listLedger(test: TestMailing): Promise<LedgerRow[]> {
   const result = await test.database.client.query<LedgerRow>(
-    "SELECT scope, recipient_key, kind, campaign_id, status, attempts, claimed_at, finished_at, provider_message_id, reason FROM mailing.deliveries ORDER BY scope, recipient_key",
+    "SELECT scope, recipient_key, kind, campaign_id, status, attempts, claimed_at, finished_at, provider_message_id, reason, provider_status FROM mailing.deliveries ORDER BY scope, recipient_key",
   );
   return result.rows;
 }
@@ -65,6 +66,7 @@ describe("deliverOnce", () => {
         finished_at: NOW,
         provider_message_id: provider.sent[0]?.id,
         reason: null,
+        provider_status: null,
       },
     ]);
   });
@@ -90,11 +92,11 @@ describe("deliverOnce", () => {
   it("closes the delivery as rejected when the provider refuses it, and never retries", async () => {
     const reason = "mailing.rejected";
     respond.mockReturnValue({ status: "rejected", httpStatus: 422 });
-    expect(await deliverOnce(test.ctx, { scope: SCOPE, mail: MAIL })).toEqual({ status: "rejected", reason });
+    expect(await deliverOnce(test.ctx, { scope: SCOPE, mail: MAIL })).toEqual({ status: "rejected", reason, httpStatus: 422 });
     respond.mockReturnValue(undefined);
     expect(await deliverOnce(test.ctx, { scope: SCOPE, mail: MAIL })).toEqual({ status: "done", outcome: "rejected" });
     expect(respond).toHaveBeenCalledTimes(1);
-    expect(await listLedger(test)).toMatchObject([{ status: "rejected", reason, finished_at: NOW, provider_message_id: null }]);
+    expect(await listLedger(test)).toMatchObject([{ status: "rejected", reason, finished_at: NOW, provider_message_id: null, provider_status: 422 }]);
   });
 
   it("closes a suppressed recipient as rejected without calling the provider, and never retries", async () => {
@@ -111,8 +113,8 @@ describe("deliverOnce", () => {
 
   it("releases the claim when the provider is unavailable, and sends on the next run with the same key", async () => {
     respond.mockReturnValueOnce({ status: "unavailable", httpStatus: 503 });
-    expect(await deliverOnce(test.ctx, { scope: SCOPE, mail: MAIL })).toEqual({ status: "retry-later" });
-    expect(await listLedger(test)).toMatchObject([{ status: "pending", attempts: 1, finished_at: null, reason: null }]);
+    expect(await deliverOnce(test.ctx, { scope: SCOPE, mail: MAIL })).toEqual({ status: "retry-later", httpStatus: 503 });
+    expect(await listLedger(test)).toMatchObject([{ status: "pending", attempts: 1, finished_at: null, reason: null, provider_status: 503 }]);
 
     test.clock.advance(1_000);
     const outcome = await deliverOnce(test.ctx, { scope: SCOPE, mail: MAIL });
@@ -127,6 +129,65 @@ describe("deliverOnce", () => {
     expect(await deliverOnce(test.ctx, { scope: SCOPE, mail: MAIL }, { maxAttempts: 2 })).toEqual({ status: "rejected", reason: "mailing.unavailable" });
     expect(await deliverOnce(test.ctx, { scope: SCOPE, mail: MAIL }, { maxAttempts: 2 })).toEqual({ status: "done", outcome: "rejected" });
     expect(respond).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    ["a refused key", { status: "refused", httpStatus: 401 } as const, "mailing.provider_refused", 401],
+    ["a spent quota", { status: "quota_exceeded", httpStatus: 429 } as const, "mailing.quota_exceeded", 429],
+  ])("halts on %s: releases the claim with its attempt given back and its status, and sends on the next run", async (_case, refusal, reason, status) => {
+    respond.mockReturnValue(refusal);
+    expect(await deliverOnce(test.ctx, { scope: SCOPE, mail: MAIL })).toEqual({ status: "halted", reason, httpStatus: status });
+    expect(await listLedger(test)).toMatchObject([{ status: "pending", attempts: 0, finished_at: null, reason: null, provider_status: status }]);
+
+    respond.mockReturnValue(undefined);
+    expect((await deliverOnce(test.ctx, { scope: SCOPE, mail: MAIL })).status).toBe("sent");
+    expect(await listLedger(test)).toMatchObject([{ status: "sent", attempts: 1, provider_status: null }]);
+  });
+
+  it("never lets halts use up the attempts: after many halted runs an unavailable provider still means retry later", async () => {
+    respond.mockReturnValue({ status: "refused", httpStatus: 403 });
+    for (let run = 0; run < 4; run += 1) {
+      expect((await deliverOnce(test.ctx, { scope: SCOPE, mail: MAIL }, { maxAttempts: 2 })).status).toBe("halted");
+    }
+    respond.mockReturnValue({ status: "unavailable", httpStatus: 503 });
+    expect(await deliverOnce(test.ctx, { scope: SCOPE, mail: MAIL }, { maxAttempts: 2 })).toEqual({ status: "retry-later", httpStatus: 503 });
+    expect(await listLedger(test)).toMatchObject([{ status: "pending", attempts: 1 }]);
+  });
+
+  it("leaves an uncertain claim (older than 23 hours) alone and says so, sending nothing", async () => {
+    await insertClaim(test, { claimedAt: new Date(NOW.getTime() - 23 * 3_600_000 - 1), attempts: 1 });
+    expect(await deliverOnce(test.ctx, { scope: SCOPE, mail: MAIL })).toEqual({ status: "uncertain" });
+    expect(respond).not.toHaveBeenCalled();
+    expect(await listLedger(test)).toMatchObject([{ status: "claimed", attempts: 1 }]);
+  });
+
+  it("takes over a stale claim just inside the uncertain window", async () => {
+    await insertClaim(test, { claimedAt: new Date(NOW.getTime() - 23 * 3_600_000), attempts: 1 });
+    expect((await deliverOnce(test.ctx, { scope: SCOPE, mail: MAIL })).status).toBe("sent");
+  });
+
+  it("re-sends an uncertain claim with the same idempotency key when told to retake it", async () => {
+    await insertClaim(test, { claimedAt: new Date(NOW.getTime() - 3 * 24 * 3_600_000), attempts: 1 });
+    expect((await deliverOnce(test.ctx, { scope: SCOPE, mail: MAIL }, { retakeUncertain: true })).status).toBe("sent");
+    expect(provider.sent[0]?.idempotencyKey).toBe(`${SCOPE}:${ADA_KEY}`);
+    expect(await listLedger(test)).toMatchObject([{ status: "sent", attempts: 2 }]);
+  });
+
+  it("reads both claim windows from the module options, and lets the call's options win", async () => {
+    const configured = await createTestMailing(createConfig(provider, { staleClaimMs: 60_000, uncertainClaimMs: 120_000 }));
+    try {
+      await insertClaim(configured, { claimedAt: new Date(NOW.getTime() - 90_000), attempts: 1 });
+      expect((await deliverOnce(configured.ctx, { scope: SCOPE, mail: MAIL }, { staleClaimMs: 100_000 })).status).toBe("in-flight");
+      expect((await deliverOnce(configured.ctx, { scope: SCOPE, mail: MAIL })).status).toBe("sent");
+      await insertClaim(configured, { claimedAt: new Date(NOW.getTime() - 121_000), attempts: 1, scope: "billing.trial-ending:sub_43" });
+      expect(await deliverOnce(configured.ctx, { scope: "billing.trial-ending:sub_43", mail: MAIL })).toEqual({ status: "uncertain" });
+    } finally {
+      await configured.database.close();
+    }
+  });
+
+  it("throws when the call's windows leave no stale period", async () => {
+    await expect(deliverOnce(test.ctx, { scope: SCOPE, mail: MAIL }, { staleClaimMs: 60_000, uncertainClaimMs: 60_000 })).rejects.toThrow(/must be more than staleClaimMs/);
   });
 
   it("leaves a fresh claim of another sender alone", async () => {
@@ -210,6 +271,10 @@ describe("the deliveries table", () => {
     await expect(insert({})).resolves.toBeDefined();
   });
 
+  it("accepts a released row whose attempt was given back", async () => {
+    await expect(insert({ status: "pending", attempts: 0, provider_status: 401 })).resolves.toBeDefined();
+  });
+
   it.each([
     ["a second row for the same scope and recipient", () => insert({}), {}],
     ["an address instead of a recipient key", () => Promise.resolve(), { recipient_key: "ada@example.org" }],
@@ -218,7 +283,8 @@ describe("the deliveries table", () => {
     ["a rejected row without a reason", () => Promise.resolve(), { status: "rejected", finished_at: NOW }],
     ["a closed row without a finish time", () => Promise.resolve(), { status: "sent", provider_message_id: "id-1" }],
     ["an unknown reason", () => Promise.resolve(), { status: "rejected", finished_at: NOW, reason: "mailing.bounced" }],
-    ["zero attempts", () => Promise.resolve(), { attempts: 0 }],
+    ["zero attempts on a claim", () => Promise.resolve(), { attempts: 0 }],
+    ["a provider status that is not an HTTP status", () => Promise.resolve(), { provider_status: 99 }],
     ["a campaign row outside its campaign scope", () => test.database.client.query("INSERT INTO mailing.campaigns VALUES ('launch', 'newsletter', 'Hi', $1, $2)", ["a".repeat(64), NOW]), { campaign_id: "launch" }],
     ["a campaign that does not exist", () => Promise.resolve(), { scope: "campaign:ghost", campaign_id: "ghost" }],
   ])("refuses %s", async (_case, setUp, row) => {
@@ -234,9 +300,9 @@ describe("the deliveries table", () => {
   });
 });
 
-async function insertClaim(test: TestMailing, claim: { claimedAt: Date; attempts: number }): Promise<void> {
+async function insertClaim(test: TestMailing, claim: { claimedAt: Date; attempts: number; scope?: string }): Promise<void> {
   await test.database.client.query(
     "INSERT INTO mailing.deliveries (scope, recipient_key, kind, status, attempts, claimed_at, created_at) VALUES ($1, $2, 'transactional', 'claimed', $3, $4, $4)",
-    [SCOPE, ADA_KEY, claim.attempts, claim.claimedAt],
+    [claim.scope ?? SCOPE, ADA_KEY, claim.attempts, claim.claimedAt],
   );
 }

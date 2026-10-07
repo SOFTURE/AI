@@ -46,6 +46,32 @@ export interface UnsubscribeEvent {
  */
 export type OnUnsubscribedHook = (event: UnsubscribeEvent, ctx: ModuleContext<Queryable>) => Promise<void>;
 
+/** What `filterCampaignRecipient` receives for each recipient of a campaign. */
+export interface CampaignRecipient {
+  readonly address: string;
+  /** The recipient key of the address (`getRecipientKey`). */
+  readonly recipientKey: string;
+  readonly campaign: { readonly id: string; readonly kind: string };
+}
+
+/**
+ * Decides whether a campaign goes to a recipient, e.g. by the consent scope the app stored for the address. A
+ * recipient it refuses is skipped before the ledger is touched, so a later re-run sends to them once they qualify.
+ * A throw stops the campaign, like a database failure. Set in `mailing({ filterCampaignRecipient })`.
+ */
+export type CampaignRecipientFilter = (recipient: CampaignRecipient, ctx: ModuleContext<Queryable>) => Promise<boolean>;
+
+/**
+ * Unsubscribe links an app sent before it adopted the module, in its own scheme. `params` are the query names of
+ * such a link; `verify` receives their values (all present once, each at most 512 characters) and returns the
+ * recipient's address when the link is genuine, else `null`. It must check the link's signature itself: whatever
+ * address it returns is unsubscribed. A throw reads as a failure (the person may try again), not as a bad link.
+ */
+export interface LegacyUnsubscribe {
+  readonly params: readonly string[];
+  readonly verify: (values: Readonly<Record<string, string>>, ctx: ModuleContext<Queryable>) => Promise<string | null>;
+}
+
 /** One mail to one recipient. A mail to a list is a loop over recipients, never a list in `to`. */
 export interface OutgoingMail {
   /** Exactly one address: `ada@example.com`. */

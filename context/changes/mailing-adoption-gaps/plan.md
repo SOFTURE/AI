@@ -114,15 +114,15 @@ Done when: `npm run typecheck`, `lint`, `test`, `build` green.
 
 ### Phase 1: provider failures
 
-- [x] status in the result and the new codes
-- [x] resend mapping
+- [x] status in the result and the new codes — 9a7fda2
+- [x] resend mapping — 9a7fda2
 
 ### Phase 2: ledger and campaigns
 
-- [ ] provider status stored, halt releases the claim
-- [ ] campaign stops on halt
-- [ ] recipient filter
-- [ ] claim windows and uncertain claims
+- [x] provider status stored, halt releases the claim
+- [x] campaign stops on halt
+- [x] recipient filter
+- [x] claim windows and uncertain claims
 
 ### Phase 3: legacy unsubscribe links
 
