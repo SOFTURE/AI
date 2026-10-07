@@ -67,11 +67,13 @@ Done when: `npm run typecheck`, `lint`, `test`, `build` green.
 
 ### Phase 1: checkSenderDns
 
-- [ ] DMARC expectations
-- [ ] reply path
-- [ ] return path
+- [x] DMARC expectations — 4ff0e28
+- [x] reply path — 4ff0e28
+- [x] return path — 4ff0e28
 
 ### Phase 2: command and docs
 
-- [ ] CLI flags and output
-- [ ] README, CHANGELOG, version 0.1.8
+- [x] CLI flags and output — 808b1c9
+- [x] README, CHANGELOG, version 0.1.8 — 808b1c9
+
+Gates (808b1c9): typecheck, lint, test (4640 passed, 107 skipped), build green.

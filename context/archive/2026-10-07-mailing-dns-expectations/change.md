@@ -1,12 +1,13 @@
 ---
 change_id: mailing-dns-expectations
 title: "mailing: required DMARC policy, reply path and return-path checks in checkSenderDns (issue #206)"
-status: plan_reviewed
+status: archived
 roadmap_item: null
 issue: 206
 branch: claude/project-thread-bpfubi
 created: 2026-10-07
 updated: 2026-10-07
+archived_at: 2026-10-07
 ---
 
 ## Intent

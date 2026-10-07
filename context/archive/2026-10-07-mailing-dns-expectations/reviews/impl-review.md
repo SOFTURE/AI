@@ -30,6 +30,6 @@ No drift. Phase 1 tests were seen red (27 failing) before the implementation, th
 Security: no input reaches a `RegExp` (target domain compared as strings); the check reads public DNS only and never
 throws. No secrets, no logging of addresses.
 
-Gates: `npm run typecheck`, `npm run lint`, `npm test`, `npm run build` (results in Progress).
+Gates on 808b1c9: typecheck, lint, test (4640 passed, 107 skipped), build: green.
 
 Verdict: approve.
