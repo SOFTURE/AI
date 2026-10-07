@@ -1,12 +1,13 @@
 ---
 change_id: analytics-two-origins
 title: "Analytics works for an app served on two first-party origins behind a proxy"
-status: plan_reviewed
+status: archived
 roadmap_item: null
 issue: "#210"
 branch: claude/project-thread-j326cn
 created: 2026-10-07
 updated: 2026-10-07
+archived_at: 2026-10-07
 ---
 
 ## Intent
@@ -64,3 +65,4 @@ apex pages).
 - Research folded into Context: the change is confined to one module whose relevant files were all read.
 - Framing skipped: the issue reports measured failures with proposed shapes; the only open question (how a tag
   crosses origins under the default referrer policy) is settled in Context and the plan.
+- Archived 2026-10-07 after the implementation review; all six points of #210 are delivered (analytics 0.1.8).

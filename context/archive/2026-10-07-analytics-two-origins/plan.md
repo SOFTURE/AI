@@ -74,16 +74,16 @@ props and `isKnownChannel`; gates green (typecheck, lint, test, build).
 ### Phase 1: first-party origins and the public origin
 
 #### Automated
-- [ ] 1.1 New tests fail before the implementation and pass after
-- [ ] 1.2 Gates green (typecheck, lint, test)
+- [x] 1.1 New tests fail before the implementation and pass after — 37bef84
+- [x] 1.2 Gates green (typecheck, lint, test) — 37bef84
 
 ### Phase 2: browser keeper, pixel and known channels
 
 #### Automated
-- [ ] 2.1 New tests fail before the implementation and pass after
-- [ ] 2.2 Gates green (typecheck, lint, test)
+- [x] 2.1 New tests fail before the implementation and pass after — a844f77
+- [x] 2.2 Gates green (typecheck, lint, test) — a844f77
 
 ### Phase 3: docs and version
 
 #### Automated
-- [ ] 3.1 Gates green (typecheck, lint, test, build)
+- [x] 3.1 Gates green (typecheck, lint, test, build) — 31ee2f4
