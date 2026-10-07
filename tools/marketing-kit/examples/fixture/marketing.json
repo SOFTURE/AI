@@ -73,6 +73,7 @@
           "id": "cta",
           "text": "Count your own date today.",
           "pad": 1.2,
+          "screenGuard": ["March 2040"],
           "actions": [
             { "do": "wide" },
             { "do": "bring", "target": { "role": "heading" }, "top": 40, "seconds": 0.4 }
@@ -87,7 +88,7 @@
         ],
         "transition": "rewind"
       },
-      "screenGuard": ["49 years", "March 2040"],
+      "screenGuard": ["49 years"],
       "endCard": { "headline": "Count your date", "url": "example.com/calculator", "note": "Free, no account" }
     },
     {

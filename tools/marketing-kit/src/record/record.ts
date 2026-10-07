@@ -5,8 +5,9 @@ import { chromium, type Locator } from "playwright";
 
 import { fitScale, getGeometry, unionRect, type Rect } from "../compose/timeline.js";
 import type { ColorTheme } from "../config/colors.js";
-import { containsPhrase, sceneBeats, type CueName, type Director, type Film } from "../film.js";
+import { sceneBeats, type Beat, type CueName, type Director, type Film } from "../film.js";
 import type { BeatVoice } from "../voice/voiceover.js";
+import { describeCheckScreenFailure, describeSentenceFailure, findMissingPhrases, getCheckScreenPhrases } from "./screen-guard.js";
 
 /**
  * Recording of the real app **frame by frame**, with the page clock frozen.
@@ -96,7 +97,8 @@ export async function recordFilm(options: RecordOptions): Promise<RecordingLog> 
   mkdirSync(framesDir, { recursive: true });
 
   const voiceById = new Map(voices.map((voice) => [voice.id, voice]));
-  const expectedBeats = sceneBeats(film).map((beat) => beat.id);
+  const sentenceById = new Map(sceneBeats(film).map((beat) => [beat.id, beat]));
+  const expectedBeats = [...sentenceById.keys()];
   const log: RecordingLog = {
     voiceoverKey: options.voiceoverKey,
     beatIds: expectedBeats,
@@ -157,7 +159,8 @@ export async function recordFilm(options: RecordOptions): Promise<RecordingLog> 
 
     let virtualMs = 0;
     let frame = 0;
-    let current: { id: string; f0: number } | null = null;
+    /** The sentence being recorded; `isGuardChecked` once a checkScreen inside it checked its own phrases. */
+    let current: { id: string; f0: number; sentence: Beat; isGuardChecked: boolean } | null = null;
     let guardChecked = false;
 
     const where = (): string => (current === null ? "before the first sentence" : `sentence "${current.id}"`);
@@ -194,6 +197,10 @@ export async function recordFilm(options: RecordOptions): Promise<RecordingLog> 
 
     async function hold(seconds: number): Promise<void> {
       for (let i = 0, count = Math.round(seconds * FPS); i < count; i += 1) await shoot();
+    }
+
+    async function readScreenText(): Promise<string> {
+      return (await page.locator(settings.screenGuardSelector).first().innerText()).replace(/\s+/g, " ");
     }
 
     async function rectOf(target: Locator): Promise<Rect> {
@@ -249,13 +256,21 @@ export async function recordFilm(options: RecordOptions): Promise<RecordingLog> 
           );
         }
         const voice = voiceById.get(id);
-        if (voice === undefined) throw new Error(`No voiceover for sentence "${id}".`);
-        current = { id, f0: frame };
+        const sentence = sentenceById.get(id);
+        if (voice === undefined || sentence === undefined) throw new Error(`No voiceover for sentence "${id}".`);
+        const state = { id, f0: frame, sentence, isGuardChecked: false };
+        current = state;
         await actions();
         const minFrames = Math.round((voice.end - voice.start + (beatOptions?.pad ?? 0.35)) * FPS);
-        const missing = minFrames - (frame - current.f0);
+        const missing = minFrames - (frame - state.f0);
         if (missing > 0) await hold(missing / FPS);
-        log.beats.push({ id, f0: current.f0, f1: frame });
+        // The sentence's own phrases, on its last frame, unless a checkScreen inside it already checked them.
+        const phrases = sentence.screenGuard ?? [];
+        if (!state.isGuardChecked && phrases.length > 0) {
+          const absent = findMissingPhrases(await readScreenText(), phrases);
+          if (absent.length > 0) throw new ScreenGuardError(describeSentenceFailure(id, absent, filmPath));
+        }
+        log.beats.push({ id, f0: state.f0, f1: frame });
       },
 
       async until(word) {
@@ -341,16 +356,10 @@ export async function recordFilm(options: RecordOptions): Promise<RecordingLog> 
       },
 
       async checkScreen() {
-        const text = (await page.locator(settings.screenGuardSelector).first().innerText()).replace(/\s+/g, " ");
-        const missing = film.screenGuard.filter((phrase) => !containsPhrase(text, phrase));
-        if (missing.length > 0) {
-          throw new ScreenGuardError(
-            `The screen does not say what the voiceover says: missing ${missing.map((p) => `"${p}"`).join(", ")}. ` +
-              `The app counts from the recording day: if the voiceover was paid for on another day, pin that day in the video's ` +
-              `"today" (or pass --today=YYYY-MM-DD); otherwise fix the sentences and phrases in ${filmPath}.`,
-          );
-        }
+        const missing = findMissingPhrases(await readScreenText(), getCheckScreenPhrases(film.screenGuard, current?.sentence ?? null));
+        if (missing.length > 0) throw new ScreenGuardError(describeCheckScreenFailure(missing, filmPath));
         guardChecked = true;
+        if (current !== null) current.isGuardChecked = true;
       },
     };
 
@@ -362,7 +371,9 @@ export async function recordFilm(options: RecordOptions): Promise<RecordingLog> 
         `The scene recorded ${log.beats.length} of ${expectedBeats.length} sentences; "${expectedBeats[log.beats.length]}" is missing.`,
       );
     }
-    if (!guardChecked) throw new Error("The scene never called checkScreen(): a film without the screen guard could say what the screen does not show.");
+    if (!guardChecked && film.screenGuard.length > 0) {
+      throw new Error("The scene never called checkScreen(): the video's screenGuard phrases were never checked, so the film could say what the screen does not show.");
+    }
     if (log.stills[film.hook.still] === undefined) {
       throw new Error(`The scene did not save the opening frame "${film.hook.still}" (still).`);
     }
