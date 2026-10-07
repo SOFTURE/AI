@@ -70,9 +70,13 @@ describe("sendMail", () => {
     ["rejected", { status: "rejected", httpStatus: 422 }, "mailing.rejected", "status=422"],
     ["unavailable", { status: "unavailable", httpStatus: 503 }, "mailing.unavailable", "status=503"],
     ["unavailable without a status", { status: "unavailable" }, "mailing.unavailable", "status=none"],
-  ])("returns %s when the provider says so, and logs the status", async (_case, outcome, code, status) => {
+    ["provider_refused", { status: "refused", httpStatus: 401 }, "mailing.provider_refused", "status=401"],
+    ["quota_exceeded", { status: "quota_exceeded", httpStatus: 429 }, "mailing.quota_exceeded", "status=429"],
+    ["provider_refused without a status", { status: "refused" }, "mailing.provider_refused", "status=none"],
+  ])("returns %s when the provider says so, with its status, and logs the status", async (_case, outcome, code, status) => {
     const { provider } = answer(outcome);
-    await expect(sendMail({ config: createConfig(provider) }, MAIL)).resolves.toEqual({ ok: false, error: code });
+    const httpStatus = "httpStatus" in outcome ? { httpStatus: outcome.httpStatus } : {};
+    await expect(sendMail({ config: createConfig(provider) }, MAIL)).resolves.toStrictEqual({ ok: false, error: code, ...httpStatus });
     expect(logged()).toBe(`mailing: send failed provider=stub reason=${code.slice("mailing.".length)} ${status}`);
   });
 
@@ -81,9 +85,10 @@ describe("sendMail", () => {
     ["answers nothing", () => Promise.resolve(undefined)],
     ["answers an unknown status", () => Promise.resolve({ status: "queued", id: "x" })],
     ["answers sent without an id", () => Promise.resolve({ status: "sent", id: "" })],
+    ["answers an inherited status name", () => Promise.resolve({ status: "toString" })],
   ])("returns unavailable when the provider %s", async (_case, send) => {
     const { provider } = createProvider(send);
-    await expect(sendMail({ config: createConfig(provider) }, MAIL)).resolves.toEqual({ ok: false, error: "mailing.unavailable" });
+    await expect(sendMail({ config: createConfig(provider) }, MAIL)).resolves.toStrictEqual({ ok: false, error: "mailing.unavailable" });
     expect(logged()).toBe("mailing: send failed provider=stub reason=unavailable status=none");
   });
 

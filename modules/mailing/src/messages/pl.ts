@@ -8,6 +8,8 @@ export const pl: typeof en = {
       rejected: "Usługa pocztowa odrzuciła tę wiadomość.",
       unavailable: "Usługa pocztowa nie odpowiada. Spróbuj ponownie za chwilę.",
       suppressed: "Ten adres wypisał się z takich wiadomości, więc nic nie wysłano.",
+      provider_refused: "Usługa pocztowa odrzuciła nasze konto, więc nic nie wysłano. Musimy to naprawić po naszej stronie.",
+      quota_exceeded: "Wyczerpaliśmy na razie limit wysyłki. Spróbuj ponownie później.",
     },
   },
   footer: {

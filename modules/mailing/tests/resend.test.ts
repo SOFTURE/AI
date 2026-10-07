@@ -100,8 +100,12 @@ describe("resend()", () => {
 
   it.each([
     [400, { name: "validation_error", message: "Invalid `to` field: ada@example.org" }, "rejected"],
-    [401, { name: "missing_api_key" }, "rejected"],
-    [403, { name: "invalid_api_key" }, "rejected"],
+    [401, { name: "missing_api_key" }, "refused"],
+    [403, { name: "invalid_api_key" }, "refused"],
+    [403, { name: "validation_error", message: "You can only send testing emails to ada@example.org" }, "refused"],
+    [429, { name: "daily_quota_exceeded" }, "quota_exceeded"],
+    [429, { name: "monthly_quota_exceeded" }, "quota_exceeded"],
+    [429, "", "quota_exceeded"],
     [409, { name: "invalid_idempotent_request" }, "rejected"],
     [422, { name: "validation_error" }, "rejected"],
     [409, { name: "concurrent_idempotent_requests" }, "unavailable"],

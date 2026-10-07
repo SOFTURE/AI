@@ -144,7 +144,7 @@ function assertCampaign(content: CampaignContent): void {
 }
 
 function emptyRejections(): Record<MailingErrorCode, number> {
-  return { "mailing.invalid_input": 0, "mailing.rejected": 0, "mailing.unavailable": 0, "mailing.suppressed": 0 };
+  return { "mailing.invalid_input": 0, "mailing.rejected": 0, "mailing.unavailable": 0, "mailing.suppressed": 0, "mailing.provider_refused": 0, "mailing.quota_exceeded": 0 };
 }
 
 function countOutcome(

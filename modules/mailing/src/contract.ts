@@ -1,6 +1,6 @@
 // Result types, error codes and the provider contract of the mailing module. No user-facing copy
 // here: the UI translates codes through `messages` (docs/02-module-standard.md §6).
-import type { ModuleContext, Result } from "@softure-ai/core";
+import type { Err, ModuleContext, Ok } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
 
 export type MailingErrorCode =
@@ -11,7 +11,17 @@ export type MailingErrorCode =
   /** The provider could not be reached or did not answer in time. Retry later, with the same idempotency key. */
   | "mailing.unavailable"
   /** A list mail to a recipient who unsubscribed. Nothing was sent; do not retry. */
-  | "mailing.suppressed";
+  | "mailing.suppressed"
+  /**
+   * The provider refuses the sender, not the mail: a wrong or revoked API key, a suspended or restricted account
+   * (HTTP 401/403). Every other mail would fail the same way: stop sending, fix the account, then retry.
+   */
+  | "mailing.provider_refused"
+  /** The account's sending quota is spent (HTTP 429 that is not a rate limit). Stop sending; retry when it renews. */
+  | "mailing.quota_exceeded";
+
+/** The codes that are about the sending account, not the mail: a run of sends stops at the first one. */
+export const HALTING_ERROR_CODES: ReadonlySet<MailingErrorCode> = new Set(["mailing.provider_refused", "mailing.quota_exceeded"]);
 
 /** Why an unsubscribe link was refused: missing, malformed, or not signed by a current secret. */
 export type UnsubscribeErrorCode = "mailing.invalid_link";
@@ -77,7 +87,10 @@ export interface SentMail {
   readonly provider: string;
 }
 
-export type SendMailResult = Result<SentMail, MailingErrorCode>;
+/** A failed send: the code, and the provider's HTTP status when it answered with one. */
+export type SendMailFailure = Err<MailingErrorCode> & { readonly httpStatus?: number };
+
+export type SendMailResult = Ok<SentMail> | SendMailFailure;
 
 /** What a provider receives: a validated mail with the sender and reply-to from the configuration. */
 export interface ProviderMessage {
@@ -91,11 +104,15 @@ export interface ProviderMessage {
   readonly idempotencyKey: string | null;
 }
 
-/** What a provider answers. `httpStatus` is logged; the mail never is. */
+/**
+ * What a provider answers. `httpStatus` is logged and returned with the failure; the mail never is. `refused` is the
+ * provider refusing the sender (key, account), `quota_exceeded` a spent sending quota; `rejected` is about this mail.
+ */
 export type ProviderOutcome =
   | { readonly status: "sent"; readonly id: string }
-  | { readonly status: "rejected"; readonly httpStatus?: number }
-  | { readonly status: "unavailable"; readonly httpStatus?: number };
+  | { readonly status: ProviderFailureStatus; readonly httpStatus?: number };
+
+export type ProviderFailureStatus = "rejected" | "unavailable" | "refused" | "quota_exceeded";
 
 /**
  * A mail service adapter. `send` should resolve with an outcome for every failure it knows; a

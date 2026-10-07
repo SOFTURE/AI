@@ -64,14 +64,16 @@ export {
   MAX_SUBJECT_LENGTH,
   RESERVED_HEADERS,
 } from "./address.js";
-export { TRANSACTIONAL_KIND } from "./contract.js";
+export { HALTING_ERROR_CODES, TRANSACTIONAL_KIND } from "./contract.js";
 export type {
   MailingErrorCode,
   MailProvider,
   OnUnsubscribedHook,
   OutgoingMail,
+  ProviderFailureStatus,
   ProviderMessage,
   ProviderOutcome,
+  SendMailFailure,
   SendMailOptions,
   SendMailResult,
   SentMail,
