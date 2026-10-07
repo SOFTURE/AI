@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`auth@x.y.z`).
 
-## Unreleased
+## 0.1.8
 
 - `logoutAction({ next })`, a `next` form field and `<LogoutButton next>` choose where logout goes; the path is
   checked like login's `next` and falls back to `routes.afterLogout`.
