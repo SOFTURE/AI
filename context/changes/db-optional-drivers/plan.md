@@ -64,5 +64,5 @@ command bundles `scripts/migrate.ts` on the pg-only copy and the bundle migrates
 
 ## Progress
 
-- [ ] Phase 1: optional peers and the missing-driver error
+- [x] Phase 1: optional peers and the missing-driver error (a06eb0a)
 - [ ] Phase 2: the example app and the docs
