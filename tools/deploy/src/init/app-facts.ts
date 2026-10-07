@@ -4,6 +4,8 @@ import { join } from "node:path";
 import { z } from "zod";
 
 const NEXT_CONFIG_FILES = ["next.config.ts", "next.config.mts", "next.config.js", "next.config.mjs"];
+const SERVER_EXTERNAL_LIST = /serverExternalPackages\s*:\s*\[([^\]]*)\]/;
+const DB_PACKAGE_LITERAL = /(["'`])@softure-ai\/db\1/;
 
 const packageJsonSchema = z.looseObject({
   name: z.string().optional(),
@@ -23,6 +25,11 @@ export interface AppFacts {
   nextConfigFile: string | null;
   /** The Next config mentions `standalone`, which the Dockerfile's runner stage needs. */
   isStandalone: boolean;
+  /**
+   * The Next config names `@softure-ai/db` in `serverExternalPackages`, without which `next build` cannot resolve the
+   * driver the app does not install. Absent (facts built by hand) means not checked.
+   */
+  isDbServerExternal?: boolean;
 }
 
 export type AppFactsResult = { ok: true; facts: AppFacts } | { ok: false; problem: string };
@@ -45,12 +52,23 @@ function readPackageJson(dir: string): z.infer<typeof packageJsonSchema> | strin
   return parsed.success ? parsed.data : "package.json has no object of name and dependencies";
 }
 
+/**
+ * Whether the config text names `@softure-ai/db` as a quoted entry of `serverExternalPackages`: inside the literal
+ * array when there is one, else anywhere in a file that sets the key from a variable.
+ */
+function isDbListedAsServerExternal(configText: string): boolean {
+  const literalList = SERVER_EXTERNAL_LIST.exec(configText);
+  if (literalList !== null) return DB_PACKAGE_LITERAL.test(literalList[1] ?? "");
+  return configText.includes("serverExternalPackages") && DB_PACKAGE_LITERAL.test(configText);
+}
+
 /** Reads the facts `init` takes from the app; an unreadable package.json is an expected failure. */
 export function readAppFacts(dir: string): AppFactsResult {
   const pkg = readPackageJson(dir);
   if (typeof pkg === "string") return { ok: false, problem: pkg };
   const dependencies = { ...pkg.devDependencies, ...pkg.dependencies };
   const nextConfigFile = NEXT_CONFIG_FILES.find((file) => existsSync(join(dir, file))) ?? null;
+  const configText = nextConfigFile === null ? "" : readFileSync(join(dir, nextConfigFile), "utf8");
   const publicDir = join(dir, "public");
   return {
     ok: true,
@@ -60,7 +78,8 @@ export function readAppFacts(dir: string): AppFactsResult {
       hasHealthRoute: "@softure-ai/ops" in dependencies,
       hasPublicDir: existsSync(publicDir) && statSync(publicDir).isDirectory(),
       nextConfigFile,
-      isStandalone: nextConfigFile !== null && readFileSync(join(dir, nextConfigFile), "utf8").includes("standalone"),
+      isStandalone: configText.includes("standalone"),
+      isDbServerExternal: isDbListedAsServerExternal(configText),
     },
   };
 }
