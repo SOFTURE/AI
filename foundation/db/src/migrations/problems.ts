@@ -1,6 +1,6 @@
 // Every expected migration failure, as a value (AGENTS.md: expected failures are results). Each
-// problem names the module and file it is about; `describeProblem` turns it into the English line
-// the CLI prints and `createTestDatabase` throws.
+// problem names the module and file it is about (or the app's hook phase); `describeProblem` turns
+// it into the English line the CLI prints and `createTestDatabase` throws.
 import type { Err, Ok } from "@softure-ai/core";
 
 export type MigrationProblem =
@@ -10,6 +10,7 @@ export type MigrationProblem =
   | { readonly code: "db.migration_missing"; readonly module: string; readonly version: number; readonly name: string }
   | { readonly code: "db.migration_out_of_order"; readonly module: string; readonly version: number; readonly appliedVersion: number }
   | { readonly code: "db.migration_failed"; readonly module: string; readonly version: number; readonly name: string; readonly reason: string }
+  | { readonly code: "db.app_migration_failed"; readonly phase: "before" | "after"; readonly reason: string }
   | { readonly code: "db.reserved_module"; readonly module: string }
   | { readonly code: "db.migrations_without_schema"; readonly module: string }
   | { readonly code: "db.dependency_cycle"; readonly modules: readonly string[] }
@@ -54,8 +55,12 @@ export function describeProblem(problem: MigrationProblem): string {
       return `${problem.module}: migration ${formatVersion(problem.version)} is pending but ${formatVersion(problem.appliedVersion)} is already applied`;
     case "db.migration_failed":
       return `${problem.module}: migration ${formatFile(problem.version, problem.name)} failed and was rolled back: ${problem.reason}`;
+    case "db.app_migration_failed":
+      return problem.phase === "before"
+        ? `app: the before migrations failed: ${problem.reason}; no module migration ran`
+        : `app: the after migrations failed: ${problem.reason}; the module migrations before it stay applied`;
     case "db.reserved_module":
-      return `${problem.module}: uses a reserved id or schema (the id "softure"; the schemas softure, public, information_schema, pg_* and names over 63 bytes)`;
+      return `${problem.module}: uses a reserved id or schema (the id "softure"; the schemas softure, public, information_schema, drizzle, pg_* and names over 63 bytes)`;
     case "db.migrations_without_schema":
       return `${problem.module}: has migrations but no dbSchema in its manifest`;
     case "db.dependency_cycle":

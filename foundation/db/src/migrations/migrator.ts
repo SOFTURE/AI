@@ -2,6 +2,7 @@
 // module's own schema, dependencies first, one transaction per file together with its ledger row.
 // Everything that can be checked (names, numbering, checksums, order) is checked for all modules
 // before the first file runs, so a problem in one module never leaves another half-migrated.
+// The app's own migrations (drizzle's, usually) plug in through `app.before` / `app.after`.
 import { ok, sortModulesByDependencies, type AnySoftureModule } from "@softure-ai/core";
 import type { DatabaseHandle } from "../client.js";
 import { readMigrationFiles, type MigrationFile } from "./files.js";
@@ -28,7 +29,27 @@ export interface MigrateOptions {
   readonly migrationsDir?: URL;
   /** Called after each file is committed, e.g. to print progress. */
   readonly onApplied?: (step: MigrationStep) => void;
+  /** The app's own migrations around the module files. `planMigrations` ignores them. */
+  readonly app?: AppMigrations;
+  /** Called after an app hook succeeded, e.g. to print progress. */
+  readonly onAppMigrated?: (phase: AppMigrationPhase) => void;
 }
+
+/**
+ * The app's own migration runner, called by `migrate` under the migration lock on every run (it
+ * must skip what it already applied, as drizzle's migrator does). A throw or rejection is reported
+ * as `db.app_migration_failed`.
+ */
+export type AppMigrationHook = (handle: DatabaseHandle) => Promise<void>;
+
+export interface AppMigrations {
+  /** Runs before the module files: app tables that module SQL references (normally the app's whole history). */
+  readonly before?: AppMigrationHook;
+  /** Runs after the module files: app migrations that reference tables a module creates. */
+  readonly after?: AppMigrationHook;
+}
+
+export type AppMigrationPhase = keyof AppMigrations;
 
 export interface MigrationStep {
   readonly module: string;
@@ -45,6 +66,8 @@ export interface MigrationPlan {
 
 export interface MigrationReport {
   readonly applied: readonly MigrationStep[];
+  /** The app hooks that ran, in order. */
+  readonly app: readonly AppMigrationPhase[];
 }
 
 /** One migration owner: the ledger itself or an enabled module with a schema. */
@@ -57,7 +80,8 @@ export interface MigrationUnit {
 
 // Any constant works; it only has to be the same for every runner of every app.
 const MIGRATION_LOCK_KEY = "73012026";
-const RESERVED_SCHEMAS = new Set([LEDGER_SCHEMA, "public", "information_schema"]);
+// `drizzle` holds drizzle's own ledger (`drizzle.__drizzle_migrations`) in every app on this stack.
+const RESERVED_SCHEMAS = new Set([LEDGER_SCHEMA, "public", "information_schema", "drizzle"]);
 const MAX_IDENTIFIER_BYTES = 63;
 
 /** The dry run: what `migrate` would apply. Takes no lock and writes nothing. */
@@ -71,12 +95,16 @@ export async function planMigrations(handle: DatabaseHandle, options: MigrateOpt
   return comparison.problems.length > 0 ? failWith(comparison.problems) : ok({ pending: comparison.pending });
 }
 
-/** Applies every pending migration under the advisory lock. */
+/**
+ * Applies every pending migration under the advisory lock: `app.before`, the module files, then
+ * `app.after`. Nothing runs when a check fails.
+ */
 export async function migrate(handle: DatabaseHandle, options: MigrateOptions): Promise<MigrationResult<MigrationReport>> {
   const units = await prepareUnits(options.modules, options.migrationsDir);
   if (!units.ok) {
     return units;
   }
+  const app = options.app ?? {};
   return withSession(handle, (session) =>
     withMigrationLock(session, async () => {
       // Read after the lock: a runner that waited sees what the first one applied.
@@ -84,23 +112,85 @@ export async function migrate(handle: DatabaseHandle, options: MigrateOptions): 
       if (comparison.problems.length > 0) {
         return failWith(comparison.problems);
       }
+      // The ledger first, so it exists whatever a hook does; then before, the modules, after.
+      const ledgerSteps = comparison.pending.filter((step) => step.module === LEDGER_MODULE_ID);
+      const moduleSteps = comparison.pending.filter((step) => step.module !== LEDGER_MODULE_ID);
       const applied: MigrationStep[] = [];
-      for (const step of comparison.pending) {
-        const unit = units.value.find((candidate) => candidate.module === step.module);
-        const file = unit?.files.find((candidate) => candidate.version === step.version);
-        if (unit === undefined || file === undefined) {
-          throw new Error(`migrate: step ${step.module} ${step.version} has no file; compareJournal is broken`);
+      const ranHooks: AppMigrationPhase[] = [];
+      const applySteps = async (steps: readonly MigrationStep[]): Promise<MigrationProblem | null> => {
+        for (const step of steps) {
+          const unit = units.value.find((candidate) => candidate.module === step.module);
+          const file = unit?.files.find((candidate) => candidate.version === step.version);
+          if (unit === undefined || file === undefined) {
+            throw new Error(`migrate: step ${step.module} ${step.version} has no file; compareJournal is broken`);
+          }
+          const failure = await applyFile(session, { unit, file, method: "applied" });
+          if (failure !== null) {
+            return failure;
+          }
+          applied.push(step);
+          options.onApplied?.(step);
         }
-        const failure = await applyFile(session, { unit, file, method: "applied" });
-        if (failure !== null) {
-          return failWith([failure]);
+        return null;
+      };
+      const runHook = async (phase: AppMigrationPhase): Promise<MigrationProblem | null> => {
+        const failure = await runAppHook(handle, app, phase);
+        if (failure === null && app[phase] !== undefined) {
+          ranHooks.push(phase);
+          options.onAppMigrated?.(phase);
         }
-        applied.push(step);
-        options.onApplied?.(step);
+        return failure;
+      };
+
+      const failure =
+        (await applySteps(ledgerSteps)) ?? (await runHook("before")) ?? (await applySteps(moduleSteps)) ?? (await runHook("after"));
+      if (failure !== null) {
+        return failWith([failure]);
       }
-      return ok({ applied });
+      return ok({ applied, app: ranHooks });
     }),
   );
+}
+
+/**
+ * Runs one app hook alone under the migration lock (the CLI's `--adopt` runs `before` first, so the
+ * app migration that moves a table and the adoption are one command). Ok when there is no hook.
+ */
+export async function runAppMigrations(
+  handle: DatabaseHandle,
+  app: AppMigrations,
+  phase: AppMigrationPhase,
+): Promise<MigrationResult<{ ran: boolean }>> {
+  if (app[phase] === undefined) {
+    return ok({ ran: false });
+  }
+  const failure = await withSession(handle, (session) => withMigrationLock(session, () => runAppHook(handle, app, phase)));
+  return failure === null ? ok({ ran: true }) : failWith([failure]);
+}
+
+async function runAppHook(handle: DatabaseHandle, app: AppMigrations, phase: AppMigrationPhase): Promise<MigrationProblem | null> {
+  const hook = app[phase];
+  if (hook === undefined) {
+    return null;
+  }
+  try {
+    await hook(handle);
+    return null;
+  } catch (error) {
+    return { code: "db.app_migration_failed", phase, reason: describeErrorChain(error) };
+  }
+}
+
+// drizzle wraps the database error (`Failed query: <sql>`, the Postgres message in `cause`), so the
+// whole chain is the reason.
+function describeErrorChain(error: unknown): string {
+  const messages: string[] = [];
+  let current: unknown = error;
+  while (current !== undefined && current !== null && messages.length < 5) {
+    messages.push(describeError(current));
+    current = current instanceof Error ? current.cause : undefined;
+  }
+  return messages.join(": ");
 }
 
 /**
