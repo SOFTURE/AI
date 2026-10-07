@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mailing@x.y.z`).
 
-## 0.1.9
+## Unreleased
 
 - `legacyUnsubscribe.params` also takes `{ required, optional }`: a link is legacy when it carries every required
   name, and the optional names it carries go to `verify` too, so two old link forms on one path both keep working.

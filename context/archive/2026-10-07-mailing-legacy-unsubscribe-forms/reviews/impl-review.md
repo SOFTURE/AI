@@ -14,7 +14,7 @@ every `OnUnsubscribedHook` in the repository (the waitlist's `withdrawWaitlistCo
 | # | Severity | Finding | Decision |
 | --- | --- | --- | --- |
 | 1 | Warning | `UnsubscribeEvent.link` is a new required field: code that builds an event by hand (the waitlist's tests) no longer type-checks. Hooks themselves are unaffected. | Accepted: the field is required so a hook can rely on it; the waitlist tests pass `link: { scheme: "signed" }`. Named in the CHANGELOG. |
-| 2 | Warning | The CHANGELOG had no entry for the new options. | Fixed: a `0.1.9` section, shared with any other mailing change released in the same version. |
+| 2 | Warning | The CHANGELOG had no entry for the new options. | Fixed: an `Unreleased` section (the repository test only allows that or the current version), renamed at release. |
 | 3 | Suggestion | The `{ required, optional }` refusals report at `options.legacyUnsubscribe.params`, not at the inner list. | No change: the message names the rule (`must not repeat a name`, `must name at most 8 parameters`), which is enough to fix the config. |
 | 4 | Suggestion | With `oneClickInvalidLinkStatus: 200`, a mail client's POST with no parameters also gets 200. | As designed: no parameters is one more "link that does not verify"; a test covers it. |
 
