@@ -22,7 +22,7 @@ Input: [`backlog-input.md`](backlog-input.md) (roadmap item CF-1, taken 2026-10-
 
 ## Context
 
-From [`roadmap.md`](../../foundation/roadmap.md) (charts-followups), item **CF-1**:
+From [`roadmap.md`](../../foundation/archive/2026-10-07-2-roadmap.md) (charts-followups), item **CF-1**:
 
 > - **Outcome:** `ChartPin` (or a `GuideLine` option) in `@softure-ai/charts`: a dashed vertical from the baseline to
 >   a point and a dot on the point, positioned in plot percentages, on the `--sft-chart-*` tokens; tests and README.

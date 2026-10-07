@@ -12,6 +12,8 @@ import { checkManifest } from "../../scripts/release/release-rules.mjs";
 import { REPO_ROOT } from "./repo-files.js";
 
 const SOURCE_CONDITION = "@softure-ai/source";
+// One copy per app: two copies mean two token sets and two theme / locale contexts.
+const UI_PACKAGE = "@softure-ai/ui";
 const TEMPLATE_DIR = "templates/package";
 // The template folder is named for what it is; its package name says what it becomes.
 const EXPECTED_NAMES: Record<string, string> = { [TEMPLATE_DIR]: "@softure-ai/template-module" };
@@ -24,6 +26,10 @@ interface PackageManifest {
   engines?: { node?: unknown };
   scripts?: { build?: unknown };
   exports?: Record<string, unknown>;
+  sideEffects?: unknown;
+  dependencies?: Record<string, string>;
+  peerDependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
 }
 
 function readManifest(dir: string): PackageManifest {
@@ -106,6 +112,20 @@ describe("workspace packages", () => {
         const built = source.replace(/^\.\/src\//, "./dist/").replace(/\.tsx?$/, "");
         expect(conditions.types, entry).toBe(`${built}.d.ts`);
         expect(conditions.default, entry).toBe(`${built}.js`);
+      }
+    });
+
+    const stylesheets = Object.values(manifest.exports ?? {}).filter(
+      (target): target is string => typeof target === "string" && target.endsWith(".css"),
+    );
+    it.runIf(stylesheets.length > 0)("marks its stylesheets as side effects, so a bundler keeps a CSS import", () => {
+      expect(manifest.sideEffects).toEqual(expect.arrayContaining(["*.css"]));
+    });
+
+    it.runIf(manifest.name !== UI_PACKAGE)(`takes ${UI_PACKAGE} as a peer, so the app keeps one copy`, () => {
+      expect(Object.keys(manifest.dependencies ?? {})).not.toContain(UI_PACKAGE);
+      if (manifest.peerDependencies?.[UI_PACKAGE] !== undefined) {
+        expect(Object.keys(manifest.devDependencies ?? {})).toContain(UI_PACKAGE);
       }
     });
 
