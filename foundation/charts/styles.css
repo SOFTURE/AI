@@ -77,8 +77,15 @@
     stroke-width: var(--sft-chart-grid-width);
   }
 
+  /* The event dash, read by the SVG guide and the HTML pin line (screen pixels: strokes do not scale). */
+  .sft-chart-guide-dashed,
+  .sft-chart-pin-line {
+    --sft-chart-dash: 4px;
+    --sft-chart-dash-gap: 3px;
+  }
+
   .sft-chart-guide-dashed {
-    stroke-dasharray: 4 3;
+    stroke-dasharray: var(--sft-chart-dash) var(--sft-chart-dash-gap);
   }
 
   .sft-chart-guide-dotted {
@@ -180,6 +187,45 @@
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
+  }
+
+  /* Pins: a dashed line from the bottom up to a point and a dot on it, in the overlay. */
+  .sft-chart-pin {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 0;
+    pointer-events: none;
+  }
+
+  .sft-chart-pin-line {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: var(--sft-chart-grid-width);
+    transform: translateX(-50%);
+    background: repeating-linear-gradient(
+      to top,
+      var(--sft-chart-cursor) 0 var(--sft-chart-dash),
+      transparent var(--sft-chart-dash) calc(var(--sft-chart-dash) + var(--sft-chart-dash-gap))
+    );
+  }
+
+  /* The ring is in the axis colour, not the background: a light fill on a light card needs it for 3:1. */
+  .sft-chart-pin-dot {
+    position: absolute;
+    left: 0;
+    width: var(--sft-chart-dot-size);
+    height: var(--sft-chart-dot-size);
+    box-sizing: border-box;
+    border: 2px solid var(--sft-chart-axis);
+    border-radius: var(--sft-radius-pill);
+    background: var(--sft-chart-flag);
+    transform: translate(-50%, 50%);
+  }
+
+  .sft-chart-pin-dot[class*="sft-chart-series-"] {
+    background: var(--sft-chart-series);
   }
 
   /* Legend. */
