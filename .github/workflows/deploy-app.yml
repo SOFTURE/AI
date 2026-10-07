@@ -237,7 +237,9 @@ jobs:
             if [[ "$RELEASE_BRANCH" == *..* || "$RELEASE_BRANCH" == */ ]]; then reject release-branch "a branch name"; fi
           fi
           # One NAME=value per line, each name once: docker/build-push-action reads the same list.
-          declare -A build_arg_names=()
+          # Names seen so far, one per line between newlines: bash 3.2 (macOS, where the tests run this step) has no
+          # associative arrays, and a name holds no newline.
+          build_arg_names=$'\n'
           line_number=0
           while IFS= read -r line; do
             line_number=$((line_number + 1))
@@ -247,14 +249,14 @@ jobs:
               continue
             fi
             name="${BASH_REMATCH[1]}"
-            if [ -n "${build_arg_names[$name]:-}" ]; then reject build-args "each name once ($name repeats)"; fi
-            build_arg_names[$name]=1
+            if [[ "$build_arg_names" == *$'\n'"$name"$'\n'* ]]; then reject build-args "each name once ($name repeats)"; fi
+            build_arg_names+="$name"$'\n'
           done <<< "${BUILD_ARGS:-}"
           # The test path builds the CLI from a full checkout of the tag; only this repository's tags are trusted so.
           if [ "$E2E" = "true" ] && [ "$REPOSITORY" != "SOFTURE/AI" ]; then
             reject e2e "false outside SOFTURE/AI (it is that repository's own end-to-end test)"
           fi
-          if [ -z "$IMAGE" ]; then IMAGE="ghcr.io/${REPOSITORY,,}"; fi
+          if [ -z "$IMAGE" ]; then IMAGE="ghcr.io/$(printf '%s' "$REPOSITORY" | tr '[:upper:]' '[:lower:]')"; fi
           expect image "$IMAGE" '^[a-z0-9.-]+(:[0-9]{1,5})?(/[a-z0-9]+([._-][a-z0-9]+)*)+$' "registry/name, lower case, no tag"
           if (( failures > 0 )); then exit 1; fi
           echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
@@ -545,7 +547,9 @@ jobs:
           if [ -n "$DEPLOY_CONFIG" ]; then cp "$DEPLOY_CONFIG" "$stage/deploy.json"; fi
           (umask 077 && cp .env.prod "$stage/.env.prod")
           if [ -n "${REGISTRY_TOKEN:-}" ]; then (umask 077 && printf '%s\n' "$REGISTRY_TOKEN" > "$stage/.registry-token"); fi
-          tar -czf release.tar.gz --owner=0 --group=0 --numeric-owner -C "$stage" .
+          # GNU tar on the runner, bsdtar on macOS (where the tests run this step): the same owner, other flag names.
+          if tar --version 2> /dev/null | grep -q 'GNU tar'; then owner_flags=(--owner=0 --group=0); else owner_flags=(--uid 0 --gid 0); fi
+          tar -czf release.tar.gz "${owner_flags[@]}" --numeric-owner -C "$stage" .
           rm -rf "$stage"
           echo "Packed $(tar -tzf release.tar.gz | grep -cv '/$') files for the server."
       # The end-to-end test points the same command at its throwaway server.
