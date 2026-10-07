@@ -1,8 +1,9 @@
 // The database client. The driver follows the URL:
 // `postgres://` or `postgresql://` → node-postgres (production), `pglite://<dir>` → PGlite, a
 // real Postgres in-process (dev without a server); `pglite://` alone is an in-memory database.
-// Drivers load through dynamic `import()`, so a bundle can keep both external and an app pays
-// only for the one it uses.
+// Both drivers are optional peers and load through dynamic `import()` only when a URL needs one, so an app
+// installs and ships just its own. The specifiers stay literal: a Next.js app lists this package in
+// `serverExternalPackages`, and output tracing follows these imports to copy the installed driver.
 import type { PGlite } from "@electric-sql/pglite";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import type { PgliteDatabase } from "drizzle-orm/pglite";
@@ -10,6 +11,16 @@ import type { Pool } from "pg";
 
 const PGLITE_PREFIX = "pglite://";
 const POSTGRES_PREFIXES = ["postgres://", "postgresql://"];
+const MODULE_NOT_FOUND_CODES = new Set(["ERR_MODULE_NOT_FOUND", "MODULE_NOT_FOUND"]);
+
+/** The optional peer a URL scheme needs, named in the error when it is not installed. */
+export interface DriverRequirement {
+  readonly packageName: string;
+  readonly scheme: string;
+}
+
+const POSTGRES_DRIVER: DriverRequirement = { packageName: "pg", scheme: "postgres://" };
+const PGLITE_DRIVER: DriverRequirement = { packageName: "@electric-sql/pglite", scheme: "pglite://" };
 
 /**
  * The drizzle schema a database is typed with. The default accepts any schema, so an app database made with
@@ -62,12 +73,12 @@ export async function createDatabase(url: string, options: CreateDatabaseOptions
   }
   if (url.startsWith(PGLITE_PREFIX)) {
     const dataDir = url.slice(PGLITE_PREFIX.length);
-    const { PGlite } = await import("@electric-sql/pglite");
+    const { PGlite } = await importDriver(PGLITE_DRIVER, () => import("@electric-sql/pglite"));
     const client = dataDir === "" ? new PGlite() : new PGlite(dataDir);
     return createPgliteHandle(client);
   }
   if (POSTGRES_PREFIXES.some((prefix) => url.startsWith(prefix))) {
-    const { default: pg } = await import("pg");
+    const { default: pg } = await importDriver(POSTGRES_DRIVER, () => import("pg"));
     const pool = new pg.Pool({ connectionString: url, max: options.max ?? 10 });
     // An idle client that loses its connection emits 'error' on the pool; unhandled, it would
     // crash the process. The pool drops that client and the next query opens a new one.
@@ -84,7 +95,7 @@ export async function createDatabase(url: string, options: CreateDatabaseOptions
  * instance, which writes a `pglite://<dir>` database back to its directory.
  */
 export async function createPgliteHandle(client: PGlite): Promise<DatabaseHandle & { kind: "pglite" }> {
-  const { drizzle } = await import("drizzle-orm/pglite");
+  const { drizzle } = await importDriver(PGLITE_DRIVER, () => import("drizzle-orm/pglite"));
   return { kind: "pglite", db: drizzle({ client }), client, close: () => client.close() };
 }
 
@@ -94,7 +105,7 @@ export async function createPgliteHandle(client: PGlite): Promise<DatabaseHandle
  * the process.
  */
 export async function createPostgresHandle(pool: Pool): Promise<DatabaseHandle & { kind: "postgres" }> {
-  const { drizzle } = await import("drizzle-orm/node-postgres");
+  const { drizzle } = await importDriver(POSTGRES_DRIVER, () => import("drizzle-orm/node-postgres"));
   return { kind: "postgres", db: drizzle({ client: pool }), pool, close: () => pool.end() };
 }
 
@@ -106,6 +117,32 @@ export function isDatabaseHandle(value: unknown): value is DatabaseHandle {
   if (candidate.kind === "postgres") return typeof candidate.pool === "object" && candidate.pool !== null;
   if (candidate.kind === "pglite") return typeof candidate.client === "object" && candidate.client !== null;
   return false;
+}
+
+/**
+ * Turns Node's "Cannot find package" for a driver (from the driver import or from drizzle's adapter, which imports
+ * it statically) into an error that says what to install. Anything else, including a missing package other than
+ * the driver, is returned unchanged.
+ */
+export function explainMissingDriver(error: unknown, driver: DriverRequirement): unknown {
+  if (!(error instanceof Error)) return error;
+  const code = (error as Error & { code?: unknown }).code;
+  if (typeof code !== "string" || !MODULE_NOT_FOUND_CODES.has(code)) return error;
+  if (!error.message.includes(`'${driver.packageName}'`)) return error;
+  return new Error(
+    `createDatabase: ${driver.scheme} URLs need the "${driver.packageName}" package, which is not installed; run ` +
+      `\`npm install ${driver.packageName}\` and, in a Next.js app, list "@softure-ai/db" and "${driver.packageName}" ` +
+      "in serverExternalPackages (db README §2)",
+    { cause: error },
+  );
+}
+
+async function importDriver<T>(driver: DriverRequirement, load: () => Promise<T>): Promise<T> {
+  try {
+    return await load();
+  } catch (error) {
+    throw explainMissingDriver(error, driver);
+  }
 }
 
 function describeScheme(url: string): string {
