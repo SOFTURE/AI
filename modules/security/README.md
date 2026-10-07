@@ -3,7 +3,7 @@
 Rate limits for public entry points, a client-IP resolver that matches the app's hosting, and a
 size-capped request body reader. Built from FIRE_TRACKER's limiter (`src/db/auth-attempts.ts`,
 `src/lib/read-small-body.ts`); the difference is that a client whose address cannot be resolved is
-refused instead of sharing one bucket with every other such client.
+refused by default instead of sharing one bucket with every other such client (§3, `unidentified`).
 
 ## 1. What it provides
 
@@ -42,6 +42,7 @@ export default defineSoftureConfig({
 | --- | --- | --- | --- |
 | `clientIp` | `ClientIpResolver \| ClientIpResolver[]` | required | Where the client address comes from; several are tried in order. |
 | `buckets` | `Record<string, { limit: number; windowMinutes: number }>` | required, at least one | Named limits: `limit` attempts per fixed window of `windowMinutes` (1 to 10080). Names are lowercase letters, digits, `_`, `.` and `-`. |
+| `unidentified` | `"refuse" \| { key: string }` | `"refuse"` | What happens to a request no resolver identifies: refused with `security.client_unidentified`, or counted under one shared key `unidentified:<key>` (the key follows the bucket name rule). |
 | `ipv6Subnet` | `number` (1-128) | `64` | IPv6 clients are keyed by this network; one subscriber usually owns a whole /64. |
 | `cleanupProbability` | `number` (0-1) | `0.01` | Chance that a consumed attempt also deletes expired rows. |
 
@@ -60,31 +61,44 @@ Entries left of the trusted proxies' entries came from the client and are never 
 short or garbled header resolves to nothing. Addresses are normalised: a port and IPv6 brackets are
 removed, IPv4-mapped (and the deprecated IPv4-compatible) IPv6 becomes IPv4, IPv6 is written in full lowercase groups.
 
-**Development without a proxy** has no header to read, so every request is unidentified. Pass an
-explicit resolver for local work only, for example
-`clientIp: process.env.NODE_ENV === "production" ? cloudflareIp() : () => "127.0.0.1"`.
+**Unidentified clients.** A request that no resolver identifies is refused by default
+(`security.client_unidentified`): in production that means the edge was bypassed, and counting all
+such requests in one bucket would let one client lock out all the others. A stack with no edge in
+front (`next dev`, an integration stack behind a proxy only) has no header to read, so every request
+there is unidentified. For such a stack, choose a shared fallback explicitly with
+`unidentified: { key: "local" }`: every unidentified request is then counted under
+`unidentified:local`, while a request a resolver does identify keeps its own `ip:` key. That is what a
+single developer or a test runner wants, and exactly what production must not do, so keep it out of
+the production configuration. A test suite that logs in many times from one stack raises the `login`
+bucket (auth README §3).
 
-**A chain for development and test stacks.** Resolvers are tried in order, so one list can serve
-a stack that sometimes has a proxy in front (an integration stack behind Traefik) and sometimes
-none (`next dev`): the real address when a header carries one, and one shared fallback key when
-nothing does.
+**One image, several stacks.** `NODE_ENV` cannot tell production from a test stack that runs the
+same production image (`NODE_ENV=production` in both). Switch the fallback at deploy time instead:
+an environment variable set on the test stack only, read by the app's own config.
 
 ```ts
-const isProduction = process.env.NODE_ENV === "production";
+// RATE_LIMIT_SHARED_FALLBACK=1 is set on the integration stack only (no Cloudflare in front).
+// `next dev` runs with NODE_ENV=development and needs the fallback as well.
+const hasSharedFallback =
+  process.env.RATE_LIMIT_SHARED_FALLBACK === "1" || process.env.NODE_ENV !== "production";
 
 security({
-  clientIp: isProduction
-    ? cloudflareIp()
-    : [cloudflareIp(), forwardedForIp({ trustedProxies: 1 }), headerIp("x-real-ip"), () => "127.0.0.1"],
+  clientIp: cloudflareIp(),
+  unidentified: hasSharedFallback ? { key: "test-stack" } : "refuse",
   buckets: { ...AUTH_RATE_LIMIT_BUCKETS },
 });
 ```
 
-The constant at the end puts every unidentified client into one bucket. That is what a single
-developer or a test runner wants, and exactly what production must not do (one client could lock
-out all the others), so keep it out of the production branch. In production, if the edge can be
-bypassed, the request stays unidentified and is refused: that is the intended failure. A test suite
-that logs in many times from one address raises the `login` bucket (auth README §3).
+Production behind Cloudflare keys every request by `CF-Connecting-IP`; the test stack and `next dev`
+send no such header and share one bucket. The module itself reads no environment variable (§6).
+
+**Proxy headers behind Cloudflare.** Behind Cloudflare and a proxy (Cloudflare → Traefik, nginx or a
+load balancer), the right end of `X-Forwarded-For` and `X-Real-IP` hold the address of the
+Cloudflare edge that forwarded the request, not the client's. A resolver list whose first match is
+`forwardedForIp(…)` or `headerIp("x-real-ip")` then puts every visitor of one edge into one bucket.
+Behind Cloudflare, `cloudflareIp()` is the resolver that sees the client. Use the proxy resolvers
+only on a stack where that proxy is the first thing in front of the app, never in a configuration
+that also runs behind Cloudflare.
 
 ## 4. Mounting
 
@@ -115,7 +129,7 @@ In a server action, pass `await headers()` from `next/headers` to `identifyClien
 
 | Function (`@softure-ai/security/server`) | Returns |
 | --- | --- |
-| `identifyClient(ctx, headers)` | `Ok<"ip:…">` or `Err<"security.client_unidentified">` |
+| `identifyClient(ctx, headers)` | `Ok<"ip:…">`, `Ok<"unidentified:<key>">` with a shared fallback, or `Err<"security.client_unidentified">` |
 | `subjectKey(subject)` | `"subject:<32 hex of sha256>"`, a key for an email or a user id |
 | `consumeRateLimit(ctx, { bucket, key })` | `Ok<{ remaining, resetAt }>` or `Err<"security.rate_limited">` with `retryAfterSeconds` and `resetAt` |
 | `resetRateLimit(ctx, { bucket, key })` | forgets a key's attempts, e.g. after a successful login |
@@ -146,7 +160,7 @@ number of attempts. Run `softure migrate` after enabling the module.
 
 ## 6. Environment variables
 
-None.
+None. A deploy-time switch for the shared fallback (§3) is the app's own variable.
 
 ## 7. Switches
 
