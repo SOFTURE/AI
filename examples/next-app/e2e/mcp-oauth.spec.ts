@@ -63,23 +63,21 @@ async function listTools(request: APIRequestContext, accessToken: string): Promi
 
 /**
  * Allows the client on the consent page, ticking "also allow changes" when it is offered for a
- * write request, and returns the redirect the browser was sent to.
+ * write request, and returns where the decision sent the browser: the `Location` of the decision
+ * route's 303. The client's own host does not exist, so its page is answered by the test.
  */
 async function allowOnConsentPage(page: Page, authorizeUrl: string, options: { readonly clientName: string; readonly isWriteRequested: boolean }): Promise<URL> {
-  let redirect: URL | null = null;
-  await page.route(`${REDIRECT_URI}**`, async (route) => {
-    redirect = new URL(route.request().url());
-    await route.fulfill({ status: 200, contentType: "text/plain", body: "back at the assistant" });
-  });
+  await page.route(`${REDIRECT_URI}**`, (route) => route.fulfill({ status: 200, contentType: "text/plain", body: "back at the assistant" }));
   await page.goto(authorizeUrl);
   await expect(page.getByText(formatMessage(mcpCopy.consent.title, { client: options.clientName }))).toBeVisible();
   const writeBox = page.getByRole("checkbox", { name: mcpCopy.consent.allowWrite });
   if (options.isWriteRequested) await writeBox.check();
   else await expect(writeBox).toHaveCount(0);
+  const decision = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname === "/api/oauth/authorize");
   await page.getByRole("button", { name: mcpCopy.consent.allow }).click();
-  await expect(page.getByText("back at the assistant")).toBeVisible();
-  if (redirect === null) throw new Error("allowOnConsentPage: the client was never called back");
-  return redirect;
+  const answer = await decision;
+  expect(answer.status()).toBe(303);
+  return new URL(answer.headers().location ?? "", answer.url());
 }
 
 test("an assistant connects through OAuth, refreshes its tokens and loses access when disconnected", async ({ browser, request, baseURL }) => {
