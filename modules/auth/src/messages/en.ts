@@ -74,6 +74,7 @@ export const en = {
       consent_required: "You need to accept the terms to create an account.",
       registration_closed: "Registration is closed.",
       current_password_invalid: "The current password is incorrect.",
+      password_unchanged: "The new password must differ from the current one.",
       unauthenticated: "Your session has ended. Log in again.",
       forbidden: "You do not have access to this.",
       reset_token_invalid: "This link has expired or has already been used. Ask for a new one.",

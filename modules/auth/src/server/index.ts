@@ -3,7 +3,7 @@
 export { changePassword, type ChangePasswordErrorCode, type ChangePasswordInput, type ChangePasswordResult } from "./change-password.js";
 export { loginUser, type LoginInput, type LoginResult } from "./login.js";
 export { getAuthOptions, getAuthRoutes, type AuthRoutes } from "./options.js";
-export { hashPassword, MAX_PASSWORD_LENGTH, needsRehash, verifyPassword } from "./password.js";
+export { hashPassword, matchPassword, MAX_PASSWORD_LENGTH, needsRehash, verifyPassword, type PasswordMatch } from "./password.js";
 export {
   deliverPasswordReset,
   findPasswordResetUser,
@@ -34,5 +34,13 @@ export {
 export { authPrivacyContributor, deleteAuthUserData, exportAuthUserData, type AuthUserData } from "./privacy.js";
 export { isCurrentPassword } from "./reauthenticate.js";
 export { registerUser, type RegisterErrorCode, type RegisterInput, type RegisterResult } from "./register.js";
-export { createSession, findSessionUser, logoutSession, pruneSessions, type AuthContext } from "./sessions.js";
+export {
+  createSession,
+  findSessionUser,
+  logoutSession,
+  pruneSessions,
+  revokeUserSessions,
+  type AuthContext,
+  type RevokeUserSessionsOptions,
+} from "./sessions.js";
 export { isRegistrationClosed } from "./switches.js";

@@ -1,6 +1,7 @@
 import { hashPassword, needsRehash, verifyPassword } from "@softure-ai/auth/server";
 import { describe, expect, it } from "vitest";
-import { FAST_SCRYPT } from "./support.js";
+import * as password from "../src/server/password.js";
+import { FAST_SCRYPT, hashWithoutNormalizing } from "./support.js";
 
 describe("password hashing", () => {
   it("writes a self-describing scrypt hash with a 16-byte salt and a 64-byte key", async () => {
@@ -43,4 +44,21 @@ describe("password hashing", () => {
       expect((error as Error).message).toBe("@softure-ai/auth: a stored password hash is not in the scrypt$N$r$p$salt$key format");
     },
   );
+
+  describe("a legacy hash of input that was not NFC", () => {
+    const decomposed = "caf\u00e9 cr\u00e8me br\u00fbl\u00e9e".normalize("NFD");
+
+    it("verifies the same raw input and reports it as a legacy match", async () => {
+      const legacy = await hashWithoutNormalizing(decomposed, FAST_SCRYPT);
+      expect(await verifyPassword(decomposed, legacy)).toBe(true);
+      expect(await password.matchPassword(decomposed, legacy)).toBe("legacy");
+      expect(await password.matchPassword("caf\u00e9 wrong", legacy)).toBe("mismatch");
+    });
+
+    it("reports a plain match for a hash this module wrote", async () => {
+      const hash = await hashPassword(decomposed, FAST_SCRYPT);
+      expect(await password.matchPassword(decomposed, hash)).toBe("match");
+      expect(await password.matchPassword(decomposed.normalize("NFC"), hash)).toBe("match");
+    });
+  });
 });

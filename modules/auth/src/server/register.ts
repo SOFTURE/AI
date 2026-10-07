@@ -19,7 +19,12 @@ export interface RegisterInput {
   readonly hasConsented: boolean;
   /** The client's rate limit key (`identifyClient`). */
   readonly clientKey: string;
+  /** Values of the app's `registrationFields`; other names are dropped. */
+  readonly fields?: Readonly<Record<string, string>>;
 }
+
+/** Longest registration field value handed to the hook; longer ones are cut. */
+const MAX_FIELD_LENGTH = 512;
 
 export type RegisterErrorCode =
   | "auth.registration_closed"
@@ -65,8 +70,18 @@ export async function registerUser(ctx: AuthContext, input: RegisterInput): Prom
     if (row === undefined) return err("auth.email_taken");
     const user = { id: row.id, email: row.email, createdAt: row.createdAt };
 
-    await options.onRegistered?.({ user, consent: options.requireConsent ? { acceptedAt: now } : null }, txCtx);
+    const fields = pickRegistrationFields(options.registrationFields, input.fields);
+    await options.onRegistered?.({ user, consent: options.requireConsent ? { acceptedAt: now } : null, fields }, txCtx);
     const session = await createSession(txCtx, user.id);
     return ok({ user, session });
   });
+}
+
+function pickRegistrationFields(declared: readonly string[], sent: Readonly<Record<string, string>> | undefined): Record<string, string> {
+  const fields: Record<string, string> = {};
+  for (const name of declared) {
+    const value = sent !== undefined && Object.hasOwn(sent, name) ? sent[name] : undefined;
+    if (typeof value === "string" && value !== "") fields[name] = value.slice(0, MAX_FIELD_LENGTH);
+  }
+  return fields;
 }

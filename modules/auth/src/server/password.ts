@@ -18,18 +18,34 @@ interface ParsedHash {
 /** A new salted hash of `password`. */
 export async function hashPassword(password: string, params: ScryptParams): Promise<string> {
   const salt = randomBytes(SALT_BYTES);
-  const key = await deriveKey(password, salt, params);
+  const key = await deriveKey(password.normalize("NFC"), salt, params);
   return ["scrypt", params.cost, params.blockSize, params.parallelization, salt.toString("base64url"), key.toString("base64url")].join("$");
 }
 
 /**
- * Whether `password` matches `storedHash`. Throws on a hash this module did not write: that is
- * damaged data, not a wrong password.
+ * How `password` matched `storedHash`: `match`, `mismatch`, or `legacy` when only the raw input
+ * matched. This module hashes the NFC form; a system it took over may have hashed what the browser
+ * sent, so a password typed in another Unicode form (NFD from some keyboards) is tried as given
+ * when the NFC form fails. A `legacy` match is rehashed at login. Throws on a hash this module did
+ * not write: that is damaged data, not a wrong password.
  */
-export async function verifyPassword(password: string, storedHash: string): Promise<boolean> {
+export async function matchPassword(password: string, storedHash: string): Promise<PasswordMatch> {
   const parsed = parseHash(storedHash);
-  const key = await deriveKey(password, parsed.salt, parsed.params);
-  return key.length === parsed.key.length && timingSafeEqual(key, parsed.key);
+  const normalized = password.normalize("NFC");
+  if (isSameKey(await deriveKey(normalized, parsed.salt, parsed.params), parsed.key)) return "match";
+  if (normalized === password) return "mismatch";
+  return isSameKey(await deriveKey(password, parsed.salt, parsed.params), parsed.key) ? "legacy" : "mismatch";
+}
+
+export type PasswordMatch = "match" | "legacy" | "mismatch";
+
+/** Whether `password` matches `storedHash` (`matchPassword` as a yes or no). */
+export async function verifyPassword(password: string, storedHash: string): Promise<boolean> {
+  return (await matchPassword(password, storedHash)) !== "mismatch";
+}
+
+function isSameKey(key: Buffer, stored: Buffer): boolean {
+  return key.length === stored.length && timingSafeEqual(key, stored);
 }
 
 /** Whether `storedHash` was made with other parameters than `params`. */
@@ -42,7 +58,8 @@ const dummyHashes = new Map<string, Promise<string>>();
 
 /**
  * Spends the time of one verification without an account, so a login for an unknown email takes
- * as long as one with a wrong password. The dummy hash is made once per parameter set.
+ * as long as one with a wrong password (the NFC retry included: it goes through `verifyPassword`).
+ * The dummy hash is made once per parameter set.
  */
 export async function verifyDummyPassword(password: string, params: ScryptParams): Promise<void> {
   const cacheKey = `${String(params.cost)}:${String(params.blockSize)}:${String(params.parallelization)}`;
@@ -55,6 +72,7 @@ export async function verifyDummyPassword(password: string, params: ScryptParams
   await verifyPassword(password, await dummy);
 }
 
+/** The key of `password` exactly as given; callers normalise. */
 function deriveKey(password: string, salt: Buffer, params: ScryptParams): Promise<Buffer> {
   const options: ScryptOptions = {
     N: params.cost,
@@ -64,7 +82,7 @@ function deriveKey(password: string, salt: Buffer, params: ScryptParams): Promis
     maxmem: 256 * params.cost * params.blockSize,
   };
   return new Promise((resolve, reject) => {
-    scrypt(password.normalize("NFC"), salt, KEY_BYTES, options, (error, key) => {
+    scrypt(password, salt, KEY_BYTES, options, (error, key) => {
       if (error === null) resolve(key);
       else reject(error);
     });

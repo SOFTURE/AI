@@ -19,6 +19,15 @@ export {
 } from "./current-user.js";
 export { LogoutButton, type LogoutButtonProps } from "./logout-button.js";
 export { getAuthMessages } from "./messages.js";
-export { type AuthPageProps, ChangePasswordPage, ForgotPasswordPage, LoginPage, RegisterPage, ResetPasswordPage } from "./pages.js";
+export {
+  type AuthPageProps,
+  ChangePasswordPage,
+  createRegisterPage,
+  ForgotPasswordPage,
+  LoginPage,
+  RegisterPage,
+  type RegisterPageOptions,
+  ResetPasswordPage,
+} from "./pages.js";
 export { getSessionRoute } from "./route.js";
 export type { PageSearchParams } from "./search-params.js";

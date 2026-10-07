@@ -8,7 +8,7 @@ import { and, eq } from "drizzle-orm";
 import type { SignedIn } from "../contract.js";
 import { users } from "../schema.js";
 import { getAuthOptions } from "./options.js";
-import { hashPassword, MAX_PASSWORD_LENGTH, needsRehash, verifyDummyPassword, verifyPassword } from "./password.js";
+import { hashPassword, matchPassword, MAX_PASSWORD_LENGTH, needsRehash, verifyDummyPassword } from "./password.js";
 import { assertAuthBuckets, BUCKETS, emailSubjectKey } from "./rate-limits.js";
 import { createSession, deleteExpiredSessions, type AuthContext } from "./sessions.js";
 import { getPasswordLength, normalizeEmail } from "./validation.js";
@@ -42,13 +42,13 @@ export async function loginUser(ctx: AuthContext, input: LoginInput): Promise<Lo
     await verifyDummyPassword(input.password, options.password.scrypt);
     return err("auth.invalid_credentials");
   }
-  if (!(await verifyPassword(input.password, user.passwordHash))) {
-    return err("auth.invalid_credentials");
-  }
+  const match = await matchPassword(input.password, user.passwordHash);
+  if (match === "mismatch") return err("auth.invalid_credentials");
 
   await resetRateLimit(ctx, { bucket: BUCKETS.loginAccount, key: accountKey });
   await deleteExpiredSessions(ctx, user.id);
-  if (needsRehash(user.passwordHash, options.password.scrypt)) {
+  // A legacy match (raw, non-NFC input) is rehashed too, so the stored hash is of the NFC form.
+  if (match === "legacy" || needsRehash(user.passwordHash, options.password.scrypt)) {
     const passwordHash = await hashPassword(input.password, options.password.scrypt);
     // Conditional: a password changed meanwhile is not overwritten with the old one.
     await ctx.db

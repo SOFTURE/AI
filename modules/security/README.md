@@ -64,6 +64,28 @@ removed, IPv4-mapped (and the deprecated IPv4-compatible) IPv6 becomes IPv4, IPv
 explicit resolver for local work only, for example
 `clientIp: process.env.NODE_ENV === "production" ? cloudflareIp() : () => "127.0.0.1"`.
 
+**A chain for development and test stacks.** Resolvers are tried in order, so one list can serve
+a stack that sometimes has a proxy in front (an integration stack behind Traefik) and sometimes
+none (`next dev`): the real address when a header carries one, and one shared fallback key when
+nothing does.
+
+```ts
+const isProduction = process.env.NODE_ENV === "production";
+
+security({
+  clientIp: isProduction
+    ? cloudflareIp()
+    : [cloudflareIp(), forwardedForIp({ trustedProxies: 1 }), headerIp("x-real-ip"), () => "127.0.0.1"],
+  buckets: { ...AUTH_RATE_LIMIT_BUCKETS },
+});
+```
+
+The constant at the end puts every unidentified client into one bucket. That is what a single
+developer or a test runner wants, and exactly what production must not do (one client could lock
+out all the others), so keep it out of the production branch. In production, if the edge can be
+bypassed, the request stays unidentified and is refused: that is the intended failure. A test suite
+that logs in many times from one address raises the `login` bucket (auth README §3).
+
 ## 4. Mounting
 
 Nothing to mount: the module has no routes or pages. Call it from your route handlers and server

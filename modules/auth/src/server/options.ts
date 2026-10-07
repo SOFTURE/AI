@@ -18,6 +18,21 @@ export function getAuthOptions(config: SoftureConfig): AuthOptions {
   return getAuthModule(config).options as AuthOptions;
 }
 
+const anchoredPatterns = new WeakMap<RegExp, RegExp>();
+
+/** `legacySession.tokenPattern` anchored to the whole token, or undefined without a legacy session. */
+export function getLegacyTokenPattern(config: SoftureConfig): RegExp | undefined {
+  const pattern = getAuthOptions(config).legacySession?.tokenPattern;
+  if (pattern === undefined) return undefined;
+  let anchored = anchoredPatterns.get(pattern);
+  if (anchored === undefined) {
+    // The schema refused the g and y flags, so `test` keeps no state between calls.
+    anchored = new RegExp(`^(?:${pattern.source})$`, pattern.flags);
+    anchoredPatterns.set(pattern, anchored);
+  }
+  return anchored;
+}
+
 /** The module's routes with the app's overrides applied. */
 export function getAuthRoutes(config: SoftureConfig): AuthRoutes {
   const routes = getAuthModule(config).routes;

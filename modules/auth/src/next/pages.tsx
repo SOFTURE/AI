@@ -27,6 +27,8 @@ export interface AuthPageProps {
 const LAYOUT_CLASS = "sft:mx-auto sft:box-border sft:w-full sft:sm:max-w-md sft:px-4 sft:py-4";
 const FOOTER_CLASS = "sft:m-0 sft:text-sm sft:text-muted";
 const LINK_CLASS = "sft:font-medium sft:text-accent";
+/** The server keeps 512 characters of a registration field; nothing longer is echoed into the page. */
+const MAX_CARRIED_LENGTH = 512;
 
 function AuthLayout({ title, lead, children }: { title: string; lead: string; children: ReactNode }) {
   return (
@@ -74,7 +76,29 @@ export async function LoginPage({ searchParams }: AuthPageProps) {
   );
 }
 
+export interface RegisterPageOptions {
+  /** The consent statement, e.g. with links to the terms and the privacy policy. */
+  readonly consentLabel?: ReactNode;
+  /** The app's own inputs, before the consent checkbox (`auth({ registrationFields })` declares their names). */
+  readonly extraFields?: ReactNode;
+}
+
+/**
+ * A register page with the app's consent label and extra inputs:
+ * `export default createRegisterPage({ consentLabel: <>I accept the <a href="/terms">terms</a></> })`.
+ * A declared registration field present in the page's URL (`?z=…`) is carried as a hidden input.
+ */
+export function createRegisterPage(pageOptions: RegisterPageOptions = {}) {
+  return async function RegisterPageWithOptions({ searchParams }: AuthPageProps) {
+    return renderRegisterPage(searchParams, pageOptions);
+  };
+}
+
 export async function RegisterPage({ searchParams }: AuthPageProps) {
+  return renderRegisterPage(searchParams, {});
+}
+
+async function renderRegisterPage(searchParams: SearchParams | undefined, pageOptions: RegisterPageOptions) {
   const config = getSoftureConfig();
   const routes = getAuthRoutes(config);
   const next = await readNext(searchParams, routes.afterLogin);
@@ -88,6 +112,7 @@ export async function RegisterPage({ searchParams }: AuthPageProps) {
     );
   }
   const options = getAuthOptions(config);
+  const carried = await readCarriedFields(searchParams, options.registrationFields);
   return (
     <AuthLayout title={messages.register.title} lead={messages.register.lead}>
       <RegisterForm
@@ -98,9 +123,28 @@ export async function RegisterPage({ searchParams }: AuthPageProps) {
         loginHref={routes.login}
         requireConsent={options.requireConsent}
         minPasswordLength={options.password.minLength}
+        consentLabel={pageOptions.consentLabel}
+        extraFields={
+          <>
+            {carried.map(([name, value]) => (
+              <input key={name} type="hidden" name={name} value={value} />
+            ))}
+            {pageOptions.extraFields}
+          </>
+        }
       />
     </AuthLayout>
   );
+}
+
+/** The declared registration fields present in the page's URL, carried into the form as hidden inputs. */
+async function readCarriedFields(searchParams: SearchParams | undefined, declared: readonly string[]): Promise<[string, string][]> {
+  const carried: [string, string][] = [];
+  for (const name of declared) {
+    const value = await readParam(searchParams, name);
+    if (value !== undefined && value !== "") carried.push([name, value.slice(0, MAX_CARRIED_LENGTH)]);
+  }
+  return carried;
 }
 
 export async function ChangePasswordPage() {

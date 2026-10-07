@@ -1,7 +1,7 @@
 "use client";
 
 import { formatMessage, type Locale } from "@softure-ai/core";
-import { Button, Checkbox, type ClassNames, createSlotClassGetter, FormError, PasswordField, TextField } from "@softure-ai/ui";
+import { Button, type ButtonVariant, Checkbox, type ClassNames, createSlotClassGetter, FormError, PasswordField, TextField } from "@softure-ai/ui";
 import { type ReactNode, useActionState } from "react";
 import { type AuthFormField, type AuthFormState, INITIAL_AUTH_FORM_STATE } from "../contract.js";
 import { type AuthMessages, getAuthErrorMessage } from "../messages/index.js";
@@ -12,7 +12,7 @@ import { type AuthMessages, getAuthErrorMessage } from "../messages/index.js";
 
 export type AuthFormAction = (previous: AuthFormState, formData: FormData) => Promise<AuthFormState>;
 
-export type AuthFormSlot = "root" | "form" | "footer" | "link" | "notice";
+export type AuthFormSlot = "root" | "form" | "footer" | "link" | "notice" | "submit";
 
 interface AuthFormBaseProps {
   readonly action: AuthFormAction;
@@ -21,6 +21,8 @@ interface AuthFormBaseProps {
   readonly locale?: Locale;
   readonly classNames?: ClassNames<AuthFormSlot>;
   readonly unstyled?: boolean;
+  /** The submit button's look; `primary` by default. Its class goes in `classNames.submit`. */
+  readonly submitVariant?: ButtonVariant;
 }
 
 const DEFAULT_CLASSES: Readonly<Record<AuthFormSlot, string>> = {
@@ -29,6 +31,8 @@ const DEFAULT_CLASSES: Readonly<Record<AuthFormSlot, string>> = {
   footer: "sft:m-0 sft:text-sm sft:text-muted",
   link: "sft:font-medium sft:text-accent",
   notice: "sft:m-0 sft:text-sm sft:text-success",
+  // The button styles itself; the slot only carries the app's class.
+  submit: "",
 };
 
 /** The error of one field, or of the form when no field owns it. */
@@ -49,6 +53,7 @@ function FormShell({
   footer,
   slot,
   unstyled,
+  submitVariant = "primary",
   children,
 }: {
   formAction: (formData: FormData) => void;
@@ -59,6 +64,7 @@ function FormShell({
   footer?: ReactNode;
   slot: (part: AuthFormSlot) => string | undefined;
   unstyled: boolean | undefined;
+  submitVariant: ButtonVariant | undefined;
   children: ReactNode;
 }) {
   return (
@@ -66,7 +72,7 @@ function FormShell({
       <form action={formAction} className={slot("form")}>
         {children}
         <FormError message={formError} unstyled={unstyled} />
-        <Button type="submit" variant="primary" fullWidth pending={isPending} unstyled={unstyled}>
+        <Button type="submit" variant={submitVariant} fullWidth pending={isPending} classNames={{ root: slot("submit") }} unstyled={unstyled}>
           {isPending ? pendingLabel : submitLabel}
         </Button>
       </form>
@@ -86,7 +92,7 @@ export interface LoginFormProps extends AuthFormBaseProps {
   readonly notice?: string;
 }
 
-export function LoginForm({ action, messages, locale, next, registerHref, forgotPasswordHref, notice, classNames, unstyled }: LoginFormProps) {
+export function LoginForm({ action, messages, locale, next, registerHref, forgotPasswordHref, notice, classNames, unstyled, submitVariant }: LoginFormProps) {
   const [state, formAction, isPending] = useActionState(action, INITIAL_AUTH_FORM_STATE);
   const errors = useErrors(state, messages);
   const slot = createSlotClassGetter({ defaults: DEFAULT_CLASSES, classNames, unstyled });
@@ -125,6 +131,7 @@ export function LoginForm({ action, messages, locale, next, registerHref, forgot
       footer={footer}
       slot={slot}
       unstyled={unstyled}
+      submitVariant={submitVariant}
     >
       {next === undefined ? null : <input type="hidden" name="next" value={next} />}
       <TextField
@@ -159,6 +166,11 @@ export interface RegisterFormProps extends AuthFormBaseProps {
   readonly minPasswordLength: number;
   /** The consent statement; may contain links to the terms. Defaults to `messages.fields.consent`. */
   readonly consentLabel?: ReactNode;
+  /**
+   * The app's own inputs, before the consent checkbox. Their values reach `onRegistered` as
+   * `event.fields` when their names are declared in `auth({ registrationFields })`.
+   */
+  readonly extraFields?: ReactNode;
 }
 
 export function RegisterForm({
@@ -170,8 +182,10 @@ export function RegisterForm({
   requireConsent,
   minPasswordLength,
   consentLabel,
+  extraFields,
   classNames,
   unstyled,
+  submitVariant,
 }: RegisterFormProps) {
   const [state, formAction, isPending] = useActionState(action, INITIAL_AUTH_FORM_STATE);
   const errors = useErrors(state, messages);
@@ -195,6 +209,7 @@ export function RegisterForm({
       footer={footer}
       slot={slot}
       unstyled={unstyled}
+      submitVariant={submitVariant}
     >
       {next === undefined ? null : <input type="hidden" name="next" value={next} />}
       <TextField
@@ -218,6 +233,7 @@ export function RegisterForm({
         unstyled={unstyled}
         locale={locale}
       />
+      {extraFields}
       {requireConsent ? (
         <Checkbox name="consent" label={consentLabel ?? messages.fields.consent} required error={errors.at("consent")} unstyled={unstyled} />
       ) : null}
@@ -229,7 +245,7 @@ export interface ChangePasswordFormProps extends AuthFormBaseProps {
   readonly minPasswordLength: number;
 }
 
-export function ChangePasswordForm({ action, messages, locale, minPasswordLength, classNames, unstyled }: ChangePasswordFormProps) {
+export function ChangePasswordForm({ action, messages, locale, minPasswordLength, classNames, unstyled, submitVariant }: ChangePasswordFormProps) {
   const [state, formAction, isPending] = useActionState(action, INITIAL_AUTH_FORM_STATE);
   const errors = useErrors(state, messages);
   const slot = createSlotClassGetter({ defaults: DEFAULT_CLASSES, classNames, unstyled });
@@ -249,6 +265,7 @@ export function ChangePasswordForm({ action, messages, locale, minPasswordLength
       footer={notice}
       slot={slot}
       unstyled={unstyled}
+      submitVariant={submitVariant}
     >
       <PasswordField
         name="currentPassword"
@@ -279,7 +296,7 @@ export interface ForgotPasswordFormProps extends AuthFormBaseProps {
 }
 
 /** Asks for a reset link. Its confirmation is the same whether or not the email has an account. */
-export function ForgotPasswordForm({ action, messages, locale, ttlMinutes, loginHref, classNames, unstyled }: ForgotPasswordFormProps) {
+export function ForgotPasswordForm({ action, messages, locale, ttlMinutes, loginHref, classNames, unstyled, submitVariant }: ForgotPasswordFormProps) {
   const [state, formAction, isPending] = useActionState(action, INITIAL_AUTH_FORM_STATE);
   const errors = useErrors(state, messages);
   const slot = createSlotClassGetter({ defaults: DEFAULT_CLASSES, classNames, unstyled });
@@ -311,6 +328,7 @@ export function ForgotPasswordForm({ action, messages, locale, ttlMinutes, login
       footer={backToLogin}
       slot={slot}
       unstyled={unstyled}
+      submitVariant={submitVariant}
     >
       <TextField
         name="email"
@@ -334,7 +352,7 @@ export interface ResetPasswordFormProps extends AuthFormBaseProps {
 }
 
 /** Sets a new password from a reset link; its action goes to the login page on success. */
-export function ResetPasswordForm({ action, messages, locale, token, minPasswordLength, classNames, unstyled }: ResetPasswordFormProps) {
+export function ResetPasswordForm({ action, messages, locale, token, minPasswordLength, classNames, unstyled, submitVariant }: ResetPasswordFormProps) {
   const [state, formAction, isPending] = useActionState(action, INITIAL_AUTH_FORM_STATE);
   const errors = useErrors(state, messages);
   const slot = createSlotClassGetter({ defaults: DEFAULT_CLASSES, classNames, unstyled });
@@ -347,6 +365,7 @@ export function ResetPasswordForm({ action, messages, locale, token, minPassword
       formError={errors.form}
       slot={slot}
       unstyled={unstyled}
+      submitVariant={submitVariant}
     >
       <input type="hidden" name="token" value={token} />
       <PasswordField

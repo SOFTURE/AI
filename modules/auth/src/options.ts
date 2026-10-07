@@ -6,11 +6,21 @@ import type { RegisteredEvent } from "./contract.js";
 import type { PasswordResetSender } from "./password-reset-sender.js";
 import { ROLE_NAME_PATTERN } from "./roles.js";
 
-/** OWASP's scrypt cost for passwords: N = 2^17, r = 8, p = 1 (about 128 MiB per hash). */
+/**
+ * OWASP's scrypt cost for passwords: N = 2^17, r = 8, p = 1. One hash takes 128 * N * r bytes
+ * (128 MiB) and about 0.4 s of a core; Node runs up to four at once on its libuv pool, so a burst of
+ * logins can take 512 MiB. A small server lowers `password.scrypt.cost` (README §3).
+ */
 export const DEFAULT_SCRYPT_COST = 2 ** 17;
 
 const MAX_EMAIL_LENGTH = 254;
 const COOKIE_NAME = /^[A-Za-z0-9_-]{1,64}$/;
+/** A legacy cookie may carry its own prefix (`__Host-session`) or a dot. */
+const LEGACY_COOKIE_NAME = /^[A-Za-z0-9_.-]{1,128}$/;
+const DEFAULT_COOKIE_NAME = "softure_session";
+const REGISTRATION_FIELD_NAME = /^[a-z][a-zA-Z0-9_]{0,31}$/;
+/** The register form's own fields, which an app field must not shadow. */
+const REGISTER_FORM_FIELDS: ReadonlySet<string> = new Set(["email", "password", "next", "consent"]);
 const DOMAIN = /^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/;
 
 /** Runs inside the registration transaction; a thrown error rolls the registration back. */
@@ -58,7 +68,7 @@ export const authOptionsSchema = z.strictObject({
     .strictObject({
       /** Shortest password a user may set (characters). */
       minLength: z.number().int().min(8).max(128).default(10),
-      /** Hash cost. Raising it rehashes each password at its owner's next login. */
+      /** Hash cost; memory per hash is 128 * cost * blockSize bytes. Raising it rehashes each password at its owner's next login. */
       scrypt: scryptSchema.prefault({}),
     })
     .prefault({}),
@@ -71,13 +81,43 @@ export const authOptionsSchema = z.strictObject({
   cookie: z
     .strictObject({
       /** Base name; `__Host-` or `__Secure-` is added when the cookie is secure. */
-      name: z.string().regex(COOKIE_NAME, "must be 1-64 letters, digits, _ or -").default("softure_session"),
+      name: z.string().regex(COOKIE_NAME, "must be 1-64 letters, digits, _ or -").default(DEFAULT_COOKIE_NAME),
       /** Share the session with subdomains, e.g. `example.com` for the apex and `app.example.com`. */
       domain: z.string().regex(DOMAIN, "must be a lowercase host name such as example.com").optional(),
       /** Defaults to whether `appOrigin` is https. */
       secure: z.boolean().optional(),
     })
     .prefault({}),
+  /**
+   * Sessions of the system the app took over, so adopting the module does not log everyone out:
+   * the cookie it set and the shape of its tokens, stored as the sha256 hex of the token like here.
+   * Read when the current cookie is absent; ended and cleared at the next login, register or logout.
+   */
+  legacySession: z
+    .strictObject({
+      /** The old cookie's full name, prefix included. */
+      cookieName: z.string().regex(LEGACY_COOKIE_NAME, "must be 1-128 letters, digits, _ . or -"),
+      /** The whole token's shape, e.g. /[0-9a-f]{64}/; anchored by the module. */
+      tokenPattern: z.custom<RegExp>(
+        (value) => value instanceof RegExp && !value.global && !value.sticky,
+        "must be a RegExp without the g or y flag",
+      ),
+    })
+    .optional(),
+  /**
+   * Extra register form fields handed to `onRegistered` as `event.fields` (strings, at most 512
+   * characters; empty ones are left out). `RegisterPage` carries a declared field from its URL as a
+   * hidden input (e.g. `?z=` for a channel tag). Values come from the client: validate them in the hook.
+   */
+  registrationFields: z
+    .array(
+      z
+        .string()
+        .regex(REGISTRATION_FIELD_NAME, "must be a field name such as channel (a-z first, then letters, digits or _, at most 32)")
+        .refine((name) => !REGISTER_FORM_FIELDS.has(name), "is a field of the register form itself"),
+    )
+    .refine((names) => new Set(names).size === names.length, "must not repeat a name")
+    .default([]),
   /** Registration needs a ticked consent checkbox. */
   requireConsent: z.boolean().default(true),
   /** Declared default of the `auth.registration_closed` switch. */
@@ -101,6 +141,12 @@ export const authOptionsSchema = z.strictObject({
   onRegistered: z.custom<OnRegisteredHook>((value) => typeof value === "function", "must be a function").optional(),
   /** Rewrites the path of every auth redirect (e.g. `tagRedirect` from `@softure-ai/analytics/next`). */
   rewriteRedirect: z.custom<RewriteRedirect>((value) => typeof value === "function", "must be a function").optional(),
+}).superRefine((options, context) => {
+  const legacy = options.legacySession?.cookieName;
+  const base = options.cookie.name;
+  if (legacy !== undefined && [base, `__Host-${base}`, `__Secure-${base}`].includes(legacy)) {
+    context.addIssue({ code: "custom", path: ["legacySession", "cookieName"], message: "must differ from the current session cookie's name" });
+  }
 });
 
 export type AuthOptionsInput = z.input<typeof authOptionsSchema>;

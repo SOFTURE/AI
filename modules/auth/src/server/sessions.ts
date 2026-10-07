@@ -1,10 +1,10 @@
 // Database sessions: one row per login, keyed by the sha256 of the cookie token, with a fixed expiry.
 import type { ModuleContext } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
-import { and, eq, gt, lte } from "drizzle-orm";
+import { and, eq, gt, lte, ne } from "drizzle-orm";
 import type { AuthUser, NewSession } from "../contract.js";
 import { sessions, users } from "../schema.js";
-import { getAuthOptions } from "./options.js";
+import { getAuthOptions, getLegacyTokenPattern } from "./options.js";
 import { createSessionToken, hashSessionToken, isSessionTokenShape } from "./session-token.js";
 
 export type AuthContext = ModuleContext<Queryable>;
@@ -22,7 +22,7 @@ export async function createSession(ctx: AuthContext, userId: string): Promise<N
 
 /** The user of a live session, or null for an unknown, malformed or expired token. */
 export async function findSessionUser(ctx: AuthContext, token: string): Promise<AuthUser | null> {
-  if (!isSessionTokenShape(token)) return null;
+  if (!isSessionTokenShape(token, getLegacyTokenPattern(ctx.config))) return null;
   const [row] = await ctx.db
     .select({ id: users.id, email: users.email, createdAt: users.createdAt })
     .from(sessions)
@@ -34,7 +34,7 @@ export async function findSessionUser(ctx: AuthContext, token: string): Promise<
 
 /** Ends one session. An unknown token is already logged out, so it is not an error. */
 export async function logoutSession(ctx: AuthContext, token: string): Promise<void> {
-  if (!isSessionTokenShape(token)) return;
+  if (!isSessionTokenShape(token, getLegacyTokenPattern(ctx.config))) return;
   await ctx.db.delete(sessions).where(eq(sessions.tokenHash, hashSessionToken(token)));
 }
 
@@ -47,4 +47,19 @@ export async function pruneSessions(ctx: AuthContext): Promise<number> {
 /** Deletes the expired sessions of one user (at their login, so rows do not pile up without a job). */
 export async function deleteExpiredSessions(ctx: AuthContext, userId: string): Promise<void> {
   await ctx.db.delete(sessions).where(and(eq(sessions.userId, userId), lte(sessions.expiresAt, ctx.clock.now())));
+}
+
+export interface RevokeUserSessionsOptions {
+  /** A session token to keep, e.g. the one of the admin acting on their own account. */
+  readonly except?: string;
+}
+
+/**
+ * Ends every session of `userId` (all but `except`), e.g. after an account recovery or a suspected
+ * leak; each device must log in again. Returns how many sessions were ended.
+ */
+export async function revokeUserSessions(ctx: AuthContext, userId: string, options: RevokeUserSessionsOptions = {}): Promise<number> {
+  const kept = options.except === undefined ? undefined : ne(sessions.tokenHash, hashSessionToken(options.except));
+  const deleted = await ctx.db.delete(sessions).where(and(eq(sessions.userId, userId), kept)).returning();
+  return deleted.length;
 }

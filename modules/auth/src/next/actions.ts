@@ -14,8 +14,9 @@ import { after } from "next/server";
 import { z } from "zod";
 import type { AuthFormErrorCode, AuthFormField, AuthFormState } from "../contract.js";
 import { resolveRedirectTarget } from "../redirect-target.js";
-import { toSafeNextPath } from "../safe-next-path.js";
+import { MAX_NEXT_PATH_LENGTH, toSafeNextPath } from "../safe-next-path.js";
 import { changePassword } from "../server/change-password.js";
+import { getAuthOptions } from "../server/options.js";
 import { loginUser } from "../server/login.js";
 import { getAuthRoutes } from "../server/options.js";
 import { deliverPasswordReset, requestPasswordReset, resetPassword } from "../server/password-reset.js";
@@ -23,7 +24,7 @@ import { registerUser } from "../server/register.js";
 import { logoutSession } from "../server/sessions.js";
 import { getAuthContext } from "./context.js";
 import { PASSWORD_RESET_DONE_PARAM } from "./params.js";
-import { clearSessionCookie, readSessionToken, writeSessionCookie } from "./session-cookie.js";
+import { clearSessionCookie, readLegacySessionToken, readSessionToken, writeSessionCookie } from "./session-cookie.js";
 
 /** Longer values are cut: the server functions refuse them anyway, and nothing huge is echoed back. */
 const MAX_FIELD_LENGTH = 4096;
@@ -32,8 +33,14 @@ const text = z
   .catch("")
   .transform((value) => value.slice(0, MAX_FIELD_LENGTH));
 
-const loginInput = z.object({ email: text, password: text, next: text });
-const registerInput = z.object({ email: text, password: text, next: text, consent: z.string().nullable().catch(null) });
+// One character over the cap, so `toSafeNextPath` still sees an overlong path as overlong, not cut.
+const nextPath = z
+  .string()
+  .catch("")
+  .transform((value) => value.slice(0, MAX_NEXT_PATH_LENGTH + 1));
+
+const loginInput = z.object({ email: text, password: text, next: nextPath });
+const registerInput = z.object({ email: text, password: text, next: nextPath, consent: z.string().nullable().catch(null) });
 const changePasswordInput = z.object({ currentPassword: text, newPassword: text });
 const forgotPasswordInput = z.object({ email: text });
 const resetPasswordInput = z.object({ token: text, newPassword: text });
@@ -48,6 +55,7 @@ const FIELD_OF: Partial<Record<AuthFormErrorCode, AuthFormField>> = {
 
 const CHANGE_FIELD_OF: Partial<Record<AuthFormErrorCode, AuthFormField>> = {
   "auth.current_password_invalid": "currentPassword",
+  "auth.password_unchanged": "newPassword",
   "auth.password_too_short": "newPassword",
   "auth.password_too_long": "newPassword",
 };
@@ -65,6 +73,16 @@ function readForm<T extends z.ZodType>(schema: T, formData: FormData): z.output<
   const raw = Object.fromEntries([...formData.keys()].map((key) => [key, formData.get(key)]));
   // Every field has a `catch`, so parsing cannot fail.
   return schema.parse(raw);
+}
+
+/** The app's declared registration fields the form sent as text; files and other names are ignored (the server cuts them to 512). */
+function readRegistrationFields(config: SoftureConfig, formData: FormData): Record<string, string> {
+  const fields: Record<string, string> = {};
+  for (const name of getAuthOptions(config).registrationFields) {
+    const value = formData.get(name);
+    if (typeof value === "string") fields[name] = value.slice(0, MAX_FIELD_LENGTH);
+  }
+  return fields;
 }
 
 function reportFailure(operation: string, error: unknown): AuthFormErrorCode {
@@ -105,6 +123,7 @@ export async function registerAction(_previous: AuthFormState, formData: FormDat
       // A checked HTML checkbox sends "on" (or its value); an unchecked one sends nothing.
       hasConsented: input.consent !== null,
       clientKey: client.value,
+      fields: readRegistrationFields(config, formData),
     });
   } catch (error) {
     return failure(reportFailure("registration", error), { email: input.email });
@@ -189,22 +208,27 @@ export async function resetPasswordAction(_previous: AuthFormState, formData: Fo
   redirect(await resolveRedirectTarget(config, `${getAuthRoutes(config).login}?${PASSWORD_RESET_DONE_PARAM}=1`));
 }
 
-/** Ends the session the browser held before a login or register, so it cannot be reused. */
+/** Every session token the browser holds: the current cookie's and a legacy session's. */
+async function readHeldTokens(config: SoftureConfig): Promise<string[]> {
+  const tokens = [await readSessionToken(config), await readLegacySessionToken(config)];
+  return [...new Set(tokens.filter((token) => token !== null))];
+}
+
+/** Ends the sessions the browser held before a login or register, so they cannot be reused. */
 async function endPreviousSession(config: SoftureConfig): Promise<void> {
-  const previous = await readSessionToken(config);
-  if (previous === null) return;
-  try {
-    await logoutSession(await getAuthContext(config), previous);
-  } catch (error) {
-    reportFailure("ending the previous session", error);
+  for (const previous of await readHeldTokens(config)) {
+    try {
+      await logoutSession(await getAuthContext(config), previous);
+    } catch (error) {
+      reportFailure("ending the previous session", error);
+    }
   }
 }
 
-/** Ends the request's session and goes to `afterLogout`. The cookie is cleared even if the delete fails. */
+/** Ends the request's sessions and goes to `afterLogout`. The cookies are cleared even if the delete fails. */
 export async function logoutAction(): Promise<void> {
   const config = getSoftureConfig();
-  const token = await readSessionToken(config);
-  if (token !== null) {
+  for (const token of await readHeldTokens(config)) {
     try {
       await logoutSession(await getAuthContext(config), token);
     } catch (error) {

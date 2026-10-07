@@ -4,6 +4,7 @@ import { auth, AUTH_RATE_LIMIT_BUCKETS } from "@softure-ai/auth";
 import type { AuthContext } from "@softure-ai/auth/server";
 import { createTestDatabase, type TestDatabase } from "@softure-ai/db/testing";
 import { headerIp, security } from "@softure-ai/security";
+import { randomBytes, scryptSync } from "node:crypto";
 
 export const NOW = new Date("2026-09-15T12:00:00Z");
 export const DAY_MS = 24 * 60 * 60 * 1000;
@@ -67,4 +68,14 @@ export async function listAttempts(database: TestDatabase): Promise<string[]> {
     "SELECT bucket, identifier, attempts FROM security.rate_limits ORDER BY bucket, identifier",
   );
   return result.rows.map((row) => `${row.bucket} ${row.identifier} ${String(row.attempts)}`);
+}
+
+/**
+ * A scrypt hash of `password` exactly as given, without the NFC step the module applies: what an
+ * older system that hashed raw input stored (issue #156, point 5).
+ */
+export function hashWithoutNormalizing(password: string, params: typeof FAST_SCRYPT): Promise<string> {
+  const salt = randomBytes(16);
+  const key = scryptSync(password, salt, 64, { N: params.cost, r: params.blockSize, p: params.parallelization });
+  return Promise.resolve(["scrypt", params.cost, params.blockSize, params.parallelization, salt.toString("base64url"), key.toString("base64url")].join("$"));
 }

@@ -1,4 +1,4 @@
-// Password change for a signed-in user. The new hash, the end of every other session of the user
+// Password change for a signed-in user. The new password must differ from the current one. The new hash, the end of every other session of the user
 // and of a pending reset link happen in one transaction; the session that made the change stays signed in.
 import { err, ok, type Err, type Ok } from "@softure-ai/core";
 import type { RateLimitRejection } from "@softure-ai/security";
@@ -22,6 +22,7 @@ export interface ChangePasswordInput {
 export type ChangePasswordErrorCode =
   | "auth.unauthenticated"
   | "auth.current_password_invalid"
+  | "auth.password_unchanged"
   | "auth.password_too_short"
   | "auth.password_too_long";
 
@@ -43,6 +44,8 @@ export async function changePassword(ctx: AuthContext, input: ChangePasswordInpu
   const [stored] = await ctx.db.select({ passwordHash: users.passwordHash }).from(users).where(eq(users.id, user.id)).limit(1);
   if (stored === undefined) return err("auth.unauthenticated");
   if (!(await verifyPassword(input.currentPassword, stored.passwordHash))) return err("auth.current_password_invalid");
+  // Compared in NFC, as the hash is: another Unicode form of the same password is the same password.
+  if (input.newPassword.normalize("NFC") === input.currentPassword.normalize("NFC")) return err("auth.password_unchanged");
 
   const passwordHash = await hashPassword(input.newPassword, options.password.scrypt);
   return ctx.db.transaction(async (tx): Promise<ChangePasswordResult> => {

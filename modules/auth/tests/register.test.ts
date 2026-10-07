@@ -97,9 +97,17 @@ describe("registerUser", () => {
     const { ctx } = await setUp({ auth: { requireConsent: false, onRegistered } });
     expect((await registerUser(ctx, { ...INPUT, hasConsented: false })).ok).toBe(true);
     expect(onRegistered).toHaveBeenCalledWith(
-      { user: expect.objectContaining({ email: "ada@example.com" }) as unknown, consent: null },
+      { user: expect.objectContaining({ email: "ada@example.com" }) as unknown, consent: null, fields: {} },
       expect.anything(),
     );
+  });
+
+  it("hands the declared registration fields to onRegistered, trimmed to 512 characters, and drops the rest", async () => {
+    const onRegistered = vi.fn(() => Promise.resolve());
+    const { ctx } = await setUp({ auth: { registrationFields: ["channel", "referrer", "plan"], onRegistered } });
+    const fields = { channel: "newsletter", referrer: "x".repeat(600), plan: "", admin: "true" };
+    expect((await registerUser(ctx, { ...INPUT, fields })).ok).toBe(true);
+    expect(onRegistered).toHaveBeenCalledWith(expect.objectContaining({ fields: { channel: "newsletter", referrer: "x".repeat(512) } }), expect.anything());
   });
 
   it("calls onRegistered with the user and the consent time inside the transaction", async () => {

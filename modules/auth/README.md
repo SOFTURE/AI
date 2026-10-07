@@ -2,17 +2,17 @@
 
 Accounts for a Next.js app: register with a required consent, login, logout, password change,
 password reset by an emailed link, roles with admin-only surfaces that fail closed, database sessions, a route guard for `proxy.ts`, and ready pages and forms. The reference module
-of the SOFTURE standard (docs/02): it has every layer, from migrations to messages. Built from
-FIRE_TRACKER's auth (`src/lib/{password,session}.ts`, `src/db/sessions.ts`,
-`src/app/actions/do-auth.ts`, `src/proxy.ts`), with the rate limiter of `@softure-ai/security`
-and the route guard separated from channel tagging.
+of the SOFTURE standard (docs/02): it has every layer, from migrations to messages. It counts
+attempts with the rate limiter of `@softure-ai/security`, and its route guard is separate from
+channel tagging.
 
 ## 1. What it provides
 
 Users and sessions in the `auth` schema, scrypt password hashes, opaque session cookies, register,
 login, logout, password change and password reset as server actions and pages, `getCurrentUser` / `requireUser`
 for server code, roles (`requireRole`, `authorizeRole`, `hasRole`, and `grant-role` /
-`revoke-role` scripts), `createAuthGuard` for the app's `proxy.ts`, and a health check that
+`revoke-role` scripts), account recovery (`revokeUserSessions` and a `set-temporary-password`
+script), `createAuthGuard` for the app's `proxy.ts`, and a health check that
 `GET /api/health` of `@softure-ai/ops` runs (every auth table answers, no rows read).
 `@softure-ai/auth/mailing` sends password reset mails through `@softure-ai/mailing`
 (`mailingResetSender()`). `@softure-ai/auth/testing` creates accounts directly in the database for
@@ -22,12 +22,13 @@ tests (`createTestAccount`, section 4, "Tests").
 
 ```bash
 npm install @softure-ai/auth @softure-ai/security @softure-ai/core @softure-ai/db @softure-ai/ui drizzle-orm
-# for the role scripts (section 4, "Roles"), already a dependency of auth:
+# only for the ops scripts in @softure-ai/auth/scripts (section 4, "Roles" and "Account recovery"):
 npm install @softure-ai/ops
 ```
 
-Peer dependencies: `next` 16, `react` 19, `drizzle-orm`; `@softure-ai/mailing` (optional) for
-`@softure-ai/auth/mailing`.
+Peer dependencies: `next` 16, `react` 19, `drizzle-orm`; optional: `@softure-ai/mailing` for
+`@softure-ai/auth/mailing`, `@softure-ai/ops` for `@softure-ai/auth/scripts`. No other entry
+imports them.
 
 ## 3. Configuration
 
@@ -43,7 +44,7 @@ const config = defineSoftureConfig({
   timezone: "Europe/Warsaw",
   appOrigin: process.env.APP_ORIGIN!,
   modules: [
-    // auth counts attempts in these four buckets; change the numbers, keep the names.
+    // auth counts attempts in these buckets; change the numbers, keep the names.
     security({ clientIp: cloudflareIp(), buckets: { ...AUTH_RATE_LIMIT_BUCKETS } }),
     auth({
       routes: { afterLogin: "/dashboard" },
@@ -62,12 +63,14 @@ export default config;
 | Option | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `password.minLength` | `number` (8-128) | `10` | Shortest new password, in characters. The longest is 1024. |
-| `password.scrypt` | `{ cost, blockSize, parallelization }` | `{ 2 ** 17, 8, 1 }` | scrypt N, r, p (OWASP). Raising them rehashes each password at its owner's next login. |
+| `password.scrypt` | `{ cost, blockSize, parallelization }` | `{ 2 ** 17, 8, 1 }` | scrypt N, r, p (OWASP). Raising them rehashes each password at its owner's next login. Memory: 128 × N × r bytes per hash, so the default takes 128 MiB and about 0.4 s of one core; Node runs up to four hashes at once (its libuv pool, `UV_THREADPOOL_SIZE`), about 512 MiB at a burst of logins. On a small server, lower `cost` to `2 ** 16` (64 MiB) or `2 ** 15` (32 MiB) and leave the pool at four. |
 | `session.ttlDays` | `number` (1-365) | `30` | Session lifetime from login. It is not extended by use. |
 | `cookie.name` | `string` | `"softure_session"` | Base name of the session cookie (see below). |
 | `cookie.domain` | `string` | none (host-only) | Share the session with subdomains, e.g. `example.com` for the apex and `app.example.com`. |
 | `cookie.secure` | `boolean` | `appOrigin` is https | Send the cookie over HTTPS only. |
 | `requireConsent` | `boolean` | `true` | Registration needs the consent checkbox. |
+| `registrationFields` | `string[]` | `[]` | Extra register form fields handed to `onRegistered` as `event.fields` (section 10). Names: `a-z` first, then letters, digits or `_`, at most 32; not `email`, `password`, `next` or `consent`. |
+| `legacySession` | `{ cookieName, tokenPattern }` | none | Sessions of the system the app took over (section 5, "Adopting existing sessions"). |
 | `registrationClosed` | `boolean` | `false` | Declared default of the `auth.registration_closed` switch. |
 | `roles` | `string[]` | `[]` | Role names the app checks besides `admin` (always declared): `a-z`, `0-9`, `_`, `-`, at most 32. |
 | `adminEmails` | `string[]` | `[]` | Initial admin list: while an email is listed, its account holds `admin`. Auth does not verify emails, so create these accounts before you deploy the list (section 4, "Roles"). |
@@ -87,11 +90,15 @@ per client address, `login-account` 10 per email, `change-password` 10 per user,
 `password-reset` 10 (link requests) and `password-reset-confirm` 10 (new passwords) per client
 address, `password-reset-account` 3 per email (the mails one address can get), each per 15
 minutes. Attempts are counted before any password is hashed. A successful login forgets the
-email's failed attempts, not the address's. `login-account` is a lockout by design: ten wrong
+email's failed attempts, not the address's: the per-address `login` bucket counts every login,
+successful or not, so a test suite that logs in many times from one address must raise `login`
+(or give each test its own address). `login-account` is a lockout by design: ten wrong
 passwords for one email, from any addresses, block logins to that account for the rest of the
 window, the owner's included. Raise its limit if that trade-off is wrong for your app. Auth checks
-at its first call that all seven buckets exist and names the missing ones. A request whose client address cannot be resolved is
-refused (`security.client_unidentified`); see the security README for resolvers.
+at its first call that the buckets it counts in exist and names the missing ones: the three
+`password-reset*` buckets only when `passwordReset.send` is set. A request whose client address
+cannot be resolved is refused (`security.client_unidentified`); the security README shows resolver
+chains for production and for development and test stacks.
 
 ## 4. Mounting
 
@@ -110,6 +117,27 @@ export { ResetPasswordPage as default } from "@softure-ai/auth/next";
 // app/api/auth/session/route.ts: { user: { id, email } | null }, never cached
 export { getSessionRoute as GET } from "@softure-ai/auth/next";
 ```
+
+The register page takes a consent label (links to your terms) and inputs of your own through
+`createRegisterPage`, so you keep the module's page:
+
+```tsx
+// app/register/page.tsx
+import { createRegisterPage } from "@softure-ai/auth/next";
+
+export default createRegisterPage({
+  consentLabel: (
+    <>
+      I accept the <a href="/terms">terms</a> and the <a href="/privacy">privacy policy</a>.
+    </>
+  ),
+  extraFields: <input type="hidden" name="plan" value="pro" />,
+});
+```
+
+A field reaches `onRegistered` only when its name is in `auth({ registrationFields })` (section 10).
+The page also carries a declared field from its own URL as a hidden input, so with
+`registrationFields: ["z"]` a visit to `/register?z=newsletter` hands `{ z: "newsletter" }` to the hook.
 
 The server actions (`loginAction`, `registerAction`, `changePasswordAction`, `forgotPasswordAction`,
 `resetPasswordAction`, `logoutAction`) need no mounting. In your own pages and layouts:
@@ -172,6 +200,18 @@ Next's `config`.)
 A protected prefix matches whole path segments (`/account` covers `/account/password`, not
 `/accounting`). The change-password route is always protected. Redirects are built on `appOrigin`.
 
+An app that is private by default protects `"/"` and lists its public paths in `exclude`, which is
+checked first:
+
+```ts
+const guard = createAuthGuard(softureConfig, { protect: ["/"], exclude: ["/", "/pricing", "/blog", "/api/public"] });
+```
+
+In `exclude`, `"/"` is the home page only; any other entry matches whole segments like `protect`.
+Auth's own public pages (login, register, forgot and reset password) and `/api/auth/session` are
+never guarded, so `protect: ["/"]` cannot send the login page to itself. The change-password route
+stays guarded even under an excluded prefix.
+
 **Roles.** A role is a declared name (`admin`, plus `auth({ roles: ["editor"] })`) held by an
 account: as a row in `auth.user_roles`, or, for `admin` only, through `adminEmails`. Nothing is
 granted by default: with no admin listed and no rows, every admin-only surface stays closed.
@@ -221,6 +261,26 @@ is its pair. Both refuse an unknown email, an undeclared role, a role already gr
 not stored (revoke); an `admin` that comes from `adminEmails` is removed from the list, not by the
 script. `grantRole`, `revokeRole` and `findUserRoles` in `@softure-ai/auth/server` do the same for
 your own code.
+
+**Account recovery.** `revokeUserSessions(ctx, userId, { except? })` from `@softure-ai/auth/server`
+ends every session of an account (all but `except`) and returns how many; each device logs in
+again. For an owner who lost access without a reset mail, the `set-temporary-password` ops script
+sets a random password (at least 20 characters, and at least `password.minLength`), ends every
+session and the pending reset link, and prints the password once:
+
+```ts
+// scripts/set-temporary-password.ts (bundled and run like grant-role)
+import { createSetTemporaryPasswordScript } from "@softure-ai/auth/scripts";
+import { runOpsScript } from "@softure-ai/ops/scripts";
+import config from "../softure.config";
+
+process.exitCode = await runOpsScript({ script: createSetTemporaryPasswordScript(config), argv: process.argv.slice(2), config });
+```
+
+`node set-temporary-password.mjs --email=owner@example.com` shows what it would end and rolls back
+(the printed password is not stored); `--commit` writes and prints the password to hand over. Send
+it only to the account's own address, and ask the owner to change it after logging in: the module
+does not force a change.
 
 **Password reset.** Pass a sender, and the login form links to the request page. With
 `@softure-ai/mailing` enabled, `mailingResetSender()` is that sender:
@@ -275,7 +335,8 @@ auth({
 
 **Your own forms.** `@softure-ai/auth/ui` exports `LoginForm`, `RegisterForm`,
 `ChangePasswordForm`, `ForgotPasswordForm` and `ResetPasswordForm`; pass them the actions from
-`@softure-ai/auth/next`.
+`@softure-ai/auth/next`. `RegisterForm` takes `consentLabel` and `extraFields` like
+`createRegisterPage`.
 
 **Tests.** `createTestAccount(db, { email, password, roles?, scrypt? })` from `@softure-ai/auth/testing`
 writes an account and its role rows in one transaction, hashed as registration hashes it, and returns
@@ -318,6 +379,26 @@ your own 1:1 table, never in `auth.users`. Expired sessions of a user are delete
 login; `pruneSessions(ctx)` from `@softure-ai/auth/server` deletes all of them for a scheduled job,
 and `prunePasswordResets(ctx)` does the same for expired reset links.
 
+**Adopting existing sessions.** An app that moves to this module from its own auth can keep its
+users, its password hashes when they are `scrypt$N$r$p$salt$key` strings, and its sessions when it
+stored them as the sha256 hex of the token. Its cookie has another name and its tokens another
+shape, so without more every user logs in once after the switch. To keep them signed in, declare
+the old cookie:
+
+```ts
+auth({ legacySession: { cookieName: "session", tokenPattern: /[0-9a-f]{64}/ } });
+```
+
+`tokenPattern` describes the whole token (the module anchors it) and must not use the `g` or `y`
+flag. While the current cookie is absent the old one is read, its token looked up by the same
+sha256, and the route guard counts it. The next login, register or logout ends that session and
+removes the old cookie (`Path=/` and `cookie.domain`; an old cookie set on another path or domain
+stays until it expires, its session already ended). Legacy sessions keep their own expiry. Remove
+the option once the longest of them has expired.
+
+A password hashed from input that was not NFC still verifies: a login tries the input as given when
+its NFC form fails, then rehashes it in NFC.
+
 ## 6. Environment variables
 
 | Name | Required | Meaning |
@@ -348,7 +429,8 @@ Without feature-switches, or while the app does not define the switch there, its
 
 Pages and forms are built from `@softure-ai/ui` (Card, fields, Checkbox, Button) and use only its
 compiled classes, so `@softure-ai/ui/styles.css` styles them and the `--sft-*` tokens theme them.
-Each form takes `classNames` for its slots (`root`, `form`, `footer`, `link`, `notice`) and
+Each form takes `classNames` for its slots (`root`, `form`, `footer`, `link`, `notice`, and `submit`
+for the submit button's class), `submitVariant` (a `Button` variant, `primary` by default) and
 `unstyled`; pages are server components you can replace with your own page around the forms.
 
 ## 9. Copy
@@ -362,9 +444,12 @@ looks one up.
 
 ## 10. Hooks
 
-`onRegistered({ user, consent }, ctx)`: after the user row is inserted, in the same transaction
-(`ctx.db` is the transaction). `consent` is `{ acceptedAt }`, or `null` with
-`requireConsent: false`. A thrown error rolls the registration back and the user sees a generic
+`onRegistered({ user, consent, fields }, ctx)`: after the user row is inserted, in the same
+transaction (`ctx.db` is the transaction). `consent` is `{ acceptedAt }`, or `null` with
+`requireConsent: false`. `fields` holds the declared `registrationFields` the form sent, by name
+(strings cut to 512 characters, empty ones left out). They come from the client, and a link can set
+a carried one, so validate them before you store them. The hook runs inside the register action,
+so it can also read the request (`headers()`, `cookies()` from `next/headers`). A thrown error rolls the registration back and the user sees a generic
 failure. `@softure-ai/privacy` stores the consent through it.
 
 `passwordReset.send(link, user, details)`: after a reset request is answered, for an existing
@@ -394,10 +479,13 @@ Rate limit rows of `security` hold only SHA-256 prefixes of the email and user i
 
 - Sessions have a fixed lifetime; there is no sliding renewal and no "remember me".
 - A password change keeps the session that made it (and ends every other one); the token itself
-  is not rotated. Login and register end the session the browser held before.
+  is not rotated. The new password must differ from the current one (`auth.password_unchanged`). Login and register end the session the browser held before.
 - No email verification, so `adminEmails` trusts whoever registers a listed email first. (A reset
   link goes to the account's email, so its owner can take the account back.)
 - Roles are flat: no hierarchy and no permissions per role; no UI to manage them (the scripts do).
 - The guard checks cookie presence only; the session is verified by `requireUser`.
+- A `next` path longer than 8192 characters is replaced by the default target, with a warning in
+  the log that names its length.
+- A temporary password from the script is not forced to change at the next login.
 - A registration attempt reveals whether an email has an account (`auth.email_taken`); the
   `register` rate limit bounds how fast anyone can ask.
