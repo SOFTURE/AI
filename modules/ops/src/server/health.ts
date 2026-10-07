@@ -3,7 +3,7 @@
 // Ported from FIRE_TRACKER `src/app/api/health/route.ts`, where a container with a dead Postgres
 // answered 200 on `/login` because that page never touched the database: here health means a
 // query that really goes through, and every module may add what "ready" means for it.
-import { errorLogLabel, getModule, ok, type HealthCheck, type ModuleContext, type SoftureConfig } from "@softure-ai/core";
+import { err, errorLogLabel, getModule, ok, type HealthCheck, type ModuleContext, type SoftureConfig } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
 import { sql } from "drizzle-orm";
 import type { HealthCheckState, HealthReport } from "../contract.js";
@@ -33,18 +33,34 @@ export function createDatabaseCheck(db: Queryable): HealthCheck {
 }
 
 /**
- * The checks to run for this config, in order: `database` (when `db` is given), each enabled
- * module's check under the module id, then the app's checks from `ops({ checks })`. Throws when two
- * checks share a name: that is a configuration bug.
+ * The check that stands in for the database when the config has none. Apps build `database` from
+ * `DATABASE_URL`, so a missing secret leaves `null`; without this check a route with nothing else to
+ * check would answer 200 for an app whose pages fail.
+ */
+export function createMissingDatabaseCheck(): HealthCheck {
+  return () => Promise.resolve(err("ops.database_missing"));
+}
+
+/**
+ * The checks to run for this config, in order: `database`, each enabled module's check under the
+ * module id, then the app's checks from `ops({ checks })`. Without `db` the `database` check fails,
+ * unless the app set `ops({ requireDatabase: false })`. Throws when two checks share a name: that
+ * is a configuration bug.
  */
 export function collectHealthChecks(config: SoftureConfig, db: Queryable | null): NamedHealthCheck[] {
-  const checks: NamedHealthCheck[] = db === null ? [] : [{ name: DATABASE_CHECK_NAME, check: createDatabaseCheck(db) }];
+  const options = getModule(config, "ops")?.options as OpsOptions | undefined;
+  const checks: NamedHealthCheck[] = [];
+  if (db !== null) {
+    checks.push({ name: DATABASE_CHECK_NAME, check: createDatabaseCheck(db) });
+  } else if (options?.requireDatabase ?? true) {
+    checks.push({ name: DATABASE_CHECK_NAME, check: createMissingDatabaseCheck() });
+  }
   for (const module of config.modules) {
     if (module.health !== null) {
       checks.push({ name: module.id, check: module.health });
     }
   }
-  const appChecks = (getModule(config, "ops")?.options as OpsOptions | undefined)?.checks ?? {};
+  const appChecks = options?.checks ?? {};
   for (const [name, check] of Object.entries(appChecks)) {
     checks.push({ name, check });
   }

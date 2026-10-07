@@ -40,7 +40,7 @@ describe("GET /api/health", () => {
   });
 
   it("answers 503 and reveals nothing when a module check fails", async () => {
-    registerSoftureConfig(createConfig({ databaseUrl: null, modules: [passingCheck, failingCheck] }));
+    registerSoftureConfig(createConfig({ databaseUrl: null, modules: [passingCheck, failingCheck], ops: { requireDatabase: false } }));
     const response = await GET();
     expect(response.status).toBe(503);
     expect(await response.json()).toEqual({ status: "unavailable" });
@@ -112,9 +112,32 @@ describe("GET /api/health", () => {
     expect(calls).toBe(1);
   });
 
-  it("checks nothing but the modules when the app has no database", async () => {
+  it("answers 503 when the config has no database, even with no other check", async () => {
+    // DATABASE_URL unset at run time: the app builds `database: null`, and nothing else would be checked.
+    registerSoftureConfig(createConfig({ databaseUrl: null, ops: { detail: "checks" } }));
+    const response = await GET();
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ status: "unavailable", checks: { database: "failed" } });
+    expect(errors).toEqual([['health check "database" failed: ops.database_missing']]);
+  });
+
+  it("answers 503 when the config has no database and every module check passes", async () => {
     registerSoftureConfig(createConfig({ databaseUrl: null, modules: [passingCheck], ops: { detail: "checks" } }));
+    const response = await GET();
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ status: "unavailable", checks: { database: "failed", "module-1": "ok" } });
+  });
+
+  it("checks nothing but the modules when the app opts out of a database", async () => {
+    registerSoftureConfig(createConfig({ databaseUrl: null, modules: [passingCheck], ops: { detail: "checks", requireDatabase: false } }));
     expect(await (await GET()).json()).toEqual({ status: "ok", checks: { "module-1": "ok" } });
+  });
+
+  it("answers 200 with no checks when the app opts out of a database and has nothing else to check", async () => {
+    registerSoftureConfig(createConfig({ databaseUrl: null, ops: { detail: "checks", requireDatabase: false } }));
+    const response = await GET();
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ status: "ok", checks: {} });
   });
 
   it("shares one run between concurrent requests", async () => {
@@ -123,7 +146,7 @@ describe("GET /api/health", () => {
       runs += 1;
       return new Promise<{ ok: true; value: undefined }>((resolve) => setTimeout(() => resolve({ ok: true, value: undefined }), 50));
     };
-    registerSoftureConfig(createConfig({ databaseUrl: null, modules: [counted] }));
+    registerSoftureConfig(createConfig({ databaseUrl: null, modules: [counted], ops: { requireDatabase: false } }));
     const responses = await Promise.all([GET(), GET(), GET()]);
     expect(responses.map((response) => response.status)).toEqual([200, 200, 200]);
     expect(runs).toBe(1);
