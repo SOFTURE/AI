@@ -82,4 +82,4 @@ Done when: gates green (typecheck, lint, test, build).
 
 #### Automated
 - [x] 2.1 Compiled CSS tests seen red, then green — d83ed3c
-- [ ] 2.2 README, version 0.1.8, gates green (typecheck, lint, test, build)
+- [x] 2.2 README, version 0.1.8, gates green (typecheck, lint, test, build) — 0d12528
