@@ -1,6 +1,6 @@
 // Directive blocks: a line `::name{key="value"}` of a registered directive plugin is rendered by the app,
 // the way existing articles embed engine charts and tools. The gate finds the same lines.
-import { findArticleBlocks, renderArticle, type ArticleBlock, type BlockPlugin } from "@softure-ai/blog/server";
+import { findArticleBlocks, parseDirectiveAttributes, renderArticle, type ArticleBlock, type BlockPlugin } from "@softure-ai/blog/server";
 import { describe, expect, it } from "vitest";
 
 const seen: ArticleBlock[] = [];
@@ -93,5 +93,27 @@ describe("renderArticle: directive plugins", () => {
       { type: "chart", syntax: "directive", info: 'type="wealth" scenario="w=35&d=300000"', attributes: { type: "wealth", scenario: "w=35&d=300000" }, line: 3, requires: ["current_as_of"] },
       { type: "chart", syntax: "directive", info: "bad", attributes: null, line: 5, requires: ["current_as_of"] },
     ]);
+  });
+});
+
+describe("parseDirectiveAttributes", () => {
+  it("reads pairs with or without whitespace between them", () => {
+    expect(parseDirectiveAttributes(' a="1"  b="x y" ')).toEqual({ a: "1", b: "x y" });
+    expect(parseDirectiveAttributes('a="1"b="2"')).toEqual({ a: "1", b: "2" });
+    expect(parseDirectiveAttributes("")).toEqual({});
+  });
+
+  it("refuses a repeated key, a bare word, an unclosed value and a missing quote", () => {
+    expect(parseDirectiveAttributes('a="1" a="2"')).toBeNull();
+    expect(parseDirectiveAttributes('a="1" junk')).toBeNull();
+    expect(parseDirectiveAttributes('a="1')).toBeNull();
+    expect(parseDirectiveAttributes("a=1")).toBeNull();
+  });
+
+  it("stays linear on long runs of spaces or key characters", () => {
+    const started = performance.now();
+    expect(parseDirectiveAttributes(" ".repeat(200_000) + "!")).toBeNull();
+    expect(parseDirectiveAttributes("a".repeat(200_000))).toBeNull();
+    expect(performance.now() - started).toBeLessThan(2_000);
   });
 });

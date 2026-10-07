@@ -168,7 +168,9 @@ const FOOTNOTE_ID = /^(?:footnotes|fn(?:ref)?-\d+(?:-\d+)?)$/;
 const BLOCK_TOKEN = "blog_block";
 const DIRECTIVE_LINE = /^::([a-z][a-z0-9]*(?:-[a-z0-9]+)*)(?:\{(.*)\})?$/;
 const DIRECTIVE_START = /^::[a-z]/;
-const DIRECTIVE_ATTRIBUTE = /\s*([a-z][a-z0-9_-]*)="([^"]*)"\s*/y;
+const ATTRIBUTE_KEY_START = /[a-z]/;
+const ATTRIBUTE_KEY_CHAR = /[a-z0-9_-]/;
+const WHITESPACE = /\s/;
 
 interface BlockMeta {
   readonly type: string;
@@ -179,16 +181,27 @@ interface BlockMeta {
 
 /** The `key="value"` pairs inside a directive's braces; `null` when anything else is there or a key repeats. */
 export function parseDirectiveAttributes(text: string): BlockAttributes {
+  // A hand scanner, linear in the text: a regex here runs on author input and backtracks on long runs.
   const attributes: Record<string, string> = {};
-  DIRECTIVE_ATTRIBUTE.lastIndex = 0;
-  let consumed = 0;
-  for (let found = DIRECTIVE_ATTRIBUTE.exec(text); found !== null; found = DIRECTIVE_ATTRIBUTE.exec(text)) {
-    const key = found[1] ?? "";
+  let index = 0;
+  const skipWhitespace = (): void => {
+    while (index < text.length && WHITESPACE.test(text.charAt(index))) index += 1;
+  };
+  skipWhitespace();
+  while (index < text.length) {
+    if (!ATTRIBUTE_KEY_START.test(text.charAt(index))) return null;
+    const keyStart = index;
+    while (index < text.length && ATTRIBUTE_KEY_CHAR.test(text.charAt(index))) index += 1;
+    const key = text.slice(keyStart, index);
+    if (text.charAt(index) !== "=" || text.charAt(index + 1) !== '"') return null;
+    const valueEnd = text.indexOf('"', index + 2);
+    if (valueEnd === -1) return null;
     if (Object.hasOwn(attributes, key)) return null;
-    attributes[key] = found[2] ?? "";
-    consumed = DIRECTIVE_ATTRIBUTE.lastIndex;
+    attributes[key] = text.slice(index + 2, valueEnd);
+    index = valueEnd + 1;
+    skipWhitespace();
   }
-  return text.slice(consumed).trim() === "" ? attributes : null;
+  return attributes;
 }
 
 /**
