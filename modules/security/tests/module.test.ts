@@ -21,7 +21,7 @@ describe("the security module", () => {
   it("fills in the defaults and takes a single resolver as a list", () => {
     const resolver = headerIp("x-real-ip");
     const module = security({ clientIp: resolver, buckets: BUCKETS });
-    expect(module.options).toEqual({ clientIp: [resolver], buckets: BUCKETS, ipv6Subnet: 64, cleanupProbability: 0.01 });
+    expect(module.options).toEqual({ clientIp: [resolver], buckets: BUCKETS, unidentified: "refuse", ipv6Subnet: 64, cleanupProbability: 0.01 });
   });
 
   it("refuses options it cannot run with, listing every problem", () => {
@@ -44,6 +44,21 @@ describe("the security module", () => {
     expect(() => security({ clientIp: headerIp("x-real-ip"), buckets: { Login: { limit: 1, windowMinutes: 1 } } })).toThrow(
       "- options.buckets.Login: is not a bucket name: lowercase letters, digits, _ . and -, starting with a letter",
     );
+  });
+
+  it("refuses a shared fallback key that is not a bucket-style name, and unknown fallback fields", () => {
+    expect(() => security({ clientIp: headerIp("x-real-ip"), buckets: BUCKETS, unidentified: { key: "Test Stack" } })).toThrow(
+      "- options.unidentified.key: is not a fallback key: lowercase letters, digits, _ . and -, starting with a letter, at most 63",
+    );
+    expect(() => security({ clientIp: headerIp("x-real-ip"), buckets: BUCKETS, unidentified: { key: "" } })).toThrow("options.unidentified.key");
+    expect(() =>
+      // @ts-expect-error: the test passes values the types already forbid, as a JavaScript config could.
+      security({ clientIp: headerIp("x-real-ip"), buckets: BUCKETS, unidentified: { key: "test-stack", ip: "127.0.0.1" } }),
+    ).toThrow("options.unidentified");
+    expect(() =>
+      // @ts-expect-error: the test passes values the types already forbid, as a JavaScript config could.
+      security({ clientIp: headerIp("x-real-ip"), buckets: BUCKETS, unidentified: "share" }),
+    ).toThrow("options.unidentified");
   });
 
   it("refuses an empty list of resolvers", () => {

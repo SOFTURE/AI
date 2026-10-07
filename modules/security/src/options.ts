@@ -8,6 +8,7 @@ const MAX_WINDOW_MINUTES = 7 * 24 * 60;
 
 const RESOLVER_HINT = "must be a client-IP resolver or a non-empty list of them, e.g. cloudflareIp()";
 const BUCKET_NAME_HINT = "is not a bucket name: lowercase letters, digits, _ . and -, starting with a letter";
+const FALLBACK_KEY_HINT = "is not a fallback key: lowercase letters, digits, _ . and -, starting with a letter, at most 63";
 
 function isResolverOrList(value: unknown): value is ClientIpResolver | readonly ClientIpResolver[] {
   if (Array.isArray(value)) {
@@ -40,6 +41,13 @@ export const securityOptionsSchema = z.strictObject({
         context.addIssue({ code: "custom", path: [name], message: BUCKET_NAME_HINT });
       }
     }),
+  /**
+   * What happens to a request no resolver identifies: `"refuse"` answers `security.client_unidentified`;
+   * `{ key }` counts every such request under one shared key, `unidentified:<key>`.
+   */
+  unidentified: z
+    .union([z.literal("refuse"), z.strictObject({ key: z.string().regex(BUCKET_NAME, FALLBACK_KEY_HINT) })])
+    .default("refuse"),
   /** IPv6 clients are keyed by their network of this many bits. */
   ipv6Subnet: z.number().int().min(1).max(128).default(64),
   /** Chance that a consumed attempt also deletes expired rows. */

@@ -17,7 +17,7 @@ export {
 } from "./i18n.js";
 export { coreMessages, type CoreMessages } from "./messages/index.js";
 export { err, ok, type Err, type ErrorCode, type Ok, type Result } from "./result.js";
-export { errorLogLabel, safeError, type CoreErrorCode } from "./safe-error.js";
+export { errorLogLabel, getPublicMessage, isPublicError, PublicError, safeError, type CoreErrorCode } from "./safe-error.js";
 export {
   defineSoftureConfig,
   getModule,

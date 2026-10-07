@@ -1,7 +1,8 @@
-// Turning a caught error into something safe to hand outside the process. Ported from
-// FIRE_TRACKER `src/lib/safe-error.ts`: there a Drizzle `Failed query: … params: …` reached a chat
-// transcript through a success payload. The scrubbing happens where the error is caught, so a
-// value that never carried the SQL cannot leak it later. Copy for the codes lives in `messages`.
+// Turning a caught error into something safe to hand outside the process: a Drizzle
+// `Failed query: … params: …` once reached a chat transcript through a success payload. The
+// scrubbing happens where the error is caught, so a value that never carried the SQL cannot leak
+// it later. Copy for the codes lives in `messages`. The one exception is a `PublicError`, whose
+// message the code wrote for the user on purpose; `getPublicMessage` hands that text out.
 import { err, type Err } from "./result.js";
 
 export type CoreErrorCode = "core.database_failed" | "core.unexpected";
@@ -12,6 +13,35 @@ export type CoreErrorCode = "core.database_failed" | "core.unexpected";
  */
 export function safeError(error: unknown): Err<CoreErrorCode> {
   return err(isDatabaseError(error) ? "core.database_failed" : "core.unexpected");
+}
+
+const PUBLIC_ERROR_BRAND = Symbol.for("softure.public-error");
+
+/**
+ * An error whose message is written for the user ("This plan has ended; pick another one."), thrown
+ * deliberately by domain code. Its message is safe to show; every other error's is not. Branded with
+ * a registry symbol, so it is still recognised when an app ends up with two copies of core.
+ */
+export class PublicError extends Error {
+  readonly [PUBLIC_ERROR_BRAND] = true;
+
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = "PublicError";
+  }
+}
+
+/** Whether `error` is a `PublicError`, from this copy of core or another. */
+export function isPublicError(error: unknown): error is PublicError {
+  return error instanceof Error && (error as Error & { [PUBLIC_ERROR_BRAND]?: unknown })[PUBLIC_ERROR_BRAND] === true;
+}
+
+/**
+ * The message of a `PublicError`, or `null` for anything else: the pass-through for deliberate
+ * domain messages, next to `safeError` for the rest (`getPublicMessage(error) ?? t(safeError(error).error)`).
+ */
+export function getPublicMessage(error: unknown): string | null {
+  return isPublicError(error) ? error.message : null;
 }
 
 /**

@@ -15,6 +15,7 @@
   },
   "files": [
     "dist",
+    "CHANGELOG.md",
     "src",
     "schema",
     "!src/**/*.test.ts",

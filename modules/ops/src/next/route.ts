@@ -3,12 +3,13 @@
 //
 // A public route without a session: the answer is `{ status }` and a code, 200 "will take traffic"
 // or 503 "will not", and nothing else unless the app opts into `detail: "checks"`. Causes go to the
-// server log only (FIRE_TRACKER L-021). It takes no input and costs one cheap query per check, so
+// server log only. It takes no input and costs one cheap query per check, so
 // instead of a database-backed rate limit (which would make health depend on the database it
 // reports on) concurrent requests share one run.
 import { errorLogLabel, getModule, systemClock, type SoftureConfig, type SoftureDatabaseConfig } from "@softure-ai/core";
 import { getSoftureConfig } from "@softure-ai/core/next";
 import { getConfiguredDatabase, type Queryable } from "@softure-ai/db";
+import { connection } from "next/server";
 import type { HealthReport } from "../contract.js";
 import { MODULE_ID } from "../index.js";
 import type { OpsOptions } from "../options.js";
@@ -20,6 +21,10 @@ const PGLITE_PREFIX = "pglite://";
 let inFlight: Promise<HealthReport> | null = null;
 
 export async function GET(): Promise<Response> {
+  // Dynamic by the route's own code, whatever Next's default for GET handlers is: a prerendered "ok"
+  // is the false green this route exists to prevent. A segment config cannot travel with the handler
+  // (`export { dynamic } from` fails the build: "It mustn't be reexported", measured on Next 16).
+  await connection();
   const config = getSoftureConfig();
   const module = getModule(config, MODULE_ID);
   if (module === undefined) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { errorLogLabel, safeError } from "@softure-ai/core";
+import { errorLogLabel, getPublicMessage, isPublicError, PublicError, safeError } from "@softure-ai/core";
 
 describe("safeError", () => {
   it("hides a Drizzle query failure behind core.database_failed", () => {
@@ -45,5 +45,32 @@ describe("errorLogLabel", () => {
   it("returns the type of a value that is not an Error", () => {
     expect(errorLogLabel("secret@example.com")).toBe("string");
     expect(errorLogLabel(null)).toBe("object");
+  });
+});
+
+describe("PublicError", () => {
+  it("carries a message written for the user, and getPublicMessage hands it out", () => {
+    const error = new PublicError("This plan has ended; pick another one.");
+    expect(error).toBeInstanceOf(Error);
+    expect(error.name).toBe("PublicError");
+    expect(getPublicMessage(error)).toBe("This plan has ended; pick another one.");
+  });
+
+  it("is recognised when it comes from another copy of core (the brand, not instanceof)", () => {
+    const foreign = Object.assign(new Error("Pick another plan."), { [Symbol.for("softure.public-error")]: true });
+    expect(isPublicError(foreign)).toBe(true);
+    expect(getPublicMessage(foreign)).toBe("Pick another plan.");
+  });
+
+  it("gives null for every other error, so its text never reaches the user", () => {
+    expect(getPublicMessage(new Error("Failed query: select * from users where email = $1"))).toBeNull();
+    expect(getPublicMessage(Object.assign(new Error("x"), { [Symbol.for("softure.public-error")]: "yes" }))).toBeNull();
+    expect(getPublicMessage({ message: "plain object" })).toBeNull();
+    expect(getPublicMessage("string")).toBeNull();
+    expect(getPublicMessage(null)).toBeNull();
+  });
+
+  it("still maps to core.unexpected in safeError, whose codes callers switch on", () => {
+    expect(safeError(new PublicError("Pick another plan."))).toEqual({ ok: false, error: "core.unexpected" });
   });
 });
