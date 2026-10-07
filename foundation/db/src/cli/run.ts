@@ -5,6 +5,8 @@
 //   import { runMigrateCli } from "@softure-ai/db/cli";
 //   import config from "../softure.config";
 //   process.exitCode = await runMigrateCli({ config, argv: process.argv.slice(2) });
+//
+// An app with its own migrations passes them as `app: { before, after }` (see MigrateOptions.app).
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { pathToFileURL } from "node:url";
@@ -12,7 +14,7 @@ import type { SoftureConfig } from "@softure-ai/core";
 import { createDatabase, type DatabaseHandle } from "../client.js";
 import { adoptModule } from "../migrations/adopt.js";
 import { exportMigrations } from "../migrations/export.js";
-import { migrate, planMigrations, type MigrationStep } from "../migrations/migrator.js";
+import { migrate, planMigrations, runAppMigrations, type AppMigrations, type MigrationStep } from "../migrations/migrator.js";
 import { describeProblem, type MigrationFailure } from "../migrations/problems.js";
 
 export interface CliOutput {
@@ -27,6 +29,11 @@ export interface RunMigrateCliOptions {
   /** Relative paths resolve against it. Default: `process.cwd()`. */
   readonly cwd?: string;
   readonly output?: CliOutput;
+  /**
+   * The app's own migrations: migrate runs `before`, the module files, then `after`; `--adopt`
+   * (without `--plan`) runs `before` first; `--plan` runs neither.
+   */
+  readonly app?: AppMigrations;
 }
 
 export const EXIT_OK = 0;
@@ -92,7 +99,7 @@ export async function runMigrateCli(options: RunMigrateCliOptions): Promise<numb
   }
   try {
     const migrationsDir = command.migrationsDir === undefined ? undefined : pathToFileURL(`${resolve(cwd, command.migrationsDir)}/`);
-    return await runDatabaseCommand(handle, { command, modules: options.config.modules, migrationsDir, output });
+    return await runDatabaseCommand(handle, { command, modules: options.config.modules, migrationsDir, output, app: options.app ?? {} });
   } catch (error) {
     // Connection and driver errors: the message only, never a stack or the database URL.
     output.error(`softure migrate: ${describeError(error)}`);
@@ -109,12 +116,23 @@ async function runDatabaseCommand(
     modules: RunMigrateCliOptions["config"]["modules"];
     migrationsDir: URL | undefined;
     output: CliOutput;
+    app: AppMigrations;
   },
 ): Promise<number> {
-  const { command, modules, output } = input;
+  const { command, modules, output, app } = input;
   const dirOption = input.migrationsDir === undefined ? {} : { migrationsDir: input.migrationsDir };
 
+  const hasAppMigrations = app.before !== undefined || app.after !== undefined;
+  if (command.plan && hasAppMigrations) {
+    output.log("app migrations: not planned; the app runs them itself on migrate");
+  }
+
   if (command.kind === "adopt") {
+    if (!command.plan) {
+      const before = await runAppMigrations(handle, app, "before");
+      if (!before.ok) return reportFailure(output, before);
+      if (before.value.ran) output.log("applied app migrations (before)");
+    }
     const result = await adoptModule(handle, { modules, module: command.module, version: command.version, dryRun: command.plan, ...dirOption });
     if (!result.ok) return reportFailure(output, result);
     const verb = command.plan ? "would" : "did";
@@ -132,7 +150,13 @@ async function runDatabaseCommand(
     return EXIT_OK;
   }
 
-  const result = await migrate(handle, { modules, ...dirOption, onApplied: (step) => output.log(`applied ${formatStep(step)}`) });
+  const result = await migrate(handle, {
+    modules,
+    ...dirOption,
+    app,
+    onApplied: (step) => output.log(`applied ${formatStep(step)}`),
+    onAppMigrated: (phase) => output.log(`applied app migrations (${phase})`),
+  });
   if (!result.ok) return reportFailure(output, result);
   output.log(result.value.applied.length === 0 ? "nothing to apply" : `${result.value.applied.length} migration(s) applied`);
   return EXIT_OK;

@@ -1,4 +1,5 @@
-// Two dummy modules for the migrator tests: `tags` depends on `notes` and references its table.
+// Dummy modules for the migrator tests: `tags` depends on `notes` and references its table; `linked`
+// references an app table (`public.app_users`), which the app's own migrations create.
 // Tests that change files work on a copy of a fixture folder (`copyFixtureMigrations`).
 import { cpSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -9,7 +10,7 @@ import { defineModule, type AnySoftureModule, type ModuleManifest } from "@softu
 const en = { title: "Title" };
 const pl: typeof en = { title: "PL" };
 
-export const FIXTURE_IDS = ["notes", "tags"] as const;
+export const FIXTURE_IDS = ["notes", "tags", "linked"] as const;
 export type FixtureId = (typeof FIXTURE_IDS)[number];
 
 interface FixtureModuleSpec {
@@ -48,6 +49,10 @@ export function createNotesModule(migrationsDir?: URL, version?: string): AnySof
 
 export function createTagsModule(migrationsDir?: URL): AnySoftureModule {
   return createFixtureModule({ id: "tags", dependsOn: { notes: "^0.1.0" }, ...(migrationsDir ? { migrationsDir } : {}) });
+}
+
+export function createLinkedModule(): AnySoftureModule {
+  return createFixtureModule({ id: "linked" });
 }
 
 /** A writable copy of a fixture folder; `cleanup` removes it. */

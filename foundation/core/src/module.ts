@@ -47,8 +47,17 @@ export interface ModuleMigrations {
  * Write this instead of `new URL("../migrations/", import.meta.url)`: bundlers (Next.js Turbopack)
  * treat that literal form as an asset import and fail the app's build on a folder. Only
  * `softure migrate` reads the folder, under plain Node, where both forms give the same URL.
+ *
+ * ESM only: a CJS bundle (esbuild `--format=cjs`) empties `import.meta`, so the URL is undefined and
+ * this throws naming the bundle format instead of a bare "Invalid URL".
  */
 export function resolveMigrationsDir(moduleUrl: string | URL, relativePath: string): URL {
+  // The type says string | URL; a CJS bundle still passes undefined at runtime.
+  if ((moduleUrl as string | URL | undefined) === undefined || moduleUrl === "") {
+    throw new Error(
+      "resolveMigrationsDir: no module URL (import.meta.url is undefined), so this code runs from a CJS bundle; SOFTURE packages are ESM only, bundle with --format=esm",
+    );
+  }
   return new URL(relativePath, moduleUrl);
 }
 

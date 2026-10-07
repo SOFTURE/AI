@@ -6,7 +6,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import { defineSoftureConfig } from "@softure-ai/core";
 import { createDatabase } from "@softure-ai/db";
 import { runMigrateCli, runSoftureCommand, type CliOutput } from "@softure-ai/db/cli";
-import { createNotesModule, createTagsModule } from "./fixtures/modules.js";
+import type { AppMigrations } from "@softure-ai/db";
+import { createLinkedModule, createNotesModule, createTagsModule } from "./fixtures/modules.js";
 import { execSql, queryRows, readLedger } from "./support/query.js";
 
 const cleanups: (() => void)[] = [];
@@ -93,6 +94,84 @@ describe("softure migrate", () => {
     const check = await createDatabase(url);
     expect((await readLedger(check)).map((row) => row.method)).toEqual(["applied", "adopted", "adopted"]);
     await check.close();
+  });
+
+  it("runs the app's migrations around the module files", async () => {
+    const url = `pglite://${createTempDir()}`;
+    const calls: string[] = [];
+    const app: AppMigrations = {
+      before: async (handle) => {
+        calls.push("before");
+        await execSql(handle, "CREATE TABLE IF NOT EXISTS public.app_users (id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY)");
+      },
+      after: () => {
+        calls.push("after");
+        return Promise.resolve();
+      },
+    };
+    const output = createOutput();
+
+    const code = await runMigrateCli({ config: { database: { url }, modules: [createLinkedModule()] }, argv: [], output, app });
+
+    expect({ code, errors: output.errors, calls }).toEqual({ code: 0, errors: [], calls: ["before", "after"] });
+    expect(output.lines).toEqual([
+      "applied softure 0001_ledger.sql",
+      "applied app migrations (before)",
+      "applied linked 0001_create_links.sql",
+      "applied app migrations (after)",
+      "2 migration(s) applied",
+    ]);
+  });
+
+  it("plans without running the app's migrations", async () => {
+    const calls: string[] = [];
+    const app: AppMigrations = {
+      before: () => {
+        calls.push("before");
+        return Promise.resolve();
+      },
+    };
+    const output = createOutput();
+
+    const code = await runMigrateCli({ config: createConfig(`pglite://${createTempDir()}`), argv: ["--plan"], output, app });
+
+    expect(code).toBe(0);
+    expect(calls).toEqual([]);
+    expect(output.lines[0]).toBe("app migrations: not planned; the app runs them itself on migrate");
+  });
+
+  it("prints a failing app migration and exits 1", async () => {
+    const output = createOutput();
+    const app: AppMigrations = { before: () => Promise.reject(new Error("drizzle folder not found")) };
+
+    const code = await runMigrateCli({ config: createConfig(`pglite://${createTempDir()}`), argv: [], output, app });
+
+    expect(code).toBe(1);
+    expect(output.errors).toEqual(["app: the before migrations failed: drizzle folder not found; no module migration ran"]);
+  });
+
+  it("runs the app's before migrations ahead of --adopt, so moving a table and adopting it is one command", async () => {
+    const url = `pglite://${createTempDir()}`;
+    const app: AppMigrations = {
+      // The app's own migration that moved its table into the module's schema.
+      before: (handle) =>
+        execSql(
+          handle,
+          `CREATE SCHEMA IF NOT EXISTS notes;
+           CREATE TABLE IF NOT EXISTS notes.notes (id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY, title text NOT NULL, created_at timestamptz NOT NULL DEFAULT now());
+           CREATE INDEX IF NOT EXISTS notes_title_idx ON notes.notes (title);`,
+        ),
+    };
+    const config = { database: { url }, modules: [createNotesModule()] };
+    const output = createOutput();
+
+    const adopted = await runMigrateCli({ config, argv: ["--adopt", "notes@0.1.0"], output, app });
+    const migrated = await runMigrateCli({ config, argv: [], output, app });
+
+    expect({ adopted, migrated, errors: output.errors }).toEqual({ adopted: 0, migrated: 0, errors: [] });
+    expect(output.lines[0]).toBe("applied app migrations (before)");
+    expect(output.lines).toContain("notes@0.1.0: the schema matches its migrations; adopted");
+    expect(output.lines.slice(-2)).toEqual(["applied app migrations (before)", "nothing to apply"]);
   });
 
   it("prints each problem and exits 1", async () => {

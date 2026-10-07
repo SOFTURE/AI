@@ -62,7 +62,9 @@ test checks `module.json` against `toModuleJson(...)` (decided in FD-3, `core-co
 **Decision: every module gets its own Postgres schema** (`auth.users`,
 `mailing.deliveries`) rather than a prefix in `public`. Reasons:
 - app tables and module tables never collide; the app's `drizzle-kit` gets
-  `schemaFilter: ["public"]` and does not see module tables;
+  `schemaFilter: ["public"]` (honoured by `push`/`pull`, not by `generate`: the app's schema file
+  imports module tables to reference them and never re-exports them, or `generate` emits their
+  `CREATE TABLE`);
 - permissions are granted per schema (e.g. `GRANT USAGE ON SCHEMA auth`);
 - domain tables can still reference `auth.users(id)`, because the module exports its Drizzle table.
 
@@ -79,7 +81,7 @@ Rules:
   [db README](../foundation/db/README.md) §4-5):
   - ledger `softure.migrations(module, version, name, checksum, module_version, method, applied_at)`,
     created by the package's own migration; the id `softure` and the schemas `softure`, `public`,
-    `information_schema` and `pg_*` are reserved;
+    `information_schema`, `drizzle` (drizzle's ledger) and `pg_*` are reserved;
   - order follows the `dependsOn` graph, and within a module the numbering (1..n, no gaps);
   - each file runs in its own transaction with its ledger row, inside the module schema
     (`SET LOCAL search_path TO <schema>, public`), so no top-level statement may begin, end or
@@ -90,6 +92,13 @@ Rules:
     for an image), `--plan` (dry run), `--adopt <module>@<version>`, and for bundles
     `--export-migrations <dir>` (build stage) with `--migrations-dir <dir>` (run stage);
   - unit tests: `createTestDatabase(modules)` from `@softure-ai/db/testing`.
+- **The app's own migrations** (drizzle's, in `public`) run in the same step, by the same runner:
+  `migrate`, `runMigrateCli` and `createTestDatabase` take `app: { before, after }`. A run applies the
+  ledger, then `before` (app tables a module references), the module files, then `after` (app
+  migrations that reference a module table), all under the lock. One hook object serves the migrate
+  script, the unit tests and the image ([db README](../foundation/db/README.md) §4).
+- Migrate scripts and module packages are **ESM only**: a CJS bundle empties `import.meta.url`, and
+  `resolveMigrationsDir` refuses it naming the bundle format.
 - **Adoption** (moving an existing app onto a module): the app writes *its own* migration that
   moves the data into the module schema (`ALTER TABLE users SET SCHEMA auth` + column alignment),
   then `--adopt` marks the module migrations as applied after checking that the schema in the

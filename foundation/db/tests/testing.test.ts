@@ -3,9 +3,19 @@ import { join } from "node:path";
 import { sql } from "drizzle-orm";
 import { afterEach, describe, expect, it } from "vitest";
 import { createTestDatabase, type TestDatabase } from "@softure-ai/db/testing";
-import { copyFixtureMigrations, createNotesModule, createTagsModule } from "./fixtures/modules.js";
+import type { AppMigrations } from "@softure-ai/db";
+import { execSql } from "./support/query.js";
+import { copyFixtureMigrations, createLinkedModule, createNotesModule, createTagsModule } from "./fixtures/modules.js";
 
 const opened: TestDatabase[] = [];
+let appUsersRuns = 0;
+// Defined once, as an app would: the template is cached per hook object.
+const APP_USERS: AppMigrations = {
+  before: async (handle) => {
+    appUsersRuns += 1;
+    await execSql(handle, "CREATE TABLE public.app_users (id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY, email text NOT NULL)");
+  },
+};
 const cleanups: (() => void)[] = [];
 
 async function open(...args: Parameters<typeof createTestDatabase>): Promise<TestDatabase> {
@@ -57,5 +67,40 @@ describe("createTestDatabase", () => {
     await expect(createTestDatabase([createNotesModule(copy.dir)])).rejects.toThrow(
       /createTestDatabase: migrations failed:\nnotes: migration 0003_broken\.sql failed and was rolled back: relation "missing_table" does not exist/,
     );
+  });
+
+  it("cannot build a module that references an app table without the app's migrations", async () => {
+    await expect(createTestDatabase([createLinkedModule()])).rejects.toThrow(/linked: migration 0001_create_links\.sql failed and was rolled back: relation "public\.app_users" does not exist/);
+  });
+
+  it("runs the app's migrations before the modules and builds the template once per hook object", async () => {
+    const runsBefore = appUsersRuns;
+
+    const first = await open([createLinkedModule()], { app: APP_USERS });
+    const second = await open([createLinkedModule()], { app: APP_USERS });
+    await first.db.execute(sql`insert into public.app_users (email) values ('a@example.com')`);
+    await first.db.execute(sql`insert into linked.links (user_id) select id from public.app_users`);
+    const links = await first.db.execute<{ count: number }>(sql`select count(*)::int as count from linked.links`);
+    const inSecond = await second.db.execute<{ count: number }>(sql`select count(*)::int as count from public.app_users`);
+
+    expect(links.rows).toEqual([{ count: 1 }]);
+    expect(inSecond.rows).toEqual([{ count: 0 }]);
+    expect(appUsersRuns - runsBefore).toBe(1);
+  });
+
+  it("builds another template for another hook object", async () => {
+    const seen: string[] = [];
+    const other: AppMigrations = {
+      before: async (handle) => {
+        seen.push("other");
+        await APP_USERS.before?.(handle);
+      },
+    };
+
+    const database = await open([createLinkedModule()], { app: other });
+    const rows = await database.db.execute<{ count: number }>(sql`select count(*)::int as count from linked.links`);
+
+    expect(rows.rows).toEqual([{ count: 0 }]);
+    expect(seen).toEqual(["other"]);
   });
 });

@@ -21,6 +21,10 @@ export {
 export {
   migrate,
   planMigrations,
+  runAppMigrations,
+  type AppMigrationHook,
+  type AppMigrationPhase,
+  type AppMigrations,
   type MigrateOptions,
   type MigrationPlan,
   type MigrationReport,
