@@ -1,7 +1,7 @@
 ---
 change_id: deploy-init-db-server-external
 title: "deploy: init warns when a database app's next.config lacks @softure-ai/db in serverExternalPackages (issue #184)"
-status: implementing
+status: impl_reviewed
 roadmap_item: null
 issue: 184
 branch: worktree-agent-a14cdabdead11e3b2

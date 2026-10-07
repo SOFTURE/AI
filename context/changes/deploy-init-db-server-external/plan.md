@@ -93,4 +93,4 @@ Done when: gates green (typecheck, lint, test, build).
 ### Phase 2: docs and version
 
 #### Automated
-- [ ] 2.1 README line, deploy 0.1.4 and the lockfile, gates green (typecheck, lint, test, build)
+- [x] 2.1 README line, deploy 0.1.4 and the lockfile, gates green (typecheck, lint, test, build) — 37e3c85
