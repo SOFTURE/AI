@@ -45,4 +45,4 @@ Done when: gates green (typecheck, lint, test, build).
 
 ## Progress
 
-- [ ] Phase 1: fill clears, press presses
+- [x] Phase 1: fill clears, press presses — 43dafbb

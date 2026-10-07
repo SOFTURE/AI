@@ -1,11 +1,12 @@
 ---
 change_id: marketing-kit-fill-clear
 title: "marketing-kit: fill replaces a prefilled value, and a press action for single keys"
-status: planned
+status: archived
 roadmap_item: null
 branch: claude/project-thread-wt1v71
 created: 2026-10-07
 updated: 2026-10-07
+archived_at: 2026-10-07
 ---
 
 ## Intent
@@ -41,3 +42,7 @@ key, so FIRE had to keep the default 45 in its films.
 - Decision (auto): both suggestions of the issue, not one of them: `fill` clears by default (`clear`, default
   `true`) and a `press` action exists (research §3).
 - Framing skipped: the problem, its cause and the wanted outcome are measured and stated in the issue.
+- Research done ([`research.md`](research.md)).
+- Archived 2026-10-07: `fill` selects and deletes a prefilled value on screen before typing (`clear`, default
+  `true`), fails when the app puts a value back, and a `press` action sends any key. Empty fields record as in 0.1.8.
+  marketing-kit 0.1.9 waits for the owner's release. Closes issue #175.
