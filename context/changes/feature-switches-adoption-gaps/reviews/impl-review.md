@@ -25,5 +25,5 @@ Checked the diff against `plan.md`, issue #202 (items 1-5 and the closing note) 
 | 3 | Suggestion | The README intro named the app the module came from. | Fixed: neutral wording. |
 | 4 | Suggestion | `deleteSwitchesUserData`'s return value changed. | Recorded in the CHANGELOG as a change; no caller in the repository compares it. |
 
-Gates: typecheck, lint (with the language gate), module tests (88 in feature-switches) and build green; the full
+Gates: typecheck, lint (with the language gate), module tests (84 in feature-switches) and build green; the full
 `npm test` runs in `pre-push`.
