@@ -135,6 +135,19 @@ function createRecipientFilter(ctx: DeliveryContext, campaign: CampaignContent):
   };
 }
 
+/**
+ * The campaign's recipients from the module's `listCampaignRecipients`, or `null` when the app set none. Throws
+ * what the app's function throws.
+ */
+export async function listConfiguredCampaignRecipients(
+  ctx: DeliveryContext,
+  campaign: Pick<CampaignContent, "id" | "kind">,
+): Promise<Iterable<string> | AsyncIterable<string> | null> {
+  const source = getMailingOptions(ctx.config).listCampaignRecipients;
+  if (source === undefined) return null;
+  return source({ id: campaign.id, kind: campaign.kind }, ctx);
+}
+
 export interface CampaignPlan {
   readonly recipients: number;
   /** Already closed by an earlier run. */

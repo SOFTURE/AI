@@ -10,7 +10,7 @@ import type { Queryable } from "@softure-ai/db";
 import { and, eq, gte, lt, or, sql, type SQL } from "drizzle-orm";
 import { isMailKind } from "../address.js";
 import { HALTING_ERROR_CODES, TRANSACTIONAL_KIND, type MailingErrorCode, type OutgoingMail } from "../contract.js";
-import { DEFAULT_STALE_CLAIM_MS, DEFAULT_UNCERTAIN_CLAIM_MS } from "../options.js";
+import { DEFAULT_MAX_ATTEMPTS, DEFAULT_STALE_CLAIM_MS, DEFAULT_UNCERTAIN_CLAIM_MS } from "../options.js";
 import { deliveries } from "../schema.js";
 import { getMailingOptions } from "./options.js";
 import { sendMail } from "./send-mail.js";
@@ -18,9 +18,7 @@ import { getRecipientKey } from "./unsubscribe-link.js";
 
 export type DeliveryContext = ModuleContext<Queryable>;
 
-export { DEFAULT_STALE_CLAIM_MS, DEFAULT_UNCERTAIN_CLAIM_MS };
-/** Claims a delivery gets before `mailing.unavailable` becomes its final outcome. */
-export const DEFAULT_MAX_ATTEMPTS = 5;
+export { DEFAULT_MAX_ATTEMPTS, DEFAULT_STALE_CLAIM_MS, DEFAULT_UNCERTAIN_CLAIM_MS };
 
 const MAX_SCOPE_LENGTH = 128;
 const SCOPE = /^[a-z0-9][a-z0-9._:-]*$/;
@@ -48,7 +46,11 @@ export interface DeliverOptions {
    * An operator's decision, e.g. `softure-mail campaign --resend-uncertain`. Default false.
    */
   readonly retakeUncertain?: boolean;
-  readonly maxAttempts?: number;
+  /**
+   * Claims before `mailing.unavailable` closes the delivery as rejected; `null` never closes it. Default: the module's
+   * `maxAttempts` (5).
+   */
+  readonly maxAttempts?: number | null;
 }
 
 /** The codes that stop a run: the sending account, not the mail, is the problem. */
@@ -84,7 +86,7 @@ export type DeliveryOutcome =
  */
 export async function deliverOnce(ctx: DeliveryContext, delivery: Delivery, options: DeliverOptions = {}): Promise<DeliveryOutcome> {
   const windows = resolveClaimWindows(ctx, options);
-  const { maxAttempts = DEFAULT_MAX_ATTEMPTS } = options;
+  const maxAttempts = options.maxAttempts === undefined ? getMailingOptions(ctx.config).maxAttempts : options.maxAttempts;
   const kind = delivery.mail.kind ?? TRANSACTIONAL_KIND;
   assertDelivery(delivery, kind);
 
@@ -105,7 +107,7 @@ export async function deliverOnce(ctx: DeliveryContext, delivery: Delivery, opti
     await releaseDelivery(ctx, fence, { providerStatus, giveAttemptBack: true });
     return { status: "halted", reason: result.error, ...httpStatus };
   }
-  if (result.error === "mailing.unavailable" && attempt < maxAttempts) {
+  if (result.error === "mailing.unavailable" && (maxAttempts === null || attempt < maxAttempts)) {
     await releaseDelivery(ctx, fence, { providerStatus, giveAttemptBack: false });
     return { status: "retry-later", ...httpStatus };
   }

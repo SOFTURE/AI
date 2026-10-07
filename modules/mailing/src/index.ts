@@ -68,6 +68,7 @@ export { HALTING_ERROR_CODES, TRANSACTIONAL_KIND } from "./contract.js";
 export type {
   CampaignRecipient,
   CampaignRecipientFilter,
+  CampaignRecipientSource,
   LegacyUnsubscribe,
   MailingErrorCode,
   MailProvider,

@@ -3,6 +3,7 @@
 export { getCampaignProblems, parseCampaignFile, parseRecipientList, type CampaignContent, type CampaignFile, type CampaignFileResult } from "./campaign-file.js";
 export {
   getCampaignContentHash,
+  listConfiguredCampaignRecipients,
   planCampaign,
   registerCampaign,
   sendCampaign,
