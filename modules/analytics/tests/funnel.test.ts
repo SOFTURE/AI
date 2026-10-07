@@ -102,6 +102,45 @@ describe("recordFunnelStep", () => {
     });
   });
 
+  describe("funnel.isKnownChannel", () => {
+    it("never caps a channel the app knows from its own tables, and is not asked without a channel", async () => {
+      const asked: string[] = [];
+      const test = await setUp({
+        funnel: {
+          steps: [{ id: "landing", via: "pixel" }],
+          channelCap: 1,
+          isKnownChannel: (channel) => {
+            asked.push(channel);
+            return Promise.resolve(channel === "partner");
+          },
+        },
+      });
+      for (const channel of ["a", "b", "partner", null]) await recordFunnelStep(test.ctx, { step: "landing", channel });
+
+      expect(asked).toEqual(["a", "b", "partner"]);
+      expect(await listCounts(test)).toEqual([
+        { day: "2026-10-03", channel: "", step: "landing", count: 1 },
+        { day: "2026-10-03", channel: "a", step: "landing", count: 1 },
+        { day: "2026-10-03", channel: "partner", step: "landing", count: 1 },
+        { day: "2026-10-03", channel: OVERFLOW_CHANNEL, step: "landing", count: 1 },
+      ]);
+    });
+
+    it("passes the hook the counter's context and lets its failure propagate", async () => {
+      const test = await setUp({
+        funnel: {
+          steps: [{ id: "landing", via: "pixel" }],
+          isKnownChannel: (_channel, ctx) => {
+            if (ctx.config.timezone === "Europe/Warsaw") throw new Error("lookup failed");
+            return false;
+          },
+        },
+      });
+      await expect(recordFunnelStep(test.ctx, { step: "landing", channel: "a" })).rejects.toThrow("lookup failed");
+      expect(await listCounts(test)).toEqual([]);
+    });
+  });
+
   it("is refused by the table for a step id it cannot store (the constraint is the first line)", async () => {
     const test = await setUp();
     await expect(test.database.client.query("INSERT INTO analytics.funnel_counts VALUES ('2026-10-03', '', 'Bad Step', 1)")).rejects.toThrow();

@@ -2,14 +2,16 @@
 
 // The panel's server action. The role is checked first, from the session, before the form is read
 // (never from a bound argument, which the client controls, docs/02 §8), so a refused caller learns
-// nothing about the switches. Unexpected failures become `safeError` codes.
+// nothing about the switches. Unexpected failures become `safeError` codes. A stored change revalidates the
+// panel route (`routes.panel`), so the page re-renders every row's source note with the new date.
 import { authorizeRole } from "@softure-ai/auth/next";
 import { errorLogLabel, safeError } from "@softure-ai/core";
 import { getSoftureConfig } from "@softure-ai/core/next";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { SwitchFormState } from "../contract.js";
 import { MAX_SWITCH_NAME_LENGTH } from "../options.js";
-import { getFeatureSwitchesOptions } from "../server/options.js";
+import { getFeatureSwitchesOptions, getFeatureSwitchesRoutes } from "../server/options.js";
 import { setSwitch } from "../server/switches.js";
 import { getSwitchContext } from "./context.js";
 
@@ -31,11 +33,15 @@ export async function setSwitchAction(previous: SwitchFormState, formData: FormD
   // Every field has a `catch`, so parsing cannot fail.
   const input = setSwitchInput.parse({ name: formData.get("name"), enabled: formData.get("enabled") });
   const isEnabled = input.enabled !== null;
+  let result: Awaited<ReturnType<typeof setSwitch>>;
   try {
-    const result = await setSwitch(await getSwitchContext(config), { name: input.name, isEnabled, actorId: admin.value.id });
-    return result.ok ? { status: "ok", isEnabled } : { status: "error", error: result.error, isEnabled: previous.isEnabled };
+    result = await setSwitch(await getSwitchContext(config), { name: input.name, isEnabled, actorId: admin.value.id });
   } catch (error) {
     console.error(`@softure-ai/feature-switches: setting a switch failed: ${errorLogLabel(error)}`);
     return { status: "error", error: safeError(error).error, isEnabled: previous.isEnabled };
   }
+  if (!result.ok) return { status: "error", error: result.error, isEnabled: previous.isEnabled };
+  // Outside the try: the value is stored, so a revalidation failure must not report the change as failed.
+  revalidatePath(getFeatureSwitchesRoutes(config).panel);
+  return { status: "ok", isEnabled };
 }

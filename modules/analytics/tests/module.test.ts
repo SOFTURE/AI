@@ -31,6 +31,7 @@ describe("the analytics module", () => {
 
   it("fills in the defaults: ?z=, lowercase words, at most 32 characters, no steps, a cap of 100", () => {
     expect(analytics().options).toEqual({
+      origins: [],
       channel: { param: "z", pattern: DEFAULT_CHANNEL_PATTERN, maxLength: 32, normalize: "none" },
       funnel: { steps: [], channelCap: DEFAULT_CHANNEL_CAP, wire: { stepFields: ["step"], channelField: null } },
     });

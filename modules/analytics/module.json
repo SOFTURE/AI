@@ -1,6 +1,6 @@
 {
   "id": "analytics",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "dependsOn": { "security": "^0.1.0?" },
   "dbSchema": "analytics",
   "tables": ["funnel_counts"],
