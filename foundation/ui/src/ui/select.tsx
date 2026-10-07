@@ -6,6 +6,7 @@ import { type ClassNames, createSlotClassGetter } from "./class-names.js";
 import { INPUT_CLASS } from "./field.js";
 import { CheckIcon, ChevronDownIcon } from "./icons.js";
 import { CLOSED_SELECT, getNextSelectState, type SelectKeyState } from "./select-keys.js";
+import { useUiLocale } from "./locale.js";
 
 // A select drawn by the product: a `combobox` button and a `listbox` (WAI-ARIA select-only
 // combobox), so the list matches the theme on every platform. Focus stays on the button; the
@@ -118,10 +119,11 @@ export function Select({
   "aria-label": ariaLabel,
   "aria-describedby": ariaDescribedBy,
   "aria-invalid": ariaInvalid,
-  locale = "en",
+  locale: explicitLocale,
   classNames,
   unstyled,
 }: SelectProps) {
+  const locale = useUiLocale(explicitLocale);
   const generatedId = useId();
   const triggerId = id ?? `${generatedId}-select`;
   const listId = `${generatedId}-list`;

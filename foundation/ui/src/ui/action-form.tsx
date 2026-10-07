@@ -1,6 +1,6 @@
 "use client";
 
-import type { Err, ErrorCode, Ok } from "@softure-ai/core";
+import type { Err, ErrorCode } from "@softure-ai/core";
 import { type ReactNode, useActionState, useEffect } from "react";
 import { Button, type ButtonVariant } from "./button.js";
 import { type ClassNames, createSlotClassGetter } from "./class-names.js";
@@ -9,6 +9,7 @@ import { FormError } from "./feedback.js";
 import { type FieldErrors, type FormReplay, FormReplayProvider, type SubmittedValues } from "./form-context.js";
 import { ModalBody, ModalFooter, ModalForm } from "./modal.js";
 import { announceToast } from "./toast.js";
+import { useUiLocale } from "./locale.js";
 
 // A form wired to a server action. Ported from FIRE_TRACKER src/components/action-form.tsx.
 // - A rejected submit replays what was typed (React resets an uncontrolled form after its action)
@@ -17,8 +18,19 @@ import { announceToast } from "./toast.js";
 // - With `onCancel` it lays itself out as a modal's body and footer; otherwise it is a page form.
 // Errors come back as codes (docs/02 §6); `getErrorMessage` turns them into the app's copy.
 
-/** What the server action returns: success, or an error code with optional per-field codes. */
-export type ActionResult = Ok<undefined> | (Err<ErrorCode> & { readonly fieldErrors?: Readonly<Record<string, ErrorCode>> });
+/**
+ * What the server action returns: success, or an error code with optional per-field codes. Success
+ * may carry a value (`ok(x)`, any `Ok<T>`) or none (`{ ok: true }`, `ok()`); the form does not read it.
+ */
+export type ActionResult =
+  | ActionSuccess
+  | (Err<ErrorCode> & { readonly fieldErrors?: Readonly<Record<string, ErrorCode>> });
+
+/** A successful action: `Ok<T>` of any `T`, or a bare `{ ok: true }`. */
+export interface ActionSuccess {
+  readonly ok: true;
+  readonly value?: unknown;
+}
 
 export type ActionFormSlot = "root" | "actions";
 
@@ -97,7 +109,7 @@ export function ActionForm({
   messages,
   modalMessages,
 }: ActionFormProps) {
-  const copy = getCopy("actionForm", { locale, messages });
+  const copy = getCopy("actionForm", { locale: useUiLocale(locale), messages });
   const [state, formAction, isPending] = useActionState<FormState, FormData>(async (previous, formData) => {
     const submitCount = previous.replay.submitCount + 1;
     const values = getSubmittedValues(formData);

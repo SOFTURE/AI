@@ -1,8 +1,7 @@
-import { formatMessage } from "@softure-ai/core";
 import type { ReactNode } from "react";
 import { type ClassNames, createSlotClassGetter } from "./class-names.js";
-import { type CopyProps, getCopy } from "./copy.js";
-import { Hint } from "./hint.js";
+import type { CopyProps } from "./copy.js";
+import { CopyHint } from "./copy-hint.js";
 
 // Presentational blocks; server-safe (Hint is a client component they render).
 // Ported from FIRE_TRACKER src/components/ui.tsx without its domain props (accent bars, setup steps,
@@ -69,7 +68,6 @@ export function Card({
     classNames,
     unstyled,
   });
-  const copy = getCopy("card", { locale, messages });
   return (
     <section id={id} className={slot("root")}>
       {title === undefined ? null : (
@@ -79,9 +77,9 @@ export function Card({
               <h2 className={slot("title")}>{title}</h2>
               {/* Next to the heading, not inside it: the heading's name stays the title alone. */}
               {hint === undefined ? null : (
-                <Hint label={formatMessage(copy.hintLabel, { title })} id={hintId} anchorLeft>
+                <CopyHint group="card" values={{ title }} id={hintId} locale={locale} messages={messages}>
                   {hint}
-                </Hint>
+                </CopyHint>
               )}
             </div>
             {subtitle === undefined ? null : <div className={slot("subtitle")}>{subtitle}</div>}

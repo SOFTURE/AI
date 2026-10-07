@@ -18,6 +18,7 @@ export {
 export * from "./form-fields.js";
 export * from "./hint.js";
 export * from "./icons.js";
+export { UiLocaleProvider, type UiLocaleProviderProps, useUiLocale } from "./locale.js";
 export * from "./modal.js";
 export * from "./segmented-control.js";
 export * from "./select.js";

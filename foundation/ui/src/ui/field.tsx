@@ -1,8 +1,7 @@
-import { formatMessage } from "@softure-ai/core";
 import type { ReactNode } from "react";
 import { type ClassNames, createSlotClassGetter } from "./class-names.js";
-import { type CopyProps, getCopy } from "./copy.js";
-import { Hint } from "./hint.js";
+import type { CopyProps } from "./copy.js";
+import { CopyHint } from "./copy-hint.js";
 
 // Field frame and input looks; server-safe. Ported from FIRE_TRACKER src/components/ui.tsx.
 
@@ -76,7 +75,6 @@ export function Field({
 }: FieldProps) {
   const slot = createSlotClassGetter({ defaults: FIELD_CLASSES, classNames, unstyled });
   const isTooltip = hintAs === "tooltip" && hint !== undefined;
-  const copy = getCopy("field", { locale, messages });
   return (
     <div className={slot("root")}>
       <div className={slot("labelRow")}>
@@ -84,9 +82,9 @@ export function Field({
           {label}
         </label>
         {isTooltip ? (
-          <Hint label={formatMessage(copy.hintLabel, { label })} id={hintId} anchorLeft>
+          <CopyHint group="field" values={{ label }} id={hintId} locale={locale} messages={messages}>
             {hint}
-          </Hint>
+          </CopyHint>
         ) : null}
       </div>
       {children}

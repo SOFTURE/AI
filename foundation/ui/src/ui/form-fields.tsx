@@ -16,6 +16,7 @@ import {
 import { getCheckedAfterSubmit, useFieldError, useFieldValue, useSubmitCount, useSubmittedFieldNames } from "./form-context.js";
 import { Select, type SelectOption, type SelectSlot } from "./select.js";
 import { Checkbox, Switch } from "./switch.js";
+import { useUiLocale } from "./locale.js";
 
 // Labelled form fields. Inside an `ActionForm` they replay the values of a rejected submit and show
 // its field errors; outside one they are plain uncontrolled fields. Ported from FIRE_TRACKER
@@ -250,9 +251,10 @@ export function MoneyField({
   suffix,
   classNames,
   unstyled,
-  locale = "en",
+  locale: explicitLocale,
   messages,
 }: MoneyFieldProps) {
+  const locale = useUiLocale(explicitLocale);
   const shown = normalizeAmountInput(useFieldValue(name, defaultValue), locale);
   const ids = useFieldIds({ id, name, error, hint, hintAs });
   const slot = createSlotClassGetter<"input" | "suffixWrap" | "suffix">({

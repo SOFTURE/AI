@@ -6,6 +6,7 @@ import { type ClassNames, createSlotClassGetter } from "./class-names.js";
 import { type CopyProps, getCopy } from "./copy.js";
 import { Hint } from "./hint.js";
 import { CheckIcon } from "./icons.js";
+import { useUiLocale } from "./locale.js";
 
 // Native checkboxes drawn by the product. Ported from FIRE_TRACKER src/components/switch.tsx.
 // The input stays a real, hittable checkbox laid over the drawing (`peer`), so the state comes from
@@ -160,7 +161,7 @@ export function Switch({
     classNames,
     unstyled,
   });
-  const copy = getCopy("field", { locale, messages });
+  const copy = getCopy("field", { locale: useUiLocale(locale), messages });
   const triggerLabel = hintLabel ?? formatMessage(copy.hintLabel, { label: typeof label === "string" ? label : "" });
   return (
     <div className={slot("root")}>

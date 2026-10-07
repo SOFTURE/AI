@@ -16,6 +16,7 @@ import { type ClassNames, createSlotClassGetter } from "./class-names.js";
 import { type CopyProps, getCopy } from "./copy.js";
 import { FormError } from "./feedback.js";
 import { CloseIcon } from "./icons.js";
+import { useUiLocale } from "./locale.js";
 
 // A modal dialog: a header with the title and a close button, a scrolling body and a footer with
 // the actions. Ported from FIRE_TRACKER src/components/modal.tsx (its one-screen side panel left
@@ -83,7 +84,7 @@ export function Modal({
   const overlayRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
   const pressedBackdropRef = useRef(false);
-  const copy = getCopy("modal", { locale, messages });
+  const copy = getCopy("modal", { locale: useUiLocale(locale), messages });
 
   const close = useCallback(() => {
     if (isDismissible) onClose();
@@ -226,7 +227,7 @@ export interface ModalFooterProps extends CopyProps<"modal"> {
 
 /** The dialog's actions: Cancel, then the primary action; leaves room for a phone's home bar. */
 export function ModalFooter({ onCancel, isPending = false, error, children, classNames, unstyled, locale, messages }: ModalFooterProps) {
-  const copy = getCopy("modal", { locale, messages });
+  const copy = getCopy("modal", { locale: useUiLocale(locale), messages });
   const slot = createSlotClassGetter<ModalFooterSlot>({
     defaults: {
       root: "sft:flex sft:shrink-0 sft:flex-col sft:gap-3 sft:border-t sft:border-border sft:px-5 sft:pt-3 sft:pb-[max(var(--sft-space-3),env(safe-area-inset-bottom))]",
