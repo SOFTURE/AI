@@ -11,6 +11,15 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   first-party page it answers the same GIF and counts nothing, so a link prefetch that loads another page's
   pixel no longer counts that step. Without `pages` a pixel counts from any first-party page, as before;
   the README warns about prefetch. Exports `FunnelStepPages` and `MAX_STEP_PAGES`.
+- `createChannelTagger(config, { targets })`: the navigations `tag` may redirect, as pathnames
+  (`["/register"]`) or a predicate `({ target, source }) => boolean`. Without it every path is tagged, as
+  before. A bad list throws at startup; a throwing predicate is logged and tags nothing. Exports
+  `ChannelTargets` and `ChannelTargetContext`.
+- `tag` redirects on the request URL's own origin when `Host` names it and is not configured (a dev server
+  or test stack on `localhost:<port>`), instead of jumping to `appOrigin`; the scheme follows
+  `X-Forwarded-Proto`. A request whose `Host` is another unconfigured host still goes to `appOrigin`.
+- `isNavigation(request)` is exported from `/proxy`; the README lists the headers it needs, so an app's
+  tests can build a request `tag` acts on.
 
 ## 0.1.8
 

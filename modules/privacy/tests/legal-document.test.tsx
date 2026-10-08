@@ -192,6 +192,99 @@ describe("LegalFooter", () => {
   });
 });
 
+describe("LegalFooter inline form", () => {
+  const LINKS = [
+    { href: "/legal/terms", label: "Terms" },
+    { href: "/legal/privacy", label: "Privacy policy" },
+  ];
+
+  it("renders as one paragraph of links with a readable default separator, with no navigation or list", () => {
+    const { container } = render(
+      <footer>
+        <LegalFooter as="p" links={LINKS} messages={en} />
+      </footer>,
+    );
+    const paragraphs = container.querySelectorAll("p");
+    expect(paragraphs.length).toBe(1);
+    expect(paragraphs[0]?.textContent).toBe("Terms · Privacy policy");
+    expect(within(paragraphs[0] as HTMLElement).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual([
+      "/legal/terms",
+      "/legal/privacy",
+    ]);
+    expect(screen.queryByRole("navigation")).toBeNull();
+    expect(screen.queryByRole("list")).toBeNull();
+    expect(screen.queryByRole("listitem")).toBeNull();
+    expect(container.querySelector("[aria-hidden]")).toBeNull();
+  });
+
+  it("renders as a span with the app's separator and the note inline after the links", () => {
+    const { container } = render(<LegalFooter as="span" links={LINKS} separator=" | " note="Example Ltd." messages={en} classNames={{ note: "note" }} />);
+    const root = container.firstElementChild as HTMLElement;
+    expect(root.tagName).toBe("SPAN");
+    expect(root.textContent).toBe("Terms | Privacy policy | Example Ltd.");
+    expect(root.querySelector(".note")?.textContent).toBe("Example Ltd.");
+    expect(container.querySelector("p")).toBeNull();
+  });
+
+  it("puts nothing between the links when the separator is null", () => {
+    const { container } = render(<LegalFooter as="p" links={LINKS} separator={null} messages={en} />);
+    expect(container.querySelector("p")?.textContent).toBe("TermsPrivacy policy");
+  });
+
+  it("does not carry the list form's block look onto the inline root", () => {
+    const { container } = render(<LegalFooter as="p" links={LINKS} messages={en} />);
+    const className = container.querySelector("p")?.className ?? "";
+    expect(className).not.toContain("sft:flex");
+    expect(className).not.toContain("sft:border-t");
+  });
+});
+
+describe("LegalDocument on a page with another document", () => {
+  it("names each contents navigation by its own title", () => {
+    const { container } = render(
+      <>
+        <LegalDocument title="Terms" version="1" effectiveFrom="2026-10-01" sections={SECTIONS} messages={en} locale="en" />
+        <LegalDocument title="Privacy" version="1" effectiveFrom="2026-10-01" sections={SECTIONS} messages={en} locale="en" />
+      </>,
+    );
+    const navs = Array.from(container.querySelectorAll("nav"));
+    expect(navs.length).toBe(2);
+    const ids = navs.map((nav) => nav.getAttribute("aria-labelledby"));
+    expect(new Set(ids).size).toBe(2);
+    for (const nav of navs) {
+      const titleId = nav.getAttribute("aria-labelledby") ?? "";
+      expect(nav.querySelector(`[id="${titleId}"]`)?.textContent).toBe(en.legal.contents);
+    }
+    expect(screen.getAllByRole("navigation", { name: en.legal.contents }).length).toBe(2);
+  });
+
+  it("moves the change history anchor and its contents link with changesId", () => {
+    render(
+      <LegalDocument
+        title="Privacy"
+        version="1"
+        effectiveFrom="2026-10-01"
+        sections={SECTIONS}
+        changes={[{ version: "1", date: "2026-10-01", summary: "First version." }]}
+        listChangesInContents
+        changesId="privacy-changes"
+        messages={en}
+        locale="en"
+      />,
+    );
+    const history = screen.getByRole("region", { name: en.legal.changes });
+    expect(history.id).toBe("privacy-changes");
+    const contents = screen.getByRole("navigation", { name: en.legal.contents });
+    expect(within(contents).getByRole("link", { name: en.legal.changes }).getAttribute("href")).toBe("#privacy-changes");
+  });
+
+  it("renders its root as the element given in as", () => {
+    const { container } = render(<LegalDocument as="div" title="Terms" version="1" effectiveFrom="2026-10-01" sections={SECTIONS} messages={en} locale="en" />);
+    expect(container.querySelector("article")).toBeNull();
+    expect(container.firstElementChild?.tagName).toBe("DIV");
+  });
+});
+
 describe("formatLegalDate", () => {
   it("formats a calendar date the same in every server time zone", () => {
     expect(formatLegalDate("2026-01-01", "en")).toBe("January 1, 2026");

@@ -18,6 +18,7 @@
     "revoke-role": "node scripts/revoke-role.ts",
     "grant-plan": "node scripts/grant-plan.ts",
     "revoke-grant": "node scripts/revoke-grant.ts",
+    "extend-trial": "node scripts/extend-trial.ts",
     "import-entitlements": "node scripts/import-entitlements.ts",
     "pin-trials": "node scripts/pin-trials.ts",
     "access-reminders": "node scripts/send-access-reminders.ts",
