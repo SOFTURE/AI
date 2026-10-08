@@ -23,3 +23,4 @@ export {
   type PaymentRequestRow,
 } from "./payment-requests.js";
 export { PricingTiles, type PricingTilesProps, type PricingTilesSlot } from "./pricing-tiles.js";
+export { TrialForm, type TrialFormAction, type TrialFormProps, type TrialFormSlot } from "./trial-form.js";

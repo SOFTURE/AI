@@ -165,21 +165,52 @@ export async function changeEntitlement(
 
 export interface ImportEntitlementInput {
   readonly userId: string;
-  /** The trial end the other system knew; omitted or null keeps the account's own. */
+  /** The trial end the other system knew; omitted or null keeps the account's own (its derived trial in `replace`). */
   readonly trialEndsAt?: Date | null;
   /** The end of the paid period it knew; omitted or null adds none. */
   readonly paidUntil?: Date | null;
   /** Whether it had lifetime access. */
   readonly isLifetime?: boolean;
+  /**
+   * `merge` (the default) moves each end only later than the account's record. `replace` stores
+   * exactly what the other system knew, a trial shorter than the derived one included, and only for
+   * an account billing has no row of yet (an adoption).
+   */
+  readonly mode?: "merge" | "replace";
+}
+
+export type ImportEntitlementError = "billing.account_unknown" | "billing.entitlement_exists";
+
+/** The record a `replace` import stores: the input, with the derived trial when it names none. */
+function getReplacedRecord(derived: EntitlementRecord, input: ImportEntitlementInput): EntitlementRecord {
+  return { trialEndsAt: input.trialEndsAt ?? derived.trialEndsAt, paidUntil: input.paidUntil ?? null, isLifetime: input.isLifetime ?? false };
+}
+
+function isSameRecord(first: EntitlementRecord, second: EntitlementRecord): boolean {
+  return (
+    first.trialEndsAt.getTime() === second.trialEndsAt.getTime() &&
+    (first.paidUntil?.getTime() ?? null) === (second.paidUntil?.getTime() ?? null) &&
+    first.isLifetime === second.isLifetime
+  );
 }
 
 /**
- * Records what another system knew about an account (a trial end, a paid period, lifetime access)
- * through `changeEntitlement`: merged onto the account's current record, each end only moving
- * later, so an import never takes access away and a repeat changes nothing. Not a recorded grant:
- * it is not in the account's history. Database errors propagate.
+ * Records what another system knew about an account (a trial end, a paid period, lifetime access).
+ *
+ * `merge` (the default) goes through `changeEntitlement`: merged onto the account's current record,
+ * each end only moving later, so an import never takes access away and a repeat changes nothing.
+ *
+ * `replace` writes the record as given into the account's first row, so a migration is faithful: a
+ * trial the other system ended early stays ended. An account that already has a row is refused with
+ * `billing.entitlement_exists` and nothing is written, unless the row holds exactly that record (a
+ * repeat, which changes nothing).
+ *
+ * Neither is a recorded grant: it is not in the account's history. Database errors propagate.
  */
-export async function importEntitlement(ctx: BillingContext, input: ImportEntitlementInput): Promise<Ok<Entitlement> | Err<"billing.account_unknown">> {
+export async function importEntitlement(ctx: BillingContext, input: ImportEntitlementInput & { readonly mode?: "merge" }): Promise<Ok<Entitlement> | Err<"billing.account_unknown">>;
+export async function importEntitlement(ctx: BillingContext, input: ImportEntitlementInput): Promise<Ok<Entitlement> | Err<ImportEntitlementError>>;
+export async function importEntitlement(ctx: BillingContext, input: ImportEntitlementInput): Promise<Ok<Entitlement> | Err<ImportEntitlementError>> {
+  if (input.mode === "replace") return replaceEntitlement(ctx, input);
   const changed = await changeEntitlement(ctx, input.userId, {
     type: "import",
     trialEndsAt: input.trialEndsAt ?? null,
@@ -190,6 +221,29 @@ export async function importEntitlement(ctx: BillingContext, input: ImportEntitl
   if (changed.error === "billing.account_unknown") return err(changed.error);
   // An import event is never refused.
   throw new Error(`@softure-ai/billing: importing an entitlement failed with ${changed.error}`);
+}
+
+/** The `replace` import: the account's first row, as given. */
+async function replaceEntitlement(ctx: BillingContext, input: ImportEntitlementInput): Promise<Ok<Entitlement> | Err<ImportEntitlementError>> {
+  if (!isUserId(input.userId)) return err("billing.account_unknown");
+  return ctx.db.transaction(async (tx) => {
+    const now = ctx.clock.now();
+    const policy = getEntitlementPolicy(ctx.config);
+    // A shared lock: the account cannot be deleted under the import, as in `changeEntitlement`.
+    const [account] = await tx.select({ createdAt: users.createdAt }).from(users).where(eq(users.id, input.userId)).for("key share");
+    if (account === undefined) return err("billing.account_unknown");
+    const record = getReplacedRecord(getDefaultRecord(ctx, account.createdAt), input);
+    const inserted = await tx
+      .insert(entitlements)
+      .values({ userId: input.userId, ...record, createdAt: now, updatedAt: now })
+      .onConflictDoNothing({ target: entitlements.userId })
+      .returning();
+    if (inserted.length > 0) return ok(resolveEntitlement(record, now, policy));
+    // The row existed, or a concurrent change inserted it (the insert waited for it).
+    const stored = await lockStoredRecord(tx, input.userId);
+    if (stored !== undefined && isSameRecord(stored, record)) return ok(resolveEntitlement(stored, now, policy));
+    return err("billing.entitlement_exists");
+  });
 }
 
 /** How many accounts `pinDerivedTrials` reads and writes at a time. */

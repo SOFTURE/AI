@@ -121,6 +121,35 @@ describe("the entitlement scripts", () => {
       expect(await countRows()).toBe(0);
     });
 
+    it("stores each row as given with --exact, a trial shorter than the derived one included, and a repeat changes nothing", async () => {
+      // Ada was created at NOW: her derived trial runs until 17 October; the other system ended it already.
+      const file = await writeImportFile([
+        { email: "ada@example.com", trialEndsAt: "2026-10-03T00:00:00+02:00" },
+        { email: "old@example.com", trialEndsAt: "2026-08-10T00:00:00+02:00", paidUntil: "2026-12-01T00:00:00+01:00" },
+      ]);
+      const outcome = await executeOpsScript(test.database.db, importScript(), { file, exact: true }, { commit: true });
+      expect(outcome).toMatchObject({ ok: true, value: { committed: true, report: { before: { trial: 1, readOnly: 1 }, after: { trial: 0, paid: 1, readOnly: 1 } } } });
+      expect(await readRow(test, adaId)).toMatchObject({ trial_ends_at: new Date("2026-10-02T22:00:00Z"), paid_until: null });
+      expect(await readRow(test, oldId)).toMatchObject({ trial_ends_at: new Date("2026-08-09T22:00:00Z"), paid_until: PAID_END });
+      expect(await executeOpsScript(test.database.db, importScript(), { file, exact: true }, { commit: true })).toMatchObject({ ok: true });
+      expect(await countRows()).toBe(2);
+    });
+
+    it("refuses the whole file with --exact when an account already has a different row, naming the rows", async () => {
+      await executeOpsScript(test.database.db, pinScript(), {}, { commit: true });
+      const file = await writeImportFile([
+        { email: "ada@example.com", trialEndsAt: "2026-10-03T00:00:00+02:00" },
+        { email: "old@example.com", trialEndsAt: "2026-08-15T00:00:00+02:00" },
+      ]);
+      const outcome = await executeOpsScript(test.database.db, importScript(), { file, exact: true }, { commit: true });
+      // Old's pinned trial is exactly the one in the file (15 August); ada's differs.
+      expect(outcome).toMatchObject({ ok: false, error: "ops.script_refused" });
+      expect(outcome.ok ? "" : outcome.reason).toBe(
+        "row 1 name accounts that already have a different entitlement row (--exact imports only accounts billing has no row of yet); nothing was imported",
+      );
+      expect(await readRow(test, adaId)).toMatchObject({ trial_ends_at: TRIAL_END });
+    });
+
     it("lists at most ten rows in a refusal", async () => {
       const rows = Array.from({ length: 13 }, (_, index) => ({ email: `nobody${String(index)}@example.com`, isLifetime: true }));
       const outcome = await executeOpsScript(test.database.db, importScript(), { file: await writeImportFile(rows) }, { commit: true });

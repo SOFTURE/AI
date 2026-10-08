@@ -1,7 +1,8 @@
 // The operator's tools for turning billing on for accounts that already exist: safe ops scripts
 // (`@softure-ai/ops/scripts`), dry run by default, `--commit` writes. `import-entitlements` records
 // what another system knew (trial ends, paid periods, lifetime access) from a JSON file through
-// `importEntitlement`; `pin-trials` writes every derived trial into a row before a config change
+// `importEntitlement`, merged (never shorter) or, with `--exact`, as given for accounts billing has
+// no row of yet; `pin-trials` writes every derived trial into a row before a config change
 // would move it (`pinDerivedTrials`). Reports and refusals carry counts and row numbers, never an
 // email.
 import { readFile } from "node:fs/promises";
@@ -17,6 +18,8 @@ import { findAccountByEmail } from "../server/plans.js";
 
 export interface ImportEntitlementsScriptArgs {
   readonly file: string;
+  /** Store each row as given (`importEntitlement`'s `replace` mode) instead of merging it. */
+  readonly exact?: true;
 }
 
 export type PinTrialsScriptArgs = Record<string, never>;
@@ -33,6 +36,7 @@ const MAX_LISTED = 10;
 
 const importArgs = z.strictObject({
   file: z.string().min(1, "--file=<path to a JSON file> is required"),
+  exact: z.literal(true, "--exact takes no value").optional(),
 });
 
 const pinArgs = z.strictObject({});
@@ -128,8 +132,9 @@ export function createImportEntitlementsScript(config: SoftureConfig, options: E
   const clock = options.clock ?? systemClock;
   return defineOpsScript({
     name: "import-entitlements",
-    description: "Records the trial ends, paid periods and lifetime access in a JSON file for the accounts it names by email; never shortens access.",
-    usage: ["--file=<path to a JSON array of { email, trialEndsAt?, paidUntil?, isLifetime? }>"],
+    description:
+      "Records the trial ends, paid periods and lifetime access in a JSON file for the accounts it names by email; never shortens access, except with --exact, which stores each row as given for accounts billing has no row of yet.",
+    usage: ["--file=<path to a JSON array of { email, trialEndsAt?, paidUntil?, isLifetime? }>", "--exact (store each row as given; refused for an account that already has a different row)"],
     args: importArgs,
     run: async (tx, args) => {
       const ctx: BillingContext = { db: tx, clock, config };
@@ -148,13 +153,21 @@ export function createImportEntitlementsScript(config: SoftureConfig, options: E
       if (unknown.length > 0) return refuseOpsScript(`${describeRows(unknown)} name no account; nothing was imported`);
 
       const before = await summarize(ctx, userIds);
+      const mode = args.exact === true ? "replace" : "merge";
+      const existing: number[] = [];
       for (const [index, row] of file.rows.entries()) {
         const userId = userIds[index];
         // One id per row: every row found an account above.
         if (userId === undefined) throw new Error(`import-entitlements: row ${String(index + 1)} lost its account`);
-        const imported = await importEntitlement(ctx, { userId, trialEndsAt: row.trialEndsAt, paidUntil: row.paidUntil, isLifetime: row.isLifetime });
+        const imported = await importEntitlement(ctx, { userId, trialEndsAt: row.trialEndsAt, paidUntil: row.paidUntil, isLifetime: row.isLifetime, mode });
+        if (imported.ok) continue;
+        if (imported.error === "billing.entitlement_exists") existing.push(index + 1);
         // Erased between the lookup and the change's lock.
-        if (!imported.ok) return refuseOpsScript(`${describeRows([index + 1])} names an account that was deleted meanwhile; nothing was imported`);
+        else return refuseOpsScript(`${describeRows([index + 1])} names an account that was deleted meanwhile; nothing was imported`);
+      }
+      // The refusal rolls the whole transaction back: the rows imported before it are undone too.
+      if (existing.length > 0) {
+        return refuseOpsScript(`${describeRows(existing)} name accounts that already have a different entitlement row (--exact imports only accounts billing has no row of yet); nothing was imported`);
       }
       return ok({ before, after: await summarize(ctx, userIds) });
     },

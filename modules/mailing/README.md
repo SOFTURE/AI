@@ -69,6 +69,10 @@ the database; list mail without `db` throws, as a wiring bug).
 Rules that hold for every send:
 
 - **One recipient.** `to` is exactly one address; a list is a loop. No cc or bcc.
+- **Reply-To per mail.** `replyTo` (one address, checked like `to`) sends replies to that address
+  instead of `mailing({ replyTo })`, e.g. the buyer of a request mailed to the operator:
+  `sendMail({ to: operator, replyTo: request.account.email, subject, text })`. Without it the
+  configured one is used; the `Reply-To` header stays refused.
 - **Text always, HTML optionally.** `text` is required; `html` is a string the app rendered (from a
   template string or React email components rendered to a string: the module does not render).
 - **Headers cannot take over the mail.** `headers` is for headers like `List-Unsubscribe`;

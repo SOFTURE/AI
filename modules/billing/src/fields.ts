@@ -1,6 +1,8 @@
 // Form field names shared by the forms (`/ui`) and the actions that read them (`/next`).
 export const PLAN_FIELD = "plan";
 export const EMAIL_FIELD = "email";
+/** The admin trial form's field: the trial's new last day, `YYYY-MM-DD`. */
+export const TRIAL_LAST_DAY_FIELD = "trialLastDay";
 
 export const INVOICE_FIELDS = {
   name: "invoiceName",

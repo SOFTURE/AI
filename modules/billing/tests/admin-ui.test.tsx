@@ -3,8 +3,8 @@
 // Grant, Dismiss and history link, each history entry with its state and a Revoke button only on an
 // active manual grant, and the empty states. Buttons submit their row's id to their action and show
 // its error under the row.
-import { billingMessages, type AdminActionState } from "@softure-ai/billing";
-import { GrantHistory, PaymentRequestList, type GrantHistoryRow, type PaymentRequestRow } from "@softure-ai/billing/ui";
+import { billingMessages, type AdminActionState, type TrialFormState } from "@softure-ai/billing";
+import { GrantHistory, PaymentRequestList, TrialForm, type GrantHistoryRow, type PaymentRequestRow } from "@softure-ai/billing/ui";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -103,5 +103,46 @@ describe("GrantHistory", () => {
     const revoke = createAction("grant", { status: "done" });
     render(<GrantHistory rows={[]} revokeAction={revoke.action} messages={billingMessages.pl} />);
     expect(screen.getByText(billingMessages.pl.admin.history.empty)).toBeTruthy();
+  });
+});
+
+describe("TrialForm", () => {
+  /** An action that records the fields it was sent and answers `answer`. */
+  function createTrialAction(answer: TrialFormState) {
+    const sent: Record<string, FormDataEntryValue | null>[] = [];
+    const action = (_previous: TrialFormState, formData: FormData): Promise<TrialFormState> => {
+      sent.push({ email: formData.get("email"), trialLastDay: formData.get("trialLastDay") });
+      return Promise.resolve(answer);
+    };
+    return { sent, action };
+  }
+
+  it("sends the email and the last day, then says until when the trial lasts", async () => {
+    const { sent, action } = createTrialAction({ status: "extended", notice: "ada@example.com now has a trial until October 31, 2026." });
+    render(<TrialForm action={action} messages={en} />);
+    fireEvent.change(screen.getByLabelText(en.admin.trial.email), { target: { value: "ada@example.com" } });
+    fireEvent.change(screen.getByLabelText(en.admin.trial.lastDay), { target: { value: "2026-10-31" } });
+    fireEvent.click(screen.getByRole("button", { name: en.admin.trial.submit }));
+    await waitFor(() => {
+      expect(screen.getByRole("status").textContent).toBe("ada@example.com now has a trial until October 31, 2026.");
+    });
+    expect(sent).toEqual([{ email: "ada@example.com", trialLastDay: "2026-10-31" }]);
+    expect(screen.getByLabelText<HTMLInputElement>(en.admin.trial.lastDay).type).toBe("date");
+  });
+
+  it("shows a day error at the day field and keeps what was typed", async () => {
+    const { action } = createTrialAction({ status: "error", error: "billing.trial_not_extended", email: "ada@example.com", lastDay: "2026-10-10" });
+    render(<TrialForm action={action} messages={en} />);
+    fireEvent.change(screen.getByLabelText(en.admin.trial.email), { target: { value: "ada@example.com" } });
+    fireEvent.change(screen.getByLabelText(en.admin.trial.lastDay), { target: { value: "2026-10-10" } });
+    fireEvent.click(screen.getByRole("button", { name: en.admin.trial.submit }));
+    await waitFor(() => {
+      expect(document.body.textContent).toContain(en.errors.billing.trial_not_extended);
+    });
+    await waitFor(() => {
+      expect(screen.getByLabelText<HTMLInputElement>(en.admin.trial.lastDay).value).toBe("2026-10-10");
+    });
+    expect(screen.getByLabelText<HTMLInputElement>(en.admin.trial.email).value).toBe("ada@example.com");
+    expect(document.body.textContent).toContain(en.errors.billing.trial_not_extended);
   });
 });

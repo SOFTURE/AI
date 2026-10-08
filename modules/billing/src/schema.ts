@@ -1,8 +1,8 @@
 // Drizzle view of the module's tables (migrations/0001_create_entitlements.sql,
 // 0002_create_payments.sql, 0003_record_payment_grants.sql, 0004_create_requests_and_grants.sql,
 // 0005_record_refunded_amounts.sql, 0006_record_request_handover_and_prices.sql,
-// 0007_record_failed_refunds.sql, 0008_record_request_handover_claims.sql and
-// 0009_record_pending_charge_states.sql).
+// 0007_record_failed_refunds.sql, 0008_record_request_handover_claims.sql,
+// 0009_record_pending_charge_states.sql and 0010_record_trial_extensions_and_index_foreign_keys.sql).
 // The migrations are the source of truth; this file only types the queries.
 import { bigint, boolean, integer, pgSchema, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
@@ -83,4 +83,13 @@ export const manualGrants = billingSchema.table("manual_grants", {
   revokedBy: uuid("revoked_by"),
   amount: bigint("amount", { mode: "number" }),
   currency: text("currency"),
+});
+
+export const trialExtensions = billingSchema.table("trial_extensions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull(),
+  extendedBy: uuid("extended_by"),
+  extendedAt: timestamp("extended_at", { withTimezone: true }).notNull(),
+  previousEndsAt: timestamp("previous_ends_at", { withTimezone: true }).notNull(),
+  endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
 });

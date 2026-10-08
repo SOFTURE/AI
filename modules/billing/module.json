@@ -1,9 +1,9 @@
 {
   "id": "billing",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "dependsOn": { "security": "^0.1.0", "auth": "^0.1.0", "mailing": "^0.1.0?", "ops": "^0.1.0?" },
   "dbSchema": "billing",
-  "tables": ["entitlements", "payments", "payment_requests", "manual_grants"],
+  "tables": ["entitlements", "payments", "payment_requests", "manual_grants", "trial_extensions"],
   "env": [
     {
       "name": "STRIPE_SECRET_KEY",

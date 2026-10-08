@@ -48,6 +48,7 @@ export const pl: typeof en = {
     empty: "Nie ma jeszcze dostępnych planów.",
   },
   payment: {
+    heading: "Płatność",
     title: "Wybierz plan",
     lead: "Wybierz plan dla siebie. Płatny dostęp zaczyna się, gdy skończy się obecny.",
     plansLabel: "Plany",
@@ -69,6 +70,7 @@ export const pl: typeof en = {
     lifetime: "Masz dostęp dożywotni: nie ma już za co płacić.",
   },
   admin: {
+    heading: "Rozliczenia",
     title: "Nadaj dostęp",
     lead: "Nadaj plan kontu, gdy wpłynie płatność. Płatny okres zaczyna się, gdy skończy się obecny dostęp konta.",
     email: "E-mail konta",
@@ -78,6 +80,15 @@ export const pl: typeof en = {
     granted: "{email} ma teraz {plan}.",
     grantedUntil: "{email} ma teraz {plan}, z dostępem do {date}.",
     noPlans: "Nie ma planów do nadania: dodaj je w billing({ plans }).",
+    trial: {
+      title: "Przedłuż okres próbny",
+      lead: "Daj kontu dłuższy okres próbny za darmo, np. zaproszonej osobie. To nie jest płatny dostęp: konto zachowuje opłacone okresy, a okres próbny trwa do końca wybranego dnia.",
+      email: "E-mail konta do przedłużenia",
+      lastDay: "Ostatni dzień okresu próbnego",
+      submit: "Przedłuż okres próbny",
+      pending: "Przedłużanie…",
+      extended: "{email} ma teraz okres próbny do {date}.",
+    },
     requests: {
       title: "Prośby o fakturę",
       lead: "Prośby wysłane ze strony płatności. Nadaj plan, gdy faktura zostanie opłacona, albo odrzuć prośbę.",
@@ -121,6 +132,10 @@ export const pl: typeof en = {
       revoke: "Cofnij",
       revoking: "Cofanie…",
       revokeLabel: "Cofnij {plan} nadany {date}",
+      trialExtended: "Przedłużony okres próbny",
+      trialUntil: "Okres próbny do {date}",
+      extendedOn: "Przedłużono {date}",
+      trialWasUntil: "Wcześniej okres próbny do {date}",
     },
   },
   errors: {
@@ -137,6 +152,8 @@ export const pl: typeof en = {
       lifetime_active: "To konto ma już dostęp dożywotni: nie ma za co płacić ani czego nadawać.",
       request_closed: "Ta prośba została już obsłużona lub odrzucona.",
       grant_revoked: "Ten dostęp został już cofnięty.",
+      trial_not_extended: "Okres próbny trwa już do tego dnia albo dłużej.",
+      day_invalid: "Wpisz datę, np. 2026-11-30.",
     },
     security: {
       rate_limited: "Zbyt wiele prób. Spróbuj później.",

@@ -23,6 +23,7 @@ const mailSchema = z.object({
     .refine((html) => html.trim() !== "")
     .optional(),
   headers: headersSchema.optional(),
+  replyTo: z.string().trim().refine(isSingleAddress).optional(),
   kind: z.string().refine(isMailKind).default(TRANSACTIONAL_KIND),
 }).superRefine((mail, context) => {
   // The module writes these two on list mail; a second, unsigned copy would confuse clients.
@@ -41,6 +42,8 @@ export interface ValidMail {
   readonly text: string;
   readonly html: string | null;
   readonly headers: Readonly<Record<string, string>>;
+  /** The mail's own reply-to; null to use the configured one. */
+  readonly replyTo: string | null;
   /** `transactional` or a list kind. */
   readonly kind: string;
   readonly idempotencyKey: string | null;
@@ -50,7 +53,7 @@ export type MailValidation = { readonly ok: true; readonly value: ValidMail } | 
 
 /**
  * Checks one mail and its send options. `fields` lists what failed (`to`, `subject`, `text`,
- * `html`, `headers`, `kind`, `idempotencyKey`, or `mail` when the input is not an object).
+ * `html`, `headers`, `replyTo`, `kind`, `idempotencyKey`, or `mail` when the input is not an object).
  */
 export function validateMail(mail: unknown, options: unknown = {}): MailValidation {
   const parsedMail = mailSchema.safeParse(mail);
@@ -60,9 +63,9 @@ export function validateMail(mail: unknown, options: unknown = {}): MailValidati
     const fields = new Set(issues.map((issue) => (issue.path.length === 0 ? "mail" : String(issue.path[0]))));
     return { ok: false, fields: [...fields] };
   }
-  const { to, subject, text, html, headers, kind } = parsedMail.data;
+  const { to, subject, text, html, headers, replyTo, kind } = parsedMail.data;
   return {
     ok: true,
-    value: { to, subject, text, html: html ?? null, headers: headers ?? {}, kind, idempotencyKey: parsedOptions.data.idempotencyKey ?? null },
+    value: { to, subject, text, html: html ?? null, headers: headers ?? {}, replyTo: replyTo ?? null, kind, idempotencyKey: parsedOptions.data.idempotencyKey ?? null },
   };
 }
