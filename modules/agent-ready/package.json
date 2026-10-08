@@ -1,0 +1,74 @@
+{
+  "name": "@softure-ai/agent-ready",
+  "version": "0.1.0",
+  "description": "SOFTURE AI agent-ready module: everything an AI agent uses to discover and connect to an app, from configuration plus its MCP server: API catalog, OpenAPI, Link header, OAuth discovery additions and auth.md, MCP server and A2A cards, Agent Skills, AI catalog, Web Bot Auth, DNS-AID, the WebMCP runtime, and guards that keep them true.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SOFTURE/AI.git",
+    "directory": "modules/agent-ready"
+  },
+  "files": [
+    "dist",
+    "CHANGELOG.md",
+    "src",
+    "!src/**/*.test.ts",
+    "!src/**/*.test.tsx",
+    "module.json"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "bin": {
+    "agent-ready": "./dist/cli/bin.js"
+  },
+  "exports": {
+    ".": {
+      "@softure-ai/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./server": {
+      "@softure-ai/source": "./src/server/index.ts",
+      "types": "./dist/server/index.d.ts",
+      "default": "./dist/server/index.js"
+    },
+    "./next": {
+      "@softure-ai/source": "./src/next/index.ts",
+      "types": "./dist/next/index.d.ts",
+      "default": "./dist/next/index.js"
+    },
+    "./webmcp": {
+      "@softure-ai/source": "./src/webmcp/index.ts",
+      "types": "./dist/webmcp/index.d.ts",
+      "default": "./dist/webmcp/index.js"
+    },
+    "./testing": {
+      "@softure-ai/source": "./src/testing/index.ts",
+      "types": "./dist/testing/index.d.ts",
+      "default": "./dist/testing/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "@softure-ai/core": "^0.1.0",
+    "zod": "^4.6.5"
+  },
+  "peerDependencies": {
+    "@modelcontextprotocol/server": "^2.0.0"
+  },
+  "devDependencies": {
+    "@softure-ai/deploy": "^0.1.4",
+    "@softure-ai/mcp-access": "^0.1.8",
+    "http-message-sig": "^0.3.0",
+    "web-bot-auth": "^0.2.0"
+  }
+}
