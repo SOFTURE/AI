@@ -17,6 +17,8 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## 0.1.9
 
+- Calendar days (trial ends, days left) are counted with `toCalendarDay` from `@softure-ai/core` instead of a local
+  `en-CA` formatter. Same results; requires `@softure-ai/core` `^0.1.7` (#270).
 - `extend-trial` ops script (`createExtendTrialScript` in `/scripts`): `--email` or `--user`, and `--until=YYYY-MM-DD`
   (the new last day) or `--days=N` (days of access after the current last day, or from today for an ended trial); dry run by
   default, `--commit` writes through `extendTrialManually` with no admin, so the extension is in the account's history.

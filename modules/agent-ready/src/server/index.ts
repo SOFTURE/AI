@@ -1,0 +1,30 @@
+// Server-only parts: Web Bot Auth signing and the key directory (`node:crypto`), and MCP introspection (the SDK).
+// No `next/*` imports here (ESLint `no-restricted-imports`).
+export { readJsonRpcResult, readServerDescription, SDK_PROTOCOL_VERSIONS, type ReadServerDescriptionOptions } from "./introspect.js";
+export {
+  buildSignatureDirectory,
+  createSignedFetch,
+  createWebBotAuthKey,
+  DEFAULT_PRIVATE_KEY_ENV,
+  DEFAULT_RETIRED_KEYS_ENV,
+  DIRECTORY_SIGNATURE_TTL_SECONDS,
+  getAuthority,
+  getDirectorySignatureHeaders,
+  getJwkThumbprint,
+  getRequestSignatureHeaders,
+  readRetiredPublicKeys,
+  readWebBotAuthKey,
+  REQUEST_SIGNATURE_TTL_SECONDS,
+  signOutgoingRequest,
+  verifyDirectorySignature,
+  WEB_BOT_AUTH_DIRECTORY_CONTENT_TYPE,
+  type DirectoryVerification,
+  type DirectoryVerificationInput,
+  type Ed25519PublicJwk,
+  type EnvSource,
+  type OutgoingSignatureOptions,
+  type RequestSignatureOptions,
+  type SignatureClock,
+  type WebBotAuthEnvNames,
+  type WebBotAuthKey,
+} from "./web-bot-auth.js";

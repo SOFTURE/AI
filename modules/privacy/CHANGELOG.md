@@ -6,6 +6,8 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## 0.1.9
 
+- The export file name's day (`account-data-YYYY-MM-DD.json`) comes from `toCalendarDay` in `@softure-ai/core`
+  instead of a local `en-CA` formatter. Same names; requires `@softure-ai/core` `^0.1.7` (#270).
 - `copyAccount({ from, to, userId, commit?, exclude?, include?, onMissingReference? })` in `/server` copies one account
   with every row it owns from one database to another. The rows are found through foreign keys (CASCADE, RESTRICT or
   NO ACTION, transitively, from `auth.users`), plus the account's email-keyed consents, so module and app tables need

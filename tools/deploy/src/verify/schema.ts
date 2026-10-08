@@ -102,10 +102,15 @@ const verifySchema = z
   })
   .describe("What softure-deploy verify checks after a deploy.");
 
+/** An absolute path inside the image, segments of plain characters (`..` is refused separately). */
+const IMAGE_PATH = /^(\/[A-Za-z0-9_.@+-]+)+$/;
+
+const tableNameSchema = z.string().regex(TABLE_NAME_PATTERN, "a table or schema.table in lower snake case");
+
 const databaseSchema = z
   .strictObject({
     rowCountTables: z
-      .array(z.string().regex(TABLE_NAME_PATTERN, "a table or schema.table in lower snake case"))
+      .array(tableNameSchema)
       .min(1)
       .superRefine((tables, context) => {
         const duplicates = new Set(tables.filter((table, index) => tables.indexOf(table) !== index));
@@ -114,13 +119,118 @@ const databaseSchema = z
       .meta({ uniqueItems: true })
       .optional()
       .describe("Tables softure-deploy row-counts compares when --tables is not given: table or schema.table."),
+    access: z
+      .enum(["host", "compose-exec"])
+      .optional()
+      .describe(
+        "How deploy.sh reaches the database: host (default) connects to 127.0.0.1:5432 as postgres with POSTGRES_PASSWORD; compose-exec runs pg_dump and psql in the postgres service as POSTGRES_USER on POSTGRES_DB of .env.prod, for a Postgres that publishes no port.",
+      ),
+    appMigrations: z
+      .strictObject({
+        journal: z
+          .string()
+          .regex(IMAGE_PATH, "an absolute path in the image")
+          .refine((path) => !path.split("/").includes(".."), "a path without .. segments")
+          .describe("The app migrator's journal in the image, e.g. /app/drizzle/meta/_journal.json ({ \"entries\": [...] })."),
+        ledger: tableNameSchema.optional().describe("The ledger table the app migrator fills; default drizzle.__drizzle_migrations."),
+      })
+      .optional()
+      .describe("An app's own migrations: the schema step refuses an image whose journal lists fewer entries than the ledger has rows."),
+    excludeTableData: z
+      .array(tableNameSchema)
+      .min(1)
+      .optional()
+      .describe("Tables whose rows stay out of deploy.sh's backups (their definition stays), e.g. a table of IP addresses."),
   })
   .describe("Settings of the database steps of softure-deploy.");
+
+/** Hook names are step names in deploy.sh's output, so these are taken. */
+export const BUILT_IN_STEP_NAMES = [
+  "command",
+  "lock",
+  "archive",
+  "files",
+  "settings",
+  "pull",
+  "postgres",
+  "backup",
+  "schema",
+  "row-counts-before",
+  "switch",
+  "traefik",
+  "row-counts-after",
+  "tag",
+  "cron",
+  "env",
+  "images",
+  "restore",
+] as const;
+
+const HOOK_NAME = /^[a-z][a-z0-9-]{0,39}$/;
+/** Five cron fields of digits and `* / , -`: nothing a crontab line could read as more than a schedule. */
+export const CRON_SCHEDULE_PATTERN = /^[0-9*/,-]+( [0-9*/,-]+){4}$/;
+
+const hookNameSchema = z
+  .string()
+  .regex(HOOK_NAME, "a lower-case word of letters, digits and -, at most 40")
+  .refine((name) => !(BUILT_IN_STEP_NAMES as readonly string[]).includes(name), "a name deploy.sh uses for its own step")
+  .describe("The hook's name: its step line in deploy.sh's output (step|<name>|ok).");
+
+const argumentsSchema = z
+  .array(z.string().min(1).regex(/^[^\n\r\0]*$/, "one line without NUL"))
+  .min(1);
+
+const composeHookFields = {
+  name: hookNameSchema,
+  compose: argumentsSchema.describe(
+    "Arguments of docker compose --env-file .env.prod --file docker-compose.yml, e.g. [\"run\", \"--rm\", \"migrate\", \"node\", \"import.mjs\"].",
+  ),
+};
+const runHookFields = {
+  name: hookNameSchema,
+  run: argumentsSchema.describe(
+    "A command run on the host in the app folder, e.g. [\"bash\", \"hooks/check-env.sh\"] for a script the release ships in the compose file's folder (installed 0644, so call it through bash).",
+  ),
+};
+
+const hookSchema = z
+  .union([z.strictObject(composeHookFields), z.strictObject(runHookFields)])
+  .describe("One app step: compose arguments or a host command; it gets TAG, IMAGE and PREVIOUS_TAG, its output goes to stderr.");
+
+const scheduleSchema = z
+  .string()
+  .regex(CRON_SCHEDULE_PATTERN, "five cron fields of digits and * / , -")
+  .optional()
+  .describe("Its own crontab line with this schedule (deploy.sh maintain <name>) instead of the daily maintain run.");
+
+const maintainHookSchema = z
+  .union([z.strictObject({ ...composeHookFields, schedule: scheduleSchema }), z.strictObject({ ...runHookFields, schedule: scheduleSchema })])
+  .describe("One app step of maintenance: in the daily maintain run, or on its own schedule.");
+
+const hooksSchema = z
+  .strictObject({
+    "pre-migrate": z
+      .array(hookSchema)
+      .optional()
+      .describe("After the backup, the schema guard and the row counts, before the switch (whose migrate service runs first); a failure puts the previous files back."),
+    "post-up": z
+      .array(hookSchema)
+      .optional()
+      .describe("After the release is live (tag recorded, cron installed); a failure fails the release and rolls nothing back."),
+    maintain: z.array(maintainHookSchema).optional().describe("After the daily backup and image cleanup, or on their own schedule."),
+  })
+  .superRefine((hooks, context) => {
+    const names = [...(hooks["pre-migrate"] ?? []), ...(hooks["post-up"] ?? []), ...(hooks.maintain ?? [])].map((hook) => hook.name);
+    const duplicates = new Set(names.filter((name, index) => names.indexOf(name) !== index));
+    for (const name of duplicates) context.addIssue({ code: "custom", message: `the hook name ${name} is used twice` });
+  })
+  .describe("App steps deploy.sh runs at named points of a deploy and of maintenance, in the listed order.");
 
 export const deploySchema = z
   .strictObject({
     $schema: z.string().optional().describe("JSON Schema of this file, for editor completion."),
     database: databaseSchema.optional(),
+    hooks: hooksSchema.optional(),
     verify: verifySchema.optional(),
   })
   .describe("deploy.json: the app's deploy settings read by softure-deploy.");
@@ -130,6 +240,9 @@ export type VerifyConfig = NonNullable<DeployConfig["verify"]>;
 export type VerifyRoute = VerifyConfig["routes"][number];
 export type HeaderChecks = VerifyRoute["headers"];
 export type DeployConfigInput = z.input<typeof deploySchema>;
+export type DeployHooks = NonNullable<DeployConfig["hooks"]>;
+export type DeployHook = NonNullable<DeployHooks["pre-migrate"]>[number];
+export type MaintainHook = NonNullable<DeployHooks["maintain"]>[number];
 
 export type ParsedDeployConfig = { ok: true; config: DeployConfig } | { ok: false; issues: string[] };
 

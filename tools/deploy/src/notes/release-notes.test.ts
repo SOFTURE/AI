@@ -86,7 +86,7 @@ describe("formatReleaseNotes", () => {
 
 describe("formatReleaseNotes with roadmap items", () => {
   const ITEMS = [
-    { id: "DF-1", changeId: "deploy-fire-parity", outcome: "parity with FIRE \\| tested", status: "done_code" },
+    { id: "DF-1", changeId: "deploy-parity", outcome: "parity with the app \\| tested", status: "done_code" },
   ];
 
   it("puts the shipped items in a table between the summary and the pull requests", () => {
@@ -109,7 +109,7 @@ describe("formatReleaseNotes with roadmap items", () => {
         "",
         "| ID | Change | Outcome |",
         "| --- | --- | --- |",
-        "| **DF-1** | `deploy-fire-parity` | parity with FIRE \\| tested |",
+        "| **DF-1** | `deploy-parity` | parity with the app \\| tested |",
         "",
         "### Pull requests",
         "",

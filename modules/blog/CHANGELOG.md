@@ -4,6 +4,12 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`blog@x.y.z`).
 
+## 0.1.10
+
+- `getDayInZone` (`/pages`) and `getLocalDate` (`/quality`) compute the day with `toCalendarDay` from
+  `@softure-ai/core` instead of a local `en-CA` formatter, whose date pattern has changed between ICU versions. Same
+  results; requires `@softure-ai/core` `^0.1.7` (#270).
+
 ## 0.1.9
 
 - `og:locale` of articles and terms is an Open Graph locale now: `en_US` / `pl_PL` by default, not the bare

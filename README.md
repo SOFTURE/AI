@@ -29,6 +29,7 @@ modules/             feature modules (each one works on its own on top of the fo
   analytics/         channel tags (?z=) and a cookieless funnel counter
   ops/               health check, migration runner in the image, safe SQL operations pattern
   seo/               robots.txt with AI crawler lists, sitemap, canonical URLs, IndexNow
+  agent-ready/       agent discovery: catalogs, MCP/A2A cards, auth.md, Agent Skills, Web Bot Auth, DNS-AID, WebMCP
 tools/
   marketing-kit/     materials generator: video, screenshots, OG images from JSON and a brand
   deploy/            one-VPS deploy CLI: .env.prod from secrets, release notes, verify from deploy.json

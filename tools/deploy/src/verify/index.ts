@@ -20,6 +20,8 @@ export {
   type VerifyReport,
 } from "./run-checks.js";
 export {
+  BUILT_IN_STEP_NAMES,
+  CRON_SCHEDULE_PATTERN,
   DEFAULT_TIMEOUT_MS,
   DEPLOY_SCHEMA_URL,
   deploySchema,
@@ -27,6 +29,9 @@ export {
   parseDeployConfig,
   type DeployConfig,
   type DeployConfigInput,
+  type DeployHook,
+  type DeployHooks,
+  type MaintainHook,
   type HeaderChecks,
   type ParsedDeployConfig,
   type VerifyConfig,

@@ -18,10 +18,241 @@
             "pattern": "^[a-z_][a-z0-9_]*(\\.[a-z_][a-z0-9_]*)?$"
           },
           "uniqueItems": true
+        },
+        "access": {
+          "description": "How deploy.sh reaches the database: host (default) connects to 127.0.0.1:5432 as postgres with POSTGRES_PASSWORD; compose-exec runs pg_dump and psql in the postgres service as POSTGRES_USER on POSTGRES_DB of .env.prod, for a Postgres that publishes no port.",
+          "type": "string",
+          "enum": [
+            "host",
+            "compose-exec"
+          ]
+        },
+        "appMigrations": {
+          "description": "An app's own migrations: the schema step refuses an image whose journal lists fewer entries than the ledger has rows.",
+          "type": "object",
+          "properties": {
+            "journal": {
+              "type": "string",
+              "pattern": "^(\\/[A-Za-z0-9_.@+-]+)+$",
+              "description": "The app migrator's journal in the image, e.g. /app/drizzle/meta/_journal.json ({ \"entries\": [...] })."
+            },
+            "ledger": {
+              "description": "The ledger table the app migrator fills; default drizzle.__drizzle_migrations.",
+              "type": "string",
+              "pattern": "^[a-z_][a-z0-9_]*(\\.[a-z_][a-z0-9_]*)?$"
+            }
+          },
+          "required": [
+            "journal"
+          ],
+          "additionalProperties": false
+        },
+        "excludeTableData": {
+          "description": "Tables whose rows stay out of deploy.sh's backups (their definition stays), e.g. a table of IP addresses.",
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z_][a-z0-9_]*(\\.[a-z_][a-z0-9_]*)?$"
+          }
         }
       },
       "additionalProperties": false,
       "description": "Settings of the database steps of softure-deploy."
+    },
+    "hooks": {
+      "type": "object",
+      "properties": {
+        "pre-migrate": {
+          "description": "After the backup, the schema guard and the row counts, before the switch (whose migrate service runs first); a failure puts the previous files back.",
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9-]{0,39}$",
+                    "description": "The hook's name: its step line in deploy.sh's output (step|<name>|ok)."
+                  },
+                  "compose": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "^[^\\n\\r\\0]*$"
+                    },
+                    "description": "Arguments of docker compose --env-file .env.prod --file docker-compose.yml, e.g. [\"run\", \"--rm\", \"migrate\", \"node\", \"import.mjs\"]."
+                  }
+                },
+                "required": [
+                  "name",
+                  "compose"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9-]{0,39}$",
+                    "description": "The hook's name: its step line in deploy.sh's output (step|<name>|ok)."
+                  },
+                  "run": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "^[^\\n\\r\\0]*$"
+                    },
+                    "description": "A command run on the host in the app folder, e.g. [\"bash\", \"hooks/check-env.sh\"] for a script the release ships in the compose file's folder (installed 0644, so call it through bash)."
+                  }
+                },
+                "required": [
+                  "name",
+                  "run"
+                ],
+                "additionalProperties": false
+              }
+            ],
+            "description": "One app step: compose arguments or a host command; it gets TAG, IMAGE and PREVIOUS_TAG, its output goes to stderr."
+          }
+        },
+        "post-up": {
+          "description": "After the release is live (tag recorded, cron installed); a failure fails the release and rolls nothing back.",
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9-]{0,39}$",
+                    "description": "The hook's name: its step line in deploy.sh's output (step|<name>|ok)."
+                  },
+                  "compose": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "^[^\\n\\r\\0]*$"
+                    },
+                    "description": "Arguments of docker compose --env-file .env.prod --file docker-compose.yml, e.g. [\"run\", \"--rm\", \"migrate\", \"node\", \"import.mjs\"]."
+                  }
+                },
+                "required": [
+                  "name",
+                  "compose"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9-]{0,39}$",
+                    "description": "The hook's name: its step line in deploy.sh's output (step|<name>|ok)."
+                  },
+                  "run": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "^[^\\n\\r\\0]*$"
+                    },
+                    "description": "A command run on the host in the app folder, e.g. [\"bash\", \"hooks/check-env.sh\"] for a script the release ships in the compose file's folder (installed 0644, so call it through bash)."
+                  }
+                },
+                "required": [
+                  "name",
+                  "run"
+                ],
+                "additionalProperties": false
+              }
+            ],
+            "description": "One app step: compose arguments or a host command; it gets TAG, IMAGE and PREVIOUS_TAG, its output goes to stderr."
+          }
+        },
+        "maintain": {
+          "description": "After the daily backup and image cleanup, or on their own schedule.",
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9-]{0,39}$",
+                    "description": "The hook's name: its step line in deploy.sh's output (step|<name>|ok)."
+                  },
+                  "compose": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "^[^\\n\\r\\0]*$"
+                    },
+                    "description": "Arguments of docker compose --env-file .env.prod --file docker-compose.yml, e.g. [\"run\", \"--rm\", \"migrate\", \"node\", \"import.mjs\"]."
+                  },
+                  "schedule": {
+                    "description": "Its own crontab line with this schedule (deploy.sh maintain <name>) instead of the daily maintain run.",
+                    "type": "string",
+                    "pattern": "^[0-9*/,-]+( [0-9*/,-]+){4}$"
+                  }
+                },
+                "required": [
+                  "name",
+                  "compose"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9-]{0,39}$",
+                    "description": "The hook's name: its step line in deploy.sh's output (step|<name>|ok)."
+                  },
+                  "run": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "^[^\\n\\r\\0]*$"
+                    },
+                    "description": "A command run on the host in the app folder, e.g. [\"bash\", \"hooks/check-env.sh\"] for a script the release ships in the compose file's folder (installed 0644, so call it through bash)."
+                  },
+                  "schedule": {
+                    "description": "Its own crontab line with this schedule (deploy.sh maintain <name>) instead of the daily maintain run.",
+                    "type": "string",
+                    "pattern": "^[0-9*/,-]+( [0-9*/,-]+){4}$"
+                  }
+                },
+                "required": [
+                  "name",
+                  "run"
+                ],
+                "additionalProperties": false
+              }
+            ],
+            "description": "One app step of maintenance: in the daily maintain run, or on its own schedule."
+          }
+        }
+      },
+      "additionalProperties": false,
+      "description": "App steps deploy.sh runs at named points of a deploy and of maintenance, in the listed order."
     },
     "verify": {
       "type": "object",

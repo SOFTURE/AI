@@ -1,24 +1,18 @@
 // `pg_dump` before a deploy, with retention: `<prefix>-<UTC timestamp>.dump` files in one folder, the newest
 // `keep` of a prefix stay, and with `maxAgeDays` none older than that (a privacy promise: deleted data must not live
-// on in backups, FIRE_TRACKER's 30 days). Retention runs only after a dump succeeded, so a failing deploy never loses a
+// on in backups, e.g. a privacy policy's 30 days). Retention runs only after a dump succeeded, so a failing deploy never loses a
 // backup, and the newest dump is never removed.
 import { spawn } from "node:child_process";
-import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readSync, renameSync, rmSync, statSync } from "node:fs";
+import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readSync, renameSync, rmSync, statSync, writeSync } from "node:fs";
 import { join } from "node:path";
 
-export interface BackupOptions {
-  readonly dir: string;
-  readonly prefix: string;
-  readonly keep: number;
-  /** Dumps of the prefix older than this many days are removed too; null keeps them (count only). */
-  readonly maxAgeDays?: number | null;
+export interface BackupOptions extends BackupTarget {
   /** Tables whose rows stay out of the dump (their definition stays), e.g. a table of IP addresses. */
   readonly excludeTableData?: readonly string[];
   /** libpq variables for the database (from `toLibpqEnv`). */
   readonly libpqEnv: Readonly<Record<string, string>>;
   /** The `pg_dump` executable: a name on `PATH` or a path. */
   readonly pgDump: string;
-  readonly now: Date;
   /** The rest of the environment `pg_dump` runs with (`PATH`, `HOME`). */
   readonly env: Readonly<Record<string, string | undefined>>;
 }
@@ -90,21 +84,44 @@ export function hasCustomFormatHeader(path: string): boolean {
   }
 }
 
+/** Where a backup goes and what stays: the part both ways of writing one share. */
+export interface BackupTarget {
+  readonly dir: string;
+  readonly prefix: string;
+  readonly keep: number;
+  /** Dumps of the prefix older than this many days are removed too; null keeps them (count only). */
+  readonly maxAgeDays?: number | null;
+  readonly now: Date;
+}
+
 /** Dumps the database in the custom format (`pg_restore` reads it), then applies retention. */
-export async function createBackup(options: BackupOptions): Promise<BackupResult> {
-  mkdirSync(options.dir, { recursive: true });
-  const fileName = formatBackupName(options.prefix, options.now);
-  const path = join(options.dir, fileName);
+export function createBackup(options: BackupOptions): Promise<BackupResult> {
+  return storeBackup(options, options.pgDump, (fd) => runPgDump(options, fd));
+}
+
+/**
+ * Keeps a finished custom-format dump read from `input` (e.g. `pg_dump` run in the database's container), then
+ * applies retention. Only a whole dump may arrive: the header check cannot tell a dump cut short by a failing
+ * `pg_dump`, so the caller writes it to a file first and pipes that file after `pg_dump` succeeded.
+ */
+export function createBackupFromStream(options: BackupTarget & { readonly input: NodeJS.ReadableStream }): Promise<BackupResult> {
+  return storeBackup(options, "the input", (fd) => copyStream(options.input, fd));
+}
+
+async function storeBackup(target: BackupTarget, source: string, writeDump: (fd: number) => Promise<DumpResult>): Promise<BackupResult> {
+  mkdirSync(target.dir, { recursive: true });
+  const fileName = formatBackupName(target.prefix, target.now);
+  const path = join(target.dir, fileName);
   if (existsSync(path)) {
     return { ok: false, problem: `${fileName} already exists; wait a second and run the backup again` };
   }
-  const temporary = join(options.dir, `.${fileName}.${process.pid}.tmp`);
+  const temporary = join(target.dir, `.${fileName}.${process.pid}.tmp`);
   rmSync(temporary, { force: true });
-  // Opened before pg_dump runs, with `wx` and mode 0600, so the dump is never readable by others while it grows.
+  // Opened before the dump is written, with `wx` and mode 0600, so it is never readable by others while it grows.
   const fd = openSync(temporary, "wx", BACKUP_FILE_MODE);
   let dump: DumpResult;
   try {
-    dump = await runPgDump(options, fd);
+    dump = await writeDump(fd);
   } finally {
     closeSync(fd);
   }
@@ -114,15 +131,29 @@ export async function createBackup(options: BackupOptions): Promise<BackupResult
   }
   if (!hasCustomFormatHeader(temporary)) {
     rmSync(temporary, { force: true });
-    return { ok: false, problem: `${options.pgDump} wrote no pg_dump custom-format file (no PGDMP header)` };
+    return { ok: false, problem: `${source} wrote no pg_dump custom-format file (no PGDMP header)` };
   }
   renameSync(temporary, path);
-  const names = readdirSync(options.dir);
-  const maxAgeDays = options.maxAgeDays ?? null;
-  const aged = maxAgeDays === null ? [] : selectAgedBackups(names, options.prefix, maxAgeDays, options.now);
-  const removed = [...new Set([...selectExpiredBackups(names, options.prefix, options.keep), ...aged])].sort().reverse();
-  for (const name of removed) rmSync(join(options.dir, name));
+  const names = readdirSync(target.dir);
+  const maxAgeDays = target.maxAgeDays ?? null;
+  const aged = maxAgeDays === null ? [] : selectAgedBackups(names, target.prefix, maxAgeDays, target.now);
+  const removed = [...new Set([...selectExpiredBackups(names, target.prefix, target.keep), ...aged])].sort().reverse();
+  for (const name of removed) rmSync(join(target.dir, name));
   return { ok: true, file: path, bytes: statSync(path).size, removed };
+}
+
+/** Writes every chunk of `input` to `fd`; a stream error (rethrown by the iterator) is a failed dump. */
+async function copyStream(input: NodeJS.ReadableStream, fd: number): Promise<DumpResult> {
+  try {
+    for await (const chunk of input) {
+      const bytes = typeof chunk === "string" ? Buffer.from(chunk) : chunk;
+      let written = 0;
+      while (written < bytes.length) written += writeSync(fd, bytes, written);
+    }
+  } catch (error) {
+    return { ok: false, problem: `cannot read the dump from the input: ${error instanceof Error ? error.message : String(error)}` };
+  }
+  return { ok: true };
 }
 
 type DumpResult = { ok: true } | { ok: false; problem: string };

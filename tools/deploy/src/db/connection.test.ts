@@ -3,14 +3,14 @@ import { toLibpqEnv } from "./connection.js";
 
 describe("toLibpqEnv", () => {
   it("splits a full URL into libpq variables, decoding escaped parts", () => {
-    expect(toLibpqEnv("postgresql://app%40prod:p%2Fss%3Aword@db.internal:6543/fire_app?sslmode=require&application_name=deploy")).toEqual({
+    expect(toLibpqEnv("postgresql://app%40prod:p%2Fss%3Aword@db.internal:6543/shop_app?sslmode=require&application_name=deploy")).toEqual({
       ok: true,
       env: {
         PGHOST: "db.internal",
         PGPORT: "6543",
         PGUSER: "app@prod",
         PGPASSWORD: "p/ss:word",
-        PGDATABASE: "fire_app",
+        PGDATABASE: "shop_app",
         PGSSLMODE: "require",
         PGAPPNAME: "deploy",
       },
