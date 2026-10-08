@@ -62,8 +62,8 @@ build).
 ### Phase 1: move the modules onto core
 
 #### Automated
-- [ ] 1.1 #272 merged and master merged into the branch
-- [ ] 1.2 blog, privacy, mcp-access and billing call toCalendarDay; no en-CA left
-- [ ] 1.3 New tests seen failing on a wrong zone, then green
-- [ ] 1.4 Ranges ^0.1.7, core 0.1.7, blog 0.1.10, changelogs, lockfile
-- [ ] 1.5 Gates green (typecheck, lint, test, build)
+- [x] 1.1 #272 merged and master merged into the branch — 880910b1
+- [x] 1.2 blog, privacy, mcp-access and billing call toCalendarDay; no en-CA left — 880910b1
+- [x] 1.3 New tests seen failing on a wrong zone, then green — 880910b1
+- [x] 1.4 Ranges ^0.1.7, core 0.1.7, blog 0.1.10, changelogs, lockfile — 880910b1
+- [x] 1.5 Gates green (typecheck, lint, test, build) — 880910b1

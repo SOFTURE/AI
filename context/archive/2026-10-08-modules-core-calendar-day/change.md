@@ -1,12 +1,13 @@
 ---
 change_id: modules-core-calendar-day
 title: "modules: compute calendar days with core's toCalendarDay instead of local copies (issue #270)"
-status: plan_reviewed
+status: archived
 roadmap_item: null
 issue: 270
 branch: claude/project-thread-244cg7
 created: 2026-10-08
 updated: 2026-10-08
+archived_at: 2026-10-08
 ---
 
 ## Intent
