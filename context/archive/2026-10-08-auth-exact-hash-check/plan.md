@@ -66,7 +66,7 @@ Done when: the new tests were seen red on the old code, then green; gates green 
 ### Phase 1: the exact check
 
 #### Automated
-- [x] 1.1 Exact-format tests seen red, then green
-- [x] 1.2 Script refuses a truncated hash as a usage error
-- [x] 1.3 Gates green (typecheck, lint, test, build)
-- [x] 1.4 README, CHANGELOG and version 0.1.10
+- [x] 1.1 Exact-format tests seen red, then green — 9848806
+- [x] 1.2 Script refuses a truncated hash as a usage error — 9848806
+- [x] 1.3 Gates green (typecheck, lint, test, build) — 9848806
+- [x] 1.4 README, CHANGELOG and version 0.1.10 — 9848806
