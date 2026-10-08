@@ -4,6 +4,17 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`charts@x.y.z`).
 
+## 0.1.4
+
+- `ChartFlag` without `xPercent` no longer inherits `top: 0`: a parent that places it with `position: absolute` and
+  `bottom` no longer stretches it over the plot (issue #221).
+- `ValueAxis` takes `narrow` (`alternate`, the default, or `all`, which keeps every label on narrow screens).
+- `ChartPin` takes `classNames: { line, dot }`. The dash variables (`--sft-chart-dash`, `--sft-chart-dash-gap`) are
+  declared on the pin's column and inherit to the line; the line reads `--sft-chart-pin-line` before
+  `--sft-chart-cursor`.
+- README: `opacity` on the lines is `stroke-opacity`.
+- Without the new options, markup is unchanged.
+
 ## 0.1.3
 
 - Lines (`GridLines`, `Baseline`, `GuideLine`, `SeriesLine`) take `tone` (a `ChartTone` read from the tokens), `slot`,

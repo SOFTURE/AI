@@ -15,17 +15,29 @@ export function isMinorValueTick(index: number, count: number): boolean {
 }
 
 /**
+ * Which labels stay on narrow screens: `alternate` (the default) hides every other one from four labels
+ * (`isMinorValueTick`), `all` hides none, for a small chart with few short labels.
+ */
+export type ValueAxisNarrow = "alternate" | "all";
+
+export interface ValueAxisProps {
+  readonly ticks: readonly ValueTick[];
+  readonly narrow?: ValueAxisNarrow;
+  readonly className?: string;
+}
+
+/**
  * Value labels in HTML at heights of the plot, beside it. The parent places the column (a class with
  * its position): the axis sets none of its own, or it would fight the parent's.
  * Hidden from assistive technology like the drawing it labels.
  */
-export function ValueAxis({ ticks, className }: { readonly ticks: readonly ValueTick[]; readonly className?: string }) {
+export function ValueAxis({ ticks, narrow = "alternate", className }: ValueAxisProps) {
   return (
     <div aria-hidden="true" className={cx("sft-chart-value-axis", className)}>
       {ticks.map((tick, index) => (
         <span
           key={tick.key}
-          className={cx("sft-chart-value-label", isMinorValueTick(index, ticks.length) && "sft-chart-minor")}
+          className={cx("sft-chart-value-label", narrow === "alternate" && isMinorValueTick(index, ticks.length) && "sft-chart-minor")}
           style={{ bottom: percent(tick.fromBottomPercent) }}
         >
           {tick.label}
