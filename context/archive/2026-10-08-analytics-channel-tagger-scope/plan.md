@@ -70,6 +70,6 @@ Done when: the new tests were seen red, then green; gates green (typecheck, lint
 ### Phase 1: scope, host, export
 
 #### Automated
-- [ ] 1.1 Tagger tests seen red, then green
-- [ ] 1.2 Gates green (typecheck, lint, test, build)
-- [ ] 1.3 README and CHANGELOG (0.1.9 entry)
+- [x] 1.1 Tagger tests seen red, then green — 5d31d96
+- [x] 1.2 Gates green (typecheck, lint, test, build) — 5d31d96
+- [x] 1.3 README and CHANGELOG (0.1.9 entry) — 5d31d96

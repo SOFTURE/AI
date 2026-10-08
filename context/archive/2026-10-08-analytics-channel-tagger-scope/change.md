@@ -1,12 +1,13 @@
 ---
 change_id: analytics-channel-tagger-scope
 title: "analytics: the channel tagger takes a target scope, stays on the request's host and exports its navigation check (issue #242)"
-status: impl_reviewed
+status: archived
 roadmap_item: null
 issue: 242
 branch: claude/project-thread-of5x8u
 created: 2026-10-08
 updated: 2026-10-08
+archived_at: 2026-10-08
 ---
 
 ## Intent
