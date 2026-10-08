@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/auth",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "SOFTURE AI auth module: users, scrypt passwords, database sessions, register with consent, login, logout, password change, roles, a proxy route guard, pages and forms for Next.js, and a password reset sender over @softure-ai/mailing.",
   "license": "MIT",
   "type": "module",
