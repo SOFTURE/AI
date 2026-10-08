@@ -10,7 +10,8 @@ off as one list, with the app's private paths closed to every crawler; an `htmlL
 `next.config.ts` that keeps Next's defaults and adds the AI bots; a `sitemap.xml` from the app's
 entries and other modules' contributors with a real `lastmod`; one canonical origin (apex or `www`,
 trailing slash rule) for `metadata.alternates.canonical`; the IndexNow key file and
-`submitToIndexNow(urls)`, a dry run unless told to commit.
+`submitToIndexNow(urls)`, a dry run unless told to commit; and a Markdown version of every sitemap page
+for agents that ask for it with `Accept: text/markdown` (`createPageMarkdown`, a proxy piece).
 
 ## 2. Installation
 
@@ -19,7 +20,8 @@ npm install @softure-ai/seo
 ```
 
 No peer dependency: the `/next` adapter returns plain objects in the shape of Next's
-`MetadataRoute.Robots` and `MetadataRoute.Sitemap`, and `/server` runs outside Next.
+`MetadataRoute.Robots` and `MetadataRoute.Sitemap`, `/server` runs outside Next, and `/proxy` uses only
+Web `Request` and `Response`.
 
 ## 3. Configuration
 
@@ -120,6 +122,48 @@ await submitToIndexNow(urls, { key: indexNowKey, siteOrigin, keyPath: routes.ind
   fetchImpl: (input, init) => signedFetch(input, init) });
 ```
 
+### Markdown for agents
+
+An agent that sends `Accept: text/markdown` for a public page gets the page's main content as Markdown
+at the same address; a browser, curl and crawlers (`*/*`) keep getting the HTML. Chain the piece in the
+app's `proxy.ts`, after the blog's Markdown piece (which answers its texts from the stored Markdown) and
+before a route guard:
+
+```ts
+// proxy.ts
+import { createBlogMarkdown } from "@softure-ai/blog/proxy";
+import { createPageMarkdown } from "@softure-ai/seo/proxy";
+
+const blogMarkdown = createBlogMarkdown(softureConfig);
+const pageMarkdown = createPageMarkdown(softureConfig, { remove: [".toc"] });
+
+export async function proxy(request: NextRequest) {
+  return (await blogMarkdown(request)) ?? (await pageMarkdown(request)) ?? guard(request) ?? NextResponse.next();
+}
+```
+
+- **Which pages:** exactly the sitemap's (the app's entries and the contributors'), compared by
+  canonical URL and read at most once per `cacheSeconds` (default 60). `paths: (pathname) => boolean`
+  chooses otherwise.
+- **How:** the piece fetches the page from the app's own server (`selfOrigin`, by default
+  `http://127.0.0.1:${PORT ?? 3000}`, not the public host a reverse proxy sits behind) with
+  `Accept: text/html` and nothing else: no cookie, no authorization, no query. The answer is what an
+  anonymous visitor sees, so nothing behind a session is reachable this way.
+- **What:** `htmlToMarkdown` (`@softure-ai/seo/server`) of the `<main>` element (`root`), without
+  nav, scripts, SVG, controls, forms, dialogs, hidden nodes, a header or footer placed directly in
+  `<main>` (an article's own header stays) and the app's `remove` selectors; links and images absolute
+  on the site origin; after a frontmatter of `title`, `description` and `url` (the page's canonical
+  link, else the canonical URL of the path).
+- **Headers:** `content-type: text/markdown; charset=utf-8`, `vary: Accept`,
+  `cache-control: private, max-age=0, must-revalidate` (a shared cache must not hand Markdown to a
+  browser), `x-markdown-tokens` (about four characters a token). HEAD gets the headers only.
+- **Anything else** (a redirect, a 404, an error, a page without `<main>`, a failed render) answers
+  `null`, and the page answers the request itself; failures are reported through `onError`
+  (`console.error` by default).
+
+`prefersMarkdown(accept)` (root entry) is the negotiation rule on its own: `text/markdown` must be
+named, the weights follow RFC 9110, and a tie with HTML goes to Markdown.
+
 ## 5. Migrations and tables
 
 None: the module has no database schema.
@@ -146,6 +190,9 @@ None: `src/messages/en.ts` and `pl.ts` are empty dictionaries kept for the stand
 rejects is logged and left out, and an entry whose path is not on the site is skipped; the rest of
 the sitemap is served.
 
+`createPageMarkdown` options: `paths`, `cacheSeconds`, `selfOrigin`, `root`, `remove`, `onError`, and
+`fetch` / `now` for tests.
+
 ## 11. GDPR
 
 Nothing: the module stores no personal data.
@@ -158,3 +205,7 @@ Nothing: the module stores no personal data.
   given as `keyLocation`, and a root location covers every URL of the host.
 - One IndexNow request takes at most 10,000 URLs; a longer list is refused, not split.
 - The `htmlLimitedBots` list copies Next's default; a test fails when the installed Next changes it.
+- A Markdown answer renders the page again on every request (it is `private`, so no shared cache keeps
+  it); the page's own caching applies to that render.
+- Pages are told apart by path only: a page whose content depends on the query or on the visitor has a
+  single Markdown version, the anonymous one without a query.

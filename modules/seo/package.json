@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/seo",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "SOFTURE AI seo module: robots.txt with explicit AI crawler lists, an htmlLimitedBots list that keeps Next's defaults, a sitemap from app and module contributors, one canonical origin, and the IndexNow key file and submit (dry run by default).",
   "license": "MIT",
   "type": "module",
@@ -35,6 +35,11 @@
       "@softure-ai/source": "./src/server/index.ts",
       "types": "./dist/server/index.d.ts",
       "default": "./dist/server/index.js"
+    },
+    "./proxy": {
+      "@softure-ai/source": "./src/proxy/index.ts",
+      "types": "./dist/proxy/index.d.ts",
+      "default": "./dist/proxy/index.js"
     },
     "./next": {
       "@softure-ai/source": "./src/next/index.ts",

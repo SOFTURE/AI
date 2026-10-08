@@ -2,16 +2,14 @@
 // next to it: copy that lives only in components would drift from a hand-written Markdown at the
 // first edit. The main element is taken, and what serves the page rather than its content is dropped.
 import { NodeHtmlMarkdown } from "node-html-markdown";
-import { parse, type HTMLElement } from "node-html-parser";
+import { HTMLElement, parse } from "node-html-parser";
 
 /**
  * Elements without content for an agent: navigation, controls, graphics (a chart worth reading has a
  * table next to it) and anything hidden from screen readers.
  */
 const NOT_CONTENT = [
-  "header",
   "nav",
-  "footer",
   "script",
   "style",
   "svg",
@@ -38,6 +36,12 @@ export interface HtmlToMarkdownOptions {
 }
 
 /**
+ * A header or footer directly in the root is the page's banner or content info; one inside an article or
+ * a section is content (an article's title and byline), so it stays.
+ */
+const PAGE_LANDMARKS = new Set(["HEADER", "FOOTER"]);
+
+/**
  * The Markdown of a page's root element (`main` by default), after a frontmatter of `title`,
  * `description` and `url`. `null` when the page has no root element: a caller should then answer
  * with the page, not with Markdown of its header and footer.
@@ -52,6 +56,11 @@ export function htmlToMarkdown(html: string, options: HtmlToMarkdownOptions = {}
 
   for (const node of root.querySelectorAll([...NOT_CONTENT, ...remove].join(","))) {
     node.remove();
+  }
+  for (const node of root.childNodes) {
+    if (node instanceof HTMLElement && PAGE_LANDMARKS.has(node.tagName)) {
+      node.remove();
+    }
   }
   if (origin !== undefined) {
     absolutize(root, origin);

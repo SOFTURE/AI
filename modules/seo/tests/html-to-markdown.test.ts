@@ -53,6 +53,13 @@ describe("htmlToMarkdown", () => {
     expect(htmlToMarkdown(html, { url: `${ORIGIN}/`, frontmatter: false })).toBe("# Title\n\nKept\n");
   });
 
+  it("drops a header and a footer placed directly in main, keeps an article's own", () => {
+    const html = page(
+      '<main><header><a href="/">Logo</a></header><article><header><h1>Title</h1><p>By the team</p></header><p>Body</p><footer>Sources</footer></article><footer>Contact</footer></main>',
+    );
+    expect(htmlToMarkdown(html, { frontmatter: false })).toBe("# Title\n\nBy the team\n\nBody\n\nSources\n");
+  });
+
   it("drops the app's own selectors too", () => {
     const html = page('<main><p>Kept</p><a class="back" href="#ref">↩</a><div class="toc">Contents</div></main>');
     expect(htmlToMarkdown(html, { frontmatter: false, remove: ["a.back", ".toc"] })).toBe("Kept\n");

@@ -4,6 +4,18 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`seo@x.y.z`).
 
+## 0.1.7
+
+- Markdown for agents: `createPageMarkdown(config, options)` in the new `@softure-ai/seo/proxy` entry answers a GET or
+  HEAD of a sitemap page whose `Accept` asks for Markdown with the page's main element as Markdown (`vary: Accept`,
+  `cache-control: private`, `x-markdown-tokens`). The page is rendered by a request to the app's own server with no
+  cookie, authorization or query; anything but a 200 HTML page with the element leaves the request to the page.
+  Options: `paths`, `cacheSeconds` (60), `selfOrigin`, `root`, `remove`, `onError`. Nothing changes for an app that
+  does not chain it.
+- `prefersMarkdown(accept)` in the root entry and `htmlToMarkdown(html, { root, origin, url, remove, frontmatter })`
+  in `@softure-ai/seo/server`.
+- New dependencies: `node-html-markdown` 2 and `node-html-parser` 6.
+
 ## 0.1.6
 
 - `robots.other` (default `{}`): more `name: value` lines written in every group of `robots.txt`, e.g.
