@@ -41,7 +41,7 @@ export {
   createAgentSkill,
   digestOf,
   findAgentSkill,
-  frontmatter,
+  buildFrontmatter,
   renderAppSkills,
   SKILL_MD_CONTENT_TYPE,
   type AgentSkill,
@@ -51,6 +51,7 @@ export {
   AI_CATALOG_SPEC_VERSION,
   buildAgentmapDirective,
   buildAiCatalog,
+  buildAiCatalogLink,
   buildAirIdentifier,
   CATALOG_ENTRY_IDS,
   type AiCatalog,
@@ -81,7 +82,7 @@ export {
   type ResolvedDnsAid,
   type SvcbRecord,
 } from "./dns-aid.js";
-export { DISCOVERY_CACHE_SECONDS, SHORT_DISCOVERY_CACHE_SECONDS, discoveryHeaders, prettyJson } from "./http.js";
+export { DISCOVERY_CACHE_SECONDS, SHORT_DISCOVERY_CACHE_SECONDS, discoveryHeaders, formatJson } from "./http.js";
 export { buildHomeLinkHeader, getHomeLinks, nextHeaders, type HomeLink, type HomeLinkOptions, type NextHeaderRule } from "./link-header.js";
 export { AGENT_READY_MOUNTS } from "./manifest-mounts.js";
 export { getMcpSkillName, buildMcpSkill } from "./mcp-skill.js";

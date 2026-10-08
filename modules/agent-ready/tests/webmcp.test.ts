@@ -138,6 +138,13 @@ describe("the boot script", () => {
     expect(registerTool).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps a tool whose source ends in a line comment inside its own parentheses", () => {
+    const tools: WebMcpTool[] = [];
+    setModelContext("document", { registerTool: (registered: WebMcpTool) => tools.push(registered) });
+    runScript(buildWebMcpBootScript({ ...options, tools: [{ ...tool, execute: "(args, h) => h.ok('x') // the page title" }, { ...tool, name: "second" }] }));
+    expect(tools.map((registered) => registered.name)).toEqual(["get_page", "second"]);
+  });
+
   it("does nothing without WebMCP, and turns a throwing tool into an error result", async () => {
     runScript(buildWebMcpBootScript(options));
     expect((window as unknown as TestWindow).__exampleWebMcp).toBeUndefined();

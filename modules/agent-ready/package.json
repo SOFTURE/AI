@@ -66,6 +66,7 @@
     "@modelcontextprotocol/server": "^2.0.0"
   },
   "devDependencies": {
+    "@softure-ai/db": "^0.1.6",
     "@softure-ai/deploy": "^0.1.4",
     "@softure-ai/mcp-access": "^0.1.8",
     "http-message-sig": "^0.3.0",

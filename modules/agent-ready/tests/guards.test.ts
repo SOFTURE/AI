@@ -110,6 +110,12 @@ describe("expectNoAccountData", () => {
     );
     expect(() => expectNoAccountData("token sftmcp_abc", ["sftmcp_"])).toThrow('"sftmcp_"');
   });
+
+  it("catches any UUID by default, and lets an allowed one through", () => {
+    const uuid = "0b7f3c1e-2d4a-4f6b-9c8d-1a2b3c4d5e6f";
+    expect(() => expectNoAccountData({ owner: uuid }, [])).toThrow(`"${uuid}"`);
+    expect(() => expectNoAccountData({ id: uuid.toUpperCase() }, [], { allowedUuids: [uuid] })).not.toThrow();
+  });
 });
 
 describe("expectOriginMatrix", () => {

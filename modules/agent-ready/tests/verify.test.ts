@@ -14,10 +14,19 @@ import {
   serveSignatureDirectory,
 } from "@softure-ai/agent-ready/next";
 import { checkResponse, parseDeployConfig } from "@softure-ai/deploy";
+import { createTestClock } from "@softure-ai/core";
+import { createTestDatabase } from "@softure-ai/db/testing";
+import {
+  createMcpEndpoint,
+  getAuthorizationServerMetadata,
+  getProtectedResourceMetadata,
+  getRootProtectedResourceMetadata,
+  serveDiscoveryDocument,
+} from "@softure-ai/mcp-access/server";
 import { defineSoftureConfig } from "@softure-ai/core";
 import { clearSoftureConfig, registerSoftureConfig } from "@softure-ai/core/next";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { APEX, APP, BASE_OPTIONS, createIssuerConfig, createIssuerProvider, createRequest } from "./support.js";
+import { APEX, APP, BASE_OPTIONS, createDemoServer, createIssuerConfig, createIssuerProvider, createRequest } from "./support.js";
 
 const OPTIONS: AgentReadyOptionsInput = {
   ...BASE_OPTIONS,
@@ -107,5 +116,58 @@ describe("buildVerifyManifest", () => {
       checked.push(route.path);
     }
     expect(checked.length).toBe(11);
+  });
+
+  it("passes against the issuer's real handlers for the routes @softure-ai/mcp-access serves", async () => {
+    const config = createIssuerConfig();
+    const database = await createTestDatabase(config.modules);
+    try {
+      const endpoint = createMcpEndpoint({ createServer: () => createDemoServer() });
+      const ctx = { db: database.db, clock: createTestClock(new Date("2026-10-08T12:00:00Z")), config };
+      const serveIssuer: Record<string, (request: Request) => Response | Promise<Response>> = {
+        "/api/mcp": (request) => endpoint(ctx, request),
+        "/.well-known/oauth-authorization-server": (request) => serveDiscoveryDocument(config, (c, origins) => getAuthorizationServerMetadata(c, origins), request),
+        "/.well-known/oauth-protected-resource": (request) => serveDiscoveryDocument(config, getRootProtectedResourceMetadata, request),
+        "/.well-known/oauth-protected-resource/api/mcp": (request) => serveDiscoveryDocument(config, (c, origins) => getProtectedResourceMetadata(c, "endpoint", origins), request),
+      };
+      const options = agentReady(OPTIONS).options;
+      const routes = parseRoutes([...buildVerifyManifest({ host: "apex", options, origins: ORIGINS }), ...buildVerifyManifest({ host: "app", options, origins: ORIGINS })]);
+      const checked: string[] = [];
+      for (const route of routes) {
+        const handler = serveIssuer[route.path];
+        if (handler === undefined) continue;
+        const host = route.path === "/.well-known/oauth-protected-resource" ? "example.com" : "app.example.com";
+        const request = createRequest(route.path, host, "https", {
+          method: route.method,
+          ...(route.body === undefined ? {} : { body: route.body }),
+          headers: { ...route.requestHeaders, "x-real-ip": "203.0.113.7" },
+        });
+        const response = await handler(request);
+        const body = await response.text();
+        const outcomes = checkResponse({
+          route,
+          headers: route.headers,
+          baseUrl: `https://${host}`,
+          response: { requestUrl: `https://${host}${route.path}`, status: response.status, getHeader: (name) => response.headers.get(name), body },
+        });
+        expect(outcomes.filter((outcome) => !outcome.passed), route.path).toEqual([]);
+        checked.push(`${route.method} ${route.path}`);
+      }
+      expect(checked.sort()).toEqual([
+        "GET /.well-known/oauth-authorization-server",
+        "GET /.well-known/oauth-protected-resource",
+        "GET /.well-known/oauth-protected-resource/api/mcp",
+        "POST /api/mcp",
+      ]);
+    } finally {
+      await database.close();
+    }
+  });
+
+  it("tells the root resource apart from the issuer on a single host", () => {
+    const options = agentReady({ ...BASE_OPTIONS, oauth: OPTIONS.oauth }).options;
+    const root = buildVerifyManifest({ host: "app", options, origins: { appOrigin: APP, apexOrigin: APP } }).find((route) => route.path === "/.well-known/oauth-protected-resource");
+    expect(root?.contains).toEqual([`"resource":"${APP}"`]);
+    expect(`{"resource":"${APP}/api/mcp","authorization_servers":["${APP}"]}`).not.toContain(root?.contains?.[0] ?? "");
   });
 });

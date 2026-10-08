@@ -5,7 +5,7 @@ import { renderAppSkills, type AgentSkill } from "../agent-skills.js";
 import type { AuthorizationServerMetadata } from "../auth-md.js";
 import type { AgentDocumentContext } from "../context.js";
 import type { McpServerDescription } from "../mcp-description.js";
-import { buildMcpSkill } from "../mcp-skill.js";
+import { buildMcpSkill, getMcpSkillName } from "../mcp-skill.js";
 import type { OriginRequest } from "../origins.js";
 import { AUTHORIZATION_SERVER_METADATA_PATH } from "../paths.js";
 import { readServerDescription, SDK_PROTOCOL_VERSIONS } from "../server/introspect.js";
@@ -20,11 +20,22 @@ export function createIssuerRequest(appOrigin: string): OriginRequest {
   return { url: url.href, headers: new Headers({ host: url.host, "x-forwarded-proto": url.protocol.replace(/:$/, "") }) };
 }
 
-/** The issuer's metadata for the request's origins, or null when the app configured no OAuth. */
+/**
+ * The issuer's metadata for the request's origins, or null when the app configured no OAuth. An issuer on another
+ * origin than the app origin is a setup bug (the documents would send agents to a `resource` the issuer refuses):
+ * thrown by name, so the route answers 500 instead of serving it.
+ */
 export async function readIssuerMetadata(context: AgentDocumentContext): Promise<AuthorizationServerMetadata | null> {
   const provider = context.options.oauth?.authorizationServerMetadata;
   if (provider === undefined) return null;
-  return provider(createIssuerRequest(context.origins.appOrigin), context.origins);
+  const metadata = await provider(createIssuerRequest(context.origins.appOrigin), context.origins);
+  const issuer = metadata.issuer;
+  if (typeof issuer === "string" && URL.canParse(issuer) && new URL(issuer).origin !== context.origins.appOrigin) {
+    throw new Error(
+      `@softure-ai/agent-ready: the issuer ${new URL(issuer).origin} is not the app origin ${context.origins.appOrigin}; give both modules the same app origin`,
+    );
+  }
+  return metadata;
 }
 
 /** The app's MCP server as an anonymous client sees it. */
@@ -45,6 +56,15 @@ export async function renderSkills(context: AgentDocumentContext): Promise<Agent
   const [description, metadata] = await Promise.all([describeServer(context), readIssuerMetadata(context)]);
   const mcpSkill = buildMcpSkill(context, description, metadata);
   return mcpSkill === null ? skills : [...skills, mcpSkill];
+}
+
+/** The one skill named `name`: the app's, or the generated MCP skill; none for any other name, without building anything. */
+export async function renderSkill(context: AgentDocumentContext, name: string): Promise<AgentSkill[]> {
+  const own = renderAppSkills(context).filter((skill) => skill.name === name);
+  if (own.length > 0 || getMcpSkillName(context) !== name) return own;
+  const [description, metadata] = await Promise.all([describeServer(context), readIssuerMetadata(context)]);
+  const mcpSkill = buildMcpSkill(context, description, metadata);
+  return mcpSkill === null ? [] : [mcpSkill];
 }
 
 export function getDocumentContext(config: SoftureConfig, request: OriginRequest): AgentDocumentContext {

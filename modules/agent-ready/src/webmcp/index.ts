@@ -90,7 +90,8 @@ export async function fetchMarkdown(path: string, fetchImpl: typeof fetch = fetc
 /** A tool of the boot script: its definition plus `execute` as JavaScript source. */
 export interface WebMcpScriptTool extends WebMcpToolDefinition {
   /**
-   * A function expression `(args, h) => Promise<result>`, as source text. `h` holds `ok(text)`, `error(text)`,
+   * A function expression `(args, h) => Promise<result>`, as source text (wrapped in parentheses on lines of its own,
+   * so a trailing `//` comment stays inside it). `h` holds `ok(text)`, `error(text)`,
    * `fetchMarkdown(path)` and `stripFrontmatter(text)`. It runs inline in `<head>`, so it cannot import anything.
    */
   execute: string;
@@ -139,7 +140,7 @@ if(C.paths.indexOf(p)<0&&!C.patterns.some(function(s){return new RegExp(s).test(
 window.${options.flag}=true;
 function strip(t){return String(t).replace(/^---\n[\s\S]*?\n---\n+/,"");}
 var h={ok:function(t){return{content:[{type:"text",text:String(t)}]};},error:function(t){return{content:[{type:"text",text:String(t)}],isError:true};},stripFrontmatter:strip,fetchMarkdown:function(path){return fetch(path,{headers:{Accept:"text/markdown"},credentials:"omit"}).then(function(r){if(!r.ok)throw new Error(path+": HTTP "+r.status);return r.text();}).then(strip);}};
-var X=[${executes.join(",\n")}];
+var X=[${executes.map((source) => `(\n${source}\n)`).join(",")}];
 C.tools.forEach(function(d,i){var t={name:d.name,description:d.description,inputSchema:d.inputSchema,execute:function(a){try{return Promise.resolve(X[i](a,h)).catch(function(e){return h.error(d.name+": "+(e&&e.message?e.message:e));});}catch(e){return Promise.resolve(h.error(d.name+": "+(e&&e.message?e.message:e)));}}};try{var r=mc.registerTool(t);if(r&&typeof r.then==="function")r.then(null,function(e){console.warn("WebMCP: "+d.name+": "+e);});}catch(e){console.warn("WebMCP: "+d.name+": "+e);}});
 }catch(e){console.warn("WebMCP: "+e);}})();`;
 }

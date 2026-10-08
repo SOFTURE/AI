@@ -12,5 +12,6 @@ version in production, the version gets a line `verified in: <app>@<commit>` ([d
   agent card introspected from the app's server, Agent Skills with SHA-256 digests and a generated connection skill,
   the AI catalog, Web Bot Auth (signed `fetch`, signed key directory), DNS-AID records and checks, and the WebMCP
   runtime with an inline boot script.
+- `buildAiCatalogLink()` for a `<link rel="ai-catalog">` in the page head.
 - Guards in `/testing`, `buildVerifyManifest` for `deploy.json`, and the `agent-ready` CLI (`web-bot-auth key`,
   `dns-aid check`, `check <url>`).

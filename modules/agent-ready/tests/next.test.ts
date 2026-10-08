@@ -98,9 +98,21 @@ describe("the origin matrix", () => {
     expect(JSON.stringify(resolved)).not.toContain("0.0.0.0");
   });
 
-  it("throws by name when resolveAppOrigin returns something other than an origin", async () => {
+  it("answers 500 and logs by name when resolveAppOrigin returns something other than an origin, or Host is malformed", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
     register({ resolveAppOrigin: () => "https://example.com/path" });
-    await expect(serveApiCatalog(get("/.well-known/api-catalog"))).rejects.toThrow('@softure-ai/agent-ready: resolveAppOrigin returned "https://example.com/path"');
+    const response = await serveApiCatalog(get("/.well-known/api-catalog"));
+    expect(response.status).toBe(500);
+    expect(String(log.mock.calls[0]?.[0])).toContain('resolveAppOrigin returned "https://example.com/path"');
+    register();
+    expect((await serveApiCatalog(get("/.well-known/api-catalog", "bad host"))).status).toBe(500);
+  });
+
+  it("refuses to serve OAuth documents when the issuer is on another origin than the app origin", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    register({ ...OAUTH_OPTIONS, oauth: { authorizationServerMetadata: () => ({ issuer: APEX }) } });
+    expect((await serveAuthMd(get("/auth.md"))).status).toBe(500);
+    expect(String(log.mock.calls[0]?.[0])).toContain(`the issuer ${APEX} is not the app origin ${APP}`);
   });
 });
 
@@ -128,6 +140,14 @@ describe("the cards and skills follow the server", () => {
     const missing = await serveAgentSkill(get("/.well-known/agent-skills/nope/SKILL.md"), { params: Promise.resolve({ name: "nope" }) });
     expect(missing.status).toBe(404);
     expect(missing.headers.get("cache-control")).toBe("no-store");
+  });
+
+  it("answer an unknown or an app skill without building the MCP server", async () => {
+    const server = vi.fn(() => createDemoServer());
+    register({ ...OAUTH_OPTIONS, mcp: { server } });
+    expect((await serveAgentSkill(get("/x"), { params: Promise.resolve({ name: "nope" }) })).status).toBe(404);
+    expect((await serveAgentSkill(get("/x"), { params: Promise.resolve({ name: "notes" }) })).status).toBe(200);
+    expect(server).not.toHaveBeenCalled();
   });
 
   it("carry no account data: the server is built anonymously and no tool is called", async () => {
@@ -203,7 +223,7 @@ describe("the signature directory", () => {
   it("serves the key signed for the host it was asked on, from the configured variable", async () => {
     vi.stubEnv("SIGNING_SEED", RFC_SEED);
     register({ webBotAuth: { privateKeyEnv: "SIGNING_SEED" } });
-    const response = await serveSignatureDirectory(get("/.well-known/http-message-signatures-directory", "Example.com"));
+    const response = await serveSignatureDirectory(get("/.well-known/http-message-signatures-directory", "Example.com:443"));
     expect(response.headers.get("content-type")).toBe("application/http-message-signatures-directory+json");
     const body = await readJson(response);
     const input = { signatureInput: response.headers.get("signature-input"), signature: response.headers.get("signature"), body };

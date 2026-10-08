@@ -30,7 +30,10 @@ describe("readServerDescription", () => {
         throw new Error("no database");
       }),
     ).rejects.toThrow();
-    await expect(readServerDescription(() => new McpServer({ name: "empty", version: "1.0.0" }))).rejects.toThrow("MCP tools/list for discovery");
+  });
+
+  it("reads a server without tools as listing none", async () => {
+    expect((await readServerDescription(() => new McpServer({ name: "empty", version: "1.0.0" }))).tools).toEqual([]);
   });
 });
 

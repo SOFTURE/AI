@@ -7,7 +7,7 @@ export const DISCOVERY_CACHE_SECONDS = 3600;
 export const SHORT_DISCOVERY_CACHE_SECONDS = 300;
 
 /** JSON with two-space indentation: what a person reading the document in a browser expects. */
-export function prettyJson(value: unknown): string {
+export function formatJson(value: unknown): string {
   return `${JSON.stringify(value, null, 2)}\n`;
 }
 

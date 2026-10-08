@@ -119,8 +119,14 @@ mcpAccess({
 }),
 ```
 
-Configure `appOrigin` and `resolveAppOrigin` the same way in both modules. The provider is called with a request
-addressed to the resolved app origin, so mcp-access computes the same issuer.
+mcp-access takes its issuer from the config's `appOrigin` (or its `resolveAppOrigin`): leave agent-ready's `appOrigin`
+unset, or set it to the same value, and give both modules the same `resolveAppOrigin`. The provider is called with a
+request addressed to the resolved app origin, so mcp-access computes the same issuer; an issuer on another origin is a
+setup bug, and the OAuth documents answer 500 with a log line naming both origins instead of sending agents to a
+`resource` the issuer refuses.
+
+auth.md lists every endpoint from the issuer's metadata; its prose (registration rules, rotating refresh tokens,
+error codes) describes an mcp-access issuer.
 
 ## 4. Mounting
 
@@ -156,6 +162,10 @@ handler reads the request's host, and a page rendered at build time would keep o
 // next.config.ts: the Link header of the home page (relative links, true on every host)
 import { nextHeaders } from "@softure-ai/agent-ready";
 const nextConfig = { async headers() { return [...nextHeaders({ markdown: true })]; } };
+
+// app/layout.tsx: <link rel="ai-catalog"> in the head
+import { buildAiCatalogLink } from "@softure-ai/agent-ready";
+const aiCatalog = buildAiCatalogLink(); // <link rel={aiCatalog.rel} href={aiCatalog.href} type={aiCatalog.type} />
 
 // seo's robots.other: the Agentmap line
 import { buildAgentmapDirective } from "@softure-ai/agent-ready";
@@ -221,7 +231,7 @@ None. The token issuer's metadata comes in through `oauth.authorizationServerMet
 ## 11. GDPR
 
 The module stores nothing and builds every document from configuration and an anonymous server, so it holds no
-personal data. Guard it in the app with `expectNoAccountData`.
+personal data. Guard it in the app with `expectNoAccountData`, which also fails on any UUID unless allowed.
 
 ## 12. Limitations
 

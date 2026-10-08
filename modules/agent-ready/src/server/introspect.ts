@@ -94,7 +94,9 @@ export async function readServerDescription(
   );
   const tools: z.infer<typeof toolSchema>[] = [];
   let cursor: string | undefined;
-  for (let page = 0; page < 50; page += 1) {
+  // A server without tools does not announce the capability and refuses `tools/list`: it simply lists none.
+  const hasTools = init.capabilities.tools !== undefined;
+  for (let page = 0; hasTools && page < 50; page += 1) {
     const listed = toolsListSchema.parse(await ask("tools/list", cursor === undefined ? undefined : { cursor }));
     tools.push(...listed.tools);
     cursor = listed.nextCursor;

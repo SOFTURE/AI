@@ -210,6 +210,13 @@ export const agentReadyOptionsSchema = z
     if (mcpSkillName !== null) names.push(mcpSkillName);
     const duplicates = new Set(names.filter((name, index) => names.indexOf(name) !== index));
     for (const name of duplicates) context.addIssue({ code: "custom", path: ["skills"], message: `skill "${name}" is listed twice` });
+    if (mcpSkillName !== null && !SKILL_NAME_PATTERN.test(mcpSkillName)) {
+      context.addIssue({ code: "custom", path: ["mcpSkill"], message: `the generated skill name "${mcpSkillName}" is not valid; set mcpSkill.name` });
+    }
+    const entryIds = new Set<string>(["mcp", "a2a", "api-catalog", ...names]);
+    for (const id of Object.keys(options.catalog.queries).filter((key) => !entryIds.has(key))) {
+      context.addIssue({ code: "custom", path: ["catalog", "queries", id], message: "is not an AI catalog entry: mcp, a2a, api-catalog or a skill name" });
+    }
     const labels = options.dnsAid.records.map((record) => record.label);
     for (const label of new Set(labels.filter((label, index) => labels.indexOf(label) !== index))) {
       context.addIssue({ code: "custom", path: ["dnsAid", "records"], message: `label "${label}" is listed twice` });
@@ -224,6 +231,7 @@ export function getDefaultMcpSkillName(cardName: string): string {
   const base = (cardName.split("/").at(-1) ?? cardName)
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
+    .slice(0, 60)
     .replace(/^-+|-+$/g, "");
-  return `${base.slice(0, 60) || "app"}-mcp`;
+  return `${base || "app"}-mcp`;
 }

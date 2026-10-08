@@ -121,14 +121,18 @@ Done when: `npm run typecheck`, `npm run lint`, `npm test`, `npm run build` gree
 
 ## Progress
 
-- [ ] Phase 1: scaffold, options, origins, Link header, API catalog, OpenAPI
-- [ ] Phase 2: OAuth additions and auth.md
-- [ ] Phase 3: introspection, server card, A2A card
-- [ ] Phase 4: Agent Skills and AI catalog
-- [ ] Phase 5: Web Bot Auth
-- [ ] Phase 6: DNS-AID
-- [ ] Phase 7: WebMCP runtime
-- [ ] Phase 8: Next routes, CLI, guards, verify manifest, docs
+- [x] Phase 1: scaffold, options, origins, Link header, API catalog, OpenAPI: `cda3865`
+- [x] Phase 2: OAuth additions and auth.md: `cda3865`
+- [x] Phase 3: introspection, server card, A2A card: `cda3865`
+- [x] Phase 4: Agent Skills and AI catalog: `cda3865`
+- [x] Phase 5: Web Bot Auth: `cda3865`
+- [x] Phase 6: DNS-AID: `cda3865`
+- [x] Phase 7: WebMCP runtime: `cda3865`
+- [x] Phase 8: Next routes, CLI, guards, verify manifest, docs: `cda3865`
+
+The eight phases landed in one commit (`cda3865`): the builders share the context, options and test support, so
+they were written and tested together. The implementation review's fixes follow in the next commit
+([reviews/impl-review.md](reviews/impl-review.md), triage).
 
 ## Decisions after review
 

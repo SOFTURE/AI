@@ -81,8 +81,17 @@ describe("the agent-ready module", () => {
     expect(() => agentReady({ ...BASE_OPTIONS, mcp: { server: {} } })).toThrow("- options.mcp.server: must be a function () => McpServer | Promise<McpServer>");
   });
 
-  it("names the generated MCP skill after the card name", () => {
+  it("names the generated MCP skill after the card name, always a valid skill name", () => {
     expect(getDefaultMcpSkillName("com.example/My_App")).toBe("my-app-mcp");
     expect(getDefaultMcpSkillName("com.example/___")).toBe("app-mcp");
+    expect(getDefaultMcpSkillName(`com.example/${"a".repeat(59)}_b`)).toBe(`${"a".repeat(59)}-mcp`);
+    expect(() => agentReady({ ...BASE_OPTIONS, name: `com.example/${"a".repeat(59)}_b` })).not.toThrow();
+  });
+
+  it("refuses catalog queries for an entry that does not exist", () => {
+    expect(() => agentReady({ ...BASE_OPTIONS, catalog: { queries: { mpc: ["a", "b"] } } })).toThrow(
+      "- options.catalog.queries.mpc: is not an AI catalog entry: mcp, a2a, api-catalog or a skill name",
+    );
+    expect(() => agentReady({ ...BASE_OPTIONS, catalog: { queries: { "app-mcp": ["a", "b"], "api-catalog": ["a", "b"] } } })).not.toThrow();
   });
 });

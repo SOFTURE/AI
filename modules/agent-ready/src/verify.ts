@@ -1,7 +1,8 @@
 // The routes `softure-deploy verify` checks after a deploy, so a document that stopped answering, changed its type or
 // lost the host it names fails the release instead of a scanner a week later. One manifest per host: verify checks
 // one URL, and the apex and the app host serve different documents. Markers are quoted values (`"https://…"`), which
-// read the same in indented and compact JSON. Digests and signatures need a computation, so `agent-ready check <url>`
+// read the same in indented and compact JSON; for the issuer's compact documents a key is added where a bare value
+// would also match another key. Digests and signatures need a computation, so `agent-ready check <url>`
 // covers them.
 import { getMcpSkillName } from "./mcp-skill.js";
 import { getHomeLinks } from "./link-header.js";
@@ -80,7 +81,8 @@ function buildDocumentRoutes(input: VerifyManifestOptions): VerifyRoute[] {
   if (options.oauth !== undefined) {
     routes.push(
       { path: AUTH_MD_PATH, status: 200, contains: ["# auth.md", `${app}${options.mcp.path}`], headers: { "content-type": "text/markdown" } },
-      { path: PROTECTED_RESOURCE_METADATA_PATH, status: 200, contains: [quoted(apex)] },
+      // The issuer's documents are compact JSON (`Response.json`): the key keeps `resource` apart from `authorization_servers`.
+      { path: PROTECTED_RESOURCE_METADATA_PATH, status: 200, contains: [`"resource":${quoted(apex)}`] },
     );
   }
   if (input.signatureDirectory === true) {
@@ -117,7 +119,7 @@ function buildAppRoutes(input: VerifyManifestOptions): VerifyRoute[] {
         contains: [quoted(`${app}${JWKS_PATH}`), quoted(`${apex}${AUTH_MD_PATH}`)],
         headers: JSON_TYPE,
       },
-      { path: `${PROTECTED_RESOURCE_METADATA_PATH}${options.mcp.path}`, status: 200, contains: [quoted(`${app}${options.mcp.path}`)], headers: JSON_TYPE },
+      { path: `${PROTECTED_RESOURCE_METADATA_PATH}${options.mcp.path}`, status: 200, contains: [`"resource":${quoted(`${app}${options.mcp.path}`)}`], headers: JSON_TYPE },
     );
   }
   return routes;

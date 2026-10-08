@@ -35,13 +35,13 @@ export function digestOf(text: string): string {
 }
 
 /** YAML frontmatter with `name` and a JSON-quoted `description`: colons and commas read the same in every parser. */
-export function frontmatter(name: string, description: string): string {
+export function buildFrontmatter(name: string, description: string): string {
   return `---\nname: ${name}\ndescription: ${JSON.stringify(description)}\n---\n`;
 }
 
 /** A skill from its parts; the body starts after the frontmatter. */
 export function createAgentSkill(name: string, description: string, body: string): AgentSkill {
-  return { name, description, markdown: frontmatter(name, description) + body };
+  return { name, description, markdown: buildFrontmatter(name, description) + body };
 }
 
 /** The app's own skills for the request's origins, in configuration order. */

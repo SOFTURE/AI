@@ -1,12 +1,13 @@
 ---
 change_id: agent-ready-package
 title: "New package @softure-ai/agent-ready: agent discovery documents, Web Bot Auth, DNS-AID, WebMCP and their guards (issue #256)"
-status: planned
+status: archived
 roadmap_item: null
 issue: 256
 branch: claude/project-thread-ixjm5y
 created: 2026-10-08
 updated: 2026-10-08
+archived_at: 2026-10-08
 ---
 
 ## Intent

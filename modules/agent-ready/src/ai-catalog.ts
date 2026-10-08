@@ -5,7 +5,7 @@
 import type { AgentSkill } from "./agent-skills.js";
 import { MCP_SERVER_CARD_MEDIA_TYPE } from "./api-catalog.js";
 import { getMcpServerTitle, getServiceDocUrl, type AgentDocumentContext } from "./context.js";
-import { A2A_AGENT_CARD_PATH, API_CATALOG_PATH, MCP_SERVER_CARD_PATH, skillPath } from "./paths.js";
+import { A2A_AGENT_CARD_PATH, AI_CATALOG_PATH, API_CATALOG_PATH, MCP_SERVER_CARD_PATH, skillPath } from "./paths.js";
 
 export const AI_CATALOG_SPEC_VERSION = "1.0";
 
@@ -98,5 +98,14 @@ export function buildAiCatalog(context: AgentDocumentContext, skills: readonly A
 
 /** The `Agentmap:` line for robots.txt (seo's `robots.other`): `{ Agentmap: "<apex>/.well-known/ai-catalog.json" }`. */
 export function buildAgentmapDirective(apexOrigin: string): { readonly Agentmap: string } {
-  return { Agentmap: `${new URL(apexOrigin).origin}/.well-known/ai-catalog.json` };
+  return { Agentmap: `${new URL(apexOrigin).origin}${AI_CATALOG_PATH}` };
+}
+
+/**
+ * The `<link>` for the head of the home page, next to the `Link` header and robots.txt's `Agentmap`, e.g. in Next
+ * metadata: `other: {}` cannot carry it, so render `<link rel={link.rel} href={link.href} type={link.type} />`.
+ * Relative, so it is true on every host.
+ */
+export function buildAiCatalogLink(): { readonly rel: "ai-catalog"; readonly href: string; readonly type: "application/json" } {
+  return { rel: "ai-catalog", href: AI_CATALOG_PATH, type: "application/json" };
 }

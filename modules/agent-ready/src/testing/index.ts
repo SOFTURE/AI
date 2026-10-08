@@ -118,10 +118,22 @@ export function expectCardToolsMatchServer(card: ToolListingCard, server: McpSer
   }
 }
 
-/** Throws when a public document contains any of `values` (account ids, e-mail addresses, token prefixes). */
-export function expectNoAccountData(document: unknown, values: readonly string[]): void {
+const UUID_PATTERN = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
+
+export interface NoAccountDataOptions {
+  /** UUIDs the document may hold (none by default: account ids are UUIDs, and public documents name none). */
+  readonly allowedUuids?: readonly string[];
+}
+
+/**
+ * Throws when a public document contains any of `values` (account ids, e-mail addresses, token prefixes) or, by
+ * default, any UUID at all.
+ */
+export function expectNoAccountData(document: unknown, values: readonly string[], options: NoAccountDataOptions = {}): void {
   const text = typeof document === "string" ? document : JSON.stringify(document);
-  const found = values.filter((value) => value !== "" && text.includes(value));
+  const allowed = new Set((options.allowedUuids ?? []).map((uuid) => uuid.toLowerCase()));
+  const uuids = (text.match(UUID_PATTERN) ?? []).filter((uuid) => !allowed.has(uuid.toLowerCase()));
+  const found = [...values.filter((value) => value !== "" && text.includes(value)), ...new Set(uuids)];
   if (found.length > 0) throw new Error(`agent-ready: a public document contains account data: ${found.map((value) => JSON.stringify(value.slice(0, 40))).join(", ")}`);
 }
 

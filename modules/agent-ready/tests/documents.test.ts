@@ -5,6 +5,7 @@ import {
   buildAgentmapDirective,
   buildAgentSkillsIndex,
   buildAiCatalog,
+  buildAiCatalogLink,
   buildApiCatalog,
   buildHomeLinkHeader,
   buildMcpServerCard,
@@ -213,6 +214,7 @@ describe("the AI catalog", () => {
 
   it("leaves the A2A entry out when the card is off, and gives robots.txt its Agentmap line", () => {
     expect(buildAiCatalog(createContext({ a2a: { enabled: false } }), []).entries.map((entry) => entry.identifier)).not.toContain("urn:air:example.com:a2a:app");
+    expect(buildAiCatalogLink()).toEqual({ rel: "ai-catalog", href: "/.well-known/ai-catalog.json", type: "application/json" });
     expect(buildAgentmapDirective("https://example.com/")).toEqual({ Agentmap: "https://example.com/.well-known/ai-catalog.json" });
   });
 });
