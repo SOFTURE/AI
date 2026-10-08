@@ -165,7 +165,7 @@ jobs:
         run: |
           shellcheck --version | head -n 2
           "$RUNNER_TEMP/actionlint" -color
-          "$RUNNER_TEMP/actionlint" -color tools/deploy/examples/deploy.yml tools/deploy/examples/release.yml
+          "$RUNNER_TEMP/actionlint" -color tools/deploy/examples/deploy.yml tools/deploy/examples/release.yml tools/deploy/examples/integration.yml
 
   build:
     name: build packages

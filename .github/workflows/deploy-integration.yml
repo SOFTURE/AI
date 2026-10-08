@@ -1,0 +1,174 @@
+# The remote integration run of the SOFTURE skills (@softure-ai/deploy, issue #248): a reusable workflow the app's
+# caller (tools/deploy/examples/integration.yml) runs on a push of `integration/<name>` and of its main branch.
+#
+# `softure-deploy integration run` (the skills' `integration.remote`) pushes the commit to `integration/<name>`; this
+# workflow runs the app's full suite on that commit, stores the result as a git note on it under
+# `refs/notes/integration` (`softure-deploy integration record`) and deletes the ref. The waiting command reads the
+# note; `softure-deploy integration lookup` (`integration.lookup`) reuses a green one for the same commit. On the main
+# branch the note is the baseline `new-red` compares with, and no ref is deleted.
+#
+# The suite runs in the `test` job, which may only read the repository and keeps no credentials: the app's code never
+# holds a token that can write. The `record` job runs nothing of the app's, only the pinned CLI and git, and is the
+# one job with `contents: write` (the notes and the ref).
+
+name: deploy-integration
+
+on:
+  workflow_call:
+    inputs:
+      test-command:
+        description: The app's full suite, run with bash from the repository root; exit 0 is green, anything else red
+        type: string
+        required: true
+      setup-command:
+        description: Runs before the suite (install, build, start services); empty for none
+        type: string
+        default: npm ci
+      junit-report:
+        description: Path of the JUnit XML report the suite writes, for the counts and the red test names; empty for none
+        type: string
+        default: ""
+      node-version:
+        description: Node.js version for the suite and the deploy CLI
+        type: string
+        default: "22"
+      deploy-cli-version:
+        description: Version of @softure-ai/deploy that records the result
+        type: string
+        default: 0.1.4
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: run the suite
+    runs-on: ubuntu-latest
+    # A number, not an input: the repository guards require one on every job. Two hours fit a full end-to-end suite.
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    outputs:
+      result: ${{ steps.suite.outputs.result }}
+    steps:
+      - name: Validate inputs
+        env:
+          TEST_COMMAND: ${{ inputs.test-command }}
+          JUNIT_REPORT: ${{ inputs.junit-report }}
+          NODE_VERSION: ${{ inputs.node-version }}
+          DEPLOY_CLI_VERSION: ${{ inputs.deploy-cli-version }}
+        run: |
+          failures=0
+          reject() {
+            echo "::error::Input $1 is not valid: $2"
+            failures=$((failures + 1))
+          }
+          if [ -z "$TEST_COMMAND" ]; then reject test-command "a command"; fi
+          if [ -n "$JUNIT_REPORT" ] && { [[ "$JUNIT_REPORT" == /* ]] || [[ "$JUNIT_REPORT" == *..* ]] || [[ ! "$JUNIT_REPORT" =~ ^[A-Za-z0-9_./-]+$ ]]; }; then
+            reject junit-report "a path inside the repository"
+          fi
+          if [[ ! "$NODE_VERSION" =~ ^[0-9]+(\.[0-9]+){0,2}$ ]]; then reject node-version "a version number"; fi
+          if [[ ! "$DEPLOY_CLI_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then reject deploy-cli-version "an exact version"; fi
+          if [[ "$GITHUB_REF" != refs/heads/* ]]; then reject ref "a branch push (integration/<name> or the main branch)"; fi
+          if (( failures > 0 )); then exit 1; fi
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ inputs.node-version }}
+      - name: Set up
+        if: inputs.setup-command != ''
+        env:
+          SETUP_COMMAND: ${{ inputs.setup-command }}
+        run: bash -c "$SETUP_COMMAND"
+      - id: suite
+        name: Run the suite
+        env:
+          TEST_COMMAND: ${{ inputs.test-command }}
+        run: |
+          set +e
+          bash -c "$TEST_COMMAND"
+          code=$?
+          set -e
+          if [ "$code" -eq 0 ]; then result=green; else result=red; fi
+          echo "result=$result" >> "$GITHUB_OUTPUT"
+          echo "The suite exited $code: $result."
+      - name: Keep the JUnit report
+        if: always() && inputs.junit-report != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: integration-junit
+          path: ${{ inputs.junit-report }}
+          if-no-files-found: warn
+          retention-days: 7
+          overwrite: true
+      - name: Fail on a red suite
+        if: steps.suite.outputs.result == 'red'
+        run: |
+          echo "::error::The suite is red; the result is stored as the commit's integration note."
+          exit 1
+
+  record:
+    name: store the result note
+    needs: test
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    # Notes pushed by two runs at once are merged by the CLI (fetch, write, push again); one record per ref at a time
+    # keeps a re-run from racing its own earlier attempt.
+    concurrency:
+      group: deploy-integration-record-${{ github.repository }}-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+        if: needs.test.result != 'cancelled'
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - uses: actions/download-artifact@v8
+        if: needs.test.result != 'cancelled' && inputs.junit-report != ''
+        continue-on-error: true
+        with:
+          name: integration-junit
+          path: ${{ runner.temp }}/integration-junit
+      - uses: actions/setup-node@v7
+        if: needs.test.result != 'cancelled'
+        with:
+          node-version: ${{ inputs.node-version }}
+      - name: Record the result
+        # A cancelled suite has no result: nothing is stored, and the waiting command times out (exit 75).
+        if: needs.test.result != 'cancelled'
+        env:
+          # Empty when the suite job failed before the suite ran (checkout, setup): that is red too.
+          RESULT: ${{ needs.test.outputs.result || 'red' }}
+          JUNIT_REPORT: ${{ inputs.junit-report }}
+          DEPLOY_CLI_VERSION: ${{ inputs.deploy-cli-version }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}
+        run: |
+          args=(integration record "--sha=$GITHUB_SHA" "--ref=$GITHUB_REF" "--result=$RESULT" "--run=$RUN_URL")
+          if [ -n "$JUNIT_REPORT" ]; then
+            args+=("--junit=$RUNNER_TEMP/integration-junit/$(basename "$JUNIT_REPORT")")
+          fi
+          npx --yes "--package=@softure-ai/deploy@$DEPLOY_CLI_VERSION" softure-deploy "${args[@]}"
+      - name: Delete the integration ref
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          case "$GITHUB_REF" in
+            refs/heads/integration/*)
+              # The API, not git: the checkout above is skipped when the suite was cancelled.
+              if ! gh api --method DELETE "repos/$GITHUB_REPOSITORY/git/${GITHUB_REF#refs/}" 2> "$RUNNER_TEMP/gh-error"; then
+                # Already gone (a re-run, or the author deleted it) is fine; anything else is not.
+                grep -q "Reference does not exist" "$RUNNER_TEMP/gh-error" || { cat "$RUNNER_TEMP/gh-error" >&2; exit 1; }
+              fi
+              echo "Deleted $GITHUB_REF."
+              ;;
+            *)
+              echo "$GITHUB_REF is not an integration ref; it stays."
+              ;;
+          esac

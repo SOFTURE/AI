@@ -39,6 +39,38 @@ describe("the vitest-setup entry", () => {
     expect(warn).not.toHaveBeenCalled();
   });
 
+  it("pins the process to a zone with a negative offset by default", async () => {
+    vi.stubEnv("TZ", "UTC");
+    vi.stubEnv("TEST_TZ", undefined);
+
+    await loadSetupFile(undefined);
+
+    expect(new Intl.DateTimeFormat().resolvedOptions().timeZone).toBe("America/New_York");
+    expect(new Date(Date.UTC(2026, 0, 1, 2)).getDate()).toBe(31);
+  });
+
+  it("pins the zone TEST_TZ names", async () => {
+    vi.stubEnv("TZ", "UTC");
+    vi.stubEnv("TEST_TZ", "Asia/Tokyo");
+
+    await loadSetupFile(undefined);
+
+    expect(new Intl.DateTimeFormat().resolvedOptions().timeZone).toBe("Asia/Tokyo");
+  });
+
+  it("shifts the clock to noon of TEST_TODAY in the pinned zone", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    vi.stubEnv("TZ", "Asia/Tokyo");
+    vi.stubEnv("TEST_TZ", undefined);
+
+    await loadSetupFile("2027-01-02");
+
+    const now = new Date();
+    expect(new Intl.DateTimeFormat().resolvedOptions().timeZone).toBe("America/New_York");
+    expect([now.getFullYear(), now.getMonth(), now.getDate()]).toEqual([2027, 0, 2]);
+    expect(now.getUTCDate()).toBe(2);
+  });
+
   it("fails the run on a malformed TEST_TODAY instead of running on the real date", async () => {
     await expect(loadSetupFile("sh")).rejects.toThrow(
       'TEST_TODAY must be a real date in the form YYYY-MM-DD, got "sh". Example: 2027-01-02',

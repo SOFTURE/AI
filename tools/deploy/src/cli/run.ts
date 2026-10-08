@@ -2,6 +2,7 @@ import { runBackup, runRowCounts, runSchemaGuard } from "./db-commands.js";
 import { runEnvRender } from "./env-command.js";
 import { CliFailure, USAGE_EXIT_CODE } from "./failure.js";
 import { runInit } from "./init-command.js";
+import { runIntegrationLookup, runIntegrationRecord, runIntegrationRun } from "./integration-command.js";
 import type { CliIo } from "./io.js";
 import { runReleaseNotes } from "./release-notes-command.js";
 import { runReleaseReport } from "./release-report-command.js";
@@ -44,6 +45,13 @@ export const USAGE = [
   "       [--env=NAME,...] [--tables=a,b.c] [--force]",
   "      writes the app's Dockerfile, production compose, Traefik rules, deploy.sh, deploy and release",
   "      workflows and deploy.json; keeps existing files unless --force",
+  "  integration run [--name=<n>] [--sha=HEAD] [--wait-minutes=30] [--remote=origin] [--main=<branch>] [--poll-seconds=15]",
+  "      pushes the commit to integration/<name> and waits for its result note; exit 0 green, 1 red, 75 no result in time",
+  "  integration lookup [--sha=HEAD] [--remote=origin] [--main=<branch>]",
+  "      prints the stored result of the commit; exit 0 green, 1 red, 3 none",
+  "  integration record --sha=<sha> --ref=<ref> --result=green|red [--junit=<file>] [--run=<url>] [--name=<n>]",
+  "       [--remote=origin]",
+  "      stores a run's result as the note on the tested commit and pushes it (deploy-integration.yml's last step)",
   "  help",
   "",
 ].join("\n");
@@ -62,6 +70,9 @@ const COMMANDS: Record<string, Command> = {
   "server-settings": runServerSettings,
   verify: runVerifyCommand,
   init: runInit,
+  "integration run": runIntegrationRun,
+  "integration lookup": runIntegrationLookup,
+  "integration record": runIntegrationRecord,
   run: runRemoteScript,
   report: runRemoteReport,
 };

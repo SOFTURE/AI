@@ -590,6 +590,81 @@ The build needs the registry and Alpine's package mirror once; a Postgres major 
 build, and with it the backup step, before anything restarts. CI generates the files for the example app, staged as a
 standalone app, and builds its image from the generated `Dockerfile` (`npm run e2e:deploy-init`).
 
+## Integration run
+
+The remote integration run of the SOFTURE skills: `wt-integration.sh` (`softure-worktree`, `softure-worktree-manager`)
+calls the commands `integration.remote` and `integration.lookup` of `context/workflow.json`, and these two meet that
+contract with git alone, the same on a laptop and in a cloud session (no Docker, no GitHub API, no token beyond the
+one `git push` already uses):
+
+```json
+"integration": {
+  "remote": "npx softure-deploy integration run",
+  "lookup": "npx softure-deploy integration lookup"
+}
+```
+
+- **`softure-deploy integration run [--name=<n>] [--sha=HEAD] [--wait-minutes=30] [--remote=origin] [--main=<branch>]
+  [--poll-seconds=15]`** pushes the commit to `integration/<name>` (`INTEGRATION_NAME`, `INTEGRATION_SHA` and
+  `INTEGRATION_WAIT_MINUTES` stand in for the flags, as `wt-integration.sh` sets them), then fetches
+  `refs/notes/integration` until the commit carries a new note, and prints it. It never replaces a ref: when
+  `integration/<name>` already points at another commit, that is someone else's run and it exits 1; when it points at
+  the same commit, it waits for that run without pushing. A run whose workflow never started leaves its ref behind;
+  `git push origin --delete integration/<name>` clears it.
+- **`softure-deploy integration lookup [--sha=HEAD] [--remote=origin] [--main=<branch>]`** prints the stored result of
+  the commit (fetched first, the local notes when the remote cannot be reached), so `wt-integration.sh` reuses a green
+  result for the same commit instead of a new run.
+- **`softure-deploy integration record --sha=<sha> --ref=<ref> --result=green|red [--junit=<file>] [--run=<url>]`** is
+  the workflow's side: it writes the note and pushes it, fetching and writing again when another run pushed its note
+  first.
+
+Both print the lines the contract names, on stdout (progress goes to stderr):
+
+```text
+integration: red
+counts: 118/120
+run: https://github.com/acme/app/actions/runs/7/attempts/1
+red: checkout › refunds a failed payment
+red: export › writes the PDF
+new-red: export › writes the PDF
+```
+
+`counts` and the `red` names come from the suite's JUnit report when the workflow gets one; the result itself is the
+test command's exit code. `new-red` lists the red tests the latest result on the main branch does not have red (the
+newest first-parent commit of `<remote>/<main>` with a note; `--main`, else `mainBranch` of `context/workflow.json`,
+else `main`). Without a main-branch result no `new-red` line is printed, which the contract reads as "every red is
+new". No `flaky` lines: JUnit carries no portable signal for them.
+
+| Exit | `run` | `lookup` |
+| --- | --- | --- |
+| `0` | green | a green result is stored |
+| `1` | red, or the run could not start (remote unreachable, push refused, name in use) | a red result is stored |
+| `3` | | no result for the commit |
+| `75` | no result within `--wait-minutes` (retry later; the run may still finish) | |
+
+The note is one line of JSON on the tested commit under `refs/notes/integration`: `result`, `sha`, `name`, the `ref`
+that started the run, `passed` and `total` (null without a report), `red`, `run` (the Actions URL) and `finishedAt`.
+A newer run on the same commit replaces it. `git notes --ref=integration show <sha>` prints it after
+`git fetch origin refs/notes/integration:refs/notes/integration`.
+
+### Integration workflow
+
+[`deploy-integration.yml`](../../.github/workflows/deploy-integration.yml) is the CI side. The app copies
+[`examples/integration.yml`](examples/integration.yml), which runs it on a push of `integration/**` and of the main
+branch (the baseline for `new-red`), and sets its suite:
+
+1. the `test` job checks out the pushed commit without credentials (`contents: read`), runs `setup-command`
+   (default `npm ci`) and `test-command` with bash, and keeps the exit code as the result; the JUnit report at
+   `junit-report`, if set, is uploaded. A red suite fails the job, so the run shows red in Actions too;
+2. the `record` job (`contents: write`, none of the app's code) runs `softure-deploy integration record` from npm
+   with the tested commit, its ref, the result and the run's URL, then deletes `integration/<name>`; the main branch
+   stays. A suite job that died before the suite ran (checkout, setup) records red; a cancelled one records nothing,
+   so `run` ends with exit 75.
+
+Inputs: `test-command` (required), `setup-command`, `junit-report`, `node-version`, `deploy-cli-version` (this
+package's version; the `integration` commands need the release after 0.1.4). The suite job has a two-hour limit. A
+suite that needs a Docker image or services builds and starts them in its own commands: the runner has Docker.
+
 ## Ops scripts and reports on the server
 
 An `@softure-ai/ops/scripts` script ([the ops README, "Safe ops scripts"](../../modules/ops/README.md#safe-ops-scripts))
@@ -597,11 +672,11 @@ or a SQL report runs against production from the operator's machine, through the
 (issue #247). The app keeps only the script definitions and the `.sql` files; no shell per script.
 
 ```bash
-softure-deploy run --host=fire-prod grant-access --email=a@example.com              # dry run
-softure-deploy run --host=fire-prod grant-access --email=a@example.com --commit     # writes
-softure-deploy run --host=fire-prod set-password --email=a@example.com --password-file=new-password.txt --commit
-softure-deploy run --host=fire-prod grant-access --help
-softure-deploy report --host=fire-prod reports/signups.sql --since=2026-10-01
+softure-deploy run --host=app-prod grant-access --email=a@example.com              # dry run
+softure-deploy run --host=app-prod grant-access --email=a@example.com --commit     # writes
+softure-deploy run --host=app-prod set-password --email=a@example.com --password-file=new-password.txt --commit
+softure-deploy run --host=app-prod grant-access --help
+softure-deploy report --host=app-prod reports/signups.sql --since=2026-10-01
 ```
 
 **Setup, once per app** (an app `init` generated with this version has the first two):
@@ -676,7 +751,9 @@ The same steps as functions, for scripts that need them without the CLI:
 `buildLedgerQuery`, `parseLedgerSnapshot`, `buildRowCountQuery`, `parseRowCountSnapshot`, `parseTableList`, `countRows`,
 `compareRowCounts`, `parseDeployConfig`, `planServerSettings`,
 `runVerify` (an injectable `fetch`), `checkResponse`, `formatVerifyReport`, `parseInitAnswers`, `readAppFacts`,
-`planInitFiles` (pure: the files and their text), `writeInitFiles`.
+`planInitFiles` (pure: the files and their text), `writeInitFiles`, `parseIntegrationNote`, `formatIntegrationNote`,
+`readJunitCounts`, `formatContractLines`, `lookupIntegration`, `recordIntegration`, `runIntegration` (injectable
+`sleep` and `now`).
 
 An app whose image should carry the guard itself (a host with neither Node nor a helper image) bundles a three-line
 script around `withPgClient` and `guardSchema` with esbuild, like its `migrate.mjs`, and runs it from the new image:
@@ -719,6 +796,11 @@ count (no step line carries it); the "what's in it" part is `release-notes`' sec
 table); `row-counts` fails on a drop, not on any change (a sign-up during a release is not a failure); seven dumps
 by default instead of ten (`--keep`).
 
+**The integration run (issue #248):** the app's integration scripts and workflow as
+`softure-deploy integration run|lookup|record` and `deploy-integration.yml`, with the same contract. Different on
+purpose: English names (`integration/<name>`, `refs/notes/integration`), and the suite runs in a job without a write
+token. The app's own suite, image build included, stays its `test-command`.
+
 **Stays in the app:** its tag pattern, its gates and integration suite inside the release run, checks of its own
 secrets' shape, a workflow that rewrites the text above the report (which `--body` keeps), its markers inside
 `<head>`, its IndexNow key and a 404 that only warns. Its dry runs, content sync and cron jobs become hooks.
@@ -726,7 +808,8 @@ secrets' shape, a workflow that rewrites the text above the report (which `--bod
 ## Exit codes
 
 `run` and `report` end with the status of what ran on the server (above). Every other command: `0` done · `1` the command refused (missing names, unknown ref, unreadable or invalid file, a failed dump, a guard
-problem, lost rows, a failed verify check, invalid init answers) · `2` a wrong command line.
+problem, lost rows, a failed verify check, invalid init answers) · `2` a wrong command line. `integration run` and
+`integration lookup` add `3` and `75` ([Integration run](#integration-run)).
 
 ## Limitations
 

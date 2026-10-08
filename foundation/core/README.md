@@ -249,7 +249,17 @@ if (plan.endedAt !== null) throw new PublicError("This plan has ended; pick anot
 `systemClock` is the real one; `createTestClock(start)` has `advance(ms)` and `set(date)`.
 A whole test run can also move to another day without code changes: `TEST_TODAY=YYYY-MM-DD` with the
 `@softure-ai/testing/vitest-setup` setup file shifts the global `Date` (and so `systemClock`) to that
-day while time keeps running ([`@softure-ai/testing`](../testing/README.md)).
+day while time keeps running ([`@softure-ai/testing`](../testing/README.md)). The same setup file pins
+the tests to a zone with a negative offset, so a date computed without an explicit zone fails there.
+
+**Calendar days.** "Today" is a day in a zone, never in the process zone: on a server in UTC an evening
+in New York is already tomorrow. `toCalendarDay(instant, timeZone)` returns the `YYYY-MM-DD` day of an
+instant in an IANA zone, and `getCalendarDay(clock, timeZone)` today's day from a `Clock`; pass the
+app's `timezone` from the config. Both throw a `RangeError` for an invalid date or an unknown zone.
+
+```ts
+getCalendarDay(context.clock, config.timezone); // "2026-10-08"
+```
 
 ## 10. Hooks
 
@@ -275,4 +285,4 @@ manifest's `privacy.exports` / `privacy.deletes` flag is true. The `privacy` mod
   are rejected.
 - Route maps mix mounted paths and redirect targets, so two modules may share a path; mount
   collisions are left to `softure doctor`.
-- No date or number formatting helpers yet; apps use `Intl` with `config.locale` and `config.timezone`.
+- No date or number formatting helpers beyond the calendar day; apps use `Intl` with `config.locale` and `config.timezone`.
