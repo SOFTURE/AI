@@ -200,6 +200,42 @@ const imagePolicySchema = z.strictObject({
   dimensions: z.custom<ArticleImagePolicy["dimensions"]>((value) => typeof value === "function", "must be a function: (src) => ({ width, height }) or null"),
 });
 
+/** A URL fragment or HTML id part, without `#`: a JSON-LD node id or the cluster anchor prefix. */
+const fragmentSchema = z
+  .string()
+  .max(40)
+  .regex(/^[A-Za-z][A-Za-z0-9_-]*$/, "must be a letter followed by letters, digits, - or _, without #, e.g. article");
+
+const jsonLdSchema = z.strictObject({
+  /** The `@id` fragments of the nodes: `<url>#<article>`, `<url>#<term>`, `<glossary url>#<glossary>`. */
+  ids: z
+    .strictObject({ article: fragmentSchema.default("article"), term: fragmentSchema.default("term"), glossary: fragmentSchema.default("glossary") })
+    .default({ article: "article", term: "term", glossary: "glossary" }),
+});
+
+const anchorsSchema = z.strictObject({
+  /** A cluster's section on the listing is `<cluster>-<key>`, the breadcrumb of its articles points there. */
+  cluster: fragmentSchema.default("cluster"),
+});
+
+/** The Open Graph locale of a language when the app sets none: `og:locale` is `language_TERRITORY`. */
+export const DEFAULT_OPEN_GRAPH_LOCALES = { en: "en_US", pl: "pl_PL" } as const;
+
+const localeTagsSchema = z.strictObject({
+  /** The content's language as a BCP-47 tag: JSON-LD `inLanguage` and the feed's `<language>`; the bare code by default. */
+  bcp47: z
+    .string()
+    .regex(/^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/, "must be a BCP-47 tag, e.g. pl-PL")
+    .optional(),
+  /** `og:locale` (`language_TERRITORY`); `en_US` or `pl_PL` by default. */
+  openGraph: z
+    .string()
+    .regex(/^[a-z]{2,3}_[A-Z]{2}$/, "must be an Open Graph locale (language_TERRITORY), e.g. pl_PL")
+    .optional(),
+});
+
+export type BlogLocaleTagsInput = z.output<typeof localeTagsSchema>;
+
 export const blogOptionsSchema = z
   .strictObject({
     /** The folder with the article files, relative to the app's root. */
@@ -232,6 +268,12 @@ export const blogOptionsSchema = z
      * quality gate; without it every image renders as its alt text and the gate refuses it.
      */
     images: imagePolicySchema.optional(),
+    /** The JSON-LD node ids; an app that already published other fragments keeps them here. */
+    jsonLd: jsonLdSchema.default({ ids: { article: "article", term: "term", glossary: "glossary" } }),
+    /** The anchors the pages write; an app whose listing already used another prefix keeps it here. */
+    anchors: anchorsSchema.default({ cluster: "cluster" }),
+    /** The language tags per app locale: BCP-47 for the content, Open Graph for `og:locale`. */
+    locales: z.strictObject({ en: localeTagsSchema.optional(), pl: localeTagsSchema.optional() }).default({}),
     /** The page a withdrawn text answers with (410): extra links, or the app's own body. */
     gonePage: gonePageSchema.default({ links: [] }),
     /** How long the listing and glossary cache their reads; keep it equal to the pages' `revalidate`. */

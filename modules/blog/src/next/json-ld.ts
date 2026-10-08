@@ -7,7 +7,7 @@ import { getSiteUrls, type SoftureConfig } from "@softure-ai/core";
 import type { BlogArticle } from "../contract.js";
 import { getArticleJsonLd, getGlossaryJsonLd, getTermJsonLd, serializeJsonLd, type JsonLdContext } from "../pages/json-ld.js";
 import { getArticleCrumbs, getClusterLabel, getTermCrumbs, sortTerms, type CrumbLabels } from "../pages/listing.js";
-import { getBlogOptions } from "../server/options.js";
+import { getBlogLocaleTags, getBlogOptions } from "../server/options.js";
 import type { BlogPageContext } from "../ui/page-context.js";
 import { getPageContext } from "./context.js";
 
@@ -22,13 +22,21 @@ export function getCrumbLabels(config: SoftureConfig, context: BlogPageContext =
 }
 
 function getJsonLdContext(config: SoftureConfig, context: BlogPageContext): JsonLdContext {
-  return { urls: getSiteUrls(config), routes: context.routes, locale: config.locale, timezone: config.timezone, brand: context.brand };
+  return {
+    urls: getSiteUrls(config),
+    routes: context.routes,
+    locale: config.locale,
+    language: getBlogLocaleTags(config).bcp47,
+    ids: getBlogOptions(config).jsonLd.ids,
+    timezone: config.timezone,
+    brand: context.brand,
+  };
 }
 
 /** An article's `BlogPosting`, breadcrumbs and FAQ, serialized. */
 export function buildArticleJsonLd(config: SoftureConfig, article: BlogArticle): string {
   const context = getPageContext(config);
-  const crumbs = getArticleCrumbs(article, context.routes, getCrumbLabels(config, context));
+  const crumbs = getArticleCrumbs(article, context.routes, getCrumbLabels(config, context), { clusterAnchorPrefix: context.clusterAnchorPrefix });
   return serializeJsonLd(getArticleJsonLd(article, crumbs, getJsonLdContext(config, context)));
 }
 

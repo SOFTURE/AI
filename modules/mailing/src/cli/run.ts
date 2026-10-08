@@ -53,6 +53,7 @@ export const DEFAULT_PAUSE_MS = 500;
 
 export const MAIL_USAGE = `Usage:
   softure-mail campaign <content-file> [--recipients <file>] [--dry-run] [--pause-ms <ms>] [--resend-uncertain]
+                        [--limit <n>]
   softure-mail import <history-file> [--dry-run]
   softure-mail dns [--domain <domain>] [--dkim-selector <name>]... [--spf-host <host>]...
                    [--dmarc-policy <p>] [--dmarc-sp <p>] [--dmarc-adkim <a>] [--dmarc-aspf <a>]
@@ -68,6 +69,8 @@ campaign  Sends the campaign in <content-file> (frontmatter id, kind, subject, o
   --pause-ms <ms>      pause after every send (default ${String(DEFAULT_PAUSE_MS)})
   --resend-uncertain   also send to recipients whose send was interrupted long ago
                        (it may have gone out: they may get the mail twice)
+  --limit <n>          hand at most n mails to the provider in this run (1 to 1000000);
+                       the rest waits for the next run
 
 import    Writes deliveries the app made before it adopted the module into the ledger, so
           later sends skip them. <history-file> holds one JSON object per line: scope,
@@ -113,6 +116,8 @@ type Command =
       readonly dryRun: boolean;
       readonly pauseMs: number;
       readonly resendUncertain: boolean;
+      /** `null`: no limit. */
+      readonly limit: number | null;
     }
   | { readonly kind: "import"; readonly historyFile: string; readonly dryRun: boolean }
   | {
@@ -130,7 +135,8 @@ const DMARC_POLICIES: readonly DmarcPolicy[] = ["quarantine", "reject"];
 const DMARC_ALIGNMENTS: readonly DmarcAlignment[] = ["r", "s"];
 /** A file name that means standard input. */
 const STDIN = "-";
-const CAMPAIGN_ONLY_OPTIONS = ["recipients", "pause-ms", "resend-uncertain"] as const;
+const CAMPAIGN_ONLY_OPTIONS = ["recipients", "pause-ms", "resend-uncertain", "limit"] as const;
+const MAX_LIMIT = 1_000_000;
 const DNS_ONLY_OPTIONS = ["domain", "dkim-selector", "spf-host", "dmarc-policy", "dmarc-sp", "dmarc-adkim", "dmarc-aspf", "reply-to", "return-path", "resend-return-path"] as const;
 
 /** Runs the command and returns the process exit code: 0 done, 1 failed or incomplete, 2 usage error. */
@@ -205,7 +211,17 @@ function parseCommand(argv: readonly string[]): Command | string {
   if (contentFile === STDIN && values.recipients === STDIN) return "campaign can read only one of the content file and --recipients from standard input";
   const pauseMs = values["pause-ms"] === undefined ? DEFAULT_PAUSE_MS : Number(values["pause-ms"]);
   if (!Number.isInteger(pauseMs) || pauseMs < 0 || pauseMs > 60_000) return `--pause-ms expects whole milliseconds from 0 to 60000, got "${values["pause-ms"] ?? ""}"`;
-  return { kind: "campaign", contentFile, recipientsFile: values.recipients ?? null, dryRun: values["dry-run"] === true, pauseMs, resendUncertain: values["resend-uncertain"] === true };
+  const limit = values.limit === undefined ? null : Number(values.limit);
+  if (limit !== null && (!Number.isInteger(limit) || limit < 1 || limit > MAX_LIMIT)) return `--limit expects a whole number from 1 to ${String(MAX_LIMIT)}, got "${values.limit ?? ""}"`;
+  return {
+    kind: "campaign",
+    contentFile,
+    recipientsFile: values.recipients ?? null,
+    dryRun: values["dry-run"] === true,
+    pauseMs,
+    resendUncertain: values["resend-uncertain"] === true,
+    limit,
+  };
 }
 
 function parseCommandArgs(args: readonly string[]) {
@@ -216,6 +232,7 @@ function parseCommandArgs(args: readonly string[]) {
       "dry-run": { type: "boolean" },
       "pause-ms": { type: "string" },
       "resend-uncertain": { type: "boolean" },
+      limit: { type: "string" },
       domain: { type: "string" },
       "dkim-selector": { type: "string", multiple: true },
       "spf-host": { type: "string", multiple: true },
@@ -353,8 +370,8 @@ async function runCampaign(command: Extract<Command, { kind: "campaign" }>, opti
   try {
     const loaded: LoadedCampaign = { campaign: content, recipients: listed ?? (await collectRecipients(ctx, content)) };
     return command.dryRun
-      ? await reportPlan(ctx, loaded, command.resendUncertain, output)
-      : await reportSend(ctx, loaded, { pauseMs: command.pauseMs, sleep: options.sleep, retakeUncertain: command.resendUncertain }, output);
+      ? await reportPlan(ctx, loaded, { retakeUncertain: command.resendUncertain, limit: command.limit }, output)
+      : await reportSend(ctx, loaded, { pauseMs: command.pauseMs, sleep: options.sleep, retakeUncertain: command.resendUncertain, limit: command.limit }, output);
   } catch (error) {
     // Driver errors: the message only, never a stack, an address or the database URL.
     output.error(`softure-mail campaign: ${describeError(error)} (did softure migrate run?)`);
@@ -517,8 +534,13 @@ function reportImportProblems(problems: readonly LineProblem[], output: CliOutpu
   return EXIT_FAILED;
 }
 
-async function reportPlan(ctx: DeliveryContext, loaded: LoadedCampaign, retakeUncertain: boolean, output: CliOutput): Promise<number> {
-  const plan = await planCampaign(ctx, loaded, { retakeUncertain });
+async function reportPlan(
+  ctx: DeliveryContext,
+  loaded: LoadedCampaign,
+  run: { readonly retakeUncertain: boolean; readonly limit: number | null },
+  output: CliOutput,
+): Promise<number> {
+  const plan = await planCampaign(ctx, loaded, { retakeUncertain: run.retakeUncertain });
   output.log(`campaign ${loaded.campaign.id} (${loaded.campaign.kind}), dry run: nothing sent or written`);
   output.log(
     [
@@ -530,6 +552,7 @@ async function reportPlan(ctx: DeliveryContext, loaded: LoadedCampaign, retakeUn
       `to send ${String(plan.toSend)}`,
     ].join(", "),
   );
+  if (run.limit !== null) output.log(`with --limit ${String(run.limit)} this run would send ${String(Math.min(plan.toSend, run.limit))}`);
   if (plan.contentChanged) {
     output.error(`campaign ${loaded.campaign.id} was sent with other content; give this content a new id`);
     return EXIT_FAILED;
@@ -540,7 +563,7 @@ async function reportPlan(ctx: DeliveryContext, loaded: LoadedCampaign, retakeUn
 async function reportSend(
   ctx: DeliveryContext,
   loaded: LoadedCampaign,
-  pace: { readonly pauseMs: number; readonly sleep: ((ms: number) => Promise<void>) | undefined; readonly retakeUncertain: boolean },
+  pace: { readonly pauseMs: number; readonly sleep: ((ms: number) => Promise<void>) | undefined; readonly retakeUncertain: boolean; readonly limit: number | null },
   output: CliOutput,
 ): Promise<number> {
   let handled = 0;
@@ -548,6 +571,7 @@ async function reportSend(
   const result = await sendCampaign(ctx, loaded, {
     pauseMs: pace.pauseMs,
     retakeUncertain: pace.retakeUncertain,
+    ...(pace.limit === null ? {} : { limit: pace.limit }),
     ...(pace.sleep === undefined ? {} : { sleep: pace.sleep }),
     onDelivery: () => {
       handled += 1;
@@ -560,6 +584,7 @@ async function reportSend(
   }
   const summary = result.value;
   output.log(`campaign ${loaded.campaign.id} (${loaded.campaign.kind}): ${formatSummary(summary)}`);
+  if (summary.remaining !== null && summary.remaining > 0) output.log(`limit reached: ${String(summary.remaining)} recipient(s) left for the next run`);
   let code = EXIT_OK;
   if (summary.halted !== null) {
     const status = summary.halted.httpStatus === undefined ? "" : ` (HTTP ${String(summary.halted.httpStatus)})`;

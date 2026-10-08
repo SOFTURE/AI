@@ -14,4 +14,6 @@ export interface BlogPageContext {
   readonly brand: string | null;
   /** The note under every text in the locale; `null` without one. */
   readonly disclaimer: string | null;
+  /** The listing's cluster anchor prefix (`<prefix>-<cluster>`); `cluster` when left out. */
+  readonly clusterAnchorPrefix?: string;
 }

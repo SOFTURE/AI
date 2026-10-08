@@ -87,6 +87,15 @@ blog({
   // What follows an external link in a body: "icon-and-text" (a ↗ hidden from screen readers and a
   // visually hidden "opens in a new tab"), "text" (the hidden words only) or "none". Default: "icon-and-text".
   externalLinkMarker: "icon-and-text",
+  // The `@id` fragments of the JSON-LD nodes (no `#`): `<url>#article`, `<term url>#term`,
+  // `<glossary url>#glossary`. An app that already published other fragments keeps them here.
+  jsonLd: { ids: { article: "article", term: "term", glossary: "glossary" } },
+  // The listing's cluster sections are `<cluster>-<key>`; an article's middle breadcrumb points there.
+  // Default: { cluster: "cluster" }.
+  anchors: { cluster: "cluster" },
+  // The language tags per locale: `bcp47` for JSON-LD inLanguage and the feed's <language> (default:
+  // the bare code, "en" or "pl"), `openGraph` for og:locale (language_TERRITORY; default "en_US" / "pl_PL").
+  locales: { pl: { bcp47: "pl-PL", openGraph: "pl_PL" } },
   // The 410 page of a withdrawn text: extra links, or the app's own body (§4). Default: one link to the listing.
   gonePage: { links: [] },
   // Which images bodies may show: site paths and https images on these hosts (subdomains included),
@@ -336,6 +345,18 @@ The builders: `buildBlogIndexMetadata(config, { isEmpty })`, `buildArticleMetada
 `buildGlossaryJsonLd(config, terms)` (`null` without terms); the JSON-LD comes serialized, safe inside a
 `<script>`. `getCrumbLabels(config)` gives the breadcrumb names for `getArticleCrumbs`/`getTermCrumbs`
 (`/server`); `getPageContext`, `renderPageBody` and `getRelatedArticles` render the rest.
+
+What the builders write, so an app moving published pages onto them can match its old output:
+
+- the JSON-LD `@id` fragments, the cluster anchor and the language tags come from `jsonLd`, `anchors` and
+  `locales` (above);
+- a page title is `pages.titleWithBrand` (`{title} | {brand}`), a glossary term's
+  `glossary.termTitleWithBrand`; override either message per locale;
+- canonical, Open Graph and JSON-LD URLs are absolute on the site origin (`@softure-ai/seo`'s when listed);
+- articles and terms carry `og:published_time` and `og:modified_time`, the days the page shows;
+- `buildGlossaryJsonLd` gives `null` without terms (an empty `DefinedTermSet` says nothing).
+
+Any field can still be replaced by spreading the result: `{ ...buildTermMetadata(config, term), title }`.
 
 The commands:
 

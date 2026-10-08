@@ -2,8 +2,9 @@
 // 301/410 decisions. The components (`../ui/`) and the Next adapter (`../next/`) render what it returns.
 export { findArticlesLinkingTerm, renderPageBody, type RenderPageBodyOptions } from "./body.js";
 export { formatDay, getArticleDates, getDayInZone, type ArticleDates } from "./dates.js";
-export { getArticleImageUrl, getArticleJsonLd, getGlossaryJsonLd, getTermJsonLd, serializeJsonLd, type JsonLdContext } from "./json-ld.js";
+export { DEFAULT_JSON_LD_IDS, getArticleImageUrl, getArticleJsonLd, getGlossaryJsonLd, getTermJsonLd, serializeJsonLd, type JsonLdContext, type JsonLdIds } from "./json-ld.js";
 export {
+  DEFAULT_CLUSTER_ANCHOR_PREFIX,
   getArticleCrumbs,
   getClusterAnchor,
   getClusterLabel,
@@ -11,6 +12,7 @@ export {
   groupByCluster,
   sortTerms,
   splitClusterLead,
+  type ArticleCrumbOptions,
   type ClusterGroup,
   type Crumb,
   type CrumbLabels,

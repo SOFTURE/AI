@@ -1,7 +1,7 @@
 // The blog options, routes and copy of the running app, read from the configuration.
 import { getModule, getSiteUrls, type AnySoftureModule, type SoftureConfig } from "@softure-ai/core";
 import type { BlogMessages } from "../messages/index.js";
-import type { BlogOptions } from "../options.js";
+import { DEFAULT_OPEN_GRAPH_LOCALES, type BlogOptions } from "../options.js";
 import { getReservedSlugs, normalizeRoute, type BlogRoutes } from "../pages/paths.js";
 import { resolveQualitySettings, type QualitySettings } from "../quality/settings.js";
 
@@ -37,6 +37,19 @@ export function getBlogRoutes(config: SoftureConfig): BlogRoutes {
     return normalizeRoute(path);
   };
   return { index: read("index"), glossary: read("glossary"), method: read("method"), rss: read("rss") };
+}
+
+export interface BlogLocaleTags {
+  /** BCP-47: JSON-LD `inLanguage` and the feed's `<language>`. */
+  readonly bcp47: string;
+  /** `og:locale`, `language_TERRITORY`. */
+  readonly openGraph: string;
+}
+
+/** The app locale's language tags: the app's `locales` entry, else the bare code and `en_US` / `pl_PL`. */
+export function getBlogLocaleTags(config: SoftureConfig): BlogLocaleTags {
+  const tags = getBlogOptions(config).locales[config.locale];
+  return { bcp47: tags?.bcp47 ?? config.locale, openGraph: tags?.openGraph ?? DEFAULT_OPEN_GRAPH_LOCALES[config.locale] };
 }
 
 /** The path of the cache refresh route (`refreshBlogCache`), outside the pages' routes. */

@@ -16,6 +16,7 @@ import type { Metadata } from "next/types.js";
 import type { BlogArticle } from "../contract.js";
 import { getArticleDates } from "../pages/dates.js";
 import { getArticlePath, getTermPath } from "../pages/paths.js";
+import { getBlogLocaleTags } from "../server/options.js";
 import type { BlogPageContext } from "../ui/page-context.js";
 import { getPageContext } from "./context.js";
 
@@ -24,8 +25,9 @@ export interface ListingMetadataInput {
   readonly isEmpty: boolean;
 }
 
-function withBrand(title: string, context: BlogPageContext): string {
-  return context.brand === null ? title : formatMessage(context.messages.pages.titleWithBrand, { title, brand: context.brand });
+/** `pattern`: the page kind's title message (`pages.titleWithBrand`, or `glossary.termTitleWithBrand` for a term). */
+function withBrand(title: string, context: BlogPageContext, pattern: string = context.messages.pages.titleWithBrand): string {
+  return context.brand === null ? title : formatMessage(pattern, { title, brand: context.brand });
 }
 
 /** A page's canonical URL: seo's host and trailing-slash rule when the app lists seo, else on `appOrigin`. */
@@ -48,11 +50,11 @@ function getStaticMetadata(config: SoftureConfig, context: BlogPageContext, page
   };
 }
 
-function getTextMetadata(config: SoftureConfig, context: BlogPageContext, text: BlogArticle, path: string, options: { hasFeed?: boolean } = {}): Metadata {
+function getTextMetadata(config: SoftureConfig, context: BlogPageContext, text: BlogArticle, path: string, options: { hasFeed?: boolean; titlePattern?: string } = {}): Metadata {
   const dates = getArticleDates(text, config.timezone);
   const url = getCanonicalUrl(config, path);
   return {
-    title: withBrand(text.title, context),
+    title: withBrand(text.title, context, options.titlePattern),
     description: text.description,
     robots: { index: true, follow: true },
     alternates: { canonical: url, ...(options.hasFeed === true ? { types: getFeedAlternates(config, context) } : {}) },
@@ -61,7 +63,7 @@ function getTextMetadata(config: SoftureConfig, context: BlogPageContext, text: 
       title: text.title,
       description: text.description,
       url,
-      locale: config.locale,
+      locale: getBlogLocaleTags(config).openGraph,
       publishedTime: dates.published,
       modifiedTime: dates.updated ?? dates.published,
       ...(context.brand === null ? {} : { siteName: context.brand }),
@@ -89,10 +91,10 @@ export function buildGlossaryIndexMetadata(config: SoftureConfig, { isEmpty }: L
   return getStaticMetadata(config, context, { title: copy.title, description: copy.description, path: context.routes.glossary, isEmpty });
 }
 
-/** A glossary term's metadata. The caller checks the text is a published term. */
+/** A glossary term's metadata, titled by `glossary.termTitleWithBrand`. The caller checks the text is a published term. */
 export function buildTermMetadata(config: SoftureConfig, term: BlogArticle): Metadata {
   const context = getPageContext(config);
-  return getTextMetadata(config, context, term, getTermPath(context.routes, term.slug));
+  return getTextMetadata(config, context, term, getTermPath(context.routes, term.slug), { titlePattern: context.messages.glossary.termTitleWithBrand });
 }
 
 /** The method page's metadata. */

@@ -2,9 +2,9 @@
 
 // The waitlist's server actions: the form's join and the confirmation page's confirm. Each
 // identifies the client and counts its attempt (inside the server function) before any work. The
-// join answers the same for a new and a known address and sends its mail (the welcome mail, or the
-// confirmation link with double opt-in) after the response, so neither the mail's time nor its
-// failure shows in the answer. Unexpected failures become `safeError` codes. Next refuses an action
+// join answers the same for a new, a known and a suppressed address and sends its mail (the welcome
+// mail, or the confirmation link with double opt-in) after the response, so neither the mail's time
+// nor its failure shows in the answer. Unexpected failures become `safeError` codes. Next refuses an action
 // whose Origin does not match the host.
 import { errorLogLabel, safeError, type SoftureConfig } from "@softure-ai/core";
 import { getSoftureConfig } from "@softure-ai/core/next";
@@ -71,8 +71,10 @@ export async function joinWaitlistAction(_previous: WaitlistFormState, formData:
     });
     return { status: "confirmation_sent" };
   }
-  sendWelcomeMailAfter(config, joined.signup);
-  return { status: "ok", ...getUnsubscribeUrl(config, joined.signup.email) };
+  // A suppressed address (no double opt-in) wrote nothing; it answers as a sign-up that counted, so
+  // the form does not tell who unsubscribed, and gets no mail.
+  if (joined.status === "joined") sendWelcomeMailAfter(config, joined.signup);
+  return { status: "ok", ...getUnsubscribeUrl(config, email) };
 }
 
 /** The person's own unsubscribe link, when the app asks for it (the setup check required the secret). */
