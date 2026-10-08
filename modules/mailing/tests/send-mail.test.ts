@@ -66,6 +66,19 @@ describe("sendMail", () => {
     expect(calls[0]).toEqual({ ...MAIL, from: FROM, replyTo: null, html: null, headers: {}, idempotencyKey: null });
   });
 
+  it("sends the mail's own reply-to instead of the configured one, trimmed", async () => {
+    const { provider, calls } = answer({ status: "sent", id: "msg_3" });
+    const result = await sendMail({ config: createConfig(provider) }, { ...MAIL, replyTo: " buyer@example.net " });
+    expect(result.ok).toBe(true);
+    expect(calls[0]?.replyTo).toBe("buyer@example.net");
+  });
+
+  it("sends the mail's own reply-to when the config has none", async () => {
+    const { provider, calls } = answer({ status: "sent", id: "msg_3" });
+    await sendMail({ config: createConfig(provider, { replyTo: undefined }) }, { ...MAIL, replyTo: "buyer@example.net" });
+    expect(calls[0]?.replyTo).toBe("buyer@example.net");
+  });
+
   it.each([
     ["rejected", { status: "rejected", httpStatus: 422 }, "mailing.rejected", "status=422"],
     ["unavailable", { status: "unavailable", httpStatus: 503 }, "mailing.unavailable", "status=503"],
@@ -122,6 +135,11 @@ describe("sendMail", () => {
       ["a named recipient", { ...MAIL, to: "Ada <ada@example.org>" }, {}, "to"],
       ["a recipient with an empty domain label", { ...MAIL, to: "ada@example..org" }, {}, "to"],
       ["a recipient over 254 characters", { ...MAIL, to: `${"a".repeat(250)}@example.org` }, {}, "to"],
+      ["two reply-to addresses", { ...MAIL, replyTo: "ada@example.org, eve@example.org" }, {}, "replyTo"],
+      ["a named reply-to", { ...MAIL, replyTo: "Ada <ada@example.org>" }, {}, "replyTo"],
+      ["a reply-to with a line break", { ...MAIL, replyTo: "ada@example.org\r\nBcc: eve@example.org" }, {}, "replyTo"],
+      ["an empty reply-to", { ...MAIL, replyTo: " " }, {}, "replyTo"],
+      ["a Reply-To header", { ...MAIL, headers: { "Reply-To": "eve@example.org" } }, {}, "headers"],
       ["an empty subject", { ...MAIL, subject: "  " }, {}, "subject"],
       ["a subject with a line break", { ...MAIL, subject: "Hi\r\nBcc: eve@example.org" }, {}, "subject"],
       ["a subject over 998 characters", { ...MAIL, subject: "x".repeat(999) }, {}, "subject"],

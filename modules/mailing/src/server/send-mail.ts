@@ -1,7 +1,7 @@
-// Sends one mail through the configured provider. Ported from FIRE_TRACKER `src/lib/mail.ts` with
-// its three rules: it never throws for a failed send (every failure is a result), nothing of the
-// mail (address, subject, body, key) reaches a log or the result, and `headers` cannot replace the
-// envelope or the sender. List mail (any kind but `transactional`) also gets a signed unsubscribe
+// Sends one mail through the configured provider, with three rules: it never throws for a failed
+// send (every failure is a result), nothing of the mail (address, subject, body, key) reaches a log
+// or the result, and `headers` cannot replace the envelope or the sender (a mail's own reply-to is
+// the `replyTo` field, checked like `to`). List mail (any kind but `transactional`) also gets a signed unsubscribe
 // link in a footer and the RFC 8058 headers, and is refused for a recipient who unsubscribed.
 import { err, ok, type SoftureConfig } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
@@ -51,7 +51,7 @@ export async function sendMail(context: MailContext, mail: OutgoingMail, options
     return err("mailing.invalid_input");
   }
 
-  const { idempotencyKey, kind, ...content } = validation.value;
+  const { idempotencyKey, kind, replyTo: mailReplyTo, ...content } = validation.value;
   let message: MailContent = content;
   if (kind !== TRANSACTIONAL_KIND) {
     const listMail = await prepareListMail(context, validation.value);
@@ -62,7 +62,7 @@ export async function sendMail(context: MailContext, mail: OutgoingMail, options
     message = listMail.value;
   }
 
-  const outcome = await callProvider(provider, { ...message, from, replyTo: replyTo ?? null, idempotencyKey }, timeoutMs);
+  const outcome = await callProvider(provider, { ...message, from, replyTo: mailReplyTo ?? replyTo ?? null, idempotencyKey }, timeoutMs);
   if (outcome.status === "sent") {
     return ok({ id: outcome.id, provider: provider.name });
   }

@@ -113,6 +113,11 @@ export interface OutgoingMail {
    */
   readonly headers?: Readonly<Record<string, string>>;
   /**
+   * Where replies to this mail go, exactly one address (e.g. the buyer of a request mailed to the
+   * operator). Replaces `mailing({ replyTo })` for this mail; without it the configured one is used.
+   */
+  readonly replyTo?: string;
+  /**
    * `transactional` (the default) for mail the recipient needs whatever they unsubscribed from:
    * password resets, receipts, account notices. Any other kebab-case name (e.g. `newsletter`) is
    * list mail: it gets a signed unsubscribe link in a footer and the RFC 8058 headers, and is
@@ -143,7 +148,7 @@ export type SendMailFailure = Err<MailingErrorCode> & { readonly httpStatus?: nu
 
 export type SendMailResult = Ok<SentMail> | SendMailFailure;
 
-/** What a provider receives: a validated mail with the sender and reply-to from the configuration. */
+/** What a provider receives: a validated mail with the sender from the configuration and the mail's or the configured reply-to. */
 export interface ProviderMessage {
   readonly from: string;
   readonly to: string;
