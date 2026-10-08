@@ -1,5 +1,5 @@
 // Campaigns: N recipients give N ledger outcomes, a re-run sends nothing new, content is pinned.
-import { getCampaignContentHash, getRecipientKey, planCampaign, registerCampaign, sendCampaign, type CampaignContent, type DeliveryOutcome } from "@softure-ai/mailing/server";
+import { getCampaignContentHash, getRecipientKey, listConfiguredCampaignRecipients, planCampaign, registerCampaign, sendCampaign, type CampaignContent, type DeliveryOutcome } from "@softure-ai/mailing/server";
 import { fakeMailProvider, type FakeMailProvider } from "@softure-ai/mailing/testing";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createConfig, createTestMailing, NOW, SECRET, type TestMailing } from "./support.js";
@@ -276,3 +276,19 @@ async function insertCampaignClaim(test: TestMailing, address: string, claimedAt
     [`campaign:${CAMPAIGN.id}`, getRecipientKey(address), CAMPAIGN.kind, CAMPAIGN.id, claimedAt],
   );
 }
+
+describe("listConfiguredCampaignRecipients", () => {
+  it("asks the app's source for the campaign's recipients, and answers null without one", async () => {
+    const listCampaignRecipients = vi.fn(() => Promise.resolve(["ada@example.org", "bob@example.org"]));
+    const withSource = await createTestMailing(createConfig(fakeMailProvider(), { listCampaignRecipients }));
+    const without = await createTestMailing();
+    try {
+      expect(await listConfiguredCampaignRecipients(withSource.ctx, CAMPAIGN)).toEqual(["ada@example.org", "bob@example.org"]);
+      expect(listCampaignRecipients).toHaveBeenCalledWith({ id: CAMPAIGN.id, kind: CAMPAIGN.kind }, withSource.ctx);
+      expect(await listConfiguredCampaignRecipients(without.ctx, CAMPAIGN)).toBeNull();
+    } finally {
+      await withSource.database.close();
+      await without.database.close();
+    }
+  });
+});

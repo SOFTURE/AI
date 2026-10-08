@@ -5,10 +5,9 @@ the app stores about them as JSON, or deletes their account, and neither lists t
 consent is recorded with the version of the legal document it was given to; legal pages render
 from the app's own text. Every enabled module that
 holds user data contributes its own export and deletion; the app adds its own contributors. Built
-from FIRE_TRACKER's `src/db/{account-export,account-deletion}.ts`, `src/app/api/moje-dane/` and
-`scripts/delete-empty-account.mts`, where the tables were listed by hand and deletion ran only from
-a CLI, and FIRE's `components/{legal-document,legal-section,legal-footer}.tsx`; FIRE checked the
-registration checkbox but stored nothing.
+from an app where the tables of the export and the deletion were listed by hand, deletion ran only
+from a CLI, the registration checkbox was checked but nothing was stored, and the legal pages had
+their own document frame and footer.
 
 ## 1. What it provides
 
@@ -182,7 +181,34 @@ export default function TermsPage() {
 }
 ```
 
-`LegalFooter` (`links: [{ href, label }]`, an optional `note`) goes into the root layout.
+An app whose page frame already shows the title and its own "in force" sentence leaves out `title`
+and passes `meta={null}` (or its own node, `meta={<p>…</p>}`) instead of `version` and
+`effectiveFrom`: the shell then renders no `<h1>` and adds no sentence. A history entry needs only a
+`summary`; `version` and `date` are rendered when given. For a contents column beside the text, put
+a grid on `root`, `header` across both columns, and the `contents` and `body` slots side by side;
+`contentsTitleAs="p"` turns the contents heading into a label and `listChangesInContents` links the
+history last:
+
+```tsx
+<LegalDocument
+  meta={null}
+  sections={terms.sections}
+  changes={[{ summary: "Changed 23 September 2026: paid access." }]}
+  listChangesInContents
+  contentsTitleAs="p"
+  classNames={{
+    root: "lg:grid lg:grid-cols-[14rem_minmax(0,1fr)] lg:gap-x-16", // the app's own classes
+    contents: "lg:sticky lg:top-24 lg:self-start",
+  }}
+  messages={getPrivacyMessages(config)}
+  locale={config.locale}
+/>
+```
+
+`LegalFooter` (`links: [{ href, label }]`, an optional `note`) goes into the root layout. Inside the
+app's own `<footer>`, pass `as="div"` (or `as="nav"` for the navigation alone) so there is no footer
+inside a footer; `separator=" · "` puts a separator, hidden from assistive technology, between the
+links.
 
 Link the page from the app's account page. To build your own page, compose `DeleteAccountForm`
 from `@softure-ai/privacy/ui` with `deleteAccountAction` from `/next`, and link to the export route.
@@ -221,9 +247,10 @@ The page is built from `@softure-ai/ui` (`Card`, `ButtonLink`, `PasswordField`, 
 `classNames` for its slots (`root`, `description`, `form`) and `unstyled`.
 
 The legal components are server components with the same rules. `LegalDocument` slots: `root`,
-`header`, `title`, `meta`, `intro`, `contents`, `contentsTitle`, `contentsList`, `link`, `changes`,
-`changesTitle`, `changesList`, `change`, `changeMeta`, and `sectionClassNames` for every
-`LegalSection` (`root`, `title`, `body`). `LegalFooter` slots: `root`, `list`, `link`, `note`.
+`header`, `title`, `meta`, `intro`, `contents`, `contentsTitle`, `contentsList`, `link`, `body` (the
+sections and the history), `changes`, `changesTitle`, `changesList`, `change`, `changeMeta`, and
+`sectionClassNames` for every `LegalSection` (`root`, `title`, `body`). `LegalFooter` slots: `root`,
+`list`, `link`, `separator`, `note`.
 Sections scroll into view below a sticky header through `scroll-mt`; dates (`YYYY-MM-DD`) are
 written in the app's locale, in UTC so the server's time zone cannot move them.
 

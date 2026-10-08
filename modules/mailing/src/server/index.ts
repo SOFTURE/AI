@@ -3,6 +3,7 @@
 export { getCampaignProblems, parseCampaignFile, parseRecipientList, type CampaignContent, type CampaignFile, type CampaignFileResult } from "./campaign-file.js";
 export {
   getCampaignContentHash,
+  listConfiguredCampaignRecipients,
   planCampaign,
   registerCampaign,
   sendCampaign,
@@ -17,6 +18,7 @@ export {
   DEFAULT_STALE_CLAIM_MS,
   DEFAULT_UNCERTAIN_CLAIM_MS,
   deliverOnce,
+  isDeliveryScope,
   type DeliverOptions,
   type Delivery,
   type DeliveryContext,
@@ -44,6 +46,16 @@ export {
   type SenderDnsReport,
 } from "./dns.js";
 export { checkMailingTables } from "./health.js";
+export {
+  checkImportedDeliveries,
+  importDeliveries,
+  type ImportCheck,
+  type ImportedDelivery,
+  type ImportedRejectionReason,
+  type ImportProblem,
+  type ImportResult,
+  type ImportSummary,
+} from "./import-deliveries.js";
 export { addHtmlFooter, addTextFooter, getListUnsubscribeHeaders, SIGNATURE_SEPARATOR } from "./list-mail.js";
 export { getMailingModule, getMailingOptions, getMailingRoutes, type MailingRoutes } from "./options.js";
 export { sendMail, type MailContext } from "./send-mail.js";

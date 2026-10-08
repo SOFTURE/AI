@@ -35,7 +35,7 @@ describe("the mailing module", () => {
     expect(mailing({ from: FROM, provider: fakeMailProvider(), routes: { unsubscribe: "/opt-out" } }).routes.unsubscribe).toBe("/opt-out");
   });
 
-  it("keeps the options it was given and defaults the timeout to ten seconds and the claim windows to 15 minutes and 23 hours", () => {
+  it("keeps the options it was given and defaults the timeout to ten seconds, the claim windows to 15 minutes and 23 hours, and attempts to 5", () => {
     const provider = resend({ apiKey: "re_test" });
     expect(mailing({ from: FROM, replyTo: REPLY_TO, provider }).options).toEqual({
       from: FROM,
@@ -44,6 +44,7 @@ describe("the mailing module", () => {
       timeoutMs: 10_000,
       staleClaimMs: 15 * 60_000,
       uncertainClaimMs: 23 * 3_600_000,
+      maxAttempts: 5,
     });
     expect(DEFAULT_TIMEOUT_MS).toBe(10_000);
   });
@@ -90,6 +91,9 @@ describe("the mailing module", () => {
     ["an uncertain window not above the stale one", { staleClaimMs: 3_600_000, uncertainClaimMs: 3_600_000 }, "options.uncertainClaimMs: must be more than staleClaimMs"],
     ["a stale window under a minute", { staleClaimMs: 1_000 }, "options.staleClaimMs"],
     ["an uncertain window over 30 days", { uncertainClaimMs: 31 * 24 * 3_600_000 }, "options.uncertainClaimMs"],
+    ["no attempts", { maxAttempts: 0 }, "options.maxAttempts"],
+    ["more than 100 attempts", { maxAttempts: 101 }, "options.maxAttempts"],
+    ["a fractional attempt count", { maxAttempts: 2.5 }, "options.maxAttempts"],
   ])("refuses %s", (_case, windows, message) => {
     expect(() => mailing({ from: FROM, provider: fakeMailProvider(), ...windows })).toThrow(message);
   });
@@ -107,6 +111,14 @@ describe("the mailing module", () => {
 
   it("accepts legacy unsubscribe params that share the signature's name", () => {
     expect(() => mailing({ from: FROM, provider: fakeMailProvider(), legacyUnsubscribe: { params: ["u", "t"], verify: () => Promise.resolve(null) } })).not.toThrow();
+  });
+
+  it("accepts maxAttempts null, which never closes a delivery on unavailable", () => {
+    expect(mailing({ from: FROM, provider: fakeMailProvider(), maxAttempts: null }).options).toMatchObject({ maxAttempts: null });
+  });
+
+  it("refuses a recipient source that is not a function", () => {
+    expect(() => mailing({ from: FROM, provider: fakeMailProvider(), listCampaignRecipients: ["ada@example.org"] as never })).toThrow("options.listCampaignRecipients");
   });
 
   it("refuses an unknown option, so a typo does not go unnoticed", () => {
