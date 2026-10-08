@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`analytics@x.y.z`).
 
+## 0.1.9
+
+- `funnel.steps[].pages` on a `pixel` step: the pathnames (`["/"]`) or a predicate `(page: URL) => boolean`
+  naming the pages the pixel sits on. The endpoint counts a pixel only from one of them; from any other
+  first-party page it answers the same GIF and counts nothing, so a link prefetch that loads another page's
+  pixel no longer counts that step. Without `pages` a pixel counts from any first-party page, as before;
+  the README warns about prefetch. Exports `FunnelStepPages` and `MAX_STEP_PAGES`.
+
 ## 0.1.8
 
 - `analytics({ origins })`: extra first-party origins (a public site on the apex next to the product on
