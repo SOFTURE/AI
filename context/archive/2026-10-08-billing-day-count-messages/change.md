@@ -1,12 +1,13 @@
 ---
 change_id: billing-day-count-messages
 title: "billing: getBillingMessages in /next, formatDayCount with its own plural table, short numeric dates (issue #280)"
-status: planned
+status: archived
 roadmap_item: null
 issue: 280
 branch: claude/project-thread-9osnuf
 created: 2026-10-08
 updated: 2026-10-08
+archived_at: 2026-10-08
 ---
 
 ## Intent
