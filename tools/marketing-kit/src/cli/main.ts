@@ -20,7 +20,6 @@ import { isPlaceholderKey } from "../voice/placeholder.js";
 import { splitIntoBeats } from "../voice/voiceover.js";
 import { CliFailure, fail } from "./failure.js";
 import { loadFilm, type LoadedFilm } from "./films.js";
-import { writeOgImages } from "./og.js";
 import { getRecordingDay, readOptions, type EntryShotsOptions, type FilmOptions, type PageShotsOptions } from "./options.js";
 import { ensureServer } from "./server.js";
 import { getFilmVoiceover, produceVoiceover, produceVoiceovers, readJson } from "./voice.js";
@@ -268,6 +267,9 @@ async function main(argv: string[]): Promise<void> {
   if (!loaded.ok) fail(loaded.error);
   const { config } = loaded;
   if (options.command === "og") {
+    // Loaded here, not at the top: satori is the only consumer, and a broken satori release must not take down the
+    // other commands (#254).
+    const { writeOgImages } = await import("./og.js");
     await writeOgImages(config, options.imageId);
     return;
   }

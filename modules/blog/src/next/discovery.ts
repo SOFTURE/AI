@@ -7,7 +7,7 @@ import { errorLogLabel, formatMessage, getSiteUrls } from "@softure-ai/core";
 import { getSoftureConfig } from "@softure-ai/core/next";
 import { buildBlogRss } from "../discovery/rss.js";
 import { getClusterLabel } from "../pages/listing.js";
-import { getBlogOptions } from "../server/options.js";
+import { getBlogLocaleTags, getBlogOptions } from "../server/options.js";
 import { getPageContext } from "./context.js";
 import { getPublishedArticles, getPublishedTerms } from "./data.js";
 
@@ -34,7 +34,7 @@ export async function serveBlogRss(): Promise<Response> {
       channel: {
         title: context.brand === null ? copy.pages.blogTitle : formatMessage(copy.pages.titleWithBrand, { title: copy.pages.blogTitle, brand: context.brand }),
         description: copy.pages.blogDescription,
-        language: config.locale,
+        language: getBlogLocaleTags(config).bcp47,
       },
       getCategory: (text) => (text.kind === "term" ? copy.glossary.title : text.cluster === null ? null : getClusterLabel(text.cluster, clusters, config.locale)),
     });

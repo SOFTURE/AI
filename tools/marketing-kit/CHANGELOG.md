@@ -6,6 +6,10 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## 0.1.10
 
+- Every command crashed on start-up when npm resolved satori to 0.35.2 or 0.36.0 (the case through `npx`, which has
+  no lockfile): those releases end the process as soon as they are imported. satori is now pinned to `0.35.1`, and
+  the CLI loads it only for `og`, so `shots`, `record`, `voice` and the other commands no longer load it at all
+  (#254). An app that worked around it with `-p satori@0.35.1` can drop the extra package.
 - `shots` signs in itself: a top-level `signIn` block (`path`, `steps`, `expect`, optional `prepare`) and
   `signedIn: true` on an entry. The sign-in runs once per run, its session stays in memory; a failed sign-in refuses
   every signed-in file (gate `sign-in`) and the others still run.
