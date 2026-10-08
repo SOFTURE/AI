@@ -4,6 +4,11 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- README: the installation section lists the `agent-ready` CLI commands (`web-bot-auth key`, `dns-aid check`,
+  `check <url>`) next to the entries, with a pointer to where each one is described. No code change.
+
 ## 0.1.0
 
 - First release: `agentReady()` with the API catalog (RFC 9727), OpenAPI of the MCP endpoint, the home page `Link`
