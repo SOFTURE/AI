@@ -7,7 +7,7 @@ const ROADMAP = `# Roadmap: deploy follow-ups
 
 | ID | Change | Outcome | Depends on | Mode | Status |
 | --- | --- | --- | --- | --- | --- |
-| **DF-1** | \`deploy-fire-parity\` | parity with FIRE | — | owner | done_code (2026-10-06; waiting: release) |
+| **DF-1** | \`deploy-parity\` | parity with the app | — | owner | done_code (2026-10-06; waiting: release) |
 | **DF-2** | \`deploy-workflow-verify-config\` | verify \\| with config | DP-4 | autonomous | done |
 | **DF-3** | \`deploy-workflow-e2e\` | e2e | DF-7 | autonomous | in_progress (plan, since 2026-10-06; worktree) |
 | **KL-4** | \`zapis-na-liste\` | the list | KL-3 | **done kodowo** (2026-09-29) |
@@ -24,15 +24,15 @@ describe("roadmap items of a release", () => {
     expect(items.map((item) => item.id)).toEqual(["DF-1", "DF-2", "DF-3", "KL-4"]);
     expect(items[0]).toEqual({
       id: "DF-1",
-      changeId: "deploy-fire-parity",
-      outcome: "parity with FIRE",
+      changeId: "deploy-parity",
+      outcome: "parity with the app",
       status: "done_code (2026-10-06; waiting: release)",
     });
     expect(items[1]?.outcome).toBe("verify \\| with config");
     expect(items[3]?.status).toBe("done kodowo (2026-09-29)");
   });
 
-  it("ships done_code items (and FIRE's older done kodowo), not done or in-progress ones", () => {
+  it("ships done_code items (and the older done kodowo), not done or in-progress ones", () => {
     expect(selectShippingItems(items).map((item) => item.id)).toEqual(["DF-1", "KL-4"]);
   });
 

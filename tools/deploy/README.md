@@ -2,7 +2,7 @@
 
 Deploy CLI for an app that runs on one VPS with Docker Compose. It holds the steps that do not change from app to
 app; what describes one app (compose file, Traefik rules, Dockerfile) stays in the app
-([docs/06-fire-extraction-2.md](../../docs/06-fire-extraction-2.md), "Deploy: package or template").
+([docs/06](../../docs/06-fire-extraction-2.md), "Deploy: package or template").
 
 ```bash
 npm install --save-dev @softure-ai/deploy
@@ -14,7 +14,7 @@ npx softure-deploy help
 Writes the production env file from the environment, for every variable the compose file requires.
 
 ```bash
-softure-deploy env render [--compose=docker/prod/docker-compose.yml] [--out=.env.prod]
+softure-deploy env render [--compose=docker/prod/docker-compose.yml] [--out=.env.prod] [--from-json-env=<NAME>]...
 ```
 
 - **Names come from the compose file:** every `${NAME:?…}` (refuses an unset or empty value) and `${NAME?…}`
@@ -25,6 +25,12 @@ softure-deploy env render [--compose=docker/prod/docker-compose.yml] [--out=.env
   `$${…}` are skipped, so the compose file stays the one list of what production reads.
 - **Values come from the environment** (in CI: `env:` from the repository secrets). A missing name stops the
   command with every missing name listed; nothing is written.
+- **Or from JSON objects:** `--from-json-env=APP_SECRETS` reads the variable `APP_SECRETS` as a JSON object of names
+  and values (`toJSON(secrets)` in a workflow) and takes the values from it alone, not from the rest of the
+  environment, so a host's `PATH` or `HOME` never lands in `.env.prod`. The flag repeats; a later object wins for a
+  name both hold (`--from-json-env=APP_SECRETS --from-json-env=APP_VARS` puts variables over secrets). A value that is
+  not a string is skipped like an unset one. An unset variable or one that is not a JSON object stops the command by
+  its name; the missing names are listed with the objects they were looked up in.
 - **Values are never printed**, on success or on failure: the output names variables and counts only
   (`wrote 3 names (1 of 2 optional set) …`).
 - The file starts with a comment (`# Written by softure-deploy env render …; do not edit on the server.`): it is
@@ -39,6 +45,11 @@ softure-deploy env render [--compose=docker/prod/docker-compose.yml] [--out=.env
   env:
     DATABASE_URL: ${{ secrets.DATABASE_URL }}
     AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+# Or every secret and variable of the repository, variables over secrets
+- run: npx softure-deploy env render --from-json-env=APP_SECRETS --from-json-env=APP_VARS
+  env:
+    APP_SECRETS: ${{ toJSON(secrets) }}
+    APP_VARS: ${{ toJSON(vars) }}
 ```
 
 ## `softure-deploy release-notes`
@@ -124,11 +135,25 @@ docker compose up -d app && docker compose run --rm app node migrate.js  # 4. sw
 softure-deploy row-counts --tables=users,billing.subscriptions --compare=counts-before.json  # 5.
 ```
 
+**Without a connection (`--stdin`).** When the database publishes no port (Postgres reachable only on the compose
+network), the CLI never connects: `pg_dump` and `psql` run in the database's own container and the CLI reads their
+output. `schema-guard` and `row-counts` print the one statement they need with `--print-query`; `psql -At` runs it and
+the JSON line it prints goes back on stdin. `init`'s `deploy.sh` does this with `database.access: "compose-exec"`.
+
+```bash
+exec_db() { docker compose exec -T postgres "$@"; }
+exec_db pg_dump --format=custom -U postgres app | softure-deploy backup --stdin --dir=backups --keep=7
+exec_db psql -At -U postgres app -c "$(softure-deploy schema-guard --print-query --app-ledger=drizzle.__drizzle_migrations)" \
+  | softure-deploy schema-guard --stdin --migrations-dir=migrations --app-journal=journal.json
+exec_db psql -At -U postgres app -c "$(softure-deploy row-counts --print-query --tables=users)" \
+  | softure-deploy row-counts --stdin --tables=users --out=counts-before.json
+```
+
 ### `softure-deploy backup`
 
 ```bash
 softure-deploy backup [--dir=backups] [--prefix=db] [--keep=7] [--max-age-days=<n>] [--exclude-table-data=<a,b.c>]
-                      [--url-env=DATABASE_URL] [--pg-dump=pg_dump]
+                      [--url-env=DATABASE_URL] [--pg-dump=pg_dump] | [--stdin]
 ```
 
 - Runs `pg_dump --format=custom` (restore with `pg_restore`) into `<dir>/<prefix>-<UTC yyyymmddThhmmssZ>.dump`.
@@ -146,11 +171,16 @@ softure-deploy backup [--dir=backups] [--prefix=db] [--keep=7] [--max-age-days=<
   their rows from the dump, for data that must not outlive its own retention (IP addresses of login attempts).
 - `pg_dump` must be at least the server's major version; `--pg-dump=<path>` picks another binary
   (`/usr/lib/postgresql/16/bin/pg_dump`).
+- **`--stdin`:** keeps a custom-format dump `pg_dump` wrote elsewhere (in the database's container) instead of running
+  one: the same file name, mode, header check and retention. The dump's own flags belong to that `pg_dump`, so
+  `--url-env`, `--pg-dump` and `--exclude-table-data` with `--stdin` are a usage error.
 
 ### `softure-deploy schema-guard`
 
 ```bash
-softure-deploy schema-guard --migrations-dir=<dir> [--url-env=DATABASE_URL]
+softure-deploy schema-guard --migrations-dir=<dir> [--app-journal=<file> [--app-ledger=drizzle.__drizzle_migrations]]
+                            [--url-env=DATABASE_URL | --stdin]
+softure-deploy schema-guard --print-query [--app-ledger=<schema.table>]
 ```
 
 Compares the new image's migrations (the folder `softure migrate --export-migrations <dir>` wrote in the build
@@ -165,6 +195,18 @@ stage) with the database's `@softure-ai/db` ledger `softure.migrations`, using t
 Otherwise it prints the files the deploy will apply, and the ledger modules the image does not hold (not enabled
 there; the migrator leaves them alone). It takes no lock and writes nothing.
 
+**The app's own migrations.** An app that also migrates with its own tool (drizzle) passes the image's journal:
+`--app-journal=<file>` (drizzle's `meta/_journal.json`, copied out of the new image) is compared with the app ledger
+(`--app-ledger`, drizzle's `drizzle.__drizzle_migrations` by default). When the database ran more migrations than the
+journal lists, the image is older than the schema and the guard refuses it
+(`drizzle.__drizzle_migrations: the image knows 41 migration(s), the database ran 42; …`); otherwise it prints both
+numbers. A ledger table that does not exist yet counts as no migration run. `--app-ledger` without `--app-journal` is
+a usage error.
+
+**`--stdin`:** reads the ledgers from the JSON line `psql -At` printed for the statement of
+`schema-guard --print-query` (with the same `--app-ledger` when the app journal is checked) instead of connecting.
+The statement reads both ledgers in one query and copes with a database where either table is still absent.
+
 **Where it runs:** wherever the folder and the database are both reachable. In the new image before the switch is the
 simplest (`docker compose run --rm --no-deps app npx softure-deploy schema-guard …`; the image holds the folder and
 joins the compose network). On the host it works after `docker cp` of the folder out of the new image.
@@ -172,15 +214,17 @@ joins the compose network). On the host it works after `docker cp` of the folder
 ### `softure-deploy row-counts`
 
 ```bash
-softure-deploy row-counts [--tables=<a,b.c> | --config=deploy.json] [--out=<file>] [--compare=<file>] [--url-env=DATABASE_URL]
+softure-deploy row-counts [--tables=<a,b.c> | --config=deploy.json] [--out=<file>] [--compare=<file>]
+                          [--url-env=DATABASE_URL | --stdin]
+softure-deploy row-counts --print-query [--tables=<a,b.c> | --config=deploy.json]
 ```
 
 ```json
-{ "database": { "rowCountTables": ["users", "snapshots", "position_values"] } }
+{ "database": { "rowCountTables": ["users", "orders", "invoices"] } }
 ```
 
-- Counts the rows of each table (`table` or `schema.table`, lower snake case; the app's key tables, like FIRE's
-  `users`, `snapshots`, `position_values`) and prints one line per table.
+- Counts the rows of each table (`table` or `schema.table`, lower snake case; the app's key tables, like
+  `users`, `orders`, `invoices`) and prints one line per table.
 - **Which tables:** `--tables`, or else `database.rowCountTables` of `deploy.json` (`--config` names another file),
   so the list lives with the app's other deploy settings. With `--tables` the file is not read; passing both flags is
   a usage error, and so is having neither the flag nor the list (exit `2`). An invalid file is exit `1` with its issues.
@@ -191,6 +235,8 @@ softure-deploy row-counts [--tables=<a,b.c> | --config=deploy.json] [--out=<file
   A table with fewer rows than before, not counted before, or absent now (`<n> -> absent`, also `absent -> absent`
   for a misspelled name) fails the step (exit 1); the deploy script decides whether that rolls the deploy back. `count(*)` reads every row: keep the list to the tables
   whose loss would matter.
+- **`--stdin`:** reads the counts from the JSON line `psql -At` printed for the statement of `row-counts
+  --print-query` with the same tables, instead of connecting; a snapshot that counts other tables is refused.
 
 ## `softure-deploy verify`
 
@@ -268,10 +314,10 @@ one caller, [`examples/deploy.yml`](examples/deploy.yml), with a single `uses:` 
    anything runs, then refuses a tag whose commit is not on the release branch (`release-branch`, else the caller's
    default branch; commits only are fetched for it);
 2. builds the image from the tag with `build-args` and pushes `<image>:<tag>` to GHCR (the only job with
-   `packages: write`);
+   `packages: write`); with `prebuilt-image`, builds nothing and adds the tag to that image instead (below);
 3. renders `.env.prod` with `softure-deploy env render` from the `app-secrets` JSON and the `app-vars` JSON over it,
    and stops when a build argument's name is in `.env.prod` with another value (the image and the runtime would
-   disagree, FIRE_TRACKER's L-117; only the name is printed). It packs `.env.prod` with the tag's server files (the
+   disagree, and every write broke in an adopting app; only the name is printed). It packs `.env.prod` with the tag's server files (the
    compose file's folder, `server-script` as `deploy.sh`, `deploy-config` as `deploy.json`) and the job's own
    `GITHUB_TOKEN` as `.registry-token` into one gzip tar and sends that on stdin to the server's forced SSH command
    as `<remote-command> <tag>`, checking the host key against `ssh-known-hosts`. A symlink in the compose folder, or
@@ -291,6 +337,7 @@ one caller, [`examples/deploy.yml`](examples/deploy.yml), with a single `uses:` 
 | `tag` | required | release tag: the git ref built and the image tag |
 | `app-url` | required | public base URL, `https://<host>[:port]` |
 | `image` | `ghcr.io/<owner>/<repository>` | image name without a tag |
+| `prebuilt-image` | none | an image already built and tested, `<image>@sha256:<64 hex>` in the `image` repository: not rebuilt, only tagged |
 | `context`, `dockerfile` | `.`, `Dockerfile` | the build |
 | `compose-file` | `docker/prod/docker-compose.yml` | names the secrets to render; its folder ships to the server |
 | `server-script` | `docker/server/deploy.sh` | the forced command, installed on the server as `deploy.sh` with each release |
@@ -312,7 +359,16 @@ refused, in `app-vars` too) are required; `origin-address` is optional: the serv
 example passes `secrets.DEPLOY_ORIGIN_IP`), refused when `deploy-config` is empty, and verify fails when it accepts a
 direct connection. A secret, not an input, so the address is masked in the logs. The registry token pulls a package
 the build job of the same repository pushed (its `org.opencontainers.image.source` label links it); for an image
-elsewhere, set `registry-token: false` and log the server in. The workflow runs once this package is on npm; callers pin the `deploy-workflows-v1` tag
+elsewhere, set `registry-token: false` and log the server in.
+
+**A tested image (`prebuilt-image`).** An app whose own pipeline builds the image and runs its tests against it
+passes that image by digest, so production runs the bytes the tests saw rather than a second build of the same tag.
+The check job accepts only `<image>@sha256:<digest>` with the repository of `image` (a tag could move between the
+tests and the release; another repository would make the server pull something else); the build job skips the
+checkout and the build, adds `<image>:<tag>` to exactly that manifest with `docker buildx imagetools create` and stops
+when the tag then names another digest. The server pulls the tag as before, and the report's digest is that one.
+`build-args` do not apply (the image is built already; their comparison with `.env.prod` still runs), and `e2e` with
+it is refused. The workflow runs once this package is on npm; callers pin the `deploy-workflows-v1` tag
 the owner sets, or its commit SHA.
 
 ### Release report
@@ -431,7 +487,7 @@ softure-deploy init --domain=example.com --image=ghcr.io/acme/app [--dir=.] [--n
 **`deploy.sh` on the server.** Once, by hand: copy `docker/server/deploy.sh` to `/srv/<name>/` (a folder the SSH
 user owns) and bind the deploy key to it in `authorized_keys` (`command="/srv/<name>/deploy.sh",restrict …`). Every
 release then brings the rest. It answers three commands in `SSH_ORIGINAL_COMMAND`, five with a database (anything
-else, or more than one line, exits 2):
+else, or more than one line, exits 2; `maintain` also takes a hook's name, below):
 
 - **`status`**, read only (no lock, nothing written): `status|tag|<tag in .deployed-tag>`, `status|env-tag|<TAG in
   .env.prod>`, `status|containers|<service:status …>` and `status|health|<the app container's health>`, each `none`
@@ -444,7 +500,9 @@ else, or more than one line, exits 2):
   2. saves every installed file the release is about to replace, then moves `.env.prod` into place (0600) with
      `TAG=<tag>` in it (so a `docker compose` by hand or from the cron runs the live release), copies the other files
      next to itself (in place, so Traefik's bind-mounted rules keep their inode; files 0644, folders 0755), replaces
-     itself by a rename (the new copy runs from the next release) and pulls the image. A `.registry-token` in the
+     itself by a rename (the new copy runs from the next release), reads the release's `deploy.json` through
+     `softure-deploy server-settings` (the `settings` step; an invalid file stops the release before anything
+     restarts) and pulls the image. A `.registry-token` in the
      archive (non-empty, or the release is refused) is never installed: the pull logs in with it under a
      `DOCKER_CONFIG` in the run's temporary folder, removed with it, so the host's own Docker login is neither used
      nor changed;
@@ -453,17 +511,55 @@ else, or more than one line, exits 2):
      host, or through the helper image on a host without Node, below; against `127.0.0.1`) for `database.rowCountTables` of the `deploy.json` this release shipped
      (`releases/<tag>/deploy.json`); without that file or key, and on the first release, the counts are skipped. The
      count before the switch runs against the old schema, so a table the release's own migration creates is
-     counted as absent and may join the list in that release;
-  4. keeps the replaced `.env.prod` as `.env.prod.prev` (0600) and switches: `docker compose up -d --wait` (the
+     counted as absent and may join the list in that release. With `database.appMigrations` it also copies the app's
+     journal out of the new image and the schema step checks it against the app ledger (an image without that file
+     stops the release); `database.excludeTableData` goes to the backup;
+  4. runs the `pre-migrate` hooks (below), then keeps the replaced `.env.prod` as `.env.prod.prev` (0600) and switches: `docker compose up -d --wait` (the
      migrate service runs before the app); recreates Traefik when its rules changed (a running Traefik holds the
      rules it started with);
   5. with a database: `row-counts --compare`;
-  6. records the tag in `.deployed-tag` and writes its crontab line (below).
+  6. records the tag in `.deployed-tag`, writes its crontab lines (below) and runs the `post-up` hooks.
 - **`maintain`**, the daily cron's command: with a database a `backup` with the same retention, so no dump outlives
   30 days between releases either; then removes this app's image tags whose release folder is gone (the newest 5
-  stay for a quick rollback; Docker refuses one a container uses) and the host's dangling images.
+  stay for a quick rollback; Docker refuses one a container uses) and the host's dangling images; then the `maintain`
+  hooks without a schedule. **`maintain <hook>`** runs only that scheduled hook (its own crontab line); a name
+  `deploy.json` does not schedule fails.
 - **`run <script> [--key[=value] …]`** and **`report [--key=value …]`**, with a database: an ops script of the live
   image, or a read-only SQL file on stdin; see [Ops scripts and reports on the server](#ops-scripts-and-reports-on-the-server).
+
+**Database access.** By default (`database.access: "host"`) the database steps connect to the Postgres the compose
+file publishes on `127.0.0.1:5432` as `postgres` with `POSTGRES_PASSWORD`. With `"compose-exec"`, `pg_dump` and `psql`
+run inside the `postgres` service (`docker compose exec -T postgres`, as `POSTGRES_USER` on `POSTGRES_DB` of
+`.env.prod`, defaulting like the Postgres image) and the CLI reads their output with `--stdin`: for a Postgres that
+publishes no port, and no `POSTGRES_PASSWORD` is needed. The dump lands in a hidden file in the backup folder first,
+so a failed `pg_dump` leaves no dump behind.
+
+**Hooks.** `deploy.json`'s `hooks` add the app's own steps at three points, in their order:
+
+```json
+{
+  "database": { "access": "compose-exec", "appMigrations": { "journal": "/app/drizzle/meta/_journal.json" } },
+  "hooks": {
+    "pre-migrate": [{ "name": "migrate", "compose": ["run", "--rm", "migrate"] }],
+    "post-up": [{ "name": "publish-content", "compose": ["exec", "-T", "app", "node", "publish.mjs"] }],
+    "maintain": [
+      { "name": "send-mail", "schedule": "0 9,21 * * *", "compose": ["exec", "-T", "app", "node", "send.mjs"] },
+      { "name": "purge", "run": ["bash", "scripts/purge.sh"] }
+    ]
+  }
+}
+```
+
+- A hook is `compose` (arguments of `docker compose` with this release's compose file and `.env.prod`) or `run` (a
+  command run in the app folder; a script the release ships is installed `0644`, so run it through `bash`). Each gets
+  `TAG`, `IMAGE` and `PREVIOUS_TAG`, prints `step|<name>|ok` when it succeeds, and its own output goes to stderr.
+- `pre-migrate` runs before the switch: a failure puts the previous files back like any step before it. `post-up`
+  runs once the release is live: a failure fails the release and rolls nothing back. `maintain` runs in the daily
+  `maintain`, or, with a five-field cron `schedule`, on a crontab line of its own (`maintain <name>`, logged under
+  `<name>-<hook>`).
+- Names are lower case and unique across the points, and not a step name `deploy.sh` uses itself (`backup`,
+  `switch`, …).
+- Without a database the CLI is needed only for a `deploy.json` that has `hooks`.
 
 **Restore.** A step that fails before the switch puts the saved files and `.env.prod` back (the rules by copying onto
 the installed file, the script by a rename) and removes files and folders the release added; containers it already
@@ -472,12 +568,13 @@ may have run, and old files over a new schema are worse than a stopped release. 
 previous tag, which the failure message names.
 
 **Output.** One line per finished step on stdout, `step|<name>|ok[|<detail>]` (`archive`, `files`, `pull`,
-`postgres`, `backup`, `schema`, `row-counts-before`, `switch`, `traefik`, `row-counts-after`, `tag`, `cron`; `restore`
-after a restore; `backup`, `images` for `maintain`), and every `deploy` or `maintain` run, refused commands included,
+`settings`, `postgres`, `backup`, `schema`, `row-counts-before`, `switch`, `traefik`, `row-counts-after`, `tag`, `cron`
+and each hook's name; `restore` after a restore; `backup`, `images` and the hooks for `maintain`), and every `deploy` or `maintain` run, refused commands included,
 ends with `result|ok` or `result|failed|<step>|<message>`. Messages for people start with `deploy:`.
 
-**Cron.** Each release rewrites one line of the deploy user's crontab, marked `# softure-deploy:<name>`: `maintain`
-daily at 03:17 server time, its output to syslog under `<name>-maintain` (`journalctl -t <name>-maintain`). Other
+**Cron.** Each release rewrites the deploy user's crontab lines marked `# softure-deploy:<name>`: `maintain`
+daily at 03:17 server time, its output to syslog under `<name>-maintain` (`journalctl -t <name>-maintain`), and one
+line per scheduled `maintain` hook. Other
 lines, other apps' marked lines included, stay. `deploy` and `maintain` never run at the same time: both take
 `.deploy.lock` with `flock` and wait up to 10 minutes for it.
 
@@ -575,11 +672,11 @@ or a SQL report runs against production from the operator's machine, through the
 (issue #247). The app keeps only the script definitions and the `.sql` files; no shell per script.
 
 ```bash
-softure-deploy run --host=fire-prod grant-access --email=a@example.com              # dry run
-softure-deploy run --host=fire-prod grant-access --email=a@example.com --commit     # writes
-softure-deploy run --host=fire-prod set-password --email=a@example.com --password-file=new-password.txt --commit
-softure-deploy run --host=fire-prod grant-access --help
-softure-deploy report --host=fire-prod reports/signups.sql --since=2026-10-01
+softure-deploy run --host=app-prod grant-access --email=a@example.com              # dry run
+softure-deploy run --host=app-prod grant-access --email=a@example.com --commit     # writes
+softure-deploy run --host=app-prod set-password --email=a@example.com --password-file=new-password.txt --commit
+softure-deploy run --host=app-prod grant-access --help
+softure-deploy report --host=app-prod reports/signups.sql --since=2026-10-01
 ```
 
 **Setup, once per app** (an app `init` generated with this version has the first two):
@@ -649,8 +746,10 @@ The same steps as functions, for scripts that need them without the CLI:
 `findComposeNames`, `findRequiredNames`, `renderEnvFile` (a result value: the text, or the missing and unsafe names),
 `readReleaseCommits`, `findPreviousTag`, `toReleaseEntries`, `formatReleaseNotes`, `parseRoadmapItems`,
 `selectShippingItems`, `writeReleaseSection`, `readReleaseSection`, `readSection`, `writeSection`, `parseDeployReport`,
-`parseServerLines`, `writeReleaseReport`, `toLibpqEnv`, `createBackup`,
-`selectExpiredBackups`, `selectAgedBackups`, `hasCustomFormatHeader`, `guardSchema`, `parseTableList`, `countRows`, `compareRowCounts`, `parseDeployConfig`,
+`parseServerLines`, `writeReleaseReport`, `toLibpqEnv`, `createBackup`, `createBackupFromStream`,
+`selectExpiredBackups`, `selectAgedBackups`, `hasCustomFormatHeader`, `guardSchema`, `guardLedgers`, `readAppJournal`,
+`buildLedgerQuery`, `parseLedgerSnapshot`, `buildRowCountQuery`, `parseRowCountSnapshot`, `parseTableList`, `countRows`,
+`compareRowCounts`, `parseDeployConfig`, `planServerSettings`,
 `runVerify` (an injectable `fetch`), `checkResponse`, `formatVerifyReport`, `parseInitAnswers`, `readAppFacts`,
 `planInitFiles` (pure: the files and their text), `writeInitFiles`, `parseIntegrationNote`, `formatIntegrationNote`,
 `readJunitCounts`, `formatContractLines`, `lookupIntegration`, `recordIntegration`, `runIntegration` (injectable
@@ -660,53 +759,51 @@ An app whose image should carry the guard itself (a host with neither Node nor a
 script around `withPgClient` and `guardSchema` with esbuild, like its `migrate.mjs`, and runs it from the new image:
 `docker run --rm --network host --env DATABASE_URL <image>:<tag> node schema-guard.mjs /app/softure-migrations`.
 
-## Parity with FIRE_TRACKER
+## Parity with an adopting app's release scripts
 
-FIRE_TRACKER's release scripts were read side by side with this package on 2026-10-06 (DF-1; the full comparison is
-in [`context/archive/2026-10-06-deploy-fire-parity/research.md`](../../context/archive/2026-10-06-deploy-fire-parity/research.md)).
+The first app that adopted this package had release scripts of its own; they were read side by side with this
+package on 2026-10-06 (DF-1; the full comparison is in
+[`context/archive/2026-10-06-deploy-fire-parity/research.md`](../../context/archive/2026-10-06-deploy-fire-parity/research.md)).
 
 **In the workflow (DF-11):** the tag must be on the default branch; build arguments, refused when one differs from the
-value `.env.prod` holds under its name (FIRE compares `APP_ORIGIN` and `APP_DOMAIN`; any shared name is compared
-here); non-secret values over secrets (FIRE reads variables first for optional names only; here for every name, and
-the names taken over a secret are listed); the deploy job's token per release (FIRE logs in and out on the host;
+value `.env.prod` holds under its name (the app compared two fixed names; any shared name is compared here);
+non-secret values over secrets (the app read variables first for optional names only; here for every name, and the
+names taken over a secret are listed); the deploy job's token per release (the app logged in and out on the host;
 here a throwaway Docker config leaves the host's login alone).
 
 **In the package:** optional compose names and the header line (`env render`); the release body section and the
 roadmap table (`release-notes`); excluded table data, the age limit and the header check (`backup`); method, body and
-request headers (`verify`); the origin firewall check (`verify --origin`, DF-13; a failure where FIRE only warns,
-and a TCP handshake where FIRE's `curl` passes an open origin whose certificate does not cover the IP). Already here
-before: names from the compose file, values never printed, mode 0600, the
-schema guard (stricter than FIRE's migration count), row counts, status, markers, redirects, header and type checks,
-certificate expiry.
+request headers (`verify`); the origin firewall check (`verify --origin`, DF-13; a failure where the app only warned,
+and a TCP handshake where the app's `curl` passed an open origin whose certificate does not cover the IP). Already
+here before: names from the compose file, values never printed, mode 0600, the schema guard (stricter than a
+migration count), row counts, status, markers, redirects, header and type checks, certificate expiry.
 
 **In `init`'s `deploy.sh` (DF-9):** the read-only `status` command, the file and `.env.prod` restore when a release
 fails before the switch, `.env.prod.prev`, the Traefik recreate when `traefik.yml` changed, the tag in `.env.prod`, a
-daily cron for the backup age and old images, and the step and result lines the workflow checks. FIRE's gateway and
-its second-stage script inside the image stay one script here: the release ships it (DF-7).
+daily cron for the backup age and old images, and the step and result lines the workflow checks. The app's gateway
+and its second-stage script inside the image stay one script here: the release ships it (DF-7).
 
-**In the release report (DF-10):** FIRE's living report as `release-report` and `deploy-report.yml`: a status table
+**Added for adoption (#246):** a tested image deployed by digest (`prebuilt-image`), the app ledger in the schema
+guard, the `pre-migrate`, `post-up` and `maintain` hooks for the app's own steps, database steps through
+`compose exec` for a Postgres without a published port, and `env render` from JSON objects.
+
+**In the release report (DF-10):** the app's living report as `release-report` and `deploy-report.yml`: a status table
 replaced by every run and a deployment history with the newest row on top (time, result, image and digest, backup
-file, row counts before and after, verify, run). Different on purpose: times in UTC, not Europe/Warsaw; no migration
+file, row counts before and after, verify, run). Different on purpose: times in UTC, not a local zone; no migration
 count (no step line carries it); the "what's in it" part is `release-notes`' section, not a third writer.
-
-**Tracked as roadmap items** (they change `deploy-app.yml` or `init`'s `deploy.sh`):
-
-- **DF-12:** a reusable workflow that cuts a date tag and release and starts the deploy (an agent cannot push tags).
 
 **Kept different on purpose:** the custom dump format instead of plain SQL with gzip (compressed, restorable table by
 table); `row-counts` fails on a drop, not on any change (a sign-up during a release is not a failure); seven dumps
 by default instead of ten (`--keep`).
 
-**The integration run (issue #248):** FIRE's `ci-integration.sh`, `ci-integration-lookup.sh`, `integration-note.mts`
-and `integration-tests.yml` as `softure-deploy integration run|lookup|record` and `deploy-integration.yml`, with the
-same contract. Different on purpose: English names (`integration/<name>`, `refs/notes/integration` instead of
-`integracja`), and the suite runs in a job without a write token. FIRE's own suite, image build included, stays its
-`test-command`.
+**The integration run (issue #248):** the app's integration scripts and workflow as
+`softure-deploy integration run|lookup|record` and `deploy-integration.yml`, with the same contract. Different on
+purpose: English names (`integration/<name>`, `refs/notes/integration`), and the suite runs in a job without a write
+token. The app's own suite, image build included, stays its `test-command`.
 
-**Stays in the app:** FIRE's tag pattern `vYYYY.MM.DD[-N]`, its gates and integration suite inside the release run,
-the 32-character check of `WAITLIST_UNSUBSCRIBE_SECRET`, `release-opis.yml` (it replaces the text above the report,
-which `--body` keeps), the dry run of `konta-wyslij`, the blog sync and the app's own cron lines, the skill digest
-check, markers inside `<head>`, the IndexNow key and a 404 that only warns.
+**Stays in the app:** its tag pattern, its gates and integration suite inside the release run, checks of its own
+secrets' shape, a workflow that rewrites the text above the report (which `--body` keeps), its markers inside
+`<head>`, its IndexNow key and a 404 that only warns. Its dry runs, content sync and cron jobs become hooks.
 
 ## Exit codes
 
@@ -716,8 +813,7 @@ problem, lost rows, a failed verify check, invalid init answers) · `2` a wrong 
 
 ## Limitations
 
-- Release notes read only git: no labels, authors or pull request bodies (no GitHub API). FIRE's report does not
-  group by label either.
+- Release notes read only git: no labels, authors or pull request bodies (no GitHub API).
 - `backup` writes to a local folder only; copying dumps off the server is the server's job.
 - `verify` does not wait for the app to come up; the deploy workflow's health step does.
 - Files a release no longer ships stay on the server; remove them by hand.

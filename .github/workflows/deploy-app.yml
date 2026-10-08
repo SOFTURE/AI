@@ -2,6 +2,10 @@
 # It builds the image from the release tag and pushes it to GHCR, renders `.env.prod` from the app's secrets with
 # `softure-deploy env render`, hands it to the server's forced SSH command, and verifies the release.
 #
+# An app that tests its image before the release passes it as `prebuilt-image` (`<image>@sha256:<digest>`, from the
+# same repository): nothing is built, the release tag is added to exactly that image, and the server pulls it by tag,
+# so production runs the bytes the tests saw.
+#
 # The caller is `tools/deploy/examples/deploy.yml` in this repository: copy it to the app's `.github/workflows/`.
 # It grants `contents: read` and `packages: write`; the jobs below take only what each one needs.
 #
@@ -22,7 +26,7 @@
 # Release guards (DF-11): the `check` job refuses a tag whose commit is not on the release branch (the caller's default
 # branch unless `release-branch` names another). `build-args` are baked into the image (public values only: they are
 # readable in the image's history), and a build argument whose name `.env.prod` also holds must carry the same value
-# there (an origin in the image that differs from the runtime one broke every write in FIRE_TRACKER, its L-117).
+# there (an origin in the image that differs from the runtime one broke every write of an adopting app).
 # `app-vars` are non-secret values (e.g. toJSON(vars)) rendered over `app-secrets`, so a switch like `1` is not masked
 # in every log line. The deploy job's own GITHUB_TOKEN (packages: read, valid until the job ends) rides in the archive
 # as `.registry-token`; the server pulls with it through a throwaway Docker config and keeps no registry login.
@@ -59,6 +63,10 @@ on:
         required: true
       image:
         description: Image name without a tag; empty means ghcr.io/<owner>/<repository> of the caller, lower-cased
+        type: string
+        default: ""
+      prebuilt-image:
+        description: "An image already built and tested, by digest: <image>@sha256:<64 hex>, the repository of image. Skips the build and tags that image with the release tag; empty builds from the tag"
         type: string
         default: ""
       context:
@@ -183,6 +191,7 @@ jobs:
           TAG: ${{ inputs.tag }}
           APP_URL: ${{ inputs.app-url }}
           IMAGE: ${{ inputs.image }}
+          PREBUILT_IMAGE: ${{ inputs.prebuilt-image }}
           BUILD_CONTEXT: ${{ inputs.context }}
           DOCKERFILE: ${{ inputs.dockerfile }}
           COMPOSE_FILE: ${{ inputs.compose-file }}
@@ -258,6 +267,14 @@ jobs:
           fi
           if [ -z "$IMAGE" ]; then IMAGE="ghcr.io/$(printf '%s' "$REPOSITORY" | tr '[:upper:]' '[:lower:]')"; fi
           expect image "$IMAGE" '^[a-z0-9.-]+(:[0-9]{1,5})?(/[a-z0-9]+([._-][a-z0-9]+)*)+$' "registry/name, lower case, no tag"
+          # By digest only: a tag could move between the tests and the release. The same repository, so the re-tag
+          # copies no layers and the server pulls what the image input names.
+          if [ -n "${PREBUILT_IMAGE:-}" ]; then
+            if [[ ! "$PREBUILT_IMAGE" =~ ^(.+)@sha256:[0-9a-f]{64}$ ]] || [ "${BASH_REMATCH[1]}" != "$IMAGE" ]; then
+              reject prebuilt-image "$IMAGE@sha256:<64 hex digits> (the image input's repository, by digest)"
+            fi
+            if [ "$E2E" = "true" ]; then reject prebuilt-image "empty with e2e (the end-to-end test builds its own image)"; fi
+          fi
           if (( failures > 0 )); then exit 1; fi
           echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
           # Anchored non-cone patterns: the deploy job fetches only these, so no .npmrc of the app steers npx.
@@ -314,9 +331,10 @@ jobs:
       packages: write
     outputs:
       image: ${{ steps.ref.outputs.image }}
-      digest: ${{ steps.push.outputs.digest }}
+      digest: ${{ steps.push.outputs.digest || steps.retag.outputs.digest }}
     steps:
-      - uses: actions/checkout@v7
+      - if: inputs.prebuilt-image == ''
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.tag }}
           persist-credentials: false
@@ -339,6 +357,7 @@ jobs:
           TAG: ${{ inputs.tag }}
         run: echo "image=$IMAGE:$TAG" >> "$GITHUB_OUTPUT"
       - id: push
+        if: inputs.prebuilt-image == ''
         uses: docker/build-push-action@v7
         with:
           context: ${{ inputs.context }}
@@ -353,6 +372,24 @@ jobs:
             org.opencontainers.image.version=${{ inputs.tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      # The tested image gets the release tag; with one source, imagetools copies its manifest unchanged, so the tag's
+      # digest must be the one the caller passed.
+      - id: retag
+        name: Tag the prebuilt image
+        if: inputs.prebuilt-image != ''
+        env:
+          PREBUILT_IMAGE: ${{ inputs.prebuilt-image }}
+          IMAGE_REF: ${{ steps.ref.outputs.image }}
+        run: |
+          digest="${PREBUILT_IMAGE##*@}"
+          docker buildx imagetools create --tag "$IMAGE_REF" "$PREBUILT_IMAGE"
+          tagged="$(docker buildx imagetools inspect "$IMAGE_REF" --format '{{.Manifest.Digest}}')"
+          if [ "$tagged" != "$digest" ]; then
+            echo "::error::$IMAGE_REF has the digest ${tagged:-none} after the tag, not $digest; nothing is deployed."
+            exit 1
+          fi
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          echo "Tagged $PREBUILT_IMAGE as $IMAGE_REF."
       - if: inputs.e2e
         uses: actions/upload-artifact@v7
         with:
