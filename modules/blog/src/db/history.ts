@@ -5,6 +5,10 @@
 // The app exports it once from its own tables as JSON (README, "Moving an existing blog") and passes it
 // to `softure-blog publish --history <file>`. It applies only to an article that has no row yet, so a
 // re-run with the same file changes nothing, and the article file's own `published_at` still wins.
+//
+// Timestamps stay the text they were given and go into Postgres as text, so `…:12.421579Z` (what a
+// `timestamptz` holds) is stored to the microsecond; a `Date` would keep only milliseconds. Digits past
+// the sixth are rounded by Postgres.
 import { z } from "zod";
 
 const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
@@ -49,12 +53,15 @@ export const articleHistorySchema = z
     });
   });
 
-/** What the module keeps from an article's earlier life. */
+/**
+ * What the module keeps from an article's earlier life. Timestamps are ISO 8601 text with a time zone,
+ * as the history gives them, so their full precision reaches the database.
+ */
 export interface ArticleHistory {
-  readonly publishedAt: Date | null;
+  readonly publishedAt: string | null;
   /** Kept only with `publishedAt`. */
-  readonly updatedAt: Date | null;
-  readonly oldSlugs: readonly { readonly slug: string; readonly changedAt: Date | null }[];
+  readonly updatedAt: string | null;
+  readonly oldSlugs: readonly { readonly slug: string; readonly changedAt: string | null }[];
 }
 
 /** History by article id. */
@@ -66,16 +73,16 @@ export function parseArticleHistory(input: unknown): { readonly ok: true; readon
   if (!parsed.success) {
     return { ok: false, errors: parsed.error.issues.map((issue) => `${issue.path.join(".") || "history"}: ${issue.message}`) };
   }
-  const toDate = (value: string | null | undefined) => (value === null || value === undefined ? null : new Date(value));
+  const orNull = (value: string | null | undefined) => value ?? null;
   return {
     ok: true,
     history: new Map(
       parsed.data.articles.map((entry) => [
         entry.id,
         {
-          publishedAt: toDate(entry.published_at),
-          updatedAt: toDate(entry.updated_at),
-          oldSlugs: entry.old_slugs.map((old) => ({ slug: old.slug, changedAt: toDate(old.changed_at) })),
+          publishedAt: orNull(entry.published_at),
+          updatedAt: orNull(entry.updated_at),
+          oldSlugs: entry.old_slugs.map((old) => ({ slug: old.slug, changedAt: orNull(old.changed_at) })),
         },
       ]),
     ),

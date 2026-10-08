@@ -26,7 +26,7 @@ const range = (min: number, max: number) =>
 const byKind = (article: number, term: number) =>
   z.strictObject({ article: z.number().int().min(0).default(article), term: z.number().int().min(0).default(term) }).prefault({});
 
-/** Thresholds; the defaults are FIRE's, chosen for answer-first texts that AI assistants quote. */
+/** Thresholds; the defaults suit answer-first texts that AI assistants quote. */
 export const qualityLimitsSchema = z
   .strictObject({
     words: z.strictObject({ article: range(600, 4000), term: range(60, 700) }).prefault({}),

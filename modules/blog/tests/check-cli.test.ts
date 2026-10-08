@@ -1,5 +1,4 @@
-// `softure-blog check` (FIRE `scripts/blog-check.mts`, `content.test.ts`): the gate over files without
-// a database, its exit codes, `--external` and `--today`; and `publish` refusing a text the default
+// `softure-blog check`: the gate over files without a database, its exit codes, `--external` and `--today`; and `publish` refusing a text the default
 // gate rejects. Article fixtures are .txt files: as .md, the repository link check would read their
 // site paths as file links.
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";

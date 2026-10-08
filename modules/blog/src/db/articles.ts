@@ -1,9 +1,9 @@
-// The article store (FIRE_TRACKER `src/db/blog.ts`): the one write, `publishArticle`, called by the
-// publish run, and the reads the blog pages use. Withdrawing is the same write with the status
-// `withdrawn`; rows are never deleted, because a withdrawn address answers 410, not 404.
+// The article store: the one write, `publishArticle`, called by the publish run, and the reads the
+// blog pages use. Withdrawing is the same write with the status `withdrawn`; rows are never deleted,
+// because a withdrawn address answers 410, not 404.
 import type { ModuleContext } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
-import { and, asc, desc, eq, ne, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, ne, sql, type SQL } from "drizzle-orm";
 import type { BlogArticle, BlogArticleInput, BlogArticleKind, BlogArticleState, BlogPublishResult } from "../contract.js";
 import type { ArticleHistory } from "./history.js";
 import { articles, slugHistory } from "./schema.js";
@@ -75,11 +75,11 @@ export async function publishArticle(ctx: BlogContext, input: BlogArticleInput, 
       }
       const [inserted] = await tx
         .insert(articles)
-        .values({ id: input.id, ...content, publishedAt, updatedAt, createdAt: now })
+        .values({ id: input.id, ...content, publishedAt: toTimestamp(publishedAt), updatedAt: toTimestamp(updatedAt), createdAt: now })
         .returning();
       const oldSlugs = history?.oldSlugs.filter((old) => old.slug !== input.slug) ?? [];
       if (oldSlugs.length > 0) {
-        await tx.insert(slugHistory).values(oldSlugs.map((old) => ({ oldSlug: old.slug, articleId: input.id, changedAt: old.changedAt ?? now })));
+        await tx.insert(slugHistory).values(oldSlugs.map((old) => ({ oldSlug: old.slug, articleId: input.id, changedAt: toTimestamp(old.changedAt) ?? now })));
       }
       const after = readState(requireRow(inserted, input.id));
       return history === undefined
@@ -119,6 +119,11 @@ export async function publishArticle(ctx: BlogContext, input: BlogArticleInput, 
       previousSlug: isSlugChanged ? existing.slug : null,
     };
   });
+}
+
+/** A history timestamp goes in as text, so Postgres keeps its microseconds; a `Date` goes in as is. */
+function toTimestamp(value: Date | string | null): Date | SQL | null {
+  return typeof value === "string" ? sql`${value}::timestamptz` : value;
 }
 
 export interface PublishArticleOptions {

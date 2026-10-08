@@ -1,5 +1,4 @@
-// The article renderer (FIRE_TRACKER `src/lib/blog-markdown.test.ts`, in English, with the site's
-// host and the glossary path as options). The oracle is HTML written by hand, not a second render.
+// The article renderer (in English, with the site's host and the glossary path as options). The oracle is HTML written by hand, not a second render.
 import { blogMessages } from "@softure-ai/blog";
 import { renderArticle, slugifyHeading } from "@softure-ai/blog/server";
 import { describe, expect, it } from "vitest";

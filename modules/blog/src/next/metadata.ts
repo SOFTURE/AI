@@ -4,8 +4,10 @@
 // with the text it read, and can extend the result:
 //
 //   export async function generateMetadata({ params }) {
-//     const article = await getTextBySlug(getSoftureConfig(), (await params).slug);
-//     return article === null ? {} : { ...buildArticleMetadata(getSoftureConfig(), article), keywords: [...] };
+//     const config = getSoftureConfig();
+//     const article = await getTextBySlug(config, (await params).slug);
+//     if (article?.status !== "published" || article.kind !== "article") return {};
+//     return { ...buildArticleMetadata(config, article), keywords: [...] };
 //   }
 import { formatMessage, getSiteUrls, type SoftureConfig } from "@softure-ai/core";
 // `next/types.js`, not `next`: the root entry adds Next's globals (a read-only NODE_ENV) to every

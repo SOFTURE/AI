@@ -1,4 +1,4 @@
-// 301 and 410 for text addresses (FIRE's blog-route cases), the decision cache and the 410 page.
+// 301 and 410 for text addresses, the decision cache and the 410 page.
 import type { BlogArticleKind, BlogArticleStatus } from "@softure-ai/blog";
 import { buildGonePage, createCachedBlogPathDecider, decideBlogPath, type BlogPathLookup, type BlogRoutes } from "@softure-ai/blog/server";
 import { describe, expect, it, vi } from "vitest";
