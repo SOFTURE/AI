@@ -28,6 +28,7 @@ the old flex row 98. Short label: the label text stands at the same place (top 1
 | 1 | Warning | A field with a tooltip hint loses 4 px above its control (24 → 20 px row). Visible on adoption, but it makes fields with and without a "?" line up side by side, which the old row broke. | Kept and stated in the CHANGELOG. |
 | 2 | Check | `SelectField` gets the slot through its own `ClassNames<FieldSlot>` (test 4). | No change. |
 | 3 | Check | No client code added to the server-safe `Field`. | No change. |
+| 4 | Critical | With both label rows off `flex items-baseline`, no ui component wrote `sft:items-baseline`, so it left `styles.css`; `modules/billing` (`PricingTiles` price row) writes it, and its architecture test failed in the pre-push run. A released billing on ui 0.1.14 would lose the baseline alignment. The class is the only one the change dropped (class sets of `foundation/ui/src/ui` compared with master). | Fixed: `foundation/ui/src/ui/retained-classes.ts` keeps it in the compiled sheet, with the rule for removing it. |
 
 ## Gates
 
