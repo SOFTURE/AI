@@ -35,7 +35,7 @@ on:
       deploy-cli-version:
         description: Version of @softure-ai/deploy that records the result
         type: string
-        default: 0.1.5
+        default: 0.1.6
 
 permissions:
   contents: read

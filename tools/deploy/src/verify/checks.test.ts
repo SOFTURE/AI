@@ -111,6 +111,37 @@ describe("checkResponse", () => {
     });
     expect(checks[1]).toEqual({ kind: "header", passed: false, detail: 'x-frame-options: "SAMEORIGIN", expected "DENY"' });
   });
+
+  it("checks every item of a header list, case-insensitively, with one outcome per item", () => {
+    const checks = checkResponse({
+      route: route(),
+      headers: { link: ['rel="API-catalog"', 'rel="service-desc"', 'rel="describedby"'] },
+      response: response({ headers: { link: '</a>; rel="api-catalog", </b>; rel="service-desc"' } }),
+      baseUrl: BASE,
+    });
+    expect(checks.slice(1)).toEqual([
+      { kind: "header", passed: true, detail: 'link has "rel=\\"API-catalog\\""' },
+      { kind: "header", passed: true, detail: 'link has "rel=\\"service-desc\\""' },
+      {
+        kind: "header",
+        passed: false,
+        detail: 'link: "</a>; rel=\\"api-catalog\\", </b>; rel=\\"service-desc\\"", expected "rel=\\"describedby\\""',
+      },
+    ]);
+  });
+
+  it("fails every item of a header list when the header is missing", () => {
+    const checks = checkResponse({
+      route: route(),
+      headers: { "cache-control": ["private", "no-store"] },
+      response: response(),
+      baseUrl: BASE,
+    });
+    expect(checks.slice(1)).toEqual([
+      { kind: "header", passed: false, detail: 'missing cache-control, expected "private"' },
+      { kind: "header", passed: false, detail: 'missing cache-control, expected "no-store"' },
+    ]);
+  });
 });
 
 describe("mergeHeaderChecks", () => {

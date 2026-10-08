@@ -30,7 +30,7 @@ on:
       deploy-cli-version:
         description: Version of @softure-ai/deploy that writes the report
         type: string
-        default: 0.1.5
+        default: 0.1.6
       node-version:
         description: Node.js version that runs the deploy CLI
         type: string
