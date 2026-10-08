@@ -16,6 +16,7 @@ import {
   registerAccount,
   selectField,
   submitLogin,
+  tickCheckbox,
   type AuthFormCopy,
 } from "@softure-ai/testing/playwright";
 import { CHROMIUM_PATH, hasChromium } from "./chromium.js";
@@ -30,8 +31,16 @@ const COPY: AuthFormCopy = {
 };
 const PASSWORD = "correct horse battery";
 
-function renderAuthForm(kind: "register" | "login"): string {
-  const consent = kind === "register" ? `<label><input type="checkbox" name="consent" required> ${COPY.fields.consent}</label>` : "";
+// A consent box drawn by the label over a clipped native input (`sr-only`): the mouse cannot reach the input.
+const HIDDEN_CONSENT = `<label style="position:relative;display:inline-flex;gap:8px">
+  <input type="checkbox" name="consent" required style="position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">
+  <span aria-hidden="true" style="display:inline-block;width:16px;height:16px;border:1px solid"></span>
+  <span>I accept the <a href="/terms">terms</a>.</span>
+</label>`;
+
+function renderAuthForm(kind: "register" | "login", consentMarkup?: string): string {
+  const visibleConsent = `<label><input type="checkbox" name="consent" required> ${COPY.fields.consent}</label>`;
+  const consent = kind === "register" ? (consentMarkup ?? visibleConsent) : "";
   const submit = kind === "register" ? COPY.register.submit : COPY.login.submit;
   return `<main><form id="form">
     <label for="email">${COPY.fields.email}</label><input id="email" name="email" type="email">
@@ -71,6 +80,11 @@ const SELECT_PAGE = `<main><form>
   }
 </script></main>`;
 
+const CHECKBOX_PAGE = `<main>
+  <label><input type="checkbox" name="ticked" checked> Ticked</label>
+  <label><input type="checkbox" name="locked" disabled> Locked</label>
+</main>`;
+
 let server: Server;
 let baseURL: string;
 let browser: Browser;
@@ -101,6 +115,8 @@ beforeAll(async () => {
         return;
       }
       if (path === "/register") return sendHtml(response, 200, renderAuthForm("register"));
+      if (path === "/register-hidden-consent") return sendHtml(response, 200, renderAuthForm("register", HIDDEN_CONSENT));
+      if (path === "/checkboxes") return sendHtml(response, 200, CHECKBOX_PAGE);
       if (path === "/login") return sendHtml(response, 200, renderAuthForm("login"));
       if (path === "/account") return sendHtml(response, 200, "<h1>Account</h1>");
       if (path === "/select") return sendHtml(response, 200, SELECT_PAGE);
@@ -136,6 +152,23 @@ describe.skipIf(!hasChromium)("Playwright helpers in a browser", () => {
     await registerAccount(page, { copy: COPY, email: "ada@example.com", password: PASSWORD });
     expect(new URL(page.url()).pathname).toBe("/account");
     expect(registered).toEqual(["ada@example.com"]);
+    await page.context().close();
+  });
+
+  it("registers through a form whose consent input is visually hidden under the label's own box", async () => {
+    const page = await openPage();
+    await registerAccount(page, { copy: COPY, email: "grace@example.com", password: PASSWORD, path: "/register-hidden-consent" });
+    expect(new URL(page.url()).pathname).toBe("/account");
+    expect(registered).toEqual(["grace@example.com"]);
+    await page.context().close();
+  });
+
+  it("leaves a ticked checkbox ticked and rejects one that cannot be ticked", async () => {
+    const page = await openPage();
+    await page.goto("/checkboxes");
+    await tickCheckbox(page.getByLabel("Ticked"));
+    await expect(page.getByLabel("Ticked").isChecked()).resolves.toBe(true);
+    await expect(tickCheckbox(page.getByLabel("Locked"), { timeout: 500 })).rejects.toThrow(/a disabled checkbox cannot be ticked/);
     await page.context().close();
   });
 

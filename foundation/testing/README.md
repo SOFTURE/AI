@@ -105,8 +105,9 @@ test("a new account lands on its page", async ({ page }) => {
 | --- | --- |
 | `randomClientAddress()`, `clientAddressHeaders(address?)`, `CLIENT_ADDRESS_HEADER` | A random address in 198.18.0.0/15 (reserved for tests) in `cf-connecting-ip`, the header `@softure-ai/security` keys rate limits on, so every test gets its own buckets. |
 | `openPageAsNewClient(browser, options?)` | A page in a new context with its own address: a second visitor with no cookies. |
-| `registerAccount(page, { copy, email, password, path?, landingPath? })` | Registers through auth's form (consent ticked) and waits for `/account`. `copy` is `authMessages.<locale>` of `@softure-ai/auth`; `landingPath: null` skips the check. |
+| `registerAccount(page, { copy, email, password, path?, landingPath? })` | Registers through auth's form (consent ticked with `tickCheckbox`) and waits for `/account`. `copy` is `authMessages.<locale>` of `@softure-ai/auth`; `landingPath: null` skips the check. |
 | `logIn(page, { copy, email, password, path?, landingPath? })` | Opens `/login`, logs in and waits for `/account`. |
+| `tickCheckbox(checkbox, { timeout? })` | Ticks a checkbox and asserts it is checked; a ticked box stays ticked. Works on a native input that is transparent, clipped (`sr-only`) or covered by a custom box, where `locator.check()` stops on "intercepts pointer events"; a disabled box fails. |
 | `submitLogin(page, { copy, email, password })` | Fills and submits the login form already on the page and waits for the action's answer; asserts nothing. |
 | `uniqueName(prefix)`, `uniqueEmail(prefix, domain?)` | Names no other test, worker or run produces (`example.com` addresses), so cleanup finds exactly its own rows. |
 | `withDatabase(open, work)` | Opens a connection (a `@softure-ai/db` `createDatabase` call), runs `work`, closes it whatever happens. |
