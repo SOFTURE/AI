@@ -4,6 +4,16 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`ui@x.y.z`).
 
+## 0.1.13
+
+- `Tabs`: ARIA tabs with roving focus (arrows wrap, Home and End), `automatic` or `manual` activation, controlled or
+  uncontrolled; only the selected panel renders unless a panel is `isAlwaysMounted` (kept, hidden).
+- `TabPanels` (server-safe): the panels of a tab bar made of links, the active one plus the always-mounted ones hidden.
+- `SegmentedNav` (server-safe): links with the segmented look in a named `<nav>`, `aria-current` on the current one,
+  `LinkComponent` for a framework link.
+- `CollapsibleSection`: a framed section whose bar (arrow, title, `subtitle`) toggles content kept mounted;
+  `headingLevel` wraps the toggle in a heading. It shares its arrow with `CardDisclosure`, whose markup is unchanged.
+
 ## 0.1.12
 
 - `ActionForm` takes a `submit` slot, added to the submit button's classes in both layouts (page form and modal

@@ -4,6 +4,7 @@ import { formatMessage } from "@softure-ai/core";
 import { type ReactNode, useState } from "react";
 import { type ClassNames, createSlotClassGetter } from "./class-names.js";
 import { type CopyProps, getCopy } from "./copy.js";
+import { DisclosureArrow } from "./disclosure-arrow.js";
 import { useUiLocale } from "./locale.js";
 
 export type CardDisclosureSlot = "bar" | "toggle" | "arrow" | "header" | "content";
@@ -50,19 +51,7 @@ export function CardDisclosure({ title, header, defaultOpen, children, className
           onClick={() => setIsOpen((open) => !open)}
           className={slot("toggle")}
         />
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-          focusable="false"
-          className={arrowClass === "" ? undefined : arrowClass}
-        >
-          <path d="m9 6 6 6-6 6" />
-        </svg>
+        <DisclosureArrow className={arrowClass === "" ? undefined : arrowClass} />
         <div className={slot("header")}>{header}</div>
       </div>
       <div hidden={!isOpen} className={slot("content")}>

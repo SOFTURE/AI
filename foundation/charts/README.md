@@ -154,7 +154,7 @@ labels; `messages` the built-in copy.
 | Component | What |
 | --- | --- |
 | `ChartPlot` | the SVG in one viewBox (`PLOT_WIDTH` × `PLOT_HEIGHT`, 1000 × 400) stretched to its box, plus an HTML `overlay` |
-| `GridLines`, `Baseline`, `GuideLine`, `SeriesLine` | SVG lines in viewBox units; a guide is `dashed`, `dotted` or `solid`, a series takes a colour `slot` (`seriesSlot(index)`); every line takes [look options](#line-and-marker-options) |
+| `GridLines`, `Baseline`, `GuideLine`, `SeriesLine` | SVG lines in viewBox units; a guide is `dashed`, `dotted` or `solid`, a series takes a colour `slot` (`seriesSlot(index)`) and `curve` (`linear` or `smooth`); every line takes [look options](#line-and-marker-options) |
 | `ValueAxis`, `valueAxisTicks` | value labels at heights in %; from four labels, every other one is hidden on narrow screens, counted from the top (`narrow="all"` keeps them all) |
 | `TimeAxis`, `timeAxisTicks`, `numberAxisTicks` | date or number labels at % of the width; with `ends`, the ends sit at the edges and middle labels stay clear of them; an optional second row ([Horizontal axes](#horizontal-axes)) |
 | `Legend`, `LegendItem`, `LegendSwatch` | swatches `box`, `dot`, `line`, `dashed`, `dotted` in a series slot |
@@ -162,6 +162,20 @@ labels; `messages` the built-in copy.
 | `ChartPin` | an event pin on a curve: a dashed line from the bottom up to a point and a round dot on it ([Pins](#pins)) |
 | `ChartDataTable` | the visually hidden table |
 | `ChartCursor` | the client cursor around the frame; takes `points` as percentages computed on the server |
+
+### Paths
+
+| Helper | What |
+| --- | --- |
+| `linePath(points)` | a polyline through the points, in order |
+| `smoothLinePath(points)` | a smooth curve through every point (monotone cubic, Fritsch–Carlson): it never overshoots between two points, so a step in the data draws no dip or peak; a vertical step stays vertical |
+| `areaPath(points, { baseline, curve })` | the closed shape under a line, to fill: down to `baseline` (a y, `PLOT_HEIGHT` by default) or back along a lower edge of points (same x-range, left to right), so a stacked band is `areaPath(upper, { baseline: lower })`; `curve: "smooth"` smooths both edges |
+
+```tsx
+<path d={areaPath(points, { curve: "smooth" })} className="app-area" />
+<path d={areaPath(upper, { baseline: lower })} style={{ fill: band.colour }} />
+<SeriesLine points={points} slot={0} curve="smooth" />
+```
 
 Positions are percentages of the plot (`toPercent`), computed once from the scales, so the overlay and the
 drawing cannot drift apart. Classes are `sft-chart-*` in the `softure` layer; an app's own classes win.
