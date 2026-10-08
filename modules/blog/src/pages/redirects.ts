@@ -92,15 +92,38 @@ export interface GonePageCopy {
   readonly link: string;
 }
 
+/** A further way on from the 410 page, after the link to the listing; the label in the app's locale. */
+export interface GonePageLink {
+  readonly href: string;
+  readonly label: string;
+}
+
+/** What `blog({ gonePage: { render } })` receives to write the whole 410 body. */
+export interface GonePageRenderInput {
+  readonly copy: GonePageCopy;
+  readonly lang: string;
+  readonly indexPath: string;
+  readonly links: readonly GonePageLink[];
+}
+
+export interface GonePageOptions {
+  readonly lang: string;
+  readonly indexPath: string;
+  /** Links listed under the way to the listing (a calculator, a sign-up). */
+  readonly links?: readonly GonePageLink[];
+}
+
 function escapeHtml(text: string): string {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
 /**
- * The body of a 410: a short page with the way on. No React (the proxy renders no components), no
- * script, no external resource; `noindex`. Every value is escaped: copy comes from the app's overrides.
+ * The body of a 410: a short page with the way on to the listing and the app's further `links`. No
+ * React (the proxy renders no components), no script, no external resource; `noindex`. Every value is
+ * escaped: copy and links come from the app's options.
  */
-export function buildGonePage(copy: GonePageCopy, options: { readonly lang: string; readonly indexPath: string }): string {
+export function buildGonePage(copy: GonePageCopy, options: GonePageOptions): string {
+  const links = options.links ?? [];
   return [
     "<!doctype html>",
     `<html lang="${escapeHtml(options.lang)}">`,
@@ -113,6 +136,7 @@ export function buildGonePage(copy: GonePageCopy, options: { readonly lang: stri
     '<body style="font-family:system-ui,sans-serif;max-width:40rem;margin:4rem auto;padding:0 1rem;line-height:1.5">',
     `<h1>${escapeHtml(copy.heading)}</h1>`,
     `<p>${escapeHtml(copy.body)} <a href="${escapeHtml(options.indexPath)}">${escapeHtml(copy.link)}</a></p>`,
+    ...(links.length === 0 ? [] : ["<ul>", ...links.map((link) => `<li><a href="${escapeHtml(link.href)}">${escapeHtml(link.label)}</a></li>`), "</ul>"]),
     "</body>",
     "</html>",
     "",

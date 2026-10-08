@@ -1,6 +1,7 @@
 // The options an app passes to `blog({ ... })` in softure.config.ts, parsed at startup.
 import { z } from "zod";
 import { qualitySettingSchema } from "./quality/options.js";
+import type { GonePageRenderInput } from "./pages/redirects.js";
 import type { ArticleImagePolicy } from "./render/images.js";
 import { EXTERNAL_LINK_MARKERS, type BlockPlugin } from "./render/render-article.js";
 
@@ -162,6 +163,23 @@ const skillSectionSchema = z.strictObject({
     .refine((body) => !hasTopHeading(body), "must not hold a # or ## heading; use ### and deeper (the title is the section's ## heading)"),
 });
 
+/** A 410 link: a path from the site root or an https URL, never another scheme. */
+const goneHrefSchema = z
+  .string()
+  .trim()
+  .refine((href) => (href.startsWith("/") && !href.startsWith("//")) || (href.startsWith("https://") && URL.canParse(href)), "must be a path from the site root or an https URL, e.g. /calculator");
+
+const gonePageSchema = z.strictObject({
+  /** Further ways on, listed under the link to the listing. */
+  links: z.array(z.strictObject({ href: goneHrefSchema, label: localizedTextSchema })).max(5).default([]),
+  /**
+   * `(input) => html`: the whole body of the 410, written by the app (its own HTML, trusted like a
+   * block plugin's; the proxy still answers 410 with `text/html`). `input.links` holds the labels in
+   * the app's locale.
+   */
+  render: z.custom<(input: GonePageRenderInput) => string>((value) => typeof value === "function", "must be a function: (input) => html").optional(),
+});
+
 const skillSchema = z.strictObject({
   /** The app's own sections (its numbers, block plugins, fields), written to `references/app.md` of the skill. */
   sections: z.array(skillSectionSchema).superRefine((sections, ctx) => {
@@ -214,6 +232,8 @@ export const blogOptionsSchema = z
      * quality gate; without it every image renders as its alt text and the gate refuses it.
      */
     images: imagePolicySchema.optional(),
+    /** The page a withdrawn text answers with (410): extra links, or the app's own body. */
+    gonePage: gonePageSchema.default({ links: [] }),
     /** How long the listing and glossary cache their reads; keep it equal to the pages' `revalidate`. */
     revalidateSeconds: z.number().int().min(1).default(DEFAULT_REVALIDATE_SECONDS),
     /** The text quality gate (`softure-blog check`, and every publish); `false` turns it off. */

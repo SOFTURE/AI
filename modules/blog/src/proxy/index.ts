@@ -53,7 +53,7 @@ export function createBlogRedirects(config: SoftureConfig, options: BlogRedirect
     findRedirect: async (oldSlug) => findSlugRedirect(await getContext(), oldSlug),
   };
   const decide = createCachedBlogPathDecider(routes, lookup, options);
-  const gonePage = buildGonePage(getBlogMessages(config).gone, { lang: config.locale, indexPath: routes.index });
+  const gonePage = renderGonePage(config, routes.index);
 
   return async (request) => {
     if (request.method !== "GET" && request.method !== "HEAD") return null;
@@ -72,6 +72,14 @@ export function createBlogRedirects(config: SoftureConfig, options: BlogRedirect
     }
     return null;
   };
+}
+
+/** The 410 body: the app's `gonePage.render` when given, else the module's page with the app's links. */
+function renderGonePage(config: SoftureConfig, indexPath: string): string {
+  const { gonePage } = getBlogOptions(config);
+  const links = gonePage.links.map((link) => ({ href: link.href, label: link.label[config.locale] ?? link.label.en }));
+  const input = { copy: getBlogMessages(config).gone, lang: config.locale, indexPath, links };
+  return gonePage.render === undefined ? buildGonePage(input.copy, input) : gonePage.render(input);
 }
 
 export type BlogMarkdown = (request: Request) => Promise<Response | null>;

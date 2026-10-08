@@ -101,4 +101,16 @@ describe("buildGonePage", () => {
     expect(html).toContain('<p>Sorry &amp; bye. <a href="/blog">Blog</a></p>');
     expect(html).not.toContain("<script");
   });
+
+  it("lists the app's further links under the way to the listing, escaped", () => {
+    const html = buildGonePage(
+      { title: "Gone", heading: "Withdrawn", body: "Sorry.", link: "Blog" },
+      { lang: "en", indexPath: "/blog", links: [{ href: "/calculator?a=1&b=2", label: "Try the <calculator>" }, { href: "https://example.com/join", label: "Join" }] },
+    );
+    expect(html).toContain('<p>Sorry. <a href="/blog">Blog</a></p>\n<ul>\n<li><a href="/calculator?a=1&amp;b=2">Try the &lt;calculator&gt;</a></li>\n<li><a href="https://example.com/join">Join</a></li>\n</ul>\n</body>');
+  });
+
+  it("adds no list without links", () => {
+    expect(buildGonePage({ title: "Gone", heading: "Withdrawn", body: "Sorry.", link: "Blog" }, { lang: "en", indexPath: "/blog", links: [] })).not.toContain("<ul>");
+  });
 });
