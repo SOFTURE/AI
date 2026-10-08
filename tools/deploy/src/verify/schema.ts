@@ -21,10 +21,12 @@ const headerChecksSchema = z
   .record(
     z.string().regex(HEADER_NAME, "a header name in lower case"),
     z
-      .union([z.string().min(1), z.null()])
-      .describe("Text the header value must contain (case-insensitive), or null when the header must be absent."),
+      .union([z.string().min(1), z.array(z.string().min(1)).min(1), z.null()])
+      .describe(
+        "Text the header value must contain (case-insensitive), a list of texts it must all contain, or null when the header must be absent.",
+      ),
   )
-  .describe("Headers by lower-case name: text the value must contain, or null when the header must be absent.");
+  .describe("Headers by lower-case name: text (or a list of texts) the value must contain, or null when the header must be absent.");
 
 const requestHeadersSchema = z
   .record(

@@ -279,10 +279,18 @@
                 "minLength": 1
               },
               {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              {
                 "type": "null"
               }
             ],
-            "description": "Text the header value must contain (case-insensitive), or null when the header must be absent."
+            "description": "Text the header value must contain (case-insensitive), a list of texts it must all contain, or null when the header must be absent."
           }
         },
         "routes": {
@@ -340,12 +348,20 @@
                       "minLength": 1
                     },
                     {
+                      "minItems": 1,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    {
                       "type": "null"
                     }
                   ],
-                  "description": "Text the header value must contain (case-insensitive), or null when the header must be absent."
+                  "description": "Text the header value must contain (case-insensitive), a list of texts it must all contain, or null when the header must be absent."
                 },
-                "description": "Headers by lower-case name: text the value must contain, or null when the header must be absent."
+                "description": "Headers by lower-case name: text (or a list of texts) the value must contain, or null when the header must be absent."
               },
               "method": {
                 "default": "GET",

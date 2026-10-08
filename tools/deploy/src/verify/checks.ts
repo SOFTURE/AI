@@ -112,6 +112,9 @@ export function checkResponse(options: {
   const outcomes = [checkStatus(route, response)];
   if (route.redirect !== undefined) outcomes.push(checkRedirect(route.redirect, response, baseUrl));
   if (needsBody(route)) outcomes.push(...checkMarkers(route, response.body ?? ""));
-  for (const [name, expected] of Object.entries(headers)) outcomes.push(checkHeader(name, expected, response));
+  for (const [name, expected] of Object.entries(headers)) {
+    // A list is one check per item, each reported like a single substring.
+    for (const item of Array.isArray(expected) ? expected : [expected]) outcomes.push(checkHeader(name, item, response));
+  }
   return outcomes;
 }

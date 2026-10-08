@@ -4,6 +4,11 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
+## 0.1.6
+
+- A `verify` header check also takes a list of texts (`"vary": ["accept", "accept-encoding"]`): the header value must
+  contain every item, case-insensitive; each item is one check in the route's row. A text and `null` work as before.
+
 ## 0.1.5
 
 - `deploy-app.yml` takes `prebuilt-image` (`<image>@sha256:<digest>` from the `image` repository): an image the app

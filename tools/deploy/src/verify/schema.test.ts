@@ -35,6 +35,19 @@ describe("parseDeployConfig", () => {
     expect(parsed.ok && parsed.config.verify?.routes[0]).toEqual({ ...route, method: "GET", requestHeaders: {} });
   });
 
+  it("keeps a header list and refuses an empty list or an empty item", () => {
+    const parsed = parseDeployConfig({ verify: { headers: { vary: ["accept", "accept-encoding"] }, routes: [{ path: "/" }] } });
+    expect(parsed.ok && parsed.config.verify?.headers).toEqual({ vary: ["accept", "accept-encoding"] });
+    expect(parseDeployConfig({ verify: { routes: [{ path: "/", headers: { link: [] } }] } })).toEqual({
+      ok: false,
+      issues: ["verify.routes.0.headers.link: Too small: expected array to have >=1 items"],
+    });
+    expect(parseDeployConfig({ verify: { routes: [{ path: "/", headers: { link: [""] } }] } })).toEqual({
+      ok: false,
+      issues: ["verify.routes.0.headers.link.0: Too small: expected string to have >=1 characters"],
+    });
+  });
+
   it("keeps a method, a body and request headers", () => {
     const route = {
       path: "/api/mcp",
