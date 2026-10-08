@@ -42,6 +42,8 @@ export const pl = {
   },
   glossary: {
     title: "Słownik pojęć",
+    /** A glossary term's page title with the brand: `{title}` the term, `{brand}` the site. */
+    termTitleWithBrand: "{title} | {brand}",
     description: "Krótkie definicje pojęć, których używają teksty, każda z datą sprawdzenia i źródłami.",
     empty: "Pierwsze definicje są w drodze.",
     explainedIn: "Rozwijamy w tekstach",
