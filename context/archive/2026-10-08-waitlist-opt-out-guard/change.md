@@ -1,12 +1,13 @@
 ---
 change_id: waitlist-opt-out-guard
 title: "waitlist: a sign-up without double opt-in never lifts an opt-out (issue #237)"
-status: planned
+status: archived
 roadmap_item: null
 issue: 237
 branch: claude/project-thread-uu5ivf
 created: 2026-10-08
 updated: 2026-10-08
+archived_at: 2026-10-08
 ---
 
 ## Intent

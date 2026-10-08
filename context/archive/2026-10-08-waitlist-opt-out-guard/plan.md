@@ -72,7 +72,7 @@ Done when: the new tests were seen red, then green; gates green (typecheck, lint
 ### Phase 1: the guard
 
 #### Automated
-- [ ] 1.1 Guard tests seen red, then green
-- [ ] 1.2 Action answers a suppressed address like a sign-up that counted
-- [ ] 1.3 Gates green (typecheck, lint, test, build)
-- [ ] 1.4 README, CHANGELOG and version 0.1.8
+- [x] 1.1 Guard tests seen red, then green — 0bebb36
+- [x] 1.2 Action answers a suppressed address like a sign-up that counted — 0bebb36
+- [x] 1.3 Gates green (typecheck, lint, test, build) — 0bebb36
+- [x] 1.4 README, CHANGELOG and version 0.1.8 — 0bebb36
