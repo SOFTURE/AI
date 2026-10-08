@@ -6,6 +6,12 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## 0.1.9
 
+- `copyAccount({ from, to, userId, commit?, exclude?, include?, onMissingReference? })` in `/server` copies one account
+  with every row it owns from one database to another. The rows are found through foreign keys (CASCADE, RESTRICT or
+  NO ACTION, transitively, from `auth.users`), plus the account's email-keyed consents, so module and app tables need
+  no list. Values travel as text with their types (a `timestamptz` keeps its microseconds, NULL stays NULL); the copy
+  is verified against the target and is a dry run unless `commit: true`. Refusals return `{ error, detail }` and write
+  nothing (README section 11).
 - `LegalFooter` takes `as="p"` or `as="span"`: an inline form for a line of text inside the app's own footer or form,
   with the links and separators as inline content (no `nav`, `ul` or `li`), the separator read as text (default
   `" · "`) and the `note` as a `span` after the links. The list form stays the default.
