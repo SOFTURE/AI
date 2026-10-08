@@ -81,7 +81,7 @@ export const en = {
     trial: {
       title: "Extend a trial",
       lead: "Give an account a longer trial for free, e.g. an invited user. It is not paid access: the account keeps its paid periods, and the trial lasts through the day you choose.",
-      email: "Account email",
+      email: "Email of the account to extend",
       lastDay: "Last day of the trial",
       submit: "Extend trial",
       pending: "Extending…",

@@ -83,7 +83,7 @@ export const pl: typeof en = {
     trial: {
       title: "Przedłuż okres próbny",
       lead: "Daj kontu dłuższy okres próbny za darmo, np. zaproszonej osobie. To nie jest płatny dostęp: konto zachowuje opłacone okresy, a okres próbny trwa do końca wybranego dnia.",
-      email: "E-mail konta",
+      email: "E-mail konta do przedłużenia",
       lastDay: "Ostatni dzień okresu próbnego",
       submit: "Przedłuż okres próbny",
       pending: "Przedłużanie…",
