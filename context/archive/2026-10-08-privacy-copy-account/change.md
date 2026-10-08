@@ -1,13 +1,13 @@
 ---
 change_id: privacy-copy-account
 title: "privacy: copy one account with its whole history from one database to another (issue #250)"
-status: impl_reviewed
+status: archived
 roadmap_item: null
 issue: 250
 branch: claude/project-thread-kwh9ba
 created: 2026-10-08
 updated: 2026-10-08
-archived_at: null
+archived_at: 2026-10-08
 ---
 
 ## Intent
