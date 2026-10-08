@@ -1,6 +1,6 @@
 // The suppression list: recording opt-outs from signed links and from operators, and reading them.
 import type { UnsubscribeEvent } from "@softure-ai/mailing";
-import { getRecipientKey, isSuppressed, liftSuppression, readUnsubscribeLink, signRecipientKey, suppressRecipient, unsubscribe } from "@softure-ai/mailing/server";
+import { getRecipientKey, getUnsubscribeLinkParams, isSuppressed, liftSuppression, readUnsubscribeLink, signRecipientKey, suppressRecipient, unsubscribe } from "@softure-ai/mailing/server";
 import { fakeMailProvider } from "@softure-ai/mailing/testing";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createConfig, createTestMailing, listSuppressions, NOW, PREVIOUS_SECRET, SECRET, type TestMailing } from "./support.js";
@@ -85,15 +85,15 @@ describe("the onUnsubscribed hook", () => {
     return createTestMailing(createConfig(fakeMailProvider(), { onUnsubscribed }));
   }
 
-  it("receives the recipient key and the source, inside the suppression's transaction", async () => {
+  it("receives the recipient key, the source and the link's scheme, inside the suppression's transaction", async () => {
     const seen: string[] = [];
     const test = await createWithHook(async (event, ctx) => {
       // The hook's context sees the row its transaction just wrote.
-      seen.push(`${event.recipientKey} ${event.source} ${String(await isSuppressed(ctx, "ada@example.org"))}`);
+      seen.push(`${event.recipientKey} ${event.source} ${event.link.scheme} ${String(await isSuppressed(ctx, "ada@example.org"))}`);
     });
     try {
       expect(await unsubscribe(test.ctx, ADA_TOKEN, "one-click", ENV)).toEqual({ ok: true, value: undefined });
-      expect(seen).toEqual([`${ADA_KEY} one-click true`]);
+      expect(seen).toEqual([`${ADA_KEY} one-click signed true`]);
     } finally {
       await test.database.close();
     }
@@ -197,11 +197,11 @@ describe("legacy unsubscribe links", () => {
     }
   });
 
-  it("records the opt-out of the address the app's verify names, and runs onUnsubscribed with its key", async () => {
+  it("records the opt-out of the address the app's verify names, and runs onUnsubscribed with its key and the verified values", async () => {
     expect(await unsubscribe(test.ctx, { scheme: "legacy", values: LEGACY }, "one-click", ENV)).toEqual({ ok: true, value: undefined });
     expect(verify).toHaveBeenCalledWith(LEGACY, test.ctx);
     expect(await listSuppressions(test.database)).toEqual([`${ADA_KEY} one-click ${NOW.toISOString()}`]);
-    expect(hook.mock.calls.map(([event]) => event)).toEqual([{ recipientKey: ADA_KEY, source: "one-click" }]);
+    expect(hook.mock.calls.map(([event]) => event)).toEqual([{ recipientKey: ADA_KEY, source: "one-click", link: { scheme: "legacy", values: LEGACY } }]);
   });
 
   it("refuses a link the app's verify does not accept, and stores nothing", async () => {
@@ -219,5 +219,54 @@ describe("legacy unsubscribe links", () => {
   it("never asks the app's verify about a signed link", async () => {
     expect(await unsubscribe(test.ctx, { scheme: "signed", token: ADA_TOKEN }, "page", ENV)).toEqual({ ok: true, value: undefined });
     expect(verify).not.toHaveBeenCalled();
+  });
+});
+
+describe("legacy unsubscribe links with optional parameters", () => {
+  let verify: ReturnType<typeof vi.fn<(values: Readonly<Record<string, string>>) => Promise<string | null>>>;
+  let hook: ReturnType<typeof vi.fn<(event: UnsubscribeEvent) => Promise<void>>>;
+  let test: TestMailing;
+
+  beforeEach(async () => {
+    verify = vi.fn((values: Readonly<Record<string, string>>) => Promise.resolve(values.t === "bare-token" || (values.u === "signup-17" && values.t === "old-hmac") ? "ada@example.org" : null));
+    hook = vi.fn(() => Promise.resolve());
+    test = await createTestMailing(createConfig(fakeMailProvider(), { legacyUnsubscribe: { params: { required: ["t"], optional: ["u"] }, verify }, onUnsubscribed: hook }));
+  });
+  afterEach(async () => {
+    await test.database.close();
+  });
+
+  const read = (query: string) => readUnsubscribeLink(new URLSearchParams(query), test.config);
+
+  it.each([
+    ["the bare-token form", "t=bare-token", { t: "bare-token" }],
+    ["the signed form", "u=signup-17&t=old-hmac", { u: "signup-17", t: "old-hmac" }],
+    ["an empty optional value as absent", "u=&t=bare-token", { t: "bare-token" }],
+  ])("reads %s with the values present", (_case, query, values) => {
+    expect(read(query)).toEqual({ scheme: "legacy", values });
+  });
+
+  it.each([
+    ["a missing required parameter", "u=signup-17"],
+    ["an optional value over 512 characters", `u=${"a".repeat(513)}&t=old-hmac`],
+  ])("reads %s as no link", (_case, query) => {
+    expect(read(query)).toBeNull();
+  });
+
+  it("gives the page back only the values the link carried", () => {
+    const link = read("t=bare-token");
+    expect(link === null ? null : getUnsubscribeLinkParams(link)).toEqual({ t: "bare-token" });
+  });
+
+  it("unsubscribes both forms and passes each one's values to verify and the hook", async () => {
+    for (const query of ["t=bare-token", "u=signup-17&t=old-hmac"]) {
+      expect(await unsubscribe(test.ctx, read(query), "page", ENV)).toEqual({ ok: true, value: undefined });
+    }
+    expect(verify.mock.calls.map(([values]) => values)).toEqual([{ t: "bare-token" }, { u: "signup-17", t: "old-hmac" }]);
+    expect(hook.mock.calls.map(([event]) => event.link)).toEqual([
+      { scheme: "legacy", values: { t: "bare-token" } },
+      { scheme: "legacy", values: { u: "signup-17", t: "old-hmac" } },
+    ]);
+    expect(await listSuppressions(test.database)).toEqual([`${ADA_KEY} page ${NOW.toISOString()}`]);
   });
 });

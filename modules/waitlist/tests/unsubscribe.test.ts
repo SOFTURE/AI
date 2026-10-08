@@ -50,10 +50,10 @@ describe("an unsubscribe and the waitlist's consents", () => {
 
   it("withdraws only what was granted, and nothing for an address that never signed up", async () => {
     await joinWaitlist(test.ctx, { ...JOIN, scopes: ["launch"] });
-    await withdrawWaitlistConsents({ recipientKey: ADA_KEY, source: "page" }, test.ctx);
+    await withdrawWaitlistConsents({ recipientKey: ADA_KEY, source: "page", link: { scheme: "signed" } }, test.ctx);
     expect(await readLedger(test)).toEqual(["launch true waitlist", "launch false unsubscribe"]);
 
-    await withdrawWaitlistConsents({ recipientKey: getRecipientKey("bob@example.com"), source: "page" }, test.ctx);
+    await withdrawWaitlistConsents({ recipientKey: getRecipientKey("bob@example.com"), source: "page", link: { scheme: "signed" } }, test.ctx);
     expect(await listConsentRows(test, getEmailKey("bob@example.com"))).toEqual([]);
   });
 

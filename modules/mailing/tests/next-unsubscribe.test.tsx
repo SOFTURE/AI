@@ -82,6 +82,21 @@ describe("the unsubscribe adapter", () => {
       expect(await listSuppressions(test.database)).toEqual([]);
     });
 
+    it.each([
+      ["no parameters", ""],
+      ["a forged signature", `r=${KEY}&t=${"A".repeat(43)}`],
+    ])("answers 200 for %s with oneClickInvalidLinkStatus 200, and stores nothing", async (_case, query) => {
+      scope.context = { ...test.ctx, config: createConfig(fakeMailProvider(), { oneClickInvalidLinkStatus: 200 }) };
+      expect((await post(query)).status).toBe(200);
+      expect(await listSuppressions(test.database)).toEqual([]);
+    });
+
+    it("still answers 500 on a database failure with oneClickInvalidLinkStatus 200", async () => {
+      scope.context = { ...test.ctx, config: createConfig(fakeMailProvider(), { oneClickInvalidLinkStatus: 200 }) };
+      await test.database.client.query("DROP TABLE mailing.suppressions");
+      expect((await post(QUERY)).status).toBe(500);
+    });
+
     it("answers 500 when the database fails, and logs no link", async () => {
       await test.database.client.query("DROP TABLE mailing.suppressions");
       expect((await post(QUERY)).status).toBe(500);

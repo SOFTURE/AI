@@ -35,7 +35,7 @@ describe("the mailing module", () => {
     expect(mailing({ from: FROM, provider: fakeMailProvider(), routes: { unsubscribe: "/opt-out" } }).routes.unsubscribe).toBe("/opt-out");
   });
 
-  it("keeps the options it was given and defaults the timeout to ten seconds, the claim windows to 15 minutes and 23 hours, and attempts to 5", () => {
+  it("keeps the options it was given and defaults the timeout to ten seconds, the claim windows to 15 minutes and 23 hours, attempts to 5 and the one-click invalid-link status to 400", () => {
     const provider = resend({ apiKey: "re_test" });
     expect(mailing({ from: FROM, replyTo: REPLY_TO, provider }).options).toEqual({
       from: FROM,
@@ -45,6 +45,7 @@ describe("the mailing module", () => {
       staleClaimMs: 15 * 60_000,
       uncertainClaimMs: 23 * 3_600_000,
       maxAttempts: 5,
+      oneClickInvalidLinkStatus: 400,
     });
     expect(DEFAULT_TIMEOUT_MS).toBe(10_000);
   });
@@ -107,6 +108,30 @@ describe("the mailing module", () => {
     ["nine names", ["a", "b", "c", "d", "e", "f", "g", "h", "i"], "options.legacyUnsubscribe.params"],
   ])("refuses legacy unsubscribe params with %s", (_case, params, message) => {
     expect(() => mailing({ from: FROM, provider: fakeMailProvider(), legacyUnsubscribe: { params, verify: () => Promise.resolve(null) } })).toThrow(message);
+  });
+
+  it.each([
+    ["no required names", { required: [], optional: ["u"] }, "options.legacyUnsubscribe.params"],
+    ["a name both required and optional", { required: ["t"], optional: ["t"] }, "must not repeat a name"],
+    ["the signed link's recipient name as optional", { required: ["t"], optional: ["r"] }, "must not use r or status"],
+    ["nine names across both lists", { required: ["a", "b", "c", "d", "e"], optional: ["f", "g", "h", "i"] }, "must name at most 8"],
+    ["an unknown field", { required: ["t"], extra: ["u"] }, "options.legacyUnsubscribe.params"],
+  ])("refuses legacy unsubscribe params with %s", (_case, params, message) => {
+    expect(() => mailing({ from: FROM, provider: fakeMailProvider(), legacyUnsubscribe: { params, verify: () => Promise.resolve(null) } })).toThrow(message);
+  });
+
+  it("accepts required and optional legacy unsubscribe params", () => {
+    expect(() => mailing({ from: FROM, provider: fakeMailProvider(), legacyUnsubscribe: { params: { required: ["t"], optional: ["u"] }, verify: () => Promise.resolve(null) } })).not.toThrow();
+    expect(() => mailing({ from: FROM, provider: fakeMailProvider(), legacyUnsubscribe: { params: { required: ["t"] }, verify: () => Promise.resolve(null) } })).not.toThrow();
+  });
+
+  it.each([[200], [400]])("accepts %s as the one-click status for an invalid link", (status) => {
+    expect(() => mailing({ from: FROM, provider: fakeMailProvider(), oneClickInvalidLinkStatus: status as 200 | 400 })).not.toThrow();
+  });
+
+  it("refuses a one-click status for an invalid link other than 200 or 400", () => {
+    // @ts-expect-error: 204 is not an option.
+    expect(() => mailing({ from: FROM, provider: fakeMailProvider(), oneClickInvalidLinkStatus: 204 })).toThrow("options.oneClickInvalidLinkStatus");
   });
 
   it("accepts legacy unsubscribe params that share the signature's name", () => {

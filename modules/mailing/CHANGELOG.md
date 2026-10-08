@@ -21,6 +21,14 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 - `softure-mail` reads a file given as `-` from standard input (the campaign's content file or `--recipients`, the
   import's history file), so it runs inside the app's container with `docker compose exec -T`. The README documents
   that topology.
+- `legacyUnsubscribe.params` also takes `{ required, optional }`: a link is legacy when it carries every required
+  name, and the optional names it carries go to `verify` too, so two old link forms on one path both keep working.
+  The array form still means "all required".
+- `mailing({ oneClickInvalidLinkStatus: 200 })`: the one-click route answers 200 for a link that does not verify, so
+  the answer never tells whether a token is live. The default stays 400; a failure still answers 500.
+- `onUnsubscribed` receives `event.link`: `{ scheme: "signed" }` or `{ scheme: "legacy", values }` with the values
+  `verify` accepted, so the hook can find the row a legacy link named. New types `LegacyUnsubscribeParams` and
+  `VerifiedUnsubscribeLink`.
 
 ## 0.1.8
 
