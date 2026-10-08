@@ -32,7 +32,7 @@ deploy 0.1.6.
 - **D3 A route's entry still replaces the global one as a whole.** No merging of arrays: the existing rule ("a
   route's entry for the same name wins") stays one sentence, and a route can still loosen a global check.
 - **D4 Docs.** README "Headers:" bullet with an example (`link` with several `rel` values), the schema description,
-  CHANGELOG `0.1.6`, `package.json` 0.1.6 and the lockfile.
+  CHANGELOG `0.1.6`, `package.json` 0.1.6, the lockfile and the `deploy-cli-version` default of the reusable deploy workflows.
 
 ## Phase 1: header lists (TDD)
 

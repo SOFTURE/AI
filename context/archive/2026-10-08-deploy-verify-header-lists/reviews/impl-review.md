@@ -10,7 +10,7 @@ Reviewed: the branch diff against plan.md (phase 1) and issue #292.
   the header's path (pinned in `schema.test.ts`). Matches.
 - D3: `mergeHeaderChecks` untouched; the README says a route's entry replaces the global one with its whole list.
 - D4: README "Headers:" bullet, schema descriptions, regenerated `schema/deploy.schema.json`, CHANGELOG 0.1.6,
-  `package.json` and the lockfile at 0.1.6.
+  `package.json`, the lockfile and the `deploy-cli-version` default of the three reusable deploy workflows at 0.1.6 (pinned by `tests/repo/deploy-workflows.test.ts`).
 
 ## Findings
 
