@@ -1,5 +1,6 @@
 // The listing's order, cluster labels, crumbs, glossary order and dates (FIRE's blog-page cases).
-import { formatDay, getArticleCrumbs, getClusterAnchor, getArticleDates, getClusterLabel, getTermCrumbs, groupByCluster, sortTerms, splitClusterLead, type BlogRoutes } from "@softure-ai/blog/server";
+import { formatDay, getArticleCrumbs, getDayInZone, getClusterAnchor, getArticleDates, getClusterLabel, getTermCrumbs, groupByCluster, sortTerms, splitClusterLead, type BlogRoutes } from "@softure-ai/blog/server";
+import { toCalendarDay } from "@softure-ai/core";
 import { describe, expect, it } from "vitest";
 import { buildStoredArticle, buildStoredTerm } from "../support.js";
 
@@ -7,6 +8,14 @@ const ROUTES: BlogRoutes = { index: "/blog", glossary: "/blog/glossary", method:
 const LABELS = { blog: "Blog", glossary: "Glossary", cluster: (cluster: string) => `#${cluster}` };
 
 describe("article dates", () => {
+  it("takes the day in the zone from core's toCalendarDay", () => {
+    // 01:30 UTC on 3 October is still 2 October in New York.
+    const moment = new Date("2026-10-03T01:30:00Z");
+    expect(getDayInZone(moment, "America/New_York")).toBe("2026-10-02");
+    expect(getDayInZone(moment, "UTC")).toBe("2026-10-03");
+    expect(getDayInZone(moment, "Asia/Tokyo")).toBe(toCalendarDay(moment, "Asia/Tokyo"));
+  });
+
   it("takes the publication day in the app's time zone, not in UTC", () => {
     expect(getArticleDates(buildStoredArticle(), "Europe/Warsaw").published).toBe("2026-09-15");
     expect(getArticleDates(buildStoredArticle(), "UTC").published).toBe("2026-09-14");

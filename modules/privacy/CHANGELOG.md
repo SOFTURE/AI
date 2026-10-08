@@ -4,6 +4,11 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`privacy@x.y.z`).
 
+## 0.1.10
+
+- The export file name's day (`account-data-YYYY-MM-DD.json`) comes from `toCalendarDay` in `@softure-ai/core`
+  instead of a local `en-CA` formatter. Same names; requires `@softure-ai/core` `^0.1.7` (#270).
+
 ## 0.1.9
 
 - `copyAccount({ from, to, userId, commit?, exclude?, include?, onMissingReference? })` in `/server` copies one account

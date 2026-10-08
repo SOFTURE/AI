@@ -4,6 +4,20 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`ui@x.y.z`).
 
+## 0.1.14
+
+- `Switch` takes `hintProps` (`HintAppearance`), like `Card` and `Field`, so its "?" matches the app's other hints.
+- `Switch` slots `stateOn`, `stateOff` (the two state lines) and `hint` (the wrapper of the "?"). Under `unstyled`
+  the state lines keep switching: the root keeps `sft:group/switch`, `state` keeps `sft:grid` and each line keeps its
+  visibility classes. Before, both lines showed at once.
+- `Switch` lays the "?" inline after the label (block row, `pr-5` on the label, `-ml-5 w-5` on the wrapper) instead
+  of a flex row, so a wrapping label keeps the "?" next to its last word. The markup gains the wrapper `span`.
+- Documented: the description id is `<id>-description` and the hint id `<id>-hint`.
+- `Field` and the form fields (`TextField`, `PasswordField`, `MoneyField`, `SelectField`) lay a tooltip "?" the same
+  way, in a new `tooltip` slot (the wrapper of the "?"; `hint` stays the block hint). The label row is a block with
+  the label's font size: with a "?" it is now 20 px tall like a row without one (it was 24 px), so the control
+  below moves up 4 px and fields with and without a hint line up side by side.
+
 ## 0.1.13
 
 - `Tabs`: ARIA tabs with roving focus (arrows wrap, Home and End), `automatic` or `manual` activation, controlled or

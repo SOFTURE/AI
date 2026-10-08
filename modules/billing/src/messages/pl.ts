@@ -1,6 +1,7 @@
 import type { en } from "./en.js";
 
 export const pl: typeof en = {
+  dayCount: { one: "{count} dzień", few: "{count} dni", many: "{count} dni", other: "{count} dnia" },
   badge: {
     trial: "Okres próbny",
     paid: "Opłacone",

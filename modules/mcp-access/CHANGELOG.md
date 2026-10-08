@@ -4,6 +4,11 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mcp-access@x.y.z`).
 
+## 0.1.10
+
+- The days left on a token are counted with `toCalendarDay` from `@softure-ai/core` instead of a local `en-CA`
+  formatter. Same results; requires `@softure-ai/core` `^0.1.7` (#270).
+
 ## 0.1.9
 
 - The OAuth registration, token and consent decision routes read their body through `readSmallBody`

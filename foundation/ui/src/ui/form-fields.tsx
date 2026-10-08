@@ -68,8 +68,8 @@ function useFieldIds({ id, name, error, hint, hintAs }: Pick<BaseFieldProps, "id
 
 function pickFieldSlots(classNames: ClassNames<InputFieldSlot> | undefined): ClassNames<FieldSlot> | undefined {
   if (classNames === undefined) return undefined;
-  const { root, labelRow, label, error, hint } = classNames;
-  return { root, labelRow, label, error, hint };
+  const { root, labelRow, label, tooltip, error, hint } = classNames;
+  return { root, labelRow, label, tooltip, error, hint };
 }
 
 const SUFFIX_CLASSES = {

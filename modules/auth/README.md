@@ -347,7 +347,9 @@ node temporary-password-hash.mjs | ssh app-host docker exec -i app node set-temp
 shell history). The script refuses a value that is not a `hashPassword` hash without printing it,
 stores the hash, ends the sessions and the reset link as before, and reports `passwordFrom: "hash"`
 instead of a password. A hash made with other scrypt parameters than the config's is rehashed at
-the first login. `isPasswordHash(value)` checks the format locally.
+the first login. `isPasswordHash(value)` checks the format locally, exactly: a hash cut or padded in transport,
+a character outside base64url or a cost scrypt refuses is not a hash `hashPassword` writes, so the script refuses it
+instead of storing a hash no password matches.
 
 **Password reset.** Pass a sender, and the login form links to the request page. With
 `@softure-ai/mailing` enabled, `mailingResetSender()` is that sender:
