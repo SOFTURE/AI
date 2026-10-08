@@ -39,6 +39,8 @@ export interface PaymentPageProps {
    * instead, or none with `null` (for an app whose frame renders the page heading).
    */
   readonly heading?: string | null;
+  /** One paragraph right after the `<h1>` (first in `<main>` without one) that says what the page is for; none by default. */
+  readonly lead?: string | null;
 }
 
 const LAYOUT_CLASS = "sft:mx-auto sft:box-border sft:flex sft:w-full sft:flex-col sft:gap-4 sft:sm:max-w-md sft:px-4 sft:py-4";
@@ -64,7 +66,7 @@ function isCheckoutResult(value: string | undefined): value is CheckoutResult {
  * A hosted checkout comes back with `?checkout=success` or `?checkout=cancelled`, shown as a notice
  * (the access itself changes when the provider's webhook confirms the payment).
  */
-export async function PaymentPage({ searchParams, heading }: PaymentPageProps) {
+export async function PaymentPage({ searchParams, heading, lead }: PaymentPageProps) {
   const config = getSoftureConfig();
   const route = getBillingRoutes(config).payment;
   const planId = await readParam(searchParams, PLAN_FIELD);
@@ -82,7 +84,7 @@ export async function PaymentPage({ searchParams, heading }: PaymentPageProps) {
   const hasLifetime = entitlement?.status === "paid" && entitlement.endsAt === null;
   return (
     <main className={LAYOUT_CLASS}>
-      <PageHeading text={heading === undefined ? copy.heading : heading} />
+      <PageHeading text={heading === undefined ? copy.heading : heading} lead={lead ?? null} />
       <Card title={copy.title} subtitle={copy.lead}>
         <div className={STACK_CLASS}>
           {checkoutNotice === null ? null : (
@@ -136,9 +138,14 @@ export async function PaymentPage({ searchParams, heading }: PaymentPageProps) {
   );
 }
 
-/** The page's `<h1>`, or nothing for `null`. */
-function PageHeading({ text }: { readonly text: string | null }) {
-  return text === null ? null : <h1 className={HEADING_CLASS}>{text}</h1>;
+/** The page's `<h1>` and its lead paragraph, each left out for `null`. */
+function PageHeading({ text, lead }: { readonly text: string | null; readonly lead: string | null }) {
+  return (
+    <>
+      {text === null ? null : <h1 className={HEADING_CLASS}>{text}</h1>}
+      {lead === null ? null : <p className={LEAD_CLASS}>{lead}</p>}
+    </>
+  );
 }
 
 /** The plan's name in the app's locale, or its id when the config no longer has it. */
@@ -244,6 +251,8 @@ export interface BillingAdminPageProps {
    * instead, or none with `null` (for an app whose frame renders the page heading).
    */
   readonly heading?: string | null;
+  /** One paragraph right after the `<h1>` (first in `<main>` without one) that says what the page is for; none by default. */
+  readonly lead?: string | null;
 }
 
 /**
@@ -252,7 +261,7 @@ export interface BillingAdminPageProps {
  * link) with its access and a revoke button on each active manual grant. Anyone without the role
  * of `billing({ adminRole })`, signed in or not, gets Next's "not found".
  */
-export async function BillingAdminPage({ searchParams, heading }: BillingAdminPageProps) {
+export async function BillingAdminPage({ searchParams, heading, lead }: BillingAdminPageProps) {
   const config = getSoftureConfig();
   await requireRole(getBillingOptions(config).adminRole);
   const messages = getBillingMessages(config);
@@ -267,7 +276,7 @@ export async function BillingAdminPage({ searchParams, heading }: BillingAdminPa
   const planOptions = plans.map((plan) => ({ value: plan.id, label: getLocalizedText(plan.name, config.locale) }));
   return (
     <main className={LAYOUT_CLASS}>
-      <PageHeading text={heading === undefined ? messages.admin.heading : heading} />
+      <PageHeading text={heading === undefined ? messages.admin.heading : heading} lead={lead ?? null} />
       <Card title={messages.admin.requests.title} subtitle={messages.admin.requests.lead}>
         <PaymentRequestList requests={requests} grantAction={grantRequestAction} dismissAction={dismissRequestAction} messages={messages} />
       </Card>
