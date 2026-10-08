@@ -98,11 +98,43 @@ const wireSchema = z
 export const FUNNEL_STEP_SOURCES = ["beacon", "pixel", "server"] as const;
 export type FunnelStepSource = (typeof FUNNEL_STEP_SOURCES)[number];
 
-const stepSchema = z.strictObject({
-  /** The step's id, kept when steps are reordered: a count stored under it keeps its meaning. */
-  id: z.string().max(MAX_STEP_LENGTH, `must be at most ${String(MAX_STEP_LENGTH)} characters`).regex(STEP_PATTERN, "must be kebab-case, e.g. pricing-page"),
-  via: z.enum(FUNNEL_STEP_SOURCES).default("beacon"),
-});
+/**
+ * The pages a pixel step sits on: pathnames compared exactly with the `Referer`'s (`["/"]` is only the
+ * root), or a predicate over the page's URL (`(page) => page.pathname.startsWith("/blog/")`). A pixel
+ * requested from any other page counts nothing, e.g. an image a framework loads while prefetching a link.
+ */
+export type FunnelStepPages = readonly string[] | ((page: URL) => boolean);
+
+/** The most pathnames one step lists. */
+export const MAX_STEP_PAGES = 32;
+
+const PAGE_MESSAGE = "must be a pathname starting with /, without a query or fragment";
+
+/** A pathname, encoded the way a `Referer`'s `URL.pathname` is (`/café` → `/caf%C3%A9`), so the two compare. */
+const pagePathSchema = z
+  .string()
+  .refine((value) => value.startsWith("/") && !value.startsWith("//") && !value.includes("?") && !value.includes("#"), PAGE_MESSAGE)
+  .transform((value) => new URL(value, "http://localhost").pathname);
+
+const pagesSchema = z.union(
+  [
+    z.array(pagePathSchema).min(1, "needs at least one page").max(MAX_STEP_PAGES, `takes at most ${String(MAX_STEP_PAGES)} pages`),
+    z.custom<Extract<FunnelStepPages, (page: URL) => boolean>>((value) => typeof value === "function"),
+  ],
+  { error: "must be a list of pathnames or a function (page: URL) => boolean" },
+);
+
+const stepSchema = z
+  .strictObject({
+    /** The step's id, kept when steps are reordered: a count stored under it keeps its meaning. */
+    id: z.string().max(MAX_STEP_LENGTH, `must be at most ${String(MAX_STEP_LENGTH)} characters`).regex(STEP_PATTERN, "must be kebab-case, e.g. pricing-page"),
+    via: z.enum(FUNNEL_STEP_SOURCES).default("beacon"),
+    /** Only for `pixel` steps: the pages the pixel sits on (`FunnelStepPages`); without it any first-party page counts. */
+    pages: pagesSchema.optional(),
+  })
+  .superRefine((step, context) => {
+    if (step.pages !== undefined && step.via !== "pixel") context.addIssue({ code: "custom", path: ["pages"], message: "only a pixel step names its pages" });
+  });
 
 const funnelOptionsSchema = z
   .strictObject({

@@ -11,6 +11,10 @@
 // pages cached with an older format keep counting, and with `channelField` a page may send its channel
 // itself. That channel is no less trusted than the Referer's: both come from the client.
 //
+// A pixel step that names its pages (`pages`) counts only from one of them: a framework that
+// prefetches a link loads the linked page's pixel with the current page as its Referer, which would
+// otherwise count that step from every page linking to it.
+//
 // The origin check is a noise filter, not a defence: headers come from the client, and a forged
 // Referer passes. The counts are anonymous statistics, inflating them opens nothing, and the daily
 // channel cap bounds the table's growth. There is no per-address rate limit on purpose: it would
@@ -19,6 +23,7 @@ import type { SoftureConfig } from "@softure-ai/core";
 import { readSmallBody } from "@softure-ai/security";
 import { deriveChannel, isFirstParty, parseChannel, readChannel } from "./channel.js";
 import { findPublicStep, recordFunnelStepQuietly, type AnalyticsContext } from "./funnel.js";
+import type { FunnelStep } from "../options.js";
 import { getAnalyticsOptions } from "./options.js";
 
 /** The beacon's body is `step=<id>`; anything larger is not a beacon. */
@@ -62,10 +67,28 @@ async function countPixel(ctx: AnalyticsContext, request: Request): Promise<bool
 async function countStep(ctx: AnalyticsContext, fields: URLSearchParams, visit: Visit, via: "beacon" | "pixel"): Promise<boolean> {
   const { funnel, channel: channelOptions } = getAnalyticsOptions(ctx.config);
   const step = findPublicStep(funnel.steps, readStep(fields, funnel.wire.stepFields), via);
-  if (step === null) return true;
+  if (step === null || !isStepPage(step, visit.page)) return true;
   const sent = funnel.wire.channelField === null ? null : parseChannel(readSingle(fields, funnel.wire.channelField), channelOptions);
   const channel = sent ?? visit.channel ?? deriveChannel(ctx.config, { hook: funnel.channelFromReferer, label: "funnel.channelFromReferer" }, visit.page);
   return recordFunnelStepQuietly(ctx, { step: step.id, channel });
+}
+
+/**
+ * Whether the page a request came from is one the step sits on: any first-party page when the step
+ * names none, else a pathname in its list or a page its predicate accepts. A predicate that throws is
+ * logged and counts nothing.
+ */
+function isStepPage(step: FunnelStep, page: URL): boolean {
+  const { pages } = step;
+  if (pages === undefined) return true;
+  if (typeof pages !== "function") return pages.includes(page.pathname);
+  try {
+    // A copy: the page is read again for its channel.
+    return pages(new URL(page)) === true;
+  } catch (error) {
+    console.error(`@softure-ai/analytics: funnel.steps["${step.id}"].pages failed: ${error instanceof Error ? error.message : String(error)}`);
+    return false;
+  }
 }
 
 interface Visit {

@@ -60,7 +60,9 @@ steps, the cap and the time zone moved into configuration and the report turned 
 - **The funnel** (`analytics({ funnel: { steps } })`): `analytics.funnel_counts` holds one counter
   per (day, channel, step). Each step is counted one way:
   - `pixel`: `<FunnelPixel step="landing" />` (`/next`) renders a 1×1 image (positioned absolutely
-    unless it gets a `className`, decoded asynchronously); a page view counts without JavaScript;
+    unless it gets a `className`, decoded asynchronously); a page view counts without JavaScript.
+    The step's `pages` names the pages it sits on, so a pixel requested from another page counts
+    nothing (see "A pixel counted from the wrong page" below);
   - `beacon`: `<FunnelBeacon step="pricing" />` (`/next`) or `createFunnelReporter(endpoint)`
     (`/client`) sends `navigator.sendBeacon` with `step=<id>` and nothing else, once per step;
   - `server`: only the app's code counts it, with `recordFunnelStep(ctx, { step, channel })`
@@ -109,7 +111,7 @@ analytics({
   channel: { param: "z", pattern: /^[a-z0-9]+(?:[-_][a-z0-9]+)*$/, maxLength: 32, normalize: "none" },
   funnel: {
     steps: [
-      { id: "landing", via: "pixel" },
+      { id: "landing", via: "pixel", pages: ["/"] }, // or (page) => page.pathname === "/"
       { id: "pricing" }, // via: "beacon" by default
       { id: "signup", via: "server" },
     ],
@@ -130,6 +132,7 @@ analytics({
 | `channel.maxLength` | `32` | an integer from 1 to `MAX_CHANNEL_LENGTH` (64) |
 | `channel.normalize` | `"none"` | `"none"` takes a value as it is; `"trim-lowercase"` trims and lowercases it before the pattern and length checks, on the server, in the browser keeper and in `recordFunnelStep` |
 | `funnel.steps` | `[]` | up to 32 steps, ids kebab-case and at most 32 characters, each listed once; `via` is `beacon` (default), `pixel` or `server` |
+| `funnel.steps[].pages` | none (any first-party page) | only on a `pixel` step: 1 to 32 pathnames (starting with a single `/`, no query or fragment; percent-encoded like the browser's, so `/café` matches), compared exactly with the `pathname` of the page the pixel was requested from, as the browser sends it (`/` is only the root; a trailing slash or a `basePath` is part of it; the origin is not compared), or `(page: URL) => boolean` for dynamic routes or to tell origins apart; a pixel from any other page answers the same GIF and counts nothing; a throw is logged and counts nothing |
 | `funnel.channelCap` | `100` | an integer from 1 to 10 000 |
 | `funnel.wire.stepFields` | `["step"]` | 1 to 4 field names (the `param` rule), each once; the endpoint takes the step from any of them (one value in all, or none counts); the package's beacon and pixel send the first (`getFunnelStepField`) |
 | `funnel.wire.channelField` | `null` | a field name that is not a step field: a valid channel in the body or query wins over the page's; an invalid one is ignored |
@@ -250,6 +253,12 @@ import { FunnelBeacon, FunnelPixel } from "@softure-ai/analytics/next";
 <FunnelPixel step="landing" />   // on the landing page
 <FunnelBeacon step="pricing" />  // on the pricing page
 ```
+
+**A pixel counted from the wrong page.** A framework that prefetches links (Next's `<Link>` in a
+production build) can load the linked page's pixel while another page is open, with that page as
+the `Referer`: without `pages`, every page linking to `/` then counts `landing` under its own
+channel. Give each pixel step its `pages` (`pages: ["/"]`, or a predicate such as
+`(page) => page.pathname.startsWith("/blog/")`) and those requests answer the GIF and count nothing.
 
 Both throw on render for a step that is not configured with their kind. `<FunnelPixel
 className="…" />` hands the image the app's class instead of the default `position: absolute`. A client component that
