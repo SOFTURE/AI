@@ -1,12 +1,13 @@
 ---
 change_id: blog-adoption-gaps
 title: "blog 0.1.8: adoption gaps (optional external-link marker, quality paths from routes, metadata builders, 410 links, history precision) (issue #228)"
-status: plan_reviewed
+status: archived
 roadmap_item: null
 issue: 228
 branch: claude/project-thread-jtxc7k
 created: 2026-10-08
 updated: 2026-10-08
+archived_at: 2026-10-08
 ---
 
 ## Intent

@@ -91,16 +91,16 @@ the 410 page beyond what the app's own render function writes.
 
 ### Phase 1: renderer marker and quality paths
 
-- [ ] externalMarker and externalLinkMarker with tests
-- [ ] quality paths from routes with tests
+- [x] externalMarker and externalLinkMarker with tests — 00e8862
+- [x] quality paths from routes with tests — 00e8862
 
 ### Phase 2: builders and 410 links
 
-- [ ] metadata and JSON-LD builders with tests
-- [ ] gonePage links and render with tests
+- [x] metadata and JSON-LD builders with tests — 5c09070
+- [x] gonePage links and render with tests — 5c09070
 
 ### Phase 3: history precision, docs, version
 
-- [ ] history timestamps kept as text with tests
-- [ ] README, CHANGELOG, version 0.1.8
-- [ ] gates green
+- [x] history timestamps kept as text with tests — 1d60c70
+- [x] README, CHANGELOG, version 0.1.8 — 1d60c70
+- [x] gates green — 1d60c70 (typecheck, lint, test: 338 files / 4953 tests, build)
