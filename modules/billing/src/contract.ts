@@ -11,6 +11,13 @@ export type BillingErrorCode =
   /** A grant or a trial extension that ends now or earlier. */
   | "billing.end_not_in_future";
 
+/** Why an admin could not extend a trial (`extendTrialManually`). */
+export type TrialExtensionErrorCode =
+  | "billing.account_unknown"
+  | "billing.end_not_in_future"
+  /** The trial already ends then or later: an extension would change nothing. */
+  | "billing.trial_not_extended";
+
 /** Every code a guarded write can show: the guard's own and the generic ones. */
 export type BillingFormErrorCode = BillingErrorCode | CoreErrorCode;
 
@@ -137,6 +144,14 @@ export type PaymentFormErrorCode = PaymentErrorCode | InvoiceFieldErrorCode | "s
 /** Every code the admin grant form can show. */
 export type GrantFormErrorCode = "billing.plan_unknown" | "billing.account_unknown" | "billing.lifetime_active" | "auth.forbidden" | CoreErrorCode;
 
+/** Every code the admin trial form can show. */
+export type TrialFormErrorCode =
+  | TrialExtensionErrorCode
+  /** The last day is not a calendar day (`YYYY-MM-DD`). */
+  | "billing.day_invalid"
+  | "auth.forbidden"
+  | CoreErrorCode;
+
 /** Why an admin could not act on a request or a manual grant. */
 export type AdminErrorCode =
   /** The request was granted or dismissed already, or never existed. */
@@ -171,6 +186,19 @@ export interface GrantFormState {
 }
 
 export const INITIAL_GRANT_FORM_STATE: GrantFormState = { status: "idle" };
+
+/** What the admin trial action returns to its form (`useActionState`). */
+export interface TrialFormState {
+  readonly status: "idle" | "extended" | "error";
+  readonly error?: TrialFormErrorCode;
+  /** After an extension: the trial's new last day, in the app's copy. */
+  readonly notice?: string;
+  /** The email and last day as sent, to fill the form again after an error. */
+  readonly email?: string;
+  readonly lastDay?: string;
+}
+
+export const INITIAL_TRIAL_FORM_STATE: TrialFormState = { status: "idle" };
 
 /** What an admin button (grant or dismiss a request, revoke a grant, find an account) returns to its form. */
 export type AdminActionState =

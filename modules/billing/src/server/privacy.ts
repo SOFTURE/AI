@@ -1,14 +1,14 @@
 // The billing part of a GDPR export and deletion (`@softure-ai/privacy`): the account's entitlement
 // row, its provider payments and their failed refunds, its invoice requests and the plans granted
-// to it by hand. An account
+// to it by hand, and the trials extended for it by hand. An account
 // without an entitlement row has no stored entitlement (its trial is derived from the account). The
-// provider keeps its own records of the payments. Which admin granted or revoked a plan is the
-// admin's data, not the account's, and is left out of the export.
+// provider keeps its own records of the payments. Which admin granted or revoked a plan, or
+// extended a trial, is the admin's data, not the account's, and is left out of the export.
 import { users } from "@softure-ai/auth";
 import { ok, type ModuleContext, type Ok, type PrivacyContributor } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
 import { asc, eq } from "drizzle-orm";
-import { entitlements, manualGrants, paymentRequests, payments, refundFailures } from "../schema.js";
+import { entitlements, manualGrants, paymentRequests, payments, refundFailures, trialExtensions } from "../schema.js";
 import { isUserId } from "./user-id.js";
 
 /** One provider payment, as it appears in an export. */
@@ -69,6 +69,14 @@ export interface BillingManualGrantData {
   readonly currency: string | null;
 }
 
+/** One trial extended by hand, as it appears in an export. */
+export interface BillingTrialExtensionData {
+  readonly extendedAt: Date;
+  /** The trial end before and after the extension (first instants no longer covered). */
+  readonly previousEndsAt: Date;
+  readonly endsAt: Date;
+}
+
 /** What billing holds about one user, as it appears in their export. */
 export interface BillingUserData {
   readonly entitlement: {
@@ -86,9 +94,11 @@ export interface BillingUserData {
   readonly paymentRequests: readonly BillingPaymentRequestData[];
   /** Oldest first. */
   readonly manualGrants: readonly BillingManualGrantData[];
+  /** Oldest first. */
+  readonly trialExtensions: readonly BillingTrialExtensionData[];
 }
 
-const EMPTY_USER_DATA: BillingUserData = { entitlement: null, payments: [], refundFailures: [], paymentRequests: [], manualGrants: [] };
+const EMPTY_USER_DATA: BillingUserData = { entitlement: null, payments: [], refundFailures: [], paymentRequests: [], manualGrants: [], trialExtensions: [] };
 
 export async function exportBillingUserData(context: ModuleContext, userId: string): Promise<Ok<BillingUserData>> {
   if (!isUserId(userId)) return ok(EMPTY_USER_DATA);
@@ -165,7 +175,19 @@ export async function exportBillingUserData(context: ModuleContext, userId: stri
     .from(manualGrants)
     .where(eq(manualGrants.userId, userId))
     .orderBy(asc(manualGrants.grantedAt), asc(manualGrants.id));
-  return ok({ entitlement: row ?? null, payments: paymentRows, refundFailures: failureRows, paymentRequests: requestRows, manualGrants: grantRows });
+  const extensionRows = await db
+    .select({ extendedAt: trialExtensions.extendedAt, previousEndsAt: trialExtensions.previousEndsAt, endsAt: trialExtensions.endsAt })
+    .from(trialExtensions)
+    .where(eq(trialExtensions.userId, userId))
+    .orderBy(asc(trialExtensions.extendedAt), asc(trialExtensions.id));
+  return ok({
+    entitlement: row ?? null,
+    payments: paymentRows,
+    refundFailures: failureRows,
+    paymentRequests: requestRows,
+    manualGrants: grantRows,
+    trialExtensions: extensionRows,
+  });
 }
 
 export async function deleteBillingUserData(context: ModuleContext, userId: string): Promise<Ok<undefined>> {
@@ -180,6 +202,7 @@ export async function deleteBillingUserData(context: ModuleContext, userId: stri
   // Grants first: they reference the requests they answered.
   await db.delete(manualGrants).where(eq(manualGrants.userId, userId));
   await db.delete(paymentRequests).where(eq(paymentRequests.userId, userId));
+  await db.delete(trialExtensions).where(eq(trialExtensions.userId, userId));
   return ok();
 }
 

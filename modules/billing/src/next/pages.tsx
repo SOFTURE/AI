@@ -23,8 +23,9 @@ import { AccountLookup, GrantHistory, type GrantHistoryRow } from "../ui/grant-h
 import { PaymentForm } from "../ui/payment-form.js";
 import { PaymentRequestList, type PaymentRequestRow } from "../ui/payment-requests.js";
 import { PricingTiles } from "../ui/pricing-tiles.js";
+import { TrialForm } from "../ui/trial-form.js";
 import { CurrentAccessBadge } from "./access.js";
-import { dismissRequestAction, findAccountAction, grantPlanAction, grantRequestAction, revokeGrantAction, startPaymentAction } from "./actions.js";
+import { dismissRequestAction, extendTrialAction, findAccountAction, grantPlanAction, grantRequestAction, revokeGrantAction, startPaymentAction } from "./actions.js";
 import { getBillingContext } from "./context.js";
 import { getCurrentEntitlement } from "./current-entitlement.js";
 import { getPlanPaymentHref } from "./pricing.js";
@@ -33,10 +34,16 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 export interface PaymentPageProps {
   readonly searchParams?: SearchParams;
+  /**
+   * The page's `<h1>`, first in `<main>`: `payment.heading` of the messages by default, this text
+   * instead, or none with `null` (for an app whose frame renders the page heading).
+   */
+  readonly heading?: string | null;
 }
 
 const LAYOUT_CLASS = "sft:mx-auto sft:box-border sft:flex sft:w-full sft:flex-col sft:gap-4 sft:sm:max-w-md sft:px-4 sft:py-4";
 const STACK_CLASS = "sft:flex sft:flex-col sft:gap-4";
+const HEADING_CLASS = "sft:m-0 sft:font-heading sft:text-2xl sft:font-bold sft:text-foreground";
 const LEAD_CLASS = "sft:m-0 sft:font-sans sft:text-sm sft:text-muted";
 const NOTICE_CLASS =
   "sft:m-0 sft:rounded-control sft:border sft:border-border-strong sft:bg-surface-raised sft:px-4 sft:py-2.5 sft:font-sans sft:text-sm sft:text-foreground";
@@ -57,7 +64,7 @@ function isCheckoutResult(value: string | undefined): value is CheckoutResult {
  * A hosted checkout comes back with `?checkout=success` or `?checkout=cancelled`, shown as a notice
  * (the access itself changes when the provider's webhook confirms the payment).
  */
-export async function PaymentPage({ searchParams }: PaymentPageProps) {
+export async function PaymentPage({ searchParams, heading }: PaymentPageProps) {
   const config = getSoftureConfig();
   const route = getBillingRoutes(config).payment;
   const planId = await readParam(searchParams, PLAN_FIELD);
@@ -75,6 +82,7 @@ export async function PaymentPage({ searchParams }: PaymentPageProps) {
   const hasLifetime = entitlement?.status === "paid" && entitlement.endsAt === null;
   return (
     <main className={LAYOUT_CLASS}>
+      <PageHeading text={heading === undefined ? copy.heading : heading} />
       <Card title={copy.title} subtitle={copy.lead}>
         <div className={STACK_CLASS}>
           {checkoutNotice === null ? null : (
@@ -128,6 +136,11 @@ export async function PaymentPage({ searchParams }: PaymentPageProps) {
   );
 }
 
+/** The page's `<h1>`, or nothing for `null`. */
+function PageHeading({ text }: { readonly text: string | null }) {
+  return text === null ? null : <h1 className={HEADING_CLASS}>{text}</h1>;
+}
+
 /** The plan's name in the app's locale, or its id when the config no longer has it. */
 function getPlanName(plans: readonly Plan[], planId: string, locale: Locale): string {
   const plan = findPlan(plans, planId);
@@ -138,6 +151,8 @@ interface RowContext {
   readonly config: SoftureConfig;
   readonly messages: BillingMessages;
   readonly plans: readonly Plan[];
+  /** The page's instant, to tell a trial extension still running from an ended one. */
+  readonly now: Date;
 }
 
 function getHistoryHref(config: SoftureConfig, userId: string): string {
@@ -175,8 +190,19 @@ function describeGrant(grant: PaymentGrant | null, { config, messages }: RowCont
 function toHistoryRow(entry: AccountHistoryEntry, context: RowContext): GrantHistoryRow {
   const { config, messages, plans } = context;
   const copy = messages.admin.history;
-  const plan = getPlanName(plans, entry.planId, config.locale);
   const formatDate = (date: Date) => formatDay(date, config.locale, config.timezone);
+  if (entry.source === "trial") {
+    const formatEnd = (end: Date) => formatLastDay(end, config.locale, config.timezone);
+    return {
+      id: entry.id,
+      title: copy.trialExtended,
+      statusText: formatMessage(copy.trialUntil, { date: formatEnd(entry.endsAt) }),
+      isCurrent: entry.endsAt > context.now,
+      details: [formatMessage(copy.extendedOn, { date: formatDate(entry.at) }), formatMessage(copy.trialWasUntil, { date: formatEnd(entry.previousEndsAt) })],
+      revokeLabel: null,
+    };
+  }
+  const plan = getPlanName(plans, entry.planId, config.locale);
   if (entry.source === "manual") {
     const isActive = entry.status === "active";
     return {
@@ -213,21 +239,26 @@ function toHistoryRow(entry: AccountHistoryEntry, context: RowContext): GrantHis
 
 export interface BillingAdminPageProps {
   readonly searchParams?: SearchParams;
+  /**
+   * The page's `<h1>`, first in `<main>`: `admin.heading` of the messages by default, this text
+   * instead, or none with `null` (for an app whose frame renders the page heading).
+   */
+  readonly heading?: string | null;
 }
 
 /**
  * The admin page of manual payments: the open invoice requests (grant or dismiss each), the grant
- * form, and an account's history (`?account=<id>`, reached by the email lookup or a request's
+ * form, the trial form (a free, longer trial), and an account's history (`?account=<id>`, reached by the email lookup or a request's
  * link) with its access and a revoke button on each active manual grant. Anyone without the role
  * of `billing({ adminRole })`, signed in or not, gets Next's "not found".
  */
-export async function BillingAdminPage({ searchParams }: BillingAdminPageProps) {
+export async function BillingAdminPage({ searchParams, heading }: BillingAdminPageProps) {
   const config = getSoftureConfig();
   await requireRole(getBillingOptions(config).adminRole);
   const messages = getBillingMessages(config);
   const plans = getBillingPlans(config);
-  const context: RowContext = { config, messages, plans };
   const ctx = await getBillingContext(config);
+  const context: RowContext = { config, messages, plans, now: ctx.clock.now() };
   const requests = (await listOpenRequests(ctx)).map((request) => toRequestRow(request, context));
   const accountId = await readParam(searchParams, ACCOUNT_PARAM);
   const account = accountId === undefined ? null : await findAccountById(ctx, accountId);
@@ -236,6 +267,7 @@ export async function BillingAdminPage({ searchParams }: BillingAdminPageProps) 
   const planOptions = plans.map((plan) => ({ value: plan.id, label: getLocalizedText(plan.name, config.locale) }));
   return (
     <main className={LAYOUT_CLASS}>
+      <PageHeading text={heading === undefined ? messages.admin.heading : heading} />
       <Card title={messages.admin.requests.title} subtitle={messages.admin.requests.lead}>
         <PaymentRequestList requests={requests} grantAction={grantRequestAction} dismissAction={dismissRequestAction} messages={messages} />
       </Card>
@@ -245,6 +277,9 @@ export async function BillingAdminPage({ searchParams }: BillingAdminPageProps) 
         ) : (
           <GrantForm action={grantPlanAction} plans={planOptions} messages={messages} locale={config.locale} />
         )}
+      </Card>
+      <Card title={messages.admin.trial.title} subtitle={messages.admin.trial.lead}>
+        <TrialForm action={extendTrialAction} messages={messages} locale={config.locale} />
       </Card>
       <Card title={messages.admin.history.title} subtitle={messages.admin.history.lead}>
         <div className={STACK_CLASS}>

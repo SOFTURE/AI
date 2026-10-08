@@ -3,7 +3,15 @@
 // their actions, and the Stripe webhook route, wired to the registered configuration
 // (docs/02-module-standard.md §8).
 export { CurrentAccessBadge, type CurrentAccessBadgeProps, CurrentAccessNotice, type CurrentAccessNoticeProps } from "./access.js";
-export { dismissRequestAction, findAccountAction, grantPlanAction, grantRequestAction, revokeGrantAction, startPaymentAction } from "./actions.js";
+export {
+  dismissRequestAction,
+  extendTrialAction,
+  findAccountAction,
+  grantPlanAction,
+  grantRequestAction,
+  revokeGrantAction,
+  startPaymentAction,
+} from "./actions.js";
 export { getBillingContext } from "./context.js";
 export { getCurrentEntitlement, requireWriteAccess, type WriteAccess } from "./current-entitlement.js";
 export { BillingAdminPage, type BillingAdminPageProps, PaymentPage, type PaymentPageProps } from "./pages.js";

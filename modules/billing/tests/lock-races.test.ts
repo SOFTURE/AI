@@ -3,7 +3,7 @@
 // connection holds the contested lock until both changes wait on it, so the interleaving is the
 // same on every run: the race happens, it is not hoped for.
 import { type BillingOptionsInput } from "@softure-ai/billing";
-import { changeEntitlement, getEntitlement, grantPlan, grantPlanManually, recordPaymentRequest } from "@softure-ai/billing/server";
+import { changeEntitlement, extendTrialManually, getEntitlement, grantPlan, grantPlanManually, recordPaymentRequest } from "@softure-ai/billing/server";
 import { err } from "@softure-ai/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createPostgresBilling, isPostgresRequired, openBlocker, POSTGRES_ADMIN_URL, waitForLockWaiters, type Blocker, type PostgresBilling } from "./postgres.js";
@@ -97,6 +97,31 @@ describe.skipIf(POSTGRES_ADMIN_URL === undefined)("billing locks on two connecti
       { granted_from: MONTH_AFTER_TRIAL, granted_until: TWO_MONTHS_AFTER_TRIAL },
       { granted_from: TWO_MONTHS_AFTER_TRIAL, granted_until: THREE_MONTHS_AFTER_TRIAL },
     ]);
+  });
+
+  it("keeps both a plan grant and a trial extension made at once on an account without a row", async () => {
+    // The blocker plays a change that inserts the account's first row: both start before it exists.
+    blocker = await openBlocker(test);
+    await blocker.query(
+      "INSERT INTO billing.entitlements (user_id, trial_ends_at, paid_until, is_lifetime, created_at, updated_at) VALUES ($1, $2, NULL, false, $3, $3)",
+      [adaId, TRIAL_END, NOW],
+    );
+    const extendedEnd = new Date("2026-10-23T22:00:00Z");
+    const changes = Promise.all([
+      grantPlanManually(test.ctx, { userId: adaId, planId: "monthly", adminId: null }),
+      extendTrialManually(test.ctx, { userId: adaId, until: extendedEnd, adminId: null }),
+    ]);
+    await waitForLockWaiters(test, 2);
+    await blocker.release();
+
+    const [grant, extension] = await changes;
+    expect(grant.ok && extension.ok).toBe(true);
+    const row = (await readStoredRow())[0];
+    expect(row?.trial_ends_at).toEqual(extendedEnd);
+    // The month starts where access ended when the grant ran: the old or the extended trial end.
+    expect([MONTH_AFTER_TRIAL.getTime(), new Date("2026-11-23T23:00:00Z").getTime()]).toContain(row?.paid_until?.getTime());
+    const extensions = await test.handle.pool.query<{ previous_ends_at: Date; ends_at: Date }>("SELECT previous_ends_at, ends_at FROM billing.trial_extensions WHERE user_id = $1", [adaId]);
+    expect(extensions.rows).toEqual([{ previous_ends_at: TRIAL_END, ends_at: extendedEnd }]);
   });
 
   async function readManualGrantKinds(): Promise<string[]> {

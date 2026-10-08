@@ -1,5 +1,5 @@
 // The module's readiness probe for `GET /api/health` of `@softure-ai/ops`: the entitlements,
-// payments, payment requests and manual grants tables exist and answer, i.e. `softure migrate` ran,
+// payments, payment requests, manual grants and trial extensions tables exist and answer, i.e. `softure migrate` ran,
 // and the setup is sound (`adminRole` is declared), so a deploy fails before traffic. It reads no rows.
 import { ok, type HealthCheck } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
@@ -14,5 +14,6 @@ export const checkBillingTables: HealthCheck = async (context) => {
   await db.execute(sql`select 1 from billing.payments limit 0`);
   await db.execute(sql`select 1 from billing.payment_requests limit 0`);
   await db.execute(sql`select 1 from billing.manual_grants limit 0`);
+  await db.execute(sql`select 1 from billing.trial_extensions limit 0`);
   return ok();
 };

@@ -31,7 +31,7 @@ export const billing = defineModule({
     version: "0.1.8",
     dependsOn: { security: "^0.1.0", auth: "^0.1.0", mailing: "^0.1.0?", ops: "^0.1.0?" },
     dbSchema: "billing",
-    tables: ["entitlements", "payments", "payment_requests", "manual_grants"],
+    tables: ["entitlements", "payments", "payment_requests", "manual_grants", "trial_extensions"],
     env: [
       {
         name: "STRIPE_SECRET_KEY",
@@ -62,11 +62,15 @@ export {
   INITIAL_ADMIN_ACTION_STATE,
   INITIAL_GRANT_FORM_STATE,
   INITIAL_PAYMENT_FORM_STATE,
+  INITIAL_TRIAL_FORM_STATE,
   PERIOD_UNITS,
   type AdminActionErrorCode,
   type AdminActionState,
   type AdminErrorCode,
   type BillingErrorCode,
+  type TrialExtensionErrorCode,
+  type TrialFormErrorCode,
+  type TrialFormState,
   type BillingFormErrorCode,
   type Entitlement,
   type EntitlementEvent,
@@ -136,7 +140,7 @@ export {
 } from "./reminder.js";
 export { CURRENCY_MINOR_UNIT_DIGITS } from "./currency-digits.js";
 export { formatPrice, getMinorUnitDigits, isSupportedCurrency } from "./price.js";
-export { billingSchema, entitlements, manualGrants, paymentRequests, payments } from "./schema.js";
+export { billingSchema, entitlements, manualGrants, paymentRequests, payments, trialExtensions } from "./schema.js";
 export { getCheckoutSessionParams, stripe, STRIPE_API_BASE, STRIPE_SECRET_KEY_ENV, STRIPE_TIMEOUT_MS, type StripeOptions } from "./stripe.js";
 export {
   describeStripePriceProblem,

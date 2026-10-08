@@ -46,6 +46,7 @@ export const en = {
     empty: "No plans are available yet.",
   },
   payment: {
+    heading: "Payment",
     title: "Choose a plan",
     lead: "Pick the plan that suits you. Paid access starts when your current access ends.",
     plansLabel: "Plans",
@@ -67,6 +68,7 @@ export const en = {
     lifetime: "You have lifetime access: there is nothing left to pay for.",
   },
   admin: {
+    heading: "Billing",
     title: "Grant access",
     lead: "Grant a plan to an account once its payment has arrived. A paid period starts when the account's current access ends.",
     email: "Account email",
@@ -76,6 +78,15 @@ export const en = {
     granted: "{email} now has {plan}.",
     grantedUntil: "{email} now has {plan}, with access until {date}.",
     noPlans: "There are no plans to grant: add them to billing({ plans }).",
+    trial: {
+      title: "Extend a trial",
+      lead: "Give an account a longer trial for free, e.g. an invited user. It is not paid access: the account keeps its paid periods, and the trial lasts through the day you choose.",
+      email: "Account email",
+      lastDay: "Last day of the trial",
+      submit: "Extend trial",
+      pending: "Extending…",
+      extended: "{email} now has a trial until {date}.",
+    },
     requests: {
       title: "Invoice requests",
       lead: "Requests sent from the payment page. Grant the plan once the invoice is paid, or dismiss the request.",
@@ -119,6 +130,10 @@ export const en = {
       revoke: "Revoke",
       revoking: "Revoking…",
       revokeLabel: "Revoke {plan} granted on {date}",
+      trialExtended: "Trial extended",
+      trialUntil: "Trial until {date}",
+      extendedOn: "Extended on {date}",
+      trialWasUntil: "The trial was until {date}",
     },
   },
   errors: {
@@ -135,6 +150,8 @@ export const en = {
       lifetime_active: "This account already has lifetime access: there is nothing to pay for or grant.",
       request_closed: "This request was granted or dismissed already.",
       grant_revoked: "This grant was revoked already.",
+      trial_not_extended: "The trial already lasts through this day or longer.",
+      day_invalid: "Enter a date, e.g. 2026-11-30.",
     },
     security: {
       rate_limited: "Too many attempts. Try again later.",

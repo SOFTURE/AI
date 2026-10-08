@@ -9,6 +9,7 @@ import { grantRole, registerUser } from "@softure-ai/auth/server";
 import { manual, type BillingOptionsInput } from "@softure-ai/billing";
 import {
   dismissRequestAction,
+  extendTrialAction,
   findAccountAction,
   grantPlanAction,
   grantRequestAction,
@@ -147,6 +148,41 @@ describe("the Next adapter's guards", () => {
       expect(await grant()).toMatchObject({ status: "granted", planId: "monthly" });
       expect(await countRows("billing.manual_grants", `user_id = '${ada.id}' AND granted_by = '${admin.id}'`)).toBe(1);
       expect(scope.revalidated).toEqual([ADMIN_PAGE]);
+    });
+  });
+
+  describe("extendTrialAction", () => {
+    const extend = (lastDay = "2026-10-31", email = "ada@example.com") => extendTrialAction({ status: "idle" }, createForm({ email, trialLastDay: lastDay }));
+
+    it.each(["anonymous", "member"] as const)("refuses %s before reading the form and extends nothing", async (caller) => {
+      signInAs(caller);
+      expect(await extend()).toEqual(FORBIDDEN);
+      expect(await countRows("billing.trial_extensions", "true")).toBe(0);
+      expect(await countRows("billing.entitlements", "true")).toBe(0);
+      expect(scope.revalidated).toEqual([]);
+    });
+
+    it("extends the trial through the last day in the app's time zone for an admin and refreshes the admin page", async () => {
+      signInAs("admin");
+      expect(await extend()).toEqual({ status: "extended", notice: "ada@example.com now has a trial until October 31, 2026." });
+      expect(
+        await countRows("billing.trial_extensions", `user_id = '${ada.id}' AND extended_by = '${admin.id}' AND ends_at = '2026-10-31T23:00:00Z'`),
+      ).toBe(1);
+      expect(await countRows("billing.entitlements", `user_id = '${ada.id}' AND paid_until IS NULL`)).toBe(1);
+      expect(scope.revalidated).toEqual([ADMIN_PAGE]);
+    });
+
+    it.each([
+      ["a malformed day", "31.10.2026", "ada@example.com", "billing.day_invalid"],
+      ["an impossible day", "2026-02-30", "ada@example.com", "billing.day_invalid"],
+      ["a day the trial already covers", "2026-10-10", "ada@example.com", "billing.trial_not_extended"],
+      ["a day in the past", "2026-10-01", "ada@example.com", "billing.end_not_in_future"],
+      ["an unknown email", "2026-10-31", "nobody@example.com", "billing.account_unknown"],
+    ])("answers %s with its code and echoes the form", async (_case, lastDay, email, error) => {
+      signInAs("admin");
+      expect(await extend(lastDay, email)).toEqual({ status: "error", error, email, lastDay });
+      expect(await countRows("billing.trial_extensions", "true")).toBe(0);
+      expect(scope.revalidated).toEqual([]);
     });
   });
 

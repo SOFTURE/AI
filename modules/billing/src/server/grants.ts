@@ -9,7 +9,7 @@ import { err, ok, type Err, type Ok } from "@softure-ai/core";
 import { and, desc, eq } from "drizzle-orm";
 import type { AdminErrorCode, Entitlement, PaymentGrant, PlanPrice } from "../contract.js";
 import { findPlan } from "../plans.js";
-import { entitlements, manualGrants, paymentRequests, payments } from "../schema.js";
+import { entitlements, manualGrants, paymentRequests, payments, trialExtensions } from "../schema.js";
 import { findEntitlementRecord, pinEntitlementRow, type BillingContext } from "./entitlements.js";
 import { getGrantColumns, readGrant } from "./payments.js";
 import { applyPlan, getBillingPlans } from "./plans.js";
@@ -152,7 +152,10 @@ export async function revokeManualGrant(ctx: BillingContext, input: RevokeManual
   });
 }
 
-/** One line of an account's history: a grant typed in by an admin, or a payment a provider reported. */
+/**
+ * One line of an account's history: a grant typed in by an admin, a payment a provider reported, or
+ * a trial an admin extended.
+ */
 export type AccountHistoryEntry =
   | {
       readonly source: "manual";
@@ -181,12 +184,21 @@ export type AccountHistoryEntry =
       readonly refundedAt: Date | null;
       /** The total refunded so far: part of `amount` while the payment is still paid. */
       readonly refundedAmount: number;
+    }
+  | {
+      readonly source: "trial";
+      readonly id: string;
+      /** When it was extended. */
+      readonly at: Date;
+      /** The trial end before and after the extension (first instants no longer covered). */
+      readonly previousEndsAt: Date;
+      readonly endsAt: Date;
     };
 
 /** How many entries of each source the history reads. */
 export const ACCOUNT_HISTORY_LIMIT = 100;
 
-/** The account's manual grants and provider payments, newest first. Database errors propagate. */
+/** The account's manual grants, provider payments and trial extensions, newest first. Database errors propagate. */
 export async function getAccountHistory(ctx: Pick<BillingContext, "db">, userId: string): Promise<readonly AccountHistoryEntry[]> {
   if (!isUserId(userId)) return [];
   const grantRows = await ctx.db
@@ -200,6 +212,12 @@ export async function getAccountHistory(ctx: Pick<BillingContext, "db">, userId:
     .from(payments)
     .where(eq(payments.userId, userId))
     .orderBy(desc(payments.paidAt), desc(payments.id))
+    .limit(ACCOUNT_HISTORY_LIMIT);
+  const extensionRows = await ctx.db
+    .select()
+    .from(trialExtensions)
+    .where(eq(trialExtensions.userId, userId))
+    .orderBy(desc(trialExtensions.extendedAt), desc(trialExtensions.id))
     .limit(ACCOUNT_HISTORY_LIMIT);
   const entries: AccountHistoryEntry[] = [];
   for (const row of grantRows) {
@@ -222,6 +240,9 @@ export async function getAccountHistory(ctx: Pick<BillingContext, "db">, userId:
       refundedAt: row.refundedAt,
       refundedAmount: row.refundedAmount,
     });
+  }
+  for (const row of extensionRows) {
+    entries.push({ source: "trial", id: row.id, at: row.extendedAt, previousEndsAt: row.previousEndsAt, endsAt: row.endsAt });
   }
   return entries.sort((first, second) => second.at.getTime() - first.at.getTime());
 }

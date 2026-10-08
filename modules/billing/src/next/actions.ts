@@ -11,14 +11,16 @@ import { errorLogLabel, formatMessage, safeError, type CoreErrorCode, type Err, 
 import { getSoftureConfig } from "@softure-ai/core/next";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import type { AdminActionErrorCode, AdminActionState, GrantFormState, PaymentFormState } from "../contract.js";
-import { ACCOUNT_PARAM, EMAIL_FIELD, GRANT_FIELD, INVOICE_FIELDS, PLAN_FIELD, REQUEST_FIELD } from "../fields.js";
+import { getStartOfDay, parseDay } from "../calendar.js";
+import type { AdminActionErrorCode, AdminActionState, GrantFormState, PaymentFormState, TrialFormState } from "../contract.js";
+import { ACCOUNT_PARAM, EMAIL_FIELD, GRANT_FIELD, INVOICE_FIELDS, PLAN_FIELD, REQUEST_FIELD, TRIAL_LAST_DAY_FIELD } from "../fields.js";
 import { findPlan, getLocalizedText } from "../plans.js";
 import { grantPaymentRequest, grantPlanManually, revokeManualGrant } from "../server/grants.js";
 import { getBillingMessages, getBillingOptions, getBillingRoutes } from "../server/options.js";
 import { findAccountByEmail, getBillingPlans, startPayment } from "../server/plans.js";
 import type { BillingContext } from "../server/entitlements.js";
 import { dismissPaymentRequest } from "../server/requests.js";
+import { extendTrialManually } from "../server/trials.js";
 import { formatLastDay } from "../ui/format.js";
 import { getBillingContext } from "./context.js";
 
@@ -105,6 +107,37 @@ export async function grantPlanAction(_previous: GrantFormState, formData: FormD
   // No request was given, so it is never closed; an account deleted meanwhile is unknown.
   const error = result.error === "billing.request_closed" ? "billing.account_unknown" : result.error;
   return { status: "error", error, ...echo };
+}
+
+/**
+ * Extends the trial of the account with the form's email through the form's last day (the trial
+ * ends at the start of the next day in the app's time zone) and records it in the account's history.
+ * Only for the role of `billing({ adminRole })`, checked from the session before the form is read.
+ * Never writes paid access.
+ */
+export async function extendTrialAction(_previous: TrialFormState, formData: FormData): Promise<TrialFormState> {
+  const config = getSoftureConfig();
+  const admin = await authorizeAdmin(config);
+  if (!admin.ok) return { status: "error", error: admin.error };
+  const email = readText(formData, EMAIL_FIELD).trim();
+  const lastDay = readText(formData, TRIAL_LAST_DAY_FIELD).trim();
+  const echo = { email, lastDay };
+
+  const day = parseDay(lastDay);
+  if (day === null) return { status: "error", error: "billing.day_invalid", ...echo };
+  const until = getStartOfDay(day + 1, config.timezone);
+  try {
+    const ctx = await getBillingContext(config);
+    const account = await findAccountByEmail(ctx, email);
+    if (account === null) return { status: "error", error: "billing.account_unknown", ...echo };
+    const result = await extendTrialManually(ctx, { userId: account.id, until, adminId: admin.value.id });
+    if (!result.ok) return { status: "error", error: result.error, ...echo };
+    refreshAdminPage(config);
+    const notice = formatMessage(getBillingMessages(config).admin.trial.extended, { email: account.email, date: formatLastDay(until, config.locale, config.timezone) });
+    return { status: "extended", notice };
+  } catch (error) {
+    return { status: "error", error: reportFailure("extending a trial", error), ...echo };
+  }
 }
 
 interface AdminChange {
