@@ -36,10 +36,18 @@ const NO_DATABASE: AppFacts = {
 const ENV_PROD = "AUTH_SECRET='s3cret'\n";
 
 // The database steps run the CLI through npx; the stub records the call, prints what backup prints and writes the
-// row-counts file of --out (COUNTS_JSON, else two tables), like the CLI.
+// row-counts file of --out (COUNTS_JSON, else two tables), like the CLI. server-settings and --print-query run the
+// real CLI (REAL_CLI through tsx): what deploy.sh reads from them is the package's own output. Called as
+// softure-deploy in the helper image, the stub gets the arguments without npx's.
 const STUB_NPX = `#!/usr/bin/env bash
 printf '%s\\n' "$*" >> "$NPX_LOG"
 if [ -n "\${FAIL_NPX_ON:-}" ] && [[ " $* " == *"$FAIL_NPX_ON"* ]]; then exit 1; fi
+if [ "\${1:-}" = "--yes" ]; then shift 2; fi
+# The CLI reads all of a --stdin input; a writer to a pipe nobody drains could die of SIGPIPE.
+if [[ " $* " == *" --stdin "* ]]; then cat > /dev/null; fi
+case " $* " in
+  *" server-settings "* | *" --print-query "*) exec "$REAL_NODE" --import "$TSX_LOADER" "$REAL_CLI" "$@" ;;
+esac
 for arg in "$@"; do
   case "$arg" in
     --dir=*) echo "backup: wrote \${arg#--dir=}/db-20261006-120000.dump (2048 bytes)" ;;
@@ -80,6 +88,8 @@ case " $* " in
   *" ps --quiet app "*) echo c0ffee ;;
   *" inspect "*) echo healthy ;;
   *" create "*) echo c0ffee ;;
+  *" exec -T postgres pg_dump "*) printf 'PGDMP-stub' ;;
+  *" exec -T postgres psql "*) printf '{"softure":[],"app":null}\\n' ;;
 esac
 exit 0
 `;
@@ -170,6 +180,9 @@ function runServer(command: string, input: Buffer | string, env: Record<string, 
       LOGIN_STDIN: join(root, "login-stdin"),
       NPX_LOG: npxLog,
       CRONTAB_FILE: crontabFile,
+      REAL_NODE: process.execPath,
+      TSX_LOADER: import.meta.resolve("tsx"),
+      REAL_CLI: join(import.meta.dirname, "../src/cli/main.ts"),
       ...env,
     },
   });
@@ -255,6 +268,7 @@ describe("a release archive packed by deploy-app.yml and installed by deploy.sh"
     expect(readLines(result.stdout, "step")).toEqual([
       "step|archive|ok",
       "step|files|ok",
+      "step|settings|ok",
       "step|pull|ok",
       "step|switch|ok",
       "step|tag|ok",
@@ -395,7 +409,8 @@ describe("deploy.sh with a database counts the tables of the deploy.json the rel
     writeFileSync(join(checkout, "deploy.json"), "{ not json");
     const result = deploy("v2", packArchive());
     expect(result.status).toBe(1);
-    expect(result.stderr).toContain("deploy: cannot read the row-count tables of the release's deploy.json.");
+    expect(result.stdout).toContain("result|failed|settings|cannot read the release's deploy.json, or it is not valid; nothing was restarted.");
+    expect(result.stderr).toContain("server-settings: cannot read");
     expect(result.stderr).toContain("deploy: the previous release is v1; redeploy it to roll back.");
     expect(readDockerLog().filter((line) => line.includes("traefik app"))).toEqual([]);
     expect(readRowCountCalls()).toEqual([]);
@@ -440,15 +455,228 @@ describe("deploy.sh with a database on a host without Node", () => {
     const runs = docker.filter((line) => line.startsWith("run "));
     expect(runs.every((line) => line.includes(` --network host --user ${String(process.getuid?.())}:`) && line.includes(`--volume ${server}:${server}`))).toBe(true);
     const commands = readFileSync(npxLog, "utf8").trim().split("\n").map((line) => line.split(" ")[0]);
-    expect(commands).toEqual(["backup", "schema-guard", "backup", "schema-guard", "row-counts", "row-counts"]);
+    expect(commands).toEqual(["server-settings", "backup", "schema-guard", "server-settings", "backup", "schema-guard", "row-counts", "row-counts"]);
     expect(runs.filter((line) => line.includes(" node -e "))).toHaveLength(4);
   });
 
   it("stops before anything restarts when the helper image cannot be built", () => {
     const result = deploy("v1", packArchive(), { PATH: `${stubBin}:${HOST_PATH}`, TOOLS_BIN: toolsBin, FAIL_DOCKER_ON: "build" });
     expect(result.status).toBe(1);
-    expect(result.stdout.trimEnd().split("\n").at(-1)).toBe("result|failed|backup|the backup failed; nothing was restarted.");
+    // The CLI that reads the release's deploy.json runs in the helper image too, so the first step that needs it stops.
+    expect(result.stdout.trimEnd().split("\n").at(-1)).toBe(
+      "result|failed|settings|cannot read the release's deploy.json, or it is not valid; nothing was restarted.",
+    );
     expect(readDockerLog().filter((line) => line.includes("traefik app"))).toEqual([]);
+  });
+});
+
+describe("deploy.sh runs the hooks of the release's deploy.json", () => {
+  // A host script the release ships in docker/prod/hooks/: it records what it saw and prints a line deploy.sh must keep
+  // off stdout; HOOK_EXIT makes it fail.
+  const CHECK_SCRIPT = `printf 'tag=%s image=%s previous=%s cwd=%s\\n' "$TAG" "$IMAGE" "$PREVIOUS_TAG" "$PWD" >> "$HOOK_LOG"
+echo "result|ok"
+exit "\${HOOK_EXIT:-0}"
+`;
+
+  function setHooks(hooks: Record<string, unknown>): void {
+    const path = join(checkout, "deploy.json");
+    writeFileSync(path, JSON.stringify({ ...(JSON.parse(readFileSync(path, "utf8")) as object), hooks }));
+  }
+
+  const HOOKS = {
+    "pre-migrate": [{ name: "check-env", run: ["bash", "hooks/check.sh"] }],
+    "post-up": [{ name: "publish", compose: ["exec", "-T", "app", "node", "publish.mjs", "--commit"] }],
+    maintain: [
+      { name: "daily-report", run: ["bash", "hooks/check.sh"] },
+      { name: "purge", schedule: "*/15 * * * *", compose: ["exec", "-T", "app", "node", "purge.mjs"] },
+    ],
+  };
+
+  let hookLog: string;
+
+  beforeEach(() => {
+    hookLog = join(root, "hook.log");
+    write(join(checkout, "docker/prod/hooks/check.sh"), CHECK_SCRIPT);
+    setHooks(HOOKS);
+  });
+
+  function deployWithHooks(tag: string, env: Record<string, string> = {}): BashResult {
+    return deploy(tag, packArchive(), { HOOK_LOG: hookLog, ...env });
+  }
+
+  it("runs pre-migrate before the switch and post-up once the release is live, with their output on stderr", () => {
+    expect(deployWithHooks("v1").status).toBe(0);
+    const result = deployWithHooks("v2");
+    expect(result.status).toBe(0);
+    expect(readLines(result.stdout, "step")).toEqual([
+      "step|archive|ok",
+      "step|files|ok",
+      "step|settings|ok",
+      "step|pull|ok",
+      "step|check-env|ok",
+      "step|switch|ok",
+      "step|tag|ok",
+      "step|cron|ok",
+      "step|publish|ok",
+    ]);
+    // A hook's own output never counts as the release's result line.
+    expect(readLines(result.stdout, "result")).toEqual(["result|ok"]);
+    expect(result.stderr).toBe("result|ok\n");
+    expect(readFileSync(hookLog, "utf8").trim().split("\n")).toEqual([
+      `tag=v1 image=ghcr.io/acme/app previous= cwd=${server}`,
+      `tag=v2 image=ghcr.io/acme/app previous=v1 cwd=${server}`,
+    ]);
+    expect(readDockerLog()).toContain("compose --env-file .env.prod --file docker-compose.yml exec -T app node publish.mjs --commit");
+  });
+
+  it("gives a scheduled maintain hook its own crontab line and runs only it on maintain <hook>", () => {
+    expect(deployWithHooks("v1").status).toBe(0);
+    expect(readFileSync(crontabFile, "utf8").split("\n").filter((line) => line !== "")).toEqual([
+      `17 3 * * * PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin SSH_ORIGINAL_COMMAND=maintain ${server}/deploy.sh 2>&1 | logger -t acme-app-maintain # softure-deploy:acme-app`,
+      `*/15 * * * * PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin SSH_ORIGINAL_COMMAND='maintain purge' ${server}/deploy.sh 2>&1 | logger -t acme-app-purge # softure-deploy:acme-app`,
+    ]);
+    rmSync(dockerLog);
+    rmSync(hookLog);
+    const scheduled = runServer("maintain purge", "", { HOOK_LOG: hookLog });
+    expect(scheduled.status).toBe(0);
+    expect(scheduled.stdout).toBe("step|settings|ok\nstep|purge|ok\nresult|ok\n");
+    expect(readDockerLog()).toEqual(["compose --env-file .env.prod --file docker-compose.yml exec -T app node purge.mjs"]);
+    expect(existsSync(hookLog)).toBe(false);
+
+    const daily = runServer("maintain", "", { HOOK_LOG: hookLog });
+    expect(daily.status).toBe(0);
+    expect(readLines(daily.stdout, "step")).toEqual(["step|settings|ok", "step|images|ok|removed 0", "step|daily-report|ok"]);
+    expect(readFileSync(hookLog, "utf8")).toBe(`tag=v1 image=ghcr.io/acme/app previous=v1 cwd=${server}\n`);
+  });
+
+  it("refuses maintain of a hook the installed deploy.json does not schedule, and a name that is not one", () => {
+    expect(deployWithHooks("v1").status).toBe(0);
+    const unknown = runServer("maintain daily-report", "");
+    expect(unknown.status).toBe(1);
+    expect(unknown.stdout).toContain("result|failed|settings|deploy.json has no scheduled maintain hook daily-report.");
+    const invalid = runServer("maintain ../x", "");
+    expect(invalid.status).toBe(2);
+    expect(invalid.stderr).toBe("deploy: the hook name is not a lower-case word of letters, digits and -.\n");
+  });
+
+  it("puts the previous files back when a pre-migrate hook fails", () => {
+    expect(deployWithHooks("v1").status).toBe(0);
+    rmSync(dockerLog);
+    writeFileSync(join(checkout, ".env.prod"), "AUTH_SECRET='new'\n");
+    const result = deployWithHooks("v2", { HOOK_EXIT: "3" });
+    expect(result.status).toBe(1);
+    expect(result.stdout.trimEnd().split("\n").slice(-2)).toEqual([
+      "step|restore|ok",
+      "result|failed|check-env|the hook check-env failed with exit status 3.",
+    ]);
+    expect(readFileSync(join(server, ".env.prod"), "utf8")).toBe(`${ENV_PROD}TAG=v1\n`);
+    expect(readDockerLog().filter((line) => line.includes(" up "))).toEqual([]);
+  });
+
+  it("fails the release on a failing post-up hook with the tag recorded and nothing rolled back", () => {
+    expect(deployWithHooks("v1").status).toBe(0);
+    const result = deployWithHooks("v2", { FAIL_DOCKER_ON: "publish.mjs" });
+    expect(result.status).toBe(1);
+    expect(result.stdout.trimEnd().split("\n").at(-1)).toBe("result|failed|publish|the hook publish failed with exit status 1.");
+    expect(result.stdout).not.toContain("step|restore");
+    expect(readFileSync(join(server, ".deployed-tag"), "utf8")).toBe("v2\n");
+  });
+
+  it("stops at the settings step, files restored, when a hook takes a name of deploy.sh's own steps", () => {
+    expect(deployWithHooks("v1").status).toBe(0);
+    setHooks({ "post-up": [{ name: "switch", run: ["true"] }] });
+    const result = deployWithHooks("v2");
+    expect(result.status).toBe(1);
+    expect(result.stdout.trimEnd().split("\n").slice(-2)).toEqual([
+      "step|restore|ok",
+      "result|failed|settings|cannot read the release's deploy.json, or it is not valid; nothing was restarted.",
+    ]);
+    expect(result.stderr).toContain("hooks.post-up.0");
+  });
+
+  it("does not need the CLI when a release without a database ships no hooks", () => {
+    const path = join(checkout, "deploy.json");
+    const config = JSON.parse(readFileSync(path, "utf8")) as { hooks?: unknown };
+    delete config.hooks;
+    writeFileSync(path, JSON.stringify(config));
+    expect(deployWithHooks("v1").status).toBe(0);
+    expect(existsSync(npxLog)).toBe(false);
+  });
+});
+
+describe("deploy.sh with database.access compose-exec", () => {
+  const WITH_DATABASE: AppFacts = { ...NO_DATABASE, hasDatabase: true };
+  // No POSTGRES_PASSWORD: compose-exec runs as the service's own user over its socket.
+  const DATABASE_ENV = "POSTGRES_USER='appuser'\nPOSTGRES_DB='app_db'\nSOFTURE_MIGRATOR_PASSWORD='m'\nSOFTURE_APP_PASSWORD='a'\n";
+
+  beforeEach(() => {
+    writeCheckout({ facts: WITH_DATABASE, tables: ["users"], envProd: DATABASE_ENV });
+    write(join(server, "deploy.sh"), readFileSync(join(checkout, "docker/server/deploy.sh"), "utf8"), 0o755);
+    const path = join(checkout, "deploy.json");
+    const config = JSON.parse(readFileSync(path, "utf8")) as { database: object };
+    config.database = {
+      ...config.database,
+      access: "compose-exec",
+      appMigrations: { journal: "/app/drizzle/meta/_journal.json" },
+      excludeTableData: ["security.rate_limits"],
+    };
+    writeFileSync(path, JSON.stringify(config));
+  });
+
+  function readNpxCalls(): string[] {
+    return readFileSync(npxLog, "utf8").trim().split("\n").map((line) => line.replace(/^--yes @softure-ai\/deploy@9\.9\.9 /, ""));
+  }
+
+  it("dumps, guards and counts through the postgres service as POSTGRES_USER on POSTGRES_DB", () => {
+    expect(deploy("v1", packArchive()).status).toBe(0);
+    rmSync(dockerLog);
+    rmSync(npxLog);
+    const result = deploy("v2", packArchive());
+    expect(result.stderr).toBe("");
+    expect(result.status).toBe(0);
+    expect(readLines(result.stdout, "step")).toContain("step|backup|ok|db-20261006-120000.dump");
+    expect(readLines(result.stdout, "step")).toContain("step|row-counts-after|ok|users=3,billing.subscriptions=2");
+
+    const compose = "compose --env-file .env.prod --file docker-compose.yml";
+    const docker = readDockerLog();
+    expect(docker).toContain(
+      `${compose} exec -T postgres pg_dump --format=custom --no-password -U appuser -d app_db --exclude-table-data=security.rate_limits`,
+    );
+    expect(docker.filter((line) => line.startsWith(`${compose} exec -T postgres psql -X -q -v ON_ERROR_STOP=1 -At -U appuser -d app_db -c SELECT `))).toHaveLength(3);
+    expect(docker.some((line) => /^cp c0ffee:\/app\/drizzle\/meta\/_journal\.json \S+\/app-journal\.json$/.test(line))).toBe(true);
+
+    const calls = readNpxCalls();
+    const work = /--migrations-dir=(\S+)\/migrations/.exec(calls.find((call) => call.startsWith("schema-guard --stdin")) ?? "")?.[1] ?? "";
+    const config = `${server}/releases/v2/deploy.json`;
+    expect(calls).toEqual([
+      `server-settings --config=${config} --out-dir=${work}/settings`,
+      `backup --stdin --dir=${server}/backups --prefix=db --keep=7 --max-age-days=30`,
+      "schema-guard --print-query --app-ledger=drizzle.__drizzle_migrations",
+      `schema-guard --stdin --migrations-dir=${work}/migrations --app-journal=${work}/app-journal.json --app-ledger=drizzle.__drizzle_migrations`,
+      `row-counts --print-query --config=${config}`,
+      `row-counts --stdin --config=${config} --out=${work}/counts-before.json`,
+      `row-counts --print-query --config=${config}`,
+      `row-counts --stdin --config=${config} --compare=${work}/counts-before.json --out=${work}/counts-after.json`,
+    ]);
+    expect(readdirSync(join(server, "backups"))).toEqual([]);
+  });
+
+  it("stops at the backup when pg_dump fails, keeping no partial dump and calling no CLI to keep one", () => {
+    expect(deploy("v1", packArchive()).status).toBe(0);
+    rmSync(npxLog);
+    const result = deploy("v2", packArchive(), { FAIL_DOCKER_ON: "pg_dump" });
+    expect(result.status).toBe(1);
+    expect(result.stdout.trimEnd().split("\n").at(-1)).toBe("result|failed|backup|the backup failed; nothing was restarted.");
+    expect(readNpxCalls().filter((call) => call.startsWith("backup"))).toEqual([]);
+    expect(readdirSync(join(server, "backups"))).toEqual([]);
+  });
+
+  it("stops at the schema step when the image has no app journal", () => {
+    const result = deploy("v1", packArchive(), { FAIL_DOCKER_ON: "cp c0ffee:/app/drizzle" });
+    expect(result.status).toBe(1);
+    expect(result.stdout.trimEnd().split("\n").at(-1)).toBe(
+      "result|failed|schema|the image v1 has no /app/drizzle/meta/_journal.json (database.appMigrations.journal); nothing was restarted.",
+    );
   });
 });
 
@@ -626,7 +854,13 @@ describe("deploy.sh puts the previous files back when a release fails before the
     for (const path of ["docker/prod/docker-compose.yml", "docker/prod/traefik.yml", "deploy.json", "docker/server/deploy.sh"]) {
       const file = join(checkout, path);
       const text = readFileSync(file, "utf8");
-      writeFileSync(file, path.endsWith(".json") ? JSON.stringify({ ...(JSON.parse(text) as object), v: 2 }) : `${text}# v2\n`);
+      if (!path.endsWith(".json")) {
+        writeFileSync(file, `${text}# v2\n`);
+        continue;
+      }
+      // deploy.json is validated (strict keys), so its change is a different $schema text.
+      const config = JSON.parse(text) as { $schema?: string };
+      writeFileSync(file, JSON.stringify({ ...config, $schema: `${config.$schema ?? ""}#v2` }));
     }
     write(join(checkout, "docker/prod/extra/added.yml"), "added: true\n");
   }
@@ -641,7 +875,7 @@ describe("deploy.sh puts the previous files back when a release fails before the
     const result = deploy("v2", packArchive(), { FAIL_DOCKER_ON: "pull " });
     expect(result.status).toBe(1);
     expect(result.stdout.trimEnd().split("\n").at(-1)).toBe("result|failed|pull|cannot pull ghcr.io/acme/app:v2.");
-    expect(readLines(result.stdout, "step")).toEqual(["step|archive|ok", "step|files|ok", "step|restore|ok"]);
+    expect(readLines(result.stdout, "step")).toEqual(["step|archive|ok", "step|files|ok", "step|settings|ok", "step|restore|ok"]);
     expect(result.stderr).toContain("deploy: the previous files and .env.prod are back in place.");
     expect(result.stderr).toContain("deploy: the previous release is v1; redeploy it to roll back.");
     expect(snapshotServer()).toEqual(before);
@@ -764,7 +998,7 @@ describe("deploy.sh maintain", () => {
     const result = runServer("maintain", "", { DOCKER_IMAGE_TAGS: "v1\nv2\nv6\n<none>\nlatest\n" });
     expect(result.stderr).toBe("");
     expect(result.status).toBe(0);
-    expect(result.stdout).toBe("step|images|ok|removed 2\nresult|ok\n");
+    expect(result.stdout).toBe("step|settings|ok\nstep|images|ok|removed 2\nresult|ok\n");
     expect(readDockerLog()).toEqual([
       "image ls ghcr.io/acme/app --format {{.Tag}}",
       "image rm ghcr.io/acme/app:v1",
@@ -781,10 +1015,10 @@ describe("deploy.sh maintain", () => {
     const result = runServer("maintain", "");
     expect(result.status).toBe(0);
     expect(result.stdout).toBe(
-      `backup: wrote ${server}/backups/db-20261006-120000.dump (2048 bytes)\nstep|backup|ok|db-20261006-120000.dump\nstep|images|ok|removed 0\nresult|ok\n`,
+      `step|settings|ok\nbackup: wrote ${server}/backups/db-20261006-120000.dump (2048 bytes)\nstep|backup|ok|db-20261006-120000.dump\nstep|images|ok|removed 0\nresult|ok\n`,
     );
-    expect(readFileSync(npxLog, "utf8")).toBe(
-      `--yes @softure-ai/deploy@9.9.9 backup --dir=${server}/backups --prefix=db --keep=7 --max-age-days=30\n`,
+    expect(readFileSync(npxLog, "utf8")).toMatch(
+      new RegExp(`--yes @softure-ai/deploy@9\\.9\\.9 backup --dir=${server}/backups --prefix=db --keep=7 --max-age-days=30\n$`),
     );
   });
 

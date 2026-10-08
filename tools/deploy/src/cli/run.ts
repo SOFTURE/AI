@@ -5,6 +5,7 @@ import { runInit } from "./init-command.js";
 import type { CliIo } from "./io.js";
 import { runReleaseNotes } from "./release-notes-command.js";
 import { runReleaseReport } from "./release-report-command.js";
+import { runServerSettings } from "./server-settings-command.js";
 import { runVerifyCommand } from "./verify-command.js";
 
 export const USAGE = [
@@ -33,6 +34,9 @@ export const USAGE = [
   "      counts the --tables, else database.rowCountTables of deploy.json (a missing table is absent); with --compare,",
   "      fails when a table has fewer rows than in the earlier file, was not in it, or is absent now; --stdin reads",
   "      the snapshot that `row-counts --print-query` prints the statement of",
+  "  server-settings --config=<deploy.json> --out-dir=<dir>",
+  "      validates deploy.json and writes the database access, app ledger, backup exclusions, hooks and cron lines",
+  "      init's deploy.sh reads, one file each",
   "  verify <url> [--config=deploy.json] [--timeout=<ms>] [--concurrency=4] [--origin=<host>[:<port>]]",
   "      checks every route of deploy.json against <url>; exits 1 when a check fails",
   "  init --domain=<host> --image=<registry/name> [--dir=.] [--name=<slug>] [--paths=/] [--www] [--acme-email=<email>]",
@@ -53,6 +57,7 @@ const COMMANDS: Record<string, Command> = {
   backup: runBackup,
   "schema-guard": runSchemaGuard,
   "row-counts": runRowCounts,
+  "server-settings": runServerSettings,
   verify: runVerifyCommand,
   init: runInit,
 };

@@ -11,4 +11,5 @@ export {
   type DeployMessages,
 } from "./messages/index.js";
 export * from "./db/index.js";
+export { HOOK_POINTS, planServerSettings, type ServerSettingsFiles } from "./cli/server-settings-command.js";
 export * from "./init/index.js";
