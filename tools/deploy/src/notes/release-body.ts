@@ -1,5 +1,5 @@
 /**
- * The GitHub Release body as the owner's text plus sections the deploy tools own (FIRE_TRACKER's "living report"):
+ * The GitHub Release body as the owner's text plus sections the deploy tools own (an adopting app's "living report"):
  * the text between a section's two markers belongs to the tool that writes it, everything around it to whoever wrote
  * it, so a rerun replaces a section in place and keeps the owner's description above it. Sections stand in a fixed
  * order, so the body reads the same on every release: the release notes (`release-notes`, DF-1), the pipeline status

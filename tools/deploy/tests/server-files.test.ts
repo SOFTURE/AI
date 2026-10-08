@@ -529,6 +529,19 @@ exit "\${HOOK_EXIT:-0}"
     expect(readDockerLog()).toContain("compose --env-file .env.prod --file docker-compose.yml exec -T app node publish.mjs --commit");
   });
 
+  it("keeps a hook that reads stdin from swallowing the hooks after it", () => {
+    setHooks({
+      "pre-migrate": [
+        { name: "drain", run: ["bash", "-c", "cat > /dev/null"] },
+        { name: "check-env", run: ["bash", "hooks/check.sh"] },
+      ],
+    });
+    const result = deployWithHooks("v1");
+    expect(result.status, result.stdout).toBe(0);
+    expect(readLines(result.stdout, "step")).toContain("step|drain|ok");
+    expect(readLines(result.stdout, "step")).toContain("step|check-env|ok");
+  });
+
   it("gives a scheduled maintain hook its own crontab line and runs only it on maintain <hook>", () => {
     expect(deployWithHooks("v1").status).toBe(0);
     expect(readFileSync(crontabFile, "utf8").split("\n").filter((line) => line !== "")).toEqual([

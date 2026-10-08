@@ -2,7 +2,7 @@
  * The variables a production compose file reads. Compose fails on `${NAME:?message}` when the variable is unset or
  * empty, and on `${NAME?message}` only when it is unset; `$$` is a literal dollar. `${NAME:-default}` and
  * `${NAME-default}` are optional: the compose file has its own default, and `env render` writes them only when the
- * deploy environment sets them (FIRE_TRACKER's runtime switches). Bare `${NAME}` is left out: it also names what
+ * deploy environment sets them (an app's runtime switches). Bare `${NAME}` is left out: it also names what
  * the server script or the shell sets (`${TAG}`, `${HOME}`).
  */
 export interface RequiredName {

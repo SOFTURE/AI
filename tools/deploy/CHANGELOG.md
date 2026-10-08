@@ -4,6 +4,23 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
+## Unreleased
+
+- `deploy-app.yml` takes `prebuilt-image` (`<image>@sha256:<digest>` from the `image` repository): an image the app
+  already tested is tagged with the release tag and deployed as it is, never rebuilt.
+- `schema-guard --app-journal=<file> [--app-ledger=<schema.table>]` also refuses an image whose own migration journal
+  (drizzle's) lists fewer migrations than the app ledger ran.
+- `backup --stdin`, `schema-guard --stdin` and `row-counts --stdin` read what `pg_dump` and `psql` printed elsewhere,
+  so the CLI needs no connection; `schema-guard --print-query` and `row-counts --print-query` print the statement.
+- `env render --from-json-env=<NAME>` (repeatable) takes the values from JSON objects such as `toJSON(secrets)`, a
+  later one over an earlier one.
+- `deploy.json` adds `database.access` (`host` or `compose-exec`), `database.appMigrations`,
+  `database.excludeTableData` and `hooks` (`pre-migrate`, `post-up`, `maintain`, the last with an optional cron
+  `schedule`); `server-settings` writes them out for `deploy.sh`.
+- `init`'s `deploy.sh` reads the release's `deploy.json` in a new `settings` step, runs the hooks, `maintain <hook>` on
+  a hook's own crontab line, and with `compose-exec` runs `pg_dump` and `psql` in the `postgres` service. The CLI before this
+  version refuses a `deploy.json` with these keys: move `deploy.sh` and `deploy-cli-version` to this version together.
+
 ## 0.1.4
 
 - `init` warns when the app depends on `@softure-ai/db` and its `next.config.*` does not list `"@softure-ai/db"` in

@@ -255,7 +255,8 @@ load_settings() {
   if [ "$access" != "host" ] && [ "$access" != "compose-exec" ]; then return 1; fi
 }
 
-# Runs one hook from its record's fields, in this folder, with its output on stderr; prints its step line.
+# Runs one hook from its record's fields, in this folder, with its output on stderr; prints its step line. Its stdin is
+# /dev/null: run_hooks reads the records from stdin, and a hook that reads it (compose exec) would swallow the rest.
 run_hook() {
   local name="$1" kind="$2"
   shift 2
@@ -263,8 +264,8 @@ run_hook() {
   begin_step "$name"
   local status=0
   case "$kind" in
-    compose) compose "$@" >&2 || status=$? ;;
-    run) (export TAG IMAGE PREVIOUS_TAG && "$@") >&2 || status=$? ;;
+    compose) compose "$@" < /dev/null >&2 || status=$? ;;
+    run) (export TAG IMAGE PREVIOUS_TAG && "$@") < /dev/null >&2 || status=$? ;;
     *) fail "the hook $name has an unknown kind: $kind" ;;
   esac
   if [ "$status" -ne 0 ]; then fail "the hook $name failed with exit status $status."; fi

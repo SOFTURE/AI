@@ -1,7 +1,7 @@
 /**
  * The items a release ships, from a SOFTURE roadmap: the rows of its `## At a glance` table (ID, change, outcome,
  * …, status as the last cell) whose status is `done_code`, that is on the main branch and waiting for a release.
- * FIRE_TRACKER's report lists them above the pull requests.
+ * An adopting app's report listed them above the pull requests.
  */
 export interface RoadmapItem {
   id: string;
@@ -11,7 +11,7 @@ export interface RoadmapItem {
 }
 
 const ITEM_ID = /^[A-Z]{2,4}-\d+$/;
-// `done kodowo` is the Polish status FIRE_TRACKER's older roadmaps used for the same state.
+// `done kodowo` is the Polish status older roadmaps of an adopting app used for the same state.
 const SHIPPING_STATUS = /^(?:done_code|done kodowo)\b/i;
 
 /** The cells of one table row; `\|` inside a cell is text, not a column border. */

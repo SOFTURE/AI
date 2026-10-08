@@ -1,5 +1,5 @@
-// Row counts of the app's key tables before and after a deploy. The list comes from the app (FIRE counted
-// `users`, `snapshots` and `position_values`); a table that lost rows across the deploy fails the comparison. A table
+// Row counts of the app's key tables before and after a deploy. The list comes from the app (an app
+// counts `users`, `orders` and `invoices`); a table that lost rows across the deploy fails the comparison. A table
 // the old schema lacks counts as absent, so a release can list the table its own migration creates.
 import { z } from "zod";
 

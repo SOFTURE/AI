@@ -3,7 +3,7 @@ import { formatMessage, type DeployMessages } from "../messages/index.js";
 import { readSection, writeSection } from "./release-body.js";
 
 /**
- * The living report of a deploy run in its GitHub Release (DF-10, after FIRE_TRACKER's `release-notes.ts`): the
+ * The living report of a deploy run in its GitHub Release (DF-10, after an adopting app's own release notes script): the
  * pipeline status of the latest run, replaced by every run, and the deployment history, one row per run with the
  * newest on top, so a rerun or a rollback adds a row and never replaces an earlier one. The facts come from
  * `deploy-report.json`, which the `summary` job of `deploy-app.yml` writes: each job's result and the server's

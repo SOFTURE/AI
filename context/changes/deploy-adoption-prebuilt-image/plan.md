@@ -108,7 +108,11 @@ Done when: all gates green (`npm run typecheck`, `npm run lint`, `npm test`, `np
 
 ## Progress
 
-- [x] Phase 1: CLI
-- [x] Phase 2: deploy.json, server-settings, deploy.sh
-- [x] Phase 3: prebuilt image in deploy-app.yml
-- [ ] Phase 4: docs
+- [x] Phase 1: CLI (3ca0917)
+- [x] Phase 2: deploy.json, server-settings, deploy.sh (9c6f272)
+- [x] Phase 3: prebuilt image in deploy-app.yml (382c326)
+- [x] Phase 4: docs, and the impl-review fix (hook stdin)
+
+Gates on the final tree: `npm run typecheck` clean, `npm run lint` clean, `npm run build` clean, `npm test` with
+`SOFTURE_TEST_POSTGRES_URL` 346 files / 5155 tests passed (5 files skipped), then `tools/deploy` 406 passed after the
+review fix.
