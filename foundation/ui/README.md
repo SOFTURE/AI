@@ -228,7 +228,8 @@ closes it (a confirmation `Modal` opened from the panel closes on its own Escape
 Both render the title as `h2`; `headingLevel` (1–3) changes the element, not the look. A panel that is
 the screen (an address of its own) passes `headingLevel={1}`, or `isOpen ? 1 : 2` when it stays
 mounted closed on a page that has its own `h1`. The `cancel` slot of `ModalFooter` (and of `ActionForm`
-with `onCancel`) is added to the Cancel button's look, like `Button`'s `className`.
+with `onCancel`) is added to the Cancel button's look, like `Button`'s `className`. `ActionForm`'s `submit` slot
+does the same for its submit button, in the page layout and in the modal footer.
 
 A `Card` with `collapsible` turns its header into the toggle (its "?" and `action` stay clickable)
 and keeps the content mounted while collapsed. `step` shows a numbered badge (a tick with `done`),
