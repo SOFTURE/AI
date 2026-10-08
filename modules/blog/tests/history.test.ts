@@ -49,6 +49,37 @@ describe("history on the first publish", () => {
     ]);
   });
 
+  it("keeps the timestamps to the microsecond, as the history gives them", async () => {
+    const precise = history({
+      articles: [
+        {
+          id: "index-funds",
+          published_at: "2026-03-01T08:00:12.421579+01:00",
+          updated_at: "2026-06-15T10:30:00.000001Z",
+          old_slugs: [{ slug: "what-is-an-index-fund", changed_at: "2026-04-01T00:00:00.123456Z" }],
+        },
+      ],
+    });
+    expect(precise.get("index-funds")).toEqual({
+      publishedAt: "2026-03-01T08:00:12.421579+01:00",
+      updatedAt: "2026-06-15T10:30:00.000001Z",
+      oldSlugs: [{ slug: "what-is-an-index-fund", changedAt: "2026-04-01T00:00:00.123456Z" }],
+    });
+    const run = await runBlogPublish(test.ctx, [FILE], { commit: true, history: precise });
+    expect(run).toMatchObject({ status: "done" });
+    // Compared in SQL: a Date (milliseconds) could not tell the two apart, and the session's time zone stays out of it.
+    const rows = await test.database.client.query<{ published: boolean; updated: boolean; changed: boolean; micros: number }>(
+      `SELECT a.published_at = '2026-03-01T07:00:12.421579Z'::timestamptz AS published,
+              a.updated_at = '2026-06-15T10:30:00.000001Z'::timestamptz AS updated,
+              h.changed_at = '2026-04-01T00:00:00.123456Z'::timestamptz AS changed,
+              extract(microseconds FROM a.published_at)::int AS micros
+         FROM blog.articles a JOIN blog.slug_history h ON h.article_id = a.id`,
+    );
+    expect(rows.rows).toEqual([{ published: true, updated: true, changed: true, micros: 12_421_579 }]);
+    const again = await runBlogPublish(test.ctx, [FILE], { commit: true, history: precise });
+    expect(again.status === "done" && again.changes.map((change) => change.action)).toEqual(["unchanged"]);
+  });
+
   it("is unchanged on a second run with the same history, and ignores history for an existing row", async () => {
     await runBlogPublish(test.ctx, [FILE], { commit: true, history: HISTORY });
     const again = await runBlogPublish(test.ctx, [FILE], { commit: true, history: HISTORY });

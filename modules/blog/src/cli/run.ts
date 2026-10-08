@@ -389,7 +389,7 @@ async function runCheck(command: Extract<BlogCommand, { kind: "check" }>, option
   const resolveInternalLink = createInternalLinkResolver({
     appDir: findAppDir(cwd, settings.options.appDir),
     privateRouteSegments: settings.options.privateRouteSegments,
-    paths: settings.options.paths,
+    paths: settings.paths,
     content,
   });
   const results = await checkArticleFiles(files, {

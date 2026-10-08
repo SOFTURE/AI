@@ -14,7 +14,11 @@
 // articles and terms render on their first request and are kept for `revalidate` seconds (ISR).
 // 301 and 410 are answered before the page by `@softure-ai/blog/proxy`; anything else that is not a
 // published text of the page's kind is a 404 here.
-import { formatMessage, getSiteUrls, type SoftureConfig } from "@softure-ai/core";
+//
+// An app with its own page components keeps the rest: `generate*Metadata` and `BlogArticleOgImage`
+// mount next to its own page, and `build*Metadata` (metadata.ts) and `build*JsonLd` (json-ld.ts) take
+// a text it already read.
+import { getSiteUrls, type SoftureConfig } from "@softure-ai/core";
 import { getSoftureConfig } from "@softure-ai/core/next";
 // `next/types.js`, not `next`: the root entry adds Next's globals (a read-only NODE_ENV) to every
 // program that includes this file.
@@ -25,9 +29,7 @@ import type { BlogArticle } from "../contract.js";
 import { getRelatedArticles } from "../discovery/related.js";
 import { findArticlesLinkingTerm, renderPageBody, type RenderPageBodyOptions } from "../pages/body.js";
 import { getArticleDates } from "../pages/dates.js";
-import { getArticleJsonLd, getGlossaryJsonLd, getTermJsonLd, serializeJsonLd, type JsonLdContext } from "../pages/json-ld.js";
-import { getArticleCrumbs, getClusterLabel, getTermCrumbs, groupByCluster, sortTerms, type CrumbLabels } from "../pages/listing.js";
-import { getArticlePath, getTermPath } from "../pages/paths.js";
+import { getArticleCrumbs, groupByCluster, getTermCrumbs, sortTerms } from "../pages/listing.js";
 import { toGlossary } from "../render/glossary.js";
 import { getBlogOptions } from "../server/options.js";
 import { BlogArticleView } from "../ui/blog-article.js";
@@ -37,6 +39,8 @@ import { BlogMethodView } from "../ui/blog-method.js";
 import type { BlogPageContext } from "../ui/page-context.js";
 import { getPageContext } from "./context.js";
 import { getPublishedArticles, getPublishedTerms, getTextBySlug } from "./data.js";
+import { buildArticleJsonLd, buildGlossaryJsonLd, buildTermJsonLd, getCrumbLabels } from "./json-ld.js";
+import { buildArticleMetadata, buildBlogIndexMetadata, buildGlossaryIndexMetadata, buildMethodMetadata, buildTermMetadata } from "./metadata.js";
 
 type SlugParams = Promise<{ readonly slug: string }>;
 
@@ -67,76 +71,15 @@ function isPublished(text: BlogArticle | null, kind: BlogArticle["kind"]): text 
   return text !== null && text.status === "published" && text.kind === kind;
 }
 
-function getCrumbLabels(config: SoftureConfig, context: BlogPageContext): CrumbLabels {
-  const clusters = getBlogOptions(config).clusters;
-  return {
-    blog: context.messages.pages.blogTitle,
-    glossary: context.messages.glossary.title,
-    cluster: (cluster) => getClusterLabel(cluster, clusters, config.locale),
-  };
-}
-
-function getJsonLdContext(config: SoftureConfig, context: BlogPageContext): JsonLdContext {
-  return { urls: getSiteUrls(config), routes: context.routes, locale: config.locale, timezone: config.timezone, brand: context.brand };
-}
-
 function getBodyOptions(config: SoftureConfig, context: BlogPageContext, terms: readonly BlogArticle[]): RenderPageBodyOptions {
   const origins = [config.appOrigin, getSiteUrls(config).origin];
   return { glossary: toGlossary(terms), routes: context.routes, options: getBlogOptions(config), origins, messages: context.messages };
 }
 
-function withBrand(title: string, context: BlogPageContext): string {
-  return context.brand === null ? title : formatMessage(context.messages.pages.titleWithBrand, { title, brand: context.brand });
-}
-
-/** A page's canonical URL: seo's host and trailing-slash rule when the app lists seo, else on `appOrigin`. */
-function getCanonicalUrl(config: SoftureConfig, path: string): string {
-  return getSiteUrls(config).getCanonicalUrl(path);
-}
-
-/** The feed link a reader finds in `<head>` (`<link rel="alternate" type="application/rss+xml">`); a file, so no trailing-slash rule. */
-function getFeedAlternates(config: SoftureConfig, context: BlogPageContext): NonNullable<Metadata["alternates"]>["types"] {
-  return { "application/rss+xml": [{ url: `${getSiteUrls(config).origin}${context.routes.rss}`, title: withBrand(context.messages.pages.blogTitle, context) }] };
-}
-
-/** Metadata of a page with a fixed path; an empty listing stays out of the index (thin content). */
-function getStaticMetadata(config: SoftureConfig, context: BlogPageContext, page: { title: string; description: string; path: string; isEmpty?: boolean; hasFeed?: boolean }): Metadata {
-  return {
-    title: withBrand(page.title, context),
-    description: page.description,
-    robots: { index: page.isEmpty !== true, follow: true },
-    alternates: { canonical: getCanonicalUrl(config, page.path), ...(page.hasFeed === true ? { types: getFeedAlternates(config, context) } : {}) },
-    openGraph: { type: "website", title: page.title, description: page.description, url: getCanonicalUrl(config, page.path), ...(context.brand === null ? {} : { siteName: context.brand }) },
-  };
-}
-
-function getTextMetadata(config: SoftureConfig, context: BlogPageContext, text: BlogArticle, path: string, options: { hasFeed?: boolean } = {}): Metadata {
-  const dates = getArticleDates(text, config.timezone);
-  const url = getCanonicalUrl(config, path);
-  return {
-    title: withBrand(text.title, context),
-    description: text.description,
-    robots: { index: true, follow: true },
-    alternates: { canonical: url, ...(options.hasFeed === true ? { types: getFeedAlternates(config, context) } : {}) },
-    openGraph: {
-      type: "article",
-      title: text.title,
-      description: text.description,
-      url,
-      locale: config.locale,
-      publishedTime: dates.published,
-      modifiedTime: dates.updated ?? dates.published,
-      ...(context.brand === null ? {} : { siteName: context.brand }),
-    },
-  };
-}
-
 export async function generateBlogIndexMetadata(): Promise<Metadata> {
   const config = getSoftureConfig();
-  const context = getPageContext(config);
   const articles = await getPublishedArticles(config);
-  const copy = context.messages.pages;
-  return getStaticMetadata(config, context, { title: copy.blogTitle, description: copy.blogDescription, path: context.routes.index, isEmpty: articles.length === 0, hasFeed: true });
+  return buildBlogIndexMetadata(config, { isEmpty: articles.length === 0 });
 }
 
 /** The listing: cards grouped by cluster, the pillar first. Mount with `dynamic = "force-dynamic"`. */
@@ -153,9 +96,7 @@ export async function generateArticleMetadata({ params }: { readonly params: Slu
   const config = getSoftureConfig();
   const { slug } = await params;
   const article = await getTextBySlug(config, slug);
-  if (!isPublished(article, "article")) return {};
-  const context = getPageContext(config);
-  return getTextMetadata(config, context, article, getArticlePath(context.routes, article.slug), { hasFeed: true });
+  return isPublished(article, "article") ? buildArticleMetadata(config, article) : {};
 }
 
 /** An article with "read next" under it. Mount with `revalidate` and `generateBlogStaticParams`. */
@@ -168,7 +109,7 @@ export async function BlogArticlePage({ params, cta, afterArticle }: BlogArticle
   const [terms, published] = await Promise.all([getPublishedTerms(config), getPublishedArticles(config)]);
   const body = renderPageBody<ReactNode>(article, getBodyOptions(config, context, terms));
   const crumbs = getArticleCrumbs(article, context.routes, getCrumbLabels(config, context));
-  const jsonLd = serializeJsonLd(getArticleJsonLd(article, crumbs, getJsonLdContext(config, context)));
+  const jsonLd = buildArticleJsonLd(config, article);
   return (
     <BlogArticleView
       context={context}
@@ -186,10 +127,8 @@ export async function BlogArticlePage({ params, cta, afterArticle }: BlogArticle
 
 export async function generateGlossaryIndexMetadata(): Promise<Metadata> {
   const config = getSoftureConfig();
-  const context = getPageContext(config);
   const terms = await getPublishedTerms(config);
-  const copy = context.messages.glossary;
-  return getStaticMetadata(config, context, { title: copy.title, description: copy.description, path: context.routes.glossary, isEmpty: terms.length === 0 });
+  return buildGlossaryIndexMetadata(config, { isEmpty: terms.length === 0 });
 }
 
 /** The glossary index. Mount with `dynamic = "force-dynamic"`. */
@@ -197,7 +136,7 @@ export async function GlossaryIndexPage() {
   const config = getSoftureConfig();
   const context = getPageContext(config);
   const terms = sortTerms(await getPublishedTerms(config), config.locale);
-  const jsonLd = terms.length === 0 ? null : serializeJsonLd(getGlossaryJsonLd(terms, getJsonLdContext(config, context), context.messages.glossary.title));
+  const jsonLd = buildGlossaryJsonLd(config, terms);
   return <GlossaryIndexView context={context} terms={terms} jsonLd={jsonLd} />;
 }
 
@@ -205,9 +144,7 @@ export async function generateTermMetadata({ params }: { readonly params: SlugPa
   const config = getSoftureConfig();
   const { slug } = await params;
   const term = await getTextBySlug(config, slug);
-  if (!isPublished(term, "term")) return {};
-  const context = getPageContext(config);
-  return getTextMetadata(config, context, term, getTermPath(context.routes, term.slug));
+  return isPublished(term, "term") ? buildTermMetadata(config, term) : {};
 }
 
 /** A glossary term with the articles that expand on it. Mount with `revalidate` and `generateBlogStaticParams`. */
@@ -220,7 +157,7 @@ export async function GlossaryTermPage({ params, cta }: GlossaryTermPageProps) {
   const [terms, articles] = await Promise.all([getPublishedTerms(config), getPublishedArticles(config)]);
   const bodyOptions = getBodyOptions(config, context, terms);
   const crumbs = getTermCrumbs(term, context.routes, getCrumbLabels(config, context));
-  const jsonLd = serializeJsonLd(getTermJsonLd(term, crumbs, getJsonLdContext(config, context), context.messages.glossary.title));
+  const jsonLd = buildTermJsonLd(config, term);
   return (
     <GlossaryTermView
       context={context}
@@ -236,10 +173,7 @@ export async function GlossaryTermPage({ params, cta }: GlossaryTermPageProps) {
 }
 
 export function generateMethodMetadata(): Metadata {
-  const config = getSoftureConfig();
-  const context = getPageContext(config);
-  const copy = context.messages.method;
-  return getStaticMetadata(config, context, { title: copy.title, description: copy.description, path: context.routes.method });
+  return buildMethodMetadata(getSoftureConfig());
 }
 
 /** "How our texts are made". Mount it with `blog({ methodPage: true })`; without that it is a 404. */

@@ -2,6 +2,15 @@
 // feed, the cache refresh route and the cached reads (docs/02-module-standard.md §8).
 export { getBlogContext, getPageContext } from "./context.js";
 export { serveBlogRss } from "./discovery.js";
+export { buildArticleJsonLd, buildGlossaryJsonLd, buildTermJsonLd, getCrumbLabels } from "./json-ld.js";
+export {
+  buildArticleMetadata,
+  buildBlogIndexMetadata,
+  buildGlossaryIndexMetadata,
+  buildMethodMetadata,
+  buildTermMetadata,
+  type ListingMetadataInput,
+} from "./metadata.js";
 export { refreshBlogCache } from "./refresh.js";
 export { BLOG_CACHE_TAG, getPublishedArticles, getPublishedTerms, getTextBySlug } from "./data.js";
 export { createOgFontLoader, loadBrandOgFonts, type OgFontLoaderOptions, type OgFontsResult } from "./og-fonts.js";

@@ -69,7 +69,8 @@ export function renderAppSections(sections: readonly BlogSkillSection[]): string
 /** The values the templates read. */
 export function getSkillValues(config: SoftureConfig, settings: QualitySettings, options: RenderBlogSkillOptions = {}): SkillValues {
   const blogOptions = getBlogOptions(config);
-  const { limits, ymyl, voice, paths, plugins } = settings.options;
+  const { limits, ymyl, voice, plugins } = settings.options;
+  const { paths } = settings;
   const fieldKeys = Object.keys(blogOptions.fields?.shape ?? {});
   const reservedSlugs = getBlogReservedSlugs(config);
   return {

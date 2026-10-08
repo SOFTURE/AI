@@ -1,5 +1,4 @@
-// `softure-blog check` (FIRE `scripts/blog-check.mts`, `content.test.ts`): the gate over files without
-// a database, its exit codes, `--external` and `--today`; and `publish` refusing a text the default
+// `softure-blog check`: the gate over files without a database, its exit codes, `--external` and `--today`; and `publish` refusing a text the default
 // gate rejects. Article fixtures are .txt files: as .md, the repository link check would read their
 // site paths as file links.
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -8,7 +7,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { OgFontSource } from "@softure-ai/blog/next";
 import { runBlogCli, type CliOutput } from "@softure-ai/blog/cli";
+import { blog } from "@softure-ai/blog";
 import type { FetchLike, QualityOptionsInput } from "@softure-ai/blog/server";
+import { defineSoftureConfig } from "@softure-ai/core";
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildArticleFile, createConfig, createTestBlog, type TestBlog } from "./support.js";
 
@@ -70,6 +71,28 @@ describe("softure-blog check", () => {
       lines: ["content/blog/expense-ratio.md: OK", "content/blog/index-funds.md: OK", "check: 2 file(s), 0 error(s), 0 warning(s): green"],
       errors: [],
     });
+  });
+
+  it("resolves term links under the blog's glossary route without quality.paths", async () => {
+    const moved = readFileSync(new URL("index-funds.txt", QUALITY_FIXTURES), "utf8").replace("(/blog/glossary/expense-ratio)", "(/dictionary/expense-ratio)");
+    mkdirSync(join(app, "moved"), { recursive: true });
+    writeFileSync(join(app, "moved/index-funds.md"), moved);
+    const run = async (routes: { glossary: string } | undefined) => {
+      const { output, lines } = createOutput();
+      const config = defineSoftureConfig({
+        database: { url: "pglite://" },
+        locale: "en",
+        timezone: "UTC",
+        appOrigin: "https://app.example.com",
+        modules: [blog({ ...(routes === undefined ? {} : { routes }), quality: SHORT_TEXTS })],
+      });
+      const code = await runBlogCli({ config, argv: ["check", "moved", "--today", "2026-10-03"], cwd: app, output, openDatabase: () => Promise.reject(new Error("no database")) });
+      return { code, lines };
+    };
+    expect(await run({ glossary: "/dictionary" })).toEqual({ code: 0, lines: ["moved/index-funds.md: OK", "check: 1 file(s), 0 error(s), 0 warning(s): green"] });
+    const unmoved = await run(undefined);
+    expect(unmoved.code).toBe(1);
+    expect(unmoved.lines).toContain("moved/index-funds.md:30: error [internal-link-target] an internal link leads nowhere: /dictionary/expense-ratio");
   });
 
   it("prints every finding with file and line and exits 1 on an error", async () => {

@@ -3,6 +3,7 @@
 import { readFileSync } from "node:fs";
 import { blog } from "@softure-ai/blog";
 import { checkArticleText, getQualitySettings, listQualityRules, qualityOptionsSchema, resolveQualitySettings, type BlockPlugin, type QualityOptionsInput, type QualityPlugin } from "@softure-ai/blog/server";
+import { defineSoftureConfig } from "@softure-ai/core";
 import { seo } from "@softure-ai/seo";
 import { describe, expect, it } from "vitest";
 import { createConfig } from "../support.js";
@@ -106,6 +107,30 @@ describe("blog({ quality })", () => {
         },
       }),
     ).toThrow(/quality\.language[\s\S]*must be global[\s\S]*min must not exceed max[\s\S]*must be a plugin/);
+  });
+});
+
+describe("paths of articles and terms", () => {
+  const withRoutes = (quality: QualityOptionsInput = {}) =>
+    defineSoftureConfig({
+      database: { url: "pglite://" },
+      locale: "en",
+      timezone: "UTC",
+      appOrigin: "https://app.example.com",
+      modules: [blog({ routes: { index: "/articles/", glossary: "/dictionary" }, quality })],
+    });
+
+  it("follows the blog's routes when quality.paths is not set", () => {
+    expect(getQualitySettings(withRoutes())?.paths).toEqual({ articles: "/articles", terms: "/dictionary" });
+  });
+
+  it("lets quality.paths override each route on its own", () => {
+    expect(getQualitySettings(withRoutes({ paths: { terms: "/glossary/" } }))?.paths).toEqual({ articles: "/articles", terms: "/glossary" });
+    expect(getQualitySettings(withRoutes({ paths: { articles: "/texts", terms: "/words" } }))?.paths).toEqual({ articles: "/texts", terms: "/words" });
+  });
+
+  it("gives the module's default routes to a caller without routes", () => {
+    expect(resolveQualitySettings(qualityOptionsSchema.parse({}), { appOrigin: "https://example.com", timezone: "UTC" }).paths).toEqual({ articles: "/blog", terms: "/blog/glossary" });
   });
 });
 

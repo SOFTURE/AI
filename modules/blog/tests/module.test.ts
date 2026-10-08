@@ -18,10 +18,22 @@ describe("the blog module", () => {
     expect(blog.manifest.version).toBe(manifest.version);
   });
 
-  it("fills in the defaults: content/blog, no reserved slugs, no app fields, no brand or method page", () => {
+  it("fills in the defaults: content/blog, no reserved slugs, no app fields, no brand or method page, the full link marker, no 410 links", () => {
     const { quality, ...rest } = blog().options;
-    expect(rest).toEqual({ contentDir: "content/blog", reservedSlugs: [], methodPage: false, clusters: {}, blocks: [], siteHosts: [], revalidateSeconds: 300, skill: { sections: [] } });
-    expect(quality).toMatchObject({ language: "en", ymyl: null, paths: { articles: "/blog", terms: "/blog/glossary" }, plugins: [] });
+    expect(rest).toEqual({
+      contentDir: "content/blog",
+      reservedSlugs: [],
+      methodPage: false,
+      clusters: {},
+      blocks: [],
+      siteHosts: [],
+      externalLinkMarker: "icon-and-text",
+      gonePage: { links: [] },
+      revalidateSeconds: 300,
+      skill: { sections: [] },
+    });
+    // No paths of its own: the quality gate takes them from the routes (`getQualitySettings(config).paths`).
+    expect(quality).toMatchObject({ language: "en", ymyl: null, paths: {}, plugins: [] });
   });
 
   it("serves its pages under /blog unless the app moves them, and reserves their slugs", () => {

@@ -34,4 +34,7 @@ export {
   type BlogPathLookup,
   type CachedDeciderOptions,
   type GonePageCopy,
+  type GonePageLink,
+  type GonePageOptions,
+  type GonePageRenderInput,
 } from "./redirects.js";

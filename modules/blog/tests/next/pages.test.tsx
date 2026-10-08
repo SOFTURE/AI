@@ -4,6 +4,16 @@
 import type { SoftureConfig } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
 import {
+  buildArticleJsonLd,
+  buildArticleMetadata,
+  buildBlogIndexMetadata,
+  buildGlossaryIndexMetadata,
+  buildGlossaryJsonLd,
+  buildMethodMetadata,
+  buildTermJsonLd,
+  buildTermMetadata,
+  getPublishedTerms,
+  getTextBySlug,
   BlogArticlePage,
   BlogIndexPage,
   BlogMethodPage,
@@ -183,6 +193,49 @@ describe("blog pages", () => {
     scope.db = test.ctx.db;
     expect(() => BlogMethodPage()).toThrow(NotFoundSignal);
     expect(await render(BlogIndexPage())).not.toContain("how-we-write");
+  });
+});
+
+describe("builders for an app's own pages", () => {
+  async function readText(slug: string) {
+    const text = await getTextBySlug(test.config, slug);
+    if (text === null) throw new Error(`test: no text ${slug}`);
+    return text;
+  }
+
+  it("give the metadata the ready-made pages give, without reading the database", async () => {
+    const [article, term] = [await readText("index-funds"), await readText("expense-ratio")];
+    const expected = {
+      article: await generateArticleMetadata(params("index-funds")),
+      term: await generateTermMetadata(params("expense-ratio")),
+      index: await generateBlogIndexMetadata(),
+      glossary: await generateGlossaryIndexMetadata(),
+      method: generateMethodMetadata(),
+    };
+    scope.db = undefined;
+    expect(buildArticleMetadata(test.config, article)).toEqual(expected.article);
+    expect(buildTermMetadata(test.config, term)).toEqual(expected.term);
+    expect(buildBlogIndexMetadata(test.config, { isEmpty: false })).toEqual(expected.index);
+    expect(buildGlossaryIndexMetadata(test.config, { isEmpty: false })).toEqual(expected.glossary);
+    expect(buildMethodMetadata(test.config)).toEqual(expected.method);
+    expect(buildBlogIndexMetadata(test.config, { isEmpty: true }).robots).toEqual({ index: false, follow: true });
+  });
+
+  it("give the JSON-LD the ready-made pages embed, serialized for a script tag", async () => {
+    const [article, term, terms] = [await readText("index-funds"), await readText("expense-ratio"), await getPublishedTerms(test.config)];
+    const pages = {
+      article: await render(BlogArticlePage(params("index-funds"))),
+      term: await render(GlossaryTermPage(params("expense-ratio"))),
+      glossary: await render(GlossaryIndexPage()),
+    };
+    scope.db = undefined;
+    const script = (json: string | null) => `<script type="application/ld+json">${String(json)}</script>`;
+    expect(pages.article).toContain(script(buildArticleJsonLd(test.config, article)));
+    expect(pages.term).toContain(script(buildTermJsonLd(test.config, term)));
+    expect(pages.glossary).toContain(script(buildGlossaryJsonLd(test.config, terms)));
+    expect((JSON.parse(buildArticleJsonLd(test.config, article)) as { "@graph": unknown[] })["@graph"][0]).toMatchObject({ "@type": "BlogPosting", url: "https://app.example.com/blog/index-funds" });
+    expect(buildGlossaryJsonLd(test.config, [])).toBeNull();
+    expect(buildArticleJsonLd(test.config, { ...article, title: "</script><b>" })).not.toContain("</script>");
   });
 });
 

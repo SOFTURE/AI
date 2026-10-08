@@ -11,7 +11,7 @@ export { qualityOptionsSchema, type QualityLimits, type QualityOptions, type Qua
 export { isQualityPlugin, type QualityPlugin, type QualityPluginContext, type QualityRuleInfo } from "./plugin.js";
 export { collectLinks, type InternalLinkResolver, type LinkSummary } from "./rules/links.js";
 export { enRuleset, plRuleset, QUALITY_LANGUAGES, QUALITY_RULESETS, type LanguageRuleset, type QualityLanguage, type StylePattern } from "./rulesets/index.js";
-export { getLocalDate, resolveQualitySettings, type QualitySettings } from "./settings.js";
+export { getLocalDate, resolveQualitySettings, type QualityPaths, type QualitySettings } from "./settings.js";
 export {
   countWords,
   findBareUrls,

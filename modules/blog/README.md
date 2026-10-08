@@ -73,7 +73,7 @@ blog({
   fields: z.object({ scenario: z.string().regex(/^[a-z]=\d+(&[a-z]=\d+)*$/).optional() }),
   // The pages' brand: title suffix, signature, JSON-LD author and publisher, OG card colours (hex)
   // and fonts (§8). Default: none (no suffix, no author, the ui theme's dark colours, next/og's font).
-  brand: { name: "FIRE Tracker", colors: { background: "#0b0b0c", foreground: "#f5f5f5", accent: "#7aa2f7" } },
+  brand: { name: "Example", colors: { background: "#0b0b0c", foreground: "#f5f5f5", accent: "#7aa2f7" } },
   // Mount the method page at routes.method. Default: false (the route answers 404).
   methodPage: true,
   // A note under every article and term, per locale (en required). Default: none.
@@ -84,6 +84,11 @@ blog({
   blocks: [],
   // Hosts of the app besides APP_ORIGIN's and seo's canonical host, whose links are not external. Default: [].
   siteHosts: ["www.example.com"],
+  // What follows an external link in a body: "icon-and-text" (a ↗ hidden from screen readers and a
+  // visually hidden "opens in a new tab"), "text" (the hidden words only) or "none". Default: "icon-and-text".
+  externalLinkMarker: "icon-and-text",
+  // The 410 page of a withdrawn text: extra links, or the app's own body (§4). Default: one link to the listing.
+  gonePage: { links: [] },
   // Which images bodies may show: site paths and https images on these hosts (subdomains included),
   // with a width and height the app knows. Used by the pages and the quality gate. Default: none
   // (every image renders as its alt text and the gate refuses it).
@@ -116,9 +121,9 @@ blog({
       // a global RegExp; wordPattern (from @softure-ai/blog) adds the i flag and word edges in any alphabet
       phrases: [{ id: "finance-cliche", pattern: wordPattern("in the world of finance"), message: "say what happens instead" }],
     },
-    limits: { words: { article: { min: 600, max: 4000 } }, answerWords: 70 }, // FIRE's values are the defaults
+    limits: { words: { article: { min: 600, max: 4000 } }, answerWords: 70 }, // the defaults
     severity: { exclamation: "error", "lead-number": "off" }, // per rule: "error", "warning" or "off"
-    paths: { articles: "/blog", terms: "/blog/glossary" },    // where internal links to texts point
+    paths: { terms: "/glossary" },  // only to override the routes: articles default to routes.index, terms to routes.glossary
     ownOrigins: ["https://www.example.com"], // absolute links that count as internal, besides appOrigin and seo's origin
     appDir: "src/app",                     // routes for internal links; default src/app, else app
     privateRouteSegments: ["api", "(app)"], // route folders that are no link target; default ["api"]
@@ -278,8 +283,59 @@ decision for 60 s (`ttlMs`) and passes a request on when the database fails. Imp
 ui's: `@import "@softure-ai/blog/styles.css";`. A data change shows after `revalidateSeconds`, or at
 once with `revalidateTag(BLOG_CACHE_TAG, { expire: 0 })` (the refresh route above, for the command). Custom OG fonts: an own `opengraph-image.tsx` calling `renderArticleOgImage({ title, label, brand, fonts })`.
 
-The quality gate resolves internal links through `quality.paths` (default `/blog` and
-`/blog/glossary`, the default routes); an app that moves `routes` sets `quality.paths` to match.
+The quality gate resolves internal links under the blog's `routes` (`index` for articles, `glossary`
+for terms), so moving a route moves the check with it; `quality.paths` only overrides them.
+
+The 410 page carries the module's copy (`gone.*`) and one link to the listing. `gonePage.links` adds
+further ways on (a path from the site root or an https URL, a label per locale, at most five), and
+`gonePage.render` writes the whole body with the app's own HTML and styles; the proxy still answers 410
+with `text/html`:
+
+```ts
+blog({
+  gonePage: {
+    links: [{ href: "/calculator", label: { en: "Try the calculator", pl: pl.blog.goneCalculator } }],
+    // or the whole page: (input) => html, with input.copy, input.lang, input.indexPath, input.links
+    render: ({ copy, lang, indexPath, links }) => renderMyGonePage({ copy, lang, indexPath, links }),
+  },
+});
+```
+
+**Own page components.** An app whose blog keeps its own look mounts its own pages and keeps the rest.
+`generate*Metadata`, `generateBlogStaticParams` and `BlogArticleOgImage` mount next to its own page as
+above. For a text the app already read (`getTextBySlug`), `/next` builds the same metadata and JSON-LD
+the ready-made pages use, with no database read, so the app can extend them:
+
+```tsx
+// app/blog/[slug]/page.tsx with the app's own view
+import { buildArticleJsonLd, buildArticleMetadata, getTextBySlug } from "@softure-ai/blog/next";
+import { getSoftureConfig } from "@softure-ai/core/next";
+import { notFound } from "next/navigation";
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
+  const config = getSoftureConfig();
+  const article = await getTextBySlug(config, (await params).slug);
+  return article?.status === "published" && article.kind === "article" ? buildArticleMetadata(config, article) : {};
+}
+
+export default async function Page({ params }: { params: Promise<{ slug: string }> }) {
+  const config = getSoftureConfig();
+  const article = await getTextBySlug(config, (await params).slug);
+  if (article?.status !== "published" || article.kind !== "article") notFound();
+  return (
+    <MyArticleView article={article}>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: buildArticleJsonLd(config, article) }} />
+    </MyArticleView>
+  );
+}
+```
+
+The builders: `buildBlogIndexMetadata(config, { isEmpty })`, `buildArticleMetadata(config, article)`,
+`buildGlossaryIndexMetadata(config, { isEmpty })`, `buildTermMetadata(config, term)`,
+`buildMethodMetadata(config)`, `buildArticleJsonLd(config, article)`, `buildTermJsonLd(config, term)` and
+`buildGlossaryJsonLd(config, terms)` (`null` without terms); the JSON-LD comes serialized, safe inside a
+`<script>`. `getCrumbLabels(config)` gives the breadcrumb names for `getArticleCrumbs`/`getTermCrumbs`
+(`/server`); `getPageContext`, `renderPageBody` and `getRelatedArticles` render the rest.
 
 The commands:
 
@@ -374,7 +430,9 @@ entry for an article outside the run is a warning. An old slug another article h
 ```
 
 `published_at` is required (`null` for a text never published), `updated_at` needs it, ids and slugs are
-kebab-case, each article and old slug appears once. Timestamps keep millisecond precision. One query over
+kebab-case, each article and old slug appears once. Timestamps reach Postgres as the text given, so a
+`timestamptz` copied to the microsecond (`…:12.421579Z`) is stored to the microsecond and an import can be
+checked by equality in SQL; Postgres rounds digits past the sixth. One query over
 an app's own tables (here `blog_articles(id, published_at, updated_at)` and
 `blog_slug_history(old_slug, article_id, changed_at)`) writes the file:
 
@@ -509,7 +567,9 @@ const body = renderArticle(article.bodyMarkdown, {
   `%20`). A throwing `dimensions` fails the render (a bug); the gate reports it as `image-dimensions`.
   `checkArticleImage` and `findArticleImages` give the same verdict and the images of a text.
 - **External links** (`http(s)` or `//` to a host outside `siteHosts`) get `rel="noopener noreferrer"`,
-  `target="_blank"`, a `↗` marker hidden from screen readers and a visually hidden "(opens in a new tab)".
+  `target="_blank"`, the class `blog-external`, a `↗` marker hidden from screen readers and a visually
+  hidden "(opens in a new tab)". `externalMarker: "text"` keeps only the hidden words, `"none"` neither
+  (the pages: `blog({ externalLinkMarker })`).
 - **Headings** get ids from their text (letters folded to ASCII, `-2` for a repeat, `section` without
   letters); `toc` renders `<nav class="blog-toc">` with nested lists.
 - **Glossary:** the first mention of each term form links to its definition; never inside headings,
@@ -630,7 +690,7 @@ The OG card writes in `brand.fonts`, else in `next/og`'s default font:
 ```ts
 blog({
   brand: {
-    name: "FIRE Tracker",
+    name: "Example",
     fonts: [
       // weight: 100…900 (default 400), style: "normal" | "italic" (default "normal")
       { name: "Inter", weight: 400, src: "assets/fonts/inter-latin-400-normal.woff" },
@@ -665,7 +725,7 @@ with `blog({ messages: { pl: { pages: { readMore: "..." } } } })`. Command outpu
 
 ## 10. Hooks
 
-- `blog({ fields })`: the app's frontmatter schema (FIRE_TRACKER's calculator scenario lives here).
+- `blog({ fields })`: the app's frontmatter schema (e.g. a calculator scenario per article).
 - `gate` of `runBlogPublish` and `runBlogCli`: `(file, article) => problems`, called only for files
   going public; any problem refuses the whole run. Default in `runBlogCli`: `createQualityGate`.
 - `blog({ quality: { plugins } })`: the app's domain rules. A plugin declares its rules and checks one
@@ -714,14 +774,14 @@ Articles hold editorial content, no personal data: nothing to export or delete.
 - Only leaf directives (`::name{…}`, one line): no container (`:::name … :::`) or inline (`:name[…]`) ones.
 - The gate reads Markdown line by line (blocks, not a syntax tree): enough for the rules, not a
   renderer. Fenced code and HTML comments are skipped.
-- **Adopting FIRE_TRACKER's gate:** `language: "pl"`, `ymyl: { ownCalculationMark }` with its calculation
-  footnote's phrase, `voice.forbidFirstPersonSingular: true` plus its finance phrases, its domain as
-  `ownOrigins`, `privateRouteSegments: ["api", "(app)"]`, and `rules-facts.ts` and `rules-chart.ts`
-  as plugins (the package's tests hold stand-ins of both). Rule ids are English now (`kluczowy` →
-  `crucial`, `myslniki` → `dashes`, …; the map is in the change archive), and the writing skill
-  (`skill install`, replacing FIRE's `blog-pisz`) names them; FIRE's engine numbers, calculator scenario
-  and chart block go into `blog({ skill: { sections } })`.
-- **Adopting from FIRE_TRACKER:** rename the frontmatter keys once (`typ` → `kind` with `artykul` →
+- **Adopting an app's own Polish gate:** `language: "pl"`, `ymyl: { ownCalculationMark }` with its calculation
+  footnote's phrase, `voice.forbidFirstPersonSingular: true` plus its own phrases, its domain as
+  `ownOrigins`, `privateRouteSegments: ["api", "(app)"]`, and its own fact and chart rules as plugins
+  (the package's tests hold stand-ins of both). Rule ids are English (`kluczowy` → `crucial`,
+  `myslniki` → `dashes`, …; the map is in the change archive), and the writing skill (`skill install`,
+  replacing an app's own writing skill) names them; the app's own numbers, calculator scenario and chart
+  block go into `blog({ skill: { sections } })`.
+- **Adopting Polish frontmatter keys:** rename the frontmatter keys once (`typ` → `kind` with `artykul` →
   `article` and `termin` → `term`, `formy` → `forms`, `klaster` → `cluster`, `filar` → `pillar`,
   `tytul` → `title`, `opis` → `description`, `w_skrocie` → `summary`, `aktualne_na` →
   `current_as_of`, `opublikowano` → `published_at`, `zrodla` → `sources` with `nazwa` → `name`,

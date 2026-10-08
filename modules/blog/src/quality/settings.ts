@@ -18,13 +18,25 @@ export interface QualitySettings {
   readonly timeZone: string;
   /** The app's image policy (`blog({ images })`); `null` when bodies may show no image. */
   readonly images: ArticleImagePolicy | null;
+  /** Where articles and terms live: `options.paths` where set, else the blog's routes. */
+  readonly paths: QualityPaths;
 }
+
+export interface QualityPaths {
+  readonly articles: string;
+  readonly terms: string;
+}
+
+/** The paths a caller without the blog's routes gets: the module's default routes. */
+const DEFAULT_PATHS: QualityPaths = { articles: "/blog", terms: "/blog/glossary" };
 
 export function resolveQualitySettings(
   options: QualityOptions,
   config: Pick<SoftureConfig, "appOrigin" | "timezone"> & {
     /** The canonical site origin (core's `getSiteUrls(config).origin`) when it is not `appOrigin`. */
     readonly siteOrigin?: string;
+    /** The blog's routes (`getBlogRoutes`), the source of `paths` unless `options.paths` overrides them. */
+    readonly routes?: { readonly index: string; readonly glossary: string };
   },
   images: ArticleImagePolicy | null = null,
 ): QualitySettings {
@@ -44,7 +56,11 @@ export function resolveQualitySettings(
     });
   }
   const origins = [config.appOrigin, ...(config.siteOrigin === undefined ? [] : [config.siteOrigin]), ...options.ownOrigins].map((origin) => new URL(origin).origin);
-  return { options, ruleset, voicePatterns, ownOrigins: [...new Set(origins)], timeZone: config.timezone, images };
+  const paths: QualityPaths = {
+    articles: options.paths.articles ?? config.routes?.index ?? DEFAULT_PATHS.articles,
+    terms: options.paths.terms ?? config.routes?.glossary ?? DEFAULT_PATHS.terms,
+  };
+  return { options, ruleset, voicePatterns, ownOrigins: [...new Set(origins)], timeZone: config.timezone, images, paths };
 }
 
 /** `YYYY-MM-DD` of a moment in a time zone. */

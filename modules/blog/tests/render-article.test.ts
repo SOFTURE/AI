@@ -1,5 +1,4 @@
-// The article renderer (FIRE_TRACKER `src/lib/blog-markdown.test.ts`, in English, with the site's
-// host and the glossary path as options). The oracle is HTML written by hand, not a second render.
+// The article renderer (in English, with the site's host and the glossary path as options). The oracle is HTML written by hand, not a second render.
 import { blogMessages } from "@softure-ai/blog";
 import { renderArticle, slugifyHeading } from "@softure-ai/blog/server";
 import { describe, expect, it } from "vitest";
@@ -20,6 +19,25 @@ describe("renderArticle: links", () => {
         '<a href="https://app.example.com/">app</a> ' +
         '<a href="/blog/isa">here</a></p>\n',
     );
+  });
+
+  it("drops the visible arrow but keeps the hidden words with externalMarker: \"text\"", () => {
+    expect(renderArticle("[ONS](https://www.ons.gov.uk/)", { externalMarker: "text" }).html).toBe(
+      '<p><a href="https://www.ons.gov.uk/" rel="noopener noreferrer" target="_blank" class="blog-external">ONS' +
+        '<span class="blog-visually-hidden"> (opens in a new tab)</span></a></p>\n',
+    );
+  });
+
+  it("adds no marker with externalMarker: \"none\" and still opens the link safely in a new tab", () => {
+    expect(renderArticle("[ONS](https://www.ons.gov.uk/)", { externalMarker: "none" }).html).toBe(
+      '<p><a href="https://www.ons.gov.uk/" rel="noopener noreferrer" target="_blank" class="blog-external">ONS</a></p>\n',
+    );
+  });
+
+  it("keeps the arrow and the hidden words by default and with externalMarker: \"icon-and-text\"", () => {
+    const expected = `<p><a href="https://www.ons.gov.uk/" rel="noopener noreferrer" target="_blank" class="blog-external">ONS${EXTERNAL_MARKER}</a></p>\n`;
+    expect(renderArticle("[ONS](https://www.ons.gov.uk/)").html).toBe(expected);
+    expect(renderArticle("[ONS](https://www.ons.gov.uk/)", { externalMarker: "icon-and-text" }).html).toBe(expected);
   });
 
   it("treats every http(s) link as external when no site host is given", () => {

@@ -57,6 +57,6 @@ export function getBlogReservedSlugs(config: SoftureConfig): string[] {
 export function getQualitySettings(config: SoftureConfig): QualitySettings | null {
   const { quality, images } = getBlogOptions(config);
   if (quality === false) return null;
-  const site = { appOrigin: config.appOrigin, siteOrigin: getSiteUrls(config).origin, timezone: config.timezone };
+  const site = { appOrigin: config.appOrigin, siteOrigin: getSiteUrls(config).origin, timezone: config.timezone, routes: getBlogRoutes(config) };
   return resolveQualitySettings(quality, site, images ?? null);
 }
