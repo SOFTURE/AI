@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.1.1
 
 - README: the installation section lists the `agent-ready` CLI commands (`web-bot-auth key`, `dns-aid check`,
   `check <url>`) next to the entries, with a pointer to where each one is described. No code change.

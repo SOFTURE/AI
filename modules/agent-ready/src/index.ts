@@ -17,7 +17,7 @@ import { MODULE_ID } from "./settings.js";
 export const agentReady = defineModule({
   manifest: {
     id: MODULE_ID,
-    version: "0.1.0",
+    version: "0.1.1",
     dependsOn: {},
     dbSchema: null,
     tables: [],
