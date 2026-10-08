@@ -12,6 +12,7 @@ const UNSUBSCRIBE_ANCHOR = /<p>[^<]+ <a href="https:\/\/app\.example\.com\/unsub
 async function signUp(test: TestWaitlist): Promise<WaitlistSignup> {
   const result = await joinWaitlist(test.ctx, { email: ADA, scopes: ["launch"], placement: "hero", clientKey: CLIENT });
   if (!result.ok) throw new Error(`signUp failed with ${result.error}`);
+  if (result.value.status === "suppressed") throw new Error("signUp found the address suppressed");
   return result.value.signup;
 }
 

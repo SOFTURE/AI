@@ -1,11 +1,12 @@
 // The consent ledger follows mailing's suppression list: an unsubscribe through the signed link
 // withdraws the waitlist's scopes (the hook wired in support.ts), and signing up again lifts the
-// address's own opt-out and stores exactly the scopes checked this time.
+// address's own opt-out only through a confirmation link (double opt-in), storing exactly the scopes
+// checked this time; without double opt-in it changes nothing.
 import { getRecipientKey, isSuppressed, signRecipientKey, suppressRecipient, unsubscribe } from "@softure-ai/mailing/server";
 import { getEmailKey, hasConsent } from "@softure-ai/privacy/server";
-import { joinWaitlist, withdrawWaitlistConsents, type JoinWaitlistInput } from "@softure-ai/waitlist/server";
+import { confirmSignup, getSignup, joinWaitlist, withdrawWaitlistConsents, type JoinWaitlistInput } from "@softure-ai/waitlist/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { CLIENT, createTestWaitlist, listConsentRows, NOW, SECRET, type TestWaitlist } from "./support.js";
+import { CLIENT, createTestWaitlist, listConsentRows, NOW, OPTIONS, SECRET, type TestWaitlist } from "./support.js";
 
 const LATER = new Date(NOW.getTime() + 60_000);
 const MUCH_LATER = new Date(NOW.getTime() + 120_000);
@@ -57,24 +58,40 @@ describe("an unsubscribe and the waitlist's consents", () => {
     expect(await listConsentRows(test, getEmailKey("bob@example.com"))).toEqual([]);
   });
 
-  it("lifts the opt-out on a new sign-up, grants again and stores only the scopes checked now", async () => {
-    await joinWaitlist(test.ctx, JOIN);
+  it("lifts the opt-out only through a confirmed sign-up, granting again only the scopes checked now", async () => {
+    await test.database.close();
+    test = await createTestWaitlist({ waitlist: { ...OPTIONS, doubleOptIn: true } });
+    const first = await joinWaitlist(test.ctx, JOIN);
+    if (!first.ok || first.value.status !== "confirmation_required") throw new Error("expected a request that waits for its link");
+    await confirmSignup(test.ctx, { token: first.value.token, clientKey: CLIENT });
     test.clock.set(LATER);
     await unsubscribe(test.ctx, ADA_TOKEN, "page", ENV);
     test.clock.set(MUCH_LATER);
 
     const again = await joinWaitlist(test.ctx, { ...JOIN, scopes: ["launch"] });
-    expect(again.ok && again.value).toMatchObject({ status: "joined", isNew: false, recordedScopes: ["launch"], signup: { scopes: ["launch"], updatedAt: MUCH_LATER } });
+    if (!again.ok || again.value.status !== "confirmation_required") throw new Error("expected a request that waits for its link");
+    expect(await isSuppressed(test.ctx, ADA)).toBe(true);
+    const confirmed = await confirmSignup(test.ctx, { token: again.value.token, clientKey: CLIENT });
+    expect(confirmed.ok && confirmed.value).toMatchObject({ recordedScopes: ["launch"], signup: { scopes: ["launch"], updatedAt: MUCH_LATER } });
     expect(await isSuppressed(test.ctx, ADA)).toBe(false);
     expect(await hasConsent(test.ctx, { subject: { email: ADA }, purpose: "launch" })).toBe(true);
     expect(await hasConsent(test.ctx, { subject: { email: ADA }, purpose: "newsletter" })).toBe(false);
   });
 
-  it("keeps an operator's suppression and widens as usual", async () => {
+  it("keeps the opt-out and changes nothing on a sign-up without double opt-in", async () => {
+    await joinWaitlist(test.ctx, JOIN);
+    await unsubscribe(test.ctx, ADA_TOKEN, "page", ENV);
+    const ledger = await readLedger(test);
+    expect(await joinWaitlist(test.ctx, { ...JOIN, scopes: ["launch"] })).toEqual({ ok: true, value: { status: "suppressed" } });
+    expect(await isSuppressed(test.ctx, ADA)).toBe(true);
+    expect(await readLedger(test)).toEqual(ledger);
+  });
+
+  it("keeps an operator's suppression and widens nothing", async () => {
     await joinWaitlist(test.ctx, { ...JOIN, scopes: ["launch"] });
     await suppressRecipient(test.ctx, ADA);
-    const again = await joinWaitlist(test.ctx, { ...JOIN, scopes: ["newsletter", "launch"] });
-    expect(again.ok && again.value.signup.scopes).toEqual(["launch", "newsletter"]);
+    expect(await joinWaitlist(test.ctx, { ...JOIN, scopes: ["newsletter", "launch"] })).toEqual({ ok: true, value: { status: "suppressed" } });
+    expect(await getSignup(test.ctx, ADA)).toMatchObject({ scopes: ["launch"] });
     expect(await isSuppressed(test.ctx, ADA)).toBe(true);
   });
 

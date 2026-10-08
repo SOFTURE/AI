@@ -41,6 +41,7 @@ export {
   type JoinWaitlistResult,
   type ListSignupsFilter,
   type PendingSignup,
+  type SuppressedSignup,
   type WaitlistContext,
 } from "./signups.js";
 export { UNSUBSCRIBE_CONSENT_SOURCE, withdrawWaitlistConsents } from "./unsubscribe.js";
