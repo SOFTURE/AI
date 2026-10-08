@@ -46,7 +46,7 @@ if [ "\${1:-}" = "--yes" ]; then shift 2; fi
 # The CLI reads all of a --stdin input; a writer to a pipe nobody drains could die of SIGPIPE.
 if [[ " $* " == *" --stdin "* ]]; then cat > /dev/null; fi
 case " $* " in
-  *" server-settings "* | *" --print-query "*) exec "$REAL_NODE" --import "$TSX_LOADER" "$REAL_CLI" "$@" ;;
+  *" server-settings "* | *" --print-query "*) exec "$REAL_NODE" --conditions=@softure-ai/source --import "$TSX_LOADER" "$REAL_CLI" "$@" ;;
 esac
 for arg in "$@"; do
   case "$arg" in
