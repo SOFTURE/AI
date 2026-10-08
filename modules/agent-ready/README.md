@@ -44,6 +44,15 @@ Peer dependency: `@modelcontextprotocol/server` (the app's MCP server is built w
 | `/webmcp` | the browser | WebMCP runtime and the boot script; no imports at all |
 | `/testing` | the app's tests | guards |
 
+The package also installs the `agent-ready` command (`npx agent-ready …`), for an operator, not for the app at
+runtime:
+
+| Command | What |
+|---|---|
+| `agent-ready web-bot-auth key` | prints a new Ed25519 seed for `WEB_BOT_AUTH_PRIVATE_KEY` (refuses a terminal; section 4, Web Bot Auth) |
+| `agent-ready dns-aid check --domain <domain> --record <label>=<host>` | checks the published DNS-AID records (section 4, DNS-AID) |
+| `agent-ready check <url>` | re-downloads every skill against its digest and verifies the signature directory (section 4, After a deploy) |
+
 ## 3. Configuration
 
 ```ts
