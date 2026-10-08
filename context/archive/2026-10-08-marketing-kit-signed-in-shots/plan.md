@@ -106,15 +106,15 @@ Done when: typecheck, lint, test, build green.
 
 ### Phase 1: config and pure parts
 
-- [ ] config keys and refinements with tests
-- [ ] placeholders, prepare output and crop geometry with tests
+- [x] config keys and refinements with tests — bbe0ef7
+- [x] placeholders, prepare output and crop geometry with tests — bbe0ef7
 
 ### Phase 2: capture
 
-- [ ] steps, sign-in, crop and duplicate gate in the capture with browser tests
-- [ ] CLI prepare and placeholder resolution with tests
+- [x] steps, sign-in, crop and duplicate gate in the capture with browser tests — a1a0318
+- [x] CLI prepare and placeholder resolution with tests — a1a0318, probe fix 3b3395b
 
 ### Phase 3: docs and version
 
-- [ ] README, CHANGELOG, version 0.1.10
-- [ ] gates green
+- [x] README, CHANGELOG, version 0.1.10 — 3b3395b
+- [x] gates green — 3b3395b (typecheck, lint, build; npm test 5101 passed after the options test fix, browser tests with PLAYWRIGHT_CHROMIUM_PATH)

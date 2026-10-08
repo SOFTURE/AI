@@ -1,12 +1,13 @@
 ---
 change_id: marketing-kit-signed-in-shots
 title: "marketing-kit 0.1.10: shots of signed-in screens (sign-in step, phrase from data, frames must differ, crop at a fixed aspect) (issue #253)"
-status: plan_reviewed
+status: archived
 roadmap_item: null
 issue: 253
 branch: claude/project-thread-2n7q5v
 created: 2026-10-08
 updated: 2026-10-08
+archived_at: 2026-10-08
 ---
 
 ## Intent
