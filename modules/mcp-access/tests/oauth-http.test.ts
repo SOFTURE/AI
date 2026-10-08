@@ -352,4 +352,81 @@ describe("the OAuth HTTP layer", () => {
       expect(response.headers.get("location")).toMatch(/^\/oauth\/authorize\?/);
     });
   });
+
+  describe("the request body cap", () => {
+    const DEFAULT_CAP = 16_384;
+    const INVALID_UTF8 = new Uint8Array([0x63, 0x3d, 0xff]);
+
+    /** A body streamed in chunks with no Content-Length, as a proxy may forward it. */
+    function streamed(path: string, size: number, headers: Record<string, string>): Request {
+      const chunk = new TextEncoder().encode("a".repeat(1024));
+      let sent = 0;
+      const body = new ReadableStream<Uint8Array>({
+        pull(controller) {
+          if (sent >= size) return controller.close();
+          controller.enqueue(chunk);
+          sent += chunk.byteLength;
+        },
+      });
+      return new Request(`${ORIGIN}${path}`, { method: "POST", headers: { "x-real-ip": CLIENT_IP, ...headers }, body, duplex: "half" } as RequestInit);
+    }
+
+    function rawPost(path: string, body: Uint8Array<ArrayBuffer>, headers: Record<string, string>): Request {
+      return new Request(`${ORIGIN}${path}`, { method: "POST", headers: { "x-real-ip": CLIENT_IP, ...headers }, body });
+    }
+
+    it("refuses a registration body over the cap with 413 invalid_request, announced or streamed", async () => {
+      const large = json({ redirect_uris: [REDIRECT_URI], software_statement: "x".repeat(DEFAULT_CAP) });
+      const announced = await handleClientRegistration(test.ctx, post("/api/oauth/register", large, { "content-type": "application/json" }));
+      expect([announced.status, ((await announced.json()) as OAuthBody).error]).toEqual([413, "invalid_request"]);
+      const stream = await handleClientRegistration(test.ctx, streamed("/api/oauth/register", DEFAULT_CAP + 1024, { "content-type": "application/json" }));
+      expect([stream.status, ((await stream.json()) as OAuthBody).error]).toEqual([413, "invalid_request"]);
+    });
+
+    it("answers an unreadable registration body as one that is not JSON", async () => {
+      const response = await handleClientRegistration(test.ctx, rawPost("/api/oauth/register", INVALID_UTF8, { "content-type": "application/json" }));
+      expect([response.status, ((await response.json()) as OAuthBody).error]).toEqual([400, "invalid_client_metadata"]);
+    });
+
+    it("takes the cap from oauth.maxBodyBytes", async () => {
+      const body = { client_name: "Assistant", redirect_uris: [REDIRECT_URI], token_endpoint_auth_method: "none", software_statement: "x".repeat(3000) };
+      expect((await register(body)).response.status).toBe(201);
+      test = { ...test, ctx: { ...test.ctx, config: createConfig({ ...OPTIONS, oauth: { enabled: true, maxBodyBytes: 2048 } }) } };
+      expect((await register(body)).response.status).toBe(413);
+    });
+
+    it("refuses a token body over the cap with 413 invalid_request, and counts it against the address", async () => {
+      const large = form({ grant_type: "refresh_token", refresh_token: "x".repeat(DEFAULT_CAP) });
+      const send = () => handleTokenRequest(test.ctx, post("/api/oauth/token", large, FORM));
+      const first = await send();
+      expect([first.status, ((await first.json()) as OAuthBody).error]).toEqual([413, "invalid_request"]);
+      for (let attempt = 1; attempt < MCP_RATE_LIMIT_BUCKETS["mcp-oauth"].limit; attempt++) expect((await send()).status).toBe(413);
+      expect((await send()).status).toBe(429);
+      expect((await handleTokenRequest(test.ctx, streamed("/api/oauth/token", DEFAULT_CAP + 1024, FORM))).status).toBe(429);
+    });
+
+    it("answers an unreadable token body as an empty form", async () => {
+      const response = await handleTokenRequest(test.ctx, rawPost("/api/oauth/token", INVALID_UTF8, FORM));
+      expect([response.status, ((await response.json()) as OAuthBody).error]).toEqual([401, "invalid_client"]);
+    });
+
+    it("refuses a consent form over the cap with 413 and an unreadable one with 400", async () => {
+      const clientId = (await register()).body.client_id ?? "";
+      const tooLarge = await decide(authorizationParams(clientId), { decision: "allow", padding: "x".repeat(DEFAULT_CAP) });
+      expect([tooLarge.status, tooLarge.headers.get("location"), tooLarge.headers.get("cache-control")]).toEqual([413, null, "no-store"]);
+      const unreadable = await handleAuthorizationDecision(test.ctx, rawPost("/api/oauth/authorize", INVALID_UTF8, { ...FORM, origin: ORIGIN }), alice);
+      expect(unreadable.status).toBe(400);
+    });
+
+    it("still decides on a multipart consent form", async () => {
+      const clientId = (await register()).body.client_id ?? "";
+      const body = new FormData();
+      for (const [key, value] of authorizationParams(clientId)) body.set(key, value);
+      body.set("decision", "allow");
+      const request = new Request(`${ORIGIN}/api/oauth/authorize`, { method: "POST", headers: { "x-real-ip": CLIENT_IP, origin: ORIGIN }, body });
+      const response = await handleAuthorizationDecision(test.ctx, request, alice);
+      expect(response.status).toBe(303);
+      expect(new URL(response.headers.get("location") ?? "").searchParams.get("code")).toMatch(/^sftmca_/);
+    });
+  });
 });

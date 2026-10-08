@@ -94,6 +94,11 @@ const oauthSchema = z.strictObject({
   /** How long an authorization code works; RFC 6749 §4.1.2 recommends at most ten minutes. */
   authorizationCodeLifetimeMinutes: z.int().min(1).max(10).default(10),
   /**
+   * The largest request body the registration, token and consent decision routes read, in bytes;
+   * a larger one is answered with 413 before it fills memory. Real bodies stay under 4 KiB.
+   */
+  maxBodyBytes: z.int().min(1024).max(1_048_576).default(16_384),
+  /**
    * Extra keys of the discovery documents (e.g. `jwks_uri`, `service_documentation`,
    * `resource_documentation`, `agent_auth`). Generated keys win; the protected resource document
    * takes the app's `resource_name`.

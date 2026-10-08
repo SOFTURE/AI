@@ -4,6 +4,7 @@
 // handler takes a Web `Request` and returns a `Response`, so any fetch-shaped host can mount it;
 // the Next adapter only supplies the context and the session.
 import { errorLogLabel, getModule, type SoftureConfig } from "@softure-ai/core";
+import { readSmallBody, type ReadSmallBodyResult } from "@softure-ai/security";
 import { consumeRateLimit, identifyClient } from "@softure-ai/security/server";
 import type { McpMetadataExtension } from "../options.js";
 import { findServedResourceOrigin, type McpOriginRequest, type McpOrigins } from "../origins.js";
@@ -206,6 +207,18 @@ async function limitProtocolRequest(ctx: McpAccessContext, request: Request, cli
 }
 
 // ---------------------------------------------------------------------------------------------
+// Request bodies
+
+/** The body as text, read up to `oauth.maxBodyBytes`: registration and token are public, so the cap comes before any parsing. */
+function readCappedBody(config: SoftureConfig, request: Request): Promise<ReadSmallBodyResult> {
+  return readSmallBody(request, { maxBytes: getMcpAccessOptions(config).oauth.maxBodyBytes });
+}
+
+function bodyTooLarge(config: SoftureConfig): Response {
+  return protocolError("invalid_request", `The request body is larger than ${String(getMcpAccessOptions(config).oauth.maxBodyBytes)} bytes.`, 413);
+}
+
+// ---------------------------------------------------------------------------------------------
 // Registration
 
 /**
@@ -217,11 +230,14 @@ export async function handleClientRegistration(ctx: McpAccessContext, request: R
   const limited = await limitProtocolRequest(ctx, request);
   if (limited !== null) return limited;
 
+  const notJson = () => protocolError("invalid_client_metadata", "The request body must be a JSON object.");
+  const text = await readCappedBody(ctx.config, request);
+  if (!text.ok) return text.error === "security.body_too_large" ? bodyTooLarge(ctx.config) : notJson();
   let body: unknown;
   try {
-    body = await request.json();
+    body = JSON.parse(text.value);
   } catch {
-    return protocolError("invalid_client_metadata", "The request body must be a JSON object.");
+    return notJson();
   }
   const parsed = parseClientRegistration(body);
   if (!parsed.ok) return protocolError(parsed.error.error, parsed.error.description);
@@ -295,7 +311,13 @@ const INVALID_GRANT = "The code or refresh token is invalid, expired, used or is
 export async function handleTokenRequest(ctx: McpAccessContext, request: Request): Promise<Response> {
   if (!isOAuthEnabled(ctx.config)) return protocolError("not_found", "OAuth is not enabled.", 404);
   const origins = resolveMcpOrigins(ctx.config, request);
-  const form = new URLSearchParams(await request.text().catch(() => ""));
+  const text = await readCappedBody(ctx.config, request);
+  if (!text.ok && text.error === "security.body_too_large") {
+    // Counted by address alone: the client id inside an oversized body is never read.
+    return (await limitProtocolRequest(ctx, request)) ?? bodyTooLarge(ctx.config);
+  }
+  // An unreadable body is an empty form, which the client check refuses.
+  const form = new URLSearchParams(text.ok ? text.value : "");
   const credentials = readClientCredentials(request, form);
   const limited = await limitProtocolRequest(ctx, request, credentials.clientId);
   if (limited !== null) return limited;
@@ -439,6 +461,18 @@ function isSameOrigin(request: Request, origins: McpOrigins): boolean {
 }
 
 /**
+ * The consent form, read up to `oauth.maxBodyBytes`, or the answer to a body that is too large
+ * (413) or unreadable (400). Parsed by the platform, so urlencoded and multipart forms both work.
+ */
+async function readDecisionForm(config: SoftureConfig, request: Request): Promise<FormData | Response> {
+  const refuse = (status: number) => new Response(null, { status, headers: { "cache-control": "no-store" } });
+  const text = await readCappedBody(config, request);
+  if (!text.ok) return refuse(text.error === "security.body_too_large" ? 413 : 400);
+  const parsed = new Response(text.value, { headers: { "content-type": request.headers.get("content-type") ?? "" } });
+  return (await parsed.formData().catch(() => null)) ?? refuse(400);
+}
+
+/**
  * `POST` of the consent form, answered with `303`: a plain form post, not a server action, because
  * the answer is a redirect to the client, possibly a native app scheme, and must work without
  * JavaScript. The form must come from the app's origin (the session cookie's `SameSite=Lax` is the
@@ -449,8 +483,8 @@ export async function handleAuthorizationDecision(ctx: McpAccessContext, request
   if (!isOAuthEnabled(ctx.config)) return new Response(null, { status: 404 });
   const origins = resolveMcpOrigins(ctx.config, request);
   if (!isSameOrigin(request, origins)) return new Response(null, { status: 403, headers: { "cache-control": "no-store" } });
-  const form = await request.formData().catch(() => null);
-  if (form === null) return new Response(null, { status: 400, headers: { "cache-control": "no-store" } });
+  const form = await readDecisionForm(ctx.config, request);
+  if (form instanceof Response) return form;
 
   const params = readAuthorizationParams(form);
   const consent = getConsentPath(ctx.config, params);
