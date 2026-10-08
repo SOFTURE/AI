@@ -2,7 +2,7 @@
 // writing skill, and the options it refuses.
 import { readFileSync } from "node:fs";
 import { blog } from "@softure-ai/blog";
-import { checkArticleText, getQualitySettings, listQualityRules, qualityOptionsSchema, resolveQualitySettings, type BlockPlugin, type QualityOptionsInput, type QualityPlugin } from "@softure-ai/blog/server";
+import { checkArticleText, getLocalDate, getQualitySettings, listQualityRules, qualityOptionsSchema, resolveQualitySettings, type BlockPlugin, type QualityOptionsInput, type QualityPlugin } from "@softure-ai/blog/server";
 import { defineSoftureConfig } from "@softure-ai/core";
 import { seo } from "@softure-ai/seo";
 import { describe, expect, it } from "vitest";
@@ -186,5 +186,13 @@ describe("directive plugins", () => {
     const ids = (options: QualityOptionsInput) => listQualityRules(settingsOf(options)).map((rule) => rule.id);
     expect(ids({ blocks: [chart] })).not.toContain("block-directive");
     expect(ids({ blocks: [chartDirective] })).toContain("block-directive");
+  });
+});
+
+describe("the gate's today", () => {
+  it("is the day in the app's time zone", () => {
+    // 01:30 UTC on 3 October is still 2 October in New York.
+    expect(getLocalDate(new Date("2026-10-03T01:30:00Z"), "America/New_York")).toBe("2026-10-02");
+    expect(getLocalDate(new Date("2026-10-03T01:30:00Z"), "Europe/Warsaw")).toBe("2026-10-03");
   });
 });

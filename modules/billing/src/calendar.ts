@@ -1,5 +1,6 @@
 // Calendar days in the app's IANA time zone, without a date library: trials end at the start of a
 // local day and "days left" counts local days, as people do.
+import { toCalendarDay } from "@softure-ai/core";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -8,7 +9,8 @@ const formatters = new Map<string, Intl.DateTimeFormat>();
 function getFormatter(timezone: string): Intl.DateTimeFormat {
   let format = formatters.get(timezone);
   if (format === undefined) {
-    format = new Intl.DateTimeFormat("en-CA", {
+    // Read by part type, so no locale's date pattern matters.
+    format = new Intl.DateTimeFormat("en-US", {
       timeZone: timezone,
       hourCycle: "h23",
       year: "numeric",
@@ -35,7 +37,7 @@ function getLocalWallTime(instant: number, timezone: string): number {
 
 /** The calendar day of an instant in a time zone, as a day count; two of them subtract to days. */
 export function getDayNumber(instant: Date, timezone: string): number {
-  return Math.floor(getLocalWallTime(instant.getTime(), timezone) / DAY_MS);
+  return Date.parse(`${toCalendarDay(instant, timezone)}T00:00:00Z`) / DAY_MS;
 }
 
 const HOUR_MS = 60 * 60 * 1000;
