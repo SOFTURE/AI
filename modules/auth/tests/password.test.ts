@@ -5,9 +5,41 @@ import { FAST_SCRYPT, hashWithoutNormalizing } from "./support.js";
 
 describe("password hashing", () => {
   it("recognises its own hash format and nothing else", async () => {
-    expect(isPasswordHash(await hashPassword("correct horse battery", FAST_SCRYPT))).toBe(true);
-    for (const value of ["", "correct horse battery", "scrypt$1024$8$1$salt", "scrypt$0$8$1$salt$key", "bcrypt$1024$8$1$salt$key", "scrypt$1024$8$1$salt$key$extra"]) {
+    const hash = await hashPassword("correct horse battery", FAST_SCRYPT);
+    const [, , , , salt, key] = hash.split("$");
+    expect(isPasswordHash(hash)).toBe(true);
+    for (const value of [
+      "",
+      "correct horse battery",
+      `scrypt$1024$8$1$${String(salt)}`,
+      `scrypt$0$8$1$${String(salt)}$${String(key)}`,
+      `bcrypt$1024$8$1$${String(salt)}$${String(key)}`,
+      `${hash}$extra`,
+    ]) {
       expect(isPasswordHash(value), value).toBe(false);
+    }
+  });
+
+  it("refuses a hash damaged in transport, which would lock the account", async () => {
+    const hash = await hashPassword("correct horse battery", FAST_SCRYPT);
+    const [, , , , salt = "", key = ""] = hash.split("$");
+    const withParts = (parts: { cost?: string; salt?: string; key?: string }): string =>
+      ["scrypt", parts.cost ?? "1024", "8", "1", parts.salt ?? salt, parts.key ?? key].join("$");
+    expect(withParts({})).toBe(hash);
+    const damaged = {
+      "last character cut": hash.slice(0, -1),
+      "key one character longer": withParts({ key: `${key}A` }),
+      "salt one character shorter": withParts({ salt: salt.slice(1) }),
+      "padding appended": `${hash}==`,
+      "stray + in the key": withParts({ key: `${key.slice(0, 10)}+${key.slice(11)}` }),
+      "stray / in the key": withParts({ key: `${key.slice(0, 10)}/${key.slice(11)}` }),
+      "stray . in the salt": withParts({ salt: `${salt.slice(0, 5)}.${salt.slice(6)}` }),
+      "cost not a power of two": withParts({ cost: "1000" }),
+      "cost of 1": withParts({ cost: "1" }),
+      "cost past 32 bits, not a power of two": withParts({ cost: String(2 ** 32 + 2 ** 31) }),
+    };
+    for (const [name, value] of Object.entries(damaged)) {
+      expect(isPasswordHash(value), name).toBe(false);
     }
   });
 

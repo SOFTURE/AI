@@ -132,6 +132,22 @@ describe("set-temporary-password", () => {
       expect(lines.join("\n")).not.toContain("plain-secret-by-mistake");
       expect((await loginUser(test.ctx, { email: "ada@example.com", password: PASSWORD, clientKey: CLIENT })).ok).toBe(true);
     });
+    it("refuses a hash cut by one character, so the account is not locked", async () => {
+      const passwordHash = await hashPassword(localPassword, FAST_SCRYPT);
+      const lines: string[] = [];
+      const code = await runOpsScript({
+        script: script(),
+        argv: ["--email=ada@example.com", "--password-hash-file=-", "--commit"],
+        config: test.config,
+        database: test.database.db,
+        output: { log: (line: string) => lines.push(line), error: (line: string) => lines.push(line) },
+        readInput: { readFile: () => Promise.reject(new Error("no files")), readStdin: () => Promise.resolve(`${passwordHash.slice(0, -1)}\n`) },
+      });
+      expect(code).toBe(2);
+      expect(lines[0]).toBe("set-temporary-password: --password-hash: is not a scrypt hash written by @softure-ai/auth");
+      expect(lines.join("\n")).not.toContain(passwordHash.slice(0, -1));
+      expect((await loginUser(test.ctx, { email: "ada@example.com", password: PASSWORD, clientKey: CLIENT })).ok).toBe(true);
+    });
   });
 
   it("refuses an unknown email and writes nothing", async () => {
