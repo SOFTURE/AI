@@ -44,7 +44,7 @@ jobs:
   test:
     name: run the suite
     runs-on: ubuntu-latest
-    # A fixed limit (a job timeout must be a number for this repository's guards); a slower suite splits its run.
+    # A number, not an input: the repository guards require one on every job. Two hours fit a full end-to-end suite.
     timeout-minutes: 120
     permissions:
       contents: read

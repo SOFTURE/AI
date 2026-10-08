@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
+## Unreleased
+
+- `integration run`, `integration lookup` and `integration record`: the remote integration run of the SOFTURE skills
+  (`integration.remote` and `integration.lookup` in `context/workflow.json`). `run` pushes `integration/<name>` and
+  waits for the result note on the commit (exit 0 green, 1 red, 75 no result in time); `lookup` prints a stored result
+  (0 green, 1 red, 3 none); both print `integration:`, `counts:`, `run:`, `red:` and `new-red:` lines.
+- `deploy-integration.yml` and `examples/integration.yml`: the CI side, which runs the app's suite on the pushed
+  commit, stores the result under `refs/notes/integration` and deletes the ref.
+
 ## 0.1.4
 
 - `init` warns when the app depends on `@softure-ai/db` and its `next.config.*` does not list `"@softure-ai/db"` in
