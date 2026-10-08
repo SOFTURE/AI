@@ -20,7 +20,7 @@ Input: change.md (research and framing skipped, reasons there). Complexity: medi
 
 ## Goal
 
-`@softure-ai/waitlist` 0.1.7 with all four points of #214, and `@softure-ai/privacy` 0.1.7 with `importConsent`.
+`@softure-ai/waitlist` 0.1.7 with all four points of #214, and `@softure-ai/privacy` with `importConsent` (released as 0.1.8: a parallel change took 0.1.7, impl review #7).
 
 **Out of scope:** changes in `@softure-ai/mailing` (#211/#212 own it now), importing unconfirmed (pending double
 opt-in) requests, a counter in analytics for imported history.

@@ -92,8 +92,42 @@ export { GET } from "@softure-ai/ops/next";
   instance on one directory would corrupt it); else its own pool of two connections per Postgres
   URL, so a busy app pool cannot starve the probe. `closeHealthDatabases()` from
   `@softure-ai/ops/next` closes that pool on shutdown. Ops scripts open the configured handle too.
-- Programmatic use (no Next): `collectHealthChecks(config, db)` and
-  `runHealthChecks(context, { checks, timeoutMs })` from `@softure-ai/ops/server`.
+- Programmatic use (no Next): `createHealthResponse(config)` returns the route's `Response`;
+  `collectHealthChecks(config, db)` and `runHealthChecks(context, { checks, timeoutMs })` run the checks
+  alone. All three come from `@softure-ai/ops/server`, together with `closeHealthDatabases()`.
+
+### Testing the route
+
+`GET` is `connection()` plus `createHealthResponse(getSoftureConfig())`. Test the answer through
+`createHealthResponse`: it takes the config as an argument and its entry does not import Next, so the
+test needs no mock, no registry and no Vitest setting.
+
+```ts
+// app/api/health/route.test.ts
+import { createHealthResponse } from "@softure-ai/ops/server";
+import { config } from "../../../softure.config";
+
+it("answers 503 and only the status when the database fails", async () => {
+  // A config whose ops() has getDatabase: () => Promise.reject(new Error("down")).
+  const response = await createHealthResponse(config);
+  expect(response.status).toBe(503);
+  expect(await response.json()).toEqual({ status: "unavailable" });
+});
+```
+
+Calling the mounted `GET` itself in Vitest takes two more steps, both because it runs outside Next:
+
+1. `@softure-ai/ops/next` imports `next/server` without a file extension (Next's bundler resolves only the
+   bare specifier; the `.js` form bypasses its per-runtime alias and breaks `next build`). Next has no
+   `exports` map, so plain Node ESM fails with `Cannot find module '…/node_modules/next/server'`. Let
+   Vitest process the package: `test: { server: { deps: { inline: [/@softure-ai\//] } } }`.
+2. `connection()` throws `` `connection` was called outside a request scope `` in a test. Stub it:
+
+```ts
+const { connection } = vi.hoisted(() => ({ connection: vi.fn(() => Promise.resolve()) }));
+vi.mock("next/server", () => ({ connection }));
+// …then `await GET()`, and `expect(connection).toHaveBeenCalledTimes(1)` keeps the route dynamic.
+```
 
 ## 5. Migrations and tables
 

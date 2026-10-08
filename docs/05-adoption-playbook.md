@@ -50,6 +50,10 @@ Instructions for the application's agent (FIRE_TRACKER first). One module is one
       module's tables from `schema.ts`. Domain tables now reference the tables the module exports:
       import them, never re-export them from `schema.ts` (`drizzle-kit generate` ignores
       `schemaFilter` and would emit their `CREATE TABLE`).
+   5. **Once-only records.** When the application kept its own records of what it already sent
+      (a campaign per signup, a notice per user and period), import them into the module's ledger
+      before the module sends anything, e.g. `importDeliveries` / `softure-mail import` of
+      `@softure-ai/mailing`. Without that, the first run sends everything again.
 4. **Mounting.** Add route handlers, pages and middleware as the module README describes.
 5. **Code removal.** Delete the application's own implementation and its unit tests (the module
    has its own). **The application's integration tests stay.** They are the proof that the switch works.

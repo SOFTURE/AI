@@ -14,7 +14,7 @@ the final commit.
 | `importSignups` and the `import-signups` script | `src/server/import.ts`, `src/scripts/` | done |
 | unconfirmed row takes the imported scopes (plan review #2) | `getMergedRow` in `import.ts` | done, tested |
 | `unsubscribeLinkOnSuccess`, setup check, form, copy | `src/options.ts`, `src/server/setup.ts`, `src/next/actions.ts`, `src/ui/waitlist-form.tsx`, `src/messages/` | done |
-| README, CHANGELOGs, versions 0.1.7, privacy `^0.1.7` | both modules | done |
+| README, CHANGELOGs, waitlist 0.1.7, privacy 0.1.8 (finding 7), waitlist on privacy `^0.1.8` | both modules | done |
 | no change in `modules/mailing` | uses `buildUnsubscribeLinks`, `signRecipientKey`, `getRecipientKey`, `unsubscribe`, `isSuppressed`, `readUnsubscribeSecrets` as exported | held |
 
 ## Findings
@@ -36,5 +36,7 @@ functions and options that did not exist before this change; the three existing 
 (`channel: null`, `unsubscribeLinkOnSuccess: false`, the export's `channel`) failed until the code carried them.
 
 | 6 | Warning | The full `npm test` caught two gaps the waitlist-only runs did not: the repository test requires `ops` in `dependsOn` (billing names it as optional, `^0.1.0?`), and the module test still expected privacy `^0.1.0` in the missing-module message. | Fixed in a793502: `dependsOn` names `ops: "^0.1.0?"`, the test expects `^0.1.7`; full `npm test` re-run green. |
+
+| 7 | Warning | A parallel change released privacy 0.1.7 first (legal page layout), so `importConsent` could not ship under that number: a waitlist depending on `^0.1.7` would resolve to a privacy without it. | Fixed in the merge of master: privacy goes out as 0.1.8, waitlist depends on privacy `^0.1.8` (package.json, manifest, `dependsOn`), and both are released together. |
 
 No open findings. Verdict: ready to merge.

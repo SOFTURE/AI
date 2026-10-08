@@ -11,7 +11,7 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   sign-up time and id, placement, locale and channel, a consent per scope at its historical time and document version
   (privacy's `importConsent`), and, for who unsubscribed, the withdrawals at that time and an opt-out their next
   sign-up lifts. Checked whole before writing, one transaction, idempotent, never narrows scopes. New dependency:
-  `@softure-ai/ops` (an optional module in `dependsOn`); `@softure-ai/privacy` `^0.1.7`.
+  `@softure-ai/ops` (an optional module in `dependsOn`); `@softure-ai/privacy` `^0.1.8`.
 - `getSignupById(ctx, id)`, for mailing's `legacyUnsubscribe.verify` when old links carry the row id.
 - **Channel per sign-up**: migration `0003_add_channel.sql` adds `waitlist.signups.channel`; option `resolveChannel`
   fills it from the request (e.g. analytics' `getChannel`), `joinWaitlist` takes `channel`, `WaitlistSignup.channel`,

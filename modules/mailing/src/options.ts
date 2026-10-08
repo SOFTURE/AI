@@ -1,7 +1,7 @@
 // The options an app passes to `mailing({ ... })` in softure.config.ts, parsed at startup.
 import { z } from "zod";
 import { isMailbox, isSingleAddress } from "./address.js";
-import type { CampaignRecipientFilter, LegacyUnsubscribe, MailProvider, OnUnsubscribedHook } from "./contract.js";
+import type { CampaignRecipientFilter, CampaignRecipientSource, LegacyUnsubscribe, MailProvider, OnUnsubscribedHook } from "./contract.js";
 
 export const DEFAULT_TIMEOUT_MS = 10_000;
 /** How long a delivery claim may stay open before another sender may take it over (and send again, same key). */
@@ -11,6 +11,11 @@ export const DEFAULT_STALE_CLAIM_MS = 15 * 60_000;
  * the provider may have forgotten the idempotency key (Resend keeps one for 24 hours), so a retake could mail twice.
  */
 export const DEFAULT_UNCERTAIN_CLAIM_MS = 23 * 60 * 60_000;
+/**
+ * Claims a delivery gets before `mailing.unavailable` becomes its final outcome. A short outage across a few runs is
+ * ridden out, while a provider that keeps failing on one mail does not keep it open forever.
+ */
+export const DEFAULT_MAX_ATTEMPTS = 5;
 
 /** Query names the signed link and the page use; a legacy link cannot claim them. */
 const RESERVED_LINK_PARAMS: ReadonlySet<string> = new Set(["r", "status"]);
@@ -55,6 +60,16 @@ export const mailingOptionsSchema = z.strictObject({
   legacyUnsubscribe: legacyUnsubscribeSchema.optional(),
   /** Decides per recipient whether a campaign goes to them, e.g. by consent scope (see `CampaignRecipientFilter`). */
   filterCampaignRecipient: z.custom<CampaignRecipientFilter>((value) => typeof value === "function", "must be a function").optional(),
+  /**
+   * Lists a campaign's recipients from the app's data; `softure-mail campaign` uses it when no `--recipients` file
+   * is given (see `CampaignRecipientSource`).
+   */
+  listCampaignRecipients: z.custom<CampaignRecipientSource>((value) => typeof value === "function", "must be a function").optional(),
+  /**
+   * Claims a delivery gets before `mailing.unavailable` closes it as rejected, 1 to 100; `null` never closes it, for
+   * apps that retry on their own schedule. Default 5.
+   */
+  maxAttempts: z.number().int().min(1).max(100).nullable().default(DEFAULT_MAX_ATTEMPTS),
   /** How long a delivery claim may stay open before another sender takes it over. 1 minute to 23 hours. */
   staleClaimMs: z.number().int().min(60_000).max(23 * HOUR_MS).default(DEFAULT_STALE_CLAIM_MS),
   /**
