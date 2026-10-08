@@ -2,8 +2,10 @@
 
 Test tools shared by SOFTURE apps and modules:
 
-- a Vitest setup file that shifts the test clock to `TEST_TODAY` while time keeps running, so date
-  logic can be tested for a day that has not come yet ([Clock shift](#clock-shift));
+- a Vitest setup file that pins the tests to a time zone with a negative offset, so code that forgets
+  an explicit zone fails ([Test time zone](#test-time-zone)), and shifts the test clock to `TEST_TODAY`
+  while time keeps running, so date logic can be tested for a day that has not come yet
+  ([Clock shift](#clock-shift));
 - Playwright helpers for black-box tests of an app: client addresses, the auth forms, unique test
   data, the product select, polling, links and assertions ([Playwright helpers](#playwright-helpers)).
 
@@ -14,6 +16,38 @@ npm install --save-dev @softure-ai/testing
 ```
 
 Inside this repository it is a workspace package.
+
+## Test time zone
+
+Code that converts explicitly to UTC or to the app's zone (`Europe/Warsaw`) gives the same result as
+code that forgets the zone when the tests run in UTC or on a machine in that zone, so date tests can
+pass by construction. In a zone with a negative offset the calendar day differs from UTC and from
+European zones late in the evening, so a missing `timeZone` shows up as a wrong date.
+
+The setup file (step 1 of [Clock shift](#clock-shift)) pins the process to `America/New_York`. Another
+zone, for a one-off probe:
+
+```bash
+TEST_TZ=Europe/Warsaw npm test
+```
+
+**Pin it in the config as well.** Node applies `TZ` per process: the setup file can switch the zone in
+Vitest's default `forks` pool, but not inside the worker threads of the `threads` and `vmThreads`
+pools. There the setup fails with a message that names the fix instead of running in the wrong zone.
+Calling `pinTestTimeZone()` at the top of the config pins the zone in the main process before any
+worker starts, so it holds in every pool; it also picks the app's own zone when it is given one:
+
+```ts
+// vitest.config.mts
+import { pinTestTimeZone } from "@softure-ai/testing";
+
+pinTestTimeZone(); // or pinTestTimeZone("Asia/Tokyo"); TEST_TZ from the shell still wins
+
+export default defineConfig({ test: { setupFiles: ["@softure-ai/testing/vitest-setup"] } });
+```
+
+The config stores the zone in `TEST_TZ`, where the setup file in each worker finds the same zone. A
+name that is not a time zone fails the run: as `TZ` it would fall back to UTC silently.
 
 ## Clock shift
 
@@ -77,7 +111,11 @@ shiftClock(readTestToday(process.env.TEST_TODAY) ?? "2027-01-02");
 
 | Export | What it does |
 | --- | --- |
-| `@softure-ai/testing/vitest-setup` | Setup entry: shifts the clock when `TEST_TODAY` is set. |
+| `@softure-ai/testing/vitest-setup` | Setup entry: pins the zone (`TEST_TZ`, default `America/New_York`), then shifts the clock when `TEST_TODAY` is set. |
+| `DEFAULT_TEST_TIME_ZONE` | `"America/New_York"`: the zone tests run in unless `TEST_TZ` names another. |
+| `readTestTimeZone(value)` | Returns the zone a `TEST_TZ` value names, or the default for an unset or empty value; throws a `RangeError` for a name that is not a time zone. |
+| `pinTimeZone(timeZone)` | Switches the process to the zone through `TZ`; throws when the zone is unknown or the switch did not take effect (a worker thread). |
+| `pinTestTimeZone(timeZone?)` | For the Vitest config: pins `TEST_TZ` from the shell, else `timeZone` (default `America/New_York`), stores it in `TEST_TZ` and returns it. |
 | `readTestToday(value)` | Returns the day, or null for an unset or empty value; throws a `RangeError` for anything else that is not a real `YYYY-MM-DD` date. |
 | `shiftClock(day)` | Moves the global `Date` to noon of `day` and lets it run; shifting again replaces the earlier shift. |
 | `restoreClock()` | Puts the real `Date` back; does nothing when the clock is not shifted. |
@@ -126,4 +164,6 @@ fake outbox, for example). This package keeps what every app shares: unique name
 ## Limitations
 
 - Node only: the setup reads `process.env`.
+- The zone is pinned when the setup runs. A module loaded earlier that cached a formatter or a computed
+  date keeps what it computed in the earlier zone; `pinTestTimeZone()` in the config avoids that.
 - Code that captured `Date` before the setup ran (a module loaded earlier) keeps the real clock.
