@@ -29,7 +29,8 @@ export const NUMBER_INPUT_CLASS = `${INPUT_CLASS} sft:font-mono sft:tabular-nums
 /** Extra right padding for an input that shows a unit suffix. */
 export const SUFFIX_PADDING_CLASS = "sft:pr-14";
 
-export type FieldSlot = "root" | "labelRow" | "label" | "error" | "hint";
+/** Parts of a `Field`. `hint` is the block hint under the control; `tooltip` wraps the "?" of a tooltip hint. */
+export type FieldSlot = "root" | "labelRow" | "label" | "tooltip" | "error" | "hint";
 
 export interface FieldProps extends CopyProps<"field"> {
   readonly label: string;
@@ -51,10 +52,16 @@ export interface FieldProps extends CopyProps<"field"> {
   readonly unstyled?: boolean;
 }
 
+// The label row is a block with the label's font size, not a flex row: the label reserves the room of the "?" at
+// the end of its last line (`pr-5`) and the "?" is drawn in that room with a net advance of zero (`-ml-5 w-5`), so a
+// wrapping label keeps the "?" next to its last word.
+const LABEL_HINT_ROOM = "sft:pr-5";
+
 const FIELD_CLASSES: Readonly<Record<FieldSlot, string>> = {
   root: "sft:block sft:font-sans",
-  labelRow: "sft:mb-1.5 sft:flex sft:items-baseline sft:gap-1.5",
+  labelRow: "sft:mb-1.5 sft:block sft:text-sm",
   label: "sft:text-sm sft:font-medium sft:text-foreground",
+  tooltip: "sft:-ml-5 sft:inline-flex sft:w-5 sft:justify-end",
   error: "sft:mt-1.5 sft:mb-0 sft:text-sm sft:leading-snug sft:text-danger",
   hint: "sft:mt-1.5 sft:block sft:text-xs sft:leading-relaxed sft:text-muted",
 };
@@ -85,13 +92,18 @@ export function Field({
   return (
     <div className={slot("root")}>
       <div className={slot("labelRow")}>
-        <label htmlFor={fieldId} className={slot("label")}>
+        <label
+          htmlFor={fieldId}
+          className={isTooltip && unstyled !== true ? [slot("label"), LABEL_HINT_ROOM].join(" ") : slot("label")}
+        >
           {label}
         </label>
         {isTooltip ? (
-          <CopyHint group="field" values={{ label }} id={hintId} appearance={hintProps} locale={locale} messages={messages}>
-            {hint}
-          </CopyHint>
+          <span className={slot("tooltip")}>
+            <CopyHint group="field" values={{ label }} id={hintId} appearance={hintProps} locale={locale} messages={messages}>
+              {hint}
+            </CopyHint>
+          </span>
         ) : null}
       </div>
       {children}

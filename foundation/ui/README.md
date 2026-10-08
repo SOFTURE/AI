@@ -218,9 +218,10 @@ Before hydration it already opens on hover and focus, by CSS alone. The bubble r
 `Card`, `Field`, the form fields and `Switch` render their own "?"; `hintProps` (a `HintAppearance`: `classNames`,
 `triggerGap`, `isWide`) gives it the look and gap of the app's standalone hints.
 
-`Switch` puts the "?" inline after the label: the label reserves its room at the end of its last line (`pr-5`) and
-the `hint` wrapper draws it there with no advance of its own (`-ml-5 w-5`), so a wrapping label keeps the "?" next
-to its last word. `stateText` renders both lines and `:checked` shows one; that switching is behaviour, so under
+`Switch` and `Field` (with `hintAs="tooltip"`) put the "?" inline after the label: the label reserves its room at
+the end of its last line (`pr-5`) and the wrapper (`hint` in `Switch`, `tooltip` in `Field` and the form fields)
+draws it there with no advance of its own (`-ml-5 w-5`), so a wrapping label keeps the "?" next to its last word.
+The row carries the label's font size, so a field's label row is as tall with a "?" as without one. `stateText` renders both lines and `:checked` shows one; that switching is behaviour, so under
 `unstyled` the root keeps `sft:group/switch`, `state` keeps `sft:grid` and the lines keep their visibility classes,
 while `stateOn` and `stateOff` take the app's look. An app's own `group-has-checked/switch:` classes need its own
 `group/switch` on `classNames.root`. Ids follow the switch `id` (generated when omitted): `<id>-description` for the

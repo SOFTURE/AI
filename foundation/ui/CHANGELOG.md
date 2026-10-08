@@ -13,6 +13,10 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 - `Switch` lays the "?" inline after the label (block row, `pr-5` on the label, `-ml-5 w-5` on the wrapper) instead
   of a flex row, so a wrapping label keeps the "?" next to its last word. The markup gains the wrapper `span`.
 - Documented: the description id is `<id>-description` and the hint id `<id>-hint`.
+- `Field` and the form fields (`TextField`, `PasswordField`, `MoneyField`, `SelectField`) lay a tooltip "?" the same
+  way, in a new `tooltip` slot (the wrapper of the "?"; `hint` stays the block hint). The label row is a block with
+  the label's font size: with a "?" it is now 20 px tall like a row without one (it was 24 px), so the control
+  below moves up 4 px and fields with and without a hint line up side by side.
 
 ## 0.1.13
 
