@@ -1,12 +1,13 @@
 ---
 change_id: analytics-pixel-pages
 title: "analytics: a pixel step names its pages (issue #235)"
-status: impl_reviewed
+status: archived
 roadmap_item: null
 issue: 235
 branch: claude/analytics-pixel-referer-hey7pg
 created: 2026-10-08
 updated: 2026-10-08
+archived_at: 2026-10-08
 ---
 
 ## Intent
