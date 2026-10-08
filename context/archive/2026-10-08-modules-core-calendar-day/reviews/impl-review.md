@@ -34,3 +34,10 @@ now describes the function on its own terms (neutral wording rule for the reposi
 ## Gates
 
 typecheck, lint (with the language gate), `npm test` and `npm run build` green on 880910b1.
+
+## After the merge
+
+privacy 0.1.9, mcp-access 0.1.9 and billing 0.1.9 had been released from master shortly before this change was
+opened, so the entries this change added to their 0.1.9 sections described code those versions do not contain.
+A follow-up commit moved the privacy and mcp-access entries to new 0.1.10 versions (released from it); billing's
+entry goes to its 0.1.10, which another open change already prepares.
