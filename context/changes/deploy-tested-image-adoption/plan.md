@@ -117,7 +117,7 @@ published one).
 
 ## Progress
 
-- [ ] Phase 1: CLI
+- [x] Phase 1: CLI
 - [ ] Phase 2: deploy.sh
 - [ ] Phase 3: workflow
 - [ ] Phase 4: docs and gates

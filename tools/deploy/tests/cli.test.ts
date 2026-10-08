@@ -107,6 +107,42 @@ describe("softure-deploy env render", () => {
   });
 });
 
+describe("softure-deploy env render from JSON objects", () => {
+  const SECRETS = JSON.stringify({ DATABASE_URL: "postgres://db/app", AUTH_SECRET: SECRET, MCP_ALLOW_WRITES: "0" });
+  const OPTIONAL = `${COMPOSE}      MCP_ALLOW_WRITES: \${MCP_ALLOW_WRITES:-}\n      HOME_DIR: \${HOME:-}\n`;
+
+  it("renders the values of --secrets-json with --vars-json over them, never the rest of the environment", async () => {
+    writeCompose(OPTIONAL);
+    const io = makeIo({ APP_SECRETS: SECRETS, APP_VARS: JSON.stringify({ MCP_ALLOW_WRITES: "1", COUNT: 3 }), HOME: "/root", AUTH_SECRET: "from-env" });
+    expect(await runCli(["env", "render", "--secrets-json=APP_SECRETS", "--vars-json=APP_VARS"], io)).toBe(0);
+    expect(readFileSync(join(dir, ".env.prod"), "utf8")).toBe(`${ENV_FILE_HEADER}\nAUTH_SECRET=${SECRET}\nDATABASE_URL=postgres://db/app\nMCP_ALLOW_WRITES=1\n`);
+    expect(out.join("")).toBe(
+      "env render: MCP_ALLOW_WRITES taken from APP_VARS over APP_SECRETS.\n" +
+        "env render: wrote 3 names (1 of 2 optional set) from docker/prod/docker-compose.yml to .env.prod: AUTH_SECRET, DATABASE_URL, MCP_ALLOW_WRITES\n",
+    );
+    expect(out.join("") + err.join("")).not.toContain(SECRET);
+  });
+
+  it("names a required name the JSON objects lack, not one the environment has", async () => {
+    writeCompose();
+    const io = makeIo({ APP_SECRETS: JSON.stringify({ DATABASE_URL: "x" }), AUTH_SECRET: SECRET });
+    expect(await runCli(["env", "render", "--secrets-json=APP_SECRETS"], io)).toBe(1);
+    expect(err.join("")).toBe("env render: .env.prod not written; missing in the JSON values: AUTH_SECRET.\n");
+    expect(existsSync(join(dir, ".env.prod"))).toBe(false);
+  });
+
+  it("refuses a variable that is unset or not a JSON object, naming the variable and never its value", async () => {
+    writeCompose();
+    expect(await runCli(["env", "render", "--secrets-json=APP_SECRETS"], makeIo({}))).toBe(1);
+    expect(await runCli(["env", "render", "--vars-json=APP_VARS"], makeIo({ APP_VARS: `["${SECRET}"]` }))).toBe(1);
+    expect(err.join("")).toBe(
+      "env render: nothing written; APP_SECRETS is not set; it must hold a JSON object of names and values.\n" +
+        "env render: nothing written; APP_VARS is not a JSON object of names and values.\n",
+    );
+    expect(err.join("")).not.toContain(SECRET);
+  });
+});
+
 describe("softure-deploy release-notes", () => {
   function git(...args: string[]): void {
     execFileSync("git", args, { cwd: dir, stdio: "ignore" });

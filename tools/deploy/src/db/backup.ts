@@ -3,7 +3,7 @@
 // on in backups, FIRE_TRACKER's 30 days). Retention runs only after a dump succeeded, so a failing deploy never loses a
 // backup, and the newest dump is never removed.
 import { spawn } from "node:child_process";
-import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readSync, renameSync, rmSync, statSync } from "node:fs";
+import { chmodSync, closeSync, copyFileSync, existsSync, mkdirSync, openSync, readdirSync, readSync, renameSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 export interface BackupOptions {
@@ -117,12 +117,64 @@ export async function createBackup(options: BackupOptions): Promise<BackupResult
     return { ok: false, problem: `${options.pgDump} wrote no pg_dump custom-format file (no PGDMP header)` };
   }
   renameSync(temporary, path);
+  return { ok: true, file: path, bytes: statSync(path).size, removed: applyRetention(options) };
+}
+
+/** The newest `keep` dumps of the prefix stay and, with `maxAgeDays`, none older; returns the removed names. */
+function applyRetention(options: Pick<BackupOptions, "dir" | "prefix" | "keep" | "maxAgeDays" | "now">): string[] {
   const names = readdirSync(options.dir);
   const maxAgeDays = options.maxAgeDays ?? null;
   const aged = maxAgeDays === null ? [] : selectAgedBackups(names, options.prefix, maxAgeDays, options.now);
   const removed = [...new Set([...selectExpiredBackups(names, options.prefix, options.keep), ...aged])].sort().reverse();
   for (const name of removed) rmSync(join(options.dir, name));
-  return { ok: true, file: path, bytes: statSync(path).size, removed };
+  return removed;
+}
+
+export interface ImportBackupOptions {
+  /** A dump written elsewhere, e.g. by `pg_dump` inside the database container; it is moved into `dir`. */
+  readonly source: string;
+  readonly dir: string;
+  readonly prefix: string;
+  readonly keep: number;
+  readonly maxAgeDays?: number | null;
+  readonly now: Date;
+}
+
+/**
+ * Takes a dump written elsewhere as the backup of `now`: the same header check, name, mode and retention as
+ * `createBackup`. A file without the header is refused and left where it is.
+ */
+export function importBackup(options: ImportBackupOptions): BackupResult {
+  let isDump: boolean;
+  try {
+    isDump = hasCustomFormatHeader(options.source);
+  } catch (error) {
+    return { ok: false, problem: `cannot read the dump file (${(error as NodeJS.ErrnoException).code ?? "unknown error"})` };
+  }
+  if (!isDump) return { ok: false, problem: "the dump file is not a pg_dump custom-format file (no PGDMP header)" };
+  mkdirSync(options.dir, { recursive: true });
+  const fileName = formatBackupName(options.prefix, options.now);
+  const path = join(options.dir, fileName);
+  if (existsSync(path)) {
+    return { ok: false, problem: `${fileName} already exists; wait a second and run the backup again` };
+  }
+  moveFile(options.source, path);
+  chmodSync(path, BACKUP_FILE_MODE);
+  return { ok: true, file: path, bytes: statSync(path).size, removed: applyRetention(options) };
+}
+
+/** A rename, or a copy and a removal when the two paths are on different file systems. */
+function moveFile(from: string, to: string): void {
+  try {
+    renameSync(from, to);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "EXDEV") throw error;
+    const temporary = `${to}.${process.pid}.tmp`;
+    copyFileSync(from, temporary);
+    chmodSync(temporary, BACKUP_FILE_MODE);
+    renameSync(temporary, to);
+    rmSync(from, { force: true });
+  }
 }
 
 type DumpResult = { ok: true } | { ok: false; problem: string };
