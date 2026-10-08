@@ -70,7 +70,7 @@
     "build": "tsc -p tsconfig.build.json"
   },
   "dependencies": {
-    "@softure-ai/core": "^0.1.0",
+    "@softure-ai/core": "^0.1.7",
     "@softure-ai/db": "^0.1.0",
     "markdown-it": "^15.0.2",
     "markdown-it-footnote": "^4.0.0",

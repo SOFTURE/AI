@@ -10,7 +10,8 @@
 #
 #   deploy <tag>   the release archive arrives on stdin (below)
 #   status         read only: the live tag, the tag in .env.prod, the containers and the app's health
-#   maintain       the daily cron's command (below); takes no argument
+#   maintain       the daily cron's command (below)
+#   maintain <hook>  a maintain hook with its own schedule (below)
 #   run <script> [--key[=value] ...]
 #                  an ops script of the live image (/app/ops/<script>.mjs, @softure-ai/ops/scripts) in the app container,
 #                  with the app's DATABASE_URL: a dry run unless --commit; stdin goes to the script (--<key>-file=-)
@@ -37,14 +38,24 @@
 # file: the host's (`npx`, postgresql-client-16) when it has Node, otherwise a helper image this script
 # builds once per CLI version from node:22-alpine with postgresql16-client and the CLI
 # ($TOOLS_IMAGE), run with the host's network, the caller's uid and this folder mounted. Nothing else needs Node.
+# With database.access "compose-exec" in deploy.json, pg_dump and psql run in the postgres service instead (as
+# POSTGRES_USER on POSTGRES_DB of .env.prod, for a Postgres that publishes no port) and the CLI only reads their output.
 #
 # Steps of a deploy: check the command, unpack and check the archive (archive), save the installed files and install
-# the release's with .env.prod and TAG=<tag> in it (files), pull the image (pull), start Postgres (postgres), back up
-# the database (backup), guard the schema against the new image's migrations (schema), count rows
-# (row-counts-before), switch (switch: the migrate service runs before the app), recreate Traefik when its rules
-# changed (traefik), compare the row counts (row-counts-after), record the tag (tag), install the cron (cron). The
-# tables counted are database.rowCountTables of the deploy.json this release shipped; without that file or key the
-# counts are skipped. A changed postgres service takes effect at the postgres step, before the switch.
+# the release's with .env.prod and TAG=<tag> in it (files), read the release's deploy.json (settings), pull the image
+# (pull), start Postgres (postgres), back up the database (backup), guard the schema against the new image's migrations
+# and, with database.appMigrations, its app journal against the app ledger (schema), count rows (row-counts-before),
+# run the pre-migrate hooks, switch (switch: the migrate service runs before the app), recreate Traefik when its rules
+# changed (traefik), compare the row counts (row-counts-after), record the tag (tag), install the cron (cron), run the
+# post-up hooks. The tables counted are database.rowCountTables of the deploy.json this release shipped; without that
+# file or key the counts are skipped. A changed postgres service takes effect at the postgres step, before the switch.
+#
+# Hooks: deploy.json's "hooks" names app steps at three points, each a list of { "name", "compose": [args] } (run as
+# docker compose --env-file .env.prod --file docker-compose.yml <args>) or { "name", "run": [argv] } (a command run here
+# in this folder; a script the release ships is installed 0644, so run it through bash). pre-migrate runs before the
+# switch (a failure puts the previous files back), post-up once the release is live (a failure fails the release and
+# rolls nothing back), maintain in the daily maintain run, or with "schedule" on its own crontab line. Each gets TAG,
+# IMAGE and PREVIOUS_TAG, prints `step|<name>|ok` when it succeeds, and its own output goes to stderr.
 #
 # Output: one line `step|<name>|ok[|<detail>]` per finished step on stdout (backup: the dump's file name; row counts:
 # `<table>=<rows>,…`), and every deploy or maintain run ends with `result|ok` or `result|failed|<step>|<message>`; the
@@ -57,10 +68,11 @@
 # rollback is a redeploy of the previous tag ("Run workflow" in the app's deploy workflow); .env.prod.prev holds the
 # .env.prod of the release before the last switch. Files a release no longer ships stay here.
 #
-# The cron: each release writes one crontab line marked "# softure-deploy:softure-example" that runs `maintain` daily: a
-# backup with the release's retention (the newest BACKUP_KEEP, none older than BACKUP_MAX_AGE_DAYS) when there is a
-# database, then the removal of this app's images whose release folder is gone and of dangling images. deploy and
-# maintain never run at the same time (flock on .deploy.lock).
+# The cron: each release writes the crontab lines marked "# softure-deploy:softure-example": one runs `maintain` daily (a
+# backup with the release's retention, the newest BACKUP_KEEP and none older than BACKUP_MAX_AGE_DAYS, when there is a
+# database, then the removal of this app's images whose release folder is gone and of dangling images, then the
+# maintain hooks without a schedule), and one per scheduled maintain hook runs `maintain <hook>`. deploy and maintain
+# never run at the same time (flock on .deploy.lock).
 set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -87,6 +99,8 @@ OPS_SCRIPT_NAME='^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
 OPS_ARGUMENT='^--[a-z][a-z0-9-]*(=.*)?$'
 CRON_MARKER="# softure-deploy:softure-example"
 CRON_SCHEDULE="17 3 * * *"
+HOOK_NAME_PATTERN='^[a-z][a-z0-9-]{0,39}$'
+SCHEDULE_PATTERN='^[0-9*/,-]+( [0-9*/,-]+){4}$'
 # Names this script keeps next to itself; a release archive must not carry them.
 RESERVED_NAMES=(.env.prod.prev .deployed-tag .deploy.lock backups releases deploy.sh.new)
 
@@ -98,6 +112,14 @@ reports_result="yes"
 restore_armed=""
 work=""
 release_dir=""
+# The settings of the deploy.json in use (load_settings).
+settings_dir=""
+access="host"
+app_journal=""
+app_ledger=""
+exclude_table_data=""
+db_user=""
+db_name=""
 container=""
 backup_file=""
 
@@ -202,13 +224,17 @@ ensure_tools_image() {
 }
 
 # Runs a command in the helper image as the caller, on the host's network (Postgres listens on 127.0.0.1), with this
-# folder and the run's temporary folder at the same paths.
+# folder and the run's temporary folder at the same paths. --stdin first hands this script's stdin to the command.
 run_in_tools() {
+  local options=(--rm --network host --user "$(id -u):$(id -g)" --env HOME=/tmp --env DATABASE_URL)
+  if [ "$1" = "--stdin" ]; then
+    options+=(--interactive)
+    shift
+  fi
   ensure_tools_image || return 1
-  local mounts=(--volume "$APP_DIR:$APP_DIR")
-  if [ -n "$work" ]; then mounts+=(--volume "$work:$work"); fi
-  docker run --rm --network host --user "$(id -u):$(id -g)" --env HOME=/tmp --env DATABASE_URL \
-    "${mounts[@]}" --workdir "$PWD" "$TOOLS_IMAGE" "$@"
+  options+=(--volume "$APP_DIR:$APP_DIR")
+  if [ -n "$work" ]; then options+=(--volume "$work:$work"); fi
+  docker run "${options[@]}" --workdir "$PWD" "$TOOLS_IMAGE" "$@"
 }
 
 deploy_cli() {
@@ -217,6 +243,67 @@ deploy_cli() {
   else
     run_in_tools softure-deploy "$@"
   fi
+}
+
+# The CLI reading this script's stdin (a dump or a snapshot piped in).
+deploy_cli_stdin() {
+  if has_host_node; then
+    npx --yes "$DEPLOY_CLI" "$@"
+  else
+    run_in_tools --stdin softure-deploy "$@"
+  fi
+}
+
+# Reads the settings of a deploy.json into $settings_dir through the CLI, which validates the file first. Without the
+# file every setting keeps its default and no hook runs.
+load_settings() {
+  local config="$1"
+  settings_dir="$work/settings"
+  rm -rf "$settings_dir"
+  mkdir -p "$settings_dir"
+  if [ ! -f "$config" ]; then return 0; fi
+  deploy_cli server-settings --config="$config" --out-dir="$settings_dir" > /dev/null || return 1
+  access="$(cat "$settings_dir/access")"
+  app_journal="$(cat "$settings_dir/app-journal")"
+  app_ledger="$(cat "$settings_dir/app-ledger")"
+  exclude_table_data="$(cat "$settings_dir/exclude-table-data")"
+  if [ "$access" != "host" ] && [ "$access" != "compose-exec" ]; then return 1; fi
+}
+
+# Runs one hook from its record's fields, in this folder, with its output on stderr; prints its step line. Its stdin is
+# /dev/null: run_hooks reads the records from stdin, and a hook that reads it (compose exec) would swallow the rest.
+run_hook() {
+  local name="$1" kind="$2"
+  shift 2
+  if [[ ! "$name" =~ $HOOK_NAME_PATTERN ]]; then fail "the hook name $name is not allowed."; fi
+  begin_step "$name"
+  local status=0
+  case "$kind" in
+    compose) compose "$@" < /dev/null >&2 || status=$? ;;
+    run) (export TAG IMAGE PREVIOUS_TAG && "$@") < /dev/null >&2 || status=$? ;;
+    *) fail "the hook $name has an unknown kind: $kind" ;;
+  esac
+  if [ "$status" -ne 0 ]; then fail "the hook $name failed with exit status $status."; fi
+  step_ok
+}
+
+# Runs the hooks of a settings file (hooks-<point>, scheduled-<hook>) in their order: records of name, kind, argument
+# count and arguments, NUL-separated.
+run_hooks() {
+  local file="$settings_dir/$1" name kind count arg index
+  local args=()
+  if [ -z "$settings_dir" ] || [ ! -s "$file" ]; then return 0; fi
+  while IFS= read -r -d '' name; do
+    IFS= read -r -d '' kind || fail "the hooks of $1 are cut short."
+    IFS= read -r -d '' count || fail "the hooks of $1 are cut short."
+    if [[ ! "$count" =~ ^[1-9][0-9]*$ ]]; then fail "the hooks of $1 are not readable."; fi
+    args=()
+    for ((index = 0; index < count; index++)); do
+      IFS= read -r -d '' arg || fail "the hooks of $1 are cut short."
+      args+=("$arg")
+    done
+    run_hook "$name" "$kind" "${args[@]}"
+  done < "$file"
 }
 
 # node -e <script> [args]: the host's Node, else the helper image's.
@@ -228,21 +315,93 @@ node_eval() {
   fi
 }
 
-connect_database() {
+# host: the URL of the published Postgres for the CLI. compose-exec: the user and database psql and pg_dump use in the
+# postgres service (POSTGRES_DB, else the image's default of POSTGRES_USER, else this app's database).
+prepare_database() {
+  if [ "$access" = "compose-exec" ]; then
+    db_user="$(read_env POSTGRES_USER)"
+    db_name="$(read_env POSTGRES_DB)"
+    db_name="${db_name:-${db_user:-$DATABASE_NAME}}"
+    db_user="${db_user:-postgres}"
+    return 0
+  fi
   local postgres_password
   postgres_password="$(read_env POSTGRES_PASSWORD)"
   if [ -z "$postgres_password" ]; then fail "POSTGRES_PASSWORD is missing in .env.prod."; fi
   export DATABASE_URL="postgresql://postgres:$postgres_password@127.0.0.1:5432/$DATABASE_NAME"
 }
 
-# Leaves the dump's file name in backup_file for the step line (the release report shows it, DF-10).
+# One statement through psql in the postgres service; prints its one-line result.
+db_psql() {
+  compose exec -T postgres psql -X -q -v ON_ERROR_STOP=1 -At -U "$db_user" -d "$db_name" -c "$1"
+}
+
+# A statement the CLI prints (--print-query), run by psql in the postgres service and its result piped back into the
+# CLI's --stdin mode: <command> <its flags…> -- <the --print-query flags…>.
+run_on_snapshot() {
+  local command="$1" query
+  shift
+  local flags=()
+  while [ "$#" -gt 0 ] && [ "$1" != "--" ]; do
+    flags+=("$1")
+    shift
+  done
+  shift
+  query="$(deploy_cli "$command" --print-query "$@")" || return 1
+  db_psql "$query" | deploy_cli_stdin "$command" --stdin "${flags[@]}"
+}
+
+# Leaves the dump's file name in backup_file for the step line (the release report shows it, DF-10). compose-exec
+# dumps into a hidden file first and hands it to the CLI only once pg_dump succeeded: a dump cut short must never
+# become the newest backup.
 back_up_database() {
-  local output status=0
-  output="$(deploy_cli backup --dir="$BACKUP_DIR" --prefix="$BACKUP_PREFIX" --keep="$BACKUP_KEEP" --max-age-days="$BACKUP_MAX_AGE_DAYS")" || status=$?
+  local output status=0 incoming table
+  local retention=(--dir="$BACKUP_DIR" --prefix="$BACKUP_PREFIX" --keep="$BACKUP_KEEP" --max-age-days="$BACKUP_MAX_AGE_DAYS")
+  if [ "$access" = "compose-exec" ]; then
+    local exclusions=()
+    if [ -n "$exclude_table_data" ]; then
+      while IFS= read -r -d ',' table; do exclusions+=("--exclude-table-data=$table"); done <<< "$exclude_table_data,"
+    fi
+    mkdir -p "$BACKUP_DIR"
+    incoming="$BACKUP_DIR/.incoming-$$.dump"
+    if ! compose exec -T postgres pg_dump --format=custom --no-password -U "$db_user" -d "$db_name" ${exclusions[@]+"${exclusions[@]}"} > "$incoming"; then
+      rm -f "$incoming"
+      return 1
+    fi
+    output="$(deploy_cli_stdin backup --stdin "${retention[@]}" < "$incoming")" || status=$?
+    rm -f "$incoming"
+  else
+    if [ -n "$exclude_table_data" ]; then retention+=(--exclude-table-data="$exclude_table_data"); fi
+    output="$(deploy_cli backup "${retention[@]}")" || status=$?
+  fi
   if [ -n "$output" ]; then printf '%s\n' "$output"; fi
   if [ "$status" -ne 0 ]; then return "$status"; fi
   backup_file="$(sed -n 's|^backup: wrote \(.*\) ([0-9]* bytes).*$|\1|p' <<< "$output")"
   backup_file="${backup_file##*/}"
+}
+
+# The guard over the image's exported migrations (and its app journal, when deploy.json names one) in $work.
+guard_schema() {
+  local guard=(--migrations-dir="$work/migrations")
+  local query=()
+  if [ -n "$app_ledger" ]; then
+    guard+=(--app-journal="$work/app-journal.json" --app-ledger="$app_ledger")
+    query+=(--app-ledger="$app_ledger")
+  fi
+  if [ "$access" = "compose-exec" ]; then
+    run_on_snapshot schema-guard "${guard[@]}" -- ${query[@]+"${query[@]}"}
+  else
+    deploy_cli schema-guard "${guard[@]}"
+  fi
+}
+
+# Row counts of the release's deploy.json tables: count_rows <flags…> (--out, --compare).
+count_rows() {
+  if [ "$access" = "compose-exec" ]; then
+    run_on_snapshot row-counts --config="$release_config" "$@" -- --config="$release_config"
+  else
+    deploy_cli row-counts --config="$release_config" "$@"
+  fi
 }
 
 # A row-counts file as `users=3,billing.plans=2` for the step line; table names never hold `,` or `=`.
@@ -255,18 +414,21 @@ process.stdout.write(Object.entries(counts).map(([table, count]) => table + "=" 
 
 # The forced command: one line, split on blanks without expansion.
 command_line="${SSH_ORIGINAL_COMMAND:-}"
-COMMANDS='"deploy <tag>", "status", "maintain", "run <script> [arguments]" or "report [arguments]"'
+COMMANDS='"deploy <tag>", "status", "maintain [<hook>]", "run <script> [arguments]" or "report [arguments]"'
 if [[ "$command_line" == *$'\n'* ]] || [[ "$command_line" == *$'\r'* ]]; then
   refuse_command "expected one command line: $COMMANDS."
 fi
 read -r -a words <<< "$command_line"
 command_name="${words[0]:-}"
 case "$command_name:${#words[@]}" in
-  deploy:2 | status:1 | maintain:1) ;;
+  deploy:2 | status:1 | maintain:1 | maintain:2) ;;
   run:1) refuse_command "run needs the name of an ops script: run <script> [--key=value ...]." ;;
   run:* | report:*) ;;
   *) refuse_command "expected the command $COMMANDS." ;;
 esac
+if [ "$command_name" = "maintain" ] && [ "${#words[@]}" -eq 2 ] && [[ ! "${words[1]}" =~ $HOOK_NAME_PATTERN ]]; then
+  refuse_command "the hook name is not a lower-case word of letters, digits and -."
+fi
 
 cd "$APP_DIR"
 umask 077
@@ -359,10 +521,24 @@ if [ "$command_name" = "maintain" ]; then
   if [ ! -f .env.prod ]; then fail "nothing is deployed here yet."; fi
   # TAG of the live release, for the compose file's interpolation.
   TAG="$(read_env TAG)"
+  PREVIOUS_TAG="$previous_tag"
   export TAG
+  work="$(mktemp -d)"
+
+  # The deploy.json the live release installed.
+  begin_step settings
+  load_settings "$APP_DIR/deploy.json" || fail "cannot read deploy.json, or it is not valid; nothing was run."
+  step_ok
+
+  # maintain <hook>: only that scheduled hook, on its own crontab line.
+  if [ "${#words[@]}" -eq 2 ]; then
+    if [ ! -s "$settings_dir/scheduled-${words[1]}" ]; then fail "deploy.json has no scheduled maintain hook ${words[1]}."; fi
+    run_hooks "scheduled-${words[1]}"
+    exit 0
+  fi
 
   begin_step backup
-  connect_database
+  prepare_database
   back_up_database || fail "the backup failed."
   step_ok "$backup_file"
 
@@ -378,6 +554,8 @@ if [ "$command_name" = "maintain" ]; then
   done <<< "$image_tags"
   docker image prune --force > /dev/null || fail "cannot remove the dangling images."
   step_ok "removed $removed"
+
+  run_hooks hooks-maintain
   exit 0
 fi
 
@@ -499,6 +677,12 @@ install_release
 while IFS= read -r old; do rm -rf "${RELEASES_DIR:?}/$old"; done < <(ls -1t "$RELEASES_DIR" | tail -n "+$((RELEASE_KEEP + 1))")
 step_ok
 
+# The release's own deploy.json, validated before anything else changes; a bad file puts the previous files back.
+PREVIOUS_TAG="$previous_tag"
+begin_step settings
+load_settings "$release_dir/deploy.json" || fail "cannot read the release's deploy.json, or it is not valid; nothing was restarted."
+step_ok
+
 echo "deploy: $IMAGE:$TAG (previous: ${previous_tag:-none})"
 begin_step pull
 if [ -n "$registry_token" ]; then
@@ -514,7 +698,7 @@ step_ok
 
 # Postgres must run before its first backup; on the first release it starts here and creates the roles.
 begin_step postgres
-connect_database
+prepare_database
 compose up --detach --wait postgres || fail "Postgres did not become healthy."
 step_ok
 
@@ -525,7 +709,11 @@ step_ok "$backup_file"
 begin_step schema
 container="$(docker create "$IMAGE:$TAG")"
 docker cp "$container:/app/softure-migrations" "$work/migrations" > /dev/null
-deploy_cli schema-guard --migrations-dir="$work/migrations" || fail "the schema guard refused $TAG; nothing was restarted."
+if [ -n "$app_journal" ]; then
+  docker cp "$container:$app_journal" "$work/app-journal.json" > /dev/null 2>&1 \
+    || fail "the image $TAG has no $app_journal (database.appMigrations.journal); nothing was restarted."
+fi
+guard_schema || fail "the schema guard refused $TAG; nothing was restarted."
 step_ok
 
 # The tables whose row count must not drop: database.rowCountTables of the deploy.json this release shipped, not the
@@ -548,12 +736,15 @@ fi
 # it may join the list in the release whose migration creates it.
 counted=""
 if [ "$lists_tables" -eq 0 ] && [ -n "$previous_tag" ]; then
-  deploy_cli row-counts --config="$release_config" --out="$work/counts-before.json" || fail "counting rows failed; nothing was restarted."
+  count_rows --out="$work/counts-before.json" || fail "counting rows failed; nothing was restarted."
   counted="yes"
   step_ok "$(summarize_counts "$work/counts-before.json")"
 else
   step_ok "skipped"
 fi
+
+# The app's steps before the switch; a failure still puts the previous files back.
+run_hooks hooks-pre-migrate
 
 # From here nothing is put back (see the header); the .env.prod this release replaced becomes .env.prod.prev.
 begin_step switch
@@ -574,7 +765,7 @@ fi
 
 if [ -n "$counted" ]; then
   begin_step row-counts-after
-  deploy_cli row-counts --config="$release_config" --compare="$work/counts-before.json" --out="$work/counts-after.json" \
+  count_rows --compare="$work/counts-before.json" --out="$work/counts-after.json" \
     || fail "rows were lost on $TAG; the backup before it is the newest in $BACKUP_DIR."
   step_ok "$(summarize_counts "$work/counts-after.json")"
 fi
@@ -583,7 +774,7 @@ begin_step tag
 printf '%s\n' "$TAG" > "$TAG_FILE"
 step_ok
 
-# One line of this app in the crontab, rewritten by every release; other lines stay as they are.
+# The lines of this app in the crontab, rewritten by every release; other lines stay as they are.
 begin_step cron
 if [[ ! "$APP_DIR" =~ ^/[A-Za-z0-9_./-]+$ ]]; then fail "the app folder cannot go into a crontab line: $APP_DIR; $TAG is live."; fi
 # "no crontab for <user>" is an empty table; any other error must not lead to a table without the other lines.
@@ -595,7 +786,22 @@ fi
   if [ -n "$current_crontab" ]; then grep -v " $CRON_MARKER\$" <<< "$current_crontab" || true; fi
   printf '%s PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin SSH_ORIGINAL_COMMAND=maintain %s/deploy.sh 2>&1 | logger -t %s-maintain %s\n' \
     "$CRON_SCHEDULE" "$APP_DIR" "softure-example" "$CRON_MARKER"
-} | crontab - || fail "cannot install the maintenance cron; $TAG is live."
+  # A maintain hook with its own schedule: name and schedule from server-settings, checked again before either reaches
+  # the line.
+  if [ -s "$settings_dir/cron" ]; then
+    while IFS= read -r -d '' hook_name && IFS= read -r -d '' hook_schedule; do
+      if [[ ! "$hook_name" =~ $HOOK_NAME_PATTERN ]] || [[ ! "$hook_schedule" =~ $SCHEDULE_PATTERN ]]; then
+        fail "the scheduled hook $hook_name cannot go into a crontab line; $TAG is live."
+      fi
+      printf "%s PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin SSH_ORIGINAL_COMMAND='maintain %s' %s/deploy.sh 2>&1 | logger -t %s-%s %s\n" \
+        "$hook_schedule" "$hook_name" "$APP_DIR" "softure-example" "$hook_name" "$CRON_MARKER"
+    done < "$settings_dir/cron"
+  fi
+} > "$work/crontab" || fail "cannot write the crontab lines of $TAG's scheduled hooks; $TAG is live."
+crontab - < "$work/crontab" || fail "cannot install the maintenance cron; $TAG is live."
 step_ok
+
+# The app's steps once the release is live; a failure fails the release and rolls nothing back.
+run_hooks hooks-post-up
 
 echo "deploy: $TAG is live."

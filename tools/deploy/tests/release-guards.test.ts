@@ -35,6 +35,7 @@ function getScript(job: string, name: string): string {
 const CHECK_SCRIPT = getScript("check", "Validate inputs");
 const GUARD_SCRIPT = getScript("check", "Refuse a tag off the release branch");
 const RENDER_SCRIPT = getScript("deploy", "Render .env.prod");
+const RETAG_SCRIPT = getScript("build", "Tag the prebuilt image");
 
 // Stands in for `softure-deploy env render`: writes every name it was given (PATH and HOME aside), as the CLI would
 // for a compose file that requires them all.
@@ -211,6 +212,114 @@ describe("the check job's validation of release-branch and build-args", () => {
     const result = check({ BUILD_ARGS: "APP_ORIGIN=https://a.example.com\nAPP_ORIGIN=https://b.example.com" });
     expect(result.status).toBe(1);
     expect(result.stdout).toContain("::error::Input build-args is not valid: each name once (APP_ORIGIN repeats)");
+  });
+});
+
+describe("the check job's validation of prebuilt-image", () => {
+  const DIGEST = `sha256:${"ab".repeat(32)}`;
+
+  function check(env: Record<string, string>): Result {
+    return bash(CHECK_SCRIPT, {
+      cwd: root,
+      env: {
+        GITHUB_OUTPUT: join(root, "output"),
+        TAG: "v1.2.3",
+        APP_URL: "https://example.com",
+        IMAGE: "",
+        BUILD_CONTEXT: ".",
+        DOCKERFILE: "Dockerfile",
+        COMPOSE_FILE: "docker/prod/docker-compose.yml",
+        SERVER_SCRIPT: "docker/server/deploy.sh",
+        DEPLOY_ENVIRONMENT: "",
+        REMOTE_COMMAND: "deploy",
+        SSH_PORT: "22",
+        HEALTH_PATH: "/api/health",
+        VERIFY_TIMEOUT: "300",
+        DEPLOY_CONFIG: "deploy.json",
+        DEPLOY_CLI_VERSION: "0.1.3",
+        REPOSITORY: "acme/app",
+        E2E: "false",
+        ...env,
+      },
+    });
+  }
+
+  const REFUSAL = "::error::Input prebuilt-image is not valid: ghcr.io/acme/app@sha256:<64 hex digits> (the image input's repository, by digest)\n";
+
+  it("accepts an empty prebuilt-image and the image input's repository by digest", () => {
+    expect(check({ PREBUILT_IMAGE: "" }).status).toBe(0);
+    const result = check({ PREBUILT_IMAGE: `ghcr.io/acme/app@${DIGEST}` });
+    expect(result.status, result.stdout).toBe(0);
+    expect(check({ IMAGE: "ghcr.io/acme/web", PREBUILT_IMAGE: `ghcr.io/acme/web@${DIGEST}` }).status).toBe(0);
+  });
+
+  it.each([
+    ["another repository", `ghcr.io/acme/other@${DIGEST}`],
+    ["a tag reference", "ghcr.io/acme/app:sha-1234567"],
+    ["a tag and a digest", `ghcr.io/acme/app:v1@${DIGEST}`],
+    ["a short digest", "ghcr.io/acme/app@sha256:abc"],
+    ["an upper-case digest", `ghcr.io/acme/app@sha256:${"AB".repeat(32)}`],
+  ])("refuses %s", (_label, image) => {
+    const result = check({ PREBUILT_IMAGE: image });
+    expect(result.status).toBe(1);
+    expect(result.stdout).toBe(REFUSAL);
+  });
+
+  it("refuses a prebuilt image with the end-to-end test, which builds its own", () => {
+    const result = check({ REPOSITORY: "SOFTURE/AI", PREBUILT_IMAGE: `ghcr.io/softure/ai@${DIGEST}`, E2E: "true" });
+    expect(result.status).toBe(1);
+    expect(result.stdout).toBe(
+      "::error::Input prebuilt-image is not valid: empty with e2e (the end-to-end test builds its own image)\n",
+    );
+  });
+});
+
+describe("the re-tag step of the build job", () => {
+  const DIGEST = `sha256:${"cd".repeat(32)}`;
+
+  // A stub `docker` that logs its arguments and answers `imagetools inspect` with INSPECT_DIGEST.
+  function retag(inspectDigest: string): Result & { calls: string; output: string } {
+    const bin = join(root, "bin");
+    mkdirSync(bin);
+    const calls = join(root, "calls");
+    writeFileSync(
+      join(bin, "docker"),
+      `#!/usr/bin/env bash\nprintf '%s\\n' "$*" >> "${calls}"\nif [ "$3" = inspect ]; then printf '%s\\n' "$INSPECT_DIGEST"; fi\n`,
+      { mode: 0o755 },
+    );
+    const output = join(root, "output");
+    const result = bash(RETAG_SCRIPT, {
+      cwd: root,
+      env: {
+        PATH: `${bin}:${process.env.PATH ?? ""}`,
+        GITHUB_OUTPUT: output,
+        PREBUILT_IMAGE: `ghcr.io/acme/app@${DIGEST}`,
+        IMAGE_REF: "ghcr.io/acme/app:v1.2.3",
+        INSPECT_DIGEST: inspectDigest,
+      },
+    });
+    const read = (path: string): string => (existsSync(path) ? readFileSync(path, "utf8") : "");
+    return { ...result, calls: read(calls), output: read(output) };
+  }
+
+  it("tags the image by its digest and outputs that digest", () => {
+    const result = retag(DIGEST);
+    expect(result.status, result.stdout + result.stderr).toBe(0);
+    expect(result.calls).toBe(
+      `buildx imagetools create --tag ghcr.io/acme/app:v1.2.3 ghcr.io/acme/app@${DIGEST}\n` +
+        "buildx imagetools inspect ghcr.io/acme/app:v1.2.3 --format {{.Manifest.Digest}}\n",
+    );
+    expect(result.output).toBe(`digest=${DIGEST}\n`);
+  });
+
+  it("stops when the tag points at another digest and outputs nothing", () => {
+    const other = `sha256:${"ef".repeat(32)}`;
+    const result = retag(other);
+    expect(result.status).toBe(1);
+    expect(result.stdout).toBe(
+      `::error::ghcr.io/acme/app:v1.2.3 has the digest ${other} after the tag, not ${DIGEST}; nothing is deployed.\n`,
+    );
+    expect(result.output).toBe("");
   });
 });
 

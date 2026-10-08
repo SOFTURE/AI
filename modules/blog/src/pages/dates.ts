@@ -1,6 +1,6 @@
 // The days a page shows for a text, in the app's time zone. JSON-LD takes the same days, so the dates
 // a search engine compares (`dateModified` against the visible update) cannot drift apart.
-import type { Locale } from "@softure-ai/core";
+import { toCalendarDay, type Locale } from "@softure-ai/core";
 import type { BlogArticle } from "../contract.js";
 
 export interface ArticleDates {
@@ -12,10 +12,9 @@ export interface ArticleDates {
   readonly currentAsOf: string;
 }
 
-/** The calendar day of a moment in a time zone, `YYYY-MM-DD`. */
+/** The calendar day of a moment in a time zone, `YYYY-MM-DD`: core's `toCalendarDay` under the name this module exports. */
 export function getDayInZone(moment: Date, timezone: string): string {
-  // `en-CA` formats a date as YYYY-MM-DD.
-  return new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(moment);
+  return toCalendarDay(moment, timezone);
 }
 
 /**
