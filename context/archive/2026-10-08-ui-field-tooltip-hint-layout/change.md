@@ -1,12 +1,13 @@
 ---
 change_id: ui-field-tooltip-hint-layout
 title: "ui: Field keeps the tooltip \"?\" next to the last word of a wrapping label (issue #284)"
-status: plan_reviewed
+status: archived
 roadmap_item: null
 issue: 284
 branch: claude/project-thread-whg55t
 created: 2026-10-08
 updated: 2026-10-08
+archived_at: 2026-10-08
 ---
 
 ## Intent

@@ -44,7 +44,7 @@ Done when: the new tests were seen red, then green; the layout check passes; gat
 ### Phase 1: Field
 
 #### Automated
-- [ ] 1.1 Field tests seen red, then green
-- [ ] 1.2 Layout check in Chromium
-- [ ] 1.3 Gates green (typecheck, lint, test, build)
-- [ ] 1.4 README and CHANGELOG
+- [x] 1.1 Field tests seen red, then green — 40f2655
+- [x] 1.2 Layout check in Chromium — 40f2655
+- [x] 1.3 Gates green (typecheck, lint, test, build) — 40f2655
+- [x] 1.4 README and CHANGELOG — 40f2655
