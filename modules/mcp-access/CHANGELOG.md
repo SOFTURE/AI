@@ -6,6 +6,8 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## 0.1.9
 
+- The days left on a token are counted with `toCalendarDay` from `@softure-ai/core` instead of a local `en-CA`
+  formatter. Same results; requires `@softure-ai/core` `^0.1.7` (#270).
 - The OAuth registration, token and consent decision routes read their body through `readSmallBody`
   with a cap, `oauth.maxBodyBytes` (default 16 KiB, 1 KiB to 1 MiB). A larger body, announced or
   streamed, is answered with `413` (`invalid_request` on registration and token, an empty `413` on
