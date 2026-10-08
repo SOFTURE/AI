@@ -12,6 +12,7 @@ import { findMachineProblem } from "../render/preflight.js";
 import { runHyperframes } from "../render/hyperframes.js";
 import { renderFilm } from "../render/render.js";
 import { takePageScreenshot, takeScreenshots, type ScreenshotBrowser, type ScreenshotEntry, type ScreenshotResult } from "../screenshot/screenshot.js";
+import { findPlaceholders } from "../config/placeholders.js";
 import { runPrepare } from "../screenshot/prepare.js";
 import { findUnsetVariable, resolveShotTexts, usesData, type ShotTexts } from "../screenshot/shot-texts.js";
 import { findStorageStateProblem } from "../screenshot/storage-state.js";
@@ -235,10 +236,11 @@ async function shots(config: MarketingConfig, options: EntryShotsOptions): Promi
   // Before the app starts or the account is seeded: a variable the shell lacks costs nothing to report.
   const unset = findUnsetVariable(texts, process.env);
   if (unset !== null) fail(`{env:${unset}} is not set in the environment; marketing.json reads it for the screenshots.`);
-  const [first] = selected;
-  // The address only checks that the app answers, so the first path's placeholders may stay unresolved there.
-  const target = { url: new URL(first.path, config.app.baseUrl).href, ownUrl: `http://localhost:${config.app.port}${first.path}` };
-  const server = await ensureServer(config, target, options.url === undefined ? undefined : new URL(first.path, options.url).href);
+  // The page that tells whether the app answers: the first path without a placeholder (a path such as
+  // /accounts/{data:id} would answer 404 before the preparation), else the root.
+  const probePath = selected.map((entry) => entry.path).find((path) => findPlaceholders(path).length === 0) ?? "/";
+  const target = { url: new URL(probePath, config.app.baseUrl).href, ownUrl: `http://localhost:${config.app.port}${probePath}` };
+  const server = await ensureServer(config, target, options.url === undefined ? undefined : new URL(probePath, options.url).href);
   const outDir = join(config.output.dir, "screenshots");
   let results;
   try {

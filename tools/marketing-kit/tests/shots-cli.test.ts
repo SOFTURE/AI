@@ -98,9 +98,10 @@ describe("softure-marketing shots", () => {
     expect(result.stdout).not.toContain("seeding");
   }, 60_000);
 
-  it.runIf(hasChromium)("gates the screenshot on a phrase the preparation printed", async () => {
-    const prepare = ["node", "-e", 'console.log(JSON.stringify({ question: "When can you stop working?" }))'];
-    const file = writeConfig("data-phrase.json", { prepare, path: "/login", steps: signInSteps, expect: "Signed in" }, { expect: "{data:question}" });
+  it.runIf(hasChromium)("gates the screenshot on a phrase and a path the preparation printed", async () => {
+    // The path too comes from the data, so the CLI must find the app answering on a page without a placeholder.
+    const prepare = ["node", "-e", 'console.log(JSON.stringify({ question: "When can you stop working?", page: "index.html" }))'];
+    const file = writeConfig("data-phrase.json", { prepare, path: "/login", steps: signInSteps, expect: "Signed in" }, { path: "/{data:page}", expect: "{data:question}" });
     const result = await runShotsAsync(file);
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
     expect(result.stdout).toContain("prepare: node -e");
