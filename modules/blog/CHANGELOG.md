@@ -6,6 +6,10 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## 0.1.10
 
+- `/next` exports `getBodyOptions(config, terms)`, the `RenderPageBodyOptions` the ready-made pages render
+  bodies with, and `findArticlesLinkingTermFor(config, { articles, termSlug, terms })`, a glossary term page's
+  "explained in these texts" list. An app with its own page components no longer copies the binding, so its
+  list and body links follow the package's rule. The ready-made pages go through the same functions.
 - `getDayInZone` (`/pages`) and `getLocalDate` (`/quality`) compute the day with `toCalendarDay` from
   `@softure-ai/core` instead of a local `en-CA` formatter, whose date pattern has changed between ICU versions. Same
   results; requires `@softure-ai/core` `^0.1.7` (#270).

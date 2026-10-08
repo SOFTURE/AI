@@ -12,6 +12,9 @@ import {
   buildMethodMetadata,
   buildTermJsonLd,
   buildTermMetadata,
+  findArticlesLinkingTermFor,
+  getBodyOptions,
+  getPublishedArticles,
   getPublishedTerms,
   getTextBySlug,
   BlogArticlePage,
@@ -26,7 +29,7 @@ import {
   GlossaryIndexPage,
   GlossaryTermPage,
 } from "@softure-ai/blog/next";
-import { runBlogPublish } from "@softure-ai/blog/server";
+import { findArticlesLinkingTerm, renderPageBody, runBlogPublish } from "@softure-ai/blog/server";
 import { seo } from "@softure-ai/seo";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -237,6 +240,28 @@ describe("builders for an app's own pages", () => {
     expect(buildGlossaryJsonLd(test.config, [])).toBeNull();
     expect(buildArticleJsonLd(test.config, { ...article, title: "</script><b>" })).not.toContain("</script>");
   });
+
+  it("list the articles that link a term exactly as the term page does, without reading the database", async () => {
+    const [articles, terms] = [await getPublishedArticles(test.config), await getPublishedTerms(test.config)];
+    const page = await render(GlossaryTermPage(params("expense-ratio")));
+    scope.db = undefined;
+    const linking = findArticlesLinkingTermFor(test.config, { articles, termSlug: "expense-ratio", terms });
+    expect(linking.map((article) => article.slug)).toEqual(["index-funds"]);
+    expect(page).toContain('<li><a href="/blog/index-funds">Index funds in plain words</a></li>');
+    expect(linking).toEqual(findArticlesLinkingTerm(articles, "expense-ratio", getBodyOptions(test.config, terms)));
+    expect(findArticlesLinkingTermFor(test.config, { articles, termSlug: "expense-ratio", terms: [] })).toEqual([]);
+    expect(findArticlesLinkingTermFor(test.config, { articles: [], termSlug: "expense-ratio", terms })).toEqual([]);
+  });
+
+  it("give the body input the article page renders with", async () => {
+    const [article, terms] = [await readText("index-funds"), await getPublishedTerms(test.config)];
+    const page = await render(BlogArticlePage(params("index-funds")));
+    scope.db = undefined;
+    const body = renderPageBody<React.ReactNode>(article, getBodyOptions(test.config, terms));
+    expect(body.linkedTerms).toEqual(["expense-ratio"]);
+    expect(body.html).toContain('<a href="/blog/glossary/expense-ratio" class="blog-term">expense ratio</a>');
+    expect(page).toContain(String(body.html));
+  });
 });
 
 describe("builders with an adopting site's output options", () => {
@@ -321,6 +346,10 @@ describe("blog pages under seo's canonical rule", () => {
     expect(html).toContain('"mainEntityOfPage":"https://example.org/blog/index-funds/"');
     expect(html).toContain('"image":"https://example.org/blog/index-funds/opengraph-image"');
     expect(html).not.toContain("app.example.com");
+  });
+
+  it("gives an app's own pages the same site origins: appOrigin and seo's canonical origin", () => {
+    expect(getBodyOptions(test.config, []).origins).toEqual(["https://app.example.com", "https://example.org"]);
   });
 
   it("treats a body link to seo's canonical host as the site's own, like one to appOrigin", async () => {

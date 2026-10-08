@@ -17,8 +17,8 @@
 //
 // An app with its own page components keeps the rest: `generate*Metadata` and `BlogArticleOgImage`
 // mount next to its own page, and `build*Metadata` (metadata.ts) and `build*JsonLd` (json-ld.ts) take
-// a text it already read.
-import { getSiteUrls, type SoftureConfig } from "@softure-ai/core";
+// a text it already read; `getBodyOptions` and `findArticlesLinkingTermFor` (body.ts) give the body
+// input and a term's "explained in these texts" list.
 import { getSoftureConfig } from "@softure-ai/core/next";
 // `next/types.js`, not `next`: the root entry adds Next's globals (a read-only NODE_ENV) to every
 // program that includes this file.
@@ -27,16 +27,14 @@ import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import type { BlogArticle } from "../contract.js";
 import { getRelatedArticles } from "../discovery/related.js";
-import { findArticlesLinkingTerm, renderPageBody, type RenderPageBodyOptions } from "../pages/body.js";
+import { findArticlesLinkingTerm, renderPageBody } from "../pages/body.js";
 import { getArticleDates } from "../pages/dates.js";
 import { getArticleCrumbs, groupByCluster, getTermCrumbs, sortTerms } from "../pages/listing.js";
-import { toGlossary } from "../render/glossary.js";
-import { getBlogOptions } from "../server/options.js";
 import { BlogArticleView } from "../ui/blog-article.js";
 import { GlossaryIndexView, GlossaryTermView } from "../ui/blog-glossary.js";
 import { BlogListingView } from "../ui/blog-listing.js";
 import { BlogMethodView } from "../ui/blog-method.js";
-import type { BlogPageContext } from "../ui/page-context.js";
+import { getBodyOptions } from "./body.js";
 import { getPageContext } from "./context.js";
 import { getPublishedArticles, getPublishedTerms, getTextBySlug } from "./data.js";
 import { buildArticleJsonLd, buildGlossaryJsonLd, buildTermJsonLd, getCrumbLabels } from "./json-ld.js";
@@ -71,11 +69,6 @@ function isPublished(text: BlogArticle | null, kind: BlogArticle["kind"]): text 
   return text !== null && text.status === "published" && text.kind === kind;
 }
 
-function getBodyOptions(config: SoftureConfig, context: BlogPageContext, terms: readonly BlogArticle[]): RenderPageBodyOptions {
-  const origins = [config.appOrigin, getSiteUrls(config).origin];
-  return { glossary: toGlossary(terms), routes: context.routes, options: getBlogOptions(config), origins, messages: context.messages };
-}
-
 export async function generateBlogIndexMetadata(): Promise<Metadata> {
   const config = getSoftureConfig();
   const articles = await getPublishedArticles(config);
@@ -107,7 +100,7 @@ export async function BlogArticlePage({ params, cta, afterArticle }: BlogArticle
   if (!isPublished(article, "article")) notFound();
   const context = getPageContext(config);
   const [terms, published] = await Promise.all([getPublishedTerms(config), getPublishedArticles(config)]);
-  const body = renderPageBody<ReactNode>(article, getBodyOptions(config, context, terms));
+  const body = renderPageBody<ReactNode>(article, getBodyOptions(config, terms, context));
   const crumbs = getArticleCrumbs(article, context.routes, getCrumbLabels(config, context), { clusterAnchorPrefix: context.clusterAnchorPrefix });
   const jsonLd = buildArticleJsonLd(config, article);
   return (
@@ -155,7 +148,7 @@ export async function GlossaryTermPage({ params, cta }: GlossaryTermPageProps) {
   if (!isPublished(term, "term")) notFound();
   const context = getPageContext(config);
   const [terms, articles] = await Promise.all([getPublishedTerms(config), getPublishedArticles(config)]);
-  const bodyOptions = getBodyOptions(config, context, terms);
+  const bodyOptions = getBodyOptions(config, terms, context);
   const crumbs = getTermCrumbs(term, context.routes, getCrumbLabels(config, context));
   const jsonLd = buildTermJsonLd(config, term);
   return (

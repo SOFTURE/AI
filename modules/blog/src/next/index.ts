@@ -1,5 +1,6 @@
 // The Next.js adapter of @softure-ai/blog: the pages, their metadata, the article's OG image, the RSS
 // feed, the cache refresh route and the cached reads (docs/02-module-standard.md §8).
+export { findArticlesLinkingTermFor, getBodyOptions, type ArticlesLinkingTermInput } from "./body.js";
 export { getBlogContext, getPageContext } from "./context.js";
 export { serveBlogRss } from "./discovery.js";
 export { buildArticleJsonLd, buildGlossaryJsonLd, buildTermJsonLd, getCrumbLabels } from "./json-ld.js";
