@@ -1,12 +1,13 @@
 ---
 change_id: privacy-legal-inline-footer
 title: "privacy: inline LegalFooter and unique LegalDocument ids (issue #241)"
-status: impl_reviewed
+status: archived
 roadmap_item: null
 issue: 241
 branch: claude/project-thread-9lpemh
 created: 2026-10-08
 updated: 2026-10-08
+archived_at: 2026-10-08
 ---
 
 ## Intent

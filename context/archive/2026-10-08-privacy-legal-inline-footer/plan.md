@@ -59,6 +59,6 @@ Done when: the new tests were seen red, then green; gates green (typecheck, lint
 ### Phase 1: inline footer and unique ids
 
 #### Automated
-- [ ] 1.1 New tests seen red, then green
-- [ ] 1.2 Gates green (typecheck, lint, test, build)
-- [ ] 1.3 README, CHANGELOG and version 0.1.9
+- [x] 1.1 New tests seen red, then green — 1d14197
+- [x] 1.2 Gates green (typecheck, lint, test, build) — 1d14197
+- [x] 1.3 README, CHANGELOG and version 0.1.9 — 1d14197
