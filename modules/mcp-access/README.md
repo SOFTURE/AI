@@ -84,7 +84,10 @@ mcpAccess({
 | `oauth.accessTokenLifetimeMinutes` | `integer` 5–1440 | `60` | Lifetime of an access token issued through OAuth; the client refreshes it. |
 | `oauth.refreshTokenLifetimeDays` | `integer` 1–365 | `90` | Lifetime of a refresh token, renewed on every rotation. An unused connection ends after it. |
 | `oauth.authorizationCodeLifetimeMinutes` | `integer` 1–10 | `10` | Lifetime of an authorization code (single use). |
-| `routes` | `{ page?, endpoint?, oauthConsent?, oauthDecision?, oauthToken?, oauthRegister? }` | `/account/mcp`, `/api/mcp`, `/oauth/authorize`, `/api/oauth/authorize`, `/api/oauth/token`, `/api/oauth/register` | Move the page, the endpoint or the OAuth paths; URLs in the setup and the metadata are `appOrigin` + the path. |
+| `oauth.metadata` | `{ authorizationServer?, protectedResource? }`, each an object or `(origins) => object` | — | Extra keys of the discovery documents (`jwks_uri`, `service_documentation`, `resource_documentation`, `agent_auth`…). Generated keys win; a static object that sets one is refused at startup. The protected resource document takes the app's `resource_name` (default: `serverName`). |
+| `resolveAppOrigin` | `(request) => string \| null` | — | The app origin of one request, when it is not the fixed `appOrigin` (an image built once and served elsewhere, a proxy). `readRequestOrigin` reads it from `Host`. Null keeps `appOrigin`; anything but a bare http(s) origin throws. |
+| `resourceOrigins` | `string[]` (≤ 16 http(s) origins) | `[]` | Other public hosts of the app, e.g. the apex next to `app.`: the root protected resource metadata asked on one of them names it as `resource`, and the OAuth endpoints accept it as `resource`. |
+| `routes` | `{ page?, endpoint?, oauthConsent?, oauthDecision?, oauthToken?, oauthRegister? }` | `/account/mcp`, `/api/mcp`, `/oauth/authorize`, `/api/oauth/authorize`, `/api/oauth/token`, `/api/oauth/register` | Move the page, the endpoint or the OAuth paths; URLs in the setup and the metadata are the app origin (`appOrigin`, or `resolveAppOrigin`'s) + the path. |
 | `messages` | partial `en` / `pl` | — | Copy overrides. |
 
 `allowWrites` is a deploy decision, so read it from the environment rather than hard-coding it:
@@ -163,9 +166,41 @@ export { getProtectedResourceMetadataRoute as GET, answerOAuthPreflight as OPTIO
 `/.well-known/oauth-*`, `/api/oauth/token` and `/api/oauth/register` are public: keep them out of
 a proxy guard, like `/api/mcp`. The consent page and the decision route check the session
 themselves (the page sends a signed-out person to the login page and back); the decision route
-also refuses a request whose `Origin` is not `appOrigin`.
+also refuses a request whose `Origin` is not the app origin.
 TypeScript's `**` skips dot folders: with an `include` list in `tsconfig.json`, add
 `"app/.well-known/**/*.ts"`.
+
+**Origins.** Every OAuth URL (issuer, endpoints, `resource`, `resource_metadata`, `iss`) and the
+decision's `Origin` check use the app origin of the request: `appOrigin`, unless
+`resolveAppOrigin` answers. The discovery routes read the request, so Next never renders them at
+build time, and they answer with `Vary: host, x-forwarded-proto`.
+
+- *An image built once and served under another origin* (a test stack on another port, a
+  production image against a local stack): `resolveAppOrigin: process.env.APP_ORIGIN ? undefined :
+  readRequestOrigin`. `readRequestOrigin` trusts `Host` and `X-Forwarded-Proto`, so use it only
+  behind a proxy that passes `Host` through and refuses hosts it does not serve. The consent page,
+  its decision and the token endpoint then agree on the origin the browser used.
+- *A second public host* (product on `https://app.example.com`, site on `https://example.com`):
+  `resourceOrigins: ["https://example.com"]`, and route that host's `/.well-known/oauth-*` to the
+  app. Its root protected resource metadata names `https://example.com` as `resource` (RFC 9728
+  §3.3) with the authorization server on the app origin; `Host` only picks among the listed
+  origins.
+- *Discovery extras:* keys the app adds and serves itself, computed from the request's origins:
+
+  ```ts
+  oauth: {
+    enabled: true,
+    metadata: {
+      authorizationServer: ({ appOrigin }) => ({ jwks_uri: `${appOrigin}/.well-known/jwks.json` }),
+      protectedResource: { resource_name: "Acme MCP server", resource_documentation: "https://example.com/docs/mcp" },
+    },
+  },
+  ```
+
+An app that composes its own routes from `/server` builds the context with
+`createMcpAccessContext(config)` (`getMcpAccessContext()` in `/next` reads the registered config),
+resolves origins with `resolveMcpOrigins(config, request)` and passes them to the URL builders,
+whose last argument they are; `OAuthClientRow` is exported from the package root.
 
 ## 5. Migrations and tables
 
@@ -260,7 +295,8 @@ to `@softure-ai/privacy` (`privacy` flags on):
 ## 12. Limitations / known gaps
 
 - OAuth has no token introspection or revocation endpoint (RFC 7009) for clients: the person
-  disconnects an app on the token page. Access tokens are opaque; there is no `jwks_uri`.
+  disconnects an app on the token page. Access tokens are opaque; the package serves no JWKS (an
+  app that wants `jwks_uri` adds it through `oauth.metadata` and serves the empty set itself).
 - Only `S256` PKCE and the `authorization_code` and `refresh_token` grants.
 - Write access is per token, not per tool; finer scopes would be a new option.
 - The rate limit is per client address, not per token.

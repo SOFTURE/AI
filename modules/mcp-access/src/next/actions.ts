@@ -14,7 +14,7 @@ import { MAX_TOKEN_NAME_LENGTH } from "../options.js";
 import { getMcpAccessMessages, getMcpAccessOptions, getMcpAccessRoutes, getMcpEndpointUrl } from "../server/options.js";
 import { revokeOAuthGrant } from "../server/oauth.js";
 import { issueAccessToken, revokeAccessToken } from "../server/tokens.js";
-import { getMcpAccessContext } from "./context.js";
+import { getMcpAccessContext, getRequestOrigins } from "./context.js";
 import { formatDate } from "./format.js";
 
 /** Longer values are cut: the server functions refuse them anyway, and nothing huge is echoed back. */
@@ -49,6 +49,8 @@ export async function issueTokenAction(_previous: IssueTokenFormState, formData:
   // Every field has a `catch`, so parsing cannot fail.
   const input = issueInput.parse({ name: formData.get("name"), canWrite: formData.get("canWrite") });
   try {
+    // Resolved before issuing: a failure afterwards would leave a token nobody received.
+    const endpointUrl = getMcpEndpointUrl(config, await getRequestOrigins(config, getMcpAccessRoutes(config).page));
     const result = await issueAccessToken(await getMcpAccessContext(config), { userId: user.id, name: input.name, canWrite: input.canWrite !== null });
     if (!result.ok) return { status: "error", error: result.error };
     refreshPage(config);
@@ -63,7 +65,7 @@ export async function issueTokenAction(_previous: IssueTokenFormState, formData:
         expiresText: formatMessage(messages.issued.expires, { date: formatDate(config, issued.expiresAt) }),
         setup: getMcpClientSetup({
           serverName: getMcpAccessOptions(config).serverName,
-          endpointUrl: getMcpEndpointUrl(config),
+          endpointUrl,
           token: issued.token,
           promptTemplate: messages.setup.assistantPrompt,
         }),

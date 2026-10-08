@@ -2,6 +2,7 @@
 import { getModule, type Locale, type SoftureConfig } from "@softure-ai/core";
 import type { McpAccessMessages } from "../messages/index.js";
 import type { McpAccessOptions } from "../options.js";
+import type { McpOrigins } from "../origins.js";
 
 const MODULE_ID = "mcp-access";
 
@@ -52,9 +53,9 @@ export function getMcpAccessRoutes(config: SoftureConfig): McpAccessRoutes {
   };
 }
 
-/** The absolute URL MCP clients call: the app's origin and the endpoint route. */
-export function getMcpEndpointUrl(config: SoftureConfig): string {
-  return new URL(getMcpAccessRoutes(config).endpoint, config.appOrigin).toString();
+/** The absolute URL MCP clients call: the app's origin (the request's, when given) and the endpoint route. */
+export function getMcpEndpointUrl(config: SoftureConfig, origins?: McpOrigins): string {
+  return new URL(getMcpAccessRoutes(config).endpoint, origins?.appOrigin ?? config.appOrigin).toString();
 }
 
 /** The module's copy in the app's locale, with the app's overrides applied. */

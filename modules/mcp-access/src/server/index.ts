@@ -10,6 +10,7 @@ export {
   type McpEndpointOptions,
   type McpServerFactory,
 } from "./endpoint.js";
+export { createMcpAccessContext } from "./context.js";
 export { checkAccessTokensTable } from "./health.js";
 export {
   CONSENT_CODE_PREFIX,
@@ -43,6 +44,7 @@ export {
   getOAuthIssuer,
   getProtectedResourceMetadata,
   getProtectedResourceMetadataUrl,
+  getRootProtectedResourceMetadata,
   handleAuthorizationDecision,
   handleClientRegistration,
   handleTokenRequest,
@@ -58,7 +60,11 @@ export {
   type AuthorizationOutcome,
   type AuthorizationPageError,
   type AuthorizationRequest,
+  type DiscoveryDocument,
 } from "./oauth-http.js";
+export { findServedResourceOrigin, readRequestHost, readRequestOrigin, type McpOriginRequest, type McpOrigins } from "../origins.js";
+export { resolveMcpOrigins } from "./origins.js";
+export type { OAuthClientRow, OAuthTokenEndpointAuthMethod } from "../schema.js";
 export { describeRedirectUri, isAllowedRedirectUri, MAX_CLIENT_NAME_LENGTH, parseClientRegistration, type ClientRegistrationResult, type RegistrationError } from "./oauth-validation.js";
 export { getCodeChallenge, isPkceVerifierValid, isValidCodeChallenge, PKCE_METHOD } from "./pkce.js";
 export { getMcpAccessMessages, getMcpAccessOptions, getMcpAccessRoutes, getMcpEndpointUrl, type McpAccessRoutes } from "./options.js";

@@ -1,6 +1,6 @@
 {
   "id": "mcp-access",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "dependsOn": { "security": "^0.1.0", "auth": "^0.1.0" },
   "dbSchema": "mcp",
   "tables": ["access_tokens", "oauth_clients", "oauth_authorization_codes", "oauth_grants"],

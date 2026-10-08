@@ -13,7 +13,7 @@ import { getConsentPath, isOAuthEnabled, readAuthorizationParams, validateAuthor
 import { describeRedirectUri } from "../server/oauth-validation.js";
 import { getMcpAccessMessages, getMcpAccessOptions, getMcpAccessRoutes } from "../server/options.js";
 import { ConsentError, ConsentForm } from "../ui/consent-form.js";
-import { getMcpAccessContext } from "./context.js";
+import { getMcpAccessContext, getRequestOrigins } from "./context.js";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -31,7 +31,8 @@ export async function OAuthConsentPage({ searchParams }: OAuthConsentPageProps) 
   const user = await requireUser({ next: getConsentPath(config, params), searchParams: query });
 
   const messages = getMcpAccessMessages(config);
-  const outcome = await validateAuthorizationRequest(await getMcpAccessContext(config), params);
+  const origins = await getRequestOrigins(config, getMcpAccessRoutes(config).oauthConsent);
+  const outcome = await validateAuthorizationRequest(await getMcpAccessContext(config), params, origins);
   if (outcome.kind !== "valid") {
     const message =
       outcome.kind === "redirect-error" ? messages.consent.invalidRequest : outcome.reason === "unknown_client" ? messages.consent.unknownClient : messages.consent.redirectMismatch;

@@ -11,6 +11,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import { createConfig, createUser, NOW, OAUTH_OPTIONS } from "./support.js";
 
 const ADOPTION_SQL = readFileSync(new URL("../adoption/move-app-tables.sql", import.meta.url), "utf8");
+/** The enabled version: `--adopt` must name it. */
+const VERSION = (JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string }).version;
 const DAY_MS = 86_400_000;
 
 const LEGACY_ISSUED_VALUE = "0123456789abcdef".repeat(4);
@@ -115,7 +117,7 @@ describe("adopting an app's own MCP token and OAuth tables", () => {
     await seeded.client.exec(ADOPTION_SQL);
     const handle = await createPgliteHandle(seeded.client);
 
-    const result = await adoptModule(handle, { modules: config.modules, module: "mcp-access", version: "0.1.7" });
+    const result = await adoptModule(handle, { modules: config.modules, module: "mcp-access", version: VERSION });
 
     expect(result.ok ? null : result.problems.map(describeProblem)).toBeNull();
     expect(result.ok && result.value.adopted.map((step) => [step.version, step.name])).toEqual([
@@ -138,7 +140,7 @@ describe("adopting an app's own MCP token and OAuth tables", () => {
     const { database: seeded } = await seedApp();
     const handle = await createPgliteHandle(seeded.client);
 
-    const result = await adoptModule(handle, { modules: config.modules, module: "mcp-access", version: "0.1.7" });
+    const result = await adoptModule(handle, { modules: config.modules, module: "mcp-access", version: VERSION });
 
     expect(result.ok).toBe(false);
     const tables = await seeded.client.query<{ n: number }>("SELECT count(*)::int AS n FROM public.access_tokens");
