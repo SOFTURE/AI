@@ -26,5 +26,6 @@ export function getPageContext(config: SoftureConfig): BlogPageContext {
     methodPath: options.methodPage ? routes.method : null,
     brand: options.brand?.name ?? null,
     disclaimer: options.disclaimer === undefined ? null : (options.disclaimer[config.locale] ?? options.disclaimer.en),
+    clusterAnchorPrefix: options.anchors.cluster,
   };
 }

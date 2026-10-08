@@ -22,6 +22,21 @@ function getGraph(article = buildStoredArticle(), ctx = CTX): Record<string, unk
   return getArticleJsonLd(article, getArticleCrumbs(article, ctx.routes, LABELS), ctx)["@graph"] as Record<string, unknown>[];
 }
 
+describe("JSON-LD output options", () => {
+  it("writes the context's @id fragments and language, and the defaults without them", () => {
+    const ctx: JsonLdContext = { ...CTX, ids: { article: "artykul", term: "termin", glossary: "slownik" }, language: "en-GB" };
+    expect(getGraph(buildStoredArticle(), ctx)[0]).toMatchObject({ "@id": "https://example.com/blog/index-funds#artykul", inLanguage: "en-GB" });
+    const term = buildStoredTerm();
+    const [definedTerm] = getTermJsonLd(term, getTermCrumbs(term, ctx.routes, LABELS), ctx, "Glossary")["@graph"] as Record<string, unknown>[];
+    expect(definedTerm).toMatchObject({
+      "@id": "https://example.com/blog/glossary/expense-ratio#termin",
+      inDefinedTermSet: { "@type": "DefinedTermSet", "@id": "https://example.com/blog/glossary#slownik", name: "Glossary" },
+    });
+    expect(getGlossaryJsonLd([term], ctx, "Glossary")).toMatchObject({ "@id": "https://example.com/blog/glossary#slownik", inLanguage: "en-GB" });
+    expect(getGraph()[0]).toMatchObject({ "@id": "https://example.com/blog/index-funds#article", inLanguage: "en" });
+  });
+});
+
 describe("article JSON-LD", () => {
   it("is a BlogPosting with the brand as author and publisher and the visible days", () => {
     const [posting] = getGraph(buildStoredArticle({ updatedAt: new Date("2026-10-02T08:00:00Z") }));

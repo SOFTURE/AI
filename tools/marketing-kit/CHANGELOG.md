@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## 0.1.10
+
+- Every command crashed on start-up when npm resolved satori to 0.35.2 or 0.36.0 (the case through `npx`, which has
+  no lockfile): those releases end the process as soon as they are imported. satori is now pinned to `0.35.1`, and
+  the CLI loads it only for `og`, so `shots`, `record`, `voice` and the other commands no longer load it at all
+  (#254). An app that worked around it with `-p satori@0.35.1` can drop the extra package.
+
 ## 0.1.9
 
 - `beats[].screenGuard`: a sentence's own phrases, checked while that sentence is on screen (at a `checkScreen` inside

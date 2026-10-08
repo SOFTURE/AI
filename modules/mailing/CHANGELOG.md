@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mailing@x.y.z`).
 
+## Unreleased
+
+- `sendCampaign(ctx, input, { limit })` hands at most `limit` mails to the provider in one run (sent, rejected by it,
+  or not taken now); done, unsubscribed, filtered, in-flight and uncertain recipients do not count. `limit` must be a
+  whole number of at least 1 (`RangeError` otherwise). `softure-mail campaign --limit <n>` passes it, exits 0 when
+  the limit cut the run, and its dry run prints what one limited run would send.
+- `CampaignSummary.remaining` (new, required): recipients past the cut that the next run would send to; `0` when the
+  run reached the end of the list, `null` when it halted. Code that builds a summary by hand must add it.
+
 ## 0.1.10
 
 - `OutgoingMail.replyTo`: an optional reply-to address for one mail (exactly one address, checked like `to`, failure

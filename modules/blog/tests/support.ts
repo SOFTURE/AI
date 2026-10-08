@@ -2,15 +2,18 @@
 // files built from a frontmatter object.
 import { createTestClock, defineSoftureConfig, type AnySoftureModule, type SoftureConfig, type TestClock } from "@softure-ai/core";
 import { createTestDatabase, type TestDatabase } from "@softure-ai/db/testing";
-import { blog, type BlogOptionsInput } from "@softure-ai/blog";
+import { blog } from "@softure-ai/blog";
 import type { BlogArticle } from "@softure-ai/blog";
 import type { ArticleFile, BlogContext } from "@softure-ai/blog/server";
 import { stringify } from "yaml";
 
 export const NOW = new Date("2026-10-04T08:00:00Z");
 
+/** What `blog()` takes: the options with the app's `routes` and `messages` overrides. */
+export type TestBlogInput = NonNullable<Parameters<typeof blog>[0]>;
+
 /** `others`: modules listed before the blog, e.g. `seo()`. */
-export function createConfig(options: BlogOptionsInput = {}, others: readonly AnySoftureModule[] = []): SoftureConfig {
+export function createConfig(options: TestBlogInput = {}, others: readonly AnySoftureModule[] = []): SoftureConfig {
   return defineSoftureConfig({
     database: { url: "pglite://" },
     locale: "en",
@@ -27,7 +30,7 @@ export interface TestBlog {
   readonly config: SoftureConfig;
 }
 
-export async function createTestBlog(options: BlogOptionsInput = {}, others: readonly AnySoftureModule[] = []): Promise<TestBlog> {
+export async function createTestBlog(options: TestBlogInput = {}, others: readonly AnySoftureModule[] = []): Promise<TestBlog> {
   const config = createConfig(options, others);
   const database = await createTestDatabase(config.modules);
   const clock = createTestClock(NOW);
