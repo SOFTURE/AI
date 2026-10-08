@@ -17,7 +17,7 @@ TTS providers (MK-7), screenshots (MK-4) and OG images (MK-5) build on it. Backg
 An app runs the kit through `npx` with a pinned version, not as a dependency:
 
 ```json
-{ "scripts": { "marketing": "npx -y @softure-ai/marketing-kit@0.1.8" } }
+{ "scripts": { "marketing": "npx -y @softure-ai/marketing-kit@0.1.10" } }
 ```
 
 `npm run marketing -- all <video>` then runs the CLI. As a `devDependency` the kit would add more than 100 MB

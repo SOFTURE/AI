@@ -146,6 +146,28 @@ describe("softure-mail campaign", () => {
     expect((await test.database.client.query("SELECT 1 FROM mailing.campaigns")).rows).toEqual([]);
   });
 
+  it("sends at most --limit recipients, says how many are left, and succeeds", async () => {
+    const result = await run([...SEND, "--limit", "2"]);
+    expect(result).toEqual({
+      code: 0,
+      lines: [
+        "campaign 2026-10-launch (newsletter): recipients 3, sent 2, rejected 0, already done 0, in flight 0, retry later 0, filtered out 0, uncertain 0",
+        "limit reached: 1 recipient(s) left for the next run",
+      ],
+      errors: [],
+    });
+    expect(provider.sent.map((mail) => mail.to)).toEqual(["ada@example.org", "bob@example.org"]);
+  });
+
+  it("shows what one limited run would send on a dry run", async () => {
+    const result = await run([...SEND, "--dry-run", "--limit", "2"]);
+    expect(result.lines).toEqual([
+      "campaign 2026-10-launch (newsletter), dry run: nothing sent or written",
+      "recipients 3, already done 0, unsubscribed 0, filtered out 0, uncertain 0, to send 3",
+      "with --limit 2 this run would send 2",
+    ]);
+  });
+
   it("refuses other content under a campaign id that was sent, in a dry run and for real", async () => {
     await test.database.client.query("INSERT INTO mailing.campaigns VALUES ('2026-10-launch', 'newsletter', 'Old', $1, $2)", ["0".repeat(64), NOW]);
     const message = "campaign 2026-10-launch was sent with other content; give this content a new id";
@@ -202,6 +224,9 @@ describe("softure-mail campaign", () => {
     [["campaign", "a.md", "b.md", "--recipients", "r.txt"], 'campaign takes one content file, got also "b.md"'],
     [[...SEND, "--pause-ms=-1"], '--pause-ms expects whole milliseconds from 0 to 60000, got "-1"'],
     [[...SEND, "--pause-ms", "fast"], '--pause-ms expects whole milliseconds from 0 to 60000, got "fast"'],
+    [[...SEND, "--limit", "0"], '--limit expects a whole number from 1 to 1000000, got "0"'],
+    [[...SEND, "--limit", "many"], '--limit expects a whole number from 1 to 1000000, got "many"'],
+    [["import", "a.jsonl", "--limit", "2"], "import does not take --limit"],
     [[...SEND, "--domain", "example.com"], "campaign does not take --domain"],
     [["dns", "--recipients", "r.txt"], "dns does not take --recipients"],
     [["dns", "extra"], 'dns takes no file, got "extra"'],

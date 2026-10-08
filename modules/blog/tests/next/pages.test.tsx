@@ -139,7 +139,7 @@ describe("blog pages", () => {
         title: "Index funds in plain words",
         description: "What an index fund is and what it costs.",
         url: "https://app.example.com/blog/index-funds",
-        locale: "en",
+        locale: "en_US",
         publishedTime: "2026-10-04",
         modifiedTime: "2026-10-04",
         siteName: "Example",
@@ -236,6 +236,58 @@ describe("builders for an app's own pages", () => {
     expect((JSON.parse(buildArticleJsonLd(test.config, article)) as { "@graph": unknown[] })["@graph"][0]).toMatchObject({ "@type": "BlogPosting", url: "https://app.example.com/blog/index-funds" });
     expect(buildGlossaryJsonLd(test.config, [])).toBeNull();
     expect(buildArticleJsonLd(test.config, { ...article, title: "</script><b>" })).not.toContain("</script>");
+  });
+});
+
+describe("builders with an adopting site's output options", () => {
+  // Fragments, anchors, language tags and a term title an app published before it adopted the module.
+  beforeEach(async () => {
+    await test.database.close();
+    test = await createPublishedBlog({
+      jsonLd: { ids: { article: "artykul", term: "termin", glossary: "slownik" } },
+      anchors: { cluster: "klaster" },
+      locales: { en: { bcp47: "en-GB", openGraph: "en_GB" } },
+      messages: { en: { glossary: { termTitleWithBrand: "{title} | {brand} glossary" } } },
+    });
+    scope.config = test.config;
+    scope.db = test.ctx.db;
+  });
+
+  async function readText(slug: string) {
+    const text = await getTextBySlug(test.config, slug);
+    if (text === null) throw new Error(`test: no text ${slug}`);
+    return text;
+  }
+
+  it("write the configured @id fragments, cluster anchor and inLanguage into the JSON-LD", async () => {
+    const [article, term, terms] = [await readText("index-funds"), await readText("expense-ratio"), await getPublishedTerms(test.config)];
+    const [posting, crumbs] = (JSON.parse(buildArticleJsonLd(test.config, article)) as { "@graph": Record<string, unknown>[] })["@graph"];
+    expect(posting).toMatchObject({ "@id": "https://app.example.com/blog/index-funds#artykul", inLanguage: "en-GB" });
+    expect(crumbs?.itemListElement).toContainEqual({ "@type": "ListItem", position: 2, name: "Investing basics", item: "https://app.example.com/blog#klaster-investing-basics" });
+    const [definedTerm] = (JSON.parse(buildTermJsonLd(test.config, term)) as { "@graph": Record<string, unknown>[] })["@graph"];
+    expect(definedTerm).toMatchObject({
+      "@id": "https://app.example.com/blog/glossary/expense-ratio#termin",
+      inLanguage: "en-GB",
+      inDefinedTermSet: { "@type": "DefinedTermSet", "@id": "https://app.example.com/blog/glossary#slownik", name: "Glossary" },
+    });
+    const glossary = JSON.parse(String(buildGlossaryJsonLd(test.config, terms))) as Record<string, unknown>;
+    expect(glossary).toMatchObject({ "@id": "https://app.example.com/blog/glossary#slownik", inLanguage: "en-GB" });
+    expect(glossary.hasDefinedTerm).toEqual([expect.objectContaining({ "@id": "https://app.example.com/blog/glossary/expense-ratio#termin" })]);
+  });
+
+  it("anchor the listing's sections and the article's crumb with the configured prefix", async () => {
+    const listing = await render(BlogIndexPage());
+    expect(listing).toContain('<section id="klaster-investing-basics" aria-labelledby="klaster-investing-basics-heading"');
+    expect(listing).toContain('aria-labelledby="klaster-other-heading"');
+    expect(listing).not.toContain("cluster-");
+    expect(await render(BlogArticlePage(params("index-funds")))).toContain('<a href="/blog#klaster-investing-basics">Investing basics</a>');
+  });
+
+  it("write the configured og:locale and title a term by its own message", async () => {
+    const [article, term] = [await readText("index-funds"), await readText("expense-ratio")];
+    expect(buildArticleMetadata(test.config, article)).toMatchObject({ title: "Index funds in plain words | Example", openGraph: { locale: "en_GB" } });
+    expect(buildTermMetadata(test.config, term)).toMatchObject({ title: "Expense ratio | Example glossary", openGraph: { locale: "en_GB", title: "Expense ratio" } });
+    expect(buildGlossaryIndexMetadata(test.config, { isEmpty: false }).title).toBe("Glossary | Example");
   });
 });
 

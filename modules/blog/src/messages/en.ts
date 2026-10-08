@@ -47,6 +47,8 @@ export const en = {
   },
   glossary: {
     title: "Glossary",
+    /** A glossary term's page title with the brand: `{title}` the term, `{brand}` the site. */
+    termTitleWithBrand: "{title} | {brand}",
     description: "Short definitions of the terms the texts use, each with the day it was checked and its sources.",
     empty: "The first definitions are on their way.",
     explainedIn: "Explained in these texts",

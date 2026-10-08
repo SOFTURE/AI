@@ -249,6 +249,15 @@ softure-mail campaign launch.md --recipients recipients.txt              # sends
 - **A refused key or a spent quota stops the run** at the first such answer: the command prints why
   (with the HTTP status) and exits 1; that recipient and every one after it are left for the next
   run. `sendCampaign` returns the same as `halted: { reason, httpStatus }`.
+- **Instalments with `--limit <n>`.** On a plan whose daily quota is shared with other mail (Resend's
+  free plan gives 100 a day), `--limit 80` hands at most 80 mails to the provider in this run and
+  leaves room for the day's transactional mail. Only mails that reach the provider count (sent,
+  rejected by it, or not taken now); done, unsubscribed, filtered, in-flight and uncertain recipients
+  never use a slot. The command prints `limit reached: <n> recipient(s) left for the next run` and
+  exits 0; run it again the next day. With `--dry-run` it also prints what one limited run would
+  send. `sendCampaign(ctx, input, { limit: 80 })` does the same and returns `remaining` (recipients
+  past the cut that the next run would send to, counted like `planCampaign`'s `toSend`, one
+  suppression lookup per address; `0` when the run reached the end of the list, `null` after a halt).
 - **Re-runs are safe.** Recipients with an outcome are skipped; the command exits 1 while some have
   none yet (`retry later`, `in flight`): run the same command again. It also exits 1 for `uncertain`
   recipients (an interrupted send older than `uncertainClaimMs`) and names `--resend-uncertain`. `mailing.campaigns` pins the
@@ -481,9 +490,10 @@ mailing({
 ```
 
 **`liftSuppression(ctx, address)`** is the other direction: a module that has just recorded a new
-explicit consent (the waitlist's sign-up) calls it in that consent's transaction. It deletes the
-row only when its source is `page` or `one-click`; an `operator` row stays. It returns whether it
-lifted one.
+explicit consent calls it in that consent's transaction. The consent must be provably the
+recipient's (the waitlist calls it only when a sign-up's confirmation link is used, never for an
+address typed into a form). It deletes the row only when its source is `page` or `one-click`; an
+`operator` row stays. It returns whether it lifted one.
 
 **Tests and e2e:** `fakeMailProvider()` keeps accepted mail in `provider.sent` (with the id it
 answered) and honours idempotency keys like a real provider. `respond: (message) => ({ status:
@@ -511,7 +521,7 @@ personal data. So the module neither exports nor deletes per user (`privacy: { e
   bounce or complaint webhooks yet.
 - Campaigns have no personalisation, scheduling or markdown: the body is sent as written.
 - Suppression is global per address: no per-list preferences. A person comes back in through a
-  module's explicit consent (`liftSuppression`, e.g. a new waitlist sign-up); an operator row is
+  module's explicit consent (`liftSuppression`, e.g. a confirmed waitlist sign-up); an operator row is
   removed by hand (`getRecipientKey(address)`).
 - Lowercasing the whole address merges `Ada@` and `ada@` (allowed to differ by RFC 5321, never in
   practice); an unsubscribe then covers both.

@@ -1,15 +1,17 @@
 // Sign-ups: joining the waitlist (new or repeat), confirming a request by its link, and reading
-// sign-ups back. A request is applied in one transaction: the address's own mailing opt-out is
-// lifted (a sign-up is an explicit consent), the stored scopes widen and never narrow (after a lifted
-// opt-out, which withdrew every scope, they become the requested ones), and each requested scope the
-// consent ledger does not currently grant (never given, withdrawn, or given to an older document
-// version) is recorded in privacy.consents. Without double opt-in a request is applied when it is
-// made; with it, the request waits on the row with a single-use link until the link is used, and
-// nothing is lifted or recorded before. The app's `onJoined` hook runs in the same transaction when
-// a sign-up counts for the first time.
+// sign-ups back. A request is applied in one transaction: the stored scopes widen and never narrow,
+// and each requested scope the consent ledger does not currently grant (never given, withdrawn, or
+// given to an older document version) is recorded in privacy.consents. Without double opt-in a
+// request is applied when it is made, unless the address is on mailing's suppression list: nothing
+// proves the person at the form controls the address, so that request writes nothing (`suppressed`).
+// With double opt-in, the request waits on the row with a single-use link until the link is used,
+// and nothing is lifted or recorded before; using the link proves control of the mailbox, so it
+// lifts the address's own opt-out (after which, since the opt-out withdrew every scope, the scopes
+// become the requested ones). The app's `onJoined` hook runs in the same transaction when a sign-up
+// counts for the first time.
 import { err, ok, type Err, type ModuleContext, type Ok } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
-import { liftSuppression } from "@softure-ai/mailing/server";
+import { isSuppressed, liftSuppression } from "@softure-ai/mailing/server";
 import { hasConsent, recordConsent } from "@softure-ai/privacy/server";
 import type { RateLimitRejection } from "@softure-ai/security";
 import { consumeRateLimit, subjectKey } from "@softure-ai/security/server";
@@ -66,7 +68,15 @@ export interface PendingSignup {
   readonly expiresAt: Date;
 }
 
-export type JoinWaitlistResult = Ok<JoinedSignup | PendingSignup> | Err<WaitlistErrorCode> | RateLimitRejection;
+/**
+ * A request for an address on mailing's suppression list without double opt-in: nothing was written
+ * and no opt-out was lifted. Answer the person as for `joined`, so the answer does not tell who unsubscribed.
+ */
+export interface SuppressedSignup {
+  readonly status: "suppressed";
+}
+
+export type JoinWaitlistResult = Ok<JoinedSignup | PendingSignup | SuppressedSignup> | Err<WaitlistErrorCode> | RateLimitRejection;
 
 export interface ConfirmSignupInput {
   /** The token of the confirmation link. */
@@ -127,7 +137,8 @@ function checkScopes(ctx: WaitlistContext, requested: readonly string[], placeme
  * Signs `email` up for the checked scopes: counts `waitlist` per client, checks the form, counts
  * `waitlist-email` per address, then, in one transaction, applies the request (`joined`) or, with
  * double opt-in, stores it with a new link that replaces any earlier one (`confirmation_required`).
- * The result does not tell a new address from a known one to the client; `isNew` is for the caller.
+ * Without double opt-in, an address on mailing's suppression list gets `suppressed` and nothing is
+ * written. The result does not tell a new address from a known one to the client; `isNew` is for the caller.
  * Database errors propagate.
  */
 export async function joinWaitlist(ctx: WaitlistContext, input: JoinWaitlistInput): Promise<JoinWaitlistResult> {
@@ -161,8 +172,13 @@ interface SignupRequest {
   readonly channel: string | null;
 }
 
-/** Applies a request at once: a new row confirmed now, or the known row updated. */
-async function joinNow(ctx: WaitlistContext, request: SignupRequest): Promise<JoinedSignup> {
+/**
+ * Applies a request at once: a new row confirmed now, or the known row updated; nothing for a
+ * suppressed address. No opt-out is lifted here: the address is not suppressed when the request is
+ * applied, so a lift could only undo an opt-out made since the check.
+ */
+async function joinNow(ctx: WaitlistContext, request: SignupRequest): Promise<JoinedSignup | SuppressedSignup> {
+  if (await isSuppressed(ctx, request.email)) return { status: "suppressed" };
   const now = ctx.clock.now();
   const [inserted] = await ctx.db
     .insert(signups)
@@ -170,14 +186,13 @@ async function joinNow(ctx: WaitlistContext, request: SignupRequest): Promise<Jo
     .onConflictDoNothing({ target: signups.email })
     .returning();
   if (inserted !== undefined) {
-    await liftSuppression(ctx, request.email);
     const recordedScopes = await recordConsents(ctx, request.email, request.scopes);
     const signup = toSignup(inserted);
     await notifyJoined(ctx, { signup, via: "join" });
     return { status: "joined", signup, isNew: true, recordedScopes };
   }
   const current = await lockSignup(ctx, request.email);
-  const applied = await applyRequest(ctx, current, request.scopes);
+  const applied = await applyRequest(ctx, current, request.scopes, { isOptOutLifted: false });
   const signup = toSignup(applied.row);
   // A row left unconfirmed (double opt-in was on when it was made) counts for the first time now.
   if (current.confirmedAt === null) await notifyJoined(ctx, { signup, via: "join" });
@@ -234,7 +249,9 @@ export async function confirmSignup(ctx: WaitlistContext, input: ConfirmSignupIn
     const declared = new Set(getWaitlistOptions(ctx.config).scopes.map((scope) => scope.id));
     const requested = current.pendingScopes.filter((id) => declared.has(id));
     if (requested.length === 0) return err("waitlist.confirmation_invalid");
-    const applied = await applyRequest(txCtx, current, requested);
+    // The link proves control of the mailbox, so it lifts the address's own opt-out.
+    const isOptOutLifted = await liftSuppression(txCtx, current.email);
+    const applied = await applyRequest(txCtx, current, requested, { isOptOutLifted });
     const signup = toSignup(applied.row);
     const isFirstConfirmation = current.confirmedAt === null;
     if (isFirstConfirmation) await notifyJoined(txCtx, { signup, via: "confirmation" });
@@ -257,12 +274,16 @@ async function lockSignup(ctx: WaitlistContext, email: string): Promise<SignupRo
 }
 
 /**
- * Applies a request to a locked row: lifts the address's own opt-out, sets the scopes (the requested
- * ones for a row that never counted or after a lifted opt-out, else the union), marks the row
- * confirmed, clears a pending request and records the consents.
+ * Applies a request to a locked row: sets the scopes (the requested ones for a row that never
+ * counted or after an opt-out the caller lifted, else the union), marks the row confirmed, clears a
+ * pending request and records the consents.
  */
-async function applyRequest(ctx: WaitlistContext, current: SignupRow, requested: readonly string[]): Promise<{ row: SignupRow; recordedScopes: string[] }> {
-  const isOptOutLifted = await liftSuppression(ctx, current.email);
+async function applyRequest(
+  ctx: WaitlistContext,
+  current: SignupRow,
+  requested: readonly string[],
+  { isOptOutLifted }: { readonly isOptOutLifted: boolean },
+): Promise<{ row: SignupRow; recordedScopes: string[] }> {
   const next = current.confirmedAt === null || isOptOutLifted ? [...requested] : getWidenedScopes(ctx, current.scopes, requested);
   const isUnchanged =
     current.confirmedAt !== null &&
