@@ -3,7 +3,7 @@
 //
 // A missing key is not an error: without it requests go out unsigned and the directory answers 404. A signature is an
 // extra on a request; it never stops one.
-import { createHash, createPrivateKey, createPublicKey, randomBytes, sign, verify, type KeyObject } from "node:crypto";
+import { createPrivateKey, createPublicKey, hash, randomBytes, sign, verify, type KeyObject } from "node:crypto";
 
 export const WEB_BOT_AUTH_DIRECTORY_CONTENT_TYPE = "application/http-message-signatures-directory+json";
 
@@ -63,7 +63,8 @@ function decodeKeyBytes(value: string): Buffer | null {
 
 /** The JWK thumbprint (RFC 7638): SHA-256 of the canonical JSON of the required members, base64url. */
 export function getJwkThumbprint(jwk: Ed25519PublicJwk): string {
-  return createHash("sha256").update(JSON.stringify({ crv: jwk.crv, kty: jwk.kty, x: jwk.x })).digest("base64url");
+  // A digest of the public key, not of a secret: the thumbprint is the key's public name.
+  return hash("sha256", JSON.stringify({ crv: jwk.crv, kty: jwk.kty, x: jwk.x }), "base64url");
 }
 
 /** The key of a seed, or null when the seed is not 32 bytes of base64url. */

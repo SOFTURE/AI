@@ -26,7 +26,9 @@ export interface OriginSettings {
 
 /** An origin without the trailing slashes a configured value may carry, so `${origin}/path` never has `//`. */
 export function trimOrigin(origin: string): string {
-  return origin.replace(/\/+$/, "");
+  let end = origin.length;
+  while (end > 0 && origin[end - 1] === "/") end -= 1;
+  return origin.slice(0, end);
 }
 
 function readFirstValue(header: string | null): string | null {

@@ -232,6 +232,8 @@ export function getDefaultMcpSkillName(cardName: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .slice(0, 60)
-    .replace(/^-+|-+$/g, "");
+    .split("-")
+    .filter((part) => part !== "")
+    .join("-");
   return `${base || "app"}-mcp`;
 }

@@ -123,16 +123,22 @@ function parseGeneric(declaredLength: number, hex: string): SvcbRecord | null {
   return at === bytes.length ? { priority, target: labels.join("."), alpn, port } : null;
 }
 
+/** Whitespace-separated tokens; split, not a pattern, so a resolver's answer cannot make the parse slow. */
+function tokenize(data: string): string[] {
+  return data.split(/\s/).filter((token) => token !== "");
+}
+
 function parsePresentation(data: string): SvcbRecord | null {
-  const match = /^(\d+)\s+(\S+)(.*)$/.exec(data.trim());
-  if (match === null) return null;
-  const [, priority = "", target = "", rest = ""] = match;
+  const [priority = "", target, ...params] = tokenize(data);
+  if (!/^\d+$/.test(priority) || target === undefined) return null;
   let alpn: string[] = [];
   let port: number | null = null;
-  for (const param of rest.matchAll(/([a-z0-9-]+)(?:=("[^"]*"|\S+))?/gi)) {
-    const value = (param[2] ?? "").replace(/^"|"$/g, "");
-    if (param[1] === "alpn") alpn = value.split(",").filter(Boolean);
-    if (param[1] === "port") port = Number(value);
+  for (const param of params) {
+    const at = param.indexOf("=");
+    const key = (at < 0 ? param : param.slice(0, at)).toLowerCase();
+    const value = at < 0 ? "" : param.slice(at + 1).replaceAll('"', "");
+    if (key === "alpn") alpn = value.split(",").filter(Boolean);
+    if (key === "port") port = Number(value);
   }
   return { priority: Number(priority), target: target === "." ? "" : target, alpn, port };
 }
@@ -142,9 +148,9 @@ function parsePresentation(data: string): SvcbRecord | null {
  * generic form of RFC 3597 (`\# 31 0001…`), depending on the resolver. Null for anything unreadable or truncated.
  */
 export function parseSvcbData(data: string): SvcbRecord | null {
-  const generic = /^\\#\s+(\d+)\s+([0-9a-f\s]*)$/i.exec(data.trim());
-  if (generic !== null) return parseGeneric(Number(generic[1]), generic[2] ?? "");
-  return parsePresentation(data);
+  const [marker, length = "", ...hex] = tokenize(data);
+  if (marker !== "\\#") return parsePresentation(data);
+  return /^\d+$/.test(length) ? parseGeneric(Number(length), hex.join("")) : null;
 }
 
 export interface DnsAidCheck {
