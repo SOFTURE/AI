@@ -3,7 +3,7 @@
 // added next to the package class, never instead of it, so the stroke keeps `non-scaling-stroke`.
 import type { CSSProperties } from "react";
 import { type ChartTone, cx, type DataAttributes, seriesClass, toneClass } from "./class-names.js";
-import { linePath, PLOT_HEIGHT, PLOT_WIDTH, type PlotPoint } from "./geometry.js";
+import { linePath, type PathCurve, PLOT_HEIGHT, PLOT_WIDTH, type PlotPoint, smoothLinePath } from "./geometry.js";
 
 /** What every line primitive accepts on top of its geometry. */
 export interface LineLookProps extends DataAttributes {
@@ -84,6 +84,8 @@ export interface SeriesLineProps extends DataAttributes {
   /** Colour slot, `seriesSlot(index)`. */
   readonly slot: number;
   readonly dashed?: boolean;
+  /** `linear` (a polyline, the default) or `smooth` (`smoothLinePath`, through every point without overshoot). */
+  readonly curve?: PathCurve;
   /** Stroke width in screen pixels; `--sft-chart-line-width` by default. */
   readonly strokeWidth?: number;
   readonly opacity?: number;
@@ -91,8 +93,8 @@ export interface SeriesLineProps extends DataAttributes {
   readonly style?: CSSProperties;
 }
 
-/** One series as a polyline in its slot's colour. */
-export function SeriesLine({ points, slot, dashed = false, strokeWidth, opacity, className, style, ...data }: SeriesLineProps) {
+/** One series as a line in its slot's colour. */
+export function SeriesLine({ points, slot, dashed = false, curve = "linear", strokeWidth, opacity, className, style, ...data }: SeriesLineProps) {
   const look = getLineLook(cx("sft-chart-line", seriesClass(slot), dashed && "sft-chart-line-dashed"), { strokeWidth, opacity, className, style });
-  return <path {...data} className={look.className} style={look.style} d={linePath(points)} />;
+  return <path {...data} className={look.className} style={look.style} d={curve === "smooth" ? smoothLinePath(points) : linePath(points)} />;
 }
