@@ -36,10 +36,6 @@ on:
         description: Version of @softure-ai/deploy that records the result
         type: string
         default: 0.1.4
-      timeout-minutes:
-        description: Time limit of the suite job
-        type: number
-        default: 60
 
 permissions:
   contents: read
@@ -48,7 +44,8 @@ jobs:
   test:
     name: run the suite
     runs-on: ubuntu-latest
-    timeout-minutes: ${{ inputs.timeout-minutes }}
+    # A fixed limit (a job timeout must be a number for this repository's guards); a slower suite splits its run.
+    timeout-minutes: 120
     permissions:
       contents: read
     outputs:
