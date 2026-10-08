@@ -1,12 +1,13 @@
 ---
 change_id: agent-ready-0-1-1
 title: "agent-ready 0.1.1: CLI commands in the README, first publish through the trusted publisher"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: null
 branch: claude/project-thread-8enamh
 created: 2026-10-08
 updated: 2026-10-08
+archived_at: 2026-10-08
 ---
 
 ## Intent

@@ -34,9 +34,9 @@ Done when: gates green (typecheck, lint, test, build); the version reads 0.1.1 i
 ### Phase 1: docs and version
 
 #### Automated
-- [ ] 1.1 README lists the CLI commands
-- [ ] 1.2 CHANGELOG entry and version 0.1.1
-- [ ] 1.3 Gates green (typecheck, lint, test, build)
+- [x] 1.1 README lists the CLI commands — 9d9bb1e
+- [x] 1.2 CHANGELOG entry and version 0.1.1 — 28efa07
+- [x] 1.3 Gates green (typecheck, lint, test, build) — 28efa07
 
 #### Manual
-- [ ] 1.4 After the release: 0.1.1 on npm with a provenance attestation, published through OIDC
+- [ ] 1.4 (owner-visible, after the merge) After the release: 0.1.1 on npm with a provenance attestation, published through OIDC
