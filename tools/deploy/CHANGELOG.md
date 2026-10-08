@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
-## Unreleased
+## 0.1.5
 
 - `deploy-app.yml` takes `prebuilt-image` (`<image>@sha256:<digest>` from the `image` repository): an image the app
   already tested is tagged with the release tag and deployed as it is, never rebuilt.
