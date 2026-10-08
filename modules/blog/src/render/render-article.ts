@@ -17,7 +17,8 @@
 // ## Links
 //
 // A link that leaves the site (`siteHosts`, subdomains included) gets `rel="noopener noreferrer"`,
-// opens in a new tab and carries a visible marker plus a visually hidden "opens in a new tab".
+// opens in a new tab and carries a visible marker plus a visually hidden "opens in a new tab"
+// (`externalMarker`: both, the hidden words only, or neither; the `blog-external` class stays either way).
 //
 // ## Headings and the table of contents
 //
@@ -114,6 +115,11 @@ export type ArticleSegment<TNode = unknown> =
   | { readonly kind: "html"; readonly html: string }
   | { readonly kind: "node"; readonly type: string; readonly node: TNode };
 
+/** What the renderer appends to an external link (`RenderArticleOptions.externalMarker`). */
+export const EXTERNAL_LINK_MARKERS = ["icon-and-text", "text", "none"] as const;
+
+export type ExternalLinkMarker = (typeof EXTERNAL_LINK_MARKERS)[number];
+
 export interface RenderArticleOptions<TNode = unknown> {
   /** Terms for automatic links; without it no text is linked. */
   readonly glossary?: readonly GlossaryTerm[];
@@ -130,6 +136,11 @@ export interface RenderArticleOptions<TNode = unknown> {
   readonly article?: BlockArticle;
   /** Render a table of contents of `h2` down to `maxLevel` (3 by default). */
   readonly toc?: boolean | { readonly maxLevel: number };
+  /**
+   * What follows an external link: the visible arrow and the visually hidden "opens in a new tab"
+   * (`"icon-and-text"`, the default), the hidden words only (`"text"`), or nothing (`"none"`).
+   */
+  readonly externalMarker?: ExternalLinkMarker;
   /** Copy for footnotes, external links and the table of contents; English by default. */
   readonly messages?: BlogRenderMessages;
   readonly wordsPerMinute?: number;
@@ -297,7 +308,14 @@ function addFootnoteMarkup(md: Markdown, messages: BlogRenderMessages): void {
   };
 }
 
-function addExternalLinks(md: Markdown, siteHosts: readonly string[], messages: BlogRenderMessages): void {
+function getExternalMarkerHtml(md: Markdown, marker: ExternalLinkMarker, messages: BlogRenderMessages): string {
+  if (marker === "none") return "";
+  const hidden = `<span class="blog-visually-hidden"> ${md.utils.escapeHtml(messages.opensInNewTab)}</span>`;
+  return marker === "text" ? hidden : `<span class="blog-external-marker" aria-hidden="true">↗</span>${hidden}`;
+}
+
+function addExternalLinks(md: Markdown, siteHosts: readonly string[], messages: BlogRenderMessages, marker: ExternalLinkMarker): void {
+  const markerHtml = getExternalMarkerHtml(md, marker, messages);
   // Markdown links do not nest, but a stack keeps open and close paired whatever the token stream.
   const externalStack: boolean[] = [];
   md.renderer.rules.link_open = (tokens, index, options, _env, self) => {
@@ -312,10 +330,7 @@ function addExternalLinks(md: Markdown, siteHosts: readonly string[], messages: 
     return self.renderToken(tokens, index, options);
   };
   md.renderer.rules.link_close = (tokens, index, options, _env, self) => {
-    const marker = externalStack.pop() === true
-      ? `<span class="blog-external-marker" aria-hidden="true">↗</span><span class="blog-visually-hidden"> ${md.utils.escapeHtml(messages.opensInNewTab)}</span>`
-      : "";
-    return marker + self.renderToken(tokens, index, options);
+    return (externalStack.pop() === true ? markerHtml : "") + self.renderToken(tokens, index, options);
   };
 }
 
@@ -513,7 +528,7 @@ function createMarkdown<TNode>(
   md.validateLink = isSafeLink;
   addImages(md, options.images);
   addFootnoteMarkup(md, messages);
-  addExternalLinks(md, options.siteHosts ?? [], messages);
+  addExternalLinks(md, options.siteHosts ?? [], messages, options.externalMarker ?? "icon-and-text");
   addBlockTokens(md, getTypes(plugins, "fence"));
   addDirectiveRule(md, getTypes(plugins, "directive"));
   addHeadingIds(md, state);

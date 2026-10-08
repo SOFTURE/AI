@@ -75,8 +75,11 @@ export const qualityOptionsSchema = z.strictObject({
   limits: qualityLimitsSchema,
   /** Per rule: another severity, or "off". */
   severity: z.record(z.string().regex(KEBAB), z.enum(["error", "warning", "off"])).default({}),
-  /** Where the pages live; BL-4 serves them there. */
-  paths: z.strictObject({ articles: sitePath.default("/blog"), terms: sitePath.default("/blog/glossary") }).prefault({}),
+  /**
+   * Where articles and terms live, only to override the blog's `routes` (`articles` defaults to
+   * `routes.index`, `terms` to `routes.glossary`). The resolved pair is `QualitySettings.paths`.
+   */
+  paths: z.strictObject({ articles: sitePath.optional(), terms: sitePath.optional() }).prefault({}),
   /** Absolute origins whose links count as internal, besides the config's `appOrigin` and the canonical site origin (`getSiteUrls`). */
   ownOrigins: z.array(z.url({ protocol: /^https?$/ })).default([]),
   /** The Next.js app folder `softure-blog check` reads routes from. Default: `src/app`, else `app`. */

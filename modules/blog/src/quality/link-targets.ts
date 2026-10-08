@@ -2,7 +2,8 @@
 // for `softure-blog check`. A route exists when the Next.js app folder has a `page.*` or `route.*` for
 // it (route groups vanish from the path; private segments and `_folders` are skipped). An article or
 // a glossary term exists when the content folder has its published file of that kind, under
-// `quality.paths`; a static page under the same path wins over the dynamic article route.
+// `QualitySettings.paths` (the blog's routes unless `quality.paths` overrides them); a static page
+// under the same path wins over the dynamic article route.
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArticleFile, type ParseArticleFileOptions } from "../content/article-file.js";

@@ -22,6 +22,25 @@ describe("renderArticle: links", () => {
     );
   });
 
+  it("drops the visible arrow but keeps the hidden words with externalMarker: \"text\"", () => {
+    expect(renderArticle("[ONS](https://www.ons.gov.uk/)", { externalMarker: "text" }).html).toBe(
+      '<p><a href="https://www.ons.gov.uk/" rel="noopener noreferrer" target="_blank" class="blog-external">ONS' +
+        '<span class="blog-visually-hidden"> (opens in a new tab)</span></a></p>\n',
+    );
+  });
+
+  it("adds no marker with externalMarker: \"none\" and still opens the link safely in a new tab", () => {
+    expect(renderArticle("[ONS](https://www.ons.gov.uk/)", { externalMarker: "none" }).html).toBe(
+      '<p><a href="https://www.ons.gov.uk/" rel="noopener noreferrer" target="_blank" class="blog-external">ONS</a></p>\n',
+    );
+  });
+
+  it("keeps the arrow and the hidden words by default and with externalMarker: \"icon-and-text\"", () => {
+    const expected = `<p><a href="https://www.ons.gov.uk/" rel="noopener noreferrer" target="_blank" class="blog-external">ONS${EXTERNAL_MARKER}</a></p>\n`;
+    expect(renderArticle("[ONS](https://www.ons.gov.uk/)").html).toBe(expected);
+    expect(renderArticle("[ONS](https://www.ons.gov.uk/)", { externalMarker: "icon-and-text" }).html).toBe(expected);
+  });
+
   it("treats every http(s) link as external when no site host is given", () => {
     expect(renderArticle("[a](https://example.com/)").html).toContain('class="blog-external"');
   });

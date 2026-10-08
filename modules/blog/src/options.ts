@@ -2,7 +2,7 @@
 import { z } from "zod";
 import { qualitySettingSchema } from "./quality/options.js";
 import type { ArticleImagePolicy } from "./render/images.js";
-import type { BlockPlugin } from "./render/render-article.js";
+import { EXTERNAL_LINK_MARKERS, type BlockPlugin } from "./render/render-article.js";
 
 /** Where the app keeps its article files unless a command names a path. */
 export const DEFAULT_CONTENT_DIR = "content/blog";
@@ -204,6 +204,11 @@ export const blogOptionsSchema = z
     blocks: z.array(z.custom<BlockPlugin>(isBlockPlugin, "must be a block plugin: { type: \"chart\", render(block) }")).default([]),
     /** Hosts besides those of `appOrigin` and the canonical site origin (`getSiteUrls`) whose links are not marked external (subdomains included). */
     siteHosts: z.array(z.string().regex(HOSTNAME, "must be a host name, e.g. example.com")).default([]),
+    /**
+     * What the pages append to an external link (`renderArticle({ externalMarker })`): the arrow and a
+     * visually hidden "opens in a new tab", the hidden words only, or nothing.
+     */
+    externalLinkMarker: z.enum(EXTERNAL_LINK_MARKERS).default("icon-and-text"),
     /**
      * Which images article bodies may show (`renderArticle({ images })`), used by the pages and the
      * quality gate; without it every image renders as its alt text and the gate refuses it.

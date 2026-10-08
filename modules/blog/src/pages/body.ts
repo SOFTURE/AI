@@ -11,7 +11,7 @@ import { getTermPath, type BlogRoutes } from "./paths.js";
 export interface RenderPageBodyOptions {
   readonly glossary: readonly GlossaryTerm[];
   readonly routes: BlogRoutes;
-  readonly options: Pick<BlogOptions, "blocks" | "images" | "siteHosts">;
+  readonly options: Pick<BlogOptions, "blocks" | "images" | "siteHosts"> & Partial<Pick<BlogOptions, "externalLinkMarker">>;
   /** The app's own origins (`appOrigin` and the canonical site origin); their hosts are the site's (links to them are not external). */
   readonly origins: readonly string[];
   readonly messages: BlogMessages;
@@ -28,6 +28,7 @@ export function renderPageBody<TNode = unknown>(text: BlogArticle, input: Render
     // app's plugins return.
     blocks: input.options.blocks as readonly BlockPlugin<TNode>[],
     article: { currentAsOf: text.currentAsOf, fields: text.fields },
+    ...(input.options.externalLinkMarker === undefined ? {} : { externalMarker: input.options.externalLinkMarker }),
     messages: input.messages.render,
   });
 }
