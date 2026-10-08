@@ -4,7 +4,7 @@ import { formatMessage } from "@softure-ai/core";
 import { type ChangeEvent, type InvalidEvent, type ReactNode, useId } from "react";
 import { type ClassNames, createSlotClassGetter } from "./class-names.js";
 import { type CopyProps, getCopy } from "./copy.js";
-import { Hint } from "./hint.js";
+import { Hint, type HintAppearance } from "./hint.js";
 import { CheckIcon } from "./icons.js";
 import { useUiLocale } from "./locale.js";
 
@@ -94,7 +94,23 @@ export function SwitchControl({
   );
 }
 
-export type SwitchSlot = "root" | "control" | "text" | "labelRow" | "label" | "state" | "description";
+/**
+ * Parts of a `Switch`. `stateOn` and `stateOff` are the two state lines, `hint` the wrapper of the "?".
+ * The classes that pick the visible state line are behaviour and stay under `unstyled`: the root keeps
+ * `sft:group/switch`, `state` keeps `sft:grid` and each line keeps its stacking and visibility classes.
+ * An app's own (unprefixed) `group-has-checked/switch:` classes need `group/switch` on `classNames.root`.
+ */
+export type SwitchSlot =
+  | "root"
+  | "control"
+  | "text"
+  | "labelRow"
+  | "label"
+  | "hint"
+  | "state"
+  | "stateOn"
+  | "stateOff"
+  | "description";
 export type SwitchVariant = "field" | "bare";
 
 export interface SwitchProps
@@ -105,7 +121,12 @@ export interface SwitchProps
   readonly hint?: ReactNode;
   /** Name of the "?"; by default the field hint label with a string `label`. */
   readonly hintLabel?: string;
-  /** A line under the label, tied to the switch with `aria-describedby`. */
+  /** The hint's trigger and bubble classes, gap and width, so it matches the app's standalone hints. */
+  readonly hintProps?: HintAppearance;
+  /**
+   * A line under the label, tied to the switch with `aria-describedby`. Its id is `<id>-description`, and the
+   * hint bubble's is `<id>-hint`, where `<id>` is the switch `id` (generated when omitted).
+   */
   readonly description?: ReactNode;
   /** A line that follows the state; both lines are in the markup and `:checked` picks the visible one. */
   readonly stateText?: { readonly on: ReactNode; readonly off: ReactNode };
@@ -118,22 +139,38 @@ export interface SwitchProps
 
 const SWITCH_FRAME: Readonly<Record<SwitchVariant, string>> = {
   field:
-    "sft:group/switch sft:flex sft:min-h-10 sft:items-start sft:gap-3 sft:rounded-control sft:border sft:border-border sft:bg-surface sft:px-3 sft:py-1.5 sft:font-sans sft:transition-colors sft:duration-(--sft-duration-fast) sft:has-checked:border-accent/40 sft:has-disabled:opacity-70",
-  bare: "sft:group/switch sft:flex sft:items-start sft:gap-3 sft:font-sans",
+    "sft:flex sft:min-h-10 sft:items-start sft:gap-3 sft:rounded-control sft:border sft:border-border sft:bg-surface sft:px-3 sft:py-1.5 sft:font-sans sft:transition-colors sft:duration-(--sft-duration-fast) sft:has-checked:border-accent/40 sft:has-disabled:opacity-70",
+  bare: "sft:flex sft:items-start sft:gap-3 sft:font-sans",
 };
 
+// The label row is a block, not a flex row: the label reserves the room of the "?" at the end of its last line
+// (`pr-5`) and the "?" is drawn in that room with a net advance of zero (`-ml-5 w-5`), so a wrapping label
+// keeps the "?" next to its last word instead of pushing it to the edge or to a line of its own.
 const SWITCH_CLASSES: Readonly<Record<Exclude<SwitchSlot, "root">, string>> = {
   control: "sft:flex sft:pt-px",
   text: "sft:min-w-0 sft:flex-1",
-  labelRow: "sft:flex sft:items-baseline sft:gap-1.5",
+  labelRow: "sft:block",
   label:
     "sft:cursor-pointer sft:text-sm sft:font-medium sft:leading-normal sft:text-foreground sft:group-has-disabled/switch:cursor-not-allowed",
-  state: "sft:grid sft:text-xs sft:leading-snug sft:text-muted",
+  hint: "sft:-ml-5 sft:inline-flex sft:w-5 sft:justify-end",
+  state: "sft:text-xs sft:leading-snug sft:text-muted",
+  stateOn: "",
+  stateOff: "",
   description: "sft:mt-0.5 sft:block sft:text-xs sft:leading-snug sft:text-muted",
 };
 
+const LABEL_HINT_ROOM = "sft:pr-5";
+
+// Behaviour, kept under `unstyled`: the group marker the state lines read, and the two stacked lines of which
+// `:checked` shows one.
+const SWITCH_GROUP = "sft:group/switch";
+const STATE_STACK = "sft:grid";
 const STATE_ON = "sft:invisible sft:col-start-1 sft:row-start-1 sft:group-has-checked/switch:visible";
 const STATE_OFF = "sft:visible sft:col-start-1 sft:row-start-1 sft:group-has-checked/switch:invisible";
+
+function joinClasses(...parts: readonly (string | undefined)[]): string {
+  return parts.filter((part) => part !== undefined && part !== "").join(" ");
+}
 
 /** A labelled switch for a yes/no setting. */
 export function Switch({
@@ -142,6 +179,7 @@ export function Switch({
   label,
   hint,
   hintLabel,
+  hintProps,
   description,
   stateText,
   variant = "field",
@@ -164,7 +202,7 @@ export function Switch({
   const copy = getCopy("field", { locale: useUiLocale(locale), messages });
   const triggerLabel = hintLabel ?? formatMessage(copy.hintLabel, { label: typeof label === "string" ? label : "" });
   return (
-    <div className={slot("root")}>
+    <div className={joinClasses(SWITCH_GROUP, slot("root"))}>
       <span className={slot("control")}>
         <SwitchControl
           {...control}
@@ -178,19 +216,24 @@ export function Switch({
       </span>
       <span className={slot("text")}>
         <span className={slot("labelRow")}>
-          <label htmlFor={inputId} className={slot("label")}>
+          <label
+            htmlFor={inputId}
+            className={hint === undefined || unstyled === true ? slot("label") : joinClasses(slot("label"), LABEL_HINT_ROOM)}
+          >
             {label}
           </label>
           {hint === undefined ? null : (
-            <Hint label={triggerLabel} id={`${inputId}-hint`} anchorLeft>
-              {hint}
-            </Hint>
+            <span className={slot("hint")}>
+              <Hint {...hintProps} label={triggerLabel} id={`${inputId}-hint`} anchorLeft>
+                {hint}
+              </Hint>
+            </span>
           )}
         </span>
         {stateText === undefined ? null : (
-          <span className={slot("state")}>
-            <span className={unstyled === true ? undefined : STATE_ON}>{stateText.on}</span>
-            <span className={unstyled === true ? undefined : STATE_OFF}>{stateText.off}</span>
+          <span className={joinClasses(slot("state"), STATE_STACK)}>
+            <span className={joinClasses(slot("stateOn"), STATE_ON)}>{stateText.on}</span>
+            <span className={joinClasses(slot("stateOff"), STATE_OFF)}>{stateText.off}</span>
           </span>
         )}
         {description === undefined ? null : (

@@ -191,6 +191,7 @@ errors; `PasswordField` never replays. The server parses amounts with the same
 <Select name="currency" aria-label="Currency" defaultValue="PLN"
   options={[{ value: "PLN", label: "PLN" }, { value: "EUR", label: "EUR" }]} />
 <Switch name="included" label="Include in net worth" description="Counted in the total" defaultChecked />
+<Switch name="notify" label="Notify me" hint="…" hintProps={appHint} stateText={{ on: "On", off: "Off" }} />
 <Checkbox name="terms" label="I accept the terms" required />
 <SegmentedControl legend="Period" isLegendHidden value={period} onChange={setPeriod}
   options={[{ value: "month", label: "Month" }, { value: "year", label: "Year" }]} />
@@ -214,8 +215,17 @@ the animation or transition ends. `Hint` opens on hover and focus, pins on click
 outside press or focus leaving it; Escape closes it however it opened (hover and focus included).
 Before hydration it already opens on hover and focus, by CSS alone. The bubble resets
 `text-transform` and `letter-spacing`, so a hint inside an uppercase or tracked heading reads normally.
-`Card`, `Field` and the form fields render their own "?"; `hintProps` (a `HintAppearance`: `classNames`,
+`Card`, `Field`, the form fields and `Switch` render their own "?"; `hintProps` (a `HintAppearance`: `classNames`,
 `triggerGap`, `isWide`) gives it the look and gap of the app's standalone hints.
+
+`Switch` puts the "?" inline after the label: the label reserves its room at the end of its last line (`pr-5`) and
+the `hint` wrapper draws it there with no advance of its own (`-ml-5 w-5`), so a wrapping label keeps the "?" next
+to its last word. `stateText` renders both lines and `:checked` shows one; that switching is behaviour, so under
+`unstyled` the root keeps `sft:group/switch`, `state` keeps `sft:grid` and the lines keep their visibility classes,
+while `stateOn` and `stateOff` take the app's look. An app's own `group-has-checked/switch:` classes need its own
+`group/switch` on `classNames.root`. Ids follow the switch `id` (generated when omitted): `<id>-description` for the
+description and `<id>-hint` for the hint bubble. Slots: `root`, `control`, `text`, `labelRow`, `label`, `hint`,
+`state`, `stateOn`, `stateOff`, `description`; `controlClassNames` reaches the `SwitchControl` inside.
 
 `Tabs` follows the WAI-ARIA tabs pattern: only the selected tab is in the Tab order, arrows move between tabs and
 wrap, Home and End jump to the ends. `activation="automatic"` (default) selects the tab an arrow reaches; `"manual"`
