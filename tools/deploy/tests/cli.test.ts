@@ -243,3 +243,43 @@ describe("softure-deploy", () => {
     expect(readFileSync(join(import.meta.dirname, "../src/cli/main.ts"), "utf8").startsWith("#!/usr/bin/env node\n")).toBe(true);
   });
 });
+
+describe("softure-deploy env render --from-json-env", () => {
+  const SECRETS = JSON.stringify({ DATABASE_URL: "postgres://db/app", AUTH_SECRET: SECRET, PORT: 3000 });
+
+  it("takes the values from the JSON objects only, the later one winning, and prints names, never a value", async () => {
+    writeCompose(`${COMPOSE}      MCP_ALLOW_WRITES: \${MCP_ALLOW_WRITES:-}\n`);
+    const vars = JSON.stringify({ DATABASE_URL: "postgres://db/override", MCP_ALLOW_WRITES: "1" });
+    const io = makeIo({ APP_SECRETS: SECRETS, APP_VARS: vars, AUTH_SECRET: "from-the-environment" });
+    expect(await runCli(["env", "render", "--from-json-env=APP_SECRETS", "--from-json-env=APP_VARS"], io)).toBe(0);
+    expect(readFileSync(join(dir, ".env.prod"), "utf8")).toBe(
+      `${ENV_FILE_HEADER}\nAUTH_SECRET=${SECRET}\nDATABASE_URL=postgres://db/override\nMCP_ALLOW_WRITES=1\n`,
+    );
+    expect(out.join("")).not.toContain(SECRET);
+    expect(err).toEqual([]);
+  });
+
+  it("does not read a name from the environment, and counts a non-string value as missing", async () => {
+    writeCompose(`${COMPOSE}      PORT: \${PORT:?}\n`);
+    const io = makeIo({ APP_SECRETS: JSON.stringify({ AUTH_SECRET: SECRET, PORT: 3000 }), DATABASE_URL: "postgres://db/app" });
+    expect(await runCli(["env", "render", "--from-json-env=APP_SECRETS"], io)).toBe(1);
+    expect(err.join("")).toBe("env render: .env.prod not written; missing in APP_SECRETS: DATABASE_URL, PORT.\n");
+    expect(existsSync(join(dir, ".env.prod"))).toBe(false);
+  });
+
+  it("refuses a variable that is unset or not a JSON object, naming the variable and never its text", async () => {
+    writeCompose();
+    expect(await runCli(["env", "render", "--from-json-env=APP_SECRETS"], makeIo({}))).toBe(1);
+    expect(await runCli(["env", "render", "--from-json-env=APP_SECRETS"], makeIo({ APP_SECRETS: `["${SECRET}"]` }))).toBe(1);
+    expect(await runCli(["env", "render", "--from-json-env=APP_SECRETS"], makeIo({ APP_SECRETS: `${SECRET}{` }))).toBe(1);
+    expect(err.join("")).toBe(
+      [
+        "env render: APP_SECRETS is not set; --from-json-env names a variable holding a JSON object.",
+        "env render: APP_SECRETS is not a JSON object of names and values.",
+        "env render: APP_SECRETS is not a JSON object of names and values.",
+        "",
+      ].join("\n"),
+    );
+    expect(err.join("")).not.toContain(SECRET);
+  });
+});

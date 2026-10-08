@@ -2,7 +2,7 @@
 // `export { exportRoute as GET } from "@softure-ai/privacy/next"` in app/api/privacy/export/route.ts.
 // The user comes from the session cookie only; the answer is a JSON attachment that is never cached.
 import { getCurrentUser } from "@softure-ai/auth/next";
-import { errorLogLabel, safeError, type SoftureConfig } from "@softure-ai/core";
+import { errorLogLabel, safeError, toCalendarDay, type SoftureConfig } from "@softure-ai/core";
 import { getSoftureConfig } from "@softure-ai/core/next";
 import { getPrivacyOptions } from "../server/options.js";
 import { exportOwnData } from "../server/self-service.js";
@@ -15,9 +15,8 @@ function fail(error: string, status: number, headers: Record<string, string> = {
 }
 
 /** `account-data-2026-10-03.json`: the date of the download in the app's time zone. */
-function getFileName(config: SoftureConfig, now: Date): string {
-  const date = new Intl.DateTimeFormat("en-CA", { timeZone: config.timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
-  return `${getPrivacyOptions(config).export.fileName}-${date}.json`;
+export function getFileName(config: SoftureConfig, now: Date): string {
+  return `${getPrivacyOptions(config).export.fileName}-${toCalendarDay(now, config.timezone)}.json`;
 }
 
 /**

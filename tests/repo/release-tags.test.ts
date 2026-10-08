@@ -57,11 +57,11 @@ describe("planReleaseTags", () => {
     });
   });
 
-  it("plans the 19 public packages of this repository, core first", () => {
+  it("plans the 20 public packages of this repository, core first", () => {
     const packages = readReleasePackages(REPO_ROOT);
     const core = packages.find((entry) => entry.name === "@softure-ai/core");
     const plan = planReleaseTags(packages, ["all"]);
-    expect(plan.ok && plan.tags.length).toBe(19);
+    expect(plan.ok && plan.tags.length).toBe(20);
     expect(plan.ok && plan.tags[0]).toBe(`core@${String(core?.manifest.version)}`);
   });
 });

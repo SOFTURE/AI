@@ -40,6 +40,8 @@ jobs:
       # value there, or the release stops before it reaches the server:
       # build-args: |
       #   APP_ORIGIN=${{ vars.APP_ORIGIN }}
+      # An image the app already built and tested, by digest from the same repository: deployed as it is, never rebuilt.
+      # prebuilt-image: ghcr.io/<owner>/<repository>@sha256:<digest>
     secrets:
       ssh-host: ${{ secrets.DEPLOY_SSH_HOST }}
       ssh-user: ${{ secrets.DEPLOY_SSH_USER }}
