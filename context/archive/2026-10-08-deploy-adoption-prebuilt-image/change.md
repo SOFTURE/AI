@@ -1,12 +1,13 @@
 ---
 change_id: deploy-adoption-prebuilt-image
 title: "deploy: adoption gaps for an app that deploys the image it tested (prebuilt image, app ledger guard, deploy.sh hooks, compose exec database, env render from JSON) (issue #246)"
-status: impl_reviewed
+status: archived
 roadmap_item: null
 issue: 246
 branch: claude/project-thread-imw5wv
 created: 2026-10-08
 updated: 2026-10-08
+archived_at: 2026-10-08
 ---
 
 ## Intent
