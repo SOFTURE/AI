@@ -89,9 +89,32 @@ function deriveKey(password: string, salt: Buffer, params: ScryptParams): Promis
   });
 }
 
-/** Whether `value` is in the `scrypt$N$r$p$salt$key` format this module writes and reads. */
+const BASE64URL = /^[A-Za-z0-9_-]+$/;
+
+/**
+ * Whether `value` is a hash `hashPassword` could have written: `scrypt$N$r$p$salt$key` with a cost scrypt accepts
+ * (a power of two above 1) and an unpadded base64url salt and key of exactly `SALT_BYTES` and `KEY_BYTES`. A hash
+ * cut or padded in transport fails here instead of being stored and failing every login. It checks the format, not
+ * integrity: a character swapped for another base64url character still passes, and so does a last character that
+ * differs only in unused bits (it decodes to the same bytes, so the hash still verifies).
+ */
 export function isPasswordHash(value: string): boolean {
-  return readHashParts(value) !== null;
+  const parts = readHashParts(value);
+  return (
+    parts !== null &&
+    isScryptCost(parts.params.cost) &&
+    isBase64urlOf(parts.salt, SALT_BYTES) &&
+    isBase64urlOf(parts.key, KEY_BYTES)
+  );
+}
+
+function isScryptCost(cost: number): boolean {
+  // Not a bitwise test: a safe integer can exceed the 32 bits `&` works on.
+  return cost > 1 && Number.isInteger(Math.log2(cost));
+}
+
+function isBase64urlOf(value: string, bytes: number): boolean {
+  return value.length === Math.ceil((bytes * 4) / 3) && BASE64URL.test(value);
 }
 
 function readHashParts(value: string): { params: ScryptParams; salt: string; key: string } | null {
