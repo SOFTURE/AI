@@ -1,12 +1,13 @@
 ---
 change_id: ui-charts-generic-components
 title: "ui + charts: tabs, collapsible section, link segmented nav, smooth line and area paths (issue #252)"
-status: impl_reviewed
+status: archived
 roadmap_item: null
 issue: 252
 branch: claude/project-thread-nuoxi2
 created: 2026-10-08
 updated: 2026-10-08
+archived_at: 2026-10-08
 ---
 
 ## Intent

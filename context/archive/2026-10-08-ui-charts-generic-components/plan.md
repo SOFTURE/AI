@@ -80,12 +80,12 @@ Done when: the new tests were seen red, then green; gates green (typecheck, lint
 ### Phase 1: ui components
 
 #### Automated
-- [ ] 1.1 ui tests seen red, then green
-- [ ] 1.2 README, CHANGELOG and version 0.1.13
+- [x] 1.1 ui tests seen red, then green — 60be8c6
+- [x] 1.2 README, CHANGELOG and version 0.1.13 — 60be8c6
 
 ### Phase 2: charts paths
 
 #### Automated
-- [ ] 2.1 charts tests seen red, then green
-- [ ] 2.2 README, CHANGELOG and version 0.1.5
-- [ ] 2.3 Gates green (typecheck, lint, test, build)
+- [x] 2.1 charts tests seen red, then green — 60be8c6
+- [x] 2.2 README, CHANGELOG and version 0.1.5 — 60be8c6
+- [x] 2.3 Gates green (typecheck, lint, test, build) — 60be8c6
