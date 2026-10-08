@@ -4,10 +4,21 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`billing@x.y.z`).
 
-## 0.1.9
+## 0.1.10
 
+- `formatDayCount(days, locale, messages)` (`/ui`): a bare count of days for the app's own sentences ("5 days",
+  "Trial ends in 5 days"), from a new plural table `messages.dayCount`, overridable like any message. The count is
+  written in the locale's digits (a fraction reads with a comma in pl).
+- `formatShortDay` and `formatShortLastDay` (`/ui`): the numeric forms of `formatDay` and `formatLastDay`
+  (`22.11.2026` in pl, `11/22/2026` in en) for compact places such as a badge.
+- `getBillingMessages(config)` is exported from `/next` too: the copy in the app's locale with its
+  `billing({ messages })` overrides merged over the defaults.
+- Existing copy, components and formatters render as in 0.1.9.
 - Calendar days (trial ends, days left) are counted with `toCalendarDay` from `@softure-ai/core` instead of a local
   `en-CA` formatter. Same results; requires `@softure-ai/core` `^0.1.7` (#270).
+
+## 0.1.9
+
 - `extend-trial` ops script (`createExtendTrialScript` in `/scripts`): `--email` or `--user`, and `--until=YYYY-MM-DD`
   (the new last day) or `--days=N` (days of access after the current last day, or from today for an ended trial); dry run by
   default, `--commit` writes through `extendTrialManually` with no admin, so the extension is in the account's history.

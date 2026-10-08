@@ -1,4 +1,6 @@
 export const en = {
+  /** A bare count of days for the app's own sentences (`formatDayCount`): "5 days". */
+  dayCount: { one: "{count} day", few: "{count} days", many: "{count} days", other: "{count} days" },
   badge: {
     trial: "Trial",
     paid: "Paid",

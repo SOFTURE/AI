@@ -26,7 +26,8 @@ import of what the old system knew (`import-entitlements`) and a pin step for de
   **`changeEntitlement()`**, the one write path (grants, revokes, trial extensions) the payment
   adapters build on.
 - **`AccessBadge` and `AccessNotice`** (`/ui`), standalone with slots, `unstyled` and messages, and
-  `CurrentAccessBadge` / `CurrentAccessNotice` (`/next`) wired to the signed-in account.
+  `CurrentAccessBadge` / `CurrentAccessNotice` (`/next`) wired to the signed-in account, plus the date and day-count
+  formatters they use, for the app's own sentences (see §9).
 - **Plans in the config** (`billing({ plans })`): name, description, price in the currency's minor
   unit, period (days, weeks, months, years or lifetime), feature lines; `formatPrice` and the
   period copy follow the app's locale.
@@ -689,14 +690,38 @@ tile gets `--sft-border-strong` and a shadow, and sets `data-plan`, `data-featur
 
 ## 9. Copy
 
-`billingMessages` (`en`, `pl`): `badge` (status names, `daysLeft` plural forms, `until`), `notice`
+`billingMessages` (`en`, `pl`): `dayCount` (plural forms of a bare day count), `badge` (status names, `daysLeft` plural forms, `until`), `notice`
 (the four notices and their two link texts), `pricing` (period plural forms per unit, `lifetime`,
 `featured`, `choose`, `empty`), `reminderMail` (`subject` and `body` of `trialEnding`,
 `paidEnding`, `trialEnded` and `paidEnded`; the link text is the notice's), `payment` (the payment page and its `heading`, the invoice form and the notices after a
 hosted checkout, `checkoutSuccess` and `checkoutCancelled`), `admin` (the page's `heading`, the
 grant form, `trial` for the trial form, `requests`, `history`) and `errors`. Plan names, descriptions and features come from the config, per locale. `{date}` is the last day of access in
 the app's locale and time zone, `{count}` the days left. Override them with
-`billing({ messages: { en: { notice: { choosePlan: "See plans" } } } })`.
+`billing({ messages: { en: { notice: { choosePlan: "See plans" } } } })`; `getBillingMessages(config)` (`/next`
+or `/server`) returns the copy in the app's locale with those overrides merged over the defaults.
+
+**Formatters** (`/ui`), for components and the app's own sentences. Dates take the app's locale and time zone; an end
+is the first instant without access, so the `*LastDay` forms print the day before an end at midnight:
+
+| Function | Output (en) | Use |
+|---|---|---|
+| `formatDay(instant, locale, timezone)` | `October 3, 2026` | when something happened, a first day of access |
+| `formatLastDay(end, locale, timezone)` | `October 16, 2026` | the last day with access |
+| `formatShortDay(instant, locale, timezone)` | `10/03/2026` (`03.10.2026` in pl) | the numeric form of `formatDay` |
+| `formatShortLastDay(end, locale, timezone)` | `10/16/2026` (`16.10.2026` in pl) | the numeric form of `formatLastDay` |
+| `formatDaysLeft(days, locale, messages)` | `5 days left` | the badge's sentence (`badge.daysLeft`) |
+| `formatDayCount(days, locale, messages)` | `5 days` | a bare count (`dayCount`): "Trial ends in 5 days" |
+| `formatPeriod(period, locale, messages)` | `per 3 months` | how long one payment lasts (`pricing.period`) |
+
+```ts
+import { getBillingMessages } from "@softure-ai/billing/next";
+import { formatDayCount } from "@softure-ai/billing/ui";
+
+const messages = getBillingMessages(config);
+if (entitlement.status === "trial") {
+  line = `Trial ends in ${formatDayCount(entitlement.daysLeft, config.locale, messages)}`;
+}
+```
 
 ## 10. Hooks
 
