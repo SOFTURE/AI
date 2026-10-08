@@ -16,6 +16,7 @@ import { errorLogLabel, getModule } from "@softure-ai/core";
 import { consumeRateLimit, identifyClient } from "@softure-ai/security/server";
 import type { McpServerIdentity } from "../contract.js";
 import { getProtectedResourceMetadataUrl, isOAuthEnabled } from "./oauth-http.js";
+import { resolveMcpOrigins } from "./origins.js";
 import { MCP_READ_SCOPE, MCP_WRITE_SCOPE } from "./scopes.js";
 import { verifyAccessToken, type McpAccessContext } from "./tokens.js";
 
@@ -79,7 +80,7 @@ export function createMcpEndpoint({ createServer }: McpEndpointOptions): McpEndp
       );
     }
 
-    const authInfo = await authenticate(ctx, request.headers.get("authorization"));
+    const authInfo = await authenticate(ctx, request);
     if (authInfo instanceof Response) return authInfo;
     return handler.fetch(request, { authInfo });
   };
@@ -92,9 +93,10 @@ export function createMcpEndpoint({ createServer }: McpEndpointOptions): McpEndp
  * names the protected resource metadata (RFC 9728 §5.1): that is how claude.ai and ChatGPT find
  * the authorization server.
  */
-async function authenticate(ctx: McpAccessContext, header: string | null): Promise<AuthInfo | Response> {
+async function authenticate(ctx: McpAccessContext, request: Request): Promise<AuthInfo | Response> {
+  const header = request.headers.get("authorization");
   const challenge = isOAuthEnabled(ctx.config)
-    ? { requiredScopes: [MCP_READ_SCOPE], resourceMetadataUrl: getProtectedResourceMetadataUrl(ctx.config) }
+    ? { requiredScopes: [MCP_READ_SCOPE], resourceMetadataUrl: getProtectedResourceMetadataUrl(ctx.config, resolveMcpOrigins(ctx.config, request)) }
     : { requiredScopes: [MCP_READ_SCOPE] };
   if (header === null || !BEARER_PREFIX.test(header)) {
     return bearerAuthChallengeResponse(new OAuthError(OAuthErrorCode.InvalidToken, "Missing Bearer token"), challenge);

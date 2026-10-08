@@ -9,6 +9,7 @@ import {
   answerOAuthPreflight,
   getAuthorizationServerMetadata,
   getProtectedResourceMetadata,
+  getRootProtectedResourceMetadata,
   handleAuthorizationDecision,
   handleClientRegistration,
   handleTokenRequest,
@@ -30,9 +31,12 @@ async function withContext(request: Request, handle: (ctx: McpAccessContext, req
   return handle(ctx, request);
 }
 
-/** `GET /.well-known/oauth-authorization-server`. */
-export function getAuthorizationServerMetadataRoute(): Response {
-  return serveDiscoveryDocument(getSoftureConfig(), getAuthorizationServerMetadata);
+/**
+ * `GET /.well-known/oauth-authorization-server`. Reads the request, so Next never renders it at
+ * build time with one origin baked in.
+ */
+export function getAuthorizationServerMetadataRoute(request: Request): Response {
+  return serveDiscoveryDocument(getSoftureConfig(), (config, origins) => getAuthorizationServerMetadata(config, origins), request);
 }
 
 /**
@@ -40,8 +44,12 @@ export function getAuthorizationServerMetadataRoute(): Response {
  * export at both paths; the request's path picks the variant.
  */
 export function getProtectedResourceMetadataRoute(request: Request): Response {
-  const variant = new URL(request.url).pathname.replace(/\/+$/, "").endsWith("/oauth-protected-resource") ? "root" : "endpoint";
-  return serveDiscoveryDocument(getSoftureConfig(), (config) => getProtectedResourceMetadata(config, variant));
+  const isRoot = new URL(request.url).pathname.replace(/\/+$/, "").endsWith("/oauth-protected-resource");
+  return serveDiscoveryDocument(
+    getSoftureConfig(),
+    isRoot ? getRootProtectedResourceMetadata : (config, origins) => getProtectedResourceMetadata(config, "endpoint", origins),
+    request,
+  );
 }
 
 /** `POST /api/oauth/register`. */

@@ -10,5 +10,6 @@ export {
   getProtectedResourceMetadataRoute,
   registerOAuthClientRoute,
 } from "./oauth-routes.js";
+export { getMcpAccessContext } from "./context.js";
 export { McpAccessPage } from "./pages.js";
 export { createMcpRoute } from "./route.js";

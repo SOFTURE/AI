@@ -4,6 +4,22 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mcp-access@x.y.z`).
 
+## 0.1.8
+
+- OAuth URLs follow the request: `resolveAppOrigin(request)` (with `readRequestOrigin`, which reads
+  `Host` and `X-Forwarded-Proto`) sets the app origin per request for the issuer, the endpoints in
+  the metadata, `resource`, `resource_metadata` in the endpoint's `401`, `iss` and the consent
+  decision's `Origin` check. Without it nothing changes.
+- `resourceOrigins`: other public hosts; the root protected resource metadata asked on one names it
+  as `resource`, and the authorization and token endpoints accept it.
+- `oauth.metadata.authorizationServer` / `.protectedResource`: extra discovery keys (an object, or
+  a function of the request's origins); generated keys win, `resource_name` can be replaced.
+- Discovery documents carry `Vary: host, x-forwarded-proto`; `getAuthorizationServerMetadataRoute`
+  now reads the request (re-exporting it as `GET` keeps working).
+- New exports: `createMcpAccessContext` and `resolveMcpOrigins` (`/server`), `getMcpAccessContext`
+  (`/next`), `OAuthClientRow`, `McpOrigins` and `readRequestOrigin` (root and `/server`). URL
+  builders take the origins as an optional last argument.
+
 ## 0.1.7
 
 - OAuth 2.1 for MCP clients, opt-in (`oauth.enabled`): protected resource and authorization server

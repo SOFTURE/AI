@@ -32,7 +32,7 @@ export const MCP_RATE_LIMIT_BUCKETS = {
 export const mcpAccess = defineModule({
   manifest: {
     id: MODULE_ID,
-    version: "0.1.7",
+    version: "0.1.8",
     dependsOn: { security: "^0.1.0", auth: "^0.1.0" },
     dbSchema: "mcp",
     tables: ["access_tokens", "oauth_clients", "oauth_authorization_codes", "oauth_grants"],
@@ -94,12 +94,17 @@ export {
   MAX_TOKEN_NAME_LENGTH,
   SERVER_NAME_PATTERN,
   TOOL_NAME_PATTERN,
+  GENERATED_AUTHORIZATION_SERVER_KEYS,
+  GENERATED_PROTECTED_RESOURCE_KEYS,
   type McpAccessOptions,
   type McpAccessOptionsInput,
+  type McpAppOriginResolver,
+  type McpMetadataExtension,
   type McpOAuthOptions,
   type McpToolAccess,
   type McpToolDefinition,
   type McpToolDefinitionInput,
 } from "./options.js";
-export { accessTokens, oauthAuthorizationCodes, oauthClients, oauthGrants } from "./schema.js";
+export { readRequestOrigin, type McpOriginRequest, type McpOrigins } from "./origins.js";
+export { accessTokens, oauthAuthorizationCodes, oauthClients, oauthGrants, type OAuthClientRow, type OAuthTokenEndpointAuthMethod } from "./schema.js";
 export { getAccessTokenStatus, type AccessTokenStatusOptions } from "./token-status.js";
