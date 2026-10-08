@@ -227,10 +227,10 @@ interface ClientCredentials {
 
 /** `Basic` (RFC 6749 §2.3.1: both parts form-urlencoded) or the body fields; a public client sends its id only. */
 function readClientCredentials(request: Request, form: URLSearchParams): ClientCredentials {
-  const authorization = request.headers.get("authorization");
-  if (authorization?.toLowerCase().startsWith("basic ") === true) {
+  const header = request.headers.get("authorization");
+  if (header?.toLowerCase().startsWith("basic ") === true) {
     try {
-      const decoded = Buffer.from(authorization.slice(6).trim(), "base64").toString("utf8");
+      const decoded = Buffer.from(header.slice(6).trim(), "base64").toString("utf8");
       const separator = decoded.indexOf(":");
       if (separator > 0) {
         const decode = (part: string) => decodeURIComponent(part.replace(/\+/g, " "));

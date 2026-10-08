@@ -14,7 +14,7 @@ import { ACCESS_TOKEN_PREFIX, createSecret, hashAccessToken, type McpAccessConte
 /** Refresh tokens: for people and secret scanners, like the access token prefix. */
 export const REFRESH_TOKEN_PREFIX = "sftmcr_";
 /** Authorization codes. */
-export const AUTHORIZATION_CODE_PREFIX = "sftmca_";
+export const CONSENT_CODE_PREFIX = "sftmca_";
 /** Client secrets of confidential clients. */
 export const CLIENT_SECRET_PREFIX = "sftmcs_";
 /** Client ids are public (RFC 6749 §2.2); the prefix only helps a person reading a log. */
@@ -106,7 +106,7 @@ export interface CreateAuthorizationCodeInput {
 export async function createAuthorizationCode(ctx: McpAccessContext, input: CreateAuthorizationCodeInput): Promise<string> {
   const now = ctx.clock.now();
   const lifetimeMs = getMcpAccessOptions(ctx.config).oauth.authorizationCodeLifetimeMinutes * MINUTE_MS;
-  const { secret: code, secretHash: codeHash } = createSecret(AUTHORIZATION_CODE_PREFIX);
+  const { secret: code, secretHash: codeHash } = createSecret(CONSENT_CODE_PREFIX);
   await ctx.db.delete(oauthAuthorizationCodes).where(lte(oauthAuthorizationCodes.expiresAt, now));
   await ctx.db.insert(oauthAuthorizationCodes).values({
     codeHash,

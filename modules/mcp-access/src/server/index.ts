@@ -12,7 +12,7 @@ export {
 } from "./endpoint.js";
 export { checkAccessTokensTable } from "./health.js";
 export {
-  AUTHORIZATION_CODE_PREFIX,
+  CONSENT_CODE_PREFIX,
   CLIENT_SECRET_PREFIX,
   createAuthorizationCode,
   exchangeAuthorizationCode,
