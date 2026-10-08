@@ -41,8 +41,11 @@ export interface ActionSuccess {
   readonly value?: unknown;
 }
 
-/** `cancel` reaches the modal footer's Cancel button (only with `onCancel`). */
-export type ActionFormSlot = "root" | "actions" | "cancel";
+/**
+ * `submit` is added to the submit button's classes (both layouts, like `Button`'s `className`); `cancel` reaches
+ * the modal footer's Cancel button (only with `onCancel`).
+ */
+export type ActionFormSlot = "root" | "actions" | "submit" | "cancel";
 
 /** Errors as codes: the action returns `ActionResult` and `getErrorMessage` gives the copy for each code. */
 export interface CodeErrorsProps {
@@ -114,6 +117,7 @@ function getSubmittedValues(formData: FormData): SubmittedValues {
 const DEFAULT_CLASSES: Readonly<Record<ActionFormSlot, string>> = {
   root: "sft:flex sft:flex-col sft:gap-3 sft:font-sans",
   actions: "sft:flex sft:items-center sft:gap-2",
+  submit: "",
   cancel: "",
 };
 
@@ -193,6 +197,7 @@ export function ActionForm({
               pending={isPending}
               pendingLabel={pendingLabel ?? copy.pending}
               fullWidth={fullWidthSubmit}
+              className={slot("submit")}
               unstyled={unstyled}
             >
               {submitLabel}
@@ -211,7 +216,14 @@ export function ActionForm({
             locale={locale}
             messages={modalMessages}
           >
-            <Button type="submit" variant={submitVariant} pending={isPending} pendingLabel={pendingLabel ?? copy.pending} unstyled={unstyled}>
+            <Button
+              type="submit"
+              variant={submitVariant}
+              pending={isPending}
+              pendingLabel={pendingLabel ?? copy.pending}
+              className={slot("submit")}
+              unstyled={unstyled}
+            >
               {submitLabel}
             </Button>
           </ModalFooter>
