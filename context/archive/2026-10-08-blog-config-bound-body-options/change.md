@@ -1,12 +1,13 @@
 ---
 change_id: blog-config-bound-body-options
 title: "blog: config-bound body options and findArticlesLinkingTermFor in /next (issue #279)"
-status: impl_reviewed
+status: archived
 roadmap_item: null
 issue: 279
 branch: claude/project-thread-etpvfs
 created: 2026-10-08
 updated: 2026-10-08
+archived_at: 2026-10-08
 ---
 
 ## Intent

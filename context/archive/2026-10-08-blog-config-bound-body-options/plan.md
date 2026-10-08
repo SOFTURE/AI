@@ -53,7 +53,7 @@ Done when: the new tests were seen red (missing exports), then green; gates gree
 ### Phase 1: the exports
 
 #### Automated
-- [x] 1.1 Tests seen red, then green
-- [x] 1.2 Ready-made pages use the exported functions
-- [x] 1.3 Gates green (typecheck, lint, test, build)
-- [x] 1.4 README, CHANGELOG and version 0.1.10
+- [x] 1.1 Tests seen red, then green — 76857df
+- [x] 1.2 Ready-made pages use the exported functions — 76857df
+- [x] 1.3 Gates green (typecheck, lint, test, build) — 76857df
+- [x] 1.4 README, CHANGELOG and version 0.1.10 — 76857df
