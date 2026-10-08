@@ -216,7 +216,14 @@ history last:
 `LegalFooter` (`links: [{ href, label }]`, an optional `note`) goes into the root layout. Inside the
 app's own `<footer>`, pass `as="div"` (or `as="nav"` for the navigation alone) so there is no footer
 inside a footer; `separator=" · "` puts a separator, hidden from assistive technology, between the
-links.
+links. For one line of text inside the app's own footer or under a form, pass `as="p"` (or
+`as="span"`): the links and separators become inline content with no navigation and no list, the
+separator (default `" · "`, `null` for none) is read as text, and the `note` follows the links in a
+`span`.
+
+`LegalDocument` names its contents by a generated id, so two documents can share a page; give each
+its own history anchor with `changesId` (default `legal-changes`). `as` sets the root element
+(`article` by default, `div` or `section`).
 
 Link the page from the app's account page. To build your own page, compose `DeleteAccountForm`
 from `@softure-ai/privacy/ui` with `deleteAccountAction` from `/next`, and link to the export route.
@@ -258,7 +265,8 @@ The legal components are server components with the same rules. `LegalDocument` 
 `header`, `title`, `meta`, `intro`, `contents`, `contentsTitle`, `contentsList`, `link`, `body` (the
 sections and the history), `changes`, `changesTitle`, `changesList`, `change`, `changeMeta`, and
 `sectionClassNames` for every `LegalSection` (`root`, `title`, `body`). `LegalFooter` slots: `root`,
-`list`, `link`, `separator`, `note`.
+`list` (the list form only), `link`, `separator`, `note`; the inline form (`as="p"`, `as="span"`)
+has its own defaults, which keep only the type and colour on the root.
 Sections scroll into view below a sticky header through `scroll-mt`; dates (`YYYY-MM-DD`) are
 written in the app's locale, in UTC so the server's time zone cannot move them.
 
