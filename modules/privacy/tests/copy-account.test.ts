@@ -222,6 +222,16 @@ describe("copyAccount", () => {
     expect(await readText(target, "SELECT email, subscribed_at::text FROM public.newsletter")).toEqual([{ email: "ada@example.com", subscribed_at: MICROSECONDS }]);
   });
 
+  it("refuses tables whose owning foreign keys form a cycle", async () => {
+    await source.database.client.exec(`
+      CREATE TABLE public.folders (id uuid PRIMARY KEY, user_id uuid NOT NULL REFERENCES auth.users (id) ON DELETE CASCADE, cover_id uuid);
+      CREATE TABLE public.files (id uuid PRIMARY KEY, folder_id uuid NOT NULL REFERENCES public.folders (id) ON DELETE CASCADE);
+      ALTER TABLE public.folders ADD FOREIGN KEY (cover_id) REFERENCES public.files (id) ON DELETE RESTRICT;
+    `);
+    const result = await copyAccount({ from: source.database.db, to: target.database.db, userId: ada.id, onMissingReference: "null" });
+    expect(result).toMatchObject({ ok: false, error: "privacy.copy_unsupported", detail: "the foreign keys between public.files, public.folders form a cycle" });
+  });
+
   it("refuses an exclude or include naming a table the source does not have", async () => {
     const result = await copyAccount({ from: source.database.db, to: target.database.db, userId: ada.id, exclude: ["public.nothing"] });
     expect(result).toMatchObject({ ok: false, error: "privacy.copy_schema_mismatch" });

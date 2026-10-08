@@ -105,6 +105,6 @@ Done when: the tests were seen red, then green; gates green (typecheck, lint, te
 ### Phase 1: copyAccount
 
 #### Automated
-- [ ] 1.1 New tests seen red, then green
-- [ ] 1.2 Gates green (typecheck, lint, test, build)
-- [ ] 1.3 README and CHANGELOG
+- [x] 1.1 New tests seen red, then green — 73e7dc6
+- [x] 1.2 Gates green (typecheck, lint, test, build) — 73e7dc6
+- [x] 1.3 README and CHANGELOG — 73e7dc6

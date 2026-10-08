@@ -1,7 +1,7 @@
 ---
 change_id: privacy-copy-account
 title: "privacy: copy one account with its whole history from one database to another (issue #250)"
-status: plan_reviewed
+status: impl_reviewed
 roadmap_item: null
 issue: 250
 branch: claude/project-thread-kwh9ba
