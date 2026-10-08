@@ -1,8 +1,8 @@
 // The extend-trial ops script on PGlite: a dry run writes nothing and reports the change, `--commit`
 // extends the trial through `extendTrialManually` (recorded without an admin, listed in the
-// history), `--days` counts from the later of today and the current trial end, `--until` is the new
-// last day, refusals write nothing, usage errors stop before the database, and the command never
-// prints the email.
+// history), `--days` adds days of access after the current last day (from today for an ended
+// trial), `--until` is the new last day, refusals write nothing, usage errors stop before the
+// database, and the command never prints the email.
 import { createExtendTrialScript, MAX_EXTEND_DAYS, type ExtendTrialScriptArgs } from "@softure-ai/billing/scripts";
 import { getAccountHistory } from "@softure-ai/billing/server";
 import { executeOpsScript, runOpsScript } from "@softure-ai/ops/scripts";
@@ -99,6 +99,15 @@ describe("the extend-trial script", () => {
       value: { report: { before: { access: { status: "read_only" } }, after: { trialEndsAt: TEN_DAYS_FROM_AFTER_TRIAL, access: { status: "trial", daysLeft: 10 } } } },
     });
     expect(await readRow(test, adaId)).toMatchObject({ trial_ends_at: TEN_DAYS_FROM_AFTER_TRIAL });
+  });
+
+  it("adds --days to the last day of a trial that ends in the middle of a day", async () => {
+    // 16 October, 14:00 in Warsaw: the 16th is the last day of access, as for TRIAL_END.
+    await test.database.client.query(
+      "INSERT INTO billing.entitlements (user_id, trial_ends_at, created_at, updated_at) VALUES ($1, '2026-10-16T12:00:00Z', $2, $2)",
+      [adaId, NOW],
+    );
+    expect(await execute({ email: "ada@example.com", days: 10 }, true)).toMatchObject({ ok: true, value: { report: { after: { trialEndsAt: TEN_DAYS_AFTER_TRIAL } } } });
   });
 
   it("takes --until as the trial's new last day and finds the account by --user", async () => {

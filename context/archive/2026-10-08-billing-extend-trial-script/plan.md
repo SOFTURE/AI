@@ -31,9 +31,10 @@ extending many accounts in one run.
 - **`--until=D`** is the trial's new **last day**, as in the admin form: the end is the start of `D + 1` in the app's
   time zone. A malformed day is a usage error.
 - **`--days=N`**: a whole number 1…36500 (a hundred years is the longest an operator types; larger is a typo). The
-  base day is the later of today and the current trial end's day (both in the app's time zone); the end is the start
-  of `base + N`. So a trial ending when 20 October begins, extended by 10 on 8 October, ends when 30 October begins;
-  an ended trial extended by 10 on 8 October ends when 18 October begins (today counts as the first day, as in a new
+  new last day is `N` days after the later of yesterday and the current last day (both in the app's time zone), and
+  the end is the start of the day after it (amended in the implementation review, finding 1: counting from the
+  end's day would lose a day for an end in the middle of a day). So a trial ending when 20 October begins, extended
+  by 10 on 8 October, ends when 30 October begins; an ended trial extended by 10 on 8 October ends when 18 October begins (today counts as the first day, as in a new
   trial). The current end comes from `findEntitlementRecord` (stored or derived).
 - **Refusals** map `extendTrialManually`'s codes to operator lines: no account, the new end is not in the future, the
   trial already lasts at least that long (with the current last day). Nothing is written on a refusal.
@@ -67,4 +68,4 @@ extending many accounts in one run.
 ## Progress
 
 - [x] Phase 1: extend-trial script
-- [ ] Phase 2: lead prop, docs, version
+- [x] Phase 2: lead prop, docs, version

@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`billing@x.y.z`).
 
+## 0.1.9
+
+- `extend-trial` ops script (`createExtendTrialScript` in `/scripts`): `--email` or `--user`, and `--until=YYYY-MM-DD`
+  (the new last day) or `--days=N` (days of access after the current last day, or from today for an ended trial); dry run by
+  default, `--commit` writes through `extendTrialManually` with no admin, so the extension is in the account's history.
+- `PaymentPage` and `BillingAdminPage` take `lead`: one paragraph right after the `<h1>`. None by default, so pages
+  render as in 0.1.8.
+
 ## 0.1.8
 
 - `BillingAdminPage` has an "Extend a trial" card: the account's email and the trial's new last day.

@@ -1,12 +1,13 @@
 ---
 change_id: billing-extend-trial-script
 title: "billing: extend-trial ops script (relative days, dry run) and a lead line under the page headings (issue #243)"
-status: plan_reviewed
+status: archived
 roadmap_item: null
 issue: 243
 branch: claude/project-thread-14qhe4
 created: 2026-10-08
 updated: 2026-10-08
+archived_at: 2026-10-08
 ---
 
 ## Intent
@@ -16,7 +17,7 @@ describes its billing page keeps no code of its own for them:
 
 1. an `extend-trial` ops script in `@softure-ai/billing/scripts` (`createExtendTrialScript`), dry run by default,
    that takes the account by `--email` or `--user` and the new end either as a last day (`--until=YYYY-MM-DD`) or
-   relative (`--days=N`, counted from the later of today and the current trial end). It writes through
+   relative (`--days=N`, days of access after the current last day, or from today for an ended trial). It writes through
    `extendTrialManually` with `adminId: null`, so it has the admin form's refusals and its `billing.trial_extensions`
    row;
 2. a `lead?: string | null` prop on `BillingAdminPage` and `PaymentPage`, rendered as one paragraph right after the
