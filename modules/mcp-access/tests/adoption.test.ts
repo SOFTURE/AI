@@ -5,7 +5,7 @@
 import { readFileSync } from "node:fs";
 import { createTestDatabase, type TestDatabase } from "@softure-ai/db/testing";
 import { adoptModule, createPgliteHandle, describeProblem } from "@softure-ai/db";
-import { findOAuthClient, hashAccessToken, refreshOAuthGrant, verifyAccessToken } from "@softure-ai/mcp-access/server";
+import { findOAuthClient, hashAccessToken, refreshMcpGrant, verifyAccessToken } from "@softure-ai/mcp-access/server";
 import { createTestClock } from "@softure-ai/core";
 import { afterEach, describe, expect, it } from "vitest";
 import { createConfig, createUser, NOW, OAUTH_OPTIONS } from "./support.js";
@@ -129,7 +129,7 @@ describe("adopting an app's own MCP token and OAuth tables", () => {
     const client = await findOAuthClient(ctx, LEGACY_CLIENT_ID);
     expect(client?.clientName).toBe("A".repeat(60));
     if (client === null) throw new Error("legacy client not found");
-    const refreshed = await refreshOAuthGrant(ctx, { refreshToken: LEGACY_RENEWAL_VALUE, client });
+    const refreshed = await refreshMcpGrant(ctx, { refreshToken: LEGACY_RENEWAL_VALUE, client });
     expect(refreshed?.canWrite).toBe(true);
     expect(refreshed?.refreshToken).toMatch(/^sftmcr_/);
   });

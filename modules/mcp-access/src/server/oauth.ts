@@ -54,7 +54,7 @@ export interface IssuedOAuthTokens {
  * Registers a client (RFC 7591). A secret only for the methods that use one. Abandoned clients
  * (no grant, older than a day) are deleted first, so a flood of registrations does not pile up.
  */
-export async function registerOAuthClient(ctx: McpAccessContext, input: OAuthClientRegistration): Promise<RegisteredOAuthClient> {
+export async function registerMcpClient(ctx: McpAccessContext, input: OAuthClientRegistration): Promise<RegisteredOAuthClient> {
   const now = ctx.clock.now();
   await deleteStaleClients(ctx, now);
   const secret = input.tokenEndpointAuthMethod === "none" ? null : createSecret(CLIENT_SECRET_PREFIX);
@@ -188,7 +188,7 @@ export interface RefreshOAuthGrantInput {
  * presented hash moves to `previous_refresh_token_hash` in the same conditional `UPDATE` that
  * checks it is current; presenting it again later deletes the whole grant, for both parties.
  */
-export async function refreshOAuthGrant(ctx: McpAccessContext, input: RefreshOAuthGrantInput): Promise<IssuedOAuthTokens | null> {
+export async function refreshMcpGrant(ctx: McpAccessContext, input: RefreshOAuthGrantInput): Promise<IssuedOAuthTokens | null> {
   if (input.refreshToken.length > MAX_SECRET_LENGTH) return null;
   const now = ctx.clock.now();
   const presentedHash = hashAccessToken(input.refreshToken);

@@ -12,8 +12,8 @@ import {
   exchangeAuthorizationCode,
   findOAuthClient,
   isClientSecretValid,
-  refreshOAuthGrant,
-  registerOAuthClient,
+  refreshMcpGrant,
+  registerMcpClient,
   type IssuedOAuthTokens,
 } from "./oauth.js";
 import { parseClientRegistration } from "./oauth-validation.js";
@@ -51,13 +51,13 @@ const NO_STORE = { "cache-control": "no-store", pragma: "no-cache" };
 /** Discovery documents change only with a deploy. */
 const DISCOVERY_CACHE = { "cache-control": "public, max-age=300" };
 
-function oauthJson(body: unknown, status = 200, extra: Readonly<Record<string, string>> = {}): Response {
+function protocolJson(body: unknown, status = 200, extra: Readonly<Record<string, string>> = {}): Response {
   return Response.json(body, { status, headers: { ...CORS_HEADERS, ...NO_STORE, ...extra } });
 }
 
 /** An error in the shape of RFC 6749 §5.2 / RFC 7591 §3.2.2. */
-function oauthError(error: string, description: string, status = 400, extra: Readonly<Record<string, string>> = {}): Response {
-  return oauthJson({ error, error_description: description }, status, extra);
+function protocolError(error: string, description: string, status = 400, extra: Readonly<Record<string, string>> = {}): Response {
+  return protocolJson({ error, error_description: description }, status, extra);
 }
 
 /** `OPTIONS` on the registration, token and discovery routes. */
@@ -159,18 +159,18 @@ function assertOAuthRateLimitBucket(config: SoftureConfig): void {
  * from a few shared addresses, and each connection registers its own client). A failing counter
  * closes (503) and says nothing.
  */
-async function limitOAuthRequest(ctx: McpAccessContext, request: Request, clientId: string | null = null): Promise<Response | null> {
+async function limitProtocolRequest(ctx: McpAccessContext, request: Request, clientId: string | null = null): Promise<Response | null> {
   assertOAuthRateLimitBucket(ctx.config);
   const client = identifyClient(ctx, request.headers);
-  if (!client.ok) return oauthError("invalid_request", "The client address could not be identified.", 400);
+  if (!client.ok) return protocolError("invalid_request", "The client address could not be identified.", 400);
   const key = clientId === null ? client.value : `${client.value}|${clientId.slice(0, 64)}`;
   try {
     const limit = await consumeRateLimit(ctx, { bucket: MCP_OAUTH_RATE_LIMIT_BUCKET, key });
     if (limit.ok) return null;
-    return oauthError("too_many_requests", "Too many requests; try again later.", 429, { "retry-after": String(limit.retryAfterSeconds) });
+    return protocolError("too_many_requests", "Too many requests; try again later.", 429, { "retry-after": String(limit.retryAfterSeconds) });
   } catch (error) {
     console.error(`@softure-ai/mcp-access: counting an OAuth request failed: ${errorLogLabel(error)}`);
-    return oauthError("temporarily_unavailable", "The server is temporarily unavailable.", 503);
+    return protocolError("temporarily_unavailable", "The server is temporarily unavailable.", 503);
   }
 }
 
@@ -182,22 +182,22 @@ async function limitOAuthRequest(ctx: McpAccessContext, request: Request, client
  * register before anyone signs in. A registration grants nothing; access needs a person's consent.
  */
 export async function handleClientRegistration(ctx: McpAccessContext, request: Request): Promise<Response> {
-  if (!isOAuthEnabled(ctx.config)) return oauthError("not_found", "OAuth is not enabled.", 404);
-  const limited = await limitOAuthRequest(ctx, request);
+  if (!isOAuthEnabled(ctx.config)) return protocolError("not_found", "OAuth is not enabled.", 404);
+  const limited = await limitProtocolRequest(ctx, request);
   if (limited !== null) return limited;
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    return oauthError("invalid_client_metadata", "The request body must be a JSON object.");
+    return protocolError("invalid_client_metadata", "The request body must be a JSON object.");
   }
   const parsed = parseClientRegistration(body);
-  if (!parsed.ok) return oauthError(parsed.error.error, parsed.error.description);
+  if (!parsed.ok) return protocolError(parsed.error.error, parsed.error.description);
 
   try {
-    const { client, clientSecret } = await registerOAuthClient(ctx, parsed.value);
-    return oauthJson(
+    const { client, clientSecret } = await registerMcpClient(ctx, parsed.value);
+    return protocolJson(
       {
         client_id: client.clientId,
         client_id_issued_at: Math.floor(client.createdAt.getTime() / 1000),
@@ -212,7 +212,7 @@ export async function handleClientRegistration(ctx: McpAccessContext, request: R
     );
   } catch (error) {
     console.error(`@softure-ai/mcp-access: registering an OAuth client failed: ${errorLogLabel(error)}`);
-    return oauthError("server_error", "The client could not be registered.", 500);
+    return protocolError("server_error", "The client could not be registered.", 500);
   }
 }
 
@@ -245,7 +245,7 @@ function readClientCredentials(request: Request, form: URLSearchParams): ClientC
 }
 
 function tokenResponse(tokens: IssuedOAuthTokens): Response {
-  return oauthJson({
+  return protocolJson({
     access_token: tokens.accessToken,
     token_type: "Bearer",
     expires_in: tokens.expiresIn,
@@ -262,46 +262,46 @@ const INVALID_GRANT = "The code or refresh token is invalid, expired, used or is
  * rotation. Secrets come in the body, never in the URL.
  */
 export async function handleTokenRequest(ctx: McpAccessContext, request: Request): Promise<Response> {
-  if (!isOAuthEnabled(ctx.config)) return oauthError("not_found", "OAuth is not enabled.", 404);
+  if (!isOAuthEnabled(ctx.config)) return protocolError("not_found", "OAuth is not enabled.", 404);
   const form = new URLSearchParams(await request.text().catch(() => ""));
   const credentials = readClientCredentials(request, form);
-  const limited = await limitOAuthRequest(ctx, request, credentials.clientId);
+  const limited = await limitProtocolRequest(ctx, request, credentials.clientId);
   if (limited !== null) return limited;
 
   try {
     const client = credentials.clientId === null ? null : await findOAuthClient(ctx, credentials.clientId);
     if (client === null || !isClientSecretValid(client, credentials.clientSecret === "" ? null : credentials.clientSecret)) {
-      return oauthError("invalid_client", "Unknown client or wrong client credentials.", 401, credentials.isBasic ? { "www-authenticate": 'Basic realm="mcp"' } : {});
+      return protocolError("invalid_client", "Unknown client or wrong client credentials.", 401, credentials.isBasic ? { "www-authenticate": 'Basic realm="mcp"' } : {});
     }
     return await answerGrant(ctx, form, client);
   } catch (error) {
     console.error(`@softure-ai/mcp-access: the OAuth token endpoint failed: ${errorLogLabel(error)}`);
-    return oauthError("server_error", "The token could not be issued.", 500);
+    return protocolError("server_error", "The token could not be issued.", 500);
   }
 }
 
 async function answerGrant(ctx: McpAccessContext, form: URLSearchParams, client: OAuthClientRow): Promise<Response> {
   if (!isAcceptableResource(ctx.config, form.get("resource"))) {
-    return oauthError("invalid_target", "The resource parameter does not name this MCP server.");
+    return protocolError("invalid_target", "The resource parameter does not name this MCP server.");
   }
   const grantType = form.get("grant_type");
   if (grantType === "authorization_code") {
     const code = form.get("code");
     const codeVerifier = form.get("code_verifier");
     if (code === null || code === "" || codeVerifier === null || codeVerifier === "") {
-      return oauthError("invalid_request", "code and code_verifier (PKCE) are required.");
+      return protocolError("invalid_request", "code and code_verifier (PKCE) are required.");
     }
     // A missing redirect_uri is allowed when the client registered exactly one (RFC 6749 §4.1.3).
     const tokens = await exchangeAuthorizationCode(ctx, { code, client, redirectUri: form.get("redirect_uri"), codeVerifier });
-    return tokens === null ? oauthError("invalid_grant", INVALID_GRANT) : tokenResponse(tokens);
+    return tokens === null ? protocolError("invalid_grant", INVALID_GRANT) : tokenResponse(tokens);
   }
   if (grantType === "refresh_token") {
     const refreshToken = form.get("refresh_token");
-    if (refreshToken === null || refreshToken === "") return oauthError("invalid_request", "refresh_token is required.");
-    const tokens = await refreshOAuthGrant(ctx, { refreshToken, client });
-    return tokens === null ? oauthError("invalid_grant", INVALID_GRANT) : tokenResponse(tokens);
+    if (refreshToken === null || refreshToken === "") return protocolError("invalid_request", "refresh_token is required.");
+    const tokens = await refreshMcpGrant(ctx, { refreshToken, client });
+    return tokens === null ? protocolError("invalid_grant", INVALID_GRANT) : tokenResponse(tokens);
   }
-  return oauthError("unsupported_grant_type", "Supported grant types: authorization_code and refresh_token.");
+  return protocolError("unsupported_grant_type", "Supported grant types: authorization_code and refresh_token.");
 }
 
 // ---------------------------------------------------------------------------------------------

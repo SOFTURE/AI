@@ -9,7 +9,7 @@ import {
   createAuthorizationCode,
   exchangeAuthorizationCode,
   getCodeChallenge,
-  registerOAuthClient,
+  registerMcpClient,
   type IssuedOAuthTokens,
   type McpAccessContext,
   type RegisteredOAuthClient,
@@ -117,7 +117,7 @@ export async function connectApp(
   userId: string,
   options: { readonly canWrite?: boolean; readonly clientName?: string } = {},
 ): Promise<{ readonly client: RegisteredOAuthClient["client"]; readonly tokens: IssuedOAuthTokens }> {
-  const { client } = await registerOAuthClient(ctx, { clientName: options.clientName ?? "Assistant", redirectUris: [REDIRECT_URI], tokenEndpointAuthMethod: "none" });
+  const { client } = await registerMcpClient(ctx, { clientName: options.clientName ?? "Assistant", redirectUris: [REDIRECT_URI], tokenEndpointAuthMethod: "none" });
   const code = await createAuthorizationCode(ctx, {
     clientRowId: client.id,
     userId,

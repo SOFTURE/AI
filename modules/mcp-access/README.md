@@ -240,8 +240,8 @@ The MCP server factory passed to `createMcpRoute` is the module's only hook. `/s
 `createMcpEndpoint({ createServer })`, a `(ctx, request) => Response` for hosts other than Next, and
 `issueAccessToken`, `listAccessTokens`, `revokeAccessToken`, `verifyAccessToken` and
 `pruneAccessTokens` for scripts. For OAuth: `listOAuthGrants`, `revokeOAuthGrant`,
-`pruneOAuthRecords`, the protocol steps (`registerOAuthClient`, `createAuthorizationCode`,
-`exchangeAuthorizationCode`, `refreshOAuthGrant`) and the HTTP handlers behind the routes
+`pruneOAuthRecords`, the protocol steps (`registerMcpClient`, `createAuthorizationCode`,
+`exchangeAuthorizationCode`, `refreshMcpGrant`) and the HTTP handlers behind the routes
 (`handleClientRegistration`, `handleTokenRequest`, `handleAuthorizationDecision`,
 `validateAuthorizationRequest`, `serveDiscoveryDocument`) for hosts other than Next.
 

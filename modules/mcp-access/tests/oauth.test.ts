@@ -10,8 +10,8 @@ import {
   listAccessTokens,
   listOAuthGrants,
   pruneOAuthRecords,
-  refreshOAuthGrant,
-  registerOAuthClient,
+  refreshMcpGrant,
+  registerMcpClient,
   revokeOAuthGrant,
   verifyAccessToken,
 } from "@softure-ai/mcp-access/server";
@@ -40,23 +40,23 @@ describe("the OAuth data layer", () => {
     return result.rows[0]?.total ?? -1;
   }
 
-  async function newCode(client: Awaited<ReturnType<typeof registerOAuthClient>>["client"], userId = alice, canWrite = false): Promise<string> {
+  async function newCode(client: Awaited<ReturnType<typeof registerMcpClient>>["client"], userId = alice, canWrite = false): Promise<string> {
     return createAuthorizationCode(test.ctx, { clientRowId: client.id, userId, redirectUri: REDIRECT_URI, codeChallenge: getCodeChallenge(VERIFIER), canWrite });
   }
 
   async function publicClient(name = "Assistant") {
-    return (await registerOAuthClient(test.ctx, { clientName: name, redirectUris: [REDIRECT_URI], tokenEndpointAuthMethod: "none" })).client;
+    return (await registerMcpClient(test.ctx, { clientName: name, redirectUris: [REDIRECT_URI], tokenEndpointAuthMethod: "none" })).client;
   }
 
-  describe("registerOAuthClient", () => {
+  describe("registerMcpClient", () => {
     it("gives a public client no secret and a confidential one a secret stored as its hash", async () => {
-      const open = await registerOAuthClient(test.ctx, { clientName: "Open", redirectUris: [REDIRECT_URI], tokenEndpointAuthMethod: "none" });
+      const open = await registerMcpClient(test.ctx, { clientName: "Open", redirectUris: [REDIRECT_URI], tokenEndpointAuthMethod: "none" });
       expect(open.clientSecret).toBeNull();
       expect(open.client.clientId).toMatch(/^sftmc_[A-Za-z0-9_-]{22}$/);
       expect(isClientSecretValid(open.client, null)).toBe(true);
       expect(isClientSecretValid(open.client, "anything")).toBe(false);
 
-      const closed = await registerOAuthClient(test.ctx, { clientName: "Closed", redirectUris: [REDIRECT_URI], tokenEndpointAuthMethod: "client_secret_basic" });
+      const closed = await registerMcpClient(test.ctx, { clientName: "Closed", redirectUris: [REDIRECT_URI], tokenEndpointAuthMethod: "client_secret_basic" });
       expect(closed.clientSecret).toMatch(/^sftmcs_[A-Za-z0-9_-]{43}$/);
       expect(closed.client.clientSecretHash).toBe(hashAccessToken(closed.clientSecret ?? ""));
       expect(isClientSecretValid(closed.client, closed.clientSecret)).toBe(true);
@@ -124,7 +124,7 @@ describe("the OAuth data layer", () => {
 
     it("follows the configured code lifetime", async () => {
       const ctx = { ...test.ctx, config: createConfig({ ...OAUTH_OPTIONS, oauth: { enabled: true, authorizationCodeLifetimeMinutes: 2 } }) };
-      const client = (await registerOAuthClient(ctx, { clientName: "Assistant", redirectUris: [REDIRECT_URI], tokenEndpointAuthMethod: "none" })).client;
+      const client = (await registerMcpClient(ctx, { clientName: "Assistant", redirectUris: [REDIRECT_URI], tokenEndpointAuthMethod: "none" })).client;
       const code = await createAuthorizationCode(ctx, { clientRowId: client.id, userId: alice, redirectUri: REDIRECT_URI, codeChallenge: getCodeChallenge(VERIFIER), canWrite: false });
       test.clock.set(new Date(NOW.getTime() + 2 * MINUTE_MS));
       expect(await exchangeAuthorizationCode(ctx, { code, client, redirectUri: REDIRECT_URI, codeVerifier: VERIFIER })).toBeNull();
@@ -156,11 +156,11 @@ describe("the OAuth data layer", () => {
     });
   });
 
-  describe("refreshOAuthGrant", () => {
+  describe("refreshMcpGrant", () => {
     it("rotates the refresh token, issues a new access token and keeps the current one until it expires", async () => {
       const { client, tokens } = await connectApp(test.ctx, alice);
       test.clock.set(new Date(NOW.getTime() + 30 * MINUTE_MS));
-      const refreshed = await refreshOAuthGrant(test.ctx, { refreshToken: tokens.refreshToken, client });
+      const refreshed = await refreshMcpGrant(test.ctx, { refreshToken: tokens.refreshToken, client });
       expect(refreshed?.refreshToken).not.toBe(tokens.refreshToken);
       expect(await verifyAccessToken(test.ctx, refreshed?.accessToken ?? "")).not.toBeNull();
       expect(await verifyAccessToken(test.ctx, tokens.accessToken)).not.toBeNull();
@@ -169,35 +169,35 @@ describe("the OAuth data layer", () => {
     it("deletes the grant's spent access tokens on refresh", async () => {
       const { client, tokens } = await connectApp(test.ctx, alice);
       test.clock.set(new Date(NOW.getTime() + 61 * MINUTE_MS));
-      await refreshOAuthGrant(test.ctx, { refreshToken: tokens.refreshToken, client });
+      await refreshMcpGrant(test.ctx, { refreshToken: tokens.refreshToken, client });
       expect(await count("access_tokens")).toBe(1);
     });
 
     it("revokes the whole grant when a rotated refresh token is presented again", async () => {
       const { client, tokens } = await connectApp(test.ctx, alice);
-      const refreshed = await refreshOAuthGrant(test.ctx, { refreshToken: tokens.refreshToken, client });
-      expect(await refreshOAuthGrant(test.ctx, { refreshToken: tokens.refreshToken, client })).toBeNull();
+      const refreshed = await refreshMcpGrant(test.ctx, { refreshToken: tokens.refreshToken, client });
+      expect(await refreshMcpGrant(test.ctx, { refreshToken: tokens.refreshToken, client })).toBeNull();
       expect(await count("oauth_grants")).toBe(0);
       expect(await verifyAccessToken(test.ctx, refreshed?.accessToken ?? "")).toBeNull();
-      expect(await refreshOAuthGrant(test.ctx, { refreshToken: refreshed?.refreshToken ?? "", client })).toBeNull();
+      expect(await refreshMcpGrant(test.ctx, { refreshToken: refreshed?.refreshToken ?? "", client })).toBeNull();
     });
 
     it("refuses another client's refresh token without touching the grant", async () => {
       const { tokens } = await connectApp(test.ctx, alice);
       const other = await publicClient("Other");
-      expect(await refreshOAuthGrant(test.ctx, { refreshToken: tokens.refreshToken, client: other })).toBeNull();
+      expect(await refreshMcpGrant(test.ctx, { refreshToken: tokens.refreshToken, client: other })).toBeNull();
       expect(await count("oauth_grants")).toBe(1);
     });
 
     it("refuses an expired refresh token and counts the lifetime from the last refresh", async () => {
       const { client, tokens } = await connectApp(test.ctx, alice);
       test.clock.set(new Date(NOW.getTime() + 80 * DAY_MS));
-      const refreshed = await refreshOAuthGrant(test.ctx, { refreshToken: tokens.refreshToken, client });
+      const refreshed = await refreshMcpGrant(test.ctx, { refreshToken: tokens.refreshToken, client });
       expect(refreshed).not.toBeNull();
       test.clock.set(new Date(NOW.getTime() + 160 * DAY_MS));
-      expect(await refreshOAuthGrant(test.ctx, { refreshToken: refreshed?.refreshToken ?? "", client })).not.toBeNull();
+      expect(await refreshMcpGrant(test.ctx, { refreshToken: refreshed?.refreshToken ?? "", client })).not.toBeNull();
       test.clock.set(new Date(NOW.getTime() + 251 * DAY_MS));
-      expect(await refreshOAuthGrant(test.ctx, { refreshToken: refreshed?.refreshToken ?? "", client })).toBeNull();
+      expect(await refreshMcpGrant(test.ctx, { refreshToken: refreshed?.refreshToken ?? "", client })).toBeNull();
     });
 
     it("follows the configured access token lifetime", async () => {
