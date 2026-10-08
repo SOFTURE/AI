@@ -47,4 +47,4 @@ deploy 0.1.6.
 
 ## Progress
 
-- [ ] Phase 1: header lists
+- [x] Phase 1: header lists — d345117 (typecheck, lint, test, build green)

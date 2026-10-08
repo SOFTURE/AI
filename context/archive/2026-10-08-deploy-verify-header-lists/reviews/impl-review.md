@@ -19,7 +19,7 @@ Reviewed: the branch diff against plan.md (phase 1) and issue #292.
    would need a branch. No consumer in the repo does; the CHANGELOG entry describes the new value shape. No change.
 2. **Check — tests seen red.** Both new `checks.test.ts` cases failed before the change to `checkResponse`
    (one outcome instead of three, and one instead of two) and pass after it.
-3. **Check — gates.** `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`: see Progress in plan.md.
+3. **Check — gates.** `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`: green (the full suite also in pre-push).
 
 ## Verdict
 
