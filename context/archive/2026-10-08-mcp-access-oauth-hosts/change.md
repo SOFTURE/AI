@@ -1,12 +1,13 @@
 ---
 change_id: mcp-access-oauth-hosts
 title: "mcp-access: OAuth URLs from the request's host, extra resource hosts, metadata extensions, context helper and OAuthClientRow (issue #234)"
-status: impl_reviewed
+status: archived
 roadmap_item: null
 issue: 234
 branch: claude/mcp-access-oauth-hosts-rfrods
 created: 2026-10-08
 updated: 2026-10-08
+archived_at: 2026-10-08
 ---
 
 ## Intent
