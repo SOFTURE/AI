@@ -26,6 +26,8 @@ import { useUiLocale } from "./locale.js";
 // it.
 
 export type ModalWidth = "form" | "confirmation" | "panel";
+/** The title's element; `h2` by default. `1` for a panel that is the screen (its own address). */
+export type ModalHeadingLevel = 1 | 2 | 3;
 export type ModalSlot = "overlay" | "panel" | "header" | "heading" | "title" | "subtitle" | "close";
 
 export interface ModalProps extends CopyProps<"modal"> {
@@ -38,6 +40,8 @@ export interface ModalProps extends CopyProps<"modal"> {
    * screen it changes.
    */
   readonly width?: ModalWidth;
+  /** The title's element, `h2` by default; the look stays the `title` slot's. */
+  readonly headingLevel?: ModalHeadingLevel;
   readonly onClose: () => void;
   /**
    * `false` while closing would lose work in progress (a save that is running): Escape, the
@@ -88,6 +92,7 @@ export function Modal({
   title,
   subtitle,
   width = "form",
+  headingLevel = 2,
   onClose,
   isDismissible = true,
   children,
@@ -164,6 +169,7 @@ export function Modal({
     unstyled,
   });
 
+  const Heading = `h${headingLevel}` as const;
   const overlay = (
     <div ref={overlayRef} onMouseDown={handleBackdropMouseDown} onClick={handleBackdropClick} className={slot("overlay")}>
       <div
@@ -178,9 +184,9 @@ export function Modal({
       >
         <div data-modal-part="header" className={slot("header")}>
           <div className={slot("heading")}>
-            <h2 id={titleId} className={slot("title")}>
+            <Heading id={titleId} className={slot("title")}>
               {title}
-            </h2>
+            </Heading>
             {subtitle === undefined ? null : (
               <p id={subtitleId} className={slot("subtitle")}>
                 {subtitle}
@@ -212,6 +218,11 @@ export interface StandingPanelProps extends CopyProps<"modal"> {
   readonly isOpen: boolean;
   readonly title: string;
   readonly subtitle?: string;
+  /**
+   * The title's element, `h2` by default. A panel that is the screen passes `1`; a caller that keeps it
+   * closed on the same page can pass `isOpen ? 1 : 2`, so a hidden panel never adds a second `h1`.
+   */
+  readonly headingLevel?: ModalHeadingLevel;
   /** Escape from inside, the backdrop and the close button; the caller refuses while a save runs. */
   readonly onClose: () => void;
   /** Usually an `ActionForm` with `onCancel`: the body grows and its footer sits at the bottom. */
@@ -232,6 +243,7 @@ export function StandingPanel({
   isOpen,
   title,
   subtitle,
+  headingLevel = 2,
   onClose,
   children,
   classNames,
@@ -289,6 +301,7 @@ export function StandingPanel({
     unstyled,
   });
 
+  const Heading = `h${headingLevel}` as const;
   return (
     <div
       ref={overlayRef}
@@ -315,9 +328,9 @@ export function StandingPanel({
       >
         <div data-modal-part="header" className={slot("header")}>
           <div className={slot("heading")}>
-            <h2 id={titleId} className={slot("title")}>
+            <Heading id={titleId} className={slot("title")}>
               {title}
-            </h2>
+            </Heading>
             {subtitle === undefined ? null : (
               <p id={subtitleId} className={slot("subtitle")}>
                 {subtitle}
@@ -358,7 +371,8 @@ export function ModalBody({
   );
 }
 
-export type ModalFooterSlot = "root" | "actions";
+/** `cancel` is added to the Cancel button's own look (its `className`), so it can match the app's buttons. */
+export type ModalFooterSlot = "root" | "actions" | "cancel";
 
 export interface ModalFooterProps extends CopyProps<"modal"> {
   readonly onCancel: () => void;
@@ -379,6 +393,7 @@ export function ModalFooter({ onCancel, isPending = false, error, children, clas
     defaults: {
       root: "sft:flex sft:shrink-0 sft:flex-col sft:gap-3 sft:border-t sft:border-border sft:px-5 sft:pt-3 sft:pb-[max(var(--sft-space-3),env(safe-area-inset-bottom))]",
       actions: "sft:flex sft:items-center sft:justify-end sft:gap-2",
+      cancel: "",
     },
     classNames,
     unstyled,
@@ -387,7 +402,7 @@ export function ModalFooter({ onCancel, isPending = false, error, children, clas
     <div data-modal-part="footer" className={slot("root")}>
       <FormError message={error} unstyled={unstyled} />
       <div className={slot("actions")}>
-        <Button variant="secondary" onClick={onCancel} disabled={isPending} unstyled={unstyled}>
+        <Button variant="secondary" onClick={onCancel} disabled={isPending} className={classNames?.cancel} unstyled={unstyled}>
           {copy.cancel}
         </Button>
         {children}

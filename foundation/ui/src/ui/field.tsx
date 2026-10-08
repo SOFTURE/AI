@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { type ClassNames, createSlotClassGetter } from "./class-names.js";
 import type { CopyProps } from "./copy.js";
 import { CopyHint } from "./copy-hint.js";
+import type { HintAppearance } from "./hint.js";
 
 // Field frame and input looks; server-safe.
 
@@ -40,6 +41,8 @@ export interface FieldProps extends CopyProps<"field"> {
   readonly hintAs?: HintPlacement;
   /** `id` of the hint (block text or bubble), which the control points at with `aria-describedby`. */
   readonly hintId?: string;
+  /** The tooltip hint's classes, gap and width, so it matches the app's standalone hints. */
+  readonly hintProps?: HintAppearance;
   /** The error under the control; an empty string is no error. */
   readonly error?: string;
   /** `id` of the error, which the control points at with `aria-describedby` (error first). */
@@ -69,6 +72,7 @@ export function Field({
   hint,
   hintAs = "block",
   hintId,
+  hintProps,
   error,
   errorId,
   classNames,
@@ -85,7 +89,7 @@ export function Field({
           {label}
         </label>
         {isTooltip ? (
-          <CopyHint group="field" values={{ label }} id={hintId} locale={locale} messages={messages}>
+          <CopyHint group="field" values={{ label }} id={hintId} appearance={hintProps} locale={locale} messages={messages}>
             {hint}
           </CopyHint>
         ) : null}

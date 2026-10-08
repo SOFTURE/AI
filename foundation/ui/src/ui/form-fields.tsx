@@ -14,6 +14,7 @@ import {
   SUFFIX_PADDING_CLASS,
 } from "./field.js";
 import { getCheckedAfterSubmit, useFieldError, useFieldValue, useSubmitCount, useSubmittedFieldNames } from "./form-context.js";
+import type { HintAppearance } from "./hint.js";
 import { Select, type SelectOption, type SelectSlot } from "./select.js";
 import { Checkbox, Switch } from "./switch.js";
 import { useUiLocale } from "./locale.js";
@@ -31,6 +32,8 @@ export interface BaseFieldProps extends CopyProps<"field"> {
   readonly id?: string;
   readonly hint?: string;
   readonly hintAs?: HintPlacement;
+  /** The tooltip hint's classes, gap and width, so it matches the app's standalone hints. */
+  readonly hintProps?: HintAppearance;
   /** An error to show now; else the error the last `ActionForm` submit returned for `name`. */
   readonly error?: string;
   readonly required?: boolean;
@@ -115,6 +118,7 @@ export function TextField({
   id,
   hint,
   hintAs,
+  hintProps,
   error,
   required = false,
   defaultValue = "",
@@ -144,6 +148,7 @@ export function TextField({
       hint={hint}
       hintAs={hintAs}
       hintId={ids.hintId}
+      hintProps={hintProps}
       error={ids.shownError}
       errorId={ids.errorId}
       classNames={pickFieldSlots(classNames)}
@@ -186,6 +191,7 @@ export function PasswordField({
   id,
   hint,
   hintAs,
+  hintProps,
   error,
   minLength,
   autoComplete,
@@ -203,6 +209,7 @@ export function PasswordField({
       hint={hint}
       hintAs={hintAs}
       hintId={ids.hintId}
+      hintProps={hintProps}
       error={ids.shownError}
       errorId={ids.errorId}
       classNames={pickFieldSlots(classNames)}
@@ -243,6 +250,7 @@ export function MoneyField({
   id,
   hint,
   hintAs,
+  hintProps,
   error,
   required = false,
   defaultValue = "",
@@ -271,6 +279,7 @@ export function MoneyField({
       hint={hint}
       hintAs={hintAs}
       hintId={ids.hintId}
+      hintProps={hintProps}
       error={ids.shownError}
       errorId={ids.errorId}
       classNames={pickFieldSlots(classNames)}
@@ -316,6 +325,7 @@ export function SelectField({
   id,
   hint,
   hintAs,
+  hintProps,
   error,
   options,
   defaultValue,
@@ -335,6 +345,7 @@ export function SelectField({
       hint={hint}
       hintAs={hintAs}
       hintId={ids.hintId}
+      hintProps={hintProps}
       error={ids.shownError}
       errorId={ids.errorId}
       classNames={classNames}

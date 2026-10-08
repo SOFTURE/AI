@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`ui@x.y.z`).
 
+## 0.1.11
+
+- `Card`, `Field` and the form fields (`TextField`, `PasswordField`, `MoneyField`, `SelectField`) take `hintProps`
+  (`HintAppearance`: `classNames`, `triggerGap`, `isWide`) for their "?" hint, so it matches the app's standalone
+  `Hint`s in look and gap.
+- `Modal` and `StandingPanel` take `headingLevel` (1–3, `h2` by default) for the title element.
+- `ModalFooter` and `ActionForm` (with `onCancel`) take a `cancel` slot, added to the Cancel button's classes.
+
 ## 0.1.10
 
 - `ThemeScript` (`getThemeBootScript`) recolours `theme-color` metas inserted after `DOMContentLoaded` too (Next's
