@@ -64,7 +64,7 @@ describe("onJoined without double opt-in", () => {
     await joinWaitlist(target.ctx, { ...JOIN, scopes: ["launch", "newsletter"] });
     await joinWaitlist(target.ctx, JOIN);
 
-    if (!joined.ok) throw new Error("expected the sign-up to be accepted");
+    if (!joined.ok || joined.value.status !== "joined") throw new Error("expected the sign-up to be applied");
     expect(calls).toEqual([{ event: { signup: joined.value.signup, via: "join" }, isInTransaction: true }]);
   });
 

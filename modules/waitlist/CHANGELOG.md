@@ -4,6 +4,17 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`waitlist@x.y.z`).
 
+## 0.1.8
+
+- **A sign-up without double opt-in no longer undoes an opt-out** (#237). `joinWaitlist` of an address on mailing's
+  suppression list (any source) writes nothing, records no consent, calls no `onJoined` and returns the new outcome
+  `Ok<{ status: "suppressed" }>` (type `SuppressedSignup`). Before, it lifted the person's own `page`/`one-click`
+  opt-out for whoever typed the address into the form. The join action answers it exactly like a sign-up that
+  counted (`status: "ok"`, with `unsubscribeUrl` when enabled) and sends no mail, so the form does not reveal who
+  unsubscribed. With double opt-in nothing changes: `confirmSignup` lifts the opt-out when the link is used. An app
+  that checked `isSuppressed` before `joinWaitlist` can drop that check; code that switches on `status` handles the
+  new case.
+
 ## 0.1.7
 
 - **Moving an existing list**: `importSignups(ctx, rows)` (`/server`) and the `import-signups` ops script

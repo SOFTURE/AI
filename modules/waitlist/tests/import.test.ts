@@ -8,10 +8,10 @@ import { join } from "node:path";
 import { getRecipientKey, isSuppressed } from "@softure-ai/mailing/server";
 import { executeOpsScript } from "@softure-ai/ops/scripts";
 import { getEmailKey, hasConsent } from "@softure-ai/privacy/server";
-import { getSignup, getSignupById, importSignups, joinWaitlist, type ImportSignupRow } from "@softure-ai/waitlist/server";
+import { confirmSignup, getSignup, getSignupById, importSignups, joinWaitlist, type ImportSignupRow } from "@softure-ai/waitlist/server";
 import { createImportSignupsScript } from "@softure-ai/waitlist/scripts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { CLIENT, createTestWaitlist, listConsentRows, NOW, SECRET, type TestWaitlist } from "./support.js";
+import { CLIENT, createTestWaitlist, listConsentRows, NOW, OPTIONS, SECRET, type TestWaitlist } from "./support.js";
 
 const ENV = { MAILING_UNSUBSCRIBE_SECRET: SECRET };
 const ADA = "ada@example.com";
@@ -107,7 +107,9 @@ describe("importSignups", () => {
     expect(await getSignup(test.ctx, ADA)).toMatchObject({ scopes: ["launch"], confirmedAt: SIGNED_UP, createdAt: SIGNED_UP });
   });
 
-  it("records the withdrawals of an unsubscribed row at their time and a page opt-out, which a new sign-up lifts", async () => {
+  it("records the withdrawals of an unsubscribed row at their time and a page opt-out, which a confirmed sign-up lifts", async () => {
+    await test.database.close();
+    test = await createTestWaitlist({ waitlist: { ...OPTIONS, doubleOptIn: true } });
     const result = await importSignups(test.ctx, [{ ...ROW, scopes: ["launch", "newsletter"], unsubscribedAt: UNSUBSCRIBED }], { env: ENV });
     expect(result).toMatchObject({ ok: true, value: { consentsRecorded: 2, withdrawalsRecorded: 2, optOutsRecorded: 1 } });
     expect((await listConsentRows(test, getEmailKey(ADA))).map((row) => [row.purpose, row.granted, row.recorded_at])).toEqual([
@@ -121,11 +123,21 @@ describe("importSignups", () => {
     expect(await readSuppression(test, ADA)).toEqual({ source: "page" });
     expect(await getSignup(test.ctx, ADA)).toMatchObject({ scopes: ["launch", "newsletter"] });
 
-    expect(await joinWaitlist(test.ctx, { email: ADA, scopes: ["launch"], placement: "hero", clientKey: CLIENT })).toMatchObject({ ok: true });
+    const pending = await joinWaitlist(test.ctx, { email: ADA, scopes: ["launch"], placement: "hero", clientKey: CLIENT });
+    if (!pending.ok || pending.value.status !== "confirmation_required") throw new Error("expected a request that waits for its link");
+    expect(await isSuppressed(test.ctx, ADA)).toBe(true);
+    expect(await confirmSignup(test.ctx, { token: pending.value.token, clientKey: CLIENT })).toMatchObject({ ok: true });
     expect(await isSuppressed(test.ctx, ADA)).toBe(false);
     // Imported again after that sign-up: the person wants the mail, so no new opt-out.
     expect(await importSignups(test.ctx, [{ ...ROW, scopes: ["launch", "newsletter"], unsubscribedAt: UNSUBSCRIBED }], { env: ENV })).toMatchObject({ ok: true, value: { optOutsRecorded: 0 } });
     expect(await isSuppressed(test.ctx, ADA)).toBe(false);
+  });
+
+  it("keeps an imported opt-out when the address signs up again without double opt-in", async () => {
+    await importSignups(test.ctx, [{ ...ROW, unsubscribedAt: UNSUBSCRIBED }], { env: ENV });
+    expect(await joinWaitlist(test.ctx, { email: ADA, scopes: ["launch"], placement: "hero", clientKey: CLIENT })).toEqual({ ok: true, value: { status: "suppressed" } });
+    expect(await readSuppression(test, ADA)).toEqual({ source: "page" });
+    expect(await hasConsent(test.ctx, { subject: { email: ADA }, purpose: "launch" })).toBe(false);
   });
 
   it("refuses unsubscribed rows without the unsubscribe secret, before anything is written", async () => {
