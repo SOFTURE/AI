@@ -481,9 +481,10 @@ mailing({
 ```
 
 **`liftSuppression(ctx, address)`** is the other direction: a module that has just recorded a new
-explicit consent (the waitlist's sign-up) calls it in that consent's transaction. It deletes the
-row only when its source is `page` or `one-click`; an `operator` row stays. It returns whether it
-lifted one.
+explicit consent calls it in that consent's transaction. The consent must be provably the
+recipient's (the waitlist calls it only when a sign-up's confirmation link is used, never for an
+address typed into a form). It deletes the row only when its source is `page` or `one-click`; an
+`operator` row stays. It returns whether it lifted one.
 
 **Tests and e2e:** `fakeMailProvider()` keeps accepted mail in `provider.sent` (with the id it
 answered) and honours idempotency keys like a real provider. `respond: (message) => ({ status:
@@ -511,7 +512,7 @@ personal data. So the module neither exports nor deletes per user (`privacy: { e
   bounce or complaint webhooks yet.
 - Campaigns have no personalisation, scheduling or markdown: the body is sent as written.
 - Suppression is global per address: no per-list preferences. A person comes back in through a
-  module's explicit consent (`liftSuppression`, e.g. a new waitlist sign-up); an operator row is
+  module's explicit consent (`liftSuppression`, e.g. a confirmed waitlist sign-up); an operator row is
   removed by hand (`getRecipientKey(address)`).
 - Lowercasing the whole address merges `Ada@` and `ada@` (allowed to differ by RFC 5321, never in
   practice); an unsubscribe then covers both.

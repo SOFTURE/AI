@@ -31,8 +31,10 @@ constraints into the app's configuration and the form out of the domain componen
   and HTML; the app can render the HTML of both mails with its own template (`mailTemplate`).
 - **The ledger follows unsubscribes.** `withdrawWaitlistConsents`, wired as mailing's
   `onUnsubscribed`, records a withdrawal of every scope the address still grants, in the opt-out's
-  transaction. A new sign-up lifts the address's own opt-out (`liftSuppression`) in its
-  transaction and, after one, stores exactly the scopes checked this time.
+  transaction. Only a sign-up confirmed through its link (double opt-in) lifts the address's own
+  opt-out (`liftSuppression`), and after one it stores exactly the scopes checked this time. Without
+  double opt-in, a sign-up of an address that unsubscribed changes nothing, so typing someone
+  else's address cannot put them back on the list.
 - **A rate-limited public action**: bucket `waitlist` per client, `waitlist-email` per address.
 - `<Waitlist placement="hero" />` (`/next`), the form wired in one line, and `WaitlistForm` (`/ui`)
   with slots, `unstyled` and messages for an app that composes its own.
@@ -92,7 +94,7 @@ waitlist({
 | `onJoined` | `(event, ctx) => void \| Promise<void>` | — | Called in the sign-up's transaction when a sign-up counts for the first time, e.g. to count it in the analytics funnel. Section 10. |
 | `rewriteConfirmationLink` | `(path, { config }) => string \| Promise<string>` | — | Rewrites the confirmation link's path, e.g. to keep the analytics channel tag through the mail. Section 10. |
 | `resolveChannel` | `({ config }) => string \| null \| Promise<…>` | — | The request's acquisition channel, called by the join action in the request's scope, e.g. `() => getChannel()` from `@softure-ai/analytics/next`. Stored with a first sign-up (1 to 64 visible ASCII characters); a throw or another value is logged by kind and the sign-up goes on without one. |
-| `unsubscribeLinkOnSuccess` | `boolean` | `false` | Answers a sign-up with the person's own unsubscribe page link (`unsubscribeUrl`), which `WaitlistForm` shows under the success notice. Never with double opt-in's `confirmation_sent`. Needs `MAILING_UNSUBSCRIBE_SECRET` (the first sign-up checks it). Whoever submits an address gets its link, for a new and a known address alike (the answer must not tell them apart), so it lets anyone unsubscribe an address they know: turn it on only when the product asks people to keep that link. |
+| `unsubscribeLinkOnSuccess` | `boolean` | `false` | Answers a sign-up with the person's own unsubscribe page link (`unsubscribeUrl`), which `WaitlistForm` shows under the success notice. Never with double opt-in's `confirmation_sent`. Needs `MAILING_UNSUBSCRIBE_SECRET` (the first sign-up checks it). Whoever submits an address gets its link, for a new, a known and a suppressed address alike (the answer must not tell them apart), so it lets anyone unsubscribe an address they know: turn it on only when the product asks people to keep that link. |
 | `routes` | `{ confirm? }` | `{ confirm: "/waitlist/confirm" }` | The path of the confirmation page, when the app mounts it elsewhere. |
 | `messages` | partial `en` / `pl` | — | Copy overrides, the welcome mail's subject and text included. |
 
@@ -156,7 +158,9 @@ Server functions, for scripts and other hosts (`@softure-ai/waitlist/server`):
 `joinWaitlist(ctx, { email, scopes, placement, clientKey })` returns
 `Ok<{ status: "joined", signup, isNew, recordedScopes }>` (applied at once),
 `Ok<{ status: "confirmation_required", signup, isNew, token, expiresAt }>` (double opt-in: pass
-`signup` and `token` to `deliverConfirmationMail(ctx, signup, token)`, never to the client) or
+`signup` and `token` to `deliverConfirmationMail(ctx, signup, token)`, never to the client),
+`Ok<{ status: "suppressed" }>` (no double opt-in and the address is on mailing's suppression list:
+nothing was written; answer as for `joined`, so the answer does not tell who unsubscribed) or
 `Err<waitlist.email_invalid | waitlist.consent_required | waitlist.form_invalid | security.rate_limited>`;
 `confirmSignup(ctx, { token, clientKey })` returns `Ok<{ signup, recordedScopes, isFirstConfirmation }>`
 or `Err<waitlist.confirmation_invalid | waitlist.confirmation_expired | security.rate_limited>`;
@@ -264,11 +268,16 @@ consents for an address that unsubscribed, and a later sign-up's lift erases the
 the opt-out. If the app has other mail consents, compose: `onUnsubscribed: async (event, ctx) => {
 await withdrawWaitlistConsents(event, ctx); await withdrawMine(event, ctx); }`.
 
-A sign-up is an explicit consent: applying it calls mailing's `liftSuppression` in its
-transaction, which removes an opt-out the person made themselves (never an operator's). When it
-removed one, the sign-up's scopes become the ones checked now instead of the union, because the
-opt-out withdrew all of them. Without double opt-in this happens in `joinWaitlist`; with it, only
-in `confirmSignup`, so typing someone's address cannot undo their opt-out.
+Only a sign-up whose link was used undoes an opt-out. Without double opt-in nothing proves that
+whoever typed the address controls it, so `joinWaitlist` of an address on mailing's suppression
+list (any source: the person's own `page` or `one-click` opt-out, or an operator's row for a bounce
+or a complaint) writes nothing, records no consent, calls no `onJoined` and answers
+`{ status: "suppressed" }`; the join action answers it exactly like a sign-up that counted (the
+same `unsubscribeUrl` when the app enabled it) and sends no mail. An app that wants people who
+unsubscribed to come back through the form turns on double opt-in: `confirmSignup` calls mailing's
+`liftSuppression` in its transaction, which removes an opt-out the person made themselves (never an
+operator's). When it removed one, the sign-up's scopes become the ones checked now instead of the
+union, because the opt-out withdrew all of them.
 
 ### Double opt-in
 
@@ -328,7 +337,7 @@ npx tsx scripts/import-signups.ts --file=signups.json --commit
 - **Opt-outs.** A row with `unsubscribedAt` gets a withdrawal per scope at that time and, unless
   a scope is granted again by a later record (a sign-up after the unsubscribe), a mailing opt-out
   made the way the person's own unsubscribe makes it (source `page`, which their next sign-up
-  lifts). It goes through mailing's `unsubscribe` with a link signed by `MAILING_UNSUBSCRIBE_SECRET`
+  lifts once its link is used; without double opt-in it stays). It goes through mailing's `unsubscribe` with a link signed by `MAILING_UNSUBSCRIBE_SECRET`
   (an import with unsubscribed rows is refused without it), so the app's `onUnsubscribed` runs as
   for any unsubscribe; `withdrawWaitlistConsents` then finds nothing left to withdraw. The opt-out
   row carries the import's time, the withdrawal the historical one.
