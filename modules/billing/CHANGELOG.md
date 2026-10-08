@@ -9,6 +9,9 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 - `extend-trial` ops script (`createExtendTrialScript` in `/scripts`): `--email` or `--user`, and `--until=YYYY-MM-DD`
   (the new last day) or `--days=N` (days of access after the current last day, or from today for an ended trial); dry run by
   default, `--commit` writes through `extendTrialManually` with no admin, so the extension is in the account's history.
+- Fix: extending the trial of an account that had no entitlement row could fail on the database's
+  `entitlements_updated_after_created` check, because the row was pinned with a later reading of the clock than the
+  extension that updated it. The pin now takes the change's own instant (also for a manual grant).
 - `PaymentPage` and `BillingAdminPage` take `lead`: one paragraph right after the `<h1>`. None by default, so pages
   render as in 0.1.8.
 
