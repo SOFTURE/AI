@@ -353,7 +353,7 @@ describe("loadMarketingConfig", () => {
       ogImages: [{ id: "calculator", template: "headline-cta", data: { headline: "Count" } }],
     });
     expect(loaded.screenshots).toEqual([
-      { id: "landing", path: "/", width: 1440, height: 900, full: false, expect: "Count your date", motion: "reduce", minBytes: 40_000, scale: 1, waitMs: 0 },
+      { id: "landing", path: "/", width: 1440, height: 900, full: false, expect: "Count your date", motion: "reduce", minBytes: 40_000, scale: 1, waitMs: 0, signedIn: false, steps: [] },
     ]);
     expect(loaded.ogImages).toEqual([{ id: "calculator", template: "headline-cta", size: [1200, 630], data: { headline: "Count", tiles: [] } }]);
   });
@@ -424,6 +424,83 @@ describe("loadMarketingConfig", () => {
     ],
   ])("refuses %s in screenshots, naming its path", (_case, screenshots, message) => {
     expect(loadError({ ...makeConfig(), screenshots })).toContain(`  ${message}`);
+  });
+
+  const signIn = {
+    prepare: ["node", "scripts/seed-account.mjs"],
+    path: "/login",
+    steps: [
+      { do: "fill" as const, target: { label: "Email" }, value: "{data:email}" },
+      { do: "fill" as const, target: { label: "Password" }, value: "{env:SHOTS_PASSWORD}" },
+      { do: "click" as const, target: { role: "button" as const, name: "Sign in" } },
+    ],
+    expect: "Your accounts",
+  };
+
+  it("takes a sign-in block and signed-in entries with steps, a crop and data placeholders", () => {
+    const loaded = load({
+      ...makeConfig(),
+      signIn,
+      screenshots: [
+        {
+          ...shot,
+          path: "/accounts/{data:accountId}",
+          expect: "{data:positionName}",
+          signedIn: true,
+          steps: [{ do: "click", target: { text: "Components", nth: 0 } }],
+          crop: { target: { css: "section", hasText: "Portfolio" }, aspect: "4:3" },
+        },
+      ],
+    });
+    expect(loaded.signIn).toEqual({
+      prepare: ["node", "scripts/seed-account.mjs"],
+      path: "/login",
+      steps: [
+        { do: "fill", target: { kind: "label", label: "Email", exact: false, nth: null }, value: "{data:email}" },
+        { do: "fill", target: { kind: "label", label: "Password", exact: false, nth: null }, value: "{env:SHOTS_PASSWORD}" },
+        { do: "click", target: { kind: "role", role: "button", name: "Sign in", exact: false, nth: null } },
+      ],
+      expect: "Your accounts",
+    });
+    expect(loaded.screenshots[0]).toMatchObject({
+      signedIn: true,
+      steps: [{ do: "click", target: { kind: "text", text: "Components", exact: false, nth: 0 } }],
+      crop: { target: { kind: "css", css: "section", hasText: "Portfolio", nth: null }, aspect: { width: 4, height: 3 }, padding: 0 },
+    });
+  });
+
+  it.each([
+    ["a signed-in entry without a signIn block", { screenshots: [{ ...shot, signedIn: true }] }, "screenshots[0].signedIn: needs a signIn block that says how to sign in"],
+    [
+      "signedIn with a storage state",
+      { signIn, screenshots: [{ ...shot, signedIn: true, storageState: "auth.json" }] },
+      "screenshots[0].signedIn: signs in through signIn; storageState is another session, so drop one of them",
+    ],
+    [
+      "a crop with full",
+      { screenshots: [{ ...shot, full: true, crop: { target: { css: "main" }, aspect: "4:3" } }] },
+      "screenshots[0].crop: frames one element; a full-page shot has no element to frame, so drop full or crop",
+    ],
+    [
+      "a crop with scrollTo",
+      { screenshots: [{ ...shot, scrollTo: 10, crop: { target: { css: "main" }, aspect: "4:3" } }] },
+      "screenshots[0].crop: places the frame on its element; scrollTo would place it too, so drop one of them",
+    ],
+    ["an aspect that is not W:H", { screenshots: [{ ...shot, crop: { target: { css: "main" }, aspect: "4/3" } }] }, "screenshots[0].crop.aspect: must be W:H with whole numbers, e.g. 4:3"],
+    ["a zero aspect side", { screenshots: [{ ...shot, crop: { target: { css: "main" }, aspect: "4:0" } }] }, "screenshots[0].crop.aspect: must be W:H with whole numbers, e.g. 4:3"],
+    ["a padding above 200", { screenshots: [{ ...shot, crop: { target: { css: "main" }, aspect: "4:3", padding: 201 } }] }, "screenshots[0].crop.padding: Too big: expected number to be <=200"],
+    ["a data placeholder without prepare", { screenshots: [{ ...shot, expect: "{data:total}" }] }, "screenshots[0].expect: {data:total} needs signIn.prepare, the command that prints the data"],
+    [
+      "a data placeholder in the sign-in without prepare",
+      { signIn: { ...signIn, prepare: undefined } },
+      "signIn.steps[0].value: {data:email} needs signIn.prepare, the command that prints the data",
+    ],
+    ["a misspelt placeholder kind", { screenshots: [{ ...shot, expect: "{dat:total}" }] }, "screenshots[0].expect: {dat:total} is not a placeholder: use {env:NAME} or {data:key}"],
+    ["a placeholder key that is not an identifier", { screenshots: [{ ...shot, path: "/a/{data:a-b}" }] }, "screenshots[0].path: {data:a-b} is not a placeholder: use {env:NAME} or {data:key}"],
+    ["a sign-in without steps", { signIn: { ...signIn, steps: [] } }, "signIn.steps: needs at least one step"],
+    ["an unknown step", { screenshots: [{ ...shot, steps: [{ do: "hover", target: { css: "a" } }] }] }, "screenshots[0].steps[0].do: "],
+  ])("refuses %s, naming its path", (_case, change, message) => {
+    expect(loadError({ ...makeConfig(), ...change })).toContain(`  ${message}`);
   });
 
   it("reports a missing file with its path", () => {

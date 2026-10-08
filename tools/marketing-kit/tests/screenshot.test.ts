@@ -14,7 +14,7 @@ import { CHROMIUM_PATH, hasChromium } from "./chromium.js";
 const PAGES = join(import.meta.dirname, "fixtures", "screenshots");
 
 function makeEntry(overrides: Partial<ScreenshotEntry> & Pick<ScreenshotEntry, "id" | "path" | "expect">): ScreenshotEntry {
-  return { width: 800, height: 600, full: false, motion: "reduce", minBytes: 0, scale: 1, waitMs: 0, ...overrides };
+  return { width: 800, height: 600, full: false, motion: "reduce", minBytes: 0, scale: 1, waitMs: 0, signedIn: false, steps: [], ...overrides };
 }
 
 /** Height of a PNG from its IHDR chunk. */
