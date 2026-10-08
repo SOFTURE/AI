@@ -74,10 +74,26 @@ if [ "$1" = "run" ]; then
   shift
   PATH="$TOOLS_BIN:$PATH" exec "$@"
 fi
+# \`compose exec\` (run and report): the live image holds the scripts of OPS_SCRIPTS; the command's stdin is kept in
+# EXEC_STDIN and it exits with EXEC_STATUS.
+if [ "$1" = "compose" ] && [[ " $* " == *" exec "* ]]; then
+  case " $* " in
+    *" test -f ops/"*)
+      script="\${!#}"; script="\${script#ops/}"
+      [[ " \${OPS_SCRIPTS:-grant-access set-password} " == *" \${script%.mjs} "* ]] && exit 0
+      exit 1
+      ;;
+    *" ls ops "*) for script in \${OPS_SCRIPTS:-grant-access set-password}; do echo "$script.mjs"; done; exit 0 ;;
+  esac
+  cat > "$EXEC_STDIN"
+  echo "exec: done"
+  exit "\${EXEC_STATUS:-0}"
+fi
 case " $* " in
+  *" ps --quiet postgres "*) [ -n "\${NO_POSTGRES:-}" ] || echo beef ;;
+  *" ps --quiet app "*) [ -n "\${NO_APP:-}" ] || echo c0ffee ;;
   *" image ls "*) printf '%s' "\${DOCKER_IMAGE_TAGS:-}" ;;
   *" ps --all "*) printf 'traefik:Up 2 hours\\napp:Up 2 hours (healthy)\\n' ;;
-  *" ps --quiet app "*) echo c0ffee ;;
   *" inspect "*) echo healthy ;;
   *" create "*) echo c0ffee ;;
 esac
@@ -168,6 +184,7 @@ function runServer(command: string, input: Buffer | string, env: Record<string, 
       DOCKER_LOG: dockerLog,
       DOCKER_CONFIG_LOG: join(root, "docker-config.log"),
       LOGIN_STDIN: join(root, "login-stdin"),
+      EXEC_STDIN: join(root, "exec-stdin"),
       NPX_LOG: npxLog,
       CRONTAB_FILE: crontabFile,
       ...env,
@@ -792,6 +809,146 @@ describe("deploy.sh maintain", () => {
     const result = runServer("maintain", "");
     expect(result.status).toBe(1);
     expect(result.stdout).toBe("result|failed|env|nothing is deployed here yet.\n");
+  });
+});
+
+describe("deploy.sh run: an ops script of the live image (issue #247)", () => {
+  const COMPOSE = "compose --env-file .env.prod --file docker-compose.yml";
+
+  function deployWithDatabase(): void {
+    writeCheckout({ facts: { ...NO_DATABASE, hasDatabase: true }, envProd: "POSTGRES_PASSWORD='pw'\n" });
+    write(join(server, "deploy.sh"), readFileSync(join(checkout, "docker/server/deploy.sh"), "utf8"), 0o755);
+    expect(deploy("v1", packArchive()).status).toBe(0);
+    rmSync(dockerLog);
+  }
+
+  it("runs the script in the app container with the words as arguments and the operator's stdin", () => {
+    deployWithDatabase();
+    const result = runServer("run grant-access --email=a@example.com --commit", "s3cret\n");
+    expect(result.stderr).toBe("deploy: ops script grant-access on v1\n");
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe("exec: done\n");
+    expect(readDockerLog()).toEqual([
+      `${COMPOSE} ps --quiet app`,
+      `${COMPOSE} exec -T app test -f ops/grant-access.mjs`,
+      `${COMPOSE} exec -T app node ops/grant-access.mjs --email=a@example.com --commit`,
+    ]);
+    expect(readFileSync(join(root, "exec-stdin"), "utf8")).toBe("s3cret\n");
+  });
+
+  it("takes no shell meaning from a word", () => {
+    deployWithDatabase();
+    const result = runServer("run grant-access --email=$(touch${IFS}pwned);x --note=`id`", "");
+    expect(result.status).toBe(0);
+    expect(readDockerLog().at(-1)).toBe(`${COMPOSE} exec -T app node ops/grant-access.mjs --email=$(touch\${IFS}pwned);x --note=\`id\``);
+    expect(existsSync(join(server, "pwned"))).toBe(false);
+  });
+
+  it("ends with the script's exit status and prints no result line", () => {
+    deployWithDatabase();
+    const result = runServer("run grant-access --email=a@example.com", "", { EXEC_STATUS: "1" });
+    expect(result.status).toBe(1);
+    expect(result.stdout).toBe("exec: done\n");
+  });
+
+  it("names the scripts the live image has when it lacks the one asked for", () => {
+    deployWithDatabase();
+    const result = runServer("run grant-acces", "");
+    expect(result.status).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe('deploy: the live image (v1) has no ops script "grant-acces"; it has: grant-access set-password.\n');
+    expect(readDockerLog().some((line) => line.includes(" node "))).toBe(false);
+  });
+
+  it("refuses when the app is not running", () => {
+    deployWithDatabase();
+    const result = runServer("run grant-access", "", { NO_APP: "1" });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toBe("deploy: the app is not running; nothing was run.\n");
+  });
+
+  it("refuses before the first release", () => {
+    writeCheckout({ facts: { ...NO_DATABASE, hasDatabase: true }, envProd: "POSTGRES_PASSWORD='pw'\n" });
+    write(join(server, "deploy.sh"), readFileSync(join(checkout, "docker/server/deploy.sh"), "utf8"), 0o755);
+    const result = runServer("run grant-access", "");
+    expect(result.status).toBe(1);
+    expect(result.stderr).toBe("deploy: nothing is deployed here yet.\n");
+    expect(readDockerLog()).toEqual([]);
+  });
+
+  it.each([
+    ["run", "result|failed|command|run needs the name of an ops script: run <script> [--key=value ...].\n", ""],
+    ["run ../evil", "", "deploy: the ops script name is not kebab-case: ../evil\n"],
+    ["run Grant-Access", "", "deploy: the ops script name is not kebab-case: Grant-Access\n"],
+    ["run grant-access email=a", "", "deploy: arguments look like --key or --key=value: email=a\n"],
+    ["run grant-access --Email=a", "", "deploy: arguments look like --key or --key=value: --Email=a\n"],
+  ])("refuses %j with exit 2 and runs nothing", (command, stdout, stderr) => {
+    deployWithDatabase();
+    const result = runServer(command, "");
+    expect(result.status).toBe(2);
+    expect(result.stdout).toBe(stdout);
+    if (stderr !== "") expect(result.stderr).toBe(stderr);
+    expect(readDockerLog()).toEqual([]);
+  });
+
+  it("is not a command of an app without a database", () => {
+    expect(deploy("v1", packArchive()).status).toBe(0);
+    rmSync(dockerLog);
+    const result = runServer("run grant-access", "");
+    expect(result.status).toBe(2);
+    expect(result.stdout).toBe('result|failed|command|expected the command "deploy <tag>", "status" or "maintain".\n');
+    expect(readDockerLog()).toEqual([]);
+  });
+});
+
+describe("deploy.sh report: a SQL file read only through psql (issue #247)", () => {
+  const COMPOSE = "compose --env-file .env.prod --file docker-compose.yml";
+  const PSQL =
+    `${COMPOSE} exec -T --env PGOPTIONS=-c default_transaction_read_only=on postgres psql --no-psqlrc --quiet ` +
+    "--set ON_ERROR_STOP=1 --single-transaction --username softure_app --dbname acme_app";
+
+  beforeEach(() => {
+    writeCheckout({ facts: { ...NO_DATABASE, hasDatabase: true }, envProd: "POSTGRES_PASSWORD='pw'\n" });
+    write(join(server, "deploy.sh"), readFileSync(join(checkout, "docker/server/deploy.sh"), "utf8"), 0o755);
+    expect(deploy("v1", packArchive()).status).toBe(0);
+    rmSync(dockerLog);
+  });
+
+  it("sends the file to psql as the app role, read only, with each argument a psql variable", () => {
+    const sql = "select count(*) from users where created_at >= :'since' and plan = :'plan_name';\n";
+    const result = runServer("report --since=2026-01-01 --plan-name=pro=yearly", sql);
+    expect(result.stderr).toBe("");
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe("exec: done\n");
+    expect(readDockerLog()).toEqual([
+      `${COMPOSE} ps --quiet postgres`,
+      `${PSQL} --set since=2026-01-01 --set plan_name=pro=yearly --file -`,
+    ]);
+    expect(readFileSync(join(root, "exec-stdin"), "utf8")).toBe(sql);
+  });
+
+  it("ends with psql's exit status", () => {
+    const result = runServer("report", "update users set plan = 'free';\n", { EXEC_STATUS: "3" });
+    expect(result.status).toBe(3);
+  });
+
+  it.each([
+    ["report --commit", "select 1;", "deploy: a report is read only; --commit has no meaning here.\n"],
+    ["report --verbose", "select 1;", "deploy: report arguments look like --key=value: --verbose\n"],
+    ["report", "", "deploy: no SQL arrived on stdin.\n"],
+    ["report", "x".repeat(1024 * 1024 + 1), "deploy: the SQL file is larger than 1048576 bytes.\n"],
+  ])("refuses %j with exit 2 and reads nothing", (command, sql, stderr) => {
+    const result = runServer(command, sql);
+    expect(result.status).toBe(2);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe(stderr);
+    expect(readDockerLog()).toEqual([]);
+  });
+
+  it("refuses when Postgres is not running", () => {
+    const result = runServer("report", "select 1;", { NO_POSTGRES: "1" });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toBe("deploy: Postgres is not running; nothing was read.\n");
   });
 });
 

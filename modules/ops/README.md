@@ -379,6 +379,11 @@ failed (nothing written; a database error is printed as its class and SQLSTATE, 
 2 usage error. The script connects with the config's `DATABASE_URL`, so inside the app container it
 has the app role's privileges: rows, not schema.
 
+On a VPS deployed with `@softure-ai/deploy`, the operator runs a script from their own machine:
+`softure-deploy run --host=<ssh host> <script> [args]` reaches the server's forced command and runs the
+script of the live image (every `scripts/ops/<name>.ts` is bundled into `ops/<name>.mjs`); see the deploy README,
+["Ops scripts and reports on the server"](../../tools/deploy/README.md#ops-scripts-and-reports-on-the-server).
+
 **The guard test** (vitest, PGlite with the module's migrations):
 
 ```ts
