@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`blog@x.y.z`).
 
+## 0.1.10
+
+- `/next` exports `getBodyOptions(config, terms)`, the `RenderPageBodyOptions` the ready-made pages render
+  bodies with, and `findArticlesLinkingTermFor(config, { articles, termSlug, terms })`, a glossary term page's
+  "explained in these texts" list. An app with its own page components no longer copies the binding, so its
+  list and body links follow the package's rule. The ready-made pages go through the same functions.
+
 ## 0.1.9
 
 - `og:locale` of articles and terms is an Open Graph locale now: `en_US` / `pl_PL` by default, not the bare

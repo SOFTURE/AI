@@ -346,6 +346,19 @@ The builders: `buildBlogIndexMetadata(config, { isEmpty })`, `buildArticleMetada
 `<script>`. `getCrumbLabels(config)` gives the breadcrumb names for `getArticleCrumbs`/`getTermCrumbs`
 (`/server`); `getPageContext`, `renderPageBody` and `getRelatedArticles` render the rest.
 
+A body and a term's "explained in these texts" list take the input the ready-made pages build, so an own page
+links and lists exactly as they do:
+
+```tsx
+const [articles, terms] = await Promise.all([getPublishedArticles(config), getPublishedTerms(config)]);
+const body = renderPageBody(term, getBodyOptions(config, terms)); // renderPageBody from /server
+const explainedIn = findArticlesLinkingTermFor(config, { articles, termSlug: term.slug, terms });
+```
+
+`getBodyOptions(config, terms)` is the `RenderPageBodyOptions` of the pages (the glossary, routes, blog options,
+`appOrigin` and the canonical site origin, the copy); `findArticlesLinkingTermFor` is `findArticlesLinkingTerm`
+(`/server`) over it.
+
 What the builders write, so an app moving published pages onto them can match its old output:
 
 - the JSON-LD `@id` fragments, the cluster anchor and the language tags come from `jsonLd`, `anchors` and
