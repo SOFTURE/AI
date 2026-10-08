@@ -60,5 +60,5 @@ limit for `deliverOnce` (one mail).
 ### Phase 1: limit, remaining and the CLI flag
 
 #### Automated
-- [ ] 1.1 New tests fail before the implementation and pass after
-- [ ] 1.2 Gates green (typecheck, lint, test, build)
+- [x] 1.1 New tests fail before the implementation and pass after — d610cda
+- [x] 1.2 Gates green (typecheck, lint, test, build) — d610cda

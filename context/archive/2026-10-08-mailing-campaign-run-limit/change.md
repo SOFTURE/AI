@@ -1,12 +1,13 @@
 ---
 change_id: mailing-campaign-run-limit
 title: "A per-run send limit for sendCampaign, with the recipients left for the next run"
-status: planned
+status: archived
 roadmap_item: null
 issue: "#238"
 branch: claude/project-thread-besyqo
 created: 2026-10-08
 updated: 2026-10-08
+archived_at: 2026-10-08
 ---
 
 ## Intent
@@ -42,3 +43,4 @@ After this change:
 - Research and framing are skipped: the issue names the function and proposes the shape; `campaigns.ts` and the
   CLI's campaign path were read in full while writing this file, and the cut reuses two notions the file already
   has (`reachedProvider`, `toSend`).
+- Archived 2026-10-08: `limit` and `remaining` for `sendCampaign`, `--limit` for `softure-mail campaign`.
