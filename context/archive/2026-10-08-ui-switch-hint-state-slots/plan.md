@@ -61,7 +61,7 @@ build).
 ### Phase 1: Switch
 
 #### Automated
-- [ ] 1.1 Switch tests seen red, then green
-- [ ] 1.2 Layout check in Chromium
-- [ ] 1.3 Gates green (typecheck, lint, test, build)
-- [ ] 1.4 README, CHANGELOG and version 0.1.14
+- [x] 1.1 Switch tests seen red, then green — a432bc3
+- [x] 1.2 Layout check in Chromium — a432bc3
+- [x] 1.3 Gates green (typecheck, lint, test, build) — a432bc3
+- [x] 1.4 README, CHANGELOG and version 0.1.14 — a432bc3

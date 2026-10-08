@@ -1,12 +1,13 @@
 ---
 change_id: ui-switch-hint-state-slots
 title: "ui: Switch hintProps, state slots that survive unstyled, a hint slot and an inline hint layout (issue #281)"
-status: impl_reviewed
+status: archived
 roadmap_item: null
 issue: 281
 branch: claude/project-thread-whg55t
 created: 2026-10-08
 updated: 2026-10-08
+archived_at: 2026-10-08
 ---
 
 ## Intent
