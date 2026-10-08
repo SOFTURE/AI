@@ -9,7 +9,6 @@ export interface JunitCounts {
 }
 
 const TEST_CASE = /<testcase\b((?:"[^"]*"|'[^']*'|[^'">])*?)(\/>|>([\s\S]*?)<\/testcase>)/g;
-const ATTRIBUTE = /([A-Za-z_][\w:.-]*)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
 const NAMED_ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
 
 function decodeEntities(text: string): string {
@@ -20,12 +19,16 @@ function decodeEntities(text: string): string {
   });
 }
 
-function readAttributes(text: string): Map<string, string> {
-  const attributes = new Map<string, string>();
-  for (const match of text.matchAll(ATTRIBUTE)) {
-    attributes.set(match[1] ?? "", decodeEntities(match[2] ?? match[3] ?? ""));
-  }
-  return attributes;
+// A fixed attribute name after whitespace: no backtracking over long runs of name characters.
+const ATTRIBUTES = {
+  name: /(?:^|\s)name\s*=\s*(?:"([^"]*)"|'([^']*)')/,
+  classname: /(?:^|\s)classname\s*=\s*(?:"([^"]*)"|'([^']*)')/,
+};
+
+/** The value of the attribute `name` or `classname` in a tag's attribute text, or "" without one. */
+function readAttribute(text: string, name: keyof typeof ATTRIBUTES): string {
+  const match = ATTRIBUTES[name].exec(text);
+  return decodeEntities(match?.[1] ?? match?.[2] ?? "");
 }
 
 /**
@@ -42,9 +45,9 @@ export function readJunitCounts(xml: string): JunitCounts {
       counts.passed += 1;
       continue;
     }
-    const attributes = readAttributes(match[1] ?? "");
-    const name = attributes.get("name") ?? "";
-    const className = attributes.get("classname") ?? "";
+    const attributes = match[1] ?? "";
+    const name = readAttribute(attributes, "name");
+    const className = readAttribute(attributes, "classname");
     counts.red.push(className === "" ? name : `${className} › ${name}`);
   }
   return counts;

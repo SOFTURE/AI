@@ -4,7 +4,8 @@ import { INTEGRATION_NOTES_REF } from "./note.js";
 
 /**
  * The git reads and writes of the integration run. Git runs through `execFile` with an argument list, never a shell;
- * refs are checked by `isSafeRef` and remotes by {@link isSafeRemote}, so neither can become an option.
+ * refs are checked by `isSafeRef` and remotes by {@link isSafeRemote}, and `--` ends the options before a remote, so
+ * neither can become an option (`--upload-pack=…`).
  */
 
 const SAFE_REMOTE = /^[A-Za-z0-9_][A-Za-z0-9_.-]*$/;
@@ -48,7 +49,7 @@ function tryGit(cwd: string, args: string[]): boolean {
 /** Replaces the local integration notes with the remote's; false when they cannot be fetched (none yet, offline). */
 export function fetchIntegrationNotes(cwd: string, remote: string): boolean {
   assertSafe("remote", remote);
-  return tryGit(cwd, ["fetch", "--quiet", "--no-tags", remote, `+${INTEGRATION_NOTES_REF}:${INTEGRATION_NOTES_REF}`]);
+  return tryGit(cwd, ["fetch", "--quiet", "--no-tags", "--", remote, `+${INTEGRATION_NOTES_REF}:${INTEGRATION_NOTES_REF}`]);
 }
 
 /** The note text on `sha`, or null when it has none. */
@@ -76,7 +77,7 @@ export function writeNoteText(cwd: string, sha: string, text: string): void {
 /** Pushes the local notes ref; false when the remote refuses it (another run pushed first). */
 export function pushIntegrationNotes(cwd: string, remote: string): boolean {
   assertSafe("remote", remote);
-  return tryGit(cwd, ["push", "--quiet", remote, `${INTEGRATION_NOTES_REF}:${INTEGRATION_NOTES_REF}`]);
+  return tryGit(cwd, ["push", "--quiet", "--", remote, `${INTEGRATION_NOTES_REF}:${INTEGRATION_NOTES_REF}`]);
 }
 
 export type RemoteRef = { kind: "absent" } | { kind: "at"; sha: string } | { kind: "unreachable" };
@@ -87,7 +88,7 @@ export function readRemoteRef(cwd: string, remote: string, ref: string): RemoteR
   assertSafe("ref", ref);
   let listed: string;
   try {
-    listed = runGit(cwd, ["ls-remote", "--refs", remote, ref]);
+    listed = runGit(cwd, ["ls-remote", "--refs", "--", remote, ref]);
   } catch (error) {
     if (typeof error === "object" && error !== null && "status" in error && typeof error.status === "number") return { kind: "unreachable" };
     throw error;
@@ -101,7 +102,7 @@ export function pushCommitToRef(cwd: string, remote: string, sha: string, ref: s
   assertSafe("remote", remote);
   assertSafe("ref", sha);
   assertSafe("ref", ref);
-  return tryGit(cwd, ["push", "--quiet", remote, `${sha}:${ref}`]);
+  return tryGit(cwd, ["push", "--quiet", "--", remote, `${sha}:${ref}`]);
 }
 
 /** The full SHA of the commit `ref` names, or null. */
@@ -123,7 +124,7 @@ export function findMainNoteText(cwd: string, remote: string, main: string): str
   assertSafe("remote", remote);
   assertSafe("ref", main);
   const tracking = `refs/remotes/${remote}/${main}`;
-  tryGit(cwd, ["fetch", "--quiet", "--no-tags", remote, `+refs/heads/${main}:${tracking}`]);
+  tryGit(cwd, ["fetch", "--quiet", "--no-tags", "--", remote, `+refs/heads/${main}:${tracking}`]);
   if (resolveSha(cwd, tracking) === null) return null;
   let listed: string;
   try {

@@ -38,4 +38,11 @@ describe("readJunitCounts", () => {
   it("reads single-quoted attributes and decodes numeric entities", () => {
     expect(readJunitCounts("<testcase classname='x' name='it&#39;s &#x41;'><failure/></testcase>").red).toEqual(["x › it's A"]);
   });
+
+  it("reads a case with a very long run of attribute characters in linear time", () => {
+    const xml = `<testcase ${"A".repeat(200_000)} name="long"><failure/></testcase>`;
+    const started = performance.now();
+    expect(readJunitCounts(xml).red).toEqual(["long"]);
+    expect(performance.now() - started).toBeLessThan(1000);
+  });
 });
