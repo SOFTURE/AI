@@ -108,7 +108,7 @@ Done when: all gates green (`npm run typecheck`, `npm run lint`, `npm test`, `np
 
 ## Progress
 
-- [ ] Phase 1: CLI
+- [x] Phase 1: CLI
 - [ ] Phase 2: deploy.json, server-settings, deploy.sh
 - [ ] Phase 3: prebuilt image in deploy-app.yml
 - [ ] Phase 4: docs

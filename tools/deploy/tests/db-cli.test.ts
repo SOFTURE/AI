@@ -5,6 +5,7 @@ import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { Readable } from "node:stream";
 import { pathToFileURL } from "node:url";
 import { defineModule, type ModuleManifest } from "@softure-ai/core";
 import { createDatabase, migrate } from "@softure-ai/db";
@@ -34,8 +35,37 @@ afterEach(async () => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-function makeIo(env: Record<string, string | undefined>): CliIo {
-  return { cwd: dir, env: { PATH: process.env.PATH, ...env }, stdout: (text) => out.push(text), stderr: (text) => err.push(text) };
+function makeIo(env: Record<string, string | undefined>, stdin?: string | Buffer): CliIo {
+  return {
+    cwd: dir,
+    env: { PATH: process.env.PATH, ...env },
+    stdout: (text) => out.push(text),
+    stderr: (text) => err.push(text),
+    ...(stdin === undefined ? {} : { stdin: Readable.from([typeof stdin === "string" ? Buffer.from(stdin) : stdin]) }),
+  };
+}
+
+/** What `psql -At -c "$(softure-deploy <command> --print-query …)"` prints: the statement the CLI printed, run as is. */
+async function runPrintedQuery(url: string, command: string[]): Promise<string> {
+  const printed: string[] = [];
+  const io: CliIo = { cwd: dir, env: {}, stdout: (text) => printed.push(text), stderr: (text) => err.push(text) };
+  expect(await runCli([...command, "--print-query"], io)).toBe(0);
+  const client = new pg.Client({ connectionString: url });
+  await client.connect();
+  try {
+    const result = await client.query<{ snapshot: string }>(printed.join(""));
+    return `${result.rows[0]?.snapshot ?? ""}\n`;
+  } finally {
+    await client.end();
+  }
+}
+
+/** drizzle's ledger with `rows` entries, as drizzle's migrator leaves it. */
+const DRIZZLE_LEDGER_SQL = "CREATE SCHEMA drizzle; CREATE TABLE drizzle.__drizzle_migrations (id serial PRIMARY KEY, hash text NOT NULL, created_at bigint);";
+
+function writeAppJournal(name: string, entries: number): void {
+  const journal = { version: "7", dialect: "postgresql", entries: Array.from({ length: entries }, (_, idx) => ({ idx, tag: `000${idx}_x` })) };
+  writeFileSync(join(dir, name), JSON.stringify(journal));
 }
 
 async function runAdmin(text: string): Promise<void> {
@@ -197,6 +227,56 @@ describe.runIf(ADMIN_URL !== undefined)("softure-deploy database commands on Pos
       expect(out.join("")).toBe("schema-guard: ok, 2 migration(s) to apply\n  pending softure 0001_ledger.sql\n  pending notes 0001_create_notes.sql\n");
     });
 
+    it("refuses an image whose app journal lists fewer migrations than the app ledger ran, and passes one that lists as many", async () => {
+      const url = await createTestDatabase();
+      await runSql(url, `${DRIZZLE_LEDGER_SQL} INSERT INTO drizzle.__drizzle_migrations (hash) VALUES ('a'), ('b'), ('c');`);
+      writeExport("image", { "0001_create_notes.sql": NOTES_0001 });
+      writeAppJournal("older.json", 2);
+      writeAppJournal("same.json", 3);
+      const io = makeIo({ DATABASE_URL: url });
+      expect(await runCli(["schema-guard", "--migrations-dir=image", "--app-journal=older.json"], io)).toBe(1);
+      expect(err.join("")).toBe(
+        "schema-guard: the database cannot take this image's migrations:\n" +
+          "  drizzle.__drizzle_migrations: the image knows 2 migration(s), the database ran 3; this is an older image than the schema\n",
+      );
+      expect(await runCli(["schema-guard", "--migrations-dir=image", "--app-journal=same.json"], io)).toBe(0);
+      expect(out.join("")).toBe(
+        "schema-guard: ok, 2 migration(s) to apply\n  pending softure 0001_ledger.sql\n  pending notes 0001_create_notes.sql\n" +
+          "  drizzle.__drizzle_migrations: the image knows 3, the database ran 3\n",
+      );
+    });
+
+    it("counts an app ledger table the database lacks as no migrations run, and reads one --app-ledger names", async () => {
+      const url = await createTestDatabase();
+      writeExport("image", { "0001_create_notes.sql": NOTES_0001 });
+      writeAppJournal("journal.json", 0);
+      const io = makeIo({ DATABASE_URL: url });
+      expect(await runCli(["schema-guard", "--migrations-dir=image", "--app-journal=journal.json"], io)).toBe(0);
+      expect(out.join("")).toContain("  drizzle.__drizzle_migrations: the image knows 0, the database ran 0\n");
+      await runSql(url, "CREATE TABLE app_migrations (id int); INSERT INTO app_migrations VALUES (1);");
+      expect(await runCli(["schema-guard", "--migrations-dir=image", "--app-journal=journal.json", "--app-ledger=app_migrations"], io)).toBe(1);
+      expect(err.join("")).toContain("app_migrations: the image knows 0 migration(s), the database ran 1");
+    });
+
+    it("guards the snapshot psql prints from the --print-query statement exactly as through a connection", async () => {
+      const url = await createTestDatabase();
+      await migrateNotes(url, writeExport("running", { "0001_create_notes.sql": NOTES_0001 }));
+      await runSql(url, `${DRIZZLE_LEDGER_SQL} INSERT INTO drizzle.__drizzle_migrations (hash) VALUES ('a');`);
+      writeExport("image", { "0001_create_notes.sql": NOTES_0001, "0002_index_body.sql": NOTES_0002 });
+      writeExport("edited", { "0001_create_notes.sql": `${NOTES_0001}-- edited\n` });
+      writeAppJournal("journal.json", 1);
+      const snapshot = await runPrintedQuery(url, ["schema-guard", "--app-ledger=drizzle.__drizzle_migrations"]);
+      expect(JSON.parse(snapshot)).toMatchObject({ app: { ledger: "drizzle.__drizzle_migrations", rows: 1 }, softure: [{ module: "softure" }, { module: "notes", version: 1, method: "applied" }] });
+      expect(await runCli(["schema-guard", "--migrations-dir=image", "--app-journal=journal.json", "--stdin"], makeIo({}, snapshot))).toBe(0);
+      const viaStdin = out.join("");
+      out = [];
+      expect(await runCli(["schema-guard", "--migrations-dir=image", "--app-journal=journal.json"], makeIo({ DATABASE_URL: url }))).toBe(0);
+      expect(viaStdin).toBe(out.join(""));
+      expect(viaStdin).toBe("schema-guard: ok, 1 migration(s) to apply\n  pending notes 0002_index_body.sql\n  drizzle.__drizzle_migrations: the image knows 1, the database ran 1\n");
+      expect(await runCli(["schema-guard", "--migrations-dir=edited", "--stdin"], makeIo({}, snapshot))).toBe(1);
+      expect(err.join("")).toContain("notes: applied migration 0001_create_notes.sql was edited");
+    });
+
     it("reports a database it cannot reach without printing the URL", async () => {
       const url = new URL(await createTestDatabase());
       url.pathname = "/softure_deploy_missing_database";
@@ -269,6 +349,24 @@ describe.runIf(ADMIN_URL !== undefined)("softure-deploy database commands on Pos
       expect(await runCli(["row-counts", "--tables=users,notes", "--compare=before.json"], io)).toBe(0);
       expect(out.join("")).toBe("row-counts: users 1 -> 1 (0)\nrow-counts: notes absent -> 0 (created by this release)\n");
       expect(err.join("")).toBe("");
+    });
+
+    it("compares the snapshots psql prints from the --print-query statement, absent tables included", async () => {
+      const url = await createTestDatabase();
+      await runSql(url, "CREATE SCHEMA billing; CREATE TABLE users (id int); CREATE TABLE billing.subscriptions (id int); INSERT INTO users VALUES (1), (2);");
+      const command = ["row-counts", "--tables=users,billing.subscriptions,notes"];
+      const before = await runPrintedQuery(url, command);
+      expect(JSON.parse(before)).toEqual({ users: 2, "billing.subscriptions": 0, notes: null });
+      expect(await runCli([...command, "--stdin", "--out=before.json"], makeIo({}, before))).toBe(0);
+      expect(out.join("")).toBe("row-counts: users 2\nrow-counts: billing.subscriptions 0\nrow-counts: notes absent\n");
+      await runSql(url, "DELETE FROM users WHERE id = 2; CREATE TABLE notes (id int);");
+      out = [];
+      const after = await runPrintedQuery(url, command);
+      expect(await runCli([...command, "--stdin", "--compare=before.json"], makeIo({}, after))).toBe(1);
+      expect(out.join("")).toBe(
+        "row-counts: users 2 -> 1 (-1)\nrow-counts: billing.subscriptions 0 -> 0 (0)\nrow-counts: notes absent -> 0 (created by this release)\n",
+      );
+      expect(err.join("")).toBe("row-counts: the deploy lost rows or tables: users (fewer rows than before).\n");
     });
 
     it("fails when a table counted before is absent after the deploy", async () => {
@@ -417,5 +515,86 @@ describe("softure-deploy database commands without a database", () => {
     writeFileSync(join(dir, "deploy.json"), "{ not json");
     expect(await runCli(["row-counts", "--tables=users"], makeIo({ DATABASE_URL: "pglite://./data" }))).toBe(1);
     expect(err.join("")).toBe("row-counts: DATABASE_URL must be a postgres:// or postgresql:// URL.\n");
+  });
+});
+
+describe("softure-deploy --stdin modes without a database", () => {
+  const LEDGER = JSON.stringify({ softure: [], app: { ledger: "drizzle.__drizzle_migrations", rows: 4 } });
+
+  it("prints the snapshot statements without a database, and nothing else", async () => {
+    expect(await runCli(["schema-guard", "--print-query"], makeIo({}))).toBe(0);
+    expect(await runCli(["row-counts", "--tables=users", "--print-query"], makeIo({}))).toBe(0);
+    const [ledger, counts] = out;
+    expect(ledger).toMatch(/^SELECT json_build_object\('softure', .*'app', NULL::json\)::text AS snapshot\n$/);
+    expect(counts).toMatch(/^SELECT \(jsonb_build_object\('users', \(CASE WHEN to_regclass\('"users"'\) IS NULL .*\)::text AS snapshot\n$/);
+    expect(err).toEqual([]);
+  });
+
+  it("refuses the app ledger when the snapshot was printed for another or none", async () => {
+    writeExport("image", { "0001_create_notes.sql": NOTES_0001 });
+    writeAppJournal("journal.json", 5);
+    const none = JSON.stringify({ softure: [], app: null });
+    expect(await runCli(["schema-guard", "--migrations-dir=image", "--app-journal=journal.json", "--stdin"], makeIo({}, none))).toBe(1);
+    expect(err.join("")).toContain(
+      "  the snapshot holds no rows of drizzle.__drizzle_migrations; print the query with --app-ledger=drizzle.__drizzle_migrations\n",
+    );
+    expect(await runCli(["schema-guard", "--migrations-dir=image", "--app-journal=journal.json", "--stdin"], makeIo({}, LEDGER))).toBe(0);
+    expect(out.join("")).toContain("drizzle.__drizzle_migrations: the image knows 5, the database ran 4\n");
+  });
+
+  it("refuses an empty or foreign snapshot on stdin, naming the query to pipe", async () => {
+    writeExport("image", { "0001_create_notes.sql": NOTES_0001 });
+    expect(await runCli(["schema-guard", "--migrations-dir=image", "--stdin"], makeIo({}))).toBe(1);
+    expect(await runCli(["schema-guard", "--migrations-dir=image", "--stdin"], makeIo({}, '{"softure":[{"module":"notes"}],"app":null}'))).toBe(1);
+    expect(await runCli(["row-counts", "--tables=users,notes", "--stdin"], makeIo({}, '{"users":1}'))).toBe(1);
+    expect(err.join("").split("\n")).toEqual([
+      'schema-guard: the snapshot is empty on stdin; pipe the output of `psql -At -c "$(softure-deploy schema-guard --print-query …)"`.',
+      'schema-guard: the snapshot is not a ledger snapshot (softure.0.version: Invalid input: expected number, received undefined) on stdin; pipe the output of `psql -At -c "$(softure-deploy schema-guard --print-query …)"`.',
+      'row-counts: the snapshot has no count of notes on stdin; pipe the output of `psql -At -c "$(softure-deploy row-counts --print-query …)"`.',
+      "",
+    ]);
+  });
+
+  it("refuses an app journal it cannot read and an --app-ledger without a journal", async () => {
+    writeExport("image", { "0001_create_notes.sql": NOTES_0001 });
+    writeFileSync(join(dir, "broken.json"), "{");
+    expect(await runCli(["schema-guard", "--migrations-dir=image", "--app-journal=missing.json", "--stdin"], makeIo({}, LEDGER))).toBe(1);
+    expect(await runCli(["schema-guard", "--migrations-dir=image", "--app-journal=broken.json", "--stdin"], makeIo({}, LEDGER))).toBe(1);
+    expect(await runCli(["schema-guard", "--migrations-dir=image", "--app-ledger=x", "--stdin"], makeIo({}, LEDGER))).toBe(2);
+    expect(await runCli(["schema-guard", "--app-ledger=Bad-Name", "--print-query"], makeIo({}))).toBe(2);
+    expect(err.join("").split("\n")).toEqual([
+      `schema-guard: cannot read the app journal ${join(dir, "missing.json")} (ENOENT).`,
+      `schema-guard: cannot read the app journal ${join(dir, "broken.json")} (not JSON).`,
+      "schema-guard: --app-ledger needs --app-journal (the image's journal of that ledger).",
+      'schema-guard: --app-ledger must be one table or schema.table, got "Bad-Name".',
+      "",
+    ]);
+  });
+
+  it("keeps a finished custom-format dump from stdin with mode 0600 and runs the retention", async () => {
+    mkdirSync(join(dir, "backups"));
+    for (const day of ["01", "02", "03"]) writeFileSync(join(dir, "backups", `db-202610${day}T120000Z.dump`), "PGDMP old");
+    const dump = Buffer.concat([Buffer.from("PGDMP"), randomBytes(64)]);
+    expect(await runCli(["backup", "--stdin", "--keep=2"], makeIo({}, dump))).toBe(0);
+    const kept = readdirSync(join(dir, "backups")).sort();
+    expect(kept).toHaveLength(2);
+    expect(kept[0]).toBe("db-20261003T120000Z.dump");
+    const newest = join(dir, "backups", kept[1] ?? "");
+    expect(readFileSync(newest)).toEqual(dump);
+    expect(statSync(newest).mode & 0o777).toBe(0o600);
+    expect(out.join("")).toMatch(/^backup: wrote .*db-\d{8}T\d{6}Z\.dump \(69 bytes\); removed 2 older: db-20261002T120000Z\.dump, db-20261001T120000Z\.dump\n$/);
+  });
+
+  it("refuses an empty or foreign input and the flags of the pg_dump that made the dump", async () => {
+    expect(await runCli(["backup", "--stdin"], makeIo({}))).toBe(1);
+    expect(await runCli(["backup", "--stdin"], makeIo({}, "not a dump"))).toBe(1);
+    expect(await runCli(["backup", "--stdin", "--pg-dump=/x", "--exclude-table-data=a"], makeIo({}, "PGDMP"))).toBe(2);
+    expect(err.join("").split("\n")).toEqual([
+      "backup: no backup written; the input wrote no pg_dump custom-format file (no PGDMP header).",
+      "backup: no backup written; the input wrote no pg_dump custom-format file (no PGDMP header).",
+      "backup: --stdin takes a finished dump; --pg-dump, --exclude-table-data belong to the pg_dump that made it.",
+      "",
+    ]);
+    expect(readdirSync(join(dir, "backups"))).toEqual([]);
   });
 });
