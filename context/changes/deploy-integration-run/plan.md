@@ -118,6 +118,11 @@ refuses a busy name, waits on a same-commit ref without pushing, ignores the sta
 
 - Separate `record` command or shell in the workflow → command (testable, the retry lives in tested code).
 - Flaky lines → not produced (no portable signal in JUnit; the contract makes them optional).
+- Phase 2 drift: an unreachable remote made `git ls-remote` throw out of `run`; `readRemoteRef` now returns
+  `unreachable` and `run` exits 1 ("cannot reach <remote>; the run did not start"), with a test for it.
+- Phase 3 drift: `tests/repo/ci-workflows.test.ts` requires a numeric `timeout-minutes` on every reusable job, so the
+  suite job has a fixed 120 minutes instead of a `timeout-minutes` input. The example caller joined the actionlint
+  step of `ci.yml`.
 
 ## Progress
 
@@ -126,22 +131,22 @@ refuses a busy name, waits on a same-commit ref without pushing, ignores the sta
 ### Phase 1: note, contract lines and JUnit counts
 
 #### Automated
-- [ ] 1.1 Unit tests for note, JUnit counts and contract lines seen red, then green
-- [ ] 1.2 Gates green (typecheck, lint, test)
+- [x] 1.1 Unit tests for note, JUnit counts and contract lines seen red, then green — 39d3e71
+- [x] 1.2 Gates green (typecheck, lint, test) — 39d3e71
 
 ### Phase 2: git and the three commands
 
 #### Automated
-- [ ] 2.1 CLI tests against a bare remote seen red, then green
-- [ ] 2.2 Gates green (typecheck, lint, test)
+- [x] 2.1 CLI tests against a bare remote seen red, then green — 16516ea
+- [x] 2.2 Gates green (typecheck, lint, test) — 16516ea
 
 ### Phase 3: reusable workflow and caller
 
 #### Automated
-- [ ] 3.1 Workflow guard tests green
-- [ ] 3.2 Gates green (typecheck, lint, test)
+- [x] 3.1 Workflow guard tests green — ce6b14c, 12165db
+- [x] 3.2 Gates green (typecheck, lint, test) — 12165db
 
 ### Phase 4: docs
 
 #### Automated
-- [ ] 4.1 README and CHANGELOG, gates green (typecheck, lint, test, build)
+- [x] 4.1 README and CHANGELOG, gates green (typecheck, lint, test, build) — 8058158

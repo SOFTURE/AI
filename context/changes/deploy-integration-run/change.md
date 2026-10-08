@@ -1,13 +1,13 @@
 ---
 change_id: deploy-integration-run
 title: "deploy: the remote integration run with its result in a git note ships with the package (issue #248)"
-status: new
+status: archived
 roadmap_item: null
 issue: 248
 branch: claude/project-thread-of4fxl
 created: 2026-10-08
 updated: 2026-10-08
-archived_at: null
+archived_at: 2026-10-08
 ---
 
 ## Intent
@@ -64,3 +64,5 @@ No roadmap: issues are the tracker (project rule 2026-10-07).
 ## Notes
 
 - Placement: unlinked (`roadmap_item: null`, `issue: 248`), per the project rule that each GitHub issue is one change.
+- Archived 2026-10-08: `softure-deploy integration run|lookup|record` and `deploy-integration.yml` give every project
+  on the skills the remote integration contract (result in `refs/notes/integration`); listed under `## Unreleased`.
