@@ -338,9 +338,9 @@ async function recordHistory(ctx: WaitlistContext, row: CheckedRow): Promise<{ c
 
 /**
  * Opts the address out of list mail the way its own unsubscribe would (a `page` opt-out, which a new
- * sign-up lifts), when no scope of its sign-up is granted any more and it is not opted out yet. Goes
- * through mailing's `unsubscribe` with a link signed now, so the app's `onUnsubscribed` runs as for
- * any unsubscribe. Returns whether an opt-out was recorded.
+ * sign-up lifts once its confirmation link is used), when no scope of its sign-up is granted any
+ * more and it is not opted out yet. Goes through mailing's `unsubscribe` with a link signed now, so
+ * the app's `onUnsubscribed` runs as for any unsubscribe. Returns whether an opt-out was recorded.
  */
 async function optOut(ctx: WaitlistContext, email: string, secret: string): Promise<boolean> {
   const [row] = await ctx.db.select({ scopes: signups.scopes }).from(signups).where(eq(signups.email, email));

@@ -1,10 +1,10 @@
-// The join action without double opt-in: the channel the app resolves for the request, and the
-// person's own unsubscribe link in the success answer. Next's request scope is replaced: the config
+// The join action without double opt-in: the channel the app resolves for the request, the
+// person's own unsubscribe link in the success answer, and the same answer for a suppressed address. Next's request scope is replaced: the config
 // and the database come from the test and `after` callbacks are dropped (the mail is tested elsewhere).
 import type { SoftureConfig } from "@softure-ai/core";
 import { getScopeFieldName, INITIAL_WAITLIST_FORM_STATE, type WaitlistOptionsInput } from "@softure-ai/waitlist";
 import { joinWaitlistAction } from "@softure-ai/waitlist/next";
-import { readUnsubscribeToken, verifyUnsubscribeToken } from "@softure-ai/mailing/server";
+import { isSuppressed, readUnsubscribeToken, suppressRecipient, verifyUnsubscribeToken } from "@softure-ai/mailing/server";
 import { getSignup, joinWaitlist, type WaitlistContext } from "@softure-ai/waitlist/server";
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 import { CLIENT, createTestWaitlist, OPTIONS, SECRET, type TestWaitlist } from "./support.js";
@@ -12,9 +12,11 @@ import { CLIENT, createTestWaitlist, OPTIONS, SECRET, type TestWaitlist } from "
 interface RequestScope {
   config: SoftureConfig | undefined;
   context: WaitlistContext | undefined;
+  /** How many callbacks went to `after` (the mails). */
+  afterCalls: number;
 }
 
-const scope = vi.hoisted((): RequestScope => ({ config: undefined, context: undefined }));
+const scope = vi.hoisted((): RequestScope => ({ config: undefined, context: undefined, afterCalls: 0 }));
 
 vi.mock("@softure-ai/core/next", () => ({
   getSoftureConfig: () => {
@@ -24,7 +26,7 @@ vi.mock("@softure-ai/core/next", () => ({
 }));
 vi.mock("next/headers", () => ({ headers: () => Promise.resolve(new Headers({ "x-real-ip": "192.0.2.10" })) }));
 vi.mock("next/navigation", () => ({ redirect: () => undefined }));
-vi.mock("next/server", () => ({ after: () => undefined }));
+vi.mock("next/server", () => ({ after: () => void scope.afterCalls++ }));
 vi.mock("../src/next/context.ts", () => ({ getWaitlistContext: () => Promise.resolve(scope.context) }));
 
 const ADA = "ada@example.com";
@@ -45,6 +47,7 @@ describe("the join action", () => {
     test = await createTestWaitlist({ waitlist: options });
     scope.config = test.config;
     scope.context = test.ctx;
+    scope.afterCalls = 0;
   }
 
   beforeEach(() => {
@@ -105,6 +108,21 @@ describe("the join action", () => {
     await test.database.close();
     await start({ ...OPTIONS, unsubscribeLinkOnSuccess: true, doubleOptIn: true });
     expect(await joinWaitlistAction(INITIAL_WAITLIST_FORM_STATE, joinForm())).toEqual({ status: "confirmation_sent" });
+  });
+
+  it("answers a suppressed address exactly like a sign-up that counted, writes nothing and sends no mail", async () => {
+    vi.stubEnv("MAILING_UNSUBSCRIBE_SECRET", SECRET);
+    await start({ ...OPTIONS, unsubscribeLinkOnSuccess: true });
+    const counted = await joinWaitlistAction(INITIAL_WAITLIST_FORM_STATE, joinForm("bob@example.com"));
+    expect(scope.afterCalls).toBe(1);
+    await suppressRecipient(test.ctx, ADA, "page");
+
+    const suppressed = await joinWaitlistAction(INITIAL_WAITLIST_FORM_STATE, joinForm(" Ada@Example.com "));
+    expect(suppressed).toEqual({ status: "ok", unsubscribeUrl: expect.stringMatching(/\?r=[\w-]{43}&t=[\w-]{43}$/) as unknown });
+    expect(Object.keys(suppressed)).toEqual(Object.keys(counted));
+    expect(scope.afterCalls).toBe(1);
+    expect(await getSignup(test.ctx, ADA)).toBeNull();
+    expect(await isSuppressed(test.ctx, ADA)).toBe(true);
   });
 
   it("refuses to run with the option and no unsubscribe secret", async () => {
