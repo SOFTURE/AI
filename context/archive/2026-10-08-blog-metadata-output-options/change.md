@@ -1,12 +1,13 @@
 ---
 change_id: blog-metadata-output-options
 title: "blog 0.1.9: metadata and JSON-LD builders reproduce an adopting site's output (JSON-LD ids, cluster anchor, BCP-47 and Open Graph locales, term title) (issue #240)"
-status: impl_reviewed
+status: archived
 roadmap_item: null
 issue: 240
 branch: claude/project-thread-qovehs
 created: 2026-10-08
 updated: 2026-10-08
+archived_at: 2026-10-08
 ---
 
 ## Intent
