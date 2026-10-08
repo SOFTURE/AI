@@ -1,6 +1,6 @@
 import type { Locale } from "@softure-ai/core";
 import { type ClassNames, createSlotClassGetter } from "@softure-ai/ui";
-import type { ReactNode } from "react";
+import { type ReactNode, useId } from "react";
 import type { PrivacyMessages } from "../messages/index.js";
 
 // The legal document shell: a title with the version in force and its effective date, a table of
@@ -91,6 +91,9 @@ export type LegalDocumentMeta =
 /** The element of the contents title; the navigation is named by it whatever it is. */
 export type LegalContentsTitleElement = "h2" | "h3" | "p";
 
+/** The root element of the document. */
+export type LegalDocumentElement = "article" | "div" | "section";
+
 interface LegalDocumentBaseProps {
   /** The `<h1>`; leave it out when the app's page frame renders the title. */
   readonly title?: ReactNode;
@@ -102,6 +105,13 @@ interface LegalDocumentBaseProps {
   readonly listChangesInContents?: boolean;
   /** Default `h2`. */
   readonly contentsTitleAs?: LegalContentsTitleElement;
+  /**
+   * The anchor of the change history, default `legal-changes`. Give each document its own on a page
+   * with two of them.
+   */
+  readonly changesId?: string;
+  /** Default `article`. */
+  readonly as?: LegalDocumentElement;
   readonly messages: PrivacyMessages;
   /** Formats the dates. */
   readonly locale: Locale;
@@ -144,9 +154,8 @@ export function formatLegalDate(date: string, locale: Locale): string {
   return new Intl.DateTimeFormat(locale, { dateStyle: "long", timeZone: "UTC" }).format(value);
 }
 
-/** The id of the change history section; the table of contents does not list it. */
-const CHANGES_ID = "legal-changes";
-const CONTENTS_TITLE_ID = "legal-contents-title";
+/** The default anchor of the change history section. */
+const DEFAULT_CHANGES_ID = "legal-changes";
 
 /** "Version X · <date>", "Version X", the date, or nothing, from what the entry has. */
 function formatChangeMeta(change: LegalChange, messages: PrivacyMessages, locale: Locale): string | null {
@@ -164,6 +173,8 @@ export function LegalDocument(props: LegalDocumentProps) {
     changes = [],
     listChangesInContents = false,
     contentsTitleAs: ContentsTitle = "h2",
+    changesId = DEFAULT_CHANGES_ID,
+    as: Root = "article",
     messages,
     locale,
     classNames,
@@ -171,6 +182,8 @@ export function LegalDocument(props: LegalDocumentProps) {
     unstyled,
   } = props;
   const slot = createSlotClassGetter({ defaults: DOCUMENT_CLASSES, classNames, unstyled });
+  // Generated, so two documents on one page do not share it; nothing links to it.
+  const contentsTitleId = `${useId()}-contents-title`;
   const copy = messages.legal;
   const meta =
     props.version === undefined ? (
@@ -186,10 +199,10 @@ export function LegalDocument(props: LegalDocumentProps) {
   const hasHeader = hasTitle || meta !== null || intro !== undefined;
   const contents = [
     ...sections.map((section) => ({ id: section.id, title: section.title })),
-    ...(listChangesInContents && changes.length > 0 ? [{ id: CHANGES_ID, title: copy.changes }] : []),
+    ...(listChangesInContents && changes.length > 0 ? [{ id: changesId, title: copy.changes }] : []),
   ];
   return (
-    <article className={slot("root")}>
+    <Root className={slot("root")}>
       {hasHeader ? (
         <header className={slot("header")}>
           {hasTitle ? <h1 className={slot("title")}>{title}</h1> : null}
@@ -198,8 +211,8 @@ export function LegalDocument(props: LegalDocumentProps) {
         </header>
       ) : null}
       {sections.length === 0 ? null : (
-        <nav aria-labelledby={CONTENTS_TITLE_ID} className={slot("contents")}>
-          <ContentsTitle id={CONTENTS_TITLE_ID} className={slot("contentsTitle")}>
+        <nav aria-labelledby={contentsTitleId} className={slot("contents")}>
+          <ContentsTitle id={contentsTitleId} className={slot("contentsTitle")}>
             {copy.contents}
           </ContentsTitle>
           <ol className={slot("contentsList")}>
@@ -220,8 +233,8 @@ export function LegalDocument(props: LegalDocumentProps) {
           </LegalSection>
         ))}
         {changes.length === 0 ? null : (
-          <section id={CHANGES_ID} aria-labelledby={`${CHANGES_ID}-title`} className={slot("changes")}>
-            <h2 id={`${CHANGES_ID}-title`} className={slot("changesTitle")}>
+          <section id={changesId} aria-labelledby={`${changesId}-title`} className={slot("changes")}>
+            <h2 id={`${changesId}-title`} className={slot("changesTitle")}>
               {copy.changes}
             </h2>
             <ol className={slot("changesList")}>
@@ -239,6 +252,6 @@ export function LegalDocument(props: LegalDocumentProps) {
           </section>
         )}
       </div>
-    </article>
+    </Root>
   );
 }

@@ -28,13 +28,18 @@ steps, the cap and the time zone moved into configuration and the report turned 
 - **Propagation without a cookie** (`/proxy`, `createChannelTagger(config, options?)`):
   - `tag(request)`: a GET navigation (a browser page load, or a Next.js client navigation) without
     the parameter, coming from a first-party page with a valid one (`Referer`), is answered with a
-    307 to the same URL plus the tag, on the origin the request was sent to (else `appOrigin`).
-    Fetches, images, beacons and server actions pass untouched.
+    307 to the same URL plus the tag, on the origin the request was sent to (a configured one, or
+    the request URL's own host when `Host` names it, as on a dev server; else `appOrigin`).
+    Fetches, images, beacons and server actions pass untouched. What counts as a navigation is
+    exported as `isNavigation(request)` (§4).
   - `carry(request, response)`: a first-party redirect another proxy piece answered with (auth's
     guard sending `/account?z=ads` to login) gets the request's channel added to its `Location`; a
     relative `Location` stays relative.
   - `options.channelFromReferer`: a navigation from a first-party page without the parameter is
     tagged with the channel the page's URL implies (an article page → `blog`).
+  - `options.targets`: the navigations `tag` may redirect, as pathnames (`["/register"]`) or a
+    predicate `({ target, source }) => boolean`; every other path passes, so no extra 307 (or
+    prefetch redirect) on pages the product leaves untagged.
 - **The tag on client navigations** (`/next/channel-keeper`, `<ChannelKeeper />` in the root
   layout): the proxy cannot recognise every Next.js client navigation (Next strips its router
   headers before the proxy runs, and a route served from the router's cache sends no request), so a
@@ -224,6 +229,36 @@ import { ChannelKeeper } from "@softure-ai/analytics/next/channel-keeper";
 navigations from untagged article pages, pass the same function the funnel uses:
 `createChannelTagger(softureConfig, { channelFromReferer: fromArticle })`.
 
+**Only some paths.** By default `tag` redirects a navigation to any path. Each one is a 307,
+`<Link>` prefetches included, so an app that wants the tag only where it is read (sign-up, a
+calculator) names those paths:
+
+```ts
+const channels = createChannelTagger(softureConfig, { targets: ["/register", "/calculator"] });
+// or decide on the target and the page the visitor came from:
+const channels = createChannelTagger(softureConfig, {
+  targets: ({ target, source }) => target.pathname === "/register" || source.pathname.startsWith("/blog/"),
+});
+```
+
+A list holds absolute pathnames compared exactly with the target's `pathname` (`/register/` and
+`/register/step` are other paths; a bad entry throws at startup). A predicate gets copies of both
+URLs; only `true` tags, and a throw is logged and tags nothing. `targets` scopes `tag` only: `carry`
+adds no request (it rewrites a redirect another piece already answered with), and
+`<ChannelKeeper />` still keeps the tag in the address bar of any page it sees one on.
+
+**What `tag` treats as a navigation.** `isNavigation(request)` (exported from `/proxy`) is true for a
+GET or HEAD with one of: `Sec-Fetch-Mode: navigate` (a browser page load), `RSC: 1`, or `Next-Url`
+with no `Sec-Fetch-Dest` or `Sec-Fetch-Dest: empty` (a Next.js client navigation or prefetch). A bare
+`new NextRequest(url)` has none of them, so a test of an app's proxy adds one
+(`headers: { "sec-fetch-mode": "navigate", referer: "https://app.example.com/?z=ads" }`). A proxy in
+front that strips `Sec-Fetch-*` and Next's headers makes `tag` pass every request (§12).
+
+**Redirect host without a proxy.** On a dev server or a test stack (`http://localhost:3100`, neither
+`appOrigin` nor in `origins`) `Host` equals the request URL's host, and `tag` redirects there (scheme
+from `X-Forwarded-Proto` when present). Behind a proxy whose `Host` is not configured, it still
+redirects to `appOrigin`.
+
 **Two origins behind a proxy.** With public pages on `https://example.com` and the product on
 `appOrigin` `https://app.example.com`, both served by one app behind a reverse proxy:
 `analytics({ origins: ["https://example.com"] })`. The proxy in front must keep the `Host` header
@@ -355,6 +390,9 @@ belong to the app's own privacy contributor.
 - **The keeper puts a dropped tag back.** A page that removes the parameter with
   `history.replaceState` gets it back; only another valid tag (or an invalid value, which ends the
   chain) replaces it.
+- **`tag` needs navigation headers.** Behind a proxy that strips `Sec-Fetch-Mode` (and Next's
+  `RSC`/`Next-Url`) no request is a navigation and `tag` silently passes everything; the keeper
+  still tags in the browser. Check with `isNavigation` (§4).
 - **Last tag wins.** A URL with its own tag replaces the earlier one; there is no first-touch memory
   without storage.
 - `getChannel()` reads the page the request came from; a page's own render reads its

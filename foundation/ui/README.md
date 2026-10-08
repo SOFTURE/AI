@@ -111,16 +111,17 @@ or a comment throw.
 | --- | --- |
 | Actions | `Button` (`primary`, `secondary`, `ghost`, `danger`, `ink`, `ink-outline`; `sm`, `md`, `lg`; `pending`, `pendingLabel`), `ButtonLink`, `ButtonAnchor`, `IconButton`, `getButtonClass` |
 | Icons | `ArrowLeftIcon` … `ChatIcon`, `ChildIcon`, `LoanIcon` (35, decorative, `size` and `className`) |
-| Surfaces | `Card` (`boxed`, `lead`, `flat`; `step`, `done`, `accent`, `headingLevel`, `headingSize`, `collapsible`), `CardDisclosure`, `Stat`, `EmptyState`, `Hint`, `FormError` |
+| Surfaces | `Card` (`boxed`, `lead`, `flat`; `step`, `done`, `accent`, `headingLevel`, `headingSize`, `collapsible`), `CardDisclosure`, `CollapsibleSection`, `Stat`, `EmptyState`, `Hint`, `FormError` |
 | Fields | `Field`, `FieldGroup`, `TextField`, `PasswordField`, `MoneyField`, `SelectField`, `CheckboxField`, `INPUT_CLASS`, `NUMBER_INPUT_CLASS` |
 | Controls | `Select` (ARIA listbox), `Switch`, `SwitchControl`, `Checkbox`, `SegmentedControl`, `SEGMENTED_GROUP_CLASS` + `SEGMENT_ACTIVE_CLASS` / `SEGMENT_IDLE_CLASS` (an app's own segments) |
+| Navigation | `Tabs` (ARIA tabs, roving focus), `TabPanels` (panels for a tab bar of links), `SegmentedNav` (links drawn as segments, `aria-current`) |
 | Dialogs and feedback | `Modal` (`form`, `confirmation`, `panel`), `StandingPanel`, `ModalBody`, `ModalFooter`, `ModalForm`, `ToastHost` + `announceToast` |
 | Forms | `ActionForm` (server action, value replay, field errors, success toast), `ActionResult`, `MessageActionResult` |
 | Locale | `UiLocaleProvider`, `useUiLocale` |
 | Money | `parseAmount`, `formatAmountInput`, `normalizeAmountInput`, `getAmountErrorMessage` |
 
 Server-safe (no `"use client"`): `Button`, `ButtonLink`, `ButtonAnchor`, `IconButton`, icons, `Card`, `Stat`,
-`EmptyState`, `FormError`, `Field`, `FieldGroup`, the class constants. The rest are client components
+`EmptyState`, `FormError`, `Field`, `FieldGroup`, `TabPanels`, `SegmentedNav`, the class constants. The rest are client components
 (`Card` and `Field` render their hint and collapsing through small client components).
 
 ### Shared props
@@ -194,6 +195,13 @@ errors; `PasswordField` never replays. The server parses amounts with the same
 <SegmentedControl legend="Period" isLegendHidden value={period} onChange={setPeriod}
   options={[{ value: "month", label: "Month" }, { value: "year", label: "Year" }]} />
 
+<Tabs label="Views" items={[{ id: "chart", label: "Chart", content: <Chart /> },
+  { id: "draft", label: "Draft", content: <DraftForm />, isAlwaysMounted: true }]} />
+<SegmentedNav label="View" current={view} LinkComponent={NoScrollLink}
+  items={[{ id: "chart", href: "?view=chart", label: "Chart" }, { id: "table", href: "?view=table", label: "Table" }]} />
+<TabPanels active={tab} panels={[{ id: "overview", content: <Overview /> }, { id: "update", content: <Update />, isAlwaysMounted: true }]} />
+<CollapsibleSection title="Goal" subtitle="3 of 5 set" headingLevel={2} defaultOpen>…</CollapsibleSection>
+
 <ToastHost />                     {/* once per page, a polite live region */}
 <ToastHost regionProps={{ "data-testid": "toast-region" }} />   {/* id and data-* only: an anchor for browser tests */}
 announceToast("Saved");           // from any client code; the same text twice shows twice
@@ -208,6 +216,24 @@ Before hydration it already opens on hover and focus, by CSS alone. The bubble r
 `text-transform` and `letter-spacing`, so a hint inside an uppercase or tracked heading reads normally.
 `Card`, `Field` and the form fields render their own "?"; `hintProps` (a `HintAppearance`: `classNames`,
 `triggerGap`, `isWide`) gives it the look and gap of the app's standalone hints.
+
+`Tabs` follows the WAI-ARIA tabs pattern: only the selected tab is in the Tab order, arrows move between tabs and
+wrap, Home and End jump to the ends. `activation="automatic"` (default) selects the tab an arrow reaches; `"manual"`
+moves focus only, and Enter or Space selects. Controlled with `value` + `onChange`, or uncontrolled with
+`defaultValue`. Only the selected panel renders: a panel whose state must survive a switch (a form half filled) takes
+`isAlwaysMounted` and stays in the tree, hidden. Slots: `root`, `list`, `tab`, `panel`.
+
+When the route picks the tab (a path or a query parameter, so the choice survives a reload and works without
+JavaScript), draw the bar with `SegmentedNav` and the content with `TabPanels`. `SegmentedNav` renders a named `<nav>`
+of links with the segmented look; the current one carries `aria-current` (`page` by default, `ariaCurrent` to change).
+`LinkComponent` renders each link: for a query-parameter switch with Next, a wrapper such as
+`(props) => <Link {...props} scroll={false} />` keeps the scroll position. Slots: `root`, `link`. `TabPanels` renders
+the active panel plus the `isAlwaysMounted` ones hidden, with `data-tab-panel` and no `tabpanel` role.
+
+`CollapsibleSection` is the `CardDisclosure` gesture for any section: a framed bar with the arrow, the title and an
+optional one-line `subtitle` (a state, such as "3 of 5 set") is the toggle (`aria-expanded`, `aria-controls`), and the
+collapsed content stays mounted (`hidden`) so typed text survives. `headingLevel` (2–6) wraps the toggle in a heading.
+Slots: `root`, `heading`, `toggle`, `arrow`, `title`, `subtitle`, `content`.
 
 Every `text-*` size carries Tailwind's default line height (a ratio of the size token); an explicit
 `leading-*` still wins.
