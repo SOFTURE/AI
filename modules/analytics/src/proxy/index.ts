@@ -8,7 +8,8 @@
 // redirect to login), `tag` puts it back on a navigation that came from a tagged page.
 //
 // Behind a proxy `request.url` carries the server's own host. The public origin comes from `Host`
-// (`readPublicOrigin`), and only when it is `appOrigin` or one of `analytics({ origins })`.
+// (`readPublicOrigin`), and only when it is `appOrigin` or one of `analytics({ origins })`. Without a
+// proxy (a dev server on `localhost:<port>`) `Host` is the request URL's own host, and `tag` stays there.
 import type { SoftureConfig } from "@softure-ai/core";
 import type { ChannelFromReferer } from "../options.js";
 import { deriveChannel, hasChannelParam, isFirstParty, readChannel, readPublicOrigin, withChannel } from "../server/channel.js";
@@ -24,9 +25,10 @@ export interface ChannelTagger {
    */
   carry(request: Request, response: Response | null | undefined): Response | null;
   /**
-   * A 307 to the same URL with the channel, for a GET navigation without the parameter that comes
-   * from a first-party page with a valid one; null otherwise (the request goes on). The target is on
-   * the origin the request was sent to when it is configured, else on `appOrigin`.
+   * A 307 to the same URL with the channel, for a GET navigation (`isNavigation`) without the parameter
+   * that comes from a first-party page with a valid one and whose path `targets` accepts; null otherwise
+   * (the request goes on). The target is on the origin the request was sent to when it is configured or
+   * is the request URL's own host, else on `appOrigin`.
    */
   tag(request: Request): Response | null;
 }
@@ -39,12 +41,31 @@ export interface ChannelTaggerOptions {
    * tags nothing. A page that has the parameter decides, valid or not.
    */
   readonly channelFromReferer?: ChannelFromReferer;
+  /**
+   * The navigations `tag` may redirect; without it, every one. A list of absolute pathnames
+   * (`["/register"]`) compared exactly with the target's `pathname`, or a predicate over the target and
+   * the page the visitor came from; only `true` tags, and a throw is logged and tags nothing.
+   * `carry` is not scoped: it adds no request.
+   */
+  readonly targets?: ChannelTargets;
 }
+
+/** The target of a navigation `tag` would redirect and the first-party page it came from. */
+export interface ChannelTargetContext {
+  readonly target: URL;
+  readonly source: URL;
+}
+
+/** Pathnames, or a predicate, naming the navigations `tag` may redirect. */
+export type ChannelTargets = readonly string[] | ((context: ChannelTargetContext) => boolean);
+
+const TARGETS_LABEL = "channelTagger.targets";
 
 /** The channel piece for `proxy.ts`; reads `analytics({ channel, origins })` once. */
 export function createChannelTagger(config: SoftureConfig, options: ChannelTaggerOptions = {}): ChannelTagger {
   // Fails at startup, not on the first request, when the module is not enabled.
   const { param } = getChannelOptions(config);
+  const isTarget = createTargetCheck(options.targets);
 
   /** The request's channel: its own parameter, the tagged page it came from, or the hook on that page. */
   const readRequestChannel = (request: Request, url: URL): string | null => {
@@ -81,16 +102,55 @@ export function createChannelTagger(config: SoftureConfig, options: ChannelTagge
       const url = new URL(request.url);
       if (hasChannelParam(config, url)) return null;
       const channel = readRequestChannel(request, url);
-      if (channel === null) return null;
+      // A channel came from the Referer, so the header is a valid URL here.
+      if (channel === null || !isTarget(url, new URL(request.headers.get("referer") ?? url))) return null;
       // Built on the public origin (else appOrigin, as auth's guard does): behind a proxy the request
       // URL carries an internal host. The path is set, not parsed against the origin:
       // `//elsewhere.example` would leave it.
-      const target = new URL(readPublicOrigin(config, request) ?? config.appOrigin);
+      const target = new URL(readPublicOrigin(config, request) ?? readOwnOrigin(request, url) ?? config.appOrigin);
       target.pathname = url.pathname;
       target.search = url.search;
       return Response.redirect(withChannel(config, target, channel), 307);
     },
   };
+}
+
+/** The check `targets` describes; every target passes without it. Throws at startup on a bad list. */
+function createTargetCheck(targets: ChannelTargets | undefined): (target: URL, source: URL) => boolean {
+  if (targets === undefined) return () => true;
+  if (typeof targets === "function") {
+    return (target, source) => {
+      try {
+        return targets({ target: new URL(target), source: new URL(source) }) === true;
+      } catch (error) {
+        console.error(`@softure-ai/analytics: ${TARGETS_LABEL} failed: ${error instanceof Error ? error.message : String(error)}`);
+        return false;
+      }
+    };
+  }
+  if (!Array.isArray(targets)) throw new Error(`@softure-ai/analytics: ${TARGETS_LABEL} must be a list of pathnames or a function`);
+  if (targets.length === 0) throw new Error(`@softure-ai/analytics: ${TARGETS_LABEL} must name at least one path`);
+  const paths = new Set(targets.map(toPathname));
+  return (target) => paths.has(target.pathname);
+}
+
+/** `path` as `URL.pathname` spells it (percent-encoded); throws for anything but an absolute pathname. */
+function toPathname(path: unknown): string {
+  const valid = typeof path === "string" && path.startsWith("/") && !/^[/\\]{2}|[?#]/.test(path);
+  if (!valid) throw new Error(`@softure-ai/analytics: ${TARGETS_LABEL}: ${JSON.stringify(path)} is not an absolute pathname`);
+  return new URL(path, "http://localhost").pathname;
+}
+
+/**
+ * The request URL's own origin when `Host` names it, i.e. no proxy rewrote the host. The scheme comes
+ * from the first `X-Forwarded-Proto` value when it is http(s): a TLS proxy in front sends `https`.
+ * Null when `Host` is missing or names another host.
+ */
+function readOwnOrigin(request: Request, url: URL): string | null {
+  const host = request.headers.get("host")?.toLowerCase();
+  if (host === undefined || host !== url.host) return null;
+  const proto = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim().toLowerCase();
+  return `${proto === "http" || proto === "https" ? proto : url.protocol.slice(0, -1)}://${url.host}`;
 }
 
 /** A Location without a scheme or host (`/login`, `login`, `?x`), which the browser resolves itself. */
@@ -107,7 +167,7 @@ function isRelative(location: string): boolean {
  * subresource (`Sec-Fetch-Dest: empty`). `RSC: 1` still counts where Next leaves it in.
  * Other fetches, images, beacons and server actions (POST) are left alone.
  */
-function isNavigation(request: Request): boolean {
+export function isNavigation(request: Request): boolean {
   if (request.method !== "GET" && request.method !== "HEAD") return false;
   const headers = request.headers;
   if (headers.get("sec-fetch-mode") === "navigate" || headers.get("rsc") === "1") return true;
