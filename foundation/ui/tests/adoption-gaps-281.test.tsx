@@ -89,7 +89,7 @@ describe("Switch label row (#281)", () => {
   it("lays the hint inline after the label, with room reserved at the label's end", () => {
     const html = renderToStaticMarkup(<Switch id="s" name="n" label="Notify" hint="One mail" />);
     const row = html.match(/<span class="([^"]*)"><label for="s" class="([^"]*)">Notify<\/label><span class="([^"]*)">/);
-    expect(row?.[1]).toBe("sft:block");
+    expect(row?.[1]).toBe("sft:block sft:text-sm sft:leading-normal");
     expect(row?.[2]?.split(" ")).toContain("sft:pr-5");
     expect(row?.[3]).toBe("sft:-ml-5 sft:inline-flex sft:w-5 sft:justify-end");
   });

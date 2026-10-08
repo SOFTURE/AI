@@ -149,7 +149,7 @@ const SWITCH_FRAME: Readonly<Record<SwitchVariant, string>> = {
 const SWITCH_CLASSES: Readonly<Record<Exclude<SwitchSlot, "root">, string>> = {
   control: "sft:flex sft:pt-px",
   text: "sft:min-w-0 sft:flex-1",
-  labelRow: "sft:block",
+  labelRow: "sft:block sft:text-sm sft:leading-normal",
   label:
     "sft:cursor-pointer sft:text-sm sft:font-medium sft:leading-normal sft:text-foreground sft:group-has-disabled/switch:cursor-not-allowed",
   hint: "sft:-ml-5 sft:inline-flex sft:w-5 sft:justify-end",
