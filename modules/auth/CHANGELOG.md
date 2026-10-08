@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`auth@x.y.z`).
 
+## 0.1.9
+
+- `set-temporary-password` takes `--password-hash=<hash>` (or `--password-hash-file=-` from stdin): the script stores a
+  hash computed elsewhere instead of drawing a password, so the plain password never reaches the server. The report
+  then says `passwordFrom: "hash"`; a value that is not a module hash is a usage error and is never printed.
+- `createSetTemporaryPasswordScript(config, { alphabet })` chooses the characters of a drawn password.
+- `createTemporaryPassword({ alphabet, length })`, `READABLE_PASSWORD_ALPHABET` (no `0/O`, `1/l/I`, `-`, `_`) and
+  `isPasswordHash(value)` are exported from `@softure-ai/auth/server` for the operator's local half.
+
 ## 0.1.8
 
 - `logoutAction({ next })`, a `next` form field and `<LogoutButton next>` choose where logout goes; the path is

@@ -7,8 +7,8 @@ export { dateTicks, formatDateTick } from "./scale/date-ticks.js";
 export { nearestPointIndex } from "./scale/nearest-point.js";
 
 // SVG primitives: server-renderable, styled by @softure-ai/charts/styles.css on the --sft-chart-* tokens.
-export type { EdgeAlign, PlotPoint } from "./svg/geometry.js";
-export { edgeAlign, linePath, percent, PLOT_HEIGHT, PLOT_WIDTH, toPercent } from "./svg/geometry.js";
+export type { AreaPathOptions, EdgeAlign, PathCurve, PlotPoint } from "./svg/geometry.js";
+export { areaPath, edgeAlign, linePath, percent, PLOT_HEIGHT, PLOT_WIDTH, smoothLinePath, toPercent } from "./svg/geometry.js";
 export type {
   AxisTick,
   NarrowTicks,

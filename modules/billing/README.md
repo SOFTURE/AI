@@ -52,9 +52,10 @@ import of what the old system knew (`import-entitlements`) and a pin step for de
   days, once per account and window through `@softure-ai/mailing`'s delivery ledger; the app runs
   it on a schedule (see "Reminder mail" in §4). `findAccessReminders` (`/server`) is the same list
   without mail, for an app that sends its own.
-- **Plan scripts** (`@softure-ai/billing/scripts`): `grant-plan` and `revoke-grant`, ops scripts
-  (dry run by default, `--commit` writes) for a host without the admin page; their grants are in
-  the account's history like the admin page's (see "Scripts" in §4).
+- **Plan and trial scripts** (`@softure-ai/billing/scripts`): `grant-plan`, `revoke-grant` and
+  `extend-trial`, ops scripts (dry run by default, `--commit` writes) for a host without the admin
+  page; their grants and extensions are in the account's history like the admin page's (see
+  "Scripts" in §4).
 - **Existing accounts**: `trial.startsAt` gives accounts created before a chosen day a trial from
   that day; `import-entitlements` (`importEntitlement()` on the server) records the trial ends, paid
   periods and lifetime access another system knew, never shortening access, or with `--exact`
@@ -181,7 +182,9 @@ export { stripeWebhookRoute as POST } from "@softure-ai/billing/next";
 
 **Page headings.** Each page renders one `<h1>` as the first child of its `<main>`: the
 `payment.heading` and `admin.heading` messages ("Payment", "Billing"). Pass `heading` to replace
-it, or `heading={null}` when the app's own frame renders the page heading:
+it, or `heading={null}` when the app's own frame renders the page heading. `lead` adds one
+paragraph right after the heading (first in `<main>` without one) that says what the page is for;
+there is none by default:
 
 ```tsx
 // app/admin/billing/page.tsx, inside the app's frame that has its own <h1>
@@ -429,7 +432,7 @@ period without losing a concurrent grant).
 
 **Scripts.** `@softure-ai/billing/scripts` builds ops scripts on `@softure-ai/ops/scripts` (dry run by
 default, `--commit` writes, one transaction), for an operator without the admin page or at a
-terminal: `grant-plan` and `revoke-grant` here, `import-entitlements` and `pin-trials` under
+terminal: `grant-plan`, `revoke-grant` and `extend-trial` here, `import-entitlements` and `pin-trials` under
 "Existing accounts" below. The app bundles them like its other scripts and runs them with its
 database URL:
 
@@ -455,6 +458,26 @@ Both print the account's state `before` and `after`: the user id (never the emai
 entitlement and the active manual grants with their ids, newest first; a dry run of either script
 shows the id `revoke-grant` takes. `createGrantPlanScript(config, { clock? })` and
 `createRevokeGrantScript(config, { clock? })` take a clock for tests (`executeOpsScript`).
+
+- `extend-trial --email=…|--user=<account id> --until=YYYY-MM-DD|--days=N` extends one account's
+  trial through `extendTrialManually` (no admin: `extended_by` is null), so it is in the account's
+  history like the admin page's "Extend a trial". `--until` is the trial's new last day, as in the
+  form (the trial ends when the next day begins in the app's time zone). `--days` (1 to 36500) adds
+  days of access after the current last day, or from today when the trial has ended: a trial
+  through 19 October extended by 10 runs through 29 October; one that ended before today, extended
+  by 10, runs through the tenth day counting today. It never writes paid access and refuses an unknown email or id, a
+  last day that has passed and one the trial already reaches (naming its current last day). It
+  prints `before` and `after` as `{ userId, trialEndsAt, access }`, `after` with the new
+  `extensionId`. `createExtendTrialScript(config, { clock? })`.
+
+```ts
+// scripts/extend-trial.ts: npm run extend-trial -- --email=invitee@example.com --days=365 [--commit]
+import { createExtendTrialScript } from "@softure-ai/billing/scripts";
+import { runOpsScript } from "@softure-ai/ops/scripts";
+import config from "../softure.config";
+
+process.exitCode = await runOpsScript({ script: createExtendTrialScript(config), argv: process.argv.slice(2), config });
+```
 
 **Existing accounts.** An account without a `billing.entitlements` row is on the trial derived from
 its creation day (§5), so turning billing on for accounts that already exist would make every one
