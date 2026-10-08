@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mailing@x.y.z`).
 
-## Unreleased
+## 0.1.11
 
 - `sendCampaign(ctx, input, { limit })` hands at most `limit` mails to the provider in one run (sent, rejected by it,
   or not taken now); done, unsubscribed, filtered, in-flight and uncertain recipients do not count. `limit` must be a
