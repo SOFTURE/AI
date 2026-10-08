@@ -39,7 +39,7 @@ lint, test, build).
 ### Phase 1: lazy OG import and satori pin
 
 #### Automated
-- [ ] 1.1 Isolation and pin tests seen red, then green
-- [ ] 1.2 Built CLI survives satori 0.35.2 on a non-og command
-- [ ] 1.3 Gates green (typecheck, lint, test, build)
-- [ ] 1.4 CHANGELOG, README and version 0.1.10
+- [x] 1.1 Isolation and pin tests seen red, then green — 1365d48
+- [x] 1.2 Built CLI survives satori 0.35.2 on a non-og command — 1365d48
+- [x] 1.3 Gates green (typecheck, lint, test, build) — 1365d48
+- [x] 1.4 CHANGELOG, README and version 0.1.10 — 1365d48

@@ -1,12 +1,13 @@
 ---
 change_id: marketing-kit-satori-crash
 title: "marketing-kit: CLI crashes on satori 0.35.2 (issue #254)"
-status: plan_reviewed
+status: archived
 roadmap_item: null
 issue: 254
 branch: claude/project-thread-wjb5ct
 created: 2026-10-08
 updated: 2026-10-08
+archived_at: 2026-10-08
 ---
 
 ## Intent
