@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mcp-access@x.y.z`).
 
+## 0.1.9
+
+- The OAuth registration, token and consent decision routes read their body through `readSmallBody`
+  with a cap, `oauth.maxBodyBytes` (default 16 KiB, 1 KiB to 1 MiB). A larger body, announced or
+  streamed, is answered with `413` (`invalid_request` on registration and token, an empty `413` on
+  the decision) before it fills memory; an oversized token request still counts in the `mcp-oauth`
+  bucket, per address. Unreadable bodies (cut off, not UTF-8) get the answer each route gave before.
+  The consent form is parsed from the capped text, so urlencoded and multipart forms both work.
+
 ## 0.1.8
 
 - OAuth URLs follow the request: `resolveAppOrigin(request)` (with `readRequestOrigin`, which reads

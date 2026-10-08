@@ -28,7 +28,7 @@ describe("the mcp-access module", () => {
       maxTokensPerUser: 20,
       expiryWarningDays: 14,
       resourceOrigins: [],
-      oauth: { enabled: false, accessTokenLifetimeMinutes: 60, refreshTokenLifetimeDays: 90, authorizationCodeLifetimeMinutes: 10, metadata: {} },
+      oauth: { enabled: false, accessTokenLifetimeMinutes: 60, refreshTokenLifetimeDays: 90, authorizationCodeLifetimeMinutes: 10, maxBodyBytes: 16_384, metadata: {} },
     });
     expect(mcpAccess({ serverName: "acme" }).routes).toEqual({
       page: "/account/mcp",
@@ -40,14 +40,14 @@ describe("the mcp-access module", () => {
     });
   });
 
-  it("takes a legacy token pattern and OAuth lifetimes", () => {
+  it("takes a legacy token pattern, OAuth lifetimes and a body cap", () => {
     const options = mcpAccess({
       serverName: "acme",
       legacyTokenPattern: /^[0-9a-f]{64}$/,
-      oauth: { enabled: true, accessTokenLifetimeMinutes: 30, refreshTokenLifetimeDays: 30, authorizationCodeLifetimeMinutes: 5 },
+      oauth: { enabled: true, accessTokenLifetimeMinutes: 30, refreshTokenLifetimeDays: 30, authorizationCodeLifetimeMinutes: 5, maxBodyBytes: 2048 },
     }).options as { legacyTokenPattern?: RegExp; oauth: unknown };
     expect(options.legacyTokenPattern?.source).toBe("^[0-9a-f]{64}$");
-    expect(options.oauth).toEqual({ enabled: true, accessTokenLifetimeMinutes: 30, refreshTokenLifetimeDays: 30, authorizationCodeLifetimeMinutes: 5, metadata: {} });
+    expect(options.oauth).toEqual({ enabled: true, accessTokenLifetimeMinutes: 30, refreshTokenLifetimeDays: 30, authorizationCodeLifetimeMinutes: 5, maxBodyBytes: 2048, metadata: {} });
   });
 
   it("refuses a legacy pattern that is not anchored or keeps state, and lifetimes out of range", () => {
@@ -55,7 +55,7 @@ describe("the mcp-access module", () => {
       mcpAccess({
         serverName: "acme",
         legacyTokenPattern: /[0-9a-f]{64}/,
-        oauth: { accessTokenLifetimeMinutes: 4, refreshTokenLifetimeDays: 366, authorizationCodeLifetimeMinutes: 11 },
+        oauth: { accessTokenLifetimeMinutes: 4, refreshTokenLifetimeDays: 366, authorizationCodeLifetimeMinutes: 11, maxBodyBytes: 1023 },
       }),
     ).toThrow(
       [
@@ -64,8 +64,10 @@ describe("the mcp-access module", () => {
         "- options.oauth.accessTokenLifetimeMinutes: Too small: expected number to be >=5",
         "- options.oauth.refreshTokenLifetimeDays: Too big: expected number to be <=365",
         "- options.oauth.authorizationCodeLifetimeMinutes: Too big: expected number to be <=10",
+        "- options.oauth.maxBodyBytes: Too small: expected number to be >=1024",
       ].join("\n"),
     );
+    expect(() => mcpAccess({ serverName: "acme", oauth: { maxBodyBytes: 1_048_577 } })).toThrow("- options.oauth.maxBodyBytes: Too big: expected number to be <=1048576");
     expect(() => mcpAccess({ serverName: "acme", legacyTokenPattern: /^[0-9a-f]{64}$/g })).toThrow("- options.legacyTokenPattern: must not use the g or y flag");
     expect(() => mcpAccess({ serverName: "acme", legacyTokenPattern: /^[0-9a-f]{64}$/y })).toThrow("- options.legacyTokenPattern: must not use the g or y flag");
   });

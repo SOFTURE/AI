@@ -84,6 +84,7 @@ mcpAccess({
 | `oauth.accessTokenLifetimeMinutes` | `integer` 5–1440 | `60` | Lifetime of an access token issued through OAuth; the client refreshes it. |
 | `oauth.refreshTokenLifetimeDays` | `integer` 1–365 | `90` | Lifetime of a refresh token, renewed on every rotation. An unused connection ends after it. |
 | `oauth.authorizationCodeLifetimeMinutes` | `integer` 1–10 | `10` | Lifetime of an authorization code (single use). |
+| `oauth.maxBodyBytes` | `integer` 1024–1048576 | `16384` | The largest body the registration, token and consent decision routes read. Larger: `413` (`invalid_request` on registration and token), before it fills memory. Real bodies stay under 4 KiB. |
 | `oauth.metadata` | `{ authorizationServer?, protectedResource? }`, each an object or `(origins) => object` | — | Extra keys of the discovery documents (`jwks_uri`, `service_documentation`, `resource_documentation`, `agent_auth`…). Generated keys win; a static object that sets one is refused at startup. The protected resource document takes the app's `resource_name` (default: `serverName`). |
 | `resolveAppOrigin` | `(request) => string \| null` | — | The app origin of one request, when it is not the fixed `appOrigin` (an image built once and served elsewhere, a proxy). `readRequestOrigin` reads it from `Host`. Null keeps `appOrigin`; anything but a bare http(s) origin throws. |
 | `resourceOrigins` | `string[]` (≤ 16 http(s) origins) | `[]` | Other public hosts of the app, e.g. the apex next to `app.`: the root protected resource metadata asked on one of them names it as `resource`, and the OAuth endpoints accept it as `resource`. |
@@ -97,7 +98,8 @@ keeps every token read-only.
 `MCP_RATE_LIMIT_BUCKETS` is `{ mcp: { limit: 200, windowMinutes: 15 }, "mcp-oauth": { limit: 60, windowMinutes: 15 } }`
 per client address. Every endpoint request counts, valid or not, and before the token lookup;
 assistants behind one address share it. `mcp-oauth` counts the public OAuth requests:
-registrations per address, token requests per address and client.
+registrations per address, token requests per address and client (a token request whose body
+is over `oauth.maxBodyBytes` counts per address, since its client id is never read).
 
 ## 4. Mounting
 
