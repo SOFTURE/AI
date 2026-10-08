@@ -1,0 +1,32 @@
+# The caller of SOFTURE/AI's reusable integration workflow (.github/workflows/deploy-integration.yml). Copy it to the
+# app's `.github/workflows/integration.yml` and set the app's suite in `test-command`.
+#
+# `softure-deploy integration run` (the skills' `integration.remote`) pushes `integration/<name>`; this runs the full
+# suite on that commit, stores the result as a git note on it and deletes the ref. A push of the main branch runs it
+# too, so `new-red` has a baseline. `deploy-workflows-v1` is the tag the owner moves on SOFTURE/AI; pin a commit SHA
+# instead when the app wants an immutable reference.
+
+name: integration
+
+on:
+  push:
+    branches:
+      - "integration/**"
+      - main
+
+# One run per ref; a newer push of the same ref waits for the one in progress.
+concurrency:
+  group: integration-${{ github.ref }}
+  cancel-in-progress: false
+
+# The notes and the ref deletion; the reusable workflow gives contents: write to its record job only.
+permissions:
+  contents: write
+
+jobs:
+  integration:
+    uses: SOFTURE/AI/.github/workflows/deploy-integration.yml@deploy-workflows-v1
+    with:
+      setup-command: npm ci && npx playwright install --with-deps chromium
+      test-command: npm run test:integration -- --reporter=junit --outputFile=reports/junit.xml
+      junit-report: reports/junit.xml
