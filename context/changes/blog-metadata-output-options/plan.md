@@ -70,9 +70,9 @@ nothing; `null` stays).
 
 ### Phase 1: options and builders
 
-- [ ] jsonLd ids, cluster anchor, locale tags, term title with tests
+- [x] jsonLd ids, cluster anchor, locale tags, term title with tests — a6a7c30
 
 ### Phase 2: docs and version
 
-- [ ] README, CHANGELOG, version 0.1.9
-- [ ] gates green
+- [x] README, CHANGELOG, version 0.1.9 — a6a7c30
+- [x] gates green — a6a7c30 (typecheck, lint, test: 343 files / 5031 tests, build)
