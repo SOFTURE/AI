@@ -116,7 +116,8 @@ describe("planInitFiles", () => {
     expect(textOf(files, ".github/workflows/deploy.yml")).toContain("reach .env.prod: none.");
     const script = textOf(files, "docker/server/deploy.sh");
     expect(script).not.toContain("deploy_cli");
-    expect(script).toContain("# when its rules changed (traefik), record the tag (tag), install the cron (cron).");
+    expect(script).toContain("# (hook-post-up), record the tag (tag), install the cron (cron).");
+    expect(script).not.toContain("DATABASE_ACCESS");
     expect(script).not.toContain("BACKUP_DIR=");
   });
 
@@ -141,12 +142,15 @@ describe("planInitFiles", () => {
     const script = textOf(plan(), "docker/server/deploy.sh");
     expect(script).toContain('DEPLOY_CLI="@softure-ai/deploy@9.9.9"');
     expect(script).toContain('IMAGE="ghcr.io/acme/app"');
+    expect(script).toContain("DATABASE_ACCESS=port\n");
     const order = [
-      "deploy_cli backup",
-      "deploy_cli schema-guard",
-      'row-counts --config="$release_config" --out=',
+      'back_up_database || fail "the backup failed; nothing was restarted."',
+      'deploy_cli schema-guard "${guard_args[@]}"',
+      'count_rows --out="$work/counts-before.json"',
+      'run_hook pre-migrate "; nothing was restarted."',
       "compose up --detach --wait --remove-orphans traefik app",
-      'row-counts --config="$release_config" --compare=',
+      'run_hook post-up "; $TAG is live."',
+      'count_rows --compare="$work/counts-before.json"',
     ];
     const positions = order.map((marker) => script.indexOf(marker));
     expect(positions.every((position) => position > 0)).toBe(true);

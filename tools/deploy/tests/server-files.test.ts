@@ -952,6 +952,182 @@ describe("deploy.sh report: a SQL file read only through psql (issue #247)", () 
   });
 });
 
+describe("deploy.sh runs the app's hooks from the release's compose folder (issue #246)", () => {
+  // Records its environment, leaves a mark in the docker log for the order, and prints a fake step line.
+  const RECORDING_HOOK = `#!/usr/bin/env bash
+printf '%s|%s|%s|%s|%s|%s\\n' "$HOOK_POINT" "$TAG" "$PREVIOUS_TAG" "$PWD" "$COMPOSE_FILE" "$COMPOSE_ENV_FILES" >> "$HOOK_LOG"
+docker "hook-$HOOK_POINT"
+echo "step|fake|ok"
+`;
+  let hookLog: string;
+
+  beforeEach(() => {
+    hookLog = join(root, "hooks.log");
+  });
+
+  function writeHook(point: string, text = RECORDING_HOOK): void {
+    write(join(checkout, `docker/prod/hooks/${point}.sh`), text);
+  }
+
+  it("runs pre-migrate before the switch and post-up after it, with the release's environment and stdout on stderr", () => {
+    writeHook("pre-migrate");
+    writeHook("post-up");
+    expect(deploy("v1", packArchive(), { HOOK_LOG: hookLog }).status).toBe(0);
+    rmSync(dockerLog);
+    const result = deploy("v2", packArchive(), { HOOK_LOG: hookLog });
+    expect(result.status).toBe(0);
+    expect(readLines(result.stdout, "step")).toEqual([
+      "step|archive|ok",
+      "step|files|ok",
+      "step|pull|ok",
+      "step|hook-pre-migrate|ok",
+      "step|switch|ok",
+      "step|hook-post-up|ok",
+      "step|tag|ok",
+      "step|cron|ok",
+    ]);
+    expect(result.stderr).toBe("step|fake|ok\nstep|fake|ok\n");
+    expect(readDockerLog().slice(1)).toEqual([
+      "pull --quiet ghcr.io/acme/app:v2",
+      "hook-pre-migrate",
+      "compose --env-file .env.prod --file docker-compose.yml up --detach --wait --remove-orphans traefik app",
+      "hook-post-up",
+    ]);
+    const compose = `${server}/docker-compose.yml|${server}/.env.prod`;
+    expect(readFileSync(hookLog, "utf8").trim().split("\n").slice(2)).toEqual([
+      `pre-migrate|v2|v1|${server}|${compose}`,
+      `post-up|v2|v1|${server}|${compose}`,
+    ]);
+    expect(readFileSync(join(server, "hooks/pre-migrate.sh"), "utf8")).toBe(RECORDING_HOOK);
+  });
+
+  it("restores the files and starts nothing when the pre-migrate hook fails", () => {
+    expect(deploy("v1", packArchive()).status).toBe(0);
+    writeHook("pre-migrate", "exit 3\n");
+    const result = deploy("v2", packArchive());
+    expect(result.status).toBe(1);
+    expect(result.stdout.trimEnd().split("\n").slice(-2)).toEqual([
+      "step|restore|ok",
+      "result|failed|hook-pre-migrate|the pre-migrate hook failed; nothing was restarted.",
+    ]);
+    expect(existsSync(join(server, "hooks"))).toBe(false);
+    expect(readDockerLog().filter((line) => line.includes("traefik app"))).toHaveLength(1);
+    expect(readFileSync(join(server, ".deployed-tag"), "utf8")).toBe("v1\n");
+  });
+
+  it("fails after the switch when the post-up hook fails, with the release live and its tag not recorded", () => {
+    expect(deploy("v1", packArchive()).status).toBe(0);
+    writeHook("post-up", "exit 1\n");
+    const result = deploy("v2", packArchive());
+    expect(result.status).toBe(1);
+    expect(result.stdout.trimEnd().split("\n").at(-1)).toBe("result|failed|hook-post-up|the post-up hook failed; v2 is live.");
+    expect(readLines(result.stdout, "step")).not.toContain("step|restore|ok");
+    expect(readFileSync(join(server, ".env.prod"), "utf8")).toContain("TAG=v2\n");
+  });
+
+  it("runs the maintain hook last in maintain", () => {
+    writeHook("maintain");
+    expect(deploy("v1", packArchive()).status).toBe(0);
+    const result = runServer("maintain", "", { HOOK_LOG: hookLog });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe("step|images|ok|removed 0\nstep|hook-maintain|ok\nresult|ok\n");
+    expect(readFileSync(hookLog, "utf8")).toBe(`maintain|v1|v1|${server}|${server}/docker-compose.yml|${server}/.env.prod\n`);
+    writeFileSync(join(server, "hooks/maintain.sh"), "exit 1\n");
+    expect(runServer("maintain", "").stdout.trimEnd().split("\n").at(-1)).toBe("result|failed|hook-maintain|the maintain hook failed.");
+  });
+});
+
+describe("deploy.sh reaches Postgres through compose exec and guards the app's ledger (issue #246)", () => {
+  const WITH_DATABASE: AppFacts = { ...NO_DATABASE, hasDatabase: true };
+  // No POSTGRES_PASSWORD: the exec mode reads the container's own user and database.
+  const EXEC_ENV = "SOFTURE_MIGRATOR_PASSWORD='m'\nSOFTURE_APP_PASSWORD='a'\n";
+  const DB_EXEC = `compose --env-file .env.prod --file docker-compose.yml exec -T postgres sh -c exec "$0" --username="\${POSTGRES_USER:-postgres}" --dbname="\${POSTGRES_DB:-\${POSTGRES_USER:-postgres}}" "$@"`;
+  const PSQL = `${DB_EXEC} psql --no-psqlrc --quiet --no-align --tuples-only --set ON_ERROR_STOP=1 --file -`;
+
+  function setUp(edits: Record<string, string>, envProd = EXEC_ENV): void {
+    writeCheckout({ facts: WITH_DATABASE, tables: ["users"], envProd });
+    const path = join(checkout, "docker/server/deploy.sh");
+    let script = readFileSync(path, "utf8");
+    for (const [from, to] of Object.entries(edits)) {
+      expect(script).toContain(from);
+      script = script.replace(from, to);
+    }
+    write(path, script, 0o755);
+    write(join(server, "deploy.sh"), script, 0o755);
+  }
+
+  function readNpxCalls(): string[] {
+    return readFileSync(npxLog, "utf8").trim().split("\n").map((line) => line.replace("--yes @softure-ai/deploy@9.9.9 ", ""));
+  }
+
+  it("dumps, reads the ledgers and counts rows with pg_dump and psql in the postgres service", () => {
+    setUp({ "DATABASE_ACCESS=port\n": "DATABASE_ACCESS=exec\n" });
+    expect(deploy("v1", packArchive()).status).toBe(0);
+    rmSync(dockerLog);
+    rmSync(npxLog);
+    const result = deploy("v2", packArchive());
+    expect(result.stderr).toBe("");
+    expect(result.status).toBe(0);
+    expect(readLines(result.stdout, "step")).toContain("step|backup|ok|db-20261006-120000.dump");
+    const execs = readDockerLog().filter((line) => line.includes(" exec -T postgres "));
+    expect(execs).toEqual([`${DB_EXEC} pg_dump --format=custom`, PSQL, PSQL, PSQL]);
+    const calls = readNpxCalls();
+    const work = /--ledger-file=(\S+)\/ledger\.json/.exec(calls.join("\n"))?.[1] ?? "";
+    const config = `${server}/releases/v2/deploy.json`;
+    expect(calls).toEqual([
+      expect.stringMatching(new RegExp(`^backup --from-file=${server}/backups/\\.incoming-\\d+\\.dump --dir=${server}/backups --prefix=db --keep=7 --max-age-days=30$`)) as unknown,
+      "schema-guard --print-sql",
+      `schema-guard --migrations-dir=${work}/migrations --ledger-file=${work}/ledger.json`,
+      `row-counts --config=${config} --print-sql`,
+      `row-counts --config=${config} --counts-file=${work}/counts-output.txt --out=${work}/counts-before.json`,
+      `row-counts --config=${config} --print-sql`,
+      `row-counts --config=${config} --counts-file=${work}/counts-output.txt --compare=${work}/counts-before.json --out=${work}/counts-after.json`,
+    ]);
+    expect(readdirSync(join(server, "backups"))).toEqual([]);
+  });
+
+  it("removes the partial dump and stops before the switch when pg_dump fails", () => {
+    setUp({ "DATABASE_ACCESS=port\n": "DATABASE_ACCESS=exec\n" });
+    const result = deploy("v1", packArchive(), { FAIL_DOCKER_ON: " pg_dump " });
+    expect(result.status).toBe(1);
+    expect(result.stdout.trimEnd().split("\n").at(-1)).toBe("result|failed|backup|the backup failed; nothing was restarted.");
+    expect(readdirSync(join(server, "backups"))).toEqual([]);
+    expect(existsSync(npxLog)).toBe(false);
+  });
+
+  it("copies the app's migrations out of the new image and guards its ledger too", () => {
+    setUp({ 'APP_MIGRATIONS_DIR=""': "APP_MIGRATIONS_DIR=/app/drizzle" }, `POSTGRES_PASSWORD='pw'\n${EXEC_ENV}`);
+    expect(deploy("v1", packArchive()).status).toBe(0);
+    const copies = readDockerLog().filter((line) => line.startsWith("cp "));
+    expect(copies).toEqual([
+      expect.stringMatching(/^cp c0ffee:\/app\/softure-migrations \S+\/migrations$/) as unknown,
+      expect.stringMatching(/^cp c0ffee:\/app\/drizzle \S+\/app-migrations$/) as unknown,
+    ]);
+    expect(readNpxCalls().filter((line) => line.startsWith("schema-guard"))).toEqual([
+      expect.stringMatching(/^schema-guard --migrations-dir=\S+\/migrations --app-migrations-dir=\S+\/app-migrations --app-ledger=drizzle\.__drizzle_migrations$/) as unknown,
+    ]);
+  });
+
+  it("prints the app ledger's SQL too in exec mode, and refuses an image without the app's migrations", () => {
+    setUp({ "DATABASE_ACCESS=port\n": "DATABASE_ACCESS=exec\n", 'APP_MIGRATIONS_DIR=""': "APP_MIGRATIONS_DIR=/app/drizzle" });
+    expect(deploy("v1", packArchive()).status).toBe(0);
+    expect(readNpxCalls().filter((line) => line.startsWith("schema-guard"))).toEqual([
+      "schema-guard --print-sql --app-ledger=drizzle.__drizzle_migrations",
+      expect.stringMatching(/^schema-guard --migrations-dir=\S+ --app-migrations-dir=\S+\/app-migrations --app-ledger=drizzle\.__drizzle_migrations --ledger-file=\S+\/ledger\.json$/) as unknown,
+    ]);
+    const result = deploy("v2", packArchive(), { FAIL_DOCKER_ON: ":/app/drizzle" });
+    expect(result.stdout.trimEnd().split("\n").at(-1)).toBe("result|failed|schema|the image v2 has no /app/drizzle (APP_MIGRATIONS_DIR); nothing was restarted.");
+  });
+
+  it("refuses a DATABASE_ACCESS it does not know before Postgres starts", () => {
+    setUp({ "DATABASE_ACCESS=port\n": "DATABASE_ACCESS=socket\n" });
+    const result = deploy("v1", packArchive());
+    expect(result.status).toBe(1);
+    expect(result.stdout.trimEnd().split("\n").at(-1)).toBe("result|failed|postgres|DATABASE_ACCESS must be port or exec, not socket.");
+    expect(readDockerLog().filter((line) => line.includes(" up "))).toEqual([]);
+  });
+});
+
 describe("deploy.sh refuses a command", () => {
   it.each([["", "command"], ["deploy", "command"], ["status now", "command"], ["rm -rf /", "command"], ["deploy v1\nstatus", "command"]])(
     "%j with exit 2 and a failed result",

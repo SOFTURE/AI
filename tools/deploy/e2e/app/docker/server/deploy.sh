@@ -41,10 +41,25 @@
 # Steps of a deploy: check the command, unpack and check the archive (archive), save the installed files and install
 # the release's with .env.prod and TAG=<tag> in it (files), pull the image (pull), start Postgres (postgres), back up
 # the database (backup), guard the schema against the new image's migrations (schema), count rows
-# (row-counts-before), switch (switch: the migrate service runs before the app), recreate Traefik when its rules
-# changed (traefik), compare the row counts (row-counts-after), record the tag (tag), install the cron (cron). The
-# tables counted are database.rowCountTables of the deploy.json this release shipped; without that file or key the
-# counts are skipped. A changed postgres service takes effect at the postgres step, before the switch.
+# (row-counts-before), run the app's pre-migrate hook (hook-pre-migrate), switch (switch: the migrate service runs
+# before the app), recreate Traefik when its rules changed (traefik), run the post-up hook (hook-post-up), compare
+# the row counts (row-counts-after), record the tag (tag), install the cron (cron). The tables counted are
+# database.rowCountTables of the deploy.json this release shipped; without that file or key the counts are skipped.
+# A changed postgres service takes effect at the postgres step, before the switch.
+#
+# DATABASE_ACCESS (below) picks how those steps reach Postgres: "port" connects to 127.0.0.1:5432 as postgres with
+# POSTGRES_PASSWORD of .env.prod (the compose file publishes the port on loopback); "exec" runs pg_dump and psql
+# inside the postgres service (docker compose exec -T postgres) as the container's own POSTGRES_USER on its
+# POSTGRES_DB, so Postgres needs no published port and .env.prod no POSTGRES_PASSWORD for these steps. With
+# APP_MIGRATIONS_DIR set, the schema step also guards the app's own drizzle ledger (APP_LEDGER) against that folder
+# of the new image: an image older than the ledger, or one with an entry drizzle would skip, is refused.
+#
+# Hooks: the app's own steps, as files of the compose folder the release ships (installed next to this script):
+# hooks/pre-migrate.sh runs before the switch (a failure there restores the files like any step before it),
+# hooks/post-up.sh after the switch, hooks/maintain.sh at the end of maintain. A missing file is no hook. Each runs
+# with bash from this folder with TAG, PREVIOUS_TAG, APP_DIR, HOOK_POINT, COMPOSE_FILE and COMPOSE_ENV_FILES set (so
+# `docker compose exec -T app …` reaches the live stack; COMPOSE_ENV_FILES needs Docker Compose 2.24 or newer), stdin
+# closed and its stdout sent to stderr: only this script prints step and result lines.
 #
 # Output: one line `step|<name>|ok[|<detail>]` per finished step on stdout (backup: the dump's file name; row counts:
 # `<table>=<rows>,…`), and every deploy or maintain run ends with `result|ok` or `result|failed|<step>|<message>`; the
@@ -68,6 +83,11 @@ IMAGE="localhost:5000/softure/ai-deploy-e2e"
 DEPLOY_CLI="@softure-ai/deploy@0.0.0"
 TOOLS_IMAGE="softure-deploy-tools:0.0.0-pg16"
 DATABASE_NAME="softure_example"
+# "port" or "exec": how the database steps reach Postgres (see the header).
+DATABASE_ACCESS=port
+# The app's own drizzle migrations in the image (e.g. /app/drizzle) and their ledger; empty: not guarded.
+APP_MIGRATIONS_DIR=""
+APP_LEDGER=drizzle.__drizzle_migrations
 BACKUP_DIR="$APP_DIR/backups"
 BACKUP_PREFIX=db
 BACKUP_KEEP=7
@@ -189,6 +209,16 @@ take_lock() {
   flock -w "$LOCK_WAIT_SECONDS" 9 || fail "another deploy or maintain run still holds $LOCK_FILE."
 }
 
+# hooks/<point>.sh of the app, when the release shipped one (see the header); $2 ends the failure message.
+run_hook() {
+  local point="$1" hook="hooks/$1.sh"
+  if [ ! -f "$hook" ]; then return 0; fi
+  begin_step "hook-$point"
+  HOOK_POINT="$point" PREVIOUS_TAG="$previous_tag" APP_DIR="$APP_DIR" COMPOSE_FILE="$APP_DIR/docker-compose.yml" \
+    COMPOSE_ENV_FILES="$APP_DIR/.env.prod" bash "$hook" < /dev/null >&2 || fail "the $point hook failed$2"
+  step_ok
+}
+
 has_host_node() {
   command -v node > /dev/null && command -v npx > /dev/null
 }
@@ -229,20 +259,62 @@ node_eval() {
 }
 
 connect_database() {
-  local postgres_password
+  case "$DATABASE_ACCESS" in
+    exec) return 0 ;;
+    port) ;;
+    *) fail "DATABASE_ACCESS must be port or exec, not $DATABASE_ACCESS." ;;
+  esac
   postgres_password="$(read_env POSTGRES_PASSWORD)"
   if [ -z "$postgres_password" ]; then fail "POSTGRES_PASSWORD is missing in .env.prod."; fi
   export DATABASE_URL="postgresql://postgres:$postgres_password@127.0.0.1:5432/$DATABASE_NAME"
 }
 
-# Leaves the dump's file name in backup_file for the step line (the release report shows it, DF-10).
+# pg_dump or psql in the postgres service (DATABASE_ACCESS=exec), as the container's own superuser on its own
+# database over the local socket; the variables are read inside the container.
+db_exec() {
+  # shellcheck disable=SC2016
+  compose exec -T postgres sh -c 'exec "$0" --username="${POSTGRES_USER:-postgres}" --dbname="${POSTGRES_DB:-${POSTGRES_USER:-postgres}}" "$@"' "$@"
+}
+
+# psql with the script on stdin; prints only the result rows.
+db_psql() {
+  db_exec psql --no-psqlrc --quiet --no-align --tuples-only --set ON_ERROR_STOP=1 --file -
+}
+
+# Leaves the dump's file name in backup_file for the step line (the release report shows it, DF-10). With
+# DATABASE_ACCESS=exec, pg_dump runs in the postgres service into a hidden file of the backup folder, which
+# `backup --from-file` checks and names like its own dump.
 back_up_database() {
-  local output status=0
-  output="$(deploy_cli backup --dir="$BACKUP_DIR" --prefix="$BACKUP_PREFIX" --keep="$BACKUP_KEEP" --max-age-days="$BACKUP_MAX_AGE_DAYS")" || status=$?
+  local output status=0 incoming
+  local retention=(--dir="$BACKUP_DIR" --prefix="$BACKUP_PREFIX" --keep="$BACKUP_KEEP" --max-age-days="$BACKUP_MAX_AGE_DAYS")
+  if [ "$DATABASE_ACCESS" = "exec" ]; then
+    mkdir -p "$BACKUP_DIR"
+    incoming="$BACKUP_DIR/.incoming-$$.dump"
+    if ! db_exec pg_dump --format=custom < /dev/null > "$incoming"; then
+      rm -f "$incoming"
+      return 1
+    fi
+    output="$(deploy_cli backup --from-file="$incoming" "${retention[@]}")" || status=$?
+    rm -f "$incoming"
+  else
+    output="$(deploy_cli backup "${retention[@]}")" || status=$?
+  fi
   if [ -n "$output" ]; then printf '%s\n' "$output"; fi
   if [ "$status" -ne 0 ]; then return "$status"; fi
   backup_file="$(sed -n 's|^backup: wrote \(.*\) ([0-9]* bytes).*$|\1|p' <<< "$output")"
   backup_file="${backup_file##*/}"
+}
+
+# row-counts of the release's tables with the given flags (--out, --compare); with DATABASE_ACCESS=exec the counts
+# come from psql in the postgres service.
+count_rows() {
+  if [ "$DATABASE_ACCESS" = "exec" ]; then
+    deploy_cli row-counts --config="$release_config" --print-sql > "$work/counts.sql" || return 1
+    db_psql < "$work/counts.sql" > "$work/counts-output.txt" || return 1
+    deploy_cli row-counts --config="$release_config" --counts-file="$work/counts-output.txt" "$@"
+  else
+    deploy_cli row-counts --config="$release_config" "$@"
+  fi
 }
 
 # A row-counts file as `users=3,billing.plans=2` for the step line; table names never hold `,` or `=`.
@@ -378,6 +450,8 @@ if [ "$command_name" = "maintain" ]; then
   done <<< "$image_tags"
   docker image prune --force > /dev/null || fail "cannot remove the dangling images."
   step_ok "removed $removed"
+
+  run_hook maintain "."
   exit 0
 fi
 
@@ -525,7 +599,21 @@ step_ok "$backup_file"
 begin_step schema
 container="$(docker create "$IMAGE:$TAG")"
 docker cp "$container:/app/softure-migrations" "$work/migrations" > /dev/null
-deploy_cli schema-guard --migrations-dir="$work/migrations" || fail "the schema guard refused $TAG; nothing was restarted."
+guard_args=(--migrations-dir="$work/migrations")
+ledger_args=()
+if [ -n "$APP_MIGRATIONS_DIR" ]; then
+  docker cp "$container:$APP_MIGRATIONS_DIR" "$work/app-migrations" > /dev/null \
+    || fail "the image $TAG has no $APP_MIGRATIONS_DIR (APP_MIGRATIONS_DIR); nothing was restarted."
+  guard_args+=(--app-migrations-dir="$work/app-migrations" --app-ledger="$APP_LEDGER")
+  ledger_args=(--app-ledger="$APP_LEDGER")
+fi
+if [ "$DATABASE_ACCESS" = "exec" ]; then
+  deploy_cli schema-guard --print-sql ${ledger_args[@]+"${ledger_args[@]}"} > "$work/ledger.sql" \
+    || fail "cannot write the ledger query; nothing was restarted."
+  db_psql < "$work/ledger.sql" > "$work/ledger.json" || fail "cannot read the migration ledgers; nothing was restarted."
+  guard_args+=(--ledger-file="$work/ledger.json")
+fi
+deploy_cli schema-guard "${guard_args[@]}" || fail "the schema guard refused $TAG; nothing was restarted."
 step_ok
 
 # The tables whose row count must not drop: database.rowCountTables of the deploy.json this release shipped, not the
@@ -548,12 +636,14 @@ fi
 # it may join the list in the release whose migration creates it.
 counted=""
 if [ "$lists_tables" -eq 0 ] && [ -n "$previous_tag" ]; then
-  deploy_cli row-counts --config="$release_config" --out="$work/counts-before.json" || fail "counting rows failed; nothing was restarted."
+  count_rows --out="$work/counts-before.json" || fail "counting rows failed; nothing was restarted."
   counted="yes"
   step_ok "$(summarize_counts "$work/counts-before.json")"
 else
   step_ok "skipped"
 fi
+
+run_hook pre-migrate "; nothing was restarted."
 
 # From here nothing is put back (see the header); the .env.prod this release replaced becomes .env.prod.prev.
 begin_step switch
@@ -572,9 +662,11 @@ if [ -n "$rules_changed" ]; then
   step_ok
 fi
 
+run_hook post-up "; $TAG is live."
+
 if [ -n "$counted" ]; then
   begin_step row-counts-after
-  deploy_cli row-counts --config="$release_config" --compare="$work/counts-before.json" --out="$work/counts-after.json" \
+  count_rows --compare="$work/counts-before.json" --out="$work/counts-after.json" \
     || fail "rows were lost on $TAG; the backup before it is the newest in $BACKUP_DIR."
   step_ok "$(summarize_counts "$work/counts-after.json")"
 fi
