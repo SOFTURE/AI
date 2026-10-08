@@ -64,5 +64,5 @@ The script can set a password whose plain value never reaches the host, and both
 
 ### Phase 2: docs, version, gates
 
-- [ ] README, CHANGELOG, version 0.1.9
-- [ ] gates green
+- [x] README, CHANGELOG, version 0.1.9 — 7d55a33
+- [x] gates green — 7d55a33 (typecheck, lint, test: 343 files / 5030 tests, build)

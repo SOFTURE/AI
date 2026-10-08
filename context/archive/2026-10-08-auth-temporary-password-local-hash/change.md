@@ -1,12 +1,13 @@
 ---
 change_id: auth-temporary-password-local-hash
 title: "auth 0.1.9: set-temporary-password takes a precomputed hash and a readable alphabet (issue #244)"
-status: implementing
+status: archived
 roadmap_item: null
 issue: 244
 branch: claude/project-thread-e0icx9
 created: 2026-10-08
 updated: 2026-10-08
+archived_at: 2026-10-08
 ---
 
 ## Intent
