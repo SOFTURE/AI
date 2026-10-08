@@ -26,6 +26,8 @@ Instructions for the application's agent (FIRE_TRACKER first). One module is one
    `before`, the module files, `after`. Then:
    1. Write an application migration that moves the existing tables into the module's schema
       (`ALTER TABLE … SET SCHEMA`, column renames, domain columns into a 1:1 table in `public`).
+      A module that ships an `adoption/` folder (e.g. `@softure-ai/mcp-access`) carries a tested
+      version of this migration for the common app shape; its README says what it assumes.
    2. Run `softure migrate --adopt <module>@<version> --plan`, then without `--plan`; that run
       applies `before` first, so the migration from step 1 and the adoption are one command. It
       applies the pending migrations of the modules the module depends on first. When the app's

@@ -3,18 +3,20 @@
 import { formatMessage, type Locale } from "@softure-ai/core";
 import { Button, ButtonLink, Checkbox, type ClassNames, createSlotClassGetter, FormError, TextField } from "@softure-ai/ui";
 import { useActionState, useState } from "react";
-import type { IssuedToken, IssueTokenFormState, RevokeTokenFormState } from "../contract.js";
+import type { IssuedToken, IssueTokenFormState, RevokeGrantFormState, RevokeTokenFormState } from "../contract.js";
 import { getTokenErrorMessage, type McpAccessMessages } from "../messages/index.js";
 import { MAX_TOKEN_NAME_LENGTH } from "../options.js";
 
 // The token page's client part: the tool catalog, the issue form, the token just issued with its
-// setup snippets, and the owner's tokens with a revoke button each. Both forms submit to their
+// setup snippets, the owner's tokens with a revoke button each, and, with OAuth on, the apps
+// connected through OAuth with a disconnect button each. Both forms submit to their
 // server actions through `useActionState`. The plaintext lives only in the issue form's state:
 // "Done" or leaving the page drops it. Copy comes from the module's messages; styling only from
 // @softure-ai/ui classes.
 
 export type IssueTokenAction = (previous: IssueTokenFormState, formData: FormData) => Promise<IssueTokenFormState>;
 export type RevokeTokenAction = (previous: RevokeTokenFormState, formData: FormData) => Promise<RevokeTokenFormState>;
+export type RevokeGrantAction = (previous: RevokeGrantFormState, formData: FormData) => Promise<RevokeGrantFormState>;
 
 export type TokenManagerSlot = "root" | "section" | "heading" | "text" | "list" | "item" | "itemHeader" | "badge" | "details" | "snippet" | "code";
 
@@ -39,6 +41,16 @@ export interface TokenManagerRow {
   readonly details: readonly string[];
 }
 
+/** One app connected through OAuth, prepared on the server. */
+export interface TokenManagerGrant {
+  readonly id: string;
+  readonly clientName: string;
+  /** Read only, or read and change, already in the app's copy. */
+  readonly scopeText: string;
+  /** Connected on and last used, already formatted. */
+  readonly details: readonly string[];
+}
+
 export interface TokenManagerProps {
   readonly tools: readonly TokenManagerTool[];
   readonly tokens: readonly TokenManagerRow[];
@@ -48,6 +60,10 @@ export interface TokenManagerProps {
   readonly maxTokens: number;
   readonly issueAction: IssueTokenAction;
   readonly revokeAction: RevokeTokenAction;
+  /** The connected apps; leave out while OAuth is off, and the section is not shown. */
+  readonly grants?: readonly TokenManagerGrant[];
+  /** Disconnects one app; needed with `grants`. */
+  readonly revokeGrantAction?: RevokeGrantAction;
   readonly messages: McpAccessMessages;
   /** Locale of the built-in copy of the ui primitives. */
   readonly locale?: Locale;
@@ -214,7 +230,52 @@ function TokenItem({
   );
 }
 
-export function TokenManager({ tools, tokens, allowWrites, maxTokens, issueAction, revokeAction, messages, locale, classNames, unstyled }: TokenManagerProps) {
+function GrantItem({
+  grant,
+  action,
+  messages,
+  slot,
+  unstyled,
+}: {
+  grant: TokenManagerGrant;
+  action: RevokeGrantAction;
+  messages: McpAccessMessages;
+  slot: Slot;
+  unstyled: boolean | undefined;
+}) {
+  const [state, formAction, isPending] = useActionState(action, { status: "idle" });
+  return (
+    <li className={slot("item")} data-grant-id={grant.id}>
+      <div className={slot("itemHeader")}>
+        <p className={slot("heading")}>{grant.clientName}</p>
+        <form action={formAction}>
+          <input type="hidden" name="id" value={grant.id} />
+          <Button type="submit" variant="danger" size="sm" pending={isPending} aria-label={`${messages.grants.disconnect}: ${grant.clientName}`} unstyled={unstyled}>
+            {isPending ? messages.grants.disconnecting : messages.grants.disconnect}
+          </Button>
+        </form>
+      </div>
+      <p className={slot("badge")}>{grant.scopeText}</p>
+      <p className={slot("details")}>{grant.details.join(" · ")}</p>
+      <FormError message={state.status === "error" ? getTokenErrorMessage(messages, state.error) : undefined} unstyled={unstyled} />
+    </li>
+  );
+}
+
+export function TokenManager({
+  tools,
+  tokens,
+  allowWrites,
+  maxTokens,
+  issueAction,
+  revokeAction,
+  grants,
+  revokeGrantAction,
+  messages,
+  locale,
+  classNames,
+  unstyled,
+}: TokenManagerProps) {
   const slot = createSlotClassGetter({ defaults: DEFAULT_CLASSES, classNames, unstyled });
   return (
     <div className={slot("root")}>
@@ -249,6 +310,21 @@ export function TokenManager({ tools, tokens, allowWrites, maxTokens, issueActio
           </ul>
         )}
       </section>
+      {grants === undefined || revokeGrantAction === undefined ? null : (
+        <section className={slot("section")}>
+          <h2 className={slot("heading")}>{messages.grants.title}</h2>
+          <p className={slot("text")}>{messages.grants.lead}</p>
+          {grants.length === 0 ? (
+            <p className={slot("text")}>{messages.grants.empty}</p>
+          ) : (
+            <ul className={slot("list")}>
+              {grants.map((grant) => (
+                <GrantItem key={grant.id} grant={grant} action={revokeGrantAction} messages={messages} slot={slot} unstyled={unstyled} />
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
     </div>
   );
 }

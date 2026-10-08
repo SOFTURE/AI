@@ -9,9 +9,10 @@ import { getSoftureConfig } from "@softure-ai/core/next";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getMcpClientSetup } from "../client-setup.js";
-import type { IssueTokenFormState, RevokeTokenFormState } from "../contract.js";
+import type { IssueTokenFormState, RevokeGrantFormState, RevokeTokenFormState } from "../contract.js";
 import { MAX_TOKEN_NAME_LENGTH } from "../options.js";
 import { getMcpAccessMessages, getMcpAccessOptions, getMcpAccessRoutes, getMcpEndpointUrl } from "../server/options.js";
+import { revokeOAuthGrant } from "../server/oauth.js";
 import { issueAccessToken, revokeAccessToken } from "../server/tokens.js";
 import { getMcpAccessContext } from "./context.js";
 import { formatDate } from "./format.js";
@@ -87,5 +88,22 @@ export async function revokeTokenAction(_previous: RevokeTokenFormState, formDat
     return { status: "ok" };
   } catch (error) {
     return { status: "error", error: reportFailure("revoking a token", error) };
+  }
+}
+
+/** Disconnects one of the signed-in user's OAuth apps: the grant and its access tokens go at once. */
+export async function revokeGrantAction(_previous: RevokeGrantFormState, formData: FormData): Promise<RevokeGrantFormState> {
+  const config = getSoftureConfig();
+  const user = await getCurrentUser();
+  if (user === null) return { status: "error", error: "auth.unauthenticated" };
+
+  const input = revokeInput.parse({ id: formData.get("id") });
+  try {
+    const result = await revokeOAuthGrant(await getMcpAccessContext(config), { userId: user.id, grantId: input.id });
+    if (!result.ok) return { status: "error", error: result.error };
+    refreshPage(config);
+    return { status: "ok" };
+  } catch (error) {
+    return { status: "error", error: reportFailure("disconnecting an app", error) };
   }
 }

@@ -17,6 +17,12 @@ export const MODULE_ID = "mcp-access";
  */
 export const MCP_RATE_LIMIT_BUCKETS = {
   mcp: { limit: 200, windowMinutes: 15 },
+  /**
+   * OAuth registration (per address) and token requests (per address and client id), when
+   * `oauth.enabled`. Enough for an assistant platform refreshing many users' tokens per client,
+   * too little for a script filling the clients table.
+   */
+  "mcp-oauth": { limit: 60, windowMinutes: 15 },
 } as const;
 
 /**
@@ -26,16 +32,30 @@ export const MCP_RATE_LIMIT_BUCKETS = {
 export const mcpAccess = defineModule({
   manifest: {
     id: MODULE_ID,
-    version: "0.1.6",
+    version: "0.1.7",
     dependsOn: { security: "^0.1.0", auth: "^0.1.0" },
     dbSchema: "mcp",
-    tables: ["access_tokens"],
+    tables: ["access_tokens", "oauth_clients", "oauth_authorization_codes", "oauth_grants"],
     env: [],
     switches: [],
-    routes: { page: "/account/mcp", endpoint: "/api/mcp" },
+    routes: {
+      page: "/account/mcp",
+      endpoint: "/api/mcp",
+      oauthConsent: "/oauth/authorize",
+      oauthDecision: "/api/oauth/authorize",
+      oauthToken: "/api/oauth/token",
+      oauthRegister: "/api/oauth/register",
+    },
     mount: [
       { kind: "page", path: "app/account/mcp/page.tsx", export: "McpAccessPage" },
       { kind: "route-handler", path: "app/api/mcp/route.ts", export: "createMcpRoute" },
+      { kind: "page", path: "app/oauth/authorize/page.tsx", export: "OAuthConsentPage" },
+      { kind: "route-handler", path: "app/api/oauth/authorize/route.ts", export: "decideOAuthAuthorizationRoute" },
+      { kind: "route-handler", path: "app/api/oauth/token/route.ts", export: "exchangeOAuthTokenRoute" },
+      { kind: "route-handler", path: "app/api/oauth/register/route.ts", export: "registerOAuthClientRoute" },
+      { kind: "route-handler", path: "app/.well-known/oauth-authorization-server/route.ts", export: "getAuthorizationServerMetadataRoute" },
+      { kind: "route-handler", path: "app/.well-known/oauth-protected-resource/route.ts", export: "getProtectedResourceMetadataRoute" },
+      { kind: "route-handler", path: "app/.well-known/oauth-protected-resource/api/mcp/route.ts", export: "getProtectedResourceMetadataRoute" },
     ],
     privacy: { exports: true, deletes: true },
   },
@@ -63,19 +83,23 @@ export type {
   McpAccessErrorCode,
   McpClientSetup,
   McpServerIdentity,
+  OAuthGrantView,
+  RevokeGrantFormState,
   RevokeTokenFormState,
   TokenFormErrorCode,
 } from "./contract.js";
 export { getTokenErrorMessage, mcpAccessMessages, type McpAccessMessages } from "./messages/index.js";
 export {
+  MAX_PRESENTED_TOKEN_LENGTH,
   MAX_TOKEN_NAME_LENGTH,
   SERVER_NAME_PATTERN,
   TOOL_NAME_PATTERN,
   type McpAccessOptions,
   type McpAccessOptionsInput,
+  type McpOAuthOptions,
   type McpToolAccess,
   type McpToolDefinition,
   type McpToolDefinitionInput,
 } from "./options.js";
-export { accessTokens } from "./schema.js";
+export { accessTokens, oauthAuthorizationCodes, oauthClients, oauthGrants } from "./schema.js";
 export { getAccessTokenStatus, type AccessTokenStatusOptions } from "./token-status.js";

@@ -104,6 +104,7 @@ const config = defineSoftureConfig({
     mcpAccess({
       serverName: "softure-example",
       allowWrites: true,
+      oauth: { enabled: true },
       tools: [
         { name: "whoami", access: "read", description: { en: en.mcp.whoami, pl: pl.mcp.whoami } },
         { name: "list_entries", access: "read", description: { en: en.mcp.listEntries, pl: pl.mcp.listEntries } },

@@ -1,4 +1,4 @@
-// The MCP endpoint (FIRE_TRACKER `src/app/api/mcp/route.ts`, generalised). It takes a Web
+// The MCP endpoint (an adopting app's MCP route, generalised). It takes a Web
 // `Request` and returns a `Response`, so it runs under any fetch-shaped host; the Next adapter only
 // supplies the context. Order: identify the client, count the request, verify the Bearer token,
 // then hand the request to a fresh server from the app's factory. Each refusal happens before the
@@ -15,12 +15,11 @@ import {
 import { errorLogLabel, getModule } from "@softure-ai/core";
 import { consumeRateLimit, identifyClient } from "@softure-ai/security/server";
 import type { McpServerIdentity } from "../contract.js";
+import { getProtectedResourceMetadataUrl, isOAuthEnabled } from "./oauth-http.js";
+import { MCP_READ_SCOPE, MCP_WRITE_SCOPE } from "./scopes.js";
 import { verifyAccessToken, type McpAccessContext } from "./tokens.js";
 
-/** Every valid token reads. */
-export const MCP_READ_SCOPE = "mcp:read";
-/** A token that may write: issued for writes, and the app allows them. */
-export const MCP_WRITE_SCOPE = "mcp:write";
+export { MCP_READ_SCOPE, MCP_WRITE_SCOPE };
 
 /** The security bucket the endpoint counts in; `MCP_RATE_LIMIT_BUCKETS` holds its default. */
 export const MCP_RATE_LIMIT_BUCKET = "mcp";
@@ -89,10 +88,14 @@ export function createMcpEndpoint({ createServer }: McpEndpointOptions): McpEndp
 /**
  * The verified identity as the SDK's `AuthInfo`, or the challenge response. Unknown, revoked,
  * expired and malformed tokens get the same `401 invalid_token`. Expiry is decided by the query on
- * the module's clock, not by the SDK's own check on the wall clock.
+ * the module's clock, not by the SDK's own check on the wall clock. With OAuth on, the challenge
+ * names the protected resource metadata (RFC 9728 §5.1): that is how claude.ai and ChatGPT find
+ * the authorization server.
  */
 async function authenticate(ctx: McpAccessContext, header: string | null): Promise<AuthInfo | Response> {
-  const challenge = { requiredScopes: [MCP_READ_SCOPE] };
+  const challenge = isOAuthEnabled(ctx.config)
+    ? { requiredScopes: [MCP_READ_SCOPE], resourceMetadataUrl: getProtectedResourceMetadataUrl(ctx.config) }
+    : { requiredScopes: [MCP_READ_SCOPE] };
   if (header === null || !BEARER_PREFIX.test(header)) {
     return bearerAuthChallengeResponse(new OAuthError(OAuthErrorCode.InvalidToken, "Missing Bearer token"), challenge);
   }

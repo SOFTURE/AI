@@ -7,14 +7,15 @@ import { requireUser } from "@softure-ai/auth/next";
 import { formatMessage, type SoftureConfig } from "@softure-ai/core";
 import { getSoftureConfig } from "@softure-ai/core/next";
 import { Card } from "@softure-ai/ui";
-import type { AccessTokenStatus, AccessTokenView } from "../contract.js";
+import type { AccessTokenStatus, AccessTokenView, OAuthGrantView } from "../contract.js";
 import type { McpAccessMessages } from "../messages/index.js";
 import type { McpAccessOptions } from "../options.js";
 import { getLocalizedText, getMcpAccessMessages, getMcpAccessOptions, getMcpAccessRoutes } from "../server/options.js";
+import { listOAuthGrants } from "../server/oauth.js";
 import { listAccessTokens } from "../server/tokens.js";
 import { getAccessTokenStatus } from "../token-status.js";
-import { TokenManager, type TokenManagerRow, type TokenManagerTool } from "../ui/token-manager.js";
-import { issueTokenAction, revokeTokenAction } from "./actions.js";
+import { TokenManager, type TokenManagerGrant, type TokenManagerRow, type TokenManagerTool } from "../ui/token-manager.js";
+import { issueTokenAction, revokeGrantAction, revokeTokenAction } from "./actions.js";
 import { getMcpAccessContext } from "./context.js";
 import { formatDate, formatDateTime } from "./format.js";
 
@@ -48,6 +49,16 @@ function toRow(token: AccessTokenView, now: Date, config: SoftureConfig, options
   };
 }
 
+function toGrant(grant: OAuthGrantView, config: SoftureConfig, options: McpAccessOptions, messages: McpAccessMessages): TokenManagerGrant {
+  const lastUse = grant.lastUsedAt === null ? messages.list.neverUsed : formatMessage(messages.list.lastUsed, { date: formatDateTime(config, grant.lastUsedAt) });
+  return {
+    id: grant.id,
+    clientName: grant.clientName,
+    scopeText: grant.canWrite && options.allowWrites ? messages.list.readWrite : messages.list.readOnly,
+    details: [formatMessage(messages.grants.connectedOn, { date: formatDate(config, grant.createdAt) }), lastUse],
+  };
+}
+
 function toTool(tool: McpAccessOptions["tools"][number], config: SoftureConfig, options: McpAccessOptions, messages: McpAccessMessages): TokenManagerTool {
   const accessText = tool.access === "read" ? messages.tools.read : options.allowWrites ? messages.tools.write : messages.tools.writeUnavailable;
   return { name: tool.name, description: getLocalizedText(tool.description, config.locale), accessText };
@@ -61,6 +72,7 @@ export async function McpAccessPage() {
   const ctx = await getMcpAccessContext(config);
   const now = ctx.clock.now();
   const tokens = await listAccessTokens(ctx, user.id);
+  const grants = options.oauth.enabled ? await listOAuthGrants(ctx, user.id) : null;
   return (
     <main className={LAYOUT_CLASS}>
       <Card title={messages.page.title} subtitle={messages.page.lead}>
@@ -71,6 +83,7 @@ export async function McpAccessPage() {
           maxTokens={options.maxTokensPerUser}
           issueAction={issueTokenAction}
           revokeAction={revokeTokenAction}
+          {...(grants === null ? {} : { grants: grants.map((grant) => toGrant(grant, config, options, messages)), revokeGrantAction })}
           messages={messages}
           locale={config.locale}
         />

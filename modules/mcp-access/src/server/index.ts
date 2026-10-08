@@ -11,6 +11,56 @@ export {
   type McpServerFactory,
 } from "./endpoint.js";
 export { checkAccessTokensTable } from "./health.js";
+export {
+  CONSENT_CODE_PREFIX,
+  CLIENT_SECRET_PREFIX,
+  createAuthorizationCode,
+  exchangeAuthorizationCode,
+  findOAuthClient,
+  isClientSecretValid,
+  listOAuthGrants,
+  pruneOAuthRecords,
+  REFRESH_TOKEN_PREFIX,
+  refreshMcpGrant,
+  registerMcpClient,
+  revokeOAuthGrant,
+  type CreateAuthorizationCodeInput,
+  type ExchangeAuthorizationCodeInput,
+  type IssuedOAuthTokens,
+  type OAuthClientRegistration,
+  type PrunedOAuthRecords,
+  type RefreshOAuthGrantInput,
+  type RegisteredOAuthClient,
+  type RevokeOAuthGrantInput,
+} from "./oauth.js";
+export {
+  answerOAuthPreflight,
+  AUTHORIZATION_PARAMS,
+  AUTHORIZATION_SERVER_METADATA_PATH,
+  buildClientRedirect,
+  getAuthorizationServerMetadata,
+  getConsentPath,
+  getOAuthIssuer,
+  getProtectedResourceMetadata,
+  getProtectedResourceMetadataUrl,
+  handleAuthorizationDecision,
+  handleClientRegistration,
+  handleTokenRequest,
+  isAcceptableResource,
+  isOAuthEnabled,
+  isWriteScopeRequested,
+  MCP_OAUTH_RATE_LIMIT_BUCKET,
+  OAUTH_SCOPES,
+  PROTECTED_RESOURCE_METADATA_PATH,
+  readAuthorizationParams,
+  serveDiscoveryDocument,
+  validateAuthorizationRequest,
+  type AuthorizationOutcome,
+  type AuthorizationPageError,
+  type AuthorizationRequest,
+} from "./oauth-http.js";
+export { describeRedirectUri, isAllowedRedirectUri, MAX_CLIENT_NAME_LENGTH, parseClientRegistration, type ClientRegistrationResult, type RegistrationError } from "./oauth-validation.js";
+export { getCodeChallenge, isPkceVerifierValid, isValidCodeChallenge, PKCE_METHOD } from "./pkce.js";
 export { getMcpAccessMessages, getMcpAccessOptions, getMcpAccessRoutes, getMcpEndpointUrl, type McpAccessRoutes } from "./options.js";
 export {
   deleteMcpAccessUserData,

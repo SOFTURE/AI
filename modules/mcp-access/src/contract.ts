@@ -6,7 +6,8 @@ export type McpAccessErrorCode =
   | "mcp-access.name_required"
   | "mcp-access.name_too_long"
   | "mcp-access.token_limit_reached"
-  | "mcp-access.token_not_found";
+  | "mcp-access.token_not_found"
+  | "mcp-access.grant_not_found";
 
 /** Every code the token page can show: its own, a missing session and the generic ones. */
 export type TokenFormErrorCode = McpAccessErrorCode | "auth.unauthenticated" | CoreErrorCode;
@@ -73,8 +74,22 @@ export type IssueTokenFormState =
   | { readonly status: "ok"; readonly issued: IssuedToken }
   | { readonly status: "error"; readonly error: TokenFormErrorCode };
 
+/** A connected app (an OAuth grant) as its owner sees it. */
+export interface OAuthGrantView {
+  readonly id: string;
+  /** The name the client registered with, cut to 60 characters. */
+  readonly clientName: string;
+  /** Granted with write access (it still writes only while the app allows writes). */
+  readonly canWrite: boolean;
+  readonly createdAt: Date;
+  readonly lastUsedAt: Date | null;
+}
+
 /** What the revoke action returns to one token's form. */
 export type RevokeTokenFormState =
   | { readonly status: "idle" }
   | { readonly status: "ok" }
   | { readonly status: "error"; readonly error: TokenFormErrorCode };
+
+/** What the disconnect action returns to one connected app's form. */
+export type RevokeGrantFormState = RevokeTokenFormState;

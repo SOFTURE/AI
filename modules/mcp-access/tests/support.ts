@@ -5,7 +5,15 @@ import { auth, AUTH_RATE_LIMIT_BUCKETS } from "@softure-ai/auth";
 import { createTestClock, defineSoftureConfig, type SoftureConfig, type TestClock } from "@softure-ai/core";
 import { createTestDatabase, type TestDatabase } from "@softure-ai/db/testing";
 import { MCP_RATE_LIMIT_BUCKETS, mcpAccess, type McpAccessOptionsInput, type McpServerIdentity } from "@softure-ai/mcp-access";
-import type { McpAccessContext } from "@softure-ai/mcp-access/server";
+import {
+  createAuthorizationCode,
+  exchangeAuthorizationCode,
+  getCodeChallenge,
+  registerMcpClient,
+  type IssuedOAuthTokens,
+  type McpAccessContext,
+  type RegisteredOAuthClient,
+} from "@softure-ai/mcp-access/server";
 import { headerIp, security } from "@softure-ai/security";
 import { z } from "zod";
 
@@ -97,4 +105,27 @@ export function failOn(db: McpAccessContext["db"], method: "select" | "insert" |
     throw new Error(message);
   };
   return new Proxy(db, { get: (target, key): unknown => (key === method ? fail : (Reflect.get(target, key) as unknown)) });
+}
+
+export const OAUTH_OPTIONS: McpAccessOptionsInput = { ...OPTIONS, oauth: { enabled: true } };
+export const REDIRECT_URI = "https://assistant.example/oauth/callback";
+export const VERIFIER = "v".repeat(43);
+
+/** Registers a public client, records the person's consent and exchanges the code: a connected app. */
+export async function connectApp(
+  ctx: McpAccessContext,
+  userId: string,
+  options: { readonly canWrite?: boolean; readonly clientName?: string } = {},
+): Promise<{ readonly client: RegisteredOAuthClient["client"]; readonly tokens: IssuedOAuthTokens }> {
+  const { client } = await registerMcpClient(ctx, { clientName: options.clientName ?? "Assistant", redirectUris: [REDIRECT_URI], tokenEndpointAuthMethod: "none" });
+  const code = await createAuthorizationCode(ctx, {
+    clientRowId: client.id,
+    userId,
+    redirectUri: REDIRECT_URI,
+    codeChallenge: getCodeChallenge(VERIFIER),
+    canWrite: options.canWrite ?? false,
+  });
+  const tokens = await exchangeAuthorizationCode(ctx, { code, client, redirectUri: REDIRECT_URI, codeVerifier: VERIFIER });
+  if (tokens === null) throw new Error("connectApp: the exchange was refused");
+  return { client, tokens };
 }

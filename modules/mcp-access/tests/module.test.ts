@@ -27,8 +27,46 @@ describe("the mcp-access module", () => {
       tokenLifetimeDays: 90,
       maxTokensPerUser: 20,
       expiryWarningDays: 14,
+      oauth: { enabled: false, accessTokenLifetimeMinutes: 60, refreshTokenLifetimeDays: 90, authorizationCodeLifetimeMinutes: 10 },
     });
-    expect(mcpAccess({ serverName: "acme" }).routes).toEqual({ page: "/account/mcp", endpoint: "/api/mcp" });
+    expect(mcpAccess({ serverName: "acme" }).routes).toEqual({
+      page: "/account/mcp",
+      endpoint: "/api/mcp",
+      oauthConsent: "/oauth/authorize",
+      oauthDecision: "/api/oauth/authorize",
+      oauthToken: "/api/oauth/token",
+      oauthRegister: "/api/oauth/register",
+    });
+  });
+
+  it("takes a legacy token pattern and OAuth lifetimes", () => {
+    const options = mcpAccess({
+      serverName: "acme",
+      legacyTokenPattern: /^[0-9a-f]{64}$/,
+      oauth: { enabled: true, accessTokenLifetimeMinutes: 30, refreshTokenLifetimeDays: 30, authorizationCodeLifetimeMinutes: 5 },
+    }).options as { legacyTokenPattern?: RegExp; oauth: unknown };
+    expect(options.legacyTokenPattern?.source).toBe("^[0-9a-f]{64}$");
+    expect(options.oauth).toEqual({ enabled: true, accessTokenLifetimeMinutes: 30, refreshTokenLifetimeDays: 30, authorizationCodeLifetimeMinutes: 5 });
+  });
+
+  it("refuses a legacy pattern that is not anchored or keeps state, and lifetimes out of range", () => {
+    expect(() =>
+      mcpAccess({
+        serverName: "acme",
+        legacyTokenPattern: /[0-9a-f]{64}/,
+        oauth: { accessTokenLifetimeMinutes: 4, refreshTokenLifetimeDays: 366, authorizationCodeLifetimeMinutes: 11 },
+      }),
+    ).toThrow(
+      [
+        'Invalid SOFTURE configuration in module "mcp-access":',
+        "- options.legacyTokenPattern: must be anchored with ^ and $",
+        "- options.oauth.accessTokenLifetimeMinutes: Too small: expected number to be >=5",
+        "- options.oauth.refreshTokenLifetimeDays: Too big: expected number to be <=365",
+        "- options.oauth.authorizationCodeLifetimeMinutes: Too big: expected number to be <=10",
+      ].join("\n"),
+    );
+    expect(() => mcpAccess({ serverName: "acme", legacyTokenPattern: /^[0-9a-f]{64}$/g })).toThrow("- options.legacyTokenPattern: must not use the g or y flag");
+    expect(() => mcpAccess({ serverName: "acme", legacyTokenPattern: /^[0-9a-f]{64}$/y })).toThrow("- options.legacyTokenPattern: must not use the g or y flag");
   });
 
   it("refuses options it cannot run with, listing every problem", () => {
@@ -129,11 +167,69 @@ describe("the access_tokens table", () => {
   });
 });
 
+describe("the OAuth tables", () => {
+  let test: TestMcp;
+  let userId: string;
+
+  beforeEach(async () => {
+    test = await createTestMcp();
+    userId = await createUser(test.database, "alice@example.com");
+  });
+  afterEach(async () => {
+    await test.database.close();
+  });
+
+  const insertClient = (values: { name?: string; method?: string; secretHash?: string | null; uris?: string } = {}) =>
+    test.database.client.query<{ id: string }>(
+      "INSERT INTO mcp.oauth_clients (client_id, client_name, redirect_uris, token_endpoint_auth_method, client_secret_hash, created_at) VALUES ($1, $2, $3::jsonb, $4, $5, $6) RETURNING id",
+      [`client-${Math.random()}`, values.name ?? "Claude", values.uris ?? '["https://claude.ai/cb"]', values.method ?? "none", values.secretHash === undefined ? null : values.secretHash, NOW],
+    );
+
+  it("accepts a public and a confidential client", async () => {
+    await expect(insertClient()).resolves.toBeDefined();
+    await expect(insertClient({ method: "client_secret_basic", secretHash: HASH })).resolves.toBeDefined();
+  });
+
+  it.each([
+    ["a name over 60 characters", { name: "x".repeat(61) }],
+    ["a public client with a secret", { secretHash: HASH }],
+    ["a confidential client without one", { method: "client_secret_post" }],
+    ["an unknown auth method", { method: "private_key_jwt" }],
+    ["no redirect URI", { uris: "[]" }],
+    ["redirect URIs that are not a list", { uris: '"https://claude.ai/cb"' }],
+  ])("rejects a client with %s", async (_case, values) => {
+    await expect(insertClient(values)).rejects.toThrow(/check constraint/);
+  });
+
+  it("keeps one grant per account and client", async () => {
+    const client = (await insertClient()).rows[0]?.id;
+    const insertGrant = (hash: string) =>
+      test.database.client.query(
+        "INSERT INTO mcp.oauth_grants (user_id, client_id, can_write, refresh_token_hash, refresh_expires_at, created_at) VALUES ($1, $2, false, $3, $4, $4)",
+        [userId, client, hash, NOW],
+      );
+    await insertGrant(HASH);
+    await expect(insertGrant("b".repeat(64))).rejects.toThrow(/oauth_grants_user_id_client_id_key/);
+  });
+
+  it("refuses a code challenge that is not S256-shaped", async () => {
+    const client = (await insertClient()).rows[0]?.id;
+    await expect(
+      test.database.client.query(
+        "INSERT INTO mcp.oauth_authorization_codes (code_hash, client_id, user_id, redirect_uri, code_challenge, can_write, expires_at, created_at) VALUES ($1, $2, $3, 'https://claude.ai/cb', 'plain', false, $4, $5)",
+        [HASH, client, userId, new Date(NOW.getTime() + 1000), NOW],
+      ),
+    ).rejects.toThrow(/check constraint/);
+  });
+});
+
 describe("the mcp-access health check", () => {
-  it("passes once the table exists and throws without it", async () => {
+  it("passes once the tables exist and throws without them", async () => {
     const test = await createTestMcp();
     try {
       expect(await mcpAccess({ serverName: "acme" }).health?.(test.ctx)).toEqual({ ok: true, value: undefined });
+      await test.database.client.query("DROP TABLE mcp.oauth_grants CASCADE");
+      await expect(mcpAccess({ serverName: "acme" }).health?.(test.ctx)).rejects.toThrow(/oauth_grants|grant_id/);
       await test.database.client.query("DROP TABLE mcp.access_tokens");
       await expect(mcpAccess({ serverName: "acme" }).health?.(test.ctx)).rejects.toThrow(/mcp\.access_tokens/);
     } finally {
