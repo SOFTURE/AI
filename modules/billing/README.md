@@ -32,8 +32,10 @@ import of what the old system knew (`import-entitlements`) and a pin step for de
   period copy follow the app's locale.
 - **`PricingTiles`** (`/ui`) and **`Pricing`** (`/next`, wired to the config), a **`PaymentPage`**
   to mount at `routes.payment`, and a **`BillingAdminPage`** at `routes.admin` where an admin
-  works the open invoice requests (grant or dismiss each), grants a plan by email, and looks up an
-  account's history of grants and payments with a revoke button on each manual grant.
+  works the open invoice requests (grant or dismiss each), grants a plan by email, extends a trial
+  for free (never written as paid access), and looks up an account's history of grants, trial
+  extensions and payments with a revoke button on each manual grant. Both pages render an `<h1>`
+  first in their `<main>` (see "Page headings" in §4).
 - **A `PaymentProvider` interface** and its first adapter, **`manual({ onRequest })`**: the buyer
   requests an invoice, the app hands the request to its owner (a mail, a ticket), and the owner
   grants the plan once it is paid. The request is stored in `billing.payment_requests` before it is
@@ -55,10 +57,11 @@ import of what the old system knew (`import-entitlements`) and a pin step for de
   the account's history like the admin page's (see "Scripts" in §4).
 - **Existing accounts**: `trial.startsAt` gives accounts created before a chosen day a trial from
   that day; `import-entitlements` (`importEntitlement()` on the server) records the trial ends, paid
-  periods and lifetime access another system knew, never shortening access; `pin-trials`
+  periods and lifetime access another system knew, never shortening access, or with `--exact`
+  (`mode: "replace"`) exactly as it knew them for accounts billing has no row of yet; `pin-trials`
   (`pinDerivedTrials()`) writes every derived trial into a row before a config change would move it
   (see "Existing accounts" in §4).
-- Export and deletion of the entitlement row, the payments, the invoice requests and the manual grants (`@softure-ai/privacy`), and a health check for
+- Export and deletion of the entitlement row, the payments, the invoice requests, the manual grants and the trial extensions (`@softure-ai/privacy`), and a health check for
   `GET /api/health`.
 
 ## 2. Installation
@@ -176,6 +179,19 @@ export { BillingAdminPage as default } from "@softure-ai/billing/next";
 export { stripeWebhookRoute as POST } from "@softure-ai/billing/next";
 ```
 
+**Page headings.** Each page renders one `<h1>` as the first child of its `<main>`: the
+`payment.heading` and `admin.heading` messages ("Payment", "Billing"). Pass `heading` to replace
+it, or `heading={null}` when the app's own frame renders the page heading:
+
+```tsx
+// app/admin/billing/page.tsx, inside the app's frame that has its own <h1>
+import { BillingAdminPage, type BillingAdminPageProps } from "@softure-ai/billing/next";
+
+export default function Page(props: BillingAdminPageProps) {
+  return <BillingAdminPage {...props} heading={null} />;
+}
+```
+
 **The Stripe webhook.** In the Stripe dashboard, add an endpoint at `<appOrigin>/api/billing/webhook`
 for `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `charge.refunded` and
 `refund.failed`, and put its signing secret in `STRIPE_WEBHOOK_SECRET` (locally: `stripe listen --forward-to
@@ -273,7 +289,7 @@ sees that it has nothing left to pay for instead of the order (`startPayment` re
 `<Pricing LinkComponent={Link} />`.
 
 **The admin page.** `BillingAdminPage` answers "not found" to anyone without `adminRole`; every
-action checks the role from the session again before reading its form. It has three cards:
+action checks the role from the session again before reading its form. It has four cards:
 
 - **Invoice requests**: the open requests, oldest first, with the account, the plan, when it was
   asked for, the price it quoted and the invoice details (the latest ones: a buyer who asks again
@@ -283,9 +299,18 @@ action checks the role from the session again before reading its form. It has th
 - **Grant access**: a plan for the account with a given email, recorded like a request's grant.
   An account with lifetime access is refused (`billing.lifetime_active`): a dated period under
   lifetime would be invisible.
+- **Extend a trial**: the account's email and the trial's new last day (a date field; the trial
+  ends when the next day begins in the app's time zone). `extendTrialAction` calls
+  `extendTrialManually(ctx, { userId, until, adminId })` (`/server`), which moves the trial end
+  later and records it in `billing.trial_extensions` with the end before and after. It never writes
+  `paid_until`, so an app that counts paying accounts by it does not count a free extension (an
+  invited user, a longer trial for an account). It works under paid access too (paid access still
+  comes first; the longer trial shows once it ends) and on a trial that already ended. An end at or
+  before now is `billing.end_not_in_future`, one at or before the current trial end
+  `billing.trial_not_extended`, a malformed day `billing.day_invalid`; a refusal writes nothing.
 - **Account history**: the email lookup sends the admin to `?account=<id>` (no address in a URL),
-  which shows the account's badge and its manual grants and provider payments, newest first, each
-  with its price, the access it added and its state. **Revoke** on an active manual grant takes back only
+  which shows the account's badge and its manual grants, trial extensions and provider payments,
+  newest first, each with its price, the access it added and its state. **Revoke** on an active manual grant takes back only
   what it added, like a refund: a period loses its unused days and the periods stored after it
   (manual or paid) move back; a lifetime ends unless another active manual lifetime or a paid
   lifetime payment still gives it. Provider payments are refunded at the provider, not here.
@@ -439,7 +464,7 @@ older than `trial.days` read-only at once. Three tools, in this order, keep thei
    that local day gets its `trial.days` from it, on every read, without a write; accounts created on
    or after it keep their own trial. The reminder mail sees the floored trials too, so all those
    accounts get their trial-ending mail in the same window.
-2. **An import** of what the old system knew (FIRE_TRACKER's `trial_ends_at`, `paid_until`):
+2. **An import** of what the old system knew (e.g. its `trial_ends_at`, `paid_until` columns):
 
    ```ts
    // scripts/import-entitlements.ts: npm run import-entitlements -- --file=entitlements.json [--commit]
@@ -474,6 +499,16 @@ older than `trial.days` read-only at once. Three tools, in this order, keep thei
    large file: every row takes its locks until the end of the run. `importEntitlement(ctx, { userId,
    trialEndsAt?, paidUntil?, isLifetime? })` (`/server`) is the same merge for an app that migrates in
    its own code; it returns the `Entitlement` or `Err<billing.account_unknown>`.
+
+   **An exact import** (`--exact`, `importEntitlement(ctx, { ...row, mode: "replace" })`) stores each
+   row as given instead: when the old system had shortened access (a trial counted from a later day
+   than `created_at`, a revoked purchase), a merge would give the account back its longer derived
+   trial, the exact import keeps it ended. `trialEndsAt` omitted or `null` keeps the derived trial,
+   `paidUntil` `null` means none. It writes only an account's first row: an account that already has
+   one (a change, a pin) is refused with `billing.entitlement_exists`, unless its row holds exactly
+   that record, so running the same file again changes nothing. The script refuses the whole file,
+   naming the rows, when any account already has a different row. Run it before anything writes
+   rows (before `pin-trials` and before the app opens billing to its accounts).
 3. **A pin** before any change of `trial.days`, `trial.startsAt` or `config.timezone`:
    `npm run pin-trials [-- --commit]` (`createPinTrialsScript(config)`, no arguments) writes the trial
    every account without a row is on, exactly as reads derive it, into a row, so the change moves no
@@ -589,6 +624,20 @@ again refreshes its details and time.
 | `status`, `revoked_at` | `active` or `revoked`; CHECKs tie `revoked_at` and `revoked_by` to the status. |
 | `amount`, `currency` | What it was granted for (`0006`): the price its request quoted, else the plan's price when granted; NULL on rows stored before. |
 
+`migrations/0010_record_trial_extensions_and_index_foreign_keys.sql` creates
+`billing.trial_extensions`, one row per trial an admin extended:
+
+| Column | Meaning |
+| --- | --- |
+| `id`, `user_id` | The extension and its account (`ON DELETE CASCADE`). |
+| `extended_by` | The admin (`ON DELETE SET NULL`); NULL for one made without an admin. |
+| `extended_at` | When it was extended. |
+| `previous_ends_at`, `ends_at` | The trial end before and after (CHECK: later, and after `extended_at`). |
+
+It also indexes the foreign keys `payment_requests.user_id`, `manual_grants.granted_by` and
+`manual_grants.revoked_by` (partial, `IS NOT NULL`), so deleting an account or an admin does not
+scan those tables; every billing foreign key now has an index that starts with its column.
+
 A grant and the request it closes share a transaction; a grant and a revoke take the account, then
 the entitlement, then their row (a conditional update), the order of a refund.
 
@@ -620,9 +669,9 @@ tile gets `--sft-border-strong` and a shadow, and sets `data-plan`, `data-featur
 `billingMessages` (`en`, `pl`): `badge` (status names, `daysLeft` plural forms, `until`), `notice`
 (the four notices and their two link texts), `pricing` (period plural forms per unit, `lifetime`,
 `featured`, `choose`, `empty`), `reminderMail` (`subject` and `body` of `trialEnding`,
-`paidEnding`, `trialEnded` and `paidEnded`; the link text is the notice's), `payment` (the payment page, the invoice form and the notices after a
-hosted checkout, `checkoutSuccess` and `checkoutCancelled`), `admin` (the
-grant form) and `errors`. Plan names, descriptions and features come from the config, per locale. `{date}` is the last day of access in
+`paidEnding`, `trialEnded` and `paidEnded`; the link text is the notice's), `payment` (the payment page and its `heading`, the invoice form and the notices after a
+hosted checkout, `checkoutSuccess` and `checkoutCancelled`), `admin` (the page's `heading`, the
+grant form, `trial` for the trial form, `requests`, `history`) and `errors`. Plan names, descriptions and features come from the config, per locale. `{date}` is the last day of access in
 the app's locale and time zone, `{count}` the days left. Override them with
 `billing({ messages: { en: { notice: { choosePlan: "See plans" } } } })`.
 
@@ -630,7 +679,17 @@ the app's locale and time zone, `{count}` the days left. Override them with
 
 `manual({ onRequest(request, ctx) })` receives every invoice request (plan, account, invoice
 details, return URL) and resolves with `Ok` once handed over, or an `Err` the buyer sees as
-`billing.payment_failed`. Apps react to a change in their own code around `changeEntitlement` and
+`billing.payment_failed`. Mailing the request to the operator with the buyer as the reply-to
+(`@softure-ai/mailing` 0.1.10 or later) lets the operator answer the buyer with "Reply":
+
+```ts
+payment: manual({
+  onRequest: async (request, ctx) => {
+    const sent = await sendMail(ctx, { to: OPERATOR, replyTo: request.account.email, subject: `Invoice request: ${request.plan.id}`, text: describeRequest(request) });
+    return sent.ok ? ok() : err(sent.error);
+  },
+}),
+``` Apps react to a change in their own code around `changeEntitlement` and
 `grantPlan`. The Stripe webhook has no hook yet; its effect shows in `getEntitlement`.
 
 ## 11. GDPR
@@ -642,10 +701,10 @@ details, return URL) and resolves with `Ok` once handed over, or an `Err` the bu
   failed (`paymentId`, `refundId`, `amount`, `refundCreatedAt`, `failedAt`), its invoice requests (`planId`, the
   invoice details while open, `amount`, `currency`, `status`, `requestedAt`, `closedAt`) and the
   plans granted to it by hand (`planId`, `grantedAt`, the grant, `status`, `revokedAt`, `amount`,
-  `currency`). Which admin granted or revoked
-  is the admin's data and stays out of the account's export.
-- Deletion: the row, the payments (their failed refunds with them), the requests and the manual grants, and the foreign keys remove
-  them with the account too; an erased admin's id is cleared from the grants they made.
+  `currency`) and the trials extended for it by hand (`extendedAt`, `previousEndsAt`, `endsAt`).
+  Which admin granted, revoked or extended is the admin's data and stays out of the account's export.
+- Deletion: the row, the payments (their failed refunds with them), the requests, the manual grants and the trial extensions, and the foreign keys remove
+  them with the account too; an erased admin's id is cleared from the grants and extensions they made.
   Stripe keeps its own record of each payment (the controller's accounting record there).
 - Reminder mail: what was sent is in `mailing.deliveries` under a recipient key (never the
   address) and a scope naming the account id and the end; mailing keeps that ledger after an account

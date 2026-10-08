@@ -285,6 +285,63 @@ describe("importEntitlement", () => {
   });
 });
 
+describe("importEntitlement in replace mode", () => {
+  let test: TestBilling;
+  let adaId: string;
+
+  beforeEach(async () => {
+    // Created 30 days before NOW with a 45-day trial: the derived trial ends on 18 October.
+    test = await createTestBilling({ trial: { days: 45 } });
+    test.clock.set(new Date("2026-09-03T08:00:00Z"));
+    adaId = await createAccount(test, "ada@example.com");
+    test.clock.set(NOW);
+  });
+  afterEach(() => test.database.close());
+
+  /** Yesterday's end in Warsaw: the legacy trial ended when 3 October began. */
+  const LEGACY_END = new Date("2026-10-02T22:00:00Z");
+
+  it("carries a trial shorter than the derived one, which a merge would lengthen", async () => {
+    // The derived trial (45 days from 3 September) still runs; the other system ended it yesterday.
+    expect(await getEntitlement(test.ctx, adaId)).toMatchObject({ status: "trial", endsAt: new Date("2026-10-17T22:00:00Z") });
+    expect(await importEntitlement(test.ctx, { userId: adaId, trialEndsAt: LEGACY_END, mode: "replace" })).toEqual({
+      ok: true,
+      value: { status: "read_only", since: LEGACY_END, reason: "trial_ended" },
+    });
+    expect(await readRow(test, adaId)).toMatchObject({ trial_ends_at: LEGACY_END, paid_until: null, is_lifetime: false, created_at: NOW });
+  });
+
+  it("stores the paid period and lifetime as given, onto the derived trial when the row names none", async () => {
+    expect(await importEntitlement(test.ctx, { userId: adaId, paidUntil: PAID_END, isLifetime: true, mode: "replace" })).toMatchObject({ ok: true, value: { status: "paid", endsAt: null } });
+    expect(await readRow(test, adaId)).toMatchObject({ trial_ends_at: new Date("2026-10-17T22:00:00Z"), paid_until: PAID_END, is_lifetime: true });
+  });
+
+  it("changes nothing on a repeat, and refuses an account whose row differs, writing nothing", async () => {
+    expect((await importEntitlement(test.ctx, { userId: adaId, trialEndsAt: LEGACY_END, mode: "replace" })).ok).toBe(true);
+    expect(await importEntitlement(test.ctx, { userId: adaId, trialEndsAt: LEGACY_END, mode: "replace" })).toMatchObject({ ok: true, value: { status: "read_only" } });
+    expect(await importEntitlement(test.ctx, { userId: adaId, trialEndsAt: new Date("2026-10-01T22:00:00Z"), mode: "replace" })).toEqual({
+      ok: false,
+      error: "billing.entitlement_exists",
+    });
+    expect(await importEntitlement(test.ctx, { userId: adaId, trialEndsAt: LEGACY_END, paidUntil: PAID_END, mode: "replace" })).toEqual({
+      ok: false,
+      error: "billing.entitlement_exists",
+    });
+    expect(await readRow(test, adaId)).toMatchObject({ trial_ends_at: LEGACY_END, paid_until: null });
+  });
+
+  it("refuses an account billing pinned or changed before", async () => {
+    await pinDerivedTrials(test.ctx);
+    expect(await importEntitlement(test.ctx, { userId: adaId, trialEndsAt: LEGACY_END, mode: "replace" })).toEqual({ ok: false, error: "billing.entitlement_exists" });
+    expect(await readRow(test, adaId)).toMatchObject({ trial_ends_at: new Date("2026-10-17T22:00:00Z") });
+  });
+
+  it("knows no account for an unknown or malformed id", async () => {
+    expect(await importEntitlement(test.ctx, { userId: UNKNOWN_ID, trialEndsAt: LEGACY_END, mode: "replace" })).toEqual({ ok: false, error: "billing.account_unknown" });
+    expect(await importEntitlement(test.ctx, { userId: "nope", trialEndsAt: LEGACY_END, mode: "replace" })).toEqual({ ok: false, error: "billing.account_unknown" });
+  });
+});
+
 describe("pinDerivedTrials", () => {
   it("writes the derived trial of every account without a row, keeps stored rows, and a later trial.days change moves no pinned trial", async () => {
     const test = await createTestBilling({ trial: { startsAt: "2026-10-01" } });

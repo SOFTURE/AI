@@ -10,6 +10,7 @@ export {
   pinDerivedTrials,
   type BillingContext,
   type EntitlementEventResolver,
+  type ImportEntitlementError,
   type ImportEntitlementInput,
 } from "./entitlements.js";
 export {

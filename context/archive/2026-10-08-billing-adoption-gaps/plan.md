@@ -98,4 +98,4 @@ mistake to fix by SQL, as before), an `extend-trial` ops script, extending by a 
 - [x] Phase 1: mailing per-mail Reply-To
 - [x] Phase 2: migration 0010 and trial extensions
 - [x] Phase 3: admin UI, action, headings
-- [ ] Phase 4: exact import, docs, versions
+- [x] Phase 4: exact import, docs, versions

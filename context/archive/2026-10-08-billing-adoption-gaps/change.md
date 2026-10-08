@@ -1,12 +1,13 @@
 ---
 change_id: billing-adoption-gaps
 title: "billing + mailing: trial extension in the admin page, exact import, page headings, per-mail Reply-To, foreign key indexes (issue #229)"
-status: planned
+status: archived
 roadmap_item: null
 issue: 229
 branch: claude/project-thread-fo0doy
 created: 2026-10-08
 updated: 2026-10-08
+archived_at: 2026-10-08
 ---
 
 ## Intent
