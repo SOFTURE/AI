@@ -1,7 +1,7 @@
 // The payment and admin pages, rendered to HTML with Next's request scope replaced as in
 // next-guards.test.ts: each has one `<h1>`, first in its `<main>`, from the messages by default,
-// replaced or left out through `heading`. The admin page has the trial card and lists a trial
-// extension in the account's history.
+// replaced or left out through `heading`, with an optional `lead` paragraph after it. The admin
+// page has the trial card and lists a trial extension in the account's history.
 import { getSessionCookie } from "@softure-ai/auth";
 import { grantRole, registerUser } from "@softure-ai/auth/server";
 import { billingMessages, manual, type BillingOptionsInput } from "@softure-ai/billing";
@@ -91,6 +91,17 @@ describe("the billing pages", () => {
     expect(readHeadings(await renderHtml(await render()))).toEqual({ headings: [copy], isFirstInMain: true });
     expect(readHeadings(await renderHtml(await render("Plans")))).toEqual({ headings: ["Plans"], isFirstInMain: true });
     expect(readHeadings(await renderHtml(await render(null)))).toEqual({ headings: [], isFirstInMain: false });
+  });
+
+  it.each([
+    ["PaymentPage", (props: { heading?: string | null; lead?: string | null }) => PaymentPage(props)],
+    ["BillingAdminPage", (props: { heading?: string | null; lead?: string | null }) => BillingAdminPage(props)],
+  ] as const)("%s renders lead as one paragraph right after the <h1>, first in <main> without one, and none by default", async (_page, render) => {
+    const lead = "Invoice requests, access after a transfer and refunds.";
+    expect(await renderHtml(await render({ heading: "Payments", lead }))).toMatch(/<main[^>]*><h1[^>]*>Payments<\/h1><p[^>]*>Invoice requests, access after a transfer and refunds\.<\/p>/);
+    expect(await renderHtml(await render({ heading: null, lead }))).toMatch(/<main[^>]*><p[^>]*>Invoice requests, access after a transfer and refunds\.<\/p>/);
+    expect(await renderHtml(await render({ heading: "Payments" }))).not.toMatch(/<\/h1><p/);
+    expect(await renderHtml(await render({ heading: "Payments", lead: null }))).not.toMatch(/<\/h1><p/);
   });
 
   it("offers the trial form and lists an extension in the account's history", async () => {
