@@ -54,5 +54,5 @@ Input: change.md (research and framing skipped, reasons there). Complexity: smal
 
 ## Progress
 
-- [ ] Phase 1: messages and formatters
+- [x] Phase 1: messages and formatters
 - [ ] Phase 2: docs and version

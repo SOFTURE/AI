@@ -3,7 +3,7 @@
 // (docs/02-module-standard.md §5); `/next` renders them wired to the registered configuration.
 export { AccessBadge, type AccessBadgeProps, type AccessBadgeSlot } from "./access-badge.js";
 export { AccessNotice, type AccessNoticeProps, type AccessNoticeSlot } from "./access-notice.js";
-export { formatDay, formatDaysLeft, formatLastDay, formatPeriod } from "./format.js";
+export { formatDay, formatDayCount, formatDaysLeft, formatLastDay, formatPeriod, formatShortDay, formatShortLastDay } from "./format.js";
 export { GrantForm, type GrantFormAction, type GrantFormProps, type GrantFormSlot } from "./grant-form.js";
 export {
   AccountLookup,

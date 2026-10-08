@@ -14,8 +14,25 @@ export function formatDay(instant: Date, locale: Locale, timezone: string): stri
   return new Intl.DateTimeFormat(locale, { dateStyle: "long", timeZone: timezone }).format(instant);
 }
 
+/** The numeric form of `formatLastDay` for compact places, e.g. "22.11.2026" in pl, "11/22/2026" in en. */
+export function formatShortLastDay(end: Date, locale: Locale, timezone: string): string {
+  return formatShortDay(new Date(end.getTime() - 1), locale, timezone);
+}
+
+/** The numeric form of `formatDay` for compact places, e.g. "22.11.2026" in pl, "11/22/2026" in en. */
+export function formatShortDay(instant: Date, locale: Locale, timezone: string): string {
+  return new Intl.DateTimeFormat(locale, { day: "2-digit", month: "2-digit", year: "numeric", timeZone: timezone }).format(instant);
+}
+
+/** The days left as the badge says them: "5 days left". */
 export function formatDaysLeft(days: number, locale: Locale, messages: BillingMessages): string {
   return formatMessage(selectPlural(locale, days, messages.badge.daysLeft), { count: days });
+}
+
+/** A bare count of days for the app's own sentences ("Trial ends in 5 days"): "5 days", from `messages.dayCount`. */
+export function formatDayCount(days: number, locale: Locale, messages: BillingMessages): string {
+  // The count in the locale's digits, so a fraction reads "1,5" in pl.
+  return formatMessage(selectPlural(locale, days, messages.dayCount), { count: new Intl.NumberFormat(locale).format(days) });
 }
 
 /** How long one payment lasts, as the tiles say it: "per month", "per 3 months", "one-time payment". */
