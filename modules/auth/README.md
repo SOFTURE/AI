@@ -319,7 +319,35 @@ process.exitCode = await runOpsScript({ script: createSetTemporaryPasswordScript
 `node set-temporary-password.mjs --email=owner@example.com` shows what it would end and rolls back
 (the printed password is not stored); `--commit` writes and prints the password to hand over. Send
 it only to the account's own address, and ask the owner to change it after logging in: the module
-does not force a change.
+does not force a change. `createSetTemporaryPasswordScript(config, { alphabet: READABLE_PASSWORD_ALPHABET })`
+draws the password from 57 letters and digits without `0/O`, `1/l/I`, `-` and `_`, for a password
+someone dictates or types from a mail.
+
+To keep the plain password off the server, make it and its hash on your own machine and give the
+script only the hash. `createTemporaryPassword({ alphabet, length })`, `hashPassword` and
+`getAuthOptions` come from `@softure-ai/auth/server`; with a given hash the length rule is yours, so
+use at least `password.minLength` and 20:
+
+```ts
+// scripts/temporary-password-hash.ts, run locally
+import { createTemporaryPassword, getAuthOptions, hashPassword, READABLE_PASSWORD_ALPHABET } from "@softure-ai/auth/server";
+import config from "../softure.config";
+
+const { password } = getAuthOptions(config);
+const plain = createTemporaryPassword({ alphabet: READABLE_PASSWORD_ALPHABET, length: Math.max(password.minLength, 20) });
+console.error(`password to hand over: ${plain}`);
+console.log(await hashPassword(plain, password.scrypt));
+```
+
+```sh
+node temporary-password-hash.mjs | ssh app-host docker exec -i app node set-temporary-password.mjs --email=owner@example.com --password-hash-file=- --commit
+```
+
+`--password-hash-file=-` reads the hash from stdin (`--password-hash=<hash>` works too, but lands in
+shell history). The script refuses a value that is not a `hashPassword` hash without printing it,
+stores the hash, ends the sessions and the reset link as before, and reports `passwordFrom: "hash"`
+instead of a password. A hash made with other scrypt parameters than the config's is rehashed at
+the first login. `isPasswordHash(value)` checks the format locally.
 
 **Password reset.** Pass a sender, and the login form links to the request page. With
 `@softure-ai/mailing` enabled, `mailingResetSender()` is that sender:

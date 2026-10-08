@@ -1,4 +1,5 @@
 import { expect, type Page } from "@playwright/test";
+import { tickCheckbox } from "./checkbox.js";
 
 /**
  * The labels the auth forms are found by: `authMessages.<locale>` of `@softure-ai/auth` fits as is.
@@ -28,13 +29,16 @@ const REGISTER_PATH = "/register";
 const LOGIN_PATH = "/login";
 const ACCOUNT_PATH = "/account";
 
-/** Creates an account through the registration form (consent ticked) and waits for the landing page. */
+/**
+ * Creates an account through the registration form and waits for the landing page. The consent box is ticked
+ * with `tickCheckbox`, so a visually hidden native input under a custom box works too.
+ */
 export async function registerAccount(page: Page, input: AuthFormInput & AuthNavigationOptions): Promise<void> {
   const { copy, email, password, path = REGISTER_PATH, landingPath = ACCOUNT_PATH } = input;
   await page.goto(path);
   await page.getByLabel(copy.fields.email, { exact: true }).fill(email);
   await page.getByLabel(copy.fields.password, { exact: true }).fill(password);
-  await page.getByLabel(copy.fields.consent).check();
+  await tickCheckbox(page.getByLabel(copy.fields.consent));
   await page.getByRole("button", { name: copy.register.submit }).click();
   if (landingPath !== null) await expect(page).toHaveURL(landingPath);
 }

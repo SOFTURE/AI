@@ -3,7 +3,7 @@
 export { changePassword, type ChangePasswordErrorCode, type ChangePasswordInput, type ChangePasswordResult } from "./change-password.js";
 export { loginUser, type LoginInput, type LoginResult } from "./login.js";
 export { getAuthOptions, getAuthRoutes, type AuthRoutes } from "./options.js";
-export { hashPassword, matchPassword, MAX_PASSWORD_LENGTH, needsRehash, verifyPassword, type PasswordMatch } from "./password.js";
+export { hashPassword, isPasswordHash, matchPassword, MAX_PASSWORD_LENGTH, needsRehash, verifyPassword, type PasswordMatch } from "./password.js";
 export {
   deliverPasswordReset,
   findPasswordResetUser,
@@ -44,3 +44,4 @@ export {
   type RevokeUserSessionsOptions,
 } from "./sessions.js";
 export { isRegistrationClosed } from "./switches.js";
+export { createTemporaryPassword, READABLE_PASSWORD_ALPHABET, type TemporaryPasswordOptions } from "./temporary-password.js";

@@ -101,6 +101,8 @@ export interface MarketingConfig {
   videos: VideoConfig[];
   social: { linkTemplate: string } | null;
   screenshots: MarketingJson["screenshots"];
+  /** How `shots` signs in for `signedIn` entries; null without a `signIn` block. */
+  signIn: NonNullable<MarketingJson["signIn"]> | null;
   ogImages: MarketingJson["ogImages"];
   sfx: Partial<Record<SfxEvent, string>>;
   output: { dir: string; buildDir: string; quality: Quality };
@@ -227,6 +229,7 @@ export function loadMarketingConfig(path: string): LoadConfigResult {
       videos: resolveVideos(data, at),
       social: data.social === undefined ? null : { linkTemplate: data.social.linkTemplate },
       screenshots: data.screenshots,
+      signIn: data.signIn ?? null,
       ogImages: data.ogImages,
       sfx: Object.fromEntries(SFX_EVENTS.flatMap((event) => (data.sfx[event] === undefined ? [] : [[event, at(data.sfx[event])]]))),
       output: { dir: at(data.output.dir), buildDir: at(data.output.buildDir), quality: data.output.quality },

@@ -1,4 +1,5 @@
-import { mkdirSync, rmSync, statSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { mkdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { basename, dirname, extname, join } from "node:path";
 
 import { chromium, errors, type Browser, type Page } from "playwright";
@@ -7,14 +8,18 @@ import type { ColorTheme } from "../config/colors.js";
 import type { MarketingJson } from "../config/schema.js";
 import { getScreenshotNames, getScreenshotShots } from "../config/screenshot-names.js";
 import { containsPhrase } from "../film.js";
-import { findScrollFailure, findSizeFailure, findStatusFailure, type ScreenshotGate } from "./gates.js";
+import { getLocator } from "../record/locator.js";
+import { findCropFrame, findDimensionFailure, findScrollFailure, findSizeFailure, findStatusFailure, type ScreenshotGate } from "./gates.js";
+import { readPageText, signIn, type SessionState, type SignInPlan } from "./sign-in.js";
+import { runShotSteps } from "./steps.js";
 
 /**
  * `softure-marketing shots`: the `screenshots` entries of `marketing.json`. Each shot of an entry
  * (one per colour scheme, `config/screenshot-names.ts`) gets a fresh browser context with the entry's viewport, device
  * scale and motion preference, and is kept only when it passes every gate (`gates.ts`) on its own.
  * Every file an entry could write is removed before it runs, so a failed shot leaves no file behind,
- * not even an older one: a stale PNG must never look like a fresh pass.
+ * not even an older one: a stale PNG must never look like a fresh pass. Entries with `signedIn` share one sign-in
+ * per run, and no two kept files of a run may have the same bytes.
  */
 
 export type ScreenshotEntry = MarketingJson["screenshots"][number];
@@ -40,6 +45,8 @@ export interface TakeScreenshotsOptions {
   browser: ScreenshotBrowser;
   /** A Chromium to use instead of Playwright's own (`PLAYWRIGHT_CHROMIUM_PATH`). */
   executablePath?: string;
+  /** How `signedIn` entries sign in, placeholders resolved; without it, every `signedIn` shot is refused. */
+  signIn?: SignInPlan;
 }
 
 /** `id` is the entry's, `name` the file's without `.png` (`<id>` or `<id>-<scheme>`). */
@@ -76,7 +83,9 @@ async function scrollThroughPage(page: Page): Promise<void> {
 async function waitForPhrase(page: Page, phrase: string): Promise<boolean> {
   const deadline = Date.now() + PHRASE_TIMEOUT_MS;
   for (;;) {
-    if (containsPhrase(await page.locator("body").innerText(), phrase)) return true;
+    // A step may have started a navigation; its page is read on the next poll.
+    const text = await readPageText(page);
+    if (text !== null && containsPhrase(text, phrase)) return true;
     if (Date.now() >= deadline) return false;
     await page.waitForTimeout(PHRASE_POLL_MS);
   }
@@ -92,6 +101,26 @@ interface ShotTarget {
   name: string;
   url: string;
   file: string;
+}
+
+/** Width and height of a PNG from its IHDR chunk. */
+function readPngSize(file: string): { width: number; height: number } {
+  const bytes = readFileSync(file);
+  return { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20) };
+}
+
+/** The element's rectangle in document coordinates and the page's scrollable size. */
+async function measureCrop(page: Page, entry: ScreenshotEntry & { crop: NonNullable<ScreenshotEntry["crop"]> }): Promise<{ ok: true; frame: { x: number; y: number; width: number; height: number } } | { ok: false; message: string }> {
+  const locator = getLocator(page, entry.crop.target);
+  const count = await locator.count();
+  if (count === 0) return { ok: false, message: "no element matches crop.target" };
+  if (count > 1) return { ok: false, message: `crop.target matches ${count} elements; add nth to pick one` };
+  const element = await locator.evaluate((node) => {
+    const rect = node.getBoundingClientRect();
+    return { x: rect.left + window.scrollX, y: rect.top + window.scrollY, width: rect.width, height: rect.height };
+  });
+  const size = await page.evaluate(() => ({ width: document.documentElement.scrollWidth, height: document.documentElement.scrollHeight }));
+  return findCropFrame({ element, page: size, aspect: entry.crop.aspect, padding: entry.crop.padding });
 }
 
 async function takeOne(page: Page, target: ShotTarget): Promise<ScreenshotResult> {
@@ -120,6 +149,8 @@ async function takeOne(page: Page, target: ShotTarget): Promise<ScreenshotResult
 async function captureLoadedPage(page: Page, target: ShotTarget): Promise<ScreenshotResult> {
   const { entry, name, url, file } = target;
   await page.evaluate(() => document.fonts.ready);
+  const stepFailure = await runShotSteps(page, entry.steps, "steps");
+  if (stepFailure !== null) return { ok: false, id: entry.id, name, gate: "steps", message: stepFailure };
   if (entry.full) await scrollThroughPage(page);
   if (entry.scrollTo !== undefined) {
     const reached = await page.evaluate((top) => {
@@ -133,7 +164,23 @@ async function captureLoadedPage(page: Page, target: ShotTarget): Promise<Screen
   if (!(await waitForPhrase(page, entry.expect))) {
     return { ok: false, id: entry.id, name, gate: "phrase", message: `${url} does not show "${entry.expect}"` };
   }
-  await page.screenshot({ path: file, fullPage: entry.full });
+  let frame: { width: number; height: number } | null = null;
+  if (entry.crop === undefined) {
+    await page.screenshot({ path: file, fullPage: entry.full });
+  } else {
+    const crop = await measureCrop(page, { ...entry, crop: entry.crop });
+    if (!crop.ok) return { ok: false, id: entry.id, name, gate: "crop", message: crop.message };
+    // Document coordinates with fullPage: a sticky header stays at the page's top instead of over the element.
+    await page.screenshot({ path: file, fullPage: true, clip: crop.frame });
+    frame = crop.frame;
+  }
+  if (frame !== null) {
+    const dimensionFailure = findDimensionFailure(readPngSize(file), frame, entry.scale);
+    if (dimensionFailure !== null) {
+      rmSync(file, { force: true });
+      return { ok: false, id: entry.id, name, gate: "crop", message: dimensionFailure };
+    }
+  }
   const bytes = statSync(file).size;
   const sizeFailure = findSizeFailure(bytes, entry.minBytes);
   if (sizeFailure !== null) {
@@ -153,10 +200,12 @@ interface TakeShotOptions {
   settings: ScreenshotBrowser;
   target: ShotTarget;
   scheme: ColorTheme;
+  /** The run's sign-in session, for a `signedIn` entry. */
+  session?: SessionState;
 }
 
 async function takeShot(options: TakeShotOptions): Promise<ScreenshotResult> {
-  const { browser, settings, target, scheme } = options;
+  const { browser, settings, target, scheme, session } = options;
   const { entry } = target;
   const context = await browser.newContext({
     viewport: { width: entry.width, height: entry.height },
@@ -167,6 +216,7 @@ async function takeShot(options: TakeShotOptions): Promise<ScreenshotResult> {
     reducedMotion: entry.motion,
     // Resolved to an absolute path by the caller (the CLI resolves it against the folder of marketing.json).
     ...(entry.storageState === undefined ? {} : { storageState: entry.storageState }),
+    ...(session === undefined ? {} : { storageState: session }),
   });
   try {
     const page = await context.newPage();
@@ -189,18 +239,49 @@ async function takeShot(options: TakeShotOptions): Promise<ScreenshotResult> {
   }
 }
 
-/** Takes every shot of every entry in order; one failing shot does not stop the others. */
+/**
+ * Refuses a kept file whose bytes an earlier kept file of the run already has (the page did not change between the
+ * two shots, or two entries frame the same thing), and deletes it; remembers the others.
+ */
+function refuseDuplicate(result: ScreenshotResult, seen: Map<string, string>): ScreenshotResult {
+  if (!result.ok) return result;
+  const hash = createHash("sha256").update(readFileSync(result.file)).digest("hex");
+  const earlier = seen.get(hash);
+  if (earlier === undefined) {
+    seen.set(hash, result.name);
+    return result;
+  }
+  rmSync(result.file, { force: true });
+  const message = `the file has the same bytes as ${earlier}.png: the page did not change between the two shots; deleted`;
+  return { ok: false, id: result.id, name: result.name, gate: "duplicate", message };
+}
+
+/**
+ * Takes every shot of every entry in order; one failing shot does not stop the others. The sign-in runs once,
+ * before the first `signedIn` entry; when it fails, every `signedIn` shot is refused with its reason.
+ */
 export async function takeScreenshots(options: TakeScreenshotsOptions): Promise<ScreenshotResult[]> {
   const { entries, baseUrl, outDir, browser: settings } = options;
   mkdirSync(outDir, { recursive: true });
   const browser = await chromium.launch(options.executablePath === undefined ? {} : { executablePath: options.executablePath });
   const results: ScreenshotResult[] = [];
+  const seen = new Map<string, string>();
+  let signedIn: Awaited<ReturnType<typeof signIn>> | null = null;
   try {
     for (const entry of entries) {
       removeEntryFiles(outDir, entry);
+      if (entry.signedIn && signedIn === null) {
+        signedIn = options.signIn === undefined ? { ok: false, message: "no signIn block says how to sign in" } : await signIn({ browser, baseUrl, settings, plan: options.signIn });
+      }
       for (const shot of getScreenshotShots(entry, settings.colorScheme)) {
+        if (entry.signedIn && signedIn?.ok === false) {
+          results.push({ ok: false, id: entry.id, name: shot.name, gate: "sign-in", message: signedIn.message });
+          continue;
+        }
         const target = { entry, name: shot.name, url: new URL(entry.path, baseUrl).href, file: getScreenshotFile(outDir, shot.name) };
-        results.push(await takeShot({ browser, settings, target, scheme: shot.scheme }));
+        const session = entry.signedIn && signedIn?.ok === true ? signedIn.session : undefined;
+        const result = await takeShot({ browser, settings, target, scheme: shot.scheme, ...(session === undefined ? {} : { session }) });
+        results.push(refuseDuplicate(result, seen));
       }
     }
   } finally {

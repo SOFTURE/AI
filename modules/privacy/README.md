@@ -26,6 +26,9 @@ their own document frame and footer.
   which version of which legal document. It is append-only: a withdrawal is a new row, and the
   database refuses to update one. A ready hook records the registration checkbox of
   `@softure-ai/auth`; other modules (the waitlist) record their own scopes.
+- **Copying an account between databases.** `copyAccount({ from, to, userId })` copies one account
+  with every row it owns, found through foreign keys, with exact values; a verified dry run by
+  default (section 11).
 - **The legal document shell.** `LegalDocument`, `LegalSection` and `LegalFooter` render the app's
   terms and privacy policy: version, effective date, table of contents, change history.
 
@@ -216,7 +219,14 @@ history last:
 `LegalFooter` (`links: [{ href, label }]`, an optional `note`) goes into the root layout. Inside the
 app's own `<footer>`, pass `as="div"` (or `as="nav"` for the navigation alone) so there is no footer
 inside a footer; `separator=" · "` puts a separator, hidden from assistive technology, between the
-links.
+links. For one line of text inside the app's own footer or under a form, pass `as="p"` (or
+`as="span"`): the links and separators become inline content with no navigation and no list, the
+separator (default `" · "`, `null` for none) is read as text, and the `note` follows the links in a
+`span`.
+
+`LegalDocument` names its contents by a generated id, so two documents can share a page; give each
+its own history anchor with `changesId` (default `legal-changes`). `as` sets the root element
+(`article` by default, `div` or `section`).
 
 Link the page from the app's account page. To build your own page, compose `DeleteAccountForm`
 from `@softure-ai/privacy/ui` with `deleteAccountAction` from `/next`, and link to the export route.
@@ -258,7 +268,8 @@ The legal components are server components with the same rules. `LegalDocument` 
 `header`, `title`, `meta`, `intro`, `contents`, `contentsTitle`, `contentsList`, `link`, `body` (the
 sections and the history), `changes`, `changesTitle`, `changesList`, `change`, `changeMeta`, and
 `sectionClassNames` for every `LegalSection` (`root`, `title`, `body`). `LegalFooter` slots: `root`,
-`list`, `link`, `separator`, `note`.
+`list` (the list form only), `link`, `separator`, `note`; the inline form (`as="p"`, `as="span"`)
+has its own defaults, which keep only the type and colour on the root.
 Sections scroll into view below a sticky header through `scroll-mt`; dates (`YYYY-MM-DD`) are
 written in the app's locale, in UTC so the server's time zone cannot move them.
 
@@ -294,6 +305,65 @@ pseudonym, not anonymous data, because anyone with the address can compute it.
 Rate limit rows of `security` hold only SHA-256 prefixes of user ids and emails and are pruned two
 windows after they start.
 
+### Copying an account to another database
+
+`copyAccount` (`@softure-ai/privacy/server`) copies one account, with every row it owns, from one
+database to another: an app moving an account between instances or out of a shared database. The
+source keeps the account; `eraseUserData` there is a separate step.
+
+```ts
+// scripts/copy-account.mts: node scripts/copy-account.mts <userId> [--commit]
+import { createDatabase } from "@softure-ai/db";
+import { copyAccount } from "@softure-ai/privacy/server";
+
+const [userId = "", flag] = process.argv.slice(2);
+const from = await createDatabase(process.env.FROM_DATABASE_URL ?? "");
+const to = await createDatabase(process.env.TO_DATABASE_URL ?? "");
+try {
+  const result = await copyAccount({
+    from: from.db,
+    to: to.db,
+    userId,
+    commit: flag === "--commit",
+    exclude: ["auth.sessions"],
+    include: [{ table: "waitlist.signups", column: "email", matches: "email" }],
+  });
+  console.log(JSON.stringify(result, null, 2));
+  process.exitCode = result.ok ? 0 : 1;
+} finally {
+  await Promise.all([from.close(), to.close()]);
+}
+```
+
+- **Which rows.** The account's `auth.users` row; every row that references a copied row through a
+  foreign key whose ON DELETE is CASCADE, RESTRICT or NO ACTION (the rows deleting the account
+  removes or is blocked by), transitively, so a table without a user column (a payment's refund
+  failures) comes along; and the account's email-keyed consents. A new module or app table is
+  covered by its foreign key, with no list to maintain. A SET NULL key is a mention (the admin who
+  granted something), not ownership. A table's foreign key to itself is not followed.
+  `exclude` leaves tables out (and what only they reach); `include` adds a table no foreign key
+  ties to the account, by a column holding its id or email (`waitlist.signups` by `email`).
+- **Exact values.** Every column is read as text and written back cast to its type, with the
+  session's time zone and date style fixed on both sides: a `timestamptz` keeps its microseconds
+  (`pg` would round it to milliseconds through `Date`), a NULL stays NULL. Generated columns are
+  left to the target, and so is a generated primary key nothing references (`privacy.consents.id`),
+  which gets a new value in the source's order; a written identity or serial key moves its sequence
+  past the copied maximum.
+- **Dry run and verification.** Without `commit: true` the copy runs whole in the target, is
+  verified, and is rolled back; a dry run that succeeds is a copy that would succeed. The
+  verification reads every copied table back and compares it value for value with what was
+  written. A dry run can leave gaps in the target's sequences (a sequence never rolls back).
+- **Refusals.** Returned as `{ ok: false, error, detail }`, with nothing written:
+  `privacy.copy_account_missing` (no such account in the source), `copy_account_exists` (the target
+  has its id or email), `copy_schema_mismatch` (a table or column missing in the target, or of
+  another type), `copy_reference_missing` (a copied row references a row neither the copy nor the
+  target has, such as an OAuth client), `copy_conflict` (a target constraint rejects a row; the
+  detail names it), `copy_unsupported` (a cycle of foreign keys between tables),
+  `copy_verification_failed`. With `onMissingReference: "null"`, a SET NULL key whose row the target
+  lacks is written as NULL instead, and counted in the report.
+
+The report lists every table the account reaches, in insert order, with its row count.
+
 ## 12. Limitations
 
 - The export is built in memory and bounded by `export.maxBytes`; there is no streaming or
@@ -301,6 +371,7 @@ windows after they start.
 - Deletion is immediate: there is no grace period and no undo. Back up the database if the app
   needs to restore accounts.
 - No deletion by an admin or from a CLI yet; call `eraseUserData` from a script of the app.
+- `copyAccount` holds each table's rows of the account in memory: meant for one account at a time.
 - No page to review or withdraw consents yet; withdrawals come from the module that asked (the
   waitlist, an unsubscribe) or from the app calling `recordConsent` with `granted: false`.
 - A new document version does not ask anyone to accept it again: `hasConsent` turns false and the

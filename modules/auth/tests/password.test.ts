@@ -1,9 +1,16 @@
-import { hashPassword, needsRehash, verifyPassword } from "@softure-ai/auth/server";
+import { hashPassword, isPasswordHash, needsRehash, verifyPassword } from "@softure-ai/auth/server";
 import { describe, expect, it } from "vitest";
 import * as password from "../src/server/password.js";
 import { FAST_SCRYPT, hashWithoutNormalizing } from "./support.js";
 
 describe("password hashing", () => {
+  it("recognises its own hash format and nothing else", async () => {
+    expect(isPasswordHash(await hashPassword("correct horse battery", FAST_SCRYPT))).toBe(true);
+    for (const value of ["", "correct horse battery", "scrypt$1024$8$1$salt", "scrypt$0$8$1$salt$key", "bcrypt$1024$8$1$salt$key", "scrypt$1024$8$1$salt$key$extra"]) {
+      expect(isPasswordHash(value), value).toBe(false);
+    }
+  });
+
   it("writes a self-describing scrypt hash with a 16-byte salt and a 64-byte key", async () => {
     const hash = await hashPassword("correct horse battery", FAST_SCRYPT);
     const [scheme, cost, blockSize, parallelization, salt, key] = hash.split("$");

@@ -20,7 +20,9 @@ import { actionSchema, type SceneAction } from "./actions-schema.js";
 import { COLOR_ROLES, COLOR_THEMES, isHexColor, type ColorRole } from "./colors.js";
 import { DAY_PATTERN, isCalendarDay } from "./day.js";
 import { getOgImageNames } from "./og-image-names.js";
+import { findMalformedPlaceholder, findPlaceholders } from "./placeholders.js";
 import { getScreenshotNames } from "./screenshot-names.js";
+import { cropSchema, shotStepSchema } from "./shot-steps.js";
 
 /**
  * `marketing.json`: everything product-specific about a project's marketing material. One zod schema
@@ -493,11 +495,80 @@ export const screenshotSchema = z.strictObject({
   storageState: relativePath
     .optional()
     .describe("A Playwright storage state (cookies and localStorage as JSON), relative to the folder of marketing.json, to capture a signed-in screen. It holds a session: keep it out of git."),
+  signedIn: z.boolean().default(false).describe("Capture signed in through the signIn block: shots signs in once per run and keeps the session in memory. Not with storageState."),
+  steps: z
+    .array(shotStepSchema)
+    .default([])
+    .describe("Done in order after the page loaded, before any gate reads it, e.g. a click that opens a collapsed section; a failing step refuses the shot."),
+  crop: cropSchema
+    .optional()
+    .describe("Capture one element at a fixed aspect ratio (e.g. 4:3 around a chart) instead of the viewport: as wide as the element, from its top edge. Not with full or scrollTo."),
 }).superRefine((entry, context) => {
   if (entry.full && entry.scrollTo !== undefined) {
     context.addIssue({ code: "custom", path: ["scrollTo"], message: "is one viewport frame at a scroll position; a full-page shot has none, so drop full or scrollTo" });
   }
+  if (entry.crop !== undefined && entry.full) context.addIssue({ code: "custom", path: ["crop"], message: "frames one element; a full-page shot has no element to frame, so drop full or crop" });
+  if (entry.crop !== undefined && entry.scrollTo !== undefined) {
+    context.addIssue({ code: "custom", path: ["crop"], message: "places the frame on its element; scrollTo would place it too, so drop one of them" });
+  }
+  if (entry.signedIn && entry.storageState !== undefined) {
+    context.addIssue({ code: "custom", path: ["signedIn"], message: "signs in through signIn; storageState is another session, so drop one of them" });
+  }
+  checkPlaceholderText(entry.path, ["path"], context);
+  checkPlaceholderText(entry.expect, ["expect"], context);
+  entry.steps.forEach((step, index) => {
+    if (step.do === "fill") checkPlaceholderText(step.value, ["steps", index, "value"], context);
+  });
 });
+
+/** Refuses `{kind:…}` text that is not `{env:NAME}` or `{data:key}`, so a misspelt placeholder never reaches the page. */
+function checkPlaceholderText(text: string, path: (string | number)[], context: z.RefinementCtx): void {
+  const malformed = findMalformedPlaceholder(text);
+  if (malformed !== null) context.addIssue({ code: "custom", path, message: `${malformed} is not a placeholder: use {env:NAME} or {data:key}` });
+}
+
+/** Every text of the sign-in and the screenshots that may hold `{data:key}`, with its path in marketing.json. */
+function listPlaceholderTexts(config: { signIn?: SignInConfig | undefined; screenshots: ScreenshotConfig[] }): { text: string; path: (string | number)[] }[] {
+  const texts: { text: string; path: (string | number)[] }[] = [];
+  const addSteps = (steps: readonly ShotStepConfig[], prefix: (string | number)[]) =>
+    steps.forEach((step, index) => {
+      if (step.do === "fill") texts.push({ text: step.value, path: [...prefix, "steps", index, "value"] });
+    });
+  if (config.signIn !== undefined) {
+    addSteps(config.signIn.steps, ["signIn"]);
+    texts.push({ text: config.signIn.expect, path: ["signIn", "expect"] });
+  }
+  config.screenshots.forEach((entry, index) => {
+    texts.push({ text: entry.path, path: ["screenshots", index, "path"] }, { text: entry.expect, path: ["screenshots", index, "expect"] });
+    addSteps(entry.steps, ["screenshots", index]);
+  });
+  return texts;
+}
+
+type ScreenshotConfig = z.output<typeof screenshotSchema>;
+type ShotStepConfig = z.output<typeof shotStepSchema>;
+
+export const signInSchema = z
+  .strictObject({
+    prepare: z
+      .array(nonEmpty)
+      .min(1)
+      .optional()
+      .describe(
+        "A command (arguments, no shell, run in the folder of marketing.json once the app answers, with MARKETING_BASE_URL set) that creates and seeds the account; its last line of output is a JSON object of strings or numbers, read as {data:key}. Its output is not printed.",
+      ),
+    path: pagePath.describe("The sign-in page, e.g. /login."),
+    steps: z.array(shotStepSchema).min(1, "needs at least one step").describe("What signs in on that page: fill the e-mail and password ({env:NAME} or {data:key}), click the button."),
+    expect: nonBlank.describe("A phrase only a signed-in page shows, within 15 s of the last step; without it the sign-in fails and so does every signedIn screenshot."),
+  })
+  .superRefine((signIn, context) => {
+    checkPlaceholderText(signIn.expect, ["expect"], context);
+    signIn.steps.forEach((step, index) => {
+      if (step.do === "fill") checkPlaceholderText(step.value, ["steps", index, "value"], context);
+    });
+  });
+
+type SignInConfig = z.output<typeof signInSchema>;
 
 /** Named sizes of `ogImages[].size`: the share card and the three social formats. */
 export const OG_SIZE_PRESETS = {
@@ -647,6 +718,9 @@ export const marketingSchema = z
     videos: z.array(videoSchema).min(1, "needs at least one video").describe("The films, at least one."),
     social: socialSchema.optional().describe("Post copy for the films: the link, the platforms and their channel codes."),
     screenshots: z.array(screenshotSchema).default([]).describe("Screenshots taken by softure-marketing shots."),
+    signIn: signInSchema
+      .optional()
+      .describe("How softure-marketing shots signs in for the screenshots with signedIn: true, and the optional command that prepares the account."),
     ogImages: z.array(ogImageSchema).default([]).describe("Open Graph images rendered by softure-marketing og."),
     layout: layoutSchema
       .optional()
@@ -699,6 +773,17 @@ export const marketingSchema = z
         fileOwners.set(name, owner ?? index);
       }
     });
+    config.screenshots.forEach((entry, index) => {
+      if (entry.signedIn && config.signIn === undefined) {
+        context.addIssue({ code: "custom", path: ["screenshots", index, "signedIn"], message: "needs a signIn block that says how to sign in" });
+      }
+    });
+    if (config.signIn?.prepare === undefined) {
+      for (const { text, path } of listPlaceholderTexts(config)) {
+        const data = findPlaceholders(text).find((placeholder) => placeholder.kind === "data");
+        if (data !== undefined) context.addIssue({ code: "custom", path, message: `{data:${data.key}} needs signIn.prepare, the command that prints the data` });
+      }
+    }
     const videoIds = new Set(config.videos.map((video) => video.id));
     const posted = new Set<string>();
     config.social?.posts.forEach((post, index) => {

@@ -82,7 +82,7 @@ export async function runBackup(args: string[], io: CliIo): Promise<void> {
     if (dumpFlags.length > 0) {
       fail(`backup: --stdin takes a finished dump; ${dumpFlags.map((flag) => `--${flag}`).join(", ")} belong to the pg_dump that made it.`, USAGE_EXIT_CODE);
     }
-    result = await createBackupFromStream({ ...target, input: io.stdin ?? Readable.from([]) });
+    result = await createBackupFromStream({ ...target, input: io.input ?? Readable.from([]) });
   } else {
     let excludeTableData: string[] = [];
     if (flags["exclude-table-data"] !== undefined) {

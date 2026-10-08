@@ -17,7 +17,7 @@ TTS providers (MK-7), screenshots (MK-4) and OG images (MK-5) build on it. Backg
 An app runs the kit through `npx` with a pinned version, not as a dependency:
 
 ```json
-{ "scripts": { "marketing": "npx -y @softure-ai/marketing-kit@0.1.8" } }
+{ "scripts": { "marketing": "npx -y @softure-ai/marketing-kit@0.1.10" } }
 ```
 
 `npm run marketing -- all <video>` then runs the CLI. As a `devDependency` the kit would add more than 100 MB
@@ -88,15 +88,22 @@ that long after loading and scrolling, before the gates read the page, for an an
 `storageState` captures a signed-in screen: a Playwright storage state (cookies and localStorage), relative to the
 folder of `marketing.json`, written by the app's own login script (`await context.storageState({ path })`) or by
 `npx playwright codegen --save-storage=<file> <url>`. It holds a live session, so keep it out of git and regenerate
-it when the session expires; a missing or broken file stops `shots` before the browser starts. A screenshot is kept
-only when it passes every gate:
+it when the session expires; a missing or broken file stops `shots` before the browser starts. To have `shots` sign
+in itself, see [Signed-in screens](#signed-in-screens). `steps` run on the page after it loaded, before any gate
+reads it: `click` (open a collapsed section), `fill`, `check`, `press`, each with 10 s. `crop` frames one element
+at a fixed aspect ratio instead of the viewport, see [A frame around one element](#a-frame-around-one-element).
+A screenshot is kept only when it passes every gate:
 
 | Gate | Refused when |
 | --- | --- |
+| `sign-in` | a `signedIn` entry, and the run's sign-in failed (the reason is printed with every such file) |
 | `status` | the page answers with HTTP 400 or above, or not at all (`load`: it did not load within 30 s) |
+| `steps` | a step could not be done (its element never appeared, matched several, is not an input) |
 | `scroll` | the page cannot scroll as far as `scrollTo` (the frame would show another place) |
 | `phrase` | the page does not show `expect` within 5 s of loading (hidden elements do not count) |
+| `crop` | the crop's target matches no element or several, its frame runs past the page, or the file is not the frame's size |
 | `size` | the file is smaller than `minBytes` (40 kB by default: a blank or broken page); the file is deleted |
+| `duplicate` | an earlier file of the same run has the same bytes (the page did not change between the two shots); deleted |
 
 Each file of an entry passes the gates on its own, so a page that shows its phrase only in the dark scheme
 keeps `<id>-dark.png` and refuses `<id>-light.png`. `minBytes` applies to every file as written, whatever the
@@ -107,6 +114,67 @@ A failed file is not left behind, nor is an older file of its entry (any of `<id
 exit code `1`. `--url` points at another address of the app; without it, `shots` uses `app.baseUrl` or
 starts `app.startCommand` as `record` does. A plain page can be smaller than 40 kB: set `minBytes` for it
 (the fixture's calculator, a dark page with one form, is about 16 kB and sets 5000).
+
+#### Signed-in screens
+
+```jsonc
+"signIn": {
+  "prepare": ["npx", "tsx", "scripts/seed-marketing-account.ts"],
+  "path": "/login",
+  "steps": [
+    { "do": "fill", "target": { "label": "Email" }, "value": "{data:email}" },
+    { "do": "fill", "target": { "label": "Password" }, "value": "{env:MARKETING_PASSWORD}" },
+    { "do": "click", "target": { "role": "button", "name": "Sign in" } }
+  ],
+  "expect": "Your accounts"
+},
+"screenshots": [
+  { "id": "breakdown", "path": "/dashboard", "width": 390, "height": 900, "scale": 2, "signedIn": true,
+    "expect": "{data:positionName}", "minBytes": 15000,
+    "steps": [{ "do": "click", "target": { "text": "Components", "nth": 0 } }],
+    "crop": { "target": { "css": "section", "hasText": "Portfolio" }, "aspect": "6:5" } }
+]
+```
+
+An entry with `signedIn: true` is captured in the session of `signIn`. `shots` signs in once per run, before the
+first such entry: it opens `signIn.path` in a fresh browser (the run's locale, timezone and scheme), does the
+`steps`, and waits up to 15 s for `expect`. The phrase must be one only a signed-in page shows, and the browser must
+then hold a cookie or a localStorage entry, or the sign-in fails. The session stays in memory and is never written
+to disk; `sessionStorage` is not carried over, so an app that keeps its session there cannot be captured this way.
+When the sign-in fails, every `signedIn` file is refused (gate `sign-in`) and the other entries still run.
+`signedIn` and `storageState` exclude each other.
+
+`signIn.prepare` (optional) is the app's own command that creates and seeds the account: arguments, no shell, run in
+the folder of `marketing.json` once the app answers, with `MARKETING_BASE_URL` set to the app's address. It runs
+only when a selected entry is `signedIn` or reads its data. Its last line of output must be a JSON object of
+strings or numbers, e.g. `{"email": "demo-1@example.com", "positionName": "Bonds fund", "total": "12,345 USD"}`;
+its output is not printed (it may hold a password), its errors are. Print values as the page shows them: the kit
+formats nothing, so an amount the page writes as `12,345 USD` must be printed that way.
+
+Placeholders, in `signIn.steps[].value`, `signIn.expect` and each entry's `path`, `expect` and `steps[].value`:
+
+- `{env:NAME}`: an environment variable, e.g. the password of an account the app's seed script created. An unset
+  or empty one stops `shots` before the app starts.
+- `{data:key}`: a value `signIn.prepare` printed. With it in `expect`, the phrase gate proves the frame shows the
+  seeded account, not an empty one or another account's. A key the output lacks stops `shots` before the browser
+  starts; in `path` the value is URL-encoded.
+
+No value is ever printed by the kit (a failing step names its index, not what it typed); a failing phrase gate
+prints the phrase it looked for, so do not put a secret in `expect`.
+
+#### A frame around one element
+
+`crop: { target, aspect, padding }` captures one element instead of the viewport: `target` is a locator descriptor
+as in [Scene actions](#scene-actions) (exactly one match; `nth` picks one of several), `aspect` is `W:H` (`"4:3"`,
+`"6:5"`), `padding` the CSS pixels of page kept on the left, right and above (0-200, default 0). The frame is as wide
+as the element plus the padding, starts at its top edge, and is as tall as the aspect asks: a card that is taller is
+cut at the bottom, a shorter one shows what follows it. The viewport (`width`, `height`) still lays the page out,
+so a 390 px wide entry frames the card as a phone shows it. The frame is taken from the whole page, not from the
+viewport, so a sticky header does not cover the element and the element may lie below the first screen; a page
+whose layout uses `100vh` may lay out taller for the capture. The file is the frame × `scale` (a 358 px wide card at
+`6:5` and scale 2 is 716×596) and is checked against it. A frame running past the page's edge is refused; so is a
+target that matches nothing or several elements. `crop` excludes `full` and `scrollTo`. An element is smaller than
+a page, so set `minBytes` for it (15000 is a fair floor for a filled card).
 
 #### One page anywhere: `shots --page`
 
@@ -207,7 +275,8 @@ folder of `marketing.json`. A complete example: [examples/fixture/marketing.json
 | | `platforms` | `instagram`, `facebook`, `tiktok`, `youtube`, `linkedin`, `x`: `code`, `linkInBio` (true for Instagram, TikTok, YouTube) |
 | | `posts[]` | `video`, `caption`, `hashtags`, `codes` (this video's own codes), `disclosure` (`true`; `false` leaves the disclosure out); a video without one gets no `posts.md` |
 | | `disclosure` | a paragraph after every post's caption, before the link: that the persona is an example, that it is not advice, that the voice is AI-generated; `{persona}` becomes the video's persona name |
-| `screenshots[]` | `id`, `path`, `width`, `height`, `full` (`false`), `expect`, `motion` (`reduce`), `minBytes` (`40000`), `scale` (`1`), `colorSchemes` | for `softure-marketing shots`, see [Screenshots](#screenshots) |
+| `screenshots[]` | `id`, `path`, `width`, `height`, `full` (`false`), `expect`, `motion` (`reduce`), `minBytes` (`40000`), `scale` (`1`), `colorSchemes`, `scrollTo`, `waitMs` (`0`), `storageState`, `signedIn` (`false`), `steps` (`[]`), `crop` | for `softure-marketing shots`, see [Screenshots](#screenshots) |
+| `signIn` | `prepare`, `path`, `steps`, `expect` | how `shots` signs in for `signedIn` entries, see [Signed-in screens](#signed-in-screens) |
 | `ogImages[]` | `id`, `template` (`headline-cta`, `headline-chart`, `big-number`, `carousel`), `size` (`"landscape"`, `"portrait"`, `"square"`, `"story"` or `[width, height]`; `landscape` for the headline cards, `portrait` for the others), `data` | for `softure-marketing og`, see [OG images](#og-images) |
 | `layout` | per layout (`9:16`, `1:1`, `16:9` for phone films; `desktop` for desktop films): `caption` (`top`, `left`, `right`, `fontSize`), `persona` (`top`, `left`, `right`), `endCard` (`top`, `left`, `right`, `headlineSize`, `phone.scale`, `phone.center`) | overrides of the layout's geometry table for every film of that layout, in frame px (`endCard.phone` is the browser window's pose in `desktop`); a missing key keeps the table's value. Values must fit the frame and each box's margins must leave at least 200 px for its text. The frame, the screen box and the camera target are fixed |
 | `sfx` | `tap`, `key`, `whoosh`, `sparkle`, `pop` | sound effects; a missing one is silent |
@@ -384,6 +453,16 @@ format, so its paid recordings are reused as they are, with no re-keying and no 
 3. Run `softure-marketing voice <video>` **without** `--commit` for every video. Each must print
    `from the cache`; an estimate line means the text, voice or model differs from FIRE's, and nothing
    was spent.
+
+### Upgrading to 0.1.10
+
+- A 0.1.9 `marketing.json` works as it is, with one new refusal: two files of one `shots` run with the same bytes
+  (gate `duplicate`). A `colorSchemes` pair of a page that ignores the scheme now keeps the first file only; drop
+  `colorSchemes` there, or give the page its other scheme.
+- New: `signIn` (sign in once per run, optionally after a `prepare` command that seeds the account), `signedIn`,
+  `steps` and `crop` on entries, and `{env:NAME}` / `{data:key}` placeholders. An app that generates its signed-in
+  product frames with its own browser test (sign in, seed, check a seeded value is on screen, crop a card at a
+  fixed ratio, compare the files) can move that to `marketing.json`.
 
 ### Upgrading to 0.1.9
 

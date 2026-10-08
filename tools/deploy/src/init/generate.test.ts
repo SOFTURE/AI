@@ -127,10 +127,15 @@ describe("planInitFiles", () => {
     expect(full).toContain("COPY --from=builder /app/public ./public");
     expect(full).toContain("npx --yes esbuild@0.28.2 scripts/migrate.ts --bundle");
     expect(full).toContain("COPY --from=builder /app/softure-migrations ./softure-migrations");
+    expect(full).toContain("find scripts/ops -maxdepth 1 -name '*.ts' ! -name '*.test.ts'");
+    expect(full).toContain("--outdir=ops --out-extension:.js=.mjs");
+    expect(full).toContain("COPY --from=builder /app/ops ./ops");
     expect(full).toContain("http://127.0.0.1:3000/api/health");
     const bare = textOf(plan({}, NO_DATABASE), "Dockerfile");
     expect(bare).not.toContain("public");
     expect(bare).not.toContain("migrate");
+    expect(bare).not.toContain("scripts/ops");
+    expect(bare).not.toContain("./ops");
     expect(bare).toContain("http://127.0.0.1:3000/'");
   });
 

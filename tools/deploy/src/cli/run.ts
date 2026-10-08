@@ -5,6 +5,7 @@ import { runInit } from "./init-command.js";
 import type { CliIo } from "./io.js";
 import { runReleaseNotes } from "./release-notes-command.js";
 import { runReleaseReport } from "./release-report-command.js";
+import { runRemoteReport, runRemoteScript } from "./remote-command.js";
 import { runServerSettings } from "./server-settings-command.js";
 import { runVerifyCommand } from "./verify-command.js";
 
@@ -47,7 +48,8 @@ export const USAGE = [
   "",
 ].join("\n");
 
-type Command = (args: string[], io: CliIo) => void | Promise<void>;
+/** A command returns nothing when done, or the exit status of what it ran (`run`, `report`). */
+type Command = (args: string[], io: CliIo) => void | number | Promise<void | number>;
 
 /** Commands by their words. */
 const COMMANDS: Record<string, Command> = {
@@ -60,6 +62,8 @@ const COMMANDS: Record<string, Command> = {
   "server-settings": runServerSettings,
   verify: runVerifyCommand,
   init: runInit,
+  run: runRemoteScript,
+  report: runRemoteReport,
 };
 
 function findCommand(argv: string[]): { command: Command; args: string[] } | null {
@@ -82,8 +86,8 @@ export async function runCli(argv: string[], io: CliIo): Promise<number> {
     return USAGE_EXIT_CODE;
   }
   try {
-    await found.command(found.args, io);
-    return 0;
+    const status = await found.command(found.args, io);
+    return status ?? 0;
   } catch (error) {
     if (!(error instanceof CliFailure)) throw error;
     io.stderr(`${error.message}\n`);

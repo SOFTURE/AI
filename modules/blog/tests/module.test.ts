@@ -1,8 +1,8 @@
 // The module definition: its manifest, its options and its health check.
 import { readFileSync } from "node:fs";
 import { defineSoftureConfig, toModuleJson } from "@softure-ai/core";
-import { BLOG_RATE_LIMIT_BUCKETS, blog } from "@softure-ai/blog";
-import { BLOG_REFRESH_RATE_LIMIT_BUCKET, checkArticlesTable, getBlogOptions, getBlogRefreshPath, getBlogReservedSlugs, getBlogRoutes } from "@softure-ai/blog/server";
+import { BLOG_RATE_LIMIT_BUCKETS, blog, type BlogOptionsInput } from "@softure-ai/blog";
+import { BLOG_REFRESH_RATE_LIMIT_BUCKET, checkArticlesTable, getBlogLocaleTags, getBlogOptions, getBlogRefreshPath, getBlogReservedSlugs, getBlogRoutes } from "@softure-ai/blog/server";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { createConfig, createTestBlog } from "./support.js";
@@ -28,6 +28,9 @@ describe("the blog module", () => {
       blocks: [],
       siteHosts: [],
       externalLinkMarker: "icon-and-text",
+      jsonLd: { ids: { article: "article", term: "term", glossary: "glossary" } },
+      anchors: { cluster: "cluster" },
+      locales: {},
       gonePage: { links: [] },
       revalidateSeconds: 300,
       skill: { sections: [] },
@@ -73,6 +76,29 @@ describe("the blog module", () => {
       siteHosts: ["docs.example.com"],
     }).options;
     expect(options).toMatchObject({ brand: { name: "Example", colors: { accent: "#cff26b" } }, disclaimer: { en: "Not advice." }, blocks: [chart] });
+  });
+
+  it("takes JSON-LD ids, a cluster anchor prefix and language tags, and resolves the locale's tags with defaults", () => {
+    const options = blog({ jsonLd: { ids: { article: "artykul" } }, anchors: { cluster: "klaster" }, locales: { pl: { bcp47: "pl-PL" } } }).options;
+    expect(options.jsonLd.ids).toEqual({ article: "artykul", term: "term", glossary: "glossary" });
+    expect(options.anchors).toEqual({ cluster: "klaster" });
+    const config = (locale: "en" | "pl", locales: BlogOptionsInput["locales"] = {}) =>
+      defineSoftureConfig({ database: { url: "pglite://" }, locale, timezone: "UTC", appOrigin: "https://app.example.com", modules: [blog({ locales })] });
+    expect(getBlogLocaleTags(config("en"))).toEqual({ bcp47: "en", openGraph: "en_US" });
+    expect(getBlogLocaleTags(config("pl"))).toEqual({ bcp47: "pl", openGraph: "pl_PL" });
+    expect(getBlogLocaleTags(config("pl", { pl: { bcp47: "pl-PL" } }))).toEqual({ bcp47: "pl-PL", openGraph: "pl_PL" });
+    expect(getBlogLocaleTags(config("en", { en: { bcp47: "en-GB", openGraph: "en_GB" }, pl: { openGraph: "pl_PL" } }))).toEqual({ bcp47: "en-GB", openGraph: "en_GB" });
+  });
+
+  it.each([
+    [{ jsonLd: { ids: { article: "#article" } } }, "jsonLd.ids.article"],
+    [{ jsonLd: { ids: { term: "my term" } } }, "jsonLd.ids.term"],
+    [{ anchors: { cluster: "1cluster" } }, "anchors.cluster"],
+    [{ locales: { pl: { openGraph: "pl" } } }, "locales.pl.openGraph"],
+    [{ locales: { pl: { openGraph: "pl-PL" } } }, "locales.pl.openGraph"],
+    [{ locales: { pl: { bcp47: "pl_PL" } } }, "locales.pl.bcp47"],
+  ])("refuses a bad output option %j", (options, path) => {
+    expect(() => blog(options as BlogOptionsInput)).toThrow(path);
   });
 
   it("takes the app's own sections of the writing skill, a ### heading in a body included", () => {

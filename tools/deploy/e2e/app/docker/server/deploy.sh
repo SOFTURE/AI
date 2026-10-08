@@ -12,6 +12,16 @@
 #   status         read only: the live tag, the tag in .env.prod, the containers and the app's health
 #   maintain       the daily cron's command (below)
 #   maintain <hook>  a maintain hook with its own schedule (below)
+#   run <script> [--key[=value] ...]
+#                  an ops script of the live image (/app/ops/<script>.mjs, @softure-ai/ops/scripts) in the app container,
+#                  with the app's DATABASE_URL: a dry run unless --commit; stdin goes to the script (--<key>-file=-)
+#   report [--key=value ...]
+#                  the SQL file on stdin through psql in the postgres container, as the app's role in one read-only
+#                  transaction; each --key=value is the psql variable key (- becomes _), used as :'key' in the file
+#
+# `softure-deploy run` and `softure-deploy report` send these two from the operator's machine. An operator's own key
+# gets the same forced command in authorized_keys. Neither prints step or result lines: the output is the script's or
+# psql's, and the exit status is theirs (0 done, 1 refused or failed, 2 usage) or 1 and 2 from the checks here.
 #
 # The release archive is a gzip tar of the tag's docker/prod/ (docker-compose.yml, traefik.yml and, with a database,
 # initdb/), this script, deploy.json and the rendered .env.prod. It is unpacked into releases/<tag>/ and its files are
@@ -82,6 +92,11 @@ MAX_ARCHIVE_BYTES=$((16 * 1024 * 1024))
 LOCK_FILE="$APP_DIR/.deploy.lock"
 # Below the deploy job's timeout, so a release waiting on a long maintain run still reports its result.
 LOCK_WAIT_SECONDS=600
+# The role of the app's DATABASE_URL in the compose file; reports read as it.
+REPORT_ROLE=softure_app
+MAX_REPORT_BYTES=$((1024 * 1024))
+OPS_SCRIPT_NAME='^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+OPS_ARGUMENT='^--[a-z][a-z0-9-]*(=.*)?$'
 CRON_MARKER="# softure-deploy:softure-example"
 CRON_SCHEDULE="17 3 * * *"
 HOOK_NAME_PATTERN='^[a-z][a-z0-9-]{0,39}$'
@@ -399,14 +414,17 @@ process.stdout.write(Object.entries(counts).map(([table, count]) => table + "=" 
 
 # The forced command: one line, split on blanks without expansion.
 command_line="${SSH_ORIGINAL_COMMAND:-}"
+COMMANDS='"deploy <tag>", "status", "maintain [<hook>]", "run <script> [arguments]" or "report [arguments]"'
 if [[ "$command_line" == *$'\n'* ]] || [[ "$command_line" == *$'\r'* ]]; then
-  refuse_command "expected one command line: \"deploy <tag>\", \"status\" or \"maintain [<hook>]\"."
+  refuse_command "expected one command line: $COMMANDS."
 fi
 read -r -a words <<< "$command_line"
 command_name="${words[0]:-}"
 case "$command_name:${#words[@]}" in
   deploy:2 | status:1 | maintain:1 | maintain:2) ;;
-  *) refuse_command "expected the command \"deploy <tag>\", \"status\" or \"maintain [<hook>]\"." ;;
+  run:1) refuse_command "run needs the name of an ops script: run <script> [--key=value ...]." ;;
+  run:* | report:*) ;;
+  *) refuse_command "expected the command $COMMANDS." ;;
 esac
 if [ "$command_name" = "maintain" ] && [ "${#words[@]}" -eq 2 ] && [[ ! "${words[1]}" =~ $HOOK_NAME_PATTERN ]]; then
   refuse_command "the hook name is not a lower-case word of letters, digits and -."
@@ -435,6 +453,64 @@ if [ "$command_name" = "status" ]; then
   printf 'status|env-tag|%s\n' "${env_tag:-none}"
   printf 'status|containers|%s\n' "${containers:-none}"
   printf 'status|health|%s\n' "${health:-none}"
+  exit 0
+fi
+
+# ── run <script> / report ───────────────────────────────────────────────────────────────────────────────────────────
+# The words reach docker as an argument list; nothing here evaluates them. Output is for people: no result line.
+if [ "$command_name" = "run" ] || [ "$command_name" = "report" ]; then
+  reports_result=""
+  arguments=("${words[@]:1}")
+  if [ "$command_name" = "run" ]; then
+    script_name="${words[1]}"
+    arguments=("${words[@]:2}")
+    if [[ ! "$script_name" =~ $OPS_SCRIPT_NAME ]]; then
+      refuse_command "the ops script name is not kebab-case: $script_name"
+    fi
+  fi
+  for argument in ${arguments[@]+"${arguments[@]}"}; do
+    if [[ ! "$argument" =~ $OPS_ARGUMENT ]]; then
+      refuse_command "arguments look like --key or --key=value: $argument"
+    fi
+  done
+  if [ ! -f .env.prod ]; then fail "nothing is deployed here yet."; fi
+  TAG="$(read_env TAG)"
+  export TAG
+fi
+
+if [ "$command_name" = "run" ]; then
+  take_lock
+  if [ -z "$(compose ps --quiet app 2> /dev/null || true)" ]; then fail "the app is not running; nothing was run."; fi
+  if ! compose exec -T app test -f "ops/$script_name.mjs" < /dev/null; then
+    available="$(compose exec -T app ls ops < /dev/null 2> /dev/null | sed -n 's/\.mjs$//p' | tr '\n' ' ' || true)"
+    available="${available% }"
+    fail "the live image ($TAG) has no ops script \"$script_name\"; it has: ${available:-none}."
+  fi
+  echo "deploy: ops script $script_name on $TAG" >&2
+  # stdin is the operator's: --<key>-file=- reads a secret from it.
+  compose exec -T app node "ops/$script_name.mjs" ${arguments[@]+"${arguments[@]}"}
+  exit 0
+fi
+
+if [ "$command_name" = "report" ]; then
+  variables=()
+  for argument in ${arguments[@]+"${arguments[@]}"}; do
+    key="${argument%%=*}"
+    key="${key#--}"
+    if [ "$key" = "commit" ]; then refuse_command "a report is read only; --commit has no meaning here."; fi
+    if [ "$argument" = "--$key" ]; then refuse_command "report arguments look like --key=value: $argument"; fi
+    variables+=(--set "${key//-/_}=${argument#*=}")
+  done
+  work="$(mktemp -d)"
+  head -c "$((MAX_REPORT_BYTES + 1))" > "$work/report.sql"
+  report_bytes="$(wc -c < "$work/report.sql")"
+  if [ "$report_bytes" -eq 0 ]; then refuse_command "no SQL arrived on stdin."; fi
+  if [ "$report_bytes" -gt "$MAX_REPORT_BYTES" ]; then refuse_command "the SQL file is larger than $MAX_REPORT_BYTES bytes."; fi
+  if [ -z "$(compose ps --quiet postgres 2> /dev/null || true)" ]; then fail "Postgres is not running; nothing was read."; fi
+  # Read only against mistakes: a write fails and the single transaction commits nothing.
+  compose exec -T --env "PGOPTIONS=-c default_transaction_read_only=on" postgres \
+    psql --no-psqlrc --quiet --set ON_ERROR_STOP=1 --single-transaction --username "$REPORT_ROLE" --dbname "$DATABASE_NAME" \
+    ${variables[@]+"${variables[@]}"} --file - < "$work/report.sql"
   exit 0
 fi
 

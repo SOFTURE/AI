@@ -3,7 +3,7 @@
 // and comes back to it, an invoice request mails the admin and grants nothing, and the admin's
 // grant at /admin/billing flips the account's trial to paid. The admin page lists open requests
 // (grant or dismiss each), finds an account's history and revokes a manual grant; a lifetime
-// account has nothing to pay. The grant-plan and revoke-grant scripts write the same history the
+// account has nothing to pay. The grant-plan, revoke-grant and extend-trial scripts write the same history the
 // admin page shows. Asking again does not mail the admin twice, a field the server refuses says
 // why, and the expire-invoice-requests script closes a request nobody asked again for. Every test
 // gets its own client address and accounts; the admin is an account created with the role in Postgres
@@ -273,7 +273,7 @@ test("a lifetime account has nothing to pay, and the admin cannot grant it again
 });
 
 /** Runs a billing script of the example app with `--commit`. */
-function runPlanScript(script: "grant-plan" | "revoke-grant", args: readonly string[]): { status: number | null; output: string } {
+function runPlanScript(script: "grant-plan" | "revoke-grant" | "extend-trial", args: readonly string[]): { status: number | null; output: string } {
   const result = spawnSync("npm", ["run", "--silent", script, "--", ...args, "--commit"], { cwd: APP_DIR, encoding: "utf8" });
   return { status: result.status, output: `${result.stdout}${result.stderr}` };
 }
@@ -306,6 +306,27 @@ test("a plan granted with the grant-plan script is in the admin's history, and r
   expect(await readBadgeStatus(member)).toBe("trial");
   await admin.reload();
   await expect(grant).toContainText("Revoked on ");
+});
+
+test("a trial extended with the extend-trial script is in the admin's history", async ({ browser }) => {
+  const member = await openPageAsNewClient(browser);
+  const email = newEmail();
+  await signIn(member, email);
+
+  const extended = runPlanScript("extend-trial", [`--email=${email}`, "--days=30"]);
+  expect(extended.status, extended.output).toBe(0);
+  expect(extended.output).toContain("COMMITTED");
+  expect(extended.output).not.toContain(email);
+  expect(await readBadgeStatus(member)).toBe("trial");
+
+  const admin = await openPageAsNewClient(browser);
+  await signInAsAdmin(admin);
+  await admin.goto("/admin/billing");
+  await admin.getByLabel(copy.admin.history.email).fill(email);
+  await admin.getByRole("button", { name: copy.admin.history.submit }).click();
+  const entry = admin.getByRole("region", { name: `History of ${email}` }).locator("[data-history-id]");
+  await expect(entry).toHaveCount(1);
+  await expect(entry).toContainText(copy.admin.history.trialExtended);
 });
 
 test("a request nobody asked again for expires through the expire-invoice-requests script", async ({ browser }) => {

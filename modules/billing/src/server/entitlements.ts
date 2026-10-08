@@ -48,6 +48,11 @@ export interface PinEntitlementRowInput {
   readonly userId: string;
   /** The account's `auth.users.created_at`, which its derived trial starts from. */
   readonly accountCreatedAt: Date;
+  /**
+   * The change's own instant, stored as `created_at` and `updated_at`: the change then updates the
+   * row with the same instant, never one read earlier from a moving clock.
+   */
+  readonly now: Date;
 }
 
 /**
@@ -56,8 +61,8 @@ export interface PinEntitlementRowInput {
  * waited for. Returns whether this call inserted the row. The caller holds the account (key share)
  * and runs it in its transaction.
  */
-export async function pinEntitlementRow(ctx: Pick<BillingContext, "db" | "config" | "clock">, input: PinEntitlementRowInput): Promise<boolean> {
-  const now = ctx.clock.now();
+export async function pinEntitlementRow(ctx: Pick<BillingContext, "db" | "config">, input: PinEntitlementRowInput): Promise<boolean> {
+  const { now } = input;
   const inserted = await ctx.db
     .insert(entitlements)
     .values({ userId: input.userId, ...getDefaultRecord(ctx, input.accountCreatedAt), createdAt: now, updatedAt: now })

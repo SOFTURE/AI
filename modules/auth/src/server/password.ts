@@ -89,20 +89,30 @@ function deriveKey(password: string, salt: Buffer, params: ScryptParams): Promis
   });
 }
 
-function parseHash(storedHash: string): ParsedHash {
-  const [scheme, cost, blockSize, parallelization, salt, key, ...rest] = storedHash.split("$");
+/** Whether `value` is in the `scrypt$N$r$p$salt$key` format this module writes and reads. */
+export function isPasswordHash(value: string): boolean {
+  return readHashParts(value) !== null;
+}
+
+function readHashParts(value: string): { params: ScryptParams; salt: string; key: string } | null {
+  const [scheme, cost, blockSize, parallelization, salt, key, ...rest] = value.split("$");
   const params = { cost: Number(cost), blockSize: Number(blockSize), parallelization: Number(parallelization) };
   const isValid =
     scheme === "scrypt" &&
     rest.length === 0 &&
-    Object.values(params).every((value) => Number.isSafeInteger(value) && value > 0) &&
+    Object.values(params).every((part) => Number.isSafeInteger(part) && part > 0) &&
     salt !== undefined &&
     salt !== "" &&
     key !== undefined &&
     key !== "";
-  if (!isValid) {
+  return isValid ? { params, salt, key } : null;
+}
+
+function parseHash(storedHash: string): ParsedHash {
+  const parts = readHashParts(storedHash);
+  if (parts === null) {
     // The hash itself stays out of the message: it is secret-derived data.
     throw new Error("@softure-ai/auth: a stored password hash is not in the scrypt$N$r$p$salt$key format");
   }
-  return { params, salt: Buffer.from(salt, "base64url"), key: Buffer.from(key, "base64url") };
+  return { params: parts.params, salt: Buffer.from(parts.salt, "base64url"), key: Buffer.from(parts.key, "base64url") };
 }

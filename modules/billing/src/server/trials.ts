@@ -41,7 +41,7 @@ export async function extendTrialManually(ctx: BillingContext, input: ExtendTria
     const [account] = await tx.select({ createdAt: users.createdAt }).from(users).where(eq(users.id, input.userId)).for("key share");
     if (account === undefined) return err("billing.account_unknown");
     // The derived trial pinned and locked before the check, so a concurrent change is seen here.
-    const isPinned = await pinEntitlementRow({ ...ctx, db: tx }, { userId: input.userId, accountCreatedAt: account.createdAt });
+    const isPinned = await pinEntitlementRow({ ...ctx, db: tx }, { userId: input.userId, accountCreatedAt: account.createdAt, now });
     await lockEntitlementRow(tx, input.userId);
     const record = await findEntitlementRecord({ ...ctx, db: tx }, input.userId);
     // The account was locked above and its row pinned.

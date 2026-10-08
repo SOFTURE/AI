@@ -2637,7 +2637,6 @@
       "additionalProperties": false
     },
     "screenshots": {
-      "default": [],
       "description": "Screenshots taken by softure-marketing shots.",
       "type": "array",
       "items": {
@@ -2727,6 +2726,1036 @@
             "description": "A Playwright storage state (cookies and localStorage as JSON), relative to the folder of marketing.json, to capture a signed-in screen. It holds a session: keep it out of git.",
             "type": "string",
             "minLength": 1
+          },
+          "signedIn": {
+            "default": false,
+            "description": "Capture signed in through the signIn block: shots signs in once per run and keeps the session in memory. Not with storageState.",
+            "type": "boolean"
+          },
+          "steps": {
+            "description": "Done in order after the page loaded, before any gate reads it, e.g. a click that opens a collapsed section; a failing step refuses the shot.",
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "do": {
+                      "type": "string",
+                      "const": "fill",
+                      "description": "Replaces the value of an input, e.g. the e-mail of the sign-in form."
+                    },
+                    "target": {
+                      "description": "The element, as a locator descriptor with exactly one of role, text, label, testId, css.",
+                      "type": "object",
+                      "properties": {
+                        "role": {
+                          "description": "Find by ARIA role (Playwright getByRole), e.g. button; narrow it with name.",
+                          "type": "string",
+                          "enum": [
+                            "alert",
+                            "alertdialog",
+                            "application",
+                            "article",
+                            "banner",
+                            "blockquote",
+                            "button",
+                            "caption",
+                            "cell",
+                            "checkbox",
+                            "code",
+                            "columnheader",
+                            "combobox",
+                            "complementary",
+                            "contentinfo",
+                            "definition",
+                            "deletion",
+                            "dialog",
+                            "directory",
+                            "document",
+                            "emphasis",
+                            "feed",
+                            "figure",
+                            "form",
+                            "generic",
+                            "grid",
+                            "gridcell",
+                            "group",
+                            "heading",
+                            "img",
+                            "insertion",
+                            "link",
+                            "list",
+                            "listbox",
+                            "listitem",
+                            "log",
+                            "main",
+                            "marquee",
+                            "math",
+                            "meter",
+                            "menu",
+                            "menubar",
+                            "menuitem",
+                            "menuitemcheckbox",
+                            "menuitemradio",
+                            "navigation",
+                            "none",
+                            "note",
+                            "option",
+                            "paragraph",
+                            "presentation",
+                            "progressbar",
+                            "radio",
+                            "radiogroup",
+                            "region",
+                            "row",
+                            "rowgroup",
+                            "rowheader",
+                            "scrollbar",
+                            "search",
+                            "searchbox",
+                            "separator",
+                            "slider",
+                            "spinbutton",
+                            "status",
+                            "strong",
+                            "subscript",
+                            "superscript",
+                            "switch",
+                            "tab",
+                            "table",
+                            "tablist",
+                            "tabpanel",
+                            "term",
+                            "textbox",
+                            "time",
+                            "timer",
+                            "toolbar",
+                            "tooltip",
+                            "tree",
+                            "treegrid",
+                            "treeitem"
+                          ]
+                        },
+                        "name": {
+                          "description": "The accessible name, with role: a string or { regex, flags }.",
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "regex": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "description": "A JavaScript regular expression source, without slashes."
+                                },
+                                "flags": {
+                                  "default": "",
+                                  "description": "Any of i, m, s, u, each at most once.",
+                                  "type": "string",
+                                  "pattern": "^(?!.*(.).*\\1)[imsu]*$"
+                                }
+                              },
+                              "required": [
+                                "regex"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "text": {
+                          "description": "Find by visible text (Playwright getByText): a substring, or { regex, flags }.",
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "regex": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "description": "A JavaScript regular expression source, without slashes."
+                                },
+                                "flags": {
+                                  "default": "",
+                                  "description": "Any of i, m, s, u, each at most once.",
+                                  "type": "string",
+                                  "pattern": "^(?!.*(.).*\\1)[imsu]*$"
+                                }
+                              },
+                              "required": [
+                                "regex"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "label": {
+                          "description": "Find a form control by its label (Playwright getByLabel): a substring, or { regex, flags }.",
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "regex": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "description": "A JavaScript regular expression source, without slashes."
+                                },
+                                "flags": {
+                                  "default": "",
+                                  "description": "Any of i, m, s, u, each at most once.",
+                                  "type": "string",
+                                  "pattern": "^(?!.*(.).*\\1)[imsu]*$"
+                                }
+                              },
+                              "required": [
+                                "regex"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "testId": {
+                          "description": "Find by data-testid (Playwright getByTestId).",
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "css": {
+                          "description": "Find by CSS selector; narrow it with hasText.",
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "hasText": {
+                          "description": "Only elements containing this text, with css.",
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "regex": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "description": "A JavaScript regular expression source, without slashes."
+                                },
+                                "flags": {
+                                  "default": "",
+                                  "description": "Any of i, m, s, u, each at most once.",
+                                  "type": "string",
+                                  "pattern": "^(?!.*(.).*\\1)[imsu]*$"
+                                }
+                              },
+                              "required": [
+                                "regex"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "exact": {
+                          "description": "Whole and case-sensitive match of a string name, text or label (default false).",
+                          "type": "boolean"
+                        },
+                        "nth": {
+                          "description": "The n-th match (0 = the first); without it, a locator that matches several elements fails.",
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "value": {
+                      "type": "string",
+                      "description": "The value; {env:NAME} and {data:key} are replaced. Never printed, so a password may go here as {env:NAME}."
+                    }
+                  },
+                  "required": [
+                    "do",
+                    "target",
+                    "value"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "do": {
+                      "type": "string",
+                      "const": "click",
+                      "description": "Clicks the element, e.g. the submit button or a collapsed section's summary."
+                    },
+                    "target": {
+                      "description": "The element, as a locator descriptor with exactly one of role, text, label, testId, css.",
+                      "type": "object",
+                      "properties": {
+                        "role": {
+                          "description": "Find by ARIA role (Playwright getByRole), e.g. button; narrow it with name.",
+                          "type": "string",
+                          "enum": [
+                            "alert",
+                            "alertdialog",
+                            "application",
+                            "article",
+                            "banner",
+                            "blockquote",
+                            "button",
+                            "caption",
+                            "cell",
+                            "checkbox",
+                            "code",
+                            "columnheader",
+                            "combobox",
+                            "complementary",
+                            "contentinfo",
+                            "definition",
+                            "deletion",
+                            "dialog",
+                            "directory",
+                            "document",
+                            "emphasis",
+                            "feed",
+                            "figure",
+                            "form",
+                            "generic",
+                            "grid",
+                            "gridcell",
+                            "group",
+                            "heading",
+                            "img",
+                            "insertion",
+                            "link",
+                            "list",
+                            "listbox",
+                            "listitem",
+                            "log",
+                            "main",
+                            "marquee",
+                            "math",
+                            "meter",
+                            "menu",
+                            "menubar",
+                            "menuitem",
+                            "menuitemcheckbox",
+                            "menuitemradio",
+                            "navigation",
+                            "none",
+                            "note",
+                            "option",
+                            "paragraph",
+                            "presentation",
+                            "progressbar",
+                            "radio",
+                            "radiogroup",
+                            "region",
+                            "row",
+                            "rowgroup",
+                            "rowheader",
+                            "scrollbar",
+                            "search",
+                            "searchbox",
+                            "separator",
+                            "slider",
+                            "spinbutton",
+                            "status",
+                            "strong",
+                            "subscript",
+                            "superscript",
+                            "switch",
+                            "tab",
+                            "table",
+                            "tablist",
+                            "tabpanel",
+                            "term",
+                            "textbox",
+                            "time",
+                            "timer",
+                            "toolbar",
+                            "tooltip",
+                            "tree",
+                            "treegrid",
+                            "treeitem"
+                          ]
+                        },
+                        "name": {
+                          "description": "The accessible name, with role: a string or { regex, flags }.",
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "regex": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "description": "A JavaScript regular expression source, without slashes."
+                                },
+                                "flags": {
+                                  "default": "",
+                                  "description": "Any of i, m, s, u, each at most once.",
+                                  "type": "string",
+                                  "pattern": "^(?!.*(.).*\\1)[imsu]*$"
+                                }
+                              },
+                              "required": [
+                                "regex"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "text": {
+                          "description": "Find by visible text (Playwright getByText): a substring, or { regex, flags }.",
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "regex": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "description": "A JavaScript regular expression source, without slashes."
+                                },
+                                "flags": {
+                                  "default": "",
+                                  "description": "Any of i, m, s, u, each at most once.",
+                                  "type": "string",
+                                  "pattern": "^(?!.*(.).*\\1)[imsu]*$"
+                                }
+                              },
+                              "required": [
+                                "regex"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "label": {
+                          "description": "Find a form control by its label (Playwright getByLabel): a substring, or { regex, flags }.",
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "regex": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "description": "A JavaScript regular expression source, without slashes."
+                                },
+                                "flags": {
+                                  "default": "",
+                                  "description": "Any of i, m, s, u, each at most once.",
+                                  "type": "string",
+                                  "pattern": "^(?!.*(.).*\\1)[imsu]*$"
+                                }
+                              },
+                              "required": [
+                                "regex"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "testId": {
+                          "description": "Find by data-testid (Playwright getByTestId).",
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "css": {
+                          "description": "Find by CSS selector; narrow it with hasText.",
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "hasText": {
+                          "description": "Only elements containing this text, with css.",
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "regex": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "description": "A JavaScript regular expression source, without slashes."
+                                },
+                                "flags": {
+                                  "default": "",
+                                  "description": "Any of i, m, s, u, each at most once.",
+                                  "type": "string",
+                                  "pattern": "^(?!.*(.).*\\1)[imsu]*$"
+                                }
+                              },
+                              "required": [
+                                "regex"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "exact": {
+                          "description": "Whole and case-sensitive match of a string name, text or label (default false).",
+                          "type": "boolean"
+                        },
+                        "nth": {
+                          "description": "The n-th match (0 = the first); without it, a locator that matches several elements fails.",
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "do",
+                    "target"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "do": {
+                      "type": "string",
+                      "const": "check",
+                      "description": "Ticks a checkbox or radio button, e.g. the terms of a sign-up form."
+                    },
+                    "target": {
+                      "description": "The element, as a locator descriptor with exactly one of role, text, label, testId, css.",
+                      "type": "object",
+                      "properties": {
+                        "role": {
+                          "description": "Find by ARIA role (Playwright getByRole), e.g. button; narrow it with name.",
+                          "type": "string",
+                          "enum": [
+                            "alert",
+                            "alertdialog",
+                            "application",
+                            "article",
+                            "banner",
+                            "blockquote",
+                            "button",
+                            "caption",
+                            "cell",
+                            "checkbox",
+                            "code",
+                            "columnheader",
+                            "combobox",
+                            "complementary",
+                            "contentinfo",
+                            "definition",
+                            "deletion",
+                            "dialog",
+                            "directory",
+                            "document",
+                            "emphasis",
+                            "feed",
+                            "figure",
+                            "form",
+                            "generic",
+                            "grid",
+                            "gridcell",
+                            "group",
+                            "heading",
+                            "img",
+                            "insertion",
+                            "link",
+                            "list",
+                            "listbox",
+                            "listitem",
+                            "log",
+                            "main",
+                            "marquee",
+                            "math",
+                            "meter",
+                            "menu",
+                            "menubar",
+                            "menuitem",
+                            "menuitemcheckbox",
+                            "menuitemradio",
+                            "navigation",
+                            "none",
+                            "note",
+                            "option",
+                            "paragraph",
+                            "presentation",
+                            "progressbar",
+                            "radio",
+                            "radiogroup",
+                            "region",
+                            "row",
+                            "rowgroup",
+                            "rowheader",
+                            "scrollbar",
+                            "search",
+                            "searchbox",
+                            "separator",
+                            "slider",
+                            "spinbutton",
+                            "status",
+                            "strong",
+                            "subscript",
+                            "superscript",
+                            "switch",
+                            "tab",
+                            "table",
+                            "tablist",
+                            "tabpanel",
+                            "term",
+                            "textbox",
+                            "time",
+                            "timer",
+                            "toolbar",
+                            "tooltip",
+                            "tree",
+                            "treegrid",
+                            "treeitem"
+                          ]
+                        },
+                        "name": {
+                          "description": "The accessible name, with role: a string or { regex, flags }.",
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "regex": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "description": "A JavaScript regular expression source, without slashes."
+                                },
+                                "flags": {
+                                  "default": "",
+                                  "description": "Any of i, m, s, u, each at most once.",
+                                  "type": "string",
+                                  "pattern": "^(?!.*(.).*\\1)[imsu]*$"
+                                }
+                              },
+                              "required": [
+                                "regex"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "text": {
+                          "description": "Find by visible text (Playwright getByText): a substring, or { regex, flags }.",
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "regex": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "description": "A JavaScript regular expression source, without slashes."
+                                },
+                                "flags": {
+                                  "default": "",
+                                  "description": "Any of i, m, s, u, each at most once.",
+                                  "type": "string",
+                                  "pattern": "^(?!.*(.).*\\1)[imsu]*$"
+                                }
+                              },
+                              "required": [
+                                "regex"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "label": {
+                          "description": "Find a form control by its label (Playwright getByLabel): a substring, or { regex, flags }.",
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "regex": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "description": "A JavaScript regular expression source, without slashes."
+                                },
+                                "flags": {
+                                  "default": "",
+                                  "description": "Any of i, m, s, u, each at most once.",
+                                  "type": "string",
+                                  "pattern": "^(?!.*(.).*\\1)[imsu]*$"
+                                }
+                              },
+                              "required": [
+                                "regex"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "testId": {
+                          "description": "Find by data-testid (Playwright getByTestId).",
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "css": {
+                          "description": "Find by CSS selector; narrow it with hasText.",
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "hasText": {
+                          "description": "Only elements containing this text, with css.",
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "regex": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "description": "A JavaScript regular expression source, without slashes."
+                                },
+                                "flags": {
+                                  "default": "",
+                                  "description": "Any of i, m, s, u, each at most once.",
+                                  "type": "string",
+                                  "pattern": "^(?!.*(.).*\\1)[imsu]*$"
+                                }
+                              },
+                              "required": [
+                                "regex"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "exact": {
+                          "description": "Whole and case-sensitive match of a string name, text or label (default false).",
+                          "type": "boolean"
+                        },
+                        "nth": {
+                          "description": "The n-th match (0 = the first); without it, a locator that matches several elements fails.",
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "do",
+                    "target"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "do": {
+                      "type": "string",
+                      "const": "press",
+                      "description": "Presses a key on the focused element, e.g. Enter."
+                    },
+                    "key": {
+                      "type": "string",
+                      "pattern": "^\\S+$",
+                      "description": "A Playwright key name; modifiers joined with +."
+                    }
+                  },
+                  "required": [
+                    "do",
+                    "key"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "crop": {
+            "description": "Capture one element at a fixed aspect ratio (e.g. 4:3 around a chart) instead of the viewport: as wide as the element, from its top edge. Not with full or scrollTo.",
+            "type": "object",
+            "properties": {
+              "target": {
+                "description": "The element framed: exactly one match (nth picks one of several).",
+                "type": "object",
+                "properties": {
+                  "role": {
+                    "description": "Find by ARIA role (Playwright getByRole), e.g. button; narrow it with name.",
+                    "type": "string",
+                    "enum": [
+                      "alert",
+                      "alertdialog",
+                      "application",
+                      "article",
+                      "banner",
+                      "blockquote",
+                      "button",
+                      "caption",
+                      "cell",
+                      "checkbox",
+                      "code",
+                      "columnheader",
+                      "combobox",
+                      "complementary",
+                      "contentinfo",
+                      "definition",
+                      "deletion",
+                      "dialog",
+                      "directory",
+                      "document",
+                      "emphasis",
+                      "feed",
+                      "figure",
+                      "form",
+                      "generic",
+                      "grid",
+                      "gridcell",
+                      "group",
+                      "heading",
+                      "img",
+                      "insertion",
+                      "link",
+                      "list",
+                      "listbox",
+                      "listitem",
+                      "log",
+                      "main",
+                      "marquee",
+                      "math",
+                      "meter",
+                      "menu",
+                      "menubar",
+                      "menuitem",
+                      "menuitemcheckbox",
+                      "menuitemradio",
+                      "navigation",
+                      "none",
+                      "note",
+                      "option",
+                      "paragraph",
+                      "presentation",
+                      "progressbar",
+                      "radio",
+                      "radiogroup",
+                      "region",
+                      "row",
+                      "rowgroup",
+                      "rowheader",
+                      "scrollbar",
+                      "search",
+                      "searchbox",
+                      "separator",
+                      "slider",
+                      "spinbutton",
+                      "status",
+                      "strong",
+                      "subscript",
+                      "superscript",
+                      "switch",
+                      "tab",
+                      "table",
+                      "tablist",
+                      "tabpanel",
+                      "term",
+                      "textbox",
+                      "time",
+                      "timer",
+                      "toolbar",
+                      "tooltip",
+                      "tree",
+                      "treegrid",
+                      "treeitem"
+                    ]
+                  },
+                  "name": {
+                    "description": "The accessible name, with role: a string or { regex, flags }.",
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "regex": {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "A JavaScript regular expression source, without slashes."
+                          },
+                          "flags": {
+                            "default": "",
+                            "description": "Any of i, m, s, u, each at most once.",
+                            "type": "string",
+                            "pattern": "^(?!.*(.).*\\1)[imsu]*$"
+                          }
+                        },
+                        "required": [
+                          "regex"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "text": {
+                    "description": "Find by visible text (Playwright getByText): a substring, or { regex, flags }.",
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "regex": {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "A JavaScript regular expression source, without slashes."
+                          },
+                          "flags": {
+                            "default": "",
+                            "description": "Any of i, m, s, u, each at most once.",
+                            "type": "string",
+                            "pattern": "^(?!.*(.).*\\1)[imsu]*$"
+                          }
+                        },
+                        "required": [
+                          "regex"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "label": {
+                    "description": "Find a form control by its label (Playwright getByLabel): a substring, or { regex, flags }.",
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "regex": {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "A JavaScript regular expression source, without slashes."
+                          },
+                          "flags": {
+                            "default": "",
+                            "description": "Any of i, m, s, u, each at most once.",
+                            "type": "string",
+                            "pattern": "^(?!.*(.).*\\1)[imsu]*$"
+                          }
+                        },
+                        "required": [
+                          "regex"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "testId": {
+                    "description": "Find by data-testid (Playwright getByTestId).",
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "css": {
+                    "description": "Find by CSS selector; narrow it with hasText.",
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "hasText": {
+                    "description": "Only elements containing this text, with css.",
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "regex": {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "A JavaScript regular expression source, without slashes."
+                          },
+                          "flags": {
+                            "default": "",
+                            "description": "Any of i, m, s, u, each at most once.",
+                            "type": "string",
+                            "pattern": "^(?!.*(.).*\\1)[imsu]*$"
+                          }
+                        },
+                        "required": [
+                          "regex"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "exact": {
+                    "description": "Whole and case-sensitive match of a string name, text or label (default false).",
+                    "type": "boolean"
+                  },
+                  "nth": {
+                    "description": "The n-th match (0 = the first); without it, a locator that matches several elements fails.",
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "additionalProperties": false
+              },
+              "aspect": {
+                "description": "The frame's width to height, e.g. 4:3: as wide as the element (plus padding), from its top edge down.",
+                "type": "string",
+                "pattern": "^[1-9]\\d{0,3}:[1-9]\\d{0,3}$"
+              },
+              "padding": {
+                "default": 0,
+                "description": "CSS pixels of the page around the element on the left, right and top (0-200, default 0).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 200
+              }
+            },
+            "required": [
+              "target",
+              "aspect"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
@@ -2738,6 +3767,809 @@
         ],
         "additionalProperties": false
       }
+    },
+    "signIn": {
+      "description": "How softure-marketing shots signs in for the screenshots with signedIn: true, and the optional command that prepares the account.",
+      "type": "object",
+      "properties": {
+        "prepare": {
+          "description": "A command (arguments, no shell, run in the folder of marketing.json once the app answers, with MARKETING_BASE_URL set) that creates and seeds the account; its last line of output is a JSON object of strings or numbers, read as {data:key}. Its output is not printed.",
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "path": {
+          "type": "string",
+          "format": "starts_with",
+          "pattern": "^\\/.*",
+          "description": "The sign-in page, e.g. /login."
+        },
+        "steps": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "do": {
+                    "type": "string",
+                    "const": "fill",
+                    "description": "Replaces the value of an input, e.g. the e-mail of the sign-in form."
+                  },
+                  "target": {
+                    "description": "The element, as a locator descriptor with exactly one of role, text, label, testId, css.",
+                    "type": "object",
+                    "properties": {
+                      "role": {
+                        "description": "Find by ARIA role (Playwright getByRole), e.g. button; narrow it with name.",
+                        "type": "string",
+                        "enum": [
+                          "alert",
+                          "alertdialog",
+                          "application",
+                          "article",
+                          "banner",
+                          "blockquote",
+                          "button",
+                          "caption",
+                          "cell",
+                          "checkbox",
+                          "code",
+                          "columnheader",
+                          "combobox",
+                          "complementary",
+                          "contentinfo",
+                          "definition",
+                          "deletion",
+                          "dialog",
+                          "directory",
+                          "document",
+                          "emphasis",
+                          "feed",
+                          "figure",
+                          "form",
+                          "generic",
+                          "grid",
+                          "gridcell",
+                          "group",
+                          "heading",
+                          "img",
+                          "insertion",
+                          "link",
+                          "list",
+                          "listbox",
+                          "listitem",
+                          "log",
+                          "main",
+                          "marquee",
+                          "math",
+                          "meter",
+                          "menu",
+                          "menubar",
+                          "menuitem",
+                          "menuitemcheckbox",
+                          "menuitemradio",
+                          "navigation",
+                          "none",
+                          "note",
+                          "option",
+                          "paragraph",
+                          "presentation",
+                          "progressbar",
+                          "radio",
+                          "radiogroup",
+                          "region",
+                          "row",
+                          "rowgroup",
+                          "rowheader",
+                          "scrollbar",
+                          "search",
+                          "searchbox",
+                          "separator",
+                          "slider",
+                          "spinbutton",
+                          "status",
+                          "strong",
+                          "subscript",
+                          "superscript",
+                          "switch",
+                          "tab",
+                          "table",
+                          "tablist",
+                          "tabpanel",
+                          "term",
+                          "textbox",
+                          "time",
+                          "timer",
+                          "toolbar",
+                          "tooltip",
+                          "tree",
+                          "treegrid",
+                          "treeitem"
+                        ]
+                      },
+                      "name": {
+                        "description": "The accessible name, with role: a string or { regex, flags }.",
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "regex": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "A JavaScript regular expression source, without slashes."
+                              },
+                              "flags": {
+                                "default": "",
+                                "description": "Any of i, m, s, u, each at most once.",
+                                "type": "string",
+                                "pattern": "^(?!.*(.).*\\1)[imsu]*$"
+                              }
+                            },
+                            "required": [
+                              "regex"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
+                      },
+                      "text": {
+                        "description": "Find by visible text (Playwright getByText): a substring, or { regex, flags }.",
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "regex": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "A JavaScript regular expression source, without slashes."
+                              },
+                              "flags": {
+                                "default": "",
+                                "description": "Any of i, m, s, u, each at most once.",
+                                "type": "string",
+                                "pattern": "^(?!.*(.).*\\1)[imsu]*$"
+                              }
+                            },
+                            "required": [
+                              "regex"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
+                      },
+                      "label": {
+                        "description": "Find a form control by its label (Playwright getByLabel): a substring, or { regex, flags }.",
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "regex": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "A JavaScript regular expression source, without slashes."
+                              },
+                              "flags": {
+                                "default": "",
+                                "description": "Any of i, m, s, u, each at most once.",
+                                "type": "string",
+                                "pattern": "^(?!.*(.).*\\1)[imsu]*$"
+                              }
+                            },
+                            "required": [
+                              "regex"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
+                      },
+                      "testId": {
+                        "description": "Find by data-testid (Playwright getByTestId).",
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "css": {
+                        "description": "Find by CSS selector; narrow it with hasText.",
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "hasText": {
+                        "description": "Only elements containing this text, with css.",
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "regex": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "A JavaScript regular expression source, without slashes."
+                              },
+                              "flags": {
+                                "default": "",
+                                "description": "Any of i, m, s, u, each at most once.",
+                                "type": "string",
+                                "pattern": "^(?!.*(.).*\\1)[imsu]*$"
+                              }
+                            },
+                            "required": [
+                              "regex"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
+                      },
+                      "exact": {
+                        "description": "Whole and case-sensitive match of a string name, text or label (default false).",
+                        "type": "boolean"
+                      },
+                      "nth": {
+                        "description": "The n-th match (0 = the first); without it, a locator that matches several elements fails.",
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "value": {
+                    "type": "string",
+                    "description": "The value; {env:NAME} and {data:key} are replaced. Never printed, so a password may go here as {env:NAME}."
+                  }
+                },
+                "required": [
+                  "do",
+                  "target",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "do": {
+                    "type": "string",
+                    "const": "click",
+                    "description": "Clicks the element, e.g. the submit button or a collapsed section's summary."
+                  },
+                  "target": {
+                    "description": "The element, as a locator descriptor with exactly one of role, text, label, testId, css.",
+                    "type": "object",
+                    "properties": {
+                      "role": {
+                        "description": "Find by ARIA role (Playwright getByRole), e.g. button; narrow it with name.",
+                        "type": "string",
+                        "enum": [
+                          "alert",
+                          "alertdialog",
+                          "application",
+                          "article",
+                          "banner",
+                          "blockquote",
+                          "button",
+                          "caption",
+                          "cell",
+                          "checkbox",
+                          "code",
+                          "columnheader",
+                          "combobox",
+                          "complementary",
+                          "contentinfo",
+                          "definition",
+                          "deletion",
+                          "dialog",
+                          "directory",
+                          "document",
+                          "emphasis",
+                          "feed",
+                          "figure",
+                          "form",
+                          "generic",
+                          "grid",
+                          "gridcell",
+                          "group",
+                          "heading",
+                          "img",
+                          "insertion",
+                          "link",
+                          "list",
+                          "listbox",
+                          "listitem",
+                          "log",
+                          "main",
+                          "marquee",
+                          "math",
+                          "meter",
+                          "menu",
+                          "menubar",
+                          "menuitem",
+                          "menuitemcheckbox",
+                          "menuitemradio",
+                          "navigation",
+                          "none",
+                          "note",
+                          "option",
+                          "paragraph",
+                          "presentation",
+                          "progressbar",
+                          "radio",
+                          "radiogroup",
+                          "region",
+                          "row",
+                          "rowgroup",
+                          "rowheader",
+                          "scrollbar",
+                          "search",
+                          "searchbox",
+                          "separator",
+                          "slider",
+                          "spinbutton",
+                          "status",
+                          "strong",
+                          "subscript",
+                          "superscript",
+                          "switch",
+                          "tab",
+                          "table",
+                          "tablist",
+                          "tabpanel",
+                          "term",
+                          "textbox",
+                          "time",
+                          "timer",
+                          "toolbar",
+                          "tooltip",
+                          "tree",
+                          "treegrid",
+                          "treeitem"
+                        ]
+                      },
+                      "name": {
+                        "description": "The accessible name, with role: a string or { regex, flags }.",
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "regex": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "A JavaScript regular expression source, without slashes."
+                              },
+                              "flags": {
+                                "default": "",
+                                "description": "Any of i, m, s, u, each at most once.",
+                                "type": "string",
+                                "pattern": "^(?!.*(.).*\\1)[imsu]*$"
+                              }
+                            },
+                            "required": [
+                              "regex"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
+                      },
+                      "text": {
+                        "description": "Find by visible text (Playwright getByText): a substring, or { regex, flags }.",
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "regex": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "A JavaScript regular expression source, without slashes."
+                              },
+                              "flags": {
+                                "default": "",
+                                "description": "Any of i, m, s, u, each at most once.",
+                                "type": "string",
+                                "pattern": "^(?!.*(.).*\\1)[imsu]*$"
+                              }
+                            },
+                            "required": [
+                              "regex"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
+                      },
+                      "label": {
+                        "description": "Find a form control by its label (Playwright getByLabel): a substring, or { regex, flags }.",
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "regex": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "A JavaScript regular expression source, without slashes."
+                              },
+                              "flags": {
+                                "default": "",
+                                "description": "Any of i, m, s, u, each at most once.",
+                                "type": "string",
+                                "pattern": "^(?!.*(.).*\\1)[imsu]*$"
+                              }
+                            },
+                            "required": [
+                              "regex"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
+                      },
+                      "testId": {
+                        "description": "Find by data-testid (Playwright getByTestId).",
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "css": {
+                        "description": "Find by CSS selector; narrow it with hasText.",
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "hasText": {
+                        "description": "Only elements containing this text, with css.",
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "regex": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "A JavaScript regular expression source, without slashes."
+                              },
+                              "flags": {
+                                "default": "",
+                                "description": "Any of i, m, s, u, each at most once.",
+                                "type": "string",
+                                "pattern": "^(?!.*(.).*\\1)[imsu]*$"
+                              }
+                            },
+                            "required": [
+                              "regex"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
+                      },
+                      "exact": {
+                        "description": "Whole and case-sensitive match of a string name, text or label (default false).",
+                        "type": "boolean"
+                      },
+                      "nth": {
+                        "description": "The n-th match (0 = the first); without it, a locator that matches several elements fails.",
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "do",
+                  "target"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "do": {
+                    "type": "string",
+                    "const": "check",
+                    "description": "Ticks a checkbox or radio button, e.g. the terms of a sign-up form."
+                  },
+                  "target": {
+                    "description": "The element, as a locator descriptor with exactly one of role, text, label, testId, css.",
+                    "type": "object",
+                    "properties": {
+                      "role": {
+                        "description": "Find by ARIA role (Playwright getByRole), e.g. button; narrow it with name.",
+                        "type": "string",
+                        "enum": [
+                          "alert",
+                          "alertdialog",
+                          "application",
+                          "article",
+                          "banner",
+                          "blockquote",
+                          "button",
+                          "caption",
+                          "cell",
+                          "checkbox",
+                          "code",
+                          "columnheader",
+                          "combobox",
+                          "complementary",
+                          "contentinfo",
+                          "definition",
+                          "deletion",
+                          "dialog",
+                          "directory",
+                          "document",
+                          "emphasis",
+                          "feed",
+                          "figure",
+                          "form",
+                          "generic",
+                          "grid",
+                          "gridcell",
+                          "group",
+                          "heading",
+                          "img",
+                          "insertion",
+                          "link",
+                          "list",
+                          "listbox",
+                          "listitem",
+                          "log",
+                          "main",
+                          "marquee",
+                          "math",
+                          "meter",
+                          "menu",
+                          "menubar",
+                          "menuitem",
+                          "menuitemcheckbox",
+                          "menuitemradio",
+                          "navigation",
+                          "none",
+                          "note",
+                          "option",
+                          "paragraph",
+                          "presentation",
+                          "progressbar",
+                          "radio",
+                          "radiogroup",
+                          "region",
+                          "row",
+                          "rowgroup",
+                          "rowheader",
+                          "scrollbar",
+                          "search",
+                          "searchbox",
+                          "separator",
+                          "slider",
+                          "spinbutton",
+                          "status",
+                          "strong",
+                          "subscript",
+                          "superscript",
+                          "switch",
+                          "tab",
+                          "table",
+                          "tablist",
+                          "tabpanel",
+                          "term",
+                          "textbox",
+                          "time",
+                          "timer",
+                          "toolbar",
+                          "tooltip",
+                          "tree",
+                          "treegrid",
+                          "treeitem"
+                        ]
+                      },
+                      "name": {
+                        "description": "The accessible name, with role: a string or { regex, flags }.",
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "regex": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "A JavaScript regular expression source, without slashes."
+                              },
+                              "flags": {
+                                "default": "",
+                                "description": "Any of i, m, s, u, each at most once.",
+                                "type": "string",
+                                "pattern": "^(?!.*(.).*\\1)[imsu]*$"
+                              }
+                            },
+                            "required": [
+                              "regex"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
+                      },
+                      "text": {
+                        "description": "Find by visible text (Playwright getByText): a substring, or { regex, flags }.",
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "regex": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "A JavaScript regular expression source, without slashes."
+                              },
+                              "flags": {
+                                "default": "",
+                                "description": "Any of i, m, s, u, each at most once.",
+                                "type": "string",
+                                "pattern": "^(?!.*(.).*\\1)[imsu]*$"
+                              }
+                            },
+                            "required": [
+                              "regex"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
+                      },
+                      "label": {
+                        "description": "Find a form control by its label (Playwright getByLabel): a substring, or { regex, flags }.",
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "regex": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "A JavaScript regular expression source, without slashes."
+                              },
+                              "flags": {
+                                "default": "",
+                                "description": "Any of i, m, s, u, each at most once.",
+                                "type": "string",
+                                "pattern": "^(?!.*(.).*\\1)[imsu]*$"
+                              }
+                            },
+                            "required": [
+                              "regex"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
+                      },
+                      "testId": {
+                        "description": "Find by data-testid (Playwright getByTestId).",
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "css": {
+                        "description": "Find by CSS selector; narrow it with hasText.",
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "hasText": {
+                        "description": "Only elements containing this text, with css.",
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "regex": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "A JavaScript regular expression source, without slashes."
+                              },
+                              "flags": {
+                                "default": "",
+                                "description": "Any of i, m, s, u, each at most once.",
+                                "type": "string",
+                                "pattern": "^(?!.*(.).*\\1)[imsu]*$"
+                              }
+                            },
+                            "required": [
+                              "regex"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
+                      },
+                      "exact": {
+                        "description": "Whole and case-sensitive match of a string name, text or label (default false).",
+                        "type": "boolean"
+                      },
+                      "nth": {
+                        "description": "The n-th match (0 = the first); without it, a locator that matches several elements fails.",
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "do",
+                  "target"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "do": {
+                    "type": "string",
+                    "const": "press",
+                    "description": "Presses a key on the focused element, e.g. Enter."
+                  },
+                  "key": {
+                    "type": "string",
+                    "pattern": "^\\S+$",
+                    "description": "A Playwright key name; modifiers joined with +."
+                  }
+                },
+                "required": [
+                  "do",
+                  "key"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "description": "What signs in on that page: fill the e-mail and password ({env:NAME} or {data:key}), click the button."
+        },
+        "expect": {
+          "type": "string",
+          "description": "A phrase only a signed-in page shows, within 15 s of the last step; without it the sign-in fails and so does every signedIn screenshot."
+        }
+      },
+      "required": [
+        "path",
+        "steps",
+        "expect"
+      ],
+      "additionalProperties": false
     },
     "ogImages": {
       "description": "Open Graph images rendered by softure-marketing og.",

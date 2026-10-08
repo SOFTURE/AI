@@ -1,7 +1,8 @@
 // Campaigns: one list mail to many recipients through the delivery ledger. The campaign row pins
 // the content (a hash of kind, subject and bodies), so a re-run with the same id sends the rest of
 // the same mail and nothing twice; other content under that id is refused. A run stops at the first
-// failure about the sending account (refused key, spent quota), leaving the rest for the next run.
+// failure about the sending account (refused key, spent quota), leaving the rest for the next run, and
+// after `limit` mails reached the provider, counting the rest for the next run.
 import { createHash } from "node:crypto";
 import { err, ok, type Result } from "@softure-ai/core";
 import { and, eq, inArray } from "drizzle-orm";
@@ -46,6 +47,11 @@ export interface CampaignSummary {
    * after it were left as they were; run again once the account can send.
    */
   readonly halted: CampaignHalt | null;
+  /**
+   * Recipients past the `limit` cut that the next run would send to, counted as `planCampaign` counts `toSend`. 0 when
+   * the run reached the end of the list; `null` when it halted (the rest of the list was not read).
+   */
+  readonly remaining: number | null;
 }
 
 export interface SendCampaignOptions extends DeliverOptions {
@@ -54,6 +60,13 @@ export interface SendCampaignOptions extends DeliverOptions {
   /** Called after every recipient, e.g. for progress output. Never receives the address. */
   readonly onDelivery?: (outcome: DeliveryOutcome) => void;
   readonly sleep?: (ms: number) => Promise<void>;
+  /**
+   * Most mails this run hands to the provider (sent, rejected by it, or not taken now), e.g. to leave part of a shared
+   * daily quota for other mail. Done, unsubscribed, filtered, in-flight and uncertain recipients never count. Once
+   * reached, the run reads the rest of the list only to count `remaining`. A whole number of at least 1. Default: no
+   * limit.
+   */
+  readonly limit?: number;
 }
 
 /** sha256 (hex) of what a recipient reads: kind, subject, text and HTML. */
@@ -79,15 +92,19 @@ export async function registerCampaign(ctx: DeliveryContext, content: CampaignCo
 /**
  * Sends `campaign` to every recipient that has no outcome yet, one at a time. Recipients who
  * unsubscribed are rejected (`mailing.suppressed`) and never retried; recipients the module's
- * `filterCampaignRecipient` refuses are skipped. Stops at the first `halted` delivery. Throws on a
- * database failure and when the filter throws.
+ * `filterCampaignRecipient` refuses are skipped. Stops at the first `halted` delivery, and before the recipient
+ * after `limit` mails reached the provider. Throws on a database failure, when the filter throws, and (a
+ * `RangeError`) for a `limit` that is not a whole number of at least 1.
  */
 export async function sendCampaign(
   ctx: DeliveryContext,
   input: { readonly campaign: CampaignContent; readonly recipients: Iterable<string> | AsyncIterable<string> },
   options: SendCampaignOptions = {},
 ): Promise<Result<CampaignSummary, CampaignErrorCode>> {
-  const { pauseMs = 0, onDelivery, sleep = wait, ...deliverOptions } = options;
+  const { pauseMs = 0, onDelivery, sleep = wait, limit, ...deliverOptions } = options;
+  if (limit !== undefined && !(Number.isInteger(limit) && limit >= 1)) {
+    throw new RangeError(`@softure-ai/mailing: sendCampaign limit must be a whole number of at least 1, got ${String(limit)}`);
+  }
   const { campaign } = input;
   const registered = await registerCampaign(ctx, campaign);
   if (!registered.ok) return registered;
@@ -96,10 +113,16 @@ export async function sendCampaign(
   const seen = new Set<string>();
   const scope = `campaign:${campaign.id}`;
   const isWanted = createRecipientFilter(ctx, campaign);
+  const pastLimit = new Map<string, string>();
+  let handedToProvider = 0;
   for await (const address of input.recipients) {
     const recipientKey = getRecipientKey(address);
     if (seen.has(recipientKey)) continue;
     seen.add(recipientKey);
+    if (limit !== undefined && handedToProvider >= limit) {
+      pastLimit.set(recipientKey, address);
+      continue;
+    }
     if (!(await isWanted(address, recipientKey))) {
       counts.filtered += 1;
       continue;
@@ -116,12 +139,14 @@ export async function sendCampaign(
     if (outcome.status === "halted") {
       // The rest of the list is not even counted as seen: the summary covers what this run reached.
       const httpStatus = outcome.httpStatus === undefined ? {} : { httpStatus: outcome.httpStatus };
-      return ok({ recipients: seen.size, ...counts, halted: { reason: outcome.reason, ...httpStatus } });
+      return ok({ recipients: seen.size, ...counts, halted: { reason: outcome.reason, ...httpStatus }, remaining: null });
     }
     const reachedProvider = outcome.status === "sent" || outcome.status === "retry-later" || (outcome.status === "rejected" && PROVIDER_REASONS.has(outcome.reason));
+    if (reachedProvider) handedToProvider += 1;
     if (reachedProvider && pauseMs > 0) await sleep(pauseMs);
   }
-  return ok({ recipients: seen.size, ...counts, halted: null });
+  const remaining = pastLimit.size === 0 ? 0 : (await countPending(ctx, campaign, pastLimit, deliverOptions)).toSend;
+  return ok({ recipients: seen.size, ...counts, halted: null, remaining });
 }
 
 /** `filterCampaignRecipient` bound to the campaign, or "everyone" when the app set none. */
@@ -186,6 +211,22 @@ export async function planCampaign(
     const key = getRecipientKey(address);
     if (!addresses.has(key)) addresses.set(key, address);
   }
+  const pending = await countPending(ctx, campaign, addresses, options);
+  return { recipients: addresses.size, ...pending, contentChanged };
+}
+
+type PendingCounts = Pick<CampaignPlan, "done" | "suppressed" | "filtered" | "uncertain" | "toSend">;
+
+/**
+ * How the ledger, the filter and the suppression list sort `addresses` (recipient key to address) for the campaign,
+ * without writing. Throws on a database failure and when the filter throws.
+ */
+async function countPending(
+  ctx: DeliveryContext,
+  campaign: CampaignContent,
+  addresses: ReadonlyMap<string, string>,
+  options: Pick<DeliverOptions, "uncertainClaimMs" | "retakeUncertain">,
+): Promise<PendingCounts> {
   const uncertainBefore = ctx.clock.now().getTime() - (options.uncertainClaimMs ?? getMailingOptions(ctx.config).uncertainClaimMs);
   const closed = new Set<string>();
   const uncertainKeys = new Set<string>();
@@ -214,7 +255,7 @@ export async function planCampaign(
       if (options.retakeUncertain === true) toSend += 1;
     } else toSend += 1;
   }
-  return { recipients: addresses.size, done: closed.size, suppressed, filtered, uncertain, toSend, contentChanged };
+  return { done: closed.size, suppressed, filtered, uncertain, toSend };
 }
 
 function assertCampaign(content: CampaignContent): void {

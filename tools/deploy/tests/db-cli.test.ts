@@ -41,7 +41,7 @@ function makeIo(env: Record<string, string | undefined>, stdin?: string | Buffer
     env: { PATH: process.env.PATH, ...env },
     stdout: (text) => out.push(text),
     stderr: (text) => err.push(text),
-    ...(stdin === undefined ? {} : { stdin: Readable.from([typeof stdin === "string" ? Buffer.from(stdin) : stdin]) }),
+    ...(stdin === undefined ? {} : { input: Readable.from([typeof stdin === "string" ? Buffer.from(stdin) : stdin]) }),
   };
 }
 

@@ -3,7 +3,7 @@
 // the account's history lists the extension beside grants and payments. Also: every foreign key of
 // billing's tables has an index that starts with its column (migration 0010).
 import { type BillingOptionsInput } from "@softure-ai/billing";
-import { changeEntitlement, extendTrialManually, getAccountHistory, getEntitlement, grantPlanManually } from "@softure-ai/billing/server";
+import { changeEntitlement, extendTrialManually, getAccountHistory, getEntitlement, grantPlanManually, type BillingContext } from "@softure-ai/billing/server";
 import { err } from "@softure-ai/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createAccount, createTestBilling, NOW, readRow, type TestBilling } from "./support.js";
@@ -92,6 +92,18 @@ describe("extendTrialManually", () => {
     expect(await extendTrialManually(test.ctx, { userId: adaId, until: OCTOBER_END, adminId })).toEqual(err("billing.trial_not_extended"));
     expect(await readRow(test, adaId)).toMatchObject({ trial_ends_at: NOVEMBER_END });
     expect(await readExtensions(test)).toEqual([]);
+  });
+
+  it.each([
+    ["extending a trial", (ctx: BillingContext, userId: string, adminId: string) => extendTrialManually(ctx, { userId, until: OCTOBER_END, adminId })],
+    ["granting a plan", (ctx: BillingContext, userId: string, adminId: string) => grantPlanManually(ctx, { userId, planId: "monthly", adminId })],
+  ] as const)("pins and changes a derived row at one instant when %s, so a clock that moves on every read is not refused by the database", async (_case, change) => {
+    // The system clock moves between two reads; the row must not be updated before it was created.
+    let tick = NOW.getTime();
+    const ctx: BillingContext = { ...test.ctx, clock: { now: () => new Date((tick += 1)) } };
+    expect(await change(ctx, adaId, adminId)).toMatchObject({ ok: true });
+    const row = await readRow(test, adaId);
+    expect(row !== undefined && row.updated_at >= row.created_at).toBe(true);
   });
 
   it("refuses an unknown or malformed account id", async () => {

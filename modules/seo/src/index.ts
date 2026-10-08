@@ -31,7 +31,7 @@ export function getSeoSiteUrls(config: SoftureConfig): SiteUrls {
 export const seo = defineModule({
   manifest: {
     id: MODULE_ID,
-    version: "0.1.6",
+    version: "0.1.7",
     dependsOn: {},
     dbSchema: null,
     tables: [],
@@ -42,6 +42,7 @@ export const seo = defineModule({
       { kind: "route-handler", path: "app/robots.ts", export: "robots" },
       { kind: "route-handler", path: "app/sitemap.ts", export: "sitemap" },
       { kind: "route-handler", path: "app/indexnow-key.txt/route.ts", export: "serveIndexNowKey" },
+      { kind: "middleware", path: "proxy.ts", export: "createPageMarkdown" },
     ],
     privacy: { exports: false, deletes: false },
   },
@@ -58,6 +59,7 @@ export {
   buildHtmlLimitedBots,
   NEXT_DEFAULT_HTML_LIMITED_BOTS,
 } from "./crawlers.js";
+export { prefersMarkdown } from "./accept.js";
 export { seoMessages, type SeoMessages } from "./messages/index.js";
 export type { SeoOptions, SeoOptionsInput } from "./options.js";
 export { buildRobots, type Robots, type RobotsRule } from "./robots.js";

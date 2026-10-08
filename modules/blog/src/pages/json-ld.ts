@@ -12,12 +12,33 @@ export interface JsonLdContext {
   readonly urls: SiteUrls;
   readonly routes: BlogRoutes;
   readonly locale: Locale;
+  /** The BCP-47 tag written as `inLanguage` (`getBlogLocaleTags`); `locale` when left out. */
+  readonly language?: string;
+  /** The `@id` fragments; `article`, `term` and `glossary` when left out. */
+  readonly ids?: JsonLdIds;
   readonly timezone: string;
   /** The brand as author and publisher; `null` leaves them out. */
   readonly brand: string | null;
 }
 
+/** The fragments after `#` in the nodes' `@id`s. */
+export interface JsonLdIds {
+  readonly article: string;
+  readonly term: string;
+  readonly glossary: string;
+}
+
+export const DEFAULT_JSON_LD_IDS: JsonLdIds = { article: "article", term: "term", glossary: "glossary" };
+
 type JsonLd = Record<string, unknown>;
+
+function getIds(ctx: Pick<JsonLdContext, "ids">): JsonLdIds {
+  return ctx.ids ?? DEFAULT_JSON_LD_IDS;
+}
+
+function getLanguage(ctx: Pick<JsonLdContext, "language" | "locale">): string {
+  return ctx.language ?? ctx.locale;
+}
 
 /** JSON for a `<script type="application/ld+json">`: no text in it can close the tag. */
 export function serializeJsonLd(data: unknown): string {
@@ -57,12 +78,12 @@ export function getArticleJsonLd(article: BlogArticle, crumbs: readonly Crumb[],
   const graph: JsonLd[] = [
     {
       "@type": "BlogPosting",
-      "@id": `${url}#article`,
+      "@id": `${url}#${getIds(ctx).article}`,
       mainEntityOfPage: url,
       url,
       headline: article.title,
       description: article.description,
-      inLanguage: ctx.locale,
+      inLanguage: getLanguage(ctx),
       datePublished: dates.published,
       dateModified: dates.updated ?? dates.published,
       ...(brand === null ? {} : { author: brand, publisher: brand }),
@@ -80,8 +101,8 @@ export function getArticleJsonLd(article: BlogArticle, crumbs: readonly Crumb[],
   return { "@context": "https://schema.org", "@graph": graph };
 }
 
-function getTermSetReference(ctx: Pick<JsonLdContext, "urls" | "routes">, glossaryTitle: string): JsonLd {
-  return { "@type": "DefinedTermSet", "@id": `${ctx.urls.getCanonicalUrl(ctx.routes.glossary)}#glossary`, name: glossaryTitle };
+function getTermSetReference(ctx: Pick<JsonLdContext, "urls" | "routes" | "ids">, glossaryTitle: string): JsonLd {
+  return { "@type": "DefinedTermSet", "@id": `${ctx.urls.getCanonicalUrl(ctx.routes.glossary)}#${getIds(ctx).glossary}`, name: glossaryTitle };
 }
 
 /** A term: `DefinedTerm` in the glossary's `DefinedTermSet`, and its `BreadcrumbList`. */
@@ -92,11 +113,11 @@ export function getTermJsonLd(term: BlogArticle, crumbs: readonly Crumb[], ctx: 
     "@graph": [
       {
         "@type": "DefinedTerm",
-        "@id": `${url}#term`,
+        "@id": `${url}#${getIds(ctx).term}`,
         url,
         name: term.title,
         description: term.description,
-        inLanguage: ctx.locale,
+        inLanguage: getLanguage(ctx),
         ...(term.termForms.length > 0 ? { alternateName: term.termForms } : {}),
         inDefinedTermSet: getTermSetReference(ctx, glossaryTitle),
       },
@@ -111,10 +132,10 @@ export function getGlossaryJsonLd(terms: readonly BlogArticle[], ctx: JsonLdCont
     "@context": "https://schema.org",
     ...getTermSetReference(ctx, glossaryTitle),
     url: ctx.urls.getCanonicalUrl(ctx.routes.glossary),
-    inLanguage: ctx.locale,
+    inLanguage: getLanguage(ctx),
     hasDefinedTerm: terms.map((term) => {
       const url = ctx.urls.getCanonicalUrl(getTermPath(ctx.routes, term.slug));
-      return { "@type": "DefinedTerm", "@id": `${url}#term`, name: term.title, description: term.description, url };
+      return { "@type": "DefinedTerm", "@id": `${url}#${getIds(ctx).term}`, name: term.title, description: term.description, url };
     }),
   };
 }

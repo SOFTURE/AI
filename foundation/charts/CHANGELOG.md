@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`charts@x.y.z`).
 
+## 0.1.5
+
+- `smoothLinePath(points)`: a smooth curve through every point (monotone cubic), without overshoot between points.
+- `areaPath(points, { baseline, curve })`: a line closed to a baseline y or back along a lower edge (stacked bands),
+  linear or smooth.
+- `SeriesLine` takes `curve` (`linear` by default, markup unchanged; `smooth` draws `smoothLinePath`).
+
 ## 0.1.4
 
 - `ChartFlag` without `xPercent` no longer inherits `top: 0`: a parent that places it with `position: absolute` and

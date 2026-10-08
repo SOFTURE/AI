@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Sign in</title>
+  </head>
+  <body>
+    <h1>Sign in</h1>
+    <form id="sign-in">
+      <label>Email <input name="email" type="email" /></label>
+      <label>Password <input name="password" type="password" /></label>
+      <label><input name="terms" type="checkbox" /> I accept the terms</label>
+      <button type="submit">Sign in</button>
+    </form>
+    <p id="error" hidden>Wrong e-mail or password</p>
+    <script>
+      document.getElementById("sign-in").addEventListener("submit", (event) => {
+        event.preventDefault();
+        const form = event.target;
+        const isValid = form.email.value === "demo@example.com" && form.password.value === "s3cret" && form.terms.checked;
+        if (!isValid) {
+          document.getElementById("error").hidden = false;
+          return;
+        }
+        // A short delay before the redirect, like a request to the server would take.
+        setTimeout(() => {
+          document.cookie = "session=signed-in; path=/";
+          location.href = "/private";
+        }, 300);
+      });
+    </script>
+  </body>
+</html>

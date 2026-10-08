@@ -20,7 +20,7 @@ const NO_REJECTIONS = {
   "mailing.provider_refused": 0,
   "mailing.quota_exceeded": 0,
 };
-const NOTHING_ELSE = { filtered: 0, uncertain: 0, halted: null };
+const NOTHING_ELSE = { filtered: 0, uncertain: 0, halted: null, remaining: 0 };
 
 async function countOutcomes(test: TestMailing): Promise<Record<string, number>> {
   const result = await test.database.client.query<{ status: string; count: number }>(
@@ -110,7 +110,7 @@ describe("sendCampaign", () => {
     const first = await sendCampaign(test.ctx, { campaign: CAMPAIGN, recipients: RECIPIENTS });
     expect(first).toEqual({
       ok: true,
-      value: { recipients: 2, sent: 1, rejected: NO_REJECTIONS, done: 0, inFlight: 0, retryLater: 1, filtered: 0, uncertain: 0, halted: { reason, httpStatus: status } },
+      value: { recipients: 2, sent: 1, rejected: NO_REJECTIONS, done: 0, inFlight: 0, retryLater: 1, filtered: 0, uncertain: 0, halted: { reason, httpStatus: status }, remaining: null },
     });
     expect(provider.sent.map((mail) => mail.to)).toEqual(["ada@example.org"]);
     expect(await countOutcomes(test)).toEqual({ pending: 1, sent: 1 });
@@ -176,6 +176,58 @@ describe("sendCampaign", () => {
 
     expect(changed).toEqual({ ok: false, error: "mailing.campaign_changed" });
     expect(provider.sent).toHaveLength(1);
+  });
+
+  describe("with a limit", () => {
+    const FIVE = ["ada@example.org", "bob@example.org", "cy@example.org", "dee@example.org", "eve@example.org"];
+
+    it("sends at most the limit per run, reports what is left, and the next runs send the rest", async () => {
+      const first = await sendCampaign(test.ctx, { campaign: CAMPAIGN, recipients: FIVE }, { limit: 2 });
+      expect(first).toEqual({ ok: true, value: { recipients: 5, sent: 2, rejected: NO_REJECTIONS, done: 0, inFlight: 0, retryLater: 0, ...NOTHING_ELSE, remaining: 3 } });
+      expect(provider.sent.map((mail) => mail.to)).toEqual(["ada@example.org", "bob@example.org"]);
+      expect(await countOutcomes(test)).toEqual({ sent: 2 });
+
+      const second = await sendCampaign(test.ctx, { campaign: CAMPAIGN, recipients: FIVE }, { limit: 2 });
+      expect(second.ok && second.value).toMatchObject({ recipients: 5, sent: 2, done: 2, remaining: 1 });
+      const third = await sendCampaign(test.ctx, { campaign: CAMPAIGN, recipients: FIVE }, { limit: 2 });
+      expect(third.ok && third.value).toMatchObject({ recipients: 5, sent: 1, done: 4, remaining: 0 });
+      expect(provider.sent.map((mail) => mail.to)).toEqual(FIVE);
+    });
+
+    it("does not spend the limit on done, unsubscribed or filtered recipients", async () => {
+      const filtering = await createTestMailing(createConfig(provider, { filterCampaignRecipient: ({ address }) => Promise.resolve(address !== "cy@example.org") }));
+      try {
+        await filtering.database.client.query("INSERT INTO mailing.suppressions VALUES ($1, 'one-click', $2)", [getRecipientKey("bob@example.org"), NOW]);
+        await sendCampaign(filtering.ctx, { campaign: CAMPAIGN, recipients: ["ada@example.org"] });
+        const result = await sendCampaign(filtering.ctx, { campaign: CAMPAIGN, recipients: FIVE }, { limit: 2 });
+        expect(result.ok && result.value).toMatchObject({ recipients: 5, sent: 2, done: 1, filtered: 1, rejected: { ...NO_REJECTIONS, "mailing.suppressed": 1 }, remaining: 0 });
+        expect(provider.sent.map((mail) => mail.to)).toEqual(["ada@example.org", "dee@example.org", "eve@example.org"]);
+      } finally {
+        await filtering.database.close();
+      }
+    });
+
+    it("spends the limit on a mail the provider rejected or could not take", async () => {
+      respond.mockImplementation((message) => (message.to === "ada@example.org" ? { status: "rejected", httpStatus: 422 } : message.to === "bob@example.org" ? { status: "unavailable" } : undefined));
+      const result = await sendCampaign(test.ctx, { campaign: CAMPAIGN, recipients: FIVE }, { limit: 2 });
+      expect(result.ok && result.value).toMatchObject({ sent: 0, retryLater: 1, rejected: { ...NO_REJECTIONS, "mailing.rejected": 1 }, remaining: 3 });
+    });
+
+    it("reports nothing left when the list ends before the limit", async () => {
+      const result = await sendCampaign(test.ctx, { campaign: CAMPAIGN, recipients: RECIPIENTS }, { limit: 10 });
+      expect(result.ok && result.value).toMatchObject({ recipients: 3, sent: 3, remaining: 0 });
+    });
+
+    it("cannot say what is left after a halt", async () => {
+      respond.mockImplementation((message) => (message.to === "bob@example.org" ? { status: "quota_exceeded", httpStatus: 429 } : undefined));
+      const result = await sendCampaign(test.ctx, { campaign: CAMPAIGN, recipients: FIVE }, { limit: 3 });
+      expect(result.ok && result.value).toMatchObject({ recipients: 2, sent: 1, remaining: null, halted: { reason: "mailing.quota_exceeded", httpStatus: 429 } });
+    });
+
+    it.each([0, -1, 1.5, Number.NaN])("throws for a limit of %s, before anything is sent", async (limit) => {
+      await expect(sendCampaign(test.ctx, { campaign: CAMPAIGN, recipients: RECIPIENTS }, { limit })).rejects.toThrow(RangeError);
+      expect(provider.sent).toEqual([]);
+    });
   });
 
   it("throws for content that cannot be a campaign", async () => {

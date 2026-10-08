@@ -1,45 +1,19 @@
-import type { Locator, Page } from "playwright";
+import type { Locator } from "playwright";
 
-import type { LocatorDescriptor, SceneAction, TextMatch } from "../config/actions-schema.js";
+import type { LocatorDescriptor, SceneAction } from "../config/actions-schema.js";
 import type { ActionBeat } from "../config/config.js";
 import { formatIssuePath } from "../config/issues.js";
 import type { Director, Scene } from "../film.js";
+import { getLocator, type LocatorSource } from "./locator.js";
 import { ScreenGuardError } from "./record.js";
+
+export { getLocator, type LocatorSource };
 
 /**
  * Beat `actions` from `marketing.json`, played on the Director: each descriptor becomes a Playwright
  * locator and each action the Director call of the same name. An action that fails names its JSON
  * path, so the author knows which entry of the config to fix.
  */
-
-/** The part of a page that builds locators. */
-export type LocatorSource = Pick<Page, "getByRole" | "getByText" | "getByLabel" | "getByTestId" | "locator">;
-
-function toMatcher(match: TextMatch): string | RegExp {
-  return typeof match === "string" ? match : new RegExp(match.regex, match.flags);
-}
-
-export function getLocator(page: LocatorSource, descriptor: LocatorDescriptor): Locator {
-  const locator = buildLocator(page, descriptor);
-  return descriptor.nth === null ? locator : locator.nth(descriptor.nth);
-}
-
-function buildLocator(page: LocatorSource, descriptor: LocatorDescriptor): Locator {
-  switch (descriptor.kind) {
-    case "role":
-      return descriptor.name === null
-        ? page.getByRole(descriptor.role)
-        : page.getByRole(descriptor.role, { name: toMatcher(descriptor.name), ...(descriptor.exact ? { exact: true } : {}) });
-    case "text":
-      return page.getByText(toMatcher(descriptor.text), descriptor.exact ? { exact: true } : undefined);
-    case "label":
-      return page.getByLabel(toMatcher(descriptor.label), descriptor.exact ? { exact: true } : undefined);
-    case "testId":
-      return page.getByTestId(descriptor.testId);
-    case "css":
-      return descriptor.hasText === null ? page.locator(descriptor.css) : page.locator(descriptor.css, { hasText: toMatcher(descriptor.hasText) });
-  }
-}
 
 function getLocators(page: LocatorSource, target: LocatorDescriptor | LocatorDescriptor[]): Locator | Locator[] {
   return Array.isArray(target) ? target.map((descriptor) => getLocator(page, descriptor)) : getLocator(page, target);

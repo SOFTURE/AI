@@ -41,3 +41,13 @@ export {
   type ExportOwnDataInput,
   type ExportOwnDataResult,
 } from "./self-service.js";
+export {
+  copyAccount,
+  type CopiedTable,
+  type CopyAccountErrorCode,
+  type CopyAccountFailure,
+  type CopyAccountInclude,
+  type CopyAccountInput,
+  type CopyAccountReport,
+  type CopyAccountResult,
+} from "./copy-account.js";

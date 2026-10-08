@@ -486,8 +486,8 @@ softure-deploy init --domain=example.com --image=ghcr.io/acme/app [--dir=.] [--n
 
 **`deploy.sh` on the server.** Once, by hand: copy `docker/server/deploy.sh` to `/srv/<name>/` (a folder the SSH
 user owns) and bind the deploy key to it in `authorized_keys` (`command="/srv/<name>/deploy.sh",restrict …`). Every
-release then brings the rest. It answers three commands in `SSH_ORIGINAL_COMMAND` (anything else, or more than one
-line, exits 2; it answers `maintain <hook>` too, below):
+release then brings the rest. It answers three commands in `SSH_ORIGINAL_COMMAND`, five with a database (anything
+else, or more than one line, exits 2; `maintain` also takes a hook's name, below):
 
 - **`status`**, read only (no lock, nothing written): `status|tag|<tag in .deployed-tag>`, `status|env-tag|<TAG in
   .env.prod>`, `status|containers|<service:status …>` and `status|health|<the app container's health>`, each `none`
@@ -524,6 +524,8 @@ line, exits 2; it answers `maintain <hook>` too, below):
   stay for a quick rollback; Docker refuses one a container uses) and the host's dangling images; then the `maintain`
   hooks without a schedule. **`maintain <hook>`** runs only that scheduled hook (its own crontab line); a name
   `deploy.json` does not schedule fails.
+- **`run <script> [--key[=value] …]`** and **`report [--key=value …]`**, with a database: an ops script of the live
+  image, or a read-only SQL file on stdin; see [Ops scripts and reports on the server](#ops-scripts-and-reports-on-the-server).
 
 **Database access.** By default (`database.access: "host"`) the database steps connect to the Postgres the compose
 file publishes on `127.0.0.1:5432` as `postgres` with `POSTGRES_PASSWORD`. With `"compose-exec"`, `pg_dump` and `psql`
@@ -588,6 +590,81 @@ The build needs the registry and Alpine's package mirror once; a Postgres major 
 build, and with it the backup step, before anything restarts. CI generates the files for the example app, staged as a
 standalone app, and builds its image from the generated `Dockerfile` (`npm run e2e:deploy-init`).
 
+## Ops scripts and reports on the server
+
+An `@softure-ai/ops/scripts` script ([the ops README, "Safe ops scripts"](../../modules/ops/README.md#safe-ops-scripts))
+or a SQL report runs against production from the operator's machine, through the same forced command as a release
+(issue #247). The app keeps only the script definitions and the `.sql` files; no shell per script.
+
+```bash
+softure-deploy run --host=fire-prod grant-access --email=a@example.com              # dry run
+softure-deploy run --host=fire-prod grant-access --email=a@example.com --commit     # writes
+softure-deploy run --host=fire-prod set-password --email=a@example.com --password-file=new-password.txt --commit
+softure-deploy run --host=fire-prod grant-access --help
+softure-deploy report --host=fire-prod reports/signups.sql --since=2026-10-01
+```
+
+**Setup, once per app** (an app `init` generated with this version has the first two):
+
+1. One runner file per script in `scripts/ops/<name>.ts`, named like the script; definitions and their guard tests
+   live elsewhere (a `*.test.ts` there is skipped):
+
+   ```ts
+   // scripts/ops/grant-access.ts
+   import { runOpsScript } from "@softure-ai/ops/scripts";
+   import config from "../../softure.config";
+   import { grantAccess } from "../../src/ops/grant-access";
+
+   process.exitCode = await runOpsScript({ script: grantAccess, argv: process.argv.slice(2), config });
+   ```
+
+2. The `Dockerfile` bundles them into `/app/ops/<name>.mjs` in the build stage, like `migrate.mjs`. An app generated
+   before adds, after its migrate bundle, and next to its other `COPY --from=builder` lines:
+
+   ```dockerfile
+   RUN mkdir -p ops \
+    && entries="$(find scripts/ops -maxdepth 1 -name '*.ts' ! -name '*.test.ts' 2> /dev/null || true)" \
+    && if [ -n "$entries" ]; then \
+         npx --yes esbuild@0.28.2 $entries --bundle --platform=node --format=esm --target=node22 \
+           --external:pg --external:@electric-sql/pglite \
+           --external:drizzle-orm/pglite --external:drizzle-orm/node-postgres --outdir=ops --out-extension:.js=.mjs; \
+       fi
+   COPY --from=builder /app/ops ./ops
+   ```
+
+3. `deploy.sh` of this version (a release ships it), and the operator's own key bound to it in `authorized_keys`, like
+   the deploy key: `command="/srv/<name>/deploy.sh",restrict ssh-ed25519 AAAA… ops@<laptop>`. `--host` is an ssh host
+   or a `~/.ssh/config` alias naming the user and that key (`--port` and `--ssh=<program>` when needed).
+
+**`run`.** Client flags (`--host`, `--port`, `--ssh`) come before the script; every word after it is the script's,
+`--help` included. The server checks the name (kebab-case) and each word (`--key` or `--key=value`), takes the deploy
+lock (no script during a release), and runs `docker compose exec -T app node ops/<name>.mjs <words>` in the live app
+container, so the script has the app's `DATABASE_URL` (the `softure_app` role: rows, not schema). A script the live
+image lacks is refused with the list it has. stdin reaches the script, so `--<key>-file=-` reads it; a
+`--<key>-file=<path>` is read on the operator's machine and sent on stdin as `--<key>-file=-` (one per run), so a
+secret is on no command line, here or on the server. The exit status is the script's: 0 done (dry run or committed),
+1 refused or failed (nothing written), 2 usage.
+
+**`report`.** The file travels on stdin (at most 1 MiB) to `psql` in the postgres container, as `softure_app`, in one
+transaction with `default_transaction_read_only=on` and `ON_ERROR_STOP`: an `INSERT`, `UPDATE` or DDL fails and
+nothing is written. Each `--key=value` is a psql variable (`-` in the key becomes `_`), so values are quoted by psql,
+never pasted into the SQL:
+
+```sql
+-- reports/signups.sql
+select date_trunc('day', created_at) as day, count(*) from users where created_at >= :'since' group by 1 order by 1;
+```
+
+The output is psql's table; the exit status psql's (3 for a failed statement). Read only guards against mistakes; it
+is not a sandbox: a file that switches the setting off, or a psql meta-command, runs. Whoever holds a key bound to
+`deploy.sh` can deploy any image anyway, so the key is the boundary, not the file.
+
+**What a value can hold.** The server splits the command line on blanks and evaluates none of it (no shell, no
+expansion), so a value with a blank cannot pass: the CLI refuses it before connecting and points at
+`--<key>-file`. Neither command prints `step|` or `result|` lines; the gateway's own refusals are exit 2 (a bad
+name or word, before anything runs) or 1 (nothing deployed, the app or Postgres not running, an unknown script); ssh's
+own failure is exit 1 with the host named. An app without a database has neither command.
+
 ## Library
 
 The same steps as functions, for scripts that need them without the CLI:
@@ -648,7 +725,7 @@ secrets' shape, a workflow that rewrites the text above the report (which `--bod
 
 ## Exit codes
 
-`0` done · `1` the command refused (missing names, unknown ref, unreadable or invalid file, a failed dump, a guard
+`run` and `report` end with the status of what ran on the server (above). Every other command: `0` done · `1` the command refused (missing names, unknown ref, unreadable or invalid file, a failed dump, a guard
 problem, lost rows, a failed verify check, invalid init answers) · `2` a wrong command line.
 
 ## Limitations

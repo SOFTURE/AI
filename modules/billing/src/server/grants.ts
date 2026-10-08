@@ -52,7 +52,7 @@ export async function grantPlanManually(ctx: BillingContext, input: GrantPlanMan
     if (account === undefined) return err("billing.account_unknown");
     // The entitlement pinned and locked before the check, so a lifetime granted meanwhile is seen
     // here, also by a grant that started before the account had a row.
-    const isPinned = await pinEntitlementRow({ ...ctx, db: tx }, { userId: input.userId, accountCreatedAt: account.createdAt });
+    const isPinned = await pinEntitlementRow({ ...ctx, db: tx }, { userId: input.userId, accountCreatedAt: account.createdAt, now });
     await lockEntitlementRow(tx, input.userId);
     const record = await findEntitlementRecord({ ...ctx, db: tx }, input.userId);
     if (record?.isLifetime === true) return err("billing.lifetime_active");

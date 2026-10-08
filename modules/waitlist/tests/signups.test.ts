@@ -1,7 +1,18 @@
 // Joining the waitlist: a first sign-up, repeat sign-ups that widen the scopes and never narrow
 // them, consents recorded in privacy's ledger, refused forms, rate limits and setup checks.
 import { getEmailKey, recordConsent } from "@softure-ai/privacy/server";
-import { countSignupsByChannel, getSignup, getSignupById, joinWaitlist, listSignups, type JoinWaitlistInput, type JoinWaitlistResult } from "@softure-ai/waitlist/server";
+import { ok, type Ok } from "@softure-ai/core";
+import {
+  countSignupsByChannel,
+  getSignup,
+  getSignupById,
+  joinWaitlist,
+  listSignups,
+  type JoinedSignup,
+  type JoinWaitlistInput,
+  type JoinWaitlistResult,
+  type PendingSignup,
+} from "@softure-ai/waitlist/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { CLIENT, createTestWaitlist, DOCUMENTS, listConsentRows, NOW, type TestWaitlist } from "./support.js";
 
@@ -9,8 +20,14 @@ const LATER = new Date(NOW.getTime() + 60_000);
 const ADA = "ada@example.com";
 const JOIN: JoinWaitlistInput = { email: ADA, scopes: ["launch"], placement: "hero", clientKey: CLIENT };
 
-async function join(test: TestWaitlist, input: Partial<JoinWaitlistInput> = {}) {
-  return joinWaitlist(test.ctx, { ...JOIN, ...input });
+/** A join result for an address that is not suppressed (opt-out-guard.test.ts covers the others). */
+type AppliedJoinResult = Exclude<JoinWaitlistResult, { ok: true }> | Ok<JoinedSignup | PendingSignup>;
+
+async function join(test: TestWaitlist, input: Partial<JoinWaitlistInput> = {}): Promise<AppliedJoinResult> {
+  const result = await joinWaitlist(test.ctx, { ...JOIN, ...input });
+  if (!result.ok) return result;
+  if (result.value.status === "suppressed") throw new Error("expected an address that is not suppressed");
+  return ok(result.value);
 }
 
 /** The scopes a join recorded; undefined when it did not apply the request at once. */

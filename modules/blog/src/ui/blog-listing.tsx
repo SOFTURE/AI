@@ -59,8 +59,8 @@ export function BlogListingView({ context, groups, termCount, timezone, cta }: B
       ) : (
         <div className="blog-groups">
           {groups.map((group) => {
-            const id = group.cluster === null ? undefined : getClusterAnchor(group.cluster);
-            const headingId = `${id ?? "cluster-other"}-heading`;
+            const id = group.cluster === null ? undefined : getClusterAnchor(group.cluster, context.clusterAnchorPrefix);
+            const headingId = `${id ?? getClusterAnchor("other", context.clusterAnchorPrefix)}-heading`;
             return (
               <section key={group.cluster ?? ""} id={id} aria-labelledby={headingId} className="blog-group">
                 <h2 id={headingId} className="blog-group-title">

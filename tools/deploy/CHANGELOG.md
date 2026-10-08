@@ -20,6 +20,13 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 - `init`'s `deploy.sh` reads the release's `deploy.json` in a new `settings` step, runs the hooks, `maintain <hook>` on
   a hook's own crontab line, and with `compose-exec` runs `pg_dump` and `psql` in the `postgres` service. The CLI before this
   version refuses a `deploy.json` with these keys: move `deploy.sh` and `deploy-cli-version` to this version together.
+- `softure-deploy run --host=<ssh host> <script> [--commit] [args]` runs an `@softure-ai/ops/scripts` script of the
+  live image in the app container on the server, and `softure-deploy report --host=<ssh host> <file.sql> [--key=value]`
+  a SQL file through `psql` in one read-only transaction, each argument a psql variable (issue #247). Both go
+  through `init`'s `deploy.sh`, which answers `run` and `report` with a database; a `--<key>-file=<path>` is read
+  locally and sent on stdin.
+- `init`'s `Dockerfile` bundles every `scripts/ops/<name>.ts` into `/app/ops/<name>.mjs`. An app generated before
+  adds the lines shown in the README, "Ops scripts and reports on the server".
 
 ## 0.1.4
 
