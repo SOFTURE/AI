@@ -94,12 +94,12 @@ Done when: the new tests were seen red, then green; gates green (typecheck, lint
 ### Phase 1: negotiation and conversion
 
 #### Automated
-- [ ] 1.1 Accept and conversion tests seen red, then green
-- [ ] 1.2 Typecheck and lint green
+- [x] 1.1 Accept and conversion tests seen red, then green — 812123a
+- [x] 1.2 Typecheck and lint green — 812123a
 
 ### Phase 2: the proxy piece
 
 #### Automated
-- [ ] 2.1 Proxy piece tests seen red, then green
-- [ ] 2.2 Gates green (typecheck, lint, test, build)
-- [ ] 2.3 README, CHANGELOG and version 0.1.7
+- [x] 2.1 Proxy piece tests seen red, then green — 9de2d85
+- [x] 2.2 Gates green (typecheck, lint, test, build) — 9de2d85
+- [x] 2.3 README, CHANGELOG and version 0.1.7 — 9de2d85

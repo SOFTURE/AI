@@ -1,12 +1,13 @@
 ---
 change_id: seo-page-markdown
 title: "seo: a Markdown version of every public page for agents (issue #249)"
-status: plan_reviewed
+status: archived
 roadmap_item: null
 issue: 249
 branch: claude/project-thread-t6ps47
 created: 2026-10-08
 updated: 2026-10-08
+archived_at: 2026-10-08
 ---
 
 ## Intent
