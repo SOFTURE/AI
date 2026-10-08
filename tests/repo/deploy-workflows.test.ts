@@ -12,6 +12,7 @@ import { REPO_ROOT } from "./repo-files.js";
 const WORKFLOWS_DIR = join(REPO_ROOT, ".github/workflows");
 const EXAMPLE_CALLER = join(REPO_ROOT, "tools/deploy/examples/deploy.yml");
 const EXAMPLE_RELEASE_CALLER = join(REPO_ROOT, "tools/deploy/examples/release.yml");
+const EXAMPLE_INTEGRATION_CALLER = join(REPO_ROOT, "tools/deploy/examples/integration.yml");
 const CALLER_PREFIX = "SOFTURE/AI/.github/workflows/";
 
 interface WorkflowInput {
@@ -87,9 +88,13 @@ describe("the reusable deploy workflows", () => {
       expect(writers.map(([id]) => id)).toEqual(hasBuild ? ["build"] : []);
     });
 
-    it("gives contents: write only to the jobs that write a release (deploy-report's report, deploy-cut-release's cut)", () => {
+    it("gives contents: write only to the jobs that write a release or a note (report, cut, record)", () => {
       const writers = jobs.filter(([, job]) => JSON.stringify(job.permissions ?? {}).includes('"contents":"write"'));
-      const releaseWriters: Record<string, string[]> = { "deploy-report.yml": ["report"], "deploy-cut-release.yml": ["cut"] };
+      const releaseWriters: Record<string, string[]> = {
+        "deploy-report.yml": ["report"],
+        "deploy-cut-release.yml": ["cut"],
+        "deploy-integration.yml": ["record"],
+      };
       expect(writers.map(([id]) => id)).toEqual(releaseWriters[name] ?? []);
     });
 
@@ -111,7 +116,7 @@ describe("the reusable deploy workflows", () => {
 
   it("default to the CLI version of @softure-ai/deploy", () => {
     const pkg = JSON.parse(readFileSync(join(REPO_ROOT, "tools/deploy/package.json"), "utf8")) as { version: string };
-    for (const name of ["deploy-app.yml", "deploy-report.yml"]) {
+    for (const name of ["deploy-app.yml", "deploy-report.yml", "deploy-integration.yml"]) {
       const inputs = getWorkflowCall(readYaml(join(WORKFLOWS_DIR, name))).inputs ?? {};
       expect(inputs["deploy-cli-version"]?.default, name).toBe(pkg.version);
     }
@@ -858,5 +863,132 @@ describe("the example release caller", () => {
     const deployCaller = readYaml(EXAMPLE_CALLER);
     const dispatch = deployCaller.on.workflow_dispatch as { inputs?: Record<string, WorkflowInput> };
     expect(dispatch.inputs?.tag?.required).toBe(true);
+  });
+});
+
+describe("deploy-integration.yml (issue #248)", () => {
+  const workflow = readYaml(join(WORKFLOWS_DIR, "deploy-integration.yml"));
+  const testSteps = workflow.jobs.test?.steps ?? [];
+  const recordJob = workflow.jobs.record as Job & { needs?: unknown; if?: string };
+  const recordSteps = recordJob.steps ?? [];
+  const suite = testSteps.find((step) => step.name === "Run the suite");
+  const record = recordSteps.find((step) => step.name === "Record the result");
+  const deleteRef = recordSteps.find((step) => step.name === "Delete the integration ref");
+
+  function runStep(step: Step | undefined, env: Record<string, string>, bin: Record<string, string> = {}) {
+    const dir = mkdtempSync(join(tmpdir(), "deploy-integration-"));
+    try {
+      for (const [name, script] of Object.entries(bin)) writeFileSync(join(dir, name), script, { mode: 0o755 });
+      writeFileSync(join(dir, "output"), "");
+      const result = spawnSync("bash", ["-e", "-c", step?.run ?? ""], {
+        encoding: "utf8",
+        env: { PATH: `${dir}:${process.env.PATH ?? ""}`, GITHUB_OUTPUT: join(dir, "output"), RUNNER_TEMP: dir, ...env },
+      });
+      return { ...result, output: readFileSync(join(dir, "output"), "utf8") };
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  it("runs the app's suite in a job that can only read and keeps no credentials", () => {
+    expect(workflow.jobs.test?.permissions).toEqual({ contents: "read" });
+    const checkout = testSteps.find((step) => step.uses?.startsWith("actions/checkout@") === true);
+    expect(checkout?.with).toEqual({ ref: "${{ github.sha }}", "persist-credentials": false });
+  });
+
+  it("keeps the suite's exit code as the result instead of stopping the job", () => {
+    expect(suite?.env).toEqual({ TEST_COMMAND: "${{ inputs.test-command }}" });
+    expect(runStep(suite, { TEST_COMMAND: "exit 0" })).toMatchObject({ status: 0, output: "result=green\n" });
+    expect(runStep(suite, { TEST_COMMAND: "echo failing; exit 3" })).toMatchObject({ status: 0, output: "result=red\n" });
+  });
+
+  it("records after the suite whatever its result, except a cancelled one", () => {
+    expect(recordJob.needs).toBe("test");
+    expect(recordJob.if).toBe("${{ always() }}");
+    expect(record?.if).toBe("needs.test.result != 'cancelled'");
+    expect(record?.env?.RESULT).toBe("${{ needs.test.outputs.result || 'red' }}");
+  });
+
+  it("records with the pinned CLI, the tested commit, its ref and the run, and the JUnit report when set", () => {
+    const run = (junit: string) =>
+      runStep(
+        record,
+        {
+          GITHUB_SHA: "a".repeat(40),
+          GITHUB_REF: "refs/heads/integration/feature",
+          RESULT: "red",
+          RUN_URL: "https://github.com/acme/app/actions/runs/1/attempts/1",
+          JUNIT_REPORT: junit,
+          DEPLOY_CLI_VERSION: "0.1.5",
+        },
+        { npx: '#!/bin/sh\nprintf "%s\\n" "$@"\n' },
+      );
+    const base = [
+      "--yes",
+      "--package=@softure-ai/deploy@0.1.5",
+      "softure-deploy",
+      "integration",
+      "record",
+      `--sha=${"a".repeat(40)}`,
+      "--ref=refs/heads/integration/feature",
+      "--result=red",
+      "--run=https://github.com/acme/app/actions/runs/1/attempts/1",
+    ];
+    expect(run("").stdout.split("\n")).toEqual([...base, ""]);
+    const withReport = run("reports/junit.xml").stdout.split("\n");
+    expect(withReport.slice(0, -2)).toEqual(base);
+    expect(withReport.at(-2)).toMatch(/^--junit=.+\/integration-junit\/junit\.xml$/);
+  });
+
+  it("deletes only an integration ref, and accepts one already gone", () => {
+    expect(deleteRef?.if).toBe("always()");
+    const gh = '#!/bin/sh\necho "$@" >> "$RUNNER_TEMP/../gh-calls"\n[ "$GH_FAIL" = "" ] || { echo "$GH_FAIL" >&2; exit 1; }\n';
+    const integration = runStep(deleteRef, { GITHUB_REF: "refs/heads/integration/feature", GITHUB_REPOSITORY: "acme/app" }, { gh });
+    expect(integration.status, integration.stderr).toBe(0);
+    expect(integration.stdout).toContain("Deleted refs/heads/integration/feature.");
+    const main = runStep(deleteRef, { GITHUB_REF: "refs/heads/main", GITHUB_REPOSITORY: "acme/app", GH_FAIL: "must not run" }, { gh });
+    expect(main.status).toBe(0);
+    expect(main.stdout).toContain("is not an integration ref; it stays");
+    const gone = runStep(deleteRef, { GITHUB_REF: "refs/heads/integration/x", GITHUB_REPOSITORY: "acme/app", GH_FAIL: "Reference does not exist (HTTP 422)" }, { gh });
+    expect(gone.status).toBe(0);
+    const denied = runStep(deleteRef, { GITHUB_REF: "refs/heads/integration/x", GITHUB_REPOSITORY: "acme/app", GH_FAIL: "Resource not accessible (HTTP 403)" }, { gh });
+    expect(denied.status).toBe(1);
+  });
+
+  it("refuses an input that is not valid before anything runs", () => {
+    const validate = testSteps[0];
+    expect(validate?.name).toBe("Validate inputs");
+    const valid = { TEST_COMMAND: "npm test", JUNIT_REPORT: "", NODE_VERSION: "22", DEPLOY_CLI_VERSION: "0.1.5", GITHUB_REF: "refs/heads/integration/x" };
+    expect(runStep(validate, valid).status).toBe(0);
+    for (const [key, value] of [
+      ["TEST_COMMAND", ""],
+      ["JUNIT_REPORT", "../junit.xml"],
+      ["JUNIT_REPORT", "/tmp/junit.xml"],
+      ["DEPLOY_CLI_VERSION", "latest"],
+      ["GITHUB_REF", "refs/tags/v1"],
+    ]) {
+      expect(runStep(validate, { ...valid, [key as string]: value as string }).status, `${key as string}=${value as string}`).toBe(1);
+    }
+  });
+});
+
+describe("the example integration caller", () => {
+  const caller = readYaml(EXAMPLE_INTEGRATION_CALLER);
+  const job = Object.values(caller.jobs)[0] as Job;
+  const called = getWorkflowCall(readYaml(join(WORKFLOWS_DIR, "deploy-integration.yml")));
+
+  it("runs on a push of integration/<name> and of the main branch", () => {
+    expect(caller.on).toEqual({ push: { branches: ["integration/**", "main"] } });
+  });
+
+  it("calls the integration workflow with one uses: line and passes only declared inputs", () => {
+    expect(job.uses).toBe("SOFTURE/AI/.github/workflows/deploy-integration.yml@deploy-workflows-v1");
+    const declared = Object.keys(called.inputs ?? {});
+    for (const key of Object.keys(job.with ?? {})) expect(declared).toContain(key);
+    expect(job.with?.["test-command"]).toBeDefined();
+  });
+
+  it("grants what the record job needs and nothing more", () => {
+    expect(caller.permissions).toEqual({ contents: "write" });
   });
 });
