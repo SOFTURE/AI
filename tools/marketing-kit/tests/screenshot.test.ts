@@ -9,6 +9,10 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { findScrollFailure, findSizeFailure, findStatusFailure } from "../src/screenshot/gates.js";
 import { getScreenshotShots } from "../src/config/screenshot-names.js";
 import { getScreenshotFile, takeScreenshots, type ScreenshotEntry, type TakeScreenshotsOptions } from "../src/screenshot/screenshot.js";
+import { chromium } from "playwright";
+
+import type { ShotStep } from "../src/config/shot-steps.js";
+import type { SignInPlan } from "../src/screenshot/sign-in.js";
 import { CHROMIUM_PATH, hasChromium } from "./chromium.js";
 
 const PAGES = join(import.meta.dirname, "fixtures", "screenshots");
@@ -20,6 +24,33 @@ function makeEntry(overrides: Partial<ScreenshotEntry> & Pick<ScreenshotEntry, "
 /** Height of a PNG from its IHDR chunk. */
 function readPngHeight(file: string): number {
   return readFileSync(file).readUInt32BE(20);
+}
+
+/** The RGB of one pixel of a PNG, decoded by the browser. */
+async function readPixel(file: string, x: number, y: number): Promise<[number, number, number]> {
+  const browser = await chromium.launch(CHROMIUM_PATH === undefined ? {} : { executablePath: CHROMIUM_PATH });
+  try {
+    const page = await browser.newPage();
+    const source = `data:image/png;base64,${readFileSync(file).toString("base64")}`;
+    return await page.evaluate(
+      async ({ source, x, y }) => {
+        const image = new Image();
+        image.src = source;
+        await image.decode();
+        const canvas = document.createElement("canvas");
+        canvas.width = image.width;
+        canvas.height = image.height;
+        const context = canvas.getContext("2d");
+        if (context === null) throw new Error("no 2d context");
+        context.drawImage(image, 0, 0);
+        const [red = 0, green = 0, blue = 0] = context.getImageData(x, y, 1, 1).data;
+        return [red, green, blue] as [number, number, number];
+      },
+      { source, x, y },
+    );
+  } finally {
+    await browser.close();
+  }
 }
 
 /** Width of a PNG from its IHDR chunk. */
@@ -74,7 +105,7 @@ describe.runIf(hasChromium)("takeScreenshots against static pages", () => {
       const name = new URL(request.url ?? "/", "http://localhost").pathname.slice(1);
       if (name === "private") {
         const isSignedIn = (request.headers.cookie ?? "").split(/;\s*/).includes("session=signed-in");
-        response.writeHead(200, { "Content-Type": "text/html" }).end(isSignedIn ? "<p>Your dashboard</p>" : "<p>Sign in first</p>");
+        response.writeHead(200, { "Content-Type": "text/html" }).end(isSignedIn ? readFileSync(join(PAGES, "dashboard.html")) : "<p>Sign in first</p>");
         return;
       }
       if (!/^[a-z]+\.html$/.test(name) || !existsSync(join(PAGES, name))) {
@@ -160,7 +191,8 @@ describe.runIf(hasChromium)("takeScreenshots against static pages", () => {
     const results = await take([
       makeEntry({ id: "reduced", path: "/motion.html", expect: "Motion reduced", motion: "reduce" }),
       makeEntry({ id: "allowed", path: "/motion.html", expect: "Motion allowed", motion: "no-preference" }),
-      makeEntry({ id: "dark", path: "/motion.html", expect: "Scheme dark" }),
+      // Another width than "reduced", which this entry would otherwise repeat byte for byte (the duplicate gate).
+      makeEntry({ id: "dark", path: "/motion.html", expect: "Scheme dark", width: 700 }),
     ]);
     expect(results.map((result) => [result.id, result.ok])).toEqual([
       ["reduced", true],
@@ -236,6 +268,142 @@ describe.runIf(hasChromium)("takeScreenshots against static pages", () => {
     expect(anonymous).toMatchObject({ ok: false, gate: "phrase" });
     const [signedIn] = await take([makeEntry({ id: "private-signed-in", path: "/private", expect: "Your dashboard", storageState: state })]);
     expect(signedIn?.ok).toBe(true);
+  });
+
+  const signInSteps: ShotStep[] = [
+    { do: "fill", target: { kind: "label", label: "Email", exact: false, nth: null }, value: "demo@example.com" },
+    { do: "fill", target: { kind: "label", label: "Password", exact: false, nth: null }, value: "s3cret" },
+    { do: "check", target: { kind: "label", label: "I accept the terms", exact: false, nth: null } },
+    { do: "click", target: { kind: "role", role: "button", name: "Sign in", exact: false, nth: null } },
+  ];
+  const signInPlan: SignInPlan = { path: "/login.html", steps: signInSteps, expect: "Your dashboard" };
+
+  it("signs in once through the form and captures the signed-in entries in that session, the others without it", async () => {
+    const results = await take(
+      [
+        makeEntry({ id: "dash", path: "/private", expect: "Balance 12,345 USD", signedIn: true }),
+        makeEntry({ id: "dash-anonymous", path: "/private", expect: "Sign in first" }),
+        makeEntry({ id: "dash-wide", path: "/private", expect: "Your dashboard", signedIn: true, width: 900 }),
+      ],
+      { signIn: signInPlan },
+    );
+    expect(results.map((result) => [result.name, result.ok])).toEqual([
+      ["dash", true],
+      ["dash-anonymous", true],
+      ["dash-wide", true],
+    ]);
+  });
+
+  it("refuses every signed-in shot when the sign-in fails, never naming the password, and still takes the others", async () => {
+    const wrong: SignInPlan = { ...signInPlan, steps: signInSteps.map((step) => (step.do === "fill" && step.value === "s3cret" ? { ...step, value: "hunter2" } : step)) };
+    const results = await take(
+      [
+        makeEntry({ id: "locked", path: "/private", expect: "Your dashboard", signedIn: true, colorSchemes: ["light", "dark"] }),
+        makeEntry({ id: "public", path: "/plain.html", expect: "Almost empty" }),
+      ],
+      { signIn: wrong },
+    );
+    const message = 'after the sign-in steps, /login.html does not show "Your dashboard" within 15 s';
+    expect(results).toEqual([
+      { ok: false, id: "locked", name: "locked-light", gate: "sign-in", message },
+      { ok: false, id: "locked", name: "locked-dark", gate: "sign-in", message },
+      expect.objectContaining({ ok: true, name: "public" }),
+    ]);
+    expect(JSON.stringify(results)).not.toContain("hunter2");
+  });
+
+  it("refuses a sign-in whose phrase shows without any session", async () => {
+    const [result] = await take([makeEntry({ id: "no-session", path: "/private", expect: "Your dashboard", signedIn: true })], {
+      signIn: { path: "/fakelogin.html", steps: [{ do: "click", target: { kind: "role", role: "button", name: "Sign in", exact: false, nth: null } }], expect: "Your dashboard" },
+    });
+    expect(result).toEqual({
+      ok: false,
+      id: "no-session",
+      name: "no-session",
+      gate: "sign-in",
+      message: 'the page shows "Your dashboard", but the browser holds no session (no cookie, no localStorage); pick a phrase only a signed-in page shows',
+    });
+  });
+
+  it("refuses a sign-in step that cannot be done, naming it", async () => {
+    const [result] = await take([makeEntry({ id: "bad-step", path: "/private", expect: "Your dashboard", signedIn: true })], {
+      signIn: { ...signInPlan, steps: [{ do: "click", target: { kind: "testId", testId: "nowhere", nth: null } }] },
+    });
+    expect(result).toMatchObject({ ok: false, gate: "sign-in" });
+    expect(result?.ok === false && result.message).toMatch(/^signIn\.steps\[0\] \(click\): locator\.click: Timeout 10000ms exceeded/);
+  });
+
+  it("does an entry's steps before the phrase gate reads the page", async () => {
+    const [closed] = await take([makeEntry({ id: "closed", path: "/dashboard.html", expect: "Bonds fund" })]);
+    expect(closed).toMatchObject({ ok: false, gate: "phrase" });
+    const [opened] = await take([
+      makeEntry({ id: "opened", path: "/dashboard.html", expect: "Bonds fund", steps: [{ do: "click", target: { kind: "text", text: "Components", exact: true, nth: null } }] }),
+    ]);
+    expect(opened?.ok).toBe(true);
+  });
+
+  it("refuses a shot whose step fails, as the steps gate, and writes no file", async () => {
+    const [result] = await take([makeEntry({ id: "step-fails", path: "/plain.html", expect: "Almost empty", steps: [{ do: "click", target: { kind: "css", css: "#missing", hasText: null, nth: null } }] })]);
+    expect(result).toMatchObject({ ok: false, gate: "steps" });
+    expect(result?.ok === false && result.message).toMatch(/^steps\[0\] \(click\): locator\.click: Timeout 10000ms exceeded/);
+    expect(existsSync(getScreenshotFile(outDir, "step-fails"))).toBe(false);
+  }, 30_000);
+
+  const chartCrop = { target: { kind: "css" as const, css: "#chart", hasText: null, nth: null }, aspect: { width: 4, height: 3 }, padding: 0 };
+
+  it("crops an element far down the page to the aspect at the scale, under no sticky header", async () => {
+    const [result] = await take([makeEntry({ id: "chart", path: "/crop.html", expect: "Portfolio chart", scale: 2, crop: chartCrop })]);
+    expect(result).toMatchObject({ ok: true, name: "chart" });
+    const file = getScreenshotFile(outDir, "chart");
+    expect([readPngWidth(file), readPngHeight(file)]).toEqual([800, 600]);
+    // The card's stripes start at its top-left corner; the sticky header (#222) would be there if it covered it.
+    const [red, green, blue] = await readPixel(file, 2, 2);
+    expect(red + green + blue).toBeGreaterThan(3 * 0x22 + 60);
+  });
+
+  it("frames the padding around the element", async () => {
+    const [result] = await take([makeEntry({ id: "chart-padded", path: "/crop.html", expect: "Portfolio chart", crop: { ...chartCrop, aspect: { width: 1, height: 1 }, padding: 20 } })]);
+    expect(result?.ok).toBe(true);
+    const file = getScreenshotFile(outDir, "chart-padded");
+    expect([readPngWidth(file), readPngHeight(file)]).toEqual([440, 440]);
+  });
+
+  it.each([
+    ["no element", { kind: "css" as const, css: "#nowhere", hasText: null, nth: null }, "no element matches crop.target"],
+    ["several elements", { kind: "css" as const, css: ".card", hasText: null, nth: null }, "crop.target matches 3 elements; add nth to pick one"],
+  ])("refuses a crop target matching %s, as the crop gate", async (_case, target, message) => {
+    const [result] = await take([makeEntry({ id: "crop-target", path: "/crop.html", expect: "Portfolio chart", crop: { ...chartCrop, target } })]);
+    expect(result).toEqual({ ok: false, id: "crop-target", name: "crop-target", gate: "crop", message });
+    expect(existsSync(getScreenshotFile(outDir, "crop-target"))).toBe(false);
+  });
+
+  it("takes the n-th of several matches, and refuses a frame that runs past the page's bottom", async () => {
+    const [second] = await take([makeEntry({ id: "second-card", path: "/crop.html", expect: "Other card", crop: { ...chartCrop, aspect: { width: 2, height: 1 }, target: { kind: "css", css: ".card", hasText: null, nth: 1 } } })]);
+    expect(second?.ok).toBe(true);
+    const [past] = await take([makeEntry({ id: "past-bottom", path: "/crop.html", expect: "Last card", crop: { ...chartCrop, target: { kind: "css", css: "#last", hasText: null, nth: null } } })]);
+    expect(past).toEqual({ ok: false, id: "past-bottom", name: "past-bottom", gate: "crop", message: "the 4:3 frame (400×300 px) runs 260 px past the page's bottom edge" });
+  });
+
+  it("refuses a file with the same bytes as an earlier file of the run, and deletes it", async () => {
+    const results = await take([
+      makeEntry({ id: "first-copy", path: "/plain.html", expect: "Almost empty" }),
+      makeEntry({ id: "second-copy", path: "/plain.html?again", expect: "Almost empty" }),
+      makeEntry({ id: "other", path: "/noise.html", expect: "Count your date" }),
+    ]);
+    expect(results.map((result) => [result.name, result.ok])).toEqual([
+      ["first-copy", true],
+      ["second-copy", false],
+      ["other", true],
+    ]);
+    expect(results[1]).toEqual({
+      ok: false,
+      id: "second-copy",
+      name: "second-copy",
+      gate: "duplicate",
+      message: "the file has the same bytes as first-copy.png: the page did not change between the two shots; deleted",
+    });
+    expect(existsSync(getScreenshotFile(outDir, "second-copy"))).toBe(false);
+    expect(existsSync(getScreenshotFile(outDir, "first-copy"))).toBe(true);
   });
 
   it("goes on after a failed entry", async () => {

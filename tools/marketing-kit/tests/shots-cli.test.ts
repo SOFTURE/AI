@@ -69,6 +69,44 @@ describe("softure-marketing shots", () => {
     expect(result.stdout).not.toContain("server:");
   });
 
+  /** A copy of the fixture's config with a signIn block and its screenshot changed, written next to it. */
+  function writeConfig(name: string, signIn: Record<string, unknown>, entry: Record<string, unknown>): string {
+    const file = join(target, name);
+    const data = JSON.parse(readFileSync(config, "utf8")) as { screenshots: Record<string, unknown>[] };
+    writeFileSync(file, JSON.stringify({ ...data, signIn, screenshots: data.screenshots.map((shot) => ({ ...shot, ...entry })) }));
+    return file;
+  }
+
+  const signInSteps = [{ do: "fill", target: { label: "Email" }, value: "{env:SHOTS_TEST_EMAIL}" }];
+
+  it("refuses an unset variable before the app starts or the account is prepared", () => {
+    const file = writeConfig("unset.json", { prepare: ["node", "-e", "process.exit(9)"], path: "/login", steps: signInSteps, expect: "Signed in" }, { signedIn: true });
+    const result = spawnSync(TSX, [MAIN, "shots", `--config=${file}`], { encoding: "utf8", env: { ...process.env, SHOTS_TEST_EMAIL: "" } });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("✗ {env:SHOTS_TEST_EMAIL} is not set in the environment; marketing.json reads it for the screenshots.");
+    expect(result.stdout).not.toContain("server:");
+    expect(result.stdout).not.toContain("prepare:");
+  });
+
+  it("refuses a data key the preparation did not print, naming the entry and the keys it printed", async () => {
+    const prepare = ["node", "-e", 'console.log("seed" + "ing"); console.log(JSON.stringify({ email: "demo@example.com" }))'];
+    const file = writeConfig("missing-key.json", { prepare, path: "/login", steps: signInSteps, expect: "Signed in" }, { expect: "{data:total}" });
+    const result = await runShotsAsync(file);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('✗ screenshot "calculator" expect: {data:total} is not in what signIn.prepare printed (keys: email).');
+    expect(result.stdout).not.toContain('"email":"demo@example.com"');
+    expect(result.stdout).not.toContain("seeding");
+  }, 60_000);
+
+  it.runIf(hasChromium)("gates the screenshot on a phrase the preparation printed", async () => {
+    const prepare = ["node", "-e", 'console.log(JSON.stringify({ question: "When can you stop working?" }))'];
+    const file = writeConfig("data-phrase.json", { prepare, path: "/login", steps: signInSteps, expect: "Signed in" }, { expect: "{data:question}" });
+    const result = await runShotsAsync(file);
+    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
+    expect(result.stdout).toContain("prepare: node -e");
+    expect(existsSync(join(target, "out", "screenshots", "calculator.png"))).toBe(true);
+  }, 60_000);
+
   it.runIf(hasChromium)("writes the fixture's screenshot", () => {
     const result = runShots(config);
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);

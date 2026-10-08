@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import { findMalformedPlaceholder, findPlaceholders, resolvePlaceholders } from "../src/config/placeholders.js";
 import { findCropFrame, findDimensionFailure } from "../src/screenshot/gates.js";
 import { parsePrepareOutput, runPrepare } from "../src/screenshot/prepare.js";
+import type { ScreenshotEntry } from "../src/screenshot/screenshot.js";
+import { findUnsetVariable, resolveShotTexts, usesData, type ShotTexts } from "../src/screenshot/shot-texts.js";
 
 describe("placeholders", () => {
   const sources = { env: { SHOTS_PASSWORD: "s3cret", EMPTY: "" }, data: { total: "12,345 USD", id: "a b/c" } };
@@ -103,5 +105,57 @@ describe("crop frame", () => {
     expect(findDimensionFailure({ width: 716, height: 596 }, { width: 358, height: 298 }, 2)).toBeNull();
     expect(findDimensionFailure({ width: 538, height: 447 }, { width: 358, height: 298 }, 1.5)).toBeNull();
     expect(findDimensionFailure({ width: 716, height: 598 }, { width: 358, height: 298 }, 2)).toBe("the file is 716×598 px, not the crop's 716×596 px; deleted");
+  });
+});
+
+describe("shot texts", () => {
+  const entry: ScreenshotEntry = {
+    id: "accounts",
+    path: "/accounts/{data:id}",
+    width: 800,
+    height: 600,
+    full: false,
+    expect: "Total {data:total}",
+    motion: "reduce",
+    minBytes: 0,
+    scale: 1,
+    waitMs: 0,
+    signedIn: true,
+    steps: [{ do: "fill", target: { kind: "label", label: "Search", exact: false, nth: null }, value: "{data:total}" }],
+  };
+  const texts: ShotTexts = {
+    entries: [entry],
+    signIn: {
+      path: "/login",
+      steps: [{ do: "fill", target: { kind: "label", label: "Password", exact: false, nth: null }, value: "{env:SHOTS_PASSWORD}" }],
+      expect: "Hello {data:name}",
+    },
+  };
+  const data = { id: "7 a", total: "12,345 USD", name: "Robin" };
+
+  it("resolves the sign-in and every entry's path, phrase and step values", () => {
+    const result = resolveShotTexts(texts, { env: { SHOTS_PASSWORD: "s3cret" }, data });
+    expect(result).toEqual({
+      ok: true,
+      texts: {
+        entries: [{ ...entry, path: "/accounts/7%20a", expect: "Total 12,345 USD", steps: [{ ...entry.steps[0], value: "12,345 USD" }] }],
+        signIn: { path: "/login", steps: [{ ...texts.signIn?.steps[0], value: "s3cret" }], expect: "Hello Robin" },
+      },
+    });
+  });
+
+  it("names where an unresolved placeholder is used", () => {
+    expect(resolveShotTexts(texts, { env: {}, data })).toEqual({ ok: false, error: "signIn.steps[0].value: {env:SHOTS_PASSWORD} is not set in the environment" });
+    expect(resolveShotTexts({ entries: [entry], signIn: null }, { env: {}, data: { id: "1", name: "x" } })).toEqual({
+      ok: false,
+      error: 'screenshot "accounts" expect: {data:total} is not in what signIn.prepare printed (keys: id, name)',
+    });
+  });
+
+  it("finds the first unset variable and whether any text reads the prepared data", () => {
+    expect(findUnsetVariable(texts, {})).toBe("SHOTS_PASSWORD");
+    expect(findUnsetVariable(texts, { SHOTS_PASSWORD: "x" })).toBeNull();
+    expect(usesData(texts)).toBe(true);
+    expect(usesData({ entries: [{ ...entry, path: "/", expect: "Hi", steps: [] }], signIn: null })).toBe(false);
   });
 });

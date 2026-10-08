@@ -12,6 +12,8 @@ import { findMachineProblem } from "../render/preflight.js";
 import { runHyperframes } from "../render/hyperframes.js";
 import { renderFilm } from "../render/render.js";
 import { takePageScreenshot, takeScreenshots, type ScreenshotBrowser, type ScreenshotEntry, type ScreenshotResult } from "../screenshot/screenshot.js";
+import { runPrepare } from "../screenshot/prepare.js";
+import { findUnsetVariable, resolveShotTexts, usesData, type ShotTexts } from "../screenshot/shot-texts.js";
 import { findStorageStateProblem } from "../screenshot/storage-state.js";
 import { isPlaceholderKey } from "../voice/placeholder.js";
 import { splitIntoBeats } from "../voice/voiceover.js";
@@ -206,21 +208,49 @@ async function pageShot(config: MarketingConfig, options: PageShotsOptions): Pro
   reportScreenshots([result]);
 }
 
+/**
+ * The run's texts with `{env:…}` and `{data:…}` replaced. `signIn.prepare` runs only when an entry is signed in or
+ * reads its data, after the app answers; its output and the resolved values are never printed.
+ */
+function prepareShotTexts(config: MarketingConfig, texts: ShotTexts, baseUrl: string): ShotTexts {
+  const needsPrepare = config.signIn?.prepare !== undefined && (texts.signIn !== null || usesData(texts));
+  let data: Record<string, string> | null = null;
+  if (needsPrepare && config.signIn?.prepare !== undefined) {
+    const [program, ...args] = config.signIn.prepare;
+    console.log(`prepare: ${config.signIn.prepare.join(" ")}.`);
+    // The schema requires at least one element.
+    const prepared = runPrepare([program as string, ...args], { cwd: config.root, baseUrl: new URL(baseUrl).origin });
+    if (!prepared.ok) fail(`${prepared.error}.`);
+    data = prepared.data;
+  }
+  const resolved = resolveShotTexts(texts, { env: process.env, data });
+  if (!resolved.ok) fail(`${resolved.error}.`);
+  return resolved.texts;
+}
+
 async function shots(config: MarketingConfig, options: EntryShotsOptions): Promise<void> {
-  const entries = resolveStorageStates(config, selectScreenshots(config, options.shotId));
-  const [first] = entries;
+  const selected = resolveStorageStates(config, selectScreenshots(config, options.shotId));
+  const isSignedIn = selected.some((entry) => entry.signedIn);
+  const texts: ShotTexts = { entries: selected, signIn: isSignedIn ? config.signIn : null };
+  // Before the app starts or the account is seeded: a variable the shell lacks costs nothing to report.
+  const unset = findUnsetVariable(texts, process.env);
+  if (unset !== null) fail(`{env:${unset}} is not set in the environment; marketing.json reads it for the screenshots.`);
+  const [first] = selected;
+  // The address only checks that the app answers, so the first path's placeholders may stay unresolved there.
   const target = { url: new URL(first.path, config.app.baseUrl).href, ownUrl: `http://localhost:${config.app.port}${first.path}` };
   const server = await ensureServer(config, target, options.url === undefined ? undefined : new URL(first.path, options.url).href);
   const outDir = join(config.output.dir, "screenshots");
   let results;
   try {
-    console.log(`screenshots: ${entries.length} from ${new URL(server.url).origin}.`);
+    const { entries, signIn } = prepareShotTexts(config, texts, server.url);
+    console.log(`screenshots: ${entries.length} from ${new URL(server.url).origin}${signIn === null ? "" : `, signed in at ${signIn.path}`}.`);
     results = await takeScreenshots({
       entries,
       baseUrl: server.url,
       outDir,
       executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH || undefined,
       browser: getScreenshotBrowser(config),
+      ...(signIn === null ? {} : { signIn }),
     });
   } finally {
     server.stop();

@@ -23,6 +23,14 @@ body {
   color: var(--foreground);
 }
 
+/* A light page for a light browser, so the two files of a light and dark screenshot differ; films record dark. */
+@media (prefers-color-scheme: light) {
+  body {
+    background: #f4f5f7;
+    color: #17181a;
+  }
+}
+
 main {
   padding: 32px 20px;
 }
