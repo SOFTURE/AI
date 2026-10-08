@@ -59,8 +59,8 @@ The script can set a password whose plain value never reaches the host, and both
 
 ### Phase 1: generator, hash check, script argument
 
-- [x] createTemporaryPassword and READABLE_PASSWORD_ALPHABET with tests
-- [x] isPasswordHash and --password-hash with tests
+- [x] createTemporaryPassword and READABLE_PASSWORD_ALPHABET with tests — 9af6474
+- [x] isPasswordHash and --password-hash with tests — 9af6474
 
 ### Phase 2: docs, version, gates
 
