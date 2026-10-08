@@ -58,6 +58,7 @@ export {
   buildHtmlLimitedBots,
   NEXT_DEFAULT_HTML_LIMITED_BOTS,
 } from "./crawlers.js";
+export { prefersMarkdown } from "./accept.js";
 export { seoMessages, type SeoMessages } from "./messages/index.js";
 export type { SeoOptions, SeoOptionsInput } from "./options.js";
 export { buildRobots, type Robots, type RobotsRule } from "./robots.js";
