@@ -1,12 +1,13 @@
 ---
 change_id: ui-action-form-submit-slot
 title: "ui: ActionForm submit slot (issue #230)"
-status: impl_reviewed
+status: archived
 roadmap_item: null
 issue: 230
 branch: claude/project-thread-eigpzo
 created: 2026-10-08
 updated: 2026-10-08
+archived_at: 2026-10-08
 ---
 
 ## Intent
