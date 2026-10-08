@@ -36,6 +36,13 @@ constraints into the app's configuration and the form out of the domain componen
 - **A rate-limited public action**: bucket `waitlist` per client, `waitlist-email` per address.
 - `<Waitlist placement="hero" />` (`/next`), the form wired in one line, and `WaitlistForm` (`/ui`)
   with slots, `unstyled` and messages for an app that composes its own.
+- **The acquisition channel per sign-up** (`resolveChannel`, e.g. analytics' `getChannel`), kept
+  with the first sign-up and counted by `countSignupsByChannel`.
+- **The person's own unsubscribe link in the success answer**, when the app asks for it
+  (`unsubscribeLinkOnSuccess`).
+- **An import of the list an app kept before** (`importSignups`, the `import-signups` ops script):
+  rows with their original time, id and channel, consents at the time they were given, and the
+  opt-outs of who unsubscribed (section 10, "Moving an existing list").
 - Export and deletion of the account's sign-up (`@softure-ai/privacy`), a health check for
   `GET /api/health`, and `listSignups` for a launch mail.
 
@@ -84,6 +91,8 @@ waitlist({
 | `mailTemplate` | `(mail) => string` | — | Renders the HTML body of the welcome and confirmation mails (below). Without it, a plain HTML body built from the same copy. |
 | `onJoined` | `(event, ctx) => void \| Promise<void>` | — | Called in the sign-up's transaction when a sign-up counts for the first time, e.g. to count it in the analytics funnel. Section 10. |
 | `rewriteConfirmationLink` | `(path, { config }) => string \| Promise<string>` | — | Rewrites the confirmation link's path, e.g. to keep the analytics channel tag through the mail. Section 10. |
+| `resolveChannel` | `({ config }) => string \| null \| Promise<…>` | — | The request's acquisition channel, called by the join action in the request's scope, e.g. `() => getChannel()` from `@softure-ai/analytics/next`. Stored with a first sign-up (1 to 64 visible ASCII characters); a throw or another value is logged by kind and the sign-up goes on without one. |
+| `unsubscribeLinkOnSuccess` | `boolean` | `false` | Answers a sign-up with the person's own unsubscribe page link (`unsubscribeUrl`), which `WaitlistForm` shows under the success notice. Never with double opt-in's `confirmation_sent`. Needs `MAILING_UNSUBSCRIBE_SECRET` (the first sign-up checks it). Whoever submits an address gets its link, for a new and a known address alike (the answer must not tell them apart), so it lets anyone unsubscribe an address they know: turn it on only when the product asks people to keep that link. |
 | `routes` | `{ confirm? }` | `{ confirm: "/waitlist/confirm" }` | The path of the confirmation page, when the app mounts it elsewhere. |
 | `messages` | partial `en` / `pl` | — | Copy overrides, the welcome mail's subject and text included. |
 
@@ -164,7 +173,8 @@ campaign): unsubscribed addresses are refused there.
 
 `migrations/0001_create_signups.sql` creates `waitlist.signups` and the function
 `waitlist.is_scope_list(text[])` its check uses; `0002_add_confirmation.sql` adds the double opt-in
-columns, with checks that an unconfirmed row has a pending request and a pending request has a link:
+columns, with checks that an unconfirmed row has a pending request and a pending request has a link;
+`0003_add_channel.sql` adds the channel:
 
 | Column | Meaning |
 | --- | --- |
@@ -176,6 +186,7 @@ columns, with checks that an unconfirmed row has a pending request and a pending
 | `created_at`, `updated_at` | The first sign-up and the last change. |
 | `confirmed_at` | When the sign-up first counted (at once without double opt-in); NULL while its first request waits for the link. Rows from before migration 2 are confirmed at `created_at`. |
 | `pending_scopes` | The scopes of a request that waits for its link (a first sign-up, or more scopes later), or NULL. |
+| `channel` | The first sign-up's acquisition channel (1 to 64 visible ASCII characters, a CHECK), or NULL. Partial index over confirmed rows for the per-channel counts. |
 | `confirmation_token_hash`, `confirmation_expires_at` | sha256 (hex, unique) of the latest link's token and its expiry; set together. A used link keeps its hash until the next request replaces it, so a second click answers "confirmed". |
 
 Scope ids are validated text, not an enum or a CHECK list: they are the app's, and a list in the
@@ -183,8 +194,9 @@ database would need a module migration for every app's change of copy.
 
 ## 6. Environment variables
 
-None of its own. The welcome mail needs mailing's `MAILING_UNSUBSCRIBE_SECRET`; the confirmation
-link is a random token stored as a hash, so double opt-in needs no secret.
+None of its own. The welcome mail, `unsubscribeLinkOnSuccess` and an import with unsubscribed rows
+need mailing's `MAILING_UNSUBSCRIBE_SECRET`; the confirmation link is a random token stored as a
+hash, so double opt-in needs no secret.
 
 ## 7. Switches
 
@@ -195,13 +207,15 @@ address applies them).
 ## 8. Appearance
 
 `WaitlistForm` uses the `@softure-ai/ui` primitives (TextField, Checkbox, FormError, Button) and
-takes `classNames` for its slots `root`, `form`, `scopes` and `notice`, or `unstyled`. `Waitlist`
+takes `classNames` for its slots `root`, `form`, `scopes`, `notice` and `unsubscribe` (the
+paragraph with the unsubscribe link), or `unstyled`. `Waitlist`
 passes both through.
 
 ## 9. Copy
 
-`waitlistMessages` (`en`, `pl`): `form` (field label, button, pending text, the confirmation and,
-with double opt-in, `confirmationSent`), `welcomeMail` (subject and text; mailing appends the
+`waitlistMessages` (`en`, `pl`): `form` (field label, button, pending text, the confirmation,
+with double opt-in `confirmationSent`, and `unsubscribeHint` with `unsubscribeLink` for the link
+of `unsubscribeLinkOnSuccess`), `welcomeMail` (subject and text; mailing appends the
 unsubscribe footer), `confirmationMail` (subject, text and `action`, the link's label in the HTML
 body; in the text body the link follows the text), `confirm`
 (the confirmation page: its states and button) and `errors`. Override
@@ -270,10 +284,66 @@ only at confirmation: the ledger is insert-only, and a row written before would 
 nobody proved. Run `pruneUnconfirmedSignups(ctx)` from a scheduled job to delete sign-ups whose link
 expired unused; until then they count nowhere, and a new sign-up of the address reuses the row.
 
+### Moving an existing list
+
+An app that kept its own list imports it once, before it switches its form to the module.
+`importSignups(ctx, rows)` from `/server` takes rows of `{ email, scopes, placement, locale,
+signedUpAt, id?, confirmedAt?, consentedAt?, documentVersions?, channel?, unsubscribedAt? }`
+(times as `Date`); the `import-signups` ops script from `/scripts` reads the same rows from a JSON
+file (times as ISO 8601 with an offset), dry run by default:
+
+```ts
+// scripts/import-signups.ts
+import { runOpsScript } from "@softure-ai/ops/scripts";
+import { createImportSignupsScript } from "@softure-ai/waitlist/scripts";
+import config from "../softure.config";
+
+// The app's own scope names, mapped to the module's scopes.
+const script = createImportSignupsScript(config, { scopeAliases: { lists: ["launch", "newsletter"], start: ["launch"] } });
+process.exitCode = await runOpsScript({ script, argv: process.argv.slice(2), config });
+```
+
+```bash
+npx tsx scripts/import-signups.ts --file=signups.json            # dry run: counts before and after
+npx tsx scripts/import-signups.ts --file=signups.json --commit
+```
+
+- **Rows.** `scopes` are ids of `waitlist({ scopes })` (or aliases, in the script), `placement`
+  one of `placements`. `confirmedAt` defaults to `signedUpAt` (a list without double opt-in),
+  `consentedAt` to `confirmedAt`. Requests that never confirmed are not imported: the person signs
+  up again. `id` keeps the row's id, for links that carry it (below).
+- **All or nothing.** Every row is checked first (declared scopes and placements, no time in the
+  future, `confirmedAt >= signedUpAt`, `unsubscribedAt >= consentedAt`, no email or id twice, no id
+  that belongs to another address and no address stored under another id); any problem refuses the
+  whole input, listing row numbers, never an address. Then all rows are written in one transaction.
+- **Idempotent, never narrowing.** An address already on the list widens its scopes, moves its
+  `created_at` and `confirmed_at` back when the imported ones are earlier, fills an empty channel
+  and keeps its placement and locale; a row still waiting for its link takes the imported scopes and
+  becomes confirmed. Running the same file again changes nothing.
+- **Consent evidence at its time.** Each scope gets a granted consent at `consentedAt` (source
+  `waitlist-import`) through privacy's `importConsent`, with the configured version of the scope's
+  document or the one `documentVersions` names (a consent to an older version reads as not current,
+  so the next sign-up records the current one). A record with the same purpose, grant and time
+  already in the ledger is not written again; times keep millisecond precision, as JSON has.
+- **Opt-outs.** A row with `unsubscribedAt` gets a withdrawal per scope at that time and, unless
+  a scope is granted again by a later record (a sign-up after the unsubscribe), a mailing opt-out
+  made the way the person's own unsubscribe makes it (source `page`, which their next sign-up
+  lifts). It goes through mailing's `unsubscribe` with a link signed by `MAILING_UNSUBSCRIBE_SECRET`
+  (an import with unsubscribed rows is refused without it), so the app's `onUnsubscribed` runs as
+  for any unsubscribe; `withdrawWaitlistConsents` then finds nothing left to withdraw. The opt-out
+  row carries the import's time, the withdrawal the historical one.
+- **History, not new sign-ups**: no rate limit, no mail and no `onJoined`, so an analytics funnel
+  does not count imported rows; `countSignupsByChannel(ctx)` counts the whole list per channel.
+- **Old unsubscribe links.** When the app's earlier mail carried links naming its row id, import
+  the `id` and resolve it in mailing's `legacyUnsubscribe` (mailing README):
+  `verify: async (values, ctx) => (await getSignupById(ctx, values.id ?? ""))?.email ?? null`,
+  after checking the old link's signature the app's way.
+
 ## 11. GDPR
 
 - The waitlist contributes to `@softure-ai/privacy`: the export of an account holds the sign-up of
-  its email address (scopes, placement, dates, `confirmedAt`, a pending request's scopes), and
+  its email address (scopes, placement, dates, `confirmedAt`, a pending request's scopes, the
+  channel), and
   deleting the account deletes that sign-up.
   Privacy's own part covers the consents the sign-up recorded.
 - Consents are recorded per scope with the document version in force, so the app can show what a

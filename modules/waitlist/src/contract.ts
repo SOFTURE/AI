@@ -10,6 +10,9 @@ export type WaitlistErrorCode =
   /** A scope or placement the config does not declare: a tampered or outdated form. */
   | "waitlist.form_invalid";
 
+/** Why `importSignups` refused its input (the refusal lists the problems by row number). */
+export type WaitlistImportErrorCode = "waitlist.import_invalid";
+
 /** Why a confirmation link was refused. */
 export type WaitlistConfirmationErrorCode =
   /** Missing, malformed, or replaced by a newer link. */
@@ -33,6 +36,11 @@ export interface WaitlistFormState {
   readonly email?: string;
   /** The scopes checked, to check them again after an error. */
   readonly scopes?: readonly string[];
+  /**
+   * With `status: "ok"` and `waitlist({ unsubscribeLinkOnSuccess: true })`: the person's own unsubscribe
+   * page link. A credential for that address: show it to the person, never log it.
+   */
+  readonly unsubscribeUrl?: string;
 }
 
 export const INITIAL_WAITLIST_FORM_STATE: WaitlistFormState = { status: "idle" };
@@ -52,6 +60,8 @@ export interface WaitlistSignup {
   readonly updatedAt: Date;
   /** When it first counted; null while its first request waits for the confirmation link. */
   readonly confirmedAt: Date | null;
+  /** The acquisition channel of the first sign-up (`waitlist({ resolveChannel })`, or imported); null for none. */
+  readonly channel: string | null;
 }
 
 /** What `onJoined` receives: a sign-up that counts for the first time, and how it came to count. */

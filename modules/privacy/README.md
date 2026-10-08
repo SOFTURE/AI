@@ -135,6 +135,14 @@ await hasConsent(ctx, { subject: { userId }, purpose: "terms" }); // latest row 
 - Call these inside the transaction of the action they belong to (`ctx.db` being the transaction),
   so the action and its evidence commit together.
 
+**History from before the ledger.** `importConsent(ctx, { ...input, recordedAt, documentVersion? })`
+records a consent or withdrawal at the time it was given, for an app that moves its own records onto
+the ledger (the waitlist's `importSignups` uses it). `recordedAt` must not be after now;
+`documentVersion` (1 to 64 visible ASCII characters, only with `document`) records the version the
+person agreed to instead of the configured one, so an older text stays an older-version consent
+(`hasConsent` false, and the next consent records the current version). It writes every call: a
+caller that may run twice checks `listConsents` first.
+
 **Registration.** `recordRegistrationConsent({ documents? })` is an `onRegistered` hook for auth:
 when the app keeps `requireConsent` on, it records one row per document (purpose = the document's
 id, source `registration`) at the account's creation time, in the account's transaction. By

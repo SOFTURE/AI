@@ -1,7 +1,7 @@
 {
   "name": "@softure-ai/waitlist",
-  "version": "0.1.6",
-  "description": "SOFTURE AI waitlist module: sign-ups with consent scopes and form placements from configuration, consent recorded in the privacy ledger, a welcome mail sent once through mailing, a rate-limited public action and a standalone WaitlistForm for Next.js.",
+  "version": "0.1.7",
+  "description": "SOFTURE AI waitlist module: sign-ups with consent scopes and form placements from configuration, consent recorded in the privacy ledger, the acquisition channel per sign-up, a welcome mail sent once through mailing, a rate-limited public action, an optional unsubscribe link in the success answer, an import-signups ops script for a list kept before, and a standalone WaitlistForm for Next.js.",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -46,6 +46,11 @@
       "@softure-ai/source": "./src/ui/index.ts",
       "types": "./dist/ui/index.d.ts",
       "default": "./dist/ui/index.js"
+    },
+    "./scripts": {
+      "@softure-ai/source": "./src/scripts/index.ts",
+      "types": "./dist/scripts/index.d.ts",
+      "default": "./dist/scripts/index.js"
     }
   },
   "scripts": {
@@ -56,7 +61,8 @@
     "@softure-ai/core": "^0.1.0",
     "@softure-ai/db": "^0.1.0",
     "@softure-ai/mailing": "^0.1.0",
-    "@softure-ai/privacy": "^0.1.0",
+    "@softure-ai/ops": "^0.1.0",
+    "@softure-ai/privacy": "^0.1.8",
     "@softure-ai/security": "^0.1.0",
     "zod": "^4.6.5"
   },

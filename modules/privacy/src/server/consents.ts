@@ -17,6 +17,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** A SHA-256 digest in unpadded base64url, the shape of every stored email key. */
 const EMAIL_KEY = /^[A-Za-z0-9_-]{43}$/;
 const emailSchema = z.email();
+/** A document version as an import names it: 1-64 visible ASCII characters. */
+const DOCUMENT_VERSION = /^[!-~]{1,64}$/;
 
 export interface RecordConsentInput {
   readonly subject: ConsentSubject;
@@ -28,6 +30,17 @@ export interface RecordConsentInput {
   readonly document?: string;
   /** Where the consent was given, kebab-case, e.g. `registration`, `waitlist`, `account`. */
   readonly source: string;
+}
+
+/** A consent given before the ledger existed, e.g. imported from the list an app kept itself. */
+export interface ImportConsentInput extends RecordConsentInput {
+  /** When it was given or withdrawn; not after the clock's now. */
+  readonly recordedAt: Date;
+  /**
+   * The version of `document` the person agreed to, when it is not the configured one (1-64 visible characters).
+   * An older version stays an older-version consent: `hasConsent` reads it as not current.
+   */
+  readonly documentVersion?: string;
 }
 
 export type RecordConsentResult = Ok<ConsentRecord> | Err<"privacy.consent_invalid" | "privacy.document_unknown">;
@@ -72,10 +85,10 @@ export function toConsentRecord(row: ConsentRow): ConsentRecord {
 }
 
 /**
- * Records a consent at `recordedAt`. For `recordConsent` (the clock's now) and the registration
- * hook (the account's creation time).
+ * Records a consent at `recordedAt`. For `recordConsent` (the clock's now), the registration hook
+ * (the account's creation time) and `importConsent` (a past time, maybe an older document version).
  */
-export async function insertConsent(ctx: PrivacyContext, input: RecordConsentInput, recordedAt: Date): Promise<RecordConsentResult> {
+export async function insertConsent(ctx: PrivacyContext, input: RecordConsentInput, recordedAt: Date, documentVersion?: string): Promise<RecordConsentResult> {
   const subject = toSubjectColumns(input.subject);
   if (subject === null || !isName(input.purpose) || !isName(input.source)) return err("privacy.consent_invalid");
 
@@ -83,7 +96,7 @@ export async function insertConsent(ctx: PrivacyContext, input: RecordConsentInp
   if (input.document !== undefined) {
     const declared = findLegalDocument(ctx.config, input.document);
     if (declared === undefined) return err("privacy.document_unknown");
-    document = { id: declared.id, version: declared.version };
+    document = { id: declared.id, version: documentVersion ?? declared.version };
   }
 
   const [row] = await ctx.db
@@ -109,6 +122,19 @@ export async function insertConsent(ctx: PrivacyContext, input: RecordConsentInp
  */
 export function recordConsent(ctx: PrivacyContext, input: RecordConsentInput): Promise<RecordConsentResult> {
   return insertConsent(ctx, input, ctx.clock.now());
+}
+
+/**
+ * Records a consent (or withdrawal) given at a past time, for an app that moves its own list onto the
+ * ledger. `recordedAt` after the clock's now, an invalid `documentVersion` or one without a `document`
+ * is `privacy.consent_invalid`. The caller decides whether the record is already there (a re-run of an
+ * import should check `listConsents` first). Database errors propagate.
+ */
+export async function importConsent(ctx: PrivacyContext, input: ImportConsentInput): Promise<RecordConsentResult> {
+  const { recordedAt, documentVersion, ...record } = input;
+  if (Number.isNaN(recordedAt.getTime()) || recordedAt > ctx.clock.now()) return err("privacy.consent_invalid");
+  if (documentVersion !== undefined && (input.document === undefined || !DOCUMENT_VERSION.test(documentVersion))) return err("privacy.consent_invalid");
+  return insertConsent(ctx, record, recordedAt, documentVersion);
 }
 
 /** The current state of one purpose for one subject (its latest record), or null when none was recorded. */

@@ -8,6 +8,7 @@
 // whose Origin does not match the host.
 import { errorLogLabel, safeError, type SoftureConfig } from "@softure-ai/core";
 import { getSoftureConfig } from "@softure-ai/core/next";
+import { buildUnsubscribeLinks, readUnsubscribeSecrets } from "@softure-ai/mailing/server";
 import { identifyClient } from "@softure-ai/security/server";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -16,7 +17,7 @@ import type { WaitlistFormErrorCode, WaitlistFormState } from "../contract.js";
 import { EMAIL_FIELD, getScopeFieldName, PLACEMENT_FIELD } from "../fields.js";
 import { CONFIRMATION_TOKEN_PARAM, deliverConfirmationMail } from "../server/confirmation-mail.js";
 import { getWaitlistOptions, getWaitlistRoutes } from "../server/options.js";
-import { confirmSignup, joinWaitlist } from "../server/signups.js";
+import { confirmSignup, isChannel, joinWaitlist } from "../server/signups.js";
 import { deliverWelcomeMail } from "../server/welcome-mail.js";
 import type { WaitlistSignup } from "../contract.js";
 import { getWaitlistContext } from "./context.js";
@@ -46,9 +47,10 @@ export async function joinWaitlistAction(_previous: WaitlistFormState, formData:
   const client = identifyClient({ config }, await headers());
   if (!client.ok) return { status: "error", error: client.error, ...echo };
 
+  const channel = await resolveRequestChannel(config);
   let result;
   try {
-    result = await joinWaitlist(await getWaitlistContext(config), { email, scopes, placement: readText(formData, PLACEMENT_FIELD), clientKey: client.value });
+    result = await joinWaitlist(await getWaitlistContext(config), { email, scopes, placement: readText(formData, PLACEMENT_FIELD), clientKey: client.value, channel });
   } catch (error) {
     return { status: "error", error: reportFailure("joining the waitlist", error), ...echo };
   }
@@ -70,7 +72,31 @@ export async function joinWaitlistAction(_previous: WaitlistFormState, formData:
     return { status: "confirmation_sent" };
   }
   sendWelcomeMailAfter(config, joined.signup);
-  return { status: "ok" };
+  return { status: "ok", ...getUnsubscribeUrl(config, joined.signup.email) };
+}
+
+/** The person's own unsubscribe link, when the app asks for it (the setup check required the secret). */
+function getUnsubscribeUrl(config: SoftureConfig, email: string): { unsubscribeUrl?: string } {
+  if (!getWaitlistOptions(config).unsubscribeLinkOnSuccess) return {};
+  const secret = readUnsubscribeSecrets().current;
+  return secret === null ? {} : { unsubscribeUrl: buildUnsubscribeLinks(config, email, secret).page };
+}
+
+/** The app's channel for this request, or null: attribution never blocks a sign-up. */
+async function resolveRequestChannel(config: SoftureConfig): Promise<string | null> {
+  const resolve = getWaitlistOptions(config).resolveChannel;
+  if (resolve === undefined) return null;
+  let channel: unknown;
+  try {
+    channel = await resolve({ config });
+  } catch (error) {
+    reportFailure("resolving the channel", error);
+    return null;
+  }
+  if (channel === null) return null;
+  if (typeof channel === "string" && isChannel(channel)) return channel;
+  console.error("@softure-ai/waitlist: resolveChannel returned a value that is not a channel (1-64 visible ASCII characters); the sign-up is stored without one");
+  return null;
 }
 
 /** Sends the welcome mail after the response; it goes out once per sign-up whoever calls. */

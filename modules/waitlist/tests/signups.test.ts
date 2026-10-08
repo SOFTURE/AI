@@ -1,7 +1,7 @@
 // Joining the waitlist: a first sign-up, repeat sign-ups that widen the scopes and never narrow
 // them, consents recorded in privacy's ledger, refused forms, rate limits and setup checks.
 import { getEmailKey, recordConsent } from "@softure-ai/privacy/server";
-import { getSignup, joinWaitlist, listSignups, type JoinWaitlistInput, type JoinWaitlistResult } from "@softure-ai/waitlist/server";
+import { countSignupsByChannel, getSignup, getSignupById, joinWaitlist, listSignups, type JoinWaitlistInput, type JoinWaitlistResult } from "@softure-ai/waitlist/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { CLIENT, createTestWaitlist, DOCUMENTS, listConsentRows, NOW, type TestWaitlist } from "./support.js";
 
@@ -47,6 +47,7 @@ describe("joinWaitlist", () => {
       createdAt: NOW,
       updatedAt: NOW,
       confirmedAt: NOW,
+      channel: null,
     });
     expect(await getSignup(test.ctx, "ADA@example.com")).toEqual(result.value.signup);
     expect(await listConsentRows(test, getEmailKey(ADA))).toEqual([
@@ -193,6 +194,71 @@ describe("listSignups", () => {
   it("finds no sign-up for an unknown or malformed address", async () => {
     expect(await getSignup(test.ctx, "eve@example.com")).toBeNull();
     expect(await getSignup(test.ctx, "not an address")).toBeNull();
+  });
+
+  it("finds a sign-up by its id in either case, and none for an unknown or malformed id", async () => {
+    const ada = await getSignup(test.ctx, "ada@example.com");
+    expect(ada).not.toBeNull();
+    if (ada === null) return;
+    expect(await getSignupById(test.ctx, ada.id.toUpperCase())).toEqual(ada);
+    expect(await getSignupById(test.ctx, "00000000-0000-4000-8000-000000000000")).toBeNull();
+    expect(await getSignupById(test.ctx, "17")).toBeNull();
+  });
+});
+
+describe("the channel of a sign-up", () => {
+  let test: TestWaitlist;
+
+  beforeEach(async () => {
+    test = await createTestWaitlist();
+  });
+  afterEach(() => test.database.close());
+
+  it("stores the channel of the first sign-up and keeps it on a repeat from another channel", async () => {
+    const first = await join(test, { channel: "newsletter" });
+    expect(first).toMatchObject({ ok: true, value: { signup: { channel: "newsletter" } } });
+    test.clock.set(LATER);
+    const repeat = await join(test, { scopes: ["launch", "newsletter"], channel: "ads" });
+    expect(repeat).toMatchObject({ ok: true, value: { signup: { channel: "newsletter", scopes: ["launch", "newsletter"] } } });
+  });
+
+  it("refuses a channel the table cannot hold, before anything is stored", async () => {
+    for (const channel of ["", "with space", "x".repeat(65), "caf\u00e9"]) {
+      expect(await join(test, { channel })).toEqual({ ok: false, error: "waitlist.form_invalid" });
+    }
+    expect(await countSignups(test)).toBe(0);
+    expect(await join(test, { channel: "x".repeat(64) })).toMatchObject({ ok: true });
+  });
+
+  it("lists and counts confirmed sign-ups per channel, none last", async () => {
+    const joins: [string, string | undefined][] = [
+      ["ada@example.com", "ads"],
+      ["bob@example.com", "blog"],
+      ["cyd@example.com", "blog"],
+      ["dan@example.com", undefined],
+      ["eve@example.com", "ads"],
+      ["fay@example.com", "zine"],
+    ];
+    for (const [index, [email, channel]] of joins.entries()) {
+      test.clock.set(new Date(NOW.getTime() + index * 1000));
+      await join(test, { email, channel });
+    }
+    expect((await listSignups(test.ctx, { channel: "blog" })).map((signup) => signup.email)).toEqual(["bob@example.com", "cyd@example.com"]);
+    expect((await listSignups(test.ctx, { channel: null })).map((signup) => signup.email)).toEqual(["dan@example.com"]);
+    expect(await countSignupsByChannel(test.ctx)).toEqual([
+      { channel: "ads", signups: 2 },
+      { channel: "blog", signups: 2 },
+      { channel: "zine", signups: 1 },
+      { channel: null, signups: 1 },
+    ]);
+  });
+
+  it("refuses a malformed channel in the table itself", async () => {
+    await expect(
+      test.database.client.query(
+        "INSERT INTO waitlist.signups (email, scopes, placement, locale, created_at, updated_at, confirmed_at, channel) VALUES ('ada@example.com', '{launch}', 'hero', 'en', now(), now(), now(), 'with space')",
+      ),
+    ).rejects.toThrow(/check constraint/);
   });
 });
 

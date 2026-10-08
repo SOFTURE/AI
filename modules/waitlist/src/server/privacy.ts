@@ -18,6 +18,8 @@ export interface WaitlistUserData {
     readonly confirmedAt: Date | null;
     /** The scopes of a request that waits for its link, or null. */
     readonly pendingScopes: readonly string[] | null;
+    /** The acquisition channel of the first sign-up, or null. */
+    readonly channel: string | null;
   } | null;
 }
 
@@ -43,6 +45,7 @@ export async function exportWaitlistUserData(context: ModuleContext, userId: str
       updatedAt: signups.updatedAt,
       confirmedAt: signups.confirmedAt,
       pendingScopes: signups.pendingScopes,
+      channel: signups.channel,
     })
     .from(signups)
     .where(eq(signups.email, email));

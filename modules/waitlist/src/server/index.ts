@@ -3,6 +3,16 @@
 export { CONFIRMATION_TOKEN_PARAM, deliverConfirmationMail, getConfirmationLink, resolveConfirmationLink } from "./confirmation-mail.js";
 export { checkSignupsTable } from "./health.js";
 export {
+  IMPORT_CONSENT_SOURCE,
+  importSignups,
+  MAX_IMPORT_ROWS,
+  type ImportSignupRow,
+  type ImportSignupsOptions,
+  type ImportSignupsRefusal,
+  type ImportSignupsResult,
+  type ImportSignupsSummary,
+} from "./import.js";
+export {
   getLocalizedText,
   getWaitlistMessages,
   getWaitlistMessagesIn,
@@ -15,11 +25,15 @@ export { deleteWaitlistUserData, exportWaitlistUserData, waitlistPrivacyContribu
 export {
   confirmSignup,
   CONSENT_SOURCE,
+  countSignupsByChannel,
   getSignup,
+  getSignupById,
+  isChannel,
   joinWaitlist,
   listSignups,
   normalizeEmail,
   pruneUnconfirmedSignups,
+  type ChannelCount,
   type ConfirmSignupInput,
   type ConfirmSignupResult,
   type JoinedSignup,

@@ -7,6 +7,8 @@ export const pl: typeof en = {
     pending: "Zapisywanie…",
     success: "Jesteś na liście. Dziękujemy!",
     confirmationSent: "Jeszcze chwila: wysłaliśmy Ci e-mail. Otwórz link z wiadomości, żeby potwierdzić adres i dołączyć do listy.",
+    unsubscribeHint: "Zachowaj ten link: w każdej chwili wypiszesz się nim z listy.",
+    unsubscribeLink: "Wypisz mnie",
   },
   confirmationMail: {
     subject: "Potwierdź zapis na listę oczekujących",
