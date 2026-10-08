@@ -54,6 +54,15 @@ describe("serveBlogRss", () => {
     ]);
     expect(xml).toContain("<category>Investing basics</category>");
     expect(xml).toContain("<category>Glossary</category>");
+    expect(xml).toContain("<language>en</language>");
+  });
+
+  it("writes the configured BCP-47 tag as the feed's language", async () => {
+    await test.database.close();
+    test = await createPublishedBlog({ locales: { en: { bcp47: "en-GB" } } });
+    scope.config = test.config;
+    scope.db = test.ctx.db;
+    expect(await (await serveBlogRss()).text()).toContain("<language>en-GB</language>");
   });
 
   it("answers 503 with a retry hint, not an empty feed, when the texts cannot be read", async () => {

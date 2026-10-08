@@ -4,6 +4,19 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`blog@x.y.z`).
 
+## 0.1.9
+
+- `og:locale` of articles and terms is an Open Graph locale now: `en_US` / `pl_PL` by default, not the bare
+  `en` / `pl` (which Open Graph does not accept). `locales: { pl: { openGraph } }` sets another.
+- `locales` (`blog({ ... })`): per locale, `bcp47` (JSON-LD `inLanguage` and the feed's `<language>`, default the
+  bare code as before) and `openGraph` (`og:locale`). `getBlogLocaleTags(config)` (`/server`) resolves them.
+- `jsonLd: { ids: { article, term, glossary } }`: the JSON-LD `@id` fragments, default `article`, `term`,
+  `glossary` as before. `JsonLdContext` takes optional `ids` and `language`.
+- `anchors: { cluster }`: the listing's cluster anchor prefix, default `cluster` as before; also the target of an
+  article's middle breadcrumb. `getClusterAnchor(cluster, prefix?)`, `getArticleCrumbs(…, { clusterAnchorPrefix })`
+  and the optional `BlogPageContext.clusterAnchorPrefix` carry it.
+- Message `glossary.termTitleWithBrand` titles a glossary term's page (default `{title} | {brand}`, as before).
+
 ## 0.1.8
 
 - `externalLinkMarker` (`blog({ ... })`) and `renderArticle({ externalMarker })`: `"icon-and-text"`

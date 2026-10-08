@@ -1,5 +1,5 @@
 // The listing's order, cluster labels, crumbs, glossary order and dates (FIRE's blog-page cases).
-import { formatDay, getArticleCrumbs, getArticleDates, getClusterLabel, getTermCrumbs, groupByCluster, sortTerms, splitClusterLead, type BlogRoutes } from "@softure-ai/blog/server";
+import { formatDay, getArticleCrumbs, getClusterAnchor, getArticleDates, getClusterLabel, getTermCrumbs, groupByCluster, sortTerms, splitClusterLead, type BlogRoutes } from "@softure-ai/blog/server";
 import { describe, expect, it } from "vitest";
 import { buildStoredArticle, buildStoredTerm } from "../support.js";
 
@@ -72,6 +72,8 @@ describe("crumbs and terms", () => {
       { name: "Index funds in plain words", path: "/blog/index-funds" },
     ]);
     expect(getArticleCrumbs(buildStoredArticle({ cluster: null }), ROUTES, LABELS).map((crumb) => crumb.name)).toEqual(["Blog", "Index funds in plain words"]);
+    expect(getArticleCrumbs(buildStoredArticle(), ROUTES, LABELS, { clusterAnchorPrefix: "klaster" })[1]?.path).toBe("/blog#klaster-investing-basics");
+    expect(getClusterAnchor("investing-basics")).toBe("cluster-investing-basics");
   });
 
   it("leads a term from the listing through the glossary", () => {

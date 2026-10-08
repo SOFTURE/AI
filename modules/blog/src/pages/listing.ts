@@ -23,9 +23,12 @@ export function getClusterLabel(cluster: string, labels: Readonly<Record<string,
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
-/** The anchor of a cluster's section on the listing: the target of the article's middle crumb. */
-export function getClusterAnchor(cluster: string): string {
-  return `cluster-${cluster}`;
+/** The cluster anchor prefix when the app sets none (`blog({ anchors: { cluster } })`). */
+export const DEFAULT_CLUSTER_ANCHOR_PREFIX = "cluster";
+
+/** The anchor of a cluster's section on the listing (`<prefix>-<cluster>`): the target of the article's middle crumb. */
+export function getClusterAnchor(cluster: string, prefix: string = DEFAULT_CLUSTER_ANCHOR_PREFIX): string {
+  return `${prefix}-${cluster}`;
 }
 
 /** The pillar leads its group; the rest keep their order. Without a pillar there is no lead. */
@@ -75,11 +78,21 @@ export interface CrumbLabels {
   readonly cluster: (cluster: string) => string;
 }
 
+export interface ArticleCrumbOptions {
+  /** The listing's cluster anchor prefix; `cluster` when left out. */
+  readonly clusterAnchorPrefix?: string;
+}
+
 /** Blog › cluster › title; without a cluster, Blog › title. */
-export function getArticleCrumbs(article: Pick<BlogArticle, "slug" | "title" | "cluster">, routes: BlogRoutes, labels: CrumbLabels): Crumb[] {
+export function getArticleCrumbs(
+  article: Pick<BlogArticle, "slug" | "title" | "cluster">,
+  routes: BlogRoutes,
+  labels: CrumbLabels,
+  options: ArticleCrumbOptions = {},
+): Crumb[] {
   const crumbs: Crumb[] = [{ name: labels.blog, path: routes.index }];
   if (article.cluster !== null) {
-    crumbs.push({ name: labels.cluster(article.cluster), path: `${routes.index}#${getClusterAnchor(article.cluster)}` });
+    crumbs.push({ name: labels.cluster(article.cluster), path: `${routes.index}#${getClusterAnchor(article.cluster, options.clusterAnchorPrefix)}` });
   }
   crumbs.push({ name: article.title, path: getArticlePath(routes, article.slug) });
   return crumbs;

@@ -108,7 +108,7 @@ export async function BlogArticlePage({ params, cta, afterArticle }: BlogArticle
   const context = getPageContext(config);
   const [terms, published] = await Promise.all([getPublishedTerms(config), getPublishedArticles(config)]);
   const body = renderPageBody<ReactNode>(article, getBodyOptions(config, context, terms));
-  const crumbs = getArticleCrumbs(article, context.routes, getCrumbLabels(config, context));
+  const crumbs = getArticleCrumbs(article, context.routes, getCrumbLabels(config, context), { clusterAnchorPrefix: context.clusterAnchorPrefix });
   const jsonLd = buildArticleJsonLd(config, article);
   return (
     <BlogArticleView
