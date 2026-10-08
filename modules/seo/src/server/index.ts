@@ -1,4 +1,4 @@
-// Server-only logic: the IndexNow submit. No `next/*` imports here (docs/02-module-standard.md §1),
+// Server-only logic: the IndexNow submit and the HTML to Markdown conversion. No `next/*` imports here (docs/02-module-standard.md §1),
 // so a publish CLI can call it outside a request.
 export {
   INDEXNOW_ENDPOINT,
@@ -9,3 +9,4 @@ export {
   type IndexNowResult,
   type SubmitToIndexNowOptions,
 } from "./indexnow.js";
+export { htmlToMarkdown, type HtmlToMarkdownOptions } from "./html-to-markdown.js";
