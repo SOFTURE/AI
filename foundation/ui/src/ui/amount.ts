@@ -8,8 +8,11 @@ import { getCopy, type CopyProps } from "./copy.js";
 
 export type AmountErrorCode = "ui.amount_invalid" | "ui.amount_out_of_range";
 
-/** Space, no-break space, narrow no-break space: what people and `Intl` put between groups. */
-const SPACES = "[ \\u00a0\\u202f]";
+/**
+ * Space, no-break space, narrow no-break space, thin space: what people, `Intl` and typeset text put between
+ * groups.
+ */
+const SPACES = "[ \\u00a0\\u202f\\u2009]";
 
 const AMOUNT_PATTERN: Readonly<Record<Locale, RegExp>> = {
   pl: new RegExp(`^-?(?:[1-9]\\d{0,2}(?:${SPACES}\\d{3})+|\\d+)(?:[.,]\\d{1,2})?$`),
