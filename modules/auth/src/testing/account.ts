@@ -30,28 +30,28 @@ interface TestAccountBase {
   readonly fields?: Readonly<Record<string, string>>;
 }
 
-interface TestAccountWithPassword extends TestAccountBase {
+/** An account with a password, hashed here (once per password and parameters). */
+export interface TestAccountInput extends TestAccountBase {
   readonly password: string;
   /** Hash parameters; the app's (`getAuthOptions(config).password.scrypt`) when a module context is given, else auth's default. */
   readonly scrypt?: ScryptParams;
   readonly passwordHash?: never;
 }
 
-interface TestAccountWithHash extends TestAccountBase {
+/** An account with a ready hash, stored as is. */
+export interface TestAccountHashInput extends TestAccountBase {
   /** A ready hash from `hashPassword`, stored as is: nothing is hashed. */
   readonly passwordHash: string;
   readonly password?: never;
   readonly scrypt?: never;
 }
 
-export type TestAccountInput = TestAccountWithPassword | TestAccountWithHash;
-
 /**
  * Creates an account and its roles in one transaction and returns it. The email is normalized as
  * registration normalizes it. An invalid or taken email, a malformed `passwordHash` or a hook that
  * throws rolls everything back and throws: in test setup it is a bug of the test.
  */
-export async function createTestAccount(target: Queryable | AuthContext, input: TestAccountInput): Promise<AuthUser> {
+export async function createTestAccount(target: Queryable | AuthContext, input: TestAccountInput | TestAccountHashInput): Promise<AuthUser> {
   const ctx = isModuleContext(target) ? target : null;
   const db = isModuleContext(target) ? target.db : target;
   const email = parseEmail(input.email);
@@ -81,7 +81,7 @@ export async function createTestAccount(target: Queryable | AuthContext, input: 
   });
 }
 
-async function readPasswordHash(input: TestAccountInput, email: string, ctx: AuthContext | null): Promise<string> {
+async function readPasswordHash(input: TestAccountInput | TestAccountHashInput, email: string, ctx: AuthContext | null): Promise<string> {
   if (input.passwordHash !== undefined) {
     if (!isPasswordHash(input.passwordHash)) throw new Error(`createTestAccount: the passwordHash for "${email}" is not a hash from hashPassword`);
     return input.passwordHash;
