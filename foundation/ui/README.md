@@ -113,9 +113,9 @@ or a comment throw.
 | Icons | `ArrowLeftIcon` … `ChatIcon`, `ChildIcon`, `LoanIcon` (35, decorative, `size` and `className`) |
 | Surfaces | `Card` (`boxed`, `lead`, `flat`; `step`, `done`, `accent`, `headingLevel`, `headingSize`, `collapsible`), `CardDisclosure`, `CollapsibleSection`, `Stat`, `EmptyState`, `Hint`, `FormError` |
 | Fields | `Field`, `FieldGroup`, `TextField`, `PasswordField`, `MoneyField`, `SelectField`, `CheckboxField`, `INPUT_CLASS`, `NUMBER_INPUT_CLASS` |
-| Controls | `Select` (ARIA listbox), `Switch`, `SwitchControl`, `Checkbox`, `SegmentedControl`, `SEGMENTED_GROUP_CLASS` + `SEGMENT_ACTIVE_CLASS` / `SEGMENT_IDLE_CLASS` (an app's own segments) |
-| Navigation | `Tabs` (ARIA tabs, roving focus), `TabPanels` (panels for a tab bar of links), `SegmentedNav` (links drawn as segments, `aria-current`) |
-| Dialogs and feedback | `Modal` (`form`, `confirmation`, `panel`), `StandingPanel`, `ModalBody`, `ModalFooter`, `ModalForm`, `ToastHost` + `announceToast` |
+| Controls | `Select` (ARIA listbox), `Switch`, `SwitchControl`, `Checkbox`, `SegmentedControl`, `SEGMENTED_GROUP_CLASS` + `SEGMENT_ACTIVE_CLASS` / `SEGMENT_IDLE_CLASS` (an app's own segments), `CopyButton` |
+| Navigation | `Tabs` (ARIA tabs, roving focus), `TabPanels` (panels for a tab bar of links), `SegmentedNav` (links drawn as segments, `aria-current`), `DisclosureMenu` + `useDisclosure` (a panel of links), `ExternalLink` |
+| Dialogs and feedback | `Modal` (`form`, `confirmation`, `panel`), `StandingPanel`, `ModalBody`, `ModalFooter`, `ModalForm`, `ConfirmActionButton`, `ActionFormModal`, `ModalTrigger`, `ToastHost` + `announceToast`, `useDismissed` (dismiss a banner for N days) |
 | Forms | `ActionForm` (server action, value replay, field errors, success toast), `ActionResult`, `MessageActionResult` |
 | Locale | `UiLocaleProvider`, `useUiLocale` |
 | Money and decimals | `parseAmount`, `formatAmountInput`, `normalizeAmountInput`, `getAmountErrorMessage`, `parseDecimal`, `formatDecimal`, `normalizeDecimalInput` |
@@ -131,7 +131,7 @@ Server-safe (no `"use client"`): `Button`, `ButtonLink`, `ButtonAnchor`, `IconBu
   An app class is added to the default and wins, because the defaults sit in `@layer softure`.
 - **`unstyled`.** Drops every default class and keeps structure, ARIA and behaviour.
 - **Copy.** Components with built-in text (`Modal`, `ModalFooter`, `StandingPanel`, `ActionForm`,
-  `Card` hint and collapse names, field hint names) take `locale` (the provider's, else `en`; `pl`
+  `ConfirmActionButton`, `CopyButton`, `ExternalLink`, `Card` hint and collapse names, field hint names) take `locale` (the provider's, else `en`; `pl`
   too) and partial `messages` for their group in `uiMessages`. Everything else the user reads (labels, titles, button text) comes from the app as
   props.
 - **Links.** `ButtonLink` renders `<a>` unless you inject your router's link:
@@ -272,6 +272,64 @@ Slots: `root`, `heading`, `toggle`, `arrow`, `title`, `subtitle`, `content`.
 
 Every `text-*` size carries Tailwind's default line height (a ratio of the size token); an explicit
 `leading-*` still wins.
+
+### Menus, confirmations and small interactions
+
+```tsx
+<DisclosureMenu label="Account" icon={<UserIcon />} isLabelHidden closeKey={usePathname()}>
+  <ul><li><Link href="/settings">Settings</Link></li><li><Link href="/billing">Billing</Link></li></ul>
+</DisclosureMenu>
+
+<ConfirmActionButton label="Delete account" icon={<TrashIcon />} title="Delete this account?"
+  description="All data is removed. This cannot be undone." confirmLabel="Delete"
+  action={deleteAccount} />                 {/* () => Promise<{ ok: true, message? } | { ok: false, error }> */}
+
+<ModalTrigger label="Add debt" title="New debt" action={addDebt} getErrorMessage={t} submitLabel="Save"
+  successMessage="Added">                   {/* "+" IconButton; the dialog closes after a successful save */}
+  <TextField name="name" label="Name" />
+</ModalTrigger>
+
+<CopyButton value={token} />                {/* or isIconOnly; label, variant, size, resetMs, onCopy */}
+<ExternalLink href="https://example.com">Docs</ExternalLink>
+
+const { isDismissed, dismiss } = useDismissed("banner.trial", 7);
+```
+
+`DisclosureMenu` is the WAI-ARIA disclosure for navigation (no `role="menu"`): a button with `aria-expanded` and
+`aria-controls`, and a panel that is `hidden` while closed. Escape closes it and returns focus to the button. A press
+outside closes it; it is heard on `document` in the capture phase, so a handler that stops propagation (React 19 does
+so before hydration) cannot keep it open. A click on a link inside closes it, and so does a new `closeKey`: pass the
+route (`usePathname()`), since the package imports no framework. Focus leaving by keyboard closes it; a pointer
+moving focus is already the outside press. `useDisclosure({ closeKey })` gives the same behaviour to an app's own
+markup (`triggerProps` on a `<button>`, `panelProps` on the panel). Slots: `root`, `trigger`, `label`, `panel`;
+`align` (`end` by default) picks the edge the panel lines up with.
+
+`ConfirmActionButton` opens a `confirmation` `Modal` with the stakes (`description`) and Cancel plus a `danger`
+confirm button; the dialog waits for the user, with no timer. While `action` runs the dialog cannot be dismissed.
+`{ ok: true, message }` closes it and announces `message` (else `successMessage`) through `announceToast`;
+`{ ok: false, error }` keeps it open with `error` above the buttons, and a rejected action shows the package's copy.
+`isIconOnly` with `icon` draws the trigger as a `danger` `IconButton`. Slots: `trigger`, `description`, `confirm`.
+
+`ActionFormModal` is an `ActionForm` (all its props) in a `Modal` (`title`, `subtitle`, `width`, `headingLevel`,
+`onClose`, `modalClassNames`): it is not dismissible while saving and closes after a successful save.
+`ModalTrigger` adds the bordered "+" `IconButton` (`label`, `icon`, `triggerClassNames`) that opens it; focus comes
+back to the button when the dialog closes.
+
+`CopyButton` writes to `navigator.clipboard` in a secure context and shows "Copied" for `resetMs` (2 s), also in a
+polite live region. Without a secure context, or when the browser refuses, it shows "Copy failed" and a read-only
+field with the value, focused and selected, with a "Press Ctrl+C" hint. `writeToClipboard(value)` is the same
+attempt without the button. Slots: `root`, `button`, `status`, `fallback`, `fallbackInput`, `fallbackHint`.
+
+`ExternalLink` opens a new tab, keeps the app's `rel` tokens and adds `noopener noreferrer`, and ends with a
+visually hidden "(opens in a new tab)" (slot `note`).
+
+`useDismissed(key, days)` returns `{ isDismissed, dismiss, restore }`. `localStorage[key]` holds the local date of
+the dismissal (`YYYY-MM-DD`, nothing else); the notice stays hidden until `days` calendar days have passed. Blocked
+or full storage never throws: the notice shows, and `dismiss` still hides it until the page is left. On the server
+and until hydration `isDismissed` is `true`, so a dismissed banner never flashes in.
+
+`SegmentedControl` marks the checked segment with an inset ring in the text colour as well as the accent fill, and
+`SEGMENT_ACTIVE_CLASS` does the same, so the choice reads without colour (WCAG 1.4.11) even with a light accent.
 
 ### Modal
 

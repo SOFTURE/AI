@@ -1,4 +1,4 @@
-import type { Locale } from "@softure-ai/core";
+import { formatCalendarDay, isCalendarDay, type Locale } from "@softure-ai/core";
 import { type ClassNames, createSlotClassGetter } from "@softure-ai/ui";
 import { type ReactNode, useId } from "react";
 import type { PrivacyMessages } from "../messages/index.js";
@@ -141,17 +141,9 @@ const DOCUMENT_CLASSES: Readonly<Record<LegalDocumentSlot, string>> = {
   changeMeta: "sft:font-medium sft:text-muted sft:tabular-nums",
 };
 
-const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
-
 /** `2026-10-01` as the locale writes it (`October 1, 2026` in English); other text as given. */
 export function formatLegalDate(date: string, locale: Locale): string {
-  const match = ISO_DATE.exec(date);
-  if (match === null) return date;
-  const [, year, month, day] = match.map(Number) as [number, number, number, number];
-  const value = new Date(Date.UTC(year, month - 1, day));
-  // A calendar date, so UTC: the server's time zone must not move it to the day before.
-  if (value.getUTCDate() !== day) return date;
-  return new Intl.DateTimeFormat(locale, { dateStyle: "long", timeZone: "UTC" }).format(value);
+  return isCalendarDay(date) ? formatCalendarDay(date, locale, "long") : date;
 }
 
 /** The default anchor of the change history section. */
