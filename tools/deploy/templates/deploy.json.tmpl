@@ -3,6 +3,12 @@
 {{#hasRowCountTables}}
   "database": { "rowCountTables": [{{rowCountTablesJson}}] },
 {{/hasRowCountTables}}
+{{#cloudflare}}
+  "hooks": {
+    "post-up": [{ "name": "cloudflare-ranges", "run": ["bash", "hooks/cloudflare-ranges.sh"] }],
+    "maintain": [{ "name": "cloudflare-ranges-daily", "run": ["bash", "hooks/cloudflare-ranges.sh"] }]
+  },
+{{/cloudflare}}
   "verify": {
     "headers": { "strict-transport-security": "max-age=", "x-powered-by": null },
     "routes": [
