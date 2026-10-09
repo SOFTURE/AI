@@ -6,6 +6,9 @@ version in production, the version gets a line `verified in: <app>@<commit>` ([d
 
 ## 0.1.3
 
+- `nextHeaders()` returns rules assignable to `NextConfig["headers"]`: `NextHeaderRule` is now mutable like Next's
+  `Header`, so `async headers() { return [...nextHeaders()]; }` typechecks in a `next.config.ts` typed as
+  `NextConfig` without copying the inner `headers` array (#304).
 - The MCP server factory can stay out of `softure.config.ts` (#316): `createAgentReadyRoutes({ createServer })` from
   `/next` builds every handler, the five that introspect the server around `createServer`; `mcp.server` is optional
   and still used by the plain exports. Without a factory anywhere those documents answer 500 with a log line naming
@@ -25,6 +28,7 @@ version in production, the version gets a line `verified in: <app>@<commit>` ([d
   from the config's `origins` block the request was sent to, else `appOrigin`. `readRequestHost` and
   `readRequestOrigin` are core's (`readRequestOrigin` answers `null` for a host that is no host). Documents vary on
   `x-forwarded-host` too. Needs `@softure-ai/core` 0.1.8.
+
 ## 0.1.1
 
 - README: the installation section lists the `agent-ready` CLI commands (`web-bot-auth key`, `dns-aid check`,
