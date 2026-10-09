@@ -1,7 +1,7 @@
 // The app's legal documents and their current versions, declared once in `privacy({ documents })`:
 // consents are stamped with these versions, and legal pages show the same ones.
-import { toCalendarDay, type SoftureConfig } from "@softure-ai/core";
-import { isLegalDate, type LegalDocumentDeclaration } from "../options.js";
+import { isCalendarDay, toCalendarDay, type SoftureConfig } from "@softure-ai/core";
+import type { LegalDocumentDeclaration } from "../options.js";
 import { getPrivacyOptions } from "./options.js";
 
 /** Every declared document, in the order the config lists them. */
@@ -31,10 +31,10 @@ export function getLegalDocument(config: SoftureConfig, id: string): LegalDocume
  */
 export function getDocumentVersionAt(config: SoftureConfig, id: string, at: Date | string): string | undefined {
   const document = getLegalDocument(config, id);
-  if (typeof at === "string" && !isLegalDate(at)) {
-    throw new Error(`@softure-ai/privacy: getDocumentVersionAt: "${at}" is not a calendar day, YYYY-MM-DD`);
+  const day = at instanceof Date ? toCalendarDay(at, config.timezone) : at;
+  if (!isCalendarDay(day)) {
+    throw new Error(`@softure-ai/privacy: getDocumentVersionAt: ${JSON.stringify(at)} is not a calendar day, YYYY-MM-DD`);
   }
   if (document.history.length === 0) return document.version;
-  const day = typeof at === "string" ? at : toCalendarDay(at, config.timezone);
   return document.history.find((revision) => revision.date <= day)?.version;
 }

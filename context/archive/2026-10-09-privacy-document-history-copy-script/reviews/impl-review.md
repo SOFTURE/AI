@@ -11,9 +11,9 @@ Verdict: **approve**.
 The repository test requires every module package in `peerDependencies` to be named in `dependsOn`; auth and billing
 name `ops` as `^0.1.0?` for the same reason. An app without ops still starts. No change.
 
-### F2 (Suggestion): the history's dates are validated locally
-`isLegalDate` checks `YYYY-MM-DD` and that the day exists. #312 (open) adds `isCalendarDay` to core; once it is on
-master the check can delegate to it. Left for that change, which owns the date helpers.
+### F2 (Suggestion): the history's dates use core's helpers
+After #312 merged, the history's dates and `getDocumentVersionAt`'s day are checked with `isCalendarDay` from
+`@softure-ai/core` instead of a local copy. Applied.
 
 ### F3 (Suggestion): the script's dry run and sequences
 Covered by D3; README and the script's description say so. No change.

@@ -1,5 +1,5 @@
 // The options an app passes to `privacy({ ... })` in softure.config.ts, parsed at startup.
-import type { PrivacyContributor } from "@softure-ai/core";
+import { isCalendarDay, type PrivacyContributor } from "@softure-ai/core";
 import { z } from "zod";
 
 /** Kebab-case, like a module id: contributor ids are the keys of the export. */
@@ -31,22 +31,11 @@ const appContributorSchema = z
     message: "needs exportUserData, deleteUserData or both",
   });
 
-const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
-
-/** `YYYY-MM-DD` naming a day that exists: `2026-02-30` does not. */
-export function isLegalDate(value: string): boolean {
-  const match = ISO_DATE.exec(value);
-  if (match === null) return false;
-  const [, year, month, day] = match.map(Number) as [number, number, number, number];
-  const date = new Date(Date.UTC(year, month - 1, day));
-  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
-}
-
 const documentVersionSchema = z.string().regex(DOCUMENT_VERSION_PATTERN, "must be 1-32 letters, digits, '.', '_' or '-', e.g. 2026-10-01");
 
 const legalRevisionSchema = z.strictObject({
   /** The calendar day this text takes effect, `YYYY-MM-DD`. */
-  date: z.string().refine(isLegalDate, "must be a calendar day, YYYY-MM-DD"),
+  date: z.string().refine(isCalendarDay, "must be a calendar day, YYYY-MM-DD"),
   /** What changed, in a sentence the document's change history shows. */
   summary: z.string().refine((summary) => summary.trim() !== "", "must say what changed"),
   /** The version this text carries; the date when left out. */

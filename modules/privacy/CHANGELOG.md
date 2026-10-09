@@ -19,7 +19,6 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 - `createCopyAccountScript({ exclude?, include?, onMissingReference? })` in the new `/scripts` entry: `copyAccount`
   as a safe ops script, `--from` (or `--from-file`) the source database, `--user` or `--email` the account, dry run
   unless `--commit`, into the app's database. `@softure-ai/ops` is an optional peer dependency for it (#325).
-
 - Reads driver errors with `findDriverError` from `@softure-ai/db` instead of a private copy. Same behaviour;
   requires `@softure-ai/db` `^0.1.7` (#313).
 - `formatLegalDate` (`/ui`) uses core's `isCalendarDay` and `formatCalendarDay`; same output, other text still
