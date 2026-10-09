@@ -10,7 +10,7 @@
 // Behind a proxy `request.url` carries the server's own host. The public origin comes from `Host`
 // (`readPublicOrigin`), and only when it is `appOrigin` or one of `analytics({ origins })`. Without a
 // proxy (a dev server on `localhost:<port>`) `Host` is the request URL's own host, and `tag` stays there.
-import type { SoftureConfig } from "@softure-ai/core";
+import { readForwardedProto, readRequestHost, type SoftureConfig } from "@softure-ai/core";
 import type { ChannelFromReferer } from "../options.js";
 import { deriveChannel, hasChannelParam, isFirstParty, readChannel, readPublicOrigin, withChannel } from "../server/channel.js";
 import { getChannelOptions } from "../server/options.js";
@@ -147,10 +147,8 @@ function toPathname(path: unknown): string {
  * Null when `Host` is missing or names another host.
  */
 function readOwnOrigin(request: Request, url: URL): string | null {
-  const host = request.headers.get("host")?.toLowerCase();
-  if (host === undefined || host !== url.host) return null;
-  const proto = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim().toLowerCase();
-  return `${proto === "http" || proto === "https" ? proto : url.protocol.slice(0, -1)}://${url.host}`;
+  if (request.headers.get("host") === null || readRequestHost(request) !== url.host) return null;
+  return `${readForwardedProto(request) ?? url.protocol.slice(0, -1)}://${url.host}`;
 }
 
 /** A Location without a scheme or host (`/login`, `login`, `?x`), which the browser resolves itself. */

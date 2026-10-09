@@ -1,12 +1,12 @@
 // The origins one request is served under. An app may answer on two hosts: the apex (marketing, docs and every
 // discovery document, where scanners look) and the app host (the MCP endpoint, OAuth and the consent screen).
-// Pure: no config, no environment.
+// Pure: no config, no environment. Reading the request is core's rule (`readRequestOrigin`, issue #311).
+import { readRequestHost, readRequestOrigin, type OriginRequest } from "@softure-ai/core";
+
+export { readRequestHost, readRequestOrigin, readServedOrigin };
 
 /** What the origin helpers read from a request: a Web `Request`, or anything with a URL and headers. */
-export interface OriginRequest {
-  readonly url: string;
-  readonly headers: { get(name: string): string | null };
-}
+export type { OriginRequest };
 
 export interface AgentOrigins {
   /** The host of the MCP endpoint and of every OAuth URL. */
@@ -31,26 +31,14 @@ export function trimOrigin(origin: string): string {
   return origin.slice(0, end);
 }
 
-function readFirstValue(header: string | null): string | null {
-  const value = header?.split(",")[0]?.trim().toLowerCase();
-  return value === undefined || value === "" ? null : value;
-}
-
-/** The host the request was sent to: `Host`, else the URL's host. */
-export function readRequestHost(request: OriginRequest): string {
-  return readFirstValue(request.headers.get("host")) ?? new URL(request.url).host;
-}
-
 /**
- * The origin the request was sent to: the first `X-Forwarded-Proto` value when it is http or https (else the URL's
- * scheme) and `Host` (else the URL's host). Never `request.url` alone: a standalone Next server reports its listening
- * address there (`http://0.0.0.0:3000`).
+ * The origin the request was sent to (core `readRequestOrigin`: `X-Forwarded-Proto` when http(s), `Host`); throws by
+ * name when `Host` is no host, so a document is never built on it.
  */
-export function readRequestOrigin(request: OriginRequest): string {
-  const url = new URL(request.url);
-  const proto = readFirstValue(request.headers.get("x-forwarded-proto"));
-  const scheme = proto === "http" || proto === "https" ? proto : url.protocol.replace(/:$/, "");
-  return new URL(`${scheme}://${readRequestHost(request)}`).origin;
+function readServedOrigin(request: OriginRequest): string {
+  const origin = readRequestOrigin(request);
+  if (origin === null) throw new Error(`@softure-ai/agent-ready: the request's host "${readRequestHost(request).slice(0, 100)}" is not a host`);
+  return origin;
 }
 
 function toOrigin(value: string | undefined): string | null {
@@ -63,7 +51,7 @@ function toOrigin(value: string | undefined): string | null {
  * configured value, else `appOrigin`. Every value is a bare origin.
  */
 export function resolveOrigins(request: OriginRequest, settings: OriginSettings = {}): AgentOrigins {
-  const requestOrigin = readRequestOrigin(request);
+  const requestOrigin = readServedOrigin(request);
   const appOrigin = toOrigin(settings.appOrigin) ?? requestOrigin;
   const apexOrigin = toOrigin(settings.apexOrigin) ?? appOrigin;
   return { appOrigin, apexOrigin, requestOrigin };
