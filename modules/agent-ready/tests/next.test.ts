@@ -30,8 +30,8 @@ const OAUTH_OPTIONS: Partial<AgentReadyOptionsInput> = {
   skills: [{ name: "notes", description: "Work with notes.", body: (origins) => `\nNotes live at ${origins.apexOrigin}/notes.\n` }],
 };
 
-function register(options: Partial<AgentReadyOptionsInput> = {}, appOrigin = APP): void {
-  registerSoftureConfig(defineSoftureConfig({ locale: "en", timezone: "Europe/Warsaw", appOrigin, modules: [agentReady({ ...BASE_OPTIONS, ...options })] }));
+function register(options: Partial<AgentReadyOptionsInput> = {}, appOrigin = APP, origins?: { trustedOrigins?: string[]; trustRequestHost?: boolean }): void {
+  registerSoftureConfig(defineSoftureConfig({ locale: "en", timezone: "Europe/Warsaw", appOrigin, origins, modules: [agentReady({ ...BASE_OPTIONS, ...options })] }));
 }
 
 function get(path: string, host = "example.com"): Request {
@@ -67,7 +67,7 @@ describe("every document", () => {
       expect(response.headers.get("content-type")).toBe(type);
       expect(response.headers.get("access-control-allow-origin")).toBe("*");
       expect(response.headers.get("cache-control")).toBe(`public, ${cache}`);
-      expect(response.headers.get("vary")).toBe("host, x-forwarded-proto");
+      expect(response.headers.get("vary")).toBe("host, x-forwarded-host, x-forwarded-proto");
       const text = await response.text();
       expect(text.endsWith("\n")).toBe(true);
       if (type.includes("json")) expect(text).toBe(`${JSON.stringify(JSON.parse(text), null, 2)}\n`);
@@ -96,6 +96,16 @@ describe("the origin matrix", () => {
     const resolved = await readJson(await serveApiCatalog(get("/.well-known/api-catalog", "staging.example.org")));
     expect(JSON.stringify(resolved)).toContain("https://staging.example.org/api/mcp");
     expect(JSON.stringify(resolved)).not.toContain("0.0.0.0");
+  });
+
+  it("takes the app origin from the config's origins block without a resolveAppOrigin option (#311)", async () => {
+    register({}, APP, { trustedOrigins: ["https://staging.example.org"] });
+    const endpointOf = async (host: string) => JSON.stringify(await readJson(await serveApiCatalog(get("/.well-known/api-catalog", host))));
+    expect(await endpointOf("staging.example.org")).toContain("https://staging.example.org/api/mcp");
+    expect(await endpointOf("evil.example")).toContain(`${APP}/api/mcp`);
+    expect(await endpointOf("evil.example")).not.toContain("evil.example/api/mcp");
+    register({}, APP, { trustRequestHost: true });
+    expect(await endpointOf("preview.example.net")).toContain("https://preview.example.net/api/mcp");
   });
 
   it("answers 500 and logs by name when resolveAppOrigin returns something other than an origin, or Host is malformed", async () => {

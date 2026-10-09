@@ -1,7 +1,7 @@
 // The unsubscribe page, its action and the one-click route, with Next's request scope replaced:
 // the config and the database come from the test, `redirect` throws what it was given.
 import type { SoftureConfig } from "@softure-ai/core";
-import { getUnsubscribeRoute, postUnsubscribeRoute, unsubscribeAction, UnsubscribePage } from "@softure-ai/mailing/next";
+import { createUnsubscribePage, getUnsubscribeRoute, postUnsubscribeRoute, unsubscribeAction, UnsubscribePage, type UnsubscribeLayoutProps } from "@softure-ai/mailing/next";
 import { getRecipientKey, signRecipientKey, type SuppressionContext } from "@softure-ai/mailing/server";
 import { fakeMailProvider } from "@softure-ai/mailing/testing";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -93,12 +93,12 @@ describe("the unsubscribe adapter", () => {
 
     it("still answers 500 on a database failure with oneClickInvalidLinkStatus 200", async () => {
       scope.context = { ...test.ctx, config: createConfig(fakeMailProvider(), { oneClickInvalidLinkStatus: 200 }) };
-      await test.database.client.query("DROP TABLE mailing.suppressions");
+      await test.database.client.query("DROP TABLE mailing.suppressions CASCADE");
       expect((await post(QUERY)).status).toBe(500);
     });
 
     it("answers 500 when the database fails, and logs no link", async () => {
-      await test.database.client.query("DROP TABLE mailing.suppressions");
+      await test.database.client.query("DROP TABLE mailing.suppressions CASCADE");
       expect((await post(QUERY)).status).toBe(500);
       expect(logged()).toMatch(/^@softure-ai\/mailing: one-click unsubscribe failed: /);
       expect(logged()).not.toContain(KEY);
@@ -139,7 +139,7 @@ describe("the unsubscribe adapter", () => {
     });
 
     it("brings the form back with the same link when the database fails", async () => {
-      await test.database.client.query("DROP TABLE mailing.suppressions");
+      await test.database.client.query("DROP TABLE mailing.suppressions CASCADE");
       expect(await submit({ r: KEY, t: SIGNATURE })).toBe(`/unsubscribe?status=failed&${QUERY}`);
       expect(logged()).not.toContain(KEY);
     });
@@ -181,6 +181,48 @@ describe("the unsubscribe adapter", () => {
     it("speaks the app's language", async () => {
       scope.config = createConfig(fakeMailProvider(), { locale: "pl" });
       expect(await renderPage(QUERY)).toContain("Wypisz mnie");
+    });
+
+    const toSearchParams = (query: string) => Promise.resolve(Object.fromEntries(new URLSearchParams(query)));
+
+    it("adds the app's classes to its slots", async () => {
+      const Page = createUnsubscribePage({ classNames: { root: "app-root", card: "app-card", form: "app-form", submit: "app-submit" } });
+      const html = renderToStaticMarkup(await Page({ searchParams: toSearchParams(QUERY) }));
+
+      expect(html).toMatch(/<main class="[^"]*sft:mx-auto[^"]* app-root">/);
+      expect(html).toMatch(/class="[^"]* app-card"/);
+      expect(html).toMatch(/<form [^>]*class="sft:flex sft:flex-col sft:gap-3 sft:font-sans app-form"/);
+      expect(html).toMatch(/<button [^>]*class="[^"]* app-submit"/);
+    });
+
+    it("drops the default classes when unstyled", async () => {
+      const Page = createUnsubscribePage({ unstyled: true, classNames: { form: "app-form" } });
+      const html = renderToStaticMarkup(await Page({ searchParams: toSearchParams(QUERY) }));
+
+      expect(html).not.toContain("sft:");
+      expect(html).toContain('class="app-form"');
+    });
+
+    it("renders the app's layout around the copy and the form, and keeps the referrer policy", async () => {
+      function AppShell({ title, lead, children }: UnsubscribeLayoutProps) {
+        return (
+          <section className="app-shell">
+            <h1>{title}</h1>
+            <p>{lead}</p>
+            {children}
+          </section>
+        );
+      }
+      const Page = createUnsubscribePage({ Layout: AppShell });
+
+      const form = renderToStaticMarkup(await Page({ searchParams: toSearchParams(QUERY) }));
+      const done = renderToStaticMarkup(await Page({ searchParams: toSearchParams("status=done") }));
+
+      expect(form).toContain('<section class="app-shell"><h1>Unsubscribe</h1>');
+      expect(form).toContain(`name="t" value="${SIGNATURE}"`);
+      expect(form).toContain(`<meta name="referrer" content="same-origin"/>`);
+      expect(form).not.toContain("<main");
+      expect(done).toBe('<meta name="referrer" content="same-origin"/><section class="app-shell"><h1>You are unsubscribed</h1><p>We will not send you these emails any more.</p></section>');
     });
   });
 });

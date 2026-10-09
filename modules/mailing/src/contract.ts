@@ -89,12 +89,18 @@ export type LegacyUnsubscribeParams = readonly string[] | { readonly required: r
  * Unsubscribe links an app sent before it adopted the module, in its own scheme. `params` are the query names of
  * such a link; `verify` receives the values the link carried (every required name, the optional names that are
  * present and non-empty, each at most 512 characters) and returns the recipient's address when the link is genuine,
- * else `null`. It must check the link's signature itself: whatever address it returns is unsubscribed. A throw
- * reads as a failure (the person may try again), not as a bad link.
+ * else `null`. It must check the link's signature itself: whatever address it returns is unsubscribed. `env` is the
+ * environment `unsubscribe` was given (`process.env` in the page and the route), so the old signing key is read
+ * from it and a test passes its own instead of stubbing `process.env`. A throw reads as a failure (the person may
+ * try again), not as a bad link.
  */
 export interface LegacyUnsubscribe {
   readonly params: LegacyUnsubscribeParams;
-  readonly verify: (values: Readonly<Record<string, string>>, ctx: ModuleContext<Queryable>) => Promise<string | null>;
+  readonly verify: (
+    values: Readonly<Record<string, string>>,
+    ctx: ModuleContext<Queryable>,
+    env: Readonly<Record<string, string | undefined>>,
+  ) => Promise<string | null>;
 }
 
 /** One mail to one recipient. A mail to a list is a loop over recipients, never a list in `to`. */

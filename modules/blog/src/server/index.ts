@@ -22,7 +22,10 @@ export {
   type PublishProblem,
   type RunBlogPublishOptions,
 } from "../db/publish-run.js";
+export { findArticlesLinkingTermFor, getBodyOptions, type ArticlesLinkingTermInput } from "./body-options.js";
 export { checkArticlesTable } from "./health.js";
+export { createOgFontLoader, type OgFont, type OgFontLoaderOptions, type OgFontsResult } from "./og-fonts.js";
+export { getPageContext } from "./page-context.js";
 export { getBlogLocaleTags, getBlogMessages, getBlogOptions, getBlogRefreshPath, getBlogReservedSlugs, getBlogRoutes, getQualitySettings, type BlogLocaleTags } from "./options.js";
 export * from "../discovery/index.js";
 export * from "../pages/index.js";

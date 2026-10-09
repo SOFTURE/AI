@@ -87,7 +87,7 @@ export default config;
 | `legacySession` | `{ cookieName, tokenPattern }` | none | Sessions of the system the app took over (section 5, "Adopting existing sessions"). |
 | `registrationClosed` | `boolean` | `false` | Declared default of the `auth.registration_closed` switch. |
 | `roles` | `string[]` | `[]` | Role names the app checks besides `admin` (always declared): `a-z`, `0-9`, `_`, `-`, at most 32. |
-| `adminEmails` | `string[]` | `[]` | Initial admin list: while an email is listed, its account holds `admin`. Auth does not verify emails, so create these accounts before you deploy the list (section 4, "Roles"). |
+| `adminEmails` | `string[] \| string` | `[]` | Initial admin list: while an email is listed, its account holds `admin`. Auth does not verify emails, so create these accounts before you deploy the list (section 4, "Roles"). A list refuses an entry that is not an email at config load. A string is the raw environment value (`adminEmails: process.env.ADMIN_EMAILS ?? ""`): entries split on commas and whitespace, trimmed and lowercased; one that is not an email is dropped with one log line naming its position and grants nothing. |
 | `onRegistered` | `(event, ctx) => Promise<void>` | none | Called after the account is created, inside the same transaction. |
 | `rewriteRedirect` | `(path, { config, searchParams? }) => string \| Promise<string>` | none | Rewrites the path of every auth redirect: the actions' (login, sign-up, password reset, logout), the login and register pages' redirect of a signed-in visitor and `requireUser`'s redirect to login, e.g. `tagRedirect` from `@softure-ai/analytics/next`, which keeps the channel tag. A page passes its own `searchParams` (`URLSearchParams`; `requireUser` hands over the ones the page gives it); an action passes none, and during a page's render the `Referer` is the page before, not the page itself. A result that is not a path on this app, or an error, leaves auth's own path. |
 | `passwordReset.send` | `(link, user, details) => Promise<void>` | none | Delivers reset links (section 4, "Password reset"). Without it password reset is off. |
@@ -226,16 +226,19 @@ A protected prefix matches whole path segments (`/account` covers `/account/pass
 because behind a reverse proxy the request URL carries the server's internal host.
 
 An app served on several hosts from one build (the product on `app.example.com`, pages on
-`example.com`) lists the others in `trustedOrigins`, so a visitor is sent to the login page on the
-host they used:
+`example.com`) lists the others in the config's `origins.trustedOrigins` (read by every module), so a
+visitor is sent to the login page on the host they used. The guard's own `trustedOrigins` option adds
+origins for the guard alone:
 
 ```ts
-const guard = createAuthGuard(softureConfig, { protect: ["/account"], trustedOrigins: ["https://example.com"] });
+defineSoftureConfig({ appOrigin: "https://app.example.com", origins: { trustedOrigins: ["https://example.com"] }, ... });
+const guard = createAuthGuard(softureConfig, { protect: ["/account"] });
 ```
 
-The guard reads the request's public origin from `X-Forwarded-Proto` and `X-Forwarded-Host` (first
-values), else from `Host` and the URL's scheme, and uses it only when it equals a listed origin
-(scheme, host and port); any other request goes to `appOrigin`. Headers alone can therefore never
+The guard builds the redirect on core's `resolveAppOrigin` (core README, "Request origins"): the
+request's public origin from `X-Forwarded-Proto` and `X-Forwarded-Host` (first values), else from
+`Host` and the URL's scheme, used only when it equals a listed origin (scheme, host and port); any
+other request goes to `appOrigin` (or, with `origins.trustRequestHost`, to the `Host` origin). Headers alone can therefore never
 send a visitor to a host the app did not list. An entry that is not an `http(s)` origin throws when
 the guard is created. A session cookie shared by the hosts needs `cookie.domain`.
 
@@ -247,9 +250,16 @@ const guard = createAuthGuard(softureConfig, { protect: ["/"], exclude: ["/", "/
 ```
 
 In `exclude`, `"/"` is the home page only; any other entry matches whole segments like `protect`.
+An app that keeps an exact allowlist instead lists the paths in `excludeExact`: `/pricing` there lets
+`/pricing` and `/pricing/` through and guards `/pricing/plans`.
 Auth's own public pages (login, register, forgot and reset password) and `/api/auth/session` are
 never guarded, so `protect: ["/"]` cannot send the login page to itself. The change-password route
 stays guarded even under an excluded prefix.
+
+A stack the config cannot list (an integration run on a random port, a host added at deploy time)
+sets `redirect: "relative"`: the `Location` is the path only (`/login?next=%2Faccount`), so the browser
+stays on the host and port it used and no request header is read. An app whose image serves hosts it
+does not know in advance can instead set the config's `origins.trustRequestHost` (core README).
 
 **Roles.** A role is a declared name (`admin`, plus `auth({ roles: ["editor"] })`) held by an
 account: as a row in `auth.user_roles`, or, for `admin` only, through `adminEmails`. Nothing is
@@ -409,9 +419,9 @@ auth({
 
 **Tests.** `createTestAccount(db, { email, password, roles?, scrypt? })` from `@softure-ai/auth/testing`
 writes an account and its role rows in one transaction, hashed as registration hashes it, and returns
-the `AuthUser`. It is for tests that need an account but are not about registration: no `onRegistered`
-hook runs (no consent row) and no session is opened, so the test signs in through the login form.
-Pass the app's parameters, so the first login does not rehash:
+the `AuthUser`. It is for tests that need an account but are not about registration: no session is
+opened, so the test signs in through the login form. One password with one set of parameters is hashed
+once per test run. Pass the app's parameters, so the first login does not rehash:
 
 ```ts
 import { getAuthOptions } from "@softure-ai/auth/server";
@@ -425,7 +435,24 @@ const user = await createTestAccount(handle.db, {
 });
 ```
 
-An invalid or taken email throws. The entry is server-only and never imported by the module itself.
+A fixture account takes more, with a module context (`{ db, clock, config }`) instead of the database:
+
+```ts
+const user = await createTestAccount(ctx, {
+  id: "0b9f5a0e-3c1d-4f6e-9a2b-7c8d9e0f1a2b",
+  email: "ada@example.com",
+  passwordHash: FIXTURE_HASH, // from hashPassword, stored as is: nothing is hashed
+  createdAt: new Date("2025-01-02T03:04:05Z"),
+  runHooks: true, // the app's onRegistered runs in the account's transaction
+  fields: { channel: "newsletter" }, // event.fields for the hook
+});
+```
+
+With a context and no `scrypt`, a `password` is hashed with the app's parameters. `runHooks` hands the
+hook a consent accepted at `createdAt` (null when `requireConsent` is off); it needs the context and
+throws with a bare database. An invalid or taken email, a `passwordHash` that is not a module hash or a
+hook that throws rolls everything back and throws. The entry is server-only and never imported by the
+module itself.
 
 ## 5. Migrations and tables
 

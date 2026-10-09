@@ -28,6 +28,10 @@ interface SoftureConfigInput {
   locale: "en" | "pl";
   timezone: string;                  // IANA zone, e.g. "Europe/Warsaw"
   appOrigin: string;                 // http(s) origin without a path
+  origins?: {                        // read by resolveAppOrigin, see "Request origins" below
+    trustedOrigins?: string[];       // other origins the app is served under (at most 16)
+    trustRequestHost?: boolean;      // trust Host for any host (default false)
+  };
   modules: SoftureModule[];          // a module is enabled by being listed
 }
 ```
@@ -115,6 +119,37 @@ export const notes = defineModule({
   `expect(JSON.parse(readFileSync("module.json", "utf8"))).toEqual(toModuleJson(notes))`.
 - Version ranges in `dependsOn`: `x.y.z`, `^x.y.z`, `~x.y.z`, `*`, each optionally ending in `?`
   (optional dependency). Caret follows npm on `0.x`: `^0.1.0` is `>=0.1.0 <0.2.0`.
+
+### Request origins
+
+Behind a proxy `request.url` names the server's listening address (`http://0.0.0.0:3000`), so a module that builds an
+absolute URL for a request (auth's login redirect, agent-ready's documents, mcp-access's OAuth URLs, analytics' channel
+redirect) reads the origin from headers, with one rule from core:
+
+```ts
+import { getTrustedOrigins, readRequestHost, readRequestOrigin, resolveAppOrigin } from "@softure-ai/core";
+
+readRequestHost(request);                          // first Host value, else the URL's host; lowercased
+readRequestHost(request, { forwardedHost: true }); // first X-Forwarded-Host value first
+readRequestOrigin(request);                        // X-Forwarded-Proto when http(s), else the URL's scheme; null for a bad host
+getTrustedOrigins(config);                         // appOrigin, then origins.trustedOrigins
+resolveAppOrigin(config, request);                 // the app origin to build URLs on for this request
+```
+
+`resolveAppOrigin` answers, in order:
+
+1. the request's origin read with `X-Forwarded-Host` (a proxy that rewrites `Host` names the public host there), when
+   it is one of `getTrustedOrigins(config, extra)`;
+2. with `origins.trustRequestHost`, the request's origin read from `Host`, whatever the host: for one image served
+   under origins nobody lists (a test stack on another port), behind a proxy that passes `Host` through and refuses
+   hosts it does not serve;
+3. `appOrigin`.
+
+`X-Forwarded-Host` only ever picks a listed origin: a client can send it through a proxy that keeps it. An app on two
+hosts (product on `https://app.example.com`, site on `https://example.com`) lists the second once,
+`origins: { trustedOrigins: ["https://example.com"] }`, and every module follows. A response built on the result is
+cached per `Host`, `X-Forwarded-Host` and `X-Forwarded-Proto` (`Vary`). `parseOrigin(value)` is the strict origin check
+the rule uses: exactly `http(s)://host[:port]`, a trailing `/` allowed.
 
 ## 4. Mounting
 
@@ -261,6 +296,32 @@ app's `timezone` from the config. Both throw a `RangeError` for an invalid date 
 getCalendarDay(context.clock, config.timezone); // "2026-10-08"
 ```
 
+**Day arithmetic.** Work on the `YYYY-MM-DD` strings themselves, never on `Date`s at local midnight: a day
+is a calendar day, whatever DST makes of its hours. Every function throws a `RangeError` for a malformed day
+or a fractional count.
+
+| Function | Semantics |
+| --- | --- |
+| `isCalendarDay(value)` | A real day written `YYYY-MM-DD` (`2026-02-29` and `2026-1-1` are not). |
+| `addCalendarDays(day, days)` | `day` moved by whole days, negative goes back. |
+| `addCalendarMonths(day, months, { endOfMonth })` | `"clamp"` (default): a day the month lacks becomes its last day, Jan 31 + 1 = Feb 28/29. `"overflow"`: it runs on, Jan 31 + 1 = Mar 3 (2026). |
+| `calendarDaysBetween(from, to)` | `to - from` in days; negative when `to` comes first. |
+| `wholeMonthsBetween(from, to)` | The most months `n` with `addCalendarMonths(from, n)` (clamped) not after `to`: Jan 31 to Feb 28 is 1. Swapping the days turns the sign. |
+
+**Display.** One way to show days, money and percentages in every module and app, in `config.locale`:
+
+```ts
+formatCalendarDay("2026-10-04", "en"); // "October 4, 2026"; "medium": "Oct 4, 2026"; "numeric": "10/04/2026"
+formatCalendarDay(toCalendarDay(instant, config.timezone), config.locale); // an instant's day in the app's zone
+formatMoney(123456, "PLN", "en"); // "PLN 1,234.56"; pl groups four digits too
+formatMoney(-123456, "PLN", "en", { rounded: true, signed: true }); // "-PLN 1,235"; { compact: true }: "PLN 1.2K"
+formatPercent(1250, "en"); // "12.5%" (basis points, at most two fraction digits)
+```
+
+A day is formatted at UTC midnight in UTC, so no zone moves it; the Polish long style names the month in
+the genitive. `formatMoney` takes the amount in the currency's minor unit, read from the pinned ISO 4217
+table `CURRENCY_MINOR_UNIT_DIGITS` (a code outside it gets `Intl`'s digits), and always groups thousands.
+
 ## 10. Hooks
 
 `ModuleContext` is what every server function of a module receives: `{ db, clock, config }`
@@ -285,4 +346,5 @@ manifest's `privacy.exports` / `privacy.deletes` flag is true. The `privacy` mod
   are rejected.
 - Route maps mix mounted paths and redirect targets, so two modules may share a path; mount
   collisions are left to `softure doctor`.
-- No date or number formatting helpers beyond the calendar day; apps use `Intl` with `config.locale` and `config.timezone`.
+- Formatting covers days, money and percentages; times of day and other numbers use `Intl` with `config.locale` and
+  `config.timezone`.

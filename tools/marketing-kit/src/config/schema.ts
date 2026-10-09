@@ -502,7 +502,11 @@ export const screenshotSchema = z.strictObject({
     .describe("Done in order after the page loaded, before any gate reads it, e.g. a click that opens a collapsed section; a failing step refuses the shot."),
   crop: cropSchema
     .optional()
-    .describe("Capture one element at a fixed aspect ratio (e.g. 4:3 around a chart) instead of the viewport: as wide as the element, from its top edge. Not with full or scrollTo."),
+    .describe("Capture one element at a fixed aspect ratio (e.g. 4:3 around a chart) instead of the viewport: as wide as the element, from its top edge (or crop.top's). Not with full or scrollTo."),
+  hide: z
+    .array(z.string().regex(SELECTOR_PATTERN, "must be a CSS selector without { } ; < > \\ or /*"))
+    .default([])
+    .describe("CSS selectors hidden in this entry's shots only, on top of app.hideSelectors (a print state: hint buttons, disclosure arrows); the shot is refused when one still shows an element in the frame."),
 }).superRefine((entry, context) => {
   if (entry.full && entry.scrollTo !== undefined) {
     context.addIssue({ code: "custom", path: ["scrollTo"], message: "is one viewport frame at a scroll position; a full-page shot has none, so drop full or scrollTo" });

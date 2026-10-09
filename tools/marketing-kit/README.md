@@ -17,7 +17,7 @@ TTS providers (MK-7), screenshots (MK-4) and OG images (MK-5) build on it. Backg
 An app runs the kit through `npx` with a pinned version, not as a dependency:
 
 ```json
-{ "scripts": { "marketing": "npx -y @softure-ai/marketing-kit@0.1.10" } }
+{ "scripts": { "marketing": "npx -y @softure-ai/marketing-kit@0.1.11" } }
 ```
 
 `npm run marketing -- all <video>` then runs the CLI. As a `devDependency` the kit would add more than 100 MB
@@ -75,7 +75,7 @@ recordings and compositions in `<output.buildDir>/<video>/`. None of it belongs 
 
 `shots` captures every `screenshots[]` entry, or the one named, into `<output.dir>/screenshots/<id>.png`.
 Each entry gets a fresh browser at `width`×`height` CSS px with `app.colorScheme`, `brand.locale`,
-`brand.timezone`, `app.hideSelectors` hidden and its own `motion` preference (`reduce` by default).
+`brand.timezone`, `app.hideSelectors` and its own `hide` hidden, and its own `motion` preference (`reduce` by default).
 `scale` sets the device pixels per CSS pixel (1-4, default 1): at `2` an 800×600 entry is a 1600×1200 PNG,
 sharp on a retina screen or a store listing. `colorSchemes` (e.g. `["light", "dark"]`) captures the entry
 once per scheme, in its own browser, into `<id>-light.png` and `<id>-dark.png`; without it, one `<id>.png`
@@ -90,18 +90,20 @@ folder of `marketing.json`, written by the app's own login script (`await contex
 `npx playwright codegen --save-storage=<file> <url>`. It holds a live session, so keep it out of git and regenerate
 it when the session expires; a missing or broken file stops `shots` before the browser starts. To have `shots` sign
 in itself, see [Signed-in screens](#signed-in-screens). `steps` run on the page after it loaded, before any gate
-reads it: `click` (open a collapsed section), `fill`, `check`, `press`, each with 10 s. `crop` frames one element
-at a fixed aspect ratio instead of the viewport, see [A frame around one element](#a-frame-around-one-element).
+reads it: `click` (open a collapsed section), `fill`, `check`, `press`, `open` and `hide`, each with 10 s. `crop`
+frames one element at a fixed aspect ratio instead of the viewport, see [A frame around one element](#a-frame-around-one-element);
+`hide` and the `open` and `hide` steps give a frame its print state, see [A still image of an interactive card](#a-still-image-of-an-interactive-card).
 A screenshot is kept only when it passes every gate:
 
 | Gate | Refused when |
 | --- | --- |
 | `sign-in` | a `signedIn` entry, and the run's sign-in failed (the reason is printed with every such file) |
 | `status` | the page answers with HTTP 400 or above, or not at all (`load`: it did not load within 30 s) |
-| `steps` | a step could not be done (its element never appeared, matched several, is not an input) |
+| `steps` | a step could not be done (its element never appeared, matched several, is not an input, is not a `<details>`, left nothing to hide) |
 | `scroll` | the page cannot scroll as far as `scrollTo` (the frame would show another place) |
 | `phrase` | the page does not show `expect` within 5 s of loading (hidden elements do not count) |
-| `crop` | the crop's target matches no element or several, its frame runs past the page, or the file is not the frame's size |
+| `crop` | the crop's target (or `crop.top`) matches no element or several, `crop.top` lies outside the target, its frame runs past the page, or the file is not the frame's size |
+| `hide` | a selector of the entry's `hide` still shows an element inside the frame (an inline `!important` beat it), or the browser cannot parse it |
 | `size` | the file is smaller than `minBytes` (40 kB by default: a blank or broken page); the file is deleted |
 | `duplicate` | an earlier file of the same run has the same bytes (the page did not change between the two shots); deleted |
 
@@ -175,6 +177,37 @@ whose layout uses `100vh` may lay out taller for the capture. The file is the fr
 `6:5` and scale 2 is 716×596) and is checked against it. A frame running past the page's edge is refused; so is a
 target that matches nothing or several elements. `crop` excludes `full` and `scrollTo`. An element is smaller than
 a page, so set `minBytes` for it (15000 is a fair floor for a filled card).
+
+`crop.top` (a second locator, exactly one match) starts the frame at its element's top edge instead of the target's,
+e.g. a row inside a card, while the width stays the target's. Its top edge must lie inside the target, or the crop
+is refused: the frame would no longer show the target.
+
+#### A still image of an interactive card
+
+A frame of a signed-in card shows controls that mean nothing in a still image: hint `?` buttons, disclosure arrows,
+closed sections, a chart that scrolls sideways and cuts its first amounts at the edge. An entry gives the frame its
+print state:
+
+```jsonc
+{ "id": "breakdown", "path": "/dashboard", "width": 390, "height": 900, "scale": 2, "signedIn": true,
+  "expect": "{data:positionName}", "minBytes": 15000,
+  "hide": ["button.hint", "summary .arrow", ".chart-footnote"],
+  "steps": [
+    { "do": "open", "target": { "css": "details" } },
+    { "do": "hide", "target": { "css": ".chart .column" }, "keepLast": 3 }
+  ],
+  "crop": { "target": { "testId": "breakdown-card" }, "top": { "testId": "breakdown-total" }, "aspect": "6:5" } }
+```
+
+- `hide`: CSS selectors hidden in this entry's files only, on top of `app.hideSelectors`, from the first paint. Before
+  the capture, the `hide` gate refuses the file when one of them still matches a rendered element inside the frame
+  (the crop's frame, the whole page with `full`, the viewport otherwise): an inline `!important` on the page beats the
+  kit's rule, and an element the frame keeps showing would look clickable. A selector that matches nothing passes.
+- `{ "do": "open", "target": … }` opens every matching `<details>` (`nth` picks one). It fails when a match is not a
+  `<details>`, or does not stay open: details that share a `name` show one at a time.
+- `{ "do": "hide", "target": …, "keepLast": N }` hides every match but the last `N` (default 0: all of them), e.g. all
+  but the last three columns of a chart that scrolls sideways, so no amount is cut at the frame's edge. It fails when
+  there are not more matches than `keepLast`, which hides nothing.
 
 #### One page anywhere: `shots --page`
 
@@ -275,7 +308,7 @@ folder of `marketing.json`. A complete example: [examples/fixture/marketing.json
 | | `platforms` | `instagram`, `facebook`, `tiktok`, `youtube`, `linkedin`, `x`: `code`, `linkInBio` (true for Instagram, TikTok, YouTube) |
 | | `posts[]` | `video`, `caption`, `hashtags`, `codes` (this video's own codes), `disclosure` (`true`; `false` leaves the disclosure out); a video without one gets no `posts.md` |
 | | `disclosure` | a paragraph after every post's caption, before the link: that the persona is an example, that it is not advice, that the voice is AI-generated; `{persona}` becomes the video's persona name |
-| `screenshots[]` | `id`, `path`, `width`, `height`, `full` (`false`), `expect`, `motion` (`reduce`), `minBytes` (`40000`), `scale` (`1`), `colorSchemes`, `scrollTo`, `waitMs` (`0`), `storageState`, `signedIn` (`false`), `steps` (`[]`), `crop` | for `softure-marketing shots`, see [Screenshots](#screenshots) |
+| `screenshots[]` | `id`, `path`, `width`, `height`, `full` (`false`), `expect`, `motion` (`reduce`), `minBytes` (`40000`), `scale` (`1`), `colorSchemes`, `scrollTo`, `waitMs` (`0`), `storageState`, `signedIn` (`false`), `steps` (`[]`), `crop`, `hide` (`[]`) | for `softure-marketing shots`, see [Screenshots](#screenshots) |
 | `signIn` | `prepare`, `path`, `steps`, `expect` | how `shots` signs in for `signedIn` entries, see [Signed-in screens](#signed-in-screens) |
 | `ogImages[]` | `id`, `template` (`headline-cta`, `headline-chart`, `big-number`, `carousel`), `size` (`"landscape"`, `"portrait"`, `"square"`, `"story"` or `[width, height]`; `landscape` for the headline cards, `portrait` for the others), `data` | for `softure-marketing og`, see [OG images](#og-images) |
 | `layout` | per layout (`9:16`, `1:1`, `16:9` for phone films; `desktop` for desktop films): `caption` (`top`, `left`, `right`, `fontSize`), `persona` (`top`, `left`, `right`), `endCard` (`top`, `left`, `right`, `headlineSize`, `phone.scale`, `phone.center`) | overrides of the layout's geometry table for every film of that layout, in frame px (`endCard.phone` is the browser window's pose in `desktop`); a missing key keeps the table's value. Values must fit the frame and each box's margins must leave at least 200 px for its text. The frame, the screen box and the camera target are fixed |
@@ -453,6 +486,13 @@ format, so its paid recordings are reused as they are, with no re-keying and no 
 3. Run `softure-marketing voice <video>` **without** `--commit` for every video. Each must print
    `from the cache`; an estimate line means the text, voice or model differs from FIRE's, and nothing
    was spent.
+
+### Upgrading to 0.1.11
+
+- A 0.1.10 `marketing.json` works as it is. New: `hide` on entries (with the `hide` gate), `crop.top`, and the steps
+  `open` and `hide`. An app that still captures its signed-in frames with its own browser test because it injects a
+  print stylesheet, opens every `<details>` or trims a sideways chart can move that file to `marketing.json` too.
+- `SCREENSHOT_GATES` lists the new gate `hide`; code that switches over `ScreenshotGate` exhaustively needs its case.
 
 ### Upgrading to 0.1.10
 

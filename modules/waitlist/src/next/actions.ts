@@ -2,7 +2,8 @@
 
 // The waitlist's server actions: the form's join and the confirmation page's confirm. Each
 // identifies the client and counts its attempt (inside the server function) before any work. The
-// join answers the same for a new, a known and a suppressed address and sends its mail (the welcome
+// join answers the same for a known and a suppressed address (a new one differs only by its
+// optional unsubscribe link) and sends its mail (the welcome
 // mail, or the confirmation link with double opt-in) after the response, so neither the mail's time
 // nor its failure shows in the answer. Unexpected failures become `safeError` codes. Next refuses an action
 // whose Origin does not match the host.
@@ -71,10 +72,13 @@ export async function joinWaitlistAction(_previous: WaitlistFormState, formData:
     });
     return { status: "confirmation_sent" };
   }
-  // A suppressed address (no double opt-in) wrote nothing; it answers as a sign-up that counted, so
-  // the form does not tell who unsubscribed, and gets no mail.
+  // A suppressed address (no double opt-in) wrote nothing; it answers like a known address, so the
+  // form does not tell who unsubscribed, and gets no mail.
   if (joined.status === "joined") sendWelcomeMailAfter(config, joined.signup);
-  return { status: "ok", ...getUnsubscribeUrl(config, email) };
+  // Only the request that created the sign-up gets the link: anyone can type a known or a
+  // suppressed address, and its link would let them unsubscribe that person.
+  const isCreated = joined.status === "joined" && joined.isNew;
+  return { status: "ok", ...(isCreated ? getUnsubscribeUrl(config, email) : {}) };
 }
 
 /** The person's own unsubscribe link, when the app asks for it (the setup check required the secret). */

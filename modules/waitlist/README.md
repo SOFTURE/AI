@@ -94,7 +94,7 @@ waitlist({
 | `onJoined` | `(event, ctx) => void \| Promise<void>` | — | Called in the sign-up's transaction when a sign-up counts for the first time, e.g. to count it in the analytics funnel. Section 10. |
 | `rewriteConfirmationLink` | `(path, { config }) => string \| Promise<string>` | — | Rewrites the confirmation link's path, e.g. to keep the analytics channel tag through the mail. Section 10. |
 | `resolveChannel` | `({ config }) => string \| null \| Promise<…>` | — | The request's acquisition channel, called by the join action in the request's scope, e.g. `() => getChannel()` from `@softure-ai/analytics/next`. Stored with a first sign-up (1 to 64 visible ASCII characters); a throw or another value is logged by kind and the sign-up goes on without one. |
-| `unsubscribeLinkOnSuccess` | `boolean` | `false` | Answers a sign-up with the person's own unsubscribe page link (`unsubscribeUrl`), which `WaitlistForm` shows under the success notice. Never with double opt-in's `confirmation_sent`. Needs `MAILING_UNSUBSCRIBE_SECRET` (the first sign-up checks it). Whoever submits an address gets its link, for a new, a known and a suppressed address alike (the answer must not tell them apart), so it lets anyone unsubscribe an address they know: turn it on only when the product asks people to keep that link. |
+| `unsubscribeLinkOnSuccess` | `boolean` | `false` | Answers a sign-up with the person's own unsubscribe page link (`unsubscribeUrl`), which `WaitlistForm` shows under the success notice. Never with double opt-in's `confirmation_sent`. Needs `MAILING_UNSUBSCRIBE_SECRET` (the first sign-up checks it). Only the request that created the sign-up gets the link: a known and a suppressed address are answered alike, without it, so nobody receives the link of an address they typed but do not own. The link's absence tells a repeat submitter the address was already known; turn it on only when the product asks people to keep that link. |
 | `routes` | `{ confirm? }` | `{ confirm: "/waitlist/confirm" }` | The path of the confirmation page, when the app mounts it elsewhere. |
 | `messages` | partial `en` / `pl` | — | Copy overrides, the welcome mail's subject and text included. |
 
@@ -272,8 +272,8 @@ Only a sign-up whose link was used undoes an opt-out. Without double opt-in noth
 whoever typed the address controls it, so `joinWaitlist` of an address on mailing's suppression
 list (any source: the person's own `page` or `one-click` opt-out, or an operator's row for a bounce
 or a complaint) writes nothing, records no consent, calls no `onJoined` and answers
-`{ status: "suppressed" }`; the join action answers it exactly like a sign-up that counted (the
-same `unsubscribeUrl` when the app enabled it) and sends no mail. An app that wants people who
+`{ status: "suppressed" }`; the join action answers it exactly like an address already on the list
+(`status: "ok"`, never an `unsubscribeUrl`) and sends no mail. An app that wants people who
 unsubscribed to come back through the form turns on double opt-in: `confirmSignup` calls mailing's
 `liftSuppression` in its transaction, which removes an opt-out the person made themselves (never an
 operator's). When it removed one, the sign-up's scopes become the ones checked now instead of the

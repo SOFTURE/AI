@@ -41,11 +41,18 @@ can be imported into it, and `softure-mail` sends campaigns from a content file.
   adopted the module working (section 10).
 - **Sending once.** `deliverOnce(ctx, { scope, mail })` (`/server`, and `deliverOnce({ scope, mail })`
   in `/next`) sends a mail at most once per scope and recipient through the delivery ledger;
+  `runDeliveries` does it for a whole list of recipients, with a limit, a pause and a dry run;
   `importDeliveries` (and `softure-mail import`) seeds it with the app's earlier history.
+- **Preview and test send.** `previewMail(config, mail)` returns exactly what `sendMail` hands the
+  provider; `softure-mail test` sends a mail to the configured `testAddress` and nowhere else.
+- **A SQL surface** for the app's own queries: `mailing.recipient_key(address)`,
+  `mailing.is_suppressed(address)`, `mailing.was_delivered(scope, address)` and the views
+  `mailing.delivery_outcomes` and `mailing.suppressed_recipients` (section 5).
 - **Campaigns.** `sendCampaign`, `planCampaign` and the content file parser in `/server`; the
   `softure-mail campaign` command sends a campaign from a content file.
 - **Sender DNS.** `checkSenderDns(domain)` and `softure-mail dns` report SPF, DKIM and DMARC, hold DMARC to a
-  required minimum, and check the reply-to domain's MX and the provider's return-path hosts.
+  required minimum, and check the reply-to domain's MX, the provider's return-path hosts and an inbound
+  service (Cloudflare Email Routing).
 - The `MailProvider` contract and `resend()`, the first adapter.
 - `@softure-ai/mailing/testing`: `fakeMailProvider()` and `readMailOutbox(file)`.
 
@@ -145,6 +152,45 @@ const outcome = await deliverOnce({
   claim cannot overwrite the one that took over.
 - A malformed scope or kind throws (a bug); a database failure propagates.
 
+### Many recipients at once: `runDeliveries`
+
+Lifecycle mail (a trial that ends, a renewal) goes to every recipient a query finds, each at most
+once. `runDeliveries` loops over the recipients, builds each one's delivery and sends it through
+`deliverOnce`:
+
+```ts
+import { runDeliveries } from "@softure-ai/mailing/next"; // or /server with ctx first
+
+const summary = await runDeliveries(
+  {
+    recipients: await listTrialsEndingThisWeek(),
+    build: (trial) => (trial.email === null ? null : {
+      scope: `billing.trial-ending:${trial.subscriptionId}`,
+      mail: { to: trial.email, subject: messages.trialEnding.subject, text: renderText(trial), kind: "account-notices" },
+    }),
+  },
+  { limit: 80, pauseMs: 500 },
+);
+// { dryRun, recipients, skipped, sent, rejected: { "mailing.suppressed": 1, … }, done, inFlight, retryLater,
+//   uncertain, halted, remaining }
+```
+
+- `recipients` is an iterable or async iterable of anything; `build` returns the delivery (or a
+  promise of it), or `null` to skip the recipient (`skipped`, nothing stored).
+- **It stops at the account.** A refused key or a spent quota (`halted`) ends the run at once:
+  `halted: { reason, httpStatus }`, `remaining: null`; that recipient and the rest go out on the
+  next run. Rejections of one mail (`suppressed`, `rejected`, `invalid_input`) are counted and the
+  run goes on.
+- **`limit`** counts the mails handed to the provider, like `sendCampaign`'s; once reached, the rest
+  of the list is only counted: `remaining` is how many the next run would send. **`pauseMs`**
+  pauses after each of those mails.
+- **`dryRun: true`** reads the ledger and the suppression list and checks each mail, and writes and
+  sends nothing: `sent` is then what would reach the provider.
+- List mail needs `MAILING_UNSUBSCRIBE_SECRET`: without it the run throws at the first list mail,
+  before any claim, instead of using up every recipient's attempts.
+- `onDelivery(outcome)` sees every outcome (never the address); `deliverOnce`'s options
+  (`maxAttempts`, `retakeUncertain`, the claim windows) pass through.
+
 ### Importing an existing history
 
 An app that already kept its own once-only records (which campaign went to which signup, which
@@ -204,9 +250,24 @@ we shipped something.
 ```
 
 ```bash
-softure-mail campaign launch.md --recipients recipients.txt --dry-run   # counts, sends nothing
+softure-mail campaign launch.md --recipients recipients.txt --dry-run   # counts and previews, sends nothing
 softure-mail campaign launch.md --recipients recipients.txt              # sends
 ```
+
+- **The dry run previews the mail** as the provider would get it: sender, reply-to, subject, the
+  RFC 8058 headers, the text and HTML bodies with the footer. It is rendered for `testAddress`
+  (else `recipient@example.com`), with addresses masked (`o*******@example.com`) and the link
+  signatures replaced by `<signature>`, so the output is safe to paste. Without
+  `MAILING_UNSUBSCRIBE_SECRET` it says so instead.
+- **No pasted footers.** Content that carries an unsubscribe link (the app's unsubscribe or one-click
+  path, or a signed `r=…&t=…` pair) or the footer's copy in any locale is refused before anything
+  runs: the module adds a footer signed for each recipient, and a link pasted from a sent mail would
+  let every recipient unsubscribe the person it was signed for. `getCampaignProblems(content, config)`
+  runs the same check (links on the app's own origin; a link to another site is left alone), and
+  `sendCampaign` and `planCampaign` refuse such content.
+- **Kind aliases.** `mailing({ kindAliases: { news: "newsletter" } })` lets a content file (and
+  `softure-mail test --kind`) say `kind: news`; the campaign is stored and sent as `newsletter`.
+- **Masked output.** No command prints a full address or a working unsubscribe link.
 
 - The recipients file holds one address per line (`#` comments and blank lines skipped).
 - **Recipients from the database.** Without `--recipients` the command asks
@@ -228,6 +289,28 @@ softure-mail campaign launch.md --recipients recipients.txt              # sends
   ```
 
   With the content on standard input, its `html:` file is looked up in the working directory.
+- **Through `softure-deploy run`.** An app deployed with `@softure-ai/deploy` runs the command in the
+  live container without a shell on the server. `softure-deploy run` passes only `--key=value`
+  words, so the content file goes as `--content-file=<file>` (read on the operator's machine and sent
+  on standard input) and the recipients come from `listCampaignRecipients`. One file travels per
+  run, so such a campaign has no `html:` file. One runner per command in `scripts/ops/`, which the
+  app's Dockerfile bundles into `ops/<name>.mjs`:
+
+  ```ts
+  // scripts/ops/mail-campaign.ts
+  import { runMailCli } from "@softure-ai/mailing/cli";
+  import config from "../../softure.config";
+
+  process.exitCode = await runMailCli({ config, argv: ["campaign", ...process.argv.slice(2)] });
+  ```
+
+  ```bash
+  softure-deploy run --host=app-prod mail-campaign --content-file=launch.md --dry-run
+  softure-deploy run --host=app-prod mail-campaign --content-file=launch.md --limit=80
+  softure-deploy run --host=app-prod mail-test --content-file=launch.md   # scripts/ops/mail-test.ts: argv ["test", ...]
+  ```
+
+  The exit status is the command's: 0 done, 1 failed or incomplete, 2 usage.
 - The command loads `softure.config.*` like `softure migrate` (or `--config <file>`), opens the
   config's `database.handle` when set, otherwise its own connection on `database.url`, and needs `MAILING_UNSUBSCRIBE_SECRET` (campaigns are list
   mail). Run `softure migrate` first.
@@ -266,6 +349,31 @@ softure-mail campaign launch.md --recipients recipients.txt              # sends
   `runMailCli({ config, argv })` from `@softure-ai/mailing/cli`, or `sendCampaign(ctx, { campaign,
   recipients })` from `/server`, where `recipients` may be an async iterable.
 
+### Test send: `softure-mail test`
+
+```bash
+softure-mail test                         # a short fixed mail, transactional
+softure-mail test --kind newsletter       # the same as list mail: footer and unsubscribe headers
+softure-mail test launch.md               # a campaign's content, as the campaign would send it
+softure-mail test launch.md --preview     # print it, send nothing
+```
+
+It sends to `mailing({ testAddress })` and to no one else; without that option it refuses. A
+campaign file is sent outside the ledger (nothing is registered or recorded), so it can be sent
+again after every edit. `--kind` (an alias of `kindAliases` too) overrides the file's kind; list
+mail opens the database for the suppression check, so an unsubscribed test address answers
+`suppressed`. The output masks the address and names the provider's failure with its HTTP status.
+`--preview` prints what `previewMail` returns, like the campaign's dry run. The preview reads the
+secret from `runMailCli({ env })`, a real send from `process.env`, as every send does.
+
+`previewMail(config, mail, { env, idempotencyKey })` (`/server`, and `previewMail(mail)` in `/next`) is
+the function behind both: `ok(message)` with exactly the `ProviderMessage` `sendMail` would hand the
+provider, `{ error: "mailing.invalid_input", fields }`, or `{ error: "mailing.unavailable", cause:
+"no_unsubscribe_secret" }` for list mail without the secret. It sends, logs and reads nothing: a
+suppressed recipient's mail renders too. Its links work for `mail.to`; show them to that person
+only, or pass the text through `redactUnsubscribeSignatures`. `maskAddress(address)` masks an
+address the same way the commands do.
+
 ### Sender DNS check: `softure-mail dns`
 
 ```bash
@@ -292,6 +400,11 @@ It reports each check as `pass`, `warn` or `fail`, exiting 1 on any `fail`:
   be a CNAME (to `targetDomain` or under it, when set) or have MX records. `resendReturnPath(domain)` (the flag) gives
   Resend's `send.<domain>` and `rsend.<domain>` with target `rmta.net`; a domain Resend set up with MX records on
   `send` and no `rsend` checks `--return-path send.<domain>` alone.
+- **INBOUND** (`inbound: "cloudflare"`, `--inbound cloudflare`): Cloudflare Email Routing receives the reply-to
+  domain's mail (else the checked domain's). Every MX record must be under `mx.cloudflare.net`
+  (`unexpected-target` otherwise, `null-mx`, `missing`), and the domain must publish exactly one SPF record
+  (`multiple`) that includes `_spf.mx.cloudflare.net` (`missing-include`). The report's `inbound` holds the MX and
+  the SPF check, `[]` when not asked.
 
 It cannot see whether the provider signs with the published key. The function takes `resolveTxt`, `resolveMx` and
 `resolveCname` for tests; by default it asks the system resolver.
@@ -332,6 +445,8 @@ mailing({
 | `maxAttempts` | `number \| null` | `5` | Claims before `mailing.unavailable` closes a delivery as rejected, 1 to 100; `null` never closes it (section 1, Retries). |
 | `staleClaimMs` | `number` | `900000` (15 min) | How long a delivery claim may stay open before another sender takes it over. 1 minute to 23 hours. |
 | `uncertainClaimMs` | `number` | `82800000` (23 h) | How old a claim may get before it waits for an operator (`uncertain`). More than `staleClaimMs`, at most 30 days; keep it under the provider's idempotency window. |
+| `testAddress` | `string` | none | The only address `softure-mail test` sends to (section 1, Test send). |
+| `kindAliases` | `Record<string, string>` | none | Alias to kind for campaign files and `softure-mail test --kind`, e.g. `{ news: "newsletter" }`. Kebab-case on both sides; an alias never names a kind another alias points at. |
 | `routes` | `{ unsubscribe?, oneClick? }` | `/unsubscribe`, `/api/mailing/unsubscribe` | Where you mount the page and the route; links are built on `appOrigin` plus these paths. |
 
 `resend({ apiKey?, endpoint?, fetch? })`: without `apiKey` it reads `RESEND_API_KEY` on every send,
@@ -372,6 +487,28 @@ export { UnsubscribePage as default } from "@softure-ai/mailing/next";
 export { getUnsubscribeRoute as GET, postUnsubscribeRoute as POST } from "@softure-ai/mailing/next";
 ```
 
+**The app's look.** `createUnsubscribePage({ classNames, unstyled, Layout })` gives the same page
+with the app's classes on its slots (`root`, the `main` wrapper; `card`; `form`; `submit`), or with
+its own layout around the copy and the form (the `root` and `card` classes then do not apply; the
+`referrer` policy tag is kept):
+
+```tsx
+// app/unsubscribe/page.tsx
+import { createUnsubscribePage, type UnsubscribeLayoutProps } from "@softure-ai/mailing/next";
+
+function AppShell({ title, lead, children }: UnsubscribeLayoutProps) {
+  return (
+    <SiteFrame>
+      <h1>{title}</h1>
+      <p>{lead}</p>
+      {children}
+    </SiteFrame>
+  );
+}
+
+export default createUnsubscribePage({ Layout: AppShell, classNames: { submit: "w-full" } });
+```
+
 Both must stay public: keep them out of the auth guard's `protect` list. The route has no per-IP
 rate limit on purpose: mail providers post from a few shared addresses that act for millions of
 people, so a bucket would refuse real unsubscribes; the signature is checked before any database
@@ -392,6 +529,31 @@ Schema `mailing`, applied by `softure migrate`:
 | | `mailing.deliveries` | primary key (`scope`, `recipient_key`), `kind`, `campaign_id` (then `scope` is `campaign:<id>`), `status` (`pending`, `claimed`, `sent`, `rejected`), `attempts`, `claimed_at`, `finished_at`, `provider_message_id` (exactly when sent; see `0004`), `reason` (exactly when rejected). |
 | `0003_add_delivery_provider_status.sql` | `mailing.deliveries` | `provider_status` (the HTTP status of the last failed or released answer, 100 to 599, else null); `attempts` may be 0 on a `pending` row (a halt gave its attempt back). |
 | `0004_allow_imported_deliveries.sql` | `mailing.deliveries` | `imported_at` (set by `importDeliveries`, only on `sent`/`rejected` rows); `provider_message_id` only on `sent` rows, and required there unless the row was imported. |
+| `0005_add_sql_surface.sql` | functions and views | the SQL surface below. |
+
+**SQL for the app's own queries.** Reports and recipient selections use these, never the tables,
+so a later change to the tables does not silently break them:
+
+| Name | What it gives |
+| --- | --- |
+| `mailing.recipient_key(address text) → text` | `getRecipientKey` in SQL: base64url SHA-256 of the trimmed, lowercased address. IMMUTABLE, so it can sit in an index on the app's table. |
+| `mailing.is_suppressed(address text) → boolean` | whether the address unsubscribed from list mail |
+| `mailing.was_delivered(scope text, address text) → boolean` | whether a mail of that scope was sent to the address (sent by the module or imported) |
+| view `mailing.delivery_outcomes` | `scope`, `recipient_key`, `kind`, `campaign_id`, `status` (`pending`, `claimed`, `sent`, `rejected`), `attempts`, `claimed_at`, `finished_at`, `imported_at` |
+| view `mailing.suppressed_recipients` | `recipient_key`, `source` (`one-click`, `page`, `operator`), `created_at` |
+
+```sql
+-- trials ending this week that were not told yet and did not unsubscribe
+select s.id, u.email
+from subscriptions s join users u on u.id = s.user_id
+where s.trial_ends_at < now() + interval '7 days'
+  and not mailing.was_delivered('billing.trial-ending:' || s.id, u.email)
+  and not mailing.is_suppressed(u.email);
+```
+
+`lower()` follows the database's ctype: under a UTF-8 locale it lowercases like JavaScript, under the
+`C` locale only ASCII letters, so an address with non-ASCII capitals then keys differently in SQL.
+The functions and views are granted like the tables (the app role reads them).
 
 The health check (`checkMailingTables`) runs `select 1 from mailing.<table> limit 0` for the three
 tables.
@@ -416,7 +578,8 @@ None.
 ## 8. Appearance
 
 The unsubscribe page is a `Card` from `@softure-ai/ui` with a plain form (no client JavaScript),
-styled by the app's tokens.
+styled by the app's tokens. `createUnsubscribePage({ classNames, unstyled, Layout })` adds the app's
+classes or its own layout (section 4).
 
 ## 9. Copy
 
@@ -452,7 +615,10 @@ also names ones it may carry, for an app that sent more than one form on the sam
 names in all, at least one required). A link without `r` that carries every required one
 (non-empty, at most 512 characters) is a legacy link, and its values also hold the optional ones it
 has (an empty one counts as absent, one over 512 characters makes the link invalid): the page shows the same button with the values in hidden fields,
-and the action and the one-click POST call `verify(values, ctx)`. It returns the recipient's
+and the action and the one-click POST call `verify(values, ctx, env)`. `env` is the environment the
+unsubscribe runs with (`process.env` in the page and the route; `unsubscribe(ctx, link, source, env)`
+passes its own), so `verify` reads the old signing key from it and a test hands it one without
+stubbing `process.env`. It returns the recipient's
 **address** when the link is genuine, else `null`; the module records the opt-out under that
 address's key and runs `onUnsubscribed`, exactly as for its own links. `verify` must check the
 link's signature itself (in constant time): whatever address it returns is unsubscribed. A throw is
@@ -463,7 +629,7 @@ page and route at the old paths too:
 mailing({
   from: "…",
   provider: resend(),
-  legacyUnsubscribe: { params: ["u", "t"], verify: ({ u, t }, ctx) => verifyOldLink(ctx.db, u, t) },
+  legacyUnsubscribe: { params: ["u", "t"], verify: ({ u, t }, ctx, env) => verifyOldLink(ctx.db, env.OLD_UNSUBSCRIBE_KEY, u, t) },
 }),
 
 // app/old-unsubscribe/page.tsx

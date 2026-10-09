@@ -353,7 +353,7 @@ describe("loadMarketingConfig", () => {
       ogImages: [{ id: "calculator", template: "headline-cta", data: { headline: "Count" } }],
     });
     expect(loaded.screenshots).toEqual([
-      { id: "landing", path: "/", width: 1440, height: 900, full: false, expect: "Count your date", motion: "reduce", minBytes: 40_000, scale: 1, waitMs: 0, signedIn: false, steps: [] },
+      { id: "landing", path: "/", width: 1440, height: 900, full: false, expect: "Count your date", motion: "reduce", minBytes: 40_000, scale: 1, waitMs: 0, signedIn: false, steps: [], hide: [] },
     ]);
     expect(loaded.ogImages).toEqual([{ id: "calculator", template: "headline-cta", size: [1200, 630], data: { headline: "Count", tiles: [] } }]);
   });
@@ -469,6 +469,34 @@ describe("loadMarketingConfig", () => {
     });
   });
 
+  it("takes an entry's print state, a crop anchored at another element and the open and hide steps", () => {
+    const loaded = load({
+      ...makeConfig(),
+      screenshots: [
+        {
+          ...shot,
+          hide: ["button.hint", "summary .arrow"],
+          steps: [
+            { do: "open", target: { css: "details" } },
+            { do: "hide", target: { css: ".chart .col" }, keepLast: 3 },
+            { do: "hide", target: { css: ".footnote" } },
+          ],
+          crop: { target: { testId: "card" }, top: { testId: "total-row" }, aspect: "6:5" },
+        },
+      ],
+    });
+    expect(loaded.screenshots[0]).toMatchObject({
+      hide: ["button.hint", "summary .arrow"],
+      steps: [
+        { do: "open", target: { kind: "css", css: "details", hasText: null, nth: null } },
+        { do: "hide", target: { kind: "css", css: ".chart .col", hasText: null, nth: null }, keepLast: 3 },
+        { do: "hide", target: { kind: "css", css: ".footnote", hasText: null, nth: null }, keepLast: 0 },
+      ],
+      crop: { target: { kind: "testId", testId: "card", nth: null }, top: { kind: "testId", testId: "total-row", nth: null }, aspect: { width: 6, height: 5 }, padding: 0 },
+    });
+    expect(load({ ...makeConfig(), screenshots: [shot] }).screenshots[0]?.hide).toEqual([]);
+  });
+
   it.each([
     ["a signed-in entry without a signIn block", { screenshots: [{ ...shot, signedIn: true }] }, "screenshots[0].signedIn: needs a signIn block that says how to sign in"],
     [
@@ -498,6 +526,10 @@ describe("loadMarketingConfig", () => {
     ["a misspelt placeholder kind", { screenshots: [{ ...shot, expect: "{dat:total}" }] }, "screenshots[0].expect: {dat:total} is not a placeholder: use {env:NAME} or {data:key}"],
     ["a placeholder key that is not an identifier", { screenshots: [{ ...shot, path: "/a/{data:a-b}" }] }, "screenshots[0].path: {data:a-b} is not a placeholder: use {env:NAME} or {data:key}"],
     ["a sign-in without steps", { signIn: { ...signIn, steps: [] } }, "signIn.steps: needs at least one step"],
+    ["a hidden selector that could end the style rule", { screenshots: [{ ...shot, hide: ["a{}"] }] }, "screenshots[0].hide[0]: must be a CSS selector without { } ; < > \\ or /*"],
+    ["a negative keepLast", { screenshots: [{ ...shot, steps: [{ do: "hide", target: { css: ".col" }, keepLast: -1 }] }] }, "screenshots[0].steps[0].keepLast: Too small: expected number to be >=0"],
+    ["a keepLast on an open step", { screenshots: [{ ...shot, steps: [{ do: "open", target: { css: "details" }, keepLast: 1 }] }] }, 'screenshots[0].steps[0]: Unrecognized key: "keepLast"'],
+    ["a crop.top without one locator kind", { screenshots: [{ ...shot, crop: { target: { css: "main" }, top: {}, aspect: "4:3" } }] }, "screenshots[0].crop.top: needs exactly one of"],
     ["an unknown step", { screenshots: [{ ...shot, steps: [{ do: "hover", target: { css: "a" } }] }] }, "screenshots[0].steps[0].do: "],
   ])("refuses %s, naming its path", (_case, change, message) => {
     expect(loadError({ ...makeConfig(), ...change })).toContain(`  ${message}`);

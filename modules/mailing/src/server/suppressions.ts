@@ -93,7 +93,7 @@ async function verifyLink(ctx: SuppressionContext, link: UnsubscribeLink | Unsub
   }
   const legacy = getMailingOptions(ctx.config).legacyUnsubscribe;
   if (legacy === undefined) return null;
-  const address: unknown = await legacy.verify(link.values, ctx);
+  const address: unknown = await legacy.verify(link.values, ctx, env);
   if (typeof address !== "string" || address.trim() === "") return null;
   return { recipientKey: getRecipientKey(address), link: { scheme: "legacy", values: link.values } };
 }

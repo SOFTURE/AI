@@ -154,13 +154,16 @@ labels; `messages` the built-in copy.
 | Component | What |
 | --- | --- |
 | `ChartPlot` | the SVG in one viewBox (`PLOT_WIDTH` × `PLOT_HEIGHT`, 1000 × 400) stretched to its box, plus an HTML `overlay` |
-| `GridLines`, `Baseline`, `GuideLine`, `SeriesLine` | SVG lines in viewBox units; a guide is `dashed`, `dotted` or `solid`, a series takes a colour `slot` (`seriesSlot(index)`) and `curve` (`linear` or `smooth`); every line takes [look options](#line-and-marker-options) |
+| `GridLines`, `Baseline`, `GuideLine`, `SeriesLine` | SVG lines in viewBox units; a guide is `dashed`, `dotted` or `solid`, a series takes a colour `slot` (`seriesSlot(index)`), a `tone` or a `color`, a `pattern` (`solid`, `dashed`, `dotted`) and `curve` (`linear` or `smooth`); every line takes [look options](#line-and-marker-options) |
+| `Area` | the filled `areaPath` under a line or between two, tinted (`--sft-chart-tint-opacity`, 0.24) in a `slot`, `tone` or `color`; `baseline`, `curve`, `opacity` (fill), `className`, `style`, `data-*` |
 | `ValueAxis`, `valueAxisTicks` | value labels at heights in %; from four labels, every other one is hidden on narrow screens, counted from the top (`narrow="all"` keeps them all) |
 | `TimeAxis`, `timeAxisTicks`, `numberAxisTicks` | date or number labels at % of the width; with `ends`, the ends sit at the edges and middle labels stay clear of them; an optional second row ([Horizontal axes](#horizontal-axes)) |
-| `Legend`, `LegendItem`, `LegendSwatch` | swatches `box`, `dot`, `line`, `dashed`, `dotted` in a series slot |
+| `Legend`, `LegendItem`, `LegendSwatch` | swatches `box`, `dot`, `line`, `dashed`, `dotted` in a `slot`, a `tone` or a `color`, `faded`; `LegendItem` takes `as` (`li`, `div`, `span`) to sit outside `Legend`'s list, and `faded` ([Colour by meaning](#colour-by-meaning)) |
 | `ChartFlag` | a chip at the top of the plot; within 18 % of an edge it aligns to that edge (`edgeAlign`); variants and sizes ([options](#line-and-marker-options)) |
 | `ChartPin` | an event pin on a curve: a dashed line from the bottom up to a point and a round dot on it ([Pins](#pins)) |
 | `ChartDataTable` | the visually hidden table |
+| `Sankey`, `layoutSankey` | a two-sided flow: inputs → hub → outputs ([Sankey](#sankey)) |
+| `BarList`, `renderBarListHtml`, `getBarListRows` | labelled horizontal bars with values, in React or as an HTML string ([Bar list](#bar-list)) |
 | `ChartCursor` | the client cursor around the frame; takes `points` as percentages computed on the server ([Cursor](#cursor)) |
 
 ### Paths
@@ -175,6 +178,7 @@ labels; `messages` the built-in copy.
 <path d={areaPath(points, { curve: "smooth" })} className="app-area" />
 <path d={areaPath(upper, { baseline: lower })} style={{ fill: band.colour }} />
 <SeriesLine points={points} slot={0} curve="smooth" />
+<Area points={points} curve="smooth" tone="accent" /> {/* the same path as a component */}
 ```
 
 Positions are percentages of the plot (`toPercent`), computed once from the scales, so the overlay and the
@@ -209,6 +213,60 @@ Every line (`GridLines`, `Baseline`, `GuideLine`, `SeriesLine`) and marker (`Cha
 
 A chart on another surface (a dark band in a light page) needs no surface prop: redefine the `--sft-chart-*`
 tokens on a wrapper, or put the chart in a `data-theme` scope, and every primitive follows.
+
+### Colour by meaning
+
+A series coloured by what it means (a goal, a loss) takes a `tone` instead of a `slot` on `SeriesLine`, `Area`,
+`LegendSwatch`, `Sankey` nodes and `BarList` rows; a colour that is no token goes in `color` (a CSS colour or
+`var(--app-…)`, set inline as `--sft-chart-series`). A slot wins over a tone, a `color` over both.
+
+```tsx
+<SeriesLine points={goal} tone="success" pattern="dotted" />
+<LegendItem swatch={<LegendSwatch tone="success" shape="dotted" />}>{copy.goal}</LegendItem>
+<LegendItem as="div" faded swatch={<LegendSwatch color="var(--app-retirement)" shape="box" />}>{copy.retirement}</LegendItem>
+```
+
+`CHART_TONES` lists the tones; `ChartToneName` is `ChartTone` under a name that does not collide with an app's own
+`ChartTone` type. `faded` dims a swatch or a whole item to `--sft-chart-faded-opacity` (0.45).
+
+### Sankey
+
+`layoutSankey(items, { nodeWidth, gap, labelSpacing, width, height })` lays out a two-sided flow in viewBox units:
+items with `side: "in"` stack on the left, `side: "out"` on the right, both top to bottom in order with `gap` between
+nodes, and every node has one ribbon to its slice of the hub in the middle. One scale serves both sides, so a ribbon is
+as tall at both ends; the hub is the larger side's sum, and each side is centred. Label centres move apart to
+`labelSpacing` where nodes are thin and stay inside the height. Values below zero count as zero.
+
+`Sankey` draws it: label column | plot | label column, the labels HTML (`label`, then `valueLabel` under it), the
+plot hidden from assistive technology, so pair it with a `ChartDataTable`. A node is `fill: "solid"` (default),
+`"tint"`, or `"hatch"` (tinted with diagonal lines in its own colour); ribbons are tinted.
+
+```tsx
+<Sankey
+  items={[
+    { key: "salary", side: "in", value: 9000, label: copy.salary, valueLabel: format(9000), slot: 1 },
+    { key: "rent", side: "out", value: 3000, label: copy.rent, valueLabel: format(3000), tone: "danger" },
+    { key: "invest", side: "out", value: 2000, label: copy.invest, color: "var(--app-invest)", fill: "hatch" },
+  ]}
+/>
+```
+
+Wider labels: set `--sft-chart-sankey-label-width` on `.sft-chart-sankey`.
+
+### Bar list
+
+`BarList` draws labelled horizontal bars with their value text: each bar is `value / max` wide (`max` defaults to the
+largest value), clamped to 0–100 %, in a `slot`, `tone` or `color`. It is a list whose text a screen reader reads, the
+bars hidden, so it needs no data table. `renderBarListHtml(props)` returns the same markup as an escaped string, for a
+renderer outside React (a blog body); `getBarListRows` gives the rows to an app's own markup.
+
+```tsx
+<BarList items={rows.map((row) => ({ key: row.id, label: row.name, value: row.share, valueLabel: format(row.share) }))} />
+```
+
+```ts
+const html = renderBarListHtml({ items, max: 100 });
+```
 
 ### Horizontal axes
 
@@ -354,7 +412,10 @@ The package came out of an adopting app's hand-rolled charts. What each part of 
 | the nearest point to the pointer | `nearestPointIndex(points, x.invert(pointerX))`, in data space | — |
 | grid, baseline and guide lines | `GridLines`, `Baseline`, `GuideLine` (`dashed`, `dotted`, `solid`; `tone`, `slot`, `strokeWidth`, `opacity`, `style`, `data-*`) | — |
 | value and time axes | `valueAxisTicks({ ticks, scale, format })`, `ValueAxis`, `timeAxisTicks` / `numberAxisTicks` (with `ends`, `sublabel`, `narrow`), `TimeAxis` | — |
-| legend swatches | `LegendSwatch` shapes `box`, `dot`, `line`, `dashed`, `dotted` and a `slot` | outlines from stored colours |
+| legend swatches | `LegendSwatch` shapes `box`, `dot`, `line`, `dashed`, `dotted` in a `slot`, `tone` or `color`, `faded`; `LegendItem` `as="div"` outside a list | outlines from stored colours |
+| raw `<path d={linePath(…)}>` and `<path d={areaPath(…)}>` | `SeriesLine` and `Area` with `tone` or `color` | — |
+| a hand-built two-sided Sankey | `layoutSankey`, `Sankey` (`solid`, `tint`, `hatch`) | the flows and their copy |
+| labelled horizontal bars | `BarList`, `renderBarListHtml` for an HTML body | the rows and their format |
 | event chips and pins | `ChartFlag` (edge rule `edgeAlign`; `variant`, `size`, `className`, `style`), `ChartPin` (`slot`, `variant`, `size`, `ring`); both placed by their parent when `xPercent` is omitted | — |
 | percentages and surfaces | `percent`, `toPercent`, `edgeAlign` | surface tones, as overrides of the `--sft-chart-*` tokens |
 | the cursor | `ChartCursor`: arrows, Home/End, Escape, pointer events, a polite live readout; `renderReadout`, `onActiveChange`, `frame={false}` for an app's own readout and plot | the readout's content |

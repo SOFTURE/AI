@@ -30,3 +30,9 @@ export function getMailingRoutes(config: SoftureConfig): MailingRoutes {
   // The manifest declares both routes; the factory only replaces their paths.
   return getMailingModule(config).routes as unknown as MailingRoutes;
 }
+
+/** The kind an alias of `mailing({ kindAliases })` names, or `kind` itself when it is no alias. */
+export function resolveMailKind(config: SoftureConfig, kind: string): string {
+  const aliases = getMailingOptions(config).kindAliases ?? {};
+  return Object.hasOwn(aliases, kind) ? (aliases[kind] ?? kind) : kind;
+}

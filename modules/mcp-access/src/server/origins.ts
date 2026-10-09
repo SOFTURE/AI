@@ -1,6 +1,6 @@
-// The origins of one request, from the app's options: `resolveAppOrigin` when it answers, else the
-// configured `appOrigin`, plus `resourceOrigins`.
-import type { SoftureConfig } from "@softure-ai/core";
+// The origins of one request: the `resolveAppOrigin` option when it answers, else core `resolveAppOrigin` (a listed
+// origin the request was sent to, see the config's `origins`, else `appOrigin`), plus `resourceOrigins`.
+import { resolveAppOrigin, type SoftureConfig } from "@softure-ai/core";
 import { isBareOrigin } from "../options.js";
 import type { McpOriginRequest, McpOrigins } from "../origins.js";
 import { getMcpAccessOptions } from "./options.js";
@@ -11,9 +11,10 @@ import { getMcpAccessOptions } from "./options.js";
  */
 export function resolveMcpOrigins(config: SoftureConfig, request?: McpOriginRequest | null): McpOrigins {
   const options = getMcpAccessOptions(config);
-  const resolved = request === undefined || request === null || options.resolveAppOrigin === undefined ? null : options.resolveAppOrigin(request);
+  if (request === undefined || request === null) return { appOrigin: config.appOrigin, resourceOrigins: options.resourceOrigins };
+  const resolved = options.resolveAppOrigin === undefined ? null : options.resolveAppOrigin(request);
   if (resolved !== null && !isBareOrigin(resolved)) {
     throw new Error(`@softure-ai/mcp-access: resolveAppOrigin returned "${resolved.slice(0, 100)}", which is not an http(s) origin without a path`);
   }
-  return { appOrigin: new URL(resolved ?? config.appOrigin).origin, resourceOrigins: options.resourceOrigins };
+  return { appOrigin: new URL(resolved ?? resolveAppOrigin(config, request)).origin, resourceOrigins: options.resourceOrigins };
 }
