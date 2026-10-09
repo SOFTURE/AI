@@ -168,14 +168,18 @@ export { getProtectedResourceMetadataRoute as GET, answerOAuthPreflight as OPTIO
 `/.well-known/oauth-*`, `/api/oauth/token` and `/api/oauth/register` are public: keep them out of
 a proxy guard, like `/api/mcp`. The consent page and the decision route check the session
 themselves (the page sends a signed-out person to the login page and back); the decision route
-also refuses a request whose `Origin` is not the app origin.
+also refuses a request whose `Origin` is neither the app origin nor an http(s) origin on the host
+the request was sent to (`Host`), the rule Next applies to Server Actions.
 TypeScript's `**` skips dot folders: with an `include` list in `tsconfig.json`, add
 `"app/.well-known/**/*.ts"`.
 
 **Origins.** Every OAuth URL (issuer, endpoints, `resource`, `resource_metadata`, `iss`) and the
 decision's `Origin` check use the app origin of the request: `appOrigin`, unless
-`resolveAppOrigin` answers. The discovery routes read the request, so Next never renders them at
-build time, and they answer with `Vary: host, x-forwarded-proto`.
+`resolveAppOrigin` answers. The decision also accepts a form posted from the host the request was
+sent to, so an image with a fixed public origin run under another host (a release pipeline's
+browser tests on `http://localhost:6510`) completes the consent without a resolver. The discovery
+routes read the request, so Next never renders them at build time, and they answer with
+`Vary: host, x-forwarded-proto`.
 
 - *An image built once and served under another origin* (a test stack on another port, a
   production image against a local stack): `resolveAppOrigin: process.env.APP_ORIGIN ? undefined :

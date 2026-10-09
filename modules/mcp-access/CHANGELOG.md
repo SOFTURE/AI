@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mcp-access@x.y.z`).
 
+## 0.1.11
+
+- The consent decision accepts a form whose `Origin` host is the host the request was sent to
+  (`Host`), next to the app origin it accepted before, like Next's Server Action check. An image
+  with a fixed public origin run under another host (browser tests on `http://localhost:6510`)
+  no longer gets `403`. Other hosts, `Origin: null`, a missing or malformed `Origin` and
+  non-http(s) schemes are still refused; `iss` and `resource` still use the app origin (#294).
+
 ## 0.1.10
 
 - The days left on a token are counted with `toCalendarDay` from `@softure-ai/core` instead of a local `en-CA`
