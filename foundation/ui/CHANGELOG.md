@@ -12,6 +12,16 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 - `parseAmount` (and so `MoneyField` and `normalizeAmountInput`) accepts a thin space (U+2009) between groups of
   three digits in both notations, next to a space, U+00A0 and U+202F. The rule stays strict: groups of exactly three
   digits (#303). Before, `"1\u2009234,56"` was `ui.amount_invalid`.
+- `TextField` and `MoneyField` can be controlled: `value` with `onValueChange` (the text after every edit). A
+  controlled `MoneyField` reports the reformatted amount through `onValueChange` on blur instead of rewriting the
+  input; a rejected submit does not replay into a controlled field. Uncontrolled fields keep their behaviour and
+  also accept `onValueChange` to observe edits. The props types are now type aliases (`TextFieldProps`,
+  `MoneyFieldProps`, with the new `FieldValueProps` union), so an app that `extends` them switches to `&` (#320).
+- `parseDecimal(text, locale, { scale })`, `formatDecimal(units, locale, { scale, minFractionDigits? })` and
+  `normalizeDecimalInput`: `parseAmount`'s digit grammar at any scale from 0 to 15, as an integer count of
+  10^-scale units (a percent in basis points at scale 2, a rate in millionths at scale 6). Errors are
+  `ui.decimal_invalid` and `ui.decimal_out_of_range`. `parseAmount`, `formatAmountInput` and
+  `normalizeAmountInput` are now their scale-2 case, with unchanged results and error codes (#320).
 
 ## 0.1.14
 
