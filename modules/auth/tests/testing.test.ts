@@ -1,8 +1,8 @@
 import { userRoles, users } from "@softure-ai/auth";
-import { findUserRoles, loginUser, verifyPassword } from "@softure-ai/auth/server";
+import { findUserRoles, hashPassword, loginUser, verifyPassword } from "@softure-ai/auth/server";
 import { createTestAccount } from "@softure-ai/auth/testing";
 import { eq } from "drizzle-orm";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { CLIENT, countRows, createTestAuth, FAST_SCRYPT, PASSWORD, type TestAuth } from "./support.js";
 
 describe("createTestAccount", () => {
@@ -77,5 +77,90 @@ describe("createTestAccount", () => {
     test = await createTestAuth();
     await expect(createTestAccount(test.ctx.db, { email: "ada@example.com", password: PASSWORD, roles: ["Not A Role"], scrypt: FAST_SCRYPT })).rejects.toThrow();
     expect(await countRows(test.database, "users")).toBe(0);
+  });
+  describe("fixture accounts (#314)", () => {
+    const ID = "0b9f5a0e-3c1d-4f6e-9a2b-7c8d9e0f1a2b";
+    const CREATED_AT = new Date("2025-01-02T03:04:05Z");
+
+    it("stores the given id, creation time and ready hash without hashing, and login accepts the password", async () => {
+      test = await createTestAuth();
+      const passwordHash = await hashPassword(PASSWORD, FAST_SCRYPT);
+      const account = await createTestAccount(test.ctx.db, { id: ID, email: "ada@example.com", passwordHash, createdAt: CREATED_AT });
+
+      expect(account).toEqual({ id: ID, email: "ada@example.com", createdAt: CREATED_AT });
+      expect(await readStoredHash("ada@example.com")).toBe(passwordHash);
+      const [row] = await test.ctx.db.select({ changed: users.passwordChangedAt }).from(users).where(eq(users.id, ID));
+      expect(row?.changed).toEqual(CREATED_AT);
+      const login = await loginUser(test.ctx, { email: "ada@example.com", password: PASSWORD, clientKey: CLIENT });
+      expect(login.ok).toBe(true);
+    });
+
+    it("refuses a passwordHash that is not a module hash, naming the email, and writes nothing", async () => {
+      test = await createTestAuth();
+      await expect(createTestAccount(test.ctx.db, { email: "ada@example.com", passwordHash: "plain-text" })).rejects.toThrow(
+        'createTestAccount: the passwordHash for "ada@example.com" is not a hash from hashPassword',
+      );
+      expect(await countRows(test.database, "users")).toBe(0);
+    });
+
+    it("hashes one password with one set of parameters once, so a suite of accounts stays fast", async () => {
+      test = await createTestAuth();
+      const first = await createTestAccount(test.ctx.db, { email: "ada@example.com", password: "a shared password", scrypt: FAST_SCRYPT });
+      const second = await createTestAccount(test.ctx.db, { email: "bob@example.com", password: "a shared password", scrypt: FAST_SCRYPT });
+      expect(await readStoredHash(first.email)).toBe(await readStoredHash(second.email));
+      expect(await verifyPassword("a shared password", await readStoredHash(second.email))).toBe(true);
+    });
+
+    it("hashes with the app's parameters when given a module context", async () => {
+      test = await createTestAuth();
+      await createTestAccount(test.ctx, { email: "ada@example.com", password: PASSWORD });
+      expect((await readStoredHash("ada@example.com")).split("$").slice(0, 4)).toEqual(["scrypt", String(FAST_SCRYPT.cost), "8", "1"]);
+    });
+
+    it("runs the app's onRegistered hook in the account's transaction when runHooks is set", async () => {
+      const onRegistered = vi.fn(() => Promise.resolve());
+      test = await createTestAuth({ auth: { onRegistered, registrationFields: ["channel"] } });
+      const account = await createTestAccount(test.ctx, {
+        email: "ada@example.com",
+        password: PASSWORD,
+        createdAt: CREATED_AT,
+        fields: { channel: "newsletter" },
+        runHooks: true,
+      });
+
+      expect(onRegistered).toHaveBeenCalledTimes(1);
+      expect(onRegistered).toHaveBeenCalledWith(
+        { user: account, consent: { acceptedAt: CREATED_AT }, fields: { channel: "newsletter" } },
+        expect.objectContaining({ config: test.config, clock: test.clock }),
+      );
+    });
+
+    it("hands a null consent to the hook when the app does not require one", async () => {
+      const onRegistered = vi.fn(() => Promise.resolve());
+      test = await createTestAuth({ auth: { onRegistered, requireConsent: false } });
+      const account = await createTestAccount(test.ctx, { email: "ada@example.com", password: PASSWORD, runHooks: true });
+      expect(onRegistered).toHaveBeenCalledWith({ user: account, consent: null, fields: {} }, expect.anything());
+    });
+
+    it("rolls the account back when the hook throws", async () => {
+      test = await createTestAuth({ auth: { onRegistered: () => Promise.reject(new Error("profile insert failed")) } });
+      await expect(createTestAccount(test.ctx, { email: "ada@example.com", password: PASSWORD, runHooks: true })).rejects.toThrow("profile insert failed");
+      expect(await countRows(test.database, "users")).toBe(0);
+    });
+
+    it("runs no hook without runHooks", async () => {
+      const onRegistered = vi.fn(() => Promise.resolve());
+      test = await createTestAuth({ auth: { onRegistered } });
+      await createTestAccount(test.ctx, { email: "ada@example.com", password: PASSWORD });
+      expect(onRegistered).not.toHaveBeenCalled();
+    });
+
+    it("refuses runHooks without a module context, which the hook needs", async () => {
+      test = await createTestAuth();
+      await expect(createTestAccount(test.ctx.db, { email: "ada@example.com", password: PASSWORD, runHooks: true })).rejects.toThrow(
+        "createTestAccount: runHooks needs a module context ({ db, clock, config }) instead of a database",
+      );
+      expect(await countRows(test.database, "users")).toBe(0);
+    });
   });
 });

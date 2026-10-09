@@ -15,7 +15,7 @@ export {
 export { refreshBlogCache } from "./refresh.js";
 export { BLOG_CACHE_TAG, getPublishedArticles, getPublishedTerms, getTextBySlug } from "./data.js";
 export { createOgFontLoader, loadBrandOgFonts, type OgFontLoaderOptions, type OgFontsResult } from "./og-fonts.js";
-export { BlogArticleOgImage, getOgColors, getOgFontFamily, OG_IMAGE_SIZE, renderArticleOgImage, type OgFont, type RenderArticleOgImageInput } from "./og-image.js";
+export { BlogArticleOgImage, createBlogArticleOgImage, getOgColors, getOgFontFamily, OG_IMAGE_SIZE, renderArticleOgImage, type OgColors, type OgFont, type BlogArticleOgImageOptions, type RenderArticleOgImageInput } from "./og-image.js";
 export type { OgFontSource, OgFontWeight } from "../options.js";
 export {
   BlogArticlePage,
@@ -31,5 +31,6 @@ export {
   GlossaryTermPage,
   type BlogArticlePageProps,
   type BlogIndexPageProps,
+  type BlogViewPageProps,
   type GlossaryTermPageProps,
 } from "./pages.js";
