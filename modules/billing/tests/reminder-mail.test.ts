@@ -8,6 +8,7 @@ import { changeEntitlement } from "@softure-ai/billing/server";
 import { createTestClock, defineSoftureConfig, formatMessage, type Locale } from "@softure-ai/core";
 import { createTestDatabase } from "@softure-ai/db/testing";
 import { mailing } from "@softure-ai/mailing";
+import { deliverOnce } from "@softure-ai/mailing/server";
 import { fakeMailProvider, type FakeMailProvider } from "@softure-ai/mailing/testing";
 import { privacy, PRIVACY_RATE_LIMIT_BUCKETS } from "@softure-ai/privacy";
 import { headerIp, security } from "@softure-ai/security";
@@ -215,5 +216,69 @@ describe("sendAccessReminders", () => {
     const lastDay = new Intl.DateTimeFormat("pl", { dateStyle: "long", timeZone: TIMEZONE }).format(new Date("2026-10-16T12:00:00Z"));
     expect(test.provider.sent[0]?.subject).toBe(formatMessage(copy.reminderMail.trialEnding.subject, { date: lastDay }));
     expect(test.provider.sent[0]?.text).toContain(`${copy.notice.choosePlan}: ${PAYMENT_LINK}`);
+  });
+});
+
+describe("sendAccessReminders with the app's template and scopes", () => {
+  it("sends the app's mail, built from the due account, its last day, the link and the package's own mail", async () => {
+    const test = await setUp();
+    const userId = await createAccount(test, "ada@example.com");
+    test.clock.set(IN_TRIAL_WINDOW);
+    const contexts: unknown[] = [];
+
+    const summary = await sendAccessReminders(test.ctx, {
+      ...NO_PAUSE,
+      buildMail: (context) => {
+        contexts.push(context);
+        return { subject: `Ending ${context.lastDay}`, text: `Plans: ${context.link}`, html: `<p>${context.reminder.kind}</p>` };
+      },
+    });
+
+    expect(summary).toEqual({ due: 1, sent: 1, skipped: 0, rejected: 0, retryLater: 0 });
+    expect(contexts).toEqual([
+      {
+        reminder: { userId, email: "ada@example.com", kind: "trial-ending", endsAt: new Date("2026-10-16T22:00:00Z") },
+        lastDay: "October 16, 2026",
+        link: PAYMENT_LINK,
+        mail: renderAccessReminderMail(billingMessages.en, { kind: "trial-ending", lastDay: "October 16, 2026", link: PAYMENT_LINK }),
+      },
+    ]);
+    expect(test.provider.sent.map((mail) => [mail.to, mail.subject, mail.text, mail.html])).toEqual([
+      ["ada@example.com", "Ending October 16, 2026", `Plans: ${PAYMENT_LINK}`, "<p>trial-ending</p>"],
+    ]);
+  });
+
+  it("sends nothing to an account the template returns null for, and counts it as skipped", async () => {
+    const test = await setUp();
+    await createAccount(test, "ada@example.com");
+    await createAccount(test, "invitee@example.com");
+    test.clock.set(IN_TRIAL_WINDOW);
+
+    const summary = await sendAccessReminders(test.ctx, {
+      ...NO_PAUSE,
+      buildMail: async (context) => Promise.resolve(context.reminder.email.startsWith("invitee") ? null : context.mail),
+    });
+
+    expect(summary).toEqual({ due: 2, sent: 1, skipped: 1, rejected: 0, retryLater: 0 });
+    expect(test.provider.sent.map((mail) => mail.to)).toEqual(["ada@example.com"]);
+  });
+
+  it("delivers under the app's scope, so an account its own job already mailed is not mailed twice", async () => {
+    const test = await setUp();
+    const mailed = await createAccount(test, "mailed@example.com");
+    await createAccount(test, "new@example.com");
+    test.clock.set(IN_TRIAL_WINDOW);
+    const getScope = (reminder: { readonly userId: string; readonly endsAt: Date }) => `app.trial-ending:${reminder.userId}:${String(reminder.endsAt.getTime())}`;
+    const earlier = await deliverOnce(test.ctx, {
+      scope: getScope({ userId: mailed, endsAt: new Date("2026-10-16T22:00:00Z") }),
+      mail: { to: "mailed@example.com", subject: "From the app's own job", text: "Earlier" },
+    });
+    expect(earlier.status).toBe("sent");
+
+    expect(await sendAccessReminders(test.ctx, { ...NO_PAUSE, getScope })).toEqual({ due: 2, sent: 1, skipped: 1, rejected: 0, retryLater: 0 });
+    expect(test.provider.sent.map((mail) => `${mail.to}: ${mail.subject}`)).toEqual([
+      "mailed@example.com: From the app's own job",
+      "new@example.com: Your trial ends on October 16, 2026",
+    ]);
   });
 });

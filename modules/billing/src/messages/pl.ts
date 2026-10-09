@@ -7,6 +7,7 @@ export const pl: typeof en = {
     paid: "Opłacone",
     lifetime: "Dostęp dożywotni",
     readOnly: "Tylko odczyt",
+    unlimited: "Dostęp bez limitu",
     daysLeft: { one: "został {count} dzień", few: "zostały {count} dni", many: "zostało {count} dni", other: "zostało {count} dnia" },
     until: "do {date}",
   },

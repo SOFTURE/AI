@@ -9,7 +9,7 @@ import { deliverOnce } from "@softure-ai/mailing/server";
 import type { BillingMessages } from "../messages/index.js";
 import { getAccessReminderScope, type AccessReminderKind } from "../reminder.js";
 import { getBillingMessages, getBillingRoutes } from "../server/options.js";
-import { findAccessReminders, type FindAccessRemindersOptions } from "../server/reminders.js";
+import { findAccessReminders, type AccessReminderDue, type FindAccessRemindersOptions } from "../server/reminders.js";
 import { formatLastDay } from "../ui/format.js";
 
 /** Pause between two mails a provider was called for: Resend allows two requests per second. */
@@ -26,7 +26,30 @@ export interface AccessReminderMailInput {
 /** The subject and bodies of a reminder mail, without the recipient. */
 export type AccessReminderMail = Pick<OutgoingMail, "subject" | "text"> & { readonly html: string };
 
+/** What the app's template gets for one due account. */
+export interface AccessReminderMailContext {
+  /** The due account (id, email), the kind of reminder and the first instant without access. */
+  readonly reminder: AccessReminderDue;
+  /** The last day with access, as the app's locale writes it (`formatLastDay`). */
+  readonly lastDay: string;
+  /** The payment page's absolute URL. */
+  readonly link: string;
+  /** The package's own mail for this reminder, to send as is or to change. */
+  readonly mail: AccessReminderMail;
+}
+
 export interface SendAccessRemindersOptions extends FindAccessRemindersOptions {
+  /**
+   * The app's template: the mail to send this account, or null to send it nothing this run (counted in `skipped`;
+   * a later run asks again). The package's own mail by default. A throw propagates; the next run resumes.
+   */
+  readonly buildMail?: (context: AccessReminderMailContext) => AccessReminderMail | null | Promise<AccessReminderMail | null>;
+  /**
+   * The delivery scope in `mailing.deliveries` (`getAccessReminderScope` by default). An app moving from its own
+   * job passes the scope that job used, so accounts it already mailed are not mailed twice. It must be unique per
+   * account, kind and end: two reminders under one scope get one mail.
+   */
+  readonly getScope?: (reminder: AccessReminderDue) => string;
   /** Milliseconds to wait after each mail a provider was called for. Default 500; 0 never waits. */
   readonly pauseMs?: number;
   /** How to wait; tests pass their own. */
@@ -39,8 +62,8 @@ export interface AccessReminderSummary {
   /** Mails sent now. */
   readonly sent: number;
   /**
-   * Mails an earlier run sent (or refused), another run is sending right now, or whose send was interrupted
-   * so long ago that it may have gone out (mailing's `uncertain`).
+   * Mails an earlier run sent (or refused), another run is sending right now, whose send was interrupted
+   * so long ago that it may have gone out (mailing's `uncertain`), or the app's template returned null for.
    */
   readonly skipped: number;
   /** Mails refused for good (an invalid address, the provider rejected it). */
@@ -80,6 +103,10 @@ export function renderAccessReminderMail(messages: BillingMessages, input: Acces
   return { subject, text, html };
 }
 
+function getDefaultScope(reminder: AccessReminderDue): string {
+  return getAccessReminderScope(reminder.kind, reminder.userId, reminder.endsAt);
+}
+
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -91,7 +118,7 @@ function wait(ms: number): Promise<void> {
  * database failure propagates (the next run resumes, and the ledger keeps it from mailing twice).
  */
 export async function sendAccessReminders(ctx: ModuleContext<Queryable>, options: SendAccessRemindersOptions = {}): Promise<AccessReminderSummary> {
-  const { pauseMs = DEFAULT_REMINDER_PAUSE_MS, sleep = wait, ...findOptions } = options;
+  const { pauseMs = DEFAULT_REMINDER_PAUSE_MS, sleep = wait, buildMail, getScope = getDefaultScope, ...findOptions } = options;
   const due = await findAccessReminders(ctx, findOptions);
   const messages = getBillingMessages(ctx.config);
   const link = new URL(getBillingRoutes(ctx.config).payment, ctx.config.appOrigin).href;
@@ -99,8 +126,13 @@ export async function sendAccessReminders(ctx: ModuleContext<Queryable>, options
 
   for (const reminder of due) {
     const lastDay = formatLastDay(reminder.endsAt, ctx.config.locale, ctx.config.timezone);
-    const mail = renderAccessReminderMail(messages, { kind: reminder.kind, lastDay, link });
-    const outcome = await deliverOnce(ctx, { scope: getAccessReminderScope(reminder.kind, reminder.userId, reminder.endsAt), mail: { to: reminder.email, ...mail } });
+    const defaultMail = renderAccessReminderMail(messages, { kind: reminder.kind, lastDay, link });
+    const mail = buildMail === undefined ? defaultMail : await buildMail({ reminder, lastDay, link, mail: defaultMail });
+    if (mail === null) {
+      counts.skipped += 1;
+      continue;
+    }
+    const outcome = await deliverOnce(ctx, { scope: getScope(reminder), mail: { to: reminder.email, ...mail } });
     if (outcome.status === "done" || outcome.status === "in-flight" || outcome.status === "uncertain") {
       counts.skipped += 1;
       continue;

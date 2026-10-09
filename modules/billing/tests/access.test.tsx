@@ -2,7 +2,7 @@
 // The badge and the notice render from an entitlement: what each status reads, the last day of
 // access in the app's time zone, Polish plurals, the payment link and the slots.
 import { billingMessages, type Entitlement } from "@softure-ai/billing";
-import { AccessBadge, AccessNotice } from "@softure-ai/billing/ui";
+import { AccessBadge, AccessNotice, getAccessBadgeKind } from "@softure-ai/billing/ui";
 import type { LinkComponentProps } from "@softure-ai/ui";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
@@ -70,6 +70,62 @@ describe("AccessBadge", () => {
   });
 });
 
+describe("AccessBadge options", () => {
+  /** A trial of about seven years, as an app gives an invited account. */
+  const LONG_TRIAL: Entitlement = { status: "trial", endsAt: new Date("2033-10-16T22:00:00Z"), daysLeft: 2557, isEnding: false };
+  const LONG_PAID: Entitlement = { status: "paid", endsAt: new Date("2033-11-30T23:00:00Z"), daysLeft: 2602, isEnding: false };
+
+  function renderWith(entitlement: Entitlement, extra: Partial<Parameters<typeof AccessBadge>[0]>) {
+    return render(<AccessBadge entitlement={entitlement} messages={en} locale="en" timezone={TIMEZONE} {...extra} />);
+  }
+
+  it("reads access with more days left than unlimitedAfterDays as unlimited, in the success tone", () => {
+    for (const entitlement of [LONG_TRIAL, LONG_PAID]) {
+      const root = renderWith(entitlement, { unlimitedAfterDays: 1826 }).container.firstElementChild;
+      expect(root?.textContent).toBe("Unlimited access");
+      expect(root?.getAttribute("data-unlimited")).toBe("true");
+      expect(screen.getByText("Unlimited access").className).toContain("sft:text-success");
+      cleanup();
+    }
+  });
+
+  it("keeps the days left at or under unlimitedAfterDays, and without the option", () => {
+    expect(renderWith({ ...LONG_TRIAL, daysLeft: 1826 }, { unlimitedAfterDays: 1826 }).container.firstElementChild?.textContent).toBe("Trial1826 days left");
+    cleanup();
+    const root = renderWith(LONG_TRIAL, {}).container.firstElementChild;
+    expect(root?.textContent).toBe("Trial2557 days left");
+    expect(root?.hasAttribute("data-unlimited")).toBe(false);
+  });
+
+  it("writes a compact detail: a bare day count for a trial, the numeric last day for paid access", () => {
+    expect(renderWith(TRIAL, { compact: true }).container.firstElementChild?.textContent).toBe("Trial14 days");
+    cleanup();
+    expect(renderWith(PAID, { compact: true }).container.firstElementChild?.textContent).toBe("Paiduntil 11/30/2026");
+    cleanup();
+    expect(renderWith(LIFETIME, { compact: true }).container.firstElementChild?.textContent).toBe("Lifetime access");
+  });
+
+  it("takes the app's tone per kind and keeps the default tone of the others", () => {
+    renderWith(TRIAL, { tones: { trial: "success", "read-only": "warning" } });
+    expect(screen.getByText(en.badge.trial).className).toContain("sft:text-success");
+    cleanup();
+    renderWith(TRIAL_ENDED, { tones: { trial: "success" } });
+    expect(screen.getByText(en.badge.readOnly).className).toContain("sft:text-danger");
+  });
+
+  it.each([
+    [TRIAL, "trial"],
+    [TRIAL_ENDING, "trial-ending"],
+    [PAID, "paid"],
+    [PAID_ENDING, "paid-ending"],
+    [LIFETIME, "lifetime"],
+    [TRIAL_ENDED, "read-only"],
+    [LONG_TRIAL, "unlimited"],
+  ] as const)("names the kind of %o as %s", (entitlement, kind) => {
+    expect(getAccessBadgeKind(entitlement, { unlimitedAfterDays: 1826 })).toBe(kind);
+  });
+});
+
 describe("AccessNotice", () => {
   it("renders nothing while access is outside its reminder window", () => {
     for (const entitlement of [TRIAL, PAID, LIFETIME]) {
@@ -87,6 +143,17 @@ describe("AccessNotice", () => {
     renderNotice(entitlement);
     expect(screen.getByRole("status").textContent).toBe(`${text}${action}`);
     expect(screen.getByRole("link", { name: action }).getAttribute("href")).toBe("/payment");
+  });
+
+  it("frames an ending and an ended notice in the app's tones", () => {
+    renderNotice(TRIAL_ENDING, { tones: { ending: "danger" } });
+    expect(screen.getByRole("status").className).toContain("sft:border-danger/50");
+    cleanup();
+    renderNotice(TRIAL_ENDED, { tones: { ending: "neutral" } });
+    expect(screen.getByRole("status").className).toContain("sft:border-danger/50");
+    cleanup();
+    renderNotice(TRIAL_ENDED, { tones: { ended: "neutral" } });
+    expect(screen.getByRole("status").className).toContain("sft:border-border-strong");
   });
 
   it("renders the link through the app's link component", () => {

@@ -6,6 +6,7 @@ export const en = {
     paid: "Paid",
     lifetime: "Lifetime access",
     readOnly: "Read-only",
+    unlimited: "Unlimited access",
     daysLeft: { one: "{count} day left", few: "{count} days left", many: "{count} days left", other: "{count} days left" },
     until: "until {date}",
   },

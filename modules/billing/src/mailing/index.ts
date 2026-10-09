@@ -5,6 +5,7 @@ export {
   renderAccessReminderMail,
   sendAccessReminders,
   type AccessReminderMail,
+  type AccessReminderMailContext,
   type AccessReminderMailInput,
   type AccessReminderSummary,
   type SendAccessRemindersOptions,
