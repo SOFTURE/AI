@@ -6,9 +6,12 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## 0.1.15
 
+- Number inputs render in the mono face again. `NUMBER_INPUT_CLASS` was built on `INPUT_CLASS`, so it carried both
+  `sft:font-sans` and `sft:font-mono`, and the sans rule, later in `styles.css`, won: every `MoneyField` and numeric
+  `TextField` drew in sans. Both looks now share a frame without a family and add exactly one (#302).
 - `parseAmount` (and so `MoneyField` and `normalizeAmountInput`) accepts a thin space (U+2009) between groups of
   three digits in both notations, next to a space, U+00A0 and U+202F. The rule stays strict: groups of exactly three
-  digits. Before, `"1\u2009234,56"` was `ui.amount_invalid`.
+  digits (#303). Before, `"1\u2009234,56"` was `ui.amount_invalid`.
 
 ## 0.1.14
 
