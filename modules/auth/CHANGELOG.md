@@ -6,6 +6,10 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## 0.1.11
 
+- The guard's login redirect uses core's `resolveAppOrigin` (#311): an origin listed in the config's
+  `origins.trustedOrigins` is trusted like one in the guard's `trustedOrigins` option, and `origins.trustRequestHost`
+  is honoured. A non-http(s) `X-Forwarded-Proto` value now falls back to the URL's scheme instead of making the
+  origin unreadable. Needs `@softure-ai/core` 0.1.8.
 - `AUTH_RATE_LIMIT_BUCKETS` declares what each bucket counts by: `register`, `login`, `password-reset` and
   `password-reset-confirm` `key: "ip"`; `login-account`, `change-password` and `password-reset-account`
   `key: "account"`. Change one threshold with `overrideBuckets` from `@softure-ai/security` 0.1.8.

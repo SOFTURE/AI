@@ -6,6 +6,12 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## 0.1.12
 
+- Without a `resolveAppOrigin` option, the app origin comes from core's `resolveAppOrigin` (#311): a listed origin
+  from the config's `origins` block the request was sent to, else `appOrigin`; `origins.trustRequestHost` replaces
+  `resolveAppOrigin: readRequestOrigin`. `readRequestHost` and `readRequestOrigin` are core's (`readRequestOrigin`
+  answers `null` for a host that is no host). The consent decision still reads `Host` only. Discovery documents vary
+  on `x-forwarded-host` too.
+- `getRequestOrigins(config, path)` is exported from `@softure-ai/mcp-access/next`. Needs `@softure-ai/core` 0.1.8.
 - `MCP_RATE_LIMIT_BUCKETS` declares `key: "ip"` on `mcp` and `mcp-oauth` (security 0.1.8 bucket kinds).
 - Requires `@softure-ai/security` `^0.1.8`: earlier versions refuse the `key` field.
 
