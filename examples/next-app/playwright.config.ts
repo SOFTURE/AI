@@ -1,12 +1,11 @@
 import { defineConfig, devices } from "@playwright/test";
+import { softurePlaywrightUse } from "@softure-ai/testing/playwright";
 import { BLOG_REFRESH_SECRET, MAIL_OUTBOX, MAILING_UNSUBSCRIBE_SECRET, STRIPE_WEBHOOK_SECRET } from "./e2e/outbox.ts";
 
 // Black-box tests of the built app (`next build` first). Playwright starts `next start` itself; with
 // E2E_REUSE_SERVER=1 it uses a server already on the port instead (for example `next dev` while
 // writing a test). The database must be migrated: `npm run migrate`.
 const PORT = Number(process.env.E2E_PORT ?? 3100);
-// Cloud sessions ship a Chromium of their own; CI installs the one this Playwright expects.
-const CHROMIUM_PATH = process.env.PLAYWRIGHT_CHROMIUM_PATH;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -16,10 +15,11 @@ export default defineConfig({
   retries: 0,
   reporter: process.env.CI ? [["github"], ["list"]] : [["list"]],
   use: {
+    // Cloud sessions ship a Chromium of their own (PLAYWRIGHT_CHROMIUM_PATH); CI installs the one this Playwright expects.
+    ...softurePlaywrightUse(),
     baseURL: `http://localhost:${PORT}`,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
-    launchOptions: CHROMIUM_PATH ? { executablePath: CHROMIUM_PATH } : {},
   },
   // A real Stripe payment needs the sandbox key and `stripe listen`: playwright.stripe-sandbox.config.ts.
   testIgnore: /\.stripe-sandbox\.spec\.ts$/,

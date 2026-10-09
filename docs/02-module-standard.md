@@ -154,6 +154,10 @@ Forbidden (enforced by an architecture test, as in FIRE):
 - `next/*` in `ui/` (links go through an injected `LinkComponent`);
 - user-visible text outside `messages` (including `aria-label`).
 
+The test reads the sources and runs the shared guards of `@softure-ai/testing/guards` (`readSourceFiles`,
+`findRawColors`, `findInlineCopy`); see `modules/auth/tests/architecture.test.ts` and the
+[testing README](../foundation/testing/README.md#source-guards).
+
 ## 6. Copy and localization
 
 - Every module ships complete `pl` and `en` dictionaries from the start (decision); an architecture
