@@ -280,6 +280,9 @@ import { createFunnelRoute } from "@softure-ai/analytics/next";
 export const { GET, POST } = createFunnelRoute();
 ```
 
+`createFunnelRoute({ getContext })` counts in the context the app hands in instead of the registered
+config's database, e.g. a test database: `createFunnelRoute({ getContext: () => Promise.resolve(testCtx) })`.
+
 Steps on pages, in server components:
 
 ```tsx

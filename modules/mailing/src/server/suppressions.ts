@@ -23,6 +23,33 @@ export async function isSuppressed(ctx: Pick<SuppressionContext, "db">, address:
   return rows.length > 0;
 }
 
+/** How many recipient keys one query asks about, so a long list never builds an oversized statement. */
+const SUPPRESSION_LOOKUP_BATCH = 500;
+
+/**
+ * Which of `addresses` unsubscribed, each returned as it was given; e.g. a report that splits a list into
+ * active and suppressed recipients. Throws on a database failure: callers decide how to fail.
+ */
+export async function findSuppressedAddresses(ctx: Pick<SuppressionContext, "db">, addresses: readonly string[]): Promise<Set<string>> {
+  const byKey = new Map<string, string[]>();
+  for (const address of addresses) {
+    const key = getRecipientKey(address);
+    byKey.set(key, [...(byKey.get(key) ?? []), address]);
+  }
+  const keys = [...byKey.keys()];
+  const suppressed = new Set<string>();
+  for (let start = 0; start < keys.length; start += SUPPRESSION_LOOKUP_BATCH) {
+    const rows = await ctx.db
+      .select({ recipientKey: suppressions.recipientKey })
+      .from(suppressions)
+      .where(inArray(suppressions.recipientKey, keys.slice(start, start + SUPPRESSION_LOOKUP_BATCH)));
+    for (const row of rows) {
+      for (const address of byKey.get(row.recipientKey) ?? []) suppressed.add(address);
+    }
+  }
+  return suppressed;
+}
+
 /** Records an opt-out by recipient key. Throws on a database failure. */
 async function recordSuppression(ctx: SuppressionContext, recipientKey: string, source: SuppressionSource): Promise<void> {
   await ctx.db.insert(suppressions).values({ recipientKey, source, createdAt: ctx.clock.now() }).onConflictDoNothing();

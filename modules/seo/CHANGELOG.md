@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`seo@x.y.z`).
 
+## 0.1.8
+
+- `createPageMarkdown`: a redirect of the internal render now answers as the same redirect, its `Location`
+  moved from the app's own server to the site origin, with `vary: Accept`, so an agent follows it asking for
+  Markdown again; before, the HTML page answered the Markdown request (#324).
+- `createPageMarkdown`: a 404 or 410 HTML page answers its `<main>` as Markdown with the same status.
+- `htmlToMarkdown`: a header or footer that no article, section or aside holds is dropped wherever it sits in
+  the root, also inside a layout wrapper; before, only one placed directly in the root was.
+
 ## 0.1.7
 
 - Markdown for agents: `createPageMarkdown(config, options)` in the new `@softure-ai/seo/proxy` entry answers a GET or

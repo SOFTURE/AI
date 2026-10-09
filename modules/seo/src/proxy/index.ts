@@ -51,6 +51,12 @@ export const PAGE_MARKDOWN_HEADER = "x-softure-seo-markdown";
 
 const DEFAULT_CACHE_SECONDS = 60;
 
+/** A redirect of the render is answered as a redirect, so the agent follows it asking for Markdown again. */
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+
+/** The statuses whose HTML page is answered as Markdown, with the same status: the page and a missing page. */
+const MARKDOWN_STATUSES = new Set([200, 404, 410]);
+
 const MARKDOWN_HEADERS = {
   "content-type": "text/markdown; charset=utf-8",
   // One address, two representations. `private`: a shared cache must not hand Markdown to a browser.
@@ -71,6 +77,18 @@ function getConfiguredSettings(config: SoftureConfig): SeoSettings {
 function describeError(error: unknown): string {
   if (!(error instanceof Error)) return String(error);
   return error.cause instanceof Error ? `${error.message} (${error.cause.message})` : error.message;
+}
+
+/**
+ * The render's `Location` as the visitor may follow it: resolved against the render's URL, and moved from the
+ * app's own server to the public origin (behind a reverse proxy the server's address is not reachable).
+ * Another site's address is kept. `null` without a usable `Location`.
+ */
+function getPublicLocation(location: string | null, renderUrl: URL, siteOrigin: string): string | null {
+  if (location === null || !URL.canParse(location, renderUrl)) return null;
+  const resolved = new URL(location, renderUrl);
+  if (resolved.origin !== renderUrl.origin) return resolved.toString();
+  return new URL(`${resolved.pathname}${resolved.search}${resolved.hash}`, siteOrigin).toString();
 }
 
 function getDefaultSelfOrigin(): string {
@@ -94,8 +112,10 @@ function createSitemapPaths(settings: SeoSettings, cacheSeconds: number, now: ()
 
 /**
  * Answers a GET or HEAD of a sitemap page whose `Accept` asks for Markdown with the page's main element as
- * Markdown (`htmlToMarkdown`). `null` for everything else, and whenever the page does not render as a 200
- * HTML page with that element (a redirect, a 404, an error): the page then answers the request itself.
+ * Markdown (`htmlToMarkdown`). A redirect of the render answers as the same redirect with its `Location` on the
+ * public origin; a 404 or 410 HTML page answers as Markdown with its status. `null` for everything else, and
+ * whenever the page does not render as such (an error, no root element, not HTML): the page then answers the
+ * request itself.
  */
 export function createPageMarkdown(config: SoftureConfig, options: PageMarkdownOptions = {}): PageMarkdown {
   const settings = getConfiguredSettings(config);
@@ -122,12 +142,13 @@ export function createPageMarkdown(config: SoftureConfig, options: PageMarkdownO
     }
 
     const selfOrigin = options.selfOrigin ?? getDefaultSelfOrigin();
+    // The query is dropped: one Markdown per address.
+    const target = new URL(selfOrigin);
+    target.pathname = pathname;
     let page: Response;
     try {
       // Only these headers: no cookie and no authorization, so the render is the anonymous page and nothing
-      // behind a session is reachable this way. The query is dropped: one Markdown per address.
-      const target = new URL(selfOrigin);
-      target.pathname = pathname;
+      // behind a session is reachable this way.
       page = await fetchPage(target, {
         headers: { accept: "text/html", [PAGE_MARKDOWN_HEADER]: "1" },
         redirect: "manual",
@@ -137,7 +158,12 @@ export function createPageMarkdown(config: SoftureConfig, options: PageMarkdownO
       onError(`@softure-ai/seo: rendering ${pathname} as Markdown failed: ${describeError(error)}`);
       return null;
     }
-    if (page.status !== 200 || !(page.headers.get("content-type") ?? "").includes("text/html")) {
+    if (REDIRECT_STATUSES.has(page.status)) {
+      const location = getPublicLocation(page.headers.get("location"), target, settings.siteOrigin);
+      if (location === null) return null;
+      return new Response(null, { status: page.status, headers: { location, vary: MARKDOWN_HEADERS.vary, "cache-control": MARKDOWN_HEADERS["cache-control"] } });
+    }
+    if (!MARKDOWN_STATUSES.has(page.status) || !(page.headers.get("content-type") ?? "").includes("text/html")) {
       return null;
     }
 
@@ -152,6 +178,6 @@ export function createPageMarkdown(config: SoftureConfig, options: PageMarkdownO
       return null;
     }
     const headers = { ...MARKDOWN_HEADERS, "x-markdown-tokens": String(Math.ceil(body.length / 4)) };
-    return new Response(request.method === "HEAD" ? null : body, { status: 200, headers });
+    return new Response(request.method === "HEAD" ? null : body, { status: page.status, headers });
   };
 }

@@ -36,10 +36,11 @@ export interface HtmlToMarkdownOptions {
 }
 
 /**
- * A header or footer directly in the root is the page's banner or content info; one inside an article or
- * a section is content (an article's title and byline), so it stays.
+ * A header or footer in the root, also inside a layout wrapper, is the page's banner or content info; one
+ * inside an article, a section or an aside is content (an article's title and byline), so it stays.
  */
-const PAGE_LANDMARKS = new Set(["HEADER", "FOOTER"]);
+const PAGE_LANDMARKS = "header, footer";
+const SECTIONING_CONTENT = new Set(["ARTICLE", "SECTION", "ASIDE"]);
 
 /**
  * The Markdown of a page's root element (`main` by default), after a frontmatter of `title`,
@@ -57,8 +58,8 @@ export function htmlToMarkdown(html: string, options: HtmlToMarkdownOptions = {}
   for (const node of root.querySelectorAll([...NOT_CONTENT, ...remove].join(","))) {
     node.remove();
   }
-  for (const node of root.childNodes) {
-    if (node instanceof HTMLElement && PAGE_LANDMARKS.has(node.tagName)) {
+  for (const node of root.querySelectorAll(PAGE_LANDMARKS)) {
+    if (!isInSectioningContent(node, root)) {
       node.remove();
     }
   }
@@ -69,6 +70,14 @@ export function htmlToMarkdown(html: string, options: HtmlToMarkdownOptions = {}
   const body = NodeHtmlMarkdown.translate(root.innerHTML).trim();
   const text = body === "" ? "" : `${body}\n`;
   return frontmatter ? `${buildFrontmatter(document, { origin, url })}\n\n${text}` : text;
+}
+
+/** Whether an article, a section or an aside between `node` and `root` holds the node. */
+function isInSectioningContent(node: HTMLElement, root: HTMLElement): boolean {
+  for (let parent = node.parentNode; parent !== null && parent !== root; parent = parent.parentNode) {
+    if (SECTIONING_CONTENT.has(parent.tagName)) return true;
+  }
+  return false;
 }
 
 function buildFrontmatter(document: HTMLElement, { origin, url }: { origin: string | undefined; url: string | undefined }): string {

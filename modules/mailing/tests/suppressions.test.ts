@@ -1,6 +1,6 @@
 // The suppression list: recording opt-outs from signed links and from operators, and reading them.
 import type { UnsubscribeEvent } from "@softure-ai/mailing";
-import { getRecipientKey, getUnsubscribeLinkParams, isSuppressed, liftSuppression, readUnsubscribeLink, signRecipientKey, suppressRecipient, unsubscribe } from "@softure-ai/mailing/server";
+import { findSuppressedAddresses, getRecipientKey, getUnsubscribeLinkParams, isSuppressed, liftSuppression, readUnsubscribeLink, signRecipientKey, suppressRecipient, unsubscribe } from "@softure-ai/mailing/server";
 import { fakeMailProvider } from "@softure-ai/mailing/testing";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createConfig, createTestMailing, listSuppressions, NOW, PREVIOUS_SECRET, SECRET, type TestMailing } from "./support.js";
@@ -60,10 +60,19 @@ describe("the suppression list", () => {
     expect(await listSuppressions(test.database)).toEqual([`${getRecipientKey("bob@example.org")} operator ${NOW.toISOString()}`]);
   });
 
+  it("finds which of many addresses are suppressed, each as it was given", async () => {
+    await suppressRecipient(test.ctx, "ada@example.org");
+    await suppressRecipient(test.ctx, "cyd@example.org", "one-click");
+    const addresses = [" ADA@example.org", "bob@example.org", "cyd@example.org", ...Array.from({ length: 1200 }, (_, index) => `n${index}@example.org`)];
+    expect(await findSuppressedAddresses(test.ctx, addresses)).toEqual(new Set([" ADA@example.org", "cyd@example.org"]));
+    expect(await findSuppressedAddresses(test.ctx, [])).toEqual(new Set());
+  });
+
   it("lets the database failure propagate, for the caller to answer", async () => {
     await test.database.client.query("DROP TABLE mailing.suppressions CASCADE");
     await expect(unsubscribe(test.ctx, ADA_TOKEN, "page", ENV)).rejects.toThrow();
     await expect(isSuppressed(test.ctx, "ada@example.org")).rejects.toThrow();
+    await expect(findSuppressedAddresses(test.ctx, ["ada@example.org"])).rejects.toThrow();
   });
 
   it("lifts the recipient's own opt-out and reports it", async () => {

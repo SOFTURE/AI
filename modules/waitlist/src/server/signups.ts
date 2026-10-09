@@ -11,7 +11,7 @@
 // counts for the first time.
 import { err, ok, type Err, type ModuleContext, type Ok } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
-import { isSuppressed, liftSuppression } from "@softure-ai/mailing/server";
+import { findSuppressedAddresses, isSuppressed, liftSuppression } from "@softure-ai/mailing/server";
 import { hasConsent, recordConsent } from "@softure-ai/privacy/server";
 import type { RateLimitRejection } from "@softure-ai/security";
 import { consumeRateLimit, subjectKey } from "@softure-ai/security/server";
@@ -377,14 +377,59 @@ export interface ChannelCount {
   readonly signups: number;
 }
 
-/** Confirmed sign-ups per channel, most first (then by channel, none last); e.g. a per-channel report. */
-export async function countSignupsByChannel(ctx: Pick<WaitlistContext, "db">): Promise<ChannelCount[]> {
+/** A channel's confirmed sign-ups split by mailing's suppression list; `signups` is `active + suppressed`. */
+export interface SuppressedSplitChannelCount extends ChannelCount {
+  /** Sign-ups whose address list mail still reaches. */
+  readonly active: number;
+  /** Sign-ups whose address unsubscribed from list mail (mailing's suppression list). */
+  readonly suppressed: number;
+}
+
+export interface CountSignupsByChannelOptions {
+  /** `true` splits each channel into `active` and `suppressed` sign-ups, e.g. for a go/no-go report. */
+  readonly splitSuppressed?: boolean;
+}
+
+/**
+ * Confirmed sign-ups per channel, most first (then by channel, none last); e.g. a per-channel report.
+ * With `{ splitSuppressed: true }` each channel also says how many of them unsubscribed from list mail.
+ */
+export function countSignupsByChannel(
+  ctx: Pick<WaitlistContext, "db">,
+  options: CountSignupsByChannelOptions & { readonly splitSuppressed: true },
+): Promise<SuppressedSplitChannelCount[]>;
+export function countSignupsByChannel(ctx: Pick<WaitlistContext, "db">, options?: CountSignupsByChannelOptions): Promise<ChannelCount[]>;
+export async function countSignupsByChannel(
+  ctx: Pick<WaitlistContext, "db">,
+  options: CountSignupsByChannelOptions = {},
+): Promise<ChannelCount[] | SuppressedSplitChannelCount[]> {
+  if (options.splitSuppressed === true) return countSuppressedSplit(ctx);
   const rows = await ctx.db
     .select({ channel: signups.channel, signups: count() })
     .from(signups)
     .where(isNotNull(signups.confirmedAt))
     .groupBy(signups.channel);
-  return rows.sort((a, b) => b.signups - a.signups || compareChannels(a.channel, b.channel));
+  return rows.sort(compareChannelCounts);
+}
+
+/** The addresses are matched in mailing by recipient key, so they are read here, never returned. */
+async function countSuppressedSplit(ctx: Pick<WaitlistContext, "db">): Promise<SuppressedSplitChannelCount[]> {
+  const rows = await ctx.db.select({ email: signups.email, channel: signups.channel }).from(signups).where(isNotNull(signups.confirmedAt));
+  const suppressedEmails = await findSuppressedAddresses(ctx, rows.map((row) => row.email));
+  const byChannel = new Map<string | null, { active: number; suppressed: number }>();
+  for (const row of rows) {
+    const counts = byChannel.get(row.channel) ?? { active: 0, suppressed: 0 };
+    if (suppressedEmails.has(row.email)) counts.suppressed += 1;
+    else counts.active += 1;
+    byChannel.set(row.channel, counts);
+  }
+  return [...byChannel]
+    .map(([channel, { active, suppressed }]) => ({ channel, signups: active + suppressed, active, suppressed }))
+    .sort(compareChannelCounts);
+}
+
+function compareChannelCounts(a: ChannelCount, b: ChannelCount): number {
+  return b.signups - a.signups || compareChannels(a.channel, b.channel);
 }
 
 function compareChannels(a: string | null, b: string | null): number {
