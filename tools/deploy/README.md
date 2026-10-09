@@ -298,6 +298,19 @@ softure-deploy verify <url> [--config=deploy.json] [--timeout=<ms>] [--concurren
 { "forEach": { "sitemap": "/sitemap.xml", "match": "/blog/" }, "requestHeaders": { "user-agent": "GPTBot/1.3" }, "within": "head", "contains": ["<title>", "rel=\"canonical\""] }
 ```
 
+- **Signed with Web Bot Auth:** `"webBotAuth": {}` on a route signs each of its requests (a `forEach` source and
+  every entry included) the way `@softure-ai/agent-ready` signs the app's own: RFC 9421, Ed25519, `@authority` and
+  `signature-agent` covered, tag `web-bot-auth`, five minutes of validity. `keyEnv` names the variable holding the
+  seed (default `WEB_BOT_AUTH_PRIVATE_KEY`, base64url, what `agent-ready web-bot-auth key` prints) and `agent` the
+  `Signature-Agent` origin whose key directory lists it (default the verified URL's origin). The key never goes in
+  `deploy.json` or the report: an unset or malformed variable fails the route with the variable's name and sends
+  nothing. `requestHeaders` cannot set `signature`, `signature-input` or `signature-agent` next to it. Run `verify`
+  with the variable in its environment; `deploy-app.yml` passes it through `verify-env` or `verify-env-secret` (below).
+
+```json
+{ "path": "/", "webBotAuth": { "keyEnv": "WEB_BOT_AUTH_PRIVATE_KEY" }, "requestHeaders": { "user-agent": "ExampleBot/1.0" }, "excludes": ["Just a moment"] }
+```
+
 - **One host per run:** an app on two hosts (apex and `app.` subdomain) runs `verify` once per host, each with its
   own config.
 - **Headers:** a value is text the header must contain, case-insensitive; a list of texts the value must all

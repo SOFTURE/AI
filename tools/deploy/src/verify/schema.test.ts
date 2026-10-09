@@ -191,3 +191,36 @@ describe("parseDeployConfig: app-side checks (issue #309)", () => {
     ]);
   });
 });
+
+describe("parseDeployConfig: a request signed with Web Bot Auth (issue #341)", () => {
+  function firstRoute(route: unknown): unknown {
+    const parsed = parseDeployConfig({ verify: { routes: [route] } });
+    return parsed.ok ? parsed.config.verify?.routes[0] : parsed.issues;
+  }
+
+  it("fills the default variable and keeps a variable and an agent", () => {
+    expect(firstRoute({ path: "/", webBotAuth: {} })).toMatchObject({ webBotAuth: { keyEnv: "WEB_BOT_AUTH_PRIVATE_KEY" } });
+    expect(firstRoute({ path: "/", webBotAuth: { keyEnv: "BOT_SEED", agent: "https://example.com" } })).toMatchObject({
+      webBotAuth: { keyEnv: "BOT_SEED", agent: "https://example.com" },
+    });
+  });
+
+  it("refuses a variable that is not a name, an agent that is not an http(s) origin and an unknown key", () => {
+    expect(firstRoute({ path: "/", webBotAuth: { keyEnv: "n4Ni-HpISpVObnQMW0wOhCKROaIKqKtW_2ZYb2p9KcU" } })).toEqual([
+      "verify.routes.0.webBotAuth.keyEnv: an environment variable name (letters, digits and _), never the key itself",
+    ]);
+    for (const agent of ["example.com", "ftp://example.com", "https://example.com/bot", "https://user@example.com"]) {
+      expect(firstRoute({ path: "/", webBotAuth: { agent } })).toEqual(["verify.routes.0.webBotAuth.agent: an http or https origin, e.g. https://example.com"]);
+    }
+    expect(firstRoute({ path: "/", webBotAuth: { key: "x" } })).toEqual([expect.stringContaining("verify.routes.0.webBotAuth: ")]);
+  });
+
+  it("refuses signature headers in requestHeaders next to webBotAuth, and keeps them without it", () => {
+    for (const name of ["signature", "signature-input", "signature-agent"]) {
+      expect(firstRoute({ path: "/", webBotAuth: {}, requestHeaders: { [name]: "sig1=x" } })).toEqual([
+        "verify.routes.0.requestHeaders: webBotAuth computes signature, signature-input and signature-agent itself",
+      ]);
+    }
+    expect(firstRoute({ path: "/", requestHeaders: { signature: "sig1=x" } })).toMatchObject({ requestHeaders: { signature: "sig1=x" } });
+  });
+});

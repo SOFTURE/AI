@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
+import { verify } from "web-bot-auth";
+import { verifierFromJWK } from "web-bot-auth/crypto";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { describeRequestError, runVerify } from "./run-checks.js";
 import { parseDeployConfig, type VerifyConfig } from "./schema.js";
@@ -358,6 +360,75 @@ describe("runVerify: app-side checks (issue #309)", () => {
     const digest = createHash("sha256").update(bytes).digest("hex");
     const { routes } = await runVerify({ baseUrl, config: verifyConfig({ routes: [{ path: "/bom.txt", sha256: digest }] }) });
     expect(routes[0]?.passed).toBe(true);
+  });
+});
+
+describe("runVerify: a request signed with Web Bot Auth (issue #341)", () => {
+  /** The test key of RFC 9421 Appendix B.1.4: a public vector, not a secret. */
+  const RFC_SEED = "n4Ni-HpISpVObnQMW0wOhCKROaIKqKtW_2ZYb2p9KcU";
+  const RFC_X = "JrQLj5P_89iXES9-vFgrIy29clF9CC_oPPsw3c5D0bs";
+
+  /** Verifies what the server received with the reference library, as a receiver would. */
+  async function verifyReceived(request: IncomingMessage): Promise<{ tag: string; agent: string | undefined }> {
+    const headers = new Headers();
+    for (const [name, value] of Object.entries(request.headers)) if (typeof value === "string") headers.set(name, value);
+    const verifier = await verifierFromJWK({ kty: "OKP", crv: "Ed25519", x: RFC_X });
+    const result = await verify(new Request(`${baseUrl}${request.url ?? "/"}`, { headers }), { resolver: () => verifier });
+    return { tag: result.tag, agent: result.signatureAgent?.uri };
+  }
+
+  it("signs every request of the route, a forEach source and its entries included, as the verified origin", async () => {
+    serve("/sitemap.xml", (_request, response) =>
+      response.writeHead(200).end("<urlset><url><loc>https://prod.example/a</loc></url><url><loc>https://prod.example/b</loc></url></urlset>"));
+    for (const path of ["/", "/a", "/b"]) {
+      serve(path, (request, response) => response.writeHead(request.headers.signature === undefined ? 403 : 200).end("ok"));
+    }
+    const { routes } = await runVerify({
+      baseUrl,
+      env: { WEB_BOT_AUTH_PRIVATE_KEY: RFC_SEED },
+      config: verifyConfig({ routes: [{ path: "/", webBotAuth: {} }, { forEach: { sitemap: "/sitemap.xml" }, webBotAuth: {} }] }),
+    });
+    expect(routes.map((route) => [route.path, route.passed])).toEqual([["/", true], ["/a", true], ["/b", true]]);
+    expect(seen.map((request) => request.url).sort()).toEqual(["/", "/a", "/b", "/sitemap.xml"]);
+    for (const request of seen) {
+      expect(await verifyReceived(request)).toEqual({ tag: "web-bot-auth", agent: baseUrl });
+    }
+  });
+
+  it("names the configured agent and leaves routes without webBotAuth unsigned", async () => {
+    serve("/signed", (_request, response) => response.writeHead(200).end());
+    serve("/plain", (_request, response) => response.writeHead(200).end());
+    await runVerify({
+      baseUrl,
+      env: { BOT_SEED: RFC_SEED },
+      config: verifyConfig({ routes: [{ path: "/signed", webBotAuth: { keyEnv: "BOT_SEED", agent: "https://example.com" } }, { path: "/plain" }] }),
+    });
+    const signed = seen.find((request) => request.url === "/signed");
+    const plain = seen.find((request) => request.url === "/plain");
+    expect(signed && (await verifyReceived(signed))).toEqual({ tag: "web-bot-auth", agent: "https://example.com" });
+    expect(plain?.headers.signature).toBeUndefined();
+  });
+
+  it("fails the route naming a missing or malformed variable, sends nothing and never prints the value", async () => {
+    serve("/", (_request, response) => response.writeHead(200).end());
+    const { routes } = await runVerify({
+      baseUrl,
+      env: { BAD_SEED: "secret-but-malformed" },
+      config: verifyConfig({
+        routes: [
+          { path: "/", webBotAuth: {} },
+          { path: "/", webBotAuth: { keyEnv: "BAD_SEED" } },
+          { forEach: { sitemap: "/sitemap.xml" }, webBotAuth: {} },
+        ],
+      }),
+    });
+    expect(routes.map((route) => [route.path, route.status, route.checks])).toEqual([
+      ["/", null, [{ kind: "request", passed: false, detail: "WEB_BOT_AUTH_PRIVATE_KEY is not set" }]],
+      ["/", null, [{ kind: "request", passed: false, detail: "BAD_SEED is not a base64url Ed25519 seed (32 bytes)" }]],
+      ["sitemap /sitemap.xml", null, [{ kind: "source", passed: false, detail: "sitemap /sitemap.xml: WEB_BOT_AUTH_PRIVATE_KEY is not set" }]],
+    ]);
+    expect(seen).toEqual([]);
+    expect(JSON.stringify(routes)).not.toContain("secret-but-malformed");
   });
 });
 

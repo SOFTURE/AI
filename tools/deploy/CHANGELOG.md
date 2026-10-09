@@ -16,6 +16,12 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
     matching `<loc>`, `{ "index": "/.well-known/agent-skills/index.json" }` for every entry of an Agent Skills index,
     each against the entry's `digest`. Each entry is a row, requested on the verified URL's origin with the route's
     request headers; an unreadable source or no entry is one failed row naming it.
+  - `webBotAuth` on a route (issue #341): each request of the route, a `forEach` source and its entries included, is
+    signed with Web Bot Auth (RFC 9421, Ed25519, tag `web-bot-auth`, the profile `@softure-ai/agent-ready` signs
+    with). `keyEnv` names the variable holding the seed (default `WEB_BOT_AUTH_PRIVATE_KEY`), `agent` the
+    `Signature-Agent` origin (default the verified URL's origin). An unset or malformed variable fails the route
+    with its name and sends nothing; the key never reaches `deploy.json` or the report. `runVerify` takes `env`
+    (default `process.env`); `readWebBotAuthKey` and `getWebBotAuthHeaders` are exported.
   - For TypeScript callers: `VerifyRoute.path` is optional (a `forEach` route has none), and `ObservedResponse` takes
     an optional `sha256`.
 - `integration run`, `lookup` and `record` print one `flaky: <test>` line per test that passed only on a retry, after the
