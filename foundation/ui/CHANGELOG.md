@@ -6,6 +6,22 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## 0.1.15
 
+- New interaction components an adopting app kept writing itself (#319):
+  - `useDisclosure` + `DisclosureMenu`: the WAI-ARIA disclosure for navigation. Escape returns focus to the
+    trigger; an outside `pointerdown` or `click`, heard in the capture phase, closes it; so do a link click inside,
+    a new `closeKey` (the route) and focus leaving by keyboard.
+  - `ConfirmActionButton`: a destructive action behind a `confirmation` dialog that states the stakes; the server's
+    message goes to `announceToast`, an error stays in the dialog, nothing expires on a timer.
+  - `ActionFormModal` and `ModalTrigger`: an `ActionForm` in a `Modal`, opened by a "+" `IconButton`, closed after
+    a successful save.
+  - `CopyButton` (and `writeToClipboard`): copied and failed states, a selected read-only field to copy by hand
+    without a secure context.
+  - `ExternalLink`: a new tab, `rel="noopener noreferrer"` plus the app's tokens, a screen-reader note.
+  - `useDismissed(key, days)`: dismiss a banner for N days; a date-only value, storage errors never throw.
+  - New message groups `confirmAction`, `copyButton` and `externalLink` (`en`, `pl`).
+- `SegmentedControl`'s checked segment and `SEGMENT_ACTIVE_CLASS` carry an inset ring in the text colour next to
+  the accent fill, a cue that does not rely on colour: a light accent (lime on white, 1.27:1) no longer fails
+  WCAG 1.4.11 (#319).
 - Number inputs render in the mono face again. `NUMBER_INPUT_CLASS` was built on `INPUT_CLASS`, so it carried both
   `sft:font-sans` and `sft:font-mono`, and the sans rule, later in `styles.css`, won: every `MoneyField` and numeric
   `TextField` drew in sans. Both looks now share a frame without a family and add exactly one (#302).
