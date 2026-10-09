@@ -96,7 +96,7 @@
   }
 
   .sft-chart-line {
-    stroke: var(--sft-chart-series);
+    stroke: var(--sft-chart-series, var(--sft-chart-series-1));
     stroke-width: var(--sft-chart-line-width);
     stroke-linejoin: round;
     stroke-linecap: round;
@@ -104,6 +104,17 @@
 
   .sft-chart-line-dashed {
     stroke-dasharray: 8 4;
+  }
+
+  .sft-chart-line-dotted {
+    stroke-dasharray: 2 4;
+  }
+
+  /* A filled shape under a line or between two (Area): the series colour, tinted. */
+  .sft-chart-area {
+    fill: var(--sft-chart-series, var(--sft-chart-series-1));
+    fill-opacity: var(--sft-chart-tint-opacity, 0.24);
+    stroke: none;
   }
 
   .sft-chart-guide-solid {
@@ -361,6 +372,11 @@
     flex-shrink: 0;
   }
 
+  /* A hidden or out-of-focus series: its swatch, or its whole legend item. */
+  .sft-chart-faded {
+    opacity: var(--sft-chart-faded-opacity, 0.45);
+  }
+
   .sft-chart-swatch-box {
     width: var(--sft-space-3);
     height: var(--sft-space-2);
@@ -388,6 +404,100 @@
 
   .sft-chart-swatch-dotted {
     border-top-style: dotted;
+  }
+
+  /*
+   * Sankey: label column | plot | label column. Labels are HTML at the layout's heights; wider labels: set
+   * --sft-chart-sankey-label-width on .sft-chart-sankey.
+   */
+  .sft-chart-sankey {
+    --sft-chart-sankey-label-width: calc(var(--sft-space-8) * 3);
+    display: grid;
+    grid-template-columns: var(--sft-chart-sankey-label-width) minmax(0, 1fr) var(--sft-chart-sankey-label-width);
+    column-gap: var(--sft-space-2);
+    color: var(--sft-color-foreground);
+    font-size: var(--sft-text-xs);
+  }
+
+  .sft-chart-sankey-labels {
+    position: relative;
+    height: var(--sft-chart-plot-height);
+  }
+
+  .sft-chart-sankey-labels-in {
+    text-align: right;
+  }
+
+  .sft-chart-sankey-label {
+    position: absolute;
+    left: 0;
+    right: 0;
+    display: grid;
+    transform: translateY(-50%);
+  }
+
+  .sft-chart-sankey-value {
+    color: var(--sft-color-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .sft-chart-sankey-node,
+  .sft-chart-sankey-link {
+    fill: var(--sft-chart-series, var(--sft-chart-series-1));
+    stroke: none;
+  }
+
+  .sft-chart-sankey-link,
+  .sft-chart-sankey-tint {
+    fill-opacity: var(--sft-chart-tint-opacity, 0.24);
+  }
+
+  .sft-chart-sankey-hub {
+    fill: var(--sft-chart-axis);
+  }
+
+  .sft-chart-sankey-hatch line {
+    stroke: var(--sft-chart-series, var(--sft-chart-series-1));
+    stroke-width: var(--sft-chart-grid-width);
+    vector-effect: non-scaling-stroke;
+  }
+
+  /* BarList: label | bar | value, the rows sharing the list's columns. */
+  .sft-chart-bar-list {
+    display: grid;
+    grid-template-columns: minmax(0, max-content) minmax(0, 1fr) max-content;
+    gap: var(--sft-space-2) var(--sft-space-3);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: var(--sft-text-sm);
+  }
+
+  .sft-chart-bar-row {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: subgrid;
+    align-items: center;
+  }
+
+  .sft-chart-bar-track {
+    height: var(--sft-space-2);
+    border-radius: var(--sft-radius-pill);
+    background: var(--sft-chart-grid);
+    overflow: hidden;
+  }
+
+  .sft-chart-bar {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--sft-chart-series, var(--sft-chart-series-1));
+  }
+
+  .sft-chart-bar-value {
+    color: var(--sft-color-muted);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
   }
 
   /* Cursor: the plot as a focusable area, a guide and dots on the active point, and the readout. */

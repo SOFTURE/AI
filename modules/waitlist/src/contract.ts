@@ -37,8 +37,9 @@ export interface WaitlistFormState {
   /** The scopes checked, to check them again after an error. */
   readonly scopes?: readonly string[];
   /**
-   * With `status: "ok"` and `waitlist({ unsubscribeLinkOnSuccess: true })`: the person's own unsubscribe
-   * page link. A credential for that address: show it to the person, never log it.
+   * With `status: "ok"` and `waitlist({ unsubscribeLinkOnSuccess: true })`, only for the request that
+   * created the sign-up: the person's own unsubscribe page link. A credential for that address: show it
+   * to the person, never log it.
    */
   readonly unsubscribeUrl?: string;
 }
