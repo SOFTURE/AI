@@ -11,6 +11,8 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 - Plan periods, `parseDay` and the `/ui` day formatters use core's day arithmetic and `formatCalendarDay`; the
   results are the same. `CURRENCY_MINOR_UNIT_DIGITS` is core's table, still exported here. Requires
   `@softure-ai/core` `^0.1.9`.
+- `BILLING_RATE_LIMIT_BUCKETS` declares `key: "account"` on `billing-payment` (security 0.1.8 bucket kinds).
+- Requires `@softure-ai/security` `^0.1.8`: earlier versions refuse the `key` field.
 - `sendAccessReminders(ctx, { buildMail, getScope })` (`/mailing`): `buildMail({ reminder, lastDay, link, mail })`
   returns the app's own mail (sync or async), or `null` to send that account nothing this run (counted in
   `skipped`); `getScope(reminder)` replaces the delivery scope, so an app moving from its own job keeps the
