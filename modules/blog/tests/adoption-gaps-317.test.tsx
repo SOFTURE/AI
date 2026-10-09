@@ -129,7 +129,7 @@ describe("views: disclaimer and AI disclosure (#317)", () => {
   it("shows no AI section by default", () => {
     const html = renderToStaticMarkup(<BlogMethodView context={createContext()} />);
     expect(html).not.toContain('id="ai"');
-    expect(html).toContain(createContext().messages.method.whoBody.replace("'", "&#x27;"));
+    expect(html).toContain(createContext().messages.method.whoBody.replaceAll("'", "&#x27;"));
   });
 
   it("opens the method page with the AI disclosure and drops the human-editor claim with aiDisclosure", () => {
