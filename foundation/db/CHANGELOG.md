@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`db@x.y.z`).
 
+## 0.1.7
+
+- `createProcessDatabase(url, { schema, max })` returns `{ db, open, close, withDatabase, isOpen }`: a module-level,
+  synchronous `db` over the process-wide handle for the URL. A query before `open()` throws `Database is not open`;
+  `withDatabase(main)` opens, runs and closes for a script. `url` may be a function, read on `open()` (#313).
+- `findDriverError(error)` (`{ code, constraint, message }` of the Postgres error under drizzle's wrapper) and
+  `isConstraintViolation(error, { code, constraint })`, so apps and modules stop copying them (#313).
+- `closeSharedDatabase(url)` closes and forgets one shared handle.
+
 ## 0.1.6
 
 - One database handle per process: `getConfiguredDatabase` opens the config's `database.handle` or URL once, and modules, health route and commands share it.

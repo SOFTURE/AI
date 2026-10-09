@@ -13,7 +13,9 @@ export {
   type PostgresDatabase,
   type Queryable,
 } from "./client.js";
-export { closeSharedDatabases, getSharedDatabase } from "./shared.js";
+export { closeSharedDatabase, closeSharedDatabases, getSharedDatabase } from "./shared.js";
+export { createProcessDatabase, type ProcessDatabase, type ProcessDatabaseOptions } from "./process.js";
+export { findDriverError, isConstraintViolation, type ConstraintViolation, type DriverError } from "./driver-errors.js";
 export { closeConfiguredDatabases, getConfiguredDatabase, openCommandDatabase, type CommandDatabase } from "./configured.js";
 export { computeChecksum, readMigrationFiles, type MigrationFile } from "./migrations/files.js";
 export {
