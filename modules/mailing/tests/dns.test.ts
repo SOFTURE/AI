@@ -52,6 +52,7 @@ describe("checkSenderDns", () => {
       dmarc: { status: "pass", finding: "found", host: "_dmarc.mail.example.com", record: DMARC },
       replyTo: null,
       returnPath: [],
+      inbound: [],
     });
   });
 
@@ -63,6 +64,7 @@ describe("checkSenderDns", () => {
       dmarc: { status: "fail", finding: "missing", host: "_dmarc.example.com", record: null },
       replyTo: null,
       returnPath: [],
+      inbound: [],
     });
   });
 
@@ -248,6 +250,70 @@ describe("checkSenderDns", () => {
         { host: "rsend.mail.example.com", targetDomain: "rmta.net" },
       ]);
     });
+  });
+});
+
+describe("checkSenderDns inbound: cloudflare", () => {
+  const CLOUDFLARE_MX: MxRecord[] = [
+    { exchange: "route3.mx.cloudflare.net", priority: 13 },
+    { exchange: "route1.mx.cloudflare.net", priority: 86 },
+    { exchange: "route2.mx.cloudflare.net", priority: 24 },
+  ];
+  const CLOUDFLARE_SPF = "v=spf1 include:_spf.mx.cloudflare.net ~all";
+
+  async function inboundOf(options: { mx: Record<string, MxRecord[] | Error>; txt: Record<string, string[] | Error>; replyTo?: string }) {
+    const report = await checkSenderDns("mail.example.com", {
+      inbound: "cloudflare",
+      resolveTxt: zone(options.txt),
+      resolveMx: mxZone(options.mx),
+      resolveCname: cnameZone({}),
+      ...(options.replyTo === undefined ? {} : { replyTo: options.replyTo }),
+    });
+    return report.inbound;
+  }
+
+  it("passes the reply domain when Email Routing's MX and one SPF record with its include are there", async () => {
+    expect(await inboundOf({ mx: { "example.com": CLOUDFLARE_MX }, txt: { "example.com": ["google-site-verification=x", CLOUDFLARE_SPF] }, replyTo: "Support <help@Example.com>" })).toEqual([
+      { status: "pass", finding: "found", host: "example.com", record: "13 route3.mx.cloudflare.net, 24 route2.mx.cloudflare.net, 86 route1.mx.cloudflare.net" },
+      { status: "pass", finding: "found", host: "example.com", record: CLOUDFLARE_SPF },
+    ]);
+  });
+
+  it("checks the checked domain itself without a reply-to", async () => {
+    const checks = await inboundOf({ mx: { "mail.example.com": CLOUDFLARE_MX }, txt: { "mail.example.com": ["v=spf1 +include:_SPF.MX.Cloudflare.net. include:amazonses.com ~all"] } });
+    expect(checks.map((check) => [check.host, check.status])).toEqual([
+      ["mail.example.com", "pass"],
+      ["mail.example.com", "pass"],
+    ]);
+  });
+
+  it("fails an MX that is not Email Routing's, and names the records", async () => {
+    const [mx] = await inboundOf({ mx: { "example.com": [CLOUDFLARE_MX[0] as MxRecord, { exchange: "mx.other-provider.example", priority: 5 }] }, txt: { "example.com": [CLOUDFLARE_SPF] }, replyTo: "help@example.com" });
+    expect(mx).toEqual({ status: "fail", finding: "unexpected-target", host: "example.com", record: "5 mx.other-provider.example, 13 route3.mx.cloudflare.net" });
+  });
+
+  it("fails a lookalike MX host that only ends with the service's name", async () => {
+    const [mx] = await inboundOf({ mx: { "example.com": [{ exchange: "route1.evilmx.cloudflare.net.example", priority: 1 }] }, txt: {}, replyTo: "help@example.com" });
+    expect(mx?.finding).toBe("unexpected-target");
+  });
+
+  it.each([
+    ["no SPF record", { "example.com": ["google-site-verification=x"] }, "missing", null],
+    ["two SPF records", { "example.com": [CLOUDFLARE_SPF, "v=spf1 include:amazonses.com ~all"] }, "multiple", null],
+    ["an SPF record without the include", { "example.com": ["v=spf1 include:amazonses.com ~all"] }, "missing-include", "v=spf1 include:amazonses.com ~all"],
+    ["a failed lookup", { "example.com": dnsError("ESERVFAIL") }, "lookup-failed", null],
+  ])("fails the SPF check for %s", async (_case, txt, finding, record) => {
+    const [, spf] = await inboundOf({ mx: { "example.com": CLOUDFLARE_MX }, txt, replyTo: "help@example.com" });
+    expect(spf).toEqual({ status: "fail", finding, host: "example.com", record });
+  });
+
+  it.each([
+    ["no MX", {}, "missing", null],
+    ["a null MX", { "example.com": [{ exchange: "", priority: 0 }] }, "null-mx", "0 ."],
+    ["a failed lookup", { "example.com": dnsError("ETIMEOUT") }, "lookup-failed", null],
+  ])("fails the MX check for %s", async (_case, mx, finding, record) => {
+    const [check] = await inboundOf({ mx, txt: { "example.com": [CLOUDFLARE_SPF] }, replyTo: "help@example.com" });
+    expect(check).toEqual({ status: "fail", finding, host: "example.com", record });
   });
 });
 

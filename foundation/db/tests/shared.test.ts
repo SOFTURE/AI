@@ -1,4 +1,4 @@
-import { closeSharedDatabases, getSharedDatabase } from "@softure-ai/db";
+import { closeSharedDatabase, closeSharedDatabases, getSharedDatabase } from "@softure-ai/db";
 import { afterEach, describe, expect, it } from "vitest";
 
 describe("getSharedDatabase", () => {
@@ -22,5 +22,16 @@ describe("getSharedDatabase", () => {
   it("does not keep a failed open, so the next call reports the problem again", async () => {
     await expect(getSharedDatabase("mysql://localhost/app")).rejects.toThrow('unsupported database URL scheme "mysql:"');
     await expect(getSharedDatabase("mysql://localhost/app")).rejects.toThrow('unsupported database URL scheme "mysql:"');
+  });
+
+  it("closes one URL's handle and keeps the others", async () => {
+    const memory = await getSharedDatabase("pglite://");
+    const other = await getSharedDatabase("pglite://memory://");
+
+    await closeSharedDatabase("pglite://");
+    await closeSharedDatabase("pglite://");
+
+    expect(await getSharedDatabase("pglite://")).not.toBe(memory);
+    expect(await getSharedDatabase("pglite://memory://")).toBe(other);
   });
 });
