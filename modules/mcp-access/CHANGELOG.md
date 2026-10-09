@@ -12,6 +12,22 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   answers `null` for a host that is no host). The consent decision still reads `Host` only. Discovery documents vary
   on `x-forwarded-host` too.
 - `getRequestOrigins(config, path)` is exported from `@softure-ai/mcp-access/next`. Needs `@softure-ai/core` 0.1.8.
+- What an adopting app wrote around the endpoint ships with the package (#315):
+  - `toolResult`, `toolError` and `withToolErrors(work, { hints, label })` (`/server`): a thrown error reaches the
+    assistant only as a `PublicError` message or a hint, and the log only by kind, never with its SQL.
+  - `actionTool(handler, { message, hints })` (`/server`): a server action as a write tool, its arguments sent as
+    the form the action reads.
+  - `@softure-ai/mcp-access/stdio`: `serveMcpStdio({ config, createServer, userIdEnv, allowWrites })` serves the
+    factory over stdio for the account in `MCP_USER_ID`, or the only account; `/stdio/register` resolves
+    `server-only` to an empty module for `node`/`tsx --import`.
+  - `@softure-ai/mcp-access/testing`: `expectToolCatalogMatchesServer(config, createServer)` and
+    `getToolCatalogDifferences`. Catalog tools take optional localized `title` and `example`.
+  - `DEFAULT_MCP_ACCESS_ROUTES` from the root entry; the manifest uses it.
+  - `issueToken(previous, form, { beforeIssue })` (`/next`) for a gate before a token is issued, with the codes
+    `mcp-access.issue_refused` and `mcp-access.write_refused` (copy in en and pl); `McpAccessPage` takes an
+    optional `issueAction`. `issueTokenAction` is unchanged.
+  - `pruneMcpAccess(ctx)` (`/server`) and the `softure-mcp prune` command (bin, `/cli`) for a daily job such as a
+    deploy `maintain` hook.
 
 ## 0.1.11
 

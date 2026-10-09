@@ -5,6 +5,7 @@
 import { defineModule, resolveMigrationsDir } from "@softure-ai/core";
 import { mcpAccessMessages } from "./messages/index.js";
 import { mcpAccessOptionsSchema } from "./options.js";
+import { DEFAULT_MCP_ACCESS_ROUTES } from "./routes.js";
 import { checkAccessTokensTable } from "./server/health.js";
 import { mcpAccessPrivacyContributor } from "./server/privacy.js";
 
@@ -38,14 +39,7 @@ export const mcpAccess = defineModule({
     tables: ["access_tokens", "oauth_clients", "oauth_authorization_codes", "oauth_grants"],
     env: [],
     switches: [],
-    routes: {
-      page: "/account/mcp",
-      endpoint: "/api/mcp",
-      oauthConsent: "/oauth/authorize",
-      oauthDecision: "/api/oauth/authorize",
-      oauthToken: "/api/oauth/token",
-      oauthRegister: "/api/oauth/register",
-    },
+    routes: { ...DEFAULT_MCP_ACCESS_ROUTES },
     mount: [
       { kind: "page", path: "app/account/mcp/page.tsx", export: "McpAccessPage" },
       { kind: "route-handler", path: "app/api/mcp/route.ts", export: "createMcpRoute" },
@@ -81,6 +75,7 @@ export type {
   IssuedToken,
   IssueTokenFormState,
   McpAccessErrorCode,
+  McpIssueRefusalCode,
   McpClientSetup,
   McpServerIdentity,
   OAuthGrantView,
@@ -105,6 +100,7 @@ export {
   type McpToolDefinition,
   type McpToolDefinitionInput,
 } from "./options.js";
+export { DEFAULT_MCP_ACCESS_ROUTES } from "./routes.js";
 export { readRequestOrigin, type McpOriginRequest, type McpOrigins } from "./origins.js";
 export { accessTokens, oauthAuthorizationCodes, oauthClients, oauthGrants, type OAuthClientRow, type OAuthTokenEndpointAuthMethod } from "./schema.js";
 export { getAccessTokenStatus, type AccessTokenStatusOptions } from "./token-status.js";

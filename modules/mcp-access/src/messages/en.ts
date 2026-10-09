@@ -92,6 +92,8 @@ export const en = {
       token_limit_reached: "You already hold the most active tokens allowed. Revoke one before creating another.",
       token_not_found: "This token no longer exists. It may have been revoked already.",
       grant_not_found: "This app is no longer connected.",
+      issue_refused: "Your account cannot create tokens right now.",
+      write_refused: "Your account cannot create tokens with write access. Create a read-only token instead.",
     },
     auth: {
       unauthenticated: "Your session has ended. Log in again.",
