@@ -1,8 +1,10 @@
 // The frame of every blog page: crumbs, the title with its lead, an optional line under it (dates),
 // then the content. Links are plain anchors: the pages render on the server and need no client router.
+// An app's `context.layout` renders the frame instead, with the same parts.
 import { formatMessage } from "@softure-ai/core";
 import type { ReactNode } from "react";
 import type { Crumb } from "../pages/listing.js";
+import { getBlogSlotClass } from "./class-names.js";
 import type { BlogPageContext } from "./page-context.js";
 
 export interface BlogLayoutProps {
@@ -16,19 +18,20 @@ export interface BlogLayoutProps {
   readonly children: ReactNode;
 }
 
-export function Breadcrumbs({ crumbs, label }: { readonly crumbs: readonly Crumb[]; readonly label: string }) {
+export function Breadcrumbs({ crumbs, label, context }: { readonly crumbs: readonly Crumb[]; readonly label: string; readonly context?: Pick<BlogPageContext, "classNames" | "unstyled"> }) {
+  const cls = getBlogSlotClass(context ?? {});
   return (
-    <nav aria-label={label} className="blog-crumbs">
+    <nav aria-label={label} className={cls("crumbs")}>
       <ol>
         {crumbs.map((crumb, index) =>
           index === crumbs.length - 1 ? (
-            <li key={crumb.path} className="blog-visually-hidden" aria-current="page">
+            <li key={crumb.path} className={cls("visuallyHidden")} aria-current="page">
               {crumb.name}
             </li>
           ) : (
             <li key={crumb.path}>
               <a href={crumb.path}>{crumb.name}</a>
-              <span aria-hidden="true" className="blog-crumbs-separator">
+              <span aria-hidden="true" className={cls("crumbsSeparator")}>
                 {"›"}
               </span>
             </li>
@@ -40,12 +43,21 @@ export function Breadcrumbs({ crumbs, label }: { readonly crumbs: readonly Crumb
 }
 
 export function BlogLayout({ context, title, lead, crumbs, meta, children }: BlogLayoutProps) {
+  if (context.layout !== undefined) {
+    const AppLayout = context.layout;
+    return (
+      <AppLayout context={context} title={title} lead={lead} crumbs={crumbs} meta={meta}>
+        {children}
+      </AppLayout>
+    );
+  }
+  const cls = getBlogSlotClass(context);
   return (
-    <main className="blog-page">
-      <header className="blog-header">
-        {crumbs !== undefined && crumbs.length > 1 ? <Breadcrumbs crumbs={crumbs} label={context.messages.pages.breadcrumbs} /> : null}
-        <h1 className="blog-title">{title}</h1>
-        {lead === undefined ? null : <p className="blog-lead">{lead}</p>}
+    <main className={cls("page")}>
+      <header className={cls("header")}>
+        {crumbs !== undefined && crumbs.length > 1 ? <Breadcrumbs crumbs={crumbs} label={context.messages.pages.breadcrumbs} context={context} /> : null}
+        <h1 className={cls("title")}>{title}</h1>
+        {lead === undefined ? null : <p className={cls("lead")}>{lead}</p>}
         {meta}
       </header>
       {children}
@@ -61,10 +73,11 @@ export function BlogFooterNote({ context, extraLink }: { readonly context: BlogP
     ...(context.methodPath === null ? [] : [{ href: context.methodPath, label: copy.methodLink }]),
   ];
   const hasSignature = context.brand !== null;
+  const cls = getBlogSlotClass(context);
   return (
-    <footer className="blog-footer-note">
+    <footer className={cls("footerNote")}>
       {hasSignature || links.length > 0 ? (
-        <p className="blog-signature">
+        <p className={cls("signature")}>
           {context.brand === null ? null : <strong>{formatMessage(copy.signature, { brand: context.brand })}</strong>}
           {links.map((link, index) => (
             <span key={link.href}>
@@ -74,9 +87,9 @@ export function BlogFooterNote({ context, extraLink }: { readonly context: BlogP
           ))}
         </p>
       ) : null}
-      {context.disclaimer === null ? null : (
-        <aside aria-label={copy.disclaimerLabel} className="blog-disclaimer">
-          <p>{context.disclaimer}</p>
+      {context.disclaimer === null || context.disclaimer === undefined ? null : (
+        <aside aria-label={copy.disclaimerLabel} className={cls("disclaimer")}>
+          {typeof context.disclaimer === "string" ? <p>{context.disclaimer}</p> : context.disclaimer}
         </aside>
       )}
     </footer>

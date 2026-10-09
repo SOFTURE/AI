@@ -73,9 +73,13 @@ blog({
   fields: z.object({ scenario: z.string().regex(/^[a-z]=\d+(&[a-z]=\d+)*$/).optional() }),
   // The pages' brand: title suffix, signature, JSON-LD author and publisher, OG card colours (hex)
   // and fonts (§8). Default: none (no suffix, no author, the ui theme's dark colours, next/og's font).
+  // colors.muted is the OG card's label line (default: the foreground).
   brand: { name: "Example", colors: { background: "#0b0b0c", foreground: "#f5f5f5", accent: "#7aa2f7" } },
   // Mount the method page at routes.method. Default: false (the route answers 404).
   methodPage: true,
+  // The texts are written by an AI model: the method page opens with the disclosure (AI Act art. 50(4),
+  // method.aiTitle / method.aiBody) and "who writes" says method.whoBodyAi. Default: false.
+  aiDisclosure: false,
   // A note under every article and term, per locale (en required). Default: none.
   disclaimer: { en: "Education, not financial advice.", pl: pl.blog.disclaimer },
   // The heading of each cluster on the listing, per locale; a missing key shows the key. Default: {}.
@@ -370,6 +374,49 @@ What the builders write, so an app moving published pages onto them can match it
 - `buildGlossaryJsonLd` gives `null` without terms (an empty `DefinedTermSet` says nothing).
 
 Any field can still be replaced by spreading the result: `{ ...buildTermMetadata(config, term), title }`.
+
+`getBodyOptions`, `findArticlesLinkingTermFor` and `getPageContext` need no request scope: `/server` exports the
+same functions, for a renderer outside Next.
+
+**The package's views in the app's look.** An app with its own design system keeps the views and gives them its
+classes, its page frame and its cards. Every ready-made page takes `view` (and the listing `renderCard`); a view
+from `/ui` reads the same fields from its `context`:
+
+```tsx
+// app/blog/[slug]/page.tsx
+import { BlogArticlePage, type BlogArticlePageProps } from "@softure-ai/blog/next";
+import { Breadcrumbs, type BlogLayoutSlotProps, type BlogViewOptions } from "@softure-ai/blog/ui";
+
+function BlogFrame({ context, title, lead, crumbs, meta, children }: BlogLayoutSlotProps) {
+  return (
+    <PageFrame title={title} lead={lead} aside={meta}>
+      {crumbs === undefined ? null : <Breadcrumbs crumbs={crumbs} label={context.messages.pages.breadcrumbs} context={context} />}
+      {children}
+    </PageFrame>
+  );
+}
+
+const view: BlogViewOptions = {
+  classNames: { article: "prose", card: "card", cardTitle: "card-title", visuallyHidden: "sr-only" },
+  unstyled: true, // only the app's classes; leave it out to add them after the package's
+  layout: BlogFrame, // the app's frame instead of <main class="blog-page"> and its header
+  disclaimer: <p>Education, not financial advice. <a href="/terms">Terms</a></p>,
+};
+
+export default function Page(props: BlogArticlePageProps) {
+  return <BlogArticlePage {...props} view={view} />;
+}
+// app/blog/page.tsx: <BlogIndexPage view={view} renderCard={({ article, href, isLead }) => <AppCard … />} />
+```
+
+- `classNames` names the element, the class without `blog-` in camelCase: `page`, `header`, `title`, `lead`,
+  `crumbs`, `card`, `cardLead`, `cardTitle`, `article`, `section`, `disclaimer`… (`BLOG_SLOT_CLASSES` lists them
+  with their defaults). The app's class follows the package's, which sits in the `softure` layer, so it wins.
+- `unstyled` drops the `blog-*` classes. Text meant for screen readers only keeps `blog-visually-hidden` until
+  `classNames.visuallyHidden` names the app's own class.
+- `layout` gets `{ context, title, lead, crumbs, meta, children }`; without it the markup is the package's.
+- `renderCard` gets `{ article, href, isLead, context }` and replaces the card inside its list item.
+- `disclaimer` replaces the configured one: a string renders in a paragraph, any other node as given.
 
 The commands:
 
@@ -717,7 +764,25 @@ None.
 `styles.css` styles every `blog-*` class of the pages and of the rendered body (`blog-external`,
 `blog-external-marker`, `blog-visually-hidden`, `blog-term`, `blog-toc`, `blog-footnote-ref`,
 `blog-footnotes`, `blog-footnote-back`) with the `--sft-*` tokens of `@softure-ai/ui`, in the
-`softure` layer, so the app's own rules win. The OG card takes `brand.colors`, else ui's dark theme.
+`softure` layer, so the app's own rules win; class slots and a layout (§4, "The package's views in the app's
+look") take the app's own. The OG card takes `brand.colors`, else ui's dark theme; its label line is
+`brand.colors.muted`, else the foreground.
+
+An app's mark on the OG card, and another label under the title, come from the route built by
+`createBlogArticleOgImage` (`BlogArticleOgImage` is the one built with no options):
+
+```tsx
+// app/blog/[slug]/opengraph-image.tsx
+import { createBlogArticleOgImage } from "@softure-ai/blog/next";
+export { generateBlogStaticParams as generateStaticParams } from "@softure-ai/blog/next";
+export const size = { width: 1200, height: 630 };
+export const contentType = "image/png";
+export const revalidate = 300;
+// The logo is drawn before the brand's name: flex layout and inline styles, images as data or https URLs.
+export default createBlogArticleOgImage({ logo: <AppMark size={40} />, label: "The journal" });
+```
+
+An app's other OG cards read fonts the same way with `createOgFontLoader({ root })` (`/server` or `/next`).
 
 The OG card writes in `brand.fonts`, else in `next/og`'s default font:
 
