@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { parseInitAnswers, toAppName } from "../init/answers.js";
-import { readAppFacts, type AppFacts } from "../init/app-facts.js";
-import { planInitFiles, writeInitFiles } from "../init/generate.js";
+import { COMPOSE_FILE, readAppFacts, type AppFacts } from "../init/app-facts.js";
+import { DEFAULT_APP_ROLE, planInitFiles, TEMPLATE_VERSIONS, writeInitFiles } from "../init/generate.js";
 import { fail, USAGE_EXIT_CODE } from "./failure.js";
 import type { CliIo } from "./io.js";
 import { readFlags } from "./options.js";
@@ -20,7 +20,9 @@ function splitList(text: string | undefined): string[] {
     .filter((item) => item !== "");
 }
 
-function listWarnings(facts: AppFacts): string[] {
+const CALLER_WORKFLOWS = [".github/workflows/deploy.yml", ".github/workflows/release.yml"];
+
+function listNextConfigWarnings(facts: AppFacts): string[] {
   if (facts.nextConfigFile === null) return ["no next.config found; the Dockerfile expects a Next standalone build"];
   const warnings: string[] = [];
   if (!facts.isStandalone) {
@@ -32,6 +34,31 @@ function listWarnings(facts: AppFacts): string[] {
     );
   }
   return warnings;
+}
+
+/** A value `deploy.sh` takes from a compose file init keeps, which could not be read there. */
+function listComposeWarnings(facts: AppFacts, replacesCompose: boolean): string[] {
+  if (!facts.hasDatabase || !facts.compose || replacesCompose) return [];
+  const warnings: string[] = [];
+  if (facts.compose.postgresMajor === null) {
+    warnings.push(
+      `${COMPOSE_FILE}: no Postgres major version in the postgres service's image; deploy.sh's tools image carries pg_dump ${TEMPLATE_VERSIONS.postgres}`,
+    );
+  }
+  if (facts.compose.appDatabaseRole === null) {
+    warnings.push(`${COMPOSE_FILE}: no role in the app service's DATABASE_URL; deploy.sh's report reads as ${DEFAULT_APP_ROLE}`);
+  }
+  return warnings;
+}
+
+/** Callers written without --workflows-ref call the moving master; the release tag's commit is the immutable pin. */
+function listWorkflowsRefWarnings(options: { written: string[]; workflowsRef: string | undefined; cliVersion: string }): string[] {
+  if (options.workflowsRef !== undefined) return [];
+  if (!options.written.some((path) => CALLER_WORKFLOWS.includes(path))) return [];
+  const tag = `deploy@${options.cliVersion}`;
+  return [
+    `.github/workflows call SOFTURE/AI's workflows at master; pin the commit of the ${tag} release instead (git ls-remote https://github.com/SOFTURE/AI 'refs/tags/${tag}^{}' prints it) with --workflows-ref=<sha>, or edit their uses: lines`,
+  ];
 }
 
 /**
@@ -49,6 +76,7 @@ export function runInit(args: string[], io: CliIo): void {
     "acme-email": { type: "string" },
     env: { type: "string" },
     tables: { type: "string" },
+    "workflows-ref": { type: "string" },
     force: { type: "boolean", default: false },
   });
   const missing = (["domain", "image"] as const).filter((name) => flags[name] === undefined);
@@ -68,14 +96,22 @@ export function runInit(args: string[], io: CliIo): void {
     acmeEmail: flags["acme-email"],
     env: splitList(flags.env),
     tables: splitList(flags.tables),
+    workflowsRef: flags["workflows-ref"],
   });
   if (!answersResult.ok) fail(`init: nothing written; ${answersResult.problems.join("; ")}.`);
-  const files = planInitFiles({ answers: answersResult.answers, facts, cliVersion: readCliVersion() });
+  const cliVersion = readCliVersion();
+  const replacesCompose = flags.force && Boolean(facts.compose);
+  const files = planInitFiles({ answers: answersResult.answers, facts, cliVersion, replacesCompose });
   const result = writeInitFiles({ dir, files, force: flags.force });
+  const warnings = [
+    ...listNextConfigWarnings(facts),
+    ...listComposeWarnings(facts, replacesCompose),
+    ...listWorkflowsRefWarnings({ written: result.written, workflowsRef: answersResult.answers.workflowsRef, cliVersion }),
+  ];
   const lines = [
     ...result.written.map((path) => `wrote   ${path}`),
     ...result.skipped.map((path) => `kept    ${path} (exists; --force overwrites it)`),
-    ...listWarnings(facts).map((warning) => `warning ${warning}`),
+    ...warnings.map((warning) => `warning ${warning}`),
     `init: ${result.written.length} written, ${result.skipped.length} kept, database part ${facts.hasDatabase ? "on" : "off"} (@softure-ai/db ${facts.hasDatabase ? "found" : "not found"} in package.json).`,
   ];
   io.stdout(`${lines.join("\n")}\n`);

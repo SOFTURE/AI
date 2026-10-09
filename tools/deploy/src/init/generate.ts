@@ -6,11 +6,17 @@ import { fileURLToPath } from "node:url";
 import { findRequiredNames } from "../env/required-names.js";
 import { DEPLOY_SCHEMA_URL } from "../verify/schema.js";
 import type { InitAnswers } from "./answers.js";
-import type { AppFacts } from "./app-facts.js";
+import { COMPOSE_FILE, type AppFacts } from "./app-facts.js";
 import { renderTemplate, type TemplateValues } from "./render-template.js";
 
 /** `templates/` of the package, next to `src/` and `dist/`. */
 export const TEMPLATES_DIR = fileURLToPath(new URL("../../templates/", import.meta.url));
+
+/** The role of the app's DATABASE_URL in the compose file init writes. */
+export const DEFAULT_APP_ROLE = "softure_app";
+
+/** The ref of SOFTURE/AI's workflows the callers use without `--workflows-ref`. */
+export const DEFAULT_WORKFLOWS_REF = "master";
 
 /** Pinned versions written into the files; the app bumps them there. */
 export const TEMPLATE_VERSIONS = {
@@ -39,7 +45,7 @@ const withDatabase = (facts: AppFacts): boolean => facts.hasDatabase;
 export const TEMPLATE_FILES: readonly TemplateFile[] = [
   { template: "Dockerfile.tmpl", target: "Dockerfile", mode: FILE_MODE, isIncluded: always },
   { template: ".dockerignore.tmpl", target: ".dockerignore", mode: FILE_MODE, isIncluded: always },
-  { template: "docker/prod/docker-compose.yml.tmpl", target: "docker/prod/docker-compose.yml", mode: FILE_MODE, isIncluded: always },
+  { template: "docker/prod/docker-compose.yml.tmpl", target: COMPOSE_FILE, mode: FILE_MODE, isIncluded: always },
   { template: "docker/prod/traefik.yml.tmpl", target: "docker/prod/traefik.yml", mode: FILE_MODE, isIncluded: always },
   { template: "docker/prod/initdb/01-roles.sql.tmpl", target: "docker/prod/initdb/01-roles.sql", mode: FILE_MODE, isIncluded: withDatabase },
   { template: "docker/server/deploy.sh.tmpl", target: "docker/server/deploy.sh", mode: EXECUTABLE_MODE, isIncluded: always },
@@ -59,6 +65,8 @@ export interface PlanInitFilesOptions {
   answers: InitAnswers;
   facts: AppFacts;
   cliVersion: string;
+  /** The app's compose file is replaced (`--force`), so its role no longer applies; its Postgres major still does. */
+  replacesCompose?: boolean;
   /** Reads a template by its path under `templates/`; tests may pass their own. */
   readTemplate?: (path: string) => string;
 }
@@ -81,6 +89,16 @@ export function buildAppRule(answers: InitAnswers, facts: AppFacts): string {
   const prefixes = [...new Set(["/_next/", getHealthPath(facts), ...answers.paths])].filter((path) => path !== "/");
   const paths = prefixes.map((prefix) => `PathPrefix(\`${prefix}\`)`).join(" || ");
   return `${host} && (Path(\`/\`) || ${paths})`;
+}
+
+/** The Postgres major of the app's compose file, else the template's. */
+export function getPostgresVersion(facts: AppFacts): string {
+  return facts.compose?.postgresMajor ?? TEMPLATE_VERSIONS.postgres;
+}
+
+/** The role `deploy.sh`'s report reads as: the app's DATABASE_URL role in a compose file init keeps, else the default. */
+export function getReportRole(facts: AppFacts, replacesCompose: boolean): string {
+  return (replacesCompose ? null : facts.compose?.appDatabaseRole) ?? DEFAULT_APP_ROLE;
 }
 
 function buildValues(options: PlanInitFilesOptions): Record<string, string | boolean> {
@@ -108,7 +126,9 @@ function buildValues(options: PlanInitFilesOptions): Record<string, string | boo
     rowCountTablesJson: answers.tables.map((table) => JSON.stringify(table)).join(", "),
     schemaUrl: DEPLOY_SCHEMA_URL,
     traefikVersion: TEMPLATE_VERSIONS.traefik,
-    postgresVersion: TEMPLATE_VERSIONS.postgres,
+    postgresVersion: getPostgresVersion(facts),
+    reportRole: getReportRole(facts, options.replacesCompose ?? false),
+    workflowsRef: answers.workflowsRef ?? DEFAULT_WORKFLOWS_REF,
     esbuildVersion: TEMPLATE_VERSIONS.esbuild,
   };
 }
@@ -118,7 +138,7 @@ export function planInitFiles(options: PlanInitFilesOptions): PlannedFile[] {
   const readTemplate = options.readTemplate ?? readPackagedTemplate;
   const base = buildValues(options);
   const included = TEMPLATE_FILES.filter((file) => file.isIncluded(options.facts));
-  const compose = included.find((file) => file.target === "docker/prod/docker-compose.yml");
+  const compose = included.find((file) => file.target === COMPOSE_FILE);
   // The caller workflow names the secrets the compose file requires, so both come from the same text.
   const composeText = compose ? renderTemplate(readTemplate(compose.template), base) : "";
   const required = findRequiredNames(composeText).map((variable) => variable.name);

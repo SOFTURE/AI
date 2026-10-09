@@ -4,8 +4,8 @@
 # "Run workflow" on the default branch cuts the next date tag (vYYYY.MM.DD, then -2, -3) and its GitHub Release on
 # that commit, then starts `deploy.yml` on the tag: the owner can run it from the Actions tab, and an agent that cannot
 # push tags can start it as a workflow_dispatch. The tag's date is taken in `timezone` (Europe/Warsaw for a Polish
-# day). `deploy-workflows-v1` is the tag the owner moves on SOFTURE/AI; pin a commit SHA instead when the app wants an
-# immutable reference.
+# day). SOFTURE/AI's workflows are called at {{workflowsRef}}; pin a commit SHA for an immutable reference, best the
+# commit of the release tag deploy@{{cliVersion}}, the same one deploy.yml pins.
 
 name: release
 
@@ -25,7 +25,7 @@ permissions:
 
 jobs:
   release:
-    uses: SOFTURE/AI/.github/workflows/deploy-cut-release.yml@deploy-workflows-v1
+    uses: SOFTURE/AI/.github/workflows/deploy-cut-release.yml@{{workflowsRef}}
     with:
       description: ${{ inputs.description }}
       timezone: UTC

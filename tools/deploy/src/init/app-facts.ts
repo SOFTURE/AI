@@ -2,6 +2,10 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
+import { readComposeFacts, type ComposeFacts } from "./compose-facts.js";
+
+/** The production compose file `init` writes, and reads when the app already has one. */
+export const COMPOSE_FILE = "docker/prod/docker-compose.yml";
 
 const NEXT_CONFIG_FILES = ["next.config.ts", "next.config.mts", "next.config.js", "next.config.mjs"];
 const SERVER_EXTERNAL_LIST = /serverExternalPackages\s*:\s*\[([^\]]*)\]/;
@@ -30,6 +34,11 @@ export interface AppFacts {
    * driver the app does not install. Absent (facts built by hand) means not checked.
    */
   isDbServerExternal?: boolean;
+  /**
+   * What the app's own `docker/prod/docker-compose.yml` names for `deploy.sh`; null when the app has none. Absent
+   * (facts built by hand) means not read. Either way the defaults apply.
+   */
+  compose?: ComposeFacts | null;
 }
 
 export type AppFactsResult = { ok: true; facts: AppFacts } | { ok: false; problem: string };
@@ -70,6 +79,7 @@ export function readAppFacts(dir: string): AppFactsResult {
   const nextConfigFile = NEXT_CONFIG_FILES.find((file) => existsSync(join(dir, file))) ?? null;
   const configText = nextConfigFile === null ? "" : readFileSync(join(dir, nextConfigFile), "utf8");
   const publicDir = join(dir, "public");
+  const composeFile = join(dir, COMPOSE_FILE);
   return {
     ok: true,
     facts: {
@@ -80,6 +90,7 @@ export function readAppFacts(dir: string): AppFactsResult {
       nextConfigFile,
       isStandalone: configText.includes("standalone"),
       isDbServerExternal: isDbListedAsServerExternal(configText),
+      compose: existsSync(composeFile) ? readComposeFacts(readFileSync(composeFile, "utf8")) : null,
     },
   };
 }
