@@ -4,12 +4,14 @@ import { basename, dirname, extname, join } from "node:path";
 
 import { chromium, errors, type Browser, type Page } from "playwright";
 
+import type { LocatorDescriptor } from "../config/actions-schema.js";
 import type { ColorTheme } from "../config/colors.js";
 import type { MarketingJson } from "../config/schema.js";
 import { getScreenshotNames, getScreenshotShots } from "../config/screenshot-names.js";
+import type { Crop } from "../config/shot-steps.js";
 import { containsPhrase } from "../film.js";
 import { getLocator } from "../record/locator.js";
-import { findCropFrame, findDimensionFailure, findScrollFailure, findSizeFailure, findStatusFailure, type ScreenshotGate } from "./gates.js";
+import { findCropFrame, findDimensionFailure, findHideFailure, findScrollFailure, findSizeFailure, findStatusFailure, type Rect, type ScreenshotGate } from "./gates.js";
 import { readPageText, signIn, type SessionState, type SignInPlan } from "./sign-in.js";
 import { runShotSteps } from "./steps.js";
 
@@ -109,18 +111,64 @@ function readPngSize(file: string): { width: number; height: number } {
   return { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20) };
 }
 
-/** The element's rectangle in document coordinates and the page's scrollable size. */
-async function measureCrop(page: Page, entry: ScreenshotEntry & { crop: NonNullable<ScreenshotEntry["crop"]> }): Promise<{ ok: true; frame: { x: number; y: number; width: number; height: number } } | { ok: false; message: string }> {
-  const locator = getLocator(page, entry.crop.target);
+type CropMeasure = { ok: true; frame: Rect } | { ok: false; message: string };
+
+/** The one element a crop locator names, in document coordinates; `key` names it in the refusal. */
+async function measureElement(page: Page, descriptor: LocatorDescriptor, key: string): Promise<{ ok: true; rect: Rect } | { ok: false; message: string }> {
+  const locator = getLocator(page, descriptor);
   const count = await locator.count();
-  if (count === 0) return { ok: false, message: "no element matches crop.target" };
-  if (count > 1) return { ok: false, message: `crop.target matches ${count} elements; add nth to pick one` };
-  const element = await locator.evaluate((node) => {
-    const rect = node.getBoundingClientRect();
-    return { x: rect.left + window.scrollX, y: rect.top + window.scrollY, width: rect.width, height: rect.height };
+  if (count === 0) return { ok: false, message: `no element matches ${key}` };
+  if (count > 1) return { ok: false, message: `${key} matches ${count} elements; add nth to pick one` };
+  const rect = await locator.evaluate((node) => {
+    const box = node.getBoundingClientRect();
+    return { x: box.left + window.scrollX, y: box.top + window.scrollY, width: box.width, height: box.height };
   });
+  return { ok: true, rect };
+}
+
+/** The crop's frame from its element (and `crop.top`'s top edge) and the page's scrollable size. */
+async function measureCrop(page: Page, crop: Crop): Promise<CropMeasure> {
+  const element = await measureElement(page, crop.target, "crop.target");
+  if (!element.ok) return element;
+  let top: number | undefined;
+  if (crop.top !== undefined) {
+    const topElement = await measureElement(page, crop.top, "crop.top");
+    if (!topElement.ok) return topElement;
+    top = topElement.rect.y;
+  }
   const size = await page.evaluate(() => ({ width: document.documentElement.scrollWidth, height: document.documentElement.scrollHeight }));
-  return findCropFrame({ element, page: size, aspect: entry.crop.aspect, padding: entry.crop.padding });
+  return findCropFrame({ element: element.rect, ...(top === undefined ? {} : { top }), page: size, aspect: crop.aspect, padding: crop.padding });
+}
+
+/**
+ * How many rendered elements each hidden selector still matches inside the frame (document coordinates; the
+ * viewport when null); `shown: null` for a selector the browser cannot parse.
+ */
+async function countShownHidden(page: Page, selectors: readonly string[], frame: Rect | null): Promise<{ selector: string; shown: number | null }[]> {
+  return page.evaluate(
+    ({ selectors, frame }) => {
+      const area = frame ?? { x: window.scrollX, y: window.scrollY, width: window.innerWidth, height: window.innerHeight };
+      return selectors.map((selector) => {
+        let nodes: Element[];
+        try {
+          nodes = [...document.querySelectorAll(selector)];
+        } catch {
+          // A selector the browser cannot parse is reported by the gate as such.
+          return { selector, shown: null };
+        }
+        const shown = nodes.filter((node) => {
+          if (!node.checkVisibility({ opacityProperty: true, visibilityProperty: true })) return false;
+          const box = node.getBoundingClientRect();
+          if (box.width === 0 || box.height === 0) return false;
+          const left = box.left + window.scrollX;
+          const top = box.top + window.scrollY;
+          return left < area.x + area.width && left + box.width > area.x && top < area.y + area.height && top + box.height > area.y;
+        }).length;
+        return { selector, shown };
+      });
+    },
+    { selectors, frame },
+  );
 }
 
 async function takeOne(page: Page, target: ShotTarget): Promise<ScreenshotResult> {
@@ -164,15 +212,22 @@ async function captureLoadedPage(page: Page, target: ShotTarget): Promise<Screen
   if (!(await waitForPhrase(page, entry.expect))) {
     return { ok: false, id: entry.id, name, gate: "phrase", message: `${url} does not show "${entry.expect}"` };
   }
-  let frame: { width: number; height: number } | null = null;
-  if (entry.crop === undefined) {
+  let frame: Rect | null = null;
+  if (entry.crop !== undefined) {
+    const crop = await measureCrop(page, entry.crop);
+    if (!crop.ok) return { ok: false, id: entry.id, name, gate: "crop", message: crop.message };
+    frame = crop.frame;
+  }
+  if (entry.hide.length > 0) {
+    const area = frame ?? (entry.full ? await page.evaluate(() => ({ x: 0, y: 0, width: document.documentElement.scrollWidth, height: document.documentElement.scrollHeight })) : null);
+    const hideFailure = findHideFailure(await countShownHidden(page, entry.hide, area));
+    if (hideFailure !== null) return { ok: false, id: entry.id, name, gate: "hide", message: hideFailure };
+  }
+  if (frame === null) {
     await page.screenshot({ path: file, fullPage: entry.full });
   } else {
-    const crop = await measureCrop(page, { ...entry, crop: entry.crop });
-    if (!crop.ok) return { ok: false, id: entry.id, name, gate: "crop", message: crop.message };
     // Document coordinates with fullPage: a sticky header stays at the page's top instead of over the element.
-    await page.screenshot({ path: file, fullPage: true, clip: crop.frame });
-    frame = crop.frame;
+    await page.screenshot({ path: file, fullPage: true, clip: frame });
   }
   if (frame !== null) {
     const dimensionFailure = findDimensionFailure(readPngSize(file), frame, entry.scale);
@@ -223,7 +278,8 @@ async function takeShot(options: TakeShotOptions): Promise<ScreenshotResult> {
     // One tag per selector, so a selector the browser cannot parse drops only its own rule;
     // instant scrolling, because "smooth" would still be moving when the full page is captured.
     // An init script, so the rules hold from the first paint, before the gates read the page.
-    const css = [...settings.hideSelectors.map((selector) => `${selector}{display:none!important}`), "html{scroll-behavior:auto!important}"];
+    const hidden = [...settings.hideSelectors, ...target.entry.hide];
+    const css = [...hidden.map((selector) => `${selector}{display:none!important}`), "html{scroll-behavior:auto!important}"];
     await page.addInitScript((rules: string[]) => {
       document.addEventListener("DOMContentLoaded", () => {
         for (const rule of rules) {

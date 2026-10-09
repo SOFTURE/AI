@@ -1,6 +1,6 @@
 // The funnel counter: daily aggregates per (day, channel, step), with the steps, the cap on new channels
 // and the time zone from configuration. Nothing about a visitor is stored, only the sums.
-import { errorLogLabel, type ModuleContext } from "@softure-ai/core";
+import { addCalendarDays, errorLogLabel, toCalendarDay, type ModuleContext } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
 import { and, gte, inArray, lt, lte, sql } from "drizzle-orm";
 import { OVERFLOW_CHANNEL, type FunnelStep, type FunnelStepSource } from "../options.js";
@@ -43,7 +43,6 @@ export interface RecordFunnelStepInput {
 
 /** The longest window a report reads: ten years of days. */
 export const MAX_REPORT_DAYS = 3660;
-const DAY_MS = 86_400_000;
 
 /**
  * Adds one visit to `step` from `channel` on today's date in the app's time zone.
@@ -95,7 +94,7 @@ export async function getFunnelReport(ctx: AnalyticsContext, input: { readonly d
   }
   const steps = getAnalyticsOptions(ctx.config).funnel.steps.map((step) => step.id);
   const to = formatDay(ctx.clock.now(), ctx.config.timezone);
-  const from = addDays(to, 1 - days);
+  const from = addCalendarDays(to, 1 - days);
 
   const sums =
     steps.length === 0
@@ -129,7 +128,7 @@ export async function pruneFunnelCounts(ctx: AnalyticsContext, input: { readonly
   if (!Number.isInteger(input.keepDays) || input.keepDays < 1) {
     throw new RangeError(`pruneFunnelCounts: keepDays must be a whole number of at least 1, got ${String(input.keepDays)}`);
   }
-  const firstKept = addDays(formatDay(ctx.clock.now(), ctx.config.timezone), 1 - input.keepDays);
+  const firstKept = addCalendarDays(formatDay(ctx.clock.now(), ctx.config.timezone), 1 - input.keepDays);
   await ctx.db.delete(funnelCounts).where(lt(funnelCounts.day, firstKept));
 }
 
@@ -153,19 +152,13 @@ export async function recordFunnelStepQuietly(ctx: AnalyticsContext, input: Reco
 
 /** `YYYY-MM-DD` of `instant` in `timeZone`, independent of the server's own zone. */
 export function formatDay(instant: Date, timeZone: string): string {
-  const parts = new Intl.DateTimeFormat("en-US", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(instant);
-  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((candidate) => candidate.type === type)?.value ?? "";
-  return `${part("year")}-${part("month")}-${part("day")}`;
+  return toCalendarDay(instant, timeZone);
 }
 
 function assertStep(steps: readonly FunnelStep[], id: string): void {
   if (!steps.some((step) => step.id === id)) {
     throw new Error(`@softure-ai/analytics: "${id}" is not a step of analytics({ funnel: { steps } })`);
   }
-}
-
-function addDays(day: string, delta: number): string {
-  return new Date(Date.parse(`${day}T00:00:00Z`) + delta * DAY_MS).toISOString().slice(0, 10);
 }
 
 function createEmptyCounts(steps: readonly string[]): Record<string, number> {

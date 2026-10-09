@@ -272,6 +272,27 @@ softure-deploy verify <url> [--config=deploy.json] [--timeout=<ms>] [--concurren
   it one the app treats as a no-op or a check. The report names its method (`POST /api/mcp`).
 - **Type, not only status:** a `content-type` header check (`"headers": { "content-type": "application/rss+xml" }`)
   catches a login page served with 200 where a feed or an image belongs.
+- **Severity:** `"severity": "warn"` on a route prints a failed row as `WARN` and does not fail the run (a probe to
+  report, not to block a release); `verify.originSeverity: "warn"` does the same for the `origin` row. The summary
+  adds `, N warned`.
+- **Digest:** `"sha256": "sha256:<hex>"` (or the bare hex) on a route: the SHA-256 of the response's exact bytes must
+  match.
+- **Inside `<head>` and counts:** `"within": "head"` checks `contains`, `excludes` and `count` only between `<head>`
+  and `</head>` (with a bot's `user-agent` in `requestHeaders`: "title and canonical are in the head an AI crawler
+  gets"); `"count": { "Content-Signal:": 1 }` needs exactly that many occurrences.
+- **Every sitemap entry, every index entry:** a route takes `forEach` instead of `path`.
+  `{ "sitemap": "/sitemap.xml", "match": "/blog/" }` checks it for every `<loc>` whose path contains `match` (a urlset;
+  point at the child sitemap, not a sitemap index). `{ "index": "/.well-known/agent-skills/index.json" }` checks it for
+  every entry of a JSON index and compares each entry's `digest` with the served bytes; `items`, `url` and `digest`
+  name other keys (defaults `skills`, `url`, `digest`; `"digest": null` checks no digest). The source is fetched with
+  the route's request headers; each entry's path is requested on the verified URL's origin and gets its own row. An
+  unreachable source, a status other than 200, an unreadable document or no entry is one failed row
+  (`sitemap /sitemap.xml`).
+
+```json
+{ "forEach": { "sitemap": "/sitemap.xml", "match": "/blog/" }, "requestHeaders": { "user-agent": "GPTBot/1.3" }, "within": "head", "contains": ["<title>", "rel=\"canonical\""] }
+```
+
 - **One host per run:** an app on two hosts (apex and `app.` subdomain) runs `verify` once per host, each with its
   own config.
 - **Headers:** a value is text the header must contain, case-insensitive; a list of texts the value must all
@@ -400,7 +421,7 @@ it is refused. The workflow runs once this package is on npm.
 **Which ref callers pin.** A caller's `uses:` names SOFTURE/AI's workflows at a ref. Pin the commit SHA of the
 package's release tag `deploy@<version>`, the version the app's `deploy.sh` runs: the workflows at that commit default
 `deploy-cli-version` to the same version, and a SHA never moves. Print it with
-`git ls-remote https://github.com/SOFTURE/AI 'refs/tags/deploy@0.1.7^{}'` (the `^{}` peels the annotated tag to its
+`git ls-remote https://github.com/SOFTURE/AI 'refs/tags/deploy@0.1.8^{}'` (the `^{}` peels the annotated tag to its
 commit) and write it in place of `master` in each `uses:` line; `init --workflows-ref=<sha>` writes it for you. The
 examples call `master`, which works but follows every merge. There is no moving `deploy-workflows-v1` tag.
 
@@ -841,8 +862,9 @@ purpose: English names (`integration/<name>`, `refs/notes/integration`), and the
 token. The app's own suite, image build included, stays its `test-command`.
 
 **Stays in the app:** its tag pattern, its gates and integration suite inside the release run, checks of its own
-secrets' shape, a workflow that rewrites the text above the report (which `--body` keeps), its markers inside
-`<head>`, its IndexNow key and a 404 that only warns. Its dry runs, content sync and cron jobs become hooks.
+secrets' shape, a workflow that rewrites the text above the report (which `--body` keeps) and its IndexNow key. Its
+markers inside `<head>` and a 404 that only warns are `verify` keys since 0.1.8 (`within`, `severity`). Its dry
+runs, content sync and cron jobs become hooks.
 
 ## Exit codes
 

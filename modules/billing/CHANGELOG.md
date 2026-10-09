@@ -6,20 +6,24 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## 0.1.11
 
+- `formatPrice` is core's `formatMoney`: thousands are always grouped, so a four-digit amount in pl reads
+  `1 234,56 €` (was `1234,56 €`); en and amounts below 1000 are unchanged (#312).
+- Plan periods, `parseDay` and the `/ui` day formatters use core's day arithmetic and `formatCalendarDay`; the
+  results are the same. `CURRENCY_MINOR_UNIT_DIGITS` is core's table, still exported here. Requires
+  `@softure-ai/core` `^0.1.9`.
 - `sendAccessReminders(ctx, { buildMail, getScope })` (`/mailing`): `buildMail({ reminder, lastDay, link, mail })`
   returns the app's own mail (sync or async), or `null` to send that account nothing this run (counted in
   `skipped`); `getScope(reminder)` replaces the delivery scope, so an app moving from its own job keeps the
   ledger entries that job wrote. New type `AccessReminderMailContext`. Without them the mail and scope are as
-  in 0.1.10.
+  in 0.1.10 (#323).
 - `entitlement-status` ops script (`createEntitlementStatusScript` in `/scripts`): `--email` or `--user`; prints
   `{ userId, state, trialLastDay, paidLastDay, isLifetime, access }` with the last days in the app's time zone,
-  never the email, and writes nothing, also with `--commit`.
+  never the email, and writes nothing, also with `--commit` (#323).
 - `AccessBadge` and `CurrentAccessBadge`: `unlimitedAfterDays` reads trial or dated paid access with more days
   left as "Unlimited access" (new message `badge.unlimited`, `data-unlimited="true"`); `compact` writes "5 days"
   and the numeric last day; `tones` sets the colour per kind. New `getAccessBadgeKind`, `AccessBadgeKind`,
-  `AccessTone` (`/ui`). `AccessNotice` and `CurrentAccessNotice` take `tones={{ ending, ended }}` (`neutral` or `danger`, new type
-  `AccessNoticeTone`) for the frame.
-  Without the new props everything renders as in 0.1.10.
+  `AccessTone` (`/ui`). `AccessNotice` and `CurrentAccessNotice` take `tones={{ ending, ended }}` (`neutral` or
+  `danger`, new type `AccessNoticeTone`) for the frame. Without the new props both render as in 0.1.10 (#323).
 
 ## 0.1.10
 
