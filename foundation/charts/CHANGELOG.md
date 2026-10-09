@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`charts@x.y.z`).
 
+## 0.1.6
+
+- `ChartCursor` takes `renderReadout(point, index)` (the readout's content, still announced by the package's live
+  region), `onActiveChange(index | null)` (once per change of the active stop), `frame` (`false` puts the children and
+  the cursor layer in one positioned box instead of the frame grid) and `readoutClassName` (issue #301).
+- `CursorValue.slot` is optional; `tone` (a `ChartTone`) colours the dot and its readout swatch when there is no slot,
+  and `className` is added to both.
+- Without the new options, markup is unchanged.
+
 ## 0.1.5
 
 - `smoothLinePath(points)`: a smooth curve through every point (monotone cubic), without overshoot between points.
