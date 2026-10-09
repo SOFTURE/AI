@@ -1,124 +1,21 @@
+// The language gate over the whole repository; the gate itself is tested in tools/config.
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { checkFiles, findPolishText, getCommitMessageText, isExempt } from "../../scripts/check-language.mjs";
+import { checkFiles } from "../../tools/config/src/language/index.js";
 import { listRepoFiles, REPO_ROOT } from "./repo-files.js";
 
-// This file is exempt from the language gate by path: it has to spell Polish to test the gate.
-describe("findPolishText", () => {
-  it("reports a Polish diacritic in a code comment with its line number", () => {
-    const text = "export const a = 1;\n// zmiana kwoty: będzie inaczej\n";
-    expect(findPolishText("src/a.ts", text)).toEqual([{ line: 2, reason: 'Polish diacritic "ę"' }]);
-  });
-
-  it("reports an ASCII-only Polish sentence", () => {
-    expect(findPolishText("src/a.ts", "// to nie dziala, trzeba poprawic\n")).toEqual([
-      { line: 1, reason: 'Polish word "nie"' },
-    ]);
-  });
-
-  it("reports Polish words in any letter case", () => {
-    expect(findPolishText("README.md", "Jest OK.\n")).toEqual([{ line: 1, reason: 'Polish word "jest"' }]);
-  });
-
-  it("leaves English prose with short words such as ten, to and a alone", () => {
-    const text = "The suggested ten items are kept, so it is up to a reviewer to merge them.\n";
-    expect(findPolishText("docs/a.md", text)).toEqual([]);
-  });
-
-  it("ignores a FIRE_TRACKER slug quoted in a Markdown code span", () => {
-    expect(findPolishText("docs/a.md", "Source: `src/app/nie-pamietam-hasla/` and `haslo`.\n")).toEqual([]);
-  });
-
-  it("reports the same words in Markdown outside a code span", () => {
-    expect(findPolishText("docs/a.md", "Source: nie pamietam hasla.\n")).toEqual([
-      { line: 1, reason: 'Polish word "nie"' },
-    ]);
-  });
-
-  it("keeps checking backticks in code files, where they are template literals", () => {
-    expect(findPolishText("src/a.ts", "const label = `nie wiem`;\n")).toEqual([
-      { line: 1, reason: 'Polish word "nie"' },
-    ]);
-  });
-
-  it("ignores a hyphenated slug and words glued to other characters", () => {
-    const text = 'const route = "/app/nie-pamietam-hasla";\nconst hash = "sha512-ab+nie/cd=";\n';
-    expect(findPolishText("src/a.ts", text)).toEqual([]);
-  });
-
-  it("treats an empty file as clean", () => {
-    expect(findPolishText("src/a.ts", "")).toEqual([]);
-  });
-
-  it("skips a binary file", () => {
-    expect(findPolishText("assets/a.png", "PNG\0\0nie jest")).toEqual([]);
-  });
-});
-
-describe("isExempt", () => {
-  it("exempts message dictionaries at any depth", () => {
-    expect(isExempt("modules/auth/src/messages/pl.ts")).toBe(true);
-    expect(isExempt("messages/pl.ts")).toBe(true);
-  });
-
-  it("exempts the gate itself and its test, which must spell the words", () => {
-    expect(isExempt("scripts/check-language.mjs")).toBe(true);
-    expect(isExempt("tests/repo/language.test.ts")).toBe(true);
-  });
-
-  it("exempts Polish language data in a folder named pl", () => {
-    expect(isExempt("modules/blog/src/quality/rulesets/pl/ruleset.ts")).toBe(true);
-    expect(isExempt("modules/blog/tests/quality/fixtures/pl/model.md")).toBe(true);
-  });
-
-  it("does not exempt a file named pl or a folder that only starts with pl", () => {
-    expect(isExempt("modules/blog/src/quality/pl.ts")).toBe(false);
-    expect(isExempt("modules/blog/src/plan/notes.ts")).toBe(false);
-    expect(isExempt("modules/blog/src/pl-helpers/notes.ts")).toBe(false);
-  });
-
-  it("does not exempt a file that merely mentions messages in its name", () => {
-    expect(isExempt("src/messages-helper.ts")).toBe(false);
-    expect(isExempt("modules/auth/src/server/login.ts")).toBe(false);
-  });
-});
-
-describe("checkFiles", () => {
-  it("names the file and line of every hit and skips exempt files", () => {
-    const files: Record<string, string> = {
-      "src/a.ts": "// ok\n// gdzie jest plik\n",
-      "src/messages/pl.ts": 'export const pl = { title: "Gdzie jest plik" };\n',
-    };
-    expect(checkFiles(Object.keys(files), (path) => files[path] ?? null)).toEqual([
-      { path: "src/a.ts", line: 2, reason: 'Polish word "gdzie"' },
-    ]);
-  });
-
-  it("skips files that cannot be read (deleted or a folder)", () => {
-    expect(checkFiles(["gone.ts"], () => null)).toEqual([]);
-  });
-});
-
-describe("getCommitMessageText", () => {
-  it("drops git's comment lines and the diff below the scissors line of git commit -v", () => {
-    const raw = [
-      "feat(x): add a title",
-      "",
-      "# Please enter the commit message for your changes.",
-      "# ------------------------ >8 ------------------------",
-      '+  title: "Gdzie jest plik",',
-    ].join("\n");
-    expect(getCommitMessageText(raw)).toBe("feat(x): add a title\n\n\n");
-  });
-
-  it("keeps a Polish message so the gate can reject it", () => {
-    expect(findPolishText("COMMIT_EDITMSG", getCommitMessageText("docs: dodaj opis\n"))).toEqual([
-      { line: 1, reason: 'Polish word "dodaj"' },
-    ]);
-  });
-});
+function readRepoText(path: string): string | null {
+  try {
+    return readFileSync(join(REPO_ROOT, path), "utf8");
+  } catch {
+    // A folder (a git submodule) or a file removed while the suite runs: nothing to check.
+    return null;
+  }
+}
 
 describe("the repository", () => {
-  it("has no Polish text in any file outside message dictionaries", () => {
-    expect(checkFiles(listRepoFiles(), undefined, REPO_ROOT)).toEqual([]);
+  it("has no Polish text in any file outside message dictionaries and pl/ folders", () => {
+    expect(checkFiles(listRepoFiles(), readRepoText)).toEqual([]);
   });
 });
