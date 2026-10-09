@@ -10,14 +10,14 @@ import { MODULE_ID } from "./settings.js";
 
 /**
  * Enables agent discovery in `softure.config.ts`, e.g.
- * `agentReady({ name: "com.example/app", title: "Example", description: "…", provider: { organization: "Example" },
- * mcp: { server: async () => (await import("./mcp/server")).createAnonymousServer() } })`. Mount the routes from
- * `@softure-ai/agent-ready/next`.
+ * `agentReady({ name: "com.example/app", title: "Example", description: "…", provider: { organization: "Example" } })`.
+ * Mount the routes from `@softure-ai/agent-ready/next`, with the MCP server factory through
+ * `createAgentReadyRoutes({ createServer })`.
  */
 export const agentReady = defineModule({
   manifest: {
     id: MODULE_ID,
-    version: "0.1.2",
+    version: "0.1.3",
     dependsOn: {},
     dbSchema: null,
     tables: [],
@@ -100,6 +100,9 @@ export {
 export { buildOpenApiDocument, type OAuthEndpoints } from "./openapi.js";
 export {
   agentReadyOptionsSchema,
+  createDiscoveryIdentity,
+  DISCOVERY_TOKEN_ID,
+  DISCOVERY_USER_ID,
   getDefaultMcpSkillName,
   isBareOrigin,
   MAX_CATALOG_QUERIES,
@@ -110,6 +113,7 @@ export {
   type AgentSkillInput,
   type AppOriginResolver,
   type AuthorizationServerMetadataProvider,
+  type McpDiscoveryIdentity,
   type McpServerFactory,
 } from "./options.js";
 export {
@@ -124,5 +128,12 @@ export {
 } from "./origins.js";
 export * from "./paths.js";
 export { buildMcpServerCard, MCP_SERVER_CARD_SCHEMA, type ServerCardInput } from "./server-card.js";
-export { getAgentReadyOptions, MODULE_ID, resolveDocumentContext } from "./settings.js";
+export {
+  getAgentReadyOptions,
+  MCP_ACCESS_MODULE_ID,
+  MODULE_ID,
+  readMcpAccessSettings,
+  resolveDocumentContext,
+  type McpAccessSettings,
+} from "./settings.js";
 export { buildVerifyManifest, type VerifyManifestOptions, type VerifyRoute } from "./verify.js";

@@ -70,7 +70,6 @@ const config = defineSoftureConfig({
       title: "Example",
       description: "Example keeps a person's notes; an assistant can read and add them.",
       provider: { organization: "Example Ltd" },
-      mcp: { server: async () => (await import("./mcp/server")).createAnonymousServer() },
       oauth: {
         authorizationServerMetadata: (request) => getAuthorizationServerMetadata(config, resolveMcpOrigins(config, request)),
         manualTokenPath: "/mcp",
@@ -90,11 +89,12 @@ const config = defineSoftureConfig({
 | `name` | required | server card name, reverse-DNS namespace and name |
 | `title`, `description`, `provider.organization` | required | what agents show |
 | `mcp.path` | `/api/mcp` | the endpoint's path |
-| `mcp.server` | required | builds the MCP server with an **anonymous** context: no account, no data |
+| `mcp.server` | none | the MCP server factory; prefer `createAgentReadyRoutes({ createServer })` (§4), which keeps the server out of every script that loads the config |
 | `mcp.protocolVersions` | the SDK's | versions the server card announces |
 | `scopes` | `mcp:read`, `mcp:write` | the scopes the endpoint checks |
 | `oauth.authorizationServerMetadata` | none | the issuer's RFC 8414 metadata for a request; without `oauth`, auth.md and the JWKS answer 404 |
-| `oauth.manualTokenPath`, `oauth.lifetimes` | none | a manual token page and the lifetimes auth.md states |
+| `oauth.manualTokenPath` | none | a manual token page on the app host |
+| `oauth.lifetimes` | mcp-access's | the lifetimes auth.md states; with `@softure-ai/mcp-access` in the config and its OAuth on, its own lifetimes, else none (auth.md points at `expires_in`) |
 | `serviceDoc` | `{ path: "/" }` | the page for people on the apex |
 | `openapi.version` | `1.0.0` | bump it when the endpoint's contract changes |
 | `apiCatalog.statusPath` | none | a public health path listed as `status` |
@@ -135,6 +135,9 @@ request addressed to the resolved app origin, so mcp-access computes the same is
 setup bug, and the OAuth documents answer 500 with a log line naming both origins instead of sending agents to a
 `resource` the issuer refuses.
 
+auth.md states mcp-access's lifetimes (`oauth.authorizationCodeLifetimeMinutes`, `accessTokenLifetimeMinutes`,
+`refreshTokenLifetimeDays`): declare them once there, and set `oauth.lifetimes` here only for another issuer.
+
 auth.md lists every endpoint from the issuer's metadata; its prose (registration rules, rotating refresh tokens,
 error codes) describes an mcp-access issuer.
 
@@ -165,6 +168,27 @@ export { serveAiCatalog as GET } from "@softure-ai/agent-ready/next";
 export { serveSignatureDirectory as GET } from "@softure-ai/agent-ready/next";
 ```
 
+The server card, the A2A card, the skills index, the MCP skill and the AI catalog introspect the app's MCP server.
+Build those handlers around the factory the MCP endpoint already uses, so the server stays out of
+`softure.config.ts` (a bundler that reads the config would otherwise pull the server and the database client into every
+script and the proxy):
+
+```ts
+// lib/agent-ready-routes.ts
+import { createAgentReadyRoutes } from "@softure-ai/agent-ready/next";
+import { createServer } from "./mcp-server"; // the same factory as createMcpRoute({ createServer })
+export const agentReadyRoutes = createAgentReadyRoutes({ createServer });
+
+// app/.well-known/mcp/server-card.json/route.ts, and likewise the four other files
+import { agentReadyRoutes } from "@/lib/agent-ready-routes";
+export const GET = agentReadyRoutes.serveMcpServerCard;
+```
+
+The factory gets `{ userId: "00000000-0000-0000-0000-000000000000", canWrite, tokenId: "agent-ready-discovery" }`
+(`McpDiscoveryIdentity`, the shape of mcp-access's `McpServerIdentity`): `canWrite` is mcp-access's `allowWrites`
+when that module is configured, else `true`; no tool is called. The plain exports use `mcp.server` from the config;
+without a factory anywhere, those five documents answer 500 with a log line naming the fix, and the rest still answer.
+
 Add `export const dynamic = "force-dynamic";` to each file when the config reads the environment at runtime: every
 handler reads the request's host, and a page rendered at build time would keep one origin.
 
@@ -189,7 +213,9 @@ is set, and sends it unsigned otherwise; pass it wherever code takes a `fetch` (
 a key with `npx agent-ready web-bot-auth key > web-bot-auth.env` (it refuses to print to a terminal); rotate by moving
 the old public key to `WEB_BOT_AUTH_RETIRED_PUBLIC_KEYS` for a while.
 
-**WebMCP.** In a client component, register tools with `registerWebMcpTool(findModelContext(), tool, signal)`. A page
+**WebMCP.** In a client component, register tools with `registerWebMcpTool(findModelContext(), tool, signal)`. A
+tool's `inputSchema` is JSON Schema or a zod schema, converted with its own `~standard.jsonSchema` (the input side,
+draft 2020-12, as the MCP SDK does); `toWebMcpInputSchema(schema)` returns what the browser gets. A page
 without a client component puts `buildWebMcpBootScript({ flag, paths, pathPatterns, tools })` into an inline
 `<script>` in `<head>`; each tool's `execute` is JavaScript source `(args, h) => …` with
 `h = { ok, error, fetchMarkdown, stripFrontmatter }`.
