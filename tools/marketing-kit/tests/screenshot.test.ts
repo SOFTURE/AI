@@ -4,21 +4,22 @@ import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { findScrollFailure, findSizeFailure, findStatusFailure } from "../src/screenshot/gates.js";
 import { getScreenshotShots } from "../src/config/screenshot-names.js";
 import { getScreenshotFile, takeScreenshots, type ScreenshotEntry, type TakeScreenshotsOptions } from "../src/screenshot/screenshot.js";
-import { chromium } from "playwright";
+import { chromium, type Browser, type Page } from "playwright";
 
 import type { ShotStep } from "../src/config/shot-steps.js";
+import { runShotSteps } from "../src/screenshot/steps.js";
 import type { SignInPlan } from "../src/screenshot/sign-in.js";
 import { CHROMIUM_PATH, hasChromium } from "./chromium.js";
 
 const PAGES = join(import.meta.dirname, "fixtures", "screenshots");
 
 function makeEntry(overrides: Partial<ScreenshotEntry> & Pick<ScreenshotEntry, "id" | "path" | "expect">): ScreenshotEntry {
-  return { width: 800, height: 600, full: false, motion: "reduce", minBytes: 0, scale: 1, waitMs: 0, signedIn: false, steps: [], ...overrides };
+  return { width: 800, height: 600, full: false, motion: "reduce", minBytes: 0, scale: 1, waitMs: 0, signedIn: false, steps: [], hide: [], ...overrides };
 }
 
 /** Height of a PNG from its IHDR chunk. */
@@ -406,6 +407,52 @@ describe.runIf(hasChromium)("takeScreenshots against static pages", () => {
     expect(existsSync(getScreenshotFile(outDir, "first-copy"))).toBe(true);
   });
 
+  const css = (selector: string, nth: number | null = null) => ({ kind: "css" as const, css: selector, hasText: null, nth });
+  const cardCrop = { target: css("#card"), aspect: { width: 6, height: 5 }, padding: 0 };
+
+  it("hides the entry's own selectors, and passes the hide gate when none shows in the frame", async () => {
+    const [result] = await take([makeEntry({ id: "print-hidden", path: "/print.html", expect: "Your portfolio", hide: [".hint", ".outside"], crop: cardCrop })]);
+    expect(result).toMatchObject({ ok: true, name: "print-hidden" });
+  });
+
+  it("refuses a shot whose hidden selector still shows an element in the frame, as the hide gate, and writes no file", async () => {
+    const [result] = await take([makeEntry({ id: "print-stubborn", path: "/print.html", expect: "Your portfolio", hide: [".hint", ".stubborn"], crop: cardCrop })]);
+    expect(result).toEqual({ ok: false, id: "print-stubborn", name: "print-stubborn", gate: "hide", message: 'hide ".stubborn" still shows 1 element in the frame' });
+    expect(existsSync(getScreenshotFile(outDir, "print-stubborn"))).toBe(false);
+  });
+
+  it("gates the viewport without a crop, and refuses a hidden selector the browser cannot parse", async () => {
+    const [viewport] = await take([makeEntry({ id: "print-viewport", path: "/print.html", expect: "Your portfolio", width: 400, height: 400, hide: [".stubborn"] })]);
+    expect(viewport).toMatchObject({ ok: false, gate: "hide", message: 'hide ".stubborn" still shows 1 element in the frame' });
+    const [unparsable] = await take([makeEntry({ id: "print-unparsable", path: "/print.html", expect: "Your portfolio", hide: ["button:bogus"], crop: cardCrop })]);
+    expect(unparsable).toMatchObject({ ok: false, gate: "hide", message: 'hide "button:bogus" is not a selector the browser can parse' });
+  });
+
+  it("starts the frame at crop.top's top edge, as wide as crop.target", async () => {
+    const [result] = await take([makeEntry({ id: "print-top", path: "/print.html", expect: "Total 12,345", scale: 2, crop: { ...cardCrop, top: css("#total-row") } })]);
+    expect(result).toMatchObject({ ok: true, name: "print-top" });
+    const file = getScreenshotFile(outDir, "print-top");
+    expect([readPngWidth(file), readPngHeight(file)]).toEqual([716, 596]);
+    // The total row is solid rgb(200, 30, 30) right of its text; the card's stripes would be there if the frame started at the card.
+    const [red, green, blue] = await readPixel(file, 700, 20);
+    expect([red > 150, green < 80, blue < 80]).toEqual([true, true, true]);
+  });
+
+  it("refuses a crop.top outside crop.target, as the crop gate", async () => {
+    const [result] = await take([makeEntry({ id: "print-top-outside", path: "/print.html", expect: "Your portfolio", crop: { ...cardCrop, top: css(".outside") } })]);
+    expect(result).toMatchObject({ ok: false, gate: "crop" });
+    expect(result?.ok === false && result.message).toMatch(/^crop\.top's top edge lies \d+ px below crop\.target's bottom edge$/);
+    const [missing] = await take([makeEntry({ id: "print-top-missing", path: "/print.html", expect: "Your portfolio", crop: { ...cardCrop, top: css("#nowhere") } })]);
+    expect(missing).toMatchObject({ ok: false, gate: "crop", message: "no element matches crop.top" });
+  });
+
+  it("opens every matching <details> before the phrase gate reads the page", async () => {
+    const [closed] = await take([makeEntry({ id: "print-closed", path: "/print.html", expect: "Cash fund", crop: cardCrop })]);
+    expect(closed).toMatchObject({ ok: false, gate: "phrase" });
+    const [opened] = await take([makeEntry({ id: "print-opened", path: "/print.html", expect: "Cash fund", steps: [{ do: "open", target: css("#card details") }], crop: cardCrop })]);
+    expect(opened?.ok).toBe(true);
+  });
+
   it("goes on after a failed entry", async () => {
     const results = await take([
       makeEntry({ id: "first-fails", path: "/missing.html", expect: "x" }),
@@ -413,4 +460,60 @@ describe.runIf(hasChromium)("takeScreenshots against static pages", () => {
     ]);
     expect(results.map((result) => result.ok)).toEqual([false, true]);
   });
+});
+
+describe.runIf(hasChromium)("the open and hide steps", () => {
+  let browser: Browser;
+  let page: Page;
+
+  beforeAll(async () => {
+    browser = await chromium.launch(CHROMIUM_PATH === undefined ? {} : { executablePath: CHROMIUM_PATH });
+  });
+
+  afterAll(async () => {
+    await browser.close();
+  });
+
+  beforeEach(async () => {
+    page = await browser.newPage();
+    await page.setContent(readFileSync(join(PAGES, "print.html"), "utf8"));
+  });
+
+  afterEach(async () => {
+    await page.close();
+  });
+
+  const css = (selector: string, nth: number | null = null) => ({ kind: "css" as const, css: selector, hasText: null, nth });
+  const readOpen = () => page.locator("#card details").evaluateAll((nodes) => nodes.map((node) => (node as HTMLDetailsElement).open));
+  const readShownColumns = () => page.locator(".col").evaluateAll((nodes) => nodes.filter((node) => getComputedStyle(node).display !== "none").map((node) => node.textContent));
+
+  it("opens every match, or only the n-th with nth", async () => {
+    expect(await runShotSteps(page, [{ do: "open", target: css("#card details", 1) }], "steps")).toBeNull();
+    expect(await readOpen()).toEqual([false, true, false]);
+    expect(await runShotSteps(page, [{ do: "open", target: css("#card details") }], "steps")).toBeNull();
+    expect(await readOpen()).toEqual([true, true, true]);
+  });
+
+  it("refuses to open a match that is not a <details>, and details of one exclusive group that cannot all stay open", async () => {
+    expect(await runShotSteps(page, [{ do: "open", target: css("#card details, #card .chart") }], "steps")).toBe("steps[0] (open): 1 of 4 matches is not a <details> element");
+    expect(await runShotSteps(page, [{ do: "open", target: css("details[name=faq]") }], "steps")).toBe(
+      "steps[0] (open): 1 of 2 <details> did not stay open (details sharing a name show one at a time)",
+    );
+  });
+
+  it("hides every match but the last keepLast, with !important", async () => {
+    expect(await runShotSteps(page, [{ do: "hide", target: css(".col"), keepLast: 3 }], "steps")).toBeNull();
+    expect(await readShownColumns()).toEqual(["Apr", "May", "Jun"]);
+    expect(await page.locator(".col").first().getAttribute("style")).toBe("display: none !important;");
+  });
+
+  it("hides every match without keepLast, and refuses a keepLast that leaves nothing to hide", async () => {
+    expect(await runShotSteps(page, [{ do: "hide", target: css(".footnote"), keepLast: 0 }], "steps")).toBeNull();
+    expect(await page.locator(".footnote").isVisible()).toBe(false);
+    expect(await runShotSteps(page, [{ do: "hide", target: css(".col"), keepLast: 6 }], "steps")).toBe("steps[0] (hide): matches 6 elements, not more than keepLast 6, so nothing would be hidden");
+  });
+
+  it("refuses an open or hide step whose target never appears", async () => {
+    expect(await runShotSteps(page, [{ do: "hide", target: css("#nowhere"), keepLast: 0 }], "steps")).toMatch(/^steps\[0\] \(hide\): locator\.waitFor: Timeout 10000ms exceeded/);
+  }, 30_000);
 });
