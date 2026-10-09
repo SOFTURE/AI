@@ -28,6 +28,7 @@ describe("OG image", () => {
       background: DEFAULT_THEME.dark["color-background"],
       foreground: DEFAULT_THEME.dark["color-foreground"],
       accent: DEFAULT_THEME.dark["color-accent-fill"],
+      muted: DEFAULT_THEME.dark["color-foreground"],
     });
     const accent = "#123456";
     expect(getOgColors({ name: "Example", colors: { accent } })).toEqual({ ...getOgColors(undefined), accent });

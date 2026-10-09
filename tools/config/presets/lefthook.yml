@@ -1,0 +1,49 @@
+# Git hooks for a SOFTURE app: the same gates as CI, earlier. An app takes them with
+#
+#   extends:
+#     - node_modules/@softure-ai/config/presets/lefthook.yml
+#
+# and installs them from its `prepare` script, skipped when CI is set (README). Never bypass them
+# with `--no-verify`.
+#
+#   pre-commit  typecheck, ESLint on the staged files and the language gate, in parallel.
+#   commit-msg  the language gate on the commit message.
+#   pre-push    typecheck, the whole ESLint run, the language gate on every tracked file, then tests.
+#
+# `glob` is the "was any code touched" switch: a commit that stages only Markdown skips typecheck
+# and ESLint. The language job has no glob, so it checks Markdown too. `--max-warnings 0`: a warning
+# would pass the hook and fail CI after the push.
+
+pre-commit:
+  parallel: true
+  jobs:
+    - name: typecheck
+      glob: "*.{ts,tsx,mts,cts,js,mjs,cjs,jsx,json}"
+      run: npx tsc --noEmit
+
+    # `--no-warn-ignored`: a staged file under an ignore pattern is not a warning.
+    - name: lint
+      glob: "*.{ts,tsx,mts,cts,js,mjs,cjs,jsx}"
+      run: npx eslint {staged_files} --max-warnings 0 --no-warn-ignored
+
+    - name: language
+      run: npx softure-check-language {staged_files}
+
+# `{1}` is the file git wrote the message to.
+commit-msg:
+  jobs:
+    - name: language
+      run: npx softure-check-language --commit-msg {1}
+
+# `piped`: the first red job stops the rest, so a type error does not wait for the whole test run.
+pre-push:
+  piped: true
+  jobs:
+    - name: typecheck
+      run: npx tsc --noEmit
+    - name: lint
+      run: npx eslint . --max-warnings 0
+    - name: language
+      run: npx softure-check-language --all
+    - name: test
+      run: npm test
