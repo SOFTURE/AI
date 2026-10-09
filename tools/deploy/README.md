@@ -351,7 +351,7 @@ one caller, [`examples/deploy.yml`](examples/deploy.yml), with a single `uses:` 
 4. waits until `<app-url><health-path>` answers 200, then runs `softure-deploy verify <app-url>` with the app's
    `deploy-config` read from the tag (only that file is checked out). A missing or invalid file fails the run;
    `deploy-config: ""` keeps the health route only. With the `origin-address` secret or `origin-address-var`, verify gets `--origin` too.
-   With `verify-env` or `verify-env-names`, verify gets those variables (below), and only verify does.
+   With `verify-env` or `verify-env-secret`, verify gets those variables (below), and only verify does.
 5. whatever happened, uploads the run's facts as the artifact `deploy-report` (`summary` job, no permissions): each
    job's result, the image and its digest, and the server's `step|…`/`result|…` lines (`init`'s `deploy.sh` puts the
    backup's file name and the row counts on them).
@@ -369,7 +369,7 @@ one caller, [`examples/deploy.yml`](examples/deploy.yml), with a single `uses:` 
 | `secrets-from-environment` | `false` | the deploy job reads the app's secrets and the SSH values from `environment` (below); needs `environment` and `secrets: inherit` |
 | `ssh-host-secret`, `ssh-user-secret`, `ssh-private-key-secret`, `ssh-known-hosts-secret` | `DEPLOY_SSH_HOST`, `DEPLOY_SSH_USER`, `DEPLOY_SSH_KEY`, `DEPLOY_SSH_KNOWN_HOSTS` | with `secrets-from-environment`, the secrets holding the SSH values |
 | `origin-address-var` | none | the `app-vars` entry holding the origin address, instead of the `origin-address` secret (below) |
-| `verify-env-names` | none | with `secrets-from-environment`, the secrets exported for `verify` (e.g. `WEB_BOT_AUTH_PRIVATE_KEY`), space or new line separated; the verify job then runs in `environment` (below) |
+| `verify-env-secret` | none | with `secrets-from-environment`, the secret holding `verify-env`'s JSON object (e.g. `DEPLOY_VERIFY_ENV`); the verify job then runs in `environment` (below) |
 | `remote-command` | `deploy` | first word for the forced command |
 | `ssh-port` | `22` | |
 | `health-path`, `verify-timeout-seconds` | `/api/health`, `300` | the health wait before verify |
@@ -410,11 +410,12 @@ only the compose file's required names, so `github_token`, the deploy key and un
 `.env.prod`; a name like `NODE_AUTH_TOKEN` among the secrets is left out and named, never rendered. The check job
 refuses the flag without `environment` or next to a named secret; the deploy job names any SSH secret the environment
 lacks before anything is rendered. The verify job runs outside the environment, so the origin address comes from
-`origin-address-var` (a repository variable in `app-vars`). Variables for verify (a Web Bot Auth key) are secrets
-listed by name in `verify-env-names` instead of the `verify-env` secret, which the check job refuses under the flag:
-the verify job then runs in `environment` as well, so it reads them there, and a step names any the environment and the
-repository lack before verify runs. An environment with required reviewers asks for the verify job again; a
-deployment policy that admits release tags only does not. The names follow `verify-env`'s rules. Only the environment's secrets reach the release this
+`origin-address-var` (a repository variable in `app-vars`). Variables for verify (a Web Bot Auth key) live in one
+environment secret holding `verify-env`'s JSON object, named by `verify-env-secret` (the check job refuses the
+`verify-env` secret under the flag): the verify job then runs in `environment` as well and reads that one secret, never
+the whole secrets context. The verify step names the secret when the environment and the repository lack it, and
+checks its entries by `verify-env`'s rules before verify runs. An environment with required reviewers asks for the
+verify job again; a deployment policy that admits release tags only does not. Only the environment's secrets reach the release this
 way: `app-vars` is still evaluated in the caller's job, so the environment's variables never arrive, and a repository
 variable in `app-vars` wins over an environment secret of the same name. `secrets: inherit` passes the caller's
 repository and organization secrets only to a workflow in the same organization or enterprise. The example caller

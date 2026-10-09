@@ -69,9 +69,9 @@ jobs:
     #   # Verify runs outside the environment, and secrets: inherit cannot pass origin-address: keep the origin
     #   # address as a repository variable DEPLOY_ORIGIN_IP (app-vars carries it) and name it here. Unset skips the check.
     #   # origin-address-var: DEPLOY_ORIGIN_IP
-    #   # Secrets verify signs with (a `webBotAuth` route's key): listed, they put the verify job in the environment too,
-    #   # which asks again when the environment has required reviewers.
-    #   # verify-env-names: WEB_BOT_AUTH_PRIVATE_KEY
+    #   # Variables for verify (a `webBotAuth` route's key): the environment secret holding verify-env's JSON object.
+    #   # It puts the verify job in the environment too, which asks again when the environment has required reviewers.
+    #   # verify-env-secret: DEPLOY_VERIFY_ENV
     # Every secret of the environment and the repository then reaches the render step; only the compose file's names
     # land in .env.prod.
 

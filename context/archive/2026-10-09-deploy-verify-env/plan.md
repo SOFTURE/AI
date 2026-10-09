@@ -42,6 +42,16 @@ Files: `.github/workflows/deploy-app.yml`, new `tools/deploy/tests/verify-env.te
   value line, keeps a trailing new line, does not pass `VERIFY_ENV` on, and names a listed secret that is missing.
 - Gates: `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`.
 
+## Revision after review (CodeQL, PR #365)
+
+CodeQL's "Excessive Secrets Exposure" flagged `toJSON(secrets)` in the verify step: every organization and repository
+secret reached the runner of a job that needs one key. Decision: `verify-env-names` is replaced by `verify-env-secret`,
+the name of one environment secret holding the same JSON object as `verify-env`. The verify step reads only
+`secrets[inputs.verify-env-secret]`, as the deploy job reads the SSH secrets. The name rules move into one jq program
+(`VERIFY_ENV_RULES`, the same text in the check job and the verify step, a test keeps them equal); the check job applies
+it to `verify-env`, the verify step to whichever secret it got (the environment secret is not readable earlier).
+
 ## Progress
 
 - [x] Phase 1: workflow, docs, tests
+- [x] Revision: one named environment secret instead of the whole secrets context

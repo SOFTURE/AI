@@ -6,8 +6,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parse } from "yaml";
 
 // Issue #357: the verify step of deploy-app.yml runs `softure-deploy verify` with variables the app chose (a Web Bot
-// Auth key for a `webBotAuth` route): from the secret `verify-env`, or from the secrets `verify-env-names` lists when
-// the secrets stay in the environment. The steps run here as the runner runs them.
+// Auth key for a `webBotAuth` route): from the secret `verify-env`, or from the environment secret `verify-env-secret`
+// names when the secrets stay in the environment. The steps run here as the runner runs them.
 
 const WORKFLOW = join(import.meta.dirname, "../../../.github/workflows/deploy-app.yml");
 
@@ -61,24 +61,30 @@ function bash(script: string, env: Record<string, string>): Result {
 
 describe("the verify-env input and secret", () => {
   it("are optional and empty by default", () => {
-    expect(inputs["verify-env-names"]).toMatchObject({ type: "string", default: "" });
+    expect(inputs["verify-env-secret"]).toMatchObject({ type: "string", default: "" });
     expect(secrets["verify-env"]?.required).toBe(false);
   });
 
-  it("put the verify job in the environment only when it lists names", () => {
-    expect(workflow.jobs.verify?.environment).toBe("${{ inputs.verify-env-names != '' && inputs.environment || '' }}");
+  it("put the verify job in the environment only when it names a secret there", () => {
+    expect(workflow.jobs.verify?.environment).toBe("${{ inputs.verify-env-secret != '' && inputs.environment || '' }}");
   });
 
-  it("reach the check job and the verify step", () => {
+  it("reach the check job and the verify step, as one secret and never the whole secrets context", () => {
     expect(CHECK_STEP.env).toMatchObject({
       VERIFY_ENV: "${{ secrets.verify-env }}",
-      VERIFY_ENV_NAMES: "${{ inputs.verify-env-names }}",
+      VERIFY_ENV_SECRET: "${{ inputs.verify-env-secret }}",
     });
     expect(String(CHECK_STEP.env?.PASSED_SECRETS)).toContain("${{ secrets.verify-env != '' && 'verify-env' || '' }}");
     expect(VERIFY_STEP.env).toMatchObject({
-      VERIFY_ENV: "${{ inputs.verify-env-names != '' && toJSON(secrets) || secrets.verify-env }}",
-      VERIFY_ENV_NAMES: "${{ inputs.verify-env-names }}",
+      VERIFY_ENV: "${{ inputs.verify-env-secret != '' && secrets[inputs.verify-env-secret] || secrets.verify-env }}",
+      VERIFY_ENV_SECRET: "${{ inputs.verify-env-secret }}",
     });
+    expect(JSON.stringify(workflow.jobs.verify)).not.toContain("toJSON(secrets)");
+  });
+
+  it("check the variables with the same rules in the check job and the verify step", () => {
+    expect(CHECK_STEP.env?.VERIFY_ENV_RULES).toBeTypeOf("string");
+    expect(VERIFY_STEP.env?.VERIFY_ENV_RULES).toBe(CHECK_STEP.env?.VERIFY_ENV_RULES);
   });
 });
 
@@ -112,49 +118,51 @@ describe("the check job", () => {
       SSH_PRIVATE_KEY_SECRET: "DEPLOY_SSH_KEY",
       SSH_KNOWN_HOSTS_SECRET: "DEPLOY_SSH_KNOWN_HOSTS",
       VERIFY_ENV: "",
-      VERIFY_ENV_NAMES: "",
+      VERIFY_ENV_SECRET: "",
+      VERIFY_ENV_RULES: String(CHECK_STEP.env?.VERIFY_ENV_RULES),
       ...env,
     });
   }
 
   const KEY = JSON.stringify({ WEB_BOT_AUTH_PRIVATE_KEY: "seed-value" });
 
-  it("accepts verify-env with secrets by name, and verify-env-names with secrets-from-environment", () => {
+  it("accepts verify-env with secrets by name, and verify-env-secret with secrets-from-environment", () => {
     const byName = check({ ...BY_NAME, PASSED_SECRETS: `${NAMED_SECRETS} verify-env`, VERIFY_ENV: KEY });
     expect(byName.status, byName.stdout).toBe(0);
-    const fromEnvironment = check({ ...FROM_ENVIRONMENT, VERIFY_ENV_NAMES: "WEB_BOT_AUTH_PRIVATE_KEY\nOTHER_KEY " });
+    const fromEnvironment = check({ ...FROM_ENVIRONMENT, VERIFY_ENV_SECRET: "DEPLOY_VERIFY_ENV" });
     expect(fromEnvironment.status, fromEnvironment.stdout).toBe(0);
   });
 
-  it("refuses verify-env under secrets-from-environment, pointing at verify-env-names", () => {
+  it("refuses verify-env under secrets-from-environment, pointing at verify-env-secret", () => {
     const result = check({ ...FROM_ENVIRONMENT, PASSED_SECRETS: "verify-env", VERIFY_ENV: KEY });
     expect(result.status).toBe(1);
     expect(result.stdout).toBe(
-      "::error::Input secrets-from-environment is not valid: false when the secret verify-env is passed (list the secrets in verify-env-names)\n",
+      "::error::Input secrets-from-environment is not valid: false when the secret verify-env is passed (name an environment secret in verify-env-secret)\n",
     );
   });
 
-  it("refuses verify-env-names without secrets-from-environment", () => {
-    const result = check({ ...BY_NAME, VERIFY_ENV_NAMES: "WEB_BOT_AUTH_PRIVATE_KEY" });
-    expect(result.status).toBe(1);
-    expect(result.stdout).toBe(
-      "::error::Input verify-env-names is not valid: empty without secrets-from-environment (pass the secret verify-env instead)\n",
+  it("refuses verify-env-secret without secrets-from-environment, and a value that is not a secret name", () => {
+    const byName = check({ ...BY_NAME, VERIFY_ENV_SECRET: "DEPLOY_VERIFY_ENV" });
+    expect(byName.status).toBe(1);
+    expect(byName.stdout).toBe(
+      "::error::Input verify-env-secret is not valid: empty without secrets-from-environment (pass the secret verify-env instead)\n",
     );
+    const badName = check({ ...FROM_ENVIRONMENT, VERIFY_ENV_SECRET: "DEPLOY VERIFY" });
+    expect(badName.status).toBe(1);
+    expect(badName.stdout).toBe("::error::Input verify-env-secret is not valid: a secret name (letters, digits, _)\n");
   });
 
-  it("refuses verify-env-names that lists no name", () => {
-    const result = check({ ...FROM_ENVIRONMENT, VERIFY_ENV_NAMES: " \n " });
-    expect(result.status).toBe(1);
-    expect(result.stdout).toBe("::error::Input verify-env-names is not valid: one or more secret names, or empty\n");
-  });
-
-  it("refuses a name that is not one, and each name reserved for the step or the runner, in either form", () => {
+  it("refuses a name in verify-env that is not one, and each name reserved for the step or the runner", () => {
     const reserved = ["APP_URL", "deploy_config", "VERIFY_ENV", "ORIGIN_ADDRESS", "PATH", "home", "NODE_OPTIONS", "npm_config_registry"];
-    const listed = check({ ...FROM_ENVIRONMENT, VERIFY_ENV_NAMES: ["1KEY", ...reserved].join(" ") });
-    expect(listed.status).toBe(1);
-    expect(listed.stdout.split("\n").filter(Boolean)).toEqual([
-      "::error::Input verify-env-names is not valid: 1KEY is not a name (letters, digits, _)",
-      ...reserved.map((name) => `::error::Input verify-env-names is not valid: ${name} is reserved for the verify step or the runner`),
+    const all = check({
+      ...BY_NAME,
+      PASSED_SECRETS: `${NAMED_SECRETS} verify-env`,
+      VERIFY_ENV: JSON.stringify(Object.fromEntries(["1KEY", ...reserved].map((name) => [name, "x"]))),
+    });
+    expect(all.status).toBe(1);
+    expect(all.stdout.split("\n").filter(Boolean)).toEqual([
+      "::error::Input verify-env is not valid: 1KEY is not a name (letters, digits, _)",
+      ...reserved.map((name) => `::error::Input verify-env is not valid: ${name} is reserved for the verify step or the runner`),
     ]);
     const passed = check({
       ...BY_NAME,
@@ -184,10 +192,10 @@ describe("the check job", () => {
     const byName = check({ ...BY_NAME, PASSED_SECRETS: `${NAMED_SECRETS} verify-env`, VERIFY_ENV: KEY, DEPLOY_CONFIG: "" });
     expect(byName.status).toBe(1);
     expect(byName.stdout).toBe("::error::Input verify-env is not valid: empty when deploy-config is empty (verify runs with deploy.json)\n");
-    const fromEnvironment = check({ ...FROM_ENVIRONMENT, VERIFY_ENV_NAMES: "KEY", DEPLOY_CONFIG: "" });
+    const fromEnvironment = check({ ...FROM_ENVIRONMENT, VERIFY_ENV_SECRET: "DEPLOY_VERIFY_ENV", DEPLOY_CONFIG: "" });
     expect(fromEnvironment.status).toBe(1);
     expect(fromEnvironment.stdout).toBe(
-      "::error::Input verify-env-names is not valid: empty when deploy-config is empty (verify runs with deploy.json)\n",
+      "::error::Input verify-env-secret is not valid: empty when deploy-config is empty (verify runs with deploy.json)\n",
     );
   });
 });
@@ -213,7 +221,8 @@ describe("the verify step", () => {
       ORIGIN_ADDRESS_VAR: "",
       APP_VARS: "{}",
       VERIFY_ENV: "",
-      VERIFY_ENV_NAMES: "",
+      VERIFY_ENV_SECRET: "",
+      VERIFY_ENV_RULES: String(VERIFY_STEP.env?.VERIFY_ENV_RULES),
       ...env,
     });
   }
@@ -241,31 +250,28 @@ describe("the verify step", () => {
     expect(result.stdout).not.toMatch(/^(?!::add-mask::|env:).*seed-value/m);
   });
 
-  it("exports only the secrets verify-env-names lists from the job's secrets context", () => {
-    const result = verify({
-      VERIFY_ENV_NAMES: "WEB_BOT_AUTH_PRIVATE_KEY\n",
-      VERIFY_ENV: JSON.stringify({ github_token: "ghs_token", WEB_BOT_AUTH_PRIVATE_KEY: "seed-value", DEPLOY_SSH_KEY: "ssh-key" }),
-    });
+  it("exports the entries of the environment secret verify-env-secret names, naming that secret in its errors", () => {
+    const result = verify({ VERIFY_ENV_SECRET: "DEPLOY_VERIFY_ENV", VERIFY_ENV: JSON.stringify({ WEB_BOT_AUTH_PRIVATE_KEY: "seed-value" }) });
     expect(result.status, result.stderr).toBe(0);
     const { masks, args, env } = read(result);
     expect(args).toEqual(ARGS);
     expect(env.WEB_BOT_AUTH_PRIVATE_KEY).toBe("seed-value");
-    expect(env.github_token).toBeUndefined();
-    expect(env.DEPLOY_SSH_KEY).toBeUndefined();
     expect(env.VERIFY_ENV).toBeUndefined();
     expect(masks).toEqual(["seed-value"]);
+    const invalid = verify({ VERIFY_ENV_SECRET: "DEPLOY_VERIFY_ENV", VERIFY_ENV: JSON.stringify({ PATH: "/evil", KEY: "secret-value" }) });
+    expect(invalid.status).toBe(1);
+    expect(invalid.stdout).toBe(
+      ["::add-mask::/evil", "::add-mask::secret-value", "::error::DEPLOY_VERIFY_ENV is not valid: PATH is reserved for the verify step or the runner", ""].join("\n"),
+    );
+    const notJson = verify({ VERIFY_ENV_SECRET: "DEPLOY_VERIFY_ENV", VERIFY_ENV: "raw-seed" });
+    expect(notJson.status).toBe(1);
+    expect(notJson.stdout).toBe("::error::DEPLOY_VERIFY_ENV is not valid: a JSON object of text values by name\n");
   });
 
-  it("names a listed secret the environment lacks and runs nothing", () => {
-    const result = verify({ VERIFY_ENV_NAMES: "WEB_BOT_AUTH_PRIVATE_KEY OTHER", VERIFY_ENV: JSON.stringify({ github_token: "x" }) });
+  it("names the secret verify-env-secret names when the environment lacks it, and runs nothing", () => {
+    const result = verify({ VERIFY_ENV_SECRET: "DEPLOY_VERIFY_ENV", VERIFY_ENV: "" });
     expect(result.status).toBe(1);
-    expect(result.stdout).toBe(
-      [
-        "::error::verify-env-names: the environment (or the repository) has no secret WEB_BOT_AUTH_PRIVATE_KEY.",
-        "::error::verify-env-names: the environment (or the repository) has no secret OTHER.",
-        "",
-      ].join("\n"),
-    );
+    expect(result.stdout).toBe("::error::verify-env-secret: the environment (or the repository) has no secret DEPLOY_VERIFY_ENV.\n");
   });
 
   it("runs as before with neither", () => {

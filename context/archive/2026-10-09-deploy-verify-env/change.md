@@ -19,9 +19,9 @@ secrets, so such a route fails there with `WEB_BOT_AUTH_PRIVATE_KEY is not set`.
 
 1. A caller passing secrets by name passes `verify-env` (a JSON object of variables by name); the verify step exports
    those entries for `softure-deploy verify` only, masked.
-2. A caller with `secrets-from-environment` lists secret names in `verify-env-names`; the verify job then runs in
-   `environment` and exports those secrets for the CLI only.
-3. The check job refuses a name that collides with the verify step's own variables or the runner's (`PATH`, `HOME`,
+2. A caller with `secrets-from-environment` names, in `verify-env-secret`, an environment secret holding the same
+   object; the verify job then runs in `environment` and exports its entries for the CLI only.
+3. A name is refused that collides with the verify step's own variables or the runner's (`PATH`, `HOME`,
    `NODE_*`, `NPM_CONFIG_*`), a name that is not one, invalid `verify-env`, each form on the wrong path, and both
    with an empty `deploy-config` (verify then does not run the CLI).
 4. Callers without the new input and secret behave as today.
