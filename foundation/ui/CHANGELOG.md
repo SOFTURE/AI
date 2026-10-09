@@ -4,6 +4,12 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`ui@x.y.z`).
 
+## 0.1.16
+
+- `Switch` takes `aria-label`, which overrides the visible `label` as the switch's accessible name, e.g. a switch in a
+  table row whose label names the column while the name must also name the row (#339). Before, `SwitchProps` omitted
+  it, though the input already received it at runtime. `aria-describedby` stays driven by `description`.
+
 ## 0.1.15
 
 - Number inputs render in the mono face again. `NUMBER_INPUT_CLASS` was built on `INPUT_CLASS`, so it carried both
