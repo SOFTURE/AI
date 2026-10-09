@@ -71,7 +71,7 @@
   },
   "dependencies": {
     "@softure-ai/core": "^0.1.9",
-    "@softure-ai/db": "^0.1.0",
+    "@softure-ai/db": "^0.1.7",
     "markdown-it": "^15.0.2",
     "markdown-it-footnote": "^4.0.0",
     "yaml": "^2.9.1",
