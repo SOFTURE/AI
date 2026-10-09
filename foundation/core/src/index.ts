@@ -1,6 +1,17 @@
 // Public API of @softure-ai/core: the contract every SOFTURE module stands on
 // (docs/02-module-standard.md). The Next.js registry is a separate entry: `@softure-ai/core/next`.
-export { getCalendarDay, toCalendarDay } from "./calendar-day.js";
+export {
+  addCalendarDays,
+  addCalendarMonths,
+  calendarDaysBetween,
+  getCalendarDay,
+  isCalendarDay,
+  toCalendarDay,
+  wholeMonthsBetween,
+  type EndOfMonth,
+} from "./calendar-day.js";
+export { CURRENCY_MINOR_UNIT_DIGITS } from "./currency-digits.js";
+export { formatCalendarDay, formatMoney, formatPercent, type CalendarDayStyle, type FormatMoneyOptions } from "./format.js";
 export { createTestClock, systemClock, type Clock, type TestClock } from "./clock.js";
 export {
   formatMessage,

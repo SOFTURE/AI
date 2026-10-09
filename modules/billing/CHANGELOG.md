@@ -6,6 +6,11 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## 0.1.11
 
+- `formatPrice` is core's `formatMoney`: thousands are always grouped, so a four-digit amount in pl reads
+  `1 234,56 €` (was `1234,56 €`); en and amounts below 1000 are unchanged (#312).
+- Plan periods, `parseDay` and the `/ui` day formatters use core's day arithmetic and `formatCalendarDay`; the
+  results are the same. `CURRENCY_MINOR_UNIT_DIGITS` is core's table, still exported here. Requires
+  `@softure-ai/core` `^0.1.9`.
 - `BILLING_RATE_LIMIT_BUCKETS` declares `key: "account"` on `billing-payment` (security 0.1.8 bucket kinds).
 - Requires `@softure-ai/security` `^0.1.8`: earlier versions refuse the `key` field.
 

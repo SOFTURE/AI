@@ -1,17 +1,17 @@
 // Dates and day counts of an entitlement as the components show them. An end is the first instant
 // without access, so the date shown is the last day with it, in the app's time zone.
-import { formatMessage, selectPlural, type Locale } from "@softure-ai/core";
+import { formatCalendarDay, formatMessage, selectPlural, toCalendarDay, type Locale } from "@softure-ai/core";
 import type { PlanPeriod } from "../contract.js";
 import type { BillingMessages } from "../messages/index.js";
 
 /** The last local day covered by an access that ends at `end`, e.g. "October 16, 2026" in en. */
 export function formatLastDay(end: Date, locale: Locale, timezone: string): string {
-  return new Intl.DateTimeFormat(locale, { dateStyle: "long", timeZone: timezone }).format(new Date(end.getTime() - 1));
+  return formatDay(new Date(end.getTime() - 1), locale, timezone);
 }
 
 /** The local day of an instant, e.g. "October 3, 2026" in en: when something happened, or a first day of access. */
 export function formatDay(instant: Date, locale: Locale, timezone: string): string {
-  return new Intl.DateTimeFormat(locale, { dateStyle: "long", timeZone: timezone }).format(instant);
+  return formatCalendarDay(toCalendarDay(instant, timezone), locale, "long");
 }
 
 /** The numeric form of `formatLastDay` for compact places, e.g. "22.11.2026" in pl, "11/22/2026" in en. */
@@ -21,7 +21,7 @@ export function formatShortLastDay(end: Date, locale: Locale, timezone: string):
 
 /** The numeric form of `formatDay` for compact places, e.g. "22.11.2026" in pl, "11/22/2026" in en. */
 export function formatShortDay(instant: Date, locale: Locale, timezone: string): string {
-  return new Intl.DateTimeFormat(locale, { day: "2-digit", month: "2-digit", year: "numeric", timeZone: timezone }).format(instant);
+  return formatCalendarDay(toCalendarDay(instant, timezone), locale, "numeric");
 }
 
 /** The days left as the badge says them: "5 days left". */

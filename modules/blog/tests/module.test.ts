@@ -24,6 +24,7 @@ describe("the blog module", () => {
       contentDir: "content/blog",
       reservedSlugs: [],
       methodPage: false,
+      aiDisclosure: false,
       clusters: {},
       blocks: [],
       siteHosts: [],
