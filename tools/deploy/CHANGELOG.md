@@ -4,6 +4,16 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
+## Unreleased
+
+- `init` reads an existing `docker/prod/docker-compose.yml`: `deploy.sh`'s tools image carries the `pg_dump` of the
+  `postgres` service's major (`postgres:17-alpine` → `-pg17`, `postgresql17-client`) instead of a fixed 16, and
+  `report` reads as the role of the `app` service's `DATABASE_URL` instead of a fixed `softure_app` (a compose file
+  `--force` replaces keeps the major, and `softure_app`). A value init cannot read there is a warning naming the default.
+- `init --workflows-ref=<sha>` pins both callers' `uses:` to that commit of SOFTURE/AI; without it they call `master`
+  and a warning prints how to get the commit of the `deploy@<version>` release. The callers, the examples and the
+  README no longer name `deploy-workflows-v1`, a tag that never existed.
+
 ## 0.1.6
 
 - A `verify` header check also takes a list of texts (`"vary": ["accept", "accept-encoding"]`): the header value must

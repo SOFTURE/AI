@@ -354,8 +354,8 @@ describe("the example caller workflow", () => {
 
   it("calls the deploy workflow, then the report workflow, each with one uses: line", () => {
     expect(Object.keys(caller.jobs)).toEqual(["deploy", "report"]);
-    expect(deployJob.uses).toMatch(/^SOFTURE\/AI\/\.github\/workflows\/deploy-app\.yml@deploy-workflows-v1$/);
-    expect(reportJob.uses).toMatch(/^SOFTURE\/AI\/\.github\/workflows\/deploy-report\.yml@deploy-workflows-v1$/);
+    expect(deployJob.uses).toMatch(/^SOFTURE\/AI\/\.github\/workflows\/deploy-app\.yml@master$/);
+    expect(reportJob.uses).toMatch(/^SOFTURE\/AI\/\.github\/workflows\/deploy-report\.yml@master$/);
   });
 
   it("grants the deploy jobs what they need and nothing to write code; contents: write to the report job only", () => {
@@ -845,7 +845,7 @@ describe("the example release caller", () => {
 
   it("calls the cut-release workflow with one uses: line", () => {
     expect(callingJobs).toHaveLength(1);
-    expect(job.uses).toBe("SOFTURE/AI/.github/workflows/deploy-cut-release.yml@deploy-workflows-v1");
+    expect(job.uses).toBe("SOFTURE/AI/.github/workflows/deploy-cut-release.yml@master");
   });
 
   it("grants what the called job needs and nothing more", () => {
@@ -982,7 +982,7 @@ describe("the example integration caller", () => {
   });
 
   it("calls the integration workflow with one uses: line and passes only declared inputs", () => {
-    expect(job.uses).toBe("SOFTURE/AI/.github/workflows/deploy-integration.yml@deploy-workflows-v1");
+    expect(job.uses).toBe("SOFTURE/AI/.github/workflows/deploy-integration.yml@master");
     const declared = Object.keys(called.inputs ?? {});
     for (const key of Object.keys(job.with ?? {})) expect(declared).toContain(key);
     expect(job.with?.["test-command"]).toBeDefined();
