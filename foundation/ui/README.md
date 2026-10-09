@@ -172,7 +172,12 @@ While a save runs the button shows `pendingLabel` (the package's "Saving…" by 
 its width.
 After a rejected submit the fields show what was typed (React resets the form) and their own
 errors; `PasswordField` never replays. The server parses amounts with the same
-`parseAmount(text, locale)` the field formats with.
+`parseAmount(text, locale)` the field formats with. Between groups of three digits it accepts a space, a no-break
+space (U+00A0), a narrow no-break space (U+202F) and a thin space (U+2009); `en` also accepts a comma.
+
+Number inputs (`TextField` with `inputMode`, `MoneyField`) use `NUMBER_INPUT_CLASS`: the mono face with
+`tabular-nums` and `slashed-zero`, the placeholder in sans. It and `INPUT_CLASS` each carry exactly one font family
+utility, so the two families never compete on one input.
 
 ### Surfaces, controls and feedback
 
