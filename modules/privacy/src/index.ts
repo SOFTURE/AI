@@ -3,6 +3,7 @@
 // are in `@softure-ai/privacy/server`, the Next.js adapter (page, export route, delete action) in
 // `/next`, the delete form and the legal document shell in `/ui`.
 import { defineModule, resolveMigrationsDir } from "@softure-ai/core";
+import type { RateLimitBucketInput } from "@softure-ai/security";
 import { privacyMessages } from "./messages/index.js";
 import { privacyOptionsSchema } from "./options.js";
 import { privacyConsentsContributor } from "./server/consents-contributor.js";
@@ -16,9 +17,9 @@ export const MODULE_ID = "privacy";
  * password check).
  */
 export const PRIVACY_RATE_LIMIT_BUCKETS = {
-  "privacy-export": { limit: 5, windowMinutes: 60 },
-  "privacy-delete": { limit: 5, windowMinutes: 15 },
-} as const;
+  "privacy-export": { limit: 5, windowMinutes: 60, key: "account" },
+  "privacy-delete": { limit: 5, windowMinutes: 15, key: "account" },
+} as const satisfies Readonly<Record<string, RateLimitBucketInput>>;
 
 /**
  * Enables the GDPR export, self-service account deletion and the consent ledger in

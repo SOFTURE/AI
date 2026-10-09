@@ -217,3 +217,10 @@ describe("the default buckets", () => {
     expect(() => security({ clientIp: headerIp("x-real-ip"), buckets: AUTH_RATE_LIMIT_BUCKETS })).not.toThrow();
   });
 });
+
+describe("the rate limit bucket defaults (#328)", () => {
+  it("declare what each bucket is keyed by", () => {
+    const kinds = Object.fromEntries(Object.entries(AUTH_RATE_LIMIT_BUCKETS).map(([name, bucket]) => [name, bucket.key]));
+    expect(kinds).toEqual({ "register": "ip", "login": "ip", "login-account": "account", "change-password": "account", "password-reset": "ip", "password-reset-account": "account", "password-reset-confirm": "ip" });
+  });
+});
