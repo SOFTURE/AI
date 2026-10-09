@@ -24,6 +24,20 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
     (default `process.env`); `readWebBotAuthKey` and `getWebBotAuthHeaders` are exported.
   - For TypeScript callers: `VerifyRoute.path` is optional (a `forEach` route has none), and `ObservedResponse` takes
     an optional `sha256`.
+- `integration run`, `lookup` and `record` print one `flaky: <test>` line per test that passed only on a retry, after the
+  `new-red` lines (issue #308). The note stores them as `flaky`, a key written only when there are some, so the 0.1.7
+  CLI still reads every note without flaky tests.
+- `integration record --results=<file> [--format=junit|playwright-json]` also reads Playwright's JSON reporter output
+  (`.json` is read as Playwright when `--format` is left out); `--junit=<file>` works as before. JUnit names flaky
+  tests only from Surefire's `<flakyFailure>` and `<flakyError>`. `--fail-on-flaky` stores red and exits 1 when the
+  report names a flaky test.
+- `--notes-ref=refs/notes/<name>` (`run`, `lookup`, `record`) and `--ref-prefix=<prefix>/` (`run`, `record`) keep an
+  app's existing notes ref and branch prefix, so its main-branch baseline and `new-red` carry over.
+- `deploy-integration.yml` takes `results-report` and `results-format`, `notes-ref`, `ref-prefix`, and a prebuilt-image
+  mode for a release workflow: `image` (`<registry/name>@sha256:<digest>`, pulled before the app's code runs, with the
+  optional `registry-token` secret), `expected-origins` and `fail-on-flaky`, handed to the set-up and suite commands as
+  `INTEGRATION_IMAGE`, `INTEGRATION_EXPECTED_ORIGINS` and `INTEGRATION_FAIL_ON_FLAKY`; a tag push is accepted with
+  `image`. The uploaded report's artifact is now `integration-results`.
 
 ## 0.1.7
 

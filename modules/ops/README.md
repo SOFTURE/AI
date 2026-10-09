@@ -341,12 +341,20 @@ export const renameNote = defineOpsScript({
 });
 
 // scripts/rename-note.ts (bundled with esbuild like migrate.ts, run in the app container)
-import { runOpsScript } from "@softure-ai/ops/scripts";
-import config from "../softure.config";
+import { runOpsMain } from "@softure-ai/ops/scripts";
+import * as configModule from "../softure.config";
 import { renameNote } from "./rename-note-script";
 
-process.exitCode = await runOpsScript({ script: renameNote, argv: process.argv.slice(2), config });
+void runOpsMain(renameNote, configModule);
 ```
+
+`runOpsMain(script, configModule)` is the whole entry: it reads `process.argv.slice(2)`, runs the
+script and sets `process.exitCode` (0 done, 1 refused or failed, 2 usage error). It needs no
+top-level `await` and takes the config module in any shape it arrives in: an app without
+`"type": "module"` whose scripts run under `tsx` gets `softure.config.ts` as CommonJS, wrapped in
+`{ default }` (sometimes twice); the config itself, `{ default }` and `{ config }` work too. A module
+with no config in it is one error line and exit code 1. `runOpsScript({ script, argv, config })` is
+the same run with an explicit config and argv that returns the exit code.
 
 ```bash
 docker compose exec app node rename-note.mjs --id=7 --title=Fixed            # dry run

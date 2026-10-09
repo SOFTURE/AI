@@ -5,6 +5,7 @@ import { renderAppSkills, type AgentSkill } from "../agent-skills.js";
 import type { AuthorizationServerMetadata } from "../auth-md.js";
 import type { AgentDocumentContext } from "../context.js";
 import type { McpServerDescription } from "../mcp-description.js";
+import { createDiscoveryIdentity, type McpServerFactory } from "../options.js";
 import { buildMcpSkill, getMcpSkillName } from "../mcp-skill.js";
 import type { OriginRequest } from "../origins.js";
 import { AUTHORIZATION_SERVER_METADATA_PATH } from "../paths.js";
@@ -38,10 +39,21 @@ export async function readIssuerMetadata(context: AgentDocumentContext): Promise
   return metadata;
 }
 
-/** The app's MCP server as an anonymous client sees it. */
-export function describeServer(context: AgentDocumentContext): Promise<McpServerDescription> {
+/** Where discovery gets the app's MCP server: the factory (the routes', else the config's) and the identity's write flag. */
+export interface DiscoveryServer {
+  readonly factory: McpServerFactory | undefined;
+  readonly canWrite: boolean;
+}
+
+/** The app's MCP server as an anonymous client sees it. Without a factory, a setup error that names the fix. */
+export async function describeServer(context: AgentDocumentContext, server: DiscoveryServer): Promise<McpServerDescription> {
   const { mcp } = context.options;
-  return readServerDescription(mcp.server, { path: mcp.path, ...(mcp.protocolVersions === undefined ? {} : { protocolVersion: mcp.protocolVersions[0] }) });
+  const { factory } = server;
+  if (factory === undefined) {
+    throw new Error("@softure-ai/agent-ready: no MCP server factory: pass createServer to createAgentReadyRoutes() or set mcp.server");
+  }
+  const identity = createDiscoveryIdentity(server.canWrite);
+  return readServerDescription(() => factory(identity), { path: mcp.path, ...(mcp.protocolVersions === undefined ? {} : { protocolVersion: mcp.protocolVersions[0] }) });
 }
 
 /** The protocol versions the server card announces: configured, else the SDK's. */
@@ -50,19 +62,19 @@ export function getSupportedProtocolVersions(context: AgentDocumentContext): rea
 }
 
 /** Every published skill: the app's, then the generated MCP skill. */
-export async function renderSkills(context: AgentDocumentContext): Promise<AgentSkill[]> {
+export async function renderSkills(context: AgentDocumentContext, server: DiscoveryServer): Promise<AgentSkill[]> {
   const skills = renderAppSkills(context);
   if (context.options.mcpSkill === false) return skills;
-  const [description, metadata] = await Promise.all([describeServer(context), readIssuerMetadata(context)]);
+  const [description, metadata] = await Promise.all([describeServer(context, server), readIssuerMetadata(context)]);
   const mcpSkill = buildMcpSkill(context, description, metadata);
   return mcpSkill === null ? skills : [...skills, mcpSkill];
 }
 
 /** The one skill named `name`: the app's, or the generated MCP skill; none for any other name, without building anything. */
-export async function renderSkill(context: AgentDocumentContext, name: string): Promise<AgentSkill[]> {
+export async function renderSkill(context: AgentDocumentContext, name: string, server: DiscoveryServer): Promise<AgentSkill[]> {
   const own = renderAppSkills(context).filter((skill) => skill.name === name);
   if (own.length > 0 || getMcpSkillName(context) !== name) return own;
-  const [description, metadata] = await Promise.all([describeServer(context), readIssuerMetadata(context)]);
+  const [description, metadata] = await Promise.all([describeServer(context, server), readIssuerMetadata(context)]);
   const mcpSkill = buildMcpSkill(context, description, metadata);
   return mcpSkill === null ? [] : [mcpSkill];
 }
