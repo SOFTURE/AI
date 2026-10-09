@@ -12,6 +12,9 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   receive their signed link. Now only the request that created the sign-up (`status: "joined"`, `isNew: true`) gets
   it; a known and a suppressed address are answered alike, `{ status: "ok" }` without a link. An app that kept its own
   join action to give the link only for `isNew` can go back to the module's.
+- `WAITLIST_RATE_LIMIT_BUCKETS` declares `key: "ip"` on `waitlist` and `key: "subject"` on `waitlist-email`
+  (security 0.1.8 bucket kinds).
+- Requires `@softure-ai/security` `^0.1.8`: earlier versions refuse the `key` field.
 
 ## 0.1.8
 
