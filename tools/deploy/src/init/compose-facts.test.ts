@@ -4,17 +4,17 @@ import { DEFAULT_APP_ROLE, planInitFiles, TEMPLATE_VERSIONS } from "./generate.j
 
 function compose(postgresImage: string, appEnvironment: string): string {
   return [
-    "name: fire-tracker",
+    "name: ledger",
     "",
     "services:",
     "  app:",
-    "    image: ghcr.io/acme/fire:${TAG}",
+    "    image: ghcr.io/acme/ledger:${TAG}",
     "    environment:",
     appEnvironment,
     "  postgres:",
     `    image: ${postgresImage}`,
     "    environment:",
-    "      POSTGRES_DB: fire_tracker",
+    "      POSTGRES_DB: ledger",
     "",
     "volumes:",
     "  postgres-data:",
@@ -22,7 +22,7 @@ function compose(postgresImage: string, appEnvironment: string): string {
   ].join("\n");
 }
 
-const FIRE_URL = "      DATABASE_URL: postgresql://fire_tracker_app:${FIRE_APP_PASSWORD:?}@postgres:5432/fire_tracker";
+const LEDGER_URL = "      DATABASE_URL: postgresql://ledger_app:${LEDGER_APP_PASSWORD:?}@postgres:5432/ledger";
 
 describe("readComposeFacts", () => {
   it("reads the compose file init writes", () => {
@@ -36,9 +36,9 @@ describe("readComposeFacts", () => {
   });
 
   it("reads an adopting app's Postgres 17 and its own role", () => {
-    expect(readComposeFacts(compose("postgres:17-alpine", FIRE_URL))).toEqual({
+    expect(readComposeFacts(compose("postgres:17-alpine", LEDGER_URL))).toEqual({
       postgresMajor: "17",
-      appDatabaseRole: "fire_tracker_app",
+      appDatabaseRole: "ledger_app",
     });
   });
 
@@ -51,20 +51,20 @@ describe("readComposeFacts", () => {
   });
 
   it("reads the major of an extension image's tag", () => {
-    expect(readComposeFacts(compose("pgvector/pgvector:pg17", FIRE_URL)).postgresMajor).toBe("17");
-    expect(readComposeFacts(compose("postgis/postgis:17-3.5-alpine", FIRE_URL)).postgresMajor).toBe("17");
+    expect(readComposeFacts(compose("pgvector/pgvector:pg17", LEDGER_URL)).postgresMajor).toBe("17");
+    expect(readComposeFacts(compose("postgis/postgis:17-3.5-alpine", LEDGER_URL)).postgresMajor).toBe("17");
   });
 
   it("gives null for an image without a readable major", () => {
-    expect(readComposeFacts(compose("postgres", FIRE_URL)).postgresMajor).toBeNull();
-    expect(readComposeFacts(compose("postgres:latest", FIRE_URL)).postgresMajor).toBeNull();
-    expect(readComposeFacts(compose("${POSTGRES_IMAGE:?}", FIRE_URL)).postgresMajor).toBeNull();
-    expect(readComposeFacts(compose("localhost:5000/postgres", FIRE_URL)).postgresMajor).toBeNull();
+    expect(readComposeFacts(compose("postgres", LEDGER_URL)).postgresMajor).toBeNull();
+    expect(readComposeFacts(compose("postgres:latest", LEDGER_URL)).postgresMajor).toBeNull();
+    expect(readComposeFacts(compose("${POSTGRES_IMAGE:?}", LEDGER_URL)).postgresMajor).toBeNull();
+    expect(readComposeFacts(compose("localhost:5000/postgres", LEDGER_URL)).postgresMajor).toBeNull();
   });
 
   it("gives null for a role that is a variable, encoded or missing", () => {
-    const variable = "      DATABASE_URL: postgresql://${DB_USER:?}:${DB_PASSWORD:?}@postgres:5432/fire";
-    const encoded = "      DATABASE_URL: postgresql://fire%2Dapp:secret@postgres:5432/fire";
+    const variable = "      DATABASE_URL: postgresql://${DB_USER:?}:${DB_PASSWORD:?}@postgres:5432/ledger";
+    const encoded = "      DATABASE_URL: postgresql://ledger%2Dapp:secret@postgres:5432/ledger";
     const none = "      APP_ORIGIN: https://example.com";
     expect(readComposeFacts(compose("postgres:17", variable)).appDatabaseRole).toBeNull();
     expect(readComposeFacts(compose("postgres:17", encoded)).appDatabaseRole).toBeNull();

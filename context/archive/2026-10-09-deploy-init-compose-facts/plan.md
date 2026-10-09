@@ -57,9 +57,9 @@ missing `deploy-workflows-v1` tag.
 `src/cli/init-command.ts`, `templates/docker/server/deploy.sh.tmpl`, `templates/.github/workflows/*.tmpl`,
 `src/init/generate.test.ts`, `tests/init-cli.test.ts`.
 
-- Unit: `readComposeFacts` on the template's own compose, FIRE's shape (`postgres:17-alpine`, `fire_tracker_app`),
+- Unit: `readComposeFacts` on the template's own compose, an adopting app's shape (`postgres:17-alpine`, `ledger_app`),
   list-form environment, `pgvector/pgvector:pg17`, no tag, a variable image, a role from a variable, no `app` service.
-- CLI: an app with a kept PG17 compose file gets `-pg17`, `postgresql17-client` and `REPORT_ROLE=fire_tracker_app`;
+- CLI: an app with a kept PG17 compose file gets `-pg17`, `postgresql17-client` and `REPORT_ROLE=ledger_app`;
   an unreadable image warns; `--workflows-ref=<sha>` lands in both callers and silences the ref warning; a bad ref is
   refused; without it `@master` and the warning.
 

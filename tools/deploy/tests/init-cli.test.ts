@@ -143,7 +143,7 @@ describe("softure-deploy init", () => {
   });
 
   describe("an app that keeps its own compose file", () => {
-    const DATABASE_APP = { name: "fire-tracker", dependencies: { "@softure-ai/db": "^0.1.2" } };
+    const DATABASE_APP = { name: "ledger", dependencies: { "@softure-ai/db": "^0.1.2" } };
 
     function writeCompose(postgresImage: string, databaseUrl: string): void {
       mkdirSync(join(dir, "docker/prod"), { recursive: true });
@@ -152,7 +152,7 @@ describe("softure-deploy init", () => {
         [
           "services:",
           "  app:",
-          "    image: ghcr.io/acme/fire:${TAG}",
+          "    image: ghcr.io/acme/ledger:${TAG}",
           "    environment:",
           `      DATABASE_URL: ${databaseUrl}`,
           "  postgres:",
@@ -173,18 +173,18 @@ describe("softure-deploy init", () => {
     }
 
     it("builds the tools image with its Postgres major and reports as its app role", async () => {
-      writeCompose("postgres:17-alpine", "postgresql://fire_tracker_app:${FIRE_APP_PASSWORD:?}@postgres:5432/fire_tracker");
+      writeCompose("postgres:17-alpine", "postgresql://ledger_app:${LEDGER_APP_PASSWORD:?}@postgres:5432/ledger");
       const { script, warnings } = await runInit();
       expect(script).toContain(`TOOLS_IMAGE="softure-deploy-tools:${PACKAGE_VERSION}-pg17"`);
       expect(script).toContain("apk add --no-cache postgresql17-client");
-      expect(script).toContain("REPORT_ROLE=fire_tracker_app\n");
+      expect(script).toContain("REPORT_ROLE=ledger_app\n");
       expect(script).not.toContain("pg16");
       expect(warnings).toEqual([]);
       expect(out.join("")).toContain("kept    docker/prod/docker-compose.yml (exists; --force overwrites it)\n");
     });
 
     it("warns and keeps the defaults when the image or the role cannot be read", async () => {
-      writeCompose("postgres:latest", "postgresql://${DB_USER:?}:${DB_PASSWORD:?}@postgres:5432/fire_tracker");
+      writeCompose("postgres:latest", "postgresql://${DB_USER:?}:${DB_PASSWORD:?}@postgres:5432/ledger");
       const { script, warnings } = await runInit();
       expect(script).toContain(`TOOLS_IMAGE="softure-deploy-tools:${PACKAGE_VERSION}-pg16"`);
       expect(script).toContain("REPORT_ROLE=softure_app\n");
@@ -195,7 +195,7 @@ describe("softure-deploy init", () => {
     });
 
     it("keeps the major but reports as softure_app when --force replaces the compose file", async () => {
-      writeCompose("postgres:17-alpine", "postgresql://fire_tracker_app:${FIRE_APP_PASSWORD:?}@postgres:5432/fire_tracker");
+      writeCompose("postgres:17-alpine", "postgresql://ledger_app:${LEDGER_APP_PASSWORD:?}@postgres:5432/ledger");
       const { script, warnings } = await runInit("--force");
       const composeText = readFileSync(join(dir, "docker/prod/docker-compose.yml"), "utf8");
       expect(composeText).toContain("    image: postgres:17\n");
@@ -207,7 +207,7 @@ describe("softure-deploy init", () => {
 
     it("reads nothing from the compose file of an app without a database", async () => {
       writeCompose("postgres:latest", "postgresql://${DB_USER:?}@postgres:5432/x");
-      writeApp({ name: "fire-tracker" });
+      writeApp({ name: "ledger" });
       expect(await runCli(["init", ...REQUIRED, `--workflows-ref=${WORKFLOWS_SHA}`], makeIo())).toBe(0);
       expect(out.join("")).not.toContain("warning ");
     });

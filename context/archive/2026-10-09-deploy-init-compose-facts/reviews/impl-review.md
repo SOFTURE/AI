@@ -7,9 +7,9 @@ against `plan.md`, `change.md` and issue #297. Verdict: **approved**, no open fi
 
 | Item | Decision | Where | Evidence |
 |---|---|---|---|
-| Compose facts | D1 | `src/init/compose-facts.ts` `readComposeFacts` | 8 unit tests: init's own compose file, FIRE's shape (`postgres:17-alpine`, `fire_tracker_app`), quoted image with registry and list-form env, `pgvector:pg17` and `postgis:17-3.5-alpine`, unreadable tags, variable/encoded/missing roles, other services ignored, empty file |
+| Compose facts | D1 | `src/init/compose-facts.ts` `readComposeFacts` | 8 unit tests: init's own compose file, an adopting app's shape (`postgres:17-alpine`, `ledger_app`), quoted image with registry and list-form env, `pgvector:pg17` and `postgis:17-3.5-alpine`, unreadable tags, variable/encoded/missing roles, other services ignored, empty file |
 | Facts field | D2 | `AppFacts.compose?`, `readAppFacts` | hand-built facts in `generate.test.ts` and `server-files.test.ts` compile unchanged |
-| Values | D3 | `getPostgresVersion`, `getReportRole`, `REPORT_ROLE={{reportRole}}` | CLI: kept PG17 compose → `-pg17`, `postgresql17-client`, `REPORT_ROLE=fire_tracker_app`; `--force` → `postgres:17` in the new compose and `softure_app` (review F1) |
+| Values | D3 | `getPostgresVersion`, `getReportRole`, `REPORT_ROLE={{reportRole}}` | CLI: kept PG17 compose → `-pg17`, `postgresql17-client`, `REPORT_ROLE=ledger_app`; `--force` → `postgres:17` in the new compose and `softure_app` (review F1) |
 | Warnings | D4 | `listComposeWarnings` | CLI: `latest` and a variable role give both warnings and the defaults; an app without a database reads nothing |
 | Workflow ref | D5 | `answers.workflowsRef`, `listWorkflowsRefWarnings`, both caller templates | CLI: SHA in both `uses:` lines and no warning; `@master` plus the warning without it; no warning when both callers are kept; a non-SHA ref refused before anything is written |
 | Docs | Phase 2 | README §Deploy workflow "Which ref callers pin", §init, §run/report; CHANGELOG `## Unreleased`; examples `@master` | `tests/repo/deploy-workflows.test.ts` and the release-caller equality test green |
