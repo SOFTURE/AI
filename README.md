@@ -33,6 +33,7 @@ modules/             feature modules (each one works on its own on top of the fo
 tools/
   marketing-kit/     materials generator: video, screenshots, OG images from JSON and a brand
   deploy/            one-VPS deploy CLI: .env.prod from secrets, release notes, verify from deploy.json
+  config/            shared app tooling: ESLint preset, tsconfig base, lefthook hooks, language gate
 docs/                assessment, module standard, plans
 ```
 

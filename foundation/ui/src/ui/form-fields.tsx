@@ -98,8 +98,25 @@ function WithSuffix({
   );
 }
 
-export interface TextFieldProps extends BaseFieldProps {
-  readonly defaultValue?: string;
+/**
+ * Uncontrolled (the default): the field keeps its text, starting from `defaultValue` or the replayed submit.
+ * Controlled: the caller owns `value` and updates it from `onValueChange`, for a live calculation; a rejected
+ * submit's replayed value is then the caller's to restore.
+ */
+export type FieldValueProps =
+  | {
+      readonly value?: undefined;
+      readonly defaultValue?: string;
+      /** Called with the text after every edit. */
+      readonly onValueChange?: (value: string) => void;
+    }
+  | {
+      readonly value: string;
+      readonly defaultValue?: undefined;
+      readonly onValueChange: (value: string) => void;
+    };
+
+interface TextFieldOwnProps {
   /** Caller copy shown in the empty field. */
   readonly placeholder?: string;
   /** A numeric keyboard; also switches the input to equal-width digits. */
@@ -111,6 +128,8 @@ export interface TextFieldProps extends BaseFieldProps {
   readonly suffix?: string;
 }
 
+export type TextFieldProps = BaseFieldProps & FieldValueProps & TextFieldOwnProps;
+
 /** A labelled text input. */
 export function TextField({
   name,
@@ -121,7 +140,9 @@ export function TextField({
   hintProps,
   error,
   required = false,
+  value: controlledValue,
   defaultValue = "",
+  onValueChange,
   placeholder,
   inputMode,
   type = "text",
@@ -133,7 +154,7 @@ export function TextField({
   locale,
   messages,
 }: TextFieldProps) {
-  const value = useFieldValue(name, defaultValue);
+  const replayed = useFieldValue(name, defaultValue);
   const ids = useFieldIds({ id, name, error, hint, hintAs });
   const base = inputMode === undefined ? INPUT_CLASS : NUMBER_INPUT_CLASS;
   const slot = createSlotClassGetter<"input" | "suffixWrap" | "suffix">({
@@ -158,8 +179,11 @@ export function TextField({
     >
       <WithSuffix suffix={suffix} slot={slot}>
         <input
-          // A new key remounts the uncontrolled input when a rejected submit replays another value.
-          key={value}
+          // Uncontrolled, a new key remounts the input when a rejected submit replays another value.
+          key={controlledValue === undefined ? replayed : undefined}
+          value={controlledValue}
+          defaultValue={controlledValue === undefined ? replayed : undefined}
+          onChange={onValueChange === undefined ? undefined : (event) => onValueChange(event.currentTarget.value)}
           id={ids.inputId}
           type={type}
           name={name}
@@ -168,7 +192,6 @@ export function TextField({
           inputMode={inputMode}
           autoComplete={autoComplete}
           maxLength={maxLength}
-          defaultValue={value}
           aria-invalid={ids.errorId === undefined ? undefined : true}
           aria-describedby={ids.describedBy}
           className={slot("input")}
@@ -232,13 +255,17 @@ export function PasswordField({
   );
 }
 
-export interface MoneyFieldProps extends BaseFieldProps {
-  /** The starting amount as text, in any notation `parseAmount` accepts for the locale. */
-  readonly defaultValue?: string;
+/**
+ * `defaultValue` is the starting amount as text, in any notation `parseAmount` accepts for the locale. A controlled
+ * `value` is shown as given; on blur `onValueChange` receives it reformatted when it parses.
+ */
+interface MoneyFieldOwnProps {
   readonly placeholder?: string;
   /** The currency drawn inside the field ("PLN", "€"). */
   readonly suffix?: string;
 }
+
+export type MoneyFieldProps = BaseFieldProps & FieldValueProps & MoneyFieldOwnProps;
 
 /**
  * An amount input. It shows the amount grouped in the locale's notation ("1 234,56" in `pl`) and
@@ -253,7 +280,9 @@ export function MoneyField({
   hintProps,
   error,
   required = false,
+  value: controlledValue,
   defaultValue = "",
+  onValueChange,
   placeholder,
   suffix,
   classNames,
@@ -262,7 +291,7 @@ export function MoneyField({
   messages,
 }: MoneyFieldProps) {
   const locale = useUiLocale(explicitLocale);
-  const shown = normalizeAmountInput(useFieldValue(name, defaultValue), locale);
+  const replayed = normalizeAmountInput(useFieldValue(name, defaultValue), locale);
   const ids = useFieldIds({ id, name, error, hint, hintAs });
   const slot = createSlotClassGetter<"input" | "suffixWrap" | "suffix">({
     defaults: {
@@ -289,7 +318,11 @@ export function MoneyField({
     >
       <WithSuffix suffix={suffix} slot={slot}>
         <input
-          key={shown}
+          // Uncontrolled, a new key remounts the input when a rejected submit replays another value.
+          key={controlledValue === undefined ? replayed : undefined}
+          value={controlledValue}
+          defaultValue={controlledValue === undefined ? replayed : undefined}
+          onChange={onValueChange === undefined ? undefined : (event) => onValueChange(event.currentTarget.value)}
           id={ids.inputId}
           type="text"
           name={name}
@@ -297,10 +330,13 @@ export function MoneyField({
           placeholder={placeholder}
           inputMode="decimal"
           autoComplete="off"
-          defaultValue={shown}
           onBlur={(event) => {
-            const next = normalizeAmountInput(event.currentTarget.value, locale);
-            if (next !== event.currentTarget.value) event.currentTarget.value = next;
+            const typed = event.currentTarget.value;
+            const next = normalizeAmountInput(typed, locale);
+            if (next === typed) return;
+            // A controlled field shows what its owner passes back; an uncontrolled one is rewritten in place.
+            if (controlledValue === undefined) event.currentTarget.value = next;
+            onValueChange?.(next);
           }}
           aria-invalid={ids.errorId === undefined ? undefined : true}
           aria-describedby={ids.describedBy}

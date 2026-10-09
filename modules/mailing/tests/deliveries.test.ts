@@ -284,7 +284,7 @@ describe("deliverOnce", () => {
   });
 
   it("lets a database failure propagate before anything is sent", async () => {
-    await test.database.client.query("DROP TABLE mailing.deliveries");
+    await test.database.client.query("DROP TABLE mailing.deliveries CASCADE");
     await expect(deliverOnce(test.ctx, { scope: SCOPE, mail: MAIL })).rejects.toThrow();
     expect(respond).not.toHaveBeenCalled();
   });

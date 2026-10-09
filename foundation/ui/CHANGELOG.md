@@ -6,6 +6,16 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## 0.1.16
 
+- `TextField` and `MoneyField` can be controlled: `value` with `onValueChange` (the text after every edit). A
+  controlled `MoneyField` reports the reformatted amount through `onValueChange` on blur instead of rewriting the
+  input; a rejected submit does not replay into a controlled field. Uncontrolled fields keep their behaviour and
+  also accept `onValueChange` to observe edits. The props types are now type aliases (`TextFieldProps`,
+  `MoneyFieldProps`, with the new `FieldValueProps` union), so an app that `extends` them switches to `&` (#320).
+- `parseDecimal(text, locale, { scale })`, `formatDecimal(units, locale, { scale, minFractionDigits? })` and
+  `normalizeDecimalInput`: `parseAmount`'s digit grammar at any scale from 0 to 15, as an integer count of
+  10^-scale units (a percent in basis points at scale 2, a rate in millionths at scale 6). Errors are
+  `ui.decimal_invalid` and `ui.decimal_out_of_range`. `parseAmount`, `formatAmountInput` and
+  `normalizeAmountInput` are now their scale-2 case, with unchanged results and error codes (#320).
 - `CheckboxField` takes `switchProps` (`classNames`, `controlClassNames` and `hintProps` of `Switch`) for `setting`
   and `checkboxProps` (`classNames` of `Checkbox`) for `statement`, and passes them to the control it renders, so an
   app can draw the field in its own look under `unstyled` and keep the submit replay (#340). Before, it forwarded

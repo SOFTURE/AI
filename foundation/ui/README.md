@@ -118,7 +118,7 @@ or a comment throw.
 | Dialogs and feedback | `Modal` (`form`, `confirmation`, `panel`), `StandingPanel`, `ModalBody`, `ModalFooter`, `ModalForm`, `ToastHost` + `announceToast` |
 | Forms | `ActionForm` (server action, value replay, field errors, success toast), `ActionResult`, `MessageActionResult` |
 | Locale | `UiLocaleProvider`, `useUiLocale` |
-| Money | `parseAmount`, `formatAmountInput`, `normalizeAmountInput`, `getAmountErrorMessage` |
+| Money and decimals | `parseAmount`, `formatAmountInput`, `normalizeAmountInput`, `getAmountErrorMessage`, `parseDecimal`, `formatDecimal`, `normalizeDecimalInput` |
 
 Server-safe (no `"use client"`): `Button`, `ButtonLink`, `ButtonAnchor`, `IconButton`, icons, `Card`, `Stat`,
 `EmptyState`, `FormError`, `Field`, `FieldGroup`, `TabPanels`, `SegmentedNav`, the class constants. The rest are client components
@@ -174,6 +174,24 @@ After a rejected submit the fields show what was typed (React resets the form) a
 errors; `PasswordField` never replays. The server parses amounts with the same
 `parseAmount(text, locale)` the field formats with. Between groups of three digits it accepts a space, a no-break
 space (U+00A0), a narrow no-break space (U+202F) and a thin space (U+2009); `en` also accepts a comma.
+
+`parseAmount` is `parseDecimal(text, locale, { scale: 2 })` with the amount error codes. Other fixed-point values
+use the same grammar at another scale and come back as integers: a percent in basis points is
+`parseDecimal("12,5", "pl", { scale: 2 })` (1250), a rate in millionths `{ scale: 6 }`. Errors are
+`ui.decimal_invalid` (more fraction digits than the scale included) and `ui.decimal_out_of_range`.
+`formatDecimal(1250, "pl", { scale: 2, minFractionDigits: 0 })` writes `"12,5"`; without `minFractionDigits` it
+keeps all `scale` digits (`"12,50"`). `normalizeDecimalInput` is the blur helper for such a field.
+
+`TextField` and `MoneyField` are uncontrolled unless given `value`; a controlled one also needs `onValueChange`,
+which receives the text after every edit (a live calculator recomputes from it). A controlled `MoneyField` shows
+`value` as given and, on blur, calls `onValueChange` with the amount reformatted when it parses. A rejected submit
+does not replay into a controlled field: its owner keeps the value. Uncontrolled fields take `onValueChange` too,
+to observe edits.
+
+```tsx
+const [rate, setRate] = useState("5");
+<TextField name="rate" label="Rate" inputMode="decimal" suffix="%" value={rate} onValueChange={setRate} />
+```
 
 `CheckboxField` renders a `Switch` (`labelAs="setting"`, the default) or a `Checkbox` (`labelAs="statement"`) and
 replays its state after a rejected submit. `switchProps` (`classNames`, `controlClassNames`, `hintProps`) and

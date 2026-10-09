@@ -63,6 +63,29 @@ const scryptSchema = z.strictObject({
   parallelization: z.number().int().min(1).max(16).default(1),
 });
 
+const adminEmailSchema = z.string().trim().toLowerCase().max(MAX_EMAIL_LENGTH).pipe(z.email("must be an email address"));
+
+/**
+ * `adminEmails` given as the raw environment string: entries split on commas and whitespace, trimmed and
+ * lowercased. One bad entry must not stop the app, so entries that are not emails are dropped with one log
+ * line naming their positions (never their values) and grant nothing.
+ */
+function parseAdminEmailList(raw: string): string[] {
+  const entries = raw.split(/[\s,]+/).filter((entry) => entry !== "");
+  const emails: string[] = [];
+  const dropped: number[] = [];
+  entries.forEach((entry, index) => {
+    const parsed = adminEmailSchema.safeParse(entry);
+    if (parsed.success) emails.push(parsed.data);
+    else dropped.push(index + 1);
+  });
+  if (dropped.length > 0) {
+    const positions = dropped.join(", ");
+    console.warn(`@softure-ai/auth: adminEmails: ${String(dropped.length)} of ${String(entries.length)} entries are not email addresses and grant no role (positions ${positions})`);
+  }
+  return emails;
+}
+
 export const authOptionsSchema = z.strictObject({
   password: z
     .strictObject({
@@ -128,7 +151,9 @@ export const authOptionsSchema = z.strictObject({
    * Initial admin list: while an email is listed, the account with that email holds `admin`.
    * Auth does not verify emails, so create these accounts before deploying the list.
    */
-  adminEmails: z.array(z.string().trim().toLowerCase().max(MAX_EMAIL_LENGTH).pipe(z.email("must be an email address"))).default([]),
+  adminEmails: z
+    .union([z.array(adminEmailSchema), z.string().transform(parseAdminEmailList)], { error: "must be a list of email addresses or one string of them" })
+    .default([]),
   passwordReset: z
     .strictObject({
       /** Delivers reset links. Without it password reset is off: no link, and its pages are not found. */
