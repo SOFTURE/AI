@@ -25,6 +25,15 @@ export function getSharedDatabase(url: string, options: CreateDatabaseOptions = 
   return handle;
 }
 
+/** Closes and forgets the shared handle for `url`, if one is open. For a script's end. */
+export async function closeSharedDatabase(url: string): Promise<void> {
+  const handle = host[HANDLES_KEY]?.get(url);
+  if (handle === undefined) return;
+  host[HANDLES_KEY]?.delete(url);
+  const opened = await handle.catch(() => undefined);
+  await opened?.close();
+}
+
 /** Closes and forgets every shared handle. For tests and graceful shutdown. */
 export async function closeSharedDatabases(): Promise<void> {
   const handles = host[HANDLES_KEY];
