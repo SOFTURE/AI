@@ -295,7 +295,7 @@ describe("sendMail for list mail", () => {
   });
 
   it("sends nothing when the suppression list cannot be read, and logs no query", async () => {
-    await test.database.client.query("DROP TABLE mailing.suppressions");
+    await test.database.client.query("DROP TABLE mailing.suppressions CASCADE");
     const provider = fakeMailProvider();
     expect(await send(NEWSLETTER, provider)).toEqual({ ok: false, error: "mailing.unavailable" });
     expect(provider.sent).toEqual([]);

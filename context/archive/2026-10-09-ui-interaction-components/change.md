@@ -32,7 +32,7 @@ A reviewer checks `foundation/ui/tests/adoption-gaps-319.test.tsx`, the README s
 
 Issue #319, filed by an adopting app. Work is tracked in GitHub Issues: no roadmap item; the PR closes the issue.
 `@softure-ai/ui` 0.1.15 (#302, #303) was published while this change was in flight, so it ships as 0.1.16, a
-version shared with #320 (whichever merges second folds into the same section).
+version shared with #320, which merged first; this change folds into its section.
 
 ## Constraints
 

@@ -8,7 +8,7 @@
 // commit would do (the rows before and after, read from the database).
 import type { BlogArticleInput, BlogArticleKind, BlogArticleStatus, BlogPublishAction } from "../contract.js";
 import { parseArticleFile, type ParseArticleFileOptions } from "../content/article-file.js";
-import type { Queryable } from "@softure-ai/db";
+import { findDriverError, isConstraintViolation, type Queryable } from "@softure-ai/db";
 import { eq } from "drizzle-orm";
 import { findTermFormConflicts, toGlossary } from "../render/glossary.js";
 import { listArticles, publishArticle, type BlogContext } from "./articles.js";
@@ -216,8 +216,7 @@ async function publishArticleOrRefuse(ctx: BlogContext, input: BlogArticleInput,
   try {
     return await publishArticle(ctx, input, history === undefined ? {} : { history });
   } catch (error) {
-    const driverError = findDriverError(error);
-    if (driverError?.code !== UNIQUE_VIOLATION || driverError.constraint !== SLUG_CONSTRAINT) throw error;
+    if (!isConstraintViolation(error, { code: UNIQUE_VIOLATION, constraint: SLUG_CONSTRAINT })) throw error;
     const winner = await findSlugOwner(ctx.db, input.slug);
     const owner = winner === undefined ? "another article published at the same time" : `article ${winner}`;
     throw new PublishRefused([{ subject: input.id, message: `slug ${input.slug} is the slug of ${owner} (blog.slug_taken)` }]);
@@ -227,18 +226,4 @@ async function publishArticleOrRefuse(ctx: BlogContext, input: BlogArticleInput,
 async function findSlugOwner(db: Queryable, slug: string): Promise<string | undefined> {
   const [row] = await db.select({ id: articles.id }).from(articles).where(eq(articles.slug, slug));
   return row?.id;
-}
-
-interface DriverError {
-  readonly code: string;
-  readonly constraint: string | undefined;
-}
-
-/** The driver error (SQLSTATE and constraint) behind an error; drizzle wraps it as the `cause`. */
-function findDriverError(error: unknown): DriverError | undefined {
-  for (let current: unknown = error, depth = 0; current instanceof Error && depth < 3; current = current.cause, depth += 1) {
-    const { code, constraint } = current as { code?: unknown; constraint?: unknown };
-    if (typeof code === "string") return { code, constraint: typeof constraint === "string" ? constraint : undefined };
-  }
-  return undefined;
 }
