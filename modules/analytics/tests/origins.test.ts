@@ -30,6 +30,12 @@ describe("analytics({ origins })", () => {
     expect(getFirstPartyOrigins(createConfig())).toEqual([APP_ORIGIN]);
   });
 
+  it("adds the config's trusted origins after appOrigin, before its own (#311)", () => {
+    const config = { ...createConfig({ origins: ["https://shop.example.com"] }), origins: { trustedOrigins: [APEX], trustRequestHost: false } };
+    expect(getFirstPartyOrigins(config)).toEqual([APP_ORIGIN, APEX, "https://shop.example.com"]);
+    expect(readPublicOrigin(config, proxied("/", { host: "example.com", "x-forwarded-proto": "https" }))).toBe(APEX);
+  });
+
   it("refuses an origin with a path, a query, credentials or another scheme", () => {
     for (const origin of ["https://example.com/blog", "https://example.com/?z=a", "https://user@example.com", "ftp://example.com", "example.com"]) {
       expect(() => defineSoftureConfig({ database: { url: "pglite://" }, locale: "en", timezone: "UTC", appOrigin: APP_ORIGIN, modules: [analytics({ origins: [origin] })] })).toThrow();
