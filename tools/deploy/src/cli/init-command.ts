@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { parseInitAnswers, toAppName } from "../init/answers.js";
+import { parseInitAnswers, toAppName, type InitAnswers } from "../init/answers.js";
 import { COMPOSE_FILE, readAppFacts, type AppFacts } from "../init/app-facts.js";
 import { DEFAULT_APP_ROLE, planInitFiles, TEMPLATE_VERSIONS, writeInitFiles } from "../init/generate.js";
 import { fail, USAGE_EXIT_CODE } from "./failure.js";
@@ -61,6 +61,15 @@ function listWorkflowsRefWarnings(options: { written: string[]; workflowsRef: st
   ];
 }
 
+/** What init cannot do itself for `--cdn=cloudflare`: root's one-time install and the origin probe's address. */
+function listCdnSteps(answers: InitAnswers): string[] {
+  if (answers.cdn !== "cloudflare") return [];
+  return [
+    `as root on the server, install docker/server/cloudflare-only.sh and its two units (the steps are in its header); the firewall lets only Cloudflare reach ports 80 and 443`,
+    `set the DEPLOY_ORIGIN_IP secret to the server's own address, so verify checks that a direct connection gets no answer`,
+  ];
+}
+
 /**
  * `softure-deploy init --domain=<host> --image=<registry/name> […]`: writes the app's deploy files once. An existing
  * file is kept and named unless `--force`.
@@ -77,6 +86,7 @@ export function runInit(args: string[], io: CliIo): void {
     env: { type: "string" },
     tables: { type: "string" },
     "workflows-ref": { type: "string" },
+    cdn: { type: "string" },
     force: { type: "boolean", default: false },
   });
   const missing = (["domain", "image"] as const).filter((name) => flags[name] === undefined);
@@ -97,6 +107,7 @@ export function runInit(args: string[], io: CliIo): void {
     env: splitList(flags.env),
     tables: splitList(flags.tables),
     workflowsRef: flags["workflows-ref"],
+    cdn: flags.cdn,
   });
   if (!answersResult.ok) fail(`init: nothing written; ${answersResult.problems.join("; ")}.`);
   const cliVersion = readCliVersion();
@@ -112,6 +123,7 @@ export function runInit(args: string[], io: CliIo): void {
     ...result.written.map((path) => `wrote   ${path}`),
     ...result.skipped.map((path) => `kept    ${path} (exists; --force overwrites it)`),
     ...warnings.map((warning) => `warning ${warning}`),
+    ...listCdnSteps(answersResult.answers).map((step) => `next    ${step}`),
     `init: ${result.written.length} written, ${result.skipped.length} kept, database part ${facts.hasDatabase ? "on" : "off"} (@softure-ai/db ${facts.hasDatabase ? "found" : "not found"} in package.json).`,
   ];
   io.stdout(`${lines.join("\n")}\n`);

@@ -52,6 +52,7 @@ describe("planInitFiles", () => {
       "docker/prod/docker-compose.yml",
       "docker/prod/traefik.yml",
       "docker/prod/initdb/01-roles.sql",
+      "docker/prod/hooks/lib.sh",
       "docker/server/deploy.sh",
       "scripts/migrate.ts",
       ".github/workflows/deploy.yml",
@@ -137,6 +138,63 @@ describe("planInitFiles", () => {
     expect(bare).not.toContain("scripts/ops");
     expect(bare).not.toContain("./ops");
     expect(bare).toContain("http://127.0.0.1:3000/'");
+  });
+
+  it("bundles migrate.mjs and the ops scripts with server-only emptied and a require for CJS dependencies", () => {
+    const full = textOf(plan(), "Dockerfile");
+    expect(full).toContain("RUN mkdir -p .esbuild && printf 'export {};\\n' > .esbuild/empty.mjs");
+    const banner = `--banner:js="import { createRequire } from 'module'; const require = createRequire(import.meta.url);"`;
+    expect(full.split("--alias:server-only=./.esbuild/empty.mjs")).toHaveLength(3);
+    expect(full.split(banner)).toHaveLength(3);
+  });
+
+  it("writes hooks/lib.sh for every app and the Cloudflare files only with cdn cloudflare", () => {
+    const cloudflareFiles = [
+      "docker/prod/hooks/cloudflare-ranges.sh",
+      "docker/server/cloudflare-only.sh",
+      "docker/server/cloudflare-only.service",
+      "docker/server/cloudflare-only.path",
+    ];
+    for (const facts of [FACTS, NO_DATABASE]) {
+      const plain = plan({}, facts);
+      expect(plain.get("docker/prod/hooks/lib.sh")?.mode).toBe(0o644);
+      for (const path of cloudflareFiles) expect([...plain.keys()]).not.toContain(path);
+      const locked = plan({ cdn: "cloudflare" }, facts);
+      for (const path of cloudflareFiles) expect([...locked.keys()]).toContain(path);
+    }
+    const locked = plan({ cdn: "cloudflare" });
+    expect(locked.get("docker/server/cloudflare-only.sh")?.mode).toBe(0o755);
+    expect(textOf(locked, "docker/server/cloudflare-only.sh")).toContain('RANGES_FILE="${CLOUDFLARE_RANGES_FILE:-/srv/acme-app/cloudflare-ips.txt}"');
+    expect(textOf(locked, "docker/server/cloudflare-only.service")).toContain("ExecStart=/usr/local/sbin/acme-app-cloudflare-only");
+    const path = textOf(locked, "docker/server/cloudflare-only.path");
+    expect(path).toContain("PathChanged=/srv/acme-app/cloudflare-ips.txt");
+    expect(path).toContain("Unit=acme-app-cloudflare-only.service");
+  });
+
+  it("trusts forwarded headers from Cloudflare's ranges only with cdn cloudflare", () => {
+    const traefikCommand = (files: Map<string, PlannedFile>): string[] =>
+      (parse(textOf(files, "docker/prod/docker-compose.yml")) as { services: { traefik: { command: string[] } } }).services.traefik.command;
+    expect(traefikCommand(plan()).filter((flag) => flag.includes("trustedIPs"))).toEqual([]);
+    const flags = traefikCommand(plan({ cdn: "cloudflare" })).filter((flag) => flag.includes("trustedIPs"));
+    expect(flags.map((flag) => flag.split("=")[0])).toEqual([
+      "--entrypoints.web.forwardedHeaders.trustedIPs",
+      "--entrypoints.websecure.forwardedHeaders.trustedIPs",
+    ]);
+    const ranges = flags[0]?.split("=")[1]?.split(",");
+    expect(ranges).toHaveLength(22);
+    expect(ranges).toContain("173.245.48.0/20");
+    expect(ranges).toContain("2606:4700::/32");
+  });
+
+  it("runs the range refresh after every release and daily, in a deploy.json the schema accepts", () => {
+    const parsed = parseDeployConfig(JSON.parse(textOf(plan({ cdn: "cloudflare" }), "deploy.json")));
+    if (!parsed.ok) throw new Error(parsed.issues.join("; "));
+    expect(parsed.config.hooks).toEqual({
+      "post-up": [{ name: "cloudflare-ranges", run: ["bash", "hooks/cloudflare-ranges.sh"] }],
+      maintain: [{ name: "cloudflare-ranges-daily", run: ["bash", "hooks/cloudflare-ranges.sh"] }],
+    });
+    const plain = parseDeployConfig(JSON.parse(textOf(plan(), "deploy.json")));
+    expect(plain.ok && plain.config.hooks).toBeUndefined();
   });
 
   it("runs the database steps of DP-3 in deploy.sh with this package's version", () => {

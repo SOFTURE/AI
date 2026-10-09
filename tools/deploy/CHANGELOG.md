@@ -4,6 +4,21 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
+## 0.1.8
+
+- `init --cdn=cloudflare` locks the origin to Cloudflare (issue #310): `docker/server/cloudflare-only.sh` with its
+  `.service` and `.path` units, which root installs once, lets only Cloudflare's ranges reach ports 80 and 443
+  (iptables `DOCKER-USER`, IPv6 through `DOCKER-USER` or `INPUT`); `docker/prod/hooks/cloudflare-ranges.sh`, run as the
+  `post-up` hook `cloudflare-ranges` and the `maintain` hook `cloudflare-ranges-daily`, keeps the ranges file current;
+  Traefik keeps forwarded headers from Cloudflare's ranges only (`forwardedHeaders.trustedIPs`). init prints the two
+  steps it leaves to the owner (root's install, the `DEPLOY_ORIGIN_IP` secret for `verify --origin`).
+- init's `Dockerfile` bundles `migrate.mjs` and the ops scripts with `--alias:server-only=./.esbuild/empty.mjs` and a
+  `createRequire` banner, so a `server-only` data layer and CJS dependencies run in the ESM bundles. An app generated
+  before adds both flags and the `.esbuild/empty.mjs` line (README, "Bundled for plain Node").
+- init writes `docker/prod/hooks/lib.sh` for the app's hooks: `fail`, `compose`, `env_value` and `require_min_length`.
+- `env render --min-length=NAME=N` (repeatable) refuses a value shorter than N characters, naming the variable only;
+  `deploy-app.yml` passes them from its new `secret-min-lengths` input.
+
 ## 0.1.7
 
 - `init` reads an existing `docker/prod/docker-compose.yml`: `deploy.sh`'s tools image carries the `pg_dump` of the

@@ -14,7 +14,8 @@ npx softure-deploy help
 Writes the production env file from the environment, for every variable the compose file requires.
 
 ```bash
-softure-deploy env render [--compose=docker/prod/docker-compose.yml] [--out=.env.prod] [--from-json-env=<NAME>]...
+softure-deploy env render [--compose=docker/prod/docker-compose.yml] [--out=.env.prod] [--from-json-env=<NAME>]... \
+  [--min-length=<NAME>=<n>]...
 ```
 
 - **Names come from the compose file:** every `${NAME:?…}` (refuses an unset or empty value) and `${NAME?…}`
@@ -31,6 +32,10 @@ softure-deploy env render [--compose=docker/prod/docker-compose.yml] [--out=.env
   name both hold (`--from-json-env=APP_SECRETS --from-json-env=APP_VARS` puts variables over secrets). A value that is
   not a string is skipped like an unset one. An unset variable or one that is not a JSON object stops the command by
   its name; the missing names are listed with the objects they were looked up in.
+- **Short secrets are refused:** `--min-length=AUTH_SECRET=32` (repeatable) stops the command when the value of
+  `AUTH_SECRET` has fewer than 32 characters, naming the variable and the length only; nothing is written. A name the
+  compose file does not use, or a spec that is not `NAME=<1-9999>`, is a usage error (exit 2). An optional name left
+  unset is not checked. `deploy-app.yml` passes them from its `secret-min-lengths` input.
 - **Values are never printed**, on success or on failure: the output names variables and counts only
   (`wrote 3 names (1 of 2 optional set) …`).
 - The file starts with a comment (`# Written by softure-deploy env render …; do not edit on the server.`): it is
@@ -355,6 +360,7 @@ one caller, [`examples/deploy.yml`](examples/deploy.yml), with a single `uses:` 
 | `release-branch` | the caller's default branch | the branch the tag's commit must be on |
 | `build-args` | none | `NAME=value` lines baked into the image; public values only (they stay in the image's history) |
 | `app-vars` | `{}` | JSON object of non-secret values, e.g. `toJSON(vars)`; rendered like secrets and over a secret of the same name, and not masked in logs (a secret `1` masks every `1`) |
+| `secret-min-lengths` | none | `NAME=N` entries separated by spaces or newlines: `env render --min-length` for each, so a secret shorter than N stops the release before anything is sent |
 | `registry-token` | `true` | send the deploy job's `GITHUB_TOKEN` (`packages: read`, valid until the job ends) for the server's pull |
 | `e2e` | `false` | this repository's own end-to-end test (below); refused in any other repository |
 
@@ -400,7 +406,7 @@ it is refused. The workflow runs once this package is on npm.
 **Which ref callers pin.** A caller's `uses:` names SOFTURE/AI's workflows at a ref. Pin the commit SHA of the
 package's release tag `deploy@<version>`, the version the app's `deploy.sh` runs: the workflows at that commit default
 `deploy-cli-version` to the same version, and a SHA never moves. Print it with
-`git ls-remote https://github.com/SOFTURE/AI 'refs/tags/deploy@0.1.7^{}'` (the `^{}` peels the annotated tag to its
+`git ls-remote https://github.com/SOFTURE/AI 'refs/tags/deploy@0.1.8^{}'` (the `^{}` peels the annotated tag to its
 commit) and write it in place of `master` in each `uses:` line; `init --workflows-ref=<sha>` writes it for you. The
 examples call `master`, which works but follows every merge. There is no moving `deploy-workflows-v1` tag.
 
@@ -486,28 +492,32 @@ named in the output, and only `--force` overwrites it.
 
 ```bash
 softure-deploy init --domain=example.com --image=ghcr.io/acme/app [--dir=.] [--name=<slug>] [--paths=/] [--www] \
-  [--acme-email=<email>] [--env=AUTH_SECRET,...] [--tables=users,billing.subscriptions] [--workflows-ref=<sha>] [--force]
+  [--acme-email=<email>] [--env=AUTH_SECRET,...] [--tables=users,billing.subscriptions] [--workflows-ref=<sha>] \
+  [--cdn=cloudflare] [--force]
 ```
 
 | File | What it holds |
 | --- | --- |
-| `Dockerfile` | the `@softure-ai/ops` container recipe: a Next standalone build, a non-root user, `HEALTHCHECK` in the image and, with a database, `migrate.mjs` and the exported migrations |
+| `Dockerfile` | the `@softure-ai/ops` container recipe: a Next standalone build, a non-root user, `HEALTHCHECK` in the image and, with a database, `migrate.mjs`, the ops scripts and the exported migrations (bundled for plain Node, below) |
 | `.dockerignore` | local state and secrets out of the build context |
 | `docker/prod/docker-compose.yml` | Traefik and the app; with a database also Postgres (port on `127.0.0.1` only) and the one-off `migrate` service the app waits for |
 | `docker/prod/traefik.yml` | the apex router (`Host` and, unless `--paths=/`, `/`, `/_next/`, the health route and the given prefixes), security headers, the optional `www` redirect |
 | `docker/prod/initdb/01-roles.sql` | with a database: the migrator and app roles of the ops recipe |
+| `docker/prod/hooks/lib.sh` | helpers for the app's own hooks (below), shipped with every release |
 | `docker/server/deploy.sh` | the server's forced command for `deploy-app.yml` (below) |
+| `docker/server/cloudflare-only.sh`, `.service`, `.path`, `docker/prod/hooks/cloudflare-ranges.sh` | with `--cdn=cloudflare`: the origin firewall and its range refresh (below) |
 | `scripts/migrate.ts` | with a database: the migrate step the `Dockerfile` bundles |
 | `.github/workflows/deploy.yml` | the caller of `deploy-app.yml` with the domain, the image and the health path |
 | `.github/workflows/release.yml` | the caller of `deploy-cut-release.yml` (below): *Run workflow* cuts the next date tag in `UTC` and starts `deploy.yml` on it |
-| `deploy.json` | a `verify` starter: `/` without an error page, `/api/health` when the app has one, HSTS present, `x-powered-by` absent; with a database and `--tables`, `database.rowCountTables` |
+| `deploy.json` | a `verify` starter: `/` without an error page, `/api/health` when the app has one, HSTS present, `x-powered-by` absent; with a database and `--tables`, `database.rowCountTables`; with `--cdn=cloudflare`, the range refresh hooks |
 
 - **Asked:** `--domain` and `--image`; `--paths`, `--www`, `--acme-email`, `--env` (the app's own secrets, added to
   the app service in the required form so `env render` renders them), `--tables` (what `row-counts` compares on
   the server, written into `deploy.json`; with a `deploy.json` that `init` keeps, add `database.rowCountTables` to it
   by hand), `--name` (compose project, server folder `/srv/<name>`, database name; default from `package.json`) and
   `--workflows-ref` (the commit SHA both callers pin, see [Which ref callers pin](#deploy-workflow); without it they call
-  `master` and a warning prints the command that gives the release commit).
+  `master` and a warning prints the command that gives the release commit) and `--cdn=cloudflare` (the origin lock
+  below; `cloudflare` is the only value).
 - **Read from the app:** `@softure-ai/db` in `package.json` turns on the database part, `@softure-ai/ops` the
   `/api/health` route (else `/`), a `public/` folder its `COPY`; a `next.config.*` without `standalone` is a warning,
   and so is, with a database, one whose `serverExternalPackages` does not name `@softure-ai/db` (without it
@@ -522,6 +532,41 @@ softure-deploy init --domain=example.com --image=ghcr.io/acme/app [--dir=.] [--n
 - **Secrets:** the compose file's required variables are the list the workflow renders: `POSTGRES_PASSWORD`,
   `SOFTURE_MIGRATOR_PASSWORD`, `SOFTURE_APP_PASSWORD` with a database, plus `--env`. Use URL-safe passwords
   (`openssl rand -hex 32`): they go into connection URLs as they are.
+
+**Bundled for plain Node.** `migrate.mjs` and `ops/<name>.mjs` are ESM bundles that `node` runs outside Next, from
+code the app shares with its server build. Two esbuild flags make that work: `--alias:server-only=./.esbuild/empty.mjs`
+(the `server-only` package throws outside React's server build, so it becomes an empty module) and a banner that
+defines `require` through `createRequire`, so a CJS dependency inside the ESM bundle can `require` Node's modules. An
+app generated before 0.1.8 adds both flags to its two esbuild commands, and the `mkdir -p .esbuild && printf …` line.
+
+**Cloudflare origin lock** (`--cdn=cloudflare`). Behind Cloudflare, anyone who finds the server's address can talk
+to Traefik directly and send any `cf-connecting-ip`, so rate limits keyed on it (`@softure-ai/security`'s
+`cloudflareIp`) count nothing. init adds:
+
+- `docker/server/cloudflare-only.sh` and its units `cloudflare-only.service` and `cloudflare-only.path`, which root
+  installs once (the steps are in the script's header: `/usr/local/sbin/<name>-cloudflare-only`, units in
+  `/etc/systemd/system/`). The script never lives in the app folder, which the deploy user rewrites. It reads
+  `/srv/<name>/cloudflare-ips.txt` (a line that is not a CIDR, a `/0`, or no IPv4 range changes nothing), fills a
+  chain `SOFTURE-CLOUDFLARE` with a `RETURN` per range above a final `DROP` (the `DROP` goes in first, so a refill
+  never opens the origin), and jumps to it from `DOCKER-USER` for TCP whose original destination port is 80 or 443
+  on the external interface (the default route's; `CLOUDFLARE_ONLY_INTERFACE` overrides it). Published ports never
+  pass `INPUT`, so `DOCKER-USER` is the chain that sees them. IPv6 uses ip6tables' `DOCKER-USER` when Docker manages
+  ip6tables, else `INPUT` (where `docker-proxy` takes IPv6 connections). The `.service` runs whenever Docker starts,
+  the `.path` whenever the ranges file changes.
+- `docker/prod/hooks/cloudflare-ranges.sh`, run as the `post-up` hook `cloudflare-ranges` and the `maintain` hook
+  `cloudflare-ranges-daily`: downloads `https://www.cloudflare.com/ips-v4` and `/ips-v6` and rewrites
+  `cloudflare-ips.txt` (by a rename) only when they changed. A malformed list is refused; a failed download keeps
+  the ranges already there with a warning and fails only when there are none yet (the first release needs
+  Cloudflare reachable).
+- `forwardedHeaders.trustedIPs` on both Traefik entry points, from the ranges this version ships, so
+  `X-Forwarded-For` is kept from Cloudflare only. The hook warns when Cloudflare publishes a range missing there;
+  copy the new list into the compose file. `proxyProtocol` stays off: Cloudflare's HTTP proxy does not send it (only
+  Spectrum does).
+- A `next` line in init's output for the two steps init cannot do: root's install, and the `DEPLOY_ORIGIN_IP` secret
+  that makes the deploy workflow's `verify --origin` check that a direct connection gets no answer.
+
+Let's Encrypt keeps working through Cloudflare's proxy: Cloudflare forwards `/.well-known/acme-challenge/` over
+HTTP even with "Always Use HTTPS".
 
 **`deploy.sh` on the server.** Once, by hand: copy `docker/server/deploy.sh` to `/srv/<name>/` (a folder the SSH
 user owns) and bind the deploy key to it in `authorized_keys` (`command="/srv/<name>/deploy.sh",restrict …`). Every
@@ -599,6 +644,11 @@ so a failed `pg_dump` leaves no dump behind.
 - Names are lower case and unique across the points, and not a step name `deploy.sh` uses itself (`backup`,
   `switch`, …).
 - Without a database the CLI is needed only for a `deploy.json` that has `hooks`.
+- `docker/prod/hooks/lib.sh` holds what every hook script re-defines. A hook script starts with
+  `set -euo pipefail` and `. hooks/lib.sh`, then has `fail <message>` (`hook: <message>` on stderr, exit 1),
+  `compose <args>` (`docker compose` with this release's compose file and `.env.prod`), `env_value NAME` (the value in
+  `.env.prod`, without `env render`'s single quotes; fails when it is not there) and `require_min_length NAME N`
+  (fails, naming the variable only, when its value is shorter).
 
 **Restore.** A step that fails before the switch puts the saved files and `.env.prod` back (the rules by copying onto
 the installed file, the script by a rename) and removes files and folders the release added; containers it already
@@ -826,6 +876,10 @@ and its second-stage script inside the image stay one script here: the release s
 guard, the `pre-migrate`, `post-up` and `maintain` hooks for the app's own steps, database steps through
 `compose exec` for a Postgres without a published port, and `env render` from JSON objects.
 
+**Added for adoption (#310):** the Cloudflare origin lock (`init --cdn=cloudflare`: the firewall script and units,
+the range refresh hook, Traefik's `trustedIPs`), the ESM bundle flags in init's `Dockerfile`, `hooks/lib.sh`, and
+`env render --min-length` for the secret length checks.
+
 **In the release report (DF-10):** the app's living report as `release-report` and `deploy-report.yml`: a status table
 replaced by every run and a deployment history with the newest row on top (time, result, image and digest, backup
 file, row counts before and after, verify, run). Different on purpose: times in UTC, not a local zone; no migration
@@ -841,7 +895,7 @@ purpose: English names (`integration/<name>`, `refs/notes/integration`), and the
 token. The app's own suite, image build included, stays its `test-command`.
 
 **Stays in the app:** its tag pattern, its gates and integration suite inside the release run, checks of its own
-secrets' shape, a workflow that rewrites the text above the report (which `--body` keeps), its markers inside
+secrets' shape beyond a minimum length, a workflow that rewrites the text above the report (which `--body` keeps), its markers inside
 `<head>`, its IndexNow key and a 404 that only warns. Its dry runs, content sync and cron jobs become hooks.
 
 ## Exit codes
