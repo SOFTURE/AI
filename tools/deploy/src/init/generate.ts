@@ -7,6 +7,7 @@ import { findRequiredNames } from "../env/required-names.js";
 import { DEPLOY_SCHEMA_URL } from "../verify/schema.js";
 import type { InitAnswers } from "./answers.js";
 import { COMPOSE_FILE, type AppFacts } from "./app-facts.js";
+import { CLOUDFLARE_RANGES } from "./cloudflare.js";
 import { renderTemplate, type TemplateValues } from "./render-template.js";
 
 /** `templates/` of the package, next to `src/` and `dist/`. */
@@ -35,11 +36,12 @@ interface TemplateFile {
   template: string;
   target: string;
   mode: number;
-  isIncluded: (facts: AppFacts) => boolean;
+  isIncluded: (facts: AppFacts, answers: InitAnswers) => boolean;
 }
 
 const always = (): boolean => true;
 const withDatabase = (facts: AppFacts): boolean => facts.hasDatabase;
+const withCloudflare = (_facts: AppFacts, answers: InitAnswers): boolean => answers.cdn === "cloudflare";
 
 /** Every file init can write, in the order it reports them. */
 export const TEMPLATE_FILES: readonly TemplateFile[] = [
@@ -48,7 +50,12 @@ export const TEMPLATE_FILES: readonly TemplateFile[] = [
   { template: "docker/prod/docker-compose.yml.tmpl", target: COMPOSE_FILE, mode: FILE_MODE, isIncluded: always },
   { template: "docker/prod/traefik.yml.tmpl", target: "docker/prod/traefik.yml", mode: FILE_MODE, isIncluded: always },
   { template: "docker/prod/initdb/01-roles.sql.tmpl", target: "docker/prod/initdb/01-roles.sql", mode: FILE_MODE, isIncluded: withDatabase },
+  { template: "docker/prod/hooks/lib.sh.tmpl", target: "docker/prod/hooks/lib.sh", mode: FILE_MODE, isIncluded: always },
+  { template: "docker/prod/hooks/cloudflare-ranges.sh.tmpl", target: "docker/prod/hooks/cloudflare-ranges.sh", mode: FILE_MODE, isIncluded: withCloudflare },
   { template: "docker/server/deploy.sh.tmpl", target: "docker/server/deploy.sh", mode: EXECUTABLE_MODE, isIncluded: always },
+  { template: "docker/server/cloudflare-only.sh.tmpl", target: "docker/server/cloudflare-only.sh", mode: EXECUTABLE_MODE, isIncluded: withCloudflare },
+  { template: "docker/server/cloudflare-only.service.tmpl", target: "docker/server/cloudflare-only.service", mode: FILE_MODE, isIncluded: withCloudflare },
+  { template: "docker/server/cloudflare-only.path.tmpl", target: "docker/server/cloudflare-only.path", mode: FILE_MODE, isIncluded: withCloudflare },
   { template: "scripts/migrate.ts.tmpl", target: "scripts/migrate.ts", mode: FILE_MODE, isIncluded: withDatabase },
   { template: ".github/workflows/deploy.yml.tmpl", target: ".github/workflows/deploy.yml", mode: FILE_MODE, isIncluded: always },
   { template: ".github/workflows/release.yml.tmpl", target: ".github/workflows/release.yml", mode: FILE_MODE, isIncluded: always },
@@ -130,6 +137,8 @@ function buildValues(options: PlanInitFilesOptions): Record<string, string | boo
     reportRole: getReportRole(facts, options.replacesCompose ?? false),
     workflowsRef: answers.workflowsRef ?? DEFAULT_WORKFLOWS_REF,
     esbuildVersion: TEMPLATE_VERSIONS.esbuild,
+    cloudflare: answers.cdn === "cloudflare",
+    cloudflareRanges: CLOUDFLARE_RANGES.join(","),
   };
 }
 
@@ -137,7 +146,7 @@ function buildValues(options: PlanInitFilesOptions): Record<string, string | boo
 export function planInitFiles(options: PlanInitFilesOptions): PlannedFile[] {
   const readTemplate = options.readTemplate ?? readPackagedTemplate;
   const base = buildValues(options);
-  const included = TEMPLATE_FILES.filter((file) => file.isIncluded(options.facts));
+  const included = TEMPLATE_FILES.filter((file) => file.isIncluded(options.facts, options.answers));
   const compose = included.find((file) => file.target === COMPOSE_FILE);
   // The caller workflow names the secrets the compose file requires, so both come from the same text.
   const composeText = compose ? renderTemplate(readTemplate(compose.template), base) : "";

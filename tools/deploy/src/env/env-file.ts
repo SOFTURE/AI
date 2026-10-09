@@ -65,3 +65,25 @@ export function renderEnvFile({ names, optional = [], env }: RenderEnvOptions): 
   if (missing.length > 0 || unsafe.length > 0) return { ok: false, missing, unsafe };
   return { ok: true, text: lines.map((line) => `${line}\n`).join(""), names: written, optional: optionalWritten };
 }
+
+/** A secret's shortest allowed length, from `env render --min-length NAME=N`. */
+export interface MinLength {
+  name: string;
+  min: number;
+}
+
+/**
+ * The `NAME (N)` of every value shorter than its minimum. An unset value is not checked here: a required one is
+ * reported missing, an optional one is left out. Never returns a value.
+ */
+export function findShortValues(options: {
+  minLengths: readonly MinLength[];
+  env: Readonly<Record<string, string | undefined>>;
+}): string[] {
+  return options.minLengths
+    .filter(({ name, min }) => {
+      const value = options.env[name];
+      return value !== undefined && value !== "" && value.length < min;
+    })
+    .map(({ name, min }) => `${name} (${min})`);
+}

@@ -48,13 +48,14 @@ describe("softure-deploy init", () => {
         "wrote   docker/prod/docker-compose.yml",
         "wrote   docker/prod/traefik.yml",
         "wrote   docker/prod/initdb/01-roles.sql",
+        "wrote   docker/prod/hooks/lib.sh",
         "wrote   docker/server/deploy.sh",
         "wrote   scripts/migrate.ts",
         "wrote   .github/workflows/deploy.yml",
         "wrote   .github/workflows/release.yml",
         "wrote   deploy.json",
         MASTER_REF_WARNING,
-        "init: 10 written, 0 kept, database part on (@softure-ai/db found in package.json).",
+        "init: 11 written, 0 kept, database part on (@softure-ai/db found in package.json).",
         "",
       ].join("\n"),
     );
@@ -74,12 +75,30 @@ describe("softure-deploy init", () => {
     expect(readFileSync(join(dir, ".github/workflows/release.yml"), "utf8")).toBe("name: own-release\n");
     expect(out.join("")).toContain("kept    Dockerfile (exists; --force overwrites it)\n");
     expect(out.join("")).toContain("kept    .github/workflows/release.yml (exists; --force overwrites it)\n");
-    expect(out.join("")).toContain("init: 6 written, 2 kept, database part off (@softure-ai/db not found in package.json).\n");
+    expect(out.join("")).toContain("init: 7 written, 2 kept, database part off (@softure-ai/db not found in package.json).\n");
     out = [];
     expect(await runCli(["init", ...REQUIRED, "--force"], makeIo())).toBe(0);
     expect(readFileSync(join(dir, "Dockerfile"), "utf8")).toContain("FROM ${NODE_IMAGE} AS builder");
     expect(readFileSync(join(dir, ".github/workflows/release.yml"), "utf8")).toContain("deploy-cut-release.yml");
-    expect(out.join("")).toContain("init: 8 written, 0 kept");
+    expect(out.join("")).toContain("init: 9 written, 0 kept");
+  });
+
+  it("writes the Cloudflare origin lock with --cdn=cloudflare and names the steps it leaves to the owner", async () => {
+    writeApp({ name: "shop" });
+    expect(await runCli(["init", ...REQUIRED, "--cdn=cloudflare", `--workflows-ref=${WORKFLOWS_SHA}`], makeIo())).toBe(0);
+    expect(err).toEqual([]);
+    const text = out.join("");
+    expect(text).toContain("wrote   docker/prod/hooks/cloudflare-ranges.sh\n");
+    expect(text).toContain("wrote   docker/server/cloudflare-only.sh\n");
+    expect(statSync(join(dir, "docker/server/cloudflare-only.sh")).mode & 0o777).toBe(0o755);
+    expect(text).toContain(
+      "next    as root on the server, install docker/server/cloudflare-only.sh and its two units (the steps are in its header); the firewall lets only Cloudflare reach ports 80 and 443\n",
+    );
+    expect(text).toContain(
+      "next    set the DEPLOY_ORIGIN_IP secret to the server's own address, so verify checks that a direct connection gets no answer\n",
+    );
+    expect(await runCli(["init", ...REQUIRED, "--cdn=akamai"], makeIo())).toBe(1);
+    expect(err.join("")).toContain("cdn: cloudflare, the only CDN init knows");
   });
 
   it("generates into --dir relative to the working directory", async () => {

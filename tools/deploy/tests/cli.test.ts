@@ -64,6 +64,44 @@ describe("softure-deploy env render", () => {
     );
   });
 
+  it("refuses a value shorter than its --min-length by name and length, never the value, and writes nothing", async () => {
+    writeCompose(`${COMPOSE}      ADMIN_EMAILS: \${ADMIN_EMAILS:-}\n`);
+    const io = makeIo({ DATABASE_URL: "x", AUTH_SECRET: "short-secret" });
+    const code = await runCli(["env", "render", "--min-length=AUTH_SECRET=32", "--min-length=ADMIN_EMAILS=5"], io);
+    expect(code).toBe(1);
+    expect(existsSync(join(dir, ".env.prod"))).toBe(false);
+    expect(err.join("")).toBe("env render: .env.prod not written; shorter than the --min-length: AUTH_SECRET (32).\n");
+    expect(out.join("") + err.join("")).not.toContain("short-secret");
+  });
+
+  it("writes a value as long as its --min-length and reports it with the missing names otherwise", async () => {
+    writeCompose();
+    expect(await runCli(["env", "render", "--min-length=AUTH_SECRET=26"], makeIo({ DATABASE_URL: "x", AUTH_SECRET: SECRET }))).toBe(0);
+    expect(readFileSync(join(dir, ".env.prod"), "utf8")).toContain(`AUTH_SECRET=${SECRET}\n`);
+    rmSync(join(dir, ".env.prod"));
+    expect(await runCli(["env", "render", "--min-length=AUTH_SECRET=27"], makeIo({ AUTH_SECRET: SECRET }))).toBe(1);
+    expect(err.join("")).toBe(
+      "env render: .env.prod not written; missing in the environment: DATABASE_URL; shorter than the --min-length: AUTH_SECRET (27).\n",
+    );
+  });
+
+  it("refuses a --min-length the compose file does not use, or one that is not NAME=<length>, as a usage error", async () => {
+    writeCompose();
+    const env = { DATABASE_URL: "x", AUTH_SECRET: SECRET };
+    expect(await runCli(["env", "render", "--min-length=SESSION_KEY=32"], makeIo(env))).toBe(2);
+    expect(await runCli(["env", "render", "--min-length=AUTH_SECRET=0"], makeIo(env))).toBe(2);
+    expect(await runCli(["env", "render", "--min-length=AUTH_SECRET"], makeIo(env))).toBe(2);
+    expect(err.join("")).toBe(
+      [
+        "env render: --min-length names SESSION_KEY, which the compose file does not use.",
+        "env render: --min-length=AUTH_SECRET=0 is not NAME=<length>, a length from 1 to 9999.",
+        "env render: --min-length=AUTH_SECRET is not NAME=<length>, a length from 1 to 9999.",
+        "",
+      ].join("\n"),
+    );
+    expect(existsSync(join(dir, ".env.prod"))).toBe(false);
+  });
+
   it("refuses a missing name, writes nothing and keeps the value of the others out of the output", async () => {
     writeCompose();
     const code = await runCli(["env", "render"], makeIo({ AUTH_SECRET: SECRET }));

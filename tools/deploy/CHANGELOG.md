@@ -38,6 +38,18 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   optional `registry-token` secret), `expected-origins` and `fail-on-flaky`, handed to the set-up and suite commands as
   `INTEGRATION_IMAGE`, `INTEGRATION_EXPECTED_ORIGINS` and `INTEGRATION_FAIL_ON_FLAKY`; a tag push is accepted with
   `image`. The uploaded report's artifact is now `integration-results`.
+- `init --cdn=cloudflare` locks the origin to Cloudflare (issue #310): `docker/server/cloudflare-only.sh` with its
+  `.service` and `.path` units, which root installs once, lets only Cloudflare's ranges reach ports 80 and 443
+  (iptables `DOCKER-USER`, IPv6 through `DOCKER-USER` or `INPUT`); `docker/prod/hooks/cloudflare-ranges.sh`, run as the
+  `post-up` hook `cloudflare-ranges` and the `maintain` hook `cloudflare-ranges-daily`, keeps the ranges file current;
+  Traefik keeps forwarded headers from Cloudflare's ranges only (`forwardedHeaders.trustedIPs`). init prints the two
+  steps it leaves to the owner (root's install, the `DEPLOY_ORIGIN_IP` secret for `verify --origin`).
+- init's `Dockerfile` bundles `migrate.mjs` and the ops scripts with `--alias:server-only=./.esbuild/empty.mjs` and a
+  `createRequire` banner, so a `server-only` data layer and CJS dependencies run in the ESM bundles. An app generated
+  before adds both flags and the `.esbuild/empty.mjs` line (README, "Bundled for plain Node").
+- init writes `docker/prod/hooks/lib.sh` for the app's hooks: `fail`, `compose`, `env_value` and `require_min_length`.
+- `env render --min-length=NAME=N` (repeatable) refuses a value shorter than N characters, naming the variable only;
+  `deploy-app.yml` passes them from its new `secret-min-lengths` input.
 
 ## 0.1.7
 

@@ -38,6 +38,9 @@ limit check made race-free.
     count against `maxTokensPerUser` and are not listed with the hand-issued ones.
 - Tokens an app issued before adopting the module keep working through `legacyTokenPattern`.
 - Server functions for scripts and other hosts, and a health check for `GET /api/health`.
+- For the app's own server: tool result helpers with a safe error boundary and server actions as write tools
+  (`/server`), a stdio entry for local assistants (`/stdio`), a catalog parity check (`/testing`), a gate before a
+  token is issued (`issueToken`, `/next`) and the `softure-mcp prune` command for a daily cleanup (§4, §5).
 
 ## 2. Installation
 
@@ -74,7 +77,7 @@ mcpAccess({
 | Option | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `serverName` | `string` | required | The name clients list the server under (lowercase, digits, inner dashes; no quotes needed in a shell). |
-| `tools` | `{ name, access: "read" \| "write", description: { en, pl? } }[]` | `[]` | The catalog the token page shows. Keep it next to the factory; the example app tests that both list the same tools. |
+| `tools` | `{ name, access: "read" \| "write", description: { en, pl? }, title?: { en, pl? }, example?: { en, pl? } }[]` | `[]` | The catalog the token page shows. `title` (a display name) and `example` (a request a person could make) are for agent docs that read the catalog. Keep it next to the factory; `expectToolCatalogMatchesServer` (`/testing`) checks that both list the same tools. |
 | `allowWrites` | `boolean` | `false` | Lets write tokens be issued and used. Off, the page offers no write tokens and every token reads only. |
 | `tokenLifetimeDays` | `integer` 1–365 | `90` | How long a hand-issued token works. There is no renewal: the user issues a new one. |
 | `maxTokensPerUser` | `integer` 1–100 | `20` | Unexpired tokens one account may hold. Counted under a per-user lock, so parallel requests cannot overshoot. |
@@ -88,7 +91,7 @@ mcpAccess({
 | `oauth.metadata` | `{ authorizationServer?, protectedResource? }`, each an object or `(origins) => object` | — | Extra keys of the discovery documents (`jwks_uri`, `service_documentation`, `resource_documentation`, `agent_auth`…). Generated keys win; a static object that sets one is refused at startup. The protected resource document takes the app's `resource_name` (default: `serverName`). |
 | `resolveAppOrigin` | `(request) => string \| null` | — | The app origin of one request, ahead of the config's `origins` block (prefer that block: every module reads it). `readRequestOrigin` reads it from `Host`. Null falls back to the block's rule; anything but a bare http(s) origin throws. |
 | `resourceOrigins` | `string[]` (≤ 16 http(s) origins) | `[]` | Other public hosts of the app, e.g. the apex next to `app.`: the root protected resource metadata asked on one of them names it as `resource`, and the OAuth endpoints accept it as `resource`. |
-| `routes` | `{ page?, endpoint?, oauthConsent?, oauthDecision?, oauthToken?, oauthRegister? }` | `/account/mcp`, `/api/mcp`, `/oauth/authorize`, `/api/oauth/authorize`, `/api/oauth/token`, `/api/oauth/register` | Move the page, the endpoint or the OAuth paths; URLs in the setup and the metadata are the app origin (`appOrigin`, or `resolveAppOrigin`'s) + the path. |
+| `routes` | `{ page?, endpoint?, oauthConsent?, oauthDecision?, oauthToken?, oauthRegister? }` | `DEFAULT_MCP_ACCESS_ROUTES` (root entry): `/account/mcp`, `/api/mcp`, `/oauth/authorize`, `/api/oauth/authorize`, `/api/oauth/token`, `/api/oauth/register` | Move the page, the endpoint or the OAuth paths; URLs in the setup and the metadata are the app origin (`appOrigin`, or `resolveAppOrigin`'s) + the path. |
 | `messages` | partial `en` / `pl` | — | Copy overrides. |
 
 `allowWrites` is a deploy decision, so read it from the environment rather than hard-coding it:
@@ -137,6 +140,112 @@ is true. GET and DELETE are not exported, so Next answers them with 405: the end
 Answers to 2025-era clients come as one SSE `message` event, to 2026-07-28 clients as plain JSON;
 mid-call notifications (progress, logging) are dropped. Keep `/api/mcp` out of a proxy guard that
 redirects to the login page: the endpoint authenticates by token, not by cookie.
+
+### Writing tools
+
+`/server` answers tools safely, so a failure never hands the assistant a query or an error's text:
+
+```ts
+import { actionTool, toolResult, withToolErrors } from "@softure-ai/mcp-access/server";
+
+server.registerTool("list_orders", { description: "Lists your orders." }, () =>
+  withToolErrors(() => findOrders(db, userId), { label: "list_orders", hints: { "orders.locked": "The shop is closed for stock-taking." } }),
+);
+if (canWrite) {
+  server.registerTool("place_order", { inputSchema: z.object({ sku: z.string(), quantity: z.number() }) }, actionTool(
+    (form) => placeOrderAction({ status: "idle" }, form),
+    { message: "Order placed.", hints: { "orders.out_of_stock": "That item is out of stock." } },
+  ));
+}
+```
+
+- `toolResult(value)`: a string as text, anything else as JSON. `toolError(message)`: the same with `isError`.
+- `withToolErrors(work, { hints?, label? })`: a `CallToolResult` passes; a result value is unwrapped (`ok` → its
+  value, else the hint for its error code, else the code); any other value becomes `toolResult`. A thrown
+  `PublicError` (core) gives its message. Anything else is logged by kind only (`errorLogLabel`, never the SQL or
+  its parameters) and answered with the hint for its `safeError` code (`core.database_failed`, `core.unexpected`),
+  else a fixed English text.
+- `actionTool(handler, { message?, hints?, label? })`: the server action behind a form as a write tool, so both
+  share one validation path. The arguments become `FormData` (numbers as text, `true` as `"on"`, `false` and `null`
+  left out, arrays one entry per item, dates as ISO, objects as JSON). A `{ ok: false, error }` or
+  `{ status: "error", error }` state is a tool error through the hints; otherwise the answer is `message` (text or
+  `(state) => text`), else the state as JSON.
+
+### Stdio
+
+A local assistant on the machine that holds the database can run the same factory over stdio, without a token:
+
+```ts
+// scripts/mcp-stdio.ts
+import { serveMcpStdio } from "@softure-ai/mcp-access/stdio";
+import config from "../softure.config";
+import { createServer } from "../lib/mcp-server";
+
+const started = await serveMcpStdio({ config, createServer, allowWrites: process.env.MCP_ALLOW_WRITES === "1" });
+if (!started.ok) {
+  console.error(started.error.message);
+  process.exitCode = 1;
+}
+```
+
+```bash
+claude mcp add acme -e MCP_USER_ID=<account id> -- npx tsx --import @softure-ai/mcp-access/stdio/register scripts/mcp-stdio.ts
+```
+
+- The account: `MCP_USER_ID` (or `userIdEnv`) when set, which must name an account; else the only account in the
+  database. With several accounts and no id the entry refuses (`mcp-access.stdio_account_ambiguous`): it never
+  picks one.
+- `canWrite` needs `allowWrites: true` here and the app's `allowWrites`. The token id is `"stdio"`.
+- The database opens like a package command's (`database.handle`, else `database.url`) and closes with the
+  connection. Messages go to stderr; stdout is the protocol.
+- `@softure-ai/mcp-access/stdio/register` (`--import`) resolves `server-only` to an empty module, so a factory
+  written for Next runs in plain Node. It needs Node 22.15 or later (`module.registerHooks`).
+
+### Catalog parity
+
+```ts
+// lib/mcp-server.test.ts
+import { expectToolCatalogMatchesServer } from "@softure-ai/mcp-access/testing";
+
+it("lists the same tools as the server", () => expectToolCatalogMatchesServer(config, createServer));
+```
+
+It lists the server's tools for a read-only and a write identity and throws naming every configured tool the
+server lacks, every registered tool the catalog lacks, and every write tool a read-only token gets.
+`getToolCatalogDifferences` returns the same as lists.
+
+### Gating token issue
+
+An app that checks something before a token is issued (a plan that includes write access) calls `issueToken` from
+its own server action instead of copying `issueTokenAction`:
+
+```ts
+// app/account/mcp/actions.ts
+"use server";
+import { err, ok } from "@softure-ai/core";
+import { issueToken } from "@softure-ai/mcp-access/next";
+import type { IssueTokenFormState } from "@softure-ai/mcp-access";
+
+export async function issueGatedToken(previous: IssueTokenFormState, form: FormData) {
+  return issueToken(previous, form, {
+    beforeIssue: async ({ userId, canWrite }) => (canWrite && !(await hasWritePlan(userId)) ? err("mcp-access.write_refused") : ok()),
+  });
+}
+```
+
+```tsx
+// app/account/mcp/page.tsx
+import { McpAccessPage } from "@softure-ai/mcp-access/next";
+import { issueGatedToken } from "./actions";
+
+export default function Page() {
+  return <McpAccessPage issueAction={issueGatedToken} />;
+}
+```
+
+The gate runs after the session check and before anything is issued. `mcp-access.write_refused` and
+`mcp-access.issue_refused` have copy in `messages.errors["mcp-access"]` (override it per app); a gate that throws
+becomes a `safeError` code. The gate stays in the app's code, out of `softure.config.ts`.
 
 `TokenManager` (`@softure-ai/mcp-access/ui`) takes the actions `issueTokenAction` and
 `revokeTokenAction` (`/next`) as props for an app that composes its own page, and `grants` with
@@ -226,7 +335,7 @@ whose last argument they are; `OAuthClientRow` is exported from the package root
 | `last_used_at` | Written on verification at most once a minute; informational only. |
 
 Issuing deletes the issuer's expired tokens; `pruneAccessTokens(ctx)` (`/server`) deletes every
-expired token, for a scheduled job. Rollback: in the migration header.
+expired token, for a scheduled job (see "Scheduled pruning" below). Rollback: in the migration header.
 
 `migrations/0002_create_oauth_grants.sql` creates `mcp.oauth_clients` (client id, name, redirect
 URIs, auth method, sha256 of a confidential client's secret), `mcp.oauth_authorization_codes`
@@ -235,6 +344,18 @@ per account and client: write flag, sha256 of the current and the previous refre
 expiry, last use), and adds `access_tokens.grant_id` (null for hand-issued tokens). Every row goes
 with the account. `pruneOAuthRecords(ctx)` deletes expired codes, grants whose refresh token has
 expired (with their access tokens) and clients registered over a day ago that hold no grant.
+
+### Scheduled pruning
+
+`pruneMcpAccess(ctx)` (`/server`) runs both prunes and counts what each removed. The `softure-mcp prune` command
+runs it with the app's config (loaded like `softure migrate`, or from an app script through `runMcpAccessCli` from
+`/cli`) and prints one line. Run it daily, e.g. as a `maintain` hook of `@softure-ai/deploy`:
+
+```json
+{ "hooks": { "maintain": [{ "name": "mcp-prune", "compose": ["exec", "-T", "app", "npx", "softure-mcp", "prune"] }] } }
+```
+
+An app that pruned inline on every token exchange can drop that code.
 
 ### Adopting an app's own tables
 
@@ -280,7 +401,8 @@ the `tools` option, per locale.
 
 ## 10. Hooks
 
-The MCP server factory passed to `createMcpRoute` is the module's only hook. `/server` also exports
+The MCP server factory passed to `createMcpRoute` (and to `serveMcpStdio`) and the `beforeIssue` gate of
+`issueToken` are the module's hooks. `/server` also exports
 `createMcpEndpoint({ createServer })`, a `(ctx, request) => Response` for hosts other than Next, and
 `issueAccessToken`, `listAccessTokens`, `revokeAccessToken`, `verifyAccessToken` and
 `pruneAccessTokens` for scripts. For OAuth: `listOAuthGrants`, `revokeOAuthGrant`,

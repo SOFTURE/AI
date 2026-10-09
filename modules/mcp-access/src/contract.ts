@@ -9,8 +9,11 @@ export type McpAccessErrorCode =
   | "mcp-access.token_not_found"
   | "mcp-access.grant_not_found";
 
-/** Every code the token page can show: its own, a missing session and the generic ones. */
-export type TokenFormErrorCode = McpAccessErrorCode | "auth.unauthenticated" | CoreErrorCode;
+/** What an app's `beforeIssue` gate may answer instead of letting a token be issued. */
+export type McpIssueRefusalCode = "mcp-access.issue_refused" | "mcp-access.write_refused";
+
+/** Every code the token page can show: its own, a gate's refusal, a missing session and the generic ones. */
+export type TokenFormErrorCode = McpAccessErrorCode | McpIssueRefusalCode | "auth.unauthenticated" | CoreErrorCode;
 
 /** What the app's MCP server factory receives for one request. */
 export interface McpServerIdentity {

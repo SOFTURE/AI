@@ -21,6 +21,11 @@ describe("parseInitAnswers", () => {
     expect(parseInitAnswers(answers)).toEqual({ ok: true, answers });
   });
 
+  it("takes cloudflare as the only cdn", () => {
+    expect(parseInitAnswers({ ...VALID, cdn: "cloudflare" })).toEqual({ ok: true, answers: { ...VALID, cdn: "cloudflare" } });
+    expect(parseInitAnswers({ ...VALID, cdn: "fastly" })).toEqual({ ok: false, problems: ["cdn: cloudflare, the only CDN init knows"] });
+  });
+
   it("refuses values that would break out of YAML, bash or a Traefik rule, one line per field", () => {
     const result = parseInitAnswers({
       ...VALID,
