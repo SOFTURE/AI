@@ -170,7 +170,8 @@ handler reads the request's host, and a page rendered at build time would keep o
 ```ts
 // next.config.ts: the Link header of the home page (relative links, true on every host)
 import { nextHeaders } from "@softure-ai/agent-ready";
-const nextConfig = { async headers() { return [...nextHeaders({ markdown: true })]; } };
+import type { NextConfig } from "next";
+const nextConfig: NextConfig = { async headers() { return [...nextHeaders({ markdown: true })]; } };
 
 // app/layout.tsx: <link rel="ai-catalog"> in the head
 import { buildAiCatalogLink } from "@softure-ai/agent-ready";
