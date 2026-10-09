@@ -29,9 +29,9 @@ export default defineSoftureConfig({
     security({
       clientIp: cloudflareIp(),
       buckets: {
-        login: { limit: 50, windowMinutes: 15 },
-        "login-account": { limit: 10, windowMinutes: 15 },
-        register: { limit: 5, windowMinutes: 15 },
+        login: { limit: 50, windowMinutes: 15, key: "ip" },
+        "login-account": { limit: 10, windowMinutes: 15, key: "account" },
+        register: { limit: 5, windowMinutes: 15, key: "ip" },
       },
     }),
   ],
@@ -41,10 +41,30 @@ export default defineSoftureConfig({
 | Option | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `clientIp` | `ClientIpResolver \| ClientIpResolver[]` | required | Where the client address comes from; several are tried in order. |
-| `buckets` | `Record<string, { limit: number; windowMinutes: number }>` | required, at least one | Named limits: `limit` attempts per fixed window of `windowMinutes` (1 to 10080). Names are lowercase letters, digits, `_`, `.` and `-`. |
+| `buckets` | `Record<string, { limit: number; windowMinutes: number; key?: "ip" \| "account" \| "subject" }>` | required, at least one | Named limits: `limit` attempts per fixed window of `windowMinutes` (1 to 10080). Names are lowercase letters, digits, `_`, `.` and `-`. `key` says what the bucket counts by (below). |
 | `unidentified` | `"refuse" \| { key: string }` | `"refuse"` | What happens to a request no resolver identifies: refused with `security.client_unidentified`, or counted under one shared key `unidentified:<key>` (the key follows the bucket name rule). |
 | `ipv6Subnet` | `number` (1-128) | `64` | IPv6 clients are keyed by this network; one subscriber usually owns a whole /64. |
 | `cleanupProbability` | `number` (0-1) | `0.01` | Chance that a consumed attempt also deletes expired rows. |
+
+**What a bucket counts by.** `key` states the processing; the limiter itself does not read it. `"ip"`:
+the client address (`identifyClient`), also when combined with another value; `"account"`: one account
+(its user id or its login email); `"subject"`: any other value passed through `subjectKey` (an address
+on a waitlist). Every bucket default a package exports (`AUTH_RATE_LIMIT_BUCKETS` and the others)
+declares it. `listRateLimitBuckets(config)` from `@softure-ai/security/server` lists the configured
+buckets with `name`, `limit`, `windowMinutes` and `key` (`undefined` when a definition leaves it out),
+so the privacy policy's list of IP-keyed processing comes from the config instead of a hand-kept copy:
+
+```ts
+const ipKeyed = listRateLimitBuckets(config).filter((bucket) => bucket.key === "ip").map((bucket) => bucket.name);
+```
+
+**Changing one threshold.** `overrideBuckets(defaults, overrides)` returns a copy of a package's
+defaults with the named fields changed; the rest of each bucket, its `key` included, stays. A name the
+defaults lack is a type error and throws, so a typo never adds a bucket nothing counts in.
+
+```ts
+buckets: { ...overrideBuckets(AUTH_RATE_LIMIT_BUCKETS, { login: { limit: 500 } }), ...WAITLIST_RATE_LIMIT_BUCKETS },
+```
 
 **Resolvers.** Pick the one that matches what stands in front of the app; trusting a header the
 edge does not set or overwrite lets any client choose its own key.
@@ -183,7 +203,7 @@ None. Custom client-IP resolvers are plain functions (section 3).
 ## 11. GDPR
 
 The table holds rate limit keys only: client addresses (personal data) and SHA-256 prefixes of
-subjects, never an email in clear text. Nothing is
+subjects, never an email in clear text (`listRateLimitBuckets` names the buckets keyed by address). Nothing is
 exported per user. Cleanup deletes a row two windows after its window started; it runs on a share
 of consumed attempts (`cleanupProbability`), so with little traffic a row can stay longer. Schedule
 `pruneRateLimits` (for example hourly) when the retention period must be guaranteed.

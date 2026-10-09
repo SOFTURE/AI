@@ -1,6 +1,6 @@
 // The module definition: its manifest, its options, its dependencies and its health check.
 import { readFileSync } from "node:fs";
-import { billing, manual, stripe, type BillingOptionsInput } from "@softure-ai/billing";
+import { billing, BILLING_RATE_LIMIT_BUCKETS, manual, stripe, type BillingOptionsInput } from "@softure-ai/billing";
 import { checkBillingTables, getBillingRoutes } from "@softure-ai/billing/server";
 import { defineSoftureConfig, ok, toModuleJson } from "@softure-ai/core";
 import { describe, expect, it } from "vitest";
@@ -141,5 +141,12 @@ describe("the billing module", () => {
     } finally {
       await test.database.close();
     }
+  });
+});
+
+describe("the rate limit bucket defaults (#328)", () => {
+  it("declare what each bucket is keyed by", () => {
+    const kinds = Object.fromEntries(Object.entries(BILLING_RATE_LIMIT_BUCKETS).map(([name, bucket]) => [name, bucket.key]));
+    expect(kinds).toEqual({ "billing-payment": "account" });
   });
 });

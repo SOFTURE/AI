@@ -13,7 +13,7 @@ export const MODULE_ID = "security";
 export const security = defineModule({
   manifest: {
     id: MODULE_ID,
-    version: "0.1.7",
+    version: "0.1.8",
     dependsOn: {},
     dbSchema: "security",
     tables: ["rate_limits"],
@@ -38,6 +38,14 @@ export {
 } from "./client-ip.js";
 export type { RateLimitAllowance, RateLimitRejection, SecurityErrorCode } from "./contract.js";
 export { securityMessages, type SecurityMessages } from "./messages/index.js";
-export type { RateLimitBucket, SecurityOptions, SecurityOptionsInput } from "./options.js";
+export {
+  overrideBuckets,
+  RATE_LIMIT_KEY_KINDS,
+  type RateLimitBucket,
+  type RateLimitBucketInput,
+  type RateLimitKeyKind,
+  type SecurityOptions,
+  type SecurityOptionsInput,
+} from "./options.js";
 export { readSmallBody, type ReadSmallBodyOptions, type ReadSmallBodyResult } from "./read-small-body.js";
 export { rateLimits } from "./schema.js";
