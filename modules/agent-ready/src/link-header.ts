@@ -35,10 +35,13 @@ export function buildHomeLinkHeader(options: HomeLinkOptions = {}): string {
     .join(", ");
 }
 
-/** One entry of `headers()` in `next.config.ts` (a structural copy, so this file imports nothing from Next). */
+/**
+ * One entry of `headers()` in `next.config.ts`: a structural copy of Next's `Header`, so this file imports nothing
+ * from Next. Mutable like Next's own type, so the entries are assignable to `NextConfig["headers"]` as they are.
+ */
 export interface NextHeaderRule {
-  readonly source: string;
-  readonly headers: ReadonlyArray<{ readonly key: string; readonly value: string }>;
+  source: string;
+  headers: Array<{ key: string; value: string }>;
 }
 
 /**
