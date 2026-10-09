@@ -50,7 +50,7 @@ same way.
 import { defineSoftureConfig } from "@softure-ai/core";
 import { registerSoftureConfig } from "@softure-ai/core/next";
 import { auth, AUTH_RATE_LIMIT_BUCKETS } from "@softure-ai/auth";
-import { cloudflareIp, security } from "@softure-ai/security";
+import { cloudflareIp, overrideBuckets, security } from "@softure-ai/security";
 
 const config = defineSoftureConfig({
   database: { url: process.env.DATABASE_URL! },
@@ -58,8 +58,8 @@ const config = defineSoftureConfig({
   timezone: "Europe/Warsaw",
   appOrigin: process.env.APP_ORIGIN!,
   modules: [
-    // auth counts attempts in these buckets; change the numbers, keep the names.
-    security({ clientIp: cloudflareIp(), buckets: { ...AUTH_RATE_LIMIT_BUCKETS } }),
+    // auth counts attempts in these buckets; change the numbers with overrideBuckets, keep the names.
+    security({ clientIp: cloudflareIp(), buckets: overrideBuckets(AUTH_RATE_LIMIT_BUCKETS, { login: { limit: 100 } }) }),
     auth({
       routes: { afterLogin: "/dashboard" },
       password: { minLength: 12 },
@@ -108,7 +108,9 @@ that stack only.
 per client address, `login-account` 10 per email, `change-password` 10 per user,
 `password-reset` 10 (link requests) and `password-reset-confirm` 10 (new passwords) per client
 address, `password-reset-account` 3 per email (the mails one address can get), each per 15
-minutes. Attempts are counted before any password is hashed. A successful login forgets the
+minutes. Each bucket declares what it counts by (`key: "ip"` or `"account"`, security README §3), so
+`listRateLimitBuckets(config)` names the IP-keyed ones; `overrideBuckets(AUTH_RATE_LIMIT_BUCKETS, { login: { limit: 500 } })`
+changes one threshold and keeps the rest. Attempts are counted before any password is hashed. A successful login forgets the
 email's failed attempts, not the address's: the per-address `login` bucket counts every login,
 successful or not, so a test suite that logs in many times from one address must raise `login`
 (or give each test its own address). `login-account` is a lockout by design: ten wrong

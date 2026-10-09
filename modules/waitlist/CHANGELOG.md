@@ -4,6 +4,12 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`waitlist@x.y.z`).
 
+## 0.1.9
+
+- `WAITLIST_RATE_LIMIT_BUCKETS` declares `key: "ip"` on `waitlist` and `key: "subject"` on `waitlist-email`
+  (security 0.1.8 bucket kinds).
+- Requires `@softure-ai/security` `^0.1.8`: earlier versions refuse the `key` field.
+
 ## 0.1.8
 
 - **A sign-up without double opt-in no longer undoes an opt-out** (#237). `joinWaitlist` of an address on mailing's

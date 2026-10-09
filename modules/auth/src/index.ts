@@ -2,6 +2,7 @@
 // tables, and the development reset sender. Database work is in `@softure-ai/auth/server`, the Next.js adapter in `/next`, the route
 // guard in `/proxy`, the forms in `/ui` and the role scripts in `/scripts`.
 import { defineModule, resolveMigrationsDir } from "@softure-ai/core";
+import type { RateLimitBucketInput } from "@softure-ai/security";
 import { authMessages } from "./messages/index.js";
 import { authOptionsSchema } from "./options.js";
 import { checkAuthTables } from "./server/health.js";
@@ -25,14 +26,14 @@ export const REGISTRATION_CLOSED_ENV = "SOFTURE_SWITCH_AUTH_REGISTRATION_CLOSED"
  * and `password-reset-account` per email, which bounds the mails one address can receive.
  */
 export const AUTH_RATE_LIMIT_BUCKETS = {
-  register: { limit: 5, windowMinutes: 15 },
-  login: { limit: 50, windowMinutes: 15 },
-  "login-account": { limit: 10, windowMinutes: 15 },
-  "change-password": { limit: 10, windowMinutes: 15 },
-  "password-reset": { limit: 10, windowMinutes: 15 },
-  "password-reset-account": { limit: 3, windowMinutes: 15 },
-  "password-reset-confirm": { limit: 10, windowMinutes: 15 },
-} as const;
+  register: { limit: 5, windowMinutes: 15, key: "ip" },
+  login: { limit: 50, windowMinutes: 15, key: "ip" },
+  "login-account": { limit: 10, windowMinutes: 15, key: "account" },
+  "change-password": { limit: 10, windowMinutes: 15, key: "account" },
+  "password-reset": { limit: 10, windowMinutes: 15, key: "ip" },
+  "password-reset-account": { limit: 3, windowMinutes: 15, key: "account" },
+  "password-reset-confirm": { limit: 10, windowMinutes: 15, key: "ip" },
+} as const satisfies Readonly<Record<string, RateLimitBucketInput>>;
 
 /**
  * Enables accounts in `softure.config.ts` (next to `security({ ... })`):
@@ -41,7 +42,7 @@ export const AUTH_RATE_LIMIT_BUCKETS = {
 export const auth = defineModule({
   manifest: {
     id: MODULE_ID,
-    version: "0.1.10",
+    version: "0.1.11",
     dependsOn: { security: "^0.1.0", mailing: "^0.1.0?", ops: "^0.1.0?" },
     dbSchema: "auth",
     tables: ["users", "sessions", "user_roles", "password_resets"],

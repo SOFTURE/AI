@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`auth@x.y.z`).
 
+## 0.1.11
+
+- `AUTH_RATE_LIMIT_BUCKETS` declares what each bucket counts by: `register`, `login`, `password-reset` and
+  `password-reset-confirm` `key: "ip"`; `login-account`, `change-password` and `password-reset-account`
+  `key: "account"`. Change one threshold with `overrideBuckets` from `@softure-ai/security` 0.1.8.
+- Requires `@softure-ai/security` `^0.1.8`: earlier versions refuse the `key` field.
+
 ## 0.1.10
 
 - `isPasswordHash(value)` is exact: the salt and key must be unpadded base64url of exactly 16 and 64 bytes (22 and 86

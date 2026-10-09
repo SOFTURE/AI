@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/privacy",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "SOFTURE AI privacy module: modules and the app register GDPR export and deletion contributors; a JSON export endpoint and self-service account deletion for Next.js.",
   "license": "MIT",
   "type": "module",
@@ -55,7 +55,7 @@
     "@softure-ai/auth": "^0.1.0",
     "@softure-ai/core": "^0.1.7",
     "@softure-ai/db": "^0.1.0",
-    "@softure-ai/security": "^0.1.0",
+    "@softure-ai/security": "^0.1.8",
     "zod": "^4.6.5"
   },
   "peerDependencies": {
