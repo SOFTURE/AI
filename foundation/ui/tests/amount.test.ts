@@ -37,6 +37,16 @@ describe("parseAmount (pl)", () => {
     expect(parseAmount("1\u00a0234,56", "pl")).toEqual({ ok: true, value: 123_456 });
     expect(parseAmount("1\u202f234,56", "pl")).toEqual({ ok: true, value: 123_456 });
   });
+
+  it("accepts the thin space typeset text puts between groups (#303)", () => {
+    expect(parseAmount("1\u2009234,56", "pl")).toEqual({ ok: true, value: 123_456 });
+    expect(parseAmount("12\u2009345\u2009678", "pl")).toEqual({ ok: true, value: 1_234_567_800 });
+    expect(parseAmount("-1\u2009234.5", "pl")).toEqual({ ok: true, value: -123_450 });
+  });
+
+  it.each(["1\u200923,45", "12\u20093456", "1\u2009\u2009234"])("rejects a misplaced thin space in %j", (text) => {
+    expect(parseAmount(text, "pl")).toEqual({ ok: false, error: "ui.amount_invalid" });
+  });
 });
 
 describe("parseAmount (en)", () => {
@@ -45,11 +55,12 @@ describe("parseAmount (en)", () => {
     ["1,234.56", 123_456],
     ["1 234.56", 123_456],
     ["12,345,678", 1_234_567_800],
+    ["1\u2009234.56", 123_456],
   ])("%j is %d cents", (text, cents) => {
     expect(parseAmount(text, "en")).toEqual({ ok: true, value: cents });
   });
 
-  it.each(["1,5", "1,23,456", "1.234,56", "1 234,56"])("rejects %j", (text) => {
+  it.each(["1,5", "1,23,456", "1.234,56", "1 234,56", "1\u2009234,56"])("rejects %j", (text) => {
     expect(parseAmount(text, "en")).toEqual({ ok: false, error: "ui.amount_invalid" });
   });
 });

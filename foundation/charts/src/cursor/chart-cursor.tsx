@@ -4,14 +4,18 @@ import { formatMessage } from "@softure-ai/core";
 import { type KeyboardEvent, type PointerEvent, type ReactNode, useRef, useState } from "react";
 import { type ChartsCopyProps, getChartsCopy } from "../messages/index.js";
 import { nearestPointIndex } from "../scale/nearest-point.js";
-import { cx, seriesClass } from "../svg/class-names.js";
+import { type ChartTone, cx, seriesClass, toneClass } from "../svg/class-names.js";
 import { percent } from "../svg/geometry.js";
 
 /** One series' value at a cursor stop. */
 export interface CursorValue {
   readonly key: string;
-  /** Colour slot of the series (`seriesSlot`). */
-  readonly slot: number;
+  /** Colour slot of the series (`seriesSlot`); wins over `tone`. */
+  readonly slot?: number;
+  /** A role colour for the dot and its readout swatch when there is no `slot`. */
+  readonly tone?: ChartTone;
+  /** Added to the dot and its readout swatch, for an app's own colour. */
+  readonly className?: string;
   /** Height of the value from the bottom of the plot, 0–100 %. */
   readonly yPercent: number;
   /** The series' name. */
@@ -35,9 +39,20 @@ export interface ChartCursorProps extends ChartsCopyProps {
   readonly title: string;
   /** Stops in drawing order (left to right). */
   readonly points: readonly CursorPoint[];
-  /** The frame's content: the value axis, the `ChartPlot` and the time axis. */
+  /** The frame's content: the value axis, the `ChartPlot` and the time axis (or, with `frame={false}`, the app's plot). */
   readonly children: ReactNode;
   readonly className?: string;
+  /**
+   * `true` (default): children and the cursor layer go into the frame grid (value axis | plot). `false`: they share one
+   * positioned box, so the cursor's percentages and the pointer are relative to the app's own plot.
+   */
+  readonly frame?: boolean;
+  /** The readout's content at the active stop instead of the heading and values; announced by the same live region. */
+  readonly renderReadout?: (point: CursorPoint, index: number) => ReactNode;
+  /** Called once per change of the active stop, with `null` when the cursor clears. */
+  readonly onActiveChange?: (index: number | null) => void;
+  /** Added to the readout, e.g. to float it over the plot. */
+  readonly readoutClassName?: string;
 }
 
 /**
@@ -48,29 +63,46 @@ export interface ChartCursorProps extends ChartsCopyProps {
  * what it shows is announced. Positions come from the server's scales as percentages, so the cursor
  * never repeats a scale.
  */
-export function ChartCursor({ title, points, children, className, locale, messages }: ChartCursorProps) {
+export function ChartCursor({
+  title,
+  points,
+  children,
+  className,
+  frame = true,
+  renderReadout,
+  onActiveChange,
+  readoutClassName,
+  locale,
+  messages,
+}: ChartCursorProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const layerRef = useRef<HTMLDivElement>(null);
   const copy = getChartsCopy({ locale, messages });
   const active = activeIndex === null ? null : (points[activeIndex] ?? null);
   const lastIndex = points.length - 1;
 
+  function changeActive(next: number | null) {
+    if (next === activeIndex) return;
+    setActiveIndex(next);
+    onActiveChange?.(next);
+  }
+
   function pickAt(clientX: number) {
     const bounds = layerRef.current?.getBoundingClientRect();
     if (!bounds || bounds.width === 0) return;
     const xPercent = ((clientX - bounds.left) / bounds.width) * 100;
-    setActiveIndex(nearestPointIndex(points.map((point) => ({ x: point.xPercent })), xPercent));
+    changeActive(nearestPointIndex(points.map((point) => ({ x: point.xPercent })), xPercent));
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key === "Escape") {
-      setActiveIndex(null);
+      changeActive(null);
       return;
     }
     const next = getNextIndex(event.key, activeIndex, lastIndex);
     if (next === undefined) return;
     event.preventDefault();
-    setActiveIndex(next);
+    changeActive(next);
   }
 
   return (
@@ -80,12 +112,12 @@ export function ChartCursor({ title, points, children, className, locale, messag
       tabIndex={0}
       aria-label={formatMessage(copy.cursor.label, { title })}
       onKeyDown={handleKeyDown}
-      onBlur={() => setActiveIndex(null)}
+      onBlur={() => changeActive(null)}
       onPointerDown={(event: PointerEvent<HTMLDivElement>) => pickAt(event.clientX)}
       onPointerMove={(event: PointerEvent<HTMLDivElement>) => pickAt(event.clientX)}
-      onPointerLeave={() => setActiveIndex(null)}
+      onPointerLeave={() => changeActive(null)}
     >
-      <div className="sft-chart-frame">
+      <div className={frame ? "sft-chart-frame" : "sft-chart-cursor-box"}>
         {children}
         <div ref={layerRef} className="sft-chart-cursor-layer" aria-hidden="true">
           {active && (
@@ -94,7 +126,7 @@ export function ChartCursor({ title, points, children, className, locale, messag
               {active.values.map((value) => (
                 <span
                   key={value.key}
-                  className={cx("sft-chart-cursor-dot", seriesClass(value.slot))}
+                  className={cx("sft-chart-cursor-dot", getValueColourClass(value))}
                   style={{ left: percent(active.xPercent), bottom: percent(value.yPercent) }}
                 />
               ))}
@@ -102,14 +134,15 @@ export function ChartCursor({ title, points, children, className, locale, messag
           )}
         </div>
       </div>
-      <div className="sft-chart-readout" role="status" aria-live="polite" aria-atomic="true">
-        {active && (
+      <div className={cx("sft-chart-readout", readoutClassName)} role="status" aria-live="polite" aria-atomic="true">
+        {active && activeIndex !== null && renderReadout && renderReadout(active, activeIndex)}
+        {active && !renderReadout && (
           <>
             <span className="sft-chart-readout-heading">{active.heading}</span>
             {active.values.map((value) => (
               <span key={value.key} className="sft-chart-readout-value">
                 {" "}
-                <span aria-hidden="true" className={cx("sft-chart-swatch", "sft-chart-swatch-dot", seriesClass(value.slot))} />
+                <span aria-hidden="true" className={cx("sft-chart-swatch", "sft-chart-swatch-dot", getValueColourClass(value))} />
                 <span>{value.label}</span> <span>{value.value}</span>
               </span>
             ))}
@@ -118,6 +151,12 @@ export function ChartCursor({ title, points, children, className, locale, messag
       </div>
     </div>
   );
+}
+
+/** The classes that colour a value's dot and swatch: its slot, else its tone, plus the app's class. */
+function getValueColourClass({ slot, tone, className }: CursorValue): string {
+  const colour = slot === undefined ? tone !== undefined && cx(toneClass(tone), "sft-chart-fill-tone") : seriesClass(slot);
+  return cx(colour, className);
 }
 
 /** The stop a key moves to, or `undefined` for a key the cursor leaves to the page. */
