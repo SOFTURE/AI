@@ -86,7 +86,7 @@ const config = defineSoftureConfig({
 |---|---|---|
 | `appOrigin` | the config's `appOrigin` | host of the MCP endpoint and every OAuth URL |
 | `apexOrigin` | the app origin | host of documentation, cards and catalogs |
-| `resolveAppOrigin` | none | the app origin of one request (e.g. one image under several origins); configure it as in mcp-access |
+| `resolveAppOrigin` | none | the app origin of one request, ahead of the config's `origins` block (prefer that block, which mcp-access reads too) |
 | `name` | required | server card name, reverse-DNS namespace and name |
 | `title`, `description`, `provider.organization` | required | what agents show |
 | `mcp.path` | `/api/mcp` | the endpoint's path |
@@ -128,8 +128,9 @@ mcpAccess({
 }),
 ```
 
-mcp-access takes its issuer from the config's `appOrigin` (or its `resolveAppOrigin`): leave agent-ready's `appOrigin`
-unset, or set it to the same value, and give both modules the same `resolveAppOrigin`. The provider is called with a
+mcp-access takes its issuer from core's `resolveAppOrigin` (the config's `appOrigin` and `origins` block, or its own
+`resolveAppOrigin`): leave agent-ready's `appOrigin` unset, or set it to the same value, and put a per-request origin
+in the config's `origins` block (core README, "Request origins"), which both modules read. The provider is called with a
 request addressed to the resolved app origin, so mcp-access computes the same issuer; an issuer on another origin is a
 setup bug, and the OAuth documents answer 500 with a log line naming both origins instead of sending agents to a
 `resource` the issuer refuses.

@@ -53,7 +53,7 @@ const CORS_HEADERS = {
 /** Responses that carry credentials must not be stored (RFC 6749 §5.1). */
 const NO_STORE = { "cache-control": "no-store", pragma: "no-cache" };
 /** Discovery documents change only with a deploy, and with the host they were asked on. */
-const DISCOVERY_CACHE = { "cache-control": "public, max-age=300", vary: "host, x-forwarded-proto" };
+const DISCOVERY_CACHE = { "cache-control": "public, max-age=300", vary: "host, x-forwarded-host, x-forwarded-proto" };
 
 function protocolJson(body: unknown, status = 200, extra: Readonly<Record<string, string>> = {}): Response {
   return Response.json(body, { status, headers: { ...CORS_HEADERS, ...NO_STORE, ...extra } });

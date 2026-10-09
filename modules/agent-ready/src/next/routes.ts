@@ -13,7 +13,7 @@ import type { AgentDocumentContext } from "../context.js";
 import { discoveryHeaders, formatJson, SHORT_DISCOVERY_CACHE_SECONDS } from "../http.js";
 import { EMPTY_JWKS } from "../oauth.js";
 import { buildOpenApiDocument } from "../openapi.js";
-import { readRequestOrigin } from "../origins.js";
+import { readServedOrigin } from "../origins.js";
 import { buildMcpServerCard } from "../server-card.js";
 import {
   buildSignatureDirectory,
@@ -126,7 +126,7 @@ export function serveSignatureDirectory(request: Request): Promise<Response> {
     const key = readWebBotAuthKey(process.env, names);
     if (key === null) return notFound();
     return new Response(formatJson(buildSignatureDirectory(key, readRetiredPublicKeys(process.env, names))), {
-      headers: { ...discoveryHeaders(WEB_BOT_AUTH_DIRECTORY_CONTENT_TYPE), ...getDirectorySignatureHeaders(getAuthority(readRequestOrigin(request)), { key }) },
+      headers: { ...discoveryHeaders(WEB_BOT_AUTH_DIRECTORY_CONTENT_TYPE), ...getDirectorySignatureHeaders(getAuthority(readServedOrigin(request)), { key }) },
     });
   });
 }

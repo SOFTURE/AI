@@ -86,7 +86,7 @@ mcpAccess({
 | `oauth.authorizationCodeLifetimeMinutes` | `integer` 1–10 | `10` | Lifetime of an authorization code (single use). |
 | `oauth.maxBodyBytes` | `integer` 1024–1048576 | `16384` | The largest body the registration, token and consent decision routes read. Larger: `413` (`invalid_request` on registration and token), before it fills memory. Real bodies stay under 4 KiB. |
 | `oauth.metadata` | `{ authorizationServer?, protectedResource? }`, each an object or `(origins) => object` | — | Extra keys of the discovery documents (`jwks_uri`, `service_documentation`, `resource_documentation`, `agent_auth`…). Generated keys win; a static object that sets one is refused at startup. The protected resource document takes the app's `resource_name` (default: `serverName`). |
-| `resolveAppOrigin` | `(request) => string \| null` | — | The app origin of one request, when it is not the fixed `appOrigin` (an image built once and served elsewhere, a proxy). `readRequestOrigin` reads it from `Host`. Null keeps `appOrigin`; anything but a bare http(s) origin throws. |
+| `resolveAppOrigin` | `(request) => string \| null` | — | The app origin of one request, ahead of the config's `origins` block (prefer that block: every module reads it). `readRequestOrigin` reads it from `Host`. Null falls back to the block's rule; anything but a bare http(s) origin throws. |
 | `resourceOrigins` | `string[]` (≤ 16 http(s) origins) | `[]` | Other public hosts of the app, e.g. the apex next to `app.`: the root protected resource metadata asked on one of them names it as `resource`, and the OAuth endpoints accept it as `resource`. |
 | `routes` | `{ page?, endpoint?, oauthConsent?, oauthDecision?, oauthToken?, oauthRegister? }` | `/account/mcp`, `/api/mcp`, `/oauth/authorize`, `/api/oauth/authorize`, `/api/oauth/token`, `/api/oauth/register` | Move the page, the endpoint or the OAuth paths; URLs in the setup and the metadata are the app origin (`appOrigin`, or `resolveAppOrigin`'s) + the path. |
 | `messages` | partial `en` / `pl` | — | Copy overrides. |
@@ -174,17 +174,20 @@ TypeScript's `**` skips dot folders: with an `include` list in `tsconfig.json`, 
 `"app/.well-known/**/*.ts"`.
 
 **Origins.** Every OAuth URL (issuer, endpoints, `resource`, `resource_metadata`, `iss`) and the
-decision's `Origin` check use the app origin of the request: `appOrigin`, unless
-`resolveAppOrigin` answers. The decision also accepts a form posted from the host the request was
+decision's `Origin` check use the app origin of the request: core's `resolveAppOrigin` (a listed
+origin from the config's `origins` block the request was sent to, else `appOrigin`; core README,
+"Request origins"), unless the module's `resolveAppOrigin` option answers. The decision also accepts a form posted from the host the request was
 sent to, so an image with a fixed public origin run under another host (a release pipeline's
 browser tests on `http://localhost:6510`) completes the consent without a resolver. The discovery
 routes read the request, so Next never renders them at build time, and they answer with
-`Vary: host, x-forwarded-proto`.
+`Vary: host, x-forwarded-host, x-forwarded-proto`. `getRequestOrigins(config, path)` from
+`@softure-ai/mcp-access/next` gives a page or a server action the same origins from Next's `headers()`.
 
 - *An image built once and served under another origin* (a test stack on another port, a
-  production image against a local stack): `resolveAppOrigin: process.env.APP_ORIGIN ? undefined :
-  readRequestOrigin`. `readRequestOrigin` trusts `Host` and `X-Forwarded-Proto`, so use it only
-  behind a proxy that passes `Host` through and refuses hosts it does not serve. The consent page,
+  production image against a local stack): `origins: { trustRequestHost: !process.env.APP_ORIGIN }`
+  in the config (the older `resolveAppOrigin: readRequestOrigin` option does the same for this
+  module only). It trusts `Host` and `X-Forwarded-Proto`, so use it only behind a proxy that passes
+  `Host` through and refuses hosts it does not serve. The consent page,
   its decision and the token endpoint then agree on the origin the browser used.
 - *A second public host* (product on `https://app.example.com`, site on `https://example.com`):
   `resourceOrigins: ["https://example.com"]`, and route that host's `/.well-known/oauth-*` to the
