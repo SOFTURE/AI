@@ -7,7 +7,9 @@ The database layer every SOFTURE module stands on. Standard:
 
 A pg/PGlite client chosen by URL, a migrator that runs each module's SQL in the module's own
 Postgres schema (with a ledger, checksums, a lock, a dry run and adoption of existing tables),
-`createTestDatabase` for unit tests, and the `softure migrate` command.
+`createTestDatabase` for unit tests, the `softure migrate` command, a module-level process database
+(`createProcessDatabase`) and helpers that read the Postgres error behind a failed query
+(`findDriverError`, `isConstraintViolation`).
 
 ## 2. Installation
 
@@ -139,6 +141,49 @@ export async function getDb() {
 `getConfiguredDatabase(config.database)` is what modules call; app code that needs the database
 the modules use can call it too. A migration run on a PGlite handle the app shares keeps the app's
 session settings (`TimeZone`, `search_path`); only what the run changed is put back.
+
+### A module-level `db`
+
+An app whose code imports one `db` everywhere, instead of awaiting a handle in each function,
+creates it once with `createProcessDatabase`. `db` stands in for the shared handle's drizzle instance
+(the one `getSharedDatabase(url)` gives the modules, so there is still one pool); every entry point
+opens it first, and a query before that throws `Database is not open`:
+
+```ts
+// db/index.ts
+import { createProcessDatabase } from "@softure-ai/db";
+import * as schema from "./schema";
+
+// A function: read on open(), so a script may load its environment after importing this file.
+export const { db, open, close, withDatabase } = createProcessDatabase(() => process.env.DATABASE_URL ?? "", { schema });
+
+// instrumentation.ts (the server): open once at startup
+export async function register() {
+  if (process.env.NEXT_RUNTIME === "nodejs") await (await import("./db")).open();
+}
+
+// scripts/import.ts: opens, runs, closes (also when main throws)
+await withDatabase(async (db) => { /* … */ });
+```
+
+`open()` is idempotent; `close()` closes the shared handle for that URL, which the modules use too,
+so only a script's end calls it. With `schema`, `db.query.<table>` is typed and works.
+
+### Driver errors
+
+`findDriverError(error)` returns `{ code, constraint, message }` of the Postgres error behind a failed
+query (node-postgres and PGlite alike; drizzle wraps it as the `cause`), or `undefined`.
+`isConstraintViolation(error, { code, constraint })` answers whether it is that SQLSTATE on that
+constraint (any constraint when `constraint` is left out):
+
+```ts
+try {
+  await db.insert(articles).values(article);
+} catch (error) {
+  if (!isConstraintViolation(error, { code: "23505", constraint: "articles_slug_key" })) throw error;
+  return err("slug_taken");
+}
+```
 
 ## 4. Mounting
 
