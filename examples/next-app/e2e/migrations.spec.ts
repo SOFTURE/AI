@@ -27,6 +27,7 @@ test("the page lists the ledger and the module migrations applied by softure mig
     "mailing 2 create_campaigns_and_deliveries (applied)",
     "mailing 3 add_delivery_provider_status (applied)",
     "mailing 4 allow_imported_deliveries (applied)",
+    "mailing 5 add_sql_surface (applied)",
     "mcp-access 1 create_access_tokens (applied)",
     "mcp-access 2 create_oauth_grants (applied)",
     "privacy 1 create_consents (applied)",

@@ -6,6 +6,8 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## 0.1.11
 
+- Reads driver errors with `findDriverError` from `@softure-ai/db` instead of a private copy. Same behaviour;
+  requires `@softure-ai/db` `^0.1.7` (#313).
 - `PRIVACY_RATE_LIMIT_BUCKETS` declares `key: "account"` on `privacy-export` and `privacy-delete` (security 0.1.8
   bucket kinds).
 - Requires `@softure-ai/security` `^0.1.8`: earlier versions refuse the `key` field.

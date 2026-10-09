@@ -1,6 +1,6 @@
 // The options an app passes to `mailing({ ... })` in softure.config.ts, parsed at startup.
 import { z } from "zod";
-import { isMailbox, isSingleAddress } from "./address.js";
+import { isMailbox, isMailKind, isSingleAddress } from "./address.js";
 import type { CampaignRecipientFilter, CampaignRecipientSource, LegacyUnsubscribe, MailProvider, OnUnsubscribedHook } from "./contract.js";
 
 export const DEFAULT_TIMEOUT_MS = 10_000;
@@ -42,6 +42,13 @@ const legacyUnsubscribeSchema = z.strictObject({
 
 const HOUR_MS = 60 * 60_000;
 
+const mailKind = z.string().refine(isMailKind, "must be a kebab-case mail kind such as newsletter");
+
+/** Alias to kind; an alias never names a kind another alias points at, so one lookup resolves it. */
+const kindAliasesSchema = z
+  .record(mailKind, mailKind)
+  .refine((aliases) => Object.keys(aliases).every((alias) => !Object.values(aliases).includes(alias)), "must not use a kind as an alias: aliases resolve in one step");
+
 function isMailProvider(value: unknown): value is MailProvider {
   if (typeof value !== "object" || value === null) return false;
   const candidate = value as { name?: unknown; send?: unknown };
@@ -56,6 +63,16 @@ export const mailingOptionsSchema = z.strictObject({
   from: z.string().trim().refine(isMailbox, "must be an address or Name <address>, e.g. Plan <hello@example.com>"),
   /** Where replies go; may sit on another domain than `from` (DMARC does not check it). */
   replyTo: z.string().trim().refine(isSingleAddress, "must be one address, e.g. support@example.com").optional(),
+  /**
+   * The only address `softure-mail test` sends to, e.g. the operator's inbox. Without it the command refuses to send,
+   * so a test never reaches a customer.
+   */
+  testAddress: z.string().trim().refine(isSingleAddress, "must be one address, e.g. ops@example.com").optional(),
+  /**
+   * Short names for mail kinds in campaign files and `softure-mail test --kind`, e.g. `{ news: "newsletter" }`. The
+   * campaign is stored and sent under the kind the alias names.
+   */
+  kindAliases: kindAliasesSchema.optional(),
   /** The adapter that delivers mail: `resend()`, or `fakeMailProvider()` from `/testing`. */
   provider: z.custom<MailProvider>(isMailProvider, "must be a mail provider such as resend()"),
   /** How long one send may take before it reads as `mailing.unavailable`. */

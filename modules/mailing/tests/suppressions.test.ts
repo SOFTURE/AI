@@ -61,7 +61,7 @@ describe("the suppression list", () => {
   });
 
   it("lets the database failure propagate, for the caller to answer", async () => {
-    await test.database.client.query("DROP TABLE mailing.suppressions");
+    await test.database.client.query("DROP TABLE mailing.suppressions CASCADE");
     await expect(unsubscribe(test.ctx, ADA_TOKEN, "page", ENV)).rejects.toThrow();
     await expect(isSuppressed(test.ctx, "ada@example.org")).rejects.toThrow();
   });
@@ -199,7 +199,7 @@ describe("legacy unsubscribe links", () => {
 
   it("records the opt-out of the address the app's verify names, and runs onUnsubscribed with its key and the verified values", async () => {
     expect(await unsubscribe(test.ctx, { scheme: "legacy", values: LEGACY }, "one-click", ENV)).toEqual({ ok: true, value: undefined });
-    expect(verify).toHaveBeenCalledWith(LEGACY, test.ctx);
+    expect(verify).toHaveBeenCalledWith(LEGACY, test.ctx, ENV);
     expect(await listSuppressions(test.database)).toEqual([`${ADA_KEY} one-click ${NOW.toISOString()}`]);
     expect(hook.mock.calls.map(([event]) => event)).toEqual([{ recipientKey: ADA_KEY, source: "one-click", link: { scheme: "legacy", values: LEGACY } }]);
   });
