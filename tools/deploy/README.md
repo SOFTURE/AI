@@ -305,7 +305,7 @@ softure-deploy verify <url> [--config=deploy.json] [--timeout=<ms>] [--concurren
   `Signature-Agent` origin whose key directory lists it (default the verified URL's origin). The key never goes in
   `deploy.json` or the report: an unset or malformed variable fails the route with the variable's name and sends
   nothing. `requestHeaders` cannot set `signature`, `signature-input` or `signature-agent` next to it. Run `verify`
-  with the variable in its environment (the reusable workflow's verify job does not pass it yet).
+  with the variable in its environment; `deploy-app.yml` passes it through `verify-env` or `verify-env-secret` (below).
 
 ```json
 { "path": "/", "webBotAuth": { "keyEnv": "WEB_BOT_AUTH_PRIVATE_KEY" }, "requestHeaders": { "user-agent": "ExampleBot/1.0" }, "excludes": ["Just a moment"] }
