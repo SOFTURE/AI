@@ -28,6 +28,10 @@ const toolSchema = z.strictObject({
   access: z.enum(["read", "write"]),
   /** What the tool does, for the owner deciding which token to issue. */
   description: localizedTextSchema.refine((text) => text.en !== undefined, "needs at least an en text"),
+  /** A short display name (MCP's `title`), for clients and agent docs that show one. */
+  title: localizedTextSchema.refine((text) => text.en !== undefined, "needs at least an en text").optional(),
+  /** A request a person could make that uses the tool, e.g. "Show my last five orders.", for agent docs. */
+  example: localizedTextSchema.refine((text) => text.en !== undefined, "needs at least an en text").optional(),
 });
 
 /**

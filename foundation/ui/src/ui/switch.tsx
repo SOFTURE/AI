@@ -42,7 +42,7 @@ export interface SwitchControlProps {
   readonly "aria-expanded"?: boolean;
   readonly "aria-controls"?: string;
   readonly "aria-describedby"?: string;
-  /** The name when there is no visible label. */
+  /** The name when there is no visible label; on a `Switch`, a name that overrides the visible label. */
   readonly "aria-label"?: string;
   readonly classNames?: ClassNames<SwitchControlSlot>;
   readonly unstyled?: boolean;
@@ -114,8 +114,9 @@ export type SwitchSlot =
 export type SwitchVariant = "field" | "bare";
 
 export interface SwitchProps
-  extends Omit<SwitchControlProps, "aria-describedby" | "aria-label" | "classNames" | "unstyled">,
+  extends Omit<SwitchControlProps, "aria-describedby" | "classNames" | "unstyled">,
     CopyProps<"field"> {
+  /** The visible label; it names the switch unless `aria-label` overrides it (e.g. to add a table row's name). */
   readonly label: ReactNode;
   /** Explanation behind a "?" next to the label. */
   readonly hint?: ReactNode;

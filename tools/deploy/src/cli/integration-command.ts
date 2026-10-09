@@ -2,7 +2,10 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { isSafeRef } from "../notes/git.js";
 import { isSafeRemote, resolveSha } from "../integration/git-notes.js";
-import { readJunitCounts, type JunitCounts } from "../integration/junit.js";
+import { readJunitCounts } from "../integration/junit.js";
+import { INTEGRATION_NOTES_REF } from "../integration/note.js";
+import { readPlaywrightJsonCounts } from "../integration/playwright-json.js";
+import type { SuiteCounts } from "../integration/suite-counts.js";
 import {
   INTEGRATION_BRANCH_PREFIX,
   lookupIntegration,
@@ -26,6 +29,10 @@ const DEFAULT_WAIT_MINUTES = 30;
 const DEFAULT_POLL_SECONDS = 15;
 const DEFAULT_MAIN_BRANCH = "main";
 const NAME = /^[A-Za-z0-9._/-]+$/;
+const NOTES_REF = /^refs\/notes\/[A-Za-z0-9._/-]+$/;
+const REF_PREFIX = /^[A-Za-z0-9._-]+(\/[A-Za-z0-9._-]+)*\/$/;
+const RESULT_FORMATS = ["junit", "playwright-json"] as const;
+type ResultFormat = (typeof RESULT_FORMATS)[number];
 
 function readSha(command: string, io: CliIo, value: string | undefined): string {
   const ref = value ?? io.env.INTEGRATION_SHA ?? "HEAD";
@@ -40,9 +47,25 @@ function readRemote(command: string, value: string): string {
   return value;
 }
 
-function readName(command: string, value: string | undefined): string {
+function readNotesRef(command: string, value: string | undefined): string {
+  if (value === undefined) return INTEGRATION_NOTES_REF;
+  if (!NOTES_REF.test(value) || !isSafeRef(value)) {
+    fail(`${command}: --notes-ref must be a ref under refs/notes/, got ${JSON.stringify(value)}.`, USAGE_EXIT_CODE);
+  }
+  return value;
+}
+
+function readRefPrefix(command: string, value: string | undefined): string {
+  if (value === undefined) return INTEGRATION_BRANCH_PREFIX;
+  if (!REF_PREFIX.test(value) || !isSafeRef(`${value}x`)) {
+    fail(`${command}: --ref-prefix must be a branch prefix ending in / (e.g. integration/), got ${JSON.stringify(value)}.`, USAGE_EXIT_CODE);
+  }
+  return value;
+}
+
+function readName(command: string, value: string | undefined, refPrefix: string = INTEGRATION_BRANCH_PREFIX): string {
   if (value === undefined || value === "") fail(`${command}: --name (or INTEGRATION_NAME) is required.`, USAGE_EXIT_CODE);
-  if (!NAME.test(value) || !isSafeRef(`${INTEGRATION_BRANCH_PREFIX}${value}`)) {
+  if (!NAME.test(value) || !isSafeRef(`${refPrefix}${value}`)) {
     fail(`${command}: --name may hold letters, digits and . _ - / only, got ${JSON.stringify(value)}.`, USAGE_EXIT_CODE);
   }
   return value;
@@ -74,18 +97,20 @@ function readMainBranch(command: string, io: CliIo, value: string | undefined): 
   return main;
 }
 
-/** `softure-deploy integration lookup [--sha=HEAD] [--remote=origin] [--main=<branch>]` */
+/** `softure-deploy integration lookup [--sha=HEAD] [--remote=origin] [--main=<branch>] [--notes-ref=refs/notes/integration]` */
 export function runIntegrationLookup(args: string[], io: CliIo): void {
   const command = "integration lookup";
   const flags = readFlags(command, args, {
     sha: { type: "string" },
     remote: { type: "string", default: "origin" },
     main: { type: "string" },
+    "notes-ref": { type: "string" },
   });
   const remote = readRemote(command, flags.remote);
+  const notesRef = readNotesRef(command, flags["notes-ref"]);
   const main = readMainBranch(command, io, flags.main);
   const sha = readSha(command, io, flags.sha);
-  const found = lookupIntegration({ cwd: io.cwd, remote, sha, main });
+  const found = lookupIntegration({ cwd: io.cwd, remote, notesRef, sha, main });
   if (found.kind === "none") fail(`${command}: no stored result for ${sha.slice(0, 8)}.`, NO_STORED_RESULT_EXIT_CODE);
   if (found.kind === "invalid") {
     fail(`${command}: the note on ${sha.slice(0, 8)} is not a result (${found.problem}).`, NO_STORED_RESULT_EXIT_CODE);
@@ -96,7 +121,7 @@ export function runIntegrationLookup(args: string[], io: CliIo): void {
 
 /**
  * `softure-deploy integration run [--name=<n>] [--sha=HEAD] [--wait-minutes=30] [--remote=origin] [--main=<branch>]
- * [--poll-seconds=15]`; `INTEGRATION_NAME`, `INTEGRATION_SHA` and `INTEGRATION_WAIT_MINUTES` stand in for the flags.
+ * [--poll-seconds=15] [--ref-prefix=integration/] [--notes-ref=refs/notes/integration]`; `INTEGRATION_NAME`, `INTEGRATION_SHA` and `INTEGRATION_WAIT_MINUTES` stand in for the flags.
  */
 export async function runIntegrationRun(args: string[], io: CliIo): Promise<void> {
   const command = "integration run";
@@ -107,8 +132,12 @@ export async function runIntegrationRun(args: string[], io: CliIo): Promise<void
     remote: { type: "string", default: "origin" },
     main: { type: "string" },
     "poll-seconds": { type: "string" },
+    "ref-prefix": { type: "string" },
+    "notes-ref": { type: "string" },
   });
-  const name = readName(command, flags.name ?? io.env.INTEGRATION_NAME);
+  const refPrefix = readRefPrefix(command, flags["ref-prefix"]);
+  const notesRef = readNotesRef(command, flags["notes-ref"]);
+  const name = readName(command, flags.name ?? io.env.INTEGRATION_NAME, refPrefix);
   const waitMinutes = readWholeNumber(command, "wait-minutes", flags["wait-minutes"] ?? io.env.INTEGRATION_WAIT_MINUTES, DEFAULT_WAIT_MINUTES);
   const pollSeconds = Math.max(1, readWholeNumber(command, "poll-seconds", flags["poll-seconds"], DEFAULT_POLL_SECONDS));
   const remote = readRemote(command, flags.remote);
@@ -117,6 +146,8 @@ export async function runIntegrationRun(args: string[], io: CliIo): Promise<void
   const result = await runIntegration({
     cwd: io.cwd,
     remote,
+    notesRef,
+    refPrefix,
     sha,
     name,
     main,
@@ -143,26 +174,53 @@ export async function runIntegrationRun(args: string[], io: CliIo): Promise<void
   }
 }
 
-function readJunit(command: string, io: CliIo, path: string | undefined): JunitCounts | null {
-  if (path === undefined || path === "") return null;
-  const fullPath = resolve(io.cwd, path);
-  // A suite that died before writing its report has no counts; the result still says red.
-  if (!existsSync(fullPath)) {
-    io.stderr(`${command}: ${path} does not exist; the note has no counts.\n`);
-    return null;
-  }
-  return readJunitCounts(readFileSync(fullPath, "utf8"));
+interface ResultsReport {
+  path: string;
+  format: ResultFormat;
 }
 
-/** The run's name: the part after `integration/` of an integration branch, else the branch name. */
-function toRunName(ref: string): string {
-  const branch = ref.replace(/^refs\/heads\//, "");
-  return branch.startsWith(INTEGRATION_BRANCH_PREFIX) ? branch.slice(INTEGRATION_BRANCH_PREFIX.length) : branch;
+/** `--results` with `--format` (by extension when not given: `.json` is Playwright), or the older `--junit`. */
+function readResultsReport(command: string, flags: { results?: string; junit?: string; format?: string }): ResultsReport | null {
+  if (flags.junit !== undefined && flags.results !== undefined) fail(`${command}: give --junit and --results, not both.`, USAGE_EXIT_CODE);
+  const path = flags.results ?? flags.junit;
+  if (flags.format !== undefined && flags.results === undefined) fail(`${command}: --format needs --results.`, USAGE_EXIT_CODE);
+  if (path === undefined || path === "") return null;
+  if (flags.junit !== undefined) return { path, format: "junit" };
+  const format = flags.format ?? (path.endsWith(".json") ? "playwright-json" : "junit");
+  if (!RESULT_FORMATS.includes(format as ResultFormat)) {
+    fail(`${command}: --format must be junit or playwright-json, got ${JSON.stringify(format)}.`, USAGE_EXIT_CODE);
+  }
+  return { path, format: format as ResultFormat };
+}
+
+function readCounts(command: string, io: CliIo, report: ResultsReport | null): SuiteCounts | null {
+  if (report === null) return null;
+  const fullPath = resolve(io.cwd, report.path);
+  // A suite that died before writing its report has no counts; the result still says red.
+  if (!existsSync(fullPath)) {
+    io.stderr(`${command}: ${report.path} does not exist; the note has no counts.\n`);
+    return null;
+  }
+  const text = readFileSync(fullPath, "utf8");
+  if (report.format === "junit") return readJunitCounts(text);
+  const read = readPlaywrightJsonCounts(text);
+  if (read.ok) return read.counts;
+  io.stderr(`${command}: ${report.path} is not a Playwright JSON report (${read.problem}); the note has no counts.\n`);
+  return null;
+}
+
+/** The run's name: the part after the prefix of an integration branch, else the branch (or tag) name. */
+function toRunName(ref: string, refPrefix: string): string {
+  const branch = ref.replace(/^refs\/(heads|tags)\//, "");
+  return branch.startsWith(refPrefix) ? branch.slice(refPrefix.length) : branch;
 }
 
 /**
- * `softure-deploy integration record --sha=<sha> --ref=<ref> --result=green|red [--junit=<file>] [--run=<url>]
- * [--name=<n>] [--remote=origin]`: the workflow's last step, which stores the result as a note on the tested commit.
+ * `softure-deploy integration record --sha=<sha> --ref=<ref> --result=green|red [--results=<file>
+ * [--format=junit|playwright-json]] [--fail-on-flaky] [--run=<url>] [--name=<n>] [--remote=origin]
+ * [--ref-prefix=integration/] [--notes-ref=refs/notes/integration]`: the workflow's last step, which stores the result
+ * as a note on the tested commit. `--junit=<file>` is `--results=<file> --format=junit`. With `--fail-on-flaky`, a
+ * report naming a flaky test stores red and exits 1.
  */
 export function runIntegrationRecord(args: string[], io: CliIo): void {
   const command = "integration record";
@@ -171,31 +229,46 @@ export function runIntegrationRecord(args: string[], io: CliIo): void {
     ref: { type: "string" },
     result: { type: "string" },
     junit: { type: "string" },
+    results: { type: "string" },
+    format: { type: "string" },
+    "fail-on-flaky": { type: "boolean", default: false },
     run: { type: "string" },
     name: { type: "string" },
     remote: { type: "string", default: "origin" },
+    "ref-prefix": { type: "string" },
+    "notes-ref": { type: "string" },
   });
   if (flags.sha === undefined) fail(`${command}: --sha is required (the tested commit).`, USAGE_EXIT_CODE);
   if (flags.ref === undefined || !isSafeRef(flags.ref)) fail(`${command}: --ref must name the ref the run was started by.`, USAGE_EXIT_CODE);
   if (flags.result !== "green" && flags.result !== "red") fail(`${command}: --result must be green or red.`, USAGE_EXIT_CODE);
   const run = flags.run === undefined || flags.run === "" ? null : flags.run;
   if (run !== null && !/^https:\/\/\S+$/.test(run)) fail(`${command}: --run must be an https:// URL.`, USAGE_EXIT_CODE);
+  const report = readResultsReport(command, flags);
   const remote = readRemote(command, flags.remote);
-  const name = readName(command, flags.name ?? toRunName(flags.ref));
+  const refPrefix = readRefPrefix(command, flags["ref-prefix"]);
+  const notesRef = readNotesRef(command, flags["notes-ref"]);
+  const name = readName(command, flags.name ?? toRunName(flags.ref, refPrefix), refPrefix);
   const sha = readSha(command, io, flags.sha);
+  const counts = readCounts(command, io, report);
+  const flakyCount = counts?.flaky.length ?? 0;
+  const isFailedOnFlaky = flags["fail-on-flaky"] && flakyCount > 0;
   const recorded = recordIntegration({
     cwd: io.cwd,
     remote,
+    notesRef,
     sha,
     name,
     ref: flags.ref,
-    result: flags.result,
-    counts: readJunit(command, io, flags.junit),
+    result: isFailedOnFlaky ? "red" : flags.result,
+    counts,
     run,
     finishedAt: new Date(),
   });
   if (recorded.kind === "push-failed") fail(`${command}: ${remote} refused the notes after ${String(recorded.attempts)} attempts.`);
   const { note } = recorded;
-  const counts = note.total === null ? "" : ` (${String(note.passed)}/${String(note.total)})`;
-  io.stdout(`${command}: ${note.result}${counts} stored on ${sha.slice(0, 8)}\n`);
+  const countsText = note.total === null ? "" : ` (${String(note.passed)}/${String(note.total)})`;
+  io.stdout(`${command}: ${note.result}${countsText} stored on ${sha.slice(0, 8)}\n`);
+  if (isFailedOnFlaky) {
+    fail(`${command}: ${String(flakyCount)} flaky test${flakyCount === 1 ? "" : "s"} and --fail-on-flaky: stored as red.`);
+  }
 }

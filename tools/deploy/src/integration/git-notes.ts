@@ -1,11 +1,11 @@
 import { execFileSync } from "node:child_process";
 import { isSafeRef } from "../notes/git.js";
-import { INTEGRATION_NOTES_REF } from "./note.js";
 
 /**
  * The git reads and writes of the integration run. Git runs through `execFile` with an argument list, never a shell;
  * refs are checked by `isSafeRef` and remotes by {@link isSafeRemote}, and `--` ends the options before a remote, so
- * neither can become an option (`--upload-pack=…`).
+ * neither can become an option (`--upload-pack=…`). `notesRef` is the notes ref the results live under
+ * (`refs/notes/integration` unless the app keeps another).
  */
 
 const SAFE_REMOTE = /^[A-Za-z0-9_][A-Za-z0-9_.-]*$/;
@@ -47,16 +47,18 @@ function tryGit(cwd: string, args: string[]): boolean {
 }
 
 /** Replaces the local integration notes with the remote's; false when they cannot be fetched (none yet, offline). */
-export function fetchIntegrationNotes(cwd: string, remote: string): boolean {
+export function fetchIntegrationNotes(cwd: string, remote: string, notesRef: string): boolean {
   assertSafe("remote", remote);
-  return tryGit(cwd, ["fetch", "--quiet", "--no-tags", "--", remote, `+${INTEGRATION_NOTES_REF}:${INTEGRATION_NOTES_REF}`]);
+  assertSafe("ref", notesRef);
+  return tryGit(cwd, ["fetch", "--quiet", "--no-tags", "--", remote, `+${notesRef}:${notesRef}`]);
 }
 
 /** The note text on `sha`, or null when it has none. */
-export function readNoteText(cwd: string, sha: string): string | null {
+export function readNoteText(cwd: string, notesRef: string, sha: string): string | null {
   assertSafe("ref", sha);
+  assertSafe("ref", notesRef);
   try {
-    return runGit(cwd, ["notes", `--ref=${INTEGRATION_NOTES_REF}`, "show", sha]);
+    return runGit(cwd, ["notes", `--ref=${notesRef}`, "show", sha]);
   } catch (error) {
     if (typeof error === "object" && error !== null && "status" in error && error.status === 1) return null;
     throw error;
@@ -68,16 +70,18 @@ function hasIdentity(cwd: string): boolean {
 }
 
 /** Writes (or replaces) the note on `sha` in the local notes ref. */
-export function writeNoteText(cwd: string, sha: string, text: string): void {
+export function writeNoteText(cwd: string, notesRef: string, sha: string, text: string): void {
   assertSafe("ref", sha);
+  assertSafe("ref", notesRef);
   const identity = hasIdentity(cwd) ? [] : FALLBACK_IDENTITY;
-  runGit(cwd, [...identity, "notes", `--ref=${INTEGRATION_NOTES_REF}`, "add", "--force", "--file=-", sha], text);
+  runGit(cwd, [...identity, "notes", `--ref=${notesRef}`, "add", "--force", "--file=-", sha], text);
 }
 
 /** Pushes the local notes ref; false when the remote refuses it (another run pushed first). */
-export function pushIntegrationNotes(cwd: string, remote: string): boolean {
+export function pushIntegrationNotes(cwd: string, remote: string, notesRef: string): boolean {
   assertSafe("remote", remote);
-  return tryGit(cwd, ["push", "--quiet", "--", remote, `${INTEGRATION_NOTES_REF}:${INTEGRATION_NOTES_REF}`]);
+  assertSafe("ref", notesRef);
+  return tryGit(cwd, ["push", "--quiet", "--", remote, `${notesRef}:${notesRef}`]);
 }
 
 export type RemoteRef = { kind: "absent" } | { kind: "at"; sha: string } | { kind: "unreachable" };
@@ -120,15 +124,16 @@ export function resolveSha(cwd: string, ref: string): string | null {
  * The note text of the newest first-parent commit of the remote's `main` branch that has a note, or null. The branch
  * is fetched first; when that fails the last fetched state of `<remote>/<main>` is used, if any.
  */
-export function findMainNoteText(cwd: string, remote: string, main: string): string | null {
+export function findMainNoteText(cwd: string, remote: string, notesRef: string, main: string): string | null {
   assertSafe("remote", remote);
   assertSafe("ref", main);
+  assertSafe("ref", notesRef);
   const tracking = `refs/remotes/${remote}/${main}`;
   tryGit(cwd, ["fetch", "--quiet", "--no-tags", "--", remote, `+refs/heads/${main}:${tracking}`]);
   if (resolveSha(cwd, tracking) === null) return null;
   let listed: string;
   try {
-    listed = runGit(cwd, ["notes", `--ref=${INTEGRATION_NOTES_REF}`, "list"]);
+    listed = runGit(cwd, ["notes", `--ref=${notesRef}`, "list"]);
   } catch (error) {
     // No notes ref at all: git exits non-zero.
     if (typeof error === "object" && error !== null && "status" in error) return null;
@@ -137,5 +142,5 @@ export function findMainNoteText(cwd: string, remote: string, main: string): str
   const noted = new Set(listed.split("\n").map((line) => line.split(" ")[1]).filter((sha) => sha !== undefined));
   const history = runGit(cwd, ["rev-list", "--first-parent", `--max-count=${String(MAIN_HISTORY_DEPTH)}`, tracking, "--"]);
   const newest = history.split("\n").find((sha) => noted.has(sha));
-  return newest === undefined ? null : readNoteText(cwd, newest);
+  return newest === undefined ? null : readNoteText(cwd, notesRef, newest);
 }

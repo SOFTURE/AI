@@ -1,10 +1,13 @@
 {
   "name": "@softure-ai/mcp-access",
   "version": "0.1.13",
-  "description": "SOFTURE AI MCP access module: hashed, scoped, expiring access tokens, a rate-limited Bearer endpoint around the app's MCP server factory, and a token page with client setup instructions for Next.js.",
+  "description": "SOFTURE AI MCP access module: hashed, scoped, expiring access tokens, a rate-limited Bearer endpoint around the app's MCP server factory, and a token page with client setup instructions for Next.js; tool result helpers with a safe error boundary, a stdio entry, a catalog parity check and the softure-mcp prune command.",
   "license": "MIT",
   "type": "module",
-  "sideEffects": false,
+  "sideEffects": [
+    "./dist/stdio/register.js",
+    "./src/stdio/register.ts"
+  ],
   "engines": {
     "node": ">=22"
   },
@@ -27,6 +30,9 @@
     "access": "public",
     "provenance": true
   },
+  "bin": {
+    "softure-mcp": "./dist/cli/bin.js"
+  },
   "exports": {
     ".": {
       "@softure-ai/source": "./src/index.ts",
@@ -47,6 +53,26 @@
       "@softure-ai/source": "./src/ui/index.ts",
       "types": "./dist/ui/index.d.ts",
       "default": "./dist/ui/index.js"
+    },
+    "./stdio": {
+      "@softure-ai/source": "./src/stdio/index.ts",
+      "types": "./dist/stdio/index.d.ts",
+      "default": "./dist/stdio/index.js"
+    },
+    "./stdio/register": {
+      "@softure-ai/source": "./src/stdio/register.ts",
+      "types": "./dist/stdio/register.d.ts",
+      "default": "./dist/stdio/register.js"
+    },
+    "./testing": {
+      "@softure-ai/source": "./src/testing/index.ts",
+      "types": "./dist/testing/index.d.ts",
+      "default": "./dist/testing/index.js"
+    },
+    "./cli": {
+      "@softure-ai/source": "./src/cli/index.ts",
+      "types": "./dist/cli/index.d.ts",
+      "default": "./dist/cli/index.js"
     }
   },
   "scripts": {
@@ -56,7 +82,7 @@
     "@softure-ai/auth": "^0.1.0",
     "@softure-ai/core": "^0.1.9",
     "@softure-ai/db": "^0.1.0",
-    "@softure-ai/security": "^0.1.0",
+    "@softure-ai/security": "^0.1.8",
     "zod": "^4.6.5"
   },
   "peerDependencies": {

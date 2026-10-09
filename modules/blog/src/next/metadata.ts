@@ -20,8 +20,20 @@ import { getBlogLocaleTags } from "../server/options.js";
 import type { BlogPageContext } from "../ui/page-context.js";
 import { getPageContext } from "./context.js";
 
+/** The Open Graph images a page names: a URL, an image descriptor, or a list of them (Next's shape). */
+export type BlogOpenGraphImages = NonNullable<NonNullable<Metadata["openGraph"]>["images"]>;
+
+/**
+ * What the app adds to a static page's metadata (listing, glossary index, method page). Next replaces
+ * the layout's `openGraph` with the page's object, so a page that sets one loses the layout's card:
+ * `images` carries it over, e.g. `[{ url: "/opengraph-image", width: 1200, height: 630 }]`.
+ */
+export interface StaticMetadataInput {
+  readonly images?: BlogOpenGraphImages;
+}
+
 /** Whether a listing has no entry: an empty listing stays out of the index (thin content). */
-export interface ListingMetadataInput {
+export interface ListingMetadataInput extends StaticMetadataInput {
   readonly isEmpty: boolean;
 }
 
@@ -40,13 +52,25 @@ function getFeedAlternates(config: SoftureConfig, context: BlogPageContext): Non
   return { "application/rss+xml": [{ url: `${getSiteUrls(config).origin}${context.routes.rss}`, title: withBrand(context.messages.pages.blogTitle, context) }] };
 }
 
-function getStaticMetadata(config: SoftureConfig, context: BlogPageContext, page: { title: string; description: string; path: string; isEmpty?: boolean; hasFeed?: boolean }): Metadata {
+function getStaticMetadata(
+  config: SoftureConfig,
+  context: BlogPageContext,
+  page: { title: string; description: string; path: string; isEmpty?: boolean; hasFeed?: boolean; images?: BlogOpenGraphImages | undefined },
+): Metadata {
   return {
     title: withBrand(page.title, context),
     description: page.description,
     robots: { index: page.isEmpty !== true, follow: true },
     alternates: { canonical: getCanonicalUrl(config, page.path), ...(page.hasFeed === true ? { types: getFeedAlternates(config, context) } : {}) },
-    openGraph: { type: "website", title: page.title, description: page.description, url: getCanonicalUrl(config, page.path), ...(context.brand === null ? {} : { siteName: context.brand }) },
+    openGraph: {
+      type: "website",
+      title: page.title,
+      description: page.description,
+      url: getCanonicalUrl(config, page.path),
+      locale: getBlogLocaleTags(config).openGraph,
+      ...(context.brand === null ? {} : { siteName: context.brand }),
+      ...(page.images === undefined ? {} : { images: page.images }),
+    },
   };
 }
 
@@ -71,11 +95,11 @@ function getTextMetadata(config: SoftureConfig, context: BlogPageContext, text: 
   };
 }
 
-/** The listing's metadata, with the feed link. */
-export function buildBlogIndexMetadata(config: SoftureConfig, { isEmpty }: ListingMetadataInput): Metadata {
+/** The listing's metadata, with the feed link; `images` carries the app's Open Graph card. */
+export function buildBlogIndexMetadata(config: SoftureConfig, { isEmpty, images }: ListingMetadataInput): Metadata {
   const context = getPageContext(config);
   const copy = context.messages.pages;
-  return getStaticMetadata(config, context, { title: copy.blogTitle, description: copy.blogDescription, path: context.routes.index, isEmpty, hasFeed: true });
+  return getStaticMetadata(config, context, { title: copy.blogTitle, description: copy.blogDescription, path: context.routes.index, isEmpty, hasFeed: true, images });
 }
 
 /** An article's metadata, with the feed link. The caller checks the text is a published article. */
@@ -84,11 +108,11 @@ export function buildArticleMetadata(config: SoftureConfig, article: BlogArticle
   return getTextMetadata(config, context, article, getArticlePath(context.routes, article.slug), { hasFeed: true });
 }
 
-/** The glossary index's metadata. */
-export function buildGlossaryIndexMetadata(config: SoftureConfig, { isEmpty }: ListingMetadataInput): Metadata {
+/** The glossary index's metadata; `images` carries the app's Open Graph card. */
+export function buildGlossaryIndexMetadata(config: SoftureConfig, { isEmpty, images }: ListingMetadataInput): Metadata {
   const context = getPageContext(config);
   const copy = context.messages.glossary;
-  return getStaticMetadata(config, context, { title: copy.title, description: copy.description, path: context.routes.glossary, isEmpty });
+  return getStaticMetadata(config, context, { title: copy.title, description: copy.description, path: context.routes.glossary, isEmpty, images });
 }
 
 /** A glossary term's metadata, titled by `glossary.termTitleWithBrand`. The caller checks the text is a published term. */
@@ -97,9 +121,9 @@ export function buildTermMetadata(config: SoftureConfig, term: BlogArticle): Met
   return getTextMetadata(config, context, term, getTermPath(context.routes, term.slug), { titlePattern: context.messages.glossary.termTitleWithBrand });
 }
 
-/** The method page's metadata. */
-export function buildMethodMetadata(config: SoftureConfig): Metadata {
+/** The method page's metadata; `images` carries the app's Open Graph card. */
+export function buildMethodMetadata(config: SoftureConfig, { images }: StaticMetadataInput = {}): Metadata {
   const context = getPageContext(config);
   const copy = context.messages.method;
-  return getStaticMetadata(config, context, { title: copy.title, description: copy.description, path: context.routes.method });
+  return getStaticMetadata(config, context, { title: copy.title, description: copy.description, path: context.routes.method, images });
 }

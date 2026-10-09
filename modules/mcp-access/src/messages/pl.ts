@@ -94,6 +94,8 @@ export const pl: typeof en = {
       token_limit_reached: "Masz już najwięcej aktywnych tokenów, ile można. Unieważnij któryś, zanim utworzysz nowy.",
       token_not_found: "Ten token już nie istnieje. Mógł zostać unieważniony.",
       grant_not_found: "Ta aplikacja nie jest już połączona.",
+      issue_refused: "Twoje konto nie może teraz tworzyć tokenów.",
+      write_refused: "Twoje konto nie może tworzyć tokenów z prawem zapisu. Utwórz token tylko do odczytu.",
     },
     auth: {
       unauthenticated: "Twoja sesja wygasła. Zaloguj się ponownie.",

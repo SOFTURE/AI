@@ -145,6 +145,7 @@ describe("record.sh, the e2e server's forced command", () => {
         "./deploy.json",
         "./deploy.sh",
         "./docker-compose.yml",
+        "./hooks/lib.sh",
         "./initdb/01-roles.sql",
         "./traefik.yml",
       ].join("\n") + "\n",
@@ -154,6 +155,7 @@ describe("record.sh, the e2e server's forced command", () => {
       "./deploy.json",
       "./deploy.sh",
       "./docker-compose.yml",
+      "./hooks/lib.sh",
       "./initdb/01-roles.sql",
       "./traefik.yml",
     ]);
@@ -326,7 +328,7 @@ describe("forced-command.sh, the e2e server's forced command", () => {
     const result = runForcedCommand(`deploy ${TAG}`, archive);
     expect(result.status, result.stderr).toBe(0);
     expect(result.stdout).toBe("result|ok\n");
-    expect(result.stderr).toContain("e2e server: recorded 7 files");
+    expect(result.stderr).toContain("e2e server: recorded 8 files");
     expect(readRecorded("command")).toBe(`deploy ${TAG}\n`);
     expect(readFileSync(join(appDir, "called"), "utf8")).toBe(`deploy ${TAG}\n`);
     expect(readFileSync(join(appDir, "stdin")).equals(archive)).toBe(true);
