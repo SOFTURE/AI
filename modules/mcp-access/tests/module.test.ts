@@ -240,3 +240,10 @@ describe("the mcp-access health check", () => {
     }
   });
 });
+
+describe("the rate limit bucket defaults (#328)", () => {
+  it("declare what each bucket is keyed by", () => {
+    const kinds = Object.fromEntries(Object.entries(MCP_RATE_LIMIT_BUCKETS).map(([name, bucket]) => [name, bucket.key]));
+    expect(kinds).toEqual({ "mcp": "ip", "mcp-oauth": "ip" });
+  });
+});

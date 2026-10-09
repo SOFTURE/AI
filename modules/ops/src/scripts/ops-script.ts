@@ -254,6 +254,74 @@ export async function runOpsScript<TArgs>(options: RunOpsScriptOptions<TArgs>): 
   }
 }
 
+/** What `runOpsMain` takes besides the script and the config module; tests pass a database and an output. */
+export type RunOpsMainOptions = Partial<Omit<RunOpsScriptOptions<unknown>, "script" | "config">>;
+
+/**
+ * The whole entry of an ops script: finds the config in `configModule`, runs the script with
+ * `process.argv.slice(2)` and sets `process.exitCode` (the process is never ended early, so output is
+ * flushed and the pool closed). Works without top-level `await` and with the shapes a config import
+ * takes when tsx loads `softure.config.ts` as CommonJS (an app without `"type": "module"`): the config
+ * itself, `{ default }`, `{ default: { default } }` or `{ config }`. Resolves to the exit code too.
+ *
+ *   // scripts/grant-access.ts
+ *   import { runOpsMain } from "@softure-ai/ops/scripts";
+ *   import * as configModule from "../softure.config";
+ *   import { grantAccess } from "./grant-access-script";
+ *   void runOpsMain(grantAccess, configModule);
+ */
+export async function runOpsMain<TArgs>(
+  script: OpsScript<TArgs>,
+  configModule: unknown,
+  options: RunOpsMainOptions = {},
+): Promise<number> {
+  const output = options.output ?? consoleOutput;
+  const exitCode = await runMain(script, configModule, options, output);
+  process.exitCode = exitCode;
+  return exitCode;
+}
+
+async function runMain<TArgs>(
+  script: OpsScript<TArgs>,
+  configModule: unknown,
+  options: RunOpsMainOptions,
+  output: CliOutput,
+): Promise<number> {
+  const config = findConfig(configModule);
+  if (config === undefined) {
+    output.error(`${script.name}: the config module exports no Softure config (default or \`config\`); pass the module of softure.config`);
+    return EXIT_FAILED;
+  }
+  try {
+    return await runOpsScript({ ...options, script, config, argv: options.argv ?? process.argv.slice(2), output });
+  } catch (error) {
+    output.error(`${script.name}: failed: ${describeFailure(error)}`);
+    return EXIT_FAILED;
+  }
+}
+
+const MAX_CONFIG_UNWRAP = 3;
+
+/** The config in a module namespace: itself or under `default` (once or twice) or `config`. */
+function findConfig(configModule: unknown): Pick<SoftureConfig, "database"> | undefined {
+  let candidate = configModule;
+  for (let depth = 0; depth < MAX_CONFIG_UNWRAP; depth += 1) {
+    if (!isRecord(candidate)) return undefined;
+    if (isConfigLike(candidate)) return candidate;
+    if (isConfigLike(candidate.config)) return candidate.config;
+    candidate = candidate.default;
+  }
+  return undefined;
+}
+
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === "object" && value !== null;
+}
+
+function isConfigLike(value: unknown): value is Pick<SoftureConfig, "database"> {
+  return isRecord(value) && Array.isArray(value.modules) && "database" in value;
+}
+
 async function openDatabase<TArgs>(
   options: RunOpsScriptOptions<TArgs>,
 ): Promise<Ok<{ db: Database; close: () => Promise<void> }> | Problem> {

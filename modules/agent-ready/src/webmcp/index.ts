@@ -8,21 +8,57 @@ export interface WebMcpToolResult {
   isError?: boolean;
 }
 
+/**
+ * A schema that converts itself to JSON Schema (Standard JSON Schema, `~standard.jsonSchema`), as zod 4 schemas do.
+ * Typed by its shape, so this entry imports no library.
+ */
+export interface StandardJsonSchemaLike {
+  readonly "~standard": {
+    readonly jsonSchema: {
+      readonly input: (options: { readonly target: "draft-2020-12" }) => Record<string, unknown>;
+    };
+  };
+}
+
+/** A tool's input: JSON Schema, or a zod schema converted to it (the input side, as the MCP SDK does). */
+export type WebMcpInputSchema = Readonly<Record<string, unknown>> | StandardJsonSchemaLike;
+
 /** A tool without `execute`: what a boot script or a component completes. */
 export interface WebMcpToolDefinition {
   name: string;
   description: string;
-  inputSchema: Record<string, unknown>;
+  inputSchema: WebMcpInputSchema;
 }
 
-/** A tool as `registerTool` takes it. */
+/** A tool as the app declares it. */
 export interface WebMcpTool extends WebMcpToolDefinition {
   execute: (args: unknown) => Promise<WebMcpToolResult>;
 }
 
+/** A tool as `registerTool` takes it: the input schema is JSON Schema. */
+export interface RegisteredWebMcpTool extends WebMcpTool {
+  inputSchema: Record<string, unknown>;
+}
+
 /** The part of the WebMCP API used here. Newer browsers take `{ signal }`; older ones return `{ unregister() }`. */
 export interface ModelContextLike {
-  registerTool: (tool: WebMcpTool, options?: { signal?: AbortSignal }) => unknown;
+  registerTool: (tool: RegisteredWebMcpTool, options?: { signal?: AbortSignal }) => unknown;
+}
+
+function isStandardJsonSchema(schema: WebMcpInputSchema): schema is StandardJsonSchemaLike {
+  const standard = (schema as { "~standard"?: { jsonSchema?: { input?: unknown } } })["~standard"];
+  return typeof standard?.jsonSchema?.input === "function";
+}
+
+/**
+ * JSON Schema for a tool's input: a zod schema converted through its Standard JSON Schema interface (input side, so a
+ * field with a default is optional; draft 2020-12) without `$schema`; JSON Schema as it is.
+ */
+export function toWebMcpInputSchema(schema: WebMcpInputSchema): Record<string, unknown> {
+  if (!isStandardJsonSchema(schema)) return schema;
+  const converted = schema["~standard"].jsonSchema.input({ target: "draft-2020-12" });
+  delete converted.$schema;
+  return converted;
 }
 
 export function textResult(text: string): WebMcpToolResult {
@@ -53,7 +89,7 @@ export function registerWebMcpTool(modelContext: ModelContextLike, tool: WebMcpT
   const warn = (error: unknown) => console.warn(`WebMCP: ${tool.name}: ${error instanceof Error ? error.message : String(error)}`);
   let handle: unknown;
   try {
-    handle = modelContext.registerTool(tool, { signal });
+    handle = modelContext.registerTool({ ...tool, inputSchema: toWebMcpInputSchema(tool.inputSchema) }, { signal });
   } catch (error) {
     warn(error);
     return;
@@ -129,7 +165,7 @@ export function buildWebMcpBootScript(options: WebMcpBootScriptOptions): string 
   const config = {
     paths: options.paths,
     patterns: options.pathPatterns ?? [],
-    tools: options.tools.map(({ name, description, inputSchema }) => ({ name, description, inputSchema })),
+    tools: options.tools.map(({ name, description, inputSchema }) => ({ name, description, inputSchema: toWebMcpInputSchema(inputSchema) })),
   };
   return String.raw`(function(){try{
 var mc=document.modelContext||navigator.modelContext;

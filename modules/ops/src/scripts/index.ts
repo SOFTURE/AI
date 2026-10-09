@@ -5,11 +5,13 @@ export {
   executeOpsScript,
   parseOpsArguments,
   refuseOpsScript,
+  runOpsMain,
   runOpsScript,
   type OpsInputReader,
   type OpsRefusal,
   type OpsReport,
   type OpsScript,
   type OpsScriptOutcome,
+  type RunOpsMainOptions,
   type RunOpsScriptOptions,
 } from "./ops-script.js";

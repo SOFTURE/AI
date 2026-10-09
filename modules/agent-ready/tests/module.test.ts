@@ -78,7 +78,7 @@ describe("the agent-ready module", () => {
 
   it("refuses an MCP server that is not a function", () => {
     // @ts-expect-error: a JavaScript config could pass the server itself.
-    expect(() => agentReady({ ...BASE_OPTIONS, mcp: { server: {} } })).toThrow("- options.mcp.server: must be a function () => McpServer | Promise<McpServer>");
+    expect(() => agentReady({ ...BASE_OPTIONS, mcp: { server: {} } })).toThrow("- options.mcp.server: must be a function (identity) => McpServer | Promise<McpServer>");
   });
 
   it("names the generated MCP skill after the card name, always a valid skill name", () => {
