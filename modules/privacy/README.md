@@ -397,15 +397,15 @@ tables); a refusal names the error and its detail and writes nothing.
 
 ```ts
 // scripts/ops/copy-account.ts (bundled and run like the migrate step, @softure-ai/ops README)
-import { runOpsScript } from "@softure-ai/ops/scripts";
+import { runOpsMain } from "@softure-ai/ops/scripts";
 import { createCopyAccountScript } from "@softure-ai/privacy/scripts";
-import config from "../../softure.config";
+import * as configModule from "../../softure.config";
 
 const script = createCopyAccountScript({
   exclude: ["auth.sessions"],
   include: [{ table: "waitlist.signups", column: "email", matches: "email" }],
 });
-process.exitCode = await runOpsScript({ script, argv: process.argv.slice(2), config });
+void runOpsMain(script, configModule);
 ```
 
 ```bash
