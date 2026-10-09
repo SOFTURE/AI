@@ -67,7 +67,7 @@ Decisions 1 to 7, in that order. Example app uses `toolResult`/`withToolErrors`.
 
 ## Phase 3: docs and gates
 
-README sections, CHANGELOG 0.1.12 bullets, `package.json` exports + bin, typecheck, lint, package tests, build.
+README sections, CHANGELOG 0.1.13 section, `package.json` exports + bin, typecheck, lint, package tests, build.
 
 ## Progress
 

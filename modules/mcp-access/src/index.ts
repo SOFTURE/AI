@@ -33,7 +33,7 @@ export const MCP_RATE_LIMIT_BUCKETS = {
 export const mcpAccess = defineModule({
   manifest: {
     id: MODULE_ID,
-    version: "0.1.12",
+    version: "0.1.13",
     dependsOn: { security: "^0.1.0", auth: "^0.1.0" },
     dbSchema: "mcp",
     tables: ["access_tokens", "oauth_clients", "oauth_authorization_codes", "oauth_grants"],

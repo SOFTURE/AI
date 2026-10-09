@@ -24,7 +24,7 @@ README sections "Writing tools", "Stdio", "Catalog parity", "Gating token issue"
 ## Context
 
 Issue #315, filed by an adopting app. No roadmap item; the PR closes the issue. `@softure-ai/mcp-access` 0.1.12 is
-unreleased (#311 merged it); this change folds into that version. #316 (agent-ready MCP factory contract) runs in
+unreleased (#311 merged it); 0.1.12 was published meanwhile, so this change ships as 0.1.13. #316 (agent-ready MCP factory contract) runs in
 parallel: this change keeps `McpServerFactory(identity)` unchanged, so agent-ready can adopt it.
 
 ## Constraints
@@ -42,4 +42,4 @@ parallel: this change keeps `McpServerFactory(identity)` unchanged, so agent-rea
 
 ## Decisions (auto)
 
-See plan.md "Decisions". Version: fold into the unreleased 0.1.12.
+See plan.md "Decisions". Version: 0.1.13 (0.1.12 was published while the change ran).

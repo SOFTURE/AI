@@ -4,14 +4,8 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mcp-access@x.y.z`).
 
-## 0.1.12
+## 0.1.13
 
-- Without a `resolveAppOrigin` option, the app origin comes from core's `resolveAppOrigin` (#311): a listed origin
-  from the config's `origins` block the request was sent to, else `appOrigin`; `origins.trustRequestHost` replaces
-  `resolveAppOrigin: readRequestOrigin`. `readRequestHost` and `readRequestOrigin` are core's (`readRequestOrigin`
-  answers `null` for a host that is no host). The consent decision still reads `Host` only. Discovery documents vary
-  on `x-forwarded-host` too.
-- `getRequestOrigins(config, path)` is exported from `@softure-ai/mcp-access/next`. Needs `@softure-ai/core` 0.1.8.
 - What an adopting app wrote around the endpoint ships with the package (#315):
   - `toolResult`, `toolError` and `withToolErrors(work, { hints, label })` (`/server`): a thrown error reaches the
     assistant only as a `PublicError` message or a hint, and the log only by kind, never with its SQL.
@@ -29,6 +23,14 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   - `pruneMcpAccess(ctx)` (`/server`) and the `softure-mcp prune` command (bin, `/cli`) for a daily job such as a
     deploy `maintain` hook.
 
+## 0.1.12
+
+- Without a `resolveAppOrigin` option, the app origin comes from core's `resolveAppOrigin` (#311): a listed origin
+  from the config's `origins` block the request was sent to, else `appOrigin`; `origins.trustRequestHost` replaces
+  `resolveAppOrigin: readRequestOrigin`. `readRequestHost` and `readRequestOrigin` are core's (`readRequestOrigin`
+  answers `null` for a host that is no host). The consent decision still reads `Host` only. Discovery documents vary
+  on `x-forwarded-host` too.
+- `getRequestOrigins(config, path)` is exported from `@softure-ai/mcp-access/next`. Needs `@softure-ai/core` 0.1.8.
 ## 0.1.11
 
 - The consent decision accepts a form whose `Origin` host is the host the request was sent to
