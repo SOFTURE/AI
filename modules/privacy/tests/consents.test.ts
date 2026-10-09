@@ -181,6 +181,23 @@ describe("importConsent", () => {
     expect(await listConsents(test.ctx, subject)).toEqual([]);
   });
 
+  it("stamps a backdated consent with the version in force at recordedAt when the document has a history", async () => {
+    const history = [
+      { date: "2026-01-15", summary: "First version." },
+      { date: "2026-09-01", summary: "Added the newsletter." },
+    ];
+    const historied = await createTestPrivacy(createConfig({ documents: [{ id: "privacy-policy", history }] }));
+    try {
+      const imported = await importConsent(historied.ctx, { subject, purpose: "launch", granted: true, document: "privacy-policy", source: "waitlist-import", recordedAt: EARLIER });
+      expect(imported).toMatchObject({ ok: true, value: { document: { id: "privacy-policy", version: "2026-01-15" } } });
+      const beforeHistory = new Date("2025-12-01T12:00:00Z");
+      const older = await importConsent(historied.ctx, { subject, purpose: "news", granted: true, document: "privacy-policy", source: "waitlist-import", recordedAt: beforeHistory });
+      expect(older).toMatchObject({ ok: true, value: { document: { id: "privacy-policy", version: "2026-09-01" } } });
+    } finally {
+      await historied.database.close();
+    }
+  });
+
   it("accepts the clock's now itself", async () => {
     expect(await importConsent(test.ctx, { subject, purpose: "launch", granted: false, source: "unsubscribe", recordedAt: NOW })).toMatchObject({ ok: true, value: { recordedAt: NOW } });
   });

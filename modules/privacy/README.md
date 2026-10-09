@@ -28,7 +28,10 @@ their own document frame and footer.
   `@softure-ai/auth`; other modules (the waitlist) record their own scopes.
 - **Copying an account between databases.** `copyAccount({ from, to, userId })` copies one account
   with every row it owns, found through foreign keys, with exact values; a verified dry run by
-  default (section 11).
+  default. `createCopyAccountScript()` in `/scripts` runs it as an ops command (section 11).
+- **Legal documents with their history.** A document is declared with its versions in force, or
+  with its change history, from which the version follows; `getDocumentVersionAt` answers the
+  version in force on a past day, for a backdated consent.
 - **The legal document shell.** `LegalDocument`, `LegalSection` and `LegalFooter` render the app's
   terms and privacy policy: version, effective date, table of contents, change history.
 
@@ -40,7 +43,8 @@ their own document frame and footer.
 npm install @softure-ai/privacy @softure-ai/auth @softure-ai/security @softure-ai/core @softure-ai/db @softure-ai/ui drizzle-orm
 ```
 
-Peer dependencies: `next` 16, `react` 19, `drizzle-orm`. The module depends on `auth` (the account
+Peer dependencies: `next` 16, `react` 19, `drizzle-orm`; `@softure-ai/ops` only for the
+copy-account script in `@softure-ai/privacy/scripts` (section 11). The module depends on `auth` (the account
 and the session) and `security` (rate limits): a configuration without them fails at startup.
 
 ## 3. Configuration
@@ -57,7 +61,13 @@ auth({ ... }),
 auth({ onRegistered: recordRegistrationConsent() }), // from @softure-ai/privacy/server
 privacy({
   documents: [
-    { id: "terms", version: "2026-10-01" },
+    {
+      id: "terms",
+      history: [
+        { date: "2026-10-01", summary: "Added the newsletter." }, // the version in force: 2026-10-01
+        { date: "2026-01-15", summary: "First version." },
+      ],
+    },
     { id: "privacy-policy", version: "2026-10-01" },
   ],
   contributors: [{ id: "profile", exportUserData: exportProfile, deleteUserData: deleteProfile }],
@@ -68,9 +78,10 @@ privacy({
 | --- | --- | --- | --- |
 | `contributors` | `AppPrivacyContributor[]` | `[]` | The app's own data: `{ id, exportUserData?, deleteUserData? }`, at least one function each. |
 | `contributors[].id` | `string` | required | Kebab-case, at most 64 characters, unique, and not the id of an enabled module: it is the key of the contributor's part of the export. |
-| `documents` | `{ id, version }[]` | `[]` | The app's legal documents and the versions in force. A consent names a document by id and privacy records this version with it. Change `version` whenever the published text changes (a date such as `2026-10-01` works well). |
+| `documents` | `{ id, version?, history? }[]` | `[]` | The app's legal documents and the versions in force. A consent names a document by id and privacy records this version with it. Change `version` whenever the published text changes (a date such as `2026-10-01` works well), or add a `history` entry. |
 | `documents[].id` | `string` | required | Kebab-case, at most 64 characters, unique, e.g. `terms`, `privacy-policy`. |
-| `documents[].version` | `string` | required | 1-32 letters, digits, `.`, `_` or `-`. |
+| `documents[].version` | `string` | required without `history` | 1-32 letters, digits, `.`, `_` or `-`. With `history` it may be left out; given, it must equal the newest entry's version, so a forgotten bump fails at startup. |
+| `documents[].history` | `{ date, summary, version? }[]` | none | Every published text, in any order; at least one entry. `date` (`YYYY-MM-DD`, unique) is the day it takes effect, `summary` says what changed, `version` defaults to the date. The version in force is the newest entry's. Add an entry on the day its text takes effect: until then `getDocumentVersionAt(config, id, now)` answers the earlier version, but consents are stamped with the newest one. |
 | `export.maxBytes` | `number` | `10485760` (10 MiB) | The largest export, in bytes of JSON (1 KiB to 100 MiB). A larger one is refused with `privacy.export_too_large`. |
 | `export.fileName` | `string` | `account-data` | The download's name before the date. |
 | `routes` | `{ account, export, afterDelete }` | `/account/privacy`, `/api/privacy/export`, `/` | Where the page and the route are mounted, and where a deleted account lands. |
@@ -143,8 +154,15 @@ records a consent or withdrawal at the time it was given, for an app that moves 
 the ledger (the waitlist's `importSignups` uses it). `recordedAt` must not be after now;
 `documentVersion` (1 to 64 visible ASCII characters, only with `document`) records the version the
 person agreed to instead of the configured one, so an older text stays an older-version consent
-(`hasConsent` false, and the next consent records the current version). It writes every call: a
-caller that may run twice checks `listConsents` first.
+(`hasConsent` false, and the next consent records the current version). Without `documentVersion`,
+a document declared with a `history` records the version in force at `recordedAt`, or the
+configured one when `recordedAt` precedes the history. It writes every call: a caller that may run
+twice checks `listConsents` first.
+
+**The version at a date.** `getDocumentVersionAt(config, id, at)` (`/server`) is the version in
+force on a calendar day (`"2026-05-31"`) or at an instant (a `Date`, read as the day in the
+config's `timezone`): the newest history entry dated on or before it. It is `undefined` before the
+first entry; a document declared without `history` answers its one version for any day.
 
 **Registration.** `recordRegistrationConsent({ documents? })` is an `onRegistered` hook for auth:
 when the app keeps `requireConsent` on, it records one row per document (purpose = the document's
@@ -191,6 +209,11 @@ export default function TermsPage() {
   );
 }
 ```
+
+With a `history` in the config, pass the declaration instead of `version`, `effectiveFrom` and
+`changes`: `document={getLegalDocument(config, "terms")}` renders the version line with the newest
+entry's date, and the history newest first (an entry whose version is its date shows the date
+alone). `changes`, given, still replaces the declared history, for summaries the app translates.
 
 An app whose page frame already shows the title and its own "in force" sentence leaves out `title`
 and passes `meta={null}` (or its own node, `meta={<p>…</p>}`) instead of `version` and
@@ -363,6 +386,37 @@ try {
   lacks is written as NULL instead, and counted in the report.
 
 The report lists every table the account reaches, in insert order, with its row count.
+
+**As an ops command.** `createCopyAccountScript({ exclude?, include?, onMissingReference? })` in
+`@softure-ai/privacy/scripts` is the same copy as a safe ops script (`@softure-ai/ops/scripts`):
+it copies into the app's own database (the one the ops helper opens) from the database at
+`--from`, which it only reads. Name the account by `--user=<id>` or `--email=<address>` (looked up
+in the source). Without `--commit` it is a dry run: everything is copied and verified, then rolled
+back. The report gives `before` and `after` (whether the target has the account, and the copied
+tables); a refusal names the error and its detail and writes nothing.
+
+```ts
+// scripts/ops/copy-account.ts (bundled and run like the migrate step, @softure-ai/ops README)
+import { runOpsMain } from "@softure-ai/ops/scripts";
+import { createCopyAccountScript } from "@softure-ai/privacy/scripts";
+import * as configModule from "../../softure.config";
+
+const script = createCopyAccountScript({
+  exclude: ["auth.sessions"],
+  include: [{ table: "waitlist.signups", column: "email", matches: "email" }],
+});
+void runOpsMain(script, configModule);
+```
+
+```bash
+# In the target's container: the source URL comes from a file, so its password stays out of argv.
+node ops/copy-account.mjs --from-file=/run/secrets/source-database-url --email=ada@example.com
+node ops/copy-account.mjs --from-file=/run/secrets/source-database-url --email=ada@example.com --commit
+```
+
+To copy between two databases neither of which is the app's, run it with the target's
+`DATABASE_URL`. Identity and serial sequences of the target can move past the copied ids even on a
+dry run, since a sequence never rolls back: a gap in ids, no rows.
 
 ## 12. Limitations
 

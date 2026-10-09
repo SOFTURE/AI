@@ -29,7 +29,7 @@ export {
   type RegisteredContributor,
 } from "./contributors.js";
 export { eraseUserData, type EraseUserDataResult } from "./erase.js";
-export { findLegalDocument, getLegalDocument, getLegalDocuments } from "./legal-documents.js";
+export { findLegalDocument, getDocumentVersionAt, getLegalDocument, getLegalDocuments } from "./legal-documents.js";
 export { getPrivacyOptions, getPrivacyRoutes, type PrivacyRoutes } from "./options.js";
 export { recordRegistrationConsent, REGISTRATION_SOURCE, type RegistrationConsentOptions } from "./registration-consent.js";
 export {

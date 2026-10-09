@@ -9,7 +9,7 @@ import type { ConsentRecord, ConsentState, ConsentSubject } from "../contract.js
 import { CONTRIBUTOR_ID_PATTERN } from "../options.js";
 import { consents } from "../schema.js";
 import type { PrivacyContext } from "./context.js";
-import { findLegalDocument } from "./legal-documents.js";
+import { findLegalDocument, getDocumentVersionAt } from "./legal-documents.js";
 
 const MAX_NAME_LENGTH = 64;
 const MAX_EMAIL_LENGTH = 254;
@@ -38,7 +38,9 @@ export interface ImportConsentInput extends RecordConsentInput {
   readonly recordedAt: Date;
   /**
    * The version of `document` the person agreed to, when it is not the configured one (1-64 visible characters).
-   * An older version stays an older-version consent: `hasConsent` reads it as not current.
+   * An older version stays an older-version consent: `hasConsent` reads it as not current. Left out for
+   * a document declared with a history, it is the version in force at `recordedAt` (`getDocumentVersionAt`),
+   * or the configured one when `recordedAt` precedes the history.
    */
   readonly documentVersion?: string;
 }
@@ -134,7 +136,13 @@ export async function importConsent(ctx: PrivacyContext, input: ImportConsentInp
   const { recordedAt, documentVersion, ...record } = input;
   if (Number.isNaN(recordedAt.getTime()) || recordedAt > ctx.clock.now()) return err("privacy.consent_invalid");
   if (documentVersion !== undefined && (input.document === undefined || !DOCUMENT_VERSION.test(documentVersion))) return err("privacy.consent_invalid");
-  return insertConsent(ctx, record, recordedAt, documentVersion);
+  return insertConsent(ctx, record, recordedAt, documentVersion ?? findVersionAt(ctx, input.document, recordedAt));
+}
+
+/** The version of a declared document with a history in force at `at`; undefined leaves the declared version. */
+function findVersionAt(ctx: PrivacyContext, documentId: string | undefined, at: Date): string | undefined {
+  if (documentId === undefined || findLegalDocument(ctx.config, documentId) === undefined) return undefined;
+  return getDocumentVersionAt(ctx.config, documentId, at);
 }
 
 /** The current state of one purpose for one subject (its latest record), or null when none was recorded. */

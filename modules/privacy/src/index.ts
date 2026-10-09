@@ -31,7 +31,8 @@ export const privacy = defineModule({
   manifest: {
     id: MODULE_ID,
     version: "0.1.11",
-    dependsOn: { auth: "^0.1.0", security: "^0.1.0" },
+    // ops only for the copy-account script in /scripts.
+    dependsOn: { auth: "^0.1.0", security: "^0.1.0", ops: "^0.1.0?" },
     dbSchema: "privacy",
     tables: ["consents"],
     env: [],
@@ -68,6 +69,7 @@ export {
   DOCUMENT_VERSION_PATTERN,
   type AppPrivacyContributor,
   type LegalDocumentDeclaration,
+  type LegalDocumentRevision,
   type PrivacyOptions,
   type PrivacyOptionsInput,
 } from "./options.js";

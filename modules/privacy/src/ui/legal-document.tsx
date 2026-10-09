@@ -72,6 +72,21 @@ export type LegalDocumentSlot =
   | "change"
   | "changeMeta";
 
+/** One published text of a declared document, as `getLegalDocument(config, id).history` lists it. */
+export interface LegalDocumentRevisionContent {
+  readonly version: string;
+  /** ISO date, `YYYY-MM-DD`, the day this text takes effect. */
+  readonly date: string;
+  readonly summary: ReactNode;
+}
+
+/** A declared document: `getLegalDocument(config, id)`, or any value of the same shape. */
+export interface LegalDocumentContent {
+  readonly version: string;
+  /** Newest first; empty for a document declared with a version alone. */
+  readonly history: readonly LegalDocumentRevisionContent[];
+}
+
 /** The line under the title: the module's "Version X · in force since <date>", or the app's own. */
 export type LegalDocumentMeta =
   | {
@@ -80,12 +95,24 @@ export type LegalDocumentMeta =
       /** ISO date, `YYYY-MM-DD`, from which this version applies. */
       readonly effectiveFrom: string;
       readonly meta?: undefined;
+      readonly document?: undefined;
+    }
+  | {
+      /**
+       * The declared document, `getLegalDocument(config, id)`: the version line comes from its version
+       * and newest history entry, and the change history from its history unless `changes` is given.
+       */
+      readonly document: LegalDocumentContent;
+      readonly version?: undefined;
+      readonly effectiveFrom?: undefined;
+      readonly meta?: undefined;
     }
   | {
       /** The app's own line in place of the module's; `null` renders none. */
       readonly meta: ReactNode;
       readonly version?: undefined;
       readonly effectiveFrom?: undefined;
+      readonly document?: undefined;
     };
 
 /** The element of the contents title; the navigation is named by it whatever it is. */
@@ -157,12 +184,43 @@ function formatChangeMeta(change: LegalChange, messages: PrivacyMessages, locale
   return parts.length === 0 ? null : parts.join(" · ");
 }
 
+/** The declared history as change entries; a version that is the entry's date is shown as the date alone. */
+function toChanges(document: LegalDocumentContent): LegalChange[] {
+  return document.history.map((revision) => ({
+    ...(revision.version === revision.date ? {} : { version: revision.version }),
+    date: revision.date,
+    summary: revision.summary,
+  }));
+}
+
+/** The version line: from the props, from the declared document, or the app's own node. */
+function renderMeta(props: LegalDocumentProps, slotClass: string | undefined, messages: PrivacyMessages, locale: Locale): ReactNode {
+  const copy = messages.legal;
+  if (props.document !== undefined) {
+    const newest = props.document.history[0];
+    return (
+      <p className={slotClass}>
+        {copy.version} {props.document.version}
+        {newest === undefined ? null : ` · ${copy.effectiveFrom} ${formatLegalDate(newest.date, locale)}`}
+      </p>
+    );
+  }
+  if (props.version !== undefined) {
+    return (
+      <p className={slotClass}>
+        {copy.version} {props.version} · {copy.effectiveFrom} {formatLegalDate(props.effectiveFrom, locale)}
+      </p>
+    );
+  }
+  return props.meta === null || props.meta === undefined ? null : <div className={slotClass}>{props.meta}</div>;
+}
+
 export function LegalDocument(props: LegalDocumentProps) {
   const {
     title,
     intro,
     sections,
-    changes = [],
+    changes = props.document === undefined ? [] : toChanges(props.document),
     listChangesInContents = false,
     contentsTitleAs: ContentsTitle = "h2",
     changesId = DEFAULT_CHANGES_ID,
@@ -177,16 +235,7 @@ export function LegalDocument(props: LegalDocumentProps) {
   // Generated, so two documents on one page do not share it; nothing links to it.
   const contentsTitleId = `${useId()}-contents-title`;
   const copy = messages.legal;
-  const meta =
-    props.version === undefined ? (
-      props.meta === null || props.meta === undefined ? null : (
-        <div className={slot("meta")}>{props.meta}</div>
-      )
-    ) : (
-      <p className={slot("meta")}>
-        {copy.version} {props.version} · {copy.effectiveFrom} {formatLegalDate(props.effectiveFrom, locale)}
-      </p>
-    );
+  const meta = renderMeta(props, slot("meta"), messages, locale);
   const hasTitle = title !== undefined && title !== null;
   const hasHeader = hasTitle || meta !== null || intro !== undefined;
   const contents = [
