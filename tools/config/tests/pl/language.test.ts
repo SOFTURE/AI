@@ -27,6 +27,18 @@ describe("findPolishText", () => {
     expect(findPolishText("docs/a.md", "Source: `src/app/nie-pamietam-hasla/` and `haslo`.\n")).toEqual([]);
   });
 
+  it("ignores a span opened and closed by two backticks, and reports text after an unclosed one", () => {
+    expect(findPolishText("docs/a.md", "Run ``nie tak`` now.\n")).toEqual([]);
+    expect(findPolishText("docs/a.md", "Open ` and then nie here\n")).toEqual([{ line: 1, reason: 'Polish word "nie"' }]);
+  });
+
+  it("reads a line of thousands of backticks in linear time", () => {
+    const started = performance.now();
+    expect(findPolishText("docs/a.md", `${"`".repeat(50_000)}x\n`.repeat(2))).toEqual([]);
+    expect(findPolishText("docs/a.md", "` ".repeat(50_000))).toEqual([]);
+    expect(performance.now() - started).toBeLessThan(1_000);
+  });
+
   it("reports the same words in Markdown outside a code span", () => {
     expect(findPolishText("docs/a.md", "Source: nie pamietam hasla.\n")).toEqual([
       { line: 1, reason: 'Polish word "nie"' },

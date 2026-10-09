@@ -36,9 +36,25 @@ export function isExempt(path: string): boolean {
   return EXEMPT_FILE_NAMES.has(fileName) || segments.slice(0, -1).some((folder) => EXEMPT_FOLDERS.includes(folder));
 }
 
-/** Markdown inline code spans quote real paths and slugs from other repositories; they are not prose. */
+/**
+ * Markdown inline code spans quote real paths and slugs from other repositories; they are not prose.
+ * A span is a run of backticks, text without backticks and a run of the same length. One pass over
+ * the tokens, so a line full of backticks costs linear time (a backreference regex is polynomial).
+ */
 function removeCodeSpans(line: string): string {
-  return line.replace(/(`+)[^`]*?\1/g, " ");
+  const tokens = line.split(/(`+)/);
+  const kept: string[] = [];
+  for (let index = 0; index < tokens.length; index += 1) {
+    const opener = tokens[index] ?? "";
+    const closer = tokens[index + 2];
+    if (opener.startsWith("`") && closer === opener) {
+      kept.push(" ");
+      index += 2;
+    } else {
+      kept.push(opener);
+    }
+  }
+  return kept.join("");
 }
 
 /** Lines of `text` that contain Polish, the first reason per line. `path` decides whether Markdown code spans are skipped. */
