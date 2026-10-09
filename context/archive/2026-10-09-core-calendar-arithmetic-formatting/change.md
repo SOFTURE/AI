@@ -35,8 +35,8 @@ A reviewer checks the diff of the six packages, the new tests, changelogs and ve
 
 - npm today: core 0.1.7, billing 0.1.10, analytics 0.1.9, blog 0.1.10, privacy 0.1.10, mcp-access 0.1.11, the same
   as the workspace, so every touched package takes a patch bump.
-- Issue #311 (core) runs in parallel and also bumps core: both share one unreleased core version; whoever merges
-  second folds its entry into the existing section.
+- Issue #311 (core) ran in parallel and took core 0.1.8, released before this change merged: this change ships in
+  core 0.1.9, analytics 0.1.11 and mcp-access 0.1.13.
 - `release-rules` refuses an internal range the workspace version does not satisfy: the core bump and the module
   ranges go together.
 

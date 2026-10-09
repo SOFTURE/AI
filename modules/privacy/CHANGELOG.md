@@ -7,7 +7,7 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 ## 0.1.11
 
 - `formatLegalDate` (`/ui`) uses core's `isCalendarDay` and `formatCalendarDay`; same output, other text still
-  shown as given. Requires `@softure-ai/core` `^0.1.8` (#312).
+  shown as given. Requires `@softure-ai/core` `^0.1.9` (#312).
 
 ## 0.1.10
 

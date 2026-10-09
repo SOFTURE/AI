@@ -10,7 +10,7 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   `1 234,56 €` (was `1234,56 €`); en and amounts below 1000 are unchanged (#312).
 - Plan periods, `parseDay` and the `/ui` day formatters use core's day arithmetic and `formatCalendarDay`; the
   results are the same. `CURRENCY_MINOR_UNIT_DIGITS` is core's table, still exported here. Requires
-  `@softure-ai/core` `^0.1.8`.
+  `@softure-ai/core` `^0.1.9`.
 
 ## 0.1.10
 

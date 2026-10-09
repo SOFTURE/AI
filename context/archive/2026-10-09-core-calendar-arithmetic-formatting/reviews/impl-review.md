@@ -19,8 +19,8 @@ Verdict: **approve** (no open blocking findings; two findings fixed in the chang
   (`pages/dates.ts`, `quality/rules/structure.ts`), privacy (`ui/legal-document.tsx`), mcp-access
   (`next/format.ts`) delegate; every exported name stays.
 - D6: charts and deploy untouched.
-- D7: core 0.1.8; billing 0.1.11, analytics 0.1.10, blog 0.1.11, privacy 0.1.11, mcp-access 0.1.12 in
-  `package.json`, `module.json` and the manifest in `src/index.ts`; ranges `^0.1.8`; lockfile from `npm install`.
+- D7: core 0.1.9; billing 0.1.11, analytics 0.1.11, blog 0.1.11, privacy 0.1.11, mcp-access 0.1.13 in
+  `package.json`, `module.json` and the manifest in `src/index.ts`; ranges `^0.1.9`; lockfile from `npm install`.
 - D8: the 28 core tests failed before the code (missing exports), then passed.
 
 ## Findings

@@ -60,16 +60,17 @@ day formatting (`formatDateTime` in mcp-access stays).
   loops; turning them into strings adds parsing to a hot path for no shared semantics (a concurrent change also
   edits charts). deploy counts 24-hour periods between instants, not calendar days, and would take a runtime
   dependency on core for one ISO slice. Both are recorded on the issue.
-- **D7 Versions.** core 0.1.7 → 0.1.8; billing 0.1.11, analytics 0.1.10, blog 0.1.11, privacy 0.1.11, mcp-access
-  0.1.12 (`package.json`, `module.json`, the manifest version where a module has one); the five ranges become
-  `^0.1.8`; lockfile through `npm install`.
+- **D7 Versions.** core 0.1.9; billing 0.1.11, analytics 0.1.11, blog 0.1.11, privacy 0.1.11, mcp-access 0.1.13
+  (`package.json`, `module.json`, the manifest version where a module has one); the five ranges become `^0.1.9`;
+  lockfile through `npm install`. (First planned as core 0.1.8; #311 took that version and it was released before
+  this change merged, so the entries moved to the next patch.)
 - **D8 Tests first.** `foundation/core/tests/calendar-arithmetic.test.ts` and `format.test.ts` are written before
   the code and seen failing (missing exports). Existing module tests pin the unchanged results; the billing price
   test changes only for D4.
 
 ## Phase 1: core
 
-- Code: `calendar-day.ts`, `format.ts`, `currency-digits.ts`, `index.ts`. Tests: D8. Docs: README, CHANGELOG 0.1.8.
+- Code: `calendar-day.ts`, `format.ts`, `currency-digits.ts`, `index.ts`. Tests: D8. Docs: README, CHANGELOG 0.1.9.
 
 ## Phase 2: modules
 

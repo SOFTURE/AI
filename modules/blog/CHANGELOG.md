@@ -7,7 +7,7 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 ## 0.1.11
 
 - `formatDay` (`/pages`) and the `stale` quality rule use core's `formatCalendarDay` and `calendarDaysBetween`;
-  same output. Requires `@softure-ai/core` `^0.1.8` (#312).
+  same output. Requires `@softure-ai/core` `^0.1.9` (#312).
 
 ## 0.1.10
 

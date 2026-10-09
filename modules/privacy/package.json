@@ -53,7 +53,7 @@
   },
   "dependencies": {
     "@softure-ai/auth": "^0.1.0",
-    "@softure-ai/core": "^0.1.8",
+    "@softure-ai/core": "^0.1.9",
     "@softure-ai/db": "^0.1.0",
     "@softure-ai/security": "^0.1.0",
     "zod": "^4.6.5"
