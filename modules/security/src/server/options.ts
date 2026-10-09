@@ -22,3 +22,18 @@ export function getBucket(options: SecurityOptions, name: string): RateLimitBuck
   }
   return bucket;
 }
+
+/** One configured bucket as `listRateLimitBuckets` returns it. */
+export interface RateLimitBucketEntry extends RateLimitBucket {
+  readonly name: string;
+}
+
+/**
+ * Every bucket the app configured, in configuration order, with what it counts by (`key`, `undefined`
+ * when the definition does not say): `listRateLimitBuckets(config).filter((bucket) => bucket.key === "ip")`
+ * names the IP-keyed processing a privacy policy lists. Throws when the module is not enabled.
+ */
+export function listRateLimitBuckets(config: SoftureConfig): readonly RateLimitBucketEntry[] {
+  const { buckets } = getSecurityOptions(config);
+  return Object.entries(buckets).map(([name, bucket]) => ({ name, limit: bucket.limit, windowMinutes: bucket.windowMinutes, key: bucket.key }));
+}

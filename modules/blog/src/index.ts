@@ -2,6 +2,7 @@
 // contract and the tables. Parsing article files, the store, the publish run and the read functions
 // are in `@softure-ai/blog/server`, the `softure-blog` command in `/cli`.
 import { defineModule, resolveMigrationsDir } from "@softure-ai/core";
+import type { RateLimitBucketInput } from "@softure-ai/security";
 import { blogMessages } from "./messages/index.js";
 import { BLOG_REFRESH_RATE_LIMIT_BUCKET, BLOG_REFRESH_SECRET_ENV } from "./discovery/refresh.js";
 import { blogOptionsSchema } from "./options.js";
@@ -15,8 +16,8 @@ export const MODULE_ID = "blog";
  * publish sends one; the limit leaves room for a few retries and stops guessing.
  */
 export const BLOG_RATE_LIMIT_BUCKETS = {
-  [BLOG_REFRESH_RATE_LIMIT_BUCKET]: { limit: 10, windowMinutes: 15 },
-} as const;
+  [BLOG_REFRESH_RATE_LIMIT_BUCKET]: { limit: 10, windowMinutes: 15, key: "ip" },
+} as const satisfies Readonly<Record<string, RateLimitBucketInput>>;
 
 /**
  * Enables the blog in `softure.config.ts`: `blog()`, or with options

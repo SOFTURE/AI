@@ -63,7 +63,7 @@ describe("the blog module", () => {
       modules: [blog({ routes: { refresh: "/internal/blog-refresh/" } })],
     });
     expect(getBlogRefreshPath(config)).toBe("/internal/blog-refresh");
-    expect(BLOG_RATE_LIMIT_BUCKETS).toEqual({ [BLOG_REFRESH_RATE_LIMIT_BUCKET]: { limit: 10, windowMinutes: 15 } });
+    expect(BLOG_RATE_LIMIT_BUCKETS).toEqual({ [BLOG_REFRESH_RATE_LIMIT_BUCKET]: { limit: 10, windowMinutes: 15, key: "ip" } });
     expect(blog.manifest.env.map((variable) => variable.name)).toEqual(["BLOG_REFRESH_SECRET"]);
   });
 
@@ -267,5 +267,12 @@ describe("the blog module", () => {
     } finally {
       await test.database.close();
     }
+  });
+});
+
+describe("the rate limit bucket defaults (#328)", () => {
+  it("declare what each bucket is keyed by", () => {
+    const kinds = Object.fromEntries(Object.entries(BLOG_RATE_LIMIT_BUCKETS).map(([name, bucket]) => [name, bucket.key]));
+    expect(kinds).toEqual({ "blog-refresh": "ip" });
   });
 });
