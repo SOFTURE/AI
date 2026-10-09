@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/billing",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "SOFTURE AI billing module: trial, paid and read-only entitlements from a pure state machine, billing.entitlements apart from auth.users, a write guard for server actions, access badge and notice components with date and day-count formatters, a privacy contributor, reminder mail before access ends over @softure-ai/mailing, manual invoice requests handed to the owner once and expired after a configurable age, grant-plan, revoke-grant and extend-trial ops scripts, and import-entitlements and pin-trials ops scripts for accounts that exist before billing is turned on.",
   "license": "MIT",
   "type": "module",
@@ -63,7 +63,7 @@
   },
   "dependencies": {
     "@softure-ai/auth": "^0.1.0",
-    "@softure-ai/core": "^0.1.7",
+    "@softure-ai/core": "^0.1.9",
     "@softure-ai/db": "^0.1.0",
     "@softure-ai/ops": "^0.1.0",
     "@softure-ai/security": "^0.1.0",

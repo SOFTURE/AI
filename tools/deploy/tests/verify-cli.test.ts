@@ -69,6 +69,23 @@ describe("softure-deploy verify", () => {
     expect(err.join("")).toBe("verify: 1 of 2 routes failed.\n");
   });
 
+  it("prints a failed warn route as WARN and exits 0 when only warnings failed", async () => {
+    writeConfig({ verify: { routes: [{ path: "/" }, { path: "/legacy", severity: "warn" }] } });
+    expect(await runCli(["verify", baseUrl, "--concurrency=1"], makeIo())).toBe(0);
+    expect(out.join("")).toContain("WARN    404     /legacy  status 404, expected 200\n");
+    expect(out.join("")).toContain(`verify: 2 routes at ${baseUrl}, 1 passed, 0 failed, 1 warned\n`);
+    expect(err).toEqual([]);
+  });
+
+  it("exits 0 with a warn origin row when originSeverity is warn", async () => {
+    writeConfig({ verify: { originSeverity: "warn", routes: [{ path: "/" }] } });
+    // The local server stands in for an origin whose firewall lets anyone in.
+    const port = new URL(baseUrl).port;
+    expect(await runCli(["verify", baseUrl, `--origin=127.0.0.1:${port}`], makeIo())).toBe(0);
+    expect(out.join("")).toContain(`WARN    -       origin  127.0.0.1:${port} accepted a direct connection`);
+    expect(err).toEqual([]);
+  });
+
   it("adds a failed tls row and exits 1 when tlsMinDays is set for an http URL", async () => {
     writeConfig({ verify: { tlsMinDays: 14, routes: [{ path: "/" }] } });
     expect(await runCli(["verify", baseUrl], makeIo())).toBe(1);

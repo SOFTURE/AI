@@ -1,6 +1,6 @@
 // The days a page shows for a text, in the app's time zone. JSON-LD takes the same days, so the dates
 // a search engine compares (`dateModified` against the visible update) cannot drift apart.
-import { toCalendarDay, type Locale } from "@softure-ai/core";
+import { formatCalendarDay, toCalendarDay, type Locale } from "@softure-ai/core";
 import type { BlogArticle } from "../contract.js";
 
 export interface ArticleDates {
@@ -33,6 +33,5 @@ export function getArticleDates(article: Pick<BlogArticle, "slug" | "publishedAt
 
 /** A `YYYY-MM-DD` day as the locale writes it in full (en: "October 4, 2026"). */
 export function formatDay(day: string, locale: Locale): string {
-  // The day is already a calendar day: format it at UTC midnight in UTC, so no zone shifts it.
-  return new Intl.DateTimeFormat(locale, { dateStyle: "long", timeZone: "UTC" }).format(new Date(`${day}T00:00:00Z`));
+  return formatCalendarDay(day, locale, "long");
 }
