@@ -6,6 +6,11 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## 0.1.8
 
+- Request origins (#311): `readRequestHost`, `readRequestOrigin`, `readForwardedProto`, `parseOrigin`,
+  `getTrustedOrigins` and `resolveAppOrigin(config, request, { trustedOrigins })`, one rule for every module that
+  builds an absolute URL for a request (README, "Request origins"). `X-Forwarded-Host` only ever picks a listed origin.
+- The config takes `origins: { trustedOrigins, trustRequestHost }` (both optional; defaults `[]` and `false`), read by
+  auth, agent-ready, mcp-access and analytics. `SoftureConfig.origins` is always filled by `defineSoftureConfig`.
 - Day arithmetic on `YYYY-MM-DD` days with documented semantics: `isCalendarDay`, `addCalendarDays`,
   `addCalendarMonths(day, months, { endOfMonth: "clamp" | "overflow" })` (clamp by default: Jan 31 + 1 month =
   Feb 28/29), `calendarDaysBetween` and `wholeMonthsBetween` (#312).

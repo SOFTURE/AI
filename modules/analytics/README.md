@@ -131,7 +131,7 @@ analytics({
 
 | Option | Default | Rule |
 | --- | --- | --- |
-| `origins` | `[]` | up to 16 http(s) origins besides `appOrigin` (no path, query or credentials), reduced to their origin |
+| `origins` | `[]` | up to 16 http(s) origins besides `appOrigin` and the config's `origins.trustedOrigins` (no path, query or credentials), reduced to their origin; prefer the config's block, which every module reads |
 | `channel.param` | `"z"` | lowercase letters, digits, `-` or `_`, starting with a letter, at most 32 characters |
 | `channel.pattern` | `DEFAULT_CHANNEL_PATTERN` | a `RegExp` without the `g` or `y` flag (they keep state between tests) |
 | `channel.maxLength` | `32` | an integer from 1 to `MAX_CHANNEL_LENGTH` (64) |

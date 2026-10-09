@@ -6,6 +6,9 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## 0.1.10
 
+- The first-party origins include the config's `origins.trustedOrigins` (between `appOrigin` and
+  `analytics({ origins })`), and `Host` and `X-Forwarded-Proto` are read with core's rule (#311). Needs
+  `@softure-ai/core` 0.1.8.
 - The funnel's days come from core's `toCalendarDay` and `addCalendarDays` instead of local copies; `formatDay`
   (`/server`) stays and returns the same days. Requires `@softure-ai/core` `^0.1.8` (#312).
 

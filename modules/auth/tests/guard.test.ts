@@ -155,6 +155,16 @@ describe("createAuthGuard", () => {
       expect(multiHost(forwarded({ "x-forwarded-host": "evil.example", cookie: "__Host-softure_session=abc" }))).toBeNull();
     });
 
+    it("keeps the login redirect on an origin listed only in the config's origins block (#311)", () => {
+      const listed = createAuthGuard({ ...config, origins: { trustedOrigins: ["https://example.com"], trustRequestHost: false } }, { protect: ["/account"] });
+      expect(listed(forwarded({ "x-forwarded-host": "example.com", "x-forwarded-proto": "https" }))?.headers.get("location")).toBe(
+        "https://example.com/login?next=%2Faccount%3Ftab%3D1",
+      );
+      expect(listed(forwarded({ "x-forwarded-host": "evil.example", "x-forwarded-proto": "https" }))?.headers.get("location")).toBe(
+        "https://app.example.com/login?next=%2Faccount%3Ftab%3D1",
+      );
+    });
+
     it.each(["example.com", "https://example.com/path", "https://example.com?x=1", "ftp://example.com", "https://user@example.com", ""])(
       "refuses the trusted origin %j at creation",
       (origin) => {

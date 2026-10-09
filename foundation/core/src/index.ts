@@ -39,6 +39,8 @@ export {
   type SoftureDatabaseConfig,
   type SoftureDatabaseHandle,
   type SoftureDatabaseHandleTypes,
+  type SoftureOrigins,
+  type SoftureOriginsInput,
 } from "./config.js";
 export { SoftureConfigError } from "./config-error.js";
 export { withDatabaseOptional } from "./database-requirement.js";
@@ -57,6 +59,17 @@ export {
   type PrivacyContributor,
   type SoftureModule,
 } from "./module.js";
+export {
+  getTrustedOrigins,
+  parseOrigin,
+  readForwardedProto,
+  readRequestHost,
+  readRequestOrigin,
+  resolveAppOrigin,
+  type OriginRequest,
+  type ReadOriginOptions,
+  type ResolveAppOriginOptions,
+} from "./origins.js";
 export { findSiteUrlProvider, getSiteUrls, type SiteUrlProvider, type SiteUrls } from "./site-urls.js";
 export { findSwitchReader, readSwitch, type SwitchReader, type SwitchReading } from "./switches.js";
 export { isVersion, parseVersionRange, satisfiesRange, type Version, type VersionRange } from "./version-range.js";
