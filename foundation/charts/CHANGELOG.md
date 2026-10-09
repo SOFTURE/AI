@@ -4,6 +4,20 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`charts@x.y.z`).
 
+## 0.1.7
+
+- `LegendSwatch` and `SeriesLine` take `tone` and `color` (an app colour, set as `--sft-chart-series`) next to `slot`,
+  which turns optional on `SeriesLine`; `SeriesLine` takes `pattern` (`solid`, `dashed`, `dotted`). `LegendSwatch`
+  takes `faded`, `className`, `style` and `data-*`; `LegendItem` takes `as` (`li`, `div`, `span`), `faded` and
+  `className` (issue #321).
+- `Area`: the filled `areaPath`, tinted in a slot, tone or colour.
+- `CHART_TONES` and `ChartToneName`, an alias of `ChartTone` that does not collide with an app's own type.
+- `layoutSankey` and `Sankey`: a two-sided flow (inputs → hub → outputs) with gaps, spread labels and `solid`, `tint`
+  and `hatch` fills.
+- `BarList`, `getBarListRows` and `renderBarListHtml`: labelled horizontal bars with values, in React or as an HTML
+  string.
+- Without the new options, markup is unchanged; a `SeriesLine` with no slot, tone or colour draws in series 1.
+
 ## 0.1.6
 
 - `ChartCursor` takes `renderReadout(point, index)` (the readout's content, still announced by the package's live
