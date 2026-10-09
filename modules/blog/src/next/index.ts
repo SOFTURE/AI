@@ -13,7 +13,7 @@ export {
   type ListingMetadataInput,
 } from "./metadata.js";
 export { refreshBlogCache } from "./refresh.js";
-export { BLOG_CACHE_TAG, getPublishedArticles, getPublishedTerms, getTextBySlug } from "./data.js";
+export { BLOG_CACHE_TAG, getFeaturedArticles, getPublishedArticles, getPublishedTerms, getStaticPublishedArticles, getTextBySlug } from "./data.js";
 export { createOgFontLoader, loadBrandOgFonts, type OgFontLoaderOptions, type OgFontsResult } from "./og-fonts.js";
 export { BlogArticleOgImage, createBlogArticleOgImage, getOgColors, getOgFontFamily, OG_IMAGE_SIZE, renderArticleOgImage, type OgColors, type OgFont, type BlogArticleOgImageOptions, type RenderArticleOgImageInput } from "./og-image.js";
 export type { OgFontSource, OgFontWeight } from "../options.js";

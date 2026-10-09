@@ -13,6 +13,11 @@
 // text as Markdown; put it before the redirects so a moved or withdrawn text still answers as before:
 //
 //   return (await blogMarkdown(request)) ?? (await blogRedirects(request)) ?? …
+//
+// `createBlogProxy` is both in that order:
+//
+//   const blogProxy = createBlogProxy(softureConfig);
+//   return (await blogProxy(request)) ?? guard(request) ?? NextResponse.next();
 import { systemClock, type SoftureConfig } from "@softure-ai/core";
 import { getConfiguredDatabase } from "@softure-ai/db";
 import { findArticleBySlug, findSlugRedirect, getPublishedArticle, type BlogContext } from "../db/articles.js";
@@ -129,4 +134,22 @@ export function createBlogMarkdown(config: SoftureConfig, options: BlogMarkdownO
     const headers = { ...MARKDOWN_HEADERS, "x-markdown-tokens": String(Math.ceil(body.length / 4)) };
     return new Response(request.method === "HEAD" ? null : body, { status: 200, headers });
   };
+}
+
+export type BlogProxy = (request: Request) => Promise<Response | null>;
+
+export type BlogProxyOptions = BlogRedirectsOptions & Pick<BlogMarkdownOptions, "onError">;
+
+/**
+ * The blog's proxy answer in the order the pieces need (issue #318): Markdown for an agent first
+ * (`createBlogMarkdown`), so a moved or withdrawn text still answers as before, then 301 and 410
+ * (`createBlogRedirects`); `null` when neither answers.
+ */
+export function createBlogProxy(config: SoftureConfig, options: BlogProxyOptions = {}): BlogProxy {
+  const markdown = createBlogMarkdown(config, {
+    ...(options.getContext === undefined ? {} : { getContext: options.getContext }),
+    ...(options.onError === undefined ? {} : { onError: options.onError }),
+  });
+  const redirects = createBlogRedirects(config, options);
+  return async (request) => (await markdown(request)) ?? (await redirects(request));
 }

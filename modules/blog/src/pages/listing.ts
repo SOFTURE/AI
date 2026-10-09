@@ -59,6 +59,20 @@ export function groupByCluster<T extends Pick<BlogArticle, "cluster" | "isPillar
   return rest === undefined ? named : [...named, { cluster: null, label: otherLabel, ...splitClusterLead(rest) }];
 }
 
+export interface FeaturedArticlesOptions {
+  /** At most this many articles; a whole number from 0 up. */
+  readonly limit: number;
+}
+
+/**
+ * Featured articles (issue #318): the pillars first, then the rest, each part in the order it came in
+ * (newest first from `listArticles`), at most `limit`. A bad `limit` is a bug of the caller: `RangeError`.
+ */
+export function selectFeaturedArticles<T extends Pick<BlogArticle, "isPillar">>(articles: readonly T[], options: FeaturedArticlesOptions): T[] {
+  if (!Number.isInteger(options.limit) || options.limit < 0) throw new RangeError(`selectFeaturedArticles: limit must be a whole number from 0 up, not ${String(options.limit)}`);
+  return [...articles.filter((article) => article.isPillar), ...articles.filter((article) => !article.isPillar)].slice(0, options.limit);
+}
+
 /** Terms in the locale's alphabetical order (a letter with a diacritic right after its base letter, not after Z). */
 export function sortTerms<T extends Pick<BlogArticle, "title">>(terms: readonly T[], locale: Locale): T[] {
   return [...terms].sort((a, b) => a.title.localeCompare(b.title, locale));

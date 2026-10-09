@@ -90,8 +90,8 @@ describe("renderArticle: directive plugins", () => {
 
   it("finds directive blocks with their lines, attributes and problems", () => {
     expect(findArticleBlocks(`Intro.\n\n${LINE}\n\n::chart{bad}`, [chartDirective, chartFence])).toEqual([
-      { type: "chart", syntax: "directive", info: 'type="wealth" scenario="w=35&d=300000"', attributes: { type: "wealth", scenario: "w=35&d=300000" }, line: 3, requires: ["current_as_of"] },
-      { type: "chart", syntax: "directive", info: "bad", attributes: null, line: 5, requires: ["current_as_of"] },
+      { type: "chart", syntax: "directive", info: 'type="wealth" scenario="w=35&d=300000"', attributes: { type: "wealth", scenario: "w=35&d=300000" }, line: 3, endLine: 3, content: LINE, requires: ["current_as_of"] },
+      { type: "chart", syntax: "directive", info: "bad", attributes: null, line: 5, endLine: 5, content: "::chart{bad}", requires: ["current_as_of"] },
     ]);
   });
 });

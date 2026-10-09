@@ -132,6 +132,6 @@ export function getFootnoteDefinitions(blocks: readonly Block[]): Map<string, Bl
   return definitions;
 }
 
-function daysBetween(fromIso: string, toIso: string): number {
+export function daysBetween(fromIso: string, toIso: string): number {
   return Math.round((Date.parse(`${toIso}T00:00:00Z`) - Date.parse(`${fromIso}T00:00:00Z`)) / 86_400_000);
 }

@@ -1,6 +1,7 @@
 // `blog({ quality })`: the gate's options, parsed at startup with the rest of the blog's options.
 import { z } from "zod";
 import type { BlockPlugin } from "../render/render-article.js";
+import { factRuleSchema } from "./facts.js";
 import { QUALITY_SEVERITIES } from "./finding.js";
 import { isQualityPlugin, type QualityPlugin } from "./plugin.js";
 import { QUALITY_LANGUAGES } from "./rulesets/types.js";
@@ -9,11 +10,12 @@ const KEBAB = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 function isBlockPlugin(value: unknown): value is BlockPlugin {
   if (typeof value !== "object" || value === null) return false;
-  const candidate = value as { type?: unknown; syntax?: unknown; render?: unknown; markdown?: unknown };
+  const candidate = value as { type?: unknown; syntax?: unknown; render?: unknown; markdown?: unknown; numbers?: unknown };
   return (
     typeof candidate.type === "string" && typeof candidate.render === "function" &&
     (candidate.syntax === undefined || candidate.syntax === "fence" || candidate.syntax === "directive") &&
-    (candidate.markdown === undefined || typeof candidate.markdown === "function")
+    (candidate.markdown === undefined || typeof candidate.markdown === "function") &&
+    (candidate.numbers === undefined || typeof candidate.numbers === "function")
   );
 }
 
@@ -89,6 +91,11 @@ export const qualityOptionsSchema = z.strictObject({
   plugins: z.array(z.custom<QualityPlugin>(isQualityPlugin, "must be a plugin: { name, rules, check }")).default([]),
   /** The block plugins the app renders with (`renderArticle({ blocks })`): their `requires` keys must be in the frontmatter. */
   blocks: z.array(z.custom<BlockPlugin>(isBlockPlugin, "must be a block plugin: { type, render }")).default([]),
+  /** Values the texts quote that the app knows per year (`factRule(...)`); `softure-blog refresh` lists the texts they make due. */
+  facts: z
+    .array(factRuleSchema)
+    .default([])
+    .refine((rules) => new Set(rules.map((rule) => rule.id)).size === rules.length, "fact rule ids must be unique"),
 });
 
 export type QualityOptionsInput = z.input<typeof qualityOptionsSchema>;

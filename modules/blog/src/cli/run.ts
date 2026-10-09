@@ -16,10 +16,12 @@ import { BLOG_REFRESH_SECRET_ENV, requestBlogRefresh } from "../discovery/refres
 import { submitBlogChanges } from "../discovery/submit.js";
 import { parseArticleHistory, type ArticleHistoryMap } from "../db/history.js";
 import { runBlogPublish, type ArticleFile, type PublishGate } from "../db/publish-run.js";
+import { readArticleDir } from "../content/read-article-dir.js";
 import { checkArticleFiles, type FileCheckResult } from "../quality/check-files.js";
 import type { FetchLike } from "../quality/external-links.js";
 import { createQualityGate } from "../quality/gate.js";
 import { createInternalLinkResolver, findAppDir, readContentFolder, readGlossaryTerms, readPublishedContent } from "../quality/link-targets.js";
+import { describeRefreshReason, findTextsToRefresh } from "../quality/refresh.js";
 import { getLocalDate } from "../quality/settings.js";
 import type { OgFontSource } from "../options.js";
 import { createOgFontLoader } from "../server/og-fonts.js";
@@ -64,6 +66,7 @@ export const BLOG_USAGE = `Usage:
   softure-blog publish [<path>...] [--commit] [--withdraw] [--no-indexnow] [--app-url <origin>]
                        [--stdin [--name <slug>.md]] [--history <file.json>] [--format text|lines]
   softure-blog check [<path>...] [--external] [--today <YYYY-MM-DD>]
+  softure-blog refresh [<path>...] [--today <YYYY-MM-DD>]
   softure-blog skill install [--dir <path>] [--command <cmd>] [--check]
 
 publish   Brings the blog's tables to the state of the article files. A <path> is a file or a
@@ -89,6 +92,11 @@ check     Runs the quality gate of blog({ quality }) over the files, without a d
           prints every finding as file:line: severity [rule] message. Exits 1 on any error.
   --external    also request every external link (2xx after redirects)
   --today       the date to check freshness against; default: today in the app's time zone
+
+refresh   Lists the published texts to refresh, without a database: current_as_of older than
+          quality.limits.staleAfterDays, or a quoted value of quality.facts that changed (its year
+          or quarter began) after current_as_of. Exits 0; it reports, it does not gate.
+  --today       the date to list against; default: today in the app's time zone
 
 skill install
           Writes the article writing skill, filled from blog({ quality, skill }),
@@ -123,6 +131,7 @@ export type BlogCommand =
       readonly format: PublishFormat;
     }
   | { readonly kind: "check"; readonly paths: readonly string[]; readonly external: boolean; readonly today: string | null }
+  | { readonly kind: "refresh"; readonly paths: readonly string[]; readonly today: string | null }
   | { readonly kind: "skill-install"; readonly dir: string; readonly command: string; readonly check: boolean };
 
 /** Runs the command and returns the process exit code: 0 done, 1 refused or failed, 2 usage error. */
@@ -139,17 +148,19 @@ export async function runBlogCli(options: RunBlogCliOptions): Promise<number> {
     return EXIT_OK;
   }
   if (command.kind === "skill-install") return runSkillInstall(command, options, output);
+  if (command.kind === "refresh") return runRefresh(command, options, output);
   return command.kind === "check" ? runCheck(command, options, output) : runPublish(command, options, output);
 }
 
 /** The command the arguments name, or why they name none. Reads nothing. */
 export function parseBlogCommand(argv: readonly string[]): BlogCommand | string {
   const [name, ...rest] = argv;
-  if (name === undefined) return "missing command; use publish, check or skill install";
+  if (name === undefined) return "missing command; use publish, check, refresh or skill install";
   if (name === "--help") return { kind: "help" };
   if (name === "check") return parseCheckCommand(rest);
+  if (name === "refresh") return parseRefreshCommand(rest);
   if (name === "skill") return parseSkillCommand(rest);
-  if (name !== "publish") return `unknown command "${name}"; use publish, check or skill install`;
+  if (name !== "publish") return `unknown command "${name}"; use publish, check, refresh or skill install`;
 
   let parsed: ReturnType<typeof parsePublishArgs>;
   try {
@@ -205,8 +216,38 @@ function parseCheckCommand(args: readonly string[]): BlogCommand | string {
   const { values, positionals } = parsed;
   if (values.help === true) return { kind: "help" };
   const today = values.today ?? null;
-  if (today !== null && (!/^\d{4}-\d{2}-\d{2}$/.test(today) || Number.isNaN(Date.parse(`${today}T00:00:00Z`)))) return `--today needs a date YYYY-MM-DD, not "${today}"`;
+  if (today !== null && !isIsoDate(today)) return `--today needs a date YYYY-MM-DD, not "${today}"`;
   return { kind: "check", paths: positionals, external: values.external === true, today };
+}
+
+function isIsoDate(value: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`));
+}
+
+function parseRefreshCommand(args: readonly string[]): BlogCommand | string {
+  let parsed: ReturnType<typeof parseRefreshArgs>;
+  try {
+    parsed = parseRefreshArgs(args);
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+  const { values, positionals } = parsed;
+  if (values.help === true) return { kind: "help" };
+  const today = values.today ?? null;
+  if (today !== null && !isIsoDate(today)) return `--today needs a date YYYY-MM-DD, not "${today}"`;
+  return { kind: "refresh", paths: positionals, today };
+}
+
+function parseRefreshArgs(args: readonly string[]) {
+  return parseArgs({
+    args: [...args],
+    options: {
+      today: { type: "string" },
+      help: { type: "boolean" },
+    },
+    strict: true,
+    allowPositionals: true,
+  });
 }
 
 function parseSkillCommand(args: readonly string[]): BlogCommand | string {
@@ -410,6 +451,39 @@ async function checkBrandFonts(fonts: readonly OgFontSource[] | undefined, root:
   return loaded.ok ? null : loaded.error;
 }
 
+async function runRefresh(command: Extract<BlogCommand, { kind: "refresh" }>, options: RunBlogCliOptions, output: CliOutput): Promise<number> {
+  const cwd = options.cwd ?? process.cwd();
+  let blogOptions: ReturnType<typeof getBlogOptions>;
+  let settings: ReturnType<typeof getQualitySettings>;
+  try {
+    blogOptions = getBlogOptions(options.config);
+    settings = getQualitySettings(options.config);
+  } catch (error) {
+    output.error(`softure-blog refresh: ${describeError(error)}`);
+    return EXIT_FAILED;
+  }
+  if (settings === null) {
+    output.error("softure-blog refresh: the quality gate is off (blog({ quality: false })); nothing to refresh");
+    return EXIT_FAILED;
+  }
+  const paths = (command.paths.length > 0 ? command.paths : [blogOptions.contentDir]).map((path) => resolve(cwd, path));
+  const files = await readArticleFiles(paths);
+  if (typeof files === "string") {
+    output.error(`softure-blog refresh: ${files}`);
+    return EXIT_FAILED;
+  }
+  const today = command.today ?? getLocalDate((options.clock ?? systemClock).now(), settings.timeZone);
+  const parse = { reservedSlugs: getBlogReservedSlugs(options.config), ...(blogOptions.fields === undefined ? {} : { fields: blogOptions.fields }) };
+  const due = findTextsToRefresh(files, settings, today, parse);
+  const pathByName = new Map(files.map((file) => [file.name, file.path]));
+  for (const text of due) {
+    const shown = relative(cwd, pathByName.get(text.file) ?? text.file) || text.file;
+    output.log(`${shown}: ${text.reasons.map((reason) => describeRefreshReason(reason, text, settings.options.limits.staleAfterDays)).join("; ")}`);
+  }
+  output.log(`refresh: ${String(due.length)} of ${String(readPublishedContent(files).size)} published text(s) to refresh`);
+  return EXIT_OK;
+}
+
 async function runSkillInstall(command: Extract<BlogCommand, { kind: "skill-install" }>, options: RunBlogCliOptions, output: CliOutput): Promise<number> {
   const cwd = options.cwd ?? process.cwd();
   const dir = resolve(cwd, command.dir);
@@ -558,18 +632,15 @@ async function readArticleFiles(paths: readonly string[]): Promise<ReadArticleFi
   for (const path of paths) {
     const kind = await getPathKind(path);
     if (kind === null) return `cannot read ${path}`;
-    const filePaths =
-      kind === "file"
-        ? [path]
-        : (await readdir(path))
-            .filter((name) => name.endsWith(".md") && name !== "README.md")
-            .sort()
-            .map((name) => join(path, name));
-    for (const filePath of filePaths) {
-      const text = await readText(filePath);
-      if (text === null) return `cannot read ${filePath}`;
-      files.push({ name: basename(filePath), text, path: filePath });
+    if (kind === "folder") {
+      const read = await readArticleDir(path);
+      if (!read.ok) return read.error;
+      files.push(...read.files);
+      continue;
     }
+    const text = await readText(path);
+    if (text === null) return `cannot read ${path}`;
+    files.push({ name: basename(path), text, path });
   }
   return files;
 }

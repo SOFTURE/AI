@@ -6,6 +6,20 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## 0.1.11
 
+- Quality and helpers for a data-driven blog (#318):
+  - `BlockPlugin.numbers(block)` and the rule `block-numbers`: every significant number of the paragraph right
+    before and right after a block is one of the block's numbers. `FoundBlock` gains `endLine` and `content`.
+  - `quality.facts` with `factRule({ id, description, patterns, allowedValues(year), unit, expires, severity })`:
+    the first number of a sentence that quotes the rule must be a value of the sentence's year (`unit` `"cents"`
+    or `"bps"` for hundredths). The rules join the catalog under the group `facts`.
+  - `softure-blog refresh [<path>...] [--today]` (no database) and `findTextsToRefresh`: the published texts that
+    are stale or quote a fact rule whose value changed (`expires: "yearly" | "quarterly"`) after `current_as_of`.
+  - `readForStaticPage(read, { onError })` (`/server`) and `getStaticPublishedArticles(config)` (`/next`): nothing
+    during `next build`, nothing (logged) when the read fails.
+  - `readArticleDir(dir)` (`/server`, `/cli`): the content folder as `softure-blog` reads it.
+  - `createBlogProxy(config)` (`/proxy`): `createBlogMarkdown`, then `createBlogRedirects`.
+  - `selectFeaturedArticles(articles, { limit })` (`/server`) and `getFeaturedArticles(config, { limit })`
+    (`/next`): pillars first, then the newest.
 - The views take the app's look (#317). `BlogPageContext` gains `classNames` (one class per element, see
   `BLOG_SLOT_CLASSES`), `unstyled` (drop the `blog-*` classes; `blog-visually-hidden` stays until the app maps
   it) and `layout` (the app's page frame in place of `<main class="blog-page">` and its header, given `title`,
