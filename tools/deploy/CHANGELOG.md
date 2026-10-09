@@ -4,6 +4,16 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
+## Unreleased
+
+- `deploy-app.yml` takes `secrets-from-environment: true` (with `environment` and `secrets: inherit`): the deploy job
+  renders `.env.prod` from its own secrets, where the environment's win over the repository's, and sends with the
+  secrets `ssh-host-secret`, `ssh-user-secret`, `ssh-private-key-secret` and `ssh-known-hosts-secret` name (defaults
+  `DEPLOY_SSH_HOST`, `DEPLOY_SSH_USER`, `DEPLOY_SSH_KEY`, `DEPLOY_SSH_KNOWN_HOSTS`). Secrets behind an environment's
+  deployment policy reach the release without repository-level copies. `origin-address-var` takes the verify job's
+  origin address from an `app-vars` entry. Without the flag nothing changes, except that the named secrets are no
+  longer `required: true`: the check job names a missing one before anything is built.
+
 ## 0.1.6
 
 - A `verify` header check also takes a list of texts (`"vary": ["accept", "accept-encoding"]`): the header value must
