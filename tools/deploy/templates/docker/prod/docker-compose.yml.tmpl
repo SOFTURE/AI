@@ -26,6 +26,12 @@ services:
 {{#hasAcmeEmail}}
       - --certificatesresolvers.letsencrypt.acme.email={{acmeEmail}}
 {{/hasAcmeEmail}}
+{{#cloudflare}}
+      # Behind Cloudflare (init --cdn=cloudflare): X-Forwarded-For and X-Real-IP are kept from Cloudflare's ranges
+      # only. hooks/cloudflare-ranges.sh warns when Cloudflare publishes a range missing here.
+      - --entrypoints.web.forwardedHeaders.trustedIPs={{cloudflareRanges}}
+      - --entrypoints.websecure.forwardedHeaders.trustedIPs={{cloudflareRanges}}
+{{/cloudflare}}
       - --log.level=WARN
     ports:
       - "80:80"

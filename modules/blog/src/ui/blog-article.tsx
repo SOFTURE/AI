@@ -104,18 +104,29 @@ export function SourceList({ sources, heading, context }: { readonly sources: re
   );
 }
 
+/** The texts "read next" lists: any text with an id, a slug, a title and a description. */
+export interface RelatedListProps {
+  readonly articles: readonly Pick<BlogArticle, "id" | "slug" | "title" | "description">[];
+  readonly context: BlogPageContext;
+}
+
 /**
  * "Read next": texts of the same cluster, then of others, chosen without manual lists. After the app's
  * call to action: the text has just made its point, so the app's next step comes first, this second.
+ * An app with its own article view places it itself (slots `related`, `relatedTitle`, `relatedList`,
+ * `relatedItem`).
  */
-export function RelatedList({ articles, context }: { readonly articles: readonly Pick<BlogArticle, "id" | "slug" | "title" | "description">[]; readonly context: BlogPageContext }) {
+export function RelatedList({ articles, context }: RelatedListProps) {
   if (articles.length === 0) return null;
+  const cls = getBlogSlotClass(context);
   return (
-    <section aria-labelledby="blog-related" className={getBlogSlotClass(context)("section", "related")}>
-      <h2 id="blog-related">{context.messages.pages.readNext}</h2>
-      <ul>
+    <section aria-labelledby="blog-related" className={cls("section", "related")}>
+      <h2 id="blog-related" className={cls("relatedTitle")}>
+        {context.messages.pages.readNext}
+      </h2>
+      <ul className={cls("relatedList")}>
         {articles.map((article) => (
-          <li key={article.id}>
+          <li key={article.id} className={cls("relatedItem")}>
             <h3>
               <a href={getArticlePath(context.routes, article.slug)}>{article.title}</a>
             </h3>

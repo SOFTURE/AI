@@ -4,18 +4,17 @@
 // which the client controls, docs/02 §8) before the form is read, and every query is scoped to
 // that owner. Unexpected failures become `safeError` codes; the token never reaches a log.
 import { getCurrentUser } from "@softure-ai/auth/next";
-import { errorLogLabel, formatMessage, safeError, type SoftureConfig } from "@softure-ai/core";
+import { errorLogLabel, safeError, type SoftureConfig } from "@softure-ai/core";
 import { getSoftureConfig } from "@softure-ai/core/next";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { getMcpClientSetup } from "../client-setup.js";
 import type { IssueTokenFormState, RevokeGrantFormState, RevokeTokenFormState } from "../contract.js";
 import { MAX_TOKEN_NAME_LENGTH } from "../options.js";
-import { getMcpAccessMessages, getMcpAccessOptions, getMcpAccessRoutes, getMcpEndpointUrl } from "../server/options.js";
+import { getMcpAccessRoutes } from "../server/options.js";
 import { revokeOAuthGrant } from "../server/oauth.js";
-import { issueAccessToken, revokeAccessToken } from "../server/tokens.js";
-import { getMcpAccessContext, getRequestOrigins } from "./context.js";
-import { formatDate } from "./format.js";
+import { revokeAccessToken } from "../server/tokens.js";
+import { getMcpAccessContext } from "./context.js";
+import { issueToken } from "./issue-token.js";
 
 /** Longer values are cut: the server functions refuse them anyway, and nothing huge is echoed back. */
 const MAX_FIELD_LENGTH = MAX_TOKEN_NAME_LENGTH * 4;
@@ -24,11 +23,6 @@ const text = z
   .catch("")
   .transform((value) => value.slice(0, MAX_FIELD_LENGTH));
 
-const issueInput = z.object({
-  name: text,
-  // A checked HTML checkbox sends "on"; an unchecked one sends nothing, which means read only.
-  canWrite: z.string().nullable().catch(null),
-});
 const revokeInput = z.object({ id: text });
 
 function reportFailure(operation: string, error: unknown) {
@@ -40,40 +34,9 @@ function refreshPage(config: SoftureConfig): void {
   revalidatePath(getMcpAccessRoutes(config).page);
 }
 
-/** Issues a token for the signed-in user and returns its plaintext with the setup snippets, once. */
-export async function issueTokenAction(_previous: IssueTokenFormState, formData: FormData): Promise<IssueTokenFormState> {
-  const config = getSoftureConfig();
-  const user = await getCurrentUser();
-  if (user === null) return { status: "error", error: "auth.unauthenticated" };
-
-  // Every field has a `catch`, so parsing cannot fail.
-  const input = issueInput.parse({ name: formData.get("name"), canWrite: formData.get("canWrite") });
-  try {
-    // Resolved before issuing: a failure afterwards would leave a token nobody received.
-    const endpointUrl = getMcpEndpointUrl(config, await getRequestOrigins(config, getMcpAccessRoutes(config).page));
-    const result = await issueAccessToken(await getMcpAccessContext(config), { userId: user.id, name: input.name, canWrite: input.canWrite !== null });
-    if (!result.ok) return { status: "error", error: result.error };
-    refreshPage(config);
-    const issued = result.value;
-    const messages = getMcpAccessMessages(config);
-    return {
-      status: "ok",
-      issued: {
-        id: issued.id,
-        name: issued.name,
-        canWrite: issued.canWrite,
-        expiresText: formatMessage(messages.issued.expires, { date: formatDate(config, issued.expiresAt) }),
-        setup: getMcpClientSetup({
-          serverName: getMcpAccessOptions(config).serverName,
-          endpointUrl,
-          token: issued.token,
-          promptTemplate: messages.setup.assistantPrompt,
-        }),
-      },
-    };
-  } catch (error) {
-    return { status: "error", error: reportFailure("issuing a token", error) };
-  }
+/** Issues a token for the signed-in user and returns its plaintext with the setup snippets, once. No gate: see `issueToken`. */
+export async function issueTokenAction(previous: IssueTokenFormState, formData: FormData): Promise<IssueTokenFormState> {
+  return issueToken(previous, formData);
 }
 
 /** Revokes one of the signed-in user's tokens; another account's id matches nothing. */
