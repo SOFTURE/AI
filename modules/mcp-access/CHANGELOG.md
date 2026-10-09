@@ -6,6 +6,8 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## 0.1.13
 
+- Token and grant dates use core's `formatCalendarDay` on the day in the app's zone; same output. Requires
+  `@softure-ai/core` `^0.1.9` (#312).
 - What an adopting app wrote around the endpoint ships with the package (#315):
   - `toolResult`, `toolError` and `withToolErrors(work, { hints, label })` (`/server`): a thrown error reaches the
     assistant only as a `PublicError` message or a hint, and the log only by kind, never with its SQL.
@@ -31,6 +33,7 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   answers `null` for a host that is no host). The consent decision still reads `Host` only. Discovery documents vary
   on `x-forwarded-host` too.
 - `getRequestOrigins(config, path)` is exported from `@softure-ai/mcp-access/next`. Needs `@softure-ai/core` 0.1.8.
+
 ## 0.1.11
 
 - The consent decision accepts a form whose `Origin` host is the host the request was sent to

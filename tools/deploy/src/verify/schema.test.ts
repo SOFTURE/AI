@@ -9,7 +9,8 @@ describe("parseDeployConfig", () => {
         verify: {
           timeoutMs: 10_000,
           headers: {},
-          routes: [{ path: "/", status: 200, contains: [], excludes: [], headers: {}, method: "GET", requestHeaders: {} }],
+          originSeverity: "fail",
+          routes: [{ path: "/", status: 200, contains: [], excludes: [], headers: {}, method: "GET", requestHeaders: {}, severity: "fail" }],
         },
       },
     });
@@ -32,7 +33,7 @@ describe("parseDeployConfig", () => {
       headers: { "x-powered-by": null, "content-type": "text/html" },
     };
     const parsed = parseDeployConfig({ verify: { timeoutMs: 500, routes: [route] } });
-    expect(parsed.ok && parsed.config.verify?.routes[0]).toEqual({ ...route, method: "GET", requestHeaders: {} });
+    expect(parsed.ok && parsed.config.verify?.routes[0]).toEqual({ ...route, method: "GET", requestHeaders: {}, severity: "fail" });
   });
 
   it("keeps a header list and refuses an empty list or an empty item", () => {
@@ -57,7 +58,7 @@ describe("parseDeployConfig", () => {
       requestHeaders: { "content-type": "application/json", "user-agent": "GPTBot/1.3" },
     };
     const parsed = parseDeployConfig({ verify: { routes: [route] } });
-    expect(parsed.ok && parsed.config.verify?.routes[0]).toEqual({ ...route, contains: [], excludes: [], headers: {} });
+    expect(parsed.ok && parsed.config.verify?.routes[0]).toEqual({ ...route, contains: [], excludes: [], headers: {}, severity: "fail" });
   });
 
   it.each([
@@ -125,5 +126,68 @@ describe("parseDeployConfig", () => {
       ok: false,
       issues: ['database: Unrecognized key: "tables"'],
     });
+  });
+});
+
+describe("parseDeployConfig: app-side checks (issue #309)", () => {
+  const DIGEST = `sha256:${"a".repeat(64)}`;
+
+  function firstRoute(route: unknown): unknown {
+    const parsed = parseDeployConfig({ verify: { routes: [route] } });
+    return parsed.ok ? parsed.config.verify?.routes[0] : parsed.issues;
+  }
+
+  it("keeps severity, sha256, within and count", () => {
+    expect(firstRoute({ path: "/x", severity: "warn", sha256: DIGEST, within: "head", contains: ["<title"], count: { "<title": 1 } })).toEqual({
+      path: "/x",
+      status: 200,
+      contains: ["<title"],
+      excludes: [],
+      headers: {},
+      method: "GET",
+      requestHeaders: {},
+      severity: "warn",
+      sha256: DIGEST,
+      within: "head",
+      count: { "<title": 1 },
+    });
+    expect(parseDeployConfig({ verify: { originSeverity: "warn", routes: [{ path: "/" }] } })).toMatchObject({
+      ok: true,
+      config: { verify: { originSeverity: "warn" } },
+    });
+  });
+
+  it("accepts a bare hex digest and refuses one that is not 64 hex characters", () => {
+    expect(firstRoute({ path: "/", sha256: "b".repeat(64) })).toMatchObject({ sha256: "b".repeat(64) });
+    expect(firstRoute({ path: "/", sha256: "sha256:XYZ" })).toEqual(["verify.routes.0.sha256: sha256:<64 hex> or 64 lower-case hex characters"]);
+  });
+
+  it("fills the defaults of a sitemap loop and of an index loop", () => {
+    expect(firstRoute({ forEach: { sitemap: "/sitemap.xml", match: "/blog/" } })).toMatchObject({
+      forEach: { sitemap: "/sitemap.xml", match: "/blog/" },
+    });
+    expect(firstRoute({ forEach: { index: "/.well-known/agent-skills/index.json" } })).toMatchObject({
+      forEach: { index: "/.well-known/agent-skills/index.json", items: "skills", url: "url", digest: "digest" },
+    });
+  });
+
+  it("needs exactly one of path and forEach", () => {
+    expect(firstRoute({})).toEqual(["verify.routes.0.path: a route needs a path or a forEach, not both"]);
+    expect(firstRoute({ path: "/", forEach: { sitemap: "/sitemap.xml" } })).toEqual([
+      "verify.routes.0.path: a route needs a path or a forEach, not both",
+    ]);
+  });
+
+  it("refuses a negative count, a scope without anything to check and a HEAD route with body checks", () => {
+    expect(firstRoute({ path: "/", count: { a: -1 } })).toEqual(["verify.routes.0.count.a: Too small: expected number to be >=0"]);
+    expect(firstRoute({ path: "/", within: "head" })).toEqual(["verify.routes.0.within: within needs contains, excludes or count"]);
+    expect(firstRoute({ path: "/", method: "HEAD", count: { a: 1 } })).toEqual(["verify.routes.0.method: a HEAD response has no body to hold markers"]);
+    expect(firstRoute({ path: "/", method: "HEAD", sha256: DIGEST })).toEqual(["verify.routes.0.method: a HEAD response has no body to hold markers"]);
+  });
+
+  it("refuses a loop source that is not a path on the host", () => {
+    expect(firstRoute({ forEach: { sitemap: "https://other.example/sitemap.xml" } })).toEqual([
+      "verify.routes.0.forEach.sitemap: a path that starts with a single /",
+    ]);
   });
 });
