@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import { softurePlaywrightUse } from "@softure-ai/testing/playwright";
 import { MAIL_OUTBOX, MAILING_UNSUBSCRIBE_SECRET } from "./e2e/outbox.ts";
 
 // A real payment in Stripe's sandbox (e2e/*.stripe-sandbox.spec.ts) against the built app on its own
@@ -7,7 +8,6 @@ import { MAIL_OUTBOX, MAILING_UNSUBSCRIBE_SECRET } from "./e2e/outbox.ts";
 // (README "Stripe sandbox"; CI: the `stripe-sandbox` job of .github/workflows/e2e.yml). The main
 // playwright.config.ts keeps playing Stripe with signed fixtures and ignores these specs.
 const PORT = Number(process.env.E2E_PORT ?? 3200);
-const CHROMIUM_PATH = process.env.PLAYWRIGHT_CHROMIUM_PATH;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -18,10 +18,11 @@ export default defineConfig({
   workers: 1,
   reporter: process.env.CI ? [["github"], ["list"]] : [["list"]],
   use: {
+    // Cloud sessions ship a Chromium of their own (PLAYWRIGHT_CHROMIUM_PATH); CI installs the one this Playwright expects.
+    ...softurePlaywrightUse(),
     baseURL: `http://localhost:${String(PORT)}`,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
-    launchOptions: CHROMIUM_PATH ? { executablePath: CHROMIUM_PATH } : {},
   },
   projects: [{ name: "stripe-sandbox", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
