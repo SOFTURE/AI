@@ -16,7 +16,7 @@ import {
 import { getCheckedAfterSubmit, useFieldError, useFieldValue, useSubmitCount, useSubmittedFieldNames } from "./form-context.js";
 import type { HintAppearance } from "./hint.js";
 import { Select, type SelectOption, type SelectSlot } from "./select.js";
-import { Checkbox, Switch } from "./switch.js";
+import { Checkbox, type CheckboxProps, Switch, type SwitchProps } from "./switch.js";
 import { useUiLocale } from "./locale.js";
 
 // Labelled form fields. Inside an `ActionForm` they replay the values of a rejected submit and show
@@ -415,6 +415,10 @@ export interface CheckboxFieldProps extends CopyProps<"field"> {
   readonly defaultChecked?: boolean;
   /** `setting` (default) renders a `Switch`; `statement` a `Checkbox` (consent, confirmation). */
   readonly labelAs?: "setting" | "statement";
+  /** The `Switch` look in `setting` mode: its slots, its control's slots and the "?" look. */
+  readonly switchProps?: Pick<SwitchProps, "classNames" | "controlClassNames" | "hintProps">;
+  /** The `Checkbox` look in `statement` mode. */
+  readonly checkboxProps?: Pick<CheckboxProps, "classNames">;
   readonly unstyled?: boolean;
 }
 
@@ -427,6 +431,8 @@ export function CheckboxField({
   hintAs,
   defaultChecked = false,
   labelAs = "setting",
+  switchProps,
+  checkboxProps,
   unstyled,
   locale,
   messages,
@@ -434,10 +440,22 @@ export function CheckboxField({
   const checked = getCheckedAfterSubmit(useSubmittedFieldNames(), name, defaultChecked);
   const key = `${String(checked)}|${useSubmitCount()}`;
   if (labelAs === "statement") {
-    return <Checkbox key={key} id={id} name={name} label={label} description={hint} defaultChecked={checked} unstyled={unstyled} />;
+    return (
+      <Checkbox
+        {...checkboxProps}
+        key={key}
+        id={id}
+        name={name}
+        label={label}
+        description={hint}
+        defaultChecked={checked}
+        unstyled={unstyled}
+      />
+    );
   }
   return (
     <Switch
+      {...switchProps}
       key={key}
       id={id}
       name={name}
