@@ -1,5 +1,6 @@
 // The join action without double opt-in: the channel the app resolves for the request, the
-// person's own unsubscribe link in the success answer, and the same answer for a suppressed address. Next's request scope is replaced: the config
+// person's own unsubscribe link in the answer to the request that created the sign-up (never for a
+// known or a suppressed address), and the same answer for a suppressed address. Next's request scope is replaced: the config
 // and the database come from the test and `after` callbacks are dropped (the mail is tested elsewhere).
 import type { SoftureConfig } from "@softure-ai/core";
 import { getScopeFieldName, INITIAL_WAITLIST_FORM_STATE, type WaitlistOptionsInput } from "@softure-ai/waitlist";
@@ -91,14 +92,20 @@ describe("the join action", () => {
     expect(await getSignup(test.ctx, ADA)).toMatchObject({ channel: null });
   });
 
-  it("answers a sign-up with the person's own unsubscribe link when the app asks for it, for a new and a known address", async () => {
+  it("answers the request that created the sign-up with the person's own unsubscribe link when the app asks for it", async () => {
     vi.stubEnv("MAILING_UNSUBSCRIBE_SECRET", SECRET);
     await start({ ...OPTIONS, unsubscribeLinkOnSuccess: true });
     const first = await joinWaitlistAction(INITIAL_WAITLIST_FORM_STATE, joinForm());
     expect(first).toEqual({ status: "ok", unsubscribeUrl: expect.stringMatching(/^https:\/\/app\.example\.com\/[^?]+\?r=[\w-]{43}&t=[\w-]{43}$/) as unknown });
     const token = readUnsubscribeToken(new URL(first.unsubscribeUrl ?? "").searchParams);
     expect(token !== null && verifyUnsubscribeToken(token, { current: SECRET, previous: null })).toBe(true);
-    expect(await joinWaitlistAction(INITIAL_WAITLIST_FORM_STATE, joinForm())).toEqual(first);
+  });
+
+  it("gives no unsubscribe link for an address already on the list, so nobody gets another person's link", async () => {
+    vi.stubEnv("MAILING_UNSUBSCRIBE_SECRET", SECRET);
+    await start({ ...OPTIONS, unsubscribeLinkOnSuccess: true });
+    await joinWaitlistAction(INITIAL_WAITLIST_FORM_STATE, joinForm());
+    expect(await joinWaitlistAction(INITIAL_WAITLIST_FORM_STATE, joinForm(" Ada@Example.com "))).toEqual({ status: "ok" });
   });
 
   it("returns no link when the option is off, and none for a request waiting for its confirmation", async () => {
@@ -110,17 +117,18 @@ describe("the join action", () => {
     expect(await joinWaitlistAction(INITIAL_WAITLIST_FORM_STATE, joinForm())).toEqual({ status: "confirmation_sent" });
   });
 
-  it("answers a suppressed address exactly like a sign-up that counted, writes nothing and sends no mail", async () => {
+  it("answers a suppressed address like a known one, without an unsubscribe link, writes nothing and sends no mail", async () => {
     vi.stubEnv("MAILING_UNSUBSCRIBE_SECRET", SECRET);
     await start({ ...OPTIONS, unsubscribeLinkOnSuccess: true });
-    const counted = await joinWaitlistAction(INITIAL_WAITLIST_FORM_STATE, joinForm("bob@example.com"));
-    expect(scope.afterCalls).toBe(1);
+    await joinWaitlistAction(INITIAL_WAITLIST_FORM_STATE, joinForm("bob@example.com"));
+    const known = await joinWaitlistAction(INITIAL_WAITLIST_FORM_STATE, joinForm("bob@example.com"));
+    const mailsBefore = scope.afterCalls;
     await suppressRecipient(test.ctx, ADA, "page");
 
     const suppressed = await joinWaitlistAction(INITIAL_WAITLIST_FORM_STATE, joinForm(" Ada@Example.com "));
-    expect(suppressed).toEqual({ status: "ok", unsubscribeUrl: expect.stringMatching(/\?r=[\w-]{43}&t=[\w-]{43}$/) as unknown });
-    expect(Object.keys(suppressed)).toEqual(Object.keys(counted));
-    expect(scope.afterCalls).toBe(1);
+    expect(suppressed).toEqual({ status: "ok" });
+    expect(suppressed).toEqual(known);
+    expect(scope.afterCalls).toBe(mailsBefore);
     expect(await getSignup(test.ctx, ADA)).toBeNull();
     expect(await isSuppressed(test.ctx, ADA)).toBe(true);
   });
