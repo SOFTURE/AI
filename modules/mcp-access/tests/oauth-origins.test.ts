@@ -1,6 +1,7 @@
 // Issue #234: the OAuth layer's URLs come from the request's origins (a resolved app origin and
 // extra resource hosts), the discovery documents take the app's extra keys, and apps composing
 // from `/server` get the context helper and `OAuthClientRow`.
+// Issue #294: the consent decision also accepts a form posted from the host it was served on.
 import { mcpAccess, readRequestOrigin, type McpAccessOptionsInput, type OAuthClientRow } from "@softure-ai/mcp-access";
 import {
   createMcpAccessContext,
@@ -146,6 +147,70 @@ describe("OAuth origins (#234)", () => {
       const refused = await validateAuthorizationRequest(ctx, params);
       expect(refused.kind).toBe("redirect-error");
       expect(refused.kind === "redirect-error" ? new URL(refused.location).searchParams.get("iss") : null).toBe(CONFIGURED);
+    });
+  });
+
+  describe("a fixed app origin served under another host (#294)", () => {
+    const fixedApp: McpAccessOptionsInput = { ...OAUTH_OPTIONS, resolveAppOrigin: () => APP };
+
+    async function startFlow(options: McpAccessOptionsInput, appOrigin: string) {
+      const { ctx } = await start(options);
+      const alice = await createUser(test!.database, "alice@example.com");
+      const { client } = await registerMcpClient(ctx, { clientName: "Assistant", redirectUris: [REDIRECT_URI], tokenEndpointAuthMethod: "none" });
+      const params = new URLSearchParams({
+        response_type: "code",
+        client_id: client.clientId,
+        redirect_uri: REDIRECT_URI,
+        state: "s",
+        code_challenge: getCodeChallenge(VERIFIER),
+        code_challenge_method: "S256",
+        resource: `${appOrigin}/api/mcp`,
+        decision: "allow",
+      });
+      const decide = (headers: Record<string, string>) =>
+        handleAuthorizationDecision(ctx, at(SERVED, "/api/oauth/authorize", { method: "POST", headers: { ...FORM, ...headers }, body: params.toString() }), alice);
+      return { ctx, clientId: client.clientId, decide };
+    }
+
+    it("accepts the form posted from the served host and completes the token exchange on the app origin", async () => {
+      const { ctx, clientId, decide } = await startFlow(OAUTH_OPTIONS, CONFIGURED);
+      const decided = await decide({ origin: SERVED });
+      expect(decided.status).toBe(303);
+      const location = new URL(decided.headers.get("location") ?? "");
+      expect(location.searchParams.get("iss")).toBe(CONFIGURED);
+
+      const token = await handleTokenRequest(
+        ctx,
+        at(SERVED, "/api/oauth/token", {
+          method: "POST",
+          headers: FORM,
+          body: new URLSearchParams({ grant_type: "authorization_code", code: location.searchParams.get("code") ?? "", code_verifier: VERIFIER, client_id: clientId, resource: `${CONFIGURED}/api/mcp` }).toString(),
+        }),
+      );
+      expect(token.status).toBe(200);
+    });
+
+    it("accepts the served host when resolveAppOrigin answers a fixed public origin, and still accepts that origin", async () => {
+      const { decide } = await startFlow(fixedApp, APP);
+      const fromServedHost = await decide({ origin: SERVED });
+      expect(fromServedHost.status).toBe(303);
+      expect(new URL(fromServedHost.headers.get("location") ?? "").searchParams.get("iss")).toBe(APP);
+      expect((await decide({ origin: APP })).status).toBe(303);
+    });
+
+    it("refuses another host, a forwarded host, null, malformed, non-http(s), non-bare and missing origins", async () => {
+      const { decide } = await startFlow(OAUTH_OPTIONS, CONFIGURED);
+      const statuses = [
+        await decide({ origin: "https://evil.example" }),
+        await decide({ origin: "https://evil.example", "x-forwarded-host": "evil.example" }),
+        await decide({ origin: "null" }),
+        await decide({ origin: "localhost:6510" }),
+        await decide({ origin: "ftp://localhost:6510" }),
+        await decide({ origin: `${SERVED}/oauth/authorize` }),
+        await decide({ origin: "http://evil@localhost:6510" }),
+        await decide({}),
+      ].map((response) => response.status);
+      expect(statuses).toEqual([403, 403, 403, 403, 403, 403, 403, 403]);
     });
   });
 
