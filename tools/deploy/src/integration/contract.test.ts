@@ -45,6 +45,23 @@ describe("formatContractLines", () => {
     expect(formatContractLines(red, null)).not.toContain("new-red:");
   });
 
+  it("prints one flaky line per test that passed only on a retry, after the new-red lines", () => {
+    const red = { ...GREEN, result: "red" as const, passed: 119, red: ["a › one"], flaky: ["b › two", "c\nthree"] };
+    expect(formatContractLines(red, { ...GREEN, sha: "c".repeat(40) })).toBe(
+      [
+        "integration: red",
+        "counts: 119/120",
+        "run: https://github.com/acme/app/actions/runs/8",
+        "red: a › one",
+        "new-red: a › one",
+        "flaky: b › two",
+        "flaky: c three",
+        "",
+      ].join("\n"),
+    );
+    expect(formatContractLines({ ...GREEN, flaky: ["b › two"] }, null)).toContain("integration: green\n");
+  });
+
   it("leaves out the counts and the run when they are unknown", () => {
     expect(formatContractLines({ ...GREEN, passed: null, total: null, run: null }, null)).toBe("integration: green\n");
   });

@@ -24,6 +24,15 @@ describe("the integration note", () => {
     expect(parseIntegrationNote(JSON.stringify(note))).toEqual({ ok: true, note });
   });
 
+  it("reads back the flaky tests of a note that has them", () => {
+    const note = { ...NOTE, flaky: ["checkout › pays by transfer"] };
+    expect(parseIntegrationNote(formatIntegrationNote(note))).toEqual({ ok: true, note });
+  });
+
+  it("writes no flaky key without flaky tests, so the reader of 0.1.7 still reads the note", () => {
+    expect(JSON.parse(formatIntegrationNote({ ...NOTE, flaky: [] }))).not.toHaveProperty("flaky");
+  });
+
   it("refuses text that is not JSON", () => {
     expect(parseIntegrationNote("integration: green")).toEqual({ ok: false, problem: "the note is not JSON" });
   });
