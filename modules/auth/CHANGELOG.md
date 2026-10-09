@@ -4,12 +4,8 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`auth@x.y.z`).
 
-## 0.1.11
+## 0.1.12
 
-- The guard's login redirect uses core's `resolveAppOrigin` (#311): an origin listed in the config's
-  `origins.trustedOrigins` is trusted like one in the guard's `trustedOrigins` option, and `origins.trustRequestHost`
-  is honoured. A non-http(s) `X-Forwarded-Proto` value now falls back to the URL's scheme instead of making the
-  origin unreadable. Needs `@softure-ai/core` 0.1.8.
 - `createAuthGuard({ redirect: "relative" })` answers with a path-only `Location` (`/login?next=…`), so a stack on a
   port or host the config cannot list keeps the browser where it is; `createAuthGuard({ excludeExact })` lets exact
   paths through (`/pricing` and `/pricing/`, not `/pricing/plans`) for an app with an exact public allowlist (#314).
@@ -20,6 +16,13 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 - `adminEmails` also takes the raw environment string (#314): entries split on commas and whitespace, trimmed and
   lowercased; an entry that is not an email is dropped with one log line naming its position and grants nothing. A
   list still refuses a bad entry at config load.
+
+## 0.1.11
+
+- The guard's login redirect uses core's `resolveAppOrigin` (#311): an origin listed in the config's
+  `origins.trustedOrigins` is trusted like one in the guard's `trustedOrigins` option, and `origins.trustRequestHost`
+  is honoured. A non-http(s) `X-Forwarded-Proto` value now falls back to the URL's scheme instead of making the
+  origin unreadable. Needs `@softure-ai/core` 0.1.8.
 
 ## 0.1.10
 

@@ -36,7 +36,7 @@ guard.test.ts, testing.test.ts, roles.test.ts as named in change.md.
 
 ## Phase 2: implementation, docs
 
-The three sources; README sections 3 and 4; CHANGELOG 0.1.11.
+The three sources; README sections 3 and 4; auth 0.1.12 (package.json, module.json, manifest, lock) and its CHANGELOG.
 
 Done when: `npm run typecheck`, `npm run lint`, `npm test`, `npm run build` are green.
 

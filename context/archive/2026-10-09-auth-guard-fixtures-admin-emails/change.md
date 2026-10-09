@@ -27,8 +27,8 @@ A reviewer checks `modules/auth/tests/guard.test.ts` ("relative redirect", "exac
 ## Context
 
 #311 (merged) moved the request-origin rule to core: `config.origins.trustRequestHost` already covers the issue's
-`trustRequestOrigin: true` alternative, so this change adds only the relative redirect. auth 0.1.11 is unreleased on
-master; this change folds into it.
+`trustRequestOrigin: true` alternative, so this change adds only the relative redirect. auth 0.1.11 was unreleased on
+master when work started and was published meanwhile, so this change ships as auth 0.1.12.
 
 ## Constraints
 
@@ -51,4 +51,4 @@ master; this change folds into it.
 - Hashes are memoized per password and parameters for the test run (the issue's "slow in big suites").
 - Only the string form of `adminEmails` is lenient: a literal list in the config is the developer's typo and keeps
   failing at load.
-- Version: auth 0.1.11 (unreleased), no new bump.
+- Version: auth 0.1.12 (0.1.11 was published while this change was in flight).
