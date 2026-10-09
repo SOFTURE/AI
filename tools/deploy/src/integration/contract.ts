@@ -9,6 +9,7 @@ function toLineValue(value: string): string {
  * The stdout lines `wt-integration.sh` of the SOFTURE skills reads: `integration:`, `counts:`, `run:`, one `red:`
  * per failed test and one `new-red:` per failed test the main branch's latest result does not have red. Without a
  * main-branch result (`main` null) no `new-red:` line is printed, which the contract reads as "every red is new".
+ * Last, one `flaky:` per test that passed only on a retry.
  */
 export function formatContractLines(note: IntegrationNote, main: IntegrationNote | null): string {
   const lines = [`integration: ${note.result}`];
@@ -19,5 +20,6 @@ export function formatContractLines(note: IntegrationNote, main: IntegrationNote
     const mainRed = new Set(main.red);
     for (const name of note.red.filter((test) => !mainRed.has(test))) lines.push(`new-red: ${toLineValue(name)}`);
   }
+  for (const name of note.flaky ?? []) lines.push(`flaky: ${toLineValue(name)}`);
   return `${lines.join("\n")}\n`;
 }

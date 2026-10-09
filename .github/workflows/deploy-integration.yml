@@ -10,6 +10,12 @@
 # The suite runs in the `test` job, which may only read the repository and keeps no credentials: the app's code never
 # holds a token that can write. The `record` job runs nothing of the app's, only the pinned CLI and git, and is the
 # one job with `contents: write` (the notes and the ref).
+#
+# A release workflow can run the suite against the image it is about to deploy (issue #308): `image` names it by digest,
+# the test job pulls it before the app's code runs (with the optional `registry-token` secret, through a Docker config
+# deleted in the same step) and the set-up and suite commands see it as `INTEGRATION_IMAGE`, next to
+# `INTEGRATION_EXPECTED_ORIGINS` and `INTEGRATION_FAIL_ON_FLAKY`. A tag push is accepted then. With `fail-on-flaky`, a
+# report naming a test that passed only on a retry is stored red and fails the run.
 
 name: deploy-integration
 
@@ -25,9 +31,37 @@ on:
         type: string
         default: npm ci
       junit-report:
-        description: Path of the JUnit XML report the suite writes, for the counts and the red test names; empty for none
+        description: Path of the JUnit XML report the suite writes (the older form of results-report); empty for none
         type: string
         default: ""
+      results-report:
+        description: Path of the report the suite writes, for the counts and the red and flaky test names; empty for none
+        type: string
+        default: ""
+      results-format:
+        description: Format of results-report, junit or playwright-json; empty to tell by the extension (.json is Playwright)
+        type: string
+        default: ""
+      image:
+        description: A prebuilt image to test, <registry/name>@sha256:<64 hex>, pulled before the set-up; empty for none
+        type: string
+        default: ""
+      expected-origins:
+        description: Origins the image expects to be served at (http(s)://host[:port], comma or space separated), as INTEGRATION_EXPECTED_ORIGINS
+        type: string
+        default: ""
+      fail-on-flaky:
+        description: Store red and fail when the report names a test that passed only on a retry
+        type: boolean
+        default: false
+      notes-ref:
+        description: The notes ref the results are stored under
+        type: string
+        default: refs/notes/integration
+      ref-prefix:
+        description: The branch prefix of integration runs (the ref deleted after a run, and the start of the run's name)
+        type: string
+        default: integration/
       node-version:
         description: Node.js version for the suite and the deploy CLI
         type: string
@@ -36,6 +70,10 @@ on:
         description: Version of @softure-ai/deploy that records the result
         type: string
         default: 0.1.8
+    secrets:
+      registry-token:
+        description: A token that may pull `image` (e.g. the caller's GITHUB_TOKEN with packages read); none for a public image
+        required: false
 
 permissions:
   contents: read
@@ -55,6 +93,12 @@ jobs:
         env:
           TEST_COMMAND: ${{ inputs.test-command }}
           JUNIT_REPORT: ${{ inputs.junit-report }}
+          RESULTS_REPORT: ${{ inputs.results-report }}
+          RESULTS_FORMAT: ${{ inputs.results-format }}
+          IMAGE: ${{ inputs.image }}
+          EXPECTED_ORIGINS: ${{ inputs.expected-origins }}
+          NOTES_REF: ${{ inputs.notes-ref }}
+          REF_PREFIX: ${{ inputs.ref-prefix }}
           NODE_VERSION: ${{ inputs.node-version }}
           DEPLOY_CLI_VERSION: ${{ inputs.deploy-cli-version }}
         run: |
@@ -63,14 +107,55 @@ jobs:
             echo "::error::Input $1 is not valid: $2"
             failures=$((failures + 1))
           }
+          is_repository_path() {
+            [[ "$1" != /* ]] && [[ "$1" != *..* ]] && [[ "$1" =~ ^[A-Za-z0-9_./-]+$ ]]
+          }
           if [ -z "$TEST_COMMAND" ]; then reject test-command "a command"; fi
-          if [ -n "$JUNIT_REPORT" ] && { [[ "$JUNIT_REPORT" == /* ]] || [[ "$JUNIT_REPORT" == *..* ]] || [[ ! "$JUNIT_REPORT" =~ ^[A-Za-z0-9_./-]+$ ]]; }; then
-            reject junit-report "a path inside the repository"
+          if [ -n "$JUNIT_REPORT" ] && ! is_repository_path "$JUNIT_REPORT"; then reject junit-report "a path inside the repository"; fi
+          if [ -n "$RESULTS_REPORT" ] && ! is_repository_path "$RESULTS_REPORT"; then reject results-report "a path inside the repository"; fi
+          if [ -n "$JUNIT_REPORT" ] && [ -n "$RESULTS_REPORT" ]; then reject results-report "empty when junit-report is set (one report)"; fi
+          case "$RESULTS_FORMAT" in
+            "" | junit | playwright-json) ;;
+            *) reject results-format "junit, playwright-json or empty" ;;
+          esac
+          if [ -n "$RESULTS_FORMAT" ] && [ -z "$RESULTS_REPORT" ]; then reject results-format "empty without results-report"; fi
+          if [ -n "$IMAGE" ] && [[ ! "$IMAGE" =~ ^[a-z0-9][a-z0-9._:/-]*@sha256:[0-9a-f]{64}$ ]]; then
+            reject image "<registry/name>@sha256:<64 hex digits>"
+          fi
+          for origin in $(printf '%s' "$EXPECTED_ORIGINS" | tr ',' ' '); do
+            if [[ ! "$origin" =~ ^https?://[A-Za-z0-9.-]+(:[0-9]+)?$ ]]; then reject expected-origins "http(s)://host[:port] items, got $origin"; fi
+          done
+          if [[ ! "$NOTES_REF" =~ ^refs/notes/[A-Za-z0-9_./-]+$ ]] || [[ "$NOTES_REF" == *..* ]]; then reject notes-ref "a ref under refs/notes/"; fi
+          if [[ ! "$REF_PREFIX" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]*(/[A-Za-z0-9_.-]+)*/$ ]] || [[ "$REF_PREFIX" == *..* ]]; then
+            reject ref-prefix "a branch prefix ending in / (e.g. integration/)"
           fi
           if [[ ! "$NODE_VERSION" =~ ^[0-9]+(\.[0-9]+){0,2}$ ]]; then reject node-version "a version number"; fi
           if [[ ! "$DEPLOY_CLI_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then reject deploy-cli-version "an exact version"; fi
-          if [[ "$GITHUB_REF" != refs/heads/* ]]; then reject ref "a branch push (integration/<name> or the main branch)"; fi
+          if [[ "$GITHUB_REF" == refs/tags/* ]] && [ -n "$IMAGE" ]; then
+            : # A release run of a prebuilt image.
+          elif [[ "$GITHUB_REF" != refs/heads/* ]]; then
+            reject ref "a branch push (integration/<name> or the main branch), or a tag with image"
+          fi
           if (( failures > 0 )); then exit 1; fi
+      - name: Pull the image
+        if: inputs.image != ''
+        env:
+          IMAGE: ${{ inputs.image }}
+          REGISTRY_TOKEN: ${{ secrets.registry-token }}
+          REGISTRY_USER: ${{ github.actor }}
+        run: |
+          # A Docker config of this step only: the token never reaches the steps that run the app's code.
+          config="$(mktemp -d "$RUNNER_TEMP/docker-config.XXXXXX")"
+          trap 'rm -rf "$config"' EXIT
+          registry="${IMAGE%%/*}"
+          case "$registry" in
+            *.* | *:*) ;;
+            *) registry=docker.io ;;
+          esac
+          if [ -n "$REGISTRY_TOKEN" ]; then
+            printf '%s' "$REGISTRY_TOKEN" | docker --config "$config" login "$registry" --username "$REGISTRY_USER" --password-stdin
+          fi
+          docker --config "$config" pull "$IMAGE"
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
@@ -82,11 +167,17 @@ jobs:
         if: inputs.setup-command != ''
         env:
           SETUP_COMMAND: ${{ inputs.setup-command }}
+          INTEGRATION_IMAGE: ${{ inputs.image }}
+          INTEGRATION_EXPECTED_ORIGINS: ${{ inputs.expected-origins }}
+          INTEGRATION_FAIL_ON_FLAKY: ${{ inputs.fail-on-flaky }}
         run: bash -c "$SETUP_COMMAND"
       - id: suite
         name: Run the suite
         env:
           TEST_COMMAND: ${{ inputs.test-command }}
+          INTEGRATION_IMAGE: ${{ inputs.image }}
+          INTEGRATION_EXPECTED_ORIGINS: ${{ inputs.expected-origins }}
+          INTEGRATION_FAIL_ON_FLAKY: ${{ inputs.fail-on-flaky }}
         run: |
           set +e
           bash -c "$TEST_COMMAND"
@@ -95,12 +186,12 @@ jobs:
           if [ "$code" -eq 0 ]; then result=green; else result=red; fi
           echo "result=$result" >> "$GITHUB_OUTPUT"
           echo "The suite exited $code: $result."
-      - name: Keep the JUnit report
-        if: always() && inputs.junit-report != ''
+      - name: Keep the report
+        if: always() && (inputs.results-report != '' || inputs.junit-report != '')
         uses: actions/upload-artifact@v7
         with:
-          name: integration-junit
-          path: ${{ inputs.junit-report }}
+          name: integration-results
+          path: ${{ inputs.results-report || inputs.junit-report }}
           if-no-files-found: warn
           retention-days: 7
           overwrite: true
@@ -130,11 +221,11 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 1
       - uses: actions/download-artifact@v8
-        if: needs.test.result != 'cancelled' && inputs.junit-report != ''
+        if: needs.test.result != 'cancelled' && (inputs.results-report != '' || inputs.junit-report != '')
         continue-on-error: true
         with:
-          name: integration-junit
-          path: ${{ runner.temp }}/integration-junit
+          name: integration-results
+          path: ${{ runner.temp }}/integration-results
       - uses: actions/setup-node@v7
         if: needs.test.result != 'cancelled'
         with:
@@ -146,21 +237,35 @@ jobs:
           # Empty when the suite job failed before the suite ran (checkout, setup): that is red too.
           RESULT: ${{ needs.test.outputs.result || 'red' }}
           JUNIT_REPORT: ${{ inputs.junit-report }}
+          RESULTS_REPORT: ${{ inputs.results-report }}
+          RESULTS_FORMAT: ${{ inputs.results-format }}
+          FAIL_ON_FLAKY: ${{ inputs.fail-on-flaky }}
+          NOTES_REF: ${{ inputs.notes-ref }}
+          REF_PREFIX: ${{ inputs.ref-prefix }}
           DEPLOY_CLI_VERSION: ${{ inputs.deploy-cli-version }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}
         run: |
           args=(integration record "--sha=$GITHUB_SHA" "--ref=$GITHUB_REF" "--result=$RESULT" "--run=$RUN_URL")
+          # Flags beyond the defaults only, so a caller pinning an older CLI keeps working.
           if [ -n "$JUNIT_REPORT" ]; then
-            args+=("--junit=$RUNNER_TEMP/integration-junit/$(basename "$JUNIT_REPORT")")
+            args+=("--junit=$RUNNER_TEMP/integration-results/$(basename "$JUNIT_REPORT")")
           fi
+          if [ -n "$RESULTS_REPORT" ]; then
+            args+=("--results=$RUNNER_TEMP/integration-results/$(basename "$RESULTS_REPORT")")
+            if [ -n "$RESULTS_FORMAT" ]; then args+=("--format=$RESULTS_FORMAT"); fi
+          fi
+          if [ "$FAIL_ON_FLAKY" = "true" ]; then args+=(--fail-on-flaky); fi
+          if [ "$NOTES_REF" != "refs/notes/integration" ]; then args+=("--notes-ref=$NOTES_REF"); fi
+          if [ "$REF_PREFIX" != "integration/" ]; then args+=("--ref-prefix=$REF_PREFIX"); fi
           npx --yes "--package=@softure-ai/deploy@$DEPLOY_CLI_VERSION" softure-deploy "${args[@]}"
       - name: Delete the integration ref
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
+          REF_PREFIX: ${{ inputs.ref-prefix }}
         run: |
           case "$GITHUB_REF" in
-            refs/heads/integration/*)
+            "refs/heads/$REF_PREFIX"*)
               # The API, not git: the checkout above is skipped when the suite was cancelled.
               if ! gh api --method DELETE "repos/$GITHUB_REPOSITORY/git/${GITHUB_REF#refs/}" 2> "$RUNNER_TEMP/gh-error"; then
                 # Already gone (a re-run, or the author deleted it) is fine; anything else is not.

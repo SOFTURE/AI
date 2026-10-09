@@ -8,8 +8,8 @@ import {
   readRemoteRef,
   writeNoteText,
 } from "./git-notes.js";
-import type { JunitCounts } from "./junit.js";
-import { formatIntegrationNote, parseIntegrationNote, type IntegrationNote } from "./note.js";
+import { formatIntegrationNote, INTEGRATION_NOTES_REF, parseIntegrationNote, type IntegrationNote } from "./note.js";
+import type { SuiteCounts } from "./suite-counts.js";
 
 /** The branch prefix whose pushes start an integration run (`deploy-integration.yml`'s caller listens to it). */
 export const INTEGRATION_BRANCH_PREFIX = "integration/";
@@ -19,6 +19,12 @@ interface GitTarget {
   cwd: string;
   /** The remote that runs the suite (usually `origin`). */
   remote: string;
+  /** The notes ref the results live under; {@link INTEGRATION_NOTES_REF} when not set. */
+  notesRef?: string;
+}
+
+function getNotesRef(target: GitTarget): string {
+  return target.notesRef ?? INTEGRATION_NOTES_REF;
 }
 
 /** A stored result, with the contract lines to print. */
@@ -31,7 +37,7 @@ export interface IntegrationFound {
 export type IntegrationLookup = IntegrationFound | { kind: "none" } | { kind: "invalid"; problem: string };
 
 function readMainNote(target: GitTarget, main: string): IntegrationNote | null {
-  const text = findMainNoteText(target.cwd, target.remote, main);
+  const text = findMainNoteText(target.cwd, target.remote, getNotesRef(target), main);
   if (text === null) return null;
   const parsed = parseIntegrationNote(text);
   return parsed.ok ? parsed.note : null;
@@ -48,8 +54,8 @@ function toLookup(target: GitTarget, text: string, main: string): IntegrationFou
  * be reached. `main` names the branch whose latest result `new-red` compares with.
  */
 export function lookupIntegration(target: GitTarget & { sha: string; main: string }): IntegrationLookup {
-  fetchIntegrationNotes(target.cwd, target.remote);
-  const text = readNoteText(target.cwd, target.sha);
+  fetchIntegrationNotes(target.cwd, target.remote, getNotesRef(target));
+  const text = readNoteText(target.cwd, getNotesRef(target), target.sha);
   return text === null ? { kind: "none" } : toLookup(target, text, target.main);
 }
 
@@ -59,8 +65,8 @@ export interface RecordOptions extends GitTarget {
   /** The ref the run was started by (`refs/heads/integration/<name>`, or the main branch). */
   ref: string;
   result: IntegrationNote["result"];
-  /** Counts of the run's JUnit report, or null without one. */
-  counts: JunitCounts | null;
+  /** Counts of the run's report, or null without a readable one. */
+  counts: SuiteCounts | null;
   run: string | null;
   finishedAt: Date;
   /** Fetch, write and push rounds before giving up (another run may push its note in between). */
@@ -80,15 +86,16 @@ export function recordIntegration(options: RecordOptions): RecordResult {
     passed: options.counts?.passed ?? null,
     total: options.counts?.total ?? null,
     red: options.counts?.red ?? [],
+    flaky: options.counts?.flaky ?? [],
     run: options.run,
     finishedAt: `${options.finishedAt.toISOString().slice(0, 19)}Z`,
   };
   const attempts = options.attempts ?? 5;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     // Start from the remote's notes each round, so a note another run pushed meanwhile is kept, not overwritten.
-    fetchIntegrationNotes(options.cwd, options.remote);
-    writeNoteText(options.cwd, options.sha, formatIntegrationNote(note));
-    if (pushIntegrationNotes(options.cwd, options.remote)) return { kind: "recorded", note };
+    fetchIntegrationNotes(options.cwd, options.remote, getNotesRef(options));
+    writeNoteText(options.cwd, getNotesRef(options), options.sha, formatIntegrationNote(note));
+    if (pushIntegrationNotes(options.cwd, options.remote, getNotesRef(options))) return { kind: "recorded", note };
   }
   return { kind: "push-failed", attempts };
 }
@@ -97,6 +104,8 @@ export interface RunOptions extends GitTarget {
   sha: string;
   name: string;
   main: string;
+  /** The branch prefix the run is pushed under; {@link INTEGRATION_BRANCH_PREFIX} when not set. */
+  refPrefix?: string;
   waitMinutes: number;
   pollSeconds: number;
   sleep: (milliseconds: number) => Promise<void>;
@@ -114,16 +123,17 @@ export type RunResult =
   | { kind: "unreachable" };
 
 /**
- * Starts the remote run for `sha` by pushing `refs/heads/integration/<name>` and waits for its note. A ref that
+ * Starts the remote run for `sha` by pushing `refs/heads/<refPrefix><name>` and waits for its note. A ref that
  * already points at another commit is someone else's run: refused, never replaced. A ref already on `sha` is this
  * run, started earlier: waited for without a push.
  */
 export async function runIntegration(options: RunOptions): Promise<RunResult> {
-  const ref = `refs/heads/${INTEGRATION_BRANCH_PREFIX}${options.name}`;
+  const ref = `refs/heads/${options.refPrefix ?? INTEGRATION_BRANCH_PREFIX}${options.name}`;
+  const notesRef = getNotesRef(options);
   // Read the stored note before the push: a fast run could otherwise replace it before it is read, and the wait
   // below would never see a change.
-  fetchIntegrationNotes(options.cwd, options.remote);
-  const before = readNoteText(options.cwd, options.sha);
+  fetchIntegrationNotes(options.cwd, options.remote, notesRef);
+  const before = readNoteText(options.cwd, notesRef, options.sha);
   const current = readRemoteRef(options.cwd, options.remote, ref);
   if (current.kind === "unreachable") return { kind: "unreachable" };
   if (current.kind === "at" && current.sha !== options.sha) return { kind: "busy", ref, otherSha: current.sha };
@@ -136,8 +146,8 @@ export async function runIntegration(options: RunOptions): Promise<RunResult> {
   }
   const deadline = options.now() + options.waitMinutes * 60_000;
   for (;;) {
-    fetchIntegrationNotes(options.cwd, options.remote);
-    const text = readNoteText(options.cwd, options.sha);
+    fetchIntegrationNotes(options.cwd, options.remote, notesRef);
+    const text = readNoteText(options.cwd, notesRef, options.sha);
     if (text !== null && text !== before) return toLookup(options, text, options.main);
     const remaining = deadline - options.now();
     if (remaining <= 0) return { kind: "timeout", ref };

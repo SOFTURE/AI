@@ -1,12 +1,7 @@
+import type { SuiteCounts } from "./suite-counts.js";
+
 /** Counts of a JUnit XML report: Vitest (`--reporter=junit`) and Playwright (`junit` reporter) both write one. */
-export interface JunitCounts {
-  /** Test cases that ran and neither failed nor errored. */
-  passed: number;
-  /** Test cases that ran (skipped ones are left out). */
-  total: number;
-  /** `<classname> › <name>` of each failed or errored case, in report order. */
-  red: string[];
-}
+export type JunitCounts = SuiteCounts;
 
 const TEST_CASE = /<testcase\b((?:"[^"]*"|'[^']*'|[^'">])*?)(\/>|>([\s\S]*?)<\/testcase>)/g;
 const NAMED_ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
@@ -32,23 +27,32 @@ function readAttribute(text: string, name: keyof typeof ATTRIBUTES): string {
 }
 
 /**
+/** `<classname> › <name>` of a case, or the name alone without a class. */
+function readCaseName(attributes: string): string {
+  const name = readAttribute(attributes, "name");
+  const className = readAttribute(attributes, "classname");
+  return className === "" ? name : `${className} › ${name}`;
+}
+
+/**
  * Reads the test cases of a JUnit report without a full XML parser: the format is flat enough (`<testcase>` elements
- * with an optional `<failure>`, `<error>` or `<skipped>` child) and the report is the app's own output.
+ * with an optional `<failure>`, `<error>` or `<skipped>` child) and the report is the app's own output. Flaky cases
+ * are known only from Surefire's `<flakyFailure>` and `<flakyError>`; other writers carry no such signal.
  */
 export function readJunitCounts(xml: string): JunitCounts {
-  const counts: JunitCounts = { passed: 0, total: 0, red: [] };
+  const counts: JunitCounts = { passed: 0, total: 0, red: [], flaky: [] };
   for (const match of xml.matchAll(TEST_CASE)) {
     const body = match[3] ?? "";
     if (/<skipped\b/.test(body)) continue;
     counts.total += 1;
+    const attributes = match[1] ?? "";
     if (!/<(failure|error)\b/.test(body)) {
       counts.passed += 1;
+      // Surefire's rerun format: a case that failed, then passed on a rerun.
+      if (/<flaky(Failure|Error)\b/.test(body)) counts.flaky.push(readCaseName(attributes));
       continue;
     }
-    const attributes = match[1] ?? "";
-    const name = readAttribute(attributes, "name");
-    const className = readAttribute(attributes, "classname");
-    counts.red.push(className === "" ? name : `${className} › ${name}`);
+    counts.red.push(readCaseName(attributes));
   }
   return counts;
 }
