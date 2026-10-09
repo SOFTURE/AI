@@ -395,8 +395,14 @@ tests and the release; another repository would make the server pull something e
 checkout and the build, adds `<image>:<tag>` to exactly that manifest with `docker buildx imagetools create` and stops
 when the tag then names another digest. The server pulls the tag as before, and the report's digest is that one.
 `build-args` do not apply (the image is built already; their comparison with `.env.prod` still runs), and `e2e` with
-it is refused. The workflow runs once this package is on npm; callers pin the `deploy-workflows-v1` tag
-the owner sets, or its commit SHA.
+it is refused. The workflow runs once this package is on npm.
+
+**Which ref callers pin.** A caller's `uses:` names SOFTURE/AI's workflows at a ref. Pin the commit SHA of the
+package's release tag `deploy@<version>`, the version the app's `deploy.sh` runs: the workflows at that commit default
+`deploy-cli-version` to the same version, and a SHA never moves. Print it with
+`git ls-remote https://github.com/SOFTURE/AI 'refs/tags/deploy@0.1.6^{}'` (the `^{}` peels the annotated tag to its
+commit) and write it in place of `master` in each `uses:` line; `init --workflows-ref=<sha>` writes it for you. The
+examples call `master`, which works but follows every merge. There is no moving `deploy-workflows-v1` tag.
 
 ### Release report
 
@@ -480,7 +486,7 @@ named in the output, and only `--force` overwrites it.
 
 ```bash
 softure-deploy init --domain=example.com --image=ghcr.io/acme/app [--dir=.] [--name=<slug>] [--paths=/] [--www] \
-  [--acme-email=<email>] [--env=AUTH_SECRET,...] [--tables=users,billing.subscriptions] [--force]
+  [--acme-email=<email>] [--env=AUTH_SECRET,...] [--tables=users,billing.subscriptions] [--workflows-ref=<sha>] [--force]
 ```
 
 | File | What it holds |
@@ -499,12 +505,18 @@ softure-deploy init --domain=example.com --image=ghcr.io/acme/app [--dir=.] [--n
 - **Asked:** `--domain` and `--image`; `--paths`, `--www`, `--acme-email`, `--env` (the app's own secrets, added to
   the app service in the required form so `env render` renders them), `--tables` (what `row-counts` compares on
   the server, written into `deploy.json`; with a `deploy.json` that `init` keeps, add `database.rowCountTables` to it
-  by hand) and `--name` (compose project, server folder `/srv/<name>`, database name; default from `package.json`).
+  by hand), `--name` (compose project, server folder `/srv/<name>`, database name; default from `package.json`) and
+  `--workflows-ref` (the commit SHA both callers pin, see [Which ref callers pin](#deploy-workflow); without it they call
+  `master` and a warning prints the command that gives the release commit).
 - **Read from the app:** `@softure-ai/db` in `package.json` turns on the database part, `@softure-ai/ops` the
   `/api/health` route (else `/`), a `public/` folder its `COPY`; a `next.config.*` without `standalone` is a warning,
   and so is, with a database, one whose `serverExternalPackages` does not name `@softure-ai/db` (without it
   `next build` cannot resolve the driver the app does not install; see the `@softure-ai/db` README, §2).
-  Nothing is read from `softure.config`.
+  An existing `docker/prod/docker-compose.yml` (kept, or replaced with `--force`) gives `deploy.sh` the Postgres
+  major of the `postgres` service's image (`postgres:17-alpine` → a tools image with `pg_dump` 17; otherwise 16), and
+  a kept one also the role of the `app` service's `DATABASE_URL`, which `report` reads as (otherwise `softure_app`).
+  With a database, a value the file has but init cannot read (a tag such as `latest`, a role from a variable) is a
+  warning naming the default it used. Nothing is read from `softure.config`.
 - **Values are narrow:** the domain, image, name, paths, e-mail, env names and tables are checked against patterns
   before anything is written, so no value can break out of YAML, bash or a Traefik rule.
 - **Secrets:** the compose file's required variables are the list the workflow renders: `POSTGRES_PASSWORD`,
@@ -741,13 +753,13 @@ softure-deploy report --host=app-prod reports/signups.sql --since=2026-10-01
 **`run`.** Client flags (`--host`, `--port`, `--ssh`) come before the script; every word after it is the script's,
 `--help` included. The server checks the name (kebab-case) and each word (`--key` or `--key=value`), takes the deploy
 lock (no script during a release), and runs `docker compose exec -T app node ops/<name>.mjs <words>` in the live app
-container, so the script has the app's `DATABASE_URL` (the `softure_app` role: rows, not schema). A script the live
+container, so the script has the app's `DATABASE_URL` (`softure_app` in init's compose file: rows, not schema). A script the live
 image lacks is refused with the list it has. stdin reaches the script, so `--<key>-file=-` reads it; a
 `--<key>-file=<path>` is read on the operator's machine and sent on stdin as `--<key>-file=-` (one per run), so a
 secret is on no command line, here or on the server. The exit status is the script's: 0 done (dry run or committed),
 1 refused or failed (nothing written), 2 usage.
 
-**`report`.** The file travels on stdin (at most 1 MiB) to `psql` in the postgres container, as `softure_app`, in one
+**`report`.** The file travels on stdin (at most 1 MiB) to `psql` in the postgres container, as the app's role (`REPORT_ROLE` in `deploy.sh`, see `init`), in one
 transaction with `default_transaction_read_only=on` and `ON_ERROR_STOP`: an `INSERT`, `UPDATE` or DDL fails and
 nothing is written. Each `--key=value` is a psql variable (`-` in the key becomes `_`), so values are quoted by psql,
 never pasted into the SQL:

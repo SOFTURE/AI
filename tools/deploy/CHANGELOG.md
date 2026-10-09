@@ -6,6 +6,13 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- `init` reads an existing `docker/prod/docker-compose.yml`: `deploy.sh`'s tools image carries the `pg_dump` of the
+  `postgres` service's major (`postgres:17-alpine` → `-pg17`, `postgresql17-client`) instead of a fixed 16, and
+  `report` reads as the role of the `app` service's `DATABASE_URL` instead of a fixed `softure_app` (a compose file
+  `--force` replaces keeps the major, and `softure_app`). A value init cannot read there is a warning naming the default.
+- `init --workflows-ref=<sha>` pins both callers' `uses:` to that commit of SOFTURE/AI; without it they call `master`
+  and a warning prints how to get the commit of the `deploy@<version>` release. The callers, the examples and the
+  README no longer name `deploy-workflows-v1`, a tag that never existed.
 - `deploy-app.yml` takes `secrets-from-environment: true` (with `environment` and `secrets: inherit`): the deploy job
   renders `.env.prod` from its own secrets, where the environment's win over the repository's, and sends with the
   secrets `ssh-host-secret`, `ssh-user-secret`, `ssh-private-key-secret` and `ssh-known-hosts-secret` name (defaults

@@ -235,8 +235,11 @@ describe("the generated caller workflow", () => {
   const caller = parse(textOf(plan(), ".github/workflows/deploy.yml")) as { permissions: unknown; jobs: Record<string, Job> };
   const job = caller.jobs.deploy as Job;
 
-  it("calls deploy-app.yml at the moving tag with the same permissions as the example caller", () => {
-    expect(job.uses).toBe("SOFTURE/AI/.github/workflows/deploy-app.yml@deploy-workflows-v1");
+  it("calls deploy-app.yml at master, or at the given commit, with the same permissions as the example caller", () => {
+    expect(job.uses).toBe("SOFTURE/AI/.github/workflows/deploy-app.yml@master");
+    const sha = "8d8b8e5a7c246b9afe4e92dc055105f042af37ab";
+    const pinned = parse(textOf(plan({ workflowsRef: sha }), ".github/workflows/deploy.yml")) as { jobs: Record<string, Job> };
+    expect(pinned.jobs.deploy?.uses).toBe(`SOFTURE/AI/.github/workflows/deploy-app.yml@${sha}`);
     expect(caller.permissions).toEqual({ contents: "read", packages: "write" });
   });
 

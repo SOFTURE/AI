@@ -115,7 +115,7 @@ LOCK_FILE="$APP_DIR/.deploy.lock"
 LOCK_WAIT_SECONDS=600
 {{#database}}
 # The role of the app's DATABASE_URL in the compose file; reports read as it.
-REPORT_ROLE=softure_app
+REPORT_ROLE={{reportRole}}
 MAX_REPORT_BYTES=$((1024 * 1024))
 OPS_SCRIPT_NAME='^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
 OPS_ARGUMENT='^--[a-z][a-z0-9-]*(=.*)?$'

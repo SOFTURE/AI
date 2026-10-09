@@ -7,8 +7,9 @@
 # redeploy of an older tag). Only a tag whose commit is on the default branch deploys (`release-branch` names
 # another). After every run, `report` writes the pipeline status and a deployment row into the tag's release
 # (deploy-report.yml); it is the only job that may write to the repository, and only to edit the release.
-# `deploy-workflows-v1` is the tag the owner moves on SOFTURE/AI; pin a commit SHA instead when the app wants an
-# immutable reference.
+# SOFTURE/AI's workflows are called at `master`; pin a commit SHA for an immutable reference,
+# best the commit of the release tag `deploy@<version>` of the CLI the server runs:
+# git ls-remote https://github.com/SOFTURE/AI 'refs/tags/deploy@<version>^{}'.
 
 name: deploy
 
@@ -29,7 +30,7 @@ permissions:
 
 jobs:
   deploy:
-    uses: SOFTURE/AI/.github/workflows/deploy-app.yml@deploy-workflows-v1
+    uses: SOFTURE/AI/.github/workflows/deploy-app.yml@master
     with:
       tag: ${{ github.event.release.tag_name || inputs.tag }}
       app-url: https://example.com
@@ -73,6 +74,6 @@ jobs:
     if: ${{ always() }}
     permissions:
       contents: write
-    uses: SOFTURE/AI/.github/workflows/deploy-report.yml@deploy-workflows-v1
+    uses: SOFTURE/AI/.github/workflows/deploy-report.yml@master
     with:
       tag: ${{ github.event.release.tag_name || inputs.tag }}

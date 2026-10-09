@@ -7,6 +7,8 @@ import { runCli } from "../src/cli/run.js";
 
 const PACKAGE_VERSION = (JSON.parse(readFileSync(join(import.meta.dirname, "../package.json"), "utf8")) as { version: string }).version;
 const REQUIRED = ["--domain=example.com", "--image=ghcr.io/acme/app"];
+const WORKFLOWS_SHA = "8d8b8e5a7c246b9afe4e92dc055105f042af37ab";
+const MASTER_REF_WARNING = `warning .github/workflows call SOFTURE/AI's workflows at master; pin the commit of the deploy@${PACKAGE_VERSION} release instead (git ls-remote https://github.com/SOFTURE/AI 'refs/tags/deploy@${PACKAGE_VERSION}^{}' prints it) with --workflows-ref=<sha>, or edit their uses: lines`;
 
 let dir: string;
 let out: string[];
@@ -51,6 +53,7 @@ describe("softure-deploy init", () => {
         "wrote   .github/workflows/deploy.yml",
         "wrote   .github/workflows/release.yml",
         "wrote   deploy.json",
+        MASTER_REF_WARNING,
         "init: 10 written, 0 kept, database part on (@softure-ai/db found in package.json).",
         "",
       ].join("\n"),
@@ -100,7 +103,7 @@ describe("softure-deploy init", () => {
 
     async function warningsFor(pkg: object, nextConfig: string): Promise<string[]> {
       writeApp(pkg, nextConfig);
-      expect(await runCli(["init", ...REQUIRED], makeIo())).toBe(0);
+      expect(await runCli(["init", ...REQUIRED, `--workflows-ref=${WORKFLOWS_SHA}`], makeIo())).toBe(0);
       return out
         .join("")
         .split("\n")
@@ -136,6 +139,116 @@ describe("softure-deploy init", () => {
         'warning next.config.ts does not mention "standalone"; the Dockerfile needs output: "standalone"\n',
         SERVER_EXTERNAL_WARNING,
       ]);
+    });
+  });
+
+  describe("an app that keeps its own compose file", () => {
+    const DATABASE_APP = { name: "ledger", dependencies: { "@softure-ai/db": "^0.1.2" } };
+
+    function writeCompose(postgresImage: string, databaseUrl: string): void {
+      mkdirSync(join(dir, "docker/prod"), { recursive: true });
+      writeFileSync(
+        join(dir, "docker/prod/docker-compose.yml"),
+        [
+          "services:",
+          "  app:",
+          "    image: ghcr.io/acme/ledger:${TAG}",
+          "    environment:",
+          `      DATABASE_URL: ${databaseUrl}`,
+          "  postgres:",
+          `    image: ${postgresImage}`,
+          "",
+        ].join("\n"),
+      );
+    }
+
+    async function runInit(...flags: string[]): Promise<{ script: string; warnings: string[] }> {
+      writeApp(DATABASE_APP);
+      expect(await runCli(["init", ...REQUIRED, `--workflows-ref=${WORKFLOWS_SHA}`, ...flags], makeIo())).toBe(0);
+      const warnings = out
+        .join("")
+        .split("\n")
+        .filter((line) => line.startsWith("warning "));
+      return { script: readFileSync(join(dir, "docker/server/deploy.sh"), "utf8"), warnings };
+    }
+
+    it("builds the tools image with its Postgres major and reports as its app role", async () => {
+      writeCompose("postgres:17-alpine", "postgresql://ledger_app:${LEDGER_APP_PASSWORD:?}@postgres:5432/ledger");
+      const { script, warnings } = await runInit();
+      expect(script).toContain(`TOOLS_IMAGE="softure-deploy-tools:${PACKAGE_VERSION}-pg17"`);
+      expect(script).toContain("apk add --no-cache postgresql17-client");
+      expect(script).toContain("REPORT_ROLE=ledger_app\n");
+      expect(script).not.toContain("pg16");
+      expect(warnings).toEqual([]);
+      expect(out.join("")).toContain("kept    docker/prod/docker-compose.yml (exists; --force overwrites it)\n");
+    });
+
+    it("warns and keeps the defaults when the image or the role cannot be read", async () => {
+      writeCompose("postgres:latest", "postgresql://${DB_USER:?}:${DB_PASSWORD:?}@postgres:5432/ledger");
+      const { script, warnings } = await runInit();
+      expect(script).toContain(`TOOLS_IMAGE="softure-deploy-tools:${PACKAGE_VERSION}-pg16"`);
+      expect(script).toContain("REPORT_ROLE=softure_app\n");
+      expect(warnings).toEqual([
+        "warning docker/prod/docker-compose.yml: no Postgres major version in the postgres service's image; deploy.sh's tools image carries pg_dump 16",
+        "warning docker/prod/docker-compose.yml: no role in the app service's DATABASE_URL; deploy.sh's report reads as softure_app",
+      ]);
+    });
+
+    it("keeps the major but reports as softure_app when --force replaces the compose file", async () => {
+      writeCompose("postgres:17-alpine", "postgresql://ledger_app:${LEDGER_APP_PASSWORD:?}@postgres:5432/ledger");
+      const { script, warnings } = await runInit("--force");
+      const composeText = readFileSync(join(dir, "docker/prod/docker-compose.yml"), "utf8");
+      expect(composeText).toContain("    image: postgres:17\n");
+      expect(composeText).toContain("DATABASE_URL: postgresql://softure_app:");
+      expect(script).toContain(`TOOLS_IMAGE="softure-deploy-tools:${PACKAGE_VERSION}-pg17"`);
+      expect(script).toContain("REPORT_ROLE=softure_app\n");
+      expect(warnings).toEqual([]);
+    });
+
+    it("reads nothing from the compose file of an app without a database", async () => {
+      writeCompose("postgres:latest", "postgresql://${DB_USER:?}@postgres:5432/x");
+      writeApp({ name: "ledger" });
+      expect(await runCli(["init", ...REQUIRED, `--workflows-ref=${WORKFLOWS_SHA}`], makeIo())).toBe(0);
+      expect(out.join("")).not.toContain("warning ");
+    });
+  });
+
+  describe("the ref of SOFTURE/AI's workflows", () => {
+    it("pins both callers to --workflows-ref without a warning", async () => {
+      writeApp({ name: "shop" });
+      expect(await runCli(["init", ...REQUIRED, `--workflows-ref=${WORKFLOWS_SHA}`], makeIo())).toBe(0);
+      expect(readFileSync(join(dir, ".github/workflows/deploy.yml"), "utf8")).toContain(
+        `uses: SOFTURE/AI/.github/workflows/deploy-app.yml@${WORKFLOWS_SHA}\n`,
+      );
+      expect(readFileSync(join(dir, ".github/workflows/release.yml"), "utf8")).toContain(
+        `uses: SOFTURE/AI/.github/workflows/deploy-cut-release.yml@${WORKFLOWS_SHA}\n`,
+      );
+      expect(out.join("")).not.toContain("warning ");
+    });
+
+    it("calls master and says how to pin the release commit without it", async () => {
+      writeApp({ name: "shop" });
+      expect(await runCli(["init", ...REQUIRED], makeIo())).toBe(0);
+      expect(readFileSync(join(dir, ".github/workflows/deploy.yml"), "utf8")).toContain(
+        "uses: SOFTURE/AI/.github/workflows/deploy-app.yml@master\n",
+      );
+      expect(out.join("")).toContain(`${MASTER_REF_WARNING}\n`);
+    });
+
+    it("gives no ref warning when the app keeps both callers", async () => {
+      writeApp({ name: "shop" });
+      mkdirSync(join(dir, ".github/workflows"), { recursive: true });
+      writeFileSync(join(dir, ".github/workflows/deploy.yml"), "name: own-deploy\n");
+      writeFileSync(join(dir, ".github/workflows/release.yml"), "name: own-release\n");
+      expect(await runCli(["init", ...REQUIRED], makeIo())).toBe(0);
+      expect(out.join("")).not.toContain("warning ");
+    });
+
+    it("refuses a ref that is not a full commit SHA", async () => {
+      writeApp({ name: "shop" });
+      expect(await runCli(["init", ...REQUIRED, "--workflows-ref=deploy-workflows-v1"], makeIo())).toBe(1);
+      expect(err.join("")).toBe("init: nothing written; workflowsRef: a full commit SHA of SOFTURE/AI (40 hex characters).\n");
+      expect(existsSync(join(dir, "Dockerfile"))).toBe(false);
     });
   });
 
