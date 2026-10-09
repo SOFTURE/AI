@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { TABLE_NAME_PATTERN } from "../db/row-counts.js";
+import { DEFAULT_WEB_BOT_AUTH_KEY_ENV } from "./web-bot-auth.js";
 
 export const DEPLOY_SCHEMA_URL = "https://unpkg.com/@softure-ai/deploy/schema/deploy.schema.json";
 
@@ -69,6 +70,33 @@ const indexLoopSchema = z
   })
   .describe("One row per entry of a JSON index (Agent Skills Discovery by default), with the entry's digest as sha256.");
 
+/** An environment variable's name: the key itself must never be in deploy.json. */
+const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const SIGNATURE_HEADERS = ["signature", "signature-input", "signature-agent"];
+
+function isHttpOrigin(text: string): boolean {
+  if (!URL.canParse(text)) return false;
+  const url = new URL(text);
+  return (url.protocol === "https:" || url.protocol === "http:") && text.replace(/\/$/, "") === url.origin;
+}
+
+const webBotAuthSchema = z
+  .strictObject({
+    keyEnv: z
+      .string()
+      .regex(ENV_NAME, "an environment variable name (letters, digits and _), never the key itself")
+      .default(DEFAULT_WEB_BOT_AUTH_KEY_ENV)
+      .describe("The variable holding the Ed25519 seed (base64url JWK d, what agent-ready web-bot-auth key prints)."),
+    agent: z
+      .string()
+      .refine(isHttpOrigin, "an http or https origin, e.g. https://example.com")
+      .optional()
+      .describe("Signature-Agent: the origin whose key directory lists the key; default the verified URL's origin."),
+  })
+  .describe(
+    "Signs every request of the route with Web Bot Auth (RFC 9421, Ed25519, tag web-bot-auth); an unset or malformed variable fails the route by name.",
+  );
+
 const routeSchema = z
   .strictObject({
     path: routePathSchema
@@ -114,6 +142,7 @@ const routeSchema = z
       .describe("Request method. A POST route runs on every verify: make it one the app treats as a no-op or a check."),
     body: z.string().optional().describe("Request body, sent as is; set its content-type in requestHeaders. Not with GET or HEAD."),
     requestHeaders: requestHeadersSchema,
+    webBotAuth: webBotAuthSchema.optional(),
     severity: severitySchema
       .default("fail")
       .describe("fail: a failed check fails verify; warn: the row reads WARN and verify still passes."),
@@ -121,6 +150,10 @@ const routeSchema = z
   .refine((route) => (route.path === undefined) !== (route.forEach === undefined), {
     message: "a route needs a path or a forEach, not both",
     path: ["path"],
+  })
+  .refine((route) => route.webBotAuth === undefined || !SIGNATURE_HEADERS.some((name) => name in route.requestHeaders), {
+    message: "webBotAuth computes signature, signature-input and signature-agent itself",
+    path: ["requestHeaders"],
   })
   .refine((route) => route.redirect === undefined || (route.status >= 300 && route.status < 400), {
     message: "a redirect needs a 3xx status",

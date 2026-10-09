@@ -3,6 +3,7 @@ import { checkResponse, joinUrl, mergeHeaderChecks, needsBody, type CheckOutcome
 import { runOriginCheck, type OriginAddress, type OriginReport } from "./origin-check.js";
 import { SHA256_PATTERN, type RouteLoop, type Severity, type VerifyConfig, type VerifyRoute } from "./schema.js";
 import { runTlsCheck, type TlsReport } from "./tls-check.js";
+import { getWebBotAuthHeaders, readWebBotAuthKey, type EnvSource } from "./web-bot-auth.js";
 
 export type FetchFunction = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -58,20 +59,31 @@ interface RouteTarget {
   url: string;
 }
 
-/** Verify's request headers with a route's own on top (a bot's user-agent, `accept: text/markdown`). */
-function getRequestHeaders(route: VerifyRoute): Record<string, string> {
-  return { ...REQUEST_HEADERS, ...route.requestHeaders };
+type RequestHeaders = { ok: true; headers: Record<string, string> } | { ok: false; reason: string };
+
+/**
+ * Verify's request headers with a route's own on top (a bot's user-agent, `accept: text/markdown`), signed for `url`
+ * when the route has `webBotAuth`. A key that cannot be read is a reason naming its variable, never its value.
+ */
+function getRequestHeaders(options: { route: VerifyRoute; url: string; baseUrl: string; env: EnvSource }): RequestHeaders {
+  const { route, url, baseUrl, env } = options;
+  const headers = { ...REQUEST_HEADERS, ...route.requestHeaders };
+  if (route.webBotAuth === undefined) return { ok: true, headers };
+  const read = readWebBotAuthKey(env, route.webBotAuth.keyEnv);
+  if (!read.ok) return read;
+  const agentOrigin = route.webBotAuth.agent ?? new URL(baseUrl).origin;
+  return { ok: true, headers: { ...headers, ...getWebBotAuthHeaders(url, { key: read.key, agentOrigin }) } };
 }
 
 async function observe(options: {
   url: string;
   route: VerifyRoute;
+  headers: Record<string, string>;
   fetch: FetchFunction;
   timeoutMs: number;
 }): Promise<ObservedResponse> {
-  const { url, route, fetch, timeoutMs } = options;
+  const { url, route, headers, fetch, timeoutMs } = options;
   const signal = AbortSignal.timeout(timeoutMs);
-  const headers = getRequestHeaders(route);
   const response = await fetch(url, { method: route.method, redirect: "manual", headers, body: route.body, signal });
   const observed = { requestUrl: url, status: response.status, getHeader: (name: string) => response.headers.get(name) };
   // The body is read only when a check needs it; otherwise it is released so the connection is not held.
@@ -91,13 +103,16 @@ async function checkRoute(options: {
   target: RouteTarget;
   fetch: FetchFunction;
   timeoutMs: number;
+  env: EnvSource;
 }): Promise<RouteReport> {
-  const { baseUrl, config, target, fetch, timeoutMs } = options;
+  const { baseUrl, config, target, fetch, timeoutMs, env } = options;
   const { route, path, url } = target;
   const row = { method: route.method, path, url, severity: route.severity };
+  const request = getRequestHeaders({ route, url, baseUrl, env });
+  if (!request.ok) return { ...row, status: null, checks: [{ kind: "request", passed: false, detail: request.reason }], passed: false };
   let response: ObservedResponse;
   try {
-    response = await observe({ url, route, fetch, timeoutMs });
+    response = await observe({ url, route, headers: request.headers, fetch, timeoutMs });
   } catch (error) {
     const checks = [{ kind: "request" as const, passed: false, detail: describeRequestError(error, timeoutMs) }];
     return { ...row, status: null, checks, passed: false };
@@ -180,8 +195,9 @@ async function expandRoute(options: {
   route: VerifyRoute;
   fetch: FetchFunction;
   timeoutMs: number;
+  env: EnvSource;
 }): Promise<RouteTarget[] | RouteReport> {
-  const { baseUrl, route, fetch, timeoutMs } = options;
+  const { baseUrl, route, fetch, timeoutMs, env } = options;
   const loop = route.forEach;
   if (loop === undefined) {
     // The schema gives a route without forEach a path.
@@ -200,10 +216,12 @@ async function expandRoute(options: {
     passed: false,
     severity: route.severity,
   });
+  const request = getRequestHeaders({ route, url, baseUrl, env });
+  if (!request.ok) return fail(null, request.reason);
   let status: number;
   let text: string;
   try {
-    const response = await fetch(url, { method: "GET", redirect: "manual", headers: getRequestHeaders(route), signal: AbortSignal.timeout(timeoutMs) });
+    const response = await fetch(url, { method: "GET", redirect: "manual", headers: request.headers, signal: AbortSignal.timeout(timeoutMs) });
     status = response.status;
     text = await response.text();
   } catch (error) {
@@ -248,6 +266,8 @@ export async function runVerify(options: {
   fetch?: FetchFunction;
   concurrency?: number;
   timeoutMs?: number;
+  /** Where a `webBotAuth` route reads its key; default `process.env`. */
+  env?: EnvSource;
 }): Promise<VerifyReport> {
   const { baseUrl, config } = options;
   const fetch = options.fetch ?? globalThis.fetch;
@@ -255,11 +275,12 @@ export async function runVerify(options: {
   const minDays = config.tlsMinDays;
   const concurrency = options.concurrency ?? DEFAULT_CONCURRENCY;
   const { origin } = options;
+  const env = options.env ?? process.env;
   const checkRoutes = async (): Promise<RouteReport[]> => {
-    const expanded = await mapWithLimit(config.routes, concurrency, (route) => expandRoute({ baseUrl, route, fetch, timeoutMs }));
+    const expanded = await mapWithLimit(config.routes, concurrency, (route) => expandRoute({ baseUrl, route, fetch, timeoutMs, env }));
     const work = expanded.flatMap((item): (RouteTarget | RouteReport)[] => (Array.isArray(item) ? item : [item]));
     return mapWithLimit(work, concurrency, (item) =>
-      "checks" in item ? Promise.resolve(item) : checkRoute({ baseUrl, config, target: item, fetch, timeoutMs }),
+      "checks" in item ? Promise.resolve(item) : checkRoute({ baseUrl, config, target: item, fetch, timeoutMs, env }),
     );
   };
   const [routes, tls, originReport] = await Promise.all([

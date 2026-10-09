@@ -46,3 +46,12 @@ export {
   type CertificateProbe,
   type TlsReport,
 } from "./tls-check.js";
+export {
+  DEFAULT_WEB_BOT_AUTH_KEY_ENV,
+  getWebBotAuthHeaders,
+  readWebBotAuthKey,
+  type EnvSource,
+  type ReadWebBotAuthKey,
+  type WebBotAuthKey,
+  type WebBotAuthSignOptions,
+} from "./web-bot-auth.js";

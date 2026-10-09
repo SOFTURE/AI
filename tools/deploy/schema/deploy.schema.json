@@ -485,6 +485,23 @@
                   "description": "The header value sent."
                 }
               },
+              "webBotAuth": {
+                "type": "object",
+                "properties": {
+                  "keyEnv": {
+                    "default": "WEB_BOT_AUTH_PRIVATE_KEY",
+                    "description": "The variable holding the Ed25519 seed (base64url JWK d, what agent-ready web-bot-auth key prints).",
+                    "type": "string",
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                  },
+                  "agent": {
+                    "description": "Signature-Agent: the origin whose key directory lists the key; default the verified URL's origin.",
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false,
+                "description": "Signs every request of the route with Web Bot Auth (RFC 9421, Ed25519, tag web-bot-auth); an unset or malformed variable fails the route by name."
+              },
               "severity": {
                 "default": "fail",
                 "description": "fail: a failed check fails verify; warn: the row reads WARN and verify still passes.",
