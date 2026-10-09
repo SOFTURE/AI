@@ -137,9 +137,9 @@ export const mcpAccessOptionsSchema = z
      */
     legacyTokenPattern: legacyTokenPatternSchema.optional(),
     /**
-     * The app origin of a request, when it is not the fixed `appOrigin`: an image built once and
-     * served under another origin, or a proxy whose `request.url` does not carry the public host.
-     * `readRequestOrigin` (`/server`) reads it from `Host`. Null keeps `appOrigin`.
+     * The app origin of a request, when the config's `origins` block (core `resolveAppOrigin`) does not
+     * answer it: prefer `origins.trustedOrigins` or `origins.trustRequestHost` there, which every
+     * module reads. `readRequestOrigin` reads it from `Host`. Null falls back to the config's rule.
      */
     resolveAppOrigin: z.custom<McpAppOriginResolver>((value) => typeof value === "function", "must be a function (request) => string | null").optional(),
     /**

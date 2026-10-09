@@ -1,5 +1,5 @@
 // The analytics options of the running app, read from the configuration.
-import { getModule, type SoftureConfig } from "@softure-ai/core";
+import { getModule, getTrustedOrigins, type SoftureConfig } from "@softure-ai/core";
 import type { ChannelRule } from "../client/channel-keeper.js";
 import type { AnalyticsOptions, ChannelOptions } from "../options.js";
 
@@ -30,9 +30,12 @@ export function getChannelRule(config: SoftureConfig): ChannelRule {
   return { param, pattern: pattern.source, flags: pattern.flags, maxLength, normalize, origins: getFirstPartyOrigins(config) };
 }
 
-/** `appOrigin` followed by `analytics({ origins })`, without repeats: every origin this app serves pages on. */
+/**
+ * `appOrigin`, the config's `origins.trustedOrigins`, then `analytics({ origins })`, without repeats (core
+ * `getTrustedOrigins`): every origin this app serves pages on.
+ */
 export function getFirstPartyOrigins(config: SoftureConfig): readonly string[] {
-  return [...new Set([new URL(config.appOrigin).origin, ...getAnalyticsOptions(config).origins])];
+  return getTrustedOrigins(config, getAnalyticsOptions(config).origins);
 }
 
 /** The path of the funnel endpoint (`routes.funnel`, `/api/analytics/funnel` by default). */
