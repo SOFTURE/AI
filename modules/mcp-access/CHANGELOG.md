@@ -4,6 +4,11 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mcp-access@x.y.z`).
 
+## 0.1.13
+
+- Token and grant dates use core's `formatCalendarDay` on the day in the app's zone; same output. Requires
+  `@softure-ai/core` `^0.1.9` (#312).
+
 ## 0.1.12
 
 - Without a `resolveAppOrigin` option, the app origin comes from core's `resolveAppOrigin` (#311): a listed origin
@@ -12,6 +17,8 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   answers `null` for a host that is no host). The consent decision still reads `Host` only. Discovery documents vary
   on `x-forwarded-host` too.
 - `getRequestOrigins(config, path)` is exported from `@softure-ai/mcp-access/next`. Needs `@softure-ai/core` 0.1.8.
+- `MCP_RATE_LIMIT_BUCKETS` declares `key: "ip"` on `mcp` and `mcp-oauth` (security 0.1.8 bucket kinds).
+- Requires `@softure-ai/security` `^0.1.8`: earlier versions refuse the `key` field.
 
 ## 0.1.11
 

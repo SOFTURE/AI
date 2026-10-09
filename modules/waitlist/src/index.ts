@@ -3,6 +3,7 @@
 // sign-ups are in `@softure-ai/waitlist/server`, the Next.js adapter (actions, `Waitlist` component,
 // confirmation page) in `/next`, the form in `/ui`.
 import { defineModule, resolveMigrationsDir } from "@softure-ai/core";
+import type { RateLimitBucketInput } from "@softure-ai/security";
 import { waitlistMessages } from "./messages/index.js";
 import { waitlistOptionsSchema } from "./options.js";
 import { checkSignupsTable } from "./server/health.js";
@@ -16,9 +17,9 @@ export const MODULE_ID = "waitlist";
  * someone else's address many times).
  */
 export const WAITLIST_RATE_LIMIT_BUCKETS = {
-  waitlist: { limit: 10, windowMinutes: 15 },
-  "waitlist-email": { limit: 3, windowMinutes: 60 },
-} as const;
+  waitlist: { limit: 10, windowMinutes: 15, key: "ip" },
+  "waitlist-email": { limit: 3, windowMinutes: 60, key: "subject" },
+} as const satisfies Readonly<Record<string, RateLimitBucketInput>>;
 
 /**
  * Enables the waitlist in `softure.config.ts` (after `security`, `mailing` and `privacy`):

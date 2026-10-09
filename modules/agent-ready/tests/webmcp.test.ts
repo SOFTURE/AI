@@ -8,10 +8,13 @@ import {
   registerWebMcpTool,
   stripFrontmatter,
   textResult,
+  toWebMcpInputSchema,
   type ModelContextLike,
+  type RegisteredWebMcpTool,
   type WebMcpTool,
 } from "@softure-ai/agent-ready/webmcp";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 
 const TOOL: WebMcpTool = {
   name: "read_page",
@@ -163,5 +166,36 @@ describe("the boot script", () => {
     );
     expect(() => buildWebMcpBootScript({ ...options, flag: "x;alert(1)" })).toThrow('WebMCP boot script: flag "x;alert(1)" is not a JavaScript identifier');
     expect(() => buildWebMcpBootScript({ ...options, pathPatterns: ["("] })).toThrow();
+  });
+});
+
+describe("zod input schemas (#316)", () => {
+  const zodSchema = z.object({ query: z.string().min(1).describe("What to look for."), limit: z.int().min(1).max(20).default(5) });
+  const jsonSchema = {
+    type: "object",
+    properties: {
+      query: { type: "string", minLength: 1, description: "What to look for." },
+      limit: { type: "integer", minimum: 1, maximum: 20, default: 5 },
+    },
+    required: ["query"],
+  };
+
+  it("converts a zod schema to the JSON Schema a hand-written tool carries, and passes JSON Schema through", () => {
+    expect(toWebMcpInputSchema(zodSchema)).toEqual(jsonSchema);
+    expect(toWebMcpInputSchema(jsonSchema)).toBe(jsonSchema);
+  });
+
+  it("registers a tool declared with zod as JSON Schema", () => {
+    const registerTool = vi.fn<ModelContextLike["registerTool"]>();
+    registerWebMcpTool({ registerTool }, { ...TOOL, inputSchema: zodSchema }, new AbortController().signal);
+    expect(registerTool.mock.calls[0]?.[0].inputSchema).toEqual(jsonSchema);
+  });
+
+  it("puts JSON Schema into the boot script for a tool declared with zod", () => {
+    const tools: RegisteredWebMcpTool[] = [];
+    setModelContext("document", { registerTool: (tool: RegisteredWebMcpTool) => tools.push(tool) });
+    const tool = { name: "search", description: "Searches.", inputSchema: zodSchema, execute: "(args, h) => h.ok('x')" };
+    runScript(buildWebMcpBootScript({ flag: "__exampleWebMcp", paths: ["/"], tools: [tool] }));
+    expect(tools[0]?.inputSchema).toEqual(jsonSchema);
   });
 });

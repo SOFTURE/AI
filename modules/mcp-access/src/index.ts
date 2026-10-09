@@ -3,6 +3,7 @@
 // work and the endpoint are in `@softure-ai/mcp-access/server`, the Next.js adapter (route, page,
 // actions) in `/next`, the token manager in `/ui`.
 import { defineModule, resolveMigrationsDir } from "@softure-ai/core";
+import type { RateLimitBucketInput } from "@softure-ai/security";
 import { mcpAccessMessages } from "./messages/index.js";
 import { mcpAccessOptionsSchema } from "./options.js";
 import { checkAccessTokensTable } from "./server/health.js";
@@ -16,14 +17,14 @@ export const MODULE_ID = "mcp-access";
  * the traffic behind one address (several assistants share it), not for one token.
  */
 export const MCP_RATE_LIMIT_BUCKETS = {
-  mcp: { limit: 200, windowMinutes: 15 },
+  mcp: { limit: 200, windowMinutes: 15, key: "ip" },
   /**
    * OAuth registration (per address) and token requests (per address and client id), when
    * `oauth.enabled`. Enough for an assistant platform refreshing many users' tokens per client,
    * too little for a script filling the clients table.
    */
-  "mcp-oauth": { limit: 60, windowMinutes: 15 },
-} as const;
+  "mcp-oauth": { limit: 60, windowMinutes: 15, key: "ip" },
+} as const satisfies Readonly<Record<string, RateLimitBucketInput>>;
 
 /**
  * Enables MCP access in `softure.config.ts` (after `security` and `auth`):
@@ -32,7 +33,7 @@ export const MCP_RATE_LIMIT_BUCKETS = {
 export const mcpAccess = defineModule({
   manifest: {
     id: MODULE_ID,
-    version: "0.1.12",
+    version: "0.1.13",
     dependsOn: { security: "^0.1.0", auth: "^0.1.0" },
     dbSchema: "mcp",
     tables: ["access_tokens", "oauth_clients", "oauth_authorization_codes", "oauth_grants"],

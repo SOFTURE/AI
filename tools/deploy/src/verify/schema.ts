@@ -39,12 +39,47 @@ const requestHeadersSchema = z
   .default({})
   .describe("Headers sent with the request, by lower-case name, on top of verify's own (user-agent, accept, cache-control).");
 
+/** `sha256:<hex>` (the Agent Skills Discovery format) or the bare hex. */
+export const SHA256_PATTERN = /^(sha256:)?[0-9a-f]{64}$/;
+
+export const SEVERITIES = ["fail", "warn"] as const;
+
+const severitySchema = z.enum(SEVERITIES);
+
+const routePathSchema = z.string().regex(ROUTE_PATH, "a path that starts with a single /");
+
+const sitemapLoopSchema = z
+  .strictObject({
+    sitemap: routePathSchema.describe("Path of the sitemap on the verified URL's host, e.g. /sitemap.xml (a urlset, not a sitemap index)."),
+    match: z.string().min(1).optional().describe("Text an entry's path must contain, e.g. /blog/; without it, every entry."),
+  })
+  .describe("One row per <loc> of the sitemap whose path contains match.");
+
+const indexLoopSchema = z
+  .strictObject({
+    index: routePathSchema.describe("Path of a JSON index on the verified URL's host, e.g. /.well-known/agent-skills/index.json."),
+    items: z.string().min(1).default("skills").describe("Key of the index's list of entries."),
+    url: z.string().min(1).default("url").describe("Key of an entry's URL (a path or an absolute URL)."),
+    digest: z
+      .string()
+      .min(1)
+      .nullable()
+      .default("digest")
+      .describe("Key of an entry's SHA-256 (sha256:<hex>), checked against the served bytes; null checks no digest."),
+  })
+  .describe("One row per entry of a JSON index (Agent Skills Discovery by default), with the entry's digest as sha256.");
+
 const routeSchema = z
   .strictObject({
-    path: z
-      .string()
-      .regex(ROUTE_PATH, "a path that starts with a single /")
-      .describe("Path on the verified URL, starting with /; a query string is allowed."),
+    path: routePathSchema
+      .optional()
+      .describe("Path on the verified URL, starting with /; a query string is allowed. Not with forEach."),
+    forEach: z
+      .union([sitemapLoopSchema, indexLoopSchema])
+      .optional()
+      .describe(
+        "Instead of path: the route is checked for every entry of a sitemap or a JSON index, each entry's path requested on the verified URL's origin.",
+      ),
     status: z.int().min(100).max(599).default(200).describe("Expected HTTP status (redirects are not followed)."),
     contains: z
       .array(z.string().min(1))
@@ -54,6 +89,19 @@ const routeSchema = z
       .array(z.string().min(1))
       .default([])
       .describe("Markers the response body must not contain, for example the text of an error page."),
+    count: z
+      .record(z.string().min(1), z.int().min(0).describe("How many times the marker occurs (non-overlapping)."))
+      .optional()
+      .describe("Markers by exact number of occurrences, e.g. { \"Content-Signal:\": 1 }."),
+    within: z
+      .enum(["head"])
+      .optional()
+      .describe("Checks contains, excludes and count only between <head> and </head>."),
+    sha256: z
+      .string()
+      .regex(SHA256_PATTERN, "sha256:<64 hex> or 64 lower-case hex characters")
+      .optional()
+      .describe("SHA-256 the response's exact bytes must have."),
     redirect: z
       .string()
       .min(1)
@@ -66,6 +114,13 @@ const routeSchema = z
       .describe("Request method. A POST route runs on every verify: make it one the app treats as a no-op or a check."),
     body: z.string().optional().describe("Request body, sent as is; set its content-type in requestHeaders. Not with GET or HEAD."),
     requestHeaders: requestHeadersSchema,
+    severity: severitySchema
+      .default("fail")
+      .describe("fail: a failed check fails verify; warn: the row reads WARN and verify still passes."),
+  })
+  .refine((route) => (route.path === undefined) !== (route.forEach === undefined), {
+    message: "a route needs a path or a forEach, not both",
+    path: ["path"],
   })
   .refine((route) => route.redirect === undefined || (route.status >= 300 && route.status < 400), {
     message: "a redirect needs a 3xx status",
@@ -75,10 +130,16 @@ const routeSchema = z
     message: "a body needs a method other than GET or HEAD",
     path: ["body"],
   })
-  .refine((route) => route.method !== "HEAD" || (route.contains.length === 0 && route.excludes.length === 0), {
-    message: "a HEAD response has no body to hold markers",
-    path: ["method"],
-  })
+  .refine(
+    (route) =>
+      route.method !== "HEAD" ||
+      (route.contains.length === 0 && route.excludes.length === 0 && route.count === undefined && route.sha256 === undefined),
+    { message: "a HEAD response has no body to hold markers", path: ["method"] },
+  )
+  .refine(
+    (route) => route.within === undefined || route.contains.length > 0 || route.excludes.length > 0 || route.count !== undefined,
+    { message: "within needs contains, excludes or count", path: ["within"] },
+  )
   .describe("One route to request and what its response must look like.");
 
 const verifySchema = z
@@ -101,6 +162,9 @@ const verifySchema = z
       .describe(
         "Fewest days the TLS certificate of the verified https URL may have left; fewer, or an untrusted certificate, fails verify.",
       ),
+    originSeverity: severitySchema
+      .default("fail")
+      .describe("fail: an origin that accepts a direct connection (--origin) fails verify; warn: the row reads WARN."),
   })
   .describe("What softure-deploy verify checks after a deploy.");
 
@@ -241,6 +305,8 @@ export type DeployConfig = z.output<typeof deploySchema>;
 export type VerifyConfig = NonNullable<DeployConfig["verify"]>;
 export type VerifyRoute = VerifyConfig["routes"][number];
 export type HeaderChecks = VerifyRoute["headers"];
+export type RouteLoop = NonNullable<VerifyRoute["forEach"]>;
+export type Severity = (typeof SEVERITIES)[number];
 export type DeployConfigInput = z.input<typeof deploySchema>;
 export type DeployHooks = NonNullable<DeployConfig["hooks"]>;
 export type DeployHook = NonNullable<DeployHooks["pre-migrate"]>[number];

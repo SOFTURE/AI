@@ -5,7 +5,7 @@ import type { VerifyRoute } from "./schema.js";
 const BASE = "https://example.com";
 
 function route(overrides: Partial<VerifyRoute> = {}): VerifyRoute {
-  return { path: "/", status: 200, contains: [], excludes: [], headers: {}, method: "GET", requestHeaders: {}, ...overrides };
+  return { path: "/", status: 200, contains: [], excludes: [], headers: {}, method: "GET", requestHeaders: {}, severity: "fail", ...overrides };
 }
 
 function response(overrides: Partial<Omit<ObservedResponse, "getHeader">> & { headers?: Record<string, string> } = {}): ObservedResponse {
@@ -14,6 +14,7 @@ function response(overrides: Partial<Omit<ObservedResponse, "getHeader">> & { he
     requestUrl: overrides.requestUrl ?? `${BASE}/`,
     status: overrides.status ?? 200,
     body: overrides.body ?? null,
+    sha256: overrides.sha256 ?? null,
     getHeader: (name) => headers[name] ?? null,
   };
 }
@@ -158,5 +159,51 @@ describe("joinUrl", () => {
     expect(joinUrl("https://example.com/", "/a?b=1")).toBe("https://example.com/a?b=1");
     expect(joinUrl("https://example.com/app", "/")).toBe("https://example.com/app/");
     expect(joinUrl(`https://example.com${"/".repeat(50_000)}`, "/a")).toBe("https://example.com/a");
+  });
+});
+
+describe("checkResponse: app-side checks (issue #309)", () => {
+  const HTML = "<html><HEAD lang=x><title>Post</title><link rel=canonical href=/p></HEAD><body><title>fake</title></body></html>";
+  // sha256 of the UTF-8 bytes of "hello".
+  const HELLO = "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824";
+
+  it("checks markers and counts only inside <head> with within", () => {
+    const checks = checkResponse({
+      route: route({ within: "head", contains: ["rel=canonical"], excludes: ["fake"], count: { "<title>": 1 } }),
+      headers: {},
+      response: response({ body: HTML }),
+      baseUrl: BASE,
+    });
+    expect(checks.slice(1)).toEqual([
+      { kind: "contains", passed: true, detail: 'contains "rel=canonical" in <head>' },
+      { kind: "excludes", passed: true, detail: 'no "fake" in <head>' },
+      { kind: "count", passed: true, detail: '1 × "<title>" in <head>' },
+    ]);
+  });
+
+  it("finds nothing inside a response without a head", () => {
+    const checks = checkResponse({ route: route({ within: "head", contains: ["<title>"] }), headers: {}, response: response({ body: "<title>x</title>" }), baseUrl: BASE });
+    expect(checks.slice(1)).toEqual([{ kind: "contains", passed: false, detail: 'missing "<title>" in <head>' }]);
+  });
+
+  it("counts non-overlapping occurrences and names the count it got", () => {
+    const checks = checkResponse({
+      route: route({ count: { "Content-Signal:": 1, aa: 2, absent: 0 } }),
+      headers: {},
+      response: response({ body: "Content-Signal: a\nContent-Signal: b\naaaa" }),
+      baseUrl: BASE,
+    });
+    expect(checks.slice(1)).toEqual([
+      { kind: "count", passed: false, detail: '2 × "Content-Signal:", expected 1' },
+      { kind: "count", passed: true, detail: '2 × "aa"' },
+      { kind: "count", passed: true, detail: '0 × "absent"' },
+    ]);
+  });
+
+  it("compares the body's SHA-256 with or without the sha256: prefix", () => {
+    const run = (sha256: string) =>
+      checkResponse({ route: route({ sha256 }), headers: {}, response: response({ body: "hello", sha256: HELLO }), baseUrl: BASE }).slice(1);
+    expect(run(`sha256:${HELLO}`)).toEqual([{ kind: "sha256", passed: true, detail: "sha256 matches" }]);
+    expect(run("0".repeat(64))).toEqual([{ kind: "sha256", passed: false, detail: `sha256 ${HELLO}, expected ${"0".repeat(64)}` }]);
   });
 });

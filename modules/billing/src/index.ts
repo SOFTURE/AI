@@ -5,6 +5,7 @@
 // `@softure-ai/billing/server`, the Next.js adapter (write guard, payment and admin pages, actions,
 // the Stripe webhook route, current badge and notice) in `/next`, the components in `/ui`.
 import { defineModule, resolveMigrationsDir } from "@softure-ai/core";
+import type { RateLimitBucketInput } from "@softure-ai/security";
 import { billingMessages } from "./messages/index.js";
 import { billingOptionsSchema } from "./options.js";
 import { checkBillingTables } from "./server/health.js";
@@ -17,8 +18,8 @@ export const MODULE_ID = "billing";
  * `billing-payment` per account (a payment page sent again and again).
  */
 export const BILLING_RATE_LIMIT_BUCKETS = {
-  "billing-payment": { limit: 5, windowMinutes: 60 },
-} as const;
+  "billing-payment": { limit: 5, windowMinutes: 60, key: "account" },
+} as const satisfies Readonly<Record<string, RateLimitBucketInput>>;
 
 /**
  * Enables entitlements, plans and payments in `softure.config.ts` (after `security` and `auth`):
@@ -28,7 +29,7 @@ export const BILLING_RATE_LIMIT_BUCKETS = {
 export const billing = defineModule({
   manifest: {
     id: MODULE_ID,
-    version: "0.1.10",
+    version: "0.1.11",
     dependsOn: { security: "^0.1.0", auth: "^0.1.0", mailing: "^0.1.0?", ops: "^0.1.0?" },
     dbSchema: "billing",
     tables: ["entitlements", "payments", "payment_requests", "manual_grants", "trial_extensions"],

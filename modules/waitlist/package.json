@@ -63,7 +63,7 @@
     "@softure-ai/mailing": "^0.1.0",
     "@softure-ai/ops": "^0.1.0",
     "@softure-ai/privacy": "^0.1.8",
-    "@softure-ai/security": "^0.1.0",
+    "@softure-ai/security": "^0.1.8",
     "zod": "^4.6.5"
   },
   "peerDependencies": {
