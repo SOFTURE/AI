@@ -18,6 +18,13 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
     request headers; an unreadable source or no entry is one failed row naming it.
   - For TypeScript callers: `VerifyRoute.path` is optional (a `forEach` route has none), and `ObservedResponse` takes
     an optional `sha256`.
+- `deploy-app.yml` hands variables to the verify step (issue #357), e.g. the key a `webBotAuth` route signs with: the
+  optional secret `verify-env` (a JSON object of text values by name) or, with `secrets-from-environment`, the input
+  `verify-env-names` (secret names; the verify job then runs in `environment`, which asks again when that environment
+  has required reviewers). Each value is masked and reaches `softure-deploy verify` only. The check job refuses a name
+  the verify step or the runner sets itself, each form on the other path, and both with an empty `deploy-config`.
+  Without them nothing changes. The example caller and the one `init` writes pass `verify-env` from the repository
+  secret `DEPLOY_VERIFY_ENV` (unset passes nothing).
 
 ## 0.1.7
 
