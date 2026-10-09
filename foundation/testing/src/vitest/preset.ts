@@ -74,7 +74,8 @@ const FONT_FACTORY = `function createFont(family) {
 /** The fonts a file imports from `next/font/google`: `import { Inter, Geist_Mono as Mono } from …`. */
 export function readGoogleFontNames(importer: string | undefined): string[] {
   if (importer === undefined) return [];
-  const path = importer.replace(/[?#].*$/, "");
+  const end = importer.search(/[?#]/);
+  const path = end === -1 ? importer : importer.slice(0, end);
   let source: string;
   try {
     source = readFileSync(path, "utf8");
