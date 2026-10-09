@@ -1,5 +1,7 @@
 export { formatContractLines } from "./contract.js";
 export { readJunitCounts, type JunitCounts } from "./junit.js";
+export { readPlaywrightJsonCounts } from "./playwright-json.js";
+export type { ReadSuiteCounts, SuiteCounts } from "./suite-counts.js";
 export {
   formatIntegrationNote,
   INTEGRATION_NOTES_REF,

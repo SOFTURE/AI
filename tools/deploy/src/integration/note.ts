@@ -15,10 +15,12 @@ export const integrationNoteSchema = z.strictObject({
   sha: z.string().regex(/^[0-9a-f]{40}$/, "a full commit SHA"),
   name: z.string().min(1),
   ref: z.string().min(1),
-  /** Unknown (null) when the run wrote no JUnit report. */
+  /** Unknown (null) when the run wrote no readable report. */
   passed: z.number().int().nonnegative().nullable(),
   total: z.number().int().nonnegative().nullable(),
   red: z.array(z.string()),
+  /** Tests that passed only on a retry. Absent when there were none (a note the 0.1.7 reader still reads). */
+  flaky: z.array(z.string()).optional(),
   run: z.string().regex(HTTPS_URL, "an https:// URL of the run").nullable(),
   finishedAt: z.iso.datetime(),
 });
@@ -42,6 +44,8 @@ export function parseIntegrationNote(text: string): ParsedIntegrationNote {
   return { ok: false, problem: `${path === "" ? "the note" : path}: ${issue?.message ?? "invalid"}` };
 }
 
+/** The note's text; an empty `flaky` list is left out, so readers before 0.1.8 (a strict schema) still read it. */
 export function formatIntegrationNote(note: IntegrationNote): string {
-  return `${JSON.stringify(note)}\n`;
+  const { flaky, ...rest } = note;
+  return `${JSON.stringify(flaky === undefined || flaky.length === 0 ? rest : note)}\n`;
 }

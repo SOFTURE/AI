@@ -5,6 +5,9 @@
 # suite on that commit, stores the result as a git note on it and deletes the ref. A push of the main branch runs it
 # too, so `new-red` has a baseline. SOFTURE/AI's workflows are called at `master`; pin a commit SHA for an immutable
 # reference, the same one deploy.yml pins.
+#
+# A Playwright suite passes its JSON report instead (`results-report: test-results/e2e.json`); a release workflow
+# that tests its prebuilt image passes `image`, `expected-origins` and `fail-on-flaky` (README, "Integration workflow").
 
 name: integration
 
