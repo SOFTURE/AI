@@ -19,6 +19,12 @@
 // mount next to its own page, and `build*Metadata` (metadata.ts) and `build*JsonLd` (json-ld.ts) take
 // a text it already read; `getBodyOptions` and `findArticlesLinkingTermFor` (body.ts) give the body
 // input and a term's "explained in these texts" list.
+//
+// An app that keeps these pages but not their look wraps one in a line; `view` takes the class slots,
+// `unstyled`, a layout and a disclaimer node, and the listing also takes `renderCard`:
+//
+//   export default function Page(props) { return <BlogArticlePage {...props} view={BLOG_VIEW} />; }
+import type { SoftureConfig } from "@softure-ai/core";
 import { getSoftureConfig } from "@softure-ai/core/next";
 // `next/types.js`, not `next`: the root entry adds Next's globals (a read-only NODE_ENV) to every
 // program that includes this file.
@@ -32,8 +38,9 @@ import { getArticleDates } from "../pages/dates.js";
 import { getArticleCrumbs, groupByCluster, getTermCrumbs, sortTerms } from "../pages/listing.js";
 import { BlogArticleView } from "../ui/blog-article.js";
 import { GlossaryIndexView, GlossaryTermView } from "../ui/blog-glossary.js";
-import { BlogListingView } from "../ui/blog-listing.js";
+import { BlogListingView, type BlogCardRenderer } from "../ui/blog-listing.js";
 import { BlogMethodView } from "../ui/blog-method.js";
+import type { BlogPageContext, BlogViewOptions } from "../ui/page-context.js";
 import { getBodyOptions } from "./body.js";
 import { getPageContext } from "./context.js";
 import { getPublishedArticles, getPublishedTerms, getTextBySlug } from "./data.js";
@@ -42,12 +49,18 @@ import { buildArticleMetadata, buildBlogIndexMetadata, buildGlossaryIndexMetadat
 
 type SlugParams = Promise<{ readonly slug: string }>;
 
-export interface BlogIndexPageProps {
-  /** The app's call to action under the cards. */
-  readonly cta?: ReactNode;
+/** The app's look for a ready-made page. */
+export interface BlogViewPageProps {
+  readonly view?: BlogViewOptions;
 }
 
-export interface BlogArticlePageProps {
+export interface BlogIndexPageProps extends BlogViewPageProps {
+  /** The app's call to action under the cards. */
+  readonly cta?: ReactNode;
+  readonly renderCard?: BlogCardRenderer;
+}
+
+export interface BlogArticlePageProps extends BlogViewPageProps {
   readonly params: SlugParams;
   /** The app's call to action right after the text. */
   readonly cta?: ReactNode;
@@ -55,9 +68,16 @@ export interface BlogArticlePageProps {
   readonly afterArticle?: ReactNode;
 }
 
-export interface GlossaryTermPageProps {
+export interface GlossaryTermPageProps extends BlogViewPageProps {
   readonly params: SlugParams;
   readonly cta?: ReactNode;
+}
+
+function getViewContext(config: SoftureConfig, view: BlogViewOptions | undefined): BlogPageContext {
+  const context = getPageContext(config);
+  if (view === undefined) return context;
+  const { disclaimer, ...look } = view;
+  return { ...context, ...look, ...(disclaimer === undefined ? {} : { disclaimer }) };
 }
 
 /** No page is built ahead: the build has no database. The first request renders a slug. */
@@ -76,13 +96,13 @@ export async function generateBlogIndexMetadata(): Promise<Metadata> {
 }
 
 /** The listing: cards grouped by cluster, the pillar first. Mount with `dynamic = "force-dynamic"`. */
-export async function BlogIndexPage({ cta }: BlogIndexPageProps = {}) {
+export async function BlogIndexPage({ cta, renderCard, view }: BlogIndexPageProps = {}) {
   const config = getSoftureConfig();
-  const context = getPageContext(config);
+  const context = getViewContext(config, view);
   const labels = getCrumbLabels(config, context);
   const [articles, terms] = await Promise.all([getPublishedArticles(config), getPublishedTerms(config)]);
   const groups = groupByCluster(articles, labels.cluster, context.messages.pages.otherCluster);
-  return <BlogListingView context={context} groups={groups} termCount={terms.length} timezone={config.timezone} cta={cta} />;
+  return <BlogListingView context={context} groups={groups} termCount={terms.length} timezone={config.timezone} cta={cta} renderCard={renderCard} />;
 }
 
 export async function generateArticleMetadata({ params }: { readonly params: SlugParams }): Promise<Metadata> {
@@ -93,12 +113,12 @@ export async function generateArticleMetadata({ params }: { readonly params: Slu
 }
 
 /** An article with "read next" under it. Mount with `revalidate` and `generateBlogStaticParams`. */
-export async function BlogArticlePage({ params, cta, afterArticle }: BlogArticlePageProps) {
+export async function BlogArticlePage({ params, cta, afterArticle, view }: BlogArticlePageProps) {
   const config = getSoftureConfig();
   const { slug } = await params;
   const article = await getTextBySlug(config, slug);
   if (!isPublished(article, "article")) notFound();
-  const context = getPageContext(config);
+  const context = getViewContext(config, view);
   const [terms, published] = await Promise.all([getPublishedTerms(config), getPublishedArticles(config)]);
   const body = renderPageBody<ReactNode>(article, getBodyOptions(config, terms, context));
   const crumbs = getArticleCrumbs(article, context.routes, getCrumbLabels(config, context), { clusterAnchorPrefix: context.clusterAnchorPrefix });
@@ -125,9 +145,9 @@ export async function generateGlossaryIndexMetadata(): Promise<Metadata> {
 }
 
 /** The glossary index. Mount with `dynamic = "force-dynamic"`. */
-export async function GlossaryIndexPage() {
+export async function GlossaryIndexPage({ view }: BlogViewPageProps = {}) {
   const config = getSoftureConfig();
-  const context = getPageContext(config);
+  const context = getViewContext(config, view);
   const terms = sortTerms(await getPublishedTerms(config), config.locale);
   const jsonLd = buildGlossaryJsonLd(config, terms);
   return <GlossaryIndexView context={context} terms={terms} jsonLd={jsonLd} />;
@@ -141,12 +161,12 @@ export async function generateTermMetadata({ params }: { readonly params: SlugPa
 }
 
 /** A glossary term with the articles that expand on it. Mount with `revalidate` and `generateBlogStaticParams`. */
-export async function GlossaryTermPage({ params, cta }: GlossaryTermPageProps) {
+export async function GlossaryTermPage({ params, cta, view }: GlossaryTermPageProps) {
   const config = getSoftureConfig();
   const { slug } = await params;
   const term = await getTextBySlug(config, slug);
   if (!isPublished(term, "term")) notFound();
-  const context = getPageContext(config);
+  const context = getViewContext(config, view);
   const [terms, articles] = await Promise.all([getPublishedTerms(config), getPublishedArticles(config)]);
   const bodyOptions = getBodyOptions(config, terms, context);
   const crumbs = getTermCrumbs(term, context.routes, getCrumbLabels(config, context));
@@ -170,9 +190,9 @@ export function generateMethodMetadata(): Metadata {
 }
 
 /** "How our texts are made". Mount it with `blog({ methodPage: true })`; without that it is a 404. */
-export function BlogMethodPage() {
+export function BlogMethodPage({ view }: BlogViewPageProps = {}) {
   const config = getSoftureConfig();
-  const context = getPageContext(config);
+  const context = getViewContext(config, view);
   if (context.methodPath === null) notFound();
   return <BlogMethodView context={context} />;
 }

@@ -20,12 +20,23 @@ export interface AuthGuardOptions {
    */
   readonly exclude?: readonly string[];
   /**
+   * Paths that never need a session, matched whole (`/pricing` and `/pricing/`, not `/pricing/plans`), for an app
+   * that protects everything except an exact allowlist. Compared decoded and lowercased, like the other lists.
+   */
+  readonly excludeExact?: readonly string[];
+  /**
    * Origins besides `appOrigin` and the config's `origins.trustedOrigins` that the login redirect may stay on
    * (`https://example.com`). Prefer the config's block, which every module reads. The request's public origin
    * (core `resolveAppOrigin`: `X-Forwarded-Host`, else `Host`) is used only when it is listed; any other goes to
    * `appOrigin`.
    */
   readonly trustedOrigins?: readonly string[];
+  /**
+   * `"absolute"` (default): the login URL is built on the resolved origin (above). `"relative"`: the `Location` is
+   * the path only (`/login?next=…`), so the browser stays on whatever host and port it used; for a stack served on
+   * ports or hosts the config cannot list (an integration run on a random port).
+   */
+  readonly redirect?: "absolute" | "relative";
 }
 
 /** Mounted at a fixed path by the module (manifest `mount`); it answers `{ user: null }` without a session. */
@@ -44,10 +55,12 @@ export function createAuthGuard(config: SoftureConfig, options: AuthGuardOptions
     normalizePrefix(path, "excluded"),
   );
   const excluded = (options.exclude ?? []).map((prefix) => normalizePrefix(prefix, "excluded"));
+  const exactExcluded = new Set((options.excludeExact ?? []).map((path) => normalizePrefix(path, "excluded")));
   const trustedOrigins = (options.trustedOrigins ?? []).map(normalizeOrigin);
 
   const isGuarded = (path: string): boolean => {
     if (isUnder(path, changePassword)) return true;
+    if (exactExcluded.has(normalizeTrailingSlash(path))) return false;
     if ([...publicPaths, ...excluded].some((prefix) => isExcludedBy(path, prefix))) return false;
     return prefixes.some((prefix) => isUnder(path, prefix));
   };
@@ -64,7 +77,9 @@ export function createAuthGuard(config: SoftureConfig, options: AuthGuardOptions
     // the request URL carries an internal host, and request headers alone are never trusted.
     const login = new URL(routes.login, resolveAppOrigin(config, request, { trustedOrigins }));
     login.searchParams.set("next", `${url.pathname}${url.search}`);
-    return Response.redirect(login, 307);
+    if (options.redirect !== "relative") return Response.redirect(login, 307);
+    // A path-only Location reads no request header at all; `Response.redirect` would need an absolute URL.
+    return new Response(null, { status: 307, headers: { location: `${login.pathname}${login.search}` } });
   };
 }
 
@@ -72,8 +87,11 @@ function normalizePrefix(prefix: string, kind: "protected" | "excluded"): string
   if (!prefix.startsWith("/")) {
     throw new Error(`createAuthGuard: ${kind} path "${prefix}" must start with /`);
   }
-  const trimmed = prefix.length > 1 && prefix.endsWith("/") ? prefix.slice(0, -1) : prefix;
-  return trimmed.toLowerCase();
+  return normalizeTrailingSlash(prefix).toLowerCase();
+}
+
+function normalizeTrailingSlash(path: string): string {
+  return path.length > 1 && path.endsWith("/") ? path.slice(0, -1) : path;
 }
 
 /** `entry` as an origin (`https://example.com`, a trailing `/` dropped); anything else is a config error. */

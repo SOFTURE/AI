@@ -4,7 +4,7 @@
 // failure about the sending account (refused key, spent quota), leaving the rest for the next run, and
 // after `limit` mails reached the provider, counting the rest for the next run.
 import { createHash } from "node:crypto";
-import { err, ok, type Result } from "@softure-ai/core";
+import { err, ok, type Result, type SoftureConfig } from "@softure-ai/core";
 import { and, eq, inArray } from "drizzle-orm";
 import type { CampaignRecipient, MailingErrorCode } from "../contract.js";
 import { campaigns, deliveries } from "../schema.js";
@@ -79,7 +79,7 @@ export function getCampaignContentHash(content: CampaignContent): string {
  * database failure and for content `getCampaignProblems` refuses.
  */
 export async function registerCampaign(ctx: DeliveryContext, content: CampaignContent): Promise<Result<undefined, CampaignErrorCode>> {
-  assertCampaign(content);
+  assertCampaign(content, ctx.config);
   const contentHash = getCampaignContentHash(content);
   await ctx.db
     .insert(campaigns)
@@ -202,7 +202,7 @@ export async function planCampaign(
   options: Pick<DeliverOptions, "uncertainClaimMs" | "retakeUncertain"> = {},
 ): Promise<CampaignPlan> {
   const { campaign } = input;
-  assertCampaign(campaign);
+  assertCampaign(campaign, ctx.config);
   const stored = await ctx.db.select({ contentHash: campaigns.contentHash }).from(campaigns).where(eq(campaigns.id, campaign.id)).limit(1);
   const contentChanged = stored[0] !== undefined && stored[0].contentHash !== getCampaignContentHash(campaign);
 
@@ -258,8 +258,8 @@ async function countPending(
   return { done: closed.size, suppressed, filtered, uncertain, toSend };
 }
 
-function assertCampaign(content: CampaignContent): void {
-  const problems = getCampaignProblems(content);
+function assertCampaign(content: CampaignContent, config: SoftureConfig): void {
+  const problems = getCampaignProblems(content, config);
   if (problems.length > 0) throw new Error(`@softure-ai/mailing: campaign "${content.id}" cannot be sent: ${problems.join("; ")}`);
 }
 

@@ -144,7 +144,7 @@ on:
       deploy-cli-version:
         description: Version of @softure-ai/deploy that renders .env.prod and verifies the release
         type: string
-        default: 0.1.7
+        default: 0.1.8
       node-version:
         description: Node.js version that runs the deploy CLI
         type: string

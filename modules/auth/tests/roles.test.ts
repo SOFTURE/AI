@@ -9,7 +9,8 @@ import {
   revokeRole,
 } from "@softure-ai/auth/server";
 import type { AuthUser } from "@softure-ai/auth";
-import { afterEach, describe, expect, it } from "vitest";
+import { createTestAccount } from "@softure-ai/auth/testing";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { CLIENT, createTestAuth, NOW, PASSWORD, type ConfigOptions, type TestAuth } from "./support.js";
 
 describe("roles", () => {
@@ -113,5 +114,48 @@ describe("the role options", () => {
 
   it("stores admin emails trimmed and lowercased", () => {
     expect(auth({ adminEmails: [" Owner@Example.COM "] }).options).toMatchObject({ adminEmails: ["owner@example.com"] });
+  });
+
+  describe("adminEmails as the raw environment string (#314)", () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it("splits on commas and whitespace, trims and lowercases, without a log line when every entry is valid", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      expect(auth({ adminEmails: " Owner@Example.COM, ada@example.com\n bob@example.com ,," }).options).toMatchObject({
+        adminEmails: ["owner@example.com", "ada@example.com", "bob@example.com"],
+      });
+      expect(warn).not.toHaveBeenCalled();
+    });
+
+    it("drops invalid entries with one log line that names their positions, not their values", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      expect(auth({ adminEmails: "owner@example.com,not-an-email,ada@example.com,bad@" }).options).toMatchObject({
+        adminEmails: ["owner@example.com", "ada@example.com"],
+      });
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn).toHaveBeenCalledWith(
+        "@softure-ai/auth: adminEmails: 2 of 4 entries are not email addresses and grant no role (positions 2, 4)",
+      );
+    });
+
+    it("grants nothing for an empty or wholly invalid string", () => {
+      vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      expect(auth({ adminEmails: "" }).options).toMatchObject({ adminEmails: [] });
+      expect(auth({ adminEmails: "   " }).options).toMatchObject({ adminEmails: [] });
+      expect(auth({ adminEmails: "admin" }).options).toMatchObject({ adminEmails: [] });
+    });
+
+    it("makes a listed account an admin", async () => {
+      vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      const test = await createTestAuth({ auth: { adminEmails: "nobody, ADA@example.com" } });
+      try {
+        const account = await createTestAccount(test.ctx, { email: "ada@example.com", password: PASSWORD });
+        expect(await findUserRoles(test.ctx, account)).toEqual(new Set(["admin"]));
+      } finally {
+        await test.database.close();
+      }
+    });
   });
 });

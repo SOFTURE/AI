@@ -14,7 +14,9 @@ import { DEFAULT_MAX_ATTEMPTS, DEFAULT_STALE_CLAIM_MS, DEFAULT_UNCERTAIN_CLAIM_M
 import { deliveries } from "../schema.js";
 import { getMailingOptions } from "./options.js";
 import { sendMail } from "./send-mail.js";
+import { isSuppressed } from "./suppressions.js";
 import { getRecipientKey } from "./unsubscribe-link.js";
+import { validateMail } from "./validate-mail.js";
 
 export type DeliveryContext = ModuleContext<Queryable>;
 
@@ -113,6 +115,37 @@ export async function deliverOnce(ctx: DeliveryContext, delivery: Delivery, opti
   }
   await closeDelivery(ctx, fence, { status: "rejected", providerMessageId: null, reason: result.error, providerStatus });
   return { status: "rejected", reason: result.error, ...httpStatus };
+}
+
+/** What `deliverOnce` would do with a delivery now, read without writing or sending. */
+export type DeliveryForecast =
+  | { readonly status: "send" }
+  | { readonly status: "rejected"; readonly reason: "mailing.invalid_input" | "mailing.suppressed" }
+  | { readonly status: "done" }
+  | { readonly status: "in-flight" }
+  | { readonly status: "uncertain" };
+
+/**
+ * Reads the ledger, checks the mail and, for list mail, the suppression list, as `deliverOnce` would, and writes
+ * and sends nothing. A provider's answer cannot be foreseen: `send` means the mail would reach it. Throws like
+ * `deliverOnce` for a malformed scope or kind, and on a database failure.
+ */
+export async function forecastDelivery(ctx: DeliveryContext, delivery: Delivery, options: DeliverOptions = {}): Promise<DeliveryForecast> {
+  const windows = resolveClaimWindows(ctx, options);
+  const kind = delivery.mail.kind ?? TRANSACTIONAL_KIND;
+  assertDelivery(delivery, kind);
+  const key = { scope: delivery.scope, recipientKey: getRecipientKey(delivery.mail.to) };
+  const rows = await ctx.db.select({ status: deliveries.status, claimedAt: deliveries.claimedAt }).from(deliveries).where(matchKey(key)).limit(1);
+  const row = rows[0];
+  if (row?.status === "sent" || row?.status === "rejected") return { status: "done" };
+  if (row?.status === "claimed") {
+    const age = ctx.clock.now().getTime() - row.claimedAt.getTime();
+    if (age <= windows.staleClaimMs) return { status: "in-flight" };
+    if (age > windows.uncertainClaimMs && !windows.retakeUncertain) return { status: "uncertain" };
+  }
+  if (!validateMail(delivery.mail).ok) return { status: "rejected", reason: "mailing.invalid_input" };
+  if (kind !== TRANSACTIONAL_KIND && (await isSuppressed(ctx, delivery.mail.to))) return { status: "rejected", reason: "mailing.suppressed" };
+  return { status: "send" };
 }
 
 function isHaltingCode(code: MailingErrorCode): code is HaltingErrorCode {

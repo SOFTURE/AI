@@ -132,7 +132,7 @@ describe("readOptions for shots --page", () => {
         mode: "page",
         page: "https://example.com/pricing",
         out: "shots/pricing.png",
-        entry: { id: "page", path: "/", expect: "Pricing", width: 1440, height: 900, scale: 1, full: false, waitMs: 0, motion: "reduce", minBytes: 40_000, signedIn: false, steps: [] },
+        entry: { id: "page", path: "/", expect: "Pricing", width: 1440, height: 900, scale: 1, full: false, waitMs: 0, motion: "reduce", minBytes: 40_000, signedIn: false, steps: [], hide: [] },
         scheme: undefined,
         configPath: "marketing.json",
       },
