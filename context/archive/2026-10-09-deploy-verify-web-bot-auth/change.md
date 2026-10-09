@@ -35,4 +35,4 @@ so this branch starts from that PR's head.
   shape of the key.
 - Framing: skipped; the problem is concrete (a shell check an app keeps).
 - Archived 2026-10-09: `webBotAuth` is a verify route key in 0.1.8; passing the key into `deploy-app.yml`'s verify
-  job is a follow-up issue.
+  job is issue #357.

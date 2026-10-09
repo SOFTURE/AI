@@ -27,7 +27,7 @@ A `verify` route takes `webBotAuth: { "keyEnv": "...", "agent": "..." }` and sen
   signed one by one. The route's `requestHeaders` cannot also set `signature`, `signature-input` or
   `signature-agent` (schema refine).
 - **D5 Reach.** The CLI reads `process.env`; `runVerify` takes `env` for tests and callers. Passing the key into
-  `deploy-app.yml`'s verify job is a follow-up issue (that job has no environment and no app secrets today).
+  `deploy-app.yml`'s verify job is issue #357 (that job has no environment and no app secrets today).
 - **D6 Docs and version.** 0.1.8 CHANGELOG line, README verify section, JSON schema regenerated.
 
 ## Phase 1: signer, schema, runner

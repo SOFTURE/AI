@@ -17,4 +17,4 @@ Reviewed: the branch diff against plan.md and issue #341.
 | # | Severity | Finding | Decision |
 |---|---|---|---|
 | F1 | Minor | The key is parsed once per request rather than once per run. | Accepted: an Ed25519 key import costs microseconds, and per-request reading keeps the runner's flow unchanged. |
-| F2 | Suggestion | `deploy-app.yml` cannot hand the key to its verify job. | Accepted as the D5 follow-up issue. |
+| F2 | Suggestion | `deploy-app.yml` cannot hand the key to its verify job. | Accepted as the D5 follow-up, issue #357. |
