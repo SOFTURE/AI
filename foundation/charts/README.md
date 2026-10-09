@@ -161,7 +161,7 @@ labels; `messages` the built-in copy.
 | `ChartFlag` | a chip at the top of the plot; within 18 % of an edge it aligns to that edge (`edgeAlign`); variants and sizes ([options](#line-and-marker-options)) |
 | `ChartPin` | an event pin on a curve: a dashed line from the bottom up to a point and a round dot on it ([Pins](#pins)) |
 | `ChartDataTable` | the visually hidden table |
-| `ChartCursor` | the client cursor around the frame; takes `points` as percentages computed on the server |
+| `ChartCursor` | the client cursor around the frame; takes `points` as percentages computed on the server ([Cursor](#cursor)) |
 
 ### Paths
 
@@ -261,6 +261,41 @@ light fill on a light card keeps 3:1 (WCAG 1.4.11). `line={false}` draws the dot
 already marks. Positions are not clamped, as for flags: they come from the drawing's scales. The pin is hidden from
 assistive technology; the value belongs in the data table.
 
+### Cursor
+
+`ChartCursor` (a client component) wraps the frame: `points` are the stops as percentages from the server's scales,
+each with a `heading` and its `values` (a dot per value at `yPercent`). Options for an app that keeps its own readout
+or plot; without them the markup is unchanged:
+
+- `renderReadout(point, index)` replaces the readout's content (heading and values). It still renders inside the
+  package's polite live region, so what it shows is announced.
+- `onActiveChange(index | null)` is called once per change of the active stop (keys, pointer, Escape, blur), not on
+  every pointer move within one stop.
+- `frame={false}` drops the frame grid: the children and the cursor layer share one positioned box
+  (`.sft-chart-cursor-box`) and the layer covers it, so the guide, the dots and the pointer are measured on the app's
+  own plot, e.g. one `<svg>` with HTML axis labels over it.
+- A value's colour is its series `slot`; without one, `tone` (a `ChartTone`) colours the dot and its readout swatch,
+  and `className` is added to both for an app's own colour.
+- `readoutClassName` is added to the readout. `.sft-chart-cursor` is `position: relative`, so a class can float the
+  readout over the plot; pick the side from the index `onActiveChange` reports.
+
+```tsx
+"use client";
+const [index, setIndex] = useState<number | null>(null);
+const isPastMiddle = index !== null && (points[index]?.xPercent ?? 0) > 60;
+
+<ChartCursor
+  title={title}
+  points={points}
+  frame={false}
+  onActiveChange={setIndex}
+  readoutClassName={isPastMiddle ? "app-readout app-readout-left" : "app-readout app-readout-right"}
+  renderReadout={(point, i) => <AppReadout point={point} month={months[i]} />}
+>
+  <AppPlot />
+</ChartCursor>;
+```
+
 ### Tokens
 
 Colours: `--sft-chart-{grid,axis,cursor,flag,on-flag}` and the series palette `--sft-chart-series-{1…6}`;
@@ -322,7 +357,7 @@ The package came out of an adopting app's hand-rolled charts. What each part of 
 | legend swatches | `LegendSwatch` shapes `box`, `dot`, `line`, `dashed`, `dotted` and a `slot` | outlines from stored colours |
 | event chips and pins | `ChartFlag` (edge rule `edgeAlign`; `variant`, `size`, `className`, `style`), `ChartPin` (`slot`, `variant`, `size`, `ring`); both placed by their parent when `xPercent` is omitted | — |
 | percentages and surfaces | `percent`, `toPercent`, `edgeAlign` | surface tones, as overrides of the `--sft-chart-*` tokens |
-| the cursor | `ChartCursor`: arrows, Home/End, Escape, pointer events, a polite live readout | the readout's content |
+| the cursor | `ChartCursor`: arrows, Home/End, Escape, pointer events, a polite live readout; `renderReadout`, `onActiveChange`, `frame={false}` for an app's own readout and plot | the readout's content |
 | colour-vision and contrast checks | `@softure-ai/ui/testing` (`findColorCollisions`, `contrastRatio`, `checkThemeContrast`) and `checkSeriesPalette` from `@softure-ai/charts/testing` | the colours themselves |
 
 Two differences to carry over deliberately:

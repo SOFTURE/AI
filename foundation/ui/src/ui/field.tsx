@@ -10,21 +10,27 @@ import type { HintAppearance } from "./hint.js";
 export type HintPlacement = "block" | "tooltip";
 
 /**
- * The one input look (text inputs and the select trigger). A fixed `h-10` matches the `md` button
- * in the same row. Focus draws a ring of fixed width instead of changing the border width, so
- * nothing shifts. Below `sm` the text is 16 px, so iOS Safari does not zoom on focus. Errors come
- * from `aria-invalid` (set by code) and `:user-invalid` (native validation, only after the user
+ * The input frame shared by every input look, without a font family: each look adds exactly one,
+ * because two `font-*` family utilities on one element meet at equal specificity and the later
+ * rule in the built sheet wins (issue 302). A fixed `h-10` matches the `md` button in the same row.
+ * Focus draws a ring of fixed width instead of changing the border width, so nothing shifts.
+ * Below `sm` the text is 16 px, so iOS Safari does not zoom on focus. Errors come from
+ * `aria-invalid` (set by code) and `:user-invalid` (native validation, only after the user
  * interacted); the `…:focus:` and `…:hover:` error variants keep the red border while the user
  * fixes the field, because the plain focus and hover rules come later in the sheet.
  */
-export const INPUT_CLASS =
-  "sft:m-0 sft:box-border sft:h-10 sft:w-full sft:rounded-control sft:border sft:border-border-strong sft:bg-surface sft:px-3 sft:font-sans sft:text-base sft:text-foreground sft:outline-none sft:transition-colors sft:duration-(--sft-duration-fast) sft:hover:border-foreground sft:focus:border-focus sft:focus:ring-1 sft:focus:ring-focus sft:sm:text-sm sft:aria-invalid:border-danger sft:aria-invalid:ring-1 sft:aria-invalid:ring-danger/40 sft:aria-invalid:hover:border-danger sft:aria-invalid:focus:border-danger sft:aria-invalid:focus:ring-2 sft:aria-invalid:focus:ring-danger/60 sft:user-invalid:border-danger sft:user-invalid:ring-1 sft:user-invalid:ring-danger/40 sft:user-invalid:hover:border-danger sft:user-invalid:focus:border-danger sft:user-invalid:focus:ring-2 sft:user-invalid:focus:ring-danger/60";
+const INPUT_FRAME_CLASS =
+  "sft:m-0 sft:box-border sft:h-10 sft:w-full sft:rounded-control sft:border sft:border-border-strong sft:bg-surface sft:px-3 sft:text-base sft:text-foreground sft:outline-none sft:transition-colors sft:duration-(--sft-duration-fast) sft:hover:border-foreground sft:focus:border-focus sft:focus:ring-1 sft:focus:ring-focus sft:sm:text-sm sft:aria-invalid:border-danger sft:aria-invalid:ring-1 sft:aria-invalid:ring-danger/40 sft:aria-invalid:hover:border-danger sft:aria-invalid:focus:border-danger sft:aria-invalid:focus:ring-2 sft:aria-invalid:focus:ring-danger/60 sft:user-invalid:border-danger sft:user-invalid:ring-1 sft:user-invalid:ring-danger/40 sft:user-invalid:hover:border-danger sft:user-invalid:focus:border-danger sft:user-invalid:focus:ring-2 sft:user-invalid:focus:ring-danger/60";
+
+/** The one input look (text inputs and the select trigger): the input frame in the sans face. */
+export const INPUT_CLASS = `${INPUT_FRAME_CLASS} sft:font-sans`;
 
 /**
- * The input look for numbers: equal-width digits, so typed amounts line up with shown ones, and a
- * slashed zero, so 0 and O never read alike.
+ * The input look for numbers: the input frame in the mono face with equal-width digits, so typed
+ * amounts line up with shown ones, and a slashed zero, so 0 and O never read alike. The
+ * placeholder stays sans.
  */
-export const NUMBER_INPUT_CLASS = `${INPUT_CLASS} sft:font-mono sft:tabular-nums sft:slashed-zero sft:placeholder:font-sans`;
+export const NUMBER_INPUT_CLASS = `${INPUT_FRAME_CLASS} sft:font-mono sft:tabular-nums sft:slashed-zero sft:placeholder:font-sans`;
 
 /** Extra right padding for an input that shows a unit suffix. */
 export const SUFFIX_PADDING_CLASS = "sft:pr-14";
