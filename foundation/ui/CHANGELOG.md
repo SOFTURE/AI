@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`ui@x.y.z`).
 
+## 0.1.15
+
+- Number inputs render in the mono face again. `NUMBER_INPUT_CLASS` was built on `INPUT_CLASS`, so it carried both
+  `sft:font-sans` and `sft:font-mono`, and the sans rule, later in `styles.css`, won: every `MoneyField` and numeric
+  `TextField` drew in sans. Both looks now share a frame without a family and add exactly one (#302).
+- `parseAmount` (and so `MoneyField` and `normalizeAmountInput`) accepts a thin space (U+2009) between groups of
+  three digits in both notations, next to a space, U+00A0 and U+202F. The rule stays strict: groups of exactly three
+  digits (#303). Before, `"1\u2009234,56"` was `ui.amount_invalid`.
+
 ## 0.1.14
 
 - `Switch` takes `hintProps` (`HintAppearance`), like `Card` and `Field`, so its "?" matches the app's other hints.
