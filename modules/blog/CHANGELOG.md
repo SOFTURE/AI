@@ -23,6 +23,8 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   (the same functions as `/next`), for renderers outside Next.
 - Reads driver errors with `findDriverError` and `isConstraintViolation` from `@softure-ai/db` instead of a private copy. Same behaviour;
   requires `@softure-ai/db` `^0.1.7` (#313).
+- `formatDay` (`/pages`) and the `stale` quality rule use core's `formatCalendarDay` and `calendarDaysBetween`;
+  same output. Requires `@softure-ai/core` `^0.1.9` (#312).
 
 ## 0.1.10
 

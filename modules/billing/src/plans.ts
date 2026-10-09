@@ -1,11 +1,10 @@
 // Plans from `billing({ plans })`, pure: how long a payment of a plan gives access and the change it
 // makes to an entitlement. Periods run in local calendar days, like trials, so a month bought on
 // 3 October covers every day up to 2 November and ends when 3 November begins in the app's time zone.
-import type { Locale } from "@softure-ai/core";
-import { getDayNumber, getStartOfDay } from "./calendar.js";
+import { addCalendarDays, addCalendarMonths, toCalendarDay, type Locale } from "@softure-ai/core";
+import { getStartOfDay, parseDay } from "./calendar.js";
 import type { EntitlementEvent, EntitlementRecord, LocalizedText, Plan, PlanPeriod } from "./contract.js";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
 const DAYS_PER_WEEK = 7;
 const MONTHS_PER_YEAR = 12;
 
@@ -19,31 +18,33 @@ export function findPlan(plans: readonly Plan[], planId: string): Plan | undefin
   return plans.find((plan) => plan.id === planId);
 }
 
-/** A day number `months` calendar months later; a day the target month lacks becomes its last day. */
-function addMonths(dayNumber: number, months: number): number {
-  const date = new Date(dayNumber * DAY_MS);
-  const year = date.getUTCFullYear();
-  const month = date.getUTCMonth() + months;
-  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
-  return Math.floor(Date.UTC(year, month, Math.min(date.getUTCDate(), lastDay)) / DAY_MS);
-}
-
 /**
  * The end of one period begun at `start`: the start of the local day one period after the start
  * day. The start day counts as the first day, as for trials. Lifetime periods have no end.
  */
 export function getPeriodEnd(start: Date, period: Exclude<PlanPeriod, { unit: "lifetime" }>, timezone: string): Date {
-  const day = getDayNumber(start, timezone);
+  return getStartOfDay(toDayNumber(getEndDay(toCalendarDay(start, timezone), period)), timezone);
+}
+
+/** The calendar day one period after `day`; a month end the target month lacks becomes its last day. */
+function getEndDay(day: string, period: Exclude<PlanPeriod, { unit: "lifetime" }>): string {
   switch (period.unit) {
     case "day":
-      return getStartOfDay(day + period.count, timezone);
+      return addCalendarDays(day, period.count);
     case "week":
-      return getStartOfDay(day + period.count * DAYS_PER_WEEK, timezone);
+      return addCalendarDays(day, period.count * DAYS_PER_WEEK);
     case "month":
-      return getStartOfDay(addMonths(day, period.count), timezone);
+      return addCalendarMonths(day, period.count, { endOfMonth: "clamp" });
     case "year":
-      return getStartOfDay(addMonths(day, period.count * MONTHS_PER_YEAR), timezone);
+      return addCalendarMonths(day, period.count * MONTHS_PER_YEAR, { endOfMonth: "clamp" });
   }
+}
+
+function toDayNumber(day: string): number {
+  const dayNumber = parseDay(day);
+  // Core's arithmetic returns well-formed days only, so reaching here is a bug.
+  if (dayNumber === null) throw new Error(`getPeriodEnd: core returned "${day}", not a calendar day`);
+  return dayNumber;
 }
 
 /** The latest of some instants. */
