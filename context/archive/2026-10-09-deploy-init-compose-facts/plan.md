@@ -95,10 +95,10 @@ Done when: gates green (typecheck, lint, test, build).
 ### Phase 1: compose facts and the workflow ref
 
 #### Automated
-- [ ] 1.1 Unit and CLI tests seen red, then green
-- [ ] 1.2 Gates green (typecheck, lint, test)
+- [x] 1.1 Unit and CLI tests seen red, then green — 0ef8df6
+- [x] 1.2 Gates green (typecheck, lint, test) — 0ef8df6
 
 ### Phase 2: docs
 
 #### Automated
-- [ ] 2.1 README, CHANGELOG, examples and the repo test, gates green (typecheck, lint, test, build)
+- [x] 2.1 README, CHANGELOG, examples and the repo test, gates green (typecheck, lint, test, build) — 60558a5

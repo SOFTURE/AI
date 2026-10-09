@@ -1,12 +1,13 @@
 ---
 change_id: deploy-init-compose-facts
 title: "deploy: init takes the Postgres major and the report role from the app's compose file, and the callers stop pinning a tag that does not exist (issue #297)"
-status: planned
+status: archived
 roadmap_item: null
 issue: 297
 branch: claude/project-thread-xu1wys
 created: 2026-10-09
 updated: 2026-10-09
+archived_at: 2026-10-09
 ---
 
 ## Intent
@@ -54,3 +55,12 @@ SOFTURE/AI and point at the release commit, whose workflows default `deploy-cli-
 
 - Placement: unlinked (`roadmap_item: null`, `issue: 297`), per the project rule that each GitHub issue is one change.
 - Owner: creating a moving `deploy-workflows-v1` tag later stays possible; the docs then name both ways.
+- Archived 2026-10-09: `init` takes the Postgres major and the report role from the app's compose file;
+  `--workflows-ref` pins the callers; README, examples and templates no longer name `deploy-workflows-v1`.
+
+## Process notes
+
+- Research: skipped as a separate artefact. The issue names the values and files (`TEMPLATE_VERSIONS.postgres`,
+  `REPORT_ROLE`, README §workflows); the reading is summarised in `plan.md` § Findings.
+- Framing: skipped. The issue states the failures, the trigger (FIRE_TRACKER on 0.1.6) and the expected fixes.
+- The tag itself: per the coordinator's brief no tag is created; the docs name the SHA pin.
