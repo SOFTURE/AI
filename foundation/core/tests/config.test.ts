@@ -7,7 +7,7 @@ const base = { locale: "pl", timezone: "Europe/Warsaw", appOrigin: "https://app.
 describe("defineSoftureConfig", () => {
   it("accepts a minimal config and fills the database with null", () => {
     const config = defineSoftureConfig(base);
-    expect(config).toEqual({ ...base, database: null, modules: [] });
+    expect(config).toEqual({ ...base, database: null, origins: { trustedOrigins: [], trustRequestHost: false }, modules: [] });
     expect(Object.isFrozen(config)).toBe(true);
     expect(Object.isFrozen(config.modules)).toBe(true);
   });

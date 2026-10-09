@@ -20,6 +20,6 @@ export function discoveryHeaders(contentType: string, maxAgeSeconds: number = DI
     "content-type": contentType,
     "access-control-allow-origin": "*",
     "cache-control": `public, max-age=${maxAgeSeconds}`,
-    vary: "host, x-forwarded-proto",
+    vary: "host, x-forwarded-host, x-forwarded-proto",
   };
 }

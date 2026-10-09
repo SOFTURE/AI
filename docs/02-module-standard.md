@@ -244,6 +244,9 @@ thin actions) are not needed.
 - **Origins:** Next refuses an action whose `Origin` does not match the host (`x-forwarded-host`
   first). It treats package actions exactly like app actions. An app behind a proxy that changes the
   host lists the public origin in `experimental.serverActions.allowedOrigins`.
+  A module that builds an absolute URL for a request takes the origin from core's `resolveAppOrigin`
+  (the config's `appOrigin` and `origins` block; core README, "Request origins"), never from its own
+  header parsing.
 - **Packaging:** React is a `peerDependency` of a module, and so is Next when the module imports it. The app router uses Next's own
   React, so a package resolved from another folder (a workspace link) does not get a second copy.
   `@softure-ai/ui` is a `peerDependency` too (with a dev dependency for the workspace), never a

@@ -1,7 +1,7 @@
 {
   "name": "@softure-ai/charts",
-  "version": "0.1.6",
-  "description": "SOFTURE AI charts: scales, ticks and nearest-point search, plus server-rendered SVG line charts with axes, legend, flags, a keyboard cursor and a data table on the --sft-chart-* tokens, plus a series palette guard for tests (./testing).",
+  "version": "0.1.7",
+  "description": "SOFTURE AI charts: scales, ticks and nearest-point search, plus server-rendered SVG line charts with axes, legend, flags, a keyboard cursor and a data table, areas, a Sankey and bar lists on the --sft-chart-* tokens, plus a series palette guard for tests (./testing).",
   "license": "MIT",
   "type": "module",
   "sideEffects": [

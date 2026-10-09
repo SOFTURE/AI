@@ -19,18 +19,20 @@ export type {
   ValueTick,
 } from "./svg/axis-ticks.js";
 export { numberAxisTicks, timeAxisTicks, valueAxisTicks } from "./svg/axis-ticks.js";
-export type { ChartTone, DataAttributes } from "./svg/class-names.js";
-export { seriesSlot } from "./svg/class-names.js";
+export type { ChartTone, ChartToneName, DataAttributes } from "./svg/class-names.js";
+export { CHART_TONES, seriesSlot } from "./svg/class-names.js";
 // The series palette: token order and slot count (the guard is in @softure-ai/charts/testing).
 export { SERIES_SLOTS, SERIES_TOKENS, type SeriesToken } from "./palette/series-tokens.js";
 export type { ChartPlotProps } from "./svg/chart-plot.js";
 export { ChartPlot } from "./svg/chart-plot.js";
-export type { BaselineProps, GridLinesProps, GuideLineProps, GuidePattern, LineLookProps, SeriesLineProps } from "./svg/lines.js";
+export type { BaselineProps, GridLinesProps, GuideLineProps, GuidePattern, LineLookProps, LinePattern, SeriesLineProps } from "./svg/lines.js";
 export { Baseline, GridLines, GuideLine, SeriesLine } from "./svg/lines.js";
+export type { AreaProps } from "./svg/area.js";
+export { Area } from "./svg/area.js";
 export type { ValueAxisNarrow, ValueAxisProps } from "./svg/value-axis.js";
 export { isMinorValueTick, ValueAxis } from "./svg/value-axis.js";
 export { TimeAxis } from "./svg/time-axis.js";
-export type { SwatchShape } from "./svg/legend.js";
+export type { LegendItemElement, LegendItemProps, LegendSwatchProps, SwatchShape } from "./svg/legend.js";
 export { Legend, LegendItem, LegendSwatch } from "./svg/legend.js";
 export type { ChartFlagProps, ChartFlagSize, ChartFlagVariant } from "./svg/flag.js";
 export { ChartFlag } from "./svg/flag.js";
@@ -38,6 +40,13 @@ export type { ChartPinClassNames, ChartPinProps, ChartPinRing, ChartPinSize, Cha
 export { ChartPin } from "./svg/pin.js";
 export type { ChartDataTableProps } from "./svg/data-table.js";
 export { ChartDataTable } from "./svg/data-table.js";
+export type { SankeyBox, SankeyItem, SankeyLayout, SankeyLayoutOptions, SankeyNode, SankeySide } from "./svg/sankey-layout.js";
+export { layoutSankey } from "./svg/sankey-layout.js";
+export type { SankeyEntry, SankeyFill, SankeyProps } from "./svg/sankey.js";
+export { Sankey } from "./svg/sankey.js";
+export type { BarListItem, BarListOptions, BarListProps, BarListRow } from "./svg/bar-list.js";
+export { BarList, getBarListRows } from "./svg/bar-list.js";
+export { renderBarListHtml } from "./svg/bar-list-html.js";
 
 export { type ChartsCopyProps, type ChartsMessages, chartsMessages } from "./messages/index.js";
 
