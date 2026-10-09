@@ -174,6 +174,10 @@ After a rejected submit the fields show what was typed (React resets the form) a
 errors; `PasswordField` never replays. The server parses amounts with the same
 `parseAmount(text, locale)` the field formats with.
 
+Number inputs (`TextField` with `inputMode`, `MoneyField`) use `NUMBER_INPUT_CLASS`: the mono face with
+`tabular-nums` and `slashed-zero`, the placeholder in sans. It and `INPUT_CLASS` each carry exactly one font family
+utility, so the two families never compete on one input.
+
 ### Surfaces, controls and feedback
 
 ```tsx
