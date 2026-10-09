@@ -407,16 +407,21 @@ describe("useDismissed (#319.6)", () => {
 
   it("with blocked storage shows the notice and still dismisses it for the page", () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+    const block = () => {
       throw new DOMException("blocked", "SecurityError");
-    });
-    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
-      throw new DOMException("blocked", "SecurityError");
-    });
-    render(<Banner />);
-    expect(screen.getByText("Trial ends soon")).toBeDefined();
-    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
-    expect(screen.queryByText("Trial ends soon")).toBeNull();
+    };
+    // Restored here, not only by the file's afterEach: a Storage.prototype spy left over would break the next test.
+    const getItem = vi.spyOn(Storage.prototype, "getItem").mockImplementation(block);
+    const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(block);
+    try {
+      render(<Banner />);
+      expect(screen.getByText("Trial ends soon")).toBeDefined();
+      fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+      expect(screen.queryByText("Trial ends soon")).toBeNull();
+    } finally {
+      getItem.mockRestore();
+      setItem.mockRestore();
+    }
   });
 
   it("isDismissalActive reads only date-only values and counts calendar days", () => {
