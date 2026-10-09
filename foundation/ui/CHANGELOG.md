@@ -32,6 +32,9 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 - `SegmentedControl`'s checked segment and `SEGMENT_ACTIVE_CLASS` carry an inset ring in the text colour next to
   the accent fill, a cue that does not rely on colour: a light accent (lime on white, 1.27:1) no longer fails
   WCAG 1.4.11 (#319).
+- `Switch` takes `aria-label`, which overrides the visible `label` as the switch's accessible name, e.g. a switch in a
+  table row whose label names the column while the name must also name the row (#339). Before, `SwitchProps` omitted
+  it, though the input already received it at runtime. `aria-describedby` stays driven by `description`.
 - `CheckboxField` takes `switchProps` (`classNames`, `controlClassNames` and `hintProps` of `Switch`) for `setting`
   and `checkboxProps` (`classNames` of `Checkbox`) for `statement`, and passes them to the control it renders, so an
   app can draw the field in its own look under `unstyled` and keep the submit replay (#340). Before, it forwarded

@@ -165,6 +165,10 @@ on:
         description: JSON object of non-secret values by name, e.g. toJSON(vars); rendered like app-secrets and taking precedence over them
         type: string
         default: "{}"
+      secret-min-lengths:
+        description: "Shortest allowed length of rendered values, NAME=N separated by spaces or newlines (env render --min-length)"
+        type: string
+        default: ""
       registry-token:
         description: Send the deploy job's short-lived GITHUB_TOKEN with the release, so the server pulls without a registry login of its own
         type: boolean
@@ -578,6 +582,7 @@ jobs:
           SECRETS_FROM_ENVIRONMENT: ${{ inputs.secrets-from-environment }}
           APP_VARS: ${{ inputs.app-vars }}
           BUILD_ARGS: ${{ inputs.build-args }}
+          SECRET_MIN_LENGTHS: ${{ inputs.secret-min-lengths }}
           COMPOSE_FILE: ${{ inputs.compose-file }}
           DEPLOY_CLI_VERSION: ${{ inputs.deploy-cli-version }}
           # Set on the end-to-end test only: the CLI built from the tag above instead of the published one.
@@ -627,7 +632,14 @@ jobs:
           if (leftOut.length > 0) {
             console.log(`app-secrets: ${leftOut.sort().join(", ")} left out, reserved for the runner.`);
           }
-          const args = ["env", "render", `--compose=${process.env.COMPOSE_FILE}`, "--out=.env.prod"];
+          const minLengths = (process.env.SECRET_MIN_LENGTHS ?? "").split(/\s+/).filter((spec) => spec !== "");
+          const args = [
+            "env",
+            "render",
+            `--compose=${process.env.COMPOSE_FILE}`,
+            "--out=.env.prod",
+            ...minLengths.map((spec) => `--min-length=${spec}`),
+          ];
           const cli = process.env.DEPLOY_CLI;
           const result = cli
             ? spawnSync(process.execPath, [cli, ...args], { env, stdio: "inherit" })

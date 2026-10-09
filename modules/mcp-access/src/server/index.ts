@@ -10,6 +10,7 @@ export {
   type McpEndpointOptions,
   type McpServerFactory,
 } from "./endpoint.js";
+export { actionTool, toFormData, type ActionToolOptions, type FormActionHandler } from "./action-tool.js";
 export { createMcpAccessContext } from "./context.js";
 export { checkAccessTokensTable } from "./health.js";
 export {
@@ -68,6 +69,7 @@ export type { OAuthClientRow, OAuthTokenEndpointAuthMethod } from "../schema.js"
 export { describeRedirectUri, isAllowedRedirectUri, MAX_CLIENT_NAME_LENGTH, parseClientRegistration, type ClientRegistrationResult, type RegistrationError } from "./oauth-validation.js";
 export { getCodeChallenge, isPkceVerifierValid, isValidCodeChallenge, PKCE_METHOD } from "./pkce.js";
 export { getMcpAccessMessages, getMcpAccessOptions, getMcpAccessRoutes, getMcpEndpointUrl, type McpAccessRoutes } from "./options.js";
+export { pruneMcpAccess, type PrunedMcpAccessRecords } from "./prune.js";
 export {
   deleteMcpAccessUserData,
   exportMcpAccessUserData,
@@ -90,3 +92,4 @@ export {
   type RevokeAccessTokenInput,
   type VerifiedAccessToken,
 } from "./tokens.js";
+export { toolError, toolResult, withToolErrors, type ToolErrorHints, type ToolErrorOptions } from "./tools.js";

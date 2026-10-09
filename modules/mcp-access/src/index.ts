@@ -3,8 +3,10 @@
 // work and the endpoint are in `@softure-ai/mcp-access/server`, the Next.js adapter (route, page,
 // actions) in `/next`, the token manager in `/ui`.
 import { defineModule, resolveMigrationsDir } from "@softure-ai/core";
+import type { RateLimitBucketInput } from "@softure-ai/security";
 import { mcpAccessMessages } from "./messages/index.js";
 import { mcpAccessOptionsSchema } from "./options.js";
+import { DEFAULT_MCP_ACCESS_ROUTES } from "./routes.js";
 import { checkAccessTokensTable } from "./server/health.js";
 import { mcpAccessPrivacyContributor } from "./server/privacy.js";
 
@@ -16,14 +18,14 @@ export const MODULE_ID = "mcp-access";
  * the traffic behind one address (several assistants share it), not for one token.
  */
 export const MCP_RATE_LIMIT_BUCKETS = {
-  mcp: { limit: 200, windowMinutes: 15 },
+  mcp: { limit: 200, windowMinutes: 15, key: "ip" },
   /**
    * OAuth registration (per address) and token requests (per address and client id), when
    * `oauth.enabled`. Enough for an assistant platform refreshing many users' tokens per client,
    * too little for a script filling the clients table.
    */
-  "mcp-oauth": { limit: 60, windowMinutes: 15 },
-} as const;
+  "mcp-oauth": { limit: 60, windowMinutes: 15, key: "ip" },
+} as const satisfies Readonly<Record<string, RateLimitBucketInput>>;
 
 /**
  * Enables MCP access in `softure.config.ts` (after `security` and `auth`):
@@ -38,14 +40,7 @@ export const mcpAccess = defineModule({
     tables: ["access_tokens", "oauth_clients", "oauth_authorization_codes", "oauth_grants"],
     env: [],
     switches: [],
-    routes: {
-      page: "/account/mcp",
-      endpoint: "/api/mcp",
-      oauthConsent: "/oauth/authorize",
-      oauthDecision: "/api/oauth/authorize",
-      oauthToken: "/api/oauth/token",
-      oauthRegister: "/api/oauth/register",
-    },
+    routes: { ...DEFAULT_MCP_ACCESS_ROUTES },
     mount: [
       { kind: "page", path: "app/account/mcp/page.tsx", export: "McpAccessPage" },
       { kind: "route-handler", path: "app/api/mcp/route.ts", export: "createMcpRoute" },
@@ -81,6 +76,7 @@ export type {
   IssuedToken,
   IssueTokenFormState,
   McpAccessErrorCode,
+  McpIssueRefusalCode,
   McpClientSetup,
   McpServerIdentity,
   OAuthGrantView,
@@ -105,6 +101,7 @@ export {
   type McpToolDefinition,
   type McpToolDefinitionInput,
 } from "./options.js";
+export { DEFAULT_MCP_ACCESS_ROUTES } from "./routes.js";
 export { readRequestOrigin, type McpOriginRequest, type McpOrigins } from "./origins.js";
 export { accessTokens, oauthAuthorizationCodes, oauthClients, oauthGrants, type OAuthClientRow, type OAuthTokenEndpointAuthMethod } from "./schema.js";
 export { getAccessTokenStatus, type AccessTokenStatusOptions } from "./token-status.js";

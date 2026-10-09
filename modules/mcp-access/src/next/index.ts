@@ -11,5 +11,6 @@ export {
   registerOAuthClientRoute,
 } from "./oauth-routes.js";
 export { getMcpAccessContext, getRequestOrigins } from "./context.js";
-export { McpAccessPage } from "./pages.js";
+export { issueToken, type BeforeIssueGate, type IssueGateInput, type IssueTokenOptions } from "./issue-token.js";
+export { McpAccessPage, type McpAccessPageProps } from "./pages.js";
 export { createMcpRoute } from "./route.js";

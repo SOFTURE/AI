@@ -225,6 +225,7 @@ utility, so the two families never compete on one input.
   options={[{ value: "PLN", label: "PLN" }, { value: "EUR", label: "EUR" }]} />
 <Switch name="included" label="Include in net worth" description="Counted in the total" defaultChecked />
 <Switch name="notify" label="Notify me" hint="…" hintProps={appHint} stateText={{ on: "On", off: "Off" }} />
+<Switch name="fromRetirement" label="From retirement" aria-label="From retirement: Food" />  {/* aria-label overrides the label as the name */}
 <Checkbox name="terms" label="I accept the terms" required />
 <SegmentedControl legend="Period" isLegendHidden value={period} onChange={setPeriod}
   options={[{ value: "month", label: "Month" }, { value: "year", label: "Year" }]} />

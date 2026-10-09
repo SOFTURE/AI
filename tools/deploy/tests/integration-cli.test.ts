@@ -196,12 +196,84 @@ describe("softure-deploy integration record", () => {
     expect(JSON.parse(remoteNote(mainSha))).toMatchObject({ result: "red", passed: null, red: [] });
   });
 
+  it("reads a Playwright JSON report given with --results, by its extension or --format", async () => {
+    const report = {
+      suites: [
+        {
+          title: "checkout.spec.ts",
+          specs: [
+            { title: "pays by card", tests: [{ projectName: "chromium", status: "expected" }] },
+            { title: "refunds", tests: [{ projectName: "chromium", status: "flaky" }] },
+          ],
+        },
+      ],
+    };
+    writeFileSync(join(work, "results.json"), JSON.stringify(report));
+    expect(await cli(work, ["integration", "record", "--sha=HEAD", "--ref=refs/heads/trunk", "--result=green", "--results=results.json"])).toBe(0);
+    expect(JSON.parse(remoteNote(mainSha))).toMatchObject({ result: "green", passed: 2, total: 2, red: [], flaky: ["[chromium] › checkout.spec.ts › refunds"] });
+    writeFileSync(join(work, "results.txt"), JSON.stringify(report));
+    expect(
+      await cli(work, ["integration", "record", "--sha=HEAD", "--ref=refs/heads/trunk", "--result=green", "--results=results.txt", "--format=playwright-json"]),
+    ).toBe(0);
+    expect(JSON.parse(remoteNote(mainSha))).toMatchObject({ passed: 2, total: 2 });
+    out = [];
+    expect(await cli(work, ["integration", "lookup", "--main=trunk"])).toBe(0);
+    expect(out.join("")).toBe("integration: green\ncounts: 2/2\nflaky: [chromium] › checkout.spec.ts › refunds\n");
+  });
+
+  it("reads --results as JUnit by default, and stores no counts for a report it cannot read", async () => {
+    writeFileSync(join(work, "junit.xml"), JUNIT);
+    expect(await cli(work, ["integration", "record", "--sha=HEAD", "--ref=refs/heads/trunk", "--result=red", "--results=junit.xml"])).toBe(0);
+    expect(JSON.parse(remoteNote(mainSha))).toMatchObject({ passed: 2, total: 3, red: ["checkout › refunds"] });
+    writeFileSync(join(work, "broken.json"), "{");
+    expect(await cli(work, ["integration", "record", "--sha=HEAD", "--ref=refs/heads/trunk", "--result=red", "--results=broken.json"])).toBe(0);
+    expect(err.join("")).toContain("broken.json is not a Playwright JSON report (the report is not JSON); the note has no counts");
+    expect(JSON.parse(remoteNote(mainSha))).toMatchObject({ result: "red", passed: null, total: null });
+  });
+
+  it("stores red and exits 1 with --fail-on-flaky when a test passed only on a retry", async () => {
+    const flaky = { suites: [{ title: "a.spec.ts", specs: [{ title: "retries", tests: [{ status: "flaky" }] }] }] };
+    writeFileSync(join(work, "results.json"), JSON.stringify(flaky));
+    const args = ["integration", "record", "--sha=HEAD", "--ref=refs/heads/trunk", "--result=green", "--results=results.json", "--fail-on-flaky"];
+    expect(await cli(work, args)).toBe(1);
+    expect(err.join("")).toContain("1 flaky test and --fail-on-flaky: stored as red");
+    expect(JSON.parse(remoteNote(mainSha))).toMatchObject({ result: "red", flaky: ["a.spec.ts › retries"] });
+    writeFileSync(join(work, "results.json"), JSON.stringify({ suites: [] }));
+    expect(await cli(work, args)).toBe(0);
+    expect(JSON.parse(remoteNote(mainSha))).toMatchObject({ result: "green" });
+  });
+
+  it("stores the note under --notes-ref and names the run after --ref-prefix", async () => {
+    expect(
+      await cli(work, [
+        "integration",
+        "record",
+        "--sha=HEAD",
+        "--ref=refs/heads/e2e-run/feature",
+        "--result=green",
+        "--notes-ref=refs/notes/e2e-run",
+        "--ref-prefix=e2e-run/",
+      ]),
+    ).toBe(0);
+    expect(JSON.parse(git(remote, "notes", "--ref=refs/notes/e2e-run", "show", mainSha))).toMatchObject({ name: "feature" });
+    expect(git(remote, "for-each-ref", "refs/notes/integration")).toBe("");
+    expect(await cli(work, ["integration", "lookup"])).toBe(3);
+    out = [];
+    expect(await cli(work, ["integration", "lookup", "--notes-ref=refs/notes/e2e-run"])).toBe(0);
+    expect(out.join("")).toBe("integration: green\n");
+  });
+
   it.each([
     [["--ref=refs/heads/trunk", "--result=green"], "--sha is required"],
     [["--sha=HEAD", "--result=green"], "--ref must name"],
     [["--sha=HEAD", "--ref=refs/heads/trunk", "--result=yellow"], "--result must be green or red"],
     [["--sha=HEAD", "--ref=refs/heads/trunk", "--result=green", "--run=http://x"], "--run must be an https:// URL"],
     [["--sha=HEAD", "--ref=refs/heads/trunk", "--result=green", "--remote=--upload-pack=x"], "--remote must be a remote name"],
+    [["--sha=HEAD", "--ref=refs/heads/trunk", "--result=green", "--junit=a.xml", "--results=b.xml"], "--junit and --results"],
+    [["--sha=HEAD", "--ref=refs/heads/trunk", "--result=green", "--results=a.xml", "--format=tap"], "--format must be junit or playwright-json"],
+    [["--sha=HEAD", "--ref=refs/heads/trunk", "--result=green", "--format=junit"], "--format needs --results"],
+    [["--sha=HEAD", "--ref=refs/heads/trunk", "--result=green", "--notes-ref=refs/heads/x"], "--notes-ref must be a ref under refs/notes/"],
+    [["--sha=HEAD", "--ref=refs/heads/trunk", "--result=green", "--ref-prefix=integration"], "--ref-prefix must"],
   ])("refuses %j as a usage error", async (args, message) => {
     expect(await cli(work, ["integration", "record", ...args])).toBe(2);
     expect(err.join("")).toContain(message);
@@ -254,6 +326,17 @@ describe("softure-deploy integration run", () => {
     expect(await cli(work, ["integration", "run", "--name=feature", "--wait-minutes=0"])).toBe(1);
     expect(err.join("")).toContain(`refs/heads/integration/feature is in use by ${mainSha.slice(0, 8)}`);
     expect(remoteRef("refs/heads/integration/feature")).toBe(mainSha);
+  });
+
+  it("pushes under --ref-prefix and waits for the note under --notes-ref", async () => {
+    const hook = POST_RECEIVE.replaceAll("refs/heads/integration/*", "refs/heads/e2e-run/*").replace("--ref=refs/notes/integration", "--ref=refs/notes/e2e-run");
+    writeFileSync(join(remote, "hooks/post-receive"), hook);
+    const sha = commit(work, "b.txt");
+    prepareRemoteNote(note(sha, { ref: "refs/heads/e2e-run/feature" }));
+    const args = ["integration", "run", "--name=feature", "--wait-minutes=1", "--poll-seconds=1", "--ref-prefix=e2e-run/", "--notes-ref=refs/notes/e2e-run"];
+    expect(await cli(work, args)).toBe(0);
+    expect(err.join("")).toContain(`pushed ${sha.slice(0, 8)} to refs/heads/e2e-run/feature`);
+    expect(out.join("")).toContain("integration: green\n");
   });
 
   it("exits 1 when the remote cannot be reached", async () => {

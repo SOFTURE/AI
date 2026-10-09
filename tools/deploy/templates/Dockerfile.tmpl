@@ -28,8 +28,13 @@ RUN npm run build
 # The migrate runner: module SQL copied out of the packages (a bundle cannot find package folders), then
 # scripts/migrate.ts bundled with pg left external (the standalone server ships it). drizzle's driver adapters stay
 # external too: bundled, the adapter of a driver the app does not install would fail migrate.mjs at start.
-RUN npx softure migrate --export-migrations ./softure-migrations \
+# Two flags make a data layer shared with the app bundle for plain Node: `server-only` (which throws outside React's
+# server build) becomes an empty module, and the banner gives CJS dependencies inside the ESM bundle their `require`.
+RUN mkdir -p .esbuild && printf 'export {};\n' > .esbuild/empty.mjs \
+ && npx softure migrate --export-migrations ./softure-migrations \
  && npx --yes esbuild@{{esbuildVersion}} scripts/migrate.ts --bundle --platform=node --format=esm --target=node22 \
+      --alias:server-only=./.esbuild/empty.mjs \
+      --banner:js="import { createRequire } from 'module'; const require = createRequire(import.meta.url);" \
       --external:pg --external:@electric-sql/pglite \
       --external:drizzle-orm/pglite --external:drizzle-orm/node-postgres --outfile=migrate.mjs
 
@@ -39,6 +44,8 @@ RUN mkdir -p ops \
  && entries="$(find scripts/ops -maxdepth 1 -name '*.ts' ! -name '*.test.ts' 2> /dev/null || true)" \
  && if [ -n "$entries" ]; then \
       npx --yes esbuild@{{esbuildVersion}} $entries --bundle --platform=node --format=esm --target=node22 \
+        --alias:server-only=./.esbuild/empty.mjs \
+        --banner:js="import { createRequire } from 'module'; const require = createRequire(import.meta.url);" \
         --external:pg --external:@electric-sql/pglite \
         --external:drizzle-orm/pglite --external:drizzle-orm/node-postgres --outdir=ops --out-extension:.js=.mjs; \
     fi
