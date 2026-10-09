@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`billing@x.y.z`).
 
+## 0.1.11
+
+- `formatPrice` is core's `formatMoney`: thousands are always grouped, so a four-digit amount in pl reads
+  `1 234,56 €` (was `1234,56 €`); en and amounts below 1000 are unchanged (#312).
+- Plan periods, `parseDay` and the `/ui` day formatters use core's day arithmetic and `formatCalendarDay`; the
+  results are the same. `CURRENCY_MINOR_UNIT_DIGITS` is core's table, still exported here. Requires
+  `@softure-ai/core` `^0.1.8`.
+
 ## 0.1.10
 
 - `formatDayCount(days, locale, messages)` (`/ui`): a bare count of days for the app's own sentences ("5 days",

@@ -261,6 +261,32 @@ app's `timezone` from the config. Both throw a `RangeError` for an invalid date 
 getCalendarDay(context.clock, config.timezone); // "2026-10-08"
 ```
 
+**Day arithmetic.** Work on the `YYYY-MM-DD` strings themselves, never on `Date`s at local midnight: a day
+is a calendar day, whatever DST makes of its hours. Every function throws a `RangeError` for a malformed day
+or a fractional count.
+
+| Function | Semantics |
+| --- | --- |
+| `isCalendarDay(value)` | A real day written `YYYY-MM-DD` (`2026-02-29` and `2026-1-1` are not). |
+| `addCalendarDays(day, days)` | `day` moved by whole days, negative goes back. |
+| `addCalendarMonths(day, months, { endOfMonth })` | `"clamp"` (default): a day the month lacks becomes its last day, Jan 31 + 1 = Feb 28/29. `"overflow"`: it runs on, Jan 31 + 1 = Mar 3 (2026). |
+| `calendarDaysBetween(from, to)` | `to - from` in days; negative when `to` comes first. |
+| `wholeMonthsBetween(from, to)` | The most months `n` with `addCalendarMonths(from, n)` (clamped) not after `to`: Jan 31 to Feb 28 is 1. Swapping the days turns the sign. |
+
+**Display.** One way to show days, money and percentages in every module and app, in `config.locale`:
+
+```ts
+formatCalendarDay("2026-10-04", "en"); // "October 4, 2026"; "medium": "Oct 4, 2026"; "numeric": "10/04/2026"
+formatCalendarDay(toCalendarDay(instant, config.timezone), config.locale); // an instant's day in the app's zone
+formatMoney(123456, "PLN", "en"); // "PLN 1,234.56"; pl groups four digits too
+formatMoney(-123456, "PLN", "en", { rounded: true, signed: true }); // "-PLN 1,235"; { compact: true }: "PLN 1.2K"
+formatPercent(1250, "en"); // "12.5%" (basis points, at most two fraction digits)
+```
+
+A day is formatted at UTC midnight in UTC, so no zone moves it; the Polish long style names the month in
+the genitive. `formatMoney` takes the amount in the currency's minor unit, read from the pinned ISO 4217
+table `CURRENCY_MINOR_UNIT_DIGITS` (a code outside it gets `Intl`'s digits), and always groups thousands.
+
 ## 10. Hooks
 
 `ModuleContext` is what every server function of a module receives: `{ db, clock, config }`
@@ -285,4 +311,5 @@ manifest's `privacy.exports` / `privacy.deletes` flag is true. The `privacy` mod
   are rejected.
 - Route maps mix mounted paths and redirect targets, so two modules may share a path; mount
   collisions are left to `softure doctor`.
-- No date or number formatting helpers beyond the calendar day; apps use `Intl` with `config.locale` and `config.timezone`.
+- Formatting covers days, money and percentages; times of day and other numbers use `Intl` with `config.locale` and
+  `config.timezone`.
