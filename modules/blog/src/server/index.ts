@@ -2,6 +2,7 @@
 // (`{ db, clock, config }`) and never read request scope; the renderer is pure. `next/*` imports are
 // not allowed here.
 export { computeContentHash, parseArticleFile, type ArticleFileResult, type ParseArticleFileOptions } from "../content/article-file.js";
+export { readArticleDir, type ArticleDirFile, type ReadArticleDirResult } from "../content/read-article-dir.js";
 export {
   findArticleBySlug,
   findSlugRedirect,
@@ -26,6 +27,7 @@ export { findArticlesLinkingTermFor, getBodyOptions, type ArticlesLinkingTermInp
 export { checkArticlesTable } from "./health.js";
 export { createOgFontLoader, type OgFont, type OgFontLoaderOptions, type OgFontsResult } from "./og-fonts.js";
 export { getPageContext } from "./page-context.js";
+export { NEXT_BUILD_PHASE, readForStaticPage, type StaticReadOptions } from "./static-read.js";
 export { getBlogLocaleTags, getBlogMessages, getBlogOptions, getBlogRefreshPath, getBlogReservedSlugs, getBlogRoutes, getQualitySettings, type BlogLocaleTags } from "./options.js";
 export * from "../discovery/index.js";
 export * from "../pages/index.js";

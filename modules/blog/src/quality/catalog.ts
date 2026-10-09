@@ -5,7 +5,7 @@ import type { QualitySeverity } from "./finding.js";
 import type { QualityRuleInfo } from "./plugin.js";
 import { getEffectiveSeverity, type QualitySettings } from "./settings.js";
 
-export const QUALITY_RULE_GROUPS = ["file", "structure", "links", "images", "ymyl", "style", "voice", "plugin"] as const;
+export const QUALITY_RULE_GROUPS = ["file", "structure", "links", "images", "ymyl", "style", "voice", "facts", "plugin"] as const;
 export type QualityRuleGroup = (typeof QUALITY_RULE_GROUPS)[number];
 
 export interface QualityCatalogRule extends QualityRuleInfo {
@@ -79,6 +79,10 @@ export function listQualityRules(settings: QualitySettings): QualityCatalogRule[
     ...(options.blocks.some((plugin) => plugin.syntax === "directive")
       ? [rule("structure", "block-directive", "error", "a ::directive line names a directive the blog renders, with readable key=\"value\" attributes")]
       : []),
+    ...(options.blocks.some((plugin) => plugin.numbers !== undefined)
+      ? [rule("structure", "block-numbers", "error", "every significant number of the paragraph before and after a data block is one of the block's numbers")]
+      : []),
+    ...options.facts.map((fact) => rule("facts", fact.id, fact.severity, fact.description)),
     ...(options.plugins.length === 0 ? [] : PLUGIN_RULES),
     ...options.plugins.flatMap((plugin) => plugin.rules.map((info) => rule("plugin", info.id, info.severity, info.description))),
   ];

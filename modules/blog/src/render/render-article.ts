@@ -109,6 +109,12 @@ export interface BlockPlugin<TNode = unknown> {
    * sentence. Without it the block's source stays in the Markdown.
    */
   readonly markdown?: (block: ArticleBlock) => string;
+  /**
+   * The numbers the block shows (a number, or a string in the blog's number notation), for the quality
+   * gate's `block-numbers` rule: every significant number of the paragraph right before and right after
+   * the block must be one of them. Pure; a throw is reported as a finding.
+   */
+  readonly numbers?: (block: ArticleBlock) => readonly (number | string)[];
 }
 
 export type ArticleSegment<TNode = unknown> =
@@ -166,6 +172,10 @@ export interface FoundBlock {
   readonly attributes: BlockAttributes;
   /** 1-based line of the opening fence or of the directive. */
   readonly line: number;
+  /** 1-based last line: the closing fence, or the directive's own line. */
+  readonly endLine: number;
+  /** Fence: its body, as written. Directive: the whole line, trimmed. */
+  readonly content: string;
   readonly requires: readonly string[];
 }
 
@@ -630,7 +640,10 @@ export function findArticleBlocks(markdown: string, plugins: readonly BlockPlugi
     if (token.type !== BLOCK_TOKEN) return [];
     const meta = readBlockMeta(token);
     const requires = byType.get(getPluginKey(meta.syntax, meta.type))?.requires ?? [];
-    return [{ type: meta.type, syntax: meta.syntax, info: meta.info, attributes: meta.attributes, line: (token.map?.[0] ?? 0) + 1, requires }];
+    const line = (token.map?.[0] ?? 0) + 1;
+    // `map[1]` is the 0-based line after the block, so the 1-based last line.
+    const endLine = Math.max(line, token.map?.[1] ?? line);
+    return [{ type: meta.type, syntax: meta.syntax, info: meta.info, attributes: meta.attributes, line, endLine, content: token.content, requires }];
   });
 }
 
