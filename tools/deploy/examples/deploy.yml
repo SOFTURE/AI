@@ -1,6 +1,7 @@
 # The caller of SOFTURE/AI's reusable deploy workflow (.github/workflows/deploy-app.yml). Copy it to the app's
 # `.github/workflows/deploy.yml` and set the two domain spots (`app-url`, and `image` when the default
-# ghcr.io/<owner>/<repository> does not fit) and the repository secrets named below.
+# ghcr.io/<owner>/<repository> does not fit) and the repository secrets named below, or keep them in the
+# `production` environment (the commented form at the end of the deploy job).
 #
 # A published GitHub Release deploys its tag; "Run workflow" deploys an existing tag again (a rollback is a
 # redeploy of an older tag). Only a tag whose commit is on the default branch deploys (`release-branch` names
@@ -53,6 +54,20 @@ jobs:
       # Only the names the production compose file requires (${NAME:?}) reach .env.prod. Name the secrets
       # one by one instead (a JSON object) when the repository holds many unrelated ones.
       app-secrets: ${{ toJSON(secrets) }}
+    # Secrets kept only in the `production` environment (its deployment policy admits release tags only): the job above
+    # passes repository secrets, which the caller's job can read, never an environment's. Instead the deploy job reads
+    # them in the environment itself: replace the whole `secrets:` block above with `secrets: inherit` and add to `with:`
+    #   secrets-from-environment: true
+    #   # The secrets holding the SSH values (these are the defaults):
+    #   # ssh-host-secret: DEPLOY_SSH_HOST
+    #   # ssh-user-secret: DEPLOY_SSH_USER
+    #   # ssh-private-key-secret: DEPLOY_SSH_KEY
+    #   # ssh-known-hosts-secret: DEPLOY_SSH_KNOWN_HOSTS
+    #   # Verify runs outside the environment, and secrets: inherit cannot pass origin-address: keep the origin
+    #   # address as a repository variable DEPLOY_ORIGIN_IP (app-vars carries it) and name it here. Unset skips the check.
+    #   # origin-address-var: DEPLOY_ORIGIN_IP
+    # Every secret of the environment and the repository then reaches the render step; only the compose file's names
+    # land in .env.prod.
 
   report:
     needs: deploy

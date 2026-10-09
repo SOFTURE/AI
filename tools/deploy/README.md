@@ -329,7 +329,7 @@ one caller, [`examples/deploy.yml`](examples/deploy.yml), with a single `uses:` 
    stays in `$RUNNER_TEMP/deploy-output.txt` for the job;
 4. waits until `<app-url><health-path>` answers 200, then runs `softure-deploy verify <app-url>` with the app's
    `deploy-config` read from the tag (only that file is checked out). A missing or invalid file fails the run;
-   `deploy-config: ""` keeps the health route only. With the `origin-address` secret, verify gets `--origin` too.
+   `deploy-config: ""` keeps the health route only. With the `origin-address` secret or `origin-address-var`, verify gets `--origin` too.
 5. whatever happened, uploads the run's facts as the artifact `deploy-report` (`summary` job, no permissions): each
    job's result, the image and its digest, and the server's `step|…`/`result|…` lines (`init`'s `deploy.sh` puts the
    backup's file name and the row counts on them).
@@ -344,6 +344,9 @@ one caller, [`examples/deploy.yml`](examples/deploy.yml), with a single `uses:` 
 | `compose-file` | `docker/prod/docker-compose.yml` | names the secrets to render; its folder ships to the server |
 | `server-script` | `docker/server/deploy.sh` | the forced command, installed on the server as `deploy.sh` with each release |
 | `environment` | none | GitHub environment of the deploy job |
+| `secrets-from-environment` | `false` | the deploy job reads the app's secrets and the SSH values from `environment` (below); needs `environment` and `secrets: inherit` |
+| `ssh-host-secret`, `ssh-user-secret`, `ssh-private-key-secret`, `ssh-known-hosts-secret` | `DEPLOY_SSH_HOST`, `DEPLOY_SSH_USER`, `DEPLOY_SSH_KEY`, `DEPLOY_SSH_KNOWN_HOSTS` | with `secrets-from-environment`, the secrets holding the SSH values |
+| `origin-address-var` | none | the `app-vars` entry holding the origin address, instead of the `origin-address` secret (below) |
 | `remote-command` | `deploy` | first word for the forced command |
 | `ssh-port` | `22` | |
 | `health-path`, `verify-timeout-seconds` | `/api/health`, `300` | the health wait before verify |
@@ -355,13 +358,35 @@ one caller, [`examples/deploy.yml`](examples/deploy.yml), with a single `uses:` 
 | `registry-token` | `true` | send the deploy job's `GITHUB_TOKEN` (`packages: read`, valid until the job ends) for the server's pull |
 | `e2e` | `false` | this repository's own end-to-end test (below); refused in any other repository |
 
-Secrets, passed by name (no `secrets: inherit`): `ssh-host`, `ssh-user`, `ssh-private-key`, `ssh-known-hosts` and
-`app-secrets` (a JSON object such as `toJSON(secrets)`; names like `PATH`, `HOME`, `NODE_*` and `NPM_CONFIG_*` are
-refused, in `app-vars` too) are required; `origin-address` is optional: the server's own address behind the CDN (the
-example passes `secrets.DEPLOY_ORIGIN_IP`), refused when `deploy-config` is empty, and verify fails when it accepts a
-direct connection. A secret, not an input, so the address is masked in the logs. The registry token pulls a package
+Secrets, passed by name: `ssh-host`, `ssh-user`, `ssh-private-key`, `ssh-known-hosts` and `app-secrets` (a JSON
+object such as `toJSON(secrets)`; names like `PATH`, `HOME`, `NODE_*` and `NPM_CONFIG_*` are refused, in `app-vars`
+too) are required unless `secrets-from-environment` is on; the check job names a missing one before anything is built
+(none is `required: true` in the workflow, since a caller with `secrets: inherit` cannot pass them). `origin-address`
+is optional: the server's own address behind the CDN (the example passes `secrets.DEPLOY_ORIGIN_IP`), refused when
+`deploy-config` is empty, and verify fails when it accepts a direct connection. A secret, not an input, so the address
+is masked in the logs. `origin-address-var` names an `app-vars` entry with the address instead (e.g.
+`DEPLOY_ORIGIN_IP` from `toJSON(vars)`, not masked); the check job refuses it next to the secret, or when `app-vars`
+holds no text under that name. The registry token pulls a package
 the build job of the same repository pushed (its `org.opencontainers.image.source` label links it); for an image
 elsewhere, set `registry-token: false` and log the server in.
+
+**Secrets kept in an environment (`secrets-from-environment`).** A caller's `secrets:` are evaluated in the caller's
+job, which cannot name an environment, so they hold repository and organization secrets only; and an environment
+secret cannot be named `app-secrets` or `ssh-private-key` (letters, digits and `_` only). An app that keeps its runtime
+secrets and deploy key only in an environment whose deployment policy admits release tags only (a workflow on any
+branch can read repository secrets) therefore sets `secrets-from-environment: true` with `environment` and passes
+`secrets: inherit` instead of named secrets. The deploy job, which runs in that environment, then renders `.env.prod`
+from its whole `secrets` context (the environment's secrets over the repository's), and sends with the secrets
+`ssh-host-secret`, `ssh-user-secret`, `ssh-private-key-secret` and `ssh-known-hosts-secret` name. `env render` writes
+only the compose file's required names, so `github_token`, the deploy key and unrelated secrets stay out of
+`.env.prod`; a name like `NODE_AUTH_TOKEN` among the secrets is left out and named, never rendered. The check job
+refuses the flag without `environment` or next to a named secret; the deploy job names any SSH secret the environment
+lacks before anything is rendered. The verify job runs outside the environment, so the origin address comes from
+`origin-address-var` (a repository variable in `app-vars`). Only the environment's secrets reach the release this
+way: `app-vars` is still evaluated in the caller's job, so the environment's variables never arrive, and a repository
+variable in `app-vars` wins over an environment secret of the same name. `secrets: inherit` passes the caller's
+repository and organization secrets only to a workflow in the same organization or enterprise. The example caller
+shows this form, commented.
 
 **A tested image (`prebuilt-image`).** An app whose own pipeline builds the image and runs its tests against it
 passes that image by digest, so production runs the bytes the tests saw rather than a second build of the same tag.

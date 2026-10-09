@@ -482,6 +482,7 @@ describe("the end-to-end test path of deploy-app.yml (DF-3)", () => {
           VERIFY_TIMEOUT: "300",
           DEPLOY_CONFIG: "deploy.json",
           DEPLOY_CLI_VERSION: "0.1.3",
+          PASSED_SECRETS: "ssh-host ssh-user ssh-private-key ssh-known-hosts app-secrets",
           ...env,
         },
       });
@@ -559,10 +560,10 @@ describe("the end-to-end test path of deploy-app.yml (DF-3)", () => {
     const send = deploySteps.find((step) => step.name === "Send the release to the server");
     expect(send?.if).toBeUndefined();
     expect(send?.env).toMatchObject({
-      SSH_HOST: "${{ inputs.e2e && steps.e2e-server.outputs.host || secrets.ssh-host }}",
-      SSH_USER: "${{ inputs.e2e && steps.e2e-server.outputs.user || secrets.ssh-user }}",
-      SSH_PRIVATE_KEY: "${{ inputs.e2e && steps.e2e-server.outputs.private-key || secrets.ssh-private-key }}",
-      SSH_KNOWN_HOSTS: "${{ inputs.e2e && steps.e2e-server.outputs.known-hosts || secrets.ssh-known-hosts }}",
+      SSH_HOST: "${{ inputs.e2e && steps.e2e-server.outputs.host || inputs.secrets-from-environment && secrets[inputs.ssh-host-secret] || secrets.ssh-host }}",
+      SSH_USER: "${{ inputs.e2e && steps.e2e-server.outputs.user || inputs.secrets-from-environment && secrets[inputs.ssh-user-secret] || secrets.ssh-user }}",
+      SSH_PRIVATE_KEY: "${{ inputs.e2e && steps.e2e-server.outputs.private-key || inputs.secrets-from-environment && secrets[inputs.ssh-private-key-secret] || secrets.ssh-private-key }}",
+      SSH_KNOWN_HOSTS: "${{ inputs.e2e && steps.e2e-server.outputs.known-hosts || inputs.secrets-from-environment && secrets[inputs.ssh-known-hosts-secret] || secrets.ssh-known-hosts }}",
     });
   });
 
@@ -618,11 +619,11 @@ describe("the end-to-end caller e2e-deploy.yml", () => {
     for (const [key, input] of Object.entries(called.inputs ?? {})) {
       if (input.required === true) expect(Object.keys(job.with ?? {})).toContain(key);
     }
-    // An optional secret (origin-address) has nothing to check on the test path, where verify is skipped.
+    // The named form: every secret but origin-address, which has nothing to check on the test path (verify is
+    // skipped). None is `required: true` (secrets-from-environment passes none); the check job asks for them.
     const passed = Object.keys(job.secrets as Record<string, unknown>);
     for (const key of passed) expect(Object.keys(called.secrets ?? {})).toContain(key);
-    const required = Object.entries(called.secrets ?? {}).filter(([, secret]) => secret.required !== false);
-    expect(passed.sort()).toEqual(required.map(([key]) => key).sort());
+    expect(passed.sort()).toEqual(["app-secrets", "ssh-host", "ssh-known-hosts", "ssh-private-key", "ssh-user"]);
   });
 
   it("grants packages: write to the calling job only", () => {

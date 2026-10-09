@@ -13,6 +13,13 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 - `init --workflows-ref=<sha>` pins both callers' `uses:` to that commit of SOFTURE/AI; without it they call `master`
   and a warning prints how to get the commit of the `deploy@<version>` release. The callers, the examples and the
   README no longer name `deploy-workflows-v1`, a tag that never existed.
+- `deploy-app.yml` takes `secrets-from-environment: true` (with `environment` and `secrets: inherit`): the deploy job
+  renders `.env.prod` from its own secrets, where the environment's win over the repository's, and sends with the
+  secrets `ssh-host-secret`, `ssh-user-secret`, `ssh-private-key-secret` and `ssh-known-hosts-secret` name (defaults
+  `DEPLOY_SSH_HOST`, `DEPLOY_SSH_USER`, `DEPLOY_SSH_KEY`, `DEPLOY_SSH_KNOWN_HOSTS`). Secrets behind an environment's
+  deployment policy reach the release without repository-level copies. `origin-address-var` takes the verify job's
+  origin address from an `app-vars` entry. Without the flag nothing changes, except that the named secrets are no
+  longer `required: true`: the check job names a missing one before anything is built.
 
 ## 0.1.6
 

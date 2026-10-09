@@ -33,6 +33,8 @@ function getScript(job: string, name: string): string {
 }
 
 const CHECK_SCRIPT = getScript("check", "Validate inputs");
+// What the check job's PASSED_SECRETS holds for a caller that passes every required secret by name.
+const PASSED_NAMED_SECRETS = "ssh-host ssh-user ssh-private-key ssh-known-hosts app-secrets";
 const GUARD_SCRIPT = getScript("check", "Refuse a tag off the release branch");
 const RENDER_SCRIPT = getScript("deploy", "Render .env.prod");
 const RETAG_SCRIPT = getScript("build", "Tag the prebuilt image");
@@ -177,6 +179,7 @@ describe("the check job's validation of release-branch and build-args", () => {
         DEPLOY_CLI_VERSION: "0.1.3",
         REPOSITORY: "acme/app",
         E2E: "false",
+        PASSED_SECRETS: PASSED_NAMED_SECRETS,
         ...env,
       },
     });
@@ -239,6 +242,7 @@ describe("the check job's validation of prebuilt-image", () => {
         DEPLOY_CLI_VERSION: "0.1.3",
         REPOSITORY: "acme/app",
         E2E: "false",
+        PASSED_SECRETS: PASSED_NAMED_SECRETS,
         ...env,
       },
     });
