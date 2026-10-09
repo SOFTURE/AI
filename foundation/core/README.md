@@ -28,6 +28,10 @@ interface SoftureConfigInput {
   locale: "en" | "pl";
   timezone: string;                  // IANA zone, e.g. "Europe/Warsaw"
   appOrigin: string;                 // http(s) origin without a path
+  origins?: {                        // read by resolveAppOrigin, see "Request origins" below
+    trustedOrigins?: string[];       // other origins the app is served under (at most 16)
+    trustRequestHost?: boolean;      // trust Host for any host (default false)
+  };
   modules: SoftureModule[];          // a module is enabled by being listed
 }
 ```
@@ -115,6 +119,37 @@ export const notes = defineModule({
   `expect(JSON.parse(readFileSync("module.json", "utf8"))).toEqual(toModuleJson(notes))`.
 - Version ranges in `dependsOn`: `x.y.z`, `^x.y.z`, `~x.y.z`, `*`, each optionally ending in `?`
   (optional dependency). Caret follows npm on `0.x`: `^0.1.0` is `>=0.1.0 <0.2.0`.
+
+### Request origins
+
+Behind a proxy `request.url` names the server's listening address (`http://0.0.0.0:3000`), so a module that builds an
+absolute URL for a request (auth's login redirect, agent-ready's documents, mcp-access's OAuth URLs, analytics' channel
+redirect) reads the origin from headers, with one rule from core:
+
+```ts
+import { getTrustedOrigins, readRequestHost, readRequestOrigin, resolveAppOrigin } from "@softure-ai/core";
+
+readRequestHost(request);                          // first Host value, else the URL's host; lowercased
+readRequestHost(request, { forwardedHost: true }); // first X-Forwarded-Host value first
+readRequestOrigin(request);                        // X-Forwarded-Proto when http(s), else the URL's scheme; null for a bad host
+getTrustedOrigins(config);                         // appOrigin, then origins.trustedOrigins
+resolveAppOrigin(config, request);                 // the app origin to build URLs on for this request
+```
+
+`resolveAppOrigin` answers, in order:
+
+1. the request's origin read with `X-Forwarded-Host` (a proxy that rewrites `Host` names the public host there), when
+   it is one of `getTrustedOrigins(config, extra)`;
+2. with `origins.trustRequestHost`, the request's origin read from `Host`, whatever the host: for one image served
+   under origins nobody lists (a test stack on another port), behind a proxy that passes `Host` through and refuses
+   hosts it does not serve;
+3. `appOrigin`.
+
+`X-Forwarded-Host` only ever picks a listed origin: a client can send it through a proxy that keeps it. An app on two
+hosts (product on `https://app.example.com`, site on `https://example.com`) lists the second once,
+`origins: { trustedOrigins: ["https://example.com"] }`, and every module follows. A response built on the result is
+cached per `Host`, `X-Forwarded-Host` and `X-Forwarded-Proto` (`Vary`). `parseOrigin(value)` is the strict origin check
+the rule uses: exactly `http(s)://host[:port]`, a trailing `/` allowed.
 
 ## 4. Mounting
 

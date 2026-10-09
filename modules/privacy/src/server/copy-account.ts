@@ -5,7 +5,7 @@
 // microseconds) and NULL stays NULL. The copy is verified before it is kept, and a dry run by default.
 import { users } from "@softure-ai/auth";
 import { err, ok, type Err, type Ok } from "@softure-ai/core";
-import type { Queryable } from "@softure-ai/db";
+import { findDriverError, type Queryable } from "@softure-ai/db";
 import { sql, type SQL } from "drizzle-orm";
 import { getTableConfig } from "drizzle-orm/pg-core";
 import { getEmailKey } from "./consents.js";
@@ -601,19 +601,4 @@ function tableName(table: Table): SQL {
 
 function columnList(names: readonly string[]): SQL {
   return sql.raw(names.map(quote).join(", "));
-}
-
-interface DriverError {
-  readonly code: string;
-  readonly constraint: string | undefined;
-  readonly message: string;
-}
-
-/** The Postgres error under drizzle's wrapper (node-postgres and PGlite both carry `code`). */
-function findDriverError(error: unknown): DriverError | undefined {
-  for (let current: unknown = error, depth = 0; current instanceof Error && depth < 3; current = current.cause, depth += 1) {
-    const { code, constraint } = current as { code?: unknown; constraint?: unknown };
-    if (typeof code === "string") return { code, constraint: typeof constraint === "string" ? constraint : undefined, message: current.message };
-  }
-  return undefined;
 }
