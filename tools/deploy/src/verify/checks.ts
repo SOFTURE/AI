@@ -1,6 +1,6 @@
 import type { HeaderChecks, VerifyRoute } from "./schema.js";
 
-export type CheckKind = "request" | "status" | "contains" | "excludes" | "redirect" | "header";
+export type CheckKind = "request" | "source" | "status" | "contains" | "excludes" | "count" | "sha256" | "redirect" | "header";
 
 /** One check of one route: what was expected and, when it failed, what came back. */
 export interface CheckOutcome {
@@ -9,12 +9,14 @@ export interface CheckOutcome {
   detail: string;
 }
 
-/** What the runner saw: the status, the headers and (only when a marker needs it) the body. */
+/** What the runner saw: the status, the headers and (only when a check needs it) the body and its SHA-256 (hex). */
 export interface ObservedResponse {
   requestUrl: string;
   status: number;
   getHeader: (name: string) => string | null;
   body: string | null;
+  /** Absent or `null` when no digest was computed. */
+  sha256?: string | null;
 }
 
 /** Global header checks with the route's own entries on top. */
@@ -22,9 +24,9 @@ export function mergeHeaderChecks(global: HeaderChecks, route: HeaderChecks): He
   return { ...global, ...route };
 }
 
-/** `true` when a route's markers need the response body. */
+/** `true` when a route's markers, counts or digest need the response body. */
 export function needsBody(route: VerifyRoute): boolean {
-  return route.contains.length > 0 || route.excludes.length > 0;
+  return route.contains.length > 0 || route.excludes.length > 0 || route.count !== undefined || route.sha256 !== undefined;
 }
 
 function quote(text: string): string {
@@ -36,16 +38,51 @@ function checkStatus(route: VerifyRoute, response: ObservedResponse): CheckOutco
   return { kind: "status", passed, detail: passed ? `status ${route.status}` : `status ${response.status}, expected ${route.status}` };
 }
 
+/** The text between `<head…>` and `</head>` (case-insensitive); empty when the response has no head. */
+export function getHeadText(body: string): string {
+  const lower = body.toLowerCase();
+  const open = /<head[\s>]/.exec(lower);
+  if (open === null) return "";
+  const start = lower.indexOf(">", open.index);
+  const end = lower.indexOf("</head>", start);
+  return end === -1 ? "" : body.slice(start + 1, end);
+}
+
+/** Non-overlapping occurrences of `marker` in `text`. */
+export function countOccurrences(text: string, marker: string): number {
+  let count = 0;
+  for (let index = text.indexOf(marker); index !== -1; index = text.indexOf(marker, index + marker.length)) count += 1;
+  return count;
+}
+
 function checkMarkers(route: VerifyRoute, body: string): CheckOutcome[] {
+  const scope = route.within === "head" ? getHeadText(body) : body;
+  const where = route.within === "head" ? " in <head>" : "";
   const present = route.contains.map((marker): CheckOutcome => {
-    const passed = body.includes(marker);
-    return { kind: "contains", passed, detail: passed ? `contains ${quote(marker)}` : `missing ${quote(marker)}` };
+    const passed = scope.includes(marker);
+    return { kind: "contains", passed, detail: `${passed ? "contains" : "missing"} ${quote(marker)}${where}` };
   });
   const absent = route.excludes.map((marker): CheckOutcome => {
-    const passed = !body.includes(marker);
-    return { kind: "excludes", passed, detail: passed ? `no ${quote(marker)}` : `unexpected ${quote(marker)}` };
+    const passed = !scope.includes(marker);
+    return { kind: "excludes", passed, detail: `${passed ? "no" : "unexpected"} ${quote(marker)}${where}` };
   });
-  return [...present, ...absent];
+  const counted = Object.entries(route.count ?? {}).map(([marker, expected]): CheckOutcome => {
+    const got = countOccurrences(scope, marker);
+    const passed = got === expected;
+    return { kind: "count", passed, detail: `${got} × ${quote(marker)}${where}${passed ? "" : `, expected ${expected}`}` };
+  });
+  return [...present, ...absent, ...counted];
+}
+
+/** The hex of a `sha256:<hex>` or bare-hex digest. */
+export function toDigestHex(digest: string): string {
+  return digest.startsWith("sha256:") ? digest.slice("sha256:".length) : digest;
+}
+
+function checkDigest(expected: string, response: ObservedResponse): CheckOutcome {
+  const want = toDigestHex(expected);
+  const passed = response.sha256 === want;
+  return { kind: "sha256", passed, detail: passed ? "sha256 matches" : `sha256 ${response.sha256 ?? "-"}, expected ${want}` };
 }
 
 /** Resolves `text` against `base`; `null` when it is not a URL at all. */
@@ -112,6 +149,7 @@ export function checkResponse(options: {
   const outcomes = [checkStatus(route, response)];
   if (route.redirect !== undefined) outcomes.push(checkRedirect(route.redirect, response, baseUrl));
   if (needsBody(route)) outcomes.push(...checkMarkers(route, response.body ?? ""));
+  if (route.sha256 !== undefined) outcomes.push(checkDigest(route.sha256, response));
   for (const [name, expected] of Object.entries(headers)) {
     // A list is one check per item, each reported like a single substring.
     for (const item of Array.isArray(expected) ? expected : [expected]) outcomes.push(checkHeader(name, item, response));

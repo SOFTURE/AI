@@ -121,8 +121,8 @@ least `en`; `amount` an integer in the currency's minor unit as billing pins it 
 second currency is a second plan. Plans live in the config, not in a table: a price change is a
 deploy, and a payment record (with the price paid) belongs to the provider.
 
-**Minor units.** The digits of each currency's minor unit come from a table billing pins
-(`CURRENCY_MINOR_UNIT_DIGITS`): ISO 4217 List One of 2024-06-25 without funds and units that are not
+**Minor units.** The digits of each currency's minor unit come from a pinned table
+(`CURRENCY_MINOR_UNIT_DIGITS`, kept in `@softure-ai/core` and re-exported here; `formatPrice` is core's `formatMoney`): ISO 4217 List One of 2024-06-25 without funds and units that are not
 prices, MGA counted without a minor unit (its subunit is a fifth, as Stripe counts it) and XCG added.
 The runtime's `Intl` only supplies the notation (symbol, separators, where the sign goes), so a price
 means the same amount on every Node build; `Intl`'s own digits follow its CLDR data and have changed
@@ -167,6 +167,9 @@ trial begun at any hour of 3 October ends when 17 October begins there, so 16 Oc
 day. Days left count local calendar days, today included (1 on the last day). Access covers every
 instant before its end; at the end itself the account is read-only. Paid access wins over a trial;
 a trial that outlasts paid access takes over again when the payment ends.
+The root's `getDayNumber`, `getStartOfDay` and `parseDay` serve billing's periods; day arithmetic
+elsewhere uses `addCalendarDays`, `addCalendarMonths` and `calendarDaysBetween` from `@softure-ai/core`,
+whose month arithmetic (end of month clamped) billing's periods use too.
 
 ## 4. Mounting
 
