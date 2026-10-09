@@ -665,18 +665,22 @@ one `git push` already uses):
 ```
 
 - **`softure-deploy integration run [--name=<n>] [--sha=HEAD] [--wait-minutes=30] [--remote=origin] [--main=<branch>]
-  [--poll-seconds=15]`** pushes the commit to `integration/<name>` (`INTEGRATION_NAME`, `INTEGRATION_SHA` and
+  [--poll-seconds=15] [--ref-prefix=integration/] [--notes-ref=refs/notes/integration]`** pushes the commit to `integration/<name>` (`INTEGRATION_NAME`, `INTEGRATION_SHA` and
   `INTEGRATION_WAIT_MINUTES` stand in for the flags, as `wt-integration.sh` sets them), then fetches
   `refs/notes/integration` until the commit carries a new note, and prints it. It never replaces a ref: when
   `integration/<name>` already points at another commit, that is someone else's run and it exits 1; when it points at
   the same commit, it waits for that run without pushing. A run whose workflow never started leaves its ref behind;
   `git push origin --delete integration/<name>` clears it.
-- **`softure-deploy integration lookup [--sha=HEAD] [--remote=origin] [--main=<branch>]`** prints the stored result of
+- **`softure-deploy integration lookup [--sha=HEAD] [--remote=origin] [--main=<branch>]
+  [--notes-ref=refs/notes/integration]`** prints the stored result of
   the commit (fetched first, the local notes when the remote cannot be reached), so `wt-integration.sh` reuses a green
   result for the same commit instead of a new run.
-- **`softure-deploy integration record --sha=<sha> --ref=<ref> --result=green|red [--junit=<file>] [--run=<url>]`** is
-  the workflow's side: it writes the note and pushes it, fetching and writing again when another run pushed its note
-  first.
+- **`softure-deploy integration record --sha=<sha> --ref=<ref> --result=green|red [--results=<file>
+  [--format=junit|playwright-json]] [--fail-on-flaky] [--run=<url>]`** is the workflow's side: it writes the note and
+  pushes it, fetching and writing again when another run pushed its note first. The report is JUnit XML, or
+  Playwright's JSON reporter output (`--format=playwright-json`, the default for a `.json` file); `--junit=<file>` is
+  the older spelling of a JUnit `--results`. With `--fail-on-flaky` a report that names a flaky test is stored red and
+  the command exits 1.
 
 Both print the lines the contract names, on stdout (progress goes to stderr):
 
@@ -687,13 +691,15 @@ run: https://github.com/acme/app/actions/runs/7/attempts/1
 red: checkout › refunds a failed payment
 red: export › writes the PDF
 new-red: export › writes the PDF
+flaky: [chromium] › checkout.spec.ts › pays by transfer
 ```
 
-`counts` and the `red` names come from the suite's JUnit report when the workflow gets one; the result itself is the
-test command's exit code. `new-red` lists the red tests the latest result on the main branch does not have red (the
+`counts`, the `red` names and the `flaky` names (tests that passed only on a retry) come from the suite's report when
+the workflow gets one; the result itself is the test command's exit code. `new-red` lists the red tests the latest result on the main branch does not have red (the
 newest first-parent commit of `<remote>/<main>` with a note; `--main`, else `mainBranch` of `context/workflow.json`,
 else `main`). Without a main-branch result no `new-red` line is printed, which the contract reads as "every red is
-new". No `flaky` lines: JUnit carries no portable signal for them.
+new". Playwright's JSON report marks flaky tests; JUnit does only in Surefire's `<flakyFailure>` and `<flakyError>`,
+so a JUnit report from another writer prints no `flaky` lines.
 
 | Exit | `run` | `lookup` |
 | --- | --- | --- |
@@ -703,9 +709,15 @@ new". No `flaky` lines: JUnit carries no portable signal for them.
 | `75` | no result within `--wait-minutes` (retry later; the run may still finish) | |
 
 The note is one line of JSON on the tested commit under `refs/notes/integration`: `result`, `sha`, `name`, the `ref`
-that started the run, `passed` and `total` (null without a report), `red`, `run` (the Actions URL) and `finishedAt`.
-A newer run on the same commit replaces it. `git notes --ref=integration show <sha>` prints it after
+that started the run, `passed` and `total` (null without a report), `red`, `flaky` (left out when empty, so the 0.1.7
+CLI still reads the note), `run` (the Actions URL) and `finishedAt`. A newer run on the same commit replaces it. `git notes --ref=integration show <sha>` prints it after
 `git fetch origin refs/notes/integration:refs/notes/integration`.
+
+**An app with its own names.** An app that already keeps its results under another notes ref or branch prefix passes
+`--notes-ref=refs/notes/<name>` and `--ref-prefix=<prefix>/` in both commands of `context/workflow.json`, and the same
+`notes-ref` and `ref-prefix` to the workflow, so the main-branch baseline it has stays the one `new-red` compares with.
+Notes in another format than the one above are not results: until a run of this package lands on the main branch,
+`new-red` is not printed.
 
 ### Integration workflow
 
@@ -715,15 +727,28 @@ branch (the baseline for `new-red`), and sets its suite:
 
 1. the `test` job checks out the pushed commit without credentials (`contents: read`), runs `setup-command`
    (default `npm ci`) and `test-command` with bash, and keeps the exit code as the result; the JUnit report at
-   `junit-report`, if set, is uploaded. A red suite fails the job, so the run shows red in Actions too;
+   report (`results-report`, or `junit-report`), if set, is uploaded. A red suite fails the job, so the run shows red
+   in Actions too;
 2. the `record` job (`contents: write`, none of the app's code) runs `softure-deploy integration record` from npm
-   with the tested commit, its ref, the result and the run's URL, then deletes `integration/<name>`; the main branch
+   with the tested commit, its ref, the result and the run's URL, then deletes `<ref-prefix><name>`; the main branch
    stays. A suite job that died before the suite ran (checkout, setup) records red; a cancelled one records nothing,
    so `run` ends with exit 75.
 
-Inputs: `test-command` (required), `setup-command`, `junit-report`, `node-version`, `deploy-cli-version` (this
-package's version; the `integration` commands need the release after 0.1.4). The suite job has a two-hour limit. A
+Inputs: `test-command` (required), `setup-command`, `results-report` and `results-format` (`junit` or
+`playwright-json`, by the extension when empty; `junit-report` is the older JUnit form), `notes-ref` and `ref-prefix`
+(above), `node-version`, `deploy-cli-version` (this package's version; the `integration` commands need the release
+after 0.1.4, the inputs of issue #308 the release after 0.1.7). The suite job has a two-hour limit. A
 suite that needs a Docker image or services builds and starts them in its own commands: the runner has Docker.
+
+**A prebuilt image (release workflow).** A release that tests the image it is about to deploy calls the workflow with
+`image: <registry/name>@sha256:<digest>` (the same value `deploy-app.yml` takes as `prebuilt-image`) on its tag push,
+which the workflow then accepts. The test job pulls the image before the set-up, logging in with the optional
+`registry-token` secret (e.g. `secrets.GITHUB_TOKEN` of a caller with `packages: read`) through a Docker config it
+deletes in the same step. The set-up and suite commands see `INTEGRATION_IMAGE`, `INTEGRATION_EXPECTED_ORIGINS` (the
+`expected-origins` input: the origins the image was built for, which the app's compose maps onto the runner) and
+`INTEGRATION_FAIL_ON_FLAKY` (`true` with `fail-on-flaky`, e.g. for Playwright's `--fail-on-flaky-tests`). With
+`fail-on-flaky` the record job also stores red and fails when the report names a flaky test, so a release that
+`needs:` the run stops.
 
 ## Ops scripts and reports on the server
 
@@ -812,8 +837,8 @@ The same steps as functions, for scripts that need them without the CLI:
 `compareRowCounts`, `parseDeployConfig`, `planServerSettings`,
 `runVerify` (an injectable `fetch`), `checkResponse`, `formatVerifyReport`, `parseInitAnswers`, `readAppFacts`,
 `planInitFiles` (pure: the files and their text), `writeInitFiles`, `parseIntegrationNote`, `formatIntegrationNote`,
-`readJunitCounts`, `formatContractLines`, `lookupIntegration`, `recordIntegration`, `runIntegration` (injectable
-`sleep` and `now`).
+`readJunitCounts`, `readPlaywrightJsonCounts`, `formatContractLines`, `lookupIntegration`, `recordIntegration`,
+`runIntegration` (injectable `sleep` and `now`).
 
 An app whose image should carry the guard itself (a host with neither Node nor a helper image) bundles a three-line
 script around `withPgClient` and `guardSchema` with esbuild, like its `migrate.mjs`, and runs it from the new image:

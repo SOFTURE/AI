@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -897,8 +897,53 @@ describe("deploy-integration.yml (issue #248)", () => {
     expect(checkout?.with).toEqual({ ref: "${{ github.sha }}", "persist-credentials": false });
   });
 
+  const SUITE_ENV = {
+    INTEGRATION_IMAGE: "${{ inputs.image }}",
+    INTEGRATION_EXPECTED_ORIGINS: "${{ inputs.expected-origins }}",
+    INTEGRATION_FAIL_ON_FLAKY: "${{ inputs.fail-on-flaky }}",
+  };
+
+  it("hands the image, the expected origins and fail-on-flaky to the set-up and the suite (issue #308)", () => {
+    const setup = testSteps.find((step) => step.name === "Set up");
+    expect(setup?.env).toEqual({ SETUP_COMMAND: "${{ inputs.setup-command }}", ...SUITE_ENV });
+    expect(suite?.env).toEqual({ TEST_COMMAND: "${{ inputs.test-command }}", ...SUITE_ENV });
+  });
+
+  it("pulls the image before the app's code runs, through a Docker config it deletes (issue #308)", () => {
+    const pullIndex = testSteps.findIndex((step) => step.name === "Pull the image");
+    const pull = testSteps[pullIndex];
+    expect(pull?.if).toBe("inputs.image != ''");
+    expect(pullIndex).toBeLessThan(testSteps.findIndex((step) => step.name === "Set up"));
+    const docker = '#!/bin/sh\necho "docker $*" >> "$RUNNER_TEMP/../docker-calls"\nfor a in "$@"; do [ "$a" = "--password-stdin" ] && { cat; echo; } >> "$RUNNER_TEMP/../docker-calls"; done\nexit 0\n';
+    const image = `ghcr.io/acme/app@sha256:${"a".repeat(64)}`;
+    const dir = mkdtempSync(join(tmpdir(), "deploy-integration-pull-"));
+    try {
+      const runner = join(dir, "runner");
+      mkdirSync(runner);
+      writeFileSync(join(dir, "docker"), docker, { mode: 0o755 });
+      const run = (token: string) =>
+        spawnSync("bash", ["-e", "-c", pull?.run ?? ""], {
+          encoding: "utf8",
+          env: { PATH: `${dir}:${process.env.PATH ?? ""}`, RUNNER_TEMP: runner, IMAGE: image, REGISTRY_TOKEN: token, REGISTRY_USER: "bot" },
+        });
+      const withToken = run("secret-token");
+      expect(withToken.status, withToken.stderr).toBe(0);
+      const calls = readFileSync(join(dir, "docker-calls"), "utf8").split("\n");
+      expect(calls[0]).toMatch(/^docker --config \S+ login ghcr\.io --username bot --password-stdin$/);
+      expect(calls[1]).toBe("secret-token");
+      expect(calls[2]?.startsWith("docker --config ")).toBe(true);
+      expect(calls[2]?.endsWith(` pull ${image}`)).toBe(true);
+      const config = /--config (\S+)/.exec(calls[0] ?? "")?.[1] ?? "";
+      expect(existsSync(config)).toBe(false);
+      writeFileSync(join(dir, "docker-calls"), "");
+      expect(run("").status).toBe(0);
+      expect(readFileSync(join(dir, "docker-calls"), "utf8")).not.toContain("login");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("keeps the suite's exit code as the result instead of stopping the job", () => {
-    expect(suite?.env).toEqual({ TEST_COMMAND: "${{ inputs.test-command }}" });
     expect(runStep(suite, { TEST_COMMAND: "exit 0" })).toMatchObject({ status: 0, output: "result=green\n" });
     expect(runStep(suite, { TEST_COMMAND: "echo failing; exit 3" })).toMatchObject({ status: 0, output: "result=red\n" });
   });
@@ -911,7 +956,7 @@ describe("deploy-integration.yml (issue #248)", () => {
   });
 
   it("records with the pinned CLI, the tested commit, its ref and the run, and the JUnit report when set", () => {
-    const run = (junit: string) =>
+    const run = (junit: string, env: Record<string, string> = {}) =>
       runStep(
         record,
         {
@@ -920,7 +965,13 @@ describe("deploy-integration.yml (issue #248)", () => {
           RESULT: "red",
           RUN_URL: "https://github.com/acme/app/actions/runs/1/attempts/1",
           JUNIT_REPORT: junit,
+          RESULTS_REPORT: "",
+          RESULTS_FORMAT: "",
+          FAIL_ON_FLAKY: "false",
+          NOTES_REF: "refs/notes/integration",
+          REF_PREFIX: "integration/",
           DEPLOY_CLI_VERSION: "0.1.5",
+          ...env,
         },
         { npx: '#!/bin/sh\nprintf "%s\\n" "$@"\n' },
       );
@@ -938,38 +989,92 @@ describe("deploy-integration.yml (issue #248)", () => {
     expect(run("").stdout.split("\n")).toEqual([...base, ""]);
     const withReport = run("reports/junit.xml").stdout.split("\n");
     expect(withReport.slice(0, -2)).toEqual(base);
-    expect(withReport.at(-2)).toMatch(/^--junit=.+\/integration-junit\/junit\.xml$/);
+    expect(withReport.at(-2)).toMatch(/^--junit=.+\/integration-results\/junit\.xml$/);
+    const results = run("", {
+      RESULTS_REPORT: "test-results/e2e.json",
+      RESULTS_FORMAT: "playwright-json",
+      FAIL_ON_FLAKY: "true",
+      NOTES_REF: "refs/notes/e2e-run",
+      REF_PREFIX: "e2e-run/",
+    }).stdout.split("\n");
+    expect(results.slice(0, base.length)).toEqual(base);
+    expect(results.slice(base.length, -1)).toEqual([
+      expect.stringMatching(/^--results=.+\/integration-results\/e2e\.json$/) as unknown,
+      "--format=playwright-json",
+      "--fail-on-flaky",
+      "--notes-ref=refs/notes/e2e-run",
+      "--ref-prefix=e2e-run/",
+    ]);
   });
 
   it("deletes only an integration ref, and accepts one already gone", () => {
     expect(deleteRef?.if).toBe("always()");
     const gh = '#!/bin/sh\necho "$@" >> "$RUNNER_TEMP/../gh-calls"\n[ "$GH_FAIL" = "" ] || { echo "$GH_FAIL" >&2; exit 1; }\n';
-    const integration = runStep(deleteRef, { GITHUB_REF: "refs/heads/integration/feature", GITHUB_REPOSITORY: "acme/app" }, { gh });
+    const prefixed = runStep(deleteRef, { GITHUB_REF: "refs/heads/e2e-run/feature", GITHUB_REPOSITORY: "acme/app", REF_PREFIX: "e2e-run/" }, { gh });
+    expect(prefixed.stdout).toContain("Deleted refs/heads/e2e-run/feature.");
+    const tag = runStep(deleteRef, { GITHUB_REF: "refs/tags/v1.2.3", GITHUB_REPOSITORY: "acme/app", REF_PREFIX: "integration/", GH_FAIL: "must not run" }, { gh });
+    expect(tag.stdout).toContain("is not an integration ref; it stays");
+    const integration = runStep(deleteRef, { GITHUB_REF: "refs/heads/integration/feature", GITHUB_REPOSITORY: "acme/app", REF_PREFIX: "integration/" }, { gh });
     expect(integration.status, integration.stderr).toBe(0);
     expect(integration.stdout).toContain("Deleted refs/heads/integration/feature.");
-    const main = runStep(deleteRef, { GITHUB_REF: "refs/heads/main", GITHUB_REPOSITORY: "acme/app", GH_FAIL: "must not run" }, { gh });
+    const main = runStep(deleteRef, { GITHUB_REF: "refs/heads/main", GITHUB_REPOSITORY: "acme/app", REF_PREFIX: "integration/", GH_FAIL: "must not run" }, { gh });
     expect(main.status).toBe(0);
     expect(main.stdout).toContain("is not an integration ref; it stays");
-    const gone = runStep(deleteRef, { GITHUB_REF: "refs/heads/integration/x", GITHUB_REPOSITORY: "acme/app", GH_FAIL: "Reference does not exist (HTTP 422)" }, { gh });
+    const gone = runStep(deleteRef, { GITHUB_REF: "refs/heads/integration/x", GITHUB_REPOSITORY: "acme/app", REF_PREFIX: "integration/", GH_FAIL: "Reference does not exist (HTTP 422)" }, { gh });
     expect(gone.status).toBe(0);
-    const denied = runStep(deleteRef, { GITHUB_REF: "refs/heads/integration/x", GITHUB_REPOSITORY: "acme/app", GH_FAIL: "Resource not accessible (HTTP 403)" }, { gh });
+    const denied = runStep(deleteRef, { GITHUB_REF: "refs/heads/integration/x", GITHUB_REPOSITORY: "acme/app", REF_PREFIX: "integration/", GH_FAIL: "Resource not accessible (HTTP 403)" }, { gh });
     expect(denied.status).toBe(1);
   });
 
   it("refuses an input that is not valid before anything runs", () => {
     const validate = testSteps[0];
     expect(validate?.name).toBe("Validate inputs");
-    const valid = { TEST_COMMAND: "npm test", JUNIT_REPORT: "", NODE_VERSION: "22", DEPLOY_CLI_VERSION: "0.1.5", GITHUB_REF: "refs/heads/integration/x" };
+    const valid = {
+      TEST_COMMAND: "npm test",
+      JUNIT_REPORT: "",
+      RESULTS_REPORT: "",
+      RESULTS_FORMAT: "",
+      IMAGE: "",
+      EXPECTED_ORIGINS: "",
+      NOTES_REF: "refs/notes/integration",
+      REF_PREFIX: "integration/",
+      NODE_VERSION: "22",
+      DEPLOY_CLI_VERSION: "0.1.5",
+      GITHUB_REF: "refs/heads/integration/x",
+    };
+    const image = `ghcr.io/acme/app@sha256:${"0".repeat(64)}`;
     expect(runStep(validate, valid).status).toBe(0);
+    for (const accepted of [
+      { RESULTS_REPORT: "test-results/e2e.json", RESULTS_FORMAT: "playwright-json" },
+      { RESULTS_REPORT: "reports/junit.xml" },
+      { IMAGE: image, GITHUB_REF: "refs/tags/v1.2.3", EXPECTED_ORIGINS: "https://app.example.com, http://localhost:3000" },
+      { IMAGE: `registry.example.com:5000/app@sha256:${"0".repeat(64)}` },
+      { NOTES_REF: "refs/notes/e2e-run", REF_PREFIX: "e2e-run/" },
+    ]) {
+      const result = runStep(validate, { ...valid, ...accepted });
+      expect(result.status, `${JSON.stringify(accepted)}: ${result.stdout}`).toBe(0);
+    }
     for (const [key, value] of [
       ["TEST_COMMAND", ""],
       ["JUNIT_REPORT", "../junit.xml"],
       ["JUNIT_REPORT", "/tmp/junit.xml"],
+      ["RESULTS_REPORT", "../e2e.json"],
+      ["RESULTS_FORMAT", "playwright-json"],
       ["DEPLOY_CLI_VERSION", "latest"],
       ["GITHUB_REF", "refs/tags/v1"],
+      ["IMAGE", "ghcr.io/acme/app:latest"],
+      ["IMAGE", `ghcr.io/acme/app@sha256:${"0".repeat(63)}`],
+      ["EXPECTED_ORIGINS", "app.example.com"],
+      ["EXPECTED_ORIGINS", "https://app.example.com/path"],
+      ["NOTES_REF", "refs/heads/x"],
+      ["NOTES_REF", "refs/notes/a..b"],
+      ["REF_PREFIX", "integration"],
+      ["REF_PREFIX", "-x/"],
     ]) {
       expect(runStep(validate, { ...valid, [key as string]: value as string }).status, `${key as string}=${value as string}`).toBe(1);
     }
+    expect(runStep(validate, { ...valid, JUNIT_REPORT: "a.xml", RESULTS_REPORT: "b.xml" }).status).toBe(1);
+    expect(runStep(validate, { ...valid, RESULTS_REPORT: "a.json", RESULTS_FORMAT: "tap" }).status).toBe(1);
   });
 });
 
