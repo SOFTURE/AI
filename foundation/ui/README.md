@@ -175,6 +175,16 @@ errors; `PasswordField` never replays. The server parses amounts with the same
 `parseAmount(text, locale)` the field formats with. Between groups of three digits it accepts a space, a no-break
 space (U+00A0), a narrow no-break space (U+202F) and a thin space (U+2009); `en` also accepts a comma.
 
+`CheckboxField` renders a `Switch` (`labelAs="setting"`, the default) or a `Checkbox` (`labelAs="statement"`) and
+replays its state after a rejected submit. `switchProps` (`classNames`, `controlClassNames`, `hintProps`) and
+`checkboxProps` (`classNames`) reach the control it renders, so an app keeps its own look under `unstyled`:
+
+```tsx
+<CheckboxField name="notify" label="Notify me" hint="…" hintAs="tooltip" unstyled
+  switchProps={{ classNames: appSwitch, controlClassNames: appSwitchControl, hintProps: appHint }} />
+<CheckboxField name="terms" label="I accept the terms" labelAs="statement" unstyled checkboxProps={{ classNames: appCheckbox }} />
+```
+
 Number inputs (`TextField` with `inputMode`, `MoneyField`) use `NUMBER_INPUT_CLASS`: the mono face with
 `tabular-nums` and `slashed-zero`, the placeholder in sans. It and `INPUT_CLASS` each carry exactly one font family
 utility, so the two families never compete on one input.

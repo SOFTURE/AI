@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`ui@x.y.z`).
 
+## 0.1.16
+
+- `CheckboxField` takes `switchProps` (`classNames`, `controlClassNames` and `hintProps` of `Switch`) for `setting`
+  and `checkboxProps` (`classNames` of `Checkbox`) for `statement`, and passes them to the control it renders, so an
+  app can draw the field in its own look under `unstyled` and keep the submit replay (#340). Before, it forwarded
+  only `unstyled`, `locale` and `messages`. The id stays generated when omitted; pass `id` for a stable selector.
+
 ## 0.1.15
 
 - Number inputs render in the mono face again. `NUMBER_INPUT_CLASS` was built on `INPUT_CLASS`, so it carried both
