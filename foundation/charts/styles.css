@@ -414,6 +414,21 @@
     pointer-events: none;
   }
 
+  /* frame={false}: the app's plot and the layer share one box; the layer covers it. */
+  .sft-chart-cursor-box {
+    position: relative;
+  }
+
+  .sft-chart-cursor-box > .sft-chart-cursor-layer {
+    position: absolute;
+    inset: 0;
+  }
+
+  /* A cursor value coloured by a tone: dot and swatch read --sft-chart-series. */
+  .sft-chart-fill-tone {
+    --sft-chart-series: var(--sft-chart-tone);
+  }
+
   .sft-chart-cursor-guide {
     position: absolute;
     top: 0;
