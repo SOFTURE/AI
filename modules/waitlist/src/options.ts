@@ -92,8 +92,9 @@ export const waitlistOptionsSchema = z
     /**
      * Answers a sign-up with the person's own unsubscribe link (`WaitlistFormState.unsubscribeUrl`), which
      * `WaitlistForm` shows under the success notice. Only without double opt-in (a request waiting for its
-     * link gets none). Whoever submits an address gets its link, so turn it on only when the product asks
-     * people to keep that link. Needs `MAILING_UNSUBSCRIBE_SECRET`.
+     * link gets none). Only the request that created the sign-up gets the link: a known or a suppressed
+     * address is answered without it, so nobody receives another person's link. Needs
+     * `MAILING_UNSUBSCRIBE_SECRET`.
      */
     unsubscribeLinkOnSuccess: z.boolean().default(false),
     /** Resolves the request's acquisition channel, stored with a first sign-up (`WaitlistSignup.channel`). */
