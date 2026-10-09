@@ -931,7 +931,8 @@ describe("deploy-integration.yml (issue #248)", () => {
       const calls = readFileSync(join(dir, "docker-calls"), "utf8").split("\n");
       expect(calls[0]).toMatch(/^docker --config \S+ login ghcr\.io --username bot --password-stdin$/);
       expect(calls[1]).toBe("secret-token");
-      expect(calls[2]).toMatch(new RegExp(`^docker --config \\S+ pull ${image.replace(/[.]/g, "\\.")}$`));
+      expect(calls[2]?.startsWith("docker --config ")).toBe(true);
+      expect(calls[2]?.endsWith(` pull ${image}`)).toBe(true);
       const config = /--config (\S+)/.exec(calls[0] ?? "")?.[1] ?? "";
       expect(existsSync(config)).toBe(false);
       writeFileSync(join(dir, "docker-calls"), "");
