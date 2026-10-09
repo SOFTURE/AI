@@ -21,6 +21,8 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   `createBlogArticleOgImage({ logo, label })` builds the route; `BlogArticleOgImage` is the default one.
 - `/server` exports `getBodyOptions`, `findArticlesLinkingTermFor`, `getPageContext` and `createOgFontLoader`
   (the same functions as `/next`), for renderers outside Next.
+- Reads driver errors with `findDriverError` and `isConstraintViolation` from `@softure-ai/db` instead of a private copy. Same behaviour;
+  requires `@softure-ai/db` `^0.1.7` (#313).
 
 ## 0.1.10
 
