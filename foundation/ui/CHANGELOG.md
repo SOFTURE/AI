@@ -4,14 +4,8 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`ui@x.y.z`).
 
-## 0.1.15
+## 0.1.16
 
-- Number inputs render in the mono face again. `NUMBER_INPUT_CLASS` was built on `INPUT_CLASS`, so it carried both
-  `sft:font-sans` and `sft:font-mono`, and the sans rule, later in `styles.css`, won: every `MoneyField` and numeric
-  `TextField` drew in sans. Both looks now share a frame without a family and add exactly one (#302).
-- `parseAmount` (and so `MoneyField` and `normalizeAmountInput`) accepts a thin space (U+2009) between groups of
-  three digits in both notations, next to a space, U+00A0 and U+202F. The rule stays strict: groups of exactly three
-  digits (#303). Before, `"1\u2009234,56"` was `ui.amount_invalid`.
 - `TextField` and `MoneyField` can be controlled: `value` with `onValueChange` (the text after every edit). A
   controlled `MoneyField` reports the reformatted amount through `onValueChange` on blur instead of rewriting the
   input; a rejected submit does not replay into a controlled field. Uncontrolled fields keep their behaviour and
@@ -22,6 +16,15 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   10^-scale units (a percent in basis points at scale 2, a rate in millionths at scale 6). Errors are
   `ui.decimal_invalid` and `ui.decimal_out_of_range`. `parseAmount`, `formatAmountInput` and
   `normalizeAmountInput` are now their scale-2 case, with unchanged results and error codes (#320).
+
+## 0.1.15
+
+- Number inputs render in the mono face again. `NUMBER_INPUT_CLASS` was built on `INPUT_CLASS`, so it carried both
+  `sft:font-sans` and `sft:font-mono`, and the sans rule, later in `styles.css`, won: every `MoneyField` and numeric
+  `TextField` drew in sans. Both looks now share a frame without a family and add exactly one (#302).
+- `parseAmount` (and so `MoneyField` and `normalizeAmountInput`) accepts a thin space (U+2009) between groups of
+  three digits in both notations, next to a space, U+00A0 and U+202F. The rule stays strict: groups of exactly three
+  digits (#303). Before, `"1\u2009234,56"` was `ui.amount_invalid`.
 
 ## 0.1.14
 

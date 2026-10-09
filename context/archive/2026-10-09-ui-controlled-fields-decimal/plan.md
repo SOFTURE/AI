@@ -55,14 +55,14 @@ Files: `foundation/ui/src/ui/form-fields.tsx`, the same test file.
 
 ## Phase 3: docs and version
 
-`foundation/ui/README.md` (export table, Forms section), `foundation/ui/CHANGELOG.md` (folded into the unreleased
-0.1.15; version already bumped on master).
+`foundation/ui/README.md` (export table, Forms section), `foundation/ui/CHANGELOG.md` under 0.1.16, version in
+`foundation/ui/package.json` and `package-lock.json` (0.1.15 was released while the PR was open).
 
 ## Progress
 
 - [x] Phase 1: parseDecimal and formatDecimal (tests red on master, green after)
 - [x] Phase 2: controlled fields (17 of 18 new tests red on master; the uncontrolled MoneyField guard passes on both)
-- [x] Phase 3: docs, CHANGELOG under 0.1.15
+- [x] Phase 3: docs, CHANGELOG and version 0.1.16
 
 Gates on the branch: `npm run typecheck`, `npm run lint`, `npm run build` green; ui tests 477 green; `npm test` runs
 in pre-push.

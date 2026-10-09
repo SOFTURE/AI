@@ -24,8 +24,8 @@ A reviewer checks `foundation/ui/tests/adoption-gaps-320.test.tsx`, the unchange
 
 ## Context
 
-Work is tracked in GitHub Issues: no roadmap item; the PR closes the issue. `@softure-ai/ui` 0.1.15 (#302, #303) is
-on master and not released yet, so this change folds into 0.1.15. #312 may add a percent formatter to `core`; this
+Work is tracked in GitHub Issues: no roadmap item; the PR closes the issue. `@softure-ai/ui` 0.1.15 (#302, #303) was
+released while this change was open, so it ships as 0.1.16 (shared with #319 if both land before a release). #312 may add a percent formatter to `core`; this
 change adds no percent-specific formatter, only the scale-generic `formatDecimal` the issue asks for in `ui`.
 
 ## Constraints
