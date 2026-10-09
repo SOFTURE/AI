@@ -38,10 +38,10 @@ Done when: `npm run typecheck` fails on master with the test and passes after; g
 
 ## Phase 2: docs and version
 
-Files: `modules/agent-ready/README.md` (type the example as `NextConfig`), `CHANGELOG.md` (`## 0.1.2`), version 0.1.2
+Files: `modules/agent-ready/README.md` (type the example as `NextConfig`), `CHANGELOG.md` (`## 0.1.3`), version 0.1.3
 in `package.json`, `module.json`, `src/index.ts` and `package-lock.json`.
 
 ## Progress
 
 - [x] Phase 1: mutable rule type (typecheck red on master with the new test, green after)
-- [x] Phase 2: docs, version 0.1.2
+- [x] Phase 2: docs, version 0.1.3

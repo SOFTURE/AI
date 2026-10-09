@@ -27,7 +27,7 @@ example and the CHANGELOG entry.
 
 ## Context
 
-Issue #304, filed by an adopting app on `@softure-ai/agent-ready` 0.1.1 (on npm), so the fix ships as 0.1.2. Work is
+Issue #304, filed by an adopting app on `@softure-ai/agent-ready` 0.1.1 (on npm); 0.1.2 was released while this change was open, so the fix ships as 0.1.3. Work is
 tracked in GitHub Issues: no roadmap item; the PR closes the issue.
 
 ## Constraints
