@@ -7,7 +7,7 @@ import { errorLogLabel, getModule, type SoftureConfig } from "@softure-ai/core";
 import { readSmallBody, type ReadSmallBodyResult } from "@softure-ai/security";
 import { consumeRateLimit, identifyClient } from "@softure-ai/security/server";
 import type { McpMetadataExtension } from "../options.js";
-import { findServedResourceOrigin, type McpOriginRequest, type McpOrigins } from "../origins.js";
+import { findServedResourceOrigin, readRequestHost, type McpOriginRequest, type McpOrigins } from "../origins.js";
 import type { OAuthClientRow } from "../schema.js";
 import { MCP_READ_SCOPE, MCP_WRITE_SCOPE } from "./scopes.js";
 import {
@@ -454,10 +454,21 @@ function seeOther(location: string): Response {
   return new Response(null, { status: 303, headers: { location, "cache-control": "no-store" } });
 }
 
-/** Whether the form was posted from this app: `Origin` must be the request's app origin. */
+/**
+ * Whether the form was posted from this app: `Origin` is the request's app origin, or an http(s)
+ * origin whose host is the host the request was sent to (`Host`), the rule Next applies to Server
+ * Actions. The second covers an image with a fixed public origin served under another host. A
+ * cross-site page cannot make the two hosts agree; `null`, missing, malformed values and anything
+ * but a bare http(s) origin (a path, user info) fail.
+ */
 function isSameOrigin(request: Request, origins: McpOrigins): boolean {
   const origin = request.headers.get("origin");
-  return origin !== null && origin === origins.appOrigin;
+  if (origin === null) return false;
+  if (origin === origins.appOrigin) return true;
+  if (!URL.canParse(origin)) return false;
+  const url = new URL(origin);
+  const isBareHttpOrigin = (url.protocol === "http:" || url.protocol === "https:") && url.origin === origin;
+  return isBareHttpOrigin && url.host === readRequestHost(request);
 }
 
 /**
@@ -475,9 +486,10 @@ async function readDecisionForm(config: SoftureConfig, request: Request): Promis
 /**
  * `POST` of the consent form, answered with `303`: a plain form post, not a server action, because
  * the answer is a redirect to the client, possibly a native app scheme, and must work without
- * JavaScript. The form must come from the app's origin (the session cookie's `SameSite=Lax` is the
- * first layer), and the request is validated again from the posted fields. `userId` is the
- * session's user, or null: then the person goes back to the consent page, which asks them to sign in.
+ * JavaScript. The form must come from the app's origin or the host the request was sent to (the
+ * session cookie's `SameSite=Lax` is the first layer), and the request is validated again from the
+ * posted fields. `userId` is the session's user, or null: then the person goes back to the consent
+ * page, which asks them to sign in.
  */
 export async function handleAuthorizationDecision(ctx: McpAccessContext, request: Request, userId: string | null): Promise<Response> {
   if (!isOAuthEnabled(ctx.config)) return new Response(null, { status: 404 });

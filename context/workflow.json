@@ -1,4 +1,6 @@
 {
+  "mode": "autonomous",
+  "timezone": "Europe/Warsaw",
   "language": "en",
   "mainBranch": "master",
   "gates": {
@@ -19,7 +21,7 @@
     "cloudState": "branch"
   },
   "release": {
-    "owner": true
+    "owner": false
   },
   "research": {
     "sources": [
@@ -28,5 +30,6 @@
       "../SKILLS/",
       "../API/.github/workflows/"
     ]
-  }
+  },
+  "autonomy": {"source": "issues", "merge": "pr", "reports": {"every": 30, "hours": "10:00-22:30"}}
 }
