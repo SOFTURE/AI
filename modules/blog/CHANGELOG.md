@@ -4,6 +4,26 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`blog@x.y.z`).
 
+## 0.1.11
+
+- The views take the app's look (#317). `BlogPageContext` gains `classNames` (one class per element, see
+  `BLOG_SLOT_CLASSES`), `unstyled` (drop the `blog-*` classes; `blog-visually-hidden` stays until the app maps
+  it) and `layout` (the app's page frame in place of `<main class="blog-page">` and its header, given `title`,
+  `lead`, `crumbs`, `meta` and `children`). The ready-made pages take them as `view`, the listing also
+  `renderCard`. Without them the markup is unchanged.
+- `BlogPageContext.disclaimer` is a `ReactNode`: a string renders in a paragraph as before, any other node (a
+  sentence with links) as given; `view.disclaimer` replaces the configured one.
+- `blog({ aiDisclosure: true })` opens the method page with an AI disclosure (`method.aiTitle`,
+  `method.aiBody`; AI Act art. 50(4)) and swaps "who writes" for `method.whoBodyAi`, which claims no human
+  editorial control. Default `false`.
+- The OG card: `renderArticleOgImage({ logo })` draws the app's mark before the brand's name, the label line
+  is `brand.colors.muted` (default the foreground, so the default card is unchanged), and
+  `createBlogArticleOgImage({ logo, label })` builds the route; `BlogArticleOgImage` is the default one.
+- `/server` exports `getBodyOptions`, `findArticlesLinkingTermFor`, `getPageContext` and `createOgFontLoader`
+  (the same functions as `/next`), for renderers outside Next.
+- Reads driver errors with `findDriverError` and `isConstraintViolation` from `@softure-ai/db` instead of a private copy. Same behaviour;
+  requires `@softure-ai/db` `^0.1.7` (#313).
+
 ## 0.1.10
 
 - `/next` exports `getBodyOptions(config, terms)`, the `RenderPageBodyOptions` the ready-made pages render

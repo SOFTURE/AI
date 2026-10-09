@@ -1,0 +1,68 @@
+{
+  "name": "@softure-ai/config",
+  "version": "0.1.0",
+  "description": "SOFTURE AI shared tooling config for apps: an ESLint flat config preset, a tsconfig base, lefthook hooks and the softure-check-language gate (English only outside message dictionaries).",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SOFTURE/AI.git",
+    "directory": "tools/config"
+  },
+  "files": [
+    "dist",
+    "CHANGELOG.md",
+    "src",
+    "presets",
+    "!src/**/*.test.ts"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "bin": {
+    "softure-check-language": "./dist/cli/check-language.js"
+  },
+  "exports": {
+    "./eslint": {
+      "@softure-ai/source": "./src/eslint/index.ts",
+      "types": "./dist/eslint/index.d.ts",
+      "default": "./dist/eslint/index.js"
+    },
+    "./language": {
+      "@softure-ai/source": "./src/language/index.ts",
+      "types": "./dist/language/index.d.ts",
+      "default": "./dist/language/index.js"
+    },
+    "./tsconfig.json": "./presets/tsconfig.json",
+    "./lefthook.yml": "./presets/lefthook.yml",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "peerDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.11.0",
+    "globals": "^17.13.0",
+    "typescript-eslint": "^8.71.0"
+  },
+  "peerDependenciesMeta": {
+    "@eslint/js": {
+      "optional": true
+    },
+    "eslint": {
+      "optional": true
+    },
+    "globals": {
+      "optional": true
+    },
+    "typescript-eslint": {
+      "optional": true
+    }
+  }
+}

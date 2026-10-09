@@ -86,7 +86,9 @@ describe("blog markup and styles", () => {
   });
 
   it("styles every blog class the components and the renderer write", () => {
-    const used = new Set([...markup, ...readSources("render")].flatMap(({ source }) => findClassNames(source)));
+    // The views write their classes through the slot defaults (`BLOG_SLOT_CLASSES`), not as literals.
+    const slotDefaults = readFileSync(join(SRC, "ui/class-names.ts"), "utf8").match(BLOG_CLASS) ?? [];
+    const used = new Set([...[...markup, ...readSources("render")].flatMap(({ source }) => findClassNames(source)), ...slotDefaults]);
     expect(used.size).toBeGreaterThan(30);
     const missing = [...used].filter((name) => !new RegExp(`\\.${name}(?![a-z-])`).test(STYLES));
     expect(missing).toEqual([]);

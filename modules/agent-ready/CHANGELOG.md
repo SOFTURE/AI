@@ -4,6 +4,12 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.1.3
+
+- `nextHeaders()` returns rules assignable to `NextConfig["headers"]`: `NextHeaderRule` is now mutable like Next's
+  `Header`, so `async headers() { return [...nextHeaders()]; }` typechecks in a `next.config.ts` typed as
+  `NextConfig` without copying the inner `headers` array (#304).
+
 ## 0.1.2
 
 - Without a `resolveAppOrigin` option, the app origin comes from core's `resolveAppOrigin` (#311): a listed origin
