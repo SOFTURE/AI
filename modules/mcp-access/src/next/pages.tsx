@@ -14,7 +14,7 @@ import { getLocalizedText, getMcpAccessMessages, getMcpAccessOptions, getMcpAcce
 import { listOAuthGrants } from "../server/oauth.js";
 import { listAccessTokens } from "../server/tokens.js";
 import { getAccessTokenStatus } from "../token-status.js";
-import { TokenManager, type TokenManagerGrant, type TokenManagerRow, type TokenManagerTool } from "../ui/token-manager.js";
+import { TokenManager, type IssueTokenAction, type TokenManagerGrant, type TokenManagerRow, type TokenManagerTool } from "../ui/token-manager.js";
 import { issueTokenAction, revokeGrantAction, revokeTokenAction } from "./actions.js";
 import { getMcpAccessContext } from "./context.js";
 import { formatDate, formatDateTime } from "./format.js";
@@ -64,7 +64,15 @@ function toTool(tool: McpAccessOptions["tools"][number], config: SoftureConfig, 
   return { name: tool.name, description: getLocalizedText(tool.description, config.locale), accessText };
 }
 
-export async function McpAccessPage() {
+export interface McpAccessPageProps {
+  /**
+   * The app's own issue action, e.g. one that calls `issueToken` with a `beforeIssue` gate. Default:
+   * `issueTokenAction`, which issues without a gate.
+   */
+  readonly issueAction?: IssueTokenAction;
+}
+
+export async function McpAccessPage({ issueAction = issueTokenAction }: McpAccessPageProps = {}) {
   const config = getSoftureConfig();
   const user = await requireUser({ next: getMcpAccessRoutes(config).page });
   const options = getMcpAccessOptions(config);
@@ -81,7 +89,7 @@ export async function McpAccessPage() {
           tokens={tokens.map((token) => toRow(token, now, config, options, messages))}
           allowWrites={options.allowWrites}
           maxTokens={options.maxTokensPerUser}
-          issueAction={issueTokenAction}
+          issueAction={issueAction}
           revokeAction={revokeTokenAction}
           {...(grants === null ? {} : { grants: grants.map((grant) => toGrant(grant, config, options, messages)), revokeGrantAction })}
           messages={messages}

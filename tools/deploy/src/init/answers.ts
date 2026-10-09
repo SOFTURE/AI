@@ -20,6 +20,9 @@ const EMAIL = /^[A-Za-z0-9._%+-]+@(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-
 /** A commit of SOFTURE/AI, the immutable ref the caller workflows pin. */
 const COMMIT_SHA = /^[0-9a-f]{40}$/;
 
+/** The CDNs `init --cdn` can lock the origin to. */
+export const CDNS = ["cloudflare"] as const;
+
 const ENV_NAME = /^[A-Z][A-Z0-9_]*$/;
 
 /** Names that steer the runner itself; `deploy-app.yml` refuses them in `app-secrets`. */
@@ -60,6 +63,7 @@ export const initAnswersSchema = z.strictObject({
     if (!parsed.ok) context.addIssue({ code: "custom", message: parsed.problem });
   }),
   workflowsRef: z.string().regex(COMMIT_SHA, "a full commit SHA of SOFTURE/AI (40 hex characters)").optional(),
+  cdn: z.enum(CDNS, { error: "cloudflare, the only CDN init knows" }).optional(),
 });
 
 export type InitAnswers = z.infer<typeof initAnswersSchema>;
