@@ -10,6 +10,16 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   `origins.trustedOrigins` is trusted like one in the guard's `trustedOrigins` option, and `origins.trustRequestHost`
   is honoured. A non-http(s) `X-Forwarded-Proto` value now falls back to the URL's scheme instead of making the
   origin unreadable. Needs `@softure-ai/core` 0.1.8.
+- `createAuthGuard({ redirect: "relative" })` answers with a path-only `Location` (`/login?next=…`), so a stack on a
+  port or host the config cannot list keeps the browser where it is; `createAuthGuard({ excludeExact })` lets exact
+  paths through (`/pricing` and `/pricing/`, not `/pricing/plans`) for an app with an exact public allowlist (#314).
+- `createTestAccount` builds fixture accounts (#314): `id`, `createdAt` and a ready `passwordHash` (stored as is, never
+  hashed); a module context (`{ db, clock, config }`) as the first argument hashes with the app's parameters and, with
+  `runHooks: true`, runs the app's `onRegistered` in the account's transaction (`fields` for `event.fields`). One
+  password with one set of parameters is hashed once per test run.
+- `adminEmails` also takes the raw environment string (#314): entries split on commas and whitespace, trimmed and
+  lowercased; an entry that is not an email is dropped with one log line naming its position and grants nothing. A
+  list still refuses a bad entry at config load.
 
 ## 0.1.10
 
