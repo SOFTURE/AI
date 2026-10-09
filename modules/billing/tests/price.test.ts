@@ -11,7 +11,7 @@ describe("prices", () => {
   it("formats an amount in the locale's notation", () => {
     expect(plain(formatPrice({ amount: 2900, currency: "PLN" }, "en"))).toBe("PLN 29.00");
     expect(plain(formatPrice({ amount: 2900, currency: "PLN" }, "pl"))).toBe("29,00 z\u0142");
-    expect(plain(formatPrice({ amount: 123456, currency: "EUR" }, "pl"))).toBe("1234,56 €");
+    expect(plain(formatPrice({ amount: 123456, currency: "EUR" }, "pl"))).toBe("1 234,56 €");
     expect(plain(formatPrice({ amount: 999, currency: "USD" }, "en"))).toBe("$9.99");
     expect(plain(formatPrice({ amount: 0, currency: "PLN" }, "en"))).toBe("PLN 0.00");
   });
@@ -70,8 +70,8 @@ describe("prices", () => {
       const amount = 10 ** digits * 1234 + (digits === 0 ? 0 : 7);
       const fraction = digits === 0 ? "" : "0".repeat(digits - 1) + "7";
       for (const locale of ["en", "pl"] as const) {
-        const number = /\d(?:[\d.,]*\d)?/.exec(formatPrice({ amount, currency }, locale))?.[0];
-        const expected = locale === "en" ? `1,234${digits === 0 ? "" : "." + fraction}` : `1234${digits === 0 ? "" : "," + fraction}`;
+        const number = /\d(?:[\d., ]*\d)?/.exec(plain(formatPrice({ amount, currency }, locale)))?.[0];
+        const expected = locale === "en" ? `1,234${digits === 0 ? "" : "." + fraction}` : `1 234${digits === 0 ? "" : "," + fraction}`;
         expect([currency, locale, number]).toEqual([currency, locale, expected]);
       }
     }

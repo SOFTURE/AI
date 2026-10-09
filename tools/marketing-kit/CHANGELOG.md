@@ -4,6 +4,18 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## 0.1.11
+
+- `shots` entries take a print state (#333):
+  - `hide`: CSS selectors hidden in that entry's files only, on top of `app.hideSelectors`. New gate `hide`: the file
+    is refused when one of them still shows a rendered element inside the frame, or the browser cannot parse it.
+  - `crop.top`: a second locator whose top edge starts the frame (e.g. a row inside a card); the width stays
+    `crop.target`'s. Refused (gate `crop`) when it matches nothing or several, or lies outside the target.
+  - Step `open`: opens every matching `<details>`; fails on a match that is not a `<details>` or did not stay open.
+  - Step `hide` with `keepLast`: hides every match but the last N, e.g. the early columns of a sideways chart; fails
+    when that would hide nothing.
+- `SCREENSHOT_GATES` gains `hide` (between `crop` and `size`).
+
 ## 0.1.10
 
 - Every command crashed on start-up when npm resolved satori to 0.35.2 or 0.36.0 (the case through `npx`, which has

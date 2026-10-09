@@ -3,12 +3,13 @@ import type { Aspect } from "../config/shot-steps.js";
 /**
  * The quality gates a screenshot passes before it is kept: the sign-in worked (signed-in entries), the page
  * answered below HTTP 400, its steps ran, it reached the requested scroll offset, it shows the expected phrase, a
- * crop found its one element and fits the page and the file has the frame's size, the file is not suspiciously
- * small, and no earlier file of the run has the same bytes. A blank page, an error page, a half-loaded one, an
+ * crop found its one element and fits the page and the file has the frame's size, none of the entry's hidden
+ * selectors still shows an element in the frame, the file is not suspiciously small, and no earlier file of the run
+ * has the same bytes. A blank page, an error page, a half-loaded one, an
  * empty account or a frame of the wrong place fails at least one of them.
  */
 
-export const SCREENSHOT_GATES = ["sign-in", "load", "status", "steps", "scroll", "phrase", "crop", "size", "duplicate"] as const;
+export const SCREENSHOT_GATES = ["sign-in", "load", "status", "steps", "scroll", "phrase", "crop", "hide", "size", "duplicate"] as const;
 
 export type ScreenshotGate = (typeof SCREENSHOT_GATES)[number];
 
@@ -50,6 +51,8 @@ export type CropFrameResult = { ok: true; frame: Rect } | { ok: false; message: 
 export interface CropFrameInput {
   /** The element, in document coordinates. */
   element: Rect;
+  /** `crop.top`'s top edge in document coordinates: where the frame starts instead of the element's top edge. */
+  top?: number;
   /** The page's scrollable size. */
   page: { width: number; height: number };
   aspect: Aspect;
@@ -58,12 +61,17 @@ export interface CropFrameInput {
 
 /**
  * The frame of a crop in whole CSS pixels: as wide as the element plus the padding on each side, from the padding
- * above its top edge, as tall as the aspect asks. Refused when it would run past the page, which would leave part of
- * the file empty or cut it short.
+ * above its top edge (or above `top`), as tall as the aspect asks. Refused when `top` lies outside the element, whose
+ * frame would then not show it, and when the frame would run past the page, which would leave part of the file empty
+ * or cut it short.
  */
-export function findCropFrame({ element, page, aspect, padding }: CropFrameInput): CropFrameResult {
+export function findCropFrame({ element, top, page, aspect, padding }: CropFrameInput): CropFrameResult {
+  if (top !== undefined && top < element.y) return { ok: false, message: `crop.top's top edge lies ${Math.round(element.y - top)} px above crop.target` };
+  if (top !== undefined && top >= element.y + element.height) {
+    return { ok: false, message: `crop.top's top edge lies ${Math.round(top - element.y - element.height)} px below crop.target's bottom edge` };
+  }
   const x = Math.floor(element.x - padding);
-  const y = Math.floor(element.y - padding);
+  const y = Math.floor((top ?? element.y) - padding);
   const width = Math.round(element.width + 2 * padding);
   const height = Math.round((width * aspect.height) / aspect.width);
   const ratio = `${aspect.width}:${aspect.height}`;
@@ -87,4 +95,13 @@ export function findDimensionFailure(file: { width: number; height: number }, fr
   const isWithin = Math.abs(file.width - width) <= DIMENSION_TOLERANCE_PX && Math.abs(file.height - height) <= DIMENSION_TOLERANCE_PX;
   if (isWithin) return null;
   return `the file is ${file.width}×${file.height} px, not the crop's ${width}×${height} px; deleted`;
+}
+
+/** Null when no hidden selector shows an element in the frame; otherwise the first that does, and how many. */
+export function findHideFailure(counts: readonly { selector: string; shown: number | null }[]): string | null {
+  for (const { selector, shown } of counts) {
+    if (shown === null) return `hide "${selector}" is not a selector the browser can parse`;
+    if (shown > 0) return `hide "${selector}" still shows ${shown} element${shown === 1 ? "" : "s"} in the frame`;
+  }
+  return null;
 }

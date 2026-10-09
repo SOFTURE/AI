@@ -1,8 +1,19 @@
-import type { OriginReport } from "./origin-check.js";
-import type { RouteReport, VerifyReport } from "./run-checks.js";
+import type { OriginRow, RouteReport, VerifyReport } from "./run-checks.js";
+import type { Severity } from "./schema.js";
 import type { TlsReport } from "./tls-check.js";
 
 const COLUMNS = ["Result", "Status", "Route", "Detail"] as const;
+
+/** PASS, or for a failed row FAIL, or WARN when its severity is warn. */
+function getResult(passed: boolean, severity: Severity): string {
+  if (passed) return "PASS";
+  return severity === "warn" ? "WARN" : "FAIL";
+}
+
+/** A failed row that fails the run (severity fail). */
+export function isFailure(row: { passed: boolean; severity: Severity }): boolean {
+  return !row.passed && row.severity === "fail";
+}
 
 function toRow(report: RouteReport): string[] {
   const failed = report.checks.filter((check) => !check.passed);
@@ -11,15 +22,15 @@ function toRow(report: RouteReport): string[] {
       ? `${report.checks.length} ${report.checks.length === 1 ? "check" : "checks"} passed`
       : failed.map((check) => check.detail).join("; ");
   const route = report.method === "GET" ? report.path : `${report.method} ${report.path}`;
-  return [report.passed ? "PASS" : "FAIL", report.status === null ? "-" : String(report.status), route, detail];
+  return [getResult(report.passed, report.severity), report.status === null ? "-" : String(report.status), route, detail];
 }
 
 function toTlsRow(tls: TlsReport): string[] {
   return [tls.passed ? "PASS" : "FAIL", "-", "tls", tls.detail];
 }
 
-function toOriginRow(origin: OriginReport): string[] {
-  return [origin.passed ? "PASS" : "FAIL", "-", "origin", origin.detail];
+function toOriginRow(origin: OriginRow): string[] {
+  return [getResult(origin.passed, origin.severity), "-", "origin", origin.detail];
 }
 
 /** The last column is not padded, so long details do not leave trailing spaces. */
@@ -36,9 +47,12 @@ export function formatVerifyReport(report: VerifyReport, baseUrl: string): strin
     ...(origin === null ? [] : [toOriginRow(origin)]),
   ];
   const widths = COLUMNS.map((title, index) => Math.max(title.length, ...rows.map((row) => row[index]?.length ?? 0)));
-  const failed = routes.filter((route) => !route.passed).length;
+  const passed = routes.filter((route) => route.passed).length;
+  const failed = routes.filter(isFailure).length;
+  const warned = routes.length - passed - failed;
+  const warnings = warned === 0 ? "" : `, ${warned} warned`;
   const certificate = tls === null ? "" : `; certificate ${tls.passed ? "passed" : "failed"}`;
-  const direct = origin === null ? "" : `; origin ${origin.passed ? "passed" : "failed"}`;
-  const summary = `verify: ${routes.length} routes at ${baseUrl}, ${routes.length - failed} passed, ${failed} failed${certificate}${direct}`;
+  const direct = origin === null ? "" : `; origin ${{ PASS: "passed", FAIL: "failed", WARN: "warned" }[getResult(origin.passed, origin.severity)]}`;
+  const summary = `verify: ${routes.length} routes at ${baseUrl}, ${passed} passed, ${failed} failed${warnings}${certificate}${direct}`;
   return [formatRow(COLUMNS, widths), ...rows.map((row) => formatRow(row, widths)), "", summary, ""].join("\n");
 }
