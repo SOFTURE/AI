@@ -72,12 +72,12 @@ Files: `src/ui/disclosure-menu.tsx`, `src/ui/confirm-action-button.tsx`, `src/ui
 ## Phase 3: docs and version
 
 `foundation/ui/README.md` (primitives table, a section on the new components), `foundation/ui/CHANGELOG.md`
-(0.1.15, still unreleased).
+(0.1.16; 0.1.15 was published meanwhile), version in `package.json` and `package-lock.json`.
 
 ## Progress
 
 - [x] Phase 1: tests first (red on master: the new exports are missing)
 - [x] Phase 2: implementation
-- [x] Phase 3: docs, CHANGELOG under 0.1.15
+- [x] Phase 3: docs, CHANGELOG and version 0.1.16
 
 Gates on the branch: see the PR.

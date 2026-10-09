@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`ui@x.y.z`).
 
-## 0.1.15
+## 0.1.16
 
 - New interaction components an adopting app kept writing itself (#319):
   - `useDisclosure` + `DisclosureMenu`: the WAI-ARIA disclosure for navigation. Escape returns focus to the
@@ -22,6 +22,9 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 - `SegmentedControl`'s checked segment and `SEGMENT_ACTIVE_CLASS` carry an inset ring in the text colour next to
   the accent fill, a cue that does not rely on colour: a light accent (lime on white, 1.27:1) no longer fails
   WCAG 1.4.11 (#319).
+
+## 0.1.15
+
 - Number inputs render in the mono face again. `NUMBER_INPUT_CLASS` was built on `INPUT_CLASS`, so it carried both
   `sft:font-sans` and `sft:font-mono`, and the sans rule, later in `styles.css`, won: every `MoneyField` and numeric
   `TextField` drew in sans. Both looks now share a frame without a family and add exactly one (#302).
