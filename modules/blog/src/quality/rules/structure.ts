@@ -1,6 +1,7 @@
 // Structure rules (FIRE_TRACKER `src/lib/blog/quality/rules-structure.ts`): metadata lengths and
 // freshness, a summary, the answer first, heading order, question sections, length and footnotes.
 // Required keys, kinds, slug shape and slug = file name are BL-2's parser's, not repeated here.
+import { calendarDaysBetween } from "@softure-ai/core";
 import { getProseBlocks, type Block } from "../blocks.js";
 import type { QualityFinding } from "../finding.js";
 import { countWords, findFootnoteRefs, findSignificantNumbers, toProse } from "../text.js";
@@ -18,7 +19,7 @@ export function checkMetadata({ article, settings, today }: RuleInput): QualityF
   }
   if (article.currentAsOf > today) {
     findings.push({ rule: "as-of-future", severity: "error", message: `current_as_of ${article.currentAsOf} is in the future (today is ${today})` });
-  } else if (daysBetween(article.currentAsOf, today) > limits.staleAfterDays) {
+  } else if (calendarDaysBetween(article.currentAsOf, today) > limits.staleAfterDays) {
     findings.push({ rule: "stale", severity: "warning", message: `current_as_of ${article.currentAsOf} is older than ${String(limits.staleAfterDays)} days; the text waits for fresh numbers` });
   }
   if (article.kind === "article" && article.summary === null) {
@@ -130,8 +131,4 @@ export function getFootnoteDefinitions(blocks: readonly Block[]): Map<string, Bl
     if (block.kind === "footnote" && block.footnoteId !== undefined) definitions.set(block.footnoteId, block);
   }
   return definitions;
-}
-
-export function daysBetween(fromIso: string, toIso: string): number {
-  return Math.round((Date.parse(`${toIso}T00:00:00Z`) - Date.parse(`${fromIso}T00:00:00Z`)) / 86_400_000);
 }

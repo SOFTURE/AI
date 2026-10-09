@@ -4,6 +4,21 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
+## 0.1.8
+
+- `verify` takes the checks an app kept in a shell script (issue #309):
+  - `severity: "warn"` on a route, and `verify.originSeverity: "warn"` for the `--origin` row: a failed row prints
+    `WARN`, the summary adds `, N warned`, and the run still passes. Default `fail`, as before.
+  - `sha256` on a route (`sha256:<hex>` or the bare hex): the SHA-256 of the response's exact bytes must match.
+  - `within: "head"`: `contains`, `excludes` and `count` look only between `<head>` and `</head>`.
+  - `count: { "<marker>": n }`: the marker occurs exactly n times.
+  - `forEach` instead of `path`: `{ "sitemap": "/sitemap.xml", "match": "/blog/" }` checks the route for every
+    matching `<loc>`, `{ "index": "/.well-known/agent-skills/index.json" }` for every entry of an Agent Skills index,
+    each against the entry's `digest`. Each entry is a row, requested on the verified URL's origin with the route's
+    request headers; an unreadable source or no entry is one failed row naming it.
+  - For TypeScript callers: `VerifyRoute.path` is optional (a `forEach` route has none), and `ObservedResponse` takes
+    an optional `sha256`.
+
 ## 0.1.7
 
 - `init` reads an existing `docker/prod/docker-compose.yml`: `deploy.sh`'s tools image carries the `pg_dump` of the

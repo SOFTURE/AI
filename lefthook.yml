@@ -25,13 +25,13 @@ pre-commit:
 
     # English only outside messages/ dictionaries (AGENTS.md). Markdown included.
     - name: language
-      run: node scripts/check-language.mjs {staged_files}
+      run: npx tsx tools/config/src/cli/check-language.ts {staged_files}
 
 # Commit messages are English too (AGENTS.md). `{1}` is the file git wrote the message to.
 commit-msg:
   jobs:
     - name: language
-      run: node scripts/check-language.mjs --commit-msg {1}
+      run: npx tsx tools/config/src/cli/check-language.ts --commit-msg {1}
 
 # No glob: the suite also checks Markdown (roadmap contract, links, language), and it takes
 # seconds, unlike FIRE_TRACKER's.

@@ -1,11 +1,11 @@
 // `softure-blog refresh` (issue #318): the published texts whose numbers wait for a check. A text is
 // stale when `current_as_of` is older than `limits.staleAfterDays` (the `stale` rule), and due when it
 // quotes a fact rule whose value changed (its year or quarter began) after its `current_as_of`.
+import { calendarDaysBetween } from "@softure-ai/core";
 import type { ArticleFile } from "../db/publish-run.js";
 import { parseArticleFile, type ParseArticleFileOptions } from "../content/article-file.js";
 import { getProseBlocks, splitArticleBody, splitBlocks } from "./blocks.js";
 import { getFactChangeDay, isFactSentence } from "./facts.js";
-import { daysBetween } from "./rules/structure.js";
 import type { QualitySettings } from "./settings.js";
 import { splitSentences, toProse } from "./text.js";
 
@@ -30,7 +30,7 @@ export function findTextsToRefresh(files: readonly ArticleFile[], settings: Qual
     if (!parsed.ok || parsed.article.status !== "published") return [];
     const { article } = parsed;
     const reasons: RefreshReason[] = [];
-    const days = daysBetween(article.currentAsOf, today);
+    const days = calendarDaysBetween(article.currentAsOf, today);
     if (days > settings.options.limits.staleAfterDays) reasons.push({ kind: "stale", days });
     const due = settings.options.facts.flatMap((rule) => {
       const changedOn = getFactChangeDay(today, rule.expires);

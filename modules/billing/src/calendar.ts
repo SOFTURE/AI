@@ -1,6 +1,6 @@
 // Calendar days in the app's IANA time zone, without a date library: trials end at the start of a
 // local day and "days left" counts local days, as people do.
-import { toCalendarDay } from "@softure-ai/core";
+import { isCalendarDay, toCalendarDay } from "@softure-ai/core";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -75,18 +75,12 @@ export function getDaysLeft(end: Date, now: Date, timezone: string): number {
   return getDayNumber(new Date(end.getTime() - 1), timezone) - getDayNumber(now, timezone) + 1;
 }
 
-const DAY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
-
 /**
  * The day number (as `getDayNumber` counts) of a `YYYY-MM-DD` calendar day, or null when the text
- * is not one (`2026-1-1`, `2026-02-30`).
+ * is not one (`2026-1-1`, `2026-02-30`). Day arithmetic outside billing belongs to core
+ * (`addCalendarDays`, `calendarDaysBetween`, ...), which works on the day strings themselves.
  */
 export function parseDay(day: string): number | null {
-  const match = DAY_PATTERN.exec(day);
-  if (match === null) return null;
-  const [year, month, date] = [Number(match[1]), Number(match[2]), Number(match[3])];
-  const wallTime = Date.UTC(year, month - 1, date);
-  const parsed = new Date(wallTime);
-  if (parsed.getUTCFullYear() !== year || parsed.getUTCMonth() !== month - 1 || parsed.getUTCDate() !== date) return null;
-  return wallTime / DAY_MS;
+  if (!isCalendarDay(day)) return null;
+  return Date.parse(`${day}T00:00:00Z`) / DAY_MS;
 }
