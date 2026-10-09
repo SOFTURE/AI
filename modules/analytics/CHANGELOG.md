@@ -4,6 +4,12 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`analytics@x.y.z`).
 
+## 0.1.11
+
+- `createFunnelRoute({ getContext })` (`/next`): the endpoint counts in the context the app hands in (e.g. a
+  test database) instead of the registered config's database. An app no longer keeps a copy of the route to
+  inject one (#324).
+
 ## 0.1.10
 
 - The first-party origins include the config's `origins.trustedOrigins` (between `appOrigin` and

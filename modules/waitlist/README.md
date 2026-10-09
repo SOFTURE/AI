@@ -342,7 +342,9 @@ npx tsx scripts/import-signups.ts --file=signups.json --commit
   for any unsubscribe; `withdrawWaitlistConsents` then finds nothing left to withdraw. The opt-out
   row carries the import's time, the withdrawal the historical one.
 - **History, not new sign-ups**: no rate limit, no mail and no `onJoined`, so an analytics funnel
-  does not count imported rows; `countSignupsByChannel(ctx)` counts the whole list per channel.
+  does not count imported rows; `countSignupsByChannel(ctx)` counts the whole list per channel, and
+  `countSignupsByChannel(ctx, { splitSuppressed: true })` adds `active` and `suppressed` per channel
+  (an address on mailing's suppression list is `suppressed`), e.g. for a go/no-go report.
 - **Old unsubscribe links.** When the app's earlier mail carried links naming its row id, import
   the `id` and resolve it in mailing's `legacyUnsubscribe` (mailing README):
   `verify: async (values, ctx) => (await getSignupById(ctx, values.id ?? ""))?.email ?? null`,

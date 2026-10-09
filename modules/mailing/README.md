@@ -31,7 +31,8 @@ can be imported into it, and `softure-mail` sends campaigns from a content file.
   when the recipient unsubscribed. An unsubscribe covers every list kind.
 - The unsubscribe page (`/unsubscribe`) and the one-click route (`/api/mailing/unsubscribe`) in `/next`,
   each mounted with one line (section 4).
-- `@softure-ai/mailing/server`: `isSuppressed(ctx, address)`, `suppressRecipient(ctx, address)` (for
+- `@softure-ai/mailing/server`: `isSuppressed(ctx, address)`, `findSuppressedAddresses(ctx, addresses)`
+  (which of many addresses unsubscribed, for a report), `suppressRecipient(ctx, address)` (for
   scripts, bounce or complaint handlers), `unsubscribe(ctx, link, source)` (a link from
   `readUnsubscribeLink(params, config)`, or a bare token),
   `liftSuppression(ctx, address)` (a new explicit consent lifts the person's own opt-out),

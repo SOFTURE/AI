@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`waitlist@x.y.z`).
 
+## 0.1.10
+
+- `countSignupsByChannel(ctx, { splitSuppressed: true })` adds `active` and `suppressed` per channel: a
+  confirmed sign-up whose address is on mailing's suppression list counts as `suppressed`
+  (`SuppressedSplitChannelCount`). An app no longer reads `mailing.suppressions` and hashes addresses itself
+  for a go/no-go report (#324). Needs `@softure-ai/mailing` 0.1.12.
+
 ## 0.1.9
 
 - **Security: the join action no longer hands out another person's unsubscribe link** (#306). With
