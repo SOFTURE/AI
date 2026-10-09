@@ -2,7 +2,7 @@
 // plot stretches to its box and a line must stay as thin as its token says. An app's `className` is
 // added next to the package class, never instead of it, so the stroke keeps `non-scaling-stroke`.
 import type { CSSProperties } from "react";
-import { type ChartTone, cx, type DataAttributes, seriesClass, toneClass } from "./class-names.js";
+import { type ChartTone, cx, type DataAttributes, seriesClass, seriesColourClass, seriesColourStyle, toneClass } from "./class-names.js";
 import { linePath, type PathCurve, PLOT_HEIGHT, PLOT_WIDTH, type PlotPoint, smoothLinePath } from "./geometry.js";
 
 /** What every line primitive accepts on top of its geometry. */
@@ -78,23 +78,28 @@ export function GuideLine({ x, y1 = 0, y2 = PLOT_HEIGHT, pattern = "dashed", ton
   return <line {...data} className={look.className} style={look.style} x1={x} y1={y1} x2={x} y2={y2} />;
 }
 
-export interface SeriesLineProps extends DataAttributes {
+/** A series line's pattern: `solid`, `dashed`, or `dotted` (a second-order series). */
+export type LinePattern = "solid" | "dashed" | "dotted";
+
+export interface SeriesLineProps extends LineLookProps {
   /** Points in viewBox units, in drawing order. */
   readonly points: readonly PlotPoint[];
-  /** Colour slot, `seriesSlot(index)`. */
-  readonly slot: number;
+  /** An app colour that is no token (a CSS colour or `var(…)`); wins over `slot` and `tone`. */
+  readonly color?: string;
+  /** `solid` by default; `dashed: true` is the same as `pattern: "dashed"`. */
+  readonly pattern?: LinePattern;
   readonly dashed?: boolean;
   /** `linear` (a polyline, the default) or `smooth` (`smoothLinePath`, through every point without overshoot). */
   readonly curve?: PathCurve;
-  /** Stroke width in screen pixels; `--sft-chart-line-width` by default. */
-  readonly strokeWidth?: number;
-  readonly opacity?: number;
-  readonly className?: string;
-  readonly style?: CSSProperties;
 }
 
-/** One series as a line in its slot's colour. */
-export function SeriesLine({ points, slot, dashed = false, curve = "linear", strokeWidth, opacity, className, style, ...data }: SeriesLineProps) {
-  const look = getLineLook(cx("sft-chart-line", seriesClass(slot), dashed && "sft-chart-line-dashed"), { strokeWidth, opacity, className, style });
+/**
+ * One series as a line, in its slot's colour (`seriesSlot(index)`), a tone, or an app colour; `--sft-chart-line-width`
+ * by default. Without any of the three it draws in series 1.
+ */
+export function SeriesLine({ points, slot, tone, color, pattern, dashed = false, curve = "linear", strokeWidth, opacity, className, style, ...data }: SeriesLineProps) {
+  const drawn = pattern ?? (dashed ? "dashed" : "solid");
+  const base = cx("sft-chart-line", seriesColourClass({ slot, tone }), drawn !== "solid" && `sft-chart-line-${drawn}`);
+  const look = getLineLook(base, { strokeWidth, opacity, className, style: { ...seriesColourStyle(color), ...style } });
   return <path {...data} className={look.className} style={look.style} d={curve === "smooth" ? smoothLinePath(points) : linePath(points)} />;
 }
