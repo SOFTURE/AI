@@ -6,6 +6,9 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## 0.1.11
 
+- `createFunnelRoute({ getContext })` (`/next`): the endpoint counts in the context the app hands in (e.g. a
+  test database) instead of the registered config's database. An app no longer keeps a copy of the route to
+  inject one (#324).
 - The funnel's days come from core's `toCalendarDay` and `addCalendarDays` instead of local copies; `formatDay`
   (`/server`) stays and returns the same days. Requires `@softure-ai/core` `^0.1.9` (#312).
 

@@ -14,7 +14,7 @@ const APP_SCRIPT = { runner: "runBlogCli", packageName: "@softure-ai/blog" };
 
 // The commands that never connect, so a CI job runs them with a config that has no database URL.
 // Any other command (and a new one, until it is listed here) needs the database.
-const COMMANDS_WITHOUT_DATABASE: ReadonlySet<BlogCommand["kind"]> = new Set(["check", "skill-install"]);
+const COMMANDS_WITHOUT_DATABASE: ReadonlySet<BlogCommand["kind"]> = new Set(["check", "refresh", "skill-install"]);
 
 const consoleOutput: CliOutput = {
   log: (line) => console.log(line),

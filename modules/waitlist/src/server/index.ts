@@ -34,6 +34,7 @@ export {
   normalizeEmail,
   pruneUnconfirmedSignups,
   type ChannelCount,
+  type CountSignupsByChannelOptions,
   type ConfirmSignupInput,
   type ConfirmSignupResult,
   type JoinedSignup,
@@ -42,6 +43,7 @@ export {
   type ListSignupsFilter,
   type PendingSignup,
   type SuppressedSignup,
+  type SuppressedSplitChannelCount,
   type WaitlistContext,
 } from "./signups.js";
 export { UNSUBSCRIBE_CONSENT_SOURCE, withdrawWaitlistConsents } from "./unsubscribe.js";

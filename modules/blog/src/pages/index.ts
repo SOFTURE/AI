@@ -10,12 +10,14 @@ export {
   getClusterLabel,
   getTermCrumbs,
   groupByCluster,
+  selectFeaturedArticles,
   sortTerms,
   splitClusterLead,
   type ArticleCrumbOptions,
   type ClusterGroup,
   type Crumb,
   type CrumbLabels,
+  type FeaturedArticlesOptions,
 } from "./listing.js";
 export {
   getArticlePath,

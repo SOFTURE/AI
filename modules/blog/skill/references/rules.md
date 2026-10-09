@@ -32,6 +32,7 @@ rewrite the paragraph around its one thought; do not swap a word for a synonym.
 | `footnote-undefined` | | | Define every `[^id]` at the end of the file. |
 | `footnote-unused` | | | Remove a footnote definition nothing refers to, or refer to it. |
 | `block-requires` | | | A block of the app's block plugins (a fence or a `::directive`) needs its frontmatter keys; add them. |
+| `block-numbers` | | | Every number of the paragraph right before or after a data block is one the block shows; quote the block's number, or move the other number away from the block. |
 | `block-directive` | | | A `::directive` line names a directive the blog renders and writes its attributes as `key="value"` pairs, each key once. |
 
 ## Links

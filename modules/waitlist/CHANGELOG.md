@@ -4,6 +4,16 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`waitlist@x.y.z`).
 
+## 0.1.10
+
+- `countSignupsByChannel(ctx, { splitSuppressed: true })` adds `active` and `suppressed` per channel: a
+  confirmed sign-up whose address is on mailing's suppression list counts as `suppressed`
+  (`SuppressedSplitChannelCount`). An app no longer reads `mailing.suppressions` and hashes addresses itself
+  for a go/no-go report (#324). Needs `@softure-ai/mailing` 0.1.12.
+- `WAITLIST_RATE_LIMIT_BUCKETS` declares `key: "ip"` on `waitlist` and `key: "subject"` on `waitlist-email`
+  (security 0.1.8 bucket kinds).
+- Requires `@softure-ai/security` `^0.1.8`: earlier versions refuse the `key` field.
+
 ## 0.1.9
 
 - **Security: the join action no longer hands out another person's unsubscribe link** (#306). With
@@ -12,9 +22,6 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   receive their signed link. Now only the request that created the sign-up (`status: "joined"`, `isNew: true`) gets
   it; a known and a suppressed address are answered alike, `{ status: "ok" }` without a link. An app that kept its own
   join action to give the link only for `isNew` can go back to the module's.
-- `WAITLIST_RATE_LIMIT_BUCKETS` declares `key: "ip"` on `waitlist` and `key: "subject"` on `waitlist-email`
-  (security 0.1.8 bucket kinds).
-- Requires `@softure-ai/security` `^0.1.8`: earlier versions refuse the `key` field.
 
 ## 0.1.8
 

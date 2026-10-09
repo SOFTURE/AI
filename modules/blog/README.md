@@ -39,7 +39,9 @@ editor and no CMS, a text changes only through a commit and `softure-blog publis
   running app shows the change at once instead of after `revalidateSeconds`.
 - A text quality gate: `softure-blog check` reports structure, link, style, voice and YMYL findings
   with file and line, and `publish` refuses a text going public with an error. Language rulesets
-  (`en`, `pl`), severity overrides and rule plugins for the app's own domain.
+  (`en`, `pl`), severity overrides and rule plugins for the app's own domain; numbers next to a data
+  block checked against the block, fact rules for values the app knows per year, and
+  `softure-blog refresh` listing the texts whose numbers wait for a check.
 - `softure-blog skill install`: an agent skill for writing the texts, generated from the gate's rules
   and the app's config, with `--check` for CI.
 
@@ -141,7 +143,8 @@ blog({
     appDir: "src/app",                     // routes for internal links; default src/app, else app
     privateRouteSegments: ["api", "(app)"], // route folders that are no link target; default ["api"]
     plugins: [factsPlugin],                // the app's own rules, see Hooks
-    blocks: [chartBlock],                  // the block plugins of renderArticle: their requires are checked
+    blocks: [chartBlock],                  // the block plugins of renderArticle: their requires (and numbers) are checked
+    facts: [ikeLimit],                     // values the texts quote that the app knows per year (below)
   },
 });
 ```
@@ -159,7 +162,8 @@ severity; the writing skill is kept in step with it):
 | style (rhythm) | **`dashes`**, `dashes-paragraph`, `bold-density`, `bold-labels`, `triads`, `long-sentences`, `monotone-rhythm`, `repeated-openings` |
 | voice | **`first-person-singular`** and the app's phrases, when configured |
 | ymyl | **`sources-missing`**, **`source-https`**, **`number-source`**, **`footnote-source`**, **`footnote-not-in-sources`**, **`profit-promise`**, when `ymyl` is on |
-| blocks | **`block-requires`**: a fenced block of a block plugin has the frontmatter keys it `requires`, when `blocks` is set |
+| blocks | **`block-requires`**: a fenced block of a block plugin has the frontmatter keys it `requires`, when `blocks` is set; **`block-numbers`**: every significant number of the paragraph right before and right after a block is one of the block's `numbers`, when a block plugin has `numbers` |
+| facts | the app's fact rules (`quality.facts`), each under its own id |
 | plugin | the plugins' rules, **`plugin-failed`**, **`plugin-rule-undeclared`** |
 
 Style patterns match the prose of the body and the title, description and summary (errors only
@@ -167,6 +171,39 @@ there). A warning pattern is reported once per text with its count. A significan
 amount, a percentage or a number from 1000 up, in the ruleset's notation; years, ages, small counts
 and legal references ("art. 27", "section 401") need no source. Messages are English: they are read
 by developers and by the agents that write the texts.
+
+**Numbers next to a block.** A block plugin with `numbers(block)` (the block's numbers, as numbers or
+as strings in the ruleset's notation) gets the `block-numbers` rule: the significant numbers of the
+paragraph right before the block and right after it must each equal one of them, so the prose and the
+chart or table cannot drift apart. A percentage compares by its number (`4.5` for "4.5%"). A throwing
+`numbers` is a `block-numbers` error, not a crash.
+
+**Fact rules.** A value a text quotes that the app knows per year (a contribution limit, a tax rate):
+
+```ts
+import { factRule } from "@softure-ai/blog/server";
+
+export const ikeLimit = factRule({
+  id: "ike-limit",
+  description: "the yearly IKE contribution limit",
+  patterns: [/IKE limit/i, /limit (of|for) IKE/i], // a sentence that quotes the value
+  allowedValues: (year) => ({ 2025: [2_652_000], 2026: [2_826_050] })[year], // nothing: the year is not checked
+  unit: "cents",       // "value" (default), "cents" or "bps": the values are hundredths of the text's number
+  expires: "yearly",   // "yearly", "quarterly" or "never" (default), for softure-blog refresh
+  severity: "error",   // default
+});
+```
+
+In every sentence of the body that matches a pattern, the first number (years and legal references
+skipped) is the value; its year is the first year in the sentence, else the year of `current_as_of`.
+A value that is not one of `allowedValues(year)` is a finding of the rule's id. The rules join the
+catalog (group `facts`), so the writing skill lists them.
+
+**Texts to refresh.** `softure-blog refresh [<path>...] [--today <YYYY-MM-DD>]` lists, without a
+database, the published texts whose numbers wait for a check: `current_as_of` older than
+`limits.staleAfterDays`, or a quoted fact rule whose value changed (its year or quarter began) after
+`current_as_of`. It exits 0: it reports, it does not gate. `findTextsToRefresh(files, settings, today)`
+(`/server`) is the same list for an app's own report.
 
 ### The article file
 
@@ -291,10 +328,22 @@ export async function proxy(request: NextRequest) {
 }
 ```
 
+`createBlogProxy` (below, under "Markdown for agents") answers Markdown first and then the redirects.
 It handles GET and HEAD on the blog's text paths only, keeps the query on a redirect, remembers a
 decision for 60 s (`ttlMs`) and passes a request on when the database fails. Import the styles after
 ui's: `@import "@softure-ai/blog/styles.css";`. A data change shows after `revalidateSeconds`, or at
 once with `revalidateTag(BLOG_CACHE_TAG, { expire: 0 })` (the refresh route above, for the command). Custom OG fonts: an own `opengraph-image.tsx` calling `renderArticleOgImage({ title, label, brand, fonts })`.
+
+**Articles on the app's own pages.** `getFeaturedArticles(config, { limit })` (`/next`) answers published
+articles for a featured strip, the pillars first and then the newest (`selectFeaturedArticles` in
+`/server` is the pure part). On a prerendered page (a home page), `getStaticPublishedArticles(config)`
+answers none during `next build` (there is no database) and none, logged, when the read fails, so the
+page still renders; `readForStaticPage(read, { onError })` (`/server`) wraps any read the same way.
+
+**The content folder in scripts.** `readArticleDir(dir)` (`/server` and `/cli`) reads the folder as
+`softure-blog` does: every `*.md` file directly in it except `README.md`, sorted by name, as
+`{ ok: true, files: [{ name, text, path }] }`, or `{ ok: false, error }`. A test store or a script hands
+the files to `runBlogPublish` or `checkArticleFiles`.
 
 The quality gate resolves internal links under the blog's `routes` (`index` for articles, `glossary`
 for terms), so moving a route moves the check with it; `quality.paths` only overrides them.
@@ -732,6 +781,16 @@ const blogMarkdown = createBlogMarkdown(softureConfig);
 const blogRedirects = createBlogRedirects(softureConfig);
 export async function proxy(request: NextRequest) {
   return (await blogMarkdown(request)) ?? (await blogRedirects(request)) ?? NextResponse.next();
+}
+```
+
+`createBlogProxy(config, options)` is both pieces in that order, with one `getContext` (and `ttlMs`,
+`onError`):
+
+```ts
+const blogProxy = createBlogProxy(softureConfig);
+export async function proxy(request: NextRequest) {
+  return (await blogProxy(request)) ?? NextResponse.next();
 }
 ```
 

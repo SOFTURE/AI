@@ -60,6 +60,13 @@ describe("htmlToMarkdown", () => {
     expect(htmlToMarkdown(html, { frontmatter: false })).toBe("# Title\n\nBy the team\n\nBody\n\nSources\n");
   });
 
+  it("drops the page's header and footer inside a layout wrapper too, keeps a section's own", () => {
+    const html = page(
+      '<main><div class="layout"><header><a href="/">Logo</a></header><section><header><h2>Plans</h2></header><p>Body</p><footer>Prices in EUR</footer></section><footer>Contact</footer></div></main>',
+    );
+    expect(htmlToMarkdown(html, { frontmatter: false })).toBe("## Plans\n\nBody\n\nPrices in EUR\n");
+  });
+
   it("drops the app's own selectors too", () => {
     const html = page('<main><p>Kept</p><a class="back" href="#ref">↩</a><div class="toc">Contents</div></main>');
     expect(htmlToMarkdown(html, { frontmatter: false, remove: ["a.back", ".toc"] })).toBe("Kept\n");

@@ -5,6 +5,8 @@ import type { SoftureConfig } from "@softure-ai/core";
 import { unstable_cache } from "next/cache";
 import type { BlogArticle } from "../contract.js";
 import { findArticleBySlug, listArticles } from "../db/articles.js";
+import { selectFeaturedArticles, type FeaturedArticlesOptions } from "../pages/listing.js";
+import { readForStaticPage, type StaticReadOptions } from "../server/static-read.js";
 import { getBlogOptions } from "../server/options.js";
 import { getBlogContext } from "./context.js";
 
@@ -52,4 +54,17 @@ export async function getPublishedTerms(config: SoftureConfig): Promise<BlogArti
 export async function getTextBySlug(config: SoftureConfig, slug: string): Promise<BlogArticle | null> {
   const text = await getCachedReads(config).bySlug(slug);
   return text === null ? null : reviveDates(text);
+}
+
+/** Published articles for a featured strip: the pillars first, then the newest, at most `limit` (`selectFeaturedArticles`). */
+export async function getFeaturedArticles(config: SoftureConfig, options: FeaturedArticlesOptions): Promise<BlogArticle[]> {
+  return selectFeaturedArticles(await getPublishedArticles(config), options);
+}
+
+/**
+ * Published articles for a prerendered page (a home page strip): none during `next build`, and none
+ * (logged) when the database read fails, so the page still renders (`readForStaticPage`).
+ */
+export async function getStaticPublishedArticles(config: SoftureConfig, options: StaticReadOptions = {}): Promise<BlogArticle[]> {
+  return readForStaticPage(() => getPublishedArticles(config), options);
 }

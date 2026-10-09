@@ -6,6 +6,8 @@ export { getProseBlocks, splitArticleBody, splitBlocks, type Block, type BlockKi
 export { checkExternalLinks, checkExternalUrl, type FetchLike } from "./external-links.js";
 export { formatFinding, hasQualityErrors, QUALITY_SEVERITIES, sortFindings, type QualityFinding, type QualitySeverity } from "./finding.js";
 export { createQualityGate } from "./gate.js";
+export { FACT_EXPIRIES, FACT_UNITS, factRule, factRuleSchema, getFactChangeDay, type FactExpiry, type FactRule, type FactRuleInput, type FactUnit, type FactValues } from "./facts.js";
+export { describeRefreshReason, findTextsToRefresh, type RefreshReason, type TextToRefresh } from "./refresh.js";
 export { collectAppRoutes, createInternalLinkResolver, findAppDir, readContentFolder, readPublishedContent, type AppRoute, type InternalLinkResolverOptions } from "./link-targets.js";
 export { qualityOptionsSchema, type QualityLimits, type QualityOptions, type QualityOptionsInput } from "./options.js";
 export { isQualityPlugin, type QualityPlugin, type QualityPluginContext, type QualityRuleInfo } from "./plugin.js";

@@ -33,6 +33,8 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 - `legacyUnsubscribe.verify(values, ctx, env)` receives the environment `unsubscribe` runs with.
 - New `createUnsubscribePage({ classNames, unstyled, Layout })` in `/next`: slots `root`, `card`, `form`, `submit`,
   or the app's own layout around the copy and the form. `UnsubscribePage` is unchanged.
+- New `findSuppressedAddresses(ctx, addresses)` (`/server`): which of many addresses unsubscribed, each
+  returned as given, in batched queries; for reports such as the waitlist's suppressed split (#324).
 
 ## 0.1.11
 

@@ -8,7 +8,8 @@ import { parseArticleFile, type ParseArticleFileOptions } from "../content/artic
 import { splitArticleBody, splitBlocks } from "./blocks.js";
 import { sortFindings, type QualityFinding } from "./finding.js";
 import type { QualityPlugin } from "./plugin.js";
-import { checkBlockRequires, checkDirectives } from "./rules/blocks.js";
+import { checkBlockNumbers, checkBlockRequires, checkDirectives } from "./rules/blocks.js";
+import { checkFacts } from "./rules/facts.js";
 import { checkImages } from "./rules/images.js";
 import type { RuleInput } from "./rules/input.js";
 import { checkLinks, collectLinks, type InternalLinkResolver } from "./rules/links.js";
@@ -59,6 +60,8 @@ export function checkArticle(input: CheckArticleInput): QualityCheckResult {
     ...checkRhythm(ruleInput),
     ...checkBlockRequires(article, pluginBlocks),
     ...checkDirectives(blocks, pluginBlocks, settings.options.blocks),
+    ...checkBlockNumbers({ article, blocks, pluginBlocks, plugins: settings.options.blocks, ruleset: settings.ruleset }),
+    ...checkFacts(ruleInput),
     ...checkImages(images, settings.images),
   ];
   const fromPlugins = settings.options.plugins.flatMap((plugin) => runPlugin(plugin, { article, blocks, pluginBlocks, today, ruleset: settings.ruleset }));
@@ -84,7 +87,7 @@ export function checkArticleText(input: CheckArticleTextInput): QualityCheckResu
 /** The app's plugin blocks with file lines; none without `quality.blocks`. */
 function findPluginBlocks(body: string, bodyStartLine: number, settings: QualitySettings): FoundBlock[] {
   if (settings.options.blocks.length === 0) return [];
-  return findArticleBlocks(body, settings.options.blocks).map((block) => ({ ...block, line: block.line + bodyStartLine - 1 }));
+  return findArticleBlocks(body, settings.options.blocks).map((block) => ({ ...block, line: block.line + bodyStartLine - 1, endLine: block.endLine + bodyStartLine - 1 }));
 }
 
 function runPlugin(plugin: QualityPlugin, context: Parameters<QualityPlugin["check"]>[0]): QualityFinding[] {
