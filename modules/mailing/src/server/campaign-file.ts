@@ -11,8 +11,12 @@
 //
 // `html` is optional and names a file next to the content file, rendered however the operator
 // likes. There is no markdown: the text body is sent as written.
+import type { SoftureConfig } from "@softure-ai/core";
 import { isMailKind, MAX_SUBJECT_LENGTH } from "../address.js";
 import { TRANSACTIONAL_KIND } from "../contract.js";
+import type { MailingMessages } from "../messages/index.js";
+import { getMailingModule, getMailingRoutes } from "./options.js";
+import { RECIPIENT_PARAM, SIGNATURE_PARAM } from "./unsubscribe-link.js";
 
 /** A campaign's content, as `sendCampaign` sends it. */
 export interface CampaignContent {
@@ -75,8 +79,12 @@ export function parseCampaignFile(source: string): CampaignFileResult {
   return problems.length === 0 ? { ok: true, value: file } : { ok: false, problems };
 }
 
-/** What makes `content` unsendable as a campaign; empty when it is fine. */
-export function getCampaignProblems(content: CampaignContent): string[] {
+/**
+ * What makes `content` unsendable as a campaign; empty when it is fine. With the app's config it also refuses a
+ * body that carries an unsubscribe link or footer pasted from a sent mail: the module adds its own to every mail,
+ * and a pasted link is a credential that would let every recipient unsubscribe the person it was signed for.
+ */
+export function getCampaignProblems(content: CampaignContent, config?: SoftureConfig): string[] {
   const problems: string[] = [];
   if (content.id.length > MAX_CAMPAIGN_ID_LENGTH || !CAMPAIGN_ID.test(content.id)) {
     problems.push("id: kebab-case, at most 64 characters, e.g. 2026-10-launch");
@@ -89,6 +97,32 @@ export function getCampaignProblems(content: CampaignContent): string[] {
   }
   if (content.text.trim() === "") problems.push("the text body under the frontmatter is empty");
   if (content.html?.trim() === "") problems.push("the HTML body is empty");
+  if (config !== undefined) problems.push(...getPastedFooterProblems(content, config));
+  return problems;
+}
+
+/** A signed pair of link parameters, raw or HTML-escaped (`&amp;`). */
+const SIGNED_LINK = new RegExp(`[?&](?:amp;)?${RECIPIENT_PARAM}=[A-Za-z0-9_-]{43}&(?:amp;)?${SIGNATURE_PARAM}=`);
+
+function getPastedFooterProblems(content: CampaignContent, config: SoftureConfig): string[] {
+  const routes = getMailingRoutes(config);
+  // The app's own links only: a link to another site's unsubscribe page is the author's business.
+  const linkMarkers = [`${config.appOrigin}${routes.unsubscribe}?`, `${config.appOrigin}${routes.oneClick}?`];
+  // Every locale's footer copy, the app's overrides included: a mail pasted from another locale counts too.
+  const footers = Object.values(getMailingModule(config).messages).map((messages) => (messages as MailingMessages).footer);
+  const bodies: [string, string | null][] = [
+    ["the text body", content.text],
+    ["the HTML body", content.html],
+  ];
+  const problems: string[] = [];
+  for (const [name, body] of bodies) {
+    if (body === null) continue;
+    if (SIGNED_LINK.test(body) || linkMarkers.some((marker) => body.includes(marker))) {
+      problems.push(`${name} carries an unsubscribe link; the module adds a link signed for each recipient, remove the pasted one`);
+    } else if (footers.some((footer) => body.includes(footer.text) || body.includes(`${footer.htmlLead} <a `))) {
+      problems.push(`${name} carries the unsubscribe footer; the module adds it to every mail, remove the pasted one`);
+    }
+  }
   return problems;
 }
 

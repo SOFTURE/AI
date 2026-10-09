@@ -1,7 +1,8 @@
 // The sender domain's DNS, as receivers check it: SPF (RFC 7208), DKIM (RFC 6376) and DMARC
 // (RFC 7489). Without all three, list mail lands in spam or is refused outright. On request it also
 // holds DMARC to a required minimum, checks that the reply-to domain accepts mail (MX) and that the
-// provider's return-path hosts resolve. The check only reads public records; it cannot see whether
+// provider's return-path hosts resolve, and that an inbound service (Cloudflare Email Routing)
+// receives the reply domain's mail. The check only reads public records; it cannot see whether
 // the provider signs with the published key.
 import { resolveCname as resolveCnameRecords, resolveMx as resolveMxRecords, resolveTxt as resolveTxtRecords } from "node:dns/promises";
 
@@ -18,6 +19,7 @@ export type DnsFinding =
   | "weak"
   | "null-mx"
   | "unexpected-target"
+  | "missing-include"
   | "lookup-failed";
 
 export interface DnsCheck {
@@ -38,7 +40,12 @@ export interface SenderDnsReport {
   readonly replyTo: DnsCheck | null;
   /** One check per `returnPath` host, in the order given. */
   readonly returnPath: readonly DnsCheck[];
+  /** The inbound service's MX and SPF checks, in that order, when `inbound` was given; `[]` otherwise. */
+  readonly inbound: readonly DnsCheck[];
 }
+
+/** A service that receives the domain's mail: `cloudflare` is Cloudflare Email Routing. */
+export type InboundService = "cloudflare";
 
 export type ResolveTxt = (hostname: string) => Promise<string[][]>;
 export interface MxRecord {
@@ -87,6 +94,11 @@ export interface CheckSenderDnsOptions {
   readonly replyTo?: string;
   /** Hosts that must resolve as a CNAME or with MX records; `resendReturnPath(domain)` gives Resend's. */
   readonly returnPath?: readonly ReturnPathHost[];
+  /**
+   * Checks that this service receives mail for the reply-to domain (else the checked domain): every MX record is the
+   * service's, and the one SPF record includes the service's, so replies arrive and forwarding passes SPF.
+   */
+  readonly inbound?: InboundService;
   readonly resolveTxt?: ResolveTxt;
   readonly resolveMx?: ResolveMx;
   readonly resolveCname?: ResolveCname;
@@ -109,6 +121,11 @@ export function resendReturnPath(domain: string): ReturnPathHost[] {
   ];
 }
 
+/** Cloudflare Email Routing: its MX hosts (`route1.mx.cloudflare.net`, ...) and the SPF include it asks for. */
+export const CLOUDFLARE_INBOUND = { mxDomain: "mx.cloudflare.net", spfInclude: "_spf.mx.cloudflare.net" } as const;
+
+const INBOUND_SERVICES: Readonly<Record<InboundService, { readonly mxDomain: string; readonly spfInclude: string }>> = { cloudflare: CLOUDFLARE_INBOUND };
+
 /** Reads the SPF, DKIM and DMARC records of `domain`. Never throws: a failed lookup is a finding. */
 export async function checkSenderDns(domain: string, options: CheckSenderDnsOptions = {}): Promise<SenderDnsReport> {
   const name = normalizeHost(domain);
@@ -116,14 +133,16 @@ export async function checkSenderDns(domain: string, options: CheckSenderDnsOpti
   const lookup = (host: string) => lookupTxt(resolveTxt, host);
   const lookupMx = (host: string) => lookupRecords(options.resolveMx ?? resolveMxRecords, host);
   const lookupCname = (host: string) => lookupRecords(options.resolveCname ?? resolveCnameRecords, host);
-  const [spf, dkim, dmarc, replyTo, returnPath] = await Promise.all([
+  const replyDomain = options.replyTo === undefined ? null : normalizeHost(getSenderDomain(options.replyTo));
+  const [spf, dkim, dmarc, replyTo, returnPath, inbound] = await Promise.all([
     checkSpf(lookup, options.spfHosts ?? [name]),
     checkDkim(lookup, (options.dkimSelectors ?? DEFAULT_DKIM_SELECTORS).map((selector) => `${selector}._domainkey.${name}`)),
     checkDmarc(lookup, name, options.expectDmarc),
-    options.replyTo === undefined ? null : checkReplyPath(lookup, lookupMx, normalizeHost(getSenderDomain(options.replyTo))),
+    replyDomain === null ? null : checkReplyPath(lookup, lookupMx, replyDomain),
     Promise.all((options.returnPath ?? []).map((path) => checkReturnPath(lookupCname, lookupMx, path))),
+    options.inbound === undefined ? [] : checkInbound({ lookup, lookupMx }, replyDomain ?? name, INBOUND_SERVICES[options.inbound]),
   ]);
-  return { domain: name, spf, dkim, dmarc, replyTo, returnPath };
+  return { domain: name, spf, dkim, dmarc, replyTo, returnPath, inbound };
 }
 
 /** The domain part of a sender (`Plan <hello@mail.example.com>` gives `mail.example.com`). */
@@ -308,4 +327,41 @@ async function checkReturnPath(lookupCname: CnameLookup, lookupMx: MxLookup, pat
   if (mx.kind === "error") return { status: "fail", finding: "lookup-failed", host, record: null };
   if (mx.kind === "none" || isNullMx(mx.records)) return { status: "fail", finding: "missing", host, record: null };
   return { status: "pass", finding: "found", host, record: formatMx(mx.records) };
+}
+
+/** Whether `host` is `domain` or under it. Strings, not patterns: the domain is input. */
+function isUnder(host: string, domain: string): boolean {
+  return host === domain || host.endsWith(`.${domain}`);
+}
+
+/** The inbound service's MX (every record its own) and SPF (exactly one record, including the service's). */
+async function checkInbound(
+  { lookup, lookupMx }: { readonly lookup: Lookup; readonly lookupMx: MxLookup },
+  host: string,
+  service: { readonly mxDomain: string; readonly spfInclude: string },
+): Promise<DnsCheck[]> {
+  const [mx, txt] = await Promise.all([lookupMx(host), lookup(host)]);
+  return [checkInboundMx(mx, host, service.mxDomain), checkInboundSpf(txt, host, service.spfInclude)];
+}
+
+function checkInboundMx(mx: Answer<MxRecord>, host: string, mxDomain: string): DnsCheck {
+  if (mx.kind === "error") return { status: "fail", finding: "lookup-failed", host, record: null };
+  if (mx.kind === "none") return { status: "fail", finding: "missing", host, record: null };
+  const record = formatMx(mx.records);
+  if (isNullMx(mx.records)) return { status: "fail", finding: "null-mx", host, record };
+  const isService = mx.records.every((entry) => isUnder(normalizeHost(entry.exchange), mxDomain));
+  return isService ? { status: "pass", finding: "found", host, record } : { status: "fail", finding: "unexpected-target", host, record };
+}
+
+function checkInboundSpf(txt: TxtAnswer, host: string, include: string): DnsCheck {
+  if (txt.kind === "error") return { status: "fail", finding: "lookup-failed", host, record: null };
+  const records = txt.kind === "records" ? txt.records.filter(isSpfRecord) : [];
+  if (records.length > 1) return { status: "fail", finding: "multiple", host, record: null };
+  const record = records[0];
+  if (record === undefined) return { status: "fail", finding: "missing", host, record: null };
+  const includes = record
+    .trim()
+    .split(/\s+/)
+    .some((term) => term.toLowerCase().replace(/^\+/, "").replace(/\.$/, "") === `include:${include}`);
+  return includes ? { status: "pass", finding: "found", host, record } : { status: "fail", finding: "missing-include", host, record };
 }

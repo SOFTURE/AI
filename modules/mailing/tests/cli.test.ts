@@ -1,7 +1,8 @@
 // `softure-mail`: the campaign command over a database connection and the DNS check.
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { getRecipientKey } from "@softure-ai/mailing/server";
+import { mailingMessages } from "@softure-ai/mailing";
+import { getRecipientKey, signRecipientKey } from "@softure-ai/mailing/server";
 import { DEFAULT_PAUSE_MS, runMailCli, runMailCommand, type CliOutput, type RunMailCliOptions } from "@softure-ai/mailing/cli";
 import { fakeMailProvider, type FakeMailProvider } from "@softure-ai/mailing/testing";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -137,11 +138,8 @@ describe("softure-mail campaign", () => {
     await test.database.client.query("INSERT INTO mailing.suppressions VALUES ($1, 'page', $2)", [getRecipientKey("bob@example.org"), NOW]);
     const result = await run([...SEND, "--dry-run"]);
 
-    expect(result).toEqual({
-      code: 0,
-      lines: ["campaign 2026-10-launch (newsletter), dry run: nothing sent or written", "recipients 3, already done 0, unsubscribed 1, filtered out 0, uncertain 0, to send 2"],
-      errors: [],
-    });
+    expect(result).toMatchObject({ code: 0, errors: [] });
+    expect(result.lines.slice(0, 2)).toEqual(["campaign 2026-10-launch (newsletter), dry run: nothing sent or written", "recipients 3, already done 0, unsubscribed 1, filtered out 0, uncertain 0, to send 2"]);
     expect(provider.sent).toEqual([]);
     expect((await test.database.client.query("SELECT 1 FROM mailing.campaigns")).rows).toEqual([]);
   });
@@ -161,10 +159,11 @@ describe("softure-mail campaign", () => {
 
   it("shows what one limited run would send on a dry run", async () => {
     const result = await run([...SEND, "--dry-run", "--limit", "2"]);
-    expect(result.lines).toEqual([
+    expect(result.lines.slice(0, 4)).toEqual([
       "campaign 2026-10-launch (newsletter), dry run: nothing sent or written",
       "recipients 3, already done 0, unsubscribed 0, filtered out 0, uncertain 0, to send 3",
       "with --limit 2 this run would send 2",
+      "--- preview (addresses masked, link signatures redacted) ---",
     ]);
   });
 
@@ -200,7 +199,7 @@ describe("softure-mail campaign", () => {
   });
 
   it("reports a database without the mailing tables without the query or its parameters, and closes the connection", async () => {
-    await test.database.client.query("DROP TABLE mailing.deliveries");
+    await test.database.client.query("DROP TABLE mailing.deliveries CASCADE");
     const result = await run(SEND);
     expect(result.code).toBe(1);
     expect(result.errors).toEqual(['softure-mail campaign: relation "mailing.deliveries" does not exist (did softure migrate run?)']);
@@ -213,8 +212,17 @@ describe("softure-mail campaign", () => {
   });
 
   it.each([
-    [[], "missing command; use campaign, import or dns"],
-    [["send"], 'unknown command "send"; use campaign, import or dns'],
+    [[], "missing command; use campaign, test, import or dns"],
+    [["send"], 'unknown command "send"; use campaign, test, import or dns'],
+    [["campaign", "a.md", "--content-file", "b.md", "--recipients", "r.txt"], "campaign takes the content file once: name it first or with --content-file"],
+    [[...SEND, "--kind", "newsletter"], "campaign does not take --kind"],
+    [[...SEND, "--preview"], "campaign does not take --preview"],
+    [[...SEND, "--inbound", "cloudflare"], "campaign does not take --inbound"],
+    [["test", "--dry-run"], "test does not take --dry-run"],
+    [["test", "--recipients", "r.txt"], "test does not take --recipients"],
+    [["test", "a.md", "b.md"], 'test takes one content file, got also "b.md"'],
+    [["import", "a.jsonl", "--kind", "newsletter"], "import does not take --kind"],
+    [["import", "a.jsonl", "--content-file", "b.md"], "import does not take --content-file"],
     [["campaign", "--recipients", "recipients.txt"], "campaign needs a content file"],
     [["campaign", "-", "--recipients", "-"], "campaign can read only one of the content file and --recipients from standard input"],
     [["import"], "import needs a history file (- for standard input)"],
@@ -270,7 +278,8 @@ describe("softure-mail campaign", () => {
     });
     const config = createConfig(provider, { listCampaignRecipients });
     const dry = await run(["campaign", "launch.md", "--dry-run"], { config });
-    expect(dry).toMatchObject({ code: 0, lines: [expect.any(String), "recipients 2, already done 0, unsubscribed 0, filtered out 0, uncertain 0, to send 2"] });
+    expect(dry.code).toBe(0);
+    expect(dry.lines[1]).toBe("recipients 2, already done 0, unsubscribed 0, filtered out 0, uncertain 0, to send 2");
 
     const result = await run(["campaign", "launch.md"], { config });
     expect(result).toMatchObject({ code: 0, errors: [] });
@@ -337,6 +346,77 @@ describe("softure-mail campaign", () => {
   it("reports a history file it cannot read", async () => {
     const result = await run(["import", "missing.jsonl"]);
     expect(result).toEqual({ code: 1, lines: [], errors: [`softure-mail import: cannot read the history file ${CAMPAIGN_DIR}missing.jsonl`] });
+  });
+
+  it("prints the mail as the test address gets it on a dry run, address masked and signatures redacted", async () => {
+    const result = await run([...SEND, "--dry-run"], { config: createConfig(provider, { testAddress: "operator@example.com" }) });
+    const key = getRecipientKey("operator@example.com");
+
+    expect(result.code).toBe(0);
+    expect(result.lines.slice(2)).toEqual([
+      "--- preview (addresses masked, link signatures redacted) ---",
+      "From: Example <hello@mail.example.com>",
+      "To: o*******@example.com",
+      "Reply-To: s******@example.com",
+      "Subject: Something new",
+      `List-Unsubscribe: <https://app.example.com/api/mailing/unsubscribe?r=${key}&t=<signature>>`,
+      "List-Unsubscribe-Post: List-Unsubscribe=One-Click",
+      "",
+      "--- text ---",
+      "Hello,",
+      "",
+      "we shipped something.",
+      "",
+      "-- ",
+      "Don't want these emails? Unsubscribe here:",
+      `https://app.example.com/unsubscribe?r=${key}&t=<signature>`,
+      "--- html ---",
+      "<p>Hello, we shipped something.</p>",
+      "",
+      `<p>Don't want these emails? <a href="https://app.example.com/unsubscribe?r=${key}&amp;t=<signature>">Unsubscribe</a></p>`,
+      "--- end of preview ---",
+    ]);
+    expect(result.lines.join("\n")).not.toContain(signRecipientKey(key, SECRET));
+  });
+
+  it("previews for a placeholder address without testAddress, and says so when the secret is missing", async () => {
+    const placeholder = await run([...SEND, "--dry-run"]);
+    expect(placeholder.lines).toContain("To: r********@example.com");
+
+    const noSecret = await run([...SEND, "--dry-run"], { env: {} });
+    expect(noSecret).toMatchObject({ code: 0, errors: [] });
+    expect(noSecret.lines.slice(2)).toEqual(["no preview: set MAILING_UNSUBSCRIBE_SECRET to render the unsubscribe footer"]);
+  });
+
+  it.each([
+    ["a signed link in the text body", "Unsubscribe: https://app.example.com/unsubscribe?r=" + "A".repeat(43) + "&t=" + "B".repeat(43), "the text body carries an unsubscribe link"],
+    ["the one-click route in the text body", "See https://app.example.com/api/mailing/unsubscribe?x=1", "the text body carries an unsubscribe link"],
+    ["the footer copy in the text body", "Hello,\n\n-- \nDon't want these emails? Unsubscribe here:", "the text body carries the unsubscribe footer"],
+    ["the Polish footer copy", mailingMessages.pl.footer.text, "the text body carries the unsubscribe footer"],
+  ])("refuses a campaign with %s before opening the database", async (_case, body, problem) => {
+    const content = `---\nid: 2026-10-pasted\nkind: newsletter\nsubject: Pasted\n---\n${body}\n`;
+    const result = await run(["campaign", "-", "--recipients", "recipients.txt"], { readStdin: () => Promise.resolve(content) });
+
+    expect(result.code).toBe(1);
+    expect(result.errors).toEqual([`softure-mail campaign: standard input cannot be sent:\n  ${problem}; ${problem.includes("link") ? "the module adds a link signed for each recipient" : "the module adds it to every mail"}, remove the pasted one`]);
+    expect(closed).toBe(0);
+    expect(provider.sent).toEqual([]);
+  });
+
+  it("resolves a kind alias of the content file and stores the campaign under the kind it names", async () => {
+    const content = "---\nid: 2026-10-alias\nkind: news\nsubject: Aliased\n---\nHello.\n";
+    const config = createConfig(provider, { kindAliases: { news: "newsletter" } });
+    const result = await run(["campaign", "-", "--recipients", "recipients.txt"], { config, readStdin: () => Promise.resolve(content) });
+
+    expect(result.lines).toEqual(["campaign 2026-10-alias (newsletter): recipients 3, sent 3, rejected 0, already done 0, in flight 0, retry later 0, filtered out 0, uncertain 0"]);
+    expect((await test.database.client.query("SELECT kind FROM mailing.campaigns WHERE id = '2026-10-alias'")).rows).toEqual([{ kind: "newsletter" }]);
+  });
+
+  it("takes the content file from --content-file, so softure-deploy run can send it on standard input", async () => {
+    const result = await run(["campaign", "--content-file=launch.md", "--recipients=recipients.txt", "--pause-ms=0"]);
+
+    expect(result).toMatchObject({ code: 0, errors: [] });
+    expect(provider.sent).toHaveLength(3);
   });
 
   it("shows the help", async () => {
@@ -436,8 +516,138 @@ describe("softure-mail dns", () => {
     }
   });
 
+  it("checks Cloudflare Email Routing on the reply-to domain with --inbound cloudflare", async () => {
+    mx["example.com"] = [{ exchange: "route1.mx.cloudflare.net", priority: 10 }];
+    records["example.com"] = ["v=spf1 include:_spf.mx.cloudflare.net ~all"];
+    try {
+      const passing = await run(["dns", "--spf-host", "send.mail.example.com", "--inbound", "Cloudflare"]);
+      expect(passing.code).toBe(0);
+      expect(passing.lines.slice(-3)).toEqual([
+        "INBOUND pass  found          example.com  10 route1.mx.cloudflare.net",
+        "INBOUND pass  found          example.com  v=spf1 include:_spf.mx.cloudflare.net ~all",
+        "receivers can authenticate mail from this domain",
+      ]);
+
+      records["example.com"] = ["v=spf1 include:amazonses.com ~all"];
+      const failing = await run(["dns", "--spf-host", "send.mail.example.com", "--inbound", "cloudflare"]);
+      expect(failing.code).toBe(1);
+      expect(failing.errors).toEqual(["INBOUND fail  missing-include example.com  v=spf1 include:amazonses.com ~all"]);
+      expect(failing.lines.at(-1)).toBe("the inbound service does not receive this domain's mail: replies will not reach it");
+    } finally {
+      mx["example.com"] = [{ exchange: "route1.mx.example.net", priority: 10 }];
+      delete records["example.com"];
+    }
+  });
+
+  it("refuses an inbound service it does not know", async () => {
+    const result = await run(["dns", "--inbound", "gmail"]);
+    expect(result.code).toBe(2);
+    expect(result.errors[0]).toBe('softure-mail: --inbound expects cloudflare, got "gmail"');
+  });
+
   it("needs a domain or the config", async () => {
     expect(await run(["dns"], { config: undefined })).toMatchObject({ code: 1, errors: ["softure-mail dns: pass --domain <domain>, or run it with the app's config to check the sender's domain"] });
+  });
+});
+
+describe("softure-mail test", () => {
+  const TEST_ADDRESS = "operator@example.com";
+  let provider: FakeMailProvider;
+  let test: TestMailing;
+  let opened: number;
+
+  beforeEach(async () => {
+    provider = fakeMailProvider();
+    test = await createTestMailing(createConfig(provider, { testAddress: TEST_ADDRESS, kindAliases: { news: "newsletter" } }));
+    opened = 0;
+    vi.stubEnv("MAILING_UNSUBSCRIBE_SECRET", SECRET);
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+  });
+  afterEach(async () => {
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+    await test.database.close();
+  });
+
+  async function run(argv: string[], options: Partial<RunMailCliOptions> = {}) {
+    const { output, lines, errors } = createOutput();
+    const code = await runMailCli({
+      config: test.config,
+      argv,
+      cwd: CAMPAIGN_DIR,
+      output,
+      env: ENV,
+      openDatabase: () => {
+        opened += 1;
+        return Promise.resolve({ kind: "pglite", db: test.database.db, client: test.database.client, close: () => Promise.resolve() });
+      },
+      ...options,
+    });
+    return { code, lines, errors };
+  }
+
+  it("sends the fixed test mail to the test address only, as transactional mail, without the database", async () => {
+    const result = await run(["test"]);
+
+    expect(result).toEqual({ code: 0, lines: [`test mail (transactional) sent to o*******@example.com; provider message id ${provider.sent[0]?.id ?? ""}`], errors: [] });
+    expect(provider.sent.map((mail) => [mail.to, mail.subject, mail.headers])).toEqual([[TEST_ADDRESS, "softure-mail test", {}]]);
+    expect(opened).toBe(0);
+  });
+
+  it("sends a campaign file's content as list mail with the footer, outside the ledger, so it can be sent again", async () => {
+    expect((await run(["test", "launch.md"])).code).toBe(0);
+    expect((await run(["test", "--content-file=launch.md"])).code).toBe(0);
+
+    expect(provider.sent.map((mail) => mail.to)).toEqual([TEST_ADDRESS, TEST_ADDRESS]);
+    expect(provider.sent[0]).toMatchObject({ subject: "Something new", headers: { "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" } });
+    expect(provider.sent[0]?.text).toContain("https://app.example.com/unsubscribe?r=");
+    expect((await test.database.client.query("SELECT 1 FROM mailing.deliveries UNION ALL SELECT 1 FROM mailing.campaigns")).rows).toEqual([]);
+    expect(opened).toBe(2);
+  });
+
+  it("takes --kind, an alias included", async () => {
+    await run(["test", "--kind", "news"]);
+    await run(["test", "launch.md", "--kind", "transactional"]);
+
+    expect(provider.sent[0]?.headers).toMatchObject({ "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" });
+    expect(provider.sent[1]?.headers).toEqual({});
+  });
+
+  it("prints the mail with --preview and sends nothing", async () => {
+    const result = await run(["test", "--kind", "newsletter", "--preview"]);
+
+    expect(result.code).toBe(0);
+    expect(result.lines.slice(0, 4)).toEqual(["--- preview (addresses masked, link signatures redacted) ---", "From: Example <hello@mail.example.com>", "To: o*******@example.com", "Reply-To: s******@example.com"]);
+    expect(result.lines).toContain("This is a test mail from softure-mail. It arrived, so the provider, the sender address and the reply-to work.");
+    expect(provider.sent).toEqual([]);
+    expect(opened).toBe(0);
+  });
+
+  it("reports a test address that unsubscribed, masked", async () => {
+    await test.database.client.query("INSERT INTO mailing.suppressions VALUES ($1, 'page', $2)", [getRecipientKey(TEST_ADDRESS), NOW]);
+    expect(await run(["test", "--kind", "newsletter"])).toEqual({ code: 1, lines: [], errors: ["test mail (newsletter) to o*******@example.com not sent: suppressed"] });
+  });
+
+  it("names the provider's failure with its status", async () => {
+    const refusing = fakeMailProvider({ respond: () => ({ status: "refused", httpStatus: 403 }) });
+    const result = await run(["test"], { config: createConfig(refusing, { testAddress: TEST_ADDRESS }) });
+    expect(result).toEqual({ code: 1, lines: [], errors: ["test mail (transactional) to o*******@example.com not sent: provider_refused (HTTP 403)"] });
+  });
+
+  it("refuses to send without testAddress", async () => {
+    const result = await run(["test"], { config: createConfig(provider) });
+    expect(result).toEqual({ code: 1, lines: [], errors: ["softure-mail test: set testAddress in the mailing options; the test sends to that address only"] });
+    expect(provider.sent).toEqual([]);
+  });
+
+  it("refuses a list-mail preview without the unsubscribe secret", async () => {
+    const result = await run(["test", "--kind", "newsletter", "--preview"], { env: {} });
+    expect(result).toEqual({ code: 1, lines: [], errors: ["softure-mail test: set MAILING_UNSUBSCRIBE_SECRET to sign the unsubscribe link of list mail"] });
+  });
+
+  it("refuses a kind that is no mail kind", async () => {
+    const result = await run(["test", "--kind", "Not A Kind", "--preview"]);
+    expect(result).toEqual({ code: 1, lines: [], errors: ["softure-mail test: the mail is invalid (kind)"] });
   });
 });
 
