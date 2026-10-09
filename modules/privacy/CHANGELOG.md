@@ -6,6 +6,20 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## 0.1.11
 
+- A legal document can be declared with its change history: `documents: [{ id, history: [{ date, summary,
+  version? }] }]`. Its version is the newest entry's (`version`, else the date); a `version` declared next to the
+  history must equal it, and duplicate or impossible dates, empty summaries and empty histories fail at startup.
+  `getLegalDocument(config, id).history` lists the entries newest first (empty for `{ id, version }`, which parses
+  as before) (#325).
+- `getDocumentVersionAt(config, id, at)` in `/server`: the version in force on a calendar day or at an instant (the
+  day in the config's time zone); `undefined` before the first entry. `importConsent` without `documentVersion`
+  records that version for a document with a history (#325).
+- `LegalDocument` takes `document={getLegalDocument(config, id)}` in place of `version`, `effectiveFrom` and
+  `changes`: the version line and the change history come from the declaration (#325).
+- `createCopyAccountScript({ exclude?, include?, onMissingReference? })` in the new `/scripts` entry: `copyAccount`
+  as a safe ops script, `--from` (or `--from-file`) the source database, `--user` or `--email` the account, dry run
+  unless `--commit`, into the app's database. `@softure-ai/ops` is an optional peer dependency for it (#325).
+
 - Reads driver errors with `findDriverError` from `@softure-ai/db` instead of a private copy. Same behaviour;
   requires `@softure-ai/db` `^0.1.7` (#313).
 

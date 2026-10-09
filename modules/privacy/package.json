@@ -37,6 +37,11 @@
       "types": "./dist/server/index.d.ts",
       "default": "./dist/server/index.js"
     },
+    "./scripts": {
+      "@softure-ai/source": "./src/scripts/index.ts",
+      "types": "./dist/scripts/index.d.ts",
+      "default": "./dist/scripts/index.js"
+    },
     "./next": {
       "@softure-ai/source": "./src/next/index.ts",
       "types": "./dist/next/index.d.ts",
@@ -59,6 +64,7 @@
     "zod": "^4.6.5"
   },
   "peerDependencies": {
+    "@softure-ai/ops": "^0.1.0",
     "@softure-ai/ui": "^0.1.0",
     "drizzle-orm": "^0.45.2",
     "next": "^16.0.0",
@@ -66,5 +72,10 @@
   },
   "devDependencies": {
     "@softure-ai/ui": "^0.1.7"
+  },
+  "peerDependenciesMeta": {
+    "@softure-ai/ops": {
+      "optional": true
+    }
   }
 }

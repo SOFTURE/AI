@@ -85,6 +85,36 @@ describe("LegalDocument", () => {
     expect(header?.textContent).toBe("TermsIn force since 16 September 2026.");
   });
 
+  it("renders the version line and the history from a declared document, newest first", () => {
+    const document = {
+      version: "1.1",
+      history: [
+        { version: "1.1", date: "2026-10-01", summary: "Added the newsletter." },
+        { version: "2026-01-15", date: "2026-01-15", summary: "First version." },
+      ],
+    };
+    const { container } = render(<LegalDocument title="Terms" document={document} sections={SECTIONS} messages={en} locale="en" />);
+    expect(container.querySelector("header")?.textContent).toBe(`Terms${en.legal.version} 1.1 · ${en.legal.effectiveFrom} October 1, 2026`);
+    const history = screen.getByRole("region", { name: en.legal.changes });
+    // A version that is the entry's date is not repeated next to the date.
+    expect(within(history).getAllByRole("listitem").map((item) => item.textContent)).toEqual([
+      `${en.legal.version} 1.1 · October 1, 2026Added the newsletter.`,
+      "January 15, 2026First version.",
+    ]);
+  });
+
+  it("prefers the app's own changes to the declared history, and shows the version alone without a history", () => {
+    const changes = [{ summary: "Rewritten in plain language." }];
+    const { unmount } = render(
+      <LegalDocument title="Terms" document={{ version: "2", history: [{ version: "2", date: "2026-10-01", summary: "Declared." }] }} changes={changes} sections={SECTIONS} messages={en} locale="en" />,
+    );
+    expect(within(screen.getByRole("region", { name: en.legal.changes })).getAllByRole("listitem").map((item) => item.textContent)).toEqual(["Rewritten in plain language."]);
+    unmount();
+    const bare = render(<LegalDocument title="Imprint" document={{ version: "3", history: [] }} sections={SECTIONS} messages={en} locale="en" />);
+    expect(bare.container.querySelector("header")?.textContent).toBe(`Imprint${en.legal.version} 3`);
+    expect(screen.queryByRole("region", { name: en.legal.changes })).toBeNull();
+  });
+
   it("renders a change without a version as its summary alone, and one with only a date as the date", () => {
     const changes = [{ summary: "Changed 23 September 2026: paid access." }, { date: "2026-09-16", summary: "First version." }];
     render(<LegalDocument meta={null} sections={SECTIONS} changes={changes} messages={en} locale="en" />);
