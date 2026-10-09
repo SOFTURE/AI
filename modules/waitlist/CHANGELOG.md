@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`waitlist@x.y.z`).
 
+## 0.1.9
+
+- **Security: the join action no longer hands out another person's unsubscribe link** (#306). With
+  `unsubscribeLinkOnSuccess`, `unsubscribeUrl` was returned for every answer without double opt-in, including an
+  address already on the list and a suppressed one, so anyone could type someone else's address into the form and
+  receive their signed link. Now only the request that created the sign-up (`status: "joined"`, `isNew: true`) gets
+  it; a known and a suppressed address are answered alike, `{ status: "ok" }` without a link. An app that kept its own
+  join action to give the link only for `isNew` can go back to the module's.
+
 ## 0.1.8
 
 - **A sign-up without double opt-in no longer undoes an opt-out** (#237). `joinWaitlist` of an address on mailing's
