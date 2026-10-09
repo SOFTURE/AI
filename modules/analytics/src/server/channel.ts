@@ -1,7 +1,8 @@
 // The channel tag: a query parameter on first-party URLs, never a cookie. A page reads its own
 // URL; a request that has none of its own (a server action, the next page) reads the page it came
-// from through `Referer`, but only from one of this app's origins (`appOrigin` and `analytics({ origins })`).
-import type { SoftureConfig } from "@softure-ai/core";
+// from through `Referer`, but only from one of this app's origins (`appOrigin`, the config's `origins.trustedOrigins`
+// and `analytics({ origins })`).
+import { readForwardedProto, readRequestHost, type SoftureConfig } from "@softure-ai/core";
 import { parseChannel } from "../channel-rule.js";
 import type { ChannelFromReferer } from "../options.js";
 import { getChannelOptions, getFirstPartyOrigins } from "./options.js";
@@ -26,9 +27,9 @@ export interface ChannelSources {
  * `X-Forwarded-Proto` value names wins, else the first. Null for a host that is not configured.
  */
 export function readPublicOrigin(config: SoftureConfig, request: Request): string | null {
-  const host = (request.headers.get("host") ?? new URL(request.url).host).toLowerCase();
+  const host = readRequestHost(request);
   const candidates = getFirstPartyOrigins(config).filter((origin) => new URL(origin).host === host);
-  const proto = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim().toLowerCase();
+  const proto = readForwardedProto(request);
   return candidates.find((origin) => new URL(origin).protocol === `${proto ?? ""}:`) ?? candidates[0] ?? null;
 }
 
