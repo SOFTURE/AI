@@ -49,6 +49,9 @@ jobs:
       ssh-known-hosts: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
       # Behind a CDN, the server's own IP: verify fails when the firewall lets direct traffic in. Unset skips it.
       origin-address: ${{ secrets.DEPLOY_ORIGIN_IP }}
+      # Variables for verify only, e.g. the key a `webBotAuth` route signs with: a secret holding a JSON object such as
+      # {"WEB_BOT_AUTH_PRIVATE_KEY": "<base64 seed>"}. Unset passes nothing.
+      verify-env: ${{ secrets.DEPLOY_VERIFY_ENV }}
       # Only the names docker/prod/docker-compose.yml requires reach .env.prod: {{secretNames}}.
       # Name the secrets one by one instead (a JSON object) when the repository holds many unrelated ones.
       app-secrets: ${{ toJSON(secrets) }}

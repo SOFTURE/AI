@@ -150,15 +150,20 @@ export async function proxy(request: NextRequest) {
   `Accept: text/html` and nothing else: no cookie, no authorization, no query. The answer is what an
   anonymous visitor sees, so nothing behind a session is reachable this way.
 - **What:** `htmlToMarkdown` (`@softure-ai/seo/server`) of the `<main>` element (`root`), without
-  nav, scripts, SVG, controls, forms, dialogs, hidden nodes, a header or footer placed directly in
-  `<main>` (an article's own header stays) and the app's `remove` selectors; links and images absolute
+  nav, scripts, SVG, controls, forms, dialogs, hidden nodes, a header or footer in `<main>` that no
+  article, section or aside holds (also inside a layout wrapper; an article's own header stays) and the
+  app's `remove` selectors; links and images absolute
   on the site origin; after a frontmatter of `title`, `description` and `url` (the page's canonical
   link, else the canonical URL of the path).
 - **Headers:** `content-type: text/markdown; charset=utf-8`, `vary: Accept`,
   `cache-control: private, max-age=0, must-revalidate` (a shared cache must not hand Markdown to a
   browser), `x-markdown-tokens` (about four characters a token). HEAD gets the headers only.
-- **Anything else** (a redirect, a 404, an error, a page without `<main>`, a failed render) answers
-  `null`, and the page answers the request itself; failures are reported through `onError`
+- **A redirect** of the render (301, 302, 303, 307, 308) answers as the same redirect, its `Location`
+  resolved and moved from the app's own server to the site origin (another site's address is kept),
+  with `vary: Accept`: the agent follows it asking for Markdown again.
+- **A missing page** (404 or 410 HTML) answers its `<main>` as Markdown with the same status.
+- **Anything else** (an error, a page without `<main>`, a redirect without `Location`, a failed render)
+  answers `null`, and the page answers the request itself; failures are reported through `onError`
   (`console.error` by default).
 
 `prefersMarkdown(accept)` (root entry) is the negotiation rule on its own: `text/markdown` must be

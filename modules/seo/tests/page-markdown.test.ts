@@ -152,14 +152,41 @@ describe("createPageMarkdown", () => {
   });
 
   it.each([
-    ["a redirect", new Response(null, { status: 308, headers: { location: "/plans" } })],
-    ["a missing page", htmlResponse("<main>Not found</main>", 404)],
     ["an error page", htmlResponse("<main>Error</main>", 500)],
     ["a page that is not HTML", new Response("{}", { status: 200, headers: { "content-type": "application/json" } })],
   ])("leaves %s to the page itself", async (_name, page) => {
     const { answer, onError } = setup({}, { fetch: () => Promise.resolve(page) });
     expect(await answer(request("/pricing", { accept: MARKDOWN }))).toBeNull();
     expect(onError).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["a relative Location", "/plans?period=year", `${SITE}/plans?period=year`],
+    ["a Location on the app's own server", `${SELF}/plans`, `${SITE}/plans`],
+    ["a Location on another site", "https://other.org/plans", "https://other.org/plans"],
+  ])("answers a redirect with %s on the public origin, so the agent follows it asking for Markdown again", async (_name, location, expected) => {
+    for (const status of [301, 302, 303, 307, 308]) {
+      const { answer, onError } = setup({}, { fetch: () => Promise.resolve(new Response(null, { status, headers: { location } })) });
+      const response = await answer(request("/pricing", { accept: MARKDOWN }));
+      expect(response?.status).toBe(status);
+      expect(Object.fromEntries(response?.headers ?? [])).toEqual({ location: expected, vary: "Accept", "cache-control": "private, max-age=0, must-revalidate" });
+      expect(await response?.text()).toBe("");
+      expect(onError).not.toHaveBeenCalled();
+    }
+  });
+
+  it("leaves a redirect without a Location to the page", async () => {
+    const { answer } = setup({}, { fetch: () => Promise.resolve(new Response(null, { status: 302 })) });
+    expect(await answer(request("/pricing", { accept: MARKDOWN }))).toBeNull();
+  });
+
+  it.each([404, 410])("answers a %i page with its main element as Markdown and the same status", async (status) => {
+    const html = "<html><head><title>Not found</title></head><body><main><h1>Not found</h1><p>Try <a href=\"/\">home</a>.</p></main></body></html>";
+    const { answer } = setup({}, { fetch: () => Promise.resolve(htmlResponse(html, status)) });
+    const response = await answer(request("/pricing", { accept: MARKDOWN }));
+    expect(response?.status).toBe(status);
+    expect(response?.headers.get("content-type")).toBe("text/markdown; charset=utf-8");
+    expect(await response?.text()).toBe(`---\ntitle: "Not found"\nurl: "${SITE}/pricing"\n---\n\n# Not found\n\nTry [home](${SITE}/).\n`);
   });
 
   it("leaves the page to answer when the render fails, and reports it", async () => {

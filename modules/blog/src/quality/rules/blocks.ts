@@ -4,6 +4,8 @@ import type { BlogArticleInput } from "../../contract.js";
 import { parseDirectiveLine, type BlockPlugin, type FoundBlock } from "../../render/render-article.js";
 import type { Block } from "../blocks.js";
 import type { QualityFinding } from "../finding.js";
+import type { LanguageRuleset } from "../rulesets/types.js";
+import { findSignificantNumbers, parseNumber, toProse } from "../text.js";
 
 export function checkBlockRequires(article: BlogArticleInput, pluginBlocks: readonly FoundBlock[]): QualityFinding[] {
   return pluginBlocks.flatMap((block) =>
@@ -65,4 +67,54 @@ export function checkDirectives(blocks: readonly Block[], pluginBlocks: readonly
 
 function finding(message: string, line: number): QualityFinding {
   return { rule: "block-directive", severity: "error", message, line };
+}
+
+export interface BlockNumbersInput {
+  readonly article: BlogArticleInput;
+  readonly blocks: readonly Block[];
+  readonly pluginBlocks: readonly FoundBlock[];
+  readonly plugins: readonly BlockPlugin[];
+  readonly ruleset: LanguageRuleset;
+}
+
+/**
+ * Numbers next to a data block (issue #318): every significant number of the paragraph right before and
+ * right after a block whose plugin has `numbers` must be one of the block's numbers, so the prose and
+ * the chart or table cannot drift apart. Compared by value in the ruleset's notation.
+ */
+export function checkBlockNumbers(input: BlockNumbersInput): QualityFinding[] {
+  const { notation } = input.ruleset;
+  const byKey = new Map(input.plugins.map((plugin) => [`${plugin.syntax ?? "fence"}:${plugin.type}`, plugin]));
+  const article = { currentAsOf: input.article.currentAsOf, fields: input.article.fields };
+  return input.pluginBlocks.flatMap((found) => {
+    const plugin = byKey.get(`${found.syntax}:${found.type}`);
+    if (plugin?.numbers === undefined) return [];
+    let raw: readonly (number | string)[];
+    try {
+      raw = plugin.numbers({ type: found.type, syntax: found.syntax, info: found.info, attributes: found.attributes, content: found.content, article });
+    } catch (error) {
+      // A plugin bug refuses the file with a finding instead of crashing the publish.
+      return [numbersFinding(`numbers() of the ${found.type} block failed: ${error instanceof Error ? error.message : String(error)}`, found.line)];
+    }
+    const values = raw.map((value) => (typeof value === "number" ? value : parseNumber(value.trim(), notation)));
+    const neighbours: { readonly side: "before" | "after"; readonly block: Block | undefined }[] = [
+      { side: "before", block: input.blocks.filter((block) => block.line < found.line).at(-1) },
+      { side: "after", block: input.blocks.find((block) => block.line > found.endLine) },
+    ];
+    return neighbours.flatMap(({ side, block }) => {
+      if (block?.kind !== "paragraph") return [];
+      return findSignificantNumbers(toProse(block.text), notation)
+        .filter((number) => !values.some((value) => isSameValue(value, parseNumber(number, notation))))
+        .map((number) => numbersFinding(`the paragraph ${side} the ${found.type} block quotes ${number}, which is not among the block's numbers`, block.line));
+    });
+  });
+}
+
+/** Equal values, allowing for binary fractions (0.1 + 0.2). */
+export function isSameValue(a: number, b: number): boolean {
+  return Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(a), Math.abs(b));
+}
+
+function numbersFinding(message: string, line: number): QualityFinding {
+  return { rule: "block-numbers", severity: "error", message, line };
 }

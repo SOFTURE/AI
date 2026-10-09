@@ -43,6 +43,12 @@
 # environment's deployment policy reach the release without repository-level copies. The verify job runs outside the
 # environment; its origin address can come from an `app-vars` entry (`origin-address-var`) on either way.
 #
+# Variables for verify (a Web Bot Auth key a `webBotAuth` route signs with): the secret `verify-env`, a JSON object of
+# text values by name, or with `secrets-from-environment` the environment secret `verify-env-secret` names, holding the
+# same object, which puts the verify job in `environment` too (a protected environment with required reviewers asks
+# again). Only that one secret reaches the job, never the whole secrets context. The verify step masks each value and
+# hands the variables to `softure-deploy verify` only; a name the step or the runner sets itself is refused.
+#
 # Whatever happened, the `summary` job uploads the run's facts (each job's result, the image, its digest and the
 # server's step lines) as the artifact `deploy-report`; the caller's second job, deploy-report.yml (DF-10), writes them
 # into the tag's GitHub Release.
@@ -119,6 +125,10 @@ on:
         default: DEPLOY_SSH_KNOWN_HOSTS
       origin-address-var:
         description: Name of an app-vars entry holding the origin address (instead of the origin-address secret, which secrets-from-environment cannot pass); empty for none
+        type: string
+        default: ""
+      verify-env-secret:
+        description: With secrets-from-environment, the secret holding verify-env's JSON object (variables exported for softure-deploy verify, e.g. WEB_BOT_AUTH_PRIVATE_KEY); the verify job then runs in environment. Empty for none
         type: string
         default: ""
       remote-command:
@@ -200,6 +210,12 @@ on:
           The server's own address behind the CDN (IP or host, optional :port, default 443), e.g. vars.DEPLOY_IP;
           verify fails when it accepts a direct connection. Empty skips the check. Needs deploy-config.
         required: false
+      verify-env:
+        description: >-
+          JSON object of variables by name exported for softure-deploy verify only, masked, e.g.
+          {"WEB_BOT_AUTH_PRIVATE_KEY": "..."} for a webBotAuth route. Without secrets-from-environment (which uses
+          verify-env-secret). Needs deploy-config.
+        required: false
     outputs:
       image:
         description: The pushed image reference with its tag
@@ -253,6 +269,16 @@ jobs:
           SSH_USER_SECRET: ${{ inputs.ssh-user-secret }}
           SSH_PRIVATE_KEY_SECRET: ${{ inputs.ssh-private-key-secret }}
           SSH_KNOWN_HOSTS_SECRET: ${{ inputs.ssh-known-hosts-secret }}
+          VERIFY_ENV: ${{ secrets.verify-env }}
+          VERIFY_ENV_SECRET: ${{ inputs.verify-env-secret }}
+          VERIFY_ENV_RULES: >-
+            if type != "object" or any(.[]; type != "string") then "a JSON object of text values by name"
+            else keys_unsorted[]
+              | if test("^[A-Za-z_][A-Za-z0-9_]*$") | not then "\(.) is not a name (letters, digits, _)"
+                elif ascii_upcase | test("^(APP_URL|DEPLOY_CONFIG|DEPLOY_CLI_VERSION|ORIGIN_ADDRESS|ORIGIN_ADDRESS_VAR|APP_VARS|VERIFY_ENV|VERIFY_ENV_SECRET|VERIFY_ENV_RULES|PATH|HOME|NODE_.*|NPM_CONFIG_.*)$")
+                then "\(.) is reserved for the verify step or the runner"
+                else empty end
+            end
           # The names of the named secrets the caller passed, never a value.
           PASSED_SECRETS: >-
             ${{ secrets.ssh-host != '' && 'ssh-host' || '' }}
@@ -260,6 +286,7 @@ jobs:
             ${{ secrets.ssh-private-key != '' && 'ssh-private-key' || '' }}
             ${{ secrets.ssh-known-hosts != '' && 'ssh-known-hosts' || '' }}
             ${{ secrets.app-secrets != '' && 'app-secrets' || '' }}
+            ${{ secrets.verify-env != '' && 'verify-env' || '' }}
         run: |
           failures=0
           reject() {
@@ -293,7 +320,11 @@ jobs:
               reject secrets-from-environment "false without environment (the deploy job reads that environment's secrets)"
             fi
             for name in ${PASSED_SECRETS:-}; do
-              reject secrets-from-environment "false when the secret $name is passed (pass secrets: inherit instead)"
+              if [ "$name" = "verify-env" ]; then
+                reject secrets-from-environment "false when the secret verify-env is passed (name an environment secret in verify-env-secret)"
+              else
+                reject secrets-from-environment "false when the secret $name is passed (pass secrets: inherit instead)"
+              fi
             done
             if [ -n "$ORIGIN_ADDRESS" ]; then
               reject secrets-from-environment "false when the secret origin-address is passed (use origin-address-var)"
@@ -328,6 +359,26 @@ jobs:
             expect "$origin_input" "$ORIGIN_ADDRESS" '^([A-Za-z0-9.-]+|\[[0-9A-Fa-f:.]+\])(:[0-9]{1,5})?$|^[0-9A-Fa-f:.]+$' "an IP address or host with an optional :port"
             # The origin is checked by the verify step, which runs only with a config: refuse a check that would not run.
             if [ -z "$DEPLOY_CONFIG" ]; then reject "$origin_input" "empty when deploy-config is empty (verify runs with deploy.json)"; fi
+          fi
+          # The verify step's variables: the secret verify-env is checked here, before anything is built; the one
+          # verify-env-secret names lives in the environment, so the verify step checks it the same way.
+          if [ -n "${VERIFY_ENV_SECRET:-}" ]; then
+            if [ "${SECRETS_FROM_ENVIRONMENT:-false}" != "true" ]; then
+              reject verify-env-secret "empty without secrets-from-environment (pass the secret verify-env instead)"
+            elif [[ ! "$VERIFY_ENV_SECRET" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+              reject verify-env-secret "a secret name (letters, digits, _)"
+            elif [ -z "$DEPLOY_CONFIG" ]; then
+              reject verify-env-secret "empty when deploy-config is empty (verify runs with deploy.json)"
+            fi
+          fi
+          if [ -n "${VERIFY_ENV:-}" ] && [ "${SECRETS_FROM_ENVIRONMENT:-false}" != "true" ]; then
+            if [ -z "$DEPLOY_CONFIG" ]; then
+              reject verify-env "empty when deploy-config is empty (verify runs with deploy.json)"
+            else
+              while IFS= read -r problem; do
+                if [ -n "$problem" ]; then reject verify-env "$problem"; fi
+              done < <(printf '%s' "$VERIFY_ENV" | jq -r "$VERIFY_ENV_RULES" 2> /dev/null || echo "a JSON object of text values by name")
+            fi
           fi
           expect deploy-cli-version "$DEPLOY_CLI_VERSION" '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$' "an exact version"
           if [ -n "${RELEASE_BRANCH:-}" ]; then
@@ -822,6 +873,9 @@ jobs:
     needs: deploy
     # The end-to-end test's stack runs on the deploy job's runner, so that job runs these steps itself.
     if: ${{ !inputs.e2e }}
+    # In the environment only to read the secret verify-env-secret names (the check job allows it only with
+    # secrets-from-environment); otherwise outside it, so a protected environment is not asked twice.
+    environment: ${{ inputs.verify-env-secret != '' && inputs.environment || '' }}
     runs-on: ubuntu-latest
     # Above the longest verify-timeout-seconds the check job accepts (9999 s).
     timeout-minutes: 180
@@ -871,6 +925,17 @@ jobs:
           ORIGIN_ADDRESS: ${{ secrets.origin-address }}
           ORIGIN_ADDRESS_VAR: ${{ inputs.origin-address-var }}
           APP_VARS: ${{ inputs.app-vars }}
+          # The secret verify-env, or the one verify-env-secret names: a JSON object of variables for the CLI only.
+          VERIFY_ENV: ${{ inputs.verify-env-secret != '' && secrets[inputs.verify-env-secret] || secrets.verify-env }}
+          VERIFY_ENV_SECRET: ${{ inputs.verify-env-secret }}
+          VERIFY_ENV_RULES: >-
+            if type != "object" or any(.[]; type != "string") then "a JSON object of text values by name"
+            else keys_unsorted[]
+              | if test("^[A-Za-z_][A-Za-z0-9_]*$") | not then "\(.) is not a name (letters, digits, _)"
+                elif ascii_upcase | test("^(APP_URL|DEPLOY_CONFIG|DEPLOY_CLI_VERSION|ORIGIN_ADDRESS|ORIGIN_ADDRESS_VAR|APP_VARS|VERIFY_ENV|VERIFY_ENV_SECRET|VERIFY_ENV_RULES|PATH|HOME|NODE_.*|NPM_CONFIG_.*)$")
+                then "\(.) is reserved for the verify step or the runner"
+                else empty end
+            end
         run: |
           # The check job made sure the app-vars entry exists, holds an address and never comes with the secret.
           if [ -n "${ORIGIN_ADDRESS_VAR:-}" ]; then
@@ -878,7 +943,29 @@ jobs:
           fi
           origin=()
           if [ -n "$ORIGIN_ADDRESS" ]; then origin=("--origin=$ORIGIN_ADDRESS"); fi
-          npx --yes "--package=@softure-ai/deploy@$DEPLOY_CLI_VERSION" softure-deploy verify "$APP_URL" --config="$DEPLOY_CONFIG" "${origin[@]}"
+          variables=()
+          if [ -n "${VERIFY_ENV_SECRET:-}" ] && [ -z "${VERIFY_ENV:-}" ]; then
+            echo "::error::verify-env-secret: the environment (or the repository) has no secret $VERIFY_ENV_SECRET."
+            exit 1
+          fi
+          if [ -n "${VERIFY_ENV:-}" ]; then
+            input="${VERIFY_ENV_SECRET:-verify-env}"
+            # An entry of a JSON secret is not masked on its own, so every line of every value is, before anything else.
+            while IFS= read -r line; do
+              if [ -n "$line" ]; then echo "::add-mask::$line"; fi
+            done < <(printf '%s' "$VERIFY_ENV" | jq -r '.[]? | strings' 2> /dev/null || true)
+            problems="$(printf '%s' "$VERIFY_ENV" | jq -r "$VERIFY_ENV_RULES" 2> /dev/null || echo "a JSON object of text values by name")"
+            if [ -n "$problems" ]; then
+              while IFS= read -r problem; do echo "::error::$input is not valid: $problem"; done <<< "$problems"
+              exit 1
+            fi
+            # The trailing x keeps a value's last new lines through $(...).
+            while IFS= read -r name; do
+              value="$(printf '%s' "$VERIFY_ENV" | jq -j --arg name "$name" '.[$name]'; printf x)"
+              variables+=("$name=${value%x}")
+            done < <(printf '%s' "$VERIFY_ENV" | jq -r 'keys_unsorted[]')
+          fi
+          env -u VERIFY_ENV "${variables[@]}" npx --yes "--package=@softure-ai/deploy@$DEPLOY_CLI_VERSION" softure-deploy verify "$APP_URL" --config="$DEPLOY_CONFIG" "${origin[@]}"
 
   # The facts of this run for the release report (deploy-report.yml, DF-10), whatever happened: each job's result, the
   # image and its digest, and the server's step lines. It writes nothing anywhere but the run's artifact
