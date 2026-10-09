@@ -26,8 +26,9 @@ import of what the old system knew (`import-entitlements`) and a pin step for de
   **`changeEntitlement()`**, the one write path (grants, revokes, trial extensions) the payment
   adapters build on.
 - **`AccessBadge` and `AccessNotice`** (`/ui`), standalone with slots, `unstyled` and messages, and
-  `CurrentAccessBadge` / `CurrentAccessNotice` (`/next`) wired to the signed-in account, plus the date and day-count
-  formatters they use, for the app's own sentences (see §9).
+  `CurrentAccessBadge` / `CurrentAccessNotice` (`/next`) wired to the signed-in account, with an "Unlimited access"
+  reading for very long access, a compact label and the app's tones, plus the date and day-count formatters they
+  use, for the app's own sentences (see §9).
 - **Plans in the config** (`billing({ plans })`): name, description, price in the currency's minor
   unit, period (days, weeks, months, years or lifetime), feature lines; `formatPrice` and the
   period copy follow the app's locale.
@@ -51,12 +52,13 @@ import of what the old system knew (`import-entitlements`) and a pin step for de
 - **Reminder mail** (`@softure-ai/billing/mailing`): `sendAccessReminders(ctx)` mails every
   account whose trial or dated paid access is in its reminder window, or ended in the last few
   days, once per account and window through `@softure-ai/mailing`'s delivery ledger; the app runs
-  it on a schedule (see "Reminder mail" in §4). `findAccessReminders` (`/server`) is the same list
+  it on a schedule (see "Reminder mail" in §4), with the package's mail or the app's template
+  (`buildMail`) and delivery scopes (`getScope`). `findAccessReminders` (`/server`) is the same list
   without mail, for an app that sends its own.
 - **Plan and trial scripts** (`@softure-ai/billing/scripts`): `grant-plan`, `revoke-grant` and
   `extend-trial`, ops scripts (dry run by default, `--commit` writes) for a host without the admin
-  page; their grants and extensions are in the account's history like the admin page's (see
-  "Scripts" in §4).
+  page; their grants and extensions are in the account's history like the admin page's; and the
+  read-only `entitlement-status` (see "Scripts" in §4).
 - **Existing accounts**: `trial.startsAt` gives accounts created before a chosen day a trial from
   that day; `import-entitlements` (`importEntitlement()` on the server) records the trial ends, paid
   periods and lifetime access another system knew, never shortening access, or with `--exact`
@@ -377,11 +379,27 @@ account gets one mail per kind and end (scope `billing.<kind>:<account id>:<end>
 `mailing.deliveries`): a run repeated the same day, or two runs at once, send nothing new, while an
 extended trial or a renewal is a new window. Options: `catchUpDays` (0 to 365), `pauseMs` between two
 mails the provider was called for (default 500, Resend's two requests per second). The summary counts
-`due`, `sent`, `skipped` (sent by an earlier run, or another run is sending it), `rejected` (refused
+`due`, `sent`, `skipped` (sent by an earlier run, another run is sending it, or the template returned
+null), `rejected` (refused
 for good) and `retryLater` (the provider was unavailable; the next run sends it). A database failure
 throws; the next run resumes. Candidates come from two range queries, the stored ends and
 `auth.users.created_at` (indexed by auth's `0004`) for accounts without a row, never a scan of every
 account.
+
+The app's own template and scopes: `buildMail(context)` gets `{ reminder, lastDay, link, mail }` (the due
+account's `userId`, `email`, `kind` and `endsAt`, the last day as the locale writes it, the payment URL and the
+package's own mail) and returns `{ subject, text, html }`, or `null` to send that account nothing this run (a
+later run asks again); it may be async (to read the account's name). `getScope(reminder)` replaces the delivery
+scope: an app moving from its own job passes the scope that job wrote to `mailing.deliveries`, so accounts it
+already mailed are not mailed again. A scope must stay unique per account, kind and end.
+
+```ts
+await sendAccessReminders(ctx, {
+  buildMail: ({ reminder, lastDay, link, mail }) =>
+    reminder.kind === "trial-ending" ? renderTrialEndingMail({ lastDay, link }) : mail,
+  getScope: (reminder) => `app.${reminder.kind}:${reminder.userId}:${String(reminder.endsAt.getTime())}`,
+});
+```
 
 Guard every write action of the app, before reading any input:
 
@@ -405,6 +423,16 @@ import Link from "next/link";
 <CurrentAccessBadge />
 <CurrentAccessNotice LinkComponent={Link} />
 ```
+
+Both take options (and `AccessBadge` / `AccessNotice` in `/ui` the same props):
+`unlimitedAfterDays={1826}` makes the badge read "Unlimited access" (`messages.badge.unlimited`, success tone,
+`data-unlimited="true"`) for trial or dated paid access with more days left than that, e.g. the long trials an app
+gives invited accounts; unset, it never does. `compact` writes a shorter detail: "5 days" for a trial
+(`formatDayCount`) and `until 11/30/2026` for paid access (`formatShortLastDay`). `tones` sets the status colour
+(`neutral`, `success`, `warning`, `danger`) per kind, `trial`, `trial-ending`, `paid`, `paid-ending`, `lifetime`,
+`unlimited` or `read-only`, keeping the default for the kinds left out; `getAccessBadgeKind(entitlement, {
+unlimitedAfterDays })` (`/ui`) names the kind for the app's own use. The notice's `tones={{ ending, ended }}` sets its
+frame, `neutral` (the raised surface) or `danger` (default `neutral` and `danger`).
 
 Server functions, for scripts and other hosts (`@softure-ai/billing/server`):
 `grantPlanManually(ctx, { userId, planId, adminId, requestId? })` grants one payment of a plan,
@@ -433,7 +461,7 @@ period without losing a concurrent grant).
 
 **Scripts.** `@softure-ai/billing/scripts` builds ops scripts on `@softure-ai/ops/scripts` (dry run by
 default, `--commit` writes, one transaction), for an operator without the admin page or at a
-terminal: `grant-plan`, `revoke-grant` and `extend-trial` here, `import-entitlements` and `pin-trials` under
+terminal: `grant-plan`, `revoke-grant`, `extend-trial` and `entitlement-status` here, `import-entitlements` and `pin-trials` under
 "Existing accounts" below. The app bundles them like its other scripts and runs them with its
 database URL:
 
@@ -479,6 +507,13 @@ import config from "../softure.config";
 
 process.exitCode = await runOpsScript({ script: createExtendTrialScript(config), argv: process.argv.slice(2), config });
 ```
+
+- `entitlement-status --email=…|--user=<account id>` shows where one account stands and writes nothing, with or
+  without `--commit` (the runner's dry-run lines still print; `before` and `after` are the same reading):
+  `{ userId, state, trialLastDay, paidLastDay, isLifetime, access }`, `state` one of `trial`, `paid`, `lifetime`,
+  `read_only`, the last days `YYYY-MM-DD` in the app's time zone (`paidLastDay` null when no dated paid access was
+  ever bought). Never the email; an unknown email or id is refused. `createEntitlementStatusScript(config, { clock?
+  })`.
 
 **Existing accounts.** An account without a `billing.entitlements` row is on the trial derived from
 its creation day (§5), so turning billing on for accounts that already exist would make every one
@@ -680,8 +715,9 @@ None.
 
 `AccessBadge` takes `classNames` for its slots `root`, `status` and `detail`; the status colour
 follows the state (`--sft-color-foreground` for a trial, `success` when paid, `warning` in a
-reminder window, `danger` when read-only). It sets `data-status` and, in a reminder window,
-`data-ending="true"` for app styles. `AccessNotice` takes `root`, `message` and `actions` and
+reminder window, `danger` when read-only; `tones` overrides any of them). It sets `data-status`, in a
+reminder window `data-ending="true"` and for effectively unlimited access `data-unlimited="true"` for
+app styles. `AccessNotice` takes `root`, `message` and `actions` and
 renders the `@softure-ai/ui` `ButtonLink`; ended access uses the danger surface of `FormError`.
 Both accept `unstyled`. `PricingTiles` takes `root`, `tile`, `badge`, `name`, `description`,
 `priceRow`, `price`, `period`, `features`, `feature`, `featureIcon` and `action`; a featured or chosen
@@ -797,7 +833,7 @@ payment: manual({
 - The admin page lists up to 50 open requests and 100 entries of each source in a history; there
   is no paging.
 - The write guard is per action: a read-only account can still call a write the app did not guard.
-- Reminder mail is plain text with a minimal HTML body; there is no app template for it, and it
+- Reminder mail is plain text with a minimal HTML body unless the app passes `buildMail`, and it
   uses the app's locale (accounts have none of their own).
 - No history of entitlement changes beyond grants: a row holds the current state; provider
   payments and manual grants are stored, trial extensions and raw events are not.
