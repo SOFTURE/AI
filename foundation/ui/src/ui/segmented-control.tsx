@@ -4,7 +4,9 @@ import { useId } from "react";
 import { type ClassNames, createSlotClassGetter } from "./class-names.js";
 import { SEGMENTED_GROUP_CLASS } from "./segment-classes.js";
 
-// A native radio group drawn as segments: arrow keys move the choice, form data is native.
+// A native radio group drawn as segments: arrow keys move the choice, form data is native. The checked
+// segment is marked by an inset ring in the text colour as well as by the accent fill, so a light accent
+// (lime on white) still meets WCAG 1.4.11.
 
 export type SegmentedControlSlot = "root" | "legend" | "options" | "option" | "input" | "label";
 
@@ -31,7 +33,7 @@ const DEFAULT_CLASSES: Readonly<Record<SegmentedControlSlot, string>> = {
   legend: "sft:mb-2 sft:p-0 sft:text-sm sft:font-semibold",
   options: SEGMENTED_GROUP_CLASS,
   option:
-    "sft:relative sft:shrink-0 sft:cursor-pointer sft:rounded-control sft:px-3 sft:py-1 sft:text-sm sft:text-muted sft:transition-colors sft:duration-(--sft-duration-fast) sft:ease-(--sft-ease-out) sft:hover:text-foreground sft:has-checked:bg-accent-fill sft:has-checked:text-on-accent sft:has-focus-visible:outline-2 sft:has-focus-visible:outline-offset-2 sft:has-focus-visible:outline-focus",
+    "sft:relative sft:shrink-0 sft:cursor-pointer sft:rounded-control sft:px-3 sft:py-1 sft:text-sm sft:text-muted sft:transition-colors sft:duration-(--sft-duration-fast) sft:ease-(--sft-ease-out) sft:hover:text-foreground sft:has-checked:bg-accent-fill sft:has-checked:text-on-accent sft:has-checked:ring-1 sft:has-checked:ring-inset sft:has-checked:ring-foreground sft:has-focus-visible:outline-2 sft:has-focus-visible:outline-offset-2 sft:has-focus-visible:outline-focus",
   input: "sft:sr-only",
   label: "sft:font-medium",
 };

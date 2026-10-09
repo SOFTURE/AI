@@ -19,6 +19,7 @@ describe("readJunitCounts", () => {
       passed: 2,
       total: 4,
       red: ["src/a.test.ts › refuses <empty> input", "src/b.test.ts › crashes"],
+      flaky: [],
     });
   });
 
@@ -27,12 +28,22 @@ describe("readJunitCounts", () => {
       passed: 0,
       total: 1,
       red: ["alone"],
+      flaky: [],
     });
   });
 
   it("reads an empty report as no cases", () => {
-    expect(readJunitCounts("<testsuites></testsuites>")).toEqual({ passed: 0, total: 0, red: [] });
-    expect(readJunitCounts("")).toEqual({ passed: 0, total: 0, red: [] });
+    expect(readJunitCounts("<testsuites></testsuites>")).toEqual({ passed: 0, total: 0, red: [], flaky: [] });
+    expect(readJunitCounts("")).toEqual({ passed: 0, total: 0, red: [], flaky: [] });
+  });
+
+  it("counts a case that passed after a rerun failure (Surefire) as passed and flaky", () => {
+    const xml = `<testsuite>
+      <testcase classname="pay" name="by card"><flakyFailure message="timeout"/><system-out>retry</system-out></testcase>
+      <testcase classname="pay" name="by transfer"><flakyError/></testcase>
+      <testcase classname="pay" name="refund"><failure/><rerunFailure/></testcase>
+    </testsuite>`;
+    expect(readJunitCounts(xml)).toEqual({ passed: 2, total: 3, red: ["pay › refund"], flaky: ["pay › by card", "pay › by transfer"] });
   });
 
   it("reads single-quoted attributes and decodes numeric entities", () => {
