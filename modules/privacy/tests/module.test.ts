@@ -1,7 +1,7 @@
 // The module definition: its manifest, its options and the modules it needs.
 import { readFileSync } from "node:fs";
 import { defineSoftureConfig, ok, toModuleJson } from "@softure-ai/core";
-import { DEFAULT_EXPORT_MAX_BYTES, privacy } from "@softure-ai/privacy";
+import { DEFAULT_EXPORT_MAX_BYTES, privacy, PRIVACY_RATE_LIMIT_BUCKETS } from "@softure-ai/privacy";
 import { describe, expect, it } from "vitest";
 import { createConfig } from "./support.js";
 
@@ -87,5 +87,12 @@ describe("the privacy module", () => {
 
   it("is listed after the modules it collects from when sorting", () => {
     expect(createConfig().modules.map((module) => module.id)).toEqual(["security", "auth", "feature-switches", "notes", "privacy"]);
+  });
+});
+
+describe("the rate limit bucket defaults (#328)", () => {
+  it("declare what each bucket is keyed by", () => {
+    const kinds = Object.fromEntries(Object.entries(PRIVACY_RATE_LIMIT_BUCKETS).map(([name, bucket]) => [name, bucket.key]));
+    expect(kinds).toEqual({ "privacy-export": "account", "privacy-delete": "account" });
   });
 });

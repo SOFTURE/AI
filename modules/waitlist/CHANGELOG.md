@@ -10,6 +10,9 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   confirmed sign-up whose address is on mailing's suppression list counts as `suppressed`
   (`SuppressedSplitChannelCount`). An app no longer reads `mailing.suppressions` and hashes addresses itself
   for a go/no-go report (#324). Needs `@softure-ai/mailing` 0.1.12.
+- `WAITLIST_RATE_LIMIT_BUCKETS` declares `key: "ip"` on `waitlist` and `key: "subject"` on `waitlist-email`
+  (security 0.1.8 bucket kinds).
+- Requires `@softure-ai/security` `^0.1.8`: earlier versions refuse the `key` field.
 
 ## 0.1.9
 

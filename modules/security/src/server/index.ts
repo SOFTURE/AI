@@ -9,3 +9,4 @@ export {
   type RateLimitTarget,
   type SecurityContext,
 } from "./rate-limit.js";
+export { listRateLimitBuckets, type RateLimitBucketEntry } from "./options.js";

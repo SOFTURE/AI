@@ -9,6 +9,18 @@ version in production, the version gets a line `verified in: <app>@<commit>` ([d
 - `nextHeaders()` returns rules assignable to `NextConfig["headers"]`: `NextHeaderRule` is now mutable like Next's
   `Header`, so `async headers() { return [...nextHeaders()]; }` typechecks in a `next.config.ts` typed as
   `NextConfig` without copying the inner `headers` array (#304).
+- The MCP server factory can stay out of `softure.config.ts` (#316): `createAgentReadyRoutes({ createServer })` from
+  `/next` builds every handler, the five that introspect the server around `createServer`; `mcp.server` is optional
+  and still used by the plain exports. Without a factory anywhere those documents answer 500 with a log line naming
+  the fix.
+- One factory contract with `@softure-ai/mcp-access` (#316): the factory gets `McpDiscoveryIdentity`
+  (`{ userId: <nil UUID>, canWrite, tokenId: "agent-ready-discovery" }`, the shape of mcp-access's
+  `McpServerIdentity`), so the app passes the factory it gives `createMcpRoute`. `canWrite` follows mcp-access's
+  `allowWrites`. A factory without arguments still fits.
+- auth.md states mcp-access's token lifetimes when mcp-access issues the tokens and `oauth.lifetimes` is not set
+  (#316); `readMcpAccessSettings(config)` reads them.
+- WebMCP tools take a zod schema as `inputSchema` (#316), converted to JSON Schema (input side) by
+  `registerWebMcpTool`, `buildWebMcpBootScript` and `toWebMcpInputSchema`.
 
 ## 0.1.2
 
