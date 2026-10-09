@@ -1,7 +1,7 @@
 {
   "name": "@softure-ai/testing",
-  "version": "0.1.3",
-  "description": "SOFTURE AI test tools: a Vitest setup file that pins the test time zone and shifts the test clock to TEST_TODAY, and Playwright helpers for black-box tests of an app.",
+  "version": "0.1.4",
+  "description": "SOFTURE AI test tools: a Vitest preset and setup file that pins the test time zone and shifts the test clock to TEST_TODAY, Playwright helpers and a per-test client address for black-box tests of an app, and source guards for architecture tests.",
   "license": "MIT",
   "type": "module",
   "sideEffects": [
@@ -42,13 +42,26 @@
       "@softure-ai/source": "./src/playwright/index.ts",
       "types": "./dist/playwright/index.d.ts",
       "default": "./dist/playwright/index.js"
+    },
+    "./guards": {
+      "@softure-ai/source": "./src/guards/index.ts",
+      "types": "./dist/guards/index.d.ts",
+      "default": "./dist/guards/index.js"
     }
   },
   "peerDependencies": {
-    "@playwright/test": "^1.63.0"
+    "@playwright/test": "^1.63.0",
+    "typescript": ">=5.0.0",
+    "vitest": ">=4.0.0"
   },
   "peerDependenciesMeta": {
     "@playwright/test": {
+      "optional": true
+    },
+    "typescript": {
+      "optional": true
+    },
+    "vitest": {
       "optional": true
     }
   },

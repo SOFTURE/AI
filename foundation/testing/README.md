@@ -6,8 +6,13 @@ Test tools shared by SOFTURE apps and modules:
   an explicit zone fails ([Test time zone](#test-time-zone)), and shifts the test clock to `TEST_TODAY`
   while time keeps running, so date logic can be tested for a day that has not come yet
   ([Clock shift](#clock-shift));
-- Playwright helpers for black-box tests of an app: client addresses, the auth forms, unique test
-  data, the product select, polling, links and assertions ([Playwright helpers](#playwright-helpers)).
+- a Vitest preset with the settings every Next.js app on SOFTURE packages needs
+  ([Vitest preset](#vitest-preset));
+- Playwright helpers for black-box tests of an app: a `test` with its own client address per test, a
+  config preset, client addresses, the auth forms, unique test data, the product select, polling, links
+  and assertions ([Playwright helpers](#playwright-helpers));
+- source guards for architecture tests: raw colours, inline copy, forbidden phrases and import lists
+  ([Source guards](#source-guards)).
 
 ## Installation
 
@@ -107,10 +112,40 @@ shiftClock(readTestToday(process.env.TEST_TODAY) ?? "2027-01-02");
   `createTestClock`) stays the way modules read time ([core README](../core/README.md)); the shift also
   moves `systemClock`, because it reads the global `Date`.
 
+## Vitest preset
+
+A Next.js app on SOFTURE packages needs the same Vitest settings: the packages transformed by Vitest
+(they ship ESM that imports `next/*` without extensions), `server-only` loadable outside Next,
+`next/font/google` answered without a network, the pinned time zone and the clock setup file.
+`softureVitestConfig()` returns them; the app merges its own config on top:
+
+```ts
+// vitest.config.mts
+import { softureVitestConfig } from "@softure-ai/testing";
+import { defineConfig, mergeConfig } from "vitest/config";
+
+export default mergeConfig(
+  softureVitestConfig(), // or softureVitestConfig({ timeZone: "Asia/Tokyo", inline: ["esm-only-package"] })
+  defineConfig({ test: { include: ["tests/**/*.test.{ts,tsx}"] } }),
+);
+```
+
+- `test.server.deps.inline`: `@softure-ai/*` plus `inline`.
+- `server-only` and `client-only` load as empty modules.
+- `next/font/google` exports the fonts the importing file names, and `next/font/local` a default loader;
+  each font returns `{ className: "font-inter", variable: "font-inter-variable", style: { fontFamily: "'Inter'" } }`.
+- `pinTestTimeZone(timeZone)` runs when the config loads ([Test time zone](#test-time-zone)).
+- `test.setupFiles`: `@softure-ai/testing/vitest-setup` ([Clock shift](#clock-shift)); `setupFile: false`
+  leaves it out for an app that imports it from its own setup file.
+
+`vitest` is an optional peer dependency.
+
 ## API
 
 | Export | What it does |
 | --- | --- |
+| `softureVitestConfig({ timeZone?, inline?, setupFile? })` | Pins the zone and returns the [Vitest preset](#vitest-preset) config. |
+| `softureStubsPlugin()` | Just the Vite plugin with the `server-only` and `next/font` stubs. |
 | `@softure-ai/testing/vitest-setup` | Setup entry: pins the zone (`TEST_TZ`, default `America/New_York`), then shifts the clock when `TEST_TODAY` is set. |
 | `DEFAULT_TEST_TIME_ZONE` | `"America/New_York"`: the zone tests run in unless `TEST_TZ` names another. |
 | `readTestTimeZone(value)` | Returns the zone a `TEST_TZ` value names, or the default for an unset or empty value; throws a `RangeError` for a name that is not a time zone. |
@@ -127,11 +162,8 @@ shiftClock(readTestToday(process.env.TEST_TODAY) ?? "2027-01-02");
 dependency: an app that only uses the clock shift does not install it.
 
 ```ts
-import { expect, test } from "@playwright/test";
 import { authMessages } from "@softure-ai/auth";
-import { clientAddressHeaders, registerAccount, uniqueEmail } from "@softure-ai/testing/playwright";
-
-test.beforeEach(({ context }) => context.setExtraHTTPHeaders(clientAddressHeaders()));
+import { expect, registerAccount, test, uniqueEmail } from "@softure-ai/testing/playwright";
 
 test("a new account lands on its page", async ({ page }) => {
   await registerAccount(page, { copy: authMessages.en, email: uniqueEmail("e2e"), password: "correct horse battery" });
@@ -139,8 +171,35 @@ test("a new account lands on its page", async ({ page }) => {
 });
 ```
 
+**A client address per test.** `test` and `expect` from `@softure-ai/testing/playwright` are
+Playwright's, with one more fixture: `clientAddress`, a fresh random address per test that `page`,
+`context` and `request` send on top of the configured `extraHTTPHeaders`. `@softure-ai/security` keys
+rate limits on it, so a test never finds a bucket another test filled. An app that has fixtures of its
+own extends this `test` instead of Playwright's, and makes the import a rule with
+`@softure-ai/config`'s ESLint preset:
+
+```ts
+// eslint.config.mjs
+createSoftureEslintConfig({ tsconfigRootDir: import.meta.dirname, fixtures: { module: "@softure-ai/testing/playwright" } });
+```
+
+A test that sets `extraHTTPHeaders` itself (`test.use`) keeps its address. A page from
+`browser.newContext()` does not get one: `openPageAsNewClient(browser)` opens a second visitor.
+
+**Config preset.** `softurePlaywrightUse({ blockHosts?, chromiumPath? })` returns the `launchOptions` to
+spread into `use`: the Chromium in `PLAYWRIGHT_CHROMIUM_PATH` (cloud sessions and CI ship their own)
+and hosts the browser must never reach, such as the production domain. A link or a redirect built on
+the wrong origin then fails with `ERR_NAME_NOT_RESOLVED` instead of writing to production:
+
+```ts
+// playwright.config.ts
+use: { ...softurePlaywrightUse({ blockHosts: ["example.com", "*.example.com"] }), baseURL: "http://localhost:3100" },
+```
+
 | Export | What it does |
 | --- | --- |
+| `test`, `expect` | Playwright's, with the `clientAddress` fixture sent by `page`, `context` and `request`. |
+| `softurePlaywrightUse({ blockHosts?, chromiumPath? })`, `hostResolverRules(hosts)` | The `use.launchOptions` above, and the Chromium flag that blocks the hosts. |
 | `randomClientAddress()`, `clientAddressHeaders(address?)`, `CLIENT_ADDRESS_HEADER` | A random address in 198.18.0.0/15 (reserved for tests) in `cf-connecting-ip`, the header `@softure-ai/security` keys rate limits on, so every test gets its own buckets. |
 | `openPageAsNewClient(browser, options?)` | A page in a new context with its own address: a second visitor with no cookies. |
 | `registerAccount(page, { copy, email, password, path?, landingPath? })` | Registers through auth's form (consent ticked with `tickCheckbox`) and waits for `/account`. `copy` is `authMessages.<locale>` of `@softure-ai/auth`; `landingPath: null` skips the check. |
@@ -160,6 +219,39 @@ test("a new account lands on its page", async ({ page }) => {
 **Factories.** Rows that belong to a module (an account, an entitlement) are written by that module's
 own `testing` export, which knows its schema and invariants (`@softure-ai/mailing/testing` reads the
 fake outbox, for example). This package keeps what every app shares: unique names and `withDatabase`.
+
+## Source guards
+
+`@softure-ai/testing/guards`, for the architecture tests of a package or an app: rules no linter states,
+checked over the source files. Visible text is read with the TypeScript parser, so `typescript` (an
+optional peer dependency) must be installed.
+
+```ts
+import { join } from "node:path";
+import { collectVisibleTexts, findForbiddenPhrases, findInlineCopy, findRawColors, readSourceFiles } from "@softure-ai/testing/guards";
+import { expect, it } from "vitest";
+
+const sources = readSourceFiles(join(import.meta.dirname, "../src"), { dirs: ["ui", "next"] });
+
+it("has no raw colour literal", () => expect(findRawColors(sources)).toEqual([]));
+it("has no inline copy", () => expect(findInlineCopy(sources)).toEqual([]));
+it("speaks the product's language", () => {
+  const texts = collectVisibleTexts(readSourceFiles(join(import.meta.dirname, "../app")));
+  expect(findForbiddenPhrases(texts, ["free trial", /\bsubscri/i], { exempt: ["legal/terms.tsx"] })).toEqual([]);
+});
+```
+
+A failure lists every hit with its file and line, so one run shows all of them.
+
+| Export | What it does |
+| --- | --- |
+| `readSourceFiles(root, { dirs?, include?, skipDirs?, recursive? })` | `{ file, source }` for the `.ts` and `.tsx` files under `root` (or its `dirs`), tests and `node_modules` left out, sorted by path; `file` is relative to `root`. A missing folder throws. |
+| `findRawColors(files)`, `RAW_COLOR` | Lines with a hex colour or a CSS colour function, as `file:line: text`. |
+| `findLines(files, pattern)` | Lines that match any pattern, in the same form. |
+| `readImports(source)` | Module specifiers of static, side-effect, re-export and literal dynamic imports. |
+| `collectVisibleTexts(files, { copyAttribute? })` | `{ file, line, attribute, text }` for every JSX text, string child (`{"Save"}`) and literal value of a copy attribute (`DEFAULT_COPY_ATTRIBUTE`: the ARIA texts, `title`, `placeholder`, `alt`, `label`, `*Label`). |
+| `findInlineCopy(files, { copyAttribute? })` | The visible texts with a letter: copy written into markup instead of coming from messages or props. |
+| `findForbiddenPhrases(texts, phrases, { exempt? })` | The texts that hold a phrase (a string as whole words, ignoring case; a RegExp as written), each with the phrase; `exempt` files by path end or RegExp. |
 
 ## Limitations
 
