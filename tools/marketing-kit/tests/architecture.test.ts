@@ -1,6 +1,5 @@
-import { readdirSync, readFileSync } from "node:fs";
-import { join, relative } from "node:path";
-
+import { join } from "node:path";
+import { findLines, readSourceFiles } from "@softure-ai/testing/guards";
 import { describe, expect, it } from "vitest";
 
 /**
@@ -27,27 +26,15 @@ const FORBIDDEN: [string, RegExp][] = [
 
 const SRC = join(import.meta.dirname, "..", "src");
 
-function listSources(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const path = join(dir, entry.name);
-    if (entry.isDirectory()) return entry.name === "messages" ? [] : listSources(path);
-    return entry.name.endsWith(".ts") && !entry.name.endsWith(".test.ts") ? [path] : [];
-  });
-}
-
 describe("marketing-kit source", () => {
-  const files = listSources(SRC);
+  // Message dictionaries hold copy, not product constants.
+  const files = readSourceFiles(SRC, { include: /^(?!.*\.test\.ts$).*\.ts$/, skipDirs: ["node_modules", "messages"] });
 
   it("has files to check", () => {
     expect(files.length).toBeGreaterThan(10);
   });
 
   it.each(FORBIDDEN)("holds no %s", (_label, pattern) => {
-    const hits = files.flatMap((file) =>
-      readFileSync(file, "utf8")
-        .split("\n")
-        .flatMap((line, index) => (pattern.test(line) ? [`${relative(SRC, file)}:${index + 1}: ${line.trim()}`] : [])),
-    );
-    expect(hits).toEqual([]);
+    expect(findLines(files, pattern)).toEqual([]);
   });
 });

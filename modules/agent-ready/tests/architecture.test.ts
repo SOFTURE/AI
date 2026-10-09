@@ -1,23 +1,10 @@
 // Import boundaries: the root entry loads in next.config.ts and proxy.ts, the WebMCP entry in the browser, and the
 // server entry outside Next. Each may only import what its place allows.
-import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join } from "node:path";
+import { readImports, readSourceFiles } from "@softure-ai/testing/guards";
 import { describe, expect, it } from "vitest";
 
-const SRC = join(import.meta.dirname, "../src");
-
-function listSources(dir: string): string[] {
-  return readdirSync(dir).flatMap((name) => {
-    const path = join(dir, name);
-    return statSync(path).isDirectory() ? listSources(path) : /\.tsx?$/.test(name) ? [path] : [];
-  });
-}
-
-function readImports(file: string): string[] {
-  return [...readFileSync(file, "utf8").matchAll(/^(?:import|export)[^;]*?from\s+"([^"]+)"/gms)].map((match) => match[1] ?? "");
-}
-
-const files = listSources(SRC).map((file) => ({ file: relative(SRC, file), imports: readImports(file) }));
+const files = readSourceFiles(join(import.meta.dirname, "../src")).map(({ file, source }) => ({ file, imports: readImports(source) }));
 const rootFiles = files.filter(({ file }) => !/^(server|next|cli|testing|webmcp)\//.test(file));
 
 describe("import boundaries", () => {
