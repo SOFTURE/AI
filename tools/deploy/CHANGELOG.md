@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
-## Unreleased
+## 0.1.7
 
 - `init` reads an existing `docker/prod/docker-compose.yml`: `deploy.sh`'s tools image carries the `pg_dump` of the
   `postgres` service's major (`postgres:17-alpine` → `-pg17`, `postgresql17-client`) instead of a fixed 16, and
