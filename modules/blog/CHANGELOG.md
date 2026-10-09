@@ -35,6 +35,14 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   `createBlogArticleOgImage({ logo, label })` builds the route; `BlogArticleOgImage` is the default one.
 - `/server` exports `getBodyOptions`, `findArticlesLinkingTermFor`, `getPageContext` and `createOgFontLoader`
   (the same functions as `/next`), for renderers outside Next.
+- `RelatedList` (the "read next" section) is exported from `/ui`, with its props `RelatedListProps`, so an app's
+  own article view places it (#332). New slots `relatedTitle`, `relatedList` and `relatedItem` take the app's
+  classes; they have no default class, so the markup without them is unchanged.
+- The static pages' Open Graph (#332): `buildBlogIndexMetadata`, `buildGlossaryIndexMetadata` and
+  `buildMethodMetadata` set `locale` as the article and term pages do, and take `images` (Next's
+  `openGraph.images`), so an app carries its layout's card over; Next replaces the layout's `openGraph` with the
+  page's. `buildMethodMetadata(config, { images })`; types `StaticMetadataInput` and `BlogOpenGraphImages` on
+  `/next`.
 - Reads driver errors with `findDriverError` and `isConstraintViolation` from `@softure-ai/db` instead of a private copy. Same behaviour;
   requires `@softure-ai/db` `^0.1.7` (#313).
 - `formatDay` (`/pages`) and the `stale` quality rule use core's `formatCalendarDay` and `calendarDaysBetween`;

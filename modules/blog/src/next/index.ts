@@ -10,7 +10,9 @@ export {
   buildGlossaryIndexMetadata,
   buildMethodMetadata,
   buildTermMetadata,
+  type BlogOpenGraphImages,
   type ListingMetadataInput,
+  type StaticMetadataInput,
 } from "./metadata.js";
 export { refreshBlogCache } from "./refresh.js";
 export { BLOG_CACHE_TAG, getFeaturedArticles, getPublishedArticles, getPublishedTerms, getStaticPublishedArticles, getTextBySlug } from "./data.js";

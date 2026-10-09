@@ -392,12 +392,18 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
 }
 ```
 
-The builders: `buildBlogIndexMetadata(config, { isEmpty })`, `buildArticleMetadata(config, article)`,
-`buildGlossaryIndexMetadata(config, { isEmpty })`, `buildTermMetadata(config, term)`,
-`buildMethodMetadata(config)`, `buildArticleJsonLd(config, article)`, `buildTermJsonLd(config, term)` and
+The builders: `buildBlogIndexMetadata(config, { isEmpty, images })`, `buildArticleMetadata(config, article)`,
+`buildGlossaryIndexMetadata(config, { isEmpty, images })`, `buildTermMetadata(config, term)`,
+`buildMethodMetadata(config, { images })`, `buildArticleJsonLd(config, article)`, `buildTermJsonLd(config, term)` and
 `buildGlossaryJsonLd(config, terms)` (`null` without terms); the JSON-LD comes serialized, safe inside a
 `<script>`. `getCrumbLabels(config)` gives the breadcrumb names for `getArticleCrumbs`/`getTermCrumbs`
-(`/server`); `getPageContext`, `renderPageBody` and `getRelatedArticles` render the rest.
+(`/server`); `getPageContext`, `renderPageBody` and `getRelatedArticles` render the rest, and `RelatedList`
+(`/ui`) renders the "read next" section from `getRelatedArticles`' result.
+
+Every page's `openGraph` carries `og:locale`. Next replaces the layout's `openGraph` with the page's object (no deep
+merge), so the static pages (listing, glossary index, method page) would lose the layout's card: pass it as
+`images`, e.g. `buildBlogIndexMetadata(config, { isEmpty, images: [{ url: "/opengraph-image", width: 1200, height: 630 }] })`.
+Articles and terms point at their own card.
 
 A body and a term's "explained in these texts" list take the input the ready-made pages build, so an own page
 links and lists exactly as they do:
@@ -460,7 +466,8 @@ export default function Page(props: BlogArticlePageProps) {
 
 - `classNames` names the element, the class without `blog-` in camelCase: `page`, `header`, `title`, `lead`,
   `crumbs`, `card`, `cardLead`, `cardTitle`, `article`, `section`, `disclaimer`… (`BLOG_SLOT_CLASSES` lists them
-  with their defaults). The app's class follows the package's, which sits in the `softure` layer, so it wins.
+  with their defaults). The "read next" list has `related`, `relatedTitle`, `relatedList` and `relatedItem`; the
+  last three have no default class (`styles.css` styles them through `.blog-related`). The app's class follows the package's, which sits in the `softure` layer, so it wins.
 - `unstyled` drops the `blog-*` classes. Text meant for screen readers only keeps `blog-visually-hidden` until
   `classNames.visuallyHidden` names the app's own class.
 - `layout` gets `{ context, title, lead, crumbs, meta, children }`; without it the markup is the package's.

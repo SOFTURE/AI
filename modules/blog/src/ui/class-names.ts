@@ -41,6 +41,10 @@ export const BLOG_SLOT_CLASSES = {
   faq: "blog-faq",
   sources: "blog-sources",
   related: "blog-related",
+  // No default class: `styles.css` styles the read-next list through `.blog-related`; the slots take the app's classes.
+  relatedTitle: "",
+  relatedList: "",
+  relatedItem: "",
   dates: "blog-dates",
   terms: "blog-terms",
   explainedIn: "blog-explained-in",
