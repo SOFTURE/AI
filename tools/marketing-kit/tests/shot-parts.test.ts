@@ -78,6 +78,32 @@ describe("crop frame", () => {
     });
   });
 
+  it("starts at the top element's edge when one is given, as wide as the element", () => {
+    expect(findCropFrame({ element: { x: 16, y: 100, width: 358, height: 500 }, top: 240.6, page, aspect: { width: 6, height: 5 }, padding: 0 })).toEqual({
+      ok: true,
+      frame: { x: 16, y: 240, width: 358, height: 298 },
+    });
+    expect(findCropFrame({ element: { x: 100, y: 100, width: 400, height: 500 }, top: 100, page, aspect: { width: 4, height: 3 }, padding: 20 })).toEqual({
+      ok: true,
+      frame: { x: 80, y: 80, width: 440, height: 330 },
+    });
+  });
+
+  it("refuses a top element whose edge lies outside the element", () => {
+    expect(findCropFrame({ element: { x: 16, y: 100, width: 358, height: 500 }, top: 90, page, aspect: { width: 6, height: 5 }, padding: 0 })).toEqual({
+      ok: false,
+      message: "crop.top's top edge lies 10 px above crop.target",
+    });
+    expect(findCropFrame({ element: { x: 16, y: 100, width: 358, height: 500 }, top: 620.4, page, aspect: { width: 6, height: 5 }, padding: 0 })).toEqual({
+      ok: false,
+      message: "crop.top's top edge lies 20 px below crop.target's bottom edge",
+    });
+    expect(findCropFrame({ element: { x: 16, y: 100, width: 358, height: 500 }, top: 600, page, aspect: { width: 6, height: 5 }, padding: 0 })).toEqual({
+      ok: false,
+      message: "crop.top's top edge lies 0 px below crop.target's bottom edge",
+    });
+  });
+
   it("refuses a frame past the page's bottom, left or top edge, or around an element without width", () => {
     expect(findCropFrame({ element: { x: 0, y: 1900, width: 400, height: 50 }, page, aspect: { width: 4, height: 3 }, padding: 0 })).toEqual({
       ok: false,
@@ -121,6 +147,7 @@ describe("shot texts", () => {
     scale: 1,
     waitMs: 0,
     signedIn: true,
+    hide: [],
     steps: [{ do: "fill", target: { kind: "label", label: "Search", exact: false, nth: null }, value: "{data:total}" }],
   };
   const texts: ShotTexts = {
