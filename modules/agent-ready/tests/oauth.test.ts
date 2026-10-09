@@ -1,6 +1,7 @@
 // OAuth discovery: the keys agent-ready adds to the issuer's documents, and auth.md, checked against
 // @softure-ai/mcp-access's real builders so the two cannot drift.
 import {
+  agentReady,
   buildAgentAuthMetadata,
   buildAuthMd,
   buildResourceDocumentation,
@@ -9,11 +10,17 @@ import {
   EMPTY_JWKS,
   getResourceMetadataUrl,
   listMetadataUrls,
+  resolveDocumentContext,
+  type AgentReadyOptionsInput,
 } from "@softure-ai/agent-ready";
+import { auth } from "@softure-ai/auth";
+import { defineSoftureConfig } from "@softure-ai/core";
+import { mcpAccess, MCP_RATE_LIMIT_BUCKETS } from "@softure-ai/mcp-access";
+import { headerIp, security } from "@softure-ai/security";
 import { createIssuerRequest } from "@softure-ai/agent-ready/next";
 import { getProtectedResourceMetadata, resolveMcpOrigins } from "@softure-ai/mcp-access/server";
 import { describe, expect, it } from "vitest";
-import { APEX, APP, createContext, createIssuerConfig, createIssuerProvider } from "./support.js";
+import { APEX, APP, BASE_OPTIONS, createContext, createIssuerConfig, createIssuerProvider, createRequest } from "./support.js";
 
 describe("the authorization server additions", () => {
   it("adds jwks_uri on the app host, documentation and auth.md on the apex", () => {
@@ -98,5 +105,45 @@ describe("auth.md", () => {
   it("works for a single host as well", () => {
     const single = buildAuthMd({ ...context, origins: createOrigins(APP) }, metadata);
     expect(single).toContain(`More for people: ${APP}/`);
+  });
+});
+
+describe("lifetimes from mcp-access (#316)", () => {
+  const metadata = createIssuerProvider(createIssuerConfig())(createIssuerRequest(APP));
+  const oauth = { authorizationServerMetadata: () => metadata };
+
+  function buildDocument(agentOptions: Partial<AgentReadyOptionsInput>, oauthEnabled: boolean): string {
+    const config = defineSoftureConfig({
+      database: { url: "pglite://" },
+      locale: "en",
+      timezone: "Europe/Warsaw",
+      appOrigin: APP,
+      modules: [
+        security({ clientIp: headerIp("x-real-ip"), buckets: { ...MCP_RATE_LIMIT_BUCKETS } }),
+        auth({}),
+        mcpAccess({
+          serverName: "example",
+          oauth: { enabled: oauthEnabled, authorizationCodeLifetimeMinutes: 5, accessTokenLifetimeMinutes: 30, refreshTokenLifetimeDays: 7 },
+        }),
+        agentReady({ ...BASE_OPTIONS, ...agentOptions }),
+      ],
+    });
+    return buildAuthMd(resolveDocumentContext(config, createRequest("/auth.md", "app.example.com")), metadata);
+  }
+
+  it("states mcp-access's lifetimes when agent-ready sets none", () => {
+    const document = buildDocument({ oauth }, true);
+    expect(document).toContain("expires after 5 minutes");
+    expect(document).toContain("`expires_in`: 1800");
+    expect(document).toContain("A refresh token lives 7 days.");
+  });
+
+  it("keeps lifetimes set in agent-ready", () => {
+    const lifetimes = { authorizationCodeMinutes: 10, accessTokenMinutes: 60, refreshTokenDays: 90 };
+    expect(buildDocument({ oauth: { ...oauth, lifetimes } }, true)).toContain("expires after 10 minutes");
+  });
+
+  it("states none when mcp-access runs no OAuth", () => {
+    expect(buildDocument({ oauth }, false)).not.toContain("expires after");
   });
 });

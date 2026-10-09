@@ -55,8 +55,34 @@ export type AuthorizationServerMetadataProvider = (
   origins: AgentOrigins,
 ) => Readonly<Record<string, unknown>> | Promise<Readonly<Record<string, unknown>>>;
 
-/** Builds the app's MCP server for introspection, with an anonymous context: no account, no data. */
-export type McpServerFactory = () => unknown;
+/**
+ * What the MCP server factory gets for discovery: the shape of `@softure-ai/mcp-access`'s `McpServerIdentity`, so the
+ * app passes the same `createServer` it gives `createMcpRoute`. The user is the nil UUID and no tool is ever called,
+ * so the server reads nothing of any account.
+ */
+export interface McpDiscoveryIdentity {
+  readonly userId: string;
+  /** Whether write tools are registered: mcp-access's `allowWrites` when that module is configured, else true. */
+  readonly canWrite: boolean;
+  readonly tokenId: string;
+}
+
+/** The user id discovery hands the factory: no account has it. */
+export const DISCOVERY_USER_ID = "00000000-0000-0000-0000-000000000000";
+
+/** The token id discovery hands the factory, for the server's own logs. */
+export const DISCOVERY_TOKEN_ID = "agent-ready-discovery";
+
+/** The identity discovery builds the server with. */
+export function createDiscoveryIdentity(canWrite: boolean): McpDiscoveryIdentity {
+  return { userId: DISCOVERY_USER_ID, canWrite, tokenId: DISCOVERY_TOKEN_ID };
+}
+
+/**
+ * Builds the app's MCP server for introspection, from an anonymous identity: the factory mcp-access's
+ * `createMcpRoute({ createServer })` takes fits as is. A factory that takes no argument fits too.
+ */
+export type McpServerFactory = (identity: McpDiscoveryIdentity) => unknown;
 
 /** A skill an app publishes; `body` is the Markdown after the frontmatter, for the request's origins. */
 export interface AgentSkillInput {
@@ -100,14 +126,19 @@ export const agentReadyOptionsSchema = z
     /** One or two sentences on what an agent can do with the app. */
     description: textSchema,
     provider: z.strictObject({ organization: z.string().trim().min(1).max(200) }),
-    mcp: z.strictObject({
-      /** The MCP endpoint's path on the app host. */
-      path: pathSchema.default("/api/mcp"),
-      /** The app's MCP server with an anonymous context, for `initialize` and `tools/list`. Async imports are welcome. */
-      server: functionSchema<McpServerFactory>("must be a function () => McpServer | Promise<McpServer>"),
-      /** The protocol versions the endpoint accepts; default: the SDK's `SUPPORTED_PROTOCOL_VERSIONS`. */
-      protocolVersions: z.array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "must be a date version such as 2025-06-18")).min(1).optional(),
-    }),
+    mcp: z
+      .strictObject({
+        /** The MCP endpoint's path on the app host. */
+        path: pathSchema.default("/api/mcp"),
+        /**
+         * The app's MCP server factory, for `initialize` and `tools/list`. Prefer `createAgentReadyRoutes({ createServer })`
+         * from `/next`: a factory here makes every script that loads the config bundle the server.
+         */
+        server: functionSchema<McpServerFactory>("must be a function (identity) => McpServer | Promise<McpServer>").optional(),
+        /** The protocol versions the endpoint accepts; default: the SDK's `SUPPORTED_PROTOCOL_VERSIONS`. */
+        protocolVersions: z.array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "must be a date version such as 2025-06-18")).min(1).optional(),
+      })
+      .prefault({}),
     /** The scopes the endpoint checks: every token reads, a token that may write carries the write scope. */
     scopes: z
       .strictObject({
