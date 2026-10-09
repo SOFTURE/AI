@@ -112,9 +112,15 @@ export type OgFontSource = z.output<typeof ogFontSchema>;
 const brandSchema = z.strictObject({
   /** The site's name: in page titles, as the author and publisher in JSON-LD, on the OG card. */
   name: z.string().trim().min(1).max(80),
-  /** The OG card's colours; each defaults to the dark scheme of @softure-ai/ui's default theme. */
+  /** The OG card's colours; each defaults to the dark scheme of @softure-ai/ui's default theme (`muted` to the foreground). */
   colors: z
-    .strictObject({ background: colorSchema.optional(), foreground: colorSchema.optional(), accent: colorSchema.optional() })
+    .strictObject({
+      background: colorSchema.optional(),
+      foreground: colorSchema.optional(),
+      accent: colorSchema.optional(),
+      /** The label line under the title; the foreground by default. */
+      muted: colorSchema.optional(),
+    })
     .optional(),
   /**
    * The OG card's fonts, read by the card's route on its first render and kept for the life of the
@@ -252,6 +258,11 @@ export const blogOptionsSchema = z
     methodPage: z.boolean().default(false),
     /** A note under every text (not advice, not a recommendation…); none by default. */
     disclaimer: localizedTextSchema.optional(),
+    /**
+     * Whether the texts are written by an AI model: the method page then opens with the disclosure
+     * (`messages.method.aiTitle`, `aiBody`; AI Act art. 50(4)) and "who writes" takes `whoBodyAi`.
+     */
+    aiDisclosure: z.boolean().default(false),
     /** Display names of clusters by key; a cluster without one shows its key with spaces. */
     clusters: z.record(z.string().regex(KEBAB, "must be kebab-case, e.g. investing-basics"), localizedTextSchema).default({}),
     /** Block plugins for the app's fenced blocks (`renderArticle({ blocks })`), used by the pages. */

@@ -4,6 +4,36 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mailing@x.y.z`).
 
+## 0.1.12
+
+- New `runDeliveries(ctx, { recipients, build }, { limit, pauseMs, dryRun, onDelivery })` (`/server`, and
+  `runDeliveries(input, options)` in `/next`): one `deliverOnce` per recipient, `build` returning the delivery or
+  `null` to skip. Stops at a refused account or a spent quota (`halted`, `remaining: null`), counts `limit` like
+  `sendCampaign`, and returns `DeliveryRunSummary` (`dryRun`, `recipients`, `skipped`, `sent`, `rejected` by code,
+  `done`, `inFlight`, `retryLater`, `uncertain`, `halted`, `remaining`). A dry run writes and sends nothing.
+- Migration `0005`: a SQL surface for the app's own queries, `mailing.recipient_key(text)` (equal to
+  `getRecipientKey`), `mailing.is_suppressed(text)`, `mailing.was_delivered(scope, text)`, and the views
+  `mailing.delivery_outcomes` and `mailing.suppressed_recipients`. Run `softure migrate`. Dropping
+  `mailing.deliveries` or `mailing.suppressions` now needs `CASCADE`.
+- New `previewMail(config, mail, { env })` (`/server`, `previewMail(mail)` in `/next`): exactly the
+  `ProviderMessage` `sendMail` would hand the provider, footer and RFC 8058 headers included, without sending,
+  logging or reading the database. New `maskAddress` and `redactUnsubscribeSignatures` for operator output.
+- `mailing({ testAddress })` and `softure-mail test [<content-file>] [--kind <kind>] [--preview]`: sends a fixed
+  test mail, or a campaign's content outside the ledger, to that address only.
+- `softure-mail campaign`: the dry run prints the mail as the test address gets it (addresses masked, link
+  signatures redacted); `--content-file <file>` names the content file for `softure-deploy run`, which the README
+  documents. `getCampaignProblems(content, config)` also refuses a body with a pasted unsubscribe link or footer, and
+  `sendCampaign`, `planCampaign` and the command refuse such content.
+- `mailing({ kindAliases: { news: "newsletter" } })` and `resolveMailKind(config, kind)`: campaign files and
+  `softure-mail test --kind` may name a kind by its alias.
+- `checkSenderDns(domain, { inbound: "cloudflare" })` and `softure-mail dns --inbound cloudflare`: Cloudflare Email
+  Routing's MX and one SPF record including `_spf.mx.cloudflare.net` on the reply-to domain (else the checked
+  domain). New finding `missing-include`, new report key `inbound` (`[]` when not asked), new `CLOUDFLARE_INBOUND`.
+  Code that builds a `SenderDnsReport` by hand must add `inbound`.
+- `legacyUnsubscribe.verify(values, ctx, env)` receives the environment `unsubscribe` runs with.
+- New `createUnsubscribePage({ classNames, unstyled, Layout })` in `/next`: slots `root`, `card`, `form`, `submit`,
+  or the app's own layout around the copy and the form. `UnsubscribePage` is unchanged.
+
 ## 0.1.11
 
 - `sendCampaign(ctx, input, { limit })` hands at most `limit` mails to the provider in one run (sent, rejected by it,

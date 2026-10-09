@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/auth",
-  "version": "0.1.10",
+  "version": "0.1.12",
   "description": "SOFTURE AI auth module: users, scrypt passwords, database sessions, register with consent, login, logout, password change, roles, a proxy route guard, pages and forms for Next.js, and a password reset sender over @softure-ai/mailing.",
   "license": "MIT",
   "type": "module",
@@ -72,7 +72,7 @@
     "build": "tsc -p tsconfig.build.json"
   },
   "dependencies": {
-    "@softure-ai/core": "^0.1.0",
+    "@softure-ai/core": "^0.1.8",
     "@softure-ai/db": "^0.1.0",
     "@softure-ai/security": "^0.1.0",
     "zod": "^4.6.5"

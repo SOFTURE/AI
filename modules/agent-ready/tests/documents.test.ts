@@ -20,6 +20,8 @@ import {
   type McpServerDescription,
 } from "@softure-ai/agent-ready";
 import { expectOriginMatrix } from "@softure-ai/agent-ready/testing";
+// The config type without `next`'s global augmentations (`NODE_ENV` read-only), which the bare entry pulls into the tree.
+import type { NextConfig } from "next/dist/server/config-shared.js";
 import { describe, expect, it } from "vitest";
 import { APEX, APP, createContext } from "./support.js";
 
@@ -63,6 +65,15 @@ describe("the home page Link header", () => {
 
   it("gives the next.config headers rule for /", () => {
     expect(nextHeaders()).toEqual([{ source: "/", headers: [{ key: "Link", value: buildHomeLinkHeader() }] }]);
+  });
+
+  it("returns rules that next.config.ts headers() accepts as they are (#304)", async () => {
+    const nextConfig: NextConfig = {
+      headers() {
+        return [...nextHeaders({ markdown: true })];
+      },
+    };
+    expect(await nextConfig.headers?.()).toEqual(nextHeaders({ markdown: true }));
   });
 });
 
