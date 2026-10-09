@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { trimTrailingSlashes } from "../verify/checks.js";
 import { parseOriginAddress, type OriginAddress } from "../verify/origin-check.js";
-import { formatVerifyReport } from "../verify/report.js";
+import { formatVerifyReport, isFailure } from "../verify/report.js";
 import { DEFAULT_CONCURRENCY, runVerify } from "../verify/run-checks.js";
 import type { VerifyConfig } from "../verify/schema.js";
 import { DEFAULT_DEPLOY_CONFIG, readDeployConfig } from "./deploy-config.js";
@@ -93,11 +93,12 @@ export async function runVerifyCommand(args: string[], io: CliIo): Promise<void>
     ...(origin === undefined ? {} : { origin }),
   });
   io.stdout(formatVerifyReport(report, baseUrl));
-  const failed = report.routes.filter((route) => !route.passed).length;
+  // A failed warn row is printed as WARN and fails nothing.
+  const failed = report.routes.filter(isFailure).length;
   const problems = [
     ...(failed > 0 ? [`${failed} of ${report.routes.length} routes failed`] : []),
     ...(report.tls?.passed === false ? ["the TLS certificate check failed"] : []),
-    ...(report.origin?.passed === false ? [`the origin ${report.origin.address} is not closed to direct traffic`] : []),
+    ...(report.origin !== null && isFailure(report.origin) ? [`the origin ${report.origin.address} is not closed to direct traffic`] : []),
   ];
   if (problems.length > 0) fail(`verify: ${problems.join("; ")}.`);
 }

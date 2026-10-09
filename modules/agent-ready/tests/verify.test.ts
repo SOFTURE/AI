@@ -60,7 +60,8 @@ afterEach(() => {
 function parseRoutes(routes: readonly VerifyRoute[]) {
   const parsed = parseDeployConfig({ verify: { routes } });
   if (!parsed.ok) throw new Error(parsed.issues.join("\n"));
-  return parsed.config.verify?.routes ?? [];
+  // The manifest has no forEach routes, so every route keeps its path.
+  return (parsed.config.verify?.routes ?? []).flatMap((route) => (route.path === undefined ? [] : [{ ...route, path: route.path }]));
 }
 
 describe("buildVerifyManifest", () => {

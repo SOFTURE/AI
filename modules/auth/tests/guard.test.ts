@@ -174,4 +174,50 @@ describe("createAuthGuard", () => {
       },
     );
   });
+  describe("relative redirect (#314)", () => {
+    const relative = createAuthGuard(config, { protect: ["/account"], redirect: "relative" });
+
+    it("answers with a path-only Location, so any host or port the request came on keeps it", () => {
+      const response = relative(new Request("http://localhost:41234/account/billing?tab=1", { headers: { "x-forwarded-host": "evil.example" } }));
+      expect(response?.status).toBe(307);
+      expect(response?.headers.get("location")).toBe("/login?next=%2Faccount%2Fbilling%3Ftab%3D1");
+    });
+
+    it("follows the app's login route", () => {
+      const custom = createConfig({ appOrigin: "http://localhost:3000", auth: { routes: { login: "/sign-in" } } });
+      expect(createAuthGuard(custom, { protect: ["/app"], redirect: "relative" })(request("/app"))?.headers.get("location")).toBe("/sign-in?next=%2Fapp");
+    });
+
+    it("keeps an absolute Location on the resolved origin by default", () => {
+      expect(createAuthGuard(config, { protect: ["/account"], redirect: "absolute" })(request("/account"))?.headers.get("location")).toBe(
+        "https://app.example.com/login?next=%2Faccount",
+      );
+    });
+
+    it("lets a request with a session through", () => {
+      expect(relative(request("/account", "__Host-softure_session=abc"))).toBeNull();
+    });
+  });
+
+  describe("exact public paths (#314)", () => {
+    const allowlist = createAuthGuard(config, { protect: ["/"], excludeExact: ["/pricing", "/blog/", "/Terms"] });
+
+    it.each(["/pricing", "/blog", "/blog/", "/terms", "/TERMS", "/%70ricing"])("lets the listed path %s through", (path) => {
+      expect(allowlist(request(path))).toBeNull();
+    });
+
+    it.each(["/", "/pricing/admin", "/pricing-old", "/blog/draft", "/terms/x", "/dashboard"])("guards %s, which is not listed exactly", (path) => {
+      expect(allowlist(request(path))?.status).toBe(307);
+    });
+
+    it("still lets auth's own pages through and still guards the change-password route", () => {
+      const withAccount = createAuthGuard(config, { protect: ["/"], excludeExact: ["/account/password"] });
+      expect(withAccount(request("/login"))).toBeNull();
+      expect(withAccount(request("/account/password"))?.status).toBe(307);
+    });
+
+    it("refuses an exact path that does not start with /", () => {
+      expect(() => createAuthGuard(config, { protect: ["/"], excludeExact: ["pricing"] })).toThrow('createAuthGuard: excluded path "pricing" must start with /');
+    });
+  });
 });

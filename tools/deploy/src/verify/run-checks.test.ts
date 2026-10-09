@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -140,6 +141,7 @@ describe("runVerify against a local server", () => {
       url: `${baseUrl}/`,
       status: 500,
       passed: false,
+      severity: "fail",
       checks: [
         { kind: "status", passed: false, detail: "status 500, expected 200" },
         { kind: "contains", passed: false, detail: 'missing "<h1>Home"' },
@@ -233,8 +235,129 @@ describe("runVerify with an origin", () => {
     expect(report.origin).toEqual({
       address: `127.0.0.1:${port}`,
       passed: false,
+      severity: "fail",
       detail: `127.0.0.1:${port} accepted a direct connection; the firewall lets more than the CDN through`,
     });
+  });
+});
+
+describe("runVerify: app-side checks (issue #309)", () => {
+  const SKILL = "---\nname: search\n---\nUse the search tool.\n";
+  const SKILL_DIGEST = `sha256:${createHash("sha256").update(SKILL, "utf8").digest("hex")}`;
+
+  it("checks every sitemap entry whose path matches, on the verified origin, with the route's user agent", async () => {
+    serve("/sitemap.xml", (_request, response) =>
+      response.writeHead(200, { "content-type": "application/xml" }).end(
+        [
+          '<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+          "<url><loc>https://prod.example/</loc></url>",
+          "<url><loc>https://prod.example/blog/first?x=1&amp;y=2</loc></url>",
+          "<url><loc>\n  https://prod.example/blog/second\n</loc></url>",
+          "</urlset>",
+        ].join(""),
+      ));
+    serve("/blog/first?x=1&y=2", (_request, response) => response.writeHead(200).end("<head><title>First</title></head>"));
+    serve("/blog/second", (_request, response) => response.writeHead(404).end("Not found"));
+    const { routes } = await runVerify({
+      baseUrl,
+      config: verifyConfig({
+        routes: [
+          {
+            forEach: { sitemap: "/sitemap.xml", match: "/blog/" },
+            requestHeaders: { "user-agent": "GPTBot/1.3" },
+            within: "head",
+            contains: ["<title>"],
+          },
+        ],
+      }),
+    });
+    expect(routes.map((route) => [route.path, route.url, route.status, route.passed])).toEqual([
+      ["/blog/first?x=1&y=2", `${baseUrl}/blog/first?x=1&y=2`, 200, true],
+      ["/blog/second", `${baseUrl}/blog/second`, 404, false],
+    ]);
+    expect(seen.map((request) => [request.url, request.headers["user-agent"]])).toEqual([
+      ["/sitemap.xml", "GPTBot/1.3"],
+      ["/blog/first?x=1&y=2", "GPTBot/1.3"],
+      ["/blog/second", "GPTBot/1.3"],
+    ]);
+  });
+
+  it("fails one row naming the sitemap when it is missing or nothing matches", async () => {
+    serve("/sitemap.xml", (_request, response) => response.writeHead(200).end("<urlset><url><loc>https://prod.example/</loc></url></urlset>"));
+    const { routes } = await runVerify({
+      baseUrl,
+      config: verifyConfig({ routes: [{ forEach: { sitemap: "/missing.xml" } }, { forEach: { sitemap: "/sitemap.xml", match: "/blog/" } }] }),
+    });
+    expect(routes).toEqual([
+      {
+        method: "GET",
+        path: "sitemap /missing.xml",
+        url: `${baseUrl}/missing.xml`,
+        status: 404,
+        passed: false,
+        severity: "fail",
+        checks: [{ kind: "source", passed: false, detail: "sitemap /missing.xml: status 404, expected 200" }],
+      },
+      {
+        method: "GET",
+        path: "sitemap /sitemap.xml",
+        url: `${baseUrl}/sitemap.xml`,
+        status: 200,
+        passed: false,
+        severity: "fail",
+        checks: [{ kind: "source", passed: false, detail: 'sitemap /sitemap.xml: no entry matches "/blog/"' }],
+      },
+    ]);
+  });
+
+  it("checks every entry of an Agent Skills index against its digest", async () => {
+    const index = {
+      skills: [
+        { name: "search", url: "/.well-known/agent-skills/search/SKILL.md", digest: SKILL_DIGEST },
+        { name: "stale", url: "https://prod.example/.well-known/agent-skills/stale/SKILL.md", digest: SKILL_DIGEST },
+      ],
+    };
+    serve("/.well-known/agent-skills/index.json", (_request, response) => response.writeHead(200).end(JSON.stringify(index)));
+    serve("/.well-known/agent-skills/search/SKILL.md", (_request, response) => response.writeHead(200).end(SKILL));
+    serve("/.well-known/agent-skills/stale/SKILL.md", (_request, response) => response.writeHead(200).end(`${SKILL}edited\n`));
+    const { routes } = await runVerify({
+      baseUrl,
+      config: verifyConfig({ routes: [{ forEach: { index: "/.well-known/agent-skills/index.json" }, contains: ["name: search"] }] }),
+    });
+    expect(routes.map((route) => [route.path, route.passed, route.checks.map((check) => check.kind)])).toEqual([
+      ["/.well-known/agent-skills/search/SKILL.md", true, ["status", "contains", "sha256"]],
+      ["/.well-known/agent-skills/stale/SKILL.md", false, ["status", "contains", "sha256"]],
+    ]);
+    expect(routes[1]?.checks[2]?.detail).toMatch(/^sha256 [0-9a-f]{64}, expected [0-9a-f]{64}$/);
+  });
+
+  it("fails one row naming the index when it is not the expected JSON", async () => {
+    serve("/a.json", (_request, response) => response.writeHead(200).end("not json"));
+    serve("/b.json", (_request, response) => response.writeHead(200).end(JSON.stringify({ skills: [{ url: 1 }] })));
+    serve("/c.json", (_request, response) => response.writeHead(200).end(JSON.stringify({ skills: [{ url: "/x", digest: "md5:1" }] })));
+    const { routes } = await runVerify({
+      baseUrl,
+      config: verifyConfig({ routes: ["/a.json", "/b.json", "/c.json"].map((index) => ({ forEach: { index } })) }),
+    });
+    expect(routes.map((route) => route.checks[0]?.detail)).toEqual([
+      "index /a.json: not JSON",
+      "index /b.json: entry 0 has no url text",
+      'index /c.json: entry 0 digest "md5:1" is not sha256:<hex>',
+    ]);
+  });
+
+  it("keeps a warn route's severity on its rows", async () => {
+    serve("/", (_request, response) => response.writeHead(404).end());
+    const { routes } = await runVerify({ baseUrl, config: verifyConfig({ routes: [{ path: "/", severity: "warn" }] }) });
+    expect(routes.map((route) => [route.passed, route.severity])).toEqual([[false, "warn"]]);
+  });
+
+  it("reads the body as bytes, so the digest covers exactly what was served", async () => {
+    const bytes = Buffer.from([0xef, 0xbb, 0xbf, 0x68, 0x69]);
+    serve("/bom.txt", (_request, response) => response.writeHead(200).end(bytes));
+    const digest = createHash("sha256").update(bytes).digest("hex");
+    const { routes } = await runVerify({ baseUrl, config: verifyConfig({ routes: [{ path: "/bom.txt", sha256: digest }] }) });
+    expect(routes[0]?.passed).toBe(true);
   });
 });
 

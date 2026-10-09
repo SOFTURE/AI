@@ -6,6 +6,18 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## 0.1.8
 
+- `verify` takes the checks an app kept in a shell script (issue #309):
+  - `severity: "warn"` on a route, and `verify.originSeverity: "warn"` for the `--origin` row: a failed row prints
+    `WARN`, the summary adds `, N warned`, and the run still passes. Default `fail`, as before.
+  - `sha256` on a route (`sha256:<hex>` or the bare hex): the SHA-256 of the response's exact bytes must match.
+  - `within: "head"`: `contains`, `excludes` and `count` look only between `<head>` and `</head>`.
+  - `count: { "<marker>": n }`: the marker occurs exactly n times.
+  - `forEach` instead of `path`: `{ "sitemap": "/sitemap.xml", "match": "/blog/" }` checks the route for every
+    matching `<loc>`, `{ "index": "/.well-known/agent-skills/index.json" }` for every entry of an Agent Skills index,
+    each against the entry's `digest`. Each entry is a row, requested on the verified URL's origin with the route's
+    request headers; an unreadable source or no entry is one failed row naming it.
+  - For TypeScript callers: `VerifyRoute.path` is optional (a `forEach` route has none), and `ObservedResponse` takes
+    an optional `sha256`.
 - `init --cdn=cloudflare` locks the origin to Cloudflare (issue #310): `docker/server/cloudflare-only.sh` with its
   `.service` and `.path` units, which root installs once, lets only Cloudflare's ranges reach ports 80 and 443
   (iptables `DOCKER-USER`, IPv6 through `DOCKER-USER` or `INPUT`); `docker/prod/hooks/cloudflare-ranges.sh`, run as the
