@@ -226,16 +226,19 @@ A protected prefix matches whole path segments (`/account` covers `/account/pass
 because behind a reverse proxy the request URL carries the server's internal host.
 
 An app served on several hosts from one build (the product on `app.example.com`, pages on
-`example.com`) lists the others in `trustedOrigins`, so a visitor is sent to the login page on the
-host they used:
+`example.com`) lists the others in the config's `origins.trustedOrigins` (read by every module), so a
+visitor is sent to the login page on the host they used. The guard's own `trustedOrigins` option adds
+origins for the guard alone:
 
 ```ts
-const guard = createAuthGuard(softureConfig, { protect: ["/account"], trustedOrigins: ["https://example.com"] });
+defineSoftureConfig({ appOrigin: "https://app.example.com", origins: { trustedOrigins: ["https://example.com"] }, ... });
+const guard = createAuthGuard(softureConfig, { protect: ["/account"] });
 ```
 
-The guard reads the request's public origin from `X-Forwarded-Proto` and `X-Forwarded-Host` (first
-values), else from `Host` and the URL's scheme, and uses it only when it equals a listed origin
-(scheme, host and port); any other request goes to `appOrigin`. Headers alone can therefore never
+The guard builds the redirect on core's `resolveAppOrigin` (core README, "Request origins"): the
+request's public origin from `X-Forwarded-Proto` and `X-Forwarded-Host` (first values), else from
+`Host` and the URL's scheme, used only when it equals a listed origin (scheme, host and port); any
+other request goes to `appOrigin` (or, with `origins.trustRequestHost`, to the `Host` origin). Headers alone can therefore never
 send a visitor to a host the app did not list. An entry that is not an `http(s)` origin throws when
 the guard is created. A session cookie shared by the hosts needs `cookie.domain`.
 

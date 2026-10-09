@@ -78,6 +78,25 @@ describe("OAuth origins (#234)", () => {
       expect(resolveMcpOrigins(createConfig({ ...OAUTH_OPTIONS, resolveAppOrigin: () => `${APP}/` }), at(SERVED, "/")).appOrigin).toBe(APP);
     });
 
+    it("takes a listed origin from the config's origins block without a resolver (#311)", () => {
+      const listed = { ...createConfig(OAUTH_OPTIONS), origins: { trustedOrigins: [APP], trustRequestHost: false } };
+      expect(resolveMcpOrigins(listed, at(APP, "/")).appOrigin).toBe(APP);
+      expect(resolveMcpOrigins(listed, at(SERVED, "/", { headers: { "x-forwarded-host": "app.example.test", "x-forwarded-proto": "https" } })).appOrigin).toBe(APP);
+      expect(resolveMcpOrigins(listed, at("https://evil.example", "/")).appOrigin).toBe(CONFIGURED);
+      expect(resolveMcpOrigins(listed).appOrigin).toBe(CONFIGURED);
+    });
+
+    it("takes the request's Host with trustRequestHost, never an unlisted X-Forwarded-Host (#311)", () => {
+      const trusting = { ...createConfig(OAUTH_OPTIONS), origins: { trustedOrigins: [], trustRequestHost: true } };
+      expect(resolveMcpOrigins(trusting, at(SERVED, "/")).appOrigin).toBe(SERVED);
+      expect(resolveMcpOrigins(trusting, at(SERVED, "/", { headers: { "x-forwarded-host": "evil.example" } })).appOrigin).toBe(SERVED);
+    });
+
+    it("is exported from /next as getRequestOrigins for pages and actions (#311)", async () => {
+      const next = await import("@softure-ai/mcp-access/next");
+      expect(typeof next.getRequestOrigins).toBe("function");
+    });
+
     it("throws by name when the resolver answers something that is not an http(s) origin", () => {
       for (const value of [`${APP}/api`, "ftp://example.test", "not a url", `${APP}?x=1`]) {
         const config = createConfig({ ...OAUTH_OPTIONS, resolveAppOrigin: () => value });
@@ -252,9 +271,9 @@ describe("OAuth origins (#234)", () => {
   });
 
   describe("discovery caching", () => {
-    it("varies the documents by Host and X-Forwarded-Proto", () => {
+    it("varies the documents by Host, X-Forwarded-Host and X-Forwarded-Proto", () => {
       const served = serveDiscoveryDocument(createConfig(OAUTH_OPTIONS), getRootProtectedResourceMetadata, at(APP, "/.well-known/oauth-protected-resource"));
-      expect(served.headers.get("vary")).toBe("host, x-forwarded-proto");
+      expect(served.headers.get("vary")).toBe("host, x-forwarded-host, x-forwarded-proto");
       expect(served.headers.get("cache-control")).toBe("public, max-age=300");
     });
   });

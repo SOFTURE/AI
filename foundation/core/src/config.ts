@@ -33,6 +33,25 @@ export interface SoftureDatabaseConfig {
   readonly handle?: () => MaybePromise<SoftureDatabaseHandle>;
 }
 
+/** The app's origins besides `appOrigin` and how far the request's own host is trusted (core `resolveAppOrigin`). */
+export interface SoftureOrigins {
+  /**
+   * Other origins the app is served under (an apex beside `app.`, a second domain): absolute URLs for a request sent
+   * to one of them stay on it. At most 16.
+   */
+  readonly trustedOrigins: readonly string[];
+  /**
+   * Trust the request's `Host` (and `X-Forwarded-Proto`) for any host, not only listed ones: for an image built once
+   * and served under origins nobody lists, behind a proxy that refuses hosts it does not serve. Default false.
+   */
+  readonly trustRequestHost: boolean;
+}
+
+export interface SoftureOriginsInput {
+  readonly trustedOrigins?: readonly string[];
+  readonly trustRequestHost?: boolean;
+}
+
 export interface SoftureConfig {
   /**
    * `null` when the app has no database; required as soon as a module has a `dbSchema`. An empty `url`
@@ -44,6 +63,8 @@ export interface SoftureConfig {
   readonly timezone: string;
   /** Scheme, host and port of the app, without a path: `https://app.example.com`. */
   readonly appOrigin: string;
+  /** Every origin the app is served under besides `appOrigin`, read by `resolveAppOrigin`. */
+  readonly origins: SoftureOrigins;
   /** Enabled modules, in the order the app listed them. */
   readonly modules: readonly AnySoftureModule[];
 }
@@ -54,10 +75,13 @@ export interface SoftureConfigInput {
   readonly locale: Locale;
   readonly timezone: string;
   readonly appOrigin: string;
+  readonly origins?: SoftureOriginsInput;
   readonly modules: readonly AnySoftureModule[];
 }
 
 const CONFIG_SUBJECT = "softure.config (defineSoftureConfig)";
+
+const ORIGIN_MESSAGE = "must be an http(s) origin without a path, e.g. https://app.example.com";
 
 const configSchema = z.object({
   // The URL is not checked for emptiness here: builds import the config without DATABASE_URL, so an empty URL is
@@ -73,7 +97,13 @@ const configSchema = z.object({
     .default(null),
   locale: z.enum(LOCALES),
   timezone: z.string().refine(isTimeZone, "must be an IANA time zone, e.g. Europe/Warsaw"),
-  appOrigin: z.string().refine(isOrigin, "must be an http(s) origin without a path, e.g. https://app.example.com"),
+  appOrigin: z.string().refine(isOrigin, ORIGIN_MESSAGE),
+  origins: z
+    .strictObject({
+      trustedOrigins: z.array(z.string().refine(isOrigin, ORIGIN_MESSAGE)).max(16, "takes at most 16 origins").default([]),
+      trustRequestHost: z.boolean().default(false),
+    })
+    .default({ trustedOrigins: [], trustRequestHost: false }),
   modules: z.array(z.custom<AnySoftureModule>(isSoftureModule, "must be a module returned by a module factory")),
 });
 
@@ -97,6 +127,7 @@ export function defineSoftureConfig(input: SoftureConfigInput): SoftureConfig {
   return Object.freeze({
     ...config,
     database: config.database === null ? null : Object.freeze({ ...config.database }),
+    origins: Object.freeze({ ...config.origins, trustedOrigins: Object.freeze([...config.origins.trustedOrigins]) }),
     modules: Object.freeze([...config.modules]),
   });
 }
