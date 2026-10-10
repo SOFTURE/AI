@@ -86,6 +86,11 @@ workflow attached to the GitHub Release, once, from your machine:
 Without `NPM_TOKEN`, the npm job of a new package fails with a message pointing here; GitHub Packages
 and the GitHub Release are not created, so re-running the job after adding the secret is safe.
 
+To check the trusted publisher after step 3, release a patch version of the package: the "Publish to npm" step
+of its run prints the notice "publishing through its trusted publisher (OIDC), without NPM_TOKEN". Provenance
+alone proves nothing here, since the token publish of the first version carries it too. `@softure-ai/config` 0.1.1
+was released this way.
+
 ## First batch release (0.1.2)
 
 Every package except the template went out at 0.1.2, with `^0.1.0` ranges between them, so the first

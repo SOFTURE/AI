@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/config",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "SOFTURE AI shared tooling config for apps: an ESLint flat config preset, a tsconfig base, lefthook hooks and the softure-check-language gate (English only outside message dictionaries).",
   "license": "MIT",
   "type": "module",
