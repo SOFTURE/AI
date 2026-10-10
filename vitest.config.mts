@@ -21,7 +21,10 @@ export default defineConfig({
   },
   ssr: {
     resolve: {
-      conditions: [SOURCE_CONDITION, ...defaultServerConditions],
+      // Without `module`: it picks @opentelemetry's ESM build, whose imports have no file extensions, and Node
+      // refuses it once Vitest externalizes the package (measured: "Cannot find module .../build/esm/baggage/utils";
+      // `server.deps.inline` and `ssr.noExternal` did not change it). Node itself never reads `module`.
+      conditions: [SOURCE_CONDITION, ...defaultServerConditions.filter((condition) => condition !== "module")],
     },
   },
   test: {

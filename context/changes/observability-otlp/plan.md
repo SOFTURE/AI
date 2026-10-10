@@ -177,6 +177,11 @@ handle; `shutdown()` resolves and later log calls do not throw.
 
 ## Decisions (auto)
 
+- Phase 1 drift: Vitest's SSR conditions drop `module` (`vitest.config.mts`), because that condition picks
+  @opentelemetry's ESM build with extension-less imports, which Node refuses once Vitest externalizes it;
+  `server.deps.inline` and `ssr.noExternal` did not help (measured). Node itself never reads `module`.
+- Phase 1 drift: `tests/repo/release-tags.test.ts` counts 22 public packages (was 21) now that the package exists.
+
 - Complexity → medium (one package, three entry points, no data).
 - Metrics now? → no (issue scope).
 - Console format JSON or text? → text `<level> <name>: <message> key=value` (readable in `docker logs`; structured data goes through OTLP).
@@ -190,9 +195,9 @@ handle; `shutdown()` resolves and later log calls do not throw.
 ### Phase 1: Logger package
 
 #### Automated
-- [ ] 1.1 `tests/logger.test.ts` passes with every case above.
-- [ ] 1.2 `npm run build` emits `foundation/observability/dist/index.js` and the repository shape tests pass for the new package.
-- [ ] 1.3 Gates green (typecheck, lint, test)
+- [x] 1.1 `tests/logger.test.ts` passes with every case above.
+- [x] 1.2 `npm run build` emits `foundation/observability/dist/index.js` and the repository shape tests pass for the new package.
+- [x] 1.3 Gates green (typecheck, lint, test)
 
 ### Phase 2: Node.js registration and OTLP export
 
