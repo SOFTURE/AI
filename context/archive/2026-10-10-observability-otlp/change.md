@@ -1,13 +1,13 @@
 ---
 change_id: observability-otlp
 title: "Node and Next.js apps ship logs and traces over OTLP with @softure-ai/observability (issue #370)"
-status: impl_reviewed
+status: archived
 roadmap_item: null
 issue: 370
 branch: claude/dotnet-observability-mcp-wnmlot
 created: 2026-10-10
 updated: 2026-10-10
-archived_at: null
+archived_at: 2026-10-10
 ---
 
 ## Intent

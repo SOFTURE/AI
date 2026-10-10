@@ -224,5 +224,5 @@ handle; `shutdown()` resolves and later log calls do not throw.
 
 #### Automated
 - [x] 3.1 `tests/next.test.ts` passes. — 348bfab
-- [ ] 3.2 `npm run e2e` passes with the example app wired to the package.
+- [x] 3.2 `npm run e2e` passes with the example app wired to the package. — 3458240 (verified by CI: job `example app e2e` on PR #373)
 - [x] 3.3 Gates green (typecheck, lint, test) — 348bfab
