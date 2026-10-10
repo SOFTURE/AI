@@ -6,7 +6,7 @@ import { startOtlpReceiver, type OtlpReceiver } from "./otlp-receiver.js";
 
 const CHILD = fileURLToPath(new URL("./fixtures/signal-child.ts", import.meta.url));
 
-type ChildResult = { code: number | null; signal: NodeJS.Signals | null; stdout: string };
+type ChildResult = { code: number | null; signal: NodeJS.Signals | null; stdout: string; stderr: string };
 
 let receiver: OtlpReceiver | undefined;
 
@@ -19,7 +19,8 @@ afterEach(async () => {
 function runChild(endpoint: string, withAppHandler: boolean): Promise<ChildResult> {
   return new Promise((resolve, reject) => {
     // `node --import tsx`, not the tsx binary: its wrapper process would receive the signal instead of the child.
-    const child = spawn(process.execPath, ["--import", "tsx", CHILD], {
+    // The source condition reads workspace packages from `src/`, as the tests do: CI runs them before any build.
+    const child = spawn(process.execPath, ["--conditions=@softure-ai/source", "--import", "tsx", CHILD], {
       env: {
         PATH: process.env.PATH,
         CHILD_ENDPOINT: endpoint,
@@ -28,6 +29,10 @@ function runChild(endpoint: string, withAppHandler: boolean): Promise<ChildResul
       stdio: ["ignore", "pipe", "pipe"],
     });
     let stdout = "";
+    let stderr = "";
+    child.stderr.on("data", (chunk: Buffer) => {
+      stderr += chunk.toString();
+    });
     let signalled = false;
     child.stdout.on("data", (chunk: Buffer) => {
       stdout += chunk.toString();
@@ -37,7 +42,7 @@ function runChild(endpoint: string, withAppHandler: boolean): Promise<ChildResul
       }
     });
     child.on("error", reject);
-    child.on("exit", (code, signal) => resolve({ code, signal, stdout }));
+    child.on("exit", (code, signal) => resolve({ code, signal, stdout, stderr }));
   });
 }
 
@@ -47,7 +52,7 @@ describe("handleSignals", () => {
 
     const result = await runChild(receiver.url, false);
 
-    expect(result.signal).toBe("SIGTERM");
+    expect(result.signal, result.stderr).toBe("SIGTERM");
     expect(receiver.requests.some((request) => request.path === "/v1/logs")).toBe(true);
   });
 
@@ -56,7 +61,7 @@ describe("handleSignals", () => {
 
     const result = await runChild(receiver.url, true);
 
-    expect(result.code).toBe(0);
+    expect(result.code, result.stderr).toBe(0);
     expect(result.stdout.match(/app handler ran/g)).toHaveLength(1);
     expect(receiver.requests.some((request) => request.path === "/v1/logs")).toBe(true);
   });
