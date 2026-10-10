@@ -6,5 +6,10 @@ version in production, the version gets a line `verified in: <app>@<commit>` ([d
 
 ## Unreleased
 
-- First version: `createLogger` (levels, attributes, child loggers, console output, OpenTelemetry log records with
-  the active trace and span ids) and `configureLogging`.
+- First version (#370).
+- `createLogger` and `configureLogging`: levels, attributes, child loggers, console output and OpenTelemetry log
+  records with the active trace and span ids; `errorDetails: "label"` keeps error messages and stacks out of logs.
+- `startObservability` (`/node`): traces and logs over OTLP/HTTP protobuf to the endpoint from the options or
+  `OTEL_EXPORTER_OTLP_*`, resource attributes from the options and `OTEL_*`, spans for outgoing `fetch`; nothing is
+  exported without an endpoint, and export headers are never printed.
+- `registerObservability` and `createOnRequestError` (`/next`) for a Next.js `instrumentation.ts`.

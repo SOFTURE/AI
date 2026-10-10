@@ -186,6 +186,11 @@ handle; `shutdown()` resolves and later log calls do not throw.
   5 tests red (config paths, export, header never printed); restored, 33/33 green.
 - Phase 2 drift: the disabled-mode test proves "no provider" by registering a probe provider successfully (the API
   returns a proxy, not a no-op provider, so a class-name check was wrong).
+- Phase 3: `npm run e2e` needs Docker or a Postgres server, neither available in the cloud session; 3.2 is
+  checked by the `e2e` workflow on the pull request. Locally: `next build` of the example app passed with no warning,
+  `npm ls @opentelemetry/api` shows one copy, and `next start` with `OTEL_EXPORTER_OTLP_ENDPOINT` pointed at a local
+  receiver delivered Next.js spans (`next.js` scope, `next.route`, `service.namespace`) as protobuf with the
+  `Authorization` header.
 - Phase 2 drift: the SDK packages moved from dev dependencies to dependencies, since `./node` imports them.
 
 - Complexity → medium (one package, three entry points, no data).
@@ -208,12 +213,12 @@ handle; `shutdown()` resolves and later log calls do not throw.
 ### Phase 2: Node.js registration and OTLP export
 
 #### Automated
-- [x] 2.1 `tests/config.test.ts` and `tests/start.test.ts` pass with every case above.
-- [x] 2.2 Gates green (typecheck, lint, test)
+- [x] 2.1 `tests/config.test.ts` and `tests/start.test.ts` pass with every case above. — 060011c
+- [x] 2.2 Gates green (typecheck, lint, test) — 060011c
 
 ### Phase 3: Next.js adapter, example app and documentation
 
 #### Automated
-- [ ] 3.1 `tests/next.test.ts` passes.
+- [x] 3.1 `tests/next.test.ts` passes.
 - [ ] 3.2 `npm run e2e` passes with the example app wired to the package.
-- [ ] 3.3 Gates green (typecheck, lint, test)
+- [x] 3.3 Gates green (typecheck, lint, test)
