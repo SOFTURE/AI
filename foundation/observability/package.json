@@ -28,18 +28,26 @@
       "@softure-ai/source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./node": {
+      "@softure-ai/source": "./src/node/index.ts",
+      "types": "./dist/node/index.d.ts",
+      "default": "./dist/node/index.js"
     }
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json"
   },
-  "devDependencies": {
-    "@opentelemetry/sdk-logs": "~0.223.0",
-    "@opentelemetry/sdk-trace-node": "^2.12.0"
-  },
   "dependencies": {
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/api-logs": "~0.223.0",
-    "@softure-ai/core": "^0.1.9"
+    "@softure-ai/core": "^0.1.9",
+    "@opentelemetry/exporter-logs-otlp-proto": "~0.223.0",
+    "@opentelemetry/exporter-trace-otlp-proto": "~0.223.0",
+    "@opentelemetry/instrumentation": "~0.223.0",
+    "@opentelemetry/instrumentation-undici": "~0.33.0",
+    "@opentelemetry/resources": "^2.12.0",
+    "@opentelemetry/sdk-logs": "~0.223.0",
+    "@opentelemetry/sdk-trace-node": "^2.12.0"
   }
 }

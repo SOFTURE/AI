@@ -181,6 +181,12 @@ handle; `shutdown()` resolves and later log calls do not throw.
   @opentelemetry's ESM build with extension-less imports, which Node refuses once Vitest externalizes it;
   `server.deps.inline` and `ssr.noExternal` did not help (measured). Node itself never reads `module`.
 - Phase 1 drift: `tests/repo/release-tags.test.ts` counts 22 public packages (was 21) now that the package exists.
+- Phase 2: the tests and the code were written before a red run (the code was drafted while phase 1's gates ran).
+  Compensated with a sabotage check: dropping `/v1/<signal>` from the URL and printing the headers on start turned
+  5 tests red (config paths, export, header never printed); restored, 33/33 green.
+- Phase 2 drift: the disabled-mode test proves "no provider" by registering a probe provider successfully (the API
+  returns a proxy, not a no-op provider, so a class-name check was wrong).
+- Phase 2 drift: the SDK packages moved from dev dependencies to dependencies, since `./node` imports them.
 
 - Complexity → medium (one package, three entry points, no data).
 - Metrics now? → no (issue scope).
@@ -195,15 +201,15 @@ handle; `shutdown()` resolves and later log calls do not throw.
 ### Phase 1: Logger package
 
 #### Automated
-- [x] 1.1 `tests/logger.test.ts` passes with every case above.
-- [x] 1.2 `npm run build` emits `foundation/observability/dist/index.js` and the repository shape tests pass for the new package.
-- [x] 1.3 Gates green (typecheck, lint, test)
+- [x] 1.1 `tests/logger.test.ts` passes with every case above. — 0ef5ff7
+- [x] 1.2 `npm run build` emits `foundation/observability/dist/index.js` and the repository shape tests pass for the new package. — 0ef5ff7
+- [x] 1.3 Gates green (typecheck, lint, test) — 0ef5ff7
 
 ### Phase 2: Node.js registration and OTLP export
 
 #### Automated
-- [ ] 2.1 `tests/config.test.ts` and `tests/start.test.ts` pass with every case above.
-- [ ] 2.2 Gates green (typecheck, lint, test)
+- [x] 2.1 `tests/config.test.ts` and `tests/start.test.ts` pass with every case above.
+- [x] 2.2 Gates green (typecheck, lint, test)
 
 ### Phase 3: Next.js adapter, example app and documentation
 
