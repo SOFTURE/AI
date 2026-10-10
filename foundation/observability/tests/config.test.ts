@@ -70,6 +70,26 @@ describe("resolveObservabilityConfig: endpoints", () => {
     expect(config).toMatchObject({ kind: "export", traces: null, logs: { url: "https://logs.example.com/l" } });
   });
 
+  it("keeps the host of a base endpoint whose path starts with two slashes", () => {
+    const config = resolveObservabilityConfig({ endpoint: "https://otlp.example.com//otlp" }, {});
+
+    expect(config.kind).toBe("export");
+    const urls = config.kind === "export" ? [config.traces?.url, config.logs?.url] : [];
+    expect(urls).toHaveLength(2);
+    for (const url of urls) {
+      expect(new URL(url ?? "").host).toBe("otlp.example.com");
+    }
+  });
+
+  it("keeps the query string and the credentials of a base endpoint", () => {
+    const config = resolveObservabilityConfig({ endpoint: "https://user:pass@otlp.example.com/otlp?tenant=a" }, {});
+
+    expect(config).toMatchObject({
+      traces: { url: "https://user:pass@otlp.example.com/otlp/v1/traces?tenant=a" },
+      logs: { url: "https://user:pass@otlp.example.com/otlp/v1/logs?tenant=a" },
+    });
+  });
+
   it("refuses an endpoint that is not an http(s) URL, naming the source and not the value", () => {
     expect(() => resolveObservabilityConfig({}, { OTEL_EXPORTER_OTLP_ENDPOINT: "ftp://secret-host" })).toThrow(
       /OTEL_EXPORTER_OTLP_ENDPOINT/,
@@ -88,21 +108,33 @@ describe("resolveObservabilityConfig: headers", () => {
       { OTEL_EXPORTER_OTLP_HEADERS: "Authorization=Basic%20dXNlcjpwYXNz==, x-tenant = a" },
     );
 
-    expect(config).toMatchObject({
-      traces: { headers: { Authorization: "Basic dXNlcjpwYXNz==", "x-tenant": "a" } },
-      logs: { headers: { Authorization: "Basic dXNlcjpwYXNz==", "x-tenant": "a" } },
+    expect(config.kind === "export" && config.traces?.headers).toEqual({
+      Authorization: "Basic dXNlcjpwYXNz==",
+      "x-tenant": "a",
+    });
+    expect(config.kind === "export" && config.logs?.headers).toEqual({
+      Authorization: "Basic dXNlcjpwYXNz==",
+      "x-tenant": "a",
     });
   });
 
-  it("prefers option headers and lets per-signal environment headers add to them", () => {
+  it("merges headers per key: per-signal environment over shared environment, options over both", () => {
     const config = resolveObservabilityConfig(
       { endpoint: BASE, headers: { Authorization: "Basic option" } },
-      { OTEL_EXPORTER_OTLP_HEADERS: "Authorization=Basic env", OTEL_EXPORTER_OTLP_LOGS_HEADERS: "x-logs=1" },
+      {
+        OTEL_EXPORTER_OTLP_HEADERS: "Authorization=Basic env,x-shared=1",
+        OTEL_EXPORTER_OTLP_LOGS_HEADERS: "Authorization=Basic logs-env,x-logs=1",
+      },
     );
 
-    expect(config).toMatchObject({
-      traces: { headers: { Authorization: "Basic option" } },
-      logs: { headers: { Authorization: "Basic option", "x-logs": "1" } },
+    expect(config.kind === "export" && config.traces?.headers).toEqual({
+      Authorization: "Basic option",
+      "x-shared": "1",
+    });
+    expect(config.kind === "export" && config.logs?.headers).toEqual({
+      Authorization: "Basic option",
+      "x-shared": "1",
+      "x-logs": "1",
     });
   });
 

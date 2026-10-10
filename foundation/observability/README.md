@@ -38,9 +38,14 @@ Inside this repository it is a workspace package.
 | `instrumentations.fetch` | — | spans for outgoing `fetch` (undici); default `true`, `false` in the Next.js adapter |
 | `logLevel` | `SOFTURE_LOG_LEVEL` | minimum level: `debug`, `info` (default), `warn`, `error` |
 | `errorDetails` | — | `full` (default) or `label`, see [Errors and personal data](#errors-and-personal-data) |
-| `handleSignals` | — | flush on SIGTERM and SIGINT, then let the signal end the process; default `false` |
+| `handleSignals` | — | flush on SIGTERM and SIGINT (at most 5 s), then end the process; default `false` |
 
-Options win over the environment. A signal without an endpoint is not exported; with neither, nothing is.
+Options win over the environment. Headers merge per key: per-signal variables over `OTEL_EXPORTER_OTLP_HEADERS`,
+`headers` over both. A signal without an endpoint is not exported; with neither, nothing is.
+
+A malformed value (an endpoint that is not an http(s) URL, a header entry without a key) throws at start with the name
+of the option or variable, never its value; in Next.js that stops the server from starting, which is deliberate. A
+failed export (a wrong token, an unreachable endpoint) is printed as an OpenTelemetry error on the console.
 
 **Secrets.** The `Authorization` header is a credential: pass it from the environment (`OTEL_EXPORTER_OTLP_HEADERS`
 or your own variable read into `headers`), never from code or a committed file. The package never prints headers;
@@ -77,6 +82,10 @@ await observability.shutdown();
 
 A second `startObservability` in the same process returns the first handle (and warns once).
 
+`handleSignals: true` flushes on SIGTERM and SIGINT for at most 5 seconds. When the app has no listener of its own for
+that signal, the package then re-raises it and the process ends as it would have; when the app listens to it itself,
+ending the process stays the app's job (call `shutdown()` in that listener to wait for the flush).
+
 ## Next.js
 
 `instrumentation.ts`:
@@ -112,8 +121,8 @@ What you get:
 - `fetch` spans of the undici instrumentation are off in Next.js, because Next.js spans `fetch` itself. Turning
   them on (`instrumentations: { fetch: true }`) calls for `NEXT_OTEL_FETCH_DISABLED=1`, or every call is spanned twice.
 - `registerObservability` does nothing in the edge runtime.
-- `onRequestError` logs one error record per failed request with `http.request.method`, `url.path`, `next.route`,
-  `next.route_type` and the error. Request headers are never logged.
+- `onRequestError` logs one error record per failed request with `http.request.method`, `url.path` (without the
+  query string, which can carry tokens), `next.route`, `next.route_type` and the error. Request headers are never logged.
 
 ## Logger
 
@@ -134,6 +143,7 @@ try {
 ```
 
 - Console: `info orders: order saved orderId=42`; `warn` and `error` go to `console.error`, the rest to `console.log`.
+  Line breaks in the message are escaped, so one call is always one line.
 - OpenTelemetry: one log record per call, with the logger name as the instrumentation scope, the severity, the
   message as the body and the fields as attributes; inside an active span it carries the trace and span ids.
 - Field values: strings, numbers, booleans and arrays of one of them stay as they are; a `Date` becomes its ISO

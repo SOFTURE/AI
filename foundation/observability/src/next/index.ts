@@ -41,14 +41,15 @@ export async function registerObservability(options: ObservabilityOptions = {}):
 
 /**
  * An `onRequestError` for `instrumentation.ts`: one error record per failed request with the method, path, route
- * and route type. Request headers are never logged.
+ * and route type. Request headers and the query string are never logged.
  */
 export function createOnRequestError(logger: Logger): NextRequestErrorHandler {
   return (error, request, context) => {
     logger.error("request failed", {
       error,
       "http.request.method": request.method,
-      "url.path": request.path,
+      // Next passes the path with its query string, and a query can carry a reset or unsubscribe token.
+      "url.path": request.path.split("?")[0] ?? "",
       "next.route": context.routePath,
       "next.route_type": context.routeType,
       "next.router_kind": context.routerKind,

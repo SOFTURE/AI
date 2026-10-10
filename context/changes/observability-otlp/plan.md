@@ -191,6 +191,10 @@ handle; `shutdown()` resolves and later log calls do not throw.
   `npm ls @opentelemetry/api` shows one copy, and `next start` with `OTEL_EXPORTER_OTLP_ENDPOINT` pointed at a local
   receiver delivered Next.js spans (`next.js` scope, `next.route`, `service.namespace`) as protobuf with the
   `Authorization` header.
+- Impl review (reviews/impl-review.md): headers now merge per key (per-signal env over shared env, options over
+  both), replacing the plan's "options replace the environment" detail, because the OTLP exporters merge the
+  environment per key anyway; `handleSignals` re-raises only without other listeners and bounds the flush to 5 s;
+  `url.path` drops the query; diag errors go to the console.
 - Phase 2 drift: the SDK packages moved from dev dependencies to dependencies, since `./node` imports them.
 
 - Complexity → medium (one package, three entry points, no data).
@@ -219,6 +223,6 @@ handle; `shutdown()` resolves and later log calls do not throw.
 ### Phase 3: Next.js adapter, example app and documentation
 
 #### Automated
-- [x] 3.1 `tests/next.test.ts` passes.
+- [x] 3.1 `tests/next.test.ts` passes. — 348bfab
 - [ ] 3.2 `npm run e2e` passes with the example app wired to the package.
-- [x] 3.3 Gates green (typecheck, lint, test)
+- [x] 3.3 Gates green (typecheck, lint, test) — 348bfab

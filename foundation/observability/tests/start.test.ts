@@ -64,7 +64,8 @@ describe("startObservability with an endpoint", () => {
       createLogger("orders").info("inside the span", { orderId: 7 });
       span.end();
     });
-    await fetch(`${receiver.url}/ping`);
+    const response = await fetch(`${receiver.url}/ping`);
+    await response.arrayBuffer();
     await handle.forceFlush();
 
     const exports = receiver.requests.filter((request) => request.path.startsWith("/otlp/"));
@@ -93,7 +94,7 @@ describe("startObservability with an endpoint", () => {
     createLogger("orders").error("failed", { error: new Error("boom") });
     await handle.forceFlush();
 
-    expect(output.some((line) => line.startsWith("observability: exporting"))).toBe(true);
+    expect(output).toContain(`observability: exporting traces and logs to ${receiver.url} as my-service`);
     expect(output.join("\n")).not.toContain("c2VjcmV0");
     expect(output.join("\n")).not.toContain("secret");
   });
@@ -103,8 +104,10 @@ describe("startObservability with an endpoint", () => {
     const first = startObservability({ serviceName: "my-service", endpoint: receiver.url });
 
     const second = startObservability({ serviceName: "other", endpoint: receiver.url });
+    const third = startObservability({ serviceName: "other", endpoint: receiver.url });
 
     expect(second).toBe(first);
+    expect(third).toBe(first);
     expect(output.filter((line) => line.includes("already started"))).toHaveLength(1);
   });
 
@@ -114,6 +117,7 @@ describe("startObservability with an endpoint", () => {
 
     await handle.shutdown();
 
+    expect(handle.isExporting).toBe(false);
     expect(() => createLogger("orders").info("after shutdown")).not.toThrow();
     expect(output).toContain("info orders: after shutdown");
   });

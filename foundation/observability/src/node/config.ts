@@ -73,13 +73,11 @@ function resolveSignal(signal: Signal, options: ObservabilityOptions, env: Envir
     return null;
   }
 
-  const baseHeaders =
-    options.headers === undefined
-      ? parseKeyValueList(readEnv(env, "OTEL_EXPORTER_OTLP_HEADERS"), "OTEL_EXPORTER_OTLP_HEADERS")
-      : { ...options.headers };
+  // Merged per key, the way the OTLP exporters merge them anyway: per-signal over shared, options over both.
+  const sharedHeaders = parseKeyValueList(readEnv(env, "OTEL_EXPORTER_OTLP_HEADERS"), "OTEL_EXPORTER_OTLP_HEADERS");
   const signalHeaders = parseKeyValueList(readEnv(env, `${signalKey}_HEADERS`), `${signalKey}_HEADERS`);
 
-  return { url, headers: { ...baseHeaders, ...signalHeaders } };
+  return { url, headers: { ...sharedHeaders, ...signalHeaders, ...options.headers } };
 }
 
 function resolveSignalUrl(signal: Signal, signalKey: string, options: ObservabilityOptions, env: Environment) {
@@ -114,9 +112,12 @@ function checkUrl(value: string, source: string): URL {
   return url;
 }
 
+// Only the path changes: resolving the path against the origin would read `//host` as another host and drop the
+// credentials and the query.
 function appendSignalPath(url: URL, signal: Signal): string {
-  const path = url.pathname.replace(/\/+$/, "");
-  return new URL(`${path}/v1/${signal}${url.search}`, url.origin).toString();
+  const result = new URL(url.toString());
+  result.pathname = `${url.pathname.replace(/\/+$/, "")}/v1/${signal}`;
+  return result.toString();
 }
 
 function resolveResourceAttributes(options: ObservabilityOptions, env: Environment): Record<string, string> {

@@ -16,7 +16,9 @@ beforeEach(() => {
       output.push(args.map(String).join(" "));
     });
   }
-  delete process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+  for (const name of Object.keys(process.env).filter((key) => key.startsWith("OTEL_"))) {
+    delete process.env[name];
+  }
 });
 
 afterEach(async () => {
@@ -72,5 +74,22 @@ describe("createOnRequestError", () => {
     });
     expect(JSON.stringify(records[0]?.attributes)).not.toContain("secret-cookie");
     expect(output.join("\n")).not.toContain("secret-cookie");
+  });
+
+  it("logs the path without its query string, which can carry tokens", () => {
+    const exporter = new InMemoryLogRecordExporter();
+    logs.setGlobalLoggerProvider(new LoggerProvider({ processors: [new SimpleLogRecordProcessor({ exporter })] }));
+    const onRequestError = createOnRequestError(createLogger("next"));
+
+    onRequestError(
+      new Error("reset failed"),
+      { path: "/password/reset?token=secret-reset-token&next=%2F", method: "POST", headers: {} },
+      { routerKind: "App Router", routePath: "/password/reset", routeType: "action" },
+    );
+
+    const [record] = exporter.getFinishedLogRecords();
+    expect(record?.attributes["url.path"]).toBe("/password/reset");
+    expect(JSON.stringify(record?.attributes)).not.toContain("secret-reset-token");
+    expect(output.join("\n")).not.toContain("secret-reset-token");
   });
 });

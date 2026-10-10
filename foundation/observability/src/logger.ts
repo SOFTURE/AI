@@ -166,7 +166,7 @@ function formatLine(
   attributes: Attributes,
   errorText: string | undefined,
 ): string {
-  const parts = [`${level} ${name}: ${message}`];
+  const parts = [`${level} ${name}: ${escapeLineBreaks(message)}`];
   for (const [key, value] of Object.entries(attributes)) {
     parts.push(`${key}=${formatValue(value)}`);
   }
@@ -174,6 +174,11 @@ function formatLine(
     parts.push(`error=${errorText}`);
   }
   return parts.join(" ");
+}
+
+// One call is one console line: a message with a line break could otherwise forge the next one.
+function escapeLineBreaks(text: string): string {
+  return text.replace(/\r/g, "\\r").replace(/\n/g, "\\n");
 }
 
 function formatValue(value: AttributeValue): string {

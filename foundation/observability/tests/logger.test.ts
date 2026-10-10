@@ -129,6 +129,12 @@ describe("console output", () => {
     ]);
   });
 
+  it("escapes line breaks in the message, so a message cannot forge a console line", () => {
+    createLogger("orders").info("first\nerror orders: forged\r");
+
+    expect(calls.log).toEqual(["info orders: first\\nerror orders: forged\\r"]);
+  });
+
   it("merges child attributes over the parent's", () => {
     const logger = createLogger("orders").child({ tenant: "a", region: "eu" }).child({ tenant: "b" });
 
