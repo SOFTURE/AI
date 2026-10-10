@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>One row of a card</title>
+    <style>
+      body { margin: 0; font-family: sans-serif; background: #fafafa; }
+      section { margin: 0 16px 16px; width: 358px; }
+      .rail { background: rgb(20, 90, 200); color: #fff; }
+      .rail > header { height: 80px; }
+      .rail > div { height: 120px; }
+      .rail > dl { margin: 12px 0 0; border-top: 6px solid rgb(0, 200, 0); }
+      .rail > dl > div { height: 60px; }
+      .rail > dl > div:last-child { background: rgb(250, 200, 0); color: #000; }
+      .rail dt, .rail dd { margin: 0; }
+      .next { height: 400px; background: rgb(200, 30, 30); }
+    </style>
+  </head>
+  <body>
+    <section class="rail" id="rail">
+      <header>Summary</header>
+      <div>Headline 12,345</div>
+      <dl>
+        <div><dt>Bonds</dt><dd>4,000</dd></div>
+        <div><dt>Change since last month</dt><dd>+120</dd></div>
+      </dl>
+    </section>
+    <section class="next">Next card</section>
+    <svg id="drawing" width="358" height="100"><text x="10" y="50">A drawing</text></svg>
+    <div style="height: 900px"></div>
+  </body>
+</html>

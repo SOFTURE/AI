@@ -350,7 +350,7 @@ describe.runIf(hasChromium)("takeScreenshots against static pages", () => {
     expect(existsSync(getScreenshotFile(outDir, "step-fails"))).toBe(false);
   }, 30_000);
 
-  const chartCrop = { target: { kind: "css" as const, css: "#chart", hasText: null, nth: null }, aspect: { width: 4, height: 3 }, padding: 0 };
+  const chartCrop = { target: { kind: "css" as const, css: "#chart", hasText: null, nth: null }, aspect: { width: 4, height: 3 }, padding: 0, fill: false };
 
   it("crops an element far down the page to the aspect at the scale, under no sticky header", async () => {
     const [result] = await take([makeEntry({ id: "chart", path: "/crop.html", expect: "Portfolio chart", scale: 2, crop: chartCrop })]);
@@ -408,7 +408,7 @@ describe.runIf(hasChromium)("takeScreenshots against static pages", () => {
   });
 
   const css = (selector: string, nth: number | null = null) => ({ kind: "css" as const, css: selector, hasText: null, nth });
-  const cardCrop = { target: css("#card"), aspect: { width: 6, height: 5 }, padding: 0 };
+  const cardCrop = { target: css("#card"), aspect: { width: 6, height: 5 }, padding: 0, fill: false };
 
   it("hides the entry's own selectors, and passes the hide gate when none shows in the frame", async () => {
     const [result] = await take([makeEntry({ id: "print-hidden", path: "/print.html", expect: "Your portfolio", hide: [".hint", ".outside"], crop: cardCrop })]);
@@ -451,6 +451,44 @@ describe.runIf(hasChromium)("takeScreenshots against static pages", () => {
     expect(closed).toMatchObject({ ok: false, gate: "phrase" });
     const [opened] = await take([makeEntry({ id: "print-opened", path: "/print.html", expect: "Cash fund", steps: [{ do: "open", target: css("#card details") }], crop: cardCrop })]);
     expect(opened?.ok).toBe(true);
+  });
+
+  const railSteps: ShotStep[] = [
+    { do: "hide", target: css("#rail > header"), keepLast: 0 },
+    { do: "hide", target: css("#rail > div"), keepLast: 0 },
+    { do: "hide", target: css("#rail > dl > div"), keepLast: 1 },
+    { do: "flatten", target: css("#rail > dl") },
+  ];
+  const railCrop = { target: css("#rail"), aspect: { width: 6, height: 5 }, padding: 0, fill: false };
+
+  it("frames a card shorter than its frame with the next card showing below it, without crop.fill", async () => {
+    const [result] = await take([makeEntry({ id: "row-short", path: "/row.html", expect: "Change since last month", scale: 2, steps: railSteps, crop: railCrop })]);
+    expect(result).toMatchObject({ ok: true, name: "row-short" });
+    const [red, green, blue] = await readPixel(getScreenshotFile(outDir, "row-short"), 10, 590);
+    expect([red > 150, green < 80, blue < 80]).toEqual([true, true, true]);
+  });
+
+  it("stretches the card to the frame with crop.fill and centres its last row, with no border above it", async () => {
+    const [result] = await take([makeEntry({ id: "row-fill", path: "/row.html", expect: "Change since last month", scale: 2, steps: railSteps, crop: { ...railCrop, fill: true } })]);
+    expect(result).toMatchObject({ ok: true, name: "row-fill" });
+    const file = getScreenshotFile(outDir, "row-fill");
+    expect([readPngWidth(file), readPngHeight(file)]).toEqual([716, 596]);
+    // The card's own blue at the frame's bottom edge, the row's yellow in its middle, the card's blue just above the row.
+    expect(await readPixel(file, 10, 590)).toEqual([20, 90, 200]);
+    expect(await readPixel(file, 700, 298)).toEqual([250, 200, 0]);
+    expect(await readPixel(file, 700, 232)).toEqual([20, 90, 200]);
+  });
+
+  it("refuses a crop.fill whose target cannot be stretched (an SVG), as the crop gate", async () => {
+    const [result] = await take([makeEntry({ id: "row-capped", path: "/row.html", expect: "A drawing", crop: { ...railCrop, target: css("#drawing"), fill: true } })]);
+    expect(result).toEqual({
+      ok: false,
+      id: "row-capped",
+      name: "row-capped",
+      gate: "crop",
+      message: "crop.fill left crop.target 198 px short of the frame's bottom edge (it is not an HTML element, or a script reset its style)",
+    });
+    expect(existsSync(getScreenshotFile(outDir, "row-capped"))).toBe(false);
   });
 
   it("goes on after a failed entry", async () => {
@@ -511,6 +549,13 @@ describe.runIf(hasChromium)("the open and hide steps", () => {
     expect(await runShotSteps(page, [{ do: "hide", target: css(".footnote"), keepLast: 0 }], "steps")).toBeNull();
     expect(await page.locator(".footnote").isVisible()).toBe(false);
     expect(await runShotSteps(page, [{ do: "hide", target: css(".col"), keepLast: 6 }], "steps")).toBe("steps[0] (hide): matches 6 elements, not more than keepLast 6, so nothing would be hidden");
+  });
+
+  it("flattens every match: no top border and no top margin, with !important", async () => {
+    await page.addStyleTag({ content: ".chart { margin-top: 8px; border-top: 2px solid red; }" });
+    expect(await runShotSteps(page, [{ do: "flatten", target: css(".chart") }], "steps")).toBeNull();
+    const style = await page.locator(".chart").evaluate((node) => [getComputedStyle(node).borderTopStyle, getComputedStyle(node).marginTop]);
+    expect(style).toEqual(["none", "0px"]);
   });
 
   it("refuses an open or hide step whose target never appears", async () => {

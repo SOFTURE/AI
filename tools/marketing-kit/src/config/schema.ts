@@ -512,6 +512,9 @@ export const screenshotSchema = z.strictObject({
     context.addIssue({ code: "custom", path: ["scrollTo"], message: "is one viewport frame at a scroll position; a full-page shot has none, so drop full or scrollTo" });
   }
   if (entry.crop !== undefined && entry.full) context.addIssue({ code: "custom", path: ["crop"], message: "frames one element; a full-page shot has no element to frame, so drop full or crop" });
+  if (entry.crop?.fill === true && entry.crop.top !== undefined) {
+    context.addIssue({ code: "custom", path: ["crop", "fill"], message: "centres the target's content in the frame; crop.top would start the frame inside it, so drop one of them" });
+  }
   if (entry.crop !== undefined && entry.scrollTo !== undefined) {
     context.addIssue({ code: "custom", path: ["crop"], message: "places the frame on its element; scrollTo would place it too, so drop one of them" });
   }

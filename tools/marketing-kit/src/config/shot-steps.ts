@@ -6,7 +6,7 @@ import { locatorSchema } from "./actions-schema.js";
  * What a screenshot does on the page before it is judged: the sign-in form (`signIn.steps`) and an entry's own
  * `steps` (open collapsed sections, hide what a still image should not show). Plain Playwright calls on a locator,
  * with no camera and no timing: a screenshot records nothing in between. `crop` frames one element at a fixed aspect
- * ratio instead of the viewport, optionally from the top edge of another one.
+ * ratio instead of the viewport, optionally from the top edge of another one, or stretched to the frame (`fill`).
  */
 
 /** A Playwright key name, modifiers joined with `+`; Playwright itself refuses a name it does not know. */
@@ -51,6 +51,10 @@ export const shotStepSchema = z.discriminatedUnion("do", [
       .default(0)
       .describe(`How many of the last matches stay shown (0-${MAX_KEEP_LAST}, default 0); the step fails when there are not more matches than this.`),
   }),
+  z.strictObject({
+    do: z.literal("flatten").describe("Removes the top border and top margin of every match, e.g. the line above the first row a print state still shows."),
+    target: locatorSchema.describe("The elements, as a locator descriptor with exactly one of role, text, label, testId, css; every match is flattened."),
+  }),
 ]);
 
 export type ShotStep = z.output<typeof shotStepSchema>;
@@ -74,6 +78,10 @@ export const cropSchema = z.strictObject({
     })
     .describe("The frame's width to height, e.g. 4:3: as wide as the element (plus padding), from its top edge down."),
   padding: z.number().int().min(0).max(200).default(0).describe("CSS pixels of the page around the element on the left, right and top (0-200, default 0)."),
+  fill: z
+    .boolean()
+    .default(false)
+    .describe("Stretches a target shorter than the frame down to the frame's bottom edge and centres its content vertically, so no page shows below it (default false). Not with top."),
 });
 
 export type Crop = z.output<typeof cropSchema>;
