@@ -126,10 +126,39 @@ async function measureElement(page: Page, descriptor: LocatorDescriptor, key: st
   return { ok: true, rect };
 }
 
+/** Rounding of the stretched element's edge against the frame's, in CSS pixels. */
+const FILL_TOLERANCE_PX = 1;
+
+/**
+ * `crop.fill`: stretches a target shorter than its frame (minus the top padding) to the frame's height and centres its
+ * content vertically, with `!important` inline styles in this browser only.
+ */
+async function stretchToFrame(page: Page, crop: Crop, element: Rect): Promise<void> {
+  const frameHeight = Math.round(((element.width + 2 * crop.padding) * crop.aspect.height) / crop.aspect.width);
+  const height = frameHeight - crop.padding;
+  if (element.height >= height) return;
+  await getLocator(page, crop.target).evaluate((node, minHeight) => {
+    if (!(node instanceof HTMLElement)) return;
+    const styles: [string, string][] = [
+      ["box-sizing", "border-box"],
+      ["min-height", `${minHeight}px`],
+      ["display", "flex"],
+      ["flex-direction", "column"],
+      ["justify-content", "center"],
+    ];
+    for (const [property, value] of styles) node.style.setProperty(property, value, "important");
+  }, height);
+}
+
 /** The crop's frame from its element (and `crop.top`'s top edge) and the page's scrollable size. */
 async function measureCrop(page: Page, crop: Crop): Promise<CropMeasure> {
-  const element = await measureElement(page, crop.target, "crop.target");
+  let element = await measureElement(page, crop.target, "crop.target");
   if (!element.ok) return element;
+  if (crop.fill) {
+    await stretchToFrame(page, crop, element.rect);
+    element = await measureElement(page, crop.target, "crop.target");
+    if (!element.ok) return element;
+  }
   let top: number | undefined;
   if (crop.top !== undefined) {
     const topElement = await measureElement(page, crop.top, "crop.top");
@@ -137,7 +166,11 @@ async function measureCrop(page: Page, crop: Crop): Promise<CropMeasure> {
     top = topElement.rect.y;
   }
   const size = await page.evaluate(() => ({ width: document.documentElement.scrollWidth, height: document.documentElement.scrollHeight }));
-  return findCropFrame({ element: element.rect, ...(top === undefined ? {} : { top }), page: size, aspect: crop.aspect, padding: crop.padding });
+  const frame = findCropFrame({ element: element.rect, ...(top === undefined ? {} : { top }), page: size, aspect: crop.aspect, padding: crop.padding });
+  if (!frame.ok || !crop.fill) return frame;
+  const gap = Math.round(frame.frame.y + frame.frame.height - (element.rect.y + element.rect.height));
+  if (gap > FILL_TOLERANCE_PX) return { ok: false, message: `crop.fill left crop.target ${gap} px short of the frame's bottom edge (it is not an HTML element, or a script reset its style)` };
+  return frame;
 }
 
 /**

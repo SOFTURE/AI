@@ -465,7 +465,7 @@ describe("loadMarketingConfig", () => {
     expect(loaded.screenshots[0]).toMatchObject({
       signedIn: true,
       steps: [{ do: "click", target: { kind: "text", text: "Components", exact: false, nth: 0 } }],
-      crop: { target: { kind: "css", css: "section", hasText: "Portfolio", nth: null }, aspect: { width: 4, height: 3 }, padding: 0 },
+      crop: { target: { kind: "css", css: "section", hasText: "Portfolio", nth: null }, aspect: { width: 4, height: 3 }, padding: 0, fill: false },
     });
   });
 
@@ -492,9 +492,20 @@ describe("loadMarketingConfig", () => {
         { do: "hide", target: { kind: "css", css: ".chart .col", hasText: null, nth: null }, keepLast: 3 },
         { do: "hide", target: { kind: "css", css: ".footnote", hasText: null, nth: null }, keepLast: 0 },
       ],
-      crop: { target: { kind: "testId", testId: "card", nth: null }, top: { kind: "testId", testId: "total-row", nth: null }, aspect: { width: 6, height: 5 }, padding: 0 },
+      crop: { target: { kind: "testId", testId: "card", nth: null }, top: { kind: "testId", testId: "total-row", nth: null }, aspect: { width: 6, height: 5 }, padding: 0, fill: false },
     });
     expect(load({ ...makeConfig(), screenshots: [shot] }).screenshots[0]?.hide).toEqual([]);
+  });
+
+  it("takes a crop that fills its frame and a flatten step", () => {
+    const loaded = load({
+      ...makeConfig(),
+      screenshots: [{ ...shot, steps: [{ do: "flatten", target: { css: "section.rail > dl" } }], crop: { target: { css: "section.rail" }, aspect: "6:5", fill: true } }],
+    });
+    expect(loaded.screenshots[0]).toMatchObject({
+      steps: [{ do: "flatten", target: { kind: "css", css: "section.rail > dl", hasText: null, nth: null } }],
+      crop: { target: { kind: "css", css: "section.rail", hasText: null, nth: null }, aspect: { width: 6, height: 5 }, padding: 0, fill: true },
+    });
   });
 
   it.each([
@@ -530,6 +541,12 @@ describe("loadMarketingConfig", () => {
     ["a negative keepLast", { screenshots: [{ ...shot, steps: [{ do: "hide", target: { css: ".col" }, keepLast: -1 }] }] }, "screenshots[0].steps[0].keepLast: Too small: expected number to be >=0"],
     ["a keepLast on an open step", { screenshots: [{ ...shot, steps: [{ do: "open", target: { css: "details" }, keepLast: 1 }] }] }, 'screenshots[0].steps[0]: Unrecognized key: "keepLast"'],
     ["a crop.top without one locator kind", { screenshots: [{ ...shot, crop: { target: { css: "main" }, top: {}, aspect: "4:3" } }] }, "screenshots[0].crop.top: needs exactly one of"],
+    [
+      "a crop.fill with crop.top",
+      { screenshots: [{ ...shot, crop: { target: { css: "main" }, top: { css: "dl" }, aspect: "4:3", fill: true } }] },
+      "screenshots[0].crop.fill: centres the target's content in the frame; crop.top would start the frame inside it, so drop one of them",
+    ],
+    ["a flatten step with keepLast", { screenshots: [{ ...shot, steps: [{ do: "flatten", target: { css: "dl" }, keepLast: 1 }] }] }, 'screenshots[0].steps[0]: Unrecognized key: "keepLast"'],
     ["an unknown step", { screenshots: [{ ...shot, steps: [{ do: "hover", target: { css: "a" } }] }] }, "screenshots[0].steps[0].do: "],
   ])("refuses %s, naming its path", (_case, change, message) => {
     expect(loadError({ ...makeConfig(), ...change })).toContain(`  ${message}`);

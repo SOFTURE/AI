@@ -17,7 +17,7 @@ TTS providers (MK-7), screenshots (MK-4) and OG images (MK-5) build on it. Backg
 An app runs the kit through `npx` with a pinned version, not as a dependency:
 
 ```json
-{ "scripts": { "marketing": "npx -y @softure-ai/marketing-kit@0.1.11" } }
+{ "scripts": { "marketing": "npx -y @softure-ai/marketing-kit@0.1.12" } }
 ```
 
 `npm run marketing -- all <video>` then runs the CLI. As a `devDependency` the kit would add more than 100 MB
@@ -90,19 +90,19 @@ folder of `marketing.json`, written by the app's own login script (`await contex
 `npx playwright codegen --save-storage=<file> <url>`. It holds a live session, so keep it out of git and regenerate
 it when the session expires; a missing or broken file stops `shots` before the browser starts. To have `shots` sign
 in itself, see [Signed-in screens](#signed-in-screens). `steps` run on the page after it loaded, before any gate
-reads it: `click` (open a collapsed section), `fill`, `check`, `press`, `open` and `hide`, each with 10 s. `crop`
+reads it: `click` (open a collapsed section), `fill`, `check`, `press`, `open`, `hide` and `flatten`, each with 10 s. `crop`
 frames one element at a fixed aspect ratio instead of the viewport, see [A frame around one element](#a-frame-around-one-element);
-`hide` and the `open` and `hide` steps give a frame its print state, see [A still image of an interactive card](#a-still-image-of-an-interactive-card).
+`hide`, `crop.fill` and the `open`, `hide` and `flatten` steps give a frame its print state, see [A still image of an interactive card](#a-still-image-of-an-interactive-card).
 A screenshot is kept only when it passes every gate:
 
 | Gate | Refused when |
 | --- | --- |
 | `sign-in` | a `signedIn` entry, and the run's sign-in failed (the reason is printed with every such file) |
 | `status` | the page answers with HTTP 400 or above, or not at all (`load`: it did not load within 30 s) |
-| `steps` | a step could not be done (its element never appeared, matched several, is not an input, is not a `<details>`, left nothing to hide) |
+| `steps` | a step could not be done (its element never appeared, matched several, is not an input, is not a `<details>`, left nothing to hide, matched nothing to flatten) |
 | `scroll` | the page cannot scroll as far as `scrollTo` (the frame would show another place) |
 | `phrase` | the page does not show `expect` within 5 s of loading (hidden elements do not count) |
-| `crop` | the crop's target (or `crop.top`) matches no element or several, `crop.top` lies outside the target, its frame runs past the page, or the file is not the frame's size |
+| `crop` | the crop's target (or `crop.top`) matches no element or several, `crop.top` lies outside the target, `crop.fill` could not stretch the target to the frame, its frame runs past the page, or the file is not the frame's size |
 | `hide` | a selector of the entry's `hide` still shows an element inside the frame (an inline `!important` beat it), or the browser cannot parse it |
 | `size` | the file is smaller than `minBytes` (40 kB by default: a blank or broken page); the file is deleted |
 | `duplicate` | an earlier file of the same run has the same bytes (the page did not change between the two shots); deleted |
@@ -182,6 +182,12 @@ a page, so set `minBytes` for it (15000 is a fair floor for a filled card).
 e.g. a row inside a card, while the width stays the target's. Its top edge must lie inside the target, or the crop
 is refused: the frame would no longer show the target.
 
+`crop.fill: true` stretches a target that is shorter than its frame down to the frame's bottom edge and centres its
+content vertically (`min-height` and a centred flex column, inline with `!important`, in the capture browser only), so
+no page background or next card shows below it. A target that is already as tall as the frame is left as it is. The
+`crop` gate refuses the file when the target still ends above the frame's bottom edge (an SVG, or a script that resets
+its style). `crop.fill` excludes `crop.top`: centring would move the row the frame starts at.
+
 #### A still image of an interactive card
 
 A frame of a signed-in card shows controls that mean nothing in a still image: hint `?` buttons, disclosure arrows,
@@ -208,6 +214,24 @@ print state:
 - `{ "do": "hide", "target": …, "keepLast": N }` hides every match but the last `N` (default 0: all of them), e.g. all
   but the last three columns of a chart that scrolls sideways, so no amount is cut at the frame's edge. It fails when
   there are not more matches than `keepLast`, which hides nothing.
+- `{ "do": "flatten", "target": … }` removes the top border and top margin of every match, e.g. the line a list's
+  `border-top` draws above the first row a print state still shows. It fails when nothing matches.
+
+One row of a card, when the rest is hidden and the card is shorter than its frame: `crop.fill` stretches the card to
+the frame and centres the row, and `flatten` drops the border the list kept above it.
+
+```jsonc
+{ "id": "frame-change", "path": "/dashboard", "width": 390, "height": 900, "scale": 2, "signedIn": true,
+  "expect": "Change since last month", "minBytes": 15000,
+  "steps": [
+    { "do": "open", "target": { "css": "details.change" } },
+    { "do": "hide", "target": { "css": "section.rail > header" } },
+    { "do": "hide", "target": { "css": "section.rail > div" } },
+    { "do": "hide", "target": { "css": "section.rail > dl > div" }, "keepLast": 1 },
+    { "do": "flatten", "target": { "css": "section.rail > dl" } }
+  ],
+  "crop": { "target": { "css": "section.rail" }, "aspect": "6:5", "fill": true } }
+```
 
 #### One page anywhere: `shots --page`
 
@@ -486,6 +510,12 @@ format, so its paid recordings are reused as they are, with no re-keying and no 
 3. Run `softure-marketing voice <video>` **without** `--commit` for every video. Each must print
    `from the cache`; an estimate line means the text, voice or model differs from FIRE's, and nothing
    was spent.
+
+### Upgrading to 0.1.12
+
+- A 0.1.11 `marketing.json` works as it is. New: `crop.fill` and the step `flatten`. An app that frames one row of a
+  card with its own capture styles (a `min-height` on the card, a dropped `border-top`) can move that frame to
+  `marketing.json`.
 
 ### Upgrading to 0.1.11
 

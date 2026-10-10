@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## 0.1.12
+
+- `shots` frames one row of a card that is shorter than its crop (#371):
+  - `crop.fill: true`: a target shorter than its frame is stretched to the frame's bottom edge for the capture and
+    its content centred vertically, so no page background or next card shows below it. Refused (gate `crop`) when
+    the target still ends above the frame's bottom edge; excludes `crop.top`.
+  - Step `flatten`: removes the top border and top margin of every match, e.g. the line above the first row a print
+    state still shows; fails when nothing matches.
+
 ## 0.1.11
 
 - `shots` entries take a print state (#333):

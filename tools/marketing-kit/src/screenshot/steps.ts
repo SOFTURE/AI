@@ -7,7 +7,7 @@ import { getLocator } from "../record/locator.js";
  * Steps of the sign-in and of a screenshot entry, done in order on the page. A step that cannot be done (its
  * element never appears, matches several, is not an input, is not a `<details>`) is the page's or the config's
  * fault, so it comes back as a message naming the step; the message never carries a `fill` value, which may be a
- * password. `open` and `hide` act on every match of their target; the others need exactly one.
+ * password. `open`, `hide` and `flatten` act on every match of their target; the others need exactly one.
  */
 
 /** Long enough for a client-side page to render the element, short enough that a typo does not hang the run. */
@@ -32,6 +32,8 @@ async function runStep(page: Page, step: ShotStep): Promise<void> {
       return openEvery(getLocator(page, step.target));
     case "hide":
       return hideAllButLast(getLocator(page, step.target), step.keepLast);
+    case "flatten":
+      return flattenEvery(getLocator(page, step.target));
   }
 }
 
@@ -69,6 +71,18 @@ async function hideAllButLast(locator: Locator, keepLast: number): Promise<void>
     return nodes.length;
   }, keepLast);
   if (total <= keepLast) throw new Error(`matches ${total} elements, not more than keepLast ${keepLast}, so nothing would be hidden`);
+}
+
+/** Drops the top border and top margin of every match, with `!important` like `hide`. */
+async function flattenEvery(locator: Locator): Promise<void> {
+  await waitForMatches(locator);
+  await locator.evaluateAll((nodes) => {
+    for (const node of nodes) {
+      if (!(node instanceof HTMLElement || node instanceof SVGElement)) continue;
+      node.style.setProperty("border-top", "none", "important");
+      node.style.setProperty("margin-top", "0", "important");
+    }
+  });
 }
 
 /** Null when every step was done; otherwise which one failed (`<where>[<index>] (<do>)`) and why. */
