@@ -894,7 +894,45 @@ describe("deploy-integration.yml (issue #248)", () => {
   it("runs the app's suite in a job that can only read and keeps no credentials", () => {
     expect(workflow.jobs.test?.permissions).toEqual({ contents: "read" });
     const checkout = testSteps.find((step) => step.uses?.startsWith("actions/checkout@") === true);
-    expect(checkout?.with).toEqual({ ref: "${{ github.sha }}", "persist-credentials": false });
+    expect(checkout?.with).toEqual({
+      ref: "${{ github.sha }}",
+      "persist-credentials": false,
+      "sparse-checkout": "${{ inputs.sparse-checkout }}",
+      "sparse-checkout-cone-mode": false,
+    });
+  });
+
+  it("declares artifact-paths, sparse-checkout and node-cache, off except the npm cache (issue #368)", () => {
+    const inputs = getWorkflowCall(workflow).inputs ?? {};
+    expect(inputs["artifact-paths"]).toMatchObject({ type: "string", default: "" });
+    expect(inputs["sparse-checkout"]).toMatchObject({ type: "string", default: "" });
+    expect(inputs["node-cache"]).toMatchObject({ type: "string", default: "npm" });
+  });
+
+  it("checks out both jobs sparsely with the same patterns, and caches the suite's downloads (issue #368)", () => {
+    const recordCheckout = recordSteps.find((step) => step.uses?.startsWith("actions/checkout@") === true);
+    expect(recordCheckout?.with).toMatchObject({
+      "sparse-checkout": "${{ inputs.sparse-checkout }}",
+      "sparse-checkout-cone-mode": false,
+    });
+    const setupNode = testSteps.find((step) => step.uses?.startsWith("actions/setup-node@") === true);
+    expect(setupNode?.with).toEqual({ "node-version": "${{ inputs.node-version }}", cache: "${{ inputs.node-cache }}" });
+  });
+
+  it("uploads the failure artifacts when the suite is red or the job failed, before the job fails (issue #368)", () => {
+    const index = testSteps.findIndex((step) => step.name === "Keep the failure artifacts");
+    const upload = testSteps[index];
+    expect(upload?.if).toBe("inputs.artifact-paths != '' && (failure() || steps.suite.outputs.result == 'red')");
+    expect(upload?.uses?.startsWith("actions/upload-artifact@")).toBe(true);
+    expect(upload?.with).toEqual({
+      name: "integration-failure",
+      path: "${{ inputs.artifact-paths }}",
+      "if-no-files-found": "warn",
+      "retention-days": 7,
+      overwrite: true,
+    });
+    expect(index).toBeGreaterThan(testSteps.findIndex((step) => step.name === "Run the suite"));
+    expect(index).toBeLessThan(testSteps.findIndex((step) => step.name === "Fail on a red suite"));
   });
 
   const SUITE_ENV = {
@@ -1040,6 +1078,8 @@ describe("deploy-integration.yml (issue #248)", () => {
       REF_PREFIX: "integration/",
       NODE_VERSION: "22",
       DEPLOY_CLI_VERSION: "0.1.5",
+      ARTIFACT_PATHS: "",
+      NODE_CACHE: "npm",
       GITHUB_REF: "refs/heads/integration/x",
     };
     const image = `ghcr.io/acme/app@sha256:${"0".repeat(64)}`;
@@ -1050,6 +1090,9 @@ describe("deploy-integration.yml (issue #248)", () => {
       { IMAGE: image, GITHUB_REF: "refs/tags/v1.2.3", EXPECTED_ORIGINS: "https://app.example.com, http://localhost:3000" },
       { IMAGE: `registry.example.com:5000/app@sha256:${"0".repeat(64)}` },
       { NOTES_REF: "refs/notes/e2e-run", REF_PREFIX: "e2e-run/" },
+      { ARTIFACT_PATHS: "test-results/**\n!test-results/**/*.webm\nplaywright-report/trace?.zip\n" },
+      { NODE_CACHE: "" },
+      { NODE_CACHE: "yarn" },
     ]) {
       const result = runStep(validate, { ...valid, ...accepted });
       expect(result.status, `${JSON.stringify(accepted)}: ${result.stdout}`).toBe(0);
@@ -1070,6 +1113,10 @@ describe("deploy-integration.yml (issue #248)", () => {
       ["NOTES_REF", "refs/notes/a..b"],
       ["REF_PREFIX", "integration"],
       ["REF_PREFIX", "-x/"],
+      ["ARTIFACT_PATHS", "test-results/**\n/tmp/trace.zip"],
+      ["ARTIFACT_PATHS", "!../secrets"],
+      ["ARTIFACT_PATHS", "logs/$(id)"],
+      ["NODE_CACHE", "pnpm"],
     ]) {
       expect(runStep(validate, { ...valid, [key as string]: value as string }).status, `${key as string}=${value as string}`).toBe(1);
     }
