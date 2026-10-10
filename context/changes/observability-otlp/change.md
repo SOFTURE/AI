@@ -1,7 +1,7 @@
 ---
 change_id: observability-otlp
 title: "Node and Next.js apps ship logs and traces over OTLP with @softure-ai/observability (issue #370)"
-status: new
+status: preparing
 roadmap_item: null
 issue: 370
 branch: claude/dotnet-observability-mcp-wnmlot
@@ -48,3 +48,5 @@ opens its config and database.
 
 - Placement: unlinked (`roadmap_item: null`); the project takes work from issues (`autonomy.source: "issues"`),
   the issue is the record.
+- Framing: skipped. The outcome comes straight from the owner's decision (one OTLP backend for every project); research
+  found no cheaper path inside the repo (no logger or telemetry package exists).
