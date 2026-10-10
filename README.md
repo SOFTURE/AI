@@ -17,6 +17,7 @@ foundation/          shared foundations every module depends on
   core/              @softure-ai/core: module contract, configuration, i18n, results, clock/DI
   db/                @softure-ai/db: pg/PGlite client, module migrator, test database
   ui/                @softure-ai/ui: tokens, theme, primitives (Button, Modal, Toast, Select, fields…)
+  observability/     @softure-ai/observability: structured logger, OTLP export of traces and logs (Node.js, Next.js)
 modules/             feature modules (each one works on its own on top of the foundations)
   security/          rate limiting, client IP, safe errors
   auth/              registration, login, sessions, password change and reset, roles

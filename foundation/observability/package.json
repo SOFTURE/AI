@@ -1,0 +1,58 @@
+{
+  "name": "@softure-ai/observability",
+  "version": "0.1.0",
+  "description": "SOFTURE AI observability: a structured logger that writes to the console and to OpenTelemetry, and OTLP/HTTP export of traces and logs for Node.js processes and Next.js apps.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SOFTURE/AI.git",
+    "directory": "foundation/observability"
+  },
+  "files": [
+    "dist",
+    "CHANGELOG.md",
+    "src",
+    "!src/**/*.test.ts"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "exports": {
+    ".": {
+      "@softure-ai/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./node": {
+      "@softure-ai/source": "./src/node/index.ts",
+      "types": "./dist/node/index.d.ts",
+      "default": "./dist/node/index.js"
+    },
+    "./next": {
+      "@softure-ai/source": "./src/next/index.ts",
+      "types": "./dist/next/index.d.ts",
+      "default": "./dist/next/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/api-logs": "~0.223.0",
+    "@softure-ai/core": "^0.1.9",
+    "@opentelemetry/exporter-logs-otlp-proto": "~0.223.0",
+    "@opentelemetry/exporter-trace-otlp-proto": "~0.223.0",
+    "@opentelemetry/instrumentation": "~0.223.0",
+    "@opentelemetry/instrumentation-undici": "~0.33.0",
+    "@opentelemetry/resources": "^2.12.0",
+    "@opentelemetry/sdk-logs": "~0.223.0",
+    "@opentelemetry/sdk-trace-node": "^2.12.0"
+  }
+}
