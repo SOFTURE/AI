@@ -452,7 +452,7 @@ it is refused. The workflow runs once this package is on npm.
 **Which ref callers pin.** A caller's `uses:` names SOFTURE/AI's workflows at a ref. Pin the commit SHA of the
 package's release tag `deploy@<version>`, the version the app's `deploy.sh` runs: the workflows at that commit default
 `deploy-cli-version` to the same version, and a SHA never moves. Print it with
-`git ls-remote https://github.com/SOFTURE/AI 'refs/tags/deploy@0.1.8^{}'` (the `^{}` peels the annotated tag to its
+`git ls-remote https://github.com/SOFTURE/AI 'refs/tags/deploy@0.1.9^{}'` (the `^{}` peels the annotated tag to its
 commit) and write it in place of `master` in each `uses:` line; `init --workflows-ref=<sha>` writes it for you. The
 examples call `master`, which works but follows every merge. There is no moving `deploy-workflows-v1` tag.
 
@@ -814,6 +814,14 @@ Inputs: `test-command` (required), `setup-command`, `results-report` and `result
 (above), `node-version`, `deploy-cli-version` (this package's version; the `integration` commands need the release
 after 0.1.4, the inputs of issue #308 the release after 0.1.7). The suite job has a two-hour limit. A
 suite that needs a Docker image or services builds and starts them in its own commands: the runner has Docker.
+
+**Debugging files, a lighter checkout, a download cache (issue #368).** `artifact-paths` lists paths or globs inside
+the repository, one per line (`!` excludes), e.g. `test-results/**` for Playwright's traces and screenshots; when the
+suite is red or the job fails they are uploaded as the `integration-failure` artifact, kept 7 days, next to the report.
+`sparse-checkout` takes gitignore-style patterns (cone mode off) for both jobs' checkouts, e.g. `/*` and
+`!/docs/screenshots/` to leave a large folder the suite never reads out; empty checks out the whole tree.
+`node-cache` (default `npm`, also `yarn`) caches the package manager's downloads through `setup-node`, keyed by the
+lockfile; a repository without that lockfile sets it to `""`.
 
 **A prebuilt image (release workflow).** A release that tests the image it is about to deploy calls the workflow with
 `image: <registry/name>@sha256:<digest>` (the same value `deploy-app.yml` takes as `prebuilt-image`) on its tag push,

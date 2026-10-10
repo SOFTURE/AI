@@ -16,6 +16,10 @@
 # deleted in the same step) and the set-up and suite commands see it as `INTEGRATION_IMAGE`, next to
 # `INTEGRATION_EXPECTED_ORIGINS` and `INTEGRATION_FAIL_ON_FLAKY`. A tag push is accepted then. With `fail-on-flaky`, a
 # report naming a test that passed only on a retry is stored red and fails the run.
+#
+# Issue #368: `artifact-paths` keeps the suite's own debugging files (Playwright traces, screenshots) when the suite is
+# red or the job fails; `sparse-checkout` leaves folders the suite never reads out of both checkouts; `node-cache`
+# caches the package manager's downloads between runs (npm by default).
 
 name: deploy-integration
 
@@ -54,6 +58,18 @@ on:
         description: Store red and fail when the report names a test that passed only on a retry
         type: boolean
         default: false
+      artifact-paths:
+        description: Paths or globs inside the repository (one per line, ! to exclude) uploaded as integration-failure (kept 7 days) when the suite is red or the job fails; empty for none
+        type: string
+        default: ""
+      sparse-checkout:
+        description: Patterns for a sparse checkout (one per line, gitignore style with cone mode off, e.g. /* and !/docs/screenshots/); empty for the whole tree
+        type: string
+        default: ""
+      node-cache:
+        description: Package manager whose downloads setup-node caches (npm or yarn; needs its lockfile); empty for no cache
+        type: string
+        default: npm
       notes-ref:
         description: The notes ref the results are stored under
         type: string
@@ -69,7 +85,7 @@ on:
       deploy-cli-version:
         description: Version of @softure-ai/deploy that records the result
         type: string
-        default: 0.1.8
+        default: 0.1.9
     secrets:
       registry-token:
         description: A token that may pull `image` (e.g. the caller's GITHUB_TOKEN with packages read); none for a public image
@@ -101,6 +117,8 @@ jobs:
           REF_PREFIX: ${{ inputs.ref-prefix }}
           NODE_VERSION: ${{ inputs.node-version }}
           DEPLOY_CLI_VERSION: ${{ inputs.deploy-cli-version }}
+          ARTIFACT_PATHS: ${{ inputs.artifact-paths }}
+          NODE_CACHE: ${{ inputs.node-cache }}
         run: |
           failures=0
           reject() {
@@ -131,6 +149,14 @@ jobs:
           fi
           if [[ ! "$NODE_VERSION" =~ ^[0-9]+(\.[0-9]+){0,2}$ ]]; then reject node-version "a version number"; fi
           if [[ ! "$DEPLOY_CLI_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then reject deploy-cli-version "an exact version"; fi
+          while IFS= read -r line || [ -n "$line" ]; do
+            pattern="${line#!}"
+            if [ -n "$line" ] && ! is_repository_path "$(printf '%s' "$pattern" | tr '*?' xx)"; then reject artifact-paths "paths or globs inside the repository, got $line"; fi
+          done <<< "$ARTIFACT_PATHS"
+          case "$NODE_CACHE" in
+            "" | npm | yarn) ;;
+            *) reject node-cache "npm, yarn or empty" ;;
+          esac
           if [[ "$GITHUB_REF" == refs/tags/* ]] && [ -n "$IMAGE" ]; then
             : # A release run of a prebuilt image.
           elif [[ "$GITHUB_REF" != refs/heads/* ]]; then
@@ -160,9 +186,12 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
+          sparse-checkout: ${{ inputs.sparse-checkout }}
+          sparse-checkout-cone-mode: false
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ inputs.node-version }}
+          cache: ${{ inputs.node-cache }}
       - name: Set up
         if: inputs.setup-command != ''
         env:
@@ -195,6 +224,16 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
           overwrite: true
+      - name: Keep the failure artifacts
+        # A red suite does not fail its own step, so its result is checked as well as failure().
+        if: inputs.artifact-paths != '' && (failure() || steps.suite.outputs.result == 'red')
+        uses: actions/upload-artifact@v7
+        with:
+          name: integration-failure
+          path: ${{ inputs.artifact-paths }}
+          if-no-files-found: warn
+          retention-days: 7
+          overwrite: true
       - name: Fail on a red suite
         if: steps.suite.outputs.result == 'red'
         run: |
@@ -220,6 +259,8 @@ jobs:
         with:
           ref: ${{ github.sha }}
           fetch-depth: 1
+          sparse-checkout: ${{ inputs.sparse-checkout }}
+          sparse-checkout-cone-mode: false
       - uses: actions/download-artifact@v8
         if: needs.test.result != 'cancelled' && (inputs.results-report != '' || inputs.junit-report != '')
         continue-on-error: true

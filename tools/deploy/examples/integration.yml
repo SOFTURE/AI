@@ -8,6 +8,8 @@
 #
 # A Playwright suite passes its JSON report instead (`results-report: test-results/e2e.json`); a release workflow
 # that tests its prebuilt image passes `image`, `expected-origins` and `fail-on-flaky` (README, "Integration workflow").
+# `artifact-paths` keeps the suite's traces and screenshots of a red run; `sparse-checkout` leaves out folders the
+# suite never reads; `node-cache` is `npm` unless set (`""` without a package-lock.json).
 
 name: integration
 

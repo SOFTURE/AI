@@ -4,6 +4,16 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
+## 0.1.9
+
+- `deploy-integration.yml` takes three inputs an app's own integration workflow had (issue #368):
+  - `artifact-paths`: paths or globs inside the repository, one per line, uploaded as the `integration-failure`
+    artifact (kept 7 days) when the suite is red or the job fails, e.g. Playwright's `test-results/**`.
+  - `sparse-checkout`: gitignore-style patterns (cone mode off) for the test and record jobs' checkouts; empty, the
+    default, checks out the whole tree as before.
+  - `node-cache`: `npm` (default) or `yarn` caches the package manager's downloads through `setup-node`; `""` turns
+    it off. The cache needs the lockfile in the repository: a caller without `package-lock.json` sets `node-cache: ""`.
+
 ## 0.1.8
 
 - `verify` takes the checks an app kept in a shell script (issue #309):
