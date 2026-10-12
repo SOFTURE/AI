@@ -1,12 +1,13 @@
 ---
 change_id: testing-next-action-guards
 title: "testing/guards: Next.js server-action architecture guards (issue #402)"
-status: planned
+status: archived
 roadmap_item: null
 issue: 402
 branch: claude/project-thread-dqzwyl
 created: 2026-10-12
 updated: 2026-10-12
+archived_at: 2026-10-12
 ---
 
 ## Intent
@@ -58,3 +59,5 @@ this change bumps no version.
 
 - Placement: unlinked (`roadmap_item: null`); autonomous mode works from issues, no active roadmap.
 - Framing: skipped. The issue names the rules, the shape of the result and the options it wants.
+- Archived 2026-10-12: `@softure-ai/testing/guards/next` exports the six server-action rules and
+  `findServerActionProblems`; `guards` exports `stripComments` and `collectStringLiterals`.
