@@ -1,12 +1,13 @@
 ---
 change_id: charts-adoption-gaps-409
 title: "charts: step series, distinct band colours, surface variants, event axis and stacked areas (issue #409)"
-status: implementing
+status: archived
 roadmap_item: null
 issue: 409
 branch: claude/project-thread-0vhmfz
 created: 2026-10-12
 updated: 2026-10-12
+archived_at: 2026-10-12
 ---
 
 ## Intent

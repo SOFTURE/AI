@@ -1,6 +1,6 @@
 ---
 change_id: charts-adoption-gaps-409
-status: implementing
+status: archived
 ---
 
 # Plan: charts adoption gaps (issue #409)
@@ -61,7 +61,7 @@ Files: new `src/cursor/cursor-keys.ts` (shared `getNextIndex`), `src/cursor/even
 - [x] Phase 1: data helpers and stacked areas (`674844f`; the new test file failed on master, 14 tests green after)
 - [x] Phase 2: surfaces (`359a823`)
 - [x] Phase 3: EventAxis (`0e351f2`; tests in `tests/event-axis.test.tsx`, which needs `happy-dom`)
-- [x] Phase 4: docs (this commit)
+- [x] Phase 4: docs (`5c1d226`)
 
 Gates on the branch: `npm run typecheck`, `npm run lint`, `npm run build` green; the charts package's 229 tests pass,
 the full `npm test` runs in pre-push.
