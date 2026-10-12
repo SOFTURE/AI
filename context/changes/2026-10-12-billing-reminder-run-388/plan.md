@@ -40,13 +40,13 @@ README, CHANGELOG, peer range.
 ### Phase 1: The exact end
 
 #### Automated
-- [ ] 1.1 Stored ends carry `endsAtMicros` exactly as stored
-- [ ] 1.2 Derived ends carry `endsAt` in microseconds
+- [x] 1.1 Stored ends carry `endsAtMicros` exactly as stored — cc46176
+- [x] 1.2 Derived ends carry `endsAt` in microseconds — cc46176
 
 ### Phase 2: The run
 
 #### Automated
-- [ ] 2.1 `sendAccessReminders` runs on `runDeliveries` and returns its summary plus `due`
-- [ ] 2.2 `dryRun`, `limit`, `retakeUncertain` and `onDelivery` pass through
-- [ ] 2.3 A scope rebuilt from `endsAtMicros` finds the app's own ledger entry
-- [ ] 2.4 README, CHANGELOG, peer range; gates green (typecheck, lint, test)
+- [x] 2.1 `sendAccessReminders` runs on `runDeliveries` and returns its summary plus `due` — 32a5777
+- [x] 2.2 `dryRun`, `limit`, `retakeUncertain` and `onDelivery` pass through — 32a5777
+- [x] 2.3 A scope rebuilt from `endsAtMicros` finds the app's own ledger entry — 32a5777
+- [x] 2.4 README, CHANGELOG, peer range; gates green (typecheck, lint, test) — 32a5777
