@@ -6,6 +6,12 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- Tool blocks (#413). `defineToolBlock({ name, schema, renderStatic, Island })` (`/ui`) turns a `::name{…}` directive
+  into an interactive tool: the page's server HTML holds the static version in a mount point and `BlogToolIsland`
+  (a client component) swaps in `Island` with the props the schema parsed; the Markdown answer carries the static
+  version (or `markdown(props)`); `requires`, `numbers(props)`, `renderInvalid` and `className` are optional.
+  `BlockPlugin.validate(block)` (new, optional) lets any directive plugin refuse readable but wrong attributes; the gate
+  reports them as `block-directive`, which a tool block does with its schema's issues.
 - The OG font loader lives in `@softure-ai/core/og` and an app reaches it from `@softure-ai/seo/server` for cards
   outside the blog (#414). The blog still exports `createOgFontLoader`, `loadBrandOgFonts` and their types from
   `/server` and `/next`, with the same `Blog OG card: brand.fonts[i]` messages; seo stays an optional peer.
