@@ -37,12 +37,17 @@
   `checksum`; not `applied_at`, `method`, `module_version`. Two databases without a ledger compare equal.
 - **D5: include tables matched by email keep the old address.** `include` rows are the app's data, copied as they
   are; the README says so. Only `auth.users.email` and the copied email-keyed consents change.
+- **D7 (during implement): the new email is written into the copied rows, not updated afterwards.**
+  `privacy.consents` is append-only (a trigger refuses updates), so the copied `auth.users` row and the copied
+  email-keyed consents are rewritten in memory before the insert, and the target is read back with the new key.
+  The existence check then sees the new address, and rows the target already had under the old key are never
+  touched, with no id bookkeeping.
 - **D6: no version bump.** Releases are batched; both CHANGELOGs get `## Unreleased`.
 
 ## Progress
 
 - [x] 1. ops run context
-- [ ] 2. ledger check
-- [ ] 3. newEmail
+- [x] 2. ledger check
+- [x] 3. newEmail
 - [ ] 4. script --to and --new-email
 - [ ] 5. docs

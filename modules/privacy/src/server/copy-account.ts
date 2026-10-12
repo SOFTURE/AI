@@ -17,7 +17,8 @@ export type CopyAccountErrorCode =
   | "privacy.copy_unsupported"
   | "privacy.copy_reference_missing"
   | "privacy.copy_conflict"
-  | "privacy.copy_verification_failed";
+  | "privacy.copy_verification_failed"
+  | "privacy.copy_ledger_mismatch";
 
 /** A table the foreign keys do not reach, added by a column holding the account's id or email. */
 export interface CopyAccountInclude {
@@ -47,6 +48,18 @@ export interface CopyAccountInput {
    * Any other missing reference always refuses.
    */
   readonly onMissingReference?: "refuse" | "null";
+  /**
+   * The address the account gets in the target (trimmed, lowercased): its `auth.users` row and its
+   * email-keyed consents are written with it, in the same transaction, and verified as written. The
+   * target must not have an account with it; the source's address may exist there. Rows of `include`
+   * tables keep their values.
+   */
+  readonly newEmail?: string;
+  /**
+   * "refuse" (default): refuse when the two databases' migration ledgers (`softure.migrations`)
+   * differ, since a column only the target has would silently take its default. "ignore" skips it.
+   */
+  readonly ledger?: "refuse" | "ignore";
 }
 
 export interface CopiedTable {
@@ -102,13 +115,24 @@ interface Catalog {
   readonly foreignKeys: readonly ForeignKey[];
 }
 
+/** The migration ledger as `module#version` to checksum; empty without a ledger table. */
+type Ledger = ReadonlyMap<string, string>;
+
+/** What the source read gives the write: the rows and the source's ledger. */
+interface SourceRead {
+  readonly copies: TableCopy[];
+  readonly ledger: Ledger;
+}
+
 /** One table's part of the copy: the columns written and the rows as text (null for NULL). */
 interface TableCopy {
   readonly table: Table;
   readonly columns: readonly Column[];
   readonly rows: (string | null)[][];
-  /** The selection of the table's rows; the target is read back with it too. */
+  /** The selection of the table's rows in the source. */
   readonly predicate: SQL;
+  /** The selection the target is read back with: `predicate`, with the new email's consent key when renamed. */
+  readonly targetPredicate: SQL;
   nulledReferences: number;
 }
 
@@ -119,6 +143,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ACCOUNTS = getTableConfig(users);
 const ACCOUNTS_KEY = `${ACCOUNTS.schema ?? "public"}.${ACCOUNTS.name}`;
 const CONSENTS_KEY = "privacy.consents";
+/** How many ledger differences a refusal names before it only counts the rest. */
+const MAX_LEDGER_DIFFERENCES = 5;
 /** SQLSTATE class 23: integrity constraint violations (unique, foreign key, check, not null). */
 const INTEGRITY_VIOLATION_CLASS = "23";
 
@@ -150,8 +176,8 @@ class DryRunRollback extends Error {
  */
 export async function copyAccount(input: CopyAccountInput): Promise<CopyAccountResult> {
   try {
-    const copies = await readAccount(input);
-    const report = await writeAccount(input, copies);
+    const source = await readAccount(input);
+    const report = await writeAccount(input, source);
     return ok(report);
   } catch (error) {
     if (error instanceof DryRunRollback) return ok(error.report);
@@ -160,15 +186,18 @@ export async function copyAccount(input: CopyAccountInput): Promise<CopyAccountR
   }
 }
 
-async function readAccount(input: CopyAccountInput): Promise<TableCopy[]> {
+async function readAccount(input: CopyAccountInput): Promise<SourceRead> {
   if (!UUID.test(input.userId)) throw new CopyRefusal("privacy.copy_account_missing", `"${input.userId}" is not an account id`);
   return input.from.transaction(
     async (tx) => {
       await setTextSettings(tx);
       const catalog = await readCatalog(tx);
+      const ledger = await readLedger(tx);
       const email = await findAccountEmail(tx, input.userId);
       if (email === null) throw new CopyRefusal("privacy.copy_account_missing", `${ACCOUNTS_KEY} has no row with id ${input.userId}`);
-      const predicates = buildPredicates(catalog, input, email);
+      const newEmail = input.newEmail === undefined ? undefined : normalizeEmail(input.newEmail);
+      const predicates = buildPredicates(catalog, input, { email, consentEmail: email });
+      const targetPredicates = newEmail === undefined ? predicates : buildPredicates(catalog, input, { email, consentEmail: newEmail });
       const order = orderForInsert(catalog, [...predicates.keys()]);
       const referenced = findReferencedColumns(catalog);
       const copies: TableCopy[] = [];
@@ -177,18 +206,22 @@ async function readAccount(input: CopyAccountInput): Promise<TableCopy[]> {
         const predicate = predicates.get(key);
         if (predicate === undefined) continue;
         const columns = table.columns.filter((column) => !column.isGenerated && !isRegeneratedKey(table, column, referenced));
-        copies.push({ table, columns, rows: await selectRows(tx, table, columns, predicate), predicate, nulledReferences: 0 });
+        const rows = await selectRows(tx, table, columns, predicate);
+        if (newEmail !== undefined) renameRows(table, columns, rows, { from: email, to: newEmail });
+        copies.push({ table, columns, rows, predicate, targetPredicate: targetPredicates.get(key) ?? predicate, nulledReferences: 0 });
       }
-      return copies;
+      return { copies, ledger };
     },
     { isolationLevel: "repeatable read", accessMode: "read only" },
   );
 }
 
-async function writeAccount(input: CopyAccountInput, copies: readonly TableCopy[]): Promise<CopyAccountReport> {
+async function writeAccount(input: CopyAccountInput, source: SourceRead): Promise<CopyAccountReport> {
   const isCommitting = input.commit === true;
+  const { copies } = source;
   return input.to.transaction(async (tx) => {
     await setTextSettings(tx);
+    if (input.ledger !== "ignore") checkLedgers(source.ledger, await readLedger(tx));
     await refuseExistingAccount(tx, input.userId, findCopiedEmail(copies));
     const target = await readCatalog(tx);
     for (const copy of copies) checkTargetTable(target, copy);
@@ -204,6 +237,57 @@ async function writeAccount(input: CopyAccountInput, copies: readonly TableCopy[
     if (!isCommitting) throw new DryRunRollback(report);
     return report;
   });
+}
+
+/** Every ledger row as `module#version` to checksum; empty while the ledger table does not exist. */
+async function readLedger(db: Queryable): Promise<Ledger> {
+  const table = await db.execute<{ found: boolean }>(sql`SELECT to_regclass('softure.migrations') IS NOT NULL AS found`);
+  if (table.rows[0]?.found !== true) return new Map();
+  const result = await db.execute<{ module: string; version: number; checksum: string }>(
+    sql`SELECT module, version, checksum FROM softure.migrations ORDER BY module, version`,
+  );
+  return new Map(result.rows.map((row) => [`${row.module}#${String(row.version)}`, row.checksum]));
+}
+
+/** Refuses when a migration ran on one side only, or ran from another file (checksum) on each side. */
+function checkLedgers(source: Ledger, target: Ledger): void {
+  const differences: string[] = [];
+  for (const [key, checksum] of source) {
+    const other = target.get(key);
+    if (other === undefined) differences.push(`${key} only in the source`);
+    else if (other !== checksum) differences.push(`${key} has another checksum`);
+  }
+  for (const key of target.keys()) if (!source.has(key)) differences.push(`${key} only in the target`);
+  if (differences.length === 0) return;
+  const named = differences.slice(0, MAX_LEDGER_DIFFERENCES).join(", ");
+  const rest = differences.length - MAX_LEDGER_DIFFERENCES;
+  throw new CopyRefusal(
+    "privacy.copy_ledger_mismatch",
+    `the migration ledgers differ: ${named}${rest > 0 ? ` and ${String(rest)} more` : ""}`,
+  );
+}
+
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+/** The account's email, for `include` tables, and the one its email-keyed consents are selected by. */
+interface AccountEmails {
+  readonly email: string;
+  readonly consentEmail: string;
+}
+
+/**
+ * Writes the new email into the copied rows before they reach the target: the account's
+ * `auth.users.email`, and the key of its email-keyed consents (the consent table is append-only,
+ * so the rows are written with the new key rather than updated).
+ */
+function renameRows(table: Table, columns: readonly Column[], rows: (string | null)[][], rename: { readonly from: string; readonly to: string }): void {
+  const column = table.key === ACCOUNTS_KEY ? "email" : table.key === CONSENTS_KEY ? "email_key" : undefined;
+  const position = columns.findIndex((candidate) => candidate.name === column);
+  if (position < 0) return;
+  const [from, to] = table.key === ACCOUNTS_KEY ? [null, rename.to] : [getEmailKey(rename.from), getEmailKey(rename.to)];
+  for (const row of rows) if (from === null || row[position] === from) row[position] = to;
 }
 
 /** Text forms that do not depend on the server's or the session's settings. */
@@ -310,7 +394,8 @@ async function findAccountEmail(db: Queryable, userId: string): Promise<string |
  * the account's email-keyed consents, and the rows referencing a selected row through an owning
  * foreign key, as nested `IN (SELECT ...)` predicates. Unknown names in `exclude` or `include` refuse.
  */
-function buildPredicates(catalog: Catalog, input: CopyAccountInput, email: string): Map<string, SQL> {
+function buildPredicates(catalog: Catalog, input: CopyAccountInput, emails: AccountEmails): Map<string, SQL> {
+  const { email } = emails;
   const excluded = new Set(input.exclude ?? []);
   for (const key of [...excluded, ...(input.include ?? []).map((entry) => entry.table)]) getTable(catalog, key);
   const roots = new Map<string, SQL[]>();
@@ -319,7 +404,7 @@ function buildPredicates(catalog: Catalog, input: CopyAccountInput, email: strin
   addRoot(ACCOUNTS_KEY, sql`${identifier("id")} = ${input.userId}::uuid`);
   const consents = catalog.tables.get(CONSENTS_KEY);
   if (consents?.columns.some((column) => column.name === "email_key") === true) {
-    addRoot(CONSENTS_KEY, sql`${identifier("email_key")} = ${getEmailKey(email)}`);
+    addRoot(CONSENTS_KEY, sql`${identifier("email_key")} = ${getEmailKey(emails.consentEmail)}`);
   }
   for (const entry of input.include ?? []) {
     const table = getTable(catalog, entry.table);
@@ -538,7 +623,7 @@ async function insertRows(db: Queryable, target: Catalog, copy: TableCopy): Prom
 async function verifyRows(db: Queryable, target: Catalog, copy: TableCopy): Promise<void> {
   if (copy.rows.length === 0) return;
   // The source's predicate names tables and columns the target was checked to have.
-  const written = await selectRows(db, getTable(target, copy.table.key, "target"), copy.columns, copy.predicate);
+  const written = await selectRows(db, getTable(target, copy.table.key, "target"), copy.columns, copy.targetPredicate);
   const counts = new Map<string, number>();
   for (const row of written) counts.set(JSON.stringify(row), (counts.get(JSON.stringify(row)) ?? 0) + 1);
   for (const row of copy.rows) {
