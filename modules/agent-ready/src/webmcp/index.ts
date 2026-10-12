@@ -313,10 +313,13 @@ const SEARCH_SITE_INPUT_SCHEMA = {
   additionalProperties: false,
 } as const;
 
+/** The predefined XML entities, decoded in one pass so `&amp;lt;` stays `&lt;`. */
+const XML_ENTITIES: Readonly<Record<string, string>> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
+
 function readSitemapPaths(xml: string): string[] {
   const paths: string[] = [];
   for (const match of xml.matchAll(/<loc>\s*([^<]+?)\s*<\/loc>/g)) {
-    const loc = (match[1] ?? "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'");
+    const loc = (match[1] ?? "").replace(/&(amp|lt|gt|quot|apos);/g, (_, name: string) => XML_ENTITIES[name] ?? "");
     const path = toPath(loc);
     if (path !== null && !path.endsWith(".xml") && !paths.includes(path)) paths.push(path);
   }

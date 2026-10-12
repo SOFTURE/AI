@@ -72,6 +72,13 @@ describe("createSearchSiteTool", () => {
     expect(calls.map(({ path }) => path)).toEqual(["/sitemap.xml", "/", "/pricing", "/blog/fire-basics", "/blog/glossary/etf"]);
   });
 
+  it("decodes the sitemap's XML entities once", async () => {
+    const xml = '<urlset><url><loc>https://example.com/a?x=1&amp;y=2</loc></url><url><loc>https://example.com/b?q=&amp;lt;</loc></url></urlset>';
+    const { fetchImpl, calls } = createFetch({ "/sitemap.xml": xml });
+    await createSearchSiteTool({ fetchImpl }).execute({ query: "x" });
+    expect(calls.map(({ path }) => path)).toEqual(["/sitemap.xml", "/a?x=1&y=2", "/b?q=&lt;"]);
+  });
+
   it("folds case and diacritics, the l with stroke included", async () => {
     const { fetchImpl } = createFetch({
       "/sitemap.xml": sitemap("/a"),
