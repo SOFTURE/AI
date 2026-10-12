@@ -38,6 +38,9 @@ no version: each touched package's CHANGELOG gets an `## Unreleased` entry.
 ## Process notes
 
 - Framing: skipped. The issue names the problem and the ask.
+- CI follow-up: the example app's lockfile resolved `@softure-ai/core` from npm (0.1.9) since commit `348bfab`, not
+  from `../../foundation/core`, so the e2e run could not see `@softure-ai/core/og`. The entry was regenerated with
+  `npm install --package-lock-only`, back to the workspace copy like every other package.
 
 ## Decisions (auto)
 
