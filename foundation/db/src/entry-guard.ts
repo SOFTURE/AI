@@ -78,6 +78,9 @@ async function buildMetafile(entryPoints: readonly string[], workingDir: string,
     external: [...external],
     loader: Object.fromEntries(ASSET_EXTENSIONS.map((extension) => [extension, "empty" as const])),
     logLevel: "silent",
+  }).catch((error: unknown) => {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new Error(`findEntriesReachingDatabase: esbuild could not follow the entries' imports: ${reason}`, { cause: error });
   });
   return result.metafile;
 }

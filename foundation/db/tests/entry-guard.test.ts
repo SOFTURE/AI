@@ -39,6 +39,12 @@ describe("findEntriesReachingDatabase", () => {
     expect(reaching).toEqual([{ entry: "script-bad.ts", opens: false }]);
   });
 
+  it("names the operation when an entry cannot be built", async () => {
+    await expect(findEntriesReachingDatabase({ entries: [at("missing-entry.ts")], clientModule: CLIENT })).rejects.toThrow(
+      "findEntriesReachingDatabase: esbuild could not follow the entries' imports",
+    );
+  });
+
   it("throws when the client module does not exist", async () => {
     await expect(findEntriesReachingDatabase({ entries: [at("server.ts")], clientModule: at("missing.ts") })).rejects.toThrow(
       "findEntriesReachingDatabase: the client module does not exist",
