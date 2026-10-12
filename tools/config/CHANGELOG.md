@@ -4,6 +4,18 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- Installs and lints in a Next.js app on ESLint 9, found adopting the package (#384):
+  - The optional peers accept what Next's ESLint stack uses: `eslint` and `@eslint/js` `^9.22.0 || ^10.0.0`,
+    `globals` `>=14.0.0`, `typescript-eslint` `^8.46.0`. Before, `npm install` failed with `ERESOLVE`.
+  - The type-checked rules cover TypeScript files only, and typescript-eslint's parser is set for them after
+    `extends`. The README's Next example no longer fails on `.mjs` files with "requires type information".
+  - The preset reuses the `@typescript-eslint` plugin a config in `extends` registers, so a second installed copy of
+    typescript-eslint no longer fails with "Cannot redefine plugin".
+  - README: overriding `noUncheckedIndexedAccess` while an app adopts the tsconfig base, skipping the language file
+    checks of the lefthook preset, and the cost of the type-checked rules.
+
 ## 0.1.1
 
 - No change for an app: the code and presets are those of 0.1.0. This is the first version published through the
