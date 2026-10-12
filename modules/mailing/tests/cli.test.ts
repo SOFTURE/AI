@@ -80,7 +80,7 @@ describe("softure-mail campaign", () => {
     expect(provider.sent).toHaveLength(3);
   });
 
-  it("names the rejections, and fails while recipients wait for a retry", async () => {
+  it("names the rejections, and stops at an outage until a later run", async () => {
     await test.database.client.query("INSERT INTO mailing.suppressions VALUES ($1, 'page', $2)", [getRecipientKey("ada@example.org"), NOW]);
     const failing = fakeMailProvider({ respond: (message) => (message.to === "cy@example.org" ? { status: "unavailable" } : undefined) });
     const result = await run(SEND, { config: createConfig(failing) });
@@ -88,6 +88,22 @@ describe("softure-mail campaign", () => {
     expect(result).toEqual({
       code: 1,
       lines: ["campaign 2026-10-launch (newsletter): recipients 3, sent 1, rejected 1 (suppressed 1), already done 0, in flight 0, retry later 1, filtered out 0, uncertain 0"],
+      errors: ["stopped: the provider is unavailable or rate limiting; the remaining recipients were not touched, run the same command again later"],
+    });
+    expect(await run(SEND)).toMatchObject({ code: 0, lines: ["campaign 2026-10-launch (newsletter): recipients 3, sent 1, rejected 0, already done 2, in flight 0, retry later 0, filtered out 0, uncertain 0"] });
+  });
+
+  it("fails while a recipient is claimed by another run", async () => {
+    await run(SEND, { config: createConfig(fakeMailProvider({ respond: () => ({ status: "refused", httpStatus: 401 }) })) });
+    // The CLI runs on the real clock, so a claim taken now is fresh.
+    await test.database.client.query(
+      "INSERT INTO mailing.deliveries (scope, recipient_key, kind, campaign_id, status, attempts, claimed_at, created_at) VALUES ($1, $2, 'newsletter', $3, 'claimed', 1, $4, $4)",
+      ["campaign:2026-10-launch", getRecipientKey("cy@example.org"), "2026-10-launch", new Date()],
+    );
+
+    expect(await run(SEND)).toEqual({
+      code: 1,
+      lines: ["campaign 2026-10-launch (newsletter): recipients 3, sent 2, rejected 0, already done 0, in flight 1, retry later 0, filtered out 0, uncertain 0"],
       errors: ["1 recipient(s) have no outcome yet; run the same command again later"],
     });
   });
