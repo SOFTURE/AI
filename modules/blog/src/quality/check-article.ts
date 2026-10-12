@@ -59,7 +59,7 @@ export function checkArticle(input: CheckArticleInput): QualityCheckResult {
     ...checkStyle(ruleInput),
     ...checkRhythm(ruleInput),
     ...checkBlockRequires(article, pluginBlocks),
-    ...checkDirectives(blocks, pluginBlocks, settings.options.blocks),
+    ...checkDirectives(blocks, pluginBlocks, settings.options.blocks, { currentAsOf: article.currentAsOf, fields: article.fields }),
     ...checkBlockNumbers({ article, blocks, pluginBlocks, plugins: settings.options.blocks, ruleset: settings.ruleset }),
     ...checkFacts(ruleInput),
     ...checkImages(images, settings.images),

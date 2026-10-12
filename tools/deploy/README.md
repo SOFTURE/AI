@@ -494,6 +494,82 @@ optional `description`, `permissions: contents: write, actions: write`). Started
 Outputs: `tag`, `sha`. One run per repository at a time (`concurrency`, not cancelled). Semver tags are out of its
 scope: packages keep their own release workflow.
 
+### Release checks
+
+`SOFTURE/AI/.github/workflows/deploy-release-checks.yml` holds the checks every app ran in its own YAML before a
+release, and on its pull requests. Its jobs:
+
+1. `prepare` checks the inputs (one `::error::` line each) and resolves the commit the other jobs check out. With a
+   `tag`, the tag must match `tag-pattern` (the `vYYYY.MM.DD` tags `deploy-cut-release.yml` cuts, `-2`, `-3` on a
+   busy day) and its commit must be on the release branch (`release-branch`, else the caller's default branch; commits
+   only are fetched). Without a tag it checks the caller's own commit, which is how a pull request runs it.
+2. `static` installs (`install-command`) and runs `static-command`: the type check and lint. A Next app runs
+   `next typegen` first, since a fresh checkout has no generated route types; `init`'s caller does.
+3. `unit` installs and runs `test-command` once per shard, `shards` jobs in parallel (1 to 20, 60 minutes each), with
+   `SHARD_INDEX` (from 1) and `SHARD_COUNT` set; the default `npm test -- --shard="$SHARD_INDEX/$SHARD_COUNT"` suits
+   Vitest.
+
+Every job reads the repository only (`contents: read`), so a pull request's caller grants nothing more. The image is
+built by `SOFTURE/AI/.github/workflows/deploy-release-image.yml`, a separate workflow: one job `build` (the only one
+with `packages: write`) checks out `ref` (a full commit SHA, the checks' `sha` output), pushes `<image>:sha-<sha>` to
+GHCR and outputs `prebuilt-image`, `<image>@sha256:<digest>`, the form `deploy-app.yml`'s `prebuilt-image` takes. The
+release tag is then added to exactly the bytes the checks passed. Its inputs besides `ref` are `image`, `context`,
+`dockerfile`, `build-args` and `sparse-checkout`, as in `deploy-app.yml`.
+
+| Input | Default | |
+| --- | --- | --- |
+| `tag` | empty | the release tag; empty checks the caller's commit |
+| `tag-pattern` | `^v[0-9]{4}\.[0-9]{2}\.[0-9]{2}(-[0-9]+)?$` | extended regular expression the tag must match |
+| `release-branch` | the default branch | the branch the tag's commit must be on |
+| `node-version`, `cache` | `22`, `npm` | `actions/setup-node`; `cache: ""` for none |
+| `install-command` | `npm ci` | before `static` and each shard |
+| `static`, `static-command` | `true`, `npx tsc --noEmit && npm run lint --if-present` | |
+| `unit`, `test-command`, `shards` | `true`, `npm test -- --shard="$SHARD_INDEX/$SHARD_COUNT"`, `1` | |
+| `sparse-checkout` | the whole commit | non-cone checkout patterns for every job |
+
+Output: `sha`. The commands are the app's own and run with `bash -e -c` from `env:`, never interpolated.
+
+**On pull requests.** `init` writes `.github/workflows/checks.yml` (the same file as
+[`examples/checks.yml`](examples/checks.yml)): `static` on every pull request; the unit tests, which cost the most
+Actions minutes, on *Run workflow* or with the label `run-tests`.
+
+**Before a deploy.** In the deploy caller, `checks` and `image` jobs ahead of `deploy` make the release deploy only
+the image the checks passed (the caller's top-level `permissions` already grant `packages: write`):
+
+```yaml
+jobs:
+  checks:
+    uses: SOFTURE/AI/.github/workflows/deploy-release-checks.yml@<sha>
+    with:
+      tag: ${{ github.event.release.tag_name || inputs.tag }}
+      static-command: npx next typegen && npx tsc --noEmit && npm run lint --if-present
+      shards: 4
+
+  image:
+    needs: checks
+    uses: SOFTURE/AI/.github/workflows/deploy-release-image.yml@<sha>
+    with:
+      ref: ${{ needs.checks.outputs.sha }}
+
+  deploy:
+    needs: image
+    uses: SOFTURE/AI/.github/workflows/deploy-app.yml@<sha>
+    with:
+      tag: ${{ github.event.release.tag_name || inputs.tag }}
+      prebuilt-image: ${{ needs.image.outputs.prebuilt-image }}
+      # ...the rest as before
+```
+
+### Edit release notes
+
+`SOFTURE/AI/.github/workflows/deploy-release-notes.yml` replaces the body of one release: an agent's cloud session
+cannot edit a release through the API, but it can start a `workflow_dispatch`, and the owner can from the Actions tab.
+`init` writes the caller `.github/workflows/release-notes.yml` (the same file as
+[`examples/release-notes.yml`](examples/release-notes.yml): `workflow_dispatch` with the required inputs `tag` and
+`body`, `permissions: contents: write`). The job refuses an invalid tag and an empty body, then runs
+`gh release edit <tag> --notes-file <file>` with the body written to the file byte for byte. It replaces the whole
+body; edit the release's current text and pass all of it.
+
 ### End-to-end test
 
 [`.github/workflows/e2e-deploy.yml`](../../.github/workflows/e2e-deploy.yml) calls `deploy-app.yml` from the same
@@ -555,13 +631,15 @@ softure-deploy init --domain=example.com --image=ghcr.io/acme/app [--dir=.] [--n
 | `scripts/migrate.ts` | with a database: the migrate step the `Dockerfile` bundles |
 | `.github/workflows/deploy.yml` | the caller of `deploy-app.yml` with the domain, the image and the health path |
 | `.github/workflows/release.yml` | the caller of `deploy-cut-release.yml` (below): *Run workflow* cuts the next date tag in `UTC` and starts `deploy.yml` on it |
+| `.github/workflows/release-notes.yml` | the caller of `deploy-release-notes.yml` (below): *Run workflow* with `tag` and `body` replaces that release's body |
+| `.github/workflows/checks.yml` | the caller of `deploy-release-checks.yml` (below): `static` on every pull request, the unit tests on demand or with the `run-tests` label |
 | `deploy.json` | a `verify` starter: `/` without an error page, `/api/health` when the app has one, HSTS present, `x-powered-by` absent; with a database and `--tables`, `database.rowCountTables`; with `--cdn=cloudflare`, the range refresh hooks |
 
 - **Asked:** `--domain` and `--image`; `--paths`, `--www`, `--acme-email`, `--env` (the app's own secrets, added to
   the app service in the required form so `env render` renders them), `--tables` (what `row-counts` compares on
   the server, written into `deploy.json`; with a `deploy.json` that `init` keeps, add `database.rowCountTables` to it
   by hand), `--name` (compose project, server folder `/srv/<name>`, database name; default from `package.json`) and
-  `--workflows-ref` (the commit SHA both callers pin, see [Which ref callers pin](#deploy-workflow); without it they call
+  `--workflows-ref` (the commit SHA every caller pins, see [Which ref callers pin](#deploy-workflow); without it they call
   `master` and a warning prints the command that gives the release commit) and `--cdn=cloudflare` (the origin lock
   below; `cloudflare` is the only value) and `--report-role` (with a database, the Postgres role `deploy.sh`'s
   `report` reads as, ahead of the one read from a kept compose file; see below).

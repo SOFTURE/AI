@@ -1,0 +1,122 @@
+# Builds an app's image from one commit and pushes it to GHCR as `<image>:sha-<sha>` (@softure-ai/deploy, issue #406):
+# the step between deploy-release-checks.yml and deploy-app.yml. Its output `prebuilt-image` is the image by digest
+# (`<image>@sha256:<digest>`), the form deploy-app.yml's `prebuilt-image` takes, so the release tag is added to exactly
+# the bytes the checks passed and nothing is built twice.
+#
+# A workflow of its own so that the checks need `contents: read` only: the caller's job that calls this one grants
+# `contents: read` and `packages: write`. The caller passes the commit the checks ran on (`ref`, their `sha` output);
+# README, "Release checks", shows the three jobs. Every value reaches a script through `env:`, never interpolated.
+
+name: deploy-release-image
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: The full commit SHA to build, e.g. needs.checks.outputs.sha
+        type: string
+        required: true
+      image:
+        description: Image name without a tag; empty means ghcr.io/<owner>/<repository> of the caller, lower-cased
+        type: string
+        default: ""
+      context:
+        description: Docker build context in the app's repository
+        type: string
+        default: "."
+      dockerfile:
+        description: Dockerfile path in the app's repository
+        type: string
+        default: Dockerfile
+      build-args:
+        description: "Build arguments baked into the image, one NAME=value per line; public values only"
+        type: string
+        default: ""
+      sparse-checkout:
+        description: "Checkout patterns, non-cone (e.g. /* and !/context/archive/); empty = the whole commit"
+        type: string
+        default: ""
+    outputs:
+      prebuilt-image:
+        description: The pushed image by digest, <image>@sha256:<digest>, for deploy-app.yml's prebuilt-image
+        value: ${{ jobs.build.outputs.prebuilt-image }}
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build and push the image
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      prebuilt-image: ${{ steps.digest.outputs.prebuilt-image }}
+    steps:
+      - id: ref
+        name: Check the inputs
+        env:
+          REF: ${{ inputs.ref }}
+          IMAGE: ${{ inputs.image }}
+          BUILD_CONTEXT: ${{ inputs.context }}
+          DOCKERFILE: ${{ inputs.dockerfile }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          failures=0
+          reject() {
+            echo "::error::Input $1 is not valid: $2"
+            failures=$((failures + 1))
+          }
+          expect_path() {
+            if [[ ! "$2" =~ ^[A-Za-z0-9_.][A-Za-z0-9_./-]*$ ]] || [[ "/$2/" == */../* ]]; then
+              reject "$1" "a relative path without .. segments"
+            fi
+          }
+          [[ "$REF" =~ ^[0-9a-f]{40}$ ]] || reject ref "a full commit SHA (40 lower-case hex digits)"
+          if [ -z "$IMAGE" ]; then IMAGE="ghcr.io/$(printf '%s' "$REPOSITORY" | tr '[:upper:]' '[:lower:]')"; fi
+          [[ "$IMAGE" =~ ^[a-z0-9.-]+(:[0-9]{1,5})?(/[a-z0-9]+([._-][a-z0-9]+)*)+$ ]] || reject image "registry/name, lower case, no tag"
+          expect_path context "$BUILD_CONTEXT"
+          expect_path dockerfile "$DOCKERFILE"
+          if (( failures > 0 )); then exit 1; fi
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+          echo "tagged=$IMAGE:sha-$REF" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+          sparse-checkout: ${{ inputs.sparse-checkout }}
+          sparse-checkout-cone-mode: false
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: push
+        uses: docker/build-push-action@v7
+        with:
+          context: ${{ inputs.context }}
+          file: ${{ inputs.dockerfile }}
+          push: true
+          tags: ${{ steps.ref.outputs.tagged }}
+          build-args: ${{ inputs.build-args }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ inputs.ref }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - id: digest
+        name: Image by digest
+        env:
+          IMAGE: ${{ steps.ref.outputs.image }}
+          IMAGE_REF: ${{ steps.ref.outputs.tagged }}
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          if [[ ! "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error::The build of $IMAGE_REF reported no digest (\"$DIGEST\")."
+            exit 1
+          fi
+          echo "prebuilt-image=$IMAGE@$DIGEST" >> "$GITHUB_OUTPUT"
+          echo "Pushed $IMAGE_REF as \`$IMAGE@$DIGEST\`." >> "$GITHUB_STEP_SUMMARY"

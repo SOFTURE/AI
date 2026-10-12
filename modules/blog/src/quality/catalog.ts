@@ -77,7 +77,7 @@ export function listQualityRules(settings: QualitySettings): QualityCatalogRule[
     ...(options.ymyl === null ? [] : YMYL_RULES),
     ...(options.blocks.length === 0 ? [] : [rule("structure", "block-requires", "error", "a block plugin's block has the frontmatter keys it requires")]),
     ...(options.blocks.some((plugin) => plugin.syntax === "directive")
-      ? [rule("structure", "block-directive", "error", "a ::directive line names a directive the blog renders, with readable key=\"value\" attributes")]
+      ? [rule("structure", "block-directive", "error", "a ::directive line names a directive the blog renders, with readable key=\"value\" attributes the directive accepts")]
       : []),
     ...(options.blocks.some((plugin) => plugin.numbers !== undefined)
       ? [rule("structure", "block-numbers", "error", "every significant number of the paragraph before and after a data block is one of the block's numbers")]
