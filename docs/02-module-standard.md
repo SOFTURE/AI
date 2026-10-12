@@ -339,8 +339,9 @@ thin actions) are not needed.
   3. GitHub Release for the tag, with generated notes and the package tarball attached.
 - A brand-new package's first publish authenticates with an `NPM_TOKEN` secret (npm binds a trusted
   publisher only to an existing package); the owner then configures the trusted publisher (`SOFTURE` /
-  `AI` / `release.yml`, **Allow npm publish**). An agent releases only on the owner's explicit word,
-  through `auto-release.yml` (`release.owner: true`).
+  `AI` / `release.yml`, **Allow npm publish**). Releases go through `auto-release.yml`; with
+  `release.owner: false` in `context/workflow.json` the coordinating agent cuts them on its own, one combined
+  release once the current issues are done (owner, 2026-10-12).
 - A tarball ships `dist/` and `src/` (without tests), `migrations/`, `module.json` and the repository
   `LICENSE`; shipping `src/` keeps source maps and the `@softure-ai/source` export condition valid.
 - Build: `tsc -p tsconfig.build.json` per package (ESM + `.d.ts` per source file, so `"use client"`
