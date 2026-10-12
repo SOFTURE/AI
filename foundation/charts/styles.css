@@ -447,9 +447,14 @@
     stroke: none;
   }
 
-  .sft-chart-sankey-link,
+  /* Ribbons and tinted nodes: --sft-chart-sankey-link-opacity and --sft-chart-sankey-node-opacity, each falling back to
+   * the tint opacity. */
+  .sft-chart-sankey-link {
+    fill-opacity: var(--sft-chart-sankey-link-opacity, var(--sft-chart-tint-opacity, 0.24));
+  }
+
   .sft-chart-sankey-tint {
-    fill-opacity: var(--sft-chart-tint-opacity, 0.24);
+    fill-opacity: var(--sft-chart-sankey-node-opacity, var(--sft-chart-tint-opacity, 0.24));
   }
 
   .sft-chart-sankey-hub {
@@ -460,6 +465,47 @@
     stroke: var(--sft-chart-series, var(--sft-chart-series-1));
     stroke-width: var(--sft-chart-grid-width);
     vector-effect: non-scaling-stroke;
+  }
+
+  /* No label columns: the plot alone. */
+  .sft-chart-sankey-unlabelled {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Leaders: label column | leader strip | plot | leader strip | label column; --sft-chart-sankey-leader-width. */
+  .sft-chart-sankey-leaders {
+    --sft-chart-sankey-leader-width: var(--sft-space-4);
+    grid-template-columns:
+      var(--sft-chart-sankey-label-width) var(--sft-chart-sankey-leader-width) minmax(0, 1fr)
+      var(--sft-chart-sankey-leader-width) var(--sft-chart-sankey-label-width);
+    column-gap: var(--sft-space-1);
+  }
+
+  .sft-chart-sankey-leader-strip {
+    position: relative;
+    height: var(--sft-chart-plot-height);
+  }
+
+  .sft-chart-sankey-leader-svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  .sft-chart-sankey-leader {
+    fill: none;
+    stroke: var(--sft-chart-axis);
+    stroke-width: var(--sft-chart-grid-width);
+    vector-effect: non-scaling-stroke;
+  }
+
+  /* Fixed: the plot keeps the viewBox's ratio (set inline); label columns and leader strips follow its row. */
+  .sft-chart-sankey-fixed > .sft-chart-plot,
+  .sft-chart-sankey-fixed > .sft-chart-sankey-labels,
+  .sft-chart-sankey-fixed > .sft-chart-sankey-leader-strip {
+    height: auto;
   }
 
   /* BarList: label | bar | value, the rows sharing the list's columns. */

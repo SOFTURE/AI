@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { BarList, getBarListRows, renderBarListHtml } from "../src/index.js";
+import { BarList, getBarListRows, layoutSankey, renderBarListHtml, Sankey, type SankeyEntry } from "../src/index.js";
 
 const STYLES = readFileSync(join(import.meta.dirname, "../styles.css"), "utf8");
 
@@ -74,5 +74,80 @@ describe("BarList", () => {
     expect(STYLES).toContain(".sft-chart-bar-list-stacked {");
     expect(STYLES).toMatch(/\.sft-chart-bar-track-missing \{[^}]*border: var\(--sft-chart-grid-width\) dashed var\(--sft-chart-series, var\(--sft-chart-axis\)\);/);
     expect(STYLES).toContain(".sft-chart-bar-description {");
+  });
+});
+
+describe("layoutSankey leader data", () => {
+  it("gives each node its centre and says whether its label was spread away from it", () => {
+    const layout = layoutSankey(
+      [
+        { key: "x", side: "in", value: 0 },
+        { key: "y", side: "in", value: 0 },
+        { key: "z", side: "in", value: 100 },
+      ],
+      { gap: 0, labelSpacing: 40 },
+    );
+    expect(layout.inputs.map((node) => [node.centreY, node.labelY, node.isLabelSpread])).toEqual([
+      [0, 20, true],
+      [0, 60, true],
+      [200, 200, false],
+    ]);
+  });
+});
+
+describe("Sankey variants", () => {
+  // In: x and y are empty, so their labels are pushed down from the top (20, 60) away from their centre (0); z fills
+  // the height (centre 200). Out: w fills the height too, its label on its centre.
+  const items: SankeyEntry[] = [
+    { key: "x", side: "in", value: 0, label: "X" },
+    { key: "y", side: "in", value: 0, label: "Y" },
+    { key: "z", side: "in", value: 100, label: "Z" },
+    { key: "w", side: "out", value: 100, label: "W" },
+  ];
+  const layout = { gap: 0, labelSpacing: 40 };
+
+  it("draws only the plot without label columns", () => {
+    const html = renderToStaticMarkup(<Sankey items={items} layout={layout} labels="none" leaders className="app" />);
+    expect(html).toMatch(/^<div class="sft-chart-sankey sft-chart-sankey-unlabelled app"><div class="sft-chart-plot"><svg /);
+    expect(html).not.toContain("sft-chart-sankey-label");
+    expect(html).not.toContain("sft-chart-sankey-leader");
+  });
+
+  it("draws a leader from each spread label to its node, between the label column and the plot", () => {
+    const html = renderToStaticMarkup(<Sankey items={items} layout={layout} leaders />);
+    expect(html).toMatch(/^<div class="sft-chart-sankey sft-chart-sankey-leaders">/);
+    expect(html).toContain(
+      '</div><div aria-hidden="true" class="sft-chart-sankey-leader-strip sft-chart-sankey-leader-strip-in"><svg class="sft-chart-sankey-leader-svg" viewBox="0 0 1 400" preserveAspectRatio="none" focusable="false"><path class="sft-chart-sankey-leader" d="M0 20 L1 0"></path><path class="sft-chart-sankey-leader" d="M0 60 L1 0"></path></svg></div><div class="sft-chart-plot">',
+    );
+    expect(html).toContain(
+      '</div><div aria-hidden="true" class="sft-chart-sankey-leader-strip sft-chart-sankey-leader-strip-out"><svg class="sft-chart-sankey-leader-svg" viewBox="0 0 1 400" preserveAspectRatio="none" focusable="false"></svg></div><div aria-hidden="true" class="sft-chart-sankey-labels sft-chart-sankey-labels-out">',
+    );
+  });
+
+  it("draws an output leader from the node at the plot edge to the label", () => {
+    const html = renderToStaticMarkup(
+      <Sankey
+        items={[
+          { key: "z", side: "in", value: 100, label: "Z" },
+          { key: "a", side: "out", value: 100, label: "A" },
+          { key: "b", side: "out", value: 0, label: "B" },
+        ]}
+        layout={layout}
+        leaders
+      />,
+    );
+    // b sits at the bottom (centre 400); its label is pulled up to 380.
+    expect(html).toContain('<path class="sft-chart-sankey-leader" d="M0 400 L1 380"></path>');
+  });
+
+  it("keeps the plot at the viewBox's aspect ratio, with the viewBox the app picks", () => {
+    const html = renderToStaticMarkup(<Sankey items={items} layout={{ ...layout, width: 360, height: 300 }} aspect="fixed" />);
+    expect(html).toMatch(/^<div class="sft-chart-sankey sft-chart-sankey-fixed">/);
+    expect(html).toContain('<div class="sft-chart-plot" style="aspect-ratio:360 / 300"><svg class="sft-chart-svg" viewBox="0 0 360 300"');
+  });
+
+  it("reads separate opacities for ribbons and tinted nodes, falling back to the tint opacity", () => {
+    expect(STYLES).toMatch(/\.sft-chart-sankey-link \{[^}]*fill-opacity: var\(--sft-chart-sankey-link-opacity, var\(--sft-chart-tint-opacity, 0\.24\)\);/);
+    expect(STYLES).toMatch(/\.sft-chart-sankey-tint \{[^}]*fill-opacity: var\(--sft-chart-sankey-node-opacity, var\(--sft-chart-tint-opacity, 0\.24\)\);/);
   });
 });
