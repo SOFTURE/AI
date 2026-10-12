@@ -63,6 +63,11 @@ export interface SoftureConfig {
   readonly timezone: string;
   /** Scheme, host and port of the app, without a path: `https://app.example.com`. */
   readonly appOrigin: string;
+  /**
+   * The public landing site (`https://example.com`) when the app lives on a subdomain beside it; `appOrigin` when
+   * the app does not name one. For links from the app to its marketing pages, not for the app's own URLs.
+   */
+  readonly landingOrigin: string;
   /** Every origin the app is served under besides `appOrigin`, read by `resolveAppOrigin`. */
   readonly origins: SoftureOrigins;
   /** Enabled modules, in the order the app listed them. */
@@ -75,6 +80,8 @@ export interface SoftureConfigInput {
   readonly locale: Locale;
   readonly timezone: string;
   readonly appOrigin: string;
+  /** The public landing site beside the app; defaults to `appOrigin`. */
+  readonly landingOrigin?: string;
   readonly origins?: SoftureOriginsInput;
   readonly modules: readonly AnySoftureModule[];
 }
@@ -98,6 +105,7 @@ const configSchema = z.object({
   locale: z.enum(LOCALES),
   timezone: z.string().refine(isTimeZone, "must be an IANA time zone, e.g. Europe/Warsaw"),
   appOrigin: z.string().refine(isOrigin, ORIGIN_MESSAGE),
+  landingOrigin: z.string().refine(isOrigin, ORIGIN_MESSAGE).optional(),
   origins: z
     .strictObject({
       trustedOrigins: z.array(z.string().refine(isOrigin, ORIGIN_MESSAGE)).max(16, "takes at most 16 origins").default([]),
@@ -126,6 +134,7 @@ export function defineSoftureConfig(input: SoftureConfigInput): SoftureConfig {
 
   return Object.freeze({
     ...config,
+    landingOrigin: config.landingOrigin ?? config.appOrigin,
     database: config.database === null ? null : Object.freeze({ ...config.database }),
     origins: Object.freeze({ ...config.origins, trustedOrigins: Object.freeze([...config.origins.trustedOrigins]) }),
     modules: Object.freeze([...config.modules]),

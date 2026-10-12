@@ -20,7 +20,12 @@ function splitList(text: string | undefined): string[] {
     .filter((item) => item !== "");
 }
 
-const CALLER_WORKFLOWS = [".github/workflows/deploy.yml", ".github/workflows/release.yml"];
+const CALLER_WORKFLOWS = [
+  ".github/workflows/deploy.yml",
+  ".github/workflows/release.yml",
+  ".github/workflows/release-notes.yml",
+  ".github/workflows/checks.yml",
+];
 
 function listNextConfigWarnings(facts: AppFacts): string[] {
   if (facts.nextConfigFile === null) return ["no next.config found; the Dockerfile expects a Next standalone build"];

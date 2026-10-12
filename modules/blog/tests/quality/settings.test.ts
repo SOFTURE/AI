@@ -181,6 +181,32 @@ describe("directive plugins", () => {
     ]);
   });
 
+  it("reports attributes the directive's validate refuses, and a validate that throws", () => {
+    const calls: unknown[] = [];
+    const validated: BlockPlugin = {
+      ...chartDirective,
+      requires: [],
+      validate: ({ attributes, article }) => {
+        calls.push(attributes);
+        expect(article.currentAsOf).toBe("2026-10-01");
+        return attributes?.type === "wealth" ? null : "type: must be wealth";
+      },
+    };
+    expect(check({ blocks: [validated] }, withDirective('::chart{type="wealth"}'))).toEqual([]);
+    expect(check({ blocks: [validated] }, withDirective('::chart{type="debt"}'))).toEqual([
+      { rule: "block-directive", severity: "error", message: "the attributes of ::chart do not fit: type: must be wealth", line: 20 },
+    ]);
+    calls.length = 0;
+    expect(check({ blocks: [validated] }, withDirective("::chart{type=wealth}"))).toEqual([
+      { rule: "block-directive", severity: "error", message: 'the attributes of ::chart cannot be read; write them as key="value" pairs, each key once', line: 20 },
+    ]);
+    expect(calls).toEqual([]);
+    const broken: BlockPlugin = { ...validated, validate: () => { throw new Error("boom"); } };
+    expect(check({ blocks: [broken] }, withDirective('::chart{type="wealth"}'))).toEqual([
+      { rule: "block-directive", severity: "error", message: "validate() of the chart directive failed: boom", line: 20 },
+    ]);
+  });
+
   it("checks no directive without directive plugins", () => {
     expect(check({ blocks: [chart] }, withDirective('::chrat{type="wealth"}'))).toEqual([]);
     const ids = (options: QualityOptionsInput) => listQualityRules(settingsOf(options)).map((rule) => rule.id);
