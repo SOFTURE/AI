@@ -1,6 +1,8 @@
-// Test helpers of @softure-ai/ui: WCAG contrast, colour-vision simulation and the both-themes contrast check.
-// Plain functions with no test-runner import; failures come back as values for `expect(...).toEqual([])`.
-// Never imported by the package's runtime code, so they stay out of app bundles.
+// Test helpers of @softure-ai/ui: WCAG contrast, colour-vision simulation and the both-themes contrast check,
+// and source guards for an app's design system (token classes, native tooltips, hover-only handlers,
+// restricted elements). Plain functions with no test-runner import; failures come back as values for
+// `expect(...).toEqual([])`. The source guards read code with the TypeScript parser, so `typescript` must
+// be installed (an optional peer dependency). Never imported by the package's runtime code.
 export {
   blendColors,
   type ContrastLevel,
@@ -41,3 +43,5 @@ export {
   type ThemeSchemes,
   type TintedBackground,
 } from "./theme-contrast.js";
+export { type AllowedFile, type GuardSource } from "./guard-source.js";
+export { findUndefinedTokenClasses, type TokenClassOptions } from "./token-classes.js";
