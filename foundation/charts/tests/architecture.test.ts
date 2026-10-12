@@ -10,7 +10,7 @@ const PACKAGE_DIR = join(import.meta.dirname, "..");
 const STYLES = readFileSync(join(PACKAGE_DIR, "styles.css"), "utf8");
 const STYLES_FILE: SourceFile[] = [{ file: "styles.css", source: STYLES }];
 /** Custom properties styles.css defines itself, on top of the tokens. */
-const LOCAL_PROPERTIES = new Set(["--sft-chart-series", "--sft-chart-axis-width", "--sft-chart-dash", "--sft-chart-dash-gap", "--sft-chart-tone", "--sft-chart-pin-line", "--sft-chart-tint-opacity", "--sft-chart-faded-opacity", "--sft-chart-sankey-label-width", "--sft-chart-sankey-link-opacity", "--sft-chart-sankey-node-opacity", "--sft-chart-sankey-leader-width"]);
+const LOCAL_PROPERTIES = new Set(["--sft-chart-series", "--sft-chart-axis-width", "--sft-chart-dash", "--sft-chart-dash-gap", "--sft-chart-tone", "--sft-chart-pin-line", "--sft-chart-tint-opacity", "--sft-chart-faded-opacity", "--sft-chart-sankey-label-width", "--sft-chart-sankey-link-opacity", "--sft-chart-sankey-node-opacity", "--sft-chart-sankey-leader-width", "--sft-chart-event-lanes", "--sft-chart-event-lane", "--sft-chart-event-lane-height"]);
 
 const components = readSourceFiles(PACKAGE_DIR, { dirs: ["src/svg", "src/cursor"] });
 

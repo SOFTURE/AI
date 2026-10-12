@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`seo@x.y.z`).
 
+## Unreleased
+
+- OG card fonts for an app's own `opengraph-image` routes, without the blog (#414): `@softure-ai/seo/server`
+  exports `loadOgFonts(fonts)` (paths from the app's root, cached for the process) and
+  `createOgFontLoader({ root, label })`, with the types `OgFontSource`, `OgFont`, `OgFontsResult`. An app can drop
+  its own loader. It is core's loader (`@softure-ai/core/og`), so this release needs the core release that has it.
+
 ## 0.1.8
 
 - `createPageMarkdown`: a redirect of the internal render now answers as the same redirect, its `Location`

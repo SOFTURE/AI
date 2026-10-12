@@ -4,6 +4,18 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`charts@x.y.z`).
 
+## Unreleased
+
+- `withStepAt(points, index)`: a vertical jump in a series at one point (issue #409).
+- `distinctColors(keys, palette?)`: a stable colour per key for an open set of bands, distinct while the palette
+  lasts and independent of the keys' order.
+- `stackSeries(series)` and `StackedAreas`: series stacked into bands (positive up, negative down) and drawn as
+  `Area`s between their edges.
+- Surfaces: `LineChart` takes `surface` (`page`, `dark`, `paper`); `ChartSurface` and `getChartSurfaceAttributes`
+  put any chart parts on one, through @softure-ai/ui's `data-theme` scopes. `CHART_SURFACES`, `ChartSurfaceName`.
+- `EventAxis` (client) and `layoutEventAxis`: a timeline of spans and milestones with a keyboard and pointer readout;
+  `chartsMessages` gains `eventAxis.label`.
+
 ## 0.1.8
 
 - `BarList` and `renderBarListHtml` take `layout` (`inline` or `stacked`: label and value over a full-width bar), and

@@ -204,10 +204,12 @@ use: { ...softurePlaywrightUse({ blockHosts: ["example.com", "*.example.com"] })
 | `openPageAsNewClient(browser, options?)` | A page in a new context with its own address: a second visitor with no cookies. |
 | `registerAccount(page, { copy, email, password, path?, landingPath? })` | Registers through auth's form (consent ticked with `tickCheckbox`) and waits for `/account`. `copy` is `authMessages.<locale>` of `@softure-ai/auth`; `landingPath: null` skips the check. |
 | `logIn(page, { copy, email, password, path?, landingPath? })` | Opens `/login`, logs in and waits for `/account`. |
+| `signInPerFile({ copy, email?, password?, registerPath?, loginPath?, landingPath? })` | One account per test file: `account.signIn(page)` registers it through the form the first time and logs it in after that. The default `email` is a fresh `uniqueEmail("e2e")` and the password random, so files (and the workers of a `fullyParallel` file) never share an account; a failed registration is retried by the next `signIn`. |
 | `tickCheckbox(checkbox, { timeout? })` | Ticks a checkbox and asserts it is checked; a ticked box stays ticked. Works on a native input that is transparent, clipped (`sr-only`) or covered by a custom box, where `locator.check()` stops on "intercepts pointer events"; a disabled box fails. |
 | `submitLogin(page, { copy, email, password })` | Fills and submits the login form already on the page and waits for the action's answer; asserts nothing. |
 | `uniqueName(prefix)`, `uniqueEmail(prefix, domain?)` | Names no other test, worker or run produces (`example.com` addresses), so cleanup finds exactly its own rows. |
 | `withDatabase(open, work)` | Opens a connection (a `@softure-ai/db` `createDatabase` call), runs `work`, closes it whatever happens. |
+| `createTestDatabaseClient(url, { max? })` | A raw client on the integration database (a `pg` pool, 2 connections by default): `query(statement, params?)` returns rows and fails with `Test database query failed: <statement>` (the driver error as `cause`); `countRows(table, where?)` counts rows whose columns equal `where` (`null` is `IS NULL`; plain identifiers only, values bound); `close()` ends the pool once. `pg` is an optional peer dependency, loaded only here. |
 | `waitFor(probe, { description, timeoutMs?, intervalMs? })` | Polls until `probe` returns a value and returns it; retries through errors; the timeout error names `description` and carries the last error as `cause`. |
 | `selectField(scope, name)`, `chooseOption(field, value)`, `readSelectedValue(field)` | The `@softure-ai/ui` `Select` (a combobox button, not a native `<select>`), found by its form field name. |
 | `listRow(scope, text)` | A list row that is not an option of an open select with the same text. |
@@ -216,9 +218,27 @@ use: { ...softurePlaywrightUse({ blockHosts: ["example.com", "*.example.com"] })
 | `expectPageStatus(page, path, status)` | Opens `path` and checks the document status (a closed page answers 404). |
 | `expectFieldPresent(page, name, because)`, `expectFieldAbsent(page, name, because)` | A form field present once, or absent from the DOM (not just hidden: a hidden field is still submitted). |
 
+**A database client and an account per file.** A test that checks what the app wrote opens a raw client next to
+the browser; a file whose tests need a signed-in user but are not about registration shares one account:
+
+```ts
+import { authMessages } from "@softure-ai/auth";
+import { createTestDatabaseClient, expect, signInPerFile, test, withDatabase } from "@softure-ai/testing/playwright";
+
+const account = signInPerFile({ copy: authMessages.en });
+const openDatabase = () => createTestDatabaseClient(process.env.DATABASE_URL ?? "");
+
+test("a saved entry is stored once", async ({ page }) => {
+  await account.signIn(page);
+  // … save the entry through the UI …
+  const count = await withDatabase(openDatabase, (db) => db.countRows("app.entries", { author_email: account.email }));
+  expect(count).toBe(1);
+});
+```
+
 **Factories.** Rows that belong to a module (an account, an entitlement) are written by that module's
 own `testing` export, which knows its schema and invariants (`@softure-ai/mailing/testing` reads the
-fake outbox, for example). This package keeps what every app shares: unique names and `withDatabase`.
+fake outbox, for example). This package keeps what every app shares: unique names, `withDatabase` and the raw test database client.
 
 ## Source guards
 

@@ -1,4 +1,5 @@
-// Server-only logic: the IndexNow submit and the HTML to Markdown conversion. No `next/*` imports here (docs/02-module-standard.md §1),
+// Server-only logic: the IndexNow submit, the HTML to Markdown conversion and the OG card font loader (core's, for an
+// app's own `opengraph-image` routes). No `next/*` imports here (docs/02-module-standard.md §1),
 // so a publish CLI can call it outside a request.
 export {
   INDEXNOW_ENDPOINT,
@@ -10,3 +11,13 @@ export {
   type SubmitToIndexNowOptions,
 } from "./indexnow.js";
 export { htmlToMarkdown, type HtmlToMarkdownOptions } from "./html-to-markdown.js";
+export {
+  createOgFontLoader,
+  loadOgFonts,
+  OG_FONT_WEIGHTS,
+  type OgFont,
+  type OgFontLoaderOptions,
+  type OgFontSource,
+  type OgFontsResult,
+  type OgFontWeight,
+} from "@softure-ai/core/og";

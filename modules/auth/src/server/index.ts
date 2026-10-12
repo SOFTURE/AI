@@ -2,6 +2,13 @@
 // (`{ db, clock, config }`) and never reads request scope; tokens and client keys come in as values.
 export { changePassword, type ChangePasswordErrorCode, type ChangePasswordInput, type ChangePasswordResult } from "./change-password.js";
 export { loginUser, type LoginInput, type LoginResult } from "./login.js";
+export {
+  resolveOnlyAccount,
+  type OnlyAccountError,
+  type OnlyAccountErrorCode,
+  type OnlyAccountResult,
+  type ResolveOnlyAccountOptions,
+} from "./only-account.js";
 export { getAuthOptions, getAuthRoutes, type AuthRoutes } from "./options.js";
 export { hashPassword, isPasswordHash, matchPassword, MAX_PASSWORD_LENGTH, needsRehash, verifyPassword, type PasswordMatch } from "./password.js";
 export {

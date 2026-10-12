@@ -395,6 +395,8 @@ On a VPS deployed with `@softure-ai/deploy`, the operator runs a script from the
 `softure-deploy run --host=<ssh host> <script> [args]` reaches the server's forced command and runs the
 script of the live image (every `scripts/ops/<name>.ts` is bundled into `ops/<name>.mjs`); see the deploy README,
 ["Ops scripts and reports on the server"](../../tools/deploy/README.md#ops-scripts-and-reports-on-the-server).
+`softure-deploy run --local <script> [args]` runs the same `scripts/ops/<name>.ts` on this machine against
+`DATABASE_URL`, so a local or staging run needs no wrapper of its own.
 
 **The guard test** (vitest, PGlite with the module's migrations):
 

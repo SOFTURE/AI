@@ -1,15 +1,16 @@
 // `run` and `report`: an ops script of the live image, or a read-only SQL file, on the server through the forced SSH
 // command of `init`'s deploy.sh (issue #247). Nothing is shipped but the SQL of a report: a script runs from the
 // image the release built. ssh runs with an argument list, never a shell; the server splits the command line on
-// blanks and evaluates none of it, so a value with a blank cannot pass and is refused here.
-import { spawn } from "node:child_process";
+// blanks and evaluates none of it, so a value with a blank cannot pass and is refused here. `run --local` runs the
+// same script on this machine instead (local-command.ts).
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { Readable } from "node:stream";
+import { runChild } from "./child-process.js";
 import { fail, USAGE_EXIT_CODE } from "./failure.js";
 import type { CliIo } from "./io.js";
+import { isLocalRun, OPS_SCRIPT_NAME as SCRIPT_NAME, runLocalScript } from "./local-command.js";
 
-const SCRIPT_NAME = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 const ARGUMENT = /^--[a-z][a-z0-9-]*(?:=\S*)?$/;
 const HOST = /^[A-Za-z0-9_][A-Za-z0-9_.@:-]*$/;
 const PORT = /^[1-9][0-9]{0,4}$/;
@@ -76,25 +77,7 @@ function checkArguments(command: string, args: readonly string[]): void {
 /** Runs ssh with the remote command, streams its output and returns its exit status. */
 async function runSsh(connection: Connection, remote: readonly string[], input: Readable | null, io: CliIo): Promise<number> {
   const args = ["-T", ...(connection.port === null ? [] : ["-p", connection.port]), "--", connection.host, remote.join(" ")];
-  const child = spawn(connection.ssh, args, {
-    cwd: io.cwd,
-    env: io.env,
-    stdio: [input === null ? "inherit" : "pipe", "pipe", "pipe"],
-  });
-  child.stdout?.setEncoding("utf8").on("data", (text: string) => io.stdout(text));
-  child.stderr?.setEncoding("utf8").on("data", (text: string) => io.stderr(text));
-  if (input !== null && child.stdin !== null) {
-    // A remote command that stops reading early closes the pipe; that is its answer, not a failure here.
-    child.stdin.on("error", () => undefined);
-    input.pipe(child.stdin);
-  }
-  const status = await new Promise<number>((resolve, reject) => {
-    child.on("error", reject);
-    child.on("close", (code, signal) => resolve(code ?? (signal === null ? 1 : 128)));
-  }).catch((error: unknown) => {
-    const reason = error instanceof Error ? error.message : String(error);
-    return fail(`cannot start ${connection.ssh}: ${reason}`);
-  });
+  const status = await runChild({ program: connection.ssh, args, env: io.env, input }, io);
   if (status === SSH_FAILED) {
     io.stderr(`softure-deploy: ssh to ${connection.host} failed (exit ${String(SSH_FAILED)}); nothing ran on the server.\n`);
     return 1;
@@ -116,6 +99,7 @@ async function readLocalFile(command: string, path: string, io: CliIo): Promise<
  * `--<key>-file=-`; otherwise stdin is forwarded, so `--<key>-file=-` reads the operator's own.
  */
 export async function runRemoteScript(args: string[], io: CliIo): Promise<number> {
+  if (isLocalRun(args)) return runLocalScript(args, io);
   const line = parseCommandLine("run", args);
   if (!SCRIPT_NAME.test(line.target)) fail(`run: the ops script name is not kebab-case: "${line.target}"`, USAGE_EXIT_CODE);
   checkArguments("run", line.rest);

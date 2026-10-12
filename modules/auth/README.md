@@ -363,6 +363,35 @@ the first login. `isPasswordHash(value)` checks the format locally, exactly: a h
 a character outside base64url or a cost scrypt refuses is not a hash `hashPassword` writes, so the script refuses it
 instead of storing a hash no password matches.
 
+**Development seed.** `runSeedAccount` from `@softure-ai/auth/scripts` creates a login account for local
+development from `SEED_EMAIL` and `SEED_PASSWORD` through `registerUser`, so the app's `onRegistered` hook runs as
+for a real sign-up, and ends the session registration opens:
+
+```ts
+// scripts/seed.ts, run with `tsx scripts/seed.ts`
+import { runSeedAccount } from "@softure-ai/auth/scripts";
+import config from "../softure.config";
+
+process.exitCode = await runSeedAccount({ config });
+```
+
+It is idempotent: an account with that email is left as it is (its password is not reset), exit 0. A refusal names
+the variable and the code (`SEED_PASSWORD is shorter than password.minLength (auth.password_too_short)`, closed
+registration, an invalid email) and writes nothing; a hook that throws rolls the account back. It refuses to run with
+`NODE_ENV=production`, needs the security buckets like any registration, and never prints the password.
+
+**One account for a local tool.** `resolveOnlyAccount({ db, envName, env? })` from `@softure-ai/auth/server` gives
+the account a local tool acts for (a stdio MCP server, a measurement or seed script): the id in `env[envName]`
+(`process.env` by default), which must name an account, else the only account in the database. It returns
+`{ ok: true, value: id }` or a refusal with a `message` for the person running the tool: `auth.account_unknown`,
+`auth.no_account`, or `auth.account_ambiguous` when there are several accounts and none is named. It never picks the
+first of several.
+
+```ts
+const account = await resolveOnlyAccount({ db, envName: "MEASURE_USER_ID" });
+if (!account.ok) throw new Error(account.message);
+```
+
 **Password reset.** Pass a sender, and the login form links to the request page. With
 `@softure-ai/mailing` enabled, `mailingResetSender()` is that sender:
 
@@ -502,6 +531,7 @@ its NFC form fails, then rehashes it in NFC.
 | Name | Required | Meaning |
 | --- | --- | --- |
 | `SOFTURE_SWITCH_AUTH_REGISTRATION_CLOSED` | no | `true` / `1` closes registration, `false` / `0` opens it, over the declared default. Any other value closes it and logs the variable name. When the app defines the switch in `@softure-ai/feature-switches`, that module reads this variable by its own rules (`on` / `off` too; an unreadable value gives the fail mode). |
+| `SEED_EMAIL`, `SEED_PASSWORD` | for `runSeedAccount` | The development account the seed entry creates (section 4, "Development seed"). |
 
 ## 7. Switches
 
