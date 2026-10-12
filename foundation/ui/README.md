@@ -420,6 +420,55 @@ it("our series colours stay apart for colour-blind readers", () => {
   normal vision or a simulation. CIEDE2000 is the default because CIE76 inflates distances unevenly (1.4× for darks,
   up to 3.8× for blues), so one CIE76 threshold means something different per hue.
 
+### Source guards
+
+Guards an app runs over its own source files, built for `readSourceFiles` from `@softure-ai/testing/guards` (any
+`{ file, source }[]` works). Each returns `file:line: …` strings. They read code with the TypeScript parser, so
+`typescript` must be installed to import `@softure-ai/ui/testing` (an optional peer dependency, already in every
+TypeScript app); comments never count.
+
+```ts
+import { readFileSync } from "node:fs";
+import { readSourceFiles } from "@softure-ai/testing/guards";
+import {
+  findHoverOnlyHandlers,
+  findNativeTooltips,
+  findRestrictedElements,
+  findUndefinedTokenClasses,
+} from "@softure-ai/ui/testing";
+
+const sources = readSourceFiles("src", { dirs: ["app", "components"] });
+const css = [readFileSync("src/app/globals.css", "utf8"), readFileSync("node_modules/@softure-ai/ui/dist/tailwind.css", "utf8")];
+
+it("names only defined tokens in Tailwind classes", () => {
+  expect(findUndefinedTokenClasses({ css, sources })).toEqual([]);
+});
+
+it("uses Hint, never a native title, and opens nothing on hover only", () => {
+  expect(findNativeTooltips(sources)).toEqual([]);
+  expect(findHoverOnlyHandlers(sources)).toEqual([]);
+});
+
+it("keeps one select and one portal", () => {
+  expect(findRestrictedElements(sources, { select: [], createPortal: ["components/modal.tsx"] })).toEqual([]);
+});
+```
+
+- **Token classes:** `findUndefinedTokenClasses({ css, sources, prefix?, allow? })` reads the classes in string and
+  template literals. Colour utilities (`bg-`, `text-`, `border-` and its sides, `fill-`, `stroke-`, `outline-`,
+  with any variants, `!` and `/opacity`) need a `--color-*` in a `@theme` block of `css`, `text-<size>` a
+  `--text-*`, `ease-<name>` an `--ease-*`; a `(--name)` value needs `--name` declared anywhere in `css`. A named
+  `duration-*` is always reported: Tailwind 4 has no duration namespace, so `duration-fast` compiles to nothing
+  (write `duration-(--sft-duration-fast)`). Arbitrary values, keyword and numeric utilities, and a class glued to a
+  `${…}` pass. `@import` is not followed: pass every file with a `@theme`. `prefix` checks only `prefix:` classes;
+  `allow` takes classes (strings or patterns) that only look like utilities, such as a `data-testid`.
+- **Tooltips:** `findNativeTooltips(sources)` reports a `title` attribute on an HTML or SVG element (`<span title>`);
+  a component's `title` prop and an SVG `<title>` child pass. `findHoverOnlyHandlers(sources)` reports an element
+  with `onMouseEnter`, `onMouseOver`, `onPointerEnter` or `onPointerOver` and no `onFocus`; `Hint` opens on both.
+- **One implementation:** `findRestrictedElements(sources, { select, createPortal })` reports a raw `<select>` and
+  a `createPortal` call outside the files listed for each (a path, its end, or a RegExp); a key left out is not
+  checked.
+
 ## How the CSS is built
 
 `npm run build` runs `tsc`, then `scripts/build-css.mjs`, which compiles the components with the

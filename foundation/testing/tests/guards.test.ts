@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
+  collectStringLiterals,
   collectVisibleTexts,
   findForbiddenPhrases,
   findInlineCopy,
@@ -10,6 +11,7 @@ import {
   findRawColors,
   readImports,
   readSourceFiles,
+  stripComments,
   type SourceFile,
 } from "@softure-ai/testing/guards";
 
@@ -185,5 +187,61 @@ describe("findForbiddenPhrases", () => {
 
   it("finds nothing when no text holds a phrase", () => {
     expect(findForbiddenPhrases(texts, ["subscription"])).toEqual([]);
+  });
+});
+
+describe("stripComments", () => {
+  it("blanks line and block comments and keeps line breaks", () => {
+    const source = ["const a = 1; // one", "/* two", "   lines */ const b = 2;", "/** doc */", "export const c = 3;"].join("\n");
+    expect(stripComments(source)).toBe(["const a = 1;       ", "      ", "            const b = 2;", "          ", "export const c = 3;"].join("\n"));
+  });
+
+  it("keeps strings, URLs, regex literals and JSX text", () => {
+    const source = [
+      'const url = "https://example.com/a"; // link',
+      "const pattern = /\\/\\/ not a comment/;",
+      "const template = `//${url}/* kept */`;",
+      "const view = <p>// shown {url /* gone */}</p>;",
+    ].join("\n");
+    expect(stripComments(source).split("\n")).toEqual([
+      'const url = "https://example.com/a";        ',
+      "const pattern = /\\/\\/ not a comment/;",
+      "const template = `//${url}/* kept */`;",
+      "const view = <p>// shown {url           }</p>;",
+    ]);
+  });
+
+  it("parses a .ts cast with the ts syntax", () => {
+    expect(stripComments("const n = <number>value; // cast", { syntax: "ts" })).toBe("const n = <number>value;        ");
+  });
+
+  it("blanks # comments outside quotes with the hash syntax", () => {
+    const source = ["# heading", "key: value # note", 'url: "http://a#b" # c', "tag: a#b"].join("\n");
+    expect(stripComments(source, { syntax: "hash" }).split("\n")).toEqual(["         ", "key: value       ", 'url: "http://a#b"    ', "tag: a#b"]);
+  });
+});
+
+describe("collectStringLiterals", () => {
+  it("collects string and template literals with their lines, without imports, directives, literal types and keys", () => {
+    const source = [
+      '"use server";',
+      'import { save } from "./save";',
+      'export { load } from "./load";',
+      'type Mode = "draft" | "live";',
+      'const labels = { "draft-key": "Free trial", live: `Live ${count} now` };',
+      'const lazy = import("./lazy");',
+      "const blank = '  ';",
+      'const view = <a title="Subscribe">x</a>;',
+    ].join("\n");
+    expect(collectStringLiterals(sourceOf(source, "labels.tsx"))).toEqual([
+      { file: "labels.tsx", line: 5, attribute: null, text: "Free trial" },
+      { file: "labels.tsx", line: 5, attribute: null, text: "Live ${count} now" },
+      { file: "labels.tsx", line: 8, attribute: null, text: "Subscribe" },
+    ]);
+  });
+
+  it("feeds findForbiddenPhrases for plain .ts files", () => {
+    const texts = collectStringLiterals(sourceOf('export const NOTICE = "Start your free trial";', "notice.ts"));
+    expect(findForbiddenPhrases(texts, ["free trial"]).map(({ file, line, phrase }) => `${file}:${String(line)} ${phrase}`)).toEqual(["notice.ts:1 free trial"]);
   });
 });

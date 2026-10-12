@@ -434,6 +434,8 @@ What the builders write, so an app moving published pages onto them can match it
 - canonical, Open Graph and JSON-LD URLs are absolute on the site origin (`@softure-ai/seo`'s when listed);
 - articles and terms carry `og:published_time` and `og:modified_time`, the days the page shows;
 - `buildGlossaryJsonLd` gives `null` without terms (an empty `DefinedTermSet` says nothing).
+- the glossary index's `DefinedTermSet` (name, description, url per term) is what `@softure-ai/agent-ready`'s
+  WebMCP `findTerm` reads, so a rendered glossary needs nothing more for that tool.
 
 Any field can still be replaced by spreading the result: `{ ...buildTermMetadata(config, term), title }`.
 
@@ -882,7 +884,9 @@ export const revalidate = 300;
 export default createBlogArticleOgImage({ logo: <AppMark size={40} />, label: "The journal" });
 ```
 
-An app's other OG cards read fonts the same way with `createOgFontLoader({ root })` (`/server` or `/next`).
+An app's other OG cards read fonts the same way with `loadOgFonts` or `createOgFontLoader({ root })` from
+`@softure-ai/seo/server` (no blog needed); the blog's own `createOgFontLoader` (`/server` or `/next`) is that
+loader with `Blog OG card: brand.fonts` in its messages.
 
 The OG card writes in `brand.fonts`, else in `next/og`'s default font:
 
