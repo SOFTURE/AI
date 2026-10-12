@@ -51,6 +51,16 @@ describe("parseInitAnswers", () => {
     });
   });
 
+  it("takes a Postgres role name as reportRole", () => {
+    expect(parseInitAnswers({ ...VALID, reportRole: "ledger_app" })).toEqual({ ok: true, answers: { ...VALID, reportRole: "ledger_app" } });
+    for (const reportRole of ["ledger-app", "1app", "a;b", "a b", ""]) {
+      expect(parseInitAnswers({ ...VALID, reportRole })).toEqual({
+        ok: false,
+        problems: ["reportRole: a Postgres role name: letters, digits and _, starting with a letter or _, at most 63"],
+      });
+    }
+  });
+
   it("refuses / next to other prefixes and an empty list", () => {
     expect(parseInitAnswers({ ...VALID, paths: ["/", "/blog"] })).toEqual({
       ok: false,
