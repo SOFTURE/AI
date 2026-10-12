@@ -72,7 +72,10 @@ Development runs on the `softure-*` agent workflow from [`@softure-ai/skills`](h
 | `context/backlog/roadmap-<slug>/` | prepared entries of the main and the queued roadmaps |
 
 Run the main roadmap end to end with `/softure-worktree-manager` (parallel git worktrees, merges on
-completion), or one item with `/softure-worktree <ID>`. Agents never tag or publish; the owner does.
+completion), or one item with `/softure-worktree <ID>`. With `release.owner: false` in `context/workflow.json`,
+the coordinating agent decides releases on its own: it collects changes and cuts one combined release once the
+current issues are done, never one per change ([runbook](scripts/release/README.md)). A production deploy
+always waits for the owner's word.
 
 ## License
 

@@ -90,7 +90,8 @@ before the next wave starts. Scope flexes per wave; the standard does not.
   only in message dictionaries.
 - No module that the source app has not proven, unless it fills a gap found during extraction
   (password reset by token, roles, consent records).
-- No releases or deploys by agents. The owner tags releases.
+- No deploys by agents without the owner's word. Releases changed on 2026-10-12 (owner): with
+  `release.owner: false` the coordinating agent releases on its own, in combined batches.
 
 ## Success signals
 
