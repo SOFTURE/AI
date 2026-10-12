@@ -63,6 +63,6 @@ test, build).
 
 ## Progress
 
-- [ ] Phase 1: BarList stacked, missing, description (TDD)
-- [ ] Phase 2: Sankey variants (TDD)
-- [ ] Phase 3: docs
+- [x] Phase 1: BarList stacked, missing, description (TDD) (1ad7777)
+- [x] Phase 2: Sankey variants (TDD) (6a47bb7)
+- [x] Phase 3: docs (this commit)

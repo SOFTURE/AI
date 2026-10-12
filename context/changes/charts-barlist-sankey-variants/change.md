@@ -1,7 +1,7 @@
 ---
 change_id: charts-barlist-sankey-variants
 title: "charts: BarList stacked, missing and described rows; Sankey label variants (issue #378)"
-status: plan_reviewed
+status: implemented
 roadmap_item: null
 issue: 378
 branch: claude/project-thread-wno2hf
