@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`ops@x.y.z`).
 
-## Unreleased
+## 0.1.10
 
 - An ops script's `run` gets a third argument, `{ commit }` (`OpsRunContext`): false on a dry run. A script that
   writes to a second database it opens itself rolls that one back on a dry run too. Scripts with `run(tx, args)`

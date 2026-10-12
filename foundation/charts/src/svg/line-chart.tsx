@@ -12,6 +12,7 @@ import { ChartFlag } from "./flag.js";
 import { PLOT_HEIGHT, PLOT_WIDTH, toPercent } from "./geometry.js";
 import { Legend, LegendItem, LegendSwatch } from "./legend.js";
 import { Baseline, GridLines, GuideLine, SeriesLine } from "./lines.js";
+import { type ChartSurfaceName, getChartSurfaceAttributes } from "./surface.js";
 import { TimeAxis } from "./time-axis.js";
 import { ValueAxis } from "./value-axis.js";
 
@@ -57,6 +58,8 @@ export interface LineChartProps {
   readonly dateTickTarget?: number;
   /** Partial copy overrides for the current locale. */
   readonly messages?: DeepPartial<ChartsMessages>;
+  /** Where the chart sits (`ChartSurfaceName`); without it the chart follows the page. */
+  readonly surface?: ChartSurfaceName;
   readonly className?: string;
 }
 
@@ -81,6 +84,7 @@ export function LineChart({
   valueTickTarget = 4,
   dateTickTarget = 5,
   messages,
+  surface,
   className,
 }: LineChartProps) {
   const dates = series[0]?.points.map((point) => point.x) ?? [];
@@ -123,8 +127,10 @@ export function LineChart({
     }),
   }));
 
+  const surfaceAttributes = surface === undefined ? undefined : getChartSurfaceAttributes(surface);
+
   return (
-    <figure className={cx("sft-chart", className)}>
+    <figure {...surfaceAttributes} className={cx("sft-chart", surfaceAttributes?.className, className)}>
       <figcaption className="sft-chart-title">{title}</figcaption>
       <ChartCursor title={title} points={cursorPoints} locale={locale} messages={messages}>
         <ValueAxis ticks={valueAxisTicks({ ticks: values, scale: yScale, format: formatValue })} />

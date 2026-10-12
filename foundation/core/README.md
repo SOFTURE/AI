@@ -8,6 +8,8 @@ The contract every SOFTURE module stands on. Standard:
 The app configuration (`defineSoftureConfig`), the module contract (`defineModule`), `Result`
 with namespaced error codes, an injectable `Clock`, `pl`/`en` messages with partial overrides,
 and `safeError` with `PublicError`. `@softure-ai/core/cli` loads the app's config for the modules' command-line tools.
+`@softure-ai/core/og` (server only) is the OG card font loader the modules share (`createOgFontLoader`,
+`loadOgFonts`); an app takes it from `@softure-ai/seo/server`, where it is documented.
 
 ## 2. Installation
 

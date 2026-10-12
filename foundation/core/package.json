@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/core",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "The SOFTURE AI module contract: app config, module definitions, Result, Clock and messages.",
   "license": "MIT",
   "type": "module",
@@ -39,6 +39,11 @@
       "@softure-ai/source": "./src/cli/index.ts",
       "types": "./dist/cli/index.d.ts",
       "default": "./dist/cli/index.js"
+    },
+    "./og": {
+      "@softure-ai/source": "./src/og/index.ts",
+      "types": "./dist/og/index.d.ts",
+      "default": "./dist/og/index.js"
     }
   },
   "scripts": {

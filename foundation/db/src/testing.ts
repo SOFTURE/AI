@@ -10,6 +10,14 @@ import { createPgliteHandle, type PgliteClientDatabase } from "./client.js";
 import { migrate, type AppMigrationHook, type AppMigrations } from "./migrations/migrator.js";
 import { describeProblem } from "./migrations/problems.js";
 
+export {
+  DEFAULT_DATABASE_OPENERS,
+  expectEntriesOpenDatabase,
+  findEntriesReachingDatabase,
+  type EntryGuardOptions,
+  type EntryReach,
+} from "./entry-guard.js";
+
 export interface TestDatabase {
   readonly db: PgliteClientDatabase;
   readonly client: PGlite;
