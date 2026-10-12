@@ -91,13 +91,13 @@ default email is unique and on `example.com`; a refused registration rejects and
 ### Phase 1: Test database client
 
 #### Automated
-- [x] 1.1 `playwright-database.test.ts` passes
-- [x] 1.2 The built `dist/playwright/*.d.ts` does not reference `pg`
-- [x] 1.3 Gates green (typecheck, lint, test)
+- [x] 1.1 `playwright-database.test.ts` passes — 18385a3
+- [x] 1.2 The built `dist/playwright/*.d.ts` does not reference `pg` — 18385a3
+- [x] 1.3 Gates green (typecheck, lint, test) — 18385a3
 
 ### Phase 2: One account per test file
 
 #### Automated
-- [ ] 2.1 The new `signInPerFile` browser tests pass
-- [ ] 2.2 README lists both exports and CHANGELOG has `## Unreleased`
-- [ ] 2.3 Gates green (typecheck, lint, test)
+- [x] 2.1 The new `signInPerFile` browser tests pass
+- [x] 2.2 README lists both exports and CHANGELOG has `## Unreleased`
+- [x] 2.3 Gates green (typecheck, lint, test)

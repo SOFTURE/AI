@@ -1,7 +1,7 @@
 ---
 change_id: testing-db-client-account-per-file
 title: "testing/playwright: test database client and one account per test file (issue #412)"
-status: implementing
+status: implemented
 roadmap_item: null
 issue: 412
 branch: claude/project-thread-iyukpb
