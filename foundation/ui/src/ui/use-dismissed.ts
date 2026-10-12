@@ -6,7 +6,8 @@ import { useCallback, useState, useSyncExternalStore } from "react";
 // the local date of the dismissal (`YYYY-MM-DD`, nothing else); the notice stays hidden until `days`
 // calendar days have passed. Storage that is blocked (private mode, a sandboxed frame) or full only
 // loses the memory: `dismiss` still hides the notice until the page is left. On the server and until
-// hydration the notice counts as dismissed, so a dismissed banner never flashes in.
+// hydration the notice counts as dismissed, so a dismissed banner never flashes in; `initial: "shown"`
+// renders it instead, for prerendered HTML that must contain it.
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -71,8 +72,16 @@ function getServerSnapshot(): string | null {
   return UNKNOWN;
 }
 
+/** What the notice is before the browser's storage can be read: on the server and until hydration. */
+export type DismissedInitial = "dismissed" | "shown";
+
+export interface UseDismissedOptions {
+  /** `dismissed` (default): no flash of a dismissed banner; `shown`: the prerendered HTML contains it. */
+  readonly initial?: DismissedInitial;
+}
+
 export interface Dismissal {
-  /** Hidden: dismissed fewer than `days` days ago, dismissed on this page, or not known yet. */
+  /** Hidden: dismissed fewer than `days` days ago, dismissed on this page, or not known yet (by `initial`). */
   readonly isDismissed: boolean;
   /** Hides the notice and stores today's date. */
   readonly dismiss: () => void;
@@ -81,7 +90,7 @@ export interface Dismissal {
 }
 
 /** Whether the notice under `key` was dismissed within the last `days` days, and the actions to change it. */
-export function useDismissed(key: string, days: number): Dismissal {
+export function useDismissed(key: string, days: number, { initial = "dismissed" }: UseDismissedOptions = {}): Dismissal {
   const stored = useSyncExternalStore(subscribe, () => readStoredValue(key), getServerSnapshot);
   const [isDismissedHere, setIsDismissedHere] = useState(false);
 
@@ -97,6 +106,7 @@ export function useDismissed(key: string, days: number): Dismissal {
     notify();
   }, [key]);
 
-  const isDismissed = isDismissedHere || stored === UNKNOWN || isDismissalActive({ value: stored, days, now: new Date() });
+  const isUnknown = stored === UNKNOWN;
+  const isDismissed = isDismissedHere || (isUnknown ? initial === "dismissed" : isDismissalActive({ value: stored, days, now: new Date() }));
   return { isDismissed, dismiss, restore };
 }

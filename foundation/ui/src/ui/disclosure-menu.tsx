@@ -7,8 +7,9 @@ import { type ClassNames, createSlotClassGetter } from "./class-names.js";
 // The WAI-ARIA disclosure pattern for navigation: a button that shows and hides a panel of links.
 // No `role="menu"`: the panel holds ordinary links, read and tabbed through as such. While open:
 // - Escape closes and returns focus to the trigger;
-// - a press outside the trigger and the panel closes. It is heard on `document` in the capture phase,
-//   so a handler that stops propagation (React 19 does so for events before hydration) cannot hide it;
+// - a press outside the trigger and the panel closes (`pointerdown` by default, or the `click` with
+//   `closeOutsideOn`). It is heard on `document` in the capture phase, so a handler that stops
+//   propagation (React 19 does so for events before hydration) cannot hide it;
 // - a click on a link inside the panel closes, and so does a new `closeKey` (the app's route);
 // - focus moving out by keyboard closes; a pointer moving focus out is the outside press already.
 
@@ -16,7 +17,14 @@ export interface UseDisclosureOptions {
   /** A change closes the disclosure. Pass the route (the pathname), so a navigation closes it. */
   readonly closeKey?: unknown;
   readonly defaultOpen?: boolean;
+  /**
+   * The outside event that closes: `pointerdown` (default) closes as the press starts; `click` waits for
+   * the click, for a panel in the document flow whose collapse would move the element under the finger.
+   */
+  readonly closeOutsideOn?: DisclosureCloseEvent;
 }
+
+export type DisclosureCloseEvent = "pointerdown" | "click";
 
 /** Props for the button that shows and hides the panel. */
 export interface DisclosureTriggerProps {
@@ -46,7 +54,7 @@ export interface Disclosure {
 type InputKind = "keyboard" | "pointer";
 
 /** State and wiring of a disclosure: spread `triggerProps` on a `<button>` and `panelProps` on the panel. */
-export function useDisclosure({ closeKey, defaultOpen = false }: UseDisclosureOptions = {}): Disclosure {
+export function useDisclosure({ closeKey, defaultOpen = false, closeOutsideOn = "pointerdown" }: UseDisclosureOptions = {}): Disclosure {
   const panelId = useId();
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [seenCloseKey, setSeenCloseKey] = useState(closeKey);
@@ -78,7 +86,7 @@ export function useDisclosure({ closeKey, defaultOpen = false }: UseDisclosureOp
     }
     function handlePointerDown(event: PointerEvent) {
       lastInputRef.current = "pointer";
-      if (!isInside(event.target)) close();
+      if (closeOutsideOn === "pointerdown" && !isInside(event.target)) close();
     }
     function handleClick(event: MouseEvent) {
       const target = event.target;
@@ -103,7 +111,7 @@ export function useDisclosure({ closeKey, defaultOpen = false }: UseDisclosureOp
       document.removeEventListener("click", handleClick, true);
       document.removeEventListener("focusin", handleFocusIn, true);
     };
-  }, [isOpen, close]);
+  }, [isOpen, close, closeOutsideOn]);
 
   const setTriggerNode = useCallback((node: HTMLElement | null) => {
     triggerRef.current = node;
@@ -153,11 +161,12 @@ export function DisclosureMenu({
   align = "end",
   closeKey,
   defaultOpen,
+  closeOutsideOn,
   children,
   classNames,
   unstyled,
 }: DisclosureMenuProps) {
-  const { triggerProps, panelProps } = useDisclosure({ closeKey, defaultOpen });
+  const { triggerProps, panelProps } = useDisclosure({ closeKey, defaultOpen, closeOutsideOn });
   const slot = createSlotClassGetter<DisclosureMenuSlot>({
     defaults: {
       root: "sft:relative sft:inline-block sft:font-sans",
