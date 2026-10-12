@@ -32,5 +32,5 @@
       "../API/.github/workflows/"
     ]
   },
-  "autonomy": {"source": "issues", "merge": "pr", "reports": {"every": 30, "hours": "10:00-22:30"}}
+  "autonomy": {"source": "issues", "merge": "pr", "reports": {"every": 60, "hours": "10:00-22:00"}}
 }
