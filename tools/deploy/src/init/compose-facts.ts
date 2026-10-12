@@ -16,7 +16,7 @@ const IMAGE_LINE = /^\s+image:\s*["']?([^"'\s#]+)["']?\s*(#.*)?$/;
 const TAG_MAJOR = /^(?:pg)?([1-9][0-9])(?:[.-]|$)/;
 const DATABASE_URL = /^\s+-?\s*["']?DATABASE_URL["']?\s*[:=]\s*["']?postgres(?:ql)?:\/\/([^:@/\s"']+)[:@]/;
 /** It lands unquoted in bash and names a Postgres role as psql's --username. */
-const ROLE = /^[A-Za-z_][A-Za-z0-9_]{0,62}$/;
+export const POSTGRES_ROLE = /^[A-Za-z_][A-Za-z0-9_]{0,62}$/;
 
 /** The lines of each service one level under the top-level `services:` key, by service name. */
 function splitServices(text: string): Map<string, string[]> {
@@ -60,7 +60,7 @@ function readPostgresMajor(lines: readonly string[]): string | null {
 function readDatabaseRole(lines: readonly string[]): string | null {
   for (const line of lines) {
     const role = DATABASE_URL.exec(line)?.[1];
-    if (role !== undefined) return ROLE.test(role) ? role : null;
+    if (role !== undefined) return POSTGRES_ROLE.test(role) ? role : null;
   }
   return null;
 }

@@ -44,7 +44,7 @@ export const USAGE = [
   "  verify <url> [--config=deploy.json] [--timeout=<ms>] [--concurrency=4] [--origin=<host>[:<port>]]",
   "      checks every route of deploy.json against <url>; exits 1 when a check fails",
   "  init --domain=<host> --image=<registry/name> [--dir=.] [--name=<slug>] [--paths=/] [--www] [--acme-email=<email>]",
-  "       [--env=NAME,...] [--tables=a,b.c] [--workflows-ref=<sha>] [--cdn=cloudflare] [--force]",
+  "       [--env=NAME,...] [--tables=a,b.c] [--workflows-ref=<sha>] [--cdn=cloudflare] [--report-role=<role>] [--force]",
   "      writes the app's Dockerfile, production compose, Traefik rules, deploy.sh, hooks/lib.sh, deploy and release",
   "      workflows and deploy.json; --cdn=cloudflare adds the origin firewall and its range refresh hook; keeps",
   "      existing files unless --force",

@@ -84,6 +84,29 @@ describe("planInitFiles", () => {
     );
   });
 
+  describe("the role deploy.sh's report reads as", () => {
+    const COMPOSE = { postgresMajor: "17", appDatabaseRole: "ledger_app" };
+
+    it("is the reportRole answer, ahead of the kept compose file's role", () => {
+      expect(textOf(plan({ reportRole: "shop_app" }, { compose: COMPOSE }), "docker/server/deploy.sh")).toContain("REPORT_ROLE=shop_app\n");
+    });
+
+    it("is the kept compose file's role without the answer, else softure_app", () => {
+      expect(textOf(plan({}, { compose: COMPOSE }), "docker/server/deploy.sh")).toContain("REPORT_ROLE=ledger_app\n");
+      expect(textOf(plan(), "docker/server/deploy.sh")).toContain("REPORT_ROLE=softure_app\n");
+    });
+
+    it("is the answer when the compose file is replaced", () => {
+      const files = planInitFiles({
+        answers: { ...ANSWERS, reportRole: "shop_app" },
+        facts: { ...FACTS, compose: COMPOSE },
+        cliVersion: "9.9.9",
+        replacesCompose: true,
+      });
+      expect(files.find((file) => file.path === "docker/server/deploy.sh")?.text).toContain("REPORT_ROLE=shop_app\n");
+    });
+  });
+
   it("writes a compose file with the app, migrate, postgres and traefik services", () => {
     const compose = parse(textOf(plan(), "docker/prod/docker-compose.yml")) as {
       name: string;
