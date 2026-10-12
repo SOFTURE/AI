@@ -1,12 +1,13 @@
 ---
 change_id: mailing-stop-on-retry-later-394
 title: "mailing: runDeliveries and sendCampaign stop at the first retry-later (issue #394)"
-status: planned
+status: archived
 roadmap_item: null
 issue: 394
 branch: claude/project-thread-rfx9fc
 created: 2026-10-12
 updated: 2026-10-12
+archived_at: 2026-10-12
 ---
 
 ## Intent

@@ -34,8 +34,8 @@ on (the old tests keep this behaviour by passing the option). Then the code, the
 ### Phase 1: Stop at retry-later
 
 #### Automated
-- [ ] 1.1 runDeliveries stops at the first retry-later by default and reports `halted` with `mailing.unavailable`
-- [ ] 1.2 sendCampaign stops at the first retry-later by default and reports `halted` with `mailing.unavailable`
-- [ ] 1.3 `stopOnRetryLater: false` keeps the run going in both
-- [ ] 1.4 The CLI explains the new halt reason
-- [ ] 1.5 Gates green (typecheck, lint, test)
+- [x] 1.1 runDeliveries stops at the first retry-later by default and reports `halted` with `mailing.unavailable` — b3d6daf
+- [x] 1.2 sendCampaign stops at the first retry-later by default and reports `halted` with `mailing.unavailable` — b3d6daf
+- [x] 1.3 `stopOnRetryLater: false` keeps the run going in both — b3d6daf
+- [x] 1.4 The CLI explains the new halt reason — b3d6daf
+- [x] 1.5 Gates green (typecheck, lint, test) — b3d6daf
