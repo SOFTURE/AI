@@ -1,13 +1,13 @@
 ---
 change_id: release-policy-docs
 title: "Docs describe releases as the coordinator's batch call (release.owner: false)"
-status: implementing
+status: archived
 roadmap_item: null
 issue: null
 branch: claude/project-thread-pg8a6x
 created: 2026-10-12
 updated: 2026-10-12
-archived_at: null
+archived_at: 2026-10-12
 ---
 
 ## Intent

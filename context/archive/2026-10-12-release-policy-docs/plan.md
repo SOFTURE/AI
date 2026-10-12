@@ -36,5 +36,5 @@ over the tree (without `context/archive/`, `node_modules/` and this change folde
 ### Phase 1: Align the documents
 
 #### Automated
-- [ ] 1.1 Release wording aligned with `release.owner: false` in the six documents
-- [ ] 1.2 Grep from Done when returns nothing; lint and repository tests green
+- [x] 1.1 Release wording aligned with `release.owner: false` in the six documents — 3848333
+- [x] 1.2 Grep from Done when returns nothing; lint and repository tests green — 3848333
