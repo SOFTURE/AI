@@ -121,6 +121,33 @@ describe("runDeliveries", () => {
     expect(resumed).toEqual({ ...EMPTY_SUMMARY, recipients: 3, sent: 2, done: 1 });
   });
 
+  it.each([
+    ["an outage", { status: "unavailable", httpStatus: 503 } as const, 503],
+    ["a rate limit", { status: "unavailable", httpStatus: 429 } as const, 429],
+  ])("stops at the first retry-later (%s), so one attempt is spent, and the next run sends the rest", async (_name, failure, httpStatus) => {
+    respond.mockImplementation((message) => (message.to === "ada@example.org" ? undefined : failure));
+
+    const stopped = await runDeliveries(test.ctx, { recipients: SUBSCRIPTIONS, build: buildTrialEnding });
+
+    expect(stopped).toEqual({ ...EMPTY_SUMMARY, recipients: 2, sent: 1, retryLater: 1, halted: { reason: "mailing.unavailable", httpStatus }, remaining: null });
+    expect(respond).toHaveBeenCalledTimes(2);
+    expect(await countLedger(test)).toEqual({ pending: 1, sent: 1 });
+
+    respond.mockImplementation(() => undefined);
+    const resumed = await runDeliveries(test.ctx, { recipients: SUBSCRIPTIONS, build: buildTrialEnding });
+    expect(resumed).toEqual({ ...EMPTY_SUMMARY, recipients: 3, sent: 2, done: 1 });
+  });
+
+  it("goes on after a retry-later with stopOnRetryLater false", async () => {
+    respond.mockImplementation((message) => (message.to === "bob@example.org" ? { status: "unavailable" } : undefined));
+    const outcomes: DeliveryOutcome["status"][] = [];
+
+    const summary = await runDeliveries(test.ctx, { recipients: SUBSCRIPTIONS, build: buildTrialEnding }, { stopOnRetryLater: false, onDelivery: (outcome) => outcomes.push(outcome.status) });
+
+    expect(summary).toEqual({ ...EMPTY_SUMMARY, recipients: 3, sent: 2, retryLater: 1 });
+    expect(outcomes).toEqual(["sent", "retry-later", "sent"]);
+  });
+
   it("hands at most limit mails to the provider and counts the rest that the next run would send", async () => {
     const summary = await runDeliveries(test.ctx, { recipients: SUBSCRIPTIONS, build: buildTrialEnding }, { limit: 1 });
 

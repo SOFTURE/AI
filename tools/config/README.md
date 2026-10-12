@@ -8,7 +8,11 @@ stop drifting.
 npm install --save-dev @softure-ai/config eslint @eslint/js typescript-eslint globals lefthook
 ```
 
-The ESLint packages are optional peers: an app that only wants the language gate or the tsconfig skips them.
+The ESLint packages are optional peers: an app that only wants the language gate or the tsconfig skips them. The
+preset runs on ESLint 9.22 or later and on ESLint 10; a Next.js app stays on ESLint 9 until the plugins in
+`eslint-config-next` support 10. Keep one copy of `typescript-eslint` (`npm ls typescript-eslint`): when a config in
+`extends` registers its own `@typescript-eslint` plugin, the preset reuses it, but its rules come from the copy the app
+installed.
 
 ## ESLint
 
@@ -32,7 +36,17 @@ export default createSoftureEslintConfig({
 | `integration` | `{ files: ["integration/**"], appSource: ["@/*"] }` | Integration tests are a black box: no import matches `appSource` (gitignore-style patterns, as in `no-restricted-imports`). Add relative patterns such as `"**/lib/**"` when the tests could reach the source without the alias. `false` turns it off. |
 | `fixtures` | off | `{ module, files?, exempt? }`: tests (`e2e/**` and `integration/**` by default) import `test` from `module`, not from `@playwright/test`; `expect` and the rest stay allowed. `exempt` names the fixtures file itself, which has the import rule off. |
 
-Run ESLint with `--max-warnings 0`: a warning that passes locally fails CI.
+The type-checked rules cover TypeScript files (`.ts`, `.tsx`, `.mts`, `.cts`), which typescript-eslint's parser
+reads with `projectService`. That parser is set after `extends`, so Next's own parser cannot take its place; an app
+tunes it by passing other `parserOptions` for those files in `extends` (only `projectService` and `tsconfigRootDir` are
+fixed). JavaScript files (`*.config.mjs`, scripts) get the recommended JavaScript rules and whatever `extends` adds,
+without type information. A TypeScript file outside the app's `tsconfig.json` `include` fails with "was not found by
+the project service": add it to `include` or to `ignores`.
+
+Run ESLint with `--max-warnings 0`: a warning that passes locally fails CI. The type-checked rules make a full run
+slower (a large app takes a minute or more), and an app adopting the preset meets errors its old config let through
+(`no-unnecessary-type-assertion`, `no-base-to-string`, `require-await`, `no-unsafe-*`): fix them, or turn a rule off in
+`extends` for a while and record why.
 
 ## tsconfig
 
@@ -47,6 +61,13 @@ Run ESLint with `--max-warnings 0`: a warning that passes locally fails CI.
 
 The preset holds compiler options only: `include` and `plugins` resolve relative to the file that declares them, so
 they stay in the app. It targets ES2023, the target the `@softure-ai/*` packages are built and tested for.
+
+The base sets `noUncheckedIndexedAccess`, which an app written without it meets as many errors at once (an index or
+`Record` read is `T | undefined`). An app that adopts the base before fixing them overrides that one option for a while:
+
+```json
+{ "extends": "@softure-ai/config/tsconfig.json", "compilerOptions": { "noUncheckedIndexedAccess": false } }
+```
 
 ## Git hooks (lefthook)
 
@@ -69,7 +90,25 @@ has no use for hooks):
 { "scripts": { "prepare": "node -e \"process.exit(process.env.CI?0:1)\" || lefthook install" } }
 ```
 
-An app overrides a job by naming it in its own `lefthook.yml` (lefthook merges the files job by job).
+An app overrides a job by naming it in its own `lefthook.yml` (lefthook merges the files job by job). An app that
+still has inline Polish copy outside `messages/` keeps the commit message check and skips the file checks until the
+copy moves:
+
+```yaml
+# lefthook.yml
+extends:
+  - node_modules/@softure-ai/config/presets/lefthook.yml
+
+pre-commit:
+  jobs:
+    - name: language
+      skip: true
+
+pre-push:
+  jobs:
+    - name: language
+      skip: true
+```
 
 ## Language gate
 

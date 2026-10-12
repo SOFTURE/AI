@@ -481,6 +481,33 @@ export default function Page(props: BlogArticlePageProps) {
 - `renderCard` gets `{ article, href, isLead, context }` and replaces the card inside its list item.
 - `disclaimer` replaces the configured one: a string renders in a paragraph, any other node as given.
 
+The method page's copy is `messages.method`, one paragraph per section. When a section needs more (a list of the
+checks, a link to the app's calculator, a `mailto:` address for corrections), `BlogMethodPage` and `BlogMethodView`
+take `sections`, the app's own in place of the default five:
+
+```tsx
+// app/blog/how-we-write/page.tsx
+import { BlogMethodPage, generateMethodMetadata } from "@softure-ai/blog/next";
+import type { BlogMethodSection } from "@softure-ai/blog/ui";
+
+const sections: BlogMethodSection[] = [
+  { id: "checks", title: "What we check", body: <ul><li>Every number against its source</li></ul> },
+  { id: "calculator", title: "Our calculator", body: <p>The numbers come from <a href="/calculator">the calculator</a>.</p> },
+  { id: "corrections", title: "Corrections", body: <p>Write to <a href="mailto:fixes@example.com">fixes@example.com</a>.</p> },
+];
+
+export default function Page() {
+  return <BlogMethodPage sections={sections} />; // `view` as on the other pages
+}
+export { generateMethodMetadata as generateMetadata };
+```
+
+- `id` is the section's anchor (`#checks`) and heading id; a string `body` renders in a paragraph, any other node as
+  given.
+- The sections replace all five defaults, "who writes" included. With `aiDisclosure` the disclosure section (id `ai`)
+  still opens the page, so no section may take that id, and the app's own "who writes" must not claim human
+  editorial control. The signature and the disclaimer still close the page.
+
 The commands:
 
 ```bash

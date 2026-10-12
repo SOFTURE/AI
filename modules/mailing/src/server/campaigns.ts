@@ -1,15 +1,16 @@
 // Campaigns: one list mail to many recipients through the delivery ledger. The campaign row pins
 // the content (a hash of kind, subject and bodies), so a re-run with the same id sends the rest of
 // the same mail and nothing twice; other content under that id is refused. A run stops at the first
-// failure about the sending account (refused key, spent quota), leaving the rest for the next run, and
-// after `limit` mails reached the provider, counting the rest for the next run.
+// failure about the sending account (refused key, spent quota) and, unless told otherwise, at the first
+// mail the provider could not take now, leaving the rest for the next run, and after `limit` mails
+// reached the provider, counting the rest for the next run.
 import { createHash } from "node:crypto";
 import { err, ok, type Result, type SoftureConfig } from "@softure-ai/core";
 import { and, eq, inArray } from "drizzle-orm";
 import type { CampaignRecipient, MailingErrorCode } from "../contract.js";
 import { campaigns, deliveries } from "../schema.js";
 import { getCampaignProblems, type CampaignContent } from "./campaign-file.js";
-import { deliverOnce, type DeliverOptions, type DeliveryContext, type DeliveryOutcome, type HaltingErrorCode } from "./deliveries.js";
+import { deliverOnce, getRunHalt, type DeliverOptions, type DeliveryContext, type DeliveryOutcome, type RunHalt } from "./deliveries.js";
 import { getMailingOptions } from "./options.js";
 import { isSuppressed } from "./suppressions.js";
 import { getRecipientKey } from "./unsubscribe-link.js";
@@ -18,10 +19,7 @@ import { getRecipientKey } from "./unsubscribe-link.js";
 const PROVIDER_REASONS: ReadonlySet<MailingErrorCode> = new Set(["mailing.rejected", "mailing.unavailable"]);
 
 /** Why a run stopped before the end of the list. */
-export interface CampaignHalt {
-  readonly reason: HaltingErrorCode;
-  readonly httpStatus?: number;
-}
+export type CampaignHalt = RunHalt;
 
 /** The campaign id is taken by other content. Give the new content a new id. */
 export type CampaignErrorCode = "mailing.campaign_changed";
@@ -43,8 +41,9 @@ export interface CampaignSummary {
   /** Claimed more than `uncertainClaimMs` ago and never closed: their mail may have gone out. */
   readonly uncertain: number;
   /**
-   * Set when the run stopped at a failure about the sending account. The recipient it happened to and every one
-   * after it were left as they were; run again once the account can send.
+   * Set when the run stopped early: at a failure about the sending account (run again once the account can send) or,
+   * with `stopOnRetryLater`, at the first mail the provider could not take now (`mailing.unavailable`; run again
+   * later). The recipient it happened to and every one after it were left as they were.
    */
   readonly halted: CampaignHalt | null;
   /**
@@ -67,6 +66,12 @@ export interface SendCampaignOptions extends DeliverOptions {
    * limit.
    */
   readonly limit?: number;
+  /**
+   * End the run at the first `retry-later` (the provider is down, timed out or rate limited), reported in `halted` as
+   * `mailing.unavailable`. Going on would spend an attempt of every following recipient on the same answer. Default
+   * `true`.
+   */
+  readonly stopOnRetryLater?: boolean;
 }
 
 /** sha256 (hex) of what a recipient reads: kind, subject, text and HTML. */
@@ -92,7 +97,8 @@ export async function registerCampaign(ctx: DeliveryContext, content: CampaignCo
 /**
  * Sends `campaign` to every recipient that has no outcome yet, one at a time. Recipients who
  * unsubscribed are rejected (`mailing.suppressed`) and never retried; recipients the module's
- * `filterCampaignRecipient` refuses are skipped. Stops at the first `halted` delivery, and before the recipient
+ * `filterCampaignRecipient` refuses are skipped. Stops at the first `halted` delivery, unless `stopOnRetryLater` is
+ * `false` at the first `retry-later`, and before the recipient
  * after `limit` mails reached the provider. Throws on a database failure, when the filter throws, and (a
  * `RangeError`) for a `limit` that is not a whole number of at least 1.
  */
@@ -101,7 +107,7 @@ export async function sendCampaign(
   input: { readonly campaign: CampaignContent; readonly recipients: Iterable<string> | AsyncIterable<string> },
   options: SendCampaignOptions = {},
 ): Promise<Result<CampaignSummary, CampaignErrorCode>> {
-  const { pauseMs = 0, onDelivery, sleep = wait, limit, ...deliverOptions } = options;
+  const { pauseMs = 0, onDelivery, sleep = wait, limit, stopOnRetryLater = true, ...deliverOptions } = options;
   if (limit !== undefined && !(Number.isInteger(limit) && limit >= 1)) {
     throw new RangeError(`@softure-ai/mailing: sendCampaign limit must be a whole number of at least 1, got ${String(limit)}`);
   }
@@ -136,11 +142,9 @@ export async function sendCampaign(
     );
     countOutcome(counts, outcome);
     onDelivery?.(outcome);
-    if (outcome.status === "halted") {
-      // The rest of the list is not even counted as seen: the summary covers what this run reached.
-      const httpStatus = outcome.httpStatus === undefined ? {} : { httpStatus: outcome.httpStatus };
-      return ok({ recipients: seen.size, ...counts, halted: { reason: outcome.reason, ...httpStatus }, remaining: null });
-    }
+    const halt = getRunHalt(outcome, stopOnRetryLater);
+    // The rest of the list is not even counted as seen: the summary covers what this run reached.
+    if (halt !== null) return ok({ recipients: seen.size, ...counts, halted: halt, remaining: null });
     const reachedProvider = outcome.status === "sent" || outcome.status === "retry-later" || (outcome.status === "rejected" && PROVIDER_REASONS.has(outcome.reason));
     if (reachedProvider) handedToProvider += 1;
     if (reachedProvider && pauseMs > 0) await sleep(pauseMs);
