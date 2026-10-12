@@ -82,4 +82,10 @@ describe("findUndefinedTokenClasses", () => {
     expect(findUndefinedTokenClasses({ css: THEME, sources: [] })).toEqual([]);
     expect(check("export const answer = 42;")).toEqual([]);
   });
+
+  it("reads CSS in linear time: a long run of dashes or @theme without a brace stays fast", () => {
+    const started = performance.now();
+    findUndefinedTokenClasses({ css: ["--".repeat(50_000), "@theme ".repeat(50_000)], sources: [] });
+    expect(performance.now() - started).toBeLessThan(1000);
+  });
 });

@@ -69,13 +69,13 @@ function readTheme(cssTexts: readonly string[]): Theme {
 }
 
 function readVariableNames(css: string): string[] {
-  return [...css.matchAll(/(--[\w-]+)\s*:/g)].map((match) => match[1] ?? "");
+  return [...css.matchAll(/(?<![\w-])(--[\w-]+)\s*:/g)].map((match) => match[1] ?? "");
 }
 
 /** The bodies of every `@theme … { … }` block, braces matched. */
 function readThemeBlocks(css: string): string[] {
   const blocks: string[] = [];
-  for (const match of css.matchAll(/@theme\b[^{;]*\{/g)) {
+  for (const match of css.matchAll(/@theme\b[^{;@]*\{/g)) {
     const start = match.index + match[0].length;
     let depth = 1;
     let end = start;
