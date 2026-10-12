@@ -1,12 +1,13 @@
 ---
 change_id: db-process-glue-404
 title: "db: entry-point guard and process glue for createProcessDatabase (issue #404)"
-status: open
+status: archived
 roadmap_item: null
 issue: 404
 branch: claude/project-thread-r2wrmw
 created: 2026-10-12
 updated: 2026-10-12
+archived_at: 2026-10-12
 ---
 
 ## Intent

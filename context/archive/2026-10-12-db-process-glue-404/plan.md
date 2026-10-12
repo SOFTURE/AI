@@ -1,6 +1,6 @@
 ---
 change_id: db-process-glue-404
-status: open
+status: archived
 ---
 
 # Plan: db process glue (issue #404)
