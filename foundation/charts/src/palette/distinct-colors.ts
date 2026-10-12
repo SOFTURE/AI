@@ -10,7 +10,7 @@ const SLOT_PALETTE: readonly number[] = Array.from({ length: SERIES_SLOTS }, (_,
  * A colour per key: series slots (1 to `SERIES_SLOTS`) by default, or the values of `palette` (CSS colours, slots,
  * class names). Each key hashes to a preferred colour; keys are placed in sorted order, and a key whose preference is
  * taken gets the next free colour. So the result does not depend on the keys' order, and a key keeps its colour when
- * another joins unless the newcomer sorts before it and wants the same one. Repeated keys count once; past the
+ * another joins unless the newcomer sorts before it and takes that colour first. Repeated keys count once; past the
  * palette's size colours repeat, still deterministically. Throws a `RangeError` for an empty palette.
  */
 export function distinctColors(keys: readonly string[]): Map<string, number>;
