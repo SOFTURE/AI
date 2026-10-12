@@ -1,6 +1,6 @@
 ---
 change_id: core-money-negative-zero
-status: open
+status: archived
 ---
 
 # Plan: formatMoney never prints a minus on zero (issue #375)

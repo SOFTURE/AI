@@ -1,12 +1,13 @@
 ---
 change_id: core-money-negative-zero
 title: "core: formatMoney never prints a minus on zero (issue #375)"
-status: open
+status: archived
 roadmap_item: null
 issue: 375
 branch: claude/project-thread-pbuepq
 created: 2026-10-12
 updated: 2026-10-12
+archived_at: 2026-10-12
 ---
 
 ## Intent
