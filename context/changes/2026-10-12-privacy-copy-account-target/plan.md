@@ -49,5 +49,5 @@
 - [x] 1. ops run context
 - [x] 2. ledger check
 - [x] 3. newEmail
-- [ ] 4. script --to and --new-email
-- [ ] 5. docs
+- [x] 4. script --to and --new-email
+- [x] 5. docs
