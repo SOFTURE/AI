@@ -28,10 +28,10 @@ export type NextRequestErrorHandler = (
 /**
  * Starts observability from `register()` in `instrumentation.ts`, in the Node.js runtime only (the edge runtime gets
  * nothing). Spans for outgoing `fetch` are off by default, because Next.js spans `fetch` itself; turning them on
- * calls for `NEXT_OTEL_FETCH_DISABLED=1`. Resolves to `null` outside the Node.js runtime.
+ * calls for `NEXT_OTEL_FETCH_DISABLED=1`. Resolves to `null` in the edge runtime.
  */
 export async function registerObservability(options: ObservabilityOptions = {}): Promise<ObservabilityHandle | null> {
-  if (process.env.NEXT_RUNTIME !== "nodejs") {
+  if (isEdgeRuntime()) {
     return null;
   }
 
@@ -55,4 +55,13 @@ export function createOnRequestError(logger: Logger): NextRequestErrorHandler {
       "next.router_kind": context.routerKind,
     });
   };
+}
+
+/**
+ * Whether this runs in Next.js's edge runtime, which sets `NEXT_RUNTIME=edge` and defines the `EdgeRuntime` global.
+ * The Node.js runtime cannot be detected the other way round: only the `next` CLI sets `NEXT_RUNTIME=nodejs`, and a
+ * standalone `server.js` leaves it unset (the package is external, so the bundler does not inline it here).
+ */
+function isEdgeRuntime(): boolean {
+  return "EdgeRuntime" in globalThis || globalThis.process?.env.NEXT_RUNTIME === "edge";
 }
