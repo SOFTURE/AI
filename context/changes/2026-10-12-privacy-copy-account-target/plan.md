@@ -41,7 +41,7 @@
 
 ## Progress
 
-- [ ] 1. ops run context
+- [x] 1. ops run context
 - [ ] 2. ledger check
 - [ ] 3. newEmail
 - [ ] 4. script --to and --new-email
