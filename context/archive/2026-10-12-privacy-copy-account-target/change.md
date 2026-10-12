@@ -1,12 +1,13 @@
 ---
 change_id: privacy-copy-account-target
 title: "privacy: copy-account script with --to, a new email in the target, and a migration ledger check (issue #376)"
-status: active
+status: archived
 roadmap_item: null
 issue: 376
 branch: claude/project-thread-0bbbn4
 created: 2026-10-12
 updated: 2026-10-12
+archived_at: 2026-10-12
 ---
 
 ## Intent
