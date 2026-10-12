@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`blog@x.y.z`).
 
-## Unreleased
+## 0.1.13
 
 - Tool blocks (#413). `defineToolBlock({ name, schema, renderStatic, Island })` (`/ui`) turns a `::name{…}` directive
   into an interactive tool: the page's server HTML holds the static version in a mount point and `BlogToolIsland`
