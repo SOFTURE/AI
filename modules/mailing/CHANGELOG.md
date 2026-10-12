@@ -4,6 +4,16 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mailing@x.y.z`).
 
+## Unreleased
+
+- `runDeliveries` and `sendCampaign` stop at the first `retry-later` (the provider is down, timed out or rate
+  limited), as they stop at a refused account: `halted: { reason: "mailing.unavailable", httpStatus }`,
+  `remaining: null`. Before, every following recipient got the same answer and spent an attempt, so an outage longer
+  than `maxAttempts` runs closed them all as `rejected`. New option `stopOnRetryLater` (default `true`); pass `false`
+  for the old behaviour. `halted.reason` (and `CampaignHalt`) is now the new exported `RunHaltReason`
+  (`HaltingErrorCode | "mailing.unavailable"`): a map keyed by `HaltingErrorCode` over it needs the new entry.
+  `softure-mail campaign` explains the new reason.
+
 ## 0.1.12
 
 - New `runDeliveries(ctx, { recipients, build }, { limit, pauseMs, dryRun, onDelivery })` (`/server`, and

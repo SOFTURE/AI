@@ -34,6 +34,7 @@ const ISSUED: IssueTokenFormState = {
     name: "Desktop",
     canWrite: false,
     expiresText: "Works until December 14, 2026.",
+    expiresAt: "2026-12-14T12:00:00.000Z",
     setup: {
       serverName: "acme",
       endpointUrl: "http://localhost:3000/api/mcp",
@@ -110,6 +111,13 @@ describe("TokenManager", () => {
     fireEvent.change(screen.getByRole("textbox", { name: en.issue.name }), { target: { value: "Desktop" } });
     await submit(screen.getByRole("button", { name: en.issue.submit }));
     expect(screen.getByRole("alert").textContent).toBe(en.errors["mcp-access"].token_limit_reached);
+  });
+
+  it("shows the app's own refusal text instead of the code's copy", async () => {
+    renderManager({ issueAction: () => Promise.resolve({ status: "error", error: "mcp-access.write_refused", message: "Your trial has ended." }) });
+    fireEvent.change(screen.getByRole("textbox", { name: en.issue.name }), { target: { value: "Desktop" } });
+    await submit(screen.getByRole("button", { name: en.issue.submit }));
+    expect(screen.getByRole("alert").textContent).toBe("Your trial has ended.");
   });
 
   it("lists the owner's tokens and revokes one by its id", async () => {

@@ -15,7 +15,7 @@ import { openCommandDatabase, type CommandDatabase, type DatabaseHandle } from "
 import { TRANSACTIONAL_KIND, type OutgoingMail, type ProviderMessage } from "../contract.js";
 import { getCampaignProblems, parseCampaignFile, parseRecipientList, type CampaignContent } from "../server/campaign-file.js";
 import { listConfiguredCampaignRecipients, planCampaign, sendCampaign, type CampaignSummary } from "../server/campaigns.js";
-import type { DeliveryContext, HaltingErrorCode } from "../server/deliveries.js";
+import type { DeliveryContext, RunHaltReason } from "../server/deliveries.js";
 import { checkSenderDns, getSenderDomain, resendReturnPath, type DmarcAlignment, type DmarcExpectation, type DmarcPolicy, type DnsCheck, type ResolveCname, type ResolveMx, type ResolveTxt, type ReturnPathHost } from "../server/dns.js";
 import { checkImportedDeliveries, importDeliveries, type ImportedDelivery, type ImportProblem } from "../server/import-deliveries.js";
 import { maskAddress, redactUnsubscribeSignatures } from "../server/operator-output.js";
@@ -743,7 +743,8 @@ async function reportSend(
   let code = EXIT_OK;
   if (summary.halted !== null) {
     const status = summary.halted.httpStatus === undefined ? "" : ` (HTTP ${String(summary.halted.httpStatus)})`;
-    output.error(`stopped: ${HALT_EXPLANATIONS[summary.halted.reason]}${status}; the remaining recipients were not touched, run the same command again once it is fixed`);
+    const when = summary.halted.reason === "mailing.unavailable" ? "later" : "once it is fixed";
+    output.error(`stopped: ${HALT_EXPLANATIONS[summary.halted.reason]}${status}; the remaining recipients were not touched, run the same command again ${when}`);
     code = EXIT_FAILED;
   }
   const open = summary.inFlight + summary.retryLater;
@@ -760,9 +761,10 @@ async function reportSend(
   return code;
 }
 
-const HALT_EXPLANATIONS: Readonly<Record<HaltingErrorCode, string>> = {
+const HALT_EXPLANATIONS: Readonly<Record<RunHaltReason, string>> = {
   "mailing.provider_refused": "the provider refused the account (check the API key and the account)",
   "mailing.quota_exceeded": "the account's sending quota is spent",
+  "mailing.unavailable": "the provider is unavailable or rate limiting",
 };
 
 function formatSummary(summary: CampaignSummary): string {

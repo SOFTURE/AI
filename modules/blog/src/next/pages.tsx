@@ -21,7 +21,8 @@
 // input and a term's "explained in these texts" list.
 //
 // An app that keeps these pages but not their look wraps one in a line; `view` takes the class slots,
-// `unstyled`, a layout and a disclaimer node, and the listing also takes `renderCard`:
+// `unstyled`, a layout and a disclaimer node, the listing also takes `renderCard` and the method page
+// `sections` (the app's own, with node bodies):
 //
 //   export default function Page(props) { return <BlogArticlePage {...props} view={BLOG_VIEW} />; }
 import type { SoftureConfig } from "@softure-ai/core";
@@ -39,7 +40,7 @@ import { getArticleCrumbs, groupByCluster, getTermCrumbs, sortTerms } from "../p
 import { BlogArticleView } from "../ui/blog-article.js";
 import { GlossaryIndexView, GlossaryTermView } from "../ui/blog-glossary.js";
 import { BlogListingView, type BlogCardRenderer } from "../ui/blog-listing.js";
-import { BlogMethodView } from "../ui/blog-method.js";
+import { BlogMethodView, type BlogMethodSection } from "../ui/blog-method.js";
 import type { BlogPageContext, BlogViewOptions } from "../ui/page-context.js";
 import { getBodyOptions } from "./body.js";
 import { getPageContext } from "./context.js";
@@ -66,6 +67,11 @@ export interface BlogArticlePageProps extends BlogViewPageProps {
   readonly cta?: ReactNode;
   /** The app's block under the article, e.g. `<Waitlist placement="blog" />`. */
   readonly afterArticle?: ReactNode;
+}
+
+export interface BlogMethodPageProps extends BlogViewPageProps {
+  /** The app's sections in place of the default five (a node body for lists and links); the AI disclosure and the footer note stay. */
+  readonly sections?: readonly BlogMethodSection[];
 }
 
 export interface GlossaryTermPageProps extends BlogViewPageProps {
@@ -190,9 +196,9 @@ export function generateMethodMetadata(): Metadata {
 }
 
 /** "How our texts are made". Mount it with `blog({ methodPage: true })`; without that it is a 404. */
-export function BlogMethodPage({ view }: BlogViewPageProps = {}) {
+export function BlogMethodPage({ view, sections }: BlogMethodPageProps = {}) {
   const config = getSoftureConfig();
   const context = getViewContext(config, view);
   if (context.methodPath === null) notFound();
-  return <BlogMethodView context={context} />;
+  return <BlogMethodView context={context} sections={sections} />;
 }

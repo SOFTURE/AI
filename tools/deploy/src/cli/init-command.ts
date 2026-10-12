@@ -37,7 +37,7 @@ function listNextConfigWarnings(facts: AppFacts): string[] {
 }
 
 /** A value `deploy.sh` takes from a compose file init keeps, which could not be read there. */
-function listComposeWarnings(facts: AppFacts, replacesCompose: boolean): string[] {
+function listComposeWarnings(facts: AppFacts, answers: InitAnswers, replacesCompose: boolean): string[] {
   if (!facts.hasDatabase || !facts.compose || replacesCompose) return [];
   const warnings: string[] = [];
   if (facts.compose.postgresMajor === null) {
@@ -45,8 +45,10 @@ function listComposeWarnings(facts: AppFacts, replacesCompose: boolean): string[
       `${COMPOSE_FILE}: no Postgres major version in the postgres service's image; deploy.sh's tools image carries pg_dump ${TEMPLATE_VERSIONS.postgres}`,
     );
   }
-  if (facts.compose.appDatabaseRole === null) {
-    warnings.push(`${COMPOSE_FILE}: no role in the app service's DATABASE_URL; deploy.sh's report reads as ${DEFAULT_APP_ROLE}`);
+  if (facts.compose.appDatabaseRole === null && answers.reportRole === undefined) {
+    warnings.push(
+      `${COMPOSE_FILE}: no role in the app service's DATABASE_URL; deploy.sh's report reads as ${DEFAULT_APP_ROLE} (name the role with --report-role=<role>)`,
+    );
   }
   return warnings;
 }
@@ -87,6 +89,7 @@ export function runInit(args: string[], io: CliIo): void {
     tables: { type: "string" },
     "workflows-ref": { type: "string" },
     cdn: { type: "string" },
+    "report-role": { type: "string" },
     force: { type: "boolean", default: false },
   });
   const missing = (["domain", "image"] as const).filter((name) => flags[name] === undefined);
@@ -108,6 +111,7 @@ export function runInit(args: string[], io: CliIo): void {
     tables: splitList(flags.tables),
     workflowsRef: flags["workflows-ref"],
     cdn: flags.cdn,
+    reportRole: flags["report-role"],
   });
   if (!answersResult.ok) fail(`init: nothing written; ${answersResult.problems.join("; ")}.`);
   const cliVersion = readCliVersion();
@@ -116,7 +120,7 @@ export function runInit(args: string[], io: CliIo): void {
   const result = writeInitFiles({ dir, files, force: flags.force });
   const warnings = [
     ...listNextConfigWarnings(facts),
-    ...listComposeWarnings(facts, replacesCompose),
+    ...listComposeWarnings(facts, answersResult.answers, replacesCompose),
     ...listWorkflowsRefWarnings({ written: result.written, workflowsRef: answersResult.answers.workflowsRef, cliVersion }),
   ];
   const lines = [

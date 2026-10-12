@@ -185,7 +185,7 @@ function IssueForm({
           />
           {allowWrites ? <Checkbox name="canWrite" label={messages.issue.canWrite} description={messages.issue.canWriteHint} unstyled={unstyled} /> : null}
           <p className={slot("text")}>{formatMessage(messages.issue.limit, { max: maxTokens })}</p>
-          <FormError message={state.status === "error" ? getTokenErrorMessage(messages, state.error) : undefined} unstyled={unstyled} />
+          <FormError message={state.status === "error" ? (state.message ?? getTokenErrorMessage(messages, state.error)) : undefined} unstyled={unstyled} />
           <Button type="submit" variant="primary" pending={isPending} unstyled={unstyled}>
             {isPending ? messages.issue.pending : messages.issue.submit}
           </Button>
