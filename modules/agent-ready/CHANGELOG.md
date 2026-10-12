@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.1.4
 
 - Ready-made WebMCP tools in `/webmcp` (#415): `createSearchSiteTool()` registers `searchSite({ query, limit? })`, a
   search over the Markdown versions of the pages in seo's sitemap (or listed paths), and `createFindTermTool()`
