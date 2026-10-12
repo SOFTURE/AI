@@ -10,10 +10,13 @@ which publishes the package in three places:
 | GitHub Packages | `@softure/<package>` | published with the workflow's `GITHUB_TOKEN` (GitHub requires the org as the scope) |
 | GitHub Release | `<package>@x.y.z` | generated notes and the package tarball attached |
 
-Releases are the owner's call (`release.owner` in [`context/workflow.json`](../../context/workflow.json)):
-an agent starts one only on the owner's explicit word, through [Release from Actions](#release-from-actions).
-npm takes each version as soon as its release passes, with no approval step, as in SOFTURE/SKILLS (owner,
-2026-10-06); the gates in the workflow and that word are the review.
+Who releases follows `release.owner` in [`context/workflow.json`](../../context/workflow.json). It is `false`:
+the coordinating agent decides on its own, without asking the owner, and releases through
+[Release from Actions](#release-from-actions). It does not release after every change: it collects merged changes
+and cuts one combined release once the current issues are done (owner, 2026-10-12). With `true`, a release would
+wait for the owner's word. npm takes each version as soon as its release passes, with no approval step, as in
+SOFTURE/SKILLS (owner, 2026-10-06); the gates in the workflow are the review. A production deploy is not a
+release and always waits for the owner's word.
 
 ## Release from Actions
 

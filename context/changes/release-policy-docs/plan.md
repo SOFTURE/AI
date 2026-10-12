@@ -14,7 +14,7 @@ deploy still waits for the owner's word.
 ## Key decisions
 
 - **Point at the source, do not restate it everywhere.** Each document names `release.owner` in
-  `context/workflow.json` and keeps one sentence of the rule, so a later switch of the value does not leave five
+  `context/workflow.json` and keeps one sentence of the rule, so a later switch of the value does not leave six
   stale copies.
 - **shape-notes.md**: the no-go is amended in place with the date of the decision, since shape notes record
   product decisions and this one changed.
@@ -23,7 +23,7 @@ deploy still waits for the owner's word.
 
 ## Phase 1: Align the documents
 
-- Edit the five documents listed in change.md.
+- Edit the six documents listed in change.md.
 
 Done when: `grep -rn -i -E "owner's (call|explicit word)|agents never tag|owner (tags|releases at)|stay with the owner"`
 over the tree (without `context/archive/`, `node_modules/` and this change folder) returns nothing;
@@ -36,5 +36,5 @@ over the tree (without `context/archive/`, `node_modules/` and this change folde
 ### Phase 1: Align the documents
 
 #### Automated
-- [ ] 1.1 Release wording aligned with `release.owner: false` in the five documents
+- [ ] 1.1 Release wording aligned with `release.owner: false` in the six documents
 - [ ] 1.2 Grep from Done when returns nothing; lint and repository tests green

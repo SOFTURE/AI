@@ -1,7 +1,7 @@
 ---
 change_id: release-policy-docs
 title: "Docs describe releases as the coordinator's batch call (release.owner: false)"
-status: planned
+status: implementing
 roadmap_item: null
 issue: null
 branch: claude/project-thread-pg8a6x
@@ -32,6 +32,7 @@ Found by one grep for release and owner wording outside `node_modules/` and `con
 - `docs/02-module-standard.md:342-343`: "An agent releases only on the owner's explicit word, through
   `auto-release.yml` (`release.owner: true`)", which also misquotes the configured value.
 - `context/foundation/shape-notes.md:93`: no-go "No releases or deploys by agents. The owner tags releases."
+- `.github/workflows/auto-release.yml:9`: header comment "When it may run: on the owner's explicit word".
 - `context/foundation/roadmaps/roadmap-later.md:40-44`: run-wide orders "Tags and npm publishes stay with the
   owner" and "the owner releases at the keyboard".
 
@@ -40,13 +41,13 @@ agree with the configuration.
 
 ## Constraints
 
-- Documentation only: no workflow, script or test changes.
+- Documentation only: no workflow behaviour, script or test changes (the workflow file gets a comment edit).
 - Archived changes under `context/archive/` are history: untouched.
 - The installed skills come from `@softure-ai/skills` (another repository): untouched.
 - No release in this change.
 
 ## Notes
 
-- Research: skipped. The whole surface is the five documents above, found by one grep; the target rule is
+- Research: skipped. The whole surface is the six documents above, found by one grep; the target rule is
   already written in `AGENTS.md` (Releases) and `workflow.json`.
 - Framing: skipped. The owner named the problem and the fix.
