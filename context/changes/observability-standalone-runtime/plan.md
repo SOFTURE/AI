@@ -28,4 +28,4 @@ included, and still starts nothing in the edge runtime.
 
 ## Progress
 
-- [ ] Phase 1: edge detection, tests, docs
+- [x] Phase 1: edge detection, tests, docs — ebaee23

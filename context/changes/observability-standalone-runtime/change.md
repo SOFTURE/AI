@@ -1,12 +1,13 @@
 ---
 change_id: observability-standalone-runtime
 title: "observability: registerObservability starts under a standalone Next.js server (issue #381)"
-status: plan_reviewed
+status: archived
 roadmap_item: null
 issue: 381
 branch: claude/project-thread-ht8g57
 created: 2026-10-12
 updated: 2026-10-12
+archived_at: 2026-10-12
 ---
 
 ## Intent
@@ -38,3 +39,4 @@ bump: the fix rides the next combined release under `## Unreleased` in the CHANG
   sandbox (`server/web/sandbox/context.js`, `buildEnvironmentVariablesFrom`) always sets `NEXT_RUNTIME` to `edge`
   and runs inside `edge-runtime`, which defines the `EdgeRuntime` global.
 - Framing: skipped. The problem is observed in an adopting app and the issue's proposal is taken.
+- Archived 2026-10-12: registerObservability starts under a standalone Next.js server and still skips the edge runtime; ships in the next release.
