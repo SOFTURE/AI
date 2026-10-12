@@ -1,0 +1,61 @@
+# Replaces the body of one GitHub Release (@softure-ai/deploy, issue #406): a reusable workflow an app calls from a
+# `workflow_dispatch` with the inputs `tag` and `body`. An agent's cloud session cannot edit a release through the
+# REST API, but it can start a workflow_dispatch; so can the owner from the Actions tab.
+#
+# The caller is `tools/deploy/examples/release-notes.yml` in this repository (`softure-deploy init` writes it as
+# `.github/workflows/release-notes.yml`). It grants `contents: write`, which the one job needs to edit the release.
+# The body reaches `gh` through a file, byte for byte; nothing is interpolated into a script.
+
+name: deploy-release-notes
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: The tag of the release whose body is replaced
+        type: string
+        required: true
+      body:
+        description: The new body, markdown; it replaces the whole body
+        type: string
+        required: true
+
+permissions: {}
+
+jobs:
+  notes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write # gh release edit
+    concurrency:
+      group: deploy-release-notes-${{ github.repository }}-${{ inputs.tag }}
+      cancel-in-progress: false
+    steps:
+      - name: Check the inputs
+        env:
+          TAG: ${{ inputs.tag }}
+          BODY: ${{ inputs.body }}
+        run: |
+          failed=0
+          if [[ ! "$TAG" =~ ^[A-Za-z0-9_][A-Za-z0-9_.@/-]{0,254}$ ]] || [[ "$TAG" == *..* ]]; then
+            echo "::error::Input tag is not valid: \"$TAG\" (a tag name)"
+            failed=1
+          fi
+          if [[ -z "${BODY//[[:space:]]/}" ]]; then
+            echo "::error::Input body is empty; a release body is replaced with text, never cleared"
+            failed=1
+          fi
+          exit "$failed"
+
+      - name: Replace the release body
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+          BODY: ${{ inputs.body }}
+        run: |
+          set -euo pipefail
+          notes="$RUNNER_TEMP/release-notes.md"
+          printf '%s' "$BODY" > "$notes"
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file "$notes"
+          echo "The body of release **$TAG** was replaced." >> "$GITHUB_STEP_SUMMARY"

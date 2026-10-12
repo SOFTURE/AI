@@ -1,0 +1,30 @@
+# The caller of SOFTURE/AI's reusable checks workflow (.github/workflows/deploy-release-checks.yml) for pull requests.
+# Copy it to the app's `.github/workflows/checks.yml`.
+#
+# Every pull request runs `static` (Next's route types, then the type check and lint). The unit tests cost the most
+# runner minutes, so they run on demand: "Run workflow" on a branch, or the label `run-tests` on the pull request.
+# Split a long suite with `shards`. SOFTURE/AI's workflows are called at `master`; pin a commit SHA for an immutable
+# reference, the same one deploy.yml pins.
+
+name: checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+  workflow_dispatch:
+
+# A newer push to the same pull request cancels the older run.
+concurrency:
+  group: checks-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    uses: SOFTURE/AI/.github/workflows/deploy-release-checks.yml@master
+    with:
+      static-command: npx next typegen && npx tsc --noEmit && npm run lint --if-present
+      unit: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-tests') }}
+      shards: 1

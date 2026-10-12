@@ -1,0 +1,31 @@
+# The caller of SOFTURE/AI's reusable release-notes workflow (.github/workflows/deploy-release-notes.yml). Copy it to
+# the app's `.github/workflows/release-notes.yml`.
+#
+# "Run workflow" with a tag and a body replaces that release's body: the owner can run it from the Actions tab, and an
+# agent that cannot edit a release through the API can start it as a workflow_dispatch. SOFTURE/AI's workflows are
+# called at `master`; pin a commit SHA for an immutable reference, the same one deploy.yml pins.
+
+name: release-notes
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The tag of the release to edit
+        type: string
+        required: true
+      body:
+        description: The new release body (markdown); it replaces the whole body
+        type: string
+        required: true
+
+# Editing the release.
+permissions:
+  contents: write
+
+jobs:
+  notes:
+    uses: SOFTURE/AI/.github/workflows/deploy-release-notes.yml@master
+    with:
+      tag: ${{ inputs.tag }}
+      body: ${{ inputs.body }}
