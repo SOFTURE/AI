@@ -47,6 +47,11 @@
       "@softure-ai/source": "./src/guards/index.ts",
       "types": "./dist/guards/index.d.ts",
       "default": "./dist/guards/index.js"
+    },
+    "./guards/next": {
+      "@softure-ai/source": "./src/guards/next/index.ts",
+      "types": "./dist/guards/next/index.d.ts",
+      "default": "./dist/guards/next/index.js"
     }
   },
   "peerDependencies": {
