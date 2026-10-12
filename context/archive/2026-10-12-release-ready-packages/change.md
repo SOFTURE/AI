@@ -36,3 +36,9 @@ deploy (#383, merged in PR #396 while this change ran). Release them now instead
 
 - Research and framing skipped: the release path is fixed (`scripts/release/README.md`) and the scope is the
   changelog scan above.
+
+## Decisions (auto)
+
+- billing joins after #401 merged (`69152b6`) as **0.2.0**, a minor bump: its `sendAccessReminders` summary changed
+  shape (breaking). `docs/02-module-standard.md` §12 asks for a major on a breaking change; under 0.x a caret range
+  (`^0.1.x`) never accepts 0.2.0, so a minor protects adopters the same way without declaring the API stable at 1.0.0.
