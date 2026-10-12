@@ -98,6 +98,6 @@ default email is unique and on `example.com`; a refused registration rejects and
 ### Phase 2: One account per test file
 
 #### Automated
-- [x] 2.1 The new `signInPerFile` browser tests pass
-- [x] 2.2 README lists both exports and CHANGELOG has `## Unreleased`
-- [x] 2.3 Gates green (typecheck, lint, test)
+- [x] 2.1 The new `signInPerFile` browser tests pass — d925bb0
+- [x] 2.2 README lists both exports and CHANGELOG has `## Unreleased` — d925bb0
+- [x] 2.3 Gates green (typecheck, lint, test) — d925bb0
