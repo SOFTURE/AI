@@ -1,6 +1,6 @@
 ---
 change_id: release-batch-2
-status: planned
+status: archived
 ---
 
 # Plan: release-batch-2
@@ -27,5 +27,5 @@ Input: change.md. Complexity: small (two phases).
 
 ## Progress
 
-- [ ] Phase 1: ranges
-- [ ] Phase 2: bumps
+- [x] Phase 1: ranges (`f4143f0`)
+- [x] Phase 2: bumps (`bff5b33`..`0437448`; typecheck, lint and tests green)

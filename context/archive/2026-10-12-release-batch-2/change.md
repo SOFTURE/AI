@@ -1,12 +1,13 @@
 ---
 change_id: release-batch-2
 title: "Release every package with Unreleased changes from the second batch of issues"
-status: planned
+status: archived
 roadmap_item: null
 issue: null
 branch: claude/release-batch-2-cylmzu
 created: 2026-10-12
 updated: 2026-10-12
+archived_at: 2026-10-12
 ---
 
 ## Intent
@@ -44,7 +45,7 @@ Release them in one combined release, with the dependency ranges the new code ne
 
 - ui goes to **0.2.0** (minor): breaking under 0.x, as billing 0.2.0 in PR #408. A caret range on 0.1.x never
   accepts 0.2.0, so every package with a ui peer range widens it to `|| ^0.2.0` (the code is tested against the
-  workspace ui) and its dev range moves to `^0.2.0`. The five dependents with nothing else to release (billing,
+  workspace ui) and its dev range also accepts `^0.2.0`. The five dependents with nothing else to release (billing,
   feature-switches, mailing, privacy, waitlist) get a patch with that one CHANGELOG line, so an app can install
   ui 0.2.0 next to them.
 - Every other package gets a patch: the entries add exports and options without breaking existing calls.
