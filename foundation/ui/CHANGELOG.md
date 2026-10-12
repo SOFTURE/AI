@@ -11,6 +11,27 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   on HTML elements), `findHoverOnlyHandlers` (what opens on hover opens on focus) and `findRestrictedElements` (raw
   `<select>` and `createPortal` only in their one file). `typescript` is a new optional peer dependency, needed by
   `@softure-ai/ui/testing` (not by the components). The package runs all four guards on its own components.
+- Generic components an adopting app still owned (#407):
+  - App shell: `AppHeaderBar` (server-safe sticky bar: brand, navigation from `md`, actions, phone menu),
+    `AccountMenu` and `MobileMenu` (both on `DisclosureMenu`, named by the new `appShell` messages).
+  - `CheckboxField` takes `required` and `requiredMessage`: a consent left unchecked shows the message under the box
+    instead of the browser's bubble and takes focus when it is the first invalid control. `Switch` and
+    `SwitchControl` take `required`.
+  - `Stepper` (back-only navigation through `href` or `onStepSelect`, `aria-current="step"`), `Checklist` (an
+    onboarding list with a done count), `ColorField` (hex text with a colour picker swatch, `normalizeHexColor`),
+    `SuggestedAmountField` (a `MoneyField` with a "Use {amount}" chip) and `DeferredRender` (a Suspense streaming
+    helper). New message groups `appShell`, `stepper`, `checklist`, `colorField`, `suggestedAmount` (`en`, `pl`).
+  - `Modal` takes `motion="enter-leave"`: closing from inside waits for the leave transition, with `data-state`
+    (`open`, `closing`) on the overlay and the panel for an app's keyframes; `useModalClose()` gives an app's own
+    close button the same path. `ConfirmActionButton` and `ActionFormModal` take `modalMotion`.
+  - `ConfirmActionButton` takes `formAction(formData)` with hidden `fields` as the alternative to `action`. Its props
+    type is now a type alias (`ConfirmActionButtonProps`, with the `ConfirmActionRun` union), so an app that
+    `extends` it switches to `&`.
+  - A new `@softure-ai/ui/next` subpath with `QuerySegmentedNav`: segments that switch a view through one query
+    parameter, keep the other parameters and navigate with `Link scroll={false}`. `next` is a new optional peer
+    dependency, needed only by this subpath. `getQueryHref` (main entry) builds the same addresses.
+  - The CSS gains the `md` breakpoint (48rem) for the app bar.
+  - README: mounting `UiLocaleProvider` once replaces the per-call `locale`/`messages` props.
 
 ## 0.1.17
 

@@ -39,7 +39,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
 **Locale.** `<SoftureThemeProvider locale="pl">` (or `<UiLocaleProvider locale="pl">`) sets the
 built-in copy and the number notation of every component below it; a component's own `locale` prop
-still wins, and without either it is `en`.
+still wins, and without either it is `en`. Mount it once in the root layout and drop the per-call `locale` and
+`messages` props: every client component below reads the provider (`MoneyField` and `SuggestedAmountField` take
+their number notation from it too). Only server-safe components that render copy without a client part
+(`ServerExternalLink`) still take `locale` by props. Pass `messages` per call only to change a text for one place.
 
 ## Tokens
 
@@ -111,17 +114,18 @@ or a comment throw.
 | --- | --- |
 | Actions | `Button` (`primary`, `secondary`, `ghost`, `danger`, `ink`, `ink-outline`; `sm`, `md`, `lg`; `pending`, `pendingLabel`), `ButtonLink`, `ButtonAnchor`, `IconButton`, `getButtonClass` |
 | Icons | `ArrowLeftIcon` … `ChatIcon`, `ChildIcon`, `LoanIcon` (35, decorative, `size` and `className`) |
-| Surfaces | `Card` (`boxed`, `lead`, `flat`; `step`, `done`, `accent`, `headingLevel`, `headingSize`, `collapsible`), `CardDisclosure`, `CollapsibleSection`, `Stat`, `EmptyState`, `Hint`, `FormError` |
-| Fields | `Field`, `FieldGroup`, `TextField`, `PasswordField`, `MoneyField`, `SelectField`, `CheckboxField`, `INPUT_CLASS`, `NUMBER_INPUT_CLASS` |
+| Surfaces | `Card` (`boxed`, `lead`, `flat`; `step`, `done`, `accent`, `headingLevel`, `headingSize`, `collapsible`), `CardDisclosure`, `CollapsibleSection`, `Stat`, `EmptyState`, `Hint`, `FormError`, `Checklist` (onboarding items), `DeferredRender` (stream a slow part) |
+| Fields | `Field`, `FieldGroup`, `TextField`, `PasswordField`, `MoneyField`, `SuggestedAmountField`, `ColorField` + `normalizeHexColor`, `SelectField`, `CheckboxField` (`required`, `requiredMessage`), `INPUT_CLASS`, `NUMBER_INPUT_CLASS` |
 | Controls | `Select` (ARIA listbox), `Switch`, `SwitchControl`, `Checkbox`, `SegmentedControl`, `SEGMENTED_GROUP_CLASS` + `SEGMENT_ACTIVE_CLASS` / `SEGMENT_IDLE_CLASS` (an app's own segments), `CopyButton` |
-| Navigation | `Tabs` (ARIA tabs, roving focus), `TabPanels` (panels for a tab bar of links), `SegmentedNav` (links drawn as segments, `aria-current`), `DisclosureMenu` + `useDisclosure` (a panel of links), `ExternalLink`, `ServerExternalLink` |
-| Dialogs and feedback | `Modal` (`form`, `confirmation`, `panel`), `StandingPanel`, `ModalBody`, `ModalFooter`, `ModalForm`, `ConfirmActionButton`, `ActionFormModal`, `ModalTrigger`, `ToastHost` + `announceToast`, `useDismissed` (dismiss a banner for N days) |
+| Navigation | `AppHeaderBar`, `AccountMenu`, `MobileMenu` (the app shell), `Stepper` (multi-step forms), `Tabs` (ARIA tabs, roving focus), `TabPanels` (panels for a tab bar of links), `SegmentedNav` (links drawn as segments, `aria-current`), `getQueryHref`, `QuerySegmentedNav` (in `@softure-ai/ui/next`), `DisclosureMenu` + `useDisclosure` (a panel of links), `ExternalLink`, `ServerExternalLink` |
+| Dialogs and feedback | `Modal` (`form`, `confirmation`, `panel`; `motion`), `useModalClose`, `StandingPanel`, `ModalBody`, `ModalFooter`, `ModalForm`, `ConfirmActionButton`, `ActionFormModal`, `ModalTrigger`, `ToastHost` + `announceToast`, `useDismissed` (dismiss a banner for N days) |
 | Forms | `ActionForm` (server action, value replay, field errors, success toast), `ActionResult`, `MessageActionResult` |
 | Locale | `UiLocaleProvider`, `useUiLocale` |
 | Money and decimals | `parseAmount`, `formatAmountInput`, `normalizeAmountInput`, `getAmountErrorMessage`, `parseDecimal`, `formatDecimal`, `normalizeDecimalInput` |
 
 Server-safe (no `"use client"`): `Button`, `ButtonLink`, `ButtonAnchor`, `IconButton`, icons, `Card`, `Stat`,
-`EmptyState`, `FormError`, `Field`, `FieldGroup`, `TabPanels`, `SegmentedNav`, the class constants. The rest are client components
+`EmptyState`, `FormError`, `Field`, `FieldGroup`, `TabPanels`, `SegmentedNav`, `AppHeaderBar`, `DeferredRender`,
+`getQueryHref`, the class constants. The rest are client components
 (`Card` and `Field` render their hint and collapsing through small client components).
 
 ### Shared props
@@ -131,12 +135,13 @@ Server-safe (no `"use client"`): `Button`, `ButtonLink`, `ButtonAnchor`, `IconBu
   An app class is added to the default and wins, because the defaults sit in `@layer softure`.
 - **`unstyled`.** Drops every default class and keeps structure, ARIA and behaviour.
 - **Copy.** Components with built-in text (`Modal`, `ModalFooter`, `StandingPanel`, `ActionForm`,
-  `ConfirmActionButton`, `CopyButton`, `ExternalLink`, `Card` hint and collapse names, field hint names) take `locale` (the provider's, else `en`; `pl`
+  `ConfirmActionButton`, `CopyButton`, `ExternalLink`, `AccountMenu`, `MobileMenu`, `Stepper`, `Checklist`,
+  `ColorField` picker name, `SuggestedAmountField` chip, `Card` hint and collapse names, field hint names) take `locale` (the provider's, else `en`; `pl`
   too) and partial `messages` for their group in `uiMessages`. Everything else the user reads (labels, titles, button text) comes from the app as
   props.
 - **Links.** `ButtonLink` renders `<a>` unless you inject your router's link:
-  `<ButtonLink LinkComponent={Link} href="/pricing" variant="primary">`. The package never imports
-  `next/*`. `ButtonAnchor` is always a plain `<a>`, for what a router link must not handle: a download
+  `<ButtonLink LinkComponent={Link} href="/pricing" variant="primary">`. The main entry never imports
+  `next/*`; only the `@softure-ai/ui/next` subpath does (`next` is an optional peer dependency). `ButtonAnchor` is always a plain `<a>`, for what a router link must not handle: a download
   (`download`), an address outside the app, a full page load.
 - **`className`** on `Button`, `ButtonLink` and `ButtonAnchor` is added to the root after `classNames.root`.
 
@@ -201,6 +206,31 @@ replays its state after a rejected submit. `switchProps` (`classNames`, `control
 <CheckboxField name="notify" label="Notify me" hint="…" hintAs="tooltip" unstyled
   switchProps={{ classNames: appSwitch, controlClassNames: appSwitchControl, hintProps: appHint }} />
 <CheckboxField name="terms" label="I accept the terms" labelAs="statement" unstyled checkboxProps={{ classNames: appCheckbox }} />
+```
+
+A consent is a required statement: `required` with `requiredMessage` replaces the browser's bubble with the
+message under the box (`aria-invalid`, `aria-describedby`) when a submit finds it unchecked, and moves focus to the
+box when it is the form's first invalid control (an earlier invalid field keeps it). Checking the box clears the
+message; a server error for `name` from `ActionForm` shows in the same place. Without `requiredMessage` the browser
+validates as usual; a `setting` passes `required` to its switch.
+
+```tsx
+<CheckboxField name="terms" label={<>I accept the <Link href="/terms">terms</Link></>} labelAs="statement"
+  required requiredMessage="Accept the terms to create an account." />
+```
+
+`ColorField` is a hex colour as text (`#rrggbb`, sent under `name`) with the browser's colour picker as its swatch;
+the two follow each other. On blur `#abc` and `ABCDEF` become `#aabbcc` and `#abcdef`; other text stays as typed for
+the `pattern` and the server to reject, and the swatch keeps the last valid colour. `normalizeHexColor(text)` is the
+same rule for the server (`null` when the text is not a colour). Slots: the field's, plus `row`, `swatch`, `input`.
+
+`SuggestedAmountField` is a `MoneyField` with a chip under it ("Use 1 234,50 PLN", or `suggestionLabel`) that fills
+`suggestedValue` in the locale's notation and focuses the field. It stays a form field: a rejected submit replays
+what was sent. Slots: the field's, plus `group` and `suggestion`.
+
+```tsx
+<ColorField name="accent" label="Accent colour" defaultValue={brand.accent} />
+<SuggestedAmountField name="budget" label="Monthly budget" suffix="PLN" suggestedValue={lastMonth} />
 ```
 
 Number inputs (`TextField` with `inputMode`, `MoneyField`) use `NUMBER_INPUT_CLASS`: the mono face with
@@ -326,6 +356,15 @@ confirm button; the dialog waits for the user, with no timer. While `action` run
 `cancel` (added to the footer's Cancel button). `modalClassNames` reaches the dialog's own slots (`overlay`, `panel`,
 `close`…), so the app's dialog motion and close button apply, as in `ActionFormModal`.
 
+An action posted as form data (a server action taking `FormData`) goes in `formAction` instead of `action`, with
+`fields` as the hidden inputs: the dialog becomes a form whose confirm button submits it, so a row's delete button
+keeps its `(formData) => …` action and its hidden `id`:
+
+```tsx
+<ConfirmActionButton label="Delete" title="Delete this goal?" description="…" confirmLabel="Delete"
+  formAction={deleteGoal} fields={{ id: goal.id }} />
+```
+
 `ActionFormModal` is an `ActionForm` (all its props) in a `Modal` (`title`, `subtitle`, `width`, `headingLevel`,
 `onClose`, `modalClassNames`): it is not dismissible while saving and closes after a successful save.
 `ModalTrigger` adds the bordered "+" `IconButton` (`label`, `icon`, `triggerClassNames`) that opens it; focus comes
@@ -359,6 +398,66 @@ if (old !== null && !/^\d{4}-\d{2}-\d{2}$/.test(old) && !Number.isNaN(Date.parse
 }
 ```
 
+### App shell, steps and checklists
+
+```tsx
+<AppHeaderBar
+  brand={<Link href="/">Acme</Link>}
+  nav={<SegmentedNav label="Main" items={items} current={section} LinkComponent={Link} />}
+  actions={
+    <AccountMenu name={user.name} email={user.email} closeKey={pathname}
+      footer={<form action={signOut}><Button variant="ghost" type="submit" fullWidth>Sign out</Button></form>}>
+      <Link href="/settings">Settings</Link>
+    </AccountMenu>
+  }
+  mobileMenu={<MobileMenu items={links} LinkComponent={Link} closeKey={pathname} />}
+/>
+
+<Stepper label="Sign-up steps" steps={[{ id: "account", label: "Account", href: "/start" }, …]} current="profile" showProgress />
+<Checklist items={[{ id: "goal", label: "Add a goal", done: false, href: "/goals/new" }]} LinkComponent={Link} />
+<DeferredRender data={getHistory(userId)} fallback={<Skeleton />}>{(rows) => <HistoryTable rows={rows} />}</DeferredRender>
+```
+
+`AppHeaderBar` (server-safe) is a sticky `<header>` (`isSticky={false}` lets it scroll away): `brand` on the left,
+`nav` from the `md` breakpoint (48rem) up, `actions` on the right and `mobileMenu` below `md`. Slots: `root`, `inner`,
+`brand`, `nav`, `actions`, `mobileMenu`. `AccountMenu` and `MobileMenu` are `DisclosureMenu`s (the same closing
+rules; pass the route as `closeKey`) named by the `appShell` messages ("Account", "Menu"). `AccountMenu` shows the
+`UserIcon` (`isLabelShown` adds the name), then `name` and `email`, the links (`children`) and `footer` after a
+divider. `MobileMenu` shows the `MenuIcon` and a `<nav>` of `items` (`isCurrent` gives `aria-current="page"`),
+then `children`. Extra slots: `identity`, `name`, `email`, `footer`; `nav`, `list`, `item`, `link`.
+
+`Stepper` is a `<nav>` (`label`) holding an ordered list of steps: an `icon` or the number in a marker, a check once
+done. The current step has `aria-current="step"`; a completed one reads "(completed)" and is the only kind that
+navigates, through its `href` (with `LinkComponent`) or `onStepSelect(id)`, so the form goes back but never skips
+ahead. `showProgress` adds "Step 2 of 4". Slots: `root`, `progress`, `list`, `item`, `connector`, `step`, `marker`,
+`label`; each `<li>` carries `data-state` (`done`, `current`, `upcoming`).
+
+`Checklist` lists `{ id, label, done, href?, description? }` under "1 of 3 done" (`showProgress={false}` hides it).
+An open item with `href` is a link; each item reads "(done)" or "(to do)" after its name, so the state never rests on
+the check alone. Slots: `root`, `progress`, `list`, `item`, `marker`, `body`, `label`, `link`, `description`.
+
+`DeferredRender` (server-safe) streams a slow part: the page starts the query without `await` and passes the
+promise as `data`; `fallback` is sent at once and `children(value)` follows in the same response. A rejection
+reaches the nearest error boundary. In a client component the promise must be stable (created outside render).
+
+### Next.js adapter (`@softure-ai/ui/next`)
+
+```tsx
+import { QuerySegmentedNav } from "@softure-ai/ui/next";
+
+<Suspense>
+  <QuerySegmentedNav label="View" param="view" defaultId="table"
+    items={[{ id: "table", label: "Table" }, { id: "chart", label: "Chart" }]} />
+</Suspense>
+```
+
+`QuerySegmentedNav` is a `SegmentedNav` whose items switch a view through one query parameter: each link sets
+`param` and keeps the rest of the query string, `defaultId`'s link removes it, and Next's `Link` navigates with
+`scroll={false}`, so the reader keeps their place. The current item comes from the address (`useSearchParams`); a
+value no item has falls back to `defaultId`. On a statically rendered route wrap it in `<Suspense>`, as Next requires
+for `useSearchParams`. `getQueryHref({ pathname, search, param, value })` in the main entry builds the same
+addresses for an app's own links.
+
 `SegmentedControl` marks the checked segment with an inset ring in the text colour as well as the accent fill, and
 `SEGMENT_ACTIVE_CLASS` does the same, so the choice reads without colour (WCAG 1.4.11) even with a light accent.
 
@@ -369,6 +468,13 @@ of `<body>` inert (live regions stay reachable), locks the page scroll and retur
 opener. Escape closes it unless something inside handled the key first (an open `Select` list).
 Pass `isDismissible={false}` while a save runs (`ActionForm onPendingChange`). The backdrop is the
 `color-overlay` token.
+
+`motion="enter-leave"` animates the close too. Escape, the backdrop, the close button, `ModalFooter`'s Cancel and
+`useModalClose()(onClose)` (an app's own close button inside the dialog) first set `data-state="closing"` on the
+overlay and the panel, wait for their transitions or animations to end (at most one second, at once when nothing
+moves, as with `prefers-reduced-motion`) and then call the owner's `onClose`. The default look fades the overlay and
+slides the panel back; an app's own keyframes key on `data-state` (`open`, `closing`) through `classNames`.
+`ConfirmActionButton` and `ActionFormModal` pass `modalMotion` on. A successful save still closes at once.
 
 `width="panel"` is a full-height sheet from the right (37.5rem, full screen on a phone) with the
 footer at the bottom. `<StandingPanel isOpen title onClose>` is that sheet mounted for good: closed,
