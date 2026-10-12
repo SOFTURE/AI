@@ -1,12 +1,13 @@
 ---
 change_id: release-ready-packages
 title: "Release the eleven packages whose Unreleased changes no open work touches"
-status: implementing
+status: archived
 roadmap_item: null
 issue: null
 branch: claude/project-thread-sf2jpg
 created: 2026-10-12
 updated: 2026-10-12
+archived_at: 2026-10-12
 ---
 
 ## Intent

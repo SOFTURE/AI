@@ -1,6 +1,6 @@
 ---
 change_id: release-ready-packages
-status: implementing
+status: archived
 ---
 
 # Plan: release-ready-packages
@@ -18,4 +18,4 @@ Input: change.md. Complexity: small (one phase).
 
 ## Progress
 
-- [ ] Phase 1: patch bumps
+- [x] Phase 1: patch bumps (`3e020cd`..`086c144`; typecheck, lint and tests green before deploy was added, `npm test` again in pre-push)
