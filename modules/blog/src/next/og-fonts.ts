@@ -1,6 +1,6 @@
 // The brand's fonts for the article OG card (`blog({ brand: { fonts } })`): each source is read on the
-// first card and kept for the life of the process (the loader lives in `src/server/og-fonts.ts`, which
-// `softure-blog check` uses too).
+// first card and kept for the life of the process (the loader is `@softure-ai/core/og`'s, wrapped in
+// `src/server/og-fonts.ts`, which `softure-blog check` uses too).
 import type { OgFontSource } from "../options.js";
 import { createOgFontLoader, type OgFontsResult } from "../server/og-fonts.js";
 
