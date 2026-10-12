@@ -4,10 +4,13 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mcp-access@x.y.z`).
 
-## 0.1.14
+## Unreleased
 
 - The stdio entry resolves its account with `resolveOnlyAccount` from `@softure-ai/auth/server` instead of a private
   copy; codes and messages are unchanged (#411). Needs the auth release that exports it.
+
+## 0.1.14
+
 - `issueToken` can replace an app's own token-issue action (#386):
   - `mcpAccess({ clientServerName })` (default `serverName`): the name the setup snippets register the server under
     (`claude mcp add`, the JSON configs, the assistant prompt), so users keep the entry they already added.
