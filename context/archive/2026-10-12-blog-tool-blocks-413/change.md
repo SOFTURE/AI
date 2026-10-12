@@ -1,12 +1,13 @@
 ---
 change_id: blog-tool-blocks-413
 title: "blog: a tool-block contract, directive to client island with static HTML (issue #413)"
-status: planned
+status: archived
 roadmap_item: null
 issue: 413
 branch: claude/project-thread-tup8hb
 created: 2026-10-12
 updated: 2026-10-12
+archived_at: 2026-10-12
 ---
 
 ## Intent
