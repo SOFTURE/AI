@@ -1,7 +1,8 @@
-// Fact rules (issue #318): a value a text quotes that the app knows for each year, such as a yearly
-// contribution limit or a tax rate. A sentence that matches a rule's pattern quotes the value as its
-// first number; the gate compares it with the values of the sentence's year, and `softure-blog refresh`
-// lists the texts that quote a value which changed after their `current_as_of`.
+// Fact rules (issues #318, #379): a value a text quotes that the app knows for each year, such as a
+// yearly contribution limit or a tax rate. A sentence that matches a rule's pattern quotes the value in
+// the pattern's group 1, else as its first number; the gate compares it with the values of the years the
+// sentence names, and `softure-blog refresh` lists the texts that quote a value which changed after their
+// `current_as_of`.
 import { z } from "zod";
 import { QUALITY_SEVERITIES } from "./finding.js";
 
@@ -13,6 +14,10 @@ export type FactUnit = (typeof FACT_UNITS)[number];
 export const FACT_EXPIRIES = ["yearly", "quarterly", "never"] as const;
 export type FactExpiry = (typeof FACT_EXPIRIES)[number];
 
+/** What a sentence none of whose years has values gives: a warning, or nothing. */
+export const FACT_UNKNOWN_YEARS = ["warn", "skip"] as const;
+export type FactUnknownYear = (typeof FACT_UNKNOWN_YEARS)[number];
+
 /** The values allowed in a year; nothing (or an empty list) leaves a sentence about that year unchecked. */
 export type FactValues = (year: number) => readonly number[] | undefined;
 
@@ -23,13 +28,18 @@ export const factRuleSchema = z.strictObject({
   id: z.string().max(60).regex(KEBAB, "kebab-case, e.g. ike-limit"),
   /** What the value is, e.g. "the yearly IKE contribution limit". */
   description: z.string().trim().min(1),
-  /** Keywords of a sentence that quotes the value; matched with `String.search`, so a `g` flag does no harm. */
+  /**
+   * Keywords of a sentence that quotes the value; a `g` flag does no harm. A pattern with a capture group
+   * points at the value: the first number of group 1 (nothing there leaves the sentence unchecked).
+   */
   patterns: z.array(z.instanceof(RegExp, { error: "must be a regular expression" })).min(1, "needs at least one pattern"),
   allowedValues: z.custom<FactValues>((value) => typeof value === "function", "must be a function (year) => number[]"),
   /** `"cents"` and `"bps"`: the allowed values are hundredths of the number in the text (an amount in cents, a percentage in basis points). */
   unit: z.enum(FACT_UNITS).default("value"),
   expires: z.enum(FACT_EXPIRIES).default("never"),
   severity: z.enum(QUALITY_SEVERITIES).default("error"),
+  /** `"warn"`: a sentence none of whose years has values is a warning of the rule's id instead of passing unchecked. */
+  onUnknownYear: z.enum(FACT_UNKNOWN_YEARS).default("skip"),
 });
 
 export type FactRuleInput = z.input<typeof factRuleSchema>;
