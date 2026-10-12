@@ -91,9 +91,9 @@ default email is unique and on `example.com`; a refused registration rejects and
 ### Phase 1: Test database client
 
 #### Automated
-- [ ] 1.1 `playwright-database.test.ts` passes
-- [ ] 1.2 The built `dist/playwright/*.d.ts` does not reference `pg`
-- [ ] 1.3 Gates green (typecheck, lint, test)
+- [x] 1.1 `playwright-database.test.ts` passes
+- [x] 1.2 The built `dist/playwright/*.d.ts` does not reference `pg`
+- [x] 1.3 Gates green (typecheck, lint, test)
 
 ### Phase 2: One account per test file
 

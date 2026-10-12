@@ -1,5 +1,6 @@
 // Playwright helpers of @softure-ai/testing (`@softure-ai/testing/playwright`): black-box tests of a
 // SOFTURE app. Needs `@playwright/test` (an optional peer dependency).
+export { createTestDatabaseClient, type RowFilterValue, type TestDatabaseClient, type TestDatabaseClientOptions } from "./database-client.js";
 export { expectFieldAbsent, expectFieldPresent, expectPageStatus } from "./assertions.js";
 export { logIn, registerAccount, submitLogin, type AuthFormCopy, type AuthFormInput, type AuthNavigationOptions } from "./auth.js";
 export { tickCheckbox, type TickCheckboxOptions } from "./checkbox.js";
