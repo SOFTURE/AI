@@ -20,6 +20,15 @@
     font-size: var(--sft-text-sm);
   }
 
+  /*
+   * A surface (ChartSurface, LineChart's surface): data-theme gives the subtree a colour scheme's tokens; the text
+   * colour is declared again, or it would keep the colour computed outside. Tune one surface on its class:
+   * .sft-chart-surface-paper { --sft-chart-grid: ...; }
+   */
+  .sft-chart-surface {
+    color: var(--sft-color-foreground);
+  }
+
   .sft-chart-title {
     font-weight: 600;
   }

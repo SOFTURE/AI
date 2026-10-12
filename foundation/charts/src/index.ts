@@ -29,6 +29,8 @@ export { SERIES_SLOTS, SERIES_TOKENS, type SeriesToken } from "./palette/series-
 export { distinctColors } from "./palette/distinct-colors.js";
 export type { ChartPlotProps } from "./svg/chart-plot.js";
 export { ChartPlot } from "./svg/chart-plot.js";
+export type { ChartSurfaceAttributes, ChartSurfaceName, ChartSurfaceProps } from "./svg/surface.js";
+export { CHART_SURFACES, ChartSurface, getChartSurfaceAttributes } from "./svg/surface.js";
 export type { BaselineProps, GridLinesProps, GuideLineProps, GuidePattern, LineLookProps, LinePattern, SeriesLineProps } from "./svg/lines.js";
 export { Baseline, GridLines, GuideLine, SeriesLine } from "./svg/lines.js";
 export type { AreaProps } from "./svg/area.js";

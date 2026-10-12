@@ -1,8 +1,25 @@
 // Issue #409: a step in a series, distinct colours for an open set of keys, stacked areas, chart surfaces and the
 // event axis. Oracles are written by hand.
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { buildThemeCss, DEFAULT_THEME } from "@softure-ai/ui";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { areaPath, distinctColors, linePath, SERIES_SLOTS, StackedAreas, stackSeries, withStepAt } from "../src/index.js";
+import {
+  areaPath,
+  CHART_SURFACES,
+  ChartSurface,
+  distinctColors,
+  getChartSurfaceAttributes,
+  LineChart,
+  linePath,
+  SERIES_SLOTS,
+  StackedAreas,
+  stackSeries,
+  withStepAt,
+} from "../src/index.js";
+
+const STYLES = readFileSync(join(import.meta.dirname, "../styles.css"), "utf8");
 
 describe("withStepAt", () => {
   const points = [
@@ -139,5 +156,44 @@ describe("StackedAreas", () => {
     );
     expect(html).toContain('style="fill-opacity:0.5"');
     expect(html).toContain(" C");
+  });
+});
+
+describe("chart surfaces", () => {
+  it("map page to no scheme, dark to the dark scheme and paper to the light one", () => {
+    expect(CHART_SURFACES.map((surface) => getChartSurfaceAttributes(surface))).toEqual([
+      { className: "sft-chart-surface sft-chart-surface-page" },
+      { className: "sft-chart-surface sft-chart-surface-dark", "data-theme": "dark" },
+      { className: "sft-chart-surface sft-chart-surface-paper", "data-theme": "light" },
+    ]);
+  });
+
+  it("wrap any chart part in ChartSurface", () => {
+    expect(renderToStaticMarkup(<ChartSurface surface="dark" className="band">x</ChartSurface>)).toBe(
+      '<div class="sft-chart-surface sft-chart-surface-dark band" data-theme="dark">x</div>',
+    );
+    expect(renderToStaticMarkup(<ChartSurface surface="page" as="section" />)).toBe('<section class="sft-chart-surface sft-chart-surface-page"></section>');
+  });
+
+  it("put LineChart's figure on its surface, and leave it unchanged without one", () => {
+    const props = {
+      title: "Savings",
+      series: [{ key: "a", label: "A", points: [{ x: new Date(Date.UTC(2026, 0, 1)), y: 1 }] }],
+      locale: "en" as const,
+      timeZone: "UTC",
+      formatValue: String,
+    };
+    expect(renderToStaticMarkup(<LineChart {...props} surface="paper" />)).toMatch(/^<figure class="sft-chart sft-chart-surface sft-chart-surface-paper" data-theme="light">/);
+    expect(renderToStaticMarkup(<LineChart {...props} />)).toMatch(/^<figure class="sft-chart">/);
+  });
+
+  it("rely on ui's scheme rule, which matches data-theme on any element, not only the root", () => {
+    const css = buildThemeCss(DEFAULT_THEME);
+    expect(css).toMatch(/^\[data-theme="dark"\] \{[^}]*--sft-chart-grid: #2a2c30;/m);
+    expect(css).toMatch(/^\[data-theme="light"\] \{[^}]*--sft-chart-grid: #e6e7ea;/m);
+  });
+
+  it("re-declare the text colour on the surface, so labels follow its scheme", () => {
+    expect(STYLES).toMatch(/\.sft-chart-surface \{\s*color: var\(--sft-color-foreground\);/);
   });
 });
