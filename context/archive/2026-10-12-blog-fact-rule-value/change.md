@@ -1,12 +1,13 @@
 ---
 change_id: blog-fact-rule-value
 title: "blog: fact rules read the value a pattern captures, check every year of the sentence and can warn on an unknown year (issue #379)"
-status: implemented
+status: archived
 roadmap_item: null
 issue: 379
 branch: claude/project-thread-im36jo
 created: 2026-10-12
 updated: 2026-10-12
+archived_at: 2026-10-12
 ---
 
 ## Intent

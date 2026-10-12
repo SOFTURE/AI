@@ -1,6 +1,6 @@
 ---
 change_id: blog-fact-rule-value
-status: implemented
+status: archived
 ---
 
 # Plan: fact rules read a captured value, every year, warn on an unknown year (issue #379)
