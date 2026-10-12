@@ -1,0 +1,256 @@
+# The checks an app runs before a release, and on its pull requests (@softure-ai/deploy, issue #406): a reusable
+# workflow an app calls with one `uses:` line instead of keeping the same jobs in every repository.
+#
+# - `prepare` checks the inputs and resolves the commit every other job checks out. With a `tag`, the tag must match
+#   `tag-pattern` (the `vYYYY.MM.DD` tags deploy-cut-release.yml cuts, `-2`, `-3` on a busy day) and its commit must
+#   be on the release branch (the caller's default branch unless `release-branch` names another). Without a tag it
+#   checks the caller's own commit (`github.sha`), which is how a pull request runs it.
+# - `static` runs `static-command` (type check and lint; init's caller runs `next typegen` first, since a fresh
+#   checkout has no generated route types).
+# - `unit` runs `test-command` once per shard (`shards`, 1 to 20) with `SHARD_INDEX` and `SHARD_COUNT` set: one job
+#   of a large suite outlasts a hosted runner's patience, N jobs in parallel do not.
+# The image the checks passed is built by deploy-release-image.yml, a separate workflow so that this one needs
+# `contents: read` only: a pull request's caller grants nothing more. The callers are
+# `tools/deploy/examples/checks.yml` (pull requests and on demand) and the `checks` job of a deploy caller (README,
+# "Release checks"). The commands are the caller's own: each runs with `bash -e -c` from `env:`, never interpolated
+# into a script.
+
+name: deploy-release-checks
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: The release tag to check; empty checks the caller's commit (a pull request, a manual run)
+        type: string
+        default: ""
+      tag-pattern:
+        description: Extended regular expression a tag must match
+        type: string
+        default: '^v[0-9]{4}\.[0-9]{2}\.[0-9]{2}(-[0-9]+)?$'
+      release-branch:
+        description: Branch the tag's commit must be on; empty means the caller's default branch
+        type: string
+        default: ""
+      node-version:
+        description: Node.js version for the install, static and unit steps
+        type: string
+        default: "22"
+      cache:
+        description: Package manager cache of actions/setup-node (npm, pnpm, yarn); empty for none
+        type: string
+        default: npm
+      install-command:
+        description: Installs the dependencies before static and each unit shard
+        type: string
+        default: npm ci
+      static:
+        description: Run the static job
+        type: boolean
+        default: true
+      static-command:
+        description: The type check and lint
+        type: string
+        default: npx tsc --noEmit && npm run lint --if-present
+      unit:
+        description: Run the unit tests
+        type: boolean
+        default: true
+      test-command:
+        description: One shard of the unit tests; SHARD_INDEX (1-based) and SHARD_COUNT are set
+        type: string
+        default: npm test -- --shard="$SHARD_INDEX/$SHARD_COUNT"
+      shards:
+        description: How many parallel jobs the unit tests are split into (1 to 20)
+        type: number
+        default: 1
+      sparse-checkout:
+        description: "Checkout patterns, non-cone (e.g. /* and !/context/archive/); empty = the whole commit"
+        type: string
+        default: ""
+    outputs:
+      sha:
+        description: The commit that was checked
+        value: ${{ jobs.prepare.outputs.sha }}
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    name: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # The branch guard reads the tag's history.
+    permissions:
+      contents: read
+    outputs:
+      sha: ${{ steps.commit.outputs.sha }}
+      ref: ${{ steps.commit.outputs.ref }}
+      shards: ${{ steps.inputs.outputs.shards }}
+    steps:
+      - id: inputs
+        name: Check the inputs
+        env:
+          TAG: ${{ inputs.tag }}
+          TAG_PATTERN: ${{ inputs.tag-pattern }}
+          RELEASE_BRANCH: ${{ inputs.release-branch }}
+          NODE_VERSION: ${{ inputs.node-version }}
+          CACHE: ${{ inputs.cache }}
+          INSTALL_COMMAND: ${{ inputs.install-command }}
+          STATIC: ${{ inputs.static }}
+          STATIC_COMMAND: ${{ inputs.static-command }}
+          UNIT: ${{ inputs.unit }}
+          TEST_COMMAND: ${{ inputs.test-command }}
+          SHARDS: ${{ inputs.shards }}
+        run: |
+          failures=0
+          reject() {
+            echo "::error::Input $1 is not valid: $2"
+            failures=$((failures + 1))
+          }
+          if [ -n "$TAG" ]; then
+            if [[ ! "$TAG" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$ ]]; then
+              reject tag "a tag name (letters, digits, _ . -; at most 128)"
+            else
+              # Status 2 is a pattern bash cannot compile, not a tag that does not match.
+              matches() { [[ "$1" =~ $2 ]]; }
+              matched=0
+              matches "$TAG" "$TAG_PATTERN" || matched=$?
+              if [ "$matched" = 2 ]; then
+                reject tag-pattern "an extended regular expression"
+              elif [ "$matched" != 0 ]; then
+                reject tag "a tag matching $TAG_PATTERN"
+              fi
+            fi
+          fi
+          if [ -n "${RELEASE_BRANCH:-}" ]; then
+            if [[ ! "$RELEASE_BRANCH" =~ ^[A-Za-z0-9_.][A-Za-z0-9_./-]{0,254}$ ]] || [[ "$RELEASE_BRANCH" == *..* || "$RELEASE_BRANCH" == */ ]]; then
+              reject release-branch "a branch name"
+            fi
+          fi
+          [[ "$NODE_VERSION" =~ ^[0-9]+(\.[0-9x]+){0,2}$|^lts/[a-z*-]+$ ]] || reject node-version "a version such as 22, 22.11.0 or lts/*"
+          [[ "$CACHE" =~ ^(npm|pnpm|yarn)?$ ]] || reject cache "npm, pnpm, yarn or empty"
+          if [ "$STATIC" != "true" ] && [ "$UNIT" != "true" ]; then reject static "true, or unit true (nothing would run)"; fi
+          [ -n "$INSTALL_COMMAND" ] || reject install-command "a command"
+          if [ "$STATIC" = "true" ] && [ -z "$STATIC_COMMAND" ]; then reject static-command "a command (or static: false)"; fi
+          if [ "$UNIT" = "true" ] && [ -z "$TEST_COMMAND" ]; then reject test-command "a command (or unit: false)"; fi
+          if [[ ! "$SHARDS" =~ ^[1-9][0-9]?$ ]] || (( SHARDS > 20 )); then reject shards "1 to 20"; fi
+          if (( failures > 0 )); then exit 1; fi
+          shards="1"
+          index=2
+          while (( index <= SHARDS )); do
+            shards="$shards,$index"
+            index=$((index + 1))
+          done
+          echo "shards=[$shards]" >> "$GITHUB_OUTPUT"
+      # Commits only (tree:0): every branch and tag, without the files of any.
+      - if: inputs.tag != ''
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag }}
+          persist-credentials: false
+          fetch-depth: 0
+          filter: tree:0
+          sparse-checkout: /package.json
+          sparse-checkout-cone-mode: false
+      - id: commit
+        name: Resolve the commit
+        env:
+          TAG: ${{ inputs.tag }}
+          SHA: ${{ github.sha }}
+          RELEASE_BRANCH: ${{ inputs.release-branch }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          if [ -z "$TAG" ]; then
+            # The caller's own commit; the other jobs check out their default ref.
+            echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+            echo "ref=" >> "$GITHUB_OUTPUT"
+            echo "Checking $SHA (no tag)."
+            exit 0
+          fi
+          if ! sha="$(git rev-parse --verify --quiet "$TAG^{commit}")"; then
+            echo "::error::The tag $TAG names no commit in $REPOSITORY."
+            exit 1
+          fi
+          branch="${RELEASE_BRANCH:-$DEFAULT_BRANCH}"
+          if [ -z "$branch" ]; then
+            echo "::error::The event names no default branch; set the release-branch input."
+            exit 1
+          fi
+          if ! git rev-parse --verify --quiet "refs/remotes/origin/$branch" > /dev/null; then
+            echo "::error::The release branch $branch does not exist in $REPOSITORY."
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$sha" "refs/remotes/origin/$branch"; then
+            echo "::error::The commit $sha of $TAG is not on $branch; only a commit on the release branch is released."
+            exit 1
+          fi
+          # The other jobs check out this commit, not the tag, so a tag moved meanwhile changes nothing.
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "ref=$sha" >> "$GITHUB_OUTPUT"
+          echo "The commit $sha of $TAG is on $branch."
+
+  static:
+    name: static
+    needs: prepare
+    if: inputs.static
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.ref }}
+          persist-credentials: false
+          sparse-checkout: ${{ inputs.sparse-checkout }}
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: ${{ inputs.cache }}
+      - name: Install
+        env:
+          INSTALL_COMMAND: ${{ inputs.install-command }}
+        run: bash -e -o pipefail -c "$INSTALL_COMMAND"
+      - name: Type check and lint
+        env:
+          STATIC_COMMAND: ${{ inputs.static-command }}
+        run: bash -e -o pipefail -c "$STATIC_COMMAND"
+
+  unit:
+    name: unit ${{ matrix.shard }}/${{ inputs.shards }}
+    needs: prepare
+    if: inputs.unit
+    runs-on: ubuntu-latest
+    # One shard; split the suite into more shards when one runs longer.
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.prepare.outputs.shards) }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.ref }}
+          persist-credentials: false
+          sparse-checkout: ${{ inputs.sparse-checkout }}
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: ${{ inputs.cache }}
+      - name: Install
+        env:
+          INSTALL_COMMAND: ${{ inputs.install-command }}
+        run: bash -e -o pipefail -c "$INSTALL_COMMAND"
+      - name: Unit tests
+        env:
+          TEST_COMMAND: ${{ inputs.test-command }}
+          SHARD_INDEX: ${{ matrix.shard }}
+          SHARD_COUNT: ${{ inputs.shards }}
+        run: bash -e -o pipefail -c "$TEST_COMMAND"

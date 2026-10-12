@@ -59,6 +59,8 @@ export const TEMPLATE_FILES: readonly TemplateFile[] = [
   { template: "scripts/migrate.ts.tmpl", target: "scripts/migrate.ts", mode: FILE_MODE, isIncluded: withDatabase },
   { template: ".github/workflows/deploy.yml.tmpl", target: ".github/workflows/deploy.yml", mode: FILE_MODE, isIncluded: always },
   { template: ".github/workflows/release.yml.tmpl", target: ".github/workflows/release.yml", mode: FILE_MODE, isIncluded: always },
+  { template: ".github/workflows/release-notes.yml.tmpl", target: ".github/workflows/release-notes.yml", mode: FILE_MODE, isIncluded: always },
+  { template: ".github/workflows/checks.yml.tmpl", target: ".github/workflows/checks.yml", mode: FILE_MODE, isIncluded: always },
   { template: "deploy.json.tmpl", target: "deploy.json", mode: FILE_MODE, isIncluded: always },
 ];
 

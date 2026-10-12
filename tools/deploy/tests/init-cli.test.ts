@@ -53,9 +53,11 @@ describe("softure-deploy init", () => {
         "wrote   scripts/migrate.ts",
         "wrote   .github/workflows/deploy.yml",
         "wrote   .github/workflows/release.yml",
+        "wrote   .github/workflows/release-notes.yml",
+        "wrote   .github/workflows/checks.yml",
         "wrote   deploy.json",
         MASTER_REF_WARNING,
-        "init: 11 written, 0 kept, database part on (@softure-ai/db found in package.json).",
+        "init: 13 written, 0 kept, database part on (@softure-ai/db found in package.json).",
         "",
       ].join("\n"),
     );
@@ -75,12 +77,12 @@ describe("softure-deploy init", () => {
     expect(readFileSync(join(dir, ".github/workflows/release.yml"), "utf8")).toBe("name: own-release\n");
     expect(out.join("")).toContain("kept    Dockerfile (exists; --force overwrites it)\n");
     expect(out.join("")).toContain("kept    .github/workflows/release.yml (exists; --force overwrites it)\n");
-    expect(out.join("")).toContain("init: 7 written, 2 kept, database part off (@softure-ai/db not found in package.json).\n");
+    expect(out.join("")).toContain("init: 9 written, 2 kept, database part off (@softure-ai/db not found in package.json).\n");
     out = [];
     expect(await runCli(["init", ...REQUIRED, "--force"], makeIo())).toBe(0);
     expect(readFileSync(join(dir, "Dockerfile"), "utf8")).toContain("FROM ${NODE_IMAGE} AS builder");
     expect(readFileSync(join(dir, ".github/workflows/release.yml"), "utf8")).toContain("deploy-cut-release.yml");
-    expect(out.join("")).toContain("init: 9 written, 0 kept");
+    expect(out.join("")).toContain("init: 11 written, 0 kept");
   });
 
   it("writes the Cloudflare origin lock with --cdn=cloudflare and names the steps it leaves to the owner", async () => {
@@ -276,11 +278,12 @@ describe("softure-deploy init", () => {
       expect(out.join("")).toContain(`${MASTER_REF_WARNING}\n`);
     });
 
-    it("gives no ref warning when the app keeps both callers", async () => {
+    it("gives no ref warning when the app keeps every caller", async () => {
       writeApp({ name: "shop" });
       mkdirSync(join(dir, ".github/workflows"), { recursive: true });
-      writeFileSync(join(dir, ".github/workflows/deploy.yml"), "name: own-deploy\n");
-      writeFileSync(join(dir, ".github/workflows/release.yml"), "name: own-release\n");
+      for (const name of ["deploy", "release", "release-notes", "checks"]) {
+        writeFileSync(join(dir, `.github/workflows/${name}.yml`), `name: own-${name}\n`);
+      }
       expect(await runCli(["init", ...REQUIRED], makeIo())).toBe(0);
       expect(out.join("")).not.toContain("warning ");
     });

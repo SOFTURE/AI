@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- Ready-made WebMCP tools in `/webmcp` (#415): `createSearchSiteTool()` registers `searchSite({ query, limit? })`, a
+  search over the Markdown versions of the pages in seo's sitemap (or listed paths), and `createFindTermTool()`
+  registers `findTerm({ term })`, a lookup in the blog glossary's `DefinedTermSet` answered from the term's page. An
+  app drops its own copies of both.
+
 ## 0.1.3
 
 - `nextHeaders()` returns rules assignable to `NextConfig["headers"]`: `NextHeaderRule` is now mutable like Next's

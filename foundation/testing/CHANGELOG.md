@@ -13,6 +13,15 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 - `signInPerFile({ copy, email?, password?, registerPath?, loginPath?, landingPath? })`: one account per test file;
   the first `signIn(page)` registers it through the form with `registerAccount`, later ones use `logIn`. An app drops
   its own per-file account helper (#412).
+- New entry `@softure-ai/testing/guards/next`: the server-action rules an app kept in its own architecture tests,
+  one function each, returning `file:line: message`: `findNonAsyncServerExports`, `findUnguardedRevalidation`,
+  `findRequestApisInImplementations`, `findImplementationsWithoutDatabase`, `findClientValueImports`,
+  `findErrorDetailsInRedirects`, and `findServerActionProblems` for all six. The layer naming, the database
+  handle's name, request-scoped wrappers, import aliases and error parameters are options (#402).
+- `stripComments(source, { syntax? })` in `@softure-ai/testing/guards`: comments blanked with line breaks kept,
+  strings and URLs untouched (TypeScript is parsed), `#` comments for YAML and shell (#402).
+- `collectStringLiterals(files)`: the string literals of plain `.ts` in the shape `findForbiddenPhrases` takes (#402).
+- README: `readSourceFiles` reads only `.ts`/`.tsx` without tests by default; pass `include` for other files (#402).
 
 ## 0.1.4
 
