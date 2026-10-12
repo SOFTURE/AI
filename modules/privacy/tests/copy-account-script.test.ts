@@ -1,15 +1,18 @@
 // The copy-account ops script: the account (by id or email) copied from the `--from` database into
-// the app's database, a dry run unless committed, and refusals and usage errors that write nothing.
+// the app's database or the `--to` database, a dry run unless committed, a new email in the target,
+// and refusals and usage errors that write nothing.
 import { executeOpsScript, runOpsScript } from "@softure-ai/ops/scripts";
 import { createCopyAccountScript } from "@softure-ai/privacy/scripts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createTestPrivacy, findTraces, seedUser, type SeededUser, type TestPrivacy } from "./support.js";
 
 const SOURCE_URL = "postgres://copy:secret@source.example/app";
+const TARGET_URL = "postgres://copy:secret@target.example/app";
 
 describe("the copy-account script", () => {
   let source: TestPrivacy;
   let target: TestPrivacy;
+  let other: TestPrivacy;
   let ada: SeededUser;
   let openedUrls: string[];
   let closedCount: number;
@@ -27,6 +30,16 @@ describe("the copy-account script", () => {
           },
         });
       },
+      openTarget: (url) => {
+        openedUrls.push(url);
+        return Promise.resolve({
+          db: other.database.db,
+          close: () => {
+            closedCount += 1;
+            return Promise.resolve();
+          },
+        });
+      },
     });
   }
 
@@ -38,6 +51,7 @@ describe("the copy-account script", () => {
   beforeEach(async () => {
     source = await createTestPrivacy();
     target = await createTestPrivacy();
+    other = await createTestPrivacy();
     ada = await seedUser(source, "ada@example.com");
     openedUrls = [];
     closedCount = 0;
@@ -45,6 +59,7 @@ describe("the copy-account script", () => {
   afterEach(async () => {
     await source.database.close();
     await target.database.close();
+    await other.database.close();
   });
 
   it("writes nothing on a dry run and reports the tables it would copy", async () => {
@@ -120,5 +135,78 @@ describe("the copy-account script", () => {
     });
     expect(code).toBe(0);
     expect(openedUrls).toEqual([SOURCE_URL]);
+  });
+
+  describe("with --to", () => {
+    it("copies into the --to database on --commit and leaves the app's database alone", async () => {
+      const outcome = await executeOpsScript(target.database.db, createScript(), { from: SOURCE_URL, to: TARGET_URL, user: ada.id }, { commit: true });
+
+      expect(outcome).toMatchObject({
+        ok: true,
+        value: { committed: true, report: { before: { userId: ada.id, isInTarget: false }, after: { userId: ada.id, isInTarget: true } } },
+      });
+      expect(await countAccounts(other, ada.id)).toBe(1);
+      expect(await countAccounts(target, ada.id)).toBe(0);
+      expect(openedUrls).toEqual([SOURCE_URL, TARGET_URL]);
+      expect(closedCount).toBe(2);
+    });
+
+    it("rolls the --to database back on a dry run and on a refusal", async () => {
+      const dryRun = await executeOpsScript(target.database.db, createScript(), { from: SOURCE_URL, to: TARGET_URL, user: ada.id }, { commit: false });
+      expect(dryRun).toMatchObject({ ok: true, value: { committed: false, report: { after: { isInTarget: true } } } });
+      expect(await findTraces(other.database, [ada.id, ada.email])).toEqual([]);
+
+      await seedUser(other, "taken@example.com");
+      const refused = await executeOpsScript(
+        target.database.db,
+        createScript(),
+        { from: SOURCE_URL, to: TARGET_URL, user: ada.id, newEmail: "taken@example.com" },
+        { commit: true },
+      );
+      expect(refused).toMatchObject({ ok: false, error: "ops.script_refused", reason: expect.stringMatching(/^privacy\.copy_account_exists: /) as unknown });
+      expect(await countAccounts(other, ada.id)).toBe(0);
+    });
+
+    it("refuses --to under an ops helper that does not pass the run context, opening nothing", async () => {
+      const script = createScript();
+      const outcome = await target.database.db.transaction((tx) =>
+        // An older ops calls run(tx, args) only.
+        (script.run as (tx: unknown, args: unknown) => ReturnType<typeof script.run>)(tx, { from: SOURCE_URL, to: TARGET_URL, user: ada.id }),
+      );
+      expect(outcome).toMatchObject({ ok: false, error: "ops.script_refused", reason: expect.stringContaining("--to needs") as unknown });
+      expect(openedUrls).toEqual([]);
+    });
+
+    it("reads --to from a file, and refuses a --to equal to --from as a usage error", async () => {
+      const errors: string[] = [];
+      const output = { log: () => undefined, error: (line: string) => errors.push(line) };
+      const readInput = { readFile: (path: string) => Promise.resolve(path === "/run/secrets/target-url" ? `${TARGET_URL}\n` : ""), readStdin: () => Promise.resolve("") };
+      const run = (argv: string[]) => runOpsScript({ script: createScript(), argv, config: target.config, database: target.database.db, output, readInput });
+
+      expect(await run([`--from=${SOURCE_URL}`, "--to-file=/run/secrets/target-url", `--user=${ada.id}`, "--commit"])).toBe(0);
+      expect(await countAccounts(other, ada.id)).toBe(1);
+
+      expect(await run([`--from=${SOURCE_URL}`, `--to=${SOURCE_URL}`, `--user=${ada.id}`])).toBe(2);
+      expect(errors).toContain("copy-account: --to: --to names the --from database");
+    });
+  });
+
+  it("gives the account the --new-email in the target, and refuses an address that is not one", async () => {
+    const outcome = await executeOpsScript(target.database.db, createScript(), { from: SOURCE_URL, user: ada.id, newEmail: "ada.copy@example.com" }, { commit: true });
+    expect(outcome).toMatchObject({ ok: true, value: { committed: true } });
+    const result = await target.database.client.query<{ email: string }>("SELECT email FROM auth.users WHERE id = $1", [ada.id]);
+    expect(result.rows).toEqual([{ email: "ada.copy@example.com" }]);
+
+    const errors: string[] = [];
+    const output = { log: () => undefined, error: (line: string) => errors.push(line) };
+    const code = await runOpsScript({
+      script: createScript(),
+      argv: [`--from=${SOURCE_URL}`, `--user=${ada.id}`, "--new-email=not-an-address"],
+      config: target.config,
+      database: target.database.db,
+      output,
+    });
+    expect(code).toBe(2);
+    expect(errors).toContain("copy-account: --new-email: --new-email=<address> needs an email address");
   });
 });
