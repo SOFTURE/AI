@@ -1,12 +1,13 @@
 ---
 change_id: billing-reminder-run-388
 title: "billing: sendAccessReminders runs on mailing's runDeliveries and carries the exact end (issue #388)"
-status: active
+status: archived
 roadmap_item: null
 issue: 388
 branch: claude/project-thread-rwea85
 created: 2026-10-12
 updated: 2026-10-12
+archived_at: 2026-10-12
 ---
 
 ## Intent
