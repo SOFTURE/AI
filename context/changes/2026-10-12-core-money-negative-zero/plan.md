@@ -25,4 +25,4 @@ Input: change.md, research.md. Complexity: small (one phase).
 
 ## Progress
 
-- [ ] Phase 1: fix and tests
+- [x] Phase 1: fix and tests (4330a73)
