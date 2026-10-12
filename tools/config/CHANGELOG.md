@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.1.2
 
 - Installs and lints in a Next.js app on ESLint 9, found adopting the package (#384):
   - The optional peers accept what Next's ESLint stack uses: `eslint` and `@eslint/js` `^9.22.0 || ^10.0.0`,

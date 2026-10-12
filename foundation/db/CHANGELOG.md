@@ -4,6 +4,17 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`db@x.y.z`).
 
+## Unreleased
+
+- `createProcessDatabase(url, { globalKey })` keeps the open database on `globalThis`, so a module `next dev`
+  re-evaluates finds it; `closeProcessDatabases()` closes every process database, for tests (#404).
+- `@softure-ai/db/testing`: `expectEntriesOpenDatabase({ entries, clientModule, opens })` and
+  `findEntriesReachingDatabase(...)`, an entry-point guard over esbuild's import graph (`esbuild` is an optional
+  peer) (#404).
+- `drizzleAppMigrations(folder)`: an app migration hook running drizzle's migrator for the handle's driver (#404).
+- `queryDatabase(handle, text, values)` and `openRawDatabase(url)`: parameterized raw SQL for scripts on either
+  driver (#404).
+
 ## 0.1.7
 
 - `createProcessDatabase(url, { schema, max })` returns `{ db, open, close, withDatabase, isOpen }`: a module-level,

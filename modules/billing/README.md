@@ -53,8 +53,9 @@ import of what the old system knew (`import-entitlements`) and a pin step for de
   account whose trial or dated paid access is in its reminder window, or ended in the last few
   days, once per account and window through `@softure-ai/mailing`'s delivery ledger; the app runs
   it on a schedule (see "Reminder mail" in §4), with the package's mail or the app's template
-  (`buildMail`) and delivery scopes (`getScope`). `findAccessReminders` (`/server`) is the same list
-  without mail, for an app that sends its own.
+  (`buildMail`) and delivery scopes (`getScope`), as one `runDeliveries` run (`dryRun`, `limit`,
+  `retakeUncertain`, `onDelivery`). `findAccessReminders` (`/server`) is the same list without mail,
+  for an app that sends its own.
 - **Plan and trial scripts** (`@softure-ai/billing/scripts`): `grant-plan`, `revoke-grant` and
   `extend-trial`, ops scripts (dry run by default, `--commit` writes) for a host without the admin
   page; their grants and extensions are in the account's history like the admin page's; and the
@@ -380,27 +381,36 @@ Lifetime access gets nothing. The mail is transactional (no unsubscribe footer: 
 notice), in the app's locale, with the notice's link text and the absolute payment page URL. Each
 account gets one mail per kind and end (scope `billing.<kind>:<account id>:<end>` in
 `mailing.deliveries`): a run repeated the same day, or two runs at once, send nothing new, while an
-extended trial or a renewal is a new window. Options: `catchUpDays` (0 to 365), `pauseMs` between two
-mails the provider was called for (default 500, Resend's two requests per second). The summary counts
-`due`, `sent`, `skipped` (sent by an earlier run, another run is sending it, or the template returned
-null), `rejected` (refused
-for good) and `retryLater` (the provider was unavailable; the next run sends it). A database failure
-throws; the next run resumes. Candidates come from two range queries, the stored ends and
+extended trial or a renewal is a new window. The run is mailing's `runDeliveries`, so it takes its
+options: `dryRun` (reads the ledger, sends and writes nothing; `sent` counts what would go out),
+`limit` (most mails handed to the provider; the rest is counted in `remaining`), `retakeUncertain`
+(the operator's word to resend claims old enough that their mail may have gone out), `onDelivery`
+(each outcome, never the address), `stopOnRetryLater` (default `true`) and the claim windows. Its
+own: `catchUpDays` (0 to 365) and `pauseMs` between two mails the provider was called for (default
+500, Resend's two requests per second). The summary is `runDeliveries`' (`sent`, `skipped` when the
+template returned null, `done`, `inFlight`, `uncertain`, `rejected` by reason, `retryLater`,
+`halted`, `remaining`) plus `due`. The run stops at a refused account, a spent quota and the first
+mail the provider could not take now; the next run resumes there. A database failure throws; the
+next run resumes. Candidates come from two range queries, the stored ends and
 `auth.users.created_at` (indexed by auth's `0004`) for accounts without a row, never a scan of every
 account.
 
 The app's own template and scopes: `buildMail(context)` gets `{ reminder, lastDay, link, mail }` (the due
-account's `userId`, `email`, `kind` and `endsAt`, the last day as the locale writes it, the payment URL and the
+account's `userId`, `email`, `kind`, `endsAt` and `endsAtMicros`, the last day as the locale writes it, the payment URL and the
 package's own mail) and returns `{ subject, text, html }`, or `null` to send that account nothing this run (a
 later run asks again); it may be async (to read the account's name). `getScope(reminder)` replaces the delivery
 scope: an app moving from its own job passes the scope that job wrote to `mailing.deliveries`, so accounts it
-already mailed are not mailed again. A scope must stay unique per account, kind and end.
+already mailed are not mailed again. `endsAtMicros` is the end exactly as stored (microseconds since
+the epoch, a decimal string, equal to `(extract(epoch from <column>) * 1000000)::bigint::text`), for a
+scope that job built in SQL; `endsAt` is a `Date` and drops the microseconds. The default scope keeps
+milliseconds, as earlier versions wrote it. A scope must stay unique per account, kind and end.
 
 ```ts
 await sendAccessReminders(ctx, {
   buildMail: ({ reminder, lastDay, link, mail }) =>
     reminder.kind === "trial-ending" ? renderTrialEndingMail({ lastDay, link }) : mail,
-  getScope: (reminder) => `app.${reminder.kind}:${reminder.userId}:${String(reminder.endsAt.getTime())}`,
+  getScope: (reminder) => `app.${reminder.kind}:${reminder.userId}:${reminder.endsAtMicros}`,
+  limit: 100, // a shared daily quota
 });
 ```
 
