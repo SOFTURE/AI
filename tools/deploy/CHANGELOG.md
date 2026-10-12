@@ -6,6 +6,15 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- `softure-deploy run --local <script> [args]` runs the ops script an image bundles (`scripts/ops/<name>.ts`) on this
+  machine with `tsx`, against `DATABASE_URL` (`--url-env=<NAME>` for another variable), so an app's wrapper that
+  switched between production and a local database is an npm alias (issue #405). The script keeps its own dry run
+  and `--commit`; the CLI names the target `host/database` on stderr first. `--scripts-dir` and `--tsx` override the
+  folder and the runner. The remote `run --host=…` is unchanged.
+- `@softure-ai/deploy/testing` exports `installFakeSsh({ reply })`: a fake `ssh` first on `PATH` that records each
+  call's arguments and stdin and answers with scripted output and status, for testing operator wrappers without a
+  server (issue #405).
+- `softure-deploy help` lists `run` and `report`.
 - `init --report-role=<role>` (answer `reportRole`) names the Postgres role `deploy.sh`'s `report` reads as
   (`REPORT_ROLE`), for an app whose compose file takes the whole `DATABASE_URL` from a variable or whose app role has
   another name (issue #383). It is checked like the role init reads from a kept compose file and wins over it and over

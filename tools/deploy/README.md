@@ -892,6 +892,27 @@ image lacks is refused with the list it has. stdin reaches the script, so `--<ke
 secret is on no command line, here or on the server. The exit status is the script's: 0 done (dry run or committed),
 1 refused or failed (nothing written), 2 usage.
 
+**`run --local`.** The same script on this machine, against a local or staging database (issue #405), so an app's
+wrapper is an npm alias (`"ops": "softure-deploy run --local"`, `"ops:prod": "softure-deploy run --host=app-prod"`)
+instead of a second argument parser:
+
+```bash
+softure-deploy run --local grant-access --email=a@example.com                        # dry run against DATABASE_URL
+softure-deploy run --local grant-access --email=a@example.com --commit               # writes
+softure-deploy run --local --url-env=STAGING_DATABASE_URL grant-access --email=a@example.com
+```
+
+It runs `scripts/ops/<name>.ts` (the file the image bundles; `--scripts-dir=<dir>` for another folder) with `tsx`
+from `PATH`, so an npm script finds the app's own (`--tsx=<program>` for another runner), in the working folder, with
+the words after the name as its arguments and stdin forwarded. The script reads the database from the app config, so
+`DATABASE_URL` must be set; `--url-env=<NAME>` copies another variable into it for the script. Before it starts, one
+line on stderr names the target as `host[:port]/database`, never the user or password. The dry run, `--commit`,
+`--help`, the zod check of the arguments and `--<key>-file` stay the script's own, as on the server; only the
+checks of the name (kebab-case) and of each word (`--key` or `--key=value`) happen here. The arguments are a list, so
+a value with a blank passes, and a `--<key>-file=<path>` is read by the script itself. `--host`, `--port` and `--ssh`
+with `--local` are a usage error. The exit status is the script's; an unset `DATABASE_URL`, a script the folder lacks
+(listed with the ones it has) or a runner that cannot start is exit 1 with nothing run.
+
 **`report`.** The file travels on stdin (at most 1 MiB) to `psql` in the postgres container, as the app's role (`REPORT_ROLE` in `deploy.sh`, see `init`), in one
 transaction with `default_transaction_read_only=on` and `ON_ERROR_STOP`: an `INSERT`, `UPDATE` or DDL fails and
 nothing is written. Each `--key=value` is a psql variable (`-` in the key becomes `_`), so values are quoted by psql,
@@ -911,6 +932,33 @@ expansion), so a value with a blank cannot pass: the CLI refuses it before conne
 `--<key>-file`. Neither command prints `step|` or `result|` lines; the gateway's own refusals are exit 2 (a bad
 name or word, before anything runs) or 1 (nothing deployed, the app or Postgres not running, an unknown script); ssh's
 own failure is exit 1 with the host named. An app without a database has neither command.
+
+## Testing an operator wrapper
+
+`@softure-ai/deploy/testing` puts a fake `ssh` first on `PATH`, so a wrapper around `run` or `report` is tested
+without a server (issue #405):
+
+```ts
+import { installFakeSsh } from "@softure-ai/deploy/testing";
+
+const ssh = installFakeSsh({ reply: { stdout: "COMMITTED\n", status: 0 } });
+try {
+  execFileSync("npm", ["run", "ops:prod", "--", "grant-access", "--email=a@example.com", "--commit"], { input: "" });
+  expect(ssh.calls).toEqual([
+    { args: ["-T", "--", "app-prod", "run grant-access --email=a@example.com --commit"], stdin: "" },
+  ]);
+} finally {
+  ssh.restore();
+}
+```
+
+- `reply`: `{ stdout, stderr, status }` for every call, or a list used one per call with the last repeating; status
+  255 is how real ssh reports its own failure. Default: no output, status 0.
+- `calls`: each call's `args` and `stdin`, oldest first, read again on every access.
+- `path` (for `--ssh=<program>`), `binDir`, and `env` / `name` options to change another environment object than
+  `process.env` or to install it under another program name.
+- `restore()` puts `PATH` back and removes the fake's folder. The fake reads stdin to its end, so give the command
+  under test a stdin that ends (`input: ""`, or `/dev/null`). It is a bash script: POSIX systems only.
 
 ## Library
 
