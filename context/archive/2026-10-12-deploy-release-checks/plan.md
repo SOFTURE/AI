@@ -1,6 +1,6 @@
 ---
 change_id: deploy-release-checks
-status: planned
+status: archived
 ---
 
 # Plan: deploy release checks and release notes (issue #406)
@@ -37,6 +37,10 @@ the gating snippet), `tools/deploy/CHANGELOG.md` (`## Unreleased`).
 
 ## Progress
 
-- [ ] Phase 1
-- [ ] Phase 2
-- [ ] Phase 3
+- [x] Phase 1: workflows and repository tests (`7a865e2`)
+- [x] Phase 2: example callers, init templates (`5145e1d`)
+- [x] Phase 3: docs (`74fe295`)
+- [x] Implementation review: the image build split into `deploy-release-image.yml` (`2a42c92`)
+
+Gates on the branch: `npm run typecheck`, `npm run lint`, actionlint clean; the deploy workflow, CI workflow, init
+generate and init CLI tests pass; the full `npm test` runs in pre-push.

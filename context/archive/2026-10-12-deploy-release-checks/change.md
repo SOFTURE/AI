@@ -1,12 +1,13 @@
 ---
 change_id: deploy-release-checks
 title: "deploy: reusable release-check and release-notes workflows (issue #406)"
-status: planned
+status: archived
 roadmap_item: null
 issue: 406
 branch: claude/project-thread-6rozxi
 created: 2026-10-12
 updated: 2026-10-12
+archived_at: 2026-10-12
 ---
 
 ## Intent
