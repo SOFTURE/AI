@@ -57,6 +57,12 @@ export const USAGE = [
   "       [--fail-on-flaky] [--run=<url>] [--name=<n>] [--remote=origin] [--ref-prefix=integration/]",
   "       [--notes-ref=refs/notes/integration]",
   "      stores a run's result as the note on the tested commit and pushes it (deploy-integration.yml's last step)",
+  "  run --host=<ssh host> [--port=<n>] [--ssh=ssh] <script> [--key[=value]]...",
+  "      the ops script of the live image on the server (deploy.sh's forced command); a dry run unless --commit",
+  "  run --local [--url-env=DATABASE_URL] [--scripts-dir=scripts/ops] [--tsx=tsx] <script> [--key[=value]]...",
+  "      the same script from <scripts-dir>/<script>.ts on this machine, against DATABASE_URL (or --url-env)",
+  "  report --host=<ssh host> [--port=<n>] [--ssh=ssh] <file.sql> [--key=value]...",
+  "      the SQL file read only through psql on the server, each --key=value a psql variable",
   "  help",
   "",
 ].join("\n");
