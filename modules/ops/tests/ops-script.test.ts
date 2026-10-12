@@ -77,6 +77,21 @@ describe("executeOpsScript", () => {
     expect(await titles()).toEqual(["renamed", "second"]);
   });
 
+  it("tells the script whether its transaction will be committed", async () => {
+    const seen: boolean[] = [];
+    const watching = defineOpsScript({
+      ...renameNote,
+      name: "rename-and-watch",
+      run: async (tx, args, context) => {
+        seen.push(context.commit);
+        return renameNote.run(tx, args, context);
+      },
+    });
+    await executeOpsScript(database.db, watching, { id: 1, title: "renamed" }, { commit: false });
+    await executeOpsScript(database.db, watching, { id: 1, title: "renamed" }, { commit: true });
+    expect(seen).toEqual([false, true]);
+  });
+
   it("returns the script's refusal and writes nothing, also with commit", async () => {
     const outcome = await executeOpsScript(database.db, renameNote, { id: 9, title: "x" }, { commit: true });
     expect(outcome).toEqual({ ok: false, error: "ops.script_refused", reason: "expected 1 note with id 9, found 0" });
