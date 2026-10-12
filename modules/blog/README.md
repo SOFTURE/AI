@@ -884,7 +884,9 @@ export const revalidate = 300;
 export default createBlogArticleOgImage({ logo: <AppMark size={40} />, label: "The journal" });
 ```
 
-An app's other OG cards read fonts the same way with `createOgFontLoader({ root })` (`/server` or `/next`).
+An app's other OG cards read fonts the same way with `loadOgFonts` or `createOgFontLoader({ root })` from
+`@softure-ai/seo/server` (no blog needed); the blog's own `createOgFontLoader` (`/server` or `/next`) is that
+loader with `Blog OG card: brand.fonts` in its messages.
 
 The OG card writes in `brand.fonts`, else in `next/og`'s default font:
 
