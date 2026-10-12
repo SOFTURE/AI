@@ -93,6 +93,6 @@ type-only imports, `catch`/`finally`, early return, option overrides.
 ### Phase 2: Comment stripping, string literals, docs
 
 #### Automated
-- [ ] 2.1 The new `guards.test.ts` cases pass
-- [ ] 2.2 README and CHANGELOG `## Unreleased` updated
-- [ ] 2.3 Gates green (typecheck, lint, test)
+- [x] 2.1 The new `guards.test.ts` cases pass — 8ad3724
+- [x] 2.2 README and CHANGELOG `## Unreleased` updated — 8ad3724
+- [x] 2.3 Gates green (typecheck, lint, test) — 8ad3724
