@@ -58,12 +58,12 @@
     "zod": "^4.6.5"
   },
   "peerDependencies": {
-    "@softure-ai/ui": "^0.1.0",
+    "@softure-ai/ui": "^0.1.0 || ^0.2.0",
     "drizzle-orm": "^0.45.2",
     "next": "^16.0.0",
     "react": "^19.0.0"
   },
   "devDependencies": {
-    "@softure-ai/ui": "^0.1.7"
+    "@softure-ai/ui": "^0.1.7 || ^0.2.0"
   }
 }

@@ -15,6 +15,7 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   put any chart parts on one, through @softure-ai/ui's `data-theme` scopes. `CHART_SURFACES`, `ChartSurfaceName`.
 - `EventAxis` (client) and `layoutEventAxis`: a timeline of spans and milestones with a keyboard and pointer readout;
   `chartsMessages` gains `eventAxis.label`.
+- The `@softure-ai/ui` peer range also accepts 0.2.0.
 
 ## 0.1.8
 

@@ -15,6 +15,8 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 - The OG font loader lives in `@softure-ai/core/og` and an app reaches it from `@softure-ai/seo/server` for cards
   outside the blog (#414). The blog still exports `createOgFontLoader`, `loadBrandOgFonts` and their types from
   `/server` and `/next`, with the same `Blog OG card: brand.fonts[i]` messages; seo stays an optional peer.
+- The `@softure-ai/ui` peer range also accepts 0.2.0.
+- Requires `@softure-ai/core` `^0.1.11`, the release with `@softure-ai/core/og` (#414).
 
 ## 0.1.12
 

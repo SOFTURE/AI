@@ -8,6 +8,8 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 - The stdio entry resolves its account with `resolveOnlyAccount` from `@softure-ai/auth/server` instead of a private
   copy; codes and messages are unchanged (#411). Needs the auth release that exports it.
+- The `@softure-ai/ui` peer range also accepts 0.2.0.
+- Requires `@softure-ai/auth` `^0.1.13`, the release with `resolveOnlyAccount` (#411).
 
 ## 0.1.14
 

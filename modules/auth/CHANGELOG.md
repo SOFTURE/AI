@@ -12,6 +12,7 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 - `runSeedAccount({ config, env? })` in `@softure-ai/auth/scripts`: a development account from `SEED_EMAIL` /
   `SEED_PASSWORD` through registration (the `onRegistered` hook runs), idempotent, refused under
   `NODE_ENV=production`; returns the exit code (#411).
+- The `@softure-ai/ui` peer range also accepts 0.2.0.
 
 ## 0.1.12
 
