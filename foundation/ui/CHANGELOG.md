@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`ui@x.y.z`).
 
-## Unreleased
+## 0.1.17
 
 - Source guards in `@softure-ai/ui/testing` for an app's design system (#403): `findUndefinedTokenClasses` (Tailwind
   colour, `ease-*` and `duration-*` classes must name a defined token), `findNativeTooltips` (no `title` attribute

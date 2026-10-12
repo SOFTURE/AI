@@ -4,6 +4,22 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`billing@x.y.z`).
 
+## 0.2.0
+
+- `AccessReminderDue.endsAtMicros` (`findAccessReminders`, `sendAccessReminders`' `buildMail` and `getScope`): the
+  end exactly as stored, in microseconds since the epoch as a decimal string (`endsAt` is a `Date` and drops them),
+  equal to `(extract(epoch from <column>) * 1000000)::bigint::text`. An app whose own job built its scope in SQL
+  rebuilds it in `getScope`, so an account with a non-zero microsecond end is not mailed twice (#388). The default
+  scope is unchanged.
+- `sendAccessReminders` is a `runDeliveries` run of `@softure-ai/mailing`: new options `dryRun`, `limit`,
+  `retakeUncertain`, `onDelivery`, `stopOnRetryLater` and the claim windows (`pauseMs` still defaults to 500).
+  **Breaking:** the summary is `runDeliveries`' `DeliveryRunSummary` plus `due`: `rejected` is counted by reason,
+  `skipped` counts only a template's null, and what 0.1.11 counted there is now `done`, `inFlight` or `uncertain`;
+  a stop is reported in `halted` (`remaining: null`). The run now stops at the first mail the provider could not
+  take (pass `stopOnRetryLater: false` for the old behaviour) (#388).
+- Requires `@softure-ai/mailing` `^0.1.12` (`runDeliveries`); stopping at the first `retry-later` needs its next
+  release.
+
 ## 0.1.11
 
 - `formatPrice` is core's `formatMoney`: thousands are always grouped, so a four-digit amount in pl reads
