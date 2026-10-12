@@ -8,14 +8,15 @@
 //   }
 //
 // The owner comes from the session (never from a bound argument, which the client controls, docs/02 §8)
-// before the form is read. Unexpected failures, the gate's included, become `safeError` codes.
+// before the form is read. The gate refuses with a code, a code and its own text, or a thrown
+// `PublicError`; any other failure, the gate's included, becomes a `safeError` code.
 import { getCurrentUser } from "@softure-ai/auth/next";
-import { errorLogLabel, formatMessage, safeError, type Err, type Ok } from "@softure-ai/core";
+import { errorLogLabel, formatMessage, getPublicMessage, safeError, type Err, type Ok } from "@softure-ai/core";
 import { getSoftureConfig } from "@softure-ai/core/next";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getMcpClientSetup } from "../client-setup.js";
-import type { IssueTokenFormState, McpIssueRefusalCode } from "../contract.js";
+import type { IssueTokenFormState, McpIssueRefusal, McpIssueRefusalCode } from "../contract.js";
 import { MAX_TOKEN_NAME_LENGTH } from "../options.js";
 import { getMcpAccessMessages, getMcpAccessOptions, getMcpAccessRoutes, getMcpEndpointUrl } from "../server/options.js";
 import { issueAccessToken } from "../server/tokens.js";
@@ -40,8 +41,14 @@ export interface IssueGateInput {
   readonly canWrite: boolean;
 }
 
-/** The app's check before a token is issued: `ok()` lets it through, `err(code)` refuses with a message the page shows. */
-export type BeforeIssueGate = (input: IssueGateInput) => Ok<unknown> | Err<McpIssueRefusalCode> | Promise<Ok<unknown> | Err<McpIssueRefusalCode>>;
+/**
+ * How the gate answers: `ok()` lets the token through, `err(code)` refuses with the code's copy,
+ * `refuseIssue(code, message)` with the app's own text.
+ */
+export type IssueGateResult = Ok<unknown> | Err<McpIssueRefusalCode> | McpIssueRefusal;
+
+/** The app's check before a token is issued. Throwing a `PublicError` refuses too, with its message. */
+export type BeforeIssueGate = (input: IssueGateInput) => IssueGateResult | Promise<IssueGateResult>;
 
 export interface IssueTokenOptions {
   readonly beforeIssue?: BeforeIssueGate;
@@ -59,7 +66,7 @@ export async function issueToken(_previous: IssueTokenFormState, formData: FormD
   try {
     if (options.beforeIssue !== undefined) {
       const gate = await options.beforeIssue({ userId: user.id, canWrite });
-      if (!gate.ok) return { status: "error", error: gate.error };
+      if (!gate.ok) return getRefusalState(gate.error, "message" in gate ? gate.message : undefined);
     }
     // Resolved before issuing: a failure afterwards would leave a token nobody received.
     const endpointUrl = getMcpEndpointUrl(config, await getRequestOrigins(config, getMcpAccessRoutes(config).page));
@@ -68,6 +75,7 @@ export async function issueToken(_previous: IssueTokenFormState, formData: FormD
     revalidatePath(getMcpAccessRoutes(config).page);
     const issued = result.value;
     const messages = getMcpAccessMessages(config);
+    const accessOptions = getMcpAccessOptions(config);
     return {
       status: "ok",
       issued: {
@@ -75,8 +83,9 @@ export async function issueToken(_previous: IssueTokenFormState, formData: FormD
         name: issued.name,
         canWrite: issued.canWrite,
         expiresText: formatMessage(messages.issued.expires, { date: formatDate(config, issued.expiresAt) }),
+        expiresAt: issued.expiresAt.toISOString(),
         setup: getMcpClientSetup({
-          serverName: getMcpAccessOptions(config).serverName,
+          serverName: accessOptions.clientServerName ?? accessOptions.serverName,
           endpointUrl,
           token: issued.token,
           promptTemplate: messages.setup.assistantPrompt,
@@ -84,7 +93,21 @@ export async function issueToken(_previous: IssueTokenFormState, formData: FormD
       },
     };
   } catch (error) {
+    // A deliberate refusal written for the user, not a failure: shown, not logged.
+    const publicMessage = getPublicMessage(error);
+    if (publicMessage !== null) return getRefusalState("mcp-access.issue_refused", publicMessage);
     console.error(`@softure-ai/mcp-access: issuing a token failed: ${errorLogLabel(error)}`);
     return { status: "error", error: safeError(error).error };
   }
+}
+
+/** A gate's refusal with the app's own text, which the token page shows instead of the code's copy. */
+export function refuseIssue(code: McpIssueRefusalCode, message: string): McpIssueRefusal {
+  return { ok: false, error: code, message };
+}
+
+/** The form state for a gate's refusal; a missing or blank text falls back to the code's copy. */
+function getRefusalState(code: McpIssueRefusalCode, text: unknown): IssueTokenFormState {
+  const message = typeof text === "string" ? text.trim() : "";
+  return message === "" ? { status: "error", error: code } : { status: "error", error: code, message };
 }

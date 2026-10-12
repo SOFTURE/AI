@@ -77,6 +77,7 @@ mcpAccess({
 | Option | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `serverName` | `string` | required | The name clients list the server under (lowercase, digits, inner dashes; no quotes needed in a shell). |
+| `clientServerName` | `string` | `serverName` | The name the setup snippets register the server under (`claude mcp add`, the JSON configs, the assistant prompt), same pattern. Set it when users already added the server under another name: a new name gives everyone who reconnects a second entry. |
 | `tools` | `{ name, access: "read" \| "write", description: { en, pl? }, title?: { en, pl? }, example?: { en, pl? } }[]` | `[]` | The catalog the token page shows. `title` (a display name) and `example` (a request a person could make) are for agent docs that read the catalog. Keep it next to the factory; `expectToolCatalogMatchesServer` (`/testing`) checks that both list the same tools. |
 | `allowWrites` | `boolean` | `false` | Lets write tokens be issued and used. Off, the page offers no write tokens and every token reads only. |
 | `tokenLifetimeDays` | `integer` 1–365 | `90` | How long a hand-issued token works. There is no renewal: the user issues a new one. |
@@ -244,8 +245,22 @@ export default function Page() {
 ```
 
 The gate runs after the session check and before anything is issued. `mcp-access.write_refused` and
-`mcp-access.issue_refused` have copy in `messages.errors["mcp-access"]` (override it per app); a gate that throws
-becomes a `safeError` code. The gate stays in the app's code, out of `softure.config.ts`.
+`mcp-access.issue_refused` have copy in `messages.errors["mcp-access"]` (override it per app). A gate with a sentence
+per reason returns `refuseIssue(code, message)` (`/next`) or throws a `PublicError` (core, code `mcp-access.issue_refused`): the
+form state carries the text as `message` and `TokenManager` shows it instead of the code's copy (a blank text falls
+back to it). Any other thrown error becomes a `safeError` code. The gate stays in the app's code, out of
+`softure.config.ts`.
+
+```ts
+beforeIssue: async ({ userId }) => {
+  const plan = await getPlan(userId);
+  if (plan.trialEnded) return refuseIssue("mcp-access.issue_refused", t("billing.trialEnded"));
+  return ok();
+},
+```
+
+The issued token carries `expiresText` (formatted in the app's locale and zone) and `expiresAt` (ISO 8601), for an
+app that renders the expiry itself.
 
 `TokenManager` (`@softure-ai/mcp-access/ui`) takes the actions `issueTokenAction` and
 `revokeTokenAction` (`/next`) as props for an app that composes its own page, and `grants` with

@@ -1,6 +1,6 @@
 // Result types and error codes of the mcp-access module. No user-facing copy here: the UI
 // translates codes through `messages` (docs/02-module-standard.md §6).
-import type { CoreErrorCode } from "@softure-ai/core";
+import type { CoreErrorCode, Err } from "@softure-ai/core";
 
 export type McpAccessErrorCode =
   | "mcp-access.name_required"
@@ -11,6 +11,14 @@ export type McpAccessErrorCode =
 
 /** What an app's `beforeIssue` gate may answer instead of letting a token be issued. */
 export type McpIssueRefusalCode = "mcp-access.issue_refused" | "mcp-access.write_refused";
+
+/**
+ * A gate's refusal with the app's own text for the user ("Your trial has ended."), shown instead of the
+ * code's copy: an `Err` with a `message`, made by `refuseIssue` (`/next`).
+ */
+export interface McpIssueRefusal extends Err<McpIssueRefusalCode> {
+  readonly message: string;
+}
 
 /** Every code the token page can show: its own, a gate's refusal, a missing session and the generic ones. */
 export type TokenFormErrorCode = McpAccessErrorCode | McpIssueRefusalCode | "auth.unauthenticated" | CoreErrorCode;
@@ -45,6 +53,7 @@ export type AccessTokenStatus =
 
 /** Ready-to-paste setup for MCP clients, built around the plaintext token. */
 export interface McpClientSetup {
+  /** The name the client lists the server under: `clientServerName`, else `serverName`. */
   readonly serverName: string;
   readonly endpointUrl: string;
   /** `claude mcp add …` for Claude Code, with the token in it. */
@@ -68,6 +77,8 @@ export interface IssuedToken {
   readonly canWrite: boolean;
   /** The expiry, already formatted in the app's locale and time zone. */
   readonly expiresText: string;
+  /** The expiry as ISO 8601, for an app that formats it itself. */
+  readonly expiresAt: string;
   readonly setup: McpClientSetup;
 }
 
@@ -75,7 +86,8 @@ export interface IssuedToken {
 export type IssueTokenFormState =
   | { readonly status: "idle" }
   | { readonly status: "ok"; readonly issued: IssuedToken }
-  | { readonly status: "error"; readonly error: TokenFormErrorCode };
+  /** `message`: the app's own refusal text from the `beforeIssue` gate, shown instead of the code's copy. */
+  | { readonly status: "error"; readonly error: TokenFormErrorCode; readonly message?: string };
 
 /** A connected app (an OAuth grant) as its owner sees it. */
 export interface OAuthGrantView {
