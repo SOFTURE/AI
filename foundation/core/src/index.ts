@@ -4,6 +4,7 @@ export {
   addCalendarDays,
   addCalendarMonths,
   calendarDaysBetween,
+  calendarDaySchema,
   getCalendarDay,
   isCalendarDay,
   toCalendarDay,
@@ -11,7 +12,19 @@ export {
   type EndOfMonth,
 } from "./calendar-day.js";
 export { CURRENCY_MINOR_UNIT_DIGITS } from "./currency-digits.js";
-export { formatCalendarDay, formatMoney, formatPercent, type CalendarDayStyle, type FormatMoneyOptions } from "./format.js";
+export {
+  formatCalendarDay,
+  formatCalendarMonth,
+  formatDuration,
+  formatMoney,
+  formatPercent,
+  isCalendarMonth,
+  type CalendarDayStyle,
+  type CalendarMonthStyle,
+  type FormatMoneyOptions,
+  type FormatPercentOptions,
+} from "./format.js";
+export { memoizeByContent, type MemoizeByContentOptions, type MemoizedFunction } from "./memoize.js";
 export { createTestClock, systemClock, type Clock, type TestClock } from "./clock.js";
 export {
   formatMessage,

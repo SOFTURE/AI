@@ -30,6 +30,7 @@ interface SoftureConfigInput {
   locale: "en" | "pl";
   timezone: string;                  // IANA zone, e.g. "Europe/Warsaw"
   appOrigin: string;                 // http(s) origin without a path
+  landingOrigin?: string;            // the public landing site beside the app (default: appOrigin)
   origins?: {                        // read by resolveAppOrigin, see "Request origins" below
     trustedOrigins?: string[];       // other origins the app is served under (at most 16)
     trustRequestHost?: boolean;      // trust Host for any host (default false)
@@ -55,6 +56,10 @@ const config = defineSoftureConfig({
 registerSoftureConfig(config);
 export default config;
 ```
+
+`landingOrigin` names the public landing site when the app lives on a subdomain beside it (`https://example.com`
+next to `https://app.example.com`); `SoftureConfig.landingOrigin` is always filled, with `appOrigin` when the app names
+none. Use it for links from the app to its marketing pages, never for the app's own absolute URLs.
 
 `defineSoftureConfig` throws `SoftureConfigError` with every problem listed (`issues`): an
 unknown locale or zone, an origin with a path, a module listed twice, two modules on one database
@@ -310,6 +315,8 @@ or a fractional count.
 | `calendarDaysBetween(from, to)` | `to - from` in days; negative when `to` comes first. |
 | `wholeMonthsBetween(from, to)` | The most months `n` with `addCalendarMonths(from, n)` (clamped) not after `to`: Jan 31 to Feb 28 is 1. Swapping the days turns the sign. |
 
+`calendarDaySchema` is `isCalendarDay` as a zod schema, for tool and form inputs that take a day.
+
 **Display.** One way to show days, money and percentages in every module and app, in `config.locale`:
 
 ```ts
@@ -318,12 +325,33 @@ formatCalendarDay(toCalendarDay(instant, config.timezone), config.locale); // an
 formatMoney(123456, "PLN", "en"); // "PLN 1,234.56"; pl groups four digits too
 formatMoney(-123456, "PLN", "en", { rounded: true, signed: true }); // "-PLN 1,235"; { compact: true }: "PLN 1.2K"
 formatPercent(1250, "en"); // "12.5%" (basis points, at most two fraction digits)
+formatPercent(-50, "en", { signed: true, tight: true }); // "-0.5%"; 1250 signed: "+12.5%"
+formatCalendarMonth("2026-10", "en"); // "October 2026"; "genitive": pl's genitive month; "roman": "X 2026"
+formatDuration(38, "en"); // "3 years and 2 months" (whole months, as wholeMonthsBetween returns them)
 ```
 
 A day is formatted at UTC midnight in UTC, so no zone moves it; the Polish long style names the month in
 the genitive. `formatMoney` takes the amount in the currency's minor unit, read from the pinned ISO 4217
 table `CURRENCY_MINOR_UNIT_DIGITS` (a code outside it gets `Intl`'s digits), and always groups thousands.
-Zero never carries a sign: a negative zero (`Math.round(-0.4)`) or an amount that rounds to zero shows as `PLN 0.00`.
+Zero never carries a sign: a negative zero (`Math.round(-0.4)`) or an amount that rounds to zero shows as `PLN 0.00`,
+and a percentage that rounds to zero as `0%`. `signed` puts a `+` before a positive amount or percentage; the minus is
+the one `Intl` writes (a hyphen-minus in en and pl). `tight` drops any space a locale's pattern puts before `%`.
+
+`formatCalendarMonth(month, locale, style)` takes `YYYY-MM` (`isCalendarMonth`) or a `YYYY-MM-DD` day. `long` is the
+month as written alone (the nominative in pl), `genitive` the form a full date uses (pl: "4 [month] 2026" inflects
+it), `roman` the month in Roman numerals for compact tables. `formatDuration(months, locale)` writes years and months
+with the locale's plural forms (copy in `coreMessages.<locale>.duration`); a part that is zero is left out, and zero
+itself is "0 months".
+
+**Memoization.** `memoizeByContent(fn, { max })` caches a pure function of plain data by the content of its arguments:
+two equal objects built apart (key order aside) hit the same entry. The least recently used entry goes beyond `max`;
+nothing expires by time, and `clear()` empties the cache. Arguments may hold primitives, arrays, `Date`s and plain
+objects; anything else (a function, a `Map`, a class instance, a cycle) throws a `TypeError`. A promise that rejects
+is dropped, so the next call tries again.
+
+```ts
+const getProjection = memoizeByContent((input: ProjectionInput) => simulate(input), { max: 100 });
+```
 
 ## 10. Hooks
 

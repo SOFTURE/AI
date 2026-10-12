@@ -1,5 +1,6 @@
 // The calendar day of an instant in a given IANA time zone, as `YYYY-MM-DD`. "Today" computed in the
 // process zone is a classic date bug: on a server in UTC, an evening in New York is already tomorrow.
+import { z } from "zod";
 import type { Clock } from "./clock.js";
 
 const formatters = new Map<string, Intl.DateTimeFormat>();
@@ -58,6 +59,9 @@ export type EndOfMonth = "clamp" | "overflow";
 export function isCalendarDay(value: unknown): value is string {
   return typeof value === "string" && parseCivilDate(value) !== null;
 }
+
+/** A `YYYY-MM-DD` calendar day in tool and form input: `isCalendarDay` as a zod schema. */
+export const calendarDaySchema = z.string().refine(isCalendarDay, "must be a YYYY-MM-DD calendar day, e.g. 2026-10-04");
 
 /** `day` moved by `days` calendar days (negative goes back). Throws a `RangeError` for a malformed day or count. */
 export function addCalendarDays(day: string, days: number): string {
