@@ -1,7 +1,7 @@
 ---
 change_id: ui-app-components-407
 title: "ui: app shell, required consent, stepper, checklist and the other generic components (issue #407)"
-status: plan_reviewed
+status: implementing
 roadmap_item: null
 issue: 407
 branch: claude/project-thread-erxzvr

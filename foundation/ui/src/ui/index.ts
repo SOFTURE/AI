@@ -11,6 +11,7 @@ export {
   type CollapsibleSectionSlot,
 } from "./collapsible-section.js";
 export { type ClassNames, createSlotClassGetter, getSlotClass } from "./class-names.js";
+export * from "./color-field.js";
 export { type CopyProps } from "./copy.js";
 export * from "./copy-button.js";
 export * from "./confirm-action-button.js";
@@ -43,6 +44,7 @@ export * from "./switch.js";
 export { ThemeScript, type ThemeScriptProps } from "./theme-script.js";
 export { type ThemeCookieDomain, ThemeSwitch, type ThemeSwitchProps, type ThemeSwitchSlot } from "./theme-switch.js";
 export * from "./tab-panels.js";
+export * from "./suggested-amount-field.js";
 export * from "./tabs.js";
 export * from "./toast.js";
 export * from "./use-dismissed.js";

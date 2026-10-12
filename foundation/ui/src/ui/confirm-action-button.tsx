@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useCallback, useState } from "react";
+import { type FormEvent, type ReactNode, useCallback, useState } from "react";
 import { Button, type ButtonSize, type ButtonVariant, IconButton } from "./button.js";
 import { type ClassNames, createSlotClassGetter } from "./class-names.js";
 import { type CopyProps, getCopy } from "./copy.js";
@@ -22,7 +22,22 @@ export type ConfirmActionResult = { readonly ok: true; readonly message?: string
  */
 export type ConfirmActionButtonSlot = "trigger" | "description" | "confirm" | "cancel";
 
-export interface ConfirmActionButtonProps extends CopyProps<"confirmAction"> {
+/**
+ * What runs on confirm: a callback (`action`), or a form action (`formAction`, a server action) that receives the
+ * dialog's form data, with `fields` as its hidden inputs (the record's `id`).
+ */
+export type ConfirmActionRun =
+  | { readonly action: () => Promise<ConfirmActionResult>; readonly formAction?: undefined; readonly fields?: undefined }
+  | {
+      readonly action?: undefined;
+      readonly formAction: (formData: FormData) => Promise<ConfirmActionResult>;
+      /** Hidden inputs posted with the form, by name. */
+      readonly fields?: Readonly<Record<string, string>>;
+    };
+
+export type ConfirmActionButtonProps = ConfirmActionButtonOwnProps & ConfirmActionRun;
+
+interface ConfirmActionButtonOwnProps extends CopyProps<"confirmAction"> {
   /** The trigger's text, or its accessible name with `isIconOnly`. */
   readonly label: string;
   /** A decorative icon before the label, or the whole trigger with `isIconOnly` (`TrashIcon`). */
@@ -40,7 +55,6 @@ export interface ConfirmActionButtonProps extends CopyProps<"confirmAction"> {
   readonly confirmLabel: string;
   /** The confirm button's label while the action runs. */
   readonly pendingLabel?: string;
-  readonly action: () => Promise<ConfirmActionResult>;
   /** The toast when the action returns no message of its own; an empty string shows none. */
   readonly successMessage?: string;
   readonly onSuccess?: () => void;
@@ -65,6 +79,8 @@ export function ConfirmActionButton({
   confirmLabel,
   pendingLabel,
   action,
+  formAction,
+  fields,
   successMessage = "",
   onSuccess,
   modalMessages,
@@ -85,12 +101,12 @@ export function ConfirmActionButton({
     setError(undefined);
   }, []);
 
-  async function confirm() {
+  async function confirm(run: () => Promise<ConfirmActionResult>) {
     setIsPending(true);
     setError(undefined);
     let result: ConfirmActionResult;
     try {
-      result = await action();
+      result = await run();
     } catch (rejection: unknown) {
       // A rejected action (network failure, a stale server action) becomes an error in the dialog.
       console.error("ConfirmActionButton: the action rejected", rejection);
@@ -109,11 +125,47 @@ export function ConfirmActionButton({
     onSuccess?.();
   }
 
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (formAction === undefined || isPending) return;
+    const formData = new FormData(event.currentTarget);
+    void confirm(() => formAction(formData));
+  }
+
   const slot = createSlotClassGetter<ConfirmActionButtonSlot>({
     defaults: { trigger: "", description: "sft:m-0 sft:text-sm sft:text-foreground", confirm: "", cancel: "" },
     classNames,
     unstyled,
   });
+
+  const content = (
+    <>
+      <ModalBody unstyled={unstyled}>
+        <div className={slot("description")}>{description}</div>
+      </ModalBody>
+      <ModalFooter
+        onCancel={closeDialog}
+        isPending={isPending}
+        error={error}
+        locale={resolvedLocale}
+        messages={modalMessages}
+        classNames={{ cancel: classNames?.cancel }}
+        unstyled={unstyled}
+      >
+        <Button
+          variant="danger"
+          type={formAction === undefined ? "button" : "submit"}
+          pending={isPending}
+          pendingLabel={pendingLabel}
+          onClick={action === undefined ? undefined : () => void confirm(action)}
+          className={slot("confirm")}
+          unstyled={unstyled}
+        >
+          {confirmLabel}
+        </Button>
+      </ModalFooter>
+    </>
+  );
 
   return (
     <>
@@ -154,29 +206,17 @@ export function ConfirmActionButton({
           classNames={modalClassNames}
           unstyled={unstyled}
         >
-          <ModalBody unstyled={unstyled}>
-            <div className={slot("description")}>{description}</div>
-          </ModalBody>
-          <ModalFooter
-            onCancel={closeDialog}
-            isPending={isPending}
-            error={error}
-            locale={resolvedLocale}
-            messages={modalMessages}
-            classNames={{ cancel: classNames?.cancel }}
-            unstyled={unstyled}
-          >
-            <Button
-              variant="danger"
-              pending={isPending}
-              pendingLabel={pendingLabel}
-              onClick={() => void confirm()}
-              className={slot("confirm")}
-              unstyled={unstyled}
-            >
-              {confirmLabel}
-            </Button>
-          </ModalFooter>
+          {formAction === undefined ? (
+            content
+          ) : (
+            // The form spans the body and the footer, so the confirm button submits it; it takes no box of its own.
+            <form onSubmit={handleSubmit} className={unstyled === true ? undefined : "sft:contents"}>
+              {Object.entries(fields ?? {}).map(([fieldName, fieldValue]) => (
+                <input key={fieldName} type="hidden" name={fieldName} value={fieldValue} />
+              ))}
+              {content}
+            </form>
+          )}
         </Modal>
       ) : null}
     </>

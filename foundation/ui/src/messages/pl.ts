@@ -36,6 +36,12 @@ export const pl: typeof en = {
   externalLink: {
     newTab: "(otwiera się w nowej karcie)",
   },
+  colorField: {
+    picker: "Wybierz kolor: {label}",
+  },
+  suggestedAmount: {
+    use: "Użyj {amount}",
+  },
   errors: {
     amount_invalid: "Wpisz kwotę z maksymalnie dwoma miejscami po przecinku, na przykład {example}.",
     amount_out_of_range: "Ta kwota jest za duża.",

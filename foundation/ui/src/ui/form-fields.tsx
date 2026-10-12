@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useId } from "react";
+import { type InvalidEvent, type ReactNode, useId, useState } from "react";
 import { normalizeAmountInput } from "./amount.js";
 import { type ClassNames, createSlotClassGetter } from "./class-names.js";
 import type { CopyProps } from "./copy.js";
@@ -413,6 +413,13 @@ export interface CheckboxFieldProps extends CopyProps<"field"> {
   readonly hint?: string;
   readonly hintAs?: HintPlacement;
   readonly defaultChecked?: boolean;
+  /** The box must be checked to submit (a consent). */
+  readonly required?: boolean;
+  /**
+   * With `required` in `statement` mode: the message shown under the box instead of the browser's bubble when a
+   * submit finds it unchecked; focus moves to the box when it is the form's first invalid control.
+   */
+  readonly requiredMessage?: string;
   /** `setting` (default) renders a `Switch`; `statement` a `Checkbox` (consent, confirmation). */
   readonly labelAs?: "setting" | "statement";
   /** The `Switch` look in `setting` mode: its slots, its control's slots and the "?" look. */
@@ -420,6 +427,15 @@ export interface CheckboxFieldProps extends CopyProps<"field"> {
   /** The `Checkbox` look in `statement` mode. */
   readonly checkboxProps?: Pick<CheckboxProps, "classNames">;
   readonly unstyled?: boolean;
+}
+
+/** The first control of `form` that fails its constraints, in document order. */
+function getFirstInvalidControl(form: HTMLFormElement): Element | undefined {
+  return Array.from(form.elements).find(
+    (element) =>
+      (element instanceof HTMLInputElement || element instanceof HTMLSelectElement || element instanceof HTMLTextAreaElement) &&
+      !element.validity.valid,
+  );
 }
 
 /** A yes/no field that keeps its state across a rejected `ActionForm` submit. */
@@ -430,6 +446,8 @@ export function CheckboxField({
   hint,
   hintAs,
   defaultChecked = false,
+  required,
+  requiredMessage,
   labelAs = "setting",
   switchProps,
   checkboxProps,
@@ -439,7 +457,19 @@ export function CheckboxField({
 }: CheckboxFieldProps) {
   const checked = getCheckedAfterSubmit(useSubmittedFieldNames(), name, defaultChecked);
   const key = `${String(checked)}|${useSubmitCount()}`;
+  const replayedError = useFieldError(name);
+  const [invalidMessage, setInvalidMessage] = useState<string | undefined>(undefined);
   if (labelAs === "statement") {
+    function handleInvalid(event: InvalidEvent<HTMLInputElement>) {
+      if (requiredMessage === undefined) return;
+      // The message replaces the browser's bubble; the browser then moves focus no more, so the box takes it
+      // when it is the first control the submit found invalid.
+      event.preventDefault();
+      setInvalidMessage(requiredMessage);
+      const box = event.currentTarget;
+      const firstInvalid = box.form === null ? box : getFirstInvalidControl(box.form);
+      if (firstInvalid === box) box.focus();
+    }
     return (
       <Checkbox
         {...checkboxProps}
@@ -449,6 +479,12 @@ export function CheckboxField({
         label={label}
         description={hint}
         defaultChecked={checked}
+        required={required}
+        error={invalidMessage ?? replayedError}
+        onInvalid={handleInvalid}
+        onChange={(event) => {
+          if (event.currentTarget.checked) setInvalidMessage(undefined);
+        }}
         unstyled={unstyled}
       />
     );
@@ -463,6 +499,7 @@ export function CheckboxField({
       hint={hintAs === "tooltip" ? hint : undefined}
       description={hintAs === "tooltip" ? undefined : hint}
       defaultChecked={checked}
+      required={required}
       unstyled={unstyled}
       locale={locale}
       messages={messages}

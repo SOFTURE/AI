@@ -39,6 +39,14 @@ export const en = {
     /** Read by screen readers after the link text. */
     newTab: "(opens in a new tab)",
   },
+  colorField: {
+    /** Name of the colour picker next to the hex field. */
+    picker: "Pick a colour: {label}",
+  },
+  suggestedAmount: {
+    /** The chip that fills the suggested amount. */
+    use: "Use {amount}",
+  },
   errors: {
     amount_invalid: "Enter an amount with at most two decimal places, for example {example}.",
     amount_out_of_range: "This amount is too large.",
