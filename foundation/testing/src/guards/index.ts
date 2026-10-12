@@ -1,7 +1,9 @@
 // Source guards of @softure-ai/testing (`@softure-ai/testing/guards`): checks an architecture test runs
 // over a package's or an app's own source files. Visible text is read with the TypeScript parser, so
 // `typescript` must be installed (an optional peer dependency).
+export { stripComments, type StripCommentsOptions } from "./comments.js";
 export { findLines, findRawColors, RAW_COLOR, readImports } from "./lines.js";
+export { collectStringLiterals } from "./string-literals.js";
 export {
   collectVisibleTexts,
   DEFAULT_COPY_ATTRIBUTE,

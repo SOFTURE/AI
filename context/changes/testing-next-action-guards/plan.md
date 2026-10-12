@@ -76,6 +76,8 @@ type-only imports, `catch`/`finally`, early return, option overrides.
 ## Decisions (auto)
 
 - One function per rule plus `findServerActionProblems`, instead of a disk-reading `expectServerActionModules`.
+- Rule 2: a sync function passes as a refresh helper (`refreshPage(config)` in mcp-access and billing); running the
+  rules over every module's `src/` and the example app found no other hit.
 - The issue comment's three gaps are in scope: they were raised on this issue and touch the same entry.
 
 ## Progress
@@ -85,8 +87,8 @@ type-only imports, `catch`/`finally`, early return, option overrides.
 ### Phase 1: Server-action guards
 
 #### Automated
-- [ ] 1.1 `guards-next.test.ts` passes
-- [ ] 1.2 Gates green (typecheck, lint, test)
+- [x] 1.1 `guards-next.test.ts` passes — b08ad67
+- [x] 1.2 Gates green (typecheck, lint, test) — b08ad67
 
 ### Phase 2: Comment stripping, string literals, docs
 

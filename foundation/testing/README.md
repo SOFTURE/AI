@@ -11,8 +11,8 @@ Test tools shared by SOFTURE apps and modules:
 - Playwright helpers for black-box tests of an app: a `test` with its own client address per test, a
   config preset, client addresses, the auth forms, unique test data, the product select, polling, links
   and assertions ([Playwright helpers](#playwright-helpers));
-- source guards for architecture tests: raw colours, inline copy, forbidden phrases and import lists
-  ([Source guards](#source-guards)).
+- source guards for architecture tests: raw colours, inline copy, forbidden phrases, import lists, comment
+  stripping and the Next.js server-action rules ([Source guards](#source-guards)).
 
 ## Installation
 
@@ -263,6 +263,10 @@ it("speaks the product's language", () => {
 
 A failure lists every hit with its file and line, so one run shows all of them.
 
+`readSourceFiles` reads only `.ts` and `.tsx` without tests by default. A guard that moves onto it from
+its own walker and used to see `.css`, `.mts` scripts or test files must pass `include` (for example
+`/\.(?:tsx?|mts|css)$/`), or it silently checks fewer files than before.
+
 | Export | What it does |
 | --- | --- |
 | `readSourceFiles(root, { dirs?, include?, skipDirs?, recursive? })` | `{ file, source }` for the `.ts` and `.tsx` files under `root` (or its `dirs`), tests and `node_modules` left out, sorted by path; `file` is relative to `root`. A missing folder throws. |
@@ -272,6 +276,41 @@ A failure lists every hit with its file and line, so one run shows all of them.
 | `collectVisibleTexts(files, { copyAttribute? })` | `{ file, line, attribute, text }` for every JSX text, string child (`{"Save"}`) and literal value of a copy attribute (`DEFAULT_COPY_ATTRIBUTE`: the ARIA texts, `title`, `placeholder`, `alt`, `label`, `*Label`). |
 | `findInlineCopy(files, { copyAttribute? })` | The visible texts with a letter: copy written into markup instead of coming from messages or props. |
 | `findForbiddenPhrases(texts, phrases, { exempt? })` | The texts that hold a phrase (a string as whole words, ignoring case; a RegExp as written), each with the phrase; `exempt` files by path end or RegExp. |
+| `collectStringLiterals(files)` | The string and template literals in code (JSX attribute values too), in the shape of `collectVisibleTexts`, so `findForbiddenPhrases` checks plain `.ts`; module specifiers, directives, literal types and property names left out. |
+| `stripComments(source, { syntax? })` | The source with comments blanked to spaces, line breaks kept, so `file:line` stays right. TypeScript is parsed (`tsx` by default, `ts` for `<T>x` casts): `//` in a string, a URL, a regex or JSX text stays. `syntax: "hash"` blanks `#` comments (YAML, shell) outside quotes. |
+
+### Next.js server actions
+
+`@softure-ai/testing/guards/next` checks the rules every Next.js app on SOFTURE packages follows for
+server actions. Each rule takes the files from `readSourceFiles` and returns `file:line: message` for
+every hit; `findServerActionProblems` runs all six, sorted by file and line.
+
+```ts
+import { join } from "node:path";
+import { readSourceFiles } from "@softure-ai/testing/guards";
+import { findServerActionProblems } from "@softure-ai/testing/guards/next";
+import { expect, it } from "vitest";
+
+const sources = readSourceFiles(join(import.meta.dirname, ".."), { dirs: ["app", "lib"] });
+
+it("keeps the server-action rules", () => {
+  expect(findServerActionProblems(sources, { aliases: { "@/": "" } })).toEqual([]);
+});
+```
+
+| Export | Rule |
+| --- | --- |
+| `findNonAsyncServerExports(files)` | 1. A `"use server"` module exports only async functions (types pass). `export { name }` is checked against the local declaration; a re-export from another module cannot be proven and is reported. |
+| `findUnguardedRevalidation(files)` | 2. `revalidatePath` / `revalidateTag` / `updateTag` from `next/cache` run in a success branch: inside an `if`/`else`, a `case`, `?:`, `&&`, `\|\|` or `??`; after an earlier `if` that exits (`return`, `throw`, `redirect()`, `notFound()`); or after an `await` in the same `try` block. Reported before any such check and in `catch` or `finally`. A sync function (a refresh helper) passes; its callers are not followed. |
+| `findRequestApisInImplementations(files, { implementation?, requestApis? })` | 3. Implementation modules import no request-scoped API: `cookies`, `headers`, `draftMode` from `next/headers`, `connection` from `next/server` (`DEFAULT_REQUEST_APIS`), plus an app's own wrappers through `requestApis`. |
+| `findImplementationsWithoutDatabase(files, { implementation?, databaseName? })` | 4. Every function an implementation module exports takes the database handle (`database` or `db`, `DEFAULT_DATABASE_NAME`) as a parameter, a destructured option, or a member of its options type declared in the same file. |
+| `findClientValueImports(files, { implementation?, aliases? })` | 5. No value from a `"use client"` module in server code (`"use server"`, implementation modules, files importing `server-only`); other files without `"use client"` may import components, so there only names that are not component-shaped (`MAX_ITEMS`, `formatDate`) are reported. Type imports pass. Relative specifiers and `aliases` (`{ "@/": "" }`) are resolved among the given files. |
+| `findErrorDetailsInRedirects(files, { params? })` | 6. A `redirect` / `permanentRedirect` from `next/navigation` sets no `error`, `message`, `reason` or `details` parameter (`DEFAULT_ERROR_PARAMS`) to free text: a literal that is not code-shaped, or an expression with `.message`, `.stack`, `String(…)`, `JSON.stringify(…)` or `.toString()`. A code from a variable passes. |
+| `findServerActionProblems(files, options)` | All six; the options of each rule, with `errorParams` for rule 6. |
+
+`implementation` is a RegExp over `file` that names the layer receiving `database` and `now`; the default
+(`DEFAULT_IMPLEMENTATION`) matches files named `do-*` or `manage-*`. The rules read one file's syntax
+without types: a call through a variable or a helper in another file is not followed.
 
 ## Limitations
 
