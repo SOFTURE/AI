@@ -1,12 +1,13 @@
 ---
 change_id: ui-adoption-gaps-372
 title: "ui: four gaps in the interaction components (issue #372)"
-status: open
+status: archived
 roadmap_item: null
 issue: 372
 branch: claude/project-thread-77cx0m
 created: 2026-10-12
 updated: 2026-10-12
+archived_at: 2026-10-12
 ---
 
 ## Intent

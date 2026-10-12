@@ -1,6 +1,6 @@
 ---
 change_id: ui-adoption-gaps-372
-status: open
+status: archived
 ---
 
 # Plan: ui adoption gaps (issue #372)
@@ -33,5 +33,8 @@ Files: `foundation/ui/src/ui/confirm-action-button.tsx`, `disclosure-menu.tsx`, 
 
 ## Progress
 
-- [ ] Phase 1: options and server-safe link
-- [ ] Phase 2: docs
+- [x] Phase 1: options and server-safe link (`149d15b`; the new test file failed on master, 13 tests green after)
+- [x] Phase 2: docs (`8b4dec7`)
+
+Gates on the branch: `npm run typecheck`, `npm run lint`, `npm run build` green; the ui package's 520 tests and the
+repository tests pass, the full `npm test` runs in pre-push.
