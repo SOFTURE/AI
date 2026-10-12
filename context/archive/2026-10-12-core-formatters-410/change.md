@@ -1,12 +1,13 @@
 ---
 change_id: core-formatters-410
 title: "core: month and duration formatters, signed percent, content memoization, landing origin, calendar-day schema (issue #410)"
-status: in-progress
+status: archived
 roadmap_item: null
 issue: 410
 branch: claude/project-thread-rgtr6y
 created: 2026-10-12
 updated: 2026-10-12
+archived_at: 2026-10-12
 ---
 
 ## Intent

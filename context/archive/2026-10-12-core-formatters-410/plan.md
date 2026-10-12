@@ -1,6 +1,6 @@
 ---
 change_id: core-formatters-410
-status: in-progress
+status: archived
 ---
 
 # Plan: core formatters (issue #410)
@@ -34,4 +34,7 @@ Files: `foundation/core/src/format.ts`, `calendar-day.ts`, new `memoize.ts`, `co
 ## Progress
 
 - [x] Phase 1: helpers (`050171c`; the new test file failed on master, 280 core tests green after)
-- [ ] Phase 2: docs
+- [x] Phase 2: docs (`da031f0`)
+
+Gates on the branch: `npm run typecheck`, `npm run lint`, `npm run build` green; the core package's 280 tests pass, the
+full `npm test` runs in pre-push.
