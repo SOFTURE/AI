@@ -6,6 +6,14 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- Formatting (#410): `formatCalendarMonth(month, locale, "long" | "genitive" | "roman")` for `YYYY-MM` months
+  (`isCalendarMonth`) or days, `formatDuration(months, locale)` ("3 years and 2 months", plural forms from
+  `coreMessages`), and `formatPercent(basisPoints, locale, { signed, tight })`. `formatPercent` never puts a minus on
+  a value that rounds to zero, as `formatMoney` does.
+- `memoizeByContent(fn, { max })`: an LRU cache keyed by the arguments' content, no TTL (#410).
+- The config takes `landingOrigin` (optional; `SoftureConfig.landingOrigin` defaults to `appOrigin`), the public
+  landing site beside an app on a subdomain (#410).
+- `calendarDaySchema`: a zod schema for a `YYYY-MM-DD` calendar day (#410).
 - `formatMoney` never puts a minus on zero: a negative zero, or an amount that rounds to zero under `rounded` or
   `compact`, shows as `PLN 0.00` / `PLN 0` instead of `-PLN 0.00` (#375).
 

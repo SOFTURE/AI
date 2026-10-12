@@ -33,5 +33,5 @@ Files: `foundation/core/src/format.ts`, `calendar-day.ts`, new `memoize.ts`, `co
 
 ## Progress
 
-- [ ] Phase 1: helpers
+- [x] Phase 1: helpers (`050171c`; the new test file failed on master, 280 core tests green after)
 - [ ] Phase 2: docs
