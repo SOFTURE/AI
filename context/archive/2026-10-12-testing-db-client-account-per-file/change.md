@@ -1,13 +1,13 @@
 ---
 change_id: testing-db-client-account-per-file
 title: "testing/playwright: test database client and one account per test file (issue #412)"
-status: impl_reviewed
+status: archived
 roadmap_item: null
 issue: 412
 branch: claude/project-thread-iyukpb
 created: 2026-10-12
 updated: 2026-10-12
-archived_at: null
+archived_at: 2026-10-12
 ---
 
 ## Intent
@@ -52,3 +52,4 @@ the CHANGELOG gets an `## Unreleased` section.
 
 - Placement: unlinked (`roadmap_item: null`); autonomous mode works from issues, no active roadmap.
 - Framing: skipped. The issue names both helpers, their behaviour and the API it wants.
+- Archived 2026-10-12: `@softure-ai/testing/playwright` exports `createTestDatabaseClient` and `signInPerFile`.
