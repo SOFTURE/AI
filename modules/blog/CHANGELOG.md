@@ -6,6 +6,11 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- The method page takes the app's own sections (#380). `BlogMethodPage({ sections })` and
+  `BlogMethodView({ context, sections })` take `BlogMethodSection[]` (`{ id, title, body }`, `body` a node or a string
+  in a paragraph) in place of the five default sections, so a section can hold a list, a link or a `mailto:` address.
+  The AI disclosure still opens the page and the footer note still closes it. New types: `BlogMethodSection`,
+  `BlogMethodViewProps` (`/ui`), `BlogMethodPageProps` (`/next`).
 - Fact rules read the value where the pattern points and check every year (#379). A pattern with a capture group
   reads the value from group 1 (its first number), so a sentence that quotes another amount before the keyword no
   longer fails; without a group 1 holding a number the value is the first number of the sentence, as before. The value passes when
