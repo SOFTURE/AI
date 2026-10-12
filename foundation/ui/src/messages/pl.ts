@@ -36,6 +36,19 @@ export const pl: typeof en = {
   externalLink: {
     newTab: "(otwiera się w nowej karcie)",
   },
+  appShell: {
+    accountMenu: "Konto",
+    mobileMenu: "Menu",
+  },
+  stepper: {
+    progress: "Krok {current} z {total}",
+    completed: "(ukończony)",
+  },
+  checklist: {
+    progress: "Zrobione: {done} z {total}",
+    done: "(zrobione)",
+    todo: "(do zrobienia)",
+  },
   colorField: {
     picker: "Wybierz kolor: {label}",
   },

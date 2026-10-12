@@ -1,9 +1,17 @@
 // @vitest-environment happy-dom
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { formatMessage } from "@softure-ai/core";
+import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  AccountMenu,
+  AppHeaderBar,
   CheckboxField,
+  Checklist,
+  DeferredRender,
+  type LinkComponentProps,
+  MobileMenu,
+  Stepper,
   ColorField,
   ConfirmActionButton,
   type ConfirmActionResult,
@@ -211,5 +219,159 @@ describe("ConfirmActionButton formAction (#407 comment)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
     expect(await screen.findByText("Already gone.")).toBeDefined();
     expect(screen.getByRole("dialog")).toBeDefined();
+  });
+});
+
+function TestLink(props: LinkComponentProps) {
+  return <a data-router="" {...props} />;
+}
+
+describe("AppHeaderBar, AccountMenu and MobileMenu (#407.1)", () => {
+  it("renders a sticky banner with the brand, the navigation, the actions and the phone menu", () => {
+    const html = renderToStaticMarkup(
+      <AppHeaderBar brand={<a href="/">App</a>} nav={<nav aria-label="Main">x</nav>} actions={<span>actions</span>} mobileMenu={<span>menu</span>} />,
+    );
+    expect(html.startsWith("<header data-sticky")).toBe(true);
+    expect(html).toContain("sft:sticky");
+    expect(html).toContain('<div class="sft:md:hidden"><span>menu</span></div>');
+    expect(renderToStaticMarkup(<AppHeaderBar brand="App" isSticky={false} />)).not.toContain("sft:sticky");
+  });
+
+  it("names the account menu from messages and shows who is signed in, the links and the sign-out", () => {
+    render(
+      <AccountMenu name="Ada Lovelace" email="ada@example.com" footer={<button type="submit">Sign out</button>}>
+        <a href="/settings">Settings</a>
+      </AccountMenu>,
+    );
+    const trigger = screen.getByRole("button", { name: "Account" });
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(trigger);
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByText("Ada Lovelace")).toBeDefined();
+    expect(screen.getByText("ada@example.com")).toBeDefined();
+    expect(screen.getByRole("link", { name: "Settings" })).toBeDefined();
+    expect(screen.getByRole("button", { name: "Sign out" })).toBeDefined();
+  });
+
+  it("lists the phone navigation's links with the current page, through the app's link, and closes on a link click", () => {
+    render(
+      <MobileMenu
+        LinkComponent={TestLink}
+        items={[
+          { href: "/", label: "Overview", isCurrent: true },
+          { href: "/plans", label: "Plans" },
+        ]}
+      />,
+    );
+    const trigger = screen.getByRole("button", { name: "Menu" });
+    fireEvent.click(trigger);
+    const nav = screen.getByRole("navigation", { name: "Menu" });
+    const overview = screen.getByRole("link", { name: "Overview" });
+    expect(nav.contains(overview)).toBe(true);
+    expect(overview.getAttribute("aria-current")).toBe("page");
+    expect(overview.hasAttribute("data-router")).toBe(true);
+    expect(screen.getByRole("link", { name: "Plans" }).getAttribute("aria-current")).toBeNull();
+    fireEvent.click(screen.getByRole("link", { name: "Plans" }));
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("names both menus in Polish from the provider", () => {
+    render(
+      <UiLocaleProvider locale="pl">
+        <AccountMenu />
+        <MobileMenu items={[]} />
+      </UiLocaleProvider>,
+    );
+    expect(screen.getByRole("button", { name: uiMessages.pl.appShell.accountMenu })).toBeDefined();
+    expect(screen.getByRole("button", { name: uiMessages.pl.appShell.mobileMenu })).toBeDefined();
+  });
+});
+
+describe("Stepper (#407.3)", () => {
+  const steps = [
+    { id: "account", label: "Account", href: "/start/account" },
+    { id: "profile", label: "Profile", href: "/start/profile" },
+    { id: "plan", label: "Plan", href: "/start/plan" },
+  ] as const;
+
+  it("marks the current step, links back to completed ones and never forward", () => {
+    render(<Stepper steps={steps} current="profile" label="Sign-up steps" LinkComponent={TestLink} showProgress />);
+    const nav = screen.getByRole("navigation", { name: "Sign-up steps" });
+    expect(nav.querySelector("ol")).not.toBeNull();
+    expect(screen.getByText("Step 2 of 3")).toBeDefined();
+    const back = screen.getByRole("link", { name: "Account (completed)" });
+    expect(back.getAttribute("href")).toBe("/start/account");
+    expect(back.hasAttribute("data-router")).toBe(true);
+    expect(screen.getAllByRole("link")).toHaveLength(1);
+    const current = screen.getByText("Profile").parentElement;
+    expect(current?.getAttribute("aria-current")).toBe("step");
+    expect(nav.querySelectorAll("li")[2]?.getAttribute("data-state")).toBe("upcoming");
+  });
+
+  it("goes back through onStepSelect when a completed step has no href, and shows icons or numbers", () => {
+    const onStepSelect = vi.fn<(id: "a" | "b" | "c") => void>();
+    render(
+      <Stepper
+        steps={[
+          { id: "a", label: "First" },
+          { id: "b", label: "Second", icon: <svg data-testid="icon" /> },
+          { id: "c", label: "Third" },
+        ]}
+        current="b"
+        label="Steps"
+        onStepSelect={onStepSelect}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "First (completed)" }));
+    expect(onStepSelect).toHaveBeenCalledWith("a");
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+    expect(screen.getByTestId("icon")).toBeDefined();
+    expect(screen.getByText("3")).toBeDefined();
+  });
+});
+
+describe("Checklist (#407.4)", () => {
+  it("counts the done items and links the open ones, with the state read out", () => {
+    render(
+      <Checklist
+        LinkComponent={TestLink}
+        items={[
+          { id: "profile", label: "Fill in your profile", done: true, href: "/profile" },
+          { id: "goal", label: "Add a goal", done: false, href: "/goals/new", description: "Takes a minute." },
+          { id: "invite", label: "Invite a partner", done: false },
+        ]}
+      />,
+    );
+    expect(screen.getByText("1 of 3 done")).toBeDefined();
+    expect(screen.getAllByRole("link")).toHaveLength(1);
+    const goal = screen.getByRole("link", { name: "Add a goal (to do)" });
+    expect(goal.getAttribute("href")).toBe("/goals/new");
+    expect(goal.hasAttribute("data-router")).toBe(true);
+    expect(screen.getByText("Fill in your profile").closest("li")?.hasAttribute("data-done")).toBe(true);
+    expect(screen.getByText("Takes a minute.")).toBeDefined();
+    expect(screen.getAllByRole("listitem")).toHaveLength(3);
+  });
+
+  it("can hide the count", () => {
+    render(<Checklist showProgress={false} items={[{ id: "a", label: "A", done: false }]} />);
+    expect(screen.queryByText("0 of 1 done")).toBeNull();
+  });
+});
+
+describe("DeferredRender (#407.6)", () => {
+  it("shows the fallback while the data is pending", () => {
+    const pending = new Promise<number>(() => undefined);
+    render(<DeferredRender data={pending} fallback={<p>Loading…</p>}>{(value) => <p>Total {value}</p>}</DeferredRender>);
+    expect(screen.getByText("Loading…")).toBeDefined();
+  });
+
+  it("renders the resolved data in place of the fallback", async () => {
+    const data = Promise.resolve(42);
+    await act(async () => {
+      render(<DeferredRender data={data} fallback={<p>Loading…</p>}>{(value) => <p>Total {value}</p>}</DeferredRender>);
+      await data;
+    });
+    expect(document.body.textContent).toContain("Total 42");
+    expect(screen.queryByText("Loading…")).toBeNull();
   });
 });

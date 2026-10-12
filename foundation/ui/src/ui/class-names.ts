@@ -26,3 +26,9 @@ export function createSlotClassGetter<Slot extends string>(options: {
 }): (slot: Slot) => string | undefined {
   return (slot) => getSlotClass({ slot, ...options });
 }
+
+/** The given classes joined by spaces, empty parts dropped; `undefined` when none is left. */
+export function joinClasses(...parts: readonly (string | undefined)[]): string | undefined {
+  const joined = parts.filter((part) => part !== undefined && part !== "").join(" ");
+  return joined === "" ? undefined : joined;
+}
