@@ -1,7 +1,7 @@
 ---
 change_id: blog-fact-rule-value
 title: "blog: fact rules read the value a pattern captures, check every year of the sentence and can warn on an unknown year (issue #379)"
-status: planned
+status: implemented
 roadmap_item: null
 issue: 379
 branch: claude/project-thread-im36jo
@@ -34,7 +34,7 @@ are batched by the coordinator). Issue #380 touches the same package and starts 
 
 ## Constraints
 
-- A rule whose patterns have no capture group reads the value as today (first number of the sentence).
+- A rule whose patterns have no group 1 holding a number reads the value as today (first number of the sentence).
 - The default `onUnknownYear` is `"skip"`, today's behaviour.
 - English-only code, tests and docs.
 

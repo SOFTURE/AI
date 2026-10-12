@@ -8,7 +8,7 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 - Fact rules read the value where the pattern points and check every year (#379). A pattern with a capture group
   reads the value from group 1 (its first number), so a sentence that quotes another amount before the keyword no
-  longer fails; a pattern without a group reads the first number of the sentence as before. The value passes when
+  longer fails; without a group 1 holding a number the value is the first number of the sentence, as before. The value passes when
   it is one of the values of any year the sentence names, not only the first. `onUnknownYear: "warn"` (default
   `"skip"`) makes a sentence none of whose years has values a warning of the rule's id.
 

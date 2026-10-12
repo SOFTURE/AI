@@ -35,16 +35,16 @@ describe("the value of a fact rule (#379, 1)", () => {
     expect(check(limitRule([CAPTURED]), "The IKE limit for 2025 was 23,475.")).toEqual([]);
   });
 
-  it("leaves the sentence unchecked when group 1 does not take part or holds no number", () => {
-    const optional = /IKE limit(?:\D*(\d.*))?/i;
-    expect(check(limitRule([optional]), "Paying in 1,000 a month, you will not reach the IKE limit.")).toEqual([]);
-    expect(check(limitRule([/IKE (limit)/i]), "Paying in 1,000 a month, you will not reach the IKE limit.")).toEqual([]);
+  it("reads the first number of the sentence when no group 1 holds a number, as before", () => {
+    const mismatch = [{ rule: "ike-limit", severity: "error", message: "the yearly IKE limit: 1,000 does not match the 2026 value (26019)", line: 22 }];
+    const sentence = "Paying in 1,000 a month, you will not reach the IKE limit.";
+    expect(check(limitRule([/IKE limit/i]), sentence)).toEqual(mismatch);
+    expect(check(limitRule([/IKE limit(?:\D*(\d.*))?/i]), sentence)).toEqual(mismatch);
+    expect(check(limitRule([/(the|an) IKE limit/i]), sentence)).toEqual(mismatch);
   });
 
-  it("reads the first number of the sentence when the pattern has no group, as before", () => {
-    expect(check(limitRule([/IKE limit/i]), "Paying in 1,000 a month, you will not reach the IKE limit.")).toEqual([
-      { rule: "ike-limit", severity: "error", message: "the yearly IKE limit: 1,000 does not match the 2026 value (26019)", line: 22 },
-    ]);
+  it("leaves a sentence that does not match the capturing pattern alone", () => {
+    expect(check(limitRule([CAPTURED]), "Paying in 1,000 a month, you will not reach the IKE limit.")).toEqual([]);
   });
 
   it("takes the first pattern whose group holds a number", () => {

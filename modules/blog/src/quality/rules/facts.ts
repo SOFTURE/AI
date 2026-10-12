@@ -1,5 +1,5 @@
 // The fact rules of `quality.facts` (issues #318, #379): in every sentence of the body that quotes a rule,
-// the value (the first number of a capturing pattern's group 1, else the first number of the sentence)
+// the value (the first number of a pattern's group 1, else the first number of the sentence)
 // must be one of the values the rule allows for a year the sentence names (else the year of
 // `current_as_of`). A sentence none of whose years has values passes, or warns with `onUnknownYear: "warn"`.
 import { isFactSentence, toFactUnit, type FactRule } from "../facts.js";
@@ -60,29 +60,22 @@ function checkSentence(
 }
 
 /**
- * The value a sentence quotes for a rule: the first number of group 1 of the first matching pattern that
- * captures, else (no matching pattern captures) the first number of the sentence; `null` for none.
+ * The value a sentence quotes for a rule: the first number of group 1 of the first matching pattern whose
+ * group 1 holds one, else the first number of the sentence (a group used only to group keywords, like
+ * `(of|for)`, changes nothing); `null` for none.
  */
 export function readFactValue(sentence: string, rule: Pick<FactRule, "patterns">, notation: NumberNotation): QuotedValue | null {
-  const matching = rule.patterns.filter((pattern) => sentence.search(pattern) !== -1);
-  const capturing = matching.filter(hasCaptureGroup);
-  if (capturing.length === 0) return readSentence(sentence, notation).value;
-  for (const pattern of capturing) {
+  for (const pattern of rule.patterns) {
     const group = toOneShot(pattern).exec(sentence)?.[1];
     const value = group === undefined ? null : readSentence(group, notation).value;
     if (value !== null) return value;
   }
-  return null;
+  return readSentence(sentence, notation).value;
 }
 
 /** A copy without `g` and `y`, so `exec` starts at 0 and the app's regular expression keeps its `lastIndex`. */
-function toOneShot(pattern: RegExp, source = pattern.source): RegExp {
-  return new RegExp(source, pattern.flags.replace(/[gy]/g, ""));
-}
-
-function hasCaptureGroup(pattern: RegExp): boolean {
-  // An alternative that matches the empty string makes `exec` report every group of the pattern.
-  return (toOneShot(pattern, `${pattern.source}|`).exec("")?.length ?? 1) > 1;
+function toOneShot(pattern: RegExp): RegExp {
+  return new RegExp(pattern.source, pattern.flags.replace(/[gy]/g, ""));
 }
 
 interface SentenceValues {

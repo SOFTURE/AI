@@ -187,7 +187,7 @@ export const ikeLimit = factRule({
   id: "ike-limit",
   description: "the yearly IKE contribution limit",
   // a sentence that quotes the value; group 1, when there is one, is where the value stands
-  patterns: [/IKE limit\D*(\d.*)/i, /limit (of|for) IKE/i],
+  patterns: [/IKE limit\D*(\d.*)/i, /limit (?:of|for) IKE/i],
   allowedValues: (year) => ({ 2025: [2_652_000], 2026: [2_826_050] })[year], // nothing: the year is not checked
   unit: "cents",       // "value" (default), "cents" or "bps": the values are hundredths of the text's number
   expires: "yearly",   // "yearly", "quarterly" or "never" (default), for softure-blog refresh
@@ -197,10 +197,9 @@ export const ikeLimit = factRule({
 ```
 
 In every sentence of the body that matches a pattern, the value is the first number (years and legal
-references skipped) of group 1 of the first matching pattern that has a capture group, so "Paying in
-1,000 a month keeps you under the IKE limit of 28,260.50" reads 28,260.50. A capturing pattern whose
-group 1 holds no number (or does not take part) leaves the sentence unchecked. When no matching pattern
-captures, the value is the first number of the sentence. The sentence's years are every year it names,
+references skipped) of group 1 of the first pattern that captures one, so "Paying in 1,000 a month
+keeps you under the IKE limit of 28,260.50" reads 28,260.50. Without such a group (none, or no number
+in it) the value is the first number of the sentence. The sentence's years are every year it names,
 else the year of `current_as_of`; the value passes when it is one of `allowedValues(year)` for any of
 them, and is otherwise a finding of the rule's id. When none of the years has values, the sentence
 passes unchecked, or with `onUnknownYear: "warn"` is a warning of the rule's id ("no value known for

@@ -29,8 +29,8 @@ export const factRuleSchema = z.strictObject({
   /** What the value is, e.g. "the yearly IKE contribution limit". */
   description: z.string().trim().min(1),
   /**
-   * Keywords of a sentence that quotes the value; a `g` flag does no harm. A pattern with a capture group
-   * points at the value: the first number of group 1 (nothing there leaves the sentence unchecked).
+   * Keywords of a sentence that quotes the value; a `g` flag does no harm. A group 1 points at the value:
+   * its first number, else (no group, or no number in it) the first number of the sentence.
    */
   patterns: z.array(z.instanceof(RegExp, { error: "must be a regular expression" })).min(1, "needs at least one pattern"),
   allowedValues: z.custom<FactValues>((value) => typeof value === "function", "must be a function (year) => number[]"),

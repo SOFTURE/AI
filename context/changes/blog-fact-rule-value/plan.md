@@ -1,6 +1,6 @@
 ---
 change_id: blog-fact-rule-value
-status: planned
+status: implemented
 ---
 
 # Plan: fact rules read a captured value, every year, warn on an unknown year (issue #379)
@@ -9,12 +9,13 @@ Input: change.md, research.md. Complexity: small (one rule of one package).
 
 ## Decisions (auto)
 
-1. **Captured value.** A pattern with a capture group says where the value stands: among the matching patterns that
-   have a group, the first one whose group 1 holds a number gives the value (its first number, years and legal
-   references skipped, as today). A capturing pattern whose group 1 holds no number or does not take part leaves the
-   sentence unchecked: the app said where the value is, and nothing is there. When no matching pattern has a group,
-   the value is the first number of the sentence (today). Taken from the issue's proposal; a "first number after the
-   keyword" default would change today's results for every existing rule.
+1. **Captured value.** A pattern's group 1 says where the value stands: the first matching pattern whose group 1
+   holds a number gives the value (its first number, years and legal references skipped, as today). Without such a
+   group (no group, a group that does not take part, or one with no number) the value is the first number of the
+   sentence (today), so a group that only groups keywords (`(of|for)`) changes nothing. Taken from the issue's
+   proposal; a "first number after the keyword" default would change today's results for every existing rule.
+   (Revised in the implementation review: the first draft left a sentence unchecked when a capturing pattern's group
+   held no number, which silently skipped sentences of rules with keyword groups.)
 2. **Every year.** The sentence's years are all distinct years in it (else the year of `current_as_of`). The value
    passes when it is one of the values of any of those years. Years whose values are unknown are ignored when another
    year is known. A mismatch message names every known year with its values. Not opt-in: it only makes a sentence with
@@ -50,4 +51,4 @@ runs typecheck. The tests were run red against the unchanged rule first (7 of 11
 
 ## Progress
 
-- [ ] Phase 1: tests and implementation
+- [x] Phase 1: tests and implementation (`bacf1e9`; review fixes in the next commit)
