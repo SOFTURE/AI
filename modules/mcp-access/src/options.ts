@@ -125,6 +125,15 @@ export const mcpAccessOptionsSchema = z
   .strictObject({
     /** The name MCP clients list the server under, e.g. "acme". Used in the setup instructions. */
     serverName: z.string().regex(SERVER_NAME_PATTERN, "must be lowercase letters, digits and inner dashes, at most 64 characters"),
+    /**
+     * The name the setup snippets register the server under in an MCP client (`claude mcp add`, the
+     * JSON configs, the assistant prompt), when it differs from `serverName`: an app keeps the entry its
+     * users already added. Unset, `serverName`.
+     */
+    clientServerName: z
+      .string()
+      .regex(SERVER_NAME_PATTERN, "must be lowercase letters, digits and inner dashes, at most 64 characters")
+      .optional(),
     /** The app's tool catalog, shown on the token page. The MCP server itself comes from the route. */
     tools: z.array(toolSchema).default([]),
     /** Lets write tokens be issued and used. Off, every token reads only, write tokens included. */
