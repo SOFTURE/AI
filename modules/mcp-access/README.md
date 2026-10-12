@@ -195,7 +195,7 @@ claude mcp add acme -e MCP_USER_ID=<account id> -- npx tsx --import @softure-ai/
 
 - The account: `MCP_USER_ID` (or `userIdEnv`) when set, which must name an account; else the only account in the
   database. With several accounts and no id the entry refuses (`mcp-access.stdio_account_ambiguous`): it never
-  picks one.
+  picks one. The lookup is `resolveOnlyAccount` from `@softure-ai/auth/server`, which an app's own scripts can use too.
 - `canWrite` needs `allowWrites: true` here and the app's `allowWrites`. The token id is `"stdio"`.
 - The database opens like a package command's (`database.handle`, else `database.url`) and closes with the
   connection. Messages go to stderr; stdout is the protocol.

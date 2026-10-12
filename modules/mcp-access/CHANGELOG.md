@@ -6,6 +6,8 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- The stdio entry resolves its account with `resolveOnlyAccount` from `@softure-ai/auth/server` instead of a private
+  copy; codes and messages are unchanged (#411). Needs the auth release that exports it.
 - `issueToken` can replace an app's own token-issue action (#386):
   - `mcpAccess({ clientServerName })` (default `serverName`): the name the setup snippets register the server under
     (`claude mcp add`, the JSON configs, the assistant prompt), so users keep the entry they already added.
