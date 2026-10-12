@@ -2,6 +2,7 @@
 // is held to a narrow pattern here and the templates never quote or escape anything.
 import { z } from "zod";
 import { parseTableList } from "../db/row-counts.js";
+import { POSTGRES_ROLE } from "./compose-facts.js";
 
 /** Lower-case DNS name with at least two labels (`example.com`, `app.example.co.uk`). */
 const DOMAIN = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
@@ -64,6 +65,11 @@ export const initAnswersSchema = z.strictObject({
   }),
   workflowsRef: z.string().regex(COMMIT_SHA, "a full commit SHA of SOFTURE/AI (40 hex characters)").optional(),
   cdn: z.enum(CDNS, { error: "cloudflare, the only CDN init knows" }).optional(),
+  /** The role `deploy.sh`'s report reads as, for an app whose compose file does not name it in DATABASE_URL. */
+  reportRole: z
+    .string()
+    .regex(POSTGRES_ROLE, "a Postgres role name: letters, digits and _, starting with a letter or _, at most 63")
+    .optional(),
 });
 
 export type InitAnswers = z.infer<typeof initAnswersSchema>;

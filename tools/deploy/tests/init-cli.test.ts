@@ -209,8 +209,30 @@ describe("softure-deploy init", () => {
       expect(script).toContain("REPORT_ROLE=softure_app\n");
       expect(warnings).toEqual([
         "warning docker/prod/docker-compose.yml: no Postgres major version in the postgres service's image; deploy.sh's tools image carries pg_dump 16",
-        "warning docker/prod/docker-compose.yml: no role in the app service's DATABASE_URL; deploy.sh's report reads as softure_app",
+        "warning docker/prod/docker-compose.yml: no role in the app service's DATABASE_URL; deploy.sh's report reads as softure_app (name the role with --report-role=<role>)",
       ]);
+    });
+
+    it("reports as --report-role when the compose file's URL comes from a variable", async () => {
+      writeCompose("postgres:17-alpine", "${DATABASE_URL:?}");
+      const { script, warnings } = await runInit("--report-role=ledger_app");
+      expect(script).toContain("REPORT_ROLE=ledger_app\n");
+      expect(warnings).toEqual([]);
+    });
+
+    it("reports as --report-role over the compose file's role and over a replaced compose file", async () => {
+      writeCompose("postgres:17-alpine", "postgresql://ledger_app:${LEDGER_APP_PASSWORD:?}@postgres:5432/ledger");
+      expect((await runInit("--report-role=shop_app")).script).toContain("REPORT_ROLE=shop_app\n");
+      expect((await runInit("--force", "--report-role=shop_app")).script).toContain("REPORT_ROLE=shop_app\n");
+    });
+
+    it("refuses a --report-role that is not a Postgres role name and writes nothing", async () => {
+      writeApp(DATABASE_APP);
+      expect(await runCli(["init", ...REQUIRED, "--report-role=ledger-app;id"], makeIo())).toBe(1);
+      expect(err.join("")).toBe(
+        "init: nothing written; reportRole: a Postgres role name: letters, digits and _, starting with a letter or _, at most 63.\n",
+      );
+      expect(existsSync(join(dir, "docker/server/deploy.sh"))).toBe(false);
     });
 
     it("keeps the major but reports as softure_app when --force replaces the compose file", async () => {
