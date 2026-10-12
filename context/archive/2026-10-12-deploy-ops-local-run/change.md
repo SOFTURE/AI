@@ -1,12 +1,13 @@
 ---
 change_id: deploy-ops-local-run
 title: "deploy: a fake ssh for tests and run --local against DATABASE_URL (issue #405)"
-status: implementing
+status: archived
 roadmap_item: null
 issue: 405
 branch: claude/project-thread-ud7iop
 created: 2026-10-12
 updated: 2026-10-12
+archived_at: 2026-10-12
 ---
 
 ## Intent

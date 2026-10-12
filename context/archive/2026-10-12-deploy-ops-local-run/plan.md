@@ -1,6 +1,6 @@
 ---
 change_id: deploy-ops-local-run
-status: implementing
+status: archived
 ---
 
 # Plan: deploy ops local run and fake ssh (issue #405)
@@ -39,6 +39,9 @@ Files: `tools/deploy/src/cli/{remote-command,local-command,run}.ts`, `tests/loca
 
 ## Progress
 
-- [ ] Phase 1: `installFakeSsh`
-- [ ] Phase 2: `run --local`
-- [ ] Phase 3: docs
+- [x] Phase 1: `installFakeSsh` (`c53f1fd`; 12 new tests)
+- [x] Phase 2: `run --local` (`cdefa49`; 20 new tests, the remote tests unchanged)
+- [x] Phase 3: docs (`02e636c`)
+
+Gates on the branch: `npm run typecheck`, `npm run lint`, `npm run build` green; the deploy package's tests (670) and
+the repository tests (440) pass; the full `npm test` runs in pre-push.
