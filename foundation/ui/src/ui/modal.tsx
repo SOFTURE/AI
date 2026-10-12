@@ -1,14 +1,17 @@
 "use client";
 
 import {
+  createContext,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
   useCallback,
+  useContext,
   useEffect,
   useId,
   useLayoutEffect,
   useRef,
+  useState,
 } from "react";
 import { createPortal } from "react-dom";
 import { Button, IconButton } from "./button.js";
@@ -29,6 +32,12 @@ export type ModalWidth = "form" | "confirmation" | "panel";
 /** The title's element; `h2` by default. `1` for a panel that is the screen (its own address). */
 export type ModalHeadingLevel = 1 | 2 | 3;
 export type ModalSlot = "overlay" | "panel" | "header" | "heading" | "title" | "subtitle" | "close";
+/**
+ * `enter` (default): the dialog animates in and is gone the moment its owner unmounts it. `enter-leave`: closing
+ * from inside (Escape, the backdrop, the close button, `ModalFooter`'s Cancel, `useModalClose`) first sets
+ * `data-state="closing"` on the overlay and the panel and waits for their transitions or animations to end.
+ */
+export type ModalMotion = "enter" | "enter-leave";
 
 export interface ModalProps extends CopyProps<"modal"> {
   readonly title: string;
@@ -48,15 +57,116 @@ export interface ModalProps extends CopyProps<"modal"> {
    * backdrop and the close button do nothing.
    */
   readonly isDismissible?: boolean;
+  /** `enter` by default; `enter-leave` also animates the close (an app's keyframes key on `data-state`). */
+  readonly motion?: ModalMotion;
   readonly children: ReactNode;
   readonly classNames?: ClassNames<ModalSlot>;
   readonly unstyled?: boolean;
 }
 
+/** Closes the dialog the way its `motion` asks, then runs `after` (the owner's close). */
+type RequestClose = (after: () => void) => void;
+
+const ModalCloseContext = createContext<RequestClose | null>(null);
+
+/**
+ * For an app's own close button inside a `Modal`: `closeModal(onClose)` plays the leave motion first when the
+ * modal has `motion="enter-leave"`. Outside a modal, or without that motion, it runs `onClose` at once.
+ */
+export function useModalClose(): RequestClose {
+  return useContext(ModalCloseContext) ?? runAtOnce;
+}
+
+function runAtOnce(after: () => void): void {
+  after();
+}
+
+/** The longest wait from a list of CSS times ("0.2s, 150ms"). */
+function getLongestTime(durations: string, delays: string): number {
+  const toMs = (time: string) => (time.trim().endsWith("ms") ? Number.parseFloat(time) : Number.parseFloat(time) * 1000);
+  const delayList = delays.split(",");
+  return durations
+    .split(",")
+    .map((duration, index) => toMs(duration) + toMs(delayList[index % delayList.length] ?? "0s"))
+    .filter((time) => Number.isFinite(time))
+    .reduce((longest, time) => Math.max(longest, time), 0);
+}
+
+/** How long the leave motion of these elements runs, in ms; 0 when nothing moves. */
+function getLeaveTime(elements: readonly (HTMLElement | null)[]): number {
+  return elements.reduce((longest, element) => {
+    if (element === null) return longest;
+    const style = getComputedStyle(element);
+    return Math.max(
+      longest,
+      getLongestTime(style.transitionDuration || "0s", style.transitionDelay || "0s"),
+      getLongestTime(style.animationDuration || "0s", style.animationDelay || "0s"),
+    );
+  }, 0);
+}
+
+/** A leave motion that never ends (a missing `transitionend`) still closes after this. */
+const LEAVE_TIMEOUT_MS = 1000;
+
+/**
+ * The close path of a dialog: at once for `enter`; for `enter-leave`, `closing` first and `after` when the
+ * overlay's and the panel's transitions or animations end (or straight away when none runs).
+ */
+function useLeaveMotion(motion: ModalMotion, overlayRef: { readonly current: HTMLElement | null }, panelRef: { readonly current: HTMLElement | null }) {
+  const [isClosing, setIsClosing] = useState(false);
+  const pendingCloseRef = useRef<(() => void) | null>(null);
+
+  const requestClose = useCallback<RequestClose>(
+    (after) => {
+      if (motion === "enter") {
+        after();
+        return;
+      }
+      if (pendingCloseRef.current !== null) return;
+      pendingCloseRef.current = after;
+      setIsClosing(true);
+    },
+    [motion],
+  );
+
+  useEffect(() => {
+    const after = pendingCloseRef.current;
+    const overlay = overlayRef.current;
+    if (!isClosing || after === null || overlay === null) return;
+    let isDone = false;
+    const finish = () => {
+      if (isDone) return;
+      isDone = true;
+      // An owner that keeps the dialog mounted (it refused to close) gets it back open.
+      pendingCloseRef.current = null;
+      setIsClosing(false);
+      after();
+    };
+    const wait = getLeaveTime([overlay, panelRef.current]);
+    if (wait === 0) {
+      finish();
+      return;
+    }
+    const handleEnd = (event: Event) => {
+      if (event.target === overlay || event.target === panelRef.current) finish();
+    };
+    overlay.addEventListener("transitionend", handleEnd);
+    overlay.addEventListener("animationend", handleEnd);
+    const timer = setTimeout(finish, Math.min(wait + 50, LEAVE_TIMEOUT_MS));
+    return () => {
+      overlay.removeEventListener("transitionend", handleEnd);
+      overlay.removeEventListener("animationend", handleEnd);
+      clearTimeout(timer);
+    };
+  }, [isClosing, overlayRef, panelRef]);
+
+  return { isClosing, requestClose };
+}
+
 // The overlay animates in with `@starting-style` (`starting:`), so no keyframes or extra CSS. Its
 // colour is the `color-overlay` token.
 const OVERLAY_BASE =
-  "sft:fixed sft:inset-0 sft:z-50 sft:flex sft:bg-overlay sft:font-sans sft:transition-opacity sft:duration-(--sft-duration-base) sft:ease-(--sft-ease-out) sft:starting:opacity-0 sft:motion-reduce:transition-none";
+  "sft:fixed sft:inset-0 sft:z-50 sft:flex sft:bg-overlay sft:font-sans sft:transition-opacity sft:duration-(--sft-duration-base) sft:ease-(--sft-ease-out) sft:starting:opacity-0 sft:data-[state=closing]:pointer-events-none sft:data-[state=closing]:opacity-0 sft:motion-reduce:transition-none";
 
 const OVERLAY_LAYOUT: Readonly<Record<ModalWidth, string>> = {
   form: "sft:items-end sft:justify-center sft:sm:items-center sft:sm:p-4",
@@ -70,13 +180,13 @@ const PANEL_BASE =
 // On a phone a dialog is a sheet from the bottom; from `sm` it stands in the middle. The side panel
 // fills the height, so its body grows and the footer sits at the bottom edge.
 const SHEET =
-  "sft:max-h-[92dvh] sft:rounded-t-card sft:border sft:border-b-0 sft:starting:translate-y-4 sft:sm:max-h-[calc(100dvh-var(--sft-space-8)*2)] sft:sm:rounded-card sft:sm:border-b";
+  "sft:max-h-[92dvh] sft:rounded-t-card sft:border sft:border-b-0 sft:starting:translate-y-4 sft:data-[state=closing]:translate-y-4 sft:sm:max-h-[calc(100dvh-var(--sft-space-8)*2)] sft:sm:rounded-card sft:sm:border-b";
 
 const PANEL_WIDTH: Readonly<Record<ModalWidth, string>> = {
   form: `${SHEET} sft:sm:w-1/2 sft:sm:min-w-136 sft:sm:max-w-3xl`,
   confirmation: `${SHEET} sft:sm:max-w-md`,
   panel:
-    "sft:h-dvh sft:max-h-dvh sft:starting:translate-x-4 sft:sm:w-150 sft:sm:max-w-full sft:sm:border-l sft:[&_[data-modal-part=body]]:flex-1",
+    "sft:h-dvh sft:max-h-dvh sft:starting:translate-x-4 sft:data-[state=closing]:translate-x-4 sft:sm:w-150 sft:sm:max-w-full sft:sm:border-l sft:[&_[data-modal-part=body]]:flex-1",
 };
 
 const MODAL_CLASSES: Readonly<Record<Exclude<ModalSlot, "overlay" | "panel">, string>> = {
@@ -95,6 +205,7 @@ export function Modal({
   headingLevel = 2,
   onClose,
   isDismissible = true,
+  motion = "enter",
   children,
   classNames,
   unstyled,
@@ -108,10 +219,11 @@ export function Modal({
   const triggerRef = useRef<HTMLElement | null>(null);
   const pressedBackdropRef = useRef(false);
   const copy = getCopy("modal", { locale: useUiLocale(locale), messages });
+  const { isClosing, requestClose } = useLeaveMotion(motion, overlayRef, panelRef);
 
   const close = useCallback(() => {
-    if (isDismissible) onClose();
-  }, [isDismissible, onClose]);
+    if (isDismissible) requestClose(onClose);
+  }, [isDismissible, onClose, requestClose]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -170,10 +282,18 @@ export function Modal({
   });
 
   const Heading = `h${headingLevel}` as const;
+  const state = isClosing ? "closing" : "open";
   const overlay = (
-    <div ref={overlayRef} onMouseDown={handleBackdropMouseDown} onClick={handleBackdropClick} className={slot("overlay")}>
+    <div
+      ref={overlayRef}
+      data-state={state}
+      onMouseDown={handleBackdropMouseDown}
+      onClick={handleBackdropClick}
+      className={slot("overlay")}
+    >
       <div
         ref={panelRef}
+        data-state={state}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -203,7 +323,7 @@ export function Modal({
             <CloseIcon />
           </IconButton>
         </div>
-        {children}
+        <ModalCloseContext value={requestClose}>{children}</ModalCloseContext>
       </div>
     </div>
   );
@@ -389,6 +509,7 @@ export interface ModalFooterProps extends CopyProps<"modal"> {
 /** The dialog's actions: Cancel, then the primary action; leaves room for a phone's home bar. */
 export function ModalFooter({ onCancel, isPending = false, error, children, classNames, unstyled, locale, messages }: ModalFooterProps) {
   const copy = getCopy("modal", { locale: useUiLocale(locale), messages });
+  const closeModal = useModalClose();
   const slot = createSlotClassGetter<ModalFooterSlot>({
     defaults: {
       root: "sft:flex sft:shrink-0 sft:flex-col sft:gap-3 sft:border-t sft:border-border sft:px-5 sft:pt-3 sft:pb-[max(var(--sft-space-3),env(safe-area-inset-bottom))]",
@@ -402,7 +523,7 @@ export function ModalFooter({ onCancel, isPending = false, error, children, clas
     <div data-modal-part="footer" className={slot("root")}>
       <FormError message={error} unstyled={unstyled} />
       <div className={slot("actions")}>
-        <Button variant="secondary" onClick={onCancel} disabled={isPending} className={classNames?.cancel} unstyled={unstyled}>
+        <Button variant="secondary" onClick={() => closeModal(onCancel)} disabled={isPending} className={classNames?.cancel} unstyled={unstyled}>
           {copy.cancel}
         </Button>
         {children}

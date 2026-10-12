@@ -5,7 +5,7 @@ import { ActionForm, type ActionFormProps } from "./action-form.js";
 import { IconButton, type IconButtonSlot } from "./button.js";
 import type { ClassNames } from "./class-names.js";
 import { PlusIcon } from "./icons.js";
-import { Modal, type ModalHeadingLevel, type ModalSlot, type ModalWidth } from "./modal.js";
+import { Modal, type ModalHeadingLevel, type ModalMotion, type ModalSlot, type ModalWidth } from "./modal.js";
 
 // An `ActionForm` in a `Modal`: the form's body and footer are the dialog's, a running save makes the
 // dialog not dismissible, and a successful save closes it. `ModalTrigger` adds the "+" button that opens
@@ -26,13 +26,15 @@ export interface ActionFormModalOptions {
   /** Cancel, Escape, the backdrop, the close button, and a successful save. */
   readonly onClose: () => void;
   readonly modalClassNames?: ClassNames<ModalSlot>;
+  /** The dialog's `motion`; `enter` by default. */
+  readonly modalMotion?: ModalMotion;
 }
 
 export type ActionFormModalProps = ActionFormModalFormProps & ActionFormModalOptions;
 
 /** A dialog holding one form that submits to a server action; render it while it is open. */
 export function ActionFormModal(props: ActionFormModalProps) {
-  const { title, subtitle, width, headingLevel, onClose, modalClassNames, onSuccess, ...formProps } = props;
+  const { title, subtitle, width, headingLevel, onClose, modalClassNames, modalMotion, onSuccess, ...formProps } = props;
   const [isPending, setIsPending] = useState(false);
   const handleSuccess = useCallback(() => {
     onSuccess?.();
@@ -46,6 +48,7 @@ export function ActionFormModal(props: ActionFormModalProps) {
       headingLevel={headingLevel}
       onClose={onClose}
       isDismissible={!isPending}
+      motion={modalMotion}
       locale={formProps.locale}
       messages={formProps.modalMessages}
       classNames={modalClassNames}

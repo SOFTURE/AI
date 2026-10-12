@@ -16,6 +16,7 @@ import {
 
 const UI_DIR = join(import.meta.dirname, "../src/ui");
 const sources = readSourceFiles(UI_DIR);
+const nextSources = readSourceFiles(join(import.meta.dirname, "../src/next"));
 
 describe("src/ui", () => {
   it("has components to check", () => {
@@ -42,5 +43,14 @@ describe("src/ui", () => {
 
   it("renders a raw <select> nowhere and calls createPortal only in Modal", () => {
     expect(findRestrictedElements(sources, { select: [], createPortal: ["modal.tsx"] })).toEqual([]);
+  });
+});
+
+describe("src/next", () => {
+  it("has no raw colour, no inline copy and no native tooltip", () => {
+    expect(nextSources.length).toBeGreaterThan(0);
+    expect(findRawColors(nextSources)).toEqual([]);
+    expect(findInlineCopy(nextSources)).toEqual([]);
+    expect(findNativeTooltips(nextSources)).toEqual([]);
   });
 });

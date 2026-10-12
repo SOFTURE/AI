@@ -50,6 +50,9 @@ export const en = {
     savings: "Savings",
     spending: "Spending",
     raise: "Raise",
+    seriesLabel: "Series",
+    bothSeries: "Both",
+    savingsOnly: "Savings only",
   },
   pricing: {
     title: "Plans",

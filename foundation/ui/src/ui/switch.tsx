@@ -37,6 +37,8 @@ export interface SwitchControlProps {
   readonly defaultChecked?: boolean;
   readonly onChange?: (checked: boolean) => void;
   readonly disabled?: boolean;
+  /** The switch must be on to submit. */
+  readonly required?: boolean;
   readonly size?: SwitchSize;
   /** For a switch that reveals a panel. */
   readonly "aria-expanded"?: boolean;
@@ -57,6 +59,7 @@ export function SwitchControl({
   defaultChecked,
   onChange,
   disabled,
+  required,
   size = "md",
   classNames,
   unstyled,
@@ -84,6 +87,7 @@ export function SwitchControl({
         defaultChecked={defaultChecked}
         onChange={onChange === undefined ? undefined : (event) => onChange(event.target.checked)}
         disabled={disabled}
+        required={required}
         className={slot("input")}
       />
       <span aria-hidden="true" className={slot("track")} />

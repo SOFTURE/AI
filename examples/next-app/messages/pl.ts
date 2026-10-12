@@ -52,6 +52,9 @@ export const pl: AppMessages = {
     savings: "Oszczędności",
     spending: "Wydatki",
     raise: "Podwyżka",
+    seriesLabel: "Serie",
+    bothSeries: "Obie",
+    savingsOnly: "Tylko oszczędności",
   },
   pricing: {
     title: "Plany",
