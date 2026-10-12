@@ -1,8 +1,9 @@
 // ESLint flat config preset for a SOFTURE app: recommended JS and type-checked TypeScript rules,
 // the build output ignored, and two test rules (integration tests as a black box, `test` from the
 // app's fixtures). Next.js rules come in through `extends`, so the preset needs no Next package.
+// The type-checked rules cover TypeScript files only: JavaScript files (`*.mjs` configs) have no type information.
 import js from "@eslint/js";
-import type { Linter } from "eslint";
+import type { ESLint, Linter } from "eslint";
 import { defineConfig, globalIgnores } from "eslint/config";
 import globals from "globals";
 import tseslint from "typescript-eslint";
@@ -47,6 +48,9 @@ export const DEFAULT_IGNORES = [
 export const DEFAULT_INTEGRATION_FILES = ["integration/**"];
 export const DEFAULT_APP_SOURCE = ["@/*"];
 export const DEFAULT_FIXTURES_FILES = ["e2e/**", "integration/**"];
+export const TYPESCRIPT_FILES = ["**/*.{ts,tsx,mts,cts}"];
+
+const TYPESCRIPT_PLUGIN = "@typescript-eslint";
 
 const RULE = "no-restricted-imports";
 
@@ -111,20 +115,45 @@ function getTestImportConfigs(options: SoftureEslintOptions): Linter.Config[] {
   return configs;
 }
 
+/**
+ * The `@typescript-eslint` plugin a config in `extends` registers (Next's does), else the preset's own. Reusing it
+ * keeps two installed copies of typescript-eslint from failing with "Cannot redefine plugin".
+ */
+function getTypeScriptPlugin(extendsConfigs: Linter.Config[]): ESLint.Plugin {
+  const registered = extendsConfigs.find((config) => config.plugins?.[TYPESCRIPT_PLUGIN])?.plugins?.[TYPESCRIPT_PLUGIN];
+  return registered ?? tseslint.plugin;
+}
+
+/**
+ * typescript-eslint's type-checked configs with their rules and parser scoped to TypeScript files. The plugin stays
+ * registered for every file, so a JavaScript file may still name one of its rules in an `eslint-disable` comment.
+ */
+function getTypeCheckedConfigs(plugin: ESLint.Plugin): Linter.Config[] {
+  return (tseslint.configs.recommendedTypeChecked as Linter.Config[]).flatMap(({ plugins, ...config }) => [
+    ...(plugins ? [{ name: "softure/typescript-plugin", plugins: { ...plugins, [TYPESCRIPT_PLUGIN]: plugin } }] : []),
+    { ...config, files: config.files ?? TYPESCRIPT_FILES },
+  ]);
+}
+
 /** The app's whole flat config: `export default createSoftureEslintConfig({ tsconfigRootDir: import.meta.dirname })`. */
 export function createSoftureEslintConfig(options: SoftureEslintOptions): Linter.Config[] {
+  const extendsConfigs = options.extends ?? [];
   return defineConfig([
     globalIgnores([...DEFAULT_IGNORES, ...(options.ignores ?? [])]),
     js.configs.recommended,
-    tseslint.configs.recommendedTypeChecked,
+    ...getTypeCheckedConfigs(getTypeScriptPlugin(extendsConfigs)),
+    { name: "softure/language-options", languageOptions: { globals: { ...globals.browser, ...globals.node } } },
+    ...extendsConfigs,
+    // After `extends`: the type-checked rules need typescript-eslint's parser with type information, whatever
+    // parser an extended config (Next's Babel parser) sets for TypeScript files.
     {
-      name: "softure/language-options",
+      name: "softure/typescript-parser",
+      files: TYPESCRIPT_FILES,
       languageOptions: {
-        globals: { ...globals.browser, ...globals.node },
+        parser: tseslint.parser,
         parserOptions: { projectService: true, tsconfigRootDir: options.tsconfigRootDir },
       },
     },
-    ...(options.extends ?? []),
     ...getTestImportConfigs(options),
   ]);
 }
