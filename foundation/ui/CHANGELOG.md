@@ -4,6 +4,18 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`ui@x.y.z`).
 
+## Unreleased
+
+- Four gaps in the interaction components, found adopting them (#372):
+  - `ConfirmActionButton` takes `modalClassNames` (the dialog's `Modal` slots) and a `cancel` slot for the footer's
+    Cancel button.
+  - `useDisclosure` and `DisclosureMenu` take `closeOutsideOn: "pointerdown" | "click"` (`pointerdown` by default):
+    `click` keeps a panel in the document flow open until the outside click lands.
+  - `ServerExternalLink`: `ExternalLink` without client code, the locale and copy by props. `getExternalRel` moved
+    to that server-safe module (same import from `@softure-ai/ui`), so a server component can call it.
+  - `useDismissed(key, days, { initial })`: `"shown"` renders the notice before hydration (prerendered HTML contains
+    it); `"dismissed"` stays the default. The README shows how to migrate a value stored in another format.
+
 ## 0.1.16
 
 - `TextField` and `MoneyField` can be controlled: `value` with `onValueChange` (the text after every edit). A

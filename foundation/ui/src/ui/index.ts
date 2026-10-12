@@ -16,6 +16,7 @@ export * from "./copy-button.js";
 export * from "./confirm-action-button.js";
 export * from "./disclosure-menu.js";
 export * from "./external-link.js";
+export * from "./server-external-link.js";
 export * from "./feedback.js";
 export * from "./field.js";
 export {
