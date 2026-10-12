@@ -30,6 +30,7 @@ import {
   GlossaryTermPage,
 } from "@softure-ai/blog/next";
 import { findArticlesLinkingTerm, renderPageBody, runBlogPublish } from "@softure-ai/blog/server";
+import { createFindTermTool } from "@softure-ai/agent-ready/webmcp";
 import { seo } from "@softure-ai/seo";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -367,5 +368,18 @@ describe("blog pages under seo's canonical rule", () => {
     expect(html).toContain('<a href="https://example.org/blog/taxes">taxes</a>');
     expect(html).toContain('<a href="https://app.example.com/calculator">calculator</a>');
     expect(html).toContain('<a href="https://funds.example.net/" rel="noopener noreferrer" target="_blank" class="blog-external">a fund');
+  });
+});
+
+describe("the glossary as agent-ready's findTerm reads it (#415)", () => {
+  it("finds a term in the rendered glossary index and answers from the term's page", async () => {
+    const glossary = await render(GlossaryIndexPage());
+    const fetchImpl = vi.fn((path: string) =>
+      Promise.resolve(path === "/blog/glossary" ? new Response(glossary) : path === "/blog/glossary/expense-ratio" ? new Response("# Expense ratio\n\nThe yearly cost.") : new Response("", { status: 404 })),
+    );
+    const tool = createFindTermTool({ fetchImpl: fetchImpl as unknown as typeof fetch });
+
+    expect(await tool.execute({ term: "expense ratio" })).toEqual({ content: [{ type: "text", text: "Expense ratio (/blog/glossary/expense-ratio)\n\n# Expense ratio\n\nThe yearly cost." }] });
+    expect(fetchImpl.mock.calls.map(([path]) => path)).toEqual(["/blog/glossary", "/blog/glossary/expense-ratio"]);
   });
 });

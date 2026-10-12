@@ -221,6 +221,35 @@ without a client component puts `buildWebMcpBootScript({ flag, paths, pathPatter
 `<script>` in `<head>`; each tool's `execute` is JavaScript source `(args, h) => …` with
 `h = { ok, error, fetchMarkdown, stripFrontmatter }`.
 
+Two tools come ready-made, for a client component to register:
+
+```tsx
+"use client";
+import { createFindTermTool, createSearchSiteTool, findModelContext, registerWebMcpTool } from "@softure-ai/agent-ready/webmcp";
+
+useEffect(() => {
+  const modelContext = findModelContext();
+  if (modelContext === null) return;
+  const controller = new AbortController();
+  registerWebMcpTool(modelContext, createSearchSiteTool(), controller.signal);
+  registerWebMcpTool(modelContext, createFindTermTool(), controller.signal);
+  return () => controller.abort();
+}, []);
+```
+
+- `createSearchSiteTool({ pages?, maxPages?, name?, description?, fetchImpl? })` registers `searchSite({ query, limit? })`.
+  It reads seo's `/sitemap.xml` (or `pages: { sitemap }`, or a fixed `pages: { paths }`), takes each `<loc>` as a path
+  on the page's own origin, reads the first `maxPages` (50) as Markdown (seo's `Accept: text/markdown`) and answers
+  the pages holding every word of the query, best first (a title match weighs ten body matches), with title, path and
+  a snippet. Case and diacritics are ignored. A page that fails is skipped and counted; only a failed sitemap, or
+  every page failing, is an error.
+- `createFindTermTool({ glossary?, name?, description?, fetchImpl? })` registers `findTerm({ term })`. It reads the
+  `DefinedTerm`s of the glossary page's JSON-LD (blog's `/blog/glossary`, `buildGlossaryJsonLd`), matches the exact
+  name, then the term page's slug, then a single partial match, and answers the term page's Markdown (its
+  description when that page fails). Several partial matches are listed.
+
+Both read each page once per page load and keep it, except what failed.
+
 **DNS-AID.** Publish the lines of `resolveDnsAidRecords(options, origins).map(formatZoneLine)` at the DNS provider,
 turn on DNSSEC, then check them:
 
