@@ -8,12 +8,12 @@ Grounding: `scripts/release/version.mjs` (promotes `## Unreleased`, refuses an e
 ## Lenses
 | Lens | Result |
 | --- | --- |
-| Coverage and end state | PASS (ten bumps, release, issue comments) |
+| Coverage and end state | PASS (eleven bumps, release, issue comments) |
 | Slicing | PASS (one phase) |
 | Verifiability | PASS (repository tests, `npm view`) |
 | Data and migrations | PASS (none) |
 | Security | PASS (no entry point) |
-| Scope | PASS (deploy and billing left to their open changes) |
+| Scope | PASS (billing left to its open change; deploy added after #396 merged) |
 
 ## Decisions (auto)
 - privacy's `createCopyAccountScript --to` needs the ops release with `{ commit }`; both go out in this batch, so
