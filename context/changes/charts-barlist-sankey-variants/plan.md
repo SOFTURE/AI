@@ -28,7 +28,7 @@ ribbon and node opacities, leader lines and a fixed aspect ratio. Default markup
   width; both added to `LOCAL_PROPERTIES`.
 - **D6 Leaders.** `layoutSankey` nodes gain `centreY` (the node's middle) and `isLabelSpread` (`labelY` at least one
   viewBox unit from `centreY`). `leaders?: boolean` (default false, only with `labels="beside"`) adds root class
-  `sft-chart-sankey-leaders` and a strip between each label column and the plot: a hidden SVG in viewBox
+  `sft-chart-sankey-leaders` and a strip between each label column and the plot: a `div.sft-chart-sankey-leader-strip` holding a hidden SVG (absolutely filling it, plan review W1) in viewBox
   `0 0 1 <height>`, `preserveAspectRatio="none"`, one `<path class="sft-chart-sankey-leader">` per spread node from
   the label's height at the label edge to the node's centre at the plot edge, non-scaling stroke in
   `--sft-chart-axis`. Strip width `--sft-chart-sankey-leader-width` (default `var(--sft-space-4)`).
