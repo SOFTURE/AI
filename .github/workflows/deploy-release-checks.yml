@@ -114,8 +114,9 @@ jobs:
               reject tag "a tag name (letters, digits, _ . -; at most 128)"
             else
               # Status 2 is a pattern bash cannot compile, not a tag that does not match.
+              matches() { [[ "$1" =~ $2 ]]; }
               matched=0
-              [[ "$TAG" =~ $TAG_PATTERN ]] || matched=$?
+              matches "$TAG" "$TAG_PATTERN" || matched=$?
               if [ "$matched" = 2 ]; then
                 reject tag-pattern "an extended regular expression"
               elif [ "$matched" != 0 ]; then
