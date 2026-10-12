@@ -58,6 +58,26 @@ export interface DeliverOptions {
 /** The codes that stop a run: the sending account, not the mail, is the problem. */
 export type HaltingErrorCode = "mailing.provider_refused" | "mailing.quota_exceeded";
 
+/**
+ * Why a run of many deliveries (`runDeliveries`, `sendCampaign`) stopped early: the account cannot send
+ * (`HaltingErrorCode`), or the provider answered `retry-later` (`mailing.unavailable`: down, timed out or rate
+ * limited) and the run stops on it.
+ */
+export type RunHaltReason = HaltingErrorCode | "mailing.unavailable";
+
+/** Why a run stopped early, with the provider's HTTP status when it gave one. */
+export interface RunHalt {
+  readonly reason: RunHaltReason;
+  readonly httpStatus?: number;
+}
+
+/** Why a run stops after this outcome: at `halted`, and at `retry-later` when it stops on it; `null` to go on. */
+export function getRunHalt(outcome: DeliveryOutcome, stopOnRetryLater: boolean): RunHalt | null {
+  if (outcome.status !== "halted" && !(stopOnRetryLater && outcome.status === "retry-later")) return null;
+  const reason = outcome.status === "halted" ? outcome.reason : "mailing.unavailable";
+  return outcome.httpStatus === undefined ? { reason } : { reason, httpStatus: outcome.httpStatus };
+}
+
 export type DeliveryOutcome =
   /** Sent now; `id` is the provider's message id. */
   | { readonly status: "sent"; readonly id: string }

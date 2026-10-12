@@ -1,9 +1,10 @@
 // A run of lifecycle mail: one delivery per recipient through the ledger (`deliverOnce`), e.g. every subscription
 // whose trial ends this week. The app lists the recipients and builds each mail; the run keeps the ledger's
-// at-most-once rule, stops at the first failure about the sending account (refused key, spent quota) and after
-// `limit` mails reached the provider, and counts what it did. A dry run reads the same state and writes nothing.
+// at-most-once rule, stops at the first failure about the sending account (refused key, spent quota), at the first
+// mail the provider could not take now (unless told otherwise), and after `limit` mails reached the provider, and
+// counts what it did. A dry run reads the same state and writes nothing.
 import { TRANSACTIONAL_KIND, type MailingErrorCode } from "../contract.js";
-import { deliverOnce, forecastDelivery, type DeliverOptions, type Delivery, type DeliveryContext, type DeliveryForecast, type DeliveryOutcome, type HaltingErrorCode } from "./deliveries.js";
+import { deliverOnce, forecastDelivery, getRunHalt, type DeliverOptions, type Delivery, type DeliveryContext, type DeliveryForecast, type DeliveryOutcome, type RunHalt } from "./deliveries.js";
 import { getRecipientKey, MIN_UNSUBSCRIBE_SECRET_LENGTH, readUnsubscribeSecrets, UNSUBSCRIBE_SECRET_ENV } from "./unsubscribe-link.js";
 
 /** Rejections the provider answered (the others never left the process). */
@@ -28,6 +29,12 @@ export interface RunDeliveriesOptions extends DeliverOptions {
   /** Called after every delivery of a real run, e.g. for progress output. Never receives the address. */
   readonly onDelivery?: (outcome: DeliveryOutcome) => void;
   readonly sleep?: (ms: number) => Promise<void>;
+  /**
+   * End the run at the first `retry-later` (the provider is down, timed out or rate limited), reported in `halted` as
+   * `mailing.unavailable`. Going on would spend an attempt of every following recipient on the same answer. Default
+   * `true`.
+   */
+  readonly stopOnRetryLater?: boolean;
 }
 
 export interface DeliveryRunSummary {
@@ -48,8 +55,11 @@ export interface DeliveryRunSummary {
   readonly retryLater: number;
   /** Claimed more than `uncertainClaimMs` ago and never closed: their mail may have gone out. */
   readonly uncertain: number;
-  /** Set when the run stopped at a failure about the sending account; run again once the account can send. */
-  readonly halted: { readonly reason: HaltingErrorCode; readonly httpStatus?: number } | null;
+  /**
+   * Set when the run stopped early: at a failure about the sending account (run again once the account can send) or,
+   * with `stopOnRetryLater`, at the first mail the provider could not take now (`mailing.unavailable`; run again later).
+   */
+  readonly halted: RunHalt | null;
   /** Deliveries past the `limit` cut that the next run would send; 0 without a cut, `null` after a halt. */
   readonly remaining: number | null;
 }
@@ -57,13 +67,14 @@ export interface DeliveryRunSummary {
 type Counts = { -readonly [Key in Exclude<keyof DeliveryRunSummary, "dryRun" | "halted" | "remaining" | "rejected">]: number } & { rejected: Record<MailingErrorCode, number> };
 
 /**
- * Builds and delivers one mail per recipient, in order, each at most once per scope and recipient. Throws on a
+ * Builds and delivers one mail per recipient, in order, each at most once per scope and recipient. Stops at the first
+ * `halted` delivery and, unless `stopOnRetryLater` is `false`, at the first `retry-later`. Throws on a
  * database failure, when `build` throws, like `deliverOnce` for a malformed delivery, at the first list mail when
  * `MAILING_UNSUBSCRIBE_SECRET` is not set (each send would fail and use up an attempt), and (a `RangeError`) for a
  * `limit` that is not a whole number of at least 1.
  */
 export async function runDeliveries<Recipient>(ctx: DeliveryContext, input: DeliveryRunInput<Recipient>, options: RunDeliveriesOptions = {}): Promise<DeliveryRunSummary> {
-  const { pauseMs = 0, limit, dryRun = false, onDelivery, sleep = wait, ...deliverOptions } = options;
+  const { pauseMs = 0, limit, dryRun = false, onDelivery, sleep = wait, stopOnRetryLater = true, ...deliverOptions } = options;
   if (limit !== undefined && !(Number.isInteger(limit) && limit >= 1)) {
     throw new RangeError(`@softure-ai/mailing: runDeliveries limit must be a whole number of at least 1, got ${String(limit)}`);
   }
@@ -95,10 +106,8 @@ export async function runDeliveries<Recipient>(ctx: DeliveryContext, input: Deli
     const outcome = await deliverOnce(ctx, delivery, deliverOptions);
     countOutcome(counts, outcome);
     onDelivery?.(outcome);
-    if (outcome.status === "halted") {
-      const httpStatus = outcome.httpStatus === undefined ? {} : { httpStatus: outcome.httpStatus };
-      return { dryRun, ...counts, halted: { reason: outcome.reason, ...httpStatus }, remaining: null };
-    }
+    const halt = getRunHalt(outcome, stopOnRetryLater);
+    if (halt !== null) return { dryRun, ...counts, halted: halt, remaining: null };
     const reachedProvider = outcome.status === "sent" || outcome.status === "retry-later" || (outcome.status === "rejected" && PROVIDER_REASONS.has(outcome.reason));
     if (outcome.status === "sent") reached.add(getDeliveryKey(delivery));
     if (reachedProvider) handedToProvider += 1;

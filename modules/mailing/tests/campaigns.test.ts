@@ -91,9 +91,28 @@ describe("sendCampaign", () => {
     expect(result.ok && result.value.sent).toBe(3);
   });
 
-  it("counts recipients for a later run when the provider is unavailable, and sends them then", async () => {
-    respond.mockImplementation((message) => (message.to === "bob@example.org" ? { status: "unavailable" } : undefined));
+  it.each([
+    ["an outage", 503],
+    ["a rate limit", 429],
+  ])("stops at the first retry-later (%s), leaves the rest untouched, and sends them on the next run", async (_case, status) => {
+    respond.mockImplementation((message) => (message.to === "ada@example.org" ? undefined : { status: "unavailable", httpStatus: status }));
     const first = await sendCampaign(test.ctx, { campaign: CAMPAIGN, recipients: RECIPIENTS });
+    expect(first).toEqual({
+      ok: true,
+      value: { recipients: 2, sent: 1, rejected: NO_REJECTIONS, done: 0, inFlight: 0, retryLater: 1, filtered: 0, uncertain: 0, halted: { reason: "mailing.unavailable", httpStatus: status }, remaining: null },
+    });
+    expect(respond).toHaveBeenCalledTimes(2);
+    expect(await countOutcomes(test)).toEqual({ pending: 1, sent: 1 });
+
+    respond.mockReturnValue(undefined);
+    const second = await sendCampaign(test.ctx, { campaign: CAMPAIGN, recipients: RECIPIENTS });
+    expect(second.ok && second.value).toMatchObject({ sent: 2, done: 1, halted: null });
+    expect(await countOutcomes(test)).toEqual({ sent: 3 });
+  });
+
+  it("with stopOnRetryLater false, counts recipients for a later run when the provider is unavailable, and sends them then", async () => {
+    respond.mockImplementation((message) => (message.to === "bob@example.org" ? { status: "unavailable" } : undefined));
+    const first = await sendCampaign(test.ctx, { campaign: CAMPAIGN, recipients: RECIPIENTS }, { stopOnRetryLater: false });
     expect(first.ok && first.value).toMatchObject({ sent: 2, retryLater: 1 });
 
     respond.mockReturnValue(undefined);
@@ -209,7 +228,7 @@ describe("sendCampaign", () => {
 
     it("spends the limit on a mail the provider rejected or could not take", async () => {
       respond.mockImplementation((message) => (message.to === "ada@example.org" ? { status: "rejected", httpStatus: 422 } : message.to === "bob@example.org" ? { status: "unavailable" } : undefined));
-      const result = await sendCampaign(test.ctx, { campaign: CAMPAIGN, recipients: FIVE }, { limit: 2 });
+      const result = await sendCampaign(test.ctx, { campaign: CAMPAIGN, recipients: FIVE }, { limit: 2, stopOnRetryLater: false });
       expect(result.ok && result.value).toMatchObject({ sent: 0, retryLater: 1, rejected: { ...NO_REJECTIONS, "mailing.rejected": 1 }, remaining: 3 });
     });
 

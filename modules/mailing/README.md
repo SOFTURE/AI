@@ -182,6 +182,10 @@ const summary = await runDeliveries(
   `halted: { reason, httpStatus }`, `remaining: null`; that recipient and the rest go out on the
   next run. Rejections of one mail (`suppressed`, `rejected`, `invalid_input`) are counted and the
   run goes on.
+- **It stops at an outage.** The first mail the provider cannot take now (`retry-later`: 5xx, a
+  timeout, a 429 rate limit) ends the run the same way, as `halted: { reason: "mailing.unavailable",
+  httpStatus }`: every following mail would get the same answer and spend one of its `maxAttempts`.
+  `stopOnRetryLater: false` keeps the run going instead.
 - **`limit`** counts the mails handed to the provider, like `sendCampaign`'s; once reached, the rest
   of the list is only counted: `remaining` is how many the next run would send. **`pauseMs`**
   pauses after each of those mails.
@@ -330,9 +334,11 @@ softure-mail campaign launch.md --recipients recipients.txt              # sends
   }),
   ```
 
-- **A refused key or a spent quota stops the run** at the first such answer: the command prints why
-  (with the HTTP status) and exits 1; that recipient and every one after it are left for the next
-  run. `sendCampaign` returns the same as `halted: { reason, httpStatus }`.
+- **A refused key, a spent quota or an outage stops the run** at the first such answer (an outage is
+  `retry-later`: 5xx, a timeout, a 429 rate limit): the command prints why (with the HTTP status) and
+  exits 1; that recipient and every one after it are left for the next run. `sendCampaign` returns the
+  same as `halted: { reason, httpStatus }` (`reason` is `mailing.unavailable` for an outage);
+  `stopOnRetryLater: false` keeps it going past an outage.
 - **Instalments with `--limit <n>`.** On a plan whose daily quota is shared with other mail (Resend's
   free plan gives 100 a day), `--limit 80` hands at most 80 mails to the provider in this run and
   leaves room for the day's transactional mail. Only mails that reach the provider count (sent,
