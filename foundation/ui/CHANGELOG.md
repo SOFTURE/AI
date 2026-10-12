@@ -6,6 +6,11 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- Source guards in `@softure-ai/ui/testing` for an app's design system (#403): `findUndefinedTokenClasses` (Tailwind
+  colour, `ease-*` and `duration-*` classes must name a defined token), `findNativeTooltips` (no `title` attribute
+  on HTML elements), `findHoverOnlyHandlers` (what opens on hover opens on focus) and `findRestrictedElements` (raw
+  `<select>` and `createPortal` only in their one file). `typescript` is a new optional peer dependency, needed by
+  `@softure-ai/ui/testing` (not by the components). The package runs all four guards on its own components.
 - Four gaps in the interaction components, found adopting them (#372):
   - `ConfirmActionButton` takes `modalClassNames` (the dialog's `Modal` slots) and a `cancel` slot for the footer's
     Cancel button.
