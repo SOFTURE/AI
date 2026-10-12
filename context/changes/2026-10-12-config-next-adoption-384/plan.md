@@ -30,5 +30,15 @@ Files: `tools/config/src/eslint/index.ts`, `tools/config/tests/eslint.test.ts`, 
 
 ## Progress
 
-- [ ] Phase 1: preset works next to Next's config
-- [ ] Phase 2: docs
+- [x] Phase 1: preset works next to Next's config (`1622e3d`; four new tests failed on master, the package's 54
+  tests green after)
+- [x] Phase 2: docs (`241c790`)
+
+Verified by hand in a scratch Next app (eslint 9.39.1, eslint-config-next 16.4.0, next 16, the packed preset): the
+install resolves with no `ERESOLVE`; with the README example `eslint .` lints `eslint.config.mjs` and
+`postcss.config.mjs` cleanly and reports `no-floating-promises` in a `.ts` file; with typescript-eslint 8.50.0 at the
+top and Next's nested 8.71.1 the same run passes, where master fails with "Cannot redefine plugin". `lefthook dump`
+with the README's skip snippet keeps `commit-msg` and marks both file jobs `skip: true`.
+
+Gates on the branch: `npm run typecheck`, `npm run lint` green (pre-commit); config and repository tests pass, the
+full `npm test` runs in pre-push.
