@@ -1,6 +1,6 @@
 ---
 change_id: ui-app-components-407
-status: active
+status: archived
 ---
 
 # Plan: ui generic components (issue #407)
@@ -59,7 +59,14 @@ README (new components, `/next`, `UiLocaleProvider` once), CHANGELOG `## Unrelea
 
 ## Progress
 
-- [ ] Phase 1: form pieces
-- [ ] Phase 2: app shell and lists
-- [ ] Phase 3: modal motion and the Next subpath
-- [ ] Phase 4: docs and dogfood
+- [x] Phase 1: form pieces (`b485f3f`; 13 tests, written first)
+- [x] Phase 2: app shell and lists (`6946827`; 10 tests, written first; the app bar's `md` breakpoint added to the
+  static theme, the stepper's connector is an element, not a `content-['']` pseudo-element the class scan cannot read)
+- [x] Phase 3: modal motion and the Next subpath (`7cf2675`; 9 tests; the example app's `/chart` uses
+  `QuerySegmentedNav` behind `?series=savings` with a Playwright spec, and its `next build` passed against the packed
+  ui with `@softure-ai/ui/next`, proving the bare `next/link` and `next/navigation` imports, L-002)
+- [x] Phase 4: docs and dogfood (`2522f5b`; the architecture test also guards `src/next`)
+
+Gates on the branch: `npm run typecheck`, `npm run lint`, `npm run build` green; the ui package (41 files, 578 tests)
+and repository tests (13 files) pass; the full `npm test` runs in pre-push; the example app's `next build` passed
+locally, its Playwright run is CI's (`e2e.yml`, needs Postgres).
