@@ -45,3 +45,4 @@ export {
 } from "./theme-contrast.js";
 export { type AllowedFile, type GuardSource } from "./guard-source.js";
 export { findUndefinedTokenClasses, type TokenClassOptions } from "./token-classes.js";
+export { findHoverOnlyHandlers, findNativeTooltips, findRestrictedElements, type RestrictedElementOptions } from "./jsx-guards.js";
