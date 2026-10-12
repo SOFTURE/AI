@@ -15,6 +15,7 @@ import {
   readSelectedValue,
   registerAccount,
   selectField,
+  signInPerFile,
   submitLogin,
   tickCheckbox,
   type AuthFormCopy,
@@ -90,6 +91,9 @@ let baseURL: string;
 let browser: Browser;
 let lastHeaders: IncomingHttpHeaders = {};
 let registered: string[] = [];
+let loggedIn: string[] = [];
+let submissions: string[] = [];
+const passwords = new Map<string, string>();
 
 function sendHtml(response: import("node:http").ServerResponse, status: number, body: string): void {
   response.writeHead(status, { "content-type": "text/html; charset=utf-8" });
@@ -110,8 +114,19 @@ beforeAll(async () => {
       if (request.method === "POST") {
         const body = await readBody(request);
         const email = /name="email"\r\n\r\n([^\r]*)/.exec(body)?.[1] ?? "";
-        const isKnown = path === "/api/register" ? (registered.push(email), true) : registered.includes(email) && body.includes(PASSWORD);
-        response.writeHead(isKnown ? 200 : 401).end();
+        const password = /name="password"\r\n\r\n([^\r]*)/.exec(body)?.[1] ?? "";
+        submissions.push(path);
+        // An address that starts with "refused-" cannot register; an address put in `registered` by a test has PASSWORD.
+        const isAccepted =
+          path === "/api/register"
+            ? !email.startsWith("refused-") && !registered.includes(email)
+            : registered.includes(email) && password === (passwords.get(email) ?? PASSWORD);
+        if (isAccepted && path === "/api/register") {
+          registered.push(email);
+          passwords.set(email, password);
+        }
+        if (isAccepted && path === "/api/login") loggedIn.push(email);
+        response.writeHead(isAccepted ? 200 : 401).end();
         return;
       }
       if (path === "/register") return sendHtml(response, 200, renderAuthForm("register"));
@@ -139,6 +154,9 @@ afterAll(async () => {
 
 afterEach(() => {
   registered = [];
+  loggedIn = [];
+  submissions = [];
+  passwords.clear();
 });
 
 async function openPage(): Promise<Page> {
@@ -190,6 +208,34 @@ describe.skipIf(!hasChromium)("Playwright helpers in a browser", () => {
     await expect(logIn(page, { ...options, landingPath: "/account" }).then(() => "landed", () => "failed")).resolves.toBe("failed");
     await logIn(page, { ...options, landingPath: null });
     expect(new URL(page.url()).pathname).toBe("/login");
+    await page.context().close();
+  });
+
+  it("registers one account for the file on the first signIn and logs it in on later ones", async () => {
+    const account = signInPerFile({ copy: COPY });
+    expect(account.email).toMatch(/^e2e-[0-9a-f-]{36}@example\.com$/);
+    expect(account.password).toMatch(/^[0-9a-f-]{36}$/);
+    expect(signInPerFile({ copy: COPY }).email).not.toBe(account.email);
+
+    for (let test = 0; test < 3; test += 1) {
+      const page = await openPage();
+      await account.signIn(page);
+      expect(new URL(page.url()).pathname).toBe("/account");
+      await page.context().close();
+    }
+    expect(registered).toEqual([account.email]);
+    expect(loggedIn).toEqual([account.email, account.email]);
+    expect(submissions).toEqual(["/api/register", "/api/login", "/api/login"]);
+  });
+
+  it("registers again on the next signIn after a refused registration", async () => {
+    const refused = signInPerFile({ copy: COPY, email: "refused-ada@example.com", password: PASSWORD });
+    // The landing check waits for its timeout before it fails.
+    const page = await openPage();
+    await expect(refused.signIn(page).then(() => "signed in", () => "failed")).resolves.toBe("failed");
+    await expect(refused.signIn(page).then(() => "signed in", () => "failed")).resolves.toBe("failed");
+    expect(submissions).toEqual(["/api/register", "/api/register"]);
+    expect(loggedIn).toEqual([]);
     await page.context().close();
   });
 

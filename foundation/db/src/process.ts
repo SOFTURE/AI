@@ -6,10 +6,27 @@ import type { Database, DatabaseHandle, DatabaseSchema, CreateDatabaseOptions } 
 import { closeSharedDatabase, getSharedDatabase } from "./shared.js";
 
 const NOT_OPEN_MESSAGE = "Database is not open: call open() or withDatabase() at the process entry before querying";
+const REGISTRY_KEY = Symbol.for("@softure-ai/db/process-databases");
+
+/** What one process database holds between `open()` and `close()`; on `globalThis` when it has a `globalKey`. */
+interface ProcessState {
+  opening: Promise<DatabaseHandle> | undefined;
+  opened: { readonly url: string; readonly db: Database<DatabaseSchema> } | undefined;
+}
+
+type StateHost = Record<symbol, ProcessState | Set<ProcessState> | undefined>;
+
+const host = globalThis as unknown as StateHost;
 
 export interface ProcessDatabaseOptions<TSchema extends DatabaseSchema> extends CreateDatabaseOptions {
   /** The app's drizzle schema: `db` is built with it, so `db.query.<table>` is typed and works. */
   readonly schema?: TSchema;
+  /**
+   * Keeps the open database on `globalThis` under this key, so a module that `next dev` re-evaluates (HMR) finds the
+   * database its previous evaluation opened instead of refusing queries. One key per database in the process. The
+   * open `db` keeps the schema it was opened with; a changed schema takes effect after `close()` or a restart.
+   */
+  readonly globalKey?: string;
 }
 
 export interface ProcessDatabase<TSchema extends DatabaseSchema = DatabaseSchema> {
@@ -33,34 +50,29 @@ export function createProcessDatabase<TSchema extends DatabaseSchema = DatabaseS
   url: string | (() => string),
   options: ProcessDatabaseOptions<TSchema> = {},
 ): ProcessDatabase<TSchema> {
-  const { schema, ...databaseOptions } = options;
-  let opening: Promise<DatabaseHandle> | undefined;
-  let opened: { readonly url: string; readonly db: Database<TSchema> } | undefined;
+  const { schema, globalKey, ...databaseOptions } = options;
+  const state = getProcessState(globalKey);
 
   const open = (): Promise<DatabaseHandle> => {
-    opening ??= openHandle().catch((error: unknown) => {
-      opening = undefined;
-      throw error;
-    });
-    return opening;
+    if (state.opening === undefined) {
+      getRegistry().add(state);
+      state.opening = openHandle().catch((error: unknown) => {
+        state.opening = undefined;
+        getRegistry().delete(state);
+        throw error;
+      });
+    }
+    return state.opening;
   };
 
   async function openHandle(): Promise<DatabaseHandle> {
     const resolvedUrl = typeof url === "function" ? url() : url;
     const handle = await getSharedDatabase(resolvedUrl, databaseOptions);
-    opened = { url: resolvedUrl, db: await buildDatabase(handle, schema) };
+    state.opened = { url: resolvedUrl, db: await buildDatabase(handle, schema) };
     return handle;
   }
 
-  const close = async (): Promise<void> => {
-    if (opening === undefined) return;
-    const pending = opening;
-    opening = undefined;
-    await pending.catch(() => undefined);
-    const current = opened;
-    opened = undefined;
-    if (current !== undefined) await closeSharedDatabase(current.url);
-  };
+  const close = (): Promise<void> => closeProcessState(state);
 
   const withDatabase = async <T>(main: (db: Database<TSchema>) => Promise<T>): Promise<T> => {
     await open();
@@ -71,9 +83,47 @@ export function createProcessDatabase<TSchema extends DatabaseSchema = DatabaseS
     }
   };
 
-  const db = createDatabaseProxy(() => opened?.db);
+  // The state holds whichever schema opened it; this instance's callers see it typed with their own.
+  const db = createDatabaseProxy(() => state.opened?.db as Database<TSchema> | undefined);
 
-  return { db, open, close, withDatabase, isOpen: () => opened !== undefined };
+  return { db, open, close, withDatabase, isOpen: () => state.opened !== undefined };
+}
+
+/**
+ * Closes every process database this process opened (with or without `globalKey`), so each `db` refuses queries
+ * until its `open()`. For tests' `afterEach`; a server's shutdown closes its own.
+ */
+export async function closeProcessDatabases(): Promise<void> {
+  await Promise.all([...getRegistry()].map(closeProcessState));
+}
+
+function getProcessState(globalKey: string | undefined): ProcessState {
+  if (globalKey === undefined) return { opening: undefined, opened: undefined };
+  const key = Symbol.for(`@softure-ai/db/process:${globalKey}`);
+  const existing = host[key];
+  if (existing !== undefined && !(existing instanceof Set)) return existing;
+  const created: ProcessState = { opening: undefined, opened: undefined };
+  host[key] = created;
+  return created;
+}
+
+function getRegistry(): Set<ProcessState> {
+  const existing = host[REGISTRY_KEY];
+  if (existing instanceof Set) return existing;
+  const created = new Set<ProcessState>();
+  host[REGISTRY_KEY] = created;
+  return created;
+}
+
+async function closeProcessState(state: ProcessState): Promise<void> {
+  getRegistry().delete(state);
+  if (state.opening === undefined) return;
+  const pending = state.opening;
+  state.opening = undefined;
+  await pending.catch(() => undefined);
+  const current = state.opened;
+  state.opened = undefined;
+  if (current !== undefined) await closeSharedDatabase(current.url);
 }
 
 /** The handle's drizzle instance, or a new one over the same pool or client when the app passes its schema. */

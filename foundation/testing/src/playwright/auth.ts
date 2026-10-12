@@ -1,5 +1,7 @@
+import { randomUUID } from "node:crypto";
 import { expect, type Page } from "@playwright/test";
 import { tickCheckbox } from "./checkbox.js";
+import { uniqueEmail } from "./test-data.js";
 
 /**
  * The labels the auth forms are found by: `authMessages.<locale>` of `@softure-ai/auth` fits as is.
@@ -63,4 +65,54 @@ export async function logIn(page: Page, input: AuthFormInput & AuthNavigationOpt
   await page.goto(path);
   await submitLogin(page, input);
   if (landingPath !== null) await expect(page).toHaveURL(landingPath);
+}
+
+export interface SignInPerFileOptions {
+  readonly copy: AuthFormCopy;
+  /** The account's address; a fresh `uniqueEmail("e2e")` by default, so every worker that loads the file gets its own. */
+  readonly email?: string;
+  /** The account's password; a random one by default. */
+  readonly password?: string;
+  /** The registration page; auth's route by default. */
+  readonly registerPath?: string;
+  /** The login page; auth's route by default. */
+  readonly loginPath?: string;
+  /** Where registration and login land; `/account` by default. */
+  readonly landingPath?: string;
+}
+
+export interface PerFileAccount {
+  readonly email: string;
+  readonly password: string;
+  /** Registers the account through the form on the first call, logs it in on every later one. */
+  signIn(page: Page): Promise<void>;
+}
+
+/**
+ * One account for the tests of a file, created through the real registration form: call it at the top of the file,
+ * then `await account.signIn(page)` in each test. Files run in parallel without sharing an account. Playwright loads
+ * a file once per worker, so with `fullyParallel` each worker registers its own account; a fixed `email` must not
+ * be shared by several workers. A registration that fails is tried again by the next `signIn`.
+ */
+export function signInPerFile(options: SignInPerFileOptions): PerFileAccount {
+  const { copy, email = uniqueEmail("e2e"), password = randomUUID(), registerPath, loginPath, landingPath } = options;
+  let registration: Promise<void> | undefined;
+
+  async function signIn(page: Page): Promise<void> {
+    if (registration === undefined) {
+      const attempt = registerAccount(page, { copy, email, password, path: registerPath, landingPath });
+      registration = attempt;
+      try {
+        await attempt;
+      } catch (error) {
+        registration = undefined;
+        throw error;
+      }
+      return;
+    }
+    await registration;
+    await logIn(page, { copy, email, password, path: loginPath, landingPath });
+  }
+
+  return { email, password, signIn };
 }
