@@ -4,6 +4,18 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`charts@x.y.z`).
 
+## Unreleased
+
+- `BarList` and `renderBarListHtml` take `layout` (`inline` or `stacked`: label and value over a full-width bar), and
+  items take `missing` (an empty track outlined dashed in the row's colour, left out of the default `max`) and
+  `description` (a line under the bar) (issue #378). `BarListRow` gains `missing` and `description`.
+- `Sankey` takes `labels="none"` (the plot without label columns), `leaders` (lines from spread labels to their nodes)
+  and `aspect="fixed"` (the plot at the viewBox's ratio, HTML labels following it); its `layout` takes `width` and
+  `height`. `layoutSankey` nodes gain `centreY` and `isLabelSpread`.
+- Ribbons and tinted nodes read `--sft-chart-sankey-link-opacity` and `--sft-chart-sankey-node-opacity`, each falling
+  back to `--sft-chart-tint-opacity`.
+- Without the new options, markup is unchanged.
+
 ## 0.1.7
 
 - `LegendSwatch` and `SeriesLine` take `tone` and `color` (an app colour, set as `--sft-chart-series`) next to `slot`,

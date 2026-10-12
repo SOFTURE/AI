@@ -42,9 +42,9 @@ export type { ChartDataTableProps } from "./svg/data-table.js";
 export { ChartDataTable } from "./svg/data-table.js";
 export type { SankeyBox, SankeyItem, SankeyLayout, SankeyLayoutOptions, SankeyNode, SankeySide } from "./svg/sankey-layout.js";
 export { layoutSankey } from "./svg/sankey-layout.js";
-export type { SankeyEntry, SankeyFill, SankeyProps } from "./svg/sankey.js";
+export type { SankeyAspect, SankeyEntry, SankeyFill, SankeyLabelPlacement, SankeyProps } from "./svg/sankey.js";
 export { Sankey } from "./svg/sankey.js";
-export type { BarListItem, BarListOptions, BarListProps, BarListRow } from "./svg/bar-list.js";
+export type { BarListItem, BarListLayout, BarListOptions, BarListProps, BarListRow } from "./svg/bar-list.js";
 export { BarList, getBarListRows } from "./svg/bar-list.js";
 export { renderBarListHtml } from "./svg/bar-list-html.js";
 

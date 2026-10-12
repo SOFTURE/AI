@@ -2,6 +2,9 @@
 // outputs on the right. No DOM, no React: `Sankey` draws it, an app with its own drawing can use the numbers.
 import { PLOT_HEIGHT, PLOT_WIDTH } from "./geometry.js";
 
+/** How far, in viewBox units, a label must be moved from its node's middle to count as spread. */
+const LEADER_MIN_DISTANCE = 1;
+
 /** Which side of the hub a node sits on: `in` flows into it, `out` flows out of it. */
 export type SankeySide = "in" | "out";
 
@@ -37,8 +40,12 @@ export interface SankeyNode<T extends SankeyItem> extends SankeyBox {
   readonly item: T;
   /** The `d` of the closed ribbon between the node and its slice of the hub. */
   readonly link: string;
+  /** The node's middle. */
+  readonly centreY: number;
   /** Where the node's label is centred: the node's middle, moved apart from crowded neighbours. */
   readonly labelY: number;
+  /** The label was moved at least one unit away from the node's middle: a leader line can join them. */
+  readonly isLabelSpread: boolean;
 }
 
 export interface SankeyLayout<T extends SankeyItem> {
@@ -86,7 +93,9 @@ export function layoutSankey<T extends SankeyItem>(items: readonly T[], options:
       const link = isInput
         ? ribbonPath({ x0: box.x + box.width, top0: box.y, x1: hub.x, top1: sliceY, height: box.height })
         : ribbonPath({ x0: hub.x + hub.width, top0: sliceY, x1: box.x, top1: box.y, height: box.height });
-      return { ...box, item, link, labelY: labels[index] ?? 0 };
+      const centreY = box.y + box.height / 2;
+      const labelY = labels[index] ?? 0;
+      return { ...box, item, link, centreY, labelY, isLabelSpread: Math.abs(labelY - centreY) >= LEADER_MIN_DISTANCE };
     });
   };
   return { inputs: side(inputs, 0, true), outputs: side(outputs, width - nodeWidth, false), hub, total, width, height };
