@@ -7,10 +7,9 @@
 //   if (!started.ok) { console.error(started.error.message); process.exitCode = 1; }
 import type { Transport } from "@modelcontextprotocol/server";
 import { serveStdio, StdioServerTransport } from "@modelcontextprotocol/server/stdio";
-import { users } from "@softure-ai/auth";
+import { resolveOnlyAccount } from "@softure-ai/auth/server";
 import { errorLogLabel, type SoftureConfig, type SoftureDatabaseConfig } from "@softure-ai/core";
 import { openCommandDatabase, type CommandDatabase } from "@softure-ai/db";
-import { eq } from "drizzle-orm";
 import type { McpServerIdentity } from "../contract.js";
 import type { McpServerFactory } from "../server/endpoint.js";
 import { getMcpAccessOptions } from "../server/options.js";
@@ -20,8 +19,6 @@ export const DEFAULT_MCP_USER_ID_ENV = "MCP_USER_ID";
 
 /** The token id the factory receives over stdio, where there is no token. */
 export const STDIO_TOKEN_ID = "stdio";
-
-const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export type McpStdioErrorCode = "mcp-access.stdio_no_database" | "mcp-access.stdio_no_account" | "mcp-access.stdio_account_ambiguous" | "mcp-access.stdio_account_unknown";
 
@@ -65,7 +62,7 @@ export async function serveMcpStdio(options: ServeMcpStdioOptions): Promise<McpS
 
   let userId: string | McpStdioError;
   try {
-    userId = await resolveAccount(database, env[userIdEnv]?.trim() ?? "", userIdEnv);
+    userId = await resolveAccount(database, env, userIdEnv);
   } catch (error) {
     await database.close();
     throw new Error(`@softure-ai/mcp-access: looking up the account to serve failed: ${errorLogLabel(error)}`, { cause: error });
@@ -110,22 +107,21 @@ export async function serveMcpStdio(options: ServeMcpStdioOptions): Promise<McpS
   };
 }
 
-/** The account id, or why there is none. Never the first of several accounts: that could be another person's data. */
-async function resolveAccount(database: CommandDatabase, requested: string, userIdEnv: string): Promise<string | McpStdioError> {
-  const { db } = database.handle;
-  if (requested !== "") {
-    const unknown = { code: "mcp-access.stdio_account_unknown", message: `@softure-ai/mcp-access: ${userIdEnv} names no account` } as const;
-    if (!UUID_SHAPE.test(requested)) return unknown;
-    const found = await db.select({ id: users.id }).from(users).where(eq(users.id, requested)).limit(1);
-    return found[0]?.id ?? unknown;
+/** The account id (`resolveOnlyAccount` from auth), or why there is none in this entry's own words. */
+async function resolveAccount(database: CommandDatabase, env: ServeMcpStdioOptions["env"], userIdEnv: string): Promise<string | McpStdioError> {
+  const resolved = await resolveOnlyAccount({ db: database.handle.db, envName: userIdEnv, env });
+  if (resolved.ok) return resolved.value;
+  switch (resolved.error) {
+    case "auth.account_unknown":
+      return { code: "mcp-access.stdio_account_unknown", message: `@softure-ai/mcp-access: ${userIdEnv} names no account` };
+    case "auth.no_account":
+      return { code: "mcp-access.stdio_no_account", message: "@softure-ai/mcp-access: the database has no account to serve" };
+    case "auth.account_ambiguous":
+      return {
+        code: "mcp-access.stdio_account_ambiguous",
+        message: `@softure-ai/mcp-access: the database has several accounts; set ${userIdEnv} to the id of the one to serve`,
+      };
   }
-  const accounts = await db.select({ id: users.id }).from(users).limit(2);
-  const [only, second] = accounts;
-  if (only === undefined) return { code: "mcp-access.stdio_no_account", message: "@softure-ai/mcp-access: the database has no account to serve" };
-  if (second !== undefined) {
-    return { code: "mcp-access.stdio_account_ambiguous", message: `@softure-ai/mcp-access: the database has several accounts; set ${userIdEnv} to the id of the one to serve` };
-  }
-  return only.id;
 }
 
 function refuse(code: McpStdioErrorCode, reason: string): McpStdioResult {
