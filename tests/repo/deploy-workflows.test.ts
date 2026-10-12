@@ -13,6 +13,8 @@ const WORKFLOWS_DIR = join(REPO_ROOT, ".github/workflows");
 const EXAMPLE_CALLER = join(REPO_ROOT, "tools/deploy/examples/deploy.yml");
 const EXAMPLE_RELEASE_CALLER = join(REPO_ROOT, "tools/deploy/examples/release.yml");
 const EXAMPLE_INTEGRATION_CALLER = join(REPO_ROOT, "tools/deploy/examples/integration.yml");
+const EXAMPLE_CHECKS_CALLER = join(REPO_ROOT, "tools/deploy/examples/checks.yml");
+const EXAMPLE_NOTES_CALLER = join(REPO_ROOT, "tools/deploy/examples/release-notes.yml");
 const CALLER_PREFIX = "SOFTURE/AI/.github/workflows/";
 
 interface WorkflowInput {
@@ -67,6 +69,8 @@ describe("the reusable deploy workflows", () => {
   it("exist", () => {
     expect(DEPLOY_WORKFLOWS).toContain("deploy-app.yml");
     expect(DEPLOY_WORKFLOWS).toContain("deploy-cut-release.yml");
+    expect(DEPLOY_WORKFLOWS).toContain("deploy-release-checks.yml");
+    expect(DEPLOY_WORKFLOWS).toContain("deploy-release-notes.yml");
   });
 
   describe.each(DEPLOY_WORKFLOWS)("%s", (name) => {
@@ -94,6 +98,7 @@ describe("the reusable deploy workflows", () => {
         "deploy-report.yml": ["report"],
         "deploy-cut-release.yml": ["cut"],
         "deploy-integration.yml": ["record"],
+        "deploy-release-notes.yml": ["notes"],
       };
       expect(writers.map(([id]) => id)).toEqual(releaseWriters[name] ?? []);
     });
@@ -1142,6 +1147,357 @@ describe("the example integration caller", () => {
   });
 
   it("grants what the record job needs and nothing more", () => {
+    expect(caller.permissions).toEqual({ contents: "write" });
+  });
+});
+
+/** Runs a step's script with bash -e (as a runner does) and `bin` first on PATH; returns the exit, stdout and outputs. */
+function runScript(
+  script: string,
+  env: Record<string, string>,
+  options: { cwd?: string; bin?: Record<string, string> } = {},
+): { status: number | null; stdout: string; output: string; summary: string } {
+  const dir = mkdtempSync(join(tmpdir(), "deploy-step-"));
+  try {
+    const bin = join(dir, "bin");
+    mkdirSync(bin);
+    for (const [name, text] of Object.entries(options.bin ?? {})) writeFileSync(join(bin, name), text, { mode: 0o755 });
+    writeFileSync(join(dir, "output"), "");
+    writeFileSync(join(dir, "summary"), "");
+    const result = spawnSync("bash", ["-e", "-c", script], {
+      cwd: options.cwd ?? dir,
+      encoding: "utf8",
+      env: {
+        PATH: `${bin}:${process.env.PATH ?? ""}`,
+        HOME: dir,
+        RUNNER_TEMP: dir,
+        GITHUB_OUTPUT: join(dir, "output"),
+        GITHUB_STEP_SUMMARY: join(dir, "summary"),
+        GITHUB_REPOSITORY: "acme/app",
+        ...env,
+      },
+    });
+    return {
+      status: result.status,
+      stdout: result.stdout,
+      output: readFileSync(join(dir, "output"), "utf8"),
+      summary: readFileSync(join(dir, "summary"), "utf8"),
+    };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+function findNamedStep(job: Job | undefined, name: string): Step {
+  const step = (job?.steps ?? []).find((candidate) => candidate.name === name);
+  if (step === undefined) throw new Error(`no step named "${name}"`);
+  return step;
+}
+
+describe("deploy-release-checks.yml (issue #406)", () => {
+  const workflow = readYaml(join(WORKFLOWS_DIR, "deploy-release-checks.yml"));
+  const call = getWorkflowCall(workflow) as WorkflowCall & { outputs?: Record<string, { value?: string }> };
+  const inputs = call.inputs ?? {};
+  const jobs = workflow.jobs as Record<string, Job & { if?: string; needs?: unknown; strategy?: { matrix?: Record<string, unknown> } }>;
+  const inputStep = findNamedStep(jobs.prepare, "Check the inputs");
+  const commitStep = findNamedStep(jobs.prepare, "Resolve the commit");
+  const digestStep = findNamedStep(jobs.build, "Image by digest");
+
+  /** The input step's env with every input at its default, as the runner would pass it. */
+  const DEFAULTS: Record<string, string> = {
+    TAG: "",
+    TAG_PATTERN: String(inputs["tag-pattern"]?.default),
+    RELEASE_BRANCH: "",
+    NODE_VERSION: "22",
+    CACHE: "npm",
+    INSTALL_COMMAND: "npm ci",
+    STATIC: "true",
+    STATIC_COMMAND: String(inputs["static-command"]?.default),
+    UNIT: "true",
+    TEST_COMMAND: String(inputs["test-command"]?.default),
+    SHARDS: "1",
+    BUILD_IMAGE: "false",
+    IMAGE: "",
+    BUILD_CONTEXT: ".",
+    DOCKERFILE: "Dockerfile",
+    REPOSITORY: "Acme/App",
+  };
+
+  it("checks the caller's commit by default: static and one unit shard, no image", () => {
+    expect(inputs).toMatchObject({
+      tag: { default: "" },
+      "tag-pattern": { default: "^v[0-9]{4}\\.[0-9]{2}\\.[0-9]{2}(-[0-9]+)?$" },
+      static: { default: true },
+      unit: { default: true },
+      shards: { default: 1 },
+      "build-image": { default: false },
+      "install-command": { default: "npm ci" },
+    });
+    expect(call.outputs?.["prebuilt-image"]?.value).toBe("${{ jobs.build.outputs.prebuilt-image }}");
+    expect(call.outputs?.sha?.value).toBe("${{ jobs.prepare.outputs.sha }}");
+  });
+
+  it("accepts the defaults and puts out the image name and the shard list", () => {
+    const result = runScript(inputStep.run ?? "", DEFAULTS);
+    expect(result.status).toBe(0);
+    expect(result.output).toBe("image=ghcr.io/acme/app\nshards=[1]\n");
+    expect(runScript(inputStep.run ?? "", { ...DEFAULTS, SHARDS: "3" }).output).toContain("shards=[1,2,3]\n");
+    expect(runScript(inputStep.run ?? "", { ...DEFAULTS, SHARDS: "20" }).output).toContain(",19,20]\n");
+  });
+
+  it.each(["v2026.10.12", "v2026.10.12-2", "v2026.10.12-13"])("accepts the date tag %s", (tag) => {
+    expect(runScript(inputStep.run ?? "", { ...DEFAULTS, TAG: tag }).status).toBe(0);
+  });
+
+  it.each([
+    ["TAG", "v2026.10.12-x", "Input tag is not valid: a tag matching"],
+    ["TAG", "release-1", "Input tag is not valid: a tag matching"],
+    ["TAG", "v1;id", "Input tag is not valid: a tag name"],
+    ["TAG_PATTERN", "(", "Input tag-pattern is not valid"],
+    ["RELEASE_BRANCH", "a..b", "Input release-branch is not valid"],
+    ["NODE_VERSION", "22; id", "Input node-version is not valid"],
+    ["CACHE", "bun", "Input cache is not valid"],
+    ["SHARDS", "0", "Input shards is not valid: 1 to 20"],
+    ["SHARDS", "21", "Input shards is not valid: 1 to 20"],
+    ["STATIC_COMMAND", "", "Input static-command is not valid"],
+    ["TEST_COMMAND", "", "Input test-command is not valid"],
+    ["INSTALL_COMMAND", "", "Input install-command is not valid"],
+  ])("refuses %s=%s", (name, value, message) => {
+    const tag: Record<string, string> = name === "TAG_PATTERN" ? { TAG: "v2026.10.12" } : {};
+    const refused = runScript(inputStep.run ?? "", { ...DEFAULTS, ...tag, [name]: value });
+    expect(refused.status).toBe(1);
+    expect(refused.stdout).toContain(`::error::${message}`);
+    expect(refused.output).toBe("");
+  });
+
+  it("checks the image inputs only when it builds, and refuses a run with nothing to do", () => {
+    const badImage = { ...DEFAULTS, IMAGE: "ghcr.io/Acme/App:latest", DOCKERFILE: "../Dockerfile" };
+    expect(runScript(inputStep.run ?? "", badImage).status).toBe(0);
+    const refused = runScript(inputStep.run ?? "", { ...badImage, BUILD_IMAGE: "true" });
+    expect(refused.stdout).toContain("::error::Input image is not valid");
+    expect(refused.stdout).toContain("::error::Input dockerfile is not valid");
+    const idle = runScript(inputStep.run ?? "", { ...DEFAULTS, STATIC: "false", UNIT: "false" });
+    expect(idle.status).toBe(1);
+    expect(idle.stdout).toContain("nothing would run");
+    expect(runScript(inputStep.run ?? "", { ...DEFAULTS, STATIC: "false", UNIT: "false", BUILD_IMAGE: "true" }).status).toBe(0);
+  });
+
+  describe("the commit guard", () => {
+    const git = (cwd: string, ...args: string[]): string => {
+      const result = spawnSync("git", args, {
+        cwd,
+        encoding: "utf8",
+        env: { ...process.env, GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@example.com", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@example.com" },
+      });
+      if (result.status !== 0) throw new Error(`git ${args.join(" ")}: ${result.stderr}`);
+      return result.stdout.trim();
+    };
+    const env = { SHA: "f".repeat(40), RELEASE_BRANCH: "", DEFAULT_BRANCH: "main", REPOSITORY: "acme/app" };
+
+    /** A repository whose main holds the tag v2026.10.12 and whose side branch holds v2026.10.12-2. */
+    function withRepository(test: (repo: string, onMain: string, offMain: string) => void): void {
+      const repo = mkdtempSync(join(tmpdir(), "deploy-checks-repo-"));
+      try {
+        git(repo, "init", "-q");
+        git(repo, "commit", "-q", "--allow-empty", "-m", "on main");
+        const onMain = git(repo, "rev-parse", "HEAD");
+        git(repo, "update-ref", "refs/remotes/origin/main", onMain);
+        git(repo, "tag", "v2026.10.12");
+        git(repo, "commit", "-q", "--allow-empty", "-m", "off main");
+        const offMain = git(repo, "rev-parse", "HEAD");
+        git(repo, "tag", "v2026.10.12-2");
+        test(repo, onMain, offMain);
+      } finally {
+        rmSync(repo, { recursive: true, force: true });
+      }
+    }
+
+    it("checks the caller's own commit and leaves the ref to the checkout without a tag", () => {
+      const result = runScript(commitStep.run ?? "", { ...env, TAG: "" });
+      expect(result.status).toBe(0);
+      expect(result.output).toBe(`sha=${"f".repeat(40)}\nref=\n`);
+      expect(commitStep.env).toMatchObject({ SHA: "${{ github.sha }}", DEFAULT_BRANCH: "${{ github.event.repository.default_branch }}" });
+    });
+
+    it("pins every job to the tag's commit when it is on the release branch", () => {
+      withRepository((repo, onMain) => {
+        const result = runScript(commitStep.run ?? "", { ...env, TAG: "v2026.10.12" }, { cwd: repo });
+        expect(result.status).toBe(0);
+        expect(result.output).toBe(`sha=${onMain}\nref=${onMain}\n`);
+      });
+    });
+
+    it("refuses a tag whose commit is off the release branch, an unknown tag and an unknown branch", () => {
+      withRepository((repo, _onMain, offMain) => {
+        const off = runScript(commitStep.run ?? "", { ...env, TAG: "v2026.10.12-2" }, { cwd: repo });
+        expect(off.status).toBe(1);
+        expect(off.stdout).toContain(`::error::The commit ${offMain} of v2026.10.12-2 is not on main`);
+        expect(off.output).toBe("");
+        expect(runScript(commitStep.run ?? "", { ...env, TAG: "v2026.10.13" }, { cwd: repo }).stdout).toContain("names no commit");
+        const branch = runScript(commitStep.run ?? "", { ...env, TAG: "v2026.10.12", RELEASE_BRANCH: "release" }, { cwd: repo });
+        expect(branch.stdout).toContain("::error::The release branch release does not exist");
+      });
+    });
+
+    it("fetches commits only, without credentials, and only for a tag", () => {
+      const checkout = (jobs.prepare?.steps ?? []).find((step) => step.uses?.startsWith("actions/checkout@") === true);
+      expect(checkout?.if).toBe("inputs.tag != ''");
+      expect(checkout?.with).toMatchObject({ ref: "${{ inputs.tag }}", "persist-credentials": false, "fetch-depth": 0, filter: "tree:0" });
+    });
+  });
+
+  it("checks out the resolved commit in every other job, without credentials", () => {
+    for (const id of ["static", "unit", "build"]) {
+      const checkout = (jobs[id]?.steps ?? []).find((step) => step.uses?.startsWith("actions/checkout@") === true);
+      expect(checkout?.with, id).toMatchObject({
+        ref: "${{ needs.prepare.outputs.ref }}",
+        "persist-credentials": false,
+        "sparse-checkout": "${{ inputs.sparse-checkout }}",
+      });
+    }
+  });
+
+  it("runs the caller's commands from env, never interpolated", () => {
+    const commands = [
+      [findNamedStep(jobs.static, "Install"), "INSTALL_COMMAND", "install-command"],
+      [findNamedStep(jobs.static, "Type check and lint"), "STATIC_COMMAND", "static-command"],
+      [findNamedStep(jobs.unit, "Install"), "INSTALL_COMMAND", "install-command"],
+      [findNamedStep(jobs.unit, "Unit tests"), "TEST_COMMAND", "test-command"],
+    ] as const;
+    for (const [step, variable, input] of commands) {
+      expect(step.run).toBe(`bash -e -o pipefail -c "$${variable}"`);
+      expect(step.env?.[variable]).toBe(`\${{ inputs.${input} }}`);
+    }
+  });
+
+  it("runs the unit tests once per shard, each told its index and the count", () => {
+    expect(jobs.unit?.if).toBe("inputs.unit");
+    expect(jobs.static?.if).toBe("inputs.static");
+    expect(jobs.unit?.strategy?.matrix).toEqual({ shard: "${{ fromJSON(needs.prepare.outputs.shards) }}" });
+    expect(findNamedStep(jobs.unit, "Unit tests").env).toMatchObject({ SHARD_INDEX: "${{ matrix.shard }}", SHARD_COUNT: "${{ inputs.shards }}" });
+    const result = runScript(`SHARD_INDEX=2 SHARD_COUNT=3; ${String(inputs["test-command"]?.default).replace(/^npm test --/, "printf '%s\\n'")}`, {});
+    expect(result.stdout).toBe("--shard=2/3\n");
+  });
+
+  it("builds only after the checks that ran are green, and pushes sha-<sha>", () => {
+    expect(jobs.build?.needs).toEqual(["prepare", "static", "unit"]);
+    const condition = String(jobs.build?.if);
+    expect(condition).toContain("!cancelled() && inputs.build-image && needs.prepare.result == 'success'");
+    expect(condition).toContain("(needs.static.result == 'success' || needs.static.result == 'skipped')");
+    expect(condition).toContain("(needs.unit.result == 'success' || needs.unit.result == 'skipped')");
+    expect(findNamedStep(jobs.build, "Image reference").run).toBe('echo "image=$IMAGE:sha-$SHA" >> "$GITHUB_OUTPUT"');
+    const push = (jobs.build?.steps ?? []).find((step) => step.uses?.startsWith("docker/build-push-action@") === true);
+    expect(push?.with).toMatchObject({ push: true, tags: "${{ steps.ref.outputs.image }}", "build-args": "${{ inputs.build-args }}" });
+  });
+
+  it("hands the image on by digest, the form deploy-app.yml's prebuilt-image takes", () => {
+    const digest = `sha256:${"a".repeat(64)}`;
+    const env = { IMAGE: "ghcr.io/acme/app", IMAGE_REF: "ghcr.io/acme/app:sha-abc", DIGEST: digest };
+    const result = runScript(digestStep.run ?? "", env);
+    expect(result.status).toBe(0);
+    expect(result.output).toBe(`prebuilt-image=ghcr.io/acme/app@${digest}\n`);
+    const refused = runScript(digestStep.run ?? "", { ...env, DIGEST: "" });
+    expect(refused.status).toBe(1);
+    expect(refused.output).toBe("");
+    const deployInputStep = findNamedStep(readYaml(join(WORKFLOWS_DIR, "deploy-app.yml")).jobs.check, "Validate inputs");
+    expect(deployInputStep.run).toContain('[[ ! "$PREBUILT_IMAGE" =~ ^(.+)@sha256:[0-9a-f]{64}$ ]]');
+  });
+});
+
+describe("deploy-release-notes.yml (issue #406)", () => {
+  const workflow = readYaml(join(WORKFLOWS_DIR, "deploy-release-notes.yml"));
+  const inputs = getWorkflowCall(workflow).inputs ?? {};
+  const job = workflow.jobs.notes;
+  const checkStep = findNamedStep(job, "Check the inputs");
+  const editStep = findNamedStep(job, "Replace the release body");
+  // The fake gh records its arguments, then the file after --notes-file, byte for byte.
+  const FAKE_GH = `#!/usr/bin/env bash
+printf '%s\\n' "$*" > "$RUNNER_TEMP/gh-args"
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "--notes-file" ]; then cat "$2" > "$RUNNER_TEMP/gh-notes"; fi
+  shift
+done
+`;
+
+  it("takes a required tag and body, and grants contents: write to its one job only", () => {
+    expect(inputs).toMatchObject({ tag: { required: true }, body: { required: true } });
+    expect(workflow.permissions).toEqual({});
+    expect(job?.permissions).toEqual({ contents: "write" });
+    expect(Object.keys(workflow.jobs)).toEqual(["notes"]);
+  });
+
+  it.each(["v2026.10.12", "v2026.10.12-2", "deploy@0.1.10"])("accepts the tag %s", (tag) => {
+    expect(runScript(checkStep.run ?? "", { TAG: tag, BODY: "Notes" }).status).toBe(0);
+  });
+
+  it.each([
+    ["", "Notes", "Input tag is not valid"],
+    ["v1 2", "Notes", "Input tag is not valid"],
+    ["../x", "Notes", "Input tag is not valid"],
+    ["v2026.10.12", "", "Input body is empty"],
+    ["v2026.10.12", " \n\t", "Input body is empty"],
+  ])("refuses tag=%j body=%j", (tag, body, message) => {
+    const refused = runScript(checkStep.run ?? "", { TAG: tag, BODY: body });
+    expect(refused.status).toBe(1);
+    expect(refused.stdout).toContain(`::error::${message}`);
+  });
+
+  it("replaces the body of the tag's release with the text byte for byte", () => {
+    expect(editStep.env).toMatchObject({ TAG: "${{ inputs.tag }}", BODY: "${{ inputs.body }}", GH_TOKEN: "${{ github.token }}" });
+    const body = "## Notes\n\n- `$(id)` and $HOME stay text\n";
+    const script = `${editStep.run ?? ""}\ncp "$RUNNER_TEMP/gh-args" "$RUNNER_TEMP/gh-notes" "$OUT_DIR/"`;
+    const outDir = mkdtempSync(join(tmpdir(), "deploy-notes-"));
+    try {
+      const result = runScript(script, { TAG: "v2026.10.12", BODY: body, GH_TOKEN: "token", OUT_DIR: outDir }, { bin: { gh: FAKE_GH } });
+      expect(result.status).toBe(0);
+      expect(readFileSync(join(outDir, "gh-args"), "utf8")).toMatch(/^release edit v2026\.10\.12 --repo acme\/app --notes-file \S+release-notes\.md\n$/);
+      expect(readFileSync(join(outDir, "gh-notes"), "utf8")).toBe(body);
+      expect(result.summary).toContain("v2026.10.12");
+    } finally {
+      rmSync(outDir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("the example checks caller (issue #406)", () => {
+  const caller = readYaml(EXAMPLE_CHECKS_CALLER) as Workflow & { concurrency?: { group?: string; "cancel-in-progress"?: boolean } };
+  const job = caller.jobs.checks as Job;
+  const called = getWorkflowCall(readYaml(join(WORKFLOWS_DIR, "deploy-release-checks.yml")));
+
+  it("runs on pull requests, their labels, and on demand", () => {
+    expect(caller.on).toEqual({ pull_request: { types: ["opened", "synchronize", "reopened", "labeled"] }, workflow_dispatch: null });
+    expect(caller.concurrency).toEqual({ group: "checks-${{ github.event.pull_request.number || github.ref }}", "cancel-in-progress": true });
+  });
+
+  it("calls the checks workflow with one uses: line, read-only, and passes only declared inputs", () => {
+    expect(Object.keys(caller.jobs)).toEqual(["checks"]);
+    expect(job.uses).toBe("SOFTURE/AI/.github/workflows/deploy-release-checks.yml@master");
+    expect(caller.permissions).toEqual({ contents: "read" });
+    const declared = Object.keys(called.inputs ?? {});
+    for (const key of Object.keys(job.with ?? {})) expect(declared).toContain(key);
+    expect(job.with?.tag).toBeUndefined();
+  });
+
+  it("runs the unit tests on demand or with the run-tests label only, and Next's type generation before tsc", () => {
+    expect(job.with?.unit).toBe("${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-tests') }}");
+    expect(String(job.with?.["static-command"])).toMatch(/^npx next typegen && npx tsc --noEmit/);
+  });
+});
+
+describe("the example release-notes caller (issue #406)", () => {
+  const caller = readYaml(EXAMPLE_NOTES_CALLER);
+  const job = caller.jobs.notes as Job;
+
+  it("is started by hand or by an agent with a tag and a body", () => {
+    expect(Object.keys(caller.on)).toEqual(["workflow_dispatch"]);
+    const dispatch = caller.on.workflow_dispatch as { inputs?: Record<string, WorkflowInput> };
+    expect(dispatch.inputs?.tag?.required).toBe(true);
+    expect(dispatch.inputs?.body?.required).toBe(true);
+  });
+
+  it("calls the release-notes workflow with both inputs and grants contents: write only", () => {
+    expect(job.uses).toBe("SOFTURE/AI/.github/workflows/deploy-release-notes.yml@master");
+    expect(job.with).toEqual({ tag: "${{ inputs.tag }}", body: "${{ inputs.body }}" });
     expect(caller.permissions).toEqual({ contents: "write" });
   });
 });
