@@ -37,7 +37,9 @@ describe("findAccessReminders", () => {
     const userId = await createAccountAt(billing, "ada@example.com", new Date("2026-10-03T08:00:00Z"));
     billing.clock.set(new Date("2026-10-14T08:00:00Z"));
 
-    expect(await findAccessReminders(billing.ctx)).toEqual([{ userId, email: "ada@example.com", kind: "trial-ending", endsAt: TRIAL_END }]);
+    expect(await findAccessReminders(billing.ctx)).toEqual([
+      { userId, email: "ada@example.com", kind: "trial-ending", endsAt: TRIAL_END, endsAtMicros: String(BigInt(TRIAL_END.getTime()) * 1000n) },
+    ]);
   });
 
   it("finds nothing outside every window", async () => {
@@ -154,6 +156,30 @@ describe("findAccessReminders", () => {
     }
     // The spread actually exercises the windows.
     expect(found).toBeGreaterThan(100);
+  });
+
+  it("carries a stored end with its microseconds, as SQL reads them from the column", async () => {
+    const billing = await setUp();
+    const trial = await createAccountAt(billing, "trial@example.com", new Date("2026-09-01T08:00:00Z"));
+    const paid = await createAccountAt(billing, "paid@example.com", new Date("2026-09-01T08:00:00Z"));
+    billing.clock.set(new Date("2026-09-02T08:00:00Z"));
+    expect((await changeEntitlement(billing.ctx, trial, { type: "extend_trial", until: new Date("2026-10-15T22:00:00Z") })).ok).toBe(true);
+    expect((await changeEntitlement(billing.ctx, paid, { type: "grant", until: new Date("2026-10-19T22:00:00Z") })).ok).toBe(true);
+    await billing.database.client.query("UPDATE billing.entitlements SET trial_ends_at = '2026-10-15 22:00:00.123456+00' WHERE user_id = $1", [trial]);
+    await billing.database.client.query("UPDATE billing.entitlements SET paid_until = '2026-10-19 22:00:00.000999+00' WHERE user_id = $1", [paid]);
+    billing.clock.set(new Date("2026-10-14T08:00:00Z"));
+
+    const due = await findAccessReminders(billing.ctx);
+    const fromSql = await billing.database.client.query<{ user_id: string; micros: string }>(
+      "SELECT user_id, (extract(epoch from CASE WHEN user_id = $1 THEN trial_ends_at ELSE paid_until END) * 1000000)::bigint::text AS micros FROM billing.entitlements",
+      [trial],
+    );
+    const expected = new Map(fromSql.rows.map((row) => [row.user_id, row.micros]));
+    expect(due.map((reminder) => [reminder.kind, reminder.endsAt.toISOString(), reminder.endsAtMicros])).toEqual([
+      ["trial-ending", "2026-10-15T22:00:00.123Z", "1792101600123456"],
+      ["paid-ending", "2026-10-19T22:00:00.000Z", "1792447200000999"],
+    ]);
+    for (const reminder of due) expect(reminder.endsAtMicros).toBe(expected.get(reminder.userId));
   });
 
   it("has an index on auth.users.created_at for the range of accounts without a row", async () => {
