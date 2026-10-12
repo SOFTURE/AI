@@ -1,6 +1,6 @@
 ---
 change_id: mcp-access-issue-token-386
-status: active
+status: archived
 ---
 
 # Plan: mcp-access issueToken gaps (issue #386)
@@ -16,7 +16,7 @@ Files: `modules/mcp-access/src/options.ts`, `contract.ts`, `next/issue-token.ts`
    - With `clientServerName: "acme-app"`, `issued.setup` uses it in `claudeCodeCommand`, `jsonConfig`, `desktopConfig`
      and `assistantPrompt`; without it, `serverName` (unchanged output).
    - An invalid `clientServerName` (spaces, quotes) is refused by the options schema.
-   - `beforeIssue: () => err({ code: "mcp-access.write_refused", message: "Your trial ended." })` gives
+   - `beforeIssue: () => refuseIssue("mcp-access.write_refused", "Your trial ended.")` gives
      `{ status: "error", error: "mcp-access.write_refused", message: "Your trial ended." }` and issues nothing.
    - A thrown `PublicError("Account is read-only.")` gives `{ status: "error", error: "mcp-access.issue_refused",
      message: "Account is read-only." }`, nothing logged as failure; a plain `Error` still gives `core.unexpected`
@@ -35,5 +35,8 @@ Files: `modules/mcp-access/src/options.ts`, `contract.ts`, `next/issue-token.ts`
 
 ## Progress
 
-- [ ] Phase 1: options, gate refusal text, expiresAt
-- [ ] Phase 2: docs
+- [x] Phase 1: options, gate refusal text, expiresAt (`d6263ef`; the new test file failed on master with 5 of 10, 25 tests green after with the TokenManager test)
+- [x] Phase 2: docs (`a611319`)
+
+Gates on the branch: `npm run typecheck`, `npm run lint` green; the mcp-access package's 259 tests pass, the full
+`npm test` runs in pre-push.
