@@ -6,6 +6,7 @@ import { type ChartsCopyProps, getChartsCopy } from "../messages/index.js";
 import { nearestPointIndex } from "../scale/nearest-point.js";
 import { type ChartTone, cx, seriesClass, toneClass } from "../svg/class-names.js";
 import { percent } from "../svg/geometry.js";
+import { getNextIndex } from "./cursor-keys.js";
 
 /** One series' value at a cursor stop. */
 export interface CursorValue {
@@ -157,21 +158,4 @@ export function ChartCursor({
 function getValueColourClass({ slot, tone, className }: CursorValue): string {
   const colour = slot === undefined ? tone !== undefined && cx(toneClass(tone), "sft-chart-fill-tone") : seriesClass(slot);
   return cx(colour, className);
-}
-
-/** The stop a key moves to, or `undefined` for a key the cursor leaves to the page. */
-function getNextIndex(key: string, current: number | null, lastIndex: number): number | undefined {
-  if (lastIndex < 0) return undefined;
-  switch (key) {
-    case "ArrowRight":
-      return current === null ? 0 : Math.min(lastIndex, current + 1);
-    case "ArrowLeft":
-      return current === null ? lastIndex : Math.max(0, current - 1);
-    case "Home":
-      return 0;
-    case "End":
-      return lastIndex;
-    default:
-      return undefined;
-  }
 }

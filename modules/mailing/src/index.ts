@@ -17,7 +17,7 @@ export const MODULE_ID = "mailing";
 export const mailing = defineModule({
   manifest: {
     id: MODULE_ID,
-    version: "0.1.12",
+    version: "0.1.13",
     dependsOn: {},
     dbSchema: "mailing",
     tables: ["suppressions", "campaigns", "deliveries"],
