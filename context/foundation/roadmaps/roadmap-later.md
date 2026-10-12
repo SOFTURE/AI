@@ -38,10 +38,11 @@ trigger: "the owner step each item waits on (secrets, accounts) is done; the own
 >
 > Run-wide orders (read by orchestrators once promoted):
 > - Push main branch: at the end. Also push `master` after every merge. Claude reviews and merges its own
->   changes into `master` (owner, 2026-10-02). Tags and npm publishes stay with the owner.
+>   changes into `master` (owner, 2026-10-02). Releases follow `release.owner: false` (owner, 2026-10-12).
 > - Archive roadmap: at the end.
 > - Parallelism: up to 4 at once (`workflow.json` → `worktree.maxParallel`).
-> - Release: each item that changes a published package bumps it; the owner releases at the keyboard.
+> - Release: each item that changes a published package bumps it; the coordinator cuts one combined release
+>   once the roadmap's items are done.
 > - Owner at the keyboard: none left. MK-8, EN-9, MO-6, BL-8 and DP-8 are done: the release pipeline publishes to
 >   npm directly since 0.1.5 (owner, 2026-10-06).
 
