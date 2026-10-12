@@ -802,6 +802,45 @@ const chartDirective: BlockPlugin = {
   with any directive plugin registered `block-directive` reports a `::name` line no plugin renders (a
   typo would show as a paragraph) or one whose attributes cannot be read.
 - `parseDirectiveLine` and `parseDirectiveAttributes` (`@softure-ai/blog/server`) are the parser.
+- `validate(block)` (optional) says why readable attributes are wrong (`null` when they fit); the gate reports
+  its message as `block-directive`.
+
+**Tool blocks.** An interactive tool (a calculator) in an article is a directive whose page shows a client
+island. `defineToolBlock` (`@softure-ai/blog/ui`) builds that directive plugin from the app's schema, static HTML
+and client component:
+
+```md
+::savings-calculator{rate="5" years="20"}
+```
+
+```tsx
+// blog-tools.tsx: imported by softure.config.ts (blog({ blocks, quality: { blocks } }))
+import { defineToolBlock } from "@softure-ai/blog/ui";
+import { z } from "zod";
+import { SavingsCalculator } from "./savings-calculator"; // a "use client" component
+
+export const savingsTool = defineToolBlock({
+  name: "savings-calculator",
+  // The attributes are strings: coerce numbers. The props travel to the browser, so keep them serializable.
+  schema: z.object({ rate: z.coerce.number().min(0).max(20), years: z.coerce.number().int().positive() }),
+  renderStatic: (props) => `<p>${String(props.years)} years at ${String(props.rate)}%: …</p>`, // escape what you insert
+  Island: SavingsCalculator,
+  markdown: (props) => `| Years | Rate |\n| --- | --- |\n| ${String(props.years)} | ${String(props.rate)}% |`, // optional
+});
+```
+
+- The page's server HTML is `<div class="blog-tool" data-blog-tool="savings-calculator" data-state="static">` with the
+  static HTML: what bots and readers without JavaScript get. After hydration `BlogToolIsland` (the package's one
+  client component) renders `Island` with the parsed props in its place (`data-state="live"`). `Island` is never
+  rendered on the server, so it may use browser APIs; keep the static HTML close to its first look to avoid a
+  layout shift. `className` replaces `blog-tool`.
+- The Markdown answer carries the static HTML, or `markdown(props)` when given. RSS items carry no body.
+- The gate reports attributes the schema refuses as `block-directive` (`the attributes of ::savings-calculator do
+  not fit: rate: …`), so register the tool in `quality.blocks` too. Such a line renders nothing on the page
+  (`renderInvalid(block)` returns the app's HTML instead) and keeps its source in the Markdown answer.
+- `requires` and `numbers(props)` work as for any block plugin.
+- The config imports the tool's module, and the config also loads in plain Node and in the proxy: keep `Island` a
+  plain component module (no CSS imports or browser globals at module level).
 
 **Markdown for agents.** `createBlogMarkdown(config)` (`@softure-ai/blog/proxy`) answers a GET or HEAD
 of a published article or term whose `Accept` names `text/markdown` with at least the weight of
@@ -954,6 +993,8 @@ export const tickerPlugin: QualityPlugin = {
   exported from `@softure-ai/blog/server`.
 - `renderArticle({ blocks })` and `blog({ blocks })`: block plugins for the app's fenced blocks and
   `::directive` lines (an engine chart), with an optional Markdown form for agents.
+- `defineToolBlock` (`/ui`): an interactive tool behind a directive, static HTML for bots and a client island on
+  the page.
 - The pages' `cta` and `afterArticle` slots: the app's call to action and blocks (a waitlist form).
 
 ## 11. GDPR
