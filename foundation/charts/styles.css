@@ -674,6 +674,92 @@
     color: var(--sft-color-muted);
   }
 
+  /*
+   * Event axis: spans and milestones on rows of --sft-chart-event-lane-height; each item carries its row in
+   * --sft-chart-event-lane, the track the row count in --sft-chart-event-lanes (both inline). Taller rows: set the height
+   * on .sft-chart-event-axis.
+   */
+  .sft-chart-event-axis {
+    --sft-chart-event-lane-height: var(--sft-space-6);
+    position: relative;
+    display: grid;
+    gap: var(--sft-space-2);
+    border-radius: var(--sft-radius-control);
+    color: var(--sft-color-foreground);
+    font-size: var(--sft-text-xs);
+  }
+
+  .sft-chart-event-axis:focus {
+    outline: none;
+  }
+
+  .sft-chart-event-axis:focus-visible {
+    outline: 2px solid var(--sft-color-focus);
+    outline-offset: var(--sft-space-1);
+  }
+
+  .sft-chart-event-track {
+    position: relative;
+    height: calc(var(--sft-chart-event-lanes, 1) * var(--sft-chart-event-lane-height));
+  }
+
+  .sft-chart-event {
+    position: absolute;
+    top: calc(var(--sft-chart-event-lane, 0) * var(--sft-chart-event-lane-height) + var(--sft-space-1));
+    box-sizing: border-box;
+  }
+
+  /* A span: a bar tinted in its colour with a solid start edge, its label clipped to it. */
+  .sft-chart-event-span {
+    height: calc(var(--sft-chart-event-lane-height) - var(--sft-space-2));
+    display: flex;
+    align-items: center;
+    min-width: var(--sft-chart-grid-width);
+    padding-inline: var(--sft-space-1);
+    border-left: var(--sft-chart-line-width) solid var(--sft-chart-series, var(--sft-chart-series-1));
+    border-radius: var(--sft-space-1);
+    overflow: hidden;
+  }
+
+  .sft-chart-event-span::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: var(--sft-chart-series, var(--sft-chart-series-1));
+    opacity: var(--sft-chart-tint-opacity, 0.24);
+  }
+
+  .sft-chart-event-label {
+    position: relative;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* A milestone: a dot centred on its x, ringed like the cursor's dots. */
+  .sft-chart-event-milestone {
+    width: var(--sft-chart-dot-size);
+    height: var(--sft-chart-dot-size);
+    margin-top: calc((var(--sft-chart-event-lane-height) - var(--sft-space-2) - var(--sft-chart-dot-size)) / 2);
+    border: 2px solid var(--sft-chart-axis);
+    border-radius: var(--sft-radius-pill);
+    background: var(--sft-chart-series, var(--sft-chart-series-1));
+    transform: translateX(-50%);
+  }
+
+  .sft-chart-event-active.sft-chart-event-span {
+    box-shadow: inset 0 0 0 var(--sft-chart-grid-width) var(--sft-chart-series, var(--sft-chart-series-1));
+  }
+
+  .sft-chart-event-active.sft-chart-event-span::before {
+    opacity: calc(var(--sft-chart-tint-opacity, 0.24) * 2);
+  }
+
+  .sft-chart-event-active.sft-chart-event-milestone {
+    border-color: var(--sft-color-foreground);
+    transform: translateX(-50%) scale(1.25);
+  }
+
   .sft-chart-visually-hidden {
     position: absolute;
     width: 1px;
