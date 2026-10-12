@@ -2,7 +2,8 @@
 // is formatted at UTC midnight in UTC, so neither the server's nor the reader's zone moves it.
 import { isCalendarDay } from "./calendar-day.js";
 import { CURRENCY_MINOR_UNIT_DIGITS } from "./currency-digits.js";
-import type { Locale } from "./i18n.js";
+import { formatMessage, selectPlural, type Locale } from "./i18n.js";
+import { coreMessages } from "./messages/index.js";
 
 /** `long`: October 4, 2026 (pl names the month in the genitive); `medium`: Oct 4, 2026; `numeric`: 10/04/2026 (pl: 04.10.2026). */
 export type CalendarDayStyle = "long" | "medium" | "numeric";
@@ -16,6 +17,19 @@ export interface FormatMoneyOptions {
   readonly compact?: boolean;
 }
 
+/** `long`: October 2026 (pl: the month in the nominative); `genitive`: pl's genitive month, as inside a date; `roman`: X 2026. */
+export type CalendarMonthStyle = "long" | "genitive" | "roman";
+
+export interface FormatPercentOptions {
+  /** A `+` before a positive value (a `-` before a negative one is always there). Zero has neither in any mode. */
+  readonly signed?: boolean;
+  /** No space between the number and `%`, whatever the locale's pattern: `12,5%`, not `12,5 %`. */
+  readonly tight?: boolean;
+}
+
+const MONTHS_PER_YEAR = 12;
+const MONTH_PATTERN = /^(\d{4})-(\d{2})$/;
+const ROMAN_MONTHS = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"] as const;
 const BASIS_POINTS_PER_UNIT = 10_000;
 const MAX_PERCENT_FRACTION_DIGITS = 2;
 
@@ -31,13 +45,51 @@ const DAY_STYLE_OPTIONS: Readonly<Record<CalendarDayStyle, Intl.DateTimeFormatOp
 /** A `YYYY-MM-DD` day as `locale` writes it. Throws a `RangeError` for a malformed day. */
 export function formatCalendarDay(day: string, locale: Locale, style: CalendarDayStyle = "long"): string {
   if (!isCalendarDay(day)) throw new RangeError(`formatCalendarDay: "${String(day)}" is not a YYYY-MM-DD calendar day`);
-  const key = `${locale}:${style}`;
-  let format = dayFormatters.get(key);
-  if (format === undefined) {
-    format = new Intl.DateTimeFormat(locale, { ...DAY_STYLE_OPTIONS[style], timeZone: "UTC" });
-    dayFormatters.set(key, format);
+  return getDayFormatter(`${locale}:${style}`, locale, DAY_STYLE_OPTIONS[style]).format(new Date(`${day}T00:00:00Z`));
+}
+
+/** Whether `value` is a real calendar month written `YYYY-MM` (`2026-13` and `2026-1` are not). */
+export function isCalendarMonth(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  const match = MONTH_PATTERN.exec(value);
+  if (match === null) return false;
+  const month = Number(match[2]);
+  return month >= 1 && month <= MONTHS_PER_YEAR;
+}
+
+/**
+ * The month of a `YYYY-MM` month or a `YYYY-MM-DD` day, with its year, as `locale` writes it alone. Throws a
+ * `RangeError` for anything else.
+ */
+export function formatCalendarMonth(month: string, locale: Locale, style: CalendarMonthStyle = "long"): string {
+  const firstDay = isCalendarMonth(month) ? `${month}-01` : month;
+  if (!isCalendarDay(firstDay)) throw new RangeError(`formatCalendarMonth: "${String(month)}" is not a YYYY-MM month or a YYYY-MM-DD day`);
+  const date = new Date(`${firstDay}T00:00:00Z`);
+  const year = firstDay.slice(0, 4);
+  if (style === "roman") return `${ROMAN_MONTHS[date.getUTCMonth()] ?? ""} ${year}`;
+  if (style === "long") return getDayFormatter(`${locale}:month`, locale, { month: "long", year: "numeric" }).format(date);
+  // The genitive is the form a full date uses, so it is read from a day-month-year date's month part.
+  const parts = getDayFormatter(`${locale}:day-month`, locale, { day: "numeric", month: "long", year: "numeric" }).formatToParts(date);
+  const name = parts.find((part) => part.type === "month")?.value ?? "";
+  return `${name} ${year}`;
+}
+
+/**
+ * Whole months as years and months in `locale`, with its plural forms: 38 is "3 years and 2 months"; a part that is
+ * zero is left out, and zero itself is "0 months". Throws a `RangeError` for a negative or fractional count.
+ */
+export function formatDuration(months: number, locale: Locale): string {
+  if (!Number.isSafeInteger(months) || months < 0) {
+    throw new RangeError(`formatDuration: ${String(months)} is not a whole, non-negative number of months`);
   }
-  return format.format(new Date(`${day}T00:00:00Z`));
+  const copy = coreMessages[locale].duration;
+  const years = Math.floor(months / MONTHS_PER_YEAR);
+  const rest = months % MONTHS_PER_YEAR;
+  const yearsText = formatMessage(selectPlural(locale, years, copy.years), { count: years });
+  const monthsText = formatMessage(selectPlural(locale, rest, copy.months), { count: rest });
+  if (years === 0) return monthsText;
+  if (rest === 0) return yearsText;
+  return formatMessage(copy.both, { years: yearsText, months: monthsText });
 }
 
 /**
@@ -62,11 +114,37 @@ export function formatMoney(minor: number, currency: string, locale: Locale, opt
   return format.format(minor / 10 ** digits);
 }
 
-/** Basis points as a percentage in `locale`: 1250 is 12.5%, at most two fraction digits. Throws a `RangeError` for a non-finite value. */
-export function formatPercent(basisPoints: number, locale: Locale): string {
+/**
+ * Basis points as a percentage in `locale`: 1250 is 12.5%, at most two fraction digits, and zero is never signed (`-0`
+ * and a value that rounds to zero show as `0%`). Throws a `RangeError` for a non-finite value.
+ */
+export function formatPercent(basisPoints: number, locale: Locale, options: FormatPercentOptions = {}): string {
   if (!Number.isFinite(basisPoints)) throw new RangeError(`formatPercent: ${String(basisPoints)} is not a finite number of basis points`);
-  const format = getNumberFormatter(locale, { style: "percent", maximumFractionDigits: MAX_PERCENT_FRACTION_DIGITS });
-  return format.format(basisPoints / BASIS_POINTS_PER_UNIT);
+  const format = getNumberFormatter(locale, {
+    style: "percent",
+    maximumFractionDigits: MAX_PERCENT_FRACTION_DIGITS,
+    signDisplay: options.signed === true ? "exceptZero" : "negative",
+  });
+  const value = basisPoints / BASIS_POINTS_PER_UNIT;
+  if (options.tight !== true) return format.format(value);
+  const parts = format.formatToParts(value);
+  return parts
+    .filter((part, index) => !(part.type === "literal" && part.value.trim() === "" && isNextToPercentSign(parts, index)))
+    .map((part) => part.value)
+    .join("");
+}
+
+function isNextToPercentSign(parts: readonly Intl.NumberFormatPart[], index: number): boolean {
+  return parts[index - 1]?.type === "percentSign" || parts[index + 1]?.type === "percentSign";
+}
+
+function getDayFormatter(key: string, locale: Locale, options: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
+  let format = dayFormatters.get(key);
+  if (format === undefined) {
+    format = new Intl.DateTimeFormat(locale, { ...options, timeZone: "UTC" });
+    dayFormatters.set(key, format);
+  }
+  return format;
 }
 
 function getNumberFormatter(locale: Locale, options: Intl.NumberFormatOptions): Intl.NumberFormat {

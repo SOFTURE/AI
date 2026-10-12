@@ -4,5 +4,5 @@ import { pl } from "./pl.js";
 
 export type CoreMessages = typeof en;
 
-/** Copy for core's own error codes (`core.<key>` → `errors.<key>`). */
+/** Copy for core's own error codes (`core.<key>` → `errors.<key>`) and formatters (`duration`). */
 export const coreMessages: Dictionaries<CoreMessages> = { en, pl };
