@@ -251,7 +251,25 @@ plot hidden from assistive technology, so pair it with a `ChartDataTable`. A nod
 />
 ```
 
-Wider labels: set `--sft-chart-sankey-label-width` on `.sft-chart-sankey`.
+Variants, all optional (without them the markup is that of 0.1.7):
+
+- `labels="none"` draws the plot alone, without label columns: a compact drawing (a phone) whose labels the app lists
+  outside it.
+- `leaders` draws a line from each label that was spread away from its node to the node's middle, in a strip between
+  the label column and the plot (`layoutSankey` gives every node `centreY` and `isLabelSpread`). Only with label
+  columns.
+- `aspect="fixed"` keeps the plot at the viewBox's aspect ratio instead of stretching it to the plot height, so ribbons
+  are not distorted; the label columns follow its height and the labels stay HTML. Pick the ratio with
+  `layout={{ width, height }}` (1000 × 400 by default).
+
+```tsx
+<Sankey items={items} leaders aspect="fixed" layout={{ width: 600, height: 300 }} />
+<Sankey items={items} labels="none" aspect="fixed" layout={{ width: 320, height: 320 }} />
+```
+
+Custom properties on `.sft-chart-sankey`: `--sft-chart-sankey-label-width` (wider labels),
+`--sft-chart-sankey-leader-width` (the leader strip), `--sft-chart-sankey-link-opacity` (ribbons) and
+`--sft-chart-sankey-node-opacity` (tinted and hatched nodes); both opacities fall back to `--sft-chart-tint-opacity`.
 
 ### Bar list
 
@@ -266,6 +284,25 @@ renderer outside React (a blog body); `getBarListRows` gives the rows to an app'
 
 ```ts
 const html = renderBarListHtml({ items, max: 100 });
+```
+
+Options, in both renderers:
+
+- `layout="stacked"` puts label and value on one row and the bar full width under them (`inline`, label | bar | value,
+  by default).
+- An item with `missing: true` draws an empty track outlined dashed in its `slot`, `tone` or `color`, and no bar; it
+  does not count toward the default `max`. Its `valueLabel` says it is missing ("no data"): the outline is hidden from
+  assistive technology.
+- `description` adds a line of text under the bar.
+
+```tsx
+<BarList
+  layout="stacked"
+  items={[
+    { key: "bonds", label: copy.bonds, value: 50, valueLabel: format(50), description: copy.bondsNote },
+    { key: "gold", label: copy.gold, value: 0, valueLabel: copy.noData, missing: true, tone: "muted" },
+  ]}
+/>
 ```
 
 ### Horizontal axes

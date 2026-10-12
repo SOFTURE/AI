@@ -33,6 +33,7 @@ export {
   GlossaryTermPage,
   type BlogArticlePageProps,
   type BlogIndexPageProps,
+  type BlogMethodPageProps,
   type BlogViewPageProps,
   type GlossaryTermPageProps,
 } from "./pages.js";
