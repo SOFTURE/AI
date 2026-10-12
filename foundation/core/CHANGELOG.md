@@ -6,6 +6,10 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- New server-only entry `@softure-ai/core/og`: the OG card font loader the modules share (#414).
+  `createOgFontLoader({ root, label?, readFile?, fetchImpl? })` and `loadOgFonts(fonts)` (from the working
+  directory) read a `.ttf`, `.otf` or `.woff` path or https URL once and answer `{ ok, fonts }` or `{ ok: false, error }`;
+  with `OgFontSource`, `OgFont`, `OgFontWeight`, `OG_FONT_WEIGHTS`. Moved from the blog.
 - `formatMoney` never puts a minus on zero: a negative zero, or an amount that rounds to zero under `rounded` or
   `compact`, shows as `PLN 0.00` / `PLN 0` instead of `-PLN 0.00` (#375).
 

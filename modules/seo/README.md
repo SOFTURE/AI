@@ -11,7 +11,8 @@ off as one list, with the app's private paths closed to every crawler; an `htmlL
 entries and other modules' contributors with a real `lastmod`; one canonical origin (apex or `www`,
 trailing slash rule) for `metadata.alternates.canonical`; the IndexNow key file and
 `submitToIndexNow(urls)`, a dry run unless told to commit; and a Markdown version of every sitemap page
-for agents that ask for it with `Accept: text/markdown` (`createPageMarkdown`, a proxy piece).
+for agents that ask for it with `Accept: text/markdown` (`createPageMarkdown`, a proxy piece); and the
+fonts of the app's own OG cards (`loadOgFonts`).
 
 ## 2. Installation
 
@@ -168,6 +169,39 @@ export async function proxy(request: NextRequest) {
 
 `prefersMarkdown(accept)` (root entry) is the negotiation rule on its own: `text/markdown` must be
 named, the weights follow RFC 9110, and a tie with HTML goes to Markdown.
+
+### OG card fonts
+
+An `opengraph-image` route (a landing page, an app screen) gets its fonts from `@softure-ai/seo/server`,
+with or without the blog:
+
+```tsx
+// app/opengraph-image.tsx
+import { ImageResponse } from "next/og";
+import { loadOgFonts } from "@softure-ai/seo/server";
+
+export default async function Image() {
+  const fonts = await loadOgFonts([
+    { name: "Inter", weight: 400, src: "assets/fonts/inter-latin-400-normal.woff" },
+    { name: "Inter", weight: 700, src: "https://cdn.example.com/inter-latin-700-normal.woff" },
+  ]);
+  if (!fonts.ok) throw new Error(fonts.error);
+  return new ImageResponse(<div style={{ fontFamily: "Inter" }}>…</div>, { size: { width: 1200, height: 630 }, fonts: [...fonts.fonts] });
+}
+```
+
+- A source is a path from the app's root (where Next runs), an absolute path or an `https` URL. Each is
+  read once and kept for the life of the process; a failed read is not kept, so a fixed file is read
+  on the next render.
+- Only `.ttf`, `.otf` and `.woff` are accepted (Satori cannot read `.woff2`). Anything else answers
+  `{ ok: false, error }`, e.g. `OG card: fonts[1] "…": a .woff2 font, which the card cannot read; use
+  the .woff or .ttf file (/app/…).`
+- `createOgFontLoader({ root, label, readFile, fetchImpl })` is the same loader with its own root, cache
+  and message label (`label`, default `OG card: fonts`), e.g. for a check in CI.
+- Ship the font folder with the route (`outputFileTracingIncludes`) when the app builds a standalone
+  output.
+- The loader is `@softure-ai/core/og`'s; the blog's `createOgFontLoader` / `loadBrandOgFonts` are the
+  same loader with `Blog OG card: brand.fonts` in its messages.
 
 ## 5. Migrations and tables
 
