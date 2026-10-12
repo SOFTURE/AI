@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`db@x.y.z`).
 
-## Unreleased
+## 0.1.8
 
 - `createProcessDatabase(url, { globalKey })` keeps the open database on `globalThis`, so a module `next dev`
   re-evaluates finds it; `closeProcessDatabases()` closes every process database, for tests (#404).
