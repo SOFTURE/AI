@@ -4,6 +4,12 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`blog@x.y.z`).
 
+## Unreleased
+
+- The OG font loader lives in `@softure-ai/core/og` and an app reaches it from `@softure-ai/seo/server` for cards
+  outside the blog (#414). The blog still exports `createOgFontLoader`, `loadBrandOgFonts` and their types from
+  `/server` and `/next`, with the same `Blog OG card: brand.fonts[i]` messages; seo stays an optional peer.
+
 ## 0.1.12
 
 - The method page takes the app's own sections (#380). `BlogMethodPage({ sections })` and
