@@ -1,7 +1,7 @@
 // Copying one account between two databases: the rows the account owns (found through foreign
 // keys, also in tables without a user column), exact values, a dry run by default, and refusals
 // that write nothing.
-import { copyAccount, recordConsent } from "@softure-ai/privacy/server";
+import { copyAccount, getEmailKey, recordConsent } from "@softure-ai/privacy/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createTestPrivacy, findTraces, seedUser, type SeededUser, type TestPrivacy } from "./support.js";
 
@@ -236,5 +236,61 @@ describe("copyAccount", () => {
     const result = await copyAccount({ from: source.database.db, to: target.database.db, userId: ada.id, exclude: ["public.nothing"] });
     expect(result).toMatchObject({ ok: false, error: "privacy.copy_schema_mismatch" });
     expect(!result.ok && result.detail).toContain("public.nothing");
+  });
+
+  it("refuses when the migration ledgers differ, naming each difference, unless told to ignore them", async () => {
+    await target.database.client.exec(`
+      INSERT INTO softure.migrations (module, version, name, checksum, module_version, method)
+      VALUES ('extra', 1, 'add_column', repeat('b', 64), '0.0.1', 'applied');
+      UPDATE softure.migrations SET checksum = repeat('a', 64) WHERE module = 'privacy' AND version = 1;
+    `);
+
+    const refused = await copyAccount({ from: source.database.db, to: target.database.db, userId: ada.id, commit: true, onMissingReference: "null" });
+    expect(refused).toEqual({
+      ok: false,
+      error: "privacy.copy_ledger_mismatch",
+      detail: "the migration ledgers differ: privacy#1 has another checksum, extra#1 only in the target",
+    });
+    expect(await findTraces(target.database, [ada.id])).toEqual([]);
+
+    const ignored = await copyAccount({ from: source.database.db, to: target.database.db, userId: ada.id, commit: true, onMissingReference: "null", ledger: "ignore" });
+    expect(ignored.ok).toBe(true);
+  });
+
+  it("gives the account a new email in the target and moves its copied email consents to it", async () => {
+    // The target has its own account and email consent under Ada's old address; both stay.
+    await seedUser(target, "ada@example.com");
+    await recordConsent(target.ctx, { subject: { email: "ada@example.com" }, purpose: "offers", granted: false, source: "waitlist" });
+
+    const result = await copyAccount({
+      from: source.database.db,
+      to: target.database.db,
+      userId: ada.id,
+      commit: true,
+      onMissingReference: "null",
+      newEmail: " Ada.Copy@Example.com ",
+    });
+
+    expect(result.ok && result.value.committed).toBe(true);
+    expect(await readText(target, "SELECT email FROM auth.users WHERE id = $1", [ada.id])).toEqual([{ email: "ada.copy@example.com" }]);
+    const byKey = await readText(target, "SELECT email_key, purpose FROM privacy.consents WHERE email_key IN ($1, $2) ORDER BY id", [
+      getEmailKey("ada@example.com"),
+      getEmailKey("ada.copy@example.com"),
+    ]);
+    expect(byKey).toEqual([
+      { email_key: getEmailKey("ada@example.com"), purpose: "offers" },
+      { email_key: getEmailKey("ada.copy@example.com"), purpose: "newsletter" },
+    ]);
+  });
+
+  it("refuses a new email the target already has, and writes nothing on a dry run with a new email", async () => {
+    await seedUser(target, "taken@example.com");
+    const taken = await copyAccount({ from: source.database.db, to: target.database.db, userId: ada.id, commit: true, onMissingReference: "null", newEmail: "Taken@example.com" });
+    expect(taken).toMatchObject({ ok: false, error: "privacy.copy_account_exists" });
+    expect(await findTraces(target.database, [ada.id])).toEqual([]);
+
+    const dryRun = await copyAccount({ from: source.database.db, to: target.database.db, userId: ada.id, onMissingReference: "null", newEmail: "new@example.com" });
+    expect(dryRun).toMatchObject({ ok: true, value: { committed: false } });
+    expect(await findTraces(target.database, [ada.id, "new@example.com", getEmailKey("new@example.com")])).toEqual([]);
   });
 });

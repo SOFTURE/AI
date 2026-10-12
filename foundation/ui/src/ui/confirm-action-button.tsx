@@ -5,7 +5,7 @@ import { Button, type ButtonSize, type ButtonVariant, IconButton } from "./butto
 import { type ClassNames, createSlotClassGetter } from "./class-names.js";
 import { type CopyProps, getCopy } from "./copy.js";
 import { useUiLocale } from "./locale.js";
-import { Modal, ModalBody, ModalFooter } from "./modal.js";
+import { Modal, ModalBody, ModalFooter, type ModalSlot } from "./modal.js";
 import { announceToast } from "./toast.js";
 
 // A destructive action (delete, revoke, sign out everywhere) behind a confirmation dialog that states
@@ -16,8 +16,11 @@ import { announceToast } from "./toast.js";
 /** What the action returns: success with an optional message for the toast, or a user-facing error. */
 export type ConfirmActionResult = { readonly ok: true; readonly message?: string } | { readonly ok: false; readonly error: string };
 
-/** `trigger` is the button that opens the dialog, `confirm` the dialog's confirm button. */
-export type ConfirmActionButtonSlot = "trigger" | "description" | "confirm";
+/**
+ * `trigger` is the button that opens the dialog, `confirm` the dialog's confirm button, `cancel` is added to
+ * the footer's Cancel button. The dialog's own parts take `modalClassNames`.
+ */
+export type ConfirmActionButtonSlot = "trigger" | "description" | "confirm" | "cancel";
 
 export interface ConfirmActionButtonProps extends CopyProps<"confirmAction"> {
   /** The trigger's text, or its accessible name with `isIconOnly`. */
@@ -43,6 +46,8 @@ export interface ConfirmActionButtonProps extends CopyProps<"confirmAction"> {
   readonly onSuccess?: () => void;
   /** Copy overrides for the dialog's Close and Cancel. */
   readonly modalMessages?: CopyProps<"modal">["messages"];
+  /** The dialog's slots (`overlay`, `panel`, `close`…), for the app's dialog motion and close button. */
+  readonly modalClassNames?: ClassNames<ModalSlot>;
   readonly classNames?: ClassNames<ConfirmActionButtonSlot>;
   readonly unstyled?: boolean;
 }
@@ -63,6 +68,7 @@ export function ConfirmActionButton({
   successMessage = "",
   onSuccess,
   modalMessages,
+  modalClassNames,
   classNames,
   unstyled,
   locale,
@@ -104,7 +110,7 @@ export function ConfirmActionButton({
   }
 
   const slot = createSlotClassGetter<ConfirmActionButtonSlot>({
-    defaults: { trigger: "", description: "sft:m-0 sft:text-sm sft:text-foreground", confirm: "" },
+    defaults: { trigger: "", description: "sft:m-0 sft:text-sm sft:text-foreground", confirm: "", cancel: "" },
     classNames,
     unstyled,
   });
@@ -145,6 +151,7 @@ export function ConfirmActionButton({
           isDismissible={!isPending}
           locale={resolvedLocale}
           messages={modalMessages}
+          classNames={modalClassNames}
           unstyled={unstyled}
         >
           <ModalBody unstyled={unstyled}>
@@ -156,6 +163,7 @@ export function ConfirmActionButton({
             error={error}
             locale={resolvedLocale}
             messages={modalMessages}
+            classNames={{ cancel: classNames?.cancel }}
             unstyled={unstyled}
           >
             <Button

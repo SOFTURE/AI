@@ -382,17 +382,27 @@ try {
   another type), `copy_reference_missing` (a copied row references a row neither the copy nor the
   target has, such as an OAuth client), `copy_conflict` (a target constraint rejects a row; the
   detail names it), `copy_unsupported` (a cycle of foreign keys between tables),
-  `copy_verification_failed`. With `onMissingReference: "null"`, a SET NULL key whose row the target
-  lacks is written as NULL instead, and counted in the report.
+  `copy_verification_failed`, `copy_ledger_mismatch` (the two databases' migration ledgers,
+  `softure.migrations`, differ: a migration ran on one side only, or from another file; the detail
+  names up to five differences). With `onMissingReference: "null"`, a SET NULL key whose row the
+  target lacks is written as NULL instead, and counted in the report.
+- **Same migrations.** A column only the target has would silently take its default (NULL) in every
+  copied row, so the copy first compares the ledgers and refuses when they differ. `ledger:
+  "ignore"` skips the check, for a target whose extra migrations are known to be harmless.
+- **A new email.** `newEmail` gives the account another address in the target (trimmed and
+  lowercased): its `auth.users` row and its email-keyed consents are written with it and verified as
+  written. The target must not have an account with the new address; one with the old address is
+  no obstacle. Rows of `include` tables keep the values they had.
 
 The report lists every table the account reaches, in insert order, with its row count.
 
-**As an ops command.** `createCopyAccountScript({ exclude?, include?, onMissingReference? })` in
-`@softure-ai/privacy/scripts` is the same copy as a safe ops script (`@softure-ai/ops/scripts`):
-it copies into the app's own database (the one the ops helper opens) from the database at
-`--from`, which it only reads. Name the account by `--user=<id>` or `--email=<address>` (looked up
-in the source). Without `--commit` it is a dry run: everything is copied and verified, then rolled
-back. The report gives `before` and `after` (whether the target has the account, and the copied
+**As an ops command.** `createCopyAccountScript({ exclude?, include?, onMissingReference?, ledger? })`
+in `@softure-ai/privacy/scripts` is the same copy as a safe ops script (`@softure-ai/ops/scripts`):
+it copies from the database at `--from`, which it only reads, into the app's own database (the one
+the ops helper opens) or, with `--to=<URL>`, into another database. Name the account by
+`--user=<id>` or `--email=<address>` (looked up in the source); `--new-email=<address>` gives it
+another address in the target. Without `--commit` it is a dry run: everything is copied and
+verified, then rolled back, in the `--to` database too. The report gives `before` and `after` (whether the target has the account, and the copied
 tables); a refusal names the error and its detail and writes nothing.
 
 ```ts
@@ -414,8 +424,16 @@ node ops/copy-account.mjs --from-file=/run/secrets/source-database-url --email=a
 node ops/copy-account.mjs --from-file=/run/secrets/source-database-url --email=ada@example.com --commit
 ```
 
-To copy between two databases neither of which is the app's, run it with the target's
-`DATABASE_URL`. Identity and serial sequences of the target can move past the copied ids even on a
+Between two databases neither of which is the app's (a copy into a fresh development database, a
+restore check), pass both; the app's database is then not written:
+
+```bash
+node ops/copy-account.mjs --from-file=/run/secrets/source-url --to-file=/run/secrets/target-url --email=ada@example.com --new-email=ada+dev@example.com --commit
+```
+
+`--to` needs an `@softure-ai/ops` that passes `{ commit }` to scripts (the release after ops 0.1.9);
+an older one refuses `--to` and writes nothing. The `--to` database commits inside the ops run, which
+writes nothing to the app's database in that mode. Identity and serial sequences of the target can move past the copied ids even on a
 dry run, since a sequence never rolls back: a gap in ids, no rows.
 
 ## 12. Limitations

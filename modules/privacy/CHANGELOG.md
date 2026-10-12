@@ -4,6 +4,17 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`privacy@x.y.z`).
 
+## Unreleased
+
+- `copyAccount` refuses with `privacy.copy_ledger_mismatch` when the source's and the target's migration ledgers
+  (`softure.migrations`) differ, naming the differences; a column only the target had took NULL silently before.
+  `ledger: "ignore"` opts out (#376).
+- `copyAccount({ newEmail })` gives the account another address in the target, in the same transaction: its
+  `auth.users` row and its email-keyed consents are written with it. The existence check uses the new address (#376).
+- `createCopyAccountScript`: `--to=<URL>` (or `--to-file`) copies into another database instead of the app's, with
+  the same dry run (needs the `@softure-ai/ops` release that passes `{ commit }` to scripts); `--new-email=<address>`;
+  options `ledger` and `openTarget` (#376).
+
 ## 0.1.11
 
 - A legal document can be declared with its change history: `documents: [{ id, history: [{ date, summary,
