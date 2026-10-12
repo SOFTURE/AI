@@ -1,12 +1,13 @@
 ---
 change_id: ui-testing-guards-403
 title: "ui: design-token and component guards in ui/testing (issue #403)"
-status: open
+status: archived
 roadmap_item: null
 issue: 403
 branch: claude/project-thread-ydipi4
 created: 2026-10-12
 updated: 2026-10-12
+archived_at: 2026-10-12
 ---
 
 ## Intent

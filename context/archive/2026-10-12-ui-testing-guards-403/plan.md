@@ -1,6 +1,6 @@
 ---
 change_id: ui-testing-guards-403
-status: open
+status: archived
 ---
 
 # Plan: ui/testing guards (issue #403)
