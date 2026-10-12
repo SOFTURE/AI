@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
+## Unreleased
+
+- `init --report-role=<role>` (answer `reportRole`) names the Postgres role `deploy.sh`'s `report` reads as
+  (`REPORT_ROLE`), for an app whose compose file takes the whole `DATABASE_URL` from a variable or whose app role has
+  another name (issue #383). It is checked like the role init reads from a kept compose file and wins over it and over
+  `softure_app`, also with `--force`. Without it nothing changes; the warning for an unreadable role now names the
+  flag.
+
 ## 0.1.9
 
 - `deploy-integration.yml` takes three inputs an app's own integration workflow had (issue #368):

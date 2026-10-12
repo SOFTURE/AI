@@ -103,9 +103,13 @@ export function getPostgresVersion(facts: AppFacts): string {
   return facts.compose?.postgresMajor ?? TEMPLATE_VERSIONS.postgres;
 }
 
-/** The role `deploy.sh`'s report reads as: the app's DATABASE_URL role in a compose file init keeps, else the default. */
-export function getReportRole(facts: AppFacts, replacesCompose: boolean): string {
-  return (replacesCompose ? null : facts.compose?.appDatabaseRole) ?? DEFAULT_APP_ROLE;
+/**
+ * The role `deploy.sh`'s report reads as: the `reportRole` answer, else the app's DATABASE_URL role in a compose file
+ * init keeps, else the default.
+ */
+export function getReportRole(options: { answers: InitAnswers; facts: AppFacts; replacesCompose: boolean }): string {
+  const composeRole = options.replacesCompose ? null : options.facts.compose?.appDatabaseRole;
+  return options.answers.reportRole ?? composeRole ?? DEFAULT_APP_ROLE;
 }
 
 function buildValues(options: PlanInitFilesOptions): Record<string, string | boolean> {
@@ -134,7 +138,7 @@ function buildValues(options: PlanInitFilesOptions): Record<string, string | boo
     schemaUrl: DEPLOY_SCHEMA_URL,
     traefikVersion: TEMPLATE_VERSIONS.traefik,
     postgresVersion: getPostgresVersion(facts),
-    reportRole: getReportRole(facts, options.replacesCompose ?? false),
+    reportRole: getReportRole({ answers, facts, replacesCompose: options.replacesCompose ?? false }),
     workflowsRef: answers.workflowsRef ?? DEFAULT_WORKFLOWS_REF,
     esbuildVersion: TEMPLATE_VERSIONS.esbuild,
     cloudflare: answers.cdn === "cloudflare",
