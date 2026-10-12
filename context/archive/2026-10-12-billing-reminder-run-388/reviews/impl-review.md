@@ -9,5 +9,6 @@ Billing, repository and example tests (1018), typecheck, lint and build green.
 | F2 | Warning | `retakeUncertain` resends under the same idempotency key, so the fake provider (like a real one) answers with the first mail. | Accepted: that is the ledger's design; the test asserts the run counts it `sent` and the provider holds one mail. |
 | F3 | Suggestion | `buildMail` now runs in a dry run too. | Accepted and documented: the scope and the recipient come from it; the template must not write. |
 | F4 | Suggestion | `endsAtMicros` relies on `extract(epoch …)` being `numeric` (Postgres 14+). | Accepted: the doc comment says so; CI and PGlite run 16+. |
+| F5 | Warning | CI's example app e2e read the old summary (`rejected: 0` as a number). | Fixed: it checks `halted: null` and no rejection under any reason. |
 
 No finding blocks the change.
