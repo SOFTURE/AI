@@ -3,12 +3,13 @@
 // derived trial does (its end day is the creation day plus `trial.days`, so the window is a range
 // on `auth.users.created_at`, indexed by auth, plus every account under `trial.startsAt` when the
 // floor's trial ends in it). The pure rule then decides each candidate exactly,
-// so the ranges only need to be wide enough, never exact.
+// so the ranges only need to be wide enough, never exact. Each stored end is also read in
+// microseconds, which a `Date` drops, so an app can rebuild a scope it computed in SQL.
 import { users } from "@softure-ai/auth";
-import { and, asc, eq, gte, isNull, lt, or, type SQL } from "drizzle-orm";
+import { and, asc, eq, gte, isNull, lt, or, sql, type AnyColumn, type SQL } from "drizzle-orm";
 import { getDayNumber, getStartOfDay } from "../calendar.js";
 import type { EntitlementRecord } from "../contract.js";
-import { DEFAULT_CATCH_UP_DAYS, getAccessReminder, MAX_CATCH_UP_DAYS, type AccessReminderKind } from "../reminder.js";
+import { DEFAULT_CATCH_UP_DAYS, getAccessReminder, MAX_CATCH_UP_DAYS, type AccessReminder, type AccessReminderKind } from "../reminder.js";
 import { entitlements } from "../schema.js";
 import { getDefaultRecord, getTrialFloorDay, type BillingContext } from "./entitlements.js";
 import { getBillingOptions, getEntitlementPolicy } from "./options.js";
@@ -24,6 +25,19 @@ export interface AccessReminderDue {
   readonly kind: AccessReminderKind;
   /** The first instant without the access the mail is about. */
   readonly endsAt: Date;
+  /**
+   * `endsAt` exactly as stored: microseconds since the Unix epoch, as a decimal string. It equals
+   * `(extract(epoch from <column>) * 1000000)::bigint::text` on the column the end comes from (Postgres 14 or
+   * later), so an app can rebuild a delivery scope its own job computed in SQL. A derived trial end (no stored
+   * row) has no microseconds: `endsAt` times 1000.
+   */
+  readonly endsAtMicros: string;
+}
+
+/** A stored end in microseconds, exactly as the column holds it. */
+interface StoredEnds {
+  readonly trialEndsAtMicros: string | null;
+  readonly paidUntilMicros: string | null;
 }
 
 interface Candidate {
@@ -31,7 +45,10 @@ interface Candidate {
   readonly email: string;
   readonly createdAt: Date;
   readonly record: EntitlementRecord;
+  readonly storedEnds: StoredEnds | null;
 }
+
+const MICROS_PER_MS = 1000n;
 
 /**
  * Every account due a reminder at the clock's now, ordered by end, then account. Reads only.
@@ -50,9 +67,26 @@ export async function findAccessReminders(ctx: BillingContext, options: FindAcce
   const due: AccessReminderDue[] = [];
   for (const candidate of candidates) {
     const reminder = getAccessReminder({ record: candidate.record, accountCreatedAt: candidate.createdAt, now, policy, catchUpDays });
-    if (reminder !== null) due.push({ userId: candidate.userId, email: candidate.email, ...reminder });
+    if (reminder !== null) due.push({ userId: candidate.userId, email: candidate.email, ...reminder, endsAtMicros: getEndsAtMicros(reminder, candidate.storedEnds) });
   }
   return due.sort((first, second) => first.endsAt.getTime() - second.endsAt.getTime() || first.userId.localeCompare(second.userId));
+}
+
+/** A timestamptz column in microseconds since the epoch, as text (`bigint` passes a JS number's exact range). */
+function selectEpochMicros(column: AnyColumn): SQL<string | null> {
+  return sql<string | null>`(extract(epoch from ${column}) * 1000000)::bigint::text`;
+}
+
+/**
+ * The stored end the reminder is about (the trial end for a trial mail, the paid end for a paid one), when it lies
+ * within a millisecond of `endsAt` (the driver may round a microsecond end either way); otherwise `endsAt` in µs.
+ */
+function getEndsAtMicros(reminder: AccessReminder, storedEnds: StoredEnds | null): string {
+  const fromDate = BigInt(reminder.endsAt.getTime()) * MICROS_PER_MS;
+  const stored = reminder.kind.startsWith("trial-") ? storedEnds?.trialEndsAtMicros : storedEnds?.paidUntilMicros;
+  if (stored === null || stored === undefined) return String(fromDate);
+  const difference = BigInt(stored) - fromDate;
+  return difference > -MICROS_PER_MS && difference < MICROS_PER_MS ? stored : String(fromDate);
 }
 
 /** Stored rows without lifetime whose trial or paid end lies from the catch-up start to past the widest reminder window. */
@@ -70,6 +104,8 @@ async function findStoredCandidates(ctx: BillingContext, now: Date, catchUpDays:
       trialEndsAt: entitlements.trialEndsAt,
       paidUntil: entitlements.paidUntil,
       isLifetime: entitlements.isLifetime,
+      trialEndsAtMicros: selectEpochMicros(entitlements.trialEndsAt),
+      paidUntilMicros: selectEpochMicros(entitlements.paidUntil),
     })
     .from(entitlements)
     .innerJoin(users, eq(users.id, entitlements.userId))
@@ -80,7 +116,11 @@ async function findStoredCandidates(ctx: BillingContext, now: Date, catchUpDays:
       ),
     )
     .orderBy(asc(users.id));
-  return rows.map(({ trialEndsAt, paidUntil, isLifetime, ...account }) => ({ ...account, record: { trialEndsAt, paidUntil, isLifetime } }));
+  return rows.map(({ trialEndsAt, paidUntil, isLifetime, trialEndsAtMicros, paidUntilMicros, ...account }) => ({
+    ...account,
+    record: { trialEndsAt, paidUntil, isLifetime },
+    storedEnds: { trialEndsAtMicros, paidUntilMicros },
+  }));
 }
 
 /**
@@ -109,5 +149,5 @@ async function findDerivedCandidates(ctx: BillingContext, now: Date, catchUpDays
     .leftJoin(entitlements, eq(entitlements.userId, users.id))
     .where(and(isNull(entitlements.userId), createdInSpan))
     .orderBy(asc(users.id));
-  return rows.map((account) => ({ ...account, record: getDefaultRecord(ctx, account.createdAt) }));
+  return rows.map((account) => ({ ...account, record: getDefaultRecord(ctx, account.createdAt), storedEnds: null }));
 }

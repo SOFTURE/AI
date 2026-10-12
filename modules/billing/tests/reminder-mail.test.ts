@@ -3,7 +3,7 @@
 // a provider outage left for the next run; the pause between sends.
 import { auth, AUTH_RATE_LIMIT_BUCKETS } from "@softure-ai/auth";
 import { billing, billingMessages, BILLING_RATE_LIMIT_BUCKETS } from "@softure-ai/billing";
-import { renderAccessReminderMail, sendAccessReminders } from "@softure-ai/billing/mailing";
+import { renderAccessReminderMail, sendAccessReminders, type AccessReminderSummary } from "@softure-ai/billing/mailing";
 import { changeEntitlement } from "@softure-ai/billing/server";
 import { createTestClock, defineSoftureConfig, formatMessage, type Locale } from "@softure-ai/core";
 import { createTestDatabase } from "@softure-ai/db/testing";
@@ -19,6 +19,12 @@ import { createAccount, NOW, TIMEZONE, type TestBilling } from "./support.js";
 const IN_TRIAL_WINDOW = new Date("2026-10-14T08:00:00Z");
 const PAYMENT_LINK = "https://app.example.com/payment";
 const NO_PAUSE = { pauseMs: 0 };
+const NO_REJECTIONS = { "mailing.invalid_input": 0, "mailing.rejected": 0, "mailing.unavailable": 0, "mailing.suppressed": 0, "mailing.provider_refused": 0, "mailing.quota_exceeded": 0 };
+
+/** A run summary: nothing counted but `counts`, every due account read, no halt, nothing left past a limit. */
+function summary(counts: Partial<AccessReminderSummary> & { readonly due: number }): AccessReminderSummary {
+  return { dryRun: false, recipients: counts.due, skipped: 0, sent: 0, rejected: NO_REJECTIONS, done: 0, inFlight: 0, retryLater: 0, uncertain: 0, halted: null, remaining: 0, ...counts };
+}
 
 interface MailTest extends TestBilling {
   readonly provider: FakeMailProvider;
@@ -83,7 +89,7 @@ describe("sendAccessReminders", () => {
     await createAccount(test, "ada@example.com");
     test.clock.set(IN_TRIAL_WINDOW);
 
-    expect(await sendAccessReminders(test.ctx, NO_PAUSE)).toEqual({ due: 1, sent: 1, skipped: 0, rejected: 0, retryLater: 0 });
+    expect(await sendAccessReminders(test.ctx, NO_PAUSE)).toEqual(summary({ due: 1, sent: 1 }));
     expect(test.provider.sent).toHaveLength(1);
     const [mail] = test.provider.sent;
     expect(mail?.to).toBe("ada@example.com");
@@ -92,7 +98,7 @@ describe("sendAccessReminders", () => {
     expect(mail?.headers).not.toHaveProperty("List-Unsubscribe");
 
     test.clock.set(new Date("2026-10-15T08:00:00Z"));
-    expect(await sendAccessReminders(test.ctx, NO_PAUSE)).toEqual({ due: 1, sent: 0, skipped: 1, rejected: 0, retryLater: 0 });
+    expect(await sendAccessReminders(test.ctx, NO_PAUSE)).toEqual(summary({ due: 1, done: 1 }));
     expect(test.provider.sent).toHaveLength(1);
   });
 
@@ -134,21 +140,24 @@ describe("sendAccessReminders", () => {
     expect((await changeEntitlement(test.ctx, lifetime, { type: "grant_lifetime" })).ok).toBe(true);
     test.clock.set(new Date("2026-10-10T08:00:00Z"));
 
-    expect(await sendAccessReminders(test.ctx, NO_PAUSE)).toEqual({ due: 0, sent: 0, skipped: 0, rejected: 0, retryLater: 0 });
+    expect(await sendAccessReminders(test.ctx, NO_PAUSE)).toEqual(summary({ due: 0 }));
     expect(test.provider.sent).toEqual([]);
   });
 
-  it("leaves a mail the provider could not take for the next run", async () => {
+  it("stops at a mail the provider could not take, leaving it and the rest for the next run", async () => {
     let isDown = true;
     const provider = fakeMailProvider({ respond: () => (isDown ? { status: "unavailable" } : undefined) });
     const test = await setUp({ provider });
     await createAccount(test, "ada@example.com");
+    await createAccount(test, "bob@example.com");
     test.clock.set(IN_TRIAL_WINDOW);
 
-    expect(await sendAccessReminders(test.ctx, NO_PAUSE)).toEqual({ due: 1, sent: 0, skipped: 0, rejected: 0, retryLater: 1 });
+    expect(await sendAccessReminders(test.ctx, NO_PAUSE)).toEqual(
+      summary({ due: 2, recipients: 1, retryLater: 1, halted: { reason: "mailing.unavailable" }, remaining: null }),
+    );
     isDown = false;
-    expect(await sendAccessReminders(test.ctx, NO_PAUSE)).toEqual({ due: 1, sent: 1, skipped: 0, rejected: 0, retryLater: 0 });
-    expect(provider.sent).toHaveLength(1);
+    expect(await sendAccessReminders(test.ctx, NO_PAUSE)).toEqual(summary({ due: 2, sent: 2 }));
+    expect(provider.sent).toHaveLength(2);
   });
 
   it("stops the run at a refused account, leaving that mail and the rest for the next run", async () => {
@@ -159,9 +168,11 @@ describe("sendAccessReminders", () => {
     await createAccount(test, "bob@example.com");
     test.clock.set(IN_TRIAL_WINDOW);
 
-    expect(await sendAccessReminders(test.ctx, NO_PAUSE)).toEqual({ due: 2, sent: 0, skipped: 0, rejected: 0, retryLater: 1 });
+    expect(await sendAccessReminders(test.ctx, NO_PAUSE)).toEqual(
+      summary({ due: 2, recipients: 1, retryLater: 1, halted: { reason: "mailing.provider_refused", httpStatus: 401 }, remaining: null }),
+    );
     isRefused = false;
-    expect(await sendAccessReminders(test.ctx, NO_PAUSE)).toEqual({ due: 2, sent: 2, skipped: 0, rejected: 0, retryLater: 0 });
+    expect(await sendAccessReminders(test.ctx, NO_PAUSE)).toEqual(summary({ due: 2, sent: 2 }));
   });
 
   it("skips a mail whose send was interrupted long ago, which may have gone out", async () => {
@@ -174,7 +185,7 @@ describe("sendAccessReminders", () => {
       new Date(IN_TRIAL_WINDOW.getTime() - 48 * 3_600_000),
     ]);
 
-    expect(await sendAccessReminders(test.ctx, NO_PAUSE)).toEqual({ due: 1, sent: 0, skipped: 1, rejected: 0, retryLater: 0 });
+    expect(await sendAccessReminders(test.ctx, NO_PAUSE)).toEqual(summary({ due: 1, uncertain: 1 }));
     expect(provider.sent).toHaveLength(1);
   });
 
@@ -186,7 +197,7 @@ describe("sendAccessReminders", () => {
     const summaries = await Promise.all([sendAccessReminders(test.ctx, NO_PAUSE), sendAccessReminders(test.ctx, NO_PAUSE)]);
     expect(test.provider.sent).toHaveLength(1);
     expect(summaries.map((summary) => summary.sent).toSorted()).toEqual([0, 1]);
-    for (const summary of summaries) expect(summary.sent + summary.skipped).toBe(summary.due);
+    for (const run of summaries) expect(run.sent + run.done + run.inFlight).toBe(run.due);
   });
 
   it("pauses after each mail the provider was called for, never after a skipped one", async () => {
@@ -226,7 +237,7 @@ describe("sendAccessReminders with the app's template and scopes", () => {
     test.clock.set(IN_TRIAL_WINDOW);
     const contexts: unknown[] = [];
 
-    const summary = await sendAccessReminders(test.ctx, {
+    const run = await sendAccessReminders(test.ctx, {
       ...NO_PAUSE,
       buildMail: (context) => {
         contexts.push(context);
@@ -234,10 +245,10 @@ describe("sendAccessReminders with the app's template and scopes", () => {
       },
     });
 
-    expect(summary).toEqual({ due: 1, sent: 1, skipped: 0, rejected: 0, retryLater: 0 });
+    expect(run).toEqual(summary({ due: 1, sent: 1 }));
     expect(contexts).toEqual([
       {
-        reminder: { userId, email: "ada@example.com", kind: "trial-ending", endsAt: new Date("2026-10-16T22:00:00Z") },
+        reminder: { userId, email: "ada@example.com", kind: "trial-ending", endsAt: new Date("2026-10-16T22:00:00Z"), endsAtMicros: "1792188000000000" },
         lastDay: "October 16, 2026",
         link: PAYMENT_LINK,
         mail: renderAccessReminderMail(billingMessages.en, { kind: "trial-ending", lastDay: "October 16, 2026", link: PAYMENT_LINK }),
@@ -254,12 +265,12 @@ describe("sendAccessReminders with the app's template and scopes", () => {
     await createAccount(test, "invitee@example.com");
     test.clock.set(IN_TRIAL_WINDOW);
 
-    const summary = await sendAccessReminders(test.ctx, {
+    const run = await sendAccessReminders(test.ctx, {
       ...NO_PAUSE,
       buildMail: async (context) => Promise.resolve(context.reminder.email.startsWith("invitee") ? null : context.mail),
     });
 
-    expect(summary).toEqual({ due: 2, sent: 1, skipped: 1, rejected: 0, retryLater: 0 });
+    expect(run).toEqual(summary({ due: 2, sent: 1, skipped: 1 }));
     expect(test.provider.sent.map((mail) => mail.to)).toEqual(["ada@example.com"]);
   });
 
@@ -275,10 +286,89 @@ describe("sendAccessReminders with the app's template and scopes", () => {
     });
     expect(earlier.status).toBe("sent");
 
-    expect(await sendAccessReminders(test.ctx, { ...NO_PAUSE, getScope })).toEqual({ due: 2, sent: 1, skipped: 1, rejected: 0, retryLater: 0 });
+    expect(await sendAccessReminders(test.ctx, { ...NO_PAUSE, getScope })).toEqual(summary({ due: 2, sent: 1, done: 1 }));
     expect(test.provider.sent.map((mail) => `${mail.to}: ${mail.subject}`)).toEqual([
       "mailed@example.com: From the app's own job",
       "new@example.com: Your trial ends on October 16, 2026",
     ]);
+  });
+});
+
+describe("sendAccessReminders as a delivery run", () => {
+  it("counts in a dry run what a real run would send, and sends and writes nothing", async () => {
+    const test = await setUp();
+    await createAccount(test, "ada@example.com");
+    await createAccount(test, "bob@example.com");
+    test.clock.set(IN_TRIAL_WINDOW);
+
+    expect(await sendAccessReminders(test.ctx, { ...NO_PAUSE, dryRun: true })).toEqual(summary({ due: 2, sent: 2, dryRun: true }));
+    expect(test.provider.sent).toEqual([]);
+    const ledger = await test.database.client.query<{ count: number }>("SELECT count(*)::int AS count FROM mailing.deliveries");
+    expect(ledger.rows[0]?.count).toBe(0);
+  });
+
+  it("sends at most `limit` mails and counts the rest for the next run", async () => {
+    const test = await setUp();
+    await createAccount(test, "ada@example.com");
+    await createAccount(test, "bob@example.com");
+    await createAccount(test, "cy@example.com");
+    test.clock.set(IN_TRIAL_WINDOW);
+
+    expect(await sendAccessReminders(test.ctx, { ...NO_PAUSE, limit: 2 })).toEqual(summary({ due: 3, sent: 2, remaining: 1 }));
+    expect(test.provider.sent).toHaveLength(2);
+    expect(await sendAccessReminders(test.ctx, { ...NO_PAUSE, limit: 2 })).toEqual(summary({ due: 3, sent: 1, done: 2 }));
+    expect(test.provider.sent).toHaveLength(3);
+  });
+
+  it("refuses a limit that is not a whole number of at least 1", async () => {
+    const test = await setUp();
+    await expect(sendAccessReminders(test.ctx, { ...NO_PAUSE, limit: 0 })).rejects.toThrow(RangeError);
+  });
+
+  it("resends a mail whose send was interrupted long ago only with retakeUncertain", async () => {
+    const test = await setUp();
+    await createAccount(test, "ada@example.com");
+    test.clock.set(IN_TRIAL_WINDOW);
+    await sendAccessReminders(test.ctx, NO_PAUSE);
+    await test.database.client.query("UPDATE mailing.deliveries SET status = 'claimed', provider_message_id = NULL, finished_at = NULL, claimed_at = $1", [
+      new Date(IN_TRIAL_WINDOW.getTime() - 48 * 3_600_000),
+    ]);
+
+    expect(await sendAccessReminders(test.ctx, NO_PAUSE)).toEqual(summary({ due: 1, uncertain: 1 }));
+    expect(await sendAccessReminders(test.ctx, { ...NO_PAUSE, retakeUncertain: true })).toEqual(summary({ due: 1, sent: 1 }));
+    // The provider answers the retake's idempotency key with the first mail, as a real one does.
+    expect(test.provider.sent).toHaveLength(1);
+  });
+
+  it("reports every delivery's outcome to onDelivery", async () => {
+    const test = await setUp();
+    await createAccount(test, "ada@example.com");
+    await createAccount(test, "bob@example.com");
+    test.clock.set(IN_TRIAL_WINDOW);
+    await sendAccessReminders(test.ctx, { ...NO_PAUSE, limit: 1 });
+    const statuses: string[] = [];
+
+    await sendAccessReminders(test.ctx, { ...NO_PAUSE, onDelivery: (outcome) => statuses.push(outcome.status) });
+    expect(statuses.toSorted()).toEqual(["done", "sent"]);
+  });
+
+  it("finds the app's own ledger entry under a scope it built in SQL from the stored end, microseconds included", async () => {
+    const test = await setUp();
+    const userId = await createAccount(test, "ada@example.com");
+    expect((await changeEntitlement(test.ctx, userId, { type: "extend_trial", until: new Date("2026-10-16T22:00:00Z") })).ok).toBe(true);
+    await test.database.client.query("UPDATE billing.entitlements SET trial_ends_at = '2026-10-16 22:00:00.654321+00' WHERE user_id = $1", [userId]);
+    const written = await test.database.client.query<{ scope: string }>(
+      "SELECT 'app.trial-ending:' || user_id || ':' || (extract(epoch from trial_ends_at) * 1000000)::bigint::text AS scope FROM billing.entitlements WHERE user_id = $1",
+      [userId],
+    );
+    const scope = written.rows[0]?.scope;
+    if (scope === undefined) throw new Error("no entitlement row");
+    expect((await deliverOnce(test.ctx, { scope, mail: { to: "ada@example.com", subject: "From the app's own job", text: "Earlier" } })).status).toBe("sent");
+    // The stored end lies just past midnight, so its last day is 17 October: the 15th is inside the window.
+    test.clock.set(new Date("2026-10-15T08:00:00Z"));
+
+    const run = await sendAccessReminders(test.ctx, { ...NO_PAUSE, getScope: (reminder) => `app.${reminder.kind}:${reminder.userId}:${reminder.endsAtMicros}` });
+    expect(run).toEqual(summary({ due: 1, done: 1 }));
+    expect(test.provider.sent).toHaveLength(1);
   });
 });
