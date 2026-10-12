@@ -15,7 +15,7 @@ Versions: charts 0.1.8, core 0.1.10, observability 0.1.2, ui 0.1.17, blog 0.1.12
 mcp-access 0.1.14, ops 0.1.10, privacy 0.1.12, config 0.1.2, deploy 0.1.10.
 
 ## Findings
-none.
+- The deploy bump left the reusable workflows defaulting `deploy-cli-version` to 0.1.9 (`tests/repo/deploy-workflows.test.ts` failed in pre-push). Fixed: the three workflows and the README pin example now say 0.1.10.
 
 ## Decisions (auto)
 - none beyond the plan review.
