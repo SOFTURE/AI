@@ -8,8 +8,9 @@ The database layer every SOFTURE module stands on. Standard:
 A pg/PGlite client chosen by URL, a migrator that runs each module's SQL in the module's own
 Postgres schema (with a ledger, checksums, a lock, a dry run and adoption of existing tables),
 `createTestDatabase` for unit tests, the `softure migrate` command, a module-level process database
-(`createProcessDatabase`) and helpers that read the Postgres error behind a failed query
-(`findDriverError`, `isConstraintViolation`).
+(`createProcessDatabase`) with an entry-point guard for tests, `drizzleAppMigrations` for the app's own
+drizzle folder, raw parameterized queries for scripts (`queryDatabase`, `openRawDatabase`) and helpers that
+read the Postgres error behind a failed query (`findDriverError`, `isConstraintViolation`).
 
 ## 2. Installation
 
@@ -169,6 +170,57 @@ await withDatabase(async (db) => { /* … */ });
 `open()` is idempotent; `close()` closes the shared handle for that URL, which the modules use too,
 so only a script's end calls it. With `schema`, `db.query.<table>` is typed and works.
 
+`next dev` re-evaluates `db/index.ts` on a change, and a new evaluation would refuse queries until
+something opens it again. `globalKey` keeps the open database on `globalThis`, so every evaluation
+finds it (the open `db` keeps the schema it was opened with until a restart):
+
+```ts
+export const { db, open, close, withDatabase } = createProcessDatabase(() => process.env.DATABASE_URL ?? "", {
+  schema,
+  globalKey: "app",
+});
+```
+
+In tests, `closeProcessDatabases()` in `afterEach` closes every process database the test opened.
+
+**Entry-point guard.** An entry that forgets `open()` fails only at its first query. A test in the app
+fails earlier: `expectEntriesOpenDatabase` (from `@softure-ai/db/testing`, needs `esbuild` as a dev
+dependency) follows each entry's imports and throws, naming them, when an entry reaches the database
+module without a call to `withDatabase(` or `open(` in its own source.
+`findEntriesReachingDatabase` returns `{ entry, opens }[]` for the same check by hand:
+
+```ts
+// tests/entry-points.test.ts
+import { expectEntriesOpenDatabase } from "@softure-ai/db/testing";
+
+it("opens the database at every entry", async () => {
+  await expectEntriesOpenDatabase({
+    entries: ["src/instrumentation.ts", "src/mcp/stdio.ts", "scripts/import.ts"],
+    clientModule: "src/db/index.ts",
+    // an app helper that opens it counts too
+    opens: [/\bwithDatabase\s*\(/, /\bopen\s*\(/, /\bopenConfiguredDatabase\s*\(/],
+  });
+});
+```
+
+### Raw queries for scripts
+
+An operator or report script that reads with plain SQL opens its own handle on the URL, whichever
+driver it names, and closes it at the end. Values bind to `$1`, `$2`, …; they never go into the text:
+
+```ts
+import { openRawDatabase } from "@softure-ai/db";
+
+const database = await openRawDatabase(process.env.DATABASE_URL ?? "");
+try {
+  const rows = await database.query<{ email: string }>("select email from users where created_at > $1", [since]);
+} finally {
+  await database.close();
+}
+```
+
+`queryDatabase(handle, text, values)` does the same over a handle the script already has.
+
 ### Driver errors
 
 `findDriverError(error)` returns `{ code, constraint, message }` of the Postgres error behind a failed
@@ -238,22 +290,12 @@ object to the migrate script and to `createTestDatabase`:
 
 ```ts
 // db/app-migrations.ts
-import type { AppMigrations, DatabaseHandle } from "@softure-ai/db";
-
-async function runDrizzle(handle: DatabaseHandle, migrationsFolder: string): Promise<void> {
-  if (handle.kind === "postgres") {
-    const { migrate } = await import("drizzle-orm/node-postgres/migrator");
-    await migrate(handle.db, { migrationsFolder });
-  } else {
-    const { migrate } = await import("drizzle-orm/pglite/migrator");
-    await migrate(handle.db, { migrationsFolder });
-  }
-}
+import { drizzleAppMigrations, type AppMigrations } from "@softure-ai/db";
 
 export const appMigrations: AppMigrations = {
-  before: (handle) => runDrizzle(handle, "./drizzle"),
+  before: drizzleAppMigrations("./drizzle"),
   // only when an app migration needs a module table: a second drizzle folder
-  // after: (handle) => runDrizzle(handle, "./drizzle-after"),
+  // after: drizzleAppMigrations("./drizzle-after"),
 };
 
 // scripts/migrate.ts
@@ -276,7 +318,7 @@ file the app's own history creates; `migrate` then adopts or migrates by itself,
 
 ```ts
 export const appMigrations: AppMigrations = {
-  before: (handle) => runDrizzle(handle, "./drizzle"),
+  before: drizzleAppMigrations("./drizzle"),
   // the app's history creates auth's 0001 (users, sessions); 0002.. are new to it
   baseline: { auth: 1 },
 };

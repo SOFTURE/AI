@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.1.2
 
 - `registerObservability` (`/next`) now starts under a standalone Next.js server (`node server.js`), where
   `NEXT_RUNTIME` is unset at runtime; before, it returned `null` there and exported nothing (#381). It still does

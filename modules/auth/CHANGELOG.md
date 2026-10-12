@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`auth@x.y.z`).
 
+## Unreleased
+
+- `resolveOnlyAccount({ db, envName, env? })` in `@softure-ai/auth/server`: the account a local tool acts for, named by
+  an environment variable or the only one in the database; refuses `auth.account_unknown`, `auth.no_account` and
+  `auth.account_ambiguous` with a readable `message` (#411). An app drops its own copy of this lookup.
+- `runSeedAccount({ config, env? })` in `@softure-ai/auth/scripts`: a development account from `SEED_EMAIL` /
+  `SEED_PASSWORD` through registration (the `onRegistered` hook runs), idempotent, refused under
+  `NODE_ENV=production`; returns the exit code (#411).
+
 ## 0.1.12
 
 - `createAuthGuard({ redirect: "relative" })` answers with a path-only `Location` (`/login?next=…`), so a stack on a

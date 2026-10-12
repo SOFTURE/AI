@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`privacy@x.y.z`).
 
-## Unreleased
+## 0.1.12
 
 - `copyAccount` refuses with `privacy.copy_ledger_mismatch` when the source's and the target's migration ledgers
   (`softure.migrations`) differ, naming the differences; a column only the target had took NULL silently before.

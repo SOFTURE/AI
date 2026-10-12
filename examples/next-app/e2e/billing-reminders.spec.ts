@@ -81,7 +81,9 @@ test("an account is mailed once before its trial ends and once after it has ende
 
   // Two or three days left (depending on the hour in Warsaw): inside the 3-day reminder window.
   await setTrialEnd(email, new Date(Date.now() + 2 * DAY_MS));
-  expect(JSON.parse(runReminderScript(baseURL))).toMatchObject({ rejected: 0 });
+  const run = JSON.parse(runReminderScript(baseURL)) as { readonly halted: unknown; readonly rejected: Record<string, number> };
+  expect(run.halted).toBeNull();
+  expect(Object.values(run.rejected).filter((count) => count > 0)).toEqual([]);
   const ending = await readMailOutbox(MAIL_OUTBOX, { to: email });
   expect(ending).toHaveLength(1);
   expect(ending[0]?.subject).toMatch(/^Your trial ends on /);
