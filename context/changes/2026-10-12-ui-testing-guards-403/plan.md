@@ -40,6 +40,10 @@ with the `sft` prefix, the static theme and `buildThemeCss(DEFAULT_THEME)`); `RE
 
 ## Progress
 
-- [ ] Phase 1: token class guard
-- [ ] Phase 2: JSX guards
-- [ ] Phase 3: dogfood and docs
+- [x] Phase 1: token class guard (`605b531`; 12 tests, written first)
+- [x] Phase 2: JSX guards (`e687dee`; 9 tests, written first)
+- [x] Phase 3: dogfood and docs (`51c421b`; the architecture test runs all four guards on `src/ui`, and a probe with
+  injected typos (`sft:bg-surfce`, `--sft-duraton-fast`) reported 26 classes)
+
+Gates on the branch: `npm run typecheck`, `npm run lint`, `npm run build` green; the ui package and repository tests
+pass (52 files, 984 tests); the full `npm test` runs in pre-push.
