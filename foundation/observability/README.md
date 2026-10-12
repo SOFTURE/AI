@@ -120,7 +120,8 @@ What you get:
   `npm ls @opentelemetry/api` should show a single version.
 - `fetch` spans of the undici instrumentation are off in Next.js, because Next.js spans `fetch` itself. Turning
   them on (`instrumentations: { fetch: true }`) calls for `NEXT_OTEL_FETCH_DISABLED=1`, or every call is spanned twice.
-- `registerObservability` does nothing in the edge runtime.
+- `registerObservability` does nothing in the edge runtime, and starts in every Node.js server: `next start` and the
+  standalone `server.js` (`output: "standalone"`, where `NEXT_RUNTIME` is unset at runtime) alike.
 - `onRequestError` logs one error record per failed request with `http.request.method`, `url.path` (without the
   query string, which can carry tokens), `next.route`, `next.route_type` and the error. Request headers are never logged.
 

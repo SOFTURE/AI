@@ -24,6 +24,7 @@ beforeEach(() => {
 afterEach(async () => {
   await resetObservabilityForTests();
   vi.restoreAllMocks();
+  Reflect.deleteProperty(globalThis, "EdgeRuntime");
   if (initialRuntime === undefined) {
     delete process.env.NEXT_RUNTIME;
   } else {
@@ -32,13 +33,32 @@ afterEach(async () => {
 });
 
 describe("registerObservability", () => {
-  it("starts nothing outside the Node.js runtime", async () => {
+  it("starts nothing in the edge runtime", async () => {
     process.env.NEXT_RUNTIME = "edge";
 
     const handle = await registerObservability({ serviceName: "my-service" });
 
     expect(handle).toBeNull();
     expect(output).toEqual([]);
+  });
+
+  it("starts nothing where the EdgeRuntime global is defined, even with NEXT_RUNTIME unset", async () => {
+    delete process.env.NEXT_RUNTIME;
+    Object.defineProperty(globalThis, "EdgeRuntime", { value: "edge-runtime", configurable: true });
+
+    const handle = await registerObservability({ serviceName: "my-service" });
+
+    expect(handle).toBeNull();
+    expect(output).toEqual([]);
+  });
+
+  it("starts observability under a standalone server, where NEXT_RUNTIME is unset", async () => {
+    delete process.env.NEXT_RUNTIME;
+
+    const handle = await registerObservability({ serviceName: "my-service" });
+
+    expect(handle?.isExporting).toBe(false);
+    expect(output).toContain("observability: export disabled (no OTLP endpoint)");
   });
 
   it("starts observability in the Node.js runtime", async () => {
