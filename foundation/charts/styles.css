@@ -500,6 +500,45 @@
     text-align: right;
   }
 
+  /* A missing row: an empty track, outlined dashed in the row's colour. */
+  .sft-chart-bar-track-missing {
+    box-sizing: border-box;
+    border: var(--sft-chart-grid-width) dashed var(--sft-chart-series, var(--sft-chart-axis));
+    background: none;
+  }
+
+  /* A line of text under the bar (inline) or under the track (stacked). */
+  .sft-chart-bar-description {
+    grid-column: 2 / -1;
+    grid-row: 2;
+    color: var(--sft-color-muted);
+    font-size: var(--sft-text-xs);
+  }
+
+  /* Stacked: label | value on one row, the track across both under them. */
+  .sft-chart-bar-list-stacked {
+    grid-template-columns: minmax(0, 1fr) max-content;
+  }
+
+  .sft-chart-bar-list-stacked .sft-chart-bar-row {
+    row-gap: var(--sft-space-1);
+  }
+
+  .sft-chart-bar-list-stacked .sft-chart-bar-value {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .sft-chart-bar-list-stacked .sft-chart-bar-track {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .sft-chart-bar-list-stacked .sft-chart-bar-description {
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
+
   /* Cursor: the plot as a focusable area, a guide and dots on the active point, and the readout. */
   .sft-chart-cursor {
     position: relative;
