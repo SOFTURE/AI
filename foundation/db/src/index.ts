@@ -14,7 +14,8 @@ export {
   type Queryable,
 } from "./client.js";
 export { closeSharedDatabase, closeSharedDatabases, getSharedDatabase } from "./shared.js";
-export { createProcessDatabase, type ProcessDatabase, type ProcessDatabaseOptions } from "./process.js";
+export { closeProcessDatabases, createProcessDatabase, type ProcessDatabase, type ProcessDatabaseOptions } from "./process.js";
+export { openRawDatabase, queryDatabase, type RawDatabase } from "./raw.js";
 export { findDriverError, isConstraintViolation, type ConstraintViolation, type DriverError } from "./driver-errors.js";
 export { closeConfiguredDatabases, getConfiguredDatabase, openCommandDatabase, type CommandDatabase } from "./configured.js";
 export { computeChecksum, readMigrationFiles, type MigrationFile } from "./migrations/files.js";
@@ -37,6 +38,7 @@ export {
   type MigrationReport,
   type MigrationStep,
 } from "./migrations/migrator.js";
+export { drizzleAppMigrations } from "./migrations/drizzle.js";
 export { adoptModule, type AdoptionReport, type AdoptOptions } from "./migrations/adopt.js";
 export { exportMigrations } from "./migrations/export.js";
 export {

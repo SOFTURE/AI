@@ -16,6 +16,8 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 - `EventAxis` (client) and `layoutEventAxis`: a timeline of spans and milestones with a keyboard and pointer readout;
   `chartsMessages` gains `eventAxis.label`.
 
+## 0.1.8
+
 - `BarList` and `renderBarListHtml` take `layout` (`inline` or `stacked`: label and value over a full-width bar), and
   items take `missing` (an empty track outlined dashed in the row's colour, left out of the default `max`) and
   `description` (a line under the bar) (issue #378). `BarListRow` gains `missing` and `description`.
