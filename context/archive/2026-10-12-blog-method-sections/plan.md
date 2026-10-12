@@ -1,6 +1,6 @@
 ---
 change_id: blog-method-sections
-status: implementing
+status: archived
 ---
 
 # Plan: the method page takes the app's own sections (issue #380)
@@ -47,4 +47,4 @@ typecheck).
 
 ## Progress
 
-- [x] Phase 1: tests and implementation (SHA in the next commit; tests run red first: 3 of 5 failed)
+- [x] Phase 1: tests and implementation (`2f8b4b6`; tests run red first: 3 of 5 failed)
