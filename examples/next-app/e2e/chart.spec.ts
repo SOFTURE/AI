@@ -61,3 +61,21 @@ test("the chart is drawn in the chart tokens, with the flag over its month", asy
   await expect(page.locator(".sft-chart-flag")).toHaveText(copy.raise);
   await expect(page.locator(".sft-chart-legend")).toContainText(copy.spending);
 });
+
+test("the series switch sets a query parameter, keeps the others and the scroll position", async ({ page }) => {
+  await page.goto("/chart?from=e2e");
+  const nav = page.getByRole("navigation", { name: copy.seriesLabel });
+  await expect(nav.getByRole("link", { name: copy.bothSeries })).toHaveAttribute("aria-current", "page");
+  await page.evaluate(() => window.scrollTo(0, 40));
+  const scrollBefore = await page.evaluate(() => window.scrollY);
+
+  await nav.getByRole("link", { name: copy.savingsOnly }).click();
+  await expect(page).toHaveURL(/\/chart\?from=e2e&series=savings$/);
+  await expect(nav.getByRole("link", { name: copy.savingsOnly })).toHaveAttribute("aria-current", "page");
+  const table = page.getByRole("table", { name: copy.chartTitle });
+  await expect(table.getByRole("columnheader")).toHaveText([chartsMessages.en.table.date, copy.savings]);
+  expect(await page.evaluate(() => window.scrollY)).toBe(scrollBefore);
+
+  await nav.getByRole("link", { name: copy.bothSeries }).click();
+  await expect(page).toHaveURL(/\/chart\?from=e2e$/);
+});

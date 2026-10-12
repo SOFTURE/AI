@@ -40,6 +40,7 @@ export { UiLocaleProvider, type UiLocaleProviderProps, useUiLocale } from "./loc
 export * from "./modal.js";
 export * from "./segment-classes.js";
 export * from "./segmented-control.js";
+export * from "./query-href.js";
 export * from "./segmented-nav.js";
 export * from "./select.js";
 export * from "./select-keys.js";

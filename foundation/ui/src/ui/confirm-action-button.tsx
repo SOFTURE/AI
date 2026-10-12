@@ -5,7 +5,7 @@ import { Button, type ButtonSize, type ButtonVariant, IconButton } from "./butto
 import { type ClassNames, createSlotClassGetter } from "./class-names.js";
 import { type CopyProps, getCopy } from "./copy.js";
 import { useUiLocale } from "./locale.js";
-import { Modal, ModalBody, ModalFooter, type ModalSlot } from "./modal.js";
+import { Modal, ModalBody, ModalFooter, type ModalMotion, type ModalSlot } from "./modal.js";
 import { announceToast } from "./toast.js";
 
 // A destructive action (delete, revoke, sign out everywhere) behind a confirmation dialog that states
@@ -62,6 +62,8 @@ interface ConfirmActionButtonOwnProps extends CopyProps<"confirmAction"> {
   readonly modalMessages?: CopyProps<"modal">["messages"];
   /** The dialog's slots (`overlay`, `panel`, `close`…), for the app's dialog motion and close button. */
   readonly modalClassNames?: ClassNames<ModalSlot>;
+  /** The dialog's `motion`; `enter` by default. */
+  readonly modalMotion?: ModalMotion;
   readonly classNames?: ClassNames<ConfirmActionButtonSlot>;
   readonly unstyled?: boolean;
 }
@@ -85,6 +87,7 @@ export function ConfirmActionButton({
   onSuccess,
   modalMessages,
   modalClassNames,
+  modalMotion,
   classNames,
   unstyled,
   locale,
@@ -201,6 +204,7 @@ export function ConfirmActionButton({
           width="confirmation"
           onClose={closeDialog}
           isDismissible={!isPending}
+          motion={modalMotion}
           locale={resolvedLocale}
           messages={modalMessages}
           classNames={modalClassNames}

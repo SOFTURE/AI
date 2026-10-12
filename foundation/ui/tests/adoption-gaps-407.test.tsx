@@ -9,6 +9,10 @@ import {
   CheckboxField,
   Checklist,
   DeferredRender,
+  Modal,
+  ModalBody,
+  ModalFooter,
+  useModalClose,
   type LinkComponentProps,
   MobileMenu,
   Stepper,
@@ -373,5 +377,93 @@ describe("DeferredRender (#407.6)", () => {
     });
     expect(document.body.textContent).toContain("Total 42");
     expect(screen.queryByText("Loading…")).toBeNull();
+  });
+});
+
+describe("Modal motion (#407.8)", () => {
+  function Dialog({ motion, onClose }: { readonly motion?: "enter" | "enter-leave"; readonly onClose: () => void }) {
+    return (
+      <Modal title="Edit goal" motion={motion} onClose={onClose}>
+        <ModalBody>
+          <OwnClose onClose={onClose} />
+        </ModalBody>
+        <ModalFooter onCancel={onClose} />
+      </Modal>
+    );
+  }
+
+  function OwnClose({ onClose }: { readonly onClose: () => void }) {
+    const closeModal = useModalClose();
+    return (
+      <button type="button" onClick={() => closeModal(onClose)}>
+        Done
+      </button>
+    );
+  }
+
+  function mockLeaveTime(transitionDuration: string) {
+    const real = window.getComputedStyle.bind(window);
+    vi.spyOn(window, "getComputedStyle").mockImplementation((element) => {
+      const style = real(element);
+      return new Proxy(style, {
+        get: (target, key) => (key === "transitionDuration" ? transitionDuration : Reflect.get(target, key) as unknown),
+      });
+    });
+  }
+
+  it("marks the overlay and the panel open and closes at once by default", () => {
+    const onClose = vi.fn();
+    render(<Dialog onClose={onClose} />);
+    const dialog = screen.getByRole("dialog", { name: "Edit goal" });
+    expect(dialog.getAttribute("data-state")).toBe("open");
+    expect(dialog.parentElement?.getAttribute("data-state")).toBe("open");
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("with enter-leave, sets closing and waits for the transition before closing", () => {
+    mockLeaveTime("0.2s");
+    const onClose = vi.fn();
+    render(<Dialog motion="enter-leave" onClose={onClose} />);
+    const dialog = screen.getByRole("dialog", { name: "Edit goal" });
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(dialog.getAttribute("data-state")).toBe("closing");
+    expect(dialog.parentElement?.getAttribute("data-state")).toBe("closing");
+    expect(onClose).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent(dialog, new Event("transitionend", { bubbles: true }));
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("closes after a timeout when no transition end arrives, and comes back open when the owner keeps it", () => {
+    vi.useFakeTimers();
+    try {
+      mockLeaveTime("150ms");
+      const onClose = vi.fn();
+      render(<Dialog motion="enter-leave" onClose={onClose} />);
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+      expect(onClose).not.toHaveBeenCalled();
+      act(() => {
+        vi.advanceTimersByTime(250);
+      });
+      expect(onClose).toHaveBeenCalledOnce();
+      expect(screen.getByRole("dialog").getAttribute("data-state")).toBe("open");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("with enter-leave and nothing moving, closes at once through useModalClose", () => {
+    const onClose = vi.fn();
+    render(<Dialog motion="enter-leave" onClose={onClose} />);
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("runs useModalClose's callback at once outside a modal", () => {
+    const onClose = vi.fn();
+    render(<OwnClose onClose={onClose} />);
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+    expect(onClose).toHaveBeenCalledOnce();
   });
 });

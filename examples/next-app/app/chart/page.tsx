@@ -2,6 +2,8 @@
 // values. Dates are midnights in the app's zone (Europe/Warsaw: UTC+1, UTC+2 from March 29).
 import { LineChart, type TimePoint } from "@softure-ai/charts";
 import { Card } from "@softure-ai/ui";
+import { QuerySegmentedNav } from "@softure-ai/ui/next";
+import { Suspense } from "react";
 import { getMessages } from "../../messages/index.ts";
 import config from "../../softure.config.ts";
 
@@ -22,18 +24,33 @@ function toPoints(values: readonly number[]): TimePoint[] {
   return MONTHS.map((x, index) => ({ x, y: values[index] ?? 0 }));
 }
 
-export default function ChartPage() {
+// `?series=savings` hides the spending line; the switch keeps other parameters and the scroll (@softure-ai/ui/next).
+type SeriesView = "both" | "savings";
+
+export default async function ChartPage({ searchParams }: { readonly searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const view: SeriesView = (await searchParams).series === "savings" ? "savings" : "both";
   const messages = getMessages(config.locale);
   const money = new Intl.NumberFormat(config.locale, { style: "currency", currency: "PLN", maximumFractionDigits: 0 });
   const raiseDate = MONTHS[3] ?? new Date(0);
   return (
     <main className="page">
       <Card title={messages.chart.title} subtitle={messages.chart.lead}>
+        <Suspense>
+          <QuerySegmentedNav<SeriesView>
+            label={messages.chart.seriesLabel}
+            param="series"
+            defaultId="both"
+            items={[
+              { id: "both", label: messages.chart.bothSeries },
+              { id: "savings", label: messages.chart.savingsOnly },
+            ]}
+          />
+        </Suspense>
         <LineChart
           title={messages.chart.chartTitle}
           series={[
             { key: "savings", label: messages.chart.savings, points: toPoints(SAVINGS) },
-            { key: "spending", label: messages.chart.spending, points: toPoints(SPENDING), dashed: true },
+            ...(view === "both" ? [{ key: "spending", label: messages.chart.spending, points: toPoints(SPENDING), dashed: true }] : []),
           ]}
           flags={[{ key: "raise", x: raiseDate, label: messages.chart.raise }]}
           locale={config.locale}
