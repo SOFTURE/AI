@@ -1,12 +1,13 @@
 ---
 change_id: deploy-report-role
 title: "deploy: name the report role when init cannot read it (issue #383)"
-status: open
+status: archived
 roadmap_item: null
 issue: 383
 branch: claude/project-thread-vgsti1
 created: 2026-10-12
 updated: 2026-10-12
+archived_at: 2026-10-12
 ---
 
 ## Intent

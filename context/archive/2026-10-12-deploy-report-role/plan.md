@@ -1,6 +1,6 @@
 ---
 change_id: deploy-report-role
-status: open
+status: archived
 ---
 
 # Plan: deploy report role (issue #383)
@@ -30,5 +30,9 @@ Files: `tools/deploy/src/init/{answers,compose-facts,generate}.ts`, `src/cli/ini
 
 ## Progress
 
-- [ ] Phase 1: the `reportRole` answer and `--report-role`
-- [ ] Phase 2: docs
+- [x] Phase 1: the `reportRole` answer and `--report-role` (`c7860e73`; 7 new or changed tests failed on master,
+  green after)
+- [x] Phase 2: docs (`b8caa859`)
+
+Gates on the branch: `npm run typecheck`, `npm run lint` green; the deploy package's and the repository tests pass
+(1075), the full `npm test` runs in pre-push.
