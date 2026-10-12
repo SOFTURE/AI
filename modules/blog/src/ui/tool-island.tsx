@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore, type ReactNode } from "react";
 
-// The mount point of a tool block (issue #413). The server and the first client render show the tool's static
+// The mount point of a tool block (GitHub issue 413). The server and the first client render show the tool's static
 // HTML, so bots and readers without JavaScript get it and hydration matches; once hydrated, the island (the
 // `children`, rendered by the server component with the tool's parsed props) takes its place. The island is
 // therefore never rendered on the server and may use browser APIs.

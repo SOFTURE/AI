@@ -45,6 +45,8 @@ README (a "Tool blocks" paragraph after the directive plugins), CHANGELOG `## Un
   test in `tool-island.test.tsx` with no recoverable error and no console error)
 - [x] Phase 3: docs (`14a6b46`)
 - [x] Implementation review: no change needed (see `reviews/impl-review.md`)
+- [x] Pre-push fix: the blog's architecture test reads `#413` in a `/ui` comment as a hex colour; the comments say
+  "GitHub issue 413"
 
 Gates on the branch: `npm run typecheck`, `npm run lint`, `npm run build` green (the built `dist/ui/tool-island.js`
 keeps `"use client"` on its first line); the blog's tests pass (52 files before the new ones); the full `npm test`

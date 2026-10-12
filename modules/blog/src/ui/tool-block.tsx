@@ -1,4 +1,4 @@
-// Tool blocks (issue #413): an interactive tool in an article, written as a leaf directive
+// Tool blocks (GitHub issue 413): an interactive tool in an article, written as a leaf directive
 // (`::calculator{rate="5"}`). `defineToolBlock` turns the app's schema, static renderer and client component into
 // a directive block plugin: the page's server HTML holds the static version inside a mount point and the browser
 // swaps in the island with the parsed props; the Markdown answer carries the static version; the quality gate
