@@ -22,5 +22,7 @@ feature-switches 0.1.8, mailing 0.1.14, privacy 0.1.13, waitlist 0.1.11.
 - The ui dev ranges keep `^0.1.7 || ^0.2.0` instead of `^0.2.0` for the same reason; they accept the workspace
   version either way.
 
+- The charts architecture test pinned the ui peer range at `^0.1.6`. Updated to the widened range.
+
 ## Decisions (auto)
 - none beyond change.md.
