@@ -76,6 +76,7 @@ export type {
   IssuedToken,
   IssueTokenFormState,
   McpAccessErrorCode,
+  McpIssueRefusal,
   McpIssueRefusalCode,
   McpClientSetup,
   McpServerIdentity,

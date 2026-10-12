@@ -24,6 +24,8 @@ export {
   type DeliveryContext,
   type DeliveryOutcome,
   type HaltingErrorCode,
+  type RunHalt,
+  type RunHaltReason,
 } from "./deliveries.js";
 export {
   checkSenderDns,
