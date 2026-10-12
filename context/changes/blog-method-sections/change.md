@@ -1,7 +1,7 @@
 ---
 change_id: blog-method-sections
 title: "blog: the method page takes the app's own sections with rich bodies (issue #380)"
-status: planned
+status: implementing
 roadmap_item: null
 issue: 380
 branch: claude/project-thread-vvxi82

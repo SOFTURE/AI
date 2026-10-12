@@ -188,6 +188,12 @@ describe("blog pages", () => {
     await expect(GlossaryTermPage(params("old-term"))).rejects.toBeInstanceOf(NotFoundSignal);
   });
 
+  it("passes the app's own sections to the method page (#380)", async () => {
+    const html = await render(BlogMethodPage({ sections: [{ id: "checks", title: "What we check", body: <ul><li>Every number</li></ul> }] }));
+    expect(html).toContain('<h2 id="checks-heading">What we check</h2><ul><li>Every number</li></ul></section>');
+    expect(html).not.toContain('id="who"');
+  });
+
   it("shows the method page only when the app mounts it", async () => {
     expect(await render(BlogMethodPage())).toContain("<h2 id=\"checks-heading\">Checks before publishing</h2>");
     await test.database.close();
@@ -195,6 +201,7 @@ describe("blog pages", () => {
     scope.config = test.config;
     scope.db = test.ctx.db;
     expect(() => BlogMethodPage()).toThrow(NotFoundSignal);
+    expect(() => BlogMethodPage({ sections: [{ id: "checks", title: "What we check", body: <ul /> }] })).toThrow(NotFoundSignal);
     expect(await render(BlogIndexPage())).not.toContain("how-we-write");
   });
 });
