@@ -85,7 +85,7 @@ on:
       deploy-cli-version:
         description: Version of @softure-ai/deploy that records the result
         type: string
-        default: 0.1.10
+        default: 0.1.11
     secrets:
       registry-token:
         description: A token that may pull `image` (e.g. the caller's GITHUB_TOKEN with packages read); none for a public image
