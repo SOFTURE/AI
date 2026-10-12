@@ -1,6 +1,6 @@
 ---
 change_id: auth-only-account-seed-411
-status: open
+status: archived
 ---
 
 # Plan: auth single-account resolver and seed (issue #411)
@@ -34,6 +34,9 @@ Files: new `modules/auth/src/scripts/seed-account.ts`, `modules/auth/src/scripts
 
 ## Progress
 
-- [ ] Phase 1: resolveOnlyAccount
-- [ ] Phase 2: runSeedAccount
-- [ ] Phase 3: docs
+- [x] Phase 1: resolveOnlyAccount (`2b46cb4`; the new tests failed on master, the mcp-access stdio tests pass unchanged)
+- [x] Phase 2: runSeedAccount (`9dad50e`; auth's 369 tests green)
+- [x] Phase 3: docs (`ea0ff8a`)
+
+Gates on the branch: `npm run typecheck`, `npm run lint`, `npm run build` green; auth (369) and mcp-access (259) tests
+pass, the full `npm test` runs in pre-push.

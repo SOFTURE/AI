@@ -1,12 +1,13 @@
 ---
 change_id: auth-only-account-seed-411
 title: "auth: export the single-account resolver and a seed command (issue #411)"
-status: open
+status: archived
 roadmap_item: null
 issue: 411
 branch: claude/project-thread-9xkl5i
 created: 2026-10-12
 updated: 2026-10-12
+archived_at: 2026-10-12
 ---
 
 ## Intent
