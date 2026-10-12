@@ -539,7 +539,7 @@ named in the output, and only `--force` overwrites it.
 ```bash
 softure-deploy init --domain=example.com --image=ghcr.io/acme/app [--dir=.] [--name=<slug>] [--paths=/] [--www] \
   [--acme-email=<email>] [--env=AUTH_SECRET,...] [--tables=users,billing.subscriptions] [--workflows-ref=<sha>] \
-  [--cdn=cloudflare] [--force]
+  [--cdn=cloudflare] [--report-role=<role>] [--force]
 ```
 
 | File | What it holds |
@@ -563,7 +563,8 @@ softure-deploy init --domain=example.com --image=ghcr.io/acme/app [--dir=.] [--n
   by hand), `--name` (compose project, server folder `/srv/<name>`, database name; default from `package.json`) and
   `--workflows-ref` (the commit SHA both callers pin, see [Which ref callers pin](#deploy-workflow); without it they call
   `master` and a warning prints the command that gives the release commit) and `--cdn=cloudflare` (the origin lock
-  below; `cloudflare` is the only value).
+  below; `cloudflare` is the only value) and `--report-role` (with a database, the Postgres role `deploy.sh`'s
+  `report` reads as, ahead of the one read from a kept compose file; see below).
 - **Read from the app:** `@softure-ai/db` in `package.json` turns on the database part, `@softure-ai/ops` the
   `/api/health` route (else `/`), a `public/` folder its `COPY`; a `next.config.*` without `standalone` is a warning,
   and so is, with a database, one whose `serverExternalPackages` does not name `@softure-ai/db` (without it
@@ -572,8 +573,11 @@ softure-deploy init --domain=example.com --image=ghcr.io/acme/app [--dir=.] [--n
   major of the `postgres` service's image (`postgres:17-alpine` → a tools image with `pg_dump` 17; otherwise 16), and
   a kept one also the role of the `app` service's `DATABASE_URL`, which `report` reads as (otherwise `softure_app`).
   With a database, a value the file has but init cannot read (a tag such as `latest`, a role from a variable) is a
-  warning naming the default it used. Nothing is read from `softure.config`.
-- **Values are narrow:** the domain, image, name, paths, e-mail, env names and tables are checked against patterns
+  warning naming the default it used. When the app takes the whole URL from a variable (`DATABASE_URL:
+  ${DATABASE_URL:?}`) or creates its app role under another name, name that role with `--report-role=<role>`: it
+  wins over the compose file's role and the default, also with `--force`, and a drift test that renders
+  `planInitFiles` with the same answers (`reportRole`) gets the same `deploy.sh`. Nothing is read from `softure.config`.
+- **Values are narrow:** the domain, image, name, paths, e-mail, env names, tables and report role are checked against patterns
   before anything is written, so no value can break out of YAML, bash or a Traefik rule.
 - **Secrets:** the compose file's required variables are the list the workflow renders: `POSTGRES_PASSWORD`,
   `SOFTURE_MIGRATOR_PASSWORD`, `SOFTURE_APP_PASSWORD` with a database, plus `--env`. Use URL-safe passwords
