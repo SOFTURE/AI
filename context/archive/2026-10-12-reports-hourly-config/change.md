@@ -1,12 +1,13 @@
 ---
 change_id: reports-hourly-config
 title: "Coordinator status reports run hourly (autonomy.reports.every: 60)"
-status: planned
+status: archived
 roadmap_item: null
 issue: null
 branch: claude/project-thread-8dn3f5
 created: 2026-10-12
 updated: 2026-10-12
+archived_at: 2026-10-12
 ---
 
 ## Intent

@@ -1,6 +1,6 @@
 ---
 change_id: reports-hourly-config
-status: planned
+status: archived
 ---
 
 # Plan: hourly status reports in the configuration
@@ -19,4 +19,4 @@ File: `context/workflow.json`.
 
 ## Progress
 
-- [ ] Phase 1: configuration
+- [x] Phase 1: configuration (`3c01bc6`; JSON parses, `npm run lint` and `vitest run tests/repo` green: 440 passed, 43 skipped)
