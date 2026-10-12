@@ -1,12 +1,13 @@
 ---
 change_id: config-next-adoption-384
 title: "config: install and lint next to Next's ESLint config (issue #384)"
-status: active
+status: archived
 roadmap_item: null
 issue: 384
 branch: claude/project-thread-jnmaxp
 created: 2026-10-12
 updated: 2026-10-12
+archived_at: 2026-10-12
 ---
 
 ## Intent

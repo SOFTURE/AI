@@ -1,6 +1,6 @@
 ---
 change_id: config-next-adoption-384
-status: active
+status: archived
 ---
 
 # Plan: config next adoption (issue #384)
