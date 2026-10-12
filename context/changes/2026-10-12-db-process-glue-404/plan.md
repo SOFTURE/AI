@@ -45,6 +45,6 @@ migrations use `drizzleAppMigrations`), `foundation/db/CHANGELOG.md` (`## Unrele
 
 ## Progress
 
-- [ ] Phase 1: process handle options, app drizzle migrations, raw query
-- [ ] Phase 2: entry-point guard
-- [ ] Phase 3: docs
+- [x] Phase 1: process handle options, app drizzle migrations, raw query (`184ec03`; the new test file failed on master, 11 tests green after)
+- [x] Phase 2: entry-point guard (`5455585`; 6 tests, red before the module existed)
+- [x] Phase 3: docs (README §1, §3, §4; CHANGELOG `Unreleased`)
