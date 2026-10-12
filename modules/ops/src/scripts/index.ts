@@ -10,6 +10,7 @@ export {
   type OpsInputReader,
   type OpsRefusal,
   type OpsReport,
+  type OpsRunContext,
   type OpsScript,
   type OpsScriptOutcome,
   type RunOpsMainOptions,

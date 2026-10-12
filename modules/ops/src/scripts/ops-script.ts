@@ -31,6 +31,14 @@ export interface OpsReport {
   readonly after: unknown;
 }
 
+/**
+ * What `run` knows besides its arguments. `commit` is false on a dry run: a script that writes to a
+ * second database it opens itself (not `tx`) must roll that one back too.
+ */
+export interface OpsRunContext {
+  readonly commit: boolean;
+}
+
 /** A script's own refusal: an expected condition under which it must not change anything. */
 export type OpsRefusal = Err<"ops.script_refused"> & { readonly reason: string };
 
@@ -55,9 +63,9 @@ export interface OpsScript<TArgs> {
   /**
    * The change, inside the transaction. Reads the state, changes it, reads it again. Returns
    * `refuseOpsScript(reason)` when it must not go on (no matching row, two matching rows);
-   * the transaction is then rolled back.
+   * the transaction is then rolled back. `context.commit` says whether `tx` will be committed.
    */
-  readonly run: (tx: Queryable, args: TArgs) => Promise<Ok<OpsReport> | OpsRefusal>;
+  readonly run: (tx: Queryable, args: TArgs, context: OpsRunContext) => Promise<Ok<OpsReport> | OpsRefusal>;
 }
 
 export type OpsScriptOutcome = Ok<{ readonly committed: boolean; readonly report: OpsReport }> | OpsRefusal;
@@ -172,7 +180,7 @@ export async function executeOpsScript<TArgs>(
 ): Promise<OpsScriptOutcome> {
   try {
     const report = await db.transaction(async (tx) => {
-      const result = await script.run(tx, args);
+      const result = await script.run(tx, args, { commit: options.commit });
       if (!result.ok) {
         throw new RefusalRollback(result);
       }

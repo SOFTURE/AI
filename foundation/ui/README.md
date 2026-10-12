@@ -114,7 +114,7 @@ or a comment throw.
 | Surfaces | `Card` (`boxed`, `lead`, `flat`; `step`, `done`, `accent`, `headingLevel`, `headingSize`, `collapsible`), `CardDisclosure`, `CollapsibleSection`, `Stat`, `EmptyState`, `Hint`, `FormError` |
 | Fields | `Field`, `FieldGroup`, `TextField`, `PasswordField`, `MoneyField`, `SelectField`, `CheckboxField`, `INPUT_CLASS`, `NUMBER_INPUT_CLASS` |
 | Controls | `Select` (ARIA listbox), `Switch`, `SwitchControl`, `Checkbox`, `SegmentedControl`, `SEGMENTED_GROUP_CLASS` + `SEGMENT_ACTIVE_CLASS` / `SEGMENT_IDLE_CLASS` (an app's own segments), `CopyButton` |
-| Navigation | `Tabs` (ARIA tabs, roving focus), `TabPanels` (panels for a tab bar of links), `SegmentedNav` (links drawn as segments, `aria-current`), `DisclosureMenu` + `useDisclosure` (a panel of links), `ExternalLink` |
+| Navigation | `Tabs` (ARIA tabs, roving focus), `TabPanels` (panels for a tab bar of links), `SegmentedNav` (links drawn as segments, `aria-current`), `DisclosureMenu` + `useDisclosure` (a panel of links), `ExternalLink`, `ServerExternalLink` |
 | Dialogs and feedback | `Modal` (`form`, `confirmation`, `panel`), `StandingPanel`, `ModalBody`, `ModalFooter`, `ModalForm`, `ConfirmActionButton`, `ActionFormModal`, `ModalTrigger`, `ToastHost` + `announceToast`, `useDismissed` (dismiss a banner for N days) |
 | Forms | `ActionForm` (server action, value replay, field errors, success toast), `ActionResult`, `MessageActionResult` |
 | Locale | `UiLocaleProvider`, `useUiLocale` |
@@ -301,6 +301,7 @@ Every `text-*` size carries Tailwind's default line height (a ratio of the size 
 
 <CopyButton value={token} />                {/* or isIconOnly; label, variant, size, resetMs, onCopy */}
 <ExternalLink href="https://example.com">Docs</ExternalLink>
+<ServerExternalLink href="https://example.com" locale="pl">Docs</ServerExternalLink>  {/* no client code */}
 
 const { isDismissed, dismiss } = useDismissed("banner.trial", 7);
 ```
@@ -310,7 +311,10 @@ const { isDismissed, dismiss } = useDismissed("banner.trial", 7);
 outside closes it; it is heard on `document` in the capture phase, so a handler that stops propagation (React 19 does
 so before hydration) cannot keep it open. A click on a link inside closes it, and so does a new `closeKey`: pass the
 route (`usePathname()`), since the package imports no framework. Focus leaving by keyboard closes it; a pointer
-moving focus is already the outside press. `useDisclosure({ closeKey })` gives the same behaviour to an app's own
+moving focus is already the outside press. The outside press is a `pointerdown` by default; `closeOutsideOn="click"`
+waits for the click instead, for a panel in the document flow (a phone menu pushing the content down) whose collapse
+on `pointerdown` would move another element under the finger before the click lands. `useDisclosure({ closeKey,
+closeOutsideOn })` gives the same behaviour to an app's own
 markup (`triggerProps` on a `<button>`, `panelProps` on the panel). Slots: `root`, `trigger`, `label`, `panel`;
 `align` (`end` by default) picks the edge the panel lines up with.
 
@@ -318,7 +322,9 @@ markup (`triggerProps` on a `<button>`, `panelProps` on the panel). Slots: `root
 confirm button; the dialog waits for the user, with no timer. While `action` runs the dialog cannot be dismissed.
 `{ ok: true, message }` closes it and announces `message` (else `successMessage`) through `announceToast`;
 `{ ok: false, error }` keeps it open with `error` above the buttons, and a rejected action shows the package's copy.
-`isIconOnly` with `icon` draws the trigger as a `danger` `IconButton`. Slots: `trigger`, `description`, `confirm`.
+`isIconOnly` with `icon` draws the trigger as a `danger` `IconButton`. Slots: `trigger`, `description`, `confirm`,
+`cancel` (added to the footer's Cancel button). `modalClassNames` reaches the dialog's own slots (`overlay`, `panel`,
+`close`…), so the app's dialog motion and close button apply, as in `ActionFormModal`.
 
 `ActionFormModal` is an `ActionForm` (all its props) in a `Modal` (`title`, `subtitle`, `width`, `headingLevel`,
 `onClose`, `modalClassNames`): it is not dismissible while saving and closes after a successful save.
@@ -331,12 +337,27 @@ field with the value, focused and selected, with a "Press Ctrl+C" hint. `writeTo
 attempt without the button. Slots: `root`, `button`, `status`, `fallback`, `fallbackInput`, `fallbackHint`.
 
 `ExternalLink` opens a new tab, keeps the app's `rel` tokens and adds `noopener noreferrer`, and ends with a
-visually hidden "(opens in a new tab)" (slot `note`).
+visually hidden "(opens in a new tab)" (slot `note`). It is a client component (it reads the `UiLocaleProvider`);
+`ServerExternalLink` renders the same link with no client directive and no hook, taking `locale` (`en` by default)
+and `messages` by props, for a page that ships no JavaScript. `getExternalRel(rel)` lives in that server-safe module,
+so a server component can call it.
 
 `useDismissed(key, days)` returns `{ isDismissed, dismiss, restore }`. `localStorage[key]` holds the local date of
 the dismissal (`YYYY-MM-DD`, nothing else); the notice stays hidden until `days` calendar days have passed. Blocked
 or full storage never throws: the notice shows, and `dismiss` still hides it until the page is left. On the server
-and until hydration `isDismissed` is `true`, so a dismissed banner never flashes in.
+and until hydration `isDismissed` is `true`, so a dismissed banner never flashes in. `useDismissed(key, days, {
+initial: "shown" })` reverses that: the prerendered HTML contains the notice (a marker a deploy check looks for), and
+a stored dismissal hides it after hydration.
+
+A value in another format (an ISO timestamp an app stored before) counts as not dismissed. To keep such dismissals,
+rewrite the value once, before the hook reads it:
+
+```ts
+const old = localStorage.getItem("banner.trial");
+if (old !== null && !/^\d{4}-\d{2}-\d{2}$/.test(old) && !Number.isNaN(Date.parse(old))) {
+  localStorage.setItem("banner.trial", getDismissalDate(new Date(old)));
+}
+```
 
 `SegmentedControl` marks the checked segment with an inset ring in the text colour as well as the accent fill, and
 `SEGMENT_ACTIVE_CLASS` does the same, so the choice reads without colour (WCAG 1.4.11) even with a light accent.

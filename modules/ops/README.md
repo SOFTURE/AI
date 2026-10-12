@@ -348,6 +348,10 @@ import { renameNote } from "./rename-note-script";
 void runOpsMain(renameNote, configModule);
 ```
 
+A script that also writes to a database it opens itself (an account copied into another
+instance) gets `run(tx, args, { commit })`: `commit` is false on a dry run, so the script rolls its
+own transaction back too. Everything written through `tx` needs no such care.
+
 `runOpsMain(script, configModule)` is the whole entry: it reads `process.argv.slice(2)`, runs the
 script and sets `process.exitCode` (0 done, 1 refused or failed, 2 usage error). It needs no
 top-level `await` and takes the config module in any shape it arrives in: an app without

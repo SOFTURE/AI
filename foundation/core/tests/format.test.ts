@@ -58,6 +58,16 @@ describe("formatMoney", () => {
     expect(plain(formatMoney(-123456, "PLN", "pl", { signed: true, rounded: true }))).toBe("-1 235 z\u0142");
   });
 
+  it("never puts a minus on zero, a negative zero or an amount that rounds to zero", () => {
+    expect(plain(formatMoney(-0, "PLN", "pl"))).toBe("0,00 z\u0142");
+    expect(plain(formatMoney(-0, "PLN", "en", { rounded: true }))).toBe("PLN 0");
+    expect(plain(formatMoney(-40, "PLN", "pl", { rounded: true }))).toBe("0 z\u0142");
+    expect(plain(formatMoney(-0, "PLN", "en", { signed: true }))).toBe("PLN 0.00");
+    expect(plain(formatMoney(-0, "PLN", "en", { compact: true }))).toBe("PLN 0");
+    expect(plain(formatMoney(-50, "PLN", "en", { rounded: true }))).toBe("-PLN 1");
+    expect(plain(formatMoney(-1, "PLN", "pl"))).toBe("-0,01 z\u0142");
+  });
+
   it("writes large amounts compactly on request", () => {
     expect(plain(formatMoney(123456780, "PLN", "en", { compact: true }))).toBe("PLN 1.2M");
     expect(plain(formatMoney(123456780, "PLN", "pl", { compact: true }))).toBe("1,2 mln z\u0142");
