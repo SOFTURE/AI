@@ -1,4 +1,4 @@
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Readable } from "node:stream";
@@ -80,7 +80,8 @@ describe("softure-deploy run --local", () => {
     );
     expect(status).toBe(0);
     expect(recordedArgs()).toEqual(["scripts/ops/grant-access.ts", "--email=a@example.com", "--commit"]);
-    expect(recorded("cwd").trim()).toBe(app);
+    // realpath: on macOS the temporary folder is behind a symlink (/var -> /private/var), and pwd prints the target.
+    expect(recorded("cwd").trim()).toBe(realpathSync(app));
     expect(recorded("url")).toBe("postgres://app:secret@localhost:5432/app_dev");
     expect(recorded("stdin")).toBe("from the operator\n");
     expect(out.join("")).toBe("script: out\n");
