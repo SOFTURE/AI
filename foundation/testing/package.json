@@ -51,11 +51,15 @@
   },
   "peerDependencies": {
     "@playwright/test": "^1.63.0",
+    "pg": "^8.11.0",
     "typescript": ">=5.0.0",
     "vitest": ">=4.0.0"
   },
   "peerDependenciesMeta": {
     "@playwright/test": {
+      "optional": true
+    },
+    "pg": {
       "optional": true
     },
     "typescript": {
@@ -66,7 +70,9 @@
     }
   },
   "devDependencies": {
-    "@playwright/test": "^1.63.0"
+    "@playwright/test": "^1.63.0",
+    "@types/pg": "^8.23.1",
+    "pg": "^8.23.1"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json"

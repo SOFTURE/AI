@@ -4,6 +4,16 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`testing@x.y.z`).
 
+## Unreleased
+
+- `createTestDatabaseClient(url, { max? })` in `@softure-ai/testing/playwright`: a raw client on the integration
+  database for test setup and checks, with `query` (a failure names the statement and keeps the driver error as
+  `cause`), `countRows(table, where?)` (identifiers checked, values bound, `null` as `IS NULL`) and `close`; it fits
+  `withDatabase`. `pg` is a new optional peer dependency, loaded only when a client is created (#412).
+- `signInPerFile({ copy, email?, password?, registerPath?, loginPath?, landingPath? })`: one account per test file;
+  the first `signIn(page)` registers it through the form with `registerAccount`, later ones use `logIn`. An app drops
+  its own per-file account helper (#412).
+
 ## 0.1.4
 
 - `test` and `expect` from `@softure-ai/testing/playwright`: Playwright's `test` with a `clientAddress` fixture, a
