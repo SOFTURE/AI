@@ -5,6 +5,9 @@ export { valueTicks, YEAR_STEPS, yearTicks } from "./scale/value-ticks.js";
 export type { DateTicks, DateTickUnit } from "./scale/date-ticks.js";
 export { dateTicks, formatDateTick } from "./scale/date-ticks.js";
 export { nearestPointIndex } from "./scale/nearest-point.js";
+export { withStepAt } from "./scale/step.js";
+export type { StackedBand, StackInput } from "./scale/stack.js";
+export { stackSeries } from "./scale/stack.js";
 
 // SVG primitives: server-renderable, styled by @softure-ai/charts/styles.css on the --sft-chart-* tokens.
 export type { AreaPathOptions, EdgeAlign, PathCurve, PlotPoint } from "./svg/geometry.js";
@@ -23,12 +26,17 @@ export type { ChartTone, ChartToneName, DataAttributes } from "./svg/class-names
 export { CHART_TONES, seriesSlot } from "./svg/class-names.js";
 // The series palette: token order and slot count (the guard is in @softure-ai/charts/testing).
 export { SERIES_SLOTS, SERIES_TOKENS, type SeriesToken } from "./palette/series-tokens.js";
+export { distinctColors } from "./palette/distinct-colors.js";
 export type { ChartPlotProps } from "./svg/chart-plot.js";
 export { ChartPlot } from "./svg/chart-plot.js";
+export type { ChartSurfaceAttributes, ChartSurfaceName, ChartSurfaceProps } from "./svg/surface.js";
+export { CHART_SURFACES, ChartSurface, getChartSurfaceAttributes } from "./svg/surface.js";
 export type { BaselineProps, GridLinesProps, GuideLineProps, GuidePattern, LineLookProps, LinePattern, SeriesLineProps } from "./svg/lines.js";
 export { Baseline, GridLines, GuideLine, SeriesLine } from "./svg/lines.js";
 export type { AreaProps } from "./svg/area.js";
 export { Area } from "./svg/area.js";
+export type { StackedAreasProps } from "./svg/stacked-areas.js";
+export { StackedAreas } from "./svg/stacked-areas.js";
 export type { ValueAxisNarrow, ValueAxisProps } from "./svg/value-axis.js";
 export { isMinorValueTick, ValueAxis } from "./svg/value-axis.js";
 export { TimeAxis } from "./svg/time-axis.js";
@@ -53,6 +61,10 @@ export { type ChartsCopyProps, type ChartsMessages, chartsMessages } from "./mes
 // The client cursor ("use client").
 export type { ChartCursorProps, CursorPoint, CursorValue } from "./cursor/chart-cursor.js";
 export { ChartCursor } from "./cursor/chart-cursor.js";
+export type { EventAxisProps } from "./cursor/event-axis.js";
+export { EventAxis } from "./cursor/event-axis.js";
+export type { EventAxisEntry, EventAxisItem, EventAxisLayout, EventAxisMilestone, EventAxisSpan } from "./svg/event-layout.js";
+export { layoutEventAxis } from "./svg/event-layout.js";
 
 // The composition: a time series line chart with everything above.
 export type { LineChartFlag, LineChartProps, LineChartSeries, TimePoint } from "./svg/line-chart.js";

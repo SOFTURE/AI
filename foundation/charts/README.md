@@ -7,7 +7,9 @@ functions, with no DOM and no React, so the drawing, the cursor and the tests sh
 - the peak and the trough of several series and round value ticks between them ([Value ticks](#value-ticks));
 - calendar date ticks (days, months, years) at midnight in the app's time zone, labelled through
   `Intl` ([Date ticks](#date-ticks));
-- the point nearest to a cursor ([Nearest point](#nearest-point)).
+- the point nearest to a cursor ([Nearest point](#nearest-point));
+- a step in a series and stacked bands ([Steps and stacked areas](#steps-and-stacked-areas)), and stable colours for an
+  open set of keys ([Colour by meaning](#colour-by-meaning)).
 
 On top of it, React components ([Components](#components)): `LineChart` for time series, and the
 primitives it is made of (plot, grid, lines, axes, legend, flags, event pins, a keyboard and pointer cursor, a data
@@ -165,6 +167,9 @@ labels; `messages` the built-in copy.
 | `Sankey`, `layoutSankey` | a two-sided flow: inputs → hub → outputs ([Sankey](#sankey)) |
 | `BarList`, `renderBarListHtml`, `getBarListRows` | labelled horizontal bars with values, in React or as an HTML string ([Bar list](#bar-list)) |
 | `ChartCursor` | the client cursor around the frame; takes `points` as percentages computed on the server ([Cursor](#cursor)) |
+| `StackedAreas`, `stackSeries` | series stacked into bands, each an `Area` between its edges ([Steps and stacked areas](#steps-and-stacked-areas)) |
+| `EventAxis`, `layoutEventAxis` | a timeline of spans and milestones with a keyboard and pointer readout ([Event axis](#event-axis)) |
+| `ChartSurface`, `getChartSurfaceAttributes` | a chart on the page, a dark band or a paper card ([Surfaces](#surfaces)) |
 
 ### Paths
 
@@ -180,6 +185,31 @@ labels; `messages` the built-in copy.
 <SeriesLine points={points} slot={0} curve="smooth" />
 <Area points={points} curve="smooth" tone="accent" /> {/* the same path as a component */}
 ```
+
+### Steps and stacked areas
+
+`withStepAt(points, index)` gives a series a vertical jump at one point (funds unlocking on a date): a copy of the
+point carrying the previous `y` goes in before it, so the line runs flat to that x and then rises or falls straight,
+with `linePath` and `smoothLinePath` alike. Every other field of the point is kept; the first point, or an index
+outside the series, returns an unchanged copy.
+
+`stackSeries(series)` stacks series in data space, first at the bottom: each input is `{ key, points, slot?, tone?,
+color? }`, all sharing their x values (a mismatch throws a `RangeError` naming the series). At each x a positive value
+sits on the positive ones before it and a negative one under the negative ones, so bands never overlap. Each band
+keeps its look and gets `lower` and `upper` edges; `StackedAreas` draws them as `Area`s through the chart's scales,
+each in its own `slot`, `tone` or `color`, else `seriesSlot(index)`, with `data-series` set to its key.
+
+```tsx
+const bands = stackSeries([
+  { key: "bonds", points: bonds },
+  { key: "stocks", points: withStepAt(stocks, unlockIndex) },
+]);
+const peak = peakOf(bands.map((band) => band.upper));
+const trough = troughOf(bands.map((band) => band.lower));
+<StackedAreas bands={bands} x={xScale} y={yScale} curve="smooth" />;
+```
+
+A stepped series stacks only with series stepped at the same index, since stacking needs shared x values.
 
 Positions are percentages of the plot (`toPercent`), computed once from the scales, so the overlay and the
 drawing cannot drift apart. Classes are `sft-chart-*` in the `softure` layer; an app's own classes win.
@@ -211,8 +241,26 @@ Every line (`GridLines`, `Baseline`, `GuideLine`, `SeriesLine`) and marker (`Cha
 <ValueAxis ticks={ticks} narrow="all" /> {/* a small chart with few short labels */}
 ```
 
-A chart on another surface (a dark band in a light page) needs no surface prop: redefine the `--sft-chart-*`
-tokens on a wrapper, or put the chart in a `data-theme` scope, and every primitive follows.
+A chart on another surface: see [Surfaces](#surfaces).
+
+### Surfaces
+
+The same chart on the page theme, on a dark band and on a paper card: `LineChart surface="dark"`, or any parts in
+`<ChartSurface surface="paper">` (`as`: `div`, `section`, `span`). A surface is a colour scheme of
+`@softure-ai/ui`, which scopes all of its tokens to any element with `data-theme`, so grid, axis, labels, flags and
+series switch together and nothing inside needs a prop:
+
+| Surface | `data-theme` | Use |
+| --- | --- | --- |
+| `page` | none: follows the page | the default |
+| `dark` | `dark` | a dark band, whatever the page theme |
+| `paper` | `light` | a light card, whatever the page theme |
+
+`getChartSurfaceAttributes(surface)` gives `{ className, "data-theme" }` for an element the app renders itself;
+`CHART_SURFACES` lists the names. Each surface element carries `sft-chart-surface-<name>`, the hook for tuning one
+surface's tokens (`.sft-chart-surface-paper { --sft-chart-grid: var(--app-paper-line); }`). An app with its own theme
+(`SoftureThemeProvider`) gets its colours on the attribute scopes too; `schemeScopes` adds them to its own band
+classes.
 
 ### Colour by meaning
 
@@ -224,6 +272,16 @@ A series coloured by what it means (a goal, a loss) takes a `tone` instead of a 
 <SeriesLine points={goal} tone="success" pattern="dotted" />
 <LegendItem swatch={<LegendSwatch tone="success" shape="dotted" />}>{copy.goal}</LegendItem>
 <LegendItem as="div" faded swatch={<LegendSwatch color="var(--app-retirement)" shape="box" />}>{copy.retirement}</LegendItem>
+```
+
+For an open set of bands or categories, `distinctColors(keys, palette?)` maps each key to a colour: series slots by
+default, or the values of an app's palette (CSS colours, class names). Each key hashes to a preferred colour and keys
+are placed in sorted order, so the map does not depend on the keys' order, a key keeps its colour when another joins
+(unless the newcomer sorts first and takes that colour), and two keys share a colour only past the palette's size.
+
+```tsx
+const slots = distinctColors(bands.map((band) => band.key));
+<StackedAreas bands={bands.map((band) => ({ ...band, slot: slots.get(band.key) }))} x={xScale} y={yScale} />;
 ```
 
 `CHART_TONES` lists the tones; `ChartToneName` is `ChartTone` under a name that does not collide with an app's own
@@ -391,6 +449,30 @@ const isPastMiddle = index !== null && (points[index]?.xPercent ?? 0) > 60;
 </ChartCursor>;
 ```
 
+### Event axis
+
+`EventAxis` (a client component) is a horizontal timeline: `items` are spans (`{ kind: "span", startPercent,
+endPercent }`, a bar tinted in its colour with its label) and milestones (`{ kind: "milestone", xPercent }`, a dot on
+a row of their own above the spans), each with `key`, `label`, an optional `detail` and a `slot`, `tone` or `color`.
+Positions come from the chart's x scale as percentages, so the axis lines up with a chart above it. Spans are packed
+into the fewest rows that keep them apart (`layoutEventAxis`, server-safe, also for an app's own markup).
+
+It works like the cursor: a focusable group named from `chartsMessages` (`eventAxis.label`), ← and → step through
+the items by start, Home and End jump to the ends, Escape clears; the pointer activates the item under it, and
+leaving or blurring clears. The readout under the track is a polite live region with the label and the detail, or
+`renderReadout(item, index)`; `onActiveChange(index | null)` reports the item's index in `items`. Row height is
+`--sft-chart-event-lane-height` (`--sft-space-6`) on `.sft-chart-event-axis`.
+
+```tsx
+<EventAxis
+  title={copy.lifeEvents}
+  items={[
+    { kind: "span", key: "school", label: copy.school, detail: "2026–2030", startPercent: x(schoolStart), endPercent: x(schoolEnd) },
+    { kind: "milestone", key: "unlock", label: copy.unlock, xPercent: x(unlock), tone: "accent" },
+  ]}
+/>
+```
+
 ### Tokens
 
 Colours: `--sft-chart-{grid,axis,cursor,flag,on-flag}` and the series palette `--sft-chart-series-{1…6}`;
@@ -454,7 +536,11 @@ The package came out of an adopting app's hand-rolled charts. What each part of 
 | a hand-built two-sided Sankey | `layoutSankey`, `Sankey` (`solid`, `tint`, `hatch`) | the flows and their copy |
 | labelled horizontal bars | `BarList`, `renderBarListHtml` for an HTML body | the rows and their format |
 | event chips and pins | `ChartFlag` (edge rule `edgeAlign`; `variant`, `size`, `className`, `style`), `ChartPin` (`slot`, `variant`, `size`, `ring`); both placed by their parent when `xPercent` is omitted | — |
-| percentages and surfaces | `percent`, `toPercent`, `edgeAlign` | surface tones, as overrides of the `--sft-chart-*` tokens |
+| percentages | `percent`, `toPercent`, `edgeAlign` | — |
+| a surface-to-tone map and wrapper components | `surface` on `LineChart`, `ChartSurface` (`page`, `dark`, `paper`) | tuned tokens on `.sft-chart-surface-<name>` |
+| a step in a series, stacked band paths | `withStepAt`, `stackSeries`, `StackedAreas` | — |
+| colours for an open set of bands | `distinctColors(keys, palette?)` | — |
+| a hand-built timeline of spans and milestones | `EventAxis`, `layoutEventAxis` | the events and their copy |
 | the cursor | `ChartCursor`: arrows, Home/End, Escape, pointer events, a polite live readout; `renderReadout`, `onActiveChange`, `frame={false}` for an app's own readout and plot | the readout's content |
 | colour-vision and contrast checks | `@softure-ai/ui/testing` (`findColorCollisions`, `contrastRatio`, `checkThemeContrast`) and `checkSeriesPalette` from `@softure-ai/charts/testing` | the colours themselves |
 
