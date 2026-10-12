@@ -1,6 +1,6 @@
 ---
 change_id: agent-ready-webmcp-search-415
-status: planned
+status: archived
 ---
 
 # Plan: agent-ready WebMCP site search and glossary tools (issue #415)
@@ -35,5 +35,7 @@ Files: `modules/agent-ready/src/webmcp/index.ts`; test `modules/agent-ready/test
 
 ## Progress
 
-- [ ] Phase 1: the two tools
-- [ ] Phase 2: blog contract and docs
+- [x] Phase 1: the two tools (`d9ff2c9`; the new test file failed on master, missing exports; 20 tests green after)
+- [x] Phase 2: blog contract and docs (`b78ca3a`)
+
+Gates on the branch: `npm run typecheck`, `npm run lint`, `npm run build`, `npm test` green (6466 passed, 153 skipped).

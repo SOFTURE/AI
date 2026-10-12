@@ -1,13 +1,13 @@
 ---
 change_id: agent-ready-webmcp-search-415
 title: "agent-ready: ready-made WebMCP site search and glossary tools (issue #415)"
-status: planned
+status: archived
 roadmap_item: null
 issue: 415
 branch: claude/project-thread-22aulm
 created: 2026-10-12
 updated: 2026-10-12
-archived_at: null
+archived_at: 2026-10-12
 ---
 
 ## Intent
