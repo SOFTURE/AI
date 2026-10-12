@@ -1,7 +1,7 @@
 // Block plugin needs (BL-3): a fenced block of a block plugin reads frontmatter keys (`requires`), and
 // an article that lacks one would render the block without its data.
 import type { BlogArticleInput } from "../../contract.js";
-import { parseDirectiveLine, type BlockPlugin, type FoundBlock } from "../../render/render-article.js";
+import { parseDirectiveLine, type BlockArticle, type BlockPlugin, type FoundBlock } from "../../render/render-article.js";
 import type { Block } from "../blocks.js";
 import type { QualityFinding } from "../finding.js";
 import type { LanguageRuleset } from "../rulesets/types.js";
@@ -50,8 +50,14 @@ function hasFrontmatterKey(article: BlogArticleInput, key: string): boolean {
  * plugin renders (it would show as a paragraph `::chrat{…}`), or attributes it cannot read. Checked
  * only when the app registers a directive plugin; otherwise `::` lines are the app's own business.
  */
-export function checkDirectives(blocks: readonly Block[], pluginBlocks: readonly FoundBlock[], plugins: readonly BlockPlugin[]): QualityFinding[] {
-  const names = plugins.filter((plugin) => plugin.syntax === "directive").map((plugin) => plugin.type);
+export function checkDirectives(
+  blocks: readonly Block[],
+  pluginBlocks: readonly FoundBlock[],
+  plugins: readonly BlockPlugin[],
+  article: BlockArticle = {},
+): QualityFinding[] {
+  const directives = plugins.filter((plugin) => plugin.syntax === "directive");
+  const names = directives.map((plugin) => plugin.type);
   if (names.length === 0) return [];
   const unknown = blocks.flatMap((block) => {
     if (block.kind !== "directive") return [];
@@ -62,7 +68,19 @@ export function checkDirectives(blocks: readonly Block[], pluginBlocks: readonly
   const unreadable = pluginBlocks
     .filter((block) => block.syntax === "directive" && block.attributes === null)
     .map((block) => finding(`the attributes of ::${block.type} cannot be read; write them as key="value" pairs, each key once`, block.line));
-  return [...unknown, ...unreadable].sort((a, b) => (a.line ?? 0) - (b.line ?? 0));
+  const invalid = pluginBlocks.flatMap((found) => {
+    const plugin = directives.find((candidate) => candidate.type === found.type);
+    if (found.syntax !== "directive" || found.attributes === null || plugin?.validate === undefined) return [];
+    let problem: string | null;
+    try {
+      problem = plugin.validate({ type: found.type, syntax: found.syntax, info: found.info, attributes: found.attributes, content: found.content, article });
+    } catch (error) {
+      // A plugin bug refuses the file with a finding instead of crashing the publish.
+      return [finding(`validate() of the ${found.type} directive failed: ${error instanceof Error ? error.message : String(error)}`, found.line)];
+    }
+    return problem === null ? [] : [finding(`the attributes of ::${found.type} do not fit: ${problem}`, found.line)];
+  });
+  return [...unknown, ...unreadable, ...invalid].sort((a, b) => (a.line ?? 0) - (b.line ?? 0));
 }
 
 function finding(message: string, line: number): QualityFinding {
