@@ -1,12 +1,13 @@
 ---
 change_id: og-font-loader-414
 title: "seo + blog: the OG font loader outside the blog (issue #414)"
-status: open
+status: archived
 roadmap_item: null
 issue: 414
 branch: claude/project-thread-hk3fe6
 created: 2026-10-12
 updated: 2026-10-12
+archived_at: 2026-10-12
 ---
 
 ## Intent

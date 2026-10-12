@@ -1,6 +1,6 @@
 ---
 change_id: og-font-loader-414
-status: open
+status: archived
 ---
 
 # Plan: OG font loader outside the blog (issue #414)
@@ -30,5 +30,10 @@ blog (line pointing to seo for non-blog cards). CHANGELOG `## Unreleased` in cor
 
 ## Progress
 
-- [ ] Phase 1: the loader in core, re-exported by seo and blog
-- [ ] Phase 2: docs
+- [x] Phase 1: the loader in core, re-exported by seo and blog (`2b0fe48`; the core and seo tests failed on master,
+  7 + 2 green after; the blog's OG tests pass unchanged)
+- [x] Phase 2: docs (`8e09db0`)
+- [x] Implementation review fix: the blog's label default (see `reviews/impl-review.md`)
+
+Gates on the branch: `npm run typecheck`, `npm run lint`, `npm run build` green; core, seo, blog and repository tests
+pass (1484), the full `npm test` runs in pre-push.

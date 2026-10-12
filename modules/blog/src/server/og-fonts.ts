@@ -9,5 +9,5 @@ const BLOG_LABEL = "Blog OG card: brand.fonts";
 
 /** A loader with its own cache, keyed by the resolved path or URL; messages name `brand.fonts` unless `label` says otherwise. */
 export function createOgFontLoader(options: OgFontLoaderOptions): (fonts: readonly OgFontSource[]) => Promise<OgFontsResult> {
-  return createCoreOgFontLoader({ label: BLOG_LABEL, ...options });
+  return createCoreOgFontLoader({ ...options, label: options.label ?? BLOG_LABEL });
 }
