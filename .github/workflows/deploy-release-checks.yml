@@ -9,13 +9,11 @@
 #   checkout has no generated route types).
 # - `unit` runs `test-command` once per shard (`shards`, 1 to 20) with `SHARD_INDEX` and `SHARD_COUNT` set: one job
 #   of a large suite outlasts a hosted runner's patience, N jobs in parallel do not.
-# - `build` (with `build-image`) builds the image and pushes `<image>:sha-<sha>` to GHCR once the checks that ran are
-#   green. Its output `prebuilt-image` is that image by digest, which deploy-app.yml's `prebuilt-image` takes as is:
-#   the release tag is then added to exactly the bytes the checks passed.
-#
-# The callers are `tools/deploy/examples/checks.yml` (pull requests and on demand) and the `checks` job of a deploy
-# caller (README, "Release checks"). The commands are the caller's own: each runs with `bash -e -c` from `env:`, never
-# interpolated into a script. Only `build` may write packages, nothing may write the repository.
+# The image the checks passed is built by deploy-release-image.yml, a separate workflow so that this one needs
+# `contents: read` only: a pull request's caller grants nothing more. The callers are
+# `tools/deploy/examples/checks.yml` (pull requests and on demand) and the `checks` job of a deploy caller (README,
+# "Release checks"). The commands are the caller's own: each runs with `bash -e -c` from `env:`, never interpolated
+# into a script.
 
 name: deploy-release-checks
 
@@ -66,26 +64,6 @@ on:
         description: How many parallel jobs the unit tests are split into (1 to 20)
         type: number
         default: 1
-      build-image:
-        description: Build the image and push <image>:sha-<sha> once the checks pass; output prebuilt-image
-        type: boolean
-        default: false
-      image:
-        description: Image name without a tag; empty means ghcr.io/<owner>/<repository> of the caller, lower-cased
-        type: string
-        default: ""
-      context:
-        description: Docker build context in the app's repository
-        type: string
-        default: "."
-      dockerfile:
-        description: Dockerfile path in the app's repository
-        type: string
-        default: Dockerfile
-      build-args:
-        description: "Build arguments baked into the image, one NAME=value per line; public values only"
-        type: string
-        default: ""
       sparse-checkout:
         description: "Checkout patterns, non-cone (e.g. /* and !/context/archive/); empty = the whole commit"
         type: string
@@ -94,9 +72,6 @@ on:
       sha:
         description: The commit that was checked
         value: ${{ jobs.prepare.outputs.sha }}
-      prebuilt-image:
-        description: With build-image, the pushed image by digest (<image>@sha256:<digest>) for deploy-app.yml
-        value: ${{ jobs.build.outputs.prebuilt-image }}
 
 permissions:
   contents: read
@@ -112,7 +87,6 @@ jobs:
     outputs:
       sha: ${{ steps.commit.outputs.sha }}
       ref: ${{ steps.commit.outputs.ref }}
-      image: ${{ steps.inputs.outputs.image }}
       shards: ${{ steps.inputs.outputs.shards }}
     steps:
       - id: inputs
@@ -129,21 +103,11 @@ jobs:
           UNIT: ${{ inputs.unit }}
           TEST_COMMAND: ${{ inputs.test-command }}
           SHARDS: ${{ inputs.shards }}
-          BUILD_IMAGE: ${{ inputs.build-image }}
-          IMAGE: ${{ inputs.image }}
-          BUILD_CONTEXT: ${{ inputs.context }}
-          DOCKERFILE: ${{ inputs.dockerfile }}
-          REPOSITORY: ${{ github.repository }}
         run: |
           failures=0
           reject() {
             echo "::error::Input $1 is not valid: $2"
             failures=$((failures + 1))
-          }
-          expect_path() {
-            if [[ ! "$2" =~ ^[A-Za-z0-9_.][A-Za-z0-9_./-]*$ ]] || [[ "/$2/" == */../* ]]; then
-              reject "$1" "a relative path without .. segments"
-            fi
           }
           if [ -n "$TAG" ]; then
             if [[ ! "$TAG" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$ ]]; then
@@ -166,23 +130,12 @@ jobs:
           fi
           [[ "$NODE_VERSION" =~ ^[0-9]+(\.[0-9x]+){0,2}$|^lts/[a-z*-]+$ ]] || reject node-version "a version such as 22, 22.11.0 or lts/*"
           [[ "$CACHE" =~ ^(npm|pnpm|yarn)?$ ]] || reject cache "npm, pnpm, yarn or empty"
-          if [ "$STATIC" != "true" ] && [ "$UNIT" != "true" ] && [ "$BUILD_IMAGE" != "true" ]; then
-            reject static "true, or unit or build-image (nothing would run)"
-          fi
-          if [ "$STATIC" = "true" ] || [ "$UNIT" = "true" ]; then
-            [ -n "$INSTALL_COMMAND" ] || reject install-command "a command"
-          fi
+          if [ "$STATIC" != "true" ] && [ "$UNIT" != "true" ]; then reject static "true, or unit true (nothing would run)"; fi
+          [ -n "$INSTALL_COMMAND" ] || reject install-command "a command"
           if [ "$STATIC" = "true" ] && [ -z "$STATIC_COMMAND" ]; then reject static-command "a command (or static: false)"; fi
           if [ "$UNIT" = "true" ] && [ -z "$TEST_COMMAND" ]; then reject test-command "a command (or unit: false)"; fi
           if [[ ! "$SHARDS" =~ ^[1-9][0-9]?$ ]] || (( SHARDS > 20 )); then reject shards "1 to 20"; fi
-          if [ -z "$IMAGE" ]; then IMAGE="ghcr.io/$(printf '%s' "$REPOSITORY" | tr '[:upper:]' '[:lower:]')"; fi
-          if [ "$BUILD_IMAGE" = "true" ]; then
-            [[ "$IMAGE" =~ ^[a-z0-9.-]+(:[0-9]{1,5})?(/[a-z0-9]+([._-][a-z0-9]+)*)+$ ]] || reject image "registry/name, lower case, no tag"
-            expect_path context "$BUILD_CONTEXT"
-            expect_path dockerfile "$DOCKERFILE"
-          fi
           if (( failures > 0 )); then exit 1; fi
-          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
           shards="1"
           index=2
           while (( index <= SHARDS )); do
@@ -300,64 +253,3 @@ jobs:
           SHARD_INDEX: ${{ matrix.shard }}
           SHARD_COUNT: ${{ inputs.shards }}
         run: bash -e -o pipefail -c "$TEST_COMMAND"
-
-  build:
-    name: build and push the image
-    needs: [prepare, static, unit]
-    # After the checks that ran are green; a check turned off counts as passed, a failed or cancelled one does not.
-    if: >-
-      !cancelled() && inputs.build-image && needs.prepare.result == 'success'
-      && (needs.static.result == 'success' || needs.static.result == 'skipped')
-      && (needs.unit.result == 'success' || needs.unit.result == 'skipped')
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    permissions:
-      contents: read
-      packages: write
-    outputs:
-      prebuilt-image: ${{ steps.digest.outputs.prebuilt-image }}
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ needs.prepare.outputs.ref }}
-          persist-credentials: false
-          sparse-checkout: ${{ inputs.sparse-checkout }}
-          sparse-checkout-cone-mode: false
-      - uses: docker/setup-buildx-action@v4
-      - uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - id: ref
-        name: Image reference
-        env:
-          IMAGE: ${{ needs.prepare.outputs.image }}
-          SHA: ${{ needs.prepare.outputs.sha }}
-        run: echo "image=$IMAGE:sha-$SHA" >> "$GITHUB_OUTPUT"
-      - id: push
-        uses: docker/build-push-action@v7
-        with:
-          context: ${{ inputs.context }}
-          file: ${{ inputs.dockerfile }}
-          push: true
-          tags: ${{ steps.ref.outputs.image }}
-          build-args: ${{ inputs.build-args }}
-          labels: |
-            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-            org.opencontainers.image.revision=${{ needs.prepare.outputs.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-      - id: digest
-        name: Image by digest
-        env:
-          IMAGE: ${{ needs.prepare.outputs.image }}
-          IMAGE_REF: ${{ steps.ref.outputs.image }}
-          DIGEST: ${{ steps.push.outputs.digest }}
-        run: |
-          if [[ ! "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
-            echo "::error::The build of $IMAGE_REF reported no digest (\"$DIGEST\")."
-            exit 1
-          fi
-          echo "prebuilt-image=$IMAGE@$DIGEST" >> "$GITHUB_OUTPUT"
-          echo "Pushed $IMAGE_REF as \`$IMAGE@$DIGEST\`." >> "$GITHUB_STEP_SUMMARY"

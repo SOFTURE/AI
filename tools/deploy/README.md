@@ -508,10 +508,13 @@ release, and on its pull requests. Its jobs:
 3. `unit` installs and runs `test-command` once per shard, `shards` jobs in parallel (1 to 20, 60 minutes each), with
    `SHARD_INDEX` (from 1) and `SHARD_COUNT` set; the default `npm test -- --shard="$SHARD_INDEX/$SHARD_COUNT"` suits
    Vitest.
-4. `build`, with `build-image`, once the checks that ran are green (a check turned off counts as passed): builds the
-   image, pushes `<image>:sha-<sha>` to GHCR (the only job with `packages: write`) and outputs `prebuilt-image`,
-   `<image>@sha256:<digest>`, the form `deploy-app.yml`'s `prebuilt-image` takes. The release tag is then added to
-   exactly the bytes the checks passed.
+
+Every job reads the repository only (`contents: read`), so a pull request's caller grants nothing more. The image is
+built by `SOFTURE/AI/.github/workflows/deploy-release-image.yml`, a separate workflow: one job `build` (the only one
+with `packages: write`) checks out `ref` (a full commit SHA, the checks' `sha` output), pushes `<image>:sha-<sha>` to
+GHCR and outputs `prebuilt-image`, `<image>@sha256:<digest>`, the form `deploy-app.yml`'s `prebuilt-image` takes. The
+release tag is then added to exactly the bytes the checks passed. Its inputs besides `ref` are `image`, `context`,
+`dockerfile`, `build-args` and `sparse-checkout`, as in `deploy-app.yml`.
 
 | Input | Default | |
 | --- | --- | --- |
@@ -522,39 +525,38 @@ release, and on its pull requests. Its jobs:
 | `install-command` | `npm ci` | before `static` and each shard |
 | `static`, `static-command` | `true`, `npx tsc --noEmit && npm run lint --if-present` | |
 | `unit`, `test-command`, `shards` | `true`, `npm test -- --shard="$SHARD_INDEX/$SHARD_COUNT"`, `1` | |
-| `build-image` | `false` | build and push `<image>:sha-<sha>` |
-| `image`, `context`, `dockerfile`, `build-args` | `ghcr.io/<owner>/<repository>`, `.`, `Dockerfile`, none | the build, as in `deploy-app.yml` |
 | `sparse-checkout` | the whole commit | non-cone checkout patterns for every job |
 
-Outputs: `sha`, `prebuilt-image`. The commands are the app's own and run with `bash -e -c` from `env:`, never
-interpolated. Nothing may write the repository.
+Output: `sha`. The commands are the app's own and run with `bash -e -c` from `env:`, never interpolated.
 
 **On pull requests.** `init` writes `.github/workflows/checks.yml` (the same file as
 [`examples/checks.yml`](examples/checks.yml)): `static` on every pull request; the unit tests, which cost the most
 Actions minutes, on *Run workflow* or with the label `run-tests`.
 
-**Before a deploy.** In the deploy caller, a `checks` job ahead of `deploy` makes the release deploy only the image the
-checks passed:
+**Before a deploy.** In the deploy caller, `checks` and `image` jobs ahead of `deploy` make the release deploy only
+the image the checks passed (the caller's top-level `permissions` already grant `packages: write`):
 
 ```yaml
 jobs:
   checks:
     uses: SOFTURE/AI/.github/workflows/deploy-release-checks.yml@<sha>
-    permissions:
-      contents: read
-      packages: write
     with:
       tag: ${{ github.event.release.tag_name || inputs.tag }}
       static-command: npx next typegen && npx tsc --noEmit && npm run lint --if-present
       shards: 4
-      build-image: true
+
+  image:
+    needs: checks
+    uses: SOFTURE/AI/.github/workflows/deploy-release-image.yml@<sha>
+    with:
+      ref: ${{ needs.checks.outputs.sha }}
 
   deploy:
-    needs: checks
+    needs: image
     uses: SOFTURE/AI/.github/workflows/deploy-app.yml@<sha>
     with:
       tag: ${{ github.event.release.tag_name || inputs.tag }}
-      prebuilt-image: ${{ needs.checks.outputs.prebuilt-image }}
+      prebuilt-image: ${{ needs.image.outputs.prebuilt-image }}
       # ...the rest as before
 ```
 

@@ -70,6 +70,7 @@ describe("the reusable deploy workflows", () => {
     expect(DEPLOY_WORKFLOWS).toContain("deploy-app.yml");
     expect(DEPLOY_WORKFLOWS).toContain("deploy-cut-release.yml");
     expect(DEPLOY_WORKFLOWS).toContain("deploy-release-checks.yml");
+    expect(DEPLOY_WORKFLOWS).toContain("deploy-release-image.yml");
     expect(DEPLOY_WORKFLOWS).toContain("deploy-release-notes.yml");
   });
 
@@ -1201,7 +1202,6 @@ describe("deploy-release-checks.yml (issue #406)", () => {
   const jobs = workflow.jobs as Record<string, Job & { if?: string; needs?: unknown; strategy?: { matrix?: Record<string, unknown> } }>;
   const inputStep = findNamedStep(jobs.prepare, "Check the inputs");
   const commitStep = findNamedStep(jobs.prepare, "Resolve the commit");
-  const digestStep = findNamedStep(jobs.build, "Image by digest");
 
   /** The input step's env with every input at its default, as the runner would pass it. */
   const DEFAULTS: Record<string, string> = {
@@ -1216,31 +1216,27 @@ describe("deploy-release-checks.yml (issue #406)", () => {
     UNIT: "true",
     TEST_COMMAND: String(inputs["test-command"]?.default),
     SHARDS: "1",
-    BUILD_IMAGE: "false",
-    IMAGE: "",
-    BUILD_CONTEXT: ".",
-    DOCKERFILE: "Dockerfile",
-    REPOSITORY: "Acme/App",
   };
 
-  it("checks the caller's commit by default: static and one unit shard, no image", () => {
+  it("checks the caller's commit by default: static and one unit shard, and reads the repository only", () => {
     expect(inputs).toMatchObject({
       tag: { default: "" },
       "tag-pattern": { default: "^v[0-9]{4}\\.[0-9]{2}\\.[0-9]{2}(-[0-9]+)?$" },
       static: { default: true },
       unit: { default: true },
       shards: { default: 1 },
-      "build-image": { default: false },
       "install-command": { default: "npm ci" },
     });
-    expect(call.outputs?.["prebuilt-image"]?.value).toBe("${{ jobs.build.outputs.prebuilt-image }}");
+    expect(Object.keys(call.outputs ?? {})).toEqual(["sha"]);
     expect(call.outputs?.sha?.value).toBe("${{ jobs.prepare.outputs.sha }}");
+    expect(Object.keys(jobs)).toEqual(["prepare", "static", "unit"]);
+    for (const job of Object.values(jobs)) expect(job.permissions).toEqual({ contents: "read" });
   });
 
-  it("accepts the defaults and puts out the image name and the shard list", () => {
+  it("accepts the defaults and puts out the shard list", () => {
     const result = runScript(inputStep.run ?? "", DEFAULTS);
     expect(result.status).toBe(0);
-    expect(result.output).toBe("image=ghcr.io/acme/app\nshards=[1]\n");
+    expect(result.output).toBe("shards=[1]\n");
     expect(runScript(inputStep.run ?? "", { ...DEFAULTS, SHARDS: "3" }).output).toContain("shards=[1,2,3]\n");
     expect(runScript(inputStep.run ?? "", { ...DEFAULTS, SHARDS: "20" }).output).toContain(",19,20]\n");
   });
@@ -1270,16 +1266,11 @@ describe("deploy-release-checks.yml (issue #406)", () => {
     expect(refused.output).toBe("");
   });
 
-  it("checks the image inputs only when it builds, and refuses a run with nothing to do", () => {
-    const badImage = { ...DEFAULTS, IMAGE: "ghcr.io/Acme/App:latest", DOCKERFILE: "../Dockerfile" };
-    expect(runScript(inputStep.run ?? "", badImage).status).toBe(0);
-    const refused = runScript(inputStep.run ?? "", { ...badImage, BUILD_IMAGE: "true" });
-    expect(refused.stdout).toContain("::error::Input image is not valid");
-    expect(refused.stdout).toContain("::error::Input dockerfile is not valid");
+  it("refuses a run with nothing to do", () => {
     const idle = runScript(inputStep.run ?? "", { ...DEFAULTS, STATIC: "false", UNIT: "false" });
     expect(idle.status).toBe(1);
     expect(idle.stdout).toContain("nothing would run");
-    expect(runScript(inputStep.run ?? "", { ...DEFAULTS, STATIC: "false", UNIT: "false", BUILD_IMAGE: "true" }).status).toBe(0);
+    expect(runScript(inputStep.run ?? "", { ...DEFAULTS, STATIC: "false" }).status).toBe(0);
   });
 
   describe("the commit guard", () => {
@@ -1347,7 +1338,7 @@ describe("deploy-release-checks.yml (issue #406)", () => {
   });
 
   it("checks out the resolved commit in every other job, without credentials", () => {
-    for (const id of ["static", "unit", "build"]) {
+    for (const id of ["static", "unit"]) {
       const checkout = (jobs[id]?.steps ?? []).find((step) => step.uses?.startsWith("actions/checkout@") === true);
       expect(checkout?.with, id).toMatchObject({
         ref: "${{ needs.prepare.outputs.ref }}",
@@ -1379,20 +1370,56 @@ describe("deploy-release-checks.yml (issue #406)", () => {
     expect(result.stdout).toBe("--shard=2/3\n");
   });
 
-  it("builds only after the checks that ran are green, and pushes sha-<sha>", () => {
-    expect(jobs.build?.needs).toEqual(["prepare", "static", "unit"]);
-    const condition = String(jobs.build?.if);
-    expect(condition).toContain("!cancelled() && inputs.build-image && needs.prepare.result == 'success'");
-    expect(condition).toContain("(needs.static.result == 'success' || needs.static.result == 'skipped')");
-    expect(condition).toContain("(needs.unit.result == 'success' || needs.unit.result == 'skipped')");
-    expect(findNamedStep(jobs.build, "Image reference").run).toBe('echo "image=$IMAGE:sha-$SHA" >> "$GITHUB_OUTPUT"');
-    const push = (jobs.build?.steps ?? []).find((step) => step.uses?.startsWith("docker/build-push-action@") === true);
-    expect(push?.with).toMatchObject({ push: true, tags: "${{ steps.ref.outputs.image }}", "build-args": "${{ inputs.build-args }}" });
+});
+
+describe("deploy-release-image.yml (issue #406)", () => {
+  const workflow = readYaml(join(WORKFLOWS_DIR, "deploy-release-image.yml"));
+  const call = getWorkflowCall(workflow) as WorkflowCall & { outputs?: Record<string, { value?: string }> };
+  const job = workflow.jobs.build;
+  const inputStep = findNamedStep(job, "Check the inputs");
+  const digestStep = findNamedStep(job, "Image by digest");
+  const SHA = "0123456789abcdef0123456789abcdef01234567";
+  const DEFAULTS = { REF: SHA, IMAGE: "", BUILD_CONTEXT: ".", DOCKERFILE: "Dockerfile", REPOSITORY: "Acme/App" };
+
+  it("builds one commit in one job, the only one that may write packages", () => {
+    expect(call.inputs?.ref?.required).toBe(true);
+    expect(Object.keys(workflow.jobs)).toEqual(["build"]);
+    expect(job?.permissions).toEqual({ contents: "read", packages: "write" });
+    expect(call.outputs?.["prebuilt-image"]?.value).toBe("${{ jobs.build.outputs.prebuilt-image }}");
+  });
+
+  it("checks the inputs first and names the image <image>:sha-<sha>", () => {
+    expect(job?.steps?.[0]).toBe(inputStep);
+    const result = runScript(inputStep.run ?? "", DEFAULTS);
+    expect(result.status).toBe(0);
+    expect(result.output).toBe(`image=ghcr.io/acme/app\ntagged=ghcr.io/acme/app:sha-${SHA}\n`);
+    const own = runScript(inputStep.run ?? "", { ...DEFAULTS, IMAGE: "ghcr.io/acme/web" });
+    expect(own.output).toBe(`image=ghcr.io/acme/web\ntagged=ghcr.io/acme/web:sha-${SHA}\n`);
+  });
+
+  it.each([
+    ["REF", "v2026.10.12", "Input ref is not valid"],
+    ["REF", SHA.slice(0, 7), "Input ref is not valid"],
+    ["IMAGE", "ghcr.io/Acme/App:latest", "Input image is not valid"],
+    ["BUILD_CONTEXT", "../app", "Input context is not valid"],
+    ["DOCKERFILE", "/Dockerfile", "Input dockerfile is not valid"],
+  ])("refuses %s=%s", (name, value, message) => {
+    const refused = runScript(inputStep.run ?? "", { ...DEFAULTS, [name]: value });
+    expect(refused.status).toBe(1);
+    expect(refused.stdout).toContain(`::error::${message}`);
+    expect(refused.output).toBe("");
+  });
+
+  it("checks out the commit without credentials and pushes the checked tag with the build arguments", () => {
+    const checkout = (job?.steps ?? []).find((step) => step.uses?.startsWith("actions/checkout@") === true);
+    expect(checkout?.with).toMatchObject({ ref: "${{ inputs.ref }}", "persist-credentials": false });
+    const push = (job?.steps ?? []).find((step) => step.uses?.startsWith("docker/build-push-action@") === true);
+    expect(push?.with).toMatchObject({ push: true, tags: "${{ steps.ref.outputs.tagged }}", "build-args": "${{ inputs.build-args }}" });
   });
 
   it("hands the image on by digest, the form deploy-app.yml's prebuilt-image takes", () => {
     const digest = `sha256:${"a".repeat(64)}`;
-    const env = { IMAGE: "ghcr.io/acme/app", IMAGE_REF: "ghcr.io/acme/app:sha-abc", DIGEST: digest };
+    const env = { IMAGE: "ghcr.io/acme/app", IMAGE_REF: `ghcr.io/acme/app:sha-${SHA}`, DIGEST: digest };
     const result = runScript(digestStep.run ?? "", env);
     expect(result.status).toBe(0);
     expect(result.output).toBe(`prebuilt-image=ghcr.io/acme/app@${digest}\n`);

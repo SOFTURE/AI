@@ -24,10 +24,11 @@ cutting a release, yet an adopting app still owns about 350 lines of YAML that e
 
 Outcome:
 
-- `.github/workflows/deploy-release-checks.yml` (`workflow_call`): `prepare` (inputs, tag pattern, tag on the release
-  branch, the shard list), `static`, `unit` (a matrix of `shards`), `build` (optional, pushes `<image>:sha-<sha>` and
-  outputs `prebuilt-image` = `<image>@sha256:<digest>`, which `deploy-app.yml` takes as is). With an empty `tag` it
-  checks the caller's commit, for pull requests.
+- `.github/workflows/deploy-release-checks.yml` (`workflow_call`, `contents: read` only): `prepare` (inputs, tag
+  pattern, tag on the release branch, the shard list), `static`, `unit` (a matrix of `shards`). With an empty `tag`
+  it checks the caller's commit, for pull requests.
+- `.github/workflows/deploy-release-image.yml` (`workflow_call`): one `build` job pushes `<image>:sha-<sha>` of the
+  checked commit and outputs `prebuilt-image` = `<image>@sha256:<digest>`, which `deploy-app.yml` takes as is.
 - `.github/workflows/deploy-release-notes.yml` (`workflow_call`): replaces the body of one release.
 - Callers: `tools/deploy/examples/{checks,release-notes}.yml`, and `softure-deploy init` writes the same two files
   pinned by `--workflows-ref`.
@@ -63,8 +64,11 @@ version bump, CHANGELOG `## Unreleased`. Every input default that names the CLI 
   which Vitest takes). `shards` is 1 to 20.
 - The default tag pattern is `^v[0-9]{4}\.[0-9]{2}\.[0-9]{2}(-[0-9]+)?$`, the tags `deploy-cut-release.yml` cuts;
   `tag-pattern` overrides it.
-- `build` runs only when `build-image` is on and `static` and `unit` succeeded or were turned off. The image tag is
-  `sha-<sha>`; the output is by digest so the deploy re-tags exactly the tested bytes.
+- The image build is a workflow of its own (`deploy-release-image.yml`), not an optional job of the checks: GitHub
+  refuses to start a called workflow whose job asks for more permissions than the caller grants, even a job that
+  would be skipped, so a `packages: write` job inside the checks would force every pull request's caller to grant
+  it. Found in the implementation review; the plan had one workflow. The image tag is `sha-<sha>`; the output is by
+  digest so the deploy re-tags exactly the tested bytes.
 - `init` writes `checks.yml` (pull request: static; `workflow_dispatch` or the `run-tests` label: unit too) and
   `release-notes.yml`. The generated static command runs `next typegen` first: init's apps are Next apps.
 - The release-notes workflow replaces the body only (`gh release edit --notes-file`); an empty body is refused.

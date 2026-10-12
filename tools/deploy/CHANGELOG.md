@@ -17,9 +17,10 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 - `softure-deploy help` lists `run` and `report`.
 - `deploy-release-checks.yml`, a reusable workflow for the checks every app kept in its own YAML (issue #406):
   `prepare` (the tag matches `tag-pattern`, `vYYYY.MM.DD[-N]` by default, and its commit is on the release branch;
-  without a tag, the caller's commit), `static` (`static-command`), `unit` split into `shards` jobs with `SHARD_INDEX`
-  and `SHARD_COUNT`, and with `build-image` the image pushed as `<image>:sha-<sha>` once the checks pass, output as
-  `prebuilt-image` by digest for `deploy-app.yml`. README "Release checks" shows the `checks` job ahead of a deploy.
+  without a tag, the caller's commit), `static` (`static-command`) and `unit` split into `shards` jobs with
+  `SHARD_INDEX` and `SHARD_COUNT`; it reads the repository only. `deploy-release-image.yml` then builds the checked
+  commit, pushes `<image>:sha-<sha>` and outputs `prebuilt-image` by digest for `deploy-app.yml`. README "Release
+  checks" shows the `checks` and `image` jobs ahead of a deploy.
 - `deploy-release-notes.yml` replaces one release's body from a `workflow_dispatch` (`tag`, `body`), for an agent that
   cannot edit releases through the API (issue #406).
 - `init` writes two more callers, pinned by `--workflows-ref` like the others: `.github/workflows/checks.yml` (`static`
