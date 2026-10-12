@@ -321,6 +321,7 @@ formatPercent(1250, "en"); // "12.5%" (basis points, at most two fraction digits
 A day is formatted at UTC midnight in UTC, so no zone moves it; the Polish long style names the month in
 the genitive. `formatMoney` takes the amount in the currency's minor unit, read from the pinned ISO 4217
 table `CURRENCY_MINOR_UNIT_DIGITS` (a code outside it gets `Intl`'s digits), and always groups thousands.
+Zero never carries a sign: a negative zero (`Math.round(-0.4)`) or an amount that rounds to zero shows as `PLN 0.00`.
 
 ## 10. Hooks
 

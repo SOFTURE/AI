@@ -4,6 +4,11 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`core@x.y.z`).
 
+## Unreleased
+
+- `formatMoney` never puts a minus on zero: a negative zero, or an amount that rounds to zero under `rounded` or
+  `compact`, shows as `PLN 0.00` / `PLN 0` instead of `-PLN 0.00` (#375).
+
 ## 0.1.9
 
 - Day arithmetic on `YYYY-MM-DD` days with documented semantics: `isCalendarDay`, `addCalendarDays`,

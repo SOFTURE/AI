@@ -10,7 +10,7 @@ export type CalendarDayStyle = "long" | "medium" | "numeric";
 export interface FormatMoneyOptions {
   /** Whole units only, rounded half away from zero: PLN 1,235 for 1234.56. */
   readonly rounded?: boolean;
-  /** A `+` before a positive amount (a `-` before a negative one is always there); zero has neither. */
+  /** A `+` before a positive amount (a `-` before a negative one is always there). Zero has neither in any mode, also a negative zero or an amount that rounds to zero. */
   readonly signed?: boolean;
   /** The locale's short notation for large amounts: PLN 1.2M. */
   readonly compact?: boolean;
@@ -42,7 +42,8 @@ export function formatCalendarDay(day: string, locale: Locale, style: CalendarDa
 
 /**
  * An amount in the currency's minor unit (2900 PLN = PLN 29.00) in `locale`'s notation, thousands always
- * grouped (pl writes 1 234,56 where its default would leave four digits together). The minor unit is the pinned ISO
+ * grouped (pl writes 1 234,56 where its default would leave four digits together), and zero is never signed (`-0`
+ * and an amount that rounds to zero show as zero). The minor unit is the pinned ISO
  * 4217 one (`CURRENCY_MINOR_UNIT_DIGITS`); a code outside the table gets `Intl`'s digits. Throws a
  * `RangeError` for an amount that is not a whole number of minor units, or a code `Intl` refuses.
  */
@@ -55,7 +56,7 @@ export function formatMoney(minor: number, currency: string, locale: Locale, opt
     style: "currency",
     currency,
     useGrouping: "always",
-    signDisplay: options.signed === true ? "exceptZero" : "auto",
+    signDisplay: options.signed === true ? "exceptZero" : "negative",
     ...(options.compact === true ? { notation: "compact" } : { minimumFractionDigits: shownDigits, maximumFractionDigits: shownDigits }),
   });
   return format.format(minor / 10 ** digits);
