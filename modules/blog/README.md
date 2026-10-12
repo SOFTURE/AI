@@ -434,6 +434,8 @@ What the builders write, so an app moving published pages onto them can match it
 - canonical, Open Graph and JSON-LD URLs are absolute on the site origin (`@softure-ai/seo`'s when listed);
 - articles and terms carry `og:published_time` and `og:modified_time`, the days the page shows;
 - `buildGlossaryJsonLd` gives `null` without terms (an empty `DefinedTermSet` says nothing).
+- the glossary index's `DefinedTermSet` (name, description, url per term) is what `@softure-ai/agent-ready`'s
+  WebMCP `findTerm` reads, so a rendered glossary needs nothing more for that tool.
 
 Any field can still be replaced by spreading the result: `{ ...buildTermMetadata(config, term), title }`.
 
