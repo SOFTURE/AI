@@ -15,6 +15,16 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   call's arguments and stdin and answers with scripted output and status, for testing operator wrappers without a
   server (issue #405).
 - `softure-deploy help` lists `run` and `report`.
+- `deploy-release-checks.yml`, a reusable workflow for the checks every app kept in its own YAML (issue #406):
+  `prepare` (the tag matches `tag-pattern`, `vYYYY.MM.DD[-N]` by default, and its commit is on the release branch;
+  without a tag, the caller's commit), `static` (`static-command`), `unit` split into `shards` jobs with `SHARD_INDEX`
+  and `SHARD_COUNT`, and with `build-image` the image pushed as `<image>:sha-<sha>` once the checks pass, output as
+  `prebuilt-image` by digest for `deploy-app.yml`. README "Release checks" shows the `checks` job ahead of a deploy.
+- `deploy-release-notes.yml` replaces one release's body from a `workflow_dispatch` (`tag`, `body`), for an agent that
+  cannot edit releases through the API (issue #406).
+- `init` writes two more callers, pinned by `--workflows-ref` like the others: `.github/workflows/checks.yml` (`static`
+  on pull requests, the unit tests on demand or with the `run-tests` label, `next typegen` before `tsc`) and
+  `.github/workflows/release-notes.yml`. An app that ran `init` before copies them from `examples/`.
 
 ## 0.1.10
 
