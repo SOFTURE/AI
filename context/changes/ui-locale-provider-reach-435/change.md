@@ -1,13 +1,12 @@
 ---
 change_id: ui-locale-provider-reach-435
 title: "ui locale: client components outside ui follow UiLocaleProvider (issue #435)"
-status: archived
+status: implementing
 roadmap_item: null
 issue: 435
 branch: claude/project-thread-02co4p
 created: 2026-10-13
 updated: 2026-10-13
-archived_at: 2026-10-13
 ---
 
 ## Intent
@@ -31,6 +30,13 @@ batched by the coordinator: no version bump, CHANGELOG `## Unreleased`.
   and CHANGELOG so a merge stays trivial. This change merges after them.
 - No change to `@softure-ai/ui` itself.
 
+## Re-scope (2026-10-13)
+
+The owner decided that everything in SOFTURE/AI is English only and asked for an option for an app to plug in its own
+translation. Added to the intent: `UiLocaleProvider` (and `SoftureThemeProvider`) take `messages`, the app's own
+copy per ui message group, used by every client component below; English stays the default. Core formatters are
+handled by another thread and stay untouched.
+
 ## Notes
 
 - Placement: unlinked (`roadmap_item: null`), issue mode.
@@ -41,4 +47,6 @@ batched by the coordinator: no version bump, CHANGELOG `## Unreleased`.
 - See research.md: only charts has its own copy; the module forms forward `locale` to ui fields that already resolve
   the provider when the prop is `undefined`. Code changes go to charts only; the modules get the README line and a
   test where provider-driven copy is visible.
+- The provider's `messages` are partial overrides per ui message group over the resolved locale's dictionary, so
+  English stays the base; a component's own `messages` win key by key. Charts keeps its per-component `messages`.
 - No version bump; `## Unreleased` in each touched CHANGELOG.

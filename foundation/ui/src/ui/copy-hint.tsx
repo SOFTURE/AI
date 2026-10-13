@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import type { UiMessages } from "../messages/index.js";
 import { type CopyProps, getCopy } from "./copy.js";
 import { Hint, type HintAppearance } from "./hint.js";
-import { useUiLocale } from "./locale.js";
+import { useUiCopyProps } from "./locale.js";
 
 /** Message groups whose `hintLabel` names a "?" next to a title or a label. */
 type HintGroup = { [Group in keyof UiMessages]: UiMessages[Group] extends { hintLabel: string } ? Group : never }[keyof UiMessages];
@@ -25,7 +25,7 @@ export interface CopyHintProps<Group extends HintGroup> extends CopyProps<Group>
  * the client, so it follows `UiLocaleProvider`.
  */
 export function CopyHint<Group extends HintGroup>({ group, values, id, appearance, locale, messages, children }: CopyHintProps<Group>) {
-  const copy = getCopy(group, { locale: useUiLocale(locale), messages }) as { readonly hintLabel: string };
+  const copy = getCopy(group, useUiCopyProps(group, { locale, messages })) as { readonly hintLabel: string };
   return (
     <Hint {...appearance} label={formatMessage(copy.hintLabel, values)} id={id} anchorLeft>
       {children}

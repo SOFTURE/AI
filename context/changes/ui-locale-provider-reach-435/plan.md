@@ -1,6 +1,6 @@
 ---
 change_id: ui-locale-provider-reach-435
-status: archived
+status: implementing
 ---
 
 # Plan: client components outside ui follow UiLocaleProvider (issue #435)
@@ -22,6 +22,17 @@ Files: `foundation/charts/src/cursor/chart-cursor.tsx`, `foundation/charts/src/c
 - charts, billing, privacy, feature-switches README: one line each where `locale` is documented: client components
   follow `UiLocaleProvider` (prop, then provider, then `en`); server components take the prop.
 - CHANGELOG `## Unreleased` in charts (behaviour and peer range) and the three module packages (docs only).
+
+## Phase 3: own translation through the provider (TDD, re-scope)
+
+Files: `foundation/ui/src/ui/locale.tsx` (context value `{ locale, messages }`, `useUiCopyProps`),
+`foundation/ui/src/ui/copy.ts` (`mergeCopyOverrides`), every client call of `getCopy`, `external-link.tsx`,
+`softure-theme-provider.tsx`; test `foundation/ui/tests/locale-messages-435.test.tsx`; ui README and CHANGELOG.
+
+1. Tests first: provider messages replace a client component's copy with English as the base; a component's own
+   messages win key by key; the server-safe Card hint and ExternalLink note follow; SoftureThemeProvider passes them;
+   no messages leaves the copy unchanged.
+2. Implement: client components call `getCopy(group, useUiCopyProps(group, { locale, messages }))`.
 
 ## Progress
 
