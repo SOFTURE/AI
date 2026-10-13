@@ -15,15 +15,13 @@ function plain(text: string): string {
 }
 
 describe("formatCalendarMonth", () => {
-  it("writes month and year, the Polish month in the nominative by default and in the genitive on request", () => {
-    expect(formatCalendarMonth("2026-10", "pl")).toBe("pa\u017adziernik 2026");
-    expect(formatCalendarMonth("2026-10", "pl", "genitive")).toBe("pa\u017adziernika 2026");
+  it("writes month and year", () => {
     expect(formatCalendarMonth("2026-10", "en")).toBe("October 2026");
-    expect(formatCalendarMonth("2026-10", "en", "genitive")).toBe("October 2026");
+    expect(formatCalendarMonth("2026-10", "en", "long")).toBe("October 2026");
   });
 
   it("writes the month in Roman numerals for compact tables", () => {
-    expect(formatCalendarMonth("2026-10", "pl", "roman")).toBe("X 2026");
+    expect(formatCalendarMonth("2026-10", "en", "roman")).toBe("X 2026");
     expect(formatCalendarMonth("2026-04", "en", "roman")).toBe("IV 2026");
     expect(formatCalendarMonth("2026-09", "en", "roman")).toBe("IX 2026");
     expect(formatCalendarMonth("2026-12", "en", "roman")).toBe("XII 2026");
@@ -31,7 +29,7 @@ describe("formatCalendarMonth", () => {
 
   it("takes a calendar day and keeps its month whatever the process zone", () => {
     expect(formatCalendarMonth("2026-01-01", "en")).toBe("January 2026");
-    expect(formatCalendarMonth("2026-03-31", "pl", "roman")).toBe("III 2026");
+    expect(formatCalendarMonth("2026-03-31", "en", "roman")).toBe("III 2026");
   });
 
   it("rejects a malformed month", () => {
@@ -49,25 +47,16 @@ describe("formatCalendarMonth", () => {
 });
 
 describe("formatDuration", () => {
-  it("writes years and months with Polish plural forms", () => {
-    expect(formatDuration(38, "pl")).toBe("3 lata i 2 miesi\u0105ce");
-    expect(formatDuration(13, "pl")).toBe("1 rok i 1 miesi\u0105c");
-    expect(formatDuration(60, "pl")).toBe("5 lat");
-    expect(formatDuration(264, "pl")).toBe("22 lata");
-    expect(formatDuration(5, "pl")).toBe("5 miesi\u0119cy");
-    expect(formatDuration(0, "pl")).toBe("0 miesi\u0119cy");
-  });
-
   it("writes years and months in English", () => {
-    expect(formatDuration(13, "en")).toBe("1 year and 1 month");
-    expect(formatDuration(24, "en")).toBe("2 years");
-    expect(formatDuration(2, "en")).toBe("2 months");
-    expect(formatDuration(0, "en")).toBe("0 months");
+    expect(formatDuration(13)).toBe("1 year and 1 month");
+    expect(formatDuration(24)).toBe("2 years");
+    expect(formatDuration(2)).toBe("2 months");
+    expect(formatDuration(0)).toBe("0 months");
   });
 
   it("rejects a negative or fractional count", () => {
-    expect(() => formatDuration(-1, "en")).toThrow(new RangeError("formatDuration: -1 is not a whole, non-negative number of months"));
-    expect(() => formatDuration(1.5, "en")).toThrow(RangeError);
+    expect(() => formatDuration(-1)).toThrow(new RangeError("formatDuration: -1 is not a whole, non-negative number of months"));
+    expect(() => formatDuration(1.5)).toThrow(RangeError);
   });
 });
 
@@ -77,8 +66,7 @@ describe("formatPercent options", () => {
   });
 
   it("signs a value with signed, never zero", () => {
-    expect(formatPercent(-50, "pl", { signed: true })).toBe("-0,5%");
-    expect(formatPercent(1250, "pl", { signed: true })).toBe("+12,5%");
+    expect(formatPercent(-50, "en", { signed: true })).toBe("-0.5%");
     expect(formatPercent(1250, "en", { signed: true })).toBe("+12.5%");
     expect(formatPercent(0, "en", { signed: true })).toBe("0%");
     expect(formatPercent(-0.4, "en", { signed: true })).toBe("0%");
@@ -86,7 +74,7 @@ describe("formatPercent options", () => {
 
   it("never puts a minus on a value that rounds to zero", () => {
     expect(formatPercent(-0.4, "en")).toBe("0%");
-    expect(formatPercent(-0, "pl")).toBe("0%");
+    expect(formatPercent(-0, "en")).toBe("0%");
     expect(formatPercent(-50, "en")).toBe("-0.5%");
   });
 
@@ -97,8 +85,8 @@ describe("formatPercent options", () => {
     vi.spyOn(Intl.NumberFormat.prototype, "formatToParts").mockImplementation(function (this: Intl.NumberFormat, value) {
       return original.call(this, value).flatMap((part) => (part.type === "percentSign" ? [{ type: "literal", value: "\u00a0" }, part] : [part]));
     });
-    expect(formatPercent(1250, "pl", { tight: true, signed: true })).toBe("+12,5%");
-    expect(plain(formatPercent(1250, "pl"))).toBe("12,5%");
+    expect(formatPercent(1250, "en", { tight: true, signed: true })).toBe("+12.5%");
+    expect(plain(formatPercent(1250, "en"))).toBe("12.5%");
   });
 });
 

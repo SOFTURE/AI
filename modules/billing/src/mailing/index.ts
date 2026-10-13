@@ -8,5 +8,6 @@ export {
   type AccessReminderMailContext,
   type AccessReminderMailInput,
   type AccessReminderSummary,
+  type AccessReminderTemplateMail,
   type SendAccessRemindersOptions,
 } from "./reminder-mail.js";

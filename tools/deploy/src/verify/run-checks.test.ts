@@ -354,6 +354,60 @@ describe("runVerify: app-side checks (issue #309)", () => {
     expect(routes.map((route) => [route.passed, route.severity])).toEqual([[false, "warn"]]);
   });
 
+  it("warns on a warnOn status and skips the route's other checks (issue #434)", async () => {
+    const route = {
+      path: "/.well-known/http-message-signatures-directory",
+      warnOn: { status: [404] },
+      headers: { "content-type": "application/http-message-signatures-directory+json" },
+      contains: ['"crv":"Ed25519"'],
+    };
+    const { routes } = await runVerify({ baseUrl, config: verifyConfig({ routes: [route] }) });
+    expect(routes).toEqual([
+      {
+        method: "GET",
+        path: route.path,
+        url: `${baseUrl}${route.path}`,
+        status: 404,
+        passed: false,
+        severity: "warn",
+        checks: [{ kind: "status", passed: false, detail: "status 404 (warnOn), expected 200" }],
+      },
+    ]);
+  });
+
+  it("keeps the route's severity for a status warnOn does not list and passes the expected one", async () => {
+    const path = "/.well-known/http-message-signatures-directory";
+    const route = { path, warnOn: { status: [404] }, headers: { "content-type": "application/json" }, contains: ["Ed25519"] };
+    serve(path, (_request, response) => response.writeHead(200, { "content-type": "text/html" }).end("<form>Log in</form>"));
+    serve("/broken", (_request, response) => response.writeHead(500).end());
+    serve("/ok", (_request, response) => response.writeHead(200, { "content-type": "application/json" }).end('{"crv":"Ed25519"}'));
+    const { routes } = await runVerify({
+      baseUrl,
+      concurrency: 1,
+      config: verifyConfig({ routes: [route, { ...route, path: "/broken" }, { ...route, path: "/ok" }] }),
+    });
+    expect(routes.map((row) => [row.path, row.status, row.passed, row.severity, row.checks.filter((check) => !check.passed).map((check) => check.kind)])).toEqual([
+      [path, 200, false, "fail", ["contains", "header"]],
+      ["/broken", 500, false, "fail", ["status", "contains", "header"]],
+      ["/ok", 200, true, "fail", []],
+    ]);
+  });
+
+  it("warns once when a forEach source answers a warnOn status", async () => {
+    const { routes } = await runVerify({ baseUrl, config: verifyConfig({ routes: [{ forEach: { sitemap: "/sitemap.xml" }, warnOn: { status: [404] } }] }) });
+    expect(routes).toEqual([
+      {
+        method: "GET",
+        path: "sitemap /sitemap.xml",
+        url: `${baseUrl}/sitemap.xml`,
+        status: 404,
+        passed: false,
+        severity: "warn",
+        checks: [{ kind: "source", passed: false, detail: "sitemap /sitemap.xml: status 404 (warnOn), expected 200" }],
+      },
+    ]);
+  });
+
   it("reads the body as bytes, so the digest covers exactly what was served", async () => {
     const bytes = Buffer.from([0xef, 0xbb, 0xbf, 0x68, 0x69]);
     serve("/bom.txt", (_request, response) => response.writeHead(200).end(bytes));

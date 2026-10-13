@@ -4,7 +4,15 @@
 import { getSoftureConfig } from "@softure-ai/core/next";
 import type { ClassNames, LinkComponentType } from "@softure-ai/ui";
 import { getBillingMessages, getBillingRoutes } from "../server/options.js";
-import { AccessBadge, type AccessBadgeKind, type AccessBadgeSlot, type AccessTone } from "../ui/access-badge.js";
+import {
+  AccessBadge,
+  type AccessBadgeKind,
+  type AccessBadgeSlot,
+  type AccessBadgeTextFormatter,
+  type AccessBadgeVariant,
+  type AccessTone,
+  type AccessToneScope,
+} from "../ui/access-badge.js";
 import { AccessNotice, type AccessNoticeSlot, type AccessNoticeTone } from "../ui/access-notice.js";
 import { getCurrentEntitlement } from "./current-entitlement.js";
 
@@ -15,11 +23,19 @@ export interface CurrentAccessBadgeProps {
   readonly compact?: boolean;
   /** The status colour per kind; kinds left out keep their default tone. */
   readonly tones?: Partial<Record<AccessBadgeKind, AccessTone>>;
+  /** The app's own text per kind; kinds left out keep the badge's text. */
+  readonly texts?: Partial<Record<AccessBadgeKind, AccessBadgeTextFormatter>>;
+  /** `full` (default), `short`, or `responsive`: short below `md`, full from it. */
+  readonly variant?: AccessBadgeVariant;
+  /** Read by screen readers before the label, e.g. "Access status:"; not shown. */
+  readonly srPrefix?: string;
+  /** What the tone colours: the status text (default) or all the pill's text. */
+  readonly toneScope?: AccessToneScope;
   readonly classNames?: ClassNames<AccessBadgeSlot>;
   readonly unstyled?: boolean;
 }
 
-export async function CurrentAccessBadge({ unlimitedAfterDays, compact, tones, classNames, unstyled }: CurrentAccessBadgeProps) {
+export async function CurrentAccessBadge({ unlimitedAfterDays, compact, tones, texts, variant, srPrefix, toneScope, classNames, unstyled }: CurrentAccessBadgeProps) {
   const entitlement = await getCurrentEntitlement();
   if (entitlement === null) return null;
   const config = getSoftureConfig();
@@ -32,6 +48,10 @@ export async function CurrentAccessBadge({ unlimitedAfterDays, compact, tones, c
       unlimitedAfterDays={unlimitedAfterDays}
       compact={compact}
       tones={tones}
+      texts={texts}
+      variant={variant}
+      srPrefix={srPrefix}
+      toneScope={toneScope}
       classNames={classNames}
       unstyled={unstyled}
     />
