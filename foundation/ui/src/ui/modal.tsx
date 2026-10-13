@@ -19,7 +19,7 @@ import { type ClassNames, createSlotClassGetter } from "./class-names.js";
 import { type CopyProps, getCopy } from "./copy.js";
 import { FormError } from "./feedback.js";
 import { CloseIcon } from "./icons.js";
-import { useUiLocale } from "./locale.js";
+import { useUiCopyProps } from "./locale.js";
 
 // A modal dialog: a header with the title and a close button, a scrolling body and a footer with
 // the actions. `width="panel"` is a full-height sheet from the right; `StandingPanel` is that sheet
@@ -218,7 +218,7 @@ export function Modal({
   const overlayRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
   const pressedBackdropRef = useRef(false);
-  const copy = getCopy("modal", { locale: useUiLocale(locale), messages });
+  const copy = getCopy("modal", useUiCopyProps("modal", { locale, messages }));
   const { isClosing, requestClose } = useLeaveMotion(motion, overlayRef, panelRef);
 
   const close = useCallback(() => {
@@ -376,7 +376,7 @@ export function StandingPanel({
   const panelRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const pressedBackdropRef = useRef(false);
-  const copy = getCopy("modal", { locale: useUiLocale(locale), messages });
+  const copy = getCopy("modal", useUiCopyProps("modal", { locale, messages }));
 
   useEffect(() => {
     if (!isOpen) return;
@@ -508,7 +508,7 @@ export interface ModalFooterProps extends CopyProps<"modal"> {
 
 /** The dialog's actions: Cancel, then the primary action; leaves room for a phone's home bar. */
 export function ModalFooter({ onCancel, isPending = false, error, children, classNames, unstyled, locale, messages }: ModalFooterProps) {
-  const copy = getCopy("modal", { locale: useUiLocale(locale), messages });
+  const copy = getCopy("modal", useUiCopyProps("modal", { locale, messages }));
   const closeModal = useModalClose();
   const slot = createSlotClassGetter<ModalFooterSlot>({
     defaults: {

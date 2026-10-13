@@ -797,6 +797,10 @@ if (entitlement.status === "trial") {
 }
 ```
 
+The client components (`PaymentForm`, `TrialForm`, `GrantForm`, `AccountLookup`) take their `locale` from the prop, then from the nearest
+`UiLocaleProvider` of `@softure-ai/ui`, then `en`, so an app that mounts the provider once can leave the prop out.
+Server components (`PricingTiles`, `AccessBadge`, `AccessNotice`) cannot read the provider and keep a required `locale`.
+
 ## 10. Hooks
 
 `manual({ onRequest(request, ctx) })` receives every invoice request (plan, account, invoice

@@ -10,6 +10,8 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   every other locale, which is now any BCP 47 tag. Migrate: an app that shows Polish keeps its own translation and
   passes it as the overrides for its locale, `featureSwitches({ messages: { pl: myTranslation } })`; a key it leaves
   out reads English. Switch labels and descriptions take any locale key.
+- README: `SwitchPanel` follows `UiLocaleProvider` when given no `locale`; server code takes it from `config`
+  (#435).
 
 ## 0.1.8
 

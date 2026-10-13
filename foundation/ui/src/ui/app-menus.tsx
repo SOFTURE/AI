@@ -6,7 +6,7 @@ import { type ClassNames, createSlotClassGetter } from "./class-names.js";
 import { type CopyProps, getCopy } from "./copy.js";
 import { DisclosureMenu, type DisclosureMenuAlign, type DisclosureMenuSlot, type UseDisclosureOptions } from "./disclosure-menu.js";
 import { MenuIcon, UserIcon } from "./icons.js";
-import { useUiLocale } from "./locale.js";
+import { useUiCopyProps } from "./locale.js";
 
 // The two menus of an app's top bar, on top of `DisclosureMenu` (Escape, an outside press, a link click and a new
 // `closeKey` close them). Their trigger names come from the `appShell` messages.
@@ -43,7 +43,7 @@ export function AccountMenu({
   locale,
   messages,
 }: AccountMenuProps) {
-  const copy = getCopy("appShell", { locale: useUiLocale(locale), messages });
+  const copy = getCopy("appShell", useUiCopyProps("appShell", { locale, messages }));
   const slot = createSlotClassGetter<"identity" | "name" | "email" | "footer">({
     defaults: {
       identity: "sft:flex sft:flex-col sft:gap-0.5 sft:border-b sft:border-border sft:px-3 sft:pt-2 sft:pb-2.5 sft:mb-1",
@@ -111,7 +111,7 @@ export function MobileMenu({
   locale,
   messages,
 }: MobileMenuProps) {
-  const copy = getCopy("appShell", { locale: useUiLocale(locale), messages });
+  const copy = getCopy("appShell", useUiCopyProps("appShell", { locale, messages }));
   const slot = createSlotClassGetter<"nav" | "list" | "item" | "link">({
     defaults: {
       nav: "",

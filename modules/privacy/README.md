@@ -306,6 +306,10 @@ code the form and the route can give (`privacy.*`, `auth.unauthenticated`, `secu
 `privacy({ messages: { de: { errors: { privacy: { deletion_refused: "…" } } } } })`, for example to
 say how to reach the app's support.
 
+The client components (`DeleteAccountForm`) take their `locale` from the prop, then from the nearest
+`UiLocaleProvider` of `@softure-ai/ui`, then `en`, so an app that mounts the provider once can leave the prop out.
+Server components (`LegalDocument` and the pages) cannot read the provider and take `locale` as a prop.
+
 ## 10. Hooks
 
 The contributors (section 3) are the hooks. `recordRegistrationConsent()` is a ready hook for

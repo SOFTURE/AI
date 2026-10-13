@@ -286,6 +286,10 @@ code the panel can show (`feature-switches.unknown_switch`, `auth.forbidden`, `c
 any of them with `featureSwitches({ messages: { de: { panel: { title: "…" } } } })`. Switch labels
 and descriptions come from the definitions (section 3).
 
+The client components (`SwitchPanel`) take their `locale` from the prop, then from the nearest
+`UiLocaleProvider` of `@softure-ai/ui`, then `en`, so an app that mounts the provider once can leave the prop out.
+Server code (`SwitchesPage`, `toSwitchPanelRows`) cannot read the provider and takes the locale from `config`.
+
 ## 10. Hooks
 
 None. Authorization is the auth role named by `panelRole`.

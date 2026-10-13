@@ -44,6 +44,12 @@ still wins, and without either it is `en`. Mount it once in the root layout and 
 their number notation from it too). Only server-safe components that render copy without a client part
 (`ServerExternalLink`) still take `locale` by props. Pass `messages` per call only to change a text for one place.
 
+**Own translation.** English is the default copy. To change its wording, or ship the components in another language, pass the
+app's text once: `<UiLocaleProvider messages={{ modal: { close: "Dismiss", cancel: "Go back" } }}>` (or the same
+`messages` on `SoftureThemeProvider`). It takes any message group of `uiMessages.en`, partially, and every client
+component below uses it over the built-in dictionary; a component's own `messages` prop still wins key by key.
+Server-safe components without a client part (`ServerExternalLink`) take `messages` by props.
+
 ## Tokens
 
 | Group | Tokens (`--sft-…`) | Per scheme |

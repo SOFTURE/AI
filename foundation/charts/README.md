@@ -144,7 +144,7 @@ labels; `messages` the built-in copy.
 - The SVG is hidden from assistive technology. Every chart carries its data as a visually hidden
   `<table>` (`ChartDataTable`) with the title as caption.
 - The cursor (`ChartCursor`, a client component) is a focusable group named "{title}. Use the left and
-  right arrow keys…" (`chartsMessages.{en,pl}.cursor.label`). ← and → step through the points (the first →
+  right arrow keys…" (`chartsMessages.en.cursor.label`). ← and → step through the points (the first →
   lands on the first, the first ← on the last), Home and End jump, Escape clears. The readout under the
   plot is a polite live region, so each point is announced with the text a sighted user reads.
 - A pointer snaps to the nearest point; pointer events cover mouse, pen and touch, and
@@ -448,6 +448,10 @@ const isPastMiddle = index !== null && (points[index]?.xPercent ?? 0) > 60;
   <AppPlot />
 </ChartCursor>;
 ```
+
+`ChartCursor` and `EventAxis` are client components: their built-in copy takes `locale` from the prop, then from the
+nearest `UiLocaleProvider` of `@softure-ai/ui`, then `en`. The server components (`LineChart` and the primitives) cannot
+read the provider and take `locale` as a prop.
 
 ### Event axis
 
