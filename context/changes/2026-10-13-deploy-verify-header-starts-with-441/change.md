@@ -1,12 +1,13 @@
 ---
 change_id: deploy-verify-header-starts-with-441
 title: "deploy: a verify header check anchored at the start of the value (issue #441)"
-status: open
+status: archived
 roadmap_item: null
 issue: 441
 branch: claude/project-thread-ehm4x2
 created: 2026-10-13
 updated: 2026-10-13
+archived_at: 2026-10-13
 ---
 
 ## Intent

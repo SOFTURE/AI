@@ -1,6 +1,6 @@
 ---
 change_id: deploy-verify-header-starts-with-441
-status: open
+status: archived
 ---
 
 # Plan: deploy verify header startsWith (issue #441)
@@ -25,5 +25,5 @@ README verify "Headers" bullet with the `signature-input` example; CHANGELOG `##
 
 ## Progress
 
-- [ ] Phase 1: schema and checks
-- [ ] Phase 2: docs
+- [x] Phase 1: schema and checks (`810a20a`; 4 tests written first, schema file regenerated)
+- [x] Phase 2: docs (`6a2941d`; README "Headers" bullet with the `signature-input` example, CHANGELOG `## Unreleased`)
