@@ -144,7 +144,7 @@ labels; `messages` the built-in copy.
 - The SVG is hidden from assistive technology. Every chart carries its data as a visually hidden
   `<table>` (`ChartDataTable`) with the title as caption.
 - The cursor (`ChartCursor`, a client component) is a focusable group named "{title}. Use the left and
-  right arrow keys…" (`chartsMessages.{en,pl}.cursor.label`). ← and → step through the points (the first →
+  right arrow keys…" (`chartsMessages.en.cursor.label`). ← and → step through the points (the first →
   lands on the first, the first ← on the last), Home and End jump, Escape clears. The readout under the
   plot is a polite live region, so each point is announced with the text a sighted user reads.
 - A pointer snaps to the nearest point; pointer events cover mouse, pen and touch, and
@@ -552,8 +552,8 @@ Two differences to carry over deliberately:
 
 - A guard measuring colour distance in CIE76 with a threshold of 12 differs from the defaults here (CIEDE2000
   and 10). To keep such numbers while migrating, pass `{ metric: "cie76", minDistance: 12 }`.
-- Labels and copy come from `chartsMessages` (`en`, `pl`), so an app's string moves to the `messages` prop, not
-  into the component.
+- Labels and copy come from `chartsMessages` (English, the only built-in language), so an app's string, or its
+  own translation, moves to the `messages` prop, not into the component.
 
 ## Limitations
 

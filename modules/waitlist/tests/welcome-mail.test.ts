@@ -49,13 +49,19 @@ describe("deliverWelcomeMail", () => {
     expect(ledger.rows).toEqual([{ scope: getWelcomeMailScope(signup.id), kind: "waitlist", status: "sent" }]);
   });
 
-  it("writes in the sign-up's locale, with the app's overrides", async () => {
-    await setUp({ locale: "pl", waitlist: { ...OPTIONS, messages: { pl: { welcomeMail: { subject: "Witaj na liscie Acme" } } } } });
+  it("writes in the sign-up's locale, with the app's translation and English for the keys it leaves out", async () => {
+    await setUp({ locale: "de", waitlist: { ...OPTIONS, messages: { de: { welcomeMail: { subject: "Willkommen bei Acme" } } } } });
     const signup = await signUp(test);
-    expect(signup.locale).toBe("pl");
+    expect(signup.locale).toBe("de");
     await deliverWelcomeMail(test.ctx, signup);
-    expect(test.provider.sent[0]?.subject).toBe("Witaj na liscie Acme");
-    expect(test.provider.sent[0]?.text.startsWith(waitlistMessages.pl.welcomeMail.text)).toBe(true);
+    expect(test.provider.sent[0]?.subject).toBe("Willkommen bei Acme");
+    expect(test.provider.sent[0]?.text.startsWith(waitlistMessages.en.welcomeMail.text)).toBe(true);
+  });
+
+  it("writes in English to a sign-up stored in English, whatever the app's locale", async () => {
+    await setUp({ locale: "de", waitlist: { ...OPTIONS, messages: { de: { welcomeMail: { subject: "Willkommen bei Acme" } } } } });
+    await deliverWelcomeMail(test.ctx, { ...(await signUp(test)), locale: "en" });
+    expect(test.provider.sent[0]?.subject).toBe(waitlistMessages.en.welcomeMail.subject);
   });
 
   it("is refused for an address that unsubscribed from list mail", async () => {
@@ -86,16 +92,17 @@ describe("deliverWelcomeMail", () => {
       inputs.push(mail);
       return `<html><body><h1>Acme</h1>${mail.body}</body></html>`;
     };
-    await setUp({ locale: "pl", waitlist: { ...OPTIONS, mailTemplate } });
-    await deliverWelcomeMail(test.ctx, await signUp(test));
+    await setUp({ locale: "de", waitlist: { ...OPTIONS, mailTemplate } });
+    // A sign-up stored in a locale the module has no copy in is written in the app's locale.
+    await deliverWelcomeMail(test.ctx, { ...(await signUp(test)), locale: "fr" });
 
-    const copy = waitlistMessages.pl.welcomeMail;
-    // The Polish copy has no character HTML escapes, so its paragraphs appear as they are.
+    const copy = waitlistMessages.en.welcomeMail;
+    // The English copy has no character HTML escapes, so its paragraphs appear as they are.
     const body = copy.text
       .split("\n\n")
       .map((paragraph) => `<p>${paragraph}</p>`)
       .join("\n");
-    expect(inputs).toEqual([{ kind: "welcome", locale: "pl", subject: copy.subject, paragraphs: copy.text.split("\n\n"), body }]);
+    expect(inputs).toEqual([{ kind: "welcome", locale: "de", subject: copy.subject, paragraphs: copy.text.split("\n\n"), body }]);
     const html = test.provider.sent[0]?.html ?? "";
     expect(html.startsWith(`<html><body><h1>Acme</h1>${body}<p>`)).toBe(true);
     expect(html.endsWith("</a></p>\n</body></html>")).toBe(true);

@@ -16,9 +16,9 @@ const input: PostsInput = {
     ],
   },
   linkTemplate: "https://example.com/calculator?z={code}",
-  messages: getMarketingMessages("en"),
+  messages: getMarketingMessages(),
 };
-const pl: PostsInput = { ...input, messages: getMarketingMessages("pl") };
+const translated: PostsInput = { ...input, messages: getMarketingMessages({ posts: { linkInBio: "Link in der Bio." } }) };
 
 describe("buildPosts", () => {
   it("gives every platform its own channel code in the link", () => {
@@ -49,8 +49,8 @@ describe("buildPosts", () => {
     ]);
   });
 
-  it("writes the call to action in the configured locale", () => {
-    expect(buildPosts(pl)[0]?.text).toContain(pl.messages.posts.linkInBio);
+  it("writes the call to action in the configured copy", () => {
+    expect(buildPosts(translated)[0]?.text).toContain("Link in der Bio.");
   });
 
   it("gives hashtags a single # whatever the script wrote", () => {

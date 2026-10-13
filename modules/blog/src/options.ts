@@ -1,4 +1,5 @@
 // The options an app passes to `blog({ ... })` in softure.config.ts, parsed at startup.
+import { isLocale } from "@softure-ai/core";
 import { z } from "zod";
 import { qualitySettingSchema } from "./quality/options.js";
 import type { GonePageRenderInput } from "./pages/redirects.js";
@@ -63,10 +64,17 @@ function isBlockPlugin(value: unknown): value is BlockPlugin {
 export const DEFAULT_REVALIDATE_SECONDS = 300;
 
 /** Text the app writes per locale; `en` is the fallback for a locale it leaves out. */
-const localizedTextSchema = z.strictObject({
-  en: z.string().trim().min(1),
-  pl: z.string().trim().min(1).optional(),
-});
+const LOCALE_KEY_MESSAGE = "must be a BCP 47 language tag";
+
+/** A text per locale (any BCP 47 tag): `en` is required, the app adds its own translations. */
+const localizedTextSchema = z
+  .object({ en: z.string().trim().min(1) })
+  .catchall(z.string().trim().min(1))
+  .superRefine((text, ctx) => {
+    for (const key of Object.keys(text)) {
+      if (!isLocale(key)) ctx.addIssue({ code: "custom", path: [key], message: LOCALE_KEY_MESSAGE });
+    }
+  });
 
 export type LocalizedText = z.output<typeof localizedTextSchema>;
 
@@ -224,8 +232,14 @@ const anchorsSchema = z.strictObject({
   cluster: fragmentSchema.default("cluster"),
 });
 
-/** The Open Graph locale of a language when the app sets none: `og:locale` is `language_TERRITORY`. */
-export const DEFAULT_OPEN_GRAPH_LOCALES = { en: "en_US", pl: "pl_PL" } as const;
+/**
+ * The Open Graph locale of a locale when the app sets none: `og:locale` is `language_TERRITORY`, the tag's own
+ * region or the language's likely one (`en` is `en_US`, `de-AT` is `de_AT`).
+ */
+export function getDefaultOpenGraphLocale(locale: string): string {
+  const maximized = new Intl.Locale(locale).maximize();
+  return maximized.region === undefined ? maximized.language : `${maximized.language}_${maximized.region}`;
+}
 
 const localeTagsSchema = z.strictObject({
   /** The content's language as a BCP-47 tag: JSON-LD `inLanguage` and the feed's `<language>`; the bare code by default. */
@@ -284,7 +298,7 @@ export const blogOptionsSchema = z
     /** The anchors the pages write; an app whose listing already used another prefix keeps it here. */
     anchors: anchorsSchema.default({ cluster: "cluster" }),
     /** The language tags per app locale: BCP-47 for the content, Open Graph for `og:locale`. */
-    locales: z.strictObject({ en: localeTagsSchema.optional(), pl: localeTagsSchema.optional() }).default({}),
+    locales: z.record(z.string().refine(isLocale, LOCALE_KEY_MESSAGE), localeTagsSchema).default({}),
     /** The page a withdrawn text answers with (410): extra links, or the app's own body. */
     gonePage: gonePageSchema.default({ links: [] }),
     /** How long the listing and glossary cache their reads; keep it equal to the pages' `revalidate`. */

@@ -1,7 +1,7 @@
 // Architecture and shape rules for every workspace package, run once for all of them
 // (docs/02-module-standard.md §2, §10, §11). A new package is covered by being created.
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -42,12 +42,6 @@ function getExpectedName(dir: string): string {
 
 function isModule(dir: string): boolean {
   return dir.startsWith("modules/") || dir === TEMPLATE_DIR;
-}
-
-/** Every key path of a nested dictionary, e.g. `example.title`. */
-function listKeyPaths(value: unknown, prefix = ""): string[] {
-  if (typeof value !== "object" || value === null) return [prefix];
-  return Object.entries(value).flatMap(([key, child]) => listKeyPaths(child, prefix ? `${prefix}.${key}` : key));
 }
 
 const packageDirs = findWorkspaces(REPO_ROOT).map((pkg) => pkg.dir);
@@ -160,14 +154,12 @@ describe("workspace packages", () => {
     });
 
     const messagesDir = join(REPO_ROOT, dir, "src/messages");
-    it.runIf(existsSync(join(messagesDir, "en.ts")) || existsSync(join(messagesDir, "pl.ts")))(
-      "has pl and en dictionaries with the same keys",
-      async () => {
-        const { en } = (await import(pathToFileURL(join(messagesDir, "en.ts")).href)) as { en: unknown };
-        const { pl } = (await import(pathToFileURL(join(messagesDir, "pl.ts")).href)) as { pl: unknown };
-        expect(listKeyPaths(pl).sort()).toEqual(listKeyPaths(en).sort());
-      },
-    );
+    it.runIf(existsSync(messagesDir))("ships English as its only built-in dictionary", async () => {
+      expect(readdirSync(messagesDir).filter((file) => file !== "index.ts").sort()).toEqual(["en.ts"]);
+      const { en } = (await import(pathToFileURL(join(messagesDir, "en.ts")).href)) as { en: unknown };
+      // A module without copy keeps an empty dictionary for the standard's shape.
+      expect(typeof en).toBe("object");
+    });
   });
 });
 

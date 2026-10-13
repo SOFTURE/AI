@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { defineSoftureConfig, getModule, sortModulesByDependencies, withDatabaseOptional } from "@softure-ai/core";
 import { catchConfigError, createTestModule } from "./support.js";
 
-const base = { locale: "pl", timezone: "Europe/Warsaw", appOrigin: "https://app.example.com", modules: [] } as const;
+const base = { locale: "en", timezone: "Europe/Warsaw", appOrigin: "https://app.example.com", modules: [] } as const;
 
 describe("defineSoftureConfig", () => {
   it("accepts a minimal config and fills the database with null", () => {
@@ -19,7 +19,7 @@ describe("defineSoftureConfig", () => {
   });
 
   it.each([
-    ["locale", { locale: "de" }],
+    ["locale", { locale: "not a tag" }],
     ["timezone", { timezone: "Mars/Olympus" }],
     ["timezone", { timezone: "" }],
     ["appOrigin", { appOrigin: "https://app.example.com/dashboard" }],
@@ -114,7 +114,7 @@ describe("defineSoftureConfig", () => {
     });
 
     it("still reports the other problems", async () => {
-      const error = await withDatabaseOptional(() => catchConfigError(() => defineSoftureConfig({ ...base, locale: "de" } as never)));
+      const error = await withDatabaseOptional(() => catchConfigError(() => defineSoftureConfig({ ...base, locale: "not a tag" })));
       expect(error.issues).toEqual([expect.stringMatching(/^locale: /)]);
     });
 
@@ -143,7 +143,7 @@ describe("defineSoftureConfig", () => {
   });
 
   it("lists every problem at once", () => {
-    const error = catchConfigError(() => defineSoftureConfig({ ...base, locale: "de", timezone: "Nowhere" } as never));
+    const error = catchConfigError(() => defineSoftureConfig({ ...base, locale: "not a tag", timezone: "Nowhere" }));
     expect(error.issues).toHaveLength(2);
   });
 });

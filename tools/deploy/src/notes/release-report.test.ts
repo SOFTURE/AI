@@ -168,10 +168,11 @@ describe("writeReleaseReport", () => {
     expect(readSection(body, "deployments")).toContain("| prod ? ?b?x?/b? |");
   });
 
-  it("writes Polish copy for --locale=pl", () => {
-    const body = writeReleaseReport("", buildReport(), getDeployMessages("pl"));
-    expect(readSection(body, "status")).toContain("## Status pipeline'u");
-    expect(readSection(body, "deployments")).toContain(`✅ ${getDeployMessages("pl").releaseReport.deployed}`);
+  it("writes the copy it is given", () => {
+    const messages = { ...en, releaseReport: { ...en.releaseReport, statusHeading: "Pipeline-Status", deployed: "ausgeliefert" } };
+    const body = writeReleaseReport("", buildReport(), messages);
+    expect(readSection(body, "status")).toContain("## Pipeline-Status");
+    expect(readSection(body, "deployments")).toContain("✅ ausgeliefert");
   });
 });
 

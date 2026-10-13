@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { MARKETING_LOCALES, formatMessage, getMarketingMessages } from "../src/messages/index.js";
+import { formatMessage, getMarketingMessages, marketingMessages } from "../src/messages/index.js";
 
 describe("formatMessage", () => {
   it("replaces every placeholder with its value", () => {
@@ -13,17 +13,17 @@ describe("formatMessage", () => {
 });
 
 describe("marketing messages", () => {
-  it("offers English and Polish", () => {
-    expect(MARKETING_LOCALES).toEqual(["en", "pl"]);
+  it("ship English as the only built-in language", () => {
+    expect(Object.keys(marketingMessages)).toEqual(["en"]);
+    expect(getMarketingMessages()).toEqual(marketingMessages.en);
   });
 
-  it("keeps the same placeholders in every locale", () => {
-    const placeholders = (text: string) => [...text.matchAll(/\{([a-zA-Z]+)\}/g)].map((match) => match[1]).sort();
-    const en = getMarketingMessages("en");
-    const pl = getMarketingMessages("pl");
-    expect(placeholders(pl.posts.title)).toEqual(placeholders(en.posts.title));
-    expect(placeholders(pl.posts.bioLink)).toEqual(placeholders(en.posts.bioLink));
-    expect(placeholders(pl.posts.postLink)).toEqual(placeholders(en.posts.postLink));
-    expect(placeholders(pl.film.persona)).toEqual(placeholders(en.film.persona));
+  it("apply overrides key by key, the English copy filling the rest, without changing the built-in copy", () => {
+    const messages = getMarketingMessages({ posts: { linkInBio: "Link in der Bio.", platforms: { x: "X (Twitter)" } } });
+    expect(messages.posts.linkInBio).toBe("Link in der Bio.");
+    expect(messages.posts.platforms).toEqual({ ...marketingMessages.en.posts.platforms, x: "X (Twitter)" });
+    expect(messages.posts.title).toBe(marketingMessages.en.posts.title);
+    expect(messages.film).toEqual(marketingMessages.en.film);
+    expect(marketingMessages.en.posts.linkInBio).toBe("Link in bio.");
   });
 });

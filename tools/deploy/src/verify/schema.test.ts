@@ -49,6 +49,22 @@ describe("parseDeployConfig", () => {
     });
   });
 
+  it("keeps a header check anchored at the start, alone or in a list", () => {
+    const anchored = { startsWith: 'binding0=("@authority";req)' };
+    const parsed = parseDeployConfig({
+      verify: { headers: { "signature-input": anchored, link: [anchored, "rel=\"api-catalog\""] }, routes: [{ path: "/" }] },
+    });
+    expect(parsed.ok && parsed.config.verify?.headers).toEqual({ "signature-input": anchored, link: [anchored, 'rel="api-catalog"'] });
+  });
+
+  it("refuses an anchored header check that is empty, has no text or carries an unknown key", () => {
+    for (const check of [{}, { startsWith: "" }, { startsWith: "a", endsWith: "b" }, { equals: "a" }]) {
+      const parsed = parseDeployConfig({ verify: { routes: [{ path: "/", headers: { "signature-input": check } }] } });
+      expect(parsed.ok).toBe(false);
+      expect(!parsed.ok && parsed.issues.every((issue) => issue.startsWith("verify.routes.0.headers.signature-input"))).toBe(true);
+    }
+  });
+
   it("keeps a method, a body and request headers", () => {
     const route = {
       path: "/api/mcp",
@@ -189,6 +205,27 @@ describe("parseDeployConfig: app-side checks (issue #309)", () => {
     expect(firstRoute({ forEach: { sitemap: "https://other.example/sitemap.xml" } })).toEqual([
       "verify.routes.0.forEach.sitemap: a path that starts with a single /",
     ]);
+  });
+});
+
+describe("parseDeployConfig: statuses that only warn (issue #434)", () => {
+  function firstRoute(route: unknown): unknown {
+    const parsed = parseDeployConfig({ verify: { routes: [route] } });
+    return parsed.ok ? parsed.config.verify?.routes[0] : parsed.issues;
+  }
+
+  it("keeps warnOn statuses", () => {
+    expect(firstRoute({ path: "/x", warnOn: { status: [404, 410] } })).toMatchObject({ warnOn: { status: [404, 410] }, severity: "fail" });
+  });
+
+  it("refuses an empty list, a duplicate, the route's own status, a status out of range and an unknown key", () => {
+    expect(firstRoute({ path: "/x", warnOn: { status: [] } })).toEqual(["verify.routes.0.warnOn.status: Too small: expected array to have >=1 items"]);
+    expect(firstRoute({ path: "/x", warnOn: { status: [404, 404] } })).toEqual(["verify.routes.0.warnOn.status: 404 is listed twice"]);
+    expect(firstRoute({ path: "/x", status: 404, warnOn: { status: [404] } })).toEqual([
+      "verify.routes.0.warnOn: a warnOn status cannot be the route's expected status",
+    ]);
+    expect(firstRoute({ path: "/x", warnOn: { status: [600] } })).toEqual(["verify.routes.0.warnOn.status.0: Too big: expected number to be <=599"]);
+    expect(firstRoute({ path: "/x", warnOn: { status: [404], header: "x" } })).toEqual([expect.stringContaining("verify.routes.0.warnOn: ")]);
   });
 });
 

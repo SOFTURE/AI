@@ -235,7 +235,7 @@ describe("sendMail for list mail", () => {
 
   const logged = () => log.mock.calls.map((call) => call.join(" ")).join("\n");
 
-  function send(mail: OutgoingMail, provider: MailProvider, options: { locale?: "en" | "pl" } = {}) {
+  function send(mail: OutgoingMail, provider: MailProvider, options: Parameters<typeof createConfig>[1] = {}) {
     return sendMail({ config: createConfig(provider, options), db: test.database.db }, mail);
   }
 
@@ -252,10 +252,17 @@ describe("sendMail for list mail", () => {
     expect(log).not.toHaveBeenCalled();
   });
 
-  it("writes the footer in the app's locale", async () => {
+  it("writes the footer in the app's locale, from the translation the app passed", async () => {
     const provider = fakeMailProvider();
-    await send(NEWSLETTER, provider, { locale: "pl" });
-    expect(provider.sent[0]?.text).toContain(mailingMessages.pl.footer.text);
+    const footer = "Keine E-Mails mehr? Hier abmelden:";
+    await send(NEWSLETTER, provider, { locale: "de-AT", messages: { de: { footer: { text: footer } } } });
+    expect(provider.sent[0]?.text).toBe(["Hello Ada, here is your summary.", "", "-- ", footer, PAGE].join("\n"));
+  });
+
+  it("writes the English footer for a locale the app passed no translation for", async () => {
+    const provider = fakeMailProvider();
+    await send(NEWSLETTER, provider, { locale: "de" });
+    expect(provider.sent[0]?.text).toContain(mailingMessages.en.footer.text);
   });
 
   it("leaves transactional mail as it was, even to a suppressed recipient and without a secret", async () => {

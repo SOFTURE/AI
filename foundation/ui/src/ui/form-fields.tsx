@@ -268,7 +268,7 @@ interface MoneyFieldOwnProps {
 export type MoneyFieldProps = BaseFieldProps & FieldValueProps & MoneyFieldOwnProps;
 
 /**
- * An amount input. It shows the amount grouped in the locale's notation ("1 234,56" in `pl`) and
+ * An amount input. It shows the amount grouped in the locale's notation ("1 234,56" in a space-grouped locale) and
  * reformats on blur; text it cannot parse stays as typed, for the server to reject with a message.
  */
 export function MoneyField({

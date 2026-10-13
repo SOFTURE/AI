@@ -76,7 +76,7 @@ describe("formatCalendarMonth styles", () => {
   });
 });
 
-describe("formatters with a locale outside LOCALES", () => {
+describe("formatters with a locale other than en", () => {
   it("write a date, a month, money and a percentage as Intl does for that locale", () => {
     expect(formatCalendarDay("2026-10-04", "de")).toBe("4. Oktober 2026");
     expect(formatCalendarDay("2026-10-04", "de", "numeric")).toBe("04.10.2026");
@@ -100,6 +100,5 @@ describe("formatters with a locale outside LOCALES", () => {
 describe("core messages", () => {
   it("carry no formatter copy", () => {
     expect(Object.keys(coreMessages.en)).toEqual(["errors"]);
-    expect(Object.keys(coreMessages.pl)).toEqual(["errors"]);
   });
 });

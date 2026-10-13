@@ -221,7 +221,7 @@ without a client component puts `buildWebMcpBootScript({ flag, paths, pathPatter
 `<script>` in `<head>`; each tool's `execute` is JavaScript source `(args, h) => …` with
 `h = { ok, error, fetchMarkdown, stripFrontmatter }`.
 
-Two tools come ready-made, for a client component to register:
+Two tools come ready-made, for a client component to register (or for the boot script, below):
 
 ```tsx
 "use client";
@@ -249,6 +249,26 @@ useEffect(() => {
   description when that page fails). Several partial matches are listed.
 
 Both read each page once per page load and keep it, except what failed.
+
+A page without a client component registers the same tools from the boot script: `searchSiteScriptTool(options)` and
+`findTermScriptTool(options)` take the same options (without `fetchImpl`: the page's `fetch` reads) and return a
+`WebMcpScriptTool` with the same definition and answers.
+
+```ts
+buildWebMcpBootScript({ flag: "__siteWebMcp", paths: ["/", "/pricing"], pathPatterns: ["^/blog/"], tools: [searchSiteScriptTool(), findTermScriptTool()] });
+```
+
+The answers and input descriptions are English. An app with its own translation passes `messages` (any subset of
+`SEARCH_SITE_MESSAGES` / `FIND_TERM_MESSAGES`; `{placeholders}` are filled in) and, for `searchSite`, `locale`, whose
+`Intl.PluralRules` pick a form of a count-dependent line (`{ one, few, many, other }`, `other` required);
+`description` stays its own option. The module ships no translation.
+
+```ts
+searchSiteScriptTool({
+  locale: "cs",
+  messages: { matches: { one: "…{count}…", few: "…{count}…", other: "…{count}…" }, noMatch: "…{query}… ({scope})" },
+});
+```
 
 **DNS-AID.** Publish the lines of `resolveDnsAidRecords(options, origins).map(formatZoneLine)` at the DNS provider,
 turn on DNSSEC, then check them:

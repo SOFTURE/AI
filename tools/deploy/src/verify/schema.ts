@@ -18,16 +18,26 @@ const RESERVED_REQUEST_HEADERS = new Set(["host", "content-length", "connection"
 /** A path on the app's host: `//` would make the URL protocol-relative and point at another host. */
 const ROUTE_PATH = /^\/(?!\/)\S*$/;
 
+/** One header check: text the value must contain, or `{ startsWith }` for text it must begin with (both case-insensitive). */
+const headerMatchSchema = z.union([
+  z.string().min(1),
+  z
+    .strictObject({ startsWith: z.string().min(1).describe("Text the header value must begin with (case-insensitive).") })
+    .describe("A check anchored at the start of the header value."),
+]);
+
 const headerChecksSchema = z
   .record(
     z.string().regex(HEADER_NAME, "a header name in lower case"),
     z
-      .union([z.string().min(1), z.array(z.string().min(1)).min(1), z.null()])
+      .union([headerMatchSchema, z.array(headerMatchSchema).min(1), z.null()])
       .describe(
-        "Text the header value must contain (case-insensitive), a list of texts it must all contain, or null when the header must be absent.",
+        "Text the header value must contain (case-insensitive), { startsWith } for text it must begin with, a list of such checks it must all pass, or null when the header must be absent.",
       ),
   )
-  .describe("Headers by lower-case name: text (or a list of texts) the value must contain, or null when the header must be absent.");
+  .describe(
+    "Headers by lower-case name: text the value must contain, { startsWith } for text it must begin with, a list of such checks, or null when the header must be absent.",
+  );
 
 const requestHeadersSchema = z
   .record(
@@ -97,6 +107,24 @@ const webBotAuthSchema = z
     "Signs every request of the route with Web Bot Auth (RFC 9421, Ed25519, tag web-bot-auth); an unset or malformed variable fails the route by name.",
   );
 
+const httpStatusSchema = z.int().min(100).max(599);
+
+const warnOnSchema = z
+  .strictObject({
+    status: z
+      .array(httpStatusSchema)
+      .min(1)
+      .superRefine((statuses, context) => {
+        const duplicates = new Set(statuses.filter((status, index) => statuses.indexOf(status) !== index));
+        for (const status of duplicates) context.addIssue({ code: "custom", message: `${status} is listed twice` });
+      })
+      .meta({ uniqueItems: true })
+      .describe("Statuses that only warn, e.g. [404] for a resource that exists once a secret is configured."),
+  })
+  .describe(
+    "A response with a listed status is a WARN row and the route's other checks are skipped; any other mismatch keeps the route's severity.",
+  );
+
 const routeSchema = z
   .strictObject({
     path: routePathSchema
@@ -108,7 +136,7 @@ const routeSchema = z
       .describe(
         "Instead of path: the route is checked for every entry of a sitemap or a JSON index, each entry's path requested on the verified URL's origin.",
       ),
-    status: z.int().min(100).max(599).default(200).describe("Expected HTTP status (redirects are not followed)."),
+    status: httpStatusSchema.default(200).describe("Expected HTTP status (redirects are not followed)."),
     contains: z
       .array(z.string().min(1))
       .default([])
@@ -146,6 +174,7 @@ const routeSchema = z
     severity: severitySchema
       .default("fail")
       .describe("fail: a failed check fails verify; warn: the row reads WARN and verify still passes."),
+    warnOn: warnOnSchema.optional(),
   })
   .refine((route) => (route.path === undefined) !== (route.forEach === undefined), {
     message: "a route needs a path or a forEach, not both",
@@ -158,6 +187,10 @@ const routeSchema = z
   .refine((route) => route.redirect === undefined || (route.status >= 300 && route.status < 400), {
     message: "a redirect needs a 3xx status",
     path: ["status"],
+  })
+  .refine((route) => route.warnOn === undefined || !route.warnOn.status.includes(route.status), {
+    message: "a warnOn status cannot be the route's expected status",
+    path: ["warnOn"],
   })
   .refine((route) => route.body === undefined || (route.method !== "GET" && route.method !== "HEAD"), {
     message: "a body needs a method other than GET or HEAD",

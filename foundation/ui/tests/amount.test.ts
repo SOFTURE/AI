@@ -99,7 +99,7 @@ describe("normalizeAmountInput", () => {
 describe("getAmountErrorMessage", () => {
   it("gives the message with an example in the locale's notation", () => {
     expect(getAmountErrorMessage("ui.amount_invalid", { locale: "pl" })).toBe(
-      uiMessages.pl.errors.amount_invalid.replace("{example}", "1 234,56"),
+      uiMessages.en.errors.amount_invalid.replace("{example}", "1 234,56"),
     );
     expect(getAmountErrorMessage("ui.amount_invalid")).toBe(uiMessages.en.errors.amount_invalid.replace("{example}", "1,234.56"));
     expect(getAmountErrorMessage("ui.amount_out_of_range", { messages: { amount_out_of_range: "Too much." } })).toBe("Too much.");

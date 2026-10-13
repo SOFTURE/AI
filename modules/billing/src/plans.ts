@@ -1,16 +1,16 @@
 // Plans from `billing({ plans })`, pure: how long a payment of a plan gives access and the change it
 // makes to an entitlement. Periods run in local calendar days, like trials, so a month bought on
 // 3 October covers every day up to 2 November and ends when 3 November begins in the app's time zone.
-import { addCalendarDays, addCalendarMonths, toCalendarDay, type Locale } from "@softure-ai/core";
+import { addCalendarDays, addCalendarMonths, type Locale, pickLocalizedText, toCalendarDay } from "@softure-ai/core";
 import { getStartOfDay, parseDay } from "./calendar.js";
 import type { EntitlementEvent, EntitlementRecord, LocalizedText, Plan, PlanPeriod } from "./contract.js";
 
 const DAYS_PER_WEEK = 7;
 const MONTHS_PER_YEAR = 12;
 
-/** The text in `locale`, else the `en` text (the options require one). */
+/** The text in `locale`, else in its language, else the `en` text (the options require one). */
 export function getLocalizedText(text: LocalizedText, locale: Locale): string {
-  return text[locale] ?? text.en ?? "";
+  return pickLocalizedText(text, locale);
 }
 
 /** The plan with this id, or undefined. */

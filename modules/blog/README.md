@@ -62,7 +62,7 @@ Then add `blog()` to the modules of `softure.config.ts` and run `softure migrate
 
 ```ts
 import { blog } from "@softure-ai/blog";
-import { pl } from "./messages/pl";
+import { de } from "./messages/de"; // the app's own translation
 import { z } from "zod";
 
 blog({
@@ -83,9 +83,9 @@ blog({
   // method.aiTitle / method.aiBody) and "who writes" says method.whoBodyAi. Default: false.
   aiDisclosure: false,
   // A note under every article and term, per locale (en required). Default: none.
-  disclaimer: { en: "Education, not financial advice.", pl: pl.blog.disclaimer },
+  disclaimer: { en: "Education, not financial advice.", de: de.blog.disclaimer },
   // The heading of each cluster on the listing, per locale; a missing key shows the key. Default: {}.
-  clusters: { "investing-basics": { en: "Investing basics", pl: pl.blog.investingBasics } },
+  clusters: { "investing-basics": { en: "Investing basics", de: de.blog.investingBasics } },
   // Block plugins of renderArticle, used by the pages. Default: [].
   blocks: [],
   // Hosts of the app besides APP_ORIGIN's and seo's canonical host, whose links are not external. Default: [].
@@ -100,8 +100,9 @@ blog({
   // Default: { cluster: "cluster" }.
   anchors: { cluster: "cluster" },
   // The language tags per locale: `bcp47` for JSON-LD inLanguage and the feed's <language> (default:
-  // the bare code, "en" or "pl"), `openGraph` for og:locale (language_TERRITORY; default "en_US" / "pl_PL").
-  locales: { pl: { bcp47: "pl-PL", openGraph: "pl_PL" } },
+  // the app's locale), `openGraph` for og:locale (language_TERRITORY; default the locale's likely one, "en_US" for
+  // "en", "de_AT" for "de-AT"). Keys are any BCP 47 tag.
+  locales: { de: { bcp47: "de-DE", openGraph: "de_DE" } },
   // The 410 page of a withdrawn text: extra links, or the app's own body (§4). Default: one link to the listing.
   gonePage: { links: [] },
   // Which images bodies may show: site paths and https images on these hosts (subdomains included),
@@ -363,7 +364,7 @@ with `text/html`:
 ```ts
 blog({
   gonePage: {
-    links: [{ href: "/calculator", label: { en: "Try the calculator", pl: pl.blog.goneCalculator } }],
+    links: [{ href: "/calculator", label: { en: "Try the calculator", de: de.blog.goneCalculator } }],
     // or the whole page: (input) => html, with input.copy, input.lang, input.indexPath, input.links
     render: ({ copy, lang, indexPath, links }) => renderMyGonePage({ copy, lang, indexPath, links }),
   },
@@ -720,7 +721,7 @@ const body = renderArticle(article.bodyMarkdown, {
   siteHosts: ["example.com"], // subdomains included; other hosts are external
   images: { hosts: ["cdn.example.com"], dimensions: (src) => imageSizes[src] ?? null }, // see Images below
   toc: true, // or { maxLevel: 4 }; h2 and h3 by default
-  messages: blogMessages.pl.render, // English by default
+  messages: { ...blogMessages.en.render, ...myRenderTranslation }, // English by default
   blocks: [chartBlock],
   article: { currentAsOf: article.currentAsOf, fields: article.fields },
 });
@@ -960,10 +961,10 @@ blog({
 ## 9. Copy
 
 `src/messages/`: labels of the kinds (`kinds.article`, `kinds.term`) and statuses (`statuses.*`) in
-`en` and `pl`; the renderer's copy under `render.*` (notes heading, footnote label with `{number}`,
+English, the only built-in language (another language is the app's own translation, passed as below); the renderer's copy under `render.*` (notes heading, footnote label with `{number}`,
 back to text, opens in a new tab, contents label), passed as `renderArticle({ messages })`; the pages'
 copy under `pages.*`, `glossary.*`, `method.*`, `gone.*` (the 410 page), `og.*` and `feed.*` (the feed's 503 body); "read next" is `pages.readNext`. Override any of it
-with `blog({ messages: { pl: { pages: { readMore: "..." } } } })`. Command output and file errors are developer output, in English.
+with `blog({ messages: { de: { pages: { readMore: "..." } } } })`. Command output and file errors are developer output, in English.
 
 ## 10. Hooks
 
