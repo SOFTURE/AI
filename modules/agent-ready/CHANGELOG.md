@@ -4,6 +4,16 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- The ready-made WebMCP tools work from the inline boot script (#437): `searchSiteScriptTool(options)` and
+  `findTermScriptTool(options)` return `WebMcpScriptTool`s for `buildWebMcpBootScript({ tools })`, with the same
+  definitions and answers as `createSearchSiteTool()` / `createFindTermTool()`. An app whose landing page ships no
+  client component drops its own search helpers.
+- Both forms take `messages` (overrides of the answer lines and input descriptions; English defaults exported as
+  `SEARCH_SITE_MESSAGES` / `FIND_TERM_MESSAGES`) and, for `searchSite`, `locale` for plural forms, so an app can supply
+  its own translation. English output is unchanged.
+
 ## 0.1.4
 
 - Ready-made WebMCP tools in `/webmcp` (#415): `createSearchSiteTool()` registers `searchSite({ query, limit? })`, a
