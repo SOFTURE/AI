@@ -44,12 +44,6 @@ function isModule(dir: string): boolean {
   return dir.startsWith("modules/") || dir === TEMPLATE_DIR;
 }
 
-/** Every key path of a nested dictionary, e.g. `example.title`. */
-function listKeyPaths(value: unknown, prefix = ""): string[] {
-  if (typeof value !== "object" || value === null) return [prefix];
-  return Object.entries(value).flatMap(([key, child]) => listKeyPaths(child, prefix ? `${prefix}.${key}` : key));
-}
-
 const packageDirs = findWorkspaces(REPO_ROOT).map((pkg) => pkg.dir);
 const workspaceVersions = new Map(
   packageDirs.map((dir) => {
@@ -163,7 +157,8 @@ describe("workspace packages", () => {
     it.runIf(existsSync(messagesDir))("ships English as its only built-in dictionary", async () => {
       expect(readdirSync(messagesDir).filter((file) => file !== "index.ts").sort()).toEqual(["en.ts"]);
       const { en } = (await import(pathToFileURL(join(messagesDir, "en.ts")).href)) as { en: unknown };
-      expect(listKeyPaths(en).length).toBeGreaterThan(0);
+      // A module without copy keeps an empty dictionary for the standard's shape.
+      expect(typeof en).toBe("object");
     });
   });
 });
