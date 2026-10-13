@@ -25,4 +25,6 @@ Files: `modules/mailing/src/server/dns.ts`, `modules/mailing/tests/dns.test.ts`.
 ## Progress
 
 - [x] Phase 1: weak inbound SPF (`5913798`; 10 tests, written first and red before the fix)
-- [ ] Phase 2: docs
+- [x] Phase 2: docs (`7180127`; README INBOUND bullet, doc comments, CHANGELOG `## Unreleased`)
+
+Gates on the branch: `npm run typecheck`, `npm run lint` (pre-commit) and `npm run build` green; mailing and repository tests pass (33 files, 1066 tests); the full `npm test` runs in pre-push.
