@@ -1438,7 +1438,13 @@ describe("deploy-release-notes.yml (issue #406)", () => {
   const checkStep = findNamedStep(job, "Check the inputs");
   const editStep = findNamedStep(job, "Replace the release body");
   // The fake gh records its arguments, then the file after --notes-file, byte for byte.
+  // `gh release view` prints the fixture $RUNNER_TEMP/current-body as is and records that it ran.
   const FAKE_GH = `#!/usr/bin/env bash
+if [ "$1 $2" = "release view" ]; then
+  printf '%s\\n' "$*" > "$RUNNER_TEMP/gh-view-args"
+  cat "$RUNNER_TEMP/current-body"
+  exit 0
+fi
 printf '%s\\n' "$*" > "$RUNNER_TEMP/gh-args"
 while [ "$#" -gt 0 ]; do
   if [ "$1" = "--notes-file" ]; then cat "$2" > "$RUNNER_TEMP/gh-notes"; fi
@@ -1448,6 +1454,7 @@ done
 
   it("takes a required tag and body, and grants contents: write to its one job only", () => {
     expect(inputs).toMatchObject({ tag: { required: true }, body: { required: true } });
+    expect(inputs["keep-report"]).toMatchObject({ type: "boolean", required: false, default: false });
     expect(workflow.permissions).toEqual({});
     expect(job?.permissions).toEqual({ contents: "write" });
     expect(Object.keys(workflow.jobs)).toEqual(["notes"]);
@@ -1469,6 +1476,14 @@ done
     expect(refused.stdout).toContain(`::error::${message}`);
   });
 
+  it("refuses a body that carries a softure-deploy section when keep-report is on, and allows it when off", () => {
+    const body = "Notes\n\n<!-- softure-deploy:release-notes -->\nx\n<!-- /softure-deploy:release-notes -->\n";
+    const refused = runScript(checkStep.run ?? "", { TAG: "v2026.10.12", BODY: body, KEEP_REPORT: "true" });
+    expect(refused.status).toBe(1);
+    expect(refused.stdout).toContain("::error::Input body carries a softure-deploy section");
+    expect(runScript(checkStep.run ?? "", { TAG: "v2026.10.12", BODY: body, KEEP_REPORT: "false" }).status).toBe(0);
+  });
+
   it("replaces the body of the tag's release with the text byte for byte", () => {
     expect(editStep.env).toMatchObject({ TAG: "${{ inputs.tag }}", BODY: "${{ inputs.body }}", GH_TOKEN: "${{ github.token }}" });
     const body = "## Notes\n\n- `$(id)` and $HOME stay text\n";
@@ -1483,6 +1498,57 @@ done
     } finally {
       rmSync(outDir, { recursive: true, force: true });
     }
+  });
+
+  // Runs the edit step against a release whose current body is `current`; returns the written body and whether
+  // `gh release view` ran.
+  function editRelease(body: string, current: string, keepReport: string): { status: number | null; notes: string; viewed: boolean; summary: string } {
+    const outDir = mkdtempSync(join(tmpdir(), "deploy-notes-"));
+    try {
+      const fixture = join(outDir, "fixture");
+      writeFileSync(fixture, current);
+      const script = `cp "$FIXTURE" "$RUNNER_TEMP/current-body"\n${editStep.run ?? ""}\ncp "$RUNNER_TEMP/gh-notes" "$OUT_DIR/"\nif [ -f "$RUNNER_TEMP/gh-view-args" ]; then cp "$RUNNER_TEMP/gh-view-args" "$OUT_DIR/"; fi`;
+      const env = { TAG: "v2026.10.12", BODY: body, KEEP_REPORT: keepReport, GH_TOKEN: "token", OUT_DIR: outDir, FIXTURE: fixture };
+      const result = runScript(script, env, { bin: { gh: FAKE_GH } });
+      const viewArgs = join(outDir, "gh-view-args");
+      const viewed = existsSync(viewArgs);
+      if (viewed) expect(readFileSync(viewArgs, "utf8")).toBe("release view v2026.10.12 --repo acme/app --json body --template {{.body}}\n");
+      return { status: result.status, notes: readFileSync(join(outDir, "gh-notes"), "utf8"), viewed, summary: result.summary };
+    } finally {
+      rmSync(outDir, { recursive: true, force: true });
+    }
+  }
+
+  const SECTIONS =
+    "<!-- softure-deploy:release-notes -->\n## What's in\n\n- `$(id)` stays text\n<!-- /softure-deploy:release-notes -->\n\n" +
+    "<!-- softure-deploy:status -->\nDeployed\n<!-- /softure-deploy:status -->\n\n";
+
+  it("with keep-report, writes the body and then the current body from the first softure-deploy marker, byte for byte", () => {
+    const edited = editRelease("New owner text\n\n", `Old owner text\n\n${SECTIONS}`, "true");
+    expect(edited.status).toBe(0);
+    expect(edited.viewed).toBe(true);
+    expect(edited.notes).toBe(`New owner text\n\n${SECTIONS}`);
+    expect(edited.summary).toContain("softure-deploy sections were kept");
+  });
+
+  it("with keep-report and a current body without a marker, replaces the whole body as before", () => {
+    const edited = editRelease("New owner text", "Old owner text only\n", "true");
+    expect(edited.status).toBe(0);
+    expect(edited.viewed).toBe(true);
+    expect(edited.notes).toBe("New owner text");
+    expect(edited.summary).toContain("no softure-deploy section");
+  });
+
+  it.each(["false", ""])("with keep-report=%j, never reads the release and replaces the whole body", (keepReport) => {
+    const edited = editRelease("New owner text", `Old owner text\n\n${SECTIONS}`, keepReport);
+    expect(edited.status).toBe(0);
+    expect(edited.viewed).toBe(false);
+    expect(edited.notes).toBe("New owner text");
+  });
+
+  it("passes keep-report to both steps", () => {
+    expect(checkStep.env).toMatchObject({ KEEP_REPORT: "${{ inputs.keep-report }}" });
+    expect(editStep.env).toMatchObject({ KEEP_REPORT: "${{ inputs.keep-report }}" });
   });
 });
 
@@ -1520,11 +1586,12 @@ describe("the example release-notes caller (issue #406)", () => {
     const dispatch = caller.on.workflow_dispatch as { inputs?: Record<string, WorkflowInput> };
     expect(dispatch.inputs?.tag?.required).toBe(true);
     expect(dispatch.inputs?.body?.required).toBe(true);
+    expect(dispatch.inputs?.["keep-report"]).toMatchObject({ type: "boolean", required: false, default: true });
   });
 
   it("calls the release-notes workflow with both inputs and grants contents: write only", () => {
     expect(job.uses).toBe("SOFTURE/AI/.github/workflows/deploy-release-notes.yml@master");
-    expect(job.with).toEqual({ tag: "${{ inputs.tag }}", body: "${{ inputs.body }}" });
+    expect(job.with).toEqual({ tag: "${{ inputs.tag }}", body: "${{ inputs.body }}", "keep-report": "${{ inputs.keep-report }}" });
     expect(caller.permissions).toEqual({ contents: "write" });
   });
 });

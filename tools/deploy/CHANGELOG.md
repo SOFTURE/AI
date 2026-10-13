@@ -6,6 +6,11 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- `deploy-release-notes.yml` takes `keep-report` (boolean, default `false`): it writes `body`, then the current body from
+  its first `<!-- softure-deploy:` marker on, unchanged, so editing the owner's text no longer wipes the sections
+  `release-notes` and `report` wrote (issue #436). A body carrying a marker is refused; a release without one is
+  replaced whole. The `release-notes.yml` caller (`init`, `examples/`) exposes `keep-report` with default `true`; an
+  app that ran `init` before copies it from `examples/release-notes.yml`.
 - A verify route takes `warnOn: { status: [...] }`: a response with a listed status is a `WARN` row and the route's
   other checks are skipped, while every other mismatch keeps the route's severity (issue #434). An optional resource
   such as the Web Bot Auth key directory warns while it is a 404 and fails on a login page or a 500. A listed status

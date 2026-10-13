@@ -5,6 +5,10 @@
 # The caller is `tools/deploy/examples/release-notes.yml` in this repository (`softure-deploy init` writes it as
 # `.github/workflows/release-notes.yml`). It grants `contents: write`, which the one job needs to edit the release.
 # The body reaches `gh` through a file, byte for byte; nothing is interpolated into a script.
+#
+# With `keep-report: true` (issue #436) the job keeps the sections `softure-deploy release-notes` and `report` wrote:
+# it writes `body`, a blank line, then the current body from its first `<!-- softure-deploy:` marker on, unchanged.
+# A current body without a marker is replaced whole, as without the input.
 
 name: deploy-release-notes
 
@@ -16,9 +20,14 @@ on:
         type: string
         required: true
       body:
-        description: The new body, markdown; it replaces the whole body
+        description: The new body, markdown; it replaces the whole body, or the text above the report with keep-report
         type: string
         required: true
+      keep-report:
+        description: Keep the softure-deploy sections of the current body (from the first marker on) below the new body
+        type: boolean
+        required: false
+        default: false
 
 permissions: {}
 
@@ -36,6 +45,7 @@ jobs:
         env:
           TAG: ${{ inputs.tag }}
           BODY: ${{ inputs.body }}
+          KEEP_REPORT: ${{ inputs.keep-report }}
         run: |
           failed=0
           if [[ ! "$TAG" =~ ^[A-Za-z0-9_][A-Za-z0-9_.@/-]{0,254}$ ]] || [[ "$TAG" == *..* ]]; then
@@ -46,6 +56,10 @@ jobs:
             echo "::error::Input body is empty; a release body is replaced with text, never cleared"
             failed=1
           fi
+          if [[ "$KEEP_REPORT" == "true" && "$BODY" == *"<!-- softure-deploy:"* ]]; then
+            echo "::error::Input body carries a softure-deploy section; with keep-report the sections come from the current release, pass only the text above them"
+            failed=1
+          fi
           exit "$failed"
 
       - name: Replace the release body
@@ -53,9 +67,32 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ inputs.tag }}
           BODY: ${{ inputs.body }}
+          KEEP_REPORT: ${{ inputs.keep-report }}
         run: |
           set -euo pipefail
           notes="$RUNNER_TEMP/release-notes.md"
-          printf '%s' "$BODY" > "$notes"
+          marker="<!-- softure-deploy:"
+          kept=""
+          if [[ "${KEEP_REPORT:-}" == "true" ]]; then
+            current_file="$RUNNER_TEMP/release-current.md"
+            gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body --template '{{.body}}' > "$current_file"
+            current=""
+            IFS= read -r -d '' current < "$current_file" || true
+            if [[ "$current" == *"$marker"* ]]; then
+              kept="$marker${current#*"$marker"}"
+            fi
+          fi
+          if [[ -n "$kept" ]]; then
+            trimmed="${BODY%"${BODY##*[![:space:]]}"}"
+            printf '%s\n\n%s' "$trimmed" "$kept" > "$notes"
+          else
+            printf '%s' "$BODY" > "$notes"
+          fi
           gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file "$notes"
-          echo "The body of release **$TAG** was replaced." >> "$GITHUB_STEP_SUMMARY"
+          if [[ -n "$kept" ]]; then
+            echo "The body of release **$TAG** was replaced above the report; its softure-deploy sections were kept." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${KEEP_REPORT:-}" == "true" ]]; then
+            echo "The body of release **$TAG** was replaced; it had no softure-deploy section to keep." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "The body of release **$TAG** was replaced." >> "$GITHUB_STEP_SUMMARY"
+          fi
