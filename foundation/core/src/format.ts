@@ -25,6 +25,11 @@ export interface FormatPercentOptions {
   readonly signed?: boolean;
   /** No space between the number and `%`, whatever the locale's pattern: `12,5%`, not `12,5 %`. */
   readonly tight?: boolean;
+  /**
+   * Exactly this many fraction digits, an integer from 0 to 20: `{ fractionDigits: 2 }` writes 1900 as `19.00%`.
+   * Without it a value has at most two fraction digits and no trailing zeros.
+   */
+  readonly fractionDigits?: number;
 }
 
 const MONTHS_PER_YEAR = 12;
@@ -32,6 +37,7 @@ const MONTH_PATTERN = /^(\d{4})-(\d{2})$/;
 const ROMAN_MONTHS = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"] as const;
 const BASIS_POINTS_PER_UNIT = 10_000;
 const MAX_PERCENT_FRACTION_DIGITS = 2;
+const FRACTION_DIGITS_LIMIT = 20;
 
 const dayFormatters = new Map<string, Intl.DateTimeFormat>();
 const numberFormatters = new Map<string, Intl.NumberFormat>();
@@ -115,14 +121,15 @@ export function formatMoney(minor: number, currency: string, locale: Locale, opt
 }
 
 /**
- * Basis points as a percentage in `locale`: 1250 is 12.5%, at most two fraction digits, and zero is never signed (`-0`
- * and a value that rounds to zero show as `0%`). Throws a `RangeError` for a non-finite value.
+ * Basis points as a percentage in `locale`: 1250 is 12.5%, at most two fraction digits unless `fractionDigits` fixes
+ * them, and zero is never signed (`-0` and a value that rounds to zero show as `0%`, or `0.0%` at one digit). Throws a
+ * `RangeError` for a non-finite value or an invalid `fractionDigits`.
  */
 export function formatPercent(basisPoints: number, locale: Locale, options: FormatPercentOptions = {}): string {
   if (!Number.isFinite(basisPoints)) throw new RangeError(`formatPercent: ${String(basisPoints)} is not a finite number of basis points`);
   const format = getNumberFormatter(locale, {
     style: "percent",
-    maximumFractionDigits: MAX_PERCENT_FRACTION_DIGITS,
+    ...getPercentFractionDigits(options.fractionDigits),
     signDisplay: options.signed === true ? "exceptZero" : "negative",
   });
   const value = basisPoints / BASIS_POINTS_PER_UNIT;
@@ -132,6 +139,14 @@ export function formatPercent(basisPoints: number, locale: Locale, options: Form
     .filter((part, index) => !(part.type === "literal" && part.value.trim() === "" && isNextToPercentSign(parts, index)))
     .map((part) => part.value)
     .join("");
+}
+
+function getPercentFractionDigits(fractionDigits: number | undefined): Intl.NumberFormatOptions {
+  if (fractionDigits === undefined) return { maximumFractionDigits: MAX_PERCENT_FRACTION_DIGITS };
+  if (!Number.isInteger(fractionDigits) || fractionDigits < 0 || fractionDigits > FRACTION_DIGITS_LIMIT) {
+    throw new RangeError(`formatPercent: fractionDigits ${String(fractionDigits)} is not an integer from 0 to ${String(FRACTION_DIGITS_LIMIT)}`);
+  }
+  return { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits };
 }
 
 function isNextToPercentSign(parts: readonly Intl.NumberFormatPart[], index: number): boolean {
