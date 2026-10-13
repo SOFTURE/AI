@@ -1,12 +1,13 @@
 ---
 change_id: ui-query-nav-active-454
 title: "ui: QuerySegmentedNav renders outside a Next request and takes the active view from the server (issue #454)"
-status: planned
+status: archived
 roadmap_item: null
 issue: 454
 branch: claude/project-thread-bs6ls3
 created: 2026-10-13
 updated: 2026-10-13
+archived_at: 2026-10-13
 ---
 
 ## Intent

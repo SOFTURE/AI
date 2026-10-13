@@ -1,6 +1,6 @@
 ---
 change_id: ui-query-nav-active-454
-status: planned
+status: archived
 ---
 
 # Plan: QuerySegmentedNav outside a Next request, active view from the server (issue #454)
@@ -26,4 +26,6 @@ Files: `foundation/ui/src/next/query-segmented-nav.tsx`, `foundation/ui/tests/ad
 ## Progress
 
 - [x] Phase 1: null-safe hooks and `active` (`813426e`; 5 tests written first and red, one with the real `next/navigation` and `renderToStaticMarkup`, failing with the issue's `Cannot read properties of null`)
-- [ ] Phase 2: docs
+- [x] Phase 2: docs (`24a6289`; README `QuerySegmentedNav` paragraph, CHANGELOG `## Unreleased`)
+
+Gates on the branch: `npm run typecheck` and `npm run lint` green (pre-commit); ui tests pass; the full `npm test` runs in pre-push.
