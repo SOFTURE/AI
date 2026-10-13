@@ -1,12 +1,13 @@
 ---
 change_id: ui-checkbox-field-node-label-453
 title: "ui: CheckboxField takes a ReactNode label (issue #453)"
-status: open
+status: archived
 roadmap_item: null
 issue: 453
 branch: claude/project-thread-p71lss
 created: 2026-10-13
 updated: 2026-10-13
+archived_at: 2026-10-13
 ---
 
 ## Intent

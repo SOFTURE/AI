@@ -1,6 +1,6 @@
 ---
 change_id: ui-checkbox-field-node-label-453
-status: open
+status: archived
 ---
 
 # Plan: CheckboxField ReactNode label (issue #453)
