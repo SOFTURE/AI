@@ -4,6 +4,10 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- The `@softure-ai/core` range also accepts 0.2.0, so an app can install core 0.2.0 next to this version.
+
 ## 0.1.2
 
 - `registerObservability` (`/next`) now starts under a standalone Next.js server (`node server.js`), where

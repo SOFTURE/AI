@@ -49,7 +49,7 @@
     "build": "tsc -p tsconfig.build.json && node scripts/build-css.mjs"
   },
   "dependencies": {
-    "@softure-ai/core": "^0.1.0",
+    "@softure-ai/core": "^0.1.0 || ^0.2.0",
     "zod": "^4.6.5"
   },
   "peerDependencies": {

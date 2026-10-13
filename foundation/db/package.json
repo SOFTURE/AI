@@ -48,7 +48,7 @@
     "build": "tsc -p tsconfig.build.json"
   },
   "dependencies": {
-    "@softure-ai/core": "^0.1.0"
+    "@softure-ai/core": "^0.1.0 || ^0.2.0"
   },
   "peerDependencies": {
     "@electric-sql/pglite": "^0.5.0",
