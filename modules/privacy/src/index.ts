@@ -32,7 +32,7 @@ export const privacy = defineModule({
     id: MODULE_ID,
     version: "0.2.0",
     // ops only for the copy-account script in /scripts.
-    dependsOn: { auth: "^0.1.0", security: "^0.1.0", ops: "^0.1.0?" },
+    dependsOn: { auth: "^0.2.0", security: "^0.2.0", ops: "^0.2.0?" },
     dbSchema: "privacy",
     tables: ["consents"],
     env: [],

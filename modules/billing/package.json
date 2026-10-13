@@ -62,22 +62,22 @@
     "build": "tsc -p tsconfig.build.json"
   },
   "dependencies": {
-    "@softure-ai/auth": "^0.1.0 || ^0.2.0",
-    "@softure-ai/core": "^0.1.9 || ^0.2.0",
+    "@softure-ai/auth": "^0.2.0",
+    "@softure-ai/core": "^0.2.0",
     "@softure-ai/db": "^0.1.0",
-    "@softure-ai/ops": "^0.1.0 || ^0.2.0",
-    "@softure-ai/security": "^0.1.8 || ^0.2.0",
+    "@softure-ai/ops": "^0.2.0",
+    "@softure-ai/security": "^0.2.0",
     "zod": "^4.6.5"
   },
   "peerDependencies": {
-    "@softure-ai/mailing": "^0.1.12 || ^0.2.0",
-    "@softure-ai/ui": "^0.1.0 || ^0.2.0 || ^0.3.0",
+    "@softure-ai/mailing": "^0.2.0",
+    "@softure-ai/ui": "^0.3.0",
     "drizzle-orm": "^0.45.2",
     "next": "^16.0.0",
     "react": "^19.0.0"
   },
   "devDependencies": {
-    "@softure-ai/ui": "^0.1.7 || ^0.2.0 || ^0.3.0"
+    "@softure-ai/ui": "^0.3.0"
   },
   "peerDependenciesMeta": {
     "@softure-ai/mailing": {

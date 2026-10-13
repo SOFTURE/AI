@@ -59,7 +59,7 @@
     "build": "tsc -p tsconfig.build.json"
   },
   "dependencies": {
-    "@softure-ai/core": "^0.1.8 || ^0.2.0",
+    "@softure-ai/core": "^0.2.0",
     "zod": "^4.6.5"
   },
   "peerDependencies": {
@@ -67,8 +67,8 @@
   },
   "devDependencies": {
     "@softure-ai/db": "^0.1.6",
-    "@softure-ai/deploy": "^0.1.4 || ^0.2.0",
-    "@softure-ai/mcp-access": "^0.1.8 || ^0.2.0",
+    "@softure-ai/deploy": "^0.2.0",
+    "@softure-ai/mcp-access": "^0.2.0",
     "http-message-sig": "^0.3.0",
     "web-bot-auth": "^0.2.0"
   }
