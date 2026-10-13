@@ -1,12 +1,13 @@
 ---
 change_id: core-percent-fraction-digits
 title: "core: fixed fraction digits in formatPercent (issue #455)"
-status: open
+status: archived
 roadmap_item: null
 issue: 455
 branch: claude/project-thread-izg7m1
 created: 2026-10-13
 updated: 2026-10-13
+archived_at: 2026-10-13
 ---
 
 ## Intent

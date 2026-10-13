@@ -1,6 +1,6 @@
 ---
 change_id: core-percent-fraction-digits
-status: open
+status: archived
 ---
 
 # Plan: fixed fraction digits in formatPercent (issue #455)
@@ -26,5 +26,8 @@ Files: `foundation/core/src/format.ts`; test `foundation/core/tests/core-percent
 
 ## Progress
 
-- [ ] Phase 1: option
-- [ ] Phase 2: docs
+- [x] Phase 1: option (`c7c9cf8`; the new test file failed on master, 296 core tests green after)
+- [x] Phase 2: docs (`a5fc2b3`)
+
+Gates on the branch: typecheck, ESLint and the language gate green in pre-commit; the core package's 296 tests pass,
+the full `npm test` runs in pre-push.
