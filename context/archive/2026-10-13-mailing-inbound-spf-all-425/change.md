@@ -1,12 +1,13 @@
 ---
 change_id: mailing-inbound-spf-all-425
 title: "mailing: the inbound cloudflare SPF check requires -all or ~all (issue #425)"
-status: open
+status: archived
 roadmap_item: null
 issue: 425
 branch: claude/project-thread-4ce1ur
 created: 2026-10-13
 updated: 2026-10-13
+archived_at: 2026-10-13
 ---
 
 ## Intent

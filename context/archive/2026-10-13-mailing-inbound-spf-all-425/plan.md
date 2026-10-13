@@ -1,6 +1,6 @@
 ---
 change_id: mailing-inbound-spf-all-425
-status: open
+status: archived
 ---
 
 # Plan: inbound SPF requires -all or ~all (issue #425)
