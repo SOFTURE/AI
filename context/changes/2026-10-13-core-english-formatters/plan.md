@@ -1,6 +1,6 @@
 ---
 change_id: core-english-formatters
-status: planned
+status: implemented
 ---
 
 # Plan: core English formatters (issue #438)
@@ -30,5 +30,8 @@ breaking changes first).
 
 ## Progress
 
-- [ ] Phase 1: formatters
-- [ ] Phase 2: docs
+- [x] Phase 1: formatters (`1d54340`; the new test file failed on master with 7 of 11 tests red, 297 core tests green after)
+- [x] Phase 2: docs (`961ba9b`)
+
+Gates on the branch: `npm run typecheck`, ESLint and the language gate green in pre-commit; the core package's 297 tests
+pass, the full `npm test` runs in pre-push.

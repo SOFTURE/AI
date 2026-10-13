@@ -45,12 +45,14 @@ export interface FormatPercentOptions {
 const MONTHS_PER_YEAR = 12;
 const MONTH_PATTERN = /^(\d{4})-(\d{2})$/;
 const ROMAN_MONTHS = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"] as const;
+
 /** The built-in, English words of `formatDuration`; any other category falls back to `other`. */
 export const DEFAULT_DURATION_MESSAGES: DurationMessages = {
   years: { one: "{count} year", other: "{count} years" },
   months: { one: "{count} month", other: "{count} months" },
   both: "{years} and {months}",
 };
+
 const BASIS_POINTS_PER_UNIT = 10_000;
 const MAX_PERCENT_FRACTION_DIGITS = 2;
 

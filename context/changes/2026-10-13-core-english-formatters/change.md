@@ -1,7 +1,7 @@
 ---
 change_id: core-english-formatters
 title: "core: English formatters by default and app-supplied translations (issue #438)"
-status: plan-reviewed
+status: implemented
 roadmap_item: null
 issue: 438
 branch: claude/project-thread-6nwt0b
