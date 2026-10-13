@@ -6,6 +6,10 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- `createAuthGuard` with `redirect: "relative"` answers 307 inside Next's proxy instead of 500 (`Invalid URL`): the
+  login URL is built on the request URL's own origin, which Next sends to the browser path-only, as before (#452). An
+  app that went back to the absolute redirect with its stack's origin in `origins.trustedOrigins` can switch back.
+
 - `createAuthGuard` drops Next's `_rsc` cache key from `next=` and keeps every other query parameter as the request
   spelled it, so a signed-out client navigation no longer lands on `/page?_rsc=…` after sign-in (#424). An app that
   strips `_rsc` before calling the guard can drop that.

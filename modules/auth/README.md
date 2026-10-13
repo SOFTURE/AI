@@ -259,8 +259,9 @@ never guarded, so `protect: ["/"]` cannot send the login page to itself. The cha
 stays guarded even under an excluded prefix.
 
 A stack the config cannot list (an integration run on a random port, a host added at deploy time)
-sets `redirect: "relative"`: the `Location` is the path only (`/login?next=%2Faccount`), so the browser
-stays on the host and port it used and no request header is read. An app whose image serves hosts it
+sets `redirect: "relative"`: the login URL is built on the request URL's own origin, which Next's proxy sends to
+the browser as the path only (`/login?next=%2Faccount`), so the browser stays on the host and port it used and no
+request header is read. Outside Next's proxy the `Location` stays absolute on the request URL's origin. An app whose image serves hosts it
 does not know in advance can instead set the config's `origins.trustRequestHost` (core README).
 
 **Roles.** A role is a declared name (`admin`, plus `auth({ roles: ["editor"] })`) held by an
