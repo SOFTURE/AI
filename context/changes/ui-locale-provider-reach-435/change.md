@@ -1,7 +1,7 @@
 ---
 change_id: ui-locale-provider-reach-435
 title: "ui locale: client components outside ui follow UiLocaleProvider (issue #435)"
-status: planned
+status: impl_reviewed
 roadmap_item: null
 issue: 435
 branch: claude/project-thread-02co4p

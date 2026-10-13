@@ -1,6 +1,6 @@
 ---
 change_id: ui-locale-provider-reach-435
-status: planned
+status: impl_reviewed
 ---
 
 # Plan: client components outside ui follow UiLocaleProvider (issue #435)
@@ -26,4 +26,7 @@ Files: `foundation/charts/src/cursor/chart-cursor.tsx`, `foundation/charts/src/c
 ## Progress
 
 - [x] Phase 1: charts reads the provider (`a1249fd`; 4 tests in `locale-provider.test.tsx`, written first and red before the fix)
-- [ ] Phase 2: docs
+- [x] Phase 2: docs (`3547673`; README lines in charts, billing, privacy, feature-switches; CHANGELOG `## Unreleased` in all four)
+
+Gates on the branch: `npm run typecheck`, `npm run lint`, `npm run build` green; charts tests (15 files, 233 tests)
+and repository tests (13 files, 510 tests) pass; the full `npm test` runs in pre-push.
