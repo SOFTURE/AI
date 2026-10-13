@@ -638,3 +638,146 @@ export function createFindTermTool(options: FindTermToolOptions = {}): WebMcpToo
     execute,
   };
 }
+
+// The same two tools for the inline boot script (#437): a page without a client component cannot run the TypeScript
+// above, so each tool is JavaScript source that `buildWebMcpBootScript` inlines. The logic is a second copy of the one
+// above, kept in step by running every behaviour test against both forms (tests/webmcp-search.test.ts).
+
+/** `SearchSiteToolOptions` for the boot script: the page's own `fetch` is used. */
+export type SearchSiteScriptToolOptions = Omit<SearchSiteToolOptions, "fetchImpl">;
+
+/** `FindTermToolOptions` for the boot script: the page's own `fetch` is used. */
+export type FindTermScriptToolOptions = Omit<FindTermToolOptions, "fetchImpl">;
+
+/** Helpers both script tools share. `O` is the tool's configuration; the page's `fetch` reads. */
+const SCRIPT_HELPERS = String.raw`
+const R = new Intl.PluralRules(O.locale);
+const say = (t, v, n) => (typeof t === "string" ? t : (t[R.select(n || 0)] ?? t.other)).replace(/\{(\w+)\}/g, (w, k) => (Object.hasOwn(v, k) ? String(v[k]) : w));
+const F = { 321: "l", 322: "l", 272: "d", 273: "d", 216: "o", 248: "o" };
+const fold = (t) => t.replace(/[^a-z0-9\s]/g, (c) => { const m = F[c.charCodeAt(0)]; if (m !== undefined) return m; const b = c.normalize("NFKD").charAt(0).toLowerCase(); return b.length === 1 ? b : c; });
+const toPath = (u) => { if (!URL.canParse(u, "http://localhost")) return null; const p = new URL(u, "http://localhost"); return p.pathname + p.search; };
+const str = (a, k) => { const v = typeof a === "object" && a !== null ? a[k] : undefined; return typeof v === "string" && v.trim() !== "" ? v.trim() : null; };
+const msgOf = (e) => (e instanceof Error ? e.message : String(e));
+const get = (path, accept) => fetch(path, { headers: { Accept: accept }, credentials: "omit" }).then((r) => { if (!r.ok) throw new Error(path + ": HTTP " + r.status); return r.text(); });
+const cache = (load) => { const m = new Map(); return (k) => { let p = m.get(k); if (p === undefined) { p = load(k); m.set(k, p); p.catch(() => m.delete(k)); } return p; }; };
+const fmValue = (raw) => { const v = raw.trim(); if (!v.startsWith('"')) return v === "" ? null : v; try { const p = JSON.parse(v); return typeof p === "string" && p !== "" ? p : null; } catch (e) { return null; } };
+const mdPage = (t) => { const f = /^---\n([\s\S]*?)\n---\n+/.exec(t); const l = f === null ? null : /^title:[ \t]*(.*)$/m.exec(f[1] ?? ""); return { title: l === null ? null : fmValue(l[1] ?? ""), body: t.replace(/^---\n[\s\S]*?\n---\n+/, "") }; };
+`;
+
+const SEARCH_SITE_SCRIPT = String.raw`
+const M = O.messages;
+const XE = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
+const words = (t) => [...new Set(fold(t).split(/[^\p{L}\p{N}]+/u).filter((w) => w !== ""))];
+const count = (hay, n) => { let c = 0; for (let i = hay.indexOf(n); i >= 0; i = hay.indexOf(n, i + n.length)) c += 1; return c; };
+const sitemapPaths = (xml) => { const out = []; for (const m of xml.matchAll(/<loc>\s*([^<]+?)\s*<\/loc>/g)) { const loc = (m[1] ?? "").replace(/&(amp|lt|gt|quot|apos);/g, (_, n) => XE[n] ?? ""); const p = toPath(loc); if (p !== null && !p.endsWith(".xml") && !out.includes(p)) out.push(p); } return out; };
+const readPaths = cache(async (s) => sitemapPaths(await get(s, "application/xml, text/xml")));
+const readPage = cache(async (p) => mdPage(await get(p, "text/markdown")));
+const mapLimited = async (items, limit, fn) => { const res = new Array(items.length); let next = 0; const worker = async () => { while (next < items.length) { const i = next++; res[i] = await fn(items[i]); } }; await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker)); return res; };
+const snippet = (body, at) => { const s = Math.max(0, at - ${SNIPPET_BEFORE}); const e = Math.min(body.length, at + ${SNIPPET_AFTER}); const t = body.slice(s, e).replace(/\s+/g, " ").trim(); return (s > 0 ? "…" : "") + t + (e < body.length ? "…" : ""); };
+const match = (path, page, ws) => { const title = page.title ?? /^#\s+(.+)$/m.exec(page.body)?.[1]?.trim() ?? path; const ft = fold(title); const fb = fold(page.body); let score = 0; let first = -1; for (const w of ws) { const a = count(ft, w); const b = count(fb, w); if (a + b === 0) return null; score += a * 10 + b; const i = fb.indexOf(w); if (i >= 0 && (first < 0 || i < first)) first = i; } return { path, title, score, snippet: snippet(page.body, Math.max(first, 0)) }; };
+return async (args, h) => {
+  const query = str(args, "query");
+  const ws = query === null ? [] : words(query);
+  if (query === null || ws.length === 0) return h.error(O.name + ": " + say(M.invalidQuery, {}));
+  const requested = args.limit;
+  const limit = typeof requested === "number" && Number.isInteger(requested) ? Math.min(Math.max(requested, 1), ${SEARCH_LIMIT_MAX}) : ${SEARCH_LIMIT_DEFAULT};
+  let paths;
+  try { paths = Array.isArray(O.pages.paths) ? O.pages.paths : await readPaths(O.pages.sitemap); } catch (e) { return h.error(O.name + ": " + msgOf(e)); }
+  const reads = await mapLimited(paths.slice(0, O.maxPages), ${READ_CONCURRENCY}, (p) => readPage(p).then((page) => ({ path: p, page, error: null }), (e) => ({ path: p, page: null, error: msgOf(e) })));
+  const failures = reads.filter((r) => r.page === null);
+  if (reads.length > 0 && failures.length === reads.length) return h.error(O.name + ": " + say(M.noPageRead, { error: failures[0].error }));
+  const read = reads.length - failures.length;
+  const total = paths.length;
+  const searched = read === total ? say(M.searched, { count: read }, read) : say(M.searchedSome, { read, total }, total);
+  const scope = failures.length > 0 ? say(M.failed, { scope: searched, count: failures.length }, failures.length) : searched;
+  const matches = reads.flatMap((r) => { const m = r.page === null ? null : match(r.path, r.page, ws); return m === null ? [] : [m]; }).sort((a, b) => b.score - a.score);
+  if (matches.length === 0) return h.ok(say(M.noMatch, { query, scope }));
+  const lines = matches.slice(0, limit).map((m, i) => (i + 1) + ". " + m.title + " (" + m.path + ")\n   " + m.snippet);
+  return h.ok([say(M.matches, { count: matches.length, query, scope }, matches.length), "", ...lines].join("\n"));
+};
+`;
+
+const FIND_TERM_SCRIPT = String.raw`
+const M = O.messages;
+const hasType = (n, t) => n["@type"] === t || (Array.isArray(n["@type"]) && n["@type"].includes(t));
+const glossaryTerms = (html) => {
+  const terms = [];
+  const visit = (n) => {
+    if (Array.isArray(n)) { n.forEach(visit); return; }
+    if (typeof n !== "object" || n === null) return;
+    if (hasType(n, "DefinedTerm") && typeof n.name === "string" && typeof n.url === "string") { const p = toPath(n.url); if (p !== null && !terms.some((t) => t.path === p)) terms.push({ name: n.name, description: typeof n.description === "string" ? n.description : "", path: p }); }
+    Object.values(n).forEach(visit);
+  };
+  for (const m of html.matchAll(/<script[^>]*type=["']?application\/ld\+json["']?[^>]*>([\s\S]*?)<\/script>/gi)) { try { visit(JSON.parse(m[1] ?? "")); } catch (e) { /* a broken block: the others still count */ } }
+  return terms;
+};
+const slug = (t) => fold(t).replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-+|-+$/g, "");
+const find = (terms, wanted) => { const f = fold(wanted); const exact = terms.find((t) => fold(t.name) === f) ?? terms.find((t) => t.path.split("/").pop() === slug(wanted)); if (exact !== undefined) return { exact }; const close = terms.filter((t) => { const n = fold(t.name); return n.includes(f) || f.includes(n); }); return close.length === 1 ? { exact: close[0] } : { close }; };
+const readTerms = cache(async (p) => glossaryTerms(await get(p, "text/html")));
+return async (args, h) => {
+  const wanted = str(args, "term");
+  if (wanted === null) return h.error(O.name + ": " + say(M.invalidTerm, {}));
+  let terms;
+  try { terms = await readTerms(O.glossary); } catch (e) { return h.error(O.name + ": " + msgOf(e)); }
+  if (terms.length === 0) return h.ok(say(M.emptyGlossary, {}));
+  const found = find(terms, wanted);
+  if (found.close !== undefined) {
+    if (found.close.length === 0) return h.ok(say(M.noMatch, { term: wanted }));
+    const lines = found.close.slice(0, ${CLOSE_TERMS_MAX}).map((t) => "- " + t.name + " (" + t.path + "): " + t.description);
+    return h.ok([say(M.closeTerms, { term: wanted }), ...lines].join("\n"));
+  }
+  const term = found.exact;
+  let definition;
+  try { definition = mdPage(await get(term.path, "text/markdown")).body.trim().slice(0, ${TERM_PAGE_MAX_LENGTH}); } catch (e) { definition = term.description; }
+  return h.ok(term.name + " (" + term.path + ")\n\n" + (definition === "" ? term.description : definition));
+};
+`;
+
+/** An `execute` source: an expression that runs once per page load and yields `async (args, h) => result`. */
+function buildScriptExecute(config: Readonly<Record<string, unknown>>, body: string): string {
+  return `(() => {\nconst O = ${toScriptJson(config)};${SCRIPT_HELPERS}${body}})()`;
+}
+
+/** Throws a RangeError, at build time rather than in the page, when `locale` is not a BCP 47 tag. */
+function checkLocale(locale: string): string {
+  Intl.getCanonicalLocales(locale);
+  return locale;
+}
+
+/**
+ * `searchSite` for `buildWebMcpBootScript({ tools })`: the same definition and answers as `createSearchSiteTool`, as
+ * JavaScript source that reads with the page's `fetch`.
+ */
+export function searchSiteScriptTool(options: SearchSiteScriptToolOptions = {}): WebMcpScriptTool {
+  const name = options.name ?? "searchSite";
+  const messages: SearchSiteMessages = { ...SEARCH_SITE_MESSAGES, ...options.messages };
+  const config = {
+    name,
+    pages: options.pages ?? { sitemap: "/sitemap.xml" },
+    maxPages: options.maxPages ?? MAX_PAGES_DEFAULT,
+    locale: checkLocale(options.locale ?? "en"),
+    messages,
+  };
+  return {
+    name,
+    description: options.description ?? SEARCH_SITE_DESCRIPTION,
+    inputSchema: buildSearchSiteInputSchema(messages),
+    execute: buildScriptExecute(config, SEARCH_SITE_SCRIPT),
+  };
+}
+
+/**
+ * `findTerm` for `buildWebMcpBootScript({ tools })`: the same definition and answers as `createFindTermTool`, as
+ * JavaScript source that reads with the page's `fetch`.
+ */
+export function findTermScriptTool(options: FindTermScriptToolOptions = {}): WebMcpScriptTool {
+  const name = options.name ?? "findTerm";
+  const messages: FindTermMessages = { ...FIND_TERM_MESSAGES, ...options.messages };
+  const config = { name, glossary: options.glossary ?? "/blog/glossary", locale: "en", messages };
+  return {
+    name,
+    description: options.description ?? FIND_TERM_DESCRIPTION,
+    inputSchema: buildFindTermInputSchema(messages),
+    execute: buildScriptExecute(config, FIND_TERM_SCRIPT),
+  };
+}
