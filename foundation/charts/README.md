@@ -449,6 +449,10 @@ const isPastMiddle = index !== null && (points[index]?.xPercent ?? 0) > 60;
 </ChartCursor>;
 ```
 
+`ChartCursor` and `EventAxis` are client components: their built-in copy takes `locale` from the prop, then from the
+nearest `UiLocaleProvider` of `@softure-ai/ui`, then `en`. The server components (`LineChart` and the primitives) cannot
+read the provider and take `locale` as a prop.
+
 ### Event axis
 
 `EventAxis` (a client component) is a horizontal timeline: `items` are spans (`{ kind: "span", startPercent,

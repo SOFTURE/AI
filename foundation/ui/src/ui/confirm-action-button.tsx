@@ -4,7 +4,7 @@ import { type FormEvent, type ReactNode, useCallback, useState } from "react";
 import { Button, type ButtonSize, type ButtonVariant, IconButton } from "./button.js";
 import { type ClassNames, createSlotClassGetter } from "./class-names.js";
 import { type CopyProps, getCopy } from "./copy.js";
-import { useUiLocale } from "./locale.js";
+import { useUiCopyProps, useUiLocale } from "./locale.js";
 import { Modal, ModalBody, ModalFooter, type ModalMotion, type ModalSlot } from "./modal.js";
 import { announceToast } from "./toast.js";
 
@@ -94,7 +94,7 @@ export function ConfirmActionButton({
   messages,
 }: ConfirmActionButtonProps) {
   const resolvedLocale = useUiLocale(locale);
-  const copy = getCopy("confirmAction", { locale: resolvedLocale, messages });
+  const copy = getCopy("confirmAction", useUiCopyProps("confirmAction", { locale: resolvedLocale, messages }));
   const [isOpen, setIsOpen] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
