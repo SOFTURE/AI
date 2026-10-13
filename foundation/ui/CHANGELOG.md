@@ -4,6 +4,12 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`ui@x.y.z`).
 
+## Unreleased
+
+- `UiLocaleProvider` and `SoftureThemeProvider` take `messages`: the app's own translation of the built-in copy, per
+  message group, used by every client component below them (#435). A component's own `messages` win key by key.
+  `UiLocaleProvider`'s `locale` is now optional (`en` when left out).
+
 ## 0.2.0
 
 - Source guards in `@softure-ai/ui/testing` for an app's design system (#403): `findUndefinedTokenClasses` (Tailwind

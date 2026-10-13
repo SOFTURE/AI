@@ -9,7 +9,7 @@ export const chartsMessages: Dictionaries<ChartsMessages> = { en, pl };
 
 /** The copy props of every component with built-in text. */
 export interface ChartsCopyProps {
-  /** Locale of the built-in copy; `en` by default. */
+  /** Locale of the built-in copy; a client component falls back to `UiLocaleProvider`, then `en`. */
   readonly locale?: Locale;
   /** Partial copy overrides for the current locale. */
   readonly messages?: DeepPartial<ChartsMessages>;

@@ -77,6 +77,16 @@ describe("softure-deploy verify", () => {
     expect(err).toEqual([]);
   });
 
+  it("exits 0 when a route answers a warnOn status and 1 when it answers another wrong one (issue #434)", async () => {
+    writeConfig({ verify: { routes: [{ path: "/key-directory", warnOn: { status: [404] } }] } });
+    expect(await runCli(["verify", baseUrl], makeIo())).toBe(0);
+    expect(out.join("")).toContain("WARN    404     /key-directory  status 404 (warnOn), expected 200\n");
+    out = [];
+    writeConfig({ verify: { routes: [{ path: "/", warnOn: { status: [404] }, headers: { "content-type": "application/json" } }] } });
+    expect(await runCli(["verify", baseUrl], makeIo())).toBe(1);
+    expect(out.join("")).toContain('FAIL    200     /      content-type: "text/html", expected "application/json"\n');
+  });
+
   it("exits 0 with a warn origin row when originSeverity is warn", async () => {
     writeConfig({ verify: { originSeverity: "warn", routes: [{ path: "/" }] } });
     // The local server stands in for an origin whose firewall lets anyone in.
