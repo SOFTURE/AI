@@ -1,12 +1,13 @@
 ---
 change_id: deploy-verify-warn-on-434
 title: "deploy: verify routes whose listed statuses only warn (issue #434)"
-status: implemented
+status: archived
 roadmap_item: null
 issue: 434
 branch: claude/project-thread-v7bw0v
 created: 2026-10-13
 updated: 2026-10-13
+archived_at: 2026-10-13
 ---
 
 ## Intent

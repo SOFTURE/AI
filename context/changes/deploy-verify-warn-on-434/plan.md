@@ -1,6 +1,6 @@
 ---
 change_id: deploy-verify-warn-on-434
-status: implemented
+status: archived
 ---
 
 # Plan: deploy verify warnOn (issue #434)
