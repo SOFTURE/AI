@@ -1,6 +1,6 @@
 ---
 change_id: i18n-english-only
-status: planned
+status: archived
 ---
 
 # Plan: English-only built-in copy (issue #446)
@@ -30,6 +30,11 @@ package touched, with the migration (pass `messages: { pl: {...} }`).
 
 ## Progress
 
-- [ ] Phase 1: core i18n
-- [ ] Phase 2: packages
-- [ ] Phase 3: docs
+- [x] Phase 1: core i18n (`b2b88551`; `tests/i18n-english-only-446.test.ts` fails on master, where `selectMessages`,
+  `pickLocalizedText` and `DEFAULT_LOCALE` do not exist; core 296 tests green after)
+- [x] Phase 2: packages (`abda3942`; per package `vitest run` green: ui and charts 809, auth, billing, blog and
+  feature-switches 1719, mailing and waitlist 711, the other modules and tools/config 693, deploy and marketing-kit 1261)
+- [x] Phase 3: docs (`66a214db`)
+
+Gates on the branch: `npm run typecheck` and `npm run lint` (ESLint and the language gate) green; the full `npm test`
+runs in pre-push.

@@ -1,7 +1,7 @@
 ---
 change_id: i18n-english-only
 title: "all packages: English is the only built-in copy, apps supply other languages (issue #446)"
-status: planned
+status: archived
 roadmap_item: null
 issue: 446
 branch: claude/project-thread-9gzvh0
@@ -53,3 +53,8 @@ no version bump, CHANGELOG `## Unreleased` entries only.
   language with `Intl.DisplayNames`.
 - deploy and marketing-kit derive their locale lists from their dictionaries, now `["en"]`.
 - The example app drops its `pl` dictionary and `APP_LOCALE`.
+- marketing-kit gets `brand.messages` (every key optional) so a product films in its own language; `MARKETING_LOCALES`
+  and `brand.language` go.
+- deploy's release notes and report are English only (developer-facing output); `deploy-report.yml` takes `locale: en`.
+- Tests that asserted Polish copy now pass an app translation (German ASCII words, locale `de`) and assert that a key
+  it leaves out reads English; plural paths that only a non-English locale reaches use marker forms with `pl` rules.
