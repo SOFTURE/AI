@@ -344,6 +344,7 @@ formatMoney(123456, "PLN", "en"); // "PLN 1,234.56"; thousands always grouped, a
 formatMoney(-123456, "PLN", "en", { rounded: true, signed: true }); // "-PLN 1,235"; { compact: true }: "PLN 1.2K"
 formatPercent(1250, "en"); // "12.5%" (basis points, at most two fraction digits)
 formatPercent(-50, "en", { signed: true, tight: true }); // "-0.5%"; 1250 signed: "+12.5%"
+formatPercent(1900, "en", { fractionDigits: 2 }); // "19.00%"; 300 at one digit, signed: "+3.0%"
 formatCalendarMonth("2026-10", "en"); // "October 2026"; "roman": "X 2026"
 formatDuration(38); // "3 years and 2 months" (whole months, as wholeMonthsBetween returns them)
 ```
@@ -354,6 +355,8 @@ table `CURRENCY_MINOR_UNIT_DIGITS` (a code outside it gets `Intl`'s digits), and
 Zero never carries a sign: a negative zero (`Math.round(-0.4)`) or an amount that rounds to zero shows as `PLN 0.00`,
 and a percentage that rounds to zero as `0%`. `signed` puts a `+` before a positive amount or percentage; the minus is
 the one `Intl` writes (a hyphen-minus in en). `tight` drops any space a locale's pattern puts before `%`.
+`fractionDigits` fixes the number of fraction digits (an integer from 0 to 20) so a column reads equally precise; a
+value that rounds to zero at that precision is still unsigned (`0.0%`).
 
 `formatCalendarMonth(month, locale, style)` takes `YYYY-MM` (`isCalendarMonth`) or a `YYYY-MM-DD` day. `long` is the
 month as written alone, `roman` the month in Roman numerals for compact tables.

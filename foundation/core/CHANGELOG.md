@@ -25,6 +25,9 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   - `coreMessages` no longer has the `duration` group.
 - `formatCalendarDay`, `formatCalendarMonth`, `formatMoney`, `formatPercent` and `selectPlural` take any BCP 47 locale
   tag, not only `LOCALES` (#438). Exported: `DurationMessages`, `FormatDurationOptions`, `DEFAULT_DURATION_MESSAGES`.
+- `formatPercent(basisPoints, locale, { fractionDigits })` prints exactly that many fraction digits (`19.00%`,
+  `+3.0%`), an integer from 0 to 20 (otherwise a `RangeError`). A value that rounds to zero at that precision stays
+  unsigned (`0.0%`). Without it, nothing changes: at most two digits (#455).
 
 ## 0.1.11
 
