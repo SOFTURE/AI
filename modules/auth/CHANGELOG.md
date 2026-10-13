@@ -10,6 +10,9 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   every other locale, which is now any BCP 47 tag. Migrate: an app that shows Polish keeps its own translation and
   passes it as the overrides for its locale, `auth({ messages: { pl: myTranslation } })`; a key it leaves out reads
   English.
+- `createAuthGuard` with `redirect: "relative"` answers 307 inside Next's proxy instead of 500 (`Invalid URL`): the
+  login URL is built on the request URL's own origin, which Next sends to the browser path-only, as before (#452). An
+  app that went back to the absolute redirect with its stack's origin in `origins.trustedOrigins` can switch back.
 - `createAuthGuard` drops Next's `_rsc` cache key from `next=` and keeps every other query parameter as the request
   spelled it, so a signed-out client navigation no longer lands on `/page?_rsc=…` after sign-in (#424). An app that
   strips `_rsc` before calling the guard can drop that.
