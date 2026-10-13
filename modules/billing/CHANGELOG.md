@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`billing@x.y.z`).
 
+## Unreleased
+
+- `AccessBadge` / `CurrentAccessBadge` take `texts` (the app's own text per kind, from the entitlement, the days
+  left and the badge's text), `variant` (`full`, `short`, or `responsive`: short below `md`), `srPrefix` (a
+  screen-reader label before the text) and `toneScope` (`pill` colours all the pill's text). The root always
+  carries `data-kind` and `data-tone`; new slots `full`, `short`, `prefix`. Defaults render as before (#426).
+
 ## 0.2.1
 
 - The `@softure-ai/ui` peer range also accepts 0.2.0.
