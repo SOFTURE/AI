@@ -1,6 +1,6 @@
 {
   "id": "feature-switches",
-  "version": "0.1.8",
+  "version": "0.2.0",
   "dependsOn": { "auth": "^0.1.0" },
   "dbSchema": "features",
   "tables": ["switches"],
