@@ -1,6 +1,6 @@
 ---
 change_id: ui-locale-provider-reach-435
-status: impl_reviewed
+status: archived
 ---
 
 # Plan: client components outside ui follow UiLocaleProvider (issue #435)
