@@ -38,5 +38,5 @@ deploy is at 0.1.11 on master. Releases are batched by the coordinator: no versi
 - A listed status that equals the route's `status` is refused by the schema (it could never warn); the list must be
   non-empty and unique.
 - `warnOn` also covers a `forEach` source: a listed status on the sitemap or index is one `WARN` row, not a failure.
-- The issue's minor aside (a header check anchored at the start of the value) is out of scope: filed as its own issue.
+- The issue's minor aside (a header check anchored at the start of the value) is out of scope: filed as issue #441.
 - No version bump; `## Unreleased` in the CHANGELOG.

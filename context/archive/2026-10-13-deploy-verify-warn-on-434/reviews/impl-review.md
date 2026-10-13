@@ -15,7 +15,7 @@ Checked the diff (`eb8849e`, `bc97546`) against plan.md, change.md and issue #43
 | 3 | Check | A request error has no status and keeps the route's severity: an unreachable key directory still fails. | No change. |
 | 4 | Check | `schema/deploy.schema.json` was regenerated with `npm run schema`; `tests/schema.test.ts` compares it with the zod schema. | No change. |
 | 5 | Check | No other code enumerates route keys (dry run, templates), so nothing else needs `warnOn`. | No change. |
-| 6 | Note | The issue's aside (a header check anchored at the start of the value) is not done here; filed as its own issue. | Recorded in change.md. |
+| 6 | Note | The issue's aside (a header check anchored at the start of the value) is not done here; filed as issue #441. | Recorded in change.md. |
 
 Gates: `npm run typecheck`, `npm run lint` green in the pre-commit hook; the verify tests (9 files, 147 tests) pass;
 the full `npm test` runs in pre-push.
