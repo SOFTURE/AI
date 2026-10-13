@@ -1,6 +1,6 @@
 ---
 change_id: deploy-notes-keep-report
-status: planned
+status: archived
 ---
 
 # Plan: deploy-release-notes.yml keeps the report sections (issue #436)
@@ -27,4 +27,7 @@ Files: `.github/workflows/deploy-release-notes.yml`, `tools/deploy/examples/rele
 
 ## Progress
 
-- [ ] Phase 1: keep-report input
+- [x] Phase 1: keep-report input (`f38ec9d`; 7 new or extended tests, written first and failing before the change)
+
+Gates on the branch: `npm run typecheck` and ESLint green; the deploy workflow and init tests pass (219); the full
+`npm test` passed in pre-push (6753 passed, 155 skipped).

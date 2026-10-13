@@ -1,12 +1,13 @@
 ---
 change_id: deploy-notes-keep-report
 title: "deploy: deploy-release-notes.yml can keep the softure-deploy report sections (issue #436)"
-status: planned
+status: archived
 roadmap_item: null
 issue: 436
 branch: claude/project-thread-13vw5e
 created: 2026-10-13
 updated: 2026-10-13
+archived_at: 2026-10-13
 ---
 
 ## Intent
