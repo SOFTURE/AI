@@ -1,6 +1,6 @@
 ---
 change_id: auth-guard-rsc-424
-status: open
+status: archived
 ---
 
 # Plan: auth guard drops _rsc from next= (issue #424)
@@ -22,4 +22,8 @@ Files: `modules/auth/src/proxy/index.ts`, `modules/auth/tests/guard.test.ts`, `m
 
 ## Progress
 
-- [ ] Phase 1: drop _rsc from next=
+- [x] Phase 1: drop _rsc from next= (`6518be0`; 8 new tests, written first and failing before the fix; the
+  spelling test passed before and after, as intended)
+
+Gates on the branch: `npm run typecheck` and ESLint green; auth tests pass (378); the full `npm test` runs in
+pre-push.

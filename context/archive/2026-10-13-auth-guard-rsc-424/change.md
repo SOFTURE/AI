@@ -1,12 +1,13 @@
 ---
 change_id: auth-guard-rsc-424
 title: "auth: createAuthGuard drops Next's _rsc parameter from next= (issue #424)"
-status: open
+status: archived
 roadmap_item: null
 issue: 424
 branch: claude/project-thread-jmzazu
 created: 2026-10-13
 updated: 2026-10-13
+archived_at: 2026-10-13
 ---
 
 ## Intent
