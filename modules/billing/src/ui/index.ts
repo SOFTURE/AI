@@ -8,7 +8,12 @@ export {
   type AccessBadgeKindOptions,
   type AccessBadgeProps,
   type AccessBadgeSlot,
+  type AccessBadgeText,
+  type AccessBadgeTextFormatter,
+  type AccessBadgeTextInput,
+  type AccessBadgeVariant,
   type AccessTone,
+  type AccessToneScope,
 } from "./access-badge.js";
 export { AccessNotice, type AccessNoticeProps, type AccessNoticeSlot, type AccessNoticeTone } from "./access-notice.js";
 export { formatDay, formatDayCount, formatDaysLeft, formatLastDay, formatPeriod, formatShortDay, formatShortLastDay } from "./format.js";

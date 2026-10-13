@@ -45,4 +45,7 @@ billing is at 0.2.1 on master. Releases are batched by the coordinator: no versi
   breakpoint billing already uses. The default short text is the status alone.
 - The accessible prefix is a prop (`srPrefix`), not a message: the default badge stays as it is, and the words are
   the app's.
-- Whole-pill tone is `toneScope: "status" | "pill"`; `data-tone` is the class hook for anything else.
+- Whole-pill tone is `toneScope: "status" | "pill"`: `pill` puts the tone's text colour on the root, so status and
+  detail both take it. A tinted background is not built in: ui compiles no warning tint (`bg-warning/10`), and adding
+  one would widen this change into ui. `data-tone` is the hook for an app's own tint (`data-[tone=warning]:…` in
+  `classNames.root`, or a CSS attribute selector).

@@ -17,10 +17,10 @@ Files: `src/ui/access-badge.tsx`, `src/ui/index.ts`, `src/next/access.tsx`, `tes
    (`full` | `short` | `responsive`), `AccessToneScope` (`status` | `pill`). Exported from `/ui`.
 2. `texts` replaces the default text of the kinds it names; the formatter's result is used as is.
 3. `variant`: `full` (default) renders as today; `short` renders one `short` slot with `text.short ?? text.status`;
-   `responsive` renders the full parts inside a `full` slot hidden below `sm` and the `short` slot hidden from `sm`.
+   `responsive` renders the full parts inside a `full` slot hidden below `md` and the `short` slot hidden from `md` (classes ui compiles).
 4. `srPrefix`: a `prefix` slot (default `sft:sr-only`) with the prefix and a space, first in the root.
-5. Root gets `data-kind` and `data-tone`; `toneScope="pill"` adds the tone's border and tint to the root (neutral
-   keeps the default surface).
+5. Root gets `data-kind` and `data-tone`; `toneScope="pill"` puts the tone's text colour on the root; status and detail
+   inherit it.
 6. `CurrentAccessBadge` takes and passes `texts`, `variant`, `srPrefix`, `toneScope`.
 
 Tests: per-kind override (with days left), defaults kept for other kinds, short and responsive structure,
