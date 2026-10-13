@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`billing@x.y.z`).
 
+## Unreleased
+
+- `sendAccessReminders`' `buildMail` may return a plain-text mail: it returns `AccessReminderTemplateMail` (`subject`,
+  `text` and an optional `html`, exported from `@softure-ai/billing/mailing`), and a mail without `html` reaches the
+  provider with no HTML body. The package's own mail (`renderAccessReminderMail`, the template's `mail`) keeps its
+  HTML body (#428).
+
 ## 0.2.1
 
 - The `@softure-ai/ui` peer range also accepts 0.2.0.
