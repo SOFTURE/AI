@@ -88,10 +88,13 @@ export function formatMessage(template: string, params: Readonly<Record<string, 
   });
 }
 
-const pluralRulesByLocale = new Map<Locale, Intl.PluralRules>();
+const pluralRulesByLocale = new Map<string, Intl.PluralRules>();
 
-/** The form for `count` under the plural rules of `locale` ("1 file", "2 files"). */
-export function selectPlural(locale: Locale, count: number, forms: PluralForms): string {
+/**
+ * The form for `count` under the plural rules of `locale`, any BCP 47 tag ("1 file", "2 files"). A category the
+ * forms leave out falls back to `other`.
+ */
+export function selectPlural(locale: string, count: number, forms: PluralForms): string {
   let rules = pluralRulesByLocale.get(locale);
   if (rules === undefined) {
     rules = new Intl.PluralRules(locale);

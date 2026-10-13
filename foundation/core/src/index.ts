@@ -13,6 +13,7 @@ export {
 } from "./calendar-day.js";
 export { CURRENCY_MINOR_UNIT_DIGITS } from "./currency-digits.js";
 export {
+  DEFAULT_DURATION_MESSAGES,
   formatCalendarDay,
   formatCalendarMonth,
   formatDuration,
@@ -21,6 +22,8 @@ export {
   isCalendarMonth,
   type CalendarDayStyle,
   type CalendarMonthStyle,
+  type DurationMessages,
+  type FormatDurationOptions,
   type FormatMoneyOptions,
   type FormatPercentOptions,
 } from "./format.js";
