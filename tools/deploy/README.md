@@ -567,8 +567,12 @@ cannot edit a release through the API, but it can start a `workflow_dispatch`, a
 `init` writes the caller `.github/workflows/release-notes.yml` (the same file as
 [`examples/release-notes.yml`](examples/release-notes.yml): `workflow_dispatch` with the required inputs `tag` and
 `body`, `permissions: contents: write`). The job refuses an invalid tag and an empty body, then runs
-`gh release edit <tag> --notes-file <file>` with the body written to the file byte for byte. It replaces the whole
-body; edit the release's current text and pass all of it.
+`gh release edit <tag> --notes-file <file>` with the body written to the file byte for byte. With `keep-report: true`
+(the caller's default; the reusable workflow defaults to `false`) `body` is only the owner's text: the job appends the
+current body from its first `<!-- softure-deploy:` marker on, unchanged, after a blank line, so the sections
+`release-notes` and `report` wrote survive. A body that itself carries such a marker is refused, and a release without
+one is replaced whole. With `keep-report: false` it replaces the whole body; edit the release's current text and pass
+all of it.
 
 ### End-to-end test
 
@@ -631,7 +635,7 @@ softure-deploy init --domain=example.com --image=ghcr.io/acme/app [--dir=.] [--n
 | `scripts/migrate.ts` | with a database: the migrate step the `Dockerfile` bundles |
 | `.github/workflows/deploy.yml` | the caller of `deploy-app.yml` with the domain, the image and the health path |
 | `.github/workflows/release.yml` | the caller of `deploy-cut-release.yml` (below): *Run workflow* cuts the next date tag in `UTC` and starts `deploy.yml` on it |
-| `.github/workflows/release-notes.yml` | the caller of `deploy-release-notes.yml` (below): *Run workflow* with `tag` and `body` replaces that release's body |
+| `.github/workflows/release-notes.yml` | the caller of `deploy-release-notes.yml` (below): *Run workflow* with `tag` and `body` replaces that release's body above its softure-deploy sections (`keep-report`) |
 | `.github/workflows/checks.yml` | the caller of `deploy-release-checks.yml` (below): `static` on every pull request, the unit tests on demand or with the `run-tests` label |
 | `deploy.json` | a `verify` starter: `/` without an error page, `/api/health` when the app has one, HSTS present, `x-powered-by` absent; with a database and `--tables`, `database.rowCountTables`; with `--cdn=cloudflare`, the range refresh hooks |
 

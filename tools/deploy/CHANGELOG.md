@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
+## Unreleased
+
+- `deploy-release-notes.yml` takes `keep-report` (boolean, default `false`): it writes `body`, then the current body from
+  its first `<!-- softure-deploy:` marker on, unchanged, so editing the owner's text no longer wipes the sections
+  `release-notes` and `report` wrote (issue #436). A body carrying a marker is refused; a release without one is
+  replaced whole. The `release-notes.yml` caller (`init`, `examples/`) exposes `keep-report` with default `true`; an
+  app that ran `init` before copies it from `examples/release-notes.yml`.
+
 ## 0.1.11
 
 - `softure-deploy run --local <script> [args]` runs the ops script an image bundles (`scripts/ops/<name>.ts`) on this
