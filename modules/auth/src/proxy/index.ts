@@ -32,9 +32,11 @@ export interface AuthGuardOptions {
    */
   readonly trustedOrigins?: readonly string[];
   /**
-   * `"absolute"` (default): the login URL is built on the resolved origin (above). `"relative"`: the `Location` is
-   * the path only (`/login?next=…`), so the browser stays on whatever host and port it used; for a stack served on
-   * ports or hosts the config cannot list (an integration run on a random port).
+   * `"absolute"` (default): the login URL is built on the resolved origin (above). `"relative"`: it is built on the
+   * request URL's own origin, which Next's proxy sends to the browser as the path only (`/login?next=…`), so the
+   * browser stays on whatever host and port it used; for a stack served on ports or hosts the config cannot list (an
+   * integration run on a random port). Outside Next the `Location` stays absolute on that origin, which behind a
+   * reverse proxy is the internal one: keep the default there.
    */
   readonly redirect?: "absolute" | "relative";
 }
@@ -78,8 +80,9 @@ export function createAuthGuard(config: SoftureConfig, options: AuthGuardOptions
     const login = new URL(routes.login, resolveAppOrigin(config, request, { trustedOrigins }));
     login.searchParams.set("next", getReturnPath(url));
     if (options.redirect !== "relative") return Response.redirect(login, 307);
-    // A path-only Location reads no request header at all; `Response.redirect` would need an absolute URL.
-    return new Response(null, { status: 307, headers: { location: `${login.pathname}${login.search}` } });
+    // On the origin the request URL names, reading no request header. Next's proxy needs an absolute Location
+    // (a path-only one is a 500) and sends a same-host one to the browser path-only (#452).
+    return Response.redirect(new URL(`${login.pathname}${login.search}`, url.origin), 307);
   };
 }
 
