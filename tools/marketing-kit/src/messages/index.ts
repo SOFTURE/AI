@@ -1,17 +1,25 @@
 import { en } from "./en.js";
-import { pl } from "./pl.js";
 
-/** Complete default dictionaries of the copy that ends up in a film or a post. */
-export const marketingMessages = { en, pl };
-
-export type MarketingLocale = keyof typeof marketingMessages;
+/** The built-in copy that ends up in a film or a post: English, the only built-in language. */
+export const marketingMessages = { en };
 
 export type MarketingMessages = typeof en;
 
-export const MARKETING_LOCALES = Object.keys(marketingMessages) as MarketingLocale[];
+/** The same shape with every key optional: `brand.messages`, an app's own translation or changed English copy. */
+export type MarketingMessageOverrides = {
+  readonly [Group in keyof MarketingMessages]?: {
+    readonly [Key in keyof MarketingMessages[Group]]?: MarketingMessages[Group][Key] extends string
+      ? string
+      : { readonly [Leaf in keyof MarketingMessages[Group][Key]]?: string };
+  };
+};
 
-export function getMarketingMessages(locale: MarketingLocale): MarketingMessages {
-  return marketingMessages[locale];
+/** The English copy with the app's overrides applied; a key the overrides leave out reads English. */
+export function getMarketingMessages(overrides: MarketingMessageOverrides = {}): MarketingMessages {
+  return {
+    posts: { ...en.posts, ...overrides.posts, platforms: { ...en.posts.platforms, ...overrides.posts?.platforms } },
+    film: { ...en.film, ...overrides.film },
+  };
 }
 
 /** Replaces every `{name}` in `template` with its value; an unknown placeholder is a bug, so it throws. */

@@ -69,7 +69,6 @@ describe("issuing a token behind the app's gate", () => {
       const state = await issueToken({ status: "idle" }, form({ name: "Laptop", canWrite: "on" }), { beforeIssue: () => err(code) });
       expect(state).toEqual({ status: "error", error: code });
       expect(getTokenErrorMessage(mcpAccessMessages.en, code)).not.toBe(getTokenErrorMessage(mcpAccessMessages.en, "core.unexpected"));
-      expect(getTokenErrorMessage(mcpAccessMessages.pl, code)).not.toBe(getTokenErrorMessage(mcpAccessMessages.en, code));
     }
     expect(await listAccessTokens(test.ctx, alice)).toEqual([]);
   });

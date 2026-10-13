@@ -4,11 +4,11 @@ import { describe, expect, it } from "vitest";
 const CODES: SwitchFormErrorCode[] = ["feature-switches.unknown_switch", "auth.forbidden", "core.database_failed", "core.unexpected"];
 
 describe("feature-switches messages", () => {
-  it.each(["en", "pl"] as const)("have copy in %s for every code the panel can show", (locale) => {
+  it("have English copy for every code the panel can show", () => {
     for (const code of CODES) {
-      const message = getSwitchErrorMessage(featureSwitchesMessages[locale], code);
+      const message = getSwitchErrorMessage(featureSwitchesMessages.en, code);
       expect(message, code).not.toBe("");
-      expect(message === featureSwitchesMessages[locale].errors.core.unexpected, code).toBe(code === "core.unexpected" || code === "core.database_failed");
+      expect(message === featureSwitchesMessages.en.errors.core.unexpected, code).toBe(code === "core.unexpected" || code === "core.database_failed");
     }
   });
 
@@ -25,7 +25,7 @@ describe("feature-switches messages", () => {
     expect(getSwitchErrorMessage(featureSwitchesMessages.en, "auth.toString")).toBe(featureSwitchesMessages.en.errors.core.unexpected);
   });
 
-  it("are translated, not copied", () => {
-    expect(featureSwitchesMessages.pl.panel.title).not.toBe(featureSwitchesMessages.en.panel.title);
+  it("ship English as the only built-in language", () => {
+    expect(Object.keys(featureSwitchesMessages)).toEqual(["en"]);
   });
 });

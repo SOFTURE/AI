@@ -591,7 +591,7 @@ classes or its own layout (section 4).
 
 ## 9. Copy
 
-`src/messages/{en,pl}.ts`: `errors.mailing.{invalid_input,rejected,unavailable,suppressed,provider_refused,quota_exceeded}`,
+`src/messages/en.ts`: `errors.mailing.{invalid_input,rejected,unavailable,suppressed,provider_refused,quota_exceeded}`,
 `footer.{text,htmlLead,htmlLink}` (the list-mail footer, in the app's locale) and
 `unsubscribe.*` (the page). `getMailingErrorMessage(messages, code)` returns the copy for a code;
 override any text with `mailing({ messages: { en: { footer: { text: "…" } } } })`.

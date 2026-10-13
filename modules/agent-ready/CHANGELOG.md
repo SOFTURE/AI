@@ -6,6 +6,10 @@ version in production, the version gets a line `verified in: <app>@<commit>` ([d
 
 ## Unreleased
 
+- **Breaking (#446):** the built-in `pl` dictionary is gone; English is the only built-in copy and the fallback for
+  every other locale, which is now any BCP 47 tag. Migrate: an app that shows Polish keeps its own translation and
+  passes it as the overrides for its locale, `agentReady({ messages: { pl: myTranslation } })`; a key it leaves out
+  reads English.
 - The ready-made WebMCP tools work from the inline boot script (#437): `searchSiteScriptTool(options)` and
   `findTermScriptTool(options)` return `WebMcpScriptTool`s for `buildWebMcpBootScript({ tools })`, with the same
   definitions and answers as `createSearchSiteTool()` / `createFindTermTool()`. An app whose landing page ships no

@@ -3,9 +3,7 @@
 // that both mails carry it.
 import { escapeHtml, type WaitlistMailTemplate } from "@softure-ai/waitlist";
 import { en } from "../messages/en.ts";
-import { pl } from "../messages/pl.ts";
 
-const APP_NAMES = { en: en.meta.title, pl: pl.meta.title };
 
 export const waitlistMailLayout: WaitlistMailTemplate = (mail) =>
   [
@@ -13,7 +11,7 @@ export const waitlistMailLayout: WaitlistMailTemplate = (mail) =>
     `<html lang="${mail.locale}">`,
     `<head><meta charset="utf-8"><title>${escapeHtml(mail.subject)}</title></head>`,
     "<body>",
-    `<h1 data-app-mail="${mail.kind}">${escapeHtml(APP_NAMES[mail.locale])}</h1>`,
+    `<h1 data-app-mail="${mail.kind}">${escapeHtml(en.meta.title)}</h1>`,
     mail.body,
     "</body>",
     "</html>",

@@ -170,10 +170,9 @@ export { MIN_FAILING_STATUS, SCREENSHOT_GATES, findScrollFailure, findSizeFailur
 export { findStorageStateProblem } from "./screenshot/storage-state.js";
 export { getScreenshotNames, getScreenshotShots, type ScreenshotNaming, type ScreenshotShot } from "./config/screenshot-names.js";
 export {
-  MARKETING_LOCALES,
   formatMessage,
   getMarketingMessages,
   marketingMessages,
-  type MarketingLocale,
+  type MarketingMessageOverrides,
   type MarketingMessages,
 } from "./messages/index.js";

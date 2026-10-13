@@ -6,7 +6,7 @@ The contract every SOFTURE module stands on. Standard:
 ## 1. What it provides
 
 The app configuration (`defineSoftureConfig`), the module contract (`defineModule`), `Result`
-with namespaced error codes, an injectable `Clock`, `pl`/`en` messages with partial overrides,
+with namespaced error codes, an injectable `Clock`, English messages with partial overrides and app-supplied translations,
 and `safeError` with `PublicError`. `@softure-ai/core/cli` loads the app's config for the modules' command-line tools.
 `@softure-ai/core/og` (server only) is the OG card font loader the modules share (`createOgFontLoader`,
 `loadOgFonts`); an app takes it from `@softure-ai/seo/server`, where it is documented.
@@ -27,7 +27,7 @@ interface SoftureConfigInput {
     url: string;
     handle?: () => DatabaseHandle | Promise<DatabaseHandle>; // the app's own handle, see below
   } | null;
-  locale: "en" | "pl";
+  locale: string;                    // a BCP 47 tag, e.g. "en" or "de-AT"
   timezone: string;                  // IANA zone, e.g. "Europe/Warsaw"
   appOrigin: string;                 // http(s) origin without a path
   landingOrigin?: string;            // the public landing site beside the app (default: appOrigin)
@@ -47,7 +47,7 @@ import { notes } from "@softure-ai/notes";
 
 const config = defineSoftureConfig({
   database: { url: process.env.DATABASE_URL ?? "" },
-  locale: "pl",
+  locale: "en",
   timezone: "Europe/Warsaw",
   appOrigin: process.env.APP_ORIGIN ?? "http://localhost:3000",
   modules: [notes({ limit: 10, routes: { list: "/my-notes" }, messages: { en: { list: { title: "My notes" } } } })],
@@ -249,10 +249,28 @@ None. Tokens, slots and styles live in `@softure-ai/ui`.
 
 ## 9. Copy
 
-- `LOCALES` is `["en", "pl"]`; every module ships both dictionaries complete (`pl.ts` is typed
-  `typeof en`).
-- `mergeMessages(defaults, overrides)` applies partial overrides per locale; unknown keys and a
-  string in place of a group are ignored.
+- English is the only built-in language: every module ships one complete `en` dictionary, and
+  `DEFAULT_LOCALE` is `"en"`. `Locale` is any BCP 47 tag; `isLocale(value)` says whether a value is a
+  well-formed one, and `defineSoftureConfig` refuses a `locale` that is not.
+- `Dictionaries<T>` is a complete `en` plus any other locales; `MessageOverrides<T>` partial dictionaries keyed
+  by locale. `mergeMessages(defaults, overrides)` returns `en` and every locale the defaults or the overrides
+  name; a locale without its own defaults is built on `en`. Unknown keys and a string in place of a group are
+  ignored.
+- `selectMessages(dictionaries, locale)` picks the exact locale, then its language (`de-AT` reads `de`), then
+  `en`. `pickLocalizedText(text, locale, fallback?)` does the same for an app's `LocalizedText`
+  (`{ en: "Monthly", de: "Monatlich" }`).
+- **Another language is the app's own translation.** The app sets `locale` and passes its dictionary as the
+  overrides for that locale, per module; a key it leaves out reads English:
+
+  ```ts
+  defineSoftureConfig({
+    locale: "de",
+    // ...
+    modules: [auth({ messages: { de: authDe } })], // authDe: DeepPartial<AuthMessages>, kept in the app
+  });
+  ```
+
+  The ui and charts components take the same translation through their `messages` prop (or the ui provider).
 - `formatMessage("{count} of {total}", { count, total })` fills placeholders; a missing value
   stays visible as `{name}`.
 - `selectPlural(locale, count, { one, few, many, other })` uses `Intl.PluralRules`, built once per
@@ -330,7 +348,7 @@ formatCalendarMonth("2026-10", "en"); // "October 2026"; "roman": "X 2026"
 formatDuration(38); // "3 years and 2 months" (whole months, as wholeMonthsBetween returns them)
 ```
 
-Every formatter takes any BCP 47 locale tag, not only `LOCALES` (an invalid tag throws `Intl`'s `RangeError`), and
+Every formatter takes any BCP 47 locale tag (an invalid tag throws `Intl`'s `RangeError`), and
 writes it as `Intl` does. A day is formatted at UTC midnight in UTC, so no zone moves it. `formatMoney` takes the amount in the currency's minor unit, read from the pinned ISO 4217
 table `CURRENCY_MINOR_UNIT_DIGITS` (a code outside it gets `Intl`'s digits), and always groups thousands.
 Zero never carries a sign: a negative zero (`Math.round(-0.4)`) or an amount that rounds to zero shows as `PLN 0.00`,

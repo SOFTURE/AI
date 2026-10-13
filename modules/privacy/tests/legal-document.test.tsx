@@ -7,9 +7,8 @@ import { afterEach, describe, expect, it } from "vitest";
 afterEach(cleanup);
 
 const en = privacyMessages.en;
-// What Intl prints for 2026-10-01 in Polish; escaped, because repository text outside the message
-// dictionaries is English (AGENTS.md, the language gate).
-const POLISH_OCTOBER_FIRST = "1 pa\u017Adziernika 2026";
+// A translation an app passes for its own locale; the module ships English only.
+const de = { ...en, legal: { ...en.legal, version: "Version", effectiveFrom: "gilt ab", contents: "Inhalt" } };
 
 const SECTIONS = [
   { id: "who-we-are", title: "Who we are", content: <p>Example Ltd.</p> },
@@ -51,11 +50,10 @@ describe("LegalDocument", () => {
     expect(screen.queryByRole("region", { name: en.legal.changes })).toBeNull();
   });
 
-  it("uses the Polish labels and date format with the Polish messages", () => {
-    const pl = privacyMessages.pl;
-    render(<LegalDocument title="Regulamin" version="1" effectiveFrom="2026-10-01" sections={SECTIONS} messages={pl} locale="pl" />);
-    expect(screen.getByText(`${pl.legal.version} 1 · ${pl.legal.effectiveFrom} ${POLISH_OCTOBER_FIRST}`)).toBeDefined();
-    expect(screen.getByRole("navigation", { name: pl.legal.contents })).toBeDefined();
+  it("uses the labels of the messages it is given and the date format of the locale", () => {
+    render(<LegalDocument title="Nutzungsbedingungen" version="1" effectiveFrom="2026-10-01" sections={SECTIONS} messages={de} locale="de" />);
+    expect(screen.getByText("Version 1 · gilt ab 1. Oktober 2026")).toBeDefined();
+    expect(screen.getByRole("navigation", { name: "Inhalt" })).toBeDefined();
   });
 
   it("leaves out the table of contents of a document without sections", () => {

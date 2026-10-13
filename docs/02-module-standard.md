@@ -3,7 +3,7 @@
 Goal: an AI agent adds a feature to an app in a few steps (install the package, add it to the
 configuration, mount the routes, run the migrations) and does not have to write anything from scratch.
 
-> Decisions approved on 2026-10-02: one Postgres schema per module, compiled CSS on tokens, `pl` + `en` dictionaries from the start, npm scope `@softure-ai`.
+> Decisions approved on 2026-10-02: one Postgres schema per module, compiled CSS on tokens, `pl` + `en` dictionaries from the start (replaced on 2026-10-13: English is the only built-in language, see §6), npm scope `@softure-ai`.
 
 ## 1. Target stack
 
@@ -28,7 +28,7 @@ modules/<name>/
     server/             server-only logic; every function receives { db, clock } and never touches request scope
     next/               server actions, route handlers, pages ready to mount
     ui/                 React components (styled, overridable; see §5)
-    messages/           pl.ts, en.ts (complete default dictionaries)
+    messages/           en.ts (the complete built-in dictionary), index.ts
   tests/                vitest + PGlite (unit/contract) and e2e scenarios for the example app
 ```
 
@@ -160,9 +160,16 @@ The test reads the sources and runs the shared guards of `@softure-ai/testing/gu
 
 ## 6. Copy and localization
 
-- Every module ships complete `pl` and `en` dictionaries from the start (decision); an architecture
-  test checks that both have every key. The app picks a `locale` and passes partial overrides:
-  `auth({ messages: { en: { login: { title: "Sign in to Acme" } } } })`.
+- Every module ships one complete dictionary, `en`: English is the only built-in language (decision of
+  2026-10-13, replacing the earlier `pl` + `en`). `tests/repo/packages.test.ts` checks that `src/messages/` holds
+  `en.ts` and nothing else besides `index.ts`.
+- The app's `locale` is any BCP 47 tag. It changes English copy with partial overrides,
+  `auth({ messages: { en: { login: { title: "Sign in to Acme" } } } })`, and shows another language by passing
+  its own translation under that locale, `auth({ messages: { de: { login: { title: "Anmelden" } } } })`, with
+  `locale: "de"`. A key the translation leaves out reads English.
+- Module code reads its copy with `selectMessages(module.messages, config.locale)` (`@softure-ai/core`): the exact
+  locale, then its language (`de-AT` reads `de`), then `en`. App-written option texts per locale (plan names,
+  labels) are `LocalizedText`, read with `pickLocalizedText` in the same order; their schemas accept any tag.
 - Errors from `server/` are **codes** (`auth.invalid_credentials`); the UI translates them through `messages`.
 - `locale` and `timezone` come from `defineSoftureConfig`, not from module code (FIRE currently has
   `Europe/Warsaw` even in SQL).
@@ -180,7 +187,7 @@ import { mailing, resend } from "@softure-ai/mailing";
 
 export default defineSoftureConfig({
   database: { url: process.env.DATABASE_URL ?? "" }, // empty at build time; refused on first connection
-  locale: "pl", timezone: "Europe/Warsaw",
+  locale: "en", timezone: "Europe/Warsaw",
   appOrigin: process.env.APP_ORIGIN!,
   modules: [
     security({ clientIp: cloudflareIp(), buckets: { login: { limit: 50, windowMinutes: 15 } } }),

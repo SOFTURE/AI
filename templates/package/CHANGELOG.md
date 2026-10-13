@@ -4,6 +4,10 @@ Newest first. Each version lists what changed for an app that uses the module. W
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- The template ships one `en` dictionary; English is the only built-in language (#446).
+
 ## 0.0.0
 
 - First version.

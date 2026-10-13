@@ -1,11 +1,10 @@
 import type { WaitlistFormErrorCode } from "../contract.js";
 import { en } from "./en.js";
-import { pl } from "./pl.js";
 
 export type WaitlistMessages = typeof en;
 
-/** Complete default dictionaries; apps pass partial overrides per locale. */
-export const waitlistMessages = { en, pl };
+/** The built-in English dictionary; an app passes partial overrides or its own translation per locale. */
+export const waitlistMessages = { en };
 
 /** The copy for an error code; an unknown code gets the generic failure. */
 export function getWaitlistErrorMessage(messages: WaitlistMessages, code: WaitlistFormErrorCode): string {

@@ -1,5 +1,5 @@
 // The feature-switches options of the running app, read from the configuration in the module context.
-import { getModule, type Locale, type SoftureConfig } from "@softure-ai/core";
+import { getModule, type Locale, type LocalizedText, pickLocalizedText, type SoftureConfig } from "@softure-ai/core";
 import type { FeatureSwitchesOptions, SwitchDefinition } from "../options.js";
 
 const MODULE_ID = "feature-switches";
@@ -47,7 +47,7 @@ export function getSwitchDefinition(config: SoftureConfig, name: string): Switch
   return definition;
 }
 
-/** The text in `locale`, else in `en`, else `fallback`. */
-export function getLocalizedText(text: Partial<Record<Locale, string>> | undefined, locale: Locale, fallback: string): string {
-  return text?.[locale] ?? text?.en ?? fallback;
+/** The text in `locale`, else in its language, else in `en`, else `fallback`. */
+export function getLocalizedText(text: LocalizedText | undefined, locale: Locale, fallback: string): string {
+  return pickLocalizedText(text, locale, fallback);
 }

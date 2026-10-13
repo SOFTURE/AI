@@ -6,6 +6,8 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- **Breaking (#446):** the `pl` dictionary is gone; release notes and the release report are English only
+  (`--locale=en`, `deployMessages.en`), and `deploy-report.yml` takes `locale: en` only.
 - `deploy-release-notes.yml` takes `keep-report` (boolean, default `false`): it writes `body`, then the current body from
   its first `<!-- softure-deploy:` marker on, unchanged, so editing the owner's text no longer wipes the sections
   `release-notes` and `report` wrote (issue #436). A body carrying a marker is refused; a release without one is
