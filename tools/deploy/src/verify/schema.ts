@@ -18,16 +18,26 @@ const RESERVED_REQUEST_HEADERS = new Set(["host", "content-length", "connection"
 /** A path on the app's host: `//` would make the URL protocol-relative and point at another host. */
 const ROUTE_PATH = /^\/(?!\/)\S*$/;
 
+/** One header check: text the value must contain, or `{ startsWith }` for text it must begin with (both case-insensitive). */
+const headerMatchSchema = z.union([
+  z.string().min(1),
+  z
+    .strictObject({ startsWith: z.string().min(1).describe("Text the header value must begin with (case-insensitive).") })
+    .describe("A check anchored at the start of the header value."),
+]);
+
 const headerChecksSchema = z
   .record(
     z.string().regex(HEADER_NAME, "a header name in lower case"),
     z
-      .union([z.string().min(1), z.array(z.string().min(1)).min(1), z.null()])
+      .union([headerMatchSchema, z.array(headerMatchSchema).min(1), z.null()])
       .describe(
-        "Text the header value must contain (case-insensitive), a list of texts it must all contain, or null when the header must be absent.",
+        "Text the header value must contain (case-insensitive), { startsWith } for text it must begin with, a list of such checks it must all pass, or null when the header must be absent.",
       ),
   )
-  .describe("Headers by lower-case name: text (or a list of texts) the value must contain, or null when the header must be absent.");
+  .describe(
+    "Headers by lower-case name: text the value must contain, { startsWith } for text it must begin with, a list of such checks, or null when the header must be absent.",
+  );
 
 const requestHeadersSchema = z
   .record(

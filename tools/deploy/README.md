@@ -330,8 +330,11 @@ softure-deploy verify <url> [--config=deploy.json] [--timeout=<ms>] [--concurren
   own config.
 - **Headers:** a value is text the header must contain, case-insensitive; a list of texts the value must all
   contain (`"link": ["rel=\"api-catalog\"", "rel=\"service-desc\""]`, `"cache-control": ["private", "no-store"]`),
-  each reported as its own check in the route's row; `null` means the header must be absent. `verify.headers`
-  applies to every route; a route's entry for the same name wins, the whole list with it.
+  each reported as its own check in the route's row; `null` means the header must be absent. A value that only
+  means something at a fixed position takes `{ "startsWith": "<text>" }`, anchored at the start of the value and
+  case-insensitive too (`"signature-input": { "startsWith": "binding0=(\"@authority\";req)" }`); it may also be an
+  item of a list. `verify.headers` applies to every route; a route's entry for the same name wins, the whole list
+  with it.
 - **Requests:** `GET` with `cache-control: no-cache`, redirects not followed, at most `--concurrency` at once
   (default 4), each within `verify.timeoutMs` (default 10000) or `--timeout`. A TLS, connection or timeout error
   fails that route with the reason; other routes still run.

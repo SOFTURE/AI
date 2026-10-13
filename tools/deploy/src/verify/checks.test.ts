@@ -131,6 +131,37 @@ describe("checkResponse", () => {
     ]);
   });
 
+  it("passes an anchored header check only when the value starts with the text, case-insensitively", () => {
+    const headers = { "signature-input": { startsWith: 'BINDING0=("@authority";req)' } };
+    const check = (value: string) =>
+      checkResponse({ route: route(), headers, response: response({ headers: { "signature-input": value } }), baseUrl: BASE })[1];
+    expect(check('binding0=("@authority";req);created=1')).toEqual({
+      kind: "header",
+      passed: true,
+      detail: 'signature-input starts with "BINDING0=(\\"@authority\\";req)"',
+    });
+    expect(check('other=("@method");binding0=("@authority";req)')).toEqual({
+      kind: "header",
+      passed: false,
+      detail:
+        'signature-input: "other=(\\"@method\\");binding0=(\\"@authority\\";req)", expected to start with "BINDING0=(\\"@authority\\";req)"',
+    });
+  });
+
+  it("fails an anchored header check when the header is missing and mixes it with substrings in a list", () => {
+    const checks = checkResponse({
+      route: route(),
+      headers: { "signature-input": { startsWith: "sig1=" }, link: [{ startsWith: "</a>" }, "api-catalog"] },
+      response: response({ headers: { link: '</a>; rel="api-catalog"' } }),
+      baseUrl: BASE,
+    });
+    expect(checks.slice(1)).toEqual([
+      { kind: "header", passed: false, detail: 'missing signature-input, expected to start with "sig1="' },
+      { kind: "header", passed: true, detail: 'link starts with "</a>"' },
+      { kind: "header", passed: true, detail: 'link has "api-catalog"' },
+    ]);
+  });
+
   it("fails every item of a header list when the header is missing", () => {
     const checks = checkResponse({
       route: route(),

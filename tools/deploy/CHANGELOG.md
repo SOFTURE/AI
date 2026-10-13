@@ -10,6 +10,10 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   other checks are skipped, while every other mismatch keeps the route's severity (issue #434). An optional resource
   such as the Web Bot Auth key directory warns while it is a 404 and fails on a login page or a 500. A listed status
   on a `forEach` source warns the same way; the schema refuses an empty or repeated list and the route's own status.
+- A verify header check takes `{ "startsWith": "<text>" }` next to the string, list and `null` forms: the value must
+  begin with the text, case-insensitive, so a Web Bot Auth `signature-input` that must start with
+  `binding0=("@authority";req)` no longer passes when that text appears later (issue #441). It may also be an item of
+  a list. A plain string keeps its substring meaning, so existing configs do not change.
 
 ## 0.1.11
 

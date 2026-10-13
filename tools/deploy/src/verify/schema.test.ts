@@ -49,6 +49,22 @@ describe("parseDeployConfig", () => {
     });
   });
 
+  it("keeps a header check anchored at the start, alone or in a list", () => {
+    const anchored = { startsWith: 'binding0=("@authority";req)' };
+    const parsed = parseDeployConfig({
+      verify: { headers: { "signature-input": anchored, link: [anchored, "rel=\"api-catalog\""] }, routes: [{ path: "/" }] },
+    });
+    expect(parsed.ok && parsed.config.verify?.headers).toEqual({ "signature-input": anchored, link: [anchored, 'rel="api-catalog"'] });
+  });
+
+  it("refuses an anchored header check that is empty, has no text or carries an unknown key", () => {
+    for (const check of [{}, { startsWith: "" }, { startsWith: "a", endsWith: "b" }, { equals: "a" }]) {
+      const parsed = parseDeployConfig({ verify: { routes: [{ path: "/", headers: { "signature-input": check } }] } });
+      expect(parsed.ok).toBe(false);
+      expect(!parsed.ok && parsed.issues.every((issue) => issue.startsWith("verify.routes.0.headers.signature-input"))).toBe(true);
+    }
+  });
+
   it("keeps a method, a body and request headers", () => {
     const route = {
       path: "/api/mcp",
