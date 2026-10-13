@@ -1,6 +1,6 @@
 ---
 change_id: ui-locale-provider-reach-435
-status: implementing
+status: archived
 ---
 
 # Plan: client components outside ui follow UiLocaleProvider (issue #435)
@@ -38,6 +38,8 @@ Files: `foundation/ui/src/ui/locale.tsx` (context value `{ locale, messages }`, 
 
 - [x] Phase 1: charts reads the provider (`a1249fd`; 4 tests in `locale-provider.test.tsx`, written first and red before the fix)
 - [x] Phase 2: docs (`3547673`; README lines in charts, billing, privacy, feature-switches; CHANGELOG `## Unreleased` in all four)
+- [x] Phase 3: own translation through the provider (`aef046e`; 5 tests in `locale-messages-435.test.tsx`, 4 red
+  before the change; ui suite 43 files green)
 
 Gates on the branch: `npm run typecheck`, `npm run lint`, `npm run build` green; charts tests (15 files, 233 tests)
 and repository tests (13 files, 510 tests) pass; the full `npm test` runs in pre-push.
