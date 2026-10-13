@@ -1,6 +1,6 @@
 ---
 change_id: core-english-formatters
-status: implemented
+status: archived
 ---
 
 # Plan: core English formatters (issue #438)

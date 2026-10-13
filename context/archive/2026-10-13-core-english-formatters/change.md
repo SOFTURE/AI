@@ -1,12 +1,13 @@
 ---
 change_id: core-english-formatters
 title: "core: English formatters by default and app-supplied translations (issue #438)"
-status: implemented
+status: archived
 roadmap_item: null
 issue: 438
 branch: claude/project-thread-6nwt0b
 created: 2026-10-13
 updated: 2026-10-13
+archived_at: 2026-10-13
 ---
 
 ## Intent
