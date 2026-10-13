@@ -198,8 +198,8 @@ Private prefixes still belong behind the route guard below; the option covers th
 (billing's payment page passes its parameters).
 
 **Route guard.** `createAuthGuard` returns `(request) => Response | null`: a redirect to the login
-page (with `?next=`) for a protected path without a session cookie, `null` otherwise. It only
-checks that the cookie is present, so **every private page and action still calls
+page (with `?next=`, the path and query without Next's `_rsc` cache key) for a protected path without a session
+cookie, `null` otherwise. It only checks that the cookie is present, so **every private page and action still calls
 `requireUser`**: the guard is a convenience, not the access check. Paths are compared decoded and
 lowercased (`/%61ccount` and `/ACCOUNT` are guarded like `/account`). It imports nothing from Next,
 so it chains with other proxy pieces:

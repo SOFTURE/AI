@@ -4,6 +4,12 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`auth@x.y.z`).
 
+## Unreleased
+
+- `createAuthGuard` drops Next's `_rsc` cache key from `next=` and keeps every other query parameter as the request
+  spelled it, so a signed-out client navigation no longer lands on `/page?_rsc=…` after sign-in (#424). An app that
+  strips `_rsc` before calling the guard can drop that.
+
 ## 0.1.13
 
 - `resolveOnlyAccount({ db, envName, env? })` in `@softure-ai/auth/server`: the account a local tool acts for, named by
