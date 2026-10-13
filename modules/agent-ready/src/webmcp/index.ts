@@ -283,6 +283,12 @@ function formatText(template: string, values: Readonly<Record<string, string | n
   return template.replace(/\{(\w+)\}/g, (whole, key: string) => (Object.hasOwn(values, key) ? String(values[key]) : whole));
 }
 
+/** The defaults with every override that is set; a key passed as `undefined` keeps its default. */
+function mergeMessages<T extends object>(defaults: Readonly<T>, overrides: Partial<T> | undefined): T {
+  const set = Object.entries(overrides ?? {}).filter(([, value]) => value !== undefined);
+  return { ...defaults, ...(Object.fromEntries(set) as Partial<T>) };
+}
+
 function selectPlural(text: WebMcpPluralText, count: number, rules: Intl.PluralRules): string {
   return typeof text === "string" ? text : (text[rules.select(count)] ?? text.other);
 }
@@ -436,7 +442,7 @@ export function createSearchSiteTool(options: SearchSiteToolOptions = {}): WebMc
   const fetchImpl: typeof fetch = (input, init) => (options.fetchImpl ?? fetch)(input, init);
   const readPaths = createCache(async (sitemap) => readSitemapPaths(await fetchText(fetchImpl, sitemap, "application/xml, text/xml")));
   const readPage = createCache(async (path) => readMarkdownPage(await fetchText(fetchImpl, path, "text/markdown")));
-  const messages: SearchSiteMessages = { ...SEARCH_SITE_MESSAGES, ...options.messages };
+  const messages: SearchSiteMessages = mergeMessages(SEARCH_SITE_MESSAGES, options.messages);
   const rules = new Intl.PluralRules(options.locale ?? "en");
   const say = (text: WebMcpPluralText, values: Readonly<Record<string, string | number>>, count = 0) =>
     formatText(selectPlural(text, count, rules), values);
@@ -602,7 +608,7 @@ export function createFindTermTool(options: FindTermToolOptions = {}): WebMcpToo
   const glossary = options.glossary ?? "/blog/glossary";
   const fetchImpl: typeof fetch = (input, init) => (options.fetchImpl ?? fetch)(input, init);
   const readTerms = createCache(async (path) => readGlossaryTerms(await fetchText(fetchImpl, path, "text/html")));
-  const messages: FindTermMessages = { ...FIND_TERM_MESSAGES, ...options.messages };
+  const messages: FindTermMessages = mergeMessages(FIND_TERM_MESSAGES, options.messages);
 
   const execute = async (args: unknown): Promise<WebMcpToolResult> => {
     const wanted = readNonEmptyString(args, "term");
@@ -750,7 +756,7 @@ function checkLocale(locale: string): string {
  */
 export function searchSiteScriptTool(options: SearchSiteScriptToolOptions = {}): WebMcpScriptTool {
   const name = options.name ?? "searchSite";
-  const messages: SearchSiteMessages = { ...SEARCH_SITE_MESSAGES, ...options.messages };
+  const messages: SearchSiteMessages = mergeMessages(SEARCH_SITE_MESSAGES, options.messages);
   const config = {
     name,
     pages: options.pages ?? { sitemap: "/sitemap.xml" },
@@ -772,7 +778,7 @@ export function searchSiteScriptTool(options: SearchSiteScriptToolOptions = {}):
  */
 export function findTermScriptTool(options: FindTermScriptToolOptions = {}): WebMcpScriptTool {
   const name = options.name ?? "findTerm";
-  const messages: FindTermMessages = { ...FIND_TERM_MESSAGES, ...options.messages };
+  const messages: FindTermMessages = mergeMessages(FIND_TERM_MESSAGES, options.messages);
   const config = { name, glossary: options.glossary ?? "/blog/glossary", locale: "en", messages };
   return {
     name,

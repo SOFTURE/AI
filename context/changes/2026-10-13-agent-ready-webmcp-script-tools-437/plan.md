@@ -1,6 +1,6 @@
 ---
 change_id: agent-ready-webmcp-script-tools-437
-status: in_progress
+status: archived
 ---
 
 # Plan: WebMCP ready-made tools as boot-script tools, with overridable answers (issue #437)
@@ -32,6 +32,11 @@ README WebMCP section (script form, `messages`, `locale`, English-only note), CH
 
 ## Progress
 
-- [ ] Phase 1: messages and locale for the JS tools
-- [ ] Phase 2: script forms
-- [ ] Phase 3: docs
+- [x] Phase 1: messages and locale for the JS tools (`512e607`; message, plural and placeholder tests written first)
+- [x] Phase 2: script forms (`0e0988c`; the #415 suites now run against both forms, plus definition, script-safety
+  and locale tests)
+- [x] Phase 3: docs (`4ff535f`)
+- [x] Implementation review fix: undefined overrides keep the default (see reviews/impl-review.md)
+
+Gates on the branch: `npm run typecheck` and ESLint green; agent-ready tests pass; the full `npm test` runs in
+pre-push.

@@ -1,12 +1,13 @@
 ---
 change_id: agent-ready-webmcp-script-tools-437
 title: "agent-ready: searchSite/findTerm usable from the inline WebMCP boot script, with overridable answers (issue #437)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 437
 branch: claude/project-thread-sekqk7
 created: 2026-10-13
 updated: 2026-10-13
+archived_at: 2026-10-13
 ---
 
 ## Intent

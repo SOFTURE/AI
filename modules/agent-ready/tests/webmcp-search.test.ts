@@ -336,6 +336,12 @@ describe.each(FORMS)("%s", (_, form) => {
       expect(text(await english.execute({ query: "alpha" })).split("\n")[0]).toBe("other 4");
     });
 
+    it("keep the default of a message passed as undefined", async () => {
+      const { fetchImpl } = createFetch(SITE);
+      const tool = form.searchSite({ fetchImpl, messages: { noMatch: undefined } });
+      expect(text(await tool.execute({ query: "mortgage" }))).toBe('No page matches "mortgage" (4 pages searched).');
+    });
+
     it("fill each placeholder once, so a query that looks like one stays as typed", async () => {
       const { fetchImpl } = createFetch(SITE);
       const answer = text(await form.searchSite({ fetchImpl }).execute({ query: "mortgage {scope}" }));
