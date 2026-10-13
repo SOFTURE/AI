@@ -397,7 +397,7 @@ account.
 
 The app's own template and scopes: `buildMail(context)` gets `{ reminder, lastDay, link, mail }` (the due
 account's `userId`, `email`, `kind`, `endsAt` and `endsAtMicros`, the last day as the locale writes it, the payment URL and the
-package's own mail) and returns `{ subject, text, html }`, or `null` to send that account nothing this run (a
+package's own mail) and returns `{ subject, text, html }` (`html` may be left out for a plain-text mail), or `null` to send that account nothing this run (a
 later run asks again); it may be async (to read the account's name). `getScope(reminder)` replaces the delivery
 scope: an app moving from its own job passes the scope that job wrote to `mailing.deliveries`, so accounts it
 already mailed are not mailed again. `endsAtMicros` is the end exactly as stored (microseconds since
@@ -444,7 +444,28 @@ gives invited accounts; unset, it never does. `compact` writes a shorter detail:
 (`formatDayCount`) and `until 11/30/2026` for paid access (`formatShortLastDay`). `tones` sets the status colour
 (`neutral`, `success`, `warning`, `danger`) per kind, `trial`, `trial-ending`, `paid`, `paid-ending`, `lifetime`,
 `unlimited` or `read-only`, keeping the default for the kinds left out; `getAccessBadgeKind(entitlement, {
-unlimitedAfterDays })` (`/ui`) names the kind for the app's own use. The notice's `tones={{ ending, ended }}` sets its
+unlimitedAfterDays })` (`/ui`) names the kind for the app's own use. `texts` words any kind the app's way, one
+function per kind receiving `{ kind, entitlement, daysLeft, endsAt, text }` (`text` is the badge's own) and returning
+`{ status, detail?, short? }`; kinds left out keep the badge's text. `variant` is `full` (default), `short` (the
+`short` text, or the status) or `responsive` (short below the `md` breakpoint, full from it). `srPrefix` is read by
+screen readers before the label and not shown. `toneScope="pill"` puts the tone on all the pill's text instead of
+the status alone.
+
+```tsx
+<CurrentAccessBadge
+  srPrefix="Access status:"
+  variant="responsive"
+  toneScope="pill"
+  texts={{
+    trial: ({ daysLeft }) => ({ status: `Trial · ${daysLeft} days`, short: `${daysLeft} d` }),
+    "paid-ending": ({ daysLeft }) => ({ status: `Paid · ${daysLeft} days` }),
+    lifetime: () => ({ status: "Unlimited access" }),
+  }}
+/>
+```
+
+`texts` are functions, so pass them from a server component (as `CurrentAccessBadge` is) or a client one rendering
+`AccessBadge`, not across the server-client boundary. The app's words go through its own message layer. The notice's `tones={{ ending, ended }}` sets its
 frame, `neutral` (the raised surface) or `danger` (default `neutral` and `danger`).
 
 Server functions, for scripts and other hosts (`@softure-ai/billing/server`):
@@ -726,11 +747,15 @@ None.
 
 ## 8. Appearance
 
-`AccessBadge` takes `classNames` for its slots `root`, `status` and `detail`; the status colour
+`AccessBadge` takes `classNames` for its slots `root`, `status`, `detail`, `full`, `short` and `prefix`; the status colour
 follows the state (`--sft-color-foreground` for a trial, `success` when paid, `warning` in a
 reminder window, `danger` when read-only; `tones` overrides any of them). It sets `data-status`, in a
 reminder window `data-ending="true"` and for effectively unlimited access `data-unlimited="true"` for
-app styles. `AccessNotice` takes `root`, `message` and `actions` and
+app styles, and always `data-kind` (the kind, e.g. `paid-ending`) and `data-tone` (the tone after `tones`), for
+end-to-end tests and an app's own tint of the whole pill (a `[data-tone="warning"]` selector, or the
+`data-[tone=warning]:` variant in a `classNames.root` of the app's Tailwind). The other slots are `full` and `short` (the two texts of the `responsive` variant, swapped by
+`display`) and `prefix` (`srPrefix`, visually hidden); an `unstyled` badge hides `prefix` and one of `full`/`short`
+itself. `AccessNotice` takes `root`, `message` and `actions` and
 renders the `@softure-ai/ui` `ButtonLink`; ended access uses the danger surface of `FormError`.
 Both accept `unstyled`. `PricingTiles` takes `root`, `tile`, `badge`, `name`, `description`,
 `priceRow`, `price`, `period`, `features`, `feature`, `featureIcon` and `action`; a featured or chosen
@@ -771,6 +796,10 @@ if (entitlement.status === "trial") {
   line = `Trial ends in ${formatDayCount(entitlement.daysLeft, config.locale, messages)}`;
 }
 ```
+
+The client components (`PaymentForm`, `TrialForm`, `GrantForm`, `AccountLookup`) take their `locale` from the prop, then from the nearest
+`UiLocaleProvider` of `@softure-ai/ui`, then `en`, so an app that mounts the provider once can leave the prop out.
+Server components (`PricingTiles`, `AccessBadge`, `AccessNotice`) cannot read the provider and keep a required `locale`.
 
 ## 10. Hooks
 

@@ -586,6 +586,27 @@
                   "fail",
                   "warn"
                 ]
+              },
+              "warnOn": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "minimum": 100,
+                      "maximum": 599
+                    },
+                    "uniqueItems": true,
+                    "description": "Statuses that only warn, e.g. [404] for a resource that exists once a secret is configured."
+                  }
+                },
+                "required": [
+                  "status"
+                ],
+                "additionalProperties": false,
+                "description": "A response with a listed status is a WARN row and the route's other checks are skipped; any other mismatch keeps the route's severity."
               }
             },
             "additionalProperties": false,

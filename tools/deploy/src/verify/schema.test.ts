@@ -208,6 +208,27 @@ describe("parseDeployConfig: app-side checks (issue #309)", () => {
   });
 });
 
+describe("parseDeployConfig: statuses that only warn (issue #434)", () => {
+  function firstRoute(route: unknown): unknown {
+    const parsed = parseDeployConfig({ verify: { routes: [route] } });
+    return parsed.ok ? parsed.config.verify?.routes[0] : parsed.issues;
+  }
+
+  it("keeps warnOn statuses", () => {
+    expect(firstRoute({ path: "/x", warnOn: { status: [404, 410] } })).toMatchObject({ warnOn: { status: [404, 410] }, severity: "fail" });
+  });
+
+  it("refuses an empty list, a duplicate, the route's own status, a status out of range and an unknown key", () => {
+    expect(firstRoute({ path: "/x", warnOn: { status: [] } })).toEqual(["verify.routes.0.warnOn.status: Too small: expected array to have >=1 items"]);
+    expect(firstRoute({ path: "/x", warnOn: { status: [404, 404] } })).toEqual(["verify.routes.0.warnOn.status: 404 is listed twice"]);
+    expect(firstRoute({ path: "/x", status: 404, warnOn: { status: [404] } })).toEqual([
+      "verify.routes.0.warnOn: a warnOn status cannot be the route's expected status",
+    ]);
+    expect(firstRoute({ path: "/x", warnOn: { status: [600] } })).toEqual(["verify.routes.0.warnOn.status.0: Too big: expected number to be <=599"]);
+    expect(firstRoute({ path: "/x", warnOn: { status: [404], header: "x" } })).toEqual([expect.stringContaining("verify.routes.0.warnOn: ")]);
+  });
+});
+
 describe("parseDeployConfig: a request signed with Web Bot Auth (issue #341)", () => {
   function firstRoute(route: unknown): unknown {
     const parsed = parseDeployConfig({ verify: { routes: [route] } });
