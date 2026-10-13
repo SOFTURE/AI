@@ -1,12 +1,13 @@
 ---
 change_id: auth-guard-relative-proxy-452
 title: "auth: createAuthGuard redirect \"relative\" works inside Next's proxy (issue #452)"
-status: open
+status: archived
 roadmap_item: null
 issue: 452
 branch: claude/project-thread-6obp7x
 created: 2026-10-13
 updated: 2026-10-13
+archived_at: 2026-10-13
 ---
 
 ## Intent

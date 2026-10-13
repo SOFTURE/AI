@@ -1,6 +1,6 @@
 ---
 change_id: auth-guard-relative-proxy-452
-status: open
+status: archived
 ---
 
 # Plan: relative redirect inside Next's proxy (issue #452)
@@ -23,5 +23,9 @@ The `redirect` option's doc comment, `modules/auth/README.md` (route guard parag
 
 ## Progress
 
-- [ ] Phase 1: absolute Location on the request origin
-- [ ] Phase 2: docs
+- [x] Phase 1: absolute Location on the request origin (`3309c05`; contract test through Next's `adapter()` and three
+  updated unit tests, five red before the fix)
+- [x] Phase 2: docs (`80072f2`; option doc comment, README route guard paragraph, CHANGELOG `## Unreleased`)
+
+Gates on the branch: `npm run typecheck` and `npm run lint` (pre-commit) green; auth guard tests 90 of 90; `npm run
+build` and the full `npm test` (pre-push) run before the push.
