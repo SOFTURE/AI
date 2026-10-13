@@ -159,13 +159,16 @@ export function AccessBadge({
   const formatText = texts?.[kind];
   const { status, detail, short } = formatText === undefined ? text : formatText({ kind, entitlement, ...getEnd(entitlement), text });
   const tone = tones?.[kind] ?? DEFAULT_TONES[kind];
+  const isPillToned = toneScope === "pill";
+  /** The status and short text carry the tone themselves unless the whole pill does. */
+  const textClass = isPillToned ? "sft:font-medium" : `sft:font-medium ${TONE[tone]}`;
   const slot = createSlotClassGetter<AccessBadgeSlot>({
     defaults: {
-      root: toneScope === "pill" ? `${ROOT_CLASS} ${TONE[tone]}` : ROOT_CLASS,
-      status: toneScope === "pill" ? "sft:font-medium" : `sft:font-medium ${TONE[tone]}`,
-      detail: toneScope === "pill" ? "" : "sft:text-muted",
+      root: isPillToned ? `${ROOT_CLASS} ${TONE[tone]}` : ROOT_CLASS,
+      status: textClass,
+      detail: isPillToned ? "" : "sft:text-muted",
       full: "sft:hidden sft:items-center sft:gap-1.5 sft:md:flex",
-      short: `${toneScope === "pill" ? "sft:font-medium" : `sft:font-medium ${TONE[tone]}`}${variant === "responsive" ? " sft:md:hidden" : ""}`,
+      short: variant === "responsive" ? `${textClass} sft:md:hidden` : textClass,
       prefix: "sft:sr-only",
     },
     classNames,
