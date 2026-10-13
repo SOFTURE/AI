@@ -32,5 +32,5 @@ README §4 options paragraph and §8 Appearance; CHANGELOG `## Unreleased`.
 
 ## Progress
 
-- [ ] Phase 1: badge options
-- [ ] Phase 2: docs
+- [x] Phase 1: badge options (`7df59b1`; 14 tests, written first; breakpoint `md` and pill text tone: classes ui compiles)
+- [x] Phase 2: docs (README §4 and §8, CHANGELOG Unreleased)
