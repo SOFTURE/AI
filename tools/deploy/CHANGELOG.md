@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
+## Unreleased
+
+- A verify header check takes `{ "startsWith": "<text>" }` next to the string, list and `null` forms: the value must
+  begin with the text, case-insensitive, so a Web Bot Auth `signature-input` that must start with
+  `binding0=("@authority";req)` no longer passes when that text appears later (issue #441). It may also be an item of
+  a list. A plain string keeps its substring meaning, so existing configs do not change.
+
 ## 0.1.11
 
 - `softure-deploy run --local <script> [args]` runs the ops script an image bundles (`scripts/ops/<name>.ts`) on this
