@@ -25,5 +25,5 @@ Files: `foundation/ui/src/next/query-segmented-nav.tsx`, `foundation/ui/tests/ad
 
 ## Progress
 
-- [ ] Phase 1: null-safe hooks and `active`
+- [x] Phase 1: null-safe hooks and `active` (`813426e`; 5 tests written first and red, one with the real `next/navigation` and `renderToStaticMarkup`, failing with the issue's `Cannot read properties of null`)
 - [ ] Phase 2: docs

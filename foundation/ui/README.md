@@ -454,8 +454,11 @@ import { QuerySegmentedNav } from "@softure-ai/ui/next";
 `QuerySegmentedNav` is a `SegmentedNav` whose items switch a view through one query parameter: each link sets
 `param` and keeps the rest of the query string, `defaultId`'s link removes it, and Next's `Link` navigates with
 `scroll={false}`, so the reader keeps their place. The current item comes from the address (`useSearchParams`); a
-value no item has falls back to `defaultId`. On a statically rendered route wrap it in `<Suspense>`, as Next requires
-for `useSearchParams`. `getQueryHref({ pathname, search, param, value })` in the main entry builds the same
+value no item has falls back to `defaultId`. When the server has already parsed the query (an alias, an unknown value
+mapped to the default), pass its result as `active`: it wins over the address, so the highlighted item is the view
+the server rendered. Outside the App Router (the Pages Router, `renderToStaticMarkup` in a unit test) Next's hooks
+return `null`; the query then counts as empty and the links are query-only (`?view=chart`, `?` for `defaultId`). On a
+statically rendered route wrap it in `<Suspense>`, as Next requires for `useSearchParams`. `getQueryHref({ pathname, search, param, value })` in the main entry builds the same
 addresses for an app's own links.
 
 `SegmentedControl` marks the checked segment with an inset ring in the text colour as well as the accent fill, and

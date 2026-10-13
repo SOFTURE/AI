@@ -4,6 +4,12 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`ui@x.y.z`).
 
+## Unreleased
+
+- `QuerySegmentedNav` (`@softure-ai/ui/next`) renders outside the App Router, where `useSearchParams()` and
+  `usePathname()` return `null` (a static render in a unit test, the Pages Router): the query counts as empty and the
+  links are query-only. A new optional `active` prop takes the view the server parsed and wins over the address (#454).
+
 ## 0.2.0
 
 - Source guards in `@softure-ai/ui/testing` for an app's design system (#403): `findUndefinedTokenClasses` (Tailwind
