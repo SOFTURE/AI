@@ -410,8 +410,9 @@ It reports each check as `pass`, `warn` or `fail`, exiting 1 on any `fail`:
 - **INBOUND** (`inbound: "cloudflare"`, `--inbound cloudflare`): Cloudflare Email Routing receives the reply-to
   domain's mail (else the checked domain's). Every MX record must be under `mx.cloudflare.net`
   (`unexpected-target` otherwise, `null-mx`, `missing`), and the domain must publish exactly one SPF record
-  (`multiple`) that includes `_spf.mx.cloudflare.net` (`missing-include`). The report's `inbound` holds the MX and
-  the SPF check, `[]` when not asked.
+  (`multiple`) that includes `_spf.mx.cloudflare.net` (`missing-include`) and ends in `-all` or `~all` (`weak`
+  otherwise: `?all`, `+all`, a bare `all` or no `all` lets anyone send as the domain; the first `all` decides, and a
+  `redirect=` is not followed). The report's `inbound` holds the MX and the SPF check, `[]` when not asked.
 
 It cannot see whether the provider signs with the published key. The function takes `resolveTxt`, `resolveMx` and
 `resolveCname` for tests; by default it asks the system resolver.

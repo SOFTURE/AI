@@ -10,6 +10,10 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   every other locale, which is now any BCP 47 tag. Migrate: an app that shows Polish keeps its own translation and
   passes it as the overrides for its locale, `mailing({ messages: { pl: myTranslation } })`; a key it leaves out reads
   English.
+- `checkSenderDns(domain, { inbound: "cloudflare" })` (and `softure-mail dns --inbound cloudflare`) fails the inbound
+  SPF check as `weak` unless the record's first `all` is `-all` or `~all`. Before, a record with the Email Routing
+  include and `?all`, `+all`, a bare `all` or no `all` passed, though it lets anyone send as the domain. An app that
+  kept its own check for this next to the report can drop it.
 
 ## 0.1.14
 

@@ -10,6 +10,10 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   every other locale, which is now any BCP 47 tag. Migrate: an app that shows Polish keeps its own translation and
   passes it as the overrides for its locale, `billing({ messages: { pl: myTranslation } })`; a key it leaves out reads
   English. Plan texts (`LocalizedText`) take any locale key and fall back to the locale's language, then `en`.
+- `AccessBadge` / `CurrentAccessBadge` take `texts` (the app's own text per kind, from the entitlement, the days
+  left and the badge's text), `variant` (`full`, `short`, or `responsive`: short below `md`), `srPrefix` (a
+  screen-reader label before the text) and `toneScope` (`pill` colours all the pill's text). The root always
+  carries `data-kind` and `data-tone`; new slots `full`, `short`, `prefix`. Defaults render as before (#426).
 
 ## 0.2.1
 
