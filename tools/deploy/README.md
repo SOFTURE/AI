@@ -62,7 +62,7 @@ softure-deploy env render [--compose=docker/prod/docker-compose.yml] [--out=.env
 The release report between two tags, in Markdown, ready for a GitHub Release body.
 
 ```bash
-softure-deploy release-notes [--to=HEAD] [--from=<tag>] [--match=<glob>] [--repo-url=<url>] [--locale=en|pl] [--out=<file>]
+softure-deploy release-notes [--to=HEAD] [--from=<tag>] [--match=<glob>] [--repo-url=<url>] [--locale=en] [--out=<file>]
                              [--roadmap=context/foundation/roadmap.md] [--body=<release body file>]
 ```
 
@@ -74,7 +74,8 @@ softure-deploy release-notes [--to=HEAD] [--from=<tag>] [--match=<glob>] [--repo
   - an "other commit" otherwise; base syncs (`Merge branch '…'`) are left out.
 - **Links:** `--repo-url`, else `GITHUB_SERVER_URL/GITHUB_REPOSITORY` inside GitHub Actions, else none (plain `#N`
   and short SHAs).
-- **Copy:** `en` and `pl` dictionaries (`deployMessages`), exported for apps that format the report themselves.
+- **Copy:** the `en` dictionary (`deployMessages`, English is the only built-in language), exported for apps that
+  format the report themselves.
 - **Roadmap items:** `--roadmap=<file>` adds a `### Roadmap items` table after the summary: the rows of the SOFTURE
   roadmap's `## At a glance` table whose status is `done_code` (on the main branch, waiting for this release), with
   their ID, change and outcome. A missing file fails; a release with no such row has no table.
@@ -106,7 +107,7 @@ The deploy run's report in the same release body (DF-10): the pipeline status of
 every deployment of the tag.
 
 ```bash
-softure-deploy release-report --body=<release body file> --summary=deploy-report.json [--locale=en|pl] [--out=<file>]
+softure-deploy release-report --body=<release body file> --summary=deploy-report.json [--locale=en] [--out=<file>]
 ```
 
 - **Input:** `--summary` is the `deploy-report.json` the `summary` job of `deploy-app.yml` uploads (version 1: tag,
@@ -465,7 +466,7 @@ back (`gh release edit`): the pipeline status replaced, a deployment row added o
 because editing a release needs `contents: write`, which the caller grants to this job only; inside `deploy-app.yml`
 every job would have needed it. One report per tag runs at a time, so two runs never drop each other's row. A tag
 without a release gets no report (a notice), and a failed report never turns the run red (`continue-on-error`).
-Inputs: `tag` (required), `locale` (`en` or `pl`), `deploy-cli-version`, `node-version`, `e2e` (below).
+Inputs: `tag` (required), `locale` (`en`, the only built-in language), `deploy-cli-version`, `node-version`, `e2e` (below).
 
 ### Cut a release
 

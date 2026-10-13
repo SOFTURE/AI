@@ -4,6 +4,11 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
+## Unreleased
+
+- **Breaking (#446):** the `pl` dictionary is gone; release notes and the release report are English only
+  (`--locale=en`, `deployMessages.en`), and `deploy-report.yml` takes `locale: en` only.
+
 ## 0.1.11
 
 - `softure-deploy run --local <script> [args]` runs the ops script an image bundles (`scripts/ops/<name>.ts`) on this

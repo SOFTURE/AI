@@ -193,7 +193,7 @@ No UI. Show the error codes through your own forms with the copy below.
 ## 9. Copy
 
 `errors.rate_limited`, `errors.client_unidentified`, `errors.body_too_large`,
-`errors.body_unreadable` in `src/messages/en.ts` and `src/messages/pl.ts`, one per error code
+`errors.body_unreadable` in `src/messages/en.ts`, one per error code
 (`security.<key>`). Override them per locale: `security({ …, messages: { en: { errors: { rate_limited: "…" } } } })`.
 
 ## 10. Hooks

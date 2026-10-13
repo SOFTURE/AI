@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`ui@x.y.z`).
 
+## Unreleased
+
+- **Breaking (#446):** the built-in `pl` dictionary is gone; `uiMessages` is English only and `locale` is any BCP 47
+  tag. An app that shows another language passes its own translation as `messages` (per component or through the
+  provider); a key it leaves out reads English. The amount and decimal fields read their notation from
+  `Intl.NumberFormat` for any locale (`pl` and `en` keep their behaviour).
+
 ## 0.2.0
 
 - Source guards in `@softure-ai/ui/testing` for an app's design system (#403): `findUndefinedTokenClasses` (Tailwind

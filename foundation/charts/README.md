@@ -548,8 +548,8 @@ Two differences to carry over deliberately:
 
 - A guard measuring colour distance in CIE76 with a threshold of 12 differs from the defaults here (CIEDE2000
   and 10). To keep such numbers while migrating, pass `{ metric: "cie76", minDistance: 12 }`.
-- Labels and copy come from `chartsMessages` (`en`, `pl`), so an app's string moves to the `messages` prop, not
-  into the component.
+- Labels and copy come from `chartsMessages` (English, the only built-in language), so an app's string, or its
+  own translation, moves to the `messages` prop, not into the component.
 
 ## Limitations
 

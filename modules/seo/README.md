@@ -221,7 +221,7 @@ None: the module renders machine formats only.
 
 ## 9. Copy
 
-None: `src/messages/en.ts` and `pl.ts` are empty dictionaries kept for the standard's shape.
+None: `src/messages/en.ts` is an empty dictionary kept for the standard's shape.
 
 ## 10. Hooks
 
