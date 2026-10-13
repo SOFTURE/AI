@@ -1,6 +1,6 @@
 ---
 change_id: release-batch-3
-status: planned
+status: archived
 ---
 
 # Plan: release-batch-3
@@ -34,6 +34,6 @@ Input: change.md. Complexity: small (three phases).
 
 ## Progress
 
-- [ ] Phase 1: widen
-- [ ] Phase 2: bumps
-- [ ] Phase 3: require the new versions
+- [x] Phase 1: widen (`7bea31f1`)
+- [x] Phase 2: bumps (`35858eb0`..`309ad513`)
+- [x] Phase 3: require the new versions (`c80f8986`; typecheck, lint and tests green)

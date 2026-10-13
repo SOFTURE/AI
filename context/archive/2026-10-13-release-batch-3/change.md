@@ -1,12 +1,13 @@
 ---
 change_id: release-batch-3
 title: "Release every package with Unreleased changes from the third batch of issues"
-status: in-progress
+status: archived
 roadmap_item: null
 issue: null
 branch: claude/release-batch-3-t00xet
 created: 2026-10-13
 updated: 2026-10-13
+archived_at: 2026-10-13
 ---
 
 ## Intent
