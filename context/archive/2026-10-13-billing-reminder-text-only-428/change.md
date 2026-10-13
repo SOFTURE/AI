@@ -1,12 +1,13 @@
 ---
 change_id: billing-reminder-text-only-428
 title: "billing: sendAccessReminders' buildMail may return a plain-text mail (issue #428)"
-status: open
+status: archived
 roadmap_item: null
 issue: 428
 branch: claude/project-thread-7jbz8k
 created: 2026-10-13
 updated: 2026-10-13
+archived_at: 2026-10-13
 ---
 
 ## Intent

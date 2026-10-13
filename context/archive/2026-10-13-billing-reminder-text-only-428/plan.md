@@ -1,6 +1,6 @@
 ---
 change_id: billing-reminder-text-only-428
-status: planned
+status: archived
 ---
 
 # Plan: billing reminder template may return plain text (issue #428)
@@ -24,5 +24,8 @@ Files: `modules/billing/src/mailing/reminder-mail.ts`, `modules/billing/src/mail
 
 ## Progress
 
-- [ ] Phase 1: type and test
-- [ ] Phase 2: docs
+- [x] Phase 1: type and test (`60a8a5b`; the new test failed typecheck before the fix, 23 tests pass after)
+- [x] Phase 2: docs (`0420e1e`)
+
+Gates on the branch: `npm run typecheck`, ESLint and the language gate green in pre-commit; the billing reminder
+mail tests pass (23); the full `npm test` runs in pre-push.
