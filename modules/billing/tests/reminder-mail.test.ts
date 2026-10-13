@@ -259,6 +259,17 @@ describe("sendAccessReminders with the app's template and scopes", () => {
     ]);
   });
 
+  it("sends a plain-text mail from a template that returns no HTML body", async () => {
+    const test = await setUp();
+    await createAccount(test, "ada@example.com");
+    test.clock.set(IN_TRIAL_WINDOW);
+
+    const run = await sendAccessReminders(test.ctx, { ...NO_PAUSE, buildMail: (context) => ({ subject: `Ending ${context.lastDay}`, text: `Plans: ${context.link}` }) });
+
+    expect(run).toEqual(summary({ due: 1, sent: 1 }));
+    expect(test.provider.sent.map((mail) => [mail.to, mail.subject, mail.text, mail.html])).toEqual([["ada@example.com", "Ending October 16, 2026", `Plans: ${PAYMENT_LINK}`, null]]);
+  });
+
   it("sends nothing to an account the template returns null for, and counts it as skipped", async () => {
     const test = await setUp();
     await createAccount(test, "ada@example.com");

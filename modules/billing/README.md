@@ -397,7 +397,7 @@ account.
 
 The app's own template and scopes: `buildMail(context)` gets `{ reminder, lastDay, link, mail }` (the due
 account's `userId`, `email`, `kind`, `endsAt` and `endsAtMicros`, the last day as the locale writes it, the payment URL and the
-package's own mail) and returns `{ subject, text, html }`, or `null` to send that account nothing this run (a
+package's own mail) and returns `{ subject, text, html }` (`html` may be left out for a plain-text mail), or `null` to send that account nothing this run (a
 later run asks again); it may be async (to read the account's name). `getScope(reminder)` replaces the delivery
 scope: an app moving from its own job passes the scope that job wrote to `mailing.deliveries`, so accounts it
 already mailed are not mailed again. `endsAtMicros` is the end exactly as stored (microseconds since

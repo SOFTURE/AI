@@ -10,6 +10,10 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   every other locale, which is now any BCP 47 tag. Migrate: an app that shows Polish keeps its own translation and
   passes it as the overrides for its locale, `billing({ messages: { pl: myTranslation } })`; a key it leaves out reads
   English. Plan texts (`LocalizedText`) take any locale key and fall back to the locale's language, then `en`.
+- `sendAccessReminders`' `buildMail` may return a plain-text mail: it returns `AccessReminderTemplateMail` (`subject`,
+  `text` and an optional `html`, exported from `@softure-ai/billing/mailing`), and a mail without `html` reaches the
+  provider with no HTML body. The package's own mail (`renderAccessReminderMail`, the template's `mail`) keeps its
+  HTML body (#428).
 - `AccessBadge` / `CurrentAccessBadge` take `texts` (the app's own text per kind, from the entitlement, the days
   left and the badge's text), `variant` (`full`, `short`, or `responsive`: short below `md`), `srPrefix` (a
   screen-reader label before the text) and `toneScope` (`pill` colours all the pill's text). The root always
