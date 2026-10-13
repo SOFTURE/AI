@@ -8,7 +8,7 @@ import { type ClassNames, createSlotClassGetter } from "./class-names.js";
 import { type CopyProps, getCopy } from "./copy.js";
 import { useFieldValue } from "./form-context.js";
 import { type InputFieldSlot, MoneyField, type MoneyFieldProps } from "./form-fields.js";
-import { useUiLocale } from "./locale.js";
+import { useUiCopyProps, useUiLocale } from "./locale.js";
 
 // A `MoneyField` with a chip under it that fills a suggested amount (last month's, the plan's), so the user can
 // take it with one press and still type their own. The field stays a plain form field: a rejected submit replays
@@ -46,7 +46,7 @@ export function SuggestedAmountField({
   ...field
 }: SuggestedAmountFieldProps) {
   const locale = useUiLocale(explicitLocale);
-  const copy = getCopy("suggestedAmount", { locale, messages: suggestionMessages });
+  const copy = getCopy("suggestedAmount", useUiCopyProps("suggestedAmount", { locale, messages: suggestionMessages }));
   const generatedId = useId();
   const inputId = id ?? generatedId;
   const replayed = normalizeAmountInput(useFieldValue(name, defaultValue), locale);

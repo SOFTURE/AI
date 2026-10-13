@@ -4,6 +4,18 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`core@x.y.z`).
 
+## Unreleased
+
+- **Breaking (#438):** core's formatters build in no language besides English.
+  - `formatCalendarMonth` drops the `"genitive"` style; `CalendarMonthStyle` is `"long" | "roman"`. A full date's
+    month form stays available through `formatCalendarDay`.
+  - `formatDuration(months, options?)` takes `{ locale?, messages? }` instead of a locale. Its words default to
+    English (`DEFAULT_DURATION_MESSAGES`); an app plugs in its own translation with `messages: DurationMessages` and
+    the `locale` whose plural rules pick a form. Migrate `formatDuration(n, "en")` to `formatDuration(n)`.
+  - `coreMessages` no longer has the `duration` group.
+- `formatCalendarDay`, `formatCalendarMonth`, `formatMoney`, `formatPercent` and `selectPlural` take any BCP 47 locale
+  tag, not only `LOCALES` (#438). Exported: `DurationMessages`, `FormatDurationOptions`, `DEFAULT_DURATION_MESSAGES`.
+
 ## 0.1.11
 
 - Formatting (#410): `formatCalendarMonth(month, locale, "long" | "genitive" | "roman")` for `YYYY-MM` months

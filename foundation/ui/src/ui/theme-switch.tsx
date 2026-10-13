@@ -10,7 +10,7 @@ import type { SoftureTheme } from "../theme/tokens.js";
 import type { ClassNames } from "./class-names.js";
 import { getCopy } from "./copy.js";
 import { SegmentedControl, type SegmentedControlSlot } from "./segmented-control.js";
-import { useUiLocale } from "./locale.js";
+import { useUiCopyProps } from "./locale.js";
 
 export type ThemeSwitchSlot = SegmentedControlSlot;
 
@@ -80,7 +80,7 @@ export function ThemeSwitch({
   );
   const [picked, setPicked] = useState<ThemeChoice | null>(null);
   const choice = picked ?? cookieChoice;
-  const copy = getCopy("themeSwitch", { locale: useUiLocale(locale), messages });
+  const copy = getCopy("themeSwitch", useUiCopyProps("themeSwitch", { locale, messages }));
   function handleChange(next: ThemeChoice) {
     applyThemeChoice(next, {
       cookieName,
