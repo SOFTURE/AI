@@ -302,10 +302,26 @@ describe("checkSenderDns inbound: cloudflare", () => {
     ["two SPF records", { "example.com": [CLOUDFLARE_SPF, "v=spf1 include:amazonses.com ~all"] }, "multiple", null],
     ["an SPF record without the include", { "example.com": ["v=spf1 include:amazonses.com ~all"] }, "missing-include", "v=spf1 include:amazonses.com ~all"],
     ["a failed lookup", { "example.com": dnsError("ESERVFAIL") }, "lookup-failed", null],
+    ["a record without the include, before its weak all", { "example.com": ["v=spf1 include:amazonses.com ?all"] }, "missing-include", "v=spf1 include:amazonses.com ?all"],
+    ["?all", { "example.com": ["v=spf1 include:_spf.mx.cloudflare.net ?all"] }, "weak", "v=spf1 include:_spf.mx.cloudflare.net ?all"],
+    ["+all", { "example.com": ["v=spf1 include:_spf.mx.cloudflare.net +all"] }, "weak", "v=spf1 include:_spf.mx.cloudflare.net +all"],
+    ["a bare all", { "example.com": ["v=spf1 include:_spf.mx.cloudflare.net all"] }, "weak", "v=spf1 include:_spf.mx.cloudflare.net all"],
+    ["no all", { "example.com": ["v=spf1 include:_spf.mx.cloudflare.net"] }, "weak", "v=spf1 include:_spf.mx.cloudflare.net"],
+    ["a redirect without all", { "example.com": ["v=spf1 include:_spf.mx.cloudflare.net redirect=_spf.example.com"] }, "weak", "v=spf1 include:_spf.mx.cloudflare.net redirect=_spf.example.com"],
+    ["an all-like term that is not all", { "example.com": ["v=spf1 include:_spf.mx.cloudflare.net a:all.example.com"] }, "weak", "v=spf1 include:_spf.mx.cloudflare.net a:all.example.com"],
+    ["a first all that is neutral", { "example.com": ["v=spf1 include:_spf.mx.cloudflare.net ?all -all"] }, "weak", "v=spf1 include:_spf.mx.cloudflare.net ?all -all"],
   ])("fails the SPF check for %s", async (_case, txt, finding, record) => {
     const [, spf] = await inboundOf({ mx: { "example.com": CLOUDFLARE_MX }, txt, replyTo: "help@example.com" });
     expect(spf).toEqual({ status: "fail", finding, host: "example.com", record });
   });
+
+  it.each([["v=spf1 include:_spf.mx.cloudflare.net -all"], ["v=spf1 include:_spf.mx.cloudflare.net ~ALL"], ["v=spf1 include:_spf.mx.cloudflare.net -all ?all"]])(
+    "passes the SPF check for %s",
+    async (record) => {
+      const [, spf] = await inboundOf({ mx: { "example.com": CLOUDFLARE_MX }, txt: { "example.com": [record] }, replyTo: "help@example.com" });
+      expect(spf).toEqual({ status: "pass", finding: "found", host: "example.com", record });
+    },
+  );
 
   it.each([
     ["no MX", {}, "missing", null],
