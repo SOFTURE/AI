@@ -76,11 +76,32 @@ export function createAuthGuard(config: SoftureConfig, options: AuthGuardOptions
     // Built on appOrigin, or on the request's public origin when the app trusts it: behind a proxy
     // the request URL carries an internal host, and request headers alone are never trusted.
     const login = new URL(routes.login, resolveAppOrigin(config, request, { trustedOrigins }));
-    login.searchParams.set("next", `${url.pathname}${url.search}`);
+    login.searchParams.set("next", getReturnPath(url));
     if (options.redirect !== "relative") return Response.redirect(login, 307);
     // A path-only Location reads no request header at all; `Response.redirect` would need an absolute URL.
     return new Response(null, { status: 307, headers: { location: `${login.pathname}${login.search}` } });
   };
+}
+
+/** Next's client-navigation cache key: meaningless to the page, so it never belongs in a return address. */
+const NEXT_CACHE_KEY = "_rsc";
+
+/**
+ * The path and query to come back to after sign-in, without Next's `_rsc`. The raw query segments are
+ * filtered rather than rebuilt, so every other parameter keeps the spelling the request gave it.
+ */
+function getReturnPath(url: URL): string {
+  const segments = url.search.slice(1).split("&").filter((segment) => segment !== "" && !isNextCacheKey(segment));
+  return segments.length === 0 ? url.pathname : `${url.pathname}?${segments.join("&")}`;
+}
+
+function isNextCacheKey(segment: string): boolean {
+  const name = segment.split("=", 1)[0] ?? "";
+  try {
+    return decodeURIComponent(name) === NEXT_CACHE_KEY;
+  } catch {
+    return false;
+  }
 }
 
 function normalizePrefix(prefix: string, kind: "protected" | "excluded"): string {
