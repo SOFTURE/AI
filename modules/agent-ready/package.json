@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/agent-ready",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "description": "SOFTURE AI agent-ready module: everything an AI agent uses to discover and connect to an app, from configuration plus its MCP server: API catalog, OpenAPI, Link header, OAuth discovery additions and auth.md, MCP server and A2A cards, Agent Skills, AI catalog, Web Bot Auth, DNS-AID, the WebMCP runtime, and guards that keep them true.",
   "license": "MIT",
   "type": "module",
@@ -59,7 +59,7 @@
     "build": "tsc -p tsconfig.build.json"
   },
   "dependencies": {
-    "@softure-ai/core": "^0.1.8",
+    "@softure-ai/core": "^0.2.0",
     "zod": "^4.6.5"
   },
   "peerDependencies": {
@@ -67,8 +67,8 @@
   },
   "devDependencies": {
     "@softure-ai/db": "^0.1.6",
-    "@softure-ai/deploy": "^0.1.4",
-    "@softure-ai/mcp-access": "^0.1.8",
+    "@softure-ai/deploy": "^0.2.0",
+    "@softure-ai/mcp-access": "^0.2.0",
     "http-message-sig": "^0.3.0",
     "web-bot-auth": "^0.2.0"
   }

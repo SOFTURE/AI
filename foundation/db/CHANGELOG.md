@@ -4,6 +4,10 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`db@x.y.z`).
 
+## 0.1.9
+
+- The `@softure-ai/core` range also accepts 0.2.0, so an app can install core 0.2.0 next to this version.
+
 ## 0.1.8
 
 - `createProcessDatabase(url, { globalKey })` keeps the open database on `globalThis`, so a module `next dev`
