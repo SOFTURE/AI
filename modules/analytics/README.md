@@ -334,7 +334,7 @@ Nothing visible: `<FunnelPixel>` is a transparent 1×1 image and `<FunnelBeacon>
 ## 9. Copy
 
 None: the pixel and the beacon show nothing, and the report is data the app renders with its own
-copy. The `en` and `pl` dictionaries in `src/messages/` are empty.
+copy. The `en` dictionary in `src/messages/` is empty.
 
 ## 10. Hooks
 

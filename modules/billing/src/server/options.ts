@@ -1,5 +1,5 @@
 // The billing options of the running app, read from the configuration in the module context.
-import { getModule, type AnySoftureModule, type SoftureConfig } from "@softure-ai/core";
+import { type AnySoftureModule, getModule, selectMessages, type SoftureConfig } from "@softure-ai/core";
 import type { EntitlementPolicy } from "../entitlement.js";
 import type { BillingMessages } from "../messages/index.js";
 import type { BillingOptions } from "../options.js";
@@ -23,7 +23,7 @@ export function getBillingOptions(config: SoftureConfig): BillingOptions {
 /** The module's copy in the app's locale, with the app's overrides applied. */
 export function getBillingMessages(config: SoftureConfig): BillingMessages {
   // The module factory merged the dictionaries; their shape is the module's own.
-  return getBillingModule(config).messages[config.locale] as BillingMessages;
+  return selectMessages(getBillingModule(config).messages, config.locale) as BillingMessages;
 }
 
 export interface BillingRoutes {

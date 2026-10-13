@@ -59,7 +59,7 @@ import { auth, AUTH_RATE_LIMIT_BUCKETS } from "@softure-ai/auth";
 import { MCP_RATE_LIMIT_BUCKETS, mcpAccess } from "@softure-ai/mcp-access";
 import { cloudflareIp, security } from "@softure-ai/security";
 import { en } from "./messages/en";
-import { pl } from "./messages/pl";
+import { de } from "./messages/de"; // the app's own translation
 
 // in defineSoftureConfig({ modules: [...] }):
 security({ clientIp: cloudflareIp(), buckets: { ...AUTH_RATE_LIMIT_BUCKETS, ...MCP_RATE_LIMIT_BUCKETS } }),
@@ -68,8 +68,8 @@ mcpAccess({
   serverName: "acme",
   allowWrites: true,
   tools: [
-    { name: "list_orders", access: "read", description: { en: en.mcp.listOrders, pl: pl.mcp.listOrders } },
-    { name: "cancel_order", access: "write", description: { en: en.mcp.cancelOrder, pl: pl.mcp.cancelOrder } },
+    { name: "list_orders", access: "read", description: { en: en.mcp.listOrders, de: de.mcp.listOrders } },
+    { name: "cancel_order", access: "write", description: { en: en.mcp.cancelOrder, de: de.mcp.cancelOrder } },
   ],
 }),
 ```
@@ -78,7 +78,7 @@ mcpAccess({
 | --- | --- | --- | --- |
 | `serverName` | `string` | required | The name clients list the server under (lowercase, digits, inner dashes; no quotes needed in a shell). |
 | `clientServerName` | `string` | `serverName` | The name the setup snippets register the server under (`claude mcp add`, the JSON configs, the assistant prompt), same pattern. Set it when users already added the server under another name: a new name gives everyone who reconnects a second entry. |
-| `tools` | `{ name, access: "read" \| "write", description: { en, pl? }, title?: { en, pl? }, example?: { en, pl? } }[]` | `[]` | The catalog the token page shows. `title` (a display name) and `example` (a request a person could make) are for agent docs that read the catalog. Keep it next to the factory; `expectToolCatalogMatchesServer` (`/testing`) checks that both list the same tools. |
+| `tools` | `{ name, access: "read" \| "write", description: { en, <locale>? }, title?: { en, <locale>? }, example?: { en, <locale>? } }[]` | `[]` | The catalog the token page shows. `title` (a display name) and `example` (a request a person could make) are for agent docs that read the catalog. Keep it next to the factory; `expectToolCatalogMatchesServer` (`/testing`) checks that both list the same tools. |
 | `allowWrites` | `boolean` | `false` | Lets write tokens be issued and used. Off, the page offers no write tokens and every token reads only. |
 | `tokenLifetimeDays` | `integer` 1–365 | `90` | How long a hand-issued token works. There is no renewal: the user issues a new one. |
 | `maxTokensPerUser` | `integer` 1–100 | `20` | Unexpired tokens one account may hold. Counted under a per-user lock, so parallel requests cannot overshoot. |
@@ -93,7 +93,7 @@ mcpAccess({
 | `resolveAppOrigin` | `(request) => string \| null` | — | The app origin of one request, ahead of the config's `origins` block (prefer that block: every module reads it). `readRequestOrigin` reads it from `Host`. Null falls back to the block's rule; anything but a bare http(s) origin throws. |
 | `resourceOrigins` | `string[]` (≤ 16 http(s) origins) | `[]` | Other public hosts of the app, e.g. the apex next to `app.`: the root protected resource metadata asked on one of them names it as `resource`, and the OAuth endpoints accept it as `resource`. |
 | `routes` | `{ page?, endpoint?, oauthConsent?, oauthDecision?, oauthToken?, oauthRegister? }` | `DEFAULT_MCP_ACCESS_ROUTES` (root entry): `/account/mcp`, `/api/mcp`, `/oauth/authorize`, `/api/oauth/authorize`, `/api/oauth/token`, `/api/oauth/register` | Move the page, the endpoint or the OAuth paths; URLs in the setup and the metadata are the app origin (`appOrigin`, or `resolveAppOrigin`'s) + the path. |
-| `messages` | partial `en` / `pl` | — | Copy overrides. |
+| `messages` | partial dictionaries per locale (`en` built in; any other is the app's own translation) | — | Copy overrides. |
 
 `allowWrites` is a deploy decision, so read it from the environment rather than hard-coding it:
 `allowWrites: process.env.MCP_ALLOW_WRITES === "1"` is the intended way. Any other value, or none,
@@ -407,7 +407,7 @@ None. `allowWrites` is configuration, not a runtime switch: changing who may wri
 
 ## 9. Copy
 
-`mcpAccessMessages.{en,pl}`: `page`, `tools`, `issue`, `issued`, `setup.assistantPrompt`
+`mcpAccessMessages.en`: `page`, `tools`, `issue`, `issued`, `setup.assistantPrompt`
 (placeholders `{serverName}` and `{command}`), `list`, `grants` (connected apps), `consent` (the
 consent page and its errors), and `errors` for the codes
 `mcp-access.name_required`, `name_too_long`, `token_limit_reached`, `token_not_found`, `grant_not_found`,

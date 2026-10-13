@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`blog@x.y.z`).
 
+## Unreleased
+
+- **Breaking (#446):** the built-in `pl` dictionary is gone; English is the only built-in copy and the fallback for
+  every other locale, which is now any BCP 47 tag. Migrate: an app that shows Polish keeps its own translation and
+  passes it as the overrides for its locale, `blog({ messages: { pl: myTranslation } })`; a key it leaves out reads
+  English. `disclaimer`, cluster and 410 link labels take any locale key; `locales` is keyed by any tag;
+  `DEFAULT_OPEN_GRAPH_LOCALES` is replaced by `getDefaultOpenGraphLocale(locale)` (the locale's likely
+  `language_TERRITORY`).
+
 ## 0.1.13
 
 - Tool blocks (#413). `defineToolBlock({ name, schema, renderStatic, Island })` (`/ui`) turns a `::name{…}` directive

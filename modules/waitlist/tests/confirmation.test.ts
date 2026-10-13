@@ -282,25 +282,28 @@ describe("the double opt-in mails", () => {
       inputs.push(mail);
       return mail.kind === "confirmation" ? `<a class="button" href="${mail.action.href}">${mail.action.label}</a>` : mail.body;
     };
-    test = await createTestWaitlist({ locale: "pl", waitlist: { ...OPTIONS, doubleOptIn: true, mailTemplate } });
+    const translated = { subject: "Bitte bestaetige deine Adresse", action: "Adresse bestaetigen" };
+    test = await createTestWaitlist({ locale: "de", waitlist: { ...OPTIONS, doubleOptIn: true, mailTemplate, messages: { de: { confirmationMail: translated } } } });
     const { signup, token } = await requestSignup(test);
     expect((await deliverConfirmationMail(test.ctx, signup, token)).ok).toBe(true);
 
-    const copy = waitlistMessages.pl.confirmationMail;
+    const copy = { ...waitlistMessages.en.confirmationMail, ...translated };
     const href = `https://app.example.com/waitlist/confirm?token=${token}`;
     expect(inputs).toHaveLength(1);
-    expect(inputs[0]).toMatchObject({ kind: "confirmation", locale: "pl", subject: copy.subject, action: { href, label: copy.action } });
+    expect(inputs[0]).toMatchObject({ kind: "confirmation", locale: "de", subject: copy.subject, action: { href, label: copy.action } });
     expect(inputs[0]?.body.endsWith(`<p><a href="${href}">${copy.action}</a></p>`)).toBe(true);
     expect(test.provider.sent[0]?.html).toBe(`<a class="button" href="${href}">${copy.action}</a>`);
     expect(test.provider.sent[0]?.text).toBe(`${copy.text}\n\n${href}`);
   });
 
   it("writes in the sign-up's locale and follows a moved confirmation page", async () => {
-    test = await createTestWaitlist({ locale: "pl", waitlist: { ...OPTIONS, doubleOptIn: true, routes: { confirm: "/dolacz" } } });
+    const messages = { de: { confirmationMail: { subject: "Bitte bestaetige deine Adresse" } } };
+    test = await createTestWaitlist({ locale: "de", waitlist: { ...OPTIONS, doubleOptIn: true, routes: { confirm: "/beitreten" }, messages } });
     const { signup, token } = await requestSignup(test);
-    expect(getConfirmationLink(test.config, token)).toBe(`https://app.example.com/dolacz?token=${token}`);
+    expect(getConfirmationLink(test.config, token)).toBe(`https://app.example.com/beitreten?token=${token}`);
     await deliverConfirmationMail(test.ctx, signup, token);
-    expect(test.provider.sent[0]?.subject).toBe(waitlistMessages.pl.confirmationMail.subject);
+    expect(test.provider.sent[0]?.subject).toBe("Bitte bestaetige deine Adresse");
+    expect(test.provider.sent[0]?.text.startsWith(waitlistMessages.en.confirmationMail.text)).toBe(true);
   });
 
   it("sends no welcome mail before the confirmation, and one after", async () => {

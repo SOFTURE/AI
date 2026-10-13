@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { findMissingFiles, loadMarketingConfig, type MarketingConfig } from "../src/config/config.js";
 import type { MarketingJsonInput } from "../src/config/schema.js";
+import { getMarketingMessages } from "../src/messages/index.js";
 
 const COLORS = {
   background: "#0c0c0d",
@@ -107,12 +108,30 @@ describe("loadMarketingConfig", () => {
       hideSelectors: [],
       screenGuardSelector: "body",
     });
-    expect(loaded.brand.language).toBe("en");
+    expect(loaded.brand.messages).toEqual(getMarketingMessages());
     expect(loaded.brand.fonts).toEqual({ heading: null, body: null });
     expect(loaded.social).toBeNull();
     expect(loaded.screenshots).toEqual([]);
     expect(loaded.ogImages).toEqual([]);
     expect(loaded.videos[0]?.endCard.note).toBe("");
+  });
+
+  it("applies brand.messages to the English copy, which fills every key they leave out", () => {
+    const config = makeConfig();
+    config.brand.messages = { posts: { linkInBio: "Link in der Bio.", platforms: { tiktok: "TikTok (Video)" } }, film: { persona: "{name} ({age})" } };
+    const english = getMarketingMessages();
+    expect(load(config).brand.messages).toEqual({
+      posts: { ...english.posts, linkInBio: "Link in der Bio.", platforms: { ...english.posts.platforms, tiktok: "TikTok (Video)" } },
+      film: { persona: "{name} ({age})" },
+    });
+  });
+
+  it("accepts any well-formed locale without a dictionary of its own, and keeps the copy English", () => {
+    const config = makeConfig();
+    config.brand.locale = "pl-PL";
+    const loaded = load(config);
+    expect(loaded.brand.locale).toBe("pl-PL");
+    expect(loaded.brand.messages).toEqual(getMarketingMessages());
   });
 
   it("builds each video's URLs, device and voice from the shared settings", () => {
@@ -195,7 +214,9 @@ describe("loadMarketingConfig", () => {
   });
 
   it.each([
-    ["a locale without a dictionary", (c: MarketingJsonInput) => (c.brand.locale = "de-DE"), "brand.locale: needs a language with message dictionaries: en, pl"],
+    ["a malformed locale", (c: MarketingJsonInput) => (c.brand.locale = "en_US"), "brand.locale: must be a BCP 47 locale such as en-US"],
+    ["an unknown message key", (c: MarketingJsonInput) => (c.brand.messages = { posts: { caption: "x" } } as MarketingJsonInput["brand"]["messages"]), 'brand.messages.posts: Unrecognized key: "caption"'],
+    ["a blank message", (c: MarketingJsonInput) => (c.brand.messages = { film: { persona: "" } }), "brand.messages.film.persona: "],
     ["an unknown timezone", (c: MarketingJsonInput) => (c.brand.timezone = "Mars/Base"), "brand.timezone: must be an IANA timezone such as Europe/London"],
     ["an empty start command", (c: MarketingJsonInput) => (c.app.startCommand = []), "app.startCommand: "],
     ["a timezone given as an offset", (c: MarketingJsonInput) => (c.brand.timezone = "+01:00"), "brand.timezone: must be an IANA timezone such as Europe/London"],

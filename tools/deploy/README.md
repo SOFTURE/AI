@@ -62,7 +62,7 @@ softure-deploy env render [--compose=docker/prod/docker-compose.yml] [--out=.env
 The release report between two tags, in Markdown, ready for a GitHub Release body.
 
 ```bash
-softure-deploy release-notes [--to=HEAD] [--from=<tag>] [--match=<glob>] [--repo-url=<url>] [--locale=en|pl] [--out=<file>]
+softure-deploy release-notes [--to=HEAD] [--from=<tag>] [--match=<glob>] [--repo-url=<url>] [--locale=en] [--out=<file>]
                              [--roadmap=context/foundation/roadmap.md] [--body=<release body file>]
 ```
 
@@ -74,7 +74,8 @@ softure-deploy release-notes [--to=HEAD] [--from=<tag>] [--match=<glob>] [--repo
   - an "other commit" otherwise; base syncs (`Merge branch '…'`) are left out.
 - **Links:** `--repo-url`, else `GITHUB_SERVER_URL/GITHUB_REPOSITORY` inside GitHub Actions, else none (plain `#N`
   and short SHAs).
-- **Copy:** `en` and `pl` dictionaries (`deployMessages`), exported for apps that format the report themselves.
+- **Copy:** the `en` dictionary (`deployMessages`, English is the only built-in language), exported for apps that
+  format the report themselves.
 - **Roadmap items:** `--roadmap=<file>` adds a `### Roadmap items` table after the summary: the rows of the SOFTURE
   roadmap's `## At a glance` table whose status is `done_code` (on the main branch, waiting for this release), with
   their ID, change and outcome. A missing file fails; a release with no such row has no table.
@@ -106,7 +107,7 @@ The deploy run's report in the same release body (DF-10): the pipeline status of
 every deployment of the tag.
 
 ```bash
-softure-deploy release-report --body=<release body file> --summary=deploy-report.json [--locale=en|pl] [--out=<file>]
+softure-deploy release-report --body=<release body file> --summary=deploy-report.json [--locale=en] [--out=<file>]
 ```
 
 - **Input:** `--summary` is the `deploy-report.json` the `summary` job of `deploy-app.yml` uploads (version 1: tag,
@@ -280,6 +281,21 @@ softure-deploy verify <url> [--config=deploy.json] [--timeout=<ms>] [--concurren
 - **Severity:** `"severity": "warn"` on a route prints a failed row as `WARN` and does not fail the run (a probe to
   report, not to block a release); `verify.originSeverity: "warn"` does the same for the `origin` row. The summary
   adds `, N warned`.
+- **Statuses that only warn:** `"warnOn": { "status": [404] }` on a route reads a listed status as a `WARN` row and
+  skips the route's other checks; every other mismatch keeps the route's severity. It fits a resource that exists
+  only once a secret is configured: the Web Bot Auth key directory warns while it is a 404 and fails when a catch-all
+  serves a `200 text/html` login page or the app answers 500. A listed status on a `forEach` source warns the same
+  way. A `warnOn` status cannot be the route's own `status`.
+
+```json
+{
+  "path": "/.well-known/http-message-signatures-directory",
+  "warnOn": { "status": [404] },
+  "headers": { "content-type": "application/http-message-signatures-directory+json" },
+  "contains": ["Ed25519"]
+}
+```
+
 - **Digest:** `"sha256": "sha256:<hex>"` (or the bare hex) on a route: the SHA-256 of the response's exact bytes must
   match.
 - **Inside `<head>` and counts:** `"within": "head"` checks `contains`, `excludes` and `count` only between `<head>`
@@ -315,8 +331,11 @@ softure-deploy verify <url> [--config=deploy.json] [--timeout=<ms>] [--concurren
   own config.
 - **Headers:** a value is text the header must contain, case-insensitive; a list of texts the value must all
   contain (`"link": ["rel=\"api-catalog\"", "rel=\"service-desc\""]`, `"cache-control": ["private", "no-store"]`),
-  each reported as its own check in the route's row; `null` means the header must be absent. `verify.headers`
-  applies to every route; a route's entry for the same name wins, the whole list with it.
+  each reported as its own check in the route's row; `null` means the header must be absent. A value that only
+  means something at a fixed position takes `{ "startsWith": "<text>" }`, anchored at the start of the value and
+  case-insensitive too (`"signature-input": { "startsWith": "binding0=(\"@authority\";req)" }`); it may also be an
+  item of a list. `verify.headers` applies to every route; a route's entry for the same name wins, the whole list
+  with it.
 - **Requests:** `GET` with `cache-control: no-cache`, redirects not followed, at most `--concurrency` at once
   (default 4), each within `verify.timeoutMs` (default 10000) or `--timeout`. A TLS, connection or timeout error
   fails that route with the reason; other routes still run.
@@ -465,7 +484,7 @@ back (`gh release edit`): the pipeline status replaced, a deployment row added o
 because editing a release needs `contents: write`, which the caller grants to this job only; inside `deploy-app.yml`
 every job would have needed it. One report per tag runs at a time, so two runs never drop each other's row. A tag
 without a release gets no report (a notice), and a failed report never turns the run red (`continue-on-error`).
-Inputs: `tag` (required), `locale` (`en` or `pl`), `deploy-cli-version`, `node-version`, `e2e` (below).
+Inputs: `tag` (required), `locale` (`en`, the only built-in language), `deploy-cli-version`, `node-version`, `e2e` (below).
 
 ### Cut a release
 
@@ -567,8 +586,12 @@ cannot edit a release through the API, but it can start a `workflow_dispatch`, a
 `init` writes the caller `.github/workflows/release-notes.yml` (the same file as
 [`examples/release-notes.yml`](examples/release-notes.yml): `workflow_dispatch` with the required inputs `tag` and
 `body`, `permissions: contents: write`). The job refuses an invalid tag and an empty body, then runs
-`gh release edit <tag> --notes-file <file>` with the body written to the file byte for byte. It replaces the whole
-body; edit the release's current text and pass all of it.
+`gh release edit <tag> --notes-file <file>` with the body written to the file byte for byte. With `keep-report: true`
+(the caller's default; the reusable workflow defaults to `false`) `body` is only the owner's text: the job appends the
+current body from its first `<!-- softure-deploy:` marker on, unchanged, after a blank line, so the sections
+`release-notes` and `report` wrote survive. A body that itself carries such a marker is refused, and a release without
+one is replaced whole. With `keep-report: false` it replaces the whole body; edit the release's current text and pass
+all of it.
 
 ### End-to-end test
 
@@ -631,7 +654,7 @@ softure-deploy init --domain=example.com --image=ghcr.io/acme/app [--dir=.] [--n
 | `scripts/migrate.ts` | with a database: the migrate step the `Dockerfile` bundles |
 | `.github/workflows/deploy.yml` | the caller of `deploy-app.yml` with the domain, the image and the health path |
 | `.github/workflows/release.yml` | the caller of `deploy-cut-release.yml` (below): *Run workflow* cuts the next date tag in `UTC` and starts `deploy.yml` on it |
-| `.github/workflows/release-notes.yml` | the caller of `deploy-release-notes.yml` (below): *Run workflow* with `tag` and `body` replaces that release's body |
+| `.github/workflows/release-notes.yml` | the caller of `deploy-release-notes.yml` (below): *Run workflow* with `tag` and `body` replaces that release's body above its softure-deploy sections (`keep-report`) |
 | `.github/workflows/checks.yml` | the caller of `deploy-release-checks.yml` (below): `static` on every pull request, the unit tests on demand or with the `run-tests` label |
 | `deploy.json` | a `verify` starter: `/` without an error page, `/api/health` when the app has one, HSTS present, `x-powered-by` absent; with a database and `--tables`, `database.rowCountTables`; with `--cdn=cloudflare`, the range refresh hooks |
 

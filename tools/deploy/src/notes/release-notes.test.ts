@@ -42,18 +42,18 @@ describe("formatReleaseNotes", () => {
     );
   });
 
-  it("writes plain numbers and short SHAs without a repository URL, in Polish", () => {
+  it("writes plain numbers and short SHAs without a repository URL", () => {
     const notes = formatReleaseNotes({
       entries: ENTRIES,
       from: "v1.1.0",
       to: "v1.2.0",
       date: "2026-10-05",
       repoUrl: null,
-      messages: deployMessages.pl,
+      messages: deployMessages.en,
     });
     expect(notes).toContain("- Trial ends at midnight (#12)\n");
     expect(notes).toContain("- fix: typo in the footer (`0123456`)\n");
-    expect(notes).toContain(deployMessages.pl.releaseNotes.pullRequests);
+    expect(notes).toContain("### Pull requests\n");
     expect(notes).not.toContain("compare");
   });
 
@@ -119,12 +119,12 @@ describe("formatReleaseNotes with roadmap items", () => {
     );
   });
 
-  it("lists the items of a release without commits, in Polish, and leaves the table out when none ship", () => {
+  it("lists the items of a release without commits in the copy it is given, and leaves the table out when none ship", () => {
     const options = { entries: [], from: "v1.1.0", to: "v1.1.1", date: "2026-10-05", repoUrl: REPO };
-    const polish = formatReleaseNotes({ ...options, messages: deployMessages.pl, roadmapItems: ITEMS });
-    const copy = deployMessages.pl.releaseNotes;
-    expect(polish).toContain(`### ${copy.roadmapItems}\n\n| ${copy.roadmapId} | ${copy.roadmapChange} | ${copy.roadmapOutcome} |\n`);
-    expect(polish.indexOf(copy.roadmapItems)).toBeGreaterThan(polish.indexOf("v1.1.0."));
+    const copy = { ...deployMessages.en.releaseNotes, roadmapItems: "Roadmap-Punkte", roadmapChange: "Aenderung", roadmapOutcome: "Ergebnis" };
+    const translated = formatReleaseNotes({ ...options, messages: { ...deployMessages.en, releaseNotes: copy }, roadmapItems: ITEMS });
+    expect(translated).toContain("### Roadmap-Punkte\n\n| ID | Aenderung | Ergebnis |\n");
+    expect(translated.indexOf(copy.roadmapItems)).toBeGreaterThan(translated.indexOf("v1.1.0."));
     expect(formatReleaseNotes({ ...options, messages: deployMessages.en, roadmapItems: [] })).toBe(
       "## v1.1.1 (2026-10-05)\n\nNo changes since v1.1.0.\n",
     );

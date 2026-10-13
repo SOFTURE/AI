@@ -37,7 +37,7 @@ afterEach(async () => {
   current = undefined;
 });
 
-async function setUp(options: { locale?: Locale; provider?: FakeMailProvider } = {}): Promise<MailTest> {
+async function setUp(options: { locale?: Locale; provider?: FakeMailProvider; messages?: NonNullable<Parameters<typeof billing>[0]>["messages"] } = {}): Promise<MailTest> {
   const provider = options.provider ?? fakeMailProvider();
   const config = defineSoftureConfig({
     database: { url: "pglite://" },
@@ -49,7 +49,7 @@ async function setUp(options: { locale?: Locale; provider?: FakeMailProvider } =
       auth({ password: { scrypt: { cost: 2 ** 10 } }, requireConsent: false }),
       privacy(),
       mailing({ from: "hello@example.com", provider }),
-      billing({ trial: { days: 14, reminderDays: 3 }, paid: { reminderDays: 7 } }),
+      billing({ trial: { days: 14, reminderDays: 3 }, paid: { reminderDays: 7 }, ...(options.messages === undefined ? {} : { messages: options.messages }) }),
     ],
   });
   const database = await createTestDatabase(config.modules);
@@ -217,16 +217,16 @@ describe("sendAccessReminders", () => {
     expect(pauses).toEqual([250, 250]);
   });
 
-  it("writes the mail in the app's locale", async () => {
-    const test = await setUp({ locale: "pl" });
+  it("writes the mail in the app's locale with the app's translation, English where it has none", async () => {
+    const subject = "Deine Testphase endet am {date}";
+    const test = await setUp({ locale: "de", messages: { de: { reminderMail: { trialEnding: { subject } } } } });
     await createAccount(test, "ada@example.com");
     test.clock.set(IN_TRIAL_WINDOW);
 
     await sendAccessReminders(test.ctx, NO_PAUSE);
-    const copy = billingMessages.pl;
-    const lastDay = new Intl.DateTimeFormat("pl", { dateStyle: "long", timeZone: TIMEZONE }).format(new Date("2026-10-16T12:00:00Z"));
-    expect(test.provider.sent[0]?.subject).toBe(formatMessage(copy.reminderMail.trialEnding.subject, { date: lastDay }));
-    expect(test.provider.sent[0]?.text).toContain(`${copy.notice.choosePlan}: ${PAYMENT_LINK}`);
+    const lastDay = new Intl.DateTimeFormat("de", { dateStyle: "long", timeZone: TIMEZONE }).format(new Date("2026-10-16T12:00:00Z"));
+    expect(test.provider.sent[0]?.subject).toBe(formatMessage(subject, { date: lastDay }));
+    expect(test.provider.sent[0]?.text).toContain(`${billingMessages.en.notice.choosePlan}: ${PAYMENT_LINK}`);
   });
 });
 

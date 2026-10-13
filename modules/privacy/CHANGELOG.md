@@ -6,6 +6,10 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- **Breaking (#446):** the built-in `pl` dictionary is gone; English is the only built-in copy and the fallback for
+  every other locale, which is now any BCP 47 tag. Migrate: an app that shows Polish keeps its own translation and
+  passes it as the overrides for its locale, `privacy({ messages: { pl: myTranslation } })`; a key it leaves out reads
+  English.
 - README: `DeleteAccountForm` follows `UiLocaleProvider` when given no `locale`; server components keep the prop
   (#435).
 

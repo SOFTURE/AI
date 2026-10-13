@@ -1,7 +1,7 @@
 // What the blog's components get besides their own data, built from the config alone: the copy, the
 // paths, the brand, the disclaimer and the AI disclosure. No request scope and no Next import, so the
 // ready-made pages and any other renderer build it the same way.
-import type { SoftureConfig } from "@softure-ai/core";
+import { pickLocalizedText, type SoftureConfig } from "@softure-ai/core";
 import type { BlogPageContext } from "../ui/page-context.js";
 import { getBlogMessages, getBlogOptions, getBlogRoutes } from "./options.js";
 
@@ -14,7 +14,7 @@ export function getPageContext(config: SoftureConfig): BlogPageContext {
     routes,
     methodPath: options.methodPage ? routes.method : null,
     brand: options.brand?.name ?? null,
-    disclaimer: options.disclaimer === undefined ? null : (options.disclaimer[config.locale] ?? options.disclaimer.en),
+    disclaimer: options.disclaimer === undefined ? null : pickLocalizedText(options.disclaimer, config.locale),
     clusterAnchorPrefix: options.anchors.cluster,
     aiDisclosure: options.aiDisclosure,
   };

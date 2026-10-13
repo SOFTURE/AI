@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`waitlist@x.y.z`).
 
+## Unreleased
+
+- **Breaking (#446):** the built-in `pl` dictionary is gone; English is the only built-in copy and the fallback for
+  every other locale, which is now any BCP 47 tag. Migrate: an app that shows Polish keeps its own translation and
+  passes it as the overrides for its locale, `waitlist({ messages: { pl: myTranslation } })`; a key it leaves out
+  reads English. Scope labels take any locale key; a sign-up's stored locale is used for its mails when the module has
+  copy in it (English or the app's translation), else the app's locale.
+
 ## 0.1.11
 
 - The `@softure-ai/ui` peer range also accepts 0.2.0.

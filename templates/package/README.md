@@ -46,7 +46,7 @@ Slots (`classNames`) per component and the `--sft-*` tokens they use.
 
 ## 9. Copy
 
-Message keys in `src/messages/`, with complete `pl` and `en` dictionaries.
+Message keys in `src/messages/`, with one complete `en` dictionary (English is the only built-in language).
 
 ## 10. Hooks
 

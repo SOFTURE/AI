@@ -108,19 +108,22 @@ function checkRedirect(expected: string, response: ObservedResponse, baseUrl: st
   return { kind: "redirect", passed, detail: passed ? `redirect to ${want}` : `redirect to ${got}, expected ${want}` };
 }
 
-function checkHeader(name: string, expected: string | null, response: ObservedResponse): CheckOutcome {
+type HeaderMatch = Exclude<HeaderChecks[string], unknown[] | null>;
+
+function checkHeader(name: string, expected: HeaderMatch | null, response: ObservedResponse): CheckOutcome {
   const value = response.getHeader(name);
   if (expected === null) {
     const passed = value === null;
     return { kind: "header", passed, detail: passed ? `no ${name}` : `unexpected ${name}: ${quote(value ?? "")}` };
   }
-  if (value === null) return { kind: "header", passed: false, detail: `missing ${name}, expected ${quote(expected)}` };
-  const passed = value.toLowerCase().includes(expected.toLowerCase());
-  return {
-    kind: "header",
-    passed,
-    detail: passed ? `${name} has ${quote(expected)}` : `${name}: ${quote(value)}, expected ${quote(expected)}`,
-  };
+  const isAnchored = typeof expected !== "string";
+  const text = isAnchored ? expected.startsWith : expected;
+  const want = isAnchored ? `expected to start with ${quote(text)}` : `expected ${quote(text)}`;
+  if (value === null) return { kind: "header", passed: false, detail: `missing ${name}, ${want}` };
+  const lowerValue = value.toLowerCase();
+  const passed = isAnchored ? lowerValue.startsWith(text.toLowerCase()) : lowerValue.includes(text.toLowerCase());
+  const pass = isAnchored ? `${name} starts with ${quote(text)}` : `${name} has ${quote(text)}`;
+  return { kind: "header", passed, detail: passed ? pass : `${name}: ${quote(value)}, ${want}` };
 }
 
 /** `text` without trailing slashes; a loop, not a regular expression, so a long run of `/` stays linear. */
@@ -151,7 +154,7 @@ export function checkResponse(options: {
   if (needsBody(route)) outcomes.push(...checkMarkers(route, response.body ?? ""));
   if (route.sha256 !== undefined) outcomes.push(checkDigest(route.sha256, response));
   for (const [name, expected] of Object.entries(headers)) {
-    // A list is one check per item, each reported like a single substring.
+    // A list is one check per item, each reported like a single check.
     for (const item of Array.isArray(expected) ? expected : [expected]) outcomes.push(checkHeader(name, item, response));
   }
   return outcomes;

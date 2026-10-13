@@ -17,7 +17,7 @@ export const guestbook = defineModule({
     privacy: { exports: false, deletes: false },
   },
   // The module has no copy of its own: the app's dictionaries in messages/ hold every text.
-  messages: { en: {}, pl: {} },
+  messages: { en: {} },
   migrations: { dir: resolveMigrationsDir(import.meta.url, "./migrations/") },
   health: checkGuestbook,
 });

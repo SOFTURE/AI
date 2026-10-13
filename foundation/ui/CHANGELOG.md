@@ -6,12 +6,19 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- **Breaking (#446):** the built-in `pl` dictionary is gone; `uiMessages` is English only and `locale` is any BCP 47
+  tag. An app that shows another language passes its own translation as `messages` (per component or through the
+  provider); a key it leaves out reads English. The amount and decimal fields read their notation from
+  `Intl.NumberFormat` for any locale (`pl` and `en` keep their behaviour).
 - `QuerySegmentedNav` (`@softure-ai/ui/next`) renders outside the App Router, where `useSearchParams()` and
   `usePathname()` return `null` (a static render in a unit test, the Pages Router): the query counts as empty and the
   links are query-only. A new optional `active` prop takes the view the server parsed and wins over the address (#454).
 - `UiLocaleProvider` and `SoftureThemeProvider` take `messages`: the app's own translation of the built-in copy, per
   message group, used by every client component below them (#435). A component's own `messages` win key by key.
   `UiLocaleProvider`'s `locale` is now optional (`en` when left out).
+- `CheckboxField` takes a node as `label` in both modes (#453), so a consent statement can link to the terms; the
+  control is still named by the label's text. `switchProps` also takes `hintLabel`, the name of the "?" when a
+  `setting` has a node label and a tooltip hint.
 
 ## 0.2.0
 

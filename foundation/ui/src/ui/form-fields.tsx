@@ -268,7 +268,7 @@ interface MoneyFieldOwnProps {
 export type MoneyFieldProps = BaseFieldProps & FieldValueProps & MoneyFieldOwnProps;
 
 /**
- * An amount input. It shows the amount grouped in the locale's notation ("1 234,56" in `pl`) and
+ * An amount input. It shows the amount grouped in the locale's notation ("1 234,56" in a space-grouped locale) and
  * reformats on blur; text it cannot parse stays as typed, for the server to reject with a message.
  */
 export function MoneyField({
@@ -408,7 +408,11 @@ export function SelectField({
 
 export interface CheckboxFieldProps extends CopyProps<"field"> {
   readonly name: string;
-  readonly label: string;
+  /**
+   * What the box or switch says; it names the control by its text content. A node lets a consent statement link to
+   * the terms. With a node and a tooltip hint in `setting` mode, name the "?" with `switchProps.hintLabel`.
+   */
+  readonly label: ReactNode;
   readonly id?: string;
   readonly hint?: string;
   readonly hintAs?: HintPlacement;
@@ -422,8 +426,8 @@ export interface CheckboxFieldProps extends CopyProps<"field"> {
   readonly requiredMessage?: string;
   /** `setting` (default) renders a `Switch`; `statement` a `Checkbox` (consent, confirmation). */
   readonly labelAs?: "setting" | "statement";
-  /** The `Switch` look in `setting` mode: its slots, its control's slots and the "?" look. */
-  readonly switchProps?: Pick<SwitchProps, "classNames" | "controlClassNames" | "hintProps">;
+  /** The `Switch` look in `setting` mode: its slots, its control's slots, the "?" look and the "?" name. */
+  readonly switchProps?: Pick<SwitchProps, "classNames" | "controlClassNames" | "hintProps" | "hintLabel">;
   /** The `Checkbox` look in `statement` mode. */
   readonly checkboxProps?: Pick<CheckboxProps, "classNames">;
   readonly unstyled?: boolean;

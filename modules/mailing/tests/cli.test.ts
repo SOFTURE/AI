@@ -1,7 +1,6 @@
 // `softure-mail`: the campaign command over a database connection and the DNS check.
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { mailingMessages } from "@softure-ai/mailing";
 import { getRecipientKey, signRecipientKey } from "@softure-ai/mailing/server";
 import { DEFAULT_PAUSE_MS, runMailCli, runMailCommand, type CliOutput, type RunMailCliOptions } from "@softure-ai/mailing/cli";
 import { fakeMailProvider, type FakeMailProvider } from "@softure-ai/mailing/testing";
@@ -408,13 +407,24 @@ describe("softure-mail campaign", () => {
     ["a signed link in the text body", "Unsubscribe: https://app.example.com/unsubscribe?r=" + "A".repeat(43) + "&t=" + "B".repeat(43), "the text body carries an unsubscribe link"],
     ["the one-click route in the text body", "See https://app.example.com/api/mailing/unsubscribe?x=1", "the text body carries an unsubscribe link"],
     ["the footer copy in the text body", "Hello,\n\n-- \nDon't want these emails? Unsubscribe here:", "the text body carries the unsubscribe footer"],
-    ["the Polish footer copy", mailingMessages.pl.footer.text, "the text body carries the unsubscribe footer"],
   ])("refuses a campaign with %s before opening the database", async (_case, body, problem) => {
     const content = `---\nid: 2026-10-pasted\nkind: newsletter\nsubject: Pasted\n---\n${body}\n`;
     const result = await run(["campaign", "-", "--recipients", "recipients.txt"], { readStdin: () => Promise.resolve(content) });
 
     expect(result.code).toBe(1);
     expect(result.errors).toEqual([`softure-mail campaign: standard input cannot be sent:\n  ${problem}; ${problem.includes("link") ? "the module adds a link signed for each recipient" : "the module adds it to every mail"}, remove the pasted one`]);
+    expect(closed).toBe(0);
+    expect(provider.sent).toEqual([]);
+  });
+
+  it("refuses a campaign with the footer copy of a translation the app passed", async () => {
+    const footer = "Keine E-Mails mehr? Hier abmelden:";
+    const config = createConfig(provider, { messages: { de: { footer: { text: footer } } } });
+    const content = `---\nid: 2026-10-pasted\nkind: newsletter\nsubject: Pasted\n---\nHallo,\n\n-- \n${footer}\n`;
+    const result = await run(["campaign", "-", "--recipients", "recipients.txt"], { config, readStdin: () => Promise.resolve(content) });
+
+    expect(result.code).toBe(1);
+    expect(result.errors).toEqual(["softure-mail campaign: standard input cannot be sent:\n  the text body carries the unsubscribe footer; the module adds it to every mail, remove the pasted one"]);
     expect(closed).toBe(0);
     expect(provider.sent).toEqual([]);
   });

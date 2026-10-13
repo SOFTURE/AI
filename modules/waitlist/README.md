@@ -67,7 +67,7 @@ import { cloudflareIp, security } from "@softure-ai/security";
 import { waitlist, WAITLIST_RATE_LIMIT_BUCKETS } from "@softure-ai/waitlist";
 import { withdrawWaitlistConsents } from "@softure-ai/waitlist/server";
 import { en } from "./messages/en";
-import { pl } from "./messages/pl";
+import { de } from "./messages/de"; // the app's own translation
 
 // in defineSoftureConfig({ modules: [...] }):
 security({ clientIp: cloudflareIp(), buckets: { ...AUTH_RATE_LIMIT_BUCKETS, ...WAITLIST_RATE_LIMIT_BUCKETS } }),
@@ -77,8 +77,8 @@ mailing({ from: "Acme <hello@mail.acme.com>", provider: resend(), onUnsubscribed
 privacy({ documents: [{ id: "privacy-policy", version: "2026-10-01" }] }),
 waitlist({
   scopes: [
-    { id: "launch", required: true, document: "privacy-policy", label: { en: en.waitlist.launch, pl: pl.waitlist.launch } },
-    { id: "newsletter", label: { en: en.waitlist.newsletter, pl: pl.waitlist.newsletter } },
+    { id: "launch", required: true, document: "privacy-policy", label: { en: en.waitlist.launch, de: de.waitlist.launch } },
+    { id: "newsletter", label: { en: en.waitlist.newsletter, de: de.waitlist.newsletter } },
   ],
   placements: ["hero", "footer"],
 }),
@@ -86,7 +86,7 @@ waitlist({
 
 | Option | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `scopes` | `{ id, required?, document?, label: { en, pl? } }[]`, 1 to 16 | required | The checkboxes, in order. `id` is kebab-case (at most 64 characters) and becomes the consent purpose in `privacy.consents`. `required` scopes must be checked; without any required scope, at least one must be. `document` names a document of `privacy({ documents })`, whose version is recorded with the consent. |
+| `scopes` | `{ id, required?, document?, label: { en, <locale>? } }[]`, 1 to 16 | required | The checkboxes, in order. `id` is kebab-case (at most 64 characters) and becomes the consent purpose in `privacy.consents`. `required` scopes must be checked; without any required scope, at least one must be. `document` names a document of `privacy({ documents })`, whose version is recorded with the consent. |
 | `placements` | kebab-case `string[]` | `["default"]` | Where the app embeds the form. Each sign-up stores the placement of its first form. |
 | `welcomeMail` | `boolean` | `true` | Sends the welcome mail (with double opt-in, after the confirmation). Off, the app sends its own (or none). |
 | `doubleOptIn` | `boolean` or `{ expiresInHours? }` | `false` | A sign-up counts only after the link in a confirmation mail is used. `true` keeps the link working for 168 hours (7 days); `expiresInHours` sets 1 to 720. Section 10. |
@@ -96,7 +96,7 @@ waitlist({
 | `resolveChannel` | `({ config }) => string \| null \| Promise<…>` | — | The request's acquisition channel, called by the join action in the request's scope, e.g. `() => getChannel()` from `@softure-ai/analytics/next`. Stored with a first sign-up (1 to 64 visible ASCII characters); a throw or another value is logged by kind and the sign-up goes on without one. |
 | `unsubscribeLinkOnSuccess` | `boolean` | `false` | Answers a sign-up with the person's own unsubscribe page link (`unsubscribeUrl`), which `WaitlistForm` shows under the success notice. Never with double opt-in's `confirmation_sent`. Needs `MAILING_UNSUBSCRIBE_SECRET` (the first sign-up checks it). Only the request that created the sign-up gets the link: a known and a suppressed address are answered alike, without it, so nobody receives the link of an address they typed but do not own. The link's absence tells a repeat submitter the address was already known; turn it on only when the product asks people to keep that link. |
 | `routes` | `{ confirm? }` | `{ confirm: "/waitlist/confirm" }` | The path of the confirmation page, when the app mounts it elsewhere. |
-| `messages` | partial `en` / `pl` | — | Copy overrides, the welcome mail's subject and text included. |
+| `messages` | partial dictionaries per locale (`en` built in; any other is the app's own translation) | — | Copy overrides, the welcome mail's subject and text included. |
 
 `WAITLIST_RATE_LIMIT_BUCKETS` is `{ waitlist: { limit: 10, windowMinutes: 15 }, "waitlist-email": { limit: 3, windowMinutes: 60 } }`.
 Every attempt counts per client before anything is checked; the per-address bucket stops one
@@ -217,13 +217,13 @@ passes both through.
 
 ## 9. Copy
 
-`waitlistMessages` (`en`, `pl`): `form` (field label, button, pending text, the confirmation,
+`waitlistMessages` (English, the only built-in language): `form` (field label, button, pending text, the confirmation,
 with double opt-in `confirmationSent`, and `unsubscribeHint` with `unsubscribeLink` for the link
 of `unsubscribeLinkOnSuccess`), `welcomeMail` (subject and text; mailing appends the
 unsubscribe footer), `confirmationMail` (subject, text and `action`, the link's label in the HTML
 body; in the text body the link follows the text), `confirm`
 (the confirmation page: its states and button) and `errors`. Override
-them with `waitlist({ messages: { pl: { welcomeMail: { subject: "…" } } } })`. Scope labels are
+them with `waitlist({ messages: { de: { welcomeMail: { subject: "…" } } } })`. Scope labels are
 the app's, in `scopes[].label` or `consentLabels`.
 
 ## 10. Hooks

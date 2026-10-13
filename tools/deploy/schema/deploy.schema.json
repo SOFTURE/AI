@@ -275,22 +275,60 @@
           "additionalProperties": {
             "anyOf": [
               {
-                "type": "string",
-                "minLength": 1
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "startsWith": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Text the header value must begin with (case-insensitive)."
+                      }
+                    },
+                    "required": [
+                      "startsWith"
+                    ],
+                    "additionalProperties": false,
+                    "description": "A check anchored at the start of the header value."
+                  }
+                ]
               },
               {
                 "minItems": 1,
                 "type": "array",
                 "items": {
-                  "type": "string",
-                  "minLength": 1
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "startsWith": {
+                          "type": "string",
+                          "minLength": 1,
+                          "description": "Text the header value must begin with (case-insensitive)."
+                        }
+                      },
+                      "required": [
+                        "startsWith"
+                      ],
+                      "additionalProperties": false,
+                      "description": "A check anchored at the start of the header value."
+                    }
+                  ]
                 }
               },
               {
                 "type": "null"
               }
             ],
-            "description": "Text the header value must contain (case-insensitive), a list of texts it must all contain, or null when the header must be absent."
+            "description": "Text the header value must contain (case-insensitive), { startsWith } for text it must begin with, a list of such checks it must all pass, or null when the header must be absent."
           }
         },
         "routes": {
@@ -435,24 +473,62 @@
                 "additionalProperties": {
                   "anyOf": [
                     {
-                      "type": "string",
-                      "minLength": 1
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "startsWith": {
+                              "type": "string",
+                              "minLength": 1,
+                              "description": "Text the header value must begin with (case-insensitive)."
+                            }
+                          },
+                          "required": [
+                            "startsWith"
+                          ],
+                          "additionalProperties": false,
+                          "description": "A check anchored at the start of the header value."
+                        }
+                      ]
                     },
                     {
                       "minItems": 1,
                       "type": "array",
                       "items": {
-                        "type": "string",
-                        "minLength": 1
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "startsWith": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Text the header value must begin with (case-insensitive)."
+                              }
+                            },
+                            "required": [
+                              "startsWith"
+                            ],
+                            "additionalProperties": false,
+                            "description": "A check anchored at the start of the header value."
+                          }
+                        ]
                       }
                     },
                     {
                       "type": "null"
                     }
                   ],
-                  "description": "Text the header value must contain (case-insensitive), a list of texts it must all contain, or null when the header must be absent."
+                  "description": "Text the header value must contain (case-insensitive), { startsWith } for text it must begin with, a list of such checks it must all pass, or null when the header must be absent."
                 },
-                "description": "Headers by lower-case name: text (or a list of texts) the value must contain, or null when the header must be absent."
+                "description": "Headers by lower-case name: text the value must contain, { startsWith } for text it must begin with, a list of such checks, or null when the header must be absent."
               },
               "method": {
                 "default": "GET",
@@ -510,6 +586,27 @@
                   "fail",
                   "warn"
                 ]
+              },
+              "warnOn": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "minimum": 100,
+                      "maximum": 599
+                    },
+                    "uniqueItems": true,
+                    "description": "Statuses that only warn, e.g. [404] for a resource that exists once a secret is configured."
+                  }
+                },
+                "required": [
+                  "status"
+                ],
+                "additionalProperties": false,
+                "description": "A response with a listed status is a WARN row and the route's other checks are skipped; any other mismatch keeps the route's severity."
               }
             },
             "additionalProperties": false,

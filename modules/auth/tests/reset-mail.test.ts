@@ -14,14 +14,24 @@ const LINK = "https://app.example.com/reset-password?token=AbC_123-xyz";
 const USER: AuthUser = { id: "00000000-0000-4000-8000-000000000001", email: "ada@example.com", createdAt: NOW };
 const FROM = "Plan <hello@mail.example.com>";
 
-/** The Polish expiry line for `count` minutes in the plural form `form` (one, few or many). */
-function plExpiry(form: "one" | "few" | "many", count: number): string {
-  const copy = authMessages.pl.resetMail;
-  return formatMessage(copy.expiry, { duration: formatMessage(copy.minutes[form], { count }) });
+/** An app-supplied German translation of the reset mail. */
+const DE_RESET_MAIL = {
+  subject: "Passwort zuruecksetzen",
+  greeting: "Hallo,",
+  intro: "Wir haben eine Anfrage erhalten, das Passwort deines Kontos zurueckzusetzen:",
+  action: "Neues Passwort setzen",
+  expiry: "Der Link gilt {duration} und nur einmal.",
+  minutes: { one: "{count} Minute", few: "{count} Minuten", many: "{count} Minuten", other: "{count} Minuten" },
+  ignore: "Wenn du das nicht angefordert hast, ignoriere diese Mail.",
+};
+
+/** The German expiry line for `count` minutes in the plural form `form`. */
+function deExpiry(form: "one" | "other", count: number): string {
+  return formatMessage(DE_RESET_MAIL.expiry, { duration: formatMessage(DE_RESET_MAIL.minutes[form], { count }) });
 }
 
 interface SetupOptions {
-  readonly locale?: "en" | "pl";
+  readonly locale?: string;
   readonly ttlMinutes?: number;
   readonly messages?: NonNullable<Parameters<typeof auth>[0]>["messages"];
   readonly respond?: (message: unknown) => Exclude<ProviderOutcome, { status: "sent" }> | undefined;
@@ -79,18 +89,21 @@ describe("renderPasswordResetMail", () => {
     });
   });
 
-  it("renders the Polish mail with the Polish plural of minutes", () => {
-    const mail = renderPasswordResetMail(authMessages.pl, "pl", { link: LINK, ttlMinutes: 60 });
-    expect(mail.subject).toBe(authMessages.pl.resetMail.subject);
-    expect(mail.text.split("\n\n")).toEqual([
-      authMessages.pl.resetMail.greeting,
-      authMessages.pl.resetMail.intro,
-      LINK,
-      plExpiry("many", 60),
-      authMessages.pl.resetMail.ignore,
-    ]);
-    expect(renderPasswordResetMail(authMessages.pl, "pl", { link: LINK, ttlMinutes: 22 }).text).toContain(plExpiry("few", 22));
-    expect(renderPasswordResetMail(authMessages.pl, "pl", { link: LINK, ttlMinutes: 1 }).text).toContain(plExpiry("one", 1));
+  it("renders an app-supplied translation with the plural rules of its locale", () => {
+    const messages = { ...authMessages.en, resetMail: DE_RESET_MAIL };
+    const mail = renderPasswordResetMail(messages, "de", { link: LINK, ttlMinutes: 60 });
+    expect(mail.subject).toBe("Passwort zuruecksetzen");
+    expect(mail.text.split("\n\n")).toEqual([DE_RESET_MAIL.greeting, DE_RESET_MAIL.intro, LINK, deExpiry("other", 60), DE_RESET_MAIL.ignore]);
+    expect(renderPasswordResetMail(messages, "de", { link: LINK, ttlMinutes: 1 }).text).toContain(deExpiry("one", 1));
+  });
+
+  it("picks the plural form of minutes by the plural categories of the locale", () => {
+    const minutes = { one: "{count} [one]", few: "{count} [few]", many: "{count} [many]", other: "{count} [other]" };
+    const messages = { ...authMessages.en, resetMail: { ...authMessages.en.resetMail, minutes } };
+    const render = (ttlMinutes: number): string => renderPasswordResetMail(messages, "pl", { link: LINK, ttlMinutes }).text;
+    expect(render(1)).toContain("The link works for 1 [one] and only once.");
+    expect(render(22)).toContain("The link works for 22 [few] and only once.");
+    expect(render(60)).toContain("The link works for 60 [many] and only once.");
   });
 
   it("uses the singular in English for one minute", () => {
@@ -126,11 +139,14 @@ describe("mailingResetSender", () => {
     ]);
   });
 
-  it("writes in the locale it is given, with the configured link lifetime", async () => {
-    const { config, provider } = setUp({ locale: "pl", ttlMinutes: 30 });
+  it("writes in the locale it is given with the app's translation, with the configured link lifetime", async () => {
+    const { subject, expiry, minutes } = DE_RESET_MAIL;
+    const { config, provider } = setUp({ locale: "de", ttlMinutes: 30, messages: { de: { resetMail: { subject, expiry, minutes } } } });
     await sendWith(config);
-    expect(provider.sent[0]?.subject).toBe(authMessages.pl.resetMail.subject);
-    expect(provider.sent[0]?.text).toContain(plExpiry("many", 30));
+    expect(provider.sent[0]?.subject).toBe("Passwort zuruecksetzen");
+    expect(provider.sent[0]?.text).toContain(deExpiry("other", 30));
+    // A key the translation leaves out reads English.
+    expect(provider.sent[0]?.text.split("\n\n")[0]).toBe(authMessages.en.resetMail.greeting);
   });
 
   it("applies the app's copy overrides", async () => {

@@ -54,7 +54,7 @@ import { cloudflareIp, overrideBuckets, security } from "@softure-ai/security";
 
 const config = defineSoftureConfig({
   database: { url: process.env.DATABASE_URL! },
-  locale: "pl",
+  locale: "en",
   timezone: "Europe/Warsaw",
   appOrigin: process.env.APP_ORIGIN!,
   modules: [
@@ -93,7 +93,7 @@ export default config;
 | `passwordReset.send` | `(link, user, details) => Promise<void>` | none | Delivers reset links (section 4, "Password reset"). Without it password reset is off. |
 | `passwordReset.ttlMinutes` | `number` (5-1440) | `60` | How long a reset link works. |
 | `routes` | `{ login, register, changePassword, forgotPassword, resetPassword, afterLogin, afterLogout }` | `/login`, `/register`, `/account/password`, `/forgot-password`, `/reset-password`, `/`, `/login` | Where the pages are mounted and where users land. |
-| `messages` | partial `pl` / `en` dictionaries | built in | Copy overrides (section 9). |
+| `messages` | partial dictionaries per locale (`en` built in; any other is the app's own translation) | built in | Copy overrides (section 9). |
 
 **Cookie.** Always `HttpOnly`, `SameSite=Lax`, `Path=/`, `Max-Age` = the TTL. A secure cookie gets
 the prefix browsers enforce: `__Host-softure_session` when it is host-only, `__Secure-softure_session`
@@ -259,8 +259,9 @@ never guarded, so `protect: ["/"]` cannot send the login page to itself. The cha
 stays guarded even under an excluded prefix.
 
 A stack the config cannot list (an integration run on a random port, a host added at deploy time)
-sets `redirect: "relative"`: the `Location` is the path only (`/login?next=%2Faccount`), so the browser
-stays on the host and port it used and no request header is read. An app whose image serves hosts it
+sets `redirect: "relative"`: the login URL is built on the request URL's own origin, which Next's proxy sends to
+the browser as the path only (`/login?next=%2Faccount`), so the browser stays on the host and port it used and no
+request header is read. Outside Next's proxy the `Location` stays absolute on the request URL's origin. An app whose image serves hosts it
 does not know in advance can instead set the config's `origins.trustRequestHost` (core README).
 
 **Roles.** A role is a declared name (`admin`, plus `auth({ roles: ["editor"] })`) held by an
@@ -563,8 +564,9 @@ for the submit button's class), `submitVariant` (a `Button` variant, `primary` b
 
 ## 9. Copy
 
-`authMessages.en` and `authMessages.pl`, overridable per locale:
-`auth({ messages: { en: { login: { title: "Sign in to Acme" } } } })`. Groups: `fields`, `login`,
+`authMessages.en` (English, the only built-in language), overridable per locale:
+`auth({ messages: { en: { login: { title: "Sign in to Acme" } } } })`; another language is the app's own
+translation under its locale, `auth({ messages: { de: authDe } })`. Groups: `fields`, `login`,
 `register`, `changePassword`, `forgotPassword`, `resetPassword`, `resetMail` (the reset mail of
 `mailingResetSender()`; `minutes` holds plural forms), `logout`, and `errors.{auth,security,core}` keyed by the error code
 (`auth.invalid_credentials` → `errors.auth.invalid_credentials`). `getAuthErrorMessage(messages, code)`

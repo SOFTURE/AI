@@ -1,7 +1,7 @@
 // The blog options, routes and copy of the running app, read from the configuration.
-import { getModule, getSiteUrls, type AnySoftureModule, type SoftureConfig } from "@softure-ai/core";
+import { type AnySoftureModule, getModule, getSiteUrls, selectMessages, type SoftureConfig } from "@softure-ai/core";
 import type { BlogMessages } from "../messages/index.js";
-import { DEFAULT_OPEN_GRAPH_LOCALES, type BlogOptions } from "../options.js";
+import { getDefaultOpenGraphLocale, type BlogOptions } from "../options.js";
 import { getReservedSlugs, normalizeRoute, type BlogRoutes } from "../pages/paths.js";
 import { resolveQualitySettings, type QualitySettings } from "../quality/settings.js";
 
@@ -24,7 +24,7 @@ export function getBlogOptions(config: SoftureConfig): BlogOptions {
 /** The module's copy in the app's locale, with the app's overrides applied. */
 export function getBlogMessages(config: SoftureConfig): BlogMessages {
   // The module factory merged the dictionaries; their shape is the module's own.
-  return getBlogModule(config).messages[config.locale] as BlogMessages;
+  return selectMessages(getBlogModule(config).messages, config.locale) as BlogMessages;
 }
 
 /** The module's routes with the app's overrides applied, without trailing slashes. */
@@ -46,10 +46,10 @@ export interface BlogLocaleTags {
   readonly openGraph: string;
 }
 
-/** The app locale's language tags: the app's `locales` entry, else the bare code and `en_US` / `pl_PL`. */
+/** The app locale's language tags: the app's `locales` entry, else the locale itself and its likely `language_TERRITORY`. */
 export function getBlogLocaleTags(config: SoftureConfig): BlogLocaleTags {
   const tags = getBlogOptions(config).locales[config.locale];
-  return { bcp47: tags?.bcp47 ?? config.locale, openGraph: tags?.openGraph ?? DEFAULT_OPEN_GRAPH_LOCALES[config.locale] };
+  return { bcp47: tags?.bcp47 ?? config.locale, openGraph: tags?.openGraph ?? getDefaultOpenGraphLocale(config.locale) };
 }
 
 /** The path of the cache refresh route (`refreshBlogCache`), outside the pages' routes. */

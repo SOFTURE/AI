@@ -86,7 +86,7 @@ const input: ComposeInput = {
   assets,
   brandName: "Acme <Plan>",
   locale: "en",
-  messages: getMarketingMessages("en"),
+  messages: getMarketingMessages(),
 };
 
 describe("filmTimes", () => {
@@ -177,11 +177,11 @@ describe("composeFilm", () => {
     expect(html).toContain("<span>Acme &lt;Plan&gt;</span>");
   });
 
-  it("writes the persona card in Polish for the pl locale", () => {
-    const messages = getMarketingMessages("pl");
-    const html = composeFilm({ ...input, locale: "pl-PL", messages });
-    expect(html).toContain('<html lang="pl-PL">');
-    expect(html).toContain(`<b>${messages.film.persona.replace("{name}", "Anna").replace("{age}", "36")}</b>`);
+  it("writes the persona card with the copy and the language it is given", () => {
+    const messages = getMarketingMessages({ film: { persona: "{name} ({age} Jahre)" } });
+    const html = composeFilm({ ...input, locale: "de-DE", messages });
+    expect(html).toContain('<html lang="de-DE">');
+    expect(html).toContain("<b>Anna (36 Jahre)</b>");
   });
 
   it("paints with the brand's colours, each in its role", () => {

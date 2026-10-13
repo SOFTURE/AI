@@ -3,7 +3,7 @@
 // or the result, and `headers` cannot replace the envelope or the sender (a mail's own reply-to is
 // the `replyTo` field, checked like `to`). List mail (any kind but `transactional`) also gets a signed unsubscribe
 // link in a footer and the RFC 8058 headers, and is refused for a recipient who unsubscribed.
-import { err, ok, type Err, type Ok, type SoftureConfig } from "@softure-ai/core";
+import { err, type Err, ok, type Ok, selectMessages, type SoftureConfig } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
 import {
   TRANSACTIONAL_KIND,
@@ -134,7 +134,7 @@ function composeMessage(config: SoftureConfig, mail: ValidMail, secret: string |
   if (kind === TRANSACTIONAL_KIND || secret === null) return { ...content, ...envelope };
   const links = buildUnsubscribeLinks(config, mail.to, secret);
   // The module factory merged the dictionaries; their shape is the module's own.
-  const copy = (getMailingModule(config).messages[config.locale] as MailingMessages).footer;
+  const copy = (selectMessages(getMailingModule(config).messages, config.locale) as MailingMessages).footer;
   return {
     ...envelope,
     to: mail.to,

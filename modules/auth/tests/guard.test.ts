@@ -202,23 +202,25 @@ describe("createAuthGuard", () => {
       expect(nextOf("/search?q=a%20b&flag&x_rsc=1&_rsc2=2&_RSC=3&bad=%E0")).toBe("/search?q=a%20b&flag&x_rsc=1&_rsc2=2&_RSC=3&bad=%E0");
     });
 
-    it("drops it from a path-only Location too", () => {
+    it("drops it from a relative-mode Location too", () => {
       const relative = createAuthGuard(config, { protect: ["/"], redirect: "relative" });
-      expect(relative(request("/history?view=years&_rsc=abc"))?.headers.get("location")).toBe("/login?next=%2Fhistory%3Fview%3Dyears");
+      expect(relative(request("/history?view=years&_rsc=abc"))?.headers.get("location")).toBe("http://10.0.0.5:3000/login?next=%2Fhistory%3Fview%3Dyears");
     });
   });
   describe("relative redirect (#314)", () => {
     const relative = createAuthGuard(config, { protect: ["/account"], redirect: "relative" });
 
-    it("answers with a path-only Location, so any host or port the request came on keeps it", () => {
+    it("answers on the request URL's own origin, so any host or port the request came on keeps it (#452)", () => {
       const response = relative(new Request("http://localhost:41234/account/billing?tab=1", { headers: { "x-forwarded-host": "evil.example" } }));
       expect(response?.status).toBe(307);
-      expect(response?.headers.get("location")).toBe("/login?next=%2Faccount%2Fbilling%3Ftab%3D1");
+      expect(response?.headers.get("location")).toBe("http://localhost:41234/login?next=%2Faccount%2Fbilling%3Ftab%3D1");
     });
 
     it("follows the app's login route", () => {
       const custom = createConfig({ appOrigin: "http://localhost:3000", auth: { routes: { login: "/sign-in" } } });
-      expect(createAuthGuard(custom, { protect: ["/app"], redirect: "relative" })(request("/app"))?.headers.get("location")).toBe("/sign-in?next=%2Fapp");
+      expect(createAuthGuard(custom, { protect: ["/app"], redirect: "relative" })(request("/app"))?.headers.get("location")).toBe(
+        "http://10.0.0.5:3000/sign-in?next=%2Fapp",
+      );
     });
 
     it("keeps an absolute Location on the resolved origin by default", () => {
