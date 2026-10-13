@@ -27,6 +27,9 @@ export interface AccessReminderMailInput {
 /** The subject and bodies of a reminder mail, without the recipient. */
 export type AccessReminderMail = Pick<OutgoingMail, "subject" | "text"> & { readonly html: string };
 
+/** What the app's template returns: a subject, a plain-text body and, optionally, an HTML body. */
+export type AccessReminderTemplateMail = Pick<OutgoingMail, "subject" | "text" | "html">;
+
 /** What the app's template gets for one due account. */
 export interface AccessReminderMailContext {
   /** The due account (id, email), the kind of reminder and the first instant without access. */
@@ -42,10 +45,10 @@ export interface AccessReminderMailContext {
 export interface SendAccessRemindersOptions extends FindAccessRemindersOptions, RunDeliveriesOptions {
   /**
    * The app's template: the mail to send this account, or null to send it nothing this run (counted in `skipped`;
-   * a later run asks again). The package's own mail by default. It runs in a dry run too, so it must not write.
-   * A throw propagates; the next run resumes.
+   * a later run asks again). Without `html` the mail goes out as plain text. The package's own mail by default.
+   * It runs in a dry run too, so it must not write. A throw propagates; the next run resumes.
    */
-  readonly buildMail?: (context: AccessReminderMailContext) => AccessReminderMail | null | Promise<AccessReminderMail | null>;
+  readonly buildMail?: (context: AccessReminderMailContext) => AccessReminderTemplateMail | null | Promise<AccessReminderTemplateMail | null>;
   /**
    * The delivery scope in `mailing.deliveries` (`getAccessReminderScope` by default). An app moving from its own
    * job passes the scope that job used, so accounts it already mailed are not mailed twice; `endsAtMicros` is the
