@@ -3,7 +3,9 @@
 import {
   createFindTermTool,
   createSearchSiteTool,
+  FIND_TERM_MESSAGES,
   registerWebMcpTool,
+  SEARCH_SITE_MESSAGES,
   type ModelContextLike,
   type RegisteredWebMcpTool,
   type WebMcpToolResult,
@@ -241,6 +243,51 @@ describe("createFindTermTool", () => {
     await tool.execute({ term: "ETF" });
     await tool.execute({ term: "SWR" });
     expect(calls.filter(({ path }) => path === "/blog/glossary")).toHaveLength(1);
+  });
+});
+
+describe("messages", () => {
+  it("override answer lines and input descriptions, and keep the English defaults for the rest", async () => {
+    const { fetchImpl } = createFetch(SITE);
+    const tool = createSearchSiteTool({ fetchImpl, messages: { noMatch: "Nothing for {query} [{scope}]", queryDescription: "Search words." } });
+    expect(text(await tool.execute({ query: "mortgage" }))).toBe("Nothing for mortgage [4 pages searched]");
+    expect(text(await tool.execute({ query: "fund" }))).toContain('1 page matches "fund" (4 pages searched).');
+    expect(tool.inputSchema).toMatchObject({ properties: { query: { description: "Search words." }, limit: { description: SEARCH_SITE_MESSAGES.limitDescription } } });
+    expect(await tool.execute({})).toEqual({ content: [{ type: "text", text: "searchSite: query must be a non-empty string" }], isError: true });
+  });
+
+  it("pick plural forms by the locale's plural rules, falling back to `other`", async () => {
+    const routes: Routes = { "/sitemap.xml": sitemap("/a", "/b", "/c", "/d", "/e"), "/e": 500 };
+    for (const path of ["/a", "/b", "/c", "/d"]) routes[path] = page(path, "alpha");
+    const { fetchImpl } = createFetch(routes);
+    const messages = {
+      matches: { one: "one {count}", few: "few {count} [{scope}]", other: "other {count}" },
+      searchedSome: { few: "few {read}/{total}", other: "other {read}/{total}" },
+      failed: { one: "{scope}, one failed", other: "{scope}, {count} failed" },
+    };
+    const czech = createSearchSiteTool({ fetchImpl, locale: "cs", messages });
+    expect(text(await czech.execute({ query: "alpha" })).split("\n")[0]).toBe("few 4 [other 4/5, one failed]");
+    const english = createSearchSiteTool({ fetchImpl, messages });
+    expect(text(await english.execute({ query: "alpha" })).split("\n")[0]).toBe("other 4");
+  });
+
+  it("fill each placeholder once, so a query that looks like one stays as typed", async () => {
+    const { fetchImpl } = createFetch(SITE);
+    const answer = text(await createSearchSiteTool({ fetchImpl }).execute({ query: "mortgage {scope}" }));
+    expect(answer).toBe('No page matches "mortgage {scope}" (4 pages searched).');
+  });
+
+  it("override findTerm's lines and input description", async () => {
+    const { fetchImpl } = createFetch(BLOG);
+    const tool = createFindTermTool({
+      fetchImpl,
+      messages: { noMatch: "No term {term}.", closeTerms: "Maybe ({term}):", invalidTerm: "give a term", termDescription: "A word." },
+    });
+    expect(text(await tool.execute({ term: "bond" }))).toBe("No term bond.");
+    expect(text(await tool.execute({ term: "withdrawal" })).split("\n")[0]).toBe("Maybe (withdrawal):");
+    expect(await tool.execute({ term: 1 })).toEqual({ content: [{ type: "text", text: "findTerm: give a term" }], isError: true });
+    expect(tool.inputSchema).toMatchObject({ properties: { term: { description: "A word." } } });
+    expect(FIND_TERM_MESSAGES.emptyGlossary).toBe("The glossary has no terms.");
   });
 });
 
