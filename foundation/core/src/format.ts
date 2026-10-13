@@ -2,7 +2,7 @@
 // is formatted at UTC midnight in UTC, so neither the server's nor the reader's zone moves it.
 import { isCalendarDay } from "./calendar-day.js";
 import { CURRENCY_MINOR_UNIT_DIGITS } from "./currency-digits.js";
-import { formatMessage, selectPlural, type Locale } from "./i18n.js";
+import { formatMessage, selectMessages, selectPlural, type Locale } from "./i18n.js";
 import { coreMessages } from "./messages/index.js";
 
 /** `long`: October 4, 2026 (pl names the month in the genitive); `medium`: Oct 4, 2026; `numeric`: 10/04/2026 (pl: 04.10.2026). */
@@ -82,7 +82,7 @@ export function formatDuration(months: number, locale: Locale): string {
   if (!Number.isSafeInteger(months) || months < 0) {
     throw new RangeError(`formatDuration: ${String(months)} is not a whole, non-negative number of months`);
   }
-  const copy = coreMessages[locale].duration;
+  const copy = selectMessages(coreMessages, locale).duration;
   const years = Math.floor(months / MONTHS_PER_YEAR);
   const rest = months % MONTHS_PER_YEAR;
   const yearsText = formatMessage(selectPlural(locale, years, copy.years), { count: years });

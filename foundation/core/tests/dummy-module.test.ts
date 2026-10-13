@@ -4,7 +4,7 @@ import { z } from "zod";
 import { defineModule, defineSoftureConfig, getModule, moduleManifestSchema, ok, toModuleJson } from "@softure-ai/core";
 
 const notesEn = { list: { title: "Notes", empty: "No notes yet" } };
-const notesPl: typeof notesEn = { list: { title: "PL notes", empty: "PL empty" } };
+const notesDe: typeof notesEn = { list: { title: "Notizen", empty: "Noch keine Notizen" } };
 
 const accounts = defineModule({
   manifest: {
@@ -19,7 +19,7 @@ const accounts = defineModule({
     mount: [],
     privacy: { exports: true, deletes: true },
   },
-  messages: { en: { title: "Accounts" }, pl: { title: "PL accounts" } },
+  messages: { en: { title: "Accounts" } },
   migrations: { dir: new URL("./accounts/migrations/", import.meta.url) },
   privacy: {
     exportUserData: () => Promise.resolve(ok({ email: "user@example.com" })),
@@ -40,7 +40,7 @@ const notes = defineModule({
     mount: [{ kind: "page", path: "app/notes/page.tsx", export: "NotesPage" }],
     privacy: { exports: false, deletes: false },
   },
-  messages: { en: notesEn, pl: notesPl },
+  messages: { en: notesEn, de: notesDe },
   options: z.object({ limit: z.number().int().positive().default(100) }),
   migrations: { dir: new URL("./notes/migrations/", import.meta.url) },
 });
@@ -48,7 +48,7 @@ const notes = defineModule({
 describe("a test app config with dummy modules", () => {
   const config = defineSoftureConfig({
     database: { url: "postgres://localhost/test" },
-    locale: "pl",
+    locale: "de",
     timezone: "Europe/Warsaw",
     appOrigin: "http://localhost:3000",
     modules: [notes({ limit: 10, routes: { list: "/my-notes" }, messages: { en: { list: { title: "My notes" } } } }), accounts()],
@@ -63,7 +63,7 @@ describe("a test app config with dummy modules", () => {
     expect(listed?.options).toEqual({ limit: 10 });
     expect(listed?.routes).toEqual({ list: "/my-notes" });
     expect(listed?.messages.en).toEqual({ list: { title: "My notes", empty: "No notes yet" } });
-    expect(listed?.messages.pl).toEqual(notesPl);
+    expect(listed?.messages.de).toEqual(notesDe);
   });
 
   it("has module.json content the manifest schema accepts", () => {

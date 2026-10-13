@@ -49,15 +49,6 @@ describe("formatCalendarMonth", () => {
 });
 
 describe("formatDuration", () => {
-  it("writes years and months with Polish plural forms", () => {
-    expect(formatDuration(38, "pl")).toBe("3 lata i 2 miesi\u0105ce");
-    expect(formatDuration(13, "pl")).toBe("1 rok i 1 miesi\u0105c");
-    expect(formatDuration(60, "pl")).toBe("5 lat");
-    expect(formatDuration(264, "pl")).toBe("22 lata");
-    expect(formatDuration(5, "pl")).toBe("5 miesi\u0119cy");
-    expect(formatDuration(0, "pl")).toBe("0 miesi\u0119cy");
-  });
-
   it("writes years and months in English", () => {
     expect(formatDuration(13, "en")).toBe("1 year and 1 month");
     expect(formatDuration(24, "en")).toBe("2 years");
