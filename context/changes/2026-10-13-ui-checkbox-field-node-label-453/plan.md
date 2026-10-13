@@ -24,5 +24,7 @@ Files: `foundation/ui/src/ui/form-fields.tsx`; new test `foundation/ui/tests/ado
 
 ## Progress
 
-- [ ] Phase 1: widen the label
-- [ ] Phase 2: docs
+- [x] Phase 1: widen the label (`1eb270d`; 3 tests written first: typecheck failed on them before the change, runtime already rendered nodes)
+- [x] Phase 2: docs (README note under the `CheckboxField` examples, CHANGELOG `## Unreleased`)
+
+Gates on the branch: `npm run typecheck`, `npm run lint` green; ui tests pass (42 files, 581 tests); the full `npm test` runs in pre-push.

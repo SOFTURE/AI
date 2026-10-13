@@ -208,6 +208,9 @@ replays its state after a rejected submit. `switchProps` (`classNames`, `control
 <CheckboxField name="terms" label="I accept the terms" labelAs="statement" unstyled checkboxProps={{ classNames: appCheckbox }} />
 ```
 
+The label is a node, so a statement can link to the terms; the control is named by the label's text. A `setting`
+with a node label and a tooltip hint names its "?" with `switchProps.hintLabel` (a string label names it by itself).
+
 A consent is a required statement: `required` with `requiredMessage` replaces the browser's bubble with the
 message under the box (`aria-invalid`, `aria-describedby`) when a submit finds it unchecked, and moves focus to the
 box when it is the form's first invalid control (an earlier invalid field keeps it). Checking the box clears the
