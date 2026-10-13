@@ -25,5 +25,5 @@ Files: `foundation/charts/src/cursor/chart-cursor.tsx`, `foundation/charts/src/c
 
 ## Progress
 
-- [ ] Phase 1: charts reads the provider
+- [x] Phase 1: charts reads the provider (`a1249fd`; 4 tests in `locale-provider.test.tsx`, written first and red before the fix)
 - [ ] Phase 2: docs
