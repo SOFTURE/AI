@@ -24,5 +24,5 @@ Files: `modules/mailing/src/server/dns.ts`, `modules/mailing/tests/dns.test.ts`.
 
 ## Progress
 
-- [ ] Phase 1: weak inbound SPF
+- [x] Phase 1: weak inbound SPF (`5913798`; 10 tests, written first and red before the fix)
 - [ ] Phase 2: docs
