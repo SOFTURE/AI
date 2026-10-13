@@ -174,6 +174,39 @@ describe("createAuthGuard", () => {
       },
     );
   });
+  describe("Next's _rsc cache key (#424)", () => {
+    const everything = createAuthGuard(config, { protect: ["/"] });
+    const nextOf = (path: string): string | null => {
+      const location = everything(request(path))?.headers.get("location");
+      return location === undefined || location === null ? null : new URL(location).searchParams.get("next");
+    };
+
+    it("drops _rsc from next= and keeps the other parameters", () => {
+      expect(everything(request("/history?view=years&_rsc=abc"))?.headers.get("location")).toBe(
+        "https://app.example.com/login?next=%2Fhistory%3Fview%3Dyears",
+      );
+    });
+
+    it.each([
+      ["/history?_rsc=abc", "/history"],
+      ["/history?_rsc", "/history"],
+      ["/history?_rsc=abc&view=years", "/history?view=years"],
+      ["/history?a=1&_rsc=abc&b=2", "/history?a=1&b=2"],
+      ["/history?_rsc=1&a=1&_rsc=2", "/history?a=1"],
+      ["/history?%5Frsc=abc&a=1", "/history?a=1"],
+    ])("turns %s into next=%s", (path, next) => {
+      expect(nextOf(path)).toBe(next);
+    });
+
+    it("keeps every other parameter as the request spelled it", () => {
+      expect(nextOf("/search?q=a%20b&flag&x_rsc=1&_rsc2=2&_RSC=3&bad=%E0")).toBe("/search?q=a%20b&flag&x_rsc=1&_rsc2=2&_RSC=3&bad=%E0");
+    });
+
+    it("drops it from a path-only Location too", () => {
+      const relative = createAuthGuard(config, { protect: ["/"], redirect: "relative" });
+      expect(relative(request("/history?view=years&_rsc=abc"))?.headers.get("location")).toBe("/login?next=%2Fhistory%3Fview%3Dyears");
+    });
+  });
   describe("relative redirect (#314)", () => {
     const relative = createAuthGuard(config, { protect: ["/account"], redirect: "relative" });
 
