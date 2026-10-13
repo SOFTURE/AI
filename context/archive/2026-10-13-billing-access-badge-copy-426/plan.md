@@ -1,6 +1,6 @@
 ---
 change_id: billing-access-badge-copy-426
-status: implementing
+status: archived
 ---
 
 # Plan: billing-access-badge-copy-426

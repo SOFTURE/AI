@@ -1,12 +1,13 @@
 ---
 change_id: billing-access-badge-copy-426
 title: "billing: AccessBadge texts per kind, a short form, an accessible prefix and the tone on the root (issue #426)"
-status: implementing
+status: archived
 roadmap_item: null
 issue: 426
 branch: claude/project-thread-1sxkac
 created: 2026-10-13
 updated: 2026-10-13
+archived_at: 2026-10-13
 ---
 
 ## Intent
