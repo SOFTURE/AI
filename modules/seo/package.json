@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/seo",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "SOFTURE AI seo module: robots.txt with explicit AI crawler lists, an htmlLimitedBots list that keeps Next's defaults, a sitemap from app and module contributors, one canonical origin, and the IndexNow key file and submit (dry run by default).",
   "license": "MIT",
   "type": "module",
@@ -51,7 +51,7 @@
     "build": "tsc -p tsconfig.build.json"
   },
   "dependencies": {
-    "@softure-ai/core": "^0.1.0",
+    "@softure-ai/core": "^0.1.11",
     "node-html-markdown": "^2.0.0",
     "node-html-parser": "^6.1.13",
     "zod": "^4.6.5"

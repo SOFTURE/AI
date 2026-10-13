@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/charts",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "SOFTURE AI charts: scales, ticks and nearest-point search, plus server-rendered SVG line charts with axes, legend, flags, a keyboard cursor and a data table, areas and stacked areas, step series, surfaces, an event axis, a Sankey and bar lists on the --sft-chart-* tokens, plus a series palette guard for tests (./testing).",
   "license": "MIT",
   "type": "module",
@@ -47,11 +47,11 @@
     "@softure-ai/core": "^0.1.0"
   },
   "peerDependencies": {
-    "@softure-ai/ui": "^0.1.6",
+    "@softure-ai/ui": "^0.1.6 || ^0.2.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
-    "@softure-ai/ui": "^0.1.7"
+    "@softure-ai/ui": "^0.1.7 || ^0.2.0"
   }
 }

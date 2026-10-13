@@ -4,6 +4,10 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`feature-switches@x.y.z`).
 
+## 0.1.8
+
+- The `@softure-ai/ui` peer range also accepts 0.2.0.
+
 ## 0.1.7
 
 - `toSwitchPanelRows(views, messages, config)` and `describeSwitchSource` from `/next`: the panel's row mapping, for an app that builds the panel inside its own page shell; `getSwitchContext` from `/next` and `getFeatureSwitchesRoutes` from `/server` too.
