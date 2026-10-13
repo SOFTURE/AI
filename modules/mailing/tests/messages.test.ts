@@ -11,8 +11,8 @@ const CODES: MailingErrorCode[] = [
 ];
 
 describe("mailing messages", () => {
-  it.each(["en", "pl"] as const)("have distinct copy in %s for every error code", (locale) => {
-    const copy = CODES.map((code) => getMailingErrorMessage(mailingMessages[locale], code));
+  it("have distinct English copy for every error code", () => {
+    const copy = CODES.map((code) => getMailingErrorMessage(mailingMessages.en, code));
     expect(copy.every((message) => message !== "")).toBe(true);
     expect(new Set(copy).size).toBe(CODES.length);
   });
@@ -24,19 +24,12 @@ describe("mailing messages", () => {
     expect(getMailingErrorMessage(mailingMessages.en, "mailing.toString")).toBe(mailingMessages.en.errors.mailing.unavailable);
   });
 
-  it("are translated, not copied", () => {
-    expect(mailingMessages.pl.errors.mailing.rejected).not.toBe(mailingMessages.en.errors.mailing.rejected);
-    expect(mailingMessages.pl.footer.text).not.toBe(mailingMessages.en.footer.text);
-    expect(mailingMessages.pl.unsubscribe.submit).not.toBe(mailingMessages.en.unsubscribe.submit);
+  it("ship English as the only built-in language", () => {
+    expect(Object.keys(mailingMessages)).toEqual(["en"]);
   });
 
-  it("have every footer and page text in both languages", () => {
-    const keys = (tree: object): string[] =>
-      Object.entries(tree).flatMap(([key, value]) => (typeof value === "string" ? [key] : keys(value as object).map((child) => `${key}.${child}`)));
-    expect(keys(mailingMessages.pl)).toEqual(keys(mailingMessages.en));
-    for (const locale of ["en", "pl"] as const) {
-      const { footer, unsubscribe } = mailingMessages[locale];
-      expect([...Object.values(footer), ...Object.values(unsubscribe)].every((text) => text.trim() !== "")).toBe(true);
-    }
+  it("have every footer and page text", () => {
+    const { footer, unsubscribe } = mailingMessages.en;
+    expect([...Object.values(footer), ...Object.values(unsubscribe)].every((text) => text.trim() !== "")).toBe(true);
   });
 });

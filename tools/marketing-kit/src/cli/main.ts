@@ -5,7 +5,6 @@ import { join, resolve } from "node:path";
 import { findMissingFiles, formatConfigIssues, loadMarketingConfig, type MarketingConfig } from "../config/config.js";
 import { getGeometry, getLayoutName } from "../compose/timeline.js";
 import { sceneBeats } from "../film.js";
-import { getMarketingMessages } from "../messages/index.js";
 import { postsMarkdown } from "../posts/posts.js";
 import { recordFilm, ScreenGuardError, type RecordingLog } from "../record/record.js";
 import { findMachineProblem } from "../render/preflight.js";
@@ -92,14 +91,14 @@ function writePosts(config: MarketingConfig, film: LoadedFilm): string | null {
   mkdirSync(getOutDir(config, film), { recursive: true });
   writeFileSync(
     path,
-    postsMarkdown({ title: film.title, post: film.post, linkTemplate: config.social.linkTemplate, messages: getMarketingMessages(config.brand.language) }),
+    postsMarkdown({ title: film.title, post: film.post, linkTemplate: config.social.linkTemplate, messages: config.brand.messages }),
   );
   return path;
 }
 
 function describePosts(config: MarketingConfig, film: LoadedFilm, path: string | null): string {
   if (path === null) return `no post copy: social.posts has no entry for "${film.id}" in ${config.file}.`;
-  const labels = (film.post?.channels ?? []).map((channel) => getMarketingMessages(config.brand.language).posts.platforms[channel.platform]);
+  const labels = (film.post?.channels ?? []).map((channel) => config.brand.messages.posts.platforms[channel.platform]);
   return `✓ ${path}: post copy for ${labels.join(", ")}`;
 }
 
@@ -136,7 +135,7 @@ function render(config: MarketingConfig, film: LoadedFilm, options: FilmOptions)
     colors: config.brand.colors,
     brandName: config.brand.name,
     locale: config.brand.locale,
-    messages: getMarketingMessages(config.brand.language),
+    messages: config.brand.messages,
     quality: options.quality ?? config.output.quality,
     output,
   });

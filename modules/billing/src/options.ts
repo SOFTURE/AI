@@ -1,5 +1,5 @@
 // The options an app passes to `billing({ ... })` in softure.config.ts, parsed at startup.
-import { LOCALES } from "@softure-ai/core";
+import { isLocale } from "@softure-ai/core";
 import { z } from "zod";
 import { parseDay } from "./calendar.js";
 import { PERIOD_UNITS, type PlanPeriod } from "./contract.js";
@@ -33,7 +33,7 @@ const PLAN_ID_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 
 /** Copy per locale; a locale without its own text falls back to `en`. */
 const localizedTextSchema = z
-  .partialRecord(z.enum(LOCALES), z.string().trim().min(1).max(500))
+  .record(z.string().refine(isLocale, "must be a BCP 47 language tag"), z.string().trim().min(1).max(500))
   .refine((text) => text.en !== undefined, "needs at least an en text");
 
 const periodSchema = z.union([

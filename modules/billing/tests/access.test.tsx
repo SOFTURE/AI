@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 // The badge and the notice render from an entitlement: what each status reads, the last day of
-// access in the app's time zone, Polish plurals, the payment link and the slots.
-import { billingMessages, type Entitlement } from "@softure-ai/billing";
+// access in the app's time zone, the locale's plural rules, the payment link and the slots.
+import { billingMessages, type BillingMessages, type Entitlement } from "@softure-ai/billing";
 import { AccessBadge, AccessNotice, getAccessBadgeKind } from "@softure-ai/billing/ui";
 import type { LinkComponentProps } from "@softure-ai/ui";
 import { cleanup, render, screen } from "@testing-library/react";
@@ -23,8 +23,8 @@ const LIFETIME: Entitlement = { status: "paid", endsAt: null, daysLeft: null, is
 const TRIAL_ENDED: Entitlement = { status: "read_only", since: TRIAL_END, reason: "trial_ended" };
 const PAID_ENDED: Entitlement = { status: "read_only", since: PAID_END, reason: "paid_ended" };
 
-function renderBadge(entitlement: Entitlement, locale: "en" | "pl" = "en") {
-  return render(<AccessBadge entitlement={entitlement} messages={billingMessages[locale]} locale={locale} timezone={TIMEZONE} />);
+function renderBadge(entitlement: Entitlement, locale = "en", messages: BillingMessages = en) {
+  return render(<AccessBadge entitlement={entitlement} messages={messages} locale={locale} timezone={TIMEZONE} />);
 }
 
 function renderNotice(entitlement: Entitlement, extra: Partial<Parameters<typeof AccessNotice>[0]> = {}) {
@@ -56,9 +56,10 @@ describe("AccessBadge", () => {
     [3, "few"],
     [5, "many"],
     [22, "few"],
-  ] as const)("picks the Polish plural form for %i days", (daysLeft, form) => {
-    renderBadge({ ...TRIAL, daysLeft }, "pl");
-    expect(screen.getByText(billingMessages.pl.badge.daysLeft[form].replace("{count}", String(daysLeft)))).toBeDefined();
+  ] as const)("picks the plural form of the locale for %i days", (daysLeft, form) => {
+    const daysLeftForms = { one: "{count} [one]", few: "{count} [few]", many: "{count} [many]", other: "{count} [other]" };
+    renderBadge({ ...TRIAL, daysLeft }, "pl", { ...en, badge: { ...en.badge, daysLeft: daysLeftForms } });
+    expect(screen.getByText(`${daysLeft} [${form}]`)).toBeDefined();
   });
 
   it("takes slot classes, or only them when unstyled", () => {

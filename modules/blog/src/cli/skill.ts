@@ -37,7 +37,8 @@ export interface RenderBlogSkillOptions {
   readonly command?: string;
 }
 
-const LANGUAGE_NAMES: Readonly<Record<string, string>> = { en: "English", pl: "Polish" };
+/** Language names in English ("German" for `de`), from `Intl`. */
+const LANGUAGE_NAMES = new Intl.DisplayNames(["en"], { type: "language" });
 
 /** The skill's files for the app's config. Throws when the gate is off: the skill is built on it. */
 export function renderBlogSkill(config: SoftureConfig, options: RenderBlogSkillOptions = {}): SkillFile[] {
@@ -76,7 +77,7 @@ export function getSkillValues(config: SoftureConfig, settings: QualitySettings,
   return {
     command: options.command ?? DEFAULT_SKILL_COMMAND,
     language: settings.ruleset.language,
-    languageName: LANGUAGE_NAMES[settings.ruleset.language] ?? settings.ruleset.language,
+    languageName: LANGUAGE_NAMES.of(settings.ruleset.language) ?? settings.ruleset.language,
     contentDir: trimTrailingSlashes(blogOptions.contentDir),
     articlesPath: paths.articles,
     termsPath: paths.terms,

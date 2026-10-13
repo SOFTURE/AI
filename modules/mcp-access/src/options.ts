@@ -1,5 +1,5 @@
 // The options an app passes to `mcpAccess({ ... })` in softure.config.ts, parsed at startup.
-import { LOCALES } from "@softure-ai/core";
+import { isLocale } from "@softure-ai/core";
 import { z } from "zod";
 import type { McpOriginRequest, McpOrigins } from "./origins.js";
 
@@ -16,7 +16,7 @@ export const MAX_TOKEN_NAME_LENGTH = 60;
 export const MAX_PRESENTED_TOKEN_LENGTH = 512;
 
 /** Copy per locale; a locale without its own text falls back to `en`. */
-const localizedTextSchema = z.partialRecord(z.enum(LOCALES), z.string().trim().min(1).max(500));
+const localizedTextSchema = z.record(z.string().refine(isLocale, "must be a BCP 47 language tag"), z.string().trim().min(1).max(500));
 
 const toolSchema = z.strictObject({
   /** The tool's name as the app's MCP server registers it. */

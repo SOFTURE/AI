@@ -1,10 +1,9 @@
 import { en } from "./en.js";
-import { pl } from "./pl.js";
 
 export type DeployMessages = typeof en;
 
-/** Complete default dictionaries of the copy that ends up in a release report. */
-export const deployMessages = { en, pl };
+/** The copy that ends up in a release report: English, the only built-in language. */
+export const deployMessages = { en };
 
 export type DeployLocale = keyof typeof deployMessages;
 

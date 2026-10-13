@@ -18,7 +18,7 @@
 //
 //   const blogProxy = createBlogProxy(softureConfig);
 //   return (await blogProxy(request)) ?? guard(request) ?? NextResponse.next();
-import { systemClock, type SoftureConfig } from "@softure-ai/core";
+import { pickLocalizedText, systemClock, type SoftureConfig } from "@softure-ai/core";
 import { getConfiguredDatabase } from "@softure-ai/db";
 import { findArticleBySlug, findSlugRedirect, getPublishedArticle, type BlogContext } from "../db/articles.js";
 import { prefersMarkdown } from "../pages/accept.js";
@@ -82,7 +82,7 @@ export function createBlogRedirects(config: SoftureConfig, options: BlogRedirect
 /** The 410 body: the app's `gonePage.render` when given, else the module's page with the app's links. */
 function renderGonePage(config: SoftureConfig, indexPath: string): string {
   const { gonePage } = getBlogOptions(config);
-  const links = gonePage.links.map((link) => ({ href: link.href, label: link.label[config.locale] ?? link.label.en }));
+  const links = gonePage.links.map((link) => ({ href: link.href, label: pickLocalizedText(link.label, config.locale) }));
   const input = { copy: getBlogMessages(config).gone, lang: config.locale, indexPath, links };
   return gonePage.render === undefined ? buildGonePage(input.copy, input) : gonePage.render(input);
 }

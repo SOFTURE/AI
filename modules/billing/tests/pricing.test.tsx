@@ -2,7 +2,7 @@
 // The pricing tiles, the payment form and the admin grant form render from props: prices and
 // periods in the locale, the featured and the chosen plan, the links, the invoice fields of a
 // manual payment and the checkout button of a hosted one, an error and a success.
-import { billingMessages, INITIAL_PAYMENT_FORM_STATE, type GrantFormState, type PaymentFormState, type Plan } from "@softure-ai/billing";
+import { billingMessages, INITIAL_PAYMENT_FORM_STATE, type BillingMessages, type GrantFormState, type PaymentFormState, type Plan } from "@softure-ai/billing";
 import { GrantForm, PaymentForm, PricingTiles } from "@softure-ai/billing/ui";
 import type { LinkComponentProps } from "@softure-ai/ui";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -11,15 +11,19 @@ import { afterEach, describe, expect, it } from "vitest";
 afterEach(cleanup);
 
 const en = billingMessages.en;
-const pl = billingMessages.pl;
+/** An app-supplied German translation of the period lines. */
+const de: BillingMessages = {
+  ...en,
+  pricing: { ...en.pricing, period: { ...en.pricing.period, month: { one: "pro Monat", few: "alle {count} Monate", many: "alle {count} Monate", other: "alle {count} Monate" } } },
+};
 
 const MONTHLY: Plan = {
   id: "monthly",
-  name: { en: "Monthly", pl: "Monthly (pl)" },
+  name: { en: "Monthly", de: "Monatlich" },
   description: { en: "Pay as you go." },
   price: { amount: 2900, currency: "PLN" },
   period: { unit: "month", count: 1 },
-  features: [{ en: "Unlimited notes", pl: "Unlimited notes (pl)" }, { en: "Export" }],
+  features: [{ en: "Unlimited notes", de: "Unbegrenzte Notizen" }, { en: "Export" }],
   isFeatured: false,
 };
 const QUARTERLY: Plan = { ...MONTHLY, id: "quarterly", name: { en: "Quarterly" }, period: { unit: "month", count: 3 }, isFeatured: true, features: [] };
@@ -48,10 +52,10 @@ describe("PricingTiles", () => {
     expect(screen.queryAllByRole("link")).toEqual([]);
   });
 
-  it("speaks the app's locale: Polish texts, prices and plurals, English where a text has no Polish", () => {
-    render(<PricingTiles plans={[MONTHLY, { ...QUARTERLY, period: { unit: "month", count: 5 } }]} messages={pl} locale="pl" />);
-    expect(plain(tile("monthly").textContent)).toBe(`Monthly (pl)29,00 z\u0142${pl.pricing.period.month.one}Pay as you go.Unlimited notes (pl)Export`);
-    expect(within(tile("quarterly")).getByText(pl.pricing.period.month.many.replace("{count}", "5"))).toBeDefined();
+  it("speaks the app's locale: its texts, prices and plurals, English where a text has no translation", () => {
+    render(<PricingTiles plans={[MONTHLY, { ...QUARTERLY, period: { unit: "month", count: 5 } }]} messages={de} locale="de" />);
+    expect(plain(tile("monthly").textContent)).toBe("Monatlich29,00 PLNpro MonatPay as you go.Unbegrenzte NotizenExport");
+    expect(within(tile("quarterly")).getByText("alle 5 Monate")).toBeDefined();
   });
 
   it("links every plan but the chosen one, through the app's link component", () => {

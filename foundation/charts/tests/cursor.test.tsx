@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { type CursorPoint, ChartCursor, chartsMessages } from "../src/index.js";
+import { type ChartCursorProps, type CursorPoint, ChartCursor, chartsMessages } from "../src/index.js";
 
 afterEach(() => {
   cleanup();
@@ -14,9 +14,9 @@ const POINTS: CursorPoint[] = [
   { key: 2, xPercent: 100, heading: "Mar 2026", values: [{ key: "a", slot: 1, yPercent: 90, label: "Savings", value: "9,000" }] },
 ];
 
-function renderCursor(points: readonly CursorPoint[] = POINTS, locale: "en" | "pl" = "en") {
+function renderCursor(points: readonly CursorPoint[] = POINTS, copy: Pick<ChartCursorProps, "locale" | "messages"> = {}) {
   render(
-    <ChartCursor title="Savings over time" points={points} locale={locale}>
+    <ChartCursor title="Savings over time" points={points} {...copy}>
       <div className="sft-chart-plot" />
     </ChartCursor>,
   );
@@ -30,9 +30,14 @@ describe("ChartCursor", () => {
     expect(group.getAttribute("aria-label")).toBe(chartsMessages.en.cursor.label.replace("{title}", "Savings over time"));
   });
 
-  it("takes its name from the Polish dictionary in pl", () => {
-    const { group } = renderCursor(POINTS, "pl");
-    expect(group.getAttribute("aria-label")).toBe(chartsMessages.pl.cursor.label.replace("{title}", "Savings over time"));
+  it("takes its name from the app's translation for the locale", () => {
+    const { group } = renderCursor(POINTS, { locale: "de", messages: { cursor: { label: "{title}. Pfeiltasten bewegen den Cursor." } } });
+    expect(group.getAttribute("aria-label")).toBe("Savings over time. Pfeiltasten bewegen den Cursor.");
+  });
+
+  it("falls back to English in a locale without a translation", () => {
+    const { group } = renderCursor(POINTS, { locale: "de" });
+    expect(group.getAttribute("aria-label")).toBe(chartsMessages.en.cursor.label.replace("{title}", "Savings over time"));
   });
 
   it("starts empty, then the right arrow goes to the first point and on", () => {

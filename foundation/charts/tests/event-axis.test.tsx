@@ -44,12 +44,13 @@ function renderAxis(props: Partial<Parameters<typeof EventAxis>[0]> = {}) {
 }
 
 describe("EventAxis", () => {
-  it("is a focusable group named from messages, in Polish too", () => {
+  it("is a focusable group named from messages, in the app's translation too", () => {
     const { group } = renderAxis();
     expect(group.getAttribute("tabindex")).toBe("0");
     expect(group.getAttribute("aria-label")).toBe(chartsMessages.en.eventAxis.label.replace("{title}", "Life events"));
     cleanup();
-    expect(renderAxis({ locale: "pl" }).group.getAttribute("aria-label")).toBe(chartsMessages.pl.eventAxis.label.replace("{title}", "Life events"));
+    const translated = renderAxis({ locale: "de", messages: { eventAxis: { label: "{title}. Pfeiltasten wechseln das Ereignis." } } });
+    expect(translated.group.getAttribute("aria-label")).toBe("Life events. Pfeiltasten wechseln das Ereignis.");
   });
 
   it("draws spans as labelled bars and milestones as dots, on their rows and in their colours", () => {

@@ -1,9 +1,8 @@
 import type { AuthFormErrorCode } from "../contract.js";
 import { en } from "./en.js";
-import { pl } from "./pl.js";
 
-/** Complete default dictionaries; apps pass partial overrides per locale. */
-export const authMessages = { en, pl };
+/** The built-in English dictionary; an app passes partial overrides or its own translation per locale. */
+export const authMessages = { en };
 
 export type AuthMessages = typeof en;
 

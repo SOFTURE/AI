@@ -17,7 +17,91 @@
         "locale": {
           "type": "string",
           "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$",
-          "description": "BCP 47 locale (en-US): the recording browser's locale, <html lang> and the language of the copy. Its language needs a message dictionary: en, pl."
+          "description": "BCP 47 locale (en-US): the recording browser's locale and <html lang>. The copy is English unless brand.messages translates it."
+        },
+        "messages": {
+          "default": {},
+          "description": "The copy of the posts and the film, every key optional (src/messages/en.ts): the product's own translation, or changed English copy. A key left out reads English.",
+          "type": "object",
+          "properties": {
+            "posts": {
+              "description": "The copy of posts.md.",
+              "type": "object",
+              "properties": {
+                "title": {
+                  "description": "src/messages/en.ts posts.title: the heading of posts.md, {title} is the film's title; English when left out.",
+                  "type": "string",
+                  "minLength": 1
+                },
+                "linkInBio": {
+                  "description": "src/messages/en.ts posts.linkInBio: the call to action where a caption link is not clickable; English when left out.",
+                  "type": "string",
+                  "minLength": 1
+                },
+                "bioLink": {
+                  "description": "src/messages/en.ts posts.bioLink: the bio link line, {link}; English when left out.",
+                  "type": "string",
+                  "minLength": 1
+                },
+                "postLink": {
+                  "description": "src/messages/en.ts posts.postLink: the post link line, {link}; English when left out.",
+                  "type": "string",
+                  "minLength": 1
+                },
+                "platforms": {
+                  "description": "The platform names in posts.md.",
+                  "type": "object",
+                  "properties": {
+                    "instagram": {
+                      "description": "src/messages/en.ts posts.platforms.instagram; English when left out.",
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "facebook": {
+                      "description": "src/messages/en.ts posts.platforms.facebook; English when left out.",
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "tiktok": {
+                      "description": "src/messages/en.ts posts.platforms.tiktok; English when left out.",
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "youtube": {
+                      "description": "src/messages/en.ts posts.platforms.youtube; English when left out.",
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "linkedin": {
+                      "description": "src/messages/en.ts posts.platforms.linkedin; English when left out.",
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "x": {
+                      "description": "src/messages/en.ts posts.platforms.x; English when left out.",
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "film": {
+              "description": "The copy inside the film.",
+              "type": "object",
+              "properties": {
+                "persona": {
+                  "description": "src/messages/en.ts film.persona: the persona card's first line, {name} and {age}; English when left out.",
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
         },
         "timezone": {
           "type": "string",

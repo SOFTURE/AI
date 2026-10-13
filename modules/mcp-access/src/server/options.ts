@@ -1,5 +1,5 @@
 // The mcp-access options of the running app, read from the configuration in the module context.
-import { getModule, type Locale, type SoftureConfig } from "@softure-ai/core";
+import { getModule, type Locale, type LocalizedText, pickLocalizedText, selectMessages, type SoftureConfig } from "@softure-ai/core";
 import type { McpAccessMessages } from "../messages/index.js";
 import type { McpAccessOptions } from "../options.js";
 import type { McpOrigins } from "../origins.js";
@@ -61,10 +61,10 @@ export function getMcpEndpointUrl(config: SoftureConfig, origins?: McpOrigins): 
 /** The module's copy in the app's locale, with the app's overrides applied. */
 export function getMcpAccessMessages(config: SoftureConfig): McpAccessMessages {
   // The module factory merged the dictionaries; their shape is the module's own.
-  return getMcpAccessModule(config).messages[config.locale] as McpAccessMessages;
+  return selectMessages(getMcpAccessModule(config).messages, config.locale) as McpAccessMessages;
 }
 
-/** The text in `locale`, else in `en`. */
-export function getLocalizedText(text: Partial<Record<Locale, string>>, locale: Locale): string {
-  return text[locale] ?? text.en ?? "";
+/** The text in `locale`, else in its language, else in `en`. */
+export function getLocalizedText(text: LocalizedText, locale: Locale): string {
+  return pickLocalizedText(text, locale);
 }

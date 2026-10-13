@@ -20,7 +20,11 @@ export const MAIL: OutgoingMail = {
   text: "Hello Ada, here is your summary.",
 };
 
-type ConfigOptions = Partial<MailingOptionsInput> & { readonly locale?: "en" | "pl"; readonly mailingInput?: Parameters<typeof mailing>[0] };
+type ConfigOptions = Partial<MailingOptionsInput> & {
+  readonly locale?: string;
+  readonly messages?: NonNullable<Parameters<typeof mailing>[0]>["messages"];
+  readonly mailingInput?: Parameters<typeof mailing>[0];
+};
 
 export function createConfig(provider: MailProvider, options: ConfigOptions = {}): SoftureConfig {
   const { locale = "en", mailingInput, ...mailingOptions } = options;
