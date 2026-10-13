@@ -96,7 +96,8 @@ export interface CheckSenderDnsOptions {
   readonly returnPath?: readonly ReturnPathHost[];
   /**
    * Checks that this service receives mail for the reply-to domain (else the checked domain): every MX record is the
-   * service's, and the one SPF record includes the service's, so replies arrive and forwarding passes SPF.
+   * service's, and the one SPF record includes the service's and ends in `-all` or `~all`, so replies arrive,
+   * forwarding passes SPF and nobody else can send as the domain.
    */
   readonly inbound?: InboundService;
   readonly resolveTxt?: ResolveTxt;
@@ -334,7 +335,7 @@ function isUnder(host: string, domain: string): boolean {
   return host === domain || host.endsWith(`.${domain}`);
 }
 
-/** The inbound service's MX (every record its own) and SPF (exactly one record, including the service's). */
+/** The inbound service's MX (every record its own) and SPF (exactly one record, including the service's, ending in `-all` or `~all`). */
 async function checkInbound(
   { lookup, lookupMx }: { readonly lookup: Lookup; readonly lookupMx: MxLookup },
   host: string,
@@ -359,9 +360,17 @@ function checkInboundSpf(txt: TxtAnswer, host: string, include: string): DnsChec
   if (records.length > 1) return { status: "fail", finding: "multiple", host, record: null };
   const record = records[0];
   if (record === undefined) return { status: "fail", finding: "missing", host, record: null };
-  const includes = record
-    .trim()
-    .split(/\s+/)
-    .some((term) => term.toLowerCase().replace(/^\+/, "").replace(/\.$/, "") === `include:${include}`);
-  return includes ? { status: "pass", finding: "found", host, record } : { status: "fail", finding: "missing-include", host, record };
+  const terms = record.trim().toLowerCase().split(/\s+/);
+  const includes = terms.some((term) => term.replace(/^\+/, "").replace(/\.$/, "") === `include:${include}`);
+  if (!includes) return { status: "fail", finding: "missing-include", host, record };
+  return isStrictAll(terms) ? { status: "pass", finding: "found", host, record } : { status: "fail", finding: "weak", host, record };
+}
+
+/**
+ * Whether the first `all` (RFC 7208 §5.1: terms after it are never tested) is `-all` or `~all`. `+all`, a bare `all`
+ * and `?all` let anyone send as the domain, as does a record without `all` (neutral, or a `redirect=` not followed).
+ */
+function isStrictAll(terms: readonly string[]): boolean {
+  const all = terms.find((term) => /^[-~+?]?all$/.test(term));
+  return all === "-all" || all === "~all";
 }
