@@ -97,6 +97,11 @@ async function observe(options: {
   return { ...observed, body: new TextDecoder().decode(bytes), sha256 };
 }
 
+/** `true` when the route lists `status` under `warnOn`: the row only warns and nothing else is checked. */
+function isWarnOnStatus(route: VerifyRoute, status: number): boolean {
+  return route.warnOn?.status.includes(status) ?? false;
+}
+
 async function checkRoute(options: {
   baseUrl: string;
   config: VerifyConfig;
@@ -116,6 +121,10 @@ async function checkRoute(options: {
   } catch (error) {
     const checks = [{ kind: "request" as const, passed: false, detail: describeRequestError(error, timeoutMs) }];
     return { ...row, status: null, checks, passed: false };
+  }
+  if (isWarnOnStatus(route, response.status)) {
+    const checks = [{ kind: "status" as const, passed: false, detail: `status ${response.status} (warnOn), expected ${route.status}` }];
+    return { ...row, severity: "warn", status: response.status, checks, passed: false };
   }
   const headers = mergeHeaderChecks(config.headers, route.headers);
   const checks = checkResponse({ route, headers, response, baseUrl });
@@ -207,14 +216,14 @@ async function expandRoute(options: {
   const sourcePath = "sitemap" in loop ? loop.sitemap : loop.index;
   const label = `${"sitemap" in loop ? "sitemap" : "index"} ${sourcePath}`;
   const url = joinUrl(baseUrl, sourcePath);
-  const fail = (status: number | null, reason: string): RouteReport => ({
+  const fail = (status: number | null, reason: string, severity: Severity = route.severity): RouteReport => ({
     method: "GET",
     path: label,
     url,
     status,
     checks: [{ kind: "source", passed: false, detail: `${label}: ${reason}` }],
     passed: false,
-    severity: route.severity,
+    severity,
   });
   const request = getRequestHeaders({ route, url, baseUrl, env });
   if (!request.ok) return fail(null, request.reason);
@@ -227,6 +236,7 @@ async function expandRoute(options: {
   } catch (error) {
     return fail(null, describeRequestError(error, timeoutMs));
   }
+  if (isWarnOnStatus(route, status)) return fail(status, `status ${status} (warnOn), expected 200`, "warn");
   if (status !== 200) return fail(status, `status ${status}, expected 200`);
   const read = "sitemap" in loop ? readSitemapEntries(text, url, loop.match) : readIndexEntries(text, url, loop);
   if (!read.ok) return fail(status, read.reason);

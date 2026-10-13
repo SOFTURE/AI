@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
+## Unreleased
+
+- A verify route takes `warnOn: { status: [...] }`: a response with a listed status is a `WARN` row and the route's
+  other checks are skipped, while every other mismatch keeps the route's severity (issue #434). An optional resource
+  such as the Web Bot Auth key directory warns while it is a 404 and fails on a login page or a 500. A listed status
+  on a `forEach` source warns the same way; the schema refuses an empty or repeated list and the route's own status.
+
 ## 0.1.11
 
 - `softure-deploy run --local <script> [args]` runs the ops script an image bundles (`scripts/ops/<name>.ts`) on this

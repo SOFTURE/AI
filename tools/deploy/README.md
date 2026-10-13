@@ -280,6 +280,21 @@ softure-deploy verify <url> [--config=deploy.json] [--timeout=<ms>] [--concurren
 - **Severity:** `"severity": "warn"` on a route prints a failed row as `WARN` and does not fail the run (a probe to
   report, not to block a release); `verify.originSeverity: "warn"` does the same for the `origin` row. The summary
   adds `, N warned`.
+- **Statuses that only warn:** `"warnOn": { "status": [404] }` on a route reads a listed status as a `WARN` row and
+  skips the route's other checks; every other mismatch keeps the route's severity. It fits a resource that exists
+  only once a secret is configured: the Web Bot Auth key directory warns while it is a 404 and fails when a catch-all
+  serves a `200 text/html` login page or the app answers 500. A listed status on a `forEach` source warns the same
+  way. A `warnOn` status cannot be the route's own `status`.
+
+```json
+{
+  "path": "/.well-known/http-message-signatures-directory",
+  "warnOn": { "status": [404] },
+  "headers": { "content-type": "application/http-message-signatures-directory+json" },
+  "contains": ["Ed25519"]
+}
+```
+
 - **Digest:** `"sha256": "sha256:<hex>"` (or the bare hex) on a route: the SHA-256 of the response's exact bytes must
   match.
 - **Inside `<head>` and counts:** `"within": "head"` checks `contains`, `excludes` and `count` only between `<head>`
