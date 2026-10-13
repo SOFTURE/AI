@@ -1,6 +1,6 @@
 // How the listing and the glossary order texts, and the breadcrumbs of a text: pure functions over
 // stored rows, so the pages only render what these return.
-import type { Locale } from "@softure-ai/core";
+import { type Locale, pickLocalizedText } from "@softure-ai/core";
 import type { BlogArticle } from "../contract.js";
 import type { LocalizedText } from "../options.js";
 import { getArticlePath, getTermPath, type BlogRoutes } from "./paths.js";
@@ -18,7 +18,7 @@ export interface ClusterGroup<T> {
 /** The display name of a cluster: the app's label in the locale, else the key with spaces and a capital. */
 export function getClusterLabel(cluster: string, labels: Readonly<Record<string, LocalizedText>>, locale: Locale): string {
   const label = labels[cluster];
-  if (label !== undefined) return label[locale] ?? label.en;
+  if (label !== undefined) return pickLocalizedText(label, locale);
   const words = cluster.replace(/-/g, " ");
   return words.charAt(0).toUpperCase() + words.slice(1);
 }

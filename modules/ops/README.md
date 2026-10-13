@@ -157,8 +157,7 @@ No components. The dictionaries name the check states for an admin view.
 
 ## 9. Copy
 
-`health.ok`, `health.failed`, `health.timed_out`, `health.unavailable` in `src/messages/en.ts` and
-`src/messages/pl.ts`. The endpoint itself answers codes, not copy.
+`health.ok`, `health.failed`, `health.timed_out`, `health.unavailable` in `src/messages/en.ts`. The endpoint itself answers codes, not copy.
 
 ## 10. Hooks
 

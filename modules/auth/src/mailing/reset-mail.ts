@@ -1,7 +1,7 @@
 // The password reset mail: rendered from auth's dictionaries in the app's locale and sent through
 // `@softure-ai/mailing`. A transactional mail: no unsubscribe link, never suppressed. The link is
 // placed by the code, never by a translatable string, so a copy override cannot drop it.
-import { formatMessage, selectPlural, type Locale, type SoftureConfig } from "@softure-ai/core";
+import { formatMessage, type Locale, selectMessages, selectPlural, type SoftureConfig } from "@softure-ai/core";
 import { getSoftureConfig } from "@softure-ai/core/next";
 import type { OutgoingMail } from "@softure-ai/mailing";
 import { sendMail } from "@softure-ai/mailing/server";
@@ -49,7 +49,7 @@ export function renderPasswordResetMail(messages: AuthMessages, locale: Locale, 
 /** The app's auth dictionary for `locale`, with its overrides applied. */
 function getMessages(config: SoftureConfig, locale: Locale): AuthMessages {
   // The module factory merged the dictionaries; their shape is the module's own.
-  return getAuthModule(config).messages[locale] as AuthMessages;
+  return selectMessages(getAuthModule(config).messages, locale) as AuthMessages;
 }
 
 /**

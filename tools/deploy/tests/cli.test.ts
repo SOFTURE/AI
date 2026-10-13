@@ -197,10 +197,10 @@ describe("softure-deploy release-notes", () => {
     expect(err.at(-1)).toBe("release-notes: cannot read missing.md (ENOENT).\n");
   });
 
-  it("writes the report to a file in Polish", async () => {
-    const code = await runCli(["release-notes", "--from=v1.0.0", "--to=v1.1.0", "--locale=pl", "--out=notes.md"], makeIo());
+  it("writes the report to a file in the --locale it names", async () => {
+    const code = await runCli(["release-notes", "--from=v1.0.0", "--to=v1.1.0", "--locale=en", "--out=notes.md"], makeIo());
     expect(code).toBe(0);
-    expect(readFileSync(join(dir, "notes.md"), "utf8")).toContain("### Pull requesty");
+    expect(readFileSync(join(dir, "notes.md"), "utf8")).toContain("### Pull requests");
     expect(out.join("")).toBe("release-notes: v1.0.0...v1.1.0 written to notes.md\n");
   });
 
@@ -209,6 +209,7 @@ describe("softure-deploy release-notes", () => {
     expect(await runCli(["release-notes", "--to=v9.9.9"], makeIo())).toBe(1);
     expect(err.at(-1)).toContain("names no commit");
     expect(await runCli(["release-notes", "--locale=de"], makeIo())).toBe(2);
+    expect(await runCli(["release-notes", "--locale=pl"], makeIo())).toBe(2);
     expect(await runCli(["release-notes", "--repo-url=http://example.com/a/b"], makeIo())).toBe(2);
   });
 });
@@ -245,9 +246,9 @@ describe("softure-deploy release-report", () => {
 
   it("prints the body without --out and treats a missing body file as empty", async () => {
     writeFileSync(join(dir, "summary.json"), JSON.stringify({ ...SUMMARY, jobs: [{ name: "deploy", result: "skipped" }] }));
-    const code = await runCli(["release-report", "--body=none.md", "--summary=summary.json", "--locale=pl"], makeIo());
+    const code = await runCli(["release-report", "--body=none.md", "--summary=summary.json", "--locale=en"], makeIo());
     expect(code).toBe(0);
-    expect(out.join("")).toContain("## Status pipeline'u");
+    expect(out.join("")).toContain("## Pipeline status");
     expect(out.join("")).not.toContain("softure-deploy:deployments");
   });
 
@@ -264,6 +265,7 @@ describe("softure-deploy release-report", () => {
     expect(await runCli(["release-report", "--summary=s.json"], makeIo())).toBe(2);
     expect(await runCli(["release-report", "--body=b.md"], makeIo())).toBe(2);
     expect(await runCli(["release-report", "--body=b.md", "--summary=s.json", "--locale=de"], makeIo())).toBe(2);
+    expect(await runCli(["release-report", "--body=b.md", "--summary=s.json", "--locale=pl"], makeIo())).toBe(2);
   });
 });
 

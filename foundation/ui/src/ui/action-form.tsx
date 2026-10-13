@@ -9,7 +9,7 @@ import { FormError } from "./feedback.js";
 import { type FieldErrors, type FormReplay, FormReplayProvider, type SubmittedValues } from "./form-context.js";
 import { ModalBody, ModalFooter, ModalForm } from "./modal.js";
 import { announceToast } from "./toast.js";
-import { useUiLocale } from "./locale.js";
+import { useUiCopyProps } from "./locale.js";
 
 // A form wired to a server action.
 // - A rejected submit replays what was typed (React resets an uncontrolled form after its action)
@@ -153,7 +153,7 @@ export function ActionForm({
   messages,
   modalMessages,
 }: ActionFormProps) {
-  const copy = getCopy("actionForm", { locale: useUiLocale(locale), messages });
+  const copy = getCopy("actionForm", useUiCopyProps("actionForm", { locale, messages }));
   const [state, formAction, isPending] = useActionState<FormState, FormData>(async (previous, formData) => {
     const submitCount = previous.replay.submitCount + 1;
     const values = getSubmittedValues(formData);

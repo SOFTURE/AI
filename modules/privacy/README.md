@@ -85,7 +85,7 @@ privacy({
 | `export.maxBytes` | `number` | `10485760` (10 MiB) | The largest export, in bytes of JSON (1 KiB to 100 MiB). A larger one is refused with `privacy.export_too_large`. |
 | `export.fileName` | `string` | `account-data` | The download's name before the date. |
 | `routes` | `{ account, export, afterDelete }` | `/account/privacy`, `/api/privacy/export`, `/` | Where the page and the route are mounted, and where a deleted account lands. |
-| `messages` | partial `pl` / `en` dictionaries | built in | Copy overrides (section 9). |
+| `messages` | partial dictionaries per locale (`en` built in; any other is the app's own translation) | built in | Copy overrides (section 9). |
 
 A contributor is two functions over the module context (`{ db, clock, config }`, `db` being the
 transaction) and the user id:
@@ -298,13 +298,17 @@ written in the app's locale, in UTC so the server's time zone cannot move them.
 
 ## 9. Copy
 
-`privacyMessages.{en,pl}`: `page` (title, lead), `export` (title, description, button), `delete`
+`privacyMessages.en`: `page` (title, lead), `export` (title, description, button), `delete`
 (title, description, password label, confirmation, submit and pending labels), `legal` (contents,
 version, effective from, change history, the footer's navigation name) and `errors` for every
 code the form and the route can give (`privacy.*`, `auth.unauthenticated`, `security.rate_limited`,
 `core.*`). Override any of them with
-`privacy({ messages: { pl: { errors: { privacy: { deletion_refused: "…" } } } } })`, for example to
+`privacy({ messages: { de: { errors: { privacy: { deletion_refused: "…" } } } } })`, for example to
 say how to reach the app's support.
+
+The client components (`DeleteAccountForm`) take their `locale` from the prop, then from the nearest
+`UiLocaleProvider` of `@softure-ai/ui`, then `en`, so an app that mounts the provider once can leave the prop out.
+Server components (`LegalDocument` and the pages) cannot read the provider and take `locale` as a prop.
 
 ## 10. Hooks
 

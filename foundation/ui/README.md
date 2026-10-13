@@ -37,12 +37,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 `<ThemeSwitch />` anywhere renders Light · Dark · System (System is the default). Pass `design` to
 `ThemeScript` and `ThemeSwitch` too when the provider gets one, so the browser bar colour matches.
 
-**Locale.** `<SoftureThemeProvider locale="pl">` (or `<UiLocaleProvider locale="pl">`) sets the
-built-in copy and the number notation of every component below it; a component's own `locale` prop
+**Locale.** `<SoftureThemeProvider locale="de">` (or `<UiLocaleProvider locale="de">`) sets the
+locale of the copy and the number notation of every component below it; a component's own `locale` prop
 still wins, and without either it is `en`. Mount it once in the root layout and drop the per-call `locale` and
 `messages` props: every client component below reads the provider (`MoneyField` and `SuggestedAmountField` take
 their number notation from it too). Only server-safe components that render copy without a client part
 (`ServerExternalLink`) still take `locale` by props. Pass `messages` per call only to change a text for one place.
+
+**Own translation.** English is the default copy. To change its wording, or ship the components in another language, pass the
+app's text once: `<UiLocaleProvider messages={{ modal: { close: "Dismiss", cancel: "Go back" } }}>` (or the same
+`messages` on `SoftureThemeProvider`). It takes any message group of `uiMessages.en`, partially, and every client
+component below uses it over the built-in dictionary; a component's own `messages` prop still wins key by key.
+Server-safe components without a client part (`ServerExternalLink`) take `messages` by props.
 
 ## Tokens
 
@@ -106,7 +112,7 @@ or a comment throw.
 - With a strict CSP pass `nonce` to `ThemeScript`.
 - `data-theme="light"` or `"dark"` on any element themes that subtree.
 - Slots: `classNames={{ root, legend, options, option, input, label }}`; `unstyled` drops the
-  defaults. Copy: `locale` (`en` default, `pl`) and partial `messages`.
+  defaults. Copy: `locale` (`en` default) and partial `messages`.
 
 ## Primitives
 
@@ -136,8 +142,9 @@ Server-safe (no `"use client"`): `Button`, `ButtonLink`, `ButtonAnchor`, `IconBu
 - **`unstyled`.** Drops every default class and keeps structure, ARIA and behaviour.
 - **Copy.** Components with built-in text (`Modal`, `ModalFooter`, `StandingPanel`, `ActionForm`,
   `ConfirmActionButton`, `CopyButton`, `ExternalLink`, `AccountMenu`, `MobileMenu`, `Stepper`, `Checklist`,
-  `ColorField` picker name, `SuggestedAmountField` chip, `Card` hint and collapse names, field hint names) take `locale` (the provider's, else `en`; `pl`
-  too) and partial `messages` for their group in `uiMessages`. Everything else the user reads (labels, titles, button text) comes from the app as
+  `ColorField` picker name, `SuggestedAmountField` chip, `Card` hint and collapse names, field hint names) take `locale` (the provider's, else `en`, any BCP 47
+  tag) and partial `messages` for their group in `uiMessages`. The built-in copy is English only; an app that shows
+  another language passes its own translation as `messages` (a key it leaves out reads English). Everything else the user reads (labels, titles, button text) comes from the app as
   props.
 - **Links.** `ButtonLink` renders `<a>` unless you inject your router's link:
   `<ButtonLink LinkComponent={Link} href="/pricing" variant="primary">`. The main entry never imports
@@ -159,7 +166,7 @@ import { ActionForm, MoneyField, TextField } from "@softure-ai/ui";
   onCancel={close}                        // optional: lay out as a Modal body and footer
 >
   <TextField name="name" label="Name" required />
-  <MoneyField name="amount" label="Amount" locale="pl" suffix="PLN" />
+  <MoneyField name="amount" label="Amount" locale="de" suffix="EUR" />
 </ActionForm>
 ```
 
@@ -180,11 +187,13 @@ errors; `PasswordField` never replays. The server parses amounts with the same
 `parseAmount(text, locale)` the field formats with. Between groups of three digits it accepts a space, a no-break
 space (U+00A0), a narrow no-break space (U+202F) and a thin space (U+2009); `en` also accepts a comma.
 
-`parseAmount` is `parseDecimal(text, locale, { scale: 2 })` with the amount error codes. Other fixed-point values
+The notation is the locale's own, read from `Intl.NumberFormat`: a locale that groups digits with a space
+(`fr`, `pl`) reads `1 234,56` and takes a comma or a dot as the decimal mark; any other reads its own marks
+(`1,234.56` in `en`, `1.234,56` in `de`) and spaces between groups. `parseAmount` is `parseDecimal(text, locale, { scale: 2 })` with the amount error codes. Other fixed-point values
 use the same grammar at another scale and come back as integers: a percent in basis points is
-`parseDecimal("12,5", "pl", { scale: 2 })` (1250), a rate in millionths `{ scale: 6 }`. Errors are
+`parseDecimal("12,5", "de", { scale: 2 })` (1250), a rate in millionths `{ scale: 6 }`. Errors are
 `ui.decimal_invalid` (more fraction digits than the scale included) and `ui.decimal_out_of_range`.
-`formatDecimal(1250, "pl", { scale: 2, minFractionDigits: 0 })` writes `"12,5"`; without `minFractionDigits` it
+`formatDecimal(1250, "de", { scale: 2, minFractionDigits: 0 })` writes `"12,5"`; without `minFractionDigits` it
 keeps all `scale` digits (`"12,50"`). `normalizeDecimalInput` is the blur helper for such a field.
 
 `TextField` and `MoneyField` are uncontrolled unless given `value`; a controlled one also needs `onValueChange`,
@@ -331,7 +340,7 @@ Every `text-*` size carries Tailwind's default line height (a ratio of the size 
 
 <CopyButton value={token} />                {/* or isIconOnly; label, variant, size, resetMs, onCopy */}
 <ExternalLink href="https://example.com">Docs</ExternalLink>
-<ServerExternalLink href="https://example.com" locale="pl">Docs</ServerExternalLink>  {/* no client code */}
+<ServerExternalLink href="https://example.com" locale="de">Docs</ServerExternalLink>  {/* no client code */}
 
 const { isDismissed, dismiss } = useDismissed("banner.trial", 7);
 ```

@@ -13,14 +13,23 @@ function renderModal({
   error,
   onClose = vi.fn(),
   locale,
-}: { subtitle?: string; width?: ModalWidth; isPending?: boolean; error?: string; onClose?: () => void; locale?: "en" | "pl" } = {}) {
+  messages,
+}: {
+  subtitle?: string;
+  width?: ModalWidth;
+  isPending?: boolean;
+  error?: string;
+  onClose?: () => void;
+  locale?: string;
+  messages?: Parameters<typeof Modal>[0]["messages"];
+} = {}) {
   render(
-    <Modal title="Edit debt" subtitle={subtitle} width={width} onClose={onClose} isDismissible={!isPending} locale={locale}>
+    <Modal title="Edit debt" subtitle={subtitle} width={width} onClose={onClose} isDismissible={!isPending} locale={locale} messages={messages}>
       <ModalForm action={() => undefined}>
         <ModalBody>
           <input name="name" aria-label="Name" />
         </ModalBody>
-        <ModalFooter onCancel={onClose} isPending={isPending} error={error} locale={locale}>
+        <ModalFooter onCancel={onClose} isPending={isPending} error={error} locale={locale} messages={messages}>
           <Button type="submit" variant="primary">
             Save
           </Button>
@@ -49,10 +58,16 @@ describe("Modal markup", () => {
     expect(renderModal().dialog.hasAttribute("aria-describedby")).toBe(false);
   });
 
-  it("closes with an icon button named in the locale", () => {
-    renderModal({ locale: "pl" });
-    expect(screen.getByRole("button", { name: uiMessages.pl.modal.close }).getAttribute("data-variant")).toBe("icon");
-    expect(screen.getByRole("button", { name: uiMessages.pl.modal.cancel })).toBeDefined();
+  it("closes with an icon button named in the app's translation for the locale", () => {
+    renderModal({ locale: "de", messages: { close: "Schliessen", cancel: "Abbrechen" } });
+    expect(screen.getByRole("button", { name: "Schliessen" }).getAttribute("data-variant")).toBe("icon");
+    expect(screen.getByRole("button", { name: "Abbrechen" })).toBeDefined();
+  });
+
+  it("names its buttons in English in a locale without a translation", () => {
+    renderModal({ locale: "de" });
+    expect(screen.getByRole("button", { name: uiMessages.en.modal.close }).getAttribute("data-variant")).toBe("icon");
+    expect(screen.getByRole("button", { name: uiMessages.en.modal.cancel })).toBeDefined();
   });
 
   it("renders into a portal on body, in header, body, footer order", () => {

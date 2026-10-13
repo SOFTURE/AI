@@ -16,15 +16,15 @@ describe("Card", () => {
     expect(renderToStaticMarkup(<Card>x</Card>)).not.toContain("<header");
   });
 
-  it("puts the hint next to the heading, named after the title in the chosen locale", () => {
+  it("puts the hint next to the heading, named after the title, in English for a locale without a translation", () => {
     const html = renderToStaticMarkup(
-      <Card title="Savings" hint="How it is counted" hintId="savings-hint" locale="pl">
+      <Card title="Savings" hint="How it is counted" hintId="savings-hint" locale="de">
         x
       </Card>,
     );
     expect(html).toContain("<h2");
     expect(html).toMatch(/Savings<\/h2><span/);
-    expect(html).toContain(`aria-label="${uiMessages.pl.card.hintLabel.replace("{title}", "Savings")}"`);
+    expect(html).toContain(`aria-label="${uiMessages.en.card.hintLabel.replace("{title}", "Savings")}"`);
     expect(html).toContain('aria-describedby="savings-hint"');
     expect(html).toContain('id="savings-hint" role="tooltip"');
   });

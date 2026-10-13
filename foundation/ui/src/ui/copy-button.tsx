@@ -5,7 +5,7 @@ import { Button, type ButtonSize, type ButtonVariant, IconButton } from "./butto
 import { type ClassNames, createSlotClassGetter } from "./class-names.js";
 import { type CopyProps, getCopy } from "./copy.js";
 import { CheckIcon, CopyIcon } from "./icons.js";
-import { useUiLocale } from "./locale.js";
+import { useUiCopyProps } from "./locale.js";
 
 // Copies a value (a token, a link, a code) to the clipboard. The label turns to "Copied" for a moment,
 // and a polite live region says the same. The clipboard API needs a secure context (HTTPS or
@@ -74,7 +74,7 @@ export function CopyButton({
   locale,
   messages,
 }: CopyButtonProps) {
-  const copy = getCopy("copyButton", { locale: useUiLocale(locale), messages });
+  const copy = getCopy("copyButton", useUiCopyProps("copyButton", { locale, messages }));
   const [state, setState] = useState<CopyState>("idle");
   const [attempt, setAttempt] = useState(0);
   const fallbackRef = useRef<HTMLInputElement>(null);

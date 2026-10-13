@@ -23,7 +23,7 @@ export const DOCUMENTS = [
 
 export const OPTIONS: WaitlistOptionsInput = {
   scopes: [
-    { id: "launch", required: true, document: "privacy-policy", label: { en: "Tell me when it opens.", pl: "Daj mi znac o starcie." } },
+    { id: "launch", required: true, document: "privacy-policy", label: { en: "Tell me when it opens.", de: "Sag mir Bescheid, wenn es losgeht." } },
     { id: "newsletter", label: { en: "Send me the newsletter." } },
   ],
   placements: ["hero", "footer"],
@@ -34,7 +34,7 @@ export interface ConfigOptions {
   readonly waitlist?: Parameters<typeof waitlist>[0];
   readonly documents?: typeof DOCUMENTS;
   readonly buckets?: Readonly<Record<string, { limit: number; windowMinutes: number }>>;
-  readonly locale?: "en" | "pl";
+  readonly locale?: string;
 }
 
 export function createConfig(provider: FakeMailProvider, options: ConfigOptions = {}): SoftureConfig {

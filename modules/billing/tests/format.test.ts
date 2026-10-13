@@ -8,14 +8,15 @@ import { createConfig, TIMEZONE } from "./support.js";
 
 describe("formatDayCount", () => {
   it.each([
-    [0, "0 dni"],
-    [1, "1 dzie\u0144"],
-    [2, "2 dni"],
-    [5, "5 dni"],
-    [22, "22 dni"],
-    [1.5, "1,5 dnia"],
-  ])("says %s days in Polish as %j", (days, expected) => {
-    expect(formatDayCount(days, "pl", billingMessages.pl)).toBe(expected);
+    [0, "0 [many]"],
+    [1, "1 [one]"],
+    [2, "2 [few]"],
+    [5, "5 [many]"],
+    [22, "22 [few]"],
+    [1.5, "1,5 [other]"],
+  ])("picks the plural form and the digits of the locale for %s days as %j", (days, expected) => {
+    const messages: BillingMessages = { ...billingMessages.en, dayCount: { one: "{count} [one]", few: "{count} [few]", many: "{count} [many]", other: "{count} [other]" } };
+    expect(formatDayCount(days, "pl", messages)).toBe(expected);
   });
 
   it.each([

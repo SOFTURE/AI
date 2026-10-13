@@ -1,9 +1,9 @@
 import { err, formatMessage, type Locale, ok, type Result } from "@softure-ai/core";
 import { getCopy, type CopyProps } from "./copy.js";
 
-// Money typed into a field, in integer cents. The notation follows the locale:
-// - `pl`: groups of three separated by spaces ("1 234,56"), decimal comma or dot;
-// - `en`: groups separated by commas or spaces ("1,234.56"), decimal dot.
+// Money typed into a field, in integer cents. The notation follows the locale's `Intl` number format:
+// - a locale that groups with a space ("1 234,56"): groups of three separated by spaces, decimal comma or dot;
+// - any other ("1,234.56", "1.234,56"): groups separated by the locale's mark or spaces, the locale's decimal mark.
 // The server action parses with the same function the field formats with.
 
 export type AmountErrorCode = "ui.amount_invalid" | "ui.amount_out_of_range";
@@ -30,22 +30,48 @@ const MAX_SCALE = 15;
  */
 const SPACES = "[ \\u00a0\\u202f\\u2009]";
 
-const GROUPED_WHOLE: Readonly<Record<Locale, string>> = {
-  pl: `[1-9]\\d{0,2}(?:${SPACES}\\d{3})+|\\d+`,
-  en: `[1-9]\\d{0,2}(?:,\\d{3})+|[1-9]\\d{0,2}(?:${SPACES}\\d{3})+|\\d+`,
-};
+const SPACE_MARK = /^[ \u00a0\u202f\u2009]$/;
 
-const DECIMAL_MARK: Readonly<Record<Locale, string>> = { pl: "[.,]", en: "\\." };
+interface Notation {
+  /** Pattern of the whole part: digits, or groups of three after one to three digits. */
+  readonly groupedWhole: string;
+  /** Pattern of the decimal mark. */
+  readonly decimalMark: string;
+  /** Every group separator the parser drops. */
+  readonly groupSeparator: RegExp;
+  /** The marks the field writes. */
+  readonly input: { readonly group: string; readonly decimal: string };
+}
 
-const GROUP_SEPARATOR: Readonly<Record<Locale, RegExp>> = {
-  pl: new RegExp(SPACES, "g"),
-  en: new RegExp(`${SPACES}|,`, "g"),
-};
+const notationCache = new Map<string, Notation>();
 
-const INPUT_FORMAT: Readonly<Record<Locale, { group: string; decimal: string }>> = {
-  pl: { group: " ", decimal: "," },
-  en: { group: ",", decimal: "." },
-};
+/** The locale's notation, read once from `Intl.NumberFormat`. */
+function getNotation(locale: Locale): Notation {
+  const cached = notationCache.get(locale);
+  if (cached !== undefined) return cached;
+  const parts = new Intl.NumberFormat(locale, { useGrouping: true }).formatToParts(1234567.5);
+  const group = parts.find((part) => part.type === "group")?.value ?? ",";
+  const decimal = parts.find((part) => part.type === "decimal")?.value ?? ".";
+  const notation: Notation = SPACE_MARK.test(group)
+    ? {
+        groupedWhole: `[1-9]\\d{0,2}(?:${SPACES}\\d{3})+|\\d+`,
+        decimalMark: "[.,]",
+        groupSeparator: new RegExp(SPACES, "g"),
+        input: { group: " ", decimal },
+      }
+    : {
+        groupedWhole: `[1-9]\\d{0,2}(?:${escapeRegExp(group)}\\d{3})+|[1-9]\\d{0,2}(?:${SPACES}\\d{3})+|\\d+`,
+        decimalMark: escapeRegExp(decimal),
+        groupSeparator: new RegExp(`${SPACES}|${escapeRegExp(group)}`, "g"),
+        input: { group, decimal },
+      };
+  notationCache.set(locale, notation);
+  return notation;
+}
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 const patternCache = new Map<string, RegExp>();
 
@@ -54,8 +80,9 @@ function getDecimalPattern(locale: Locale, scale: number): RegExp {
   const cacheKey = `${locale}:${scale}`;
   const cached = patternCache.get(cacheKey);
   if (cached !== undefined) return cached;
-  const fraction = scale === 0 ? "" : `(?:${DECIMAL_MARK[locale]}\\d{1,${scale}})?`;
-  const pattern = new RegExp(`^-?(?:${GROUPED_WHOLE[locale]})${fraction}$`);
+  const { groupedWhole, decimalMark } = getNotation(locale);
+  const fraction = scale === 0 ? "" : `(?:${decimalMark}\\d{1,${scale}})?`;
+  const pattern = new RegExp(`^-?(?:${groupedWhole})${fraction}$`);
   patternCache.set(cacheKey, pattern);
   return pattern;
 }
@@ -76,8 +103,8 @@ export function parseDecimal(text: string, locale: Locale, { scale }: DecimalSca
   const trimmed = text.trim();
   if (!getDecimalPattern(locale, scale).test(trimmed)) return err("ui.decimal_invalid");
   const isNegative = trimmed.startsWith("-");
-  const unsigned = (isNegative ? trimmed.slice(1) : trimmed).replace(GROUP_SEPARATOR[locale], "");
-  const [whole = "", fraction = ""] = unsigned.split(/[.,]/);
+  const unsigned = (isNegative ? trimmed.slice(1) : trimmed).replace(getNotation(locale).groupSeparator, "");
+  const [whole = "", fraction = ""] = unsigned.split(new RegExp(getNotation(locale).decimalMark));
   // Joined as digits, not arithmetic: exact up to 2^53 - 1, and anything larger reads as at least 2^53.
   const units = Number(whole + fraction.padEnd(scale, "0"));
   if (!Number.isSafeInteger(units)) return err("ui.decimal_out_of_range");
@@ -87,7 +114,7 @@ export function parseDecimal(text: string, locale: Locale, { scale }: DecimalSca
 
 /**
  * An integer count of 10^-scale units as the field shows it: grouped, with `scale` fraction digits ("12,50" for
- * 1250 at scale 2 in `pl`), trailing zeros trimmed down to `minFractionDigits`.
+ * 1250 at scale 2 in `de`), trailing zeros trimmed down to `minFractionDigits`.
  */
 export function formatDecimal(units: number, locale: Locale, { scale, minFractionDigits = scale }: DecimalFormatOptions): string {
   assertScale("formatDecimal", scale);
@@ -97,7 +124,7 @@ export function formatDecimal(units: number, locale: Locale, { scale, minFractio
   if (!Number.isInteger(minFractionDigits) || minFractionDigits < 0 || minFractionDigits > scale) {
     throw new RangeError(`formatDecimal expects minFractionDigits from 0 to the scale ${scale}, received ${minFractionDigits}`);
   }
-  const { group, decimal } = INPUT_FORMAT[locale];
+  const { group, decimal } = getNotation(locale).input;
   // Text arithmetic only: split the digits at the scale, then group the whole part.
   const digits = String(Math.abs(units)).padStart(scale + 1, "0");
   const whole = digits.slice(0, digits.length - scale);

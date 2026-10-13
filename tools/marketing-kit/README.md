@@ -314,7 +314,7 @@ folder of `marketing.json`. A complete example: [examples/fixture/marketing.json
 
 | Section | Keys (default) | Meaning |
 | --- | --- | --- |
-| `brand` | `name`, `locale`, `timezone` | the end card's name; BCP 47 locale of the recording browser, `<html lang>` and the copy (its language needs a dictionary in `src/messages/`: `en`, `pl`); IANA zone of the recording browser |
+| `brand` | `name`, `locale`, `timezone`, `messages` | the end card's name; BCP 47 locale of the recording browser and `<html lang>`; IANA zone of the recording browser; `messages`: the posts' and the film's copy, every key optional (`src/messages/en.ts`), the product's own translation or changed English copy (English by default, the only built-in language) |
 | | `logo.svg` | the end card's logo next to the name (none: the name alone) |
 | | `colors`, `tokensFrom` | the nine colour roles, see below |
 | | `fonts.body`, `fonts.heading` | `family`, `fallback` (`sans-serif`), `files`: `path`, `weight` (`400` or `"100 900"`), `style` (`normal`), `unicodeRange`; none: the system's sans-serif. The heading font is the end card's and the avatar's; without one, the body font |

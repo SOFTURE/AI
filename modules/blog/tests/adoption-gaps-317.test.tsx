@@ -143,13 +143,16 @@ describe("views: disclaimer and AI disclosure (#317)", () => {
     expect(html).not.toContain(copy.whoBody);
   });
 
-  it("has the disclosure copy in English and translated Polish", () => {
+  it("has the disclosure copy in English, and reads the app's translation in its locale", () => {
     const en = createContext().messages.method;
-    const pl = getPageContext({ ...createConfig(), locale: "pl" }).messages.method;
     for (const key of ["aiTitle", "aiBody", "whoBodyAi"] as const) {
       expect(en[key].length).toBeGreaterThan(0);
-      expect(pl[key]).not.toBe(en[key]);
     }
+    const config = createConfig({ methodPage: true, messages: { de: { method: { aiTitle: "Kuenstliche Intelligenz" } } } });
+    const de = getPageContext({ ...config, locale: "de" }).messages.method;
+    expect(de.aiTitle).toBe("Kuenstliche Intelligenz");
+    // A key the translation leaves out reads English.
+    expect(de.aiBody).toBe(en.aiBody);
   });
 });
 

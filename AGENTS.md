@@ -7,7 +7,7 @@ commit messages, script output, log and error messages, file and folder names, c
 and skill or agent instructions. This holds even when the conversation with the owner is in Polish.
 
 - Do not translate the conversation into the code. A Polish request still produces English code.
-- User-facing product copy is the only exception. It lives in message dictionaries (e.g. `messages/pl.ts`),
+- User-facing product copy is the only exception. It lives in message dictionaries (e.g. `messages/en.ts`),
   never inline in code. Polish language data that is not copy (a text ruleset's word lists, Polish test
   articles) lives in a folder named `pl/`, which the language gate also exempts.
 - When you touch a file that contains Polish code, comments or identifiers, translate them in the

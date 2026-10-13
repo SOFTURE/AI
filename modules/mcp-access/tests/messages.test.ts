@@ -13,11 +13,11 @@ const CODES: TokenFormErrorCode[] = [
 ];
 
 describe("mcp-access messages", () => {
-  it.each(["en", "pl"] as const)("have copy in %s for every code the page can show", (locale) => {
+  it("have English copy for every code the page can show", () => {
     for (const code of CODES) {
-      const message = getTokenErrorMessage(mcpAccessMessages[locale], code);
+      const message = getTokenErrorMessage(mcpAccessMessages.en, code);
       expect(message, code).not.toBe("");
-      expect(message === mcpAccessMessages[locale].errors.core.unexpected, code).toBe(code === "core.unexpected" || code === "core.database_failed");
+      expect(message === mcpAccessMessages.en.errors.core.unexpected, code).toBe(code === "core.unexpected" || code === "core.database_failed");
     }
   });
 
@@ -28,13 +28,12 @@ describe("mcp-access messages", () => {
     expect(getTokenErrorMessage(mcpAccessMessages.en, "auth.toString")).toBe(mcpAccessMessages.en.errors.core.unexpected);
   });
 
-  it("are translated, not copied", () => {
-    expect(mcpAccessMessages.pl.page.title).not.toBe(mcpAccessMessages.en.page.title);
-    expect(mcpAccessMessages.pl.setup.assistantPrompt).not.toBe(mcpAccessMessages.en.setup.assistantPrompt);
+  it("ship English as the only built-in language", () => {
+    expect(Object.keys(mcpAccessMessages)).toEqual(["en"]);
   });
 
-  it.each(["en", "pl"] as const)("keep both placeholders of the assistant prompt in %s", (locale) => {
-    expect(mcpAccessMessages[locale].setup.assistantPrompt).toContain("{serverName}");
-    expect(mcpAccessMessages[locale].setup.assistantPrompt).toContain("{command}");
+  it("keep both placeholders of the assistant prompt", () => {
+    expect(mcpAccessMessages.en.setup.assistantPrompt).toContain("{serverName}");
+    expect(mcpAccessMessages.en.setup.assistantPrompt).toContain("{command}");
   });
 });

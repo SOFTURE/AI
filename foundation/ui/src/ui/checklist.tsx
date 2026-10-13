@@ -5,7 +5,7 @@ import type { LinkComponentType } from "./button.js";
 import { type ClassNames, createSlotClassGetter, joinClasses } from "./class-names.js";
 import { type CopyProps, getCopy } from "./copy.js";
 import { CheckIcon } from "./icons.js";
-import { useUiLocale } from "./locale.js";
+import { useUiCopyProps } from "./locale.js";
 
 // An onboarding list: what is done and what is left, each open item a link to where it gets done. The state is
 // read by screen readers after each name ("(done)", "(to do)"), not only drawn as a check.
@@ -41,7 +41,7 @@ const LABEL_OPEN = "sft:text-foreground";
 
 /** An onboarding checklist of done and open items. */
 export function Checklist({ items, LinkComponent, showProgress = true, classNames, unstyled, locale, messages }: ChecklistProps) {
-  const copy = getCopy("checklist", { locale: useUiLocale(locale), messages });
+  const copy = getCopy("checklist", useUiCopyProps("checklist", { locale, messages }));
   const doneCount = items.filter((item) => item.done).length;
   const slot = createSlotClassGetter<ChecklistSlot>({
     defaults: {

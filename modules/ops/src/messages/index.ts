@@ -1,7 +1,6 @@
 import { en } from "./en.js";
-import { pl } from "./pl.js";
 
-/** Complete default dictionaries; apps pass partial overrides per locale. */
-export const opsMessages = { en, pl };
+/** The built-in English dictionary; an app passes partial overrides or its own translation per locale. */
+export const opsMessages = { en };
 
 export type OpsMessages = typeof en;

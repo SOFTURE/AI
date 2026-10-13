@@ -11,7 +11,6 @@ import {
 } from "@softure-ai/core";
 
 const en = { login: { title: "Sign in", submit: "Continue" } };
-const pl: typeof en = { login: { title: "PL title", submit: "PL submit" } };
 const migrations = { dir: new URL("../migrations/", import.meta.url) };
 
 const manifest = {
@@ -32,7 +31,7 @@ const privacy = { exportUserData: () => Promise.resolve(ok({ items: [] })) };
 function defineDemo() {
   return defineModule({
     manifest,
-    messages: { en, pl },
+    messages: { en },
     options: z.object({ pageSize: z.number().int().positive().default(20), title: z.string().optional() }),
     migrations,
     privacy,
@@ -58,32 +57,32 @@ describe("defineModule", () => {
 
   it("names the module and the field when the manifest is invalid", () => {
     const error = catchConfigError(() =>
-      defineModule({ manifest: { ...manifest, version: "1" }, messages: { en, pl }, migrations, privacy }),
+      defineModule({ manifest: { ...manifest, version: "1" }, messages: { en }, migrations, privacy }),
     );
     expect(error.issues).toEqual([expect.stringMatching(/^version: /)]);
     expect(error.message).toContain('module "demo"');
   });
 
   it("requires migrations when the module has a database schema", () => {
-    const error = catchConfigError(() => defineModule({ manifest, messages: { en, pl }, privacy }));
+    const error = catchConfigError(() => defineModule({ manifest, messages: { en }, privacy }));
     expect(error.issues).toEqual(["migrations: required because dbSchema is set"]);
   });
 
   it("requires a file URL for the migrations folder", () => {
     const error = catchConfigError(() =>
-      defineModule({ manifest, messages: { en, pl }, privacy, migrations: { dir: new URL("https://example.com/m/") } }),
+      defineModule({ manifest, messages: { en }, privacy, migrations: { dir: new URL("https://example.com/m/") } }),
     );
     expect(error.issues).toEqual(["migrations.dir: must be a file: URL"]);
   });
 
   it("requires the privacy functions the manifest flags promise, and no others", () => {
-    const missing = catchConfigError(() => defineModule({ manifest, messages: { en, pl }, migrations }));
+    const missing = catchConfigError(() => defineModule({ manifest, messages: { en }, migrations }));
     expect(missing.issues).toEqual(["privacy.exportUserData: required because privacy.exports is true"]);
 
     const extra = catchConfigError(() =>
       defineModule({
         manifest,
-        messages: { en, pl },
+        messages: { en },
         migrations,
         privacy: { ...privacy, deleteUserData: () => Promise.resolve(ok()) },
       }),
@@ -93,21 +92,21 @@ describe("defineModule", () => {
 
   it("refuses a health check that is not a function", () => {
     const error = catchConfigError(() =>
-      defineModule({ manifest, messages: { en, pl }, migrations, privacy, health: "select 1" as never }),
+      defineModule({ manifest, messages: { en }, migrations, privacy, health: "select 1" as never }),
     );
     expect(error.issues).toEqual(["health: must be a function"]);
   });
 
   it("refuses a switch reader that is not a function", () => {
     const error = catchConfigError(() =>
-      defineModule({ manifest, messages: { en, pl }, migrations, privacy, switchReader: {} as never }),
+      defineModule({ manifest, messages: { en }, migrations, privacy, switchReader: {} as never }),
     );
     expect(error.issues).toEqual(["switchReader: must be a function"]);
   });
 
   it("refuses a site URL provider that is not a function", () => {
     const error = catchConfigError(() =>
-      defineModule({ manifest, messages: { en, pl }, migrations, privacy, siteUrls: "https://example.com" as never }),
+      defineModule({ manifest, messages: { en }, migrations, privacy, siteUrls: "https://example.com" as never }),
     );
     expect(error.issues).toEqual(["siteUrls: must be a function"]);
   });
@@ -118,7 +117,7 @@ describe("a module factory", () => {
     const instance = defineDemo()();
     expect(instance.id).toBe("demo");
     expect(instance.routes).toEqual({ list: "/demo", afterSave: "/" });
-    expect(instance.messages).toEqual({ en, pl });
+    expect(instance.messages).toEqual({ en });
     expect(instance.options).toEqual({ pageSize: 20 });
     expect(instance.migrations?.dir.href).toBe(migrations.dir.href);
     expect(instance.privacy?.exportUserData).toBe(privacy.exportUserData);
@@ -127,8 +126,14 @@ describe("a module factory", () => {
 
   it("carries the module's health check to every enabled instance", () => {
     const health = () => Promise.resolve(ok());
-    const checked = defineModule({ manifest, messages: { en, pl }, migrations, privacy, health });
+    const checked = defineModule({ manifest, messages: { en }, migrations, privacy, health });
     expect(checked().health).toBe(health);
+  });
+
+  it("adds the app's own translation for a locale the module does not ship, English where it leaves a key out", () => {
+    const instance = defineDemo()({ messages: { de: { login: { title: "Anmelden" } } } });
+    expect(instance.messages.de).toEqual({ login: { title: "Anmelden", submit: "Continue" } });
+    expect(instance.messages.en).toEqual(en);
   });
 
   it("merges route and message overrides", () => {
@@ -139,7 +144,6 @@ describe("a module factory", () => {
     });
     expect(instance.routes).toEqual({ list: "/demo", afterSave: "/dashboard" });
     expect(instance.messages.en.login).toEqual({ title: "Sign in to Acme", submit: "Continue" });
-    expect(instance.messages.pl).toEqual(pl);
     expect(instance.options).toEqual({ pageSize: 50 });
   });
 
@@ -159,7 +163,7 @@ describe("a module factory", () => {
   it("works without an options schema", () => {
     const plain = defineModule({
       manifest: { ...manifest, id: "plain", dbSchema: null, tables: [], switches: [], privacy: { exports: false, deletes: false } },
-      messages: { en, pl },
+      messages: { en },
     });
     const instance = plain();
     expect(instance.options).toBeUndefined();
@@ -179,7 +183,7 @@ describe("a module factory", () => {
 
   it("does not share the manifest object it was given", () => {
     const input = structuredClone(manifest);
-    const factory = defineModule({ manifest: input, messages: { en, pl }, migrations, privacy });
+    const factory = defineModule({ manifest: input, messages: { en }, migrations, privacy });
     input.tables.push("leaked");
     expect(factory.manifest.tables).toEqual(["items"]);
   });
@@ -207,7 +211,7 @@ describe("resolveMigrationsDir", () => {
 
   it("gives a dir defineModule accepts", () => {
     const dir = resolveMigrationsDir(import.meta.url, "../migrations/");
-    const factory = defineModule({ manifest, messages: { en, pl }, migrations: { dir }, privacy });
+    const factory = defineModule({ manifest, messages: { en }, migrations: { dir }, privacy });
     expect(factory().migrations?.dir.href).toMatch(/\/foundation\/core\/migrations\/$/);
   });
 

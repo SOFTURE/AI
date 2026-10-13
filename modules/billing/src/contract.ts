@@ -1,6 +1,6 @@
 // Result types and error codes of the billing module. No user-facing copy here: the UI translates
 // codes through `messages` (docs/02-module-standard.md §6).
-import type { CoreErrorCode, Locale } from "@softure-ai/core";
+import type { CoreErrorCode, LocalizedText as CoreLocalizedText } from "@softure-ai/core";
 import type { InvoiceFieldErrorCode } from "./invoice.js";
 
 export type BillingErrorCode =
@@ -96,8 +96,8 @@ export type PaymentGrant =
   | { readonly kind: "period"; readonly from: Date; readonly until: Date }
   | { readonly kind: "lifetime" };
 
-/** Copy per locale; a locale without its own text falls back to `en`. */
-export type LocalizedText = Readonly<Partial<Record<Locale, string>>>;
+/** Copy per locale (any BCP 47 tag); a locale without its own text falls back to its language, then `en`. */
+export type LocalizedText = CoreLocalizedText;
 
 export const PERIOD_UNITS = ["day", "week", "month", "year"] as const;
 

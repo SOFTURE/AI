@@ -39,15 +39,15 @@ role check.
 import { auth } from "@softure-ai/auth";
 import { featureSwitches } from "@softure-ai/feature-switches";
 import { en } from "./messages/en";
-import { pl } from "./messages/pl";
+import { de } from "./messages/de"; // the app's own translation
 
 // in defineSoftureConfig({ modules: [...] }), after security(...) and auth(...):
 featureSwitches({
   switches: [
     {
       name: "billing.checkout_enabled",
-      label: { en: en.switches.checkout.label, pl: pl.switches.checkout.label },
-      description: { en: en.switches.checkout.description, pl: pl.switches.checkout.description },
+      label: { en: en.switches.checkout.label, de: de.switches.checkout.label },
+      description: { en: en.switches.checkout.description, de: de.switches.checkout.description },
       default: false,
       failMode: "closed",
     },
@@ -59,14 +59,14 @@ featureSwitches({
 | --- | --- | --- | --- |
 | `switches` | `SwitchDefinition[]` | `[]` | Every switch the app reads, including the ones its modules name in their manifests. |
 | `switches[].name` | `string` | required | `<scope>.<key>`: a kebab-case scope (a module id or the app's own) and a snake_case key, at most 100 characters. |
-| `switches[].label` | `{ en?, pl? }` | the name | The panel's name for it, per locale; a missing locale falls back to `en`. Keep the copy in the app's message dictionaries. |
-| `switches[].description` | `{ en?, pl? }` | none | What turning it on does, shown under the label. |
+| `switches[].label` | `{ en?, <locale>? }` | the name | The panel's name for it, per locale; a missing locale falls back to `en`. Keep the copy in the app's message dictionaries. |
+| `switches[].description` | `{ en?, <locale>? }` | none | What turning it on does, shown under the label. |
 | `switches[].default` | `boolean` | required | The value while nothing is stored and no override is set. There is no implicit default: pick the value that keeps the app safe on a fresh database. |
 | `switches[].failMode` | `"closed"` \| `"open"` | `"closed"` | The value when the stored state cannot be read: `closed` is off, `open` is on. Name switches so that "on" turns something on, and the fail mode reads naturally. |
 | `switches[].override` | `"both"` \| `"towards-fail-mode"` | `"both"` | Which way the environment override may move the switch: either way, or only to the fail-mode value (section 6). |
 | `panelRole` | `string` | `"admin"` | The auth role that opens the panel and flips switches. It must be declared in `auth({ roles })` (`admin` always is); an undeclared role throws. |
 | `routes` | `{ panel }` | `/admin/switches` | Where the panel page is mounted. |
-| `messages` | partial `pl` / `en` dictionaries | built in | Copy overrides (section 9). |
+| `messages` | partial dictionaries per locale (`en` built in; any other is the app's own translation) | built in | Copy overrides (section 9). |
 
 A name declared twice, or two names whose environment overrides collide (`my-app.beta` and
 `my.app_beta` both give `SOFTURE_SWITCH_MY_APP_BETA`), fail at startup.
@@ -279,12 +279,16 @@ and `undefinedSwitches` for the report of section 7 (the page passes it).
 
 ## 9. Copy
 
-`featureSwitchesMessages.{en,pl}`: `panel` (title, lead, empty state, on/off, the report of
+`featureSwitchesMessages.en`: `panel` (title, lead, empty state, on/off, the report of
 undefined switches), `source` (where the
 value comes from: environment `{envName}`, stored `{date}`, default, fail mode) and `errors` for every
 code the panel can show (`feature-switches.unknown_switch`, `auth.forbidden`, `core.*`). Override
-any of them with `featureSwitches({ messages: { pl: { panel: { title: "…" } } } })`. Switch labels
+any of them with `featureSwitches({ messages: { de: { panel: { title: "…" } } } })`. Switch labels
 and descriptions come from the definitions (section 3).
+
+The client components (`SwitchPanel`) take their `locale` from the prop, then from the nearest
+`UiLocaleProvider` of `@softure-ai/ui`, then `en`, so an app that mounts the provider once can leave the prop out.
+Server code (`SwitchesPage`, `toSwitchPanelRows`) cannot read the provider and takes the locale from `config`.
 
 ## 10. Hooks
 

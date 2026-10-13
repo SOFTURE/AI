@@ -1,6 +1,7 @@
 "use client";
 
 import { formatMessage } from "@softure-ai/core";
+import { useUiLocale } from "@softure-ai/ui";
 import { type KeyboardEvent, type PointerEvent, type ReactNode, useRef, useState } from "react";
 import { type ChartsCopyProps, getChartsCopy } from "../messages/index.js";
 import { nearestPointIndex } from "../scale/nearest-point.js";
@@ -78,7 +79,7 @@ export function ChartCursor({
 }: ChartCursorProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const layerRef = useRef<HTMLDivElement>(null);
-  const copy = getChartsCopy({ locale, messages });
+  const copy = getChartsCopy({ locale: useUiLocale(locale), messages });
   const active = activeIndex === null ? null : (points[activeIndex] ?? null);
   const lastIndex = points.length - 1;
 

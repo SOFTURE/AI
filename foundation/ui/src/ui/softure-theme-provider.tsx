@@ -1,4 +1,5 @@
-import type { Locale } from "@softure-ai/core";
+import type { DeepPartial, Locale } from "@softure-ai/core";
+import type { UiMessages } from "../messages/index.js";
 import type { ReactNode } from "react";
 import { resolveTheme } from "../theme/resolve-theme.js";
 import { buildThemeCss, type SchemeScopes } from "../theme/theme-css.js";
@@ -14,6 +15,8 @@ export interface SoftureThemeProviderProps {
   readonly schemeScopes?: SchemeScopes;
   /** The locale of every component's built-in copy below the provider (`UiLocaleProvider`). */
   readonly locale?: Locale;
+  /** The app's own translation of the built-in copy below the provider (`UiLocaleProvider`). */
+  readonly messages?: DeepPartial<UiMessages>;
   readonly children?: ReactNode;
 }
 
@@ -22,12 +25,18 @@ export interface SoftureThemeProviderProps {
  * server components (no state, no effects). The CSS is unlayered, so it beats the defaults in
  * `@layer softure`. An invalid `design` is a configuration bug and throws on the first render.
  */
-export function SoftureThemeProvider({ theme, design, schemeScopes, locale, children }: SoftureThemeProviderProps) {
+export function SoftureThemeProvider({ theme, design, schemeScopes, locale, messages, children }: SoftureThemeProviderProps) {
   const css = buildThemeCss(resolveTheme({ theme, design }, "SoftureThemeProvider"), { schemeScopes });
   return (
     <>
       {css === "" ? null : <style data-softure-theme="">{css}</style>}
-      {locale === undefined ? children : <UiLocaleProvider locale={locale}>{children}</UiLocaleProvider>}
+      {locale === undefined && messages === undefined ? (
+        children
+      ) : (
+        <UiLocaleProvider locale={locale} messages={messages}>
+          {children}
+        </UiLocaleProvider>
+      )}
     </>
   );
 }

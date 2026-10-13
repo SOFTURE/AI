@@ -3,6 +3,14 @@ import { blogMessages } from "@softure-ai/blog";
 import { renderArticle, slugifyHeading } from "@softure-ai/blog/server";
 import { describe, expect, it } from "vitest";
 
+/** An app-supplied German translation of the render copy. */
+const DE_RENDER = {
+  ...blogMessages.en.render,
+  footnotesHeading: "Fussnoten",
+  footnoteLabel: "Fussnote {number}",
+  opensInNewTab: "(oeffnet in neuem Tab)",
+};
+
 const EXTERNAL_MARKER =
   '<span class="blog-external-marker" aria-hidden="true">↗</span><span class="blog-visually-hidden"> (opens in a new tab)</span>';
 
@@ -56,9 +64,9 @@ describe("renderArticle: links", () => {
     );
   });
 
-  it("uses the copy of the given locale for the hidden text", () => {
-    const { html } = renderArticle("[a](https://ons.gov.uk/)", { messages: blogMessages.pl.render });
-    expect(html).toContain(`<span class="blog-visually-hidden"> ${blogMessages.pl.render.opensInNewTab}</span>`);
+  it("uses the copy it is given for the hidden text", () => {
+    const { html } = renderArticle("[a](https://ons.gov.uk/)", { messages: DE_RENDER });
+    expect(html).toContain('<span class="blog-visually-hidden"> (oeffnet in neuem Tab)</span>');
   });
 });
 
@@ -183,12 +191,11 @@ describe("renderArticle: footnotes", () => {
     expect(renderArticle(`## Question\n\n${TEXT}`).headings.map((heading) => heading.text)).toEqual(["Question"]);
   });
 
-  it("uses the copy of the given locale", () => {
-    const pl = blogMessages.pl.render;
-    const { html } = renderArticle(TEXT, { messages: pl });
+  it("uses the copy it is given", () => {
+    const { html } = renderArticle(TEXT, { messages: DE_RENDER });
 
-    expect(html).toContain(`<h2 id="footnotes">${pl.footnotesHeading}</h2>`);
-    expect(html).toContain(`aria-label="${pl.footnoteLabel.replace("{number}", "1")}"`);
+    expect(html).toContain('<h2 id="footnotes">Fussnoten</h2>');
+    expect(html).toContain('aria-label="Fussnote 1"');
   });
 });
 
