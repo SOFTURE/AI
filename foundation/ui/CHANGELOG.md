@@ -6,6 +6,9 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- `UiLocaleProvider` and `SoftureThemeProvider` take `messages`: the app's own translation of the built-in copy, per
+  message group, used by every client component below them (#435). A component's own `messages` win key by key.
+  `UiLocaleProvider`'s `locale` is now optional (`en` when left out).
 - `CheckboxField` takes a node as `label` in both modes (#453), so a consent statement can link to the terms; the
   control is still named by the label's text. `switchProps` also takes `hintLabel`, the name of the "?" when a
   `setting` has a node label and a tooltip hint.

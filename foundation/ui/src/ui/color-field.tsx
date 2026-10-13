@@ -7,7 +7,7 @@ import { type CopyProps, getCopy } from "./copy.js";
 import { Field, type FieldSlot, getDescribedBy, INPUT_CLASS } from "./field.js";
 import { useFieldError, useFieldValue } from "./form-context.js";
 import type { BaseFieldProps, FieldValueProps } from "./form-fields.js";
-import { useUiLocale } from "./locale.js";
+import { useUiCopyProps, useUiLocale } from "./locale.js";
 
 // A colour as hex text with a native colour picker as its swatch. Only the text input is submitted (`name`),
 // so the value is the text the user sees; the picker and the text follow each other. Text that is not a hex
@@ -62,7 +62,7 @@ export function ColorField({
   pickerMessages,
 }: ColorFieldProps) {
   const locale = useUiLocale(explicitLocale);
-  const copy = getCopy("colorField", { locale, messages: pickerMessages });
+  const copy = getCopy("colorField", useUiCopyProps("colorField", { locale, messages: pickerMessages }));
   const generatedId = useId();
   const inputId = id ?? generatedId;
   const replayed = useFieldValue(name, defaultValue);

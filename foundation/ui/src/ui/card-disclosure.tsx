@@ -5,7 +5,7 @@ import { type ReactNode, useState } from "react";
 import { type ClassNames, createSlotClassGetter } from "./class-names.js";
 import { type CopyProps, getCopy } from "./copy.js";
 import { DisclosureArrow } from "./disclosure-arrow.js";
-import { useUiLocale } from "./locale.js";
+import { useUiCopyProps } from "./locale.js";
 
 export type CardDisclosureSlot = "bar" | "toggle" | "arrow" | "header" | "content";
 
@@ -38,7 +38,7 @@ const ARROW_OPEN = "sft:rotate-90";
 /** A card's collapsible content, with the header bar as the toggle. */
 export function CardDisclosure({ title, header, defaultOpen, children, classNames, unstyled, locale, messages }: CardDisclosureProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
-  const copy = getCopy("card", { locale: useUiLocale(locale), messages });
+  const copy = getCopy("card", useUiCopyProps("card", { locale, messages }));
   const slot = createSlotClassGetter({ defaults: DEFAULT_CLASSES, classNames, unstyled });
   const arrowClass = [slot("arrow"), isOpen && unstyled !== true ? ARROW_OPEN : undefined].filter(Boolean).join(" ");
   return (

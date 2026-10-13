@@ -14,6 +14,8 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   left and the badge's text), `variant` (`full`, `short`, or `responsive`: short below `md`), `srPrefix` (a
   screen-reader label before the text) and `toneScope` (`pill` colours all the pill's text). The root always
   carries `data-kind` and `data-tone`; new slots `full`, `short`, `prefix`. Defaults render as before (#426).
+- README: the client forms follow `UiLocaleProvider` when given no `locale` (they forward it to the ui fields, which
+  read the provider); server components keep the prop (#435).
 
 ## 0.2.1
 

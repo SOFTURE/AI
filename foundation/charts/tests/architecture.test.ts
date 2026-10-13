@@ -71,6 +71,6 @@ describe("package manifest", () => {
 
   it("takes @softure-ai/ui as a peer, so an app has one copy of the tokens and the theme", () => {
     expect(manifest.dependencies["@softure-ai/ui"]).toBeUndefined();
-    expect(manifest.peerDependencies["@softure-ai/ui"]).toBe("^0.1.6 || ^0.2.0");
+    expect(manifest.peerDependencies["@softure-ai/ui"]).toBe("^0.1.7 || ^0.2.0");
   });
 });
