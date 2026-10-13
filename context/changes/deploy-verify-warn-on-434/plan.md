@@ -1,6 +1,6 @@
 ---
 change_id: deploy-verify-warn-on-434
-status: planned
+status: implemented
 ---
 
 # Plan: deploy verify warnOn (issue #434)
@@ -25,5 +25,5 @@ README verify section (a bullet next to Severity, with the key-directory example
 
 ## Progress
 
-- [ ] Phase 1: schema and runner
-- [ ] Phase 2: docs
+- [x] Phase 1: schema and runner (`eb8849e`; 6 tests written first, schema file regenerated)
+- [x] Phase 2: docs (README bullet with the key-directory example, CHANGELOG `## Unreleased`)
