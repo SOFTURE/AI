@@ -71,10 +71,9 @@ describe("ThemeSwitch", () => {
     expect(checked.map(([input]) => input.match(/value="(\w+)"/)?.[1])).toEqual(["system"]);
   });
 
-  it("renders the Polish labels for the pl locale", () => {
-    const html = renderToStaticMarkup(<ThemeSwitch locale="pl" />);
-    const copy = uiMessages.pl.themeSwitch;
-    for (const label of [copy.legend, copy.light, copy.dark, copy.system]) expect(html).toContain(`>${label}<`);
+  it("renders the app's translation for its locale, with English for the keys it leaves out", () => {
+    const html = renderToStaticMarkup(<ThemeSwitch locale="de" messages={{ legend: "Darstellung", light: "Hell", dark: "Dunkel" }} />);
+    for (const label of ["Darstellung", "Hell", "Dunkel", uiMessages.en.themeSwitch.system]) expect(html).toContain(`>${label}<`);
   });
 
   it("applies a partial message override for the current locale only", () => {

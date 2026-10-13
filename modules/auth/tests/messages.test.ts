@@ -22,11 +22,11 @@ const CODES: AuthFormErrorCode[] = [
 ];
 
 describe("auth messages", () => {
-  it.each(["en", "pl"] as const)("have copy in %s for every code a form can show", (locale) => {
+  it("have English copy for every code a form can show", () => {
     for (const code of CODES) {
-      const message = getAuthErrorMessage(authMessages[locale], code);
+      const message = getAuthErrorMessage(authMessages.en, code);
       expect(message, code).not.toBe("");
-      expect(message === authMessages[locale].errors.core.unexpected, code).toBe(code === "core.unexpected" || code === "core.database_failed");
+      expect(message === authMessages.en.errors.core.unexpected, code).toBe(code === "core.unexpected" || code === "core.database_failed");
     }
   });
 
@@ -42,7 +42,7 @@ describe("auth messages", () => {
     expect(getAuthErrorMessage(authMessages.en, "auth.toString")).toBe(authMessages.en.errors.core.unexpected);
   });
 
-  it("are translated, not copied", () => {
-    expect(authMessages.pl.login.title).not.toBe(authMessages.en.login.title);
+  it("ship English as the only built-in language", () => {
+    expect(Object.keys(authMessages)).toEqual(["en"]);
   });
 });

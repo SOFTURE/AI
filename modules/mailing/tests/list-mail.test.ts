@@ -14,7 +14,8 @@ describe("addTextFooter", () => {
   });
 
   it("uses the copy it is given", () => {
-    expect(addTextFooter("Hello.", LINKS, mailingMessages.pl.footer)).toContain(mailingMessages.pl.footer.text);
+    const copy = { ...COPY, text: "Keine E-Mails mehr? Hier abmelden:" };
+    expect(addTextFooter("Hello.", LINKS, copy)).toBe(["Hello.", "", "-- ", "Keine E-Mails mehr? Hier abmelden:", LINKS.page].join("\n"));
   });
 });
 

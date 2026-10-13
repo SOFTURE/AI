@@ -1,5 +1,5 @@
 // The options an app passes to `waitlist({ ... })` in softure.config.ts, parsed at startup.
-import { LOCALES, type ModuleContext, type SoftureConfig } from "@softure-ai/core";
+import { isLocale, type ModuleContext, type SoftureConfig } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
 import { z } from "zod";
 import type { WaitlistJoinedEvent } from "./contract.js";
@@ -52,7 +52,7 @@ const doubleOptInSchema = z
 
 /** Copy per locale; a locale without its own text falls back to `en`. */
 const localizedTextSchema = z
-  .partialRecord(z.enum(LOCALES), z.string().trim().min(1).max(500))
+  .record(z.string().refine(isLocale, "must be a BCP 47 language tag"), z.string().trim().min(1).max(500))
   .refine((text) => text.en !== undefined, "needs at least an en text");
 
 const scopeSchema = z.strictObject({

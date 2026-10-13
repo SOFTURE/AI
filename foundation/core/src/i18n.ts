@@ -1,9 +1,12 @@
-// Copy and localization (docs/02-module-standard.md §6): every module ships complete `en` and
-// `pl` dictionaries, and the app passes partial overrides per locale.
+// Copy and localization (docs/02-module-standard.md §6): every module ships a complete `en`
+// dictionary, the only built-in language. An app that shows another language passes its own
+// translation as overrides for its locale; a key it leaves out reads English.
 
-export const LOCALES = ["en", "pl"] as const;
+/** A BCP 47 language tag (`en`, `de-AT`). */
+export type Locale = string;
 
-export type Locale = (typeof LOCALES)[number];
+/** The language of every built-in dictionary and the fallback for any other locale. */
+export const DEFAULT_LOCALE = "en";
 
 /** A dictionary: nested groups of message strings. */
 export interface MessageTree {
@@ -13,11 +16,14 @@ export interface MessageTree {
 /** The same shape with every key optional, at every depth. */
 export type DeepPartial<T> = { [K in keyof T]?: T[K] extends string ? string : DeepPartial<T[K]> };
 
-/** One complete dictionary per locale. */
-export type Dictionaries<T extends MessageTree> = Readonly<Record<Locale, T>>;
+/** A complete `en` dictionary, plus complete dictionaries for any other locales. */
+export type Dictionaries<T extends MessageTree> = { readonly en: T } & { readonly [locale: string]: T | undefined };
 
-/** Partial overrides an app passes for some locales. */
-export type MessageOverrides<T extends MessageTree> = Partial<Record<Locale, DeepPartial<T>>>;
+/** Partial overrides an app passes per locale: a translation for its own locale, or changed English copy. */
+export type MessageOverrides<T extends MessageTree> = { readonly [locale: string]: DeepPartial<T> | undefined };
+
+/** A text an app writes per locale in its options (a plan name, a label); `en` is the fallback. */
+export type LocalizedText = { readonly [locale: string]: string | undefined };
 
 /** Plural forms named after the `Intl.PluralRules` categories; `other` is the fallback. */
 export interface PluralForms {
@@ -29,24 +35,49 @@ export interface PluralForms {
   readonly other: string;
 }
 
+/** Whether `value` is a well-formed BCP 47 language tag. */
 export function isLocale(value: unknown): value is Locale {
-  return LOCALES.some((locale) => locale === value);
+  if (typeof value !== "string" || value === "") return false;
+  try {
+    return Intl.getCanonicalLocales(value).length === 1;
+  } catch {
+    // RangeError: not a well-formed tag.
+    return false;
+  }
 }
 
 /**
- * The defaults with the overrides applied, per locale. Only keys the defaults have are taken,
- * and a group is never replaced by a string, so an override cannot break the dictionary shape.
- * Inputs are not mutated.
+ * The defaults with the overrides applied, per locale: `en` and every locale the defaults or the
+ * overrides name. A locale without its own defaults is built on `en`, so a key its override leaves
+ * out reads English. Only keys the defaults have are taken, and a group is never replaced by a
+ * string, so an override cannot break the dictionary shape. Inputs are not mutated.
  */
 export function mergeMessages<T extends MessageTree>(
   defaults: Dictionaries<T>,
   overrides: MessageOverrides<T> = {},
 ): Dictionaries<T> {
-  const merged = {} as Record<Locale, T>;
-  for (const locale of LOCALES) {
-    merged[locale] = mergeTree(defaults[locale], overrides[locale]) as T;
+  const merged: Record<string, T> = {};
+  for (const locale of new Set([DEFAULT_LOCALE, ...Object.keys(defaults), ...Object.keys(overrides)])) {
+    merged[locale] = mergeTree(defaults[locale] ?? defaults.en, overrides[locale]) as T;
   }
-  return merged;
+  return merged as Dictionaries<T>;
+}
+
+/**
+ * The dictionary for `locale`: its own, else its language's (`pt-BR` reads `pt`), else `en`.
+ */
+export function selectMessages<T extends MessageTree>(dictionaries: Dictionaries<T>, locale: Locale): T {
+  return dictionaries[locale] ?? dictionaries[getLanguage(locale)] ?? dictionaries.en;
+}
+
+/** The text for `locale` with `selectMessages`' fallback order, or `fallback` when no locale has one. */
+export function pickLocalizedText(text: LocalizedText | undefined, locale: Locale, fallback = ""): string {
+  if (text === undefined) return fallback;
+  return text[locale] ?? text[getLanguage(locale)] ?? text.en ?? fallback;
+}
+
+function getLanguage(locale: Locale): string {
+  return locale.split("-")[0] ?? locale;
 }
 
 /** Fills `{name}` placeholders. A placeholder without a value stays as written. */
@@ -57,10 +88,13 @@ export function formatMessage(template: string, params: Readonly<Record<string, 
   });
 }
 
-const pluralRulesByLocale = new Map<Locale, Intl.PluralRules>();
+const pluralRulesByLocale = new Map<string, Intl.PluralRules>();
 
-/** The form for `count` under the plural rules of `locale` ("1 file", "2 files"). */
-export function selectPlural(locale: Locale, count: number, forms: PluralForms): string {
+/**
+ * The form for `count` under the plural rules of `locale`, any BCP 47 tag ("1 file", "2 files"). A category the
+ * forms leave out falls back to `other`.
+ */
+export function selectPlural(locale: string, count: number, forms: PluralForms): string {
   let rules = pluralRulesByLocale.get(locale);
   if (rules === undefined) {
     rules = new Intl.PluralRules(locale);

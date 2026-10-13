@@ -1,6 +1,7 @@
 "use client";
 
 import { formatMessage } from "@softure-ai/core";
+import { useUiLocale } from "@softure-ai/ui";
 import { type CSSProperties, type KeyboardEvent, type ReactNode, useState } from "react";
 import { type ChartsCopyProps, getChartsCopy } from "../messages/index.js";
 import { cx, seriesColourClass, seriesColourStyle } from "../svg/class-names.js";
@@ -31,7 +32,7 @@ export interface EventAxisProps extends ChartsCopyProps {
  */
 export function EventAxis({ title, items, className, renderReadout, onActiveChange, readoutClassName, locale, messages }: EventAxisProps) {
   const [activeStep, setActiveStep] = useState<number | null>(null);
-  const copy = getChartsCopy({ locale, messages });
+  const copy = getChartsCopy({ locale: useUiLocale(locale), messages });
   const { entries, lanes } = layoutEventAxis(items);
   const active = activeStep === null ? null : (entries[activeStep] ?? null);
 

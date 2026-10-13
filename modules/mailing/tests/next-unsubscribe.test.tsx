@@ -178,9 +178,12 @@ describe("the unsubscribe adapter", () => {
       expect(html).not.toContain("Unsubscribe me");
     });
 
-    it("speaks the app's language", async () => {
-      scope.config = createConfig(fakeMailProvider(), { locale: "pl" });
-      expect(await renderPage(QUERY)).toContain("Wypisz mnie");
+    it("speaks the app's language, from the translation the app passed", async () => {
+      scope.config = createConfig(fakeMailProvider(), { locale: "de", messages: { de: { unsubscribe: { submit: "Abmelden" } } } });
+      const html = await renderPage(QUERY);
+      expect(html).toContain("Abmelden");
+      expect(html).not.toContain("Unsubscribe me");
+      expect(html).toContain("You will stop getting these emails from us.");
     });
 
     const toSearchParams = (query: string) => Promise.resolve(Object.fromEntries(new URLSearchParams(query)));

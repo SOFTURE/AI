@@ -3,7 +3,7 @@ import { dirname, resolve } from "node:path";
 
 import { getLayoutName } from "../compose/timeline.js";
 import type { Device, FilmScript } from "../film.js";
-import type { MarketingLocale } from "../messages/index.js";
+import { getMarketingMessages, type MarketingMessages } from "../messages/index.js";
 import { DEFAULT_LINK_IN_BIO, PLATFORMS, type Platform } from "../platforms.js";
 import type { PlaceholderPace } from "../voice/placeholder.js";
 import type { SceneAction } from "./actions-schema.js";
@@ -82,8 +82,8 @@ export interface MarketingConfig {
     name: string;
     /** BCP 47, e.g. `en-US`. */
     locale: string;
-    /** The dictionary of the copy: the locale's language. */
-    language: MarketingLocale;
+    /** The copy of the posts and the film: English with `brand.messages` applied. */
+    messages: MarketingMessages;
     timezone: string;
     logo: string | null;
     colors: BrandColors;
@@ -210,8 +210,7 @@ export function loadMarketingConfig(path: string): LoadConfigResult {
       brand: {
         name: data.brand.name,
         locale: data.brand.locale,
-        // The schema refuses a locale whose language has no dictionary.
-        language: data.brand.locale.split("-")[0] as MarketingLocale,
+        messages: getMarketingMessages(data.brand.messages),
         timezone: data.brand.timezone,
         logo: data.brand.logo === undefined ? null : at(data.brand.logo.svg),
         colors: colors.colors,

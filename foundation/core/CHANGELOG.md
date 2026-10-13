@@ -4,6 +4,28 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`core@x.y.z`).
 
+## Unreleased
+
+- **Breaking (#446):** English is the only built-in language.
+  - `LOCALES` is removed; `Locale` is any BCP 47 tag, `isLocale(value)` says whether a value is a well-formed one,
+    `DEFAULT_LOCALE` is `"en"`. `defineSoftureConfig` takes any tag as `locale` and refuses one that is not.
+  - `coreMessages` and every module ship `en` only. `Dictionaries<T>` is a complete `en` plus any other locales;
+    `MessageOverrides<T>` is keyed by any tag, and `mergeMessages` builds a locale without its own defaults on `en`.
+  - New `selectMessages(dictionaries, locale)` (the locale, then its language, then `en`), `pickLocalizedText` and
+    `LocalizedText` for an app's per-locale option texts.
+  - Migrate: an app that shows Polish keeps its own translation and passes it per module as the overrides for its
+    locale, `auth({ messages: { pl: authPl } })`; a key it leaves out reads English. Read a module's copy with
+    `selectMessages(module.messages, config.locale)` instead of `module.messages[config.locale]`.
+- **Breaking (#438):** core's formatters build in no language besides English.
+  - `formatCalendarMonth` drops the `"genitive"` style; `CalendarMonthStyle` is `"long" | "roman"`. A full date's
+    month form stays available through `formatCalendarDay`.
+  - `formatDuration(months, options?)` takes `{ locale?, messages? }` instead of a locale. Its words default to
+    English (`DEFAULT_DURATION_MESSAGES`); an app plugs in its own translation with `messages: DurationMessages` and
+    the `locale` whose plural rules pick a form. Migrate `formatDuration(n, "en")` to `formatDuration(n)`.
+  - `coreMessages` no longer has the `duration` group.
+- `formatCalendarDay`, `formatCalendarMonth`, `formatMoney`, `formatPercent` and `selectPlural` take any BCP 47 locale
+  tag, not only `LOCALES` (#438). Exported: `DurationMessages`, `FormatDurationOptions`, `DEFAULT_DURATION_MESSAGES`.
+
 ## 0.1.11
 
 - Formatting (#410): `formatCalendarMonth(month, locale, "long" | "genitive" | "roman")` for `YYYY-MM` months

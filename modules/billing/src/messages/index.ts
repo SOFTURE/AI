@@ -1,11 +1,10 @@
 import type { AdminActionErrorCode, BillingFormErrorCode, GrantFormErrorCode, PaymentFormErrorCode, TrialFormErrorCode } from "../contract.js";
 import { en } from "./en.js";
-import { pl } from "./pl.js";
 
 export type BillingMessages = typeof en;
 
-/** Complete default dictionaries; apps pass partial overrides per locale. */
-export const billingMessages = { en, pl };
+/** The built-in English dictionary; an app passes partial overrides or its own translation per locale. */
+export const billingMessages = { en };
 
 /** The copy for an error code; an unknown code gets the generic failure. */
 export function getBillingErrorMessage(messages: BillingMessages, code: BillingFormErrorCode | PaymentFormErrorCode | GrantFormErrorCode | TrialFormErrorCode | AdminActionErrorCode): string {

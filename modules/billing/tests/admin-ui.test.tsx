@@ -101,8 +101,8 @@ describe("GrantHistory", () => {
 
   it("says when the account has no grants or payments", () => {
     const revoke = createAction("grant", { status: "done" });
-    render(<GrantHistory rows={[]} revokeAction={revoke.action} messages={billingMessages.pl} />);
-    expect(screen.getByText(billingMessages.pl.admin.history.empty)).toBeTruthy();
+    render(<GrantHistory rows={[]} revokeAction={revoke.action} messages={en} />);
+    expect(screen.getByText(en.admin.history.empty)).toBeTruthy();
   });
 });
 

@@ -65,26 +65,29 @@ describe("ThemeScript and ThemeSwitch with design", () => {
 describe("UiLocaleProvider", () => {
   it("sets the locale of client components that have none", () => {
     const html = renderToStaticMarkup(
-      <UiLocaleProvider locale="pl">
-        <ThemeSwitch />
+      <UiLocaleProvider locale="de">
+        <MoneyField id="m" name="m" label="M" defaultValue="1200" />
+        <ThemeSwitch messages={{ legend: "Darstellung" }} />
       </UiLocaleProvider>,
     );
-    expect(html).toContain(uiMessages.pl.themeSwitch.legend);
+    expect(html).toContain('value="1.200,00"');
+    expect(html).toContain(">Darstellung</legend>");
+    expect(html).toContain(`>${uiMessages.en.themeSwitch.dark}</span>`);
   });
 
   it("loses to a component's own locale", () => {
     const html = renderToStaticMarkup(
-      <UiLocaleProvider locale="pl">
-        <ThemeSwitch locale="en" />
+      <UiLocaleProvider locale="de">
+        <MoneyField id="m" name="m" label="M" defaultValue="1200" locale="en" />
       </UiLocaleProvider>,
     );
-    expect(html).toContain("Theme");
-    expect(html).not.toContain(uiMessages.pl.themeSwitch.legend);
+    expect(html).toContain('value="1,200.00"');
+    expect(html).not.toContain('value="1.200,00"');
   });
 
-  it("reaches the hint label of the server-safe Card and Field", () => {
+  it("reaches the hint label of the server-safe Card and Field, in English without a translation", () => {
     const html = renderToStaticMarkup(
-      <UiLocaleProvider locale="pl">
+      <UiLocaleProvider locale="de">
         <Card title="Plan" hint="Why">
           <Field label="Amount" hint="How" hintAs="tooltip">
             <input />
@@ -92,8 +95,8 @@ describe("UiLocaleProvider", () => {
         </Card>
       </UiLocaleProvider>,
     );
-    expect(html).toContain(`aria-label="${uiMessages.pl.card.hintLabel.replace("{title}", "Plan")}"`);
-    expect(html).toContain(`aria-label="${uiMessages.pl.field.hintLabel.replace("{label}", "Amount")}"`);
+    expect(html).toContain(`aria-label="${uiMessages.en.card.hintLabel.replace("{title}", "Plan")}"`);
+    expect(html).toContain(`aria-label="${uiMessages.en.field.hintLabel.replace("{label}", "Amount")}"`);
   });
 
   it("formats amounts and the modal and form copy in the provider's locale", () => {
@@ -106,7 +109,7 @@ describe("UiLocaleProvider", () => {
       </SoftureThemeProvider>,
     );
     expect(html).toMatch(/value="1\s200,00"/);
-    expect(html).toContain(`>${uiMessages.pl.modal.cancel}<`);
+    expect(html).toContain(`>${uiMessages.en.modal.cancel}<`);
   });
 
   it("defaults to English without a provider", () => {

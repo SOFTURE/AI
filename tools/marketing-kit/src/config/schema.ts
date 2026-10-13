@@ -12,7 +12,6 @@ import {
   resolveLayout,
   type LayoutName,
 } from "../compose/timeline.js";
-import { MARKETING_LOCALES, type MarketingLocale } from "../messages/index.js";
 import { bigNumberDataSchema, carouselDataSchema, headlineChartDataSchema, headlineCtaDataSchema } from "../og/templates/schemas.js";
 import { CHANNEL_CODE_MAX_LENGTH, CHANNEL_CODE_PATTERN, DEFAULT_LINK_IN_BIO, PLATFORMS } from "../platforms.js";
 import { ELEVENLABS_DEFAULT_MODEL } from "../voice/voiceover.js";
@@ -75,11 +74,6 @@ function isKnownTimezone(zone: string): boolean {
   } catch {
     return false;
   }
-}
-
-function hasMessages(locale: string): boolean {
-  const language = locale.split("-")[0];
-  return MARKETING_LOCALES.some((known: MarketingLocale) => known === language);
 }
 
 function getWords(sentence: string): string[] {
@@ -145,13 +139,43 @@ const roleTokensShape = Object.fromEntries(
   z.ZodOptional<typeof tokenName>
 >;
 
+const messageText = (key: string) => nonEmpty.optional().describe(`src/messages/en.ts ${key}; English when left out.`);
+
+/** The built-in copy (`src/messages/en.ts`), every key optional: the app's own translation or changed English copy. */
+const brandMessagesSchema = z
+  .strictObject({
+    posts: z
+      .strictObject({
+        title: messageText("posts.title: the heading of posts.md, {title} is the film's title"),
+        linkInBio: messageText("posts.linkInBio: the call to action where a caption link is not clickable"),
+        bioLink: messageText("posts.bioLink: the bio link line, {link}"),
+        postLink: messageText("posts.postLink: the post link line, {link}"),
+        platforms: z
+          .strictObject({
+            instagram: messageText("posts.platforms.instagram"),
+            facebook: messageText("posts.platforms.facebook"),
+            tiktok: messageText("posts.platforms.tiktok"),
+            youtube: messageText("posts.platforms.youtube"),
+            linkedin: messageText("posts.platforms.linkedin"),
+            x: messageText("posts.platforms.x"),
+          })
+          .optional()
+          .describe("The platform names in posts.md."),
+      })
+      .optional()
+      .describe("The copy of posts.md."),
+    film: z.strictObject({ persona: messageText("film.persona: the persona card's first line, {name} and {age}") }).optional().describe("The copy inside the film."),
+  })
+  .default({})
+  .describe("The copy of the posts and the film, every key optional (src/messages/en.ts): the product's own translation, or changed English copy. A key left out reads English.");
+
 const brandSchema = z.strictObject({
   name: nonEmpty.describe("The product's name, shown on the end card."),
   locale: z
     .string()
     .regex(LOCALE_PATTERN, "must be a BCP 47 locale such as en-US")
-    .refine(hasMessages, `needs a language with message dictionaries: ${MARKETING_LOCALES.join(", ")}`)
-    .describe(`BCP 47 locale (en-US): the recording browser's locale, <html lang> and the language of the copy. Its language needs a message dictionary: ${MARKETING_LOCALES.join(", ")}.`),
+    .describe("BCP 47 locale (en-US): the recording browser's locale and <html lang>. The copy is English unless brand.messages translates it."),
+  messages: brandMessagesSchema,
   timezone: z.string().refine(isKnownTimezone, "must be an IANA timezone such as Europe/London").describe("IANA zone of the recording browser, e.g. Europe/London."),
   logo: z
     .strictObject({ svg: relativePath.endsWith(".svg", "must be an .svg file").describe("The logo as an .svg file, relative to the folder of marketing.json.") })

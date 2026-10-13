@@ -91,7 +91,7 @@ billing({
   trial: { days: 14, reminderDays: 3 },
   paid: { reminderDays: 7 },
   plans: [
-    { id: "monthly", name: { en: "Monthly", pl: "..." }, price: { amount: 2900, currency: "PLN" }, period: "month", features: [{ en: "Unlimited notes" }] },
+    { id: "monthly", name: { en: "Monthly", de: "Monatlich" }, price: { amount: 2900, currency: "PLN" }, period: "month", features: [{ en: "Unlimited notes" }] },
     { id: "yearly", name: { en: "Yearly" }, price: { amount: 29000, currency: "PLN" }, period: "year", isFeatured: true },
     { id: "lifetime", name: { en: "Lifetime" }, price: { amount: 79000, currency: "PLN" }, period: "lifetime" },
   ],
@@ -113,7 +113,7 @@ billing({
 | `routes.payment` | path | `/payment` | Where `PaymentPage` is mounted; the notice and the tiles link there, and Stripe Checkout returns there. |
 | `routes.admin` | path | `/admin/billing` | Where `BillingAdminPage` is mounted; its actions revalidate it, and the account lookup sends the admin there with `?account=<id>`. |
 | `routes.webhook` | path | `/api/billing/webhook` | Where `stripeWebhookRoute` is mounted (the Stripe endpoint's URL). |
-| `messages` | partial `en` / `pl` | — | Copy overrides. |
+| `messages` | partial dictionaries per locale (`en` built in; any other is the app's own translation) | — | Copy overrides. |
 
 **A plan** is `{ id, name, description?, price: { amount, currency }, period, features?, isFeatured? }`:
 `id` kebab-case and unique; `name`, `description` and each feature line a text per locale with at
@@ -764,7 +764,7 @@ tile gets `--sft-border-strong` and a shadow, and sets `data-plan`, `data-featur
 
 ## 9. Copy
 
-`billingMessages` (`en`, `pl`): `dayCount` (plural forms of a bare day count), `badge` (status names, `daysLeft` plural forms, `until`), `notice`
+`billingMessages` (English, the only built-in language): `dayCount` (plural forms of a bare day count), `badge` (status names, `daysLeft` plural forms, `until`), `notice`
 (the four notices and their two link texts), `pricing` (period plural forms per unit, `lifetime`,
 `featured`, `choose`, `empty`), `reminderMail` (`subject` and `body` of `trialEnding`,
 `paidEnding`, `trialEnded` and `paidEnded`; the link text is the notice's), `payment` (the payment page and its `heading`, the invoice form and the notices after a
@@ -781,8 +781,8 @@ is the first instant without access, so the `*LastDay` forms print the day befor
 |---|---|---|
 | `formatDay(instant, locale, timezone)` | `October 3, 2026` | when something happened, a first day of access |
 | `formatLastDay(end, locale, timezone)` | `October 16, 2026` | the last day with access |
-| `formatShortDay(instant, locale, timezone)` | `10/03/2026` (`03.10.2026` in pl) | the numeric form of `formatDay` |
-| `formatShortLastDay(end, locale, timezone)` | `10/16/2026` (`16.10.2026` in pl) | the numeric form of `formatLastDay` |
+| `formatShortDay(instant, locale, timezone)` | `10/03/2026` (`03.10.2026` in de) | the numeric form of `formatDay` |
+| `formatShortLastDay(end, locale, timezone)` | `10/16/2026` (`16.10.2026` in de) | the numeric form of `formatLastDay` |
 | `formatDaysLeft(days, locale, messages)` | `5 days left` | the badge's sentence (`badge.daysLeft`) |
 | `formatDayCount(days, locale, messages)` | `5 days` | a bare count (`dayCount`): "Trial ends in 5 days" |
 | `formatPeriod(period, locale, messages)` | `per 3 months` | how long one payment lasts (`pricing.period`) |
@@ -796,6 +796,10 @@ if (entitlement.status === "trial") {
   line = `Trial ends in ${formatDayCount(entitlement.daysLeft, config.locale, messages)}`;
 }
 ```
+
+The client components (`PaymentForm`, `TrialForm`, `GrantForm`, `AccountLookup`) take their `locale` from the prop, then from the nearest
+`UiLocaleProvider` of `@softure-ai/ui`, then `en`, so an app that mounts the provider once can leave the prop out.
+Server components (`PricingTiles`, `AccessBadge`, `AccessNotice`) cannot read the provider and keep a required `locale`.
 
 ## 10. Hooks
 

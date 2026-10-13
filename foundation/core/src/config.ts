@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { formatIssues, SoftureConfigError } from "./config-error.js";
 import { isDatabaseOptional } from "./database-requirement.js";
-import { LOCALES, type Locale } from "./i18n.js";
+import { isLocale, type Locale } from "./i18n.js";
 import type { AnySoftureModule } from "./module.js";
 import { err, ok, type Result } from "./result.js";
 import { parseVersionRange, satisfiesRange } from "./version-range.js";
@@ -102,7 +102,7 @@ const configSchema = z.object({
     })
     .nullable()
     .default(null),
-  locale: z.enum(LOCALES),
+  locale: z.string().refine(isLocale, "must be a BCP 47 language tag, e.g. en or de-AT"),
   timezone: z.string().refine(isTimeZone, "must be an IANA time zone, e.g. Europe/Warsaw"),
   appOrigin: z.string().refine(isOrigin, ORIGIN_MESSAGE),
   landingOrigin: z.string().refine(isOrigin, ORIGIN_MESSAGE).optional(),

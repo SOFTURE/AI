@@ -24,7 +24,7 @@ on:
         type: string
         required: true
       locale:
-        description: Language of the report (en or pl)
+        description: Language of the report (en, the only built-in language)
         type: string
         default: en
       deploy-cli-version:
@@ -71,7 +71,7 @@ jobs:
             failures=$((failures + 1))
           }
           if [[ ! "$TAG" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$ ]]; then reject tag "a Docker tag (letters, digits, _ . -; at most 128)"; fi
-          if [[ ! "$LOCALE" =~ ^(en|pl)$ ]]; then reject locale "en or pl"; fi
+          if [ "$LOCALE" != "en" ]; then reject locale "en (the report is English only)"; fi
           if [[ ! "$DEPLOY_CLI_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then reject deploy-cli-version "an exact version"; fi
           if [ "$E2E" = "true" ] && [ "$REPOSITORY" != "SOFTURE/AI" ]; then
             reject e2e "false outside SOFTURE/AI (it is that repository's own end-to-end test)"

@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`analytics@x.y.z`).
 
+## Unreleased
+
+- **Breaking (#446):** the built-in `pl` dictionary is gone; English is the only built-in copy and the fallback for
+  every other locale, which is now any BCP 47 tag. Migrate: an app that shows Polish keeps its own translation and
+  passes it as the overrides for its locale, `analytics({ messages: { pl: myTranslation } })`; a key it leaves out
+  reads English.
+
 ## 0.1.11
 
 - `createFunnelRoute({ getContext })` (`/next`): the endpoint counts in the context the app hands in (e.g. a

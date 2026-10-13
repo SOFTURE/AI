@@ -20,7 +20,6 @@ import { seo } from "@softure-ai/seo";
 import { waitlist, WAITLIST_RATE_LIMIT_BUCKETS } from "@softure-ai/waitlist";
 import { withdrawWaitlistConsents } from "@softure-ai/waitlist/server";
 import { en } from "./messages/en.ts";
-import { pl } from "./messages/pl.ts";
 import { mailInvoiceRequestsTo } from "./lib/invoice-requests.ts";
 import { rememberSignupChannel } from "./lib/signup-channels.ts";
 import { waitlistMailLayout } from "./lib/waitlist-mail.ts";
@@ -49,7 +48,7 @@ const LOCAL_DATABASE_URL = "postgresql://postgres:postgres@localhost:5433/softur
 
 const config = defineSoftureConfig({
   database: { url: process.env.DATABASE_URL ?? LOCAL_DATABASE_URL },
-  locale: process.env.APP_LOCALE === "pl" ? "pl" : "en",
+  locale: "en",
   timezone: "Europe/Warsaw",
   appOrigin: process.env.APP_ORIGIN ?? "http://localhost:3000",
   modules: [
@@ -83,8 +82,8 @@ const config = defineSoftureConfig({
       switches: [
         {
           name: WELCOME_BANNER_SWITCH,
-          label: { en: en.switches.welcomeBanner.label, pl: pl.switches.welcomeBanner.label },
-          description: { en: en.switches.welcomeBanner.description, pl: pl.switches.welcomeBanner.description },
+          label: { en: en.switches.welcomeBanner.label },
+          description: { en: en.switches.welcomeBanner.description },
           default: false,
         },
         // Auth reads it through feature-switches once it is defined here, so the panel closes and
@@ -92,8 +91,8 @@ const config = defineSoftureConfig({
         // read keeps registration closed.
         {
           name: REGISTRATION_CLOSED_SWITCH,
-          label: { en: en.switches.registrationClosed.label, pl: pl.switches.registrationClosed.label },
-          description: { en: en.switches.registrationClosed.description, pl: pl.switches.registrationClosed.description },
+          label: { en: en.switches.registrationClosed.label },
+          description: { en: en.switches.registrationClosed.description },
           default: false,
           failMode: "open",
         },
@@ -106,9 +105,9 @@ const config = defineSoftureConfig({
       allowWrites: true,
       oauth: { enabled: true },
       tools: [
-        { name: "whoami", access: "read", description: { en: en.mcp.whoami, pl: pl.mcp.whoami } },
-        { name: "list_entries", access: "read", description: { en: en.mcp.listEntries, pl: pl.mcp.listEntries } },
-        { name: "sign_guestbook", access: "write", description: { en: en.mcp.signGuestbook, pl: pl.mcp.signGuestbook } },
+        { name: "whoami", access: "read", description: { en: en.mcp.whoami } },
+        { name: "list_entries", access: "read", description: { en: en.mcp.listEntries } },
+        { name: "sign_guestbook", access: "write", description: { en: en.mcp.signGuestbook } },
       ],
     }),
     // Resend when a key is set; otherwise the fake provider, which the e2e reads through the outbox
@@ -139,8 +138,8 @@ const config = defineSoftureConfig({
     // form page's channel so the count keeps it (e2e/analytics-funnel.spec.ts).
     waitlist({
       scopes: [
-        { id: "launch", required: true, document: "privacy-policy", label: { en: en.waitlist.launch, pl: pl.waitlist.launch } },
-        { id: "newsletter", label: { en: en.waitlist.newsletter, pl: pl.waitlist.newsletter } },
+        { id: "launch", required: true, document: "privacy-policy", label: { en: en.waitlist.launch } },
+        { id: "newsletter", label: { en: en.waitlist.newsletter } },
       ],
       placements: ["home", "blog"],
       doubleOptIn: true,
@@ -174,28 +173,28 @@ const config = defineSoftureConfig({
       plans: [
         {
           id: "monthly",
-          name: { en: en.plans.monthly.name, pl: pl.plans.monthly.name },
-          description: { en: en.plans.monthly.description, pl: pl.plans.monthly.description },
+          name: { en: en.plans.monthly.name },
+          description: { en: en.plans.monthly.description },
           price: { amount: 2900, currency: "PLN" },
           period: "month",
-          features: en.plans.monthly.features.map((feature, index) => ({ en: feature, pl: pl.plans.monthly.features[index] })),
+          features: en.plans.monthly.features.map((feature) => ({ en: feature })),
         },
         {
           id: "yearly",
-          name: { en: en.plans.yearly.name, pl: pl.plans.yearly.name },
-          description: { en: en.plans.yearly.description, pl: pl.plans.yearly.description },
+          name: { en: en.plans.yearly.name },
+          description: { en: en.plans.yearly.description },
           price: { amount: 29000, currency: "PLN" },
           period: "year",
-          features: en.plans.yearly.features.map((feature, index) => ({ en: feature, pl: pl.plans.yearly.features[index] })),
+          features: en.plans.yearly.features.map((feature) => ({ en: feature })),
           isFeatured: true,
         },
         {
           id: "lifetime",
-          name: { en: en.plans.lifetime.name, pl: pl.plans.lifetime.name },
-          description: { en: en.plans.lifetime.description, pl: pl.plans.lifetime.description },
+          name: { en: en.plans.lifetime.name },
+          description: { en: en.plans.lifetime.description },
           price: { amount: 79000, currency: "PLN" },
           period: "lifetime",
-          features: en.plans.lifetime.features.map((feature, index) => ({ en: feature, pl: pl.plans.lifetime.features[index] })),
+          features: en.plans.lifetime.features.map((feature) => ({ en: feature })),
         },
       ],
       payment: process.env.BILLING_PROVIDER === "stripe" ? stripe() : manual({ onRequest: mailInvoiceRequestsTo(EXAMPLE_ADMIN_EMAIL) }),
@@ -219,8 +218,8 @@ const config = defineSoftureConfig({
     blog({
       brand: { name: en.blog.brand },
       methodPage: true,
-      disclaimer: { en: en.blog.disclaimer, pl: pl.blog.disclaimer },
-      clusters: { "investing-basics": { en: en.blog.clusters.investingBasics, pl: pl.blog.clusters.investingBasics } },
+      disclaimer: { en: en.blog.disclaimer },
+      clusters: { "investing-basics": { en: en.blog.clusters.investingBasics } },
       // content/blog holds short page fixtures for the e2e suite, not real texts; the quality gate
       // (length, sections, links) is covered by the package's own tests.
       quality: false,

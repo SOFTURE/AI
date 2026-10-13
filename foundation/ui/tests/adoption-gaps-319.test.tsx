@@ -306,15 +306,15 @@ describe("CopyButton (#319.4)", () => {
   it("without a secure context shows the failed state and a selected field with the value", async () => {
     setClipboard({ isSecure: false });
     const onCopy = vi.fn();
-    render(<CopyButton value="sk-123" onCopy={onCopy} locale="pl" />);
-    fireEvent.click(screen.getByRole("button", { name: uiMessages.pl.copyButton.copy }));
+    render(<CopyButton value="sk-123" onCopy={onCopy} />);
+    fireEvent.click(screen.getByRole("button", { name: uiMessages.en.copyButton.copy }));
     await flush();
-    expect(screen.getByRole("button", { name: uiMessages.pl.copyButton.failed })).toBeDefined();
-    const field = screen.getByLabelText<HTMLInputElement>(uiMessages.pl.copyButton.manualLabel);
+    expect(screen.getByRole("button", { name: uiMessages.en.copyButton.failed })).toBeDefined();
+    const field = screen.getByLabelText<HTMLInputElement>(uiMessages.en.copyButton.manualLabel);
     expect(field.value).toBe("sk-123");
     expect(field.readOnly).toBe(true);
     expect(document.activeElement).toBe(field);
-    expect(screen.getByText(uiMessages.pl.copyButton.manualHint)).toBeDefined();
+    expect(screen.getByText(uiMessages.en.copyButton.manualHint)).toBeDefined();
     expect(onCopy).toHaveBeenCalledWith("failed");
   });
 
@@ -342,13 +342,13 @@ describe("ExternalLink (#319.5)", () => {
     expect(link.querySelector("span")?.className).toBe("sft:sr-only");
   });
 
-  it("names the new tab in the locale and keeps each rel token once", () => {
+  it("names the new tab in the app's translation for the locale and keeps each rel token once", () => {
     render(
-      <ExternalLink href="https://example.com" locale="pl">
+      <ExternalLink href="https://example.com" locale="de" messages={{ newTab: "(neuer Tab)" }}>
         Blog
       </ExternalLink>,
     );
-    expect(screen.getByRole("link").textContent).toBe(`Blog ${uiMessages.pl.externalLink.newTab}`);
+    expect(screen.getByRole("link").textContent).toBe("Blog (neuer Tab)");
     expect(getExternalRel(" noopener  nofollow ")).toBe("noopener nofollow noreferrer");
     expect(getExternalRel(undefined)).toBe("noopener noreferrer");
   });

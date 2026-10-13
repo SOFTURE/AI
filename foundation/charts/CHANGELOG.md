@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`charts@x.y.z`).
 
+## Unreleased
+
+- **Breaking (#446):** the built-in `pl` dictionary is gone; `chartsMessages` is English only and `locale` is any BCP 47
+  tag. An app that shows another language passes its own translation as `messages`; a key it leaves out reads English.
+- `ChartCursor` and `EventAxis` take their built-in copy's locale from the prop, then from `UiLocaleProvider`, then
+  `en` (#435). The `@softure-ai/ui` peer range starts at 0.1.7, the first version with `useUiLocale`.
+
 ## 0.1.9
 
 - `withStepAt(points, index)`: a vertical jump in a series at one point (issue #409).

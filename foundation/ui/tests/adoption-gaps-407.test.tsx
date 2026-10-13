@@ -138,13 +138,15 @@ describe("ColorField (#407.5)", () => {
     expect(screen.getByLabelText("Pick a colour: Brand colour")).toHaveProperty("value", "#336699");
   });
 
-  it("names the swatch in Polish from the provider", () => {
+  it("names the swatch in the provider's locale, in English without a translation and in the app's own with one", () => {
     render(
-      <UiLocaleProvider locale="pl">
+      <UiLocaleProvider locale="de">
         <ColorField name="brand" label="Brand" />
+        <ColorField name="accent" label="Akzent" pickerMessages={{ picker: "Farbe waehlen: {label}" }} />
       </UiLocaleProvider>,
     );
-    expect(screen.getByLabelText(formatMessage(uiMessages.pl.colorField.picker, { label: "Brand" }))).toBeDefined();
+    expect(screen.getByLabelText(formatMessage(uiMessages.en.colorField.picker, { label: "Brand" }))).toBeDefined();
+    expect(screen.getByLabelText("Farbe waehlen: Akzent")).toBeDefined();
   });
 });
 
@@ -163,7 +165,7 @@ describe("SuggestedAmountField (#407.5)", () => {
     );
     const input = screen.getByRole("textbox", { name: "Monthly budget" });
     expect(input).toHaveProperty("value", "");
-    fireEvent.click(screen.getByRole("button", { name: formatMessage(uiMessages.pl.suggestedAmount.use, { amount: "1 234,50 PLN" }) }));
+    fireEvent.click(screen.getByRole("button", { name: formatMessage(uiMessages.en.suggestedAmount.use, { amount: "1 234,50 PLN" }) }));
     expect(input).toHaveProperty("value", "1 234,50");
     expect(onValueChange).toHaveBeenLastCalledWith("1 234,50");
     expect(document.activeElement).toBe(input);
@@ -279,15 +281,15 @@ describe("AppHeaderBar, AccountMenu and MobileMenu (#407.1)", () => {
     expect(trigger.getAttribute("aria-expanded")).toBe("false");
   });
 
-  it("names both menus in Polish from the provider", () => {
+  it("names both menus in the provider's locale from the app's translation, missing keys in English", () => {
     render(
-      <UiLocaleProvider locale="pl">
-        <AccountMenu />
+      <UiLocaleProvider locale="de">
+        <AccountMenu messages={{ accountMenu: "Konto" }} />
         <MobileMenu items={[]} />
       </UiLocaleProvider>,
     );
-    expect(screen.getByRole("button", { name: uiMessages.pl.appShell.accountMenu })).toBeDefined();
-    expect(screen.getByRole("button", { name: uiMessages.pl.appShell.mobileMenu })).toBeDefined();
+    expect(screen.getByRole("button", { name: "Konto" })).toBeDefined();
+    expect(screen.getByRole("button", { name: uiMessages.en.appShell.mobileMenu })).toBeDefined();
   });
 });
 

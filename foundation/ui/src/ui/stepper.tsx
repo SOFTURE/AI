@@ -6,7 +6,7 @@ import type { LinkComponentType } from "./button.js";
 import { type ClassNames, createSlotClassGetter, joinClasses } from "./class-names.js";
 import { type CopyProps, getCopy } from "./copy.js";
 import { CheckIcon } from "./icons.js";
-import { useUiLocale } from "./locale.js";
+import { useUiCopyProps } from "./locale.js";
 
 // The steps of a multi-step form: named steps with an icon or a number, the current one marked with
 // `aria-current="step"`. Navigation goes back only: a completed step is a link (`href`) or a button
@@ -77,7 +77,7 @@ export function Stepper<Id extends string>({
   locale,
   messages,
 }: StepperProps<Id>) {
-  const copy = getCopy("stepper", { locale: useUiLocale(locale), messages });
+  const copy = getCopy("stepper", useUiCopyProps("stepper", { locale, messages }));
   const currentIndex = steps.findIndex((step) => step.id === current);
   const slot = createSlotClassGetter<StepperSlot>({
     defaults: {

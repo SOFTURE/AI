@@ -3,8 +3,6 @@ import {
   coreMessages,
   formatMessage,
   getMessage,
-  isLocale,
-  LOCALES,
   mergeMessages,
   selectPlural,
   type CoreErrorCode,
@@ -12,20 +10,8 @@ import {
 
 const defaults = {
   en: { login: { title: "Sign in", submit: "Continue" }, footer: "Bye" },
-  pl: { login: { title: coreMessages.pl.errors.unexpected, submit: coreMessages.pl.errors.database_failed }, footer: "Pa" },
+  de: { login: { title: "Anmelden", submit: "Weiter" }, footer: "Tschuess" },
 };
-
-describe("locales", () => {
-  it("ship English and Polish", () => {
-    expect(LOCALES).toEqual(["en", "pl"]);
-  });
-
-  it("recognise only shipped locales", () => {
-    expect(isLocale("pl")).toBe(true);
-    expect(isLocale("de")).toBe(false);
-    expect(isLocale(undefined)).toBe(false);
-  });
-});
 
 describe("mergeMessages", () => {
   it("returns equal dictionaries when there are no overrides", () => {
@@ -35,7 +21,7 @@ describe("mergeMessages", () => {
   it("replaces only the overridden leaves of one locale", () => {
     const merged = mergeMessages(defaults, { en: { login: { title: "Sign in to Acme" } } });
     expect(merged.en).toEqual({ login: { title: "Sign in to Acme", submit: "Continue" }, footer: "Bye" });
-    expect(merged.pl).toEqual(defaults.pl);
+    expect(merged.de).toEqual(defaults.de);
   });
 
   it("ignores keys the defaults do not have", () => {
@@ -126,14 +112,14 @@ describe("getMessage", () => {
 describe("core messages", () => {
   const codes: CoreErrorCode[] = ["core.database_failed", "core.unexpected"];
 
-  it.each(LOCALES)("translate every core error code in %s", (locale) => {
+  it("have English copy for every core error code", () => {
     for (const code of codes) {
-      const message = getMessage(coreMessages[locale], `errors.${code.replace("core.", "")}`);
+      const message = getMessage(coreMessages.en, `errors.${code.replace("core.", "")}`);
       expect(message, code).toMatch(/\S/);
     }
   });
 
-  it("are translated, not copied", () => {
-    expect(coreMessages.pl.errors.unexpected).not.toBe(coreMessages.en.errors.unexpected);
+  it("ship English as the only built-in language", () => {
+    expect(Object.keys(coreMessages)).toEqual(["en"]);
   });
 });

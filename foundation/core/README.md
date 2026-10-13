@@ -6,7 +6,7 @@ The contract every SOFTURE module stands on. Standard:
 ## 1. What it provides
 
 The app configuration (`defineSoftureConfig`), the module contract (`defineModule`), `Result`
-with namespaced error codes, an injectable `Clock`, `pl`/`en` messages with partial overrides,
+with namespaced error codes, an injectable `Clock`, English messages with partial overrides and app-supplied translations,
 and `safeError` with `PublicError`. `@softure-ai/core/cli` loads the app's config for the modules' command-line tools.
 `@softure-ai/core/og` (server only) is the OG card font loader the modules share (`createOgFontLoader`,
 `loadOgFonts`); an app takes it from `@softure-ai/seo/server`, where it is documented.
@@ -27,7 +27,7 @@ interface SoftureConfigInput {
     url: string;
     handle?: () => DatabaseHandle | Promise<DatabaseHandle>; // the app's own handle, see below
   } | null;
-  locale: "en" | "pl";
+  locale: string;                    // a BCP 47 tag, e.g. "en" or "de-AT"
   timezone: string;                  // IANA zone, e.g. "Europe/Warsaw"
   appOrigin: string;                 // http(s) origin without a path
   landingOrigin?: string;            // the public landing site beside the app (default: appOrigin)
@@ -47,7 +47,7 @@ import { notes } from "@softure-ai/notes";
 
 const config = defineSoftureConfig({
   database: { url: process.env.DATABASE_URL ?? "" },
-  locale: "pl",
+  locale: "en",
   timezone: "Europe/Warsaw",
   appOrigin: process.env.APP_ORIGIN ?? "http://localhost:3000",
   modules: [notes({ limit: 10, routes: { list: "/my-notes" }, messages: { en: { list: { title: "My notes" } } } })],
@@ -249,14 +249,32 @@ None. Tokens, slots and styles live in `@softure-ai/ui`.
 
 ## 9. Copy
 
-- `LOCALES` is `["en", "pl"]`; every module ships both dictionaries complete (`pl.ts` is typed
-  `typeof en`).
-- `mergeMessages(defaults, overrides)` applies partial overrides per locale; unknown keys and a
-  string in place of a group are ignored.
+- English is the only built-in language: every module ships one complete `en` dictionary, and
+  `DEFAULT_LOCALE` is `"en"`. `Locale` is any BCP 47 tag; `isLocale(value)` says whether a value is a
+  well-formed one, and `defineSoftureConfig` refuses a `locale` that is not.
+- `Dictionaries<T>` is a complete `en` plus any other locales; `MessageOverrides<T>` partial dictionaries keyed
+  by locale. `mergeMessages(defaults, overrides)` returns `en` and every locale the defaults or the overrides
+  name; a locale without its own defaults is built on `en`. Unknown keys and a string in place of a group are
+  ignored.
+- `selectMessages(dictionaries, locale)` picks the exact locale, then its language (`de-AT` reads `de`), then
+  `en`. `pickLocalizedText(text, locale, fallback?)` does the same for an app's `LocalizedText`
+  (`{ en: "Monthly", de: "Monatlich" }`).
+- **Another language is the app's own translation.** The app sets `locale` and passes its dictionary as the
+  overrides for that locale, per module; a key it leaves out reads English:
+
+  ```ts
+  defineSoftureConfig({
+    locale: "de",
+    // ...
+    modules: [auth({ messages: { de: authDe } })], // authDe: DeepPartial<AuthMessages>, kept in the app
+  });
+  ```
+
+  The ui and charts components take the same translation through their `messages` prop (or the ui provider).
 - `formatMessage("{count} of {total}", { count, total })` fills placeholders; a missing value
   stays visible as `{name}`.
 - `selectPlural(locale, count, { one, few, many, other })` uses `Intl.PluralRules`, built once per
-  locale and reused.
+  locale and reused. `locale` is any BCP 47 tag; a category the forms leave out falls back to `other`.
 - `getMessage(dictionary, "errors.unexpected")` reads a dotted path.
 - Core's own keys (`coreMessages`): `errors.database_failed`, `errors.unexpected`, the copy for
   the `core.database_failed` and `core.unexpected` codes.
@@ -322,26 +340,40 @@ or a fractional count.
 ```ts
 formatCalendarDay("2026-10-04", "en"); // "October 4, 2026"; "medium": "Oct 4, 2026"; "numeric": "10/04/2026"
 formatCalendarDay(toCalendarDay(instant, config.timezone), config.locale); // an instant's day in the app's zone
-formatMoney(123456, "PLN", "en"); // "PLN 1,234.56"; pl groups four digits too
+formatMoney(123456, "PLN", "en"); // "PLN 1,234.56"; thousands always grouped, also where a locale would not
 formatMoney(-123456, "PLN", "en", { rounded: true, signed: true }); // "-PLN 1,235"; { compact: true }: "PLN 1.2K"
 formatPercent(1250, "en"); // "12.5%" (basis points, at most two fraction digits)
 formatPercent(-50, "en", { signed: true, tight: true }); // "-0.5%"; 1250 signed: "+12.5%"
-formatCalendarMonth("2026-10", "en"); // "October 2026"; "genitive": pl's genitive month; "roman": "X 2026"
-formatDuration(38, "en"); // "3 years and 2 months" (whole months, as wholeMonthsBetween returns them)
+formatCalendarMonth("2026-10", "en"); // "October 2026"; "roman": "X 2026"
+formatDuration(38); // "3 years and 2 months" (whole months, as wholeMonthsBetween returns them)
 ```
 
-A day is formatted at UTC midnight in UTC, so no zone moves it; the Polish long style names the month in
-the genitive. `formatMoney` takes the amount in the currency's minor unit, read from the pinned ISO 4217
+Every formatter takes any BCP 47 locale tag (an invalid tag throws `Intl`'s `RangeError`), and
+writes it as `Intl` does. A day is formatted at UTC midnight in UTC, so no zone moves it. `formatMoney` takes the amount in the currency's minor unit, read from the pinned ISO 4217
 table `CURRENCY_MINOR_UNIT_DIGITS` (a code outside it gets `Intl`'s digits), and always groups thousands.
 Zero never carries a sign: a negative zero (`Math.round(-0.4)`) or an amount that rounds to zero shows as `PLN 0.00`,
 and a percentage that rounds to zero as `0%`. `signed` puts a `+` before a positive amount or percentage; the minus is
-the one `Intl` writes (a hyphen-minus in en and pl). `tight` drops any space a locale's pattern puts before `%`.
+the one `Intl` writes (a hyphen-minus in en). `tight` drops any space a locale's pattern puts before `%`.
 
 `formatCalendarMonth(month, locale, style)` takes `YYYY-MM` (`isCalendarMonth`) or a `YYYY-MM-DD` day. `long` is the
-month as written alone (the nominative in pl), `genitive` the form a full date uses (pl: "4 [month] 2026" inflects
-it), `roman` the month in Roman numerals for compact tables. `formatDuration(months, locale)` writes years and months
-with the locale's plural forms (copy in `coreMessages.<locale>.duration`); a part that is zero is left out, and zero
-itself is "0 months".
+month as written alone, `roman` the month in Roman numerals for compact tables.
+
+`formatDuration(months, { locale, messages })` writes years and months; a part that is zero is left out, and zero
+itself is "0 months". Its only built-in words are English (`DEFAULT_DURATION_MESSAGES`). An app that shows another
+language passes its own `DurationMessages` and the locale whose plural rules pick among them; a locale alone keeps the
+English words:
+
+```ts
+const durationDe: DurationMessages = {
+  years: { one: "{count} Jahr", other: "{count} Jahre" },
+  months: { one: "{count} Monat", other: "{count} Monate" },
+  both: "{years} und {months}",
+};
+formatDuration(13, { locale: "de", messages: durationDe }); // "1 Jahr und 1 Monat"
+```
+
+Give every plural category the locale uses (`Intl.PluralRules`: `one`, `few`, `many`, `other`, ...); a missing one
+falls back to `other`.
 
 **Memoization.** `memoizeByContent(fn, { max })` caches a pure function of plain data by the content of its arguments:
 two equal objects built apart (key order aside) hit the same entry. The least recently used entry goes beyond `max`;
