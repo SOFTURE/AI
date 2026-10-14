@@ -1,5 +1,5 @@
 // Public API of @softure-ai/security: the module factory for softure.config.ts, the client-IP
-// resolvers and the body reader. Database work is in `@softure-ai/security/server`.
+// resolvers, the body readers and the signed-request helpers. Database work is in `@softure-ai/security/server`.
 import { defineModule, resolveMigrationsDir } from "@softure-ai/core";
 import { securityMessages } from "./messages/index.js";
 import { securityOptionsSchema } from "./options.js";
@@ -47,5 +47,21 @@ export {
   type SecurityOptions,
   type SecurityOptionsInput,
 } from "./options.js";
-export { readSmallBody, type ReadSmallBodyOptions, type ReadSmallBodyResult } from "./read-small-body.js";
+export {
+  readSmallBody,
+  readSmallBodyBytes,
+  type ReadSmallBodyBytesResult,
+  type ReadSmallBodyOptions,
+  type ReadSmallBodyResult,
+} from "./read-small-body.js";
 export { rateLimits } from "./schema.js";
+export {
+  MIN_SIGNING_SECRET_LENGTH,
+  SIGNED_REQUEST_TOLERANCE_SECONDS,
+  signRequestBody,
+  verifySignedRequest,
+  type SignRequestBodyInput,
+  type SigningSecret,
+  type VerifySignedRequestInput,
+  type VerifySignedRequestResult,
+} from "./signed-request.js";
