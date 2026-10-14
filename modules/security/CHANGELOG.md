@@ -4,6 +4,22 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`security@x.y.z`).
 
+## Unreleased
+
+- `readSmallBodyBytes(request, { maxBytes })`: the body as raw bytes with the same streaming cap as `readSmallBody`,
+  for a body that is not UTF-8 (a raw MIME message in ISO-8859-2 or Windows-1250) and for verifying a signature over
+  the exact bytes. `readSmallBody` is unchanged.
+- `signRequestBody` and `verifySignedRequest` (#469): HMAC-SHA256 over `"<unix seconds>.<body>"`, header
+  `t=<seconds>,v1=<hex>`, a freshness window (`toleranceSeconds`, default 300), constant-time comparison, several
+  secrets or `v1` values for rotation; fails closed with the new code `security.signature_invalid` (English message
+  added; an app with its own translation adds `errors.signature_invalid`). Web Crypto only; the new entry
+  `@softure-ai/security/signed-request` imports nothing else, so an edge worker signs with the same code.
+- Migrate an app that keeps its own verifier: read the body with `readSmallBodyBytes`, replace the local check with
+  `verifySignedRequest({ secret, header, body: bytes, now: new Date() })` and its tests with a round trip through
+  `signRequestBody`; on the sending worker, sign the raw bytes with `signRequestBody` from
+  `@softure-ai/security/signed-request` and drop a base64-in-JSON envelope. The header format is the same
+  `t=,v1=` scheme, so a verifier that already signs `"<t>.<body>"` keeps working during the switch.
+
 ## 0.2.0
 
 - **Breaking (#446):** the built-in `pl` dictionary is gone; English is the only built-in copy and the fallback for
