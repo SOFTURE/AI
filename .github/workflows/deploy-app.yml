@@ -602,15 +602,6 @@ jobs:
       group: deploy-app-${{ github.repository }}-${{ inputs.environment }}${{ inputs.e2e && format('-e2e-{0}', github.run_id) || '' }}
       cancel-in-progress: false
     steps:
-      # The deploy action of this workflow's own commit, so the steps below are the ones this workflow was tested with.
-      - uses: actions/checkout@v7
-        with:
-          repository: ${{ job.workflow_repository }}
-          ref: ${{ job.workflow_sha }}
-          path: .softure-ai-deploy
-          persist-credentials: false
-          sparse-checkout: /.github/actions/deploy/
-          sparse-checkout-cone-mode: false
       # End-to-end test only (refused outside SOFTURE/AI by the check job): the server files at the workspace root for
       # the server the runner becomes, the CLI of the tag itself, built from a full checkout, so the test needs no
       # published version, the image the build job handed over, and this runner set up as the server.
@@ -658,6 +649,16 @@ jobs:
       # With secrets-from-environment, every SSH value must be a secret of the job's context (the environment's or the
       # repository's) before anything is rendered or sent. Names only, never a value. A caller of another owner sees
       # none here (secrets: inherit does not cross owners): it runs the deploy action from its own job instead.
+      # The deploy action of this workflow's own commit, so the steps below are the ones this workflow was tested with.
+      # After the end-to-end checkout at the workspace root, which would delete it.
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .softure-ai-deploy
+          persist-credentials: false
+          sparse-checkout: /.github/actions/deploy/
+          sparse-checkout-cone-mode: false
       - name: Check the environment's SSH secrets
         if: inputs.secrets-from-environment && !inputs.e2e
         env:

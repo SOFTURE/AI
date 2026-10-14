@@ -381,8 +381,19 @@ describe("the deploy and verify jobs of deploy-app.yml run the deploy action of 
     "sparse-checkout-cone-mode": false,
   };
 
-  it("checks out the action first, at job.workflow_sha", () => {
-    for (const id of ["deploy", "verify"]) expect(workflow.jobs[id]?.steps?.[0]?.with, id).toEqual(SELF_CHECKOUT);
+  it("checks out the action at job.workflow_sha after every root checkout and before the action runs", () => {
+    for (const id of ["deploy", "verify"]) {
+      const steps = workflow.jobs[id]?.steps ?? [];
+      const self = steps.findIndex((step) => step.with?.path === ".softure-ai-deploy");
+      expect(steps[self]?.with, id).toEqual(SELF_CHECKOUT);
+      const rootCheckouts = steps
+        .map((step, index) => ({ step, index }))
+        .filter(({ step }) => step.uses?.startsWith("actions/checkout@") === true && step.with?.path === undefined);
+      // A checkout at the workspace root deletes .softure-ai-deploy, so none may follow the self-checkout.
+      for (const { index } of rootCheckouts) expect(index, id).toBeLessThan(self);
+      const firstActionCall = steps.findIndex((step) => step.uses === "./.softure-ai-deploy/.github/actions/deploy");
+      expect(firstActionCall, id).toBeGreaterThan(self);
+    }
   });
 
   it("ships init's server script by default", () => {
