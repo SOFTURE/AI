@@ -7,7 +7,7 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 ## Unreleased
 
 - `@softure-ai/security/jobs` (#491): `securityJobHandlers` and `securityJobSchedules` run `pruneRateLimits` hourly
-  as a `@softure-ai/jobs` schedule; `@softure-ai/jobs` is a new optional peer. Migrate (optional): an app with
+  as a `@softure-ai/jobs` schedule; `@softure-ai/jobs` (^0.1.1) is a new optional peer. Migrate (optional): an app with
   `@softure-ai/jobs` adds `...securityJobSchedules` to `jobs({ schedules })` and `...securityJobHandlers` to its
   worker's handlers, then removes its own cron. Without jobs nothing changes.
 

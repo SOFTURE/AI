@@ -7,7 +7,7 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 ## Unreleased
 
 - `@softure-ai/auth/jobs` (#491): `authJobHandlers` and `authJobSchedules` run `pruneSessions` (hourly) and
-  `prunePasswordResets` (daily) as `@softure-ai/jobs` schedules; `@softure-ai/jobs` is a new optional peer. Migrate
+  `prunePasswordResets` (daily) as `@softure-ai/jobs` schedules; `@softure-ai/jobs` (^0.1.1) is a new optional peer. Migrate
   (optional): an app with `@softure-ai/jobs` adds `...authJobSchedules` to `jobs({ schedules })` and
   `...authJobHandlers` to its worker's handlers, then removes the cron or script that called the two prunes. Without
   jobs nothing changes.

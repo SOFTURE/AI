@@ -29,7 +29,7 @@ export const waitlist = defineModule({
   manifest: {
     id: MODULE_ID,
     version: "0.2.0",
-    dependsOn: { security: "^0.2.0", auth: "^0.2.0", mailing: "^0.2.0", privacy: "^0.2.0", ops: "^0.2.0?", jobs: "^0.1.0?" },
+    dependsOn: { security: "^0.2.0", auth: "^0.2.0", mailing: "^0.2.0", privacy: "^0.2.0", ops: "^0.2.0?", jobs: "^0.1.1?" },
     dbSchema: "waitlist",
     tables: ["signups"],
     env: [],

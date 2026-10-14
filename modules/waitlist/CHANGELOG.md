@@ -7,7 +7,7 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 ## Unreleased
 
 - `@softure-ai/waitlist/jobs` (#491): `waitlistJobHandlers` and `waitlistJobSchedules` run
-  `pruneUnconfirmedSignups` hourly as a `@softure-ai/jobs` schedule; `@softure-ai/jobs` is a new optional peer.
+  `pruneUnconfirmedSignups` hourly as a `@softure-ai/jobs` schedule; `@softure-ai/jobs` (^0.1.1) is a new optional peer.
   Migrate (optional): an app with `@softure-ai/jobs` adds `...waitlistJobSchedules` to `jobs({ schedules })` and
   `...waitlistJobHandlers` to its worker's handlers, then removes its own cron. Without jobs nothing changes.
 

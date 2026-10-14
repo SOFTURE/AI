@@ -57,7 +57,7 @@
     "zod": "^4.6.5"
   },
   "peerDependencies": {
-    "@softure-ai/jobs": "^0.1.0",
+    "@softure-ai/jobs": "^0.1.1",
     "drizzle-orm": "^0.45.2"
   },
   "peerDependenciesMeta": {

@@ -7,7 +7,7 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 ## Unreleased
 
 - `@softure-ai/analytics/jobs` (#491): `analyticsJobHandlers` and `createAnalyticsJobSchedules({ keepDays })` run
-  `pruneFunnelCounts` daily as a `@softure-ai/jobs` schedule; `@softure-ai/jobs` is a new optional peer. Migrate
+  `pruneFunnelCounts` daily as a `@softure-ai/jobs` schedule; `@softure-ai/jobs` (^0.1.1) is a new optional peer. Migrate
   (optional): an app with `@softure-ai/jobs` adds `...createAnalyticsJobSchedules({ keepDays })` (the days it kept
   so far) to `jobs({ schedules })` and `...analyticsJobHandlers` to its worker's handlers, then removes its own cron.
   Without jobs nothing changes.
