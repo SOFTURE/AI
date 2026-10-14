@@ -187,10 +187,13 @@ irreversible action nobody asked for, a secret or access only the owner has, sco
   suite runs per `integration.cadence`, never per push.
 
 **Roadmap reports** (coordinator, pasted into the main chat, times in `timezone`):
-- When: after every batch of thread starts, and every `autonomy.reports.every` minutes (default 30) at
-  fixed marks (:00, :30) inside `autonomy.reports.hours`, only while work runs. Each report schedules
-  the next one; stop the chain when nothing runs. After a pause (usage limit) name the reports that
-  were skipped. A report produced in a thread of its own (a scheduled routine) is pasted into the main
+- When: after every batch of thread starts (an ad-hoc post), and every `autonomy.reports.every`
+  minutes (default 60) on full hours inside `autonomy.reports.hours`, only while work runs. Routines
+  fire at most once an hour, on the full hour, so the schedule is `every` rounded up to a multiple of
+  60 (60 → `0 * * * *`, 120 → `0 */2 * * *`; `wt_config.py --report-cron` prints it); a value below 60
+  runs hourly. **One recurring routine** drives the reports: the coordinator creates it when work
+  starts and deletes it when nothing runs, or on the owner's "stop" or "pause". Never a chain of
+  one-off wake-ups. After a pause (usage limit) name the reports that were skipped. A report produced in a thread of its own (a scheduled routine) is pasted into the main
   chat and that thread is closed at once.
 - Shape, the same in every project, nothing else:
   1. title: `Roadmap report <roadmap name>, <HH:MM>`;
@@ -213,7 +216,7 @@ irreversible action nobody asked for, a secret or access only the owner has, sco
   Example, shown in English (roadmap prefix `SA`):
 
   ```markdown
-  **Roadmap report softure-auth, 14:30**
+  **Roadmap report softure-auth, 14:00**
   Done: 47 of 50 on master (latest SA-31, SA-59).
 
   | ID | What it does | Stage | Link |
@@ -226,7 +229,7 @@ irreversible action nobody asked for, a secret or access only the owner has, sco
   Times: SA-35 ready to merge around 15:30; next report 15:00.
   ```
 
-  Nothing moved since the last report: one line (`14:30, no change: 47 of 50; SA-35 implement 2/3`).
+  Nothing moved since the last report: one line (`15:00, no change: 47 of 50; SA-35 implement 2/3`).
 
 **Bugs and gaps in SOFTURE packages.** A well-founded, non-duplicate bug or gap in an `@softure-ai/*`
 package (or in this project's own scope) is filed right away as an issue in the repository that owns
@@ -251,7 +254,8 @@ through the project's own pipeline (version-bump pull request → merge → the 
 several threads on one package, the last to merge releases. No manual tags, no moved tags; a failed
 release is fixed forward with a patch bump. A production deploy always needs the owner's separate
 word. Ad-hoc fixes ride the next release instead of getting one of their own, unless the owner says
-otherwise.
+otherwise. A roadmap ordered to be archived is closed before its release, and every release of it
+(retries and redeploys included) reads the archived file (WORKFLOW §5.2).
 
 **Stop and limits.** "Stop" or "pause" from the owner stops everything: no new threads, report
 routines removed, open threads finished or stopped at a safe point; record the pause in memory and do

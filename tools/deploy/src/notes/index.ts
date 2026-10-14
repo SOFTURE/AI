@@ -3,7 +3,16 @@ export { toReleaseEntries, type ReleaseEntry } from "./release-entries.js";
 export { formatReleaseNotes, type ReleaseNotesOptions } from "./release-notes.js";
 export { readReleaseSection, RELEASE_SECTION_CLOSE, RELEASE_SECTION_OPEN, writeReleaseSection } from "./release-body.js";
 export { parseRoadmapItems, selectShippingItems, type RoadmapItem } from "./roadmap-items.js";
-export { findPreviousTag, getCommitDate, isSafeRef, readReleaseCommits, resolveCommit } from "./git.js";
+export {
+  findPreviousTag,
+  getCommitDate,
+  isSafeRef,
+  listAddedFiles,
+  readFileAt,
+  readReleaseCommits,
+  resolveCommit,
+} from "./git.js";
+export { isArchivedRoadmap, MAIN_ROADMAP, ROADMAP_ARCHIVE, sortArchivedRoadmaps } from "./roadmap-files.js";
 export { getSectionMarkers, readSection, RELEASE_SECTION_KEYS, writeSection, type ReleaseSectionKey } from "./release-body.js";
 export {
   deployReportSchema,

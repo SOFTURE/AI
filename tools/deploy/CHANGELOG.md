@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
+## Unreleased
+
+- `release-notes --roadmap=auto` finds the roadmap itself (issue #465): `context/foundation/roadmap.md` while it exists,
+  else the roadmaps archived to `context/foundation/archive/<YYYY-MM-DD>[-N]-roadmap.md` since the previous tag, read at
+  `--to`. Finding none is no table and exit 0, so a release made after the roadmap was closed no longer fails with
+  ENOENT. An explicit path behaves as before. A release workflow can pass `--roadmap=auto` and drop its own fallback.
+
 ## 0.2.1
 
 - **Caller change (#462):** `deploy-integration.yml`'s `test` job takes `packages: read`, so a `registry-token` set from

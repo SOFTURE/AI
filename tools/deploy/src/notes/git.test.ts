@@ -1,9 +1,17 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { findPreviousTag, getCommitDate, isSafeRef, readReleaseCommits, resolveCommit } from "./git.js";
+import {
+  findPreviousTag,
+  getCommitDate,
+  isSafeRef,
+  listAddedFiles,
+  readFileAt,
+  readReleaseCommits,
+  resolveCommit,
+} from "./git.js";
 import { toReleaseEntries } from "./release-entries.js";
 
 let repo: string;
@@ -76,5 +84,41 @@ describe("git reads of the release report", () => {
     expect(isSafeRef("v1.2.0^")).toBe(true);
     for (const ref of ["--output=/tmp/x", "-v", "a..b", "HEAD@{1}", "a b", ""]) expect(isSafeRef(ref), ref).toBe(false);
     expect(() => readReleaseCommits({ cwd: repo, from: "--all", to: "v1.1.0" })).toThrow(/refusing the ref/);
+  });
+});
+
+describe("git reads of the files a release adds", () => {
+  function writeAndCommit(name: string, text: string, message: string): void {
+    mkdirSync(join(repo, "docs"), { recursive: true });
+    writeFileSync(join(repo, name), text);
+    git("add", name);
+    git("commit", "-q", "-m", message);
+  }
+
+  beforeAll(() => {
+    git("checkout", "-q", "-b", "files", "v1.1.0");
+    writeAndCommit("docs/old.md", "old", "docs: old file");
+    git("tag", "files-1");
+    writeAndCommit("docs/new.md", "new v1", "docs: new file");
+    writeAndCommit("docs/old.md", "old changed", "docs: change the old file");
+    writeAndCommit("c.txt", "outside", "chore: a file outside the directory");
+    git("tag", "files-2");
+    writeAndCommit("docs/new.md", "new v2", "docs: change the new file");
+  });
+
+  it("lists only the files added under the directory in the range", () => {
+    expect(listAddedFiles({ cwd: repo, from: "files-1", to: "files-2", dir: "docs" })).toEqual(["docs/new.md"]);
+    expect(listAddedFiles({ cwd: repo, from: "files-2", to: "files-2", dir: "docs" })).toEqual([]);
+  });
+
+  it("lists every file of the directory at the ref for a first release", () => {
+    expect(listAddedFiles({ cwd: repo, from: null, to: "files-2", dir: "docs" })).toEqual(["docs/new.md", "docs/old.md"]);
+    expect(listAddedFiles({ cwd: repo, from: null, to: "files-2", dir: "missing" })).toEqual([]);
+  });
+
+  it("reads a file as it is at the ref", () => {
+    expect(readFileAt({ cwd: repo, ref: "files-2", path: "docs/new.md" })).toBe("new v1");
+    expect(readFileAt({ cwd: repo, ref: "files", path: "docs/new.md" })).toBe("new v2");
+    expect(() => readFileAt({ cwd: repo, ref: "--all", path: "docs/new.md" })).toThrow(/refusing the ref/);
   });
 });

@@ -63,3 +63,26 @@ export function readReleaseCommits({ cwd, from, to }: { cwd: string; from: strin
   const range = from === null ? to : `${from}..${to}`;
   return parseGitLog(runGit(cwd, ["log", "--first-parent", `--format=${GIT_LOG_FORMAT}`, range, "--"]));
 }
+
+/**
+ * Files under `dir` (relative to `cwd`) that `to` has and `from` had not, sorted; with `from === null` (a first
+ * release) every file under `dir` at `to`. Paths are relative to `cwd`.
+ */
+export function listAddedFiles({ cwd, from, to, dir }: { cwd: string; from: string | null; to: string; dir: string }): string[] {
+  assertSafeRef(to);
+  if (from !== null) assertSafeRef(from);
+  const args =
+    from === null
+      ? ["ls-tree", "-r", "--name-only", to, "--", dir]
+      : ["diff", "--name-only", "--relative", "--no-renames", "--diff-filter=A", from, to, "--", dir];
+  return runGit(cwd, args)
+    .split("\n")
+    .filter((line) => line !== "")
+    .sort();
+}
+
+/** The text of `path` (relative to `cwd`) as it is at `ref`. */
+export function readFileAt({ cwd, ref, path }: { cwd: string; ref: string; path: string }): string {
+  assertSafeRef(ref);
+  return runGit(cwd, ["show", `${ref}:./${path}`]);
+}
