@@ -4,5 +4,6 @@ export const en = {
     client_unidentified: "We could not verify where this request came from. Try again later.",
     body_too_large: "The request is too large.",
     body_unreadable: "The request could not be read. Try again.",
+    signature_invalid: "The request could not be verified.",
   },
 };

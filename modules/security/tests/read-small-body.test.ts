@@ -1,6 +1,6 @@
 // The size-capped body reader: by the declared length, by the bytes actually streamed, and when
 // the stream breaks.
-import { readSmallBody } from "@softure-ai/security";
+import { readSmallBody, readSmallBodyBytes } from "@softure-ai/security";
 import { describe, expect, it } from "vitest";
 
 const URL_ = "http://localhost/beacon";
@@ -95,5 +95,39 @@ describe("readSmallBody", () => {
 
   it.each([-1, 1.5, Number.NaN])("throws on maxBytes %s", async (maxBytes) => {
     await expect(readSmallBody(new Request(URL_), { maxBytes })).rejects.toThrow("readSmallBody: maxBytes must be a whole number of bytes");
+  });
+});
+
+describe("readSmallBodyBytes", () => {
+  it("returns bytes in another charset untouched", async () => {
+    // Four letters of a Central European word in ISO-8859-2: not valid UTF-8, so readSmallBody refuses it.
+    const latin2 = new Uint8Array([0xbf, 0xf3, 0xb3, 0x77]);
+    const result = await readSmallBodyBytes(new Request(URL_, { method: "POST", body: latin2 }), { maxBytes: 4 });
+    expect(result).toEqual({ ok: true, value: latin2 });
+  });
+
+  it("joins a body that arrives in chunks", async () => {
+    const result = await readSmallBodyBytes(streamedRequest(streamOf(["ab", "c"])), { maxBytes: 3 });
+    expect(result).toEqual({ ok: true, value: new Uint8Array([0x61, 0x62, 0x63]) });
+  });
+
+  it("returns an empty array for a request without a body", async () => {
+    expect(await readSmallBodyBytes(new Request(URL_), { maxBytes: 0 })).toEqual({ ok: true, value: new Uint8Array(0) });
+  });
+
+  it("rejects a streamed body past the cap", async () => {
+    const request = streamedRequest(streamOf(["12345", "67890", "1"]));
+    expect(await readSmallBodyBytes(request, { maxBytes: 10 })).toEqual({ ok: false, error: "security.body_too_large" });
+  });
+
+  it("returns body_unreadable when the stream fails mid-body", async () => {
+    const request = streamedRequest(streamOf(["k=", "x"], 1));
+    expect(await readSmallBodyBytes(request, { maxBytes: 64 })).toEqual({ ok: false, error: "security.body_unreadable" });
+  });
+
+  it("throws on a maxBytes that is not a whole number of bytes", async () => {
+    await expect(readSmallBodyBytes(new Request(URL_), { maxBytes: -1 })).rejects.toThrow(
+      "readSmallBodyBytes: maxBytes must be a whole number of bytes",
+    );
   });
 });

@@ -6,7 +6,8 @@ export type SecurityErrorCode =
   | "security.rate_limited"
   | "security.client_unidentified"
   | "security.body_too_large"
-  | "security.body_unreadable";
+  | "security.body_unreadable"
+  | "security.signature_invalid";
 
 /** A consumed attempt that fits in the bucket's window. */
 export interface RateLimitAllowance {
