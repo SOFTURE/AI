@@ -10,13 +10,19 @@ import { parse } from "yaml";
 // steps run here as the runner runs them; the render step runs the real CLI from source (through tsx).
 
 const WORKFLOW = join(import.meta.dirname, "../../../.github/workflows/deploy-app.yml");
+// The render, send and verify steps live in the deploy action, which the workflow's deploy and verify jobs run with the
+// values they read from their secrets context.
+const ACTION = join(import.meta.dirname, "../../../.github/actions/deploy/action.yml");
 const CLI_SOURCE = join(import.meta.dirname, "../src/cli/main.ts");
 
 interface Step {
+  id?: string;
   name?: string;
   if?: string;
   run?: string;
+  uses?: string;
   env?: Record<string, string>;
+  with?: Record<string, unknown>;
 }
 
 interface Result {
@@ -33,17 +39,31 @@ interface WorkflowFile {
 const workflow = parse(readFileSync(WORKFLOW, "utf8")) as WorkflowFile;
 const { inputs, secrets: declaredSecrets } = workflow.on.workflow_call;
 
+const actionSteps = (parse(readFileSync(ACTION, "utf8")) as { runs: { steps: Step[] } }).runs.steps;
+
 function getStep(job: string, name: string): Step {
-  const step = (workflow.jobs[job]?.steps ?? []).find((candidate) => candidate.name === name);
-  if (step?.run === undefined) throw new Error(`deploy-app.yml has no '${name}' step in the ${job} job`);
+  const steps = job === "action" ? actionSteps : (workflow.jobs[job]?.steps ?? []);
+  const step = steps.find((candidate) => candidate.name === name);
+  if (step?.run === undefined) throw new Error(`no '${name}' step in ${job === "action" ? "the deploy action" : `the ${job} job`}`);
+  return step;
+}
+
+/** The step of a workflow job that runs the deploy action from the workflow's own checkout. */
+function getActionCall(job: string): Step {
+  const step = (workflow.jobs[job]?.steps ?? []).find(
+    (candidate) => candidate.uses === "./.softure-ai-deploy/.github/actions/deploy" && candidate.if === undefined,
+  );
+  if (step === undefined) throw new Error(`the ${job} job runs no deploy action`);
   return step;
 }
 
 const CHECK_STEP = getStep("check", "Validate inputs");
 const SSH_CHECK_STEP = getStep("deploy", "Check the environment's SSH secrets");
-const RENDER_STEP = getStep("deploy", "Render .env.prod");
-const SEND_STEP = getStep("deploy", "Send the release to the server");
-const VERIFY_STEP = getStep("verify", "Verify the routes in deploy.json");
+const RENDER_STEP = getStep("action", "Render .env.prod");
+const SEND_STEP = getStep("action", "Send the release to the server");
+const VERIFY_STEP = getStep("action", "Verify the routes in deploy.json");
+const DEPLOY_CALL = getActionCall("deploy");
+const VERIFY_CALL = getActionCall("verify");
 
 const NAMED_SECRETS = ["ssh-host", "ssh-user", "ssh-private-key", "ssh-known-hosts", "app-secrets"];
 
@@ -211,7 +231,7 @@ describe("the deploy job under secrets-from-environment", () => {
       expect(missing).toContain(`\${{ secrets[inputs.${input}] == '' && inputs.${input} || '' }}`);
     }
     const steps = workflow.jobs.deploy?.steps ?? [];
-    expect(steps.indexOf(SSH_CHECK_STEP)).toBeLessThan(steps.indexOf(RENDER_STEP));
+    expect(steps.indexOf(SSH_CHECK_STEP)).toBeLessThan(steps.indexOf(DEPLOY_CALL));
   });
 
   it("names every SSH secret the environment lacks and stops", () => {
@@ -224,7 +244,9 @@ describe("the deploy job under secrets-from-environment", () => {
     expect(result.status).toBe(1);
     expect(result.stdout).toBe(
       "::error::The environment production (or the repository) has no secret DEPLOY_SSH_USER, DEPLOY_SSH_KNOWN_HOSTS; " +
-        "the deploy reads the SSH values from DEPLOY_SSH_HOST, DEPLOY_SSH_USER, DEPLOY_SSH_KEY, DEPLOY_SSH_KNOWN_HOSTS.\n",
+        "the deploy reads the SSH values from DEPLOY_SSH_HOST, DEPLOY_SSH_USER, DEPLOY_SSH_KEY, DEPLOY_SSH_KNOWN_HOSTS. " +
+        "A caller outside the SOFTURE organization gets no secret through secrets: inherit: run the deploy action from a job " +
+        "with environment (deploy: false).\n",
     );
     const complete = bash(SSH_CHECK_STEP.run ?? "", { DEPLOY_ENVIRONMENT: "production", SSH_SECRET_NAMES: names, MISSING_SECRETS: "   " });
     expect(complete.status).toBe(0);
@@ -232,8 +254,12 @@ describe("the deploy job under secrets-from-environment", () => {
   });
 
   it("renders from the job's whole secrets context under the flag, else from app-secrets", () => {
-    expect(RENDER_STEP.env?.APP_SECRETS).toBe("${{ inputs.secrets-from-environment && toJSON(secrets) || secrets.app-secrets }}");
-    expect(RENDER_STEP.env?.SECRETS_FROM_ENVIRONMENT).toBe("${{ inputs.secrets-from-environment }}");
+    expect(DEPLOY_CALL.with).toMatchObject({
+      "app-secrets": "${{ inputs.secrets-from-environment && toJSON(secrets) || secrets.app-secrets }}",
+      "secrets-context": "${{ inputs.secrets-from-environment }}",
+    });
+    expect(RENDER_STEP.env?.APP_SECRETS).toBe("${{ inputs.app-secrets }}");
+    expect(RENDER_STEP.env?.SECRETS_FROM_ENVIRONMENT).toBe("${{ inputs.secrets-context }}");
   });
 
   it("sends with the secrets the *-secret inputs name under the flag", () => {
@@ -243,9 +269,10 @@ describe("the deploy job under secrets-from-environment", () => {
       ["SSH_PRIVATE_KEY", "private-key", "ssh-private-key-secret", "ssh-private-key"],
       ["SSH_KNOWN_HOSTS", "known-hosts", "ssh-known-hosts-secret", "ssh-known-hosts"],
     ] as const) {
-      expect(SEND_STEP.env?.[variable]).toBe(
+      expect(DEPLOY_CALL.with?.[secret]).toBe(
         `\${{ inputs.e2e && steps.e2e-server.outputs.${output} || inputs.secrets-from-environment && secrets[inputs.${input}] || secrets.${secret} }}`,
       );
+      expect(SEND_STEP.env?.[variable]).toBe(`\${{ inputs.${secret} }}`);
     }
   });
 
@@ -351,11 +378,10 @@ describe("the deploy job under secrets-from-environment", () => {
 
 describe("the verify job's origin address from app-vars", () => {
   it("reads the entry origin-address-var names, else the origin-address secret", () => {
-    expect(VERIFY_STEP.env).toMatchObject({
-      ORIGIN_ADDRESS: "${{ secrets.origin-address }}",
-      ORIGIN_ADDRESS_VAR: "${{ inputs.origin-address-var }}",
-      APP_VARS: "${{ inputs.app-vars }}",
-    });
+    expect(VERIFY_CALL.with?.["origin-address"]).toBe(
+      "${{ inputs.origin-address-var != '' && fromJSON(inputs.app-vars)[inputs.origin-address-var] || secrets.origin-address }}",
+    );
+    expect(VERIFY_STEP.env).toMatchObject({ ORIGIN_ADDRESS: "${{ inputs.origin-address }}" });
     const bin = join(root, "bin");
     mkdirSync(bin);
     // A stand-in npx prints the arguments it would have run the CLI with, one per line.
@@ -372,7 +398,6 @@ describe("the verify job's origin address from app-vars", () => {
         ...env,
       }).stdout.split("\n");
     const base = ["--yes", "--package=@softure-ai/deploy@0.1.6", "softure-deploy", "verify", "https://example.com", "--config=deploy.json"];
-    expect(run({ ORIGIN_ADDRESS_VAR: "DEPLOY_ORIGIN_IP" })).toEqual([...base, "--origin=203.0.113.7", ""]);
     expect(run({ ORIGIN_ADDRESS: "203.0.113.8" })).toEqual([...base, "--origin=203.0.113.8", ""]);
     expect(run({})).toEqual([...base, ""]);
   });
