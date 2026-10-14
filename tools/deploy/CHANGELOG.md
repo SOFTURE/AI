@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
+## Unreleased
+
+- **Caller change (#462):** `deploy-integration.yml`'s `test` job takes `packages: read`, so a `registry-token` set from
+  the caller's `GITHUB_TOKEN` pulls a private prebuilt image instead of failing with `manifest unknown`. Every caller
+  must grant `packages: read` (next to `contents: write`), or GitHub refuses the run at start; `examples/integration.yml`
+  does. The workflow is called at `master`, so this applies from the merge, before any npm release.
+
 ## 0.2.0
 
 - **Breaking (#446):** the `pl` dictionary is gone; release notes and the release report are English only

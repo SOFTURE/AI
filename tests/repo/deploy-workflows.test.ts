@@ -898,7 +898,8 @@ describe("deploy-integration.yml (issue #248)", () => {
   }
 
   it("runs the app's suite in a job that can only read and keeps no credentials", () => {
-    expect(workflow.jobs.test?.permissions).toEqual({ contents: "read" });
+    // packages: read lets the caller's registry-token pull a private image (issue #462).
+    expect(workflow.jobs.test?.permissions).toEqual({ contents: "read", packages: "read" });
     const checkout = testSteps.find((step) => step.uses?.startsWith("actions/checkout@") === true);
     expect(checkout?.with).toEqual({
       ref: "${{ github.sha }}",
@@ -1147,8 +1148,8 @@ describe("the example integration caller", () => {
     expect(job.with?.["test-command"]).toBeDefined();
   });
 
-  it("grants what the record job needs and nothing more", () => {
-    expect(caller.permissions).toEqual({ contents: "write" });
+  it("grants what the record job and the test job's image pull need and nothing more", () => {
+    expect(caller.permissions).toEqual({ contents: "write", packages: "read" });
   });
 });
 
