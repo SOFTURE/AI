@@ -24,4 +24,4 @@ Findings: 0 critical, 1 warning (fixed), 2 notes.
 
 ## Notes
 - A provider's `Retry-After` is not capped; Resend sends short values. A cap can follow if an adapter misbehaves.
-- The peer range `^0.0.0 || ^0.1.0` accepts the unreleased workspace version and the first published jobs version.
+- The peer range was `^0.0.0 || ^0.1.0` while jobs was unreleased; narrowed to `^0.1.0` once jobs 0.1.0 reached master.

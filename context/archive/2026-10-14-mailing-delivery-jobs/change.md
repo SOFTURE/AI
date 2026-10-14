@@ -1,12 +1,13 @@
 ---
 change_id: mailing-delivery-jobs
 title: "Mail deliveries retry through a jobs handler instead of the caller calling again (issue #492)"
-status: in-progress
+status: archived
 roadmap_item: null
 issue: 492
 branch: claude/project-thread-an8as2
 created: 2026-10-14
 updated: 2026-10-14
+archived_at: 2026-10-14
 ---
 
 ## Intent
