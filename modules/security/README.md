@@ -9,7 +9,9 @@ refused by default instead of sharing one bucket with every other such client (�
 
 Fixed-window rate limits in Postgres with buckets from configuration, pluggable client-IP
 resolvers and `readSmallBody`, so every public route and server action can refuse floods before
-they cost anything.
+they cost anything. Webhook-style endpoints read the raw body with `readSmallBodyBytes` and check a
+shared-secret signature with `verifySignedRequest`; the sender signs with `signRequestBody` (§4,
+"Signed requests").
 
 ## 2. Installation
 
@@ -165,6 +167,58 @@ then gets a fresh bucket per email.
 Database errors propagate; wrap the call like any query and answer with `safeError` from
 `@softure-ai/core`, so no SQL reaches the client.
 
+### Signed requests
+
+An endpoint called by a machine you control (an edge worker that forwards mail, a CI callback, a
+provider without its own SDK) authenticates the call with a shared secret: the sender sends an
+HMAC-SHA256 of `"<unix seconds>.<body>"` in a header, `t=<seconds>,v1=<64 hex>`, and the app checks it
+within a freshness window. The header name is the app's choice.
+
+```ts
+import { readSmallBodyBytes, verifySignedRequest } from "@softure-ai/security";
+
+export async function POST(request: Request): Promise<Response> {
+  const body = await readSmallBodyBytes(request, { maxBytes: 5 * 1024 * 1024 });
+  if (!body.ok) return Response.json({ error: body.error }, { status: body.error === "security.body_too_large" ? 413 : 400 });
+
+  const signed = await verifySignedRequest({
+    secret: process.env.INBOUND_MAIL_SECRET,
+    header: request.headers.get("x-signature"),
+    body: body.value,
+    now: new Date(),
+  });
+  if (!signed.ok) return Response.json({ error: signed.error }, { status: 401 });
+  // … parse body.value (raw bytes: a MIME message keeps its own charset)
+}
+```
+
+The sender, for example a Cloudflare Worker, imports the signer from the side-effect-free entry
+`@softure-ai/security/signed-request` (Web Crypto only, no module factory):
+
+```ts
+import { signRequestBody } from "@softure-ai/security/signed-request";
+
+const raw = new Uint8Array(await new Response(message.raw).arrayBuffer());
+const signature = await signRequestBody({ secret: env.INBOUND_MAIL_SECRET, body: raw, now: new Date() });
+await fetch(env.APP_INBOUND_URL, { method: "POST", body: raw, headers: { "x-signature": signature } });
+```
+
+| Function (`@softure-ai/security`) | Returns |
+| --- | --- |
+| `readSmallBodyBytes(request, { maxBytes })` | `Ok<Uint8Array>` (the bytes as sent), `Err<"security.body_too_large">` or `Err<"security.body_unreadable">` |
+| `signRequestBody({ secret, body, now })` | `t=<seconds>,v1=<hex>`, one `v1` per secret; throws on a secret under `MIN_SIGNING_SECRET_LENGTH` (32) characters |
+| `verifySignedRequest({ secret, header, body, now, toleranceSeconds? })` | `Ok<undefined>` or `Err<"security.signature_invalid">` |
+
+**Fails closed.** A missing, empty or short secret, a missing or malformed header (no `t`, a repeated
+`t`, no well-formed `v1`), a timestamp more than `toleranceSeconds` (default
+`SIGNED_REQUEST_TOLERANCE_SECONDS`, 300) from `now` in either direction, and a wrong MAC all give
+`security.signature_invalid`. MACs are compared in constant time. Verify the exact bytes received,
+before decoding or parsing them.
+
+**Rotating a secret.** Both sides take one secret or a list. Deploy the receiver with
+`[newSecret, oldSecret]`, then switch the sender to `newSecret` (or let it sign with both, which
+writes one `v1` per secret), then drop `oldSecret` from the receiver.
+
 ## 5. Migrations and tables
 
 Schema `security`, one migration:
@@ -193,7 +247,7 @@ No UI. Show the error codes through your own forms with the copy below.
 ## 9. Copy
 
 `errors.rate_limited`, `errors.client_unidentified`, `errors.body_too_large`,
-`errors.body_unreadable` in `src/messages/en.ts`, one per error code
+`errors.body_unreadable`, `errors.signature_invalid` in `src/messages/en.ts`, one per error code
 (`security.<key>`). Override them per locale: `security({ …, messages: { en: { errors: { rate_limited: "…" } } } })`.
 
 ## 10. Hooks
@@ -216,6 +270,8 @@ of consumed attempts (`cleanupProbability`), so with little traffic a row can st
 - No Next.js adapter yet: the route handler and server action shapes come with identity ID-1.
 - Cleanup is probabilistic; a deployment with very little traffic may keep expired rows until the
   next cleanup or a scheduled `pruneRateLimits`.
+- Signed requests stop forgery and replay outside the window, not a replay inside it: an endpoint
+  whose effect must happen once also deduplicates by a message id.
 
 ## Build
 
