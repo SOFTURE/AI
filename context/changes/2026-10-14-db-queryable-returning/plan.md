@@ -1,6 +1,6 @@
 ---
 change_id: db-queryable-returning
-status: active
+status: archived
 ---
 
 # Plan: Queryable accepts returning({ ...columns }) (issue #475)
@@ -23,4 +23,8 @@ Files: `foundation/db/src/client.ts`, `foundation/db/src/index.ts`, `foundation/
 
 ## Progress
 
-- [ ] Phase 1: driver-neutral Queryable
+- [x] Phase 1: driver-neutral Queryable (`a76881c`; 3 type tests written first: both drivers and transactions
+  assignable, `returning({ id })` on delete and update, `execute()` rows; the `returning` checks failed with TS2554
+  before the change)
+
+Gates on the branch: `npm run typecheck`, `npm run lint`, `npm run build` green; `npm test` 6904 passed, 155 skipped.

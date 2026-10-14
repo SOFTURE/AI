@@ -1,12 +1,13 @@
 ---
 change_id: db-queryable-returning
 title: "db: Queryable accepts returning({ ...columns }) (issue #475)"
-status: active
+status: archived
 roadmap_item: null
 issue: 475
 branch: claude/project-thread-0jr1rv
 created: 2026-10-14
 updated: 2026-10-14
+archived_at: 2026-10-14
 ---
 
 ## Intent
