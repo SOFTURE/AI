@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`auth@x.y.z`).
 
+## Unreleased
+
+- `@softure-ai/auth/jobs` (#491): `authJobHandlers` and `authJobSchedules` run `pruneSessions` (hourly) and
+  `prunePasswordResets` (daily) as `@softure-ai/jobs` schedules; `@softure-ai/jobs` is a new optional peer. Migrate
+  (optional): an app with `@softure-ai/jobs` adds `...authJobSchedules` to `jobs({ schedules })` and
+  `...authJobHandlers` to its worker's handlers, then removes the cron or script that called the two prunes. Without
+  jobs nothing changes.
+
 ## 0.2.0
 
 - **Breaking (#446):** the built-in `pl` dictionary is gone; English is the only built-in copy and the fallback for
