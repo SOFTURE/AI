@@ -6,6 +6,7 @@
 // `serverExternalPackages`, and output tracing follows these imports to copy the installed driver.
 import type { PGlite } from "@electric-sql/pglite";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
+import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import type { PgliteDatabase } from "drizzle-orm/pglite";
 import type { Pool } from "pg";
 
@@ -36,12 +37,25 @@ export type PgliteClientDatabase<TSchema extends DatabaseSchema = DatabaseSchema
 export type Database<TSchema extends DatabaseSchema = DatabaseSchema> = PostgresDatabase<TSchema> | PgliteClientDatabase<TSchema>;
 
 /**
- * A connection *or* an open transaction. Query helpers take this, so one function serves a
- * plain read and a step inside `db.transaction()`.
+ * What `execute()` resolves to on a `Queryable`: the part both drivers' results share (node-postgres'
+ * `QueryResult` and PGlite's `Results` each carry `rows`).
  */
-export type Queryable<TSchema extends DatabaseSchema = DatabaseSchema> =
-  | Database<TSchema>
-  | Parameters<Parameters<Database<TSchema>["transaction"]>[0]>[0];
+export interface QueryableResult<TRow> {
+  readonly rows: TRow[];
+}
+
+/** The drizzle result kind of a `Queryable`, mapping a row type to `QueryableResult`. */
+export interface QueryableResultHKT extends PgQueryResultHKT {
+  readonly type: QueryableResult<this["row"]>;
+}
+
+/**
+ * A connection *or* an open transaction. Query helpers take this, so one function serves a
+ * plain read and a step inside `db.transaction()`. It is drizzle's driver-neutral `PgDatabase` base, which
+ * both drivers' databases and transactions extend, rather than a union of them: on a union, overloaded
+ * builder methods such as `returning({ ...columns })` do not resolve.
+ */
+export type Queryable<TSchema extends DatabaseSchema = DatabaseSchema> = PgDatabase<QueryableResultHKT, TSchema>;
 
 export type DatabaseHandle =
   | {

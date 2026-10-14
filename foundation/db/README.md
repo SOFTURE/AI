@@ -86,6 +86,10 @@ await handle.close();
   or an open transaction, so one helper serves both (`db.transaction(async (tx) => helper(tx))`).
   Without a type argument both accept any schema, so an app database made with
   `drizzle({ client, schema })`, and its transactions, pass to module functions as they are.
+- `Queryable` is drizzle's driver-neutral `PgDatabase` base, so every builder overload works on it, for example
+  `db.delete(t).where(...).returning({ id: t.id })` to get back only the key. Its `execute()` resolves to
+  `QueryableResult` (`{ rows }`, what both drivers return); a driver-specific field such as `rowCount` needs the
+  `Database` or the handle.
 - An unsupported scheme throws, naming the scheme only; the URL (and its password) is never
   printed.
 
