@@ -43,6 +43,11 @@ const always = (): boolean => true;
 const withDatabase = (facts: AppFacts): boolean => facts.hasDatabase;
 const withCloudflare = (_facts: AppFacts, answers: InitAnswers): boolean => answers.cdn === "cloudflare";
 
+/** The worker container: `@softure-ai/jobs` needs a database, so it is part of the database part. */
+export function hasWorker(facts: AppFacts): boolean {
+  return facts.hasDatabase && facts.hasJobs === true;
+}
+
 /** Every file init can write, in the order it reports them. */
 export const TEMPLATE_FILES: readonly TemplateFile[] = [
   { template: "Dockerfile.tmpl", target: "Dockerfile", mode: FILE_MODE, isIncluded: always },
@@ -57,6 +62,7 @@ export const TEMPLATE_FILES: readonly TemplateFile[] = [
   { template: "docker/server/cloudflare-only.service.tmpl", target: "docker/server/cloudflare-only.service", mode: FILE_MODE, isIncluded: withCloudflare },
   { template: "docker/server/cloudflare-only.path.tmpl", target: "docker/server/cloudflare-only.path", mode: FILE_MODE, isIncluded: withCloudflare },
   { template: "scripts/migrate.ts.tmpl", target: "scripts/migrate.ts", mode: FILE_MODE, isIncluded: withDatabase },
+  { template: "scripts/worker.ts.tmpl", target: "scripts/worker.ts", mode: FILE_MODE, isIncluded: hasWorker },
   { template: ".github/workflows/deploy.yml.tmpl", target: ".github/workflows/deploy.yml", mode: FILE_MODE, isIncluded: always },
   { template: ".github/workflows/release.yml.tmpl", target: ".github/workflows/release.yml", mode: FILE_MODE, isIncluded: always },
   { template: ".github/workflows/release-notes.yml.tmpl", target: ".github/workflows/release-notes.yml", mode: FILE_MODE, isIncluded: always },
@@ -124,6 +130,7 @@ function buildValues(options: PlanInitFilesOptions): Record<string, string | boo
     image: answers.image,
     cliVersion,
     database: facts.hasDatabase,
+    worker: hasWorker(facts),
     databaseName: answers.name.replaceAll("-", "_"),
     publicDir: facts.hasPublicDir,
     healthPath: getHealthPath(facts),

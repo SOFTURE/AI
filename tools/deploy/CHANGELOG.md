@@ -51,6 +51,13 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   Running `init --force` on a scratch copy of the app prints the same file with the app's names filled in;
   [`examples/deploy.yml`](examples/deploy.yml) is the result for two secrets.
 
+- `init` adds a job worker for an app that depends on `@softure-ai/jobs` (and `@softure-ai/db`), issue #471:
+  `scripts/worker.ts` (calls `runJobWorkerProcess` with the app's handlers), its esbuild bundle `worker.mjs` in the
+  image, and a `worker` service in `docker/prod/docker-compose.yml` from the same image (`node worker.mjs`, the app's
+  environment, health check off, `stop_grace_period: 30s`, after `migrate`). Apps without `@softure-ai/jobs` get
+  byte-identical files. An app that already ran `init` adds the three parts by hand or re-runs `init --force` on those
+  files (see the README, `softure-deploy init`).
+
 ## 0.3.0
 
 - **Per-environment secrets (#468):** the composite action `SOFTURE/AI/.github/actions/deploy` renders `.env.prod`,

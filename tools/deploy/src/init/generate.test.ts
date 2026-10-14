@@ -173,6 +173,49 @@ describe("planInitFiles", () => {
     expect(full.split(banner)).toHaveLength(3);
   });
 
+  it("adds the job worker only for an app with @softure-ai/jobs and a database", () => {
+    const worker = plan({}, { hasJobs: true });
+    expect([...worker.keys()]).toContain("scripts/worker.ts");
+    for (const facts of [FACTS, { ...NO_DATABASE, hasJobs: true }]) {
+      const files = plan({}, facts);
+      expect([...files.keys()]).not.toContain("scripts/worker.ts");
+      expect(textOf(files, "Dockerfile")).not.toContain("worker");
+      expect((parse(textOf(files, "docker/prod/docker-compose.yml")) as { services: object }).services).not.toHaveProperty("worker");
+    }
+    expect(textOf(worker, "scripts/worker.ts")).toContain('import { runJobWorkerProcess } from "@softure-ai/jobs/worker";');
+    for (const file of worker.values()) expect(file.text, file.path).not.toMatch(/\{\{[#^/]?[a-zA-Z]+\}\}/);
+  });
+
+  it("bundles worker.mjs like migrate.mjs and copies it into the image", () => {
+    const dockerfile = textOf(plan({}, { hasJobs: true }), "Dockerfile");
+    expect(dockerfile).toContain("scripts/worker.ts --bundle --platform=node --format=esm --target=node22");
+    expect(dockerfile).toContain("--outfile=worker.mjs");
+    expect(dockerfile).toContain("COPY --from=builder /app/worker.mjs ./worker.mjs");
+    expect(dockerfile.split("--alias:server-only=./.esbuild/empty.mjs")).toHaveLength(4);
+  });
+
+  it("runs the worker from the app's image after the migrations, with the app's environment and no health check", () => {
+    const compose = parse(textOf(plan({}, { hasJobs: true }), "docker/prod/docker-compose.yml")) as {
+      services: Record<string, Record<string, unknown>>;
+    };
+    expect(compose.services.worker).toEqual({
+      image: "ghcr.io/acme/app:${TAG}",
+      restart: "unless-stopped",
+      command: ["node", "worker.mjs"],
+      environment: {
+        APP_ORIGIN: "https://example.com",
+        DATABASE_URL: "postgresql://softure_app:${SOFTURE_APP_PASSWORD:?}@postgres:5432/acme_app",
+        AUTH_SECRET: "${AUTH_SECRET:?}",
+      },
+      healthcheck: { disable: true },
+      stop_grace_period: "30s",
+      depends_on: { migrate: { condition: "service_completed_successfully" } },
+    });
+    // The worker needs no secret the app does not already have.
+    const required = (files: Map<string, PlannedFile>) => findRequiredNames(textOf(files, "docker/prod/docker-compose.yml")).map((variable) => variable.name);
+    expect(required(plan({}, { hasJobs: true }))).toEqual(required(plan()));
+  });
+
   it("writes hooks/lib.sh for every app and the Cloudflare files only with cdn cloudflare", () => {
     const cloudflareFiles = [
       "docker/prod/hooks/cloudflare-ranges.sh",
