@@ -36,5 +36,5 @@ and `npm test` are green.
 ### Phase 1: Grant and guard
 
 #### Automated
-- [ ] 1.1 Guard tests for the test job and the example caller fail first, then pass
-- [ ] 1.2 Workflow, example caller, README and changelog updated; gates green
+- [x] 1.1 Guard tests for the test job and the example caller fail first, then pass — 9fbfb4f
+- [x] 1.2 Workflow, example caller, README and changelog updated; gates green — 9fbfb4f

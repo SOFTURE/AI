@@ -1,12 +1,13 @@
 ---
 change_id: deploy-integration-packages-read
 title: "deploy-integration.yml's test job may read packages, so a private prebuilt image pulls (issue #462)"
-status: open
+status: archived
 roadmap_item: null
 issue: 462
 branch: claude/project-thread-udzng8
 created: 2026-10-14
 updated: 2026-10-14
+archived_at: 2026-10-14
 ---
 
 ## Intent
