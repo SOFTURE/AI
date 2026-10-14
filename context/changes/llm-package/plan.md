@@ -15,8 +15,9 @@ table, a release.
 ## Key decisions
 
 - **D1 options.** `createLlm({ model, pricing?, onUsage?, timeoutMs? = 30_000, maxRetries?, clock? = systemClock })`.
-  `model` is the AI SDK `LanguageModel` object the app built (a gateway id string is accepted by the type and
-  reported as provider `gateway`). Options are validated at creation (positive timeout, non-negative prices) and throw
+  `model` is the AI SDK model object the app built (`LlmModel`, the SDK's `LanguageModel` without the bare
+  gateway id string: the gateway throws errors from its own package that `ai` does not export, found while
+  implementing). Options are validated at creation (positive timeout, non-negative prices) and throw
   a `RangeError` naming the option: a wrong config is a programming error.
 - **D2 call.** `generateStructured({ schema, system?, prompt, timeoutMs?, model?, attributes? })` →
   `Promise<Result<{ output, usage, model, costUsd }, LlmErrorCode>>`. `model` overrides the default per call (a
