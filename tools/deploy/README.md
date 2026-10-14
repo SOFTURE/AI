@@ -685,6 +685,7 @@ softure-deploy init --domain=example.com --image=ghcr.io/acme/app [--dir=.] [--n
 | `docker/server/deploy.sh` | the server's forced command for `deploy-app.yml` (below) |
 | `docker/server/cloudflare-only.sh`, `.service`, `.path`, `docker/prod/hooks/cloudflare-ranges.sh` | with `--cdn=cloudflare`: the origin firewall and its range refresh (below) |
 | `scripts/migrate.ts` | with a database: the migrate step the `Dockerfile` bundles |
+| `scripts/worker.ts` | with a database and `@softure-ai/jobs`: the job worker the `Dockerfile` bundles into `worker.mjs` and the compose file's `worker` service runs (below) |
 | `.github/workflows/deploy.yml` | the caller of `deploy-app.yml` with the domain, the image and the health path |
 | `.github/workflows/release.yml` | the caller of `deploy-cut-release.yml` (below): *Run workflow* cuts the next date tag in `UTC` and starts `deploy.yml` on it |
 | `.github/workflows/release-notes.yml` | the caller of `deploy-release-notes.yml` (below): *Run workflow* with `tag` and `body` replaces that release's body above its softure-deploy sections (`keep-report`) |
@@ -700,7 +701,7 @@ softure-deploy init --domain=example.com --image=ghcr.io/acme/app [--dir=.] [--n
   below; `cloudflare` is the only value) and `--report-role` (with a database, the Postgres role `deploy.sh`'s
   `report` reads as, ahead of the one read from a kept compose file; see below).
 - **Read from the app:** `@softure-ai/db` in `package.json` turns on the database part, `@softure-ai/ops` the
-  `/api/health` route (else `/`), a `public/` folder its `COPY`; a `next.config.*` without `standalone` is a warning,
+  `/api/health` route (else `/`), `@softure-ai/jobs` (with `@softure-ai/db`) the job worker, a `public/` folder its `COPY`; a `next.config.*` without `standalone` is a warning,
   and so is, with a database, one whose `serverExternalPackages` does not name `@softure-ai/db` (without it
   `next build` cannot resolve the driver the app does not install; see the `@softure-ai/db` README, §2).
   An existing `docker/prod/docker-compose.yml` (kept, or replaced with `--force`) gives `deploy.sh` the Postgres
@@ -716,6 +717,15 @@ softure-deploy init --domain=example.com --image=ghcr.io/acme/app [--dir=.] [--n
 - **Secrets:** the compose file's required variables are the list the workflow renders: `POSTGRES_PASSWORD`,
   `SOFTURE_MIGRATOR_PASSWORD`, `SOFTURE_APP_PASSWORD` with a database, plus `--env`. Use URL-safe passwords
   (`openssl rand -hex 32`): they go into connection URLs as they are.
+
+**Job worker** (`@softure-ai/jobs`). The `worker` service runs the same image as the app with `node worker.mjs` and the
+app's environment (`APP_ORIGIN`, `DATABASE_URL` as the app role, `--env`), so it needs no secret of its own. The image's
+`HEALTHCHECK` asks the app's port, so the service turns it off; `docker compose up --wait` then waits for it to run.
+It starts after `migrate`, and a deploy stops it with SIGTERM: running jobs get the module's `shutdownGraceMs` (20 s by
+default) and the rest are released for the next worker; `stop_grace_period: 30s` leaves that time before Docker kills
+it. `scripts/worker.ts` imports `handlers` from `src/jobs/handlers`; point it at the app's own module. An app that ran
+`init` before it depended on `@softure-ai/jobs` re-runs `init --force` or copies the three parts (the file, the
+`worker.mjs` bundle and `COPY` lines of the `Dockerfile`, the `worker` service) from a fresh `init` into a scratch folder.
 
 **Bundled for plain Node.** `migrate.mjs` and `ops/<name>.mjs` are ESM bundles that `node` runs outside Next, from
 code the app shares with its server build. Two esbuild flags make that work: `--alias:server-only=./.esbuild/empty.mjs`

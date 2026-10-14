@@ -1,0 +1,12 @@
+{
+  "id": "jobs",
+  "version": "0.0.0",
+  "dependsOn": {},
+  "dbSchema": "jobs",
+  "tables": ["jobs"],
+  "env": [],
+  "switches": [],
+  "routes": {},
+  "mount": [],
+  "privacy": { "exports": false, "deletes": false }
+}
