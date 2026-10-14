@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
-## Unreleased
+## 0.2.1
 
 - **Caller change (#462):** `deploy-integration.yml`'s `test` job takes `packages: read`, so a `registry-token` set from
   the caller's `GITHUB_TOKEN` pulls a private prebuilt image instead of failing with `manifest unknown`. Every caller
