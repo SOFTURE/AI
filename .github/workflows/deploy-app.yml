@@ -42,6 +42,13 @@
 # repository's, and reads the SSH values by the names the `*-secret` inputs give. So secrets kept behind an
 # environment's deployment policy reach the release without repository-level copies. The verify job runs outside the
 # environment; its origin address can come from an `app-vars` entry (`origin-address-var`) on either way.
+# `secrets: inherit` passes nothing to a workflow of another owner, environment secrets included, so a caller outside
+# the SOFTURE organization takes the third way: `deploy: false` runs the check and the build only, and the caller's own
+# job, which declares `environment:` (one per environment), runs the deploy action (.github/actions/deploy) with the
+# `release` output and its environment's secrets and variables (tools/deploy/examples/deploy-environments.yml).
+#
+# The deploy and verify jobs run that same action: each checks out this workflow's own commit (job.workflow_sha) into
+# `.softure-ai-deploy/` and runs it from there, passing the values it reads from its secrets context.
 #
 # Variables for verify (a Web Bot Auth key a `webBotAuth` route signs with): the secret `verify-env`, a JSON object of
 # text values by name, or with `secrets-from-environment` the environment secret `verify-env-secret` names, holding the
@@ -103,6 +110,10 @@ on:
         description: GitHub environment of the deploy job (protection rules; its secrets reach the release only with secrets-from-environment); empty for none
         type: string
         default: ""
+      deploy:
+        description: "false: check and build only, no secrets; the caller's own job, in its environment, runs the deploy action with the release output"
+        type: boolean
+        default: true
       secrets-from-environment:
         description: The deploy job reads app-secrets (its whole secrets context) and the SSH values (named by the *-secret inputs) from environment; the caller passes secrets inherit instead of named secrets
         type: boolean
@@ -217,6 +228,9 @@ on:
           verify-env-secret). Needs deploy-config.
         required: false
     outputs:
+      release:
+        description: The check job's validated values as one JSON object, the deploy action's release input
+        value: ${{ jobs.check.outputs.release }}
       image:
         description: The pushed image reference with its tag
         value: ${{ jobs.build.outputs.image }}
@@ -238,6 +252,7 @@ jobs:
     outputs:
       image: ${{ steps.inputs.outputs.image }}
       server-files: ${{ steps.inputs.outputs.server-files }}
+      release: ${{ steps.inputs.outputs.release }}
     steps:
       - id: inputs
         name: Validate inputs
@@ -257,8 +272,12 @@ jobs:
           VERIFY_TIMEOUT: ${{ inputs.verify-timeout-seconds }}
           DEPLOY_CONFIG: ${{ inputs.deploy-config }}
           DEPLOY_CLI_VERSION: ${{ inputs.deploy-cli-version }}
+          NODE_VERSION: ${{ inputs.node-version }}
           RELEASE_BRANCH: ${{ inputs.release-branch }}
           BUILD_ARGS: ${{ inputs.build-args }}
+          SECRET_MIN_LENGTHS: ${{ inputs.secret-min-lengths }}
+          REGISTRY_TOKEN: ${{ inputs.registry-token }}
+          DEPLOY: ${{ inputs.deploy }}
           E2E: ${{ inputs.e2e }}
           REPOSITORY: ${{ github.repository }}
           ORIGIN_ADDRESS: ${{ secrets.origin-address }}
@@ -314,8 +333,18 @@ jobs:
           expect health-path "$HEALTH_PATH" '^/[A-Za-z0-9/._~-]*$' "a path starting with /"
           expect verify-timeout-seconds "$VERIFY_TIMEOUT" '^[1-9][0-9]{1,3}$' "10 to 9999 seconds"
           if [ -n "$DEPLOY_CONFIG" ]; then expect_path deploy-config "$DEPLOY_CONFIG"; fi
-          # Secrets by name, or the deploy job reads them from its environment (secrets: inherit); never both.
-          if [ "${SECRETS_FROM_ENVIRONMENT:-false}" = "true" ]; then
+          # Secrets by name, or the deploy job reads them from its environment (secrets: inherit); never both. With
+          # deploy: false the caller's job passes them to the deploy action, so this workflow takes none.
+          if [ "${DEPLOY:-true}" = "false" ]; then
+            for name in ${PASSED_SECRETS:-}; do
+              reject deploy "true when the secret $name is passed (the caller's job passes it to the deploy action)"
+            done
+            if [ -n "$ORIGIN_ADDRESS" ]; then reject deploy "true when the secret origin-address is passed (the deploy action takes it)"; fi
+            if [ "${SECRETS_FROM_ENVIRONMENT:-false}" = "true" ]; then reject deploy "true with secrets-from-environment (the caller's job reads its environment)"; fi
+            if [ -n "${ORIGIN_ADDRESS_VAR:-}" ]; then reject deploy "true with origin-address-var (the deploy action takes origin-address)"; fi
+            if [ -n "${VERIFY_ENV_SECRET:-}" ]; then reject deploy "true with verify-env-secret (the deploy action takes verify-env)"; fi
+            if [ "$E2E" = "true" ]; then reject deploy "true with e2e (the end-to-end test deploys)"; fi
+          elif [ "${SECRETS_FROM_ENVIRONMENT:-false}" = "true" ]; then
             if [ -z "$DEPLOY_ENVIRONMENT" ]; then
               reject secrets-from-environment "false without environment (the deploy job reads that environment's secrets)"
             fi
@@ -419,13 +448,27 @@ jobs:
           echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
           # Anchored non-cone patterns: the deploy job fetches only these, so no .npmrc of the app steers npx.
           prod_dir="${COMPOSE_FILE%/*}"
+          server_files="/$prod_dir/"$'\n'"/$SERVER_SCRIPT"$'\n'
+          if [ -n "$DEPLOY_CONFIG" ]; then server_files+="/$DEPLOY_CONFIG"$'\n'; fi
           {
             echo "server-files<<SERVER_FILES"
-            echo "/$prod_dir/"
-            echo "/$SERVER_SCRIPT"
-            if [ -n "$DEPLOY_CONFIG" ]; then echo "/$DEPLOY_CONFIG"; fi
+            printf '%s' "$server_files"
             echo "SERVER_FILES"
           } >> "$GITHUB_OUTPUT"
+          # The deploy action's release input: every value it needs, validated above, as one line of JSON.
+          release="$(jq -cn \
+            --arg tag "$TAG" --arg app_url "$APP_URL" --arg image "$IMAGE" --arg environment "$DEPLOY_ENVIRONMENT" \
+            --arg compose_file "$COMPOSE_FILE" --arg server_script "$SERVER_SCRIPT" --arg deploy_config "$DEPLOY_CONFIG" \
+            --arg remote_command "$REMOTE_COMMAND" --arg ssh_port "$SSH_PORT" --arg health_path "$HEALTH_PATH" \
+            --arg verify_timeout "$VERIFY_TIMEOUT" --arg cli_version "$DEPLOY_CLI_VERSION" --arg node_version "${NODE_VERSION:-}" \
+            --arg build_args "${BUILD_ARGS:-}" --arg min_lengths "${SECRET_MIN_LENGTHS:-}" --arg registry_token "${REGISTRY_TOKEN:-true}" \
+            --arg server_files "$server_files" \
+            '{"tag": $tag, "app-url": $app_url, "image": $image, "environment": $environment, "compose-file": $compose_file,
+              "server-script": $server_script, "deploy-config": $deploy_config, "remote-command": $remote_command,
+              "ssh-port": $ssh_port, "health-path": $health_path, "verify-timeout-seconds": $verify_timeout,
+              "deploy-cli-version": $cli_version, "node-version": $node_version, "build-args": $build_args,
+              "secret-min-lengths": $min_lengths, "registry-token": $registry_token, "server-files": $server_files}')"
+          echo "release=$release" >> "$GITHUB_OUTPUT"
       # Commits only (tree:0): every branch and tag, without the files of any.
       - uses: actions/checkout@v7
         with:
@@ -543,6 +586,7 @@ jobs:
   deploy:
     name: deploy over SSH
     needs: [check, build]
+    if: inputs.deploy
     runs-on: ubuntu-latest
     timeout-minutes: 15
     # packages: read for the registry token the server pulls with.
@@ -550,7 +594,7 @@ jobs:
       contents: read
       packages: read
     outputs:
-      server-lines: ${{ steps.server-lines.outputs.lines }}
+      server-lines: ${{ steps.send.outputs.server-lines }}
     environment: ${{ inputs.environment }}
     # One deploy at a time per app and environment; a running deploy is never cancelled halfway. End-to-end runs deploy
     # to their own server, so each has its own group and none waits for or replaces another.
@@ -558,18 +602,29 @@ jobs:
       group: deploy-app-${{ github.repository }}-${{ inputs.environment }}${{ inputs.e2e && format('-e2e-{0}', github.run_id) || '' }}
       cancel-in-progress: false
     steps:
+      # The deploy action of this workflow's own commit, so the steps below are the ones this workflow was tested with.
       - uses: actions/checkout@v7
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .softure-ai-deploy
+          persist-credentials: false
+          sparse-checkout: /.github/actions/deploy/
+          sparse-checkout-cone-mode: false
+      # End-to-end test only (refused outside SOFTURE/AI by the check job): the server files at the workspace root for
+      # the server the runner becomes, the CLI of the tag itself, built from a full checkout, so the test needs no
+      # published version, the image the build job handed over, and this runner set up as the server.
+      - if: inputs.e2e
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.tag }}
           persist-credentials: false
           sparse-checkout: ${{ needs.check.outputs.server-files }}
           sparse-checkout-cone-mode: false
-      - uses: actions/setup-node@v7
+      - if: inputs.e2e
+        uses: actions/setup-node@v7
         with:
           node-version: ${{ inputs.node-version }}
-      # End-to-end test only (refused outside SOFTURE/AI by the check job): the CLI of the tag itself, built from a full
-      # checkout, so the test needs no published version, the image the build job handed over, and this runner set up
-      # as the server the release is sent to.
       - if: inputs.e2e
         uses: actions/checkout@v7
         with:
@@ -601,7 +656,8 @@ jobs:
             DEPLOY_CLI="$GITHUB_WORKSPACE/.softure-ai-cli/tools/deploy/dist/cli/main.js" \
             bash .softure-ai-cli/tools/deploy/e2e/start-server.sh
       # With secrets-from-environment, every SSH value must be a secret of the job's context (the environment's or the
-      # repository's) before anything is rendered or sent. Names only, never a value.
+      # repository's) before anything is rendered or sent. Names only, never a value. A caller of another owner sees
+      # none here (secrets: inherit does not cross owners): it runs the deploy action from its own job instead.
       - name: Check the environment's SSH secrets
         if: inputs.secrets-from-environment && !inputs.e2e
         env:
@@ -617,204 +673,28 @@ jobs:
         run: |
           missing="$(printf '%s' "${MISSING_SECRETS:-}" | xargs)"
           if [ -n "$missing" ]; then
-            echo "::error::The environment $DEPLOY_ENVIRONMENT (or the repository) has no secret ${missing// /, }; the deploy reads the SSH values from $(printf '%s' "$SSH_SECRET_NAMES" | xargs | sed 's/ /, /g')."
+            echo "::error::The environment $DEPLOY_ENVIRONMENT (or the repository) has no secret ${missing// /, }; the deploy reads the SSH values from $(printf '%s' "$SSH_SECRET_NAMES" | xargs | sed 's/ /, /g'). A caller outside the SOFTURE organization gets no secret through secrets: inherit: run the deploy action from a job with environment (deploy: false)."
             exit 1
           fi
           echo "SSH values read from the secrets $(printf '%s' "$SSH_SECRET_NAMES" | xargs | sed 's/ /, /g')."
-      # The app's secrets and values go to the CLI's environment only; it writes the compose file's required names to
-      # .env.prod (mode 0600) and prints names, never values. Names that steer Node or npm itself are refused. A value
-      # in app-vars wins over a secret of the same name. With secrets-from-environment the secrets are the job's whole
-      # secrets context, which the app does not pick (github_token, the deploy key, an npm token): a reserved name there
-      # is left out and named instead of stopping the release. Then each build argument whose name .env.prod holds must
-      # carry the same value there; a difference removes the file and names the variable, never a value.
-      - name: Render .env.prod
-        env:
-          APP_SECRETS: ${{ inputs.secrets-from-environment && toJSON(secrets) || secrets.app-secrets }}
-          SECRETS_FROM_ENVIRONMENT: ${{ inputs.secrets-from-environment }}
-          APP_VARS: ${{ inputs.app-vars }}
-          BUILD_ARGS: ${{ inputs.build-args }}
-          SECRET_MIN_LENGTHS: ${{ inputs.secret-min-lengths }}
-          COMPOSE_FILE: ${{ inputs.compose-file }}
-          DEPLOY_CLI_VERSION: ${{ inputs.deploy-cli-version }}
-          # Set on the end-to-end test only: the CLI built from the tag above instead of the published one.
-          DEPLOY_CLI: ${{ inputs.e2e && format('{0}/.softure-ai-cli/tools/deploy/dist/cli/main.js', github.workspace) || '' }}
-        run: |
-          node - <<'JS'
-          const { spawnSync } = require("node:child_process");
-          const { readFileSync, rmSync } = require("node:fs");
-          const RESERVED = /^(PATH|HOME|NODE_.*|NPM_CONFIG_.*)$/i;
-          function readObject(variable, input) {
-            let value = null;
-            try {
-              value = JSON.parse(process.env[variable] ?? "");
-            } catch {
-              // Reported below without echoing the value.
-            }
-            if (value === null || typeof value !== "object" || Array.isArray(value)) {
-              console.log(`::error::${input} is not a JSON object of names and values.`);
-              process.exit(1);
-            }
-            return value;
-          }
-          const secrets = readObject("APP_SECRETS", "app-secrets");
-          const vars = readObject("APP_VARS", "app-vars");
-          const env = { PATH: process.env.PATH, HOME: process.env.HOME };
-          const overridden = [];
-          const leftOut = [];
-          const fromEnvironment = process.env.SECRETS_FROM_ENVIRONMENT === "true";
-          for (const [input, values] of [["app-secrets", secrets], ["app-vars", vars]]) {
-            for (const [name, value] of Object.entries(values)) {
-              if (RESERVED.test(name) && input === "app-secrets" && fromEnvironment) {
-                leftOut.push(name);
-                continue;
-              }
-              if (RESERVED.test(name)) {
-                console.log(`::error::${input}: ${name} is reserved for the runner and cannot be rendered.`);
-                process.exit(1);
-              }
-              if (typeof value !== "string") continue;
-              if (input === "app-vars" && typeof secrets[name] === "string") overridden.push(name);
-              env[name] = value;
-            }
-          }
-          if (overridden.length > 0) {
-            console.log(`app-vars: ${overridden.sort().join(", ")} taken from app-vars over the secret of the same name.`);
-          }
-          if (leftOut.length > 0) {
-            console.log(`app-secrets: ${leftOut.sort().join(", ")} left out, reserved for the runner.`);
-          }
-          const minLengths = (process.env.SECRET_MIN_LENGTHS ?? "").split(/\s+/).filter((spec) => spec !== "");
-          const args = [
-            "env",
-            "render",
-            `--compose=${process.env.COMPOSE_FILE}`,
-            "--out=.env.prod",
-            ...minLengths.map((spec) => `--min-length=${spec}`),
-          ];
-          const cli = process.env.DEPLOY_CLI;
-          const result = cli
-            ? spawnSync(process.execPath, [cli, ...args], { env, stdio: "inherit" })
-            : spawnSync(
-                "npx",
-                ["--yes", `--package=@softure-ai/deploy@${process.env.DEPLOY_CLI_VERSION}`, "softure-deploy", ...args],
-                { env, stdio: "inherit" },
-              );
-          if (result.status !== 0) process.exit(result.status ?? 1);
-          // The names env render wrote; the values compared are the ones it was given.
-          const rendered = new Set();
-          for (const line of readFileSync(".env.prod", "utf8").split("\n")) {
-            const match = /^([A-Za-z_][A-Za-z0-9_]*)=/.exec(line);
-            if (match) rendered.add(match[1]);
-          }
-          const compared = [];
-          const differing = [];
-          for (const line of (process.env.BUILD_ARGS ?? "").split("\n")) {
-            const entry = line.trim();
-            const at = entry.indexOf("=");
-            if (at <= 0) continue;
-            const name = entry.slice(0, at);
-            if (!rendered.has(name)) continue;
-            compared.push(name);
-            if (env[name] !== entry.slice(at + 1)) differing.push(name);
-          }
-          if (differing.length > 0) {
-            rmSync(".env.prod", { force: true });
-            console.log(
-              `::error::build-args and .env.prod hold different values for ${differing.join(", ")}; ` +
-                "the image and the runtime must agree, so set both to the same value.",
-            );
-            process.exit(1);
-          }
-          if (compared.length > 0) console.log(`build-args and .env.prod agree on ${compared.join(", ")}.`);
-          JS
-      # The archive's root is what lands next to deploy.sh on the server. Only regular files and folders: a symlink
-      # in the tag could point anywhere on the runner or the server. The names below are the server's own; the
-      # registry token is read by deploy.sh and never installed.
-      - name: Pack the release
-        env:
-          COMPOSE_FILE: ${{ inputs.compose-file }}
-          SERVER_SCRIPT: ${{ inputs.server-script }}
-          DEPLOY_CONFIG: ${{ inputs.deploy-config }}
-          REGISTRY_TOKEN: ${{ inputs.registry-token && github.token || '' }}
-        run: |
-          prod_dir="${COMPOSE_FILE%/*}"
-          failures=0
-          for file in "$COMPOSE_FILE" "$SERVER_SCRIPT" ${DEPLOY_CONFIG:+"$DEPLOY_CONFIG"}; do
-            if [ ! -f "$file" ] || [ -L "$file" ]; then
-              echo "::error::$file is not a file in the tag."
-              failures=$((failures + 1))
-            fi
-          done
-          odd="$(find "$prod_dir" ! -type f ! -type d 2> /dev/null || true)"
-          if [ -n "$odd" ]; then
-            echo "::error::$prod_dir holds something other than files and folders: ${odd//$'\n'/, }"
-            failures=$((failures + 1))
-          fi
-          for name in .env.prod .env.prod.prev .registry-token deploy.sh deploy.json .deployed-tag .deploy.lock backups releases; do
-            if [ -e "$prod_dir/$name" ]; then
-              echo "::error::$prod_dir/$name is reserved on the server; rename it."
-              failures=$((failures + 1))
-            fi
-          done
-          if (( failures > 0 )); then exit 1; fi
-          stage="$RUNNER_TEMP/release"
-          rm -rf "$stage"
-          mkdir -p "$stage"
-          cp -R "$prod_dir/." "$stage/"
-          cp "$SERVER_SCRIPT" "$stage/deploy.sh"
-          if [ -n "$DEPLOY_CONFIG" ]; then cp "$DEPLOY_CONFIG" "$stage/deploy.json"; fi
-          (umask 077 && cp .env.prod "$stage/.env.prod")
-          if [ -n "${REGISTRY_TOKEN:-}" ]; then (umask 077 && printf '%s\n' "$REGISTRY_TOKEN" > "$stage/.registry-token"); fi
-          # GNU tar on the runner, bsdtar on macOS (where the tests run this step): the same owner, other flag names.
-          if tar --version 2> /dev/null | grep -q 'GNU tar'; then owner_flags=(--owner=0 --group=0); else owner_flags=(--uid 0 --gid 0); fi
-          tar -czf release.tar.gz "${owner_flags[@]}" --numeric-owner -C "$stage" .
-          rm -rf "$stage"
-          echo "Packed $(tar -tzf release.tar.gz | grep -cv '/$') files for the server."
-      # The end-to-end test points the same command at its throwaway server. With secrets-from-environment the values
-      # are the secrets the *-secret inputs name, as the job's environment holds them.
-      - name: Send the release to the server
-        env:
-          SSH_HOST: ${{ inputs.e2e && steps.e2e-server.outputs.host || inputs.secrets-from-environment && secrets[inputs.ssh-host-secret] || secrets.ssh-host }}
-          SSH_USER: ${{ inputs.e2e && steps.e2e-server.outputs.user || inputs.secrets-from-environment && secrets[inputs.ssh-user-secret] || secrets.ssh-user }}
-          SSH_PRIVATE_KEY: ${{ inputs.e2e && steps.e2e-server.outputs.private-key || inputs.secrets-from-environment && secrets[inputs.ssh-private-key-secret] || secrets.ssh-private-key }}
-          SSH_KNOWN_HOSTS: ${{ inputs.e2e && steps.e2e-server.outputs.known-hosts || inputs.secrets-from-environment && secrets[inputs.ssh-known-hosts-secret] || secrets.ssh-known-hosts }}
-          SSH_PORT: ${{ inputs.ssh-port }}
-          REMOTE_COMMAND: ${{ inputs.remote-command }}
-          TAG: ${{ inputs.tag }}
-        run: |
-          if [[ ! "$SSH_HOST" =~ ^[A-Za-z0-9.:-]+$ ]]; then echo "::error::ssh-host is not a host name or address."; exit 1; fi
-          if [[ ! "$SSH_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]; then echo "::error::ssh-user is not a user name."; exit 1; fi
-          key="$RUNNER_TEMP/deploy_key"
-          known_hosts="$RUNNER_TEMP/deploy_known_hosts"
-          (
-            umask 077
-            printf '%s\n' "$SSH_PRIVATE_KEY" > "$key"
-            printf '%s\n' "$SSH_KNOWN_HOSTS" > "$known_hosts"
-          )
-          # The server prints `step|…` lines and ends with `result|ok` (init's deploy.sh, DF-9): an exit status alone
-          # could come from a session cut halfway, so only that line counts as a release.
-          output="$RUNNER_TEMP/deploy-output.txt"
-          set -o pipefail
-          ssh -i "$key" -p "$SSH_PORT" \
-            -o BatchMode=yes -o IdentitiesOnly=yes -o ConnectTimeout=20 \
-            -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
-            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$known_hosts" \
-            "$SSH_USER@$SSH_HOST" "$REMOTE_COMMAND $TAG" < release.tar.gz | tee "$output"
-          if ! grep -qx 'result|ok' "$output"; then
-            echo "::error::The server did not report result|ok; the release is not confirmed (see the lines above)."
-            exit 1
-          fi
-      # The server's step and result lines for the release report (DF-10): step names, the backup's file name and row
-      # counts, never a value of .env.prod. Every kept line starts with step| or result|, so none can end the heredoc.
-      - id: server-lines
-        name: Keep the server's step lines
-        if: always()
-        run: |
-          {
-            echo "lines<<SERVER_LINES"
-            grep -E '^(step|result)\|' "$RUNNER_TEMP/deploy-output.txt" 2> /dev/null || true
-            echo "SERVER_LINES"
-          } >> "$GITHUB_OUTPUT"
+      # Render, pack and send (the deploy action). With secrets-from-environment the secrets are the job's whole secrets
+      # context and the SSH values the secrets the *-secret inputs name; the end-to-end test points the same steps at
+      # its throwaway server.
+      - id: send
+        uses: ./.softure-ai-deploy/.github/actions/deploy
+        with:
+          release: ${{ needs.check.outputs.release }}
+          send: true
+          verify: false
+          report: false
+          ssh-host: ${{ inputs.e2e && steps.e2e-server.outputs.host || inputs.secrets-from-environment && secrets[inputs.ssh-host-secret] || secrets.ssh-host }}
+          ssh-user: ${{ inputs.e2e && steps.e2e-server.outputs.user || inputs.secrets-from-environment && secrets[inputs.ssh-user-secret] || secrets.ssh-user }}
+          ssh-private-key: ${{ inputs.e2e && steps.e2e-server.outputs.private-key || inputs.secrets-from-environment && secrets[inputs.ssh-private-key-secret] || secrets.ssh-private-key }}
+          ssh-known-hosts: ${{ inputs.e2e && steps.e2e-server.outputs.known-hosts || inputs.secrets-from-environment && secrets[inputs.ssh-known-hosts-secret] || secrets.ssh-known-hosts }}
+          app-secrets: ${{ inputs.secrets-from-environment && toJSON(secrets) || secrets.app-secrets }}
+          secrets-context: ${{ inputs.secrets-from-environment }}
+          app-vars: ${{ inputs.app-vars }}
+          deploy-cli: ${{ inputs.e2e && format('{0}/.softure-ai-cli/tools/deploy/dist/cli/main.js', github.workspace) || '' }}
       # What the end-to-end server recorded: names, hashes and the command line, never a value of .env.prod.
       - if: inputs.e2e
         uses: actions/upload-artifact@v7
@@ -823,37 +703,17 @@ jobs:
           path: ${{ runner.temp }}/e2e-server/received/
           if-no-files-found: error
           retention-days: 7
-      # The verify job's two steps, here because the end-to-end stack runs on this runner; keep them in step with it.
-      # The runner trusts the run's CA (curl); Node takes it from NODE_EXTRA_CA_CERTS.
-      - name: Wait for the health route (end-to-end test)
-        if: inputs.e2e
-        env:
-          APP_URL: ${{ inputs.app-url }}
-          HEALTH_PATH: ${{ inputs.health-path }}
-          VERIFY_TIMEOUT: ${{ inputs.verify-timeout-seconds }}
-        run: |
-          url="${APP_URL%/}$HEALTH_PATH"
-          deadline=$((SECONDS + VERIFY_TIMEOUT))
-          while true; do
-            status=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "$url" || true)
-            if [ "$status" = "200" ]; then
-              echo "verify: $url answered 200."
-              exit 0
-            fi
-            if (( SECONDS >= deadline )); then
-              echo "::error::verify: $url did not answer 200 within ${VERIFY_TIMEOUT}s (last: ${status:-no answer})."
-              exit 1
-            fi
-            echo "verify: $url answered ${status:-nothing}; retrying in 10s."
-            sleep 10
-          done
-      - name: Verify the routes in deploy.json (end-to-end test)
-        if: inputs.e2e && inputs.deploy-config != ''
-        env:
-          APP_URL: ${{ inputs.app-url }}
-          DEPLOY_CONFIG: ${{ inputs.deploy-config }}
-          NODE_EXTRA_CA_CERTS: ${{ steps.e2e-server.outputs.ca-file }}
-        run: node .softure-ai-cli/tools/deploy/dist/cli/main.js verify "$APP_URL" --config="$DEPLOY_CONFIG"
+      # The verify job's steps (the deploy action's verify), here because the end-to-end stack runs on this runner. The
+      # runner trusts the run's CA (curl); Node takes it from ca-file.
+      - if: inputs.e2e
+        uses: ./.softure-ai-deploy/.github/actions/deploy
+        with:
+          release: ${{ needs.check.outputs.release }}
+          send: false
+          verify: true
+          report: false
+          deploy-cli: ${{ format('{0}/.softure-ai-cli/tools/deploy/dist/cli/main.js', github.workspace) }}
+          ca-file: ${{ steps.e2e-server.outputs.ca-file }}
       - name: Show the server's log and the stack (end-to-end test)
         if: always() && inputs.e2e
         run: |
@@ -864,15 +724,15 @@ jobs:
             docker logs --tail 200 "$container" || true
             echo "::endgroup::"
           done
-      - name: Remove the key, .env.prod and the release archive
-        if: always()
-        run: rm -rf "$RUNNER_TEMP/deploy_key" "$RUNNER_TEMP/deploy_known_hosts" "$RUNNER_TEMP/release" "$RUNNER_TEMP/e2e-server" "$RUNNER_TEMP/e2e-image" "$RUNNER_TEMP/deploy-output.txt" .env.prod release.tar.gz
+      - name: Remove the end-to-end server and image
+        if: always() && inputs.e2e
+        run: rm -rf "$RUNNER_TEMP/e2e-server" "$RUNNER_TEMP/e2e-image"
 
   verify:
     name: verify the release
-    needs: deploy
+    needs: [check, deploy]
     # The end-to-end test's stack runs on the deploy job's runner, so that job runs these steps itself.
-    if: ${{ !inputs.e2e }}
+    if: ${{ inputs.deploy && !inputs.e2e }}
     # In the environment only to read the secret verify-env-secret names (the check job allows it only with
     # secrets-from-environment); otherwise outside it, so a protected environment is not asked twice.
     environment: ${{ inputs.verify-env-secret != '' && inputs.environment || '' }}
@@ -882,90 +742,26 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Wait for the health route
-        env:
-          APP_URL: ${{ inputs.app-url }}
-          HEALTH_PATH: ${{ inputs.health-path }}
-          VERIFY_TIMEOUT: ${{ inputs.verify-timeout-seconds }}
-        run: |
-          url="${APP_URL%/}$HEALTH_PATH"
-          deadline=$((SECONDS + VERIFY_TIMEOUT))
-          while true; do
-            status=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "$url" || true)
-            if [ "$status" = "200" ]; then
-              echo "verify: $url answered 200."
-              exit 0
-            fi
-            if (( SECONDS >= deadline )); then
-              echo "::error::verify: $url did not answer 200 within ${VERIFY_TIMEOUT}s (last: ${status:-no answer})."
-              exit 1
-            fi
-            echo "verify: $url answered ${status:-nothing}; retrying in 10s."
-            sleep 10
-          done
-      # Only the config file is fetched (the leading / anchors it to the root), so no .npmrc or package.json of the
-      # app steers npx. A missing or invalid file fails here with the CLI's message; it is never skipped silently.
-      - if: inputs.deploy-config != ''
-        uses: actions/checkout@v7
+      - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.tag }}
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .softure-ai-deploy
           persist-credentials: false
-          sparse-checkout: /${{ inputs.deploy-config }}
+          sparse-checkout: /.github/actions/deploy/
           sparse-checkout-cone-mode: false
-      - if: inputs.deploy-config != ''
-        uses: actions/setup-node@v7
+      # The origin address from the secret, or from the app-vars entry origin-address-var names (the check job made
+      # sure it exists, holds an address and never comes with the secret). The secret verify-env, or the one
+      # verify-env-secret names: a JSON object of variables for the CLI only.
+      - uses: ./.softure-ai-deploy/.github/actions/deploy
         with:
-          node-version: ${{ inputs.node-version }}
-      - name: Verify the routes in deploy.json
-        if: inputs.deploy-config != ''
-        env:
-          APP_URL: ${{ inputs.app-url }}
-          DEPLOY_CONFIG: ${{ inputs.deploy-config }}
-          DEPLOY_CLI_VERSION: ${{ inputs.deploy-cli-version }}
-          ORIGIN_ADDRESS: ${{ secrets.origin-address }}
-          ORIGIN_ADDRESS_VAR: ${{ inputs.origin-address-var }}
-          APP_VARS: ${{ inputs.app-vars }}
-          # The secret verify-env, or the one verify-env-secret names: a JSON object of variables for the CLI only.
-          VERIFY_ENV: ${{ inputs.verify-env-secret != '' && secrets[inputs.verify-env-secret] || secrets.verify-env }}
-          VERIFY_ENV_SECRET: ${{ inputs.verify-env-secret }}
-          VERIFY_ENV_RULES: >-
-            if type != "object" or any(.[]; type != "string") then "a JSON object of text values by name"
-            else keys_unsorted[]
-              | if test("^[A-Za-z_][A-Za-z0-9_]*$") | not then "\(.) is not a name (letters, digits, _)"
-                elif ascii_upcase | test("^(APP_URL|DEPLOY_CONFIG|DEPLOY_CLI_VERSION|ORIGIN_ADDRESS|ORIGIN_ADDRESS_VAR|APP_VARS|VERIFY_ENV|VERIFY_ENV_SECRET|VERIFY_ENV_RULES|PATH|HOME|NODE_.*|NPM_CONFIG_.*)$")
-                then "\(.) is reserved for the verify step or the runner"
-                else empty end
-            end
-        run: |
-          # The check job made sure the app-vars entry exists, holds an address and never comes with the secret.
-          if [ -n "${ORIGIN_ADDRESS_VAR:-}" ]; then
-            ORIGIN_ADDRESS="$(printf '%s' "$APP_VARS" | jq -r --arg name "$ORIGIN_ADDRESS_VAR" '.[$name]')"
-          fi
-          origin=()
-          if [ -n "$ORIGIN_ADDRESS" ]; then origin=("--origin=$ORIGIN_ADDRESS"); fi
-          variables=()
-          if [ -n "${VERIFY_ENV_SECRET:-}" ] && [ -z "${VERIFY_ENV:-}" ]; then
-            echo "::error::verify-env-secret: the environment (or the repository) has no secret $VERIFY_ENV_SECRET."
-            exit 1
-          fi
-          if [ -n "${VERIFY_ENV:-}" ]; then
-            input="${VERIFY_ENV_SECRET:-verify-env}"
-            # An entry of a JSON secret is not masked on its own, so every line of every value is, before anything else.
-            while IFS= read -r line; do
-              if [ -n "$line" ]; then echo "::add-mask::$line"; fi
-            done < <(printf '%s' "$VERIFY_ENV" | jq -r '.[]? | strings' 2> /dev/null || true)
-            problems="$(printf '%s' "$VERIFY_ENV" | jq -r "$VERIFY_ENV_RULES" 2> /dev/null || echo "a JSON object of text values by name")"
-            if [ -n "$problems" ]; then
-              while IFS= read -r problem; do echo "::error::$input is not valid: $problem"; done <<< "$problems"
-              exit 1
-            fi
-            # The trailing x keeps a value's last new lines through $(...).
-            while IFS= read -r name; do
-              value="$(printf '%s' "$VERIFY_ENV" | jq -j --arg name "$name" '.[$name]'; printf x)"
-              variables+=("$name=${value%x}")
-            done < <(printf '%s' "$VERIFY_ENV" | jq -r 'keys_unsorted[]')
-          fi
-          env -u VERIFY_ENV "${variables[@]}" npx --yes "--package=@softure-ai/deploy@$DEPLOY_CLI_VERSION" softure-deploy verify "$APP_URL" --config="$DEPLOY_CONFIG" "${origin[@]}"
+          release: ${{ needs.check.outputs.release }}
+          send: false
+          verify: true
+          report: false
+          origin-address: ${{ inputs.origin-address-var != '' && fromJSON(inputs.app-vars)[inputs.origin-address-var] || secrets.origin-address }}
+          verify-env: ${{ inputs.verify-env-secret != '' && secrets[inputs.verify-env-secret] || secrets.verify-env }}
+          verify-env-secret: ${{ inputs.verify-env-secret }}
 
   # The facts of this run for the release report (deploy-report.yml, DF-10), whatever happened: each job's result, the
   # image and its digest, and the server's step lines. It writes nothing anywhere but the run's artifact
@@ -973,7 +769,7 @@ jobs:
   summary:
     name: summarize the run
     needs: [check, build, deploy, verify]
-    if: ${{ always() }}
+    if: ${{ always() && inputs.deploy }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions: {}
