@@ -35,7 +35,7 @@ export const mcpAccess = defineModule({
   manifest: {
     id: MODULE_ID,
     version: "0.2.0",
-    dependsOn: { security: "^0.2.0", auth: "^0.2.0" },
+    dependsOn: { security: "^0.2.0", auth: "^0.2.0", jobs: "^0.1.0?" },
     dbSchema: "mcp",
     tables: ["access_tokens", "oauth_clients", "oauth_authorization_codes", "oauth_grants"],
     env: [],

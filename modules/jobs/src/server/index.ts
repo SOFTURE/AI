@@ -16,4 +16,11 @@ export { consoleJobsLogger, type JobsLogFields, type JobsLogger } from "./logger
 export { getQueueStats, pruneJobs, type QueueStats } from "./maintenance.js";
 export { getJobsOptions } from "./options.js";
 export { runClaimedJob, type RunClaimedJobOptions } from "./process.js";
+export {
+  enqueueDueSchedules,
+  getScheduleSlot,
+  SCHEDULE_DEDUP_KEY,
+  type EnqueueDueSchedulesInput,
+  type ScheduleState,
+} from "./schedules.js";
 export { runDueJobs, type RunDueJobsOptions, type RunDueJobsReport } from "./run-due.js";

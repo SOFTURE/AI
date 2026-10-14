@@ -79,9 +79,9 @@ describe("job administration", () => {
     );
 
     expect(await getQueueStats(test.ctx)).toEqual([
-      { queue: "ai.reply", counts: { pending: 3, running: 0, succeeded: 0, failed: 0, cancelled: 0 }, due: 2, oldestDueAt: NOW },
-      { queue: "mail.send", counts: { pending: 0, running: 0, succeeded: 0, failed: 0, cancelled: 0 }, due: 0, oldestDueAt: null },
-      { queue: "old.queue", counts: { pending: 1, running: 0, succeeded: 0, failed: 0, cancelled: 0 }, due: 1, oldestDueAt: NOW },
+      { queue: "ai.reply", counts: { pending: 3, running: 0, succeeded: 0, failed: 0, cancelled: 0 }, due: 2, oldestDueAt: NOW, schedule: null },
+      { queue: "mail.send", counts: { pending: 0, running: 0, succeeded: 0, failed: 0, cancelled: 0 }, due: 0, oldestDueAt: null, schedule: null },
+      { queue: "old.queue", counts: { pending: 1, running: 0, succeeded: 0, failed: 0, cancelled: 0 }, due: 1, oldestDueAt: NOW, schedule: null },
     ]);
   });
 });

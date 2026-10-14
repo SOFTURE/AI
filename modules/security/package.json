@@ -37,6 +37,11 @@
       "types": "./dist/server/index.d.ts",
       "default": "./dist/server/index.js"
     },
+    "./jobs": {
+      "@softure-ai/source": "./src/jobs/index.ts",
+      "types": "./dist/jobs/index.d.ts",
+      "default": "./dist/jobs/index.js"
+    },
     "./signed-request": {
       "@softure-ai/source": "./src/signed-request.ts",
       "types": "./dist/signed-request.d.ts",
@@ -52,6 +57,12 @@
     "zod": "^4.6.5"
   },
   "peerDependencies": {
+    "@softure-ai/jobs": "^0.1.0",
     "drizzle-orm": "^0.45.2"
+  },
+  "peerDependenciesMeta": {
+    "@softure-ai/jobs": {
+      "optional": true
+    }
   }
 }

@@ -293,6 +293,18 @@ only at confirmation: the ledger is insert-only, and a row written before would 
 nobody proved. Run `pruneUnconfirmedSignups(ctx)` from a scheduled job to delete sign-ups whose link
 expired unused; until then they count nowhere, and a new sign-up of the address reuses the row.
 
+**With `@softure-ai/jobs`.** `@softure-ai/waitlist/jobs` ships the handler and the schedule, so the worker runs the
+cleanup instead of an app cron (`waitlist.prune-unconfirmed-signups` hourly; jobs README, "Schedules"):
+
+```ts
+// softure.config.ts
+jobs({ schedules: { ...waitlistJobSchedules } }),
+// src/jobs/handlers.ts (the worker's handlers)
+export const handlers: JobHandlers = { ...waitlistJobHandlers /* , the app's own */ };
+```
+
+`@softure-ai/jobs` is an optional peer: an app without it keeps calling the function from its own cron.
+
 ### Moving an existing list
 
 An app that kept its own list imports it once, before it switches its form to the module.

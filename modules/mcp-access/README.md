@@ -372,6 +372,19 @@ runs it with the app's config (loaded like `softure migrate`, or from an app scr
 
 An app that pruned inline on every token exchange can drop that code.
 
+**With `@softure-ai/jobs`.** `@softure-ai/mcp-access/jobs` ships the handler and the schedule, so the worker runs the
+cleanup instead of an app cron (`mcp-access.prune` daily; jobs README, "Schedules"):
+
+```ts
+// softure.config.ts
+jobs({ schedules: { ...mcpAccessJobSchedules } }),
+// src/jobs/handlers.ts (the worker's handlers)
+export const handlers: JobHandlers = { ...mcpAccessJobHandlers /* , the app's own */ };
+```
+With it, drop the `mcp-prune` `maintain` hook.
+
+`@softure-ai/jobs` is an optional peer: an app without it keeps calling the function from its own cron.
+
 ### Adopting an app's own tables
 
 An app that ran its own `public.access_tokens` (with `grant_id`) and `oauth_clients`,

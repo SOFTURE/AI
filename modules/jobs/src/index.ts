@@ -18,7 +18,7 @@ export const jobs = defineModule({
     version: "0.1.0",
     dependsOn: {},
     dbSchema: "jobs",
-    tables: ["jobs"],
+    tables: ["jobs", "schedules"],
     env: [],
     switches: [],
     routes: {},
@@ -40,6 +40,13 @@ export {
   type JobStatus,
 } from "./contract.js";
 export { jobsMessages, type JobsMessages } from "./messages/index.js";
-export { jobsOptionsSchema, type JobQueueOptions, type JobsOptions, type JobsOptionsInput } from "./options.js";
+export {
+  jobsOptionsSchema,
+  type JobQueueOptions,
+  type JobScheduleOptions,
+  type JobSchedulesInput,
+  type JobsOptions,
+  type JobsOptionsInput,
+} from "./options.js";
 export { defineJobHandler, failJob, retryJobLater, type JobHandler, type JobHandlerContext, type JobHandlers } from "./handlers.js";
-export { jobs as jobsTable } from "./schema.js";
+export { jobs as jobsTable, schedules as jobSchedulesTable } from "./schema.js";

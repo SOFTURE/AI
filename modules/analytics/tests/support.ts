@@ -2,7 +2,7 @@
 // funnel on a migrated PGlite database for the counter's tests.
 import { analytics, type AnalyticsOptionsInput } from "@softure-ai/analytics";
 import type { AnalyticsContext } from "@softure-ai/analytics/server";
-import { createTestClock, defineSoftureConfig, type SoftureConfig, type TestClock } from "@softure-ai/core";
+import { createTestClock, defineSoftureConfig, type AnySoftureModule, type SoftureConfig, type TestClock } from "@softure-ai/core";
 import { createTestDatabase, type TestDatabase } from "@softure-ai/db/testing";
 
 export const APP_ORIGIN = "https://app.example.com";
@@ -18,8 +18,9 @@ export const FUNNEL_STEPS = [
   { id: "signup", via: "server" },
 ] as const;
 
-export function createConfig(options: AnalyticsOptionsInput = {}): SoftureConfig {
-  return defineSoftureConfig({ database: { url: "pglite://" }, locale: "en", timezone: "Europe/Warsaw", appOrigin: APP_ORIGIN, modules: [analytics(options)] });
+/** `modules` are listed after analytics, e.g. jobs. */
+export function createConfig(options: AnalyticsOptionsInput = {}, modules: readonly AnySoftureModule[] = []): SoftureConfig {
+  return defineSoftureConfig({ database: { url: "pglite://" }, locale: "en", timezone: "Europe/Warsaw", appOrigin: APP_ORIGIN, modules: [analytics(options), ...modules] });
 }
 
 export interface TestFunnel {
@@ -28,8 +29,11 @@ export interface TestFunnel {
   readonly database: TestDatabase;
 }
 
-export async function createTestFunnel(options: AnalyticsOptionsInput = { funnel: { steps: [...FUNNEL_STEPS] } }): Promise<TestFunnel> {
-  const config = createConfig(options);
+export async function createTestFunnel(
+  options: AnalyticsOptionsInput = { funnel: { steps: [...FUNNEL_STEPS] } },
+  modules: readonly AnySoftureModule[] = [],
+): Promise<TestFunnel> {
+  const config = createConfig(options, modules);
   const database = await createTestDatabase(config.modules);
   const clock = createTestClock(NOW);
   return { ctx: { db: database.db, clock, config }, clock, database };
