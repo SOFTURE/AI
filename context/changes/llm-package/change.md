@@ -1,7 +1,7 @@
 ---
 change_id: llm-package
 title: "llm: a new package @softure-ai/llm with schema-validated generation, timeouts, stable error codes, usage and cost records, and a fake model (issue #472)"
-status: planned
+status: plan_reviewed
 roadmap_item: null
 issue: 472
 branch: claude/project-thread-umylap
