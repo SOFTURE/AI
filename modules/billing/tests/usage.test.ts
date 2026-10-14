@@ -11,8 +11,8 @@ function parseOptions(input: BillingOptionsInput): BillingOptions {
 }
 
 const OPTIONS = parseOptions({
-  trial: { limits: { "ai-calls": 10 } },
-  paid: { limits: { "ai-calls": 100, exports: 5 } },
+  trial: { limits: { "ai-calls": 10, uploads: null } },
+  paid: { limits: { "ai-calls": 100, exports: 5, uploads: null } },
   readOnly: { limits: { exports: 1 } },
   plans: [
     { id: "pro", name: { en: "Pro" }, price: { amount: 4900, currency: "PLN" }, period: "month", limits: { "ai-calls": 1000, exports: null } },
@@ -44,9 +44,9 @@ describe("limits options", () => {
 
 describe("getDeclaredMeters", () => {
   it("lists every meter some block names, once, sorted", () => {
-    expect(getDeclaredMeters(OPTIONS)).toEqual(["ai-calls", "exports"]);
+    expect(getDeclaredMeters(OPTIONS)).toEqual(["ai-calls", "exports", "uploads"]);
     expect(isDeclaredMeter(OPTIONS, "exports")).toBe(true);
-    expect(isDeclaredMeter(OPTIONS, "uploads")).toBe(false);
+    expect(isDeclaredMeter(OPTIONS, "downloads")).toBe(false);
   });
 });
 
@@ -61,13 +61,15 @@ describe("resolveLimit", () => {
     ["paid.limits for a plan without its own", { status: "paid", planId: "basic" }, "ai-calls", 100],
     ["paid.limits for paid access without a known plan", { status: "paid", planId: null }, "exports", 5],
     ["paid.limits for a plan the config no longer has", { status: "paid", planId: "retired" }, "ai-calls", 100],
+    ["paid.limits' null as no limit for a plan that leaves the meter out", { status: "paid", planId: "basic" }, "uploads", null],
+    ["the trial's null as no limit", { status: "trial", planId: null }, "uploads", null],
   ] as const)("gives %s", (_name, subject, meter, limit) => {
     expect(resolveLimit(OPTIONS, subject, meter)).toBe(limit);
   });
 
   it("gives every declared meter at once", () => {
-    expect(resolveLimits(OPTIONS, { status: "paid", planId: "pro" })).toEqual({ "ai-calls": 1000, exports: null });
-    expect(resolveLimits(OPTIONS, { status: "trial", planId: null })).toEqual({ "ai-calls": 10, exports: 0 });
+    expect(resolveLimits(OPTIONS, { status: "paid", planId: "pro" })).toEqual({ "ai-calls": 1000, exports: null, uploads: null });
+    expect(resolveLimits(OPTIONS, { status: "trial", planId: null })).toEqual({ "ai-calls": 10, exports: 0, uploads: null });
   });
 
   it("does not read a meter from the object's prototype", () => {

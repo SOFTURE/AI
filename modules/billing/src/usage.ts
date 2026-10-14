@@ -22,8 +22,9 @@ export interface LimitSubject {
   readonly planId: string | null;
 }
 
-function readLimit(limits: UsageLimits, meter: string): number | null | undefined {
-  return Object.hasOwn(limits, meter) ? limits[meter] : undefined;
+/** The block's limit of `meter` (null: no limit), or 0 when the block leaves it out. */
+function readLimit(limits: UsageLimits, meter: string): number | null {
+  return Object.hasOwn(limits, meter) ? (limits[meter] ?? null) : 0;
 }
 
 /**
@@ -33,13 +34,12 @@ function readLimit(limits: UsageLimits, meter: string): number | null | undefine
 export function resolveLimit(options: BillingOptions, subject: LimitSubject, meter: string): number | null {
   switch (subject.status) {
     case "trial":
-      return readLimit(options.trial.limits, meter) ?? 0;
+      return readLimit(options.trial.limits, meter);
     case "read_only":
-      return readLimit(options.readOnly.limits, meter) ?? 0;
+      return readLimit(options.readOnly.limits, meter);
     case "paid": {
       const plan = subject.planId === null ? undefined : options.plans.find((candidate) => candidate.id === subject.planId);
-      const planLimit = plan === undefined ? undefined : readLimit(plan.limits, meter);
-      return planLimit !== undefined ? planLimit : (readLimit(options.paid.limits, meter) ?? 0);
+      return plan !== undefined && Object.hasOwn(plan.limits, meter) ? readLimit(plan.limits, meter) : readLimit(options.paid.limits, meter);
     }
   }
 }

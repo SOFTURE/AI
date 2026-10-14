@@ -17,8 +17,16 @@ describe("the billing module", () => {
     expect(billing.manifest.version).toBe(manifest.version);
   });
 
-  it("fills in the defaults: a 14-day trial, reminders 3 and 7 days ahead, pro rata partial refunds, payment at /payment, the admin page at /admin/billing", () => {
-    expect(billing({}).options).toEqual({ trial: { days: 14, reminderDays: 3 }, paid: { reminderDays: 7 }, requests: { expireAfterDays: 30 }, plans: [], partialRefunds: "pro_rata", adminRole: "admin" });
+  it("fills in the defaults: a 14-day trial, reminders 3 and 7 days ahead, no usage limits, pro rata partial refunds, payment at /payment, the admin page at /admin/billing", () => {
+    expect(billing({}).options).toEqual({
+      trial: { days: 14, reminderDays: 3, limits: {} },
+      paid: { reminderDays: 7, limits: {} },
+      readOnly: { limits: {} },
+      requests: { expireAfterDays: 30 },
+      plans: [],
+      partialRefunds: "pro_rata",
+      adminRole: "admin",
+    });
     expect(getBillingRoutes(createConfig())).toEqual({ payment: "/payment", admin: "/admin/billing" });
     expect(getBillingRoutes(createConfig({ routes: { payment: "/pricing", admin: "/staff/billing" } }))).toEqual({ payment: "/pricing", admin: "/staff/billing" });
   });
@@ -35,7 +43,7 @@ describe("the billing module", () => {
   });
 
   it("takes trial.startsAt as a calendar day and refuses anything else", () => {
-    expect(billing({ trial: { startsAt: "2026-11-01" } }).options.trial).toEqual({ days: 14, reminderDays: 3, startsAt: "2026-11-01" });
+    expect(billing({ trial: { startsAt: "2026-11-01" } }).options.trial).toEqual({ days: 14, reminderDays: 3, startsAt: "2026-11-01", limits: {} });
     for (const startsAt of ["2026-02-30", "2026-1-1", "2026-11-01T00:00:00Z", ""]) {
       expect(() => billing({ trial: { startsAt } })).toThrow("- options.trial.startsAt: must be a calendar day as YYYY-MM-DD, e.g. 2026-11-01");
     }
@@ -51,9 +59,9 @@ describe("the billing module", () => {
       payment: manual({ onRequest: () => Promise.resolve(ok()) }),
     }).options;
     expect(options.plans).toEqual([
-      { id: "monthly", name: { en: "Monthly" }, price: { amount: 2900, currency: "PLN" }, period: { unit: "month", count: 1 }, features: [], isFeatured: false },
-      { id: "quarterly", name: { en: "Quarterly" }, price: { amount: 7900, currency: "PLN" }, period: { unit: "month", count: 3 }, features: [], isFeatured: true },
-      { id: "lifetime", name: { en: "Lifetime", pl: "Lifetime (pl)" }, price: { amount: 49900, currency: "EUR" }, period: { unit: "lifetime" }, features: [{ en: "Everything" }], isFeatured: false },
+      { id: "monthly", name: { en: "Monthly" }, price: { amount: 2900, currency: "PLN" }, period: { unit: "month", count: 1 }, features: [], isFeatured: false, limits: {} },
+      { id: "quarterly", name: { en: "Quarterly" }, price: { amount: 7900, currency: "PLN" }, period: { unit: "month", count: 3 }, features: [], isFeatured: true, limits: {} },
+      { id: "lifetime", name: { en: "Lifetime", pl: "Lifetime (pl)" }, price: { amount: 49900, currency: "EUR" }, period: { unit: "lifetime" }, features: [{ en: "Everything" }], isFeatured: false, limits: {} },
     ]);
     expect(options.payment?.name).toBe("manual");
   });

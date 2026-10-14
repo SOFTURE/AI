@@ -32,7 +32,7 @@ export const billing = defineModule({
     version: "0.3.0",
     dependsOn: { security: "^0.2.0", auth: "^0.2.0", mailing: "^0.2.0?", ops: "^0.2.0?" },
     dbSchema: "billing",
-    tables: ["entitlements", "payments", "payment_requests", "manual_grants", "trial_extensions"],
+    tables: ["entitlements", "payments", "payment_requests", "manual_grants", "trial_extensions", "usage"],
     env: [
       {
         name: "STRIPE_SECRET_KEY",
@@ -160,7 +160,7 @@ export {
 } from "./usage.js";
 export { CURRENCY_MINOR_UNIT_DIGITS } from "./currency-digits.js";
 export { formatPrice, getMinorUnitDigits, isSupportedCurrency } from "./price.js";
-export { billingSchema, entitlements, manualGrants, paymentRequests, payments, trialExtensions } from "./schema.js";
+export { billingSchema, entitlements, manualGrants, paymentRequests, payments, trialExtensions, usage } from "./schema.js";
 export { getCheckoutSessionParams, stripe, STRIPE_API_BASE, STRIPE_SECRET_KEY_ENV, STRIPE_TIMEOUT_MS, type StripeOptions } from "./stripe.js";
 export {
   describeStripePriceProblem,
