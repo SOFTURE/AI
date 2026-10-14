@@ -26,7 +26,7 @@ export const enqueuePasswordReset: PasswordResetEnqueuer = async (ctx, userId) =
  * failing sender is logged by its label (never the link) and retried with the queue's backoff.
  */
 export const passwordResetJobHandler = defineJobHandler({
-  payload: z.object({ userId: z.string().min(1) }),
+  payload: z.object({ userId: z.uuid() }),
   run: async ({ userId }, ctx) => {
     if (getAuthOptions(ctx.config).passwordReset.send === undefined) return failJob("auth.password_reset_unavailable");
     try {

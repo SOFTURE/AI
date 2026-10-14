@@ -28,6 +28,7 @@ describe("the waitlist module", () => {
       placements: ["default"],
       welcomeMail: true,
       doubleOptIn: null,
+      confirmationMail: {},
       unsubscribeLinkOnSuccess: false,
     });
     expect(waitlist(OPTIONS).options.scopes.map((scope) => [scope.id, scope.required, scope.document])).toEqual([

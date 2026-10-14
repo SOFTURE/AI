@@ -75,6 +75,7 @@ describe("joinWaitlist with double opt-in", () => {
       isNew: true,
       token: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/) as unknown,
       expiresAt: EXPIRY,
+      isMailQueued: false,
     });
     expect(await readLedger(test)).toEqual([]);
     expect(await listSignups(test.ctx)).toEqual([]);

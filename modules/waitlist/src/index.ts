@@ -1,7 +1,7 @@
 // Public API of @softure-ai/waitlist: the module factory for softure.config.ts, its rate limit
 // buckets, types, messages and the sign-ups table. Joining, confirming, the mails and reading
 // sign-ups are in `@softure-ai/waitlist/server`, the Next.js adapter (actions, `Waitlist` component,
-// confirmation page) in `/next`, the form in `/ui`.
+// confirmation page) in `/next`, the form in `/ui`, the confirmation mail job in `/jobs`.
 import { defineModule, resolveMigrationsDir } from "@softure-ai/core";
 import type { RateLimitBucketInput } from "@softure-ai/security";
 import { waitlistMessages } from "./messages/index.js";
@@ -29,7 +29,7 @@ export const waitlist = defineModule({
   manifest: {
     id: MODULE_ID,
     version: "0.2.0",
-    dependsOn: { security: "^0.2.0", auth: "^0.2.0", mailing: "^0.2.0", privacy: "^0.2.0", ops: "^0.2.0?" },
+    dependsOn: { security: "^0.2.0", auth: "^0.2.0", mailing: "^0.2.0", privacy: "^0.2.0", ops: "^0.2.0?", jobs: "^0.1.0?" },
     dbSchema: "waitlist",
     tables: ["signups"],
     env: [],
@@ -71,6 +71,7 @@ export {
   MAX_NAME_LENGTH,
   MAX_SCOPES,
   NAME_PATTERN,
+  type ConfirmationMailEnqueuer,
   type OnJoinedHook,
   type ResolveChannel,
   type RewriteConfirmationLink,
