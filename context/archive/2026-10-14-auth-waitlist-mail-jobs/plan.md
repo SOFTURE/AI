@@ -80,4 +80,4 @@ Done when: `npm run typecheck`, `npm run lint`, `npm test`, `npm run build` gree
 
 #### Automated
 - [x] 3.1 READMEs and CHANGELOGs describe the jobs path and the migration — 76ba2bb
-- [ ] 3.2 Typecheck, lint, test and build green
+- [x] 3.2 Typecheck, lint, test and build green — bf9328d

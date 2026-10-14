@@ -1,12 +1,13 @@
 ---
 change_id: auth-waitlist-mail-jobs
 title: "Auth and waitlist send their transactional mails through jobs when the app runs a worker (issue #494)"
-status: impl_reviewed
+status: archived
 roadmap_item: null
 issue: 494
 branch: claude/project-thread-pizoe9
 created: 2026-10-14
 updated: 2026-10-14
+archived_at: 2026-10-14
 ---
 
 ## Intent
@@ -38,3 +39,4 @@ Parallel work: #491 moves the prune functions of auth and waitlist onto jobs, #4
 
 - Placement: unlinked one-off from the issue queue (`autonomy.source: issues`), `roadmap_item: null`.
 - Framing: skipped. The issue names the problem and the asks; nothing about the problem is in doubt.
+- Archived 2026-10-14: auth and waitlist send their reset and confirmation mails from jobs when the app passes an enqueuer; ships in the next auth and waitlist releases.
