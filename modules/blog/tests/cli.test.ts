@@ -5,6 +5,8 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runBlogCli, runBlogCommand, type CliOutput, type RunBlogCliOptions } from "@softure-ai/blog/cli";
 import { findArticleBySlug } from "@softure-ai/blog/server";
+import { jobs } from "@softure-ai/jobs";
+import { listJobs } from "@softure-ai/jobs/testing";
 import { seo } from "@softure-ai/seo";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildArticleText, createTestBlog, type TestBlog } from "./support.js";
@@ -387,6 +389,70 @@ describe("softure-blog publish with seo({ indexNow })", () => {
     await test.database.close();
     test = await createTestBlog({ contentDir: "content", quality: false }, [seo()]);
     expect((await run(["publish"])).lines.slice(-1)).toEqual(["indexnow: off, seo has no IndexNow key; set seo({ indexNow: { key } })"]);
+  });
+});
+
+describe("softure-blog publish with a blog.indexnow queue in jobs()", () => {
+  const KEY = "5f0c8a2e7b1d4c39a6e8f2b7d0c4a913";
+  let test: TestBlog;
+  let requests: string[];
+
+  beforeEach(async () => {
+    test = await createTestBlog({ contentDir: "content", quality: false }, [seo({ indexNow: { key: KEY } }), jobs({ queues: { "blog.indexnow": {} } })]);
+    requests = [];
+  });
+  afterEach(async () => {
+    await test.database.close();
+  });
+
+  async function run(argv: string[]) {
+    const { output, lines, errors } = createOutput();
+    const code = await runBlogCli({
+      config: test.config,
+      argv,
+      cwd: FIXTURES_DIR,
+      output,
+      clock: test.clock,
+      openDatabase: () => Promise.resolve({ kind: "pglite", db: test.database.db, client: test.database.client, close: () => Promise.resolve() }),
+      indexNowFetch: (url) => {
+        requests.push(toHref(url));
+        return Promise.resolve(new Response(null, { status: 200 }));
+      },
+      env: {},
+    });
+    return { code, lines, errors };
+  }
+
+  it("enqueues the submit on a commit instead of sending it, and says so", async () => {
+    const result = await run(["publish", "--commit"]);
+    const [job] = await listJobs(test.database.db);
+    expect(result.code).toBe(0);
+    expect(result.lines.slice(-1)).toEqual([`indexnow: queued 2 URL(s) as job ${job?.id ?? ""} on blog.indexnow: /blog/index-funds /blog`]);
+    expect(job).toMatchObject({ queue: "blog.indexnow", status: "pending", payload: { paths: ["/blog/index-funds", "/blog"] } });
+    expect(requests).toEqual([]);
+  });
+
+  it("prints the queued job in the line contract, and a duplicate while it is pending", async () => {
+    const first = await run(["publish", "--commit", "--format", "lines"]);
+    const [job] = await listJobs(test.database.db);
+    expect(first.lines.slice(-1)).toEqual([`blog|indexnow|queued|2|${job?.id ?? ""}|new|/blog/index-funds /blog`]);
+    // The same addresses again while the first job waits: an emptied blog republished.
+    await test.database.db.execute("delete from blog.slug_history");
+    await test.database.db.execute("delete from blog.articles");
+    const second = await run(["publish", "--commit", "--format", "lines"]);
+    expect(second.lines.slice(-1)).toEqual([`blog|indexnow|queued|2|${job?.id ?? ""}|duplicate|/blog/index-funds /blog`]);
+    expect(await listJobs(test.database.db)).toHaveLength(1);
+  });
+
+  it("keeps the dry run: no job, the URLs a commit would submit", async () => {
+    const result = await run(["publish"]);
+    expect(result.lines.slice(-1)).toEqual(["indexnow: dry run, a commit would submit 2 URL(s): https://app.example.com/blog/index-funds https://app.example.com/blog"]);
+    expect(await listJobs(test.database.db)).toEqual([]);
+  });
+
+  it("enqueues nothing with --no-indexnow", async () => {
+    await run(["publish", "--commit", "--no-indexnow"]);
+    expect(await listJobs(test.database.db)).toEqual([]);
   });
 });
 
