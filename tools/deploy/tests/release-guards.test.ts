@@ -25,10 +25,14 @@ interface Result {
 }
 
 const jobs = (parse(readFileSync(WORKFLOW, "utf8")) as { jobs: Record<string, { steps?: Step[] }> }).jobs;
+// The deploy job's render, pack and send steps live in the deploy action both entry points run.
+const ACTION = join(import.meta.dirname, "../../../.github/actions/deploy/action.yml");
+const actionSteps = (parse(readFileSync(ACTION, "utf8")) as { runs: { steps: Step[] } }).runs.steps;
 
 function getScript(job: string, name: string): string {
-  const step = (jobs[job]?.steps ?? []).find((candidate) => candidate.name === name);
-  if (step?.run === undefined) throw new Error(`deploy-app.yml has no '${name}' step in the ${job} job`);
+  const steps = job === "action" ? actionSteps : (jobs[job]?.steps ?? []);
+  const step = steps.find((candidate) => candidate.name === name);
+  if (step?.run === undefined) throw new Error(`no '${name}' step in ${job === "action" ? "the deploy action" : `the ${job} job`}`);
   return step.run;
 }
 
@@ -36,7 +40,7 @@ const CHECK_SCRIPT = getScript("check", "Validate inputs");
 // What the check job's PASSED_SECRETS holds for a caller that passes every required secret by name.
 const PASSED_NAMED_SECRETS = "ssh-host ssh-user ssh-private-key ssh-known-hosts app-secrets";
 const GUARD_SCRIPT = getScript("check", "Refuse a tag off the release branch");
-const RENDER_SCRIPT = getScript("deploy", "Render .env.prod");
+const RENDER_SCRIPT = getScript("action", "Render .env.prod");
 const RETAG_SCRIPT = getScript("build", "Tag the prebuilt image");
 
 // Stands in for `softure-deploy env render`: writes every name it was given (PATH and HOME aside), as the CLI would
