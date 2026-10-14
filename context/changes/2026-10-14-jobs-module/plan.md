@@ -101,29 +101,29 @@ Done when: `npm run typecheck`, `npm run lint`, `npm test`, `npm run build` gree
 ### Phase 1: Package, schema and options
 
 #### Automated
-- [ ] 1.1 Module, options and table constraint tests pass
-- [ ] 1.2 Gates green (typecheck, lint, test)
+- [x] 1.1 Module, options and table constraint tests pass — e2344fb
+- [x] 1.2 Gates green (typecheck, lint, test) — e2344fb
 
 ### Phase 2: Enqueue, processing and test helpers
 
 #### Automated
-- [ ] 2.1 Enqueue, processing, lease, fencing, admin and prune tests pass
-- [ ] 2.2 Gates green (typecheck, lint, test)
+- [x] 2.1 Enqueue, processing, lease, fencing, admin and prune tests pass — d82662f
+- [x] 2.2 Gates green (typecheck, lint, test) — d82662f
 
 ### Phase 3: Worker loop and process entry
 
 #### Automated
-- [ ] 3.1 Worker loop, shutdown and process entry tests pass
-- [ ] 3.2 Gates green (typecheck, lint, test)
+- [x] 3.1 Worker loop, shutdown and process entry tests pass — f6755ca
+- [x] 3.2 Gates green (typecheck, lint, test) — f6755ca
 
 ### Phase 4: Worker container in softure-deploy init
 
 #### Automated
-- [ ] 4.1 Init renders the worker parts only for apps with @softure-ai/jobs; e2e app unchanged
-- [ ] 4.2 Gates green (typecheck, lint, test)
+- [x] 4.1 Init renders the worker parts only for apps with @softure-ai/jobs; e2e app unchanged — 4585c82
+- [x] 4.2 Gates green (typecheck, lint, test) — 4585c82
 
 ### Phase 5: Docs and gates
 
 #### Automated
-- [ ] 5.1 README with the 12 sections, package lists updated
-- [ ] 5.2 Gates green (typecheck, lint, test, build)
+- [x] 5.1 README with the 12 sections, package lists updated — 0025a52
+- [x] 5.2 Gates green (typecheck, lint, test, build) — 0025a52
