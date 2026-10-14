@@ -10,3 +10,4 @@ export {
   type SecurityContext,
 } from "./rate-limit.js";
 export { listRateLimitBuckets, type RateLimitBucketEntry } from "./options.js";
+export { isPublicAddress } from "./public-address.js";
