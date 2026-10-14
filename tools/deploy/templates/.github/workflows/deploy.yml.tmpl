@@ -3,9 +3,16 @@
 #
 # A published GitHub Release deploys its tag; "Run workflow" deploys an existing tag again (a rollback is a
 # redeploy of an older tag). Only a tag whose commit is on the default branch deploys (`release-branch` names
-# another). SOFTURE/AI's workflows are called at {{workflowsRef}}; pin a commit SHA for an immutable reference, best the
-# commit of the release tag deploy@{{cliVersion}}, which matches deploy.sh's CLI:
+# another).
+{{#workflowsPinned}}
+# SOFTURE/AI's workflows are pinned to commit {{workflowsRef}} (--workflows-ref); move every
+# caller's `uses:` together to the commit of the new release tag when the app upgrades @softure-ai/deploy.
+{{/workflowsPinned}}
+{{^workflowsPinned}}
+# SOFTURE/AI's workflows are called at `master`; pin a commit SHA for an immutable reference, best the commit of the
+# release tag deploy@{{cliVersion}}, which matches deploy.sh's CLI:
 # git ls-remote https://github.com/SOFTURE/AI 'refs/tags/deploy@{{cliVersion}}^{}' (init takes it as --workflows-ref).
+{{/workflowsPinned}}
 
 name: deploy
 
