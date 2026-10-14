@@ -47,5 +47,11 @@ export {
   type SecurityOptions,
   type SecurityOptionsInput,
 } from "./options.js";
-export { readSmallBody, type ReadSmallBodyOptions, type ReadSmallBodyResult } from "./read-small-body.js";
+export {
+  readSmallBody,
+  readSmallBodyBytes,
+  type ReadSmallBodyBytesResult,
+  type ReadSmallBodyOptions,
+  type ReadSmallBodyResult,
+} from "./read-small-body.js";
 export { rateLimits } from "./schema.js";
