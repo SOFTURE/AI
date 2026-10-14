@@ -10,6 +10,9 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   generated `deploy.yml`, `checks.yml`, `release.yml` and `release-notes.yml` say the callers are pinned to that commit
   and are moved together on an upgrade; the "pin a commit SHA" advice and the `git ls-remote` hint are written only
   when they call `master`. Only comments change: an app that already ran `init` may keep or hand-edit its comments.
+
+## 0.3.0
+
 - **Per-environment secrets (#468):** the composite action `SOFTURE/AI/.github/actions/deploy` renders `.env.prod`,
   sends the release over SSH, verifies it and writes `deploy-report` inside the caller's own job, so a job with
   `environment: <name>` deploys with that environment's `secrets` and `vars`. This works for an app outside the SOFTURE
