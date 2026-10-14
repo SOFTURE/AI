@@ -56,6 +56,29 @@ services:
       migrate:
         condition: service_completed_successfully
 {{/database}}
+{{#worker}}
+
+  # The job worker (@softure-ai/jobs): the same image running `node worker.mjs`, with the app's environment. It
+  # serves no HTTP, so the image's health check (which asks the app's port) is off. On a deploy it gets SIGTERM, lets
+  # running jobs finish for the module's shutdownGraceMs (20 s by default) and releases the rest; the stop grace
+  # period below leaves it that time before Docker kills it.
+  worker:
+    image: {{image}}:${TAG}
+    restart: unless-stopped
+    command: ["node", "worker.mjs"]
+    environment:
+      APP_ORIGIN: https://{{domain}}
+      DATABASE_URL: postgresql://softure_app:${SOFTURE_APP_PASSWORD:?}@postgres:5432/{{databaseName}}
+{{#hasAppEnv}}
+{{appEnvLines}}
+{{/hasAppEnv}}
+    healthcheck:
+      disable: true
+    stop_grace_period: 30s
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+{{/worker}}
 {{#database}}
 
   # One-off: applies the migrations of the new image as the migrator role before the app starts. A failed

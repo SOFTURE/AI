@@ -111,6 +111,24 @@ describe("softure-deploy init", () => {
     expect(existsSync(join(dir, "deploy.json"))).toBe(false);
   });
 
+  it("writes the job worker for an app with @softure-ai/jobs and says so", async () => {
+    writeApp({ name: "shop", dependencies: { "@softure-ai/db": "^0.1.9", "@softure-ai/jobs": "^0.1.0" } });
+    expect(await runCli(["init", ...REQUIRED, `--workflows-ref=${WORKFLOWS_SHA}`], makeIo())).toBe(0);
+    const output = out.join("");
+    expect(output).toContain("wrote   scripts/worker.ts\n");
+    expect(output).toContain("init: 14 written, 0 kept, database part on (@softure-ai/db found in package.json), worker part on (@softure-ai/jobs found).\n");
+    expect(readFileSync(join(dir, "docker/prod/docker-compose.yml"), "utf8")).toContain('command: ["node", "worker.mjs"]');
+  });
+
+  it("warns and writes no worker for @softure-ai/jobs without @softure-ai/db", async () => {
+    writeApp({ name: "shop", dependencies: { "@softure-ai/jobs": "^0.1.0" } });
+    expect(await runCli(["init", ...REQUIRED, `--workflows-ref=${WORKFLOWS_SHA}`], makeIo())).toBe(0);
+    expect(out.join("")).toContain(
+      "warning @softure-ai/jobs is a dependency but @softure-ai/db is not; the worker container needs the database part, so none was written\n",
+    );
+    expect(existsSync(join(dir, "scripts/worker.ts"))).toBe(false);
+  });
+
   it("warns when next.config is missing or does not build standalone", async () => {
     writeApp({ name: "shop" }, "export default {};\n");
     expect(await runCli(["init", ...REQUIRED], makeIo())).toBe(0);

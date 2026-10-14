@@ -6,6 +6,9 @@
 {{#database}}
 # One image, two roles: `node server.js` serves the app, `node migrate.mjs` applies the module migrations
 # once before the app starts (the `migrate` service of docker/prod/docker-compose.yml).
+{{#worker}}
+# A third role: `node worker.mjs` runs the background jobs (the `worker` service).
+{{/worker}}
 {{/database}}
 #
 # next.config must build `output: "standalone"`; BUILD_STANDALONE=1 below is set for configs that switch on it.
@@ -38,6 +41,16 @@ RUN mkdir -p .esbuild && printf 'export {};\n' > .esbuild/empty.mjs \
       --external:pg --external:@electric-sql/pglite \
       --external:drizzle-orm/pglite --external:drizzle-orm/node-postgres --outfile=migrate.mjs
 
+{{#worker}}
+# The job worker (@softure-ai/jobs): scripts/worker.ts bundled like migrate.mjs; the `worker` service of
+# docker/prod/docker-compose.yml runs it as `node worker.mjs` from this same image.
+RUN npx --yes esbuild@{{esbuildVersion}} scripts/worker.ts --bundle --platform=node --format=esm --target=node22 \
+      --alias:server-only=./.esbuild/empty.mjs \
+      --banner:js="import { createRequire } from 'module'; const require = createRequire(import.meta.url);" \
+      --external:pg --external:@electric-sql/pglite \
+      --external:drizzle-orm/pglite --external:drizzle-orm/node-postgres --outfile=worker.mjs
+
+{{/worker}}
 # Ops scripts: every scripts/ops/<name>.ts but tests becomes ops/<name>.mjs, bundled like migrate.mjs. On the server
 # `softure-deploy run <name>` runs it in the app container (deploy.sh's `run`); no script code travels over SSH.
 RUN mkdir -p ops \
@@ -71,6 +84,9 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/migrate.mjs ./migrate.mjs
 COPY --from=builder /app/softure-migrations ./softure-migrations
 COPY --from=builder /app/ops ./ops
+{{#worker}}
+COPY --from=builder /app/worker.mjs ./worker.mjs
+{{/worker}}
 {{/database}}
 
 USER nextjs
