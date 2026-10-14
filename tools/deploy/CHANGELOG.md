@@ -4,6 +4,31 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
+## Unreleased
+
+- **Breaking (#476): no whole secrets context.** CodeQL (`actions/excessive-secrets-exposure`) flags `toJSON(secrets)`
+  and `secrets[<computed name>]`: either hands the runner every secret of the job, `github_token` and the deploy key
+  included. `deploy-app.yml` no longer has either:
+  - `secrets-from-environment: true` is refused by the check job, and the inputs `ssh-host-secret`, `ssh-user-secret`,
+    `ssh-private-key-secret`, `ssh-known-hosts-secret` and `verify-env-secret` are removed (passing one fails the call
+    as an unknown input). The verify job no longer runs in `environment`.
+  - A caller with `secrets-from-environment` migrates as in 0.3.0 (the four steps below): `deploy: false` on the
+    `deploy-app.yml` job and one job per environment that runs the deploy action. A caller that passes named secrets,
+    or already runs the deploy action, changes nothing for this point.
+- **The deploy action takes the app's secrets by name:** a new input `secret-names` lists the secrets the step's `env:`
+  holds, so the caller writes one line per secret instead of `app-secrets: ${{ toJSON(secrets) }}`, and its own
+  repository's CodeQL scan has nothing to flag. Only the listed names are read; an empty value counts as unset (the
+  compose file's check names a required one). A name the runner owns (`PATH`, `HOME`, `CI`, `NODE_*`, `NPM_CONFIG_*`,
+  `GITHUB_*`, `RUNNER_*`, `ACTIONS_*`, `INPUT_*`), one the render step sets itself, a repeat, or `secret-names` next to
+  a non-empty `app-secrets` is refused by name, never by value. `app-secrets` keeps working unchanged.
+  To move an app from `app-secrets: ${{ toJSON(secrets) }}` (optional, recommended):
+  1. In each environment job's deploy action step, add `env:` with one line per secret the compose file uses
+     (`${NAME:?}` and the optional `${NAME:-…}` ones the app sets): `NAME: ${{ secrets.NAME }}`.
+  2. Replace `app-secrets: ${{ toJSON(secrets) }}` with `secret-names:` listing the same names, separated by spaces or
+     newlines. Keep `app-vars: ${{ toJSON(vars) }}` (variables, not secrets).
+  3. Pin the action and `deploy-app.yml` to the commit of the release tag carrying this change.
+  [`examples/deploy-environments.yml`](examples/deploy-environments.yml) shows the result.
+
 ## 0.3.0
 
 - **Per-environment secrets (#468):** the composite action `SOFTURE/AI/.github/actions/deploy` renders `.env.prod`,
