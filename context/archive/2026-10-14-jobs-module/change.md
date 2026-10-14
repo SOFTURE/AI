@@ -1,13 +1,13 @@
 ---
 change_id: jobs-module
 title: "Apps run background work from a Postgres queue with leases, retries and a worker process (issue #471)"
-status: impl_reviewed
+status: archived
 roadmap_item: null
 issue: 471
 branch: claude/project-thread-5doca7
 created: 2026-10-14
 updated: 2026-10-14
-archived_at: null
+archived_at: 2026-10-14
 ---
 
 ## Intent
