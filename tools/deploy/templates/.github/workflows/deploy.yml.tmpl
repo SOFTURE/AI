@@ -19,13 +19,15 @@ on:
         type: string
         required: true
 
-# The ceiling of the called jobs: `build` pushes to GHCR, the rest only reads.
+# The ceiling of the jobs: `build` pushes to GHCR, `deploy` sets its own (read only).
 permissions:
   contents: read
   packages: write
 
 jobs:
-  deploy:
+  # Checks the inputs and that the tag is on the release branch, then builds the image (or tags a tested one). Nothing
+  # secret runs here: `deploy: false` leaves the release to the job below.
+  build:
     uses: SOFTURE/AI/.github/workflows/deploy-app.yml@{{workflowsRef}}
     with:
       tag: ${{ github.event.release.tag_name || inputs.tag }}
@@ -33,25 +35,59 @@ jobs:
       image: {{image}}
       health-path: {{healthPath}}
       environment: production
-      # Non-secret values by name (switches, public settings): rendered into .env.prod like the secrets, over a
-      # secret of the same name, and not masked in the logs the way a secret `1` masks every `1`.
-      app-vars: ${{ toJSON(vars) }}
+      deploy: false
       # Public values baked into the image, one NAME=value per line. A name .env.prod also holds must carry the same
       # value there, or the release stops before it reaches the server:
       # build-args: |
       #   APP_ORIGIN=${{ vars.APP_ORIGIN }}
       # An image the app already built and tested, by digest from the same repository: deployed as it is, never rebuilt.
       # prebuilt-image: ghcr.io/<owner>/<repository>@sha256:<digest>
-    secrets:
-      ssh-host: ${{ secrets.DEPLOY_SSH_HOST }}
-      ssh-user: ${{ secrets.DEPLOY_SSH_USER }}
-      ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
-      ssh-known-hosts: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
-      # Behind a CDN, the server's own IP: verify fails when the firewall lets direct traffic in. Unset skips it.
-      origin-address: ${{ secrets.DEPLOY_ORIGIN_IP }}
-      # Variables for verify only, e.g. the key a `webBotAuth` route signs with: a secret holding a JSON object such as
-      # {"WEB_BOT_AUTH_PRIVATE_KEY": "<base64 seed>"}. Unset passes nothing.
-      verify-env: ${{ secrets.DEPLOY_VERIFY_ENV }}
-      # Only the names docker/prod/docker-compose.yml requires reach .env.prod: {{secretNames}}.
-      # Name the secrets one by one instead (a JSON object) when the repository holds many unrelated ones.
-      app-secrets: ${{ toJSON(secrets) }}
+
+  # Renders .env.prod, sends the release over SSH and verifies it. The job runs in the `production` environment, so its
+  # secrets and variables are the environment's over the repository's, and the environment's deployment policy and
+  # reviewers apply. The app's secrets reach the action by name, never as the whole `secrets` context, which would hand
+  # every secret to the runner (CodeQL's excessive-secrets-exposure).
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    # One deploy at a time; a running deploy is never cancelled halfway.
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    # packages: read for the registry token the server pulls with.
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: SOFTURE/AI/.github/actions/deploy@{{workflowsRef}}
+{{#hasSecretNames}}
+        # Every name docker/prod/docker-compose.yml requires (${NAME:?}), one line each, also listed in secret-names. A
+        # name added to the compose file gets a line here and in secret-names.
+        env:
+{{secretEnvLines}}
+{{/hasSecretNames}}
+        with:
+          release: ${{ needs.build.outputs.release }}
+          image: ${{ needs.build.outputs.image }}
+          digest: ${{ needs.build.outputs.digest }}
+          ssh-host: ${{ secrets.DEPLOY_SSH_HOST }}
+          ssh-user: ${{ secrets.DEPLOY_SSH_USER }}
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+          ssh-known-hosts: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
+{{#hasSecretNames}}
+          # Only these names reach .env.prod: {{secretNames}}.
+          secret-names: {{secretNameList}}
+{{/hasSecretNames}}
+{{^hasSecretNames}}
+          # The compose file requires no secret, so none reaches .env.prod: add an env: line and secret-names when it does.
+{{/hasSecretNames}}
+          # Non-secret values by name (switches, public settings): rendered into .env.prod like the secrets, over a
+          # secret of the same name, and not masked in the logs the way a secret `1` masks every `1`.
+          app-vars: ${{ toJSON(vars) }}
+          # Behind a CDN, the server's own IP: verify fails when the firewall lets direct traffic in. Unset skips it.
+          origin-address: ${{ secrets.DEPLOY_ORIGIN_IP }}
+          # Variables for verify only, e.g. the key a `webBotAuth` route signs with: a secret holding a JSON object such as
+          # {"WEB_BOT_AUTH_PRIVATE_KEY": "<base64 seed>"}. Unset passes nothing.
+          verify-env: ${{ secrets.DEPLOY_VERIFY_ENV }}

@@ -154,10 +154,16 @@ export function planInitFiles(options: PlanInitFilesOptions): PlannedFile[] {
   const base = buildValues(options);
   const included = TEMPLATE_FILES.filter((file) => file.isIncluded(options.facts, options.answers));
   const compose = included.find((file) => file.target === COMPOSE_FILE);
-  // The caller workflow names the secrets the compose file requires, so both come from the same text.
+  // The caller workflow passes the secrets the compose file requires by name, so both come from the same text.
   const composeText = compose ? renderTemplate(readTemplate(compose.template), base) : "";
   const required = findRequiredNames(composeText).map((variable) => variable.name);
-  const values: TemplateValues = { ...base, secretNames: required.length > 0 ? required.join(", ") : "none" };
+  const values: TemplateValues = {
+    ...base,
+    secretNames: required.length > 0 ? required.join(", ") : "none",
+    hasSecretNames: required.length > 0,
+    secretNameList: required.join(" "),
+    secretEnvLines: required.map((name) => `          ${name}: \${{ secrets.${name} }}`).join("\n"),
+  };
   return included.map((file) => ({
     path: file.target,
     text: file === compose ? composeText : renderTemplate(readTemplate(file.template), values),
