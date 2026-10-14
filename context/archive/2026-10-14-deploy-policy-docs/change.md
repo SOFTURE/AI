@@ -1,12 +1,13 @@
 ---
 change_id: deploy-policy-docs
 title: "Docs say a production deploy follows the release without waiting for the owner"
-status: implementing
+status: archived
 roadmap_item: null
 issue: null
 branch: claude/project-thread-s7ecju
 created: 2026-10-14
 updated: 2026-10-14
+archived_at: 2026-10-14
 ---
 
 ## Intent

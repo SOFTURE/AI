@@ -33,5 +33,5 @@ tree (without archives, `node_modules/`, the managed block of `AGENTS.md` and th
 ### Phase 1: Align the documents
 
 #### Automated
-- [ ] 1.1 Deploy wording aligned with the owner's standing approval in the four documents
-- [ ] 1.2 Grep from Done when returns nothing; lint and repository tests green
+- [x] 1.1 Deploy wording aligned with the owner's standing approval in the four documents — 0472de0
+- [x] 1.2 Grep from Done when returns nothing; lint and repository tests green — 0472de0
