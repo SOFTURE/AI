@@ -36,25 +36,21 @@
 # @softure-ai/deploy is published (DP-8).
 #
 # Secrets come one of two ways. By name: the caller passes `app-secrets` and the four SSH secrets from its own context,
-# which holds repository and organization secrets only (a job with `uses:` cannot name an environment). From the
-# environment (`secrets-from-environment: true`, the caller passes `secrets: inherit`): the deploy job, which runs in
-# `environment`, builds the app's secrets from its own `secrets` context, where the environment's secrets win over the
-# repository's, and reads the SSH values by the names the `*-secret` inputs give. So secrets kept behind an
-# environment's deployment policy reach the release without repository-level copies. The verify job runs outside the
-# environment; its origin address can come from an `app-vars` entry (`origin-address-var`) on either way.
-# `secrets: inherit` passes nothing to a workflow of another owner, environment secrets included, so a caller outside
-# the SOFTURE organization takes the third way: `deploy: false` runs the check and the build only, and the caller's own
-# job, which declares `environment:` (one per environment), runs the deploy action (.github/actions/deploy) with the
-# `release` output and its environment's secrets and variables (tools/deploy/examples/deploy-environments.yml).
+# which holds repository and organization secrets only (a job with `uses:` cannot name an environment). From an
+# environment: `deploy: false` runs the check and the build only, and the caller's own job, which declares
+# `environment:` (one per environment), runs the deploy action (.github/actions/deploy) with the `release` output, each
+# secret by name in the step's `env:` (`secret-names`) and its environment's variables
+# (tools/deploy/examples/deploy-environments.yml). This workflow never reads its whole secrets context nor a secret
+# by a computed name (CodeQL excessive-secrets-exposure, issue #476): `secrets-from-environment`, which did, was removed
+# in 0.4.0 and is refused. The origin address can come from an `app-vars` entry (`origin-address-var`).
 #
 # The deploy and verify jobs run that same action: each checks out this workflow's own commit (job.workflow_sha) into
 # `.softure-ai-deploy/` and runs it from there, passing the values it reads from its secrets context.
 #
 # Variables for verify (a Web Bot Auth key a `webBotAuth` route signs with): the secret `verify-env`, a JSON object of
-# text values by name, or with `secrets-from-environment` the environment secret `verify-env-secret` names, holding the
-# same object, which puts the verify job in `environment` too (a protected environment with required reviewers asks
-# again). Only that one secret reaches the job, never the whole secrets context. The verify step masks each value and
-# hands the variables to `softure-deploy verify` only; a name the step or the runner sets itself is refused.
+# text values by name. Only that one secret reaches the job, never the whole secrets context. The verify step masks
+# each value and hands the variables to `softure-deploy verify` only; a name the step or the runner sets itself is
+# refused.
 #
 # Whatever happened, the `summary` job uploads the run's facts (each job's result, the image, its digest and the
 # server's step lines) as the artifact `deploy-report`; the caller's second job, deploy-report.yml (DF-10), writes them
@@ -107,7 +103,7 @@ on:
         type: string
         default: docker/server/deploy.sh
       environment:
-        description: GitHub environment of the deploy job (protection rules; its secrets reach the release only with secrets-from-environment); empty for none
+        description: GitHub environment of the deploy job (protection rules and the report's name; the secrets come by name from the caller); empty for none
         type: string
         default: ""
       deploy:
@@ -115,31 +111,11 @@ on:
         type: boolean
         default: true
       secrets-from-environment:
-        description: The deploy job reads app-secrets (its whole secrets context) and the SSH values (named by the *-secret inputs) from environment; the caller passes secrets inherit instead of named secrets
+        description: "Removed in 0.4.0 (it passed the whole secrets context to the runner): true is refused; deploy from an environment with deploy: false and the deploy action"
         type: boolean
         default: false
-      ssh-host-secret:
-        description: With secrets-from-environment, the secret holding the server host name or IP address
-        type: string
-        default: DEPLOY_SSH_HOST
-      ssh-user-secret:
-        description: With secrets-from-environment, the secret holding the SSH user
-        type: string
-        default: DEPLOY_SSH_USER
-      ssh-private-key-secret:
-        description: With secrets-from-environment, the secret holding the private deploy key
-        type: string
-        default: DEPLOY_SSH_KEY
-      ssh-known-hosts-secret:
-        description: With secrets-from-environment, the secret holding the server's known_hosts line(s)
-        type: string
-        default: DEPLOY_SSH_KNOWN_HOSTS
       origin-address-var:
-        description: Name of an app-vars entry holding the origin address (instead of the origin-address secret, which secrets-from-environment cannot pass); empty for none
-        type: string
-        default: ""
-      verify-env-secret:
-        description: With secrets-from-environment, the secret holding verify-env's JSON object (variables exported for softure-deploy verify, e.g. WEB_BOT_AUTH_PRIVATE_KEY); the verify job then runs in environment. Empty for none
+        description: Name of an app-vars entry holding the origin address (instead of the origin-address secret); empty for none
         type: string
         default: ""
       remote-command:
@@ -198,23 +174,23 @@ on:
         description: SOFTURE/AI's own end-to-end test only (e2e-deploy.yml); refused in any other repository
         type: boolean
         default: false
-    # Required unless secrets-from-environment is on, which takes them from the environment instead; the check job
-    # refuses a missing one by name. Not `required: true`, because a caller with `secrets: inherit` cannot pass them.
+    # Required unless deploy is false, where the caller's job passes them to the deploy action; the check job refuses a
+    # missing one by name. Not `required: true`, because a caller with deploy: false passes none.
     secrets:
       ssh-host:
-        description: Server host name or IP address (required without secrets-from-environment)
+        description: Server host name or IP address (required unless deploy is false)
         required: false
       ssh-user:
-        description: User whose authorized_keys binds the deploy key to the forced command (required without secrets-from-environment)
+        description: User whose authorized_keys binds the deploy key to the forced command (required unless deploy is false)
         required: false
       ssh-private-key:
-        description: Private deploy key, OpenSSH format (required without secrets-from-environment)
+        description: Private deploy key, OpenSSH format (required unless deploy is false)
         required: false
       ssh-known-hosts:
-        description: known_hosts line(s) of the server, e.g. from `ssh-keyscan` run once by the owner and checked (required without secrets-from-environment)
+        description: known_hosts line(s) of the server, e.g. from `ssh-keyscan` run once by the owner and checked (required unless deploy is false)
         required: false
       app-secrets:
-        description: JSON object of the app's runtime secrets by name, e.g. toJSON(secrets) (required without secrets-from-environment)
+        description: JSON object of the app's runtime secrets by name (required unless deploy is false)
         required: false
       origin-address:
         description: >-
@@ -224,8 +200,7 @@ on:
       verify-env:
         description: >-
           JSON object of variables by name exported for softure-deploy verify only, masked, e.g.
-          {"WEB_BOT_AUTH_PRIVATE_KEY": "..."} for a webBotAuth route. Without secrets-from-environment (which uses
-          verify-env-secret). Needs deploy-config.
+          {"WEB_BOT_AUTH_PRIVATE_KEY": "..."} for a webBotAuth route. Needs deploy-config.
         required: false
     outputs:
       release:
@@ -284,12 +259,7 @@ jobs:
           ORIGIN_ADDRESS_VAR: ${{ inputs.origin-address-var }}
           APP_VARS: ${{ inputs.app-vars }}
           SECRETS_FROM_ENVIRONMENT: ${{ inputs.secrets-from-environment }}
-          SSH_HOST_SECRET: ${{ inputs.ssh-host-secret }}
-          SSH_USER_SECRET: ${{ inputs.ssh-user-secret }}
-          SSH_PRIVATE_KEY_SECRET: ${{ inputs.ssh-private-key-secret }}
-          SSH_KNOWN_HOSTS_SECRET: ${{ inputs.ssh-known-hosts-secret }}
           VERIFY_ENV: ${{ secrets.verify-env }}
-          VERIFY_ENV_SECRET: ${{ inputs.verify-env-secret }}
           VERIFY_ENV_RULES: >-
             if type != "object" or any(.[]; type != "string") then "a JSON object of text values by name"
             else keys_unsorted[]
@@ -333,46 +303,29 @@ jobs:
           expect health-path "$HEALTH_PATH" '^/[A-Za-z0-9/._~-]*$' "a path starting with /"
           expect verify-timeout-seconds "$VERIFY_TIMEOUT" '^[1-9][0-9]{1,3}$' "10 to 9999 seconds"
           if [ -n "$DEPLOY_CONFIG" ]; then expect_path deploy-config "$DEPLOY_CONFIG"; fi
-          # Secrets by name, or the deploy job reads them from its environment (secrets: inherit); never both. With
-          # deploy: false the caller's job passes them to the deploy action, so this workflow takes none.
+          # Secrets by name. With deploy: false the caller's job passes them to the deploy action, so this workflow
+          # takes none. secrets-from-environment, which read the whole secrets context, is gone (0.4.0, issue #476).
+          if [ "${SECRETS_FROM_ENVIRONMENT:-false}" = "true" ]; then
+            reject secrets-from-environment "false (removed in 0.4.0: deploy from the environment's own job with deploy: false and the deploy action, secrets by name)"
+          fi
           if [ "${DEPLOY:-true}" = "false" ]; then
             for name in ${PASSED_SECRETS:-}; do
               reject deploy "true when the secret $name is passed (the caller's job passes it to the deploy action)"
             done
             if [ -n "$ORIGIN_ADDRESS" ]; then reject deploy "true when the secret origin-address is passed (the deploy action takes it)"; fi
-            if [ "${SECRETS_FROM_ENVIRONMENT:-false}" = "true" ]; then reject deploy "true with secrets-from-environment (the caller's job reads its environment)"; fi
             if [ -n "${ORIGIN_ADDRESS_VAR:-}" ]; then reject deploy "true with origin-address-var (the deploy action takes origin-address)"; fi
-            if [ -n "${VERIFY_ENV_SECRET:-}" ]; then reject deploy "true with verify-env-secret (the deploy action takes verify-env)"; fi
             if [ "$E2E" = "true" ]; then reject deploy "true with e2e (the end-to-end test deploys)"; fi
-          elif [ "${SECRETS_FROM_ENVIRONMENT:-false}" = "true" ]; then
-            if [ -z "$DEPLOY_ENVIRONMENT" ]; then
-              reject secrets-from-environment "false without environment (the deploy job reads that environment's secrets)"
-            fi
-            for name in ${PASSED_SECRETS:-}; do
-              if [ "$name" = "verify-env" ]; then
-                reject secrets-from-environment "false when the secret verify-env is passed (name an environment secret in verify-env-secret)"
-              else
-                reject secrets-from-environment "false when the secret $name is passed (pass secrets: inherit instead)"
-              fi
-            done
-            if [ -n "$ORIGIN_ADDRESS" ]; then
-              reject secrets-from-environment "false when the secret origin-address is passed (use origin-address-var)"
-            fi
-            expect ssh-host-secret "${SSH_HOST_SECRET:-}" '^[A-Za-z_][A-Za-z0-9_]*$' "a secret name (letters, digits, _)"
-            expect ssh-user-secret "${SSH_USER_SECRET:-}" '^[A-Za-z_][A-Za-z0-9_]*$' "a secret name (letters, digits, _)"
-            expect ssh-private-key-secret "${SSH_PRIVATE_KEY_SECRET:-}" '^[A-Za-z_][A-Za-z0-9_]*$' "a secret name (letters, digits, _)"
-            expect ssh-known-hosts-secret "${SSH_KNOWN_HOSTS_SECRET:-}" '^[A-Za-z_][A-Za-z0-9_]*$' "a secret name (letters, digits, _)"
-          else
+          elif [ "${SECRETS_FROM_ENVIRONMENT:-false}" != "true" ]; then
             for name in ssh-host ssh-user ssh-private-key ssh-known-hosts app-secrets; do
               if [[ " ${PASSED_SECRETS:-} " != *" $name "* ]]; then
-                echo "::error::Secret $name is required: pass it, or set secrets-from-environment with secrets: inherit."
+                echo "::error::Secret $name is required: pass it, or set deploy: false and run the deploy action from the environment's job."
                 failures=$((failures + 1))
               fi
             done
           fi
           origin_input=origin-address
-          # The origin address from an app-vars entry, for a caller whose secrets stay in the environment (the verify
-          # job runs outside it). Not a secret, so it is printed like any app-vars value.
+          # The origin address from an app-vars entry, for a caller that keeps it a variable. Not a secret, so it is
+          # printed like any app-vars value.
           if [ -n "${ORIGIN_ADDRESS_VAR:-}" ]; then
             if [[ ! "$ORIGIN_ADDRESS_VAR" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
               reject origin-address-var "a name (letters, digits, _)"
@@ -389,18 +342,8 @@ jobs:
             # The origin is checked by the verify step, which runs only with a config: refuse a check that would not run.
             if [ -z "$DEPLOY_CONFIG" ]; then reject "$origin_input" "empty when deploy-config is empty (verify runs with deploy.json)"; fi
           fi
-          # The verify step's variables: the secret verify-env is checked here, before anything is built; the one
-          # verify-env-secret names lives in the environment, so the verify step checks it the same way.
-          if [ -n "${VERIFY_ENV_SECRET:-}" ]; then
-            if [ "${SECRETS_FROM_ENVIRONMENT:-false}" != "true" ]; then
-              reject verify-env-secret "empty without secrets-from-environment (pass the secret verify-env instead)"
-            elif [[ ! "$VERIFY_ENV_SECRET" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
-              reject verify-env-secret "a secret name (letters, digits, _)"
-            elif [ -z "$DEPLOY_CONFIG" ]; then
-              reject verify-env-secret "empty when deploy-config is empty (verify runs with deploy.json)"
-            fi
-          fi
-          if [ -n "${VERIFY_ENV:-}" ] && [ "${SECRETS_FROM_ENVIRONMENT:-false}" != "true" ]; then
+          # The verify step's variables: the secret verify-env is checked here, before anything is built.
+          if [ -n "${VERIFY_ENV:-}" ]; then
             if [ -z "$DEPLOY_CONFIG" ]; then
               reject verify-env "empty when deploy-config is empty (verify runs with deploy.json)"
             else
@@ -646,9 +589,6 @@ jobs:
           E2E_DIR="$RUNNER_TEMP/e2e-server" IMAGE_ARCHIVE="$RUNNER_TEMP/e2e-image/deploy-e2e-image.tar" \
             DEPLOY_CLI="$GITHUB_WORKSPACE/.softure-ai-cli/tools/deploy/dist/cli/main.js" \
             bash .softure-ai-cli/tools/deploy/e2e/start-server.sh
-      # With secrets-from-environment, every SSH value must be a secret of the job's context (the environment's or the
-      # repository's) before anything is rendered or sent. Names only, never a value. A caller of another owner sees
-      # none here (secrets: inherit does not cross owners): it runs the deploy action from its own job instead.
       # The deploy action of this workflow's own commit, so the steps below are the ones this workflow was tested with.
       # After the end-to-end checkout at the workspace root, which would delete it.
       - uses: actions/checkout@v7
@@ -659,28 +599,8 @@ jobs:
           persist-credentials: false
           sparse-checkout: /.github/actions/deploy/
           sparse-checkout-cone-mode: false
-      - name: Check the environment's SSH secrets
-        if: inputs.secrets-from-environment && !inputs.e2e
-        env:
-          DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
-          SSH_SECRET_NAMES: >-
-            ${{ inputs.ssh-host-secret }} ${{ inputs.ssh-user-secret }}
-            ${{ inputs.ssh-private-key-secret }} ${{ inputs.ssh-known-hosts-secret }}
-          MISSING_SECRETS: >-
-            ${{ secrets[inputs.ssh-host-secret] == '' && inputs.ssh-host-secret || '' }}
-            ${{ secrets[inputs.ssh-user-secret] == '' && inputs.ssh-user-secret || '' }}
-            ${{ secrets[inputs.ssh-private-key-secret] == '' && inputs.ssh-private-key-secret || '' }}
-            ${{ secrets[inputs.ssh-known-hosts-secret] == '' && inputs.ssh-known-hosts-secret || '' }}
-        run: |
-          missing="$(printf '%s' "${MISSING_SECRETS:-}" | xargs)"
-          if [ -n "$missing" ]; then
-            echo "::error::The environment $DEPLOY_ENVIRONMENT (or the repository) has no secret ${missing// /, }; the deploy reads the SSH values from $(printf '%s' "$SSH_SECRET_NAMES" | xargs | sed 's/ /, /g'). A caller outside the SOFTURE organization gets no secret through secrets: inherit: run the deploy action from a job with environment (deploy: false)."
-            exit 1
-          fi
-          echo "SSH values read from the secrets $(printf '%s' "$SSH_SECRET_NAMES" | xargs | sed 's/ /, /g')."
-      # Render, pack and send (the deploy action). With secrets-from-environment the secrets are the job's whole secrets
-      # context and the SSH values the secrets the *-secret inputs name; the end-to-end test points the same steps at
-      # its throwaway server.
+      # Render, pack and send (the deploy action) with the named secrets; the end-to-end test points the same steps at its
+      # throwaway server.
       - id: send
         uses: ./.softure-ai-deploy/.github/actions/deploy
         with:
@@ -688,12 +608,12 @@ jobs:
           send: true
           verify: false
           report: false
-          ssh-host: ${{ inputs.e2e && steps.e2e-server.outputs.host || inputs.secrets-from-environment && secrets[inputs.ssh-host-secret] || secrets.ssh-host }}
-          ssh-user: ${{ inputs.e2e && steps.e2e-server.outputs.user || inputs.secrets-from-environment && secrets[inputs.ssh-user-secret] || secrets.ssh-user }}
-          ssh-private-key: ${{ inputs.e2e && steps.e2e-server.outputs.private-key || inputs.secrets-from-environment && secrets[inputs.ssh-private-key-secret] || secrets.ssh-private-key }}
-          ssh-known-hosts: ${{ inputs.e2e && steps.e2e-server.outputs.known-hosts || inputs.secrets-from-environment && secrets[inputs.ssh-known-hosts-secret] || secrets.ssh-known-hosts }}
-          app-secrets: ${{ inputs.secrets-from-environment && toJSON(secrets) || secrets.app-secrets }}
-          secrets-context: ${{ inputs.secrets-from-environment }}
+          ssh-host: ${{ inputs.e2e && steps.e2e-server.outputs.host || secrets.ssh-host }}
+          ssh-user: ${{ inputs.e2e && steps.e2e-server.outputs.user || secrets.ssh-user }}
+          ssh-private-key: ${{ inputs.e2e && steps.e2e-server.outputs.private-key || secrets.ssh-private-key }}
+          ssh-known-hosts: ${{ inputs.e2e && steps.e2e-server.outputs.known-hosts || secrets.ssh-known-hosts }}
+          app-secrets: ${{ secrets.app-secrets }}
+          secrets-context: false
           app-vars: ${{ inputs.app-vars }}
           deploy-cli: ${{ inputs.e2e && format('{0}/.softure-ai-cli/tools/deploy/dist/cli/main.js', github.workspace) || '' }}
       # What the end-to-end server recorded: names, hashes and the command line, never a value of .env.prod.
@@ -734,9 +654,7 @@ jobs:
     needs: [check, deploy]
     # The end-to-end test's stack runs on the deploy job's runner, so that job runs these steps itself.
     if: ${{ inputs.deploy && !inputs.e2e }}
-    # In the environment only to read the secret verify-env-secret names (the check job allows it only with
-    # secrets-from-environment); otherwise outside it, so a protected environment is not asked twice.
-    environment: ${{ inputs.verify-env-secret != '' && inputs.environment || '' }}
+    # Outside the environment, so a protected environment is not asked twice.
     runs-on: ubuntu-latest
     # Above the longest verify-timeout-seconds the check job accepts (9999 s).
     timeout-minutes: 180
@@ -752,8 +670,8 @@ jobs:
           sparse-checkout: /.github/actions/deploy/
           sparse-checkout-cone-mode: false
       # The origin address from the secret, or from the app-vars entry origin-address-var names (the check job made
-      # sure it exists, holds an address and never comes with the secret). The secret verify-env, or the one
-      # verify-env-secret names: a JSON object of variables for the CLI only.
+      # sure it exists, holds an address and never comes with the secret). The secret verify-env: a JSON object of
+      # variables for the CLI only.
       - uses: ./.softure-ai-deploy/.github/actions/deploy
         with:
           release: ${{ needs.check.outputs.release }}
@@ -761,8 +679,7 @@ jobs:
           verify: true
           report: false
           origin-address: ${{ inputs.origin-address-var != '' && fromJSON(inputs.app-vars)[inputs.origin-address-var] || secrets.origin-address }}
-          verify-env: ${{ inputs.verify-env-secret != '' && secrets[inputs.verify-env-secret] || secrets.verify-env }}
-          verify-env-secret: ${{ inputs.verify-env-secret }}
+          verify-env: ${{ secrets.verify-env }}
 
   # The facts of this run for the release report (deploy-report.yml, DF-10), whatever happened: each job's result, the
   # image and its digest, and the server's step lines. It writes nothing anywhere but the run's artifact
