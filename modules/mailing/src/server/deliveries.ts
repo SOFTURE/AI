@@ -92,13 +92,16 @@ export type DeliveryOutcome =
    * `retakeUncertain` sends it again.
    */
   | { readonly status: "uncertain" }
-  /** The provider was unavailable; the claim is released for a later run. */
-  | { readonly status: "retry-later"; readonly httpStatus?: number }
+  /**
+   * The provider was unavailable; the claim is released for a later run. `retryAfterSeconds` is the wait the provider
+   * asked for, when it named one.
+   */
+  | { readonly status: "retry-later"; readonly httpStatus?: number; readonly retryAfterSeconds?: number }
   /**
    * The provider refused the account or its quota is spent: the claim is released, its attempt given back. Stop
    * sending (every other mail fails the same way) and run again once the account can send.
    */
-  | { readonly status: "halted"; readonly reason: HaltingErrorCode; readonly httpStatus?: number };
+  | { readonly status: "halted"; readonly reason: HaltingErrorCode; readonly httpStatus?: number; readonly retryAfterSeconds?: number };
 
 /**
  * Sends `delivery.mail` unless the ledger already has an outcome (or a fresh claim) for its scope
@@ -125,13 +128,14 @@ export async function deliverOnce(ctx: DeliveryContext, delivery: Delivery, opti
   }
   const providerStatus = result.httpStatus ?? null;
   const httpStatus = result.httpStatus === undefined ? {} : { httpStatus: result.httpStatus };
+  const retryAfter = result.retryAfterSeconds === undefined ? {} : { retryAfterSeconds: result.retryAfterSeconds };
   if (isHaltingCode(result.error)) {
     await releaseDelivery(ctx, fence, { providerStatus, giveAttemptBack: true });
-    return { status: "halted", reason: result.error, ...httpStatus };
+    return { status: "halted", reason: result.error, ...httpStatus, ...retryAfter };
   }
   if (result.error === "mailing.unavailable" && (maxAttempts === null || attempt < maxAttempts)) {
     await releaseDelivery(ctx, fence, { providerStatus, giveAttemptBack: false });
-    return { status: "retry-later", ...httpStatus };
+    return { status: "retry-later", ...httpStatus, ...retryAfter };
   }
   await closeDelivery(ctx, fence, { status: "rejected", providerMessageId: null, reason: result.error, providerStatus });
   return { status: "rejected", reason: result.error, ...httpStatus };

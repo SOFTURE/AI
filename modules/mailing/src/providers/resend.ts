@@ -77,10 +77,29 @@ async function readOutcome(response: Response): Promise<ProviderOutcome> {
   // Only the error's `name` (an enum) is read: its `message` can echo the address back.
   const name = readString(payload, "name");
   const httpStatus = response.status;
-  if (REFUSED_STATUSES.has(httpStatus)) return { status: "refused", httpStatus };
-  if (httpStatus === 429) return { status: name === RATE_LIMIT_EXCEEDED ? "unavailable" : "quota_exceeded", httpStatus };
+  const retryAfterSeconds = readRetryAfter(response.headers.get("retry-after"), Date.now());
+  const failure = retryAfterSeconds === null ? { httpStatus } : { httpStatus, retryAfterSeconds };
+  if (REFUSED_STATUSES.has(httpStatus)) return { status: "refused", ...failure };
+  if (httpStatus === 429) return { status: name === RATE_LIMIT_EXCEEDED ? "unavailable" : "quota_exceeded", ...failure };
   const isRetryable = httpStatus >= 500 || httpStatus === 408 || (httpStatus === 409 && name === CONCURRENT_IDEMPOTENT_REQUESTS);
-  return { status: isRetryable ? "unavailable" : "rejected", httpStatus };
+  return { status: isRetryable ? "unavailable" : "rejected", ...failure };
+}
+
+const DELAY_SECONDS = /^\d{1,10}$/;
+/** The IMF-fixdate form of an HTTP date, the one senders must produce (RFC 9110 §5.6.7). */
+const HTTP_DATE = /^[A-Z][a-z]{2}, \d{2} [A-Z][a-z]{2} \d{4} \d{2}:\d{2}:\d{2} GMT$/;
+
+/**
+ * Reads a `Retry-After` header (RFC 9110 §10.2.3): a whole number of seconds, or an HTTP date (IMF-fixdate) turned into the seconds
+ * from `nowMs` to it (0 for a date in the past). `null` when there is none or it is malformed.
+ */
+export function readRetryAfter(value: string | null, nowMs: number): number | null {
+  const text = value?.trim() ?? "";
+  if (text === "") return null;
+  if (DELAY_SECONDS.test(text)) return Number(text);
+  const at = HTTP_DATE.test(text) ? Date.parse(text) : Number.NaN;
+  if (Number.isNaN(at)) return null;
+  return Math.max(0, Math.ceil((at - nowMs) / 1000));
 }
 
 function readString(payload: unknown, key: string): string | null {

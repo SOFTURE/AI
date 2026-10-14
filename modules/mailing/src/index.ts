@@ -89,5 +89,5 @@ export type {
 } from "./contract.js";
 export { getMailingErrorMessage, mailingMessages, type MailingMessages } from "./messages/index.js";
 export { DEFAULT_STALE_CLAIM_MS, DEFAULT_TIMEOUT_MS, DEFAULT_UNCERTAIN_CLAIM_MS, type MailingOptions, type MailingOptionsInput } from "./options.js";
-export { resend, RESEND_API_KEY_ENV, RESEND_ENDPOINT, type ResendOptions } from "./providers/resend.js";
+export { readRetryAfter, resend, RESEND_API_KEY_ENV, RESEND_ENDPOINT, type ResendOptions } from "./providers/resend.js";
 export { campaigns, deliveries, mailingSchema, suppressions, type DeliveryStatus } from "./schema.js";
