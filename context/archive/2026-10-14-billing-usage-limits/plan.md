@@ -53,10 +53,12 @@ how an adopting app moves its own counter to billing, package description.
   without a migration of the key.
 - D4: `billing.quota_exhausted` is an `Err` extended with `usage` (the state at refusal), so the app
   can show the reset date without a second read.
+- D6: the plan in force is the earliest period grant that has not ended (impl review #4), so a plan
+  bought during the trial is known before its period starts.
 - D5: minor bump at release time (new API, new table), entry under `## Unreleased`.
 
 ## Progress
 
-- [ ] 1 limits in the config and their resolution
-- [ ] 2 usage ledger
-- [ ] 3 docs
+- [x] 1 limits in the config and their resolution (652ba05)
+- [x] 2 usage ledger (891e8ad)
+- [x] 3 docs (e2c59d9); gates: typecheck, lint, build, npm test (7058 passed, 120 skipped; billing's Postgres race tests run against a local postgres 16)

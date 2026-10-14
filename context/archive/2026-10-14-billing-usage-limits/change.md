@@ -1,12 +1,13 @@
 ---
 change_id: billing-usage-limits
 title: "billing: usage limits per access state and plan, monthly quotas and consumeUsage (issue #474)"
-status: open
+status: archived
 roadmap_item: null
 issue: 474
 branch: claude/project-thread-wnevbm
 created: 2026-10-14
 updated: 2026-10-14
+archived_at: 2026-10-14
 ---
 
 ## Intent
