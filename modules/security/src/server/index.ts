@@ -11,3 +11,12 @@ export {
 } from "./rate-limit.js";
 export { listRateLimitBuckets, type RateLimitBucketEntry } from "./options.js";
 export { isPublicAddress } from "./public-address.js";
+export {
+  GUARDED_REQUEST_DEFAULT_PORTS,
+  sendGuardedRequest,
+  type GuardedRequestErrorCode,
+  type GuardedRequestOptions,
+  type GuardedRequestResult,
+  type GuardedRequestSeam,
+  type ResolveHost,
+} from "./guarded-request.js";

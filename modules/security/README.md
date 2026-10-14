@@ -11,7 +11,8 @@ Fixed-window rate limits in Postgres with buckets from configuration, pluggable 
 resolvers and `readSmallBody`, so every public route and server action can refuse floods before
 they cost anything. Webhook-style endpoints read the raw body with `readSmallBodyBytes` and check a
 shared-secret signature with `verifySignedRequest`; the sender signs with `signRequestBody` (§4,
-"Signed requests").
+"Signed requests"). A request to a URL someone else chose goes through `sendGuardedRequest`, which refuses
+private and other non-public targets (§4, "Requests to third-party URLs").
 
 ## 2. Installation
 
@@ -219,6 +220,57 @@ before decoding or parsing them.
 `[newSecret, oldSecret]`, then switch the sender to `newSecret` (or let it sign with both, which
 writes one `v1` per secret), then drop `oldSecret` from the receiver.
 
+### Requests to third-party URLs
+
+Some requests go to a URL the app did not choose: an RFC 8058 one-click unsubscribe address from a received
+mail, a webhook target a user typed, a link preview. Sent with plain `fetch`, such a URL can point the server
+at itself, the private network or a cloud metadata endpoint (SSRF). `sendGuardedRequest` from
+`@softure-ai/security/server` (Node only) sends the request only to public addresses and returns nothing but
+the status:
+
+```ts
+import { sendGuardedRequest } from "@softure-ai/security/server";
+
+const sent = await sendGuardedRequest(listUnsubscribeUrl, {
+  method: "POST",
+  headers: { "content-type": "application/x-www-form-urlencoded" },
+  body: "List-Unsubscribe=One-Click",
+  timeoutMs: 5000,
+});
+if (!sent.ok) return markUnsubscribeFailed(sent.error);
+const delivered = sent.value.status >= 200 && sent.value.status < 300;
+```
+
+| Function (`@softure-ai/security/server`) | Returns |
+| --- | --- |
+| `sendGuardedRequest(url, { method, headers?, body?, timeoutMs, allowedPorts? }, seam?)` | `Ok<{ status }>`, or `Err` with `security.outbound_invalid_url`, `security.outbound_blocked`, `security.outbound_timeout` or `security.outbound_failed` |
+| `isPublicAddress(address)` | `true` for a public IPv4 or IPv6 address; `false` for special-purpose ranges and anything that is not an address |
+
+**What is refused.** `security.outbound_invalid_url`: a URL that does not parse, a scheme other than `http:`
+or `https:`, credentials in the URL. `security.outbound_blocked`: a port outside `allowedPorts` (default
+`[443]`, so plain `http:` on port 80 needs an explicit `[80, 443]`); an IP literal that is not public (`[::1]`,
+`[::ffff:127.0.0.1]`, `0x7f.1`); a host name with **any** resolved address that is not public. Not public are the
+RFC 6890 special-purpose ranges: loopback, private, link-local (cloud metadata), carrier-grade NAT,
+benchmarking, documentation, multicast and reserved IPv4; for IPv6 everything outside global unicast
+`2000::/3` (loopback, ULA, link-local, multicast, NAT64, IPv4-mapped and -compatible) plus Teredo and the IETF
+block, 6to4 and documentation.
+
+**How it holds.** The address check runs in the socket's own `lookup`, so the address checked is the address
+connected to and a DNS answer cannot change in between (rebinding). It resolves every address and answers in
+the shape Node asks for (a list when `autoSelectFamily` is on). `agent: false` keeps a pooled socket from
+skipping the lookup. Redirects are not followed (a 3xx comes back as its status), one timer covers the whole
+exchange up to the status, and the response is closed as soon as its status arrives.
+
+**Testing against a fake server.** The third argument replaces the transport, the address rule and the
+resolver, so a test can reach a server on loopback:
+
+```ts
+const result = await sendGuardedRequest(`http://unsubscribe.test:${port}/`, { method: "POST", timeoutMs: 2000, allowedPorts: [port] }, {
+  isAllowedAddress: (address) => address === "127.0.0.1",
+  resolveHost: (_host, _family, done) => done(null, [{ address: "127.0.0.1", family: 4 }]),
+});
+```
+
 ## 5. Migrations and tables
 
 Schema `security`, one migration:
@@ -272,6 +324,8 @@ of consumed attempts (`cleanupProbability`), so with little traffic a row can st
   next cleanup or a scheduled `pruneRateLimits`.
 - Signed requests stop forgery and replay outside the window, not a replay inside it: an endpoint
   whose effect must happen once also deduplicates by a message id.
+- `sendGuardedRequest` returns the status only: no response body, no redirect following and no proxy
+  support. A request that must go through an outbound proxy needs its own client.
 
 ## Build
 
