@@ -54,6 +54,6 @@ Done when: `npm run typecheck`, `npm run lint`, `npm test`, `npm run build` gree
 ### Phase 2: Guarded request
 
 #### Automated
-- [ ] 2.1 `sendGuardedRequest` with guarded lookup, error codes, exports and seam
-- [ ] 2.2 README and CHANGELOG describe the helper and the migration
-- [ ] 2.3 Typecheck, lint, test and build green
+- [x] 2.1 `sendGuardedRequest` with guarded lookup, error codes, exports and seam — ecc9a34
+- [x] 2.2 README and CHANGELOG describe the helper and the migration — ecc9a34
+- [x] 2.3 Typecheck, lint, test and build green — ecc9a34
