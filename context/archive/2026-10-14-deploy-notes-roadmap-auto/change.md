@@ -42,3 +42,6 @@ workflow until this ships.
 - First release (no previous tag): every archived roadmap in the tree at `--to` counts.
 - The "skip tags of failed releases" option is left out: the caller can already pass `--from`.
 - The main roadmap is checked in the working tree, like an explicit path (the release job checks out `--to`).
+- At the owner's request in the same thread, the dev dependency `@softure-ai/skills` moves from `^0.7.0` to
+  `^0.8.0` and its installer refreshes the managed block of `AGENTS.md` (hourly report routine; a roadmap is closed
+  before its release, which is the case `--roadmap=auto` covers).
