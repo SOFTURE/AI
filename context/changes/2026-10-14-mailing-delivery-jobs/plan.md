@@ -86,4 +86,4 @@ Done when: the repository link test and the language gate pass.
 ### Phase 3: Docs
 
 #### Automated
-- [ ] 3.1 README and CHANGELOG updated; link and language gates pass
+- [x] 3.1 README and CHANGELOG updated; link and language gates pass — 8243d6a

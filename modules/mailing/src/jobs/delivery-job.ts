@@ -117,7 +117,8 @@ export function getDeliveryJobResult(outcome: DeliveryOutcome, options: { readon
     case "halted":
       return retryAfter(outcome.reason, outcome.retryAfterSeconds);
     case "in-flight":
-      return retryJobLater("mailing.delivery_in_flight", Math.ceil(options.staleClaimMs / 1000));
+      // One second past the window: a claim exactly `staleClaimMs` old is still fresh.
+      return retryJobLater("mailing.delivery_in_flight", Math.ceil(options.staleClaimMs / 1000) + 1);
     case "uncertain":
       return failJob("mailing.delivery_uncertain");
   }

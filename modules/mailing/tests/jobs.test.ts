@@ -191,10 +191,10 @@ describe("deliveries through jobs", () => {
     await enqueueDelivery(test.ctx, { queue: QUEUE, scope: SCOPE, payload: { userId: "user_7" } });
     await test.run();
     expect(await listJobs(test.ctx.db)).toMatchObject([
-      { status: "pending", lastError: "mailing.delivery_in_flight", runAt: secondsFromNow(STALE_CLAIM_SECONDS) },
+      { status: "pending", lastError: "mailing.delivery_in_flight", runAt: secondsFromNow(STALE_CLAIM_SECONDS + 1) },
     ]);
 
-    test.clock.advance(STALE_CLAIM_SECONDS * 1000 + 1);
+    test.clock.advance((STALE_CLAIM_SECONDS + 1) * 1000);
     expect(await test.run()).toMatchObject({ succeeded: 1 });
     expect(test.provider.sent).toHaveLength(1);
   });
@@ -265,7 +265,7 @@ describe("getDeliveryJobResult", () => {
     [{ status: "retry-later" }, { ok: false, error: "mailing.unavailable" }],
     [{ status: "retry-later", retryAfterSeconds: 5 }, { ok: false, error: "mailing.unavailable", retryAfterSeconds: 5 }],
     [{ status: "halted", reason: "mailing.quota_exceeded", retryAfterSeconds: 60 }, { ok: false, error: "mailing.quota_exceeded", retryAfterSeconds: 60 }],
-    [{ status: "in-flight" }, { ok: false, error: "mailing.delivery_in_flight", retryAfterSeconds: 91 }],
+    [{ status: "in-flight" }, { ok: false, error: "mailing.delivery_in_flight", retryAfterSeconds: 92 }],
     [{ status: "uncertain" }, { ok: false, error: "mailing.delivery_uncertain", retry: false }],
   ] as const)("maps %j to %j", (outcome, result) => {
     expect(getDeliveryJobResult(outcome, options)).toEqual(result);
