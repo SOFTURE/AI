@@ -3,8 +3,15 @@
 #
 # Every pull request runs `static` (Next's route types, then the type check and lint). The unit tests cost the most
 # runner minutes, so they run on demand: "Run workflow" on a branch, or the label `run-tests` on the pull request.
-# Split a long suite with `shards`. SOFTURE/AI's workflows are called at {{workflowsRef}}; pin a commit SHA for an
-# immutable reference, best the commit of the release tag deploy@{{cliVersion}}, the same one deploy.yml pins.
+# Split a long suite with `shards`.
+{{#workflowsPinned}}
+# SOFTURE/AI's workflows are pinned to commit {{workflowsRef}} (--workflows-ref); move every
+# caller's `uses:` together to the commit of the new release tag when the app upgrades @softure-ai/deploy.
+{{/workflowsPinned}}
+{{^workflowsPinned}}
+# SOFTURE/AI's workflows are called at `master`; pin a commit SHA for an immutable reference, best the commit of the
+# release tag deploy@{{cliVersion}}, the same one deploy.yml pins.
+{{/workflowsPinned}}
 name: checks
 
 on:
