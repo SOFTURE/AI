@@ -1,12 +1,13 @@
 ---
 change_id: blog-indexnow-job
 title: "The blog's IndexNow submit runs as a retried job when the app uses @softure-ai/jobs (issue #493)"
-status: open
+status: archived
 roadmap_item: null
 issue: 493
 branch: claude/project-thread-qu0z1q
 created: 2026-10-14
 updated: 2026-10-14
+archived_at: 2026-10-14
 ---
 
 ## Intent

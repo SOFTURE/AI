@@ -74,4 +74,4 @@ Revert the merge; the synchronous path is the default and stays intact.
 ### Phase 3: Docs and gates
 
 #### Automated
-- [ ] 3.1 README and CHANGELOG describe the opt-in; build and all gates green
+- [x] 3.1 README and CHANGELOG describe the opt-in; build and all gates green — 952da00
