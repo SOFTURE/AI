@@ -62,14 +62,14 @@ Revert the merge; the synchronous path is the default and stays intact.
 ### Phase 1: Shared IndexNow target, queue detection, handler and enqueue
 
 #### Automated
-- [ ] 1.1 Handler and enqueue tests pass
-- [ ] 1.2 Gates green (typecheck, lint, test)
+- [x] 1.1 Handler and enqueue tests pass — c62e96c
+- [x] 1.2 Gates green (typecheck, lint, test) — c62e96c
 
 ### Phase 2: CLI and report
 
 #### Automated
-- [ ] 2.1 CLI tests with the queue pass, existing CLI tests unchanged
-- [ ] 2.2 Gates green (typecheck, lint, test)
+- [x] 2.1 CLI tests with the queue pass, existing CLI tests unchanged — a9c9064
+- [x] 2.2 Gates green (typecheck, lint, test) — a9c9064
 
 ### Phase 3: Docs and gates
 
