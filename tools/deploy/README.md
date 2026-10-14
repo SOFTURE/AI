@@ -905,7 +905,8 @@ Notes in another format than the one above are not results: until a run of this 
 [`examples/integration.yml`](examples/integration.yml), which runs it on a push of `integration/**` and of the main
 branch (the baseline for `new-red`), and sets its suite:
 
-1. the `test` job checks out the pushed commit without credentials (`contents: read`), runs `setup-command`
+1. the `test` job checks out the pushed commit without credentials (`contents: read`; `packages: read` for the image
+   pull below, which the caller must grant too, or GitHub refuses the run at start), runs `setup-command`
    (default `npm ci`) and `test-command` with bash, and keeps the exit code as the result; the JUnit report at
    report (`results-report`, or `junit-report`), if set, is uploaded. A red suite fails the job, so the run shows red
    in Actions too;

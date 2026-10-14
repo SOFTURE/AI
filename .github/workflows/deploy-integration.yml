@@ -8,7 +8,9 @@
 # branch the note is the baseline `new-red` compares with, and no ref is deleted.
 #
 # The suite runs in the `test` job, which may only read the repository and keeps no credentials: the app's code never
-# holds a token that can write. The `record` job runs nothing of the app's, only the pinned CLI and git, and is the
+# holds a token that can write. It may also read packages (issue #462): a `registry-token` set from the caller's
+# GITHUB_TOKEN carries this job's scopes, and GHCR answers a pull of a private image without `packages: read` with
+# "manifest unknown". A called job can only narrow the caller's token, so the caller grants `packages: read` too. The `record` job runs nothing of the app's, only the pinned CLI and git, and is the
 # one job with `contents: write` (the notes and the ref).
 #
 # A release workflow can run the suite against the image it is about to deploy (issue #308): `image` names it by digest,
@@ -102,6 +104,7 @@ jobs:
     timeout-minutes: 120
     permissions:
       contents: read
+      packages: read
     outputs:
       result: ${{ steps.suite.outputs.result }}
     steps:

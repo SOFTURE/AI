@@ -24,9 +24,11 @@ concurrency:
   group: integration-${{ github.ref }}
   cancel-in-progress: false
 
-# The notes and the ref deletion; the reusable workflow gives contents: write to its record job only.
+# The notes and the ref deletion; the reusable workflow gives contents: write to its record job only. packages: read
+# for the test job, which pulls a private prebuilt image with it; the run is refused at start without it.
 permissions:
   contents: write
+  packages: read
 
 jobs:
   integration:
