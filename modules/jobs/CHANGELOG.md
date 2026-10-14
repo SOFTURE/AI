@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.1.1
 
 - Recurring schedules (#491): `jobs({ schedules: { "<queue>": { every: "1h", payload } } })`. Workers enqueue each
   period's run once, however many run (a conditional upsert of the new table `jobs.schedules`, migration
