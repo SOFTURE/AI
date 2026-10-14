@@ -3,7 +3,7 @@ import type { ModuleContext, SoftureConfig } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
 import { z } from "zod";
 import type { RegisteredEvent } from "./contract.js";
-import type { PasswordResetSender } from "./password-reset-sender.js";
+import type { PasswordResetEnqueuer, PasswordResetSender } from "./password-reset-sender.js";
 import { ROLE_NAME_PATTERN } from "./roles.js";
 
 /**
@@ -158,6 +158,11 @@ export const authOptionsSchema = z.strictObject({
     .strictObject({
       /** Delivers reset links. Without it password reset is off: no link, and its pages are not found. */
       send: z.custom<PasswordResetSender>((value) => typeof value === "function", "must be a function").optional(),
+      /**
+       * Sends the link from a background job instead of the request (`enqueuePasswordReset` of
+       * `@softure-ai/auth/jobs`): the job's handler issues the link and calls `send`, with retry.
+       */
+      enqueue: z.custom<PasswordResetEnqueuer>((value) => typeof value === "function", "must be a function").optional(),
       /** How long a reset link works. */
       ttlMinutes: z.number().int().min(5).max(1440).default(60),
     })
@@ -167,6 +172,9 @@ export const authOptionsSchema = z.strictObject({
   /** Rewrites the path of every auth redirect (e.g. `tagRedirect` from `@softure-ai/analytics/next`). */
   rewriteRedirect: z.custom<RewriteRedirect>((value) => typeof value === "function", "must be a function").optional(),
 }).superRefine((options, context) => {
+  if (options.passwordReset.enqueue !== undefined && options.passwordReset.send === undefined) {
+    context.addIssue({ code: "custom", path: ["passwordReset", "enqueue"], message: "needs passwordReset.send, which the job calls" });
+  }
   const legacy = options.legacySession?.cookieName;
   const base = options.cookie.name;
   if (legacy !== undefined && [base, `__Host-${base}`, `__Secure-${base}`].includes(legacy)) {

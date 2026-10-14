@@ -1,6 +1,6 @@
 // Public API of @softure-ai/auth: the module factory for softure.config.ts, its types, messages and
 // tables, and the development reset sender. Database work is in `@softure-ai/auth/server`, the Next.js adapter in `/next`, the route
-// guard in `/proxy`, the forms in `/ui` and the role scripts in `/scripts`.
+// guard in `/proxy`, the reset job in `/jobs`, the forms in `/ui` and the role scripts in `/scripts`.
 import { defineModule, resolveMigrationsDir } from "@softure-ai/core";
 import type { RateLimitBucketInput } from "@softure-ai/security";
 import { authMessages } from "./messages/index.js";
@@ -43,7 +43,7 @@ export const auth = defineModule({
   manifest: {
     id: MODULE_ID,
     version: "0.2.0",
-    dependsOn: { security: "^0.2.0", mailing: "^0.2.0?", ops: "^0.2.0?" },
+    dependsOn: { security: "^0.2.0", mailing: "^0.2.0?", ops: "^0.2.0?", jobs: "^0.1.0?" },
     dbSchema: "auth",
     tables: ["users", "sessions", "user_roles", "password_resets"],
     env: [
@@ -94,7 +94,12 @@ export type {
 } from "./contract.js";
 export { authMessages, getAuthErrorMessage, type AuthMessages } from "./messages/index.js";
 export type { AuthOptions, AuthOptionsInput, OnRegisteredHook, RewriteRedirect, RewriteRedirectContext, ScryptParams } from "./options.js";
-export { consolePasswordResetSender, type PasswordResetDetails, type PasswordResetSender } from "./password-reset-sender.js";
+export {
+  consolePasswordResetSender,
+  type PasswordResetDetails,
+  type PasswordResetEnqueuer,
+  type PasswordResetSender,
+} from "./password-reset-sender.js";
 export { getSessionCookie, type SessionCookie } from "./session-cookie.js";
 export { toSafeNextPath } from "./safe-next-path.js";
 export { ADMIN_ROLE, ROLE_NAME_PATTERN } from "./roles.js";
