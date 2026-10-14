@@ -35,6 +35,6 @@ and the deploy action in a `production` job, each compose secret passed by name.
 
 ## Progress
 
-- [ ] Phase 1
-- [ ] Phase 2
-- [ ] Implementation review
+- [x] Phase 1: `1786d41`
+- [x] Phase 2: `5badde2`
+- [x] Implementation review: `reviews/impl-review.md`, no blocking finding

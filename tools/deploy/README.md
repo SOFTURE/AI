@@ -376,8 +376,8 @@ verify: 2 routes at https://example.com, 1 passed, 1 failed; certificate passed;
 `SOFTURE/AI/.github/workflows/deploy-app.yml` is a reusable workflow that releases one app to its VPS. The app's
 caller, [`examples/deploy.yml`](examples/deploy.yml) (the file `init` writes), calls it with `deploy: false` to check
 and build, then runs the deploy action in a job of the `production` environment, which takes the app's secrets by name
-(**One job per environment**, below); a single `uses:` line with `app-secrets` still works, but needs
-the whole secrets context. For the release tag, between them:
+(**One job per environment**, below); a single `uses:` line with `app-secrets` still works, but CodeQL
+flags the expression that builds it. For the release tag, between them:
 
 1. checks every input (tag, URL, paths, image, command word, port, timeout, release branch, build arguments) before
    anything runs, then refuses a tag whose commit is not on the release branch (`release-branch`, else the caller's
