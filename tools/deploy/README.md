@@ -471,7 +471,7 @@ it is refused. The workflow runs once this package is on npm.
 **Which ref callers pin.** A caller's `uses:` names SOFTURE/AI's workflows at a ref. Pin the commit SHA of the
 package's release tag `deploy@<version>`, the version the app's `deploy.sh` runs: the workflows at that commit default
 `deploy-cli-version` to the same version, and a SHA never moves. Print it with
-`git ls-remote https://github.com/SOFTURE/AI 'refs/tags/deploy@0.2.0^{}'` (the `^{}` peels the annotated tag to its
+`git ls-remote https://github.com/SOFTURE/AI 'refs/tags/deploy@0.2.1^{}'` (the `^{}` peels the annotated tag to its
 commit) and write it in place of `master` in each `uses:` line; `init --workflows-ref=<sha>` writes it for you. The
 examples call `master`, which works but follows every merge. There is no moving `deploy-workflows-v1` tag.
 
