@@ -1,6 +1,6 @@
 ---
 change_id: deploy-init-pinned-comment
-status: open
+status: archived
 ---
 
 # Plan: pinned header comment of the init callers (issue #473)
@@ -23,4 +23,7 @@ Files: `tools/deploy/src/init/generate.ts`, `tools/deploy/src/init/generate.test
 
 ## Progress
 
-- [ ] Phase 1: pinned and unpinned header comments
+- [x] Phase 1: pinned and unpinned header comments (`71ff466`; 12 new tests, 3 per caller, written first and
+  failing before the change)
+
+Gates on the branch: `npm run typecheck` and ESLint green (pre-commit); deploy tests pass (706).

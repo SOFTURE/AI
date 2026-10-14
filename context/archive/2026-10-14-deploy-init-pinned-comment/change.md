@@ -1,12 +1,13 @@
 ---
 change_id: deploy-init-pinned-comment
 title: "deploy: init --workflows-ref writes a pinned header comment instead of the pin-a-SHA advice (issue #473)"
-status: open
+status: archived
 roadmap_item: null
 issue: 473
 branch: claude/project-thread-wzlac2
 created: 2026-10-14
 updated: 2026-10-14
+archived_at: 2026-10-14
 ---
 
 ## Intent
