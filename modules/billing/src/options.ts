@@ -16,6 +16,10 @@ export const MAX_FEATURES = 20;
 export const MAX_PRICE_AMOUNT = 100_000_000;
 /** The most units one period counts. */
 export const MAX_PERIOD_COUNT = 1000;
+/** The highest usage limit one meter declares, per period. */
+export const MAX_USAGE_LIMIT = 1_000_000_000;
+/** The most meters one limits block declares. */
+export const MAX_METERS = 20;
 /** How long an open invoice request waits by default before it expires, in days. */
 export const DEFAULT_REQUEST_EXPIRY_DAYS = 30;
 /**
@@ -35,6 +39,18 @@ const PLAN_ID_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 const localizedTextSchema = z
   .record(z.string().refine(isLocale, "must be a BCP 47 language tag"), z.string().trim().min(1).max(500))
   .refine((text) => text.en !== undefined, "needs at least an en text");
+
+/**
+ * Usage limits per meter (`ai-calls: 100`), per period: an integer from 0, or null for no limit. A
+ * meter the block leaves out has limit 0 in that state or plan.
+ */
+const limitsSchema = z
+  .record(
+    z.string().max(64, "must be at most 64 characters").regex(PLAN_ID_PATTERN, "must be kebab-case, e.g. ai-calls"),
+    z.number().int().min(0).max(MAX_USAGE_LIMIT).nullable(),
+  )
+  .refine((limits) => Object.keys(limits).length <= MAX_METERS, `declares at most ${String(MAX_METERS)} meters`)
+  .default({});
 
 const periodSchema = z.union([
   z.enum([...PERIOD_UNITS, "lifetime"]).transform((unit): PlanPeriod => (unit === "lifetime" ? { unit } : { unit, count: 1 })),
@@ -56,6 +72,8 @@ const planSchema = z.strictObject({
   period: periodSchema,
   features: z.array(localizedTextSchema).max(MAX_FEATURES).default([]),
   isFeatured: z.boolean().default(false),
+  /** Usage limits of paid access bought with this plan; a meter left out falls back to `paid.limits`. */
+  limits: limitsSchema,
 });
 
 export const billingOptionsSchema = z.strictObject({
@@ -74,12 +92,22 @@ export const billingOptionsSchema = z.strictObject({
         .string()
         .refine((day) => parseDay(day) !== null, "must be a calendar day as YYYY-MM-DD, e.g. 2026-11-01")
         .optional(),
+      /** Usage limits during the trial. */
+      limits: limitsSchema,
     })
     .prefault({}),
   paid: z
     .strictObject({
       /** From how many days left the renewal notice shows; 0 never. Lifetime access never ends. */
       reminderDays: daysSchema.default(7),
+      /** Usage limits of paid access whose plan has none for a meter, or whose plan is unknown (an import). */
+      limits: limitsSchema,
+    })
+    .prefault({}),
+  readOnly: z
+    .strictObject({
+      /** Usage limits of a read-only account. */
+      limits: limitsSchema,
     })
     .prefault({}),
   requests: z

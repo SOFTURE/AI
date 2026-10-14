@@ -27,6 +27,7 @@ export {
   type RevokeManualGrantInput,
 } from "./grants.js";
 export { checkBillingTables } from "./health.js";
+export { findCurrentPlanId, getLimits } from "./limits.js";
 export { extendTrialManually, type ExtendTrialManuallyInput, type TrialExtensionResult } from "./trials.js";
 export { findAccessReminders, type AccessReminderDue, type FindAccessRemindersOptions } from "./reminders.js";
 export {
