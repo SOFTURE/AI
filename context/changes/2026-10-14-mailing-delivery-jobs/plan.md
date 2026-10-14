@@ -80,8 +80,8 @@ Done when: the repository link test and the language gate pass.
 ### Phase 2: The jobs entry
 
 #### Automated
-- [ ] 2.1 Job handler tests over a real queue pass
-- [ ] 2.2 Gates green (typecheck, lint, test, build)
+- [x] 2.1 Job handler tests over a real queue pass — 9d9d5c6
+- [x] 2.2 Gates green (typecheck, lint, test, build) — 9d9d5c6
 
 ### Phase 3: Docs
 

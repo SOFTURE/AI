@@ -44,6 +44,8 @@ can be imported into it, and `softure-mail` sends campaigns from a content file.
   in `/next`) sends a mail at most once per scope and recipient through the delivery ledger;
   `runDeliveries` does it for a whole list of recipients, with a limit, a pause and a dry run;
   `importDeliveries` (and `softure-mail import`) seeds it with the app's earlier history.
+- **Deliveries through jobs.** `enqueueDelivery` and `defineDeliveryJobHandler` (`/jobs`) let an app enqueue a
+  mail with its own write and have the `@softure-ai/jobs` worker send it, retrying while the provider is down.
 - **Preview and test send.** `previewMail(config, mail)` returns exactly what `sendMail` hands the
   provider; `softure-mail test` sends a mail to the configured `testAddress` and nowhere else.
 - **A SQL surface** for the app's own queries: `mailing.recipient_key(address)`,
@@ -128,8 +130,8 @@ const outcome = await deliverOnce({
 | `{ status: "done", outcome }` | an earlier call closed it (`sent` or `rejected`); nothing sent |
 | `{ status: "in-flight" }` | another sender holds a fresh claim; nothing sent |
 | `{ status: "uncertain" }` | a claim older than `uncertainClaimMs` is open: its send may have gone out; nothing sent (see Retries) |
-| `{ status: "retry-later", httpStatus? }` | the provider was unavailable; the claim is released, call again later |
-| `{ status: "halted", reason, httpStatus? }` | `mailing.provider_refused` or `mailing.quota_exceeded`: the account cannot send. The claim is released with its attempt given back; stop sending and call again once the account can send |
+| `{ status: "retry-later", httpStatus?, retryAfterSeconds? }` | the provider was unavailable; the claim is released, call again later (after `retryAfterSeconds` when the provider named a wait), or let a job do it (Deliveries through jobs) |
+| `{ status: "halted", reason, httpStatus?, retryAfterSeconds? }` | `mailing.provider_refused` or `mailing.quota_exceeded`: the account cannot send. The claim is released with its attempt given back; stop sending and call again once the account can send |
 
 - **Scopes** name what the mail is about and are the only registration a lifecycle mail needs:
   `<module>.<event>:<entity>` (`billing.trial-ending:sub_42`, `waitlist.welcome:<signup id>`).
@@ -152,6 +154,69 @@ const outcome = await deliverOnce({
   overrides them per call. Outcomes are fenced by the attempt number, so a sender that lost its
   claim cannot overwrite the one that took over.
 - A malformed scope or kind throws (a bug); a database failure propagates.
+
+### Deliveries through jobs: `@softure-ai/mailing/jobs`
+
+A mail sent from a request path (a welcome mail, a notice) should not be lost when the provider is down, nor slow
+the request. With `@softure-ai/jobs` (an optional peer dependency) the app enqueues the delivery in the same
+transaction as its own write, and the jobs worker sends it through `deliverOnce`, retrying until it is sent. The
+job runs at least once; the ledger and its idempotency key make the mail go out once.
+
+```ts
+// softure.config.ts: a queue for the mail, next to the mailing module
+jobs({ queues: { "mail.welcome": { maxAttempts: 8, backoff: { baseSeconds: 30, maxSeconds: 3600 } } } }),
+mailing({ from: "Example <hello@mail.example.com>", provider: resend() }),
+
+// src/jobs/handlers.ts: the handler builds the mail from the app's data when it runs
+import { defineDeliveryJobHandler } from "@softure-ai/mailing/jobs";
+
+export const handlers: JobHandlers = {
+  "mail.welcome": defineDeliveryJobHandler({
+    payload: z.object({ userId: z.string() }),
+    buildMail: async ({ userId }, { db }) => {
+      const user = await findUser(db, userId);
+      return user === null ? null : { to: user.email, subject: "Welcome", text: renderWelcome(user) };
+    },
+  }),
+};
+
+// the request: enqueue with the write, answer at once
+import { enqueueDelivery } from "@softure-ai/mailing/jobs";
+
+await db.transaction(async (tx) => {
+  const [user] = await tx.insert(users).values(input).returning();
+  await enqueueDelivery({ db: tx, clock, config }, { queue: "mail.welcome", scope: `app.welcome:${user.id}`, payload: { userId: user.id } });
+});
+```
+
+- **The payload holds ids, never the mail.** `enqueueDelivery` stores `{ scope, payload }`; no address, name or
+  token reaches `jobs.jobs`. `buildMail` reads the app's data on every attempt, before the ledger is read, so it
+  must have no side effects and return the same mail each time: the provider refuses a different body under the
+  same idempotency key (`mailing.rejected`). A link with a one-time token must be reproducible per request (derive
+  the token from the request's row, or store it encrypted), never minted per attempt. `buildMail` returning `null`
+  ends the job as done with nothing sent (the account is gone).
+- **The scope is the ledger key and the job's dedup key.** One scope per mail the app means to send once:
+  `auth.password-reset:<request id>`, `app.welcome:<user id>`. While a job for it is pending or running, a second
+  `enqueueDelivery` returns that job (`isDuplicate: true`). `runAt`, `delaySeconds` and `maxAttempts` pass through to
+  `enqueueJob`; a malformed scope throws.
+- **Outcomes** (`getDeliveryJobResult`, also exported for an app that writes its own handler):
+
+| `deliverOnce` | Job |
+| --- | --- |
+| `sent`, `done` | succeeded |
+| `rejected` (`invalid_input`, `suppressed`, `rejected`) | failed at once with the reason |
+| `retry-later` | retried after the provider's `Retry-After`, else after the queue's backoff (`mailing.unavailable`) |
+| `halted` | the same, with `mailing.quota_exceeded` or `mailing.provider_refused`: the job waits while the account is fixed |
+| `in-flight` | retried once the other sender's claim could be stale (`staleClaimMs`), as `mailing.delivery_in_flight` |
+| `uncertain` | failed as `mailing.delivery_uncertain`: the operator checks the provider's log first |
+
+- **Attempts are the job's.** The handler calls `deliverOnce` with `maxAttempts: null`, so the queue's
+  `maxAttempts` decides when a delivery stops; the ledger never closes it as rejected for being unavailable. A job
+  that runs out of attempts leaves the ledger row `pending`: `retryJob(ctx, id)` (`@softure-ai/jobs/server`) runs it
+  again, and the ledger still sends at most once. `deliverOptions` passes the claim windows
+  (`staleClaimMs`, `uncertainClaimMs`, `retakeUncertain`) to `deliverOnce`.
+- Without jobs, `deliverOnce` keeps its own attempt counting (`maxAttempts`, Retries above): nothing changes for an
+  app that does not import `/jobs`. Campaigns and `runDeliveries` stay operator commands that stop at an outage.
 
 ### Many recipients at once: `runDeliveries`
 
@@ -423,7 +488,8 @@ It cannot see whether the provider signs with the published key. The function ta
 npm install @softure-ai/mailing @softure-ai/core @softure-ai/db @softure-ai/ui drizzle-orm
 ```
 
-Peer dependencies: `drizzle-orm`, and `next` and `react` for the `/next` adapter. The module needs a
+Peer dependencies: `drizzle-orm`, `next` and `react` for the `/next` adapter, and `@softure-ai/jobs` (optional)
+for the `/jobs` entry (`npm install @softure-ai/jobs`). The module needs a
 database (its suppression list). The `/testing` entry imports `node:fs`.
 
 ## 3. Configuration
@@ -591,7 +657,8 @@ classes or its own layout (section 4).
 
 ## 9. Copy
 
-`src/messages/en.ts`: `errors.mailing.{invalid_input,rejected,unavailable,suppressed,provider_refused,quota_exceeded}`,
+`src/messages/en.ts`: `errors.mailing.{invalid_input,rejected,unavailable,suppressed,provider_refused,quota_exceeded,delivery_in_flight,delivery_uncertain}`
+(the last two are job codes, for an admin screen that shows a delivery job's state),
 `footer.{text,htmlLead,htmlLink}` (the list-mail footer, in the app's locale) and
 `unsubscribe.*` (the page). `getMailingErrorMessage(messages, code)` returns the copy for a code;
 override any text with `mailing({ messages: { en: { footer: { text: "…" } } } })`.
@@ -688,7 +755,8 @@ personal data. So the module neither exports nor deletes per user (`privacy: { e
 
 - One recipient per call; no cc, bcc or attachments.
 - `sendMail` does not retry: the caller retries `unavailable` with the same `idempotencyKey` (Resend
-  keeps keys for 24 hours), or uses `deliverOnce`, which keeps the state between runs.
+  keeps keys for 24 hours), uses `deliverOnce`, which keeps the state between runs, or enqueues it with
+  `enqueueDelivery`, which retries it from a job.
 - Exactly-once ends where the provider's idempotency window ends: a sender that dies after the
   provider accepted a mail and before the outcome was written leaves an `uncertain` claim once
   `uncertainClaimMs` passes; retaking it (`retakeUncertain`) may send that mail twice. No delivery,
