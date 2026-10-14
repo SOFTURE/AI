@@ -18,7 +18,7 @@ export const mailing = defineModule({
   manifest: {
     id: MODULE_ID,
     version: "0.2.0",
-    dependsOn: {},
+    dependsOn: { jobs: "*?" },
     dbSchema: "mailing",
     tables: ["suppressions", "campaigns", "deliveries"],
     env: [
@@ -69,6 +69,7 @@ export type {
   CampaignRecipient,
   CampaignRecipientFilter,
   CampaignRecipientSource,
+  DeliveryJobErrorCode,
   LegacyUnsubscribe,
   LegacyUnsubscribeParams,
   MailingErrorCode,

@@ -21,7 +21,8 @@ describe("the mailing module", () => {
   it("keeps its suppression list, campaigns and delivery ledger in the mailing schema and needs no other module", () => {
     expect(mailing.manifest.dbSchema).toBe("mailing");
     expect(mailing.manifest.tables).toEqual(["suppressions", "campaigns", "deliveries"]);
-    expect(mailing.manifest.dependsOn).toEqual({});
+    // jobs only for the optional `@softure-ai/mailing/jobs` entry.
+    expect(mailing.manifest.dependsOn).toEqual({ jobs: "*?" });
   });
 
   it("needs a database, which keeps the suppression list", () => {

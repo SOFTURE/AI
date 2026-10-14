@@ -20,6 +20,13 @@ export type MailingErrorCode =
   /** The account's sending quota is spent (HTTP 429 that is not a rate limit). Stop sending; retry when it renews. */
   | "mailing.quota_exceeded";
 
+/** The codes a delivery job fails or retries with that are not a provider's answer (`@softure-ai/mailing/jobs`). */
+export type DeliveryJobErrorCode =
+  /** Another sender holds a fresh claim on the delivery; the job looks again once that claim could be stale. */
+  | "mailing.delivery_in_flight"
+  /** A claim older than the provider keeps its idempotency key is open: the mail may have gone out. Not retried. */
+  | "mailing.delivery_uncertain";
+
 /** The codes that are about the sending account, not the mail: a run of sends stops at the first one. */
 export const HALTING_ERROR_CODES: ReadonlySet<MailingErrorCode> = new Set(["mailing.provider_refused", "mailing.quota_exceeded"]);
 

@@ -74,8 +74,8 @@ Done when: the repository link test and the language gate pass.
 ### Phase 1: Retry-After from the provider to the outcome
 
 #### Automated
-- [ ] 1.1 Resend, sendMail and deliverOnce tests for `retryAfterSeconds` pass
-- [ ] 1.2 Gates green (typecheck, lint, test)
+- [x] 1.1 Resend, sendMail and deliverOnce tests for `retryAfterSeconds` pass — 14a9004
+- [x] 1.2 Gates green (typecheck, lint, test) — 14a9004
 
 ### Phase 2: The jobs entry
 
