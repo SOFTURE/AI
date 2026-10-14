@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { parseInitAnswers, toAppName, type InitAnswers } from "../init/answers.js";
 import { COMPOSE_FILE, readAppFacts, type AppFacts } from "../init/app-facts.js";
-import { DEFAULT_APP_ROLE, planInitFiles, TEMPLATE_VERSIONS, writeInitFiles } from "../init/generate.js";
+import { DEFAULT_APP_ROLE, hasWorker, planInitFiles, TEMPLATE_VERSIONS, writeInitFiles } from "../init/generate.js";
 import { fail, USAGE_EXIT_CODE } from "./failure.js";
 import type { CliIo } from "./io.js";
 import { readFlags } from "./options.js";
@@ -39,6 +39,12 @@ function listNextConfigWarnings(facts: AppFacts): string[] {
     );
   }
   return warnings;
+}
+
+/** `@softure-ai/jobs` without `@softure-ai/db`: the worker container is part of the database part. */
+function listWorkerWarnings(facts: AppFacts): string[] {
+  if (facts.hasJobs !== true || facts.hasDatabase) return [];
+  return ["@softure-ai/jobs is a dependency but @softure-ai/db is not; the worker container needs the database part, so none was written"];
 }
 
 /** A value `deploy.sh` takes from a compose file init keeps, which could not be read there. */
@@ -125,6 +131,7 @@ export function runInit(args: string[], io: CliIo): void {
   const result = writeInitFiles({ dir, files, force: flags.force });
   const warnings = [
     ...listNextConfigWarnings(facts),
+    ...listWorkerWarnings(facts),
     ...listComposeWarnings(facts, answersResult.answers, replacesCompose),
     ...listWorkflowsRefWarnings({ written: result.written, workflowsRef: answersResult.answers.workflowsRef, cliVersion }),
   ];
@@ -133,7 +140,7 @@ export function runInit(args: string[], io: CliIo): void {
     ...result.skipped.map((path) => `kept    ${path} (exists; --force overwrites it)`),
     ...warnings.map((warning) => `warning ${warning}`),
     ...listCdnSteps(answersResult.answers).map((step) => `next    ${step}`),
-    `init: ${result.written.length} written, ${result.skipped.length} kept, database part ${facts.hasDatabase ? "on" : "off"} (@softure-ai/db ${facts.hasDatabase ? "found" : "not found"} in package.json).`,
+    `init: ${result.written.length} written, ${result.skipped.length} kept, database part ${facts.hasDatabase ? "on" : "off"} (@softure-ai/db ${facts.hasDatabase ? "found" : "not found"} in package.json)${hasWorker(facts) ? ", worker part on (@softure-ai/jobs found)" : ""}.`,
   ];
   io.stdout(`${lines.join("\n")}\n`);
 }

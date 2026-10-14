@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`db@x.y.z`).
 
+## 0.1.10
+
+- `Queryable` is drizzle's driver-neutral `PgDatabase` base instead of a union of both drivers' databases and
+  transactions, so `update(...).returning({ ...columns })` and `delete(...).returning({ ...columns })` type-check on
+  it (#475). An app can drop a local cast to `PgDatabase<PgQueryResultHKT>` added for this.
+- `execute()` on a `Queryable` resolves to the new `QueryableResult`: `rows`, `rowCount`, `command` and `fields`, the
+  same fields the former union exposed, so code reading them compiles unchanged. New exported types:
+  `QueryableResult`, `QueryableResultHKT`. Nothing to migrate.
+
 ## 0.1.9
 
 - The `@softure-ai/core` range also accepts 0.2.0, so an app can install core 0.2.0 next to this version.

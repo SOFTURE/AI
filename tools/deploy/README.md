@@ -50,7 +50,8 @@ softure-deploy env render [--compose=docker/prod/docker-compose.yml] [--out=.env
   env:
     DATABASE_URL: ${{ secrets.DATABASE_URL }}
     AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
-# Or every secret and variable of the repository, variables over secrets
+# Or every secret and variable of the repository, variables over secrets (CodeQL flags toJSON(secrets) as
+# excessive-secrets-exposure: the step sees every secret, so naming them, as above, is preferred)
 - run: npx softure-deploy env render --from-json-env=APP_SECRETS --from-json-env=APP_VARS
   env:
     APP_SECRETS: ${{ toJSON(secrets) }}
@@ -326,7 +327,7 @@ softure-deploy verify <url> [--config=deploy.json] [--timeout=<ms>] [--concurren
   `Signature-Agent` origin whose key directory lists it (default the verified URL's origin). The key never goes in
   `deploy.json` or the report: an unset or malformed variable fails the route with the variable's name and sends
   nothing. `requestHeaders` cannot set `signature`, `signature-input` or `signature-agent` next to it. Run `verify`
-  with the variable in its environment; `deploy-app.yml` passes it through `verify-env` or `verify-env-secret` (below).
+  with the variable in its environment; `deploy-app.yml` and the deploy action pass it through `verify-env` (below).
 
 ```json
 { "path": "/", "webBotAuth": { "keyEnv": "WEB_BOT_AUTH_PRIVATE_KEY" }, "requestHeaders": { "user-agent": "ExampleBot/1.0" }, "excludes": ["Just a moment"] }
@@ -393,7 +394,7 @@ one caller, [`examples/deploy.yml`](examples/deploy.yml), with a single `uses:` 
 4. waits until `<app-url><health-path>` answers 200, then runs `softure-deploy verify <app-url>` with the app's
    `deploy-config` read from the tag (only that file is checked out). A missing or invalid file fails the run;
    `deploy-config: ""` keeps the health route only. With the `origin-address` secret or `origin-address-var`, verify gets `--origin` too.
-   With `verify-env` or `verify-env-secret`, verify gets those variables (below), and only verify does.
+   With `verify-env`, verify gets those variables (below), and only verify does.
 5. whatever happened, uploads the run's facts as the artifact `deploy-report` (`summary` job, no permissions): each
    job's result, the image and its digest, and the server's `step|…`/`result|…` lines (`init`'s `deploy.sh` puts the
    backup's file name and the row counts on them).
@@ -408,10 +409,8 @@ one caller, [`examples/deploy.yml`](examples/deploy.yml), with a single `uses:` 
 | `compose-file` | `docker/prod/docker-compose.yml` | names the secrets to render; its folder ships to the server |
 | `server-script` | `docker/server/deploy.sh` | the forced command, installed on the server as `deploy.sh` with each release |
 | `environment` | none | GitHub environment of the deploy job |
-| `secrets-from-environment` | `false` | the deploy job reads the app's secrets and the SSH values from `environment` (below); needs `environment` and `secrets: inherit` |
-| `ssh-host-secret`, `ssh-user-secret`, `ssh-private-key-secret`, `ssh-known-hosts-secret` | `DEPLOY_SSH_HOST`, `DEPLOY_SSH_USER`, `DEPLOY_SSH_KEY`, `DEPLOY_SSH_KNOWN_HOSTS` | with `secrets-from-environment`, the secrets holding the SSH values |
+| `secrets-from-environment` | `false` | removed in 0.4.0: `true` is refused (below) |
 | `origin-address-var` | none | the `app-vars` entry holding the origin address, instead of the `origin-address` secret (below) |
-| `verify-env-secret` | none | with `secrets-from-environment`, the secret holding `verify-env`'s JSON object (e.g. `DEPLOY_VERIFY_ENV`); the verify job then runs in `environment` (below) |
 | `remote-command` | `deploy` | first word for the forced command |
 | `ssh-port` | `22` | |
 | `health-path`, `verify-timeout-seconds` | `/api/health`, `300` | the health wait before verify |
@@ -427,8 +426,8 @@ one caller, [`examples/deploy.yml`](examples/deploy.yml), with a single `uses:` 
 
 Secrets, passed by name: `ssh-host`, `ssh-user`, `ssh-private-key`, `ssh-known-hosts` and `app-secrets` (a JSON
 object such as `toJSON(secrets)`; names like `PATH`, `HOME`, `NODE_*` and `NPM_CONFIG_*` are refused, in `app-vars`
-too) are required unless `secrets-from-environment` is on; the check job names a missing one before anything is built
-(none is `required: true` in the workflow, since a caller with `secrets: inherit` cannot pass them). `origin-address`
+too) are required unless `deploy` is `false`; the check job names a missing one before anything is built (none is
+`required: true` in the workflow, since a caller with `deploy: false` passes none). `origin-address`
 is optional: the server's own address behind the CDN (the example passes `secrets.DEPLOY_ORIGIN_IP`), refused when
 `deploy-config` is empty, and verify fails when it accepts a direct connection. A secret, not an input, so the address
 is masked in the logs. `origin-address-var` names an `app-vars` entry with the address instead (e.g.
@@ -442,28 +441,14 @@ when `deploy-config` is empty, and any name the verify step or the runner sets i
 the build job of the same repository pushed (its `org.opencontainers.image.source` label links it); for an image
 elsewhere, set `registry-token: false` and log the server in.
 
-**Secrets kept in an environment (`secrets-from-environment`).** A caller's `secrets:` are evaluated in the caller's
-job, which cannot name an environment, so they hold repository and organization secrets only; and an environment
-secret cannot be named `app-secrets` or `ssh-private-key` (letters, digits and `_` only). An app that keeps its runtime
-secrets and deploy key only in an environment whose deployment policy admits release tags only (a workflow on any
-branch can read repository secrets) therefore sets `secrets-from-environment: true` with `environment` and passes
-`secrets: inherit` instead of named secrets. The deploy job, which runs in that environment, then renders `.env.prod`
-from its whole `secrets` context (the environment's secrets over the repository's), and sends with the secrets
-`ssh-host-secret`, `ssh-user-secret`, `ssh-private-key-secret` and `ssh-known-hosts-secret` name. `env render` writes
-only the compose file's required names, so `github_token`, the deploy key and unrelated secrets stay out of
-`.env.prod`; a name like `NODE_AUTH_TOKEN` among the secrets is left out and named, never rendered. The check job
-refuses the flag without `environment` or next to a named secret; the deploy job names any SSH secret the environment
-lacks before anything is rendered. The verify job runs outside the environment, so the origin address comes from
-`origin-address-var` (a repository variable in `app-vars`). Variables for verify (a Web Bot Auth key) live in one
-environment secret holding `verify-env`'s JSON object, named by `verify-env-secret` (the check job refuses the
-`verify-env` secret under the flag): the verify job then runs in `environment` as well and reads that one secret, never
-the whole secrets context. The verify step names the secret when the environment and the repository lack it, and
-checks its entries by `verify-env`'s rules before verify runs. An environment with required reviewers asks for the
-verify job again; a deployment policy that admits release tags only does not. Only the environment's secrets reach the release this
-way: `app-vars` is still evaluated in the caller's job, so the environment's variables never arrive, and a repository
-variable in `app-vars` wins over an environment secret of the same name. `secrets: inherit` passes the caller's
-repository and organization secrets only to a workflow in the same organization or enterprise; an app of another owner
-uses the deploy action (below). The example caller shows this form, commented.
+**No whole secrets context (0.4.0, issue #476).** Neither this workflow nor the deploy action reads `toJSON(secrets)`
+or a secret by a computed name (`secrets[inputs.name]`): either hands the runner every secret of the job, `github_token`
+and the deploy key included, and CodeQL flags it (`actions/excessive-secrets-exposure`). `secrets-from-environment`,
+which rendered from the deploy job's whole `secrets` context, is removed and `true` is refused with this hint; its
+inputs `ssh-host-secret`, `ssh-user-secret`, `ssh-private-key-secret`, `ssh-known-hosts-secret` and `verify-env-secret`
+are gone. Secrets kept in an environment reach the release through the deploy action, each by name (below). A caller
+that builds `app-secrets` with `toJSON(secrets)` keeps working, but its own repository's scan flags that line; the
+action's `secret-names` is the form without it.
 
 **One job per environment (the deploy action).** `secrets: inherit` passes nothing to a workflow of another owner,
 and a job with `uses:` cannot name an environment, so an app outside the SOFTURE organization cannot hand its
@@ -476,14 +461,14 @@ with the composite action `SOFTURE/AI/.github/actions/deploy`, as in
    workflow output `release`: one JSON object with the checked values (tag, `app-url`, `environment`, paths, port,
    timeout, `deploy-cli-version`, `build-args`, `secret-min-lengths`, `registry-token`, server files). With
    `deploy: false` the check job refuses every secret and the inputs only the deploy and verify jobs read
-   (`origin-address`, `secrets-from-environment`, `origin-address-var`, `verify-env-secret`, `e2e`): they belong to the
-   action now;
+   (`origin-address`, `origin-address-var`, `e2e`): they belong to the action now;
 2. each environment gets a job with `environment: <name>`, `permissions: { contents: read, packages: read }` and one
    step, the action with `release: ${{ needs.build.outputs.release }}`. That job's `secrets` and `vars` hold the
-   environment's values over the repository's, so `app-secrets: ${{ toJSON(secrets) }}` and
-   `app-vars: ${{ toJSON(vars) }}` render that environment's `.env.prod` (switches go in the environment's variables),
-   and the `DEPLOY_SSH_*` secrets reach that environment's server. The environment's deployment policy and reviewers
-   apply to this job.
+   environment's values over the repository's. The step's `env:` maps each secret the compose file uses by name
+   (`DATABASE_URL: ${{ secrets.DATABASE_URL }}`) and `secret-names` lists those names, so with
+   `app-vars: ${{ toJSON(vars) }}` they render that environment's `.env.prod` (switches go in the environment's
+   variables), and the `DEPLOY_SSH_*` secrets reach that environment's server. No step sees a secret the app does not
+   name. The environment's deployment policy and reviewers apply to this job.
 
 The action runs the same steps as the workflow's deploy and verify jobs (the workflow itself runs this action from its
 own commit): render and pack, send over SSH with the host key checked, wait for the health route, `softure-deploy
@@ -493,7 +478,8 @@ verify` with the tag's `deploy-config`, then the `deploy-report` artifact and th
 | --- | --- | --- |
 | `release` | required | the `release` output of the `deploy: false` call; refused unless it holds every checked value |
 | `ssh-host`, `ssh-user`, `ssh-private-key`, `ssh-known-hosts` | none | the environment's SSH values, e.g. `secrets.DEPLOY_SSH_HOST` |
-| `app-secrets` | `{}` | `toJSON(secrets)`: only the compose file's required names land in `.env.prod`; a runner name (`NODE_AUTH_TOKEN`) is left out and named |
+| `secret-names` | none | names of the app's secrets the step's `env:` holds, separated by spaces or newlines; only these are read, and only the compose file's names land in `.env.prod`. An empty value counts as unset. Refused: a name the runner owns (`PATH`, `HOME`, `CI`, `NODE_*`, `NPM_CONFIG_*`, `GITHUB_*`, `RUNNER_*`, `ACTIONS_*`, `INPUT_*`), one the render step sets itself (`COMPOSE_FILE`, `APP_VARS`, …), a repeat, or `secret-names` next to a non-empty `app-secrets` |
+| `app-secrets` | `{}` | a JSON object of secrets by name, the form before `secret-names`; `toJSON(secrets)` still works (a runner name such as `NODE_AUTH_TOKEN` is left out and named), but hands every secret to the runner and is flagged by CodeQL |
 | `app-vars` | `{}` | `toJSON(vars)`, rendered over a secret of the same name |
 | `app-url`, `environment` | the `release` values | a second environment's URL (the verify target) and name (the report) |
 | `origin-address` | none | the server's own address behind the CDN, e.g. `vars.DEPLOY_ORIGIN_IP` |
@@ -699,6 +685,7 @@ softure-deploy init --domain=example.com --image=ghcr.io/acme/app [--dir=.] [--n
 | `docker/server/deploy.sh` | the server's forced command for `deploy-app.yml` (below) |
 | `docker/server/cloudflare-only.sh`, `.service`, `.path`, `docker/prod/hooks/cloudflare-ranges.sh` | with `--cdn=cloudflare`: the origin firewall and its range refresh (below) |
 | `scripts/migrate.ts` | with a database: the migrate step the `Dockerfile` bundles |
+| `scripts/worker.ts` | with a database and `@softure-ai/jobs`: the job worker the `Dockerfile` bundles into `worker.mjs` and the compose file's `worker` service runs (below) |
 | `.github/workflows/deploy.yml` | the caller of `deploy-app.yml` with the domain, the image and the health path |
 | `.github/workflows/release.yml` | the caller of `deploy-cut-release.yml` (below): *Run workflow* cuts the next date tag in `UTC` and starts `deploy.yml` on it |
 | `.github/workflows/release-notes.yml` | the caller of `deploy-release-notes.yml` (below): *Run workflow* with `tag` and `body` replaces that release's body above its softure-deploy sections (`keep-report`) |
@@ -714,7 +701,7 @@ softure-deploy init --domain=example.com --image=ghcr.io/acme/app [--dir=.] [--n
   below; `cloudflare` is the only value) and `--report-role` (with a database, the Postgres role `deploy.sh`'s
   `report` reads as, ahead of the one read from a kept compose file; see below).
 - **Read from the app:** `@softure-ai/db` in `package.json` turns on the database part, `@softure-ai/ops` the
-  `/api/health` route (else `/`), a `public/` folder its `COPY`; a `next.config.*` without `standalone` is a warning,
+  `/api/health` route (else `/`), `@softure-ai/jobs` (with `@softure-ai/db`) the job worker, a `public/` folder its `COPY`; a `next.config.*` without `standalone` is a warning,
   and so is, with a database, one whose `serverExternalPackages` does not name `@softure-ai/db` (without it
   `next build` cannot resolve the driver the app does not install; see the `@softure-ai/db` README, §2).
   An existing `docker/prod/docker-compose.yml` (kept, or replaced with `--force`) gives `deploy.sh` the Postgres
@@ -730,6 +717,15 @@ softure-deploy init --domain=example.com --image=ghcr.io/acme/app [--dir=.] [--n
 - **Secrets:** the compose file's required variables are the list the workflow renders: `POSTGRES_PASSWORD`,
   `SOFTURE_MIGRATOR_PASSWORD`, `SOFTURE_APP_PASSWORD` with a database, plus `--env`. Use URL-safe passwords
   (`openssl rand -hex 32`): they go into connection URLs as they are.
+
+**Job worker** (`@softure-ai/jobs`). The `worker` service runs the same image as the app with `node worker.mjs` and the
+app's environment (`APP_ORIGIN`, `DATABASE_URL` as the app role, `--env`), so it needs no secret of its own. The image's
+`HEALTHCHECK` asks the app's port, so the service turns it off; `docker compose up --wait` then waits for it to run.
+It starts after `migrate`, and a deploy stops it with SIGTERM: running jobs get the module's `shutdownGraceMs` (20 s by
+default) and the rest are released for the next worker; `stop_grace_period: 30s` leaves that time before Docker kills
+it. `scripts/worker.ts` imports `handlers` from `src/jobs/handlers`; point it at the app's own module. An app that ran
+`init` before it depended on `@softure-ai/jobs` re-runs `init --force` or copies the three parts (the file, the
+`worker.mjs` bundle and `COPY` lines of the `Dockerfile`, the `worker` service) from a fresh `init` into a scratch folder.
 
 **Bundled for plain Node.** `migrate.mjs` and `ops/<name>.mjs` are ESM bundles that `node` runs outside Next, from
 code the app shares with its server build. Two esbuild flags make that work: `--alias:server-only=./.esbuild/empty.mjs`

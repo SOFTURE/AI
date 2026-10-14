@@ -10,7 +10,8 @@
 #   passes nothing and a `uses:` job cannot name an environment), calls deploy-app.yml with `deploy: false` for the
 #   check and the build, then runs this action from a job of its own that declares `environment:`. That job's
 #   `secrets` and `vars` contexts hold the environment's values, so production, dev and staging each deploy with their
-#   own (tools/deploy/examples/deploy-environments.yml).
+#   own (tools/deploy/examples/deploy-environments.yml). It passes each secret by name in the step's `env:` and lists
+#   the names in `secret-names`, so no step sees the whole secrets context (CodeQL excessive-secrets-exposure).
 #
 # `release` is deploy-app.yml's `release` output: the check job's validated values as one JSON object, so the check job
 # stays the one place that validates them. Every value reaches a script through `env:`, never interpolated into it.
@@ -46,8 +47,11 @@ inputs:
     description: known_hosts line(s) of the server
     default: ""
   app-secrets:
-    description: JSON object of the app's runtime secrets by name, e.g. toJSON(secrets) in a job with environment
+    description: JSON object of the app's runtime secrets by name; secret-names is preferred, as a whole secrets context (toJSON(secrets)) exposes every secret to the runner
     default: "{}"
+  secret-names:
+    description: "Names of the app's runtime secrets this step's env holds (NAME: secrets.NAME), separated by spaces or newlines; instead of app-secrets"
+    default: ""
   secrets-context:
     description: app-secrets is a whole secrets context (toJSON(secrets)), so a name reserved for the runner is left out and named instead of refused
     default: "true"
@@ -158,7 +162,8 @@ runs:
     # .env.prod (mode 0600) and prints names, never values. Names that steer Node or npm itself are refused. A value
     # in app-vars wins over a secret of the same name. A whole secrets context holds secrets the app does not pick
     # (github_token, the deploy key, an npm token): a reserved name there is left out and named instead of stopping the
-    # release. Then each build argument whose name .env.prod holds must carry the same value there; a difference
+    # release. With secret-names the secrets are read by name from this step's environment, which holds the env: of the
+    # caller's step: only the listed names, never a variable of the runner or of this step. Then each build argument whose name .env.prod holds must carry the same value there; a difference
     # removes the file and names the variable, never a value.
     - name: Render .env.prod
       if: inputs.send == 'true'
@@ -166,6 +171,7 @@ runs:
       working-directory: .softure-ai-release
       env:
         APP_SECRETS: ${{ inputs.app-secrets }}
+        SECRET_NAMES: ${{ inputs.secret-names }}
         SECRETS_FROM_ENVIRONMENT: ${{ inputs.secrets-context }}
         APP_VARS: ${{ inputs.app-vars }}
         BUILD_ARGS: ${{ steps.release.outputs.build-args }}
@@ -193,10 +199,42 @@ runs:
         }
         const secrets = readObject("APP_SECRETS", "app-secrets");
         const vars = readObject("APP_VARS", "app-vars");
+        // Read by name from the caller step's env: only listed names, never one the runner or this step sets.
+        const RUNNER = /^(GITHUB_.*|RUNNER_.*|ACTIONS_.*|INPUT_.*|CI)$/i;
+        const STEP_NAMES = new Set([
+          "APP_SECRETS", "SECRET_NAMES", "SECRETS_FROM_ENVIRONMENT", "APP_VARS", "BUILD_ARGS", "SECRET_MIN_LENGTHS",
+          "COMPOSE_FILE", "DEPLOY_CLI_VERSION", "DEPLOY_CLI",
+        ]);
+        const secretNames = (process.env.SECRET_NAMES ?? "").split(/\s+/).filter((name) => name !== "");
+        if (secretNames.length > 0) {
+          if (Object.keys(secrets).length > 0) {
+            console.log("::error::secret-names: pass the app's secrets by name or as app-secrets, not both.");
+            process.exit(1);
+          }
+          const problems = [];
+          const seen = new Set();
+          secretNames.forEach((name, index) => {
+            // A token that is not a name may be a pasted value, so it is named by position only.
+            if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) problems.push(`item ${index + 1} is not a name (letters, digits, _)`);
+            else if (seen.has(name)) problems.push(`${name} is listed twice`);
+            else if (RESERVED.test(name) || RUNNER.test(name)) problems.push(`${name} is reserved for the runner`);
+            else if (STEP_NAMES.has(name.toUpperCase())) problems.push(`${name} is a variable of the render step itself`);
+            seen.add(name);
+          });
+          if (problems.length > 0) {
+            for (const problem of problems) console.log(`::error::secret-names: ${problem}.`);
+            process.exit(1);
+          }
+          // An empty value counts as unset, so env render names a required one that is missing.
+          for (const name of secretNames) {
+            const value = process.env[name];
+            if (typeof value === "string" && value !== "") secrets[name] = value;
+          }
+        }
         const env = { PATH: process.env.PATH, HOME: process.env.HOME };
         const overridden = [];
         const leftOut = [];
-        const fromEnvironment = process.env.SECRETS_FROM_ENVIRONMENT === "true";
+        const fromEnvironment = secretNames.length === 0 && process.env.SECRETS_FROM_ENVIRONMENT === "true";
         for (const [input, values] of [["app-secrets", secrets], ["app-vars", vars]]) {
           for (const [name, value] of Object.entries(values)) {
             if (RESERVED.test(name) && input === "app-secrets" && fromEnvironment) {
