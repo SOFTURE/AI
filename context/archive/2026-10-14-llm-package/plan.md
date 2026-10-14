@@ -77,9 +77,9 @@ Done when the span test shows attributes and status for a success and a failure 
 
 #### Automated
 
-- [ ] Phase 1: package and core call
-- [ ] Phase 2: span, docs
-- [ ] Gates: typecheck, lint, test, build
+- [x] Phase 1: package and core call — bcc0f2e
+- [x] Phase 2: span, docs — 93cf461
+- [x] Gates: typecheck, lint, test, build — 93cf461 (verified by agent: 6922 tests passed)
 
 ## Before the next release
 

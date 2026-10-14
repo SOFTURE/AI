@@ -1,12 +1,13 @@
 ---
 change_id: llm-package
 title: "llm: a new package @softure-ai/llm with schema-validated generation, timeouts, stable error codes, usage and cost records, and a fake model (issue #472)"
-status: plan_reviewed
+status: archived
 roadmap_item: null
 issue: 472
 branch: claude/project-thread-umylap
 created: 2026-10-14
 updated: 2026-10-14
+archived_at: 2026-10-14
 ---
 
 ## Intent
@@ -39,6 +40,8 @@ provider), so the package has no provider layer of its own and no `openrouter()`
 ## Notes
 
 - Framing: skipped; the issue and the owner's narrowed scope state the problem and the solution space.
+- Archived 2026-10-14: `@softure-ai/llm` exists with structured output, error codes, usage records, spans and a fake
+  model; it ships with the next release.
 
 ## Decisions (auto)
 
