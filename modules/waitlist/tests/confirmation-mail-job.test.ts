@@ -6,7 +6,7 @@ import { listJobs, runDueJobs } from "@softure-ai/jobs/testing";
 import { fakeMailProvider } from "@softure-ai/mailing/testing";
 import { CONFIRMATION_MAIL_QUEUE, enqueueConfirmationMail, waitlistJobHandlers } from "@softure-ai/waitlist/jobs";
 import { confirmSignup, joinWaitlist, listSignups, type JoinWaitlistInput, type PendingSignup } from "@softure-ai/waitlist/server";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { CLIENT, createConfig, createTestWaitlist, OPTIONS, type TestWaitlist } from "./support.js";
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -111,6 +111,27 @@ describe("the confirmation mail through jobs", () => {
     test.clock.advance(10 * 1000);
     expect(await runJobs()).toEqual({ succeeded: 1, retried: 0, failed: 0, stale: 0 });
     expect((await confirmSignup(test.ctx, { token: sentToken(0), clientKey: CLIENT })).ok).toBe(true);
+  });
+
+  it("retries a failing mail template and logs no link", async () => {
+    test = await createTestWaitlist(
+      {
+        waitlist: {
+          ...QUEUED,
+          mailTemplate: (mail) => {
+            throw new Error(`template broke on ${mail.kind === "confirmation" ? mail.action.href : ""}`);
+          },
+        },
+        modules: [JOBS],
+      },
+      fakeMailProvider(),
+    );
+    const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    await requestSignup();
+    expect(await runJobs()).toEqual({ succeeded: 0, retried: 1, failed: 0, stale: 0 });
+    expect(await listJobs(test.database.db)).toMatchObject([{ status: "pending", lastError: "waitlist.confirmation_mail_failed" }]);
+    expect(errors.mock.calls.flat().join(" ")).not.toContain("token=");
+    errors.mockRestore();
   });
 
   it("fails a mail the provider rejects, without retry", async () => {

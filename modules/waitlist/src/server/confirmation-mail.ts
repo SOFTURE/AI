@@ -75,7 +75,7 @@ export async function deliverConfirmationMail(ctx: WaitlistContext, signup: Wait
 }
 
 /** What `sendConfirmationMail` did: nothing (no request waits for a link) or a send with mailing's result. */
-export type ConfirmationMailOutcome = { readonly status: "nothing_pending" } | { readonly status: "delivered"; readonly result: SendMailResult };
+export type ConfirmationMailOutcome = { readonly status: "nothing_pending" } | { readonly status: "attempted"; readonly result: SendMailResult };
 
 /**
  * Mails a fresh confirmation link for the sign-up with `signupId`: the work of the confirmation mail
@@ -91,5 +91,5 @@ export async function sendConfirmationMail(ctx: WaitlistContext, signupId: strin
     .where(and(eq(signups.id, signupId), isNotNull(signups.pendingScopes), gt(signups.confirmationExpiresAt, ctx.clock.now())))
     .returning();
   if (row === undefined) return { status: "nothing_pending" };
-  return { status: "delivered", result: await deliverConfirmationMail(ctx, toSignup(row), token) };
+  return { status: "attempted", result: await deliverConfirmationMail(ctx, toSignup(row), token) };
 }

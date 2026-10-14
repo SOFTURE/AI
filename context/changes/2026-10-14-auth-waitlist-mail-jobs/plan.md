@@ -67,17 +67,17 @@ Done when: `npm run typecheck`, `npm run lint`, `npm test`, `npm run build` gree
 ### Phase 1: Auth
 
 #### Automated
-- [ ] 1.1 Reset mail enqueued with `{ userId }` and sent by the `auth.password-reset` handler
-- [ ] 1.2 Package tests green
+- [x] 1.1 Reset mail enqueued with `{ userId }` and sent by the `auth.password-reset` handler — dcf6bed
+- [x] 1.2 Package tests green — dcf6bed
 
 ### Phase 2: Waitlist
 
 #### Automated
-- [ ] 2.1 Confirmation mail enqueued in the join transaction and sent by the `waitlist.confirmation-mail` handler
-- [ ] 2.2 Package tests green
+- [x] 2.1 Confirmation mail enqueued in the join transaction and sent by the `waitlist.confirmation-mail` handler — f3ccc72
+- [x] 2.2 Package tests green — f3ccc72
 
 ### Phase 3: Docs and gates
 
 #### Automated
-- [ ] 3.1 READMEs and CHANGELOGs describe the jobs path and the migration
+- [x] 3.1 READMEs and CHANGELOGs describe the jobs path and the migration — 76ba2bb
 - [ ] 3.2 Typecheck, lint, test and build green

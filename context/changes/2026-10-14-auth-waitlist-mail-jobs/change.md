@@ -1,7 +1,7 @@
 ---
 change_id: auth-waitlist-mail-jobs
 title: "Auth and waitlist send their transactional mails through jobs when the app runs a worker (issue #494)"
-status: planned
+status: impl_reviewed
 roadmap_item: null
 issue: 494
 branch: claude/project-thread-pizoe9
