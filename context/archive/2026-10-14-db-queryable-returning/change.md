@@ -38,6 +38,9 @@ Labels: none yet (`pkg: db`, `bug` fit). Releases are batched by the coordinator
 
 - `Queryable` becomes drizzle's driver-neutral `PgDatabase<QueryableResultHKT, TSchema>` instead of a union.
   Chosen over a narrowing helper: modules keep taking `Queryable` and need no extra call.
-- `QueryableResultHKT` types `execute()` results as `{ rows }`, the part node-postgres' `QueryResult` and PGlite's
-  `Results` share. Drizzle's own `PgQueryResultHKT` would make every `execute()` result `unknown` (breaks ops,
-  privacy and the db tests). Driver-specific fields (`rowCount`, `fields`) stay reachable on `Database` or the handle.
+- `QueryableResultHKT` types `execute()` results as `QueryableResult`: `rows`, `rowCount`, `command` and
+  `fields`, the fields the former union of node-postgres' `QueryResult` and PGlite's `Results` exposed. Drizzle's
+  own `PgQueryResultHKT` would make every `execute()` result `unknown` (breaks ops, privacy and the db tests).
+- Compatibility (after the coordinator flagged a narrower `{ rows }` result as breaking): keeping those four fields
+  makes the change backward compatible for code reading `execute()` results, so db ships as a patch (0.1.10) and
+  the twelve dependents' `^0.1.x` ranges need no widening and no re-release.

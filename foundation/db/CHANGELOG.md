@@ -9,9 +9,9 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 - `Queryable` is drizzle's driver-neutral `PgDatabase` base instead of a union of both drivers' databases and
   transactions, so `update(...).returning({ ...columns })` and `delete(...).returning({ ...columns })` type-check on
   it (#475). An app can drop a local cast to `PgDatabase<PgQueryResultHKT>` added for this.
-- `execute()` on a `Queryable` resolves to the new `QueryableResult` (`{ rows }`). Code that read a driver-specific
-  field (`rowCount`, `fields`) from it takes the `Database` or the handle instead. New exported types:
-  `QueryableResult`, `QueryableResultHKT`.
+- `execute()` on a `Queryable` resolves to the new `QueryableResult`: `rows`, `rowCount`, `command` and `fields`, the
+  same fields the former union exposed, so code reading them compiles unchanged. New exported types:
+  `QueryableResult`, `QueryableResultHKT`. Nothing to migrate.
 
 ## 0.1.9
 

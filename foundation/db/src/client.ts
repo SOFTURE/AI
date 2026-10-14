@@ -37,11 +37,14 @@ export type PgliteClientDatabase<TSchema extends DatabaseSchema = DatabaseSchema
 export type Database<TSchema extends DatabaseSchema = DatabaseSchema> = PostgresDatabase<TSchema> | PgliteClientDatabase<TSchema>;
 
 /**
- * What `execute()` resolves to on a `Queryable`: the part both drivers' results share (node-postgres'
- * `QueryResult` and PGlite's `Results` each carry `rows`).
+ * What `execute()` resolves to on a `Queryable`: the fields node-postgres' `QueryResult` and PGlite's `Results`
+ * share, typed as each driver can fill them (PGlite may leave `command` and `rowCount` out).
  */
 export interface QueryableResult<TRow> {
   readonly rows: TRow[];
+  readonly rowCount?: number | null;
+  readonly command?: string;
+  readonly fields: readonly { readonly name: string; readonly dataTypeID: number }[];
 }
 
 /** The drizzle result kind of a `Queryable`, mapping a row type to `QueryableResult`. */

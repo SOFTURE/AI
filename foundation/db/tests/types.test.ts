@@ -42,4 +42,11 @@ describe("Queryable queries", () => {
     }
     expectTypeOf(countNotes).returns.resolves.toEqualTypeOf<{ count: number }[]>();
   });
+
+  it("keeps the result fields both drivers report on execute()", () => {
+    type ExecuteResult = Awaited<ReturnType<Queryable["execute"]>>;
+    expectTypeOf<ExecuteResult["rowCount"]>().toEqualTypeOf<number | null | undefined>();
+    expectTypeOf<ExecuteResult["command"]>().toEqualTypeOf<string | undefined>();
+    expectTypeOf<ExecuteResult["fields"][number]["name"]>().toEqualTypeOf<string>();
+  });
 });
