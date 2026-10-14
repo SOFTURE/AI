@@ -42,6 +42,6 @@ CHANGELOG, version minor bump to 0.3.0 with the workflow defaults, issue #468 cl
 
 ## Progress
 
-- [ ] 1 action and workflow
-- [ ] 2 tests
-- [ ] 3 docs, example, release prep
+- [x] 1 action and workflow (91d60e9)
+- [x] 2 tests (4c27f56)
+- [x] 3 docs, example, release prep (5e75176); gates: typecheck, lint, npm test (6901 passed), build, actionlint green

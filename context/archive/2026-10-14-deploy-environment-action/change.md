@@ -1,12 +1,13 @@
 ---
 change_id: deploy-environment-action
 title: "deploy: environment-scoped secrets for callers outside the organization, through a deploy action run in the caller's job (issue #468)"
-status: active
+status: archived
 roadmap_item: null
 issue: 468
 branch: claude/project-thread-rqwqls
 created: 2026-10-14
 updated: 2026-10-14
+archived_at: 2026-10-14
 ---
 
 ## Intent
