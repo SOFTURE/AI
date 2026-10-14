@@ -69,9 +69,8 @@ Done when: `npm run typecheck`, `npm run lint`, `npm test`, `npm run build` gree
 - Missed slots collapse into one run at the latest slot.
 - Lateness lives in `getQueueStats`, not in the module health check: a late prune must not make the app unready.
 - Handlers live in a `./jobs` subpath so apps without jobs never load it.
-- Peers take `@softure-ai/jobs` as `^0.1.0 || 0.0.0` and `dependsOn` as `jobs: "*?"`: jobs is still the unreleased
-  workspace `0.0.0`, which `^0.1.0` alone cannot install (impl review). jobs releases before or with the five
-  packages.
+- Peers take `@softure-ai/jobs` as `^0.1.0` (optional) and `dependsOn` as `jobs: "^0.1.0?"`; jobs 0.1.0 was released
+  while this change ran, and its schedules ship in the next jobs version.
 
 ## Progress
 

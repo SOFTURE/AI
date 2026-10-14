@@ -1,7 +1,7 @@
 # Implementation review: jobs-schedules
 
 Reviewed: the branch against plan.md @ 2026-10-14. Verdict: ready.
-Findings: 0 critical, 1 warning (fixed), 2 notes.
+Findings: 0 critical, 1 warning (fixed), 1 note.
 
 ## Lenses
 | Lens | Result |
@@ -12,13 +12,10 @@ Findings: 0 critical, 1 warning (fixed), 2 notes.
 | Language and docs | PASS: English only; migration steps in each CHANGELOG |
 
 ## Findings
-- WARNING (fixed): an optional peer range `^0.1.0` cannot be installed while jobs is the unreleased workspace
-  `0.0.0` (`npm install` looks for it on the registry and the lockfile cannot be written). The peers take
-  `^0.1.0 || 0.0.0`, and `dependsOn` takes `jobs: "*?"`, since the module manifest ranges cannot express "0.1 or the
-  unreleased workspace version" and a jobs module of any version runs the handlers.
-- NOTE: jobs must be released (0.1.0) before or with the five packages that now name it as a peer; their own
-  release changes nothing for an app without jobs.
+- WARNING (fixed): an optional peer range `^0.1.0` could not be installed while jobs was the unreleased workspace
+  `0.0.0`. Resolved by merging master once jobs 0.1.0 was released (4117981): the peers take `^0.1.0` and
+  `dependsOn` takes `jobs: "^0.1.0?"`; the schedules entry of the jobs CHANGELOG moved back under `## Unreleased`.
 - NOTE: a schedule removed from the config keeps its `jobs.schedules` row; it is ignored and harmless.
 
 ## Decisions (auto)
-- Peer range and `dependsOn` as above; narrowing the peer to `^0.1.0` can ride a later change once jobs is published.
+- Peer range and `dependsOn` as above. The five packages and the next jobs version release together.

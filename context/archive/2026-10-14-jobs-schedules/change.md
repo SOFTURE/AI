@@ -30,8 +30,7 @@ its own, and `getQueueStats` tells it when a schedule has not run in time.
 - Owns `modules/jobs/` and the new `jobs` entries (subpath, peer dependency, README, CHANGELOG) of auth, mcp-access,
   waitlist, security and analytics. Does not touch billing (#490) or any adopting app.
 - The plain prune functions stay: apps without jobs keep their cron.
-- No release in this change (the coordinator releases; jobs must be released first or together, since the other
-  packages take it as an optional peer `^0.1.0`).
+- No release in this change (the coordinator releases). The other packages take jobs as an optional peer `^0.1.0`.
 - Everything in English.
 
 ## Notes
