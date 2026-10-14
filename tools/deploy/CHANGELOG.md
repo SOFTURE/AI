@@ -35,6 +35,10 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   environment, health check off, `stop_grace_period: 30s`, after `migrate`). Apps without `@softure-ai/jobs` get
   byte-identical files. An app that already ran `init` adds the three parts by hand or re-runs `init --force` on those
   files (see the README, `softure-deploy init`).
+- **Pinned callers say they are pinned (#473):** with `init --workflows-ref=<sha>`, the header comments of the
+  generated `deploy.yml`, `checks.yml`, `release.yml` and `release-notes.yml` say the callers are pinned to that commit
+  and are moved together on an upgrade; the "pin a commit SHA" advice and the `git ls-remote` hint are written only
+  when they call `master`. Only comments change: an app that already ran `init` may keep or hand-edit its comments.
 
 ## 0.3.0
 
