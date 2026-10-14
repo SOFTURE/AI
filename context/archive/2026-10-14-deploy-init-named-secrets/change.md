@@ -1,12 +1,13 @@
 ---
 change_id: deploy-init-named-secrets
 title: "deploy: init's caller and the example pass secrets by name (issue #486)"
-status: open
+status: archived
 roadmap_item: null
 issue: 486
 branch: claude/project-thread-jpk73u
 created: 2026-10-14
 updated: 2026-10-14
+archived_at: 2026-10-14
 ---
 
 ## Intent
