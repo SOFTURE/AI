@@ -1,12 +1,13 @@
 ---
 change_id: security-outbound-guard
 title: "Apps send requests to third-party URLs through an SSRF-guarded helper (issue #479)"
-status: planned
+status: archived
 roadmap_item: null
 issue: 479
 branch: claude/project-thread-egsklk
 created: 2026-10-14
 updated: 2026-10-14
+archived_at: 2026-10-14
 ---
 
 ## Intent
@@ -38,3 +39,5 @@ Issue #479 (labels `enhancement`, `pkg: security`), proposal quoted:
 
 - Placement: unlinked one-off from the issue queue (`autonomy.source: issues`), `roadmap_item: null`.
 - Framing: skipped. The issue names a concrete gap and contract; nothing about the problem is in doubt.
+- Archived 2026-10-14: `@softure-ai/security/server` sends requests to third-party URLs only to public addresses
+  (`sendGuardedRequest`, `isPublicAddress`); ships in the next security release.
