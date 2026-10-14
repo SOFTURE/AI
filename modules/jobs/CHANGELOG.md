@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.1.0
 
 - First version (#471): background jobs in Postgres (`jobs.jobs`). `jobs({ queues })` in `softure.config.ts`;
   `enqueueJob` inside the caller's transaction with an optional `dedupKey`; `cancelJob`, `retryJob`, `getJob`,
