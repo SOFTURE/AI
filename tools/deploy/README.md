@@ -63,7 +63,7 @@ The release report between two tags, in Markdown, ready for a GitHub Release bod
 
 ```bash
 softure-deploy release-notes [--to=HEAD] [--from=<tag>] [--match=<glob>] [--repo-url=<url>] [--locale=en] [--out=<file>]
-                             [--roadmap=context/foundation/roadmap.md] [--body=<release body file>]
+                             [--roadmap=auto|<roadmap file>] [--body=<release body file>]
 ```
 
 - **Range:** `--from` defaults to the nearest tag before `--to` that matches `--match` (a git glob, default `*`;
@@ -79,6 +79,11 @@ softure-deploy release-notes [--to=HEAD] [--from=<tag>] [--match=<glob>] [--repo
 - **Roadmap items:** `--roadmap=<file>` adds a `### Roadmap items` table after the summary: the rows of the SOFTURE
   roadmap's `## At a glance` table whose status is `done_code` (on the main branch, waiting for this release), with
   their ID, change and outcome. A missing file fails; a release with no such row has no table.
+  - `--roadmap=auto` (what a release workflow should pass) finds the roadmap itself: `context/foundation/roadmap.md`
+    while it exists, else the roadmaps archived to `context/foundation/archive/<YYYY-MM-DD>[-N]-roadmap.md` since the
+    previous tag (`--from`), oldest first and read as they are at `--to`. A roadmap closed before the release is
+    found, a re-run or redeploy of that release finds it again, and a later fix-only release does not repeat its
+    table. Finding none is no table, not a failure.
 - **Inside a release body:** `--body=<file>` reads the release's current body (a missing file is an empty one) and
   writes the report between `<!-- softure-deploy:release-notes -->` and `<!-- /softure-deploy:release-notes -->`:
   replaced in place on a rerun, appended after the owner's text on the first run, the text around it kept. The

@@ -197,6 +197,54 @@ describe("softure-deploy release-notes", () => {
     expect(err.at(-1)).toBe("release-notes: cannot read missing.md (ENOENT).\n");
   });
 
+  describe("--roadmap=auto", () => {
+    const ROADMAP = (id: string): string =>
+      `## At a glance\n\n| ID | Change | Outcome | Status |\n| --- | --- | --- | --- |\n| **${id}** | \`work\` | outcome of ${id} | done_code |\n| **XX-9** | \`old\` | shipped | done |\n`;
+
+    function commitFile(path: string, text: string, message: string): void {
+      mkdirSync(join(dir, path, ".."), { recursive: true });
+      writeFileSync(join(dir, path), text);
+      git("add", path);
+      git("commit", "-q", "-m", message);
+    }
+
+    it("uses the main roadmap while it exists", async () => {
+      commitFile("context/foundation/roadmap.md", ROADMAP("AB-1"), "docs: roadmap");
+      git("tag", "v1.2.0");
+      expect(await runCli(["release-notes", "--to=v1.2.0", "--roadmap=auto"], makeIo())).toBe(0);
+      expect(out.join("")).toContain("| **AB-1** | `work` | outcome of AB-1 |");
+    });
+
+    it("uses the roadmaps archived since the previous tag, oldest first, read at --to", async () => {
+      commitFile("context/foundation/archive/2026-10-01-roadmap.md", ROADMAP("OL-1"), "docs: an older roadmap");
+      git("tag", "v1.2.0");
+      commitFile("context/foundation/archive/2026-10-03-2-roadmap.md", ROADMAP("AB-2"), "docs: close the second roadmap");
+      commitFile("context/foundation/archive/2026-10-03-roadmap.md", ROADMAP("AB-1"), "docs: close the first roadmap");
+      git("tag", "v1.3.0");
+      commitFile("context/foundation/archive/2026-10-03-roadmap.md", ROADMAP("ZZ-1"), "docs: a later edit");
+      expect(await runCli(["release-notes", "--to=v1.3.0", "--roadmap=auto"], makeIo())).toBe(0);
+      const notes = out.join("");
+      expect(notes).toContain("### Roadmap items");
+      expect(notes.indexOf("**AB-1**")).toBeGreaterThan(-1);
+      expect(notes.indexOf("**AB-1**")).toBeLessThan(notes.indexOf("**AB-2**"));
+      expect(notes).not.toContain("OL-1");
+      expect(notes).not.toContain("ZZ-1");
+      expect(notes).not.toContain("XX-9");
+    });
+
+    it("writes no table and exits 0 with neither a main nor a newly archived roadmap", async () => {
+      commitFile("context/foundation/archive/2026-10-01-roadmap.md", ROADMAP("OL-1"), "docs: an older roadmap");
+      git("tag", "v1.2.0");
+      commitFile("notes.txt", "text", "feat: a fix-only release (#4)");
+      git("tag", "v1.3.0");
+      expect(await runCli(["release-notes", "--to=v1.3.0", "--roadmap=auto"], makeIo())).toBe(0);
+      expect(out.join("")).not.toContain("### Roadmap items");
+      out = [];
+      expect(await runCli(["release-notes", "--to=v1.1.0", "--roadmap=auto"], makeIo())).toBe(0);
+      expect(out.join("")).not.toContain("### Roadmap items");
+    });
+  });
+
   it("writes the report to a file in the --locale it names", async () => {
     const code = await runCli(["release-notes", "--from=v1.0.0", "--to=v1.1.0", "--locale=en", "--out=notes.md"], makeIo());
     expect(code).toBe(0);

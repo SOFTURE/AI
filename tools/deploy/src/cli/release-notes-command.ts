@@ -1,10 +1,19 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { DEPLOY_LOCALES, getDeployMessages, isDeployLocale } from "../messages/index.js";
-import { findPreviousTag, getCommitDate, isSafeRef, readReleaseCommits, resolveCommit } from "../notes/git.js";
+import {
+  findPreviousTag,
+  getCommitDate,
+  isSafeRef,
+  listAddedFiles,
+  readFileAt,
+  readReleaseCommits,
+  resolveCommit,
+} from "../notes/git.js";
 import { writeReleaseSection } from "../notes/release-body.js";
 import { toReleaseEntries } from "../notes/release-entries.js";
 import { formatReleaseNotes } from "../notes/release-notes.js";
+import { isArchivedRoadmap, MAIN_ROADMAP, ROADMAP_ARCHIVE, sortArchivedRoadmaps } from "../notes/roadmap-files.js";
 import { parseRoadmapItems, selectShippingItems, type RoadmapItem } from "../notes/roadmap-items.js";
 import { fail, USAGE_EXIT_CODE } from "./failure.js";
 import type { CliIo } from "./io.js";
@@ -36,10 +45,27 @@ function readText(path: string, shown: string): string {
   }
 }
 
-/** The `done_code` items of `--roadmap`; a missing file fails, since the caller asked for the table. */
-function readShippingItems(flag: string | undefined, cwd: string): RoadmapItem[] {
+const AUTO_ROADMAP = "auto";
+
+/**
+ * The roadmaps `--roadmap=auto` reads: the main roadmap while it exists, else the roadmaps archived in `from..to`
+ * (oldest first, read at `to`), so a later fix-only release does not repeat an old table. None is no table.
+ */
+function readAutoRoadmaps({ cwd, from, to }: { cwd: string; from: string | null; to: string }): string[] {
+  const main = resolve(cwd, MAIN_ROADMAP);
+  if (existsSync(main)) return [readText(main, MAIN_ROADMAP)];
+  const archived = listAddedFiles({ cwd, from, to, dir: ROADMAP_ARCHIVE }).filter(isArchivedRoadmap);
+  return sortArchivedRoadmaps(archived).map((path) => readFileAt({ cwd, ref: to, path }));
+}
+
+/**
+ * The `done_code` items of `--roadmap`. An explicit file that is missing fails, since the caller asked for the table;
+ * `auto` finds the roadmap itself and finding none is no table.
+ */
+function readShippingItems(flag: string | undefined, range: { cwd: string; from: string | null; to: string }): RoadmapItem[] {
   if (flag === undefined) return [];
-  return selectShippingItems(parseRoadmapItems(readText(resolve(cwd, flag), flag)));
+  const roadmaps = flag === AUTO_ROADMAP ? readAutoRoadmaps(range) : [readText(resolve(range.cwd, flag), flag)];
+  return roadmaps.flatMap((markdown) => selectShippingItems(parseRoadmapItems(markdown)));
 }
 
 /** The current release body of `--body`; a file that does not exist yet is an empty body (a first run). */
@@ -52,8 +78,8 @@ function readBody(flag: string | undefined, cwd: string): string | null {
 /**
  * `softure-deploy release-notes [--to=HEAD] [--from=<tag>] [--match=*] [--repo-url=…] [--locale=en] [--out=…]`:
  * the release report between two tags, from first-parent commits (one per merged pull request). `--roadmap=<file>`
- * adds the roadmap's `done_code` items; `--body=<file>` writes the report into its section of that release body,
- * keeping the text around it.
+ * adds the roadmap's `done_code` items (`auto`: the main roadmap, else the ones archived since `--from`);
+ * `--body=<file>` writes the report into its section of that release body, keeping the text around it.
  */
 export function runReleaseNotes(args: string[], io: CliIo): void {
   const flags = readFlags("release-notes", args, {
@@ -73,7 +99,7 @@ export function runReleaseNotes(args: string[], io: CliIo): void {
   const to = checkRef("to", flags.to, io.cwd);
   const from =
     flags.from === undefined ? findPreviousTag({ cwd: io.cwd, to, match: flags.match }) : checkRef("from", flags.from, io.cwd);
-  const roadmapItems = readShippingItems(flags.roadmap, io.cwd);
+  const roadmapItems = readShippingItems(flags.roadmap, { cwd: io.cwd, from, to });
   const body = readBody(flags.body, io.cwd);
   const report = formatReleaseNotes({
     entries: toReleaseEntries(readReleaseCommits({ cwd: io.cwd, from, to })),
