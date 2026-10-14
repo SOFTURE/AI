@@ -12,6 +12,8 @@ export {
   type PgliteClientDatabase,
   type PostgresDatabase,
   type Queryable,
+  type QueryableResult,
+  type QueryableResultHKT,
 } from "./client.js";
 export { closeSharedDatabase, closeSharedDatabases, getSharedDatabase } from "./shared.js";
 export { closeProcessDatabases, createProcessDatabase, type ProcessDatabase, type ProcessDatabaseOptions } from "./process.js";
