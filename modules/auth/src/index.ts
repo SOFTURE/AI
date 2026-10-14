@@ -43,7 +43,7 @@ export const auth = defineModule({
   manifest: {
     id: MODULE_ID,
     version: "0.2.0",
-    dependsOn: { security: "^0.2.0", mailing: "^0.2.0?", ops: "^0.2.0?" },
+    dependsOn: { security: "^0.2.0", mailing: "^0.2.0?", ops: "^0.2.0?", jobs: "*?" },
     dbSchema: "auth",
     tables: ["users", "sessions", "user_roles", "password_resets"],
     env: [

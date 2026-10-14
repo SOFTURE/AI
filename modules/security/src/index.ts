@@ -14,7 +14,7 @@ export const security = defineModule({
   manifest: {
     id: MODULE_ID,
     version: "0.2.1",
-    dependsOn: {},
+    dependsOn: { jobs: "*?" },
     dbSchema: "security",
     tables: ["rate_limits"],
     env: [],
