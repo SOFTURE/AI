@@ -428,8 +428,7 @@ describe("the deploy and verify jobs of deploy-app.yml run the deploy action of 
       verify: true,
       report: false,
       "origin-address": "${{ inputs.origin-address-var != '' && fromJSON(inputs.app-vars)[inputs.origin-address-var] || secrets.origin-address }}",
-      "verify-env": "${{ inputs.verify-env-secret != '' && secrets[inputs.verify-env-secret] || secrets.verify-env }}",
-      "verify-env-secret": "${{ inputs.verify-env-secret }}",
+      "verify-env": "${{ secrets.verify-env }}",
     });
     expect(inputs["deploy-config"]?.default).toBe("deploy.json");
   });
@@ -739,10 +738,10 @@ describe("the end-to-end test path of deploy-app.yml (DF-3)", () => {
     const send = deploySteps.find((step) => step.id === "send");
     expect(send?.if).toBeUndefined();
     expect(send?.with).toMatchObject({
-      "ssh-host": "${{ inputs.e2e && steps.e2e-server.outputs.host || inputs.secrets-from-environment && secrets[inputs.ssh-host-secret] || secrets.ssh-host }}",
-      "ssh-user": "${{ inputs.e2e && steps.e2e-server.outputs.user || inputs.secrets-from-environment && secrets[inputs.ssh-user-secret] || secrets.ssh-user }}",
-      "ssh-private-key": "${{ inputs.e2e && steps.e2e-server.outputs.private-key || inputs.secrets-from-environment && secrets[inputs.ssh-private-key-secret] || secrets.ssh-private-key }}",
-      "ssh-known-hosts": "${{ inputs.e2e && steps.e2e-server.outputs.known-hosts || inputs.secrets-from-environment && secrets[inputs.ssh-known-hosts-secret] || secrets.ssh-known-hosts }}",
+      "ssh-host": "${{ inputs.e2e && steps.e2e-server.outputs.host || secrets.ssh-host }}",
+      "ssh-user": "${{ inputs.e2e && steps.e2e-server.outputs.user || secrets.ssh-user }}",
+      "ssh-private-key": "${{ inputs.e2e && steps.e2e-server.outputs.private-key || secrets.ssh-private-key }}",
+      "ssh-known-hosts": "${{ inputs.e2e && steps.e2e-server.outputs.known-hosts || secrets.ssh-known-hosts }}",
     });
   });
 
@@ -864,16 +863,14 @@ describe("deploy: false and the release output of deploy-app.yml (issue #468)", 
     const refused = check({
       PASSED_SECRETS: "ssh-host app-secrets",
       ORIGIN_ADDRESS: "203.0.113.7",
-      SECRETS_FROM_ENVIRONMENT: "true",
-      VERIFY_ENV_SECRET: "DEPLOY_VERIFY_ENV",
+      ORIGIN_ADDRESS_VAR: "DEPLOY_ORIGIN_IP",
     });
     expect(refused.status).toBe(1);
     for (const reason of [
       "true when the secret ssh-host is passed (the caller's job passes it to the deploy action)",
       "true when the secret app-secrets is passed (the caller's job passes it to the deploy action)",
       "true when the secret origin-address is passed (the deploy action takes it)",
-      "true with secrets-from-environment (the caller's job reads its environment)",
-      "true with verify-env-secret (the deploy action takes verify-env)",
+      "true with origin-address-var (the deploy action takes origin-address)",
     ]) {
       expect(refused.stdout).toContain(`::error::Input deploy is not valid: ${reason}`);
     }
@@ -909,9 +906,14 @@ describe("the example caller with environments (issue #468)", () => {
     expect(step?.with).toMatchObject({
       release: "${{ needs.build.outputs.release }}",
       "ssh-private-key": "${{ secrets.DEPLOY_SSH_KEY }}",
-      "app-secrets": "${{ toJSON(secrets) }}",
       "app-vars": "${{ toJSON(vars) }}",
     });
+    // The app's secrets by name (issue #476): each in the step's env from its own secret, all listed in secret-names.
+    expect(step?.with?.["app-secrets"]).toBeUndefined();
+    const env = (step as { env?: Record<string, string> } | undefined)?.env ?? {};
+    expect(Object.keys(env).length).toBeGreaterThan(0);
+    for (const [name, value] of Object.entries(env)) expect(value).toBe(`\${{ secrets.${name} }}`);
+    expect(String(step?.with?.["secret-names"]).split(/\s+/).sort()).toEqual(Object.keys(env).sort());
     for (const key of Object.keys(step?.with ?? {})) expect(Object.keys(action.inputs)).toContain(key);
   });
 
@@ -943,7 +945,7 @@ describe("the end-to-end caller e2e-deploy.yml", () => {
       if (input.required === true) expect(Object.keys(job.with ?? {})).toContain(key);
     }
     // The named form: every secret but origin-address, which has nothing to check on the test path (verify is
-    // skipped). None is `required: true` (secrets-from-environment passes none); the check job asks for them.
+    // skipped). None is `required: true` (a caller with deploy: false passes none); the check job asks for them.
     const passed = Object.keys(job.secrets as Record<string, unknown>);
     for (const key of passed) expect(Object.keys(called.secrets ?? {})).toContain(key);
     expect(passed.sort()).toEqual(["app-secrets", "ssh-host", "ssh-known-hosts", "ssh-private-key", "ssh-user"]);
