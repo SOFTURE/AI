@@ -1,0 +1,54 @@
+{
+  "name": "@softure-ai/llm",
+  "version": "0.1.0",
+  "description": "SOFTURE AI language model access: schema-validated structured output over an AI SDK model, timeouts, stable error codes, token usage and cost records, OpenTelemetry spans and a fake model for tests.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SOFTURE/AI.git",
+    "directory": "foundation/llm"
+  },
+  "files": [
+    "dist",
+    "CHANGELOG.md",
+    "src",
+    "!src/**/*.test.ts"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "exports": {
+    ".": {
+      "@softure-ai/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./testing": {
+      "@softure-ai/source": "./src/testing/index.ts",
+      "types": "./dist/testing/index.d.ts",
+      "default": "./dist/testing/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.1",
+    "@softure-ai/core": "^0.2.0"
+  },
+  "peerDependencies": {
+    "ai": "^7.0.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@opentelemetry/sdk-trace-base": "^2.12.0",
+    "ai": "7.0.122",
+    "zod": "^4.6.5"
+  }
+}

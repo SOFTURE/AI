@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
-## Unreleased
+## 0.3.0
 
 - **Per-environment secrets (#468):** the composite action `SOFTURE/AI/.github/actions/deploy` renders `.env.prod`,
   sends the release over SSH, verifies it and writes `deploy-report` inside the caller's own job, so a job with
