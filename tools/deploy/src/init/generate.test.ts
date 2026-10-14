@@ -428,6 +428,38 @@ describe.each([
   });
 });
 
+describe.each(["deploy.yml", "checks.yml", "release.yml", "release-notes.yml"])(
+  "the header comment of the generated %s (issue #473)",
+  (name) => {
+    const path = `.github/workflows/${name}`;
+    const sha = "f5830d0e605636dfba4cb8bd5407d6404c07974c";
+    const commentOf = (text: string): string =>
+      text
+        .split("\n")
+        .filter((line) => line.startsWith("#"))
+        .join("\n");
+    const unpinned = textOf(plan(), path);
+    const pinned = textOf(plan({ workflowsRef: sha }), path);
+
+    it("says the callers are pinned to the --workflows-ref commit, without the advice to pin one", () => {
+      expect(commentOf(pinned)).toContain(`pinned to commit ${sha}`);
+      expect(pinned).not.toContain("pin a commit SHA");
+      expect(pinned).not.toContain("git ls-remote");
+    });
+
+    it("advises pinning a commit SHA when the callers call master", () => {
+      expect(commentOf(unpinned)).toContain("called at `master`; pin a commit SHA");
+      expect(commentOf(unpinned)).not.toContain("pinned to commit");
+    });
+
+    it("keeps the header comment within 120 characters a line, pinned or not", () => {
+      for (const text of [unpinned, pinned]) {
+        expect(commentOf(text).split("\n").filter((line) => line.length > 120)).toEqual([]);
+      }
+    });
+  },
+);
+
 describe("writeInitFiles", () => {
   let dir: string;
   const files: PlannedFile[] = [
