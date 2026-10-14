@@ -69,6 +69,9 @@ Done when: `npm run typecheck`, `npm run lint`, `npm test`, `npm run build` gree
 - Missed slots collapse into one run at the latest slot.
 - Lateness lives in `getQueueStats`, not in the module health check: a late prune must not make the app unready.
 - Handlers live in a `./jobs` subpath so apps without jobs never load it.
+- Peers take `@softure-ai/jobs` as `^0.1.0 || 0.0.0` and `dependsOn` as `jobs: "*?"`: jobs is still the unreleased
+  workspace `0.0.0`, which `^0.1.0` alone cannot install (impl review). jobs releases before or with the five
+  packages.
 
 ## Progress
 
@@ -77,17 +80,17 @@ Done when: `npm run typecheck`, `npm run lint`, `npm test`, `npm run build` gree
 ### Phase 1: Schedules in jobs
 
 #### Automated
-- [ ] 1.1 Schedule, worker and stats tests pass
-- [ ] 1.2 Gates green (typecheck, lint, test)
+- [x] 1.1 Schedule, worker and stats tests pass — fa369a9
+- [x] 1.2 Gates green (typecheck, lint, test) — fa369a9
 
 ### Phase 2: Package handlers
 
 #### Automated
-- [ ] 2.1 Handler tests pass in the five packages
-- [ ] 2.2 Gates green (typecheck, lint, test)
+- [x] 2.1 Handler tests pass in the five packages — be63ecd
+- [x] 2.2 Gates green (typecheck, lint, test) — be63ecd
 
 ### Phase 3: Docs and gates
 
 #### Automated
-- [ ] 3.1 READMEs and CHANGELOGs updated
-- [ ] 3.2 Gates green (typecheck, lint, test, build)
+- [x] 3.1 READMEs and CHANGELOGs updated — fd2f5a8
+- [x] 3.2 Gates green (typecheck, lint, test, build) — fd2f5a8

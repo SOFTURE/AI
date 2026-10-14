@@ -1,12 +1,13 @@
 ---
 change_id: jobs-schedules
 title: "Jobs runs recurring schedules, and the packages' prune functions run through them (issue #491)"
-status: open
+status: archived
 roadmap_item: null
 issue: 491
 branch: claude/project-thread-x0n7qj
 created: 2026-10-14
 updated: 2026-10-14
+archived_at: 2026-10-14
 ---
 
 ## Intent
