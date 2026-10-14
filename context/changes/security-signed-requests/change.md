@@ -1,13 +1,13 @@
 ---
 change_id: security-signed-requests
 title: "Apps verify signed webhook requests and read capped raw bodies with security helpers"
-status: planned
+status: archived
 roadmap_item: null
 issue: 469
 branch: claude/project-thread-cxv9g2
 created: 2026-10-14
 updated: 2026-10-14
-archived_at: null
+archived_at: 2026-10-14
 ---
 
 ## Intent
@@ -45,3 +45,4 @@ Known state: `modules/security/src/read-small-body.ts` decodes UTF-8 with `fatal
 
 - Placement: unlinked one-off from the issue queue (`autonomy.source: issues`), `roadmap_item: null`.
 - Framing: skipped. The issue names a concrete gap with a concrete contract; nothing about the problem is in doubt.
+- Archived 2026-10-14: `@softure-ai/security` signs and verifies webhook requests on Web Crypto and reads capped bodies as raw bytes; ships in the next security release.

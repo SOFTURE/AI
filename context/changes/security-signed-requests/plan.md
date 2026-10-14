@@ -43,12 +43,12 @@ Done when: `npm run typecheck`, `npm run lint`, `npm test`, `npm run build` gree
 ### Phase 1: Body bytes
 
 #### Automated
-- [ ] 1.1 `readSmallBodyBytes` returns capped raw bytes; `readSmallBody` decodes them
-- [ ] 1.2 Package tests green
+- [x] 1.1 `readSmallBodyBytes` returns capped raw bytes; `readSmallBody` decodes them — 4484bf8
+- [x] 1.2 Package tests green — 4484bf8
 
 ### Phase 2: Signed requests
 
 #### Automated
-- [ ] 2.1 Signer and verifier on Web Crypto with the error code, exports and sub-path
-- [ ] 2.2 README and CHANGELOG describe the helpers and the migration
-- [ ] 2.3 Typecheck, lint, test and build green
+- [x] 2.1 Signer and verifier on Web Crypto with the error code, exports and sub-path — 6ce1691
+- [x] 2.2 README and CHANGELOG describe the helpers and the migration — 6ce1691
+- [x] 2.3 Typecheck, lint, test and build green — 6ce1691
