@@ -13,8 +13,8 @@ Findings: 0 critical, 0 warning, 2 notes.
 | 4. README and CHANGELOG | README "The IndexNow submit as a job", CLI bullet, line contract; CHANGELOG Unreleased with the opt-in steps |
 
 ## Notes
-- `@softure-ai/jobs` is still 0.0.0 on master, so the peer range is `>=0.0.0 <0.2.0` and `dependsOn` is `*?`;
-  tighten both to `^0.1.0` once jobs is released. The blog release must follow the jobs release.
+- `@softure-ai/jobs` reached 0.1.0 on master (4117981) while this PR was open; the peer range and `dependsOn` were
+  tightened to `^0.1.0` when master was merged in. The blog release must follow the jobs publish.
 - `BlogIndexNowOutcome` gained `queued` (compile-time break for an exhaustive switch); listed in the CHANGELOG.
 
 ## Decisions (auto)

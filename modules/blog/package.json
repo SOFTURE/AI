@@ -83,7 +83,7 @@
     "zod": "^4.6.5"
   },
   "peerDependencies": {
-    "@softure-ai/jobs": ">=0.0.0 <0.2.0",
+    "@softure-ai/jobs": "^0.1.0",
     "@softure-ai/security": "^0.2.0",
     "@softure-ai/seo": "^0.2.0",
     "@softure-ai/ui": "^0.3.0",
@@ -94,7 +94,7 @@
   "devDependencies": {
     "@fontsource/inter": "^5.3.0",
     "@softure-ai/agent-ready": "^0.2.0",
-    "@softure-ai/jobs": ">=0.0.0 <0.2.0",
+    "@softure-ai/jobs": "^0.1.0",
     "@softure-ai/security": "^0.2.0",
     "@softure-ai/seo": "^0.2.0",
     "@softure-ai/ui": "^0.3.0",

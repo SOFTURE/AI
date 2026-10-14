@@ -52,7 +52,7 @@ Revert the merge; the synchronous path is the default and stays intact.
 
 - Detection by the configured queue, no blog option (simplest; the queue must be defined anyway).
 - Enqueue after the refresh, outside the publish transaction (ordering with the crawler).
-- Peer range for jobs `>=0.0.0 <0.2.0`: accepts the workspace 0.0.0 now and 0.1.x once jobs is released.
+- Peer range for jobs `>=0.0.0 <0.2.0` while jobs was 0.0.0; tightened to `^0.1.0` once jobs 0.1.0 reached master.
 - Dedup key from the paths, not a run id: a publish has no stored run id, and the same addresses are the same work.
 
 ## Progress
