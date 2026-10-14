@@ -1,12 +1,13 @@
 ---
 change_id: deploy-notes-roadmap-auto
 title: "deploy: release-notes --roadmap=auto finds the main or the archived roadmap (issue #465)"
-status: open
+status: archived
 roadmap_item: null
 issue: 465
 branch: claude/project-thread-ufgxw0
 created: 2026-10-14
 updated: 2026-10-14
+archived_at: 2026-10-14
 ---
 
 ## Intent

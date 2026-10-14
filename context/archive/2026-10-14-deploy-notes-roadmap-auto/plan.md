@@ -1,6 +1,6 @@
 ---
 change_id: deploy-notes-roadmap-auto
-status: open
+status: archived
 ---
 
 # Plan: release-notes --roadmap=auto (issue #465)
@@ -26,4 +26,7 @@ tests next to them and in `tools/deploy/tests/cli.test.ts`, `tools/deploy/README
 
 ## Progress
 
-- [ ] Phase 1: --roadmap=auto
+- [x] Phase 1: --roadmap=auto (`79f9e92`; 7 new tests: 2 file-name, 3 git, 3 CLI cases in one describe, written
+  first; the git and file-name tests failed before the change)
+
+Gates on the branch: `npm run typecheck` and ESLint green (pre-commit); deploy notes and CLI tests pass (73).
