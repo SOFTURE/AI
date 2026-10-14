@@ -1,12 +1,13 @@
 ---
 change_id: deploy-named-secrets
 title: "deploy: no whole secrets context, secrets passed by name (issue #476)"
-status: planned
+status: archived
 roadmap_item: null
 issue: 476
 branch: claude/project-thread-8shtbi
 created: 2026-10-14
 updated: 2026-10-14
+archived_at: 2026-10-14
 ---
 
 ## Intent

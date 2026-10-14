@@ -46,6 +46,7 @@ app's own caller).
 
 ## Progress
 
-- [ ] Phase 1
-- [ ] Phase 2
-- [ ] Phase 3
+- [x] Phase 1: `8e185d6`
+- [x] Phase 2: `081a300`
+- [x] Phase 3: `8a0f18b`
+- [x] Implementation review: `reviews/impl-review.md`, no blocking finding
