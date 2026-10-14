@@ -1,0 +1,115 @@
+# A caller of SOFTURE/AI's deploy workflow whose secrets live in GitHub environments, one per target (here production
+# and dev), for an app whose repository is outside the SOFTURE organization. There `secrets: inherit` passes nothing
+# to deploy-app.yml and a job with `uses:` cannot name an environment, so the secrets never reach the workflow's own
+# deploy job. Instead:
+#
+# - `build` calls deploy-app.yml with `deploy: false`: the inputs are checked, the tag must be on the release branch,
+#   the image is built (or a tested one is tagged), and nothing secret is involved. Its `release` output carries the
+#   checked values.
+# - One job per environment declares `environment:` and runs the deploy action (.github/actions/deploy). That job's
+#   `secrets` and `vars` hold the environment's values over the repository's, so each environment renders its own
+#   .env.prod and reaches its own server. The environment's deployment policy (e.g. release tags only) and reviewers
+#   apply to that job.
+#
+# Copy it to the app's `.github/workflows/deploy.yml`, set `app-url`, `environment` and the secrets of each environment:
+# DEPLOY_SSH_HOST, DEPLOY_SSH_USER, DEPLOY_SSH_KEY, DEPLOY_SSH_KNOWN_HOSTS and every name the compose file requires
+# (${NAME:?}); switches go in the environment's variables. Pin the workflow and the action to the same commit, best the
+# commit of the release tag `deploy@<version>`: git ls-remote https://github.com/SOFTURE/AI 'refs/tags/deploy@<version>^{}'.
+# `release` holds the values deploy-app.yml checked (production's app-url and environment); another environment passes
+# its own `app-url` and `environment` to the action.
+
+name: deploy
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to deploy
+        type: string
+        required: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    uses: SOFTURE/AI/.github/workflows/deploy-app.yml@master
+    with:
+      tag: ${{ github.event.release.tag_name || inputs.tag }}
+      app-url: https://example.com
+      environment: production
+      deploy: false
+      # build-args: |
+      #   APP_ORIGIN=${{ vars.APP_ORIGIN }}
+      # prebuilt-image: ghcr.io/<owner>/<repository>@sha256:<digest>
+
+  production:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    # One deploy at a time per environment; a running deploy is never cancelled halfway.
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    # packages: read for the registry token the server pulls with.
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: SOFTURE/AI/.github/actions/deploy@master
+        with:
+          release: ${{ needs.build.outputs.release }}
+          image: ${{ needs.build.outputs.image }}
+          digest: ${{ needs.build.outputs.digest }}
+          ssh-host: ${{ secrets.DEPLOY_SSH_HOST }}
+          ssh-user: ${{ secrets.DEPLOY_SSH_USER }}
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+          ssh-known-hosts: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
+          # The environment's secrets over the repository's; only the compose file's names land in .env.prod.
+          app-secrets: ${{ toJSON(secrets) }}
+          # The environment's variables over the repository's, rendered over a secret of the same name.
+          app-vars: ${{ toJSON(vars) }}
+          # Behind a CDN, the server's own IP: verify fails when the firewall lets direct traffic in. Empty skips it.
+          origin-address: ${{ vars.DEPLOY_ORIGIN_IP }}
+          # Variables for verify only (a `webBotAuth` route's key), a JSON object. Empty passes nothing.
+          verify-env: ${{ secrets.DEPLOY_VERIFY_ENV }}
+
+  # A second environment from the same build: its own secrets, server and variables. `report: false` leaves the run's
+  # deploy-report artifact to production.
+  dev:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: dev
+    concurrency:
+      group: deploy-dev
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: SOFTURE/AI/.github/actions/deploy@master
+        with:
+          release: ${{ needs.build.outputs.release }}
+          app-url: https://dev.example.com
+          environment: dev
+          report: false
+          ssh-host: ${{ secrets.DEPLOY_SSH_HOST }}
+          ssh-user: ${{ secrets.DEPLOY_SSH_USER }}
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+          ssh-known-hosts: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
+          app-secrets: ${{ toJSON(secrets) }}
+          app-vars: ${{ toJSON(vars) }}
+
+  report:
+    needs: [build, production]
+    if: ${{ always() && needs.build.result == 'success' }}
+    permissions:
+      contents: write
+    uses: SOFTURE/AI/.github/workflows/deploy-report.yml@master
+    with:
+      tag: ${{ github.event.release.tag_name || inputs.tag }}

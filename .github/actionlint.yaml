@@ -1,0 +1,7 @@
+# actionlint 1.7.12 does not know the job context's workflow identity (job.workflow_repository, job.workflow_sha),
+# which deploy-app.yml uses to check out its own commit and run the deploy action from it. Only that one message is
+# ignored, and only in that file.
+paths:
+  .github/workflows/deploy-app.yml:
+    ignore:
+      - 'property "workflow_(repository|sha)" is not defined in object type'

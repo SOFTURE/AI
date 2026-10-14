@@ -6,6 +6,27 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- **Per-environment secrets (#468):** the composite action `SOFTURE/AI/.github/actions/deploy` renders `.env.prod`,
+  sends the release over SSH, verifies it and writes `deploy-report` inside the caller's own job, so a job with
+  `environment: <name>` deploys with that environment's `secrets` and `vars`. This works for an app outside the SOFTURE
+  organization too, where `secrets: inherit` passes nothing to `deploy-app.yml`, and for several environments
+  (production and dev) from one build. `deploy-app.yml` takes `deploy` (default `true`): `false` checks and builds
+  only and returns the checked values as the workflow output `release`, which the action reads. With `deploy: false`
+  the check job refuses secrets and the deploy-only inputs. `deploy-app.yml`'s own deploy and verify jobs now run the
+  same action from the workflow's commit; callers that keep one `uses:` line change nothing.
+  [`examples/deploy-environments.yml`](examples/deploy-environments.yml) is the caller to copy. To migrate an app:
+  1. In the deploy caller, add `deploy: false` to the `deploy-app.yml` job and drop its `secrets:` (or
+     `secrets: inherit`), `secrets-from-environment`, the `ssh-*-secret` inputs, `origin-address(-var)` and
+     `verify-env-secret`.
+  2. Add one job per environment: `needs: <build job>`, `environment: <name>`, `permissions: { contents: read,
+     packages: read }`, a `concurrency` group per environment, and the step
+     `uses: SOFTURE/AI/.github/actions/deploy@<sha>` with `release: ${{ needs.<build job>.outputs.release }}`, the
+     `DEPLOY_SSH_*` secrets, `app-secrets: ${{ toJSON(secrets) }}`, `app-vars: ${{ toJSON(vars) }}` and, where used,
+     `origin-address` and `verify-env`. A second environment also sets `app-url`, `environment` and `report: false`.
+  3. Move the runtime secrets and `DEPLOY_SSH_*` into each GitHub environment (switches into its variables).
+  4. Point `deploy-report.yml`'s job at `needs: [<build job>, <reporting environment job>]` with
+     `if: ${{ always() && needs.<build job>.result == 'success' }}`.
+  Pin `deploy-app.yml` and the action to the same commit, the one of the tag `deploy@0.3.0`.
 - `init` adds a job worker for an app that depends on `@softure-ai/jobs` (and `@softure-ai/db`), issue #471:
   `scripts/worker.ts` (calls `runJobWorkerProcess` with the app's handlers), its esbuild bundle `worker.mjs` in the
   image, and a `worker` service in `docker/prod/docker-compose.yml` from the same image (`node worker.mjs`, the app's

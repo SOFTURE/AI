@@ -423,6 +423,7 @@ one caller, [`examples/deploy.yml`](examples/deploy.yml), with a single `uses:` 
 | `secret-min-lengths` | none | `NAME=N` entries separated by spaces or newlines: `env render --min-length` for each, so a secret shorter than N stops the release before anything is sent |
 | `registry-token` | `true` | send the deploy job's `GITHUB_TOKEN` (`packages: read`, valid until the job ends) for the server's pull |
 | `e2e` | `false` | this repository's own end-to-end test (below); refused in any other repository |
+| `deploy` | `true` | `false` stops after the build: no deploy, verify or summary job; the caller's own jobs run the deploy action with the `release` output (below) |
 
 Secrets, passed by name: `ssh-host`, `ssh-user`, `ssh-private-key`, `ssh-known-hosts` and `app-secrets` (a JSON
 object such as `toJSON(secrets)`; names like `PATH`, `HOME`, `NODE_*` and `NPM_CONFIG_*` are refused, in `app-vars`
@@ -461,8 +462,47 @@ checks its entries by `verify-env`'s rules before verify runs. An environment wi
 verify job again; a deployment policy that admits release tags only does not. Only the environment's secrets reach the release this
 way: `app-vars` is still evaluated in the caller's job, so the environment's variables never arrive, and a repository
 variable in `app-vars` wins over an environment secret of the same name. `secrets: inherit` passes the caller's
-repository and organization secrets only to a workflow in the same organization or enterprise. The example caller
-shows this form, commented.
+repository and organization secrets only to a workflow in the same organization or enterprise; an app of another owner
+uses the deploy action (below). The example caller shows this form, commented.
+
+**One job per environment (the deploy action).** `secrets: inherit` passes nothing to a workflow of another owner,
+and a job with `uses:` cannot name an environment, so an app outside the SOFTURE organization cannot hand its
+environment secrets to `deploy-app.yml` at all. Such an app, and any app with more than one environment (production
+and dev, each with its own server and secrets), calls `deploy-app.yml` with `deploy: false` and deploys in its own jobs
+with the composite action `SOFTURE/AI/.github/actions/deploy`, as in
+[`examples/deploy-environments.yml`](examples/deploy-environments.yml):
+
+1. the `build` job (`deploy: false`) checks the inputs, the tag's branch and the image, builds or tags it, and sets the
+   workflow output `release`: one JSON object with the checked values (tag, `app-url`, `environment`, paths, port,
+   timeout, `deploy-cli-version`, `build-args`, `secret-min-lengths`, `registry-token`, server files). With
+   `deploy: false` the check job refuses every secret and the inputs only the deploy and verify jobs read
+   (`origin-address`, `secrets-from-environment`, `origin-address-var`, `verify-env-secret`, `e2e`): they belong to the
+   action now;
+2. each environment gets a job with `environment: <name>`, `permissions: { contents: read, packages: read }` and one
+   step, the action with `release: ${{ needs.build.outputs.release }}`. That job's `secrets` and `vars` hold the
+   environment's values over the repository's, so `app-secrets: ${{ toJSON(secrets) }}` and
+   `app-vars: ${{ toJSON(vars) }}` render that environment's `.env.prod` (switches go in the environment's variables),
+   and the `DEPLOY_SSH_*` secrets reach that environment's server. The environment's deployment policy and reviewers
+   apply to this job.
+
+The action runs the same steps as the workflow's deploy and verify jobs (the workflow itself runs this action from its
+own commit): render and pack, send over SSH with the host key checked, wait for the health route, `softure-deploy
+verify` with the tag's `deploy-config`, then the `deploy-report` artifact and the cleanup of every key and `.env.prod`.
+
+| Action input | Default | |
+| --- | --- | --- |
+| `release` | required | the `release` output of the `deploy: false` call; refused unless it holds every checked value |
+| `ssh-host`, `ssh-user`, `ssh-private-key`, `ssh-known-hosts` | none | the environment's SSH values, e.g. `secrets.DEPLOY_SSH_HOST` |
+| `app-secrets` | `{}` | `toJSON(secrets)`: only the compose file's required names land in `.env.prod`; a runner name (`NODE_AUTH_TOKEN`) is left out and named |
+| `app-vars` | `{}` | `toJSON(vars)`, rendered over a secret of the same name |
+| `app-url`, `environment` | the `release` values | a second environment's URL (the verify target) and name (the report) |
+| `origin-address` | none | the server's own address behind the CDN, e.g. `vars.DEPLOY_ORIGIN_IP` |
+| `verify-env` | none | the JSON object for verify only, e.g. `secrets.DEPLOY_VERIFY_ENV`, checked by the rules above |
+| `send`, `verify`, `report` | `true` | each part on its own; `report: false` for every environment but one, since a run holds one `deploy-report` artifact |
+| `image`, `digest` | none | the build job's outputs, for the report |
+
+`deploy-report.yml` then runs after the environment that reports, as in the example. Pin the workflow and the action
+to the same commit (below): the action reads the `release` object that commit's workflow writes.
 
 **A tested image (`prebuilt-image`).** An app whose own pipeline builds the image and runs its tests against it
 passes that image by digest, so production runs the bytes the tests saw rather than a second build of the same tag.
@@ -477,7 +517,9 @@ it is refused. The workflow runs once this package is on npm.
 package's release tag `deploy@<version>`, the version the app's `deploy.sh` runs: the workflows at that commit default
 `deploy-cli-version` to the same version, and a SHA never moves. Print it with
 `git ls-remote https://github.com/SOFTURE/AI 'refs/tags/deploy@0.2.1^{}'` (the `^{}` peels the annotated tag to its
-commit) and write it in place of `master` in each `uses:` line; `init --workflows-ref=<sha>` writes it for you. The
+commit) and write it in place of `master` in each `uses:` line, the deploy action's included; `init --workflows-ref=<sha>`
+writes it for you. `deploy-app.yml` checks out its own commit (`job.workflow_repository`, `job.workflow_sha`) to run the
+action, so a caller needs no extra checkout. The
 examples call `master`, which works but follows every merge. There is no moving `deploy-workflows-v1` tag.
 
 ### Release report

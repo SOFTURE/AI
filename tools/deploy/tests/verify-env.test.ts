@@ -10,11 +10,15 @@ import { parse } from "yaml";
 // names when the secrets stay in the environment. The steps run here as the runner runs them.
 
 const WORKFLOW = join(import.meta.dirname, "../../../.github/workflows/deploy-app.yml");
+// The verify step lives in the deploy action; the workflow's verify job runs it with the secret it reads.
+const ACTION = join(import.meta.dirname, "../../../.github/actions/deploy/action.yml");
 
 interface Step {
   name?: string;
+  uses?: string;
   run?: string;
   env?: Record<string, string>;
+  with?: Record<string, unknown>;
 }
 
 interface Result {
@@ -31,14 +35,18 @@ interface WorkflowFile {
 const workflow = parse(readFileSync(WORKFLOW, "utf8")) as WorkflowFile;
 const { inputs, secrets } = workflow.on.workflow_call;
 
+const actionSteps = (parse(readFileSync(ACTION, "utf8")) as { runs: { steps: Step[] } }).runs.steps;
+
 function getStep(job: string, name: string): Step {
-  const step = (workflow.jobs[job]?.steps ?? []).find((candidate) => candidate.name === name);
-  if (step?.run === undefined) throw new Error(`deploy-app.yml has no '${name}' step in the ${job} job`);
+  const steps = job === "action" ? actionSteps : (workflow.jobs[job]?.steps ?? []);
+  const step = steps.find((candidate) => candidate.name === name);
+  if (step?.run === undefined) throw new Error(`no '${name}' step in ${job === "action" ? "the deploy action" : `the ${job} job`}`);
   return step;
 }
 
 const CHECK_STEP = getStep("check", "Validate inputs");
-const VERIFY_STEP = getStep("verify", "Verify the routes in deploy.json");
+const VERIFY_STEP = getStep("action", "Verify the routes in deploy.json");
+const VERIFY_CALL = (workflow.jobs.verify?.steps ?? []).find((step) => step.uses === "./.softure-ai-deploy/.github/actions/deploy");
 
 let root: string;
 
@@ -75,10 +83,11 @@ describe("the verify-env input and secret", () => {
       VERIFY_ENV_SECRET: "${{ inputs.verify-env-secret }}",
     });
     expect(String(CHECK_STEP.env?.PASSED_SECRETS)).toContain("${{ secrets.verify-env != '' && 'verify-env' || '' }}");
-    expect(VERIFY_STEP.env).toMatchObject({
-      VERIFY_ENV: "${{ inputs.verify-env-secret != '' && secrets[inputs.verify-env-secret] || secrets.verify-env }}",
-      VERIFY_ENV_SECRET: "${{ inputs.verify-env-secret }}",
+    expect(VERIFY_CALL?.with).toMatchObject({
+      "verify-env": "${{ inputs.verify-env-secret != '' && secrets[inputs.verify-env-secret] || secrets.verify-env }}",
+      "verify-env-secret": "${{ inputs.verify-env-secret }}",
     });
+    expect(VERIFY_STEP.env).toMatchObject({ VERIFY_ENV: "${{ inputs.verify-env }}", VERIFY_ENV_SECRET: "${{ inputs.verify-env-secret }}" });
     expect(JSON.stringify(workflow.jobs.verify)).not.toContain("toJSON(secrets)");
   });
 

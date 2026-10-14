@@ -12,7 +12,7 @@ import { planInitFiles } from "../src/init/generate.js";
 // unpacks and installs it. Both halves run here together: the workflow's pack step with bash in a fake checkout of
 // the tag, then the generated deploy.sh with that archive on stdin and a stub `docker` on PATH.
 
-const WORKFLOW = join(import.meta.dirname, "../../../.github/workflows/deploy-app.yml");
+const ACTION = join(import.meta.dirname, "../../../.github/actions/deploy/action.yml");
 
 const ANSWERS: InitAnswers = {
   domain: "example.com",
@@ -138,9 +138,9 @@ interface BashResult {
 }
 
 function getDeployStepScript(name: string): string {
-  const workflow = parse(readFileSync(WORKFLOW, "utf8")) as { jobs: Record<string, { steps?: Step[] }> };
-  const step = (workflow.jobs.deploy?.steps ?? []).find((candidate) => candidate.name === name);
-  if (step?.run === undefined) throw new Error(`deploy-app.yml has no '${name}' step`);
+  const action = parse(readFileSync(ACTION, "utf8")) as { runs: { steps: Step[] } };
+  const step = action.runs.steps.find((candidate) => candidate.name === name);
+  if (step?.run === undefined) throw new Error(`the deploy action has no '${name}' step`);
   return step.run;
 }
 

@@ -15,7 +15,7 @@ import { writeReleaseReport, type DeployReport } from "../src/notes/release-repo
 // forced-command.sh with the archive on stdin and a stub deploy.sh, the npx stand-in, and check-received.sh.
 
 const REPO_ROOT = join(import.meta.dirname, "../../..");
-const WORKFLOW = join(REPO_ROOT, ".github/workflows/deploy-app.yml");
+const ACTION = join(REPO_ROOT, ".github/actions/deploy/action.yml");
 const RECORD = join(import.meta.dirname, "../e2e/server/record.sh");
 const CHECK = join(import.meta.dirname, "../e2e/check-received.sh");
 const FORCED_COMMAND = join(import.meta.dirname, "../e2e/server/forced-command.sh");
@@ -43,9 +43,9 @@ interface Result {
 }
 
 function getPackScript(): string {
-  const workflow = parse(readFileSync(WORKFLOW, "utf8")) as { jobs: Record<string, { steps?: Step[] }> };
-  const step = (workflow.jobs.deploy?.steps ?? []).find((candidate) => candidate.name === "Pack the release");
-  if (step?.run === undefined) throw new Error("deploy-app.yml has no 'Pack the release' step");
+  const action = parse(readFileSync(ACTION, "utf8")) as { runs: { steps: Step[] } };
+  const step = action.runs.steps.find((candidate) => candidate.name === "Pack the release");
+  if (step?.run === undefined) throw new Error("the deploy action has no 'Pack the release' step");
   return step.run;
 }
 
