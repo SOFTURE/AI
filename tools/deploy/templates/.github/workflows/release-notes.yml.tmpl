@@ -3,8 +3,15 @@
 #
 # "Run workflow" with a tag and a body replaces that release's body above its softure-deploy sections (untick
 # keep-report to replace all of it): the owner can run it from the Actions tab, and an agent that cannot edit a
-# release through the API can start it as a workflow_dispatch. SOFTURE/AI's workflows are
-# called at {{workflowsRef}}; pin a commit SHA for an immutable reference, the same one deploy.yml pins.
+# release through the API can start it as a workflow_dispatch.
+{{#workflowsPinned}}
+# SOFTURE/AI's workflows are pinned to commit {{workflowsRef}} (--workflows-ref); move every
+# caller's `uses:` together to the commit of the new release tag when the app upgrades @softure-ai/deploy.
+{{/workflowsPinned}}
+{{^workflowsPinned}}
+# SOFTURE/AI's workflows are called at `master`; pin a commit SHA for an immutable reference, best the commit of the
+# release tag deploy@{{cliVersion}}, the same one deploy.yml pins.
+{{/workflowsPinned}}
 name: release-notes
 
 on:
