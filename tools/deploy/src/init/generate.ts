@@ -142,6 +142,7 @@ function buildValues(options: PlanInitFilesOptions): Record<string, string | boo
     postgresVersion: getPostgresVersion(facts),
     reportRole: getReportRole({ answers, facts, replacesCompose: options.replacesCompose ?? false }),
     workflowsRef: answers.workflowsRef ?? DEFAULT_WORKFLOWS_REF,
+    workflowsPinned: answers.workflowsRef !== undefined,
     esbuildVersion: TEMPLATE_VERSIONS.esbuild,
     cloudflare: answers.cdn === "cloudflare",
     cloudflareRanges: CLOUDFLARE_RANGES.join(","),
