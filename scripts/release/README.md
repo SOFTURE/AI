@@ -16,7 +16,8 @@ the coordinating agent decides on its own, without asking the owner, and release
 and cuts one combined release once the current issues are done (owner, 2026-10-12). With `true`, a release would
 wait for the owner's word. npm takes each version as soon as its release passes, with no approval step, as in
 SOFTURE/SKILLS (owner, 2026-10-06); the gates in the workflow are the review. A production deploy is not a
-release and always waits for the owner's word.
+release, but it has the owner's standing approval (owner, 2026-10-14): it runs right after the release, without
+asking or waiting.
 
 ## Release from Actions
 
