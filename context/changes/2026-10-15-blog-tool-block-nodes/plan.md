@@ -54,6 +54,6 @@ resolves) and a missing island, with no hydration error.
 
 ## Progress
 
-- [ ] Phase 1
-- [ ] Phase 2
-- [ ] Phase 3
+- [x] Phase 1: da7311d (one commit with Phase 2: the `/ui` export of `defineToolBlock` and its new home change together)
+- [x] Phase 2: da7311d
+- [x] Phase 3: d44b4d7
