@@ -24,5 +24,5 @@ Done when: `npm run typecheck`, `npm run lint`, `npm test` green.
 ### Phase 1: Bump and reinstall
 
 #### Automated
-- [ ] 1.1 Bump the dependency and refresh the lockfile and managed block
-- [ ] 1.2 Typecheck, lint and test green
+- [x] 1.1 Bump the dependency and refresh the lockfile and managed block — f8e832b
+- [x] 1.2 Typecheck, lint and test green — f8e832b
