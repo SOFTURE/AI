@@ -1,12 +1,13 @@
 ---
 change_id: blog-tool-block-nodes
 title: "Tool blocks return data, load their island lazily, append to the static HTML and share one directive (issue #509)"
-status: open
+status: archived
 roadmap_item: null
 issue: 509
 branch: claude/project-thread-9j1p4l
 created: 2026-10-15
 updated: 2026-10-15
+archived_at: 2026-10-15
 ---
 
 ## Intent
