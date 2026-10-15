@@ -19,7 +19,7 @@ preset's `run` wins. Document a mechanism that works, including the Next.js type
 
 ## Context
 
-`@softure-ai/config` is at 0.1.2 on master; #517 (language quote marker) merges first; this change merges fresh master before it merges. Releases are
+`@softure-ai/config` is at 0.1.2 on master; #517 (language quote marker) merged first (#526); this change sits on that master. Releases are
 batched by the coordinator: no version bump, the CHANGELOG gets `## Unreleased`.
 
 ## Constraints

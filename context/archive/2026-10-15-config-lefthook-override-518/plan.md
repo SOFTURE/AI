@@ -25,9 +25,9 @@ the second file), `tools/config/presets/lefthook.yml` header comment, `tools/con
 
 ## Progress
 
-- [x] Phase 1: guard the mechanism with a test (`9c5ccdd`; two `lefthook dump` cases. They pass on the current
+- [x] Phase 1: guard the mechanism with a test (`9e04bbd`; two `lefthook dump` cases. They pass on the current
   preset, as the fix is documentation: the first guards the documented mechanism, the second the README's warning)
-- [x] Phase 2: docs (`9c5ccdd`; README git hooks section with the Next.js and skip examples, preset header
+- [x] Phase 2: docs (`9e04bbd`; README git hooks section with the Next.js and skip examples, preset header
   comment, CHANGELOG `## Unreleased`)
 
 Gates on the branch: typecheck, ESLint and the language gate green (pre-commit); config preset tests 9 passed; the
