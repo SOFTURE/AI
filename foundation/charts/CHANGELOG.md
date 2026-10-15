@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`charts@x.y.z`).
 
+## Unreleased
+
+- `EventAxis` takes `layout="rail"` (issue #508): milestones on one line, each joined to the previous one by a segment
+  with its own colour (`railSlot`, `railTone`, `railColor`, apart from the dot) and label (`segmentLabel`, hidden below
+  `minLabelWidth`), and a `tick` under each dot. `layoutEventRail` is its server-safe layout; `EventAxisRailProps`
+  and the `EventRail*` types are exported. The default layout and `EventAxisProps` are unchanged.
+
 ## 0.2.0
 
 - **Breaking (#446):** the built-in `pl` dictionary is gone; `chartsMessages` is English only and `locale` is any BCP 47

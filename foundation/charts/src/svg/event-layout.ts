@@ -1,5 +1,6 @@
-// The layout of an event axis, without the DOM: which row each span and milestone takes and the order the keyboard
-// steps through them. Server-safe, so an app can lay out its own markup with it.
+// The layout of an event axis, without the DOM: which row each span and milestone takes (or, on a rail, which segment
+// leads to each milestone) and the order the keyboard steps through them. Server-safe, so an app can lay out its own
+// markup with it.
 import type { ChartTone } from "./class-names.js";
 
 interface EventAxisItemBase {
@@ -23,10 +24,20 @@ export interface EventAxisSpan extends EventAxisItemBase {
   readonly endPercent: number;
 }
 
-/** A moment: at `xPercent` of the axis width. */
+/** A moment: at `xPercent` of the axis width. The `tick`, `segmentLabel` and `rail*` fields are read on a rail only. */
 export interface EventAxisMilestone extends EventAxisItemBase {
   readonly kind: "milestone";
   readonly xPercent: number;
+  /** On a rail: a short text under the dot, e.g. the year. */
+  readonly tick?: string;
+  /** On a rail: a short text on the segment leading to this milestone, e.g. a duration. */
+  readonly segmentLabel?: string;
+  /** On a rail: the series colour of the segment leading here; wins over `railTone`. */
+  readonly railSlot?: number;
+  /** On a rail: the role colour of the segment leading here. */
+  readonly railTone?: ChartTone;
+  /** On a rail: an app colour of the segment leading here; wins over `railSlot` and `railTone`. */
+  readonly railColor?: string;
 }
 
 export type EventAxisItem = EventAxisSpan | EventAxisMilestone;
@@ -69,6 +80,53 @@ export function layoutEventAxis(items: readonly EventAxisItem[]): EventAxisLayou
     return { ...entry, lane: firstSpanLane + lane };
   });
   return { entries, lanes: firstSpanLane + laneEnds.length };
+}
+
+/** The stretch of a rail from the previous milestone to this one, 0–100 %. */
+export interface EventRailSegment {
+  readonly startPercent: number;
+  readonly endPercent: number;
+  /** The milestone has a `segmentLabel` and the segment is at least `minLabelWidth` wide. */
+  readonly isLabelShown: boolean;
+}
+
+/** A milestone placed on a rail. */
+export interface EventRailEntry {
+  readonly item: EventAxisMilestone;
+  /** The milestone's index in the input. */
+  readonly index: number;
+  /** Its x, clamped to 0–100 %. */
+  readonly xPercent: number;
+  /** The segment leading to it; `null` for the first milestone and for one at the same x as the previous one. */
+  readonly segment: EventRailSegment | null;
+}
+
+export interface EventRailLayout {
+  /** Every milestone, in the order the keyboard steps through them: by x, then input order. */
+  readonly entries: readonly EventRailEntry[];
+}
+
+export interface EventRailOptions {
+  /** The narrowest segment, in axis percent, that still shows its label. Default 0: every label shows. */
+  readonly minLabelWidth?: number;
+}
+
+/**
+ * Milestones on one line, ordered by x, each after the first with the segment from the previous milestone to it.
+ * Positions are clamped to 0–100 %.
+ */
+export function layoutEventRail(milestones: readonly EventAxisMilestone[], { minLabelWidth = 0 }: EventRailOptions = {}): EventRailLayout {
+  const placed = milestones
+    .map((item, index) => ({ item, index, xPercent: clampPercent(item.xPercent) }))
+    .sort((a, b) => a.xPercent - b.xPercent || a.index - b.index);
+  const entries = placed.map((entry, step): EventRailEntry => {
+    const previous = placed[step - 1];
+    if (!previous || previous.xPercent === entry.xPercent) return { ...entry, segment: null };
+    const width = entry.xPercent - previous.xPercent;
+    const isLabelShown = entry.item.segmentLabel !== undefined && width >= minLabelWidth;
+    return { ...entry, segment: { startPercent: previous.xPercent, endPercent: entry.xPercent, isLabelShown } };
+  });
+  return { entries };
 }
 
 function getExtent(item: EventAxisItem): { startPercent: number; endPercent: number } {
