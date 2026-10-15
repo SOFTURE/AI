@@ -1,5 +1,5 @@
-// The jobs adapter of @softure-ai/auth: its prune functions as `@softure-ai/jobs` handlers and schedules (an optional
-// peer dependency; only apps that import this entry need it).
+// The jobs adapter of @softure-ai/auth: its prune functions as `@softure-ai/jobs` handlers and schedules, and the
+// password reset mail sent by a job with retry (an optional peer dependency; only apps that import this entry need it).
 import { ok } from "@softure-ai/core";
 import { defineJobHandler, type JobHandlers, type JobSchedulesInput } from "@softure-ai/jobs";
 import { z } from "zod";
@@ -31,3 +31,5 @@ export const authJobSchedules = {
   "auth.prune-sessions": { every: "1h" },
   "auth.prune-password-resets": { every: "1d" },
 } satisfies JobSchedulesInput;
+
+export { enqueuePasswordReset, PASSWORD_RESET_QUEUE, passwordResetJobHandler, passwordResetJobHandlers } from "./password-reset-job.js";

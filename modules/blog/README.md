@@ -854,41 +854,74 @@ const chartDirective: BlockPlugin = {
   its message as `block-directive`.
 
 **Tool blocks.** An interactive tool (a calculator) in an article is a directive whose page shows a client
-island. `defineToolBlock` (`@softure-ai/blog/ui`) builds that directive plugin from the app's schema, static HTML
-and client component:
+island. `defineToolBlock` (`@softure-ai/blog`, also `/server`) builds that directive plugin from the app's schema and
+static HTML; the plugin returns plain data, so the config that registers it imports no React (the proxy and the
+command line load the config too). The page renders the tool with the app's client component, given by tool name in
+`view.tools`:
 
 ```md
 ::savings-calculator{rate="5" years="20"}
 ```
 
-```tsx
-// blog-tools.tsx: imported by softure.config.ts (blog({ blocks, quality: { blocks } }))
-import { defineToolBlock } from "@softure-ai/blog/ui";
+```ts
+// blog-tools.ts: imported by softure.config.ts (blog({ blocks, quality: { blocks } })); no React, no components
+import { defineToolBlock } from "@softure-ai/blog";
 import { z } from "zod";
-import { SavingsCalculator } from "./savings-calculator"; // a "use client" component
 
 export const savingsTool = defineToolBlock({
   name: "savings-calculator",
   // The attributes are strings: coerce numbers. The props travel to the browser, so keep them serializable.
   schema: z.object({ rate: z.coerce.number().min(0).max(20), years: z.coerce.number().int().positive() }),
   renderStatic: (props) => `<p>${String(props.years)} years at ${String(props.rate)}%: …</p>`, // escape what you insert
-  Island: SavingsCalculator,
   markdown: (props) => `| Years | Rate |\n| --- | --- |\n| ${String(props.years)} | ${String(props.rate)}% |`, // optional
 });
 ```
 
+```tsx
+// savings-calculator-island.ts: the app's own "use client" module
+"use client";
+import { lazyToolIsland } from "@softure-ai/blog/ui";
+
+// Loaded only when the tool is on the page, after hydration. An eager island is the component itself.
+export const SavingsCalculatorIsland = lazyToolIsland(() => import("./savings-calculator").then((module) => module.SavingsCalculator));
+```
+
+```tsx
+// blog-islands.ts: a plain module (no "use client": a server component cannot read an object a client module exports)
+import type { BlogToolIslands } from "@softure-ai/blog/ui";
+import { SavingsCalculatorIsland } from "./savings-calculator-island";
+
+export const BLOG_TOOLS: BlogToolIslands = { "savings-calculator": SavingsCalculatorIsland };
+
+// app/blog/[slug]/page.tsx
+export default function Page(props) { return <BlogArticlePage {...props} view={{ tools: BLOG_TOOLS }} />; }
+```
+
 - The page's server HTML is `<div class="blog-tool" data-blog-tool="savings-calculator" data-state="static">` with the
   static HTML: what bots and readers without JavaScript get. After hydration `BlogToolIsland` (the package's one
-  client component) renders `Island` with the parsed props in its place (`data-state="live"`). `Island` is never
-  rendered on the server, so it may use browser APIs; keep the static HTML close to its first look to avoid a
-  layout shift. `className` replaces `blog-tool`.
+  client component) renders the island with the parsed props in its place (`data-state="live"`). The island is
+  never rendered on the server, so it may use browser APIs; keep the static HTML close to its first look to avoid
+  a layout shift. `className` replaces `blog-tool`. A tool with no island in `view.tools` keeps its static HTML.
+- `mode: "append"` keeps the static HTML (a chart that stays on the page) and mounts the island in an element right
+  after it, empty on the server: `<div … data-mode="append"><div data-blog-tool-part="static">…</div><div
+  data-blog-tool-part="island"></div></div>`. `replace` (the default) swaps the static HTML for the island.
+- `lazyToolIsland(load)` starts `load()` only when the island renders, after hydration, so an article without the
+  tool loads none of its code. Until it resolves the mount point keeps the static HTML (`replace`) or an empty
+  island element (`append`); a failed import reaches the nearest error boundary. Call it in a `"use client"`
+  module (the loader must stay on the client) and build the `view.tools` map in a plain module.
+- Several tools behind one directive: `defineToolBlocks({ name: "tool", tools: { calculator: { schema,
+  renderStatic }, chart: { schema, renderStatic, mode: "append" } } })` renders `::tool{type="chart" years="10"}`.
+  `type` picks the tool (its key in `view.tools` too, and `data-blog-tool-type` on the mount point); the other
+  attributes go to that tool's schema. `mode`, `markdown` and `numbers` are per tool; `requires`, `renderInvalid` and
+  `className` are the directive's. A missing or unknown `type` is refused like a schema issue.
+- An app with its own page renders a tool node with `renderToolNode(node, islands)` (`isBlogToolNode` tells it apart
+  from other node segments); `ArticleBody` does it with `context.tools`.
 - The Markdown answer carries the static HTML, or `markdown(props)` when given. RSS items carry no body.
 - The gate reports attributes the schema refuses as `block-directive` (`the attributes of ::savings-calculator do
   not fit: rate: …`), so register the tool in `quality.blocks` too. Such a line renders nothing on the page
   (`renderInvalid(block)` returns the app's HTML instead) and keeps its source in the Markdown answer.
-- `requires` and `numbers(props)` work as for any block plugin.
-- The config imports the tool's module, and the config also loads in plain Node and in the proxy: keep `Island` a
-  plain component module (no CSS imports or browser globals at module level).
+- `requires` and `numbers(props)` work as for any block plugin; on a shared directive a tool without `numbers` is not
+  checked (`numbers` may return `null` for any block plugin: no check for that block).
 
 **Markdown for agents.** `createBlogMarkdown(config)` (`@softure-ai/blog/proxy`) answers a GET or HEAD
 of a published article or term whose `Accept` names `text/markdown` with at least the weight of
@@ -1041,8 +1074,8 @@ export const tickerPlugin: QualityPlugin = {
   exported from `@softure-ai/blog/server`.
 - `renderArticle({ blocks })` and `blog({ blocks })`: block plugins for the app's fenced blocks and
   `::directive` lines (an engine chart), with an optional Markdown form for agents.
-- `defineToolBlock` (`/ui`): an interactive tool behind a directive, static HTML for bots and a client island on
-  the page.
+- `defineToolBlock` and `defineToolBlocks` (root entry): an interactive tool behind a directive, static HTML for bots
+  and a client island from `view.tools` on the page.
 - The pages' `cta` and `afterArticle` slots: the app's call to action and blocks (a waitlist form).
 
 ## 11. GDPR

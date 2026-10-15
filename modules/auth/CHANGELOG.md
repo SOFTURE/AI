@@ -4,6 +4,17 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`auth@x.y.z`).
 
+## Unreleased
+
+- Password reset mails can leave from a background job with retry (#494): `auth({ passwordReset: { send, enqueue:
+  enqueuePasswordReset } })` from the new entry `@softure-ai/auth/jobs`, with `@softure-ai/jobs` as an optional peer
+  dependency (`^0.1.1`). The request then only enqueues `{ userId }` on the `auth.password-reset` queue; the handler
+  issues the link when it runs (valid for `ttlMinutes` from the send) and calls the sender, retrying a failure with the
+  queue's backoff. `deliverPasswordReset` returns `"queued"` in that mode; `sendPasswordReset(ctx, userId)` is the
+  handler's work for an app's own worker. Without `enqueue` nothing changes. Migrate (optional): install
+  `@softure-ai/jobs`, add `jobs({ queues: { "auth.password-reset": {} } })` to `softure.config.ts`, pass
+  `enqueue: enqueuePasswordReset`, and spread `passwordResetJobHandlers` into the worker's `handlers`.
+
 ## 0.2.1
 
 - `@softure-ai/auth/jobs` (#491): `authJobHandlers` and `authJobSchedules` run `pruneSessions` (hourly) and

@@ -22,6 +22,13 @@ export type RewriteConfirmationLink = (path: string, ctx: { readonly config: Sof
  */
 export type ResolveChannel = (ctx: { readonly config: SoftureConfig }) => Promise<string | null> | string | null;
 
+/**
+ * Hands a confirmation mail to a background job instead of sending it after the response:
+ * `enqueueConfirmationMail` of `@softure-ai/waitlist/jobs` enqueues `{ signupId }` on the
+ * `waitlist.confirmation-mail` queue. Runs inside the sign-up's transaction (`ctx.db`).
+ */
+export type ConfirmationMailEnqueuer = (ctx: ModuleContext<Queryable>, signupId: string) => Promise<void>;
+
 /** Kebab-case, at most 64 characters: scope ids are consent purposes in privacy's ledger. */
 export const NAME_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 export const MAX_NAME_LENGTH = 64;
@@ -80,6 +87,16 @@ export const waitlistOptionsSchema = z
      */
     doubleOptIn: doubleOptInSchema,
     /**
+     * How the confirmation mail of double opt-in leaves. `enqueue` (`enqueueConfirmationMail` of
+     * `@softure-ai/waitlist/jobs`) sends it from a job with retry; without it, the join action sends it
+     * after the response, once.
+     */
+    confirmationMail: z
+      .strictObject({
+        enqueue: z.custom<ConfirmationMailEnqueuer>((value) => typeof value === "function", "must be a function").optional(),
+      })
+      .prefault({}),
+    /**
      * Renders the HTML body of the welcome and confirmation mails (the text body stays the module's).
      * Without it, the module sends a plain HTML body built from the same copy.
      */
@@ -103,6 +120,9 @@ export const waitlistOptionsSchema = z
     rewriteConfirmationLink: z.custom<RewriteConfirmationLink>((value) => typeof value === "function", "must be a function").optional(),
   })
   .superRefine((options, context) => {
+    if (options.confirmationMail.enqueue !== undefined && options.doubleOptIn === null) {
+      context.addIssue({ code: "custom", path: ["confirmationMail", "enqueue"], message: "needs doubleOptIn: without it no confirmation mail is sent" });
+    }
     const findDuplicates = (values: readonly string[], toPath: (index: number) => (string | number)[]) => {
       const seen = new Set<string>();
       values.forEach((value, index) => {
