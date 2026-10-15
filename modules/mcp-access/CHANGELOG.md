@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mcp-access@x.y.z`).
 
+## Unreleased
+
+- `oauth.registration` (#520): `"closed"` keeps `POST /api/oauth/register` shut (`403 access_denied`) except while a
+  window opened by the new `open-client-registration --minutes=N` ops script lasts; `close-client-registration` shuts
+  it early. Both come from the new `@softure-ai/mcp-access/scripts` entry; `@softure-ai/ops` (^0.2.0) is a new
+  optional peer. The default `"open"` changes nothing. Migrate: run `softure migrate` (file 3 adds
+  `mcp.oauth_registration_window`; the health check reads it). An app that adopted its own tables keeps
+  `baseline: { "mcp-access": 2 }`.
+
 ## 0.2.1
 
 - `@softure-ai/mcp-access/jobs` (#491): `mcpAccessJobHandlers` and `mcpAccessJobSchedules` run `pruneMcpAccess`
