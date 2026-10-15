@@ -1,12 +1,13 @@
 ---
 change_id: ui-checklist-row-link-506
 title: "ui: Checklist rows as whole links with a trailing adornment, and linked done items (issue #506)"
-status: active
+status: archived
 roadmap_item: null
 issue: 506
 branch: claude/project-thread-hhvivv
 created: 2026-10-15
 updated: 2026-10-15
+archived_at: 2026-10-15
 ---
 
 ## Intent

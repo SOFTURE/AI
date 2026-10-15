@@ -1,6 +1,6 @@
 ---
 change_id: ui-checklist-row-link-506
-status: active
+status: archived
 ---
 
 # Plan: Checklist row links, trailing adornment, linked done items (issue #506)
@@ -25,4 +25,6 @@ Files: `foundation/ui/src/ui/checklist.tsx`, `foundation/ui/tests/checklist-row-
 ## Progress
 
 - [x] Phase 1: `rowLink`, `trailing`, `linkDone` (`91bd3bb`; 7 tests written first, 5 red before the change)
-- [ ] Phase 2: docs
+- [x] Phase 2: docs (`1f091bd`; README checklist paragraph and example, CHANGELOG `## Unreleased`)
+
+Gates on the branch: `npm run typecheck` and `npm run lint` green (pre-commit); ui tests 599 passed; the full `npm test` runs in pre-push.
