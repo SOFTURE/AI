@@ -1,7 +1,7 @@
 ---
 change_id: billing-jobs
 title: "Billing runs its access reminders and invoice request expiry as jobs schedules (issue #490)"
-status: research
+status: implementing
 roadmap_item: null
 issue: 490
 branch: claude/project-thread-swbd1r

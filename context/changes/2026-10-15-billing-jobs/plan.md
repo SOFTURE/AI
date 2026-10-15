@@ -55,5 +55,5 @@ Done when: `npm run typecheck`, `npm run lint`, `npm test`, `npm run build` gree
 
 ## Progress
 
-- [ ] Phase 1
+- [x] Phase 1: 5009c4a
 - [ ] Phase 2
