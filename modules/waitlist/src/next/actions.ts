@@ -62,6 +62,8 @@ export async function joinWaitlistAction(_previous: WaitlistFormState, formData:
 
   const joined = result.value;
   if (joined.status === "confirmation_required") {
+    // A queued mail leaves from its job, with retry.
+    if (joined.isMailQueued) return { status: "confirmation_sent" };
     after(async () => {
       try {
         const sent = await deliverConfirmationMail(await getWaitlistContext(config), joined.signup, joined.token);

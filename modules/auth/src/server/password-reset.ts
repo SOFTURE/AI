@@ -1,6 +1,6 @@
 // Password reset by token. A request counts its buckets and answers the same for every email;
-// `deliverPasswordReset` then issues the token and calls the app's sender (the Next adapter runs it
-// after the response, so neither its timing nor its failures reveal an account). A reset link
+// `deliverPasswordReset` then issues the token and calls the app's sender, or enqueues the reset job
+// (the Next adapter runs it after the response, so neither its timing nor its failures reveal an account). A reset link
 // carries 32 random bytes; only their sha256 is stored, one pending link per account, and the reset
 // deletes the row in the transaction that sets the new password and ends every session.
 import { err, ok, type Err, type Ok, type SoftureConfig } from "@softure-ai/core";
@@ -8,6 +8,7 @@ import type { RateLimitRejection } from "@softure-ai/security";
 import { consumeRateLimit } from "@softure-ai/security/server";
 import { and, eq, gt, lte } from "drizzle-orm";
 import type { AuthUser } from "../contract.js";
+import type { PasswordResetSender } from "../password-reset-sender.js";
 import { passwordResets, sessions, users } from "../schema.js";
 import { getAuthOptions, getAuthRoutes } from "./options.js";
 import { hashPassword } from "./password.js";
@@ -57,23 +58,46 @@ export async function requestPasswordReset(ctx: AuthContext, input: PasswordRese
 
 /**
  * Issues a reset link for the account with `email` (replacing a pending one) and hands it to the
- * app's sender. `no_account` when no account has that email. Sender and database errors propagate.
+ * app's sender, or, with `passwordReset.enqueue`, enqueues the account's id for the reset job
+ * (`queued`), which issues and sends the link with retry. `no_account` when no account has that
+ * email. Sender, enqueuer and database errors propagate.
  */
-export async function deliverPasswordReset(ctx: AuthContext, email: string): Promise<"sent" | "no_account"> {
-  const send = getAuthOptions(ctx.config).passwordReset.send;
+export async function deliverPasswordReset(ctx: AuthContext, email: string): Promise<"sent" | "queued" | "no_account"> {
+  const { send, enqueue } = getAuthOptions(ctx.config).passwordReset;
   if (send === undefined) {
     throw new Error("@softure-ai/auth: deliverPasswordReset needs auth({ passwordReset: { send } })");
   }
-  const [user] = await ctx.db
-    .select({ id: users.id, email: users.email, createdAt: users.createdAt })
-    .from(users)
-    .where(eq(users.email, email))
-    .limit(1);
+  const [user] = await ctx.db.select(USER_COLUMNS).from(users).where(eq(users.email, email)).limit(1);
   if (user === undefined) return "no_account";
+  if (enqueue !== undefined) {
+    await enqueue(ctx, user.id);
+    return "queued";
+  }
+  await issueAndSend(ctx, user, send);
+  return "sent";
+}
 
+/**
+ * Issues a reset link for the account with `userId` and hands it to the app's sender: the work of
+ * the reset job (`@softure-ai/auth/jobs`). `no_account` when the account is gone. Sender and
+ * database errors propagate.
+ */
+export async function sendPasswordReset(ctx: AuthContext, userId: string): Promise<"sent" | "no_account"> {
+  const send = getAuthOptions(ctx.config).passwordReset.send;
+  if (send === undefined) {
+    throw new Error("@softure-ai/auth: sendPasswordReset needs auth({ passwordReset: { send } })");
+  }
+  const [user] = await ctx.db.select(USER_COLUMNS).from(users).where(eq(users.id, userId)).limit(1);
+  if (user === undefined) return "no_account";
+  await issueAndSend(ctx, user, send);
+  return "sent";
+}
+
+const USER_COLUMNS = { id: users.id, email: users.email, createdAt: users.createdAt };
+
+async function issueAndSend(ctx: AuthContext, user: AuthUser, send: PasswordResetSender): Promise<void> {
   const { token, expiresAt } = await issuePasswordReset(ctx, user.id);
   await send(getPasswordResetLink(ctx.config, token), user, { expiresAt, locale: ctx.config.locale });
-  return "sent";
 }
 
 /** Stores a new reset token for `userId`, replacing a pending one, and returns the token. */

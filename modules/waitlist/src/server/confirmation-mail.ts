@@ -6,10 +6,13 @@
 import { TRANSACTIONAL_KIND, type SendMailResult } from "@softure-ai/mailing";
 import { sendMail } from "@softure-ai/mailing/server";
 import { errorLogLabel, type SoftureConfig } from "@softure-ai/core";
+import { and, eq, gt, isNotNull } from "drizzle-orm";
 import type { WaitlistSignup } from "../contract.js";
+import { signups } from "../schema.js";
+import { createConfirmationToken } from "./confirmation-token.js";
 import { renderMailHtml } from "./mail-html.js";
 import { getWaitlistMessagesIn, getWaitlistOptions, getWaitlistRoutes, resolveLocale } from "./options.js";
-import type { WaitlistContext } from "./signups.js";
+import { toSignup, type WaitlistContext } from "./signups.js";
 
 /** The query parameter of the confirmation link that carries the token. */
 export const CONFIRMATION_TOKEN_PARAM = "token";
@@ -69,4 +72,24 @@ export async function deliverConfirmationMail(ctx: WaitlistContext, signup: Wait
     action: { href: link, label: messages.action },
   });
   return sendMail(ctx, { to: signup.email, subject: messages.subject, text: `${messages.text}\n\n${link}`, html, kind: TRANSACTIONAL_KIND });
+}
+
+/** What `sendConfirmationMail` did: nothing (no request waits for a link) or a send with mailing's result. */
+export type ConfirmationMailOutcome = { readonly status: "nothing_pending" } | { readonly status: "attempted"; readonly result: SendMailResult };
+
+/**
+ * Mails a fresh confirmation link for the sign-up with `signupId`: the work of the confirmation mail
+ * job (`@softure-ai/waitlist/jobs`). Only token hashes are stored, so it issues a new token, which
+ * replaces the earlier one and keeps the request's expiry, then sends. A sign-up that is gone,
+ * confirmed or expired gets nothing. Database errors and a failing `mailTemplate` throw.
+ */
+export async function sendConfirmationMail(ctx: WaitlistContext, signupId: string): Promise<ConfirmationMailOutcome> {
+  const { token, tokenHash } = createConfirmationToken();
+  const [row] = await ctx.db
+    .update(signups)
+    .set({ confirmationTokenHash: tokenHash })
+    .where(and(eq(signups.id, signupId), isNotNull(signups.pendingScopes), gt(signups.confirmationExpiresAt, ctx.clock.now())))
+    .returning();
+  if (row === undefined) return { status: "nothing_pending" };
+  return { status: "attempted", result: await deliverConfirmationMail(ctx, toSignup(row), token) };
 }

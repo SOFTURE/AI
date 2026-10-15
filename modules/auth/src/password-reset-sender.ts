@@ -1,6 +1,7 @@
 // The hook through which auth hands a password reset link to the app, which delivers it (a mail,
 // e.g. through `mailingResetSender()` of `@softure-ai/auth/mailing`). Auth never sends anything itself.
-import type { Locale } from "@softure-ai/core";
+import type { Locale, ModuleContext } from "@softure-ai/core";
+import type { Queryable } from "@softure-ai/db";
 import type { AuthUser } from "./contract.js";
 
 export interface PasswordResetDetails {
@@ -31,3 +32,10 @@ export const consolePasswordResetSender: PasswordResetSender = (link, user, deta
   console.info(`@softure-ai/auth: password reset link for ${user.email}, valid until ${details.expiresAt.toISOString()}: ${link}`);
   return Promise.resolve();
 };
+
+/**
+ * Hands a reset to a background job instead of sending it in the request: `enqueuePasswordReset` of
+ * `@softure-ai/auth/jobs` enqueues `{ userId }` on the `auth.password-reset` queue, whose handler issues
+ * the link and calls the sender with retry. `ctx.db` is the request's database.
+ */
+export type PasswordResetEnqueuer = (ctx: ModuleContext<Queryable>, userId: string) => Promise<void>;
