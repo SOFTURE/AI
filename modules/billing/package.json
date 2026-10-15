@@ -37,6 +37,11 @@
       "types": "./dist/server/index.d.ts",
       "default": "./dist/server/index.js"
     },
+    "./jobs": {
+      "@softure-ai/source": "./src/jobs/index.ts",
+      "types": "./dist/jobs/index.d.ts",
+      "default": "./dist/jobs/index.js"
+    },
     "./mailing": {
       "@softure-ai/source": "./src/mailing/index.ts",
       "types": "./dist/mailing/index.d.ts",
@@ -70,6 +75,7 @@
     "zod": "^4.6.5"
   },
   "peerDependencies": {
+    "@softure-ai/jobs": "^0.1.1",
     "@softure-ai/mailing": "^0.2.0",
     "@softure-ai/ui": "^0.3.0",
     "drizzle-orm": "^0.45.2",
@@ -80,6 +86,9 @@
     "@softure-ai/ui": "^0.3.0"
   },
   "peerDependenciesMeta": {
+    "@softure-ai/jobs": {
+      "optional": true
+    },
     "@softure-ai/mailing": {
       "optional": true
     }
