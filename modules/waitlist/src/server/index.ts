@@ -1,6 +1,13 @@
 // Server-only API of @softure-ai/waitlist. Every function receives the module context
 // (`{ db, clock, config }`) and never reads request scope; `next/*` imports are not allowed here.
-export { CONFIRMATION_TOKEN_PARAM, deliverConfirmationMail, getConfirmationLink, resolveConfirmationLink } from "./confirmation-mail.js";
+export {
+  CONFIRMATION_TOKEN_PARAM,
+  deliverConfirmationMail,
+  getConfirmationLink,
+  resolveConfirmationLink,
+  sendConfirmationMail,
+  type ConfirmationMailOutcome,
+} from "./confirmation-mail.js";
 export { checkSignupsTable } from "./health.js";
 export {
   IMPORT_CONSENT_SOURCE,

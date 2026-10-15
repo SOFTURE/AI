@@ -8,7 +8,10 @@ import { joinWaitlistAction } from "@softure-ai/waitlist/next";
 import { isSuppressed, readUnsubscribeToken, suppressRecipient, verifyUnsubscribeToken } from "@softure-ai/mailing/server";
 import { getSignup, joinWaitlist, type WaitlistContext } from "@softure-ai/waitlist/server";
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
-import { CLIENT, createTestWaitlist, OPTIONS, SECRET, type TestWaitlist } from "./support.js";
+import { jobs } from "@softure-ai/jobs";
+import { listJobs } from "@softure-ai/jobs/testing";
+import { CONFIRMATION_MAIL_QUEUE, enqueueConfirmationMail } from "@softure-ai/waitlist/jobs";
+import { CLIENT, createTestWaitlist, OPTIONS, SECRET, type ConfigOptions, type TestWaitlist } from "./support.js";
 
 interface RequestScope {
   config: SoftureConfig | undefined;
@@ -44,8 +47,8 @@ describe("the join action", () => {
   let test: TestWaitlist;
   let log: MockInstance<typeof console.error>;
 
-  async function start(options: WaitlistOptionsInput): Promise<void> {
-    test = await createTestWaitlist({ waitlist: options });
+  async function start(options: WaitlistOptionsInput, config: ConfigOptions = {}): Promise<void> {
+    test = await createTestWaitlist({ ...config, waitlist: options });
     scope.config = test.config;
     scope.context = test.ctx;
     scope.afterCalls = 0;
@@ -58,6 +61,16 @@ describe("the join action", () => {
     await test.database.close();
     vi.unstubAllEnvs();
     log.mockRestore();
+  });
+
+  it("leaves a queued confirmation mail to its job and defers nothing to after()", async () => {
+    await start(
+      { ...OPTIONS, doubleOptIn: true, confirmationMail: { enqueue: enqueueConfirmationMail } },
+      { modules: [jobs({ queues: { [CONFIRMATION_MAIL_QUEUE]: {} } })] },
+    );
+    expect(await joinWaitlistAction(INITIAL_WAITLIST_FORM_STATE, joinForm())).toEqual({ status: "confirmation_sent" });
+    expect(scope.afterCalls).toBe(0);
+    expect(await listJobs(test.database.db)).toMatchObject([{ queue: CONFIRMATION_MAIL_QUEUE, status: "pending" }]);
   });
 
   it("stores the channel the app resolves for the request", async () => {
