@@ -90,15 +90,38 @@ has no use for hooks):
 { "scripts": { "prepare": "node -e \"process.exit(process.env.CI?0:1)\" || lefthook install" } }
 ```
 
-An app overrides a job by naming it in its own `lefthook.yml` (lefthook merges the files job by job). An app that
-still has inline Polish copy outside `messages/` keeps the commit message check and skips the file checks until the
-copy moves:
+To change a job, list a file of the app's own after the preset in `extends` and name the job there. lefthook merges
+`extends` over the app's `lefthook.yml`, and a later file in `extends` over an earlier one, job by job (matched by
+`name`), so the app's file wins and the jobs keep the preset's order. A job named in `lefthook.yml` itself does not
+change what the preset sets: its `run` is ignored, and only a key the preset leaves out (such as `skip`) takes effect.
 
 ```yaml
 # lefthook.yml
 extends:
   - node_modules/@softure-ai/config/presets/lefthook.yml
+  - lefthook.app.yml
+```
 
+A Next.js app generates its route types before the type check:
+
+```yaml
+# lefthook.app.yml
+pre-commit:
+  jobs:
+    - name: typecheck
+      run: npx next typegen && npx tsc --noEmit
+
+pre-push:
+  jobs:
+    - name: typecheck
+      run: npx next typegen && npx tsc --noEmit
+```
+
+An app that still has inline Polish copy outside `messages/` keeps the commit message check and skips the file checks
+until the copy moves (a verbatim quote in Markdown needs no skip: mark it, see the language gate below):
+
+```yaml
+# lefthook.app.yml
 pre-commit:
   jobs:
     - name: language
@@ -109,6 +132,9 @@ pre-push:
     - name: language
       skip: true
 ```
+
+Run `npx lefthook dump` to see the hooks as lefthook merged them. Keep the second file out of `lefthook-local.yml`:
+that is lefthook's file for one developer's own overrides, usually ignored by git.
 
 ## Language gate
 

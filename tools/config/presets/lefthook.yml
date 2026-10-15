@@ -4,7 +4,8 @@
 #     - node_modules/@softure-ai/config/presets/lefthook.yml
 #
 # and installs them from its `prepare` script, skipped when CI is set (README). Never bypass them
-# with `--no-verify`.
+# with `--no-verify`. To change a job, list a second file after this one in `extends` and name the
+# job there; a job redefined in the app's own lefthook.yml keeps this file's `run` (README).
 #
 #   pre-commit  typecheck, ESLint on the staged files and the language gate, in parallel.
 #   commit-msg  the language gate on the commit message.

@@ -74,6 +74,14 @@ function listWorkflowsRefWarnings(options: { written: string[]; workflowsRef: st
   ];
 }
 
+/** A second stack on a server with `--edge`: its Postgres takes the same loopback port as the first one's. */
+function listEdgeWarnings(facts: AppFacts, answers: InitAnswers): string[] {
+  if (answers.edge === undefined || !facts.hasDatabase) return [];
+  return [
+    `${COMPOSE_FILE} publishes Postgres on 127.0.0.1:5432, which another stack on this server may hold already; change the host port, or drop it and set database.access to compose-exec in deploy.json`,
+  ];
+}
+
 /** What init cannot do itself for `--cdn=cloudflare`: root's one-time install and the origin probe's address. */
 function listCdnSteps(answers: InitAnswers): string[] {
   if (answers.cdn !== "cloudflare") return [];
@@ -101,6 +109,7 @@ export function runInit(args: string[], io: CliIo): void {
     "workflows-ref": { type: "string" },
     cdn: { type: "string" },
     "report-role": { type: "string" },
+    edge: { type: "string" },
     force: { type: "boolean", default: false },
   });
   const missing = (["domain", "image"] as const).filter((name) => flags[name] === undefined);
@@ -123,6 +132,7 @@ export function runInit(args: string[], io: CliIo): void {
     workflowsRef: flags["workflows-ref"],
     cdn: flags.cdn,
     reportRole: flags["report-role"],
+    edge: flags.edge,
   });
   if (!answersResult.ok) fail(`init: nothing written; ${answersResult.problems.join("; ")}.`);
   const cliVersion = readCliVersion();
@@ -133,6 +143,7 @@ export function runInit(args: string[], io: CliIo): void {
     ...listNextConfigWarnings(facts),
     ...listWorkerWarnings(facts),
     ...listComposeWarnings(facts, answersResult.answers, replacesCompose),
+    ...listEdgeWarnings(facts, answersResult.answers),
     ...listWorkflowsRefWarnings({ written: result.written, workflowsRef: answersResult.answers.workflowsRef, cliVersion }),
   ];
   const lines = [

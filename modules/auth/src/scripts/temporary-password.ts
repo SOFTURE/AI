@@ -10,15 +10,9 @@ import { defineOpsScript, refuseOpsScript, type OpsScript } from "@softure-ai/op
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { passwordResets, sessions, users } from "../schema.js";
-import { getAuthOptions } from "../server/options.js";
-import { hashPassword, isPasswordHash } from "../server/password.js";
 import { revokeUserSessions, type AuthContext } from "../server/sessions.js";
-import { createTemporaryPassword } from "../server/temporary-password.js";
 import { normalizeEmail } from "../server/validation.js";
-
-/** Long enough to be out of guessing range in any rate limit window. */
-const MIN_TEMPORARY_LENGTH = 20;
-const PASSWORD_HASH_KEY = "password-hash";
+import { choosePassword, describeChosenPassword, PASSWORD_HASH_KEY, PASSWORD_HASH_USAGE, passwordHashArg } from "./password-choice.js";
 
 export interface TemporaryPasswordScriptArgs {
   readonly email: string;
@@ -35,8 +29,7 @@ export interface TemporaryPasswordScriptOptions {
 
 const scriptArgs = z.strictObject({
   email: z.string().min(1, "--email=<account email> is required"),
-  // A constant message: the value is secret-derived and must not be echoed.
-  [PASSWORD_HASH_KEY]: z.string().refine(isPasswordHash, "is not a scrypt hash written by @softure-ai/auth").optional(),
+  [PASSWORD_HASH_KEY]: passwordHashArg,
 });
 
 /** `set-temporary-password --email=… [--password-hash=…]`: a new password, every session and reset link ended. */
@@ -49,7 +42,7 @@ export function createSetTemporaryPasswordScript(
     name: "set-temporary-password",
     description:
       "Sets a new password for the account with the given email (a random one, or the given hash) and ends its sessions and reset link.",
-    usage: ["--email=<account email>", `--${PASSWORD_HASH_KEY}=<hash>  store this hashPassword() hash instead of drawing a password`],
+    usage: ["--email=<account email>", PASSWORD_HASH_USAGE],
     args: scriptArgs,
     secrets: [PASSWORD_HASH_KEY],
     run: async (tx, args) => {
@@ -63,18 +56,7 @@ export function createSetTemporaryPasswordScript(
       await revokeUserSessions(ctx, account.id);
       await tx.delete(passwordResets).where(eq(passwordResets.userId, account.id));
       const remaining = (await tx.select().from(sessions).where(eq(sessions.userId, account.id))).length;
-      const after = password.from === "hash" ? { passwordFrom: "hash" } : { temporaryPassword: password.plain };
-      return ok({ before, after: { userId: account.id, sessions: remaining, ...after } });
+      return ok({ before, after: { userId: account.id, sessions: remaining, ...describeChosenPassword(password) } });
     },
   });
-}
-
-type ChosenPassword = { readonly from: "hash"; readonly hash: string } | { readonly from: "drawn"; readonly hash: string; readonly plain: string };
-
-/** The given hash, or a drawn password of at least 20 characters and `password.minLength`, with its hash. */
-async function choosePassword(givenHash: string | undefined, config: SoftureConfig, alphabet: string | undefined): Promise<ChosenPassword> {
-  if (givenHash !== undefined) return { from: "hash", hash: givenHash };
-  const { password } = getAuthOptions(config);
-  const plain = createTemporaryPassword({ alphabet, length: Math.max(password.minLength, MIN_TEMPORARY_LENGTH) });
-  return { from: "drawn", hash: await hashPassword(plain, password.scrypt), plain };
 }

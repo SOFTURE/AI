@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`auth@x.y.z`).
 
+## Unreleased
+
+- `createCreateAccountScript(config, { maxAccounts?, alphabet?, clock? })` in `@softure-ai/auth/scripts` (#521): the
+  `create-account` ops script creates an account while registration is closed, with a drawn temporary password or a
+  given `--password-hash`, dry run by default. It refuses an existing or invalid email and, with `maxAccounts`, a
+  table that already holds that many accounts (the table is locked for the run). Migrate (optional): an app that
+  inserted its first account into `auth.users` itself, or added its own index to hold one account, uses the script
+  with `maxAccounts: 1` instead.
+
 ## 0.2.2
 
 - Password reset mails can leave from a background job with retry (#494): `auth({ passwordReset: { send, enqueue:

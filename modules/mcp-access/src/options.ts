@@ -91,6 +91,13 @@ const oauthSchema = z.strictObject({
    * dynamic client registration, a consent page and a token endpoint. The app mounts those routes.
    */
   enabled: z.boolean().default(false),
+  /**
+   * Dynamic client registration (RFC 7591). `open`: anyone who reaches the route registers a client
+   * (a client grants nothing until a person consents). `closed`: the route answers `403
+   * access_denied` except while a window opened by the `open-client-registration` ops script lasts,
+   * for an app whose owner adds the connector a few times a year.
+   */
+  registration: z.enum(["open", "closed"]).default("open"),
   /** How long an access token issued through OAuth works. Clients refresh it themselves. */
   accessTokenLifetimeMinutes: z.int().min(5).max(1440).default(60),
   /** How long a refresh token works, counted from the last refresh: a grant in use never expires. */
