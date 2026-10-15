@@ -1,12 +1,13 @@
 ---
 change_id: config-lefthook-override-518
 title: "config: an app changes one job of the lefthook preset through a second extends file (issue #518)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 518
 branch: claude/project-thread-hyjor3
 created: 2026-10-15
 updated: 2026-10-15
+archived_at: 2026-10-15
 ---
 
 ## Intent

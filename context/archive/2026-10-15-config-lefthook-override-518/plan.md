@@ -1,6 +1,6 @@
 ---
 change_id: config-lefthook-override-518
-status: in_progress
+status: archived
 ---
 
 # Plan: change one job of the lefthook preset (issue #518)
@@ -25,5 +25,10 @@ the second file), `tools/config/presets/lefthook.yml` header comment, `tools/con
 
 ## Progress
 
-- [ ] Phase 1: guard the mechanism with a test
-- [ ] Phase 2: docs
+- [x] Phase 1: guard the mechanism with a test (`9c5ccdd`; two `lefthook dump` cases. They pass on the current
+  preset, as the fix is documentation: the first guards the documented mechanism, the second the README's warning)
+- [x] Phase 2: docs (`9c5ccdd`; README git hooks section with the Next.js and skip examples, preset header
+  comment, CHANGELOG `## Unreleased`)
+
+Gates on the branch: typecheck, ESLint and the language gate green (pre-commit); config preset tests 9 passed; the
+full `npm test` runs in pre-push.
