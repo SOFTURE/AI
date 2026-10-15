@@ -109,10 +109,12 @@ export async function createDatabase(url: string, options: CreateDatabaseOptions
 
 /**
  * Wraps an open PGlite instance, e.g. the app's own, for `database.handle` in softure.config. `close` closes the
- * instance, which writes a `pglite://<dir>` database back to its directory.
+ * instance, which writes a `pglite://<dir>` database back to its directory. Resolves once the instance is ready:
+ * PGlite 0.5.10 never resolves `close()` on an instance still loading its data folder (#523).
  */
 export async function createPgliteHandle(client: PGlite): Promise<DatabaseHandle & { kind: "pglite" }> {
   const { drizzle } = await importDriver(PGLITE_DRIVER, () => import("drizzle-orm/pglite"));
+  await client.waitReady;
   return { kind: "pglite", db: drizzle({ client }), client, close: () => client.close() };
 }
 

@@ -3,7 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { sql } from "drizzle-orm";
 import { afterEach, describe, expect, it } from "vitest";
-import { createDatabase, type DatabaseHandle, type Queryable } from "@softure-ai/db";
+import { PGlite } from "@electric-sql/pglite";
+import { createDatabase, createPgliteHandle, type DatabaseHandle, type Queryable } from "@softure-ai/db";
 import { explainMissingDriver } from "../src/client.js";
 import { POSTGRES_ADMIN_URL, createPostgresDatabaseUrl } from "./support/postgres.js";
 
@@ -88,6 +89,16 @@ describe("createDatabase", () => {
 
     expect(handle.kind).toBe("postgres");
     expect(result.rows).toEqual([{ answer: 42 }]);
+  });
+});
+
+describe("createPgliteHandle", () => {
+  it("closes a client that was never queried (#523)", async () => {
+    const handle = await createPgliteHandle(new PGlite());
+    const closed = handle.close().then(() => "resolved" as const);
+    const timedOut = new Promise<"timed out">((resolve) => setTimeout(() => resolve("timed out"), 5_000));
+
+    await expect(Promise.race([closed, timedOut])).resolves.toBe("resolved");
   });
 });
 

@@ -33,6 +33,11 @@ async function open(...args: Parameters<typeof createTestDatabase>): Promise<Tes
   return database;
 }
 
+// Bounds a promise so a hang fails the test quickly instead of stalling the file.
+function resolvesWithin(promise: Promise<unknown>, ms: number): Promise<"resolved" | "timed out"> {
+  return Promise.race([promise.then(() => "resolved" as const), new Promise<"timed out">((resolve) => setTimeout(() => resolve("timed out"), ms))]);
+}
+
 afterEach(async () => {
   for (const database of opened.splice(0)) await database.close();
   for (const cleanup of cleanups.splice(0)) cleanup();
@@ -66,6 +71,12 @@ describe("createTestDatabase", () => {
     const rows = await database.db.execute<{ module: string }>(sql`select module from softure.migrations`);
 
     expect(rows.rows).toEqual([{ module: "softure" }]);
+  });
+
+  it("closes a copy that was never queried (#523)", async () => {
+    const database = await createTestDatabase([createNotesModule()]);
+
+    await expect(resolvesWithin(database.close(), 5_000)).resolves.toBe("resolved");
   });
 
   it("throws naming the file when a migration fails", async () => {
