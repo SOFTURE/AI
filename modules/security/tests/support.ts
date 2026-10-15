@@ -1,5 +1,5 @@
 // Shared setup: an app configuration with the security module and a migrated PGlite database.
-import { createTestClock, defineSoftureConfig, type SoftureConfig, type TestClock } from "@softure-ai/core";
+import { createTestClock, defineSoftureConfig, type AnySoftureModule, type SoftureConfig, type TestClock } from "@softure-ai/core";
 import { createTestDatabase, type TestDatabase } from "@softure-ai/db/testing";
 import { headerIp, security, type SecurityOptionsInput } from "@softure-ai/security";
 import type { SecurityContext } from "@softure-ai/security/server";
@@ -15,7 +15,8 @@ export const FIRE_BUCKETS = {
   waitlist: { limit: 8, windowMinutes: 15 },
 } as const;
 
-export function createConfig(options: Partial<SecurityOptionsInput> = {}): SoftureConfig {
+/** `modules` are listed after security, e.g. jobs. */
+export function createConfig(options: Partial<SecurityOptionsInput> = {}, modules: readonly AnySoftureModule[] = []): SoftureConfig {
   return defineSoftureConfig({
     database: { url: "pglite://" },
     locale: "en",
@@ -23,6 +24,7 @@ export function createConfig(options: Partial<SecurityOptionsInput> = {}): Softu
     appOrigin: "http://localhost:3000",
     modules: [
       security({ clientIp: headerIp("x-real-ip"), buckets: FIRE_BUCKETS, cleanupProbability: 0, ...options }),
+      ...modules,
     ],
   });
 }
@@ -33,8 +35,8 @@ export interface TestSecurity {
   readonly database: TestDatabase;
 }
 
-export async function createTestSecurity(options: Partial<SecurityOptionsInput> = {}): Promise<TestSecurity> {
-  const config = createConfig(options);
+export async function createTestSecurity(options: Partial<SecurityOptionsInput> = {}, modules: readonly AnySoftureModule[] = []): Promise<TestSecurity> {
+  const config = createConfig(options, modules);
   const database = await createTestDatabase(config.modules);
   const clock = createTestClock(NOW);
   return { ctx: { db: database.db, clock, config }, clock, database };

@@ -111,7 +111,9 @@ describe("the whole secrets context", () => {
   const FILES = [
     ...readdirSync(join(import.meta.dirname, "../../../.github/workflows")).map((name) => `.github/workflows/${name}`),
     ".github/actions/deploy/action.yml",
-    "tools/deploy/examples/deploy-environments.yml",
+    // What an app copies or `init` writes into its own repository, whose scan flags the same shapes (issue #486).
+    ...readdirSync(join(import.meta.dirname, "../examples")).map((name) => `tools/deploy/examples/${name}`),
+    ...readdirSync(join(import.meta.dirname, "../templates/.github/workflows")).map((name) => `tools/deploy/templates/.github/workflows/${name}`),
   ];
 
   it.each(FILES)("never reaches a runner from %s", (file) => {

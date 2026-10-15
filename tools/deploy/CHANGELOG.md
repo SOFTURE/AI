@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
-## Unreleased
+## 0.4.0
 
 - **Breaking (#476): no whole secrets context.** CodeQL (`actions/excessive-secrets-exposure`) flags `toJSON(secrets)`
   and `secrets[<computed name>]`: either hands the runner every secret of the job, `github_token` and the deploy key
@@ -28,6 +28,39 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
      newlines. Keep `app-vars: ${{ toJSON(vars) }}` (variables, not secrets).
   3. Pin the action and `deploy-app.yml` to the commit of the release tag carrying this change.
   [`examples/deploy-environments.yml`](examples/deploy-environments.yml) shows the result.
+- **`init`'s caller passes secrets by name (#486):** the `.github/workflows/deploy.yml` that `softure-deploy init`
+  writes, and [`examples/deploy.yml`](examples/deploy.yml), no longer pass `app-secrets: ${{ toJSON(secrets) }}` to
+  `deploy-app.yml`. They call it as `build` with `deploy: false`, then a job `deploy` with `environment: production`
+  runs the deploy action, each secret the compose file requires in the step's `env:` and `secret-names` (init fills in
+  the names from the compose file it writes). The secrets may live in the repository or in the `production`
+  environment. An app that ran `init` before keeps working unchanged; to clear the CodeQL alert in its repository
+  (optional, recommended), replace the `deploy` job of its `.github/workflows/deploy.yml`:
+  1. Rename the job `deploy` to `build`, add `deploy: false` under its `with:`, and delete its whole `secrets:` block
+     (with `deploy: false` the check job refuses every secret). Move `app-vars` out of `with:` (step 3).
+  2. Add a job `deploy` with `needs: build`, `runs-on: ubuntu-latest`, `timeout-minutes: 30`,
+     `environment: production`, `concurrency: { group: deploy-production, cancel-in-progress: false }` and
+     `permissions: { contents: read, packages: read }`.
+  3. Give it one step, `uses: SOFTURE/AI/.github/actions/deploy@<the same ref as deploy-app.yml>`, with `env:` holding
+     `NAME: ${{ secrets.NAME }}` for every name of the old `app-secrets` comment ("reach .env.prod: …"), and `with:`
+     `release: ${{ needs.build.outputs.release }}`, `image: ${{ needs.build.outputs.image }}`,
+     `digest: ${{ needs.build.outputs.digest }}`, `ssh-host`, `ssh-user`, `ssh-private-key`, `ssh-known-hosts`,
+     `origin-address` and `verify-env` from the same secrets as before, `secret-names:` listing the `env:` names, and
+     `app-vars: ${{ toJSON(vars) }}`.
+  4. A `report` job that called `deploy-report.yml` with `needs: deploy` takes `needs: [build, deploy]` and
+     `if: ${{ always() && needs.build.result == 'success' }}`.
+  Running `init --force` on a scratch copy of the app prints the same file with the app's names filled in;
+  [`examples/deploy.yml`](examples/deploy.yml) is the result for two secrets.
+
+- `init` adds a job worker for an app that depends on `@softure-ai/jobs` (and `@softure-ai/db`), issue #471:
+  `scripts/worker.ts` (calls `runJobWorkerProcess` with the app's handlers), its esbuild bundle `worker.mjs` in the
+  image, and a `worker` service in `docker/prod/docker-compose.yml` from the same image (`node worker.mjs`, the app's
+  environment, health check off, `stop_grace_period: 30s`, after `migrate`). Apps without `@softure-ai/jobs` get
+  byte-identical files. An app that already ran `init` adds the three parts by hand or re-runs `init --force` on those
+  files (see the README, `softure-deploy init`).
+- **Pinned callers say they are pinned (#473):** with `init --workflows-ref=<sha>`, the header comments of the
+  generated `deploy.yml`, `checks.yml`, `release.yml` and `release-notes.yml` say the callers are pinned to that commit
+  and are moved together on an upgrade; the "pin a commit SHA" advice and the `git ls-remote` hint are written only
+  when they call `master`. Only comments change: an app that already ran `init` may keep or hand-edit its comments.
 
 ## 0.3.0
 

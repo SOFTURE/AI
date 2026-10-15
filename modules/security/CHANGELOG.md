@@ -19,6 +19,13 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   to the third argument (`isAllowedAddress`, `resolveHost`, `request`) to reach a fake server on loopback; then delete
   the local address list and lookup.
 
+## 0.2.2
+
+- `@softure-ai/security/jobs` (#491): `securityJobHandlers` and `securityJobSchedules` run `pruneRateLimits` hourly
+  as a `@softure-ai/jobs` schedule; `@softure-ai/jobs` (^0.1.1) is a new optional peer. Migrate (optional): an app with
+  `@softure-ai/jobs` adds `...securityJobSchedules` to `jobs({ schedules })` and `...securityJobHandlers` to its
+  worker's handlers, then removes its own cron. Without jobs nothing changes.
+
 ## 0.2.1
 
 - `readSmallBodyBytes(request, { maxBytes })`: the body as raw bytes with the same streaming cap as `readSmallBody`,

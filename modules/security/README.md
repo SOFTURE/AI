@@ -314,6 +314,18 @@ exported per user. Cleanup deletes a row two windows after its window started; i
 of consumed attempts (`cleanupProbability`), so with little traffic a row can stay longer. Schedule
 `pruneRateLimits` (for example hourly) when the retention period must be guaranteed.
 
+**With `@softure-ai/jobs`.** `@softure-ai/security/jobs` ships the handler and the schedule, so the worker runs the
+cleanup instead of an app cron (`security.prune-rate-limits` hourly; jobs README, "Schedules"):
+
+```ts
+// softure.config.ts
+jobs({ schedules: { ...securityJobSchedules } }),
+// src/jobs/handlers.ts (the worker's handlers)
+export const handlers: JobHandlers = { ...securityJobHandlers /* , the app's own */ };
+```
+
+`@softure-ai/jobs` is an optional peer: an app without it keeps calling the function from its own cron.
+
 ## 12. Limitations
 
 - Fixed windows: a client can make up to twice the limit across a window boundary. Good enough to

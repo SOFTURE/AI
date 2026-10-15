@@ -2,7 +2,7 @@
 // and the waitlist with a required `launch` scope tied to the privacy policy and an optional
 // `newsletter` scope, offered from two placements.
 import { auth, AUTH_RATE_LIMIT_BUCKETS } from "@softure-ai/auth";
-import { createTestClock, defineSoftureConfig, type SoftureConfig, type TestClock } from "@softure-ai/core";
+import { createTestClock, defineSoftureConfig, type AnySoftureModule, type SoftureConfig, type TestClock } from "@softure-ai/core";
 import { createTestDatabase, type TestDatabase } from "@softure-ai/db/testing";
 import { mailing } from "@softure-ai/mailing";
 import { fakeMailProvider, type FakeMailProvider } from "@softure-ai/mailing/testing";
@@ -35,6 +35,8 @@ export interface ConfigOptions {
   readonly documents?: typeof DOCUMENTS;
   readonly buckets?: Readonly<Record<string, { limit: number; windowMinutes: number }>>;
   readonly locale?: string;
+  /** Modules listed after the waitlist, e.g. jobs. */
+  readonly modules?: readonly AnySoftureModule[];
 }
 
 export function createConfig(provider: FakeMailProvider, options: ConfigOptions = {}): SoftureConfig {
@@ -53,6 +55,7 @@ export function createConfig(provider: FakeMailProvider, options: ConfigOptions 
       mailing({ from: "Example <hello@mail.example.com>", provider, onUnsubscribed: withdrawWaitlistConsents }),
       privacy({ documents: options.documents ?? DOCUMENTS }),
       waitlist(options.waitlist ?? OPTIONS),
+      ...(options.modules ?? []),
     ],
   });
 }

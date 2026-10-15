@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mcp-access@x.y.z`).
 
+## 0.2.1
+
+- `@softure-ai/mcp-access/jobs` (#491): `mcpAccessJobHandlers` and `mcpAccessJobSchedules` run `pruneMcpAccess`
+  daily as a `@softure-ai/jobs` schedule; `@softure-ai/jobs` (^0.1.1) is a new optional peer. Migrate (optional): an app with
+  `@softure-ai/jobs` adds `...mcpAccessJobSchedules` to `jobs({ schedules })` and `...mcpAccessJobHandlers` to its
+  worker's handlers, then drops the `softure-mcp prune` `maintain` hook (or its own cron). Without jobs nothing
+  changes; `softure-mcp prune` stays.
+
 ## 0.2.0
 
 - **Breaking (#446):** the built-in `pl` dictionary is gone; English is the only built-in copy and the fallback for

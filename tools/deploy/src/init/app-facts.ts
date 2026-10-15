@@ -23,6 +23,11 @@ export interface AppFacts {
   hasDatabase: boolean;
   /** `@softure-ai/ops` is a dependency: `/api/health` answers with the database and module checks. */
   hasHealthRoute: boolean;
+  /**
+   * `@softure-ai/jobs` is a dependency: with a database, the image bundles `scripts/worker.ts` and the compose file runs
+   * it as a `worker` service. Absent (facts built by hand) means no.
+   */
+  hasJobs?: boolean;
   /** A `public/` folder, copied into the image next to the standalone server. */
   hasPublicDir: boolean;
   /** The Next config file, or null when the app has none. */
@@ -86,6 +91,7 @@ export function readAppFacts(dir: string): AppFactsResult {
       packageName: pkg.name,
       hasDatabase: "@softure-ai/db" in dependencies,
       hasHealthRoute: "@softure-ai/ops" in dependencies,
+      hasJobs: "@softure-ai/jobs" in dependencies,
       hasPublicDir: existsSync(publicDir) && statSync(publicDir).isDirectory(),
       nextConfigFile,
       isStandalone: configText.includes("standalone"),

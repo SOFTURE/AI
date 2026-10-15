@@ -139,7 +139,7 @@ describe("planInitFiles", () => {
     expect(Object.keys(compose.services)).toEqual(["traefik", "app"]);
     expect(compose.services.app?.environment).toEqual({ APP_ORIGIN: "https://example.com" });
     expect(compose.services.app?.depends_on).toBeUndefined();
-    expect(textOf(files, ".github/workflows/deploy.yml")).toContain("reach .env.prod: none.");
+    expect(textOf(files, ".github/workflows/deploy.yml")).toContain("The compose file requires no secret, so none reaches .env.prod");
     const script = textOf(files, "docker/server/deploy.sh");
     expect(script).not.toContain("deploy_cli backup");
     expect(script).not.toContain("postgresql");
@@ -171,6 +171,49 @@ describe("planInitFiles", () => {
     const banner = `--banner:js="import { createRequire } from 'module'; const require = createRequire(import.meta.url);"`;
     expect(full.split("--alias:server-only=./.esbuild/empty.mjs")).toHaveLength(3);
     expect(full.split(banner)).toHaveLength(3);
+  });
+
+  it("adds the job worker only for an app with @softure-ai/jobs and a database", () => {
+    const worker = plan({}, { hasJobs: true });
+    expect([...worker.keys()]).toContain("scripts/worker.ts");
+    for (const facts of [FACTS, { ...NO_DATABASE, hasJobs: true }]) {
+      const files = plan({}, facts);
+      expect([...files.keys()]).not.toContain("scripts/worker.ts");
+      expect(textOf(files, "Dockerfile")).not.toContain("worker");
+      expect((parse(textOf(files, "docker/prod/docker-compose.yml")) as { services: object }).services).not.toHaveProperty("worker");
+    }
+    expect(textOf(worker, "scripts/worker.ts")).toContain('import { runJobWorkerProcess } from "@softure-ai/jobs/worker";');
+    for (const file of worker.values()) expect(file.text, file.path).not.toMatch(/\{\{[#^/]?[a-zA-Z]+\}\}/);
+  });
+
+  it("bundles worker.mjs like migrate.mjs and copies it into the image", () => {
+    const dockerfile = textOf(plan({}, { hasJobs: true }), "Dockerfile");
+    expect(dockerfile).toContain("scripts/worker.ts --bundle --platform=node --format=esm --target=node22");
+    expect(dockerfile).toContain("--outfile=worker.mjs");
+    expect(dockerfile).toContain("COPY --from=builder /app/worker.mjs ./worker.mjs");
+    expect(dockerfile.split("--alias:server-only=./.esbuild/empty.mjs")).toHaveLength(4);
+  });
+
+  it("runs the worker from the app's image after the migrations, with the app's environment and no health check", () => {
+    const compose = parse(textOf(plan({}, { hasJobs: true }), "docker/prod/docker-compose.yml")) as {
+      services: Record<string, Record<string, unknown>>;
+    };
+    expect(compose.services.worker).toEqual({
+      image: "ghcr.io/acme/app:${TAG}",
+      restart: "unless-stopped",
+      command: ["node", "worker.mjs"],
+      environment: {
+        APP_ORIGIN: "https://example.com",
+        DATABASE_URL: "postgresql://softure_app:${SOFTURE_APP_PASSWORD:?}@postgres:5432/acme_app",
+        AUTH_SECRET: "${AUTH_SECRET:?}",
+      },
+      healthcheck: { disable: true },
+      stop_grace_period: "30s",
+      depends_on: { migrate: { condition: "service_completed_successfully" } },
+    });
+    // The worker needs no secret the app does not already have.
+    const required = (files: Map<string, PlannedFile>) => findRequiredNames(textOf(files, "docker/prod/docker-compose.yml")).map((variable) => variable.name);
+    expect(required(plan({}, { hasJobs: true }))).toEqual(required(plan()));
   });
 
   it("writes hooks/lib.sh for every app and the Cloudflare files only with cdn cloudflare", () => {
@@ -303,40 +346,101 @@ describe("planInitFiles", () => {
   });
 });
 
-describe("the generated caller workflow", () => {
+describe("the generated caller workflow (issue #486)", () => {
+  interface Step {
+    uses?: string;
+    env?: Record<string, string>;
+    with?: Record<string, unknown>;
+  }
   interface Job {
     uses?: string;
+    needs?: unknown;
+    environment?: string;
+    permissions?: unknown;
     with?: Record<string, unknown>;
-    secrets?: Record<string, unknown>;
+    secrets?: unknown;
+    steps?: Step[];
   }
   interface Input {
     required?: boolean;
   }
   const called = parse(readFileSync(join(REPO_ROOT, ".github/workflows/deploy-app.yml"), "utf8")) as {
-    on: { workflow_call: { inputs: Record<string, Input>; secrets: Record<string, unknown> } };
+    on: { workflow_call: { inputs: Record<string, Input> } };
   };
-  const caller = parse(textOf(plan(), ".github/workflows/deploy.yml")) as { permissions: unknown; jobs: Record<string, Job> };
-  const job = caller.jobs.deploy as Job;
+  const action = parse(readFileSync(join(REPO_ROOT, ".github/actions/deploy/action.yml"), "utf8")) as { inputs: Record<string, Input> };
+  const text = textOf(plan(), ".github/workflows/deploy.yml");
+  const caller = parse(text) as { permissions: unknown; jobs: Record<string, Job> };
+  const build = caller.jobs.build as Job;
+  const deploy = caller.jobs.deploy as Job;
+  const step = deploy.steps?.[0] as Step;
 
-  it("calls deploy-app.yml at master, or at the given commit, with the same permissions as the example caller", () => {
-    expect(job.uses).toBe("SOFTURE/AI/.github/workflows/deploy-app.yml@master");
+  function readCaller(answers: Partial<InitAnswers>, facts: Partial<AppFacts> = {}): Record<string, Job> {
+    return (parse(textOf(plan(answers, facts), ".github/workflows/deploy.yml")) as { jobs: Record<string, Job> }).jobs;
+  }
+
+  it("builds through deploy-app.yml and deploys from a job in the production environment", () => {
+    expect(Object.keys(caller.jobs)).toEqual(["build", "deploy"]);
+    expect(build.uses).toBe("SOFTURE/AI/.github/workflows/deploy-app.yml@master");
+    expect(build.with?.deploy).toBe(false);
+    expect(build.secrets).toBeUndefined();
+    expect(deploy.needs).toBe("build");
+    expect(deploy.environment).toBe("production");
+    expect(deploy.steps).toHaveLength(1);
+    expect(step.uses).toBe("SOFTURE/AI/.github/actions/deploy@master");
+  });
+
+  it("pins the workflow and the action to the given commit", () => {
     const sha = "8d8b8e5a7c246b9afe4e92dc055105f042af37ab";
-    const pinned = parse(textOf(plan({ workflowsRef: sha }), ".github/workflows/deploy.yml")) as { jobs: Record<string, Job> };
-    expect(pinned.jobs.deploy?.uses).toBe(`SOFTURE/AI/.github/workflows/deploy-app.yml@${sha}`);
+    const pinned = readCaller({ workflowsRef: sha });
+    expect(pinned.build?.uses).toBe(`SOFTURE/AI/.github/workflows/deploy-app.yml@${sha}`);
+    expect(pinned.deploy?.steps?.[0]?.uses).toBe(`SOFTURE/AI/.github/actions/deploy@${sha}`);
+  });
+
+  it("grants packages: write to the build only, read to the deploy job", () => {
     expect(caller.permissions).toEqual({ contents: "read", packages: "write" });
+    expect(deploy.permissions).toEqual({ contents: "read", packages: "read" });
   });
 
-  it("passes only declared inputs, every required one, and the app's domain, image and health path", () => {
+  it("passes the build only declared inputs, every required one, and the app's domain, image and health path", () => {
     const declared = Object.keys(called.on.workflow_call.inputs);
-    for (const key of Object.keys(job.with ?? {})) expect(declared).toContain(key);
+    for (const key of Object.keys(build.with ?? {})) expect(declared).toContain(key);
     for (const [key, input] of Object.entries(called.on.workflow_call.inputs)) {
-      if (input.required === true) expect(Object.keys(job.with ?? {})).toContain(key);
+      if (input.required === true) expect(Object.keys(build.with ?? {})).toContain(key);
     }
-    expect(job.with).toMatchObject({ "app-url": "https://example.com", image: "ghcr.io/acme/app", "health-path": "/api/health" });
+    expect(build.with).toMatchObject({ "app-url": "https://example.com", image: "ghcr.io/acme/app", "health-path": "/api/health" });
   });
 
-  it("passes every declared secret by name", () => {
-    expect(Object.keys(job.secrets ?? {}).sort()).toEqual(Object.keys(called.on.workflow_call.secrets).sort());
+  it("passes the action only its inputs, the build's outputs and the deploy secrets", () => {
+    for (const key of Object.keys(step.with ?? {})) expect(Object.keys(action.inputs)).toContain(key);
+    expect(step.with).toMatchObject({
+      release: "${{ needs.build.outputs.release }}",
+      image: "${{ needs.build.outputs.image }}",
+      digest: "${{ needs.build.outputs.digest }}",
+      "ssh-host": "${{ secrets.DEPLOY_SSH_HOST }}",
+      "ssh-user": "${{ secrets.DEPLOY_SSH_USER }}",
+      "ssh-private-key": "${{ secrets.DEPLOY_SSH_KEY }}",
+      "ssh-known-hosts": "${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}",
+      "app-vars": "${{ toJSON(vars) }}",
+      "origin-address": "${{ secrets.DEPLOY_ORIGIN_IP }}",
+      "verify-env": "${{ secrets.DEPLOY_VERIFY_ENV }}",
+    });
+  });
+
+  it("passes exactly the compose file's required secrets, each by name, and never the whole secrets context", () => {
+    const required = findRequiredNames(textOf(plan(), "docker/prod/docker-compose.yml")).map((variable) => variable.name);
+    expect(Object.keys(step.env ?? {})).toEqual(required);
+    for (const [name, value] of Object.entries(step.env ?? {})) expect(value).toBe(`\${{ secrets.${name} }}`);
+    expect(String(step.with?.["secret-names"]).split(" ")).toEqual(required);
+    expect(step.with?.["app-secrets"]).toBeUndefined();
+    expect(text).not.toContain("toJSON(secrets)");
+    expect(text).not.toContain("secrets[");
+  });
+
+  it("passes no env and no secret-names when the compose file requires no secret", () => {
+    const bare = readCaller({ env: [] }, NO_DATABASE).deploy?.steps?.[0];
+    expect(bare?.env).toBeUndefined();
+    expect(bare?.with?.["secret-names"]).toBeUndefined();
+    expect(bare?.with?.release).toBe("${{ needs.build.outputs.release }}");
   });
 });
 
@@ -384,6 +488,38 @@ describe.each([
     expect(Object.values(pinned.jobs).map((job) => job.uses)).toEqual([`SOFTURE/AI/.github/workflows/${called}@${sha}`]);
   });
 });
+
+describe.each(["deploy.yml", "checks.yml", "release.yml", "release-notes.yml"])(
+  "the header comment of the generated %s (issue #473)",
+  (name) => {
+    const path = `.github/workflows/${name}`;
+    const sha = "f5830d0e605636dfba4cb8bd5407d6404c07974c";
+    const commentOf = (text: string): string =>
+      text
+        .split("\n")
+        .filter((line) => line.startsWith("#"))
+        .join("\n");
+    const unpinned = textOf(plan(), path);
+    const pinned = textOf(plan({ workflowsRef: sha }), path);
+
+    it("says the callers are pinned to the --workflows-ref commit, without the advice to pin one", () => {
+      expect(commentOf(pinned)).toContain(`pinned to commit ${sha}`);
+      expect(pinned).not.toContain("pin a commit SHA");
+      expect(pinned).not.toContain("git ls-remote");
+    });
+
+    it("advises pinning a commit SHA when the callers call master", () => {
+      expect(commentOf(unpinned)).toContain("called at `master`; pin a commit SHA");
+      expect(commentOf(unpinned)).not.toContain("pinned to commit");
+    });
+
+    it("keeps the header comment within 120 characters a line, pinned or not", () => {
+      for (const text of [unpinned, pinned]) {
+        expect(commentOf(text).split("\n").filter((line) => line.length > 120)).toEqual([]);
+      }
+    });
+  },
+);
 
 describe("writeInitFiles", () => {
   let dir: string;
