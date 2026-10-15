@@ -488,6 +488,8 @@ verify` with the tag's `deploy-config`, then the `deploy-report` artifact and th
 | `app-url`, `environment` | the `release` values | a second environment's URL (the verify target) and name (the report) |
 | `origin-address` | none | the server's own address behind the CDN, e.g. `vars.DEPLOY_ORIGIN_IP` |
 | `verify-env` | none | the JSON object for verify only, e.g. `secrets.DEPLOY_VERIFY_ENV`, checked by the rules above |
+| `health-status` | `200` | the status the health wait counts as up; the first answer counts (a redirect is not followed), so `302` passes a host whose access proxy sends every request to its sign-in |
+| `health-headers` | none | request headers of the health wait only, one `Name: value` line each (e.g. `CF-Access-Client-Id` and `CF-Access-Client-Secret` of a Cloudflare Access service token from secrets); each value is masked and curl reads them from a file only the runner's user can read. A line that is not `Name: value` is refused by its number |
 | `send`, `verify`, `report` | `true` | each part on its own; `report: false` for every environment but one, since a run holds one `deploy-report` artifact |
 | `image`, `digest` | none | the build job's outputs, for the report |
 
@@ -675,15 +677,15 @@ named in the output, and only `--force` overwrites it.
 ```bash
 softure-deploy init --domain=example.com --image=ghcr.io/acme/app [--dir=.] [--name=<slug>] [--paths=/] [--www] \
   [--acme-email=<email>] [--env=AUTH_SECRET,...] [--tables=users,billing.subscriptions] [--workflows-ref=<sha>] \
-  [--cdn=cloudflare] [--report-role=<role>] [--force]
+  [--cdn=cloudflare] [--report-role=<role>] [--edge=<network>] [--force]
 ```
 
 | File | What it holds |
 | --- | --- |
 | `Dockerfile` | the `@softure-ai/ops` container recipe: a Next standalone build, a non-root user, `HEALTHCHECK` in the image and, with a database, `migrate.mjs`, the ops scripts and the exported migrations (bundled for plain Node, below) |
 | `.dockerignore` | local state and secrets out of the build context |
-| `docker/prod/docker-compose.yml` | Traefik and the app; with a database also Postgres (port on `127.0.0.1` only) and the one-off `migrate` service the app waits for |
-| `docker/prod/traefik.yml` | the apex router (`Host` and, unless `--paths=/`, `/`, `/_next/`, the health route and the given prefixes), security headers, the optional `www` redirect |
+| `docker/prod/docker-compose.yml` | Traefik (not with `--edge`) and the app; with a database also Postgres (port on `127.0.0.1` only) and the one-off `migrate` service the app waits for |
+| `docker/prod/traefik.yml` | without `--edge`: the apex router (`Host` and, unless `--paths=/`, `/`, `/_next/`, the health route and the given prefixes), security headers, the optional `www` redirect |
 | `docker/prod/initdb/01-roles.sql` | with a database: the migrator and app roles of the ops recipe |
 | `docker/prod/hooks/lib.sh` | helpers for the app's own hooks (below), shipped with every release |
 | `docker/server/deploy.sh` | the server's forced command for `deploy-app.yml` (below) |
@@ -703,7 +705,8 @@ softure-deploy init --domain=example.com --image=ghcr.io/acme/app [--dir=.] [--n
   `--workflows-ref` (the commit SHA every caller pins, see [Which ref callers pin](#deploy-workflow); without it they call
   `master` and a warning prints the command that gives the release commit) and `--cdn=cloudflare` (the origin lock
   below; `cloudflare` is the only value) and `--report-role` (with a database, the Postgres role `deploy.sh`'s
-  `report` reads as, ahead of the one read from a kept compose file; see below).
+  `report` reads as, ahead of the one read from a kept compose file; see below) and `--edge=<network>` (an app that
+  joins another stack's Traefik, below; not with `--cdn` or `--acme-email`, which belong to that stack).
 - **Read from the app:** `@softure-ai/db` in `package.json` turns on the database part, `@softure-ai/ops` the
   `/api/health` route (else `/`), `@softure-ai/jobs` (with `@softure-ai/db`) the job worker, a `public/` folder its `COPY`; a `next.config.*` without `standalone` is a warning,
   and so is, with a database, one whose `serverExternalPackages` does not name `@softure-ai/db` (without it
@@ -764,6 +767,31 @@ to Traefik directly and send any `cf-connecting-ip`, so rate limits keyed on it 
   Spectrum does).
 - A `next` line in init's output for the two steps init cannot do: root's install, and the `DEPLOY_ORIGIN_IP` secret
   that makes the deploy workflow's `verify --origin` check that a direct connection gets no answer.
+
+**Edge network** (`--edge=<network>`, issue #516). For an app that runs as a second compose project on a server whose
+Traefik belongs to another app's stack. A second Traefik would clash on ports 80 and 443, so init writes none:
+
+- the compose file has no `traefik` service, no `letsencrypt` volume, and a top-level network `edge` that is the
+  external `<network>`; the `app` service joins `edge` and `default` (Postgres and `migrate` stay on `default`);
+- the app is published by labels instead of `traefik.yml`, which init does not write: `traefik.enable`,
+  `traefik.docker.network=<network>`, a router `<name>` with the same rule `traefik.yml` would hold, entry point
+  `websecure`, certificate resolver `letsencrypt`, service port 3000 and the security headers as the middleware
+  `<name>-security-headers`; with `--www` a router `<name>-www` and the redirect `<name>-www-to-apex`. The names carry
+  the app's `<name>`, so they never meet the other stack's routers;
+- `deploy.sh`'s switch starts `app` (the migrate service runs through `depends_on`) and the worker when there is one;
+  there is no `traefik` step.
+
+The edge Traefik must run the Docker provider (`--providers.docker=true`, `--providers.docker.exposedByDefault=false`)
+with the entry point `websecure` and the certificate resolver `letsencrypt`; with other names, edit the labels. The
+network must exist before the first release (`docker network create <network>`, joined by the edge Traefik). With a
+database, init warns that Postgres is published on `127.0.0.1:5432`, which the first app's Postgres may hold: change
+the host port in the compose file, or drop it and set `database.access` to `compose-exec` in `deploy.json`. The
+Cloudflare origin lock is host-wide and stays with the stack that installed it.
+
+An app whose host sits behind an outer sign-in (Cloudflare Access on every path) passes `health-status` or
+`health-headers` to the deploy action, so the health wait gets through. The routes in `deploy.json` are requested
+without those headers and would see the sign-in: list only routes the proxy lets through, or set `verify: false` on the
+action and verify from a job of the app's own.
 
 Let's Encrypt keeps working through Cloudflare's proxy: Cloudflare forwards `/.well-known/acme-challenge/` over
 HTTP even with "Always Use HTTPS".
