@@ -33,7 +33,7 @@ export const blog = defineModule({
     version: "0.2.0",
     // seo is optional: with it the sitemap lists the texts and a publish pings IndexNow. security is
     // optional too: only the cache refresh route needs it, for its rate limit.
-    dependsOn: { seo: "^0.2.0?", security: "^0.2.0?" },
+    dependsOn: { seo: "^0.2.0?", security: "^0.2.0?", jobs: "^0.1.0?" },
     dbSchema: "blog",
     tables: ["articles", "slug_history"],
     env: [
