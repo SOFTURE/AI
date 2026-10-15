@@ -122,5 +122,20 @@ Code, comments, docs and commit messages are English (the rule `@softure-ai/skil
 in a folder named `messages/` (user-facing copy) or `pl/` (Polish language data: word lists, test articles), and
 lockfiles are skipped. A hit prints `path:line: reason` and the command exits with 1; wrong arguments exit with 2.
 A diacritic always counts; a Polish word counts only on its own, not inside a path, slug or identifier, and Markdown
-code spans are skipped. The functions (`findPolishText`, `checkFiles`, `isExempt`, `getCommitMessageText`) are
+code spans are skipped.
+
+A Markdown file can quote someone verbatim in their own language (the owner's words in a PRD or shape notes under
+`context/`): mark the quote and the gate skips it, while the rest of the file stays checked. The markers are HTML
+comments, so they do not show in the rendered page; they work on one line or around several lines, and a marker shown
+in a code span is only text. An opening marker that is never closed is a hit on its line.
+
+```markdown
+The owner, verbatim: "<!-- language: pl -->...<!-- /language -->"
+
+<!-- language: pl -->
+> ...
+<!-- /language -->
+```
+
+The functions (`findPolishText`, `checkFiles`, `isExempt`, `getCommitMessageText`) are
 exported from `@softure-ai/config/language` for an app's own tests.
