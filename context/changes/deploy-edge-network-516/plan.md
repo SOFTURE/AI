@@ -37,7 +37,7 @@ the example that lists the action's inputs if any.
 
 ## Progress
 
-- [ ] Phase 1: answers and the generator
-- [ ] Phase 2: templates
-- [ ] Phase 3: the action's health wait
-- [ ] Phase 4: docs
+- [x] Phase 1: answers and the generator (`257233b`; generator and answers tests written first, 6 red before the change)
+- [x] Phase 2: templates (`257233b`; edge deploy.sh also run end to end in `server-files.test.ts`)
+- [x] Phase 3: the action's health wait (`8197e89`; `tests/health-wait.test.ts` runs the step with a stub curl)
+- [x] Phase 4: docs (`a73176f`; README init and action inputs, CHANGELOG `## Unreleased`)
