@@ -1,6 +1,6 @@
 ---
 change_id: mcp-registration-window-520
-status: in_progress
+status: archived
 ---
 
 # Plan: closed OAuth client registration with a timed window (issue #520)
@@ -46,7 +46,10 @@ Files: `src/scripts/registration-scripts.ts`, `src/scripts/index.ts`, `package.j
 
 ## Progress
 
-- [ ] Phase 1: option, table and server functions
-- [ ] Phase 2: the route gate
-- [ ] Phase 3: ops scripts
-- [ ] Phase 4: docs
+- [x] Phase 1: option, table and server functions (`d378fda`; tests written first, red on the missing entries)
+- [x] Phase 2: the route gate (`d378fda`)
+- [x] Phase 3: ops scripts (`d378fda`; `/scripts` entry, optional `@softure-ai/ops` peer)
+- [x] Phase 4: docs (`d6f1c83`; README option row, "Closed registration", §5, §10, CHANGELOG `## Unreleased`)
+
+Gates on the branch: `npm run typecheck`, `npm run lint` and `npm run build` green; mcp-access tests 278 passed
+(19 new), repository tests 545 passed; the full `npm test` runs in pre-push.

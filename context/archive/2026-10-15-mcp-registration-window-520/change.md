@@ -1,12 +1,13 @@
 ---
 change_id: mcp-registration-window-520
 title: "mcp-access: keep dynamic client registration closed and open it for N minutes (issue #520)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 520
 branch: claude/project-thread-4yppm4
 created: 2026-10-15
 updated: 2026-10-15
+archived_at: 2026-10-15
 ---
 
 ## Intent
