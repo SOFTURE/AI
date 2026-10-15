@@ -32,7 +32,7 @@ export const billing = defineModule({
     version: "0.3.0",
     dependsOn: { security: "^0.2.0", auth: "^0.2.0", mailing: "^0.2.0?", ops: "^0.2.0?", jobs: "^0.1.1?" },
     dbSchema: "billing",
-    tables: ["entitlements", "payments", "payment_requests", "manual_grants", "trial_extensions"],
+    tables: ["entitlements", "payments", "payment_requests", "manual_grants", "trial_extensions", "usage"],
     env: [
       {
         name: "STRIPE_SECRET_KEY",
@@ -88,6 +88,12 @@ export {
   type Plan,
   type PlanPeriod,
   type PlanPrice,
+  USAGE_PERIODS,
+  type AccountLimits,
+  type UsageErrorCode,
+  type UsageLimits,
+  type UsagePeriod,
+  type UsageState,
 } from "./contract.js";
 export { applyEntitlementEvent, hasWriteAccess, resolveEntitlement, type EntitlementPolicy } from "./entitlement.js";
 export { CHECKOUT_PARAM, CHECKOUT_RESULTS, type CheckoutResult } from "./fields.js";
@@ -99,8 +105,10 @@ export {
   MAX_DAYS,
   MAX_FEATURES,
   MAX_PERIOD_COUNT,
+  MAX_METERS,
   MAX_PLANS,
   MAX_PRICE_AMOUNT,
+  MAX_USAGE_LIMIT,
   PARTIAL_REFUND_POLICIES,
   type PartialRefundPolicy,
   type BillingOptions,
@@ -139,9 +147,20 @@ export {
   type AccessReminderInput,
   type AccessReminderKind,
 } from "./reminder.js";
+export {
+  getDeclaredMeters,
+  getUsagePeriod,
+  getUsageState,
+  isDeclaredMeter,
+  resolveLimit,
+  resolveLimits,
+  type LimitSubject,
+  type UsagePeriodBounds,
+  type UsageStateInput,
+} from "./usage.js";
 export { CURRENCY_MINOR_UNIT_DIGITS } from "./currency-digits.js";
 export { formatPrice, getMinorUnitDigits, isSupportedCurrency } from "./price.js";
-export { billingSchema, entitlements, manualGrants, paymentRequests, payments, trialExtensions } from "./schema.js";
+export { billingSchema, entitlements, manualGrants, paymentRequests, payments, trialExtensions, usage } from "./schema.js";
 export { getCheckoutSessionParams, stripe, STRIPE_API_BASE, STRIPE_SECRET_KEY_ENV, STRIPE_TIMEOUT_MS, type StripeOptions } from "./stripe.js";
 export {
   describeStripePriceProblem,

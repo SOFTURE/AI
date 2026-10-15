@@ -155,6 +155,7 @@ export const en = {
       grant_revoked: "This grant was revoked already.",
       trial_not_extended: "The trial already lasts through this day or longer.",
       day_invalid: "Enter a date, e.g. 2026-11-30.",
+      quota_exhausted: "You have used up this month's limit. It starts again next month.",
     },
     security: {
       rate_limited: "Too many attempts. Try again later.",
