@@ -93,6 +93,21 @@ describe("sendMail", () => {
     expect(logged()).toBe(`mailing: send failed provider=stub reason=${code.slice("mailing.".length)} ${status}`);
   });
 
+  it("passes on the wait the provider asked for", async () => {
+    const { provider } = answer({ status: "unavailable", httpStatus: 429, retryAfterSeconds: 30 });
+    await expect(sendMail({ config: createConfig(provider) }, MAIL)).resolves.toStrictEqual({
+      ok: false,
+      error: "mailing.unavailable",
+      httpStatus: 429,
+      retryAfterSeconds: 30,
+    });
+  });
+
+  it.each([[-1], [1.5], ["30"], [Number.POSITIVE_INFINITY]])("drops a Retry-After of %j", async (retryAfterSeconds) => {
+    const { provider } = answer({ status: "quota_exceeded", httpStatus: 429, retryAfterSeconds });
+    await expect(sendMail({ config: createConfig(provider) }, MAIL)).resolves.toStrictEqual({ ok: false, error: "mailing.quota_exceeded", httpStatus: 429 });
+  });
+
   it.each([
     ["throws", () => Promise.reject(new Error("socket hang up ada@example.org"))],
     ["answers nothing", () => Promise.resolve(undefined)],

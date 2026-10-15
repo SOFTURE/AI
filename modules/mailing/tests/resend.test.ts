@@ -1,5 +1,5 @@
 // The Resend adapter: the request it sends and how it reads each answer.
-import { resend, RESEND_ENDPOINT, type ProviderMessage } from "@softure-ai/mailing";
+import { readRetryAfter, resend, RESEND_ENDPOINT, type ProviderMessage } from "@softure-ai/mailing";
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 
 const MESSAGE: ProviderMessage = {
@@ -24,13 +24,13 @@ function readBody(request: Request | undefined): unknown {
   return typeof body === "string" ? JSON.parse(body) : undefined;
 }
 
-/** A fetch that records requests and answers `status` with `body`. */
-function createFetch(status: number, body: unknown) {
+/** A fetch that records requests and answers `status` with `body` (and extra response headers). */
+function createFetch(status: number, body: unknown, headers: Record<string, string> = {}) {
   const requests: Request[] = [];
   const fetchImpl: typeof fetch = (url, init) => {
     requests.push({ url: url instanceof URL ? url.href : typeof url === "string" ? url : url.url, init: init ?? {} });
     const text = typeof body === "string" ? body : JSON.stringify(body);
-    return Promise.resolve(new Response(text, { status, headers: { "Content-Type": "application/json" } }));
+    return Promise.resolve(new Response(text, { status, headers: { "Content-Type": "application/json", ...headers } }));
   };
   return { fetch: fetchImpl, requests };
 }
@@ -128,8 +128,45 @@ describe("resend()", () => {
     await expect(resend({ apiKey: "re_key", fetch }).send(MESSAGE, { signal })).resolves.toEqual({ status: "unavailable", httpStatus: 200 });
   });
 
+  it.each([
+    [429, { name: "rate_limit_exceeded" }, "unavailable", "2"],
+    [429, { name: "daily_quota_exceeded" }, "quota_exceeded", " 3600 "],
+    [503, "", "unavailable", "0"],
+  ])("passes %i %j on as %s with the Retry-After seconds %j", async (status, body, outcome, header) => {
+    const { fetch } = createFetch(status, body, { "Retry-After": header });
+    await expect(resend({ apiKey: "re_key", fetch }).send(MESSAGE, { signal })).resolves.toEqual({
+      status: outcome,
+      httpStatus: status,
+      retryAfterSeconds: Number(header),
+    });
+  });
+
+  it("drops a malformed Retry-After", async () => {
+    const { fetch } = createFetch(503, "", { "Retry-After": "soon" });
+    await expect(resend({ apiKey: "re_key", fetch }).send(MESSAGE, { signal })).resolves.toEqual({ status: "unavailable", httpStatus: 503 });
+  });
+
   it("lets a network failure through for sendMail to turn into unavailable", async () => {
     const fetch = (() => Promise.reject(new TypeError("fetch failed"))) as typeof globalThis.fetch;
     await expect(resend({ apiKey: "re_key", fetch }).send(MESSAGE, { signal })).rejects.toThrow("fetch failed");
+  });
+});
+
+describe("readRetryAfter", () => {
+  const now = Date.parse("2026-10-03T08:00:00Z");
+
+  it.each([
+    ["120", 120],
+    ["0", 0],
+    [" 7 ", 7],
+    ["Sat, 03 Oct 2026 08:01:30 GMT", 90],
+    ["Sat, 03 Oct 2026 08:00:00 GMT", 0],
+    ["Sat, 03 Oct 2026 07:00:00 GMT", 0],
+  ])("reads %j as %i seconds", (header, seconds) => {
+    expect(readRetryAfter(header, now)).toBe(seconds);
+  });
+
+  it.each([[null], [""], ["-5"], ["1.5"], ["soon"], ["12345678901"]])("reads %j as no value", (header) => {
+    expect(readRetryAfter(header, now)).toBeNull();
   });
 });

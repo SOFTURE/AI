@@ -186,6 +186,18 @@ describe("deliverOnce", () => {
     expect(await listLedger(test)).toMatchObject([{ status: "sent", attempts: 1, provider_status: null }]);
   });
 
+  it("carries the provider's Retry-After on retry-later and halted", async () => {
+    respond.mockReturnValueOnce({ status: "unavailable", httpStatus: 429, retryAfterSeconds: 20 });
+    expect(await deliverOnce(test.ctx, { scope: SCOPE, mail: MAIL })).toEqual({ status: "retry-later", httpStatus: 429, retryAfterSeconds: 20 });
+    respond.mockReturnValueOnce({ status: "quota_exceeded", httpStatus: 429, retryAfterSeconds: 3600 });
+    expect(await deliverOnce(test.ctx, { scope: SCOPE, mail: MAIL })).toEqual({
+      status: "halted",
+      reason: "mailing.quota_exceeded",
+      httpStatus: 429,
+      retryAfterSeconds: 3600,
+    });
+  });
+
   it("never lets halts use up the attempts: after many halted runs an unavailable provider still means retry later", async () => {
     respond.mockReturnValue({ status: "refused", httpStatus: 403 });
     for (let run = 0; run < 4; run += 1) {
