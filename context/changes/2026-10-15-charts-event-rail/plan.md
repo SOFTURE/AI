@@ -57,5 +57,5 @@ test, build).
 
 ## Progress
 
-- [ ] Phase 1: rail layout and markup (TDD)
-- [ ] Phase 2: docs
+- [x] Phase 1: rail layout and markup (TDD) (860f335)
+- [x] Phase 2: docs (2a27ea0)

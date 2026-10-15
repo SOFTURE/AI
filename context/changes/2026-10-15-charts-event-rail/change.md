@@ -1,7 +1,7 @@
 ---
 change_id: charts-event-rail
 title: "charts: EventAxis rail layout, milestones on one line with segment tones apart from their dots (issue #508)"
-status: planned
+status: impl_reviewed
 roadmap_item: null
 issue: 508
 branch: claude/project-thread-1uc21g
