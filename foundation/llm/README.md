@@ -98,7 +98,8 @@ not mapped: it propagates, as does an error thrown by `onUsage`.
 
 `UsageRecord` is `{ model, provider, usage, costUsd, outcome, durationMs, at, attributes }`, where `usage` is
 `{ inputTokens, outputTokens, totalTokens, cachedInputTokens, reasoningTokens }`. A count the provider does not report
-reads `0`. `model` is the id the provider answered with, which is also the key `pricing` is read with.
+reads `0`. `outcome` is `"ok"` or the call's error code (`llm.invalid_output`, the one failure that still records
+usage). `model` is the id the provider answered with, which is also the key `pricing` is read with.
 
 Cost: `(input − cached) × inputPerMillion + cached × (cachedInputPerMillion ?? inputPerMillion) + output ×
 outputPerMillion`, divided by one million. `getCostUsd(pricing, model, usage)` is exported for estimates.

@@ -4,6 +4,11 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.1.1
+
+- README: `UsageRecord.outcome` is documented (`"ok"` or the call's error code). No code change; the release
+  also confirms publishing through the package's npm trusted publisher.
+
 ## 0.1.0
 
 - First version (#472): `createLlm({ model, pricing, onUsage, timeoutMs, maxRetries })` over an AI SDK 7 model the
