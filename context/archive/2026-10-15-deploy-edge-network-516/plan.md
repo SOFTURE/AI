@@ -1,6 +1,6 @@
 ---
 change_id: deploy-edge-network-516
-status: in_progress
+status: archived
 ---
 
 # Plan: init --edge and a configurable health wait (issue #516)

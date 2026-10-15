@@ -1,12 +1,13 @@
 ---
 change_id: deploy-edge-network-516
 title: "deploy: init --edge for an app that joins an existing Traefik edge network (issue #516)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 516
 branch: claude/project-thread-l7uzli
 created: 2026-10-15
 updated: 2026-10-15
+archived_at: 2026-10-15
 ---
 
 ## Intent
