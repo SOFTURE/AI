@@ -1,6 +1,6 @@
 ---
 change_id: auth-create-account-script-521
-status: in_progress
+status: archived
 ---
 
 # Plan: create-account ops script (issue #521)
@@ -27,5 +27,8 @@ Files: `modules/auth/src/scripts/create-account.ts`, `modules/auth/src/scripts/p
 
 ## Progress
 
-- [ ] Phase 1: `createCreateAccountScript`
-- [ ] Phase 2: docs
+- [x] Phase 1: `createCreateAccountScript` (`dc21e49`; 10 tests written first, all red before the change)
+- [x] Phase 2: docs (`a75bf5d`; README "First account", section 1, known gap; CHANGELOG `## Unreleased`)
+
+Gates on the branch: `npm run typecheck` and ESLint green; auth create-account and temporary-password tests 25 passed;
+the full `npm test` runs in pre-push.

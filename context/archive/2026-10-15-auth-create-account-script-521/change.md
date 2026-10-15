@@ -1,12 +1,13 @@
 ---
 change_id: auth-create-account-script-521
 title: "auth: create-account ops script for an app with registration closed (issue #521)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 521
 branch: claude/project-thread-c9w4i2
 created: 2026-10-15
 updated: 2026-10-15
+archived_at: 2026-10-15
 ---
 
 ## Intent
