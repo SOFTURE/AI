@@ -61,10 +61,10 @@ export { type ChartsCopyProps, type ChartsMessages, chartsMessages } from "./mes
 // The client cursor ("use client").
 export type { ChartCursorProps, CursorPoint, CursorValue } from "./cursor/chart-cursor.js";
 export { ChartCursor } from "./cursor/chart-cursor.js";
-export type { EventAxisProps } from "./cursor/event-axis.js";
+export type { EventAxisProps, EventAxisRailProps } from "./cursor/event-axis.js";
 export { EventAxis } from "./cursor/event-axis.js";
-export type { EventAxisEntry, EventAxisItem, EventAxisLayout, EventAxisMilestone, EventAxisSpan } from "./svg/event-layout.js";
-export { layoutEventAxis } from "./svg/event-layout.js";
+export type { EventAxisEntry, EventAxisItem, EventAxisLayout, EventAxisMilestone, EventAxisSpan, EventRailEntry, EventRailLayout, EventRailOptions, EventRailSegment } from "./svg/event-layout.js";
+export { layoutEventAxis, layoutEventRail } from "./svg/event-layout.js";
 
 // The composition: a time series line chart with everything above.
 export type { LineChartFlag, LineChartProps, LineChartSeries, TimePoint } from "./svg/line-chart.js";

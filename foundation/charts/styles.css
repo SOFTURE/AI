@@ -760,6 +760,61 @@
     transform: translateX(-50%) scale(1.25);
   }
 
+  /*
+   * Event rail (layout="rail"): three rows of --sft-chart-event-lane-height, the segment labels, the rail and the
+   * ticks. Segments are lines --sft-chart-event-rail-width thick in their colour; dots sit centred on the rail.
+   */
+  .sft-chart-event-rail {
+    height: calc(var(--sft-chart-event-lane-height) * 3);
+  }
+
+  .sft-chart-event-segment {
+    position: absolute;
+    top: 0;
+    height: calc(var(--sft-chart-event-lane-height) * 2);
+    display: flex;
+    justify-content: center;
+    box-sizing: border-box;
+    padding-inline: var(--sft-space-1);
+  }
+
+  .sft-chart-event-segment::before {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    top: calc(var(--sft-chart-event-lane-height) * 1.5 - var(--sft-chart-event-rail-width, var(--sft-space-1)) / 2);
+    height: var(--sft-chart-event-rail-width, var(--sft-space-1));
+    background: var(--sft-chart-series, var(--sft-chart-series-1));
+  }
+
+  .sft-chart-event-segment .sft-chart-event-label {
+    max-width: 100%;
+    line-height: var(--sft-chart-event-lane-height);
+  }
+
+  .sft-chart-event-active.sft-chart-event-segment::before {
+    box-shadow: 0 0 0 var(--sft-chart-grid-width) var(--sft-chart-series, var(--sft-chart-series-1));
+  }
+
+  .sft-chart-event-rail .sft-chart-event-milestone {
+    top: calc(var(--sft-chart-event-lane-height) * 1.5);
+    margin-top: 0;
+    transform: translate(-50%, -50%);
+  }
+
+  .sft-chart-event-rail .sft-chart-event-active.sft-chart-event-milestone {
+    transform: translate(-50%, -50%) scale(1.25);
+  }
+
+  .sft-chart-event-tick {
+    position: absolute;
+    top: calc(var(--sft-chart-event-lane-height) * 2);
+    line-height: var(--sft-chart-event-lane-height);
+    color: var(--sft-color-muted);
+    white-space: nowrap;
+    transform: translateX(-50%);
+  }
+
   .sft-chart-visually-hidden {
     position: absolute;
     width: 1px;
