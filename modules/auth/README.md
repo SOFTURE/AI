@@ -12,7 +12,7 @@ Users and sessions in the `auth` schema, scrypt password hashes, opaque session 
 login, logout, password change and password reset as server actions and pages, `getCurrentUser` / `requireUser`
 for server code, roles (`requireRole`, `authorizeRole`, `hasRole`, and `grant-role` /
 `revoke-role` scripts), account recovery (`revokeUserSessions` and a `set-temporary-password`
-script), `createAuthGuard` for the app's `proxy.ts`, and a health check that
+script), a `create-account` script for the first account of an app with registration closed, `createAuthGuard` for the app's `proxy.ts`, and a health check that
 `GET /api/health` of `@softure-ai/ops` runs (every auth table answers, no rows read).
 `@softure-ai/auth/mailing` sends password reset mails through `@softure-ai/mailing`
 (`mailingResetSender()`); `@softure-ai/auth/jobs` sends them from a background job of `@softure-ai/jobs` with
@@ -366,6 +366,28 @@ the first login. `isPasswordHash(value)` checks the format locally, exactly: a h
 a character outside base64url or a cost scrypt refuses is not a hash `hashPassword` writes, so the script refuses it
 instead of storing a hash no password matches.
 
+**First account.** An app with registration closed (`registrationClosed: true`, no `/register` page) creates its
+owner's account with the `create-account` ops script. It draws a temporary password exactly like
+`set-temporary-password` (or stores a `--password-hash` made locally, the same way), refuses an invalid email and an
+email that already has an account, and works whether registration is open or not:
+
+```ts
+// scripts/create-account.ts (bundled and run like grant-role)
+import { createCreateAccountScript } from "@softure-ai/auth/scripts";
+import { runOpsScript } from "@softure-ai/ops/scripts";
+import config from "../softure.config";
+
+process.exitCode = await runOpsScript({ script: createCreateAccountScript(config, { maxAccounts: 1 }), argv: process.argv.slice(2), config });
+```
+
+`node create-account.mjs --email=owner@example.com` shows the account it would create and rolls back; `--commit`
+writes and prints the password once (or `passwordFrom: "hash"`). The report names the user id and the number of
+accounts, never the email. `maxAccounts` (a whole number of at least 1, no limit by default) makes the script refuse
+once `auth.users` holds that many accounts, whoever created them; the script locks the table for its run, so two runs
+cannot both pass the limit. The app's `onRegistered` hook does not run (no consent, no registration fields): an app
+that keeps its own rows per account creates them in its own script. `alphabet` and `clock` work as for
+`createSetTemporaryPasswordScript`.
+
 **Development seed.** `runSeedAccount` from `@softure-ai/auth/scripts` creates a login account for local
 development from `SEED_EMAIL` and `SEED_PASSWORD` through `registerUser`, so the app's `onRegistered` hook runs as
 for a real sign-up, and ends the session registration opens:
@@ -666,5 +688,7 @@ Rate limit rows of `security` hold only SHA-256 prefixes of the email and user i
 - A `next` path longer than 8192 characters is replaced by the default target, with a warning in
   the log that names its length.
 - A temporary password from the script is not forced to change at the next login.
+- `maxAccounts` limits the `create-account` script only; registration does not count accounts. An app that must hold
+  at most N accounts keeps registration closed.
 - A registration attempt reveals whether an email has an account (`auth.email_taken`); the
   `register` rate limit bounds how fast anyone can ask.
