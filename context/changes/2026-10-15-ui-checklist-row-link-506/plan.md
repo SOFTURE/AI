@@ -24,5 +24,5 @@ Files: `foundation/ui/src/ui/checklist.tsx`, `foundation/ui/tests/checklist-row-
 
 ## Progress
 
-- [ ] Phase 1: `rowLink`, `trailing`, `linkDone`
+- [x] Phase 1: `rowLink`, `trailing`, `linkDone` (`91bd3bb`; 7 tests written first, 5 red before the change)
 - [ ] Phase 2: docs
