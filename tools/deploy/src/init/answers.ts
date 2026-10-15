@@ -24,6 +24,9 @@ const COMMIT_SHA = /^[0-9a-f]{40}$/;
 /** The CDNs `init --cdn` can lock the origin to. */
 export const CDNS = ["cloudflare"] as const;
 
+/** A Docker network name (`docker network create` takes `[a-zA-Z0-9][a-zA-Z0-9_.-]`). */
+const NETWORK = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,62}$/;
+
 const ENV_NAME = /^[A-Z][A-Z0-9_]*$/;
 
 /** Names that steer the runner itself; `deploy-app.yml` refuses them in `app-secrets`. */
@@ -47,30 +50,44 @@ const envNameSchema = z
   .refine((name) => !RESERVED_ENV_NAME.test(name), "reserved for the runner (PATH, HOME, NODE_*, NPM_CONFIG_*)")
   .refine((name) => !(TEMPLATE_ENV_NAMES as readonly string[]).includes(name), "already set by the templates");
 
-export const initAnswersSchema = z.strictObject({
-  domain: z.string().regex(DOMAIN, "a lower-case host name such as example.com"),
-  image: z.string().regex(IMAGE, "registry/name in lower case without a tag, such as ghcr.io/acme/app"),
-  name: z.string().regex(NAME, "lower case letters, digits and -, starting with a letter, at most 40"),
-  paths: z
-    .array(z.string().regex(PATH_PREFIX, "/ or a path prefix such as /blog"))
-    .min(1)
-    .refine((paths) => !paths.includes("/") || paths.length === 1, "/ already allows every path; list it alone"),
-  www: z.boolean(),
-  acmeEmail: z.string().regex(EMAIL, "an e-mail address").optional(),
-  env: z.array(envNameSchema),
-  tables: z.array(z.string()).superRefine((tables, context) => {
-    if (tables.length === 0) return;
-    const parsed = parseTableList(tables.join(","));
-    if (!parsed.ok) context.addIssue({ code: "custom", message: parsed.problem });
-  }),
-  workflowsRef: z.string().regex(COMMIT_SHA, "a full commit SHA of SOFTURE/AI (40 hex characters)").optional(),
-  cdn: z.enum(CDNS, { error: "cloudflare, the only CDN init knows" }).optional(),
-  /** The role `deploy.sh`'s report reads as, for an app whose compose file does not name it in DATABASE_URL. */
-  reportRole: z
-    .string()
-    .regex(POSTGRES_ROLE, "a Postgres role name: letters, digits and _, starting with a letter or _, at most 63")
-    .optional(),
-});
+export const initAnswersSchema = z
+  .strictObject({
+    domain: z.string().regex(DOMAIN, "a lower-case host name such as example.com"),
+    image: z.string().regex(IMAGE, "registry/name in lower case without a tag, such as ghcr.io/acme/app"),
+    name: z.string().regex(NAME, "lower case letters, digits and -, starting with a letter, at most 40"),
+    paths: z
+      .array(z.string().regex(PATH_PREFIX, "/ or a path prefix such as /blog"))
+      .min(1)
+      .refine((paths) => !paths.includes("/") || paths.length === 1, "/ already allows every path; list it alone"),
+    www: z.boolean(),
+    acmeEmail: z.string().regex(EMAIL, "an e-mail address").optional(),
+    env: z.array(envNameSchema),
+    tables: z.array(z.string()).superRefine((tables, context) => {
+      if (tables.length === 0) return;
+      const parsed = parseTableList(tables.join(","));
+      if (!parsed.ok) context.addIssue({ code: "custom", message: parsed.problem });
+    }),
+    workflowsRef: z.string().regex(COMMIT_SHA, "a full commit SHA of SOFTURE/AI (40 hex characters)").optional(),
+    cdn: z.enum(CDNS, { error: "cloudflare, the only CDN init knows" }).optional(),
+    /** The role `deploy.sh`'s report reads as, for an app whose compose file does not name it in DATABASE_URL. */
+    reportRole: z
+      .string()
+      .regex(POSTGRES_ROLE, "a Postgres role name: letters, digits and _, starting with a letter or _, at most 63")
+      .optional(),
+    /** `--edge=<network>`: the app joins an existing Traefik's external network instead of running its own (issue #516). */
+    edge: z
+      .string()
+      .regex(NETWORK, "a Docker network name: letters, digits, _ . -, starting with a letter or digit, at most 63")
+      .optional(),
+  })
+  .superRefine((answers, context) => {
+    if (answers.edge === undefined) return;
+    // Both configure the Traefik and the host of the stack that owns the edge, not this app's.
+    for (const [flag, value] of [["--cdn", answers.cdn], ["--acme-email", answers.acmeEmail]] as const) {
+      if (value === undefined) continue;
+      context.addIssue({ code: "custom", path: ["edge"], message: `${flag} belongs to the stack that owns the edge Traefik; drop it with --edge` });
+    }
+  });
 
 export type InitAnswers = z.infer<typeof initAnswersSchema>;
 

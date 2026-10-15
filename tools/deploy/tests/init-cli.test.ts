@@ -103,6 +103,27 @@ describe("softure-deploy init", () => {
     expect(err.join("")).toContain("cdn: cloudflare, the only CDN init knows");
   });
 
+  it("joins an edge network with --edge, without Traefik's files, and warns about a second Postgres port", async () => {
+    writeApp({ name: "shop", dependencies: { "@softure-ai/db": "^0.1.2" } });
+    expect(await runCli(["init", ...REQUIRED, "--edge=proxy", `--workflows-ref=${WORKFLOWS_SHA}`], makeIo())).toBe(0);
+    expect(err).toEqual([]);
+    const text = out.join("");
+    expect(text).not.toContain("traefik.yml");
+    expect(existsSync(join(dir, "docker/prod/traefik.yml"))).toBe(false);
+    expect(readFileSync(join(dir, "docker/prod/docker-compose.yml"), "utf8")).toContain('      - "traefik.docker.network=proxy"\n');
+    expect(text).toContain(
+      "warning docker/prod/docker-compose.yml publishes Postgres on 127.0.0.1:5432, which another stack on this server may hold already; change the host port, or drop it and set database.access to compose-exec in deploy.json\n",
+    );
+    expect(await runCli(["init", ...REQUIRED, "--edge=proxy", "--cdn=cloudflare"], makeIo())).toBe(1);
+    expect(err.join("")).toContain("edge: --cdn belongs to the stack that owns the edge Traefik; drop it with --edge");
+  });
+
+  it("gives no Postgres port warning with --edge for an app without a database", async () => {
+    writeApp({ name: "shop" });
+    expect(await runCli(["init", ...REQUIRED, "--edge=proxy", `--workflows-ref=${WORKFLOWS_SHA}`], makeIo())).toBe(0);
+    expect(out.join("")).not.toContain("warning");
+  });
+
   it("generates into --dir relative to the working directory", async () => {
     const app = mkdtempSync(join(dir, "app-"));
     writeFileSync(join(app, "package.json"), JSON.stringify({ name: "shop" }));

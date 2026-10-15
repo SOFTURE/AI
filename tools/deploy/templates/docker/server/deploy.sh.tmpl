@@ -25,8 +25,8 @@
 # psql's, and the exit status is theirs (0 done, 1 refused or failed, 2 usage) or 1 and 2 from the checks here.
 {{/database}}
 #
-# The release archive is a gzip tar of the tag's docker/prod/ (docker-compose.yml, traefik.yml and, with a database,
-# initdb/), this script, deploy.json and the rendered .env.prod. It is unpacked into releases/<tag>/ and its files are
+# The release archive is a gzip tar of the tag's docker/prod/ (docker-compose.yml, traefik.yml unless the app joins an
+# edge network, and, with a database, initdb/), this script, deploy.json and the rendered .env.prod. It is unpacked into releases/<tag>/ and its files are
 # installed next to this script in /srv/{{name}}/, so only the first setup copies this script there by hand. A new
 # copy of this script is installed by a rename: the running copy finishes, the new one runs from the next release.
 #
@@ -49,8 +49,8 @@
 # (pull), start Postgres (postgres), back up the database (backup), guard the schema against the new image's migrations
 # and, with database.appMigrations, its app journal against the app ledger (schema), count rows (row-counts-before),
 # run the pre-migrate hooks, switch (switch: the migrate service runs before the app), recreate Traefik when its rules
-# changed (traefik), compare the row counts (row-counts-after), record the tag (tag), install the cron (cron), run the
-# post-up hooks. The tables counted are database.rowCountTables of the deploy.json this release shipped; without that
+# changed (traefik, not with an edge network), compare the row counts (row-counts-after), record the tag (tag), install
+# the cron (cron), run the post-up hooks. The tables counted are database.rowCountTables of the deploy.json this release shipped; without that
 # file or key the counts are skipped. A changed postgres service takes effect at the postgres step, before the switch.
 {{/database}}
 {{^database}}
@@ -60,8 +60,8 @@
 #
 # Steps of a deploy: check the command, unpack and check the archive (archive), save the installed files and install
 # the release's with .env.prod and TAG=<tag> in it (files), read the release's deploy.json hooks (settings), pull the
-# image (pull), run the pre-migrate hooks, switch (switch), recreate Traefik when its rules changed (traefik), record the
-# tag (tag), install the cron (cron), run the post-up hooks.
+# image (pull), run the pre-migrate hooks, switch (switch), recreate Traefik when its rules changed (traefik, not with
+# an edge network), record the tag (tag), install the cron (cron), run the post-up hooks.
 {{/database}}
 #
 # Hooks: deploy.json's "hooks" names app steps at three points, each a list of { "name", "compose": [args] } (run as
@@ -663,7 +663,9 @@ save_previous() {
 # Copies the release's files next to this script. cp onto an existing file keeps its inode, which a running
 # container's bind mount (Traefik's rules) holds; this script is replaced by a rename instead, so the running copy
 # keeps reading its own file. Containers read the files as another user: 0644 and 0755.
+{{^edge}}
 rules_changed=""
+{{/edge}}
 install_release() {
   local path
   while IFS= read -r -d '' path; do
@@ -674,8 +676,10 @@ install_release() {
       continue
     fi
     if ! cmp -s "$release_dir/$path" "$path"; then
+{{^edge}}
       # On the first release Traefik starts with the rules; later it may run on the old ones.
       if [ "$path" = "traefik.yml" ] && [ -e "$path" ]; then rules_changed="yes"; fi
+{{/edge}}
       cp "$release_dir/$path" "$path" || fail "cannot install $path."
     fi
     chmod 0644 "$path"
@@ -806,8 +810,9 @@ if [ -f "$work/previous/.env.prod" ]; then
   chmod 0600 .env.prod.prev
 fi
 restore_armed=""
-compose up --detach --wait --remove-orphans traefik app || fail "the stack did not become healthy on $TAG."
+compose up --detach --wait --remove-orphans {{switchServices}} || fail "the stack did not become healthy on $TAG."
 step_ok
+{{^edge}}
 
 # A running Traefik that the switch did not recreate keeps its old rules: a bind-mounted file is read at the start.
 if [ -n "$rules_changed" ]; then
@@ -815,6 +820,7 @@ if [ -n "$rules_changed" ]; then
   compose up --detach --wait --force-recreate traefik || fail "Traefik did not start again with the new rules."
   step_ok
 fi
+{{/edge}}
 {{#database}}
 
 if [ -n "$counted" ]; then
