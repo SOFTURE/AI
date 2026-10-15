@@ -1,0 +1,22 @@
+---
+# Converges a shared app server: the collection's bootstrap (hardening, UFW, fail2ban, Docker), then the layer every
+# app on the server shares: the deploy user, the Traefik edge and the Cloudflare-only origin firewall. Run by
+# `softure-host server`, which passes every variable as extra vars (src/ansible/vars.ts); nothing here names an app.
+
+- name: Bootstrap the server
+  ansible.builtin.import_playbook: softure.vps_foundation.vps_bootstrap
+
+- name: Shared app edge
+  hosts: all
+  become: true
+  gather_facts: true
+
+  roles:
+    - role: softure.vps_foundation.deploy_user
+      tags: [deploy_user]
+
+    - role: softure.vps_foundation.traefik_edge
+      tags: [edge]
+
+    - role: softure.vps_foundation.cloudflare_origin
+      tags: [firewall]

@@ -1,0 +1,62 @@
+---
+# Onboards one app on a server `softure-host server` set up: its folder, the first copy of its deploy.sh and its
+# release key line. Run by `softure-host app add`; it touches nothing of other apps. Later releases replace
+# deploy.sh themselves, so an existing copy is never overwritten.
+
+- name: Onboard an app
+  hosts: all
+  become: true
+  gather_facts: false
+
+  pre_tasks:
+    - name: Validate app variables
+      ansible.builtin.assert:
+        that:
+          - host_app_name is match('^[a-z][a-z0-9-]*$')
+          - host_app_root is match('^/')
+          - host_app_deploy_script_file | length > 0
+        fail_msg: "host_app_name, host_app_root and host_app_deploy_script_file are required."
+      tags: always
+
+  roles:
+    - role: softure.vps_foundation.deploy_user
+      vars:
+        deploy_user_app_root: "{{ host_app_root }}"
+        deploy_user_apps: "{{ [{'name': host_app_name, 'key': host_app_key}] if host_app_key | default('') | length > 0 else [] }}"
+
+  tasks:
+    - name: Check that the app has a release key line
+      ansible.builtin.command:
+        cmd: "grep -c -- ' {{ host_app_name }}-release$' {{ deploy_user_home }}/.ssh/authorized_keys"
+      register: host_app_key_line
+      changed_when: false
+      failed_when: false
+      when: not (ansible_check_mode and host_app_key | default('') | length > 0)
+
+    - name: Refuse an app without a release key line
+      ansible.builtin.fail:
+        msg: >-
+          {{ deploy_user_home }}/.ssh/authorized_keys has no line for {{ host_app_name }} while GitHub already holds
+          DEPLOY_SSH_KEY. Run `softure-host app add --rotate-key` to issue a new key.
+      when: host_app_key_line.rc is defined and host_app_key_line.rc != 0
+
+    - name: Create the app folder
+      ansible.builtin.file:
+        path: "{{ host_app_root }}/{{ host_app_name }}"
+        state: directory
+        owner: "{{ deploy_user_name }}"
+        group: "{{ deploy_user_group | default(deploy_user_name) }}"
+        mode: "0750"
+
+    - name: Install the first copy of deploy.sh
+      ansible.builtin.copy:
+        src: "{{ host_app_deploy_script_file }}"
+        dest: "{{ host_app_root }}/{{ host_app_name }}/deploy.sh"
+        force: false
+        owner: "{{ deploy_user_name }}"
+        group: "{{ deploy_user_group | default(deploy_user_name) }}"
+        mode: "0755"
+
+    - name: Report the app folder
+      ansible.builtin.debug:
+        msg: "{{ host_app_name }}: {{ host_app_root }}/{{ host_app_name }} with deploy.sh, release key line {{ host_app_name }}-release"
