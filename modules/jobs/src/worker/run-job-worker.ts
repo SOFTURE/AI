@@ -1,6 +1,6 @@
-// The worker loop: claims due jobs of every queue it has a handler for, up to each queue's concurrency, runs them,
-// keeps their leases alive, prunes old jobs once an hour, and on abort stops claiming, waits the grace period and
-// releases what is still running.
+// The worker loop: enqueues the due runs of the schedules among its queues, claims due jobs of every queue it has a
+// handler for, up to each queue's concurrency, runs them, keeps their leases alive, prunes old jobs once an hour, and
+// on abort stops claiming, waits the grace period and releases what is still running.
 import { hostname } from "node:os";
 import { systemClock, type Clock, type SoftureConfig } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
@@ -12,6 +12,7 @@ import { consoleJobsLogger, type JobsLogger } from "../server/logger.js";
 import { pruneJobs } from "../server/maintenance.js";
 import { getJobsOptions, getQueue } from "../server/options.js";
 import { runClaimedJob } from "../server/process.js";
+import { enqueueScheduledRun, getSchedule, getScheduleNames, getScheduleSlot } from "../server/schedules.js";
 
 const PRUNE_INTERVAL_MS = 60 * 60 * 1000;
 /** A lease is extended three times per lease period, so one slow write does not lose it. */
@@ -60,6 +61,9 @@ export async function runJobWorker(options: RunJobWorkerOptions): Promise<void> 
   const running = new Map<string, Set<RunningJob>>(queues.map((queue) => [queue, new Set()]));
   const wakeUp = createWakeUp();
   let lastPruneAt = Number.NEGATIVE_INFINITY;
+  // Per schedule, the latest period this worker already settled (enqueued, or found taken), so it writes once per period.
+  const settledSlots = new Map<string, number>();
+  const scheduleNames = getScheduleNames(jobsOptions, queues);
 
   const idle = Object.keys(jobsOptions.queues).filter((queue) => !queues.includes(queue));
   if (idle.length > 0 && options.queues === undefined) {
@@ -98,6 +102,17 @@ export async function runJobWorker(options: RunJobWorkerOptions): Promise<void> 
   };
 
   while (!options.signal.aborted) {
+    for (const name of scheduleNames) {
+      const slot = getScheduleSlot(getSchedule(jobsOptions, name), ctx.clock.now());
+      if ((settledSlots.get(name) ?? Number.NEGATIVE_INFINITY) >= slot.getTime()) continue;
+      try {
+        const isEnqueued = await enqueueScheduledRun(ctx, name, slot);
+        settledSlots.set(name, slot.getTime());
+        if (isEnqueued) logger.info("scheduled run enqueued", { queue: name, slot: slot.toISOString() });
+      } catch (error) {
+        logger.error("could not enqueue a scheduled run; trying again next round", { queue: name, error });
+      }
+    }
     for (const queue of queues) {
       const slots = running.get(queue) ?? new Set<RunningJob>();
       const free = getQueue(jobsOptions, queue).concurrency - slots.size;

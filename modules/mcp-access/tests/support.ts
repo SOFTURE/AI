@@ -2,7 +2,7 @@
 // database, accounts, and a demo MCP server with one read and one write tool.
 import { McpServer } from "@modelcontextprotocol/server";
 import { auth, AUTH_RATE_LIMIT_BUCKETS } from "@softure-ai/auth";
-import { createTestClock, defineSoftureConfig, type SoftureConfig, type TestClock } from "@softure-ai/core";
+import { createTestClock, defineSoftureConfig, type AnySoftureModule, type SoftureConfig, type TestClock } from "@softure-ai/core";
 import { createTestDatabase, type TestDatabase } from "@softure-ai/db/testing";
 import { MCP_RATE_LIMIT_BUCKETS, mcpAccess, type McpAccessOptionsInput, type McpServerIdentity } from "@softure-ai/mcp-access";
 import {
@@ -30,7 +30,8 @@ export const OPTIONS: McpAccessOptionsInput = {
   ],
 };
 
-export function createConfig(options: McpAccessOptionsInput = OPTIONS, locale: "en" | "pl" = "en"): SoftureConfig {
+/** `modules` are listed after mcp-access, e.g. jobs. */
+export function createConfig(options: McpAccessOptionsInput = OPTIONS, locale: "en" | "pl" = "en", modules: readonly AnySoftureModule[] = []): SoftureConfig {
   return defineSoftureConfig({
     database: { url: "pglite://" },
     locale,
@@ -40,6 +41,7 @@ export function createConfig(options: McpAccessOptionsInput = OPTIONS, locale: "
       security({ clientIp: headerIp("x-real-ip"), buckets: { ...AUTH_RATE_LIMIT_BUCKETS, ...MCP_RATE_LIMIT_BUCKETS }, cleanupProbability: 0 }),
       auth({ password: { scrypt: { cost: 2 ** 10 } } }),
       mcpAccess(options),
+      ...modules,
     ],
   });
 }

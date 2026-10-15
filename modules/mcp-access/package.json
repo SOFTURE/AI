@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/mcp-access",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "SOFTURE AI MCP access module: hashed, scoped, expiring access tokens, a rate-limited Bearer endpoint around the app's MCP server factory, and a token page with client setup instructions for Next.js; tool result helpers with a safe error boundary, a stdio entry, a catalog parity check and the softure-mcp prune command.",
   "license": "MIT",
   "type": "module",
@@ -43,6 +43,11 @@
       "@softure-ai/source": "./src/server/index.ts",
       "types": "./dist/server/index.d.ts",
       "default": "./dist/server/index.js"
+    },
+    "./jobs": {
+      "@softure-ai/source": "./src/jobs/index.ts",
+      "types": "./dist/jobs/index.d.ts",
+      "default": "./dist/jobs/index.js"
     },
     "./next": {
       "@softure-ai/source": "./src/next/index.ts",
@@ -87,6 +92,7 @@
   },
   "peerDependencies": {
     "@modelcontextprotocol/server": "^2.0.0",
+    "@softure-ai/jobs": "^0.1.1",
     "@softure-ai/ui": "^0.3.0",
     "drizzle-orm": "^0.45.2",
     "next": "^16.0.0",
@@ -94,5 +100,10 @@
   },
   "devDependencies": {
     "@softure-ai/ui": "^0.3.0"
+  },
+  "peerDependenciesMeta": {
+    "@softure-ai/jobs": {
+      "optional": true
+    }
   }
 }

@@ -319,6 +319,18 @@ step's shape, the channel's length and a positive count. The module's health che
 (`checkFunnelTable`) answers once the table exists. Old days stay until the app prunes them
 (`pruneFunnelCounts`); they hold no personal data.
 
+**With `@softure-ai/jobs`.** `@softure-ai/analytics/jobs` ships the handler and the schedule, so the worker runs the
+cleanup instead of an app cron (`analytics.prune-funnel-counts` daily, keeping the last `keepDays` days, today included; jobs README, "Schedules"):
+
+```ts
+// softure.config.ts
+jobs({ schedules: { ...createAnalyticsJobSchedules({ keepDays: 400 }) } }),
+// src/jobs/handlers.ts (the worker's handlers)
+export const handlers: JobHandlers = { ...analyticsJobHandlers /* , the app's own */ };
+```
+
+`@softure-ai/jobs` is an optional peer: an app without it keeps calling the function from its own cron.
+
 ## 6. Environment variables
 
 None.

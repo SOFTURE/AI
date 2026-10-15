@@ -4,6 +4,25 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`billing@x.y.z`).
 
+## 0.4.0
+
+- **Usage limits** (#474): `trial.limits`, `paid.limits`, `readOnly.limits` and `plans[].limits` declare a
+  limit per meter (`{ "ai-calls": 100 }`, `null` for none) per calendar month in `config.timezone`. `getLimits(ctx,
+  userId)` (`/server`) answers `{ status, planId, limits }`: the plan paying for today comes from the recorded grants
+  (provider payments, manual grants), `paid.limits` covers paid access none explains. `consumeUsage(ctx, { userId,
+  meter, amount })` counts usage in the new `billing.usage` table and returns `Ok({ used, limit, remaining,
+  periodStart, resetsAt })` or `billing.quota_exhausted` (with `usage`), atomically under concurrency and inside the
+  app's own transaction when given one; `getUsage` reads without consuming. New root helpers `getUsagePeriod`,
+  `resolveLimit`, `resolveLimits`, `getDeclaredMeters`; new message `errors.billing.quota_exhausted`. GDPR export
+  and deletion cover the ledger; the readiness probe checks the table.
+- Migration `0011_create_usage.sql` (run `softure migrate`). Options and existing calls are unchanged.
+- Migrate an app that counts usage itself: declare its limits in `billing({ ... })` instead of its own constants;
+  replace "count, compare, insert under its own lock" with `consumeUsage({ ...ctx, db: tx }, { userId, meter })`
+  inside the transaction of the write it limits, returning early on `billing.quota_exhausted`; show
+  `usage.resetsAt` (or `getUsage`) where it showed its own month end. To keep this month's count, insert one
+  `billing.usage` row per account and meter (`period = 'month'`, `period_start` = the start of the month from
+  `getUsagePeriod(now, timezone, "month").start`, `used` = its count) before the switch, then drop its own table.
+
 ## 0.3.0
 
 - **Breaking (#446):** the built-in `pl` dictionary is gone; English is the only built-in copy and the fallback for
