@@ -1,12 +1,13 @@
 ---
 change_id: ui-suggested-amount-states
 title: "SuggestedAmountField has a no-suggestion state, an explanation hint and an inline layout (issue #507)"
-status: open
+status: archived
 roadmap_item: null
 issue: 507
 branch: claude/project-thread-ue4k21
 created: 2026-10-15
 updated: 2026-10-15
+archived_at: 2026-10-15
 ---
 
 ## Intent
@@ -43,3 +44,5 @@ Issue #507 (labels `enhancement`, `pkg: ui`, `adoption`), proposal quoted:
 - Placement: unlinked one-off from the issue queue (`autonomy.source: issues`), `roadmap_item: null`.
 - Framing: skipped. The issue names a concrete gap with a concrete contract.
 - Issue #506 also touches `foundation/ui`; expect to merge master before the merge.
+- Archived 2026-10-15: `SuggestedAmountField` has a no-suggestion state, a suggestion hint and an inline variant;
+  ships in the next ui release.
