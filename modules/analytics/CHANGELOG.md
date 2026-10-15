@@ -4,10 +4,10 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`analytics@x.y.z`).
 
-## Unreleased
+## 0.2.1
 
 - `@softure-ai/analytics/jobs` (#491): `analyticsJobHandlers` and `createAnalyticsJobSchedules({ keepDays })` run
-  `pruneFunnelCounts` daily as a `@softure-ai/jobs` schedule; `@softure-ai/jobs` is a new optional peer. Migrate
+  `pruneFunnelCounts` daily as a `@softure-ai/jobs` schedule; `@softure-ai/jobs` (^0.1.1) is a new optional peer. Migrate
   (optional): an app with `@softure-ai/jobs` adds `...createAnalyticsJobSchedules({ keepDays })` (the days it kept
   so far) to `jobs({ schedules })` and `...analyticsJobHandlers` to its worker's handlers, then removes its own cron.
   Without jobs nothing changes.
