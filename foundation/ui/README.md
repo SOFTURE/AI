@@ -445,8 +445,19 @@ ahead. `showProgress` adds "Step 2 of 4". Slots: `root`, `progress`, `list`, `it
 `label`; each `<li>` carries `data-state` (`done`, `current`, `upcoming`).
 
 `Checklist` lists `{ id, label, done, href?, description? }` under "1 of 3 done" (`showProgress={false}` hides it).
-An open item with `href` is a link; each item reads "(done)" or "(to do)" after its name, so the state never rests on
-the check alone. Slots: `root`, `progress`, `list`, `item`, `marker`, `body`, `label`, `link`, `description`.
+An open item with `href` is a link (`linkDone` links a done one too, to revisit the step); each item reads "(done)" or
+"(to do)" after its name, so the state never rests on the check alone. `rowLink` makes the whole row the link (marker,
+label, description and `trailing`), a bigger target on a phone; without it only the label links. `trailing` is drawn
+after the body, as a node or `(item, { isLink }) => node`; keep decorative content `aria-hidden` (the icons are), or it
+joins the row link's name:
+
+```tsx
+<Checklist items={steps} LinkComponent={Link} rowLink linkDone
+  trailing={(item, { isLink }) => (isLink ? <ChevronRightIcon /> : null)} />
+```
+
+Slots: `root`, `progress`, `list`, `item`, `row` (the row link), `marker`, `body`, `label`, `link`, `description`,
+`trailing`.
 
 `DeferredRender` (server-safe) streams a slow part: the page starts the query without `await` and passes the
 promise as `data`; `fallback` is sent at once and `children(value)` follows in the same response. A rejection

@@ -4,6 +4,12 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`ui@x.y.z`).
 
+## Unreleased
+
+- `Checklist` takes `rowLink` (the whole row, marker to trailing node, is one link), `trailing` (a node or
+  `(item, { isLink }) => node` after the body, e.g. a chevron) and `linkDone` (a done item with `href` links too) (#506).
+  All are off by default, so the markup stays the same. New slots: `row`, `trailing`.
+
 ## 0.3.0
 
 - **Breaking (#446):** the built-in `pl` dictionary is gone; `uiMessages` is English only and `locale` is any BCP 47
