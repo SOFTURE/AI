@@ -7,6 +7,7 @@ import type { BlogMessages } from "../messages/index.js";
 import type { Crumb } from "../pages/listing.js";
 import type { BlogRoutes } from "../pages/paths.js";
 import type { BlogClassNames } from "./class-names.js";
+import type { BlogToolIslands } from "./tool-node.js";
 
 /** What the app's layout receives: the header's parts and the page's content. */
 export interface BlogLayoutSlotProps {
@@ -32,6 +33,8 @@ export interface BlogViewOptions {
   readonly layout?: BlogLayoutComponent;
   /** Replaces the configured disclaimer, e.g. a sentence with links. */
   readonly disclaimer?: ReactNode;
+  /** The client islands of the app's tool blocks, by tool name; a tool without one keeps its static HTML. */
+  readonly tools?: BlogToolIslands;
 }
 
 export interface BlogPageContext {
@@ -51,4 +54,5 @@ export interface BlogPageContext {
   readonly classNames?: BlogClassNames;
   readonly unstyled?: boolean;
   readonly layout?: BlogLayoutComponent;
+  readonly tools?: BlogToolIslands;
 }

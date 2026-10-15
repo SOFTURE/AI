@@ -98,3 +98,18 @@ export type { BlogSitemapEntry } from "./discovery/sitemap.js";
 export { blogSitemap, readBlogSitemap } from "./sitemap.js";
 /** Builds a voice phrase for `blog({ quality: { voice: { phrases } } })` in the config. */
 export { wordPattern } from "./quality/text.js";
+// Tool blocks for `blog({ blocks })`: React-free, so the config graph (proxy, CLI) loads no React.
+export {
+  defineToolBlock,
+  defineToolBlocks,
+  isBlogToolNode,
+  TOOL_BLOCK_MODES,
+  TOOL_TYPE_ATTRIBUTE,
+  type BlogToolNode,
+  type ToolBlockDefinition,
+  type ToolBlockIssue,
+  type ToolBlockMode,
+  type ToolBlockSchema,
+  type ToolBlocksDefinition,
+  type ToolDefinition,
+} from "./render/tool-block.js";
