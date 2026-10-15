@@ -125,7 +125,12 @@ export interface Plan {
   readonly features: readonly LocalizedText[];
   /** Drawn as the recommended plan. */
   readonly isFeatured: boolean;
+  /** Usage limits of paid access bought with this plan, per meter (null: no limit). */
+  readonly limits?: UsageLimits;
 }
+
+/** Usage limits per meter, per period: a count, or null for no limit. */
+export type UsageLimits = Readonly<Record<string, number | null>>;
 
 /** Why a payment could not start. */
 export type PaymentErrorCode =
@@ -207,3 +212,41 @@ export type AdminActionState =
   | { readonly status: "error"; readonly error: AdminActionErrorCode; readonly email?: string };
 
 export const INITIAL_ADMIN_ACTION_STATE: AdminActionState = { status: "idle" };
+
+/** The periods usage is counted in. */
+export const USAGE_PERIODS = ["month"] as const;
+
+/** A calendar month in the app's time zone. */
+export type UsagePeriod = (typeof USAGE_PERIODS)[number];
+
+/** Why a consumption was refused (`consumeUsage`). */
+export type UsageErrorCode =
+  /** The account used up its limit for this meter in this period. */
+  | "billing.quota_exhausted"
+  /** No account has this id. */
+  | "billing.account_unknown";
+
+/** The limits an account has now (`getLimits`). */
+export interface AccountLimits {
+  readonly status: EntitlementStatus;
+  /** The plan paying for today; null on a trial, read-only, or paid access no recorded grant explains. */
+  readonly planId: string | null;
+  /** Every meter the config declares, with this account's limit (null: no limit). */
+  readonly limits: UsageLimits;
+}
+
+/** One meter of one account in the current period (`getUsage`, `consumeUsage`). */
+export interface UsageState {
+  readonly meter: string;
+  readonly period: UsagePeriod;
+  /** Used in this period, the consumption just made included. */
+  readonly used: number;
+  /** Null: no limit. */
+  readonly limit: number | null;
+  /** What is left in this period (0 once used up, also when a lower limit leaves `used` above it); null without a limit. */
+  readonly remaining: number | null;
+  /** The first instant of the period, the start of the 1st of the month in the app's time zone. */
+  readonly periodStart: Date;
+  /** The first instant of the next period, when the count starts again from 0. */
+  readonly resetsAt: Date;
+}

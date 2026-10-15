@@ -66,7 +66,12 @@ import of what the old system knew (`import-entitlements`) and a pin step for de
   (`mode: "replace"`) exactly as it knew them for accounts billing has no row of yet; `pin-trials`
   (`pinDerivedTrials()`) writes every derived trial into a row before a config change would move it
   (see "Existing accounts" in §4).
-- Export and deletion of the entitlement row, the payments, the invoice requests, the manual grants and the trial extensions (`@softure-ai/privacy`), and a health check for
+- **Usage limits** for a metered resource (AI calls a month, exports a month): limits per meter in
+  `trial.limits`, `paid.limits`, `readOnly.limits` and each plan's `limits`; **`getLimits()`** answers
+  an account's state, the plan paying for today and its limits; **`consumeUsage()`** counts usage per
+  calendar month in `billing.usage` and refuses atomically once the limit is used up (see "Usage
+  limits" in §4).
+- Export and deletion of the entitlement row, the payments, the invoice requests, the manual grants, the trial extensions and the usage ledger (`@softure-ai/privacy`), and a health check for
   `GET /api/health`.
 
 ## 2. Installation
@@ -105,6 +110,7 @@ billing({
 | `trial.startsAt` | `YYYY-MM-DD` | — | The first day a trial can start, a local day in `config.timezone`: an account without a row created before it gets its `trial.days` from this day (see "Existing accounts" in §4). A day in the future keeps those accounts writing until it, plus `trial.days`. |
 | `trial.reminderDays` | integer 0 to 365 | `3` | From how many days left the trial counts as ending (badge tone, notice). `0`: never. |
 | `paid.reminderDays` | integer 0 to 365 | `7` | The same for dated paid access. Lifetime access never ends. |
+| `trial.limits`, `paid.limits`, `readOnly.limits` | `{ [meter]: integer 0 to 1e9 or null }`, at most 20 meters | `{}` | Usage limits per calendar month during the trial, of paid access (a meter its plan leaves out, or a paid account no recorded grant explains), and of a read-only account. `null`: no limit. See "Usage limits" in §4. |
 | `plans` | array, at most 12 | `[]` | The plans, in the order the tiles show them (see below). |
 | `payment` | `PaymentProvider` | — | The adapter the payment page uses: `stripe()` or `manual({ onRequest })`. The payment page throws without one. |
 | `partialRefunds` | `"pro_rata"` or `"keep_access"` | `"pro_rata"` | What a partial provider refund does to access (see "Refunds" in §4): `pro_rata` takes back the refunded share of the payment's unused days, `keep_access` nothing until the whole payment is refunded. |
@@ -115,12 +121,13 @@ billing({
 | `routes.webhook` | path | `/api/billing/webhook` | Where `stripeWebhookRoute` is mounted (the Stripe endpoint's URL). |
 | `messages` | partial dictionaries per locale (`en` built in; any other is the app's own translation) | — | Copy overrides. |
 
-**A plan** is `{ id, name, description?, price: { amount, currency }, period, features?, isFeatured? }`:
+**A plan** is `{ id, name, description?, price: { amount, currency }, period, features?, isFeatured?, limits? }`:
 `id` kebab-case and unique; `name`, `description` and each feature line a text per locale with at
 least `en`; `amount` an integer in the currency's minor unit as billing pins it (2900 is 29.00 PLN,
 1500 is ¥1,500, 1500 is ISK 1,500, 1250 is KWD 1.250, 2950 is HUF 29.50);
 `currency` an upper-case ISO 4217 code billing knows; `period` `"day"`, `"week"`, `"month"`, `"year"`,
-`"lifetime"` or `{ unit, count }` such as `{ unit: "month", count: 3 }`. A plan has one currency; a
+`"lifetime"` or `{ unit, count }` such as `{ unit: "month", count: 3 }`; `limits` the plan's usage
+limits, as `paid.limits` (a meter it leaves out falls back to `paid.limits`). A plan has one currency; a
 second currency is a second plan. Plans live in the config, not in a table: a price change is a
 deploy, and a payment record (with the price paid) belongs to the provider.
 
@@ -549,6 +556,56 @@ process.exitCode = await runOpsScript({ script: createExtendTrialScript(config),
   ever bought). Never the email; an unknown email or id is refused. `createEntitlementStatusScript(config, { clock?
   })`.
 
+**Usage limits.** A meter is a kebab-case name (`ai-calls`) some limits block declares; its limit
+is a count per calendar month in `config.timezone` (from the start of the 1st), or `null` for none.
+
+```ts
+billing({
+  trial: { days: 14, limits: { "ai-calls": 20 } },
+  paid: { limits: { "ai-calls": 200 } },
+  readOnly: { limits: {} },
+  plans: [
+    { id: "pro", name: { en: "Pro" }, price: { amount: 4900, currency: "PLN" }, period: "month", limits: { "ai-calls": 2000 } },
+  ],
+});
+```
+
+- **Which limit applies.** The trial's block during the trial, `readOnly.limits` once the account
+  is read-only, and for paid access the plan's `limits`, else `paid.limits`. A declared meter a
+  block leaves out has limit 0 there: deny by default, `null` when a state is unlimited.
+- **The plan paying for today** is read from the grants billing records, never stored apart: a
+  lifetime payment still paid for or an active lifetime grant wins, else the earliest provider
+  payment or manual grant whose period has not ended (the one holding today, or the first one after
+  the trial it was bought during). Refunds and revokes keep those periods true, so the plan follows
+  them. Paid access no recorded grant explains (`importEntitlement`, a `grant` event applied by hand)
+  has no plan and takes `paid.limits`; so do the meters of a plan id the config no longer declares.
+- **`getLimits(ctx, userId)`** (`/server`) answers `{ status, planId, limits }` with every declared
+  meter, or null without an account.
+- **`consumeUsage(ctx, { userId, meter, amount?, period? })`** adds `amount` (1 by default) to the
+  account's count for the current month and returns `Ok({ meter, period, used, limit, remaining,
+  periodStart, resetsAt })`; when the amount would pass the limit it consumes nothing and returns
+  `billing.quota_exhausted` with the same state in `usage` (copy:
+  `messages.errors.billing.quota_exhausted`). It is one conditional upsert on the account's row for
+  the meter and month, so concurrent consumers never pass the limit together. An undeclared meter
+  or an amount that is not a whole number from 1 throws: that is a bug in the app.
+- **With the app's write.** Pass a transaction's context and the quota commits or rolls back with
+  the app's own write:
+
+  ```ts
+  await db.transaction(async (tx) => {
+    const consumed = await consumeUsage({ ...ctx, db: tx }, { userId, meter: "ai-calls" });
+    if (!consumed.ok) return consumed;
+    // ... the app's insert ...
+  });
+  ```
+
+  The account's row for that meter stays locked until the transaction ends, so keep it short: the
+  account's other consumers of that meter wait for it.
+- **`getUsage(ctx, { userId, meter })`** reads the same state without consuming.
+- **When a limit changes** (another plan, the trial ends) what was used this month stays: a lower
+  limit refuses until the next month. A new month starts from 0. Rows of past months stay in
+  `billing.usage` until the account is deleted.
+
 **Existing accounts.** An account without a `billing.entitlements` row is on the trial derived from
 its creation day (§5), so turning billing on for accounts that already exist would make every one
 older than `trial.days` read-only at once. Three tools, in this order, keep their access:
@@ -731,6 +788,19 @@ It also indexes the foreign keys `payment_requests.user_id`, `manual_grants.gran
 `manual_grants.revoked_by` (partial, `IS NOT NULL`), so deleting an account or an admin does not
 scan those tables; every billing foreign key now has an index that starts with its column.
 
+`migrations/0011_create_usage.sql` creates `billing.usage`, the ledger behind `consumeUsage`:
+
+| Column | Meaning |
+| --- | --- |
+| `user_id` | The account (`ON DELETE CASCADE`). |
+| `meter` | The meter, kebab-case, at most 64 characters (CHECK). |
+| `period`, `period_start` | `month` and the first instant of that calendar month in `config.timezone`. |
+| `used` | What the account used of the meter in that period (CHECK: from 0). |
+| `updated_at` | The last consumption. |
+
+The primary key is `(user_id, meter, period, period_start)`, which also serves the account's
+foreign key.
+
 A grant and the request it closes share a transaction; a grant and a revoke take the account, then
 the entitlement, then their row (a conditional update), the order of a refund.
 
@@ -829,7 +899,8 @@ payment: manual({
   plans granted to it by hand (`planId`, `grantedAt`, the grant, `status`, `revokedAt`, `amount`,
   `currency`) and the trials extended for it by hand (`extendedAt`, `previousEndsAt`, `endsAt`).
   Which admin granted, revoked or extended is the admin's data and stays out of the account's export.
-- Deletion: the row, the payments (their failed refunds with them), the requests, the manual grants and the trial extensions, and the foreign keys remove
+  Its usage ledger, oldest month first (`meter`, `period`, `periodStart`, `used`, `updatedAt`).
+- Deletion: the row, the payments (their failed refunds with them), the requests, the manual grants, the trial extensions and the usage ledger, and the foreign keys remove
   them with the account too; an erased admin's id is cleared from the grants and extensions they made.
   Stripe keeps its own record of each payment (the controller's accounting record there).
 - Reminder mail: what was sent is in `mailing.deliveries` under a recipient key (never the

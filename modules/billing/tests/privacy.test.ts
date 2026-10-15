@@ -1,6 +1,7 @@
 // The billing part of a GDPR export and deletion: the account's entitlement row, if it has one, its
-// invoice requests, its manual grants and its trial extensions (payments: stripe-payments.test.ts).
-import { changeEntitlement, dismissPaymentRequest, exportBillingUserData, extendTrialManually, getEntitlement, grantPlanManually, recordPaymentRequest } from "@softure-ai/billing/server";
+// invoice requests, its manual grants, its trial extensions and its usage ledger (payments:
+// stripe-payments.test.ts).
+import { changeEntitlement, consumeUsage, dismissPaymentRequest, exportBillingUserData, extendTrialManually, getEntitlement, grantPlanManually, recordPaymentRequest } from "@softure-ai/billing/server";
 import { collectUserData, eraseUserData } from "@softure-ai/privacy/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createAccount, createTestBilling, NOW, readRow, type TestBilling } from "./support.js";
@@ -8,7 +9,7 @@ import { createAccount, createTestBilling, NOW, readRow, type TestBilling } from
 const PAID_END = new Date("2026-11-30T23:00:00Z");
 /** The end of a trial extended through 31 October (Warsaw). */
 const TRIAL_EXTENDED = new Date("2026-10-31T23:00:00Z");
-const EMPTY = { entitlement: null, payments: [], refundFailures: [], paymentRequests: [], manualGrants: [], trialExtensions: [] };
+const EMPTY = { entitlement: null, payments: [], refundFailures: [], paymentRequests: [], manualGrants: [], trialExtensions: [], usage: [] };
 const INVOICE = { name: "Ada Lovelace Ltd", taxId: null, address: "1 Analytical Way, London" };
 const PRICE = { amount: 2900, currency: "PLN" };
 
@@ -18,14 +19,19 @@ describe("the billing privacy contributor", () => {
   let eveId: string;
 
   beforeEach(async () => {
-    test = await createTestBilling({ plans: [{ id: "monthly", name: { en: "Monthly" }, price: { amount: 2900, currency: "PLN" }, period: "month" }] });
+    test = await createTestBilling({
+      paid: { limits: { "ai-calls": 10 } },
+      plans: [{ id: "monthly", name: { en: "Monthly" }, price: { amount: 2900, currency: "PLN" }, period: "month" }],
+    });
     adaId = await createAccount(test, "ada@example.com");
     eveId = await createAccount(test, "eve@example.com");
     for (const id of [adaId, eveId]) await changeEntitlement(test.ctx, id, { type: "grant", until: PAID_END });
   });
   afterEach(() => test.database.close());
 
-  it("exports the account's entitlement row, its requests (details only while open), its manual grants and trial extensions", async () => {
+  it("exports the account's entitlement row, its requests (details only while open), its manual grants, trial extensions and usage", async () => {
+    await consumeUsage(test.ctx, { userId: adaId, meter: "ai-calls", amount: 3 });
+    await consumeUsage(test.ctx, { userId: eveId, meter: "ai-calls" });
     const dismissed = await recordPaymentRequest(test.ctx, { userId: adaId, planId: "monthly", invoice: INVOICE, price: PRICE });
     await dismissPaymentRequest(test.ctx, dismissed);
     const later = new Date("2026-10-04T08:00:00Z");
@@ -51,6 +57,8 @@ describe("the billing privacy contributor", () => {
       ],
       // The admin who extended it (eve) is left out too.
       trialExtensions: [{ extendedAt: later.toISOString(), previousEndsAt: "2026-10-16T22:00:00.000Z", endsAt: TRIAL_EXTENDED.toISOString() }],
+      // October in Warsaw.
+      usage: [{ meter: "ai-calls", period: "month", periodStart: "2026-09-30T22:00:00.000Z", used: 3, updatedAt: NOW.toISOString() }],
     });
   });
 
@@ -67,6 +75,8 @@ describe("the billing privacy contributor", () => {
     await grantPlanManually(test.ctx, { userId: eveId, planId: "monthly", adminId: adaId });
     await extendTrialManually(test.ctx, { userId: adaId, until: TRIAL_EXTENDED, adminId: eveId });
     await extendTrialManually(test.ctx, { userId: eveId, until: TRIAL_EXTENDED, adminId: adaId });
+    await consumeUsage(test.ctx, { userId: adaId, meter: "ai-calls" });
+    await consumeUsage(test.ctx, { userId: eveId, meter: "ai-calls", amount: 2 });
     expect(await eraseUserData(test.ctx, adaId)).toEqual({ ok: true, value: undefined });
     expect(await exportBillingUserData(test.ctx, adaId)).toEqual({ ok: true, value: EMPTY });
     // Eve's grant stays; ada is gone as the admin who granted it.
@@ -75,6 +85,7 @@ describe("the billing privacy contributor", () => {
     const eveExtensions = await test.database.client.query<{ extended_by: string | null }>("SELECT extended_by FROM billing.trial_extensions WHERE user_id = $1", [eveId]);
     expect(eveExtensions.rows).toEqual([{ extended_by: null }]);
     expect(await test.database.client.query("SELECT 1 FROM billing.trial_extensions WHERE user_id = $1", [adaId])).toMatchObject({ rows: [] });
+    expect(await test.database.client.query("SELECT user_id, used::int AS used FROM billing.usage")).toMatchObject({ rows: [{ user_id: eveId, used: 2 }] });
     expect(await readRow(test, adaId)).toBeUndefined();
     expect(await getEntitlement(test.ctx, adaId)).toBeNull();
     // Eve's own month, then the month ada granted her on top.

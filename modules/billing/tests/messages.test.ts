@@ -1,7 +1,7 @@
-import { billingMessages, getBillingErrorMessage, type AdminActionErrorCode, type BillingFormErrorCode, type GrantFormErrorCode, type PaymentFormErrorCode } from "@softure-ai/billing";
+import { billingMessages, getBillingErrorMessage, type AdminActionErrorCode, type BillingFormErrorCode, type GrantFormErrorCode, type PaymentFormErrorCode, type UsageErrorCode } from "@softure-ai/billing";
 import { describe, expect, it } from "vitest";
 
-const CODES: (BillingFormErrorCode | PaymentFormErrorCode | GrantFormErrorCode | AdminActionErrorCode)[] = [
+const CODES: (BillingFormErrorCode | PaymentFormErrorCode | GrantFormErrorCode | AdminActionErrorCode | UsageErrorCode)[] = [
   "billing.read_only",
   "billing.account_unknown",
   "billing.end_not_in_future",
@@ -11,6 +11,7 @@ const CODES: (BillingFormErrorCode | PaymentFormErrorCode | GrantFormErrorCode |
   "billing.lifetime_active",
   "billing.request_closed",
   "billing.grant_revoked",
+  "billing.quota_exhausted",
   "security.rate_limited",
   "auth.forbidden",
   "core.database_failed",
