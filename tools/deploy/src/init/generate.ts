@@ -41,6 +41,8 @@ interface TemplateFile {
 
 const always = (): boolean => true;
 const withDatabase = (facts: AppFacts): boolean => facts.hasDatabase;
+/** Without `--edge` the stack runs its own Traefik, configured by the rules file. */
+const withOwnTraefik = (_facts: AppFacts, answers: InitAnswers): boolean => answers.edge === undefined;
 const withCloudflare = (_facts: AppFacts, answers: InitAnswers): boolean => answers.cdn === "cloudflare";
 
 /** The worker container: `@softure-ai/jobs` needs a database, so it is part of the database part. */
@@ -53,7 +55,7 @@ export const TEMPLATE_FILES: readonly TemplateFile[] = [
   { template: "Dockerfile.tmpl", target: "Dockerfile", mode: FILE_MODE, isIncluded: always },
   { template: ".dockerignore.tmpl", target: ".dockerignore", mode: FILE_MODE, isIncluded: always },
   { template: "docker/prod/docker-compose.yml.tmpl", target: COMPOSE_FILE, mode: FILE_MODE, isIncluded: always },
-  { template: "docker/prod/traefik.yml.tmpl", target: "docker/prod/traefik.yml", mode: FILE_MODE, isIncluded: always },
+  { template: "docker/prod/traefik.yml.tmpl", target: "docker/prod/traefik.yml", mode: FILE_MODE, isIncluded: withOwnTraefik },
   { template: "docker/prod/initdb/01-roles.sql.tmpl", target: "docker/prod/initdb/01-roles.sql", mode: FILE_MODE, isIncluded: withDatabase },
   { template: "docker/prod/hooks/lib.sh.tmpl", target: "docker/prod/hooks/lib.sh", mode: FILE_MODE, isIncluded: always },
   { template: "docker/prod/hooks/cloudflare-ranges.sh.tmpl", target: "docker/prod/hooks/cloudflare-ranges.sh", mode: FILE_MODE, isIncluded: withCloudflare },
@@ -106,6 +108,15 @@ export function buildAppRule(answers: InitAnswers, facts: AppFacts): string {
   return `${host} && (Path(\`/\`) || ${paths})`;
 }
 
+/**
+ * The services deploy.sh's switch starts: Traefik unless the app joins an edge network, the app (with `migrate`
+ * through `depends_on`) and the worker, which no other service depends on.
+ */
+export function getSwitchServices(answers: InitAnswers, facts: AppFacts): string {
+  const services = [answers.edge === undefined ? "traefik" : null, "app", hasWorker(facts) ? "worker" : null];
+  return services.filter((service) => service !== null).join(" ");
+}
+
 /** The Postgres major of the app's compose file, else the template's. */
 export function getPostgresVersion(facts: AppFacts): string {
   return facts.compose?.postgresMajor ?? TEMPLATE_VERSIONS.postgres;
@@ -152,6 +163,9 @@ function buildValues(options: PlanInitFilesOptions): Record<string, string | boo
     workflowsPinned: answers.workflowsRef !== undefined,
     esbuildVersion: TEMPLATE_VERSIONS.esbuild,
     cloudflare: answers.cdn === "cloudflare",
+    edge: answers.edge !== undefined,
+    edgeNetwork: answers.edge ?? "",
+    switchServices: getSwitchServices(answers, facts),
     cloudflareRanges: CLOUDFLARE_RANGES.join(","),
   };
 }

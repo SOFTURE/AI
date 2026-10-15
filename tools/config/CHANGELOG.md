@@ -4,6 +4,16 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- The language gate skips a verbatim quote marked in Markdown with `<!-- language: pl -->` … `<!-- /language -->`, on
+  one line or around several (#517). An app no longer has to drop every check of `context/` because its workflow
+  artifacts quote the owner. An opening marker that is never closed is a hit.
+- README and the lefthook preset: an app changes one job of the preset (the Next.js typecheck
+  `next typegen && tsc --noEmit`, a skipped language check) in a file it lists after the preset in `extends`
+  (#518). Before, the README said to name the job in the app's `lefthook.yml`, where lefthook keeps the preset's `run`.
+  A test runs `lefthook dump` on that setup.
+
 ## 0.1.2
 
 - Installs and lints in a Next.js app on ESLint 9, found adopting the package (#384):

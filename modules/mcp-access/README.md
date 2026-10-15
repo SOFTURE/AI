@@ -26,6 +26,7 @@ limit check made race-free.
   - a `401` from the endpoint names the protected resource metadata (`resource_metadata` in the
     challenge, RFC 9728), which points at the authorization server metadata (RFC 8414);
   - dynamic client registration (RFC 7591, `POST /api/oauth/register`), public or confidential;
+    open to anyone, or closed outside a window an ops script opens (`oauth.registration`);
   - `/oauth/authorize`: authorization code with PKCE `S256` only, on a consent page that shows the
     app, where the code goes, the signed-in account and the access; writes need the `mcp:write`
     scope, `allowWrites` and the person's tick;
@@ -85,6 +86,7 @@ mcpAccess({
 | `expiryWarningDays` | `integer` 0–60 | `14` | From how many calendar days before the expiry the list warns. |
 | `legacyTokenPattern` | `RegExp` | — | Also accept tokens of this shape, issued by the app before it adopted the module (e.g. `/^[0-9a-f]{64}$/`), looked up by the same sha256. Must be anchored (`^…$`), without the `g` or `y` flag; tokens longer than 512 characters are refused before it runs. New tokens are always `sftmcp_`. |
 | `oauth.enabled` | `boolean` | `false` | Turns on the OAuth routes, the consent page, the connected apps list and `resource_metadata`. Off, the OAuth routes answer `404`. |
+| `oauth.registration` | `"open"` \| `"closed"` | `"open"` | Dynamic client registration. `"closed"`: `POST /api/oauth/register` answers `403 access_denied` except while a window opened by the `open-client-registration` ops script lasts (§4, "Closed registration"). |
 | `oauth.accessTokenLifetimeMinutes` | `integer` 5–1440 | `60` | Lifetime of an access token issued through OAuth; the client refreshes it. |
 | `oauth.refreshTokenLifetimeDays` | `integer` 1–365 | `90` | Lifetime of a refresh token, renewed on every rotation. An unused connection ends after it. |
 | `oauth.authorizationCodeLifetimeMinutes` | `integer` 1–10 | `10` | Lifetime of an authorization code (single use). |
@@ -335,6 +337,32 @@ An app that composes its own routes from `/server` builds the context with
 resolves origins with `resolveMcpOrigins(config, request)` and passes them to the URL builders,
 whose last argument they are; `OAuthClientRow` is exported from the package root.
 
+### Closed registration
+
+Registration is public by default: claude.ai and ChatGPT register a client before anyone signs in, and a client
+grants nothing until a person consents. An app with one owner who adds the connector a few times a year can keep the
+route shut with `oauth.registration: "closed"`. Closed, `POST /api/oauth/register` answers
+`403 { "error": "access_denied", "error_description": "Client registration is closed." }` before it reads the body
+(the request still counts in the `mcp-oauth` bucket); a failing read of the window answers `503`. The discovery
+document keeps `registration_endpoint`, so a client that connects while registration is open finds it.
+
+The operator opens a window for the minutes in which the owner adds the connector, with the safe ops scripts from
+`@softure-ai/mcp-access/scripts` (`@softure-ai/ops` is an optional peer; dry run by default, `--commit` writes):
+
+```ts
+// scripts/open-client-registration.ts
+import { runOpsScript } from "@softure-ai/ops/scripts";
+import { createOpenClientRegistrationScript } from "@softure-ai/mcp-access/scripts";
+import config from "../softure.config";
+
+process.exitCode = await runOpsScript({ script: createOpenClientRegistrationScript(config), argv: process.argv.slice(2), config });
+```
+
+`open-client-registration --minutes=15 --commit` opens registration for 15 minutes (1 to 1440), replacing any open
+window; `close-client-registration --commit` (`createCloseClientRegistrationScript`) shuts it early. Both refuse while
+`oauth.enabled` is off or `oauth.registration` is `"open"`, and report the window's end before and after. Clients
+registered in a window keep working after it ends; an unused one is pruned a day later like any other.
+
 ## 5. Migrations and tables
 
 `migrations/0001_create_access_tokens.sql` creates `mcp.access_tokens`:
@@ -359,6 +387,10 @@ per account and client: write flag, sha256 of the current and the previous refre
 expiry, last use), and adds `access_tokens.grant_id` (null for hand-issued tokens). Every row goes
 with the account. `pruneOAuthRecords(ctx)` deletes expired codes, grants whose refresh token has
 expired (with their access tokens) and clients registered over a day ago that hold no grant.
+
+`migrations/0003_create_oauth_registration_window.sql` creates `mcp.oauth_registration_window`: at most one row
+(`id = 1`) with `opened_at` and `open_until` (`open_until > opened_at`), the window of "Closed registration" (§4). It
+holds no personal data.
 
 ### Scheduled pruning
 
@@ -402,7 +434,8 @@ app: { before, baseline: { "mcp-access": 2 } }
 Old tokens keep working with `legacyTokenPattern`; connected apps keep their grants, and their old
 refresh tokens rotate into module-shaped ones on the next refresh. An app without OAuth tables
 drops its `grant_id` column (if any), deletes the OAuth part of the script and uses
-`baseline: { "mcp-access": 1 }`; file 2 then runs as a normal migration.
+`baseline: { "mcp-access": 1 }`; file 2 then runs as a normal migration. File 3 and later always run as normal
+migrations after the baseline.
 
 ## 6. Environment variables
 
@@ -434,7 +467,8 @@ The MCP server factory passed to `createMcpRoute` (and to `serveMcpStdio`) and t
 `createMcpEndpoint({ createServer })`, a `(ctx, request) => Response` for hosts other than Next, and
 `issueAccessToken`, `listAccessTokens`, `revokeAccessToken`, `verifyAccessToken` and
 `pruneAccessTokens` for scripts. For OAuth: `listOAuthGrants`, `revokeOAuthGrant`,
-`pruneOAuthRecords`, the protocol steps (`registerMcpClient`, `createAuthorizationCode`,
+`pruneOAuthRecords`, the registration window (`isClientRegistrationOpen`, `findClientRegistrationWindow`,
+`openClientRegistration`, `closeClientRegistration`), the protocol steps (`registerMcpClient`, `createAuthorizationCode`,
 `exchangeAuthorizationCode`, `refreshMcpGrant`) and the HTTP handlers behind the routes
 (`handleClientRegistration`, `handleTokenRequest`, `handleAuthorizationDecision`,
 `validateAuthorizationRequest`, `serveDiscoveryDocument`) for hosts other than Next.

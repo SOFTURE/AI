@@ -8,9 +8,16 @@
 {{#database}}
 # Passwords go into connection URLs as they are: use URL-safe values, e.g. `openssl rand -hex 32`.
 {{/database}}
+{{#edge}}
+#
+# This stack runs no Traefik: the app joins the external network {{edgeNetwork}} of the Traefik another stack on this
+# server runs (init --edge), and its labels publish it there. That Traefik needs the Docker provider
+# (exposedByDefault=false), the entry point websecure and the certificate resolver letsencrypt.
+{{/edge}}
 name: {{name}}
 
 services:
+{{^edge}}
   traefik:
     image: traefik:{{traefikVersion}}
     restart: unless-stopped
@@ -40,6 +47,7 @@ services:
       - ./traefik.yml:/etc/traefik/rules.yml:ro
       - letsencrypt:/letsencrypt
 
+{{/edge}}
   app:
     image: {{image}}:${TAG}
     restart: unless-stopped
@@ -56,6 +64,36 @@ services:
       migrate:
         condition: service_completed_successfully
 {{/database}}
+{{#edge}}
+    # The edge network for Traefik, the project's own for Postgres; names are prefixed with {{name}}, so they never
+    # clash with the other stack's routers.
+    networks:
+      - edge
+      - default
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network={{edgeNetwork}}"
+      - "traefik.http.routers.{{name}}.rule={{appRule}}"
+      - "traefik.http.routers.{{name}}.entrypoints=websecure"
+      - "traefik.http.routers.{{name}}.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.{{name}}.service={{name}}"
+      - "traefik.http.routers.{{name}}.middlewares={{name}}-security-headers"
+      - "traefik.http.services.{{name}}.loadbalancer.server.port=3000"
+      - "traefik.http.middlewares.{{name}}-security-headers.headers.stsSeconds=31536000"
+      - "traefik.http.middlewares.{{name}}-security-headers.headers.stsIncludeSubdomains=true"
+      - "traefik.http.middlewares.{{name}}-security-headers.headers.contentTypeNosniff=true"
+      - "traefik.http.middlewares.{{name}}-security-headers.headers.referrerPolicy=strict-origin-when-cross-origin"
+{{#www}}
+      - "traefik.http.routers.{{name}}-www.rule=Host(`www.{{domain}}`)"
+      - "traefik.http.routers.{{name}}-www.entrypoints=websecure"
+      - "traefik.http.routers.{{name}}-www.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.{{name}}-www.service=noop@internal"
+      - "traefik.http.routers.{{name}}-www.middlewares={{name}}-www-to-apex"
+      - "traefik.http.middlewares.{{name}}-www-to-apex.redirectregex.regex=^https?://www\\.{{domainPattern}}/(.*)"
+      - "traefik.http.middlewares.{{name}}-www-to-apex.redirectregex.replacement=https://{{domain}}/$${1}"
+      - "traefik.http.middlewares.{{name}}-www-to-apex.redirectregex.permanent=true"
+{{/www}}
+{{/edge}}
 {{#worker}}
 
   # The job worker (@softure-ai/jobs): the same image running `node worker.mjs`, with the app's environment. It
@@ -115,9 +153,23 @@ services:
       timeout: 5s
       retries: 30
 {{/database}}
+{{^edge}}
 
 volumes:
   letsencrypt:
 {{#database}}
   postgres-data:
 {{/database}}
+{{/edge}}
+{{#edge}}
+{{#database}}
+
+volumes:
+  postgres-data:
+{{/database}}
+
+networks:
+  edge:
+    name: {{edgeNetwork}}
+    external: true
+{{/edge}}

@@ -161,8 +161,8 @@ function write(path: string, text: string, mode = 0o644): void {
   chmodSync(path, mode);
 }
 
-function writeCheckout(options: { facts?: AppFacts; tables?: string[]; envProd?: string } = {}): void {
-  const answers = { ...ANSWERS, tables: options.tables ?? [] };
+function writeCheckout(options: { facts?: AppFacts; tables?: string[]; envProd?: string; edge?: string } = {}): void {
+  const answers = { ...ANSWERS, tables: options.tables ?? [], ...(options.edge === undefined ? {} : { edge: options.edge }) };
   const files = planInitFiles({ answers, facts: options.facts ?? NO_DATABASE, cliVersion: "9.9.9" });
   for (const file of files) write(join(checkout, file.path), file.text, file.mode);
   writeFileSync(join(checkout, ".env.prod"), options.envProd ?? ENV_PROD);
@@ -332,6 +332,36 @@ describe("a release archive packed by deploy-app.yml and installed by deploy.sh"
     expect(pack({ DEPLOY_CONFIG: "" }).status).toBe(0);
     expect(deploy("v1", readFileSync(join(checkout, "release.tar.gz"))).status).toBe(0);
     expect(existsSync(join(server, "deploy.json"))).toBe(false);
+  });
+});
+
+describe("deploy.sh of an app on another stack's edge network (issue #516)", () => {
+  beforeEach(() => {
+    rmSync(checkout, { recursive: true, force: true });
+    writeCheckout({ edge: "proxy" });
+    write(join(server, "deploy.sh"), readFileSync(join(checkout, "docker/server/deploy.sh"), "utf8"), 0o755);
+  });
+
+  it("switches the app alone, ships no Traefik rules and has no Traefik step", () => {
+    const first = deploy("v1", packArchive());
+    expect(first.stderr).toBe("");
+    expect(first.status).toBe(0);
+    expect(existsSync(join(server, "traefik.yml"))).toBe(false);
+    expect(readDockerLog().at(-1)).toBe("compose --env-file .env.prod --file docker-compose.yml up --detach --wait --remove-orphans app");
+
+    writeFileSync(join(checkout, "docker/prod/docker-compose.yml"), `${readFileSync(join(checkout, "docker/prod/docker-compose.yml"), "utf8")}# v2\n`);
+    const second = deploy("v2", packArchive());
+    expect(second.status).toBe(0);
+    expect(readLines(second.stdout, "step")).toEqual([
+      "step|archive|ok",
+      "step|files|ok",
+      "step|settings|ok",
+      "step|pull|ok",
+      "step|switch|ok",
+      "step|tag|ok",
+      "step|cron|ok",
+    ]);
+    expect(readDockerLog().filter((line) => line.includes("traefik"))).toEqual([]);
   });
 });
 

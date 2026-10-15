@@ -19,6 +19,8 @@ function getEmptyPgliteDump(): Promise<Blob | File> {
   emptyPglite ??= (async () => {
     const client = new PGlite();
     try {
+      // PGlite 0.5.10 hangs dumping or closing an instance that is still starting (#523).
+      await client.waitReady;
       return await client.dumpDataDir("none");
     } finally {
       await client.close();
