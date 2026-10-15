@@ -1,12 +1,13 @@
 ---
 change_id: config-language-quote-marker-517
 title: "config: the language gate skips a marked verbatim quote in Markdown (issue #517)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 517
 branch: claude/project-thread-hyjor3
 created: 2026-10-15
 updated: 2026-10-15
+archived_at: 2026-10-15
 ---
 
 ## Intent

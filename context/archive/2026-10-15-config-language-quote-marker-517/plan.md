@@ -1,6 +1,6 @@
 ---
 change_id: config-language-quote-marker-517
-status: in_progress
+status: archived
 ---
 
 # Plan: language gate skips a marked verbatim quote (issue #517)
@@ -25,5 +25,8 @@ Files: `tools/config/src/language/index.ts`, `tools/config/tests/pl/language.tes
 
 ## Progress
 
-- [ ] Phase 1: the marker in `findPolishText`
-- [ ] Phase 2: docs
+- [x] Phase 1: the marker in `findPolishText` (`65addad`; 7 tests written first, 3 red before the change)
+- [x] Phase 2: docs (README language gate paragraph and example, CHANGELOG `## Unreleased`)
+
+Gates on the branch: typecheck, ESLint and the language gate green (pre-commit); config tests 61 passed; the full
+`npm test` runs in pre-push.
