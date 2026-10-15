@@ -238,11 +238,26 @@ same rule for the server (`null` when the text is not a colour). Slots: the fiel
 
 `SuggestedAmountField` is a `MoneyField` with a chip under it ("Use 1 234,50 PLN", or `suggestionLabel`) that fills
 `suggestedValue` in the locale's notation and focuses the field. It stays a form field: a rejected submit replays
-what was sent. Slots: the field's, plus `group` and `suggestion`.
+what was sent. `suggestionVariant="inline"` draws the suggestion as one small muted row instead of a chip:
+"Suggested: 1 234,50 PLN" and a text button "use" (named "Use 1 234,50 PLN" for screen readers). With
+`suggestedValue={null}` (or none) there is nothing to take: the row shows "No suggestion" and no button.
+`suggestionHint` adds a "?" after the action that explains the number, or why there is none; it is named "Where the
+suggestion comes from: {label}" or "Why there is no suggestion: {label}" and takes `suggestionHintProps` (the app's
+hint classes, gap and width). Every text is a `suggestedAmount` message (`use`, `suggested`, `useShort`, `none`,
+`hintLabel`, `noneHintLabel`), overridable by `suggestionMessages` or the provider. Slots: the field's, plus `group`,
+`suggestionRow`, `suggestion` (the chip or the text button) and `suggestionText`.
 
 ```tsx
 <ColorField name="accent" label="Accent colour" defaultValue={brand.accent} />
 <SuggestedAmountField name="budget" label="Monthly budget" suffix="PLN" suggestedValue={lastMonth} />
+<SuggestedAmountField
+  name="target"
+  label="Monthly target"
+  suffix="PLN"
+  suggestionVariant="inline"
+  suggestedValue={plan.monthly ?? null}
+  suggestionHint={plan.monthly === undefined ? "Add three months of data first." : "Your plan's monthly amount."}
+/>
 ```
 
 Number inputs (`TextField` with `inputMode`, `MoneyField`) use `NUMBER_INPUT_CLASS`: the mono face with

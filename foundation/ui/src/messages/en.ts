@@ -63,6 +63,16 @@ export const en = {
   suggestedAmount: {
     /** The chip that fills the suggested amount. */
     use: "Use {amount}",
+    /** The inline row's text before its button. */
+    suggested: "Suggested: {amount}",
+    /** The inline row's text button; the button is still named by `use`. */
+    useShort: "use",
+    /** Shown instead of the action when there is nothing to suggest. */
+    none: "No suggestion",
+    /** Name of the "?" that explains the suggestion. */
+    hintLabel: "Where the suggestion comes from: {label}",
+    /** Name of the "?" that explains why there is no suggestion. */
+    noneHintLabel: "Why there is no suggestion: {label}",
   },
   errors: {
     amount_invalid: "Enter an amount with at most two decimal places, for example {example}.",
