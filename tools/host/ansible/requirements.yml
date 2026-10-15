@@ -1,0 +1,8 @@
+---
+# Collections `softure-host` installs before every run (`ansible-galaxy collection install -r`), into a cache folder
+# per package version, so the pinned release is the one that runs. softure.vps_foundation is not on Galaxy: it
+# installs from its git tag. Its own dependencies (community.docker, community.general, ansible.posix) come with it.
+collections:
+  - name: git+https://github.com/SOFTURE/VPS_FOUNDATION.git#vps_foundation
+    type: git
+    version: "1.25.0"

@@ -180,3 +180,24 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+
+  # @softure-ai/host's playbooks against a throwaway Ubuntu container: the pinned softure.vps_foundation release,
+  # both playbooks syntax-checked, app.yml converged twice (the second run changes nothing), and a real SSH login with
+  # the key the CLI issues running deploy.sh through its forced command (tools/host/e2e/converge.sh).
+  host-ansible:
+    name: host playbooks converge
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install Ansible
+        run: |
+          python3 -m pip install --user ansible-core
+          ansible-playbook --version | head -n 1
+      - name: Converge the app playbook
+        run: tools/host/e2e/converge.sh
