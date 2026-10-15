@@ -33,4 +33,4 @@ against Postgres.
 
 #### Automated
 - [x] 1.1 pin-trials case in its own serial spec; serial project runs one worker — 81c3d6f
-- [ ] 1.2 Typecheck, lint and test green; billing e2e green locally
+- [x] 1.2 Typecheck, lint and test green; billing e2e green locally — 81c3d6f (e2e verified in CI on PR #511)
