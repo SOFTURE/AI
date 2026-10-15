@@ -112,7 +112,9 @@ resolving conflicts, closing the issues the work solves, filing issues, starting
 sessions (threads), giving threads their go, and running report routines. It lives in the repository,
 so every session reads it here itself; it is not consent relayed by another session. A brief points
 to this section instead of quoting chat messages. **Only a production deploy or release waits for the
-owner's word** (see Releases). Nothing in this section needs to be told to a fresh session again.
+owner's word** (see Releases). Nothing in this section needs to be told to a fresh session again;
+a hosted project's coordinator that does not run inside a checkout gets one pointer to it in the
+project instructions (WORKFLOW §8.5).
 
 **Decide, don't ask.** Take the recommended option and record it under `## Decisions (auto)` in the
 artifact. Small product decisions are yours: the owner trusts the recommendation and corrects it
@@ -129,6 +131,17 @@ irreversible action nobody asked for, a secret or access only the owner has, sco
 - **Thread**: a session started by the coordinator with a brief (an item ID, a change-id, "follow
   AGENTS.md → Operating mode: autonomous"). It carries one change and talks only to the coordinator.
 - A session started by the owner directly, with no coordinator, does both jobs itself.
+
+**Start of a run.** A coordinator that wakes with no run in flight (a fresh or cleared session, or a
+hosted project's main-chat session on its first message) starts the run itself, without waiting for
+the owner's "go":
+1. read `context/workflow.json` and the roadmap (or the issue queue) on the main branch; outside a
+   checkout, read them, and this block, from the repository first;
+2. adopt what is already in flight: roadmap rows `in_progress` or `ready_to_merge`, the harness's open
+   threads, open pull requests (`softure-worktree-manager` M0.1); give the go to every READY thread;
+3. start a thread for every ready, parallel-safe item;
+4. create the report routine and post the first roadmap report.
+Only a "stop" or "pause" from the owner, recorded in memory, holds it back.
 
 **Messages to the owner and between sessions:**
 - In `chatLanguage` (default: `language`), whatever language the artifacts use.
@@ -159,6 +172,11 @@ irreversible action nobody asked for, a secret or access only the owner has, sco
   or say what blocks it. A green PR that sits unmerged because nobody said "go" is the coordinator's
   failure.
 - Posts every thread's result in the main chat as it arrives (condensed, decision first).
+- **Makes sure finished threads are closed.** On every merge result, and whenever a thread with a
+  one-off job hands its result over (a planning thread, the report routine setup thread once it sends
+  the routine id back, a report thread), check that the thread is resolved and resolve it yourself
+  (`set_thread_resolved` or the equivalent) if it is not. Never close a thread whose pull request is
+  still open.
 - Nudges stalled threads (waiting on CI, stopped by a usage limit) on every report.
 - A new question about the roadmap goes to a new thread; the old one is closed.
 
@@ -193,7 +211,11 @@ irreversible action nobody asked for, a secret or access only the owner has, sco
   60 (60 → `0 * * * *`, 120 → `0 */2 * * *`; `wt_config.py --report-cron` prints it); a value below 60
   runs hourly. **One recurring routine** drives the reports: the coordinator creates it when work
   starts and deletes it when nothing runs, or on the owner's "stop" or "pause". Never a chain of
-  one-off wake-ups. After a pause (usage limit) name the reports that were skipped. A report produced in a thread of its own (a scheduled routine) is pasted into the main
+  one-off wake-ups. **A coordinator without a scheduling tool** (a hosted project's main-chat session)
+  starts one short setup thread whose only job is to create that routine from the template
+  `softure-worktree-manager/references/report-routine.md` and send its id back; the setup thread is
+  then closed. The coordinator records the id in memory and, at the end of the run or on "stop" or
+  "pause", has a thread delete the routine by that id. Missing tools never mean skipped reports. After a pause (usage limit) name the reports that were skipped. A report produced in a thread of its own (a scheduled routine) is pasted into the main
   chat and that thread is closed at once.
 - Shape, the same in every project, nothing else:
   1. title: `Roadmap report <roadmap name>, <HH:MM>`;
@@ -231,10 +253,16 @@ irreversible action nobody asked for, a secret or access only the owner has, sco
 
   Nothing moved since the last report: one line (`15:00, no change: 47 of 50; SA-35 implement 2/3`).
 
-**Bugs and gaps in SOFTURE packages.** A well-founded, non-duplicate bug or gap in an `@softure-ai/*`
-package (or in this project's own scope) is filed right away as an issue in the repository that owns
-the package (e.g. SOFTURE/AI), without asking. The work goes on around it; the item that needs the
-fix is `blocked (<repo>#<N>)`.
+**Bugs and gaps in SOFTURE packages.** A well-founded, non-duplicate bug or gap is filed right away as
+an issue, without asking, in the repository that owns it:
+- `@softure-ai/skills` (the skills, this managed block, `WORKFLOW.md`) → **SOFTURE/SKILLS**;
+- every other `@softure-ai/*` package → **SOFTURE/AI**;
+- this project's own scope → this project's repository.
+
+Search the target for a duplicate first. When the harness scopes forge access to this project, attach
+the owning repository first (read and issues) and only then decide you cannot file; if it is still out
+of reach, put the issue text in the main chat for the owner. The work goes on around it; the item that
+needs the fix is `blocked (<repo>#<N>)`.
 
 **Issues as the work source** (`autonomy.source: "issues"`, no roadmap):
 - The coordinator lists open issues (through a thread when it has no forge access). Not well-founded:
@@ -265,8 +293,11 @@ push, merge or publish this section covers, cite this section and `mode` once; i
 ask the owner for a word in that session and keep the other work going.
 
 **Memory** holds only project state (queue, IDs, counters, the owner's specific orders and decisions).
-The rules above are not memory material: when the owner corrects how the process runs, the fix belongs
-in these skills, so say so in the main chat.
+The rules above are not memory material. **When the owner has to explain or correct how the process
+runs** (a step that should have happened by itself, a rule that is missing or wrong), that is a gap in
+these skills: the session that received it checks SOFTURE/SKILLS for a duplicate, files an issue right
+away (neutral text, "an adopting app") and posts the link in the main chat. Memory keeps only the
+project-specific order itself.
 
 ## Conventions
 
