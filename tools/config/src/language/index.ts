@@ -36,41 +36,114 @@ export function isExempt(path: string): boolean {
   return EXEMPT_FILE_NAMES.has(fileName) || segments.slice(0, -1).some((folder) => EXEMPT_FOLDERS.includes(folder));
 }
 
-/**
- * Markdown inline code spans quote real paths and slugs from other repositories; they are not prose.
- * A span is a run of backticks, text without backticks and a run of the same length. One pass over
- * the tokens, so a line full of backticks costs linear time (a backreference regex is polynomial).
- */
-function removeCodeSpans(line: string): string {
-  const tokens = line.split(/(`+)/);
-  const kept: string[] = [];
-  for (let index = 0; index < tokens.length; index += 1) {
-    const opener = tokens[index] ?? "";
-    const closer = tokens[index + 2];
-    if (opener.startsWith("`") && closer === opener) {
-      kept.push(" ");
-      index += 2;
-    } else {
-      kept.push(opener);
-    }
-  }
-  return kept.join("");
+interface Token {
+  text: string;
+  isCode: boolean;
 }
 
-/** Lines of `text` that contain Polish, the first reason per line. `path` decides whether Markdown code spans are skipped. */
+/**
+ * A Markdown line split into inline code spans and the text between them. Code spans quote real paths and slugs from
+ * other repositories; they are not prose. A span is a run of backticks, text without backticks and a run of the same
+ * length. One pass over the tokens, so a line full of backticks costs linear time (a backreference regex is polynomial).
+ */
+function splitCodeSpans(line: string): Token[] {
+  const parts = line.split(/(`+)/);
+  const tokens: Token[] = [];
+  for (let index = 0; index < parts.length; index += 1) {
+    const opener = parts[index] ?? "";
+    const closer = parts[index + 2];
+    if (opener.startsWith("`") && closer === opener) {
+      tokens.push({ text: `${opener}${parts[index + 1] ?? ""}${closer}`, isCode: true });
+      index += 2;
+    } else {
+      tokens.push({ text: opener, isCode: false });
+    }
+  }
+  return tokens;
+}
+
+// A verbatim quote in the owner's language, marked in Markdown: `<!-- language: pl -->` … `<!-- /language -->`.
+const QUOTE_MARKER = /<!--\s*(?:language:\s*[A-Za-z]{2,3}(?:-[A-Za-z0-9]{1,8})?|(\/)language)\s*-->/g;
+
+interface MarkdownLine {
+  /** What the diacritic check reads: the line without its marked quotes. */
+  kept: string;
+  /** What the word check reads: the kept text without code spans. */
+  prose: string;
+  isQuoteOpen: boolean;
+  /** Whether the region still open at the end of the line was opened on it. */
+  isOpenedHere: boolean;
+}
+
+/** Removes the marked quotes from a Markdown line; `isQuoteOpen` carries a region across lines. */
+function readMarkdownLine(line: string, isQuoteOpenBefore: boolean): MarkdownLine {
+  let isQuoteOpen = isQuoteOpenBefore;
+  let isOpenedHere = false;
+  let kept = "";
+  let prose = "";
+  for (const token of splitCodeSpans(line)) {
+    if (token.isCode) {
+      if (!isQuoteOpen) {
+        kept += token.text;
+        prose += " ";
+      }
+      continue;
+    }
+    let from = 0;
+    for (const marker of token.text.matchAll(QUOTE_MARKER)) {
+      const isClosing = marker[1] !== undefined;
+      if (!isQuoteOpen) {
+        const before = token.text.slice(from, marker.index);
+        kept += before;
+        prose += before;
+      }
+      // A closing marker with nothing open is ignored.
+      if (isQuoteOpen || !isClosing) {
+        isQuoteOpen = !isClosing;
+        isOpenedHere = isQuoteOpen;
+      }
+      from = marker.index + marker[0].length;
+      kept += " ";
+      prose += " ";
+    }
+    if (!isQuoteOpen) {
+      const rest = token.text.slice(from);
+      kept += rest;
+      prose += rest;
+    }
+  }
+  return { kept, prose, isQuoteOpen, isOpenedHere };
+}
+
+/**
+ * Lines of `text` that contain Polish, the first reason per line. In Markdown, code spans are skipped by the word
+ * check and a quote marked with `<!-- language: xx -->` … `<!-- /language -->` is skipped entirely.
+ */
 export function findPolishText(path: string, text: string): LineHit[] {
   if (text.includes("\0")) return [];
   const isMarkdown = path.toLowerCase().endsWith(".md");
   const hits: LineHit[] = [];
+  let isQuoteOpen = false;
+  let quoteOpenedOn = 0;
   text.split("\n").forEach((rawLine, index) => {
-    const diacritic = POLISH_DIACRITIC.exec(rawLine);
+    let kept = rawLine;
+    let prose = rawLine;
+    if (isMarkdown) {
+      let isOpenedHere;
+      ({ kept, prose, isQuoteOpen, isOpenedHere } = readMarkdownLine(rawLine, isQuoteOpen));
+      if (isOpenedHere) quoteOpenedOn = index + 1;
+    }
+    const diacritic = POLISH_DIACRITIC.exec(kept);
     if (diacritic) {
       hits.push({ line: index + 1, reason: `Polish diacritic "${diacritic[0]}"` });
       return;
     }
-    const word = POLISH_WORD.exec(isMarkdown ? removeCodeSpans(rawLine) : rawLine);
+    const word = POLISH_WORD.exec(prose);
     if (word?.[1]) hits.push({ line: index + 1, reason: `Polish word "${word[1].toLowerCase()}"` });
   });
+  if (isQuoteOpen) {
+    return [...hits, { line: quoteOpenedOn, reason: "unclosed language marker" }].sort((a, b) => a.line - b.line);
+  }
   return hits;
 }
 

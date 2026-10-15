@@ -56,6 +56,45 @@ describe("findPolishText", () => {
     expect(findPolishText("src/a.ts", text)).toEqual([]);
   });
 
+  describe("a verbatim quote marked in Markdown", () => {
+    it("skips a quote marked on one line and checks the text after the closing marker", () => {
+      expect(findPolishText("context/prd.md", 'The owner, verbatim: "<!-- language: pl -->Gdzie jest plik?<!-- /language -->".\n')).toEqual([]);
+      expect(findPolishText("context/prd.md", "<!-- language: pl -->tak<!-- /language --> i nie\n")).toEqual([
+        { line: 1, reason: 'Polish word "nie"' },
+      ]);
+    });
+
+    it("skips a region over several lines, diacritics included, and checks the line after it", () => {
+      const text = ["Quote:", "<!-- language: pl -->", "> Będzie inaczej, nie wiem.", "<!-- /language -->", "nie"].join("\n");
+      expect(findPolishText("context/prd.md", text)).toEqual([{ line: 5, reason: 'Polish word "nie"' }]);
+    });
+
+    it("reports an opening marker that is never closed, so it cannot exempt the rest of the file", () => {
+      const text = "ok\n<!-- language: pl -->\nnie\nstill English\n";
+      expect(findPolishText("context/prd.md", text)).toEqual([{ line: 2, reason: "unclosed language marker" }]);
+    });
+
+    it("treats a marker inside a code span as text", () => {
+      expect(findPolishText("README.md", "Write `<!-- language: pl -->` before the quote, nie wiem.\n")).toEqual([
+        { line: 1, reason: 'Polish word "nie"' },
+      ]);
+    });
+
+    it("keeps reporting a diacritic in a code span outside a marked region", () => {
+      expect(findPolishText("docs/a.md", "Run `będzie` now.\n")).toEqual([{ line: 1, reason: 'Polish diacritic "ę"' }]);
+    });
+
+    it("ignores a closing marker with no opening one", () => {
+      expect(findPolishText("docs/a.md", "<!-- /language --> nie\n")).toEqual([{ line: 1, reason: 'Polish word "nie"' }]);
+    });
+
+    it("does nothing in a code file, where an HTML comment is not a comment", () => {
+      expect(findPolishText("src/a.ts", "// <!-- language: pl -->nie<!-- /language -->\n")).toEqual([
+        { line: 1, reason: 'Polish word "nie"' },
+      ]);
+    });
+  });
+
   it("treats an empty file as clean", () => {
     expect(findPolishText("src/a.ts", "")).toEqual([]);
   });
