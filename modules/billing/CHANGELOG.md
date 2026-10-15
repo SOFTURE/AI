@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`billing@x.y.z`).
 
-## Unreleased
+## 0.4.0
 
 - **Usage limits** (#474): `trial.limits`, `paid.limits`, `readOnly.limits` and `plans[].limits` declare a
   limit per meter (`{ "ai-calls": 100 }`, `null` for none) per calendar month in `config.timezone`. `getLimits(ctx,
