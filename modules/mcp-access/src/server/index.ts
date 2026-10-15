@@ -14,6 +14,15 @@ export { actionTool, toFormData, type ActionToolOptions, type FormActionHandler 
 export { createMcpAccessContext } from "./context.js";
 export { checkAccessTokensTable } from "./health.js";
 export {
+  closeClientRegistration,
+  findClientRegistrationWindow,
+  isClientRegistrationOpen,
+  MAX_REGISTRATION_WINDOW_MINUTES,
+  openClientRegistration,
+  type ClientRegistrationWindow,
+  type OpenClientRegistrationInput,
+} from "./registration-window.js";
+export {
   CONSENT_CODE_PREFIX,
   CLIENT_SECRET_PREFIX,
   createAuthorizationCode,

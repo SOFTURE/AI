@@ -31,6 +31,7 @@ test("the page lists the ledger and the module migrations applied by softure mig
     "mailing 5 add_sql_surface (applied)",
     "mcp-access 1 create_access_tokens (applied)",
     "mcp-access 2 create_oauth_grants (applied)",
+    "mcp-access 3 create_oauth_registration_window (applied)",
     "privacy 1 create_consents (applied)",
     "security 1 create_rate_limits (applied)",
     "softure 1 ledger (applied)",

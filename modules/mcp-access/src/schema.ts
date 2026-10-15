@@ -1,8 +1,8 @@
-// Drizzle view of the module's tables (migrations/0001_create_access_tokens.sql and
-// 0002_create_oauth_grants.sql). The migrations are the source of truth; this file only types the
-// queries.
+// Drizzle view of the module's tables (migrations/0001_create_access_tokens.sql,
+// 0002_create_oauth_grants.sql and 0003_create_oauth_registration_window.sql). The migrations are the
+// source of truth; this file only types the queries.
 import { users } from "@softure-ai/auth";
-import { boolean, jsonb, pgSchema, text, timestamp, uuid, type AnyPgColumn } from "drizzle-orm/pg-core";
+import { boolean, jsonb, pgSchema, smallint, text, timestamp, uuid, type AnyPgColumn } from "drizzle-orm/pg-core";
 
 export const mcpSchema = pgSchema("mcp");
 
@@ -61,6 +61,12 @@ export const accessTokens = mcpSchema.table("access_tokens", {
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
   grantId: uuid("grant_id").references((): AnyPgColumn => oauthGrants.id, { onDelete: "cascade" }),
+});
+
+export const oauthRegistrationWindow = mcpSchema.table("oauth_registration_window", {
+  id: smallint("id").primaryKey().default(1),
+  openedAt: timestamp("opened_at", { withTimezone: true }).notNull(),
+  openUntil: timestamp("open_until", { withTimezone: true }).notNull(),
 });
 
 export type OAuthClientRow = typeof oauthClients.$inferSelect;

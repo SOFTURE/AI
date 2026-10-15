@@ -117,7 +117,7 @@ describe("adopting an app's own MCP token and OAuth tables", () => {
     await seeded.client.exec(ADOPTION_SQL);
     const handle = await createPgliteHandle(seeded.client);
 
-    const result = await adoptModule(handle, { modules: config.modules, module: "mcp-access", version: VERSION });
+    const result = await adoptModule(handle, { modules: config.modules, module: "mcp-access", version: VERSION, through: 2 });
 
     expect(result.ok ? null : result.problems.map(describeProblem)).toBeNull();
     expect(result.ok && result.value.adopted.map((step) => [step.version, step.name])).toEqual([
@@ -140,7 +140,7 @@ describe("adopting an app's own MCP token and OAuth tables", () => {
     const { database: seeded } = await seedApp();
     const handle = await createPgliteHandle(seeded.client);
 
-    const result = await adoptModule(handle, { modules: config.modules, module: "mcp-access", version: VERSION });
+    const result = await adoptModule(handle, { modules: config.modules, module: "mcp-access", version: VERSION, through: 2 });
 
     expect(result.ok).toBe(false);
     const tables = await seeded.client.query<{ n: number }>("SELECT count(*)::int AS n FROM public.access_tokens");
