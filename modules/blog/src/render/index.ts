@@ -35,3 +35,17 @@ export {
   type RenderedArticle,
 } from "./render-article.js";
 export { slugifyHeading } from "./slugify-heading.js";
+export {
+  defineToolBlock,
+  defineToolBlocks,
+  isBlogToolNode,
+  TOOL_BLOCK_MODES,
+  TOOL_TYPE_ATTRIBUTE,
+  type BlogToolNode,
+  type ToolBlockDefinition,
+  type ToolBlockIssue,
+  type ToolBlockMode,
+  type ToolBlockSchema,
+  type ToolBlocksDefinition,
+  type ToolDefinition,
+} from "./tool-block.js";
