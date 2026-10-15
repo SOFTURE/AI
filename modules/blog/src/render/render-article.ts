@@ -112,9 +112,9 @@ export interface BlockPlugin<TNode = unknown> {
   /**
    * The numbers the block shows (a number, or a string in the blog's number notation), for the quality
    * gate's `block-numbers` rule: every significant number of the paragraph right before and right after
-   * the block must be one of them. Pure; a throw is reported as a finding.
+   * the block must be one of them; `null` skips the check for this block. Pure; a throw is reported as a finding.
    */
-  readonly numbers?: (block: ArticleBlock) => readonly (number | string)[];
+  readonly numbers?: (block: ArticleBlock) => readonly (number | string)[] | null;
   /**
    * For a directive with readable attributes: why they are wrong (an unknown value, a missing key), or
    * `null` when they fit. The quality gate reports the message as `block-directive`. Pure; a throw is

@@ -57,6 +57,14 @@ describe("blog markup and styles", () => {
     }
   });
 
+  it("keeps React out of the root entry and the renderer, so a config with tool blocks loads no React", () => {
+    // softure.config.ts registers tool blocks from the root entry; the proxy and the command line load the config.
+    for (const { file, source } of [...readSources(""), ...readSources("render")]) {
+      expect(source, file).not.toMatch(/(?:from|import\() *"react(?:-dom)?(?:\/[a-z-]+)?"/);
+      expect(source, file).not.toMatch(/(?:from|import\() *"\.\.?\/ui\//);
+    }
+  });
+
   it("keeps the command line off the Next adapter, so the bin runs without Next", () => {
     for (const { file, source } of readSources("cli")) expect(source, file).not.toMatch(/(?:from|import\() *"(?:\.\.\/next\/|next(?:\/[a-z]+)?")/);
   });

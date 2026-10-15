@@ -90,6 +90,7 @@ waitlist({
 | `placements` | kebab-case `string[]` | `["default"]` | Where the app embeds the form. Each sign-up stores the placement of its first form. |
 | `welcomeMail` | `boolean` | `true` | Sends the welcome mail (with double opt-in, after the confirmation). Off, the app sends its own (or none). |
 | `doubleOptIn` | `boolean` or `{ expiresInHours? }` | `false` | A sign-up counts only after the link in a confirmation mail is used. `true` keeps the link working for 168 hours (7 days); `expiresInHours` sets 1 to 720. Section 10. |
+| `confirmationMail.enqueue` | `(ctx, signupId) => Promise<void>` | — | Sends the confirmation mail from a background job with retry: `enqueueConfirmationMail` of `@softure-ai/waitlist/jobs` (section 10, "Double opt-in"). Needs `doubleOptIn`. |
 | `mailTemplate` | `(mail) => string` | — | Renders the HTML body of the welcome and confirmation mails (below). Without it, a plain HTML body built from the same copy. |
 | `onJoined` | `(event, ctx) => void \| Promise<void>` | — | Called in the sign-up's transaction when a sign-up counts for the first time, e.g. to count it in the analytics funnel. Section 10. |
 | `rewriteConfirmationLink` | `(path, { config }) => string \| Promise<string>` | — | Rewrites the confirmation link's path, e.g. to keep the analytics channel tag through the mail. Section 10. |
@@ -157,8 +158,9 @@ with the scopes it prepared (`{ id, label, required }`), the placement and the m
 Server functions, for scripts and other hosts (`@softure-ai/waitlist/server`):
 `joinWaitlist(ctx, { email, scopes, placement, clientKey })` returns
 `Ok<{ status: "joined", signup, isNew, recordedScopes }>` (applied at once),
-`Ok<{ status: "confirmation_required", signup, isNew, token, expiresAt }>` (double opt-in: pass
-`signup` and `token` to `deliverConfirmationMail(ctx, signup, token)`, never to the client),
+`Ok<{ status: "confirmation_required", signup, isNew, token, expiresAt, isMailQueued }>` (double opt-in: pass
+`signup` and `token` to `deliverConfirmationMail(ctx, signup, token)`, never to the client; with `isMailQueued` the
+job sends it and the token is replaced, so send nothing),
 `Ok<{ status: "suppressed" }>` (no double opt-in and the address is on mailing's suppression list:
 nothing was written; answer as for `joined`, so the answer does not tell who unsubscribed) or
 `Err<waitlist.email_invalid | waitlist.consent_required | waitlist.form_invalid | security.rate_limited>`;
@@ -166,6 +168,7 @@ nothing was written; answer as for `joined`, so the answer does not tell who uns
 or `Err<waitlist.confirmation_invalid | waitlist.confirmation_expired | security.rate_limited>`;
 `pruneUnconfirmedSignups(ctx)` deletes sign-ups whose link expired unused (for a scheduled job;
 returns the count); `getConfirmationLink(config, token)` builds the link;
+`sendConfirmationMail(ctx, signupId)` mails a fresh link for a sign-up still waiting for one (the job's work);
 `withdrawWaitlistConsents(event, ctx)` is mailing's `onUnsubscribed` handler (section 10);
 `deliverWelcomeMail(ctx, signup)` returns mailing's `DeliveryOutcome` or `{ status: "skipped" }`;
 `getSignup(ctx, email)` (confirmed or not, see `confirmedAt`); `listSignups(ctx, { scope?, placement? })`,
@@ -253,7 +256,7 @@ waitlist({
 
 `rewriteConfirmationLink(path, { config })` gets the link's path (the confirm route with its
 token) where the confirmation mail is built: in the join action, after the response, where Next
-still exposes the request's headers. Its result is used only when it is the confirm route on this
+still exposes the request's headers (with `confirmationMail.enqueue`, in the worker, outside any request). Its result is used only when it is the confirm route on this
 app with the same token; anything else, or an error, mails the module's own link with a log line.
 `resolveConfirmationLink(config, token)` from `/server` gives the link as it will be mailed.
 
@@ -304,6 +307,37 @@ export const handlers: JobHandlers = { ...waitlistJobHandlers /* , the app's own
 ```
 
 `@softure-ai/jobs` is an optional peer: an app without it keeps calling the function from its own cron.
+
+**Through jobs.** By default the join action sends the confirmation mail once, after the response: a provider outage
+loses it and the person has to sign up again. With `@softure-ai/jobs` (an optional peer dependency), the join enqueues
+the sign-up's id in its own transaction and a worker sends the mail with retry and backoff:
+
+```ts
+// softure.config.ts
+import { jobs } from "@softure-ai/jobs";
+import { waitlist } from "@softure-ai/waitlist";
+import { CONFIRMATION_MAIL_QUEUE, enqueueConfirmationMail } from "@softure-ai/waitlist/jobs";
+
+modules: [
+  waitlist({ scopes, doubleOptIn: true, confirmationMail: { enqueue: enqueueConfirmationMail } }),
+  jobs({ queues: { [CONFIRMATION_MAIL_QUEUE]: { maxAttempts: 5 } } }), // "waitlist.confirmation-mail"
+];
+
+// scripts/worker.ts
+import { confirmationMailJobHandlers } from "@softure-ai/waitlist/jobs";
+await runJobWorkerProcess({ config, handlers: { ...confirmationMailJobHandlers, ...appHandlers } });
+```
+
+- The payload is `{ signupId }`, deduplicated per sign-up while a job is pending; never the address or the token. A
+  join that rolls back (an `onJoined` failure, a database error) leaves no job.
+- Only the token's hash is stored, so the handler (`confirmationMailJobHandler`) issues a new token when it sends:
+  the link in the mail replaces the join's, and keeps the request's expiry (`doubleOptIn.expiresInHours`, days, far
+  longer than the retries). A retry after a send whose outcome was not recorded (a worker crash) mails a second
+  link, and only the newer works.
+- `mailing.unavailable`, `mailing.quota_exceeded` and `mailing.provider_refused` are retried; a rejected, suppressed
+  or invalid mail fails the job. A sign-up confirmed, expired or deleted before the job runs ends it without a mail.
+- `rewriteConfirmationLink` runs in the worker, outside a request: it cannot read the request's cookies or headers
+  there.
 
 ### Moving an existing list
 

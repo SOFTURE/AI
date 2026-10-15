@@ -16,6 +16,9 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   Migration for an app with its own `Suggested: {amount} <button>use</button> <Hint/>` row: drop the row and pass
   `suggestionVariant="inline"`, `suggestedValue` (or `null`) and the explanation as `suggestionHint`; its own wording
   goes into `suggestionMessages` or the provider's `suggestedAmount` group.
+- `Checklist` takes `rowLink` (the whole row, marker to trailing node, is one link), `trailing` (a node or
+  `(item, { isLink }) => node` after the body, e.g. a chevron) and `linkDone` (a done item with `href` links too) (#506).
+  All are off by default, so the markup stays the same. New slots: `row`, `trailing`.
 
 ## 0.3.0
 

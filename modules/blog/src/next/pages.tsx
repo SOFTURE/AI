@@ -37,7 +37,7 @@ import { getRelatedArticles } from "../discovery/related.js";
 import { findArticlesLinkingTerm, renderPageBody } from "../pages/body.js";
 import { getArticleDates } from "../pages/dates.js";
 import { getArticleCrumbs, groupByCluster, getTermCrumbs, sortTerms } from "../pages/listing.js";
-import { BlogArticleView } from "../ui/blog-article.js";
+import { BlogArticleView, type BlogBodyNode } from "../ui/blog-article.js";
 import { GlossaryIndexView, GlossaryTermView } from "../ui/blog-glossary.js";
 import { BlogListingView, type BlogCardRenderer } from "../ui/blog-listing.js";
 import { BlogMethodView, type BlogMethodSection } from "../ui/blog-method.js";
@@ -126,7 +126,7 @@ export async function BlogArticlePage({ params, cta, afterArticle, view }: BlogA
   if (!isPublished(article, "article")) notFound();
   const context = getViewContext(config, view);
   const [terms, published] = await Promise.all([getPublishedTerms(config), getPublishedArticles(config)]);
-  const body = renderPageBody<ReactNode>(article, getBodyOptions(config, terms, context));
+  const body = renderPageBody<BlogBodyNode>(article, getBodyOptions(config, terms, context));
   const crumbs = getArticleCrumbs(article, context.routes, getCrumbLabels(config, context), { clusterAnchorPrefix: context.clusterAnchorPrefix });
   const jsonLd = buildArticleJsonLd(config, article);
   return (
@@ -182,7 +182,7 @@ export async function GlossaryTermPage({ params, cta, view }: GlossaryTermPagePr
       context={context}
       term={term}
       dates={getArticleDates(term, config.timezone)}
-      body={renderPageBody<ReactNode>(term, bodyOptions)}
+      body={renderPageBody<BlogBodyNode>(term, bodyOptions)}
       crumbs={crumbs}
       jsonLd={jsonLd}
       articles={findArticlesLinkingTerm(articles, term.slug, bodyOptions)}

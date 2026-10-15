@@ -107,13 +107,14 @@ export function checkBlockNumbers(input: BlockNumbersInput): QualityFinding[] {
   return input.pluginBlocks.flatMap((found) => {
     const plugin = byKey.get(`${found.syntax}:${found.type}`);
     if (plugin?.numbers === undefined) return [];
-    let raw: readonly (number | string)[];
+    let raw: readonly (number | string)[] | null;
     try {
       raw = plugin.numbers({ type: found.type, syntax: found.syntax, info: found.info, attributes: found.attributes, content: found.content, article });
     } catch (error) {
       // A plugin bug refuses the file with a finding instead of crashing the publish.
       return [numbersFinding(`numbers() of the ${found.type} block failed: ${error instanceof Error ? error.message : String(error)}`, found.line)];
     }
+    if (raw === null) return [];
     const values = raw.map((value) => (typeof value === "number" ? value : parseNumber(value.trim(), notation)));
     const neighbours: { readonly side: "before" | "after"; readonly block: Block | undefined }[] = [
       { side: "before", block: input.blocks.filter((block) => block.line < found.line).at(-1) },
